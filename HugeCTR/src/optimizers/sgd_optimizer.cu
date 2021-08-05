@@ -81,7 +81,7 @@ SGDOptimizer<T>::SGDOptimizer(const Tensor2<float>& weight_main, const Tensor2<T
 template <typename T>
 void SGDOptimizer<T>::update() {
   CudaDeviceContext context(get_device_id());
-  PROFILE_RECORD("update.start", gpu_resource_->get_stream(), false);
+  PROFILE_RECORD("update.start", gpu_resource_->get_stream());
   const size_t len = weight_main_.get_num_elements();
   constexpr size_t block_dim = 256;
   constexpr int vec_width = sizeof(float4) / sizeof(float);
@@ -100,7 +100,7 @@ void SGDOptimizer<T>::update() {
     gpu_learning_rate_scheduler_->update();
   }
 
-  PROFILE_RECORD("update.stop", gpu_resource_->get_stream(), false);
+  PROFILE_RECORD("update.stop", gpu_resource_->get_stream());
 #ifndef NDEBUG
   cudaDeviceSynchronize();
   CK_CUDA_THROW_(cudaGetLastError());

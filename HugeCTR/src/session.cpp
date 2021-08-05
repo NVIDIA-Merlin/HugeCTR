@@ -170,9 +170,9 @@ Error_t Session::initialize() {
 void Session::exchange_wgrad(size_t device_id) {
   auto& gpu_resource = resource_manager_->get_local_gpu(device_id);
   CudaCPUDeviceContext context(gpu_resource->get_device_id());
-  PROFILE_RECORD("exchange_wgrad.start", gpu_resource->get_stream(), false);
+  PROFILE_RECORD("exchange_wgrad.start", gpu_resource->get_stream());
   exchange_wgrad_->allreduce(device_id, gpu_resource->get_stream());
-  PROFILE_RECORD("exchange_wgrad.stop", gpu_resource->get_stream(), false);
+  PROFILE_RECORD("exchange_wgrad.stop", gpu_resource->get_stream());
 }
 
 /**
@@ -365,6 +365,7 @@ void Session::train_overlapped() {
       // Embedding manages events from the networks and waits if necessary
       // Session inserts a wait if it gets a non-null event from the embedding
 
+      PROFILE_RECORD("iteration.start", stream, true);
       do {
         state = embeddings_[0]->train(true, id, state);
         sync();
@@ -377,11 +378,16 @@ void Session::train_overlapped() {
           schedule_reader(TrainState_t::TopMLPFprop);
         }
       } while (change_state(&state));
+      PROFILE_RECORD("iteration.stop", stream, true);
       sync();
     };
 
     if (solver_config_.use_holistic_cuda_graph) {
+#ifdef ENABLE_PROFILING
+      if (!train_graph_.initialized[id] || profiler_init_cuda_graph_this_iter()) {
+#else
       if (!train_graph_.initialized[id]) {
+#endif
         cudaGraph_t graph;
         CK_CUDA_THROW_(cudaStreamBeginCapture(stream, cudaStreamCaptureModeRelaxed));
         do_it(id, current_batchsize_per_device);
@@ -411,16 +417,15 @@ bool Session::train() {
     if (!current_batchsize) {
       return false;
     }
-#pragma omp parallel num_threads(networks_.size())
-    {
-      size_t id = omp_get_thread_num();
-      CudaCPUDeviceContext ctx(resource_manager_->get_local_gpu(id)->get_device_id());
-      cudaStreamSynchronize(resource_manager_->get_local_gpu(id)->get_stream());
-    }
+// sync-free
+// #pragma omp parallel num_threads(networks_.size())
+//     {
+//       size_t id = omp_get_thread_num();
+//       CudaCPUDeviceContext ctx(resource_manager_->get_local_gpu(id)->get_device_id());
+//       cudaStreamSynchronize(resource_manager_->get_local_gpu(id)->get_stream());
+//     }
+    PROFILER_ITER_CHECK(networks_.size());
     train_data_reader_->ready_to_collect();
-#ifdef ENABLE_PROFILING
-    global_profiler.iter_check();
-#endif
 
     // If true we're gonna use overlaping, if false we use default
     if (solver_config_.use_overlapped_pipeline) {

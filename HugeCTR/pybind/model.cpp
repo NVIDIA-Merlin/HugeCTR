@@ -881,10 +881,6 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
   timer.start();
   timer_train.start();
 
-#ifdef ENABLE_PROFILING
-  HugeCTR::global_profiler.initialize(solver_.use_cuda_graph);
-#endif
-
   if (epoch_mode && !mos_mode) {
     int iter = 0;
     int batches;
@@ -904,14 +900,8 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
       do {
         float lr = 0;
         if (!this->use_gpu_learning_rate_scheduling()) {
-#ifdef ENABLE_PROFILING
-          // profiler may run very long, so prevent lr < 0
-          lr = std::numeric_limits<float>::min();
-          this->set_learning_rate(lr);
-#else
           lr = lr_sch_->get_next();
           this->set_learning_rate(lr);
-#endif
         }
         data_reader_train_status_ = this->train();
         if (display > 0 && iter % display == 0 && iter != 0) {
@@ -1011,14 +1001,8 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
         do {
           float lr = 0;
           if (!this->use_gpu_learning_rate_scheduling()) {
-#ifdef ENABLE_PROFILING
-            // profiler may run very long, so prevent lr < 0
-            lr = std::numeric_limits<float>::min();
-            this->set_learning_rate(lr);
-#else
             lr = lr_sch_->get_next();
             this->set_learning_rate(lr);
-#endif
           }
           data_reader_train_status_ = this->train();
           if (display > 0 && iter % display == 0 && iter != 0) {
@@ -1080,20 +1064,10 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
     for (int iter = 0; iter < max_iter; iter++) {
       float lr = 0;
       if (!this->use_gpu_learning_rate_scheduling()) {
-#ifdef ENABLE_PROFILING
-        // profiler may run very long, so prevent lr < 0
-        lr = std::numeric_limits<float>::min();
-        this->set_learning_rate(lr);
-#else
         lr = lr_sch_->get_next();
         this->set_learning_rate(lr);
-#endif
       }
       this->train();
-#ifdef ENABLE_PROFILING
-      iter = 0;
-      continue;
-#endif
       if (display > 0 && iter % display == 0 && iter != 0) {
         timer_train.stop();
         float loss = 0;
@@ -1212,9 +1186,7 @@ void Model::exchange_wgrad(size_t device_id) {
   auto& gpu_resource = resource_manager_->get_local_gpu(device_id);
   CudaCPUDeviceContext context(gpu_resource->get_device_id());
   // CudaDeviceContext context(gpu_resource->get_device_id());
-  PROFILE_RECORD("exchange_wgrad.start", gpu_resource->get_stream(), false);
   exchange_wgrad_->allreduce(device_id, gpu_resource->get_stream());
-  PROFILE_RECORD("exchange_wgrad.stop", gpu_resource->get_stream(), false);
 }
 
 void Model::train_overlapped() {
@@ -1352,9 +1324,6 @@ bool Model::train() {
       cudaStreamSynchronize(resource_manager_->get_local_gpu(id)->get_stream());
     }
     train_data_reader_->ready_to_collect();
-#ifdef ENABLE_PROFILING
-    global_profiler.iter_check();
-#endif
 
     if (solver_.use_overlapped_pipeline) {
       // std::cout << "train overlapped" << std::endl;

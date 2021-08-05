@@ -243,16 +243,14 @@ void SparseEmbeddingFunctors::all2all_forward(size_t batch_size_per_gpu,
   CK_NCCL_THROW_(ncclGroupStart());
   for (size_t i = 0; i < local_gpu_count; i++) {
     const auto &local_gpu = resource_manager.get_local_gpu(i);
-    PROFILE_RECORD("all2all_forward.start", local_gpu->get_stream(), false,
-                   local_gpu->get_device_id());
+    PROFILE_RECORD("all2all_forward.start", local_gpu->get_stream(), local_gpu->get_device_id());
     for (size_t j = 0; j < local_gpu_count; j++) {
       CK_NCCL_THROW_(ncclSend(src_pos[i][j], table[i][j], type, j, local_gpu->get_nccl(),
                               local_gpu->get_stream()));
       CK_NCCL_THROW_(ncclRecv(dst_pos[i][j], table[j][i], type, j, local_gpu->get_nccl(),
                               local_gpu->get_stream()));
     }
-    PROFILE_RECORD("all2all_forward.stop", local_gpu->get_stream(), false,
-                   local_gpu->get_device_id());
+    PROFILE_RECORD("all2all_forward.stop", local_gpu->get_stream(), local_gpu->get_device_id());
   }
   CK_NCCL_THROW_(ncclGroupEnd());
 
