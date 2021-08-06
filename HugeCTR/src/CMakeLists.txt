@@ -37,6 +37,7 @@ list(FILTER huge_ctr_src EXCLUDE REGEX ".*main.cpp")
 
 file(GLOB hugectr_pybind
   ../pybind/model.cpp
+  ../pybind/model_perf_ext.cpp
   ../pybind/add_input.cpp
   ../pybind/add_sparse_embedding.cpp
   ../pybind/add_dense_layer.cpp
