@@ -2,6 +2,7 @@
 
 #include <cuda.h>
 #include <cuda_runtime.h>
+#include <pthread.h>
 
 #include <chrono>
 #include <common.hpp>
@@ -283,6 +284,39 @@ class UnitTestProfiler : public BaseProfiler {
   bool iter_check();
 };
 
+class DataProfiler : public BaseProfiler {
+ private:
+ public:
+  void initialize(bool use_cuda_graph, bool exit_when_finished = true);
+  bool record_data(const char* data_label_char, cudaStream_t stream,
+                   const std::string& data = std::string(), int device_id = -1);
+};
+
+class DataReaderOneShotProfiler : public BaseProfiler {
+  class StreamRecorder {
+   public:
+    pthread_spinlock_t lock;
+    cudaStream_t stream;
+    int current_h2d_idx;
+    int current_p2p_idx;
+    int cuevent_per_event_;
+    std::vector<cudaEvent_t> memcpy_h2d_cuevents;
+    std::vector<cudaEvent_t> memcpy_p2p_cuevents;
+    StreamRecorder(int cuevent_per_event, cudaStream_t s);
+    void record(const std::string& event_name, const std::string& event_type, cudaStream_t stream);
+  }
+};
+
+private:
+std::map<cudaStream_t, std::shared_ptr<StreamRecorder>> map_stream_to_stream_recorder_;
+
+public:
+int phase;
+void initialize();
+void record_event(const char* event_label_char, cudaStream_t stream, int device_id = -1);
+bool iter_check();
+};
+
 inline int set_and_keep_original_device(int target_device_id) {
   int original_device_id;
   CK_CUDA_THROW_(cudaGetDevice(&original_device_id));
@@ -314,4 +348,3 @@ extern Profiler::UnitTestProfiler global_unit_test_profiler;
 bool profiler_init_cuda_graph_this_iter();
 
 }  //  namespace HugeCTR
-
