@@ -48,7 +48,7 @@ struct TensorEntry {
  * forward/backward/loss/update of the dense layers.
  */
 class Network {
- private:
+ protected:
   std::vector<std::unique_ptr<Layer>> train_layers_;    /**< vector of layers */
   std::vector<std::unique_ptr<Layer>> evaluate_layers_; /**< vector of layers */
   std::unique_ptr<ILoss> train_loss_;                   /**< loss layer */
@@ -111,14 +111,14 @@ class Network {
   /**
    * Forward, backward and update the network.
    */
-  void train(long long current_batchsize);
+  virtual void train(long long current_batchsize);
 
-  TrainState train(long long current_batchsize, std::function<void()> exchange_wgrad,
-                   TrainState state);
+  virtual TrainState train(long long current_batchsize, std::function<void()> exchange_wgrad,
+                           TrainState state);
   /**
    * Forward only.
    */
-  void eval(long long current_batchsize);
+  virtual void eval(long long current_batchsize);
 
   /**
    * Forward only for inference.
@@ -262,6 +262,7 @@ class Network {
       std::vector<std::shared_ptr<BufferBlock2<__half>>>& wgrad_buff_half_placeholder_list,
       bool dlrm_bottom_mlp);
   friend class Model;
+  friend class ModelPerfExt;
   /**
    * copy weights from train layers to evaluate layers
    */

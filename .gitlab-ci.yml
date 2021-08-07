@@ -255,32 +255,25 @@ dcn:
 mlperf_benchmark:
   extends: .cluster_test_train_job
   script:
-    - echo "#!/bin/bash" > ./batch.sub
-    - echo "#SBATCH -A mlperf-ci" >> ./batch.sub
-    - echo "#SBATCH -p luna" >> ./batch.sub
-    - echo "srun --ntasks=1 \\" >> ./batch.sub
-    - echo "  -p luna \\" >> ./batch.sub
-    - echo "  --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT} \\" >> ./batch.sub
-    - echo "  --container-mounts ${DLRM_DATASET}:${DLRM_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR} \\" >> ./batch.sub
-    - echo "  bash -cx \"\\" >> ./batch.sub
-    - echo "  cp ${WORK_DIR}/build/build_single/lib/hugectr.so ${WORK_DIR}/test/pybind_test/ && cd ${DLRM_MOUNT} && python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/dlrm_mlperf_fp16_dgxa100.json\"" >> ./batch.sub
-    - export logdir=./batch
-    - export round=10
-    - mkdir $logdir
-    - for i in $(seq ${round}); do
-      sbatch -o ${logdir}/slurm-$i.out -t 00:07:00 --job-name mlperf_converge_test_${CI_PIPELINE_ID}_$i batch.sub;
-      done
-    - for i in $(seq ${round}); do
-      while [[ $(squeue -n mlperf_converge_test_${CI_PIPELINE_ID}_$i | wc -l) -gt 1 ]]; do
-      sleep 1m;
-      done
-      done
-    - for i in $(seq ${round}); do
-      cat ${logdir}/slurm-$i.out;
-      done
-    - echo "total num:${round}"
-    - export reach_count=$(grep "Hit target accuracy AUC" ${logdir}/* | wc -l)
-    - echo "converge num:${reach_count}/${round}"
+    - srun --ntasks=1
+      -A devtech -J devtech:hugectr -p luna
+      --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
+      --container-mounts ${DLRM_DATASET}:${DLRM_DATASET},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
+      --network=sharp
+      -N 1
+      bash -cx "
+      export PYTHONPATH=${WORK_DIR}/build/build_single/lib/ &&
+      python3 ${WORK_DIR}/test/pybind_test/dlrm_test/dgx_a100.py"
+    - srun --ntasks=14
+      -A devtech -J devtech:hugectr -p luna
+      --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
+      --container-mounts ${DLRM_DATASET}:${DLRM_DATASET},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
+      --network=sharp
+      -N 14
+      bash -cx "
+      export PYTHONPATH=${WORK_DIR}/build/build_multi_nccl/lib/ &&
+      python3 ${WORK_DIR}/test/pybind_test/dlrm_test/dgx_a100_14x8x640.py"
+  timeout: 3 hours
 
 wdl_deepfm:
   extends: .cluster_test_train_job

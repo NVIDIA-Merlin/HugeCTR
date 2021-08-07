@@ -42,6 +42,7 @@ void ResourceManagerCore::all2all_warmup() {
     buf->allocate();
   }
 
+#ifndef DISABLE_A2A_WARMUP
   // Do all2all warmup
   MESSAGE_("Start all2all warmup");
   CK_NCCL_THROW_(ncclGroupStart());
@@ -59,6 +60,9 @@ void ResourceManagerCore::all2all_warmup() {
   }
   CK_NCCL_THROW_(ncclGroupEnd());
   MESSAGE_("End all2all warmup");
+#else
+  MESSAGE_("Skip all2all warmup");
+#endif
 }
 
 void ResourceManagerCore::enable_all_peer_accesses() {
