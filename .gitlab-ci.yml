@@ -3,6 +3,7 @@ include:
     ref: master
     file: "/.gitlab-ci.yml"
 
+
 stages:
   - build
   - test
@@ -39,25 +40,20 @@ before_script:
 
 .build:
   stage: build
+  allow_failure: false
   rules:
-    - if: $CI_PIPELINE_SOURCE =~ /^(push)$/
+    - if: '$CI_PIPELINE_SOURCE =~ /^(push)$/'
       when: always
-      allow_failure: true
-    - if: $CI_MERGE_REQUEST_TITLE =~ /^([WIP]|WIP:|[Draft]|Draft:)/
-      when: never
-    - if: $CI_PIPELINE_SOURCE =~ /^(web|merge_request_event|trigger)$/
-      when: always
-      allow_failure: false
+    - if: '$CI_PIPELINE_SOURCE =~ /^(web|merge_request_event|trigger)$/'
+      when: manual
 
 .cluster_test_job:
   extends: .selene_job
   allow_failure: false
   stage: test
   rules:
-    - if: $CI_MERGE_REQUEST_TITLE =~ /^([WIP]|WIP:|[Draft]|Draft:)/
-      when: never
-    - if: $CI_PIPELINE_SOURCE =~ /^(web|merge_request_event)$/
-      when: always
+    - if: '$CI_PIPELINE_SOURCE =~ /^(web|merge_request_event|trigger)$/'
+      when: manual
 
 .cluster_test_train_job:
   extends: .cluster_test_job
@@ -75,12 +71,6 @@ build_train:
   tags:
     - 1GPU
   script:
-    - export OPENED_MR_ON_BRANCH=$(curl --header "Private-Token:${CI_PRIVATE_KEY}" "https://$CI_SERVER_HOST/api/v4/merge_requests?project_id=$CI_PROJECT_ID&source_branch=$CI_COMMIT_BRANCH&state=opened&wip=no")
-    - |
-      if [[ "${OPENED_MR_ON_BRANCH}" != "[]" && -n "$CI_COMMIT_BRANCH" ]]; then \
-        echo "There is at least one MR opened on branch $CI_COMMIT_BRANCH. Stopping the push pipeline in favor of the merge request pipeline"; \
-        exit 1; \
-      fi
     - export JOB_DOCKERFILE="train.Dockerfile.${CI_JOB_NAME%%--*}.${CI_PIPELINE_ID}" && echo ${JOB_DOCKERFILE}
     - echo "FROM ${IMAGE_TRAIN}" > ${JOB_DOCKERFILE}
     - echo "ARG SM=\"60;61;70;75;80\"" >> ${JOB_DOCKERFILE}
@@ -101,12 +91,6 @@ build_embedding:
   tags:
     - 1GPU
   script:
-    - export OPENED_MR_ON_BRANCH=$(curl --header "Private-Token:${CI_PRIVATE_KEY}" "https://$CI_SERVER_HOST/api/v4/merge_requests?project_id=$CI_PROJECT_ID&source_branch=$CI_COMMIT_BRANCH&state=opened&wip=no")
-    - |
-      if [[ "${OPENED_MR_ON_BRANCH}" != "[]" && -n "$CI_COMMIT_BRANCH" ]]; then \
-        echo "There is at least one MR opened on branch $CI_COMMIT_BRANCH. Stopping the push pipeline in favor of the merge request pipeline"; \
-        exit 1; \
-      fi
     - export JOB_DOCKERFILE="embedding.Dockerfile.${CI_JOB_NAME%%--*}.${CI_PIPELINE_ID}" && echo ${JOB_DOCKERFILE}
     - echo "FROM ${IMAGE_EMBEDDING}" > ${JOB_DOCKERFILE}
     - echo "ARG SM=\"60;61;70;75;80\"" >> ${JOB_DOCKERFILE}
@@ -132,12 +116,6 @@ build_inference:
   tags:
     - 1GPU
   script:
-    - export OPENED_MR_ON_BRANCH=$(curl --header "Private-Token:${CI_PRIVATE_KEY}" "https://$CI_SERVER_HOST/api/v4/merge_requests?project_id=$CI_PROJECT_ID&source_branch=$CI_COMMIT_BRANCH&state=opened&wip=no")
-    - |
-      if [[ "${OPENED_MR_ON_BRANCH}" != "[]" && -n "$CI_COMMIT_BRANCH" ]]; then \
-        echo "There is at least one MR opened on branch $CI_COMMIT_BRANCH. Stopping the push pipeline in favor of the merge request pipeline"; \
-        exit 1; \
-      fi
     - export JOB_DOCKERFILE="inference.Dockerfile.${CI_JOB_NAME%%--*}.${CI_PIPELINE_ID}" && echo ${JOB_DOCKERFILE}
     - echo "FROM ${IMAGE_INFER}" > ${JOB_DOCKERFILE}
     - echo "ARG SM=\"70;75;80\"" >> ${JOB_DOCKERFILE}
