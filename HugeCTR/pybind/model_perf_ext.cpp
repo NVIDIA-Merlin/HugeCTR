@@ -445,10 +445,9 @@ void ModelPerfExt::train_overlapped() {
 }
 
 void ModelPerfExt::exchange_wgrad(size_t device_id) {
-  auto& gpu_resource = resource_manager_->get_local_gpu(device_id);
-  PROFILE_RECORD("exchange_wgrad.start", gpu_resource->get_stream(), true, device_id);
+  PROFILE_RECORD("exchange_wgrad.start", resource_manager_->get_local_gpu(device_id)->get_stream(), true, device_id);
   Model::exchange_wgrad(device_id);
-  PROFILE_RECORD("exchange_wgrad.stop", gpu_resource->get_stream(), true, device_id);
+  PROFILE_RECORD("exchange_wgrad.stop", resource_manager_->get_local_gpu(device_id)->get_stream(), true, device_id);
 }
 
 }  // namespace HugeCTR
