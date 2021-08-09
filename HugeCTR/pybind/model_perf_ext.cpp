@@ -36,12 +36,8 @@ bool ModelPerfExt::train() {
       CudaCPUDeviceContext ctx(resource_manager_->get_local_gpu(id)->get_device_id());
       cudaStreamSynchronize(resource_manager_->get_local_gpu(id)->get_stream());
     }
-
+    PROFILER_ITER_CHECK(networks_.size());
     train_data_reader_->ready_to_collect();
-
-#ifdef ENABLE_PROFILING
-    global_profiler.iter_check();
-#endif
 
     if (solver_.use_overlapped_pipeline) {
       train_overlapped();
@@ -198,9 +194,7 @@ void ModelPerfExt::fit(int num_epochs, int max_iter, int display, int eval_inter
   timer.start();
   timer_train.start();
 
-#ifdef ENABLE_PROFILING
-  HugeCTR::global_profiler.initialize(solver_.use_cuda_graph);
-#endif
+  INITIALIZE_PROFILER(solver_.use_cuda_graph || solver_.use_holistic_cuda_graph);
 
   MESSAGE_("Training source file: " + reader_params_.source[0]);
   MESSAGE_("Evaluation source file: " + reader_params_.eval_source);
@@ -410,6 +404,7 @@ void ModelPerfExt::train_overlapped() {
       // Embedding manages events from the networks and waits if necessary
       // Session inserts a wait if it gets a non-null event from the embedding
 
+      PROFILE_RECORD("iteration.start", stream, true);
       do {
         state = embeddings_[0]->train(true, id, state);
         sync();
@@ -422,11 +417,16 @@ void ModelPerfExt::train_overlapped() {
           schedule_reader(TrainState_t::TopMLPFprop);
         }
       } while (change_state(&state));
+      PROFILE_RECORD("iteration.stop", stream, true);
       sync();
     };
 
     if (solver_.use_holistic_cuda_graph) {
+#ifdef ENABLE_PROFILING
+      if (!train_graph_.initialized[id] || profiler_init_cuda_graph_this_iter()) {
+#else
       if (!train_graph_.initialized[id]) {
+#endif
         cudaGraph_t graph;
         CK_CUDA_THROW_(cudaStreamBeginCapture(stream, cudaStreamCaptureModeRelaxed));
         do_it(id, current_batchsize_per_device);
@@ -444,6 +444,11 @@ void ModelPerfExt::train_overlapped() {
   }
 }
 
-void ModelPerfExt::exchange_wgrad(size_t device_id) { Model::exchange_wgrad(device_id); }
+void ModelPerfExt::exchange_wgrad(size_t device_id) {
+  auto& gpu_resource = resource_manager_->get_local_gpu(device_id);
+  PROFILE_RECORD("exchange_wgrad.start", gpu_resource->get_stream(), true, device_id);
+  Model::exchange_wgrad(device_id);
+  PROFILE_RECORD("exchange_wgrad.stop", gpu_resource->get_stream(), true, device_id);
+}
 
 }  // namespace HugeCTR
