@@ -230,18 +230,25 @@ dcn:
   timeout: 3 hours
 
 
-mlperf_benchmark:
+mlperf_benchmark_single_node:
   extends: .cluster_test_train_job
+  needs:
+    - build_train
   script:
     - srun --ntasks=1
       -A devtech -J devtech:hugectr -p luna
       --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
       --container-mounts ${DLRM_DATASET}:${DLRM_DATASET},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
-      --network=sharp
       -N 1
       bash -cx "
       export PYTHONPATH=${WORK_DIR}/build/build_single/lib/ &&
-      python3 ${WORK_DIR}/test/pybind_test/dlrm_test/dgx_a100.py"
+      numactl --membind=1,3,5,7 python3 ${WORK_DIR}/test/pybind_test/dlrm_test/dgx_a100.py"
+
+mlperf_benchmark_multi_node:
+  extends: .cluster_test_train_job
+  needs:
+    - build_train
+  script:
     - srun --ntasks=14
       -A devtech -J devtech:hugectr -p luna
       --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
@@ -250,7 +257,7 @@ mlperf_benchmark:
       -N 14
       bash -cx "
       export PYTHONPATH=${WORK_DIR}/build/build_multi_nccl/lib/ &&
-      python3 ${WORK_DIR}/test/pybind_test/dlrm_test/dgx_a100_14x8x640.py"
+      numactl --membind=1,3,5,7 python3 ${WORK_DIR}/test/pybind_test/dlrm_test/dgx_a100_14x8x640.py"
   timeout: 3 hours
 
 wdl_deepfm:
