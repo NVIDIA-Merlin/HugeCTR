@@ -29,6 +29,7 @@
       HugeCTR::global_fine_grained_profiler.initialize(__VA_ARGS__); \
     } else if (HugeCTR::global_profiling_mode == 1) {                \
       HugeCTR::global_one_shot_profiler.initialize(__VA_ARGS__);     \
+      HugeCTR::global_data_reader_one_shot_profiler.initialize();    \
     } else if (HugeCTR::global_profiling_mode == 2) {                \
       HugeCTR::global_unit_test_profiler.initialize(__VA_ARGS__);    \
     }                                                                \
@@ -51,6 +52,9 @@
   } while (0)
 
 #define PROFILE_RECORD_DATA(...) global_data_profiler.record_data(__VA_ARGS__);
+
+#define PROFILE_RECORD_DATA_READER(...) \
+  global_data_reader_one_shot_profiler.record_event(__VA_ARGS__);
 
 #define PROFILE_UNIT_TEST_START(...)                                 \
   do {                                                               \
@@ -87,6 +91,10 @@
 
 #define PROFILE_RECORD_DATA(...) \
   do {                           \
+  } while (0)
+
+#define PROFILE_RECORD_DATA_READER(...) \
+  do {                                  \
   } while (0)
 
 #define PROFILE_UNIT_TEST_START(...) \
@@ -284,37 +292,38 @@ class UnitTestProfiler : public BaseProfiler {
   bool iter_check();
 };
 
-class DataProfiler : public BaseProfiler {
- private:
- public:
-  void initialize(bool use_cuda_graph, bool exit_when_finished = true);
-  bool record_data(const char* data_label_char, cudaStream_t stream,
-                   const std::string& data = std::string(), int device_id = -1);
-};
-
 class DataReaderOneShotProfiler : public BaseProfiler {
+ private:
+  int cuevent_per_event_;
+
+ public:
   class StreamRecorder {
+   private:
+    int cuevent_per_event_;
+
    public:
     pthread_spinlock_t lock;
     cudaStream_t stream;
+    int device_id;
     int current_h2d_idx;
     int current_p2p_idx;
-    int cuevent_per_event_;
     std::vector<cudaEvent_t> memcpy_h2d_cuevents;
     std::vector<cudaEvent_t> memcpy_p2p_cuevents;
-    StreamRecorder(int cuevent_per_event, cudaStream_t s);
+    std::vector<std::vector<float>> iter_start_to_event_start_times_ms_h2d;
+    std::vector<std::vector<float>> iter_start_to_event_start_times_ms_p2p;
+    std::vector<std::vector<float>> measured_times_ms_h2d;
+    std::vector<std::vector<float>> measured_times_ms_p2p;
+
+    StreamRecorder(int cuevent_per_event, cudaStream_t s, int did);
     void record(const std::string& event_name, const std::string& event_type, cudaStream_t stream);
-  }
-};
+  };
 
-private:
-std::map<cudaStream_t, std::shared_ptr<StreamRecorder>> map_stream_to_stream_recorder_;
+  int phase;
+  std::map<cudaStream_t, std::shared_ptr<StreamRecorder>> map_stream_to_stream_recorder;
 
-public:
-int phase;
-void initialize();
-void record_event(const char* event_label_char, cudaStream_t stream, int device_id = -1);
-bool iter_check();
+  void initialize();
+  void record_event(const char* event_label_char, cudaStream_t stream);
+  void iter_check();
 };
 
 inline int set_and_keep_original_device(int target_device_id) {
@@ -344,6 +353,7 @@ extern Profiler::FineGrainedProfiler global_fine_grained_profiler;
 extern Profiler::OneShotProfiler global_one_shot_profiler;
 extern Profiler::DataProfiler global_data_profiler;
 extern Profiler::UnitTestProfiler global_unit_test_profiler;
+extern Profiler::DataReaderOneShotProfiler global_data_reader_one_shot_profiler;
 
 bool profiler_init_cuda_graph_this_iter();
 

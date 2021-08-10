@@ -9,7 +9,7 @@ namespace HugeCTR {
 namespace Profiler {
 
 void DataProfiler::initialize(bool use_cuda_graph, bool exit_when_finished) {
-  MESSAGE_("Profiler using PROFILING_MODE: data");
+  // MESSAGE_("Profiler using PROFILING_MODE: data");
 }
 
 bool DataProfiler::record_data(const char* data_label_char, cudaStream_t stream,
