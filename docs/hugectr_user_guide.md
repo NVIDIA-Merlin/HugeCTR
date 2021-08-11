@@ -168,42 +168,25 @@ Embedding Training Cache (Model oversubscription) gives you the ability to train
 
 ## Tools ##
 We currently support the following tools:
-* [Data Generator](#generating-synthetic-data-and-benchmarks): A configurable dummy data generator used to generate a synthetic dataset without modifying the configuration file for benchmarking and research purposes.
+* [Data Generator](#generating-synthetic-data-and-benchmarks): A configurable data generator with Python interface that can be used to generate a synthetic dataset for benchmarking and research purposes.
 * [Preprocessing Script](#downloading-and-preprocessing-datasets): A set of scripts to convert the original Criteo dataset into HugeCTR using supported dataset formats such as Norm and RAW. It's used in all of our samples to prepare the data and train various recommender models.
 
 ### Generating Synthetic Data and Benchmarks
-The [Norm](./python_interface.md#norm) (with Header) and [Raw](./python_interface.md#raw) (without Header) datasets can be generated with `data_generator`. For categorical features, you can configure the probability distribution to be uniform or power-law. The default distribution is uniform.
-- Using the `Norm` dataset format, run the following command: <br>
+The [Norm](./python_interface.md#norm) (with Header) and [Raw](./python_interface.md#raw) (without Header) datasets can be generated with [hugectr.tools.DataGenerator](./python_interface.md#datagenerator). For categorical features, you can configure the probability distribution to be uniform or power-law within [hugectr.tools.DataGeneratorParam](./python_interface.md#datageneratorparams-class). The default distribution is power law with alpha = 3.0.
+
+- Generate the `Norm` dataset for DCN and start training the HugeCTR model: <br>
 ```bash
-$ data_generator --config-file your_config.json --voc-size-array <vocabulary size array in csv>  --distribution <powerlaw | unified> [option: --nnz-array <nnz array in csv: all one hot>] [option: --alpha xxx or --longtail <long | medium | short>] [option:--data-folder <folder_path: ./>] [option:--files <number of files: 128>] [option:--samples <samples per file: 40960>]
-```
-- Using the `Raw` dataset format, run the following command: <br>
-```bash
-$ data_generator --config-file your_config.json --distribution <powerlaw | unified> [option: --nnz-array <nnz array in csv: all one hot>] [option: --alpha xxx or --longtail <long | medium | short>]
+python3 ../tools/data_generator/dcn_norm_generate_train.py
 ```
 
-Set the following parameters:
-+ `config-file`: The JSON configuration file with training specific setting. The data generator will read the configuration file to get necessary data information. Please find samples [data_generate_norm.json](../tools/data_generator/data_generate_norm.json) [../tools/data_generator/data_generate_raw.json]. **Note that every item in the configuration file should match your python training script; for "input_key_type" there are two options: I64 and I32**. 
-+ `data_folder`: Directory where the generated dataset is stored. The default value is `./`
-+ `voc-size-array`: Vocabulary size per slot of your target dataset. For example, the `voc-size-array` for a dataset with six slots would appear as follows: "--voc-size-array 100,23,111,45,23,2452". There shouldn't be any spaces between numbers. 
-+ `nnz-array`: Simulates one-hot or multi-hot encodings. This option doesn't need to be specified if one-hot encodings are being used. If this option specified, the length of the array should be the same as `voc-size-array` for the norm format or `slot_size_array` in the JSON configuration file within the data layer.
-+ `files`: Number of data files that will be generated (optional). The default value is `128`.
-+ `samples`: Number of samples per file (optional). The default value is `40960`.
-+ `distribution`: Both `powerlaw` and `unified` distributions are supported.
-+ `alpha`: If `powerlaw` is specified, `alpha` or `long-tail` can be specified to configure the distribution.  
-+ `long-tail`: Characterizes properties of the tail. Available options include: `long`, `medium`, and `short`. If you want to generate data with the powerlaw distribution for categorical features, use this option. The scaling exponent will be 1, 3, and 5 respectively.
-
-Here are two examples of how to generate a one-hot dataset where the vocabulary size is 434428 based on the DCN configuration file. Under `tools/data_generator/`:
+- Generate the `Norm` dataset for WDL and start training the HugeCTR model: <br>
 ```bash
-$ data_generator --config-file data_generate_norm.json --voc-size-array 39884,39043,17289,7420,20263,3,7120,1543,39884,39043,17289,7420,20263,3,7120,1543,63,63,39884,39043,17289,7420,20263,3,7120,1543 --distribution powerlaw --alpha -1.2
-$ data_generator --config-file data_generate_norm.json --voc-size-array 39884,39043,17289,7420,20263,3,7120,1543,39884,39043,17289,7420,20263,3,7120,1543,63,63,39884,39043,17289,7420,20263,3,7120,1543 --nnz-array 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1 --distribution powerlaw --alpha -1.2
-$ python data_generate_norm_dcn.py
+python3 ../tools/data_generator/wdl_norm_generate_train.py
 ```
 
-Here's an example of how to generate a one-hot dataset using the DLRM configuration file.
+- Generate the `Raw` dataset for DLRM and start training the HugeCTR model: <br>
 ```bash
-$ data_generator --config-file data_generate_raw.json  --distribution powerlaw --alpha -1.2
-$ python data_generate_raw_dlrm.py
+python3 ../tools/data_generator/dlrm_raw_generate_train.py
 ```
 
 ### Downloading and Preprocessing Datasets

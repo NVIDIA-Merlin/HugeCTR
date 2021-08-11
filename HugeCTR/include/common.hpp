@@ -202,6 +202,10 @@ enum class TrainState_t {
   Finalize
 };
 
+enum class Distribution_t { Uniform, PowerLaw };
+
+enum class PowerLaw_t { Long, Medium, Short, Specific };
+
 // TODO: Consider to move them into a separate file
 struct TrainState {
   TrainState_t state = TrainState_t::Init;

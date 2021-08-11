@@ -1447,7 +1447,7 @@ bool Model::eval(int eval_batch) {
 Error_t Model::export_predictions(const std::string& output_prediction_file_name,
                                   const std::string& output_label_file_name) {
   try {
-    if(current_eval_batchsize_ == 0) {
+    if (current_eval_batchsize_ == 0) {
       MESSAGE_("Reach end of eval dataset. Skip export prediction");
       return Error_t::Success;
     }
