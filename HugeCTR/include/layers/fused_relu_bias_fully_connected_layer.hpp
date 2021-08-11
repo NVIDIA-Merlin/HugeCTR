@@ -112,14 +112,29 @@ class FusedReluBiasFullyConnectedLayer : public Layer {
    */
   bool skip_dgrad_;
 
+  /*
+   * indicates whether overlap dgrad and wgrad
+   */
+  bool async_mlp_wgrad_;
+
+  cublasHandle_t cublas_handle_wgrad_;
+
+  /*
+   * record the event when starting to compute wgrad
+   */
+  cudaEvent_t event_overlap_;
+
+  /*
+   * record the event when finishing computing wgrad (host, async)
+   */
+  // cudaEvent_t event_overlap_end_;
+
   std::unique_ptr<DataSimulator> get_uniform_initializer(const int index) override;
   std::unique_ptr<DataSimulator> get_xavier_uniform_initializer(const int index) override;
   std::unique_ptr<DataSimulator> get_xavier_norm_initializer(const int index) override;
   std::unique_ptr<DataSimulator> get_default_initializer(const int index) override;
 
   Tensor2<__half>& get_bottom_tensor_fprop(bool is_train) { return train_in_tensor_; }
-
-  Tensor2<__half>& get_bottom_tensor_bprop(bool is_train) { return mask_in_tensor_; }
 
  public:
   /**
@@ -136,6 +151,17 @@ class FusedReluBiasFullyConnectedLayer : public Layer {
   void search_algorithm() final;
   void initialize() final;
   void initialize_bprop();
+
+  /*
+   * Interfaces for unit tests to debug
+   */
+  Tensors2<__half>& get_weights_half_tensor() { return weights_half_; }
+  Tensors2<__half>& get_weights_grad_tensor() { return weights_grad_; }
+
+  /*
+   * return the cuda event recording the finish point of wgrad
+   */
+  // cudaEvent_t& get_event_overlap_end() { return event_overlap_end_; }
 
   /**
    * This is the constructor of the FullyConnectedLayer.
@@ -162,8 +188,14 @@ class FusedReluBiasFullyConnectedLayer : public Layer {
       const Tensor2<__half>& dRelu_out_tensor, Tensor2<__half>& db_out_tensor,
       const std::shared_ptr<GPUResource>& gpu_resource, const FcPosition_t& pos,
       const Activation_t& act, const bool& skip_dgrad,
-      std::vector<Initializer_t> initializer_types = std::vector<Initializer_t>());
+      std::vector<Initializer_t> initializer_types = std::vector<Initializer_t>(),
+      const bool async_mlp_wgrad = false);
   FusedReluBiasFullyConnectedLayer(const FusedReluBiasFullyConnectedLayer&) = delete;
   FusedReluBiasFullyConnectedLayer& operator=(const FusedReluBiasFullyConnectedLayer&);
+
+  ~FusedReluBiasFullyConnectedLayer() {
+    CudaDeviceContext context(get_device_id());
+    cudaEventDestroy(event_overlap_);
+  };
 };
 }  // namespace HugeCTR

@@ -46,6 +46,7 @@ file(GLOB layers_test_src
   dot_product_layer_test.cpp
   sigmoid_layer_test.cpp
   elementwise_multiply_layer_test.cpp
+  mlp_test.cpp
 )
 
 add_executable(layers_test ${layers_test_src})
