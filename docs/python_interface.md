@@ -60,6 +60,10 @@ As a recommendation system domain specific framework, HugeCTR has a set of high 
     * [predict()](#predict-method)
     * [evaluate()](#evaluate-method)
   <summary>Details</summary>
+* [Data Generator API](#data-generator-api)
+  * [DataGeneratorParams class](#datageneratorparams-class)
+  * [DataGenerator class](#datagenerator)
+    * [generate()](#generate-method)
 
 ## High-level Training API ##
 For HugeCTR high-level training API, the core data structures are `Solver`, `ModelOversubscriberParams`, `DataReaderParams`, `OptParamsPy`, `Input`, `SparseEmbedding`, `DenseLayer` and `Model`. You can create a `Model` instance with `Solver`, `ModelOversubscriberParams`, `DataReaderParams` and `OptParamsPy` instances, and then add instances of `Input`, `SparseEmbedding` or `DenseLayer` to it. After compiling the model with the `Model.compile()` method, you can start the epoch mode or non-epoch mode training by simply calling the `Model.fit()` method. Moreover, the `Model.summary()` method gives you an overview of the model structure. We also provide some other methods, such as saving the model graph to a JSON file, constructing the model graph based on the saved JSON file, loading model weights and optimizer status, etc.
@@ -980,3 +984,68 @@ The `evaluate` method of InferenceSession does evaluations based on the dataset 
 * `check_type`: `hugectr.Check_t`, the check type for the data source. We support `hugectr.Check_t.Sum` and `hugectr.Check_t.Non` currently.
 
 * `slot_size_array`: List[int], the cardinality array of input features. It should be consistent with that of the sparse input. We requires this argument for Parquet format data. The default value is an empty list, which is suitable for Norm format data.
+
+## Data Generator API ##
+For HugeCTR data generator API, the core data structures are `DataGeneratorParams` and `DataGenerator`. Please refer to [Data Generator](../tools/data_generator) to acknowledge how to write Python scripts to generate synthetic dataset and start training HugeCTR model.
+
+#### **DataGeneratorParams class**
+```bash
+hugectr.tools.DataGeneratorParams()
+```
+`DataGeneratorParams` specifies the parameters related to the data generation. An `DataGeneratorParams` instance is required to initialize the `DataGenerator` instance.
+
+**Arguments**
+* `format`: The format for synthetic dataset. The supported types include `hugectr.DataReaderType_t.Norm`, `hugectr.DataReaderType_t.Raw`. There is NO default value and it should be specified by users.
+
+* `label_dim`: Integer, the label dimension for synthetic dataset. There is NO default value and it should be specified by users.
+
+* `dense_dim`:  Integer, the number of dense (or continuous) features for synthetic dataset. There is NO default value and it should be specified by users.
+
+* `num_slot`: Integer, the number of sparse feature slots for synthetic dataset. There is NO default value and it should be specified by users.
+
+* `i64_input_key`: Boolean, whether to use I64 for input keys for synthetic dataset. If your dataset format is Norm, you can choose the data type of each input key. For the Raw dataset format, only I32 is allowed. There is NO default value and it should be specified by users.
+
+* `source`: String, the synthetic training dataset source. For Norm dataset, it should be the file list of training data, e.g., source = "file_list.txt". For Raw dataset, it should be a single training file, e.g., source = "train_data.bin". There is NO default value and it should be specified by users.
+
+* `eval_source`: String, the synthetic evaluation dataset source. For Norm dataset, it should be the file list of evaluation data, e.g., source = "file_list_test.txt". For Raw dataset, it should be a single evaluation file, e.g., source = "test_data.bin". There is NO default value and it should be specified by users.
+
+* `slot_size_array`: List[int], the cardinality array of input features for synthetic dataset. The list length should be equal to `num_slot`. There is NO default value and it should be specified by users.
+
+* `nnz_array`: List[int], the number of non-zero entries in each slot for synthetic dataset. The list length should be equal to `num_slot`. This argument helps to simulate one-hot or multi-hot encodings. The default value is an empty list and one-hot encoding will be employed then. 
+
+* `check_type`: The data error detection mechanism. The supported types include `hugectr.Check_t.Sum` (CheckSum) and `hugectr.Check_t.Non` (no detection). The default value is `hugectr.Check_t.Sum`.
+
+* `dist_type`: The distribution of the sparse input keys for synthetic dataset. The supported types include `hugectr.Distribution_t.PowerLaw` and `hugectr.Distribution_t.Uniform`. The default value is `hugectr.Distribution_t.PowerLaw`.
+
+* `power_law_type`: The specific distribution of power law distribution. The supported types include `hugectr.PowerLaw_t.Long` (alpha=1.0), `hugectr.PowerLaw_t.Medium` (alpha=3.0), `hugectr.PowerLaw_t.Short` (alpha=5.0) and `hugectr.PowerLaw_t.Specific` (requiring a specific alpha value). This argument is only valid when `dist_type` is `hugectr.Distribution_t.PowerLaw`. The default value is `hugectr.PowerLaw_t.Specific`.
+
+* `alpha`: Float, the alpha value for power law distribution. This argument is only valid when `dist_type` is `hugectr.Distribution_t.PowerLaw` and `power_law_type` is `hugectr.PowerLaw_t.Specific`. The default value is 3.0.
+
+* `num_files`: Integer, the number of training data files that will be generated. This argument is only valid when `format` is `hugectr.DataReaderType_t.Norm`. The default value is 128.
+
+* `eval_num_files`: Integer, the number of evaluation data files that will be generated. This argument is only valid when `format` is `hugectr.DataReaderType_t.Norm`. The default value is 32.
+
+* `num_samples_per_file`: Integer, the number of samples per generated data file. This argument is only valid when `format` is `hugectr.DataReaderType_t.Norm`. The default value is 40960.
+
+* `num_samples`: Integer, the number of samples in the generated single training data file (e.g., train_data.bin). This argument is only valid when `format` is `hugectr.DataReaderType_t.Raw`. The default value is 5242880.
+
+* `eval_num_samples`: Integer, the number of samples in the generated single evaluation data file (e.g., test_data.bin). This argument is only valid when `format` is `hugectr.DataReaderType_t.Raw`. The default value is 1310720.
+
+* `float_label_dense`: Boolean, this is only valid when `format` is `hugectr.DataReaderType_t.Raw`. If its value is set to True, the label and dense features for each sample are interpreted as float values. Otherwise, they are regarded as integer values while the dense features are preprocessed with log(dense[i] + 1.f). The default value is False.
+
+### **DataGenerator** ###
+#### **DataGenerator class**
+```bash
+hugectr.tools.DataGenerator()
+```
+`DataGenerator` provides an API to generate synthetic Norm or Raw dataset. The construction of `DataGenerator` requires a `DataGeneratorParams` instance.
+
+**Arguments**
+* `data_generator_params`: The DataGeneratorParams instance which encapsulates the required parameters for data generation. There is NO default value and it should be specified by users.
+***
+
+#### **generate method**
+```bash
+hugectr.tools.DataGenerator.generate()
+```
+This method takes no extra arguments and starts to generate the synthetic dataset based on the configurations within `data_generator_params`.

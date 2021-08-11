@@ -45,10 +45,22 @@ inline void check_make_dir(const std::string& finalpath) {
     if (errno == EEXIST) {
       std::cout << (finalpath + " exist") << std::endl;
     } else {
-      // something else
-      std::cerr << ("cannot create" + finalpath + ": unexpected error") << std::endl;
+      CK_THROW_(Error_t::UnspecificError, "cannot create" + finalpath + ": unexpected error");
+      exit(-1);
     }
   }
+}
+
+/**
+ * Extract directory from path
+ */
+inline std::string extract_dir(const std::string& source_data) {
+  std::string source_dir;
+  const size_t last_slash_idx = source_data.rfind('/');
+  if (std::string::npos != last_slash_idx) {
+    source_dir = source_data.substr(0, last_slash_idx);
+  }
+  return source_dir;
 }
 
 template <typename T>
@@ -498,6 +510,9 @@ inline void data_generation_for_raw(std::string file_name, long long num_samples
                                     std::vector<T>* generated_sparse_data = nullptr,
                                     std::vector<float>* generated_dense_data = nullptr,
                                     std::vector<float>* generated_label_data = nullptr) {
+  if (file_exist(file_name)) {
+    std::cout << "File (" + file_name + ") exists and it will be overwritten." << std::endl;
+  }
   static_assert(std::is_same<T, long long>::value || std::is_same<T, unsigned int>::value,
                 "type not support");
 
@@ -579,4 +594,45 @@ inline void data_generation_for_raw(std::string file_name, long long num_samples
   out_stream.close();
   return;
 }
+
+struct DataGeneratorParams {
+  DataReaderType_t format;
+  int label_dim;
+  int dense_dim;
+  int num_slot;
+  bool i64_input_key;
+  std::string source;
+  std::string eval_source;
+  std::vector<size_t> slot_size_array;
+  std::vector<int> nnz_array;
+  Check_t check_type;
+  Distribution_t dist_type;
+  PowerLaw_t power_law_type;
+  float alpha;
+  int num_files;
+  int eval_num_files;
+  int num_samples_per_file;
+  int num_samples;
+  int eval_num_samples;
+  bool float_label_dense;
+  DataGeneratorParams(DataReaderType_t format, int label_dim, int dense_dim, int num_slot,
+                      bool i64_input_key, const std::string& source, const std::string& eval_source,
+                      const std::vector<size_t>& slot_size_array, const std::vector<int>& nnz_array,
+                      Check_t check_type, Distribution_t dist_type, PowerLaw_t power_law_type,
+                      float alpha, int num_files, int eval_num_files, int num_samples_per_file,
+                      int num_samples, int eval_num_samples, bool float_label_dense);
+};
+
+class DataGenerator {
+ public:
+  ~DataGenerator();
+  DataGenerator(const DataGeneratorParams& data_generator_params);
+  DataGenerator(const DataGenerator&) = delete;
+  DataGenerator& operator=(const DataGenerator&) = delete;
+  void generate();
+
+ private:
+  DataGeneratorParams data_generator_params_;
+};
+
 }  // namespace HugeCTR

@@ -470,6 +470,22 @@ mos_multi_node_mem:
       python3 ${WORK_DIR}/test/pybind_test/wdl_mos_mpi_high_level.py ${WORK_DIR}/test/scripts/wdl_1gpu.json true ${CI_PROJECT_DIR}"
   timeout: 2 hours
 
+# data generator single node
+data_generator_single_node:
+  extends: .cluster_test_train_job
+  script:
+    - srun --mpi=pmix --ntasks=1
+      -A devtech -J devtech:hugectr -p luna
+      --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
+      --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
+      bash -cx "
+      cp ${WORK_DIR}/build/build_single/lib/hugectr.so ${WORK_DIR}/tools/data_generator/ &&
+      cd /dataset/criteo_kaggle/generated_dataset &&
+      mpirun -np 1 --allow-run-as-root python3 ${WORK_DIR}/tools/data_generator/dcn_norm_generate_train.py &&
+      mpirun -np 1 --allow-run-as-root python3 ${WORK_DIR}/tools/data_generator/wdl_norm_generate_train.py &&
+      mpirun -np 1 --allow-run-as-root python3 ${WORK_DIR}/tools/data_generator/dlrm_raw_generate_train.py &&
+      rm -rf dcn_norm && rm -rf wdl_norm && rm -rf dlrm_raw"
+
 # python interface single node
 py_single_node:
   extends: .cluster_test_train_job

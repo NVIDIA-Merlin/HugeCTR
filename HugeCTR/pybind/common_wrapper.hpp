@@ -200,6 +200,16 @@ void CommonPybind(pybind11::module& m) {
       .value("IB_NVLink", HugeCTR::hybrid_embedding::CommunicationType::IB_NVLink)
       .value("NVLink_SingleNode", HugeCTR::hybrid_embedding::CommunicationType::NVLink_SingleNode)
       .export_values();
+  pybind11::enum_<HugeCTR::Distribution_t>(m, "Distribution_t")
+      .value("Uniform", HugeCTR::Distribution_t::Uniform)
+      .value("PowerLaw", HugeCTR::Distribution_t::PowerLaw)
+      .export_values();
+  pybind11::enum_<HugeCTR::PowerLaw_t>(m, "PowerLaw_t")
+      .value("Long", HugeCTR::PowerLaw_t::Long)
+      .value("Medium", HugeCTR::PowerLaw_t::Medium)
+      .value("Short", HugeCTR::PowerLaw_t::Short)
+      .value("Specific", HugeCTR::PowerLaw_t::Specific)
+      .export_values();
 }
 
 }  // namespace python_lib
