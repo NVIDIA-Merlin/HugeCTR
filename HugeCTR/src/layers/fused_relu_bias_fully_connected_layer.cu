@@ -87,14 +87,15 @@ FusedReluBiasFullyConnectedLayer::FusedReluBiasFullyConnectedLayer(
     const Tensor2<__half>& train_out_tensor, const Tensor2<__half>& mask_out_tensor,
     const Tensor2<__half>& dRelu_out_tensor, Tensor2<__half>& db_out_tensor,
     const std::shared_ptr<GPUResource>& gpu_resource, const FcPosition_t& pos,
-    const Activation_t& act, const bool& skip_dgrad, std::vector<Initializer_t> initializer_types)
+    const Activation_t& act, const bool& skip_dgrad, std::vector<Initializer_t> initializer_types, const bool async_mlp_wgrad)
     : Layer(gpu_resource, initializer_types),
       balgo_k_(CUBLAS_GEMM_DEFAULT_TENSOR_OP),
       balgo_x_(CUBLAS_GEMM_DEFAULT_TENSOR_OP),
       balgo_b_(CUBLAS_GEMM_DEFAULT_TENSOR_OP),
       pos_(pos),
       act_(act),
-      skip_dgrad_(skip_dgrad) {
+      skip_dgrad_(skip_dgrad),
+      async_mlp_wgrad_(async_mlp_wgrad) {
   const auto& bottom_tensor_dim = train_in_tensor.get_dimensions();
   const auto& top_tensor_dim = train_out_tensor.get_dimensions();
 
@@ -143,13 +144,13 @@ FusedReluBiasFullyConnectedLayer::FusedReluBiasFullyConnectedLayer(
   blobs_buff->reserve(identity_dim, &identity_tensor_);
 
   train_in_tensor_ = train_in_tensor;
-  if (pos_ == FcPosition_t::Head || pos_ == FcPosition_t::Isolated)
-    mask_in_tensor_ = train_in_tensor;
-  else {
-    mask_in_tensor_ = mask_in_tensor;
-    dRelu_in_tensor_ = dRelu_in_tensor;
-    db_in_tensor_ = db_in_tensor;
-  }
+  //  if (pos_ == FcPosition_t::Head || pos_ == FcPosition_t::Isolated) {
+  //    // mask_in_tensor_ = train_in_tensor;
+  //  } else {
+  mask_in_tensor_ = mask_in_tensor;
+  dRelu_in_tensor_ = dRelu_in_tensor;
+  db_in_tensor_ = db_in_tensor;
+  //  }
   train_out_tensor_ = train_out_tensor;
   mask_out_tensor_ = mask_out_tensor;
   dRelu_out_tensor_ = dRelu_out_tensor;
@@ -158,9 +159,15 @@ FusedReluBiasFullyConnectedLayer::FusedReluBiasFullyConnectedLayer(
 
   std::vector<size_t> mask_dim = {m, n};
   blobs_buff->reserve(mask_dim, &mask_in_tensor_temp_);
+
+  if (async_mlp_wgrad_) cublas_handle_wgrad_ = gpu_resource->get_cublas_handle_wgrad();
+  else cublas_handle_wgrad_ = gpu_resource->get_cublas_handle();
 }
 
 void FusedReluBiasFullyConnectedLayer::initialize() {
+  CudaDeviceContext context(get_device_id());
+  CK_CUDA_THROW_(cudaEventCreate(&event_overlap_));
+
   // TODO: We need different bottom desc based on is_train or not
   const auto& bottom_tensor_dim = get_bottom_tensor_fprop(true).get_dimensions();
   const auto& top_tensor_dim = train_out_tensor_.get_dimensions();
@@ -343,18 +350,17 @@ void FusedReluBiasFullyConnectedLayer::bprop() {
 
   PROFILE_RECORD("fused_relu_bias_fully_connected.bprop.start", get_gpu().get_stream());
   const __half* kernel = weights_half_[0].get_ptr();
-  __half* mask_in = mask_in_tensor_.get_ptr();
   const __half* train_out = train_out_tensor_.get_ptr();
   __half* mask_out = mask_out_tensor_.get_ptr();
   __half* kernel_grad = weights_grad_[0].get_ptr();
   __half* bias_grad = weights_grad_[1].get_ptr();
-  const __half* bottom = get_bottom_tensor_fprop(true).get_ptr();
-  __half* bottom_bprop = get_bottom_tensor_bprop(true).get_ptr();
+  __half* bottom = get_bottom_tensor_fprop(true).get_ptr();
+  //__half* bottom_bprop = get_bottom_tensor_bprop(true).get_ptr();
   float* bias_grad_float = bias_grad_tensor_.get_ptr();
   __half* dRelu_top = dRelu_out_tensor_.get_ptr();
   const __half* identity = identity_tensor_.get_ptr();
 
-  const auto& bottom_tensor_dim = get_bottom_tensor_bprop(true).get_dimensions();
+  const auto& bottom_tensor_dim = get_bottom_tensor_fprop(true).get_dimensions();
   const auto& top_tensor_dim = train_out_tensor_.get_dimensions();
 
   int m = bottom_tensor_dim[0];
@@ -393,17 +399,30 @@ void FusedReluBiasFullyConnectedLayer::bprop() {
 
   PROFILE_RECORD("fused_relu_bias_fully_connected.bprop.cublasGemmEx_1.start",
                  get_gpu().get_stream());
-  CK_CUBLAS_THROW_(cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_T, n, k, m,
+
+  if (async_mlp_wgrad_) {
+    CK_CUDA_THROW_(cudaEventRecord(event_overlap_, get_gpu().get_stream()));
+    CK_CUDA_THROW_(cudaStreamWaitEvent(get_gpu().get_comp_overlap_stream(), event_overlap_));
+  }
+
+  CK_CUBLAS_THROW_(cublasGemmEx(cublas_handle_wgrad_, CUBLAS_OP_N, CUBLAS_OP_T, n, k, m,
                                 &alpha, dRelu_top, CUDA_R_16F, n, bottom, CUDA_R_16F, k, &beta_k,
                                 kernel_grad, CUDA_R_16F, n, CUDA_R_32F, balgo_k_));
   PROFILE_RECORD("fused_relu_bias_fully_connected.bprop.cublasGemmEx_1.stop",
                  get_gpu().get_stream());
+
+  if (async_mlp_wgrad_ && pos_ == FcPosition_t::Head) {
+    get_gpu().set_wgrad_event_sync(get_gpu().get_comp_overlap_stream());
+  }
 
   if (skip_dgrad_) {
     PROFILE_RECORD("fused_relu_bias_fully_connected.bprop.stop", get_gpu().get_stream());
     return;
   }
 
+  __half* bottom_bprop = bottom;
+  if (async_mlp_wgrad_) bottom_bprop = mask_in_tensor_.get_ptr();
+  
   if (pos_ == FcPosition_t::Body || pos_ == FcPosition_t::Tail) {
     bottom_bprop = dRelu_in_tensor_.get_ptr();
   }
@@ -414,6 +433,7 @@ void FusedReluBiasFullyConnectedLayer::bprop() {
       dRelu_top, cublas_dRelu_top_desc_, &beta_x, bottom_bprop, cublas_dRelu_bottom_desc_,
       bottom_bprop, cublas_dRelu_bottom_desc_, &balgo_dRelu_, cublaslt_workspace_dRelu_,
       cublaslt_workspace_size_, get_gpu().get_stream()));
+
   PROFILE_RECORD("fused_relu_bias_fully_connected.bprop.cublasGemmEx_2.stop",
                  get_gpu().get_stream());
 

@@ -16,7 +16,25 @@
 
 #include <HugeCTR/pybind/model_perf_ext.hpp>
 
+
 namespace HugeCTR {
+
+namespace {
+
+static std::string join(std::vector<std::string>& strs, std::string delim) {
+  std::string str;
+  const std::vector<std::string>::iterator itlast = strs.end() - 1;
+  for (auto it = strs.begin(); it != strs.end(); it++) {
+    str += *it;
+    if (it != itlast) {
+      str += delim;
+    }
+  }
+  return str;
+}
+
+} // Anonymous namespace
+
 
 ModelPerfExt::ModelPerfExt(const Solver& solver, const DataReaderParams& reader_params,
                            std::shared_ptr<OptParamsPy>& opt_params_py,
@@ -448,10 +466,41 @@ void ModelPerfExt::train_overlapped() {
   }
 }
 
-void ModelPerfExt::exchange_wgrad(size_t device_id) {
+void ModelPerfExt::exchange_wgrad(size_t device_id) { 
+  auto& gpu_resource = resource_manager_->get_local_gpu(device_id);
+  CudaCPUDeviceContext context(gpu_resource->get_device_id());
   PROFILE_RECORD("exchange_wgrad.start", resource_manager_->get_local_gpu(device_id)->get_stream(), true, device_id);
+  if (solver_.async_mlp_wgrad)
+    gpu_resource->wait_on_wgrad_event(gpu_resource->get_stream());
   Model::exchange_wgrad(device_id);
   PROFILE_RECORD("exchange_wgrad.stop", resource_manager_->get_local_gpu(device_id)->get_stream(), true, device_id);
+
 }
+
+void ModelPerfExt::add(DenseLayer& dense_layer) {
+  if (!solver_.is_dlrm && dense_layer.pos_type != FcPosition_t::None) {
+    CK_THROW_(Error_t::WrongInput, "Specific fully connected position is restricted to DLRM use");
+  }
+  dense_layer_params_.push_back(dense_layer);
+  for (auto bottom_name : dense_layer.bottom_names) {
+    deactivate_tensor(tensor_active_, bottom_name);
+  }
+  for (auto top_name : dense_layer.top_names) {
+    activate_tensor(tensor_active_, top_name);
+  }
+  std::string input_names = join(dense_layer.bottom_names, ",");
+  std::string output_names = join(dense_layer.top_names, ",");
+  input_output_info_.push_back(std::make_pair(input_names, output_names));
+  if (solver_.use_mixed_precision) {
+    layer_info_.push_back(LAYER_TYPE_TO_STRING_MP[dense_layer.layer_type]);
+  } else {
+    layer_info_.push_back(LAYER_TYPE_TO_STRING[dense_layer.layer_type]);
+  }
+  if (dense_layer.layer_type == Layer_t::Interaction) {
+    dlrm_bottom_mlp_ = false;
+  }
+  this->add_dense_layer(dense_layer);
+}
+
 
 }  // namespace HugeCTR
