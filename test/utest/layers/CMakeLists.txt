@@ -25,6 +25,7 @@ file(GLOB layers_test_src
   fused_fully_connected_layer_test.cpp
   fused_relu_bias_fully_connected_layer_test.cpp
   gru_layer_test.cpp
+  matrix_multiply_test.cpp
   interaction_layer_test.cpp
   relu_layer_test.cpp
   slice_layer_test.cpp

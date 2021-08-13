@@ -110,6 +110,7 @@ void CommonPybind(pybind11::module& m) {
       .value("Gather", HugeCTR::Layer_t::Gather)
       .value("PReLU_Dice", HugeCTR::Layer_t::PReLU_Dice)
       .value("GRU", HugeCTR::Layer_t::GRU)
+      .value("MatrixMultiply", HugeCTR::Layer_t::MatrixMultiply)
       .value("Scale", HugeCTR::Layer_t::Scale)
       .value("FusedReshapeConcat", HugeCTR::Layer_t::FusedReshapeConcat)
       .value("FusedReshapeConcatGeneral", HugeCTR::Layer_t::FusedReshapeConcatGeneral)

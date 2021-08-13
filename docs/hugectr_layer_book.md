@@ -27,6 +27,7 @@ This document introduces different layer classes and corresponding methods in th
   * [FusedReshapeConcat Layer](#fusedreshapeconcat-layer)
   * [FusedReshapeConcatGeneral Layer](#fusedreshapeconcatgeneral-layer)
   * [Gather Layer](#gather-layer)
+  * [MatrixMutiply Layer](#matrixmutiply-layer)
   * [PReLUDice Layer](#preludice-layer)
   * [ReduceMean Layer](#reducemean-layer)
   * [Scale Layer](#scale-layer)
@@ -382,6 +383,7 @@ The Reshape layer reshapes a 3D input tensor into 2D shape.
 Parameter:
 
 * `leading_dim`: Integer, the innermost dimension of the output tensor. It must be the multiple of the total number of input elements. If it is unspecified, n_slots * num_elems (see below) is used as the default leading_dim.
+* `time_step`: Integer, the second dimension of the 3D output tensor. It must be the multiple of the total number of input elements and must be defined with leading_dim.
 * `selected`: Boolean, whether to use the selected mode for the `Reshape` layer. The default value is False.
 * `selected_slots`: List[int], the selected slots for the `Reshape` layer. It will be ignored if `selected` is False. The default value is [].
 
@@ -604,7 +606,7 @@ Parameters: None
 
 Input and Output Shapes:
 
-* input: {(batch_size, num_feas, num_elems_0), (batch_size, num_feas, num_elems_1), ...}, the input tensors are embeddings.
+* input: {(batch_size, num_feas + 1, num_elems_0), (batch_size, num_feas + 1, num_elems_1), ...}, the input tensors are embeddings.
 * output: {(batch_size x num_feas, (num_elems_0 + num_elems_1 + ...)), (batch_size, (num_elems_0 + num_elems_1 + ...))}.
 
 Example:
@@ -684,6 +686,23 @@ model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.ReduceMean,
                             bottom_names = ["fmorder2"],
                             top_names = ["reducemean1"],
                             axis=1))
+```
+
+##### MatrixMutiply Layer
+The MatrixMutiply Layer is a binary operation that produces a matrix output from two matrix inputs by performing matrix mutiplication.
+
+Parameters: None
+
+Input and Output Shapes:
+
+* input: 2D: (m, n), (n, k) or 3D: (batch_size, m, n), (batch_size, n, k)
+* output: 2D: (m, k) or 3D: (batch_size, m, k)
+
+Example:
+```python
+model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.MatrixMutiply,
+                            bottom_names = ["slice1","slice2"],
+                            top_names = ["MatrixMutiply1"])
 ```
 
 ##### Gather Layer

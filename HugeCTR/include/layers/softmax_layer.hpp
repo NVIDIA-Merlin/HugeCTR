@@ -52,7 +52,8 @@ class SoftmaxLayer : public Layer {
    * @param stream CUDA stream where the backward propagation is executed
    */
   void bprop() override;
-  size_t batchsize;
+  size_t dims;
+  size_t n_rows;
   size_t hiddensize;
   size_t len;
   Tensor2<T> workspace;
