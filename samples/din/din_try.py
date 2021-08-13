@@ -2,7 +2,11 @@ import hugectr
 solver = hugectr.CreateSolver(max_eval_batches = 1,
                               batchsize_eval = 4096,
                               batchsize = 64,
+<<<<<<< HEAD
                               lr = 0.00001,
+=======
+                              lr = 0.001,
+>>>>>>> Add matrix multiply layer which could support 2D and 3D inputs. Also add 3D inputs support for softmax layer
                               vvgpu = [[0]],
                               repeat_dataset = True,
                               i64_input_key = True,
