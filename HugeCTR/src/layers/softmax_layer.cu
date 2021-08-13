@@ -39,10 +39,11 @@ SoftmaxLayer<T>::SoftmaxLayer(const Tensor2<T>& in_tensor, const Tensor2<T>& out
   in_tensors_.push_back(in_tensor);
   out_tensors_.push_back(out_tensor);
 
-  batchsize = in_tensor.get_dimensions()[0];
   len = in_tensors_[0].get_num_elements();
-  hiddensize = len / batchsize;
-  blobs_buff->reserve({batchsize}, &workspace);
+  dims = in_tensor.get_dimensions().size();
+  hiddensize = in_tensor.get_dimensions()[dims - 1];
+  n_rows = len / hiddensize;
+  blobs_buff->reserve({n_rows}, &workspace);
 }
 
 template <typename T>
@@ -92,11 +93,10 @@ void SoftmaxLayer<T>::fprop(bool is_train) {
   Tensor2<T>& out_tensor = out_tensors_[0];
   const auto& in_tensor_dim = in_tensor.get_dimensions();
   // exp(x_i)
-  MLCommon::LinAlg::unaryOp(
-      out_tensor.get_ptr(), in_tensor.get_ptr(), len, [] __device__(T in) { return expf(in); },
-      get_gpu().get_stream());
+  MLCommon::LinAlg::unaryOp(out_tensor.get_ptr(), in_tensor.get_ptr(), len,
+                            [] __device__(T in) { return expf(in); }, get_gpu().get_stream());
   // Get sum of exp(x_i) i=[0, embedding_vector_size-1].
-  MLCommon::LinAlg::reduce(workspace.get_ptr(), out_tensor.get_ptr(), hiddensize, batchsize, T(0),
+  MLCommon::LinAlg::reduce(workspace.get_ptr(), out_tensor.get_ptr(), hiddensize, n_rows, T(0),
                            true, true, get_gpu().get_stream());
   // Softmax exp(x_i) / sum(exp)(x_i)) i=[0, embedding_vector_size-1].
   Softmax_fprop(out_tensor.get_ptr(), workspace.get_ptr(), in_tensor_dim[0], in_tensor_dim[1],
@@ -114,12 +114,11 @@ void SoftmaxLayer<T>::bprop() {
   Tensor2<T>& top_tensor = out_tensors_[0];
   const auto& in_tensor_dim = bottom_tensor.get_dimensions();
   // exp(x_i)
-  MLCommon::LinAlg::unaryOp(
-      bottom_tensor.get_ptr(), bottom_tensor.get_ptr(), len,
-      [] __device__(T in) { return expf(in); }, get_gpu().get_stream());
+  MLCommon::LinAlg::unaryOp(bottom_tensor.get_ptr(), bottom_tensor.get_ptr(), len,
+                            [] __device__(T in) { return expf(in); }, get_gpu().get_stream());
   // Get sum of exp(x_i) i=[0, embedding_vector_size-1].
-  MLCommon::LinAlg::reduce(workspace.get_ptr(), bottom_tensor.get_ptr(), hiddensize, batchsize,
-                           T(0), true, true, get_gpu().get_stream());
+  MLCommon::LinAlg::reduce(workspace.get_ptr(), bottom_tensor.get_ptr(), hiddensize, n_rows, T(0),
+                           true, true, get_gpu().get_stream());
   // softmax derivative :
   // q(x) = e^xi / sum(e^xi);
   // f(x) = q(x) * (1 - q(x) / sum(e^xi));
