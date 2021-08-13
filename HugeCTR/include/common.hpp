@@ -162,6 +162,7 @@ enum class Layer_t {
   ReLU,
   ReLUHalf,
   GRU,
+  MatrixMultiply,
   Scale,
   FusedReshapeConcat,
   FusedReshapeConcatGeneral,

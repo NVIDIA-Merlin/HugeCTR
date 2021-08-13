@@ -44,6 +44,7 @@ file(GLOB huge_ctr_src
   ../layers/dot_product_layer.cu
   ../layers/elementwise_multiply_layer.cu
   ../layers/gru_layer.cu
+  ../layers/matrix_multiply_layer.cu
   ../layers/prelu_dice_layer.cu
   ../layers/softmax_layer.cu
   ../layers/scale_layer.cu

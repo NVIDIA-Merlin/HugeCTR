@@ -291,6 +291,7 @@ const std::map<std::string, Layer_t> LAYER_TYPE_MAP = {
     {"Gather", Layer_t::Gather},
     {"PReLU_Dice", Layer_t::PReLU_Dice},
     {"GRU", Layer_t::GRU},
+    {"MatrixMultiply", Layer_t::MatrixMultiply},
     {"Scale", Layer_t::Scale},
     {"FusedReshapeConcat", Layer_t::FusedReshapeConcat},
     {"FusedReshapeConcatGeneral", Layer_t::FusedReshapeConcatGeneral},

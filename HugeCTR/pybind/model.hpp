@@ -54,6 +54,7 @@ std::map<Layer_t, std::string> LAYER_TYPE_TO_STRING = {
     {Layer_t::Gather, "Gather"},
     {Layer_t::PReLU_Dice, "PReLU_Dice"},
     {Layer_t::GRU, "GRU"},
+    {Layer_t::MatrixMultiply, "MatrixMultiply"},
     {Layer_t::Scale, "Scale"},
     {Layer_t::FusedReshapeConcat, "FusedReshapeConcat"},
     {Layer_t::FusedReshapeConcatGeneral, "FusedReshapeConcatGeneral"},
