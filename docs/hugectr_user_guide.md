@@ -63,7 +63,7 @@ HugeCTR is included in the Merlin Docker image, which is available in the [NVIDI
 
 You can pull and launch the container by running the following command:
 ```shell
-$ docker run --gpus=all --rm -it nvcr.io/nvidia/merlin/merlin-training:0.6  # Start interaction mode
+$ docker run --gpus=all --rm -it --cap-add SYS_NICE nvcr.io/nvidia/merlin/merlin-training:0.6  # Start interaction mode
 ```  
 
 ### Building Your Own HugeCTR Docker Container ###
@@ -161,7 +161,7 @@ Please find more information under [Python Interface Introduction](./python_inte
 <br></br>
 
 ### Embedding Training Cache ###
-Embedding Training Cache (Model oversubscription) gives you the ability to train a large model up to TeraBytes. It's implemented by loading a subset of an embedding table, which exceeds the aggregated capacity of GPU's memory, into the GPU in a coarse-grained, on-demand manner during the training stage. To use this feature, you need to split your dataset into multiple sub-datasets while extracting the unique key sets from them (see Fig. 7).<br/>This feature currently supports both single and multi-node training. It supports all embedding types and can be used with [Norm](./python_interface.md#norm) and [Raw](./python_interface.md#raw) dataset formats. We revised our [`criteo2hugectr` tool](../tools/criteo_script/criteo2hugectr.cpp) to support the key set extraction for the Criteo dataset. For additional information, see our [Python Jupyter Notebook](../notebooks/python_interface.ipynb) to learn how to use this feature with the Criteo dataset. Please note that The Criteo dataset is a common use case, but model prefetching is not limited to this dataset.
+Embedding Training Cache (Model oversubscription) gives you the ability to train a large model up to TeraBytes. It's implemented by loading a subset of an embedding table, which exceeds the aggregated capacity of GPU's memory, into the GPU in a coarse-grained, on-demand manner during the training stage. To use this feature, you need to split your dataset into multiple sub-datasets while extracting the unique key sets from them (see Fig. 7).<br/>This feature currently supports both single and multi-node training. It supports all embedding types and can be used with [Norm](./python_interface.md#norm) and [Raw](./python_interface.md#raw) dataset formats. We revised our [`criteo2hugectr` tool](../tools/criteo_script/criteo2hugectr.cpp) to support the key set extraction for the Criteo dataset. For additional information, see our [Python Jupyter Notebook](../notebooks/hugectr_criteo.ipynb) to learn how to use this feature with the Criteo dataset. Please note that The Criteo dataset is a common use case, but model prefetching is not limited to this dataset.
 
 <div align=center><img width="520" height="153" src="user_guide_src/dataset_split.png"/></div>
 <div align=center>Fig. 7: Preprocessing of dataset for model oversubscription</div>
