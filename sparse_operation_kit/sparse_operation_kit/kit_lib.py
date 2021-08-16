@@ -69,12 +69,11 @@ def _PluginReadEmbeddingVariableBprop(op, top_grad):
 def _PluginSparseBackProp(op, top_grad):
     emb_var_grads_value, value_index = plugin_bprop(emb_handle=op.inputs[0], 
                                                     global_replica_id=op.inputs[4],
-                                                    top_gradient=top_grad)
+                                                    top_gradient=top_grad,
+                                                    unique_op_name=op.get_attr("unique_op_name"))
     
-    # TODO: dense_shape is not correct, but it does not matter now.
     grads = ops.IndexedSlices(values=emb_var_grads_value,
-                              indices=value_index,
-                              dense_shape=array_ops.shape(op.inputs[1]))
+                              indices=value_index)
 
     return [None] + [grads] + [None for _ in op.inputs[2:]]
 
@@ -82,11 +81,10 @@ def _PluginSparseBackProp(op, top_grad):
 def _PluginDenseBackProp(op, top_grad):
     emb_var_grads_value, value_index = plugin_bprop(emb_handle=op.inputs[0], 
                                                     global_replica_id=op.inputs[3],
-                                                    top_gradient=top_grad)
+                                                    top_gradient=top_grad,
+                                                    unique_op_name=op.get_attr("unique_op_name"))
     
-    # TODO: dense_shape is not correct, but it does not matter now.
     grads = ops.IndexedSlices(values=emb_var_grads_value,
-                              indices=value_index,
-                              dense_shape=array_ops.shape(op.inputs[1]))
-
+                              indices=value_index)
+                    
     return [None] + [grads] + [None for _ in op.inputs[2:]]

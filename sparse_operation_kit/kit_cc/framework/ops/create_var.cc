@@ -23,16 +23,19 @@ using namespace tensorflow;
 using namespace tensorflow::shape_inference;
 
 REGISTER_OP("CreateVar")
+    .Input("var_name: string")
     .Input("initial_value: dtype")
     .Input("local_replica_id: int32")
     .Output("var_handle: resource")
     .Output("handle: resource")
+    .Output("unique_var_name: string")
     .Attr("trainable: bool = true")
     .Attr("shape: shape")
     .Attr("use_hashtable: bool = true")
     .Attr("dtype: {float, string, resource}")
-    .Attr("var_name: string = 'embedding_variables'")
     .SetShapeFn([](InferenceContext* ctx) {
+        // TODO: this function is not called under Eager mode
+
         TensorShape shape;
         TF_RETURN_IF_ERROR(ctx->GetAttr("shape", &shape));
         DataType dtype;
@@ -51,8 +54,14 @@ REGISTER_OP("CreateVar")
                 " to that of shape.");
         }
 
-        ShapeHandle output_shape = ctx->Scalar();
+        ShapeHandle output_shape;
+        TF_RETURN_IF_ERROR(ctx->MakeShapeFromTensorShape(shape, &output_shape));
         ctx->set_output(0, output_shape);
+        ctx->set_output(1, output_shape);
+
+        ctx->set_output_handle_shapes_and_types(0, std::vector<ShapeAndType>{{output_shape, DT_FLOAT}});
+        ctx->set_output_handle_shapes_and_types(1, std::vector<ShapeAndType>{{output_shape, DT_FLOAT}});
+
         return Status::OK();
     })
     .Doc(R"doc(

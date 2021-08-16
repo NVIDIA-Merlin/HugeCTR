@@ -23,16 +23,25 @@ using namespace tensorflow::shape_inference;
 
 REGISTER_OP("PluginDenseFprop")
     .Input("emb_handle: variant")
-    .Input("emb_variable: float32")
+    .Input("emb_variable: T")
     .Input("values: value_dtype")
     .Input("global_replica_id: int32")
-    .Output("emb_vector: vector_dtype")
+    .Output("emb_vector: T")
     .Attr("training: bool")
     .Attr("value_dtype: {int64}")
-    .Attr("vector_dtype: {float}")
+    .Attr("T: {float32}")
     .Attr("unique_op_name: string")
     .SetShapeFn([](InferenceContext* ctx) {
-        ctx->set_output(0, ctx->UnknownShape());
+        ShapeHandle variable_shape;
+        TF_RETURN_IF_ERROR(ctx->WithRank(ctx->input(1), 2, &variable_shape));
+
+        ShapeHandle emb_vec_size_shape;
+        TF_RETURN_IF_ERROR(ctx->Subshape(variable_shape, /*start=*/1, /*end=*/2, &emb_vec_size_shape));
+
+        ShapeHandle output_shape;
+        TF_RETURN_IF_ERROR(ctx->Concatenate(ctx->input(2), emb_vec_size_shape, &output_shape));
+        ctx->set_output(0, output_shape);
+
         return Status::OK();
     })
     .Doc(R"doc(

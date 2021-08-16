@@ -60,9 +60,9 @@ public:
 
     }
 private:
-    int32_t global_batch_size_;
-    int32_t slot_num_;
-    int32_t max_nnz_;
+    tensorflow::int32 global_batch_size_;
+    tensorflow::int32 slot_num_;
+    tensorflow::int32 max_nnz_;
 };
 
 REGISTER_KERNEL_BUILDER(Name("ReduceScatterDispatcher")

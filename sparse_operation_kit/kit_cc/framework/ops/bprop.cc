@@ -28,6 +28,7 @@ REGISTER_OP("PluginBprop")
     .Output("gradient: dtype")
     .Output("value_index: int64")
     .Attr("dtype: {float}")
+    .Attr("unique_op_name: string")
     .SetShapeFn([](InferenceContext* ctx) {
         ctx->set_output(0, ctx->UnknownShape());
         return Status::OK();

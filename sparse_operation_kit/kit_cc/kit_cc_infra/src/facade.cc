@@ -66,8 +66,21 @@ void Facade::init(const size_t global_replica_id, const size_t num_replicas_in_s
     // initialize embedding manager
     embedding_mgr_->init(global_replica_id, global_batch_size);
     // initialize other parts TODO:
+
+    auto create_mutexs = [this]() {
+        init_mus_.clear();
+        const size_t local_gpu_count = resources_mgr_->get_local_gpu_count();
+        init_mus_.insert(init_mus_.begin(), local_gpu_count, nullptr);
+        for (size_t i = 0; i < local_gpu_count; i++) {
+            init_mus_[i] = std::make_shared<std::mutex>();
+        }
+    };
+    resources_mgr_->blocking_call_once(create_mutexs);
 }
 
+void Facade::generate_unique_name(const bool trainable, std::string &variable_name) {
+    params_mgr_->gen_unique_name(trainable, variable_name);
+}
 
 void Facade::create_variables(const size_t local_replica_id, const float* initial_value, const bool use_hashtable,
                               const std::vector<int64_t> shape, const std::string name,
@@ -92,7 +105,7 @@ void Facade::create_variables(const size_t local_replica_id, const std::string& 
         auto emb_buffer_builder = EmbeddingBufferBuilder::create(param->get_embedding_table_tensor(local_replica_id));
         auto buffer = emb_buffer_builder->get_init_buffer();
         // FIXME: in TF 2.4, int64_t is not equal to long long
-        const std::vector<long long> temp_shape(shape.begin(), shape.end());
+        const std::vector<tensorflow::int64> temp_shape(shape.begin(), shape.end());
         tensorflow::TensorShape tensor_shape = tensorflow::TensorShape(temp_shape);
         *emb_tensor = tensorflow::Tensor(/*type=*/tensorflow::DT_FLOAT,
                                         /*shape=*/tensor_shape,
@@ -195,26 +208,41 @@ void Facade::create_optimizer(const std::string optimizer_type,
 
 /*This function will be called by multiple threads simultaneously*/
 void Facade::try_allocate_memory(const size_t global_replica_id) const {
-    static std::atomic<bool> allocated{false};
-    if (allocated.load()) return;
+    static std::atomic<bool> allocated_{false};
 
-    if (optimizer_) {
-        auto helper = [this](){
-            optimizer_->create_preparers(embedding_mgr_); 
-            optimizer_->reserve_spaces(); 
-        };
-        resources_mgr_->blocking_call_once(helper);
-    } // when optimizer_ is valid
-    
-    resources_mgr_->allocate_memory(global_replica_id);
-    params_mgr_->allocate_memory(global_replica_id);
-    embedding_mgr_->allocate_memory(global_replica_id);
+    auto allocate_memory_helper = [this](const size_t global_replica_id) {
+        if (optimizer_) {
+            auto optimizer_helper = [this](){
+                optimizer_->create_preparers(embedding_mgr_);
+                optimizer_->reserve_spaces();
+            };
+            resources_mgr_->blocking_call_once(optimizer_helper);
+        } // if optimizer_ is valid
 
-    auto flip_allocated = []() {
-        allocated.store(true);
-        MESSAGE("Allocated internal memory.");
+        resources_mgr_->allocate_memory(global_replica_id);
+        params_mgr_->allocate_memory(global_replica_id);
+        embedding_mgr_->allocate_memory(global_replica_id);
     };
-    resources_mgr_->blocking_call_once(flip_allocated);
+
+    auto set_allocated_helper = [this](const size_t global_replica_id) mutable {
+        auto _Func = []() mutable {
+            allocated_.store(true, std::memory_order_release);
+            MESSAGE("SparseOperationKit allocated internal memory.");
+        };
+        resources_mgr_->blocking_call_once(_Func);
+    };
+
+    bool allocated = allocated_.load(std::memory_order_acquire);
+    if (!allocated) { // first check
+        const size_t local_replica_id = resources_mgr_->cal_local_id_from_global_id(global_replica_id);
+        std::lock_guard<std::mutex> lock(*(init_mus_[local_replica_id]));
+        allocated = allocated_.load(std::memory_order_relaxed);
+        if (!allocated) { // second check
+            allocate_memory_helper(global_replica_id);
+            set_allocated_helper(global_replica_id);
+        }
+    } 
+    return;
 }
 
 /*This function will only be called by one CPU threads.*/
@@ -243,7 +271,7 @@ void Facade::get_output_shape(const tensorflow::Tensor* emb_handle,
     embedding_mgr_->get_output_shape(embedding, output_shape);
 
     // FIXME: in TF 2.4, int64_t is not equal to long long int.
-    const std::vector<long long> _output_shape(output_shape.begin(), output_shape.end());
+    const std::vector<tensorflow::int64> _output_shape(output_shape.begin(), output_shape.end());
     tensor_shape = std::move(tensorflow::TensorShape(_output_shape));
 }
 
@@ -257,7 +285,7 @@ void Facade::get_grad_shape(const size_t global_replica_id,
     embedding_mgr_->get_grad_shape(global_replica_id, embedding, _grad_shape);
 
     // FIXME: in TF 2.4, int64_t is not equal to long long int.
-    const std::vector<long long> temp_grad_shape(_grad_shape.begin(), _grad_shape.end());
+    const std::vector<tensorflow::int64> temp_grad_shape(_grad_shape.begin(), _grad_shape.end());
     grad_shape = std::move(tensorflow::TensorShape(temp_grad_shape));
 }
 

@@ -76,17 +76,11 @@ void RawManager::gen_unique_name(const bool trainable, std::string& name) {
             }
         }
     }
-    
-    MESSAGE("Created embedding variable whose name is " + name);
 }
 
 void RawManager::create_variables(const std::string& initializer, const bool use_hashtable,
                                   const std::vector<size_t> shape, const std::string name,
                                   const bool trainable, std::shared_ptr<ParamInterface>& param) {
-    // generate a unique name for this variable
-    std::string var_name = name;
-    gen_unique_name(trainable, var_name);
-
     // If shape is the same as the previous one, 
     // then the previous param should be returned,
     // rather than creating a new one.
@@ -97,11 +91,11 @@ void RawManager::create_variables(const std::string& initializer, const bool use
         param = previous_param;
     } else {
         // create variable
-        auto raw_param = RawParam::create(initializer, use_hashtable, shape, resource_mgr_, buffers_, var_name, trainable);
+        auto raw_param = RawParam::create(initializer, use_hashtable, shape, resource_mgr_, buffers_, name, trainable);
         if (trainable) {
-            trainable_params_.emplace(std::make_pair(var_name, raw_param));
+            trainable_params_.emplace(std::make_pair(name, raw_param));
         } else {
-            non_trainable_params_.emplace(std::make_pair(var_name, raw_param));
+            non_trainable_params_.emplace(std::make_pair(name, raw_param));
         }
         // update previous state
         previous_param = raw_param;
@@ -110,6 +104,8 @@ void RawManager::create_variables(const std::string& initializer, const bool use
         // set output
         param = raw_param;
     } // if shape == previous_shape
+
+    MESSAGE("Created embedding variable whose name is " + name);
 }
 
 void RawManager::allocate_memory(const size_t global_replica_id) const {

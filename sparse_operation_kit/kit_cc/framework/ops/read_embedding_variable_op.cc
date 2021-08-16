@@ -42,4 +42,5 @@ REGISTER_OP("ReadEmbeddingVariableOp")
     .Input("tf_resource: resource")
     .Output("value: dtype")
     .Attr("dtype: type")
+    .Attr("unique_var_name: string")
     .SetShapeFn(ReadEmbeddingVariableShapeFn);
