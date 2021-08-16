@@ -12,8 +12,7 @@ SOK provides **MP** functionality to fully utilize all avaiable GPUs, no matter 
 Several MP embedding layers are integrated into SOK. These embedding layers can leverage all available GPU memory to house embedding parameters, no matter in single machine or multiple machine. All the utilized GPUs work synchronously.
 
 Due to SOK is compatible with DP training provided by common synchronized training frameworks, such as Horovod, TensorFlow Distribute Strategy, therefore the input data feeded to these embedding layers is in DP manner, and that means no further DP from/to MP transformation is needed when SOK is used to scale up your DNN model from single GPU to multiple GPUs. The following picture depicts the workflow of these embedding layers.
-![avatar](https://gitlab-master.nvidia.com/dl/hugectr/hugectr/-/raw/sok_docs/sparse_operation_kit/documents/source/images/workflow_of_embeddinglayer.png)
-    
+![WorkFlowOfEmbeddingLayer](documents/source/images/workflow_of_embeddinglayer.png)
 
 ## Installation ##
 There are several ways to install this package. <br>
