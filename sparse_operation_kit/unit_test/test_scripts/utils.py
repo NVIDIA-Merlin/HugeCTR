@@ -223,7 +223,7 @@ def tf_dataset(keys, labels,
 
     dataset = tf.data.Dataset.from_tensor_slices((keys, labels))
     dataset = dataset.repeat(repeat)
-    dataset = dataset.batch(batchsize)
+    dataset = dataset.batch(batchsize, drop_remainder=True)
     if to_sparse_tensor:
         dataset = dataset.map(lambda keys, labels: 
                                 _convert_to_sparse(keys, labels),

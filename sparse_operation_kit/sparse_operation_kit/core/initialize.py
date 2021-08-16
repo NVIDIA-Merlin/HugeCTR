@@ -1,18 +1,18 @@
-"""
- Copyright (c) 2021, NVIDIA CORPORATION.
- 
- Licensed under the Apache License, Version 2.0 (the "License");
- you may not use this file except in compliance with the License.
- You may obtain a copy of the License at
-
-     http://www.apache.org/licenses/LICENSE-2.0
-
- Unless required by applicable law or agreed to in writing, software
- distributed under the License is distributed on an "AS IS" BASIS,
- WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- See the License for the specific language governing permissions and
- limitations under the License.
-"""
+#
+# Copyright (c) 2021, NVIDIA CORPORATION.
+# 
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
 
 from __future__ import absolute_import
 from __future__ import division
@@ -32,9 +32,37 @@ from tensorflow import print as tf_print
 
 def Init(**kwargs):
     """
-    This function is used to do the initialization for plugin.
-    It should only be called once for this process.
-    And it must be called under the tf.distribute.Strategy.Scope().
+    Abbreviated as ``sok.Init(**kwargs)``.
+
+    This function is used to do the initialization of SparseOperationKit (SOK).
+
+    SOK will leverage all available GPUs for current CPU process. Please set 
+    `CUDA_VISIBLE_DEVICES` to specify which GPU(s) are used in this process before
+    launching tensorflow runtime and launching this function.
+
+    SOK can be used with **tf.distribute.Strategy** or **Horovod**. When it's used with 
+    tf.distribute.Strategy, it must be called under `strategy.scope()`. For example,
+
+    .. code-block:: python
+    
+        with strategy.scope():
+            sok.Init(**kwargs)
+
+    Parameters
+    ----------
+    kwargs: dictionary
+            keyword arguments for this function. 
+            Currently, it must contains `global_batch_size` used in all GPUs.
+
+    Returns
+    -------
+    status: string
+            a string will be returned if this function executed successfully.
+            And its contents will be 'OK'.
+
+    Notes
+    -----
+    Horovod supporting will be added in the near future.
     """
     @function
     def _single_worker_init(**kwargs):

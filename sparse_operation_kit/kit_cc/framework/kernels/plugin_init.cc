@@ -61,8 +61,7 @@ public:
         status_tensor->flat<tstring>()(0) = "OK";
     }
 private:
-    using int64_t = long long int;
-    int64_t global_batch_size_;
+    tensorflow::int64 global_batch_size_;
 };
 
 REGISTER_KERNEL_BUILDER(Name("PluginInit")
