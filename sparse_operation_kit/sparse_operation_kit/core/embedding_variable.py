@@ -29,6 +29,7 @@ from tensorflow.python.framework import ops
 from tensorflow.distribute import get_strategy
 from tensorflow.python.ops.variables import VariableSynchronization, VariableAggregation
 from tensorflow.python.distribute.values import DistributedVariable
+from tensorflow.python.ops import resource_variable_ops
 import functools
 
 class EmbeddingVariable(BaseResourceVariable):
@@ -75,15 +76,17 @@ class EmbeddingVariable(BaseResourceVariable):
         self.m_initial_value = initial_value
         self.m_trainable = trainable
         self.m_use_hashtable = use_hashtable
-        self.m_var_name = name
+        self.m_var_name = ops.get_default_graph().unique_name(name, mark_as_used=True)
+        self.m_unique_id = "%s_%d" %(self.m_var_name, ops.uid())
 
         # m_handle is the handle to EmbeddingVariable, tf_handle is the handle to TF Var.
-        self.m_handle, self.tf_handle = create_var(initial_value=self.m_initial_value,
-                                                    local_replica_id=self.m_local_replica_id,
-                                                    trainable=self.m_trainable,
-                                                    shape=self.m_shape_per_gpu,
-                                                    use_hashtable=self.m_use_hashtable,
-                                                    var_name=self.m_var_name)
+        self.m_handle, self.tf_handle, _ = create_var(
+                                            initial_value=self.m_initial_value,
+                                            local_replica_id=self.m_local_replica_id,
+                                            trainable=self.m_trainable,
+                                            shape=self.m_shape_per_gpu,
+                                            use_hashtable=self.m_use_hashtable,
+                                            var_name=self.m_var_name)
 
         super(EmbeddingVariable, self).__init__(trainable=self.m_trainable,
                                                 shape=self.m_shape_per_gpu,
@@ -93,7 +96,18 @@ class EmbeddingVariable(BaseResourceVariable):
                                                 distribute_strategy=get_strategy(),
                                                 synchronization=VariableSynchronization.NONE,
                                                 aggregation=VariableAggregation.ONLY_FIRST_REPLICA,
+                                                unique_id=self.m_unique_id,
                                                 *args, **kwargs)
+
+        handle_data = resource_variable_ops.cpp_shape_inference_pb2.CppShapeInferenceResult.HandleData()
+        handle_data.is_set = True
+        handle_data.shape_and_type.append(
+            resource_variable_ops.cpp_shape_inference_pb2.CppShapeInferenceResult.HandleShapeAndType(
+                shape=self.shape.as_proto(), dtype=self.dtype.as_datatype_enum))
+        resource_variable_ops._set_handle_shapes_and_types(self.m_handle, handle_data, 
+            graph_mode=False if context.executing_eagerly() else True)
+        resource_variable_ops._set_handle_shapes_and_types(self.tf_handle, handle_data, 
+            graph_mode=False if context.executing_eagerly() else True)
 
     @property
     def emb_handle(self):
@@ -103,7 +117,7 @@ class EmbeddingVariable(BaseResourceVariable):
         variable_accessed(self)
 
         def read_and_set_handle():
-            result = read_embedding_variable(self._handle, self.tf_handle, self._dtype)
+            result = read_embedding_variable(self._handle, self.tf_handle, self._dtype, self.name)
             _maybe_set_handle_data(self._dtype, self._handle, result)
             return result
 

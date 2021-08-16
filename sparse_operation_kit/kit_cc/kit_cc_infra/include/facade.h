@@ -27,6 +27,7 @@
 
 #include <string>
 #include <memory>
+#include <mutex>
 
 namespace SparseOperationKit {
 
@@ -47,6 +48,7 @@ private:
     void try_allocate_memory(const size_t global_replica_id) const;
     void try_allocate_memory() const;
 
+    std::vector<std::shared_ptr<std::mutex>> init_mus_;
 public: 
     static Facade* instance();
     void operator delete(void*);
@@ -58,6 +60,8 @@ public:
     void init(const size_t global_replica_id, const size_t num_replicas_in_sync, 
               const int32_t* nccl_unique_id, const uint64_t global_seed,
               const size_t global_batch_size, const cudaStream_t& tf_stream);
+
+    void generate_unique_name(const bool trainable, std::string &variable_name);
 
     void create_variables(const size_t local_replica_id, const float* initial_value, const bool use_hashtable, 
                           const std::vector<int64_t> shape, const std::string name,

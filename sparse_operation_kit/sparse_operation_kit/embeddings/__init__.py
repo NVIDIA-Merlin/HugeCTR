@@ -14,6 +14,4 @@
  limitations under the License.
 """
 
-from sparse_operation_kit.kit_lib import test
-
 __all__ = []

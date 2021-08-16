@@ -43,8 +43,7 @@ public:
     }
 
 private:
-    using int64_t = long long int;
-    int64_t seed_;
+    tensorflow::int64 seed_;
 };
 
 REGISTER_KERNEL_BUILDER(Name("GenRandomSeed")

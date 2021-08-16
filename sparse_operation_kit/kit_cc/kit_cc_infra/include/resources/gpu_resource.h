@@ -40,6 +40,8 @@ private:
     int32_t sm_count_;
     int32_t cc_major_;
     int32_t cc_minor_;
+    int32_t max_shared_memory_size_per_sm_;
+    int32_t warp_size_;
 
     int32_t *nccl_sync_data_;
 
@@ -74,6 +76,8 @@ public:
     const cudaStream_t& get_stream() const; 
     const cudaStream_t& get_memcpy_stream() const;
     size_t get_sm_count() const;
+    size_t get_max_smem_size_per_sm() const;
+    size_t get_warp_size() const;
     const curandGenerator_t& get_variant_curand_gen() const;
     const curandGenerator_t& get_uniform_curand_gen() const;
     const ncclComm_t& get_nccl() const;

@@ -28,38 +28,35 @@ public:
     }
     void Compute(OpKernelContext* ctx) override {
         // TODO: no need to read the resource handle??
-        // core::RefCountPtr<EmbeddingVariable> variable;
-        // const ResourceHandle& handle = HandleFromInput(ctx, 0);
-        // auto status = LookupResource(ctx, handle, &variable);
-        // OP_REQUIRES(ctx, status.ok(),
-        //             errors::FailedPrecondition(
-        //                 "Error while reading resource variable ", handle.name(),
-        //                 " from Container: ", handle.container(),
-        //                 ". This could mean that the variable was uninitialized. ",
-        //                 status.ToString()));
 
-        // // TODO: read TF Var handle
-        // core::RefCountPtr<Var> tf_var;
-        // const ResourceHandle& tf_handle = HandleFromInput(ctx, 1);
-        // auto status = LookupResource(ctx, tf_handle, &tf_var);
-        // OP_REQUIRES(ctx, status.ok(),
-        //             errors::FailedPrecondition(
-        //                 "Error while reading TF Var ", tf_handle.name(),
-        //                 " from container: ", tf_handle.container(),
-        //                 ". This could mean that you haven't create it. ",
-        //                 status.ToString()));
-        // Tensor* tf_tensor = tf_var->tensor();
-        // float* host_buffer = nullptr;
-        // std::cout << "[INFO]: tensor->ptr = " << tf_var->tensor()->data() << std::endl;
-        // cudaMallocHost(&host_buffer, tf_tensor->NumElements() * sizeof(float), cudaHostAllocDefault);
-        // cudaMemcpy(host_buffer, tf_tensor->data(), tf_tensor->NumElements() * sizeof(float),
-        //             cudaMemcpyDefault);
-        // // for (int i = 0; i < tf_tensor->NumElements(); i++) std::cout << host_buffer[i] << " ";
-        // // std::cout << std::endl;
-        // cudaFreeHost(host_buffer);
+        core::RefCountPtr<Var> variable;
+        const ResourceHandle& handle = HandleFromInput(ctx, 0);
+        auto status = LookupResource(ctx, handle, &variable);
+
+        if (!status.ok()) { // the first resource handle is not ResourceVariable
+            const ResourceHandle& handle = HandleFromInput(ctx, 1);
+            auto status = LookupResource(ctx, handle, &variable);
+            OP_REQUIRES(ctx, status.ok(),
+                        errors::FailedPrecondition(
+                            "Error while reading resource variable: ", handle.name(),
+                            " from container: ", handle.container(),
+                            ", which means the resource handle is neither EmbeddingVariable",
+                            " nor ResourceVariable. ",
+                            status.ToString()));   
+        }
+
+        TensorShape tensor_shape = variable->tensor()->shape();
+
+#ifdef DEBUG
+        std::cout << "tensor shape is: [";
+        for (auto iter = tensor_shape.begin(); iter != tensor_shape.end(); ++iter) {
+            std::cout << (*iter).size << ",";
+        }
+        std::cout << "\b]" << std::endl;
+#endif
 
         Tensor* output_tensor = nullptr;
-        OP_REQUIRES_OK(ctx, ctx->allocate_output(0, {}, &output_tensor));
+        OP_REQUIRES_OK(ctx, ctx->allocate_output(0, tensor_shape, &output_tensor));
     }
 private:
     DataType dtype_;
