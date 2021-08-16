@@ -27,8 +27,6 @@ class PluginSparseFpropOp : public OpKernel {
 public:
     explicit PluginSparseFpropOp(OpKernelConstruction* ctx) : OpKernel(ctx) {
         OP_REQUIRES_OK(ctx, ctx->GetAttr("training", &training_));
-        OP_REQUIRES_OK(ctx, ctx->GetAttr("value_dtype", &value_dtype_));
-        OP_REQUIRES_OK(ctx, ctx->GetAttr("vector_dtype", &vector_dtype_));
     }
     void Compute(OpKernelContext* ctx) override {
         Tensor const *emb_handle_tensor = nullptr;
@@ -71,8 +69,6 @@ public:
     }
 private:
     bool training_;
-    DataType value_dtype_;
-    DataType vector_dtype_;
     TensorShape emb_vector_tensor_shape_;
 };
 

@@ -251,7 +251,6 @@ dcn:
       python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/dcn_parquet_localized_8gpu.json"
   timeout: 3 hours
 
-
 mlperf_benchmark:
   extends: .cluster_test_train_job
   script:
