@@ -40,6 +40,4 @@ $ cmake -DSM=[Compute Capability] .. && make -j && make install
 Where `[Compute Capability]` is related to your GPU hardware. For example, for Ampere A100, the compute capability is `80`. If you want to profiling this module with `nvtx`, you can enable nvtx marks via add `-DUSE_NVTX=ON` to cmake command.
 
 ## Documents ##
-<div class="admonition note">
-<p>Want to find more about SparseOperationKit, see our [SparseOperationKit documents](http://10.19.206.42:8000/doc-build/master/index.html).</p>
-</div>
+Want to find more about SparseOperationKit, see our [SparseOperationKit documents](https://nvidia.github.io/HugeCTR/sparse_operation_kit/v1.0.0/index.html).
