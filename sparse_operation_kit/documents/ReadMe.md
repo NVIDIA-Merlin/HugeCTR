@@ -1,4 +1,7 @@
-# Add documents for SparseOperationKit #
+# Documents #
+Want to find more about SparseOperationKit, see our [SparseOperationKit documents](https://nvidia.github.io/HugeCTR/sparse_operation_kit/v1.0.0/index.html).
+
+## Add documents for SparseOperationKit ##
 + Install the required tools and extensions
 ```shell
 $ pip install sphinx recommonmark nbsphinx sphinx_rtd_theme sphinx_multiversion sphinx_markdown_tables myst-parser linkify-it-py

@@ -74,10 +74,11 @@ myst_enable_extensions = [
 
 # multiversion settings ---------------------
 # Whitelist pattern for tags (set to None to ignore all tags)
-smv_tag_whitelist = r'^v.*$'
+smv_tag_whitelist = r'^sok_v.*$'
 
 # Whitelist pattern for branches (set to None to ignore all branches)
-smv_branch_whitelist = r'^sok_docs|master$'
+# smv_branch_whitelist = r'^sok_docs|master$'
+smv_branch_whitelist = r'^None$'
 
 # Whitelist pattern for remotes (set to None to use local branches only)
 smv_remote_whitelist = r'^master$'
