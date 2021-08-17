@@ -1,0 +1,331 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  
+  <title>SparseOperationKit Embedding Saver &mdash; SparseOperationKit  documentation</title>
+  
+
+  
+  <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+
+  
+  
+
+  
+  
+
+  
+
+  
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/doctools.js"></script>
+    
+    <script type="text/javascript" src="../../_static/js/theme.js"></script>
+
+    
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="SparseOperationKit Utilities" href="../utils/index.html" />
+    <link rel="prev" title="All2All Dense Embedding" href="dense/all2all.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../../index.html" class="icon icon-home"> SparseOperationKit
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                1.0.0
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../intro_link.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../features/features.html">Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../get_started/get_started.html">Get Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../examples/index.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../performance/index.html">Performance</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../index.html">API Docs</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../init.html">Initialize</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="index.html">Embeddings</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="sparse/index.html">Sparse Embeddings</a></li>
+<li class="toctree-l3"><a class="reference internal" href="dense/index.html">Dense Embeddings</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">Saver</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../utils/index.html">Utilities</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../known_issues/issues.html">Known Issues</a></li>
+</ul>
+
+            
+          
+        </div>
+        
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">SparseOperationKit</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../index.html" class="icon icon-home"></a> &raquo;</li>
+        
+          <li><a href="../index.html">SparseOperationKit API</a> &raquo;</li>
+        
+          <li><a href="index.html">SparseOperationKit Embeddings</a> &raquo;</li>
+        
+      <li>SparseOperationKit Embedding Saver</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+          
+            <a href="../../_sources/api/embeddings/saver.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <section id="sparseoperationkit-embedding-saver">
+<h1>SparseOperationKit Embedding Saver<a class="headerlink" href="#sparseoperationkit-embedding-saver" title="Permalink to this headline">¶</a></h1>
+<p>Currently, you must explicitly call this saver to dump or load
+trainable parameters for the trainable variables in those
+embedding layers. And other trainable variables are still managed
+by the DL framework.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="sparse_operation_kit.saver.Saver.Saver">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">sparse_operation_kit.saver.Saver.</span></span><span class="sig-name descname"><span class="pre">Saver</span></span><a class="reference internal" href="../../_modules/sparse_operation_kit/saver/Saver.html#Saver"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#sparse_operation_kit.saver.Saver.Saver" title="Permalink to this definition">¶</a></dt>
+<dd><p>Abbreviated as <code class="docutils literal notranslate"><span class="pre">sok.Saver()</span></code>.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="sparse_operation_kit.saver.Saver.Saver.dump_to_file">
+<span class="sig-name descname"><span class="pre">dump_to_file</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">embedding_variable</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">filepath</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/sparse_operation_kit/saver/Saver.html#Saver.dump_to_file"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#sparse_operation_kit.saver.Saver.Saver.dump_to_file" title="Permalink to this definition">¶</a></dt>
+<dd><p>This function is used to save the specified embedding variables
+to host file.</p>
+<p>When multiple CPU processes is used, this function must be called
+within each CPU processes.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>embedding_variable</strong> (<em>sok.EmbeddingVariable</em><em>, </em><em>tf.DistributedVariable</em>) – The variable from embedding layer which needs to be dumped
+to file.</p></li>
+<li><p><strong>filepath</strong> (<em>string</em>) – The directory where the parameters will be dumped to.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>status</strong> – If this op executed successfully, then ‘OK’ will be returned.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>tf.Tensor</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="sparse_operation_kit.saver.Saver.Saver.restore_from_file">
+<span class="sig-name descname"><span class="pre">restore_from_file</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">embedding_variable</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">filepath</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/sparse_operation_kit/saver/Saver.html#Saver.restore_from_file"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#sparse_operation_kit.saver.Saver.Saver.restore_from_file" title="Permalink to this definition">¶</a></dt>
+<dd><p>This function is used to restore dumped parameters to the specified embedding variable.</p>
+<p>When multiple CPU processes is used, this function must be called
+within each CPU processes.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>embedding_variable</strong> (<em>sok.EmbeddingVariable</em><em>, </em><em>tf.DistributedVariable</em>) – The embedding variable which needs to be restored from file.</p></li>
+<li><p><strong>filepath</strong> (<em>string</em>) – The directory where the parameters will be restored from.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>status</strong> – If this op executed successfully, then ‘OK’ will be returned.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>tf.Tensor</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="sparse_operation_kit.saver.Saver.Saver.load_embedding_values">
+<span class="sig-name descname"><span class="pre">load_embedding_values</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">embedding_variable</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tensors</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/sparse_operation_kit/saver/Saver.html#Saver.load_embedding_values"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#sparse_operation_kit.saver.Saver.Saver.load_embedding_values" title="Permalink to this definition">¶</a></dt>
+<dd><p>This function is used to assign embedding_variable’s value with tf.Tensors.</p>
+<p>When multiple CPU processes is used, this function must be called
+within each CPU processes.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>embedding_variable</strong> (<em>sok.EmbeddingVariable</em><em>, </em><em>tf.DistributedVariable</em>) – Which embedding_variable’s value will be assigned.</p></li>
+<li><p><strong>tensors</strong> (<em>list of tf.Tensor</em><em>, </em><em>tuple of tf.Tensor</em>) – Each tf.Tensor must be 2-rank and the shape must be <cite>[None, embedding_vec_size]</cite>,
+where the <cite>embedding_vec_size</cite> must be equal to that of embedding_variable’s.
+All tf.Tensors make up to a big tensor, which just like they are stacked. For example:
+<cite>[tf.Tensor(shape=(bs_0, embedding_vec_size)), tf.Tensor(shape=(bs_1, embedding_vec_size)),                      tf.Tensor(shape=(bs_2, embedding_vec_size))]</cite> will be treated as
+<cite>tf.Tensor(shape=(bs_0 + bs_1 + bs_2, embedding_vec_size))</cite>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>status</strong> – If this op executed successfully, then ‘OK’ will be returned.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>tf.Tensor</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+
+
+           </div>
+           
+          </div>
+          <footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+        <a href="../utils/index.html" class="btn btn-neutral float-right" title="SparseOperationKit Utilities" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="dense/all2all.html" class="btn btn-neutral float-left" title="All2All Dense Embedding" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &#169; Copyright 2021, NVIDIA.
+
+    </p>
+  </div>
+    
+    
+    
+    Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    
+    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    v: sok_v1.0.0
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="saver.html">sok_v1.0.0</a></dd>
+    </dl>
+  </div>
+</div>
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

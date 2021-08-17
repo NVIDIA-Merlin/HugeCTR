@@ -1,0 +1,316 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  
+  <title>Performance of demo model using Dense Embedding Layer &mdash; SparseOperationKit  documentation</title>
+  
+
+  
+  <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+
+  
+  
+
+  
+  
+
+  
+
+  
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/underscore.js"></script>
+        <script src="../_static/doctools.js"></script>
+    
+    <script type="text/javascript" src="../_static/js/theme.js"></script>
+
+    
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="SparseOperationKit API" href="../api/index.html" />
+    <link rel="prev" title="Performance" href="index.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../index.html" class="icon icon-home"> SparseOperationKit
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                1.0.0
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../intro_link.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features/features.html">Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../get_started/get_started.html">Get Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples/index.html">Examples</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Performance</a><ul class="current">
+<li class="toctree-l2 current"><a class="current reference internal" href="#">DenseDemo</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#profiling-commands">Profiling commands</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#infrastructure">Infrastructure</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#performance-numbers">Performance Numbers</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#end2end-elapsed-time-miliseconds">end2end elapsed time (miliseconds)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#query-per-seconds">Query per seconds</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../api/index.html">API Docs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../known_issues/issues.html">Known Issues</a></li>
+</ul>
+
+            
+          
+        </div>
+        
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">SparseOperationKit</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../index.html" class="icon icon-home"></a> &raquo;</li>
+        
+          <li><a href="index.html">Performance</a> &raquo;</li>
+        
+      <li>Performance of demo model using Dense Embedding Layer</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+          
+            <a href="../_sources/performance/dense_demo.md.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <section class="tex2jax_ignore mathjax_ignore" id="performance-of-demo-model-using-dense-embedding-layer">
+<h1>Performance of demo model using Dense Embedding Layer<a class="headerlink" href="#performance-of-demo-model-using-dense-embedding-layer" title="Permalink to this headline">¶</a></h1>
+<p>The performance of demo model introduced in <a class="reference external" href="https://nvidia.github.io/HugeCTR/sparse_operation_kit/v1.0.0/examples/dense_demo.html">Examples/DenseDemo</a>.</p>
+<section id="profiling-commands">
+<h2>Profiling commands<a class="headerlink" href="#profiling-commands" title="Permalink to this headline">¶</a></h2>
+<p>Add <code class="docutils literal notranslate"><span class="pre">--trace-fork-before-exec=true</span></code> if MPI or multiple CPU processes is used to collect the timelines for all GPUs.</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>nsys profile --trace<span class="o">=</span>nvtx,cuda --sample<span class="o">=</span>none --backtrace<span class="o">=</span>none --cudabacktrace<span class="o">=</span>none --cpuctxsw<span class="o">=</span>none -f <span class="nb">true</span> -o profiling_filename <span class="se">\</span>
+python3 script.py --arguments
+</pre></div>
+</div>
+</section>
+<section id="infrastructure">
+<h2>Infrastructure<a class="headerlink" href="#infrastructure" title="Permalink to this headline">¶</a></h2>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>TensorFlow 2.5
+embedding_vec_size: 4
+slot_num: 100
+nnz_per_slot: 10
+batchsize for single GPU: 8192
+batchsize for 8 GPUs: 65536
+DGX A100
+NsightSystems-linux-cli-public-2021.2.1.58
+</pre></div>
+</div>
+</section>
+<section id="performance-numbers">
+<h2>Performance Numbers<a class="headerlink" href="#performance-numbers" title="Permalink to this headline">¶</a></h2>
+<section id="end2end-elapsed-time-miliseconds">
+<h3>end2end elapsed time (miliseconds)<a class="headerlink" href="#end2end-elapsed-time-miliseconds" title="Permalink to this headline">¶</a></h3>
+<table class="colwidths-auto docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p></p></th>
+<th class="head"><p>1 GPU</p></th>
+<th class="head"><p>8 GPUs</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Original TF</p></td>
+<td><p>179.85</p></td>
+<td><p>——</p></td>
+</tr>
+<tr class="row-odd"><td><p>SOK</p></td>
+<td><p>25.90</p></td>
+<td><p>45.36</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="query-per-seconds">
+<h3>Query per seconds<a class="headerlink" href="#query-per-seconds" title="Permalink to this headline">¶</a></h3>
+<table class="colwidths-auto docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p></p></th>
+<th class="head"><p>1 GPU</p></th>
+<th class="head"><p>8 GPUs</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Original TF</p></td>
+<td><p>45548</p></td>
+<td><p>——</p></td>
+</tr>
+<tr class="row-odd"><td><p>SOK</p></td>
+<td><p>316269</p></td>
+<td><p>1444925</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+</section>
+
+
+           </div>
+           
+          </div>
+          <footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+        <a href="../api/index.html" class="btn btn-neutral float-right" title="SparseOperationKit API" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="index.html" class="btn btn-neutral float-left" title="Performance" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &#169; Copyright 2021, NVIDIA.
+
+    </p>
+  </div>
+    
+    
+    
+    Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    
+    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    v: sok_v1.0.0
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="dense_demo.html">sok_v1.0.0</a></dd>
+    </dl>
+  </div>
+</div>
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>
