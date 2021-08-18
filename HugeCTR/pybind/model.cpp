@@ -576,14 +576,17 @@ void Model::compile() {
   }
   for (size_t i = 0; i < resource_manager_->get_local_gpu_count(); i++) {
     if (solver_.use_mixed_precision) {
-      networks_[i]->optimizer_ =
-          std::move(Optimizer::Create(opt_params_, train_weight_buff_list_[i]->as_tensor(),
-                                      wgrad_buff_half_list_[i]->as_tensor(), solver_.scaler,
-                                      opt_buff_half_list_[i], resource_manager_->get_local_gpu(i)));
+      networks_[i]->optimizer_ = std::move(Optimizer::Create(
+          opt_params_, train_weight_buff_list_[i]->as_tensor(),
+          train_weight_buff_half_list_[i]->as_tensor(), wgrad_buff_half_list_[i]->as_tensor(),
+          solver_.scaler, opt_buff_half_list_[i], resource_manager_->get_local_gpu(i),
+          solver_.use_mixed_precision));
     } else {
       networks_[i]->optimizer_ = std::move(Optimizer::Create(
-          opt_params_, train_weight_buff_list_[i]->as_tensor(), wgrad_buff_list_[i]->as_tensor(),
-          solver_.scaler, opt_buff_list_[i], resource_manager_->get_local_gpu(i)));
+          opt_params_, train_weight_buff_list_[i]->as_tensor(),
+          train_weight_buff_half_list_[i]->as_tensor(), wgrad_buff_list_[i]->as_tensor(),
+          solver_.scaler, opt_buff_list_[i], resource_manager_->get_local_gpu(i),
+          solver_.use_mixed_precision));
     }
 
     networks_[i]->train_weight_tensor_ = train_weight_buff_list_[i]->as_tensor();
