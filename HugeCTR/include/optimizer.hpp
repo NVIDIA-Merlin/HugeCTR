@@ -85,9 +85,11 @@ class Optimizer {
   template <typename T>
   static std::unique_ptr<Optimizer> Create(const OptParams& params,
                                            const Tensor2<float>& weight_main,
+                                           const Tensor2<__half>& weight_main_half,
                                            const Tensor2<T>& wgrad, const float scaler,
                                            const std::shared_ptr<BufferBlock2<T>>& opt_buff,
-                                           const std::shared_ptr<GPUResource>& gpu_resource);
+                                           const std::shared_ptr<GPUResource>& gpu_resource,
+                                           bool use_mixed_precision);
 
   /**
    * Constructor of Optimizer.
@@ -101,7 +103,8 @@ class Optimizer {
       : weight_main_(weight_main),
         gpu_resource_(gpu_resource),
         lr_(learning_rate),
-        scaler_(scaler) {
+        scaler_(scaler),
+        optimizer_type_(Optimizer_t::DEFAULT) {
     if (lr_ < 0.) {
       CK_THROW_(Error_t::WrongInput, "lr < 0");
     }
@@ -137,11 +140,14 @@ class Optimizer {
     gpu_learning_rate_scheduler_ = sched;
   }
 
+  const Optimizer_t& get_optimizer_type() { return optimizer_type_; }
+
  protected:
   Tensor2<float> weight_main_;
   std::shared_ptr<GPUResource> gpu_resource_;
   float lr_;  // learning rate
   const float scaler_;
+  Optimizer_t optimizer_type_;
 
   std::shared_ptr<GpuLearningRateScheduler> gpu_learning_rate_scheduler_;
 
