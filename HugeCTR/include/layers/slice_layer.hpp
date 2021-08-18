@@ -29,37 +29,11 @@ namespace HugeCTR {
  */
 template <typename T>
 class SliceLayer : public Layer {
-  /*
-   * stores the weight tensors of this layer.
-   */
-  Tensors2<T> weights_;
-  /*
-   * stores the weight gradient tensors of this layer.
-   */
-  Tensors2<T> wgrad_;
-  /*
-   * stores the references to the input tensors of this layer.
-   */
-  Tensors2<T> in_tensors_;
-  /*
-   * stores the references to the output tensors of this layer.
-   */
-  Tensors2<T> out_tensors_;
-
-  int virt_w_;
-  std::vector<int> sts_;
-
-  void prop_common(bool forward, bool is_train, cudaStream_t stream);
-  template <typename... Args>
-  void kernel_launch(bool forward, bool is_train, cudaStream_t stream, Args&... args);
-
-  Tensors2<T>& get_in_tensors(bool is_train) { return in_tensors_; }
-
  public:
   /**
    * Ctor of SliceLayer.
    * @param in_tensor input tensor
-   * @param out_tensor vector where the pointers to the created output tensors are stored
+   * @param out_tensors vector where the pointers to the created output tensors are stored
    * @param blobs_buff GeneralBuffer used to create the output tensor
    * @param ranges set of the slice ranges along columns
    * @param device_id the id of GPU where this layer belongs
@@ -81,14 +55,17 @@ class SliceLayer : public Layer {
    */
   void bprop() override;
 
-  struct OutParam {
-    T* out;
-    const int st;
-    const int ed;
-  };
-
  private:
-  std::vector<OutParam> set_out_params(int n);
+  /*
+   * stores the references to the input tensors of this layer.
+   */
+  Tensor2<T> in_tensor_;
+  /*
+   * stores the references to the output tensors of this layer.
+   */
+  Tensors2<T> out_tensors_;
+
+  std::vector<int> slices_start_;
 };
 
 }  // namespace HugeCTR
