@@ -15,6 +15,7 @@
  */
 
 #include <common.hpp>
+#include <cstdint>
 #include <layers/slice_layer.hpp>
 #include <utils.cuh>
 #include <utils.hpp>
@@ -27,34 +28,22 @@ namespace HugeCTR {
 
 namespace {
 
-template <size_t length, typename T>
-__device__ int array_length(T (&)[length]) {
-  return length;
+template <typename T>
+__global__ void slice_fwd_kernel(T* const __restrict__ out, const T* const __restrict__ in,
+                                 const int2 in_dim, const int2 slice) {
+  for (int mi = blockIdx.x; mi < in_dim.x; mi += gridDim.x) {
+    for (int ni = threadIdx.x; ni < slice.y; ni += blockDim.x) {
+      out[mi * slice.y + ni] = in[mi * in_dim.y + slice.x + ni];
+    }
+  }
 }
 
-template <typename T, typename... Args>
-__global__ void slice_kernel(bool forward, T* in, const int h, const int in_w, const int virt_w,
-                             const Args... args) {
-  const typename SliceLayer<T>::OutParam out_params[] = {args...};
-  const int n_outs = array_length(out_params);
-
-  for (int row = blockIdx.x; row < h; row += gridDim.x) {
-    for (int k = 0; k < n_outs; k++) {
-      int st = out_params[k].st;
-      int ed = out_params[k].ed;
-      int out_w = ed - st;
-      for (int out_col = threadIdx.x; out_col < out_w; out_col += blockDim.x) {
-        int in_col = out_col + st;
-        int in_idx = row * in_w + in_col;
-        int out_idx = row * out_w + out_col;
-        T* out = out_params[k].out;
-        if (forward) {
-          out[out_idx] = in[in_idx];
-        } else {
-          in[in_idx] += out[out_idx];
-        }
-      }
-      __syncthreads();
+template <typename T>
+__global__ void slice_bwd_kernel(const T* const __restrict__ out, T* const __restrict__ in,
+                                 const int2 in_dim, const int2 slice) {
+  for (int mi = blockIdx.x; mi < in_dim.x; mi += gridDim.x) {
+    for (int ni = threadIdx.x; ni < slice.y; ni += blockDim.x) {
+      in[mi * in_dim.y + slice.x + ni] += out[mi * slice.y + ni];
     }
   }
 }
@@ -66,7 +55,7 @@ SliceLayer<T>::SliceLayer(const Tensor2<T>& in_tensor, Tensors2<T>& out_tensors,
                           const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
                           std::vector<std::pair<int, int>>& ranges,
                           const std::shared_ptr<GPUResource>& gpu_resource)
-    : Layer(gpu_resource), virt_w_(0) {
+    : Layer(gpu_resource) {
   try {
     if (ranges.empty()) {
       CK_THROW_(Error_t::WrongInput, "Empty slice ranges is not allowed");
@@ -106,18 +95,15 @@ SliceLayer<T>::SliceLayer(const Tensor2<T>& in_tensor, Tensors2<T>& out_tensors,
         Tensor2<T> tensor;
         blobs_buff->reserve(out_dims, &tensor);
         out_tensors.push_back(tensor);
+        out_tensors_.push_back(tensor);
       }
-      sts_.push_back(cur_min);
-      virt_w_ += out_w;
+      slices_start_.push_back(cur_min);
 
       prev_min = cur_min;
       prev_max = cur_max;
     }
 
-    in_tensors_.push_back(in_tensor);
-    for (auto& out_tensor : out_tensors) {
-      out_tensors_.push_back(out_tensor);
-    }
+    in_tensor_ = in_tensor;
 
   } catch (const std::runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
@@ -127,69 +113,43 @@ SliceLayer<T>::SliceLayer(const Tensor2<T>& in_tensor, Tensors2<T>& out_tensors,
 
 template <typename T>
 void SliceLayer<T>::fprop(bool is_train) {
-  prop_common(true, is_train, get_gpu().get_stream());
+  CudaDeviceContext context(get_device_id());
+  auto stream = get_gpu().get_stream();
+
+  int block_size = 256;
+  int n_blocks = get_gpu().get_sm_count() * 4;
+  T* in = in_tensor_.get_ptr();
+  int2 in_dim = {static_cast<int>(in_tensor_.get_dimensions()[0]),
+                 static_cast<int>(in_tensor_.get_dimensions()[1])};
+  int grid_size = std::min(in_dim.x, n_blocks);
+  for (std::size_t i = 0; i < out_tensors_.size(); i++) {
+    Tensor2<T>& out_tensor = out_tensors_[i];
+    T* out = out_tensor.get_ptr();
+    int2 slice = {slices_start_[i], static_cast<int>(out_tensor.get_dimensions()[1])};
+
+    slice_fwd_kernel<<<grid_size, block_size, 0, stream>>>(out, in, in_dim, slice);
+  }
 }
 
 template <typename T>
 void SliceLayer<T>::bprop() {
-  prop_common(false, true, get_gpu().get_stream());
-}
-
-template <typename T>
-void SliceLayer<T>::prop_common(bool forward, bool is_train, cudaStream_t stream) {
   CudaDeviceContext context(get_device_id());
+  auto stream = get_gpu().get_stream();
 
-  int n_out_tensors = out_tensors_.size();
-  if (n_out_tensors == 2) {
-    std::vector<OutParam> out_params = set_out_params(2);
-    kernel_launch(forward, is_train, stream, out_params[0], out_params[1]);
-  } else if (n_out_tensors == 3) {
-    std::vector<OutParam> out_params = set_out_params(3);
-    kernel_launch(forward, is_train, stream, out_params[0], out_params[1], out_params[2]);
-  } else if (n_out_tensors == 4) {
-    std::vector<OutParam> out_params = set_out_params(4);
-    kernel_launch(forward, is_train, stream, out_params[0], out_params[1], out_params[2],
-                  out_params[3]);
-  } else if (n_out_tensors == 5) {
-    std::vector<OutParam> out_params = set_out_params(5);
-    kernel_launch(forward, is_train, stream, out_params[0], out_params[1], out_params[2],
-                  out_params[3], out_params[4]);
-  } else {
-    CK_THROW_(Error_t::UnSupportedFormat, "Slicing into > 5 layers is not supported");
-  }
-
-#ifndef NDEBUG
-  cudaDeviceSynchronize();
-  CK_CUDA_THROW_(cudaGetLastError());
-#endif
-}
-
-template <typename T>
-std::vector<typename SliceLayer<T>::OutParam> SliceLayer<T>::set_out_params(int n) {
-  std::vector<OutParam> out_params;
-  for (int i = 0; i < n; i++) {
+  int block_size = 256;
+  int n_blocks = get_gpu().get_sm_count() * 4;
+  T* in = in_tensor_.get_ptr();
+  int2 in_dim = {static_cast<int>(in_tensor_.get_dimensions()[0]),
+                 static_cast<int>(in_tensor_.get_dimensions()[1])};
+  int grid_size = std::min(in_dim.x, n_blocks);
+  initialize_array<<<n_blocks, block_size, 0, stream>>>(in, in_dim.x * in_dim.y, T(0));
+  for (std::size_t i = 0; i < out_tensors_.size(); i++) {
     Tensor2<T>& out_tensor = out_tensors_[i];
     T* out = out_tensor.get_ptr();
-    int st = sts_[i];
-    int w = out_tensor.get_dimensions()[1];
-    out_params.push_back({out, st, st + w});
-  }
-  return out_params;
-}
+    int2 slice = {slices_start_[i], static_cast<int>(out_tensor.get_dimensions()[1])};
 
-template <typename T>
-template <typename... Args>
-void SliceLayer<T>::kernel_launch(bool forward, bool is_train, cudaStream_t stream, Args&... args) {
-  int block_size = 512;
-  int n_blocks = get_gpu().get_sm_count() * 4;
-  Tensor2<T>& in_tensor = get_in_tensors(is_train)[0];
-  T* in = in_tensor.get_ptr();
-  int h = in_tensor.get_dimensions()[0];
-  int in_w = in_tensor.get_dimensions()[1];
-  if (!forward) {
-    initialize_array<<<n_blocks, block_size, 0, stream>>>(in, h * in_w, T(0));
+    slice_bwd_kernel<<<grid_size, block_size, 0, stream>>>(out, in, in_dim, slice);
   }
-  slice_kernel<<<n_blocks, block_size, 0, stream>>>(forward, in, h, in_w, virt_w_, args...);
 }
 
 template class SliceLayer<float>;

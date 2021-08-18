@@ -31,35 +31,7 @@ namespace HugeCTR {
  */
 template <typename T>
 class ConcatLayer : public Layer {
-  /*
-   * stores the weight tensors of this layer.
-   */
-  Tensors2<T> weights_;
-  /*
-   * stores the weight gradient tensors of this layer.
-   */
-  Tensors2<T> wgrad_;
-  /*
-   * stores the references to the input tensors of this layer.
-   */
-  Tensors2<T> in_tensors_;
-  /*
-   * stores the references to the output tensors of this layer.
-   */
-  Tensor2<T> out_tensor_;
-
-  void prop_common(bool forward, Tensors2<T>& in_tensors, cudaStream_t stream, size_t n_sms);
-  template <typename... Args>
-  void kernel_launch(bool forward, cudaStream_t stream, size_t n_sms, Args&... args);
-
-  Tensors2<T>& get_in_tensors(bool is_train);
-
  public:
-  struct InParam {
-    T* in;
-    const int in_w;
-  };
-
   /**
    * Ctor of ConcatLayer.
    * @param in_tensors the vector of the input tensors
@@ -84,7 +56,14 @@ class ConcatLayer : public Layer {
   void bprop() override;
 
  private:
-  std::vector<InParam> set_in_params(Tensors2<T>& in_tensors, int n);
+  /*
+   * stores the references to the input tensors of this layer.
+   */
+  Tensors2<T> in_tensors_;
+  /*
+   * stores the references to the output tensors of this layer.
+   */
+  Tensor2<T> out_tensor_;
 };
 
 }  // namespace HugeCTR
