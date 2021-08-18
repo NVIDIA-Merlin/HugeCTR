@@ -1,10 +1,10 @@
 # <img src="docs/user_guide_src/merlin_logo.png" alt="logo" width="85"/> Merlin: HugeCTR #
 [![v30](docs/user_guide_src/version.JPG)](release_notes.md)
 
-HugeCTR is a GPU-accelerated recommender framework designed to distribute training across multiple GPUs and nodes and estimate Click-Through Rates (CTRs). HugeCTR supports model-parallel embedding tables and data-parallel neural networks and their variants such as [Deep Interest Network (DIN)](https://arxiv.org/pdf/1706.06978.pdf), [NCF](https://arxiv.org/abs/1708.05031), [Wide and Deep Learning (WDL)](https://arxiv.org/abs/1606.07792), [Deep Cross Network (DCN)](https://arxiv.org/abs/1708.05123), [DeepFM](https://arxiv.org/abs/1703.04247), and [Deep Learning Recommendation Model (DLRM)](https://arxiv.org/abs/1906.00091). HugeCTR is a component of [NVIDIA Merlin Open Beta](https://developer.nvidia.com/nvidia-merlin), which is used to build large-scale deep learning recommender systems. For additional information, see [HugeCTR User Guide](docs/hugectr_user_guide.md).
+HugeCTR is a GPU-accelerated recommender framework designed to distribute training across multiple GPUs and nodes and estimate Click-Through Rates (CTRs). HugeCTR supports model-parallel embedding tables and data-parallel neural networks and their variants such as [Deep Interest Network (DIN)](https://arxiv.org/pdf/1706.06978.pdf), [NCF](https://arxiv.org/abs/1708.05031), [Wide and Deep Learning (WDL)](https://arxiv.org/abs/1606.07792), [Deep Cross Network (DCN)](https://arxiv.org/abs/1708.05123), [DeepFM](https://arxiv.org/abs/1703.04247), and [Deep Learning Recommendation Model (DLRM)](https://arxiv.org/abs/1906.00091). HugeCTR is a component of [NVIDIA Merlin Open Beta](https://developer.nvidia.com/nvidia-merlin), which is used to build large-scale deep learning recommender systems. For more information, see [HugeCTR User Guide](docs/hugectr_user_guide.md).
 
 Design Goals:
-* **Fast**: HugeCTR is a speed-of-light CTR model framework that can [outperform](performance.md) popular recommender systems such as TensorFlow (TF).
+* **Fast**: HugeCTR is a CTR model framework that can [outperform](performance.md) popular recommender systems such as TensorFlow (TF).
 * **Efficient**: HugeCTR provides the essentials so that you can efficiently train your CTR model.
 * **Easy**: Regardless of whether you are a data scientist or machine learning practitioner, we've made it easy for anybody to use HugeCTR.
 
@@ -15,14 +15,14 @@ Design Goals:
 
 ## Core Features ##
 HugeCTR supports a variety of features, including the following:
-* [high-level abstracted recsys specific user interface](docs/python_interface.md)
-* [model parallel training](docs/hugectr_user_guide.md#model-parallel-training)
-* [well optimized full GPU workflow](performance.md)
-* [multi-node training](docs/hugectr_user_guide.md#multi-node-training)
-* [mixed precision training](docs/hugectr_user_guide.md#mixed-precision-training)
-* [embedding training cache](docs/hugectr_user_guide.md#embedding-training-cache)
-* [caching of most frequent embedding for inference](https://github.com/triton-inference-server/hugectr_backend/blob/main/docs/architecture.md#enabling-the-gpu-embedding-cache)
-* [GPU / CPU memory sharing mechanism across different inference instances](https://github.com/triton-inference-server/hugectr_backend/blob/main/docs/architecture.md#hugectr-backend-framework)
+* [High-Level Abstracted Python Interface](docs/python_interface.md)
+* [Optimized GPU Workflow](performance.md)
+* [Model Parallel Training](docs/hugectr_user_guide.md#model-parallel-training)
+* [Multi-Node Training](docs/hugectr_user_guide.md#multi-node-training)
+* [Mixed Precision Training](docs/hugectr_user_guide.md#mixed-precision-training)
+* [Embedding Training Cache](docs/hugectr_user_guide.md#embedding-training-cache)
+* [GPU Embedding Cache](https://github.com/triton-inference-server/hugectr_backend/blob/main/docs/architecture.md#enabling-the-gpu-embedding-cache)
+* [Mechanism for GPU and CPU Memory Sharing](https://github.com/triton-inference-server/hugectr_backend/blob/main/docs/architecture.md#hugectr-backend-framework)
 
 To learn about our latest enhancements, see our [release notes](release_notes.md).
 
@@ -35,23 +35,23 @@ If you'd like to quickly train a model using the Python interface, follow these 
 
    **NOTE**: The **/your/host/dir** directory is just as visible as the **/your/container/dir** directory. The **/your/host/dir** directory is also your starting directory.
 
-2. Activate the merlin conda environment by running the following command:  
+2. Activate the Merlin conda environment by running the following command:  
    ```shell.
    source activate merlin
    ```
 
 3. Inside the container, copy the configuration file for data generation to our mounted directory (/your/container/dir).
    
-   The config file can be found at [data_generate_norm.json](./tools/data_generator/data_generate_norm.json). This config file specifies the format, destination, feature dimensions and so on for data generation.
+   The config file can be found at [data_generate_norm.json](./tools/data_generator/data_generate_norm.json). This config file specifies the format, destination, and feature dimensions for data generation.
 
 4. Generate a synthetic dataset based on the configuration file by running the following command:
    ```
    mkdir -p dcn_norm
    ./data_generator --data-folder dcn_norm --config-file data_generate_norm.json --voc-size-array 39884,39043,17289,7420,20263,3,7120,1543,39884,39043,17289,7420,20263,3,7120,1543,63,63,39884,39043,17289,7420,20263,3,7120,1543 --distribution powerlaw --alpha -1.2
    ```
-   **NOTE**: The generated dataset will reside in the folder `./dcn_norm`, which includes both training data and evaluation data.
+   **NOTE**: The generated dataset will reside in the `./dcn_norm` folder, which includes both training and evaluation data.
 
-5. Write a simple Python code using the hugectr module as shown here:
+5. Write your Python code using the hugectr module as shown here:
    ```
    # dcn_norm_train.py
    import hugectr
@@ -120,16 +120,15 @@ If you'd like to quickly train a model using the Python interface, follow these 
    model.graph_to_json(graph_config_file = "dcn.json")
    model.fit(max_iter = 3200, display = 200, eval_interval = 1000, snapshot = 3000, snapshot_prefix = "dcn")
    ```
-   **NOTE**: Please make sure that the paths to the synthetic datasets are correct with respect to this Python script.
+   **NOTE**: Make sure that the paths to the synthetic datasets are correct with respect to this Python script.
 
 6. Train the model by running the following command:
    ```
    python dcn_norm_train.py
    ```
-   **NOTE**: It is expected that the value of evaluation AUC is not good given that randomly generated datasets are being used. When the training is done, you will see the files of dumped graph JSON, saved model weights and optimizer states.
+   **NOTE**: The evaluation AUC value may trigger an error since randomly generated datasets are being used. When the training is done, you'll see the dumped graph JSON files, saved model weights, and optimizer states.
 
-For additional information, see the [HugeCTR User Guide](docs/hugectr_user_guide.md).
+For more information, see the [HugeCTR User Guide](docs/hugectr_user_guide.md).
 
 ## Support and Feedback ##
-If you encounter any issues and/or have questions, please file an issue [here](https://github.com/NVIDIA/HugeCTR/issues) so that we can provide you with the necessary resolutions and answers. To further advance the Merlin/HugeCTR Roadmap, we encourage you to share all the details regarding your recommender system pipeline using this [survey](https://developer.nvidia.com/merlin-devzone-survey).
-
+If you encounter any issues or have questions, file a ticket [here](https://github.com/NVIDIA/HugeCTR/issues). To further advance the Merlin/HugeCTR Roadmap, we encourage you to share all the details regarding your recommender system pipeline using this [survey](https://developer.nvidia.com/merlin-devzone-survey).
