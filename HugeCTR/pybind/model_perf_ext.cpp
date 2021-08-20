@@ -244,11 +244,13 @@ void ModelPerfExt::fit(int num_epochs, int max_iter, int display, int eval_inter
 #endif
     if (display > 0 && iter % display == 0 && iter != 0) {
       timer_train.stop();
-      float loss = 0;
-      this->get_current_loss(&loss);
-      if (isnan(loss)) {
-        throw std::runtime_error(std::string("Train Runtime error: Loss cannot converge") + " " +
-                                 __FILE__ + ":" + std::to_string(__LINE__) + " \n");
+      float loss = 0.0f;
+      if (solver_.gen_loss_summary) {
+        this->get_current_loss(&loss);
+        if (isnan(loss)) {
+          throw std::runtime_error(std::string("Train Runtime error: Loss cannot converge") + " " +
+                                   __FILE__ + ":" + std::to_string(__LINE__) + " \n");
+        }
       }
       if (!solver_.use_holistic_cuda_graph) {
         MESSAGE_("Iter: " + std::to_string(iter) + " Time(" + std::to_string(display) +
@@ -466,7 +468,7 @@ void ModelPerfExt::train_overlapped() {
   }
 }
 
-void ModelPerfExt::exchange_wgrad(size_t device_id) { 
+void ModelPerfExt::exchange_wgrad(size_t device_id) {
   auto& gpu_resource = resource_manager_->get_local_gpu(device_id);
   CudaCPUDeviceContext context(gpu_resource->get_device_id());
   PROFILE_RECORD("exchange_wgrad.start", resource_manager_->get_local_gpu(device_id)->get_stream(), true, device_id);

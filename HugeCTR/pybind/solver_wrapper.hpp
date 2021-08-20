@@ -28,9 +28,9 @@ std::unique_ptr<Solver> CreateSolver(
     int batchsize_eval, int batchsize, std::vector<std::vector<int>> vvgpu, bool repeat_dataset,
     bool use_mixed_precision, bool enable_tf32_compute, float scaler,
     std::map<metrics::Type, float> metrics_spec, bool i64_input_key, bool use_algorithm_search,
-    bool use_cuda_graph, bool async_mlp_wgrad, DeviceMap::Layout device_layout, bool use_holistic_cuda_graph,
-    bool use_overlapped_pipeline, AllReduceAlgo all_reduce_algo, bool grouped_all_reduce,
-    size_t num_iterations_statistics, bool is_dlrm) {
+    bool use_cuda_graph, bool async_mlp_wgrad, bool gen_loss_summary, DeviceMap::Layout device_layout,
+    bool use_holistic_cuda_graph, bool use_overlapped_pipeline, AllReduceAlgo all_reduce_algo,
+    bool grouped_all_reduce, size_t num_iterations_statistics, bool is_dlrm) {
   if (use_mixed_precision && enable_tf32_compute) {
     CK_THROW_(Error_t::WrongInput,
               "use_mixed_precision and enable_tf32_compute cannot be true at the same time");
@@ -77,6 +77,7 @@ std::unique_ptr<Solver> CreateSolver(
   solver->use_algorithm_search = use_algorithm_search;
   solver->use_cuda_graph = use_cuda_graph;
   solver->async_mlp_wgrad = async_mlp_wgrad;
+  solver->gen_loss_summary = gen_loss_summary;
   solver->device_layout = device_layout;
   solver->use_holistic_cuda_graph = use_holistic_cuda_graph;
   solver->use_overlapped_pipeline = use_overlapped_pipeline;
@@ -111,6 +112,7 @@ void SolverPybind(pybind11::module& m) {
       .def_readonly("use_algorithm_search", &HugeCTR::Solver::use_algorithm_search)
       .def_readonly("use_cuda_graph", &HugeCTR::Solver::use_cuda_graph)
       .def_readonly("async_mlp_wgrad", &HugeCTR::Solver::async_mlp_wgrad)
+      .def_readonly("gen_loss_summary", &HugeCTR::Solver::gen_loss_summary)
       .def_readonly("device_layout", &HugeCTR::Solver::device_layout)
       .def_readonly("use_holistic_cuda_graph", &HugeCTR::Solver::use_holistic_cuda_graph)
       .def_readonly("use_overlapped_pipeline", &HugeCTR::Solver::use_overlapped_pipeline)
@@ -131,6 +133,7 @@ void SolverPybind(pybind11::module& m) {
         pybind11::arg("i64_input_key") = false, pybind11::arg("use_algorithm_search") = true,
         pybind11::arg("use_cuda_graph") = true,
         pybind11::arg("async_mlp_wgrad") = false,
+        pybind11::arg("gen_loss_summary") = true,
         pybind11::arg("device_layout") = DeviceMap::Layout::LOCAL_FIRST,
         pybind11::arg("use_holistic_cuda_graph") = false,
         pybind11::arg("use_overlapped_pipeline") = false,
