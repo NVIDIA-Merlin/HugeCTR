@@ -195,7 +195,7 @@ void ModelPerfExt::add_dense_layer_internal(DenseLayer& dense_layer, std::vector
                                dense_layer.lambda, weight_buff->as_tensor(),
                                wgrad_buff_half->as_tensor(), in_tensor.get_dimensions()[0],
                                gpu_resource),
-            gpu_resource, num_networks_in_global, scaler));
+            gpu_resource, num_networks_in_global, scaler, solver_.gen_loss_summary));
       } else {
         Tensor2<float> in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
         loss.reset(new BinaryCrossEntropyLoss<float>(
@@ -204,7 +204,7 @@ void ModelPerfExt::add_dense_layer_internal(DenseLayer& dense_layer, std::vector
                                dense_layer.lambda, weight_buff->as_tensor(),
                                wgrad_buff->as_tensor(), in_tensor.get_dimensions()[0],
                                gpu_resource),
-            gpu_resource, num_networks_in_global, scaler));
+            gpu_resource, num_networks_in_global, scaler, solver_.gen_loss_summary));
       }
       break;
     }

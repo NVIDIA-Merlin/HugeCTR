@@ -106,6 +106,7 @@ struct Solver {
   bool use_algorithm_search;
   bool use_cuda_graph;
   bool async_mlp_wgrad;
+  bool gen_loss_summary;
   bool use_holistic_cuda_graph;
   bool use_overlapped_pipeline;
   AllReduceAlgo all_reduce_algo;
