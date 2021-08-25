@@ -240,7 +240,7 @@ int parse_record_event_mode() {
   }
   int ret_mode = -1;
   std::string mode = std::string(pd);
-  if (mode == "fine_grined") {
+  if (mode == "fine_grained") {
     ret_mode = 0;
   } else if (mode == "one_shot") {
     ret_mode = 1;
