@@ -31,7 +31,6 @@ import sparse_operation_kit.optimizers
 import sparse_operation_kit.core
 
 # ------------ import items into root package -------- #
-from sparse_operation_kit.embeddings import test
 from sparse_operation_kit.core.initialize import Init
 from sparse_operation_kit.core.context_scope import OptimizerScope
 from sparse_operation_kit.embeddings.distributed_embedding import DistributedEmbedding

@@ -262,7 +262,7 @@
       "top": "dice_1",
       "prelu_dice_param": {
         "alpha": 0.2,
-        "epsilon": 1e-08
+        "eps": 1e-08
       }
     },
     {
@@ -281,7 +281,7 @@
       "top": "dice_2",
       "prelu_dice_param": {
         "alpha": 0.2,
-        "epsilon": 1e-08
+        "eps": 1e-08
       }
     },
     {

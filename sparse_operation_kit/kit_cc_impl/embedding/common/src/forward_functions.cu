@@ -70,18 +70,4 @@ void memset_liner(Type *data, Type start_value, Type stride_value,
 template void memset_liner(size_t *data, size_t start_value, size_t stride_value,
                   size_t n, cudaStream_t stream);
 
-
-template <typename EmbeddingType, typename IndiceType>
-void gather(const size_t grid, const size_t block, cudaStream_t stream, 
-            const size_t embedding_dim, EmbeddingType *inputs, IndiceType *indices, 
-            size_t num_indices, EmbeddingType *outputs) {
-    gatherKernel<<<grid, block, 0, stream>>>(
-        embedding_dim, inputs, indices, num_indices, outputs);
-}
-
-template void gather(const size_t grid, const size_t block, cudaStream_t stream, 
-            const size_t embedding_dim, float *inputs, size_t *indices, 
-            size_t num_indices, float *outputs);
-
-
 } // namespace SparseOperationKit

@@ -19,6 +19,22 @@
 
 namespace SparseOperationKit {
 
+template <typename EmbeddingType>
+__global__ static void gatherKernel(const size_t EmbeddingDimension,
+                                    EmbeddingType *inputs, size_t *indices, 
+                                    size_t num_indices, EmbeddingType *outputs) {
+  for (size_t id = blockIdx.x * blockDim.x + threadIdx.x;
+       id < num_indices * EmbeddingDimension; id += blockDim.x * gridDim.x) {
+
+    size_t item_id = id / EmbeddingDimension;
+    size_t embedding_id = id - item_id * EmbeddingDimension;
+
+    size_t index = static_cast<size_t>(indices[item_id]);
+    outputs[id] = inputs[index * EmbeddingDimension + embedding_id];
+  }
+}
+
+
 class DenseGather : public EmbeddingLookuper {
 public:
     DenseGather(ConstructionContext_t context, std::shared_ptr<ParamInterface> param)
@@ -89,11 +105,12 @@ public:
 
         // step 2: gather embedding vectors from embedding table
         const auto &embedding_table = param_->get_embedding_table_tensor(local_replica_id);
-        gather(/*grid=*/local_gpu->get_sm_count() * 2, /*block=*/1024ul, /*stream=*/local_gpu->get_stream(),
-               param_->get_embedding_vec_size(), 
-               embedding_table->GetPtrWithType<float>(), mapped_indices_buf_[local_replica_id].get_ptr(),
-               /*num_indices=*/replica_h_recv_chunk_offsets->GetPtrWithType<uint32_t>()[global_gpu_count],
-               gathered_embeddings_buf_[local_replica_id].get_ptr());
+        gatherKernel<float><<<local_gpu->get_sm_count() * 2, 1024ul, 0, local_gpu->get_stream()>>>(
+            /*EmbeddingDimension=*/param_->get_embedding_vec_size(),
+            /*inputs=*/embedding_table->GetPtrWithType<float>(), 
+            /*indices=*/mapped_indices_buf_[local_replica_id].get_ptr(),
+            /*num_indices=*/replica_h_recv_chunk_offsets->GetPtrWithType<uint32_t>()[global_gpu_count],
+            /*outputs=*/gathered_embeddings_buf_[local_replica_id].get_ptr());
         CK_CUDA(cudaGetLastError());
 
         // step 3: set the output of embedding lookuper
@@ -103,6 +120,7 @@ public:
             replica_h_recv_chunk_offsets->GetPtrWithType<uint32_t>()[global_gpu_count]);
         replica_context->set_output("replica_host_nnz", host_nnz_[local_replica_id]);
     }
+    
     void backward(const Context_t &replica_context) override {
         const size_t global_gpu_count = resource_mgr_->get_global_gpu_count();
         const size_t global_replica_id = replica_context->get_global_replica_id();

@@ -63,22 +63,6 @@ void forward(size_t batch_size, size_t slot_num, size_t embedding_vec_size,
                                                       hash_table_value, embedding_feature);
 }
 
-template <typename EmbeddingType, typename IndiceType>
-__global__ void gatherKernel(const size_t EmbeddingDimension, 
-                            EmbeddingType *inputs, IndiceType *indices,
-                            size_t num_indices,
-                            EmbeddingType *outputs) {
-  for (size_t id = blockIdx.x * blockDim.x + threadIdx.x;
-       id < num_indices * EmbeddingDimension; id += blockDim.x * gridDim.x) {
-
-    size_t item_id = id / EmbeddingDimension;
-    size_t embedding_id = id - item_id * EmbeddingDimension;
-
-    size_t index = static_cast<size_t>(indices[item_id]);
-    outputs[id] = inputs[index * EmbeddingDimension + embedding_id];
-  }
-}
-
 } // namespace SparseOperationKit
 
 namespace HugeCTR {

@@ -69,11 +69,9 @@ public:
     }
 private:
     // FIXME: in TF 2.4, int64_t is not equal to long long int
-    using int64_t = long long int;
-    
-    int64_t global_batch_size_;
-    int64_t slot_num_;
-    int64_t max_nnz_;
+    tensorflow::int64 global_batch_size_;
+    tensorflow::int64 slot_num_;
+    tensorflow::int64 max_nnz_;
 };
 
 REGISTER_KERNEL_BUILDER(Name("CsrConversionDistributed")

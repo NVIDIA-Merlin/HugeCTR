@@ -149,3 +149,27 @@ python3 test_dense_emb_demo_model_multi_worker.py \
         --restore_params=1 \
         --generate_new_datas=1 \
         --ips "localhost" "localhost"
+
+
+# --------------------- MPI --------------------------------------- #
+python3 prepare_dataset.py \
+        --global_batch_size=65536 \
+        --slot_num=10 \
+        --nnz_per_slot=5 \
+        --iter_num=30 \
+        --filename="datas.file" \
+        --split_num=8 \
+        --save_prefix="data_"
+
+mpiexec -np 8 --allow-run-as-root \
+        --oversubscribe \
+        python3 test_multi_dense_emb_demo_model_mpi.py \
+        --file_prefix="./data_" \
+        --global_batch_size=65536 \
+        --max_vocabulary_size_per_gpu=8192 \
+        --slot_num_list 3 3 4 \
+        --nnz_per_slot=5 \
+        --num_dense_layers=4 \
+        --embedding_vec_size_list 2 4 8 \
+        --dataset_iter_num=30 \
+        --optimizer="adam" 

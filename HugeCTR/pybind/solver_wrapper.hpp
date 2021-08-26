@@ -127,7 +127,7 @@ void SolverPybind(pybind11::module& m) {
         pybind11::arg("device_layout") = DeviceMap::Layout::LOCAL_FIRST,
         pybind11::arg("use_holistic_cuda_graph") = false,
         pybind11::arg("use_overlapped_pipeline") = false,
-        pybind11::arg("all_reduce_algo") = AllReduceAlgo::ONESHOT,
+        pybind11::arg("all_reduce_algo") = AllReduceAlgo::NCCL,
         pybind11::arg("grouped_all_reduce") = false,
         pybind11::arg("num_iterations_statistics") = 20, pybind11::arg("is_dlrm") = false);
 }

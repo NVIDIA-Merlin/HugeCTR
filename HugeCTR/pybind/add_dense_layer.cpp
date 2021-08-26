@@ -34,6 +34,7 @@
 #include <layers/gather_layer.hpp>
 #include <layers/gru_layer.hpp>
 #include <layers/interaction_layer.hpp>
+#include <layers/matrix_multiply_layer.hpp>
 #include <layers/multi_cross_layer.hpp>
 #include <layers/prelu_dice_layer.hpp>
 #include <layers/reduce_mean_layer.hpp>
@@ -1370,6 +1371,17 @@ void add_dense_layer_internal(DenseLayer& dense_layer, std::vector<TensorEntry>&
                                               gpu_resource, initializer_types));
       output_tensor_entries.push_back({input_output_info.output_names[0], gru_out_tensor.shrink()});
 
+      break;
+    }
+    case Layer_t::MatrixMultiply: {
+      Tensors2<float> in_tensors;
+      for (const auto& bag : input_output_info.inputs) {
+        in_tensors.push_back(Tensor2<float>::stretch_from(bag));
+      }
+      Tensor2<float> out_tensor;
+      layers.emplace_back(
+          new MatrixMultiplyLayer<float>(in_tensors, out_tensor, blobs_buff, gpu_resource));
+      output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
       break;
     }
     case Layer_t::Softmax: {

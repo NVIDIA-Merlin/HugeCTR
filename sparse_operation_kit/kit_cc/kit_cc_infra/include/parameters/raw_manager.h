@@ -52,10 +52,9 @@ public:
     std::shared_ptr<Tensor>& get_optimizer_state(const std::string state_name, 
                                                 const size_t local_replica_id) override;
 
+    void gen_unique_name(const bool trainable, std::string& name) override;
 private:
     RawManager(const std::shared_ptr<ResourcesManager>& resource_mgr);
-
-    void gen_unique_name(const bool trainable, std::string& name);
 
     std::vector<std::shared_ptr<HugeCTR::GeneralBuffer2<HugeCTR::CudaAllocator>>> buffers_; // store trainable tensor for all gpus.
     volatile bool resized_;

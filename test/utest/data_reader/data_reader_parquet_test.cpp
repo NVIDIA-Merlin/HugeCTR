@@ -77,10 +77,9 @@ void generate_parquet_input_files(int num_files, int sample_per_file, std::vecto
         labels.push_back(val);
       }
 
-      rmm::device_buffer dev_buffer(label_vector.data(), sizeof(LABEL_TYPE) * sample_per_file);
-      cols.emplace_back(
-          std::make_unique<cudf::column>(cudf::data_type{cudf::type_to_id<LABEL_TYPE>()},
-                                         cudf::size_type(sample_per_file), dev_buffer));
+      rmm::device_buffer dev_buffer(label_vector.data(), sizeof(LABEL_TYPE) * sample_per_file, rmm::cuda_stream_default);
+      auto pcol = std::make_unique<cudf::column>(cudf::data_type{cudf::type_to_id<LABEL_TYPE>()}, cudf::size_type(sample_per_file), std::move(dev_buffer));
+      cols.emplace_back(std::move(pcol));
     }
     // create dense vector
     for (int i = 0; i < dense_dim; i++) {
@@ -91,10 +90,9 @@ void generate_parquet_input_files(int num_files, int sample_per_file, std::vecto
         denses[file_num * dense_feature_per_file + sample * dense_dim + i] = val;
       };
 
-      rmm::device_buffer dev_buffer(dense_vector.data(), sizeof(DENSE_TYPE) * sample_per_file);
-      cols.emplace_back(
-          std::make_unique<cudf::column>(cudf::data_type{cudf::type_to_id<DENSE_TYPE>()},
-                                         cudf::size_type(sample_per_file), dev_buffer));
+      rmm::device_buffer dev_buffer(dense_vector.data(), sizeof(DENSE_TYPE) * sample_per_file, rmm::cuda_stream_default);
+      auto pcol = std::make_unique<cudf::column>(cudf::data_type{cudf::type_to_id<DENSE_TYPE>()}, cudf::size_type(sample_per_file), std::move(dev_buffer));
+      cols.emplace_back(std::move(pcol));
     }
     std::vector<std::vector<CAT_TYPE>> slot_vectors(slot_num);
     std::vector<std::vector<int32_t>> row_off(slot_num,
@@ -125,24 +123,25 @@ void generate_parquet_input_files(int num_files, int sample_per_file, std::vecto
       auto& row_off_vector = row_off[i];
 
       if (!is_mhot[i]) {
-        rmm::device_buffer dev_buffer(slot_vector.data(), sizeof(CAT_TYPE) * slot_vector.size());
+        rmm::device_buffer dev_buffer(slot_vector.data(), sizeof(CAT_TYPE) * slot_vector.size(), rmm::cuda_stream_default);
         cols.emplace_back(
             std::make_unique<cudf::column>(cudf::data_type{cudf::type_to_id<CAT_TYPE>()},
-                                           cudf::size_type(slot_vector.size()), dev_buffer));
+                                           cudf::size_type(slot_vector.size()), std::move(dev_buffer)));
       } else {
-        rmm::device_buffer dev_buffer_0(slot_vector.data(), sizeof(CAT_TYPE) * slot_vector.size());
+        rmm::device_buffer dev_buffer_0(slot_vector.data(), sizeof(CAT_TYPE) * slot_vector.size(), rmm::cuda_stream_default);
         auto child =
             std::make_unique<cudf::column>(cudf::data_type{cudf::type_to_id<CAT_TYPE>()},
-                                           cudf::size_type(slot_vector.size()), dev_buffer_0);
+                                           cudf::size_type(slot_vector.size()), std::move(dev_buffer_0));
         rmm::device_buffer dev_buffer_1(row_off_vector.data(),
-                                        sizeof(int32_t) * row_off_vector.size());
+                                        sizeof(int32_t) * row_off_vector.size(), rmm::cuda_stream_default);
         auto row_off =
             std::make_unique<cudf::column>(cudf::data_type{cudf::type_to_id<int32_t>()},
-                                           cudf::size_type(row_off_vector.size()), dev_buffer_1);
+                                           cudf::size_type(row_off_vector.size()), std::move(dev_buffer_1));
         // auto cur_col =
+        auto null_mask_df = rmm::device_buffer(null_mask.data(), null_mask.size() * sizeof(cudf::bitmask_type), rmm::cuda_stream_default);
         cols.emplace_back(cudf::make_lists_column(
             sample_per_file, std::move(row_off), std::move(child), cudf::UNKNOWN_NULL_COUNT,
-            rmm::device_buffer(null_mask.data(), null_mask.size() * sizeof(cudf::bitmask_type))));
+            std::move(null_mask_df), rmm::cuda_stream_default));
       }
     }
     cudf::table input_table(std::move(cols));

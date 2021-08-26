@@ -34,7 +34,6 @@ public:
         OP_REQUIRES_OK(ctx, ctx->GetAttr("shape", &shape_));
         OP_REQUIRES_OK(ctx, ctx->GetAttr("dtype", &dtype_));
         OP_REQUIRES_OK(ctx, ctx->GetAttr("use_hashtable", &use_hashtable_));
-        OP_REQUIRES_OK(ctx, ctx->GetAttr("var_name", &name_));
         if (2 != shape_.dims()) {
             ctx->SetStatus(errors::Aborted(__FILE__, ":", __LINE__, " ",
                 "shape must be [vocabulary_size_per_gpu, embedding_vector_size]."));
@@ -47,6 +46,8 @@ public:
         }
     }
     void Compute(OpKernelContext* ctx) override {
+        const Tensor* var_name_tensor = nullptr;
+        OP_REQUIRES_OK(ctx, ctx->input("var_name", &var_name_tensor));
         const Tensor* initial_value_tensor = nullptr;
         OP_REQUIRES_OK(ctx, ctx->input("initial_value", &initial_value_tensor)); 
         OP_REQUIRES(ctx, dtype_ == initial_value_tensor->dtype(), errors::Aborted(
@@ -68,13 +69,23 @@ public:
         const Tensor* local_replica_id_tensor = nullptr;
         OP_REQUIRES_OK(ctx, ctx->input("local_replica_id", &local_replica_id_tensor));
 
+        std::string variable_name = var_name_tensor->flat<tstring>()(0);
+
+        // generate unique variable name
+        try {
+            SparseOperationKit::Facade::instance()->generate_unique_name(trainable_, variable_name);
+        } catch (const std::exception& error) {
+            ctx->SetStatus(errors::Aborted("Error happens in generating unique variable name, due to ", error.what()));
+            return;
+        }
+
         // This is the handle for EmbeddingVariable
         Tensor* var_handle_tensor = nullptr;
         OP_REQUIRES_OK(ctx, ctx->allocate_output(0, TensorShape({}), &var_handle_tensor));
         core::RefCountPtr<EmbeddingVariable> emb_variable;
         ResourceHandle emb_handle = MakeResourceHandle<EmbeddingVariable>(ctx, 
                                         /*container=*/"EmbeddingVariableContainer",
-                                        /*name=*/name_);
+                                        /*name=*/variable_name);
         OP_REQUIRES_OK(ctx, LookupOrCreateResource<EmbeddingVariable>(ctx, emb_handle, &emb_variable,
                                         /*creator=*/[var_handle_tensor, &emb_handle](EmbeddingVariable** ptr){
                                             *ptr = new EmbeddingVariable(var_handle_tensor);
@@ -91,7 +102,7 @@ public:
                     // it is numpy value, used as initial_value
                     SparseOperationKit::Facade::instance()->create_variables(local_replica_id_tensor->scalar<int32_t>()(),
                                                                           initial_value_tensor->flat<float>().data(),
-                                                                          use_hashtable_, dims, name_, 
+                                                                          use_hashtable_, dims, variable_name, 
                                                                           trainable_, emb_variable,
                                                                           emb_tensor);
                     break;
@@ -100,7 +111,7 @@ public:
                     // it specified the initializer
                     SparseOperationKit::Facade::instance()->create_variables(local_replica_id_tensor->scalar<int32_t>()(),
                                                                           initial_value_tensor->flat<tstring>()(0),
-                                                                          use_hashtable_, dims, name_, 
+                                                                          use_hashtable_, dims, variable_name, 
                                                                           trainable_, emb_variable,
                                                                           emb_tensor);
                     break;
@@ -112,7 +123,7 @@ public:
                     Tensor* var_tensor = init_variable->tensor();
                     SparseOperationKit::Facade::instance()->create_variables(local_replica_id_tensor->scalar<int32_t>()(),
                                                                           var_tensor->flat<float>().data(),
-                                                                          use_hashtable_, dims, name_, 
+                                                                          use_hashtable_, dims, variable_name, 
                                                                           trainable_, emb_variable,
                                                                           emb_tensor);
                     break;
@@ -132,9 +143,12 @@ public:
         Tensor* handle_tensor = nullptr;
         OP_REQUIRES_OK(ctx, ctx->allocate_output(1, TensorShape({}), &handle_tensor));
         core::RefCountPtr<Var> variable;
+        dtype_and_shape_.dtype = dtype_;
+        dtype_and_shape_.shape = shape_;
         ResourceHandle handle = MakeResourceHandle<Var>(ctx, 
                                         /*container=*/"VariableContainer",
-                                        /*name=*/name_);
+                                        /*name=*/variable_name,
+                                        /*DtypeAndPartialTensorShape=*/std::vector<DtypeAndPartialTensorShape>{dtype_and_shape_});
         OP_REQUIRES_OK(ctx, LookupOrCreateResource<Var>(ctx, handle, &variable,
                                         /*creator=*/[&handle, &emb_tensor, handle_tensor](Var** ptr) {
                                             *ptr = new Var(DT_FLOAT);
@@ -143,21 +157,30 @@ public:
                                             handle_tensor->scalar<ResourceHandle>()() = handle;
                                             return Status::OK();
                                         }));
+
+        
+
+        // set unique_var_name output
+        Tensor* unique_var_name_tensor = nullptr;
+        OP_REQUIRES_OK(ctx, ctx->allocate_output(2, {}, &unique_var_name_tensor));
+        unique_var_name_tensor->flat<tstring>()(0) = variable_name;
     }
 private:
     bool trainable_;
     TensorShape shape_;
     DataType dtype_;
     bool use_hashtable_;
-    std::string name_;
+    DtypeAndPartialTensorShape dtype_and_shape_;
 };
 
 REGISTER_KERNEL_BUILDER(Name("CreateVar")
                         .Device(DEVICE_GPU)
+                        .HostMemory("var_name")
                         .HostMemory("initial_value")
                         .HostMemory("local_replica_id")
                         .HostMemory("var_handle")
-                        .HostMemory("handle"),
+                        .HostMemory("handle")
+                        .HostMemory("unique_var_name"),
                         CreateVarOp<GPUDevice>);
 
 } // namespace tensorflow
