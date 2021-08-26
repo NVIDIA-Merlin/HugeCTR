@@ -201,10 +201,10 @@ void FineGrainedProfiler::record_event(const char* event_label_char, cudaStream_
 
       if (event_type == "start") {
         gpu_timer->extra_info_start = extra_info;
-        gpu_timer->event_start(stream, use_cuda_graph_ && could_be_in_cuda_graph);
+        gpu_timer->event_start(stream, use_cuda_graph_);
       } else {
         gpu_timer->extra_info_stop = extra_info;
-        gpu_timer->event_stop(stream, use_cuda_graph_ && could_be_in_cuda_graph);
+        gpu_timer->event_stop(stream, use_cuda_graph_);
         // event_start and event_stop usually costs 0.002ms on DGXA100
         map_internal_[stream]->operator[](event_name) = met_times_within_this_stream + 1;
         // Above post event record operation costs 0.00x on DGXA100, usually x is 1 - 2.

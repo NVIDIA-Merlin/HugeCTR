@@ -146,7 +146,7 @@ struct RuntimeData {
 
 class GPUTimer {
  public:
-  cudaEvent_t start;
+  cudaEvent_t start_;
   cudaEvent_t stop_;
   cudaEvent_t iter_start_;
   std::string extra_info_start;
@@ -154,41 +154,49 @@ class GPUTimer {
 
   GPUTimer() {
     CK_CUDA_THROW_(cudaEventCreateWithFlags(&iter_start_, cudaEventBlockingSync));
-    CK_CUDA_THROW_(cudaEventCreateWithFlags(&start, cudaEventBlockingSync));
+    CK_CUDA_THROW_(cudaEventCreateWithFlags(&start_, cudaEventBlockingSync));
     CK_CUDA_THROW_(cudaEventCreateWithFlags(&stop_, cudaEventBlockingSync));
   }
   ~GPUTimer() {
     cudaEventDestroy(iter_start_);
-    cudaEventDestroy(start);
+    cudaEventDestroy(start_);
     cudaEventDestroy(stop_);
   }
   void iter_start(cudaStream_t stream) { CK_CUDA_THROW_(cudaEventRecord(iter_start_, stream)); };
 
-  void event_start(cudaStream_t stream, bool in_cuda_graph) {
-    if (in_cuda_graph) {
-      CK_CUDA_THROW_(CUDA_GRAPH_EVENT_RECORD(start, stream));
-    } else {
-      CK_CUDA_THROW_(cudaEventRecord(start, stream));
+  void event_start(cudaStream_t stream, bool could_be_in_cuda_graph) {
+    if (could_be_in_cuda_graph) {
+      cudaStreamCaptureStatus* capture_status;
+      CK_CUDA_THROW_(cudaStreamIsCapturing(stream, &capture_status));
+      if (*capture_status == cudaStreamCaptureStatusActive) {
+        CK_CUDA_THROW_(CUDA_GRAPH_EVENT_RECORD(start_, stream));
+        return;
+      }
     }
+    CK_CUDA_THROW_(cudaEventRecord(start_, stream));
   };
 
-  void event_stop(cudaStream_t stream, bool in_cuda_graph) {
-    if (in_cuda_graph) {
-      CK_CUDA_THROW_(CUDA_GRAPH_EVENT_RECORD(stop_, stream));
-    } else {
-      CK_CUDA_THROW_(cudaEventRecord(stop_, stream));
+  void event_stop(cudaStream_t stream, bool could_be_in_cuda_graph) {
+    if (could_be_in_cuda_graph) {
+      cudaStreamCaptureStatus* capture_status;
+      CK_CUDA_THROW_(cudaStreamIsCapturing(stream, &capture_status));
+      if (*capture_status == cudaStreamCaptureStatusActive) {
+        CK_CUDA_THROW_(CUDA_GRAPH_EVENT_RECORD(stop_, stream));
+        return;
+      }
     }
+    CK_CUDA_THROW_(cudaEventRecord(stop_, stream));
   };
 
   float get_measured_time_ms() {
     float measured_time_ms;
-    CK_CUDA_THROW_(cudaEventElapsedTime(&measured_time_ms, start, stop_));
+    CK_CUDA_THROW_(cudaEventElapsedTime(&measured_time_ms, start_, stop_));
     return measured_time_ms;
   };
 
   float get_iter_start_to_event_start_ms() {
     float iter_start_to_event_start_ms;
-    CK_CUDA_THROW_(cudaEventElapsedTime(&iter_start_to_event_start_ms, iter_start_, start));
+    CK_CUDA_THROW_(cudaEventElapsedTime(&iter_start_to_event_start_ms, iter_start_, start_));
     return iter_start_to_event_start_ms;
   };
 };

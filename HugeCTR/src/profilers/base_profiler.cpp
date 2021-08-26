@@ -232,6 +232,24 @@ std::pair<std::string, std::string> BaseProfiler::get_event_name_and_type(
   return name_and_type;
 }
 
+int parse_train_eval_mode() {
+  char* pd = std::getenv("PROFILING_TRAIN_EVAL_MODE");
+  if (pd == NULL) {
+    return 0;
+  }
+  int ret_mode = -1;
+  std::string mode = std::string(pd);
+  if (mode == "train") {
+    ret_mode = 0;
+  } else if (mode == "eval") {
+    ret_mode = 1;
+  } else {
+    std::string msg("Invalid PROFILING_TRAIN_EVAL_MODE");
+    throw std::invalid_argument(msg);
+  }
+  return ret_mode;
+}
+
 int parse_record_event_mode() {
 #ifdef ENABLE_PROFILING
   char* pd = std::getenv("PROFILING_MODE");
@@ -270,6 +288,7 @@ bool profiler_init_cuda_graph_this_iter() {
   }
 }
 
+const int global_profiler_train_eval_mode = Profiler::parse_train_eval_mode();
 const int global_profiling_mode = Profiler::parse_record_event_mode();
 
 }  //  namespace HugeCTR

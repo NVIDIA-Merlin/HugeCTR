@@ -201,10 +201,10 @@ void OneShotProfiler::record_event(const char* event_label_char, cudaStream_t st
       thread_local int original_device_id = Profiler::set_and_keep_original_device(device_id);
       auto gpu_timer = map_event_key_to_gpu_timer_[event_key];
       if (event_type == "start") {
-        gpu_timer->event_start(stream, use_cuda_graph_ && could_be_in_cuda_graph);
+        gpu_timer->event_start(stream, use_cuda_graph_);
         gpu_timer->extra_info_start = extra_info;
       } else {
-        gpu_timer->event_stop(stream, use_cuda_graph_ && could_be_in_cuda_graph);
+        gpu_timer->event_stop(stream, use_cuda_graph_);
         gpu_timer->extra_info_stop = extra_info;
         map_internal_[stream]->operator[](event_name) = met_times_within_this_stream + 1;
       }
