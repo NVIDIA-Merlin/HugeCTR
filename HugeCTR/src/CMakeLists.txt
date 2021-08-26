@@ -41,6 +41,7 @@ file(GLOB hugectr_pybind
   ../pybind/add_input.cpp
   ../pybind/add_sparse_embedding.cpp
   ../pybind/add_dense_layer.cpp
+  ../pybind/add_dense_layer_perf_ext.cpp
 )
 list (APPEND huge_ctr_src ${hugectr_pybind})
 
@@ -51,8 +52,8 @@ target_link_libraries(huge_ctr_static PUBLIC cublas curand cudnn nccl nvToolsExt
 target_link_libraries(huge_ctr_shared PUBLIC cublas curand cudnn nccl nvToolsExt ${CMAKE_THREAD_LIBS_INIT} stdc++fs tbb)
 
 if(MPI_FOUND)
-  target_link_libraries(huge_ctr_static PUBLIC cublas cublasLt curand cudnn nccl nvToolsExt ${CMAKE_THREAD_LIBS_INIT} ${MPI_CXX_LIBRARIES} hwloc ucp ucs ucm uct numa ibverbs gdrapi stdc++fs)
-  target_link_libraries(huge_ctr_shared PUBLIC cublas cublasLt curand cudnn nccl nvToolsExt ${CMAKE_THREAD_LIBS_INIT} ${MPI_CXX_LIBRARIES} hwloc ucp ucs ucm uct numa ibverbs gdrapi stdc++fs)
+  target_link_libraries(huge_ctr_static PUBLIC cublas cublasLt curand cudnn nccl nvToolsExt ${CMAKE_THREAD_LIBS_INIT} ${MPI_CXX_LIBRARIES} hwloc ucp ucs ucm uct numa ibverbs gdrapi stdc++fs open-pal)
+  target_link_libraries(huge_ctr_shared PUBLIC cublas cublasLt curand cudnn nccl nvToolsExt ${CMAKE_THREAD_LIBS_INIT} ${MPI_CXX_LIBRARIES} hwloc ucp ucs ucm uct numa ibverbs gdrapi stdc++fs open-pal)
   message(STATUS "${MPI_CXX_LIBRARIES}")
 else()
   target_link_libraries(huge_ctr_static PUBLIC cublas cublasLt curand cudnn nccl nvToolsExt ${CMAKE_THREAD_LIBS_INIT} numa stdc++fs)
