@@ -68,18 +68,38 @@ namespace SparseOperationKit {
         }                                                                           \
     } while (0)
 
+
+namespace {
+inline std::string filter_path(const std::string& path) {
+    auto find_str = [](const std::string input, const char* pattern) {
+        std::regex reg(pattern);
+        std::smatch result;
+        if (std::regex_search(input, result, reg))
+            return std::string(result.str());
+        else
+            throw std::runtime_error(ErrorBase + "Filtering path faild.");
+    };
+    constexpr char pattern[] = "sparse_operation_kit.*$";
+    return find_str(path, pattern);
+}
+} // anonymous namespace
+
+
 #define MESSAGE(msg)                                                                                                                \
     do {                                                                                                                            \
         std::cout.setf(std::ios::right, std::ios::adjustfield);                                                                     \
         std::time_t time_instance = std::time(0);                                                                                   \
+        const std::string time_instance_str = std::to_string(time_instance);                                                        \
         std::tm* time_now = std::localtime(&time_instance);                                                                         \
         std::cout << time_now->tm_year + 1900 << "-"                                                                                \
                   << std::setfill('0') << std::setw(2) << std::to_string(1 + time_now->tm_mon)                                      \
                   << "-" << std::setfill('0') << std::setw(2) << std::to_string(time_now->tm_mday) << " "                           \
                   << std::setfill('0') << std::setw(2) << std::to_string(time_now->tm_hour) << ":"                                  \
                   << std::setfill('0') << std::setw(2) << std::to_string(time_now->tm_min)                                          \
-                  << ":" << std::resetiosflags(std::ios::fixed) << std::setprecision(4) << std::to_string(time_now->tm_sec) << ":"  \
-                  << " I " << __FILE__ << ":" << __LINE__ << "] " << (msg) << std::endl;                                            \
+                  << ":" << std::setfill('0') << std::setw(2) << std::to_string(time_now->tm_sec)                                   \
+                  << "." << time_instance_str.substr(time_instance_str.size() - 6, time_instance_str.size())                        \
+                  << ": I " << filter_path(__FILE__) << ":" << __LINE__ << "] "                                                     \
+                  << (msg) << std::endl;                                            \
     } while (0)
 
 void ncclUniqueId_to_string(const ncclUniqueId& uniqueId, std::string& uniqueId_s);

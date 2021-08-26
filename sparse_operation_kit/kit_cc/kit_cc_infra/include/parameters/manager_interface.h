@@ -47,6 +47,8 @@ public:
     virtual std::shared_ptr<States>& get_optimizer_states(const std::string states_name) = 0;
     virtual std::shared_ptr<Tensor>& get_optimizer_state(const std::string state_name, 
                                                         const size_t local_replica_id) = 0;
+
+    virtual void gen_unique_name(const bool trainable, std::string& name) = 0;
 };
 
 } // namespace SparseOperationKit

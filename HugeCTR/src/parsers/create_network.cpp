@@ -33,6 +33,7 @@
 #include <layers/gather_layer.hpp>
 #include <layers/gru_layer.hpp>
 #include <layers/interaction_layer.hpp>
+#include <layers/matrix_multiply_layer.hpp>
 #include <layers/multi_cross_layer.hpp>
 #include <layers/prelu_dice_layer.hpp>
 #include <layers/reduce_mean_layer.hpp>
@@ -826,6 +827,18 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
 
         break;
       }
+      case Layer_t::MatrixMultiply: {
+        Tensors2<float> in_tensors;
+        for (const auto& bag : input_output_info.inputs) {
+          in_tensors.push_back(Tensor2<float>::stretch_from(bag));
+        }
+        Tensor2<float> out_tensor;
+        blobs_buff->reserve(in_tensors[0].get_dimensions(), &out_tensor);
+        layers.emplace_back(
+            new MatrixMultiplyLayer<float>(in_tensors, out_tensor, blobs_buff, gpu_resource));
+        output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
+        break;
+      }
       case Layer_t::Softmax: {
         Tensor2<float> in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
         Tensor2<float> out_tensor;
@@ -842,7 +855,7 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
         // get PReLU_Dice params
         auto j_prelu_dice_param = get_json(j, "prelu_dice_param");
         auto alpha = get_value_from_json<float>(j_prelu_dice_param, "alpha");
-        auto epsilon = get_value_from_json<float>(j_prelu_dice_param, "epsilon");
+        auto epsilon = get_value_from_json<float>(j_prelu_dice_param, "eps");
         emplaceback_layer(new PRelu_Dice_Layer<float>(in_tensor, out_tensor, blobs_buff, alpha,
                                                       epsilon, gpu_resource));
         break;

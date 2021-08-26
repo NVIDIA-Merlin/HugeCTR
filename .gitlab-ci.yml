@@ -251,7 +251,6 @@ dcn:
       python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/dcn_parquet_localized_8gpu.json"
   timeout: 3 hours
 
-
 mlperf_benchmark:
   extends: .cluster_test_train_job
   script:
@@ -572,11 +571,97 @@ nightly_build_train:
       -t "${TRAIN_IMAGE_RELEASE}"
       -f ./Dockerfile.train
       --build-arg RELEASE=false
+      --no-cache
       ${PWD}
     - docker push ${TRAIN_IMAGE_RELEASE}
   only:
     variables:
       - $NIGHTLY == "1"
+
+nightly_build_unified_container.ctr:
+  tags:
+    - 1GPU
+  stage: build
+  script:
+    - docker login -u ${CI_PRIVATE_USER} -p "${CI_PRIVATE_KEY}" "${CI_REGISTRY}"
+    - export IMAGE_CTR="${CI_REGISTRY}/dl/hugectr/hugectr:unified.ctr.latest"
+    - git clone https://github.com/NVIDIA-Merlin/Merlin.git
+    - cd Merlin/docker
+    - sed -i "s/https:\/\/github.com\/NVIDIA\/HugeCTR.git/https:\/\/gitlab-ci-token:${CI_JOB_TOKEN}@gitlab-master.nvidia.com\/dl\/hugectr\/hugectr.git/g" dockerfile.ctr
+    - sed -i "s/git checkout master/git checkout ${CI_COMMIT_SHA}/g" dockerfile.ctr
+    - cat dockerfile.ctr
+    - docker build --pull
+      -t ${IMAGE_CTR}
+      -f dockerfile.ctr
+      --build-arg RELEASE=true 
+      --build-arg RMM_VER=vnightly 
+      --build-arg CUDF_VER=vnightly 
+      --build-arg NVTAB_VER=vnightly 
+      --build-arg HUGECTR_VER=vnightly
+      --no-cache
+      ${PWD}
+    - docker push ${IMAGE_CTR}
+  only:
+    variables:
+      - $NIGHTLY == "1"
+  timeout: 2 hours
+  
+
+nightly_build_unified_container.tf:
+  tags:
+    - 1GPU
+  stage: build
+  script:
+    - docker login -u ${CI_PRIVATE_USER} -p "${CI_PRIVATE_KEY}" "${CI_REGISTRY}"
+    - export IMAGE_CTR="${CI_REGISTRY}/dl/hugectr/hugectr:unified.tf.latest"
+    - git clone https://github.com/NVIDIA-Merlin/Merlin.git
+    - cd Merlin/docker
+    - sed -i "s/https:\/\/github.com\/NVIDIA\/HugeCTR.git/https:\/\/gitlab-ci-token:${CI_JOB_TOKEN}@gitlab-master.nvidia.com\/dl\/hugectr\/hugectr.git/g" dockerfile.tf
+    - sed -i "s/git checkout master/git checkout ${CI_COMMIT_SHA}/g" dockerfile.tf
+    - cat dockerfile.tf
+    - docker build --pull
+      -t ${IMAGE_CTR}
+      -f dockerfile.tf
+      --build-arg RELEASE=true 
+      --build-arg RMM_VER=vnightly 
+      --build-arg CUDF_VER=vnightly 
+      --build-arg NVTAB_VER=vnightly 
+      --build-arg HUGECTR_VER=vnightly
+      --no-cache
+      ${PWD}
+    - docker push ${IMAGE_CTR}
+  only:
+    variables:
+      - $NIGHTLY == "1"
+  timeout: 2 hours
+
+nightly_build_unified_container.tri:
+  tags:
+    - 1GPU
+  stage: build
+  script:
+    - docker login -u ${CI_PRIVATE_USER} -p "${CI_PRIVATE_KEY}" "${CI_REGISTRY}"
+    - export IMAGE_CTR="${CI_REGISTRY}/dl/hugectr/hugectr:unified.tri.latest"
+    - git clone https://github.com/NVIDIA-Merlin/Merlin.git
+    - cd Merlin/docker
+    - sed -i "s/https:\/\/github.com\/NVIDIA\/HugeCTR.git/https:\/\/gitlab-ci-token:${CI_JOB_TOKEN}@gitlab-master.nvidia.com\/dl\/hugectr\/hugectr.git/g" dockerfile.tri
+    - sed -i "s/git checkout master/git checkout ${CI_COMMIT_SHA}/g" dockerfile.tri
+    - cat dockerfile.tri
+    - docker build --pull
+      -t ${IMAGE_CTR}
+      -f dockerfile.tri
+      --build-arg RELEASE=true 
+      --build-arg RMM_VER=vnightly 
+      --build-arg CUDF_VER=vnightly 
+      --build-arg NVTAB_VER=vnightly 
+      --build-arg HUGECTR_VER=vnightly
+      --no-cache
+      ${PWD}
+    - docker push ${IMAGE_CTR}
+  only:
+    variables:
+      - $NIGHTLY == "1"
+  timeout: 2 hours
 
 nightly_build_train_release:
   tags:
@@ -590,6 +675,7 @@ nightly_build_train_release:
       -t "${TRAIN_IMAGE_RELEASE}"
       -f ./Dockerfile.train
       --build-arg RELEASE=true
+      --no-cache
       ${PWD}
     - docker push ${TRAIN_IMAGE_RELEASE}
   only:
@@ -608,6 +694,7 @@ nightly_build_inference:
       -t "${INFER_IMAGE_RELEASE}"
       -f ./Dockerfile.inference
       --build-arg RELEASE=true
+      --no-cache
       ${PWD}
     - docker push ${INFER_IMAGE_RELEASE}
   only:
@@ -627,6 +714,7 @@ nightly_build_embedding:
       -t "${EMB_IMAGE_RELEASE}"
       -f ./Dockerfile.plugin-embedding
       --build-arg RELEASE=true
+      --no-cache
       ${PWD}
     - docker push ${EMB_IMAGE_RELEASE}
   only:

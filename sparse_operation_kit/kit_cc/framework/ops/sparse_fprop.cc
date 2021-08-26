@@ -23,17 +23,30 @@ using namespace tensorflow::shape_inference;
 
 REGISTER_OP("PluginSparseFprop")
     .Input("emb_handle: variant")
-    .Input("emb_variable: float32")
+    .Input("emb_variable: T")
     .Input("values: value_dtype")
     .Input("indices: int64")
     .Input("global_replica_id: int32")
-    .Output("emb_vector: vector_dtype")
+    .Output("emb_vector: T")
+    .Attr("slot_num: int")
     .Attr("training: bool")
     .Attr("value_dtype: {int64}")
-    .Attr("vector_dtype: {float}")
+    .Attr("T: {float32}")
     .Attr("unique_op_name: string")
     .SetShapeFn([](InferenceContext* ctx) {
-        ctx->set_output(0, ctx->UnknownShape());
+        ShapeHandle variable_shape;
+        TF_RETURN_IF_ERROR(ctx->WithRank(ctx->input(1), 2, &variable_shape));
+        DimensionHandle emb_vec_size_dim = ctx->Dim(variable_shape, 1);
+
+        tensorflow::int64 slot_num = 0;
+        TF_RETURN_IF_ERROR(ctx->GetAttr("slot_num", &slot_num));
+        DimensionHandle slot_num_dim = ctx->MakeDim(slot_num);
+        
+        DimensionHandle batch_dim = ctx->UnknownDim();
+
+        ShapeHandle output_shape = ctx->MakeShape({batch_dim, slot_num_dim, emb_vec_size_dim});
+        ctx->set_output(0, output_shape);
+
         return Status::OK();
     })
     .Doc(R"doc(

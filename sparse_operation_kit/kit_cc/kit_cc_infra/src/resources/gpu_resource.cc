@@ -26,6 +26,7 @@ GpuResource::GpuResource(const size_t local_device_id, const size_t global_devic
                         const ncclComm_t& nccl_comm) 
 : local_device_id_(local_device_id), global_device_id_(global_device_id), 
 out_stream_(false), nccl_comm_(nccl_comm), sm_count_(0), cc_major_(0), cc_minor_(0),
+max_shared_memory_size_per_sm_(0), warp_size_(0),
 nccl_sync_data_(nullptr)
 {
     CK_CUDA(cudaStreamCreateWithFlags(&computation_stream_, cudaStreamNonBlocking));
@@ -45,6 +46,11 @@ nccl_sync_data_(nullptr)
     CK_CUDA(cudaDeviceGetAttribute(&sm_count_, cudaDevAttrMultiProcessorCount, local_device_id_));
     CK_CUDA(cudaDeviceGetAttribute(&cc_major_, cudaDevAttrComputeCapabilityMajor, local_device_id_));
     CK_CUDA(cudaDeviceGetAttribute(&cc_minor_, cudaDevAttrComputeCapabilityMinor, local_device_id_));
+    CK_CUDA(cudaDeviceGetAttribute(&max_shared_memory_size_per_sm_, 
+                                   cudaDevAttrMaxSharedMemoryPerMultiprocessor, 
+                                   local_device_id_));
+    max_shared_memory_size_per_sm_ -= (4 * 1024ul); // FIXME: in case it allocates all shared memory.
+    CK_CUDA(cudaDeviceGetAttribute(&warp_size_, cudaDevAttrWarpSize, local_device_id_));
 
     CK_CUDA(cudaMalloc(&nccl_sync_data_, sizeof(int32_t) * 1));
 }
@@ -57,6 +63,7 @@ GpuResource::GpuResource(const size_t local_device_id, const size_t global_devic
 : local_device_id_(local_device_id), global_device_id_(global_device_id), 
 computation_stream_(cuda_stream), out_stream_(true), 
 nccl_comm_(nccl_comm), sm_count_(0), cc_major_(0), cc_minor_(0),
+max_shared_memory_size_per_sm_(0), warp_size_(0),
 nccl_sync_data_(nullptr)
 {
     CK_CUDA(cudaStreamCreateWithFlags(&memcpy_stream_, cudaStreamNonBlocking));
@@ -75,6 +82,11 @@ nccl_sync_data_(nullptr)
     CK_CUDA(cudaDeviceGetAttribute(&sm_count_, cudaDevAttrMultiProcessorCount, local_device_id_));
     CK_CUDA(cudaDeviceGetAttribute(&cc_major_, cudaDevAttrComputeCapabilityMajor, local_device_id_));
     CK_CUDA(cudaDeviceGetAttribute(&cc_minor_, cudaDevAttrComputeCapabilityMinor, local_device_id_));
+    CK_CUDA(cudaDeviceGetAttribute(&max_shared_memory_size_per_sm_, 
+                                   cudaDevAttrMaxSharedMemoryPerMultiprocessor, 
+                                   local_device_id_));
+    max_shared_memory_size_per_sm_ -= (4 * 1024ul); // FIXME: in case it allocates all shared memory.
+    CK_CUDA(cudaDeviceGetAttribute(&warp_size_, cudaDevAttrWarpSize, local_device_id_));
 
     CK_CUDA(cudaMalloc(&nccl_sync_data_, sizeof(int32_t) * 1));
 }
@@ -135,6 +147,14 @@ const cudaStream_t& GpuResource::get_memcpy_stream() const {
 
 size_t GpuResource::get_sm_count() const {
     return static_cast<size_t>(sm_count_);
+}
+
+size_t GpuResource::get_max_smem_size_per_sm() const {
+    return static_cast<size_t>(max_shared_memory_size_per_sm_);
+}
+
+size_t GpuResource::get_warp_size() const {
+    return static_cast<size_t>(warp_size_);
 }
 
 const curandGenerator_t& GpuResource::get_variant_curand_gen() const {
