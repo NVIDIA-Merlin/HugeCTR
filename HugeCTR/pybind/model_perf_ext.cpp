@@ -262,11 +262,9 @@ void ModelPerfExt::fit(int num_epochs, int max_iter, int display, int eval_inter
 
 #ifdef ENABLE_PROFILING
     // profiler may run very long, so prevent lr < 0
-    lr = std::numeric_limits<float>::min();
-    this->set_learning_rate(lr);
     if (HugeCTR::global_profiler_train_eval_mode == 0) {
       this->train();
-    } else {
+    } else if (HugeCTR::global_profiler_train_eval_mode == 1) {
       this->copy_weights_for_evaluation();
       for (int batches = 0; batches < solver_.max_eval_batches; batches++) {
         this->eval(batches);
