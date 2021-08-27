@@ -714,6 +714,7 @@ nightly_build_embedding:
       -t "${EMB_IMAGE_RELEASE}"
       -f ./Dockerfile.plugin-embedding
       --build-arg RELEASE=true
+      --build-arg TF_VERSION=2.5.0
       --no-cache
       ${PWD}
     - docker push ${EMB_IMAGE_RELEASE}
