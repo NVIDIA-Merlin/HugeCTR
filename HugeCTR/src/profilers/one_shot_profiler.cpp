@@ -84,7 +84,7 @@ bool OneShotProfiler::iter_check(int gpus) {
 
         float iter_start_to_event_start_time_ms;
         CK_CUDA_THROW_(cudaEventElapsedTime(&iter_start_to_event_start_time_ms, iter_start_event,
-                                            gpu_timer->start));
+                                            gpu_timer->start_));
         if (iter_start_to_event_start_time_ms < 0.0) {
           throw internal_runtime_error(HugeCTR::Error_t::UnspecificError,
                                        gpu_event_strfy(events_[event_idx].get()));
@@ -135,7 +135,7 @@ bool OneShotProfiler::iter_check(int gpus) {
 cudaEvent_t OneShotProfiler::find_iter_start_event(int device_id) {
   cudaEvent_t iter_start_event = nullptr;
   try {
-    iter_start_event = map_device_id_to_iter_gpu_timer_.at(device_id)->start;
+    iter_start_event = map_device_id_to_iter_gpu_timer_.at(device_id)->start_;
   } catch (const std::out_of_range& e) {
     for (auto& event_p : events_) {
       auto id = ((GPUEvent*)(event_p.get()))->device_id;
@@ -144,7 +144,7 @@ cudaEvent_t OneShotProfiler::find_iter_start_event(int device_id) {
         auto event_key = gen_event_key("iteration", ((GPUEvent*)(event_p.get()))->stream, 0);
         auto timer = map_event_key_to_gpu_timer_[event_key];
         map_device_id_to_iter_gpu_timer_[device_id] = timer;
-        iter_start_event = timer->start;
+        iter_start_event = timer->start_;
         break;
       }
     }

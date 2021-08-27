@@ -61,6 +61,15 @@ bool ModelPerfExt::train() {
     if (solver_.use_overlapped_pipeline) {
       train_overlapped();
     } else {
+#ifdef ENABLE_PROFILING
+#pragma omp parallel num_threads(networks_.size())
+      {
+        size_t id = omp_get_thread_num();
+        const auto& local_gpu = resource_manager_->get_local_gpu(id);
+        PROFILE_RECORD("iteration.start", local_gpu->get_stream());
+      }
+#endif
+
       embeddings_[0]->forward(true);
 
 #pragma omp parallel num_threads(networks_.size())
@@ -95,11 +104,13 @@ bool ModelPerfExt::train() {
           const auto& local_gpu = resource_manager_->get_local_gpu(id);
           local_gpu->set_compute2_event_sync(local_gpu->get_comp_overlap_stream());
           local_gpu->wait_on_compute2_event(local_gpu->get_stream());
+          PROFILE_RECORD("iteration.stop", local_gpu->get_stream());
         }
       } else {
         const auto& local_gpu = resource_manager_->get_local_gpu(0);
         local_gpu->set_compute2_event_sync(local_gpu->get_comp_overlap_stream());
         local_gpu->wait_on_compute2_event(local_gpu->get_stream());
+        PROFILE_RECORD("iteration.stop", local_gpu->get_stream());
       }
     }
     return true;
@@ -131,6 +142,15 @@ bool ModelPerfExt::eval(int eval_batch) {
     PROFILER_ITER_CHECK(networks_.size());
     evaluate_data_reader_->ready_to_collect();
 
+#ifdef ENABLE_PROFILING
+#pragma omp parallel num_threads(networks_.size())
+    {
+      size_t id = omp_get_thread_num();
+      const auto& local_gpu = resource_manager_->get_local_gpu(id);
+      PROFILE_RECORD("iteration.start", local_gpu->get_stream());
+    }
+#endif
+
     embeddings_[0]->forward(false, eval_batch);
 
 #pragma omp parallel num_threads(networks_.size())
@@ -147,6 +167,15 @@ bool ModelPerfExt::eval(int eval_batch) {
     for (auto& metric : metrics_) {
       metric->global_reduce(networks_.size());
     }
+
+#ifdef ENABLE_PROFILING
+#pragma omp parallel num_threads(networks_.size())
+    {
+      size_t id = omp_get_thread_num();
+      const auto& local_gpu = resource_manager_->get_local_gpu(id);
+      PROFILE_RECORD("iteration.stop", local_gpu->get_stream());
+    }
+#endif
 
     return true;
   } catch (const internal_runtime_error& err) {
@@ -235,7 +264,7 @@ void ModelPerfExt::fit(int num_epochs, int max_iter, int display, int eval_inter
     // profiler may run very long, so prevent lr < 0
     lr = std::numeric_limits<float>::min();
     this->set_learning_rate(lr);
-    if (global_profiler_train_eval_mode == 0) {
+    if (HugeCTR::global_profiler_train_eval_mode == 0) {
       this->train();
     } else {
       this->copy_weights_for_evaluation();
@@ -479,7 +508,9 @@ void ModelPerfExt::exchange_wgrad(size_t device_id) {
   CudaCPUDeviceContext context(gpu_resource->get_device_id());
   PROFILE_RECORD("exchange_wgrad.start", resource_manager_->get_local_gpu(device_id)->get_stream(),
                  true, device_id);
-  if (solver_.async_mlp_wgrad) gpu_resource->wait_on_wgrad_event(gpu_resource->get_stream());
+  if (solver_.async_mlp_wgrad) {
+    gpu_resource->wait_on_wgrad_event(gpu_resource->get_stream());
+  };
   Model::exchange_wgrad(device_id);
   PROFILE_RECORD("exchange_wgrad.stop", resource_manager_->get_local_gpu(device_id)->get_stream(),
                  true, device_id);

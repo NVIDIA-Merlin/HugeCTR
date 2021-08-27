@@ -166,9 +166,9 @@ class GPUTimer {
 
   void event_start(cudaStream_t stream, bool could_be_in_cuda_graph) {
     if (could_be_in_cuda_graph) {
-      cudaStreamCaptureStatus* capture_status;
+      cudaStreamCaptureStatus capture_status;
       CK_CUDA_THROW_(cudaStreamIsCapturing(stream, &capture_status));
-      if (*capture_status == cudaStreamCaptureStatusActive) {
+      if (capture_status == cudaStreamCaptureStatusActive) {
         CK_CUDA_THROW_(CUDA_GRAPH_EVENT_RECORD(start_, stream));
         return;
       }
@@ -178,9 +178,9 @@ class GPUTimer {
 
   void event_stop(cudaStream_t stream, bool could_be_in_cuda_graph) {
     if (could_be_in_cuda_graph) {
-      cudaStreamCaptureStatus* capture_status;
+      cudaStreamCaptureStatus capture_status;
       CK_CUDA_THROW_(cudaStreamIsCapturing(stream, &capture_status));
-      if (*capture_status == cudaStreamCaptureStatusActive) {
+      if (capture_status == cudaStreamCaptureStatusActive) {
         CK_CUDA_THROW_(CUDA_GRAPH_EVENT_RECORD(stop_, stream));
         return;
       }
@@ -355,6 +355,7 @@ inline void restore_original_device(const int original_device_id, const int curr
 }  //  namespace Profiler
 
 // A global variables
+extern const int global_profiler_train_eval_mode;
 extern const int global_profiling_mode;
 
 extern Profiler::FineGrainedProfiler global_fine_grained_profiler;
