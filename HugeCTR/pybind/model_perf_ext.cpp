@@ -273,7 +273,6 @@ void ModelPerfExt::fit(int num_epochs, int max_iter, int display, int eval_inter
       for (int batches = 0; batches < solver_.max_eval_batches; batches++) {
         this->eval(batches);
       }
-      timer_eval.stop();
       auto eval_metrics = this->get_eval_metrics();
       for (auto& eval_metric : eval_metrics) {
         MESSAGE_("Evaluation, " + eval_metric.first + ": " + std::to_string(eval_metric.second));
@@ -324,6 +323,7 @@ void ModelPerfExt::fit(int num_epochs, int max_iter, int display, int eval_inter
           }
         }
       }
+      timer_eval.stop();
       MESSAGE_("Eval Time for " + std::to_string(solver_.max_eval_batches) +
                " iters: " + std::to_string(timer_eval.elapsedSeconds()) + "s");
       if (solver_.is_dlrm) {
