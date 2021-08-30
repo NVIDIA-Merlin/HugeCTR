@@ -52,6 +52,7 @@ void OneShotProfiler::initialize(bool use_cuda_graph, bool exit_when_finished) {
 bool OneShotProfiler::iter_check(int gpus) {
   if (current_iteration_ < warmup_iterations_) {
     sync_all_gpus(gpus);
+    global_data_reader_one_shot_profiler.phase = 1;
     current_iteration_ += 1;
   } else if (current_iteration_ == warmup_iterations_) {
     sync_all_gpus(gpus);
@@ -61,6 +62,7 @@ bool OneShotProfiler::iter_check(int gpus) {
           "Program exit.");
       std::exit(0);
     }
+    global_data_reader_one_shot_profiler.phase = 2;
     current_iteration_ += 1;
   } else {
     bool time_to_sync_and_record =
@@ -110,6 +112,7 @@ bool OneShotProfiler::iter_check(int gpus) {
           events_[event_idx]->extra_infos_stop.push_back(extra_info_stop);
         }
       }
+      global_data_reader_one_shot_profiler.iter_check();
     }
 
     if (current_iteration_ > repeat_iters_) {
@@ -246,6 +249,35 @@ void OneShotProfiler::write_result(const char* file_path) {
     j["extra_infos_start"] = gep->extra_infos_start;
     j["extra_infos_stop"] = gep->extra_infos_stop;
     result["events"].push_back(j);
+  }
+
+  // data reader
+  for (auto& x : global_data_reader_one_shot_profiler.map_stream_to_stream_recorder) {
+    auto recorder = x.second;
+    json j_h2d;
+    j_h2d["event_name"] = "data_reader_memcpy_h2d";
+    j_h2d["device_id"] = recorder->device_id;
+    j_h2d["stream"] = stream_str(recorder->stream);
+    j_h2d["start_index"] = -1;
+    j_h2d["end_index"] = -1;
+    j_h2d["met_times_within_this_stream"] = -1;
+    j_h2d["measured_times_ms"] = recorder->measured_times_ms_h2d;
+    j_h2d["iter_start_to_event_start_times_ms"] = recorder->iter_start_to_event_start_times_ms_h2d;
+    j_h2d["extra_infos_start"] = "";
+    j_h2d["extra_infos_stop"] = "";
+    result["events"].push_back(j_h2d);
+    json j_p2p;
+    j_p2p["event_name"] = "data_reader_memcpy_p2p";
+    j_p2p["device_id"] = recorder->device_id;
+    j_p2p["stream"] = stream_str(recorder->stream);
+    j_p2p["start_index"] = -1;
+    j_p2p["end_index"] = -1;
+    j_p2p["met_times_within_this_stream"] = -1;
+    j_p2p["measured_times_ms"] = recorder->measured_times_ms_p2p;
+    j_p2p["iter_start_to_event_start_times_ms"] = recorder->iter_start_to_event_start_times_ms_p2p;
+    j_p2p["extra_infos_start"] = "";
+    j_p2p["extra_infos_stop"] = "";
+    result["events"].push_back(j_p2p);
   }
 
   std::string result_jstring = result.dump();

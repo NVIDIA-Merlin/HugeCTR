@@ -248,9 +248,11 @@ void ThreadAsyncReader::try_submit_upload(InternalBatchBuffer* buffer) {
   size_t end_offset = std::min(buffer->size, chunk_size * (buffer->num_submitted_h2d_chunks + 1));
 
   // if (buffer->id < 10000)
+  PROFILE_RECORD_DATA_READER("data_reader_memcpy_h2d.start", stream_);
   CK_CUDA_THROW_(cudaMemcpyAsync(buffer->dev_data[device_id_] + beg_offset,
                                  buffer->host_data + beg_offset, end_offset - beg_offset,
                                  cudaMemcpyHostToDevice, stream_));
+  PROFILE_RECORD_DATA_READER("data_reader_memcpy_h2d.stop", stream_);
   buffer->num_submitted_h2d_chunks++;
 }
 
@@ -267,9 +269,11 @@ void ThreadAsyncReader::try_submit_p2p(InternalBatchBuffer* buffer) {
   if (buffer->num_submitted_broadcasts != (int)buffer->dev_data.size()) {
     if (device_id_ != buffer->num_submitted_broadcasts) {
       // if (buffer->id < 5000 || (10000 < buffer->id && buffer->id < 15000))
+      PROFILE_RECORD_DATA_READER("data_reader_memcpy_p2p.start", stream_);
       CK_CUDA_THROW_(cudaMemcpyAsync(buffer->dev_data[buffer->num_submitted_broadcasts],
                                      buffer->dev_data[device_id_], buffer->size,
                                      cudaMemcpyDeviceToDevice, stream_));
+      PROFILE_RECORD_DATA_READER("data_reader_memcpy_p2p.stop", stream_);
     }
     buffer->num_submitted_broadcasts++;
     return;
