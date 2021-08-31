@@ -25,6 +25,7 @@ variables:
   NEW_CRITEO_MOUNT: /etc/workspace/new_criteo_kaggle
   DLRM_MOUNT: /etc/workspace/dataset
   WORK_DIR: /hugectr_ci_workdir
+  OPTIMIZED_IMAGE_VERSIOINED: gitlab-master.nvidia.com:5005/dl/hugectr/hugectr:optimized_${CI_PIPELINE_ID}
   TRAIN_IMAGE_VERSIONED: "${CI_REGISTRY}/dl/hugectr/hugectr:train_${CI_PIPELINE_ID}"
   TRAIN_IMAGE_VERSIONED_ENROOT: gitlab-master.nvidia.com/dl/hugectr/hugectr:train_${CI_PIPELINE_ID}
   INFER_IMAGE_VERSIONED: "${CI_REGISTRY}/dl/hugectr/hugectr:infer_${CI_PIPELINE_ID}"
@@ -60,11 +61,6 @@ before_script:
   dependencies:
     - build_train
 
-.cluster_test_embedding_job:
-  extends: .cluster_test_job
-  dependencies:
-    - build_embedding
-
 ### Stage: build
 build_train:
   extends: .build
@@ -86,30 +82,19 @@ build_train:
       ${PWD}
     - docker push "${TRAIN_IMAGE_VERSIONED}"
 
-build_embedding:
+build_optimized:
   extends: .build
   tags:
-    - 1GPU
-  script:
-    - export JOB_DOCKERFILE="embedding.Dockerfile.${CI_JOB_NAME%%--*}.${CI_PIPELINE_ID}" && echo ${JOB_DOCKERFILE}
-    - echo "FROM ${IMAGE_EMBEDDING}" > ${JOB_DOCKERFILE}
-    - echo "ARG SM=\"60;61;70;75;80\"" >> ${JOB_DOCKERFILE}
-    - echo "
-      RUN git clone https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab-master.nvidia.com/dl/hugectr/hugectr.git ${WORK_DIR} && cd ${WORK_DIR} && git checkout ${CI_COMMIT_SHA} && git submodule update --init --recursive && cd sparse_operation_kit/Deprecated && mkdir build && cd build && cmake -DCMAKE_BUILD_TYPE=Release -DSM=\$SM .. && make -j\$(nproc) && make install
-      " >> ${JOB_DOCKERFILE}
-    - echo "
-      RUN cd ${WORK_DIR}/sparse_operation_kit/ && mkdir -p build && cd build && cmake -DSM=\$SM .. && make -j && make install
-      " >> ${JOB_DOCKERFILE}
-    - echo "ENV LD_LIBRARY_PATH=/usr/local/hugectr/lib:/usr/local/lib:\$LD_LIBRARY_PATH" >> ${JOB_DOCKERFILE}
-    - echo "ENV LIBRARY_PATH=/usr/local/hugectr/lib:/usr/local/lib:\$LIBRARY_PATH" >> ${JOB_DOCKERFILE}
-    - cat ${JOB_DOCKERFILE}
+    - vm-builder
+  script:  
+    - git submodule update --init --recursive
     - docker login -u ${CI_PRIVATE_USER} -p "${CI_PRIVATE_KEY}" "${CI_REGISTRY}"
-    - docker pull ${IMAGE_EMBEDDING}
     - docker build --pull
-      -t "${EMBEDDING_IMAGE_VERSIONED}"
-      -f "${JOB_DOCKERFILE}"
+      -t "${OPTIMIZED_IMAGE_VERSIOINED}"
+      -f ./tools/dockerfiles/Dockerfile.optimized
+      --no-cache
       ${PWD}
-    - docker push "${EMBEDDING_IMAGE_VERSIONED}"
+    - docker push "${OPTIMIZED_IMAGE_VERSIOINED}"
 
 build_inference:
   extends: .build
@@ -231,34 +216,35 @@ dcn:
 
 
 mlperf_benchmark_single_node:
-  extends: .cluster_test_train_job
+  extends: .cluster_test_job
   needs:
-    - build_train
-  script:
-    - srun --ntasks=1
-      -A devtech -J devtech:hugectr -p luna
-      --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
-      --container-mounts ${DLRM_DATASET}:${DLRM_DATASET},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
-      -N 1
-      bash -cx "
-      export PYTHONPATH=${WORK_DIR}/build/build_single/lib/ &&
-      numactl --membind=1,3,5,7 python3 ${WORK_DIR}/test/pybind_test/dlrm_test/dgx_a100.py"
+    - build_optimized
+  variables:
+    GPFSFOLDER: /lustre/fsw/devtech/hpc-hugectr/hugectr-ci/${CI_PIPELINE_ID}/mlperf_benchmark_single_node
+    GIT_CLONE_PATH: /lustre/fsw/devtech/hpc-hugectr/hugectr-ci/$CI_CONCURRENT_ID/$CI_PROJECT_NAME
+    CONT: gitlab-master.nvidia.com/dl/hugectr/hugectr:optimized_${CI_PIPELINE_ID}
+    MOUNTS: ${DLRM_DATASET}:${DLRM_DATASET}
+    SLURM_ACCOUNT: devtech
+    SLURM_PARTITION: "luna"
+    WALLTIME: "00:15:00"
+    DGXNNODES: 1
+    TEST_CMD: ./test/pybind_test/dlrm_test/single_node.sub
 
 mlperf_benchmark_multi_node:
-  extends: .cluster_test_train_job
+  extends: .cluster_test_job
   needs:
-    - build_train
-  script:
-    - srun --ntasks=14
-      -A devtech -J devtech:hugectr -p luna
-      --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
-      --container-mounts ${DLRM_DATASET}:${DLRM_DATASET},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
-      --network=sharp
-      -N 14
-      bash -cx "
-      export PYTHONPATH=${WORK_DIR}/build/build_multi_nccl/lib/ &&
-      numactl --membind=1,3,5,7 python3 ${WORK_DIR}/test/pybind_test/dlrm_test/dgx_a100_14x8x640.py"
-  timeout: 3 hours
+    - build_optimized
+  variables:
+    GPFSFOLDER: /lustre/fsw/devtech/hpc-hugectr/hugectr-ci/${CI_PIPELINE_ID}/mlperf_benchmark_multi_node
+    GIT_CLONE_PATH: /lustre/fsw/devtech/hpc-hugectr/hugectr-ci/$CI_CONCURRENT_ID/$CI_PROJECT_NAME
+    CONT: gitlab-master.nvidia.com/dl/hugectr/hugectr:optimized_${CI_PIPELINE_ID}
+    MOUNTS: ${DLRM_DATASET}:${DLRM_DATASET}
+    SLURM_ACCOUNT: devtech
+    SLURM_PARTITION: "luna"
+    WALLTIME: "00:30:00"
+    SBATCH_OTHER_PARAMS: --network sharp
+    DGXNNODES: 14
+    TEST_CMD: ./test/pybind_test/dlrm_test/14node.sub
 
 wdl_deepfm:
   extends: .cluster_test_train_job
@@ -487,41 +473,6 @@ py_multi_node:
       cp ${WORK_DIR}/build/build_multi_nccl/lib/hugectr.so ${WORK_DIR}/test/pybind_test/ &&
       python3 ${WORK_DIR}/test/pybind_test/criteo_2node_4gpu.py ${WORK_DIR}/test/scripts/criteo_2node_4gpu.json"
 
-
-# embedding_plugin
-embedding_plugin:
-  extends: .cluster_test_embedding_job
-  script:
-    - srun --ntasks=1
-      -A devtech -J devtech:hugectr -p luna
-      --container-image ${EMBEDDING_IMAGE_VERSIONED_ENROOT}
-      --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
-      bash -cx "
-      cd ${WORK_DIR}/test/embedding_plugin_test &&
-      python3 embedding_plugin_deepfm_main.py --batch_size=16384 --batch_size_eval=4 --n_epochs=1 --gpus 0 --embedding_vec_size=10 --data_path=/dataset/criteo_kaggle/embedding_plugin/"
-    - srun --ntasks=1
-      -A devtech -J devtech:hugectr -p luna
-      --container-image ${EMBEDDING_IMAGE_VERSIONED_ENROOT}
-      --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
-      bash -cx "
-      cd ${WORK_DIR}/test/embedding_plugin_test &&
-      python3 embedding_plugin_deepfm_main.py --batch_size=16384 --batch_size_eval=4 --n_epochs=1 --gpus 0 1 3 4 --embedding_vec_size=10 --data_path=/dataset/criteo_kaggle/embedding_plugin/"
-    - srun --ntasks=1
-      -A devtech -J devtech:hugectr -p luna
-      --container-image ${EMBEDDING_IMAGE_VERSIONED_ENROOT}
-      --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
-      bash -cx "
-      cd ${WORK_DIR}/sparse_operation_kit/Deprecated &&
-      python3 unit_test_v2.py --fast_testing=1"
-    - srun --ntasks=1
-      -A devtech -J devtech:hugectr -p luna
-      --container-image ${EMBEDDING_IMAGE_VERSIONED_ENROOT}
-      --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
-      bash -cx "
-      cd ${WORK_DIR}/sparse_operation_kit/unit_test/test_scripts &&
-      bash script.sh"
-  timeout: 2 hours
-
 nightly_build_train:
   tags:
     - 1GPU
@@ -539,6 +490,23 @@ nightly_build_train:
   only:
     variables:
       - $NIGHTLY == "1"
+
+nightly_build_optimized:
+  tags:
+    - vm-builder
+  stage: build
+  script:
+    - export TRAIN_IMAGE_RELEASE="${CI_REGISTRY}/dl/hugectr/hugectr:mlperf.dev.latest"
+    - docker login -u ${CI_PRIVATE_USER} -p "${CI_PRIVATE_KEY}" "${CI_REGISTRY}"
+    - docker build --pull
+      -t "${TRAIN_IMAGE_RELEASE}"
+      -f ./tools/dockerfiles/Dockerfile.optimized
+      --build-arg RELEASE=false
+      ${PWD}
+    - docker push ${TRAIN_IMAGE_RELEASE}
+  only:
+    variables:
+      - $NIGHTLY == "2"
 
 nightly_build_inference:
   tags:
@@ -558,24 +526,6 @@ nightly_build_inference:
     variables:
       - $NIGHTLY == "1"
 
-
-nightly_build_embedding:
-  tags:
-    - 1GPU
-  stage: build
-  script:
-    - export EMB_IMAGE_RELEASE="${CI_REGISTRY}/dl/hugectr/hugectr:devel_embedding"
-    - docker login -u ${CI_PRIVATE_USER} -p "${CI_PRIVATE_KEY}" "${CI_REGISTRY}"
-    - cd ./tools/dockerfiles/
-    - docker build --pull
-      -t "${EMB_IMAGE_RELEASE}"
-      -f ./Dockerfile.plugin-embedding
-      --build-arg RELEASE=true
-      ${PWD}
-    - docker push ${EMB_IMAGE_RELEASE}
-  only:
-    variables:
-      - $NIGHTLY == "1"
 
 .release_test_job: &release_test_job
   allow_failure: false
