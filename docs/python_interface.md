@@ -436,7 +436,7 @@ hugectr.Input()
   * `sparse_name` is the name of the sparse input tensors to be referenced by following layers. There is NO default value and it should be specified by users. 
   * `nnz_per_slot` is the maximum number of features for each slot for the specified spare input. The `nnz_per_slot` can be an `int` which means average nnz per slot so the maximum number of features per sample should be `nnz_per_slot * slot_num`. Or you can use List[int] to initialize `nnz_per_slot`, then the maximum number of features per sample should be `sum(nnz_per_slot)` and in this case, the length of the array `nnz_per_slot` should be the same with `slot_num`. 
   * `is_fixed_length` is used to identify whether categorical inputs has the same length for each slot among all samples. If different samples have the same number of features for each slot, then user can set `is_fixed_length = True` and HugeCTR can use this information to reduce data transferring time. 
-  * `slot_num` specifies the number of slots used for this sparse input in the dataset.
+  * `slot_num` specifies the number of slots used for this sparse input in the dataset. **Note:** if multiple `DataReaderSparseParam` are specified there's no overlap between any pair of `DataReaderSparseParam`. e.g. in our [wdl sample](../samples/wdl/wdl.py), we have 27 slots in total; we specified the first slot as "wide_data" and the next 26 slots as "deep_data".
 
 ### SparseEmbedding  ###
 ```bash
