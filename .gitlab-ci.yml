@@ -483,7 +483,8 @@ data_generator_single_node:
       mpirun -np 1 --allow-run-as-root python3 ${WORK_DIR}/tools/data_generator/dcn_norm_generate_train.py &&
       mpirun -np 1 --allow-run-as-root python3 ${WORK_DIR}/tools/data_generator/wdl_norm_generate_train.py &&
       mpirun -np 1 --allow-run-as-root python3 ${WORK_DIR}/tools/data_generator/dlrm_raw_generate_train.py &&
-      rm -rf dcn_norm && rm -rf wdl_norm && rm -rf dlrm_raw"
+      mpirun -np 1 --allow-run-as-root python3 ${WORK_DIR}/tools/data_generator/dcn_parquet_generate_train.py &&
+      rm -rf dcn_norm && rm -rf wdl_norm && rm -rf dlrm_raw && rm -rf dcn_parquet"
 
 # python interface single node
 py_single_node:
