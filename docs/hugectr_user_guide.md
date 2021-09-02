@@ -57,7 +57,7 @@ We support the following compute capabilities:
 | 8.0                | NVIDIA A100 (Ampere) | 80 |
 
 ### Software Stack ###
-For more information about our software stack, see [Software Stack](../tools/dockerfiles/software_stack.md).
+For more information about our software stack, see [Software Stack](../tools/dockerfiles/support_matrix.md).
 
 ### Installing HugeCTR Using NGC Containers
 All NVIDIA Merlin components are available as open source projects. However, a more convenient way to make use of these components is by using our Merlin NGC containers. Containers allow you to package your software application, libraries, dependencies, and runtime compilers in a self-contained environment. When installing HugeCTR using NGC containers, the application environment remains portable, consistent, reproducible, and agnostic to the underlying host system software configuration.
