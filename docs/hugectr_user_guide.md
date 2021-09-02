@@ -73,7 +73,7 @@ $ docker run --gpus=all --rm -it --cap-add SYS_NICE nvcr.io/nvidia/merlin/merlin
 To build the HugeCTR Docker container on your own, see [Build HugeCTR Docker Containers](../tools/dockerfiles).
 
 ### Building HugeCTR from Scratch
-Before building HugeCTR from scratch, you should prepare the dependencies according to the instructions provided in the [Software Stack](../tools/dockerfiles/software_stack.md). After you've prepared the dependencies, download the HugeCTR repository and the third-party modules that it relies on by running the following commands:
+Before building HugeCTR from scratch, you should prepare the dependencies according to the instructions provided in the [Software Stack](../tools/dockerfiles/support_matrix.md). After you've prepared the dependencies, download the HugeCTR repository and the third-party modules that it relies on by running the following commands:
 ```shell
 $ git clone https://github.com/NVIDIA/HugeCTR.git
 $ cd HugeCTR
