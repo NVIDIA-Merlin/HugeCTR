@@ -261,7 +261,7 @@ void add_sparse_embedding(SparseEmbedding& sparse_embedding,
                           std::shared_ptr<ExchangeWgrad>& exchange_wgrad, bool use_cuda_graph,
                           bool grouped_all_reduce, bool use_holistic_cuda_graph,
                           size_t num_iterations_statistics,
-                          GpuLearningRateSchedulers& gpu_lr_sches);
+                          GpuLearningRateSchedulers& gpu_lr_sches, bool overlap_ar_a2a);
 
 Input get_input_from_json(const nlohmann::json& j_input);
 

@@ -39,7 +39,8 @@ HybridSparseEmbedding<dtype, emtype>::HybridSparseEmbedding(
     const HybridSparseEmbeddingParams<emtype> &embedding_params,
     const std::vector<BuffPtr<emtype>> &grouped_wgrad_buff,
     const GpuLearningRateSchedulers lr_scheds, bool graph_mode,
-    const std::shared_ptr<ResourceManager> &resource_manager)
+    const std::shared_ptr<ResourceManager> &resource_manager,
+    bool overlap_ar_a2a)
     : train_input_tensors_(train_input_tensors),
       evaluate_input_tensors_(evaluate_input_tensors),
       embedding_params_(embedding_params),
@@ -49,7 +50,8 @@ HybridSparseEmbedding<dtype, emtype>::HybridSparseEmbedding(
       grouped_wgrad_buff_(grouped_wgrad_buff),
       grouped_all_reduce_(grouped_wgrad_buff[0] != NULL),
       lr_scheds_(lr_scheds),
-      graph_mode_(graph_mode) {
+      graph_mode_(graph_mode),
+      overlap_ar_a2a_(overlap_ar_a2a) {
   try {
     // 0. Error check
     if (embedding_params_.train_batch_size < 1 || embedding_params_.evaluate_batch_size < 1 ||
@@ -682,7 +684,7 @@ void HybridSparseEmbedding<dtype, emtype>::forward(bool is_train, int eval_batch
 }
 
 template <typename dtype, typename emtype>
-void HybridSparseEmbedding<dtype, emtype>::backward_pre_communication(int i, cudaStream_t stream) {
+void HybridSparseEmbedding<dtype, emtype>::frequent_local_reduce(int i, cudaStream_t stream) {
   int cur_device = get_local_gpu(i).get_device_id();
   CudaDeviceContext context(cur_device);
 
@@ -691,6 +693,12 @@ void HybridSparseEmbedding<dtype, emtype>::backward_pre_communication(int i, cud
                     (embedding_params_.communication_type == CommunicationType::IB_NVLink_Hier));
   frequent_embeddings_[i].local_reduce(train_output_tensors_[i].get_ptr(), stream, reset_all);
   PROFILE_RECORD("fre_local_reduce.stop", stream);
+}
+
+template <typename dtype, typename emtype>
+void HybridSparseEmbedding<dtype, emtype>::backward_pre_communication(int i, cudaStream_t stream) {
+  int cur_device = get_local_gpu(i).get_device_id();
+  CudaDeviceContext context(cur_device);
 
   if (embedding_params_.communication_type == CommunicationType::IB_NVLink) {
     PROFILE_RECORD("multi_node_inf_update_network.start", stream);
@@ -698,7 +706,8 @@ void HybridSparseEmbedding<dtype, emtype>::backward_pre_communication(int i, cud
         train_output_tensors_[i].get_ptr(),
         infrequent_backward_comm_buffers_[i].send_buffer.get_ptr(), stream);
     PROFILE_RECORD("multi_node_inf_update_network.stop", stream);
-  } else if (embedding_params_.communication_type == CommunicationType::IB_NVLink_Hier) {
+  }
+  else if (embedding_params_.communication_type == CommunicationType::IB_NVLink_Hier) {
     PROFILE_RECORD("multi_node_inf_fused_intra_update_network.start", stream);
     infrequent_embeddings_[i].fused_intra_update_network(
         train_output_tensors_[i].get_ptr(),
@@ -739,7 +748,7 @@ void HybridSparseEmbedding<dtype, emtype>::backward_communications(int i, cudaSt
 }
 
 template <typename dtype, typename emtype>
-void HybridSparseEmbedding<dtype, emtype>::backward_post_communication(int i, cudaStream_t stream) {
+void HybridSparseEmbedding<dtype, emtype>::frequent_update(int i, cudaStream_t stream) {
   int cur_device = get_local_gpu(i).get_device_id();
   CudaDeviceContext context(cur_device);
   float *dev_lr = lr_scheds_[i]->get_learning_rate();
@@ -750,6 +759,15 @@ void HybridSparseEmbedding<dtype, emtype>::backward_post_communication(int i, cu
     frequent_embeddings_[i].update_model(dev_lr, scale, stream);
     PROFILE_RECORD("multi_node_fre_update_model.stop", stream);
   }
+}
+
+template <typename dtype, typename emtype>
+void HybridSparseEmbedding<dtype, emtype>::backward_post_communication(int i, cudaStream_t stream) {
+  int cur_device = get_local_gpu(i).get_device_id();
+  CudaDeviceContext context(cur_device);
+  float *dev_lr = lr_scheds_[i]->get_learning_rate();
+  float scale = opt_params_[i].scaler;
+
   if (embedding_params_.communication_type == CommunicationType::IB_NVLink) {
     PROFILE_RECORD("multi_node_inf_update_model.start", stream);
     infrequent_embeddings_[i].update_model(
@@ -898,19 +916,38 @@ TrainState HybridSparseEmbedding<dtype, emtype>::train(bool is_train, int i, Tra
     case TrainState_t::TopMLPBprop:
       break;
     case TrainState_t::BottomMLPBprop:
+      if (overlap_ar_a2a_){
+        sync();
+        frequent_local_reduce(i, stream);
+      }
       break;
     case TrainState_t::MLPExchangeWgrad:
-      sync();
-      backward_pre_communication(i, stream);
+      if (!overlap_ar_a2a_){
+        sync();
+        frequent_local_reduce(i, stream);
+        backward_pre_communication(i, stream);
+      }
       if (grouped_all_reduce_) {
         CK_CUDA_THROW_(cudaEventRecord(finish_backward_pre, stream));
         event_ptr = &finish_backward_pre;
       }
+      if (overlap_ar_a2a_){
+        backward_pre_communication(i, stream);
+        backward_communications(i, stream);
+        backward_post_communication(i, stream);
+      }
       break;
     case TrainState_t::MLPUpdate:
-      sync();
-      backward_communications(i, stream);
-      backward_post_communication(i, stream);
+      if (!overlap_ar_a2a_){
+        sync();
+        backward_communications(i, stream);
+        frequent_update(i, stream);
+        backward_post_communication(i, stream);
+      }
+      else{
+        sync();
+        frequent_update(i, stream);
+      }
       break;
     case TrainState_t::Finalize:
       CK_CUDA_THROW_(cudaEventRecord(finish_iteration, stream));
