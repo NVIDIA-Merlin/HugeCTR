@@ -22,9 +22,12 @@ sys.path.append("../")
 import utility
 from utility import sparse_operation_kit as sok
 import nvtx
-from mpi4py import MPI
+import time
+import numpy as np
+
 
 def main(args, task_id):
+    print(task_id)
     comm_options = tf.distribute.experimental.CommunicationOptions(
         bytes_per_pack=0,
         timeout_seconds=None,
@@ -101,16 +104,23 @@ def main(args, task_id):
                                           options=comm_options)
         return loss
 
+    time_arr = []
     for i, (inputs, labels) in enumerate(dataset):
         if args.stop_at_iter > 0 and i >= args.stop_at_iter:
             break
 
         rng = nvtx.start_range(message="Iteration_" + str(i), color="blue")
 
+        start_time = time.time()
         total_loss = strategy.run(_train_step, args=(inputs, labels))
-
+        time_arr.append(time.time()-start_time)
+        
         nvtx.end_range(rng)
-        print("[INFO]: Iteration: {}, loss={}".format(i, total_loss))
+        if task_id == '0':
+            print("[INFO]: Iteration: {}, loss={}".format(i, total_loss))
+            
+    if task_id=='0':            
+        print("Average iteration time (except 1st iteration): ", np.mean(time_arr[1:]))
 
 def set_affinity(rank):
     affinity_map = {0: list(range(48,64)) + list(range(176,192)),
@@ -155,17 +165,20 @@ if __name__ == "__main__":
                         default=0, choices=[0, 1],
                         help="it is a flag used to denotes whether the data is already splited."+\
                              "by default, it is set to 0, which means the data is not splited.")
-
+    parser.add_argument("--dgx_a100", type=bool, default=False,
+                        help='Set to true of a DGX A100 is being used. In this case, CPU affinity will be set for optimal performance.')
+    
     args = parser.parse_args()
 
-    comm = MPI.COMM_WORLD
-    size = comm.Get_size()
+    size = int(os.getenv("OMPI_COMM_WORLD_SIZE"))
     args.worker_num = size
     args.total_gpu_num = size
 
-    task_id = comm.Get_rank()
+    task_id = os.getenv("OMPI_COMM_WORLD_RANK")
 
-    # set_affinity(task_id)
+    if args.dgx_a100==True:
+        print("Setting CPU affinity...")
+        set_affinity(task_id)
 
     os.environ["CUDA_VISIBLE_DEVICES"] = str(task_id)
     main(args, task_id)
