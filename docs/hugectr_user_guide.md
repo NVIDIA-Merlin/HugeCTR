@@ -189,6 +189,11 @@ python3 ../tools/data_generator/wdl_norm_generate_train.py
 python3 ../tools/data_generator/dlrm_raw_generate_train.py
 ```
 
+- Generate the `Parquet` dataset for DCN and start training the HugeCTR model: <br>
+```bash
+python3 ../tools/data_generator/dcn_parquet_generate_train.py
+```
+
 ### Downloading and Preprocessing Datasets
 Download the Criteo 1TB Click Logs dataset using `HugeCTR/tools/preprocess.sh` and preprocess it to train the DCN. The `file_list.txt`, `file_list_test.txt`, and preprocessed data files are available within the `criteo_data` directory. For more detailed usage, check out our [samples](../samples).
 

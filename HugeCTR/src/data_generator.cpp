@@ -223,6 +223,47 @@ void DataGenerator::generate() {
       }
       break;
     }
+    case DataReaderType_t::Parquet: {
+      std::cout << "Generate Parquet dataset" << std::endl;
+      std::cout << "train data folder: " << train_data_folder
+                << ", eval data folder: " << eval_data_folder
+                << ", slot_size_array: " << vec_to_string(data_generator_params_.slot_size_array)
+                << ", nnz array: " << vec_to_string(data_generator_params_.nnz_array)
+                << ", #files for train: " << data_generator_params_.num_files
+                << ", #files for eval: " << data_generator_params_.eval_num_files
+                << ", #samples per file: " << data_generator_params_.num_samples_per_file
+                << ", Use power law distribution: " << use_long_tail
+                << ", alpha of power law: " << alpha << std::endl;
+
+      check_make_dir(train_data_folder);
+      check_make_dir(eval_data_folder);
+      if (data_generator_params_.i64_input_key) {  // I64 = long long
+        data_generation_for_parquet<int64_t>(data_generator_params_.source, train_data_folder + "/train/gen_", 
+                                              data_generator_params_.num_files,data_generator_params_.num_samples_per_file,
+                                              data_generator_params_.num_slot, data_generator_params_.label_dim, 
+                                              data_generator_params_.dense_dim,data_generator_params_.slot_size_array, 
+                                              data_generator_params_.nnz_array, use_long_tail, alpha);
+
+        data_generation_for_parquet<int64_t>(data_generator_params_.eval_source, eval_data_folder + "/val/gen_", 
+                                              data_generator_params_.eval_num_files,data_generator_params_.num_samples_per_file,
+                                              data_generator_params_.num_slot, data_generator_params_.label_dim, 
+                                              data_generator_params_.dense_dim,data_generator_params_.slot_size_array, 
+                                              data_generator_params_.nnz_array, use_long_tail, alpha);
+      } else {  // I32 = unsigned int
+        data_generation_for_parquet<unsigned int>(data_generator_params_.source, train_data_folder + "/train/gen_", 
+                                              data_generator_params_.num_files,data_generator_params_.num_samples_per_file,
+                                              data_generator_params_.num_slot, data_generator_params_.label_dim, 
+                                              data_generator_params_.dense_dim,data_generator_params_.slot_size_array, 
+                                              data_generator_params_.nnz_array, use_long_tail, alpha);
+        data_generation_for_parquet<unsigned int>(data_generator_params_.eval_source, eval_data_folder + "/val/gen_", 
+                                              data_generator_params_.eval_num_files,data_generator_params_.num_samples_per_file,
+                                              data_generator_params_.num_slot, data_generator_params_.label_dim, 
+                                              data_generator_params_.dense_dim,data_generator_params_.slot_size_array, 
+                                              data_generator_params_.nnz_array, use_long_tail, alpha);
+      }
+      break;
+    }
+
     default: {
       assert(!"Error: no such option && should never get here!");
       break;
