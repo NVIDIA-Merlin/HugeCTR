@@ -1,9 +1,9 @@
 # GPU embedding cache
 This project implements a embedding cache on GPU memory designed for CTR inference workload.
 
-The cache will store the hot [embedding id, embedding vectors] pairs on GPU memory, thus can reduce the trafic to parameter server when doing embedding table lookup.
+The cache will store the hot [embedding id, embedding vectors] pairs on GPU memory, thus can reduce the traffic to parameter server when doing embedding table lookup.
 
-The cache is desinged for CTR inference, it has following features/restrictions:
+The cache is designed for CTR inference, it has following features/restrictions:
 * The cache is read-only: modifying the embedding vector of a embedding id is not supported.
 * All the backup memory side operation is performed by parameter server(prefetching, latency hiding etc.).
 * Single-GPU design, each cache belongs to one GPU.
