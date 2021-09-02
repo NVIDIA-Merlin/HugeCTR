@@ -125,6 +125,7 @@ class HybridSparseEmbedding : public IEmbedding {
 
   GpuLearningRateSchedulers lr_scheds_;
   bool graph_mode_;
+  bool overlap_ar_a2a_;
 
   // TODO: this parameter is not used by HE at all.
   // We should be in pursuit of merging SparseEmbeddingHashParams and HybridSparseEmbeddingParams
@@ -133,7 +134,9 @@ class HybridSparseEmbedding : public IEmbedding {
   void index_calculation(bool is_train, int eval_batch, int i, cudaStream_t stream);
   void forward(bool is_train, int eval_batch, int i, cudaStream_t stream);
   void backward_pre_communication(int i, cudaStream_t stream);
+  void frequent_local_reduce(int i, cudaStream_t stream);
   void backward_communications(int i, cudaStream_t stream);
+  void frequent_update(int i, cudaStream_t stream);
   void backward_post_communication(int i, cudaStream_t stream);
 
  protected:
@@ -182,7 +185,8 @@ class HybridSparseEmbedding : public IEmbedding {
                         const HybridSparseEmbeddingParams<emtype>& embedding_params,
                         const std::vector<BuffPtr<emtype>>& grouped_wgrad_buff,
                         const GpuLearningRateSchedulers lr_scheds, bool graph_mode,
-                        const std::shared_ptr<ResourceManager>& resource_manager);
+                        const std::shared_ptr<ResourceManager>& resource_manager,
+                        bool overlap_ar_a2a);
   ~HybridSparseEmbedding();
 
   // TODO: consider to merge it with init_params
