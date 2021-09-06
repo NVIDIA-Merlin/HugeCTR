@@ -533,6 +533,6 @@ void distribute_keys_for_inference(TypeKey* out, TypeKey* in, size_t batchsize,
 }
 
 template <typename T>
-void inc_var(T *x, cudaStream_t stream);
+void inc_var(volatile T *x, cudaStream_t stream);
 
 }  // namespace HugeCTR

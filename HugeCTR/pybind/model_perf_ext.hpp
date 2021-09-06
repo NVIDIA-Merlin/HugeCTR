@@ -61,7 +61,7 @@ class ModelPerfExt final : public Model {
 
   struct GraphScheduler{
    private:
-    size_t* executed_iter;
+    volatile size_t* executed_iter;
     size_t launched_iter; 
    public:
     GraphScheduler(std::shared_ptr<ResourceManager> resource_manager)
@@ -72,7 +72,7 @@ class ModelPerfExt final : public Model {
       *executed_iter = 0;
     }
     ~GraphScheduler() {
-      cudaFree(executed_iter);
+      cudaFreeHost(const_cast<size_t*>(executed_iter));
     }
     void trickling(){
       // this function is called by the only thread, hence no need to specify the rank
