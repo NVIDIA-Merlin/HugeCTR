@@ -249,18 +249,10 @@ if __name__ == "__main__":
 
     args.worker_num = len(args.ips)
     if utils.all_ips_in_local(args.ips):
-        print("[INFO]: local_gpu_num will be ignored. The number of available GPUs will be automatically detected.")
-        local_gpu_num = utils.get_local_gpu_count()
-        if (local_gpu_num % args.worker_num != 0):
-            raise ValueError("local_gpu_num: %d is not divisible by worker_num: %d"
-                             %(local_gpu_num, args.worker_num))
-        per_worker_gpu_num = local_gpu_num // args.worker_num
-        args.local_gpu_num = per_worker_gpu_num
-
         processes = list()
         for task_id in range(args.worker_num):
-            available_gpus = ",".join([str(per_worker_gpu_num * task_id + i)
-                                       for i in range(per_worker_gpu_num)])
+            available_gpus = ",".join([str(args.local_gpu_num * task_id + i)
+                                       for i in range(args.local_gpu_num)])
             print("[INFO]: on task: %d, its available GPUs are: %s" %(task_id, available_gpus))
             os.environ["CUDA_VISIBLE_DEVICES"] = available_gpus
             process = utils.TestProcess(func=compare_dense_emb_sok_with_tf, task_id=task_id, arguments=args)

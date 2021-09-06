@@ -1,19 +1,23 @@
+#
+# Copyright (c) 2021, NVIDIA CORPORATION.
+# 
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+# When TF >= 2.5, SOK + MirroredStrategy will hang, so that 
+# each CPU processes only controls one GPU.
+
 set -e
-
-# -------- get TF version -------------- #
-TfVersion=`python3 -c "import tensorflow as tf; print(tf.__version__.strip().split('.'))"`
-TfMajor=`python3 -c "print($TfVersion[0])"`
-TfMinor=`python3 -c "print($TfVersion[1])"`
-
-if [ "$TfMajor" -eq 2 ]; then
-    if [ "$TfMinor" -ge 5 ]; then
-        bash tf25_script.sh; exit 0;
-    fi
-else
-    echo "TF 1 is not supported yet."
-    exit 1;
-fi
-
 export PS4='\n\033[0;33m+[${BASH_SOURCE}:${LINENO}]: \033[0m'
 set -x
 
@@ -25,7 +29,7 @@ python3 test_reduce_scatter_dispatcher.py
 # ---------------------------- Sparse Embedding Layers testing ------------------- #
 # ---------- single node save testing ------- #
 python3 test_sparse_emb_demo_model_single_worker.py \
-        --gpu_num=8 --iter_num=100 \
+        --gpu_num=1 --iter_num=100 \
         --max_vocabulary_size_per_gpu=1024 \
         --slot_num=10 --max_nnz=4 \
         --embedding_vec_size=4 \
@@ -36,7 +40,7 @@ python3 test_sparse_emb_demo_model_single_worker.py \
 
 # ------------ single node restore testing ------- #
 python3 test_sparse_emb_demo_model_single_worker.py \
-        --gpu_num=8 --iter_num=100 \
+        --gpu_num=1 --iter_num=100 \
         --max_vocabulary_size_per_gpu=1024 \
         --slot_num=10 --max_nnz=4 \
         --embedding_vec_size=4 \
@@ -47,7 +51,7 @@ python3 test_sparse_emb_demo_model_single_worker.py \
 
 # ----------- multi worker test with ips set mannually, save testing ------ #
 # python3 test_sparse_emb_demo_model_multi_worker.py \
-#         --local_gpu_num=8 --iter_num=100 \
+#         --local_gpu_num=1 --iter_num=100 \
 #         --max_vocabulary_size_per_gpu=1024 \
 #         --slot_num=10 --max_nnz=4 \
 #         --embedding_vec_size=4 \
@@ -59,7 +63,7 @@ python3 test_sparse_emb_demo_model_single_worker.py \
 
 # # ----------- multi worker test with ips set mannually, restore testing ------ #
 # python3 test_sparse_emb_demo_model_multi_worker.py \
-#         --local_gpu_num=8 --iter_num=100 \
+#         --local_gpu_num=1 --iter_num=100 \
 #         --max_vocabulary_size_per_gpu=1024 \
 #         --slot_num=10 --max_nnz=4 \
 #         --embedding_vec_size=4 \
@@ -71,7 +75,7 @@ python3 test_sparse_emb_demo_model_single_worker.py \
 
 # ------ multi worker test within single worker but using different GPUs. save
 python3 test_sparse_emb_demo_model_multi_worker.py \
-        --local_gpu_num=8 --iter_num=100 \
+        --local_gpu_num=1 --iter_num=100 \
         --max_vocabulary_size_per_gpu=1024 \
         --slot_num=10 --max_nnz=4 \
         --embedding_vec_size=4 \
@@ -83,7 +87,7 @@ python3 test_sparse_emb_demo_model_multi_worker.py \
 
 # ------ multi worker test within single worker but using different GPUs. restore
 python3 test_sparse_emb_demo_model_multi_worker.py \
-        --local_gpu_num=8 --iter_num=100 \
+        --local_gpu_num=1 --iter_num=100 \
         --max_vocabulary_size_per_gpu=1024 \
         --slot_num=10 --max_nnz=4 \
         --embedding_vec_size=4 \
@@ -97,7 +101,7 @@ python3 test_sparse_emb_demo_model_multi_worker.py \
 # ---------------------------- Dense Embedding Layers testing ------------------- #
 # ---------- single node save testing ------- #
 python3 test_dense_emb_demo_model_single_worker.py \
-        --gpu_num=8 --iter_num=100 \
+        --gpu_num=1 --iter_num=100 \
         --max_vocabulary_size_per_gpu=1024 \
         --slot_num=10 --nnz_per_slot=4 \
         --embedding_vec_size=4 \
@@ -108,7 +112,7 @@ python3 test_dense_emb_demo_model_single_worker.py \
 
 # ---------- single node restore testing ------- #
 python3 test_dense_emb_demo_model_single_worker.py \
-        --gpu_num=8 --iter_num=100 \
+        --gpu_num=1 --iter_num=100 \
         --max_vocabulary_size_per_gpu=1024 \
         --slot_num=10 --nnz_per_slot=4 \
         --embedding_vec_size=4 \
@@ -119,7 +123,7 @@ python3 test_dense_emb_demo_model_single_worker.py \
 
 # ----------- multi worker test with ips set mannually, save testing ------ #
 # python3 test_dense_emb_demo_model_multi_worker.py \
-#         --local_gpu_num=8 --iter_num=100 \
+#         --local_gpu_num=1 --iter_num=100 \
 #         --max_vocabulary_size_per_gpu=1024 \
 #         --slot_num=10 --nnz_per_slot=4 \
 #         --embedding_vec_size=4 \
@@ -131,7 +135,7 @@ python3 test_dense_emb_demo_model_single_worker.py \
 
 # ----------- multi worker test with ips set mannually, restore testing ------ #
 # python3 test_dense_emb_demo_model_multi_worker.py \
-#         --local_gpu_num=8 --iter_num=100 \
+#         --local_gpu_num=1 --iter_num=100 \
 #         --max_vocabulary_size_per_gpu=1024 \
 #         --slot_num=10 --nnz_per_slot=4 \
 #         --embedding_vec_size=4 \
@@ -143,7 +147,7 @@ python3 test_dense_emb_demo_model_single_worker.py \
 
 # ------ multi worker test within single worker but using different GPUs. save
 python3 test_dense_emb_demo_model_multi_worker.py \
-        --local_gpu_num=8 --iter_num=100 \
+        --local_gpu_num=1 --iter_num=100 \
         --max_vocabulary_size_per_gpu=1024 \
         --slot_num=10 --nnz_per_slot=4 \
         --embedding_vec_size=4 \
@@ -155,7 +159,7 @@ python3 test_dense_emb_demo_model_multi_worker.py \
 
 # ------ multi worker test within single worker but using different GPUs. restore
 python3 test_dense_emb_demo_model_multi_worker.py \
-        --local_gpu_num=8 --iter_num=100 \
+        --local_gpu_num=1 --iter_num=100 \
         --max_vocabulary_size_per_gpu=1024 \
         --slot_num=10 --nnz_per_slot=4 \
         --embedding_vec_size=4 \
