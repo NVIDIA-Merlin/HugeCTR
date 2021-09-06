@@ -70,8 +70,8 @@ DataGeneratorParams::DataGeneratorParams(DataReaderType_t format, int label_dim,
     CK_THROW_(Error_t::WrongInput, "nnz_array.size() should be equal to num_slot");
   }
   if (dist_type == Distribution_t::PowerLaw && power_law_type == PowerLaw_t::Specific &&
-      alpha <= 0) {
-    CK_THROW_(Error_t::WrongInput, "alpha should be greater than zero for power law distribution");
+      (alpha <= 0 || abs(alpha-1.0) < 1e-6)) {
+    CK_THROW_(Error_t::WrongInput, "alpha should be greater than zero and should not equal to 1.0 for power law distribution");
   }
 }
 
@@ -92,15 +92,15 @@ void DataGenerator::generate() {
   if (use_long_tail) {
     switch (data_generator_params_.power_law_type) {
       case PowerLaw_t::Long: {
-        alpha = 1.0;
+        alpha = 0.9;
         break;
       }
       case PowerLaw_t::Medium: {
-        alpha = 3.0;
+        alpha = 1.1;
         break;
       }
       case PowerLaw_t::Short: {
-        alpha = 5.0;
+        alpha = 1.3;
         break;
       }
       case PowerLaw_t::Specific: {

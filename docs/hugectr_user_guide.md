@@ -179,7 +179,7 @@ We currently support the following tools:
 * [Preprocessing Script](#downloading-and-preprocessing-datasets): A set of scripts to convert the original Criteo dataset into HugeCTR using supported dataset formats such as Norm and RAW. It's used in all of our samples to prepare the data and train various recommender models.
 
 ### Generating Synthetic Data and Benchmarks
-The [Norm](./python_interface.md#norm) (with Header) and [Raw](./python_interface.md#raw) (without Header) datasets can be generated with [hugectr.tools.DataGenerator](./python_interface.md#datagenerator). For categorical features, you can configure the probability distribution to be uniform or power-law within [hugectr.tools.DataGeneratorParam](./python_interface.md#datageneratorparams-class). The default distribution is power law with alpha = 3.0.
+The [Norm](./python_interface.md#norm) (with Header) and [Raw](./python_interface.md#raw) (without Header) datasets can be generated with [hugectr.tools.DataGenerator](./python_interface.md#datagenerator). For categorical features, you can configure the probability distribution to be uniform or power-law within [hugectr.tools.DataGeneratorParam](./python_interface.md#datageneratorparams-class). The default distribution is power law with alpha = 1.2.
 
 - Generate the `Norm` dataset for DCN and start training the HugeCTR model: <br>
 ```bash

@@ -109,20 +109,20 @@ class IntPowerLawDataSimulator : public IDataSimulator<T> {
       : gen_(std::random_device()()), dis_(0, 1), alpha_(alpha) {
     min_ = 1.0;
     max_ = max - min + 1.0;
-    offset_ = min - 1.0;  // to handle the case min_ <= 0 and alpha_ < -1
+    offset_ = min - 1.0;  // to handle the case min_ <= 0
   }
 
   T get_num() override {
     double x = dis_(gen_);
-    double y = (pow((pow(max_, alpha_ + 1) - pow(min_, alpha_ + 1)) * x + pow(min_, alpha_ + 1),
-                    1.0 / (alpha_ + 1.0)));
+    double y = (pow((pow(max_, 1 - alpha_) - pow(min_, 1 - alpha_)) * x + pow(min_, 1 - alpha_),
+                    1.0 / (1.0 - alpha_)));
     return static_cast<T>(round(y) + offset_);
   }
 
  private:
   std::mt19937 gen_;
   std::uniform_real_distribution<float> dis_;
-  float alpha_;
+  float alpha_;     // requiring alpha_ > 0 and alpha_ != 1.0
   double min_, max_, offset_;
 };
 

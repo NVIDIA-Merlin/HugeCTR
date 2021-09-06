@@ -37,7 +37,7 @@ void DataGeneratorPybind(pybind11::module &m) {
            pybind11::arg("nnz_array") = std::vector<int>(),
            pybind11::arg("check_type") = Check_t::Sum,
            pybind11::arg("dist_type") = Distribution_t::PowerLaw,
-           pybind11::arg("power_law_type") = PowerLaw_t::Specific, pybind11::arg("alpha") = 3.0,
+           pybind11::arg("power_law_type") = PowerLaw_t::Specific, pybind11::arg("alpha") = 1.2,
            pybind11::arg("num_files") = 128, pybind11::arg("eval_num_files") = 32,
            pybind11::arg("num_samples_per_file") = 40960, pybind11::arg("num_samples") = 5242880,
            pybind11::arg("eval_num_samples") = 1310720, pybind11::arg("float_label_dense") = false)
