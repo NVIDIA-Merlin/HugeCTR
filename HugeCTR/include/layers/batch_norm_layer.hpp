@@ -115,7 +115,6 @@ class BatchNormLayer : public Layer {
   Tensor2<float> beta_grad_;
 
   // these tensors are internal only managed by smart ptrs
-  Tensor2<T> temp_in_tensor_;
   Tensor2<float> result_running_mean_;
   Tensor2<float> result_running_var_;
   Tensor2<float> result_save_mean_;
