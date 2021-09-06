@@ -14,8 +14,12 @@ variables:
   DATASET: /lustre/fsw/devtech/hpc-hugectr/criteo_kaggle
   DATASET_MOUNT: /dataset/criteo_kaggle
   DLRM_DATASET: /raid/datasets/criteo/mlperf/40m.limit_preshuffled
-  DIN_DATASET_MOUNT: /dataset
   DIN_DATASET: /lustre/fsw/devtech/hpc-hugectr/din
+  NCF_DATASET: /lustre/fsw/devtech/hpc-hugectr/ncf_data
+  DIN_DATASET_MOUNT: /etc/workspace/din
+  NCF_DATASET_MOUNT: /etc/workspace/ncf_data
+  ONNX_CONVERTER_MODELS: /lustre/fsw/devtech/hpc-hugectr/onnx_converter
+  ONNX_CONVERTER_MODELS_MOUNT: /onnx_converter
   DATASET_CRITEO_SELENE: /lustre/fsw/devtech/hpc-hugectr/criteo_kaggle
   DATASET_CRITEO_CIRCE: /gpfs/fs1/minseokl/datasets/criteo_kaggle
   DATASET_NEW_CRITEO_SELENE: /lustre/fsw/devtech/hpc-hugectr/new-criteo-dataset
@@ -85,7 +89,7 @@ build_train:
     - echo "FROM ${IMAGE_TRAIN}" > ${JOB_DOCKERFILE}
     - echo "ARG SM=\"60;61;70;75;80\"" >> ${JOB_DOCKERFILE}
     - echo "
-      RUN git clone https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab-master.nvidia.com/dl/hugectr/hugectr.git ${WORK_DIR} && cd ${WORK_DIR} && git checkout ${CI_COMMIT_SHA} && git submodule update --init --recursive && mkdir build && cd build && mkdir build_single && cd build_single && cmake -DCMAKE_BUILD_TYPE=Release -DKEY_HIT_RATIO=ON -DSM=\$SM ../.. && make -j\$(nproc) && cd .. && mkdir build_multi_nccl && cd build_multi_nccl && cmake -DCMAKE_BUILD_TYPE=Release -DENABLE_MULTINODES=ON -DKEY_HIT_RATIO=ON -DSM=\$SM ../.. && make -j\$(nproc) && make -j\$(nproc) && cd .. && mkdir build_inference && cd build_inference && cmake -DENABLE_INFERENCE=ON  -DCMAKE_BUILD_TYPE=Release -DSM=\$SM ../.. && make -j\$(nproc)
+      RUN git clone https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab-master.nvidia.com/dl/hugectr/hugectr.git ${WORK_DIR} && cd ${WORK_DIR} && git checkout ${CI_COMMIT_SHA} && git submodule update --init --recursive && mkdir build && cd build && mkdir build_single && cd build_single && cmake -DCMAKE_BUILD_TYPE=Release -DKEY_HIT_RATIO=ON -DSM=\$SM ../.. && make -j\$(nproc) && cd .. && mkdir build_multi_nccl && cd build_multi_nccl && cmake -DCMAKE_BUILD_TYPE=Release -DENABLE_MULTINODES=ON -DKEY_HIT_RATIO=ON -DSM=\$SM ../.. && make -j\$(nproc) && make -j\$(nproc) && cd .. && mkdir build_inference && cd build_inference && cmake -DENABLE_INFERENCE=ON  -DCMAKE_BUILD_TYPE=Release -DSM=\$SM ../.. && make -j\$(nproc) && cd ${WORK_DIR}/onnx_converter && python3 setup.py install
       " >> ${JOB_DOCKERFILE}
     - cat ${JOB_DOCKERFILE}
     - docker login -u ${CI_PRIVATE_USER} -p "${CI_PRIVATE_KEY}" "${CI_REGISTRY}"
@@ -152,6 +156,34 @@ build_inference:
       -f "${JOB_DOCKERFILE}"
       ${PWD}
     - docker push "${INFER_IMAGE_VERSIONED}"
+
+### Stage: test
+# hugectr to onnx converter test
+hugectr2onnx:
+  extends: .cluster_test_train_job
+  script:
+    - srun --mpi=pmix --ntasks=1
+      -A devtech -J devtech:hugectr -p luna
+      --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
+      --container-mounts ${DATASET_NEW_CRITEO_SELENE}:${NEW_CRITEO_MOUNT},${DIN_DATASET}:${DIN_DATASET_MOUNT},${NCF_DATASET}:${NCF_DATASET_MOUNT},${ONNX_CONVERTER_MODELS}:${ONNX_CONVERTER_MODELS_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
+      bash -cx "
+      export PYTHONPATH=${WORK_DIR}/build/build_single/lib:$PYTHONPATH &&
+      cd ${NEW_CRITEO_MOUNT} &&
+      mpirun -np 1 --allow-run-as-root python3 ${WORK_DIR}/test/onnx_converter_test/train_scripts/dcn.py     &&
+      mpirun -np 1 --allow-run-as-root python3 ${WORK_DIR}/test/onnx_converter_test/train_scripts/deepfm.py  &&  
+      mpirun -np 1 --allow-run-as-root python3 ${WORK_DIR}/test/onnx_converter_test/train_scripts/dlrm.py    &&
+      mpirun -np 1 --allow-run-as-root python3 ${WORK_DIR}/test/onnx_converter_test/train_scripts/wdl.py     &&
+      python3 ${WORK_DIR}/test/onnx_converter_test/hugectr2onnx_dcn_test.py &&
+      python3 ${WORK_DIR}/test/onnx_converter_test/hugectr2onnx_wdl_test.py &&
+      cd ${DIN_DATASET_MOUNT} &&
+      mpirun -np 1 --allow-run-as-root python3 ${WORK_DIR}/test/onnx_converter_test/train_scripts/din_parquet.py &&
+      python3 ${WORK_DIR}/test/onnx_converter_test/hugectr2onnx_din_test.py &&
+      cd ${NCF_DATASET_MOUNT} &&
+      mpirun -np 1 --allow-run-as-root python3 ${WORK_DIR}/test/onnx_converter_test/train_scripts/ncf.py     &&
+      mpirun -np 1 --allow-run-as-root python3 ${WORK_DIR}/test/onnx_converter_test/train_scripts/gmf.py     &&
+      mpirun -np 1 --allow-run-as-root python3 ${WORK_DIR}/test/onnx_converter_test/train_scripts/neumf.py   &&
+      python3 ${WORK_DIR}/test/onnx_converter_test/hugectr2onnx_ncf_test.py &&
+      python3 ${WORK_DIR}/test/onnx_converter_test/layer_type_test.py"
 
 ### Stage: test
 # unit test
@@ -386,7 +418,7 @@ din_single_node:
       --container-mounts ${DIN_DATASET}:${DIN_DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
       bash -cx "
       cp ${WORK_DIR}/build/build_single/lib/hugectr.so ${WORK_DIR}/test/pybind_test/ &&
-      cd /dataset/ &&
+      cd ${DIN_DATASET_MOUNT} &&
       python3 ${WORK_DIR}/test/pybind_test/din_fp32_1gpu.py"
     - srun --ntasks=1
       -A devtech -J devtech:hugectr -p luna
@@ -394,7 +426,7 @@ din_single_node:
       --container-mounts ${DIN_DATASET}:${DIN_DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
       bash -cx "
       cp ${WORK_DIR}/build/build_single/lib/hugectr.so ${WORK_DIR}/test/pybind_test/ &&
-      cd /dataset/ &&
+      cd ${DIN_DATASET_MOUNT} &&
       python3 ${WORK_DIR}/test/pybind_test/din_fp32_2gpu.py"
 
 mos_single_node:

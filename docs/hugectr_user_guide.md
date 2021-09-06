@@ -125,6 +125,7 @@ In addition to single node and full precision training, HugeCTR supports a varie
 * [mixed precision training](#mixed-precision-training)
 * [SGD optimizer and learning rate scheduling](#sgd-optimizer-and-learning-rate-scheduling)
 * [embedding training cache](#embedding-training-cache)
+* [ONNX Converter](#onnx-converter)
 
 **NOTE**: Multi-node training and mixed precision training can be used simultaneously.
 
@@ -165,6 +166,12 @@ Embedding Training Cache (Model oversubscription) gives you the ability to train
 
 <div align=center><img width="520" height="153" src="user_guide_src/dataset_split.png"/></div>
 <div align=center>Fig. 7: Preprocessing of dataset for model oversubscription</div>
+
+### ONNX Converter ###
+ONNX Converter is a python package `hugectr2onnx` that can convert HugeCTR models to ONNX format. It can improve the compatibility of HugeCTR with other deep learning frameworks given that Open Neural Network Exchange (ONNX) serves as an open-source format for AI models.
+
+After training with HugeCTR Python APIs, you can get the files for dense model, sparse model(s) and graph configuration JSON, which are required as inputs by the method `hugectr2onnx.converter.convert`. Each HugeCTR layer will correspond to one or several ONNX operators, and the trained model weights will be loaded as initializers in the ONNX graph. Besides, users can choose to convert the sparse embedding layers or not with the flag `convert_embedding`. For more details about this feature, please refer to [ONNX Converter](../onnx_converter). There is also a notebook [hugectr2onnx_demo.ipynb](../notebooks/hugectr2onnx_demo.ipynb) that demonstrates the usage.
+
 
 ## Tools ##
 We currently support the following tools:
