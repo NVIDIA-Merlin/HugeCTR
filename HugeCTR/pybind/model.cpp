@@ -183,6 +183,7 @@ SparseEmbedding::SparseEmbedding(Embedding_t embedding_type, size_t workspace_si
                                  std::shared_ptr<OptParamsPy>& embedding_opt_params,
                                  const HybridEmbeddingParam& hybrid_embedding_param)
     : embedding_type(embedding_type),
+      workspace_size_per_gpu_in_mb(workspace_size_per_gpu_in_mb),
       embedding_vec_size(embedding_vec_size),
       sparse_embedding_name(sparse_embedding_name),
       bottom_name(bottom_name),
@@ -314,6 +315,8 @@ Model::Model(const Solver& solver, const DataReaderParams& reader_params,
   MPI_Comm_rank(MPI_COMM_WORLD, &__PID);
 #endif
   if (__PID == 0) {
+    std::cout << "HugeCTR Version: " << HUGECTR_VERSION_MAJOR << "." << HUGECTR_VERSION_MINOR << "."
+              << HUGECTR_VERSION_PATCH << std::endl;
     std::cout << "====================================================Model "
                  "Init====================================================="
               << std::endl;
@@ -502,6 +505,8 @@ void Model::add(SparseEmbedding& sparse_embedding) {
        sparse_embedding.embedding_type == Embedding_t::HybridSparseEmbedding)) {
     CK_THROW_(Error_t::WrongInput, "Raw async reader and hybrid embedding must come together");
   }
+  sparse_embedding.max_vocabulary_size_global =
+      sparse_embedding.max_vocabulary_size_per_gpu * resource_manager_->get_global_gpu_count();
   sparse_embedding_params_.push_back(sparse_embedding);
   deactivate_tensor(tensor_active_, sparse_embedding.bottom_name);
   activate_tensor(tensor_active_, sparse_embedding.sparse_embedding_name);

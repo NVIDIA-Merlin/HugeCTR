@@ -64,3 +64,4 @@ Here's a list of notebooks that you can run:
 - [embedding_plugin.ipynb](embedding_plugin_deprecated.ipynb): Explains how to install and use the HugeCTR embedding plugin with Tensorflow. Please be noted that this library is deprecated, and its features are moved to [sparse_operation_kit](sparse_operation_kit_demo.ipynb).
 - [sparse_operation_kit_demo.ipynb](sparse_operation_kit_demo.ipynb): Demos of new TensorFlow plugins for sparse operations (embedding layers).
 - [hugectr-criteo.ipynb](hugectr_criteo.ipynb): Explains the usage of HugeCTR Python interface with the Criteo dataset.
+- [hugectr2onnx_demo.ipynb](hugectr2onnx_demo.ipynb): Explains how to convert the trained HugeCTR model to ONNX.

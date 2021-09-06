@@ -164,6 +164,8 @@ struct Input {
 struct SparseEmbedding {
   Embedding_t embedding_type;
   size_t max_vocabulary_size_per_gpu;
+  size_t workspace_size_per_gpu_in_mb;
+  size_t max_vocabulary_size_global;
   size_t embedding_vec_size;
   int combiner;
   std::string sparse_embedding_name;

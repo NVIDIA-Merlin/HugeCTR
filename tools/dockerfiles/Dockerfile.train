@@ -105,7 +105,7 @@ RUN mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://
     make -j$(nproc) && make install && \
     rm -rf /var/tmp/hwloc-${HWLOC_VERSION} /var/tmp/hwloc-${HWLOC_VERSION}.tar.gz
 
-RUN pip3 install ortools sklearn && \
+RUN pip3 install ortools sklearn onnx onnxruntime && \
     pip3 cache purge
 
 RUN ln -s /usr/lib/x86_64-linux-gnu/libibverbs.so.1.11.32.1 /usr/lib/x86_64-linux-gnu/libibverbs.so
@@ -122,6 +122,8 @@ RUN if [ "$RELEASE" = "true" ]; \
       make -j$(nproc) && make install && \
       chmod +x /usr/local/hugectr/bin/* && \
       chmod +x /usr/local/hugectr/lib/* && \
+      cd /var/tmp/HugeCTR/onnx_converter && \
+      python3 setup.py install && \
       rm -rf /var/tmp/HugeCTR; \
     else \
       echo "Build container for development successfully"; \
