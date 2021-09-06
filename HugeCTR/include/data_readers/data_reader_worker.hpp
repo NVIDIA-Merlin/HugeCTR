@@ -232,7 +232,7 @@ class DataReaderWorker : public IDataReaderWorker {
               CK_THROW_(checker_->read(reinterpret_cast<char*>(&nnz), sizeof(int)),
                         "failure in reading nnz");
               if (nnz > (int)buffer_length_ || nnz < 0) {
-                ERROR_MESSAGE_("nnz > buffer_length_ | nnz < 0 nnz:" + std::to_string(nnz));
+                ERROR_MESSAGE_("nnz > buffer_length_ | nnz < 0 nnz:" + std::to_string(nnz) + ". Please check if i64_input_key in config is compatible with dataset");
               }
               current_csr.new_row();
               size_t num_value = current_csr.get_num_values();

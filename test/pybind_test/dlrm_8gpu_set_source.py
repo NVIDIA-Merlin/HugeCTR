@@ -23,7 +23,7 @@ def set_source_raw_test(json_file):
                                     source = [train_data],
                                     eval_source = test_data,
                                     check_type = hugectr.Check_t.Non,
-                                    num_samples = 4195155968,
+                                    num_samples = 4195197692,
                                     eval_num_samples = 89137319,
                                     cache_eval_data = 1361)
   optimizer = hugectr.CreateOptimizer(optimizer_type = hugectr.Optimizer_t.SGD,

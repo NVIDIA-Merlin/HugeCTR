@@ -16,7 +16,7 @@ solver = hugectr.CreateSolver(max_eval_batches = 1361,
 reader = hugectr.DataReaderParams(data_reader_type = hugectr.DataReaderType_t.Raw,
                                   source = ["./train_data.bin"],
                                   eval_source = "./test_data.bin",
-                                  num_samples = 4195155968,
+                                  num_samples = 4195197692,
                                   eval_num_samples = 89137319,
                                   check_type = hugectr.Check_t.Non,
                                   cache_eval_data = 1361)
