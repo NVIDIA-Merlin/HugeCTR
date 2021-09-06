@@ -31,6 +31,7 @@
 #include <tensor2.hpp>
 #include <utils.hpp>
 #include <vector>
+#include <filesystem>
 
 namespace HugeCTR {
 
@@ -288,6 +289,16 @@ class DataReader : public IDataReader {
   void create_drwg_raw(std::string file_name, long long num_samples, bool float_label_dense,
                        bool data_shuffle = false,
                        bool start_reading_from_beginning = true) override {
+    // check if key type compatible with dataset
+    size_t file_size = std::filesystem::file_size(file_name);
+    size_t expected_file_size = (label_dim_ + dense_dim_) * sizeof(float);
+    for(auto &param: params_) {
+      expected_file_size += param.slot_num * sizeof(TypeKey);
+    }
+    expected_file_size *= num_samples;
+    if (file_size != expected_file_size) {
+      CK_THROW_(Error_t::UnspecificError, "dataset key type and dataset size is not compatible.");
+    }
     source_type_ = SourceType_t::Mmap;
     worker_group_.reset(new DataReaderWorkerGroupRaw<TypeKey>(
         thread_buffers_, resource_manager_, file_name, num_samples, repeat_, params_, label_dim_,
