@@ -23,7 +23,8 @@ ARG RAPIDS_VERSION=21.06
 ARG TF_VERSION=2.4.0
 
 ARG RELEASE=false
-ARG SM="60;61;70;75;80"
+ARG SM="70;75;80"
+ARG USE_NVTX=OFF
 
 RUN apt-get update -y && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
@@ -72,12 +73,9 @@ RUN if [ "$RELEASE" = "true" ]; \
       mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 --branch master https://github.com/NVIDIA/HugeCTR.git HugeCTR && cd - && \
       cd /var/tmp/HugeCTR && \
       git submodule update --init --recursive && \
-      cd sparse_operation_kit && mkdir -p build && cd build && \
-      cmake -DCMAKE_BUILD_TYPE=Release -DSM=$SM .. && make -j$(nproc) && make install && \
+      cd sparse_operation_kit && \
+      bash ./install.sh --SM=$SM --USE_NVTX=$USE_NVTX && \
       rm -rf /var/tmp/HugeCTR; \
     else \
       echo "Build container for development successfully"; \
     fi
-ENV LD_LIBRARY_PATH=/usr/local/hugectr/lib:$LD_LIBRARY_PATH \
-    LIBRARY_PATH=/usr/local/hugectr/lib:$LIBRARY_PATH \
-    PYTHONPATH=/usr/local/hugectr/lib:$PYTHONPATH

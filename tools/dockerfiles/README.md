@@ -18,13 +18,14 @@ The `Dockerfile.train` supports two build mode: `devel` and `release`,
 
 Under the current directory, you can build the container by
 
-```
-# release mode
-docker build -t hugectr:release -f Dockerfile.train --build-arg RELEASE=true .
-
-# devel mode
-docker build -t hugectr:devel -f Dockerfile.train .
-```
+* Release mode
+  ```
+  docker build -t hugectr:release -f Dockerfile.train --build-arg RELEASE=true .
+  ```
+* Development mode
+  ```
+  docker build -t hugectr:devel -f Dockerfile.train .
+  ```
 
 
 
@@ -38,10 +39,15 @@ docker build -t hugectr:inference -f Dockerfile.inference --build-arg RELEASE=tr
 
 
 
-## Build Container for Embedding TF Plugin
+## Build Container for TensorFlow Plugin
 
-If you want to use the HugeCTR embedding TF plugin described [here](../embedding_plugin), please build a container under the current directory by
+If you want to use the HugeCTR [Sparse Operation Kit (SOK)](https://nvidia.github.io/HugeCTR/sparse_operation_kit/v1.0.0/index.html), please build a container under the current directory by
 
-```
-docker build -t hugectr:plugin-embedding -f Dockerfile.plugin-embedding .
-```
+* Release mode
+  ```
+  docker build -t hugectr:tf-plugin -f Dockerfile.tf-plugin .
+  ```
+* Development mode
+  ```
+  docker build -t hugectr:tf-plugin -f Dockerfile.tf-plugin --build-arg RELEASE=true .
+  ```
