@@ -40,6 +40,7 @@ RUN apt-get update -y && \
         tar \
         unzip \
         curl \
+        valgrind \
         clang-format \
         libboost-all-dev \
         libboost-regex-dev \
@@ -105,10 +106,13 @@ RUN mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://
     make -j$(nproc) && make install && \
     rm -rf /var/tmp/hwloc-${HWLOC_VERSION} /var/tmp/hwloc-${HWLOC_VERSION}.tar.gz
 
-RUN pip3 install ortools sklearn onnx onnxruntime && \
+RUN pip3 install ortools sklearn jupyterlab onnx onnxruntime && \
     pip3 cache purge
 
 RUN ln -s /usr/lib/x86_64-linux-gnu/libibverbs.so.1.11.32.1 /usr/lib/x86_64-linux-gnu/libibverbs.so
+RUN CUDA_PATH=`find /usr/local/ -name "cuda-*.?" | head -n 1` && \
+    echo "link $CUDA_PATH to /usr/local/cuda" && \
+    ln -s $CUDA_PATH /usr/local/cuda
 
 # HugeCTR
 RUN if [ "$RELEASE" = "true" ]; \
