@@ -995,7 +995,7 @@ hugectr.tools.DataGeneratorParams()
 `DataGeneratorParams` specifies the parameters related to the data generation. An `DataGeneratorParams` instance is required to initialize the `DataGenerator` instance.
 
 **Arguments**
-* `format`: The format for synthetic dataset. The supported types include `hugectr.DataReaderType_t.Norm`, `hugectr.DataReaderType_t.Raw`. There is NO default value and it should be specified by users.
+* `format`: The format for synthetic dataset. The supported types include `hugectr.DataReaderType_t.Norm`, `hugectr.DataReaderType_t.Parquet` and `hugectr.DataReaderType_t.Raw`. There is NO default value and it should be specified by users.
 
 * `label_dim`: Integer, the label dimension for synthetic dataset. There is NO default value and it should be specified by users.
 
@@ -1003,11 +1003,11 @@ hugectr.tools.DataGeneratorParams()
 
 * `num_slot`: Integer, the number of sparse feature slots for synthetic dataset. There is NO default value and it should be specified by users.
 
-* `i64_input_key`: Boolean, whether to use I64 for input keys for synthetic dataset. If your dataset format is Norm, you can choose the data type of each input key. For the Raw dataset format, only I32 is allowed. There is NO default value and it should be specified by users.
+* `i64_input_key`: Boolean, whether to use I64 for input keys for synthetic dataset. If your dataset format is Norm or Paruqet, you can choose the data type of each input key. For the Raw dataset format, only I32 is allowed. There is NO default value and it should be specified by users.
 
-* `source`: String, the synthetic training dataset source. For Norm dataset, it should be the file list of training data, e.g., source = "file_list.txt". For Raw dataset, it should be a single training file, e.g., source = "train_data.bin". There is NO default value and it should be specified by users.
+* `source`: String, the synthetic training dataset source. For Norm or Parquet dataset, it should be the file list of training data, e.g., source = "file_list.txt". For Raw dataset, it should be a single training file, e.g., source = "train_data.bin". There is NO default value and it should be specified by users.
 
-* `eval_source`: String, the synthetic evaluation dataset source. For Norm dataset, it should be the file list of evaluation data, e.g., source = "file_list_test.txt". For Raw dataset, it should be a single evaluation file, e.g., source = "test_data.bin". There is NO default value and it should be specified by users.
+* `eval_source`: String, the synthetic evaluation dataset source. For Norm or Parquet dataset, it should be the file list of evaluation data, e.g., source = "file_list_test.txt". For Raw dataset, it should be a single evaluation file, e.g., source = "test_data.bin". There is NO default value and it should be specified by users.
 
 * `slot_size_array`: List[int], the cardinality array of input features for synthetic dataset. The list length should be equal to `num_slot`. There is NO default value and it should be specified by users.
 
@@ -1021,11 +1021,11 @@ hugectr.tools.DataGeneratorParams()
 
 * `alpha`: Float, the alpha value for power law distribution. This argument is only valid when `dist_type` is `hugectr.Distribution_t.PowerLaw` and `power_law_type` is `hugectr.PowerLaw_t.Specific`. The alpha value should be greater than zero and not equal to 1.0. The default value is 1.2.
 
-* `num_files`: Integer, the number of training data files that will be generated. This argument is only valid when `format` is `hugectr.DataReaderType_t.Norm`. The default value is 128.
+* `num_files`: Integer, the number of training data files that will be generated. This argument is valid when `format` is `hugectr.DataReaderType_t.Norm` or `hugectr.DataReaderType_t.Parquet`. The default value is 128.
 
-* `eval_num_files`: Integer, the number of evaluation data files that will be generated. This argument is only valid when `format` is `hugectr.DataReaderType_t.Norm`. The default value is 32.
+* `eval_num_files`: Integer, the number of evaluation data files that will be generated. This argument is valid when `format` is `hugectr.DataReaderType_t.Norm` or `hugectr.DataReaderType_t.Parquet`. The default value is 32.
 
-* `num_samples_per_file`: Integer, the number of samples per generated data file. This argument is only valid when `format` is `hugectr.DataReaderType_t.Norm`. The default value is 40960.
+* `num_samples_per_file`: Integer, the number of samples per generated data file. This argument is valid when `format` is `hugectr.DataReaderType_t.Norm` or `hugectr.DataReaderType_t.Parquet`. The default value is 40960.
 
 * `num_samples`: Integer, the number of samples in the generated single training data file (e.g., train_data.bin). This argument is only valid when `format` is `hugectr.DataReaderType_t.Raw`. The default value is 5242880.
 
@@ -1038,7 +1038,7 @@ hugectr.tools.DataGeneratorParams()
 ```bash
 hugectr.tools.DataGenerator()
 ```
-`DataGenerator` provides an API to generate synthetic Norm or Raw dataset. The construction of `DataGenerator` requires a `DataGeneratorParams` instance.
+`DataGenerator` provides an API to generate synthetic Norm, Parquet or Raw dataset. The construction of `DataGenerator` requires a `DataGeneratorParams` instance.
 
 **Arguments**
 * `data_generator_params`: The DataGeneratorParams instance which encapsulates the required parameters for data generation. There is NO default value and it should be specified by users.
