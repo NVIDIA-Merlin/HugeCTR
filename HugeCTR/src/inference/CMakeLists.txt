@@ -13,6 +13,7 @@
 
 cmake_minimum_required(VERSION 3.8)
 include_directories(/opt/conda/include)
+set(DB_LIB_PATHS "/usr/local/lib" CACHE PATH "Paths to Hiredis/rocksdb lib")
 
 file(GLOB huge_ctr_src
   ../cpu_resource.cpp
@@ -64,6 +65,14 @@ file(GLOB huge_ctr_src
   embedding_interface.cpp
   parameter_server.cpp
   inference_utilis.cpp
+  hierarchicaldb.cpp
+  redis.cpp
+  rocksdb.cpp
+  redis_cluster.cpp
+  sha1.cpp
+  utils.cpp
+  localized_db.cpp
+  database.cpp
   unique_op/unique_op.cu
   ../data_readers/metadata.cpp
   ../gpu_learning_rate_scheduler.cu
@@ -91,6 +100,12 @@ target_link_libraries(hugectr_inference PUBLIC cudart cublas curand cudnn nccl c
 target_link_libraries(hugectr_inference PUBLIC gpu_cache)
 
 target_link_libraries(hugectr_inference PRIVATE nlohmann_json::nlohmann_json)
+
+target_link_libraries(
+  hugectr_inference
+  PUBLIC
+    ${DB_LIB_PATHS}/libhiredis.so librocksdb.so  # from Hugectr 
+)
 
 target_compile_features(hugectr_inference PUBLIC cxx_std_17)
 

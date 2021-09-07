@@ -1,9 +1,10 @@
+import hugectr
 from hugectr.inference import InferenceParams, CreateInferenceSession
 import pandas as pd
 import numpy as np
 import sys
 #from mpi4py import MPI
-def wdl_inference(model_name, network_file, dense_file, embedding_file_list, data_file,enable_cache):
+def wdl_inference(model_name, network_file, dense_file, embedding_file_list, data_file,enable_cache, dbtype=hugectr.Database_t.Local):
     CATEGORICAL_COLUMNS=["C" + str(x) for x in range(1, 27)]+["C1_C2","C3_C4"]
     CONTINUOUS_COLUMNS=["I" + str(x) for x in range(1, 14)]
     LABEL_COLUMNS = ['label']
@@ -29,7 +30,11 @@ def wdl_inference(model_name, network_file, dense_file, embedding_file_list, dat
                                 use_gpu_embedding_cache = enable_cache,
                                 cache_size_percentage = 0.9,
                                 i64_input_key = True,
-                                use_mixed_precision = False)
+                                use_mixed_precision = False,
+                                db_type = dbtype,
+                                redis_ip="127.0.0.1:7003,127.0.0.1:7001,127.0.0.1:7002",
+                                rocksdb_path="/hugectr/test/utest/wdl_test_files/rocksdb",
+                                cache_size_percentage_redis=0.001)
     inference_session = CreateInferenceSession(config_file, inference_params)
     output = inference_session.predict(dense_features, embedding_columns, row_ptrs)
     miss=np.mean((np.array(output) - np.array(result)) ** 2)
@@ -54,5 +59,6 @@ if __name__ == "__main__":
     embedding_file_list = str(sys.argv[4]).split(',')
     print(embedding_file_list)
     data_file = sys.argv[5]
-    wdl_inference(model_name, network_file, dense_file, embedding_file_list, data_file, True)
-    wdl_inference(model_name, network_file, dense_file, embedding_file_list, data_file, False)
+    wdl_inference(model_name, network_file, dense_file, embedding_file_list, data_file, True, hugectr.Database_t.RocksDB)
+    wdl_inference(model_name, network_file, dense_file, embedding_file_list, data_file, True, hugectr.Database_t.Local)
+    wdl_inference(model_name, network_file, dense_file, embedding_file_list, data_file, False, hugectr.Database_t.Local)

@@ -22,6 +22,7 @@
 
 namespace HugeCTR {
 enum INFER_TYPE { TRITON, OTHER };
+enum DATABASE_TYPE { LOCAL, REDIS, ROCKSDB, HIERARCHY };
 
 struct InferenceParams {
   std::string model_name;
@@ -37,13 +38,20 @@ struct InferenceParams {
   float scaler;
   bool use_algorithm_search;
   bool use_cuda_graph;
+  DATABASE_TYPE db_type;
+  std::string redis_ip;
+  std::string rocksdb_path;
+  float cache_size_percentage_redis;
   InferenceParams(const std::string& model_name, const size_t max_batchsize,
                   const float hit_rate_threshold, const std::string& dense_model_file,
                   const std::vector<std::string>& sparse_model_files, const int device_id,
                   const bool use_gpu_embedding_cache, const float cache_size_percentage,
                   const bool i64_input_key, const bool use_mixed_precision = false,
                   const float scaler = 1.0, const bool use_algorithm_search = true,
-                  const bool use_cuda_graph = true);
+                  const bool use_cuda_graph = true, DATABASE_TYPE db_type = DATABASE_TYPE::LOCAL,
+                  const std::string redis_ip = "127.0.0.1:7000",
+                  const std::string rocksdb_path = "",
+                  const float cache_size_percentage_redis = 0.5);
 };
 
 struct parameter_server_config {

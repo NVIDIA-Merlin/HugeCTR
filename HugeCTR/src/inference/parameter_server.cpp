@@ -14,8 +14,13 @@
  * limitations under the License.
  */
 
+#include <cstdio>
 #include <experimental/filesystem>
+#include <inference/hierarchicaldb.hpp>
+#include <inference/localized_db.hpp>
 #include <inference/parameter_server.hpp>
+#include <inference/redis.hpp>
+#include <inference/rocksdb.hpp>
 
 namespace fs = std::experimental::filesystem;
 
@@ -28,10 +33,12 @@ parameter_server<TypeHashKey>::parameter_server(
     const std::string& framework_name, const std::vector<std::string>& model_config_path,
     const std::vector<InferenceParams>& inference_params_array) {
   // Store the configuration
+
   framework_name_ = framework_name;
   if (model_config_path.size() != inference_params_array.size()) {
     CK_THROW_(Error_t::WrongInput, "Wrong input: The size of input args are not consistent.");
   }
+  dbtype = inference_params_array[0].db_type;
   // Initialize <model_name, id> map
   for (unsigned int i = 0; i < inference_params_array.size(); i++) {
     ps_config_.model_name_id_map_.emplace(inference_params_array[i].model_name, (size_t)i);
@@ -39,6 +46,21 @@ parameter_server<TypeHashKey>::parameter_server(
 
   // Initialize for each model
   for (unsigned int i = 0; i < model_config_path.size(); i++) {
+    if (dbtype != inference_params_array[0].db_type) {
+      CK_THROW_(
+          Error_t::WrongInput,
+          "Wrong Type of DB: Current HugeCTR PS does not support hybrid database deployment.");
+    }
+    if (inference_params_array[i].redis_ip != inference_params_array[0].redis_ip) {
+      CK_THROW_(Error_t::WrongInput,
+                "Please checke redis_ip of each model : All models must be deployed in the same "
+                "Redis cluster .");
+    }
+    if (inference_params_array[i].rocksdb_path != inference_params_array[0].rocksdb_path) {
+      CK_THROW_(Error_t::WrongInput,
+                "Please checke rocksdb_path of each model : All models must be deployed in the "
+                "same path.");
+    }
     // Open model config file and input model json config
     nlohmann::json model_config(read_json_file(model_config_path[i]));
 
@@ -95,6 +117,30 @@ parameter_server<TypeHashKey>::parameter_server(
               "Wrong input: The size of parameter server parameters are not correct.");
   }
 
+  switch (dbtype) {
+    case DATABASE_TYPE::LOCAL:
+      db = DataBase<TypeHashKey>::load_base(DATABASE_TYPE::LOCAL, ps_config_);
+      break;
+    case DATABASE_TYPE::ROCKSDB:
+      db = DataBase<TypeHashKey>::load_base(DATABASE_TYPE::ROCKSDB, ps_config_);
+      reinterpret_cast<rocks_db<TypeHashKey>*>(db)->init(inference_params_array[0].rocksdb_path);
+      reinterpret_cast<rocks_db<TypeHashKey>*>(db)->connect();
+      break;
+    case DATABASE_TYPE::REDIS:
+      db = DataBase<TypeHashKey>::load_base(DATABASE_TYPE::REDIS, ps_config_);
+      reinterpret_cast<redis<TypeHashKey>*>(db)->init(inference_params_array[0].redis_ip, "");
+      reinterpret_cast<redis<TypeHashKey>*>(db)->connect();
+      break;
+    case DATABASE_TYPE::HIERARCHY:
+      db = DataBase<TypeHashKey>::load_base(DATABASE_TYPE::HIERARCHY, ps_config_);
+      reinterpret_cast<hierarchical_db<TypeHashKey>*>(db)->init(
+          inference_params_array[0].rocksdb_path, inference_params_array[0].redis_ip, 7000, "",
+          inference_params_array[0].cache_size_percentage_redis);
+      reinterpret_cast<hierarchical_db<TypeHashKey>*>(db)->connect();
+      break;
+    default:
+      std::cout << "wrong database type!" << std::endl;
+  }
   // Load embeddings for each embedding table from each model
   for (unsigned int i = 0; i < model_config_path.size(); i++) {
     size_t num_emb_table = (ps_config_.emb_file_name_[i]).size();
@@ -147,9 +193,30 @@ parameter_server<TypeHashKey>::parameter_server(
       }
       // Insert temp embedding table into temp model embedding table
       model_emb_table.emplace_back(emb_table);
+
+      // redis
+      if (dbtype == DATABASE_TYPE::REDIS) {
+        reinterpret_cast<redis<TypeHashKey>*>(db)->mset(key_vec, vec_vec,
+                                                        inference_params_array[i].model_name,
+                                                        std::to_string(j), emb_vec_size);
+      }
+      // Rocks
+      if (dbtype == DATABASE_TYPE::ROCKSDB) {
+        reinterpret_cast<rocks_db<TypeHashKey>*>(db)->mset(key_vec, vec_vec,
+                                                           inference_params_array[i].model_name,
+                                                           std::to_string(j), emb_vec_size);
+      }
+      // Hierarchicaldb
+      if (dbtype == DATABASE_TYPE::HIERARCHY) {
+        reinterpret_cast<hierarchical_db<TypeHashKey>*>(db)->mset(
+            key_vec, vec_vec, inference_params_array[i].model_name, std::to_string(j),
+            emb_vec_size);
+      }
     }
-    // Insert temp model embedding table into parameter server
-    cpu_embedding_table_.emplace_back(model_emb_table);
+    // Insert temp model embedding table into parameter server // localdb
+    if (dbtype == DATABASE_TYPE::LOCAL) {
+      reinterpret_cast<localdb<TypeHashKey>*>(db)->SetDB(model_emb_table);
+    }
   }
 }
 
@@ -161,37 +228,27 @@ void parameter_server<TypeHashKey>::look_up(const TypeHashKey* h_embeddingcolumn
                                             float* h_embeddingoutputvector,
                                             const std::string& model_name,
                                             size_t embedding_table_id) {
-  // Translate from model name to model id
-  size_t model_id;
-  auto model_id_iter = ps_config_.model_name_id_map_.find(model_name);
-  if (model_id_iter != ps_config_.model_name_id_map_.end()) {
-    model_id = model_id_iter->second;
-  } else {
-    CK_THROW_(
-        Error_t::WrongInput,
-        "Error: parameter server unknown model name. Note that this error will also come out with "
-        "using Triton LOAD/UNLOAD APIs which haven't been supported in HugeCTR backend.");
+  // redis look_up
+  if (dbtype == DATABASE_TYPE::REDIS) {
+    reinterpret_cast<redis<TypeHashKey>*>(db)->look_up(
+        h_embeddingcolumns, length, h_embeddingoutputvector, model_name, (embedding_table_id));
   }
 
-  // Search for the embedding ids in the corresponding embedding table
-  for (size_t i = 0; i < length; i++) {
-    // Look-up the id in the table
-    auto result = cpu_embedding_table_[model_id][embedding_table_id].find(h_embeddingcolumns[i]);
-    // Check if the key is existed in embedding table
-    if (result != cpu_embedding_table_[model_id][embedding_table_id].end()) {
-      // Find the embedding id
-      size_t emb_vec_offset = i * ps_config_.embedding_vec_size_[model_id][embedding_table_id];
-      memcpy(h_embeddingoutputvector + emb_vec_offset, (result->second).data(),
-             sizeof(float) * ps_config_.embedding_vec_size_[model_id][embedding_table_id]);
-    } else {
-      // Cannot find the embedding id
-      size_t emb_vec_offset = i * ps_config_.embedding_vec_size_[model_id][embedding_table_id];
-      std::vector<float> default_emb_vec(
-          ps_config_.embedding_vec_size_[model_id][embedding_table_id],
-          ps_config_.default_emb_vec_value_[model_id][embedding_table_id]);
-      memcpy(h_embeddingoutputvector + emb_vec_offset, default_emb_vec.data(),
-             sizeof(float) * ps_config_.embedding_vec_size_[model_id][embedding_table_id]);
-    }
+  // local look_up
+  if (dbtype == DATABASE_TYPE::LOCAL) {
+    reinterpret_cast<localdb<TypeHashKey>*>(db)->look_up(
+        h_embeddingcolumns, length, h_embeddingoutputvector, model_name, (embedding_table_id));
+  }
+  // rocksdb look_up
+  if (dbtype == DATABASE_TYPE::ROCKSDB) {
+    reinterpret_cast<rocks_db<TypeHashKey>*>(db)->look_up(
+        h_embeddingcolumns, length, h_embeddingoutputvector, model_name, (embedding_table_id));
+  }
+
+  // hierarchy look_up
+  if (dbtype == DATABASE_TYPE::HIERARCHY) {
+    reinterpret_cast<hierarchical_db<TypeHashKey>*>(db)->look_up(
+        h_embeddingcolumns, length, h_embeddingoutputvector, model_name, (embedding_table_id));
   }
 }
 
