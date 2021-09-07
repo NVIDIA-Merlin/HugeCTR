@@ -20,6 +20,7 @@
 #include <HugeCTR/include/common.hpp>
 #include <HugeCTR/include/device_map.hpp>
 #include <HugeCTR/include/embeddings/hybrid_embedding/utils.hpp>
+#include <HugeCTR/include/inference/inference_utils.hpp>
 #include <HugeCTR/include/metrics.hpp>
 
 namespace HugeCTR {
@@ -210,6 +211,12 @@ void CommonPybind(pybind11::module& m) {
       .value("Medium", HugeCTR::PowerLaw_t::Medium)
       .value("Short", HugeCTR::PowerLaw_t::Short)
       .value("Specific", HugeCTR::PowerLaw_t::Specific)
+      .export_values();
+  pybind11::enum_<HugeCTR::DATABASE_TYPE>(m, "Database_t")
+      .value("Redis", HugeCTR::DATABASE_TYPE::REDIS)
+      .value("RocksDB", HugeCTR::DATABASE_TYPE::ROCKSDB)
+      .value("Local", HugeCTR::DATABASE_TYPE::LOCAL)
+      .value("Hierarchy", HugeCTR::DATABASE_TYPE::HIERARCHY)
       .export_values();
 }
 

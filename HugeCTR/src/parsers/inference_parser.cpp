@@ -18,14 +18,14 @@
 #include <parser.hpp>
 
 namespace HugeCTR {
-InferenceParams::InferenceParams(const std::string& model_name, const size_t max_batchsize,
-                                 const float hit_rate_threshold,
-                                 const std::string& dense_model_file,
-                                 const std::vector<std::string>& sparse_model_files,
-                                 const int device_id, const bool use_gpu_embedding_cache,
-                                 const float cache_size_percentage, const bool i64_input_key,
-                                 const bool use_mixed_precision, const float scaler,
-                                 const bool use_algorithm_search, const bool use_cuda_graph)
+InferenceParams::InferenceParams(
+    const std::string& model_name, const size_t max_batchsize, const float hit_rate_threshold,
+    const std::string& dense_model_file, const std::vector<std::string>& sparse_model_files,
+    const int device_id, const bool use_gpu_embedding_cache, const float cache_size_percentage,
+    const bool i64_input_key, const bool use_mixed_precision, const float scaler,
+    const bool use_algorithm_search, const bool use_cuda_graph, DATABASE_TYPE db_type,
+    const std::string redis_ip, const std::string rocksdb_path,
+    const float cache_size_percentage_redis)
     : model_name(model_name),
       max_batchsize(max_batchsize),
       hit_rate_threshold(hit_rate_threshold),
@@ -38,7 +38,11 @@ InferenceParams::InferenceParams(const std::string& model_name, const size_t max
       use_mixed_precision(use_mixed_precision),
       scaler(scaler),
       use_algorithm_search(use_algorithm_search),
-      use_cuda_graph(use_cuda_graph) {}
+      use_cuda_graph(use_cuda_graph),
+      db_type(db_type),
+      redis_ip(redis_ip),
+      rocksdb_path(rocksdb_path),
+      cache_size_percentage_redis(cache_size_percentage_redis) {}
 
 template <typename TypeEmbeddingComp>
 void InferenceParser::create_pipeline_inference(
