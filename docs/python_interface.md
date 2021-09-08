@@ -249,7 +249,7 @@ hugectr.DataReaderParams()
 
 * `num_workers`: Integer, the number of data reader workers that concurrently load data. You can empirically decide the best one based on your dataset, training environment. The default value is 12.
 
-* `slot_size_array`: List[int], the cardinality array of input features. It should be consistent with that of the sparse input. We requires this argument for Parquet format data. The default value is an empty list.
+* `slot_size_array`: List[int], the cardinality array of input features. It should be consistent with that of the sparse input. We requires this argument for Parquet format data and RawAsync format when you want to add offset to input key. The default value is an empty list.
 
 * `async_param`: AsyncParam, the parameters for async raw data reader. This argument is restricted to MLPerf use.
 
@@ -332,8 +332,6 @@ The Raw dataset format is different from the Norm dataset format in that the tra
 
 **NOTE**: Only one-hot data is accepted with this format.
 
-When using the Raw dataset format, a user must preprocess their own dataset to generate the continuous keys for each slot, and specify the list of the slot sizes with the `slot_size_array` option. Therefore, when referencing the configuration snippet above, we assume that slot 0 has the continuous keyset `{0, 1, 2 ... 39884405}` while slot 1 has its keyset on a different space `{0, 1, 2 ... 39043}`. 
-
 The Raw dataset format can be used with embedding type LocalizedSlotSparseEmbeddingOneHot only.
 
 Example:
@@ -375,7 +373,7 @@ reader = hugectr.DataReaderParams(data_reader_type = hugectr.DataReaderType_t.Pa
                                   slot_size_array = [278899, 355877, 203750, 18573, 14082, 7020, 18966, 4, 6382, 1246, 49, 185920, 71354, 67346, 11, 2166, 7340, 60, 4, 934, 15, 204208, 141572, 199066, 60940, 9115, 72, 34])
 ``` 
 
-Similar to the Raw dataset format, you must preprocess your own dataset to generate the continuous keys for each slot, and specify the list of the slot sizes with the `slot_size_array` option. Therefore, in the configuration snippet noted above, we assume that slot 0 has the continuous keyset `{0, 1, 2 ... 220817329}` and slot 1 has its keyset on a different space `{0, 1, 2 ... 126535807}`.
+We provide an option to add offset for each slot by specifying `slot_size_array`. `slot_size_array` is an array whose length is equal to the number of slots. To avoid duplicate keys after adding offset, we need to ensure that the key range of the i-th slot is between 0 and slot_size_array[i]. We will do the offset in this way: for i-th slot key, we add it with offset slot_size_array[0] + slot_size_array[1] + ... + slot_size_array[i - 1]. In the configuration snippet noted above, for the 0th slot, offset 0 will be added. For the 1st slot, offset 278899 will be added. And for the third slot, offset 634776 will be added.
 
 ### **OptParamsPy** ###
 #### **CreateOptimizer method**
@@ -451,7 +449,7 @@ hugectr.SparseEmbedding()
 **Arguments**
 * `embedding_type`: The embedding type to be used. The supported types include `hugectr.Embedding_t.DistributedSlotSparseEmbeddingHash`, `hugectr.Embedding_t.LocalizedSlotSparseEmbeddingHash`, `hugectr.Embedding_t.LocalizedSlotSparseEmbeddingOneHot` and `hugectr.Embedding_t.HybridSparseEmbedding`. The type `Embedding_t.HybridSparseEmbedding` is valid only if `is_dlrm` is set `True` within `CreateSolver` and `data_reader_type` is specified as `DataReaderType_t.RawAsync` within `DataReaderParams`. There is NO default value and it should be specified by users.
 
-* `workspace_size_per_gpu_in_mb`: Integer, the workspace memory size in megabyte per GPU. This workspace memory must be big enough to hold all the embedding vocabulary used during the training and evaluation. There is NO default value and it should be specified by users. To understand how to set this value, please refer [QAList.md](./QAList.md#How-to-set-workspace_size_per_gpu_in_mb-and-slot_size_array-in-.json-file).
+* `workspace_size_per_gpu_in_mb`: Integer, the workspace memory size in megabyte per GPU. This workspace memory must be big enough to hold all the embedding vocabulary used during the training and evaluation. There is NO default value and it should be specified by users. To understand how to set this value, please refer [How to set workspace_size_per_gpu_in_mb and slot_size_array](./QAList.md#24).
 
 * `embedding_vec_size`: Integer, the embedding vector size. There is NO default value and it should be specified by users.
 
@@ -461,7 +459,7 @@ hugectr.SparseEmbedding()
 
 * `bottom_name`: String, the number of the bottom tensor to be consumed by this sparse embedding layer. Please note that it should be a predefined sparse input name. There is NO default value and it should be specified by users.
 
-* `slot_size_array`: List[int], the cardinality array of input features. It should be consistent with that of the sparse input. This parameter is used in `LocalizedSlotSparseEmbeddingHash` and `LocalizedSlotSparseEmbeddingOneHot`, which can help avoid wasting memory caused by imbalance vocabulary size. Please refer [How to set workspace_size_per_gpu_in_mb and slot_size_array in .json file](./QAList.md#24). There is NO default value and it should be specified by users.
+* `slot_size_array`: List[int], the cardinality array of input features. It should be consistent with that of the sparse input. This parameter can be used in `LocalizedSlotSparseEmbeddingHash`, `LocalizedSlotSparseEmbeddingOneHot` and `HybridSparseEmbedding`. The meaning of `slot_size_array` is varied based on different embedding type. There is NO default value and it should be specified by users. Please refer [How to set workspace_size_per_gpu_in_mb and slot_size_array](./QAList.md#24).
 
 * `optimizer`: OptParamsPy, the optimizer dedicated to this sparse embedding layer. If the user does not specify the optimizer for the sparse embedding, it will adopt the same optimizer as dense layers. 
 

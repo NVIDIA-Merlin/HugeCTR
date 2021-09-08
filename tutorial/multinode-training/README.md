@@ -23,19 +23,18 @@ If you need to create a new cluster, follow the instructions outlined below.
   
 3. Build HugeCTR with [multi-nodes training supported](../README.md)) and copy it to the same shared directory in each node.
 
-4. Configure the JSON file.
+4. Configure the python script.
 
-   The [dcn8l8gpu2nodes.json](../../samples/dcn2nodes/dcn8l8gpu2nodes.json) is using two 8-GPU nodes. You can change the `"gpu"` setting based on the environment that you're using, and then copy the JSON file into a directory where the HugeCTR executable file is located as shown here:
+   The [dcn_2node_8gpu.py](../../samples/dcn/dcn_2node_8gpu.py) is using two 8-GPU nodes. You can change the `"gpu"` setting based on the environment that you're using, and then add hugectr lib into PYTHONPATH:
     ```bash
-    cp ../../samples/dcn2nodes/dcn8l8gpu2nodes.json ../../build/bin/
+    export PYTHONPATH=../../build/lib/
     ```
 
 5. Configure `run_multinode.sh`.
    
    The [run_multinode.sh](./run_multinode.sh) uses `mpirun` to start the built docker container in each node. To use `run_multinode.sh`, you must set the following variables:
    * **WORK_DIR**: Parent path where you put the `hugectr` executable and your JSON config file.
-   * **BIN**: `hugectr` executable path relative to `WORK_DIR`
-   * **CONFIG_NAME**: JSON config file path relative to `WORK_DIR`
+   * **TEST_CMD**: how to run python script
    * **DATASET**: Real dataset path.
    * **VOL_DATASET**: Dataset path shown inside your docker container as a mapping from `DATASET`. HugeCTR only sees this path.
    * **IMAGENAME**: Name of your Docker image.
