@@ -1,10 +1,9 @@
 # working dir, dataset dir, bin path, config path
 WORK_DIR="../../build/bin"
-BIN="huge_ctr"
-CONFIG_NAME="dcn8l8gpu2nodes.json"
+TEST_CMD="python3 ../../samples/dcn/dcn_2node_8gpu.py"
 DATASET="/dataset"
 VOL_DATASET="/dataset"
-IMAGENAME="hugectr:devel"
+IMAGENAME="hugectr:devel_train"
 
 export HOSTS="node1,node2"
 
@@ -108,7 +107,7 @@ sleep 10
 echo "FINISH CONTAINER CREATION"
 
 # You can adjust the mpirun args and adjust the running command, args
-docker exec $CONTNAME mpirun --allow-run-as-root --bind-to none -np $((${#hosts[@]})) -x NCCL_DEBUG=INFO ${BIN} --train ${CONFIG_NAME} 2>&1 |tee $JOBID.log
+docker exec $CONTNAME mpirun --allow-run-as-root --bind-to none -np $((${#hosts[@]})) -x NCCL_DEBUG=INFO ${TEST_CMD} 2>&1 |tee $JOBID.log
 
 echo "FINISH TRAINING"
 

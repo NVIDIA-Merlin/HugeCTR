@@ -85,16 +85,18 @@ nnz=0 is supported in HugeCTR input. That means no features will be looked up.
 Firstly, you should construct your own configure file. You can refer to our [User Guide](hugectr_user_guide.md) and samples.
 Secondly, using our `data_generator` to generate a random dataset. Seeing [introductions](../README.md#benchmark).
 Thirdly, run with `./huge_ctr --train ./your_config.json`
-### 24. How to set workspace_size_per_gpu_in_mb and slot_size_array in .json file? ###
+### 24. How to set workspace_size_per_gpu_in_mb and slot_size_array? ###
 As embeddings are model parallel in HugeCTR,
-it's a reference number for HugeCTR to allocate GPU memory accordingly and not necessarily the exact number of features in your dataset.
+`workspace_size_per_gpu_in_mb` is a reference number for HugeCTR to allocate GPU memory accordingly and not necessarily the exact number of features in your dataset.
 In practice, we usually set it larger than the real size because of the non-uniform distribution of the keys.
-In DistributedSlotEmbedding, HugeCTR will allocate the same size of memory on each GPU which is `workspace_size_per_gpu_in_mb`.
-Users have to set this parameter big enough to make sure no overflow in any GPUs.
-In LocalizedSlotEmbedding, user can also provide `workspace_size_per_gpu_in_mb`,
-if the slot sizes are significantly different, we recommend that users give a number large enough to prevent overflow.
-Another approach for LocalizedSlotEmbedding is that users can provide the exact size for each slot,
-which is `slot_size_array` and HugeCTR will calculate the `workspace_size_per_gpu_in_mb` according to the given slot sizes.
+
+`slot_size_array` has 2 usages. It can be used as a replacement for `workspace_size_per_gpu_in_mb` to avoid waiting memory caused by imbalance vocabulary size. And it can also be used as a reference to add offset for keys in different slot.
+
+The relation between embedding type, `workspace_size_per_gpu_in_mb` and `slot_size_array` is:
+* For `DistributedSlotEmbedding`, `workspace_size_per_gpu_in_mb` is needed and `slot_size_array` is not needed. Each GPU will allocate the same amount of memory for embedding table usage.
+* For `LocalizedSlotSparseEmbeddingHash`, only one of `workspace_size_per_gpu_in_mb` and `slot_size_array` is needed. If users can provide the exact size for each slot, we recommand users to specify `slot_size_array`. It can help avoid wasting memory caused by imbalance vocabulary size. Or you can specify `workspace_size_per_gpu_in_mb` so each GPU will allocate the same amount of memory for embedding table usage. If you specify both `slot_size_array` and `workspace_size_per_gpu_in_mb`, HugeCTR will use `slot_size_array` for `LocalizedSlotSparseEmbeddingHash`.
+* For `LocalizedSlotSparseEmbeddingOneHot`, `slot_size_array` is needed. It is used for allocating memory and adding offset for each slot.
+* For `HybridSparseEmbedding`, both `workspace_size_per_gpu_in_mb` and `slot_size_array` is needed. `workspace_size_per_gpu_in_md` is used for allocating memory while `slot_size_array` is used for adding offset
 ### 25. Is nvlink required in HugeCTR? ###
 GPU with nvlink is not required, but recommended because the performance of CTR training highly relies on the performance of inter-GPUs communication. GPU servers with PCIE connections are also supported.
 ### 26. Is DGX the only GPU server that is required in HugeCTR? ###
