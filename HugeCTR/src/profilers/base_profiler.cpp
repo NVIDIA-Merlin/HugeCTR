@@ -12,6 +12,14 @@ namespace HugeCTR {
 namespace Profiler {
 
 void BaseProfiler::initialize(bool use_cuda_graph, bool exit_when_finished) {
+  std::string mode;
+  if (HugeCTR::global_profiler_train_eval_mode == 0) {
+    mode = "train";
+  } else if (HugeCTR::global_profiler_train_eval_mode == 1) {
+    mode = "eval";
+  }
+  MESSAGE_(std::string("Profiler using PROFILING_TRAIN_EVAL_MODE : ") + mode);
+
   char* pd = std::getenv("PROFILING_DIR");
   if (pd == NULL) {
     std::string msg(
@@ -73,14 +81,15 @@ void BaseProfiler::initialize(bool use_cuda_graph, bool exit_when_finished) {
   std::ifstream interested_events_file((profiling_dir + "/" + "prof.events").c_str());
   if (interested_events_file.good()) {
     MESSAGE_("Profiler using prof.events inside PROFILING_DIR");
-    interested_events_.push_back("iteration"); // default event
+    interested_events_.push_back("iteration");  // default event
     for (std::string line; getline(interested_events_file, line);) {
       interested_events_.push_back(line);
     }
   }
 }
 
-int BaseProfiler::access_or_insert_in_event_met_times_in_stream(cudaStream_t stream, const std::string& event_name) {
+int BaseProfiler::access_or_insert_in_event_met_times_in_stream(cudaStream_t stream,
+                                                                const std::string& event_name) {
   auto map_iter = map_internal_.find(stream);
   if (map_iter == map_internal_.end()) {
     map_internal_[stream] = std::make_shared<std::map<std::string, int>>();
@@ -94,7 +103,8 @@ int BaseProfiler::access_or_insert_in_event_met_times_in_stream(cudaStream_t str
   return met_times_within_this_stream;
 }
 
-int BaseProfiler::event_met_times_within_stream_safe(cudaStream_t stream, const std::string& event_name) {
+int BaseProfiler::event_met_times_within_stream_safe(cudaStream_t stream,
+                                                     const std::string& event_name) {
   int met_times = 0;
   try {
     met_times = map_internal_.at(stream)->at(event_name);
@@ -126,8 +136,6 @@ bool BaseProfiler::find_in_interested_events(const std::string& event_name) {
 bool BaseProfiler::try_create_one_gpu_event(const std::string& event_name,
                                             const std::string& event_type, int device_id,
                                             cudaStream_t stream) {
-
-
   if (!find_in_interested_events(event_name)) {
     return false;
   }
@@ -204,8 +212,7 @@ std::string BaseProfiler::stream_str(cudaStream_t stream) {
 
 std::string BaseProfiler::gen_event_key(const std::string& event_name, cudaStream_t stream,
                                         int met_times_within_this_stream) {
-  return event_name + "_" + stream_str(stream) + "_" +
-         std::to_string(met_times_within_this_stream);
+  return event_name + "_" + stream_str(stream) + "_" + std::to_string(met_times_within_this_stream);
 }
 
 std::string BaseProfiler::gpu_event_strfy(Event* event) {
@@ -230,6 +237,24 @@ std::pair<std::string, std::string> BaseProfiler::get_event_name_and_type(
   }
   name_and_type.first = event_label.substr(0, dot_pos);
   return name_and_type;
+}
+
+int parse_train_eval_mode() {
+  char* pd = std::getenv("PROFILING_TRAIN_EVAL_MODE");
+  if (pd == NULL) {
+    return 0;
+  }
+  int ret_mode = -1;
+  std::string mode = std::string(pd);
+  if (mode == "train") {
+    ret_mode = 0;
+  } else if (mode == "eval") {
+    ret_mode = 1;
+  } else {
+    std::string msg("Invalid PROFILING_TRAIN_EVAL_MODE");
+    throw std::invalid_argument(msg);
+  }
+  return ret_mode;
 }
 
 int parse_record_event_mode() {
@@ -270,6 +295,7 @@ bool profiler_init_cuda_graph_this_iter() {
   }
 }
 
+const int global_profiler_train_eval_mode = Profiler::parse_train_eval_mode();
 const int global_profiling_mode = Profiler::parse_record_event_mode();
 
 }  //  namespace HugeCTR

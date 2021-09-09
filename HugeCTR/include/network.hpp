@@ -58,7 +58,6 @@ class Network {
 
   struct GraphWrapper {
     bool initialized = false;
-    bool initialized_with_profiling = false;
     cudaGraph_t graph;
     cudaGraphExec_t graph_exec;
   };
