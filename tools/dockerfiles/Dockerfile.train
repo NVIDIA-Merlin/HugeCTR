@@ -127,7 +127,7 @@ rm -rf /var/tmp/hiredis
 #RocksDB
 RUN mkdir -p /var/tmp && cd /var/tmp && git clone https://github.com/facebook/rocksdb.git && cd - && \
 cd /var/tmp/rocksdb && \
-make -j shared_lib && \
+make -j$(nproc) shared_lib && \
 make install-shared && \
 rm -rf /var/tmp/rocksdb
 ENV CPATH=/usr/local/include:$CPATH

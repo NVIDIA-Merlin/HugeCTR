@@ -1,0 +1,258 @@
+
+# .release_test_job: &release_test_job
+#   allow_failure: false
+#   only:
+#     variables:
+#       - $RELEASE_TEST == "1"
+
+# .release_test_job_selene: &release_test_job_selene
+#   extends: .selene_job
+#   <<: *release_test_job
+#   stage: test
+#   variables: &release_test_job_selene_variables
+#     CONTAINER_IMAGE: ${TRAIN_IMAGE_RELEASE_ENROOT}
+#     CONTS: ${CI_PROJECT_DIR}:${CI_PROJECT_DIR},${DATASET_CRITEO_SELENE}:${CRITEO_MOUNT},${DATASET_NEW_CRITEO_SELENE}:${NEW_CRITEO_MOUNT},${DLRM_DATASET}:${DLRM_MOUNT},/lustre/fsw/devtech/hpc-hugectr/inference/:/hugectr/test/utest/
+
+# .release_test_job_circe: &release_test_job_circe
+#   extends: .circe_job
+#   <<: *release_test_job
+#   stage: test
+#   variables: &release_test_job_circe_variables
+#     CONTAINER_IMAGE: ${TRAIN_IMAGE_RELEASE_ENROOT}
+#     CONTS: $(pwd):$(pwd),${DATASET_CRITEO_CIRCE}:${CRITEO_MOUNT},${DATASET_NEW_CRITEO_CIRCE}:${NEW_CRITEO_MOUNT},${DLRM_DATASET}:${DLRM_MOUNT}
+
+# .sample_wdl_job: &sample_wdl_job
+#   script:
+#     - srun --ntasks=1
+#       -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+#       --container-image ${CONTAINER_IMAGE}
+#       --container-mounts ${CONTS}
+#       --ntasks-per-node 1
+#       bash -cx "
+#       cd ${CI_PROJECT_DIR} &&
+#       export PYTHONPATH=${WORK_DIR}/build/build_single/lib &&
+#       ln -s ${NEW_CRITEO_MOUNT}/wdl_data;
+#       sed -i 's/criteo_data/wdl_data/g' ./samples/wdl/wdl.py &&
+#       python3 ./samples/wdl/wdl.py"
+#     - srun --ntasks=4
+#       -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+#       --container-image ${CONTAINER_IMAGE}
+#       --container-mounts ${CONTS}
+#       --ntasks-per-node 1
+#       --network sharp
+#       bash -cx "
+#       cd ${CI_PROJECT_DIR} &&
+#       export PYTHONPATH=${WORK_DIR}/build/build_single/lib &&
+#       ln -s ${NEW_CRITEO_MOUNT}/wdl_data;
+#       sed -i 's/criteo_data/wdl_data/g' ./samples/wdl/wdl_8gpu.py &&
+#       python3 ./samples/wdl/wdl_8gpu.py"
+#     - srun --ntasks=1
+#       -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+#       --container-image ${CONTAINER_IMAGE}
+#       --container-mounts ${CONTS}
+#       --ntasks-per-node 1
+#       bash -cx "
+#       cd ${CI_PROJECT_DIR} &&
+#       export PYTHONPATH=${WORK_DIR}/build/build_single/lib &&
+#       ln -s ${NEW_CRITEO_MOUNT}/wdl_data_parquet;
+#       sed -i 's/criteo_data/wdl_data_parquet/g' ./samples/wdl/wdl_parquet.py;
+#       python3 ./samples/wdl/wdl_parquet.py"
+#     - srun --ntasks=1
+#       -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+#       --container-image ${CONTAINER_IMAGE}
+#       --container-mounts ${CONTS}
+#       --ntasks-per-node 1
+#       bash -cx "
+#       cd ${CI_PROJECT_DIR} &&
+#       export PYTHONPATH=${WORK_DIR}/build/build_single/lib &&
+#       ln -s ${NEW_CRITEO_MOUNT}/wdl_data_nvt_bin;
+#       sed -i 's/criteo_data/wdl_data_nvt_bin/g' ./samples/wdl/wdl_bin.py &&
+#       python3 ./samples/wdl/wdl_bin.py"
+#   timeout: 2 hours
+
+# .sample_deepfm_job: &sample_deepfm_job
+#   script:
+#     - srun --ntasks=1
+#       -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+#       --container-image ${CONTAINER_IMAGE}
+#       --container-mounts ${CONTS}
+#       --ntasks-per-node 1
+#       bash -cx "
+#       cd ${CI_PROJECT_DIR} &&
+#       export PYTHONPATH=${WORK_DIR}/build/build_single/lib &&
+#       ln -s ${NEW_CRITEO_MOUNT}/dcn_data;
+#       sed -i 's/criteo_data/dcn_data/g' ./samples/deepfm/deepfm.py &&
+#       python3 ./samples/deepfm/deepfm.py;"
+#     - srun --ntasks=1
+#       -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+#       --container-image ${CONTAINER_IMAGE}
+#       --container-mounts ${CONTS}
+#       --ntasks-per-node 1
+#       bash -cx "
+#       cd ${CI_PROJECT_DIR} &&
+#       export PYTHONPATH=${WORK_DIR}/build/build_single/lib &&
+#       ln -s ${NEW_CRITEO_MOUNT}/deepfm_data_nvt_bin;
+#       sed -i 's/criteo_data/deepfm_data_nvt_bin/g' ./samples/deepfm/deepfm_bin.py &&
+#       python3 ./samples/deepfm/deepfm_bin.py"
+#     - srun --ntasks=1
+#       -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+#       --container-image ${CONTAINER_IMAGE}
+#       --container-mounts ${CONTS}
+#       --ntasks-per-node 1
+#       bash -cx "
+#       cd ${CI_PROJECT_DIR} &&
+#       export PYTHONPATH=${WORK_DIR}/build/build_single/lib &&
+#       ln -s ${NEW_CRITEO_MOUNT}/deepfm_data_nvt;
+#       sed -i 's/criteo_data/deepfm_data_nvt/g' ./samples/deepfm/deepfm_parquet.py &&
+#       python3 ./samples/deepfm/deepfm_parquet.py"
+#   timeout: 2 hours
+
+# .sample_dcn_job: &sample_dcn_job
+#   script:
+#     - srun --ntasks=1
+#       -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+#       --container-image ${CONTAINER_IMAGE}
+#       --container-mounts ${CONTS}
+#       --ntasks-per-node 1
+#       bash -cx "
+#       cd ${CI_PROJECT_DIR} &&
+#       export PYTHONPATH=${WORK_DIR}/build/build_single/lib &&
+#       ln -s ${NEW_CRITEO_MOUNT}/dcn_data;
+#       sed -i 's/criteo_data/dcn_data/g' ./samples/dcn/dcn.py &&
+#       python3 ./samples/dcn/dcn.py"
+#     - srun --ntasks=1
+#       -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+#       --container-image ${CONTAINER_IMAGE}
+#       --container-mounts ${CONTS}
+#       --ntasks-per-node 1
+#       bash -cx "
+#       cd ${CI_PROJECT_DIR} &&
+#       export PYTHONPATH=${WORK_DIR}/build/build_single/lib &&
+#       ln -s ${NEW_CRITEO_MOUNT}/deepfm_data_nvt_bin;
+#       sed -i 's/criteo_data/deepfm_data_nvt_bin/g' ./samples/dcn/dcn_bin.py &&
+#       python3 ./samples/dcn/dcn_bin.py"
+#     - srun --ntasks=1
+#       -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+#       --container-image ${CONTAINER_IMAGE}
+#       --container-mounts ${CONTS}
+#       --ntasks-per-node 1
+#       bash -cx "
+#       cd ${CI_PROJECT_DIR} &&
+#       export PYTHONPATH=${WORK_DIR}/build/build_single/lib &&
+#       ln -s ${NEW_CRITEO_MOUNT}/deepfm_data_nvt;
+#       sed -i 's/criteo_data/deepfm_data_nvt/g' ./samples/dcn/dcn_parquet.py &&
+#       python3 ./samples/dcn/dcn_parquet.py"
+#     - srun --ntasks=1
+#       -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+#       --container-image ${CONTAINER_IMAGE}
+#       --container-mounts ${CONTS}
+#       --ntasks-per-node 1
+#       bash -cx "
+#       cd ${CI_PROJECT_DIR} &&
+#       export PYTHONPATH=${WORK_DIR}/build/build_single/lib &&
+#       export CUDA_DEVICE_ORDER=PCI_BUS_ID &&
+#       ln -s ${NEW_CRITEO_MOUNT}/dcn_data;
+#       sed -i 's/criteo_data/dcn_data/g' ./samples/dcn/dcn_localized_embedding.py &&
+#       python3 ./samples/dcn/dcn_localized_embedding.py"
+#     - srun --ntasks=2
+#       -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+#       --container-image ${CONTAINER_IMAGE}
+#       --container-mounts ${CONTS}
+#       --ntasks-per-node 1
+#       --network sharp
+#       bash -cx "
+#       cd ${CI_PROJECT_DIR} &&
+#       export PYTHONPATH=${WORK_DIR}/build/build_multi_nccl/lib &&
+#       ln -s ${NEW_CRITEO_MOUNT}/dcn_data;
+#       sed -i 's/criteo_data/dcn_data/g' ./samples/dcn/dcn_2node_8gpu.py &&
+#       python3 ./samples/dcn/dcn_2node_8gpu.py"
+#   timeout: 2 hours
+
+# .sample_criteo_job: &sample_criteo_job
+#   script:
+#     - srun --ntasks=1
+#       -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+#       --container-image ${CONTAINER_IMAGE}
+#       --container-mounts ${CONTS}
+#       --ntasks-per-node 1
+#       bash -cx "
+#       cd ${CI_PROJECT_DIR} &&
+#       export PYTHONPATH=${WORK_DIR}/build/build_single/lib &&
+#       ln -s ${NEW_CRITEO_MOUNT}/criteo_data;
+#       python3 ./samples/criteo/criteo.py;"
+#     - srun --ntasks=1
+#       -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+#       --container-image ${CONTAINER_IMAGE}
+#       --container-mounts ${CONTS}
+#       --ntasks-per-node 1
+#       bash -cx "
+#       cd ${CI_PROJECT_DIR} &&
+#       export PYTHONPATH=${WORK_DIR}/build/build_single/lib &&
+#       ln -s ${NEW_CRITEO_MOUNT}/criteo_bin;
+#       sed -i 's/criteo_data/criteo_bin/g' samples/criteo/criteo_bin.py &&
+#       python3 samples/criteo/criteo_bin.py"
+#     - srun --ntasks=1
+#       -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+#       --container-image ${CONTAINER_IMAGE}
+#       --container-mounts ${CONTS}
+#       --ntasks-per-node 1
+#       bash -cx "
+#       cd ${CI_PROJECT_DIR} &&
+#       export PYTHONPATH=${WORK_DIR}/build/build_single/lib &&
+#       ln -s ${NEW_CRITEO_MOUNT}/criteo_parquet;
+#       sed -i 's/criteo_data/criteo_parquet/g' samples/criteo/criteo_parquet.py &&
+#       python3 ./samples/criteo/criteo_parquet.py"
+#     - srun --ntasks=1
+#       -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+#       --container-image ${CONTAINER_IMAGE}
+#       --container-mounts ${CONTS}
+#       --ntasks-per-node 1
+#       bash -cx "
+#       cd ${CI_PROJECT_DIR};
+#       export PYTHONPATH=${WORK_DIR}/build/build_single/lib &&
+#       ln -s ${NEW_CRITEO_MOUNT}/criteo_multi_slots;
+#       sed -i 's/criteo_data/criteo_multi_slots/g' samples/criteo_multi_slots/criteo_multi_slots.py &&
+#       python3 ./samples/criteo_multi_slots/criteo_multi_slots.py"
+#   timeout: 2 hours
+
+# .sample_dlrm_job: &sample_dlrm_job
+#   script:
+#     - srun --ntasks=1
+#       -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+#       --container-image ${CONTAINER_IMAGE}
+#       --container-mounts ${CONTS}
+#       --ntasks-per-node 1
+#       bash -cx "
+#       cd ${NEW_CRITEO_MOUNT}/dlrm_kaggle &&
+#       export PYTHONPATH=${WORK_DIR}/build/build_single/lib &&
+#       python3 ${WORK_DIR}/samples/dlrm/dlrm_kaggle_fp32.py"
+#     - srun --ntasks=1
+#       -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+#       --container-image ${CONTAINER_IMAGE}
+#       --container-mounts ${CONTS}
+#       --ntasks-per-node 1
+#       bash -cx "
+#       cd ${DLRM_MOUNT} &&
+#       export PYTHONPATH=${WORK_DIR}/build/build_single/lib &&
+#       python3 ${WORK_DIR}/samples/dlrm/dlrm_terabyte_fp16_64k.py"
+#   timeout: 2 hours
+
+# sample_wdl_selene:
+#   <<: *release_test_job_selene
+#   <<: *sample_wdl_job
+
+# sample_deepfm_selene:
+#   <<: *release_test_job_selene
+#   <<: *sample_deepfm_job
+
+# sample_dcn_selene:
+#   <<: *release_test_job_selene
+#   <<: *sample_dcn_job
+
+# sample_criteo_selene:
+#   <<: *release_test_job_selene
+#   <<: *sample_criteo_job
+
+# sample_dlrm_selene:
+#   <<: *release_test_job_selene
+#   <<: *sample_dlrm_job

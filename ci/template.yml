@@ -1,0 +1,66 @@
+.build:
+  stage: build
+  before_script:
+    - export OPENED_MR_ON_BRANCH=$(curl --header "Private-Token:${CI_PRIVATE_KEY}" "https://$CI_SERVER_HOST/api/v4/merge_requests?project_id=$CI_PROJECT_ID&source_branch=$CI_COMMIT_BRANCH&state=opened&wip=no")
+    - |
+      if [[ "${OPENED_MR_ON_BRANCH}" != "[]" && -n "$CI_COMMIT_BRANCH" ]]; then \
+        echo "There is at least one MR opened on branch $CI_COMMIT_BRANCH. Stopping the push pipeline in favor of the merge request pipeline"; \
+        exit 1; \
+      fi
+  script:
+    - export JOB_DOCKERFILE="Dockerfile.${CI_JOB_NAME%%--*}.${CI_PIPELINE_ID}" && echo ${JOB_DOCKERFILE}
+    - echo "BUILD_HUGECTR=${BUILD_HUGECTR}"
+    - echo "BUILD_HUGECTR2ONNX=${BUILD_HUGECTR2ONNX}"
+    - echo "BUILD_SOK=${BUILD_SOK}"
+    - git submodule update --init --recursive
+    - echo "FROM ${FROM_IMAGE}" > ${JOB_DOCKERFILE}
+    - echo "WORKDIR /workdir" >> ${JOB_DOCKERFILE}
+    - echo "COPY . ." >> ${JOB_DOCKERFILE}
+    - if [[ "$BUILD_HUGECTR" == 1 ]]; then
+        echo "RUN cd /workdir && mkdir build && cd build && cmake ${CMAKE_OPTION} .. && make -j\$(nproc) && make install" >> ${JOB_DOCKERFILE};
+      fi
+    - if [[ "$BUILD_SOK" == 1 ]]; then
+        echo "RUN cd /workdir/sparse_operation_kit/ && mkdir -p build && cd build && cmake ${CMAKE_OPTION} .. && make -j$(nproc) && make install" >> ${JOB_DOCKERFILE};
+        echo "ENV LD_LIBRARY_PATH=/usr/local/hugectr/lib:/usr/local/lib:\$LD_LIBRARY_PATH" >> ${JOB_DOCKERFILE};
+        echo "ENV LIBRARY_PATH=/usr/local/hugectr/lib:/usr/local/lib:\$LIBRARY_PATH" >> ${JOB_DOCKERFILE};
+      fi
+    - if [[ "$BUILD_HUGECTR2ONNX" == 1 ]]; then
+        echo "RUN cd /workdir/onnx_converter && python3 setup.py install" >> ${JOB_DOCKERFILE};
+      fi
+    - if [[ "$BUILD_HUGECTR_BACKEND" == 1 ]]; then
+        echo "RUN git clone https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab-master.nvidia.com/dl/hugectr/hugectr_inference_backend.git hugectr_inference_backend && cd hugectr_inference_backend && git checkout hugectr_performance_test && mkdir build && cd build && cmake -DCMAKE_INSTALL_PREFIX:PATH=/usr/local/hugectr -DTRITON_COMMON_REPO_TAG=$TRITON_BRANCH  -DTRITON_CORE_REPO_TAG=$TRITON_BRANCH -DTRITON_BACKEND_REPO_TAG=$TRITON_BRANCH .. && make -j\$(nproc) && make install && cd ../.. && rm -rfv hugectr_inference_backend" >> ${JOB_DOCKERFILE};
+      fi
+    - cat ${JOB_DOCKERFILE}
+    - docker login -u ${CI_PRIVATE_USER} -p "${CI_PRIVATE_KEY}" "${CI_REGISTRY}"
+    - docker pull ${FROM_IMAGE}
+    - docker build --pull
+      -t ${DST_IMAGE}
+      -f ${JOB_DOCKERFILE}
+      --no-cache .
+    - docker push ${DST_IMAGE}
+  rules:
+    - if: $CI_PIPELINE_SOURCE =~ /^(push)$/
+      when: always
+      allow_failure: true
+    - if: $CI_MERGE_REQUEST_TITLE =~ /^([WIP]|WIP:|[Draft]|Draft:)/
+      when: never
+    - if: $CI_PIPELINE_SOURCE =~ /^(web|merge_request_event|trigger)$/
+      when: always
+      allow_failure: false
+
+.cluster_test_job:
+  extends: .selene_luna_job
+  rules:
+    - if: $CI_MERGE_REQUEST_TITLE =~ /^([WIP]|WIP:|[Draft]|Draft:)/
+      when: never
+    - if: $CI_PIPELINE_SOURCE =~ /^(web|merge_request_event)$/
+      when: always
+
+.cluster_post_test_job:
+  extends: .cluster_test_job
+  stage: post_test
+  rules:
+    - if: $CI_MERGE_REQUEST_TITLE =~ /^([WIP]|WIP:|[Draft]|Draft:)/
+      when: never
+    - if: $CI_PIPELINE_SOURCE =~ /^(web|merge_request_event)$/
+      when: always

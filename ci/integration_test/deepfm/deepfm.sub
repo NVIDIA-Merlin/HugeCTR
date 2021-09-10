@@ -1,0 +1,7 @@
+#!/bin/bash
+
+srun --ntasks="${SLURM_JOB_NUM_NODES}" --container-image="${CONT}" --container-mounts="${MOUNTS}" bash -cx " \
+      cd /dataset/criteo_kaggle/deepfm && \
+      python3 /workdir/test/pybind_test/single_node_test.py --json-file=/workdir/test/scripts/deepfm_1gpu.json && \
+      python3 /workdir/test/pybind_test/single_node_test.py --json-file=/workdir/test/scripts/deepfm_fp16_1gpu.json && \
+      python3 /workdir/test/pybind_test/single_node_test.py --json-file=/workdir/test/scripts/deepfm_8gpu.json"
