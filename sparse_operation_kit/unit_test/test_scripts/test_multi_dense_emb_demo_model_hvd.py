@@ -15,7 +15,7 @@
 """
 
 """
-This script do cross-checking with TF using multiple dense embedding layers.
+This script do cross-checking with TF using multiple Dense Embedding.
 """
 
 import argparse
@@ -26,9 +26,8 @@ sys.path.append(os.path.abspath(os.path.join(
                     "../../"))) # where to find SOK
 import sparse_operation_kit as sok
 import tensorflow as tf
-
+import horovod.tensorflow as hvd
 import numpy as np
-import json
 import pickle
 import utils
 
@@ -43,25 +42,8 @@ sys.path.append(os.path.abspath(os.path.join(
 import utility
 
 def test_sok_multi_dense_emb(args):
-    comm_options = tf.distribute.experimental.CommunicationOptions(
-        bytes_per_pack=0,
-        timeout_seconds=None,
-        implementation=tf.distribute.experimental.CommunicationImplementation.NCCL
-    )
-
-    if args.worker_num == 1:
-        strategy = tf.distribute.MirroredStrategy()
-    else:
-        port = 12345
-        os.environ["TF_CONFIG"] = json.dumps({
-            "cluster": {"worker": ["localhost" + ":" + str(port + i) 
-                                    for i in range(args.worker_num)]},
-            "task": {"type": "worker", "index": args.task_id}
-        })
-        strategy = tf.distribute.MultiWorkerMirroredStrategy(
-                    communication_options=comm_options)
-
-    replica_batch_size = args.global_batch_size // (args.worker_num * 1)
+    assert(args.global_batch_size % args.worker_num == 0)
+    replica_batch_size = args.global_batch_size // (args.worker_num)
 
     dataset = utility.TFDataset(filename=args.file_prefix + str(args.task_id) + ".file",
                                 batchsize=replica_batch_size,
@@ -71,25 +53,27 @@ def test_sok_multi_dense_emb(args):
 
     dynamic_input = True if args.dynamic_input == 1 else False
 
-    with strategy.scope():
-        sok.Init(global_batch_size=args.global_batch_size)
+    # SOK initialize
+    sok.Init(global_batch_size=args.global_batch_size)
 
-        model = SOKDenseModel(max_vocabulary_size_per_gpu=args.max_vocabulary_size_per_gpu,
-                              embedding_vec_size_list=args.embedding_vec_size_list,
-                              slot_num_list=args.slot_num_list,
-                              nnz_per_slot_list=[args.nnz_per_slot for _ in range(len(args.slot_num_list))],
-                              num_dense_layers=args.num_dense_layers,
-                              dynamic_input=dynamic_input)
+    model = SOKDenseModel(max_vocabulary_size_per_gpu=args.max_vocabulary_size_per_gpu,
+                          embedding_vec_size_list=args.embedding_vec_size_list,
+                          slot_num_list=args.slot_num_list,
+                          nnz_per_slot_list=[args.nnz_per_slot for _ in range(len(args.slot_num_list))],
+                          num_dense_layers=args.num_dense_layers,
+                          dynamic_input=dynamic_input,
+                          use_hashtable=args.use_hashtable)
 
-        emb_opt = utils.get_embedding_optimizer(args.optimizer)(learning_rate=0.1)
-        dense_opt = utils.get_dense_optimizer(args.optimizer)(learning_rate=0.1)
+    emb_opt = utils.get_embedding_optimizer(args.optimizer)(learning_rate=0.1)
+    dense_opt = utils.get_dense_optimizer(args.optimizer)(learning_rate=0.1)
+    # dense_opt = hvd.DistributedOptimizer(dense_opt)
 
-    # set initial value to embedding variables.
     sok_saver = sok.Saver()
     for i, layer in enumerate(model.embedding_layers):
         init_tensors = utils.get_ones_tensor(max_vocab_size_per_gpu=args.max_vocabulary_size_per_gpu,
                                              embedding_vec_size=args.embedding_vec_size_list[i],
                                              num=args.worker_num)
+
         sok_saver.load_embedding_values(layer.embedding_variable, init_tensors)
 
     loss_fn = tf.keras.losses.BinaryCrossentropy(from_logits=True, reduction=tf.keras.losses.Reduction.NONE)
@@ -98,50 +82,44 @@ def test_sok_multi_dense_emb(args):
         return tf.nn.compute_average_loss(loss, global_batch_size=args.global_batch_size)
 
     @tf.function
-    def _train_step(inputs, labels):
+    def _train_step(inputs, labels, first_batch):
         with tf.GradientTape() as tape:
             logit, all_vectors = model(inputs, training=True)
-            loss = _replica_loss(labels, logit)
-        emb_variable, other_variable = sok.split_embedding_variable_from_others(model.trainable_variables)
+            replica_loss = _replica_loss(labels, logit)
 
-        grads, emb_grads = tape.gradient(loss, [other_variable, emb_variable])
-        
+        emb_var, other_var = sok.split_embedding_variable_from_others(model.trainable_variables)
+        emb_grads, grads = tape.gradient(replica_loss, [emb_var, other_var])
+
         if "plugin" not in args.optimizer:
-            with sok.OptimizerScope(emb_variable):
-                emb_opt.apply_gradients(zip(emb_grads, emb_variable),
-                                                    experimental_aggregate_gradients=False)
+            with sok.OptimizerScope(emb_var):
+                emb_opt.apply_gradients(zip(emb_grads, emb_var),
+                                        experimental_aggregate_gradients=False)
         else:
-            emb_opt.apply_gradients(zip(emb_grads, emb_variable),
-                                                experimental_aggregate_gradients=False)
-       
+            emb_opt.apply_gradients(zip(emb_grads, emb_var),
+                                    experimental_aggregate_gradients=False)
+
         with tf.control_dependencies(emb_grads):
-            # mannually all-reduce dense gradients
-            replica_context = tf.distribute.get_replica_context()
-            grads = replica_context.all_reduce("sum", grads, 
-                                                options=comm_options)
-            dense_opt.apply_gradients(zip(grads, other_variable),
-                                            experimental_aggregate_gradients=False)
 
-            # manually all-reduce loss, it is ok, because replica_loss has already been used to 
-            # update local variables.
-            loss = replica_context.all_reduce(tf.distribute.ReduceOp.SUM, loss,
-                                              options=comm_options)
-        return loss, all_vectors
+            grads = [hvd.allreduce(grad) for grad in grads]
+            dense_opt.apply_gradients(zip(grads, other_var))
 
-    # save its results
+            if first_batch:
+                hvd.broadcast_variables(other_var, root_rank=0)
+                hvd.broadcast_variables(dense_opt.variables(), root_rank=0)
+
+            total_loss = hvd.allreduce(replica_loss)
+        return total_loss, all_vectors
+
     sok_results = list()
     for i, (inputs, labels) in enumerate(dataset):
         if args.stop_iter >= 0 and i >= args.stop_iter:
             break
 
-        total_loss, all_vectors = strategy.run(_train_step, args=(inputs, labels))
+        total_loss, all_vectors = _train_step(inputs, labels, 0 == i)
         print("[INFO]: Iteration: {}, loss={}".format(i, total_loss))
 
-        with tf.device("CPU:0"):
-            sok_results.append(all_vectors)
-
+        sok_results.append(all_vectors)
     return sok_results
-
 
 def test_tf_multi_dense_emb(args):
     dataset_filenames = [args.file_prefix + str(task_id) + ".file"
@@ -203,11 +181,13 @@ def test_tf_multi_dense_emb(args):
             tf_results.append(all_vectors)
     return tf_results
 
+
 def compare_sok_and_tf(args):
     sok_results = test_sok_multi_dense_emb(args)
     utils.save_to_file("./sok_results_" + str(args.task_id) + ".file", sok_results)
 
-    # only process-0 to do the cross-checking.
+    barrier = hvd.allreduce(tf.zeros([1]))
+
     if args.task_id != 0:
         return
 
@@ -239,7 +219,7 @@ def compare_sok_and_tf(args):
                                 rtol=rtol,
                                 message=("the values is not consistent on Iteration: %d" %i))
 
-    print("\n[INFO]: For multiple dense embedding layer: with MPI + MultiWorkerMirroredStrategy, the embedding"+\
+    print("\n[INFO]: For multiple dense embedding layer: with Horovod, the embedding"+\
           " vectors obtained from SOK and TF are consistent for %d iterations." %
           len(sok_results))
 
@@ -271,19 +251,17 @@ if __name__ == "__main__":
     parser.add_argument("--dynamic_input", type=int, required=False, default=0, choices=[0, 1],
                         help="whether to use unique before dense_fprop. 1 means dynamic_input,"+\
                             "0 means static_input.")
+    parser.add_argument("--use_hashtable", type=int, choices=[0, 1], default=1)
 
     args = parser.parse_args()
 
-    size = os.getenv("OMPI_COMM_WORLD_SIZE")
-    if size is None:
-        raise RuntimeError("This app must be launched with mpi.")
-    size = int(size)
-    args.worker_num = size
+    args.use_hashtable = True if 1 == args.use_hashtable else False
 
-    task_id = int(os.getenv("OMPI_COMM_WORLD_RANK"))
+    # Horovod initialize
+    hvd.init()
+    args.worker_num = hvd.size()
+    args.task_id = hvd.local_rank()
 
-    args.task_id = task_id
-
-    os.environ["CUDA_VISIBLE_DEVICES"] = str(task_id)
+    os.environ["CUDA_VISIBLE_DEVICES"] = str(args.task_id)
 
     compare_sok_and_tf(args)

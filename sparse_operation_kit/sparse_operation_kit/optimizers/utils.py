@@ -91,8 +91,10 @@ def split_embedding_variable_from_others(variables):
                 embedding_variables.append(variable)
             else:
                 other_variables.append(variable)
+        elif isinstance(variable, EmbeddingVariable):
+            # horovod branch
+            embedding_variables.append(variable)
         else:
             other_variables.append(variable)
 
     return embedding_variables, other_variables
-        

@@ -36,6 +36,17 @@ python3 test_sparse_emb_demo_model_single_worker.py \
         --combiner='mean' --global_batch_size=65536 \
         --optimizer='plugin_adam' \
         --save_params=1 \
+        --generate_new_datas=1 \
+        --use_hashtable=0
+
+python3 test_sparse_emb_demo_model_single_worker.py \
+        --gpu_num=1 --iter_num=100 \
+        --max_vocabulary_size_per_gpu=1024 \
+        --slot_num=10 --max_nnz=4 \
+        --embedding_vec_size=4 \
+        --combiner='mean' --global_batch_size=65536 \
+        --optimizer='plugin_adam' \
+        --save_params=1 \
         --generate_new_datas=1
 
 # ------------ single node restore testing ------- #
@@ -108,6 +119,17 @@ python3 test_dense_emb_demo_model_single_worker.py \
         --global_batch_size=65536 \
         --optimizer='plugin_adam' \
         --save_params=1 \
+        --generate_new_datas=1 \
+        --use_hashtable=0
+
+python3 test_dense_emb_demo_model_single_worker.py \
+        --gpu_num=1 --iter_num=100 \
+        --max_vocabulary_size_per_gpu=1024 \
+        --slot_num=10 --nnz_per_slot=4 \
+        --embedding_vec_size=4 \
+        --global_batch_size=65536 \
+        --optimizer='plugin_adam' \
+        --save_params=1 \
         --generate_new_datas=1
 
 # ---------- single node restore testing ------- #
@@ -155,6 +177,18 @@ python3 test_dense_emb_demo_model_multi_worker.py \
         --optimizer='plugin_adam' \
         --save_params=1 \
         --generate_new_datas=1 \
+        --ips "localhost" "localhost" \
+        --use_hashtable=0
+
+python3 test_dense_emb_demo_model_multi_worker.py \
+        --local_gpu_num=1 --iter_num=100 \
+        --max_vocabulary_size_per_gpu=1024 \
+        --slot_num=10 --nnz_per_slot=4 \
+        --embedding_vec_size=4 \
+        --global_batch_size=65536 \
+        --optimizer='plugin_adam' \
+        --save_params=1 \
+        --generate_new_datas=1 \
         --ips "localhost" "localhost"
 
 # ------ multi worker test within single worker but using different GPUs. restore
@@ -176,6 +210,7 @@ python3 prepare_dataset.py \
         --slot_num=10 \
         --nnz_per_slot=5 \
         --iter_num=30 \
+        --vocabulary_size=1024 \
         --filename="datas.file" \
         --split_num=8 \
         --save_prefix="data_"
@@ -192,3 +227,59 @@ mpiexec -np 8 --allow-run-as-root \
         --embedding_vec_size_list 2 4 8 \
         --dataset_iter_num=30 \
         --optimizer="adam" 
+
+# mpiexec -np 8 --allow-run-as-root \
+#         --oversubscribe \
+#         python3 test_multi_dense_emb_demo_model_mpi.py \
+#         --file_prefix="./data_" \
+#         --global_batch_size=65536 \
+#         --max_vocabulary_size_per_gpu=8192 \
+#         --slot_num_list 6 4 \
+#         --nnz_per_slot=5 \
+#         --num_dense_layers=4 \
+#         --embedding_vec_size_list 4 8 \
+#         --dataset_iter_num=30 \
+#         --optimizer="adam" \
+#         --dynamic_input=1
+
+# -------------------- Horovod -------------------- #
+horovodrun --mpi-args="--oversubscribe" -np 8 -H localhost:8 \
+    python3 test_multi_dense_emb_demo_model_hvd.py \
+        --file_prefix="./data_" \
+        --global_batch_size=65536 \
+        --max_vocabulary_size_per_gpu=8192 \
+        --slot_num_list 3 3 4 \
+        --nnz_per_slot=5 \
+        --num_dense_layers=4 \
+        --embedding_vec_size_list 2 4 8 \
+        --dataset_iter_num=30 \
+        --optimizer="adam" 
+
+horovodrun --mpi-args="--oversubscribe" -np 8 -H localhost:8 \
+    python3 test_multi_dense_emb_demo_model_hvd.py \
+        --file_prefix="./data_" \
+        --global_batch_size=65536 \
+        --max_vocabulary_size_per_gpu=8192 \
+        --slot_num_list 3 3 4 \
+        --nnz_per_slot=5 \
+        --num_dense_layers=4 \
+        --embedding_vec_size_list 2 4 8 \
+        --dataset_iter_num=30 \
+        --optimizer="adam" \
+        --use_hashtable=0
+
+# horovodrun --mpi-args="--oversubscribe" -np 8 -H localhost:8 \
+#     python3 test_multi_dense_emb_demo_model_hvd.py \
+#     --file_prefix="./data_" \
+#     --global_batch_size=65536 \
+#     --max_vocabulary_size_per_gpu=8192 \
+#     --slot_num_list 6 4 \
+#     --nnz_per_slot=5 \
+#     --num_dense_layers=4 \
+#     --embedding_vec_size_list 4 8 \
+#     --dataset_iter_num=30 \
+#     --optimizer="adam" \
+#     --dynamic_input=1
+
+# ----- clean intermediate files ------ #
+rm *.file && rm -rf embedding_variables/

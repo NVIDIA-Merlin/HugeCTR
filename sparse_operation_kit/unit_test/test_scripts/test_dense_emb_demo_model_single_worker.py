@@ -32,6 +32,7 @@ class SOKDenseDemo(tf.keras.models.Model):
                  embedding_vec_size,
                  slot_num, 
                  nnz_per_slot,
+                 use_hashtable=True,
                  **kwargs):
         super(SOKDenseDemo, self).__init__(**kwargs)
 
@@ -43,7 +44,8 @@ class SOKDenseDemo(tf.keras.models.Model):
         self.embedding_layer = sok.All2AllDenseEmbedding(max_vocabulary_size_per_gpu=self.max_vocabulary_size_per_gpu,
                                                          embedding_vec_size=self.embedding_vec_size,
                                                          slot_num=self.slot_num,
-                                                         nnz_per_slot=self.nnz_per_slot)
+                                                         nnz_per_slot=self.nnz_per_slot,
+                                                         use_hashtable=use_hashtable)
         
         self.dense_layer = tf.keras.layers.Dense(units=1, activation=None,
                                                  kernel_initializer="ones",
@@ -100,7 +102,8 @@ def test_sok_dense_demo(args, init_tensors, *random_samples):
         sok_dense_demo = SOKDenseDemo(max_vocabulary_size_per_gpu=args.max_vocabulary_size_per_gpu,
                                       embedding_vec_size=args.embedding_vec_size,
                                       slot_num=args.slot_num,
-                                      nnz_per_slot=args.nnz_per_slot)
+                                      nnz_per_slot=args.nnz_per_slot,
+                                      use_hashtable=args.use_hashtable)
         emb_opt = utils.get_embedding_optimizer(args.optimizer)(learning_rate=0.1)
         dense_opt = utils.get_dense_optimizer(args.optimizer)(learning_rate=0.1)
 
@@ -210,9 +213,14 @@ def compare_dense_emb_sok_with_tf(args):
         raise ValueError("global_batch_size: %d is not divisible by gpu_num: %d"
                         %(args.global_batch_size, args.gpu_num))
 
+    if args.use_hashtable:
+        vocabulary_size = args.max_vocabulary_size_per_gpu * args.gpu_num
+    else:
+        vocabulary_size = args.max_vocabulary_size_per_gpu
+
     if args.generate_new_datas:
         random_samples = utils.generate_random_samples(num_of_samples=args.global_batch_size * args.iter_num,
-                                                    vocabulary_size=args.gpu_num * args.max_vocabulary_size_per_gpu * 1,
+                                                    vocabulary_size=vocabulary_size,
                                                     slot_num=args.slot_num,
                                                     max_nnz=args.nnz_per_slot,
                                                     use_sparse_mask=False)
@@ -301,8 +309,11 @@ if __name__ == "__main__":
                              'initial value to initialize trainable parameters '+\
                              'rather than restore trainable parameters from file.',
                         required=False, default=0)
+    parser.add_argument("--use_hashtable", type=int, choices=[0, 1], default=1)
 
     args = parser.parse_args()
+
+    args.use_hashtable = True if args.use_hashtable == 1 else False
 
     import os
     os.environ['CUDA_VISIBLE_DEVICES'] = ",".join([str(i) for i in range(args.gpu_num)])

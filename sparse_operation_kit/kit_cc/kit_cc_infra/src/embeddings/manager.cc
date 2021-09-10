@@ -219,10 +219,14 @@ size_t EmbeddingManager::get_replica_batch_size() const {
 }
 
 void EmbeddingManager::get_output_shape(const std::shared_ptr<EmbeddingLayer>& emb, 
-                                        std::vector<int64_t> &output_shape) const {
+                                        std::vector<int64_t> &output_shape,
+                                        const bool dynamic_input) const {
     output_shape.clear();
-    output_shape.push_back(get_replica_batch_size()); // dim-0 is replica_batch_size
-    return emb->get_output_shape(output_shape);
+
+    if (!dynamic_input) { // static input.shape
+        output_shape.push_back(get_replica_batch_size()); // dim-0 is replica_batch_size
+    }
+    return emb->get_output_shape(output_shape, dynamic_input);
 }
 
 void EmbeddingManager::get_grad_shape(const size_t global_replica_id,

@@ -21,7 +21,7 @@ from __future__ import print_function
 from sparse_operation_kit.core.embedding_variable import EmbeddingVariable
 from sparse_operation_kit.kit_lib import create_embedding_dense, plugin_dense_fprop
 from sparse_operation_kit.embeddings import embedding_ops
-
+from tensorflow.distribute import has_strategy
 import tensorflow as tf
 
 class All2AllDenseEmbedding(tf.keras.layers.Layer):
@@ -47,6 +47,9 @@ class All2AllDenseEmbedding(tf.keras.layers.Layer):
     nnz_per_slot: integer
             the number of valid keys in each slot. The number of valid keys in each slot 
             is the same.
+    dynamic_input: boolean
+            whether the inputs.shape is dynamic, for example, the inputs tensor is comming 
+            from tf.unique. When `dynamic_input=True`, it means the inputs.shape is dynamic.
 
     Examples
     --------
@@ -69,6 +72,8 @@ class All2AllDenseEmbedding(tf.keras.layers.Layer):
                  embedding_vec_size, 
                  slot_num,
                  nnz_per_slot,
+                 dynamic_input=False,
+                 use_hashtable=True,
                  **kwargs):
         super(All2AllDenseEmbedding, self).__init__(**kwargs)
 
@@ -76,11 +81,16 @@ class All2AllDenseEmbedding(tf.keras.layers.Layer):
         self.embedding_vec_size = embedding_vec_size
         self.slot_num = slot_num
         self.nnz_per_slot = nnz_per_slot
+        self.dynamic_input = dynamic_input
+        self.comm_tool = None if has_strategy() else "Horovod"
 
-        self.var = EmbeddingVariable.CreateInstances(shape=[self.max_vocabulary_size_per_gpu, self.embedding_vec_size],
-                                                     trainable=True)
+        self.var = EmbeddingVariable.CreateInstances(
+                                shape=[self.max_vocabulary_size_per_gpu, self.embedding_vec_size],
+                                trainable=True,
+                                use_hashtable=use_hashtable)
+        emb_handle = self.var.emb_handle if isinstance(self.var, EmbeddingVariable) else self.var.values[0].emb_handle
 
-        self.emb = create_embedding_dense(self.var.values[0].emb_handle,
+        self.emb = create_embedding_dense(emb_handle,
                                           input_dispatcher="All2AllInput",
                                           embedding_lookuper="dense_gather",
                                           output_dispatcher="All2AllOutput",
@@ -91,7 +101,7 @@ class All2AllDenseEmbedding(tf.keras.layers.Layer):
     def embedding_variable(self):
         return self.var
 
-    @tf.function
+    # @tf.function
     def call(self, inputs, training=True):
         """
         The forward logic of this wrapper class.
@@ -113,8 +123,8 @@ class All2AllDenseEmbedding(tf.keras.layers.Layer):
         emb_vector = plugin_dense_fprop(self.emb,
                                         self.var,
                                         values=inputs,
-                                        global_replica_id=embedding_ops.get_global_replica_id(),
+                                        global_replica_id=embedding_ops.get_global_replica_id(self.comm_tool),
                                         training=training, 
-                                        unique_op_name=self.var.name)
+                                        unique_op_name=self.var.name,
+                                        dynamic_input=self.dynamic_input)
         return emb_vector
-

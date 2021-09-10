@@ -35,7 +35,7 @@ public:
     void forward(const Context_t &replica_context, const bool training);
     void backward(const Context_t &replica_context);
 
-    virtual void get_output_shape(std::vector<int64_t> &output_shape) const;
+    virtual void get_output_shape(std::vector<int64_t> &output_shape, const bool dynamic_input = false) const;
     void get_grad_shape(const Context_t &replica_context, std::vector<int64_t> &grad_shape) const;
 
     size_t get_global_batch_size() const;
@@ -44,14 +44,16 @@ public:
     size_t get_max_vocabulary_size_per_gpu() const;
 
     void dump_to_file(const std::string filepath) const;
-    // restore the operations' content from file
+    // restore the operations' content from file, except trainable embedding variable's
     void restore_from_file(const std::string filepath);
     // help to restore params 
     void restore_params(const std::shared_ptr<Tensor> &keys,
                         const std::shared_ptr<Tensor> &embedding_values,
                         const size_t num_total_keys);
     // help to save params
-    bool save_params(const std::string filepath) const;
+    void save_params(std::shared_ptr<Tensor> &keys,
+                     std::shared_ptr<Tensor> &embedding_values,
+                     size_t &num_total_keys) const;
     void load_embedding_values(const std::vector<std::shared_ptr<Tensor>>& tensor_list);
 
 protected:
@@ -78,7 +80,7 @@ public:
                                                        std::shared_ptr<Dispatcher> output_dispatcher,
                                                        ConstructionContext_t context);
 
-    void get_output_shape(std::vector<int64_t> &output_shape) const override;
+    void get_output_shape(std::vector<int64_t> &output_shape, const bool dynamic_input = false) const override;
     size_t get_max_feature_num() const override;
 
 private:

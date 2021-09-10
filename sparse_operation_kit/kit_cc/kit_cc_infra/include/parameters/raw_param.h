@@ -28,7 +28,6 @@
 namespace SparseOperationKit {
 
 class RawParam : public ParamInterface {
-    using NvHashTable = ParamInterface::NvHashTable;
     template <typename T>
     using Tensor2 = HugeCTR::Tensor2<T>; 
     template <typename T>
@@ -47,7 +46,7 @@ public:
     void init(const size_t global_replica_id) override;
     bool trainable() const override;
     void set_user(std::shared_ptr<EmbeddingLayer>& embedding) override;
-    std::shared_ptr<NvHashTable>& get_hashtable(const size_t local_replica_id) override;
+    std::shared_ptr<HashTable>& get_hashtable(const size_t local_replica_id) override;
     std::shared_ptr<Tensor>& get_embedding_table_tensor(const size_t local_replica_id) override;
     virtual std::string get_var_name() const override;
     void dump_to_file(const std::string filepath) override;
@@ -58,13 +57,13 @@ public:
     void let_user_load_embedding_values(const std::vector<std::shared_ptr<Tensor>>& tensor_list) override;
     
 private:
-    RawParam(const std::string& initializer, const std::vector<size_t> shape,
+    RawParam(const std::string& initializer, const bool use_hashtable, const std::vector<size_t> shape,
              const std::shared_ptr<ResourcesManager>& resource_mgr,
              const std::vector<std::shared_ptr<HugeCTR::GeneralBuffer2<HugeCTR::CudaAllocator>>>& buffers,
              const std::string var_name, const bool trainable); 
             
     std::shared_ptr<ResourcesManager> resource_mgr_;
-    std::vector<std::shared_ptr<NvHashTable>> hashtables_; // hashtables for all GPUs on this worker.
+    std::vector<std::shared_ptr<HashTable>> hashtables_; // hashtables for all GPUs on this worker.
     Tensors2<float> emb_table_tensors_; // embedding vectors for all GPUs on this worker.
     std::vector<std::shared_ptr<Tensor>> emb_table_tensors_interface_;
     const size_t max_vocabulary_size_per_gpu_;
@@ -72,7 +71,7 @@ private:
     const std::string var_name_;
     const bool trainable_;
     std::shared_ptr<Initializer> initializer_;
-    const bool has_hashtable_ = false;
+    const bool use_hashtable_;
     std::shared_ptr<EmbeddingLayer> user_; // which embedding used this param
 };
 

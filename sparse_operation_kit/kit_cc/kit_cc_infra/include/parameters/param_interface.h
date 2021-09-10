@@ -18,7 +18,7 @@
 #define PARAM_INTERFACE_H
 
 #include "parameters/state_interface.h"
-#include "hashtable/nv_hashtable.hpp"
+#include "hashtable/hashtable.h"
 #include "tensorflow/core/framework/tensor.h"
 
 namespace SparseOperationKit {
@@ -29,14 +29,12 @@ class EmbeddingLayer;
 * This class represents the variables shared to multiple GPUs.
 */
 class ParamInterface : public States {
-protected:
-    using NvHashTable = HugeCTR::HashTable<int64_t, size_t>; // TODO: make the hashtable key to be a template.
 public:
     virtual ~ParamInterface() {}
     virtual size_t get_max_vocabulary_size_per_gpu() const = 0;
     virtual size_t get_embedding_vec_size() const = 0;
     virtual bool trainable() const = 0;
-    virtual std::shared_ptr<NvHashTable>& get_hashtable(const size_t local_replica_id) = 0;
+    virtual std::shared_ptr<HashTable>& get_hashtable(const size_t local_replica_id) = 0;
     virtual std::shared_ptr<Tensor>& get_embedding_table_tensor(const size_t local_replica_id) = 0;
     std::shared_ptr<Tensor>& get_tensor(const size_t local_replica_id) override;
     virtual std::string get_var_name() const = 0;

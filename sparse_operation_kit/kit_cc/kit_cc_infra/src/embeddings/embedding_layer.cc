@@ -71,7 +71,8 @@ void EmbeddingLayer::backward(const Context_t &replica_context) {
     input_dispatcher_->Backward(replica_context);
 }
 
-void EmbeddingLayer::get_output_shape(std::vector<int64_t> &output_shape) const {
+void EmbeddingLayer::get_output_shape(std::vector<int64_t> &output_shape, const bool dynamic_input) const {
+    // for sparse embedding layer, dynamic_input is ignored.
     // dim-0 is replica_batch_size, which is already set by EmbeddingManager
     output_shape.push_back(base_context_->get_slot_num());
     output_shape.push_back(base_context_->get_param()->get_embedding_vec_size());
@@ -131,10 +132,12 @@ void EmbeddingLayer::restore_params(const std::shared_ptr<Tensor> &keys,
     embedding_lookuper_->restore_params(keys, embedding_values, num_total_keys); 
 }
 
-bool EmbeddingLayer::save_params(const std::string filepath) const {
+void EmbeddingLayer::save_params(std::shared_ptr<Tensor> &keys,
+                                 std::shared_ptr<Tensor> &embedding_values,
+                                 size_t &num_total_keys) const {
     // because the params is only used by embedding lookuper,
     // so that delegate this job to embedding lookuper
-    return embedding_lookuper_->save_params(filepath);
+    embedding_lookuper_->save_params(keys, embedding_values, num_total_keys);
 }
 
 void EmbeddingLayer::load_embedding_values(const std::vector<std::shared_ptr<Tensor>>& tensor_list) {
@@ -164,17 +167,25 @@ std::shared_ptr<DenseEmbeddingLayer> DenseEmbeddingLayer::create(std::shared_ptr
                 input_dispatcher, embedding_lookuper, output_dispatcher, context));
 }
 
-void DenseEmbeddingLayer::get_output_shape(std::vector<int64_t>& output_shape) const {
-    // dim-0 is replica_batch_size, which is already set by EmbeddingManager
-    output_shape.push_back(base_context()->get_slot_num());
-    output_shape.push_back(base_context()->get_nnz_per_slot());
-    output_shape.push_back(base_context()->get_param()->get_embedding_vec_size());
+void DenseEmbeddingLayer::get_output_shape(std::vector<int64_t>& output_shape, const bool dynamic_input) const {
+    if (dynamic_input) { // input.shape is dynamic
+        // only emb_vec_size is set here, None will be set by the input.shape
+        output_shape.push_back(base_context()->get_param()->get_embedding_vec_size());
+        if (1 != output_shape.size()) 
+            throw std::runtime_error(ErrorBase + "For DenseEmbeddingLayer, when dynamic_input is specified, "+
+                                     "the output shape should be [None, emb_vec_size].");
+    } else { // input.shape is static
+        // dim-0 is replica_batch_size, which is already set by EmbeddingManager
+        output_shape.push_back(base_context()->get_slot_num());
+        output_shape.push_back(base_context()->get_nnz_per_slot());
+        output_shape.push_back(base_context()->get_param()->get_embedding_vec_size());
 
-    // check its rank
-    if (4 != output_shape.size()) 
-        throw std::runtime_error(ErrorBase + "For Dense Embedding Layer, the output shape " +
-                                 "should be [replica_batch_size, slot_num, nnz_per_slot, emb_vec_size]. " +
-                                 "But now its rank is " + std::to_string(output_shape.size()));
+        // check its rank
+        if (4 != output_shape.size()) 
+            throw std::runtime_error(ErrorBase + "For Dense Embedding Layer, the output shape " +
+                                    "should be [replica_batch_size, slot_num, nnz_per_slot, emb_vec_size]. " +
+                                    "But now its rank is " + std::to_string(output_shape.size()));
+    }
 }
 
 size_t DenseEmbeddingLayer::get_max_feature_num() const {

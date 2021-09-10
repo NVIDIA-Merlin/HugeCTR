@@ -263,12 +263,13 @@ void Facade::try_allocate_memory() const {
 }
 
 void Facade::get_output_shape(const tensorflow::Tensor* emb_handle,
-                              tensorflow::TensorShape& tensor_shape) {
+                              tensorflow::TensorShape& tensor_shape,
+                              const bool dynamic_input) {
     std::shared_ptr<EmbeddingLayer> embedding;
     GetEmbeddingFromVariantTensor(emb_handle, embedding);
 
     std::vector<int64_t> output_shape;
-    embedding_mgr_->get_output_shape(embedding, output_shape);
+    embedding_mgr_->get_output_shape(embedding, output_shape, dynamic_input);
 
     // FIXME: in TF 2.4, int64_t is not equal to long long int.
     const std::vector<tensorflow::int64> _output_shape(output_shape.begin(), output_shape.end());

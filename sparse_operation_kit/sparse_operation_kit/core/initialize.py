@@ -29,6 +29,7 @@ from tensorflow.distribute import MirroredStrategy, get_replica_context, has_str
 from tensorflow import constant, TensorShape, function
 from tensorflow.dtypes import int32, int64
 from tensorflow import print as tf_print
+from tensorflow.python.ops import array_ops
 
 def Init(**kwargs):
     """
@@ -121,6 +122,27 @@ def Init(**kwargs):
                              global_batch_size=kwargs['global_batch_size']) #TODO: input from kwargs
         return status
 
+    # @function
+    def _horovod_init(**kwargs):
+        r"""
+        This function uses horovod to broadcast nccl-id and random-seed which is used by sparse_operation_kit.
+        Please note that the nccl-comm mentioned here is not the same one as the nccl-comm of horovod itself.
+
+        After broadcasting, this function uses plugin_init and "nccl-id", "random-seed" to initialize 
+        sparse_operation_kit.
+        """
+        local_rank = hvd.local_rank()
+
+        unique_id = get_nccl_unique_id() if local_rank == 0 else array_ops.zeros([32,], dtype=int32)
+        unique_id = hvd.broadcast(unique_id, root_rank=0, name="nccl_unique_id")
+
+        global_seed = gen_random_seed() if local_rank == 0 else array_ops.zeros([1,], dtype=int64)
+        global_seed = hvd.broadcast(global_seed, root_rank=0, name="random_seed")
+
+        status = plugin_init(local_rank, hvd.size(), unique_id, global_seed,
+                             global_batch_size=kwargs["global_batch_size"]) #TODO: input from kwargs
+        return status
+
     if has_strategy():
         strategy = get_strategy()
         if isinstance(strategy, MirroredStrategy):
@@ -130,5 +152,9 @@ def Init(**kwargs):
         else:
             raise RuntimeError("This strategy type is not supported yet.")
     else:
-        raise RuntimeError("This function must be called inside tf.distribute.Strategy.Scope().")
-    
+        try:
+            import horovod.tensorflow as hvd
+        except:
+            raise RuntimeError("You need to install horovod first to use this function \
+                                if you don't call it inside tf.distribute.Strategy.Scope().")
+        return _horovod_init(**kwargs)
