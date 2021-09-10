@@ -29,7 +29,7 @@
 #define CACHE_SIZE_PERCENTAGE 0.2
 #define UNIQUE_KNOWN_PERCENTAGE 0.1
 #define UNIQUE_UNKNOWN_PERCENTAGE 0.1
-#define MODEL_PATH "/hugectr_ci_workdir/test/utest/simple_inference_config.json"
+#define MODEL_PATH "/workdir/test/utest/simple_inference_config.json"
 #define SPARSE_MODEL_PATH "/hugectr/test/utest/0_sparse_10000.model"
 #define MODEL_NAME "DCN"
 #define BATCHSIZE 1024

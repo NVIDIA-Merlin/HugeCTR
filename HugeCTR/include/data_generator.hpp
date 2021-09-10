@@ -427,10 +427,10 @@ void data_generation_for_parquet(std::string file_list_name, std::string data_pr
         float label_ = fdata_sim.get_num();
         label_vector[i] = label_;
       }
-      rmm::device_buffer dev_buffer(label_vector.data(), sizeof(float) * num_records_per_file);
+      rmm::device_buffer dev_buffer(label_vector.data(), sizeof(float) * num_records_per_file, rmm::cuda_stream_default);
       cols.emplace_back(std::make_unique<cudf::column>(cudf::data_type{cudf::type_to_id<float>()},
                                                        cudf::size_type(num_records_per_file),
-                                                       dev_buffer));
+                                                       std::move(dev_buffer)));
     }
     // for dense columns
     for (int j = 0; j < dense_dim; j++) {
@@ -439,10 +439,10 @@ void data_generation_for_parquet(std::string file_list_name, std::string data_pr
         float _dense = fdata_sim.get_num();
         dense_vector[i] = _dense;
       }
-      rmm::device_buffer dev_buffer(dense_vector.data(), sizeof(float) * num_records_per_file);
+      rmm::device_buffer dev_buffer(dense_vector.data(), sizeof(float) * num_records_per_file, rmm::cuda_stream_default);
       cols.emplace_back(std::make_unique<cudf::column>(cudf::data_type{cudf::type_to_id<float>()},
                                                        cudf::size_type(num_records_per_file),
-                                                       dev_buffer));
+                                                       std::move(dev_buffer)));
     }
     // for sparse columns
     // size_t offset = 0;
@@ -462,24 +462,24 @@ void data_generation_for_parquet(std::string file_list_name, std::string data_pr
         row_offset_vector[num_records_per_file] = num_records_per_file * nnz;
       }
       if (nnz == 1) {
-        rmm::device_buffer dev_buffer(slot_vector.data(), sizeof(T) * slot_vector.size());
+        rmm::device_buffer dev_buffer(slot_vector.data(), sizeof(T) * slot_vector.size(), rmm::cuda_stream_default);
         cols.emplace_back(std::make_unique<cudf::column>(cudf::data_type{cudf::type_to_id<T>()},
                                                          cudf::size_type(slot_vector.size()),
-                                                         dev_buffer));
+                                                         std::move(dev_buffer)));
 
       } else {
-        rmm::device_buffer dev_buffer_0(slot_vector.data(), sizeof(T) * slot_vector.size());
+        rmm::device_buffer dev_buffer_0(slot_vector.data(), sizeof(T) * slot_vector.size(), rmm::cuda_stream_default);
         auto child =
             std::make_unique<cudf::column>(cudf::data_type{cudf::type_to_id<T>()},
-                                           cudf::size_type(slot_vector.size()), dev_buffer_0);
+                                           cudf::size_type(slot_vector.size()), std::move(dev_buffer_0));
         rmm::device_buffer dev_buffer_1(row_offset_vector.data(),
-                                        sizeof(int32_t) * row_offset_vector.size());
+                                        sizeof(int32_t) * row_offset_vector.size(), rmm::cuda_stream_default);
         auto row_off =
             std::make_unique<cudf::column>(cudf::data_type{cudf::type_to_id<int32_t>()},
-                                           cudf::size_type(row_offset_vector.size()), dev_buffer_1);
+                                           cudf::size_type(row_offset_vector.size()), std::move(dev_buffer_1));
         cols.emplace_back(cudf::make_lists_column(
             num_records_per_file, std::move(row_off), std::move(child), cudf::UNKNOWN_NULL_COUNT,
-            rmm::device_buffer(null_mask.data(), null_mask.size() * sizeof(cudf::bitmask_type))));
+            rmm::device_buffer(null_mask.data(), null_mask.size() * sizeof(cudf::bitmask_type), rmm::cuda_stream_default)));
       }
     }
     cudf::table input_table(std::move(cols));

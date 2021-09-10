@@ -1,0 +1,7 @@
+{
+    "wdl_1gpu": 20.044,
+    "wdl_8gpu": 43,
+    "dlrm_1node": 119,
+    "dlrm_14node": 60,
+    "inference_benchmark": 10513
+}

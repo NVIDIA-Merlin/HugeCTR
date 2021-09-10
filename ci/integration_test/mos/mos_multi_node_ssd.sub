@@ -1,0 +1,10 @@
+#!/bin/bash
+
+srun --ntasks=4 --container-image="${CONT}" --container-mounts="${MOUNTS}" --network sharp bash -cx " \
+    cd /dataset/criteo_kaggle/wdl_data_keyset && \
+    mkdir -p /tmp_dir/mos_multi_node_ssd && \
+    python3 /workdir/test/pybind_test/wdl_mos_mpi_scratch_high_level.py /workdir/test/scripts/wdl_1gpu.json false /tmp_dir/mos_multi_node_ssd"
+
+srun --ntasks=2 --container-image="${CONT}" --container-mounts="${MOUNTS}" --network sharp bash -cx " \
+    cd /dataset/criteo_kaggle/wdl_data_keyset && \
+    python3 /workdir/test/pybind_test/wdl_mos_mpi_high_level.py /workdir/test/scripts/wdl_1gpu.json false /tmp_dir/mos_multi_node_ssd"

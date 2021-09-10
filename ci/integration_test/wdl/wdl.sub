@@ -1,0 +1,9 @@
+#!/bin/bash
+
+srun --ntasks="${SLURM_JOB_NUM_NODES}" --container-image="${CONT}" --container-mounts="${MOUNTS}" bash -cx " \
+      cd /dataset/criteo_kaggle/wdl && \
+      python3 /workdir/test/pybind_test/single_node_test.py --json-file=/workdir/test/scripts/wdl_1gpu.json && \
+      python3 /workdir/test/pybind_test/single_node_test.py --json-file=/workdir/test/scripts/wdl_8gpu.json && \
+      python3 /workdir/test/pybind_test/single_node_test.py --json-file=/workdir/test/scripts/wdl_fp16_1gpu.json && \
+      mkdir /workdir/export_predictions_wdl_fp16_8gpu/ && \
+      python3 /workdir/test/pybind_test/single_node_test.py --json-file=/workdir/test/scripts/wdl_fp16_8gpu.json"

@@ -1,0 +1,23 @@
+#!/bin/bash
+
+srun --ntasks="${SLURM_JOB_NUM_NODES}" --container-image="${CONT}" --container-mounts="${MOUNTS}" bash -cx " \
+    mkdir -p /onnx_converter/onnx_models/ &&
+    mkdir -p /onnx_converter/hugectr_models/ &&
+    mkdir -p /onnx_converter/graph_files &&
+    cd ${NEW_CRITEO_MOUNT} &&
+    mpirun -np 1 --allow-run-as-root python3 /workdir/test/onnx_converter_test/train_scripts/dcn.py     &&
+    mpirun -np 1 --allow-run-as-root python3 /workdir/test/onnx_converter_test/train_scripts/deepfm.py  &&  
+    mpirun -np 1 --allow-run-as-root python3 /workdir/test/onnx_converter_test/train_scripts/dlrm.py    &&
+    mpirun -np 1 --allow-run-as-root python3 /workdir/test/onnx_converter_test/train_scripts/wdl.py     &&
+    python3 /workdir/test/onnx_converter_test/hugectr2onnx_dcn_test.py &&
+    python3 /workdir/test/onnx_converter_test/hugectr2onnx_wdl_test.py &&
+    cd ${DIN_DATASET_MOUNT} &&
+    mpirun -np 1 --allow-run-as-root python3 /workdir/test/onnx_converter_test/train_scripts/din_parquet.py &&
+    mpirun -np 1 --allow-run-as-root python3 /workdir/test/onnx_converter_test/train_scripts/din_try.py &&
+    python3 /workdir/test/onnx_converter_test/hugectr2onnx_din_test.py &&
+    cd ${NCF_DATASET_MOUNT} &&
+    mpirun -np 1 --allow-run-as-root python3 /workdir/test/onnx_converter_test/train_scripts/ncf.py     &&
+    mpirun -np 1 --allow-run-as-root python3 /workdir/test/onnx_converter_test/train_scripts/gmf.py     &&
+    mpirun -np 1 --allow-run-as-root python3 /workdir/test/onnx_converter_test/train_scripts/neumf.py   &&
+    python3 /workdir/test/onnx_converter_test/hugectr2onnx_ncf_test.py &&
+    python3 /workdir/test/onnx_converter_test/layer_type_test.py"
