@@ -23,13 +23,4 @@ EmbeddingLookuper::EmbeddingLookuper(ConstructionContext_t construction_context,
 : Operation(construction_context), param_(param) 
 {}
 
-bool EmbeddingLookuper::save_params(const std::string filepath) const {
-    // by default, this operation does nothing, which means it does 
-    // not help ParamInterface to saving parameters to file, 
-    // so that false is returned.
-    // If an instance want to save_params for ParamInterface, then 
-    // true should be returned.
-    return false;
-}
-
 } // namespace SparseOperationKit

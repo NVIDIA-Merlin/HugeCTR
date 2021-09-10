@@ -23,10 +23,11 @@ sys.path.append(os.path.abspath(os.path.join(
 from gen_data import generate_datas
 from split_data import split_data
 
-try:
-    from mpi4py import MPI
-except:
-    os.system("pip install mpi4py")
+from importlib.util import find_spec
+
+has_horovod = find_spec("horovod")
+if has_horovod is None:
+    os.system("HOROVOD_GPU_OPERATIONS=NCCL pip install --no-cache-dir horovod && horovodrun --check-build")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="generate dataset")

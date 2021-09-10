@@ -17,6 +17,7 @@
 #include "operation/operation_interface.h"
 #include "common/include/forward_functions.h"
 #include "common/include/backward_functions.h"
+#include "common/include/dumping_functions.h"
 
 namespace SparseOperationKit {
 
@@ -94,8 +95,6 @@ public:
 
         // get hash_value_index from hash_table by hash_key
         auto &hashtable = param_->get_hashtable(local_replica_id);
-        // TODO: if there is no hashtable, directly use valid_values as the hash_value_index_tensor
-        if (!hashtable) throw std::runtime_error(ErrorBase + "No available hashtable.");
         if (training) {
             hashtable->get_insert(replica_csr_values->GetPtrWithType<int64_t>(),
                                   hash_value_index_tensors_[local_replica_id].get_ptr(),
@@ -259,17 +258,18 @@ public:
     #endif // DEBUG
     }
 
+    void save_params(std::shared_ptr<Tensor> &keys,
+                     std::shared_ptr<Tensor> &embedding_values,
+                     size_t &num_total_keys) const override {
+        // this lookuper distribute keys to each GPU based on key % GPU_NUM
+        save_params_helper(param_, resource_mgr_, keys, embedding_values, num_total_keys);
+    }
+
     void restore_params(const std::shared_ptr<Tensor> &keys, 
                         const std::shared_ptr<Tensor> &embedding_values,
                         const size_t num_total_keys) override {
-        const size_t total_max_vocabulary_size = 
-            param_->get_max_vocabulary_size_per_gpu() * resource_mgr_->get_global_gpu_count();
-
-        MESSAGE("num_total_keys = " + std::to_string(num_total_keys) + ", "
-                "while total_max_vocabulary_size = " + std::to_string(total_max_vocabulary_size));
-
-        load_parameters(keys, embedding_values, num_total_keys, total_max_vocabulary_size,
-                        param_->get_embedding_vec_size(), param_->get_max_vocabulary_size_per_gpu());
+        // this lookuper distribute keys to each GPU based on key % GPU_NUM
+        restore_params_helper(param_, resource_mgr_, keys, embedding_values, num_total_keys);
     }
 
 private:
@@ -286,221 +286,6 @@ private:
     // backward spaces
     Tensors2<float> wgrad_tensors_;
     Tensors2<int64_t> row_offset_allreduce_tensors_;
-
-    void load_parameters(const std::shared_ptr<Tensor> &keys,
-                        const std::shared_ptr<Tensor> &embeddings,
-                        const size_t rows_num,
-                        const size_t total_vocabulary_size,
-                        const size_t embedding_vec_size,
-                        const size_t max_vocabulary_size_per_gpu) {
-        if (rows_num > total_vocabulary_size)
-            throw std::runtime_error(ErrorBase + "file size is larger than total_vocabulary_size.");
-
-        const int64_t *key_ptr = keys->GetPtrWithType<int64_t>();
-        const float *embedding_ptr = embeddings->GetPtrWithType<float>();
-
-        /*step 5: allocate temporary spaces*/
-        const size_t worker_id = resource_mgr_->get_worker_id();
-        const size_t local_gpu_count = resource_mgr_->get_local_gpu_count();
-        constexpr size_t chunk_size = 1000;
-        constexpr size_t hash_table_key_tile_size = 1; // ????
-        const size_t hash_table_key_tile_size_in_bytes = hash_table_key_tile_size * sizeof(int64_t); // TODO: make it template
-        const size_t hash_table_key_chunk_size = hash_table_key_tile_size * chunk_size;
-        const size_t hash_table_key_chunk_size_in_bytes = hash_table_key_chunk_size * sizeof(int64_t);
-        const size_t hash_table_value_index_chunk_size_in_bytes = hash_table_key_chunk_size * sizeof(size_t);
-        const size_t hash_table_value_tile_size = embedding_vec_size;
-        const size_t hash_table_value_tile_size_in_bytes = hash_table_value_tile_size * sizeof(float);
-        const size_t hash_table_value_chunk_size = hash_table_value_tile_size * chunk_size;
-        const size_t hash_table_value_chunk_size_in_bytes = hash_table_value_chunk_size * sizeof(float);
-
-        // Cannot decide precise the number of values for each GPU, so allocate enough spaces
-        std::unique_ptr<size_t []> tile_counter_per_gpu(new size_t[local_gpu_count]()); // hash_table_value_index_per_gpu_size
-        std::memset(tile_counter_per_gpu.get(), 0, sizeof(size_t) * local_gpu_count);
-        std::unique_ptr<size_t []> tile_counter_in_chunk_per_gpu(new size_t[local_gpu_count]());
-        std::memset(tile_counter_in_chunk_per_gpu.get(), 0, sizeof(size_t) * local_gpu_count);
-        std::unique_ptr<size_t *[]> d_hash_table_value_index_chunk_per_gpu(new size_t *[local_gpu_count]);
-        std::unique_ptr<int64_t *[]> h_hash_table_key_chunk_per_gpu(new int64_t *[local_gpu_count]);
-        std::unique_ptr<int64_t *[]> d_hash_table_key_chunk_per_gpu(new int64_t *[local_gpu_count]);
-        std::unique_ptr<float *[]> h_hash_table_value_chunk_per_gpu(new float *[local_gpu_count]);
-
-        HugeCTR::CudaDeviceContext context;
-        for (size_t id = 0; id < local_gpu_count; id++) {
-            const auto& local_gpu = resource_mgr_->get_local_gpu(id);
-            context.set_device(local_gpu->get_local_device_id());
-
-            CK_CUDA(cudaMalloc(&d_hash_table_value_index_chunk_per_gpu[id], 
-                                hash_table_value_index_chunk_size_in_bytes));
-            CK_CUDA(cudaMemsetAsync(d_hash_table_value_index_chunk_per_gpu[id], 0,
-                                    hash_table_value_index_chunk_size_in_bytes,
-                                    local_gpu->get_stream()));
-            CK_CUDA(cudaMallocHost(&h_hash_table_key_chunk_per_gpu[id],
-                                    hash_table_key_chunk_size_in_bytes));
-            CK_CUDA(cudaMalloc(&d_hash_table_key_chunk_per_gpu[id], 
-                                hash_table_key_chunk_size_in_bytes));
-            CK_CUDA(cudaMallocHost(&h_hash_table_value_chunk_per_gpu[id], 
-                                    hash_table_value_chunk_size_in_bytes));
-        } // for id in local_gpu_count
-        resource_mgr_->sync_local_gpus();
-
-        /*step 6: do uploading*/
-        size_t loop_num = rows_num / chunk_size;
-        MESSAGE("Worker " + std::to_string(worker_id) + ": Start uploading parameters. "
-                "Total loop_num = " + std::to_string(loop_num));
-        for (size_t i = 0; i < loop_num; i++) {
-            int64_t *key_dst_buf;
-            float *value_dst_buf;
-            for (size_t k = 0; k < chunk_size; k++) {
-                const int64_t key = key_ptr[i * chunk_size + k];
-                const size_t global_gpu_id = key % resource_mgr_->get_global_gpu_count();
-                const size_t local_gpu_id = resource_mgr_->cal_local_id_from_global_id(global_gpu_id);
-                const size_t dst_worker = resource_mgr_->cal_worker_id_from_global_id(global_gpu_id);
-                if (dst_worker == worker_id) { // it belongs to this worker
-                    key_dst_buf = h_hash_table_key_chunk_per_gpu[local_gpu_id] + 
-                                tile_counter_in_chunk_per_gpu[local_gpu_id] * hash_table_key_tile_size;
-                    *key_dst_buf = key;
-
-                    value_dst_buf = h_hash_table_value_chunk_per_gpu[local_gpu_id] + 
-                                    tile_counter_in_chunk_per_gpu[local_gpu_id] * hash_table_value_tile_size;
-                    std::memcpy(value_dst_buf, 
-                                embedding_ptr + (i * chunk_size + k) * embedding_vec_size,
-                                hash_table_value_tile_size_in_bytes);
-                    tile_counter_in_chunk_per_gpu[local_gpu_id]++;
-                } else {
-                    continue;
-                }
-            } // for k in chunk_size
-
-            // insert to hash table
-            for (size_t id = 0; id < local_gpu_count; id++) {
-                const auto& local_gpu = resource_mgr_->get_local_gpu(id);
-                context.set_device(local_gpu->get_local_device_id());
-
-                const size_t tile_count = tile_counter_in_chunk_per_gpu[id];
-                CK_CUDA(cudaMemcpyAsync(d_hash_table_key_chunk_per_gpu[id],
-                                        h_hash_table_key_chunk_per_gpu[id],
-                                        tile_count * sizeof(int64_t),
-                                        cudaMemcpyHostToDevice,
-                                        local_gpu->get_stream()));
-                
-                const size_t value_index_offset = tile_counter_per_gpu[id];
-                size_t *value_index_buf = d_hash_table_value_index_chunk_per_gpu[id];
-                if (tile_count > 0) {
-                    memset_liner(value_index_buf, value_index_offset, 1ul, tile_count,
-                                local_gpu->get_stream());
-                }
-
-                // do hash table insert <key, index>
-                param_->get_hashtable(id)->insert(d_hash_table_key_chunk_per_gpu[id], 
-                                                value_index_buf, tile_count,
-                                                local_gpu->get_stream());
-                param_->get_hashtable(id)->get_and_add_value_head(tile_count, 
-                                    local_gpu->get_stream());
-            } // for id in local_gpu_count
-
-            // copy embedding vectors
-            for (size_t id = 0; id < local_gpu_count; id++) {
-                const auto& local_gpu = resource_mgr_->get_local_gpu(id);
-                context.set_device(local_gpu->get_local_device_id());
-
-                const size_t value_chunk_size = tile_counter_in_chunk_per_gpu[id] * embedding_vec_size;
-                const size_t value_chunk_offset = tile_counter_per_gpu[id] * embedding_vec_size;
-                const float *src_buf = h_hash_table_value_chunk_per_gpu[id];
-                float *dst_buf = param_->get_embedding_table_tensor(id)->GetPtrWithType<float>() + value_chunk_offset;
-                CK_CUDA(cudaMemcpyAsync(dst_buf, src_buf, value_chunk_size * sizeof(float),
-                                        cudaMemcpyHostToDevice, local_gpu->get_stream()));
-            } // for id in local_gpu_count
-
-            resource_mgr_->sync_local_gpus();
-
-            // set counter value
-            for (size_t id = 0; id < local_gpu_count; id++) {
-                tile_counter_per_gpu[id] += tile_counter_in_chunk_per_gpu[id];
-                tile_counter_in_chunk_per_gpu[id] = 0;
-                if (tile_counter_per_gpu[id] > param_->get_max_vocabulary_size_per_gpu()) 
-                    throw std::runtime_error(ErrorBase + "The size of hash table on GPU " + std::to_string(id) +
-                                            " is out of range " + 
-                                            std::to_string(param_->get_max_vocabulary_size_per_gpu()));
-            } // for id in local_gpu_count
-        } // for i in loop_num
-
-        /*step 7: process the remaining data (less than a chunk)*/
-        const size_t remain_loop_num = rows_num - loop_num * chunk_size;
-        int64_t *key_dst_buf;
-        size_t *value_index_buf;
-        float *value_dst_buf;
-        for (size_t i = 0; i < remain_loop_num; i++) {
-            const int64_t key = key_ptr[loop_num * chunk_size + i];
-            const size_t global_gpu_id = key % resource_mgr_->get_global_gpu_count();
-            const size_t local_gpu_id = resource_mgr_->cal_local_id_from_global_id(global_gpu_id);
-            const size_t dst_worker = resource_mgr_->cal_worker_id_from_global_id(global_gpu_id);
-
-            if (worker_id == dst_worker) {
-                const auto& local_gpu = resource_mgr_->get_local_gpu(local_gpu_id);
-                context.set_device(local_gpu->get_local_device_id());
-
-                // copy hashtable key from CPU to GPU
-                key_dst_buf = d_hash_table_key_chunk_per_gpu[local_gpu_id];
-                CK_CUDA(cudaMemcpyAsync(key_dst_buf, &key, hash_table_key_tile_size_in_bytes,
-                                        cudaMemcpyHostToDevice, 
-                                        local_gpu->get_stream()));
-                
-                // set value_index
-                const size_t value_index_offset = tile_counter_per_gpu[local_gpu_id];
-                value_index_buf = d_hash_table_value_index_chunk_per_gpu[local_gpu_id];
-                memset_liner(value_index_buf, value_index_offset, 1ul, 1ul,
-                            local_gpu->get_stream());
-                
-                // hashtable insert
-                param_->get_hashtable(local_gpu_id)->insert(d_hash_table_key_chunk_per_gpu[local_gpu_id],
-                                                            value_index_buf, hash_table_key_tile_size,
-                                                            local_gpu->get_stream());
-                param_->get_hashtable(local_gpu_id)->get_and_add_value_head(
-                                        hash_table_key_tile_size, local_gpu->get_stream());
-                                    
-                // memcpy embeddding vectors
-                const size_t value_offset = tile_counter_per_gpu[local_gpu_id] * embedding_vec_size;
-                value_dst_buf = param_->get_embedding_table_tensor(local_gpu_id)->GetPtrWithType<float>() + value_offset;
-                CK_CUDA(cudaMemcpyAsync(value_dst_buf, 
-                            embedding_ptr + (loop_num * chunk_size + i) * embedding_vec_size,
-                            hash_table_value_tile_size_in_bytes, cudaMemcpyHostToDevice,
-                            local_gpu->get_stream()));
-
-                // set counter
-                tile_counter_per_gpu[local_gpu_id] += hash_table_key_tile_size;
-            } else {
-                continue;
-            }
-
-            resource_mgr_->sync_local_gpus();
-        } // for i in remain_loop_num
-
-
-        /*step 8: use nccl collective operation to synchronize all machines*/
-        CK_NCCL(ncclGroupStart());
-        for (size_t id = 0; id < local_gpu_count; id++) {
-            const auto& local_gpu = resource_mgr_->get_local_gpu(id);
-            CK_NCCL(ncclBroadcast(d_hash_table_value_index_chunk_per_gpu[id], 
-                                d_hash_table_value_index_chunk_per_gpu[id], 
-                                1, ncclUint64, /*root=*/0,
-                                local_gpu->get_nccl(),
-                                local_gpu->get_stream()));
-        }
-        CK_NCCL(ncclGroupEnd());
-        resource_mgr_->sync_local_gpus();
-
-
-        /*finally: release temp spaces*/
-        for (size_t id = 0; id < local_gpu_count; id++) {
-            context.set_device(resource_mgr_->get_local_gpu(id)->get_local_device_id());
-
-            CK_CUDA(cudaFree(d_hash_table_value_index_chunk_per_gpu[id]));
-            CK_CUDA(cudaFreeHost(h_hash_table_key_chunk_per_gpu[id]));
-            CK_CUDA(cudaFree(d_hash_table_key_chunk_per_gpu[id]));
-            CK_CUDA(cudaFreeHost(h_hash_table_value_chunk_per_gpu[id]));
-        }
-
-    }
-
 };
 
 REGISTER_EMB_LOOKUPER_BUILDER("distributed", DistribtuedLookuper);

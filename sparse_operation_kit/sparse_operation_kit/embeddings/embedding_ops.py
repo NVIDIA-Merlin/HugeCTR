@@ -20,6 +20,11 @@ from __future__ import print_function
 
 from tensorflow.distribute import MirroredStrategy, get_replica_context, has_strategy, get_strategy
 
+try:
+    import horovod.tensorflow as hvd
+except:
+    pass
+
 CommToolSet = set(["Strategy", "MPI", "Horovod"])
 def get_global_replica_id(comm_tool=None):
     def _strategy():
@@ -32,8 +37,7 @@ def get_global_replica_id(comm_tool=None):
         return comm.Get_rank()
 
     def _Horovod():
-        # TODO:
-        raise NotImplementedError("Not support Horovod yet.")
+        return hvd.local_rank()
 
     if comm_tool is None:
         strategy = get_strategy()

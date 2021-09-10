@@ -74,3 +74,17 @@ $ mpiexec -n 8 --allow-run-as-root \
     --data_splited=1 \
     --optimizer="adam"
 ```
+
+### Run this demo writen with SOK + Horovod ###
+```shell
+$ horovodrun -np 8 -H localhost:8 \
+    python3 run_sok_horovod.py \
+    --data_filename_prefix="./data_" \
+    --global_batch_size=65536 \
+    --max_vocabulary_size_per_gpu=1024 \
+    --slot_num=100 \
+    --nnz_per_slot=10 \
+    --num_dense_layers=6 \
+    --embedding_vec_size=4 \
+    --optimizer="adam"
+```

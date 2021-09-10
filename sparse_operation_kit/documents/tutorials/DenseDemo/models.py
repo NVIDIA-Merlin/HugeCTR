@@ -208,6 +208,8 @@ class SOKDenseModel(tf.keras.models.Model):
                  slot_num_list,
                  nnz_per_slot_list,
                  num_dense_layers,
+                 dynamic_input = False,
+                 use_hashtable = True,
                  **kwargs):
         super(SOKDenseModel, self).__init__(**kwargs)
 
@@ -216,6 +218,7 @@ class SOKDenseModel(tf.keras.models.Model):
         self.slot_num_list = slot_num_list
         self.nnz_per_slot_list = nnz_per_slot_list
         self.num_dense_layers = num_dense_layers
+        self.dynamic_input = dynamic_input
 
         if (len(slot_num_list) != len(nnz_per_slot_list) or 
             len(slot_num_list) != len(embedding_vec_size_list)):
@@ -232,7 +235,9 @@ class SOKDenseModel(tf.keras.models.Model):
             self.embedding_layer = sok.All2AllDenseEmbedding(max_vocabulary_size_per_gpu=self.max_vocabulary_size_per_gpu,
                                                              embedding_vec_size=self.embedding_vec_size_list[i],
                                                              slot_num=self.slot_num_list[i],
-                                                             nnz_per_slot=self.nnz_per_slot_list[i])
+                                                             nnz_per_slot=self.nnz_per_slot_list[i],
+                                                             dynamic_input=self.dynamic_input,
+                                                             use_hashtable=use_hashtable)
             self.embedding_layers.append(self.embedding_layer)
 
         self.dense_layers = list()
@@ -246,6 +251,15 @@ class SOKDenseModel(tf.keras.models.Model):
                                                kernel_initializer="ones",
                                                bias_initializer="zeros")
 
+    def do_lookup(self, embedding_layer, inputs, training):
+        if self.dynamic_input:
+            _unique_inputs, _unique_index = tf.unique(x=tf.reshape(inputs, shape=[-1]))
+            _emb_vector = embedding_layer(_unique_inputs, training=training)
+            embedding_vector = tf.gather(_emb_vector, _unique_index)
+        else:
+            embedding_vector = embedding_layer(inputs, training=training)
+        return embedding_vector
+
     def call(self, inputs, training=True):
         """
         The inputs has shape: [batchsize, slot_num, nnz_per_slot]
@@ -253,16 +267,20 @@ class SOKDenseModel(tf.keras.models.Model):
         """
         vectors = list()
 
-        embedding_vector = self.embedding_layers[0](inputs[:,self.slot_num_prefix_sum[0]:self.slot_num_prefix_sum[0+1],:], 
-                                                    training=training)
+        embedding_vector = self.do_lookup(self.embedding_layers[0], 
+                                          inputs[:,self.slot_num_prefix_sum[0]:self.slot_num_prefix_sum[0+1],:],
+                                          training=training)
+
         # [batchsize, slot_num * nnz_per_slot * embedding_vec_size]
         embedding_vector = tf.reshape(embedding_vector, shape=[-1, self.slot_num_list[0] * self.nnz_per_slot_list[0] * self.embedding_vec_size_list[0]])
         vectors.append(embedding_vector)
 
         for i in range(1, self.embedding_num):
             with tf.control_dependencies([embedding_vector]):
-                embedding_vector = self.embedding_layers[i](inputs[:,self.slot_num_prefix_sum[i]:self.slot_num_prefix_sum[i+1],:], 
-                                                    training=training)
+                embedding_vector = self.do_lookup(self.embedding_layers[i],
+                                                 inputs[:,self.slot_num_prefix_sum[i]:self.slot_num_prefix_sum[i+1],:],
+                                                 training=training)
+
                 # [batchsize, slot_num * nnz_per_slot * embedding_vec_size]
                 embedding_vector = tf.reshape(embedding_vector, shape=[-1, self.slot_num_list[i] * self.nnz_per_slot_list[i] * self.embedding_vec_size_list[i]])
                 vectors.append(embedding_vector)

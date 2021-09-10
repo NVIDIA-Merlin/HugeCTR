@@ -13,8 +13,6 @@
  See the License for the specific language governing permissions and
  limitations under the License.
 """
-
-import tensorflow as tf
 from sparse_operation_kit.kit_lib import dump_to_file, restore_from_file, load_embedding_values
 
 
@@ -52,7 +50,12 @@ class Saver(object):
                 If this op executed successfully, then 'OK' will be returned.
         """
         # TODO: check whether embedding_variable is an instance of DistributedVariable
-        return dump_to_file(embedding_variable.values[0].emb_handle, filepath)
+        if hasattr(embedding_variable, "emb_handle"):
+            # horovod branch
+            return dump_to_file(embedding_variable.emb_handle, filepath)
+        else:
+            # strategy branch
+            return dump_to_file(embedding_variable.values[0].emb_handle, filepath)
 
     def restore_from_file(self, embedding_variable, filepath):
         """
@@ -73,7 +76,12 @@ class Saver(object):
         status: tf.Tensor
                 If this op executed successfully, then 'OK' will be returned.
         """
-        return restore_from_file(embedding_variable.values[0].emb_handle, filepath)
+        if hasattr(embedding_variable, "emb_handle"):
+            # horovod branch
+            return restore_from_file(embedding_variable.emb_handle, filepath)
+        else:
+            # strategy branch
+            return restore_from_file(embedding_variable.values[0].emb_handle, filepath)
 
     def load_embedding_values(self, embedding_variable, tensors):
         """
@@ -99,6 +107,9 @@ class Saver(object):
         status: tf.Tensor
                 If this op executed successfully, then 'OK' will be returned.
         """
-        return load_embedding_values(embedding_variable.values[0].emb_handle, tensors)
-
-    
+        if hasattr(embedding_variable, "emb_handle"):
+            # horovod branch
+            return load_embedding_values(embedding_variable.emb_handle, tensors)
+        else:
+            # strategy branch
+            return load_embedding_values(embedding_variable.values[0].emb_handle, tensors)

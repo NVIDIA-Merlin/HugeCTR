@@ -15,6 +15,7 @@
  */
 
 #include "parameters/manager_interface.h"
+#include "common.h"
 
 namespace SparseOperationKit {
 

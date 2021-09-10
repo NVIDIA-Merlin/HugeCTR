@@ -103,7 +103,8 @@ public:
                           optimizer_hyper_params hyper_params);
 
     void get_output_shape(const tensorflow::Tensor* emb_handle,
-                          tensorflow::TensorShape& tensor_shape);
+                          tensorflow::TensorShape& tensor_shape,
+                          const bool dynamic_input = false);
     void get_grad_shape(const size_t global_replica_id,
                         const tensorflow::Tensor* emb_handle,
                         tensorflow::TensorShape& grad_shape);

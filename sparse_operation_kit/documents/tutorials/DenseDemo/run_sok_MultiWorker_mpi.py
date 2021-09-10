@@ -165,7 +165,7 @@ if __name__ == "__main__":
 
     task_id = comm.Get_rank()
 
-    set_affinity(task_id)
+    # set_affinity(task_id)
 
     os.environ["CUDA_VISIBLE_DEVICES"] = str(task_id)
     main(args, task_id)

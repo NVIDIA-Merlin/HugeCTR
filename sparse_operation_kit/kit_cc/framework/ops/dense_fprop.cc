@@ -31,6 +31,7 @@ REGISTER_OP("PluginDenseFprop")
     .Attr("value_dtype: {int64}")
     .Attr("T: {float32}")
     .Attr("unique_op_name: string")
+    .Attr("dynamic_input: bool = false")
     .SetShapeFn([](InferenceContext* ctx) {
         ShapeHandle variable_shape;
         TF_RETURN_IF_ERROR(ctx->WithRank(ctx->input(1), 2, &variable_shape));
@@ -38,6 +39,15 @@ REGISTER_OP("PluginDenseFprop")
         ShapeHandle emb_vec_size_shape;
         TF_RETURN_IF_ERROR(ctx->Subshape(variable_shape, /*start=*/1, /*end=*/2, &emb_vec_size_shape));
 
+        bool dynamic_input = false;
+        TF_RETURN_IF_ERROR(ctx->GetAttr("dynamic_input", &dynamic_input));
+        if (dynamic_input) {
+            // when dynamic_input is true, then values must be 1-D tensor.
+            ShapeHandle values_shape;
+            TF_RETURN_IF_ERROR(ctx->WithRankAtMost(ctx->input(2), 1, &values_shape));
+        }
+
+        // output_shape = [input[2].shape, embedding_vec_size]
         ShapeHandle output_shape;
         TF_RETURN_IF_ERROR(ctx->Concatenate(ctx->input(2), emb_vec_size_shape, &output_shape));
         ctx->set_output(0, output_shape);
@@ -52,4 +62,7 @@ REGISTER_OP("PluginDenseFprop")
             vec1 = plugin_dense_fprop(emb_handle1, values, unique_op_name='2')
 
             where different unique_op_name are set for different embedding layer instance.
+
+        If dynamic_input is true, the input to this op must 1-D tensor, and its output
+        tensor will be a 2-D tensor, whose shape is [input.shape, embedding_vec_size].
     )doc");

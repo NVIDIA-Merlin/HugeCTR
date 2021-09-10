@@ -28,6 +28,8 @@ public:
         const Tensor* x_tensor = nullptr;
         OP_REQUIRES_OK(ctx, ctx->input("x", &x_tensor));
 
+        std::cout << "\n[INFO]: x_tensor.NumElements = " << x_tensor->NumElements() << "\n" << std::endl;
+
         Tensor* y_tensor = nullptr;
         OP_REQUIRES_OK(ctx, ctx->allocate_output(0, x_tensor->shape(), &y_tensor));
 

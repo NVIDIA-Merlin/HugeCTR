@@ -27,6 +27,7 @@ class PluginDenseFpropOp : public OpKernel {
 public:
     explicit PluginDenseFpropOp(OpKernelConstruction* ctx) : OpKernel(ctx) {
         OP_REQUIRES_OK(ctx, ctx->GetAttr("training", &training_));
+        OP_REQUIRES_OK(ctx, ctx->GetAttr("dynamic_input", &dynamic_input_));
     }
     void Compute(OpKernelContext* ctx) override {
         Tensor const *emb_handle_tensor = nullptr;
@@ -36,25 +37,42 @@ public:
         Tensor const *global_replica_id_tensor = nullptr;
         OP_REQUIRES_OK(ctx, ctx->input("global_replica_id", &global_replica_id_tensor));
 
-        // get output shape for the first time
-        if (0 == emb_vector_tensor_shape_.dims()) {
+        // allocate output
+        Tensor *emb_vector_tensor = nullptr;
+        if (dynamic_input_) { // the input shape is dynamic
+            TensorShape emb_vector_tensor_shape = {values_tensor->NumElements()};
+            TensorShape embedding_vec_size_shape;
             try {
+                // only embedding_vec_size will bet set in embedding_vec_size_shape.
                 SparseOperationKit::Facade::instance()->get_output_shape(emb_handle_tensor, 
-                                                                      emb_vector_tensor_shape_);
+                                                                         embedding_vec_size_shape,
+                                                                         /*dynamic_input=*/true);
             } catch (std::exception const &error) {
                 ctx->SetStatus(errors::Aborted(error.what()));
                 return;
             }
-        } 
+            emb_vector_tensor_shape.AppendShape(embedding_vec_size_shape);
 
-        // allocate output
-        Tensor *emb_vector_tensor = nullptr;
-        OP_REQUIRES_OK(ctx, ctx->allocate_output(0, emb_vector_tensor_shape_, &emb_vector_tensor));
+            OP_REQUIRES_OK(ctx, ctx->allocate_output(0, emb_vector_tensor_shape, &emb_vector_tensor));
+        } else { // the input shape is static.
+            // get output shape for the first time
+            if (0 == emb_vector_tensor_shape_.dims()) {
+                try {
+                    SparseOperationKit::Facade::instance()->get_output_shape(emb_handle_tensor, 
+                                                                        emb_vector_tensor_shape_);
+                } catch (std::exception const &error) {
+                    ctx->SetStatus(errors::Aborted(error.what()));
+                    return;
+                }
+            } 
+
+            // TODO: check values and indices shape
+
+            OP_REQUIRES_OK(ctx, ctx->allocate_output(0, emb_vector_tensor_shape_, &emb_vector_tensor));
+        }
 
         // do forward propagation
         try {
-            // TODO: check values and indices shape
-
             SparseOperationKit::Facade::instance()->forward(emb_handle_tensor, 
                                                          values_tensor, 
                                                          global_replica_id_tensor->scalar<int32_t>()(),
@@ -67,6 +85,7 @@ public:
     }
 private:
     bool training_;
+    bool dynamic_input_;
     TensorShape emb_vector_tensor_shape_;
 };
 
