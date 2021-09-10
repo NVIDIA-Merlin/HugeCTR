@@ -65,6 +65,9 @@ class IbComm {
                                        cudaStream_t dep_stream, size_t device_id);
   template <typename T>
   void post_send_command_a2a(HierA2AvCollHandle coll, cudaStream_t dep_stream, size_t device_id);
+  template <typename T>
+  void post_a2a_send_command(HierA2AvCollHandle coll, cudaStream_t dep_stream, size_t device_id);
+  void blocking_wait(HierA2AvCollHandle coll, cudaStream_t dep_stream, size_t device_id);
   void wait_global_recv_async(HierA2AvCollHandle coll, size_t device_id);
 
   // AR coll api

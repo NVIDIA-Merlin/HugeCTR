@@ -132,7 +132,7 @@ class HybridSparseEmbedding : public IEmbedding {
   SparseEmbeddingHashParams dummy_params_;
 
   void index_calculation(bool is_train, int eval_batch, int i, cudaStream_t stream);
-  void forward(bool is_train, int eval_batch, int i, cudaStream_t stream);
+  void forward(bool is_train, int eval_batch, int i, cudaStream_t stream, cudaEvent_t* evt_ptr);
   void backward_pre_communication(int i, cudaStream_t stream);
   void frequent_local_reduce(int i, cudaStream_t stream);
   void backward_communications(int i, cudaStream_t stream);
