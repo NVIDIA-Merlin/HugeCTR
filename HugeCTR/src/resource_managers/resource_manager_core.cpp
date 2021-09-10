@@ -27,6 +27,7 @@
 #pragma GCC diagnostic pop
 
 namespace HugeCTR {
+std::unordered_map<int, int> CudaCPUDeviceContext::device_id_to_numa_node_;
 
 void ResourceManagerCore::all2all_warmup() {
   auto num_global_gpus = get_global_gpu_count();
@@ -132,6 +133,9 @@ ResourceManagerCore::ResourceManagerCore(int num_process, int process_id, Device
       CK_THROW_(Error_t::WrongInput, "Invalid device id: " + std::to_string(device_id));
     }
   }
+  
+  CK_NVML_THROW_(nvmlInit_v2());
+  CudaCPUDeviceContext::init_cpu_mapping(device_map.get_device_list());
 
   std::mt19937 gen(seed);
   std::uniform_int_distribution<unsigned long long> dis;

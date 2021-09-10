@@ -53,7 +53,8 @@ class DataReaderWorkerGroupNorm : public DataReaderWorkerGroup {
         CK_THROW_(Error_t::WrongInput, "param.max_feature_num <= 0 || param.slot_num <= 0");
       }
     }
-
+    
+    set_resource_manager(resource_manager_);
     for (int i = 0; i < num_threads; i++) {
       std::shared_ptr<IDataReaderWorker> data_reader(new DataReaderWorker<TypeKey>(
           i, num_threads, resource_manager_->get_local_gpu(i % local_gpu_count),

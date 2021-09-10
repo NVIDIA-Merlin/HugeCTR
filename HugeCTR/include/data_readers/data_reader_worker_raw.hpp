@@ -64,6 +64,8 @@ class DataReaderWorkerRaw : public IDataReaderWorker {
         float_label_dense_(float_label_dense),
         total_slot_num_(0),
         last_batch_nnz_(params.size(), 0) {
+    CudaCPUDeviceContext ctx(gpu_resource->get_device_id());
+    
     if (worker_id >= worker_num) {
       CK_THROW_(Error_t::BrokenFile, "DataReaderWorkerRaw: worker_id >= worker_num");
     }
@@ -76,7 +78,6 @@ class DataReaderWorkerRaw : public IDataReaderWorker {
     int label_dim = buffer->label_dim;
     int dense_dim = buffer->dense_dim;
 
-    CudaDeviceContext ctx(gpu_resource->get_device_id());
     std::shared_ptr<GeneralBuffer2<CudaHostAllocator>> buff =
         GeneralBuffer2<CudaHostAllocator>::create();
 
@@ -201,7 +202,7 @@ class DataReaderWorkerRaw : public IDataReaderWorker {
     if (!wait_until_h2d_ready()) return;
     buffer_->current_batch_size = current_batchsize;
     {
-      CudaDeviceContext context(gpu_resource_->get_device_id());
+      CudaCPUDeviceContext context(gpu_resource_->get_device_id());
       auto dst_dense_tensor = Tensor2<float>::stretch_from(buffer_->device_dense_buffers);
       CK_CUDA_THROW_(cudaMemcpyAsync(dst_dense_tensor.get_ptr(), host_dense_buffer_.get_ptr(),
                                      host_dense_buffer_.get_size_in_bytes(), cudaMemcpyHostToDevice,
