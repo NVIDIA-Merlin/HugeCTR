@@ -57,3 +57,12 @@ if __name__ == "__main__":
                       "/onnx_converter/hugectr_models/din2_sparse_8000.model"],
                     "/onnx_converter/onnx_models/din.onnx",
                     "din")
+    hugectr2onnx_din_test(64, 100, "./din_data/valid/_file_list.txt",
+                    "./din_data/valid/0.ade7fdccb3fe4af0b49d5c8bac1ef534.parquet",
+                    "/onnx_converter/graph_files/din_try.json",
+                    "/onnx_converter/hugectr_models/din_try_dense_80000.model",
+                    ["/onnx_converter/hugectr_models/din_try0_sparse_80000.model",
+                      "/onnx_converter/hugectr_models/din_try1_sparse_80000.model",
+                      "/onnx_converter/hugectr_models/din_try2_sparse_80000.model"],
+                    "/onnx_converter/onnx_models/din_try.onnx",
+                    "din_try")                    

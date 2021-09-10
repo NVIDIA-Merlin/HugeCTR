@@ -32,6 +32,7 @@ ONNX_LAYER_TYPES = {
     "FusedInnerProduct",
     "FusedReshapeConcat",
     "Interaction",
+    "MatrixMultiply",
     "MultiCross",
     "PReLU_Dice",
     "ReduceMean",
@@ -54,7 +55,6 @@ EXEMPTION_LAYER_TYPES = {
  "Gather",
  "MultiCrossEntropyLoss",
  "ReLUHalf",
- "MatrixMultiply"
 }
 
 def get_tensor_names(clause):
@@ -268,6 +268,13 @@ class HugeCTRLoader(object):
             slot_num = self.__dimensions[layer_params.bottom_names[1]][0]
             vec_size = self.__dimensions[layer_params.bottom_names[1]][1]
             self.__dimensions[layer_config["top"]] = vec_size + (slot_num + 1) * (slot_num + 2 ) // 2 - (slot_num + 1) + 1        
+        elif layer_type == "MatrixMultiply":
+            dim1 = self.__dimensions[layer_params.bottom_names[0]]
+            dim2 = self.__dimensions[layer_params.bottom_names[1]]
+            if len(dim1) == 2:
+                self.__dimensions[layer_config["top"]] = (dim1[0], dim2[1])
+            else:
+                self.__dimensions[layer_config["top"]] = dim2[1]
         elif layer_type == "MultiCross":
             layer_params.num_layers = layer_config["mc_param"]["num_layers"]
             self.__dimensions[layer_config["top"]] = self.__dimensions[layer_config["bottom"]]

@@ -167,5 +167,12 @@ model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.BinaryCrossEntropyLoss
 model.compile()
 model.summary()
 model.fit(max_iter = 88000, display = 1000, eval_interval = 1000, snapshot = 1000000, snapshot_prefix = "din")
-#model.graph_to_json(graph_config_file = "din.json")
-#model.export_predictions( "prediction_fit",  "label_fit")
+
+model.eval()
+metrics = model.get_eval_metrics()
+print("[HUGECTR][INFO] iter: {}, metrics: {}".format(iter, metrics[0][1]))
+if metrics[0][1] < 0.75:
+    raise RuntimeError("Cannot reach the AUC threshold {}".format(0.75))
+    sys.exit(1)
+else:
+    print("Successfully reach the AUC threshold {}".format(metrics[0][1]))
