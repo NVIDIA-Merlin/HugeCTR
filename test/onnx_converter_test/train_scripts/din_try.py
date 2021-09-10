@@ -1,4 +1,5 @@
 import hugectr
+from mpi4py import MPI
 solver = hugectr.CreateSolver(max_eval_batches = 1,
                               batchsize_eval = 4096,
                               batchsize = 64,
@@ -164,8 +165,7 @@ model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.InnerProduct,
 model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.BinaryCrossEntropyLoss,
                             bottom_names = ["fc3", "label"],
                             top_names = ["loss"]))
+model.graph_to_json("/onnx_converter/graph_files/din_try.json")            
 model.compile()
 model.summary()
-model.fit(max_iter = 88000, display = 1000, eval_interval = 1000, snapshot = 1000000, snapshot_prefix = "din")
-#model.graph_to_json(graph_config_file = "din.json")
-#model.export_predictions( "prediction_fit",  "label_fit")
+model.fit(max_iter = 88000, display = 1000, eval_interval = 1000, snapshot = 80000, snapshot_prefix = "/onnx_converter/hugectr_models/din_try")

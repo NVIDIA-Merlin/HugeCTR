@@ -177,6 +177,7 @@ hugectr2onnx:
       python3 ${WORK_DIR}/test/onnx_converter_test/hugectr2onnx_wdl_test.py &&
       cd ${DIN_DATASET_MOUNT} &&
       mpirun -np 1 --allow-run-as-root python3 ${WORK_DIR}/test/onnx_converter_test/train_scripts/din_parquet.py &&
+      mpirun -np 1 --allow-run-as-root python3 ${WORK_DIR}/test/onnx_converter_test/train_scripts/din_try.py &&
       python3 ${WORK_DIR}/test/onnx_converter_test/hugectr2onnx_din_test.py &&
       cd ${NCF_DATASET_MOUNT} &&
       mpirun -np 1 --allow-run-as-root python3 ${WORK_DIR}/test/onnx_converter_test/train_scripts/ncf.py     &&
@@ -419,7 +420,8 @@ din_single_node:
       bash -cx "
       cp ${WORK_DIR}/build/build_single/lib/hugectr.so ${WORK_DIR}/test/pybind_test/ &&
       cd ${DIN_DATASET_MOUNT} &&
-      python3 ${WORK_DIR}/test/pybind_test/din_fp32_1gpu.py"
+      python3 ${WORK_DIR}/test/pybind_test/din_fp32_1gpu.py &&
+      python3 ${WORK_DIR}/test/pybind_test/din_matmul_fp32_1gpu.py"
     - srun --ntasks=1
       -A devtech -J devtech:hugectr -p luna
       --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}

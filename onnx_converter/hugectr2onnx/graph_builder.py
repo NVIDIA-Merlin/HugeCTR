@@ -357,6 +357,10 @@ class GraphBuilder(object):
                                                 inputs=[interaction_name],
                                                 outputs=layer_params.top_names,
                                                 pads = [0, 0, 0, 1]))
+        elif layer_type == "MatrixMultiply":
+            self.__nodes.append(helper.make_node(op_type = 'MatMul',
+                                                inputs=layer_params.bottom_names,
+                                                outputs=layer_params.top_names))
         elif layer_type == "MultiCross":
             weights_name = layer_params.top_names[0]+"_weights"
             biases_name = layer_params.top_names[0]+"_biases"
