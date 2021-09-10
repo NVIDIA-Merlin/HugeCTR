@@ -12,6 +12,7 @@ Design Goals:
 * [Core Features](#core-features)
 * [Getting Started](#getting-started)
 * [Support and Feedback](#support-and-feedback)
+* [Contribute to HugeCTR](#contribute-to-hugectr)
 
 ## Core Features ##
 HugeCTR supports a variety of features, including the following:
