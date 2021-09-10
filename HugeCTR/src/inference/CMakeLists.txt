@@ -99,7 +99,7 @@ target_link_libraries(hugectr_inference PUBLIC cudart cublas curand cudnn nccl c
 
 target_link_libraries(hugectr_inference PUBLIC gpu_cache)
 
-target_link_libraries(hugectr_inference PRIVATE nlohmann_json::nlohmann_json)
+target_link_libraries(hugectr_inference PRIVATE nlohmann_json::nlohmann_json nvToolsExt nvidia-ml)
 
 target_link_libraries(
   hugectr_inference

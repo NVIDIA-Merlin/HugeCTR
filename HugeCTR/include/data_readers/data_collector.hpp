@@ -38,6 +38,9 @@ void split(Tensor2<float> &label_tensor, Tensor2<TypeComp> &dense_tensor,
            const Tensor2<float> &label_dense_buffer, const int label_dense_dim,
            cudaStream_t stream);
 
+template <typename T>
+void broadcast(const std::shared_ptr<ThreadBuffer> &thread_buffer, std::shared_ptr<BroadcastBuffer> &broadcast_buffer, std::vector<size_t> &last_batch_nnz_, const std::shared_ptr<ResourceManager> &resource_manager);
+
 /**
  * @brief A helper class of data reader.
  *
@@ -81,13 +84,6 @@ class DataCollector {
         auto &dst_buffer = broadcast_buffer_;
         auto src_expected = BufferState::ReadyForRead;
         auto dst_expected = BufferState::ReadyForWrite;
-        int local_gpu_count = resource_manager_->get_local_gpu_count();
-        int batch_size = current_src_buffer->batch_size;
-        int label_dim = current_src_buffer->label_dim;
-        int dense_dim = current_src_buffer->dense_dim;
-        int param_num = current_src_buffer->param_num;
-
-        int batch_size_per_gpu = batch_size / resource_manager_->get_global_gpu_count();
 
         if (worker_status_[counter_]) {
           counter_ = (counter_ + 1) % thread_buffers_.size();
@@ -114,45 +110,8 @@ class DataCollector {
           }
           dst_buffer->current_batch_size = current_src_buffer->current_batch_size;
           if (current_src_buffer->current_batch_size != 0) {
-#pragma omp parallel for num_threads(local_gpu_count)
-            for (int i = 0; i < local_gpu_count; ++i) {
-              auto local_gpu = resource_manager_->get_local_gpu(i);
+            broadcast<T>(current_src_buffer, dst_buffer, last_batch_nnz_, resource_manager_);
 
-              CudaDeviceContext ctx(local_gpu->get_device_id());
-
-              for (int param_id = 0; param_id < param_num; ++param_id) {
-                auto src_sparse_tensor = SparseTensor<T>::stretch_from(
-                    current_src_buffer->device_sparse_buffers[param_id]);
-                auto dst_sparse_tensor = SparseTensor<T>::stretch_from(
-                    dst_buffer->sparse_buffers[i * param_num + param_id]);
-
-                if (current_src_buffer->is_fixed_length[param_id] &&
-                    last_batch_nnz_[i * param_num + param_id] == src_sparse_tensor.nnz()) {
-                  CK_CUDA_THROW_(cudaMemcpyAsync(
-                      dst_sparse_tensor.get_value_ptr(), src_sparse_tensor.get_value_ptr(),
-                      src_sparse_tensor.nnz() * sizeof(T), cudaMemcpyDeviceToDevice,
-                      local_gpu->get_memcpy_stream()));
-                } else {
-                  sparse_tensor_helper::cuda::copy_async(dst_sparse_tensor, src_sparse_tensor,
-                                                         cudaMemcpyDeviceToDevice,
-                                                         local_gpu->get_memcpy_stream());
-                  last_batch_nnz_[i * param_num + param_id] = src_sparse_tensor.nnz();
-                }
-              }
-
-              auto dst_dense_tensor = Tensor2<float>::stretch_from(dst_buffer->dense_tensors[i]);
-              auto src_dense_tensor =
-                  Tensor2<float>::stretch_from(current_src_buffer->device_dense_buffers);
-              CK_CUDA_THROW_(cudaMemcpyAsync(
-                  dst_dense_tensor.get_ptr(),
-                  src_dense_tensor.get_ptr() + i * batch_size_per_gpu * (label_dim + dense_dim),
-                  batch_size_per_gpu * (label_dim + dense_dim) * sizeof(float),
-                  cudaMemcpyDeviceToDevice, local_gpu->get_memcpy_stream()));
-              CK_CUDA_THROW_(cudaStreamSynchronize(local_gpu->get_memcpy_stream()));
-              // CK_CUDA_THROW_(cudaEventRecord(broadcast_buffer_->finish_broadcast_events[i],
-              // local_gpu->get_memcpy_stream()));
-              // CK_CUDA_THROW_(cudaEventSynchronize(broadcast_buffer_->finish_broadcast_events[i]));
-            }
             current_src_buffer->state.store(BufferState::ReadyForWrite);
             counter_ = (counter_ + 1) % thread_buffers_.size();
           } else {
@@ -221,9 +180,6 @@ class DataCollector {
         CudaDeviceContext ctx(local_gpu->get_device_id());
 
         // wait until last iteration finish
-        CK_CUDA_THROW_(
-            cudaEventRecord(output_buffer_->last_batch_finish_events[i], local_gpu->get_stream()));
-        CK_CUDA_THROW_(cudaEventSynchronize(output_buffer_->last_batch_finish_events[i]));
         auto label_tensor = Tensor2<float>::stretch_from(output_buffer_->label_tensors[i]);
         auto label_dense_tensor = Tensor2<float>::stretch_from(broadcast_buffer_->dense_tensors[i]);
 

@@ -36,6 +36,7 @@ class GPUResource {
   const size_t global_id_;
   cudaStream_t computation_stream_; /**< cuda stream for computation */
   cudaStream_t memcpy_stream_;      /**< cuda stream for data copy */
+  cudaStream_t p2p_stream_;         /**< cuda stream for broadcast copy */
   curandGenerator_t replica_uniform_curand_generator_;
   curandGenerator_t replica_variant_curand_generator_;
   cublasHandle_t cublas_handle_;
@@ -62,6 +63,7 @@ class GPUResource {
   size_t get_global_id() const { return global_id_; }
   const cudaStream_t& get_stream() const { return computation_stream_; }
   const cudaStream_t& get_memcpy_stream() const { return memcpy_stream_; }
+  const cudaStream_t& get_p2p_stream() const { return p2p_stream_; }
   const cudaStream_t& get_comp_overlap_stream() const { return computation_stream_2_; }
   const curandGenerator_t& get_replica_uniform_curand_generator() const {
     return replica_uniform_curand_generator_;
