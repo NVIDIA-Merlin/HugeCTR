@@ -150,3 +150,6 @@ For additional information, see the [HugeCTR User Guide](docs/hugectr_user_guide
 ## Support and Feedback ##
 If you encounter any issues and/or have questions, please file an issue [here](https://github.com/NVIDIA/HugeCTR/issues) so that we can provide you with the necessary resolutions and answers. To further advance the Merlin/HugeCTR Roadmap, we encourage you to share all the details regarding your recommender system pipeline using this [survey](https://developer.nvidia.com/merlin-devzone-survey).
 
+## Contribute to HugeCTR ##
+HugeCTR is an open source project, and we encourage you to join the development directly. All of your contributions will be appreciated and can help us to improve our quality and performance. Please find more about how to contribute and the developer specific instructions on our [HugeCTR Contributor Guide](docs/hugectr_contributor_guide.md)
+
