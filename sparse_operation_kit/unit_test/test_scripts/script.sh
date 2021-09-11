@@ -82,7 +82,7 @@ python3 test_sparse_emb_demo_model_single_worker.py \
 
 # ------ multi worker test within single worker but using different GPUs. save
 python3 test_sparse_emb_demo_model_multi_worker.py \
-        --local_gpu_num=8 --iter_num=100 \
+        --local_gpu_num=4 --iter_num=100 \
         --max_vocabulary_size_per_gpu=1024 \
         --slot_num=10 --max_nnz=4 \
         --embedding_vec_size=4 \
@@ -94,7 +94,7 @@ python3 test_sparse_emb_demo_model_multi_worker.py \
 
 # ------ multi worker test within single worker but using different GPUs. restore
 python3 test_sparse_emb_demo_model_multi_worker.py \
-        --local_gpu_num=8 --iter_num=100 \
+        --local_gpu_num=4 --iter_num=100 \
         --max_vocabulary_size_per_gpu=1024 \
         --slot_num=10 --max_nnz=4 \
         --embedding_vec_size=4 \
@@ -165,7 +165,7 @@ python3 test_dense_emb_demo_model_single_worker.py \
 
 # ------ multi worker test within single worker but using different GPUs. save
 python3 test_dense_emb_demo_model_multi_worker.py \
-        --local_gpu_num=8 --iter_num=100 \
+        --local_gpu_num=4 --iter_num=100 \
         --max_vocabulary_size_per_gpu=1024 \
         --slot_num=10 --nnz_per_slot=4 \
         --embedding_vec_size=4 \
@@ -177,7 +177,7 @@ python3 test_dense_emb_demo_model_multi_worker.py \
         --use_hashtable=0
 
 python3 test_dense_emb_demo_model_multi_worker.py \
-        --local_gpu_num=8 --iter_num=100 \
+        --local_gpu_num=4 --iter_num=100 \
         --max_vocabulary_size_per_gpu=1024 \
         --slot_num=10 --nnz_per_slot=4 \
         --embedding_vec_size=4 \
@@ -189,7 +189,7 @@ python3 test_dense_emb_demo_model_multi_worker.py \
 
 # ------ multi worker test within single worker but using different GPUs. restore
 python3 test_dense_emb_demo_model_multi_worker.py \
-        --local_gpu_num=8 --iter_num=100 \
+        --local_gpu_num=4 --iter_num=100 \
         --max_vocabulary_size_per_gpu=1024 \
         --slot_num=10 --nnz_per_slot=4 \
         --embedding_vec_size=4 \
