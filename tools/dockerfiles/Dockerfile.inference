@@ -70,29 +70,23 @@ RUN chmod +x ./clean_conda.sh && \
     rm -rfv ./clean_conda.sh
 
 #Hiredis
-RUN mkdir -p /var/tmp && cd /var/tmp && git clone https://github.com/redis/hiredis.git && cd - && \
-cd /var/tmp/hiredis && \
-mkdir build && cd build && \
-cmake .. && \
-make && \
-make install && \
-rm -rf /var/tmp/hiredis
-
+RUN mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 https://github.com/redis/hiredis.git && cd - && \
+    cd /var/tmp/hiredis && \
+    mkdir build && cd build && \
+    cmake .. && \
+    make -j$(nproc) && make install && \
+    rm -rf /var/tmp/hiredis
 
 #RocksDB
-RUN mkdir -p /var/tmp && cd /var/tmp && git clone https://github.com/facebook/rocksdb.git && cd - && \
-cd /var/tmp/rocksdb && \
-make -j$(nproc) shared_lib && \
-make install-shared && \
-rm -rf /var/tmp/rocksdb
+RUN mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 https://github.com/facebook/rocksdb.git && cd - && \
+    cd /var/tmp/rocksdb && \
+    make -j$(nproc) shared_lib && \
+    make install-shared && \
+    rm -rf /var/tmp/rocksdb
 ENV CPATH=/usr/local/include:$CPATH
-
-RUN CUDA_PATH=`find /usr/local/ -name "cuda-*.?" | head -n 1` && \
-    echo "link $CUDA_PATH to /usr/local/cuda" && \
-    ln -s $CUDA_PATH /usr/local/cuda
     
-RUN pip install nvidia-pyindex
-RUN pip install tritonclient
+RUN pip3 install nvidia-pyindex tritonclient && \
+    pip3 cache purge
 
 # HugeCTR Inference
 RUN if [ "$RELEASE" = "true" ]; \
@@ -100,16 +94,18 @@ RUN if [ "$RELEASE" = "true" ]; \
       mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 --branch master https://github.com/NVIDIA/HugeCTR.git HugeCTR && cd - && \
       cd /var/tmp/HugeCTR && \
       git submodule update --init --recursive && \
-      mkdir -p build && cd build &&\
+      mkdir -p build && cd build && \
       cmake -DCMAKE_BUILD_TYPE=Release -DSM=$SM -DENABLE_INFERENCE=ON .. && make -j$(nproc) && make install && \
       export CPATH=/usr/local/hugectr/include:$CPATH && \
       export LIBRARY_PATH=/usr/local/hugectr/lib:$LIBRARY_PATH && \
       cd /var/tmp && git clone https://github.com/triton-inference-server/hugectr_backend.git hugectr_inference_backend && \
       cd /var/tmp/hugectr_inference_backend && \
-      mkdir build && cd build &&\
-      cmake -DCMAKE_INSTALL_PREFIX:PATH=/usr/local/hugectr -DTRITON_COMMON_REPO_TAG=$TRITON_BRANCH  -DTRITON_CORE_REPO_TAG=$TRITON_BRANCH     -DTRITON_BACKEND_REPO_TAG=$TRITON_BRANCH  .. && \
-      make -j &&\
-      make install &&\ 
+      mkdir build && cd build && \
+      cmake -DCMAKE_INSTALL_PREFIX:PATH=/usr/local/hugectr \
+            -DTRITON_COMMON_REPO_TAG=$TRITON_BRANCH \
+            -DTRITON_CORE_REPO_TAG=$TRITON_BRANCH \
+            -DTRITON_BACKEND_REPO_TAG=$TRITON_BRANCH  .. && \
+      make -j && make install && \
       rm -rf /var/tmp/HugeCTR /var/tmp/hugectr_inference_backend; \
     else \
       echo "Build container for development successfully"; \
