@@ -85,8 +85,7 @@ RUN mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 https://github.com/f
     rm -rf /var/tmp/rocksdb
 ENV CPATH=/usr/local/include:$CPATH
     
-RUN pip3 install nvidia-pyindex tritonclient && \
-    pip3 cache purge
+RUN pip3 install --no-cache-dir nvidia-pyindex tritonclient
 
 # HugeCTR Inference
 RUN if [ "$RELEASE" = "true" ]; \
