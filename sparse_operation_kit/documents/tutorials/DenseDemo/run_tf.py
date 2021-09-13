@@ -18,6 +18,8 @@ import tensorflow as tf
 from models import TfDenseDemo
 import argparse
 import sys
+import time
+import numpy as np
 sys.path.append("../")
 import utility
 import nvtx
@@ -48,17 +50,21 @@ def main(args):
         grads = tape.gradient(loss, model.trainable_variables)
         optimizer.apply_gradients(zip(grads, model.trainable_variables))
         return loss
-
+    
+    time_arr = []
     for i, (inputs, labels) in enumerate(dataset):
         if args.stop_at_iter > 0 and i >= args.stop_at_iter:
             break
 
         rng = nvtx.start_range(message="Iteration_" + str(i), color="blue")
-
+        start_time = time.time()
         loss = _train_step(inputs, labels)
-
+        time_arr.append(time.time()-start_time)
+        
         nvtx.end_range(rng)
         print("[INFO]: Iteration: {}, loss={}".format(i, loss))
+    
+    print("Average iteration time (except 1st iteration): ", np.mean(time_arr[1:]))
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="run DNN model with tensorflow")

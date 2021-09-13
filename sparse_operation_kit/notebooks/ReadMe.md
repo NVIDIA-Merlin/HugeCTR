@@ -28,3 +28,4 @@ The notebooks are located within the container and can be found here: `/hugectr/
 
 - [sparse_operation_kit_demo.ipynb](sparse_operation_kit_demo.ipynb): Demos of new TensorFlow plugins for sparse operations (currently, only embedding layers).
 - [embedding_plugin_deprecated.ipynb](embedding_plugin_deprecated.ipynb): Demos of previous embedding plugin. Please be noted that this module is deprecated, and its features are moved to `sparse_operation_kit`.
+- [benchmark.ipynb](benchmark.ipynb): Benchmarking of the SparseOperationKit.
