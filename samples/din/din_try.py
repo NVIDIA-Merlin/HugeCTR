@@ -2,7 +2,7 @@ import hugectr
 solver = hugectr.CreateSolver(max_eval_batches = 1,
                               batchsize_eval = 4096,
                               batchsize = 64,
-                              lr = 0.001,
+                              lr = 0.00001,
                               vvgpu = [[0]],
                               repeat_dataset = True,
                               i64_input_key = True,
@@ -166,6 +166,6 @@ model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.BinaryCrossEntropyLoss
                             top_names = ["loss"]))
 model.compile()
 model.summary()
-model.fit(max_iter = 8000, display = 1000, eval_interval = 1000, snapshot = 1000000, snapshot_prefix = "din")
+model.fit(max_iter = 88000, display = 1000, eval_interval = 1000, snapshot = 1000000, snapshot_prefix = "din")
 #model.graph_to_json(graph_config_file = "din.json")
 #model.export_predictions( "prediction_fit",  "label_fit")

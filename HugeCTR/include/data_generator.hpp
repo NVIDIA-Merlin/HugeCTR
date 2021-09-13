@@ -22,7 +22,15 @@
 #include <fstream>
 #include <memory>
 #include <random>
-
+// !TODO add macro ENABLE_CUDF for those don't that have cudf installed
+// data generation for parquet, 
+#include <cudf/column/column.hpp>
+#include <cudf/column/column_factories.hpp>
+#include <cudf/io/parquet.hpp>
+#include <cudf/table/table.hpp>
+#include <cudf/table/table_view.hpp>
+#include <cudf/utilities/bit.hpp>
+#include <rmm/device_buffer.hpp>
 namespace HugeCTR {
 
 /**
@@ -45,10 +53,22 @@ inline void check_make_dir(const std::string& finalpath) {
     if (errno == EEXIST) {
       std::cout << (finalpath + " exist") << std::endl;
     } else {
-      // something else
-      std::cerr << ("cannot create" + finalpath + ": unexpected error") << std::endl;
+      CK_THROW_(Error_t::UnspecificError, "cannot create" + finalpath + ": unexpected error");
+      exit(-1);
     }
   }
+}
+
+/**
+ * Extract directory from path
+ */
+inline std::string extract_dir(const std::string& source_data) {
+  std::string source_dir;
+  const size_t last_slash_idx = source_data.rfind('/');
+  if (std::string::npos != last_slash_idx) {
+    source_dir = source_data.substr(0, last_slash_idx);
+  }
+  return source_dir;
 }
 
 template <typename T>
@@ -87,22 +107,22 @@ class IntPowerLawDataSimulator : public IDataSimulator<T> {
  public:
   IntPowerLawDataSimulator(T min, T max, float alpha)
       : gen_(std::random_device()()), dis_(0, 1), alpha_(alpha) {
-    min_ = 1;
-    max_ = max - min + 1;
-    offset_ = min - 1;  // to handle the case min_ <= 0 and alpha_ < -1
+    min_ = 1.0;
+    max_ = max - min + 1.0;
+    offset_ = min - 1.0;  // to handle the case min_ <= 0
   }
 
   T get_num() override {
     double x = dis_(gen_);
-    double y = (pow((pow(max_, alpha_ + 1) - pow(min_, alpha_ + 1)) * x + pow(min_, alpha_ + 1),
-                    1.0 / (alpha_ + 1.0)));
+    double y = (pow((pow(max_, 1 - alpha_) - pow(min_, 1 - alpha_)) * x + pow(min_, 1 - alpha_),
+                    1.0 / (1.0 - alpha_)));
     return static_cast<T>(round(y) + offset_);
   }
 
  private:
   std::mt19937 gen_;
   std::uniform_real_distribution<float> dis_;
-  float alpha_;
+  float alpha_;     // requiring alpha_ > 0 and alpha_ != 1.0
   double min_, max_, offset_;
 };
 
@@ -359,6 +379,162 @@ void data_generation_for_test2(std::string file_list_name, std::string data_pref
   return;
 }
 
+template <typename T>
+void data_generation_for_parquet(std::string file_list_name, std::string data_prefix, int num_files,
+                                 int num_records_per_file, int slot_num, int label_dim,
+                                 int dense_dim, const std::vector<size_t> slot_size_array,
+                                 std::vector<int> nnz_array, bool long_tail = false,
+                                 float alpha = 0.0) {
+  if (slot_num != (int)slot_size_array.size() || slot_num != (int)nnz_array.size()) {
+    std::cout << "Error: slot_num != slot_size_array.size() || slot_num != nnz_array.size()"
+              << std::endl;
+    exit(-1);
+  }
+  std::string directory;
+  const size_t last_slash_idx = data_prefix.rfind('/');
+  if (std::string::npos != last_slash_idx) {
+    directory = data_prefix.substr(0, last_slash_idx);
+  }
+  check_make_dir(directory);
+
+  std::ofstream file_list_stream(file_list_name, std::ofstream::out);
+  file_list_stream << (std::to_string(num_files) + "\n");
+
+  using CVector = std::vector<std::unique_ptr<cudf::column>>;
+  for (int k = 0; k < num_files; k++) {
+    // cudf columns
+    CVector cols;
+    std::string tmp_file_name(data_prefix + std::to_string(k) + ".parquet");
+    file_list_stream << (tmp_file_name + "\n");
+    std::cout << tmp_file_name << std::endl;
+    // Initialize Simulators
+    FloatUniformDataSimulator<float> fdata_sim(0, 1);  // for lable and dense
+    std::vector<std::shared_ptr<IDataSimulator<T>>> ldata_sim_vec;
+    // todo risk of type Int
+    for (auto& voc : slot_size_array) {
+      size_t accum_next = voc;
+      if (long_tail) {
+        ldata_sim_vec.emplace_back(new IntPowerLawDataSimulator<T>(0, accum_next - 1, alpha));
+      } else {
+        ldata_sim_vec.emplace_back(new IntUniformDataSimulator<T>(0, accum_next - 1));
+      }
+    }
+
+    // for label columns
+    for (int j = 0; j < label_dim; j++) {
+      std::vector<float> label_vector(num_records_per_file);
+      for (int i = 0; i < num_records_per_file; i++) {
+        float label_ = fdata_sim.get_num();
+        label_vector[i] = label_;
+      }
+      rmm::device_buffer dev_buffer(label_vector.data(), sizeof(float) * num_records_per_file, rmm::cuda_stream_default);
+      cols.emplace_back(std::make_unique<cudf::column>(cudf::data_type{cudf::type_to_id<float>()},
+                                                       cudf::size_type(num_records_per_file),
+                                                       std::move(dev_buffer)));
+    }
+    // for dense columns
+    for (int j = 0; j < dense_dim; j++) {
+      std::vector<float> dense_vector(num_records_per_file);
+      for (int i = 0; i < num_records_per_file; i++) {
+        float _dense = fdata_sim.get_num();
+        dense_vector[i] = _dense;
+      }
+      rmm::device_buffer dev_buffer(dense_vector.data(), sizeof(float) * num_records_per_file, rmm::cuda_stream_default);
+      cols.emplace_back(std::make_unique<cudf::column>(cudf::data_type{cudf::type_to_id<float>()},
+                                                       cudf::size_type(num_records_per_file),
+                                                       std::move(dev_buffer)));
+    }
+    // for sparse columns
+    // size_t offset = 0;
+    for (int k = 0; k < slot_num; k++) {
+      std::vector<T> slot_vector;
+      std::vector<int32_t> row_offset_vector(num_records_per_file + 1);
+      constexpr size_t bitmask_bits = cudf::detail::size_in_bits<cudf::bitmask_type>();
+      size_t bits = (num_records_per_file + bitmask_bits - 1) / bitmask_bits;
+      std::vector<cudf::bitmask_type> null_mask(bits, 0);
+      int nnz = nnz_array[k];
+      for (int i = 0; i < num_records_per_file; i++) {
+        row_offset_vector[i] = i * nnz;
+        for (int j = 0; j < nnz; j++) {
+          T key = ldata_sim_vec[k]->get_num();
+          slot_vector.push_back(key);
+        }
+        row_offset_vector[num_records_per_file] = num_records_per_file * nnz;
+      }
+      if (nnz == 1) {
+        rmm::device_buffer dev_buffer(slot_vector.data(), sizeof(T) * slot_vector.size(), rmm::cuda_stream_default);
+        cols.emplace_back(std::make_unique<cudf::column>(cudf::data_type{cudf::type_to_id<T>()},
+                                                         cudf::size_type(slot_vector.size()),
+                                                         std::move(dev_buffer)));
+
+      } else {
+        rmm::device_buffer dev_buffer_0(slot_vector.data(), sizeof(T) * slot_vector.size(), rmm::cuda_stream_default);
+        auto child =
+            std::make_unique<cudf::column>(cudf::data_type{cudf::type_to_id<T>()},
+                                           cudf::size_type(slot_vector.size()), std::move(dev_buffer_0));
+        rmm::device_buffer dev_buffer_1(row_offset_vector.data(),
+                                        sizeof(int32_t) * row_offset_vector.size(), rmm::cuda_stream_default);
+        auto row_off =
+            std::make_unique<cudf::column>(cudf::data_type{cudf::type_to_id<int32_t>()},
+                                           cudf::size_type(row_offset_vector.size()), std::move(dev_buffer_1));
+        cols.emplace_back(cudf::make_lists_column(
+            num_records_per_file, std::move(row_off), std::move(child), cudf::UNKNOWN_NULL_COUNT,
+            rmm::device_buffer(null_mask.data(), null_mask.size() * sizeof(cudf::bitmask_type), rmm::cuda_stream_default)));
+      }
+    }
+    cudf::table input_table(std::move(cols));
+    cudf::io::parquet_writer_options writer_args = cudf::io::parquet_writer_options::builder(
+        cudf::io::sink_info{tmp_file_name}, input_table.view());
+    cudf::io::write_parquet(writer_args);
+  }
+  file_list_stream.close();
+  std::cout << file_list_name << " done!" << std::endl;
+  // also write metadata
+  std::stringstream metadata;
+  metadata << "{ \"file_stats\": [";
+  for (int i = 0; i < num_files - 1; i++) {
+    std::string filepath = data_prefix + std::to_string(i) + std::string(".parquet");
+    metadata << "{\"file_name\": \"" << filepath << "\", "
+             << "\"num_rows\":" << num_records_per_file << "}, ";
+  }
+  std::string filepath = data_prefix + std::to_string(num_files - 1) + std::string(".parquet");
+  metadata << "{\"file_name\": \"" << filepath << "\", "
+           << "\"num_rows\":" << num_records_per_file << "} ";
+  metadata << "], ";
+  metadata << "\"labels\": [";
+  for (int i = 0; i < label_dim; i++) {
+    metadata << "{\"col_name\": \"label\", "
+             << "\"index\":" << i << "} ";
+  }
+  metadata << "], ";
+
+  metadata << "\"conts\": [";
+  for (int i = label_dim; i < (label_dim + dense_dim - 1); i++) {
+    metadata << "{\"col_name\": \"C" << i << "\", "
+             << "\"index\":" << i << "}, ";
+  }
+  metadata << "{\"col_name\": \"C" << (label_dim + dense_dim - 1) << "\", "
+           << "\"index\":" << (label_dim + dense_dim - 1) << "} ";
+  metadata << "], ";
+
+  metadata << "\"cats\": [";
+  for (int i = label_dim + dense_dim; i < (label_dim + dense_dim + slot_num - 1); i++) {
+    metadata << "{\"col_name\": \"C" << i << "\", "
+             << "\"index\":" << i << "}, ";
+  }
+  metadata << "{\"col_name\": \"C" << (label_dim + dense_dim + slot_num - 1) << "\", "
+           << "\"index\":" << (label_dim + dense_dim + slot_num - 1) << "} ";
+  metadata << "] ";
+  metadata << "}";
+
+  std::ofstream metadata_file_stream;
+  // std::cout<<"directory is "<<directory<<std::endl;
+  metadata_file_stream.open(directory + "/_metadata.json", std::ofstream::out);
+  metadata_file_stream << metadata.rdbuf();
+  metadata_file_stream.close();
+  return;
+}
+
 // Add a new data_generation function for LocalizedSparseEmbedding testing
 // In this function, the relationship between key and slot_id is: key's slot_id=(key%slot_num)
 // Add a new data_generation function for LocalizedSparseEmbedding testing
@@ -498,6 +674,9 @@ inline void data_generation_for_raw(std::string file_name, long long num_samples
                                     std::vector<T>* generated_sparse_data = nullptr,
                                     std::vector<float>* generated_dense_data = nullptr,
                                     std::vector<float>* generated_label_data = nullptr) {
+  if (file_exist(file_name)) {
+    std::cout << "File (" + file_name + ") exists and it will be overwritten." << std::endl;
+  }
   static_assert(std::is_same<T, long long>::value || std::is_same<T, unsigned int>::value,
                 "type not support");
 
@@ -579,4 +758,45 @@ inline void data_generation_for_raw(std::string file_name, long long num_samples
   out_stream.close();
   return;
 }
+
+struct DataGeneratorParams {
+  DataReaderType_t format;
+  int label_dim;
+  int dense_dim;
+  int num_slot;
+  bool i64_input_key;
+  std::string source;
+  std::string eval_source;
+  std::vector<size_t> slot_size_array;
+  std::vector<int> nnz_array;
+  Check_t check_type;
+  Distribution_t dist_type;
+  PowerLaw_t power_law_type;
+  float alpha;
+  int num_files;
+  int eval_num_files;
+  int num_samples_per_file;
+  int num_samples;
+  int eval_num_samples;
+  bool float_label_dense;
+  DataGeneratorParams(DataReaderType_t format, int label_dim, int dense_dim, int num_slot,
+                      bool i64_input_key, const std::string& source, const std::string& eval_source,
+                      const std::vector<size_t>& slot_size_array, const std::vector<int>& nnz_array,
+                      Check_t check_type, Distribution_t dist_type, PowerLaw_t power_law_type,
+                      float alpha, int num_files, int eval_num_files, int num_samples_per_file,
+                      int num_samples, int eval_num_samples, bool float_label_dense);
+};
+
+class DataGenerator {
+ public:
+  ~DataGenerator();
+  DataGenerator(const DataGeneratorParams& data_generator_params);
+  DataGenerator(const DataGenerator&) = delete;
+  DataGenerator& operator=(const DataGenerator&) = delete;
+  void generate();
+
+ private:
+  DataGeneratorParams data_generator_params_;
+};
+
 }  // namespace HugeCTR

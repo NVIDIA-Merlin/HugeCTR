@@ -228,7 +228,7 @@ void data_reader_raw_test_impl(const std::vector<int> &device_list, int num_thre
       // std::cout << "iter:" << iter << " keys:" << keys[0];
       for (int i = 0; i < current_batch_size * slot_num; ++i) {
         ASSERT_TRUE(keys[i] == generated_sparse_data[batchsize * slot_num * (iter % round) + i])
-            << "idx:" << i;
+            << "idx:" << i << ",a:" << keys[i] << ",b:" << generated_sparse_data[batchsize * slot_num * (iter % round) + i];
       }
 
       std::unique_ptr<T[]> rowoffsets(new T[1 + batchsize * slot_num]);
@@ -237,9 +237,9 @@ void data_reader_raw_test_impl(const std::vector<int> &device_list, int num_thre
                                 cudaMemcpyDeviceToHost));
       for (int i = 0; i < batchsize * slot_num + 1; ++i) {
         if(i < 1 + current_batch_size * slot_num){
-          ASSERT_TRUE(rowoffsets[i] == static_cast<T>(i)) << "idx:" << i;
+          ASSERT_TRUE(rowoffsets[i] == static_cast<T>(i)) << "idx:" << i << ",a:" << rowoffsets[i] << ",b:" << i;
         }else {
-          ASSERT_TRUE(rowoffsets[i] == static_cast<T>(current_batch_size * slot_num)) << "idx:" << i;
+          ASSERT_TRUE(rowoffsets[i] == static_cast<T>(current_batch_size * slot_num)) << "idx:" << i << ",a:" << rowoffsets[i] << ",b:" << current_batch_size * slot_num;
         }
       }
 

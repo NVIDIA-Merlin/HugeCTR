@@ -20,6 +20,7 @@
 #include <HugeCTR/include/common.hpp>
 #include <HugeCTR/include/device_map.hpp>
 #include <HugeCTR/include/embeddings/hybrid_embedding/utils.hpp>
+#include <HugeCTR/include/inference/inference_utils.hpp>
 #include <HugeCTR/include/metrics.hpp>
 
 namespace HugeCTR {
@@ -200,6 +201,22 @@ void CommonPybind(pybind11::module& m) {
       .value("IB_NVLink_Hier", HugeCTR::hybrid_embedding::CommunicationType::IB_NVLink_Hier)
       .value("IB_NVLink", HugeCTR::hybrid_embedding::CommunicationType::IB_NVLink)
       .value("NVLink_SingleNode", HugeCTR::hybrid_embedding::CommunicationType::NVLink_SingleNode)
+      .export_values();
+  pybind11::enum_<HugeCTR::Distribution_t>(m, "Distribution_t")
+      .value("Uniform", HugeCTR::Distribution_t::Uniform)
+      .value("PowerLaw", HugeCTR::Distribution_t::PowerLaw)
+      .export_values();
+  pybind11::enum_<HugeCTR::PowerLaw_t>(m, "PowerLaw_t")
+      .value("Long", HugeCTR::PowerLaw_t::Long)
+      .value("Medium", HugeCTR::PowerLaw_t::Medium)
+      .value("Short", HugeCTR::PowerLaw_t::Short)
+      .value("Specific", HugeCTR::PowerLaw_t::Specific)
+      .export_values();
+  pybind11::enum_<HugeCTR::DATABASE_TYPE>(m, "Database_t")
+      .value("Redis", HugeCTR::DATABASE_TYPE::REDIS)
+      .value("RocksDB", HugeCTR::DATABASE_TYPE::ROCKSDB)
+      .value("Local", HugeCTR::DATABASE_TYPE::LOCAL)
+      .value("Hierarchy", HugeCTR::DATABASE_TYPE::HIERARCHY)
       .export_values();
 }
 

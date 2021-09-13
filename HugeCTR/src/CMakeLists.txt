@@ -14,6 +14,7 @@
 cmake_minimum_required(VERSION 3.17)
 find_package(CUDAToolkit)
 include_directories(/opt/conda/include)
+set(DB_LIB_PATHS "/usr/local/lib" CACHE PATH "Paths to Hiredis/RocksDB lib")
 
 include(FetchContent)
 
@@ -48,6 +49,11 @@ add_library(huge_ctr_shared SHARED ${huge_ctr_src})
 
 target_link_libraries(huge_ctr_static PUBLIC cublas curand cudnn nccl nvToolsExt ${CMAKE_THREAD_LIBS_INIT} cudf stdc++fs tbb)
 target_link_libraries(huge_ctr_shared PUBLIC cublas curand cudnn nccl nvToolsExt ${CMAKE_THREAD_LIBS_INIT} cudf stdc++fs tbb)
+target_link_libraries(
+  huge_ctr_shared
+  PUBLIC
+    ${DB_LIB_PATHS}/libhiredis.so librocksdb.so # from Hugectr 
+)
 
 if(MPI_FOUND)
   target_link_libraries(huge_ctr_static PUBLIC cublas cublasLt curand cudnn nccl nvToolsExt ${CMAKE_THREAD_LIBS_INIT} ${MPI_CXX_LIBRARIES} hwloc ucp ucs ucm uct numa ibverbs gdrapi stdc++fs)

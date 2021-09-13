@@ -29,7 +29,7 @@ InferenceSession::InferenceSession(const std::string& model_config_path,
       embedding_cache_(embedding_cache),
       inference_parser_(config_),
       inference_params_(inference_params),
-      resource_manager_(ResourceManager::create({{inference_params.device_id}}, 0)) {
+      resource_manager_(ResourceManagerCore::create({{inference_params.device_id}}, 0)) {
   try {
     MESSAGE_("Use mixed precision: " + std::to_string(inference_params_.use_mixed_precision));
     Network* network_ptr;

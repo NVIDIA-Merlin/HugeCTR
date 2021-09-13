@@ -12,6 +12,7 @@ Design Goals:
 * [Core Features](#core-features)
 * [Getting Started](#getting-started)
 * [Support and Feedback](#support-and-feedback)
+* [Contribute to HugeCTR](#contribute-to-hugectr)
 
 ## Core Features ##
 HugeCTR supports a variety of features, including the following:
@@ -23,6 +24,7 @@ HugeCTR supports a variety of features, including the following:
 * [embedding training cache](docs/hugectr_user_guide.md#embedding-training-cache)
 * [caching of most frequent embedding for inference](https://github.com/triton-inference-server/hugectr_backend/blob/main/docs/architecture.md#enabling-the-gpu-embedding-cache)
 * [GPU / CPU memory sharing mechanism across different inference instances](https://github.com/triton-inference-server/hugectr_backend/blob/main/docs/architecture.md#hugectr-backend-framework)
+* [ONNX Converter](docs/hugectr_user_guide.md#onnx-converter)
 
 To learn about our latest enhancements, see our [release notes](release_notes.md).
 
@@ -40,25 +42,41 @@ If you'd like to quickly train a model using the Python interface, follow these 
    source activate merlin
    ```
 
-3. Inside the container, copy the configuration file for data generation to our mounted directory (/your/container/dir).
-   
-   The config file can be found at [data_generate_norm.json](./tools/data_generator/data_generate_norm.json). This config file specifies the format, destination, feature dimensions and so on for data generation.
-
-4. Generate a synthetic dataset based on the configuration file by running the following command:
+3. Write a simple Python script to generate synthetic dataset:
    ```
-   mkdir -p dcn_norm
-   ./data_generator --data-folder dcn_norm --config-file data_generate_norm.json --voc-size-array 39884,39043,17289,7420,20263,3,7120,1543,39884,39043,17289,7420,20263,3,7120,1543,63,63,39884,39043,17289,7420,20263,3,7120,1543 --distribution powerlaw --alpha -1.2
+   # dcn_norm_generate.py
+   import hugectr
+   from hugectr.tools import DataGeneratorParams, DataGenerator
+   data_generator_params = DataGeneratorParams(
+     format = hugectr.DataReaderType_t.Norm,
+     label_dim = 1,
+     dense_dim = 13,
+     num_slot = 26,
+     i64_input_key = False,
+     source = "./dcn_norm/file_list.txt",
+     eval_source = "./dcn_norm/file_list_test.txt",
+     slot_size_array = [39884, 39043, 17289, 7420, 20263, 3, 7120, 1543, 39884, 39043, 17289, 7420, 20263, 3, 7120, 1543, 63, 63, 39884, 39043, 17289, 7420, 20263, 3, 7120, 1543],
+     check_type = hugectr.Check_t.Sum,
+     dist_type = hugectr.Distribution_t.PowerLaw,
+     power_law_type = hugectr.PowerLaw_t.Short)
+   data_generator = DataGenerator(data_generator_params)
+   data_generator.generate()
+   ```
+
+4. Generate the Norm dataset for DCN model by running the following command:
+   ```
+   python dcn_norm_generate.py
    ```
    **NOTE**: The generated dataset will reside in the folder `./dcn_norm`, which includes both training data and evaluation data.
 
-5. Write a simple Python code using the hugectr module as shown here:
+5. Write a simple Python script for training:
    ```
    # dcn_norm_train.py
    import hugectr
    from mpi4py import MPI
-   solver = hugectr.CreateSolver(max_eval_batches = 320,
-                                 batchsize_eval = 16384,
-                                 batchsize = 16384,
+   solver = hugectr.CreateSolver(max_eval_batches = 1280,
+                                 batchsize_eval = 1024,
+                                 batchsize = 1024,
                                  lr = 0.001,
                                  vvgpu = [[0]],
                                  repeat_dataset = True)
@@ -118,9 +136,9 @@ If you'd like to quickly train a model using the Python interface, follow these 
    model.compile()
    model.summary()
    model.graph_to_json(graph_config_file = "dcn.json")
-   model.fit(max_iter = 3200, display = 200, eval_interval = 1000, snapshot = 3000, snapshot_prefix = "dcn")
+   model.fit(max_iter = 5120, display = 200, eval_interval = 1000, snapshot = 5000, snapshot_prefix = "dcn")
    ```
-   **NOTE**: Please make sure that the paths to the synthetic datasets are correct with respect to this Python script.
+   **NOTE**: Please make sure that the paths to the synthetic datasets are correct with respect to this Python script. Besides, `data_reader_type`, `check_type`, `label_dim`, `dense_dim` and `data_reader_sparse_param_array` should be consistent with the generated dataset.
 
 6. Train the model by running the following command:
    ```
@@ -132,4 +150,7 @@ For additional information, see the [HugeCTR User Guide](docs/hugectr_user_guide
 
 ## Support and Feedback ##
 If you encounter any issues and/or have questions, please file an issue [here](https://github.com/NVIDIA/HugeCTR/issues) so that we can provide you with the necessary resolutions and answers. To further advance the Merlin/HugeCTR Roadmap, we encourage you to share all the details regarding your recommender system pipeline using this [survey](https://developer.nvidia.com/merlin-devzone-survey).
+
+## Contribute to HugeCTR ##
+HugeCTR is an open source project, and we encourage you to join the development directly. All of your contributions will be appreciated and can help us to improve our quality and performance. Please find more about how to contribute and the developer specific instructions on our [HugeCTR Contributor Guide](docs/hugectr_contributor_guide.md)
 

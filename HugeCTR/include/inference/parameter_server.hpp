@@ -17,6 +17,7 @@
 #pragma once
 #include <common.hpp>
 #include <embedding.hpp>
+#include <inference/database.hpp>
 #include <inference/inference_utils.hpp>
 #include <iostream>
 #include <metrics.hpp>
@@ -53,10 +54,10 @@ class parameter_server : public parameter_server_base, public HugectrUtility<Typ
   std::string framework_name_;
   // Currently, embedding tables are implemented as CPU hashtable, 1 hashtable per embedding table
   // per model
-  std::vector<std::vector<std::unordered_map<TypeHashKey, std::vector<float>>>>
-      cpu_embedding_table_;
   // The parameter server configuration
   parameter_server_config ps_config_;
+  DataBase<TypeHashKey>* db;
+  DATABASE_TYPE dbtype = DATABASE_TYPE::LOCAL;
 };
 
 }  // namespace HugeCTR

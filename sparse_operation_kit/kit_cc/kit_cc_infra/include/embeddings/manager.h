@@ -61,7 +61,8 @@ public:
     void allocate_memory(const size_t global_replica_id);
 
     void get_output_shape(const std::shared_ptr<EmbeddingLayer>& emb, 
-                          std::vector<int64_t> &output_shape) const;
+                          std::vector<int64_t> &output_shape,
+                          const bool dynamic_input) const;
 
     void get_grad_shape(const size_t global_replica_id,
                         const std::shared_ptr<EmbeddingLayer>& emb, 

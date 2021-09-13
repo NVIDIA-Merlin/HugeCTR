@@ -97,8 +97,9 @@ void save_graph_to_json(nlohmann::json& layer_config_array,
     sparse_config["top"] = sparse_embedding_params[i].sparse_embedding_name;
     nlohmann::json sparse_hparam_config;
     sparse_hparam_config["workspace_size_per_gpu_in_mb"] =
-        sparse_embedding_params[i].max_vocabulary_size_per_gpu *
-        sparse_embedding_params[i].embedding_vec_size * sizeof(float) / 1024 / 1024;
+        sparse_embedding_params[i].workspace_size_per_gpu_in_mb;
+    sparse_hparam_config["max_vocabulary_size_global"] =
+        sparse_embedding_params[i].max_vocabulary_size_global;
     sparse_hparam_config["embedding_vec_size"] = sparse_embedding_params[i].embedding_vec_size;
     if (sparse_embedding_params[i].combiner == 0) {
       sparse_hparam_config["combiner"] = "sum";

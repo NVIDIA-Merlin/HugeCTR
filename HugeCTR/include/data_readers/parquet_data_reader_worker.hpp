@@ -170,6 +170,8 @@ class ParquetDataReaderWorker : public IDataReaderWorker {
         device_id_(device_id),
         row_group_carry_forward_(0),
         resource_manager_(resource_manager) {
+    CudaCPUDeviceContext ctx(gpu_resource->get_device_id());
+    
     std::shared_ptr<GeneralBuffer2<CudaHostAllocator>> buff =
         GeneralBuffer2<CudaHostAllocator>::create();
     buff->reserve({1024}, &host_memory_pointer_staging_);

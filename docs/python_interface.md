@@ -60,6 +60,10 @@ As a recommendation system domain specific framework, HugeCTR has a set of high 
     * [predict()](#predict-method)
     * [evaluate()](#evaluate-method)
   <summary>Details</summary>
+* [Data Generator API](#data-generator-api)
+  * [DataGeneratorParams class](#datageneratorparams-class)
+  * [DataGenerator class](#datagenerator)
+    * [generate()](#generate-method)
 
 ## High-level Training API ##
 For HugeCTR high-level training API, the core data structures are `Solver`, `ModelOversubscriberParams`, `DataReaderParams`, `OptParamsPy`, `Input`, `SparseEmbedding`, `DenseLayer` and `Model`. You can create a `Model` instance with `Solver`, `ModelOversubscriberParams`, `DataReaderParams` and `OptParamsPy` instances, and then add instances of `Input`, `SparseEmbedding` or `DenseLayer` to it. After compiling the model with the `Model.compile()` method, you can start the epoch mode or non-epoch mode training by simply calling the `Model.fit()` method. Moreover, the `Model.summary()` method gives you an overview of the model structure. We also provide some other methods, such as saving the model graph to a JSON file, constructing the model graph based on the saved JSON file, loading model weights and optimizer status, etc.
@@ -227,9 +231,9 @@ hugectr.DataReaderParams()
 **Arguments**
 * `data_reader_type`: The type of the data reader which should be consistent with the dataset format. The supported types include `hugectr.DataReaderType_t.Norm`, `hugectr.DataReaderType_t.Raw` and `hugectr.DataReaderType_t.Parquet` and `DataReaderType_t.RawAsync`. The type `DataReaderType_t.RawAsync` is valid only if `is_dlrm` is set `True` within `CreateSolver`. There is NO default value and it should be specified by users.
 
-* `source`: List[str], the training dataset source. For Norm or Parquet dataset, it should be the file list of training data, e.g., `source = ["file_list.txt"]`. For Raw dataset, it should be a single training file, e.g., `source = ["train_data.bin"]`. When using model oversubscriber, it can be specified with several file lists, e.g., `source = ["file_list.1.txt", "file_list.2.txt"]`. There is NO default value and it should be specified by users.
+* `source`: List[str] or String, the training dataset source. For Norm or Parquet dataset, it should be the file list of training data, e.g., `source = "file_list.txt"`. For Raw dataset, it should be a single training file, e.g., `source = "train_data.bin"`. When using model oversubscriber, it can be specified with several file lists, e.g., `source = ["file_list.1.txt", "file_list.2.txt"]`. There is NO default value and it should be specified by users.
 
-* `keyset`: List[str], the keyset files. This argument will ONLY be valid when using model oversubscriber and it should be corresponding to the `source`. For example, we can specify `source = ["file_list.1.txt", "file_list.2.txt"]` and `source = ["file_list.1.keyset", "file_list.2.keyset"]`, which have a one-to-one correspondence.
+* `keyset`: List[str] or String, the keyset files. This argument will ONLY be valid when using model oversubscriber and it should be corresponding to the `source`. For example, we can specify `source = ["file_list.1.txt", "file_list.2.txt"]` and `source = ["file_list.1.keyset", "file_list.2.keyset"]`, which have a one-to-one correspondence.
 
 * `eval_source`: String, the evaluation dataset source. For Norm or Parquet dataset, it should be the file list of evaluation data. For Raw dataset, it should be a single evaluation file. There is NO default value and it should be specified by users.
 
@@ -245,7 +249,7 @@ hugectr.DataReaderParams()
 
 * `num_workers`: Integer, the number of data reader workers that concurrently load data. You can empirically decide the best one based on your dataset, training environment. The default value is 12.
 
-* `slot_size_array`: List[int], the cardinality array of input features. It should be consistent with that of the sparse input. We requires this argument for Parquet format data. The default value is an empty list.
+* `slot_size_array`: List[int], the cardinality array of input features. It should be consistent with that of the sparse input. We requires this argument for Parquet format data and RawAsync format when you want to add offset to input key. The default value is an empty list.
 
 * `async_param`: AsyncParam, the parameters for async raw data reader. This argument is restricted to MLPerf use.
 
@@ -328,8 +332,6 @@ The Raw dataset format is different from the Norm dataset format in that the tra
 
 **NOTE**: Only one-hot data is accepted with this format.
 
-When using the Raw dataset format, a user must preprocess their own dataset to generate the continuous keys for each slot, and specify the list of the slot sizes with the `slot_size_array` option. Therefore, when referencing the configuration snippet above, we assume that slot 0 has the continuous keyset `{0, 1, 2 ... 39884405}` while slot 1 has its keyset on a different space `{0, 1, 2 ... 39043}`. 
-
 The Raw dataset format can be used with embedding type LocalizedSlotSparseEmbeddingOneHot only.
 
 Example:
@@ -371,7 +373,7 @@ reader = hugectr.DataReaderParams(data_reader_type = hugectr.DataReaderType_t.Pa
                                   slot_size_array = [278899, 355877, 203750, 18573, 14082, 7020, 18966, 4, 6382, 1246, 49, 185920, 71354, 67346, 11, 2166, 7340, 60, 4, 934, 15, 204208, 141572, 199066, 60940, 9115, 72, 34])
 ``` 
 
-Similar to the Raw dataset format, you must preprocess your own dataset to generate the continuous keys for each slot, and specify the list of the slot sizes with the `slot_size_array` option. Therefore, in the configuration snippet noted above, we assume that slot 0 has the continuous keyset `{0, 1, 2 ... 220817329}` and slot 1 has its keyset on a different space `{0, 1, 2 ... 126535807}`.
+We provide an option to add offset for each slot by specifying `slot_size_array`. `slot_size_array` is an array whose length is equal to the number of slots. To avoid duplicate keys after adding offset, we need to ensure that the key range of the i-th slot is between 0 and slot_size_array[i]. We will do the offset in this way: for i-th slot key, we add it with offset slot_size_array[0] + slot_size_array[1] + ... + slot_size_array[i - 1]. In the configuration snippet noted above, for the 0th slot, offset 0 will be added. For the 1st slot, offset 278899 will be added. And for the third slot, offset 634776 will be added.
 
 ### **OptParamsPy** ###
 #### **CreateOptimizer method**
@@ -447,7 +449,7 @@ hugectr.SparseEmbedding()
 **Arguments**
 * `embedding_type`: The embedding type to be used. The supported types include `hugectr.Embedding_t.DistributedSlotSparseEmbeddingHash`, `hugectr.Embedding_t.LocalizedSlotSparseEmbeddingHash`, `hugectr.Embedding_t.LocalizedSlotSparseEmbeddingOneHot` and `hugectr.Embedding_t.HybridSparseEmbedding`. The type `Embedding_t.HybridSparseEmbedding` is valid only if `is_dlrm` is set `True` within `CreateSolver` and `data_reader_type` is specified as `DataReaderType_t.RawAsync` within `DataReaderParams`. There is NO default value and it should be specified by users.
 
-* `workspace_size_per_gpu_in_mb`: Integer, the workspace memory size in megabyte per GPU. This workspace memory must be big enough to hold all the embedding vocabulary used during the training and evaluation. There is NO default value and it should be specified by users. To understand how to set this value, please refer [QAList.md](./QAList.md#How-to-set-workspace_size_per_gpu_in_mb-and-slot_size_array-in-.json-file).
+* `workspace_size_per_gpu_in_mb`: Integer, the workspace memory size in megabyte per GPU. This workspace memory must be big enough to hold all the embedding vocabulary used during the training and evaluation. There is NO default value and it should be specified by users. To understand how to set this value, please refer [How to set workspace_size_per_gpu_in_mb and slot_size_array](./QAList.md#24).
 
 * `embedding_vec_size`: Integer, the embedding vector size. There is NO default value and it should be specified by users.
 
@@ -457,7 +459,7 @@ hugectr.SparseEmbedding()
 
 * `bottom_name`: String, the number of the bottom tensor to be consumed by this sparse embedding layer. Please note that it should be a predefined sparse input name. There is NO default value and it should be specified by users.
 
-* `slot_size_array`: List[int], the cardinality array of input features. It should be consistent with that of the sparse input. This parameter is used in `LocalizedSlotSparseEmbeddingHash` and `LocalizedSlotSparseEmbeddingOneHot`, which can help avoid wasting memory caused by imbalance vocabulary size. Please refer [How to set workspace_size_per_gpu_in_mb and slot_size_array in .json file](./QAList.md#24). There is NO default value and it should be specified by users.
+* `slot_size_array`: List[int], the cardinality array of input features. It should be consistent with that of the sparse input. This parameter can be used in `LocalizedSlotSparseEmbeddingHash`, `LocalizedSlotSparseEmbeddingOneHot` and `HybridSparseEmbedding`. The meaning of `slot_size_array` is varied based on different embedding type. There is NO default value and it should be specified by users. Please refer [How to set workspace_size_per_gpu_in_mb and slot_size_array](./QAList.md#24).
 
 * `optimizer`: OptParamsPy, the optimizer dedicated to this sparse embedding layer. If the user does not specify the optimizer for the sparse embedding, it will adopt the same optimizer as dense layers. 
 
@@ -980,3 +982,68 @@ The `evaluate` method of InferenceSession does evaluations based on the dataset 
 * `check_type`: `hugectr.Check_t`, the check type for the data source. We support `hugectr.Check_t.Sum` and `hugectr.Check_t.Non` currently.
 
 * `slot_size_array`: List[int], the cardinality array of input features. It should be consistent with that of the sparse input. We requires this argument for Parquet format data. The default value is an empty list, which is suitable for Norm format data.
+
+## Data Generator API ##
+For HugeCTR data generator API, the core data structures are `DataGeneratorParams` and `DataGenerator`. Please refer to [Data Generator](../tools/data_generator) to acknowledge how to write Python scripts to generate synthetic dataset and start training HugeCTR model.
+
+#### **DataGeneratorParams class**
+```bash
+hugectr.tools.DataGeneratorParams()
+```
+`DataGeneratorParams` specifies the parameters related to the data generation. An `DataGeneratorParams` instance is required to initialize the `DataGenerator` instance.
+
+**Arguments**
+* `format`: The format for synthetic dataset. The supported types include `hugectr.DataReaderType_t.Norm`, `hugectr.DataReaderType_t.Parquet` and `hugectr.DataReaderType_t.Raw`. There is NO default value and it should be specified by users.
+
+* `label_dim`: Integer, the label dimension for synthetic dataset. There is NO default value and it should be specified by users.
+
+* `dense_dim`:  Integer, the number of dense (or continuous) features for synthetic dataset. There is NO default value and it should be specified by users.
+
+* `num_slot`: Integer, the number of sparse feature slots for synthetic dataset. There is NO default value and it should be specified by users.
+
+* `i64_input_key`: Boolean, whether to use I64 for input keys for synthetic dataset. If your dataset format is Norm or Paruqet, you can choose the data type of each input key. For the Raw dataset format, only I32 is allowed. There is NO default value and it should be specified by users.
+
+* `source`: String, the synthetic training dataset source. For Norm or Parquet dataset, it should be the file list of training data, e.g., source = "file_list.txt". For Raw dataset, it should be a single training file, e.g., source = "train_data.bin". There is NO default value and it should be specified by users.
+
+* `eval_source`: String, the synthetic evaluation dataset source. For Norm or Parquet dataset, it should be the file list of evaluation data, e.g., source = "file_list_test.txt". For Raw dataset, it should be a single evaluation file, e.g., source = "test_data.bin". There is NO default value and it should be specified by users.
+
+* `slot_size_array`: List[int], the cardinality array of input features for synthetic dataset. The list length should be equal to `num_slot`. There is NO default value and it should be specified by users.
+
+* `nnz_array`: List[int], the number of non-zero entries in each slot for synthetic dataset. The list length should be equal to `num_slot`. This argument helps to simulate one-hot or multi-hot encodings. The default value is an empty list and one-hot encoding will be employed then. 
+
+* `check_type`: The data error detection mechanism. The supported types include `hugectr.Check_t.Sum` (CheckSum) and `hugectr.Check_t.Non` (no detection). The default value is `hugectr.Check_t.Sum`.
+
+* `dist_type`: The distribution of the sparse input keys for synthetic dataset. The supported types include `hugectr.Distribution_t.PowerLaw` and `hugectr.Distribution_t.Uniform`. The default value is `hugectr.Distribution_t.PowerLaw`.
+
+* `power_law_type`: The specific distribution of power law distribution. The supported types include `hugectr.PowerLaw_t.Long` (alpha=0.9), `hugectr.PowerLaw_t.Medium` (alpha=1.1), `hugectr.PowerLaw_t.Short` (alpha=1.3) and `hugectr.PowerLaw_t.Specific` (requiring a specific alpha value). This argument is only valid when `dist_type` is `hugectr.Distribution_t.PowerLaw`. The default value is `hugectr.PowerLaw_t.Specific`.
+
+* `alpha`: Float, the alpha value for power law distribution. This argument is only valid when `dist_type` is `hugectr.Distribution_t.PowerLaw` and `power_law_type` is `hugectr.PowerLaw_t.Specific`. The alpha value should be greater than zero and not equal to 1.0. The default value is 1.2.
+
+* `num_files`: Integer, the number of training data files that will be generated. This argument is valid when `format` is `hugectr.DataReaderType_t.Norm` or `hugectr.DataReaderType_t.Parquet`. The default value is 128.
+
+* `eval_num_files`: Integer, the number of evaluation data files that will be generated. This argument is valid when `format` is `hugectr.DataReaderType_t.Norm` or `hugectr.DataReaderType_t.Parquet`. The default value is 32.
+
+* `num_samples_per_file`: Integer, the number of samples per generated data file. This argument is valid when `format` is `hugectr.DataReaderType_t.Norm` or `hugectr.DataReaderType_t.Parquet`. The default value is 40960.
+
+* `num_samples`: Integer, the number of samples in the generated single training data file (e.g., train_data.bin). This argument is only valid when `format` is `hugectr.DataReaderType_t.Raw`. The default value is 5242880.
+
+* `eval_num_samples`: Integer, the number of samples in the generated single evaluation data file (e.g., test_data.bin). This argument is only valid when `format` is `hugectr.DataReaderType_t.Raw`. The default value is 1310720.
+
+* `float_label_dense`: Boolean, this is only valid when `format` is `hugectr.DataReaderType_t.Raw`. If its value is set to True, the label and dense features for each sample are interpreted as float values. Otherwise, they are regarded as integer values while the dense features are preprocessed with log(dense[i] + 1.f). The default value is False.
+
+### **DataGenerator** ###
+#### **DataGenerator class**
+```bash
+hugectr.tools.DataGenerator()
+```
+`DataGenerator` provides an API to generate synthetic Norm, Parquet or Raw dataset. The construction of `DataGenerator` requires a `DataGeneratorParams` instance.
+
+**Arguments**
+* `data_generator_params`: The DataGeneratorParams instance which encapsulates the required parameters for data generation. There is NO default value and it should be specified by users.
+***
+
+#### **generate method**
+```bash
+hugectr.tools.DataGenerator.generate()
+```
+This method takes no extra arguments and starts to generate the synthetic dataset based on the configurations within `data_generator_params`.

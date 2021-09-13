@@ -38,7 +38,7 @@
       "name": "data",
       "type": "Data",
       "format": "Raw",
-      "num_samples": 4195155968,
+      "num_samples": 4195197692,
       "source": "./train_data.bin",
       "eval_num_samples": 89137319,
       "eval_source": "./test_data.bin",

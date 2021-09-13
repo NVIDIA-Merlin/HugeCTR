@@ -121,7 +121,7 @@ class DataReaderWorker : public IDataReaderWorker {
     int label_dim = buffer->label_dim;
     int dense_dim = buffer->dense_dim;
 
-    CudaDeviceContext ctx(gpu_resource->get_device_id());
+    CudaCPUDeviceContext ctx(gpu_resource->get_device_id());
     std::shared_ptr<GeneralBuffer2<CudaHostAllocator>> buff =
         GeneralBuffer2<CudaHostAllocator>::create();
 
@@ -232,7 +232,7 @@ class DataReaderWorker : public IDataReaderWorker {
               CK_THROW_(checker_->read(reinterpret_cast<char*>(&nnz), sizeof(int)),
                         "failure in reading nnz");
               if (nnz > (int)buffer_length_ || nnz < 0) {
-                ERROR_MESSAGE_("nnz > buffer_length_ | nnz < 0 nnz:" + std::to_string(nnz));
+                ERROR_MESSAGE_("nnz > buffer_length_ | nnz < 0 nnz:" + std::to_string(nnz) + ". Please check if i64_input_key in config is compatible with dataset");
               }
               current_csr.new_row();
               size_t num_value = current_csr.get_num_values();
@@ -282,7 +282,7 @@ class DataReaderWorker : public IDataReaderWorker {
     if (!wait_until_h2d_ready()) return;
     buffer_->current_batch_size = current_batch_size;
     {
-      CudaDeviceContext context(gpu_resource_->get_device_id());
+      CudaCPUDeviceContext context(gpu_resource_->get_device_id());
       auto dst_dense_tensor = Tensor2<float>::stretch_from(buffer_->device_dense_buffers);
       CK_CUDA_THROW_(cudaMemcpyAsync(dst_dense_tensor.get_ptr(), host_dense_buffer_.get_ptr(),
                                      host_dense_buffer_.get_size_in_bytes(), cudaMemcpyHostToDevice,

@@ -1,0 +1,10 @@
+#!/bin/bash
+
+srun --ntasks=4 --container-image="${CONT}" --container-mounts="${MOUNTS}" --network sharp bash -cx " \
+      cd /dataset/criteo_kaggle/dcn &&
+      python3 /workdir/test/pybind_test/multi_node_test.py --json-file=/workdir/test/scripts/dcn_4node_2gpu.json"
+
+
+srun --ntasks=2 --container-image="${CONT}" --container-mounts="${MOUNTS}" --network sharp bash -cx " \
+      cd /dataset/criteo_kaggle/dcn_parquet &&
+      python3 /workdir/test/pybind_test/multi_node_test.py --json-file=/workdir/test/scripts/dcn_parquet_localized_2node_4gpu.json"

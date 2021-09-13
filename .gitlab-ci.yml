@@ -2,551 +2,495 @@ include:
   - project: "dl/devops/gitlab-ci-slurm"
     ref: master
     file: "/.gitlab-ci.yml"
-
-stages:
-  - build
-  - test
-
-variables:
-  IMAGE_TRAIN: "gitlab-master.nvidia.com:5005/dl/hugectr/hugectr:devel_train"
-  IMAGE_INFER: "gitlab-master.nvidia.com:5005/dl/hugectr/hugectr:devel_inference"
-  IMAGE_EMBEDDING: "gitlab-master.nvidia.com:5005/dl/hugectr/hugectr:devel_embedding"
-  DATASET: /lustre/fsw/devtech/hpc-hugectr/criteo_kaggle
-  DATASET_MOUNT: /dataset/criteo_kaggle
-  DLRM_DATASET: /raid/datasets/criteo/mlperf/40m.limit_preshuffled
-  DIN_DATASET_MOUNT: /dataset
-  DIN_DATASET: /lustre/fsw/devtech/hpc-hugectr/din
-  DATASET_CRITEO_SELENE: /lustre/fsw/devtech/hpc-hugectr/criteo_kaggle
-  DATASET_CRITEO_CIRCE: /gpfs/fs1/minseokl/datasets/criteo_kaggle
-  DATASET_NEW_CRITEO_SELENE: /lustre/fsw/devtech/hpc-hugectr/new-criteo-dataset
-  DATASET_NEW_CRITEO_CIRCE: /gpfs/fs1/minseokl/datasets/new-criteo-dataset
-  CRITEO_MOUNT: /etc/workspace/criteo_kaggle
-  NEW_CRITEO_MOUNT: /etc/workspace/new_criteo_kaggle
-  DLRM_MOUNT: /etc/workspace/dataset
-  WORK_DIR: /hugectr_ci_workdir
-  TRAIN_IMAGE_VERSIONED: "${CI_REGISTRY}/dl/hugectr/hugectr:train_${CI_PIPELINE_ID}"
-  TRAIN_IMAGE_VERSIONED_ENROOT: gitlab-master.nvidia.com/dl/hugectr/hugectr:train_${CI_PIPELINE_ID}
-  INFER_IMAGE_VERSIONED: "${CI_REGISTRY}/dl/hugectr/hugectr:infer_${CI_PIPELINE_ID}"
-  EMBEDDING_IMAGE_VERSIONED: "${CI_REGISTRY}/dl/hugectr/hugectr:embedding_${CI_PIPELINE_ID}"
-  EMBEDDING_IMAGE_VERSIONED_ENROOT: gitlab-master.nvidia.com/dl/hugectr/hugectr:embedding_${CI_PIPELINE_ID}
-  TRAIN_IMAGE_RELEASE_ENROOT: gitlab-master.nvidia.com:5005/dl/hugectr/hugectr:v3.0
-  EMBEDDING_IMAGE_RELEASE_ENROOT: gitlab-master.nvidia.com:5005/dl/hugectr/hugectr:v3.0-plugin-embedding
-
-before_script:
-  - export TMP_DIR=${CI_PROJECT_DIR}
-  - export NCCL_LAUNCH_MODE=PARALLEL
-  - export CI_PROJECT_DIR=$(pwd)
-
-.build:
-  stage: build
-  rules:
-    - if: $CI_PIPELINE_SOURCE =~ /^(push)$/
-      when: always
-      allow_failure: true
-    - if: $CI_MERGE_REQUEST_TITLE =~ /^([WIP]|WIP:|[Draft]|Draft:)/
-      when: never
-    - if: $CI_PIPELINE_SOURCE =~ /^(web|merge_request_event|trigger)$/
-      when: always
-      allow_failure: false
-
-.cluster_test_job:
-  extends: .selene_job
-  allow_failure: false
-  stage: test
-  rules:
-    - if: $CI_MERGE_REQUEST_TITLE =~ /^([WIP]|WIP:|[Draft]|Draft:)/
-      when: never
-    - if: $CI_PIPELINE_SOURCE =~ /^(web|merge_request_event)$/
-      when: always
-
-.cluster_test_train_job:
-  extends: .cluster_test_job
-  dependencies:
-    - build_train
-
-.cluster_test_embedding_job:
-  extends: .cluster_test_job
-  dependencies:
-    - build_embedding
+  - /ci/common.yml
+  - /ci/template.yml
+  
 
 ### Stage: build
-build_train:
+build_train_single_node:
+  extends: .build
+  tags:
+    - vm-builder
+  variables:
+    FROM_IMAGE: ${IMAGE_TRAIN}
+    DST_IMAGE: $TRAIN_IMAGE_VERSIONED
+    CMAKE_OPTION: "-DCMAKE_BUILD_TYPE=Release -DKEY_HIT_RATIO=ON -DSM=\"60;61;70;75;80\" -DCLANGFORMAT=OFF"
+    BUILD_HUGECTR: 1
+    BUILD_HUGECTR2ONNX: 1
+
+build_train_multi_node:
+  extends: .build
+  tags:
+    - vm-builder
+  variables:
+    FROM_IMAGE: ${IMAGE_TRAIN}
+    DST_IMAGE: $TRAIN_IMAGE_MULTINODE_VERSIONED
+    CMAKE_OPTION: "-DCMAKE_BUILD_TYPE=Release -DKEY_HIT_RATIO=ON -DENABLE_MULTINODES=ON -DSM=\"60;61;70;75;80\" -DCLANGFORMAT=OFF"
+    BUILD_HUGECTR: 1
+
+build_train_inference:
   extends: .build
   tags:
     - 1GPU
-  script:
-    - export OPENED_MR_ON_BRANCH=$(curl --header "Private-Token:${CI_PRIVATE_KEY}" "https://$CI_SERVER_HOST/api/v4/merge_requests?project_id=$CI_PROJECT_ID&source_branch=$CI_COMMIT_BRANCH&state=opened&wip=no")
-    - |
-      if [[ "${OPENED_MR_ON_BRANCH}" != "[]" && -n "$CI_COMMIT_BRANCH" ]]; then \
-        echo "There is at least one MR opened on branch $CI_COMMIT_BRANCH. Stopping the push pipeline in favor of the merge request pipeline"; \
-        exit 1; \
-      fi
-    - export JOB_DOCKERFILE="train.Dockerfile.${CI_JOB_NAME%%--*}.${CI_PIPELINE_ID}" && echo ${JOB_DOCKERFILE}
-    - echo "FROM ${IMAGE_TRAIN}" > ${JOB_DOCKERFILE}
-    - echo "ARG SM=\"60;61;70;75;80\"" >> ${JOB_DOCKERFILE}
-    - echo "
-      RUN git clone https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab-master.nvidia.com/dl/hugectr/hugectr.git ${WORK_DIR} && cd ${WORK_DIR} && git checkout ${CI_COMMIT_SHA} && git submodule update --init --recursive && mkdir build && cd build && mkdir build_single && cd build_single && cmake -DCMAKE_BUILD_TYPE=Release -DKEY_HIT_RATIO=ON -DSM=\$SM ../.. && make -j\$(nproc) && cd .. && mkdir build_multi_nccl && cd build_multi_nccl && cmake -DCMAKE_BUILD_TYPE=Release -DENABLE_MULTINODES=ON -DKEY_HIT_RATIO=ON -DSM=\$SM ../.. && make -j\$(nproc) && make -j\$(nproc) && cd .. && mkdir build_inference && cd build_inference && cmake -DENABLE_INFERENCE=ON  -DCMAKE_BUILD_TYPE=Release -DSM=\$SM ../.. && make -j\$(nproc)
-      " >> ${JOB_DOCKERFILE}
-    - cat ${JOB_DOCKERFILE}
-    - docker login -u ${CI_PRIVATE_USER} -p "${CI_PRIVATE_KEY}" "${CI_REGISTRY}"
-    - docker pull ${IMAGE_TRAIN}
-    - docker build --pull
-      -t "${TRAIN_IMAGE_VERSIONED}"
-      -f "${JOB_DOCKERFILE}"
-      ${PWD}
-    - docker push "${TRAIN_IMAGE_VERSIONED}"
+  variables:
+    FROM_IMAGE: ${IMAGE_TRAIN}
+    DST_IMAGE: $TRAIN_INFER_IMAGE_VERSIONED
+    CMAKE_OPTION: "-DENABLE_INFERENCE=ON -DCMAKE_BUILD_TYPE=Release -DSM=\"60;61;70;75;80\" -DCLANGFORMAT=OFF"
+    BUILD_HUGECTR: 1
 
-build_embedding:
-  extends: .build
-  tags:
-    - 1GPU
-  script:
-    - export OPENED_MR_ON_BRANCH=$(curl --header "Private-Token:${CI_PRIVATE_KEY}" "https://$CI_SERVER_HOST/api/v4/merge_requests?project_id=$CI_PROJECT_ID&source_branch=$CI_COMMIT_BRANCH&state=opened&wip=no")
-    - |
-      if [[ "${OPENED_MR_ON_BRANCH}" != "[]" && -n "$CI_COMMIT_BRANCH" ]]; then \
-        echo "There is at least one MR opened on branch $CI_COMMIT_BRANCH. Stopping the push pipeline in favor of the merge request pipeline"; \
-        exit 1; \
-      fi
-    - export JOB_DOCKERFILE="embedding.Dockerfile.${CI_JOB_NAME%%--*}.${CI_PIPELINE_ID}" && echo ${JOB_DOCKERFILE}
-    - echo "FROM ${IMAGE_EMBEDDING}" > ${JOB_DOCKERFILE}
-    - echo "ARG SM=\"60;61;70;75;80\"" >> ${JOB_DOCKERFILE}
-    - echo "
-      RUN git clone https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab-master.nvidia.com/dl/hugectr/hugectr.git ${WORK_DIR} && cd ${WORK_DIR} && git checkout ${CI_COMMIT_SHA} && git submodule update --init --recursive && cd sparse_operation_kit/Deprecated && mkdir build && cd build && cmake -DCMAKE_BUILD_TYPE=Release -DSM=\$SM .. && make -j\$(nproc) && make install
-      " >> ${JOB_DOCKERFILE}
-    - echo "
-      RUN cd ${WORK_DIR}/sparse_operation_kit/ && mkdir -p build && cd build && cmake -DSM=\$SM .. && make -j && make install
-      " >> ${JOB_DOCKERFILE}
-    - echo "ENV LD_LIBRARY_PATH=/usr/local/hugectr/lib:/usr/local/lib:\$LD_LIBRARY_PATH" >> ${JOB_DOCKERFILE}
-    - echo "ENV LIBRARY_PATH=/usr/local/hugectr/lib:/usr/local/lib:\$LIBRARY_PATH" >> ${JOB_DOCKERFILE}
-    - cat ${JOB_DOCKERFILE}
-    - docker login -u ${CI_PRIVATE_USER} -p "${CI_PRIVATE_KEY}" "${CI_REGISTRY}"
-    - docker pull ${IMAGE_EMBEDDING}
-    - docker build --pull
-      -t "${EMBEDDING_IMAGE_VERSIONED}"
-      -f "${JOB_DOCKERFILE}"
-      ${PWD}
-    - docker push "${EMBEDDING_IMAGE_VERSIONED}"
-
+### Stage: test
 build_inference:
   extends: .build
   tags:
     - 1GPU
-  script:
-    - export OPENED_MR_ON_BRANCH=$(curl --header "Private-Token:${CI_PRIVATE_KEY}" "https://$CI_SERVER_HOST/api/v4/merge_requests?project_id=$CI_PROJECT_ID&source_branch=$CI_COMMIT_BRANCH&state=opened&wip=no")
-    - |
-      if [[ "${OPENED_MR_ON_BRANCH}" != "[]" && -n "$CI_COMMIT_BRANCH" ]]; then \
-        echo "There is at least one MR opened on branch $CI_COMMIT_BRANCH. Stopping the push pipeline in favor of the merge request pipeline"; \
-        exit 1; \
-      fi
-    - export JOB_DOCKERFILE="inference.Dockerfile.${CI_JOB_NAME%%--*}.${CI_PIPELINE_ID}" && echo ${JOB_DOCKERFILE}
-    - echo "FROM ${IMAGE_INFER}" > ${JOB_DOCKERFILE}
-    - echo "ARG SM=\"70;75;80\"" >> ${JOB_DOCKERFILE}
-    - echo "
-      RUN git clone https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab-master.nvidia.com/dl/hugectr/hugectr.git ${WORK_DIR} && cd ${WORK_DIR} && git checkout ${CI_COMMIT_SHA} && git submodule update --init --recursive && mkdir build && cd build && cmake -DENABLE_INFERENCE=ON  -DCMAKE_BUILD_TYPE=Release -DSM=\$SM .. && make -j\$(nproc) && make install
-      " >> ${JOB_DOCKERFILE}
-    - cat ${JOB_DOCKERFILE}
-    - docker login -u ${CI_PRIVATE_USER} -p "${CI_PRIVATE_KEY}" "${CI_REGISTRY}"
-    - docker pull ${IMAGE_INFER}
-    - docker build --pull
-      -t "${INFER_IMAGE_VERSIONED}"
-      -f "${JOB_DOCKERFILE}"
-      ${PWD}
-    - docker push "${INFER_IMAGE_VERSIONED}"
+  variables:
+    FROM_IMAGE: ${IMAGE_INFER}
+    DST_IMAGE: $INFER_IMAGE_VERSIONED
+    CMAKE_OPTION: "-DENABLE_INFERENCE=ON -DCMAKE_BUILD_TYPE=Release -DSM=\"70;75;80\" -DCLANGFORMAT=OFF"
+    BUILD_HUGECTR: 1
+    BUILD_HUGECTR_BACKEND: 1
+    TRITON_BRANCH: r21.04
 
-### Stage: test
+build_sok:
+  extends: .build
+  tags:
+    - vm-builder
+  variables:
+    FROM_IMAGE: ${IMAGE_SOK}
+    DST_IMAGE: $SOK_IMAGE_VERSIONED
+    CMAKE_OPTION: "-DSM=\"60;61;70;75;80\""
+    BUILD_SOK: 1
+
+## Stage: test
 # unit test
-utests_1:
-  extends: .cluster_test_train_job
-  script:
-    - srun
-      -A devtech -J devtech:hugectr -p luna
-      --ntasks=1
-      --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
-      --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR},/lustre/fsw/devtech/hpc-hugectr/inference/:/hugectr/test/utest/
-      bash -cx "
-      cd ${WORK_DIR}/build/build_inference/bin &&
-      ./inference_test &&
-      cd ${WORK_DIR}/build/build_single/bin;
-      ./layers_test &&
-      ./checker_test &&
-      ./data_reader_test &&
-      ./device_map_test &&
-      ./loss_test &&
-      ./optimizer_test &&
-      ./regularizers_test &&
-      ./model_oversubscriber_test &&
-      ./parser_test &&
-      ./auc_test"
-  timeout: 2 hours
+utests:
+  extends: .cluster_test_job
+  needs:
+    - build_train_single_node
+  variables:
+    GPFSFOLDER: $LOGDIR/utests
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $TRAIN_IMAGE_VERSIONED
+    MOUNTS: ${DATASET}:${DATASET_MOUNT},/lustre/fsw/devtech/hpc-hugectr/inference/:/hugectr/test/utest/
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "01:00:00"
+    DGXNNODES: 1
+    TEST_CMD: ./ci/utest/utest.sub
+ 
 
-utests_2:
-  extends: .cluster_test_train_job
-  script:
-    - srun
-      -A devtech -J devtech:hugectr -p luna
-      --ntasks=1
-      --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
-      --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR},/lustre/fsw/devtech/hpc-hugectr/inference/:/hugectr/test/utest/
-      bash -cx "
-      cd ${WORK_DIR}/build/build_inference/bin &&
-      ./inference_test &&
-      cd ${WORK_DIR}/build/build_single/bin;
-      ./embedding_test"
-  timeout: 2 hours
+utests_embedding:
+  extends: .cluster_test_job
+  needs:
+    - build_train_single_node
+  variables:
+    GPFSFOLDER: $LOGDIR/utests_embedding
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $TRAIN_IMAGE_VERSIONED
+    MOUNTS: ${DATASET}:${DATASET_MOUNT},/lustre/fsw/devtech/hpc-hugectr/inference/:/hugectr/test/utest/
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "01:00:00"
+    DGXNNODES: 1
+    TEST_CMD: ./ci/utest/utest_embedding.sub
+
+
+utests_inference:
+  extends: .cluster_test_job
+  needs:
+    - build_train_inference
+  variables:
+    GPFSFOLDER: $LOGDIR/utests_inference
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $TRAIN_INFER_IMAGE_VERSIONED
+    MOUNTS: ${DATASET}:${DATASET_MOUNT},/lustre/fsw/devtech/hpc-hugectr/inference/:/hugectr/test/utest/
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "00:30:00"
+    DGXNNODES: 1
+    TEST_CMD: ./ci/utest/utest_inference.sub
 
 # single node
 criteo:
-  extends: .cluster_test_train_job
-  script:
-    - srun --ntasks=1
-      -A devtech -J devtech:hugectr -p luna
-      --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
-      --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
-      bash -cx "
-      cp ${WORK_DIR}/build/build_single/lib/hugectr.so ${WORK_DIR}/test/pybind_test/ &&
-      cd ${DATASET_MOUNT}/criteo &&
-      mkdir ${WORK_DIR}/export_predictions_criteo_1gpu/ &&
-      python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/criteo_1gpu.json &&
-      python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/criteo_8gpu.json &&
-      cd /dataset/criteo_kaggle/criteo_multi_slots &&
-      python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/criteo_multi_slots_1gpu.json &&
-      python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/criteo_multi_slots_8gpu.json &&
-      cd /dataset/criteo_kaggle/criteo_parquet_multi_slots &&
-      python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/criteo_parquet_multi_slots_1gpu.json"
+  extends: .cluster_test_job
+  needs:
+    - build_train_single_node
+  variables:
+    GPFSFOLDER: $LOGDIR/criteo
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $TRAIN_IMAGE_VERSIONED
+    MOUNTS: ${DATASET}:${DATASET_MOUNT}
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "00:15:00"
+    DGXNNODES: 1
+    TEST_CMD: ./ci/integration_test/criteo/criteo.sub
+
+# criteo_dgx1:
+#   extends: .dlcluster_test_job
+#   script:
+#     - srun -N 1 -p dgx1v,dgx1v16g,dgx1v32g
+#       --container-image $TRAIN_IMAGE_VERSIONED
+#       --container-mounts ${DATASET_CRITEO_DLGROUP}:${DATASET_MOUNT},$(pwd):${CI_PROJECT_DIR}
+#       bash -cx "
+#       export PYTHONPATH=${WORK_DIR}/build/build_single/lib/ &&
+#       cd ${DATASET_MOUNT}/criteo &&
+#       python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/criteo_8gpu.json &&
+#       python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/criteo_multi_slots_8gpu.json"
 
 criteo_multi_node:
-  extends: .cluster_test_train_job
-  script:
-    - srun --ntasks=2
-      -A devtech -J devtech:hugectr -p luna
-      --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
-      --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
-      --ntasks-per-node 1
-      --network sharp
-      bash -cx "
-      cp ${WORK_DIR}/build/build_multi_nccl/lib/hugectr.so ${WORK_DIR}/test/pybind_test/ &&
-      cd /dataset/criteo_kaggle/criteo &&
-      python3 ${WORK_DIR}/test/pybind_test/multi_node_test.py --json-file=${WORK_DIR}/test/scripts/criteo_2node_4gpu.json"
+  extends: .cluster_test_job
+  needs:
+    - build_train_multi_node
+  variables:
+    GPFSFOLDER: $LOGDIR/criteo_multi_node
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $TRAIN_IMAGE_MULTINODE_VERSIONED
+    MOUNTS: ${DATASET}:${DATASET_MOUNT}
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "00:15:00"
+    SBATCH_OTHER_PARAMS: --network sharp
+    DGXNNODES: 2
+    TEST_CMD: ./ci/integration_test/criteo/criteo_multi_node.sub
 
 dcn:
-  extends: .cluster_test_train_job
-  script:
-    - srun --ntasks=1
-      -A devtech -J devtech:hugectr -p luna
-      --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
-      --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
-      bash -cx "
-      cp ${WORK_DIR}/build/build_single/lib/hugectr.so ${WORK_DIR}/test/pybind_test/;
-      cd /dataset/criteo_kaggle/dcn;
-      python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/dcn_fp16_1gpu.json &&
-      python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/dcn_1gpu.json &&
-      python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/dcn_8gpu.json &&
-      python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/dcn_localized_embedding_1gpu.json &&
-      python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/dcn_localized_embedding_8gpu.json &&
-      python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/dcn_localized_embedding.json &&
-      cd /dataset/criteo_kaggle/dcn_parquet &&
-      python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/dcn_parquet_distributed_1gpu.json &&
-      python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/dcn_parquet_distributed_8gpu.json &&
-      python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/dcn_parquet_localized_1gpu.json &&
-      python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/dcn_parquet_localized_8gpu.json"
-  timeout: 3 hours
+  extends: .cluster_test_job
+  needs:
+    - build_train_single_node
+  variables:
+    GPFSFOLDER: $LOGDIR/dcn
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $TRAIN_IMAGE_VERSIONED
+    MOUNTS: ${DATASET}:${DATASET_MOUNT}
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "00:30:00"
+    DGXNNODES: 1
+    TEST_CMD: ./ci/integration_test/dcn/dcn.sub
 
-mlperf_benchmark:
-  extends: .cluster_test_train_job
-  script:
-    - echo "#!/bin/bash" > ./batch.sub
-    - echo "#SBATCH -A mlperf-ci" >> ./batch.sub
-    - echo "#SBATCH -p luna" >> ./batch.sub
-    - echo "srun --ntasks=1 \\" >> ./batch.sub
-    - echo "  -p luna \\" >> ./batch.sub
-    - echo "  --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT} \\" >> ./batch.sub
-    - echo "  --container-mounts ${DLRM_DATASET}:${DLRM_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR} \\" >> ./batch.sub
-    - echo "  bash -cx \"\\" >> ./batch.sub
-    - echo "  cp ${WORK_DIR}/build/build_single/lib/hugectr.so ${WORK_DIR}/test/pybind_test/ && cd ${DLRM_MOUNT} && python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/dlrm_mlperf_fp16_dgxa100.json\"" >> ./batch.sub
-    - export logdir=./batch
-    - export round=10
-    - mkdir $logdir
-    - for i in $(seq ${round}); do
-      sbatch -o ${logdir}/slurm-$i.out -t 00:07:00 --job-name mlperf_converge_test_${CI_PIPELINE_ID}_$i batch.sub;
-      done
-    - for i in $(seq ${round}); do
-      while [[ $(squeue -n mlperf_converge_test_${CI_PIPELINE_ID}_$i | wc -l) -gt 1 ]]; do
-      sleep 1m;
-      done
-      done
-    - for i in $(seq ${round}); do
-      cat ${logdir}/slurm-$i.out;
-      done
-    - echo "total num:${round}"
-    - export reach_count=$(grep "Hit target accuracy AUC" ${logdir}/* | wc -l)
-    - echo "converge num:${reach_count}/${round}"
+dlrm_benchmark_1node:
+  extends: .cluster_test_job
+  needs:
+    - build_train_multi_node
+  variables:
+    GPFSFOLDER: $LOGDIR/dlrm_benchmark_1node
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $TRAIN_IMAGE_MULTINODE_VERSIONED
+    MOUNTS: /raid:/raid
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "00:15:00"
+    DGXNNODES: 1
+    TEST_CMD: ./ci/integration_test/dlrm/benchmark_1node.sub
 
-wdl_deepfm:
-  extends: .cluster_test_train_job
-  script:
-    - srun --ntasks=1
-      -A devtech -J devtech:hugectr -p luna
-      --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
-      --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
-      bash -cx "
-      cp ${WORK_DIR}/build/build_single/lib/hugectr.so ${WORK_DIR}/test/pybind_test/ &&
-      cd /dataset/criteo_kaggle/wdl &&
-      python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/wdl_1gpu.json &&
-      python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/wdl_8gpu.json &&
-      python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/wdl_fp16_1gpu.json &&
-      mkdir ${WORK_DIR}/export_predictions_wdl_fp16_8gpu/ &&
-      python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/wdl_fp16_8gpu.json &&
-      cd /dataset/criteo_kaggle/deepfm &&
-      python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/deepfm_1gpu.json &&
-      python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/deepfm_fp16_1gpu.json &&
-      python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/deepfm_8gpu.json"
+dlrm_benchmark_14node:
+  extends: .cluster_test_job
+  needs:
+    - build_train_multi_node
+  variables:
+    GPFSFOLDER: $LOGDIR/dlrm_benchmark_14node
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $TRAIN_IMAGE_MULTINODE_VERSIONED
+    MOUNTS: /raid:/raid
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "00:15:00"
+    SBATCH_OTHER_PARAMS: --network sharp
+    DGXNNODES: 14
+    TEST_CMD: ./ci/integration_test/dlrm/benchmark_14node.sub
+
+wdl:
+  extends: .cluster_test_job                                                     # test on selene needs to extend .cluster_test_job
+  needs:
+    - build_train_single_node
+  variables:
+    GPFSFOLDER: $LOGDIR/wdl                                                      # log dir, usually $LOGDIR + job name
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}                                     # should not change
+    CONT: $TRAIN_IMAGE_VERSIONED                                                 # image name
+    MOUNTS: ${DATASET}:${DATASET_MOUNT}                                          # mount
+    SLURM_ACCOUNT: devtech                                                       # account, do not need change
+    WALLTIME: "00:15:00"                                                         # estimate job time. Less time, higher priority
+    DGXNNODES: 1                                                                 # node num
+    TEST_CMD: ./ci/integration_test/wdl/wdl.sub                                  # test script
+
+deepfm:
+  extends: .cluster_test_job
+  needs:
+    - build_train_single_node
+  variables:
+    GPFSFOLDER: $LOGDIR/deepfm
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $TRAIN_IMAGE_VERSIONED
+    MOUNTS: ${DATASET}:${DATASET_MOUNT}
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "00:15:00"
+    DGXNNODES: 1
+    TEST_CMD: ./ci/integration_test/deepfm/deepfm.sub
 
 dlrm:
-  extends: .cluster_test_train_job
-  script:
-    - srun --ntasks=1
-      -A devtech -J devtech:hugectr -p luna
-      --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
-      --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
-      bash -cx "
-      cp ${WORK_DIR}/build/build_single/lib/hugectr.so ${WORK_DIR}/test/pybind_test/ &&
-      cd /dataset/criteo_kaggle/dcn &&
-      python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/dlrm_1gpu.json &&
-      python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/dlrm_8gpu.json &&
-      python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/dlrm_fp16_1gpu.json &&
-      python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/dlrm_fp16_8gpu.json"
+  extends: .cluster_test_job
+  needs:
+    - build_train_single_node
+  variables:
+    GPFSFOLDER: $LOGDIR/dlrm
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $TRAIN_IMAGE_VERSIONED
+    MOUNTS: ${DATASET}:${DATASET_MOUNT}
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "00:15:00"
+    DGXNNODES: 1
+    TEST_CMD: ./ci/integration_test/dlrm/dlrm.sub
 
 dcn_multi_node:
-  extends: .cluster_test_train_job
-  script:
-    - srun --ntasks=4
-      -A devtech -J devtech:hugectr -p luna
-      --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
-      --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
-      --ntasks-per-node 1
-      --network sharp
-      bash -cx "
-      cp ${WORK_DIR}/build/build_multi_nccl/lib/hugectr.so ${WORK_DIR}/test/pybind_test/ &&
-      cd /dataset/criteo_kaggle/dcn &&
-      python3 ${WORK_DIR}/test/pybind_test/multi_node_test.py --json-file=${WORK_DIR}/test/scripts/dcn_4node_2gpu.json"
-    - srun --ntasks=2
-      -A devtech -J devtech:hugectr -p luna
-      --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
-      --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
-      --ntasks-per-node 1
-      --network sharp
-      bash -cx "
-      cp ${WORK_DIR}/build/build_multi_nccl/lib/hugectr.so ${WORK_DIR}/test/pybind_test/ &&
-      cd /dataset/criteo_kaggle/dcn_parquet &&
-      python3 ${WORK_DIR}/test/pybind_test/multi_node_test.py --json-file=${WORK_DIR}/test/scripts/dcn_parquet_localized_2node_4gpu.json"
-    
+  extends: .cluster_test_job
+  needs:
+    - build_train_multi_node
+  variables:
+    GPFSFOLDER: $LOGDIR/dcn_multi_node
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $TRAIN_IMAGE_MULTINODE_VERSIONED
+    MOUNTS: ${DATASET}:${DATASET_MOUNT}
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "00:15:00"
+    SBATCH_OTHER_PARAMS: --network sharp                                                      # using network sharp
+    DGXNNODES: 4                                                                              # using 4 node
+    TEST_CMD: ./ci/integration_test/dcn/dcn_multi_node.sub
 
 # python interface inference
 py_inference:
-  extends: .cluster_test_train_job
-  script:
-    - srun --ntasks=1
-      -A devtech -J devtech:hugectr -p luna
-      --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
-      --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR},/lustre/fsw/devtech/hpc-hugectr/inference/:/hugectr/test/utest/
-      bash -cx "
-      cd /dataset/criteo_kaggle/dcn &&
-      export PYTHONPATH=${WORK_DIR}/build/build_single/lib &&
-      python3 ${WORK_DIR}/test/pybind_test/dcn_inference.py ${WORK_DIR}/test/scripts/dcn_inference.json DCN /hugectr/test/utest/dcn_csr.txt &&
-      python3 ${WORK_DIR}/test/pybind_test/wdl_multitable_test.py wdl  /hugectr/test/utest/wdl_test_files/wdl_infer.new.json /hugectr/test/utest/wdl_test_files/wdl_dense_2000.model /hugectr/test/utest/wdl_test_files/wdl0_sparse_2000.model,/hugectr/test/utest/wdl_test_files/wdl1_sparse_2000.model  /hugectr/test/utest/wdl_test_files/first_ten.csv &&
-      python3 ${WORK_DIR}/test/pybind_test/movielens_nodense_test.py movielens_hugectr  /hugectr/test/utest/movie_test_files/movielens.json /hugectr/test/utest/movie_test_files/_dense_1900.model /hugectr/test/utest/movie_test_files/0_sparse_1900.model  /hugectr/test/utest/movie_test_files/test.parquet"
+  extends: .cluster_test_job
+  needs:
+    - build_train_single_node
+  variables:
+    GPFSFOLDER: $LOGDIR/py_inference
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $TRAIN_IMAGE_VERSIONED
+    MOUNTS: ${DATASET}:${DATASET_MOUNT},/lustre/fsw/devtech/hpc-hugectr/inference/:/hugectr/test/utest/
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "00:15:00"
+    DGXNNODES: 1
+    TEST_CMD: ./ci/integration_test/inference/inference.sub
 
 py_low_level:
-  extends: .cluster_test_train_job
-  script:
-    - srun --ntasks=1
-      -A devtech -J devtech:hugectr -p luna
-      --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
-      --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
-      bash -cx "
-      cp ${WORK_DIR}/build/build_single/lib/hugectr.so ${WORK_DIR}/test/pybind_test/ &&
-      cd /dataset/criteo_kaggle/wdl &&
-      mkdir ${WORK_DIR}/tmp/ &&
-      python3 ${WORK_DIR}/test/pybind_test/wdl_fp16_8gpu_export.py ${WORK_DIR}/test/scripts/wdl_fp16_8gpu.json ${WORK_DIR}/tmp/"
-    - srun --ntasks=1
-      -A devtech -J devtech:hugectr -p luna
-      --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
-      --container-mounts ${DLRM_DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
-      bash -cx "
-      cp ${WORK_DIR}/build/build_single/lib/hugectr.so ${WORK_DIR}/test/pybind_test/ &&
-      cd /dataset/criteo_kaggle &&
-      python3 ${WORK_DIR}/test/pybind_test/dlrm_8gpu_set_source.py ${WORK_DIR}/test/scripts/dlrm_set_source.json"
+  extends: .cluster_test_job
+  needs:
+    - build_train_single_node
+  variables:
+    GPFSFOLDER: $LOGDIR/py_low_level
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $TRAIN_IMAGE_VERSIONED
+    MOUNTS: ${DATASET}:${DATASET_MOUNT},/raid:/raid
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "01:00:00"
+    DGXNNODES: 1
+    TEST_CMD: ./ci/integration_test/py_interface/py_low_level.sub
 
 din_single_node:
-  extends: .cluster_test_train_job
-  script:
-    - srun --ntasks=1
-      -A devtech -J devtech:hugectr -p luna
-      --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
-      --container-mounts ${DIN_DATASET}:${DIN_DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
-      bash -cx "
-      cp ${WORK_DIR}/build/build_single/lib/hugectr.so ${WORK_DIR}/test/pybind_test/ &&
-      cd /dataset/ &&
-      python3 ${WORK_DIR}/test/pybind_test/din_fp32_1gpu.py"
-    - srun --ntasks=1
-      -A devtech -J devtech:hugectr -p luna
-      --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
-      --container-mounts ${DIN_DATASET}:${DIN_DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
-      bash -cx "
-      cp ${WORK_DIR}/build/build_single/lib/hugectr.so ${WORK_DIR}/test/pybind_test/ &&
-      cd /dataset/ &&
-      python3 ${WORK_DIR}/test/pybind_test/din_fp32_2gpu.py"
+  extends: .cluster_test_job
+  needs:
+    - build_train_single_node
+  variables:
+    GPFSFOLDER: $LOGDIR/din_single_node
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $TRAIN_IMAGE_VERSIONED
+    MOUNTS: ${DIN_DATASET}:${DIN_DATASET_MOUNT}
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "00:15:00"
+    DGXNNODES: 1
+    TEST_CMD: ./ci/integration_test/din/din.sub
 
 mos_single_node:
-  extends: .cluster_test_train_job
-  script:
-    - srun --ntasks=1
-      -A devtech -J devtech:hugectr -p luna
-      --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
-      --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
-      bash -cx "
-      cp ${WORK_DIR}/build/build_single/lib/hugectr.so ${WORK_DIR}/test/pybind_test/ &&
-      cd /dataset/criteo_kaggle/wdl_data_keyset &&
-      rm -rfv ${CI_PROJECT_DIR}/wdl_0_sparse_model ${CI_PROJECT_DIR}/wdl_1_sparse_model &&
-      python3 ${WORK_DIR}/test/pybind_test/wdl_1gpu_mos.py ${WORK_DIR}/test/scripts/wdl_1gpu.json ${CI_PROJECT_DIR} &&
-      rm -rfv ${CI_PROJECT_DIR}/wdl_0_sparse_model ${CI_PROJECT_DIR}/wdl_1_sparse_model &&
-      python3 ${WORK_DIR}/test/pybind_test/wdl_mos_scratch_high_level.py ${WORK_DIR}/test/scripts/wdl_1gpu.json false ${CI_PROJECT_DIR} &&
-      python3 ${WORK_DIR}/test/pybind_test/wdl_mos_high_level.py ${WORK_DIR}/test/scripts/wdl_1gpu.json false ${CI_PROJECT_DIR} &&
-      rm -rfv ${CI_PROJECT_DIR}/wdl_0_sparse_model ${CI_PROJECT_DIR}/wdl_1_sparse_model &&
-      python3 ${WORK_DIR}/test/pybind_test/wdl_mos_scratch_high_level.py ${WORK_DIR}/test/scripts/wdl_1gpu.json true ${CI_PROJECT_DIR} &&
-      python3 ${WORK_DIR}/test/pybind_test/wdl_mos_high_level.py ${WORK_DIR}/test/scripts/wdl_1gpu.json true ${CI_PROJECT_DIR}"
-  timeout: 2 hours
+  extends: .cluster_test_job
+  needs:
+    - build_train_single_node
+  variables:
+    GPFSFOLDER: $LOGDIR/mos_single_node 
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $TRAIN_IMAGE_VERSIONED
+    MOUNTS: ${DATASET}:${DATASET_MOUNT}
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "00:45:00"
+    DGXNNODES: 1
+    TEST_CMD: ./ci/integration_test/mos/mos_single_node.sub
 
 mos_multi_node_ssd:
-  extends: .cluster_test_train_job
-  script:
-    - srun --ntasks=4
-      -A devtech -J devtech:hugectr -p luna
-      --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
-      --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
-      --ntasks-per-node 1
-      --network sharp
-      bash -cx "
-      cp ${WORK_DIR}/build/build_multi_nccl/lib/hugectr.so ${WORK_DIR}/test/pybind_test/ &&
-      cd /dataset/criteo_kaggle/wdl_data_keyset &&
-      rm -rfv ${CI_PROJECT_DIR}/wdl_0_sparse_model ${CI_PROJECT_DIR}/wdl_1_sparse_model &&
-      python3 ${WORK_DIR}/test/pybind_test/wdl_mos_mpi_scratch_high_level.py ${WORK_DIR}/test/scripts/wdl_1gpu.json false ${CI_PROJECT_DIR}"
-    - srun --ntasks=2
-      -A devtech -J devtech:hugectr -p luna
-      --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
-      --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
-      --ntasks-per-node 1
-      --network sharp
-      bash -cx "
-      cp ${WORK_DIR}/build/build_multi_nccl/lib/hugectr.so ${WORK_DIR}/test/pybind_test/ &&
-      cd /dataset/criteo_kaggle/wdl_data_keyset &&
-      python3 ${WORK_DIR}/test/pybind_test/wdl_mos_mpi_high_level.py ${WORK_DIR}/test/scripts/wdl_1gpu.json false ${CI_PROJECT_DIR}"
-  timeout: 2 hours
+  extends: .cluster_test_job
+  needs:
+    - build_train_multi_node
+  variables:
+    GPFSFOLDER: $LOGDIR/mos_multi_node_ssd
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $TRAIN_IMAGE_MULTINODE_VERSIONED
+    MOUNTS: ${DATASET}:${DATASET_MOUNT},${LOGDIR}:/tmp_dir
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "00:30:00"
+    SBATCH_OTHER_PARAMS: --network sharp
+    DGXNNODES: 4
+    TEST_CMD: ./ci/integration_test/mos/mos_multi_node_ssd.sub
 
 mos_multi_node_mem:
-  extends: .cluster_test_train_job
-  script:
-    - srun --ntasks=4
-      -A devtech -J devtech:hugectr -p luna
-      --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
-      --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
-      --ntasks-per-node 1
-      --network sharp
-      bash -cx "
-      cp ${WORK_DIR}/build/build_multi_nccl/lib/hugectr.so ${WORK_DIR}/test/pybind_test/ &&
-      cd /dataset/criteo_kaggle/wdl_data_keyset &&
-      rm -rfv ${CI_PROJECT_DIR}/wdl_0_sparse_model ${CI_PROJECT_DIR}/wdl_1_sparse_model &&
-      python3 ${WORK_DIR}/test/pybind_test/wdl_mos_mpi_scratch_high_level.py ${WORK_DIR}/test/scripts/wdl_1gpu.json true ${CI_PROJECT_DIR}"
-    - srun --ntasks=2
-      -A devtech -J devtech:hugectr -p luna
-      --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
-      --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
-      --ntasks-per-node 1
-      --network sharp
-      bash -cx "
-      cp ${WORK_DIR}/build/build_multi_nccl/lib/hugectr.so ${WORK_DIR}/test/pybind_test/ &&
-      cd /dataset/criteo_kaggle/wdl_data_keyset &&
-      python3 ${WORK_DIR}/test/pybind_test/wdl_mos_mpi_high_level.py ${WORK_DIR}/test/scripts/wdl_1gpu.json true ${CI_PROJECT_DIR}"
-  timeout: 2 hours
+  extends: .cluster_test_job
+  needs:
+    - build_train_multi_node
+  variables:
+    GPFSFOLDER: $LOGDIR/mos_multi_node_mem
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $TRAIN_IMAGE_MULTINODE_VERSIONED
+    MOUNTS: ${DATASET}:${DATASET_MOUNT},${LOGDIR}:/tmp_dir
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "00:30:00"
+    SBATCH_OTHER_PARAMS: --network sharp
+    DGXNNODES: 4
+    TEST_CMD: ./ci/integration_test/mos/mos_multi_node_mem.sub
 
-# python interface single node
+# data generator single node
+data_generator_single_node:
+  extends: .cluster_test_job
+  needs:
+    - build_train_single_node
+  variables:
+    GPFSFOLDER: $LOGDIR/data_generator_single_node
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $TRAIN_IMAGE_VERSIONED
+    MOUNTS: ${DATASET}:${DATASET_MOUNT}
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "00:15:00"
+    DGXNNODES: 1
+    TEST_CMD: ./ci/integration_test/data_generator/data_generator.sub
+
+# # python interface single node
 py_single_node:
-  extends: .cluster_test_train_job
-  script:
-    - srun --ntasks=1
-      -A devtech -J devtech:hugectr -p luna
-      --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
-      --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
-      bash -cx "
-      cp ${WORK_DIR}/build/build_single/lib/hugectr.so ${WORK_DIR}/test/pybind_test/ &&
-      cd /dataset/criteo_kaggle/dcn &&
-      python3 ${WORK_DIR}/test/pybind_test/dcn_1gpu.py &&
-      cd /dataset/criteo_kaggle/wdl &&
-      python3 ${WORK_DIR}/test/pybind_test/wdl_fp16_8gpu.py ${WORK_DIR}/test/scripts/wdl_fp16_8gpu.json"
+  extends: .cluster_test_job
+  needs:
+    - build_train_single_node
+  variables:
+    GPFSFOLDER: $LOGDIR/py_single_node
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $TRAIN_IMAGE_VERSIONED
+    MOUNTS: ${DATASET}:${DATASET_MOUNT}
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "00:15:00"
+    DGXNNODES: 1
+    TEST_CMD: ./ci/integration_test/py_interface/py_single_node.sub
 
 py_multi_node:
-  extends: .cluster_test_train_job
-  script:
-    - srun --ntasks=4
-      -A devtech -J devtech:hugectr -p luna
-      --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
-      --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
-      --ntasks-per-node 1
-      --network sharp
-      bash -cx "
-      cd /dataset/criteo_kaggle/dcn &&
-      cp ${WORK_DIR}/build/build_multi_nccl/lib/hugectr.so ${WORK_DIR}/test/pybind_test/ &&
-      python3 ${WORK_DIR}/test/pybind_test/dcn_4node_2gpu.py ${WORK_DIR}/test/scripts/dcn_4node_2gpu.json"
-    - srun --ntasks=2
-      -A devtech -J devtech:hugectr -p luna
-      --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
-      --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
-      --ntasks-per-node 1
-      --network sharp
-      bash -cx "
-      cd /dataset/criteo_kaggle/criteo &&
-      cp ${WORK_DIR}/build/build_multi_nccl/lib/hugectr.so ${WORK_DIR}/test/pybind_test/ &&
-      python3 ${WORK_DIR}/test/pybind_test/criteo_2node_4gpu.py ${WORK_DIR}/test/scripts/criteo_2node_4gpu.json"
+  extends: .cluster_test_job
+  needs:
+    - build_train_multi_node
+  variables:
+    GPFSFOLDER: $LOGDIR/py_multi_node
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $TRAIN_IMAGE_MULTINODE_VERSIONED
+    MOUNTS: ${DATASET}:${DATASET_MOUNT}
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "00:15:00"
+    SBATCH_OTHER_PARAMS: --network sharp
+    DGXNNODES: 4
+    TEST_CMD: ./ci/integration_test/py_interface/py_multi_node.sub
 
+# hugectr to onnx converter test
+hugectr2onnx:
+  extends: .cluster_test_job
+  needs:
+    - build_train_single_node
+  variables:
+    GPFSFOLDER: $LOGDIR/hugectr2onnx
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $TRAIN_IMAGE_VERSIONED
+    MOUNTS: ${DATASET_NEW_CRITEO_SELENE}:${NEW_CRITEO_MOUNT},${DIN_DATASET}:${DIN_DATASET_MOUNT},${NCF_DATASET}:${NCF_DATASET_MOUNT}
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "00:15:00"
+    DGXNNODES: 1
+    TEST_CMD: ./ci/integration_test/hugectr2onnx/hugectr2onnx.sub
+
+inference_benchmark:
+  extends: .cluster_test_job
+  needs:
+    - build_inference
+  variables:
+    GPFSFOLDER: $LOGDIR/inference_benchmark
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $INFER_IMAGE_VERSIONED
+    MOUNTS: ${DATASET_NEW_CRITEO_SELENE}:${NEW_CRITEO_MOUNT},/lustre/fsw/devtech/hpc-hugectr/inference/dlrm_regression:/model
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "00:15:00"
+    DGXNNODES: 1
+    TEST_CMD: ./ci/integration_test/inference_benchmark/inference_benchmark.sub
 
 # embedding_plugin
-embedding_plugin:
-  extends: .cluster_test_embedding_job
-  script:
-    - srun --ntasks=1
-      -A devtech -J devtech:hugectr -p luna
-      --container-image ${EMBEDDING_IMAGE_VERSIONED_ENROOT}
-      --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
-      bash -cx "
-      cd ${WORK_DIR}/test/embedding_plugin_test &&
-      python3 embedding_plugin_deepfm_main.py --batch_size=16384 --batch_size_eval=4 --n_epochs=1 --gpus 0 --embedding_vec_size=10 --data_path=/dataset/criteo_kaggle/embedding_plugin/"
-    - srun --ntasks=1
-      -A devtech -J devtech:hugectr -p luna
-      --container-image ${EMBEDDING_IMAGE_VERSIONED_ENROOT}
-      --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
-      bash -cx "
-      cd ${WORK_DIR}/test/embedding_plugin_test &&
-      python3 embedding_plugin_deepfm_main.py --batch_size=16384 --batch_size_eval=4 --n_epochs=1 --gpus 0 1 3 4 --embedding_vec_size=10 --data_path=/dataset/criteo_kaggle/embedding_plugin/"
-    - srun --ntasks=1
-      -A devtech -J devtech:hugectr -p luna
-      --container-image ${EMBEDDING_IMAGE_VERSIONED_ENROOT}
-      --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
-      bash -cx "
-      cd ${WORK_DIR}/sparse_operation_kit/Deprecated &&
-      python3 unit_test_v2.py --fast_testing=1"
-    - srun --ntasks=1
-      -A devtech -J devtech:hugectr -p luna
-      --container-image ${EMBEDDING_IMAGE_VERSIONED_ENROOT}
-      --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
-      bash -cx "
-      cd ${WORK_DIR}/sparse_operation_kit/unit_test/test_scripts &&
-      bash script.sh"
-  timeout: 2 hours
+sparse_operation_kit:
+  extends: .cluster_test_job
+  needs:
+    - build_sok
+  variables:
+    GPFSFOLDER: $LOGDIR/analyse_job_results
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $SOK_IMAGE_VERSIONED
+    MOUNTS: ${DATASET}:${DATASET_MOUNT}
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "00:45:00"
+    DGXNNODES: 1
+    TEST_CMD: ./ci/integration_test/sok/sok.sub
+
+wdl_check:
+  # Push logs to gitlab
+  extends: .cluster_post_test_job
+  needs:
+    - wdl
+  variables:
+    GPFSFOLDER: $LOGDIR/wdl_check
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $TRAIN_IMAGE_VERSIONED
+    MOUNTS: $LOGDIR/wdl:/logs
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "00:15:00"
+    DGXNNODES: 1
+    TEST_CMD: ./ci/post_test/check_wdl.sub
+
+dlrm_1node_check:
+  # Push logs to gitlab
+  extends: .cluster_post_test_job
+  needs:
+    - dlrm_benchmark_1node
+  variables:
+    GPFSFOLDER: $LOGDIR/dlrm_1node_check
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $TRAIN_IMAGE_VERSIONED
+    MOUNTS: $LOGDIR/dlrm_benchmark_1node:/logs
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "00:15:00"
+    DGXNNODES: 1
+    TEST_CMD: ./ci/post_test/check_dlrm_1node.sub
+
+
+dlrm_14node_check:
+  # Push logs to gitlab
+  extends: .cluster_post_test_job
+  needs:
+    - dlrm_benchmark_14node
+  variables:
+    GPFSFOLDER: $LOGDIR/dlrm_14node_check
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $TRAIN_IMAGE_VERSIONED
+    MOUNTS: $LOGDIR/dlrm_benchmark_14node:/logs
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "00:15:00"
+    DGXNNODES: 1
+    TEST_CMD: ./ci/post_test/check_dlrm_14node.sub
+
+
+inference_benchmark_check:
+  extends: .cluster_post_test_job
+  needs:
+    - inference_benchmark
+    - build_train_single_node
+  variables:
+    GPFSFOLDER: $LOGDIR/inference_benchmark_check
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $TRAIN_IMAGE_VERSIONED
+    MOUNTS: $LOGDIR/inference_benchmark:/logs
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "00:15:00"
+    DGXNNODES: 1
+    TEST_CMD: ./ci/post_test/check_inference_benchmark.sub
 
 nightly_build_train:
   tags:
     - 1GPU
-  stage: build
+  stage: build_from_scratch
   script:
     - export TRAIN_IMAGE_RELEASE="${CI_REGISTRY}/dl/hugectr/hugectr:devel_train"
     - docker login -u ${CI_PRIVATE_USER} -p "${CI_PRIVATE_KEY}" "${CI_REGISTRY}"
@@ -555,6 +499,7 @@ nightly_build_train:
       -t "${TRAIN_IMAGE_RELEASE}"
       -f ./Dockerfile.train
       --build-arg RELEASE=false
+      --no-cache
       ${PWD}
     - docker push ${TRAIN_IMAGE_RELEASE}
   only:
@@ -564,7 +509,7 @@ nightly_build_train:
 nightly_build_train_release:
   tags:
     - 1GPU
-  stage: build
+  stage: build_from_scratch
   script:
     - export TRAIN_IMAGE_RELEASE="${CI_REGISTRY}/dl/hugectr/hugectr:devel_train_release"
     - docker login -u ${CI_PRIVATE_USER} -p "${CI_PRIVATE_KEY}" "${CI_REGISTRY}"
@@ -573,6 +518,7 @@ nightly_build_train_release:
       -t "${TRAIN_IMAGE_RELEASE}"
       -f ./Dockerfile.train
       --build-arg RELEASE=true
+      --no-cache
       ${PWD}
     - docker push ${TRAIN_IMAGE_RELEASE}
   only:
@@ -582,7 +528,7 @@ nightly_build_train_release:
 nightly_build_inference:
   tags:
     - 1GPU
-  stage: build
+  stage: build_from_scratch
   script:
     - export INFER_IMAGE_RELEASE="${CI_REGISTRY}/dl/hugectr/hugectr:devel_inference"
     - docker login -u ${CI_PRIVATE_USER} -p "${CI_PRIVATE_KEY}" "${CI_REGISTRY}"
@@ -590,305 +536,122 @@ nightly_build_inference:
     - docker build --pull
       -t "${INFER_IMAGE_RELEASE}"
       -f ./Dockerfile.inference
-      --build-arg RELEASE=true
+      --build-arg RELEASE=false
+      --no-cache
       ${PWD}
     - docker push ${INFER_IMAGE_RELEASE}
   only:
     variables:
       - $NIGHTLY == "1"
 
-
 nightly_build_embedding:
   tags:
     - 1GPU
-  stage: build
+  stage: build_from_scratch
   script:
     - export EMB_IMAGE_RELEASE="${CI_REGISTRY}/dl/hugectr/hugectr:devel_embedding"
     - docker login -u ${CI_PRIVATE_USER} -p "${CI_PRIVATE_KEY}" "${CI_REGISTRY}"
     - cd ./tools/dockerfiles/
     - docker build --pull
       -t "${EMB_IMAGE_RELEASE}"
-      -f ./Dockerfile.plugin-embedding
-      --build-arg RELEASE=true
+      -f ./Dockerfile.tf-plugin
+      --build-arg RELEASE=false
+      --build-arg TF_VERSION=2.5.0
+      --build-arg CUDA_VERSION=11.2.2
+      --no-cache
       ${PWD}
     - docker push ${EMB_IMAGE_RELEASE}
   only:
     variables:
       - $NIGHTLY == "1"
 
-.release_test_job: &release_test_job
-  allow_failure: false
+nightly_build_unified_container.ctr:
+  tags:
+    - 1GPU
+  stage: build_from_scratch
+  script:
+    - docker login -u ${CI_PRIVATE_USER} -p "${CI_PRIVATE_KEY}" "${CI_REGISTRY}"
+    - export IMAGE_CTR="${CI_REGISTRY}/dl/hugectr/hugectr:unified.ctr.latest"
+    - git clone https://github.com/NVIDIA-Merlin/Merlin.git
+    - cd Merlin/docker
+    - sed -i "s/https:\/\/github.com\/NVIDIA\/HugeCTR.git/https:\/\/gitlab-ci-token:${CI_JOB_TOKEN}@gitlab-master.nvidia.com\/dl\/hugectr\/hugectr.git/g" dockerfile.ctr
+    - docker build --pull
+      -t ${IMAGE_CTR}
+      -f dockerfile.ctr
+      --build-arg RELEASE=false 
+      --build-arg RMM_VER=vnightly 
+      --build-arg CUDF_VER=vnightly 
+      --build-arg NVTAB_VER=vnightly 
+      --build-arg HUGECTR_VER=v21.9
+      --no-cache
+      ${PWD}
+    - docker push ${IMAGE_CTR}
   only:
     variables:
-      - $RELEASE_TEST == "1"
+      - $NIGHTLY == "1"
+  timeout: 2 hours
+  
 
-.release_test_job_selene: &release_test_job_selene
-  extends: .selene_job
-  <<: *release_test_job
-  stage: test
-  variables: &release_test_job_selene_variables
-    CONTAINER_IMAGE: ${TRAIN_IMAGE_RELEASE_ENROOT}
-    CONTS: ${CI_PROJECT_DIR}:${CI_PROJECT_DIR},${DATASET_CRITEO_SELENE}:${CRITEO_MOUNT},${DATASET_NEW_CRITEO_SELENE}:${NEW_CRITEO_MOUNT},${DLRM_DATASET}:${DLRM_MOUNT},/lustre/fsw/devtech/hpc-hugectr/inference/:/hugectr/test/utest/
-
-.release_test_job_circe: &release_test_job_circe
-  extends: .circe_job
-  <<: *release_test_job
-  stage: test
-  variables: &release_test_job_circe_variables
-    CONTAINER_IMAGE: ${TRAIN_IMAGE_RELEASE_ENROOT}
-    CONTS: $(pwd):$(pwd),${DATASET_CRITEO_CIRCE}:${CRITEO_MOUNT},${DATASET_NEW_CRITEO_CIRCE}:${NEW_CRITEO_MOUNT},${DLRM_DATASET}:${DLRM_MOUNT}
-
-.sample_wdl_job: &sample_wdl_job
+nightly_build_unified_container.tf:
+  tags:
+    - 1GPU
+  stage: build_from_scratch
   script:
-    - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
-      --container-image ${CONTAINER_IMAGE}
-      --container-mounts ${CONTS}
-      --ntasks-per-node 1
-      bash -cx "
-      cd ${CI_PROJECT_DIR} &&
-      export PYTHONPATH=${WORK_DIR}/build/build_single/lib &&
-      ln -s ${NEW_CRITEO_MOUNT}/wdl_data;
-      sed -i 's/criteo_data/wdl_data/g' ./samples/wdl/wdl.py &&
-      python3 ./samples/wdl/wdl.py"
-    - srun --ntasks=4
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
-      --container-image ${CONTAINER_IMAGE}
-      --container-mounts ${CONTS}
-      --ntasks-per-node 1
-      --network sharp
-      bash -cx "
-      cd ${CI_PROJECT_DIR} &&
-      export PYTHONPATH=${WORK_DIR}/build/build_single/lib &&
-      ln -s ${NEW_CRITEO_MOUNT}/wdl_data;
-      sed -i 's/criteo_data/wdl_data/g' ./samples/wdl/wdl_8gpu.py &&
-      python3 ./samples/wdl/wdl_8gpu.py"
-    - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
-      --container-image ${CONTAINER_IMAGE}
-      --container-mounts ${CONTS}
-      --ntasks-per-node 1
-      bash -cx "
-      cd ${CI_PROJECT_DIR} &&
-      export PYTHONPATH=${WORK_DIR}/build/build_single/lib &&
-      ln -s ${NEW_CRITEO_MOUNT}/wdl_data_parquet;
-      sed -i 's/criteo_data/wdl_data_parquet/g' ./samples/wdl/wdl_parquet.py;
-      python3 ./samples/wdl/wdl_parquet.py"
-    - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
-      --container-image ${CONTAINER_IMAGE}
-      --container-mounts ${CONTS}
-      --ntasks-per-node 1
-      bash -cx "
-      cd ${CI_PROJECT_DIR} &&
-      export PYTHONPATH=${WORK_DIR}/build/build_single/lib &&
-      ln -s ${NEW_CRITEO_MOUNT}/wdl_data_nvt_bin;
-      sed -i 's/criteo_data/wdl_data_nvt_bin/g' ./samples/wdl/wdl_bin.py &&
-      python3 ./samples/wdl/wdl_bin.py"
+    - docker login -u ${CI_PRIVATE_USER} -p "${CI_PRIVATE_KEY}" "${CI_REGISTRY}"
+    - export IMAGE_CTR="${CI_REGISTRY}/dl/hugectr/hugectr:unified.tf.latest"
+    - git clone https://github.com/NVIDIA-Merlin/Merlin.git
+    - cd Merlin/docker
+    - sed -i "s/https:\/\/github.com\/NVIDIA\/HugeCTR.git/https:\/\/gitlab-ci-token:${CI_JOB_TOKEN}@gitlab-master.nvidia.com\/dl\/hugectr\/hugectr.git/g" dockerfile.tf
+    - docker build --pull
+      -t ${IMAGE_CTR}
+      -f dockerfile.tf
+      --build-arg RELEASE=false 
+      --build-arg RMM_VER=vnightly 
+      --build-arg CUDF_VER=vnightly 
+      --build-arg NVTAB_VER=vnightly 
+      --build-arg HUGECTR_VER=v21.9
+      --no-cache
+      ${PWD}
+    - docker push ${IMAGE_CTR}
+  only:
+    variables:
+      - $NIGHTLY == "1"
   timeout: 2 hours
 
-.sample_deepfm_job: &sample_deepfm_job
+nightly_build_unified_container.tri:
+  tags:
+    - 1GPU
+  stage: build_from_scratch
   script:
-    - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
-      --container-image ${CONTAINER_IMAGE}
-      --container-mounts ${CONTS}
-      --ntasks-per-node 1
-      bash -cx "
-      cd ${CI_PROJECT_DIR} &&
-      export PYTHONPATH=${WORK_DIR}/build/build_single/lib &&
-      ln -s ${NEW_CRITEO_MOUNT}/dcn_data;
-      sed -i 's/criteo_data/dcn_data/g' ./samples/deepfm/deepfm.py &&
-      python3 ./samples/deepfm/deepfm.py;"
-    - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
-      --container-image ${CONTAINER_IMAGE}
-      --container-mounts ${CONTS}
-      --ntasks-per-node 1
-      bash -cx "
-      cd ${CI_PROJECT_DIR} &&
-      export PYTHONPATH=${WORK_DIR}/build/build_single/lib &&
-      ln -s ${NEW_CRITEO_MOUNT}/deepfm_data_nvt_bin;
-      sed -i 's/criteo_data/deepfm_data_nvt_bin/g' ./samples/deepfm/deepfm_bin.py &&
-      python3 ./samples/deepfm/deepfm_bin.py"
-    - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
-      --container-image ${CONTAINER_IMAGE}
-      --container-mounts ${CONTS}
-      --ntasks-per-node 1
-      bash -cx "
-      cd ${CI_PROJECT_DIR} &&
-      export PYTHONPATH=${WORK_DIR}/build/build_single/lib &&
-      ln -s ${NEW_CRITEO_MOUNT}/deepfm_data_nvt;
-      sed -i 's/criteo_data/deepfm_data_nvt/g' ./samples/deepfm/deepfm_parquet.py &&
-      python3 ./samples/deepfm/deepfm_parquet.py"
+    - docker login -u ${CI_PRIVATE_USER} -p "${CI_PRIVATE_KEY}" "${CI_REGISTRY}"
+    - export IMAGE_CTR="${CI_REGISTRY}/dl/hugectr/hugectr:unified.tri.latest"
+    - git clone https://github.com/shijieliu/Merlin.git
+    - cd Merlin/docker
+    - sed -i "s/https:\/\/github.com\/NVIDIA\/HugeCTR.git/https:\/\/gitlab-ci-token:${CI_JOB_TOKEN}@gitlab-master.nvidia.com\/dl\/hugectr\/hugectr.git/g" dockerfile.tri
+    - docker build --pull
+      -t ${IMAGE_CTR}
+      -f dockerfile.tri
+      --build-arg RELEASE=false 
+      --build-arg RMM_VER=vnightly 
+      --build-arg CUDF_VER=vnightly 
+      --build-arg NVTAB_VER=vnightly 
+      --build-arg HUGECTR_VER=v21.9
+      --no-cache
+      ${PWD}
+    - docker push ${IMAGE_CTR}
+  only:
+    variables:
+      - $NIGHTLY == "1"
   timeout: 2 hours
 
-.sample_dcn_job: &sample_dcn_job
-  script:
-    - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
-      --container-image ${CONTAINER_IMAGE}
-      --container-mounts ${CONTS}
-      --ntasks-per-node 1
-      bash -cx "
-      cd ${CI_PROJECT_DIR} &&
-      export PYTHONPATH=${WORK_DIR}/build/build_single/lib &&
-      ln -s ${NEW_CRITEO_MOUNT}/dcn_data;
-      sed -i 's/criteo_data/dcn_data/g' ./samples/dcn/dcn.py &&
-      python3 ./samples/dcn/dcn.py"
-    - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
-      --container-image ${CONTAINER_IMAGE}
-      --container-mounts ${CONTS}
-      --ntasks-per-node 1
-      bash -cx "
-      cd ${CI_PROJECT_DIR} &&
-      export PYTHONPATH=${WORK_DIR}/build/build_single/lib &&
-      ln -s ${NEW_CRITEO_MOUNT}/deepfm_data_nvt_bin;
-      sed -i 's/criteo_data/deepfm_data_nvt_bin/g' ./samples/dcn/dcn_bin.py &&
-      python3 ./samples/dcn/dcn_bin.py"
-    - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
-      --container-image ${CONTAINER_IMAGE}
-      --container-mounts ${CONTS}
-      --ntasks-per-node 1
-      bash -cx "
-      cd ${CI_PROJECT_DIR} &&
-      export PYTHONPATH=${WORK_DIR}/build/build_single/lib &&
-      ln -s ${NEW_CRITEO_MOUNT}/deepfm_data_nvt;
-      sed -i 's/criteo_data/deepfm_data_nvt/g' ./samples/dcn/dcn_parquet.py &&
-      python3 ./samples/dcn/dcn_parquet.py"
-    - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
-      --container-image ${CONTAINER_IMAGE}
-      --container-mounts ${CONTS}
-      --ntasks-per-node 1
-      bash -cx "
-      cd ${CI_PROJECT_DIR} &&
-      export PYTHONPATH=${WORK_DIR}/build/build_single/lib &&
-      export CUDA_DEVICE_ORDER=PCI_BUS_ID &&
-      ln -s ${NEW_CRITEO_MOUNT}/dcn_data;
-      sed -i 's/criteo_data/dcn_data/g' ./samples/dcn/dcn_localized_embedding.py &&
-      python3 ./samples/dcn/dcn_localized_embedding.py"
-    - srun --ntasks=2
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
-      --container-image ${CONTAINER_IMAGE}
-      --container-mounts ${CONTS}
-      --ntasks-per-node 1
-      --network sharp
-      bash -cx "
-      cd ${CI_PROJECT_DIR} &&
-      export PYTHONPATH=${WORK_DIR}/build/build_multi_nccl/lib &&
-      ln -s ${NEW_CRITEO_MOUNT}/dcn_data;
-      sed -i 's/criteo_data/dcn_data/g' ./samples/dcn/dcn_2node_8gpu.py &&
-      python3 ./samples/dcn/dcn_2node_8gpu.py"
-  timeout: 2 hours
-
-.sample_criteo_job: &sample_criteo_job
-  script:
-    - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
-      --container-image ${CONTAINER_IMAGE}
-      --container-mounts ${CONTS}
-      --ntasks-per-node 1
-      bash -cx "
-      cd ${CI_PROJECT_DIR} &&
-      export PYTHONPATH=${WORK_DIR}/build/build_single/lib &&
-      ln -s ${NEW_CRITEO_MOUNT}/criteo_data;
-      python3 ./samples/criteo/criteo.py;"
-    - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
-      --container-image ${CONTAINER_IMAGE}
-      --container-mounts ${CONTS}
-      --ntasks-per-node 1
-      bash -cx "
-      cd ${CI_PROJECT_DIR} &&
-      export PYTHONPATH=${WORK_DIR}/build/build_single/lib &&
-      ln -s ${NEW_CRITEO_MOUNT}/criteo_bin;
-      sed -i 's/criteo_data/criteo_bin/g' samples/criteo/criteo_bin.py &&
-      python3 samples/criteo/criteo_bin.py"
-    - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
-      --container-image ${CONTAINER_IMAGE}
-      --container-mounts ${CONTS}
-      --ntasks-per-node 1
-      bash -cx "
-      cd ${CI_PROJECT_DIR} &&
-      export PYTHONPATH=${WORK_DIR}/build/build_single/lib &&
-      ln -s ${NEW_CRITEO_MOUNT}/criteo_parquet;
-      sed -i 's/criteo_data/criteo_parquet/g' samples/criteo/criteo_parquet.py &&
-      python3 ./samples/criteo/criteo_parquet.py"
-    - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
-      --container-image ${CONTAINER_IMAGE}
-      --container-mounts ${CONTS}
-      --ntasks-per-node 1
-      bash -cx "
-      cd ${CI_PROJECT_DIR};
-      export PYTHONPATH=${WORK_DIR}/build/build_single/lib &&
-      ln -s ${NEW_CRITEO_MOUNT}/criteo_multi_slots;
-      sed -i 's/criteo_data/criteo_multi_slots/g' samples/criteo_multi_slots/criteo_multi_slots.py &&
-      python3 ./samples/criteo_multi_slots/criteo_multi_slots.py"
-  timeout: 2 hours
-
-.sample_dlrm_job: &sample_dlrm_job
-  script:
-    - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
-      --container-image ${CONTAINER_IMAGE}
-      --container-mounts ${CONTS}
-      --ntasks-per-node 1
-      bash -cx "
-      cd ${NEW_CRITEO_MOUNT}/dlrm_kaggle &&
-      export PYTHONPATH=${WORK_DIR}/build/build_single/lib &&
-      python3 ${WORK_DIR}/samples/dlrm/dlrm_kaggle_fp32.py"
-    - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
-      --container-image ${CONTAINER_IMAGE}
-      --container-mounts ${CONTS}
-      --ntasks-per-node 1
-      bash -cx "
-      cd ${DLRM_MOUNT} &&
-      export PYTHONPATH=${WORK_DIR}/build/build_single/lib &&
-      python3 ${WORK_DIR}/samples/dlrm/dlrm_terabyte_fp16_64k.py"
-  timeout: 2 hours
-
-sample_wdl_selene:
-  <<: *release_test_job_selene
-  <<: *sample_wdl_job
-
-sample_deepfm_selene:
-  <<: *release_test_job_selene
-  <<: *sample_deepfm_job
-
-sample_dcn_selene:
-  <<: *release_test_job_selene
-  <<: *sample_dcn_job
-
-sample_criteo_selene:
-  <<: *release_test_job_selene
-  <<: *sample_criteo_job
-
-sample_dlrm_selene:
-  <<: *release_test_job_selene
-  <<: *sample_dlrm_job
-
-
-.debug_job:
-  extends: .selene_job
-  allow_failure: false
-  stage: build
-  script:
-    - git submodule update --init --recursive
-    - srun
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
-      --ntasks=1
-      --container-image gitlab-master.nvidia.com/dl/hugectr/hugectr:devel_train
-      --container-mounts ${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
-      bash -cx "
-      cd ${CI_PROJECT_DIR};
-      mkdir build && cd build && cmake -DCMAKE_BUILD_TYPE=Release -DSM=60\;61\;70\;75\;80 .. && make -j;
-      ./bin/embedding_test
-      "
-  timeout: 2 hours
+# rm_logs:
+#   extends: .cluster_test_job
+#   variables:
+#     GPFSFOLDER: "$LOGDIR"
+#     GIT_CLONE_PATH: /lustre/fsw/devtech/hpc-hugectr/hugectr-ci/$CI_CONCURRENT_ID/$CI_PROJECT_NAME
+#     CONT: $TRAIN_IMAGE_VERSIONED
+#     MOUNTS: /lustre/fsw/devtech:/logs
+#     SLURM_ACCOUNT: devtech
+#     WALLTIME: "00:15:00"
+#     DGXNNODES: 1
+#     TEST_CMD: ./ci/common/clean_logs.sub

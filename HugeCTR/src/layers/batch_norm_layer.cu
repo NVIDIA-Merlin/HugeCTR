@@ -19,6 +19,7 @@
 #include <layers/batch_norm_layer.hpp>
 #include <string>
 #include <utils.hpp>
+
 #ifndef NDEBUG
 #include <iostream>
 #endif
@@ -83,8 +84,6 @@ BatchNormLayer<T>::BatchNormLayer(const std::shared_ptr<BufferBlock2<float>>& we
   wgrad_buff->reserve(gamma_dim, &beta_grad_);
   wgrad_.push_back(gamma_grad_);
   wgrad_.push_back(beta_grad_);
-
-  blob_buff->reserve(in_tensor_dim, &temp_in_tensor_);
 
   // result running mean & var
   blob_buff->reserve(gamma_dim, &result_running_mean_);
@@ -169,15 +168,10 @@ void BatchNormLayer<T>::bprop() {
   float* result_save_mean = result_save_mean_.get_ptr();
   float* result_save_inv_var = result_save_inv_var_.get_ptr();
 
-  T* temp_in = temp_in_tensor_.get_ptr();
-  size_t n_byte = temp_in_tensor_.get_size_in_bytes();
-  CK_CUDA_THROW_(
-      cudaMemcpyAsync(temp_in, in, n_byte, cudaMemcpyDeviceToDevice, get_gpu().get_stream()));
-
   CK_CUDNN_THROW_(cudnnBatchNormalizationBackward(
-      get_gpu().get_cudnn_handle(), mode_, &one, &zero, &one, &zero, in_out_desc_, temp_in,
-      in_out_desc_, out, in_out_desc_, in, gamma_beta_desc_, gamma, gamma_grad, beta_grad,
-      params_.eps, result_save_mean, result_save_inv_var));
+      get_gpu().get_cudnn_handle(), mode_, &one, &zero, &one, &zero, in_out_desc_, in, in_out_desc_,
+      out, in_out_desc_, in, gamma_beta_desc_, gamma, gamma_grad, beta_grad, params_.eps,
+      result_save_mean, result_save_inv_var));
 }
 
 template <typename T>

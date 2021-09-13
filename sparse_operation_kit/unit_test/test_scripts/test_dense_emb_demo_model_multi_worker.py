@@ -41,7 +41,8 @@ def test_sok_dense_demo(args, init_tensors, *random_samples):
         sok_dense_demo = SOKDenseDemo(max_vocabulary_size_per_gpu=args.max_vocabulary_size_per_gpu,
                                       embedding_vec_size=args.embedding_vec_size,
                                       slot_num=args.slot_num,
-                                      nnz_per_slot=args.nnz_per_slot)
+                                      nnz_per_slot=args.nnz_per_slot,
+                                      use_hashtable=args.use_hashtable)
 
         emb_opt = utils.get_embedding_optimizer(args.optimizer)(learning_rate=0.1)
         dense_opt = utils.get_dense_optimizer(args.optimizer)(learning_rate=0.1)
@@ -114,9 +115,14 @@ def compare_dense_emb_sok_with_tf(args):
 
     #each worker generate different dataset
     if args.generate_new_datas:
+        if args.use_hashtable:
+            vocabulary_size = args.local_gpu_num * args.max_vocabulary_size_per_gpu * args.worker_num
+        else:
+            vocabulary_size = args.max_vocabulary_size_per_gpu
+
         worker_batch_size = args.global_batch_size // args.worker_num
         random_samples_local = utils.generate_random_samples(num_of_samples=worker_batch_size * args.iter_num,
-                                                             vocabulary_size=args.local_gpu_num * args.max_vocabulary_size_per_gpu * args.worker_num,
+                                                             vocabulary_size=vocabulary_size,
                                                              slot_num=args.slot_num,
                                                              max_nnz=args.nnz_per_slot,
                                                              use_sparse_mask=False)
@@ -242,25 +248,21 @@ if __name__ == "__main__":
                              'initial value to initialize trainable parameters '+\
                              'rather than restore trainable parameters from file.',
                         required=False, default=0)
+    parser.add_argument("--use_hashtable", type=int, choices=[0, 1], default=1)
+
     args = parser.parse_args()
+
+    args.use_hashtable = True if 1 == args.use_hashtable else False
 
     if not isinstance(args.ips, list):
         args.ips = [args.ips]
 
     args.worker_num = len(args.ips)
     if utils.all_ips_in_local(args.ips):
-        print("[INFO]: local_gpu_num will be ignored. The number of available GPUs will be automatically detected.")
-        local_gpu_num = utils.get_local_gpu_count()
-        if (local_gpu_num % args.worker_num != 0):
-            raise ValueError("local_gpu_num: %d is not divisible by worker_num: %d"
-                             %(local_gpu_num, args.worker_num))
-        per_worker_gpu_num = local_gpu_num // args.worker_num
-        args.local_gpu_num = per_worker_gpu_num
-
         processes = list()
         for task_id in range(args.worker_num):
-            available_gpus = ",".join([str(per_worker_gpu_num * task_id + i)
-                                       for i in range(per_worker_gpu_num)])
+            available_gpus = ",".join([str(args.local_gpu_num * task_id + i)
+                                       for i in range(args.local_gpu_num)])
             print("[INFO]: on task: %d, its available GPUs are: %s" %(task_id, available_gpus))
             os.environ["CUDA_VISIBLE_DEVICES"] = available_gpus
             process = utils.TestProcess(func=compare_dense_emb_sok_with_tf, task_id=task_id, arguments=args)

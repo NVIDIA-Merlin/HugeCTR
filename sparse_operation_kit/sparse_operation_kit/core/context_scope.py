@@ -79,9 +79,15 @@ class OptimizerScope(object):
         self.touched_variables = list()
         
         for variable in self._embedding_variables:
-            for sub_variable in variable.values:
-                sub_variable._handle = sub_variable.tf_handle
-                self.touched_variables.append(sub_variable)
+            if isinstance(variable, EmbeddingVariable):
+                # When using horovod, type(variable) is EmbeddingVariable
+                variable._handle = variable.tf_handle
+                self.touched_variables.append(variable)
+            else:
+                # When using tf.strategy, type(variable) is DistributedVariable
+                for sub_variable in variable.values:
+                    sub_variable._handle = sub_variable.tf_handle
+                    self.touched_variables.append(sub_variable)
 
         return self
 

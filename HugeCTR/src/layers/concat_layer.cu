@@ -26,45 +26,27 @@ namespace HugeCTR {
 
 namespace {
 
-template <size_t length, typename T>
-__device__ int array_length(T (&)[length]) {
-  return length;
-}
-
-template <typename T, typename... Args>
-__global__ void concat_kernel(bool forward, T* out, const int h, const int out_w,
-                              const Args... args) {
-  const int gid_base = blockIdx.x * blockDim.x + threadIdx.x;
-  const typename ConcatLayer<T>::InParam in_params[] = {args...};
-  const int n_ins = array_length(in_params);
-  for (int gid = gid_base; gid < h * out_w; gid += blockDim.x * gridDim.x) {
-    int row = gid / out_w;
-    int out_col = gid % out_w;
-    int out_idx = row * out_w + out_col;
-
-    int in_no = 0;
-    int in_col = out_col;
-    int accum_width = 0;
-    for (int k = 0; k < n_ins; k++) {
-      if (out_col < accum_width + in_params[k].in_w) {
-        in_no = k;
-        in_col -= accum_width;
-        break;
-      }
-      accum_width += in_params[k].in_w;
-    }
-    T* in = in_params[in_no].in;
-    int in_idx = row * in_params[in_no].in_w + in_col;
-
-    if (forward) {
-      out[out_idx] = in[in_idx];
-    } else {
-      in[in_idx] = out[out_idx];
+template <typename T>
+__global__ void concat_fwd_kernel(T* out, const int2 out_dim, T* in, const int2 in_dim,
+                                  int offset) {
+  for (int mi = blockIdx.x; mi < in_dim.x; mi += gridDim.x) {
+    for (int ni = threadIdx.x; ni < in_dim.y; ni += blockDim.x) {
+      out[mi * out_dim.y + offset + ni] = in[mi * in_dim.y + ni];
     }
   }
 }
 
-}  // anonymous namespace
+template <typename T>
+__global__ void concat_bwd_kernel(T* out, const int2 out_dim, T* in, const int2 in_dim,
+                                  int offset) {
+  for (int mi = blockIdx.x; mi < in_dim.x; mi += gridDim.x) {
+    for (int ni = threadIdx.x; ni < in_dim.y; ni += blockDim.x) {
+      in[mi * in_dim.y + ni] = out[mi * out_dim.y + offset + ni];
+    }
+  }
+}
+
+}  // namespace
 
 template <typename T>
 ConcatLayer<T>::ConcatLayer(const Tensors2<T>& in_tensors, Tensor2<T>& out_tensor,
@@ -112,71 +94,48 @@ ConcatLayer<T>::ConcatLayer(const Tensors2<T>& in_tensors, Tensor2<T>& out_tenso
 
 template <typename T>
 void ConcatLayer<T>::fprop(bool is_train) {
-  prop_common(true, get_in_tensors(is_train), get_gpu().get_stream(), get_gpu().get_sm_count());
+  CudaDeviceContext context(get_device_id());
+  auto stream = get_gpu().get_stream();
+
+  int n_in_tensors = in_tensors_.size();
+  int block_size = 256;
+  int n_blocks = get_gpu().get_sm_count() * 8;
+  T* out = out_tensor_.get_ptr();
+  const int2 out_dim = {static_cast<int>(out_tensor_.get_dimensions()[0]),
+                        static_cast<int>(out_tensor_.get_dimensions()[1])};
+  int offset = 0;
+  for (int i = 0; i < n_in_tensors; i++) {
+    Tensor2<T>& in_tensor = in_tensors_[i];
+    T* in = in_tensor.get_ptr();
+    const int2 in_dim = {static_cast<int>(in_tensor.get_dimensions()[0]),
+                         static_cast<int>(in_tensor.get_dimensions()[1])};
+
+    concat_fwd_kernel<<<n_blocks, block_size, 0, stream>>>(out, out_dim, in, in_dim, offset);
+    offset += in_dim.y;
+  }
 }
 
 template <typename T>
 void ConcatLayer<T>::bprop() {
-  prop_common(false, get_in_tensors(true), get_gpu().get_stream(), get_gpu().get_sm_count());
-}
-
-template <typename T>
-void ConcatLayer<T>::prop_common(bool forward, Tensors2<T>& in_tensors, cudaStream_t stream,
-                                 size_t n_sms) {
   CudaDeviceContext context(get_device_id());
+  auto stream = get_gpu().get_stream();
 
-  int n_in_tensors = in_tensors.size();
-  if (n_in_tensors == 2) {
-    std::vector<InParam> in_params = set_in_params(in_tensors, 2);
-    kernel_launch(forward, stream, n_sms, in_params[0], in_params[1]);
-  } else if (n_in_tensors == 3) {
-    std::vector<InParam> in_params = set_in_params(in_tensors, 3);
-    kernel_launch(forward, stream, n_sms, in_params[0], in_params[1], in_params[2]);
-  } else if (n_in_tensors == 4) {
-    std::vector<InParam> in_params = set_in_params(in_tensors, 4);
-    kernel_launch(forward, stream, n_sms, in_params[0], in_params[1], in_params[2], in_params[3]);
-  } else if (n_in_tensors == 5) {
-    std::vector<InParam> in_params = set_in_params(in_tensors, 5);
-    kernel_launch(forward, stream, n_sms, in_params[0], in_params[1], in_params[2], in_params[3],
-                  in_params[4]);
-  } else {
-    CK_THROW_(Error_t::UnSupportedFormat, "Merging > 5 layers is not supported");
-  }
-
-#ifndef NDEBUG
-  cudaDeviceSynchronize();
-  CK_CUDA_THROW_(cudaGetLastError());
-#endif
-}
-
-template <typename T>
-std::vector<typename ConcatLayer<T>::InParam> ConcatLayer<T>::set_in_params(Tensors2<T>& in_tensors,
-                                                                            int n) {
-  std::vector<InParam> in_params;
-  for (int i = 0; i < n; i++) {
-    Tensor2<T>& in_tensor = in_tensors[i];
-    T* in = in_tensor.get_ptr();
-    int w = in_tensor.get_dimensions()[1];
-    in_params.push_back({in, w});
-  }
-  return in_params;
-}
-
-template <typename T>
-template <typename... Args>
-void ConcatLayer<T>::kernel_launch(bool forward, cudaStream_t stream, size_t n_sms, Args&... args) {
   int block_size = 256;
-  int n_blocks = n_sms * 8;
-  Tensor2<T>& out_tensor = out_tensor_;
-  T* out = out_tensor.get_ptr();
-  int h = out_tensor.get_dimensions()[0];
-  int out_w = out_tensor.get_dimensions()[1];
-  concat_kernel<<<n_blocks, block_size, 0, stream>>>(forward, out, h, out_w, args...);
-}
+  int n_blocks = get_gpu().get_sm_count() * 8;
+  T* out = out_tensor_.get_ptr();
+  const int2 out_dim = {static_cast<int>(out_tensor_.get_dimensions()[0]),
+                        static_cast<int>(out_tensor_.get_dimensions()[1])};
+  int grid_size = std::min(out_dim.x, n_blocks);
+  int offset = 0;
+  for (std::size_t i = 0; i < in_tensors_.size(); i++) {
+    Tensor2<T>& in_tensor = in_tensors_[i];
+    T* in = in_tensor.get_ptr();
+    const int2 in_dim = {static_cast<int>(in_tensor.get_dimensions()[0]),
+                         static_cast<int>(in_tensor.get_dimensions()[1])};
 
-template <typename T>
-Tensors2<T>& ConcatLayer<T>::get_in_tensors(bool is_train) {
-  return in_tensors_;
+    concat_bwd_kernel<<<grid_size, block_size, 0, stream>>>(out, out_dim, in, in_dim, offset);
+    offset += in_dim.y;
+  }
 }
 
 template class ConcatLayer<float>;

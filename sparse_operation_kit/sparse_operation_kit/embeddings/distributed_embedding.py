@@ -18,11 +18,11 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import tensorflow as tf
-
 from sparse_operation_kit.kit_lib import create_embedding_sparse, plugin_sparse_fprop
 from sparse_operation_kit.core.embedding_variable import EmbeddingVariable
 from sparse_operation_kit.embeddings import embedding_ops
+from tensorflow.distribute import has_strategy
+import tensorflow as tf
 
 class DistributedEmbedding(tf.keras.layers.Layer):
     """
@@ -76,6 +76,7 @@ class DistributedEmbedding(tf.keras.layers.Layer):
                  slot_num,
                  max_nnz,
                  max_feature_num = 1,
+                 use_hashtable=True,
                  **kwargs):
         super(DistributedEmbedding, self).__init__(**kwargs)
 
@@ -85,11 +86,15 @@ class DistributedEmbedding(tf.keras.layers.Layer):
         self.slot_num = slot_num
         self.max_nnz = max_nnz
         self.max_feature_num = max_feature_num
+        self.comm_tool = None if has_strategy() else "Horovod"
 
-        self.var = EmbeddingVariable.CreateInstances(shape=[self.max_vocabulary_size_per_gpu, self.embedding_vec_size],
-                                                     trainable=True)
+        self.var = EmbeddingVariable.CreateInstances(
+                                shape=[self.max_vocabulary_size_per_gpu, self.embedding_vec_size],
+                                trainable=True,
+                                use_hashtable=use_hashtable)
+        emb_handle = self.var.emb_handle if isinstance(self.var, EmbeddingVariable) else self.var.values[0].emb_handle
 
-        self.emb = create_embedding_sparse(self.var.values[0].emb_handle,
+        self.emb = create_embedding_sparse(emb_handle,
                                            input_dispatcher="all_gather_dispatcher",
                                            input_dispatcher_subsequent_ops=["csr_conversion_distributed"],
                                            embedding_executor="distributed",
@@ -111,7 +116,7 @@ class DistributedEmbedding(tf.keras.layers.Layer):
     def build(self, input_shape):
         pass
 
-    @tf.function
+    # @tf.function
     def call(self, inputs, training=True):
         """
         The forward logic of this wrapper class.
@@ -143,9 +148,8 @@ class DistributedEmbedding(tf.keras.layers.Layer):
         emb_vector = plugin_sparse_fprop(self.emb, 
                                          self.var,
                                          values, row_indices, 
-                                         embedding_ops.get_global_replica_id(),
+                                         embedding_ops.get_global_replica_id(self.comm_tool),
                                          slot_num=self.slot_num,
                                          training=training, 
                                          unique_op_name=self.var.name)
         return emb_vector
-

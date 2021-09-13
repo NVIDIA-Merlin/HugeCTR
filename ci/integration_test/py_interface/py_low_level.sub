@@ -1,0 +1,10 @@
+#!/bin/bash
+
+srun --ntasks=1 --container-image="${CONT}" --container-mounts="${MOUNTS}" bash -cx " \
+      cd /dataset/criteo_kaggle/wdl && \
+      mkdir /workdir/tmp/ && \
+      python3 /workdir/test/pybind_test/wdl_fp16_8gpu_export.py /workdir/test/scripts/wdl_fp16_8gpu.json /workdir/tmp/"
+
+srun --ntasks=1 --container-image="${CONT}" --container-mounts="${MOUNTS}" bash -cx " \
+      cd /raid/datasets/criteo/mlperf/40m.limit_preshuffled/ && \
+      python3 /workdir/test/pybind_test/dlrm_8gpu_set_source.py /workdir/test/scripts/dlrm_set_source.json"

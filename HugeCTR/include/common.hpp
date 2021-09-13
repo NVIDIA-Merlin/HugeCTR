@@ -58,8 +58,8 @@
 
 namespace HugeCTR {
 
-#define HUGECTR_VERSION_MAJOR 3
-#define HUGECTR_VERSION_MINOR 1
+#define HUGECTR_VERSION_MAJOR 21
+#define HUGECTR_VERSION_MINOR 9
 #define HUGECTR_VERSION_PATCH 0
 
 #define WARP_SIZE 32
@@ -202,6 +202,10 @@ enum class TrainState_t {
   MLPUpdate,
   Finalize
 };
+
+enum class Distribution_t { Uniform, PowerLaw };
+
+enum class PowerLaw_t { Long, Medium, Short, Specific };
 
 // TODO: Consider to move them into a separate file
 struct TrainState {

@@ -31,6 +31,7 @@
 #include <tensor2.hpp>
 #include <utils.hpp>
 #include <vector>
+#include <filesystem>
 
 namespace HugeCTR {
 
@@ -101,7 +102,7 @@ class DataReader : public IDataReader {
     for (int i = 0; i < num_threads; ++i) {
       // a worker may maintain multiple buffers on device i % local_gpu_count
       auto local_gpu = resource_manager_->get_local_gpu(i % local_gpu_count);
-      CudaDeviceContext context(local_gpu->get_device_id());
+      CudaCPUDeviceContext context(local_gpu->get_device_id());
       auto &buff = buffs[i % local_gpu_count];
       std::shared_ptr<ThreadBuffer> current_thread_buffer = std::make_shared<ThreadBuffer>();
       thread_buffers_.push_back(current_thread_buffer);
@@ -143,7 +144,6 @@ class DataReader : public IDataReader {
     broadcast_buffer_->param_num = params.size();
     output_->dense_tensors.reserve(local_gpu_count);
     output_->label_tensors.reserve(local_gpu_count);
-    output_->last_batch_finish_events.resize(local_gpu_count);
     output_->use_mixed_precision = use_mixed_precision;
     output_->label_dense_dim = label_dim + dense_dim;
     for (size_t param_id = 0; param_id < params.size(); ++param_id) {
@@ -197,8 +197,6 @@ class DataReader : public IDataReader {
         output_->dense_tensors.push_back(dense_tensor.shrink());
       }
 
-      CK_CUDA_THROW_(cudaEventCreateWithFlags(&output_->last_batch_finish_events[local_id],
-                                              cudaEventDisableTiming));
       buff->allocate();
     }
 
@@ -215,7 +213,6 @@ class DataReader : public IDataReader {
       size_t local_gpu_count = resource_manager_->get_local_gpu_count();
       for (size_t i = 0; i < local_gpu_count; ++i) {
         CK_CUDA_THROW_(cudaEventDestroy(broadcast_buffer_->finish_broadcast_events[i]));
-        CK_CUDA_THROW_(cudaEventDestroy(output_->last_batch_finish_events[i]));
       }
     } catch (const std::runtime_error &rt_err) {
       std::cerr << rt_err.what() << std::endl;
@@ -288,6 +285,16 @@ class DataReader : public IDataReader {
   void create_drwg_raw(std::string file_name, long long num_samples, bool float_label_dense,
                        bool data_shuffle = false,
                        bool start_reading_from_beginning = true) override {
+    // check if key type compatible with dataset
+    size_t file_size = std::filesystem::file_size(file_name);
+    size_t expected_file_size = (label_dim_ + dense_dim_) * sizeof(float);
+    for(auto &param: params_) {
+      expected_file_size += param.slot_num * sizeof(TypeKey);
+    }
+    expected_file_size *= num_samples;
+    if (file_size != expected_file_size) {
+      CK_THROW_(Error_t::UnspecificError, "dataset key type and dataset size is not compatible.");
+    }
     source_type_ = SourceType_t::Mmap;
     worker_group_.reset(new DataReaderWorkerGroupRaw<TypeKey>(
         thread_buffers_, resource_manager_, file_name, num_samples, repeat_, params_, label_dim_,

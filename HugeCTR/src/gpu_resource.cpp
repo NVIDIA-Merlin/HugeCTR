@@ -28,6 +28,7 @@ GPUResource::GPUResource(int device_id, size_t local_id, size_t global_id,
   CK_CUDA_THROW_(cudaStreamCreateWithFlags(&computation_stream_, cudaStreamNonBlocking));
   CK_CUDA_THROW_(cudaStreamCreateWithFlags(&memcpy_stream_, cudaStreamNonBlocking));
   CK_CUDA_THROW_(cudaStreamCreateWithFlags(&computation_stream_2_, cudaStreamNonBlocking));
+  CK_CUDA_THROW_(cudaStreamCreateWithFlags(&p2p_stream_, cudaStreamNonBlocking));
   CK_CUDA_THROW_(cudaEventCreate(&compute_sync_event_));
   CK_CUDA_THROW_(cudaEventCreate(&compute2_sync_event_));
   CK_CURAND_THROW_(
@@ -67,6 +68,7 @@ GPUResource::~GPUResource() {
     CK_CUDA_THROW_(cudaStreamDestroy(computation_stream_));
     CK_CUDA_THROW_(cudaStreamDestroy(memcpy_stream_));
     CK_CUDA_THROW_(cudaStreamDestroy(computation_stream_2_));
+    CK_CUDA_THROW_(cudaStreamDestroy(p2p_stream_));
   } catch (const std::runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
   }

@@ -148,6 +148,26 @@ DataReaderParams::DataReaderParams(DataReaderType_t data_reader_type,
       slot_size_array(slot_size_array),
       async_param(async_param) {}
 
+DataReaderParams::DataReaderParams(DataReaderType_t data_reader_type, std::string source,
+                                   std::string keyset, std::string eval_source, Check_t check_type,
+                                   int cache_eval_data, long long num_samples,
+                                   long long eval_num_samples, bool float_label_dense,
+                                   int num_workers, std::vector<long long>& slot_size_array,
+                                   const AsyncParam& async_param)
+    : data_reader_type(data_reader_type),
+      eval_source(eval_source),
+      check_type(check_type),
+      cache_eval_data(cache_eval_data),
+      num_samples(num_samples),
+      eval_num_samples(eval_num_samples),
+      float_label_dense(float_label_dense),
+      num_workers(num_workers),
+      slot_size_array(slot_size_array),
+      async_param(async_param) {
+  this->source.push_back(source);
+  this->keyset.push_back(keyset);
+}
+
 Input::Input(int label_dim, std::string label_name, int dense_dim, std::string dense_name,
              std::vector<DataReaderSparseParam>& data_reader_sparse_param_array)
     : label_dim(label_dim),
@@ -163,6 +183,7 @@ SparseEmbedding::SparseEmbedding(Embedding_t embedding_type, size_t workspace_si
                                  std::shared_ptr<OptParamsPy>& embedding_opt_params,
                                  const HybridEmbeddingParam& hybrid_embedding_param)
     : embedding_type(embedding_type),
+      workspace_size_per_gpu_in_mb(workspace_size_per_gpu_in_mb),
       embedding_vec_size(embedding_vec_size),
       sparse_embedding_name(sparse_embedding_name),
       bottom_name(bottom_name),
@@ -294,6 +315,8 @@ Model::Model(const Solver& solver, const DataReaderParams& reader_params,
   MPI_Comm_rank(MPI_COMM_WORLD, &__PID);
 #endif
   if (__PID == 0) {
+    std::cout << "HugeCTR Version: " << HUGECTR_VERSION_MAJOR << "." << HUGECTR_VERSION_MINOR << "."
+              << HUGECTR_VERSION_PATCH << std::endl;
     std::cout << "====================================================Model "
                  "Init====================================================="
               << std::endl;
@@ -482,6 +505,8 @@ void Model::add(SparseEmbedding& sparse_embedding) {
        sparse_embedding.embedding_type == Embedding_t::HybridSparseEmbedding)) {
     CK_THROW_(Error_t::WrongInput, "Raw async reader and hybrid embedding must come together");
   }
+  sparse_embedding.max_vocabulary_size_global =
+      sparse_embedding.max_vocabulary_size_per_gpu * resource_manager_->get_global_gpu_count();
   sparse_embedding_params_.push_back(sparse_embedding);
   deactivate_tensor(tensor_active_, sparse_embedding.bottom_name);
   activate_tensor(tensor_active_, sparse_embedding.sparse_embedding_name);

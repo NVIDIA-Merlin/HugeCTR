@@ -17,6 +17,7 @@
 #include <pybind11/pybind11.h>
 
 #include <HugeCTR/pybind/common_wrapper.hpp>
+#include <HugeCTR/pybind/data_generator_wrapper.hpp>
 #include <HugeCTR/pybind/data_reader_wrapper.hpp>
 #include <HugeCTR/pybind/inference_wrapper.hpp>
 #include <HugeCTR/pybind/learning_rate_scheduler_wrapper.hpp>
@@ -29,6 +30,7 @@ using namespace HugeCTR::python_lib;
 PYBIND11_MODULE(hugectr, m) {
   m.doc() = "hugectr python interface";
   CommonPybind(m);
+  DataGeneratorPybind(m);
   SolverPybind(m);
   DataReaderPybind(m);
   ModelOversubscriberPybind(m);

@@ -192,6 +192,14 @@
 *           // this function will be called by multiple CPU-threads if there are multiple GPUs.
 *           // This function will be called by each CPU threads.
 *       }
+*       void save_params(std::shared_ptr<Tensor> &keys,
+*                        std::shared_ptr<Tensor> &embedding_values,
+*                        size_t &num_total_keys) const override {
+*           // the embedding lookup has to override this function to help
+*           // param saving the parameters from GPU memory to files.
+*           // this function has to aggregate parameters from all GPUs to 
+*           // the CPU tensors: keys & embedding_values
+*       }
 *       void restore_params(const std::shared_ptr<Tensor> &keys,
 *                           const std::shared_ptr<Tensor> &embedding_values,
 *                           const size_t num_total_keys) override {
@@ -228,12 +236,6 @@
 *       void load_embedding_values(const std::vector<std::shared_ptr<Tensor>> &tensor_list) override {
 *           // if this operation has something needed to be modified with embedding values,
 *           // then override this virtual function.
-*           // This function will be called by each CPU process.
-*       }
-*       bool save_params(const std::string filepath) const override {
-*           // by default, it return false, which means it does not help ParamInterface to save 
-*           // parameters to file. If it wants to help ParamInterface to save to file, 
-*           // then override this function and return true.
 *           // This function will be called by each CPU process.
 *       }
 *   };

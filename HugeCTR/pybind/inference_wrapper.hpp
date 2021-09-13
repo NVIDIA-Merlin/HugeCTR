@@ -375,14 +375,19 @@ void InferencePybind(pybind11::module& m) {
       infer, "InferenceParams")
       .def(pybind11::init<const std::string&, const size_t, const float, const std::string&,
                           const std::vector<std::string>&, const int, const bool, const float,
-                          const bool, const bool, const float, const bool, const bool>(),
+                          const bool, const bool, const float, const bool, const bool,
+                          HugeCTR::DATABASE_TYPE, const std::string&, const std::string&,
+                          const float>(),
            pybind11::arg("model_name"), pybind11::arg("max_batchsize"),
            pybind11::arg("hit_rate_threshold"), pybind11::arg("dense_model_file"),
            pybind11::arg("sparse_model_files"), pybind11::arg("device_id"),
            pybind11::arg("use_gpu_embedding_cache"), pybind11::arg("cache_size_percentage"),
            pybind11::arg("i64_input_key"), pybind11::arg("use_mixed_precision") = false,
            pybind11::arg("scaler") = 1.0, pybind11::arg("use_algorithm_search") = true,
-           pybind11::arg("use_cuda_graph") = true);
+           pybind11::arg("use_cuda_graph") = true,
+           pybind11::arg("db_type") = HugeCTR::DATABASE_TYPE::LOCAL,
+           pybind11::arg("redis_ip") = "127.0.0.1:7000", pybind11::arg("rocksdb_path") = "",
+           pybind11::arg("cache_size_percentage_redis") = 0.5);
 
   infer.def("CreateInferenceSession", &HugeCTR::python_lib::CreateInferenceSession,
             pybind11::arg("model_config_path"), pybind11::arg("inference_params"));

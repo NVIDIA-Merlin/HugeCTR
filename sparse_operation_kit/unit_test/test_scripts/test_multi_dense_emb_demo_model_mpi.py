@@ -42,8 +42,6 @@ sys.path.append(os.path.abspath(os.path.join(
                     "../../documents/tutorials")))
 import utility
 
-from mpi4py import MPI
-
 def test_sok_multi_dense_emb(args):
     comm_options = tf.distribute.experimental.CommunicationOptions(
         bytes_per_pack=0,
@@ -71,6 +69,8 @@ def test_sok_multi_dense_emb(args):
                                 repeat=1)
     dataset = dataset.prefetch(tf.data.AUTOTUNE)
 
+    dynamic_input = True if args.dynamic_input == 1 else False
+
     with strategy.scope():
         sok.Init(global_batch_size=args.global_batch_size)
 
@@ -78,7 +78,8 @@ def test_sok_multi_dense_emb(args):
                               embedding_vec_size_list=args.embedding_vec_size_list,
                               slot_num_list=args.slot_num_list,
                               nnz_per_slot_list=[args.nnz_per_slot for _ in range(len(args.slot_num_list))],
-                              num_dense_layers=args.num_dense_layers)
+                              num_dense_layers=args.num_dense_layers,
+                              dynamic_input=dynamic_input)
 
         emb_opt = utils.get_embedding_optimizer(args.optimizer)(learning_rate=0.1)
         dense_opt = utils.get_dense_optimizer(args.optimizer)(learning_rate=0.1)
@@ -112,18 +113,19 @@ def test_sok_multi_dense_emb(args):
         else:
             emb_opt.apply_gradients(zip(emb_grads, emb_variable),
                                                 experimental_aggregate_gradients=False)
-        
-        # mannually all-reduce dense gradients
-        replica_context = tf.distribute.get_replica_context()
-        grads = replica_context.all_reduce("sum", grads, 
-                                            options=comm_options)
-        dense_opt.apply_gradients(zip(grads, other_variable),
-                                        experimental_aggregate_gradients=False)
+       
+        with tf.control_dependencies(emb_grads):
+            # mannually all-reduce dense gradients
+            replica_context = tf.distribute.get_replica_context()
+            grads = replica_context.all_reduce("sum", grads, 
+                                                options=comm_options)
+            dense_opt.apply_gradients(zip(grads, other_variable),
+                                            experimental_aggregate_gradients=False)
 
-        # manually all-reduce loss, it is ok, because replica_loss has already been used to 
-        # update local variables.
-        loss = replica_context.all_reduce(tf.distribute.ReduceOp.SUM, loss,
-                                          options=comm_options)
+            # manually all-reduce loss, it is ok, because replica_loss has already been used to 
+            # update local variables.
+            loss = replica_context.all_reduce(tf.distribute.ReduceOp.SUM, loss,
+                                              options=comm_options)
         return loss, all_vectors
 
     # save its results
@@ -205,8 +207,6 @@ def compare_sok_and_tf(args):
     sok_results = test_sok_multi_dense_emb(args)
     utils.save_to_file("./sok_results_" + str(args.task_id) + ".file", sok_results)
 
-    args.comm.Barrier()
-
     # only process-0 to do the cross-checking.
     if args.task_id != 0:
         return
@@ -225,13 +225,18 @@ def compare_sok_and_tf(args):
     if len(all_sok_results_list) != len(tf_results):
         raise ValueError("The length of sok results is not equal to that of tensorflow.")
 
-    tolerance = 1e-4
+    if args.dynamic_input == 1:
+        atol = 1e0
+        rtol = 1e-2
+    else:
+        atol = 1e-4
+        rtol = 1e-4
     for i, sok_vector in enumerate(all_sok_results_list):
         tf.debugging.assert_near(tf.reshape(sok_vector, 
                                             shape=[-1, tf.shape(sok_vector)[-1]]),
                                 tf_results[i],
-                                atol=tolerance,
-                                rtol=tolerance,
+                                atol=atol,
+                                rtol=rtol,
                                 message=("the values is not consistent on Iteration: %d" %i))
 
     print("\n[INFO]: For multiple dense embedding layer: with MPI + MultiWorkerMirroredStrategy, the embedding"+\
@@ -263,18 +268,21 @@ if __name__ == "__main__":
                         help="the iter num for MPI + SOK")
     parser.add_argument("--stop_iter", type=int, required=False, default=-1,
                         help="early stop at which iteration.")
+    parser.add_argument("--dynamic_input", type=int, required=False, default=0, choices=[0, 1],
+                        help="whether to use unique before dense_fprop. 1 means dynamic_input,"+\
+                            "0 means static_input.")
 
     args = parser.parse_args()
 
-    comm = MPI.COMM_WORLD
-    size = comm.Get_size()
+    size = os.getenv("OMPI_COMM_WORLD_SIZE")
+    if size is None:
+        raise RuntimeError("This app must be launched with mpi.")
+    size = int(size)
     args.worker_num = size
 
-    task_id = comm.Get_rank()
+    task_id = int(os.getenv("OMPI_COMM_WORLD_RANK"))
 
     args.task_id = task_id
-
-    args.comm = comm
 
     os.environ["CUDA_VISIBLE_DEVICES"] = str(task_id)
 

@@ -31,6 +31,7 @@ class SOKDemo(tf.keras.models.Model):
                  slot_num,
                  max_nnz,
                  embedding_vec_size, 
+                 use_hashtable=True,
                  **kwargs):
         super(SOKDemo, self).__init__(**kwargs)
 
@@ -44,7 +45,8 @@ class SOKDemo(tf.keras.models.Model):
                                                            max_vocabulary_size_per_gpu=self.max_vocabulary_size_per_gpu,
                                                            embedding_vec_size=self.embedding_vec_size,
                                                            slot_num=self.slot_num,
-                                                           max_nnz=self.max_nnz)
+                                                           max_nnz=self.max_nnz,
+                                                           use_hashtable=use_hashtable)
 
         self.dense_layer = tf.keras.layers.Dense(units=1, activation=None,
                                                  kernel_initializer="ones",
@@ -98,7 +100,8 @@ def test_sok_demo(args, init_tensors, *random_samples):
         plugin_demo = SOKDemo(combiner=args.combiner, 
                                  max_vocabulary_size_per_gpu=args.max_vocabulary_size_per_gpu,
                                  slot_num=args.slot_num, max_nnz=args.max_nnz,
-                                 embedding_vec_size=args.embedding_vec_size)
+                                 embedding_vec_size=args.embedding_vec_size,
+                                 use_hashtable=args.use_hashtable)
 
         emb_opt = utils.get_embedding_optimizer(args.optimizer)(learning_rate=0.1)
         dense_opt = utils.get_dense_optimizer(args.optimizer)(learning_rate=0.1)
@@ -219,10 +222,9 @@ def check_saved_embedding_variables(args, embedding_variable_name):
     tf_values = utils.restore_from_file(tf_values_filename)
     valid_tf_values = utils.get_valid_tf_values(sorted_sok_keys, tf_values[0])
 
-    tf.debugging.assert_near(tf.reshape(sorted_sok_values, 
-                                shape=(sorted_sok_keys.size, args.embedding_vec_size)), 
-                            valid_tf_values, 
-                            atol=1e-4, rtol=1e-4)
+    import numpy as np
+    np.allclose(np.reshape(sorted_sok_values, newshape=(sorted_sok_keys.size, args.embedding_vec_size)), 
+                valid_tf_values, atol=1e-4, rtol=1e-4)
     print("[INFO]: the saved parameters are consistent between sparse operation kit and TensorFlow")
 
 
@@ -231,9 +233,14 @@ def compare_sok_with_tf(args):
         raise ValueError("global_batch_size: %d is not divisible by gpu_num: %d" 
             %(args.global_batch_size, args.gpu_num))
 
+    if args.use_hashtable:
+        vocabulary_size = args.max_vocabulary_size_per_gpu * args.gpu_num
+    else:
+        vocabulary_size = args.max_vocabulary_size_per_gpu
+
     if args.generate_new_datas:
         random_samples = utils.generate_random_samples(num_of_samples=args.global_batch_size * args.iter_num,
-                                                    vocabulary_size=args.gpu_num * args.max_vocabulary_size_per_gpu * 1,
+                                                    vocabulary_size=vocabulary_size,
                                                     slot_num=args.slot_num,
                                                     max_nnz=args.max_nnz)
         utils.save_to_file(r"./random_samples.file", *random_samples)
@@ -319,8 +326,11 @@ if __name__ == "__main__":
                              'initial value to initialize trainable parameters '+\
                              'rather than restore trainable parameters from file.',
                         required=False, default=0)
+    parser.add_argument("--use_hashtable", type=int, choices=[0, 1], default=1)
 
     args = parser.parse_args()
+
+    args.use_hashtable = True if args.use_hashtable == 1 else False
 
     import os
     os.environ['CUDA_VISIBLE_DEVICES'] = ",".join([str(i) for i in range(args.gpu_num)])
