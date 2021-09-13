@@ -106,6 +106,22 @@ RUN mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://
     make -j$(nproc) && make install && \
     rm -rf /var/tmp/hwloc-${HWLOC_VERSION} /var/tmp/hwloc-${HWLOC_VERSION}.tar.gz
 
+#Hiredis
+RUN mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 https://github.com/redis/hiredis.git && cd - && \
+    cd /var/tmp/hiredis && \
+    mkdir build && cd build && \
+    cmake .. && \
+    make -j$(nproc) && make install && \
+    rm -rf /var/tmp/hiredis
+
+#RocksDB
+RUN mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 https://github.com/facebook/rocksdb.git && cd - && \
+    cd /var/tmp/rocksdb && \
+    make -j$(nproc) shared_lib && \
+    make install-shared && \
+    rm -rf /var/tmp/rocksdb
+ENV CPATH=/usr/local/include:$CPATH
+
 RUN pip3 install ortools sklearn jupyterlab onnx onnxruntime && \
     pip3 cache purge
 
@@ -113,25 +129,6 @@ RUN ln -s /usr/lib/x86_64-linux-gnu/libibverbs.so.1.11.32.1 /usr/lib/x86_64-linu
 RUN CUDA_PATH=`find /usr/local/ -name "cuda-*.?" | head -n 1` && \
     echo "link $CUDA_PATH to /usr/local/cuda" && \
     ln -s $CUDA_PATH /usr/local/cuda
-
-#Hiredis
-RUN mkdir -p /var/tmp && cd /var/tmp && git clone https://github.com/redis/hiredis.git && cd - && \
-cd /var/tmp/hiredis && \
-mkdir build && cd build && \
-cmake .. && \
-make && \
-make install && \
-rm -rf /var/tmp/hiredis
-
-
-#RocksDB
-RUN mkdir -p /var/tmp && cd /var/tmp && git clone https://github.com/facebook/rocksdb.git && cd - && \
-cd /var/tmp/rocksdb && \
-make -j$(nproc) shared_lib && \
-make install-shared && \
-rm -rf /var/tmp/rocksdb
-ENV CPATH=/usr/local/include:$CPATH
-
 
 # HugeCTR
 RUN if [ "$RELEASE" = "true" ]; \
@@ -151,7 +148,6 @@ RUN if [ "$RELEASE" = "true" ]; \
     else \
       echo "Build container for development successfully"; \
     fi
-
 ENV PATH=/usr/local/hugectr/bin:$PATH \
     LIBRARY_PATH=/usr/local/hugectr/lib:$LIBRARY_PATH \
     LD_LIBRARY_PATH=/usr/local/hugectr/lib:$LD_LIBRARY_PATH \
