@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-ARG TRITON_VERSION=21.04-py3
+ARG TRITON_VERSION=21.08-py3
 FROM nvcr.io/nvidia/tritonserver:${TRITON_VERSION} AS devel
 
 ARG CMAKE_VERSION=3.19.6
@@ -84,8 +84,12 @@ RUN mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 https://github.com/f
     make install-shared && \
     rm -rf /var/tmp/rocksdb
 ENV CPATH=/usr/local/include:$CPATH
-    
+
 RUN pip3 install --no-cache-dir nvidia-pyindex tritonclient
+
+RUN CUDA_PATH=`find /usr/local/ -name "cuda-*.?" | head -n 1` && \
+    echo "link $CUDA_PATH to /usr/local/cuda" && \
+    ln -s $CUDA_PATH /usr/local/cuda
 
 # HugeCTR Inference
 RUN if [ "$RELEASE" = "true" ]; \
@@ -109,7 +113,7 @@ RUN if [ "$RELEASE" = "true" ]; \
     else \
       echo "Build container for development successfully"; \
     fi
-ENV CPATH=/usr/local/hugectr/include:$CPATH \ 
-    LIBRARY_PATH=/usr/local/hugectr/lib:$LIBRARY_PATH \
-    LD_LIBRARY_PATH=/usr/local/hugectr/lib:$LD_LIBRARY_PATH \
-    PATH=/usr/local/hugectr/bin:$PATH
+ENV CPATH=/usr/local/hugectr/include:$CPATH
+ENV LIBRARY_PATH=/usr/local/hugectr/lib:$LIBRARY_PATH
+ENV LD_LIBRARY_PATH=/usr/local/hugectr/lib:$LD_LIBRARY_PATH
+ENV PATH=/usr/local/hugectr/bin:$PATH

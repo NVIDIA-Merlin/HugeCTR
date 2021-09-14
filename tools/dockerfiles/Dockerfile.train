@@ -148,10 +148,10 @@ RUN if [ "$RELEASE" = "true" ]; \
     else \
       echo "Build container for development successfully"; \
     fi
-ENV PATH=/usr/local/hugectr/bin:$PATH \
-    LIBRARY_PATH=/usr/local/hugectr/lib:$LIBRARY_PATH \
-    LD_LIBRARY_PATH=/usr/local/hugectr/lib:$LD_LIBRARY_PATH \
-    PYTHONPATH=/usr/local/hugectr/lib:$PYTHONPATH
+ENV PATH=/usr/local/hugectr/bin:$PATH
+ENV LIBRARY_PATH=/usr/local/hugectr/lib:$LIBRARY_PATH
+ENV LD_LIBRARY_PATH=/usr/local/hugectr/lib:$LD_LIBRARY_PATH
+ENV PYTHONPATH=/usr/local/hugectr/lib:$PYTHONPATH
 
 HEALTHCHECK NONE
 ENTRYPOINT []
