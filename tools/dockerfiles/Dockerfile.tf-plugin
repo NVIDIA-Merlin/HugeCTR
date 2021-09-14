@@ -54,8 +54,8 @@ ENV PATH=/usr/local/bin:$PATH
 RUN pip3 install --upgrade pip && \
     pip3 install --no-cache-dir numpy==1.19.2 pandas sklearn nvtx-plugins jupyter tensorflow==${TF_VERSION}
 
-ENV CONDA_PREFIX=/opt/conda \
-    NCCL_LAUNCH_MODE=PARALLEL
+ENV CONDA_PREFIX=/opt/conda
+ENV NCCL_LAUNCH_MODE=PARALLEL
 
 RUN mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 --branch branch-${RAPIDS_VERSION} https://github.com/rapidsai/rmm.git rmm && cd - && \
     cd /var/tmp/rmm && \
