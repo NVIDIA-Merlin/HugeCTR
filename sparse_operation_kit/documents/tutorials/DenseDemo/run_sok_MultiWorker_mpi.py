@@ -165,8 +165,8 @@ if __name__ == "__main__":
                         default=0, choices=[0, 1],
                         help="it is a flag used to denotes whether the data is already splited."+\
                              "by default, it is set to 0, which means the data is not splited.")
-    parser.add_argument("--dgx_a100", type=bool, default=False,
-                        help='Set to true of a DGX A100 is being used. In this case, CPU affinity will be set for optimal performance.')
+    parser.add_argument("--dgx_a100", action='store_true', 
+                        help='Set if a DGX A100 is being used. In this case, CPU affinity will be set for optimal performance.')
     
     args = parser.parse_args()
 
@@ -177,7 +177,7 @@ if __name__ == "__main__":
     task_id = os.getenv("OMPI_COMM_WORLD_RANK")
 
     if args.dgx_a100==True:
-        print("Setting CPU affinity...")
+        print("Setting CPU affinity for DGX A100. This will likely fail on a non DGX A100 machine...")
         set_affinity(task_id)
 
     os.environ["CUDA_VISIBLE_DEVICES"] = str(task_id)
