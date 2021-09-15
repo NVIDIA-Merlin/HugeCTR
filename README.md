@@ -11,6 +11,7 @@ Design Goals:
 ## Table of Contents
 * [Core Features](#core-features)
 * [Getting Started](#getting-started)
+* [HugeCTR SDK](#hugectr-sdk)
 * [Support and Feedback](#support-and-feedback)
 * [Contribute to HugeCTR](#contribute-to-hugectr)
 
@@ -147,6 +148,11 @@ If you'd like to quickly train a model using the Python interface, follow these 
    **NOTE**: It is expected that the value of evaluation AUC is not good given that randomly generated datasets are being used. When the training is done, you will see the files of dumped graph JSON, saved model weights and optimizer states.
 
 For additional information, see the [HugeCTR User Guide](docs/hugectr_user_guide.md).
+
+## HugeCTR SDK ##
+To support the users who cannot use HugeCTR directly, we exports several important components in HugeCTR to external developers as SDK.
+* [Sparse Operation Kit](sparse_operation_kit): a python package wrapped GPU accelerated operations dedicated for sparse training / inference cases.
+* [GPU Embedding Cache](gpu_cache): a embedding cache on GPU memory designed for CTR inference workload
 
 ## Support and Feedback ##
 If you encounter any issues and/or have questions, please file an issue [here](https://github.com/NVIDIA/HugeCTR/issues) so that we can provide you with the necessary resolutions and answers. To further advance the Merlin/HugeCTR Roadmap, we encourage you to share all the details regarding your recommender system pipeline using this [survey](https://developer.nvidia.com/merlin-devzone-survey).
