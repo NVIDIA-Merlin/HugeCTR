@@ -1,0 +1,295 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  
+  <title>SparseOperationKit &mdash; SparseOperationKit  documentation</title>
+  
+
+  
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+
+  
+  
+
+  
+  
+
+  
+
+  
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+    
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+
+    
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Features in SparseOperationKit" href="features/features.html" />
+    <link rel="prev" title="Welcome to SparseOperationKit’s documentation!" href="index.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="index.html" class="icon icon-home"> SparseOperationKit
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                1.0.1
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Introduction</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#features">Features</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#installation">Installation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#install-this-module-along-with-hugectr"><em>Install this module along with HugeCTR</em></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#install-this-module-from-pypi"><em>Install this module from pypi</em></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#build-from-source"><em>Build from source</em></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#documents">Documents</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="features/features.html">Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="get_started/get_started.html">Get Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="examples/index.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="performance/index.html">Performance</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/index.html">API Docs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="release_notes/release_notes.html">Release Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="known_issues/issues.html">Known Issues</a></li>
+</ul>
+
+            
+          
+        </div>
+        
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">SparseOperationKit</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
+        
+      <li>SparseOperationKit</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+          
+            <a href="_sources/intro_link.md.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <section class="tex2jax_ignore mathjax_ignore" id="sparseoperationkit">
+<h1>SparseOperationKit<a class="headerlink" href="#sparseoperationkit" title="Permalink to this headline">¶</a></h1>
+<p>SparseOperationKit (SOK) is a python package wrapped GPU accelerated operations dedicated for sparse training / inference cases. It is designed to be compatible with common DeepLearning (DL) frameworks, for instance, TensorFlow.</p>
+<p>Most of the algorithm implementations in SOK are extracted from HugeCTR, which is a GPU-accelerated recommender framework designed to distribute training across multiple GPUs and nodes and estimate Click-Through Rates (CTRs). If you are looking for a very efficient solution for CTRs, please check <a class="reference external" href="https://github.com/NVIDIA/HugeCTR#readme">HugeCTR</a>.</p>
+<section id="features">
+<h2>Features<a class="headerlink" href="#features" title="Permalink to this headline">¶</a></h2>
+<p><strong>Model-Parallelism GPU Embedding Layer</strong> <br>
+In sparse training / inference scenarios, for instance, CTRs, there are very huge amount of parameters which is not fit into single GPU memory. And common DL frameworks does not support model-parallelism (MP). Therefore it is hard to fully utilize all available GPUs in a cluster to accelerate the whole training process.</p>
+<p>SOK provides <strong>MP</strong> functionality to fully utilize all avaiable GPUs, no matter these GPUs are located in single machine or multiple machines. Because most of DL frameworks have provided data-parallelism (DP), therefore SOK is designed to be compatible with DP training to minimize the code changes. With SOK embedding layers, one can build a DNN model with mixed MP and DP, where MP is for embedding parameters that is distributed among all available GPUs and DP is for other layers that only consume little GPU resources.</p>
+<p>Several MP embedding layers are integrated into SOK. These embedding layers can leverage all available GPU memory to house embedding parameters, no matter in single machine or multiple machine. All the utilized GPUs work synchronously.</p>
+<p>Due to SOK is compatible with DP training provided by common synchronized training frameworks, such as Horovod, TensorFlow Distribute Strategy, therefore the input data feeded to these embedding layers is in DP manner, and that means no further DP from/to MP transformation is needed when SOK is used to scale up your DNN model from single GPU to multiple GPUs. The following picture depicts the workflow of these embedding layers.
+<img alt="WorkFlowOfEmbeddingLayer" src="_images/workflow_of_embeddinglayer1.png" /></p>
+</section>
+<section id="installation">
+<h2>Installation<a class="headerlink" href="#installation" title="Permalink to this headline">¶</a></h2>
+<p>There are several ways to install this package. <br></p>
+<section id="install-this-module-along-with-hugectr">
+<h3><em>Install this module along with HugeCTR</em><a class="headerlink" href="#install-this-module-along-with-hugectr" title="Permalink to this headline">¶</a></h3>
+<p>In the docker image: <code class="docutils literal notranslate"><span class="pre">nvcr.io/nvidia/merlin/merlin-tensorflow-training:0.7</span></code>, SparseOpeationKit is already installed, and you can directrly import this module via:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">sparse_opeation_kit</span> <span class="k">as</span> <span class="nn">sok</span>
+</pre></div>
+</div>
+</section>
+<section id="install-this-module-from-pypi">
+<h3><em>Install this module from pypi</em><a class="headerlink" href="#install-this-module-from-pypi" title="Permalink to this headline">¶</a></h3>
+<p>Install via <code class="docutils literal notranslate"><span class="pre">PYPI</span></code> will be supported in the near future.</p>
+</section>
+<section id="build-from-source">
+<h3><em>Build from source</em><a class="headerlink" href="#build-from-source" title="Permalink to this headline">¶</a></h3>
+<p>If you want to build this module from souce code, here are the steps to follow: <br></p>
+<ul class="simple">
+<li><p><strong>download the source code</strong></p></li>
+</ul>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ git clone https://github.com/NVIDIA/HugeCTR.git hugectr
+</pre></div>
+</div>
+<ul class="simple">
+<li><p><strong>install to system path</strong></p></li>
+</ul>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ <span class="nb">cd</span> hugectr/sparse_operation_kit/
+$ bash install.sh --SM<span class="o">=[</span>Compute Capability<span class="o">]</span> --USE_NVTX<span class="o">=[</span>OFF/ON<span class="o">]</span>
+</pre></div>
+</div>
+<p>Where <code class="docutils literal notranslate"><span class="pre">[Compute</span> <span class="pre">Capability]</span></code> is related to your GPU hardware. For example, for Ampere A100, the compute capability is <code class="docutils literal notranslate"><span class="pre">80</span></code>. If you want to profiling this module with <code class="docutils literal notranslate"><span class="pre">nvtx</span></code>, you can enable nvtx marks via setting <code class="docutils literal notranslate"><span class="pre">-DUSE_NVTX=ON</span></code>, by default, it is <code class="docutils literal notranslate"><span class="pre">OFF</span></code>.</p>
+</section>
+</section>
+<section id="documents">
+<h2>Documents<a class="headerlink" href="#documents" title="Permalink to this headline">¶</a></h2>
+<p>Want to find more about SparseOperationKit, see our <a class="reference external" href="https://nvidia.github.io/HugeCTR/sparse_operation_kit/v1.0.1/index.html">SparseOperationKit documents</a>.</p>
+</section>
+</section>
+
+
+           </div>
+           
+          </div>
+          <footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+        <a href="features/features.html" class="btn btn-neutral float-right" title="Features in SparseOperationKit" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="index.html" class="btn btn-neutral float-left" title="Welcome to SparseOperationKit’s documentation!" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &#169; Copyright 2021, NVIDIA.
+
+    </p>
+  </div>
+    
+    
+    
+    Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    
+    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    v: sok_v1.0.1_GA
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="../sok_v1.0.0/intro_link.html">sok_v1.0.0</a></dd>
+      <dd><a href="intro_link.html">sok_v1.0.1_GA</a></dd>
+    </dl>
+  </div>
+</div>
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

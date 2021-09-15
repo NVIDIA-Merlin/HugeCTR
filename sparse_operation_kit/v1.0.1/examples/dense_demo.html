@@ -1,0 +1,353 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  
+  <title>Demo model using Dense Embedding Layer &mdash; SparseOperationKit  documentation</title>
+  
+
+  
+  <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+
+  
+  
+
+  
+  
+
+  
+
+  
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/underscore.js"></script>
+        <script src="../_static/doctools.js"></script>
+    
+    <script type="text/javascript" src="../_static/js/theme.js"></script>
+
+    
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Performance" href="../performance/index.html" />
+    <link rel="prev" title="DLRM using SparseOperationKit" href="dlrm.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../index.html" class="icon icon-home"> SparseOperationKit
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                1.0.1
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../intro_link.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features/features.html">Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../get_started/get_started.html">Get Started</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Examples</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="dlrm.html">DLRM</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">DenseDemo</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#requirements">requirements</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#model-structure">model structure</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#steps">steps</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#generate-datasets">Generate datasets</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#split-the-whole-dataset-into-multiple-shards">Split the whole dataset into multiple shards</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#run-this-demo-writen-with-tensorflow">Run this demo writen with TensorFlow</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#run-this-demo-writen-with-sok-mirroredstrategy">Run this demo writen with SOK + MirroredStrategy</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#run-this-demo-writen-with-sok-multiworkermirroredstrategy-mpi">Run this demo writen with SOK + MultiWorkerMirroredStrategy + MPI</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#run-this-demo-writen-with-sok-horovod">Run this demo writen with SOK + Horovod</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../performance/index.html">Performance</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/index.html">API Docs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../release_notes/release_notes.html">Release Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../known_issues/issues.html">Known Issues</a></li>
+</ul>
+
+            
+          
+        </div>
+        
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">SparseOperationKit</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../index.html" class="icon icon-home"></a> &raquo;</li>
+        
+          <li><a href="index.html">Examples</a> &raquo;</li>
+        
+      <li>Demo model using Dense Embedding Layer</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+          
+            <a href="../_sources/examples/dense_demo.md.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <section class="tex2jax_ignore mathjax_ignore" id="demo-model-using-dense-embedding-layer">
+<h1>Demo model using Dense Embedding Layer<a class="headerlink" href="#demo-model-using-dense-embedding-layer" title="Permalink to this headline">¶</a></h1>
+<p>This file demonstrates how to build a DNN model with dense embedding layer, where no reduction will be conducted intra each slot (feature-filed), with TensorFlow and SparseOperationKit.</p>
+<p>You can find the source codes in <a class="reference external" href="https://github.com/NVIDIA/HugeCTR/tree/master/sparse_operation_kit/documents/tutorials/DenseDemo"><code class="docutils literal notranslate"><span class="pre">sparse_operation_kit/documents/tutorials/DenseDemo/</span></code></a>.</p>
+<section id="requirements">
+<h2>requirements<a class="headerlink" href="#requirements" title="Permalink to this headline">¶</a></h2>
+<p><strong>python modules</strong>: cupy, mpi4py, nvtx</p>
+</section>
+<section id="model-structure">
+<h2>model structure<a class="headerlink" href="#model-structure" title="Permalink to this headline">¶</a></h2>
+<p>This demo model is constructed with a dense embedding layer and 7 fully connected layers, where the former 6 fully connected layers have 1024 output units, and the last one has 1 output unit.
+<img alt="avatar" src="../_images/demo_model_structure.png" /></p>
+</section>
+<section id="steps">
+<h2>steps<a class="headerlink" href="#steps" title="Permalink to this headline">¶</a></h2>
+<section id="generate-datasets">
+<h3>Generate datasets<a class="headerlink" href="#generate-datasets" title="Permalink to this headline">¶</a></h3>
+<p>This commands will generate a dataset randomly. By default, its filename is <code class="docutils literal notranslate"><span class="pre">data.file</span></code>, you can specify the output filename by adding <code class="docutils literal notranslate"><span class="pre">--filename=XXX</span></code> when running this command.</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ python3 gen_data.py <span class="se">\</span>
+    --global_batch_size<span class="o">=</span><span class="m">65536</span> <span class="se">\</span>
+    --slot_num<span class="o">=</span><span class="m">100</span> <span class="se">\</span>
+    --nnz_per_slot<span class="o">=</span><span class="m">10</span> <span class="se">\</span>
+    --iter_num<span class="o">=</span><span class="m">30</span> 
+</pre></div>
+</div>
+</section>
+<section id="split-the-whole-dataset-into-multiple-shards">
+<h3>Split the whole dataset into multiple shards<a class="headerlink" href="#split-the-whole-dataset-into-multiple-shards" title="Permalink to this headline">¶</a></h3>
+<p>When MPI is used, we’d like to let each CPU process have its own datareader, and each datareader reads from different data source. Therefore the whole dataset is splited.</p>
+<p>The splited files will be saved with name: <code class="docutils literal notranslate"><span class="pre">save_prefix[split_id].file</span></code>, for example, <code class="docutils literal notranslate"><span class="pre">data_0.file</span></code>, <code class="docutils literal notranslate"><span class="pre">data_1.file</span></code>. And the samples in each shard are linearly arranged. For instance, the whole samples is <code class="docutils literal notranslate"><span class="pre">[s0,</span> <span class="pre">s1,</span> <span class="pre">s2,</span> <span class="pre">s3,</span> <span class="pre">s4,</span> <span class="pre">s5,</span> <span class="pre">s6,</span> <span class="pre">s7]</span></code>, when they are splited into 4 shards, each shard owns 2 samples, which is <code class="docutils literal notranslate"><span class="pre">[s0,</span> <span class="pre">s1]</span></code>, <code class="docutils literal notranslate"><span class="pre">[s2,</span> <span class="pre">s3]</span></code>, <code class="docutils literal notranslate"><span class="pre">[s4,</span> <span class="pre">s5]</span></code>, <code class="docutils literal notranslate"><span class="pre">[s6,</span> <span class="pre">s7]</span></code>, respectively.</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ python3 split_data.py <span class="se">\</span>
+    --filename<span class="o">=</span><span class="s2">&quot;./data.file&quot;</span> <span class="se">\</span>
+    --split_num<span class="o">=</span><span class="m">8</span> <span class="se">\</span>
+    --save_prefix<span class="o">=</span><span class="s2">&quot;./data_&quot;</span>
+</pre></div>
+</div>
+</section>
+<section id="run-this-demo-writen-with-tensorflow">
+<h3>Run this demo writen with TensorFlow<a class="headerlink" href="#run-this-demo-writen-with-tensorflow" title="Permalink to this headline">¶</a></h3>
+<p>It will only utilize 1 GPU.</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ python3 run_tf.py <span class="se">\</span>
+    --data_filename<span class="o">=</span><span class="s2">&quot;./data.file&quot;</span> <span class="se">\</span>
+    --global_batch_size<span class="o">=</span><span class="m">8192</span> <span class="se">\</span>
+    --vocabulary_size<span class="o">=</span><span class="m">8192</span> <span class="se">\</span>
+    --slot_num<span class="o">=</span><span class="m">100</span> <span class="se">\</span>
+    --nnz_per_slot<span class="o">=</span><span class="m">10</span> <span class="se">\</span>
+    --num_dense_layers<span class="o">=</span><span class="m">6</span> <span class="se">\</span>
+    --embedding_vec_size<span class="o">=</span><span class="m">4</span> <span class="se">\</span>
+    --stop_at_iter<span class="o">=</span><span class="m">30</span>
+</pre></div>
+</div>
+</section>
+<section id="run-this-demo-writen-with-sok-mirroredstrategy">
+<h3>Run this demo writen with SOK + MirroredStrategy<a class="headerlink" href="#run-this-demo-writen-with-sok-mirroredstrategy" title="Permalink to this headline">¶</a></h3>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ python3 run_sok_MirroredStrategy.py <span class="se">\</span>
+    --data_filename<span class="o">=</span><span class="s2">&quot;./data.file&quot;</span> <span class="se">\</span>
+    --global_batch_size<span class="o">=</span><span class="m">65536</span> <span class="se">\</span>
+    --max_vocabulary_size_per_gpu<span class="o">=</span><span class="m">8192</span> <span class="se">\</span>
+    --slot_num<span class="o">=</span><span class="m">100</span> <span class="se">\</span>
+    --nnz_per_slot<span class="o">=</span><span class="m">10</span> <span class="se">\</span>
+    --num_dense_layers<span class="o">=</span><span class="m">6</span> <span class="se">\</span>
+    --embedding_vec_size<span class="o">=</span><span class="m">4</span> <span class="se">\</span>
+    --optimizer<span class="o">=</span><span class="s2">&quot;adam&quot;</span> 
+</pre></div>
+</div>
+</section>
+<section id="run-this-demo-writen-with-sok-multiworkermirroredstrategy-mpi">
+<h3>Run this demo writen with SOK + MultiWorkerMirroredStrategy + MPI<a class="headerlink" href="#run-this-demo-writen-with-sok-multiworkermirroredstrategy-mpi" title="Permalink to this headline">¶</a></h3>
+<p>Add <code class="docutils literal notranslate"><span class="pre">--oversubscribe</span></code> to <code class="docutils literal notranslate"><span class="pre">mpiexec</span></code> if there is not enough slots.</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ mpiexec -n <span class="m">8</span> --allow-run-as-root <span class="se">\</span>
+    python3 run_sok_MultiWorker_mpi.py <span class="se">\</span>
+    --data_filename<span class="o">=</span><span class="s2">&quot;./data_&quot;</span> <span class="se">\</span>
+    --global_batch_size<span class="o">=</span><span class="m">65536</span> <span class="se">\</span>
+    --max_vocabulary_size_per_gpu<span class="o">=</span><span class="m">8192</span> <span class="se">\</span>
+    --slot_num<span class="o">=</span><span class="m">100</span> <span class="se">\</span>
+    --nnz_per_slot<span class="o">=</span><span class="m">10</span> <span class="se">\</span>
+    --num_dense_layers<span class="o">=</span><span class="m">6</span> <span class="se">\</span>
+    --embedding_vec_size<span class="o">=</span><span class="m">4</span> <span class="se">\</span>
+    --data_splited<span class="o">=</span><span class="m">1</span> <span class="se">\</span>
+    --optimizer<span class="o">=</span><span class="s2">&quot;adam&quot;</span>
+</pre></div>
+</div>
+</section>
+<section id="run-this-demo-writen-with-sok-horovod">
+<h3>Run this demo writen with SOK + Horovod<a class="headerlink" href="#run-this-demo-writen-with-sok-horovod" title="Permalink to this headline">¶</a></h3>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ horovodrun -np <span class="m">8</span> -H localhost:8 <span class="se">\</span>
+    python3 run_sok_horovod.py <span class="se">\</span>
+    --data_filename_prefix<span class="o">=</span><span class="s2">&quot;./data_&quot;</span> <span class="se">\</span>
+    --global_batch_size<span class="o">=</span><span class="m">65536</span> <span class="se">\</span>
+    --max_vocabulary_size_per_gpu<span class="o">=</span><span class="m">1024</span> <span class="se">\</span>
+    --slot_num<span class="o">=</span><span class="m">100</span> <span class="se">\</span>
+    --nnz_per_slot<span class="o">=</span><span class="m">10</span> <span class="se">\</span>
+    --num_dense_layers<span class="o">=</span><span class="m">6</span> <span class="se">\</span>
+    --embedding_vec_size<span class="o">=</span><span class="m">4</span> <span class="se">\</span>
+    --optimizer<span class="o">=</span><span class="s2">&quot;adam&quot;</span>
+</pre></div>
+</div>
+</section>
+</section>
+</section>
+
+
+           </div>
+           
+          </div>
+          <footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+        <a href="../performance/index.html" class="btn btn-neutral float-right" title="Performance" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="dlrm.html" class="btn btn-neutral float-left" title="DLRM using SparseOperationKit" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &#169; Copyright 2021, NVIDIA.
+
+    </p>
+  </div>
+    
+    
+    
+    Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    
+    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    v: sok_v1.0.1_GA
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="../../sok_v1.0.0/examples/dense_demo.html">sok_v1.0.0</a></dd>
+      <dd><a href="dense_demo.html">sok_v1.0.1_GA</a></dd>
+    </dl>
+  </div>
+</div>
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

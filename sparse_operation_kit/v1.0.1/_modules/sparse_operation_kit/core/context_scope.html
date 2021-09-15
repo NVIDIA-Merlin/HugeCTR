@@ -1,0 +1,326 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  
+  <title>sparse_operation_kit.core.context_scope &mdash; SparseOperationKit  documentation</title>
+  
+
+  
+  <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+
+  
+  
+
+  
+  
+
+  
+
+  
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+        <script src="../../../_static/jquery.js"></script>
+        <script src="../../../_static/underscore.js"></script>
+        <script src="../../../_static/doctools.js"></script>
+    
+    <script type="text/javascript" src="../../../_static/js/theme.js"></script>
+
+    
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../../../index.html" class="icon icon-home"> SparseOperationKit
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                1.0.1
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../intro_link.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/features.html">Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../get_started/get_started.html">Get Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../examples/index.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../performance/index.html">Performance</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/index.html">API Docs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../release_notes/release_notes.html">Release Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../known_issues/issues.html">Known Issues</a></li>
+</ul>
+
+            
+          
+        </div>
+        
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">SparseOperationKit</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../../index.html" class="icon icon-home"></a> &raquo;</li>
+        
+          <li><a href="../../index.html">Module code</a> &raquo;</li>
+        
+      <li>sparse_operation_kit.core.context_scope</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <h1>Source code for sparse_operation_kit.core.context_scope</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd"> Copyright (c) 2021, NVIDIA CORPORATION.</span>
+<span class="sd"> </span>
+<span class="sd"> Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+<span class="sd"> you may not use this file except in compliance with the License.</span>
+<span class="sd"> You may obtain a copy of the License at</span>
+
+<span class="sd">     http://www.apache.org/licenses/LICENSE-2.0</span>
+
+<span class="sd"> Unless required by applicable law or agreed to in writing, software</span>
+<span class="sd"> distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+<span class="sd"> WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
+<span class="sd"> See the License for the specific language governing permissions and</span>
+<span class="sd"> limitations under the License.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">absolute_import</span>
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">division</span>
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">print_function</span>
+
+<span class="kn">from</span> <span class="nn">sparse_operation_kit.core.embedding_variable</span> <span class="kn">import</span> <span class="n">EmbeddingVariable</span>
+<span class="kn">from</span> <span class="nn">sparse_operation_kit.optimizers.utils</span> <span class="kn">import</span> <span class="n">split_embedding_variable_from_others</span>
+<span class="kn">from</span> <span class="nn">tensorflow.python.distribute.values</span> <span class="kn">import</span> <span class="n">DistributedVariable</span><span class="p">,</span> <span class="n">MirroredVariable</span>
+
+<div class="viewcode-block" id="OptimizerScope"><a class="viewcode-back" href="../../../api/utils/opt_scope.html#sparse_operation_kit.core.context_scope.OptimizerScope">[docs]</a><span class="k">class</span> <span class="nc">OptimizerScope</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    The context manager used along with TensorFlow optimizers. </span>
+<span class="sd">    It is only needed when TensorFlow native optimizers is used.</span>
+
+<span class="sd">    Abbreviated as ``sok.OptimizerScope(variables)``.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    trainable_variables: list, tuple</span>
+<span class="sd">            a list or tuple of trainable *tf.Variable*.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    context_manager: context_manager</span>
+<span class="sd">            used to switch handles for embedding variables.</span>
+
+<span class="sd">    Example</span>
+<span class="sd">    -------</span>
+<span class="sd">    .. code-block:: python</span>
+
+<span class="sd">        with strategy.scope():</span>
+<span class="sd">            model = ...</span>
+
+<span class="sd">            emb_opt = tf.keras.optimizers.Adam(...)</span>
+<span class="sd">            other_opt = tf.keras.optimizers.Adam(...)</span>
+
+<span class="sd">        @tf.function</span>
+<span class="sd">        def _train_step(inputs, labels):</span>
+<span class="sd">            with tf.GradientTape() as tape:</span>
+<span class="sd">                logits = model(inputs)</span>
+<span class="sd">                loss = loss_fn(logits, labels)</span>
+
+<span class="sd">            emb_vars, other_vars = sok.split_embedding_variable_from_others(model.trainable_variables)</span>
+<span class="sd">            emb_grads, other_grads = tape.gradient(loss, [emb_vars, other_vars])</span>
+
+<span class="sd">            with sok.OptimizerScope(emb_vars):</span>
+<span class="sd">                emb_opt.apply_gradients(zip(emb_grads, emb_vars),</span>
+<span class="sd">                                        experimental_aggregate_gradients=False)</span>
+
+<span class="sd">            dense_opt.apply_gradients(zip(other_grads, other_vars))</span>
+
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    This context manager may not be used in next release.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">trainable_variables</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">trainable_variables</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">trainable_variables</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)):</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;trainable_variables must be a list or tuple.&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_trainable_variables</span> <span class="o">=</span> <span class="n">trainable_variables</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_embedding_variables</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">split_embedding_variable_from_others</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_trainable_variables</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__enter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">touched_variables</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+        
+        <span class="k">for</span> <span class="n">variable</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_embedding_variables</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">variable</span><span class="p">,</span> <span class="n">EmbeddingVariable</span><span class="p">):</span>
+                <span class="c1"># When using horovod, type(variable) is EmbeddingVariable</span>
+                <span class="n">variable</span><span class="o">.</span><span class="n">_handle</span> <span class="o">=</span> <span class="n">variable</span><span class="o">.</span><span class="n">tf_handle</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">touched_variables</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">variable</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># When using tf.strategy, type(variable) is DistributedVariable</span>
+                <span class="k">for</span> <span class="n">sub_variable</span> <span class="ow">in</span> <span class="n">variable</span><span class="o">.</span><span class="n">values</span><span class="p">:</span>
+                    <span class="n">sub_variable</span><span class="o">.</span><span class="n">_handle</span> <span class="o">=</span> <span class="n">sub_variable</span><span class="o">.</span><span class="n">tf_handle</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">touched_variables</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">sub_variable</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="bp">self</span>
+
+    <span class="k">def</span> <span class="fm">__exit__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">exc_type</span><span class="p">,</span> <span class="n">exc_value</span><span class="p">,</span> <span class="n">exc_tb</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This scope does not process exception.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">variable</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">touched_variables</span><span class="p">:</span>
+            <span class="n">variable</span><span class="o">.</span><span class="n">_handle</span> <span class="o">=</span> <span class="n">variable</span><span class="o">.</span><span class="n">m_handle</span>
+        <span class="k">return</span> <span class="kc">False</span></div>
+</pre></div>
+
+           </div>
+           
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &#169; Copyright 2021, NVIDIA.
+
+    </p>
+  </div>
+    
+    
+    
+    Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    
+    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    v: sok_v1.0.1_GA
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="../../../../sok_v1.0.0/index.html">sok_v1.0.0</a></dd>
+      <dd><a href="context_scope.html">sok_v1.0.1_GA</a></dd>
+    </dl>
+  </div>
+</div>
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

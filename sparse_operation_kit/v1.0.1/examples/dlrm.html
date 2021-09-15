@@ -1,0 +1,329 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  
+  <title>DLRM using SparseOperationKit &mdash; SparseOperationKit  documentation</title>
+  
+
+  
+  <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+
+  
+  
+
+  
+  
+
+  
+
+  
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/underscore.js"></script>
+        <script src="../_static/doctools.js"></script>
+    
+    <script type="text/javascript" src="../_static/js/theme.js"></script>
+
+    
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Demo model using Dense Embedding Layer" href="dense_demo.html" />
+    <link rel="prev" title="Examples" href="index.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../index.html" class="icon icon-home"> SparseOperationKit
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                1.0.1
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../intro_link.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features/features.html">Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../get_started/get_started.html">Get Started</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Examples</a><ul class="current">
+<li class="toctree-l2 current"><a class="current reference internal" href="#">DLRM</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#steps">steps</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#generate-datasets">Generate datasets</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#set-common-params">Set common params</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#run-dlrm-with-tensorflow">Run DLRM with TensorFlow</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#run-dlrm-with-sok">Run DLRM with SOK</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#reference">reference</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="dense_demo.html">DenseDemo</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../performance/index.html">Performance</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/index.html">API Docs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../release_notes/release_notes.html">Release Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../known_issues/issues.html">Known Issues</a></li>
+</ul>
+
+            
+          
+        </div>
+        
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">SparseOperationKit</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../index.html" class="icon icon-home"></a> &raquo;</li>
+        
+          <li><a href="index.html">Examples</a> &raquo;</li>
+        
+      <li>DLRM using SparseOperationKit</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+          
+            <a href="../_sources/examples/dlrm.md.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <section class="tex2jax_ignore mathjax_ignore" id="dlrm-using-sparseoperationkit">
+<h1>DLRM using SparseOperationKit<a class="headerlink" href="#dlrm-using-sparseoperationkit" title="Permalink to this headline">¶</a></h1>
+<p>Demonstrates how to build DLRM model with SparseOperationKit.</p>
+<p>You can find the source codes in <a class="reference external" href="https://github.com/NVIDIA/HugeCTR/tree/master/sparse_operation_kit/documents/tutorials/DLRM"><code class="docutils literal notranslate"><span class="pre">sparse_operation_kit/documents/tutorials/DLRM/</span></code></a>.</p>
+<section id="steps">
+<h2>steps<a class="headerlink" href="#steps" title="Permalink to this headline">¶</a></h2>
+<section id="generate-datasets">
+<h3>Generate datasets<a class="headerlink" href="#generate-datasets" title="Permalink to this headline">¶</a></h3>
+<p><a class="reference external" href="https://labs.criteo.com/2013/12/download-terabyte-click-logs/">Criteo Terabytes Dataset</a> will be used. Download these files. And there are several options for you to generate datasets.</p>
+<section id="option1">
+<h4>[Option1]<a class="headerlink" href="#option1" title="Permalink to this headline">¶</a></h4>
+<p>Follow <a class="reference external" href="https://github.com/tensorflow/models/tree/master/official/recommendation/ranking/preprocessing">TensorFlow’s instructions</a> to process these files and save as CSV files.</p>
+</section>
+<section id="option2">
+<h4>[Option2]<a class="headerlink" href="#option2" title="Permalink to this headline">¶</a></h4>
+<p>Follow <a class="reference external" href="https://github.com/NVIDIA/HugeCTR/tree/master/samples/dlrm#preprocess-the-terabyte-click-logs">HugeCTR’s instructions</a> to process these files. Then convert the generated binary files to CSV files.</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ python3 bin2csv.py <span class="se">\</span>
+    --input_file<span class="o">=</span><span class="s2">&quot;YourBinaryFilePath/train.bin&quot;</span> <span class="se">\</span>
+    --num_output_files<span class="o">=</span><span class="m">1024</span> <span class="se">\</span>
+    --output_path<span class="o">=</span><span class="s2">&quot;./train/&quot;</span> <span class="se">\</span>
+    --save_prefix<span class="o">=</span><span class="s2">&quot;train_&quot;</span>
+</pre></div>
+</div>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ python3 bin2csv.py <span class="se">\</span>
+    --input_file<span class="o">=</span><span class="s2">&quot;YourBinaryFilePath/test.bin&quot;</span> <span class="se">\</span>
+    --num_output_files<span class="o">=</span><span class="m">64</span> <span class="se">\</span>
+    --output_path<span class="o">=</span><span class="s2">&quot;./test/&quot;</span> <span class="se">\</span>
+    --save_prefix<span class="o">=</span><span class="s2">&quot;test_&quot;</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="set-common-params">
+<h3>Set common params<a class="headerlink" href="#set-common-params" title="Permalink to this headline">¶</a></h3>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ <span class="nb">export</span> <span class="nv">EMBEDDING_DIM</span><span class="o">=</span><span class="m">32</span>
+</pre></div>
+</div>
+</section>
+<section id="run-dlrm-with-tensorflow">
+<h3>Run DLRM with TensorFlow<a class="headerlink" href="#run-dlrm-with-tensorflow" title="Permalink to this headline">¶</a></h3>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ mpiexec --allow-run-as-root -np <span class="m">4</span> <span class="se">\</span>
+    python3 main.py <span class="se">\</span>
+        --global_batch_size<span class="o">=</span><span class="m">16384</span> <span class="se">\</span>
+        --train_file_pattern<span class="o">=</span><span class="s2">&quot;./train/*.csv&quot;</span> <span class="se">\</span>
+        --test_file_pattern<span class="o">=</span><span class="s2">&quot;./test/*.csv&quot;</span> <span class="se">\</span>
+        --embedding_layer<span class="o">=</span><span class="s2">&quot;TF&quot;</span> <span class="se">\</span>
+        --embedding_vec_size<span class="o">=</span><span class="nv">$EMBEDDING_DIM</span> <span class="se">\</span>
+        --bottom_stack <span class="m">512</span> <span class="m">256</span> <span class="nv">$EMBEDDING_DIM</span> <span class="se">\</span>
+        --top_stack <span class="m">1024</span> <span class="m">1024</span> <span class="m">512</span> <span class="m">256</span> <span class="m">1</span> <span class="se">\</span>
+        --distribute_strategy<span class="o">=</span><span class="s2">&quot;multiworker&quot;</span> <span class="se">\</span>
+        --TF_MP<span class="o">=</span><span class="m">1</span>
+</pre></div>
+</div>
+</section>
+<section id="run-dlrm-with-sok">
+<h3>Run DLRM with SOK<a class="headerlink" href="#run-dlrm-with-sok" title="Permalink to this headline">¶</a></h3>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ mpiexec --allow-run-as-root -np <span class="m">4</span> <span class="se">\</span>
+    python3 main.py <span class="se">\</span>
+        --global_batch_size<span class="o">=</span><span class="m">16384</span> <span class="se">\</span>
+        --train_file_pattern<span class="o">=</span><span class="s2">&quot;./train/*.csv&quot;</span> <span class="se">\</span>
+        --test_file_pattern<span class="o">=</span><span class="s2">&quot;./test/*.csv&quot;</span> <span class="se">\</span>
+        --embedding_layer<span class="o">=</span><span class="s2">&quot;SOK&quot;</span> <span class="se">\</span>
+        --embedding_vec_size<span class="o">=</span><span class="nv">$EMBEDDING_DIM</span> <span class="se">\</span>
+        --bottom_stack <span class="m">512</span> <span class="m">256</span> <span class="nv">$EMBEDDING_DIM</span> <span class="se">\</span>
+        --top_stack <span class="m">1024</span> <span class="m">1024</span> <span class="m">512</span> <span class="m">256</span> <span class="m">1</span> <span class="se">\</span>
+        --distribute_strategy<span class="o">=</span><span class="s2">&quot;multiworker&quot;</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="reference">
+<h2>reference<a class="headerlink" href="#reference" title="Permalink to this headline">¶</a></h2>
+<ol class="simple">
+<li><p>DLRM (<a class="reference external" href="https://arxiv.org/pdf/1906.00091.pdf">https://arxiv.org/pdf/1906.00091.pdf</a>)</p></li>
+<li><p>Criteo TeraBytes Datasets (<a class="reference external" href="https://labs.criteo.com/2013/12/download-terabyte-click-logs/">https://labs.criteo.com/2013/12/download-terabyte-click-logs/</a>)</p></li>
+<li><p>TensorFlow DLRM model (<a class="reference external" href="https://github.com/tensorflow/models/tree/master/official/recommendation/ranking">https://github.com/tensorflow/models/tree/master/official/recommendation/ranking</a>)</p></li>
+</ol>
+</section>
+</section>
+
+
+           </div>
+           
+          </div>
+          <footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+        <a href="dense_demo.html" class="btn btn-neutral float-right" title="Demo model using Dense Embedding Layer" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="index.html" class="btn btn-neutral float-left" title="Examples" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &#169; Copyright 2021, NVIDIA.
+
+    </p>
+  </div>
+    
+    
+    
+    Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    
+    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    v: sok_v1.0.1_GA
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="../../sok_v1.0.0/index.html">sok_v1.0.0</a></dd>
+      <dd><a href="dlrm.html">sok_v1.0.1_GA</a></dd>
+    </dl>
+  </div>
+</div>
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>
