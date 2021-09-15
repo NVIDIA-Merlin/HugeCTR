@@ -10,8 +10,11 @@
 + **Python Interface for Data Generator**: We’ve enabled the data generator in the HugeCTR Python interface. The generation related parameters have been encapsulated into the struct `DataGeneratorParams`, which is required to initialize the `DataGenerator` instance. With the generator Python APIs, users can easily generate the Norm, Parquet or Raw format dataset with the desired distribution of sparse keys. For more information, see [Data Generator API](docs/python_interface.md#data-generator-api) and [Data Generator Samples](tools/data_generator).
 + **Supporting Arbitrary Number of Inputs in Concat Layer and Slice Layer**: The Concat and Slice layers now support any number of input and output tensors, respectively. Previously, these layers would be limited to a maximum of 4 tensors.
 + **Fix power law in Data Generator (Generalize the power law simulator in Data Generator)**: We’ve modified the formula of the power law simulator to make for the positive alpha value, which is more general in different use cases. Besides, the alpha values for `Long`, `Medium` and `Short` of power law distribution are 0.9, 1.1 and 1.3 respectively. For more information, see [Data Generator API](docs/python_interface.md#data-generator-api).
-+ **New Document for Sparse Operation Kits (SOK)**: In this release we provided a website based introduction to SOK, see [here](https://nvidia.github.io/HugeCTR/sparse_operation_kit/v1.0.0/index.html) 
-+ **Supporting TensorFlow 2.5 in Sparse Operation Kits**
++ **New Document for Sparse Operation Kit (SOK)**: In this release we provided a website based introduction to SOK, see [here](https://nvidia.github.io/HugeCTR/sparse_operation_kit/v1.0.1/index.html) 
++ **Supporting TensorFlow 2.5 & 2.6 in Sparse Operation Kit**
++ **Supporting Identity Hashing (no hashing) in Sparse Operation kit**
++ **Supporting Dynamic Input in Sparse Operation Kit**
++ **Horovod compatible in Sparse Operation Kit**
 
 ## What's New in Version 3.1
 

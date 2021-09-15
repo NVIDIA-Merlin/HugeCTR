@@ -2,7 +2,7 @@
 The detailed information about the features in SparseOperationKit.
 
 ## Model-Parallelism GPU Embedding Layer ##
-As described in [Introduction Section](https://nvidia.github.io/HugeCTR/sparse_operation_kit/v1.0.0/intro_link.html#features), SOK provides GPU Embedding Layers which works in model-parallelism manner. And it does not require any further data transformation from model-parallelism to data-parallism.
+As described in [Introduction Section](https://nvidia.github.io/HugeCTR/sparse_operation_kit/v1.0.1/intro_link.html#features), SOK provides GPU Embedding Layers which works in model-parallelism manner. And it does not require any further data transformation from model-parallelism to data-parallism.
 
 There are several different GPU Embedding Layers in SOK, which are implemented with different algorithms. These embedding layers can work in single machine or multiple machines.
 ![avatar](../images/workflow_of_embeddinglayer.png)
@@ -18,7 +18,7 @@ This sparse embedding will distribute each key based on `gpu_id = key % gpu_num`
 :align: center
 ```
 <br>
-To reduce the overhead of multiple embedding tables' looking up, where their embedding vector size are the same, Distributed sparse embedding combines multiple embedding tables as one huge embedding table. Each tiny embedding table is called slot, which is also known as feature-field.
+To reduce the overhead of multiple embedding tables' looking up, where their embedding vector size are the same, Distributed sparse embedding combines multiple embedding tables as one huge embedding table. Each tiny embedding table is called slot, which is also known as feature-field. And the input keys for different embedding tables should be unified encoded.
 
 When conducting reduction of embedding vectors intra slots (feature-fields), collective operation `Reduce-Scatter` will be used. And `All-Gather` is used for their gradients backward propagation.
 
@@ -34,6 +34,6 @@ This dense embedding will distribute each key based on `gpu_id = key % gpu_num`.
 ```
 <br>
 
-To reduce the overhead of multiple embedding tables' looking up, where their embedding vector size are the same, All2All dense embedding combines multiple embedding tables as one huge embedding table. Each tiny embedding table is called slot, which is also known as feature-field.
+To reduce the overhead of multiple embedding tables' looking up, where their embedding vector size are the same, All2All dense embedding combines multiple embedding tables as one huge embedding table. Each tiny embedding table is called slot, which is also known as feature-field. And the input keys for different embedding tables should be unified encoded.
 
 In the forward propagation, `All2All` will be used to exchange keys among all GPUs, then another `All2All` will be used to exchange embedding vectors among all GPUs. In the backward propagation, `All2All` will be used to exchange top gradients among all GPUs.

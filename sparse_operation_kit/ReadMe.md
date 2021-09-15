@@ -18,7 +18,7 @@ Due to SOK is compatible with DP training provided by common synchronized traini
 There are several ways to install this package. <br>
 
 ### *Install this module along with HugeCTR* ###
-In the docker image: `nvcr.io/nvidia/merlin/merlin-training:0.6`, SparseOpeationKit is already installed, and you can directrly import this module via:
+In the docker image: `nvcr.io/nvidia/merlin/merlin-tensorflow-training:0.7`, SparseOpeationKit is already installed, and you can directrly import this module via:
 ```python
 import sparse_opeation_kit as sok
 ```
@@ -30,14 +30,14 @@ Install via `PYPI` will be supported in the near future.
 If you want to build this module from souce code, here are the steps to follow: <br>
 + **download the source code**
 ```shell
-$ git clone https://github.com/NVIDIA/HugeCTR.git
+$ git clone https://github.com/NVIDIA/HugeCTR.git hugectr
 ```
-+ **compile it and install to system path**
++ **install to system path**
 ```shell
-$ cd sparse_operation_kit && mkdir -p build && cd build
-$ cmake -DSM=[Compute Capability] .. && make -j && make install
+$ cd hugectr/sparse_operation_kit/
+$ bash install.sh --SM=[Compute Capability] --USE_NVTX=[OFF/ON]
 ```
-Where `[Compute Capability]` is related to your GPU hardware. For example, for Ampere A100, the compute capability is `80`. If you want to profiling this module with `nvtx`, you can enable nvtx marks via add `-DUSE_NVTX=ON` to cmake command.
+Where `[Compute Capability]` is related to your GPU hardware. For example, for Ampere A100, the compute capability is `80`. If you want to profiling this module with `nvtx`, you can enable nvtx marks via setting `-DUSE_NVTX=ON`, by default, it is `OFF`.
 
 ## Documents ##
-Want to find more about SparseOperationKit, see our [SparseOperationKit documents](https://nvidia.github.io/HugeCTR/sparse_operation_kit/v1.0.0/index.html).
+Want to find more about SparseOperationKit, see our [SparseOperationKit documents](https://nvidia.github.io/HugeCTR/sparse_operation_kit/v1.0.1/index.html).

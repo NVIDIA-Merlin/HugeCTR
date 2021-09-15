@@ -15,4 +15,5 @@ Welcome to SparseOperationKit's documentation!
    Examples <examples/index>
    Performance <performance/index>
    API Docs <api/index>
+   Release Notes <release_notes/release_notes>
    Known Issues <known_issues/issues>

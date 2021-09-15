@@ -1,5 +1,5 @@
 # Documents #
-Want to find more about SparseOperationKit, see our [SparseOperationKit documents](https://nvidia.github.io/HugeCTR/sparse_operation_kit/v1.0.0/index.html).
+Want to find more about SparseOperationKit, see our [SparseOperationKit documents](https://nvidia.github.io/HugeCTR/sparse_operation_kit/v1.0.1/index.html).
 
 ## Add documents for SparseOperationKit ##
 + Install the required tools and extensions
@@ -26,7 +26,7 @@ $ make html
 $ cd documents/
 $ python3 -m http.server
 ```
-Then open the IP address with a web browser. If the website is not updated, please remove the contents under `build/` directory and rebuild it.
+Then open the IP address with a web browser. For example, `http://0.0.0.0:8000/build/`. If the website is not updated, please remove the contents under `build/` directory and rebuild it.
 
 + render HTML on gitlab
 Refer to [Gitlab Pages](https://docs.gitlab.com/ee/user/project/pages/).

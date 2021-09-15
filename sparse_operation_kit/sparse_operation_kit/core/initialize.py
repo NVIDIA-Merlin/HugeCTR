@@ -49,6 +49,16 @@ def Init(**kwargs):
         with strategy.scope():
             sok.Init(**kwargs)
 
+    When it's used with Horovod, it must be called at each process. For example,
+
+    .. code-block:: python
+    
+        import horovod.tensorflow as hvd
+
+        hvd.init()
+
+        sok.Init(**kwargs)
+
     Parameters
     ----------
     kwargs: dictionary
@@ -60,10 +70,6 @@ def Init(**kwargs):
     status: string
             a string will be returned if this function executed successfully.
             And its contents will be 'OK'.
-
-    Notes
-    -----
-    Horovod supporting will be added in the near future.
     """
     @function
     def _single_worker_init(**kwargs):

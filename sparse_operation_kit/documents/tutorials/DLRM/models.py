@@ -228,8 +228,6 @@ class DotInteraction(tf.keras.layers.Layer):
         return activations
 
 
-import nvtx.plugins.tf as nvtx_tf
-
 class DLRM(tf.keras.models.Model):
     def __init__(self,
                  vocab_size: List[int],
@@ -280,11 +278,7 @@ class DLRM(tf.keras.models.Model):
         dense_features = inputs["dense_features"]
         sparse_features = inputs["sparse_features"]
 
-        sparse_features[str(0)], nvtx_ctx = nvtx_tf.ops.start(inputs=sparse_features[str(0)],
-                message="forward", domain_name="EmbeddingLayer", grad_message="backward",
-                trainable=True) # nvtx start
         sparse_embeddings = self._embedding_layer(sparse_features, training=training)
-        sparse_embeddings[str(0)] = nvtx_tf.ops.end(sparse_embeddings[str(0)], nvtx_ctx) # nvtx end
         sparse_embeddings = tf.nest.flatten(sparse_embeddings)
         sparse_embedding_vecs = [
             tf.squeeze(sparse_embedding) for sparse_embedding in sparse_embeddings
