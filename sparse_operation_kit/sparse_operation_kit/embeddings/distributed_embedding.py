@@ -49,10 +49,13 @@ class DistributedEmbedding(tf.keras.layers.Layer):
             of the same dimension.
     max_nnz: integer
             the number of maximum valid keys in each slot (feature-filed).
-    max_feature_num: integer
-            **[Optional]** the maximum valid keys in each sample. It can be used to 
+    max_feature_num: integer = slot\_num*max\_nnz
+            the maximum valid keys in each sample. It can be used to 
             save GPU memory when this statistic is known. By default, it is equal
             to :math:`max\_feature\_num=slot\_num*max\_nnz`.
+    use_hashtable: boolean = True
+            whether using `Hashtable` in ``EmbeddingVariable``, if `True`,
+            Hashtable will be created for dynamic insertion.
 
     Examples
     --------

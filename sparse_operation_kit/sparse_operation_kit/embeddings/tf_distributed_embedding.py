@@ -27,7 +27,44 @@ class TFDistributedEmbedding(tf.keras.layers.Layer):
     This Embedding layer will distribute embedding parameters
     to multiple GPUs. It leverages tf.distribute.Strategy to
     do the communication, so that tf.distribute.Strategy must be 
-    used.
+    used. 
+
+    Parameters
+    ----------
+    vocabulary_size: integer
+            the first dimension of variable whose shape is 
+            [vocabulary_size, embedding_vec_size].
+    embedding_vec_size: integer
+            the second dimension of variable whose shape is 
+            [vocabulary_size, embedding_vec_size].
+    initializer: string, numpy.array = 'GlorotNormal'
+            When it's string, it specifies the initializer used to generate initial values.
+            When it's numpy.array, its shape must be [vocabulary_size, embedding_vec_size],
+            and will be used as the initial value.
+    comm_options: tf.distribute.experimental.CommunicationOptions = None
+            see TF's docs
+
+    Examples
+    --------
+    .. code-block:: python
+
+        strategy = ...
+
+        with strategy.scope():
+            embedding_layer = TFDistributedEmbedding(vocabulary_size, embedding_vec_size,
+                                                     initializer)
+            ...
+
+        @tf.function
+        def _train_step(inputs, labels):
+            emb_vectors = embedding_layer(inputs)
+
+        for i, (inputs, labels) in enumerate(dataset):
+            strategy.run(_train_step, args=(inputs, labels))
+
+    Notes
+    -----
+    Currently, the variables created by this class can not be correctly saved to files.
     """
     def __init__(self, 
                  vocabulary_size,
@@ -98,6 +135,19 @@ class TFDistributedEmbedding(tf.keras.layers.Layer):
         return condition
 
     def call(self, inputs):
+        """
+        The forward logic of this wrapper class.
+
+        Parameters
+        ----------
+        inputs: inputs: tf.Tensor
+                keys are stored in tf.Tensor with dtype tf.int32 or tf.int64
+
+        Returns
+        -------
+        replica_output: tf.Tensor
+                embedding vectors on each replica, with dtype tf.float32
+        """
         if tf.distribute.in_cross_replica_context():
             raise RuntimeError("The forward propagation of TFDistributedEmbedding "
                                "cannot be called in cross_replica_context.")

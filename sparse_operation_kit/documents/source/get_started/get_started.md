@@ -12,7 +12,7 @@ This document will walk you through simple demos to get you familiar with Sparse
 </div>
 
 ## Install SparseOperationKit ##
-Please refer to the [*Installation* section](https://nvidia.github.io/HugeCTR/sparse_operation_kit/v1.0.0/intro_link.html#installation) to install SparseOperationKit to your system.
+Please refer to the [*Installation* section](https://nvidia.github.io/HugeCTR/sparse_operation_kit/v1.0.1/intro_link.html#installation) to install SparseOperationKit to your system.
 
 ## Import SparseOperationKit ##
 ```python
@@ -117,11 +117,11 @@ with strategy.scope():
 
     dense_opt = tf.keras.optimizers.Adam(learning_rate=0.1)
 ```
-For a DNN model built with SOK, `sok.Init` must be used to conduct initilizations. Please see [its API document](https://nvidia.github.io/HugeCTR/sparse_operation_kit/v1.0.0/api/init.html#module-sparse_operation_kit.core.initialize).
+For a DNN model built with SOK, `sok.Init` must be used to conduct initilizations. Please see [its API document](https://nvidia.github.io/HugeCTR/sparse_operation_kit/v1.0.1/api/init.html#module-sparse_operation_kit.core.initialize).
 
 ***define training step***
 ```python
-loss_fn = tf.keras.losses.BinaryCrossentropy(from_logits=True, reduction=tf.keras.losses.Reducetion.NONE)
+loss_fn = tf.keras.losses.BinaryCrossentropy(from_logits=True, reduction=tf.keras.losses.Reduction.NONE)
 def _replica_loss(labels, logits):
     loss = loss_fn(labels, logits)
     return tf.nn.compute_average_loss(loss, global_batch_size=global_batch_size)
@@ -138,11 +138,13 @@ def _train_step(inputs, labels):
             emb_opt.apply_gradients(zip(emb_grads, emb_var),
                                     experimental_aggregate_gradients=False)
     else:
-        dense_opt.apply_gradients(zip(grads, other_var))
+        emb_opt.apply_gradients(zip(emb_grads, emb_var),
+                                experimental_aggregate_gradients=False)
+    dense_opt.apply_gradients(zip(grads, other_var))
     return loss
 ```
 
-If you are using native TensorFlow optimizers, such as `tf.keras.optimizers.Adam`, then `sok.OptimizerScope` must be used. Please see [its API document](https://nvidia.github.io/HugeCTR/sparse_operation_kit/v1.0.0/api/utils/opt_scope.html#sparseoperationkit-optimizer-scope).
+If you are using native TensorFlow optimizers, such as `tf.keras.optimizers.Adam`, then `sok.OptimizerScope` must be used. Please see [its API document](https://nvidia.github.io/HugeCTR/sparse_operation_kit/v1.0.1/api/utils/opt_scope.html#sparseoperationkit-optimizer-scope).
 
 ***start training***
 ```python
@@ -151,7 +153,7 @@ dataset = ...
 for i, (inputs, labels) in enumerate(dataset):
     replica_loss = strategy.run(_train_step, args=(inputs, labels))
     total_loss = strategy.reduce(tf.distribute.ReduceOp.SUM, replica_loss, axis=None)
-    print("[SOK INFO]: Iteration: {}, loss: {}".format(i, loss))
+    print("[SOK INFO]: Iteration: {}, loss: {}".format(i, total_loss))
 ```
 
 After these steps, the `DemoModel` will be successfully trained.
@@ -166,7 +168,7 @@ Documents for [tf.distribute.MultiWorkerMirroredStrategy](https://www.tensorflow
 
 <div class="admonition Important">
 <p class="admonition-title">Important</p>
-<p>By default, MultiWorkerMirroredStrategy will use all available GPUs in each process. Please set CUDA_VISIBLE_DEVICES for each process to let each process controls different GPU.</p>
+<p>By default, MultiWorkerMirroredStrategy will use all available GPUs in each process. Please set CUDA_VISIBLE_DEVICES for each process to make each process controls different GPU.</p>
 </div>
 
 ***create MultiWorkerMirroredStrategy***
@@ -194,4 +196,87 @@ The steps ***create model instance under MultiWorkerMirroredStrategy.scope***, *
 Because multiple CPU processes are used in each machine for synchronized training, therefore `MPI` can be used to launch this program. For example:
 ```shell
 $ mpiexec -np 8 [mpi-args] python3 main.py [python-args]
+```
+
+## Use SparseOperationKit with Horovod ##
+SparseOperationKit is also compatible with Horovod which is similar to `tf.distribute.MultiWorkerMirroredStrategy`.
+
+***initialize horovod for tensorflow***
+```python
+import horovod.tensorflow as hvd
+hvd.init()
+
+import os
+os.environ["CUDA_VISIBLE_DEVICES"] = str(hvd.local_rank()) # this process only controls one GPU
+```
+
+***create model instance***
+```python
+global_batch_size = 65536
+use_tf_opt = True
+
+sok.Init(global_batch_size=global_batch_size)
+
+model = DemoModel(max_vocabulary_size_per_gpu=1024,
+                  slot_num=10,
+                  nnz_per_slot=5,
+                  embedding_vector_size=16,
+                  num_of_dense_layers=7)
+
+if not use_tf_opt:
+    emb_opt = sok.optimizers.Adam(learning_rate=0.1)
+else:
+    emb_opt = tf.keras.optimizers.Adam(learning_rate=0.1)
+
+dense_opt = tf.keras.optimizers.Adam(learning_rate=0.1)
+```
+For a DNN model built with SOK, `sok.Init()` must be called to conduct initializations. Please see [its API document](https://nvidia.github.io/HugeCTR/sparse_operation_kit/v1.0.1/api/init.html#module-sparse_operation_kit.core.initialize).
+
+***define training step***
+```python
+loss_fn = tf.keras.BinaryCrossentropy(from_logits=True, reduction=tf.keras.losses.Reduction.NONE)
+def _replica_loss(labels, logits):
+    loss = loss_fn(labels, logits)
+    return tf.nn.compute_average_loss(loss, global_batch_size=global_batch_size)
+
+@tf.function
+def _train_step(inputs, labels, first_batch):
+    with tf.GradientTape() as tape:
+        logits = model(inputs, training=True)
+        loss = _replica_loss(labels, logits)
+    emb_var, other_var = sok.split_embedding_variable_from_others(model.trainable_variables)
+    emb_grads, other_grads = tape.gradient(loss, [emb_var, other_var])
+    if use_tf_opt:
+        with sok.OptimizerScope(emb_var):
+            emb_opt.apply_gradients(zip(emb_grads, emb_var),
+                                    experimental_aggregate_gradients=False)
+    else:
+        emb_opt.apply_gradients(zip(emb_grads, emb_var),
+                                experimental_aggregate_gradients=False)
+    
+    other_grads = [hvd.allreduce(grads) for grads in other_grads]
+    dense_opt.apply_gradients(zip(other_grads, other_var))
+
+    if first_batch:
+        hvd.broadcast_variables(other_var, root_rank=0)
+        hvd.broadcast_variables(dense_opt.variables(), root_rank=0)
+
+    return loss
+```
+If you are using native TensorFlow optimizers, such as `tf.keras.optimizers.Adam`, then `sok.OptimizerScope` must be used. Please see [its API document](https://nvidia.github.io/HugeCTR/sparse_operation_kit/v1.0.1/api/utils/opt_scope.html#sparseoperationkit-optimizer-scope). 
+
+***start training***
+```python
+dataset = ...
+
+for i, (inputs, labels) in enumerate(dataset):
+    replica_loss = _train_step(inputs, labels, 0 == i)
+    total_loss = hvd.allreduce(replica_loss)
+    print("[SOK INFO]: Iteration: {}, loss: {}".format(i, total_loss))
+```
+
+***launch training program***<br>
+You can use `horovodrun` or `mpiexec` to launch multiple processes in each machine for synchronized training. For example:
+```shell
+$ horovodrun -np 8 -H localhost:8 python3 main.py [python-args]
 ```

@@ -7,3 +7,4 @@ SparseOperationKit Embeddings
    Sparse Embeddings <sparse/index>
    Dense Embeddings <dense/index>
    Saver <saver>
+   TF Distributed Embedding <tf_distributed_embedding>

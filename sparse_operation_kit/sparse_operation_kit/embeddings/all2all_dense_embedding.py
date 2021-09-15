@@ -47,9 +47,14 @@ class All2AllDenseEmbedding(tf.keras.layers.Layer):
     nnz_per_slot: integer
             the number of valid keys in each slot. The number of valid keys in each slot 
             is the same.
-    dynamic_input: boolean
-            whether the inputs.shape is dynamic, for example, the inputs tensor is comming 
-            from tf.unique. When `dynamic_input=True`, it means the inputs.shape is dynamic.
+    dynamic_input: boolean = False
+            whether the inputs.shape is dynamic. For example, the inputs tensor is comming 
+            from `tf.unique`. When `dynamic_input=True`, `unique->lookup->gather` pattern 
+            can be used. By default, it is False, which means the inputs.size must be 
+            `replica_batchsize * slot_num * nnz_per_slot`.
+    use_hashtable: boolean = True
+            whether using `Hashtable` in ``EmbeddingVariable``, if `True`,
+            Hashtable will be created for dynamic insertion.
 
     Examples
     --------
@@ -117,8 +122,10 @@ class All2AllDenseEmbedding(tf.keras.layers.Layer):
         Returns
         -------
         emb_vector: tf.float
-                the embedding vectors for the input keys. Its shape is
-                *[batchsize, slot_num, nnz_per_slot, embedding_vec_size]*
+                the embedding vectors for the input keys. When dynamic_input=False, 
+                its shape is *[batchsize, slot_num, nnz_per_slot, embedding_vec_size]*.
+                Otherwise, its shape is *[None, embedding_vec_size]*, where *None* equals
+                to the size of inputs.
         """
         emb_vector = plugin_dense_fprop(self.emb,
                                         self.var,
