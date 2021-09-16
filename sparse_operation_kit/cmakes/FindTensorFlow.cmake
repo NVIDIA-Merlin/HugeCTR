@@ -39,6 +39,7 @@ find_package_handle_standard_args(TensorFlow
 if (TensorFlow_FOUND)
     add_definitions(-DEIGEN_USE_GPU)
     mark_as_advanced(TF_LINK_DIR TF_LINK_FLAGS TF_VERSION TF_VERSION_MAJOR TF_VERSION_MINOR TF_VERSION_PATCH)
+    add_definitions(-DTF_VERSION_MAJOR=${TF_VERSION_MAJOR})
     message(STATUS "TF LINK FLAGS = ${TF_LINK_FLAGS}")
     message(STATUS "TF link dir = ${TF_LINK_DIR}")
     message(STATUS "TF COMPILE FLAGS = ${TF_COMPILE_FLAGS}")
