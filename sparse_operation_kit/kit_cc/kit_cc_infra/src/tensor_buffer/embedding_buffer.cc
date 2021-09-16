@@ -46,10 +46,12 @@ void EmbeddingBuffer::FillAllocationDescription(tensorflow::AllocationDescriptio
     // TODO: need implementation
 }
 
+#if TF_VERSION_MAJOR == 2
 bool EmbeddingBuffer::GetAllocatedBytes(size_t *out_bytes) const {
     *out_bytes = size();
     return *out_bytes > 0;
 }
+#endif
 
 bool EmbeddingBuffer::OwnsMemory() const {
     return true;

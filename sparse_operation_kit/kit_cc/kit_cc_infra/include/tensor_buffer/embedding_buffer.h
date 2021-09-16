@@ -30,7 +30,9 @@ public:
     size_t size() const override;
     tensorflow::TensorBuffer* root_buffer() override;
     void FillAllocationDescription(tensorflow::AllocationDescription* proto) const override;
+#if TF_VERSION_MAJOR == 2
     bool GetAllocatedBytes(size_t* out_bytes) const override;
+#endif
     bool OwnsMemory() const override;
 
     explicit EmbeddingBuffer(std::shared_ptr<Tensor> tensor);
