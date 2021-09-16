@@ -30,6 +30,8 @@ from tensorflow import constant, TensorShape, function
 from tensorflow.dtypes import int32, int64
 from tensorflow import print as tf_print
 from tensorflow.python.ops import array_ops
+from tensorflow.python import pywrap_tensorflow
+from tensorflow.python.framework import ops
 
 def Init(**kwargs):
     """
@@ -71,7 +73,7 @@ def Init(**kwargs):
             a string will be returned if this function executed successfully.
             And its contents will be 'OK'.
     """
-    @function
+    # @function
     def _single_worker_init(**kwargs):
         replica_ctx = get_replica_context()
         replica_ctx.merge_call(lambda strategy: 
@@ -83,46 +85,41 @@ def Init(**kwargs):
 
         global_id = replica_ctx.replica_id_in_sync_group
         status = plugin_init(global_id, replica_ctx.num_replicas_in_sync, nccl_unique_id, global_random_seed,
-                             global_batch_size=kwargs['global_batch_size']) #TODO: input from kwargs
+                             global_batch_size=kwargs['global_batch_size'])
         return status
 
-    @function
+    # @function
     def _multi_worker_init(**kwargs):
         replica_ctx = get_replica_context()
         global_id = replica_ctx.replica_id_in_sync_group
-        task_id = replica_ctx.strategy.cluster_resolver.task_id
-        if task_id == 0 and global_id == 0:
+        if global_id == 0:
             unique_id = get_nccl_unique_id()
             re = collective_ops.broadcast_send(unique_id,
                                                 TensorShape([32,]),
                                                 int32,
                                                 group_size=replica_ctx.num_replicas_in_sync,
                                                 group_key=1,
-                                                instance_key=2,
-                                                timeout=10)
+                                                instance_key=2)
         else:
             re = collective_ops.broadcast_recv(TensorShape([32,]),
                                                 int32,
                                                 group_size=replica_ctx.num_replicas_in_sync,
                                                 group_key=1,
-                                                instance_key=2,
-                                                timeout=10)
-        if task_id == 0 and global_id == 0:
+                                                instance_key=2)
+        if global_id == 0:
             global_seed = gen_random_seed()
             re_seed = collective_ops.broadcast_send(global_seed,
                                                 TensorShape([1,]),
                                                 int64,
                                                 group_size=replica_ctx.num_replicas_in_sync,
                                                 group_key=1,
-                                                instance_key=3,
-                                                timeout=10)
+                                                instance_key=3)
         else:
             re_seed = collective_ops.broadcast_recv(TensorShape([1,]),
                                                 int64,
                                                 group_size=replica_ctx.num_replicas_in_sync,
                                                 group_key=1,
-                                                instance_key=3,
-                                                timeout=10)
+                                                instance_key=3)
 
         status = plugin_init(global_id, replica_ctx.num_replicas_in_sync, re, re_seed, 
                              global_batch_size=kwargs['global_batch_size']) #TODO: input from kwargs
@@ -151,12 +148,28 @@ def Init(**kwargs):
 
     if has_strategy():
         strategy = get_strategy()
+
+        @function
+        def _init_wrapper(run_fn, init_fn, **kwargs):
+            return run_fn(init_fn, kwargs=kwargs)
+
         if isinstance(strategy, MirroredStrategy):
-            return strategy.run(_single_worker_init, kwargs=kwargs)
+            _init_fn = _single_worker_init
         elif isinstance(strategy, MultiWorkerMirroredStrategy):
-            return strategy.run(_multi_worker_init, kwargs=kwargs)
+            _init_fn = _multi_worker_init
         else:
             raise RuntimeError("This strategy type is not supported yet.")
+
+        if pywrap_tensorflow.__version__.startswith("1"):
+            _init_results = _init_wrapper(strategy.experimental_run_v2, _init_fn, **kwargs)
+            if hasattr(_init_results, "values"): 
+                _init_results =  _init_results.values
+            return _init_results
+        elif pywrap_tensorflow.__version__.startswith("2"):
+            return _init_wrapper(strategy.run, _init_fn, **kwargs)
+        else:
+            raise RuntimeError("Not supported version of TensorFlow.")
+        
     else:
         try:
             import horovod.tensorflow as hvd
