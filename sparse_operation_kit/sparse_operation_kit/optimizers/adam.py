@@ -21,7 +21,6 @@ from __future__ import print_function
 from sparse_operation_kit.core.embedding_variable import EmbeddingVariable
 from sparse_operation_kit.kit_lib import create_global_adam_optimizer, custom_optimizer_apply_gradients
 from tensorflow.python.keras.optimizer_v2 import optimizer_v2
-from tensorflow.python.keras.optimizer_v2 import utils as optimizer_utils
 from tensorflow.python.framework import ops
 from tensorflow.python.ops import array_ops
 from tensorflow.python.ops import control_flow_ops
