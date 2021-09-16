@@ -73,7 +73,6 @@ def Init(**kwargs):
             a string will be returned if this function executed successfully.
             And its contents will be 'OK'.
     """
-    # @function
     def _single_worker_init(**kwargs):
         replica_ctx = get_replica_context()
         replica_ctx.merge_call(lambda strategy: 
@@ -88,7 +87,6 @@ def Init(**kwargs):
                              global_batch_size=kwargs['global_batch_size'])
         return status
 
-    # @function
     def _multi_worker_init(**kwargs):
         replica_ctx = get_replica_context()
         global_id = replica_ctx.replica_id_in_sync_group
@@ -125,7 +123,6 @@ def Init(**kwargs):
                              global_batch_size=kwargs['global_batch_size']) #TODO: input from kwargs
         return status
 
-    # @function
     def _horovod_init(**kwargs):
         r"""
         This function uses horovod to broadcast nccl-id and random-seed which is used by sparse_operation_kit.
@@ -176,4 +173,13 @@ def Init(**kwargs):
         except:
             raise RuntimeError("You need to install horovod first to use this function \
                                 if you don't call it inside tf.distribute.Strategy.Scope().")
-        return _horovod_init(**kwargs)
+
+        if pywrap_tensorflow.__version__.startswith("1"):
+            @function
+            def _init_wrapper(**kwargs):
+                return _horovod_init(**kwargs)
+            return _init_wrapper(**kwargs)
+        elif pywrap_tensorflow.__version__.startswith("2"):
+            return _horovod_init(**kwargs)
+        else:
+            raise RuntimeError("Not supported version of TensorFlow.")
