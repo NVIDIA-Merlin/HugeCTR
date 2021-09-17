@@ -128,6 +128,8 @@ ONNX Converter is a python package `hugectr2onnx` that can convert HugeCTR model
 
 After training with HugeCTR Python APIs, you can get the files for dense model, sparse model(s) and graph configuration JSON, which are required as inputs by the method `hugectr2onnx.converter.convert`. Each HugeCTR layer will correspond to one or several ONNX operators, and the trained model weights will be loaded as initializers in the ONNX graph. Besides, users can choose to convert the sparse embedding layers or not with the flag `convert_embedding`. For more details about this feature, please refer to [ONNX Converter](../onnx_converter). There is also a notebook [hugectr2onnx_demo.ipynb](../notebooks/hugectr2onnx_demo.ipynb) that demonstrates the usage.
 
+### Hierarchical Parameter Server ###
+HugeCTR Hierarchical Parameter Server implemented a hierarchical storage mechanism between local SSDs and CPU memory, which breaks the convention that the embedding table must be stored in local CPU memory. The distributed `Redis cluster` is introduced as a CPU cache to store larger embedding tables and interact with the GPU embedding cache directly. The `local RocksDB` serves as a query engine to back up the complete embedding table on the local SSDs in order to assist the Redis cluster to perform missing embedding keys look up. You can try to play with [hugectr_wdl_prediction.ipynb](../notebooks/hugectr_wdl_prediction.ipynb) to get more usage. You can also find more details from [Distributed Deployment](https://github.com/triton-inference-server/hugectr_backend/blob/main/docs/architecture.md#distributed-deployment-hierarchical-hugectr-parameter-server)
 
 ## Tools ##
 We currently support the following tools:
