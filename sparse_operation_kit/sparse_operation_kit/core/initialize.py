@@ -18,8 +18,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from sparse_operation_kit.kit_lib import get_nccl_unique_id, gen_random_seed, plugin_init
-
+from sparse_operation_kit import kit_lib
 from tensorflow.python.ops import collective_ops
 try:
     from tensorflow.distribute import MultiWorkerMirroredStrategy
@@ -30,7 +29,6 @@ from tensorflow import constant, TensorShape, function
 from tensorflow.dtypes import int32, int64
 from tensorflow import print as tf_print
 from tensorflow.python.ops import array_ops
-from tensorflow.python import pywrap_tensorflow
 from tensorflow.python.framework import ops
 
 def Init(**kwargs):
@@ -78,12 +76,12 @@ def Init(**kwargs):
         replica_ctx.merge_call(lambda strategy: 
             tf_print("You are using the plugin with MirroredStrategy."))
         nccl_unique_id = replica_ctx.merge_call(lambda strategy:
-                    get_nccl_unique_id())
+                    kit_lib.get_nccl_unique_id())
         global_random_seed = replica_ctx.merge_call(lambda strategy:
-                    gen_random_seed())
+                    kit_lib.gen_random_seed())
 
         global_id = replica_ctx.replica_id_in_sync_group
-        status = plugin_init(global_id, replica_ctx.num_replicas_in_sync, nccl_unique_id, global_random_seed,
+        status = kit_lib.plugin_init(global_id, replica_ctx.num_replicas_in_sync, nccl_unique_id, global_random_seed,
                              global_batch_size=kwargs['global_batch_size'])
         return status
 
@@ -91,7 +89,7 @@ def Init(**kwargs):
         replica_ctx = get_replica_context()
         global_id = replica_ctx.replica_id_in_sync_group
         if global_id == 0:
-            unique_id = get_nccl_unique_id()
+            unique_id = kit_lib.get_nccl_unique_id()
             re = collective_ops.broadcast_send(unique_id,
                                                 TensorShape([32,]),
                                                 int32,
@@ -105,7 +103,7 @@ def Init(**kwargs):
                                                 group_key=1,
                                                 instance_key=2)
         if global_id == 0:
-            global_seed = gen_random_seed()
+            global_seed = kit_lib.gen_random_seed()
             re_seed = collective_ops.broadcast_send(global_seed,
                                                 TensorShape([1,]),
                                                 int64,
@@ -119,7 +117,7 @@ def Init(**kwargs):
                                                 group_key=1,
                                                 instance_key=3)
 
-        status = plugin_init(global_id, replica_ctx.num_replicas_in_sync, re, re_seed, 
+        status = kit_lib.plugin_init(global_id, replica_ctx.num_replicas_in_sync, re, re_seed, 
                              global_batch_size=kwargs['global_batch_size']) #TODO: input from kwargs
         return status
 
@@ -128,18 +126,18 @@ def Init(**kwargs):
         This function uses horovod to broadcast nccl-id and random-seed which is used by sparse_operation_kit.
         Please note that the nccl-comm mentioned here is not the same one as the nccl-comm of horovod itself.
 
-        After broadcasting, this function uses plugin_init and "nccl-id", "random-seed" to initialize 
+        After broadcasting, this function uses kit_lib.plugin_init and "nccl-id", "random-seed" to initialize 
         sparse_operation_kit.
         """
         local_rank = hvd.local_rank()
 
-        unique_id = get_nccl_unique_id() if local_rank == 0 else array_ops.zeros([32,], dtype=int32)
+        unique_id = kit_lib.get_nccl_unique_id() if local_rank == 0 else array_ops.zeros([32,], dtype=int32)
         unique_id = hvd.broadcast(unique_id, root_rank=0, name="nccl_unique_id")
 
-        global_seed = gen_random_seed() if local_rank == 0 else array_ops.zeros([1,], dtype=int64)
+        global_seed = kit_lib.gen_random_seed() if local_rank == 0 else array_ops.zeros([1,], dtype=int64)
         global_seed = hvd.broadcast(global_seed, root_rank=0, name="random_seed")
 
-        status = plugin_init(local_rank, hvd.size(), unique_id, global_seed,
+        status = kit_lib.plugin_init(local_rank, hvd.size(), unique_id, global_seed,
                              global_batch_size=kwargs["global_batch_size"]) #TODO: input from kwargs
         return status
 
@@ -157,15 +155,13 @@ def Init(**kwargs):
         else:
             raise RuntimeError("This strategy type is not supported yet.")
 
-        if pywrap_tensorflow.__version__.startswith("1"):
+        if not kit_lib.in_tensorflow2():
             _init_results = _init_wrapper(strategy.experimental_run_v2, _init_fn, **kwargs)
             if hasattr(_init_results, "values"): 
                 _init_results =  _init_results.values
             return _init_results
-        elif pywrap_tensorflow.__version__.startswith("2"):
-            return _init_wrapper(strategy.run, _init_fn, **kwargs)
         else:
-            raise RuntimeError("Not supported version of TensorFlow.")
+            return _init_wrapper(strategy.run, _init_fn, **kwargs)
         
     else:
         try:
@@ -174,12 +170,10 @@ def Init(**kwargs):
             raise RuntimeError("You need to install horovod first to use this function \
                                 if you don't call it inside tf.distribute.Strategy.Scope().")
 
-        if pywrap_tensorflow.__version__.startswith("1"):
+        if not kit_lib.in_tensorflow2():
             @function
             def _init_wrapper(**kwargs):
                 return _horovod_init(**kwargs)
             return _init_wrapper(**kwargs)
-        elif pywrap_tensorflow.__version__.startswith("2"):
-            return _horovod_init(**kwargs)
         else:
-            raise RuntimeError("Not supported version of TensorFlow.")
+            return _horovod_init(**kwargs)

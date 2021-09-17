@@ -17,6 +17,7 @@
 from tensorflow.python.framework import load_library, ops
 from tensorflow.python.ops import array_ops
 from tensorflow.python.framework.tensor_shape import TensorShape
+from tensorflow.python import pywrap_tensorflow
 import os
 
 lib_name = r"libsparse_operation_kit.so"
@@ -88,3 +89,15 @@ def _PluginDenseBackProp(op, top_grad):
                               indices=value_index)
                     
     return [None] + [grads] + [None for _ in op.inputs[2:]]
+
+
+def in_tensorflow2():
+    """
+    This function will tell whether the installed TensorFlow is 2.x
+    """
+    if pywrap_tensorflow.__version__.startswith("2"):
+        return True
+    elif pywrap_tensorflow.__version__.startswith("1"):
+        return False
+    else:
+        raise RuntimeError("Not supported version of TensorFlow.")
