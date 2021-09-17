@@ -366,14 +366,14 @@ bool redis<TypeHashKey>::cmset(const std::vector<TypeHashKey>& keys, std::vector
   size_t prefix_len = table.size();
   size_t val_len = sizeof(float) * embedding_size;
   std::cout << "Reidis Cluster is initializing the embedding table: " << table << std::endl;
+  char* buf = new char[key_len];
+  char* val_buf = new char[val_len];
   for (size_t j = 0; j < iter; j++) {
     size_t index = j * num_key;
     for (size_t t = 0; t < num_key; t++) {
       std::string key;
       std::string value = "";
       if (keys[t + index] >= 0) {
-        char* buf = new char[key_len];
-        char* val_buf = new char[val_len];
         memcpy(buf, table.data(), prefix_len);
         memcpy(buf + prefix_len, reinterpret_cast<const char*>(&keys[t + index]),
                sizeof(TypeHashKey));
@@ -392,8 +392,6 @@ bool redis<TypeHashKey>::cmset(const std::vector<TypeHashKey>& keys, std::vector
       if (keys[t + index] >= 0) {
         std::string key;
         std::string value = "";
-        char* buf = new char[key_len];
-        char* val_buf = new char[val_len];
         memcpy(buf, table.data(), prefix_len);
         memcpy(buf + prefix_len, reinterpret_cast<const char*>(&keys[t + index]),
                sizeof(TypeHashKey));
@@ -406,6 +404,8 @@ bool redis<TypeHashKey>::cmset(const std::vector<TypeHashKey>& keys, std::vector
     }
     std::cout << "Last Iteration insert successfully" << std::endl;
   }
+  delete buf;
+  delete val_buf;
   return true;
 }
 
