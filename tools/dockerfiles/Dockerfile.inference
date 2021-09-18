@@ -85,7 +85,7 @@ RUN mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 https://github.com/f
     rm -rf /var/tmp/rocksdb
 ENV CPATH=/usr/local/include:$CPATH
 
-RUN pip3 install --no-cache-dir nvidia-pyindex tritonclient
+RUN pip3 install --no-cache-dir nvidia-pyindex tritonclient[all]
 
 RUN CUDA_PATH=`find /usr/local/ -name "cuda-*.?" | head -n 1` && \
     echo "link $CUDA_PATH to /usr/local/cuda" && \

@@ -152,6 +152,7 @@ ENV PATH=/usr/local/hugectr/bin:$PATH
 ENV LIBRARY_PATH=/usr/local/hugectr/lib:$LIBRARY_PATH
 ENV LD_LIBRARY_PATH=/usr/local/hugectr/lib:$LD_LIBRARY_PATH
 ENV PYTHONPATH=/usr/local/hugectr/lib:$PYTHONPATH
+ENV PYTHONPATH=/hugectr/onnx_converter:$PYTHONPATH
 
 HEALTHCHECK NONE
 ENTRYPOINT []
