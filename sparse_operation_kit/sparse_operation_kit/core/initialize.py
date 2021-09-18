@@ -30,6 +30,7 @@ from tensorflow.dtypes import int32, int64
 from tensorflow import print as tf_print
 from tensorflow.python.ops import array_ops
 from tensorflow.python.framework import ops
+import sys
 
 def Init(**kwargs):
     """
@@ -141,6 +142,17 @@ def Init(**kwargs):
                              global_batch_size=kwargs["global_batch_size"]) #TODO: input from kwargs
         return status
 
+    def _one_device_init(**kwargs):
+        """
+        This function use to initialize only one GPU for SOK.
+        """
+        local_rank = 0
+        unique_id = kit_lib.get_nccl_unique_id()
+        global_seed = kit_lib.gen_random_seed()
+        status = kit_lib.plugin_init(local_rank, 1, unique_id, global_seed,
+                                     global_batch_size=kwargs["global_batch_size"])
+        return status
+
     if has_strategy():
         strategy = get_strategy()
 
@@ -163,12 +175,9 @@ def Init(**kwargs):
         else:
             return _init_wrapper(strategy.run, _init_fn, **kwargs)
         
-    else:
-        try:
-            import horovod.tensorflow as hvd
-        except:
-            raise RuntimeError("You need to install horovod first to use this function \
-                                if you don't call it inside tf.distribute.Strategy.Scope().")
+    elif "horovod.tensorflow" in sys.modules:
+        # imported horovod
+        import horovod.tensorflow as hvd
 
         if not kit_lib.in_tensorflow2():
             @function
@@ -177,3 +186,6 @@ def Init(**kwargs):
             return _init_wrapper(**kwargs)
         else:
             return _horovod_init(**kwargs)
+    else:
+        # horovod not imported
+        return _one_device_init(**kwargs)
