@@ -54,7 +54,9 @@ bool EmbeddingBuffer::GetAllocatedBytes(size_t *out_bytes) const {
 #endif
 
 bool EmbeddingBuffer::OwnsMemory() const {
-    return true;
+    // this TensorBuffer does not owns the underlying memory.
+    // so that this TensorBuffer is not responsible for releasing it.
+    return false;
 }
 
 
@@ -72,8 +74,15 @@ void EmbeddingBufferBuilder::build_buffer() {
     if (!buffer_) throw std::runtime_error(ErrorBase + "Have not allocate spaces for EmbeddingBuffer");
     
     // Release the old one and Construct a new EmbeddingBuffer in the existed space
+#if TF_VERSION_MAJOR == 1
+    buffer_->Unref();
     buffer_->~EmbeddingBuffer();
     new (buffer_.get()) EmbeddingBuffer(tensor_);
+    buffer_->Ref();
+#else
+    buffer_->~EmbeddingBuffer();
+    new (buffer_.get()) EmbeddingBuffer(tensor_);
+#endif
 }
 
 tensorflow::TensorBuffer* EmbeddingBufferBuilder::get_init_buffer() {

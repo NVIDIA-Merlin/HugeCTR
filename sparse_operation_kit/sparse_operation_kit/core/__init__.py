@@ -16,3 +16,9 @@
 from ._version import __version__
 
 __all__ = ["initialize", "context_scope"]
+
+from sparse_operation_kit.kit_lib import in_tensorflow2
+if in_tensorflow2():
+    from sparse_operation_kit.core.embedding_variable_v2 import EmbeddingVariable
+else:
+    from sparse_operation_kit.core.embedding_variable_v1 import EmbeddingVariable

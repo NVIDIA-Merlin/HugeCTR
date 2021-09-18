@@ -28,7 +28,6 @@ public:
     }
     void Compute(OpKernelContext* ctx) override {
         // TODO: no need to read the resource handle??
-
         core::RefCountPtr<Var> variable;
         const ResourceHandle& handle = HandleFromInput(ctx, 0);
         auto status = LookupResource(ctx, handle, &variable);
@@ -41,7 +40,9 @@ public:
                             "Error while reading resource variable: ", handle.name(),
                             " from container: ", handle.container(),
                             ", which means the resource handle is neither EmbeddingVariable",
-                            " nor ResourceVariable. ",
+                            " nor ResourceVariable. If you are using TF1, that could also be",
+                            " you haven't initialize this Variable, ",
+                            "please call sess.run(global_variables_initializer()).",
                             status.ToString()));   
         }
 

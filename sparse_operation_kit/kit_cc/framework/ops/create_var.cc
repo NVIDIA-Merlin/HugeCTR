@@ -22,6 +22,8 @@
 using namespace tensorflow;
 using namespace tensorflow::shape_inference;
 
+#if TF_VERSION_MAJOR == 2
+
 REGISTER_OP("CreateVar")
     .Input("var_name: string")
     .Input("initial_value: dtype")
@@ -68,3 +70,30 @@ REGISTER_OP("CreateVar")
         This op is used create variables used by a embedding layer on all GPUs in single worker.
         shape specify the variable's shape created on ONE GPU.
     )doc");
+
+#else 
+
+REGISTER_OP("CreateVar")
+    .Attr("var_name: string")
+    .Attr("dtype: type")
+    .Attr("shape: shape")
+    .Output("emb_var_handle: resource")
+    .Output("tf_var_handle: resource")
+    .SetIsStateful()
+    .SetShapeFn([](InferenceContext* c) {
+        c->set_output(0, c->Scalar());
+        c->set_output(1, c->Scalar());
+
+        DataType t;
+        TF_RETURN_IF_ERROR(c->GetAttr("dtype", &t));
+        PartialTensorShape p;
+        TF_RETURN_IF_ERROR(c->GetAttr("shape", &p));
+        ShapeHandle s;
+        TF_RETURN_IF_ERROR(c->MakeShapeFromPartialTensorShape(p, &s));
+        c->set_output_handle_shapes_and_types(0, std::vector<ShapeAndType>{{s, t}});
+        c->set_output_handle_shapes_and_types(1, std::vector<ShapeAndType>{{s, t}});
+
+        return Status::OK();
+    });
+
+#endif

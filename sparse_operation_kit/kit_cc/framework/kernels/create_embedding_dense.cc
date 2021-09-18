@@ -25,6 +25,8 @@ namespace tensorflow {
 using GPUDevice = Eigen::GpuDevice;
 using CPUDevice = Eigen::ThreadPoolDevice; 
 
+#if TF_VERSION_MAJOR == 2
+
 template <typename Device>
 class CreateEmbeddingDenseOp : public OpKernel {
 public:
@@ -78,5 +80,73 @@ REGISTER_KERNEL_BUILDER(Name("CreateEmbeddingDense")
                         .HostMemory("emb_handle"),
                         CreateEmbeddingDenseOp<GPUDevice>);
 
+#else
+
+template <typename Device>
+class CreateEmbeddingDenseOp : public OpKernel {
+public:
+    explicit CreateEmbeddingDenseOp(OpKernelConstruction* ctx) : OpKernel(ctx) {
+        OP_REQUIRES_OK(ctx, ctx->GetAttr("input_dispatcher", &input_dispatcher_));
+        OP_REQUIRES_OK(ctx, ctx->GetAttr("input_dispatcher_subsequent_ops", 
+                                         &input_dispatcher_subsequent_ops_));
+        OP_REQUIRES_OK(ctx, ctx->GetAttr("embedding_lookuper", &embedding_lookuper_));
+        OP_REQUIRES_OK(ctx, ctx->GetAttr("output_dispatcher", &output_dispatcher_));
+        OP_REQUIRES_OK(ctx, ctx->GetAttr("output_dispatcher_subsequent_ops", &output_dispatcher_subsequent_ops_));
+        OP_REQUIRES_OK(ctx, ctx->GetAttr("slot_num", &slot_num_));
+        OP_REQUIRES_OK(ctx, ctx->GetAttr("nnz_per_slot", &nnz_per_slot_));
+    }
+
+    void Compute(OpKernelContext* ctx) override {
+        if (!created_.load()) {
+            mutex_lock ml(mutex_);
+            // check again to see if another thread has created the embedding layer handle.
+            if (!created_.load()) {
+                AllocatorAttributes attr;
+                attr.set_on_host(true);
+
+                OP_REQUIRES_OK(ctx, ctx->allocate_temp(DT_VARIANT, TensorShape({}),
+                                                       &emb_layer_handle_, attr));
+                core::RefCountPtr<EmbeddingVariable> embedding_variable;
+                OP_REQUIRES_OK(ctx, LookupResource(ctx, HandleFromInput(ctx, 0), &embedding_variable)); 
+
+                try {
+                    SparseOperationKit::Facade::instance()->create_embedding_dense(embedding_variable,
+                                                                                   input_dispatcher_,
+                                                                                   input_dispatcher_subsequent_ops_,
+                                                                                   embedding_lookuper_,
+                                                                                   output_dispatcher_,
+                                                                                   output_dispatcher_subsequent_ops_,
+                                                                                   slot_num_, nnz_per_slot_,
+                                                                                   &emb_layer_handle_);
+                } catch (const std::exception& error) {
+                    ctx->SetStatus(errors::Aborted(error.what()));
+                    return;
+                }            
+
+                created_.store(true);
+            }
+        }
+        ctx->set_output(0, emb_layer_handle_);
+    }
+private:
+    std::string input_dispatcher_;
+    std::vector<std::string> input_dispatcher_subsequent_ops_;
+    std::string embedding_lookuper_;
+    std::string output_dispatcher_;
+    std::vector<std::string> output_dispatcher_subsequent_ops_;
+    int32_t slot_num_;
+    int32_t nnz_per_slot_;
+    Tensor emb_layer_handle_;
+    std::atomic<bool> created_{false};
+    mutex mutex_;
+};
+
+REGISTER_KERNEL_BUILDER(Name("CreateEmbeddingDense")
+                        .Device(DEVICE_GPU)
+                        .HostMemory("emb_var_handle")
+                        .HostMemory("emb_layer_handle"),
+                        CreateEmbeddingDenseOp<GPUDevice>);
+
+#endif
 
 } // namespace tensorflow
