@@ -190,11 +190,11 @@ bool hierarchical_db<TypeHashKey>::cmget(const TypeHashKey* keys, std::vector<fl
   const std::string table = modelname + tablename;
   size_t key_len = sizeof(TypeHashKey) + table.size();
   size_t prefix_len = table.size();
+  char* buf = new char[key_len];
   std::cout << "Redis Cluster gets missing keys from model: " << modelname
             << " and table: " << tablename << std::endl;
   for (size_t t = 0; t < length; t++) {
     std::string key;
-    char* buf = new char[key_len];
     memcpy(buf, table.data(), prefix_len);
     memcpy(buf + prefix_len, reinterpret_cast<const char*>(&keys[t]), sizeof(TypeHashKey));
     key.assign(buf, key_len);
@@ -208,6 +208,7 @@ bool hierarchical_db<TypeHashKey>::cmget(const TypeHashKey* keys, std::vector<fl
       memcpy(&values[t * embedding_size], default_emb_vec.data(), embedding_size * sizeof(float));
     }
   }
+  delete buf;
   return true;
 }
 

@@ -26,6 +26,7 @@ HugeCTR supports a variety of features, including the following:
 * [caching of most frequent embedding for inference](https://github.com/triton-inference-server/hugectr_backend/blob/main/docs/architecture.md#enabling-the-gpu-embedding-cache)
 * [GPU / CPU memory sharing mechanism across different inference instances](https://github.com/triton-inference-server/hugectr_backend/blob/main/docs/architecture.md#hugectr-backend-framework)
 * [ONNX Converter](docs/hugectr_user_guide.md#onnx-converter)
+* [Hierarchical Parameter Server](docs/hugectr_user_guide.md#hierarchical-parameter-server)
 
 To learn about our latest enhancements, see our [release notes](release_notes.md).
 
