@@ -18,7 +18,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from sparse_operation_kit.core.embedding_variable import EmbeddingVariable
+from sparse_operation_kit.core import EmbeddingVariable
 from sparse_operation_kit.kit_lib import create_embedding_dense, plugin_dense_fprop
 from sparse_operation_kit.embeddings import embedding_ops
 from tensorflow.distribute import has_strategy
@@ -88,11 +88,12 @@ class All2AllDenseEmbedding(tf.keras.layers.Layer):
         self.nnz_per_slot = nnz_per_slot
         self.dynamic_input = dynamic_input
         self.comm_tool = None if has_strategy() else "Horovod"
+        self.use_hashtable = use_hashtable
 
         self.var = EmbeddingVariable.CreateInstances(
                                 shape=[self.max_vocabulary_size_per_gpu, self.embedding_vec_size],
                                 trainable=True,
-                                use_hashtable=use_hashtable)
+                                use_hashtable=self.use_hashtable)
         emb_handle = self.var.emb_handle if isinstance(self.var, EmbeddingVariable) else self.var.values[0].emb_handle
 
         self.emb = create_embedding_dense(emb_handle,

@@ -33,6 +33,9 @@ from tensorflow.python.ops import resource_variable_ops
 import functools
 
 class EmbeddingVariable(BaseResourceVariable):
+    """
+    EmbeddingVariable used in TF 2.x
+    """
     @classmethod
     def CreateInstances(cls, *args, **kwargs):
         if not has_strategy():

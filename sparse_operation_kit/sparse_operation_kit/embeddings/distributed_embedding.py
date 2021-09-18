@@ -19,7 +19,7 @@ from __future__ import division
 from __future__ import print_function
 
 from sparse_operation_kit.kit_lib import create_embedding_sparse, plugin_sparse_fprop
-from sparse_operation_kit.core.embedding_variable import EmbeddingVariable
+from sparse_operation_kit.core import EmbeddingVariable
 from sparse_operation_kit.embeddings import embedding_ops
 from tensorflow.distribute import has_strategy
 import tensorflow as tf

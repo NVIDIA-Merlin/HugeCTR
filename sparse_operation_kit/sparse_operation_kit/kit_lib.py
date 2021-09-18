@@ -20,6 +20,17 @@ from tensorflow.python.framework.tensor_shape import TensorShape
 from tensorflow.python import pywrap_tensorflow
 import os
 
+def in_tensorflow2():
+    """
+    This function will tell whether the installed TensorFlow is 2.x
+    """
+    if pywrap_tensorflow.__version__.startswith("2"):
+        return True
+    elif pywrap_tensorflow.__version__.startswith("1"):
+        return False
+    else:
+        raise RuntimeError("Not supported version of TensorFlow.")
+
 lib_name = r"libsparse_operation_kit.so"
 
 paths = [r"/usr/local/lib"]
@@ -57,6 +68,8 @@ dump_to_file = kit_ops.dump_to_file
 restore_from_file = kit_ops.restore_from_file
 load_embedding_values = kit_ops.load_embedding_values
 read_embedding_variable = kit_ops.read_embedding_variable_op
+if not in_tensorflow2():
+    assign_embedding_variable = kit_ops.assign_embedding_variable
 
 create_global_adam_optimizer = kit_ops.create_global_adam_optimizer
 custom_optimizer_apply_gradients = kit_ops.custom_optimizer_apply_gradients
@@ -89,15 +102,3 @@ def _PluginDenseBackProp(op, top_grad):
                               indices=value_index)
                     
     return [None] + [grads] + [None for _ in op.inputs[2:]]
-
-
-def in_tensorflow2():
-    """
-    This function will tell whether the installed TensorFlow is 2.x
-    """
-    if pywrap_tensorflow.__version__.startswith("2"):
-        return True
-    elif pywrap_tensorflow.__version__.startswith("1"):
-        return False
-    else:
-        raise RuntimeError("Not supported version of TensorFlow.")

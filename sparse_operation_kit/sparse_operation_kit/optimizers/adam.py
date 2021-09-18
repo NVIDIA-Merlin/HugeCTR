@@ -18,8 +18,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from sparse_operation_kit.core.embedding_variable import EmbeddingVariable
-from sparse_operation_kit.kit_lib import create_global_adam_optimizer, custom_optimizer_apply_gradients
+from sparse_operation_kit import kit_lib
+from sparse_operation_kit.core import EmbeddingVariable
 from tensorflow.python.keras.optimizer_v2 import optimizer_v2
 from tensorflow.python.framework import ops
 from tensorflow.python.ops import array_ops
@@ -52,7 +52,7 @@ class Adam(optimizer_v2.OptimizerV2):
         self._beta1 = beta_1
         self._beta2 = beta_2
 
-        self._optimizer_handler = create_global_adam_optimizer(beta1=self._beta1,
+        self._optimizer_handler = kit_lib.create_global_adam_optimizer(beta1=self._beta1,
                                                                beta2=self._beta2,
                                                                epsilon=self.epsilon)
 
@@ -128,7 +128,7 @@ class Adam(optimizer_v2.OptimizerV2):
 
         current_iteration = array_ops.identity(self.iterations)
 
-        update_op = custom_optimizer_apply_gradients(emb_var_handle=var.m_handle, 
+        update_op = kit_lib.custom_optimizer_apply_gradients(emb_var_handle=var.m_handle, 
                                                      grad=grad,
                                                      local_indices=indices, 
                                                      learning_rate=learning_rate,
