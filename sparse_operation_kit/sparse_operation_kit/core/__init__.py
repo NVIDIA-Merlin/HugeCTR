@@ -22,3 +22,6 @@ if in_tensorflow2():
     from sparse_operation_kit.core.embedding_variable_v2 import EmbeddingVariable
 else:
     from sparse_operation_kit.core.embedding_variable_v1 import EmbeddingVariable
+
+from sparse_operation_kit.core.embedding_layer_handle import DenseEmbeddingLayerHandle
+from sparse_operation_kit.core.embedding_layer_handle import SparseEmbeddingLayerHandle

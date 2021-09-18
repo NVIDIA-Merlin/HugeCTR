@@ -32,8 +32,6 @@ template <typename Device>
 class AssignEmbeddingVariableOp : public OpKernel {
 public:
     explicit AssignEmbeddingVariableOp(OpKernelConstruction* ctx) : OpKernel(ctx) {
-        std::cout << "AssignEmbeddingVariableOp::Ctor is called." << std::endl; 
-
         OP_REQUIRES_OK(ctx, ctx->GetAttr("trainable", &trainable_));
         OP_REQUIRES_OK(ctx, ctx->GetAttr("use_hashtable", &use_hashtable_));
         OP_REQUIRES_OK(ctx, ctx->GetAttr("dtype", &dtype_and_shape_.dtype));
@@ -52,8 +50,6 @@ public:
     }
 
     void Compute(OpKernelContext* ctx) override {
-        std::cout << "AssignEmbeddingVariableOp::Compute is called." << std::endl; 
-
         const Tensor* var_name_tensor = nullptr;
         OP_REQUIRES_OK(ctx, ctx->input("var_name", &var_name_tensor));
         const Tensor* initial_value_tensor = nullptr;

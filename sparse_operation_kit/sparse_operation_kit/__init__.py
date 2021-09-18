@@ -37,3 +37,4 @@ from sparse_operation_kit.embeddings.distributed_embedding import DistributedEmb
 from sparse_operation_kit.embeddings.all2all_dense_embedding import All2AllDenseEmbedding
 from sparse_operation_kit.saver.Saver import Saver
 from sparse_operation_kit.optimizers.utils import split_embedding_variable_from_others
+from sparse_operation_kit.core.embedding_layer_handle import GraphKeys

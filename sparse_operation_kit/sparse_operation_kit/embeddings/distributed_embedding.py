@@ -18,8 +18,9 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from sparse_operation_kit.kit_lib import create_embedding_sparse, plugin_sparse_fprop
+from sparse_operation_kit import kit_lib
 from sparse_operation_kit.core import EmbeddingVariable
+from sparse_operation_kit.core import SparseEmbeddingLayerHandle
 from sparse_operation_kit.embeddings import embedding_ops
 from tensorflow.distribute import has_strategy
 import tensorflow as tf
@@ -95,17 +96,16 @@ class DistributedEmbedding(tf.keras.layers.Layer):
                                 shape=[self.max_vocabulary_size_per_gpu, self.embedding_vec_size],
                                 trainable=True,
                                 use_hashtable=use_hashtable)
-        emb_handle = self.var.emb_handle if isinstance(self.var, EmbeddingVariable) else self.var.values[0].emb_handle
 
-        self.emb = create_embedding_sparse(emb_handle,
-                                           input_dispatcher="all_gather_dispatcher",
-                                           input_dispatcher_subsequent_ops=["csr_conversion_distributed"],
-                                           embedding_executor="distributed",
-                                           output_dispatcher="reduce_scatter_dispatcher",
-                                           slot_num=self.slot_num, 
-                                           max_nnz=self.max_nnz,
-                                           max_feature_num=self.max_feature_num,
-                                           combiner=self.combiner)
+        self.emb_layer = SparseEmbeddingLayerHandle(self.var,
+                                                    input_dispatcher="all_gather_dispatcher",
+                                                    input_dispatcher_subsequent_ops=["csr_conversion_distributed"],
+                                                    embedding_executor="distributed",
+                                                    output_dispatcher="reduce_scatter_dispatcher",
+                                                    slot_num=self.slot_num, 
+                                                    max_nnz=self.max_nnz,
+                                                    max_feature_num=self.max_feature_num,
+                                                    combiner=self.combiner)
 
     @property
     def embedding_variable(self):
@@ -148,7 +148,7 @@ class DistributedEmbedding(tf.keras.layers.Layer):
         row_indices = tf.transpose(inputs.indices, perm=[1, 0])[0]
 
         # option 2, return grad for self.emb
-        emb_vector = plugin_sparse_fprop(self.emb, 
+        emb_vector = kit_lib.plugin_sparse_fprop(self.emb_layer.handle, 
                                          self.var,
                                          values, row_indices, 
                                          embedding_ops.get_global_replica_id(self.comm_tool),

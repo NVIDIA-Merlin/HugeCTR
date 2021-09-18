@@ -19,7 +19,8 @@ from __future__ import division
 from __future__ import print_function
 
 from sparse_operation_kit.core import EmbeddingVariable
-from sparse_operation_kit.kit_lib import create_embedding_dense, plugin_dense_fprop
+from sparse_operation_kit import kit_lib
+from sparse_operation_kit.core import DenseEmbeddingLayerHandle
 from sparse_operation_kit.embeddings import embedding_ops
 from tensorflow.distribute import has_strategy
 import tensorflow as tf
@@ -94,14 +95,13 @@ class All2AllDenseEmbedding(tf.keras.layers.Layer):
                                 shape=[self.max_vocabulary_size_per_gpu, self.embedding_vec_size],
                                 trainable=True,
                                 use_hashtable=self.use_hashtable)
-        emb_handle = self.var.emb_handle if isinstance(self.var, EmbeddingVariable) else self.var.values[0].emb_handle
 
-        self.emb = create_embedding_dense(emb_handle,
-                                          input_dispatcher="All2AllInput",
-                                          embedding_lookuper="dense_gather",
-                                          output_dispatcher="All2AllOutput",
-                                          slot_num=self.slot_num,
-                                          nnz_per_slot=self.nnz_per_slot)
+        self.emb_layer = DenseEmbeddingLayerHandle(self.var,
+                                                input_dispatcher="All2AllInput",
+                                                embedding_lookuper="dense_gather",
+                                                output_dispatcher="All2AllOutput",
+                                                slot_num=self.slot_num,
+                                                nnz_per_slot=self.nnz_per_slot)
 
     @property
     def embedding_variable(self):
@@ -128,7 +128,7 @@ class All2AllDenseEmbedding(tf.keras.layers.Layer):
                 Otherwise, its shape is *[None, embedding_vec_size]*, where *None* equals
                 to the size of inputs.
         """
-        emb_vector = plugin_dense_fprop(self.emb,
+        emb_vector = kit_lib.plugin_dense_fprop(self.emb_layer.handle,
                                         self.var,
                                         values=inputs,
                                         global_replica_id=embedding_ops.get_global_replica_id(self.comm_tool),
