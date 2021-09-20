@@ -40,7 +40,7 @@ git clone https://github.com/NVIDIA/HugeCTR
 3. Start Jupyter using these commands: 
    ```
    cd /hugectr/notebooks
-   jupyter-notebook --allow-root --ip 0.0.0.0 --port 8888 --NotebookApp.token=’hugectr’
+   jupyter-notebook --allow-root --ip 0.0.0.0 --port 8888 --NotebookApp.token='hugectr'
    ```
 
 4. Connect to your host machine using the 8888 port by accessing its IP address or name from your web browser: `http://[host machine]:8888`
@@ -49,10 +49,16 @@ git clone https://github.com/NVIDIA/HugeCTR
 
    `http://[host machine]:8888/?token=aae96ae9387cd28151868fee318c3b3581a2d794f3b25c6b`
 
+5. Import MPI:
 
-**NOTE**
-- HugeCTR is built and installed with `MULTINODES=ON` within NGC Merlin docker. To use HugeCTR Python interface correctly, you should add `from mpi4py import MPI` in the scripts that `import hugectr`.
-- HugeCTR is written in CUDA/C++ and wrapped to Python using Pybind11. The C++ output will not display in Notebook cells unless you run the Python script in a command line manner.
+   If HugeCTR is built and installed with `MULTINODES=ON` within NGC Merlin docker. To use HugeCTR Python interface correctly, you should add `from mpi4py import MPI` in the scripts that `import hugectr`. Otherwise you will expect error message like
+   ```
+   MPI_Comm_rank function was called before MPI_INIT was invoked
+   ```
+   
+6. Important Note:
+
+   HugeCTR is written in CUDA/C++ and wrapped to Python using Pybind11. The C++ output will not display in Notebook cells unless you run the Python script in a command line manner.
 
 
 ## Notebook List
@@ -65,3 +71,6 @@ Here's a list of notebooks that you can run:
 - [movie-lens-example.ipynb](movie-lens-example.ipynb): Explains how to train and inference with the MoveLense dataset.
 - [hugectr-criteo.ipynb](hugectr_criteo.ipynb): Explains the usage of HugeCTR Python interface with the Criteo dataset.
 - [hugectr2onnx_demo.ipynb](hugectr2onnx_demo.ipynb): Explains how to convert the trained HugeCTR model to ONNX.
+- [continuous_training.ipynb](continuous_training.ipynb): Notebook to introduce how to deploy continued training with HugeCTR.
+- [hugectr_wdl_prediction.ipynb](hugectr_wdl_prediction.ipynb): Tutorial how to train a wdl model using HugeCTR High-level python API.
+- [news-example.ipynb](news-example.ipynb): Tutorial to demonstrate NVTabular for ETL the data and HugeCTR for training Deep Neural Network models on MIND dataset.
