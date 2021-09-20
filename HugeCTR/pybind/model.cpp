@@ -897,7 +897,7 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
   timer_train.start();
 
 #ifdef ENABLE_PROFILING
-  HugeCTR::global_profiler.initialize(solver_config.use_cuda_graph);
+  HugeCTR::global_profiler.initialize(solver_.use_cuda_graph);
 #endif
 
   if (epoch_mode && !mos_mode) {

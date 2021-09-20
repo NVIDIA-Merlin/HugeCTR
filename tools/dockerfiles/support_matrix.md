@@ -1,7 +1,7 @@
-HugeCTR Software Stack
+HugeCTR Support Matrix
 ----------------------
 
-This dependency matrix shows the software stack of NVIDIA HugeCTR project. The matrix provides a single view into the supported software and specific versions for each release of the HugeCTR. Software stacks included are:
+The tables below provide the software and model versions that HugeCTR supports for each container. We offer the following containers:
 
 * <a href="#md_cap_train">Dockerfile.train</a>
 * <a href="#md_cap_infer">Dockerfile.inference</a>
@@ -9,7 +9,7 @@ This dependency matrix shows the software stack of NVIDIA HugeCTR project. The m
 
 **Important**: Content that is included in <<>> brackets indicates new content from the previously published version.
 
-<div align="center"><a name="md_cap_train">Table 1. Software stack for HugeCTR training image (Dockerfile.train)</a></div>
+<div align="center"><a name="md_cap_train">Table 1: Support matrix for the HugeCTR training (Dockerfile.train) container</a></div>
 
 | Release Version                                              | <div style="width:320px">v21.9</div>                         | <div style="width:320px">v3.1</div>                          | <div style="width:340px">v3.0</div>                          | <div style="width:340px">v2.3</div>                          |
 | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ |
@@ -40,7 +40,7 @@ This dependency matrix shows the software stack of NVIDIA HugeCTR project. The m
 
 <br></br>
 
-<div align="center"><a name="md_cap_infer">Table 2. Software stack for inference image (Dockerfile.inference)</a></div>
+<div align="center"><a name="md_cap_infer">Table 2: Support matrix for the inference (Dockerfile.inference) container</a></div>
 
 | Container Image                                              | <div style="width:320px">v21.9</div>                         | <div style="width:320px">v3.1</div>                          | <div style="width:320px">v3.0</div>                          |
 | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ |
@@ -86,4 +86,4 @@ This dependency matrix shows the software stack of NVIDIA HugeCTR project. The m
 | [TensorFlow](https://www.tensorflow.org/)                    | [2.6.0](https://github.com/tensorflow/tensorflow/releases/tag/v2.6.0) | [2.4.0](https://github.com/tensorflow/tensorflow/releases/tag/v2.4.0) | [2.4.0](https://github.com/tensorflow/tensorflow/releases/tag/v2.4.0) |
 | Python libs                                                  | numpy<br/>pandas<br/>sklearn<br/>ortools<br/>jupyter<br/>nvtx-plugins | numpy<br/>pandas<br/>sklearn<br/>ortools<br/>jupyter<br/>nvtx-plugins | numpy<br>pandas<br>sklearn<br>ortools<br>jupyter<br>nvtx-plugins |
 
-<a name="md_idx_1">1</a> For a complete list of supported drivers, see the [CUDA Application Compatibility](https://docs.nvidia.com/deploy/cuda-compatibility/index.html#cuda-application-compatibility) topic. For more information, see [CUDA Compatibility and Upgrades](https://docs.nvidia.com/cuda/cuda-c-best-practices-guide/index.html#cuda-compatibility-and-upgrades).
+<a name="md_idx_1">1</a> For a complete list of supported drivers, see [CUDA Application Compatibility](https://docs.nvidia.com/deploy/cuda-compatibility/index.html#cuda-application-compatibility). For more information, see [CUDA Compatibility and Upgrades](https://docs.nvidia.com/cuda/cuda-c-best-practices-guide/index.html#cuda-compatibility-and-upgrades).
