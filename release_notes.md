@@ -1,6 +1,6 @@
 # Release Notes
 
-## What's New in Version 21.9
+## What's New in Version 3.2
 + **New Versioning**: From this release, instead of versioning HugeCTR with “major.minor”, we will apply a new version rule “year.month” to keep consistent with the other important products in NVIDIA e.g. NVTabular, Rapids, Deep learning framework like TF and PyT.
 + **HugeCTR to ONNX convertor**: We’ve introduced the HugeCTR to ONNX converter as a Python package, which can improve the compatibility with other deep learning frameworks. The converter requires the files of HugeCTR graph configuration and model weights as inputs, and will save the converted ONNX model to the specified path. There is a flag that users can opt for to determine whether they want to convert the sparse embedding models or not. For more information, see [HugeCTR to ONNX Converter ](./onnx_converter) and [HugeCTR2ONNX Demo Notebook](notebooks/hugectr2onnx_demo.ipynb).
 + **HugeCTR Hierarchical Parameter Server POC**: We’ve implemented a hierarchical storage mechanism between local SSDs and CPU memory, which breaks the convention that the embedding table must be stored in local CPU memory. The distributed Redis cluster is introduced as a CPU cache to store larger embedding tables and interact with the GPU embedding cache directly. The local RocksDB serves as a query engine to back up the complete embedding table on the local SSDs in order to assist the Redis cluster to perform missing embedding keys look up.

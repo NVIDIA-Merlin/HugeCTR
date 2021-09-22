@@ -15,6 +15,6 @@
 #
 
 __all__ = ["converter", "graph_builder", "hugectr_loader"]
-__version__ = 21.9
+__version__ = 3.2
 
 from hugectr2onnx import graph_builder, hugectr_loader, converter
