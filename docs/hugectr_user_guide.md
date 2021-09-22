@@ -8,18 +8,18 @@ HugeCTR is a GPU-accelerated framework designed to distribute training across mu
 
 <br></br>
 
-To prevent data loading from becoming a major bottleneck during training, HugeCTR contains a dedicated data reader that is inherently asynchronous and multi-threaded. It will read a batched set of data records in which each record consists of high-dimensional, extremely sparse, or categorical features. Each record can also include dense numerical features, which can be fed directly to the fully connected layers. An embedding layer is used to compress the input-sparse features to lower-dimensional, dense-embedding vectors. There are three GPU-accelerated embedding stages:
+To prevent data loading from becoming a major bottleneck during training, HugeCTR contains a dedicated data reader that is inherently asynchronous and multi-threaded. It will read a batched set of data records in which each record consists of high-dimensional, extremely sparse, or categorical features. Each record can also include dense numerical features, which can be fed directly to the fully connected layers. An embedding layer is used to compress the sparse input features to lower-dimensional, dense embedding vectors. There are three GPU-accelerated embedding stages:
 
-* table lookup
-* weight reduction within each slot
-* weight concatenation across the slots
+* Table lookup
+* Weight reduction within each slot
+* Weight concatenation across the slots
 
 To enable large embedding training, the embedding table in HugeCTR is model parallel and distributed across all GPUs in a homogeneous cluster, which consists of multiple nodes. Each GPU has its own:
 
-* feed-forward neural network (data parallelism) to estimate CTRs
-* hash table to make the data preprocessing easier and enable dynamic insertion
+* Feed-forward neural network (data parallelism) to estimate CTRs.
+* Hash table to make the data preprocessing easier and enable dynamic insertion.
 
-Embedding initialization is not required before training takes place since the input training data are hash values (64bit long long type) instead of original indices. A pair of <key,value> (random small weight) will be inserted during runtime only when a new key appears in the training data and the hash table cannot find it.
+Embedding initialization is not required before training takes place, since the input training data are hash values (64bit signed integer type) instead of original indices. A pair of <key,value> (random small weight) will be inserted during runtime only when a new key appears in the training data and the hash table cannot find it.
 
 <div align=center><img src="user_guide_src/fig1_hugectr_arch.png" width="781" height="333"/></div>
 <div align=center>Fig. 2: HugeCTR Architecture</div>
@@ -60,7 +60,7 @@ We support the following compute capabilities:
 For more information about our software stack, see [Software Stack](../tools/dockerfiles/support_matrix.md).
 
 ### Installing HugeCTR Using NGC Containers
-All NVIDIA Merlin components are available as open source projects. However, a more convenient way to make use of these components is by using our Merlin NGC containers. Containers allow you to package your software application, libraries, dependencies, and runtime compilers in a self-contained environment. When installing HugeCTR using NGC containers, the application environment remains portable, consistent, reproducible, and agnostic to the underlying host system software configuration.
+All NVIDIA Merlin components are available as open source projects. However, a more convenient way to utilize these components is by using our Merlin NGC containers. These containers allow you to package your software application, libraries, dependencies, and runtime compilers in a self-contained environment. When installing HugeCTR using NGC containers, the application environment remains portable, consistent, reproducible, and agnostic to the underlying host system's software configuration.
 
 HugeCTR is included in the Merlin Docker container, which is available in the [NVIDIA container repository](https://ngc.nvidia.com/catalog/containers/nvidia:hugectr).
 
@@ -88,12 +88,12 @@ In addition to single-node and full precision training, HugeCTR supports a varie
 **NOTE**: Multi-node training and mixed precision training can be used simultaneously.
 
 ### Model Parallel Training ###
-HugeCTR natively supports both model parallel and data parallel training, making it possible to train very large models on GPUs. Features and categories of embeddings can be distributed across multiple GPUs and nodes. For example, if you have two nodes with 8xA100 80GB GPUs, you can train models that are as large as 1TB fully on GPU. By embedding training cache, you can train even larger models on the same nodes. 
+HugeCTR natively supports both model parallel and data parallel training, making it possible to train very large models on GPUs. Features and categories of embeddings can be distributed across multiple GPUs and nodes. For example, if you have two nodes with 8xA100 80GB GPUs, you can train models that are as large as 1TB fully on GPU. By using the [embedding training cache](#embedding-training-cache), you can train even larger models on the same nodes. 
 
 To achieve the best performance on different embeddings, use various embedding layer implementations. Each of these implementations target different practical training cases such as:
 
 * LocalizedSlotEmbeddingHash: The features in the same slot (feature field) will be stored in one GPU, which is why it's referred to as a “localized slot”, and different slots may be stored in different GPUs according to the index number of the slot. LocalizedSlotEmbedding is optimized for instances where each embedding is smaller than the memory size of the GPU. As local reduction for each slot is used in the LocalizedSlotEmbedding with no global reduction between GPUs, the overall data transaction in the LocalizedSlotEmbedding is much less than the DistributedSlotEmbedding. **Note**: Make sure that there aren't any duplicated keys in the input dataset.
-* DistributedSlotEmbeddingHash: All the features, which are located in different feature fields / slots, are distributed to different GPUs according to the index number of the feature regardless of the slot index number. That means the features in the same slot may be stored in different GPUs, which is why it's referred to as a “distributed slot”. Since global reduction is required, the DistributedSlotEmbedding was developed for cases where the embeddings are larger than the memory size of the GPU. DistributedSlotEmbedding has much more memory trasactions between GPUs. **Note**: Make sure that there aren't any duplicated keys in the input dataset.
+* DistributedSlotEmbeddingHash: All the features, which are located in different feature fields / slots, are distributed to different GPUs according to the index number of the feature regardless of the slot index number. That means the features in the same slot may be stored in different GPUs, which is why it's referred to as a “distributed slot”. Since global reduction is required, the DistributedSlotEmbedding was developed for cases where the embeddings are larger than the memory size of the GPU. DistributedSlotEmbedding has much more memory transactions between GPUs. **Note**: Make sure that there aren't any duplicated keys in the input dataset.
 * LocalizedSlotEmbeddingOneHot: A specialized LocalizedSlotEmbedding that requires a one-hot data input. Each feature field must also be indexed from zero. For example, gender: 0,1; 1,2 wouldn't be considered correctly indexed.
 
 ### Multi-Node Training ###
@@ -115,7 +115,7 @@ Learning rate scheduling allows users to configure its hyperparameters, which in
 * `learning_rate`: Base learning rate.
 * `warmup_steps`: Number of initial steps used for warm-up.
 * `decay_start`: Specifies when the learning rate decay starts.
-* `decay_steps`: Decay period in step. 
+* `decay_steps`: Decay period (in steps). 
 
 Fig. 6 illustrates how these hyperparameters interact with the actual learning rate.
 
@@ -139,15 +139,15 @@ This feature currently supports both single-node and multi-node training. It sup
 ### ONNX Converter ###
 ONNX Converter is a python package `hugectr2onnx` that can convert HugeCTR models to ONNX format. It can improve the compatibility of HugeCTR with other deep learning frameworks given that Open Neural Network Exchange (ONNX) serves as an open-source format for AI models.
 
-After training with HugeCTR Python APIs, you can get the files for dense model, sparse model(s) and graph configuration JSON, which are required as inputs by the method `hugectr2onnx.converter.convert`. Each HugeCTR layer will correspond to one or several ONNX operators, and the trained model weights will be loaded as initializers in the ONNX graph. Besides, users can choose to convert the sparse embedding layers or not with the flag `convert_embedding`. For more details about this feature, please refer to [ONNX Converter](../onnx_converter). There is also a notebook [hugectr2onnx_demo.ipynb](../notebooks/hugectr2onnx_demo.ipynb) that demonstrates the usage.
+After training with HugeCTR Python APIs, you can get the files for dense model, sparse model(s) and graph configuration JSON, which are required as inputs by the method `hugectr2onnx.converter.convert`. Each HugeCTR layer will correspond to one or several ONNX operators, and the trained model weights will be loaded as initializers in the ONNX graph. Besides, users can choose to convert the sparse embedding layers using the `convert_embedding` flag. For more details about this feature, please refer to [ONNX Converter](../onnx_converter). There is also a notebook [hugectr2onnx_demo.ipynb](../notebooks/hugectr2onnx_demo.ipynb) that demonstrates its usage.
 
 ### Hierarchical Parameter Server ###
-HugeCTR Hierarchical Parameter Server implemented a hierarchical storage mechanism between local SSDs and CPU memory, which breaks the convention that the embedding table must be stored in local CPU memory. The distributed `Redis cluster` is introduced as a CPU cache to store larger embedding tables and interact with the GPU embedding cache directly. The `local RocksDB` serves as a query engine to back up the complete embedding table on the local SSDs in order to assist the Redis cluster to perform missing embedding keys look up. You can try to play with [hugectr_wdl_prediction.ipynb](../notebooks/hugectr_wdl_prediction.ipynb) to get more usage. You can also find more details from [Distributed Deployment](https://github.com/triton-inference-server/hugectr_backend/blob/main/docs/architecture.md#distributed-deployment-hierarchical-hugectr-parameter-server)
+HugeCTR Hierarchical Parameter Server implemented a hierarchical storage mechanism between local SSDs and CPU memory, which breaks the convention that the embedding table must be stored in local CPU memory. The distributed `Redis cluster` is introduced as a CPU cache to store larger embedding tables and interact with the GPU embedding cache directly. The `local RocksDB` serves as a query engine to back up the complete embedding table on the local SSDs in order to assist the Redis cluster to perform missing embedding keys look up. You can try to play with [hugectr_wdl_prediction.ipynb](../notebooks/hugectr_wdl_prediction.ipynb) to get more usage. You can also find more details from [Distributed Deployment](https://github.com/triton-inference-server/hugectr_backend/blob/main/docs/architecture.md#distributed-deployment-hierarchical-hugectr-parameter-server).
 
 ## Tools ##
 We currently support the following tools:
 * [Data Generator](#generating-synthetic-data-and-benchmarks): A configurable data generator with Python interface that can be used to generate a synthetic dataset for benchmarking and research purposes.
-* [Preprocessing Script](#downloading-and-preprocessing-datasets): A set of scripts to convert the original Criteo dataset into HugeCTR using supported dataset formats such as Norm and RAW. It's used in all of our samples to prepare the data and train various recommender models.
+* [Preprocessing Script](#downloading-and-preprocessing-datasets): We provide a set of scripts that form a template implementation to demonstrate how complex datasets, such as the original Criteo dataset, can be converted into HugeCTR using supported dataset formats such as Norm and RAW. It's used in all of our samples to prepare the data and train various recommender models.
 
 ### Generating Synthetic Data and Benchmarks
 The [Norm](./python_interface.md#norm) (with Header) and [Raw](./python_interface.md#raw) (without Header) datasets can be generated with [hugectr.tools.DataGenerator](./python_interface.md#datagenerator). For categorical features, you can configure the probability distribution to be uniform or power-law within [hugectr.tools.DataGeneratorParam](./python_interface.md#datageneratorparams-class). The default distribution is power law with alpha = 1.2.
