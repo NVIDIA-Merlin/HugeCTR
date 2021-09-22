@@ -50,10 +50,7 @@ mkdir din_data
 Run python scripts to preprocess the data:
 ```bash
 cd utils
-python 1_convert_pd.py
-python 2_remap_id.py
-python 3_padding.py
-python 4_nvt_process.py
+bash preprocess.sh
 ```
 
 ## Train with HugeCTR ##
@@ -62,3 +59,5 @@ With the above steps, the preprocessed data is saved locally in the `din_data/` 
 python din_parquet.py
 ```
 By default, this will run 8000 iterations and the peak of the AUC could reach higher than 0.8.
+
+There is another implementation of the DIN model in `din_try.py`, which employs the Matrix Multiply layer. It can achieve AUC 0.75 after 88,000 iterations.
