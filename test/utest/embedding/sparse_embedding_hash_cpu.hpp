@@ -753,7 +753,7 @@ void SparseEmbeddingHashCpu<TypeHashKey, TypeEmbeddingComp>::cpu_optimizer_adagr
     if (update_type == Update_t::Global) {
       for (int i = 0; i < vocabulary_size; i++) {
         for (int j = 0; j < embedding_vec_size; j++) {
-          TypeHashValueIndex feature_index = i * embedding_vec_size + j;
+          TypeHashValueIndex feature_index = (TypeHashValueIndex)i * embedding_vec_size + j;
           float mo = factor * TypeConvertFunc<float, TypeEmbeddingComp>::convert(
                                   momentum_ptr[feature_index]);
           momentum_ptr[feature_index] = TypeConvertFunc<TypeEmbeddingComp, float>::convert(mo);
@@ -773,7 +773,7 @@ void SparseEmbeddingHashCpu<TypeHashKey, TypeEmbeddingComp>::cpu_optimizer_adagr
     if (update_type == Update_t::Global) {
       for (int i = 0; i < vocabulary_size; i++) {
         for (int j = 0; j < embedding_vec_size; j++) {
-          TypeHashValueIndex feature_index = i * embedding_vec_size + j;
+          TypeHashValueIndex feature_index = (TypeHashValueIndex)i * embedding_vec_size + j;
           float accm_old = accm_ptr[feature_index];
           float accm_new = mu * accm_old;
           accm_ptr[feature_index] = accm_new;

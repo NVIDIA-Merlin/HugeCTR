@@ -230,7 +230,7 @@ class DataCollector {
     for (size_t i = 0; i < resource_manager_->get_local_gpu_count(); i++) {
       const auto &local_gpu = resource_manager_->get_local_gpu(i);
       CudaDeviceContext context(local_gpu->get_device_id());
-      cudaStreamSynchronize(local_gpu->get_stream());
+      CK_CUDA_THROW_(cudaStreamSynchronize(local_gpu->get_stream()));
     }
 
     broadcast_buffer_->state.store(BufferState::ReadyForWrite);
