@@ -19,12 +19,10 @@ from __future__ import division
 from __future__ import print_function
 
 from sparse_operation_kit import kit_lib
+from sparse_operation_kit.core.graph_keys import GraphKeys
 from tensorflow.python.training.tracking import base as trackable
 from tensorflow.python.framework import ops
 from tensorflow.python.ops import control_flow_ops
-
-class GraphKeys(object):
-    SparseOperationKitEmbeddingLayers = "SparseOperationKitEmbeddingLayers"
 
 class EmbeddingLayerHandle(trackable.Trackable):
     """

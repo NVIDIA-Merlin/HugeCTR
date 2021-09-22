@@ -70,6 +70,7 @@ load_embedding_values = kit_ops.load_embedding_values
 read_embedding_variable = kit_ops.read_embedding_variable_op
 if not in_tensorflow2():
     assign_embedding_variable = kit_ops.assign_embedding_variable
+    optimizer_init = kit_ops.optimizer_init
 
 create_global_adam_optimizer = kit_ops.create_global_adam_optimizer
 custom_optimizer_apply_gradients = kit_ops.custom_optimizer_apply_gradients
@@ -90,6 +91,7 @@ def _PluginSparseBackProp(op, top_grad):
                               indices=value_index)
 
     return [None] + [grads] + [None for _ in op.inputs[2:]]
+
 
 @ops.RegisterGradient("PluginDenseFprop")
 def _PluginDenseBackProp(op, top_grad):

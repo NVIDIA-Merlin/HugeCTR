@@ -89,11 +89,12 @@ class EmbeddingVariable(BaseResourceVariable):
         with ops.init_scope():
             self._in_graph_mode = not context.executing_eagerly()
             with ops.name_scope(self.m_var_name) as name:
-                attr = resource_variable_ops.attr_value_pb2.AttrValue(
-                    list=resource_variable_ops.attr_value_pb2.AttrValue.ListValue(
-                        s=[resource_variable_ops.compat.as_bytes("loc:@%s" % self.m_var_name)]))
+                # attr = resource_variable_ops.attr_value_pb2.AttrValue(
+                #     list=resource_variable_ops.attr_value_pb2.AttrValue.ListValue(
+                #         s=[resource_variable_ops.compat.as_bytes("loc:@%s" % self.m_var_name)]))
 
-                with ops.get_default_graph()._attr_scope({"_class": attr}):
+                # with ops.get_default_graph()._attr_scope({"_class": attr}):
+                with ops.NullContextmanager():
                     # m_handle is the handle to EmbeddingVariable, tf_handle is the handle to TF Var.
                     self.m_handle, self.tf_handle = create_var(var_name=self.m_var_name,
                                                                dtype=float32,
@@ -224,20 +225,23 @@ class EmbeddingVariable(BaseResourceVariable):
 
     @property
     def initializer(self):
-        print("[INFO]: EmbeddingVariable.initializer is called.")
         return self._initializer_op
 
     def is_initialized(self, name=None):
         raise NotImplementedError("EmbeddingVariable.is_initialized is not implemented")
 
-    def assign_sub(self, delta, use_locking=None, name=None, read_value=True):
-        raise NotImplementedError("EmbeddingVariable.assign_sub is not implemented.")
+    # TODO: if TF optimizer need to be used, then leave it for TF implementations.
+    # def assign_sub(self, delta, use_locking=None, name=None, read_value=True):
+    #     # raise NotImplementedError("EmbeddingVariable.assign_sub is not implemented.")
+    #     read_value = False
+    #     return super(EmbeddingVariable, self).assign_sub(delta, use_locking, name, read_value)
 
     def assign_add(self, delta, use_locking=None, name=None, read_value=True):
         raise NotImplementedError("EmbeddingVariable.assign_add is not implemented.")
 
-    def _lazy_read(self, op):
-        raise NotImplementedError("EmbeddingVariable._lazy_read is not implemented.")
+    # TODO: if TF optimizer need to be used, then leave it for TF implementations.
+    # def _lazy_read(self, op):
+        # raise NotImplementedError("EmbeddingVariable._lazy_read is not implemented.")
 
     def assign(self, value, use_locking=None, name=None, read_value=True):
         raise NotImplementedError("EmbeddingVariable.assign is not implemented.")
@@ -303,5 +307,6 @@ class EmbeddingVariable(BaseResourceVariable):
 
     def __ipow__(self, unused_other):
         raise NotImplementedError("EmbeddingVariable.__ipow__ is not implemented.")
+
 
     
