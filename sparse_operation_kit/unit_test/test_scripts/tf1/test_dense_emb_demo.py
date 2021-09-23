@@ -80,11 +80,14 @@ def get_sok_results(args, init_tensors, *random_samples):
     sok_saver = sok.Saver()
     restore_op = list()
     for i, embedding_layer in enumerate(sok_dense_demo.embedding_layers):
-        if args.restore_params:
-            filepath = r"./embedding_variables"
-            restore_op.append(sok_saver.restore_from_file(embedding_layer.embedding_variable, filepath))
-        else:
-            restore_op.append(sok_saver.load_embedding_values(embedding_layer.embedding_variable, init_tensors[i]))
+        control_inputs = [restore_op[-1]] if restore_op else None
+        with tf.control_dependencies(control_inputs):
+            if args.restore_params:
+                filepath = r"./embedding_variables"
+                op = sok_saver.restore_from_file(embedding_layer.embedding_variable, filepath)
+            else:
+                op = sok_saver.load_embedding_values(embedding_layer.embedding_variable, init_tensors[i])
+            restore_op.append(op)
 
     loss_fn = tf.keras.losses.BinaryCrossentropy(from_logits=True, reduction='none')
     def _replica_loss(labels, logits):
@@ -322,7 +325,7 @@ def compare_dense_emb_sok_with_tf(args):
         if not allclose:
             raise ValueError(f"\n{sok_vector} \nis not near to \n{tf_results[i]} \nat rtol={rtol}, atol={atol}")
 
-    print(f"\n[INFO]: For Dense Embedding layer, using {args.gpu_num} GPUs + {args.optimizer} optimizer, "
+    print(f"\n[INFO]: For {len(args.slot_num)} Dense Embedding layer, using {args.gpu_num} GPUs + {args.optimizer} optimizer, "
           f"using hashtable? {args.use_hashtable}, dynamic_input? {args.dynamic_input}, "
           "the embedding vectors"
           f" obtained from sok and tf are consistent for {args.iter_num} iterations.")

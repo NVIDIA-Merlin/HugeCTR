@@ -92,6 +92,20 @@ mpiexec --allow-run-as-root -np 8 --oversubscribe \
     --save_params=1 \
     --use_hashtable=1
 
+mpiexec --allow-run-as-root -np 8 --oversubscribe \
+    python3 test_dense_emb_demo.py \
+    --distributed_tool="horovod" \
+    --iter_num=30 \
+    --max_vocabulary_size_per_gpu=8192 \
+    --slot_num 20 10 \
+    --nnz_per_slot=10 \
+    --embedding_vec_size 4 8 \
+    --global_batch_size=16384 \
+    --optimizer="adam" \
+    --generate_new_datas=1 \
+    --save_params=1 \
+    --use_hashtable=1
+
 
 # ----- clean intermediate files ------ #
 rm -rf *.file && rm -rf embedding_variables/
