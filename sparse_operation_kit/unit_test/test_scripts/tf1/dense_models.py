@@ -55,7 +55,7 @@ class SOKDemo(tf.keras.models.Model):
                                                bias_initializer="zeros")
             self.dense_layers.append(self.layer)
 
-        self.out_layer = tf.keras.layers.Dense(units=1, activation='sigmoid',
+        self.out_layer = tf.keras.layers.Dense(units=1, activation=None,
                                               kernel_initializer="ones",
                                               bias_initializer="zeros")
 

@@ -341,9 +341,16 @@ def get_valid_tf_values(keys, values):
         keys = np.array(keys, dtype=np.int64)
     if not isinstance(values, np.ndarray):
         values = np.array(values, dtype=np.float32)
-
-    keys = tf.reshape(keys, [-1])
-    return tf.gather(values, keys).numpy()
+    if sok.kit_lib.in_tensorflow2():
+        keys = tf.reshape(keys, [-1])
+        return tf.gather(values, keys).numpy()
+    else:
+        graph = tf.Graph()
+        with graph.as_default():
+            keys = tf.reshape(keys, [-1])
+            valid_values = tf.gather(values, keys)
+        with tf.Session(graph=graph) as sess:
+            return sess.run(valid_values)
 
 if __name__ == "__main__":
     all_keys, all_labels = generate_random_samples(num_of_samples=65536 * 100,

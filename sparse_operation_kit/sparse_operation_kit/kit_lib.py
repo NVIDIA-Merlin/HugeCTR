@@ -71,6 +71,7 @@ read_embedding_variable = kit_ops.read_embedding_variable_op
 if not in_tensorflow2():
     assign_embedding_variable = kit_ops.assign_embedding_variable
     optimizer_init = kit_ops.optimizer_init
+    embedding_variable_assign_sub = kit_ops.embedding_variable_assign_sub
 
 create_global_adam_optimizer = kit_ops.create_global_adam_optimizer
 custom_optimizer_apply_gradients = kit_ops.custom_optimizer_apply_gradients

@@ -18,7 +18,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from sparse_operation_kit.kit_lib import create_var, read_embedding_variable, assign_embedding_variable
+from sparse_operation_kit import kit_lib
 from tensorflow.python.ops.resource_variable_ops import BaseResourceVariable, variable_accessed, _maybe_set_handle_data
 from tensorflow.python.ops.resource_variable_ops import _handle_graph
 from tensorflow.python.framework.tensor_shape import TensorShape
@@ -96,14 +96,14 @@ class EmbeddingVariable(BaseResourceVariable):
                 # with ops.get_default_graph()._attr_scope({"_class": attr}):
                 with ops.NullContextmanager():
                     # m_handle is the handle to EmbeddingVariable, tf_handle is the handle to TF Var.
-                    self.m_handle, self.tf_handle = create_var(var_name=self.m_var_name,
+                    self.m_handle, self.tf_handle = kit_lib.create_var(var_name=self.m_var_name,
                                                                dtype=float32,
                                                                shape=self.m_shape_per_gpu)
 
                     if self._in_graph_mode:
                         with ops.name_scope("IsInitialized"):
                             self._is_initialized_op = ops.convert_to_tensor(True) # TODO: should not hard-writing???
-                            _init_op = assign_embedding_variable(emb_var_handle=self.m_handle,
+                            _init_op = kit_lib.assign_embedding_variable(emb_var_handle=self.m_handle,
                                                                  tf_var_handle=self.tf_handle,
                                                                  var_name=self.m_var_name,
                                                                  initial_value=self.m_initial_value,
@@ -138,7 +138,7 @@ class EmbeddingVariable(BaseResourceVariable):
 
     def _read_variable_op(self):
         variable_accessed(self)
-        result = read_embedding_variable(self._handle, self.tf_handle, self._dtype, self.name)
+        result = kit_lib.read_embedding_variable(self._handle, self.tf_handle, self._dtype, self.name)
         _maybe_set_handle_data(self._dtype, self._handle, result)
 
         if not context.executing_eagerly():
@@ -231,10 +231,8 @@ class EmbeddingVariable(BaseResourceVariable):
         raise NotImplementedError("EmbeddingVariable.is_initialized is not implemented")
 
     # TODO: if TF optimizer need to be used, then leave it for TF implementations.
-    # def assign_sub(self, delta, use_locking=None, name=None, read_value=True):
-    #     # raise NotImplementedError("EmbeddingVariable.assign_sub is not implemented.")
-    #     read_value = False
-    #     return super(EmbeddingVariable, self).assign_sub(delta, use_locking, name, read_value)
+    def assign_sub(self, delta, use_locking=None, name=None, read_value=True):
+        return control_flow_ops.group((kit_lib.embedding_variable_assign_sub(self.m_handle, self.tf_handle, delta)))
 
     def assign_add(self, delta, use_locking=None, name=None, read_value=True):
         raise NotImplementedError("EmbeddingVariable.assign_add is not implemented.")

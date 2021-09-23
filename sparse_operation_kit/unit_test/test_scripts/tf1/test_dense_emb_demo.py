@@ -23,6 +23,28 @@ import tensorflow as tf
 import utils
 from dense_models import SOKDemo, TFDemo
 import strategy_wrapper
+import numpy as np
+
+def check_saved_embedding_variables(args, embedding_variable_name):
+    filepath = r"./embedding_variables"
+    
+    sok_keys_filename = os.path.join(filepath, embedding_variable_name + r"_keys.file")
+    sok_keys = utils.read_binary_file(sok_keys_filename, element_type="long long")
+    sok_values_filename = os.path.join(filepath, embedding_variable_name + r"_values.file")
+    sok_values = utils.read_binary_file(sok_values_filename, element_type="float")
+
+    sorted_sok_keys, sorted_sok_values = utils.sort_embedding_variables_by_key(sok_keys, sok_values, 
+                                                    embedding_vec_size=args.embedding_vec_size)
+
+    tf_values_filename = os.path.join(filepath, r"tf_variable.file")
+    tf_values = utils.restore_from_file(tf_values_filename)
+    valid_tf_values = utils.get_valid_tf_values(sorted_sok_keys, tf_values[0])
+
+    import numpy as np
+    np.allclose(np.reshape(sorted_sok_values, newshape=(sorted_sok_keys.size, args.embedding_vec_size)), 
+                valid_tf_values, atol=1e-4, rtol=1e-4)
+    print("[INFO]: the saved parameters are consistent between sparse operation kit and TensorFlow")
+
 
 def get_sok_results(args, init_tensors, *random_samples):
     if args.distributed_tool == "onedevice":
@@ -49,11 +71,7 @@ def get_sok_results(args, init_tensors, *random_samples):
                                  nnz_per_slot=args.nnz_per_slot,
                                  use_hashtable=args.use_hashtable,
                                  num_of_dense_layers=0)
-        # freeze dense layers' variables
-        # for layer in sok_dense_demo.dense_layers:
-        #     layer.trainable = False
-        # sok_dense_demo.out_layer.trainable = False
-        
+
         emb_opt = utils.get_embedding_optimizer(args.optimizer)(learning_rate=0.1)
         dense_opt = utils.get_dense_optimizer(args.optimizer)(learning_rate=0.1)
 
@@ -87,7 +105,7 @@ def get_sok_results(args, init_tensors, *random_samples):
             with tf.control_dependencies([emb_train_op, other_train_op]):
                 total_loss = strategy.reduce("sum", loss)
                 total_loss = tf.identity(total_loss)
-                return total_loss, embedding_vector, emb_grads
+                return total_loss, embedding_vector
         return strategy.run(_step_fn, inputs, labels)
 
     replica_batch_size = args.global_batch_size // args.gpu_num
@@ -111,20 +129,19 @@ def get_sok_results(args, init_tensors, *random_samples):
         save_op = tf.constant(1.0)
 
     sok_results = list()
-    with tf.Session() as sess:
+
+    config = tf.ConfigProto()
+    config.log_device_placement = False
+    with tf.Session(config=config) as sess:
         sess.run(sok_init_op)
         sess.run([init_op, iterator_init])
         sess.run(restore_op)
         sess.graph.finalize()
         
         for step in range(args.iter_num):
-            loss_v, emb_vector_v, emb_grads_v, inputs_v, labels_v = sess.run([*graph_results, inputs, labels])
-
-
-            print("*" * 50)
-            print(f"Inputs: {inputs_v}, labels: {labels_v}")
-            print(f"emb_grads: {emb_grads_v}")
-            print(f"Step: {step}, loss: {loss_v}, embedding_vector: {emb_vector_v}")
+            loss_v, emb_vector_v = sess.run([*graph_results])
+            print("*" * 80)
+            print(f"Step: {step}, loss: {loss_v}, embedding_vector:\n{emb_vector_v}")
             sok_results.append(emb_vector_v)
 
         sess.run(save_op)
@@ -137,6 +154,70 @@ def get_sok_results(args, init_tensors, *random_samples):
 
     return sok_results, name
 
+
+def get_tf_results(args, init_tensors, *random_samples):
+    graph = tf.Graph()
+    with graph.as_default():
+        tf_dense_demo = TFDemo(vocabulary_size=args.max_vocabulary_size_per_gpu * args.gpu_num,
+                            slot_num=args.slot_num,
+                            nnz_per_slot=args.nnz_per_slot,
+                            embedding_vec_size=args.embedding_vec_size,
+                            num_of_dense_layers=0,
+                            use_hashtable=False,
+                            dynamic_input=False)
+
+        optimizer = utils.get_dense_optimizer(args.optimizer)(learning_rate=0.1)
+
+        loss_fn = tf.keras.losses.BinaryCrossentropy(from_logits=True)
+        def _train_step(inputs, labels, training):
+            logit, embedding_vector = tf_dense_demo(inputs, training=training)
+            loss = loss_fn(labels, logit)
+            grads = tf.gradients(loss, tf_dense_demo.trainable_variables, colocate_gradients_with_ops=True, 
+                                unconnected_gradients=tf.UnconnectedGradients.NONE)
+            train_op = optimizer.apply_gradients(zip(grads, tf_dense_demo.trainable_variables))
+            with tf.control_dependencies([train_op]):
+                loss = tf.identity(loss)
+                return loss, embedding_vector
+
+        dataset = utils.tf_dataset(*random_samples, batchsize=args.global_batch_size,
+                                to_sparse_tensor=False, repeat=1)
+        train_iterator = dataset.make_initializable_iterator()
+        iterator_init = train_iterator.initializer
+
+        inputs, labels = train_iterator.get_next()
+        graph_results = _train_step(inputs, labels, training=True)
+
+        init_op = tf.group(tf.global_variables_initializer(), tf.local_variables_initializer())
+
+        restore_op = tf_dense_demo.embedding_layer.embeddings.assign(tf.concat(init_tensors, axis=0))
+
+        if args.save_params:
+            filepath = r"./embedding_variables/"
+            utils.try_make_dirs(filepath)
+            emb_values = tf_dense_demo.embedding_layer.embeddings.read_value()
+        else:
+            emb_values = tf.constant(1.0)
+
+    tf_results = list()
+    with tf.Session(graph=graph) as sess:
+        sess.run([init_op, iterator_init])
+        sess.run(restore_op)
+        sess.graph.finalize()
+
+        for step in range(args.iter_num):
+            loss_v, embedding_vector_v = sess.run([*graph_results])
+            print("*" * 80)
+            print(f"step: {step}, loss: {loss_v}, embedding_vector:\n{embedding_vector_v}")
+            tf_results.append(embedding_vector_v)
+
+        emb_values_v = sess.run(emb_values)
+        if args.save_params:
+            utils.save_to_file(os.path.join(filepath, r"tf_variable.file"),
+                               emb_values_v)
+
+    name = tf_dense_demo.embedding_layer.embeddings.name
+
+    return tf_results, name
 
 
 def compare_dense_emb_sok_with_tf(args):
@@ -172,6 +253,32 @@ def compare_dense_emb_sok_with_tf(args):
                                              num=args.gpu_num)
 
     sok_results, embedding_variable_name = get_sok_results(args, init_tensors, *random_samples)
+    # utils.save_to_file(r"./sok_embedding_vectors_" + str(args.rank_idx) + r".file", *sok_results)
+
+    if args.rank_idx != 0:
+        return
+
+    tf_results, _ = get_tf_results(args, init_tensors, *random_samples)
+
+    if len(sok_results) != len(tf_results):
+        raise ValueError("The length of sok results is not equal to that of tensorflow.")
+    if len(sok_results) != args.iter_num:
+        raise ValueError("The length of embedding vectors: %d is not equal to iteration number: %d."
+                        %(len(sok_results), args.iter_num))
+
+    rtol = 1e-5
+    atol = 1e-5
+    for i, sok_vector in enumerate(sok_results):
+        allclose = np.allclose(sok_vector, tf_results[i], rtol=rtol, atol=atol)
+        if not allclose:
+            raise ValueError(f"\n{sok_vector} \nis not near to \n{tf_results[i]} \nat rtol={rtol}, atol={atol}")
+
+    print(f"\n[INFO]: For Dense Embedding layer, using {args.gpu_num} GPUs + {args.optimizer} optimizer, "
+          "the embedding vectors"
+          f" obtained from sok and tf are consistent for {args.iter_num} iterations.")
+
+    if args.save_params:
+        check_saved_embedding_variables(args, embedding_variable_name)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

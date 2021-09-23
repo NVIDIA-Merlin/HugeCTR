@@ -46,6 +46,8 @@ class EmbeddingBufferBuilder {
 public:
     static std::shared_ptr<EmbeddingBufferBuilder> create(std::shared_ptr<Tensor> tensor);
 
+    ~EmbeddingBufferBuilder();
+
     void build_buffer();
     tensorflow::TensorBuffer* get_init_buffer();
 

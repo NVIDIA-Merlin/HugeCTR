@@ -69,16 +69,17 @@ EmbeddingBufferBuilder::EmbeddingBufferBuilder(std::shared_ptr<Tensor> tensor)
 {
 }
 
+EmbeddingBufferBuilder::~EmbeddingBufferBuilder() {}
+
 void EmbeddingBufferBuilder::build_buffer() {
     if (!tensor_->allocated()) throw std::runtime_error(ErrorBase + "Have not allocated memory for tensor.");
     if (!buffer_) throw std::runtime_error(ErrorBase + "Have not allocate spaces for EmbeddingBuffer");
     
     // Release the old one and Construct a new EmbeddingBuffer in the existed space
 #if TF_VERSION_MAJOR == 1
-    buffer_->Unref();
     buffer_->~EmbeddingBuffer();
     new (buffer_.get()) EmbeddingBuffer(tensor_);
-    buffer_->Ref();
+    buffer_->Ref(); // so that TF and SOK can safely release the EmbeddingBuffer
 #else
     buffer_->~EmbeddingBuffer();
     new (buffer_.get()) EmbeddingBuffer(tensor_);
