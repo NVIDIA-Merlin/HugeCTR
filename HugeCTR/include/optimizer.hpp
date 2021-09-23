@@ -104,7 +104,8 @@ class Optimizer {
         gpu_resource_(gpu_resource),
         lr_(learning_rate),
         scaler_(scaler),
-        optimizer_type_(Optimizer_t::DEFAULT) {
+        optimizer_type_(Optimizer_t::DEFAULT),
+        skip_lr_update_(false) {
     if (lr_ < 0.) {
       CK_THROW_(Error_t::WrongInput, "lr < 0");
     }
@@ -142,12 +143,15 @@ class Optimizer {
 
   const Optimizer_t& get_optimizer_type() { return optimizer_type_; }
 
+  void set_skip_lr_update() { skip_lr_update_ = true; }
+
  protected:
   Tensor2<float> weight_main_;
   std::shared_ptr<GPUResource> gpu_resource_;
   float lr_;  // learning rate
   const float scaler_;
   Optimizer_t optimizer_type_;
+  bool skip_lr_update_;
 
   std::shared_ptr<GpuLearningRateScheduler> gpu_learning_rate_scheduler_;
 

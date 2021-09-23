@@ -107,6 +107,7 @@ struct Solver {
   bool use_cuda_graph;
   bool async_mlp_wgrad;
   bool gen_loss_summary;
+  bool overlap_lr;
   bool overlap_ar_a2a;
   bool use_holistic_cuda_graph;
   bool use_overlapped_pipeline;
