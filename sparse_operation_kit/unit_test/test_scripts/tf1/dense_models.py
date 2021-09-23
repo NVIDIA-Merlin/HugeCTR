@@ -61,6 +61,7 @@ class SOKDemo(tf.keras.models.Model):
 
     def call(self, inputs, training=True):
         if self._dynamic_input:
+            inputs = tf.reshape(inputs, [-1])
             _unique_inputs, _unique_index = tf.unique(inputs)
             _unique_embedding_vector = self.embedding_layer(_unique_inputs, training=training)
             embedding_vector = tf.gather(_unique_embedding_vector, _unique_index)

@@ -55,10 +55,6 @@ def get_sok_results(args, init_tensors, *random_samples):
         import horovod.tensorflow as hvd
         hvd.init()
         strategy = strategy_wrapper.HorovodStrategy()
-    elif args.distributed_tool == "mirrored":
-        strategy = tf.distribute.MirroredStrategy()
-    elif args.distributed_tool == "multiworker":
-        raise ValueError(f"{args.distributed_tool} is not supported.")
     else:
         raise ValueError(f"{args.distributed_tool} is not supported.")
     
@@ -70,6 +66,7 @@ def get_sok_results(args, init_tensors, *random_samples):
                                  slot_num=args.slot_num,
                                  nnz_per_slot=args.nnz_per_slot,
                                  use_hashtable=args.use_hashtable,
+                                 dynamic_input=args.dynamic_input,
                                  num_of_dense_layers=0)
 
         emb_opt = utils.get_embedding_optimizer(args.optimizer)(learning_rate=0.1)
@@ -100,6 +97,9 @@ def get_sok_results(args, init_tensors, *random_samples):
             else:
                 with sok.OptimizerScope(emb_var):
                     emb_train_op = emb_opt.apply_gradients(zip(emb_grads, emb_var))
+            with tf.control_dependencies([*emb_grads]): 
+                # in case NCCL runs concurrently via SOK and horovod
+                other_grads = strategy.reduce("sum", other_grads)
             other_train_op = dense_opt.apply_gradients(zip(other_grads, other_var))
 
             with tf.control_dependencies([emb_train_op, other_train_op]):
@@ -231,21 +231,22 @@ def compare_dense_emb_sok_with_tf(args):
         vocabulary_size = args.max_vocabulary_size_per_gpu
 
     if args.generate_new_datas:
-        random_samples = utils.generate_random_samples(num_of_samples=args.global_batch_size * args.iter_num,
+        replica_batch_size = args.global_batch_size // args.gpu_num
+        random_samples = utils.generate_random_samples(num_of_samples=replica_batch_size * args.iter_num,
                                                        vocabulary_size=vocabulary_size,
                                                        slot_num=args.slot_num,
                                                        max_nnz=args.nnz_per_slot,
                                                        use_sparse_mask=False)
-        utils.save_to_file(r"./random_samples.file", *random_samples)
+        utils.save_to_file(r"./random_samples_" + str(args.rank_idx) + r".file", *random_samples)
     else:
-        random_samples = utils.restore_from_file(r"./random_samples.file")
+        random_samples = utils.restore_from_file(r"./random_samples_" + str(args.rank_idx) + r".file")
 
     if args.restore_params:
         filepath = r"./embedding_variables"
         # because we already checked the Variable consistency when saving
         # so that we can directly use TensorFlow Variable file to initialize
         # TF's Variable
-        tf_values_filename = ops.path.join(filepath, r"tf_variable.file")
+        tf_values_filename = os.path.join(filepath, r"tf_variable.file")
         init_tensors = utils.restore_from_file(tf_values_filename)
     else:
         init_tensors = utils.get_ones_tensor(max_vocab_size_per_gpu=args.max_vocabulary_size_per_gpu,
@@ -253,27 +254,56 @@ def compare_dense_emb_sok_with_tf(args):
                                              num=args.gpu_num)
 
     sok_results, embedding_variable_name = get_sok_results(args, init_tensors, *random_samples)
-    # utils.save_to_file(r"./sok_embedding_vectors_" + str(args.rank_idx) + r".file", *sok_results)
+    utils.save_to_file(r"./sok_embedding_vectors_" + str(args.rank_idx) + r".file", *sok_results)
 
     if args.rank_idx != 0:
         return
 
-    tf_results, _ = get_tf_results(args, init_tensors, *random_samples)
+    # aggregate dataset from different worker
+    dataset_filenames = [r"./random_samples_" + str(rank_idx) + r".file"
+                         for rank_idx in range(args.rank_size)]
+    random_samples_total = [list() for _ in range(args.iter_num)]
+    random_labels_total = [list() for _ in range(args.iter_num)]
+    local_batch_size = args.global_batch_size // args.gpu_num
+    for rank_idx in range(args.rank_size):
+        samples, labels = utils.restore_from_file(dataset_filenames[rank_idx])
+        for i in range(args.iter_num):
+            random_samples_total[i].extend(samples[i * local_batch_size : (i + 1) * local_batch_size])
+            random_labels_total[i].extend(labels[i * local_batch_size : (i + 1) * local_batch_size])
+    random_samples_total = np.concatenate(random_samples_total, axis=0)
+    random_labels_total = np.concatenate(random_labels_total, axis=0)
 
-    if len(sok_results) != len(tf_results):
+    tf_results, _ = get_tf_results(args, init_tensors, random_samples_total, random_labels_total)
+
+    # aggregate sok forward results from different worker
+    sok_results_filenames = [r"./sok_embedding_vectors_" + str(rank_idx) + r".file"
+                             for rank_idx in range(args.rank_size)]
+    sok_results_total = list()
+    for filename in sok_results_filenames:
+        sok_results = utils.restore_from_file(filename)
+        sok_results_total.append(sok_results)
+
+    if len(sok_results_total[0]) != len(tf_results):
         raise ValueError("The length of sok results is not equal to that of tensorflow.")
     if len(sok_results) != args.iter_num:
         raise ValueError("The length of embedding vectors: %d is not equal to iteration number: %d."
                         %(len(sok_results), args.iter_num))
 
-    rtol = 1e-5
-    atol = 1e-5
-    for i, sok_vector in enumerate(sok_results):
+    rtol = 1e-4
+    atol = 1e-4
+    if args.restore_params:
+        rtol, atol = 1e-3, 1e-3
+    if args.distributed_tool == "horovod":
+        rtol, atol = rtol * 10, atol * 10
+    for i in range(args.iter_num):
+        sok_vector = np.concatenate([sok_results_total[rank_idx][i]
+                                     for rank_idx in range(args.rank_size)], axis=0)
         allclose = np.allclose(sok_vector, tf_results[i], rtol=rtol, atol=atol)
         if not allclose:
             raise ValueError(f"\n{sok_vector} \nis not near to \n{tf_results[i]} \nat rtol={rtol}, atol={atol}")
 
     print(f"\n[INFO]: For Dense Embedding layer, using {args.gpu_num} GPUs + {args.optimizer} optimizer, "
+          f"using hashtable? {args.use_hashtable}, dynamic_input? {args.dynamic_input}, "
           "the embedding vectors"
           f" obtained from sok and tf are consistent for {args.iter_num} iterations.")
 
@@ -286,7 +316,7 @@ if __name__ == "__main__":
     parser.add_argument("--gpu_num", type=int, help="the number of GPUs used in synchronized training.",
                         required=False, default=1)
     parser.add_argument("--distributed_tool", type=str, help="what is used to do the distributed synchronized training",
-                        required=False, choices=["mirrored", "multiworker", "horovod", "onedevice"],
+                        required=False, choices=["horovod", "onedevice"],
                         default="onedevice")
     parser.add_argument("--iter_num", type=int, help="the number of testing iterations.",
                         required=False, default=50)
@@ -311,6 +341,8 @@ if __name__ == "__main__":
                         required=False, default=0)
     parser.add_argument("--use_hashtable", type=int, choices=[0, 1],
                         required=False, default=1)
+    parser.add_argument("--dynamic_input", type=int, choices=[0, 1],
+                        required=False, default=0)
 
     args = parser.parse_args()
 
@@ -318,12 +350,13 @@ if __name__ == "__main__":
     args.save_params = True if args.save_params == 1 else False
     args.restore_params = True if args.restore_params == 1 else False
     args.use_hashtable = True if args.use_hashtable == 1 else False
+    args.dynamic_input = True if args.dynamic_input == 1 else False
 
-    if not (args.distributed_tool == "onedevice" and args.gpu_num == 1):
+    if (args.distributed_tool == "onedevice" and args.gpu_num != 1):
         raise ValueError(f"When 'onedevice' is used as the distributed_tool, "
                          f"gpu_num must be 1, which is {args.gpu_num}")
 
-    if args.distributed_tool == "mirrored" or args.distributed_tool == "onedevice":
+    if args.distributed_tool == "onedevice":
         available_gpus = ",".join(map(str, range(args.gpu_num)))
         rank_size = args.gpu_num
         rank_idx = 0
