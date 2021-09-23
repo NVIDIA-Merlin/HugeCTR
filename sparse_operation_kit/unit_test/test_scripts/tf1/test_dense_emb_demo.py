@@ -25,24 +25,29 @@ from dense_models import SOKDemo, TFDemo
 import strategy_wrapper
 import numpy as np
 
-def check_saved_embedding_variables(args, embedding_variable_name):
+def check_saved_embedding_variables(args, embedding_variable_names):
     filepath = r"./embedding_variables"
-    
-    sok_keys_filename = os.path.join(filepath, embedding_variable_name + r"_keys.file")
-    sok_keys = utils.read_binary_file(sok_keys_filename, element_type="long long")
-    sok_values_filename = os.path.join(filepath, embedding_variable_name + r"_values.file")
-    sok_values = utils.read_binary_file(sok_values_filename, element_type="float")
+    for i, embedding_variable_name in enumerate(embedding_variable_names):
+        sok_keys_filename = os.path.join(filepath, embedding_variable_name + r"_keys.file")
+        sok_keys = utils.read_binary_file(sok_keys_filename, element_type="long long")
+        sok_values_filename = os.path.join(filepath, embedding_variable_name + r"_values.file")
+        sok_values = utils.read_binary_file(sok_values_filename, element_type="float")
 
-    sorted_sok_keys, sorted_sok_values = utils.sort_embedding_variables_by_key(sok_keys, sok_values, 
-                                                    embedding_vec_size=args.embedding_vec_size)
+        sorted_sok_keys, sorted_sok_values = utils.sort_embedding_variables_by_key(sok_keys, sok_values, 
+                                                        embedding_vec_size=args.embedding_vec_size[i])
 
-    tf_values_filename = os.path.join(filepath, r"tf_variable.file")
-    tf_values = utils.restore_from_file(tf_values_filename)
-    valid_tf_values = utils.get_valid_tf_values(sorted_sok_keys, tf_values[0])
+        tf_values_filename = os.path.join(filepath, r"tf_variable_" + str(i) + r".file")
+        tf_values = utils.restore_from_file(tf_values_filename)
+        valid_tf_values = utils.get_valid_tf_values(sorted_sok_keys, tf_values[0])
 
-    import numpy as np
-    np.allclose(np.reshape(sorted_sok_values, newshape=(sorted_sok_keys.size, args.embedding_vec_size)), 
-                valid_tf_values, atol=1e-4, rtol=1e-4)
+        atol, rtol = 1e-4, 1e-4
+        if args.distributed_tool == "horovod":
+            atol, rtol = atol * 100, rtol * 100
+        sorted_sok_values = np.reshape(sorted_sok_values, newshape=(sorted_sok_keys.size, args.embedding_vec_size[i]))
+        allclose = np.allclose(sorted_sok_values, valid_tf_values, atol=atol, rtol=rtol)
+        if not allclose:
+            raise ValueError(f"\n{sorted_sok_values} \nis not near to \n{valid_tf_values} "
+                             f"\nat rotl={rtol}, atol={atol}")
     print("[INFO]: the saved parameters are consistent between sparse operation kit and TensorFlow")
 
 
@@ -73,11 +78,13 @@ def get_sok_results(args, init_tensors, *random_samples):
         dense_opt = utils.get_dense_optimizer(args.optimizer)(learning_rate=0.1)
 
     sok_saver = sok.Saver()
-    if args.restore_params:
-        filepath = r"./embedding_variables"
-        restore_op = sok_saver.restore_from_file(sok_dense_demo.embedding_layer.embedding_variable, filepath)
-    else:
-        restore_op = sok_saver.load_embedding_values(sok_dense_demo.embedding_layer.embedding_variable, init_tensors)
+    restore_op = list()
+    for i, embedding_layer in enumerate(sok_dense_demo.embedding_layers):
+        if args.restore_params:
+            filepath = r"./embedding_variables"
+            restore_op.append(sok_saver.restore_from_file(embedding_layer.embedding_variable, filepath))
+        else:
+            restore_op.append(sok_saver.load_embedding_values(embedding_layer.embedding_variable, init_tensors[i]))
 
     loss_fn = tf.keras.losses.BinaryCrossentropy(from_logits=True, reduction='none')
     def _replica_loss(labels, logits):
@@ -121,12 +128,17 @@ def get_sok_results(args, init_tensors, *random_samples):
     if "plugin" in args.optimizer:
         init_op = tf.group(init_op, emb_opt.initializer)
 
-    if args.save_params:
-        filepath = r"./embedding_variables/"
-        utils.try_make_dirs(filepath)
-        save_op = sok_saver.dump_to_file(sok_dense_demo.embedding_layer.embedding_variable, filepath)
-    else:
-        save_op = tf.constant(1.0)
+    save_op = list()
+    for i, embedding_layer in enumerate(sok_dense_demo.embedding_layers):
+        control_inputs = [save_op[-1]] if save_op else None
+        with tf.control_dependencies(control_inputs):
+            if args.save_params:
+                filepath = r"./embedding_variables/"
+                utils.try_make_dirs(filepath)
+                op = sok_saver.dump_to_file(embedding_layer.embedding_variable, filepath)
+            else:
+                op = tf.constant(1.0)
+        save_op.append(op)
 
     sok_results = list()
 
@@ -145,12 +157,10 @@ def get_sok_results(args, init_tensors, *random_samples):
             sok_results.append(emb_vector_v)
 
         sess.run(save_op)
-
             
-    if hasattr(sok_dense_demo.embedding_layer.embedding_variable, "values"):
-        name = sok_dense_demo.embedding_layer.embedding_variable.values[0].m_var_name
-    else:
-        name = sok_dense_demo.embedding_layer.embedding_variable.m_var_name
+    name = list()
+    for embedding_layer in sok_dense_demo.embedding_layers:
+        name.append(embedding_layer.embedding_variable.m_var_name)
 
     return sok_results, name
 
@@ -189,14 +199,18 @@ def get_tf_results(args, init_tensors, *random_samples):
 
         init_op = tf.group(tf.global_variables_initializer(), tf.local_variables_initializer())
 
-        restore_op = tf_dense_demo.embedding_layer.embeddings.assign(tf.concat(init_tensors, axis=0))
+        restore_op = list()
+        for i, embedding_layer in enumerate(tf_dense_demo.embedding_layers):
+            restore_op.append(embedding_layer.embeddings.assign(tf.concat(init_tensors[i], axis=0)))
 
-        if args.save_params:
-            filepath = r"./embedding_variables/"
-            utils.try_make_dirs(filepath)
-            emb_values = tf_dense_demo.embedding_layer.embeddings.read_value()
-        else:
-            emb_values = tf.constant(1.0)
+        emb_values = list()
+        for embedding_layer in tf_dense_demo.embedding_layers:
+            if args.save_params:
+                filepath = r"./embedding_variables/"
+                utils.try_make_dirs(filepath)
+                emb_values.append(embedding_layer.embeddings.read_value())
+            else:
+                emb_values = tf.constant(1.0)
 
     tf_results = list()
     with tf.Session(graph=graph) as sess:
@@ -212,10 +226,12 @@ def get_tf_results(args, init_tensors, *random_samples):
 
         emb_values_v = sess.run(emb_values)
         if args.save_params:
-            utils.save_to_file(os.path.join(filepath, r"tf_variable.file"),
-                               emb_values_v)
-
-    name = tf_dense_demo.embedding_layer.embeddings.name
+            for i, value in enumerate(emb_values_v):
+                utils.save_to_file(os.path.join(filepath, r"tf_variable_" + str(i) + r".file"),
+                                    value)
+    name = list()
+    for embedding_layer in tf_dense_demo.embedding_layers:
+        name.append(embedding_layer.embeddings.name)
 
     return tf_results, name
 
@@ -234,7 +250,7 @@ def compare_dense_emb_sok_with_tf(args):
         replica_batch_size = args.global_batch_size // args.gpu_num
         random_samples = utils.generate_random_samples(num_of_samples=replica_batch_size * args.iter_num,
                                                        vocabulary_size=vocabulary_size,
-                                                       slot_num=args.slot_num,
+                                                       slot_num=sum(args.slot_num),
                                                        max_nnz=args.nnz_per_slot,
                                                        use_sparse_mask=False)
         utils.save_to_file(r"./random_samples_" + str(args.rank_idx) + r".file", *random_samples)
@@ -246,12 +262,16 @@ def compare_dense_emb_sok_with_tf(args):
         # because we already checked the Variable consistency when saving
         # so that we can directly use TensorFlow Variable file to initialize
         # TF's Variable
-        tf_values_filename = os.path.join(filepath, r"tf_variable.file")
-        init_tensors = utils.restore_from_file(tf_values_filename)
+        init_tensors = list()
+        for i in range(len(args.slot_num)):
+            tf_values_filename = os.path.join(filepath, r"tf_variable_" + str(i) + r".file")
+            init_tensors.append(utils.restore_from_file(tf_values_filename))
     else:
-        init_tensors = utils.get_ones_tensor(max_vocab_size_per_gpu=args.max_vocabulary_size_per_gpu,
-                                             embedding_vec_size=args.embedding_vec_size,
-                                             num=args.gpu_num)
+        init_tensors = list()
+        for i in range(len(args.slot_num)):
+            init_tensors.append(utils.get_ones_tensor(max_vocab_size_per_gpu=args.max_vocabulary_size_per_gpu,
+                                                embedding_vec_size=args.embedding_vec_size[i],
+                                                num=args.gpu_num))
 
     sok_results, embedding_variable_name = get_sok_results(args, init_tensors, *random_samples)
     utils.save_to_file(r"./sok_embedding_vectors_" + str(args.rank_idx) + r".file", *sok_results)
@@ -322,13 +342,13 @@ if __name__ == "__main__":
                         required=False, default=50)
     parser.add_argument("--max_vocabulary_size_per_gpu", type=int,
                         required=False, default=1024)
-    parser.add_argument("--slot_num", type=int,
+    parser.add_argument("--slot_num", type=int, nargs="+",
                         help="the number of feature fields",
                         required=False, default=1)
     parser.add_argument("--nnz_per_slot", type=int,
                         help="the number of keys in each slot.",
                         required=False, default=1)
-    parser.add_argument("--embedding_vec_size", type=int, 
+    parser.add_argument("--embedding_vec_size", type=int, nargs="+",
                         required=False, default=1)
     parser.add_argument("--global_batch_size", type=int, required=False, default=16)
     parser.add_argument("--optimizer", type=str, required=False, default="adam", 

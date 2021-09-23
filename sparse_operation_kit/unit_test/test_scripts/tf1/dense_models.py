@@ -41,12 +41,26 @@ class SOKDemo(tf.keras.models.Model):
         self._dynamic_input = dynamic_input
         self._num_of_dense_layers = num_of_dense_layers
 
-        self.embedding_layer = sok.All2AllDenseEmbedding(max_vocabulary_size_per_gpu=self._max_vocabulary_size_per_gpu,
-                                                         embedding_vec_size=self._embedding_vec_size,
-                                                         slot_num=self._slot_num,
-                                                         nnz_per_slot=self._nnz_per_slot,
-                                                         use_hashtable=self._use_hashtable,
-                                                         dynamic_input=self._dynamic_input)
+        if (isinstance(self._embedding_vec_size, list) or 
+            isinstance(self._embedding_vec_size, tuple)):
+            if len(self._embedding_vec_size) != len(self._slot_num):
+                raise ValueError("The length of embedding_vec_size must be equal to that of "
+                                 "slot_num")
+
+        self._embedding_num = len(self._embedding_vec_size)
+        self._slot_num_prefix_sum = [0 for _ in range(self._embedding_num + 1)]
+        for i in range(1, self._embedding_num + 1):
+            self._slot_num_prefix_sum[i] = self._slot_num_prefix_sum[i-1] + self._slot_num[i-1]
+        
+        self.embedding_layers = list()
+        for i in range(self._embedding_num):
+            embedding_layer = sok.All2AllDenseEmbedding(max_vocabulary_size_per_gpu=self._max_vocabulary_size_per_gpu,
+                                                            embedding_vec_size=self._embedding_vec_size[i],
+                                                            slot_num=self._slot_num[i],
+                                                            nnz_per_slot=self._nnz_per_slot,
+                                                            use_hashtable=self._use_hashtable,
+                                                            dynamic_input=self._dynamic_input)
+            self.embedding_layers.append(embedding_layer)
 
         self.dense_layers = list()
         for _ in range(self._num_of_dense_layers):
@@ -59,24 +73,44 @@ class SOKDemo(tf.keras.models.Model):
                                               kernel_initializer="ones",
                                               bias_initializer="zeros")
 
-    def call(self, inputs, training=True):
+    def do_lookup(self, embedding_layer, inputs, training):
         if self._dynamic_input:
             inputs = tf.reshape(inputs, [-1])
             _unique_inputs, _unique_index = tf.unique(inputs)
-            _unique_embedding_vector = self.embedding_layer(_unique_inputs, training=training)
+            _unique_embedding_vector = embedding_layer(_unique_inputs, training=training)
             embedding_vector = tf.gather(_unique_embedding_vector, _unique_index)
         else:
-            embedding_vector = self.embedding_layer(inputs, training=training)
+            embedding_vector = embedding_layer(inputs, training=training)
+        return embedding_vector
 
+    def call(self, inputs, training=True):
+        vectors = list()
+
+        embedding_vector = self.do_lookup(self.embedding_layers[0],
+                                          inputs[:,self._slot_num_prefix_sum[0]:self._slot_num_prefix_sum[0+1],:],
+                                          training=training)
         embedding_vector = tf.reshape(embedding_vector, 
-                    shape=[-1, self._slot_num * self._nnz_per_slot * self._embedding_vec_size])
+                    shape=[-1, self._slot_num[0] * self._nnz_per_slot * self._embedding_vec_size[0]])
 
-        hidden = embedding_vector
+        vectors.append(embedding_vector)
+
+        for i in range(1, self._embedding_num):
+            with tf.control_dependencies([embedding_vector]):
+                embedding_vector = self.do_lookup(self.embedding_layers[i],
+                                        inputs[:,self._slot_num_prefix_sum[i]:self._slot_num_prefix_sum[i+1],:],
+                                        training=training)
+                embedding_vector = tf.reshape(embedding_vector,
+                        shape=[-1, self._slot_num[i] * self._nnz_per_slot * self._embedding_vec_size[i]])
+                vectors.append(embedding_vector)
+        
+        all_vectors = tf.concat(values=vectors, axis=1)
+
+        hidden = all_vectors
         for layer in self.dense_layers:
             hidden = layer(hidden)
 
         logit = self.out_layer(hidden)
-        return logit, embedding_vector
+        return logit, all_vectors
 
 
 class HashtableEmbedding(tf.keras.layers.Layer):
@@ -188,12 +222,25 @@ class TFDemo(tf.keras.models.Model):
         self._use_hashtable = use_hashtable
         self._dynamic_input = dynamic_input
 
-        if self._use_hashtable:
-            self.embedding_layer = HashtableEmbedding(max_vocabulary_size=self._vocabulary_size,
-                                                    embedding_vec_size=self._embedding_vec_size)
-        else:
-            self.embedding_layer = tf.keras.layers.Embedding(input_dim=self._vocabulary_size,
-                                                             output_dim=self._embedding_vec_size)
+        if (isinstance(self._embedding_vec_size, list) or 
+            isinstance(self._embedding_vec_size, tuple)):
+            if len(self._embedding_vec_size) != len(self._slot_num):
+                raise ValueError("The length of embedding_vec_size must be equal to that of "
+                                 "slot_num")
+        self._embedding_num = len(self._embedding_vec_size)
+        self._slot_num_prefix_sum = [0 for _ in range(self._embedding_num + 1)]
+        for i in range(1, self._embedding_num + 1):
+            self._slot_num_prefix_sum[i] = self._slot_num_prefix_sum[i-1] + self._slot_num[i-1]
+
+        self.embedding_layers = list()
+        for i in range(self._embedding_num):
+            if self._use_hashtable:
+                embedding_layer = HashtableEmbedding(max_vocabulary_size=self._vocabulary_size,
+                                                    embedding_vec_size=self._embedding_vec_size[i])
+            else:
+                embedding_layer = tf.keras.layers.Embedding(input_dim=self._vocabulary_size,
+                                                            output_dim=self._embedding_vec_size[i])
+            self.embedding_layers.append(embedding_layer)
 
         self.dense_layers = list()
         for _ in range(self._num_of_dense_layers):
@@ -206,23 +253,43 @@ class TFDemo(tf.keras.models.Model):
                                               kernel_initializer="ones",
                                               bias_initializer="zeros")
 
-    def call(self, inputs, training=True):
+    def do_lookup(self, embedding_layer, inputs, training):
         if self._dynamic_input:
+            inputs = tf.reshape(inputs, [-1])
             _unique_inputs, _unique_index = tf.unique(inputs)
-            _unique_embedding_vector = self.embedding_layer(_unique_inputs, training=training)
+            _unique_embedding_vector = embedding_layer(_unique_inputs, training=training)
             embedding_vector = tf.gather(_unique_embedding_vector, _unique_index)
         else:
-            embedding_vector = self.embedding_layer(inputs, training=training)
+            embedding_vector = embedding_layer(inputs, training=training)
+        return embedding_vector
 
+    def call(self, inputs, training=True):
+        vectors = list()
+
+        embedding_vector = self.do_lookup(self.embedding_layers[0],
+                                          inputs[:,self._slot_num_prefix_sum[0]:self._slot_num_prefix_sum[0+1],:],
+                                          training=training)
         embedding_vector = tf.reshape(embedding_vector, 
-                    shape=[-1, self._slot_num * self._nnz_per_slot * self._embedding_vec_size])
+                    shape=[-1, self._slot_num[0] * self._nnz_per_slot * self._embedding_vec_size[0]])
+        vectors.append(embedding_vector)
 
-        hidden = embedding_vector
+        for i in range(1, self._embedding_num):
+            with tf.control_dependencies([embedding_vector]):
+                embedding_vector = self.do_lookup(self.embedding_layers[i],
+                                        inputs[:,self._slot_num_prefix_sum[i]:self._slot_num_prefix_sum[i+1],:],
+                                        training=training)
+                embedding_vector = tf.reshape(embedding_vector,
+                        shape=[-1, self._slot_num[i] * self._nnz_per_slot * self._embedding_vec_size[i]])
+                vectors.append(embedding_vector)
+        
+        all_vectors = tf.concat(values=vectors, axis=1)
+
+        hidden = all_vectors
         for layer in self.dense_layers:
             hidden = layer(hidden)
 
         logit = self.out_layer(hidden)
-        return logit, embedding_vector
+        return logit, all_vectors
 
 
         
