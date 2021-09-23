@@ -218,7 +218,6 @@ criteo_multi_node:
     MOUNTS: ${DATASET}:${DATASET_MOUNT}
     SLURM_ACCOUNT: devtech
     WALLTIME: "00:15:00"
-    SBATCH_OTHER_PARAMS: --network sharp
     DGXNNODES: 2
     TEST_CMD: ./ci/integration_test/criteo/criteo_multi_node.sub
 
@@ -318,7 +317,6 @@ dcn_multi_node:
     MOUNTS: ${DATASET}:${DATASET_MOUNT}
     SLURM_ACCOUNT: devtech
     WALLTIME: "00:15:00"
-    SBATCH_OTHER_PARAMS: --network sharp                                                      # using network sharp
     DGXNNODES: 4                                                                              # using 4 node
     TEST_CMD: ./ci/integration_test/dcn/dcn_multi_node.sub
 
@@ -390,7 +388,6 @@ mos_multi_node_ssd:
     MOUNTS: ${DATASET}:${DATASET_MOUNT},${LOGDIR}:/tmp_dir
     SLURM_ACCOUNT: devtech
     WALLTIME: "00:30:00"
-    SBATCH_OTHER_PARAMS: --network sharp
     DGXNNODES: 4
     TEST_CMD: ./ci/integration_test/mos/mos_multi_node_ssd.sub
 
@@ -405,7 +402,6 @@ mos_multi_node_mem:
     MOUNTS: ${DATASET}:${DATASET_MOUNT},${LOGDIR}:/tmp_dir
     SLURM_ACCOUNT: devtech
     WALLTIME: "00:30:00"
-    SBATCH_OTHER_PARAMS: --network sharp
     DGXNNODES: 4
     TEST_CMD: ./ci/integration_test/mos/mos_multi_node_mem.sub
 
@@ -450,7 +446,6 @@ py_multi_node:
     MOUNTS: ${DATASET}:${DATASET_MOUNT}
     SLURM_ACCOUNT: devtech
     WALLTIME: "00:15:00"
-    SBATCH_OTHER_PARAMS: --network sharp
     DGXNNODES: 4
     TEST_CMD: ./ci/integration_test/py_interface/py_multi_node.sub
 
