@@ -6,6 +6,79 @@ include:
   - /ci/template.yml
   
 
+# nightly_build_train:
+#   extends: .build_nightly
+#   tags:
+#     - 1GPU
+#   variables:
+#     DST_IMAGE: ${IMAGE_TRAIN}
+#     DOCKER_FILE: Dockerfile.train
+#     BUILD_ARGS: --build-arg RELEASE=false
+    
+# nightly_build_train_release:
+#   extends: .build_nightly
+#   tags:
+#     - 1GPU
+#   variables:
+#     DST_IMAGE: ${IMAGE_TRAIN}.release
+#     DOCKER_FILE: Dockerfile.train
+#     BUILD_ARGS: --build-arg RELEASE=true
+  
+# nightly_build_inference:
+#   extends: .build_nightly
+#   tags:
+#     - 1GPU
+#   variables:
+#     DST_IMAGE: ${IMAGE_INFER}
+#     DOCKER_FILE: Dockerfile.inference
+#     BUILD_ARGS: --build-arg RELEASE=false
+
+# nightly_build_sok:
+#   extends: .build_nightly
+#   tags:
+#     - 1GPU
+#   variables:
+#     DST_IMAGE: ${IMAGE_SOK}
+#     DOCKER_FILE: Dockerfile.tf-plugin
+#     BUILD_ARGS: --build-arg RELEASE=false --build-arg TF_VERSION=2.5.0 --build-arg CUDA_VERSION=11.2.2
+
+nightly_build_unified_container.ctr:
+  extends: .build_nightly
+  tags:
+    - 1GPU
+  variables:
+    REMOTE_REPO: https://github.com/NVIDIA-Merlin/Merlin.git
+    DST_IMAGE: ${CI_REGISTRY}/dl/hugectr/hugectr:unified.ctr.latest
+    DOCKER_FILE: dockerfile.ctr
+    BUILD_ARGS: --build-arg RELEASE=false --build-arg RMM_VER=vnightly --build-arg CUDF_VER=vnightly --build-arg NVTAB_VER=vnightly --build-arg HUGECTR_VER=v21.9
+    UNIFIED: 1
+  timeout: 2 hours
+  
+
+nightly_build_unified_container.tf:
+  extends: .build_nightly
+  tags:
+    - 1GPU
+  variables:
+    REMOTE_REPO: https://github.com/NVIDIA-Merlin/Merlin.git
+    DST_IMAGE: ${CI_REGISTRY}/dl/hugectr/hugectr:unified.tf.latest
+    DOCKER_FILE: dockerfile.tf
+    BUILD_ARGS: --build-arg RELEASE=false --build-arg RMM_VER=vnightly --build-arg CUDF_VER=vnightly --build-arg NVTAB_VER=vnightly --build-arg HUGECTR_VER=v21.9
+    UNIFIED: 1
+  timeout: 2 hours
+
+nightly_build_unified_container.tri:
+  extends: .build_nightly
+  tags:
+    - 1GPU
+  variables:
+    REMOTE_REPO: https://github.com/NVIDIA-Merlin/Merlin.git
+    DST_IMAGE: ${CI_REGISTRY}/dl/hugectr/hugectr:unified.tri.latest
+    DOCKER_FILE: dockerfile.tri
+    BUILD_ARGS: --build-arg RELEASE=false --build-arg RMM_VER=vnightly --build-arg CUDF_VER=vnightly --build-arg NVTAB_VER=vnightly --build-arg HUGECTR_VER=v21.9
+    UNIFIED: 1
+  timeout: 2 hours
+
 ### Stage: build
 build_train_single_node:
   extends: .build
@@ -486,163 +559,6 @@ inference_benchmark_check:
     WALLTIME: "00:15:00"
     DGXNNODES: 1
     TEST_CMD: ./ci/post_test/check_inference_benchmark.sub
-
-nightly_build_train:
-  tags:
-    - 1GPU
-  stage: build_from_scratch
-  script:
-    - export TRAIN_IMAGE_RELEASE="${CI_REGISTRY}/dl/hugectr/hugectr:devel_train"
-    - docker login -u ${CI_PRIVATE_USER} -p "${CI_PRIVATE_KEY}" "${CI_REGISTRY}"
-    - cd ./tools/dockerfiles/
-    - docker build --pull
-      -t "${TRAIN_IMAGE_RELEASE}"
-      -f ./Dockerfile.train
-      --build-arg RELEASE=false
-      --no-cache
-      ${PWD}
-    - docker push ${TRAIN_IMAGE_RELEASE}
-  only:
-    variables:
-      - $NIGHTLY == "1"
-
-nightly_build_train_release:
-  tags:
-    - 1GPU
-  stage: build_from_scratch
-  script:
-    - export TRAIN_IMAGE_RELEASE="${CI_REGISTRY}/dl/hugectr/hugectr:devel_train_release"
-    - docker login -u ${CI_PRIVATE_USER} -p "${CI_PRIVATE_KEY}" "${CI_REGISTRY}"
-    - cd ./tools/dockerfiles/
-    - docker build --pull
-      -t "${TRAIN_IMAGE_RELEASE}"
-      -f ./Dockerfile.train
-      --build-arg RELEASE=true
-      --no-cache
-      ${PWD}
-    - docker push ${TRAIN_IMAGE_RELEASE}
-  only:
-    variables:
-      - $NIGHTLY == "1"
-
-nightly_build_inference:
-  tags:
-    - 1GPU
-  stage: build_from_scratch
-  script:
-    - export INFER_IMAGE_RELEASE="${CI_REGISTRY}/dl/hugectr/hugectr:devel_inference"
-    - docker login -u ${CI_PRIVATE_USER} -p "${CI_PRIVATE_KEY}" "${CI_REGISTRY}"
-    - cd ./tools/dockerfiles/
-    - docker build --pull
-      -t "${INFER_IMAGE_RELEASE}"
-      -f ./Dockerfile.inference
-      --build-arg RELEASE=false
-      --no-cache
-      ${PWD}
-    - docker push ${INFER_IMAGE_RELEASE}
-  only:
-    variables:
-      - $NIGHTLY == "1"
-
-nightly_build_embedding:
-  tags:
-    - 1GPU
-  stage: build_from_scratch
-  script:
-    - export EMB_IMAGE_RELEASE="${CI_REGISTRY}/dl/hugectr/hugectr:devel_embedding"
-    - docker login -u ${CI_PRIVATE_USER} -p "${CI_PRIVATE_KEY}" "${CI_REGISTRY}"
-    - cd ./tools/dockerfiles/
-    - docker build --pull
-      -t "${EMB_IMAGE_RELEASE}"
-      -f ./Dockerfile.tf-plugin
-      --build-arg RELEASE=false
-      --build-arg TF_VERSION=2.5.0
-      --build-arg CUDA_VERSION=11.2.2
-      --no-cache
-      ${PWD}
-    - docker push ${EMB_IMAGE_RELEASE}
-  only:
-    variables:
-      - $NIGHTLY == "1"
-
-nightly_build_unified_container.ctr:
-  tags:
-    - 1GPU
-  stage: build_from_scratch
-  script:
-    - docker login -u ${CI_PRIVATE_USER} -p "${CI_PRIVATE_KEY}" "${CI_REGISTRY}"
-    - export IMAGE_CTR="${CI_REGISTRY}/dl/hugectr/hugectr:unified.ctr.latest"
-    - git clone https://github.com/NVIDIA-Merlin/Merlin.git
-    - cd Merlin/docker
-    - sed -i "s/https:\/\/github.com\/NVIDIA\/HugeCTR.git/https:\/\/gitlab-ci-token:${CI_JOB_TOKEN}@gitlab-master.nvidia.com\/dl\/hugectr\/hugectr.git/g" dockerfile.ctr
-    - docker build --pull
-      -t ${IMAGE_CTR}
-      -f dockerfile.ctr
-      --build-arg RELEASE=false 
-      --build-arg RMM_VER=vnightly 
-      --build-arg CUDF_VER=vnightly 
-      --build-arg NVTAB_VER=vnightly 
-      --build-arg HUGECTR_VER=v21.9
-      --no-cache
-      ${PWD}
-    - docker push ${IMAGE_CTR}
-  only:
-    variables:
-      - $NIGHTLY == "1"
-  timeout: 2 hours
-  
-
-nightly_build_unified_container.tf:
-  tags:
-    - 1GPU
-  stage: build_from_scratch
-  script:
-    - docker login -u ${CI_PRIVATE_USER} -p "${CI_PRIVATE_KEY}" "${CI_REGISTRY}"
-    - export IMAGE_CTR="${CI_REGISTRY}/dl/hugectr/hugectr:unified.tf.latest"
-    - git clone https://github.com/NVIDIA-Merlin/Merlin.git
-    - cd Merlin/docker
-    - sed -i "s/https:\/\/github.com\/NVIDIA\/HugeCTR.git/https:\/\/gitlab-ci-token:${CI_JOB_TOKEN}@gitlab-master.nvidia.com\/dl\/hugectr\/hugectr.git/g" dockerfile.tf
-    - docker build --pull
-      -t ${IMAGE_CTR}
-      -f dockerfile.tf
-      --build-arg RELEASE=false 
-      --build-arg RMM_VER=vnightly 
-      --build-arg CUDF_VER=vnightly 
-      --build-arg NVTAB_VER=vnightly 
-      --build-arg HUGECTR_VER=v21.9
-      --no-cache
-      ${PWD}
-    - docker push ${IMAGE_CTR}
-  only:
-    variables:
-      - $NIGHTLY == "1"
-  timeout: 2 hours
-
-nightly_build_unified_container.tri:
-  tags:
-    - 1GPU
-  stage: build_from_scratch
-  script:
-    - docker login -u ${CI_PRIVATE_USER} -p "${CI_PRIVATE_KEY}" "${CI_REGISTRY}"
-    - export IMAGE_CTR="${CI_REGISTRY}/dl/hugectr/hugectr:unified.tri.latest"
-    - git clone https://github.com/shijieliu/Merlin.git
-    - cd Merlin/docker
-    - sed -i "s/https:\/\/github.com\/NVIDIA\/HugeCTR.git/https:\/\/gitlab-ci-token:${CI_JOB_TOKEN}@gitlab-master.nvidia.com\/dl\/hugectr\/hugectr.git/g" dockerfile.tri
-    - docker build --pull
-      -t ${IMAGE_CTR}
-      -f dockerfile.tri
-      --build-arg RELEASE=false 
-      --build-arg RMM_VER=vnightly 
-      --build-arg CUDF_VER=vnightly 
-      --build-arg NVTAB_VER=vnightly 
-      --build-arg HUGECTR_VER=v21.9
-      --no-cache
-      ${PWD}
-    - docker push ${IMAGE_CTR}
-  only:
-    variables:
-      - $NIGHTLY == "1"
-  timeout: 2 hours
 
 # rm_logs:
 #   extends: .cluster_test_job

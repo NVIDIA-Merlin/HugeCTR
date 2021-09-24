@@ -18,7 +18,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="hugectr2onnx",
-    version="21.9",
+    version="3.2",
     author="HugeCTR",
     author_email="hugectr-dev@exchange.nvidia.com",
     description="HugeCTR to ONNX Converter",

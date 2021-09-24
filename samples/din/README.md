@@ -11,11 +11,11 @@ HugeCTR is available as buildable source code, but the easiest way to install an
 
 1. Pull the HugeCTR NGC Docker by running the following command:
    ```bash
-   $ docker pull nvcr.io/nvidia/merlin/merlin-training:0.6
+   $ docker pull nvcr.io/nvidia/merlin/merlin-training:0.7
    ```
 2. Launch the container in interactive mode with the HugeCTR root directory mounted into the container by running the following command:
    ```bash
-   $ docker run --gpus=all --rm -it --cap-add SYS_NICE -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr nvcr.io/nvidia/merlin/merlin-training:0.6
+   $ docker run --gpus=all --rm -it --cap-add SYS_NICE -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr nvcr.io/nvidia/merlin/merlin-training:0.7
    ```
 
 ### Build the HugeCTR Docker Container on Your Own ###
@@ -50,10 +50,7 @@ mkdir din_data
 Run python scripts to preprocess the data:
 ```bash
 cd utils
-python 1_convert_pd.py
-python 2_remap_id.py
-python 3_padding.py
-python 4_nvt_process.py
+bash preprocess.sh
 ```
 
 ## Train with HugeCTR ##
@@ -62,3 +59,5 @@ With the above steps, the preprocessed data is saved locally in the `din_data/` 
 python din_parquet.py
 ```
 By default, this will run 8000 iterations and the peak of the AUC could reach higher than 0.8.
+
+There is another implementation of the DIN model in `din_try.py`, which employs the Matrix Multiply layer. It can achieve AUC 0.75 after 88,000 iterations.

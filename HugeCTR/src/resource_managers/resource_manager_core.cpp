@@ -135,7 +135,9 @@ ResourceManagerCore::ResourceManagerCore(int num_process, int process_id, Device
   }
   
   CK_NVML_THROW_(nvmlInit_v2());
+  #ifndef ENABLE_INFERENCE
   CudaCPUDeviceContext::init_cpu_mapping(device_map.get_device_list());
+  #endif
 
   std::mt19937 gen(seed);
   std::uniform_int_distribution<unsigned long long> dis;

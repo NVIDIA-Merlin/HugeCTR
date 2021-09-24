@@ -37,7 +37,9 @@ copyright = '2021, NVIDIA'
 author = 'NVIDIA'
 
 # version
-version = "1.0.0"
+import sparse_operation_kit as sok
+version = sok.__version__
+del sok
 
 # -- General configuration ---------------------------------------------------
 

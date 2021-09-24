@@ -148,10 +148,7 @@ bool rocks_db<TypeHashKey>::mset(const std::vector<TypeHashKey>& keys, std::vect
                 VALUE_TO_SLICE(float, values[(index + t) * embedding_size], embedding_size));
     }
     rocksdb::Status s = _db->Write(rocksdb::WriteOptions(), &batch);
-    if (s.ok()) {
-      bufs.clear();
-      batch.Clear();
-    } else {
+    if (!s.ok()) {
       std::cout << "Iteration " << j << " insert fail, Please check RocksDB Status!" << std::endl;
     }
   }
@@ -161,7 +158,6 @@ bool rocks_db<TypeHashKey>::mset(const std::vector<TypeHashKey>& keys, std::vect
     rocksdb::WriteBatch batch;
     char* buf = new char[key_len];
     std::vector<char*> bufs(rest_keys, buf);
-
     for (size_t t = 0; t < rest_keys; t++) {
       memcpy(bufs[t], table.data(), prefix_len);
       memcpy(bufs[t] + prefix_len, reinterpret_cast<const char*>(&keys[t + index]),
@@ -171,9 +167,12 @@ bool rocks_db<TypeHashKey>::mset(const std::vector<TypeHashKey>& keys, std::vect
     }
     rocksdb::Status s = _db->Write(rocksdb::WriteOptions(), &batch);
     if (s.ok()) {
-      bufs.clear();
       std::cout << "Last Iteration insert successfully" << std::endl;
     }
+    bufs.clear();
+    bufs.shrink_to_fit();
+    delete buf;
+    batch.Clear();
   }
 
   return true;
@@ -200,14 +199,10 @@ bool rocks_db<TypeHashKey>::mget(const TypeHashKey* keys, std::vector<float>& va
 
   char* buf = new char[key_len];
   std::vector<char*> bufs(len, buf);
-  std::vector<rocksdb::Slice> slices;
-
-  bufs.clear();
   for (size_t t = 0; t < len; t++) {
     std::string results;
     memcpy(bufs[t], table.data(), prefix_len);
     memcpy(bufs[t] + prefix_len, reinterpret_cast<const char*>(&keys[t]), sizeof(TypeHashKey));
-    slices.emplace_back(rocksdb::Slice(bufs[t]));
     rocksdb::Status s =
         _db->Get(rocksdb::ReadOptions(), rocksdb::Slice(bufs[t], key_len), &results);
     if (!s.ok()) {
@@ -218,6 +213,9 @@ bool rocks_db<TypeHashKey>::mget(const TypeHashKey* keys, std::vector<float>& va
       values.insert(values.end(), temp, temp + embedding_size);
     }
   }
+  bufs.clear();
+  bufs.shrink_to_fit();
+  delete buf;
   return true;
 }
 

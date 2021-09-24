@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-ARG CUDA_VERSION=11.1.1
+ARG CUDA_VERSION=11.2.1
 ARG CUDNN_VERSION=8
 ARG UBUNTU_VERSION=20.04
 FROM nvidia/cuda:${CUDA_VERSION}-cudnn${CUDNN_VERSION}-devel-ubuntu${UBUNTU_VERSION} AS devel
@@ -20,7 +20,7 @@ FROM nvidia/cuda:${CUDA_VERSION}-cudnn${CUDNN_VERSION}-devel-ubuntu${UBUNTU_VERS
 ARG CMAKE_VERSION=3.19.6
 ARG PYTHON_VERSION=3.8
 ARG RAPIDS_VERSION=21.06
-ARG TF_VERSION=2.4.0
+ARG TF_VERSION=2.6.0
 
 ARG RELEASE=false
 ARG SM="70;75;80"
@@ -54,8 +54,8 @@ ENV PATH=/usr/local/bin:$PATH
 RUN pip3 install --upgrade pip && \
     pip3 install --no-cache-dir numpy==1.19.2 pandas sklearn nvtx-plugins jupyter tensorflow==${TF_VERSION}
 
-ENV CONDA_PREFIX=/opt/conda \
-    NCCL_LAUNCH_MODE=PARALLEL
+ENV CONDA_PREFIX=/opt/conda
+ENV NCCL_LAUNCH_MODE=PARALLEL
 
 RUN mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 --branch branch-${RAPIDS_VERSION} https://github.com/rapidsai/rmm.git rmm && cd - && \
     cd /var/tmp/rmm && \

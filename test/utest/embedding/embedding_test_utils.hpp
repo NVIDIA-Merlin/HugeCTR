@@ -22,6 +22,7 @@
 #include <fstream>
 #include <type_traits>
 #include <unordered_set>
+#include <memory>
 
 #include "HugeCTR/include/common.hpp"
 #include "utest/embedding/sparse_embedding_hash_cpu.hpp"
@@ -159,8 +160,8 @@ bool compare_distributed_hash_table_files(std::string file1, std::string file2, 
   char *buf = (char *)malloc(pair_size_in_B);
   TypeHashKey *key;
   TypeHashValue *value;
-  HashTableCpu<TypeHashKey, TypeHashValue> *hash_table =
-      new HashTableCpu<TypeHashKey, TypeHashValue>();
+  std::unique_ptr<HashTableCpu<TypeHashKey, TypeHashValue>> hash_table(
+      new HashTableCpu<TypeHashKey, TypeHashValue>());
   while (file_stream2.peek() != EOF) {
     file_stream2.read(buf, pair_size_in_B);
     key = (TypeHashKey *)buf;
@@ -246,8 +247,8 @@ bool compare_localized_hash_table_files(std::string file1, std::string file2, fl
   char *buf = (char *)malloc(pair_size_in_B);
   TypeHashKey *key;
   TypeHashValue *value;
-  HashTableCpu<TypeHashKey, TypeHashValue> *hash_table =
-      new HashTableCpu<TypeHashKey, TypeHashValue>();
+  std::unique_ptr<HashTableCpu<TypeHashKey, TypeHashValue>> hash_table(
+      new HashTableCpu<TypeHashKey, TypeHashValue>());
   while (file_stream2.peek() != EOF) {
     file_stream2.read(buf, pair_size_in_B);
     key = (TypeHashKey *)buf;
@@ -325,8 +326,8 @@ bool compare_hash_table(long long capacity, TypeHashKey *hash_table_key_from_gpu
 
   // Since the <key1,value1> and <key2,value2> is not the same ordered, we need to insert <key1,
   // value1> into a hash_table, then compare value1=hash_table->get(key2) with value2
-  HashTableCpu<TypeHashKey, TypeHashValue> *hash_table =
-      new HashTableCpu<TypeHashKey, TypeHashValue>();
+  std::unique_ptr<HashTableCpu<TypeHashKey, TypeHashValue>> hash_table(
+      new HashTableCpu<TypeHashKey, TypeHashValue>());
   hash_table->insert(hash_table_key_from_gpu, hash_table_value_from_gpu, capacity);
 
   TypeHashKey *key;
@@ -359,7 +360,7 @@ bool compare_key_slot(long long capacity,
 
   // Since the <key1,value1> and <key2,value2> is not the same ordered, we need to insert <key1,
   // value1> into a hash_table, then compare value1=hash_table->get(key2) with value2
-  HashTableCpu<TypeKey, TypeSlot> *hash_table = new HashTableCpu<TypeKey, TypeSlot>();
+  std::unique_ptr<HashTableCpu<TypeKey, TypeSlot>> hash_table(new HashTableCpu<TypeKey, TypeSlot>());
   hash_table->insert(hash_table_key_from_gpu, slot_id_from_gpu, capacity);
 
   TypeKey *key;

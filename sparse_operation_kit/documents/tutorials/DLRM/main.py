@@ -21,7 +21,6 @@ import utils
 from models import DLRM
 from dataset import CriteoTsvReader
 import time
-import nvtx
 
 def update_metrics_states(y_true, y_pred, metrics):
     y_pred = tf.nn.sigmoid(y_pred)
@@ -130,12 +129,12 @@ def main(args):
                                   num_dense_features=args.num_dense_features,
                                   vocab_sizes=args.vocab_size_list,
                                   batch_size=batch_size)
-
-    dist_dataset = ("mirrored" == args.distribute_strategy and args.gpu_num > 1)
+    
+    distribute_dataset = (args.distribute_strategy == "mirrored" and args.gpu_num > 1)
     train_dataset = utils.get_distribute_dataset(train_dataset, strategy,
-                                                 distribute_dataset=dist_dataset)
+                                                 distribute_dataset=distribute_dataset)
     val_dataset = utils.get_distribute_dataset(val_dataset, strategy,
-                                               distribute_dataset=dist_dataset)
+                                               distribute_dataset=distribute_dataset)
     val_dataset = iter(val_dataset)
 
     loss_fn = tf.keras.losses.BinaryCrossentropy(from_logits=True, 
@@ -199,18 +198,7 @@ def main(args):
 
     begin_time = time.time()
     start_time = begin_time
-
-    nvtx_began = False
-    steps = 0
     for i, (features, labels) in enumerate(train_dataset):
-        steps = i
-
-        if not nvtx_began and i >= args.nvtx_begin_step:
-            capture_range = nvtx.start_range(color="red", message="Capture", domain="Capture")
-            nvtx_began = True
-
-        iter_range = nvtx.start_range(message="Iteration_"+ str(i), color="blue")
-
         if i >= args.train_steps:
             break
         if stopper.should_stop():
@@ -237,18 +225,12 @@ def main(args):
             utils.show_logs(val_logs, strategy, elapsed_time, steps_sec, metrics_threshold, stopper)
             begin_time = time.time()
 
-        nvtx.end_range(iter_range)
-
-        if nvtx_began and capture_range and i >= (args.nvtx_end_step - 1):
-            nvtx.end_range(capture_range)
-            capture_range = None
-
     end_time = time.time()
     if args.task_id == 0:
         print(f"With {args.distribute_strategy} + {args.embedding_layer} embedding layer, "
               f"on {args.gpu_num} GPUs, and global_batch_size is {args.global_batch_size}, "
               f"it takes {end_time - start_time} seconds to "
-              f"finish {steps} steps training for DLRM.")
+              f"finish {args.train_steps} steps training for DLRM.")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -276,9 +258,6 @@ if __name__ == "__main__":
     parser.add_argument("--validation_interval", type=int, required=False, default=100)
     parser.add_argument("--train_steps", type=int, required=False, default=-1)
 
-    parser.add_argument("--nvtx_begin_step", type=int, required=False, default=-1)
-    parser.add_argument("--nvtx_end_step", type=int, required=False, default=-1)
-
     args = parser.parse_args()
 
     args.vocab_size_list = [39884407, 39043, 17289, 7420, 20263, 
@@ -288,7 +267,6 @@ if __name__ == "__main__":
                             12972, 108, 36]
     args.num_dense_features = 13
     args.train_steps = 4195155968 // args.global_batch_size if args.train_steps == -1 else args.train_steps
-    args.nvtx_end_step = args.nvtx_end_step if args.nvtx_end_step != -1 else args.train_steps
     args.TF_MP = True if 1 == args.TF_MP else False
 
     main(args)

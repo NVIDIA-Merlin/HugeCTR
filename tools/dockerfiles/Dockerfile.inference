@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-ARG TRITON_VERSION=21.04-py3
+ARG TRITON_VERSION=21.08-py3
 FROM nvcr.io/nvidia/tritonserver:${TRITON_VERSION} AS devel
 
 ARG CMAKE_VERSION=3.19.6
@@ -44,12 +44,12 @@ RUN mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp http://r
     ln -s /opt/conda/etc/profile.d/conda.sh /etc/profile.d/conda.sh && \
     /opt/conda/bin/conda clean -afy && \
     rm -rf /var/tmp/Miniconda3-4.7.12-Linux-x86_64.sh
-ENV CPATH=/opt/conda/include:$CPATH \
-    LD_LIBRARY_PATH=/opt/conda/lib:$LD_LIBRARY_PATH \
-    LIBRARY_PATH=/opt/conda/lib:$LIBRARY_PATH \
-    PATH=/opt/conda/bin:$PATH \
-    CONDA_PREFIX=/opt/conda \
-    NCCL_LAUNCH_MODE=PARALLEL
+ENV CPATH=/opt/conda/include:$CPATH
+ENV LD_LIBRARY_PATH=/opt/conda/lib:$LD_LIBRARY_PATH
+ENV LIBRARY_PATH=/opt/conda/lib:$LIBRARY_PATH
+ENV PATH=/opt/conda/bin:$PATH
+ENV CONDA_PREFIX=/opt/conda
+ENV NCCL_LAUNCH_MODE=PARALLEL
 
 RUN conda update -n base -c defaults conda && \
     conda install -c rapidsai -c nvidia -c numba -c conda-forge \
@@ -70,29 +70,26 @@ RUN chmod +x ./clean_conda.sh && \
     rm -rfv ./clean_conda.sh
 
 #Hiredis
-RUN mkdir -p /var/tmp && cd /var/tmp && git clone https://github.com/redis/hiredis.git && cd - && \
-cd /var/tmp/hiredis && \
-mkdir build && cd build && \
-cmake .. && \
-make && \
-make install && \
-rm -rf /var/tmp/hiredis
-
+RUN mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 https://github.com/redis/hiredis.git && cd - && \
+    cd /var/tmp/hiredis && \
+    mkdir build && cd build && \
+    cmake .. && \
+    make -j$(nproc) && make install && \
+    rm -rf /var/tmp/hiredis
 
 #RocksDB
-RUN mkdir -p /var/tmp && cd /var/tmp && git clone https://github.com/facebook/rocksdb.git && cd - && \
-cd /var/tmp/rocksdb && \
-make -j$(nproc) shared_lib && \
-make install-shared && \
-rm -rf /var/tmp/rocksdb
+RUN mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 https://github.com/facebook/rocksdb.git && cd - && \
+    cd /var/tmp/rocksdb && \
+    make -j$(nproc) shared_lib && \
+    make install-shared && \
+    rm -rf /var/tmp/rocksdb
 ENV CPATH=/usr/local/include:$CPATH
+
+RUN pip3 install --no-cache-dir nvidia-pyindex tritonclient[all]
 
 RUN CUDA_PATH=`find /usr/local/ -name "cuda-*.?" | head -n 1` && \
     echo "link $CUDA_PATH to /usr/local/cuda" && \
     ln -s $CUDA_PATH /usr/local/cuda
-    
-RUN pip install nvidia-pyindex
-RUN pip install tritonclient
 
 # HugeCTR Inference
 RUN if [ "$RELEASE" = "true" ]; \
@@ -100,21 +97,23 @@ RUN if [ "$RELEASE" = "true" ]; \
       mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 --branch master https://github.com/NVIDIA/HugeCTR.git HugeCTR && cd - && \
       cd /var/tmp/HugeCTR && \
       git submodule update --init --recursive && \
-      mkdir -p build && cd build &&\
+      mkdir -p build && cd build && \
       cmake -DCMAKE_BUILD_TYPE=Release -DSM=$SM -DENABLE_INFERENCE=ON .. && make -j$(nproc) && make install && \
       export CPATH=/usr/local/hugectr/include:$CPATH && \
       export LIBRARY_PATH=/usr/local/hugectr/lib:$LIBRARY_PATH && \
       cd /var/tmp && git clone https://github.com/triton-inference-server/hugectr_backend.git hugectr_inference_backend && \
       cd /var/tmp/hugectr_inference_backend && \
-      mkdir build && cd build &&\
-      cmake -DCMAKE_INSTALL_PREFIX:PATH=/usr/local/hugectr -DTRITON_COMMON_REPO_TAG=$TRITON_BRANCH  -DTRITON_CORE_REPO_TAG=$TRITON_BRANCH     -DTRITON_BACKEND_REPO_TAG=$TRITON_BRANCH  .. && \
-      make -j &&\
-      make install &&\ 
+      mkdir build && cd build && \
+      cmake -DCMAKE_INSTALL_PREFIX:PATH=/usr/local/hugectr \
+            -DTRITON_COMMON_REPO_TAG=$TRITON_BRANCH \
+            -DTRITON_CORE_REPO_TAG=$TRITON_BRANCH \
+            -DTRITON_BACKEND_REPO_TAG=$TRITON_BRANCH  .. && \
+      make -j && make install && \
       rm -rf /var/tmp/HugeCTR /var/tmp/hugectr_inference_backend; \
     else \
       echo "Build container for development successfully"; \
     fi
-ENV CPATH=/usr/local/hugectr/include:$CPATH \ 
-    LIBRARY_PATH=/usr/local/hugectr/lib:$LIBRARY_PATH \
-    LD_LIBRARY_PATH=/usr/local/hugectr/lib:$LD_LIBRARY_PATH \
-    PATH=/usr/local/hugectr/bin:$PATH
+ENV CPATH=/usr/local/hugectr/include:$CPATH
+ENV LIBRARY_PATH=/usr/local/hugectr/lib:$LIBRARY_PATH
+ENV LD_LIBRARY_PATH=/usr/local/hugectr/lib:$LD_LIBRARY_PATH
+ENV PATH=/usr/local/hugectr/bin:$PATH

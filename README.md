@@ -11,6 +11,7 @@ Design Goals:
 ## Table of Contents
 * [Core Features](#core-features)
 * [Getting Started](#getting-started)
+* [HugeCTR SDK](#hugectr-sdk)
 * [Support and Feedback](#support-and-feedback)
 * [Contribute to HugeCTR](#contribute-to-hugectr)
 
@@ -25,6 +26,7 @@ HugeCTR supports a variety of features, including the following:
 * [caching of most frequent embedding for inference](https://github.com/triton-inference-server/hugectr_backend/blob/main/docs/architecture.md#enabling-the-gpu-embedding-cache)
 * [GPU / CPU memory sharing mechanism across different inference instances](https://github.com/triton-inference-server/hugectr_backend/blob/main/docs/architecture.md#hugectr-backend-framework)
 * [ONNX Converter](docs/hugectr_user_guide.md#onnx-converter)
+* [Hierarchical Parameter Server](docs/hugectr_user_guide.md#hierarchical-parameter-server)
 
 To learn about our latest enhancements, see our [release notes](release_notes.md).
 
@@ -32,7 +34,7 @@ To learn about our latest enhancements, see our [release notes](release_notes.md
 If you'd like to quickly train a model using the Python interface, follow these steps:
 1. Start a NGC container with your local host directory (/your/host/dir mounted) by running the following command:
    ```
-   docker run --gpus=all --rm -it --cap-add SYS_NICE -v /your/host/dir:/your/container/dir -w /your/container/dir -it -u $(id -u):$(id -g) nvcr.io/nvidia/merlin/merlin-training:0.6
+   docker run --gpus=all --rm -it --cap-add SYS_NICE -v /your/host/dir:/your/container/dir -w /your/container/dir -it -u $(id -u):$(id -g) nvcr.io/nvidia/merlin/merlin-training:0.7
    ```
 
    **NOTE**: The **/your/host/dir** directory is just as visible as the **/your/container/dir** directory. The **/your/host/dir** directory is also your starting directory.
@@ -147,6 +149,11 @@ If you'd like to quickly train a model using the Python interface, follow these 
    **NOTE**: It is expected that the value of evaluation AUC is not good given that randomly generated datasets are being used. When the training is done, you will see the files of dumped graph JSON, saved model weights and optimizer states.
 
 For additional information, see the [HugeCTR User Guide](docs/hugectr_user_guide.md).
+
+## HugeCTR SDK ##
+To support the users who cannot use HugeCTR directly, we export several important components in HugeCTR to external developers as SDK.
+* [Sparse Operation Kit](sparse_operation_kit): a python package wrapped GPU accelerated operations dedicated for sparse training / inference cases.
+* [GPU Embedding Cache](gpu_cache): a embedding cache on GPU memory designed for CTR inference workload.
 
 ## Support and Feedback ##
 If you encounter any issues and/or have questions, please file an issue [here](https://github.com/NVIDIA/HugeCTR/issues) so that we can provide you with the necessary resolutions and answers. To further advance the Merlin/HugeCTR Roadmap, we encourage you to share all the details regarding your recommender system pipeline using this [survey](https://developer.nvidia.com/merlin-devzone-survey).

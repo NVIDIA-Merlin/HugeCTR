@@ -1,8 +1,6 @@
 # Release Notes
 
-## What's New in Version 21.09
-
-+ **New Format for Maintaining Release Versioning**: For consistency and better alignment with other NVIDIA products such as RAPIDS, our release versioning will now adhere to the **year.month (yy.mm)** format.
+## What's New in Version 3.2
 
 + **New HugeCTR to ONNX Converter**: We’re introducing a new HugeCTR to ONNX converter in the form of a Python package. All graph configuration files are required and model weights must be formatted as inputs. You can specify where you want to save the converted ONNX model. You can also convert sparse embedding models. For more information, refer to [HugeCTR to ONNX Converter](./onnx_converter) and [HugeCTR2ONNX Demo Notebook](notebooks/hugectr2onnx_demo.ipynb).
 
@@ -22,6 +20,20 @@
 
 + **TensorFlow 2.5 Support in Sparse Operation Kits (SOK)**: SOK now supports TensorFlow 2.5. We also added a new [SOK docs set](https://nvidia.github.io/HugeCTR/sparse_operation_kit/v1.0.0/index.html) to help you get started with SOK.
 
++ **Supporting Arbitrary Number of Inputs in Concat Layer and Slice Layer**: The Concat and Slice layers now support any number of input and output tensors, respectively. Previously, these layers would be limited to a maximum of 4 tensors.
+
++ **Fix power law in Data Generator (Generalize the power law simulator in Data Generator)**: We’ve modified the formula of the power law simulator to make for the positive alpha value, which is more general in different use cases. Besides, the alpha values for `Long`, `Medium` and `Short` of power law distribution are 0.9, 1.1 and 1.3 respectively. For more information, see [Data Generator API](docs/python_interface.md#data-generator-api).
+
++ **New Document for Sparse Operation Kit (SOK)**: In this release we provided a website based introduction to SOK, see [here](https://nvidia.github.io/HugeCTR/sparse_operation_kit/v1.0.1/index.html) 
+
++ **Supporting TensorFlow 2.5 & 2.6 in Sparse Operation Kit**
+
++ **Supporting Identity Hashing (no hashing) in Sparse Operation kit**
+
++ **Supporting Dynamic Input in Sparse Operation Kit**
+
++ **Horovod compatible in Sparse Operation Kit**
+
 ## What's New in Version 3.1
 
 + **MLPerf v1.0 Integration**: We've integrated MLPerf optimizations for DLRM training and enabled them as configurable options in Python interface. Specifically, we have incorporated AsyncRaw data reader, HybridEmbedding, FusedReluBiasFullyConnectedLayer, overlapped pipeline, holistic CUDA Graph and so on. The performance of 14-node DGX-A100 DLRM training with Python APIs is comparable to CLI usage. For more information, refer to [HugeCTR Python Interface](docs/python_interface.md) and [DLRM Sample](samples/dlrm).
@@ -32,11 +44,11 @@
 
 + **Multi-Node Support for Embedding Training Cache (MOS)**: We’ve enabled multi-node support for the embedding training cache. You can now train a model with a terabyte-size embedding table using one node or multiple nodes even if the entire embedding table can't fit into the GPU memory. We're also introducing the host memory (HMEM) based parameter server (PS) along with its SSD-based counterpart. If the sparse model can fit into the host memory of each training node, the optimized HMEM-based PS can provide better model loading and dumping performance with a more effective bandwidth. For more information, refer to [HugeCTR Python Interface](docs/python_interface.md).
 
-+ **Enhancements to the Multi-Nodes TensorFlow Plugin**: The Multi-Nodes TensorFlow Plugin now supports multi-node synchronized training via tf.distribute.MultiWorkerMirroredStrategy. With minimal code changes, you can now easily scale your single GPU training to multi-node multi GPU training. The Multi-Nodes TensorFlow Plugin also supports multi-node synchronized training via Horovod. The inputs for embedding plugins are now data parallel, so the datareader no longer needs to preprocess data for different GPUs based on concrete embedding algorithms.
++ **Enhancements to the Multi-Nodes TensorFlow Plugin**: The Multi-Nodes TensorFlow Plugin now supports multi-node synchronized training via tf.distribute.MultiWorkerMirroredStrategy. With minimal code changes, you can now easily scale your single GPU training to multi-node multi GPU training. The Multi-Nodes TensorFlow Plugin also supports multi-node synchronized training via Horovod. The inputs for embedding plugins are now data parallel, so the datareader no longer needs to preprocess data for different GPUs based on concrete embedding algorithms. For more information, see our [Sparse Operation Kit Demo](notebooks/sparse_operation_kit_demo.ipynb).
 	
 + **NCF Model Support**: We've added support for the NCF model, as well as the GMF and NeuMF variant models. With this enhancement, we're introducing a new element-wise multiplication layer and HitRate evaluation metric. Sample code was added that demonstrates how to preprocess user-item interaction data and train a NCF model with it. New examples have also been added that demonstrate how to train NCF models using MovieLens datasets.
 
-+ **DIN and DIEN Model Support**: All of our layers support the DIN model. The following layers support the DIEN model: FusedReshapeConcat, FusedReshapeConcatGeneral, Gather, GRU, PReLUDice, ReduceMean, Scale, Softmax, and Sub. We also added sample code to demonstrate how to use the Amazon dataset to train the DIN model.
++ **DIN and DIEN Model Support**: All of our layers support the DIN model. The following layers support the DIEN model: FusedReshapeConcat, FusedReshapeConcatGeneral, Gather, GRU, PReLUDice, ReduceMean, Scale, Softmax, and Sub. We also added sample code to demonstrate how to use the Amazon dataset to train the DIN model. See our [DIN sample](samples/din).
 
 + **Multi-Hot Support for Parquet Datasets**: We've added multi-hot support for parquet datasets, so you can now train models with a paraquet dataset that contains both one hot and multi-hot slots.
 

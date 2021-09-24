@@ -22,6 +22,8 @@ namespace HugeCTR {
 
 class Source {
  public:
+  virtual ~Source() = default;
+
   /**
    * Read "bytes_to_read" byte to the memory associated to ptr.
    * @param ptr pointer to user located buffer

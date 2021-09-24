@@ -1,6 +1,6 @@
 # Performance
 
-Best perforamnce is one of the most important target for HugeCTR. Different to the other frameworks, we apply all the optimizations in mlperf submission to our release versions. 
+Finding ways to enhance HugeCTR's performance is one of our top priorities. Unlike other frameworks, we apply all the optimizations in the mlperf submission for each release. 
 
 We've tested HugeCTR's performance on the following systems:
 * [MLPerf on DGX-2 and DGX A100](evaluating-hugectrs-performance-on-the-dgx-2-and-dgx-a100)
@@ -8,13 +8,13 @@ We've tested HugeCTR's performance on the following systems:
 * [TensorFlow (TF)](evaluating-hugectrs-performance-on-tensorflow)
 
 ## MLPerf on DGX-2 and DGX A100
-We submitted the DLRM benchmark with HugeCTR version 2.2 to [MLPerf Training v0.7](https://mlperf.org/training-results-0-7) and HugeCTR v3.1 to [MLPerf Training v1.0](https://mlcommons.org/en/news/mlperf-training-v10). We used the [Criteo Terabyte Click Logs dataset](https://labs.criteo.com/2013/12/download-terabyte-click-logs/), which contains 4 billion user and item interactions over 24 days. The target machines were DGX-2 with 16 V100 GPUs and DGX A100 with eight A100 GPUs. For additional information, see [this blog post](https://developer.nvidia.com/blog/optimizing-ai-performance-for-mlperf-v0-7-training/).
+The DLRM benchmark was submitted to [MLPerf Training v0.7](https://mlperf.org/training-results-0-7) with the release of HugeCTR version 2.2 and [MLPerf Training v1.0](https://mlcommons.org/en/news/mlperf-training-v10) with the release of HugeCTR version 3.1. We used the [Criteo 1TB Click Logs dataset](https://labs.criteo.com/2013/12/download-terabyte-click-logs/), which contains 4 billion user and item interactions over 24 days. The DGX-2 with 16 V100 GPUs and DGX A100 with eight A100 GPUs were the target machines. For more information, see [this blog post](https://developer.nvidia.com/blog/optimizing-ai-performance-for-mlperf-v0-7-training/).
 
 <div align=center><img width = '600' height ='400' src ="docs/user_guide_src/mlperf_10.PNG"/></div>
 <div align=center>Fig. 1: HugeCTR's MLPerf v1.0 Result</div>
 
 ## Evaluating HugeCTR's Performance on the DGX-1
-We tested the scalability of HugeCTR and compared its performance with TensorFlow running on NVIDIA V100 GPUs that are available in a single DGX-1 system. In summary, we can achieve about 114x speedup over multi-thread TensorFlow CPU with only one V100 and generate almost the same loss curves for both evaluation and training (see Fig. 2 and Fig. 3).
+The scalability and performance of HugeCTR has been tested and compared with TensorFlow running on NVIDIA V100 GPUs within a single DGX-1 system. HugeCTR can achieve a speedup that's 114 times faster than a multi-thread TensorFlow CPU with only one V100 while generating almost the same loss curves for both evaluation and training (see Fig. 2 and Fig. 3).
 
 Test environment:
 * CPU Server: Dual 20-core Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz
@@ -29,18 +29,17 @@ Dataset:
 The data is provided by [CriteoLabs](http://labs.criteo.com/2014/02/kaggle-display-advertising-challenge-dataset/). The original training set contains 45,840,617 examples. Each example contains a label (0 by default OR 1 if the ad was clicked) and 39 features in which 13 are integer and 26 are categorical.
 
 Preprocessing:
-* Common: Preprocessed by using the scripts available in tools/criteo_script.
+* Common: Preprocessed by using the scripts available in [tools/criteo_script](..tools/criteo_script).
 * HugeCTR: Converted to the HugeCTR data format with criteo2hugectr.
-* TF: Converted to the TFRecord format for the efficient training on Tensorflow.
+* TF: Converted to the TFRecord format for efficient training on Tensorflow.
 
-The scalability of HugeCTR and the number of active GPUs have increased simply because of the high efficient data exchange and three-stage processing pipeline. In this pipeline, we overlap the data reading from the file, host to the device data transaction (inter-node and intra-node), and train the GPU. The following chart shows the scalability of HugeCTR with Batch Size=16384 and Layers=7 on DGX1 servers.
+The scalability of HugeCTR and the number of active GPUs have increased simply because of the high-efficient data exchange and three-stage processing pipeline. In this pipeline, we overlap the data reading from the file, host to the device data transaction (inter-node and intra-node), and train the GPU. The following chart shows the scalability of HugeCTR with a batch size of 16384 and seven layers on DGX1 servers.
 
 <div align=center><img width = '800' height ='400' src ="docs/user_guide_src/fig12_multi_gpu_performance.PNG"/></div>
 <div align=center>Fig. 2: HugeCTR's Multi-GPU Performance</div>
 
-
 ## Evaluating HugeCTR's Performance on TensorFlow
-In the TensorFlow test case below, HugeCTR exhibits a speedup up to 114x compared to a CPU server running TensorFlow with only one V100 GPU and almost the same loss curve.
+In the TensorFlow test case that's shown here, HugeCTR exhibits a speedup up to 114 times faster compared to a CPU server running TensorFlow with only one V100 GPU and almost the same loss curve.
 
 <div align=center><img width = '800' height ='400' src ="docs/user_guide_src/WDL.JPG"/></div>
 <div align=center>Fig. 3: WDL Performance and Loss Curve Comparison with TensorFlow Version 2.0</div>
