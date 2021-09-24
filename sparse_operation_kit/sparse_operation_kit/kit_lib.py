@@ -17,19 +17,21 @@
 from tensorflow.python.framework import load_library, ops
 from tensorflow.python.ops import array_ops
 from tensorflow.python.framework.tensor_shape import TensorShape
-from tensorflow.python import pywrap_tensorflow
+from tensorflow import __version__ as tf_version
+if tf_version.startswith("2"):
+    using_tf2 = True
+elif tf_version.startswith("1"):
+    using_tf2 = False
+else:
+    raise RuntimeError(f"Not supported TF version: {tf_version}")
+
 import os
 
 def in_tensorflow2():
     """
     This function will tell whether the installed TensorFlow is 2.x
     """
-    if pywrap_tensorflow.__version__.startswith("2"):
-        return True
-    elif pywrap_tensorflow.__version__.startswith("1"):
-        return False
-    else:
-        raise RuntimeError("Not supported version of TensorFlow.")
+    return using_tf2
 
 lib_name = r"libsparse_operation_kit.so"
 
