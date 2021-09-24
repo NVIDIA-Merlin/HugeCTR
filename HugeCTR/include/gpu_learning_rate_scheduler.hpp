@@ -31,6 +31,7 @@ class GpuLearningRateScheduler {
   const float end_lr_;
   size_t* step_;
   float* current_lr_;
+  float* last_lr_;
   bool overlapped_;
   std::shared_ptr<GPUResource> gpu_resource_;
   cudaStream_t lr_stream_;
