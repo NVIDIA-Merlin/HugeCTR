@@ -216,7 +216,11 @@ def tf_dataset(keys, labels,
     def _convert_to_sparse(keys, labels):
         if tf.rank(keys) != 2:
             keys = tf.reshape(keys, shape=[-1, max_nnz])
-        indices = tf.where(keys != -1)
+        if sok.kit_lib.in_tensorflow2():
+            condition = tf.math.not_equal(keys, -1)
+        else:
+            condition = tf.not_equal(keys, -1)
+        indices = tf.where(condition)
         values = tf.gather_nd(keys, indices)
         return tf.sparse.SparseTensor(indices=indices, 
                                       values=values, 
