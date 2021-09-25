@@ -4,7 +4,7 @@
 
 + **New HugeCTR to ONNX Converter**: We’re introducing a new HugeCTR to ONNX converter in the form of a Python package. All graph configuration files are required and model weights must be formatted as inputs. You can specify where you want to save the converted ONNX model. You can also convert sparse embedding models. For more information, refer to [HugeCTR to ONNX Converter](./onnx_converter) and [HugeCTR2ONNX Demo Notebook](notebooks/hugectr2onnx_demo.ipynb).
 
-+ **Parameter Server POC with New Hierarchical Storage Mechanicsm**: We’ve implemented a hierarchical storage mechanism between local SSDs and CPU memory. As a result, embedding tables no longer have to be stored in the local CPU memory. The distributed Redis cluster is being implemented as a CPU cache to store larger embedding tables and interact with the GPU embedding cache directly. The local RocksDB serves as a query engine to back up the complete embedding table on the local SSDs and assist the Redis cluster with looking up missing embedding keys. Please find more information [here](https://github.com/triton-inference-server/hugectr_backend/blob/main/docs/architecture.md#distributed-deployment-with-hierarchical-hugectr-parameter-server)
++ **New Hierarchical Storage Mechanicsm on the Parameter Server (POC)**: We’ve implemented a hierarchical storage mechanism between local SSDs and CPU memory. As a result, embedding tables no longer have to be stored in the local CPU memory. The distributed Redis cluster is being implemented as a CPU cache to store larger embedding tables and interact with the GPU embedding cache directly. The local RocksDB serves as a query engine to back up the complete embedding table on the local SSDs and assist the Redis cluster with looking up missing embedding keys. Please find more information [here](https://github.com/triton-inference-server/hugectr_backend/blob/main/docs/architecture.md#distributed-deployment-with-hierarchical-hugectr-parameter-server)
 
 + **Parquet Format Support Within the Data Generator**: The HugeCTR data generator now supports the parquet format, which can be configured easily using the Python API. For more information, refer to [Data Generator API](docs/python_interface.md#data-generator-api).
 
@@ -18,21 +18,11 @@
 
 + **New HugeCTR Contributor Guide**: We've added a new [HugeCTR Contributor Guide](docs/hugectr_contributor_guide.md) that explains how to contribute to HugeCTR, which may involve reporting and fixing a bug, introducing a new feature, or implementing a new or pending feature.
 
-+ **TensorFlow 2.5 Support in Sparse Operation Kits (SOK)**: SOK now supports TensorFlow 2.5. We also added a new [SOK docs set](https://nvidia.github.io/HugeCTR/sparse_operation_kit/v1.0.0/index.html) to help you get started with SOK.
++ **Enhancements to Sparse Operation Kits (SOK)**: SOK now supports TensorFlow 2.5 and 2.6. We also added support for identity hashing, dynamic input, and Horovod within SOK. Lastly, we added a new [SOK docs set](https://nvidia.github.io/HugeCTR/sparse_operation_kit/v1.0.0/index.html) to help you get started with SOK.
 
 + **Supporting Arbitrary Number of Inputs in Concat Layer and Slice Layer**: The Concat and Slice layers now support any number of input and output tensors, respectively. Previously, these layers would be limited to a maximum of 4 tensors.
 
 + **Fix power law in Data Generator (Generalize the power law simulator in Data Generator)**: We’ve modified the formula of the power law simulator to make for the positive alpha value, which is more general in different use cases. Besides, the alpha values for `Long`, `Medium` and `Short` of power law distribution are 0.9, 1.1 and 1.3 respectively. For more information, see [Data Generator API](docs/python_interface.md#data-generator-api).
-
-+ **New Document for Sparse Operation Kit (SOK)**: In this release we provided a website based introduction to SOK, see [here](https://nvidia.github.io/HugeCTR/sparse_operation_kit/v1.0.1/index.html) 
-
-+ **Supporting TensorFlow 2.5 & 2.6 in Sparse Operation Kit**
-
-+ **Supporting Identity Hashing (no hashing) in Sparse Operation kit**
-
-+ **Supporting Dynamic Input in Sparse Operation Kit**
-
-+ **Horovod compatible in Sparse Operation Kit**
 
 ## What's New in Version 3.1
 
