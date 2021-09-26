@@ -17,7 +17,8 @@
 import argparse
 
 import sys, os
-sys.path.append("../../") # where to find plugin
+sys.path.append(os.path.abspath(os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), r"../../../")))
 import sparse_operation_kit as sok
 import tensorflow as tf
 
@@ -271,7 +272,7 @@ def compare_dense_emb_sok_with_tf(args):
           %args.iter_num)
 
     if 1 == args.save_params:
-        check_saved_embedding_variables(args, embedding_variable_name)
+        check_saved_embedding_variables(args, embedding_variable_name, use_hashtable=args.use_hashtable, gpu_num=args.gpu_num)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='test demo model with single worker.')

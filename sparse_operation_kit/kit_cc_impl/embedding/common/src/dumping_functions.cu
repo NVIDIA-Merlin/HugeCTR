@@ -30,7 +30,7 @@ HugeCTR::get_hash_value_kernel<<<grid_size, block_size, 0, stream>>>(count, embe
 }
 
 
-// generate dummy keys based on gpu_id == key % gpu_num
+// keys are [0, num_keys)
 template <typename KeyType>
 __global__ void generate_dummy_keys_kernel(KeyType* d_keys, const size_t num_keys, 
                                            const size_t global_replica_id,
@@ -38,7 +38,8 @@ __global__ void generate_dummy_keys_kernel(KeyType* d_keys, const size_t num_key
     const size_t gid = blockIdx.x * blockDim.x + threadIdx.x;
     const size_t stride = blockDim.x * gridDim.x;
     for (size_t i = gid; i < num_keys; i += stride) {
-        d_keys[i] = static_cast<KeyType>(global_gpu_count * i + global_replica_id);
+        // d_keys[i] = static_cast<KeyType>(global_gpu_count * i + global_replica_id);
+        d_keys[i] = static_cast<KeyType>(i);
     }
 }
 template <typename KeyType>

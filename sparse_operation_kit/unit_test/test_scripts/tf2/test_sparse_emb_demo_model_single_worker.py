@@ -210,7 +210,8 @@ def test_tf_demo(args, init_tensors, *random_samples):
 
     return tf_results
 
-def check_saved_embedding_variables(args, embedding_variable_name):
+def check_saved_embedding_variables(args, embedding_variable_name, use_hashtable=True, gpu_num=None,
+                                    atol=1e-4, rtol=1e-4):
     filepath = r"./embedding_variables"
     
     sok_keys_filename = os.path.join(filepath, embedding_variable_name + r"_keys.file")
@@ -219,18 +220,20 @@ def check_saved_embedding_variables(args, embedding_variable_name):
     sok_values = utils.read_binary_file(sok_values_filename, element_type="float")
 
     sorted_sok_keys, sorted_sok_values = utils.sort_embedding_variables_by_key(sok_keys, sok_values, 
-                                                    embedding_vec_size=args.embedding_vec_size)
+                                                    embedding_vec_size=args.embedding_vec_size,
+                                                    use_hashtable=use_hashtable, gpu_num=gpu_num)
 
     tf_values_filename = os.path.join(filepath, r"tf_variable.file")
     tf_values = utils.restore_from_file(tf_values_filename)
     valid_tf_values = utils.get_valid_tf_values(sorted_sok_keys, tf_values[0])
 
     import numpy as np
-    atol, rtol = 1e-4, 1e-4
+    atol, rtol = atol, rtol
     sorted_sok_values = np.reshape(sorted_sok_values, newshape=(sorted_sok_keys.size, args.embedding_vec_size))
     allclose = np.allclose(sorted_sok_values, valid_tf_values, atol=atol, rtol=rtol)
     if not allclose:
-        raise ValueError(f"The Variable from SOK: \n{sorted_sok_values}, \nis not near to that from TF: \n{valid_tf_values}")
+        raise ValueError(f"The Variable from SOK: \n{sorted_sok_values}, \nis not near to that from TF: \n{valid_tf_values}"
+                         f" \n at atol: {atol}, rtol: {rtol}")
     print("[INFO]: the saved parameters are consistent between sparse operation kit and TensorFlow")
 
 
@@ -290,7 +293,7 @@ def compare_sok_with_tf(args):
           %args.iter_num)
 
     if (1 == args.save_params):
-        check_saved_embedding_variables(args, embedding_variable_name)
+        check_saved_embedding_variables(args, embedding_variable_name, use_hashtable=args.use_hashtable, gpu_num=args.gpu_num)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='test demo model with single worker.')

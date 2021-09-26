@@ -87,7 +87,7 @@ python3 test_sparse_emb_demo_model_multi_worker.py \
         --slot_num=10 --max_nnz=4 \
         --embedding_vec_size=4 \
         --combiner='mean' --global_batch_size=65536 \
-        --optimizer='plugin_adam' \
+        --optimizer='adam' \
         --generate_new_datas=1 \
         --save_params=1 \
         --ips "localhost" "localhost"
@@ -99,7 +99,7 @@ python3 test_sparse_emb_demo_model_multi_worker.py \
         --slot_num=10 --max_nnz=4 \
         --embedding_vec_size=4 \
         --combiner='mean' --global_batch_size=65536 \
-        --optimizer='adam' \
+        --optimizer='plugin_adam' \
         --generate_new_datas=1 \
         --restore_params=1 \
         --ips "localhost" "localhost"
@@ -124,7 +124,7 @@ python3 test_dense_emb_demo_model_single_worker.py \
         --slot_num=10 --nnz_per_slot=4 \
         --embedding_vec_size=4 \
         --global_batch_size=65536 \
-        --optimizer='plugin_adam' \
+        --optimizer='adam' \
         --save_params=1 \
         --generate_new_datas=1
 
@@ -135,7 +135,7 @@ python3 test_dense_emb_demo_model_single_worker.py \
         --slot_num=10 --nnz_per_slot=4 \
         --embedding_vec_size=4 \
         --global_batch_size=65536 \
-        --optimizer='adam' \
+        --optimizer='plugin_adam' \
         --restore_params=1 \
         --generate_new_datas=1
 
