@@ -70,7 +70,7 @@ $ docker run --gpus=all --rm -it --cap-add SYS_NICE nvcr.io/nvidia/merlin/merlin
 ```  
 
 ### Building HugeCTR from Scratch
-To build HugeCTR from scratch, please refer to [Build HugeCTR from source code](./hugectr_contributer_guide.md#build-hugectr-from-source-code). 
+To build HugeCTR from scratch, please refer to [Build HugeCTR from source code](./hugectr_contributor_guide.md#build-hugectr-from-source). 
 
 ## Use Cases ##
 With the release of HugeCTR version 3.1, training can no longer be performed using the command line and JSON configuration file. To complete model training, use the Python interface. For more information regarding how to use the HugeCTR Python API and comprehend its API signature, see [Python Interface](./python_interface.md).
