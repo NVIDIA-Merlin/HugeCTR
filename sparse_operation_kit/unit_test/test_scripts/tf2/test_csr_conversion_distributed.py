@@ -15,14 +15,14 @@
 """
 
 from single_worker_base import SingleWorkerbase
-from multi_worker_base import MultiWorkerbase
 
 import numpy as np
 import tensorflow as tf
 from tensorflow.python.distribute.values import PerReplica
 
-import sys
-sys.path.append(r"../python/")
+import sys, os
+sys.path.append(os.path.abspath(os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), r"../../python/")))
 import sok_unit_test_lib
 
 class CreateDataset(object):

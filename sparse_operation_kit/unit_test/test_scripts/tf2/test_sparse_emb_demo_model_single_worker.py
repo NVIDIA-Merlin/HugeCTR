@@ -17,7 +17,8 @@
 import argparse
 
 import sys, os
-sys.path.append("../../") # where to find plugin
+sys.path.append(os.path.abspath(os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), r"../../../")))
 import sparse_operation_kit as sok
 import tensorflow as tf
 
@@ -126,15 +127,17 @@ def test_sok_demo(args, init_tensors, *random_samples):
             loss = _replica_loss(labels, logit)
         embedding_variables, other_variable = sok.split_embedding_variable_from_others(plugin_demo.trainable_variables)
         grads, emb_grads = tape.gradient(loss, [other_variable, embedding_variables])
-        if 'plugin' not in args.optimizer:
-            with sok.OptimizerScope(embedding_variables):
+        with tf.control_dependencies([*emb_grads]):
+            # in case NCCL runs concurrently via SOK and TF
+            if 'plugin' not in args.optimizer:
+                with sok.OptimizerScope(embedding_variables):
+                    emb_opt.apply_gradients(zip(emb_grads, embedding_variables),
+                                            experimental_aggregate_gradients=False)
+            else:
                 emb_opt.apply_gradients(zip(emb_grads, embedding_variables),
                                         experimental_aggregate_gradients=False)
-        else:
-            emb_opt.apply_gradients(zip(emb_grads, embedding_variables),
-                                    experimental_aggregate_gradients=False)
-        dense_opt.apply_gradients(zip(grads, other_variable))
-        return logit, embedding_vector
+            dense_opt.apply_gradients(zip(grads, other_variable))
+            return logit, embedding_vector
 
     sok_results = list()
 
@@ -223,8 +226,11 @@ def check_saved_embedding_variables(args, embedding_variable_name):
     valid_tf_values = utils.get_valid_tf_values(sorted_sok_keys, tf_values[0])
 
     import numpy as np
-    np.allclose(np.reshape(sorted_sok_values, newshape=(sorted_sok_keys.size, args.embedding_vec_size)), 
-                valid_tf_values, atol=1e-4, rtol=1e-4)
+    atol, rtol = 1e-4, 1e-4
+    sorted_sok_values = np.reshape(sorted_sok_values, newshape=(sorted_sok_keys.size, args.embedding_vec_size))
+    allclose = np.allclose(sorted_sok_values, valid_tf_values, atol=atol, rtol=rtol)
+    if not allclose:
+        raise ValueError(f"The Variable from SOK: \n{sorted_sok_values}, \nis not near to that from TF: \n{valid_tf_values}")
     print("[INFO]: the saved parameters are consistent between sparse operation kit and TensorFlow")
 
 

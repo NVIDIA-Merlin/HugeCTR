@@ -46,11 +46,13 @@ class Adam(optimizer.Optimizer):
         self._optimizer_handler = kit_lib.create_global_adam_optimizer(beta1=self._beta1,
                                                                beta2=self._beta2,
                                                                epsilon=self.epsilon)
-        collections = [sok_GraphKeys.SparseOperationKitOptimizer]
-        ops.add_to_collections(collections, self)
 
-        _initializer_op = kit_lib.optimizer_init(self._optimizer_handler)
-        self._initializer_op = control_flow_ops.group(_initializer_op)
+        if not kit_lib.in_tensorflow2():
+            collections = [sok_GraphKeys.SparseOperationKitOptimizer]
+            ops.add_to_collections(collections, self)
+
+            _initializer_op = kit_lib.optimizer_init(self._optimizer_handler)
+            self._initializer_op = control_flow_ops.group(_initializer_op)
 
     def _resource_apply_sparse_duplicate_indices(self, grad, var, indices,
                                                **kwargs):

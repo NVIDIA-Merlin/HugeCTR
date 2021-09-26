@@ -15,8 +15,11 @@
 """
 
 import tensorflow as tf
-import sys
-sys.path.append(r"../../")
+
+import sys, os
+sys.path.append(os.path.abspath(os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "../../../")))
+
 import sparse_operation_kit as sok
 
 import os, json

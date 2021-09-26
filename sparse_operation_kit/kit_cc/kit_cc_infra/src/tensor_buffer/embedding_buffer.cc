@@ -54,9 +54,13 @@ bool EmbeddingBuffer::GetAllocatedBytes(size_t *out_bytes) const {
 #endif
 
 bool EmbeddingBuffer::OwnsMemory() const {
+#if TF_VERSION_MAJOR == 2
+    return true;
+#else
     // this TensorBuffer does not owns the underlying memory.
     // so that this TensorBuffer is not responsible for releasing it.
     return false;
+#endif
 }
 
 
