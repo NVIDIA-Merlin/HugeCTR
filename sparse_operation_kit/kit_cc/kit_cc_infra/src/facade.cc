@@ -246,8 +246,12 @@ void Facade::try_allocate_memory(const size_t global_replica_id) const {
 }
 
 /*This function will only be called by one CPU threads.*/
-void Facade::try_allocate_memory() const {
+void Facade::try_allocate_memory() {
     static std::atomic<bool> allocated{false};
+    if (allocated.load()) return;
+
+    std::lock_guard<std::mutex> lock(mu_);
+    // check again to see if another thread has allocated memory
     if (allocated.load()) return;
 
     auto try_allocate_helper = [this](size_t local_device_id) {

@@ -46,8 +46,9 @@ private:
     std::shared_ptr<Optimizer> optimizer_;
 
     void try_allocate_memory(const size_t global_replica_id) const;
-    void try_allocate_memory() const;
+    void try_allocate_memory();
 
+    std::mutex mu_;
     std::vector<std::shared_ptr<std::mutex>> init_mus_;
 public: 
     static Facade* instance();
