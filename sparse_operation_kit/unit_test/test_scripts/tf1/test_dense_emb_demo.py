@@ -25,7 +25,7 @@ from dense_models import SOKDemo, TFDemo
 import strategy_wrapper
 import numpy as np
 
-def check_saved_embedding_variables(args, embedding_variable_names):
+def check_saved_embedding_variables(args, embedding_variable_names, use_hashtable=True, gpu_num=None):
     filepath = r"./embedding_variables"
     for i, embedding_variable_name in enumerate(embedding_variable_names):
         sok_keys_filename = os.path.join(filepath, embedding_variable_name + r"_keys.file")
@@ -34,7 +34,8 @@ def check_saved_embedding_variables(args, embedding_variable_names):
         sok_values = utils.read_binary_file(sok_values_filename, element_type="float")
 
         sorted_sok_keys, sorted_sok_values = utils.sort_embedding_variables_by_key(sok_keys, sok_values, 
-                                                        embedding_vec_size=args.embedding_vec_size[i])
+                                                        embedding_vec_size=args.embedding_vec_size[i],
+                                                        use_hashtable=use_hashtable, gpu_num=gpu_num)
 
         tf_values_filename = os.path.join(filepath, r"tf_variable_" + str(i) + r".file")
         tf_values = utils.restore_from_file(tf_values_filename)
@@ -331,7 +332,8 @@ def compare_dense_emb_sok_with_tf(args):
           f" obtained from sok and tf are consistent for {args.iter_num} iterations.")
 
     if args.save_params:
-        check_saved_embedding_variables(args, embedding_variable_name)
+        check_saved_embedding_variables(args, embedding_variable_name, 
+                                        use_hashtable=args.use_hashtable, gpu_num=args.gpu_num)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

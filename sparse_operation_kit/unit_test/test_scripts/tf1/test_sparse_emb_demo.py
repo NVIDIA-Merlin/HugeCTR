@@ -303,7 +303,8 @@ def compare_sparse_emb_sok_with_tf(args):
           f" obtained from sok and tf are consistent for {args.iter_num} iterations.")
 
     if args.save_params:
-        check_saved_embedding_variables(args, variable_names)
+        check_saved_embedding_variables(args, variable_names,
+                                        use_hashtable=args.use_hashtable, gpu_num=args.gpu_num)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

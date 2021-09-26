@@ -240,7 +240,7 @@ def try_make_dirs(directory, chief=True):
     if not os.path.exists(directory) and chief:
         os.makedirs(directory)
 
-def sort_embedding_variables_by_key(keys, embedding_values, embedding_vec_size):
+def sort_embedding_variables_by_key(keys, embedding_values, embedding_vec_size, use_hashtable=True, gpu_num=None):
     """
     This function is used to sort the embedding values by its relavent keys.
     For example, keys: [5, 3, 6, 1], embedding values: [[0, 0, 0, 0],
@@ -265,6 +265,18 @@ def sort_embedding_variables_by_key(keys, embedding_values, embedding_vec_size):
         keys = np.array(keys, dtype=np.int64)
     if not isinstance(embedding_values, np.ndarray):
         embedding_values = np.array(embedding_values, dtype=np.float32)
+
+    if not use_hashtable:
+        vocabulary_size = np.size(keys) // gpu_num
+        embedding_values = np.reshape(embedding_values, newshape=(-1, embedding_vec_size))
+        embedding_values_list = np.split(embedding_values, gpu_num, axis=0)
+        for gpu_id, emb_values in enumerate(embedding_values_list):
+            invalid_keys = np.array([key for key in range(vocabulary_size) if key % gpu_num != gpu_id], dtype=np.int64)
+            emb_values[invalid_keys] = 0
+        valid_embedding_values = np.sum(embedding_values_list, axis=0)
+        return keys[:vocabulary_size], valid_embedding_values
+    else:
+        del gpu_num
 
     sorted_indexes = np.argsort(keys)
     sorted_keys = keys[sorted_indexes]
