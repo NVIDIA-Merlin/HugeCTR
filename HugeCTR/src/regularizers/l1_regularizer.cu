@@ -48,10 +48,10 @@ void L1Regularizer<T>::do_compute_rterm(const float* weight, float* h_rterm, int
 }
 
 template <typename T>
-void L1Regularizer<T>::do_initialize_wgrad(const float* weight, T* wgrad, int num_elements) {
+void L1Regularizer<T>::do_initialize_wgrad(const float* weight, T* wgrad, int num_elements,
+                                           cudaStream_t stream) {
   launch_initialize_wgrad_kernel(weight, wgrad, num_elements, Regularizer<T>::get_batch_size(),
-                                 lambda_, Regularizer<T>::get_gpu().get_sm_count(),
-                                 Regularizer<T>::get_gpu().get_stream());
+                                 lambda_, Regularizer<T>::get_gpu().get_sm_count(), stream);
 }
 
 template class L1Regularizer<__half>;
