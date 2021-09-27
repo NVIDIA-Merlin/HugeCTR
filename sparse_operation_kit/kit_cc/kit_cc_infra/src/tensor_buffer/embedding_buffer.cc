@@ -20,8 +20,11 @@
 namespace SparseOperationKit {
 
 std::shared_ptr<EmbeddingBuffer> EmbeddingBuffer::create(std::shared_ptr<Tensor> tensor) {
-    if (tensor) return std::shared_ptr<EmbeddingBuffer>(new EmbeddingBuffer(tensor));
-    else return std::shared_ptr<EmbeddingBuffer>(new EmbeddingBuffer());
+    auto Deleter = [](EmbeddingBuffer* buf) {
+        // SOK do not delete this object, TF will delete it.
+    };
+    if (tensor) return std::shared_ptr<EmbeddingBuffer>(new EmbeddingBuffer(tensor), Deleter);
+    else return std::shared_ptr<EmbeddingBuffer>(new EmbeddingBuffer(), Deleter);
 }
 
 EmbeddingBuffer::EmbeddingBuffer()
@@ -54,13 +57,7 @@ bool EmbeddingBuffer::GetAllocatedBytes(size_t *out_bytes) const {
 #endif
 
 bool EmbeddingBuffer::OwnsMemory() const {
-#if TF_VERSION_MAJOR == 2
     return true;
-#else
-    // this TensorBuffer does not owns the underlying memory.
-    // so that this TensorBuffer is not responsible for releasing it.
-    return false;
-#endif
 }
 
 
@@ -80,14 +77,8 @@ void EmbeddingBufferBuilder::build_buffer() {
     if (!buffer_) throw std::runtime_error(ErrorBase + "Have not allocate spaces for EmbeddingBuffer");
     
     // Release the old one and Construct a new EmbeddingBuffer in the existed space
-#if TF_VERSION_MAJOR == 1
     buffer_->~EmbeddingBuffer();
     new (buffer_.get()) EmbeddingBuffer(tensor_);
-    buffer_->Ref(); // so that TF and SOK can safely release the EmbeddingBuffer
-#else
-    buffer_->~EmbeddingBuffer();
-    new (buffer_.get()) EmbeddingBuffer(tensor_);
-#endif
 }
 
 tensorflow::TensorBuffer* EmbeddingBufferBuilder::get_init_buffer() {

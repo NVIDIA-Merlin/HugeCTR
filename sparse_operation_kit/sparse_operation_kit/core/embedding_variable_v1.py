@@ -230,9 +230,9 @@ class EmbeddingVariable(BaseResourceVariable):
     def is_initialized(self, name=None):
         raise NotImplementedError("EmbeddingVariable.is_initialized is not implemented")
 
-    # TODO: if TF optimizer need to be used, then leave it for TF implementations.
-    def assign_sub(self, delta, use_locking=None, name=None, read_value=True):
-        return control_flow_ops.group((kit_lib.embedding_variable_assign_sub(self.m_handle, self.tf_handle, delta)))
+    # # TODO: if TF optimizer need to be used, then leave it for TF implementations.
+    # def assign_sub(self, delta, use_locking=None, name=None, read_value=True):
+    #     return control_flow_ops.group((kit_lib.embedding_variable_assign_sub(self.m_handle, self.tf_handle, delta)))
 
     def assign_add(self, delta, use_locking=None, name=None, read_value=True):
         raise NotImplementedError("EmbeddingVariable.assign_add is not implemented.")
