@@ -24,6 +24,7 @@
 #include "tensor_buffer/general_buffer2.hpp"
 #include <memory>
 #include <unordered_map>
+#include <mutex>
 
 namespace SparseOperationKit {
 
@@ -61,6 +62,7 @@ private:
 
     std::shared_ptr<ResourcesManager> resource_mgr_;
 
+    std::mutex mu_;
     std::unordered_map<std::string, std::shared_ptr<ParamInterface>> non_trainable_params_; // store all embedding layers' non-trainable params
     std::unordered_map<std::string, std::shared_ptr<ParamInterface>> trainable_params_; // store all embedding layers' trainable params
     std::unordered_map<std::string, std::shared_ptr<States>> optimizer_states_; // store the optimizer states for all trainable params

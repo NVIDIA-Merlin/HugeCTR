@@ -22,7 +22,7 @@
 namespace SparseOperationKit {
 
 RawManager::RawManager(const std::shared_ptr<ResourcesManager>& resource_mgr) 
-: resized_(false), resource_mgr_(resource_mgr)
+: resized_(false), resource_mgr_(resource_mgr), mu_()
 {
 }
 
@@ -92,10 +92,13 @@ void RawManager::create_variables(const std::string& initializer, const bool use
     } else {
         // create variable
         auto raw_param = RawParam::create(initializer, use_hashtable, shape, resource_mgr_, buffers_, name, trainable);
-        if (trainable) {
-            trainable_params_.emplace(std::make_pair(name, raw_param));
-        } else {
-            non_trainable_params_.emplace(std::make_pair(name, raw_param));
+        {
+            std::lock_guard<std::mutex> lock(mu_);
+            if (trainable) {
+                trainable_params_.emplace(std::make_pair(name, raw_param));
+            } else {
+                non_trainable_params_.emplace(std::make_pair(name, raw_param));
+            }
         }
         // update previous state
         previous_param = raw_param;
