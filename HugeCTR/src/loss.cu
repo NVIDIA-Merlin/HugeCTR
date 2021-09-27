@@ -105,7 +105,11 @@ void Loss<T>::compute(bool is_train, long long current_batchsize) {
   }
 
   if (is_train) {
-    regularizer_->initialize_wgrad();
+    if (regularizer_->get_overlapped()) {
+      regularizer_->join_initialize_wgrad();
+    } else {
+      regularizer_->initialize_wgrad();
+    }
   }
   PROFILE_RECORD("compute.stop", get_gpu().get_stream());
 
@@ -113,6 +117,13 @@ void Loss<T>::compute(bool is_train, long long current_batchsize) {
   CK_CUDA_THROW_(cudaDeviceSynchronize());
   CK_CUDA_THROW_(cudaGetLastError());
 #endif
+}
+
+template <typename T>
+void Loss<T>::initialize_wgrad_async() {
+  if (regularizer_->get_overlapped()) {
+	regularizer_->initialize_wgrad_async();
+  }
 }
 
 template <typename T>
