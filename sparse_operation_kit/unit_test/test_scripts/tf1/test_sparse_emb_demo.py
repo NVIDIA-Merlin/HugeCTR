@@ -18,6 +18,7 @@ import argparse
 import sys, os
 sys.path.append(os.path.abspath(os.path.join(
         os.path.dirname(os.path.abspath(__file__)), "../../../")))
+# os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 import sparse_operation_kit as sok
 import tensorflow as tf
 import utils

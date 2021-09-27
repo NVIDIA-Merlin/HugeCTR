@@ -22,7 +22,7 @@
 namespace SparseOperationKit {
 
 RawManager::RawManager(const std::shared_ptr<ResourcesManager>& resource_mgr) 
-: resized_(false), resource_mgr_(resource_mgr), mu_()
+: resized_(false), resource_mgr_(resource_mgr), mu_(), cond_()
 {
 }
 
@@ -90,16 +90,29 @@ void RawManager::create_variables(const std::string& initializer, const bool use
         // return the previous param
         param = previous_param;
     } else {
-        // create variable
-        auto raw_param = RawParam::create(initializer, use_hashtable, shape, resource_mgr_, buffers_, name, trainable);
-        {
-            std::lock_guard<std::mutex> lock(mu_);
+        std::shared_ptr<RawParam> raw_param{nullptr};
+        {   // begin write
+            num_writers_waiting_ += 1;
+            std::unique_lock<std::mutex> lock(mu_);
+            // wait until no active writer
+            cond_.wait(lock, [this]{ return !writer_active_.load(); });
+            num_writers_waiting_ -= 1;
+            writer_active_.store(true);
+
+            // create variable
+            raw_param = RawParam::create(initializer, use_hashtable, shape, resource_mgr_, 
+                                        buffers_, name, trainable);
             if (trainable) {
                 trainable_params_.emplace(std::make_pair(name, raw_param));
             } else {
                 non_trainable_params_.emplace(std::make_pair(name, raw_param));
             }
+
+            // end write
+            writer_active_.store(false);
+            cond_.notify_all();
         }
+
         // update previous state
         previous_param = raw_param;
         previous_shape = shape;
@@ -111,12 +124,18 @@ void RawManager::create_variables(const std::string& initializer, const bool use
     MESSAGE("Created embedding variable whose name is " + name);
 }
 
-void RawManager::allocate_memory(const size_t global_replica_id) const {
+void RawManager::allocate_memory(const size_t global_replica_id) {
     const size_t local_replica_id = global_replica_id % resource_mgr_->get_local_gpu_count();
     if (local_replica_id >= buffers_.size()) 
         throw std::runtime_error(ErrorBase + "The local_replica_id is out of the range of buffers.size().");
 
     if (buffers_[local_replica_id]->allocated()) return; // memory has already been allocated. 
+
+    {   // begin read
+        std::unique_lock<std::mutex> lock(mu_);
+        // wait until no waiting writers and no active writers
+        cond_.wait(lock, [this]{ return (num_writers_waiting_ == 0 && !writer_active_.load()); });
+    }
 
     buffers_[local_replica_id]->allocate();
 

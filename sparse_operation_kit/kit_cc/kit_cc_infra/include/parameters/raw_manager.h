@@ -25,6 +25,8 @@
 #include <memory>
 #include <unordered_map>
 #include <mutex>
+#include <condition_variable>
+#include <atomic>
 
 namespace SparseOperationKit {
 
@@ -37,7 +39,7 @@ public:
     void create_variables(const std::string& initializer, const bool use_hashtable,
                           const std::vector<size_t> shape, const std::string name,
                           const bool trainable, std::shared_ptr<ParamInterface>& param) override;
-    void allocate_memory(const size_t global_replica_id) const override;
+    void allocate_memory(const size_t global_replica_id) override;
     void params_initialization(const size_t global_replica_id) const override;
     void dump_to_file(const std::shared_ptr<ParamInterface>& param,
                       const std::string filepath) override;
@@ -63,6 +65,10 @@ private:
     std::shared_ptr<ResourcesManager> resource_mgr_;
 
     std::mutex mu_;
+    std::condition_variable cond_;
+    std::atomic<int32_t> num_writers_waiting_{0};
+    std::atomic<bool> writer_active_{false};
+
     std::unordered_map<std::string, std::shared_ptr<ParamInterface>> non_trainable_params_; // store all embedding layers' non-trainable params
     std::unordered_map<std::string, std::shared_ptr<ParamInterface>> trainable_params_; // store all embedding layers' trainable params
     std::unordered_map<std::string, std::shared_ptr<States>> optimizer_states_; // store the optimizer states for all trainable params
