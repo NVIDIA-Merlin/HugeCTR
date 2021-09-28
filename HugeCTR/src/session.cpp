@@ -23,6 +23,7 @@
 #include <session.hpp>
 #include <string>
 #include <utils.hpp>
+#include <data_readers/async_reader/data_reader_scheduling.hpp>
 
 // #define DATA_READING_TEST
 
@@ -389,7 +390,7 @@ void Session::train_overlapped() {
       if (!train_graph_.initialized[id]) {
 #endif
         cudaGraph_t graph;
-        CK_CUDA_THROW_(cudaStreamBeginCapture(stream, cudaStreamCaptureModeRelaxed));
+        CK_CUDA_THROW_(cudaStreamBeginCapture(stream, cudaStreamCaptureModeThreadLocal));
         do_it(id, current_batchsize_per_device);
         CK_CUDA_THROW_(cudaStreamEndCapture(stream, &graph));
         CK_CUDA_THROW_(cudaGraphInstantiate(&train_graph_.instance[id], graph, NULL, NULL, 0));
@@ -432,7 +433,7 @@ bool Session::train() {
       train_overlapped();
     } else {
       for (const auto& one_embedding : embeddings_) {
-        one_embedding->forward(true);
+        one_embedding->forward(true, true);
       }
 
       // Network forward / backward
@@ -516,7 +517,7 @@ bool Session::train() {
   return true;
 }
 
-bool Session::eval(int eval_batch) {
+bool Session::eval(bool is_first_batch) {
   try {
     if (evaluate_data_reader_ == nullptr) return true;
 
@@ -532,7 +533,7 @@ bool Session::eval(int eval_batch) {
 
 #ifndef DATA_READING_TEST
     for (const auto& one_embedding : embeddings_) {
-      one_embedding->forward(false, eval_batch);
+      one_embedding->forward(false, true);
     }
 
     if (networks_.size() > 1) {

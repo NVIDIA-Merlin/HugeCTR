@@ -225,6 +225,7 @@ struct HybridEmbeddingParam {
   double max_all_reduce_bandwidth;
   double max_all_to_all_bandwidth;
   double efficiency_bandwidth_ratio;
+  bool use_train_precompute_indices, use_eval_precompute_indices;
   hybrid_embedding::CommunicationType communication_type;
   hybrid_embedding::HybridEmbeddingType hybrid_embedding_type;
 };

@@ -28,6 +28,7 @@
 #include <thread>
 #include <utility>
 #include <utils.hpp>
+#include <graph_wrapper.hpp>
 
 namespace HugeCTR {
 
@@ -320,9 +321,9 @@ class Model {
 
   void set_source(std::string source, std::string eval_source);
 
-  virtual bool train();
+  virtual bool train(bool is_first_batch);
 
-  virtual bool eval(int eval_batch = -1);
+  virtual bool eval (bool is_first_batch);
 
   std::vector<std::pair<std::string, float>> get_eval_metrics();
 
@@ -472,11 +473,8 @@ class Model {
 
   std::shared_ptr<IDataReader> init_data_reader_;
   std::shared_ptr<ExchangeWgrad> exchange_wgrad_;
-  struct HolisticCudaGraph {
-    std::vector<bool> initialized;
-    std::vector<cudaGraphExec_t> instance;
-    std::vector<cudaEvent_t> fork_event;
-  } train_graph_;
+  std::vector<GraphWrapper> train_graphs_;
+  std::vector<cudaEvent_t> fork_events_;
   bool dlrm_bottom_mlp_;
   bool high_level_eval_;
 

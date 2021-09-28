@@ -24,8 +24,8 @@ class ModelPerfExt final : public Model {
                std::shared_ptr<OptParamsPy>& opt_params,
                std::shared_ptr<ModelOversubscriberParams>& mos_params);
   ~ModelPerfExt() override {}
-  bool train() override;
-  bool eval(int eval_batch = -1) override;
+  bool train(bool is_first_batch) override;
+  bool eval (bool is_first_batch) override;
   void fit(int num_epochs, int max_iter, int display, int eval_interval, int snapshot,
            std::string snapshot_prefix) override;
   void add(DenseLayer& dense_layer) override;

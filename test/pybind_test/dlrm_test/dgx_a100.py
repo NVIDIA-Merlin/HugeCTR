@@ -54,7 +54,7 @@ model.add(hugectr.SparseEmbedding(embedding_type = hugectr.Embedding_t.HybridSpa
                             sparse_embedding_name = "sparse_embedding1",
                             bottom_name = "data1",
                             optimizer = optimizer,
-                            hybrid_embedding_param = hugectr.HybridEmbeddingParam(2, -1, 0.01, 1.3e11, 1.9e11, 1.0,
+                            hybrid_embedding_param = hugectr.HybridEmbeddingParam(2, -1, 0.01, 1.3e11, 1.9e11, 1.0, True, False,
                                                                                 hugectr.CommunicationType.NVLink_SingleNode,
                                                                                 hugectr.HybridEmbeddingType.Distributed)))
 model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.FusedInnerProduct,

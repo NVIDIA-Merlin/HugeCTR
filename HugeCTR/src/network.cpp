@@ -67,9 +67,9 @@ cudaEvent_t& Network::get_train_events(TrainState_t key) {
 }
 
 template <typename LPtr>
-void Network::prop_layers(const std::vector<LPtr>& layers, Network::GraphWrapper& graph,
+void Network::prop_layers(const std::vector<LPtr>& layers, GraphWrapper& graph,
                           bool use_graph, bool fprop, const cudaStream_t stream, bool train) {
-  auto execute = [&layers, train](bool fprop) {
+  auto execute = [&layers, train, fprop](cudaStream_t submit_stream) {
     if (fprop) {
       for (auto& layer : layers) {
         layer->fprop(train);
@@ -82,7 +82,7 @@ void Network::prop_layers(const std::vector<LPtr>& layers, Network::GraphWrapper
   };
 
   if (!use_graph) {
-    execute(fprop);
+    execute(stream);
     return;
   }
 
@@ -95,12 +95,10 @@ void Network::prop_layers(const std::vector<LPtr>& layers, Network::GraphWrapper
 #endif
 
   if (do_capture) {
-    CK_CUDA_THROW_(cudaStreamBeginCapture(stream, cudaStreamCaptureModeRelaxed));
-    execute(fprop);
-    CK_CUDA_THROW_(cudaStreamEndCapture(stream, &graph.graph));
-    CK_CUDA_THROW_(cudaGraphInstantiate(&graph.graph_exec, graph.graph, NULL, NULL, 0));
+    graph.initialized = false;
+    graph.capture(execute, stream);
   }
-  CK_CUDA_THROW_(cudaGraphLaunch(graph.graph_exec, stream));
+  graph.exec(stream);
 }
 
 void Network::train(long long current_batchsize) {

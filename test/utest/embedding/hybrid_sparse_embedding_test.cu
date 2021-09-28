@@ -88,7 +88,7 @@ void hybrid_sparse_embedding_construct(const std::vector<int> &device_list, size
   OptHyperParams hyper_params;
   hyper_params.sgd.atomic_update = true;
   const OptParams opt_params = {optimizer, lr, hyper_params, update_type, scaler};
-  const HybridSparseEmbeddingParams<TypeFP> embedding_params = {
+  const HybridSparseEmbeddingParams embedding_params = {
       train_batch_size,
       evaluate_batch_size,
       num_iterations_statistics,
@@ -100,6 +100,7 @@ void hybrid_sparse_embedding_construct(const std::vector<int> &device_list, size
       communication_type,
       max_all_reduce_bandwidth,
       max_all_to_all_bandwidth,
+      false,
       hybrid_embedding_type,
       opt_params};
 

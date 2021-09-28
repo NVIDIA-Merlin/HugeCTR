@@ -18,6 +18,7 @@ class AsyncReaderImpl {
                   bool shuffle = false, bool wait_for_gpu_idle = false);
 
   bool is_currently_loading();
+  size_t get_num_buffers();
   void load_async();
   void reset();
   BatchDesc get_batch();
