@@ -88,7 +88,7 @@ void reader_adapter_test(std::vector<int> device_list, size_t batch_size, int nu
   }
 
   std::vector<DataReaderSparseParam> params{
-      DataReaderSparseParam("dummy", std::vector<int>(), true, sparse_dim)};
+      DataReaderSparseParam("dummy", std::vector<int>(sparse_dim, 1), true, sparse_dim)};
   AsyncReader<dtype> data_reader(fname, batch_size, label_dim, dense_dim, params, true,
                                  resource_manager, num_threads, batches_per_thread, 512000, 2, 512);
 

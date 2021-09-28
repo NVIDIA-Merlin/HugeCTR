@@ -56,7 +56,7 @@ class Session {
    * The all in one evaluation method.
    * This method processes one forward of evaluation.
    */
-  bool eval(int eval_batch = -1);
+  bool eval(bool is_first_batch = true);
 
   std::vector<std::pair<std::string, float>> get_eval_metrics();
 

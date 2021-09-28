@@ -231,7 +231,7 @@ class LocalizedSlotSparseEmbeddingHash : public IEmbedding {
   /**
    * The forward propagation of embedding layer.
    */
-  void forward(bool is_train, int eval_batch = -1) override {
+  void forward(bool is_train, bool is_first_batch = true) override {
 #pragma omp parallel num_threads(embedding_data_.get_resource_manager().get_local_gpu_count())
     {
       size_t i = omp_get_thread_num();

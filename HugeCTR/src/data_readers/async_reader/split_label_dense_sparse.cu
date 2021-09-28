@@ -8,7 +8,7 @@ template <typename DenseType, typename SparseType>
 __global__ void split_kernel_3_way(int batch_size, float* label_ptr, int label_dim,
                                    DenseType* dense_ptr, int dense_dim, int dense_dim_no_align,
                                    int* sparse_ptr, int sparse_dim, const int* label_dense_sparse,
-                                   int sample_size_int) {
+                                   int sample_size_int, size_t local_idx_start, size_t local_idx_end) {
   int idx = blockDim.x * blockIdx.x + threadIdx.x;
 
   if (idx < batch_size * sample_size_int) {
@@ -18,12 +18,16 @@ __global__ void split_kernel_3_way(int batch_size, float* label_ptr, int label_d
     if (in_col < label_dim) {
       const int out_col = in_col;
       int label = label_dense_sparse[idx];
-      label_ptr[out_row * label_dim + out_col] = label;
+      if (local_idx_start <= out_row && out_row < local_idx_end) {
+        label_ptr[(out_row - local_idx_start) * label_dim + out_col] = label;
+      }
     } else if (in_col < label_dim + dense_dim_no_align) {
       const int out_col = in_col - label_dim;
       int dense = label_dense_sparse[idx];
-      dense_ptr[out_row * dense_dim + out_col] =
-          logf(dense + 1.f);  // TODO : FIXME move to data preprocessing
+      if (local_idx_start <= out_row && out_row < local_idx_end) {
+        dense_ptr[(out_row - local_idx_start) * dense_dim + out_col] =
+            logf(dense + 1.f);  // TODO : FIXME move to data preprocessing
+      }
     } else {
       const int out_col = in_col - label_dim - dense_dim_no_align;
       sparse_ptr[out_row * sparse_dim + out_col] = label_dense_sparse[idx];
@@ -37,7 +41,8 @@ __global__ void split_kernel_3_way_read4_write4(int batch_size, float* label_ptr
                                                 DenseType* dense_ptr, int dense_dim,
                                                 int dense_dim_no_align, int* sparse_ptr,
                                                 int sparse_dim, const int* label_dense_sparse,
-                                                int sample_size_int) {
+                                                int sample_size_int,
+                                                size_t local_idx4_start, size_t local_idx4_end) {
   using DenseType4 = typename std::conditional<(sizeof(DenseType) == 4), int4, int2>::type;
   extern __shared__ int label_dense_sparse_s[];
   constexpr int vec_size = sizeof(int4) / sizeof(int);
@@ -108,12 +113,18 @@ __global__ void split_kernel_3_way_read4_write4(int batch_size, float* label_ptr
 
   if (warp_id == 0) {
     for (int id = lane_id; id < label_dim * my_cta_samples / vec_size; id += warpSize) {
-      label_align4[id + blockIdx.x * label_size_int4_per_cta] = label_s_align4[id];
+      size_t local_idx4 = id + blockIdx.x * label_size_int4_per_cta;
+      if (label_dim*local_idx4_start <= local_idx4 && local_idx4 < label_dim*local_idx4_end) {
+        label_align4[local_idx4 - label_dim*local_idx4_start] = label_s_align4[id];
+      }
     }
   }
   if (warp_id == 1) {
     for (int id = lane_id; id < dense_dim * my_cta_samples / vec_size; id += warpSize) {
-      dense_align4[id + blockIdx.x * dense_size_int4_per_cta] = dense_s_align4[id];
+      size_t local_idx4 = id + blockIdx.x * dense_size_int4_per_cta;
+      if (dense_dim*local_idx4_start <= local_idx4 && local_idx4 < dense_dim*local_idx4_end) {
+        dense_align4[local_idx4 - dense_dim*local_idx4_start] = dense_s_align4[id];
+      }
     }
   }
   if (warp_id == 2) {
@@ -124,16 +135,17 @@ __global__ void split_kernel_3_way_read4_write4(int batch_size, float* label_ptr
 }
 
 template <typename DenseType, typename SparseType>
-void split_3_way(Tensor2<float> label_tensor, Tensor2<DenseType> dense_tensor,
+void split_3_way(Tensor2<float> label_tensor_per_dev, Tensor2<DenseType> dense_tensor_per_dev,
                  Tensor2<SparseType> sparse_tensor, Tensor2<int> label_dense_sparse_buffer,
+                 size_t local_idx_start, size_t local_idx_end,
                  cudaStream_t stream) {
   if (label_dense_sparse_buffer.get_num_elements() > 0) {
-    assert(label_tensor.get_dimensions()[0] == dense_tensor.get_dimensions()[0]);
-    assert(label_tensor.get_dimensions()[0] == sparse_tensor.get_dimensions()[0]);
+    assert(label_tensor_per_dev.get_dimensions()[0] == dense_tensor_per_dev.get_dimensions()[0]);
+    assert(label_tensor_per_dev.get_dimensions()[0] == local_idx_end - local_idx_start);
 
     const int batch_size = label_dense_sparse_buffer.get_dimensions()[0];
-    const int label_dim = label_tensor.get_dimensions()[1];
-    const int dense_dim = dense_tensor.get_dimensions()[1];
+    const int label_dim = label_tensor_per_dev.get_dimensions()[1];
+    const int dense_dim = dense_tensor_per_dev.get_dimensions()[1];
     const int sparse_dim = sparse_tensor.get_dimensions()[1];
     const int sample_size_int = label_dense_sparse_buffer.get_dimensions()[1];
 
@@ -144,44 +156,53 @@ void split_3_way(Tensor2<float> label_tensor, Tensor2<DenseType> dense_tensor,
 
     int vec_width = sizeof(int4) / sizeof(int);
     if (batch_size % vec_width == 0 &&
+        local_idx_start % vec_width == 0 && local_idx_end % vec_width == 0 &&
         samples_per_cta * sample_size_int * sizeof(int) <= 24 * 1024) {
       const int grid_dim = (batch_size + samples_per_cta - 1) / samples_per_cta;
       const int shmem = 2 * samples_per_cta * (label_dim + dense_dim + sparse_dim) * sizeof(int);
 
       split_kernel_3_way_read4_write4<samples_per_cta, DenseType, SparseType>
           <<<grid_dim, block_dim, shmem, stream>>>(
-              batch_size, label_tensor.get_ptr(), label_dim, dense_tensor.get_ptr(), dense_dim,
+              batch_size, label_tensor_per_dev.get_ptr(), label_dim, dense_tensor_per_dev.get_ptr(), dense_dim,
               dense_dim_no_align, reinterpret_cast<int*>(sparse_tensor.get_ptr()), sparse_dim,
-              label_dense_sparse_buffer.get_ptr(), sample_size_int);
+              label_dense_sparse_buffer.get_ptr(), sample_size_int,
+              local_idx_start / vec_width, local_idx_end / vec_width);
     } else {
       const int grid_dim = (label_dense_sparse_buffer.get_num_elements() - 1) / block_dim + 1;
       split_kernel_3_way<DenseType, SparseType><<<grid_dim, block_dim, 0, stream>>>(
-          batch_size, label_tensor.get_ptr(), label_dim, dense_tensor.get_ptr(), dense_dim,
+          batch_size, label_tensor_per_dev.get_ptr(), label_dim, dense_tensor_per_dev.get_ptr(), dense_dim,
           dense_dim_no_align, reinterpret_cast<int*>(sparse_tensor.get_ptr()), sparse_dim,
-          label_dense_sparse_buffer.get_ptr(), sample_size_int);
+          label_dense_sparse_buffer.get_ptr(), sample_size_int, local_idx_start, local_idx_end);
     }
+
+    CK_CUDA_THROW_(cudaPeekAtLastError());
   }
 }
 
-template void split_3_way<float, uint32_t>(Tensor2<float> label_tensor, Tensor2<float> dense_tensor,
-                                           Tensor2<uint32_t> sparse_tensor,
-                                           Tensor2<int> label_dense_sparse_buffer,
-                                           cudaStream_t stream);
-template void split_3_way<__half, uint32_t>(Tensor2<float> label_tensor,
-                                            Tensor2<__half> dense_tensor,
-                                            Tensor2<uint32_t> sparse_tensor,
-                                            Tensor2<int> label_dense_sparse_buffer,
-                                            cudaStream_t stream);
+template void split_3_way<float, uint32_t  >(Tensor2<float> label_tensor_per_dev,
+                                             Tensor2<float> dense_tensor_per_dev,
+                                             Tensor2<uint32_t> sparse_tensor,
+                                             Tensor2<int> label_dense_sparse_buffer,
+                                             size_t local_idx_start, size_t local_idx_end,
+                                             cudaStream_t stream);
+template void split_3_way<__half, uint32_t >(Tensor2<float> label_tensor_per_dev,
+                                             Tensor2<__half> dense_tensor_per_dev,
+                                             Tensor2<uint32_t> sparse_tensor,
+                                             Tensor2<int> label_dense_sparse_buffer,
+                                             size_t local_idx_start, size_t local_idx_end,
+                                             cudaStream_t stream);
 
-template void split_3_way<float, long long>(Tensor2<float> label_tensor,
-                                            Tensor2<float> dense_tensor,
-                                            Tensor2<long long> sparse_tensor,
-                                            Tensor2<int> label_dense_sparse_buffer,
-                                            cudaStream_t stream);
-template void split_3_way<__half, long long>(Tensor2<float> label_tensor,
-                                             Tensor2<__half> dense_tensor,
+template void split_3_way<float, long long >(Tensor2<float> label_tensor_per_dev,
+                                             Tensor2<float> dense_tensor_per_dev,
                                              Tensor2<long long> sparse_tensor,
                                              Tensor2<int> label_dense_sparse_buffer,
+                                             size_t local_idx_start, size_t local_idx_end,
+                                             cudaStream_t stream);
+template void split_3_way<__half, long long>(Tensor2<float> label_tensor_per_dev,
+                                             Tensor2<__half> dense_tensor_per_dev,
+                                             Tensor2<long long> sparse_tensor,
+                                             Tensor2<int> label_dense_sparse_buffer,
+                                             size_t local_idx_start, size_t local_idx_end,
                                              cudaStream_t stream);
 
 }  // namespace HugeCTR

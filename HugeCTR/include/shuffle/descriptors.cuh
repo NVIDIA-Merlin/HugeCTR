@@ -41,40 +41,29 @@ struct CopyDetails {
   bool do_copy[NumDests];
 };
 
-template <typename SrcType, typename DstType, int NumDests, typename LambdaType,
-          typename NumElemType>
+template <typename SrcType, typename DstType, int NumDests,
+          typename LambdaNumElemType, typename LambdaDetailsType>
 struct OneToOne {
   using SrcT = SrcType;
   using DstT = DstType;
   static constexpr int ndests = NumDests;
 
-  template <typename T = NumElemType>
-  __device__ __forceinline__ typename std::enable_if<std::is_pointer<T>::value, size_t>::type
-  src_buf_size() {
-    return static_cast<size_t>(*num_elems_);
-  }
-  template <typename T = NumElemType>
-  __device__ __forceinline__ typename std::enable_if<!std::is_pointer<T>::value, size_t>::type
-  src_buf_size() {
-    return static_cast<size_t>(num_elems_);
-  }
-
   __host__ __device__ __forceinline__ int num_dimensions() { return num_dimensions_; }
-
+  __device__ __forceinline__ size_t src_buf_size() { return get_num_elems_(); }
   __device__ __forceinline__ CopyDetails<SrcT, DstT, NumDests> get_details(size_t id) {
     return get_details_(id);
   }
 
-  NumElemType num_elems_;
   uint32_t num_dimensions_;
-  LambdaType get_details_;
+  LambdaNumElemType get_num_elems_;
+  LambdaDetailsType get_details_;
 };
 
-template <typename SrcType, typename DstType, int NumDests, typename LambdaType,
-          typename NumElemType>
-OneToOne<SrcType, DstType, NumDests, LambdaType, NumElemType> make_OneToOne(
-    NumElemType num_elems, uint32_t num_dimensions, LambdaType get_details) {
-  return {num_elems, num_dimensions, get_details};
+template <typename SrcType, typename DstType, int NumDests,
+          typename LambdaNumElemType, typename LambdaDetailsType>
+OneToOne<SrcType, DstType, NumDests, LambdaNumElemType, LambdaDetailsType> make_OneToOne(
+    uint32_t num_dimensions, LambdaNumElemType get_num_elems, LambdaDetailsType get_details) {
+  return {num_dimensions, get_num_elems, get_details};
 }
 
 }  // namespace CopyDescriptors

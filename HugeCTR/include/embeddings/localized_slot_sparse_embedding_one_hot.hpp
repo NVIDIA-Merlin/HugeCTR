@@ -195,7 +195,7 @@ class LocalizedSlotSparseEmbeddingOneHot : public IEmbedding {
   /**
    * The forward propagation of embedding layer.
    */
-  void forward(bool is_train, int eval_batch = -1) override {
+  void forward(bool is_train, bool is_first_batch = true) override {
     CudaDeviceContext context;
 
 #pragma omp parallel for num_threads(embedding_data_.get_resource_manager().get_local_gpu_count())

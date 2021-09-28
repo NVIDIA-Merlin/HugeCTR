@@ -20,6 +20,7 @@
 #include <nccl.h>
 
 #include <common.hpp>
+#include <graph_wrapper.hpp>
 #include <exchange_wgrad.hpp>
 #include <fstream>
 #include <functional>
@@ -55,12 +56,6 @@ class Network {
   std::unique_ptr<ILoss> evaluate_loss_;                /**< loss layer */
   std::unique_ptr<Optimizer> optimizer_;                /**< optimizer */
   std::vector<Layer*> top_layers_, bottom_layers_;
-
-  struct GraphWrapper {
-    bool initialized = false;
-    cudaGraph_t graph;
-    cudaGraphExec_t graph_exec;
-  };
 
   Tensor2<float> train_weight_tensor_;
   Tensor2<float> wgrad_tensor_;

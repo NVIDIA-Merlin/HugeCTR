@@ -82,9 +82,10 @@ class InfrequentUpdateTest : public HybridEmbeddingUnitTest<dtype, emtype> {
     /* Infrequent update_model */
     std::vector<std::vector<float>> updated_vectors(this->num_instances);
     for (size_t i = 0; i < this->num_instances; i++) {
+      this->infrequent_embeddings[i].set_current_indices(&this->infrequent_embedding_indices[i], this->stream);
       upload_tensor(cpu_embedding.infrequent_embedding_vectors[i],
                     this->infrequent_embeddings[i].infrequent_embedding_vectors_, this->stream);
-      this->infrequent_embeddings[i].calculate_model_indices(this->stream);
+      this->infrequent_embeddings[i].indices_->calculate_model_indices(this->stream);
       if (single_node) {
         std::vector<const emtype *> gradients_pointers(this->num_instances);
         for (uint32_t network_id = 0; network_id < this->num_instances; network_id++)
@@ -165,6 +166,7 @@ class FrequentUpdateTest : public HybridEmbeddingUnitTest<dtype, emtype> {
     std::vector<std::vector<float>> updated_vectors(this->num_instances);
     std::vector<const emtype *> frequent_partial_gradients_pointers(this->num_instances);
     for (size_t i = 0; i < this->num_instances; i++) {
+      this->frequent_embeddings[i].set_current_indices(&this->frequent_embedding_indices[i], this->stream);
       upload_tensor(cpu_embedding.frequent_embedding_vectors[i],
                     this->frequent_embeddings[i].frequent_embedding_vectors_, this->stream);
       if (single_node) {
@@ -177,10 +179,10 @@ class FrequentUpdateTest : public HybridEmbeddingUnitTest<dtype, emtype> {
     }
     for (size_t i = 0; i < this->num_instances; i++) {
       if (single_node) {
-        this->frequent_embeddings[i].calculate_cache_masks(this->stream);
-        this->frequent_embeddings[i].calculate_network_cache_indices(this->stream);
-        this->frequent_embeddings[i].calculate_model_cache_indices(this->stream);
-        this->frequent_embeddings[i].calculate_frequent_sample_indices(this->stream);
+        this->frequent_embeddings[i].indices_->calculate_cache_masks(this->stream);
+        this->frequent_embeddings[i].indices_->calculate_network_cache_indices(this->stream);
+        this->frequent_embeddings[i].indices_->calculate_model_cache_indices(80, this->stream);
+        this->frequent_embeddings[i].indices_->calculate_frequent_sample_indices(this->stream);
         this->frequent_embeddings[i].local_reduce(gradients[i].get_ptr(), this->stream,
                                                   !single_node);
       } else {
