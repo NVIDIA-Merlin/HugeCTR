@@ -28,6 +28,14 @@ namespace tensorflow {
 using GPUDevice = Eigen::GpuDevice;
 using CPUDevice = Eigen::ThreadPoolDevice; 
 
+#define AlreadyInitializedError(ctx, name)                                                  \
+    do {                                                                                    \
+        (ctx)->SetStatus(errors::Aborted((name), " has already been initialized. ",         \
+                                         "This might be caused by that sess.run(init_op) ", \
+                                         "is called more than once."));                     \
+        return;                                                                             \
+    } while (0) 
+
 template <typename Device>
 class AssignEmbeddingVariableOp : public OpKernel {
 public:
@@ -51,6 +59,11 @@ public:
     }
 
     void Compute(OpKernelContext* ctx) override {
+        if (initialized_.load()) { AlreadyInitializedError(ctx, var_name_); }
+        mutex_lock ml(mu_);
+        // check again to see if another thread has initialized it.
+        if (initialized_.load()) { AlreadyInitializedError(ctx, var_name_); }
+
         const Tensor* initial_value_tensor = nullptr;
         OP_REQUIRES_OK(ctx, ctx->input("initial_value", &initial_value_tensor));
         OP_REQUIRES(ctx, initial_value_tensor->dtype() == DT_STRING, errors::Aborted(
@@ -99,6 +112,9 @@ public:
                                         (*ptr)->is_initialized = true;
                                         return Status::OK();
                                     }));
+
+        // set the flag
+        initialized_.store(true);
     }
 private:
     bool trainable_;
@@ -106,6 +122,8 @@ private:
     std::vector<int64_t> dims_;
     bool use_hashtable_;
     std::string var_name_;
+    mutex mu_;
+    std::atomic<bool> initialized_{false};
 
     void shape_convertor(OpKernelConstruction* ctx) {
         dims_.clear();
