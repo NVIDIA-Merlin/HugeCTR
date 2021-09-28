@@ -47,11 +47,10 @@ public:
             return;
         }
         shape_convertor(ctx);
+        OP_REQUIRES_OK(ctx, ctx->GetAttr("var_name", &var_name_));
     }
 
     void Compute(OpKernelContext* ctx) override {
-        const Tensor* var_name_tensor = nullptr;
-        OP_REQUIRES_OK(ctx, ctx->input("var_name", &var_name_tensor));
         const Tensor* initial_value_tensor = nullptr;
         OP_REQUIRES_OK(ctx, ctx->input("initial_value", &initial_value_tensor));
         OP_REQUIRES(ctx, initial_value_tensor->dtype() == DT_STRING, errors::Aborted(
@@ -60,7 +59,7 @@ public:
         const Tensor* local_replica_id_tensor = nullptr;
         OP_REQUIRES_OK(ctx, ctx->input("local_replica_id", &local_replica_id_tensor));
 
-        std::string variable_name = var_name_tensor->flat<tstring>()(0);
+        std::string variable_name = var_name_;
         // generate unique variable name
         try {
             SparseOperationKit::Facade::instance()->generate_unique_name(trainable_, variable_name);
@@ -69,9 +68,9 @@ public:
                                            "due to ", error.what()));
             return;
         }
-        OP_REQUIRES(ctx, var_name_tensor->flat<tstring>()(0) == variable_name, 
+        OP_REQUIRES(ctx, var_name_ == variable_name, 
                     errors::Aborted(__FILE__, ":", __LINE__, " there already exist ", 
-                    var_name_tensor->flat<tstring>()(0)));
+                    var_name_));
 
         // Create resource for EmbeddingVariable
         core::RefCountPtr<EmbeddingVariable> emb_variable;
@@ -106,6 +105,7 @@ private:
     DtypeAndPartialTensorShape dtype_and_shape_;
     std::vector<int64_t> dims_;
     bool use_hashtable_;
+    std::string var_name_;
 
     void shape_convertor(OpKernelConstruction* ctx) {
         dims_.clear();
@@ -126,7 +126,6 @@ REGISTER_KERNEL_BUILDER(Name("AssignEmbeddingVariable")
                         .Device(DEVICE_GPU)
                         .HostMemory("emb_var_handle")
                         .HostMemory("tf_var_handle")
-                        .HostMemory("var_name")
                         .HostMemory("initial_value")
                         .HostMemory("local_replica_id"),
                         AssignEmbeddingVariableOp<GPUDevice>);
