@@ -289,12 +289,15 @@ __global__ void get_kernel(const key_type* d_keys,
                            const size_t capacity_in_set,
                            const slabset* keys,
                            const float* vals,
-                           mutex* set_mutex){
-  // Lane(thread) global ID
-  const size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
+                           mutex* set_mutex, 
+                           const size_t task_per_warp_tile){
   // Lane(thread) ID within a warp_tile
   cg::thread_block_tile<warp_size> warp_tile = cg::tiled_partition<warp_size>(cg::this_thread_block());
   const size_t lane_idx = warp_tile.thread_rank();
+  // Warp tile global ID
+  const size_t warp_tile_global_idx = (blockIdx.x * (blockDim.x / warp_size)) + warp_tile.meta_group_rank();
+  // The index of key for this thread
+  const size_t key_idx = (warp_tile_global_idx * task_per_warp_tile) + lane_idx;
   // The assigned key for this lane(thread)
   key_type key;
   // The dst slabset and the dst slab inside this set
@@ -308,11 +311,13 @@ __global__ void get_kernel(const key_type* d_keys,
   uint8_t warp_missing_counter = 0;
   // Active flag: whether current lane(thread) has unfinished task
   bool active = false;
-  if( idx < len ){
-    active = true;
-    key = d_keys[idx];
-    src_set = set_hasher::hash(key) % capacity_in_set; 
-    src_slab = slab_hasher::hash(key) % set_associativity;
+  if(lane_idx < task_per_warp_tile){
+    if(key_idx < len){
+      active = true;
+      key = d_keys[key_idx];
+      src_set = set_hasher::hash(key) % capacity_in_set; 
+      src_slab = slab_hasher::hash(key) % set_associativity;
+    }
   }
 
   // Lane participate in warp_tile ballot to produce warp-level work queue
@@ -325,7 +330,7 @@ __global__ void get_kernel(const key_type* d_keys,
     int next_lane = __ffs(active_mask) - 1;
     // Broadcast the task and the global index to all lane in the warp_tile
     key_type next_key = warp_tile.shfl(key, next_lane);
-    size_t next_idx = warp_tile.shfl(idx, next_lane);
+    size_t next_idx = warp_tile.shfl(key_idx, next_lane);
     size_t next_set = warp_tile.shfl(src_set, next_lane);
     size_t next_slab = warp_tile.shfl(src_slab, next_lane);
 
@@ -444,13 +449,15 @@ __global__ void get_kernel(const key_type* d_keys,
                            const size_t capacity_in_set,
                            volatile slabset* keys,
                            volatile float* vals,
-                           volatile int* set_mutex){
-
-  // Lane(thread) global ID
-  const size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
+                           volatile int* set_mutex, 
+                           const size_t task_per_warp_tile){
   // Lane(thread) ID within a warp_tile
   cg::thread_block_tile<warp_size> warp_tile = cg::tiled_partition<warp_size>(cg::this_thread_block());
   const size_t lane_idx = warp_tile.thread_rank();
+  // Warp tile global ID
+  const size_t warp_tile_global_idx = (blockIdx.x * (blockDim.x / warp_size)) + warp_tile.meta_group_rank();
+  // The index of key for this thread
+  const size_t key_idx = (warp_tile_global_idx * task_per_warp_tile) + lane_idx;
   // The assigned key for this lane(thread)
   key_type key;
   // The dst slabset and the dst slab inside this set
@@ -464,11 +471,13 @@ __global__ void get_kernel(const key_type* d_keys,
   uint8_t warp_missing_counter = 0;
   // Active flag: whether current lane(thread) has unfinished task
   bool active = false;
-  if( idx < len ){
-    active = true;
-    key = d_keys[idx];
-    src_set = set_hasher::hash(key) % capacity_in_set; 
-    src_slab = slab_hasher::hash(key) % set_associativity;
+  if(lane_idx < task_per_warp_tile){
+    if(key_idx < len){
+      active = true;
+      key = d_keys[key_idx];
+      src_set = set_hasher::hash(key) % capacity_in_set; 
+      src_slab = slab_hasher::hash(key) % set_associativity;
+    }
   }
 
   // Lane participate in warp_tile ballot to produce warp-level work queue
@@ -481,7 +490,7 @@ __global__ void get_kernel(const key_type* d_keys,
     int next_lane = __ffs(active_mask) - 1;
     // Broadcast the task and the global index to all lane in the warp_tile
     key_type next_key = warp_tile.shfl(key, next_lane);
-    size_t next_idx = warp_tile.shfl(idx, next_lane);
+    size_t next_idx = warp_tile.shfl(key_idx, next_lane);
     size_t next_set = warp_tile.shfl(src_set, next_lane);
     size_t next_slab = warp_tile.shfl(src_slab, next_lane);
 
@@ -602,12 +611,15 @@ __global__ void insert_replace_kernel(const key_type* d_keys,
                                       ref_counter_type* slot_counter,
                                       mutex* set_mutex,
                                       const atomic_ref_counter_type* global_counter,
-                                      const size_t capacity_in_set){
-  // Lane(thread) global ID
-  const size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
+                                      const size_t capacity_in_set, 
+                                      const size_t task_per_warp_tile){
   // Lane(thread) ID within a warp_tile
   cg::thread_block_tile<warp_size> warp_tile = cg::tiled_partition<warp_size>(cg::this_thread_block());
   const size_t lane_idx = warp_tile.thread_rank();
+  // Warp tile global ID
+  const size_t warp_tile_global_idx = (blockIdx.x * (blockDim.x / warp_size)) + warp_tile.meta_group_rank();
+  // The index of key for this thread
+  const size_t key_idx = (warp_tile_global_idx * task_per_warp_tile) + lane_idx;
   // The assigned key for this lane(thread)
   key_type key;
   // The dst slabset and the dst slab inside this set
@@ -615,11 +627,13 @@ __global__ void insert_replace_kernel(const key_type* d_keys,
   size_t src_slab;
   // Active flag: whether current lane(thread) has unfinished task
   bool active = false;
-  if( idx < len ){
-    active = true;
-    key = d_keys[idx];
-    src_set = set_hasher::hash(key) % capacity_in_set; 
-    src_slab = slab_hasher::hash(key) % set_associativity;
+  if(lane_idx < task_per_warp_tile){
+    if(key_idx < len){
+      active = true;
+      key = d_keys[key_idx];
+      src_set = set_hasher::hash(key) % capacity_in_set; 
+      src_slab = slab_hasher::hash(key) % set_associativity;
+    }
   }
 
   // Lane participate in warp_tile ballot to produce warp-level work queue
@@ -632,7 +646,7 @@ __global__ void insert_replace_kernel(const key_type* d_keys,
     int next_lane = __ffs(active_mask) - 1;
     // Broadcast the task, the global index and the src slabset and slab to all lane in a warp_tile
     key_type next_key = warp_tile.shfl(key, next_lane);
-    size_t next_idx = warp_tile.shfl(idx, next_lane);
+    size_t next_idx = warp_tile.shfl(key_idx, next_lane);
     size_t next_set = warp_tile.shfl(src_set, next_lane);
     size_t next_slab = warp_tile.shfl(src_slab, next_lane);
     size_t first_slab = next_slab;
@@ -765,12 +779,15 @@ __global__ void insert_replace_kernel(const key_type* d_keys,
                                       volatile ref_counter_type* slot_counter,
                                       volatile int* set_mutex,
                                       ref_counter_type* global_counter,
-                                      const size_t capacity_in_set){
-  // Lane(thread) global ID
-  const size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
+                                      const size_t capacity_in_set, 
+                                      const size_t task_per_warp_tile){
   // Lane(thread) ID within a warp_tile
   cg::thread_block_tile<warp_size> warp_tile = cg::tiled_partition<warp_size>(cg::this_thread_block());
   const size_t lane_idx = warp_tile.thread_rank();
+  // Warp tile global ID
+  const size_t warp_tile_global_idx = (blockIdx.x * (blockDim.x / warp_size)) + warp_tile.meta_group_rank();
+  // The index of key for this thread
+  const size_t key_idx = (warp_tile_global_idx * task_per_warp_tile) + lane_idx;
   // The assigned key for this lane(thread)
   key_type key;
   // The dst slabset and the dst slab inside this set
@@ -778,11 +795,13 @@ __global__ void insert_replace_kernel(const key_type* d_keys,
   size_t src_slab;
   // Active flag: whether current lane(thread) has unfinished task
   bool active = false;
-  if( idx < len ){
-    active = true;
-    key = d_keys[idx];
-    src_set = set_hasher::hash(key) % capacity_in_set; 
-    src_slab = slab_hasher::hash(key) % set_associativity;
+  if(lane_idx < task_per_warp_tile){
+    if(key_idx < len){
+      active = true;
+      key = d_keys[key_idx];
+      src_set = set_hasher::hash(key) % capacity_in_set; 
+      src_slab = slab_hasher::hash(key) % set_associativity;
+    }
   }
 
   // Lane participate in warp_tile ballot to produce warp-level work queue
@@ -795,7 +814,7 @@ __global__ void insert_replace_kernel(const key_type* d_keys,
     int next_lane = __ffs(active_mask) - 1;
     // Broadcast the task, the global index and the src slabset and slab to all lane in a warp_tile
     key_type next_key = warp_tile.shfl(key, next_lane);
-    size_t next_idx = warp_tile.shfl(idx, next_lane);
+    size_t next_idx = warp_tile.shfl(key_idx, next_lane);
     size_t next_set = warp_tile.shfl(src_set, next_lane);
     size_t next_slab = warp_tile.shfl(src_slab, next_lane);
     size_t first_slab = next_slab;
@@ -1092,7 +1111,8 @@ Query(const key_type* d_keys,
       uint64_t* d_missing_index, 
       key_type* d_missing_keys, 
       size_t* d_missing_len, 
-      cudaStream_t stream){
+      cudaStream_t stream, 
+      const size_t task_per_warp_tile){
 
   // Device Restorer
   nv::CudaDeviceRestorer dev_restorer;
@@ -1112,10 +1132,12 @@ Query(const key_type* d_keys,
 
   // Read from the cache
   // Touch and refresh the hitting slot
+  const size_t keys_per_block = (BLOCK_SIZE_ / warp_size) * task_per_warp_tile;
+  const size_t grid_size = ((len - 1) / keys_per_block) + 1;
   get_kernel<key_type, ref_counter_type, atomic_ref_counter_type, slabset, set_hasher, slab_hasher, mutex, empty_key, set_associativity, warp_size>
-  <<<((len-1)/BLOCK_SIZE_)+1, BLOCK_SIZE_, 0, stream>>>(d_keys, len, d_values, embedding_vec_size_, d_missing_index, 
-                                                        d_missing_keys, d_missing_len, global_counter_, 
-                                                        slot_counter_, capacity_in_set_, keys_, vals_, set_mutex_);
+  <<<grid_size, BLOCK_SIZE_, 0, stream>>>(d_keys, len, d_values, embedding_vec_size_, d_missing_index, 
+                                          d_missing_keys, d_missing_len, global_counter_, 
+                                          slot_counter_, capacity_in_set_, keys_, vals_, set_mutex_, task_per_warp_tile);
 
   // Check for GPU error before return
   CUDA_CHECK(cudaGetLastError());
@@ -1136,7 +1158,8 @@ Query(const key_type* d_keys,
       uint64_t* d_missing_index, 
       key_type* d_missing_keys, 
       size_t* d_missing_len, 
-      cudaStream_t stream){
+      cudaStream_t stream, 
+      const size_t task_per_warp_tile){
 
   // Device Restorer
   nv::CudaDeviceRestorer dev_restorer;
@@ -1156,10 +1179,12 @@ Query(const key_type* d_keys,
 
   // Read from the cache
   // Touch and refresh the hitting slot
+  const size_t keys_per_block = (BLOCK_SIZE_ / warp_size) * task_per_warp_tile;
+  const size_t grid_size = ((len - 1) / keys_per_block) + 1;
   get_kernel<key_type, ref_counter_type, slabset, set_hasher, slab_hasher, empty_key, set_associativity, warp_size>
-  <<<((len-1)/BLOCK_SIZE_)+1, BLOCK_SIZE_, 0, stream>>>(d_keys, len, d_values, embedding_vec_size_, d_missing_index, 
-                                                        d_missing_keys, d_missing_len, global_counter_, 
-                                                        slot_counter_, capacity_in_set_, keys_, vals_, set_mutex_);
+  <<<grid_size, BLOCK_SIZE_, 0, stream>>>(d_keys, len, d_values, embedding_vec_size_, d_missing_index, 
+                                          d_missing_keys, d_missing_len, global_counter_, 
+                                          slot_counter_, capacity_in_set_, keys_, vals_, set_mutex_, task_per_warp_tile);
 
   // Check for GPU error before return
   CUDA_CHECK(cudaGetLastError());
@@ -1179,7 +1204,8 @@ void gpu_cache<key_type, ref_counter_type, empty_key, set_associativity, warp_si
 Replace(const key_type* d_keys, 
         const size_t len, 
         const float* d_values, 
-        cudaStream_t stream){
+        cudaStream_t stream, 
+        const size_t task_per_warp_tile){
   
   // Check if it is a valid replacement
   if(len == 0){
@@ -1193,9 +1219,11 @@ Replace(const key_type* d_keys,
 
   // Try to insert the <k,v> paris into the cache as long as there are unused slot
   // Then replace the <k,v> pairs into the cache
+  const size_t keys_per_block = (BLOCK_SIZE_ / warp_size) * task_per_warp_tile;
+  const size_t grid_size = ((len - 1) / keys_per_block) + 1;
   insert_replace_kernel<key_type, slabset, ref_counter_type, mutex, atomic_ref_counter_type, set_hasher, slab_hasher, empty_key, set_associativity, warp_size>
-  <<<((len-1)/BLOCK_SIZE_)+1, BLOCK_SIZE_, 0, stream>>>
-  (d_keys, d_values, embedding_vec_size_, len, keys_, vals_, slot_counter_, set_mutex_, global_counter_, capacity_in_set_);
+  <<<grid_size, BLOCK_SIZE_, 0, stream>>>
+  (d_keys, d_values, embedding_vec_size_, len, keys_, vals_, slot_counter_, set_mutex_, global_counter_, capacity_in_set_, task_per_warp_tile);
 
   // Check for GPU error before return
   CUDA_CHECK(cudaGetLastError());
@@ -1213,7 +1241,8 @@ void gpu_cache<key_type, ref_counter_type, empty_key, set_associativity, warp_si
 Replace(const key_type* d_keys, 
         const size_t len, 
         const float* d_values, 
-        cudaStream_t stream){
+        cudaStream_t stream, 
+        const size_t task_per_warp_tile){
   
   // Check if it is a valid replacement
   if(len == 0){
@@ -1227,9 +1256,11 @@ Replace(const key_type* d_keys,
 
   // Try to insert the <k,v> paris into the cache as long as there are unused slot
   // Then replace the <k,v> pairs into the cache
+  const size_t keys_per_block = (BLOCK_SIZE_ / warp_size) * task_per_warp_tile;
+  const size_t grid_size = ((len - 1) / keys_per_block) + 1;
   insert_replace_kernel<key_type, slabset, ref_counter_type, set_hasher, slab_hasher, empty_key, set_associativity, warp_size>
-  <<<((len-1)/BLOCK_SIZE_)+1, BLOCK_SIZE_, 0, stream>>>
-  (d_keys, d_values, embedding_vec_size_, len, keys_, vals_, slot_counter_, set_mutex_, global_counter_, capacity_in_set_);
+  <<<grid_size, BLOCK_SIZE_, 0, stream>>>
+  (d_keys, d_values, embedding_vec_size_, len, keys_, vals_, slot_counter_, set_mutex_, global_counter_, capacity_in_set_, task_per_warp_tile);
 
   // Check for GPU error before return
   CUDA_CHECK(cudaGetLastError());
