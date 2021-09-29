@@ -206,6 +206,7 @@ add_subdirectory(third_party/json)
 install(DIRECTORY ${CMAKE_BINARY_DIR}/bin DESTINATION /usr/local/hugectr)
 
 add_subdirectory(gpu_cache/src)
+add_subdirectory(gpu_cache/test)
 option(ENABLE_INFERENCE "Enable Inference" OFF)
 if(ENABLE_INFERENCE)
 set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}    -DENABLE_INFERENCE")
