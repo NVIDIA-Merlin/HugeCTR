@@ -240,9 +240,10 @@ void embedding_cache<TypeHashKey>::look_up(const void* h_embeddingcolumns,
           workspace_handler.h_shuffled_embedding_offset_[i];
       CK_CUDA_THROW_(cudaStreamSynchronize(streams[i]));
       size_t query_length = workspace_handler.h_unique_length_[i];
+      size_t task_per_warp_tile = (query_length < 1000000) ? 1 : 32;
       gpu_emb_caches_[i]->Query(d_query_key_ptr, query_length, d_vals_retrieved_ptr,
                                 d_missing_index_ptr, d_missing_key_ptr,
-                                workspace_handler.d_missing_length_ + i, streams[i]);
+                                workspace_handler.d_missing_length_ + i, streams[i], task_per_warp_tile);
 
       CK_CUDA_THROW_(cudaMemcpyAsync(workspace_handler.h_missing_length_ + i,
                                      workspace_handler.d_missing_length_ + i, sizeof(size_t),
