@@ -24,11 +24,13 @@ os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["NCCL_LAUNCH_MODE"] = "PARALLEL"
 os.environ["TF_GPU_THREAD_MODE"] = "gpu_private"
 os.environ["TF_GPU_THREAD_COUNT"] = "16"
+del os
 
 # ---------- import submodule ----------- #
 import sparse_operation_kit.embeddings
 import sparse_operation_kit.optimizers
 import sparse_operation_kit.core
+import sparse_operation_kit.tf
 
 # ------------ import items into root package -------- #
 from sparse_operation_kit.core.initialize import Init
