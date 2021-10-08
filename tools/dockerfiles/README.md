@@ -41,7 +41,7 @@ docker build -t hugectr:inference -f Dockerfile.inference --build-arg RELEASE=tr
 
 ## Build Container for TensorFlow Plugin
 
-If you want to use the HugeCTR [Sparse Operation Kit (SOK)](https://nvidia.github.io/HugeCTR/sparse_operation_kit/v1.0.0/index.html), please build a container under the current directory by
+If you want to use the HugeCTR [Sparse Operation Kit (SOK)](https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/v1.0.0/index.html), please build a container under the current directory by
 
 * Release mode
   ```
