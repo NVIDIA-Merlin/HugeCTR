@@ -1,4 +1,10 @@
 # Release Notes
+## What's New in Version 3.3_beta
++ **Hybrid-embedding indices pre-computing** - The indices needed for hybrid embedding are pre-computed ahead of time and are overlapped with previous iterations.
++ **Cached evaluation indices** - The hybrid-embedding indices for eval are cached when applicable, hence eliminating the re-computing of the indices at every eval iteration.
++ **MLP weight/data gradients calculation overlap** - The weight gradients of MLP are calculated asynchronously with respect to the data gradients, enabling overlap between these two computations.
++ **Better compute-communication overlap** - Better overlap between compute and communication has been enabled to improve training throughput.
++ **Fused weight conversion** - The FP32-to-FP16 conversion of the weights are now fused into the SGD optimizer, saving trips to memory.
 
 ## What's New in Version 3.1
 MLPerf v1.0 DLRM benchmark 
