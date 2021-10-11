@@ -66,7 +66,7 @@ HugeCTR is included in the Merlin Docker container, which is available in the [N
 
 You can pull and launch the container by running the following command:
 ```shell
-$ docker run --gpus=all --rm -it --cap-add SYS_NICE nvcr.io/nvidia/merlin/merlin-training:0.7  # Start interaction mode
+$ docker run --gpus=all --rm -it --cap-add SYS_NICE nvcr.io/nvidia/merlin/merlin-training:21.09  # Start interaction mode
 ```  
 
 ### Building HugeCTR from Scratch
