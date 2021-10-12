@@ -18,7 +18,7 @@
 
 + **New HugeCTR Contributor Guide**: We've added a new [HugeCTR Contributor Guide](docs/hugectr_contributor_guide.md) that explains how to contribute to HugeCTR, which may involve reporting and fixing a bug, introducing a new feature, or implementing a new or pending feature.
 
-+ **Enhancements to Sparse Operation Kits (SOK)**: SOK now supports TensorFlow 2.5 and 2.6. We also added support for identity hashing, dynamic input, and Horovod within SOK. Lastly, we added a new [SOK docs set](https://nvidia.github.io/HugeCTR/sparse_operation_kit/v1.0.0/index.html) to help you get started with SOK.
++ **Enhancements to Sparse Operation Kits (SOK)**: SOK now supports TensorFlow 2.5 and 2.6. We also added support for identity hashing, dynamic input, and Horovod within SOK. Lastly, we added a new [SOK docs set](https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/v1.0.0/index.html) to help you get started with SOK.
 
 + **Supporting Arbitrary Number of Inputs in Concat Layer and Slice Layer**: The Concat and Slice layers now support any number of input and output tensors, respectively. Previously, these layers would be limited to a maximum of 4 tensors.
 

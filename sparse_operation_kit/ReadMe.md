@@ -18,7 +18,7 @@ Due to SOK is compatible with DP training provided by common synchronized traini
 There are several ways to install this package. <br>
 
 ### *Install this module along with HugeCTR* ###
-In the docker image: `nvcr.io/nvidia/merlin/merlin-tensorflow-training:0.7`, SparseOpeationKit is already installed, and you can directrly import this module via:
+In the docker image: `nvcr.io/nvidia/merlin/merlin-tensorflow-training:21.09`, SparseOpeationKit is already installed, and you can directrly import this module via:
 ```python
 import sparse_opeation_kit as sok
 ```
@@ -40,4 +40,4 @@ $ bash install.sh --SM=[Compute Capability] --USE_NVTX=[OFF/ON]
 Where `[Compute Capability]` is related to your GPU hardware. For example, for Ampere A100, the compute capability is `80`. If you want to profiling this module with `nvtx`, you can enable nvtx marks via setting `-DUSE_NVTX=ON`, by default, it is `OFF`.
 
 ## Documents ##
-Want to find more about SparseOperationKit, see our [SparseOperationKit documents](https://nvidia.github.io/HugeCTR/sparse_operation_kit/v1.0.1/index.html).
+Want to find more about SparseOperationKit, see our [SparseOperationKit documents](https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/v1.0.1/index.html).
