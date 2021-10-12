@@ -31,6 +31,7 @@ import sparse_operation_kit.embeddings
 import sparse_operation_kit.optimizers
 import sparse_operation_kit.core
 import sparse_operation_kit.tf
+import sparse_operation_kit.operations
 
 # ------------ import items into root package -------- #
 from sparse_operation_kit.core.initialize import Init

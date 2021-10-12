@@ -329,7 +329,7 @@ if __name__ == "__main__":
     parser.add_argument("--global_batch_size", type=int, required=False,
                         default=16)
     parser.add_argument("--optimizer", type=str, required=False, 
-                        default="adam", choices=["plugin_adam", "adam", "sgd"])
+                        default="adam", choices=["plugin_adam", "adam", "sgd", "compat_adam"])
     parser.add_argument("--generate_new_datas", type=int, choices=[0, 1],
                         required=False, default=1)
     parser.add_argument("--save_params", type=int, choices=[0, 1],

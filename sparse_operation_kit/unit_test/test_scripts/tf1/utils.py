@@ -103,6 +103,8 @@ def get_embedding_optimizer(optimizer_type):
         return tf.keras.optimizers.Adam
     elif optimizer_type == 'sgd':
         return tf.keras.optimizers.SGD
+    elif optimizer_type == "compat_adam":
+        return sok.tf.keras.optimizers.Adam
     else:
         raise ValueError("Not supported optimizer_type: %s" %optimizer_type)
 
@@ -115,6 +117,8 @@ def get_dense_optimizer(optimizer_type):
         return tf.keras.optimizers.Adam
     elif optimizer_type == 'sgd':
         return tf.keras.optimizers.SGD
+    elif optimizer_type == "compat_adam":
+        return tf.keras.optimizers.Adam
     else:
         raise ValueError("Not supported optimizer_type: %s" %optimizer_type)
 

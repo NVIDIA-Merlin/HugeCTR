@@ -14,6 +14,7 @@
  limitations under the License.
 """
 
+from .common import _deduplicate_indexed_slices
 import tensorflow.keras.optimizers as keras_optimizers
 
 class Adam(keras_optimizers.Adam):
@@ -22,4 +23,7 @@ class Adam(keras_optimizers.Adam):
 
     def _resource_apply_sparse_duplicate_indices(self, grad, handle, indices,
                                                **kwargs):
-        raise NotImplementedError("_resource_apply_sparse_duplicate_indices is not implemented.")
+        summed_grad, unique_indices = _deduplicate_indexed_slices(
+            values=grad, indices=indices)
+        return self._resource_apply_sparse(summed_grad, handle, unique_indices,
+                                           **kwargs)
