@@ -143,8 +143,8 @@ This feature currently supports both single-node and multi-node training. It sup
 <div align=center><img width="520" height="153" src="user_guide_src/dataset_split.png"/></div>
 <div align=center>Fig. 7: Preprocessing of dataset for model oversubscription</div>
 
-### ONNX Converter ###
-The  Open Neural Network Exchange (ONNX) Converter is a `hugectr2onnx` python package that can convert HugeCTR models to ONNX. It can improve the compatibility of HugeCTR with other deep learning frameworks given that Open Neural Network Exchange (ONNX) serves as an open-source format for AI models.
+### HugeCTR to ONNX Converter ###
+The HugeCTR to Open Neural Network Exchange (ONNX) converter is a `hugectr2onnx` python package that can convert HugeCTR models to ONNX. It can improve the compatibility of HugeCTR with other deep learning frameworks since ONNX serves as an open-source format for AI models.
 
 After training with our HugeCTR Python APIs, you can get the files for dense models, sparse models, and graph configurations, which are required as inputs when using the `hugectr2onnx.converter.convert` method. Each HugeCTR layer will correspond to one or several ONNX operators, and the trained model weights will be loaded as initializers in the ONNX graph. Additionally, you can choose to convert the sparse embedding layers using the `convert_embedding` flag. For more information, refer to [ONNX Converter](../onnx_converter) and [hugectr2onnx_demo.ipynb](../notebooks/hugectr2onnx_demo.ipynb).
 
