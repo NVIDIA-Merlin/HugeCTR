@@ -179,3 +179,6 @@ set_target_properties(sparse_operation_kit PROPERTIES CUDA_ARCHITECTURES OFF)
 
 # compile ops for unit test
 add_subdirectory(unit_test)
+
+# compile compat ops
+add_subdirectory(kit_cc_impl/operations)
