@@ -25,3 +25,8 @@ sok.tf.unique is equal to tf.unique in TF 2.5.
 """
 __all__ = ["keras"]
 from . import *
+
+from sparse_operation_kit.operations import unique
+from sparse_operation_kit.operations import unsorted_segment_sum
+
+__all__ += [item for item in dir() if not item.startswith("__")]

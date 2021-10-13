@@ -31,7 +31,6 @@ import sparse_operation_kit.embeddings
 import sparse_operation_kit.optimizers
 import sparse_operation_kit.core
 import sparse_operation_kit.tf
-import sparse_operation_kit.operations
 
 # ------------ import items into root package -------- #
 from sparse_operation_kit.core.initialize import Init
@@ -41,3 +40,5 @@ from sparse_operation_kit.embeddings.all2all_dense_embedding import All2AllDense
 from sparse_operation_kit.saver.Saver import Saver
 from sparse_operation_kit.optimizers.utils import split_embedding_variable_from_others
 from sparse_operation_kit.core.embedding_layer_handle import GraphKeys
+
+__all__ = [item for item in dir() if not item.startswith("__")]
