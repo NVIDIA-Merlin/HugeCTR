@@ -83,7 +83,7 @@ In addition to single-node and full precision training, HugeCTR supports a varie
 * [Mixed Precision Training](#mixed-precision-training)
 * [SGD Optimizer and Learning Rate Scheduling](#sgd-optimizer-and-learning-rate-scheduling)
 * [Embedding Training Cache](#embedding-training-cache)
-* [ONNX Converter](#onnx-converter)
+* [HugeCTR to ONNX Converter](#hugectr-to-onnx-converter)
 * [Hierarchical Parameter Server](#hierarchical-parameter-server)
 
 **NOTE**: Multi-node training and mixed precision training can be used simultaneously.
@@ -144,9 +144,9 @@ This feature currently supports both single-node and multi-node training. It sup
 <div align=center>Fig. 7: Preprocessing of dataset for model oversubscription</div>
 
 ### HugeCTR to ONNX Converter ###
-The HugeCTR to Open Neural Network Exchange (ONNX) converter is a `hugectr2onnx` python package that can convert HugeCTR models to ONNX. It can improve the compatibility of HugeCTR with other deep learning frameworks since ONNX serves as an open-source format for AI models.
+The HugeCTR to Open Neural Network Exchange (ONNX) converter (hugectr2onnx) is a python package that can convert HugeCTR models to ONNX. It can improve the compatibility of HugeCTR with other deep learning frameworks since ONNX serves as an open-source format for AI models.
 
-After training with our HugeCTR Python APIs, you can get the files for dense models, sparse models, and graph configurations, which are required as inputs when using the `hugectr2onnx.converter.convert` method. Each HugeCTR layer will correspond to one or several ONNX operators, and the trained model weights will be loaded as initializers in the ONNX graph. Additionally, you can choose to convert the sparse embedding layers using the `convert_embedding` flag. For more information, refer to [ONNX Converter](../onnx_converter) and [hugectr2onnx_demo.ipynb](../notebooks/hugectr2onnx_demo.ipynb).
+After training with our HugeCTR Python APIs, you can get the files for dense models, sparse models, and graph configurations, which are required as inputs when using the `hugectr2onnx.converter.convert` API. Each HugeCTR layer will correspond to one or several ONNX operators, and the trained model weights will be loaded as initializers in the ONNX graph. You also have the ability to convert dense and sparse models or only dense models. For more information, refer to [ONNX Converter](../onnx_converter) and [hugectr2onnx_demo.ipynb](../notebooks/hugectr2onnx_demo.ipynb).
 
 ### Hierarchical Parameter Server ###
 A hierarchical storage mechanism has been implemented between the local SSDs and CPU memory on the HugeCTR Hierarchical Parameter Server (POC). With this implementation, the embedding table no longer has to be stored within the local CPU memory. The distributed Redis cluster has been added as a CPU cache to store larger embedding tables and interact with the GPU embedding cache directly. To assist the Redis cluster with looking up missing embedding keys, the local RocksDB has been implemented to serve as a query engine to back up the complete embedding table on the local SSDs.
