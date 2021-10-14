@@ -45,7 +45,7 @@ class SparseModelEntity {
    *        use_host_ps_==true). Some of the key in keys may not have
    *        corresponding embedding features, and they will be neglected.
    *
-   * @param keys Vector stroing the keyset, their corresponding embedding
+   * @param keys Vector storing the keyset, their corresponding embedding
                  vectors will be loaded.
    * @param buf_bag A buffer bag to store the loaded key (slot_id if localized
                     embedding is used) and embedding vectors.

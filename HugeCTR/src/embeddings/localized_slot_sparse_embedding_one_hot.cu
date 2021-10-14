@@ -774,7 +774,7 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::load_pa
   size_t hash_table_value_chunk_size_in_B = hash_table_value_chunk_size * sizeof(float);
   size_t total_gpu_count = embedding_data_.get_resource_manager().get_global_gpu_count();
 
-  // CAUSION: can not decide how many values for each GPU, so need to allocate enough memory for
+  // CAUTION: can not decide how many values for each GPU, so need to allocate enough memory for
   // each GPU allocate CPU/GPU memory for value/index chunk
   std::unique_ptr<float *[]> h_hash_table_value_chunk_per_gpu(new float *[local_gpu_count]);
   for (size_t id = 0; id < local_gpu_count; id++) {

@@ -21,7 +21,7 @@
 
 namespace SparseOperationKit {
 
-// forward kernel funcion: No reduction
+// forward kernel function: No reduction
 template <typename TypeKey, typename TypeEmbeddingComp>
 __global__ void forward_kernel(size_t batch_size, size_t slot_num, size_t embedding_vec_size,
                               const TypeKey *row_offset, const size_t *hash_value_index,
@@ -67,7 +67,7 @@ void forward(size_t batch_size, size_t slot_num, size_t embedding_vec_size,
 
 namespace HugeCTR {
 
-// forward kernel funcion: for both combiner=sum and combiner=mean
+// forward kernel function: for both combiner=sum and combiner=mean
 template <typename TypeKey, typename TypeEmbeddingComp>
 __global__ void forward_sum_kernel(size_t batch_size, size_t slot_num, size_t embedding_vec_size,
                                    const TypeKey *row_offset, const size_t *hash_value_index,
@@ -113,7 +113,7 @@ void forward_sum(size_t batch_size, size_t slot_num, size_t embedding_vec_size,
                                                            hash_table_value, embedding_feature);
 }
 
-// // forward kernel funcion: for combiner=mean
+// // forward kernel function: for combiner=mean
 // template <typename TypeKey, typename TypeEmbeddingComp>
 // __global__ void forward_mean_kernel(int batch_size, int slot_num, int embedding_vec_size,
 //                                     const TypeKey *row_offset, const size_t *hash_value_index,

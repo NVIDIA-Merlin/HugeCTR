@@ -2,7 +2,7 @@
 This directory contains a set of Jupyter Notebook demos for SparseOperationKit.
 
 ## Prerequisites ##
-Before trying the notebooks here, you have to follow [these instructions](../../notebooks/README.md#Quickstart) to prepare the operating environment. Summarized bellow:
+Before trying the notebooks here, you have to follow [these instructions](../../notebooks/README.md#Quickstart) to prepare the operating environment. Summarized below:
 + Pull the NGC Docker
 ```shell
 $ docker pull nvcr.io/nvidia/merlin/merlin-tensorflow-training:21.09

@@ -34,14 +34,14 @@ There are several ways to install this package.
 
 **Use NGC Container**
 
-In the docker image: `nvcr.io/nvidia/merlin/merlin-training:21.09`, hugectr2onnx is already installed and you can directrly import this package via:
+In the docker image: `nvcr.io/nvidia/merlin/merlin-training:21.09`, hugectr2onnx is already installed and you can directly import this package via:
 ```python
 import hugectr2onnx
 ```
     
 **Build from source**
 
-If you want to build this package from the souce code, here are the steps to follow:
+If you want to build this package from the source code, here are the steps to follow:
 ```shell
 $ git clone https://github.com/NVIDIA/HugeCTR.git
 $ cd HugeCTR/onnx_converter
@@ -61,7 +61,7 @@ This function is used to convert the HugeCTR models to ONNX format. It requires 
 
 * dense_model (string): the file of the dense weights for the HugeCTR model.
 
-* convert_embedding (bolean): whether to convert the sparse embeddings for the HugeCTR model (optional).
+* convert_embedding (boolean): whether to convert the sparse embeddings for the HugeCTR model (optional).
 
 * sparse_models (List[str]): the files of the sparse embeddings for the HugeCTR model (optional).
 

@@ -148,7 +148,7 @@ void RawParam::dump_to_file(const std::string filepath) {
     user_->save_params(host_keys, host_embedding_values, num_total_keys);
     resource_mgr_->sync_all_workers();
 
-    // step 3: cheif worker dump those values to file.
+    // step 3: chief worker dump those values to file.
     if (0 == resource_mgr_->get_worker_id()) {
         const std::string key_filename = filepath + "/" + var_name_ + "_keys.file";
         const std::string values_filename = filepath + "/" + var_name_ + "_values.file";
@@ -159,7 +159,7 @@ void RawParam::dump_to_file(const std::string filepath) {
                             sizeof(float) * num_total_keys * get_embedding_vec_size());
         key_stream.close();
         values_stream.close();
-    } // cheif worker
+    } // chief worker
 
     // step 4: synchronize all workers.
     resource_mgr_->sync_all_workers();

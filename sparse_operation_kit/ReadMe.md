@@ -7,7 +7,7 @@ Most of the algorithm implementations in SOK are extracted from HugeCTR, which i
 **Model-Parallelism GPU Embedding Layer** <br>
 In sparse training / inference scenarios, for instance, CTRs, there are very huge amount of parameters which is not fit into single GPU memory. And common DL frameworks does not support model-parallelism (MP). Therefore it is hard to fully utilize all available GPUs in a cluster to accelerate the whole training process. 
 
-SOK provides **MP** functionality to fully utilize all avaiable GPUs, no matter these GPUs are located in single machine or multiple machines. Because most of DL frameworks have provided data-parallelism (DP), therefore SOK is designed to be compatible with DP training to minimize the code changes. With SOK embedding layers, one can build a DNN model with mixed MP and DP, where MP is for embedding parameters that is distributed among all available GPUs and DP is for other layers that only consume little GPU resources.
+SOK provides **MP** functionality to fully utilize all available GPUs, no matter these GPUs are located in single machine or multiple machines. Because most of DL frameworks have provided data-parallelism (DP), therefore SOK is designed to be compatible with DP training to minimize the code changes. With SOK embedding layers, one can build a DNN model with mixed MP and DP, where MP is for embedding parameters that is distributed among all available GPUs and DP is for other layers that only consume little GPU resources.
 
 Several MP embedding layers are integrated into SOK. These embedding layers can leverage all available GPU memory to house embedding parameters, no matter in single machine or multiple machine. All the utilized GPUs work synchronously.
 
@@ -18,7 +18,7 @@ Due to SOK is compatible with DP training provided by common synchronized traini
 There are several ways to install this package. <br>
 
 ### *Install this module along with HugeCTR* ###
-In the docker image: `nvcr.io/nvidia/merlin/merlin-tensorflow-training:21.09`, SparseOpeationKit is already installed, and you can directrly import this module via:
+In the docker image: `nvcr.io/nvidia/merlin/merlin-tensorflow-training:21.09`, SparseOpeationKit is already installed, and you can directly import this module via:
 ```python
 import sparse_opeation_kit as sok
 ```
@@ -27,7 +27,7 @@ import sparse_opeation_kit as sok
 Install via `PYPI` will be supported in the near future.
 
 ### *Build from source* ### 
-If you want to build this module from souce code, here are the steps to follow: <br>
+If you want to build this module from source code, here are the steps to follow: <br>
 + **download the source code**
 ```shell
 $ git clone https://github.com/NVIDIA/HugeCTR.git hugectr

@@ -161,7 +161,7 @@ void weight_multiply_test(size_t batch_size, size_t slot_num, size_t embedding_v
   ASSERT_TRUE(test::compare_array_approx<T>(h_wgrad.get(), h_expected_wgrad.get(), len_w,
                                             eps<T>()));  // compare wgrad
 
-  // CAUSION: dgrad computation will modify the "input", so it must be put after wgrad computation
+  // CAUTION: dgrad computation will modify the "input", so it must be put after wgrad computation
   weight_multiply_dgrad_cpu(h_out.get(), h_weight.get(), h_expected.get(), batch_size, slot_num,
                      embedding_vec_size);
   ASSERT_TRUE(test::compare_array_approx<T>(h_in.get(), h_expected.get(), len_in,

@@ -77,7 +77,7 @@ inline std::string filter_path(const std::string& path) {
         if (std::regex_search(input, result, reg))
             return std::string(result.str());
         else
-            throw std::runtime_error(ErrorBase + "Filtering path faild.");
+            throw std::runtime_error(ErrorBase + "Filtering path failed.");
     };
     constexpr char pattern[] = "sparse_operation_kit.*$";
     return find_str(path, pattern);

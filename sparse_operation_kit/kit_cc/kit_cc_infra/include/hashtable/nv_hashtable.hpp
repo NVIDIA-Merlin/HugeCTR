@@ -46,7 +46,7 @@ class HashTable {
   ~HashTable();
 
   /**
-   * The declaration for indicating that there is no default copy construtor in this class.
+   * The declaration for indicating that there is no default copy constructor in this class.
    */
   HashTable(const HashTable&) = delete;
 

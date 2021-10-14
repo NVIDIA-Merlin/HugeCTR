@@ -63,13 +63,13 @@ class InteractionLayerHalf : public Layer {
   ~InteractionLayerHalf() override;
 
   /**
-   * Interaction's foward pass to gather data to the output tensor
-   * @param stream CUDA stream where the foward propagation is executed
+   * Interaction's forward pass to gather data to the output tensor
+   * @param stream CUDA stream where the forward propagation is executed
    */
   void fprop(bool is_train, cudaStream_t stream) override;
   /**
    * Interaction's backward pass to scatter data to the input tensors
-   * @param stream CUDA stream where the foward propagation is executed
+   * @param stream CUDA stream where the forward propagation is executed
    */
   void bprop(cudaStream_t stream) override;
 

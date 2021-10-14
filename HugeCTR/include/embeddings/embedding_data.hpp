@@ -253,7 +253,7 @@ class EmbeddingData {
     return;
   }
   /**
-   * The declaration for indicating that there is no default copy construtor in this class.
+   * The declaration for indicating that there is no default copy constructor in this class.
    */
   DISALLOW_COPY_AND_MOVE(EmbeddingData)
 };

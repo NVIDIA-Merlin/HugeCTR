@@ -28,7 +28,7 @@ namespace HugeCTR {
 /**
  * @brief GPU resource allocated on a target gpu.
  *
- * This class implement unified resource managment on the target GPU.
+ * This class implement unified resource management on the target GPU.
  */
 class GPUResource {
   const int device_id_;

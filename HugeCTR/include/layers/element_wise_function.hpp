@@ -48,12 +48,12 @@ __global__ void backward_element_wise_kernel(const float* d_out, float* d_in, in
  * Common implementation for the element wise layers such as Relu and Elu.
  * Their fprop/brop are just the wrapperw of forward_evaluate/backward_evaluate,
  * while passing the simple scalar lambda operations to them.
- * All the other element wise layers can be implementated in the similar way.
+ * All the other element wise layers can be implemented in the similar way.
  */
 class ElementWiseFunctor {
  public:
   /**
-   * Ctor of ElementWiseFunctor. Copy construction and assigment are disabled.
+   * Ctor of ElementWiseFunctor. Copy construction and assignment are disabled.
    */
   ElementWiseFunctor() {}
   ElementWiseFunctor(const ElementWiseFunctor&) = delete;
@@ -71,7 +71,7 @@ class ElementWiseFunctor {
    * @param out_tensor the output tensor which has the same dim with in_tensor
    * @param device_id the id of GPU where this operation is handled
    * @param fop Fop lambda object to do the operation per element
-   * @param stream CUDA stream where the foward propagation is executed
+   * @param stream CUDA stream where the forward propagation is executed
    */
   template <typename Fop>
   void forward_evaluate(const Tensor2<float>& in_tensor, Tensor2<float>& out_tensor, int device_id,

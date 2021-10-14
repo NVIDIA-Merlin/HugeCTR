@@ -152,12 +152,12 @@ class Network {
   }
 
   /**
-   * Writting paramters to fstream.
+   * Writing parameters to fstream.
    */
   void download_params_to_host(std::ofstream& weight_stream);
 
   /**
-   * Writting opt states to fstream.
+   * Writing opt states to fstream.
    */
   void download_opt_states_to_host(std::ofstream& opt_states_stream);
 
@@ -177,7 +177,7 @@ class Network {
   void upload_params_to_device_inference(const std::string& model_file);
 
   /**
-   * Writting paramters to cpu buffer.
+   * Writing parameters to cpu buffer.
    */
   void download_params_to_host(float* weight);
 

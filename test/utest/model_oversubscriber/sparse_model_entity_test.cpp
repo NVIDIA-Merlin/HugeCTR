@@ -176,7 +176,7 @@ void sparse_model_entity_test(int batch_num_train, bool use_host_mem, bool is_di
   sparse_model_entity.load_vec_by_key(selt_keys, buf_bag, hit_size);
   ASSERT_EQ(hit_size, selt_keys.size());
 
-  // following is not appliable to multi-node test
+  // following is not applicable to multi-node test
   std::vector<float> selt_vecs(hit_size * emb_vec_size, 0.0f);
   for_each(selt_vecs.begin(), selt_vecs.end(), gen_real_rand_op);
   memcpy(emb_ptr, selt_vecs.data(), selt_vecs.size() * sizeof(float));

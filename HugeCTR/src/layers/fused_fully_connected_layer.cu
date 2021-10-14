@@ -349,7 +349,7 @@ void FusedFullyConnectedLayer::search_algorithm() {
     CK_CUDA_THROW_(cudaEventRecord(stop, get_gpu().get_stream()));
     CK_CUDA_THROW_(cudaEventSynchronize(stop));
     CK_CUDA_THROW_(cudaEventElapsedTime(&time, start, stop));
-    // Avg Time(ms) for this alorithm for fprop GEMM
+    // Avg Time(ms) for this algorithm for fprop GEMM
     time = time / repeat_num;
     // Skip if the algorithm is supported for fprop configuration
     if (status != CUBLAS_STATUS_SUCCESS) {
@@ -383,7 +383,7 @@ void FusedFullyConnectedLayer::search_algorithm() {
     CK_CUDA_THROW_(cudaEventRecord(stop, get_gpu().get_stream()));
     CK_CUDA_THROW_(cudaEventSynchronize(stop));
     CK_CUDA_THROW_(cudaEventElapsedTime(&time, start, stop));
-    // Avg Time(ms) for this alorithm for fprop GEMM
+    // Avg Time(ms) for this algorithm for fprop GEMM
     time = time / repeat_num;
     // Skip if the algorithm is supported for fprop configuration
     if (status != CUBLAS_STATUS_SUCCESS) {
@@ -418,7 +418,7 @@ void FusedFullyConnectedLayer::search_algorithm() {
     CK_CUDA_THROW_(cudaEventRecord(stop, get_gpu().get_stream()));
     CK_CUDA_THROW_(cudaEventSynchronize(stop));
     CK_CUDA_THROW_(cudaEventElapsedTime(&time, start, stop));
-    // Avg Time(ms) for this alorithm for fprop GEMM
+    // Avg Time(ms) for this algorithm for fprop GEMM
     time = time / repeat_num;
     // Skip if the algorithm is supported for fprop configuration
     if (status != CUBLAS_STATUS_SUCCESS) {

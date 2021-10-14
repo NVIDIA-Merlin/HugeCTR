@@ -61,7 +61,7 @@ class SparseModelFile {
    *        This API can be called by multiple processors at the same time because reading
    *        a file by multiple processors through mmap simultaneous is safe.
    *
-   * @param keys Vector stroing the keyset, their corresponding embedding vectors will be loaded.
+   * @param keys Vector storing the keyset, their corresponding embedding vectors will be loaded.
    * @param slots Vector to store the loaded slot_id. It will be ignored when using
    * DistributedEmbedding.
    * @param vecs Vector to store the loaded embedding vectors.

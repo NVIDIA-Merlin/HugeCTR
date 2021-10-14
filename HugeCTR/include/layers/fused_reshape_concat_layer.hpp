@@ -50,13 +50,13 @@ class FusedReshapeConcatLayer : public Layer {
   void initialize() override;
   ~FusedReshapeConcatLayer() override;
   /**
-   * FusedReshapeConcatLayer's foward propagation
-   * @param stream CUDA stream where the foward propagation is executed
+   * FusedReshapeConcatLayer's forward propagation
+   * @param stream CUDA stream where the forward propagation is executed
    */
   void fprop(bool is_train) override;
   /**
    * FusedReshapeConcatLayer's backward propagation
-   * @param stream CUDA stream where the foward propagation is executed
+   * @param stream CUDA stream where the forward propagation is executed
    */
   void bprop() override;
 

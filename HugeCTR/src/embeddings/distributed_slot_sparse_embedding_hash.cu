@@ -169,7 +169,7 @@ DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::
   embedding_data_.embedding_params_.is_data_parallel =
       false;  // this ctor is only used for embedding plugin
   try {
-    // CAUSION: can not decide how many <key,value> pairs in each GPU, because the GPU
+    // CAUTION: can not decide how many <key,value> pairs in each GPU, because the GPU
     // distribution is computed by (key%gpu_count). In order to not allocate the total size of
     // hash table on each GPU, meanwhile get a better performance by a unfull hash table, the
     // users need to set the param "load_factor"(load_factor<1).
@@ -284,7 +284,7 @@ DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::
     : embedding_data_(Embedding_t::DistributedSlotSparseEmbeddingHash, train_keys, evaluate_keys,
                       embedding_params, resource_manager) {
   try {
-    // CAUSION: can not decide how many <key,value> pairs in each GPU, because the GPU
+    // CAUTION: can not decide how many <key,value> pairs in each GPU, because the GPU
     // distribution is computed by (key%gpu_count). In order to not allocate the total size of
     // hash table on each GPU, meanwhile get a better performance by a unfull hash table, the
     // users need to set the param "load_factor"(load_factor<1).
@@ -712,7 +712,7 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::load_pa
   size_t hash_table_value_chunk_size = hash_table_value_tile_size * chunk_size;
   size_t hash_table_value_chunk_size_in_B = hash_table_value_chunk_size * sizeof(float);
 
-  // CAUSION: can not decide how many values for each GPU, so need to allocate enough memory
+  // CAUTION: can not decide how many values for each GPU, so need to allocate enough memory
   // for each GPU allocate GPU memory for hash_table_value_index
   std::unique_ptr<size_t[]> tile_counter_per_gpu(
       new size_t[local_gpu_count]);  // <= hash_table_value_index_per_gpu_size
@@ -726,7 +726,7 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::load_pa
     context.set_device(embedding_data_.get_local_gpu(id).get_device_id());
     CK_CUDA_THROW_(cudaMalloc(&d_hash_table_value_index_chunk_per_gpu[id],
                               hash_table_value_index_chunk_size_in_B));
-    // initalize to zeros
+    // initialize to zeros
     CK_CUDA_THROW_(cudaMemsetAsync(d_hash_table_value_index_chunk_per_gpu[id], 0,
                                    hash_table_value_index_chunk_size_in_B,
                                    embedding_data_.get_local_gpu(id).get_stream()));
@@ -735,7 +735,7 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::load_pa
   // sync wait
   functors_.sync_all_gpus(embedding_data_.get_resource_manager());
 
-  // CAUSION: can not decide how many values for each GPU, so need to allocate enough memory
+  // CAUTION: can not decide how many values for each GPU, so need to allocate enough memory
   // for each GPU allocate CPU/GPU memory for hash_table/key/value chunk
   std::unique_ptr<TypeHashKey *[]> h_hash_table_key_chunk_per_gpu(
       new TypeHashKey *[local_gpu_count]);

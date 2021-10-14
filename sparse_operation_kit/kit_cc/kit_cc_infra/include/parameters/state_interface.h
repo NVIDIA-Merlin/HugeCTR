@@ -23,7 +23,7 @@
 namespace SparseOperationKit {
 
 /**
-* This class only contains serveral tensors for a Variable.
+* This class only contains several tensors for a Variable.
 * And the number of the tensors is equal to the number of 
 * GPU.
 */

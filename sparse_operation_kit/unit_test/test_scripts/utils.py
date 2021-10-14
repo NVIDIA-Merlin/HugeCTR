@@ -237,7 +237,7 @@ def try_make_dirs(directory, chief=True):
 
 def sort_embedding_variables_by_key(keys, embedding_values, embedding_vec_size):
     """
-    This function is used to sort the embedding values by its relavent keys.
+    This function is used to sort the embedding values by its relevant keys.
     For example, keys: [5, 3, 6, 1], embedding values: [[0, 0, 0, 0],
                                                         [1, 1, 1, 1],
                                                         [2, 2, 2, 2],

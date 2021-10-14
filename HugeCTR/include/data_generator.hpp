@@ -23,7 +23,7 @@
 #include <memory>
 #include <random>
 // !TODO add macro ENABLE_CUDF for those don't that have cudf installed
-// data generation for parquet, 
+// data generation for parquet,
 #include <cudf/column/column.hpp>
 #include <cudf/column/column_factories.hpp>
 #include <cudf/io/parquet.hpp>
@@ -122,7 +122,7 @@ class IntPowerLawDataSimulator : public IDataSimulator<T> {
  private:
   std::mt19937 gen_;
   std::uniform_real_distribution<float> dis_;
-  float alpha_;     // requiring alpha_ > 0 and alpha_ != 1.0
+  float alpha_;  // requiring alpha_ > 0 and alpha_ != 1.0
   double min_, max_, offset_;
 };
 
@@ -194,7 +194,7 @@ void data_generation_for_test(std::string file_list_name, std::string data_prefi
                               std::vector<float>* generated_dense = nullptr) {
   if (file_exist(file_list_name)) {
     std::cout << "File (" + file_list_name +
-                     ") exist. To generate new dataset plesae remove this file."
+                     ") exist. To generate new dataset please remove this file."
               << std::endl;
     return;
   }
@@ -224,7 +224,7 @@ void data_generation_for_test(std::string file_list_name, std::string data_prefi
 
     for (int i = 0; i < num_records_per_file; i++) {
       IntUniformDataSimulator<int> idata_sim(1, max_nnz);  // for nnz
-      FloatUniformDataSimulator<float> fdata_sim(0, 1);    // for lable and dense
+      FloatUniformDataSimulator<float> fdata_sim(0, 1);    // for label and dense
       std::shared_ptr<IDataSimulator<T>> ldata_sim;
       if (long_tail)
         ldata_sim.reset(new IntPowerLawDataSimulator<T>(0, vocabulary_size - 1, alpha));
@@ -286,7 +286,7 @@ void data_generation_for_test2(std::string file_list_name, std::string data_pref
 
   if (file_exist(file_list_name)) {
     std::cout << "File (" + file_list_name +
-                     ") exist. To generate new dataset plesae remove this file."
+                     ") exist. To generate new dataset please remove this file."
               << std::endl;
     return;
   }
@@ -314,7 +314,7 @@ void data_generation_for_test2(std::string file_list_name, std::string data_pref
     data_writer.append(reinterpret_cast<char*>(&header), sizeof(DataSetHeader));
     data_writer.write();
     // Initialize Simulators
-    FloatUniformDataSimulator<float> fdata_sim(0, 1);  // for lable and dense
+    FloatUniformDataSimulator<float> fdata_sim(0, 1);  // for label and dense
     std::vector<std::shared_ptr<IDataSimulator<T>>> ldata_sim_vec;
     size_t accum = 0;
     // todo risk of type Int
@@ -348,7 +348,7 @@ void data_generation_for_test2(std::string file_list_name, std::string data_pref
 
     // for (int i = 0; i < num_records_per_file; i++) {
     //   IntUniformDataSimulator<int> idata_sim(1, max_nnz);            // for nnz
-    //   FloatUniformDataSimulator<float> fdata_sim(0, 1);              // for lable and dense
+    //   FloatUniformDataSimulator<float> fdata_sim(0, 1);              // for label and dense
     //   std::shared_ptr<IDataSimulator<T>> ldata_sim;
     //   if (long_tail)
     //     ldata_sim.reset(new IntPowerLawDataSimulator<T>(0, vocabulary_size - 1, alpha));
@@ -408,7 +408,7 @@ void data_generation_for_parquet(std::string file_list_name, std::string data_pr
     file_list_stream << (tmp_file_name + "\n");
     std::cout << tmp_file_name << std::endl;
     // Initialize Simulators
-    FloatUniformDataSimulator<float> fdata_sim(0, 1);  // for lable and dense
+    FloatUniformDataSimulator<float> fdata_sim(0, 1);  // for label and dense
     std::vector<std::shared_ptr<IDataSimulator<T>>> ldata_sim_vec;
     // todo risk of type Int
     for (auto& voc : slot_size_array) {
@@ -427,7 +427,8 @@ void data_generation_for_parquet(std::string file_list_name, std::string data_pr
         float label_ = fdata_sim.get_num();
         label_vector[i] = label_;
       }
-      rmm::device_buffer dev_buffer(label_vector.data(), sizeof(float) * num_records_per_file, rmm::cuda_stream_default);
+      rmm::device_buffer dev_buffer(label_vector.data(), sizeof(float) * num_records_per_file,
+                                    rmm::cuda_stream_default);
       cols.emplace_back(std::make_unique<cudf::column>(cudf::data_type{cudf::type_to_id<float>()},
                                                        cudf::size_type(num_records_per_file),
                                                        std::move(dev_buffer)));
@@ -439,7 +440,8 @@ void data_generation_for_parquet(std::string file_list_name, std::string data_pr
         float _dense = fdata_sim.get_num();
         dense_vector[i] = _dense;
       }
-      rmm::device_buffer dev_buffer(dense_vector.data(), sizeof(float) * num_records_per_file, rmm::cuda_stream_default);
+      rmm::device_buffer dev_buffer(dense_vector.data(), sizeof(float) * num_records_per_file,
+                                    rmm::cuda_stream_default);
       cols.emplace_back(std::make_unique<cudf::column>(cudf::data_type{cudf::type_to_id<float>()},
                                                        cudf::size_type(num_records_per_file),
                                                        std::move(dev_buffer)));
@@ -462,24 +464,28 @@ void data_generation_for_parquet(std::string file_list_name, std::string data_pr
         row_offset_vector[num_records_per_file] = num_records_per_file * nnz;
       }
       if (nnz == 1) {
-        rmm::device_buffer dev_buffer(slot_vector.data(), sizeof(T) * slot_vector.size(), rmm::cuda_stream_default);
+        rmm::device_buffer dev_buffer(slot_vector.data(), sizeof(T) * slot_vector.size(),
+                                      rmm::cuda_stream_default);
         cols.emplace_back(std::make_unique<cudf::column>(cudf::data_type{cudf::type_to_id<T>()},
                                                          cudf::size_type(slot_vector.size()),
                                                          std::move(dev_buffer)));
 
       } else {
-        rmm::device_buffer dev_buffer_0(slot_vector.data(), sizeof(T) * slot_vector.size(), rmm::cuda_stream_default);
-        auto child =
-            std::make_unique<cudf::column>(cudf::data_type{cudf::type_to_id<T>()},
-                                           cudf::size_type(slot_vector.size()), std::move(dev_buffer_0));
+        rmm::device_buffer dev_buffer_0(slot_vector.data(), sizeof(T) * slot_vector.size(),
+                                        rmm::cuda_stream_default);
+        auto child = std::make_unique<cudf::column>(cudf::data_type{cudf::type_to_id<T>()},
+                                                    cudf::size_type(slot_vector.size()),
+                                                    std::move(dev_buffer_0));
         rmm::device_buffer dev_buffer_1(row_offset_vector.data(),
-                                        sizeof(int32_t) * row_offset_vector.size(), rmm::cuda_stream_default);
-        auto row_off =
-            std::make_unique<cudf::column>(cudf::data_type{cudf::type_to_id<int32_t>()},
-                                           cudf::size_type(row_offset_vector.size()), std::move(dev_buffer_1));
+                                        sizeof(int32_t) * row_offset_vector.size(),
+                                        rmm::cuda_stream_default);
+        auto row_off = std::make_unique<cudf::column>(cudf::data_type{cudf::type_to_id<int32_t>()},
+                                                      cudf::size_type(row_offset_vector.size()),
+                                                      std::move(dev_buffer_1));
         cols.emplace_back(cudf::make_lists_column(
             num_records_per_file, std::move(row_off), std::move(child), cudf::UNKNOWN_NULL_COUNT,
-            rmm::device_buffer(null_mask.data(), null_mask.size() * sizeof(cudf::bitmask_type), rmm::cuda_stream_default)));
+            rmm::device_buffer(null_mask.data(), null_mask.size() * sizeof(cudf::bitmask_type),
+                               rmm::cuda_stream_default)));
       }
     }
     cudf::table input_table(std::move(cols));
@@ -572,7 +578,7 @@ void data_generation_for_localized_test(std::string file_list_name, std::string 
 
     for (int i = 0; i < num_records_per_file; i++) {
       IntUniformDataSimulator<int> idata_sim(1, max_nnz);  // for nnz
-      FloatUniformDataSimulator<float> fdata_sim(0, 1);    // for lable and dense
+      FloatUniformDataSimulator<float> fdata_sim(0, 1);    // for label and dense
       std::shared_ptr<IDataSimulator<T>> ldata_sim;
       if (long_tail)
         ldata_sim.reset(new IntPowerLawDataSimulator<T>(0, vocabulary_size - 1, alpha));
@@ -635,7 +641,7 @@ void data_generation_for_localized_test(std::string file_list_name, std::string 
 
     for (int i = 0; i < num_records_per_file; i++) {
       IntUniformDataSimulator<int> idata_sim(1, max_nnz);  // for nnz per slot
-      FloatUniformDataSimulator<float> fdata_sim(0, 1);    // for lable and dense
+      FloatUniformDataSimulator<float> fdata_sim(0, 1);    // for label and dense
       for (int j = 0; j < label_dim + dense_dim; j++) {
         float label_dense = fdata_sim.get_num();
         data_writer.append(reinterpret_cast<char*>(&label_dense), sizeof(float));

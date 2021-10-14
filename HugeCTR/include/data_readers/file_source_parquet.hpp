@@ -61,7 +61,7 @@ class ParquetFileSource : public Source {
 
   bool repeat_;
   /**
-   * Private Helper function to get metdata file address
+   * Private Helper function to get metadata file address
    */
   std::string get_metada_filename(std::string path) {
     std::size_t found = path.find_last_of("/\\");
@@ -282,7 +282,7 @@ class ParquetFileSource : public Source {
 
         assert(tbl_view_vector.size() == 1);
 
-        // cant release row_group before new table_view copy is constructed to send back
+        // can't release row_group before new table_view copy is constructed to send back
         if (slice.tbl.get() == nullptr) {
           // copy is made here
           slice.tbl = std::make_unique<cudf::table>(tbl_view_vector[0], slice_stream_, mr);

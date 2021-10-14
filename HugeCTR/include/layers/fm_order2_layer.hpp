@@ -58,7 +58,7 @@ class FmOrder2Layer : public Layer {
 
   /**
    * A method of implementing the forward pass of FmOrder2
-   * @param stream CUDA stream where the foward propagation is executed
+   * @param stream CUDA stream where the forward propagation is executed
    */
   void fprop(bool is_train);
 

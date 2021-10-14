@@ -48,7 +48,7 @@ class All2AllDenseEmbedding(tf.keras.layers.Layer):
             the number of valid keys in each slot. The number of valid keys in each slot 
             is the same.
     dynamic_input: boolean = False
-            whether the inputs.shape is dynamic. For example, the inputs tensor is comming 
+            whether the inputs.shape is dynamic. For example, the inputs tensor is coming 
             from `tf.unique`. When `dynamic_input=True`, `unique->lookup->gather` pattern 
             can be used. By default, it is False, which means the inputs.size must be 
             `replica_batchsize * slot_num * nnz_per_slot`.

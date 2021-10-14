@@ -23,8 +23,8 @@ namespace HugeCTR {
 
 /**
  * Layer which does reduce-sum operation by input tensor.
- * The reduced axis(dimention) can be selected. The output
- * tensor will keep the reduced dimention.
+ * The reduced axis(dimension) can be selected. The output
+ * tensor will keep the reduced dimension.
  */
 template <typename T>
 class ReduceSumLayerCPU : public LayerCPU {
@@ -50,7 +50,7 @@ class ReduceSumLayerCPU : public LayerCPU {
    * Ctor of ReduceSumLayer.
    * @param in_tensor the input tensor, could be 2D or 3D
    * @param out_tensor the resulting output tensor
-   * @param axis the reduced dimention, could be 0,1,2
+   * @param axis the reduced dimension, could be 0,1,2
    * @param device_id the id of GPU where this layer belongs
    */
   ReduceSumLayerCPU(const Tensor2<T>& in_tensors, Tensor2<T>& out_tensor,
@@ -58,13 +58,13 @@ class ReduceSumLayerCPU : public LayerCPU {
   ~ReduceSumLayerCPU(){};
 
   /**
-   * ReduceSumLayer's foward propagation
-   * @param stream CUDA stream where the foward propagation is executed
+   * ReduceSumLayer's forward propagation
+   * @param stream CUDA stream where the forward propagation is executed
    */
   void fprop(bool is_train) override;
   /**
    * ReduceSumLayer's backward propagation
-   * @param stream CUDA stream where the foward propagation is executed
+   * @param stream CUDA stream where the forward propagation is executed
    */
   void bprop() override;
 

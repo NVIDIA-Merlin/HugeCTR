@@ -94,7 +94,7 @@ if __name__ == "__main__":
                         required=True)
     parser.add_argument("--data_splited", type=int, choices=[0, 1],
                         required=True,
-                        help="whether the datas is splited.")
+                        help="whether the data is splited.")
     parser.add_argument("--sparse_keys", type=int, choices=[0, 1],
                         required=False, default=0,
                         help="whether the dataset are sparse.")

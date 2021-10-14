@@ -110,7 +110,7 @@ __global__ void build_historgram(char *in_char, int *offsets, int num_strings,
       // increment unique count
       atomicAdd(global_idx_range, 1);
     } else {
-      // didnt insert, check if iterator is not end()
+      // didn't insert, check if iterator is not end()
       if (ht_pair.first != hist_map.end()) {
         // increment count
         atomicAdd(&(ht_pair.first->second), 1);
@@ -143,7 +143,7 @@ __global__ void build_historgram_from_ints(key *in_col, bitmask_type *mask_ptr, 
       // increment unique count
       atomicAdd(global_idx_range, 1);
     } else {
-      // didnt insert, check if iterator is not end()
+      // didn't insert, check if iterator is not end()
       if (ht_pair.first != hist_map.end()) {
         // increment count
         atomicAdd(&(ht_pair.first->second), 1);
@@ -391,7 +391,7 @@ __global__ void process_data_rows(int64_t *int_array_local, int64_t *dev_int_arr
         auto it = hist_map.find(capped_value);
         if (it != hist_map.end()) {
           smem_output[(threadIdx.x * SMEM_PITCH) + i + num_ints] =
-              (int32_t)it->second;  // assumes idx wont go beyond int32
+              (int32_t)it->second;  // assumes idx won't go beyond int32
         } else {
           printf("error: %d-%d-%d", i, number, capped_value);
         }

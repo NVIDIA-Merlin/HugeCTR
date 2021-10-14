@@ -276,7 +276,7 @@ def get_args():
                         help='the number of keys in each slot',
                         required=False, default=10)
     parser.add_argument('--embedding_vec_size', type=int,
-                        help='the dimention of embedding vector',
+                        help='the dimension of embedding vector',
                         required=False, default=4)
     parser.add_argument('--global_batch_size', type=int, required=False, default=1024)
     parser.add_argument('--optimizer', type=str,

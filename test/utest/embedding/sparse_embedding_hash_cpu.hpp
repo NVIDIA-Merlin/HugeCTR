@@ -533,7 +533,7 @@ void SparseEmbeddingHashCpu<TypeHashKey, TypeEmbeddingComp>::cpu_csr_extend(
   for (int i = 0; i < batchsize * slot_num; i++) {  // loop of sample id
     int feature_num = row_offset[i + 1] - row_offset[i];
     for (int j = 0; j < feature_num; j++) {
-      sample_id[row_offset[i] + j] = i;  // record sample id coresponding to each feature
+      sample_id[row_offset[i] + j] = i;  // record sample id corresponding to each feature
     }
   }
 }

@@ -30,7 +30,7 @@ template <class T>
 class DataReaderWorker : public IDataReaderWorker {
  private:
   DataSetHeader
-      data_set_header_;  /**< the header of data set, which has main informations of a data file */
+      data_set_header_;  /**< the header of data set, which has main information of a data file */
   size_t buffer_length_; /**< buffer size for internal use */
   Check_t check_type_;   /**< check type for data set */
   std::vector<DataReaderSparseParam> params_; /**< configuration of data reader sparse input */
@@ -155,9 +155,9 @@ class DataReaderWorker : public IDataReaderWorker {
       }
     } catch (const internal_runtime_error& rt_err) {
       Error_t err = rt_err.get_error();
-      // TODO: when in repeate mode and the dataset sample num can not devided by batchsize,
-      // Norm/Raw have different behavior to last batch. Norm will fetch the data from the begining
-      // of the datset, while Raw will output current_batchsize < batchsize. Comment by Alex Liu
+      // TODO: when in repeate mode and the dataset sample num can not divided by batchsize,
+      // Norm/Raw have different behavior to last batch. Norm will fetch the data from the beginning
+      // of the dataset, while Raw will output current_batchsize < batchsize. Comment by Alex Liu
       // (2021.7.4)
       if (err == Error_t::EndOfFile) {
         if (!wait_until_h2d_ready()) return;
@@ -170,7 +170,7 @@ class DataReaderWorker : public IDataReaderWorker {
           usleep(2);
           if (*loop_flag_ == 0) return;  // in case main thread exit
         }
-        return;  // need this return to run from begining
+        return;  // need this return to run from beginning
       } else {
         throw;
       }
@@ -232,7 +232,9 @@ class DataReaderWorker : public IDataReaderWorker {
               CK_THROW_(checker_->read(reinterpret_cast<char*>(&nnz), sizeof(int)),
                         "failure in reading nnz");
               if (nnz > (int)buffer_length_ || nnz < 0) {
-                ERROR_MESSAGE_("nnz > buffer_length_ | nnz < 0 nnz:" + std::to_string(nnz) + ". Please check if i64_input_key in config is compatible with dataset");
+                ERROR_MESSAGE_(
+                    "nnz > buffer_length_ | nnz < 0 nnz:" + std::to_string(nnz) +
+                    ". Please check if i64_input_key in config is compatible with dataset");
               }
               current_csr.new_row();
               size_t num_value = current_csr.get_num_values();

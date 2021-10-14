@@ -178,7 +178,7 @@ void model_init_test(const size_t num_instances, const size_t num_tables, const 
   std::cout << "Done testing raw data..." << std::endl;
 
   // 2. perform model initialization, data
-  std::cout << "performing statistics and calibration intialization..." << std::endl;
+  std::cout << "performing statistics and calibration initialization..." << std::endl;
   Data<dtype> data(table_sizes, batch_size, num_iterations);
   data.data_to_unique_categories(d_raw_data, stream);
   CK_CUDA_THROW_(cudaStreamSynchronize(stream));
@@ -191,7 +191,7 @@ void model_init_test(const size_t num_instances, const size_t num_tables, const 
   CalibrationData calibration(1, 1. / 10., 130.e9, 190.e9, 1.0);
 
   //    model creation
-  std::cout << "performing model intialization..." << std::endl;
+  std::cout << "performing model initialization..." << std::endl;
   std::vector<uint32_t> num_instances_per_node(1);
   num_instances_per_node[0] = (uint32_t)num_instances;
   // Model<dtype> model(ctype, 0, num_instances_per_node, num_categories);

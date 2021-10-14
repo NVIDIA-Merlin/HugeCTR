@@ -510,8 +510,8 @@ void end_to_end(std::vector<int> device_list, size_t num_tables, size_t total_ca
       num_tables,
       embedding_vec_size,
       (dtype)total_categories,
-      (dtype)0,  // irrelevent here
-      1.0f,      // irrelevent here
+      (dtype)0,  // irrelevant here
+      1.0f,      // irrelevant here
       num_procs == 1 ? hybrid_embedding::CommunicationType::NVLink_SingleNode
                      : hybrid_embedding::CommunicationType::IB_NVLink,
   };
@@ -534,11 +534,11 @@ void end_to_end(std::vector<int> device_list, std::vector<size_t> table_sizes, s
   HybridEmbeddingConfig<dtype> test_config = {
       (size_t)num_procs,
       num_total_gpus,
-      0,  // irrelevent here
+      0,  // irrelevant here
       embedding_vec_size,
-      0,         // irrelevent here
-      (dtype)0,  // irrelevent here
-      1.0f,      // irrelevent here
+      0,         // irrelevant here
+      (dtype)0,  // irrelevant here
+      1.0f,      // irrelevant here
       num_procs == 1 ? hybrid_embedding::CommunicationType::NVLink_SingleNode
                      : hybrid_embedding::CommunicationType::IB_NVLink,
   };

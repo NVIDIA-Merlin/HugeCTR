@@ -58,7 +58,7 @@ const float scaler = 1.0f;  // used in mixed precision training
 // size of max_vocabulary_size_per_gpu, which should be more than vocabulary_size/gpu_count,
 // eg: 1.25x of that.
 
-const int num_threads = 1;  // must be 1 for CPU and GPU results comparation
+const int num_threads = 1;  // must be 1 for CPU and GPU results comparison
 const int num_files = 1;
 const Check_t CHK = Check_t::Sum;  // Check_t::Sum
 const char *train_file_list_name = "train_file_list.txt";
@@ -71,7 +71,7 @@ const char *opt_file_name = "localized_opt.bin";
 std::vector<size_t> slot_sizes;  // null means use vocabulary_size/gpu_count/load_factor as
                                  // max_vocabulary_size_per_gpu
 
-// CAUSION: must match vocabulary_size
+// CAUTION: must match vocabulary_size
 // std::vector<size_t> slot_sizes = {39884406,39043,17289,7420,20263,3,7120,1543,63,38532951,
 //   2953546,403346,10,2208,11938,155,4,976,14,39979771,25641295,39664984,585935,12972,108,36}; //
 //   for cretio dataset
@@ -145,13 +145,13 @@ void init_sparse_model(const char *sparse_model) {
   for (long long i = 0; i < vocabulary_size; i++) {
     T key = (T)i;
     // T key = ldata_sim.get_num();
-    // CAUSION: can not set random keys here, because we need to ensure that:
+    // CAUTION: can not set random keys here, because we need to ensure that:
     // 1) we can find keys in the data file from this hash table
     // 2) there are no repeated keys
     fs_key.write((char *)&key, sizeof(T));
     T slot_id;
     if (slot_sizes.size() == 0) {
-      slot_id = key % slot_num;  // CAUSION: need to dedicate the slot_id for each key for
+      slot_id = key % slot_num;  // CAUTION: need to dedicate the slot_id for each key for
                                  // correctness verification
     } else {
       size_t offset = 0;

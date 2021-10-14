@@ -23,12 +23,12 @@ namespace HugeCTR {
 
 /**
  * Layer which does element-wise product by input tensor X and weight W.
- * The input tensor X has dimention: [batch_size, slot_num], while
- * the input weight W has dimention: [slot_num, embedding_vec_size].
+ * The input tensor X has dimension: [batch_size, slot_num], while
+ * the input weight W has dimension: [slot_num, embedding_vec_size].
  * The WeightMultiplyLayer will broadcast the value of W to "batch_size" dim
  * and broadcast the value of X to embedding_vec_size dim automatically
  * when doing element-wise product with X. So, the output tensor has
- * the dimention: [batch_size, slot_num*embedding_vec_size].
+ * the dimension: [batch_size, slot_num*embedding_vec_size].
  */
 template <typename T>
 class WeightMultiplyLayerCPU : public LayerCPU {
@@ -64,13 +64,13 @@ class WeightMultiplyLayerCPU : public LayerCPU {
   ~WeightMultiplyLayerCPU() override{};
 
   /**
-   * WeightMultiplyLayer's foward propagation to do element-wise production
-   * @param stream CUDA stream where the foward propagation is executed
+   * WeightMultiplyLayer's forward propagation to do element-wise production
+   * @param stream CUDA stream where the forward propagation is executed
    */
   void fprop(bool is_train) override;
   /**
    * WeightMultiplyLayer's backward propagation
-   * @param stream CUDA stream where the foward propagation is executed
+   * @param stream CUDA stream where the forward propagation is executed
    */
   void bprop() override;
 

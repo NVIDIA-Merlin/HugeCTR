@@ -58,13 +58,13 @@ class SubLayer : public Layer {
   void initialize() override;
 
   /**
-   * SubLayer's foward propagation
-   * @param stream CUDA stream where the foward propagation is executed
+   * SubLayer's forward propagation
+   * @param stream CUDA stream where the forward propagation is executed
    */
   void fprop(bool is_train) override;
   /**
    * SubLayer's backward propagation
-   * @param stream CUDA stream where the foward propagation is executed
+   * @param stream CUDA stream where the forward propagation is executed
    */
   void bprop() override;
 

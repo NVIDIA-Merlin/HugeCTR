@@ -122,7 +122,7 @@ void init_sparse_model(const char *sparse_model) {
   for (long long i = 0; i < vocabulary_size; i++) {
     T key = (T)i;
     // T key = ldata_sim.get_num();
-    // CAUSION: can not set random keys here, because we need to ensure that:
+    // CAUTION: can not set random keys here, because we need to ensure that:
     // 1) we can find keys in the data file from this hash table
     // 2) there are no repeated keys
     fs_key.write((char *)&key, sizeof(T));

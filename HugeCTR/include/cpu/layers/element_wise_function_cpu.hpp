@@ -45,12 +45,12 @@ void backward_element_wise_cpu(const float* h_out, float* h_in, int len, Bop bop
  * Common implementation for the element wise layers such as Relu and Elu.
  * Their fprop/brop are just the wrapperw of forward_evaluate/backward_evaluate,
  * while passing the simple scalar lambda operations to them.
- * All the other element wise layers can be implementated in the similar way.
+ * All the other element wise layers can be implemented in the similar way.
  */
 class ElementWiseFunctorCPU {
  public:
   /**
-   * Ctor of ElementWiseFunctor. Copy construction and assigment are disabled.
+   * Ctor of ElementWiseFunctor. Copy construction and assignment are disabled.
    */
   ElementWiseFunctorCPU() {}
   ElementWiseFunctorCPU(const ElementWiseFunctorCPU&) = delete;

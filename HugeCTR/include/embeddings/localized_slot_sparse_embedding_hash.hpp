@@ -93,7 +93,7 @@ class LocalizedSlotSparseEmbeddingHash : public IEmbedding {
    * Calculate the max vocabulary size per GPU.
    * @param total_gpu_count total GPU count.
    * @param local_gpu_count local GPU count.
-   * @param slot_sizes an array which stores the size of the slots to be intialized.
+   * @param slot_sizes an array which stores the size of the slots to be initialized.
    * @param device_resources GPU device resources.
    */
   static size_t cal_max_voc_size_per_gpu(const std::vector<size_t> slot_sizes,
@@ -132,7 +132,7 @@ class LocalizedSlotSparseEmbeddingHash : public IEmbedding {
   /**
    * Initialize the hash table and embedding table on local GPUs. This function is only used
    * by LocalizedSparseEmbeddingHash.
-   * @param slot_sizes an array which stores the size of the slots to be intialized.
+   * @param slot_sizes an array which stores the size of the slots to be initialized.
    * @param embedding_vec_size embedding vector size.
    * @param hash_table_value_tensors embedding table tensors.
    * @param hash_tables GPU hash tables which stores <key, value_index>.
@@ -411,7 +411,7 @@ class LocalizedSlotSparseEmbeddingHash : public IEmbedding {
   void load_parameters(std::string sparse_model) override;
   void load_parameters(BufferBag &buf_bag, size_t num) override;
   /**
-   * Download the hash table from multi-GPUs global memroy to CPU memory
+   * Download the hash table from multi-GPUs global memory to CPU memory
    * and write it to the weight_stream on the host.
    * @param sparse_model the folder name of sparse model.
    */
@@ -487,7 +487,7 @@ class LocalizedSlotSparseEmbeddingHash : public IEmbedding {
    * Get the backward() results from GPUs and copy them to the host pointer
    * wgrad. The wgrad on each GPU should be the same. This function is only
    * used for unit test.
-   * @param wgrad the host pointer for stroing the backward() results.
+   * @param wgrad the host pointer for storing the backward() results.
    * @param devIndex the GPU device id.
    */
   void get_backward_results(Tensor2<TypeEmbeddingComp> &wgrad, int devIndex) {
@@ -550,8 +550,8 @@ class LocalizedSlotSparseEmbeddingHash : public IEmbedding {
    * Get the update_params() results(the hash table, including hash_table_keys
    * and hash_table_values) from GPUs and copy them to the host pointers.
    * This function is only used for unit test.
-   * @param hash_table_key the host pointer for stroing the hash table keys.
-   * @param hash_table_value the host pointer for stroing the hash table values.
+   * @param hash_table_key the host pointer for storing the hash table keys.
+   * @param hash_table_value the host pointer for storing the hash table values.
    */
   void get_update_params_results(Tensor2<TypeHashKey> &hash_table_key,
                                  Tensor2<float> &hash_table_value) {

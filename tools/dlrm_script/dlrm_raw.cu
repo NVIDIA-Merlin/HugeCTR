@@ -203,7 +203,7 @@ void process_kaggle_dataset(const std::string &input_dir_path, const std::string
   // CK_CUDA_THROW_(cudaFree(culled_index_count));
   CK_CUDA_THROW_(cudaFree(accum_location));
 
-  // starting to do the convertion
+  // starting to do the conversion
   if (process_output) {
     uint32_t *dev_slot_size_array = nullptr;
     size_t slot_size_array_size = num_categoricals * sizeof(uint32_t);
@@ -271,7 +271,7 @@ void process_kaggle_dataset(const std::string &input_dir_path, const std::string
             host_out_buffer, binary_writer, dev_slot_size_array, rows_begin_train, rows_end_train,
             3);
 
-        MESSAGE_("Porcessed file: " + input_file_path + " for /train_data.bin");
+        MESSAGE_("Processed file: " + input_file_path + " for /train_data.bin");
         MESSAGE_("Size of train_data.bin: " + std::to_string(sz_total_output_binary) + " Bytes.");
 
         if (binary_writer) binary_writer->close();
@@ -363,7 +363,7 @@ void process_kaggle_dataset(const std::string &input_dir_path, const std::string
     CK_CUDA_THROW_(cudaFree(dev_slot_size_array));
     CK_CUDA_THROW_(cudaFree(dev_cat_col_nullmask_ptrs));
   }
-  // destory map objects
+  // destroy map objects
   for (auto c : categorical_col_hash_tables) c.second->destroy();
 
   delete p_mr;
@@ -551,7 +551,7 @@ void process_terabyte_dataset(const std::string &input_dir_path, const std::stri
   // CK_CUDA_THROW_(cudaFree(culled_index_count));
   CK_CUDA_THROW_(cudaFree(accum_location));
 
-  // starting to do the convertion
+  // starting to do the conversion
   if (process_output) {
     uint32_t *dev_slot_size_array = nullptr;
     size_t slot_size_array_size = num_categoricals * sizeof(uint32_t);
@@ -623,7 +623,7 @@ void process_terabyte_dataset(const std::string &input_dir_path, const std::stri
             host_out_buffer, binary_writer, dev_slot_size_array, rows_begin_train, rows_end_train,
             1);
 
-        MESSAGE_("Porcessed file: " + input_file_path + " for /train_data.bin");
+        MESSAGE_("Processed file: " + input_file_path + " for /train_data.bin");
 
         if (needed_samples_num < sample_nums[i]) {
           saved_samples_num += needed_samples_num;
@@ -663,7 +663,7 @@ void process_terabyte_dataset(const std::string &input_dir_path, const std::stri
               host_out_buffer, binary_writer_test, dev_slot_size_array, rows_begin_test,
               rows_end_test, 1);
 
-          MESSAGE_("Porcessed file: " + input_file_path + " for /test_data.bin");
+          MESSAGE_("Processed file: " + input_file_path + " for /test_data.bin");
 
           if (needed_samples_num < sample_nums[train_days.size() + i]) {
             saved_samples_num += needed_samples_num;
@@ -721,7 +721,7 @@ void process_terabyte_dataset(const std::string &input_dir_path, const std::stri
     CK_CUDA_THROW_(cudaFree(dev_slot_size_array));
     CK_CUDA_THROW_(cudaFree(dev_cat_col_nullmask_ptrs));
   }
-  // destory map objects
+  // destroy map objects
   for (auto c : categorical_col_hash_tables) c.second->destroy();
 
   delete p_mr;
@@ -735,7 +735,7 @@ int main(const int argc, const char *argv[]) {
     MESSAGE_(
         "Usage for TeraBytes Datasets: ./dlrm_raw input_dir output_dir --train [days for training] "
         "--test [days for testing]"
-        ", those days are seperated with comma, no whitespace.");
+        ", those days are separated with comma, no whitespace.");
     return -1;
   }
 
@@ -761,7 +761,7 @@ int main(const int argc, const char *argv[]) {
         MESSAGE_(
             "Usage for TeraBytes Datasets: ./dlrm_raw input_dir output_dir --train [days for "
             "training] --test [days for testing]"
-            ", those days are seperated with comma, no whitespace.");
+            ", those days are separated with comma, no whitespace.");
         MESSAGE_("For example: ./dlrm_raw ./ ./ --train 0,1,2,3,4 --test 5,6,7");
         return -1;
       }
@@ -785,7 +785,7 @@ int main(const int argc, const char *argv[]) {
       MESSAGE_(
           "Usage for TeraBytes Datasets: ./dlrm_raw input_dir output_dir --train [days for "
           "training] --test [days for testing]"
-          ", those days are seperated with comma, no whitespace.");
+          ", those days are separated with comma, no whitespace.");
       return -1;
       break;
     }

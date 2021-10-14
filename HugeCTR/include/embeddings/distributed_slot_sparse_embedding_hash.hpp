@@ -285,7 +285,7 @@ class DistributedSlotSparseEmbeddingHash : public IEmbedding {
   void load_parameters(BufferBag &buf_bag, size_t num) override;
 
   /**
-   * Download the hash table from multi-GPUs global memroy to CPU memory
+   * Download the hash table from multi-GPUs global memory to CPU memory
    * and write it to the weight_stream on the host.
    * @param sparse_model the folder name of sparse model.
    */
@@ -362,11 +362,11 @@ class DistributedSlotSparseEmbeddingHash : public IEmbedding {
    * Get the backward() results from GPUs and copy them to the host pointer
    * wgrad. The wgrad on each GPU should be the same. This function is only
    * used for unit test.
-   * @param wgrad the host pointer for stroing the backward() results.
+   * @param wgrad the host pointer for storing the backward() results.
    * @param devIndex the GPU device id.
    */
   void get_backward_results(Tensor2<TypeEmbeddingComp> &wgrad, int devIndex) {
-    // wgard shuld be the same on multi-gpus after backward()
+    // wgard should be the same on multi-gpus after backward()
     size_t memcpy_size = embedding_data_.embedding_params_.get_batch_size(true) *
                          embedding_data_.embedding_params_.slot_num *
                          embedding_data_.embedding_params_.embedding_vec_size;
@@ -381,8 +381,8 @@ class DistributedSlotSparseEmbeddingHash : public IEmbedding {
    * Get the update_params() results(the hash table, including hash_table_keys
    * and hash_table_values) from GPUs and copy them to the host pointers.
    * This function is only used for unit test.
-   * @param hash_table_key the host pointer for stroing the hash table keys.
-   * @param hash_table_value the host pointer for stroing the hash table values.
+   * @param hash_table_key the host pointer for storing the hash table keys.
+   * @param hash_table_value the host pointer for storing the hash table values.
    */
   void get_update_params_results(Tensor2<TypeHashKey> &hash_table_key,
                                  Tensor2<float> &hash_table_value) {

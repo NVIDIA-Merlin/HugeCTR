@@ -55,7 +55,7 @@ std::ostream& operator <<(std::ostream& os, const struct redisReply& redis_reply
 
 namespace r3c {
     extern void null_log_write(const char* UNUSED(format), ...) __attribute__((format(printf, 1, 2))); // Discard log
-    extern void r3c_log_write(const char* format, ...) __attribute__((format(printf, 1, 2))); // Ouput log to stdout
+    extern void r3c_log_write(const char* format, ...) __attribute__((format(printf, 1, 2))); // Output log to stdout
 
     extern int keyHashSlot(const char *key, size_t keylen);
     extern int parse_nodes(std::vector<std::pair<std::string, uint16_t> >* nodes, const std::string& nodes_string);

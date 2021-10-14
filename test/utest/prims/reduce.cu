@@ -82,7 +82,7 @@ class ReduceTest : public ::testing::TestWithParam<ReduceInputs<T>> {
     cudaEventSynchronize(stop);
     float milliseconds = 0;
     cudaEventElapsedTime(&milliseconds, start, stop);
-    // std::cout << "Coalesced: " << milliseconds << " miliseconds" << std::endl;
+    // std::cout << "Coalesced: " << milliseconds << " milliseconds" << std::endl;
 
     cudaEventRecord(start);
     naiveReduction2d(output_ext, d_data_2d, cols, rows, params.rowMajor, params.alongRows, stream);
@@ -91,7 +91,7 @@ class ReduceTest : public ::testing::TestWithParam<ReduceInputs<T>> {
     milliseconds = 0;
     cudaEventElapsedTime(&milliseconds, start, stop);
 
-    // std::cout << "Naive: " << milliseconds << " miliseconds" << std::endl;
+    // std::cout << "Naive: " << milliseconds << " milliseconds" << std::endl;
   }
 
   void TearDown() override {

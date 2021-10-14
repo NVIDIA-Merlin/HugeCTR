@@ -75,8 +75,8 @@ To create a new embedding cache, user need to provide:
     + key_type: the data type of embedding id. 
     + ref_counter_type: the data type of the internal counter. This data type should be 64bit unsigned integer(i.e. uint64_t), 32bit integer has the risk of overflow. 
     + empty_key: the key value indicate for empty bucket(i.e. The empty key), user should never use empty key value to represent any real keys.
-    + set_associativity: the hyper-parameter indicats how many slabs per cache set.(See `Performance hint` session below)
-    + warp_size: the hyper-parameter indicats how many [key, value] pairs per slab. Acceptable value includes 1/2/4/8/16/32.(See `Performance hint` session below)
+    + set_associativity: the hyper-parameter indicates how many slabs per cache set.(See `Performance hint` session below)
+    + warp_size: the hyper-parameter indicates how many [key, value] pairs per slab. Acceptable value includes 1/2/4/8/16/32.(See `Performance hint` session below)
     + For other template parameters just use the default value.
 * Parameters:
     + capacity_in_set: # of cache set in the embedding cache. So the total capacity of the embedding cache is `warp_size * set_associativity * capacity_in_set` [key, value] pairs.

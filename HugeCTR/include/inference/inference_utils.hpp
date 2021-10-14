@@ -65,7 +65,7 @@ struct parameter_server_config {
   std::vector<std::vector<size_t>>
       embedding_vec_size_;  // The emb_vec_size per embedding table per model
   std::vector<std::vector<float>>
-      default_emb_vec_value_;  // The defualt emb_vec value when emb_id cannot be found, per
+      default_emb_vec_value_;  // The default emb_vec value when emb_id cannot be found, per
                                // embedding table per model
 };
 

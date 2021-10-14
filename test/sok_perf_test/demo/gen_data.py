@@ -80,7 +80,7 @@ if __name__ == "__main__":
                         help="the number of training iterations.")
     parser.add_argument("--filename", type=str,
                         required=False, default=r"./data.file",
-                        help="the filename of saved datas.")
+                        help="the filename of saved data.")
     parser.add_argument("--sparse_keys", type=int, choices=[0, 1],
                        required=False, default=0,
                        help="whether to generate sparse keys, where -1 is used"+\

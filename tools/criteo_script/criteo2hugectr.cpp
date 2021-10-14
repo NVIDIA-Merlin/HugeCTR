@@ -97,7 +97,7 @@ int main(int argc, char *argv[]) {
   // check file_list.txt prefix
   std::string file_name(argv[3]);
   if (file_name.find(".") == std::string::npos) {
-    std::cerr << "Please provide aviable file_list with extension(.txt) " << std::endl;
+    std::cerr << "Please provide available file_list with extension(.txt) " << std::endl;
     exit(-1);
   }
   const size_t last_point_idx = file_name.rfind('.');

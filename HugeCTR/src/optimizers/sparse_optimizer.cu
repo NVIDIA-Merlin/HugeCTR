@@ -669,7 +669,7 @@ void EmbeddingOptimizer<TypeHashKey, TypeEmbeddingComp>::update(
 
       uint32_t hash_hash_value_index_count_num = 0;
       // this async memcpy will not perform as a async operation because the host memory is not
-      // a pinned memroy
+      // a pinned memory
       CK_CUDA_THROW_(cudaMemcpyAsync(&hash_hash_value_index_count_num,
                                      hash_value_index_count_counter.get_ptr(), sizeof(uint32_t),
                                      cudaMemcpyDeviceToHost, stream));

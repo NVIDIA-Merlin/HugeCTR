@@ -482,7 +482,7 @@ TEST(data_reader_group_test, data_reader_group_test_3files_1worker_iter) {
   rmm::mr::set_current_device_resource(p_mr);
 }
 // TODO when num_files is not a multiple of workers, reference can be wrong,
-// but the woker iteself can work
+// but the woker itself can work
 
 // say 3 files but 2 workers are specified, where a file contains 2 batches
 // batch 0 -> file 0 (worker 0)

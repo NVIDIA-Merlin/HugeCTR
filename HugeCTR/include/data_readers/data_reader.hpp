@@ -26,12 +26,12 @@
 #include <data_readers/data_reader_worker_group_norm.hpp>
 #include <data_readers/data_reader_worker_group_parquet.hpp>
 #include <data_readers/data_reader_worker_group_raw.hpp>
+#include <filesystem>
 #include <fstream>
 #include <gpu_resource.hpp>
 #include <tensor2.hpp>
 #include <utils.hpp>
 #include <vector>
-#include <filesystem>
 
 namespace HugeCTR {
 
@@ -59,8 +59,8 @@ class DataReader : public IDataReader {
   const std::vector<DataReaderSparseParam> params_;
   std::shared_ptr<ResourceManager> resource_manager_; /**< gpu resource used in this data reader*/
   const size_t batchsize_;                            /**< batch size */
-  const size_t label_dim_; /**< dimention of label e.g. 1 for BinaryCrossEntropy */
-  const size_t dense_dim_; /**< dimention of dense */
+  const size_t label_dim_; /**< dimension of label e.g. 1 for BinaryCrossEntropy */
+  const size_t dense_dim_; /**< dimension of dense */
   long long current_batchsize_;
 
   bool repeat_;
@@ -288,7 +288,7 @@ class DataReader : public IDataReader {
     // check if key type compatible with dataset
     size_t file_size = std::filesystem::file_size(file_name);
     size_t expected_file_size = (label_dim_ + dense_dim_) * sizeof(float);
-    for(auto &param: params_) {
+    for (auto &param : params_) {
       expected_file_size += param.slot_num * sizeof(TypeKey);
     }
     expected_file_size *= num_samples;

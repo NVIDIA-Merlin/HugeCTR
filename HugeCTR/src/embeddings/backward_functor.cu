@@ -164,7 +164,7 @@ void backward_mean(size_t batch_size, size_t slot_size, size_t embedding_vec_siz
  * @param slot_num the number of slots in hash table.
  * @param embedding_vec_size embedding vector size.
  * @param combiner combiner type: 0-sum, 1-mean
- * @param row_offset_allreduce_tensors row_offsets tensors after all_reduce of mulitple GPUs
+ * @param row_offset_allreduce_tensors row_offsets tensors after all_reduce of multiple GPUs
  * @param embedding_feature_tensors embedding features tensors of multiplu GPUs, storing dgrad
  * from the top layer
  * @param wgrad_tensors wgrad tensors of multi GPUs, the output of this function.

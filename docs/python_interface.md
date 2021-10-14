@@ -891,9 +891,9 @@ for i in range(train_steps):
 ``` 
 
 **Arguments**
-* `output_prediction_file_name`: String, the file to which the evaluation prediction results will be writen. The order of the prediction results are the same as that of the labels, but may be different with the order of the samples in the dataset. There is NO default value and it should be specified by users.
+* `output_prediction_file_name`: String, the file to which the evaluation prediction results will be written. The order of the prediction results are the same as that of the labels, but may be different with the order of the samples in the dataset. There is NO default value and it should be specified by users.
 
-* `output_label_file_name`: String, the file to which the evaluation labels will be writen. The order of the labels are the same as that of the prediction results, but may be different with the order of the samples in the dataset. There is NO default value and it should be specified by users.
+* `output_label_file_name`: String, the file to which the evaluation labels will be written. The order of the labels are the same as that of the prediction results, but may be different with the order of the samples in the dataset. There is NO default value and it should be specified by users.
 
 ## Inference API ##
 For HugeCTR inference API, the core data structures are `InferenceParams` and `InferenceSession`. Please refer to [Inference Framework](https://gitlab-master.nvidia.com/dl/hugectr/hugectr_inference_backend/-/blob/main/docs/user_guide.md#inference-framework) to get informed of the hierarchy of HugeCTR inference implementation.
@@ -912,7 +912,7 @@ hugectr.inference.InferenceParams()
 
 * `max_batchsize`: Integer, the maximum batchsize for inference. There is NO default value and it should be specified by users.
 
-* `hit_rate_threshold`: Float, the hit rate threshold for updating the GPU embedding cache. If the hit rate of looking up GPU embedding cahce during inference is below this threshold, then the GPU embedding cache will be updated. The threshold should be between 0 and 1. There is NO default value and it should be specified by users.
+* `hit_rate_threshold`: Float, the hit rate threshold for updating the GPU embedding cache. If the hit rate of looking up GPU embedding cache during inference is below this threshold, then the GPU embedding cache will be updated. The threshold should be between 0 and 1. There is NO default value and it should be specified by users.
 
 * `dense_model_file`: String, the dense model file to be loaded for inference. There is NO default value and it should be specified by users.
 

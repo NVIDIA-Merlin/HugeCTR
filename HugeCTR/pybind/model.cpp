@@ -30,8 +30,8 @@ namespace HugeCTR {
 
 namespace {
 /**
- * check if device is avaliable.
- * lowest avaliable CC is min_major.min_minor
+ * check if device is available.
+ * lowest available CC is min_major.min_minor
  * @param device_id gpu id
  * @param min_major minimum compute compatibility required
  * @param min_minor minimum compute compatibility required
@@ -77,7 +77,7 @@ static void check_device(int device_id, int min_major, int min_minor) {
   int device_count = 0;
   CK_CUDA_THROW_(cudaGetDeviceCount(&device_count));
   if (device_id >= device_count) {
-    CK_THROW_(Error_t::WrongInput, "device is not avaliable");
+    CK_THROW_(Error_t::WrongInput, "device is not available");
   }
   CudaDeviceContext context(device_id);
   cudaDeviceProp deviceProp;

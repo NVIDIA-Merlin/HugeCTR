@@ -115,7 +115,7 @@ def test_sok_multi_dense_emb(args):
                                                 experimental_aggregate_gradients=False)
        
         with tf.control_dependencies(emb_grads):
-            # mannually all-reduce dense gradients
+            # manually all-reduce dense gradients
             replica_context = tf.distribute.get_replica_context()
             grads = replica_context.all_reduce("sum", grads, 
                                                 options=comm_options)

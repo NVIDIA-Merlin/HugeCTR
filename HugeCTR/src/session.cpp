@@ -47,8 +47,8 @@ std::string generate_random_file_name() {
 }
 
 /**
- * check if device is avaliable.
- * lowest avaliable CC is min_major.min_minor
+ * check if device is available.
+ * lowest available CC is min_major.min_minor
  * @param device_id gpu id
  * @param min_major minimum compute compatibility required
  * @param min_minor minimum compute compatibility required
@@ -57,7 +57,7 @@ static void check_device(int device_id, int min_major, int min_minor) {
   int device_count = 0;
   CK_CUDA_THROW_(cudaGetDeviceCount(&device_count));
   if (device_id >= device_count) {
-    CK_THROW_(Error_t::WrongInput, "device is not avaliable");
+    CK_THROW_(Error_t::WrongInput, "device is not available");
   }
   CudaDeviceContext context(device_id);
   cudaDeviceProp deviceProp;
@@ -177,7 +177,7 @@ void Session::exchange_wgrad(size_t device_id) {
 
 /**
  * load the model (binary) from model_file.
- * In model file, model should be saved as the sequence as discribed in configure file.
+ * In model file, model should be saved as the sequence as described in configure file.
  **/
 Error_t Session::init_or_load_params_for_dense_(const std::string& model_file) {
   try {
@@ -242,7 +242,7 @@ Error_t Session::load_opt_states_for_dense_(const std::string& dense_opt_states_
 /**
  * load the model (binary) from model_file.
  * In model file, model should be saved as
- * the sequence as discribed in configure file.
+ * the sequence as described in configure file.
  **/
 Error_t Session::init_or_load_params_for_sparse_(
     const std::vector<std::string>& embedding_model_files) {
@@ -422,7 +422,7 @@ bool Session::train() {
     global_profiler.iter_check();
 #endif
 
-    // If true we're gonna use overlaping, if false we use default
+    // If true we're gonna use overlapping, if false we use default
     if (solver_config_.use_overlapped_pipeline) {
       train_overlapped();
     } else {

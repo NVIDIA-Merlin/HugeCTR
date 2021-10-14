@@ -92,7 +92,7 @@
 *   input / output dispathcer
 * ----------------------------------
 * 1. create a cpp source file. For example, MyInputDispathcer.cc
-* 2. "operation_interface.h" should be included in that souce file.
+* 2. "operation_interface.h" should be included in that source file.
 * 3. inherit from Dispatcher class, and override methods: 
 *   allocate_forward_spaces, allocate_backward_spaces, forward, backward
 *   for example: 
@@ -161,7 +161,7 @@
 *        embedding_lookuper
 * ----------------------------------
 * 1. create a cpp source file. For example, MyLookuper.cc
-* 2. "operation_interface.h" should be included in that souce file.
+* 2. "operation_interface.h" should be included in that source file.
 * 3. inherit from EmbeddingLookuper class, and override methods: 
 *   allocate_forward_spaces, allocate_backward_spaces, forward, backward, 
 *   load_tensors
@@ -248,7 +248,7 @@
 *           operation
 * ----------------------------------
 * 1. create a cpp source file. For example, MyOperation.cc
-* 2. "operation_interface.h" should be included in that souce file.
+* 2. "operation_interface.h" should be included in that source file.
 * 3. inherit from Operation class, and override methods: 
 *   allocate_forward_spaces, allocate_backward_spaces, forward, backward
 *   for example: 

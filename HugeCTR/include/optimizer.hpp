@@ -170,7 +170,7 @@ class EmbeddingOptimizer {
   Tensor2<void> temp_storage_sort_tensors_; /**< The temp memory for the CUB lib sorting
                                                       API in update_params(). */
 
-  Tensor2<void> temp_storage_scan_tensors_; /**< The temp memory for the CUB lib scaning API
+  Tensor2<void> temp_storage_scan_tensors_; /**< The temp memory for the CUB lib scanning API
                                                       in update_params(). */
 
   Tensor2<TypeHashKey> sample_id_tensors_; /**< The temp memory to store the sample ids of hash

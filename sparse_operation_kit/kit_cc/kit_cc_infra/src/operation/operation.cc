@@ -130,7 +130,7 @@ void Operation::DumpToFile(const std::string filepath) const {
 }
 
 bool Operation::dump(DumpCallBack dump_call_back) const {
-    //by default, it return false, which means this opeation has nothing to dump.
+    //by default, it return false, which means this operation has nothing to dump.
     return false;
 }
 

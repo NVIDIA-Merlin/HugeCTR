@@ -171,7 +171,7 @@ class ParquetDataReaderWorker : public IDataReaderWorker {
         row_group_carry_forward_(0),
         resource_manager_(resource_manager) {
     CudaCPUDeviceContext ctx(gpu_resource->get_device_id());
-    
+
     std::shared_ptr<GeneralBuffer2<CudaHostAllocator>> buff =
         GeneralBuffer2<CudaHostAllocator>::create();
     buff->reserve({1024}, &host_memory_pointer_staging_);
@@ -235,7 +235,7 @@ void ParquetDataReaderWorker<T>::read_a_batch() {
   using dtype_dense = float;
 
   if (!thread_resource_allocated_) {
-    // cant allocate and set resources in constructor
+    // can't allocate and set resources in constructor
     CK_CUDA_THROW_(cudaSetDevice(device_id_));  // for multiple devices
     CK_CUDA_THROW_(cudaStreamCreateWithFlags(&task_stream_, cudaStreamNonBlocking));
     CK_CUDA_THROW_(cudaStreamCreateWithFlags(&dense_stream_, cudaStreamNonBlocking));
@@ -348,7 +348,7 @@ void ParquetDataReaderWorker<T>::read_a_batch() {
       int64_t num_of_pointer_staging =
           2 * (buffer_->label_dim + buffer_->label_dim + 1) + 2 * params_.size() + 2 * slots_;
 
-      // PinnedBuffer extend on unique_ptr cant realloc properly and safely (cudaContext)
+      // PinnedBuffer extend on unique_ptr can't realloc properly and safely (cudaContext)
       if ((int64_t)host_memory_pointer_staging_.get_num_elements() < num_of_pointer_staging)
         CK_THROW_(Error_t::UnspecificError, "Parquet reader worker: not enough pinned storge");
       // calculate rows for each buffer
@@ -509,7 +509,7 @@ void ParquetDataReaderWorker<T>::read_a_batch() {
         usleep(2);
         if (*loop_flag_ == 0) return;  // in case main thread exit
       }
-      return;  // need this return to run from begining
+      return;  // need this return to run from beginning
     } else {
       throw;
     }

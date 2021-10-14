@@ -33,12 +33,12 @@ namespace {
 const float eps = 1e-5;
 
 template <typename T>
-void gather_layer_test(size_t dimention, size_t height, size_t width, std::vector<int> indices) {
+void gather_layer_test(size_t dimension, size_t height, size_t width, std::vector<int> indices) {
   std::shared_ptr<GeneralBuffer2<CudaAllocator>> buff = GeneralBuffer2<CudaAllocator>::create();
 
   const size_t ts = height * width;
   const size_t n_outs = indices.size();
-  std::vector<size_t> in_dims = {dimention, ts};
+  std::vector<size_t> in_dims = {dimension, ts};
   Tensor2<T> in_tensor;
   buff->reserve(in_dims, &in_tensor);
   Tensor2<T> out_tensor;
@@ -46,7 +46,7 @@ void gather_layer_test(size_t dimention, size_t height, size_t width, std::vecto
   buff->reserve(out_dims, &out_tensor);
 
   const size_t output_size = n_outs * ts;
-  const size_t input_size = dimention * ts;
+  const size_t input_size = dimension * ts;
   std::unique_ptr<T[]> h_in(new T[input_size]);
   std::unique_ptr<T[]> h_refs(new T[output_size]);
   std::unique_ptr<T[]> d2h_top(new T[output_size]);

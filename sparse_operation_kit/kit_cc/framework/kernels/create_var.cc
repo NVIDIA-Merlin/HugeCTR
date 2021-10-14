@@ -117,7 +117,7 @@ public:
                     break;
                 }
                 case DT_RESOURCE: {
-                    // it is the initial_value and specifed memory space.
+                    // it is the initial_value and specified memory space.
                     core::RefCountPtr<Var> init_variable;
                     OP_REQUIRES_OK(ctx, LookupResource(ctx, HandleFromInput(ctx, 0), &init_variable));
                     Tensor* var_tensor = init_variable->tensor();

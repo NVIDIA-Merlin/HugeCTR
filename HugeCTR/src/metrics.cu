@@ -702,7 +702,7 @@ float AUC<T>::_finalize_metric_per_gpu(int local_id) {
       num_bins_, num_partitions_, st.d_partition_offsets(), (CountType*)st.d_workspace(),
       st.d_partitioned_labels(), st.d_partitioned_preds());
 
-  // 5. Exchange the data such that all predicitons on GPU i are smaller than
+  // 5. Exchange the data such that all predictions on GPU i are smaller than
   //    the ones on GPU i+1.
   // 5.1. Compute receiving side offsets. Also compute resulting number
   //      of elements on all the other GPUs, required to determine correct neighbors

@@ -100,8 +100,8 @@ void multi_cross_entropy_loss(size_t label_dim, size_t batch_size) {
   }
   cpu_loss = -cpu_loss / (batch_size * label_dim);
   ASSERT_EQ(true, cpu_gpu_cmp(h_input.get(), d_input, batch_size * label_dim))
-      << " CSE Gradient calulation failed" << endl;
-  ASSERT_EQ(true, cpu_gpu_cmp(&cpu_loss, d_loss, 1)) << " CSE Loss calulation failed" << endl;
+      << " CSE Gradient calculation failed" << endl;
+  ASSERT_EQ(true, cpu_gpu_cmp(&cpu_loss, d_loss, 1)) << " CSE Loss calculation failed" << endl;
 }
 
 TEST(loss_test, MultiCrossEntropyLoss11_1024) { multi_cross_entropy_loss(11, 1024); }

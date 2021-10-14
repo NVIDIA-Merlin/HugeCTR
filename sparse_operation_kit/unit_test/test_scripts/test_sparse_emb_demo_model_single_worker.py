@@ -153,7 +153,7 @@ def test_sok_demo(args, init_tensors, *random_samples):
         sok_results.append(embedding_vector)
 
         # FIXME: when the forward computation is too fast, there
-        # may exist some conficts with datareader, which cause the program hang.
+        # may exist some conflicts with datareader, which cause the program hang.
         import time
         time.sleep(0.2) # seconds
     
@@ -289,7 +289,7 @@ def compare_sok_with_tf(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='test demo model with single worker.')
     parser.add_argument('--gpu_num', type=int,
-                        help='the number of GPUs used to do paralell training.',
+                        help='the number of GPUs used to do parallel training.',
                         required=False, default=8)
     parser.add_argument('--iter_num', type=int,
                         help='the number of testing iterations.',
@@ -303,7 +303,7 @@ if __name__ == "__main__":
                         help='the maximum number of keys in one slot',
                         required=False, default=1)
     parser.add_argument('--embedding_vec_size', type=int,
-                        help='the dimention of embedding vector',
+                        help='the dimension of embedding vector',
                         required=False, default=1)
     parser.add_argument('--combiner', type=str,
                         help='the combiner used to do reduction for sparse embedding layer. ' +\

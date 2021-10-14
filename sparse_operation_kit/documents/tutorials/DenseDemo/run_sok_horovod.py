@@ -135,7 +135,7 @@ if __name__ == "__main__":
                         required=False, default='plugin_adam',
                         choices=['plugin_adam', 'adam', 'sgd'])
     parser.add_argument("--stop_at_iter", type=int, required=False,
-                        help="early stop the process if iteration reachs this setting.",
+                        help="early stop the process if iteration reaches this setting.",
                         default=-1)
 
     args = parser.parse_args()

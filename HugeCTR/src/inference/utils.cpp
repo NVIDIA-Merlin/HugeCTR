@@ -420,7 +420,7 @@ int keyHashSlot(const char* key, size_t keylen) {
   for (e = s + 1; e < keylen; e++)
     if (key[e] == '}') break;
 
-  /* No '}' or nothing betweeen {} ? Hash the whole key. */
+  /* No '}' or nothing between {} ? Hash the whole key. */
   if (e == keylen || e == s + 1) return crc16(key, keylen) & 0x3FFF;
 
   /* If we are here there is both a { and a } on its right. Hash

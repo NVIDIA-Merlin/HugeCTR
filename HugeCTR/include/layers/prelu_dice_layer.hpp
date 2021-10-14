@@ -47,7 +47,7 @@ class PRelu_Dice_Layer : public Layer {
   //~PRelu_Dice_Layer() override;
   /**
    * A method of implementing the forward pass of PRelu_Dice
-   * @param stream CUDA stream where the foward propagation is executed
+   * @param stream CUDA stream where the forward propagation is executed
    */
   void fprop(bool is_train) override;
   /**

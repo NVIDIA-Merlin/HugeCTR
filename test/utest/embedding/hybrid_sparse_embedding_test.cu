@@ -80,8 +80,8 @@ void hybrid_sparse_embedding_construct(const std::vector<int> &device_list, size
       slot_num,
       embedding_vec_size,
       (TypeKey)total_categories,
-      (TypeKey)0,  // irrelevent here
-      1.0          // irrelevent here
+      (TypeKey)0,  // irrelevant here
+      1.0          // irrelevant here
   };
   HybridEmbeddingInputGenerator<TypeKey> generator(test_config, slot_size_array, 848484);
 

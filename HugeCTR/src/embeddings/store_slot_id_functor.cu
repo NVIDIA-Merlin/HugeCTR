@@ -40,7 +40,7 @@ __global__ void store_slot_id_kernel(size_t batch_size,
       int value_num = row_offset[gid + 1] - offset;
       for (int i = 0; i < value_num; i++) {
         TypeValueIndex index = value_index[offset + i];  // row number
-        // TODO: slot_id may be filled in repeatly
+        // TODO: slot_id may be filled in repeatedly
         slot_id[index] = sid;
       }
     }

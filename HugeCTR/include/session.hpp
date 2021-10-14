@@ -98,8 +98,8 @@ class Session {
   }
 
   /**
-   * generate a dense model and initilize with small random values.
-   * @param model_file dense model initilized
+   * generate a dense model and initialize with small random values.
+   * @param model_file dense model initialized
    */
   Error_t init_params(std::string model_file) { return Error_t::Success; };
   /**

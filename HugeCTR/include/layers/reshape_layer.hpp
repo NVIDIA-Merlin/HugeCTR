@@ -77,7 +77,7 @@ class ReshapeLayer : public Layer {
    * @param out_tensor the resulting output tensor
    * @param the ID list of slots which are concatenated
    * If it is empty, it is just near-zero-overhead in-place reshape from 3D to 2D.
-   * Othewise, the only selected slots are concatenated in newly assigned tensor.
+   * Otherwise, the only selected slots are concatenated in newly assigned tensor.
    * @param device_id the id of GPU where this layer belongs
    */
   ReshapeLayer(const Tensor2<T>& in_tensor, Tensor2<T>& out_tensor,
@@ -88,12 +88,12 @@ class ReshapeLayer : public Layer {
 
   /**
    * A method of implementing the forward pass of Reshape
-   * @param stream CUDA stream where the foward propagation is executed
+   * @param stream CUDA stream where the forward propagation is executed
    */
   void fprop(bool is_train) override;
   /**
    * A method of implementing the forward pass of Reshape
-   * @param stream CUDA stream where the foward propagation is executed
+   * @param stream CUDA stream where the forward propagation is executed
    */
   void bprop() override;
 };

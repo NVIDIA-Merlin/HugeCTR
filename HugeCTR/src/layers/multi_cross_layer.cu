@@ -239,7 +239,7 @@ void out_product(Tensor2<T>& out_mat, const Tensor2<T>& vec_a, const Tensor2<T>&
 }
 
 /**
- * Each row in `mat` scale with the coresponding element in vec. and accum across rows
+ * Each row in `mat` scale with the corresponding element in vec. and accum across rows
  * The length of vec should be h.
  * @param o_mat: hxw
  * @param mat: hxw

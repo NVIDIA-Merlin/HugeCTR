@@ -50,7 +50,7 @@ class SparseEmbeddingFunctors {
    * @param lid the gpu local id.
    * @param gid the gpu global id.
    * @param total_gpu_count total gpu count.
-   * @param slot_sizes an array which stores the size of the slots to be intialized.
+   * @param slot_sizes an array which stores the size of the slots to be initialized.
    * @param embedding_vec_size embedding vector size.
    * @param embedding_table the pointer to the embedding table.
    * @param slot_ids the pointer to the slot ids.
@@ -97,7 +97,7 @@ class SparseEmbeddingFunctors {
    * @param batch_size batch size for the current mini-batch computation.
    * @param slot_num the number of slots
    * @param embedding_vec_size embedding vector size.
-   * @param row_offset_allreduce_tensors row_offsets tensors after all_reduce of mulitple GPUs
+   * @param row_offset_allreduce_tensors row_offsets tensors after all_reduce of multiple GPUs
    * @param output_tensors forward prop output tensors of multi GPUs
    * @param device_resources all gpus device resources.
    * @param context gpu device context, for switching device
@@ -109,7 +109,7 @@ class SparseEmbeddingFunctors {
                      const ResourceManager &resource_manager);
 
   /**
-   * reoder the sequence of data after all2all operation in forward propagation
+   * reorder the sequence of data after all2all operation in forward propagation
    * @param batch_size_per_gpu batch size per GPU
    * @param slot_num the number of localized slots
    * @param embedding_vec_size embedding vector size.
@@ -181,7 +181,7 @@ class SparseEmbeddingFunctors {
    * store slot ids. This function is only used by LocalizedSparseEmbeddingHash.
    * @param batch_size batch size for the current mini-batch computation.
    * @param slot_num total slot number in hash table.
-   * @param row_offsets_tensors row_offsets tensors of mulitple GPUs (CSR format of input
+   * @param row_offsets_tensors row_offsets tensors of multiple GPUs (CSR format of input
    * sparse tensors)
    * @param value_index_tensors hash value index tensors of multi GPUs
    * @param slot_id_tensors slot id tensors for multi GPUs
@@ -202,7 +202,7 @@ class SparseEmbeddingFunctors {
    * @param slot_num the number of slots in hash table.
    * @param embedding_vec_size embedding vector size.
    * @param combiner combiner type: 0-sum, 1-mean
-   * @param row_offset_allreduce_tensors row_offsets tensors after all_reduce of mulitple GPUs
+   * @param row_offset_allreduce_tensors row_offsets tensors after all_reduce of multiple GPUs
    * @param embedding_feature_tensors embedding features tensors of multiplu GPUs, storing dgrad
    * from the top layer
    * @param wgrad_tensors wgrad tensors of multi GPUs, the output of this function.
@@ -223,7 +223,7 @@ class SparseEmbeddingFunctors {
    * @param slot_num_per_gpu slot_num per GPU.
    * @param embedding_vec_size embedding vector size.
    * @param combiner combiner type: 0-sum, 1-mean
-   * @param row_offset_allreduce_tensors row_offsets tensors after all_reduce of mulitple GPUs
+   * @param row_offset_allreduce_tensors row_offsets tensors after all_reduce of multiple GPUs
    * @param embedding_feature_tensors embedding features tensors of multiplu GPUs, storing dgrad
    * from the top layer
    * @param wgrad_tensors wgrad tensors of multi GPUs, the output of this function.
@@ -239,7 +239,7 @@ class SparseEmbeddingFunctors {
                 const ResourceManager &resource_manager);
 
   /**
-   * reoder the sequence of data before all2all operation in backward propagation
+   * reorder the sequence of data before all2all operation in backward propagation
    * @param batch_size_per_gpu batch size per GPU
    * @param slot_num the number of localized slots
    * @param embedding_vec_size embedding vector size.
@@ -285,7 +285,7 @@ class SparseEmbeddingFunctors {
 
   /**
    * update_params for LocalizedSlotSparseEmbeddingOneHot.
-   * overload for fp16. Only support atmoic SGD currently.
+   * overload for fp16. Only support atomic SGD currently.
    * The second step of backward propagation: update embedding tables(weights)
    * @param stream cuda stream corresponding to the current GPU.
    * @param embedding_vec_size embedding vector size.
@@ -401,7 +401,7 @@ class SparseEmbeddingFunctors {
 #else
   /**
    * nccl all2all communication for forward.
-   * CAUSION: Only support intra-node all2all currently
+   * CAUTION: Only support intra-node all2all currently
    * @param batch_size_per_gpu batch size per GPU
    * @param slot_num_per_gpu slot number for each local GPU
    * @param embedding_vec_size embedding vector size
@@ -416,7 +416,7 @@ class SparseEmbeddingFunctors {
 
   /**
    * nccl all2all communication for backward
-   * CAUSION: Only support intra-node all2all currently
+   * CAUTION: Only support intra-node all2all currently
    * @param batch_size_per_gpu batch size per GPU
    * @param slot_num_per_gpu slot number for each local GPU
    * @param embedding_vec_size embedding vector size
@@ -431,7 +431,7 @@ class SparseEmbeddingFunctors {
 #endif
 
   /**
-   * get forward results from GPUs to CPU. This functin is just used for utest.
+   * get forward results from GPUs to CPU. This function is just used for utest.
    * @param memcpy_size the number of elemments to do memcpy.
    * @param embedding_feature_tensors the source tensors of multi GPUs to copy from.
    * @param embedding_feature the destination CPU buffer pointer to copy to.
@@ -455,7 +455,7 @@ class SparseEmbeddingFunctors {
                            const ResourceManager &resource_manager, const bool on_gpu);
 
   /**
-   * get backward results from GPU to CPU. This functin is just used for utest.
+   * get backward results from GPU to CPU. This function is just used for utest.
    * @param devId gpu device id to get backward resutls from.
    * @param memcpy_size the number of elemments to do memcpy.
    * @param wgrad_tensors the source tensors of multi GPUs to copy from.
@@ -470,13 +470,13 @@ class SparseEmbeddingFunctors {
                             const ResourceManager &resource_manager);
 
   /**
-   * get update_params results from GPU to CPU. This functin is just used for utest.
+   * get update_params results from GPU to CPU. This function is just used for utest.
    * @param embedding_vec_size embedding vector size.
    * @param vocabulary_size the total number of rows in hash table
    * @param hash_table_value_tensors the tensors of hash table value on multi GPUs
    * @param hash_tables the hash tables on multi GPUs
    * @param hash_table_key the pointer of hash table key on CPU
-   * @param hash_table_value the ponter of hash table value on CPU
+   * @param hash_table_value the pointer of hash table value on CPU
    * @param device_resources all gpus device resources.
    * @param context gpu device context, for switching device
    */
@@ -517,7 +517,7 @@ class SparseEmbeddingFunctors {
    * embedding_vec_size.
    * @param value_index the pointer of value_index.
    * @param hash_table_value the pointer of hash table value.
-   * @param value_retrieved the pointer of the retrived value.
+   * @param value_retrieved the pointer of the retrieved value.
    */
   void get_hash_value(size_t count, size_t embedding_vec_size, const size_t *value_index,
                       const float *hash_table_value, float *value_retrieved,

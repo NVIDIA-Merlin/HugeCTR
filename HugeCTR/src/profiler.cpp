@@ -150,7 +150,7 @@ void Profiler::initialize(bool use_cuda_graph, bool exit_when_finished) {
         "Profiler Warning. 'extra_info' arg in the PROFILE_RECORD maybe ignored, if the event is "
         "executed in cuda graph.");
     if (data_collection_iterations_ > 0) {
-      MESSAGE_("Profiler Warning. Data collection may not fuction when cuda graph is ON!");
+      MESSAGE_("Profiler Warning. Data collection may not function when cuda graph is ON!");
     }
   }
 

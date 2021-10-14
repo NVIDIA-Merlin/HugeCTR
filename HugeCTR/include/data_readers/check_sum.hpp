@@ -31,7 +31,7 @@ class CheckSum : public Checker {
   CheckSum(Source& src) : Checker(src), counter_(0), accum_(0) {}
   /**
    * Read "bytes_to_read" byte to the memory associated to ptr.
-   * Users don't need to manualy maintain the check bit offset, just specify
+   * Users don't need to manually maintain the check bit offset, just specify
    * number of bytes you really want to see in ptr.
    * @param ptr pointer to user located buffer
    * @param bytes_to_read bytes to read

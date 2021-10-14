@@ -163,7 +163,7 @@ template void SparseEmbeddingFunctors::all2all_backward<__half>(
 
 /**
  * nccl all2all communication for backward
- * CAUSION: Only support intra-node all2all currently
+ * CAUTION: Only support intra-node all2all currently
  * @param batch_size_per_gpu batch size per GPU
  * @param slot_num_per_gpu slot number for each local GPU
  * @param embedding_vec_size embedding vector size

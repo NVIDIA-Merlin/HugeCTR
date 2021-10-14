@@ -76,7 +76,7 @@ class DemoModel(tf.keras.models.Model):
 ```
 
 ## Use SparseOperationKit with tf.distribute.Strategy ##
-SparseOperationKit is compatible with `tf.distribute.Strategy`. More specificly, `tf.distribute.MirroredStrategy` and `tf.distribute.MultiWorkerMirroredStrategy`.
+SparseOperationKit is compatible with `tf.distribute.Strategy`. More specifically, `tf.distribute.MirroredStrategy` and `tf.distribute.MultiWorkerMirroredStrategy`.
 
 ### with tf.distribute.MirroredStrategy ###
 Documents for [tf.distribute.MirroredStrategy](https://tensorflow.google.cn/api_docs/python/tf/distribute/MirroredStrategy?hl=en). `tf.distribute.MirroredStrategy` is a tool to support data-parallel synchronized training in single machine, where there exists multiple GPUs.
@@ -117,7 +117,7 @@ with strategy.scope():
 
     dense_opt = tf.keras.optimizers.Adam(learning_rate=0.1)
 ```
-For a DNN model built with SOK, `sok.Init` must be used to conduct initilizations. Please see [its API document](https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/v1.0.1/api/init.html#module-sparse_operation_kit.core.initialize).
+For a DNN model built with SOK, `sok.Init` must be used to conduct initializations. Please see [its API document](https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/v1.0.1/api/init.html#module-sparse_operation_kit.core.initialize).
 
 ***define training step***
 ```python

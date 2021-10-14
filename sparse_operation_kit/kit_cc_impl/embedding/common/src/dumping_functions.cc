@@ -110,13 +110,13 @@ void save_params_helper(const std::shared_ptr<ParamInterface> &param,
         const auto &local_gpu = resource_mgr->get_local_gpu(0);
         device_context.set_device(local_gpu->get_local_device_id());
 
-        // in cheif worker, the local_worker_max_count equals to global_worker_max_count
+        // in chief worker, the local_worker_max_count equals to global_worker_max_count
         local_worker_max_count = 0;
         CK_CUDA(cudaMemcpyAsync(&local_worker_max_count, d_global_max_count, sizeof(size_t) * 1,
                                 cudaMemcpyDeviceToHost,
                                 local_gpu->get_stream()));
 
-        // in cheif worker, count array contains the number of valid keys for each GPU.
+        // in chief worker, count array contains the number of valid keys for each GPU.
         CK_CUDA(cudaMemcpyAsync(count.get(), d_count_aggregation, 
                                 sizeof(size_t) * worker_num * local_gpu_count,
                                 cudaMemcpyDeviceToHost,
@@ -177,17 +177,17 @@ void save_params_helper(const std::shared_ptr<ParamInterface> &param,
         } // get keys & embedding_values
     } // for dev_id in local_gpu_count 
 
-    // step 6: aggregate param from non-cheif to chief worker, only cheif worker
+    // step 6: aggregate param from non-chief to chief worker, only chief worker
     // needs to do GPU->CPU memory copy, other workers only send their data to 
-    // cheif worker via NCCL.
-    if (0 == worker_id) { // cheif worker
+    // chief worker via NCCL.
+    if (0 == worker_id) { // chief worker
         size_t host_num_keys_offset = 0ul;
 
         for (size_t worker = 0; worker < worker_num; worker++) {
-            if (worker_id != worker) { /*cheif worker receives data from other workers*/
+            if (worker_id != worker) { /*chief worker receives data from other workers*/
                 CK_NCCL(ncclGroupStart());
                 for (size_t recv_worker = 1; recv_worker < worker_num; recv_worker++) {
-                    if (worker == recv_worker) { /*cheif worker receives valid data from other worker*/ 
+                    if (worker == recv_worker) { /*chief worker receives valid data from other worker*/ 
                         for (size_t dev_id = 0; dev_id < local_gpu_count; dev_id++) {
                             const int32_t peer = worker * local_gpu_count + dev_id;
                             const auto &local_gpu = resource_mgr->get_local_gpu(dev_id);
@@ -203,8 +203,8 @@ void save_params_helper(const std::shared_ptr<ParamInterface> &param,
                                             local_gpu->get_nccl(),
                                             local_gpu->get_stream()));
                         } // for dev_id in local_gpu_count
-                        MESSAGE("Worker: " + std::to_string(worker) + "'s data is received by cheif node.");
-                    } else { /*cheif worker receives dummy data from other worker*/
+                        MESSAGE("Worker: " + std::to_string(worker) + "'s data is received by chief node.");
+                    } else { /*chief worker receives dummy data from other worker*/
                         for (size_t dev_id = 0; dev_id < local_gpu_count; dev_id++) {
                             CK_NCCL(ncclRecv(d_count[dev_id], 1, ncclUint64,
                                             /*peer=*/recv_worker * local_gpu_count + dev_id,
@@ -214,9 +214,9 @@ void save_params_helper(const std::shared_ptr<ParamInterface> &param,
                     }
                 } // for recv_worker in [1, worker_num)
                 CK_NCCL(ncclGroupEnd());
-            } /*cheif worker receives data from other workers*/
+            } /*chief worker receives data from other workers*/
 
-            /*cheif worker copy data from GPU to CPU output tensor*/
+            /*chief worker copy data from GPU to CPU output tensor*/
             for (size_t dev_id = 0; dev_id < local_gpu_count; dev_id++) {
                 const size_t pair_count = count[worker * local_gpu_count + dev_id];
                 const auto &local_gpu = resource_mgr->get_local_gpu(dev_id);
@@ -238,7 +238,7 @@ void save_params_helper(const std::shared_ptr<ParamInterface> &param,
 
     } else { // non-cheif worker
         for (size_t worker = 1; worker < worker_num; worker++) {
-            if (worker == worker_id) { /*sub worker send valid data to cheif worker*/
+            if (worker == worker_id) { /*sub worker send valid data to chief worker*/
                 CK_NCCL(ncclGroupStart());
                 for (size_t dev_id = 0; dev_id < local_gpu_count; dev_id++) {
                     const size_t pair_count = count[dev_id];
@@ -254,8 +254,8 @@ void save_params_helper(const std::shared_ptr<ParamInterface> &param,
                                     local_gpu->get_nccl(), local_gpu->get_stream()));
                 } // for dev_id in local_gpu_count
                 CK_NCCL(ncclGroupEnd()); 
-                MESSAGE("Worker: " + std::to_string(worker) + "'s data sent to cheif worker.");
-            } else { /*sub worker send dummy data to cheif worker*/
+                MESSAGE("Worker: " + std::to_string(worker) + "'s data sent to chief worker.");
+            } else { /*sub worker send dummy data to chief worker*/
                 CK_NCCL(ncclGroupStart());
                 for (size_t dev_id = 0; dev_id < local_gpu_count; dev_id++) {
                     CK_NCCL(ncclSend(d_count[dev_id], 1, ncclUint64, 
@@ -268,7 +268,7 @@ void save_params_helper(const std::shared_ptr<ParamInterface> &param,
         } // for worker in [1, worker_num)
     } // non-chief worker
 
-    // step 7: synchonize all workers
+    // step 7: synchronize all workers
     resource_mgr->sync_all_workers();
 
     // finally: release temp spaces

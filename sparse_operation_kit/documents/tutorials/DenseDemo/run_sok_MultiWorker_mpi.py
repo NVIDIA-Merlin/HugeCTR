@@ -91,7 +91,7 @@ def main(args, task_id):
             embedding_optimizer.apply_gradients(zip(emb_grads, emb_variable),
                                                 experimental_aggregate_gradients=False)
         
-        # mannually all-reduce dense gradients
+        # manually all-reduce dense gradients
         replica_context = tf.distribute.get_replica_context()
         grads = replica_context.all_reduce("sum", grads, 
                                             options=comm_options)
@@ -159,7 +159,7 @@ if __name__ == "__main__":
                         required=False, default='plugin_adam',
                         choices=['plugin_adam', 'adam', 'sgd'])
     parser.add_argument("--stop_at_iter", type=int, required=False,
-                        help="early stop the process if iteration reachs this setting.",
+                        help="early stop the process if iteration reaches this setting.",
                         default=-1)
     parser.add_argument("--data_splited", type=int, required=False,
                         default=0, choices=[0, 1],
