@@ -497,7 +497,7 @@ __global__ void data_preprocess(int32_t *dev_out_buffer, int32_t rows_num,
 ///@param save_rows_end, Rows end to save from source, -1 means till the file ending.
 template <typename key, typename value>
 size_t convert_input_binaries(rmm::mr::device_memory_resource *mr, std::string input_file_path,
-                              const std::vector<std::string> &column_dtypes,
+                              const std::vector<cudf::data_type> &column_dtypes,
                               const std::vector<std::string> &column_names, int32_t hash_bucket,
                               int max_chunk_per_file, size_t file_skip_bytes, bool do_freq_encoding,
                               int64_t *dev_int_col_ptrs, int64_t *dev_int_col_nullmask_ptrs,

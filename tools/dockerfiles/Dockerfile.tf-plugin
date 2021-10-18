@@ -12,58 +12,44 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-ARG CUDA_VERSION=11.2.1
-ARG CUDNN_VERSION=8
-ARG UBUNTU_VERSION=20.04
-FROM nvidia/cuda:${CUDA_VERSION}-cudnn${CUDNN_VERSION}-devel-ubuntu${UBUNTU_VERSION} AS devel
-
-ARG CMAKE_VERSION=3.19.6
-ARG PYTHON_VERSION=3.8
-ARG RAPIDS_VERSION=21.06
-ARG TF_VERSION=2.6.0
+ARG IMAGE_VER=21.09-tf2-py3
+FROM nvcr.io/nvidia/tensorflow:${IMAGE_VER} AS devel
 
 ARG RELEASE=false
 ARG SM="70;75;80"
 ARG USE_NVTX=OFF
 
+ARG CMAKE_VER=3.21.1
+
+SHELL ["/bin/bash", "-c"]
+
 RUN apt-get update -y && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-        vim \
-        gdb \
-        git \
-        wget \
-        tar \
-        curl \
-        cmake \
-        python-dev \
-        python3-dev \
-        python3-pip \
-        python3-setuptools \
-        python3-wheel \
-        clang-format \
-        libboost-all-dev && \
+        vim gdb git wget tar curl \
+        clang-format libboost-serialization-dev && \
     rm -rf /var/lib/apt/lists/*
 
-RUN CMAKE_MAJOR_VERSION=`echo ${CMAKE_VERSION} | cut -d'.' -f1,2` && \
-    mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://cmake.org/files/v$CMAKE_MAJOR_VERSION/cmake-${CMAKE_VERSION}-Linux-x86_64.sh && \
+# Install cmake
+RUN CMAKE_MAJOR_VERSION=`echo ${CMAKE_VER} | cut -d'.' -f1,2` && \
+    mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://cmake.org/files/v$CMAKE_MAJOR_VERSION/cmake-${CMAKE_VER}-linux-x86_64.sh && \
     mkdir -p /usr/local && \
-    /bin/sh /var/tmp/cmake-${CMAKE_VERSION}-Linux-x86_64.sh --prefix=/usr/local --skip-license && \
-    rm -rf /var/tmp/cmake-${CMAKE_VERSION}-Linux-x86_64.sh
+    /bin/sh /var/tmp/cmake-${CMAKE_VER}-linux-x86_64.sh --prefix=/usr/local --skip-license && \
+    rm -rf /var/tmp/cmake-${CMAKE_VER}-linux-x86_64.sh
 ENV PATH=/usr/local/bin:$PATH
 
-RUN pip3 install --upgrade pip && \
-    pip3 install --no-cache-dir numpy==1.19.2 pandas sklearn nvtx-plugins jupyter tensorflow==${TF_VERSION}
+# Install rmm from source
+RUN git clone https://github.com/rapidsai/rmm.git build-env && cd build-env/ && \
+    sed -i '/11.2/ a "11.4": "11.x",' python/setup.py && \
+    cd ..; \
+    pushd build-env && \
+      ./build.sh librmm --cmake-args=\"-DBUILD_TESTS=OFF\" && \
+    popd && \
+    rm -rf build-env
 
-ENV CONDA_PREFIX=/opt/conda
 ENV NCCL_LAUNCH_MODE=PARALLEL
+ENV NCCL_COLLNET_ENABLE=0
 
-RUN mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 --branch branch-${RAPIDS_VERSION} https://github.com/rapidsai/rmm.git rmm && cd - && \
-    cd /var/tmp/rmm && \
-    mkdir -p build && cd build && \
-    cmake .. -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX -DBUILD_TESTS=OFF && \
-    make -j$(nproc) && \
-    make -j$(nproc) install && \
-    rm -rf /var/tmp/rmm
+RUN pip3 install --no-cache-dir numpy==1.19.2 pandas sklearn nvtx-plugins jupyter
 
 RUN mkdir -p /usr/local/nvidia/lib64 && \
     ln -s /usr/local/cuda/lib64/libcusolver.so /usr/local/nvidia/lib64/libcusolver.so.10
@@ -79,3 +65,7 @@ RUN if [ "$RELEASE" = "true" ]; \
     else \
       echo "Build container for development successfully"; \
     fi
+
+HEALTHCHECK NONE
+ENTRYPOINT []
+CMD ["/bin/bash"]
