@@ -12,8 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+ARG BASE_IMAGE=tensorflow
 ARG IMAGE_VER=21.09-tf2-py3
-FROM nvcr.io/nvidia/tensorflow:${IMAGE_VER} AS devel
+FROM nvcr.io/nvidia/${BASE_IMAGE}:${IMAGE_VER} AS devel
 
 ARG RELEASE=false
 ARG SM="60;61;70;75;80"
