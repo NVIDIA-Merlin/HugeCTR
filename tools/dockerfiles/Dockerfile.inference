@@ -15,9 +15,9 @@
 ARG IMAGE_VER=21.09-py3
 FROM nvcr.io/nvidia/tritonserver:${IMAGE_VER} AS devel
 
+ARG IMAGE_VER
 ARG RELEASE=false
 ARG SM="70;75;80"
-ARG TRITON_BRANCH=main
 
 ARG CMAKE_VER=3.21.1
 
@@ -154,6 +154,7 @@ RUN CUDA_PATH=`find /usr/local/ -name "cuda-*.?" | head -n 1` && \
 # HugeCTR Inference
 RUN if [ "$RELEASE" = "true" ]; \
     then \
+      TRITON_BRANCH=r`echo ${IMAGE_VER} | cut -d '-' -f 1` && \
       mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 --branch master https://github.com/NVIDIA/HugeCTR.git HugeCTR && cd - && \
       cd /var/tmp/HugeCTR && \
       git submodule update --init --recursive && \
