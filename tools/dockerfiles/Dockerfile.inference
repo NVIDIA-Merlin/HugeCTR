@@ -51,14 +51,6 @@ RUN CMAKE_MAJOR_VERSION=`echo ${CMAKE_VER} | cut -d'.' -f1,2` && \
     rm -rf /var/tmp/cmake-${CMAKE_VER}-linux-x86_64.sh
 ENV PATH=/usr/local/bin:$PATH
 
-# Install cmake
-RUN CMAKE_MAJOR_VERSION=`echo ${CMAKE_VER} | cut -d'.' -f1,2` && \
-    mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://cmake.org/files/v$CMAKE_MAJOR_VERSION/cmake-${CMAKE_VER}-linux-x86_64.sh && \
-    mkdir -p /usr/local && \
-    /bin/sh /var/tmp/cmake-${CMAKE_VER}-linux-x86_64.sh --prefix=/usr/local --skip-license && \
-    rm -rf /var/tmp/cmake-${CMAKE_VER}-linux-x86_64.sh
-ENV PATH=/usr/local/bin:$PATH
-
 # Install arrow from source
 ENV ARROW_HOME=/usr/local
 RUN git clone --branch apache-arrow-5.0.0 --recurse-submodules https://github.com/apache/arrow.git build-env && \
