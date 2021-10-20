@@ -21,6 +21,12 @@ using namespace DLRM_RAW;
 using HugeCTR::MESSAGE_;
 #include <iostream>
 
+template <typename T>
+auto dtype()
+{
+  return cudf::data_type{cudf::type_to_id<T>()};
+}
+
 void process_kaggle_dataset(const std::string &input_dir_path, const std::string &output_dir_path,
                             const int num_numericals, const int num_categoricals) {
   int max_chunk_per_file = 10000;  // loop count, in a signle binary data, store how many chunks
@@ -58,7 +64,7 @@ void process_kaggle_dataset(const std::string &input_dir_path, const std::string
       new rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource>(base_mr, pool_alloc_size);
   rmm::mr::set_current_device_resource(p_mr);
 
-  std::vector<std::string> column_dtypes;                 // dtypes of label, dense, categorical
+  std::vector<cudf::data_type> column_dtypes;                 // dtypes of label, dense, categorical
   std::vector<std::string> column_names;                  // names of label, dense, categorical
   std::vector<std::string> cat_column_names;              // names of categorical
   std::map<std::string, int32_t> column_name_to_col_idx;  // <col-name, idx>
@@ -66,13 +72,13 @@ void process_kaggle_dataset(const std::string &input_dir_path, const std::string
       categorical_col_hash_tables;  // <name, <key, value>>
 
   // label
-  column_dtypes.push_back("int32");
+  column_dtypes.push_back(dtype<int32_t>());
   column_names.push_back("label");
   column_name_to_col_idx.insert(std::make_pair("label", 0));
 
   // dense-features
   for (int k = 1; k <= 13; k++) {
-    column_dtypes.push_back("int32");
+    column_dtypes.push_back(dtype<int32_t>());
     std::string name = "I" + std::to_string(k);
     column_names.push_back(name);
     column_name_to_col_idx.insert(std::make_pair(name, k));
@@ -80,7 +86,7 @@ void process_kaggle_dataset(const std::string &input_dir_path, const std::string
 
   // categorical-features
   for (int k = 1; k <= num_categoricals; k++) {
-    column_dtypes.push_back("str");
+    column_dtypes.push_back(dtype<cudf::string_view>());
     std::string name = "C" + std::to_string(k);
     column_names.push_back(name);
     cat_column_names.push_back(name);
@@ -393,7 +399,7 @@ void process_terabyte_dataset(const std::string &input_dir_path, const std::stri
       new rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource>(base_mr, pool_alloc_size);
   rmm::mr::set_current_device_resource(p_mr);
 
-  std::vector<std::string> column_dtypes;                 // dtypes of label, dense, categorical
+  std::vector<cudf::data_type> column_dtypes;                 // dtypes of label, dense, categorical
   std::vector<std::string> column_names;                  // names of label, dense, categorical
   std::vector<std::string> cat_column_names;              // names of categorical
   std::map<std::string, int32_t> column_name_to_col_idx;  // <col-name, idx>
@@ -401,13 +407,13 @@ void process_terabyte_dataset(const std::string &input_dir_path, const std::stri
       categorical_col_hash_tables;  // <name, <key, value>>
 
   // label
-  column_dtypes.push_back("int32");
+  column_dtypes.push_back(dtype<int32_t>());
   column_names.push_back("label");
   column_name_to_col_idx.insert(std::make_pair("label", 0));
 
   // dense-features
   for (int k = 1; k <= 13; k++) {
-    column_dtypes.push_back("int32");
+    column_dtypes.push_back(dtype<int32_t>());
     std::string name = "I" + std::to_string(k);
     column_names.push_back(name);
     column_name_to_col_idx.insert(std::make_pair(name, k));
@@ -415,7 +421,7 @@ void process_terabyte_dataset(const std::string &input_dir_path, const std::stri
 
   // categorical-features
   for (int k = 1; k <= num_categoricals; k++) {
-    column_dtypes.push_back("str");
+    column_dtypes.push_back(dtype<cudf::string_view>());
     std::string name = "C" + std::to_string(k);
     column_names.push_back(name);
     cat_column_names.push_back(name);
