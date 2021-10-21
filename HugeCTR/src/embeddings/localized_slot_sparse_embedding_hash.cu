@@ -405,6 +405,7 @@ LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::LocalizedSlotS
       } else {
         const std::shared_ptr<BufferBlock2<float>> &block = buf->create_block<float>();
         Tensors2<float> tensors;
+        size_t vocabulary_size_in_current_gpu = 0;
         for (size_t i = 0; i < slot_size_array_.size(); i++) {
           if ((i % embedding_data_.get_resource_manager().get_global_gpu_count()) == gid) {
             Tensor2<float> tensor;
@@ -412,9 +413,14 @@ LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::LocalizedSlotS
                 {slot_size_array_[i], embedding_data_.embedding_params_.embedding_vec_size},
                 &tensor);
             tensors.push_back(tensor);
+            vocabulary_size_in_current_gpu += slot_size_array_[i];
           }
         }
         value_table_tensors_.push_back(tensors);
+        if (max_vocabulary_size_per_gpu_ > vocabulary_size_in_current_gpu) {
+          Tensor2<float> padding_tensor_for_optimizer;
+          block->reserve({max_vocabulary_size_per_gpu_ - vocabulary_size_in_current_gpu, embedding_data_.embedding_params_.embedding_vec_size}, &padding_tensor_for_optimizer);
+        }
         hash_table_value_tensors_.push_back(block->as_tensor());
       }
       {
