@@ -48,7 +48,7 @@ public:
             ScopedActivateExecutorContext scoped_activation{stream->parent()};
 
             try {
-                //FIXME: perhaps we should wait till all threads & processes have reached this point??
+                //FIXME: perhaps we should asynchronously wait till all threads & processes have reached this point??
 
                 // get grad shape
                 TensorShape grad_shape;

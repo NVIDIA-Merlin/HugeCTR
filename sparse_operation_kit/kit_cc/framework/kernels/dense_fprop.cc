@@ -16,12 +16,106 @@
 
 #include "facade.h"
 #include "tensorflow/core/framework/op_kernel.h"
+#ifdef SOK_ASYNC
+    #include "tensorflow/core/common_runtime/gpu/gpu_event_mgr.h"
+    #include "tensorflow/stream_executor/cuda/cuda_activation.h"
+#endif
 #include <exception>
 
 namespace tensorflow {
 using GPUDevice = Eigen::GpuDevice;
 using CPUDevice = Eigen::ThreadPoolDevice; 
 
+#ifdef SOK_ASYNC
+using ScopedActivateExecutorContext = stream_executor::cuda::ScopedActivateExecutorContext;
+
+template <typename Device>
+class PluginDenseFpropOp : public AsyncOpKernel {
+public:
+    explicit PluginDenseFpropOp(OpKernelConstruction* ctx): AsyncOpKernel(ctx) {
+        OP_REQUIRES_OK(ctx, ctx->GetAttr("training", &training_));
+        OP_REQUIRES_OK(ctx, ctx->GetAttr("dynamic_input", &dynamic_input_));
+    }
+    void ComputeAsync(OpKernelContext* ctx, DoneCallback done) override {
+        Tensor const *emb_handle_tensor = nullptr;
+        OP_REQUIRES_OK_ASYNC(ctx, ctx->input("emb_handle", &emb_handle_tensor), done);
+        Tensor const *values_tensor = nullptr;
+        OP_REQUIRES_OK_ASYNC(ctx, ctx->input("values", &values_tensor), done);
+        Tensor const *global_replica_id_tensor = nullptr;
+        OP_REQUIRES_OK_ASYNC(ctx, ctx->input("global_replica_id", &global_replica_id_tensor), done);
+
+        auto work_func = [this, ctx, emb_handle_tensor, values_tensor, global_replica_id_tensor, done]() {
+            // Ensure that within the callback, the proper GPU settings are
+            // configured.
+            auto stream = ctx->op_device_context()->stream();
+            ScopedActivateExecutorContext scoped_activation{stream->parent()};
+
+            //FIXME: perhaps we should asynchronously wait till all threads & processes have reached this point??
+
+            // allocate output
+            Tensor *emb_vector_tensor = nullptr;
+            if (dynamic_input_) { // the input shape is dynamic
+                TensorShape emb_vector_tensor_shape = {values_tensor->NumElements()};
+                TensorShape embedding_vec_size_shape;
+                try {
+                    // only embedding_vec_size will bet set in embedding_vec_size_shape.
+                    SparseOperationKit::Facade::instance()->get_output_shape(emb_handle_tensor, 
+                                                                            embedding_vec_size_shape,
+                                                                            /*dynamic_input=*/true);
+                } catch (std::exception const &error) {
+                    ctx->SetStatus(errors::Aborted(error.what()));
+                    done(); // if error happens
+                    return;
+                }
+                emb_vector_tensor_shape.AppendShape(embedding_vec_size_shape);
+
+                OP_REQUIRES_OK_ASYNC(ctx, ctx->allocate_output(0, emb_vector_tensor_shape, &emb_vector_tensor),
+                                     done);
+            } else { // the input shape is static.
+                // get output shape for the first time
+                if (0 == emb_vector_tensor_shape_.dims()) {
+                    try {
+                        SparseOperationKit::Facade::instance()->get_output_shape(emb_handle_tensor, 
+                                                                            emb_vector_tensor_shape_);
+                    } catch (std::exception const &error) {
+                        ctx->SetStatus(errors::Aborted(error.what()));
+                        done(); // if error happens
+                        return;
+                    }
+                } 
+
+                // TODO: check values and indices shape
+
+                OP_REQUIRES_OK_ASYNC(ctx, ctx->allocate_output(0, emb_vector_tensor_shape_, &emb_vector_tensor), 
+                                     done);
+            }
+
+            // do forward propagation
+            try {
+                SparseOperationKit::Facade::instance()->forward(emb_handle_tensor, 
+                                                            values_tensor, 
+                                                            global_replica_id_tensor->scalar<int32_t>()(),
+                                                            training_,
+                                                            emb_vector_tensor);
+            } catch (std::exception const &error) {
+                ctx->SetStatus(errors::Aborted(error.what()));
+                done(); // if error happens
+                return;
+            }
+
+            done(); // no error happens
+        };
+
+        auto stream = ctx->op_device_context()->stream();
+        ctx->device()->tensorflow_gpu_device_info()->event_mgr->ThenExecute(stream, std::move(work_func));
+    }
+private:
+    bool training_;
+    bool dynamic_input_;
+    TensorShape emb_vector_tensor_shape_;
+};
+
+#else
 template <typename Device>
 class PluginDenseFpropOp : public OpKernel {
 public:
@@ -88,6 +182,7 @@ private:
     bool dynamic_input_;
     TensorShape emb_vector_tensor_shape_;
 };
+#endif
 
 REGISTER_KERNEL_BUILDER(Name("PluginDenseFprop")
                         .Device(DEVICE_GPU)
