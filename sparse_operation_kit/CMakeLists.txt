@@ -36,6 +36,13 @@ if (USE_NVTX)
     find_package(NVTX REQUIRED)
 endif()
 
+# whether make ops to be asynchronous
+option(ASYNC_OPS "Make Ops to be asynchronous" OFF)
+if (ASYNC_OPS)
+    message(STATUS "Make Ops to be asynchronous")
+    add_definitions(-DSOK_ASYNC)
+endif()
+
 # setting compiler flags
 if (NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE "Release")
