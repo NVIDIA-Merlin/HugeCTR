@@ -37,6 +37,7 @@ RUN apt-get update -y && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
         vim git wget unzip tar curl zip \
         gdb valgrind \
+        sysstat iotop htop \
         zlib1g-dev lsb-release clang-format \
         openssl libssl-dev \
         libboost-serialization-dev \
