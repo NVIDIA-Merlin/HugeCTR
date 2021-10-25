@@ -56,8 +56,9 @@ public:
         std::cout << "\b]" << std::endl;
 #endif
 
-        Tensor* output_tensor = nullptr;
-        OP_REQUIRES_OK(ctx, ctx->allocate_output(0, tensor_shape, &output_tensor));
+        // FIXME: lock should be used here??
+        // FIXME: should copy values from variable to output??
+        OP_REQUIRES_OK(ctx, ctx->set_output("value", *(variable->tensor())));
     }
 private:
     DataType dtype_;
