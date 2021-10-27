@@ -79,6 +79,22 @@ public:
                cudaStream_t stream, 
                const size_t task_per_warp_tile = TASK_PER_WARP_TILE_MACRO);
 
+
+  // Update API, i.e. update the embeddings which exist in the cache
+  void Update(const key_type* d_keys,
+              const size_t len,
+              const float* d_values,
+              cudaStream_t stream,
+              const size_t task_per_warp_tile = TASK_PER_WARP_TILE_MACRO);
+
+
+  // Dump API, i.e. dump some slabsets' keys from the cache
+  void Dump(key_type* d_keys,
+            size_t* d_dump_counter,
+            const size_t start_set_index,
+            const size_t end_set_index,
+            cudaStream_t stream);
+
 public:
     using slabset = slab_set<set_associativity, key_type, warp_size>;
 #ifdef LIBCUDACXX_VERSION

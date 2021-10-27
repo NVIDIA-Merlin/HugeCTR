@@ -927,6 +927,414 @@ __global__ void insert_replace_kernel(const key_type* d_keys,
   }
 }
 #endif
+
+#ifdef LIBCUDACXX_VERSION
+// Kernel to update the existing keys in the cache
+// Will not change the locality information
+template<typename key_type,  
+         typename slabset, 
+         typename set_hasher, 
+         typename slab_hasher, 
+         typename mutex, 
+         key_type empty_key, 
+         int set_associativity, 
+         int warp_size>
+__global__ void update_kernel(const key_type* d_keys,
+                              const size_t len,
+                              const float* d_values,
+                              const size_t embedding_vec_size,
+                              const size_t capacity_in_set,
+                              const slabset* keys,
+                              float* vals,
+                              mutex* set_mutex, 
+                              const size_t task_per_warp_tile){
+  // Lane(thread) ID within a warp_tile
+  cg::thread_block_tile<warp_size> warp_tile = cg::tiled_partition<warp_size>(cg::this_thread_block());
+  const size_t lane_idx = warp_tile.thread_rank();
+  // Warp tile global ID
+  const size_t warp_tile_global_idx = (blockIdx.x * (blockDim.x / warp_size)) + warp_tile.meta_group_rank();
+  // The index of key for this thread
+  const size_t key_idx = (warp_tile_global_idx * task_per_warp_tile) + lane_idx;
+  // The assigned key for this lane(thread)
+  key_type key;
+  // The dst slabset and the dst slab inside this set
+  size_t src_set;
+  size_t src_slab;
+  // Active flag: whether current lane(thread) has unfinished task
+  bool active = false;
+  if(lane_idx < task_per_warp_tile){
+    if(key_idx < len){
+      active = true;
+      key = d_keys[key_idx];
+      src_set = set_hasher::hash(key) % capacity_in_set; 
+      src_slab = slab_hasher::hash(key) % set_associativity;
+    }
+  }
+
+  // Lane participate in warp_tile ballot to produce warp-level work queue
+  unsigned active_mask = warp_tile.ballot(active);
+
+  // The warp-level outer loop: finish all the tasks within the work queue
+  while(active_mask != 0){
+
+    // Next task in the work quere, start from lower index lane(thread)
+    int next_lane = __ffs(active_mask) - 1;
+    // Broadcast the task and the global index to all lane in the warp_tile
+    key_type next_key = warp_tile.shfl(key, next_lane);
+    size_t next_idx = warp_tile.shfl(key_idx, next_lane);
+    size_t next_set = warp_tile.shfl(src_set, next_lane);
+    size_t next_slab = warp_tile.shfl(src_slab, next_lane);
+
+    // Counter to record how many slab have been searched
+    size_t counter = 0;
+
+    // Working queue before task started
+    const unsigned old_active_mask = active_mask;
+
+    // Lock the slabset before operating the slabset
+    warp_lock_mutex<mutex, warp_size>(warp_tile, set_mutex[next_set]);
+
+    // The warp-level inner loop: finish a single task in the work queue
+    while(active_mask == old_active_mask){
+
+      // When all the slabs inside a slabset have been searched, mark missing task, do nothing, task complete
+      if(counter >= set_associativity){
+
+        if(lane_idx == (size_t)next_lane){
+          active = false;
+        }
+
+        active_mask = warp_tile.ballot(active);
+        break;
+
+      }
+
+      // The warp_tile read out the slab
+      key_type read_key = keys[next_set].set_[next_slab].slab_[lane_idx];
+
+      // Compare the slab data with the target key
+      int found_lane = __ffs(warp_tile.ballot(read_key == next_key)) - 1;
+
+      // If found, mark hit task, update the value, the task is completed
+      if(found_lane >= 0){
+        size_t found_offset = (next_set * set_associativity + next_slab) * warp_size + found_lane;
+        if(lane_idx == (size_t)next_lane){
+          active = false;
+        }
+        
+        warp_tile_copy<warp_size>(lane_idx, embedding_vec_size, vals + found_offset * embedding_vec_size, d_values + next_idx * embedding_vec_size);
+                
+        active_mask = warp_tile.ballot(active);
+        break;
+      }
+
+      // Compare the slab data with empty key, if found empty key, mark missing task, do nothing, task is completed
+      if(warp_tile.ballot(read_key == empty_key) != 0){
+
+        if(lane_idx == (size_t)next_lane){
+          active = false;
+        }
+
+        active_mask = warp_tile.ballot(active);
+        break;
+
+      }
+
+      // Not found in this slab, the task is not completed, goto searching next slab
+      counter++;
+      next_slab = (next_slab + 1) % set_associativity;
+
+    }
+
+    // Unlock the slabset after operating the slabset
+    warp_unlock_mutex<mutex, warp_size>(warp_tile, set_mutex[next_set]);
+            
+  }
+
+}
+#else
+// Kernel to update the existing keys in the cache
+// Will not change the locality information 
+template<typename key_type,  
+         typename slabset, 
+         typename set_hasher, 
+         typename slab_hasher, 
+         key_type empty_key, 
+         int set_associativity, 
+         int warp_size>
+__global__ void update_kernel(const key_type* d_keys,
+                              const size_t len,
+                              const float* d_values,
+                              const size_t embedding_vec_size,
+                              const size_t capacity_in_set,
+                              volatile slabset* keys,
+                              volatile float* vals,
+                              volatile int* set_mutex, 
+                              const size_t task_per_warp_tile){
+  // Lane(thread) ID within a warp_tile
+  cg::thread_block_tile<warp_size> warp_tile = cg::tiled_partition<warp_size>(cg::this_thread_block());
+  const size_t lane_idx = warp_tile.thread_rank();
+  // Warp tile global ID
+  const size_t warp_tile_global_idx = (blockIdx.x * (blockDim.x / warp_size)) + warp_tile.meta_group_rank();
+  // The index of key for this thread
+  const size_t key_idx = (warp_tile_global_idx * task_per_warp_tile) + lane_idx;
+  // The assigned key for this lane(thread)
+  key_type key;
+  // The dst slabset and the dst slab inside this set
+  size_t src_set;
+  size_t src_slab;
+  // Active flag: whether current lane(thread) has unfinished task
+  bool active = false;
+  if(lane_idx < task_per_warp_tile){
+    if(key_idx < len){
+      active = true;
+      key = d_keys[key_idx];
+      src_set = set_hasher::hash(key) % capacity_in_set; 
+      src_slab = slab_hasher::hash(key) % set_associativity;
+    }
+  }
+
+  // Lane participate in warp_tile ballot to produce warp-level work queue
+  unsigned active_mask = warp_tile.ballot(active);
+
+  // The warp-level outer loop: finish all the tasks within the work queue
+  while(active_mask != 0){
+
+    // Next task in the work quere, start from lower index lane(thread)
+    int next_lane = __ffs(active_mask) - 1;
+    // Broadcast the task and the global index to all lane in the warp_tile
+    key_type next_key = warp_tile.shfl(key, next_lane);
+    size_t next_idx = warp_tile.shfl(key_idx, next_lane);
+    size_t next_set = warp_tile.shfl(src_set, next_lane);
+    size_t next_slab = warp_tile.shfl(src_slab, next_lane);
+
+    // Counter to record how many slab have been searched
+    size_t counter = 0;
+
+    // Working queue before task started
+    const unsigned old_active_mask = active_mask;
+
+    // Lock the slabset before operating the slabset
+    warp_lock_mutex<warp_size>(warp_tile, set_mutex[next_set]);
+
+    // The warp-level inner loop: finish a single task in the work queue
+    while(active_mask == old_active_mask){
+
+      // When all the slabs inside a slabset have been searched, mark missing task, do nothing, task complete
+      if(counter >= set_associativity){
+
+        if(lane_idx == (size_t)next_lane){
+          active = false;
+        }
+
+        active_mask = warp_tile.ballot(active);
+        break;
+
+      }
+
+      // The warp_tile read out the slab
+      key_type read_key = ((volatile key_type*)(keys[next_set].set_[next_slab].slab_))[lane_idx];
+
+      // Compare the slab data with the target key
+      int found_lane = __ffs(warp_tile.ballot(read_key == next_key)) - 1;
+
+      // If found, mark hit task, update the value, the task is completed
+      if(found_lane >= 0){
+        size_t found_offset = (next_set * set_associativity + next_slab) * warp_size + found_lane;
+        if(lane_idx == (size_t)next_lane){
+          active = false;
+        }
+
+        warp_tile_copy<warp_size>(lane_idx, embedding_vec_size, (volatile float*)(vals + found_offset * embedding_vec_size), (volatile float*)(d_values + next_idx * embedding_vec_size));
+                
+        active_mask = warp_tile.ballot(active);
+        break;
+      }
+
+      // Compare the slab data with empty key, if found empty key, mark missing task, do nothing, task is completed
+      if(warp_tile.ballot(read_key == empty_key) != 0){
+
+        if(lane_idx == (size_t)next_lane){
+          active = false;
+        }
+
+        active_mask = warp_tile.ballot(active);
+        break;
+
+      }
+
+      // Not found in this slab, the task is not completed, goto searching next slab
+      counter++;
+      next_slab = (next_slab + 1) % set_associativity;
+
+    }
+
+    // Unlock the slabset after operating the slabset
+    warp_unlock_mutex<warp_size>(warp_tile, set_mutex[next_set]);
+            
+  }
+
+}
+#endif
+
+#ifdef LIBCUDACXX_VERSION
+template<typename key_type, 
+         typename slabset, 
+         typename mutex, 
+         key_type empty_key, 
+         int set_associativity, 
+         int warp_size>
+__global__ void dump_kernel(key_type* d_keys,
+                            size_t* d_dump_counter,
+                            const slabset* keys,
+                            mutex* set_mutex,
+                            const size_t start_set_index,
+                            const size_t end_set_index){
+  // Block-level counter used by all warp tiles within a block
+  __shared__ uint32_t block_acc;
+  // Initialize block-level counter
+  if(threadIdx.x == 0){
+    block_acc = 0;
+  }
+  __syncthreads();
+  // Lane(thread) ID within a warp tile
+  cg::thread_block_tile<warp_size> warp_tile = cg::tiled_partition<warp_size>(cg::this_thread_block());
+  const size_t lane_idx = warp_tile.thread_rank();
+  // Warp tile target slabset id
+  const size_t set_idx = ((blockIdx.x * (blockDim.x / warp_size)) + warp_tile.meta_group_rank()) + start_set_index;
+  // Keys dump from cache
+  key_type read_key[set_associativity];
+  // Lane(thread) offset for storing each key
+  uint32_t thread_key_offset[set_associativity];
+  // Warp offset for storing each key
+  uint32_t warp_key_offset;
+  // Block offset for storing each key
+  __shared__ size_t block_key_offset;
+  
+  // Warp tile dump target slabset
+  if(set_idx < end_set_index){
+    // Lock the slabset before operating the slabset
+    warp_lock_mutex<mutex, warp_size>(warp_tile, set_mutex[set_idx]);
+
+    // The warp tile read out the slabset
+    for(unsigned slab_id = 0; slab_id < set_associativity; slab_id++){
+      // The warp tile read out a slab
+      read_key[slab_id] = keys[set_idx].set_[slab_id].slab_[lane_idx];
+    }
+
+    // Finish dumping the slabset, unlock the slabset
+    warp_unlock_mutex<mutex, warp_size>(warp_tile, set_mutex[set_idx]);
+
+    // Each lane(thread) within the warp tile calculate the offset to store its keys
+    uint32_t warp_tile_total_keys = 0;
+    for(unsigned slab_id = 0; slab_id < set_associativity; slab_id++){
+      unsigned valid_mask = warp_tile.ballot(read_key[slab_id] != empty_key);
+      thread_key_offset[slab_id] = __popc(valid_mask & ((1U << lane_idx) - 1U)) + warp_tile_total_keys;
+      warp_tile_total_keys = warp_tile_total_keys + __popc(valid_mask);
+    }
+
+    // Each warp tile request a unique place from the block-level counter
+    if(lane_idx == 0){
+      warp_key_offset = atomicAdd(&block_acc, warp_tile_total_keys);
+    }
+    warp_key_offset = warp_tile.shfl(warp_key_offset, 0);
+  }
+
+  // Each block request a unique place in global memory output buffer
+  __syncthreads();
+  if(threadIdx.x == 0){
+    block_key_offset = atomicAdd(d_dump_counter, (size_t)block_acc);
+  }
+  __syncthreads();
+
+  // Warp tile store the (non-empty)keys back to output buffer
+  if(set_idx < end_set_index){
+    for(unsigned slab_id = 0; slab_id < set_associativity; slab_id++){
+      if(read_key[slab_id] != empty_key){
+        d_keys[block_key_offset + warp_key_offset + thread_key_offset[slab_id]] = read_key[slab_id];
+      }
+    }
+  }
+}
+#else
+template<typename key_type, 
+         typename slabset, 
+         key_type empty_key, 
+         int set_associativity, 
+         int warp_size>
+__global__ void dump_kernel(key_type* d_keys,
+                            size_t* d_dump_counter,
+                            volatile slabset* keys,
+                            volatile int* set_mutex,
+                            const size_t start_set_index,
+                            const size_t end_set_index){
+  // Block-level counter used by all warp tiles within a block
+  __shared__ uint32_t block_acc;
+  // Initialize block-level counter
+  if(threadIdx.x == 0){
+    block_acc = 0;
+  }
+  __syncthreads();
+  // Lane(thread) ID within a warp tile
+  cg::thread_block_tile<warp_size> warp_tile = cg::tiled_partition<warp_size>(cg::this_thread_block());
+  const size_t lane_idx = warp_tile.thread_rank();
+  // Warp tile target slabset id
+  const size_t set_idx = ((blockIdx.x * (blockDim.x / warp_size)) + warp_tile.meta_group_rank()) + start_set_index;
+  // Keys dump from cache
+  key_type read_key[set_associativity];
+  // Lane(thread) offset for storing each key
+  uint32_t thread_key_offset[set_associativity];
+  // Warp offset for storing each key
+  uint32_t warp_key_offset;
+  // Block offset for storing each key
+  __shared__ size_t block_key_offset;
+  
+  // Warp tile dump target slabset
+  if(set_idx < end_set_index){
+    // Lock the slabset before operating the slabset
+    warp_lock_mutex<warp_size>(warp_tile, set_mutex[set_idx]);
+
+    // The warp tile read out the slabset
+    for(unsigned slab_id = 0; slab_id < set_associativity; slab_id++){
+      // The warp tile read out a slab
+      read_key[slab_id] = ((volatile key_type*)(keys[set_idx].set_[slab_id].slab_))[lane_idx];
+    }
+
+    // Finish dumping the slabset, unlock the slabset
+    warp_unlock_mutex<warp_size>(warp_tile, set_mutex[set_idx]);
+
+    // Each lane(thread) within the warp tile calculate the offset to store its keys
+    uint32_t warp_tile_total_keys = 0;
+    for(unsigned slab_id = 0; slab_id < set_associativity; slab_id++){
+      unsigned valid_mask = warp_tile.ballot(read_key[slab_id] != empty_key);
+      thread_key_offset[slab_id] = __popc(valid_mask & ((1U << lane_idx) - 1U)) + warp_tile_total_keys;
+      warp_tile_total_keys = warp_tile_total_keys + __popc(valid_mask);
+    }
+
+    // Each warp tile request a unique place from the block-level counter
+    if(lane_idx == 0){
+      warp_key_offset = atomicAdd(&block_acc, warp_tile_total_keys);
+    }
+    warp_key_offset = warp_tile.shfl(warp_key_offset, 0);
+  }
+
+  // Each block request a unique place in global memory output buffer
+  __syncthreads();
+  if(threadIdx.x == 0){
+    block_key_offset = atomicAdd(d_dump_counter, (size_t)block_acc);
+  }
+  __syncthreads();
+
+  // Warp tile store the (non-empty)keys back to output buffer
+  if(set_idx < end_set_index){
+    for(unsigned slab_id = 0; slab_id < set_associativity; slab_id++){
+      if(read_key[slab_id] != empty_key){
+        d_keys[block_key_offset + warp_key_offset + thread_key_offset[slab_id]] = read_key[slab_id];
+      }
+    }
+  }
+}
+#endif
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 #ifdef LIBCUDACXX_VERSION
@@ -1261,6 +1669,168 @@ Replace(const key_type* d_keys,
   insert_replace_kernel<key_type, slabset, ref_counter_type, set_hasher, slab_hasher, empty_key, set_associativity, warp_size>
   <<<grid_size, BLOCK_SIZE_, 0, stream>>>
   (d_keys, d_values, embedding_vec_size_, len, keys_, vals_, slot_counter_, set_mutex_, global_counter_, capacity_in_set_, task_per_warp_tile);
+
+  // Check for GPU error before return
+  CUDA_CHECK(cudaGetLastError());
+
+}
+#endif
+
+#ifdef LIBCUDACXX_VERSION
+template<typename key_type,  
+         typename ref_counter_type, 
+         key_type empty_key, 
+         int set_associativity, 
+         int warp_size,
+         typename set_hasher, 
+         typename slab_hasher>
+void gpu_cache<key_type, ref_counter_type, empty_key, set_associativity, warp_size, set_hasher, slab_hasher>::
+Update(const key_type* d_keys,
+       const size_t len,
+       const float* d_values,
+       cudaStream_t stream,
+       const size_t task_per_warp_tile){
+  
+  // Check if it is a valid update request
+  if(len == 0){
+    return;
+  }
+
+  // Device Restorer
+  nv::CudaDeviceRestorer dev_restorer;
+  // Set to the device of this cache
+  CUDA_CHECK(cudaSetDevice(dev_));
+
+  // Update the value of input keys that are existed in the cache
+  const size_t keys_per_block = (BLOCK_SIZE_ / warp_size) * task_per_warp_tile;
+  const size_t grid_size = ((len - 1) / keys_per_block) + 1;
+  update_kernel<key_type, slabset, set_hasher, slab_hasher, mutex, empty_key, set_associativity, warp_size>
+  <<<grid_size, BLOCK_SIZE_, 0, stream>>>
+  (d_keys, len, d_values, embedding_vec_size_, capacity_in_set_, keys_, vals_, set_mutex_, task_per_warp_tile);
+
+  // Check for GPU error before return
+  CUDA_CHECK(cudaGetLastError());
+
+}
+#else
+template<typename key_type,  
+         typename ref_counter_type, 
+         key_type empty_key, 
+         int set_associativity, 
+         int warp_size,
+         typename set_hasher, 
+         typename slab_hasher>
+void gpu_cache<key_type, ref_counter_type, empty_key, set_associativity, warp_size, set_hasher, slab_hasher>::
+Update(const key_type* d_keys,
+       const size_t len,
+       const float* d_values,
+       cudaStream_t stream,
+       const size_t task_per_warp_tile){
+
+  // Check if it is a valid update request
+  if(len == 0){
+    return;
+  }
+
+  // Device Restorer
+  nv::CudaDeviceRestorer dev_restorer;
+  // Set to the device of this cache
+  CUDA_CHECK(cudaSetDevice(dev_));
+
+  // Update the value of input keys that are existed in the cache
+  const size_t keys_per_block = (BLOCK_SIZE_ / warp_size) * task_per_warp_tile;
+  const size_t grid_size = ((len - 1) / keys_per_block) + 1;
+  update_kernel<key_type, slabset, set_hasher, slab_hasher, empty_key, set_associativity, warp_size>
+  <<<grid_size, BLOCK_SIZE_, 0, stream>>>
+  (d_keys, len, d_values, embedding_vec_size_, capacity_in_set_, keys_, vals_, set_mutex_, task_per_warp_tile);
+
+  // Check for GPU error before return
+  CUDA_CHECK(cudaGetLastError());
+
+}
+#endif
+
+#ifdef LIBCUDACXX_VERSION
+template<typename key_type,  
+         typename ref_counter_type, 
+         key_type empty_key, 
+         int set_associativity, 
+         int warp_size,
+         typename set_hasher, 
+         typename slab_hasher>
+void gpu_cache<key_type, ref_counter_type, empty_key, set_associativity, warp_size, set_hasher, slab_hasher>::
+Dump(key_type* d_keys,
+     size_t* d_dump_counter,
+     const size_t start_set_index,
+     const size_t end_set_index,
+     cudaStream_t stream){
+  
+  // Check if it is a valid dump request
+  if(start_set_index >= capacity_in_set_){
+    printf("Error: Invalid value for start_set_index. Nothing dumped.\n");
+    return;
+  }
+  if(end_set_index <= start_set_index || end_set_index > capacity_in_set_){
+    printf("Error: Invalid value for end_set_index. Nothing dumped.\n");
+    return;
+  }
+
+  // Device Restorer
+  nv::CudaDeviceRestorer dev_restorer;
+  // Set to the device of this cache
+  CUDA_CHECK(cudaSetDevice(dev_));
+
+  // Set the global counter to 0 first
+  CUDA_CHECK(cudaMemsetAsync(d_dump_counter, 0, sizeof(size_t), stream));
+
+  // Dump keys from the cache
+  const size_t grid_size = (((end_set_index - start_set_index) - 1) / (BLOCK_SIZE_ / warp_size)) + 1;
+  dump_kernel<key_type, slabset, mutex, empty_key, set_associativity, warp_size>
+  <<<grid_size, BLOCK_SIZE_, 0, stream>>>
+  (d_keys, d_dump_counter, keys_, set_mutex_, start_set_index, end_set_index);
+
+  // Check for GPU error before return
+  CUDA_CHECK(cudaGetLastError());
+
+}
+#else
+template<typename key_type,  
+         typename ref_counter_type, 
+         key_type empty_key, 
+         int set_associativity, 
+         int warp_size,
+         typename set_hasher, 
+         typename slab_hasher>
+void gpu_cache<key_type, ref_counter_type, empty_key, set_associativity, warp_size, set_hasher, slab_hasher>::
+Dump(key_type* d_keys,
+     size_t* d_dump_counter,
+     const size_t start_set_index,
+     const size_t end_set_index,
+     cudaStream_t stream){
+  
+  // Check if it is a valid dump request
+  if(start_set_index >= capacity_in_set_){
+    printf("Error: Invalid value for start_set_index. Nothing dumped.\n");
+    return;
+  }
+  if(end_set_index <= start_set_index || end_set_index > capacity_in_set_){
+    printf("Error: Invalid value for end_set_index. Nothing dumped.\n");
+    return;
+  }
+
+  // Device Restorer
+  nv::CudaDeviceRestorer dev_restorer;
+  // Set to the device of this cache
+  CUDA_CHECK(cudaSetDevice(dev_));
+
+  // Set the global counter to 0 first
+  CUDA_CHECK(cudaMemsetAsync(d_dump_counter, 0, sizeof(size_t), stream));
+
+  // Dump keys from the cache
+  const size_t grid_size = (((end_set_index - start_set_index) - 1) / (BLOCK_SIZE_ / warp_size)) + 1;
+  dump_kernel<key_type, slabset, empty_key, set_associativity, warp_size>
+  <<<grid_size, BLOCK_SIZE_, 0, stream>>>
+  (d_keys, d_dump_counter, keys_, set_mutex_, start_set_index, end_set_index);
 
   // Check for GPU error before return
   CUDA_CHECK(cudaGetLastError());
