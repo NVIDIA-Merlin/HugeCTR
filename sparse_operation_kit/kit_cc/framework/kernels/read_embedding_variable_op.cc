@@ -46,19 +46,23 @@ public:
                             status.ToString()));   
         }
 
-        TensorShape tensor_shape = variable->tensor()->shape();
-
 #ifdef DEBUG
+        TensorShape tensor_shape = variable->tensor()->shape();
         std::cout << "tensor shape is: [";
         for (auto iter = tensor_shape.begin(); iter != tensor_shape.end(); ++iter) {
             std::cout << (*iter).size << ",";
         }
         std::cout << "\b]" << std::endl;
 #endif
-
-        // FIXME: lock should be used here??
-        // FIXME: should copy values from variable to output??
-        OP_REQUIRES_OK(ctx, ctx->set_output("value", *(variable->tensor())));
+        Tensor* t;
+        if (variable->tensor()->IsInitialized()) {
+            *t = *(variable->tensor());
+            // FIXME: lock should be used here??
+            // FIXME: should copy values from variable to output??
+            OP_REQUIRES_OK(ctx, ctx->set_output("value", *t));
+        } else {
+            OP_REQUIRES_OK(ctx, ctx->allocate_output(0, {}, &t));
+        }
     }
 private:
     DataType dtype_;
