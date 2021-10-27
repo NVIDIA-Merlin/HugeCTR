@@ -100,8 +100,9 @@ void RawManager::create_variables(const std::string& initializer, const bool use
             writer_active_.store(true);
 
             // create variable
+            // variable will have its own memory buffer
             raw_param = RawParam::create(initializer, use_hashtable, shape, resource_mgr_, 
-                                        buffers_, name, trainable);
+                                         name, trainable);
             if (trainable) {
                 trainable_params_.emplace(std::make_pair(name, raw_param));
             } else {

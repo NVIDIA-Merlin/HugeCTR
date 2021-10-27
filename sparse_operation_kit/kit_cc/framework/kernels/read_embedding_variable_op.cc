@@ -54,15 +54,10 @@ public:
         }
         std::cout << "\b]" << std::endl;
 #endif
-        Tensor* t;
-        if (variable->tensor()->IsInitialized()) {
-            *t = *(variable->tensor());
-            // FIXME: lock should be used here??
-            // FIXME: should copy values from variable to output??
-            OP_REQUIRES_OK(ctx, ctx->set_output("value", *t));
-        } else {
-            OP_REQUIRES_OK(ctx, ctx->allocate_output(0, {}, &t));
-        }
+        // FIXME: lock should be used here??
+        // FIXME: should copy values from variable to output??
+        Tensor* t = variable->tensor();
+        OP_REQUIRES_OK(ctx, ctx->set_output("value", *t));
     }
 private:
     DataType dtype_;

@@ -27,9 +27,9 @@ namespace SparseOperationKit {
 
 RawParam::RawParam(const std::string& initializer, const bool use_hashtable, const std::vector<size_t> shape,
                    const std::shared_ptr<ResourcesManager>& resource_mgr,
-                   const std::vector<std::shared_ptr<HugeCTR::GeneralBuffer2<HugeCTR::CudaAllocator>>>& buffers,
                    const std::string var_name, const bool trainable)
 : resource_mgr_(resource_mgr), 
+buffers_(resource_mgr->get_local_gpu_count(), nullptr),
 hashtables_(resource_mgr->get_local_gpu_count(), nullptr),
 max_vocabulary_size_per_gpu_(shape[0]), embedding_vector_size_(shape[1]),
 var_name_(var_name), trainable_(trainable), initializer_(Initializer::Get(initializer)),
@@ -41,10 +41,13 @@ use_hashtable_(use_hashtable)
     HugeCTR::CudaDeviceContext device_context;
     for (size_t dev_id = 0; dev_id < resource_mgr->get_local_gpu_count(); ++dev_id) {
         device_context.set_device(resource_mgr_->get_local_gpu(dev_id)->get_local_device_id());
+        // create memory buffer
+        buffers_[dev_id] = HugeCTR::GeneralBuffer2<HugeCTR::CudaAllocator>::create();
+
         // reserve spaces for embedding table
         {
             Tensor2<float> tensor;
-            buffers[dev_id]->reserve(shape, &tensor);
+            buffers_[dev_id]->reserve(shape, &tensor);
             emb_table_tensors_.push_back(tensor);
             emb_table_tensors_interface_.push_back(Tensor2Wrapper<float>::create(tensor));
         }
@@ -62,6 +65,12 @@ use_hashtable_(use_hashtable)
 
     if (emb_table_tensors_.size() != emb_table_tensors_interface_.size())
         throw std::runtime_error(ErrorBase + "The size of embedding table tensors and its interface if not equal.");
+
+    // allocate memory
+    for (size_t dev_id = 0; dev_id < resource_mgr->get_local_gpu_count(); ++dev_id) {
+        device_context.set_device(resource_mgr_->get_local_gpu(dev_id)->get_local_device_id());
+        buffers_[dev_id]->allocate();
+    } // for dev_id    
 }
 
 RawParam::~RawParam() {}
@@ -69,10 +78,9 @@ RawParam::~RawParam() {}
 std::shared_ptr<RawParam> RawParam::create(const std::string& initializer, const bool use_hashtable,
                                             const std::vector<size_t> shape,
                                             const std::shared_ptr<ResourcesManager>& resource_mgr,
-            const std::vector<std::shared_ptr<HugeCTR::GeneralBuffer2<HugeCTR::CudaAllocator>>>& buffers,
                                             const std::string var_name, const bool trainable) {
     return std::shared_ptr<RawParam>(new RawParam(initializer, use_hashtable, shape, 
-                                        resource_mgr, buffers, var_name, trainable));
+                                        resource_mgr, var_name, trainable));
 }
 
 size_t RawParam::get_max_vocabulary_size_per_gpu() const {

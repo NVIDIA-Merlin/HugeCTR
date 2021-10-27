@@ -38,7 +38,6 @@ public:
     static std::shared_ptr<RawParam> create(const std::string& initializer, const bool use_hashtable,
                                             const std::vector<size_t> shape,
                                             const std::shared_ptr<ResourcesManager>& resource_mgr,
-                        const std::vector<std::shared_ptr<HugeCTR::GeneralBuffer2<HugeCTR::CudaAllocator>>>& buffers,
                                             const std::string var_name, const bool trainable);
 
     size_t get_max_vocabulary_size_per_gpu() const override;
@@ -59,10 +58,10 @@ public:
 private:
     RawParam(const std::string& initializer, const bool use_hashtable, const std::vector<size_t> shape,
              const std::shared_ptr<ResourcesManager>& resource_mgr,
-             const std::vector<std::shared_ptr<HugeCTR::GeneralBuffer2<HugeCTR::CudaAllocator>>>& buffers,
              const std::string var_name, const bool trainable); 
             
     std::shared_ptr<ResourcesManager> resource_mgr_;
+    std::vector<std::shared_ptr<HugeCTR::GeneralBuffer2<HugeCTR::CudaAllocator>>> buffers_; // memory buffer owned by this variable
     std::vector<std::shared_ptr<HashTable>> hashtables_; // hashtables for all GPUs on this worker.
     Tensors2<float> emb_table_tensors_; // embedding vectors for all GPUs on this worker.
     std::vector<std::shared_ptr<Tensor>> emb_table_tensors_interface_;
