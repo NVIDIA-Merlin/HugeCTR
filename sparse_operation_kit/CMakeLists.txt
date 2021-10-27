@@ -37,8 +37,8 @@ if (USE_NVTX)
 endif()
 
 # whether make ops to be asynchronous
-option(ASYNC_OPS "Make Ops to be asynchronous" OFF)
-if (ASYNC_OPS)
+option(SOK_ASYNC "Make Ops to be asynchronous" OFF)
+if (SOK_ASYNC)
     message(STATUS "Make Ops to be asynchronous")
     add_definitions(-DSOK_ASYNC)
 endif()

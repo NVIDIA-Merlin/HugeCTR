@@ -29,10 +29,10 @@ class GpuResource {
 private:
     const size_t local_device_id_;
     const size_t global_device_id_;
-    cudaStream_t computation_stream_;
+    cudaStream_t computation_stream_; // this is created by SOK
+    cudaStream_t framework_stream_; // this is owned by DL framework, for example, tensorflow
     cudaStream_t memcpy_stream_;
     cudaEvent_t compute_wait_memcpy_event_;
-    const bool out_stream_; // true represent the computation stream is from outside.
     curandGenerator_t replica_uniform_curand_generator_;
     curandGenerator_t replica_variant_curand_generator_;
     cusparseHandle_t replica_cusparse_handle_;
@@ -48,10 +48,6 @@ private:
     GpuResource(const size_t local_device_id, const size_t global_device_id, 
                 const uint64_t replica_uniform_seed,
                 const uint64_t replica_variant_seed,
-                const ncclComm_t& nccl_comm);
-    GpuResource(const size_t local_device_id, const size_t global_device_id, 
-                const uint64_t replica_uniform_seed,
-                const uint64_t replica_variant_seed,
                 const ncclComm_t& nccl_comm, 
                 const cudaStream_t& cuda_stream);
 public:
@@ -59,11 +55,6 @@ public:
     GpuResource& operator=(const GpuResource&) = delete;
     ~GpuResource();
     
-    static std::shared_ptr<GpuResource> Create(
-                const size_t local_device_id, const size_t global_device_id, 
-                const uint64_t replica_uniform_seed,
-                const uint64_t replica_variant_seed,
-                const ncclComm_t& nccl_comm);
     static std::shared_ptr<GpuResource> Create(
                 const size_t local_device_id, const size_t global_device_id, 
                 const uint64_t replica_uniform_seed,

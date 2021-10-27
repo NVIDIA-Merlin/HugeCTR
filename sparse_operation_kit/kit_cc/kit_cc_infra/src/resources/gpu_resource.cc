@@ -23,49 +23,19 @@ namespace SparseOperationKit {
 GpuResource::GpuResource(const size_t local_device_id, const size_t global_device_id, 
                         const uint64_t replica_uniform_seed,
                         const uint64_t replica_variant_seed,
-                        const ncclComm_t& nccl_comm) 
-: local_device_id_(local_device_id), global_device_id_(global_device_id), 
-out_stream_(false), nccl_comm_(nccl_comm), sm_count_(0), cc_major_(0), cc_minor_(0),
-max_shared_memory_size_per_sm_(0), warp_size_(0),
-nccl_sync_data_(nullptr)
-{
-    CK_CUDA(cudaStreamCreateWithFlags(&computation_stream_, cudaStreamNonBlocking));
-    CK_CUDA(cudaStreamCreateWithFlags(&memcpy_stream_, cudaStreamNonBlocking));
-    CK_CUDA(cudaEventCreateWithFlags(&compute_wait_memcpy_event_, cudaEventDisableTiming));
-
-    CK_CURAND(curandCreateGenerator(&replica_uniform_curand_generator_, CURAND_RNG_PSEUDO_DEFAULT));
-    CK_CURAND(curandSetPseudoRandomGeneratorSeed(replica_uniform_curand_generator_, replica_uniform_seed));
-    CK_CURAND(curandSetStream(replica_uniform_curand_generator_, computation_stream_));
-    CK_CURAND(curandCreateGenerator(&replica_variant_curand_generator_, CURAND_RNG_PSEUDO_DEFAULT));
-    CK_CURAND(curandSetPseudoRandomGeneratorSeed(replica_variant_curand_generator_, replica_variant_seed));
-    CK_CURAND(curandSetStream(replica_variant_curand_generator_, computation_stream_));
-    
-    CK_CUSPARSE(cusparseCreate(&replica_cusparse_handle_));
-    CK_CUSPARSE(cusparseSetStream(replica_cusparse_handle_, computation_stream_));
-
-    CK_CUDA(cudaDeviceGetAttribute(&sm_count_, cudaDevAttrMultiProcessorCount, local_device_id_));
-    CK_CUDA(cudaDeviceGetAttribute(&cc_major_, cudaDevAttrComputeCapabilityMajor, local_device_id_));
-    CK_CUDA(cudaDeviceGetAttribute(&cc_minor_, cudaDevAttrComputeCapabilityMinor, local_device_id_));
-    CK_CUDA(cudaDeviceGetAttribute(&max_shared_memory_size_per_sm_, 
-                                   cudaDevAttrMaxSharedMemoryPerMultiprocessor, 
-                                   local_device_id_));
-    max_shared_memory_size_per_sm_ -= (4 * 1024ul); // FIXME: in case it allocates all shared memory.
-    CK_CUDA(cudaDeviceGetAttribute(&warp_size_, cudaDevAttrWarpSize, local_device_id_));
-
-    CK_CUDA(cudaMalloc(&nccl_sync_data_, sizeof(int32_t) * 1));
-}
-
-GpuResource::GpuResource(const size_t local_device_id, const size_t global_device_id, 
-                        const uint64_t replica_uniform_seed,
-                        const uint64_t replica_variant_seed,
                         const ncclComm_t& nccl_comm,
                         const cudaStream_t& cuda_stream) 
 : local_device_id_(local_device_id), global_device_id_(global_device_id), 
-computation_stream_(cuda_stream), out_stream_(true), 
+computation_stream_(nullptr), framework_stream_(cuda_stream), 
 nccl_comm_(nccl_comm), sm_count_(0), cc_major_(0), cc_minor_(0),
 max_shared_memory_size_per_sm_(0), warp_size_(0),
 nccl_sync_data_(nullptr)
 {
+#ifdef SOK_ASYNC
+    CK_CUDA(cudaStreamCreateWithFlags(&computation_stream_, cudaStreamNonBlocking));
+#else
+    computation_stream_ = framework_stream_; // sok will use the same cudaStream_t created by framework.
+#endif
     CK_CUDA(cudaStreamCreateWithFlags(&memcpy_stream_, cudaStreamNonBlocking));
     CK_CUDA(cudaEventCreateWithFlags(&compute_wait_memcpy_event_, cudaEventDisableTiming));
 
@@ -97,24 +67,15 @@ GpuResource::~GpuResource() {
         CK_CURAND(curandDestroyGenerator(replica_uniform_curand_generator_));
         CK_CURAND(curandDestroyGenerator(replica_variant_curand_generator_));
         CK_CUSPARSE(cusparseDestroy(replica_cusparse_handle_));
-        if (!out_stream_) CK_CUDA(cudaStreamDestroy(computation_stream_));
         CK_CUDA(cudaStreamDestroy(memcpy_stream_));
+    #ifdef SOK_ASYNC
+        CK_CUDA(cudaStreamDestroy(computation_stream_));
+    #endif
         CK_CUDA(cudaEventDestroy(compute_wait_memcpy_event_));
         if (nccl_sync_data_) CK_CUDA(cudaFree(nccl_sync_data_));
     } catch (const std::exception& error) {
         std::cerr << error.what() << std::endl;
     }
-}
-
-std::shared_ptr<GpuResource> GpuResource::Create(
-                const size_t local_device_id, const size_t global_device_id, 
-                const uint64_t replica_uniform_seed,
-                const uint64_t replica_variant_seed,
-                const ncclComm_t& nccl_comm) {
-
-    return std::shared_ptr<GpuResource>(new GpuResource(local_device_id, global_device_id,
-                                                        replica_uniform_seed, replica_variant_seed,
-                                                        nccl_comm));
 }
 
 std::shared_ptr<GpuResource> GpuResource::Create(
