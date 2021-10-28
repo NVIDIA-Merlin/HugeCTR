@@ -29,10 +29,11 @@ GpuResource::GpuResource(const size_t local_device_id, const size_t global_devic
 computation_stream_(nullptr), framework_stream_(cuda_stream), 
 nccl_comm_(nccl_comm), sm_count_(0), cc_major_(0), cc_minor_(0),
 max_shared_memory_size_per_sm_(0), warp_size_(0),
-nccl_sync_data_(nullptr)
+nccl_sync_data_(nullptr), event_mgr_(nullptr)
 {
 #ifdef SOK_ASYNC
     CK_CUDA(cudaStreamCreateWithFlags(&computation_stream_, cudaStreamNonBlocking));
+    event_mgr_.reset(EventManager::create().release());
 #else
     computation_stream_ = framework_stream_; // sok will use the same cudaStream_t created by framework.
 #endif
@@ -100,6 +101,10 @@ size_t GpuResource::get_global_device_id() const {
 
 const cudaStream_t& GpuResource::get_stream() const {
     return computation_stream_;
+}
+
+const cudaStream_t& GpuResource::get_framework_stream() const {
+    return framework_stream_;
 }
 
 const cudaStream_t& GpuResource::get_memcpy_stream() const {

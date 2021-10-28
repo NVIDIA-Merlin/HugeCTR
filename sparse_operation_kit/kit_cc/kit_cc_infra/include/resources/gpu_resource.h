@@ -17,6 +17,7 @@
 #ifndef GPU_RESOURCE_H
 #define GPU_RESOURCE_H
 
+#include "resources/event_manager.h"
 #include <cuda_runtime.h>
 #include <curand.h>
 #include <cusparse.h>
@@ -45,6 +46,8 @@ private:
 
     int32_t *nccl_sync_data_;
 
+    std::unique_ptr<EventManager> event_mgr_;
+
     GpuResource(const size_t local_device_id, const size_t global_device_id, 
                 const uint64_t replica_uniform_seed,
                 const uint64_t replica_variant_seed,
@@ -65,6 +68,7 @@ public:
     size_t get_local_device_id() const;
     size_t get_global_device_id() const;
     const cudaStream_t& get_stream() const; 
+    const cudaStream_t& get_framework_stream() const;
     const cudaStream_t& get_memcpy_stream() const;
     size_t get_sm_count() const;
     size_t get_max_smem_size_per_sm() const;
