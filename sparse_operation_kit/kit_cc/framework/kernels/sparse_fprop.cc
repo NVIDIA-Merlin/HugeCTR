@@ -89,8 +89,9 @@ public:
             done(); // no error
         };
 
-        auto stream = ctx->op_device_context()->stream();
-        ctx->device()->tensorflow_gpu_device_info()->event_mgr->ThenExecute(stream, std::move(work_func));
+        // auto stream = ctx->op_device_context()->stream();
+        // ctx->device()->tensorflow_gpu_device_info()->event_mgr->ThenExecute(stream, std::move(work_func));
+        ctx->device()->tensorflow_cpu_worker_threads()->workers->Schedule(std::move(work_func));
     }
 private:
     bool training_;

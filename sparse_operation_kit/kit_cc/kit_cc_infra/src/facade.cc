@@ -313,8 +313,15 @@ void Facade::forward(const tensorflow::Tensor* emb_handle,
     const std::shared_ptr<Tensor> indices = TFTensorWrapper::create(const_cast<tensorflow::Tensor*>(indices_tensor));
     std::shared_ptr<Tensor> emb_vector = TFTensorWrapper::create(emb_vector_tensor);
 
+#ifdef SOK_ASYNC
+    resources_mgr_->event_record(global_replica_id, EventRecordType::RDLFramework);
+#endif
     // delegate embedding forward to embedding manager
     embedding_mgr_->forward(embedding, values, indices, global_replica_id, training, emb_vector);
+#ifdef SOK_ASYNC
+    resources_mgr_->event_record(global_replica_id, EventRecordType::RMyself);
+#endif
+
 #ifdef USE_NVTX
     nvtxRangeEnd(forward_marker);
 #endif
@@ -337,8 +344,15 @@ void Facade::forward(const tensorflow::Tensor* emb_handle,
     const std::shared_ptr<Tensor> values = TFTensorWrapper::create(const_cast<tensorflow::Tensor*>(values_tensor));
     std::shared_ptr<Tensor> emb_vector = TFTensorWrapper::create(emb_vector_tensor);
 
+#ifdef SOK_ASYNC
+    resources_mgr_->event_record(global_replica_id, EventRecordType::RDLFramework);
+#endif
     // delegate embedding forward to embedding manager
     embedding_mgr_->forward(embedding, values, global_replica_id, training, emb_vector);
+#ifdef SOK_ASYNC
+    resources_mgr_->event_record(global_replica_id, EventRecordType::RMyself);
+#endif
+
 #ifdef USE_NVTX
     nvtxRangeEnd(forward_marker);
 #endif
@@ -390,7 +404,14 @@ void Facade::apply_gradients(const tensorflow::core::RefCountPtr<tensorflow::Emb
     auto grad = TFTensorWrapper::create(const_cast<tensorflow::Tensor*>(gradient_tensor));
     auto local_indices = TFTensorWrapper::create(const_cast<tensorflow::Tensor*>(local_indices_tensor));
 
+#ifdef SOK_ASYNC
+    const size_t global_replica_id = resources_mgr_->cal_global_id_from_local_id(local_replica_id);
+    resources_mgr_->event_record(global_replica_id, EventRecordType::RDLFramework);
+#endif
     optimizer_->apply_gradients(param, grad, local_indices, local_replica_id, learning_rate, current_step);
+#ifdef SOK_ASYNC
+    resources_mgr_->event_record(global_replica_id, EventRecordType::RMyself);
+#endif
 
 #ifdef USE_NVTX
     nvtxRangeEnd(apply_grad_marker);
