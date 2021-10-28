@@ -50,9 +50,9 @@ nightly_build_unified_container.ctr:
     REMOTE_REPO: https://github.com/NVIDIA-Merlin/Merlin.git
     DST_IMAGE: ${CI_REGISTRY}/dl/hugectr/hugectr:unified.ctr.latest
     DOCKER_FILE: dockerfile.ctr
-    BUILD_ARGS: --build-arg RELEASE=false --build-arg RMM_VER=vnightly --build-arg CUDF_VER=vnightly --build-arg NVTAB_VER=vnightly --build-arg HUGECTR_VER=v21.9
+    BUILD_ARGS: --build-arg RELEASE=false --build-arg RMM_VER=vnightly --build-arg CUDF_VER=vnightly --build-arg NVTAB_VER=vnightly
     UNIFIED: 1
-  timeout: 2 hours
+  timeout: 5 hours
   
 
 nightly_build_unified_container.tf:
@@ -63,9 +63,9 @@ nightly_build_unified_container.tf:
     REMOTE_REPO: https://github.com/NVIDIA-Merlin/Merlin.git
     DST_IMAGE: ${CI_REGISTRY}/dl/hugectr/hugectr:unified.tf.latest
     DOCKER_FILE: dockerfile.tf
-    BUILD_ARGS: --build-arg RELEASE=false --build-arg RMM_VER=vnightly --build-arg CUDF_VER=vnightly --build-arg NVTAB_VER=vnightly --build-arg HUGECTR_VER=v21.9
+    BUILD_ARGS: --build-arg RELEASE=false --build-arg RMM_VER=vnightly --build-arg CUDF_VER=vnightly --build-arg NVTAB_VER=vnightly
     UNIFIED: 1
-  timeout: 2 hours
+  timeout: 5 hours
 
 nightly_build_unified_container.tri:
   extends: .build_nightly
@@ -75,9 +75,9 @@ nightly_build_unified_container.tri:
     REMOTE_REPO: https://github.com/NVIDIA-Merlin/Merlin.git
     DST_IMAGE: ${CI_REGISTRY}/dl/hugectr/hugectr:unified.tri.latest
     DOCKER_FILE: dockerfile.tri
-    BUILD_ARGS: --build-arg RELEASE=false --build-arg RMM_VER=vnightly --build-arg CUDF_VER=vnightly --build-arg NVTAB_VER=vnightly --build-arg HUGECTR_VER=v21.9
+    BUILD_ARGS: --build-arg RELEASE=false --build-arg RMM_VER=vnightly --build-arg CUDF_VER=vnightly --build-arg NVTAB_VER=vnightly
     UNIFIED: 1
-  timeout: 2 hours
+  timeout: 5 hours
 
 ### Stage: build
 build_train_single_node:
