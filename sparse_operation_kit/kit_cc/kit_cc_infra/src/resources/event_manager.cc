@@ -50,6 +50,14 @@ std::shared_ptr<Event> EventManager::get_event() {
     return event;
 }
 
+void EventManager::sync_two_streams(cudaStream_t& root_stream, 
+                                    cudaStream_t& sub_stream) {
+    /*--root_stream->event->sub_stream--*/
+    std::shared_ptr<Event> event = get_event();
+    event->Record(root_stream);
+    event->TillReady(sub_stream);
+}
+
 void EventManager::porter_function() {
     while (true) {
         try {
@@ -64,6 +72,7 @@ void EventManager::porter_function() {
                 }
             }
             lock.unlock();
+            // FIXME: if heavy cpu contention, let this thread sleep longer.
             std::this_thread::yield();
         } catch (const std::exception& error) {
             throw std::runtime_error(ErrorBase + 

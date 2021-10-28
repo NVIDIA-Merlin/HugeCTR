@@ -359,8 +359,14 @@ void Facade::backward(const tensorflow::Tensor* emb_handle,
     std::shared_ptr<Tensor> gradient = TFTensorWrapper::create(const_cast<tensorflow::Tensor*>(gradient_tensor));
     std::shared_ptr<Tensor> value_index = TFTensorWrapper::create(const_cast<tensorflow::Tensor*>(value_index_tensor));
 
+#ifdef SOK_ASYNC
+    resources_mgr_->event_record(global_replica_id, EventRecordType::RDLFramework);
+#endif
     // delegate embedding backward to embedding manager
     embedding_mgr_->backward(embedding, top_gradient, global_replica_id, gradient, value_index);
+#ifdef SOK_ASYNC
+    resources_mgr_->event_record(global_replica_id, EventRecordType::RMyself);
+#endif
 
 #ifdef USE_NVTX
     nvtxRangeEnd(backward_marker);

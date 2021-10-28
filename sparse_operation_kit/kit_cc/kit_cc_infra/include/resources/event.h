@@ -23,6 +23,9 @@
 
 namespace SparseOperationKit {
 
+/*type used to specify the event is recorded on which stream*/
+enum class EventRecordType { RDLFramework, RMyself };
+
 /*class used to handle cudaEvent*/
 class Event {
 public:

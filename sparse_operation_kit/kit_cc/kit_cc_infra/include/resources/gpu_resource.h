@@ -67,8 +67,8 @@ public:
 
     size_t get_local_device_id() const;
     size_t get_global_device_id() const;
-    const cudaStream_t& get_stream() const; 
-    const cudaStream_t& get_framework_stream() const;
+    cudaStream_t& get_stream(); 
+    cudaStream_t& get_framework_stream();
     const cudaStream_t& get_memcpy_stream() const;
     size_t get_sm_count() const;
     size_t get_max_smem_size_per_sm() const;
@@ -80,6 +80,8 @@ public:
     void make_comput_wait_memcpy() const;
 
     void sync_gpu_via_nccl(const cudaStream_t& stream) const;
+
+    void event_record(EventRecordType event_record_type);
 };
 
 

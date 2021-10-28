@@ -88,6 +88,9 @@ public:
     size_t cal_global_id_from_local_id(const size_t local_replica_id) const;
     size_t cal_worker_id_from_global_id(const size_t global_replica_id) const;
 
+    void event_record(const size_t global_replica_id, 
+                      EventRecordType event_record_type);
+
 private:
     ResourcesManager();
     void set_nccl_unique_id(const int32_t* nccl_unique_id);

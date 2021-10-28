@@ -99,11 +99,11 @@ size_t GpuResource::get_global_device_id() const {
     return global_device_id_;
 }
 
-const cudaStream_t& GpuResource::get_stream() const {
+cudaStream_t& GpuResource::get_stream() {
     return computation_stream_;
 }
 
-const cudaStream_t& GpuResource::get_framework_stream() const {
+cudaStream_t& GpuResource::get_framework_stream() {
     return framework_stream_;
 }
 
@@ -153,6 +153,26 @@ void GpuResource::sync_gpu_via_nccl(const cudaStream_t& stream) const {
                           /*op=*/ncclMax,
                           nccl_comm_,
                           stream));
+}
+
+void GpuResource::event_record(EventRecordType event_record_type) {
+    switch (event_record_type) {
+        case EventRecordType::RDLFramework: {
+            event_mgr_->sync_two_streams(/*root_stream=*/get_framework_stream(), 
+                                         /*sub_stream=*/get_stream());
+            break;
+        }
+        case EventRecordType::RMyself: {
+            event_mgr_->sync_two_streams(/*root_stream=*/get_stream(), 
+                                         /*sub_stream=*/get_framework_stream());
+            break;
+        }
+        default: {
+            throw std::runtime_error(ErrorBase + 
+                "Not supported EventRecordType.");
+            break;
+        }
+    } // switch block
 }
 
 } // namespace SparseOperationKit

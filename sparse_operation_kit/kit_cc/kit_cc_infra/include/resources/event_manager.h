@@ -35,6 +35,8 @@ public:
     EventManager& operator=(EventManager&&) = delete;
 
     std::shared_ptr<Event> get_event();
+    void sync_two_streams(cudaStream_t& root_stream, 
+                          cudaStream_t& sub_stream);
 
 protected:
     EventManager();
