@@ -16,6 +16,7 @@
 
 #include "resources/event_manager.h"
 #include "common.h"
+#include <chrono>
 
 namespace SparseOperationKit {
 
@@ -67,13 +68,15 @@ void EventManager::porter_function() {
                 auto& event = inuse_events_.front();
                 if (!event->IsInUse()) {
                     inuse_events_.pop();
+                    lock.unlock();
                     event->Reset();
+                    lock.lock();
                     unused_events_.push(event);
                 }
             }
             lock.unlock();
             // FIXME: if heavy cpu contention, let this thread sleep longer.
-            std::this_thread::yield();
+            std::this_thread::sleep_for(std::chrono::seconds(1));
         } catch (const std::exception& error) {
             throw std::runtime_error(ErrorBase + 
                 " EventManager stopped due to: " + error.what());
