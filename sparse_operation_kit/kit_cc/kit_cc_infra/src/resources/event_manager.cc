@@ -62,6 +62,9 @@ void EventManager::sync_two_streams(cudaStream_t& root_stream,
 void EventManager::porter_function() {
     while (true) {
         try {
+            // FIXME: if heavy cpu contention, let this thread sleep longer.
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+
             std::unique_lock<std::mutex> lock(mu_);
             if (should_stop_) break;
             if (!inuse_events_.empty()) {
@@ -74,9 +77,6 @@ void EventManager::porter_function() {
                     unused_events_.push(event);
                 }
             }
-            lock.unlock();
-            // FIXME: if heavy cpu contention, let this thread sleep longer.
-            std::this_thread::sleep_for(std::chrono::seconds(1));
         } catch (const std::exception& error) {
             throw std::runtime_error(ErrorBase + 
                 " EventManager stopped due to: " + error.what());
