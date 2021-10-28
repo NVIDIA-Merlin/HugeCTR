@@ -16,11 +16,13 @@
 
 #include <HugeCTR/include/resource_managers/resource_manager_ext.hpp>
 #include <HugeCTR/pybind/model.hpp>
+#include <HugeCTR/include/logger.hpp>
 #include <algorithm>
 #include <data_readers/async_reader/async_reader_adapter.hpp>
 #include <embeddings/hybrid_sparse_embedding.hpp>
 #include <experimental/filesystem>
 #include <fstream>
+#include <sstream>
 #include <iomanip>
 #include <iterator>
 
@@ -29,6 +31,7 @@ namespace fs = std::experimental::filesystem;
 namespace HugeCTR {
 
 namespace {
+
 /**
  * check if device is avaliable.
  * lowest avaliable CC is min_major.min_minor
@@ -85,7 +88,7 @@ static void check_device(int device_id, int min_major, int min_minor) {
     CK_THROW_(Error_t::InvalidEnv, "Invalid device:" + std::to_string(device_id));
     return;
   }
-  std::cout << "Device " << device_id << ": " << deviceProp.name << std::endl;
+  HCTR_LOG(INFO, WORLD, "Device %d: %s\n", device_id, deviceProp.name);
   int major = deviceProp.major;
   int minor = deviceProp.minor;
   if (major < min_major) {
@@ -277,7 +280,7 @@ void init_learning_rate_scheduler(std::shared_ptr<LearningRateScheduler>& lr_sch
 
 void init_exchange_wgrad(const std::shared_ptr<ResourceManager>& resource_manager,
                          std::shared_ptr<ExchangeWgrad>& exchange_wgrad, const Solver& solver) {
-  MESSAGE_("Using All-reduce algorithm " + ALLREDUCE_ALGO_TO_STRING[solver.all_reduce_algo]);
+  HCTR_LOG(INFO, ROOT, "Using All-reduce algorithm: %s\n", ALLREDUCE_ALGO_TO_STRING[solver.all_reduce_algo].c_str());
   resource_manager->set_ar_comm(solver.all_reduce_algo, solver.use_mixed_precision);
   if (solver.grouped_all_reduce) {
     if (solver.use_mixed_precision) {
@@ -310,17 +313,9 @@ Model::Model(const Solver& solver, const DataReaderParams& reader_params,
       current_eval_batchsize_(0),
       dlrm_bottom_mlp_(true),
       high_level_eval_(false) {
-  int __PID(0);
-#ifdef ENABLE_MPI
-  MPI_Comm_rank(MPI_COMM_WORLD, &__PID);
-#endif
-  if (__PID == 0) {
-    std::cout << "HugeCTR Version: " << HUGECTR_VERSION_MAJOR << "." << HUGECTR_VERSION_MINOR << "."
-              << HUGECTR_VERSION_PATCH << std::endl;
-    std::cout << "====================================================Model "
-                 "Init====================================================="
-              << std::endl;
-  }
+  HCTR_PRINT(INFO, "HugeCTR Version: %d.%d\n", HUGECTR_VERSION_MAJOR, HUGECTR_VERSION_MINOR);
+  HCTR_PRINT(INFO, "====================================================Model "
+                   "Init=====================================================\n");
   resource_manager_ = ResourceManagerExt::create(solver.vvgpu, solver.seed, solver.device_layout);
 
   init_exchange_wgrad(resource_manager_, exchange_wgrad_, solver_);
@@ -400,15 +395,9 @@ Model::Model(const Solver& solver, const DataReaderParams& reader_params,
 }
 
 Model::~Model() {
-  try {
-    for (auto device : resource_manager_->get_local_gpu_device_id_list()) {
-      CudaDeviceContext context(device);
-      CK_CUDA_THROW_(cudaDeviceSynchronize());
-    }
-  } catch (const internal_runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
-  } catch (const std::exception& err) {
-    std::cerr << err.what() << std::endl;
+  for (auto device : resource_manager_->get_local_gpu_device_id_list()) {
+    CudaDeviceContext context(device);
+    cudaDeviceSynchronize();
   }
 }
 
@@ -421,7 +410,7 @@ void Model::graph_to_json(std::string graph_config_file) {
   graph_config["layers"] = layer_config_array;
   file_stream << std::setw(2) << graph_config;
   file_stream.close();
-  MESSAGE_("Save the model graph to " + graph_config_file + ", successful");
+  HCTR_LOG(INFO, ROOT, "Save the model graph to %s successfully\n", graph_config_file.c_str());
 }
 
 void Model::construct_from_json(const std::string& graph_config_file, bool include_dense_network) {
@@ -458,7 +447,7 @@ void Model::construct_from_json(const std::string& graph_config_file, bool inclu
     }
   }
 
-  MESSAGE_("Load the model graph from " + graph_config_file + ", successful");
+  HCTR_LOG(INFO, ROOT, "Load the model graph from %s successfully\n", graph_config_file.c_str());
 }
 
 void Model::add(Input& input) {
@@ -585,15 +574,8 @@ void Model::compile() {
   if (data_input_info_.size() < 3 || layer_info_.size() < 2) {
     CK_THROW_(Error_t::IllegalCall, "The model should include input and at least two layers");
   }
-  int __PID(0);
-#ifdef ENABLE_MPI
-  MPI_Comm_rank(MPI_COMM_WORLD, &__PID);
-#endif
-  if (__PID == 0) {
-    std::cout << "===================================================Model "
-                 "Compile==================================================="
-              << std::endl;
-  }
+  HCTR_PRINT(INFO, "===================================================Model "
+                   "Compile===================================================\n");
   for (size_t i = 0; i < resource_manager_->get_local_gpu_count(); i++) {
     if (solver_.use_mixed_precision) {
       networks_[i]->optimizer_ =
@@ -762,45 +744,42 @@ void Model::summary() {
   for (auto tensor_entry : train_tensor_entries_list_[0]) {
     tensor_shape_info_.insert(std::make_pair(tensor_entry.name, tensor_entry.bag.get_dimensions()));
   }
-  int __PID(0);
-#ifdef ENABLE_MPI
-  MPI_Comm_rank(MPI_COMM_WORLD, &__PID);
-#endif
-  if (__PID == 0) {
-    std::cout << "===================================================Model "
-                 "Summary==================================================="
-              << std::endl;
-    std::cout << std::left << std::setw(40) << std::setfill(' ') << "Label" << std::left
-              << std::setw(30) << std::setfill(' ') << "Dense" << std::left << std::setw(30)
-              << std::setfill(' ') << "Sparse" << std::endl;
-    std::cout << std::left << std::setw(40) << std::setfill(' ') << data_input_info_[0] << std::left
-              << std::setw(30) << std::setfill(' ') << data_input_info_[1] << " " << std::left
-              << std::setw(30) << std::setfill(' ') << data_input_info_[2] << std::endl;
-    std::cout << std::left << std::setw(40) << std::setfill(' ')
-              << get_tensor_shape(data_input_info_[0], tensor_shape_info_) << std::left
-              << std::setw(40) << std::setfill(' ')
-              << get_tensor_shape(data_input_info_[1], tensor_shape_info_) << std::endl;
-    std::cout << "---------------------------------------------------------------------------------"
-                 "---------------------------------"
-              << std::endl;
-    std::cout << std::left << std::setw(40) << std::setfill(' ') << "Layer Type" << std::left
-              << std::setw(30) << std::setfill(' ') << "Input Name" << std::left << std::setw(30)
-              << std::setfill(' ') << "Output Name" << std::left << std::setw(30)
-              << std::setfill(' ') << "Output Shape" << std::endl;
-    std::cout << "---------------------------------------------------------------------------------"
-                 "---------------------------------"
-              << std::endl;
-    for (size_t i = 0; i < layer_info_.size(); ++i) {
-      std::cout << std::left << std::setw(40) << std::setfill(' ') << layer_info_[i] << std::left
-                << std::setw(30) << std::setfill(' ') << input_output_info_[i].first << std::left
-                << std::setw(30) << std::setfill(' ') << input_output_info_[i].second << std::left
-                << std::setw(30) << std::setfill(' ')
-                << get_tensor_shape(input_output_info_[i].second, tensor_shape_info_) << std::endl;
-    }
-    std::cout << "---------------------------------------------------------------------------------"
-                 "---------------------------------"
-              << std::endl;
+
+  std::stringstream buf;
+  buf << std::left << std::setw(40) << std::setfill(' ') << "label" << std::left
+            << std::setw(30) << std::setfill(' ') << "Dense" << std::left << std::setw(30)
+            << std::setfill(' ') << "Sparse" << std::endl;
+  buf << std::left << std::setw(40) << std::setfill(' ') << data_input_info_[0] << std::left
+            << std::setw(30) << std::setfill(' ') << data_input_info_[1] << " " << std::left
+            << std::setw(30) << std::setfill(' ') << data_input_info_[2] << std::endl;
+  buf << std::left << std::setw(40) << std::setfill(' ')
+            << get_tensor_shape(data_input_info_[0], tensor_shape_info_) << std::left
+            << std::setw(40) << std::setfill(' ')
+            << get_tensor_shape(data_input_info_[1], tensor_shape_info_) << std::endl;
+  buf << "---------------------------------------------------------------------------------"
+              "---------------------------------"
+            << std::endl;
+  buf << std::left << std::setw(40) << std::setfill(' ') << "Layer Type" << std::left
+            << std::setw(30) << std::setfill(' ') << "Input Name" << std::left << std::setw(30)
+            << std::setfill(' ') << "Output Name" << std::left << std::setw(30)
+            << std::setfill(' ') << "Output Shape" << std::endl;
+  buf << "---------------------------------------------------------------------------------"
+              "---------------------------------"
+            << std::endl;
+  for (size_t i = 0; i < layer_info_.size(); ++i) {
+    buf << std::left << std::setw(40) << std::setfill(' ') << layer_info_[i] << std::left
+              << std::setw(30) << std::setfill(' ') << input_output_info_[i].first << std::left
+              << std::setw(30) << std::setfill(' ') << input_output_info_[i].second << std::left
+              << std::setw(30) << std::setfill(' ')
+              << get_tensor_shape(input_output_info_[i].second, tensor_shape_info_) << std::endl;
   }
+  buf << "---------------------------------------------------------------------------------"
+              "---------------------------------"
+            << std::endl;
+
+  HCTR_PRINT(INFO, "===================================================Model "
+                   "Summary===================================================\n"
+                   "%s", buf.str().c_str());
 }
 
 void Model::set_source(std::vector<std::string> source, std::vector<std::string> keyset,
@@ -864,34 +843,37 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
   bool epoch_mode = !solver_.repeat_dataset;
   bool mos_mode = mos_params_->use_model_oversubscriber;
   int mos_epochs = num_epochs < 1 ? 1 : num_epochs;
-  if (__PID == 0) {
-    std::cout << "=====================================================Model "
-                 "Fit====================================================="
-              << std::endl;
-  }
+  HCTR_PRINT(INFO, "=====================================================Model "
+                   "Fit=====================================================\n");
   if (epoch_mode && !mos_mode) {
-    MESSAGE_("Use epoch mode with number of epochs: " + std::to_string(num_epochs));
+    HCTR_LOG(INFO, ROOT, "Use epoch mode with number of epochs: %d\n", num_epochs);
   } else if (epoch_mode && mos_mode) {
-    MESSAGE_("Use model oversubscriber mode with number of training sources: " +
-             std::to_string(reader_params_.source.size()) +
-             ", number of epochs: " + std::to_string(mos_epochs));
+    HCTR_LOG(INFO, ROOT, "Use model oversubscriber mode with number of training sources: %zu, number of epochs: %d\n",
+                         reader_params_.source.size(),
+                         mos_epochs);
   } else {
-    MESSAGE_("Use non-epoch mode with number of iterations: " + std::to_string(max_iter));
+    HCTR_LOG(INFO, ROOT, "Use non-epoch mode with number of iterations: %d\n", max_iter);
   }
-  MESSAGE_("Training batchsize: " + std::to_string(solver_.batchsize) +
-           ", evaluation batchsize: " + std::to_string(solver_.batchsize_eval));
-  MESSAGE_("Evaluation interval: " + std::to_string(eval_interval) +
-           ", snapshot interval: " + std::to_string(snapshot));
-  MESSAGE_("Sparse embedding trainable: " + std::to_string(is_embedding_trainable_) +
-           ", dense network trainable: " + std::to_string(is_dense_trainable_));
-  MESSAGE_("Use mixed precision: " + std::to_string(solver_.use_mixed_precision) +
-           ", scaler: " + std::to_string(solver_.scaler) +
-           ", use cuda graph: " + std::to_string(solver_.use_cuda_graph));
-  MESSAGE_("lr: " + std::to_string(solver_.lr) +
-           ", warmup_steps: " + std::to_string(solver_.warmup_steps) +
-           ", decay_start: " + std::to_string(solver_.decay_start) +
-           ", decay_steps: " + std::to_string(solver_.decay_steps) + ", decay_power: " +
-           std::to_string(solver_.decay_power) + ", end_lr: " + std::to_string(solver_.end_lr));
+  HCTR_LOG(INFO, ROOT,"Training batchsize: %d, evaluation batchsize: %d\n",
+                      solver_.batchsize,
+                      solver_.batchsize_eval);
+  HCTR_LOG(INFO, ROOT,"Evaluation interval: %d, snapshot interval: %d\n",
+                      eval_interval,
+                      snapshot);
+  HCTR_LOG(INFO, ROOT,"Sparse embedding trainable: %d, dense network trainable: %d\n",
+                      is_embedding_trainable_,
+                      is_dense_trainable_);
+  HCTR_LOG(INFO, ROOT,"Use mixed precision: %d, scaler: %d, use cuda graph: %d\n",
+                       solver_.use_mixed_precision,
+                       solver_.scaler,
+                       solver_.use_cuda_graph);
+  HCTR_LOG(INFO, ROOT,"lr: %f, warmup_steps: %zu, decay_start: %zu, decay_steps: %zu, decay_power: %f, end_lr: %f\n", 
+                       solver_.lr,
+                       solver_.warmup_steps,
+                       solver_.decay_start,
+                       solver_.decay_steps,
+                       solver_.decay_power,
+                       solver_.end_lr);
 
   timer.start();
   timer_train.start();
@@ -1395,11 +1377,8 @@ bool Model::train() {
 #else
     train_data_reader_->read_a_batch_to_device();
 #endif
-  } catch (const internal_runtime_error& err) {
-    std::cerr << err.what() << std::endl;
-    throw err;
   } catch (const std::exception& err) {
-    std::cerr << err.what() << std::endl;
+    Logger::print_exception(err, 0);
     throw err;
   }
 }
@@ -1460,11 +1439,8 @@ bool Model::eval(int eval_batch) {
       metric->global_reduce(networks_.size());
     }
     return true;
-  } catch (const internal_runtime_error& err) {
-    std::cerr << err.what() << std::endl;
-    throw err;
   } catch (const std::exception& err) {
-    std::cerr << err.what() << std::endl;
+    Logger::print_exception(err, 0);
     throw err;
   }
 }
@@ -1540,10 +1516,10 @@ Error_t Model::export_predictions(const std::string& output_prediction_file_name
       write_func(output_label_file_name, global_label_result.get(), current_eval_batchsize_);
     }
   } catch (const internal_runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    Logger::print_exception(rt_err, 0);
     return rt_err.get_error();
   } catch (const std::exception& err) {
-    std::cerr << err.what() << std::endl;
+    Logger::print_exception(err, 0);
     return Error_t::UnspecificError;
   }
   return Error_t::Success;
@@ -1575,10 +1551,10 @@ Error_t Model::get_current_loss(float* loss) {
     }
     *loss = loss_reduced / resource_manager_->get_global_gpu_count();
   } catch (const internal_runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    Logger::print_exception(rt_err, 0);
     return rt_err.get_error();
   } catch (const std::exception& err) {
-    std::cerr << err.what() << std::endl;
+    Logger::print_exception(err, 0);
     return Error_t::UnspecificError;
   }
   return Error_t::Success;
@@ -1638,10 +1614,10 @@ Error_t Model::download_dense_params_to_files_(std::string weights_file,
       out_dense_opt_state_weight.close();
     }
   } catch (const internal_runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    Logger::print_exception(rt_err, 0);
     return rt_err.get_error();
   } catch (const std::exception& err) {
-    std::cerr << err.what() << std::endl;
+    Logger::print_exception(err, 0);
     return Error_t::UnspecificError;
   }
   return Error_t::Success;
@@ -1670,10 +1646,10 @@ Error_t Model::download_sparse_params_to_files_(
     }
     MESSAGE_("Dumping sparse optimzer states to files, successful");
   } catch (const internal_runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    Logger::print_exception(rt_err, 0);
     return rt_err.get_error();
   } catch (const std::exception& err) {
-    std::cerr << err.what() << std::endl;
+    Logger::print_exception(err, 0);
     return Error_t::UnspecificError;
   }
   return Error_t::Success;
@@ -1692,10 +1668,10 @@ std::shared_ptr<ModelOversubscriber> Model::create_model_oversubscriber_(
         use_host_memory_ps, embeddings_, sparse_embedding_files, resource_manager_,
         solver_.use_mixed_precision, solver_.i64_input_key));
   } catch (const internal_runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    Logger::print_exception(rt_err, 0);
     throw rt_err;
   } catch (const std::exception& err) {
-    std::cerr << err.what() << std::endl;
+    Logger::print_exception(err, 0);
     throw err;
   }
 }
@@ -1716,10 +1692,10 @@ Error_t Model::load_opt_states_for_dense_(const std::string& dense_opt_states_fi
     }
     opt_states_stream.close();
   } catch (const internal_runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    Logger::print_exception(rt_err, 0);
     return rt_err.get_error();
   } catch (const std::exception& err) {
-    std::cerr << err.what() << std::endl;
+    Logger::print_exception(err, 0);
     return Error_t::UnspecificError;
   }
   return Error_t::Success;
@@ -1740,10 +1716,10 @@ Error_t Model::load_opt_states_for_sparse_(
       }
     }
   } catch (const internal_runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    Logger::print_exception(rt_err, 0);
     return rt_err.get_error();
   } catch (const std::exception& err) {
-    std::cerr << err.what() << std::endl;
+    Logger::print_exception(err, 0);
     return Error_t::UnspecificError;
   }
   return Error_t::Success;
@@ -1764,10 +1740,10 @@ Error_t Model::load_params_for_dense_(const std::string& model_file) {
     }
     model_stream.close();
   } catch (const internal_runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    Logger::print_exception(rt_err, 0);
     return rt_err.get_error();
   } catch (const std::exception& err) {
-    std::cerr << err.what() << std::endl;
+    Logger::print_exception(err, 0);
     return Error_t::UnspecificError;
   }
   return Error_t::Success;
@@ -1782,10 +1758,10 @@ Error_t Model::load_params_for_sparse_(const std::vector<std::string>& embedding
       }
     }
   } catch (const internal_runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    Logger::print_exception(rt_err, 0);
     return rt_err.get_error();
   } catch (const std::exception& err) {
-    std::cerr << err.what() << std::endl;
+    Logger::print_exception(err, 0);
     return Error_t::UnspecificError;
   }
   return Error_t::Success;

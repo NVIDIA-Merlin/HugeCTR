@@ -18,6 +18,7 @@
 
 #include "dlrm_raw_utils.h"
 using namespace DLRM_RAW;
+using HugeCTR::ERROR_MESSAGE_;
 using HugeCTR::MESSAGE_;
 #include <iostream>
 

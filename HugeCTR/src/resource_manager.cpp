@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <logger.hpp>
 #include <random>
 #include <resource_manager.hpp>
 #include <resource_managers/resource_manager_core.hpp>
@@ -42,7 +43,7 @@ std::shared_ptr<ResourceManager> ResourceManager::create(
   CK_MPI_THROW_(MPI_Bcast(&seed, 1, MPI_UNSIGNED_LONG_LONG, 0, MPI_COMM_WORLD));
 #endif
 
-  MESSAGE_("Global seed is " + std::to_string(seed));
+  HCTR_LOG(INFO, ROOT, "Global seed is %llu\n", seed);
 
   return std::shared_ptr<ResourceManager>(
       new ResourceManagerCore(size, rank, std::move(device_map), seed));

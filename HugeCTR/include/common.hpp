@@ -28,6 +28,7 @@
 #include <initializer_list>
 #include <iomanip>
 #include <iostream>
+#include <logger.hpp>
 #include <numeric>
 #include <unordered_map>
 #include <utility>
@@ -71,30 +72,6 @@ enum class CommunicationType;
 
 }  // namespace hybrid_embedding
 
-//#define DATA_READING_TEST
-
-enum class Error_t {
-  Success,
-  FileCannotOpen,
-  BrokenFile,
-  OutOfMemory,
-  OutOfBound,
-  WrongInput,
-  IllegalCall,
-  NotInitialized,
-  UnSupportedFormat,
-  InvalidEnv,
-  MpiError,
-  CublasError,
-  CudnnError,
-  CudaError,
-  NcclError,
-  NvmlError,
-  DataCheckError,
-  UnspecificError,
-  EndOfFile
-};
-
 enum class Check_t { Sum, None };
 
 enum class DataReaderSparse_t { Distributed, Localized };
@@ -109,11 +86,7 @@ struct NameID {
 };
 
 /**
- * An internal exception to carry the error code.
- * This exception inherits std::runtime_error and
- * adds HugeCTR specific text prefix to method what()
- * On the boundary of subsystem: session will return the
- * error code instead of throwing exceptions.
+ * An internal exception, as a child of std::runtime_error, to carry the error code.
  */
 class internal_runtime_error : public std::runtime_error {
  private:
@@ -128,8 +101,7 @@ class internal_runtime_error : public std::runtime_error {
   /**
    * Ctor
    */
-  internal_runtime_error(Error_t err, std::string str)
-      : runtime_error("[HCDEBUG][ERROR] " + str), err_(err) {}
+  internal_runtime_error(Error_t err, std::string str) : runtime_error(str), err_(err) {}
 };
 
 enum class LrPolicy_t { fixed };
@@ -277,23 +249,11 @@ typedef struct DataSetHeader_ {
     }                                                                                  \
   } while (0)
 
-#ifdef ENABLE_MPI
-#define ERROR_MESSAGE_(msg)                                                                   \
-  do {                                                                                        \
-    int __PID(-1), __NUM_PROCS(-1);                                                           \
-    MPI_Comm_rank(MPI_COMM_WORLD, &__PID);                                                    \
-    MPI_Comm_size(MPI_COMM_WORLD, &__NUM_PROCS);                                              \
-    std::string str = (msg);                                                                  \
-    std::cerr << "[HCDEBUG][ERROR] " << str << " " << __FILE__ << ":" << __LINE__             \
-              << " in pid: " << __PID << " of " << __NUM_PROCS << " processes." << std::endl; \
-  } while (0)
-#else
-#define ERROR_MESSAGE_(msg)                                                                     \
-  do {                                                                                          \
-    std::string str = (msg);                                                                    \
-    std::cerr << "[HCDEBUG][ERROR] " << str << " " << __FILE__ << ":" << __LINE__ << std::endl; \
-  } while (0)
-#endif
+inline void ERROR_MESSAGE_(const std::string msg) {
+  std::string str = msg;
+  str += std::string(" ") + __FILE__ + ":" + std::to_string(__LINE__);
+  HugeCTR::Logger::get().log(-1, true, true, "%s", str.c_str());
+}
 
 #define CK_THROW_(x, msg)                                                                       \
   do {                                                                                          \
@@ -316,22 +276,11 @@ typedef struct DataSetHeader_ {
 
 inline void MESSAGE_(const std::string msg, bool per_process = false, bool new_line = true,
                      bool timestamp = true) {
-#ifdef ENABLE_MPI
-  int __PID(-1);
-  MPI_Comm_rank(MPI_COMM_WORLD, &__PID);
-  if (__PID && !per_process) return;
-#endif
-  std::time_t time_instance = std::time(0);
-  std::tm* time_now = std::localtime(&time_instance);
-  std::string str = (std::move(msg));
-  std::cout.fill('0');
-  if (timestamp)
-    std::cout << "[" << std::setw(2) << time_now->tm_mday << "d" << std::setw(2)
-              << time_now->tm_hour << "h" << std::setw(2) << time_now->tm_min << "m" << std::setw(2)
-              << time_now->tm_sec << "s"
-              << "][HUGECTR][INFO]: ";
-  std::cout << str << std::flush;
-  if (new_line) std::cout << std::endl;
+  std::string final_msg = msg;
+  if (new_line) {
+    final_msg += "\n";
+  }
+  Logger::get().log(LOG_INFO_LEVEL, per_process, timestamp, "%s", final_msg.c_str());
 }
 
 #define CK_CUDA_THROW_(x)                                                                          \
@@ -445,14 +394,14 @@ inline void MESSAGE_(const std::string msg, bool per_process = false, bool new_l
     }                                                                                             \
   } while (0)
 
-#define CK_CURAND_THROW_(cmd)                                                                   \
-  do {                                                                                          \
-    curandStatus_t retval = (cmd);                                                              \
-    if (retval != CURAND_STATUS_SUCCESS) {                                                      \
-      throw internal_runtime_error(                                                             \
-          Error_t::CudnnError, std::string("CURAND Runtime error: ") + std::to_string(retval) + \
-                                   " " + __FILE__ + ":" + std::to_string(__LINE__) + " \n");    \
-    }                                                                                           \
+#define CK_CURAND_THROW_(cmd)                                                                    \
+  do {                                                                                           \
+    curandStatus_t retval = (cmd);                                                               \
+    if (retval != CURAND_STATUS_SUCCESS) {                                                       \
+      throw internal_runtime_error(                                                              \
+          Error_t::CurandError, std::string("CURAND Runtime error: ") + std::to_string(retval) + \
+                                    " " + __FILE__ + ":" + std::to_string(__LINE__) + " \n");    \
+    }                                                                                            \
   } while (0)
 
 template <typename T>
