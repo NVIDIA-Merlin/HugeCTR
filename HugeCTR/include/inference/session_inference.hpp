@@ -27,14 +27,14 @@
 #include "HugeCTR/include/network.hpp"
 #include "HugeCTR/include/parser.hpp"
 #include "HugeCTR/include/tensor2.hpp"
+#include "inference/memory_pool.hpp"
 namespace HugeCTR {
 
 class InferenceSession : public HugeCTRModel {
  private:
   nlohmann::json config_;  // should be declared before parser_ and inference_parser_
   std::vector<size_t> embedding_table_slot_size_;
-  std::vector<cudaStream_t> lookup_streams_;
-  std::vector<cudaStream_t> update_streams_;
+  std::vector<cudaStream_t> streams_;
 
   std::vector<std::shared_ptr<Tensor2<int>>> row_ptrs_tensors_;  // embedding input row
   std::vector<std::shared_ptr<Tensor2<float>>>
@@ -49,7 +49,7 @@ class InferenceSession : public HugeCTRModel {
                                             // belong to the same embedding table
   std::vector<int*> d_row_ptrs_vec_;        // row ptrs (on device) for each embedding table
 
-  embedding_cache_workspace workspace_handler_;
+  MemoryBlock* memory_block_;
   float* d_embeddingvectors_;
 
   void separate_keys_by_table_(int* d_row_ptrs,

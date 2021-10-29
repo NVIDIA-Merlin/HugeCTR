@@ -52,7 +52,7 @@ target_link_libraries(huge_ctr_shared PUBLIC cublas curand cudnn nccl nvToolsExt
 target_link_libraries(
   huge_ctr_shared
   PUBLIC
-    ${DB_LIB_PATHS}/libhiredis.so librocksdb.so # from Hugectr 
+    ${DB_LIB_PATHS}/libhiredis.so librocksdb.so libredis++.so  # from Hugectr 
 )
 
 if(MPI_FOUND)

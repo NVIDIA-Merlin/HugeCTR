@@ -15,13 +15,16 @@
  */
 
 #pragma once
+
 #include <map>
+#include <optional>
 #include <string>
 #include <thread>
 #include <vector>
 
 namespace HugeCTR {
 enum INFER_TYPE { TRITON, OTHER };
+enum CACHE_SPACE_TYPE { WORKER, REFRESHER };
 enum DATABASE_TYPE { LOCAL, REDIS, ROCKSDB, HIERARCHY };
 
 struct InferenceParams {
@@ -42,6 +45,11 @@ struct InferenceParams {
   std::string redis_ip;
   std::string rocksdb_path;
   float cache_size_percentage_redis;
+  int number_of_worker_buffers_in_pool;
+  int number_of_refresh_buffers_in_pool;
+  float cache_refresh_percentage_per_iteration;
+  std::vector<int> depolyed_devices;
+  std::vector<float> default_value_for_each_table;
   InferenceParams(const std::string& model_name, const size_t max_batchsize,
                   const float hit_rate_threshold, const std::string& dense_model_file,
                   const std::vector<std::string>& sparse_model_files, const int device_id,
@@ -51,7 +59,12 @@ struct InferenceParams {
                   const bool use_cuda_graph = true, DATABASE_TYPE db_type = DATABASE_TYPE::LOCAL,
                   const std::string redis_ip = "127.0.0.1:7000",
                   const std::string rocksdb_path = "",
-                  const float cache_size_percentage_redis = 0.5);
+                  const float cache_size_percentage_redis = 0.5,
+                  const int number_of_worker_buffers_in_pool = 2,
+                  const int number_of_refresh_buffers_in_pool = 1,
+                  const float cache_refresh_percentage_per_iteration = 0.1,
+                  const std::vector<int>& depolyed_devices = {},
+                  const std::vector<float>& default_value_for_each_table = {0.0f});
 };
 
 struct parameter_server_config {
@@ -67,22 +80,20 @@ struct parameter_server_config {
   std::vector<std::vector<float>>
       default_emb_vec_value_;  // The defualt emb_vec value when emb_id cannot be found, per
                                // embedding table per model
+
+  std::optional<size_t> find_model_id(const std::string& model_name) const {
+    const auto it = model_name_id_map_.find(model_name);
+    if (it != model_name_id_map_.end()) {
+      return it->second;
+    } else {
+      return {};
+    }
+  }
 };
 
-// Base interface class for parameter_server
-// 1 instance per HugeCTR backend(1 instance per all models per all embedding tables)
-template <typename TypeHashKey>
-class HugectrUtility {
- public:
-  HugectrUtility();
-  virtual ~HugectrUtility();
-  // Should not be called directly, should be called by embedding cache
-  virtual void look_up(const TypeHashKey* h_embeddingcolumns, size_t length,
-                       float* h_embeddingoutputvector, const std::string& model_name,
-                       size_t embedding_table_id) = 0;
-  static HugectrUtility<TypeHashKey>* Create_Parameter_Server(
-      INFER_TYPE Infer_type, const std::vector<std::string>& model_config_path,
-      const std::vector<InferenceParams>& inference_params_array);
+struct inference_memory_pool_size_config {
+  std::map<std::string, int> num_woker_buffer_size_per_model;
+  std::map<std::string, int> num_refresh_buffer_size_per_model;
 };
 
 }  // namespace HugeCTR
