@@ -92,26 +92,31 @@ void UnitTester::test_all_gather_dispatcher(const size_t rows_num_per_sample,
     const auto host_total_num_elements = replica_context->output("host_total_num_elements");
 
     auto local_gpu = resource_mgr_->get_local_gpu(local_replica_id);
+#ifdef SOK_ASYNC
+    const auto& stream = local_gpu->get_framework_stream();
+#else
+    const auto& stream = local_gpu->get_stream();
+#endif
     CK_CUDA(cudaMemcpyAsync(values_out_tensor->data(),
                             total_values->GetPtrWithType<void>(),
                             total_values->get_size_in_bytes(),
                             cudaMemcpyDeviceToDevice,
-                            local_gpu->get_stream()));
+                            stream));
     CK_CUDA(cudaMemcpyAsync(indices_out_tensor->data(),
                             total_row_indices->GetPtrWithType<void>(),
                             total_row_indices->get_size_in_bytes(),
                             cudaMemcpyDeviceToDevice,
-                            local_gpu->get_stream()));
+                            stream));
     CK_CUDA(cudaMemcpyAsync(num_elements_tensor->data(),
                             dev_total_num_elements->GetPtrWithType<void>(),
                             dev_total_num_elements->get_size_in_bytes(),
                             cudaMemcpyDeviceToDevice,
-                            local_gpu->get_stream()));
+                            stream));
     CK_CUDA(cudaMemcpyAsync(total_valid_num_tensor->data(),
                             host_total_num_elements->GetPtrWithType<void>(),
                             host_total_num_elements->get_size_in_bytes(),
                             cudaMemcpyDefault,
-                            local_gpu->get_stream()));
+                            stream));
 }
 
 void UnitTester::test_csr_conversion_distributed(const size_t global_replica_id,
@@ -166,21 +171,26 @@ void UnitTester::test_csr_conversion_distributed(const size_t global_replica_id,
     const auto replica_host_nnz = replica_context->output("replica_host_nnz");
 
     auto local_gpu = resource_mgr_->get_local_gpu(local_replica_id);
+#ifdef SOK_ASYNC
+    const auto& stream = local_gpu->get_framework_stream();
+#else
+    const auto& stream = local_gpu->get_stream();
+#endif
     CK_CUDA(cudaMemcpyAsync(replcia_values_tensor->data(),
                             replica_csr_values->GetPtrWithType<void>(),
                             replica_csr_values->get_size_in_bytes(),
                             cudaMemcpyDefault,
-                            local_gpu->get_stream()));
+                            stream));
     CK_CUDA(cudaMemcpyAsync(replica_csr_row_offsets_tensor->data(),
                             replica_row_offset->GetPtrWithType<void>(),
                             replica_row_offset->get_size_in_bytes(),
                             cudaMemcpyDefault,
-                            local_gpu->get_stream()));
+                            stream));
     CK_CUDA(cudaMemcpyAsync(replica_nnz_tensor->data(),
                             replica_host_nnz->GetPtrWithType<void>(),
                             replica_host_nnz->get_size_in_bytes(),
                             cudaMemcpyDefault,
-                            local_gpu->get_stream()));
+                            stream));
 
 }
 
