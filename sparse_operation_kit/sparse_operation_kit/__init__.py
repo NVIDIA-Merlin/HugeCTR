@@ -37,6 +37,7 @@ from sparse_operation_kit.core.initialize import Init
 from sparse_operation_kit.core.context_scope import OptimizerScope
 from sparse_operation_kit.embeddings.distributed_embedding import DistributedEmbedding
 from sparse_operation_kit.embeddings.all2all_dense_embedding import All2AllDenseEmbedding
+from sparse_operation_kit.embeddings.get_embedding_op import get_embedding
 from sparse_operation_kit.saver.Saver import Saver
 from sparse_operation_kit.optimizers.utils import split_embedding_variable_from_others
 from sparse_operation_kit.core.embedding_layer_handle import GraphKeys
