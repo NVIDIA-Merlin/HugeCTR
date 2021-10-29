@@ -23,7 +23,7 @@ if tf_version.startswith("2"):
 elif tf_version.startswith("1"):
     using_tf2 = False
 else:
-    raise RuntimeError(f"Not supported TF version: {tf_version}")
+    raise RuntimeError("Not supported TF version: {}".format(tf_version))
 
 import os
 
