@@ -55,10 +55,12 @@
      hctr_3374842_0_debug.log
 
  * 2. Exception handling:
+ * For HugeCTR's own errors, HCTR_OWN_THROW is used.
  * For MPI, use HCTR_MPI_THROW. For the other libraries including CUDA, cuBLAS, NCCL,etc, use HCTR_LIB_THROW.
  * The throwed exception records where the error has occured (or caught) and what the error is about.
  * If you add a new library, to track its error, it is recommended that you specialize getErrorType and getErrorString below.
  * 2.1. Examples:
+     HCTR_OWN_THROW(Error_t::WrongInput, "device is not avaliable");
      HCTR_LIB_THROW(cudaDeviceSynchronize());
      HCTR_LIB_THROW(cublasGemmEx(...));
      HCTR_MPI_THROW(MPI_Gather(...));

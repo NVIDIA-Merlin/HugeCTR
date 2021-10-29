@@ -102,7 +102,7 @@ void Logger::do_throw(HugeCTR::Error_t error_type, const SrcLoc& loc,
   std::throw_with_nested(internal_runtime_error(error_type, error_message));
 }
 
-Logger::Logger() : rank_(0), max_level_(DEFAULT_LOG_LEVEL) {
+Logger::Logger() : rank_(0), max_level_(DEFAULT_LOG_LEVEL), log_to_file_(false) {
 #ifdef ENABLE_MPI
   MPI_Comm_rank(MPI_COMM_WORLD, &rank_);
 #endif
@@ -168,9 +168,7 @@ std::string Logger::get_log_prefix(int level) const {
   }
   prefix_str += "[" + level_name + "]";
 
-  //#ifdef ENABLE_MPI
   prefix_str += "[RANK" + std::to_string(rank_) + "]";
-  //#endif
 
   prefix_str += ": ";
 
