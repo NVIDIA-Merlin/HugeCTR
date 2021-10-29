@@ -314,12 +314,14 @@ void Facade::forward(const tensorflow::Tensor* emb_handle,
     std::shared_ptr<Tensor> emb_vector = TFTensorWrapper::create(emb_vector_tensor);
 
 #ifdef SOK_ASYNC
-    resources_mgr_->event_record(global_replica_id, EventRecordType::RDLFramework);
+    resources_mgr_->event_record(global_replica_id, EventRecordType::RDLFramework,
+                                 /*event_name=*/embedding->get_var_name() + "_forward_begin");
 #endif
     // delegate embedding forward to embedding manager
     embedding_mgr_->forward(embedding, values, indices, global_replica_id, training, emb_vector);
 #ifdef SOK_ASYNC
-    resources_mgr_->event_record(global_replica_id, EventRecordType::RMyself);
+    resources_mgr_->event_record(global_replica_id, EventRecordType::RMyself,
+                                 /*event_name=*/embedding->get_var_name() + "_forward_end");
 #endif
 
 #ifdef USE_NVTX
@@ -345,12 +347,14 @@ void Facade::forward(const tensorflow::Tensor* emb_handle,
     std::shared_ptr<Tensor> emb_vector = TFTensorWrapper::create(emb_vector_tensor);
 
 #ifdef SOK_ASYNC
-    resources_mgr_->event_record(global_replica_id, EventRecordType::RDLFramework);
+    resources_mgr_->event_record(global_replica_id, EventRecordType::RDLFramework,
+                                 /*event_name=*/embedding->get_var_name() + "_forward_begin");
 #endif
     // delegate embedding forward to embedding manager
     embedding_mgr_->forward(embedding, values, global_replica_id, training, emb_vector);
 #ifdef SOK_ASYNC
-    resources_mgr_->event_record(global_replica_id, EventRecordType::RMyself);
+    resources_mgr_->event_record(global_replica_id, EventRecordType::RMyself,
+                                 /*event_name=*/embedding->get_var_name() + "_forward_end");
 #endif
 
 #ifdef USE_NVTX
@@ -374,12 +378,14 @@ void Facade::backward(const tensorflow::Tensor* emb_handle,
     std::shared_ptr<Tensor> value_index = TFTensorWrapper::create(const_cast<tensorflow::Tensor*>(value_index_tensor));
 
 #ifdef SOK_ASYNC
-    resources_mgr_->event_record(global_replica_id, EventRecordType::RDLFramework);
+    resources_mgr_->event_record(global_replica_id, EventRecordType::RDLFramework,
+                                 /*event_name=*/embedding->get_var_name() + "_backward_begin");
 #endif
     // delegate embedding backward to embedding manager
     embedding_mgr_->backward(embedding, top_gradient, global_replica_id, gradient, value_index);
 #ifdef SOK_ASYNC
-    resources_mgr_->event_record(global_replica_id, EventRecordType::RMyself);
+    resources_mgr_->event_record(global_replica_id, EventRecordType::RMyself,
+                                 /*event_name=*/embedding->get_var_name() + "_backward_end");
 #endif
 
 #ifdef USE_NVTX
@@ -406,11 +412,13 @@ void Facade::apply_gradients(const tensorflow::core::RefCountPtr<tensorflow::Emb
 
 #ifdef SOK_ASYNC
     const size_t global_replica_id = resources_mgr_->cal_global_id_from_local_id(local_replica_id);
-    resources_mgr_->event_record(global_replica_id, EventRecordType::RDLFramework);
+    resources_mgr_->event_record(global_replica_id, EventRecordType::RDLFramework,
+                                 /*event_name=*/param->get_var_name() + "_apply_gradients_begin");
 #endif
     optimizer_->apply_gradients(param, grad, local_indices, local_replica_id, learning_rate, current_step);
 #ifdef SOK_ASYNC
-    resources_mgr_->event_record(global_replica_id, EventRecordType::RMyself);
+    resources_mgr_->event_record(global_replica_id, EventRecordType::RMyself,
+                                /*event_name=*/param->get_var_name() + "_apply_gradients_end");
 #endif
 
 #ifdef USE_NVTX

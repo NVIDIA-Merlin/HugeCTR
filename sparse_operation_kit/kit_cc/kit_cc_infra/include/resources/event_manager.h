@@ -18,9 +18,8 @@
 #define RESOURCES_EVENT_MANAGER_H
 
 #include "resources/event.h"
-#include <queue>
-#include <mutex>
-#include <thread>
+#include <unordered_map>
+#include <shared_mutex>
 
 namespace SparseOperationKit {
 
@@ -34,21 +33,19 @@ public:
     EventManager(EventManager&&) = delete;
     EventManager& operator=(EventManager&&) = delete;
 
-    std::shared_ptr<Event> get_event();
+    std::shared_ptr<Event>& get_event(const std::string& event_name);
     void sync_two_streams(cudaStream_t& root_stream, 
-                          cudaStream_t& sub_stream);
+                          cudaStream_t& sub_stream,
+                          const std::string& event_name);
 
 protected:
     EventManager();
 
-private:
-    std::queue<std::shared_ptr<Event>> unused_events_;
-    std::queue<std::shared_ptr<Event>> inuse_events_;
-    bool should_stop_;
-    std::mutex mu_;
-    std::thread porter_thread_;
+    std::shared_ptr<Event>& create_event(const std::string& event_name);
 
-    void porter_function();
+private:
+    std::unordered_map<std::string, std::shared_ptr<Event>> events_;
+    std::shared_timed_mutex shared_mu_;
 };
 
 } // namespace SparseOperationKit

@@ -89,7 +89,8 @@ public:
     size_t cal_worker_id_from_global_id(const size_t global_replica_id) const;
 
     void event_record(const size_t global_replica_id, 
-                      EventRecordType event_record_type);
+                      EventRecordType event_record_type,
+                      const std::string& event_name);
 
 private:
     ResourcesManager();

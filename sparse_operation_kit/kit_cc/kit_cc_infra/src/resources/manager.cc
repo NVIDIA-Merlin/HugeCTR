@@ -279,11 +279,12 @@ size_t ResourcesManager::cal_worker_id_from_global_id(const size_t global_replic
 }
 
 void ResourcesManager::event_record(const size_t global_replica_id,
-                                    EventRecordType event_record_type) {
+                                    EventRecordType event_record_type,
+                                    const std::string& event_name) {
     const size_t local_replica_id = cal_local_id_from_global_id(global_replica_id);
     auto& local_gpu = get_local_gpu(local_replica_id);
 
-    local_gpu->event_record(event_record_type);
+    local_gpu->event_record(event_record_type, std::move(event_name));
 }
 
 } // namespace SparseOperationKit

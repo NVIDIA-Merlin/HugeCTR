@@ -19,7 +19,7 @@
 
 #include <cuda_runtime_api.h>
 #include <memory>
-#include <mutex>
+#include <string>
 
 namespace SparseOperationKit {
 
@@ -29,7 +29,7 @@ enum class EventRecordType { RDLFramework, RMyself };
 /*class used to handle cudaEvent*/
 class Event {
 public:
-    static std::shared_ptr<Event> create();
+    static std::shared_ptr<Event> create(const std::string& name);
     ~Event();
 
     Event(Event& event) = delete;
@@ -41,15 +41,12 @@ public:
     bool IsReady() const;
     void TillReady(cudaStream_t& stream);
     void TillReady();
-    bool IsInUse() const;
-    void Reset();
     
 protected:
-    Event();
+    explicit Event(const std::string& name);
 private:
     cudaEvent_t cuda_event_{nullptr};
-    mutable std::mutex mu_;
-    bool in_use_{true};
+    const std::string& name_;
 };
 
 } // namespace SparseOperationKit

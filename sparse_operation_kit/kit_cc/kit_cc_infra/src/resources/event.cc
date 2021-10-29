@@ -19,8 +19,8 @@
 
 namespace SparseOperationKit {
 
-Event::Event() 
-: mu_(), in_use_(true)
+Event::Event(const std::string& name) 
+: name_(name)
 {
     CK_CUDA(cudaEventCreateWithFlags(&cuda_event_, cudaEventDisableTiming));
 }
@@ -33,8 +33,8 @@ Event::~Event() {
     }
 }
 
-std::shared_ptr<Event> Event::create() {
-    return std::shared_ptr<Event>(new Event());
+std::shared_ptr<Event> Event::create(const std::string& name) {
+    return std::shared_ptr<Event>(new Event(std::move(name)));
 }
 
 void Event::Record(cudaStream_t& stream) {
@@ -55,24 +55,10 @@ bool Event::IsReady() const {
 
 void Event::TillReady(cudaStream_t& stream) {
     CK_CUDA(cudaStreamWaitEvent(stream, cuda_event_, cudaEventWaitDefault));
-    std::lock_guard<std::mutex> lock(mu_);
-    in_use_ = false;
 }
 
 void Event::TillReady() {
     CK_CUDA(cudaEventSynchronize(cuda_event_));
-    std::lock_guard<std::mutex> lock(mu_);
-    in_use_ = false;
-}
-
-bool Event::IsInUse() const {
-    std::lock_guard<std::mutex> lock(mu_);    
-    return in_use_ || !IsReady();
-}
-
-void Event::Reset() {
-    std::lock_guard<std::mutex> lock(mu_);
-    in_use_ = true;
 }
 
 } // namespace SparseOperationKit
