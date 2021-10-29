@@ -19,41 +19,6 @@ ARG RELEASE=false
 ARG SM="70;75;80"
 ARG USE_NVTX=OFF
 
-ARG CMAKE_VER=3.21.1
-
-SHELL ["/bin/bash", "-c"]
-
-RUN apt-get update -y && \
-    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-        vim gdb git wget tar curl \
-        clang-format libboost-serialization-dev && \
-    rm -rf /var/lib/apt/lists/*
-
-# Install cmake
-RUN CMAKE_MAJOR_VERSION=`echo ${CMAKE_VER} | cut -d'.' -f1,2` && \
-    mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://cmake.org/files/v$CMAKE_MAJOR_VERSION/cmake-${CMAKE_VER}-linux-x86_64.sh && \
-    mkdir -p /usr/local && \
-    /bin/sh /var/tmp/cmake-${CMAKE_VER}-linux-x86_64.sh --prefix=/usr/local --skip-license && \
-    rm -rf /var/tmp/cmake-${CMAKE_VER}-linux-x86_64.sh
-ENV PATH=/usr/local/bin:$PATH
-
-# Install rmm from source
-RUN git clone https://github.com/rapidsai/rmm.git build-env && cd build-env/ && \
-    sed -i '/11.2/ a "11.4": "11.x",' python/setup.py && \
-    cd ..; \
-    pushd build-env && \
-      ./build.sh librmm --cmake-args=\"-DBUILD_TESTS=OFF\" && \
-    popd && \
-    rm -rf build-env
-
-ENV NCCL_LAUNCH_MODE=PARALLEL
-ENV NCCL_COLLNET_ENABLE=0
-
-RUN pip3 install --no-cache-dir numpy==1.19.2 pandas sklearn nvtx-plugins jupyter
-
-RUN mkdir -p /usr/local/nvidia/lib64 && \
-    ln -s /usr/local/cuda/lib64/libcusolver.so /usr/local/nvidia/lib64/libcusolver.so.10
-
 RUN if [ "$RELEASE" = "true" ]; \
     then \
       mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 --branch master https://github.com/NVIDIA/HugeCTR.git HugeCTR && cd - && \

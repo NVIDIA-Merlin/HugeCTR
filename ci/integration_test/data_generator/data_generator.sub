@@ -1,14 +1,17 @@
 #!/bin/bash
 
-srun --ntasks=1 --container-image="${CONT}" --container-mounts="${MOUNTS}" bash -cx " \
+srun --ntasks=1 --container-image="${CONT}" bash -cx " \
+    mkdir -p /dataset/criteo_kaggle/generated_dataset && \
     cd /dataset/criteo_kaggle/generated_dataset && \
     python3 /workdir/tools/data_generator/dcn_norm_generate_train.py"
 
-srun --ntasks=1 --container-image="${CONT}" --container-mounts="${MOUNTS}" bash -cx " \
+srun --ntasks=1 --container-image="${CONT}" bash -cx " \
+    mkdir -p /dataset/criteo_kaggle/generated_dataset && \
     cd /dataset/criteo_kaggle/generated_dataset && \
     python3 /workdir/tools/data_generator/wdl_norm_generate_train.py"
 
-srun --ntasks=1 --container-image="${CONT}" --container-mounts="${MOUNTS}" bash -cx " \
+srun --ntasks=1 --container-image="${CONT}" bash -cx " \
+    mkdir -p /dataset/criteo_kaggle/generated_dataset && \
     cd /dataset/criteo_kaggle/generated_dataset && \
     python3 /workdir/tools/data_generator/dlrm_raw_generate_train.py"
     

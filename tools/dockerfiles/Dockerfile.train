@@ -18,6 +18,7 @@ FROM nvcr.io/nvidia/${BASE_IMAGE}:${IMAGE_VER} AS devel
 
 ARG RELEASE=false
 ARG SM="60;61;70;75;80"
+ARG ENABLE_MULTINODES=ON
 
 ARG CMAKE_VER=3.21.1
 ARG HWLOC_VER=2.4.1
@@ -33,15 +34,14 @@ ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/cuda/lib64:/usr/local/cuda/extra
 # Build env variables for rmm
 ENV INSTALL_PREFIX=/usr
 
-RUN apt-get update -y && \
+RUN export DEBIAN_FRONTEND=noninteractive && \
+    apt-get update -y && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-        vim git wget unzip tar curl zip \
-        gdb valgrind \
-        sysstat iotop htop \
-        zlib1g-dev lsb-release clang-format \
-        openssl libssl-dev \
+        gdb \
+        valgrind \
+        iotop \
+        clang-format \
         libboost-serialization-dev \
-        protobuf-compiler \
         libtbb-dev \
         libaio-dev \
         slapd && \
@@ -51,6 +51,8 @@ RUN apt-get update -y && \
     rm -rf /var/lib/apt/lists/*
 
 RUN pip install git+git://github.com/gevent/gevent.git@21.8.0#egg=gevent
+
+RUN pip3 install --no-cache-dir mpi4py ortools sklearn onnx onnxruntime pandas
 
 # Install cmake
 RUN CMAKE_MAJOR_VERSION=`echo ${CMAKE_VER} | cut -d'.' -f1,2` && \
@@ -74,26 +76,48 @@ RUN git clone --branch apache-arrow-5.0.0 --recurse-submodules https://github.co
               -DCMAKE_LIBRARY_PATH=${CUDA_CUDA_LIBRARY} \
               -DARROW_FLIGHT=OFF \
               -DARROW_GANDIVA=OFF \
-              -DARROW_ORC=OFF \
+              -DARROW_ORC=ON \
               -DARROW_WITH_BZ2=ON \
               -DARROW_WITH_ZLIB=ON \
               -DARROW_WITH_ZSTD=ON \
               -DARROW_WITH_LZ4=ON \
               -DARROW_WITH_SNAPPY=ON \
               -DARROW_WITH_BROTLI=ON \
-              -DARROW_PARQUET=OFF \
-              -DARROW_PYTHON=OFF \
+              -DARROW_PARQUET=ON \
+              -DARROW_PYTHON=ON \
               -DARROW_PLASMA=OFF \
               -DARROW_BUILD_TESTS=OFF \
               -DARROW_FILESYSTEM=ON \
               -DARROW_CUDA=ON \
-              -DARROW_DATASET=OFF \
+              -DARROW_DATASET=ON \
               .. && \
         make -j$(nproc) && \
         make install && \
       popd && \
+      pushd python && \
+        export PYARROW_WITH_PARQUET=ON && \
+        export PYARROW_WITH_CUDA=ON && \
+        export PYARROW_WITH_ORC=ON && \
+        export PYARROW_WITH_DATASET=ON && \
+        python setup.py build_ext --build-type=release bdist_wheel && \
+        pip install dist/*.whl && \
+      popd && \
     popd && \
     rm -rf build-env
+
+# Install CUDA-Aware hwloc from source
+RUN if [ "$BASE_IMAGE" = "tensorlfow" ] && [ "$IMAGE_VER" = "21.09-tf2-py3" ]; \
+    then \
+      cd /opt/hpcx/ompi/include/openmpi/opal/mca/hwloc/hwloc201 && rm -rfv hwloc201.h hwloc/include/hwloc.h; \
+    else \
+      cd /usr/local/mpi/include/openmpi/opal/mca/hwloc/hwloc201 && rm -rfv hwloc201.h hwloc/include/hwloc.h; \
+    fi
+RUN mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://download.open-mpi.org/release/hwloc/v2.4/hwloc-${HWLOC_VER}.tar.gz && \
+    mkdir -p /var/tmp && tar -x -f /var/tmp/hwloc-${HWLOC_VER}.tar.gz -C /var/tmp && \
+    cd /var/tmp/hwloc-${HWLOC_VER} && \
+    ./configure CPPFLAGS="-I/usr/local/cuda/include/ -L/usr/local/cuda/lib64/" LDFLAGS="-L/usr/local/cuda/lib64" --enable-cuda && \
+    make -j$(nproc) && make install && \
+    rm -rf /var/tmp/hwloc-${HWLOC_VER} /var/tmp/hwloc-${HWLOC_VER}.tar.gz
 
 # Install rmm from source
 RUN git clone https://github.com/rapidsai/rmm.git build-env && cd build-env/ && \
@@ -115,15 +139,6 @@ RUN git clone https://github.com/rapidsai/cudf.git build-env && cd build-env/ &&
       ./build.sh libcudf --allgpuarch --cmake-args=\"-DBUILD_TESTS=OFF -DCUDF_ENABLE_ARROW_S3=OFF\" && \
     popd && \
     rm -rf build-env
-
-# Install CUDA-Aware hwloc from source
-RUN cd /opt/hpcx/ompi/include/openmpi/opal/mca/hwloc/hwloc201 && rm -rfv hwloc201.h hwloc/include/hwloc.h
-RUN mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://download.open-mpi.org/release/hwloc/v2.4/hwloc-${HWLOC_VER}.tar.gz && \
-    mkdir -p /var/tmp && tar -x -f /var/tmp/hwloc-${HWLOC_VER}.tar.gz -C /var/tmp && \
-    cd /var/tmp/hwloc-${HWLOC_VER} && \
-    ./configure CPPFLAGS="-I/usr/local/cuda/include/ -L/usr/local/cuda/lib64/" LDFLAGS="-L/usr/local/cuda/lib64" --enable-cuda && \
-    make -j$(nproc) && make install && \
-    rm -rf /var/tmp/hwloc-${HWLOC_VER} /var/tmp/hwloc-${HWLOC_VER}.tar.gz
 
 # Install Hiredis from source
 RUN mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 https://github.com/redis/hiredis.git && cd - && \
@@ -149,8 +164,6 @@ RUN mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 https://github.com/f
     rm -rf /var/tmp/rocksdb
 ENV CPATH=/usr/local/include:$CPATH
 
-RUN pip3 install --no-cache-dir mpi4py ortools sklearn onnx onnxruntime
-
 ENV OMPI_MCA_plm_rsh_agent=sh
 ENV OMPI_MCA_opal_cuda_support=true
 
@@ -163,9 +176,6 @@ ENV SHARP_COLL_LOG_LEVEL=3
 ENV HCOLL_ENABLE_MCAST=0
 
 RUN ln -s /usr/lib/x86_64-linux-gnu/libibverbs.so.1.11.32.1 /usr/lib/x86_64-linux-gnu/libibverbs.so
-RUN CUDA_PATH=`find /usr/local/ -name "cuda-*.?" | head -n 1` && \
-    echo "link $CUDA_PATH to /usr/local/cuda" && \
-    ln -s $CUDA_PATH /usr/local/cuda
 
 RUN rm -rf /usr/lib/x86_64-linux-gnu/libibverbs.so && \
     ln -s /usr/lib/x86_64-linux-gnu/libibverbs.so.1.14.36.0 /usr/lib/x86_64-linux-gnu/libibverbs.so
