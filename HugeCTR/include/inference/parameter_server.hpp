@@ -17,9 +17,12 @@
 #pragma once
 #include <common.hpp>
 #include <embedding.hpp>
-#include <inference/database.hpp>
+#include <inference/database_backend.hpp>
+#include <inference/embedding_interface.hpp>
 #include <inference/inference_utils.hpp>
+#include <inference/memory_pool.hpp>
 #include <iostream>
+#include <memory>
 #include <metrics.hpp>
 #include <network.hpp>
 #include <parser.hpp>
@@ -42,12 +45,22 @@ class parameter_server : public parameter_server_base, public HugectrUtility<Typ
  public:
   parameter_server(const std::string& framework_name,
                    const std::vector<std::string>& model_config_path,
-                   const std::vector<InferenceParams>& inference_params_array);
+                   std::vector<InferenceParams>& inference_params_array);
   virtual ~parameter_server();
   // Should not be called directly, should be called by embedding cache
   virtual void look_up(const TypeHashKey* h_embeddingcolumns, size_t length,
                        float* h_embeddingoutputvector, const std::string& model_name,
                        size_t embedding_table_id);
+  virtual void* ApplyBuffer(const std::string& modelname, int deviceid,
+                            CACHE_SPACE_TYPE cache_type = CACHE_SPACE_TYPE::WORKER);
+  virtual void FreeBuffer(void* p);
+  virtual void refresh_embedding_cache(const std::string& model_name, int device_id);
+  virtual void insert_embedding_cache(embedding_interface* embedding_cache,
+                                      embedding_cache_config& cache_config,
+                                      embedding_cache_workspace& workspace_handler,
+                                      const std::vector<cudaStream_t>& streams);
+  virtual std::shared_ptr<embedding_interface> GetEmbeddingCache(const std::string& modelname,
+                                                                 int deviceid);
 
  private:
   // The framework name
@@ -56,8 +69,21 @@ class parameter_server : public parameter_server_base, public HugectrUtility<Typ
   // per model
   // The parameter server configuration
   parameter_server_config ps_config_;
-  DataBase<TypeHashKey>* db;
-  DATABASE_TYPE dbtype = DATABASE_TYPE::LOCAL;
+
+  DATABASE_TYPE db_type_ = DATABASE_TYPE::LOCAL;
+  std::shared_ptr<DatabaseBackend<TypeHashKey>> cpu_memory_db_;
+  float cpu_memory_db_cache_rate_ = 0;
+  std::shared_ptr<DatabaseBackend<TypeHashKey>> distributed_db_;
+  float distributed_db_cache_rate_ = 0;
+  std::shared_ptr<DatabaseBackend<TypeHashKey>> persistent_db_;
+
+  std::vector<std::shared_ptr<DatabaseBackend<TypeHashKey>>> db_stack_;
+
+  inference_memory_pool_size_config memory_pool_config;
+
+ public:
+  ManagerPool* bufferpool;
+  std::map<std::string, std::map<int64_t, std::shared_ptr<embedding_interface>>> model_cache_map;
 };
 
 }  // namespace HugeCTR

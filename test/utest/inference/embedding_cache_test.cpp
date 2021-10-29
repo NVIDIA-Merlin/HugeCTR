@@ -22,6 +22,7 @@
 #include <omp.h>
 #include "HugeCTR/include/inference/session_inference.hpp"
 #include "HugeCTR/include/inference/embedding_interface.hpp"
+#include "HugeCTR/include/inference/memory_pool.hpp"
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"
 #include <cuda_profiler_api.h>
@@ -282,6 +283,8 @@ h_total_embeddingvector, max_emb_id, default_emb_vector_value) num_threads(num_o
   }
   // Each worker create workspace to do embedding cache operation
   embedding_cache_workspace workspace = embedding_cache -> create_workspace();
+  MemoryBlock* memory_block = new MemoryBlock();
+  memory_block->worker_buffer = workspace;
   // Random number generator for selecting known embedding ids from embedding table
   IntGenerator<size_t> index_gen(0, row_num - 1);
 
@@ -331,7 +334,7 @@ h_total_embeddingvector, max_emb_id, default_emb_vector_value) num_threads(num_o
     embedding_cache -> look_up((void*)h_embeddingcolumns, 
                                h_embedding_offset, 
                                d_shuffled_embeddingoutputvector, 
-                               workspace, 
+                               memory_block, 
                                query_streams);
     // Each worker update the shared embedding cache
     embedding_cache -> update(workspace, update_streams);
@@ -375,6 +378,7 @@ h_total_embeddingvector, max_emb_id, default_emb_vector_value) num_threads(num_o
     CK_CUDA_THROW_(cudaStreamDestroy(update_streams[i]));
   }
   embedding_cache -> destroy_workspace(workspace);
+  delete memory_block;
 }
 
   // clean up

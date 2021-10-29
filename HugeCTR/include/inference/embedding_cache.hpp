@@ -17,6 +17,7 @@
 #pragma once
 #include <embedding.hpp>
 #include <inference/embedding_interface.hpp>
+#include <inference/memory_pool.hpp>
 #include <inference/unique_op/unique_op.hpp>
 #include <iostream>
 #include <metrics.hpp>
@@ -42,23 +43,45 @@ class embedding_cache : public embedding_interface {
   // Allocate a copy of workspace memory for a worker, should be called once by a worker
   virtual embedding_cache_workspace create_workspace();
 
+  // Allocate a copy of refresh space memory for embedding cache versionupdate,
+  virtual embedding_cache_refreshspace create_refreshspace();
+
   // Free a copy of workspace memory for a worker, should be called once by a worker
   virtual void destroy_workspace(embedding_cache_workspace& workspace_handler);
 
+  // Free a copy of refresh space for a worker, should be called once by a worker
+  virtual void destroy_refreshspace(embedding_cache_refreshspace& refreshspace_handler);
+
+  virtual embedding_cache_config get_cache_config();
+
+  virtual std::vector<cudaStream_t>& get_refresh_streams();
+
+  virtual void* get_worker_space(const std::string& model_name, int device_id,
+                                 CACHE_SPACE_TYPE space_type = CACHE_SPACE_TYPE::WORKER);
+
+  virtual void free_worker_space(void* p);
+
   // Query embeddingcolumns
-  virtual void look_up(
+  virtual bool look_up(
       const void* h_embeddingcolumns,  // The input emb_id buffer(before shuffle) on host
       const std::vector<size_t>& h_embedding_offset,  // The input offset on host, size = (# of
                                                       // samples * # of emb_table) + 1
       float* d_shuffled_embeddingoutputvector,  // The output buffer for emb_vec result on device
-      embedding_cache_workspace& workspace_handler,  // The handler to the workspace buffers
+      MemoryBlock* memory_block,  // The memory block for the handler to the workspace buffers
       const std::vector<cudaStream_t>&
-          streams);  // The CUDA stream to launch kernel to each emb_cache for each emb_table, size
-                     // = # of emb_table(cache)
+          streams,  // The CUDA stream to launch kernel to each emb_cache for each emb_table, size =
+                    // # of emb_table(cache)
+      float hit_rate_threshold = 1.0);
 
   // Update the embedding cache with missing embeddingcolumns from query API
   virtual void update(embedding_cache_workspace& workspace_handler,
                       const std::vector<cudaStream_t>& streams);
+
+  virtual void Dump(int table_id, void* key_buffer, size_t* length, int start_index, int end_index,
+                  cudaStream_t& stream);
+
+  virtual void Refresh(int table_id, void* key_buffer, float* vec_buffer, size_t length,
+                  cudaStream_t& stream);
 
  private:
   static const size_t BLOCK_SIZE_ = 64;
@@ -80,6 +103,15 @@ class embedding_cache : public embedding_interface {
 
   // The cache configuration
   embedding_cache_config cache_config_;
+
+  // parameter server insert threads
+  std::vector<std::thread> ps_insert_threads_;
+
+  // streams for asynchronous parameter server insert threads
+  std::vector<cudaStream_t> insert_streams_;
+
+  // streams for asynchronous parameter server refresh threads
+  std::vector<cudaStream_t> refresh_streams_;
 };
 
 }  // namespace HugeCTR
