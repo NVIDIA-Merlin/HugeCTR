@@ -44,8 +44,9 @@
      $ HUGECTR_LOG_LEVEL=3 python dcn_norm_train.py
 
  * The default file streams for log messages are stdout and stderr, but you can redirect them to files
- * by setting an env variable 'HUGECTR_LOG_TO_FILE' to 1. You can find them in your execution directory.
- * The messages to different levels and MPI ranks are written to different files.
+ * by setting an env variable 'HUGECTR_LOG_TO_FILE' to 1 whilst still print them to screen. You can find them in your execution directory.
+ * The messages to different levels and MPI ranks are written to different files. If 'HUGECTR_LOG_TO_FILE' is set to 2,
+ * nothing is printed on screen, but all messages are written to those files.
  * 1.2. Examples:
      $ HUGECTR_LOG_TO_FILE=1 python dcn_norm_train.py
      $ ls
@@ -359,7 +360,9 @@ class Logger final {
 
   int rank_;
   int max_level_;
+  bool log_to_std_;
   bool log_to_file_;
+  std::map<int, FILE*> log_std_;
   std::map<int, FILE*> log_file_;
   std::map<int, std::string> level_name_;
 

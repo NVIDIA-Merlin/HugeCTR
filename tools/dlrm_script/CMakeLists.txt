@@ -15,7 +15,7 @@
 
 cmake_minimum_required(VERSION 3.8)
 file(GLOB dlrm_raw_src
-  ${PROJECT_SOURCE_DIR}/HugeCTR/src/logger.cpp
+  ${PROJECT_SOURCE_DIR}/HugeCTR/src/base/debug/logger.cpp
   dlrm_raw.cu
 )
 

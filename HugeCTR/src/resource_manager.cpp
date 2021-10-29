@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <logger.hpp>
+#include <base/debug/logger.hpp>
 #include <random>
 #include <resource_manager.hpp>
 #include <resource_managers/resource_manager_core.hpp>
