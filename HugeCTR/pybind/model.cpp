@@ -831,10 +831,6 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
     CK_THROW_(Error_t::IllegalCall, "The model oversubscriber should be created first");
   }
   high_level_eval_ = true;
-  int __PID(0);
-#ifdef ENABLE_MPI
-  MPI_Comm_rank(MPI_COMM_WORLD, &__PID);
-#endif
 
   HugeCTR::Timer timer;
   HugeCTR::Timer timer_train;
@@ -955,17 +951,12 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
               const auto auc_threshold = solver_.metrics_spec[HugeCTR::metrics::Type::AUC];
               if (eval_metric.second >= auc_threshold) {
                 timer.stop();
-                if (__PID == 0) {
-                  std::cout << "Hit target accuracy AUC " + std::to_string(auc_threshold) + " at " +
-                                   std::to_string(e) + "/" + std::to_string(num_epochs) +
-                                   " epochs " + std::to_string(iter) + " global iterations" +
-                                   " with batchsize "
-                            << solver_.batchsize << " in " << std::setiosflags(std::ios::fixed)
-                            << std::setprecision(2) << timer.elapsedSeconds()
-                            << " s. Average speed "
-                            << float(iter) * solver_.batchsize / timer.elapsedSeconds()
-                            << " records/s." << std::endl;
-                }
+                HCTR_LOG(INFO, ROOT, "Hit target accuracy AUC %f at %d / %d epochs"
+                                     " %d global iterations with batchsize %d in %.2fs."
+                                     " Average speed %f records/s.\n",
+                                     auc_threshold, e, num_epochs,
+                                     iter, solver_.batchsize, timer.elapsedSeconds(),
+                                     float(iter) * solver_.batchsize / timer.elapsedSeconds());
                 return;
               }
             }
@@ -980,13 +971,8 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
       } while (data_reader_train_status_);
       timer.stop();
     }  // end for epoch
-    if (__PID == 0) {
-      std::cout << "Finish "
-                << std::to_string(num_epochs) + " epochs " + std::to_string(iter) +
-                       " global iterations with batchsize "
-                << solver_.batchsize << " in " << std::setiosflags(std::ios::fixed)
-                << std::setprecision(2) << timer.elapsedSeconds() << "s" << std::endl;
-    }
+    HCTR_LOG(INFO, ROOT, "Finish %d epochs %d global iterations with batchsize %d in %.2fs.\n",
+                         num_epochs, iter, solver_.batchsize, timer.elapsedSeconds());
   } else if (epoch_mode && mos_mode) {
     int iter = 0;
     int batches;
@@ -1121,15 +1107,11 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
             const auto auc_threshold = solver_.metrics_spec[HugeCTR::metrics::Type::AUC];
             if (eval_metric.second >= auc_threshold) {
               timer.stop();
-              if (__PID == 0) {
-                std::cout << "Hit target accuracy AUC " + std::to_string(auc_threshold) + " at " +
-                                 std::to_string(iter) + "/" + std::to_string(max_iter) +
-                                 " iterations with batchsize "
-                          << solver_.batchsize << " in " << std::setiosflags(std::ios::fixed)
-                          << std::setprecision(2) << timer.elapsedSeconds() << " s. Average speed "
-                          << float(iter) * solver_.batchsize / timer.elapsedSeconds()
-                          << " records/s." << std::endl;
-              }
+              HCTR_LOG(INFO, ROOT, "Hit target accuracy AUC %f at %d / %d iterations with batchsize %d"
+                                   " in %.2fs. Average speed %f records/s.\n",
+                                   auc_threshold, iter, max_iter,
+                                   solver_.batchsize, timer.elapsedSeconds(),
+                                   float(iter) * solver_.batchsize / timer.elapsedSeconds());
               return;
             }
           }
@@ -1142,12 +1124,8 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
       }
     }  // end for iter
     timer.stop();
-    if (__PID == 0) {
-      std::cout << "Finish "
-                << std::to_string(max_iter) + " iterations with batchsize: " << solver_.batchsize
-                << " in " << std::setiosflags(std::ios::fixed) << std::setprecision(2)
-                << timer.elapsedSeconds() << "s" << std::endl;
-    }
+    HCTR_LOG(INFO, ROOT, "Finish %d iterations with batchsize: %d in %.2fs.\n",
+                         max_iter, solver_.batchsize, timer.elapsedSeconds());
   }  // end if else
   high_level_eval_ = false;
 }
@@ -1301,10 +1279,8 @@ bool Model::train() {
 #endif
 
     if (solver_.use_overlapped_pipeline) {
-      // std::cout << "train overlapped" << std::endl;
       train_overlapped();
     } else {
-      // std::cout << "train" << std::endl;
       for (auto& one_embedding : embeddings_) {
         one_embedding->forward(true);
       }
