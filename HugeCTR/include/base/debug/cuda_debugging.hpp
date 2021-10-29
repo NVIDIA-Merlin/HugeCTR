@@ -41,7 +41,7 @@
 
 #pragma once
 
-#include <logger.hpp>
+#include <base/debug/logger.hpp>
 
 #include <cuda_runtime.h>
 

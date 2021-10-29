@@ -90,8 +90,8 @@ file(GLOB huge_ctr_src
   ../parsers/inference_parser.cpp
   ../diagnose.cu
   ../utils.cu
-  ../logger.cpp
-  ../cuda_debugging.cu
+  ../base/debug/logger.cpp
+  ../base/debug/cuda_debugging.cu
 )
 
 set(CMAKE_CXX_STANDARD 17)

@@ -19,7 +19,7 @@
 #include <random>
 #include <resource_managers/resource_manager_core.hpp>
 #include <utils.hpp>
-#include <logger.hpp>
+#include <base/debug/logger.hpp>
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-variable"
 #include <rmm/mr/device/cuda_memory_resource.hpp>

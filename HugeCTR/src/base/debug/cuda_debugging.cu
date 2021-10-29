@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <cuda_debugging.cuh>
+#include <base/debug/cuda_debugging.cuh>
 
 namespace HugeCTR {
 

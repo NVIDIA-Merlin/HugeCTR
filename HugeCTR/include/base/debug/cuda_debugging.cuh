@@ -77,7 +77,7 @@
 
 #pragma once
 
-#include <cuda_debugging.hpp>
+#include <base/debug/cuda_debugging.hpp>
 
 namespace HugeCTR {
 

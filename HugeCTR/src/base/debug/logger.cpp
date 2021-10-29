@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <logger.hpp>
+#include <base/debug/logger.hpp>
 
 #include <algorithm>
 #include <chrono>
@@ -52,9 +52,10 @@ Logger& Logger::get() {
 }
 
 Logger::~Logger() {
-  // if stdout and stderr are in use, we dont 'do fclose to prevent the situations where
-  // (1) the fds are taken in opening other files or
-  // (2) writing to the closed fds occurs, which is UB.
+  // if stdout and stderr are in use, we don't do fclose to prevent the situations where
+  //   (1) the fds are taken in opening other files or
+  //   (2) writing to the closed fds occurs, which is UB.
+  // Due to the same reason, we don't wrap FILE* with a smart pointer.
   if (log_to_file_) {
     for (int level = LOG_ERROR_LEVEL; level <= max_level_; level++) {
       if (level != LOG_SILENCE_LEVEL) {
@@ -70,15 +71,27 @@ void Logger::log(const int level, bool per_rank, bool with_prefix, const char* f
   }
 
   if (rank_ == 0 || per_rank) {
-    FILE* file = log_file_.at(level);
+    std::string new_format(format);
     if (with_prefix) {
-      fprintf(file, "%s", get_log_prefix(level).c_str());
+      new_format.insert(0, get_log_prefix(level));
     }
-    va_list args;
-    va_start(args, format);
-    vfprintf(file, format, args);
-    va_end(args);
-    fflush(file);
+
+    if (log_to_std_) {
+      va_list args;
+      va_start(args, format);
+      vfprintf(log_std_.at(level), new_format.c_str(), args);
+      va_end(args);
+      fflush(log_std_.at(level));
+    }
+
+    if (log_to_file_) {
+      va_list args;
+      va_start(args, format);
+      vfprintf(log_file_.at(level), new_format.c_str(), args);
+      va_end(args);
+      fflush(log_file_.at(level));
+    }
+
   }
 }
 
@@ -102,7 +115,7 @@ void Logger::do_throw(HugeCTR::Error_t error_type, const SrcLoc& loc,
   std::throw_with_nested(internal_runtime_error(error_type, error_message));
 }
 
-Logger::Logger() : rank_(0), max_level_(DEFAULT_LOG_LEVEL), log_to_file_(false) {
+Logger::Logger() : rank_(0), max_level_(DEFAULT_LOG_LEVEL), log_to_std_(true), log_to_file_(false) {
 #ifdef ENABLE_MPI
   MPI_Comm_rank(MPI_COMM_WORLD, &rank_);
 #endif
@@ -117,9 +130,10 @@ Logger::Logger() : rank_(0), max_level_(DEFAULT_LOG_LEVEL), log_to_file_(false) 
 
   const char* log_to_file_str = std::getenv("HUGECTR_LOG_TO_FILE");
   if (log_to_file_str != nullptr && log_to_file_str[0] != '\0') {
-    int log_to_file = 0;
-    if (sscanf(log_to_file_str , "%d", &log_to_file) == 1) {
-      log_to_file_ = static_cast<bool>(log_to_file);
+    int log_to_file_val = 0;
+    if (sscanf(log_to_file_str , "%d", &log_to_file_val) == 1) {
+      log_to_std_ = log_to_file_val < 2;
+      log_to_file_ = log_to_file_val > 0;
     }
   }
 
@@ -129,7 +143,6 @@ Logger::Logger() : rank_(0), max_level_(DEFAULT_LOG_LEVEL), log_to_file_(false) 
   LEVEL_MAP(level_name_, WARNING);
   LEVEL_MAP(level_name_, DEBUG);
 
-  log_file_[LOG_SILENCE_LEVEL] = nullptr;
   if (log_to_file_) {
     for (int level = LOG_ERROR_LEVEL; level <= max_level_; level++) {
       if (level != LOG_SILENCE_LEVEL) {
@@ -139,12 +152,17 @@ Logger::Logger() : rank_(0), max_level_(DEFAULT_LOG_LEVEL), log_to_file_(false) 
         std::string log_fname = "hctr_" + std::to_string(getpid()) + "_" + std::to_string(rank_) + "_" + level_name + ".log";
         log_file_[level] = fopen(log_fname.c_str(), "w");
       }
+      else {
+        log_file_[LOG_SILENCE_LEVEL] = nullptr;
+      }
     }
   }
-  else {
-    log_file_[LOG_ERROR_LEVEL] = stderr;
+
+  if (log_to_std_) {
+    log_std_[LOG_ERROR_LEVEL] = stderr;
+    log_std_[LOG_SILENCE_LEVEL] = nullptr;
     for (int level = LOG_INFO_LEVEL; level <= max_level_; level++) {
-      log_file_[level] = stdout;
+      log_std_[level] = stdout;
     }
   }
 }
