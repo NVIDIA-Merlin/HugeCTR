@@ -8,8 +8,6 @@ include:
 
 # nightly_build_train:
 #   extends: .build_nightly
-#   tags:
-#     - 1GPU
 #   variables:
 #     DST_IMAGE: ${IMAGE_TRAIN}
 #     DOCKER_FILE: Dockerfile.train
@@ -17,8 +15,6 @@ include:
     
 # nightly_build_train_release:
 #   extends: .build_nightly
-#   tags:
-#     - 1GPU
 #   variables:
 #     DST_IMAGE: ${IMAGE_TRAIN}.release
 #     DOCKER_FILE: Dockerfile.train
@@ -26,8 +22,6 @@ include:
   
 # nightly_build_inference:
 #   extends: .build_nightly
-#   tags:
-#     - 1GPU
 #   variables:
 #     DST_IMAGE: ${IMAGE_INFER}
 #     DOCKER_FILE: Dockerfile.inference
@@ -35,8 +29,6 @@ include:
 
 # nightly_build_sok:
 #   extends: .build_nightly
-#   tags:
-#     - 1GPU
 #   variables:
 #     DST_IMAGE: ${IMAGE_SOK}
 #     DOCKER_FILE: Dockerfile.tf-plugin
@@ -44,46 +36,38 @@ include:
 
 nightly_build_unified_container.ctr:
   extends: .build_nightly
-  tags:
-    - 1GPU
   variables:
     REMOTE_REPO: https://github.com/NVIDIA-Merlin/Merlin.git
     DST_IMAGE: ${CI_REGISTRY}/dl/hugectr/hugectr:unified.ctr.latest
     DOCKER_FILE: dockerfile.ctr
-    BUILD_ARGS: --build-arg RELEASE=false --build-arg RMM_VER=vnightly --build-arg CUDF_VER=vnightly --build-arg NVTAB_VER=vnightly
+    BUILD_ARGS: --build-arg RELEASE=false --build-arg RMM_VER=vnightly --build-arg CUDF_VER=vnightly --build-arg NVTAB_VER=vnightly --build-arg HUGECTR_VER=vnightly
     UNIFIED: 1
   timeout: 5 hours
   
 
 nightly_build_unified_container.tf:
   extends: .build_nightly
-  tags:
-    - 1GPU
   variables:
     REMOTE_REPO: https://github.com/NVIDIA-Merlin/Merlin.git
     DST_IMAGE: ${CI_REGISTRY}/dl/hugectr/hugectr:unified.tf.latest
     DOCKER_FILE: dockerfile.tf
-    BUILD_ARGS: --build-arg RELEASE=false --build-arg RMM_VER=vnightly --build-arg CUDF_VER=vnightly --build-arg NVTAB_VER=vnightly
+    BUILD_ARGS: --build-arg RELEASE=false --build-arg RMM_VER=vnightly --build-arg CUDF_VER=vnightly --build-arg NVTAB_VER=vnightly --build-arg HUGECTR_VER=vnightly
     UNIFIED: 1
   timeout: 5 hours
 
 nightly_build_unified_container.tri:
   extends: .build_nightly
-  tags:
-    - 1GPU
   variables:
     REMOTE_REPO: https://github.com/NVIDIA-Merlin/Merlin.git
     DST_IMAGE: ${CI_REGISTRY}/dl/hugectr/hugectr:unified.tri.latest
     DOCKER_FILE: dockerfile.tri
-    BUILD_ARGS: --build-arg RELEASE=false --build-arg RMM_VER=vnightly --build-arg CUDF_VER=vnightly --build-arg NVTAB_VER=vnightly
+    BUILD_ARGS: --build-arg RELEASE=false --build-arg RMM_VER=vnightly --build-arg CUDF_VER=vnightly --build-arg NVTAB_VER=vnightly --build-arg HUGECTR_VER=vnightly
     UNIFIED: 1
   timeout: 5 hours
 
 ### Stage: build
 build_train_single_node:
   extends: .build
-  tags:
-    - vm-builder
   variables:
     FROM_IMAGE: ${IMAGE_TRAIN}
     DST_IMAGE: $TRAIN_IMAGE_VERSIONED
@@ -93,8 +77,6 @@ build_train_single_node:
 
 build_train_multi_node:
   extends: .build
-  tags:
-    - vm-builder
   variables:
     FROM_IMAGE: ${IMAGE_TRAIN}
     DST_IMAGE: $TRAIN_IMAGE_MULTINODE_VERSIONED
@@ -103,8 +85,6 @@ build_train_multi_node:
 
 build_train_inference:
   extends: .build
-  tags:
-    - 1GPU
   variables:
     FROM_IMAGE: ${IMAGE_TRAIN}
     DST_IMAGE: $TRAIN_INFER_IMAGE_VERSIONED
@@ -114,20 +94,16 @@ build_train_inference:
 ### Stage: test
 build_inference:
   extends: .build
-  tags:
-    - 1GPU
   variables:
     FROM_IMAGE: ${IMAGE_INFER}
     DST_IMAGE: $INFER_IMAGE_VERSIONED
     CMAKE_OPTION: "-DENABLE_INFERENCE=ON -DCMAKE_BUILD_TYPE=Release -DSM=\"70;75;80\" -DCLANGFORMAT=OFF"
     BUILD_HUGECTR: 1
     BUILD_HUGECTR_BACKEND: 1
-    TRITON_BRANCH: r21.04
+    TRITON_BRANCH: r21.06
 
 build_sok:
   extends: .build
-  tags:
-    - vm-builder
   variables:
     FROM_IMAGE: ${IMAGE_SOK}
     DST_IMAGE: $SOK_IMAGE_VERSIONED
@@ -231,7 +207,7 @@ dcn:
     CONT: $TRAIN_IMAGE_VERSIONED
     MOUNTS: ${DATASET}:${DATASET_MOUNT}
     SLURM_ACCOUNT: devtech
-    WALLTIME: "00:30:00"
+    WALLTIME: "02:00:00"
     DGXNNODES: 1
     TEST_CMD: ./ci/integration_test/dcn/dcn.sub
 
@@ -316,7 +292,7 @@ dcn_multi_node:
     CONT: $TRAIN_IMAGE_MULTINODE_VERSIONED
     MOUNTS: ${DATASET}:${DATASET_MOUNT}
     SLURM_ACCOUNT: devtech
-    WALLTIME: "00:15:00"
+    WALLTIME: "01:00:00"
     DGXNNODES: 4                                                                              # using 4 node
     TEST_CMD: ./ci/integration_test/dcn/dcn_multi_node.sub
 
@@ -331,7 +307,7 @@ py_inference:
     CONT: $TRAIN_IMAGE_VERSIONED
     MOUNTS: ${DATASET}:${DATASET_MOUNT},/lustre/fsw/devtech/hpc-hugectr/inference/:/hugectr/test/utest/
     SLURM_ACCOUNT: devtech
-    WALLTIME: "00:15:00"
+    WALLTIME: "00:30:00"
     DGXNNODES: 1
     TEST_CMD: ./ci/integration_test/inference/inference.sub
 
@@ -414,9 +390,8 @@ data_generator_single_node:
     GPFSFOLDER: $LOGDIR/data_generator_single_node
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
     CONT: $TRAIN_IMAGE_VERSIONED
-    MOUNTS: ${DATASET}:${DATASET_MOUNT}
     SLURM_ACCOUNT: devtech
-    WALLTIME: "00:15:00"
+    WALLTIME: "01:00:00"
     DGXNNODES: 1
     TEST_CMD: ./ci/integration_test/data_generator/data_generator.sub
 
@@ -460,7 +435,7 @@ hugectr2onnx:
     CONT: $TRAIN_IMAGE_VERSIONED
     MOUNTS: ${DATASET_NEW_CRITEO_SELENE}:${NEW_CRITEO_MOUNT},${DIN_DATASET}:${DIN_DATASET_MOUNT},${NCF_DATASET}:${NCF_DATASET_MOUNT}
     SLURM_ACCOUNT: devtech
-    WALLTIME: "00:15:00"
+    WALLTIME: "00:30:00"
     DGXNNODES: 1
     TEST_CMD: ./ci/integration_test/hugectr2onnx/hugectr2onnx.sub
 
