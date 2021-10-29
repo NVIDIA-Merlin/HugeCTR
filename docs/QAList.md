@@ -103,5 +103,5 @@ GPU with nvlink is not required, but recommended because the performance of CTR 
 DGX is not required, but recommended, because the performance of CTR training highly relies on the performance of inter-GPUs transactions. DGX has NVLink and NVSwitch inside, so that you can expect 150GB/s per direction per GPU. It’s 9.3x to PCI-E 3.0.
 ### 27. Can HugeCTR run without InfiniBand? ###
 For multi-node training, InfiniBand is recommended but not required. You can use any solution with UCX support. InfiniBand with GPU RDMA support will maximize performance of inter-node transactions.
-
-
+### 28. Does HugeCTR support loading pretrained embeddings in other formats? ###
+You can convert the pretrained embeddings to the HugeCTR sparse models and then load them to facilitate the training process. You can refer to [save_params_to_files](python_interface.md#save_params_to_files-method) to get familiar with the HugeCTR sparse model format. We demonstrate the usage in 3.4 Load Pre-trained Embeddings of [hugectr_criteo.ipynb](../notebooks/hugectr_criteo.ipynb).
