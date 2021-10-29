@@ -16,7 +16,7 @@
 
 #include "facade.h"
 #include "tensorflow/core/framework/op_kernel.h"
-#ifdef SOK_ASYNC
+#if defined(SOK_ASYNC) && defined(ASYNC_OP)
     #include "tensorflow/core/common_runtime/gpu/gpu_event_mgr.h"
     #include "tensorflow/stream_executor/cuda/cuda_activation.h"
 #endif
@@ -26,7 +26,7 @@ namespace tensorflow {
 using GPUDevice = Eigen::GpuDevice;
 using CPUDevice = Eigen::ThreadPoolDevice; 
 
-#ifdef SOK_ASYNC
+#if defined(SOK_ASYNC) && defined(ASYNC_OP)
 using ScopedActivateExecutorContext = stream_executor::cuda::ScopedActivateExecutorContext;
 
 template <typename Device>
