@@ -519,25 +519,31 @@ embedding_cache_workspace embedding_cache<TypeHashKey>::create_workspace() {
 template <typename TypeHashKey>
 embedding_cache_refreshspace embedding_cache<TypeHashKey>::create_refreshspace() {
   embedding_cache_refreshspace refreshspace;
-  int max_num_cache_set =
-      *max_element(cache_config_.num_set_in_cache_.begin(), cache_config_.num_set_in_cache_.end());
-  int max_embedding_size = *max_element(cache_config_.embedding_vec_size_.begin(),
-                                        cache_config_.embedding_vec_size_.end());
-  size_t max_num_keys_set = (SLAB_SIZE * SET_ASSOCIATIVITY) * max_num_cache_set;
-  size_t max_num_key_in_buffer =
-      cache_config_.cache_refresh_percentage_per_iteration * max_num_keys_set;
-  cache_config_.num_set_in_refresh_workspace_ =
-      max_num_key_in_buffer / (SLAB_SIZE * SET_ASSOCIATIVITY);
-  CK_CUDA_THROW_(cudaSetDevice(cache_config_.cuda_dev_id_));
-  CK_CUDA_THROW_(cudaHostAlloc((void**)&refreshspace.h_refresh_embeddingcolumns_,
-                               max_num_key_in_buffer * sizeof(TypeHashKey), cudaHostAllocPortable));
-  CK_CUDA_THROW_(cudaHostAlloc((void**)&refreshspace.h_refresh_emb_vec_,
-                               max_num_key_in_buffer * max_embedding_size * sizeof(float),
-                               cudaHostAllocPortable));
-  CK_CUDA_THROW_(cudaMalloc((void**)&refreshspace.d_refresh_embeddingcolumns_,
-                            max_num_key_in_buffer * sizeof(TypeHashKey)));
-  CK_CUDA_THROW_(cudaMalloc((void**)&refreshspace.d_refresh_emb_vec_,
-                            max_num_key_in_buffer * max_embedding_size * sizeof(float)));
+  // If GPU embedding cache is enabled
+  if (cache_config_.use_gpu_embedding_cache_) {
+    int max_num_cache_set = *max_element(cache_config_.num_set_in_cache_.begin(),
+                                         cache_config_.num_set_in_cache_.end());
+    int max_embedding_size = *max_element(cache_config_.embedding_vec_size_.begin(),
+                                          cache_config_.embedding_vec_size_.end());
+    size_t max_num_keys_set = (SLAB_SIZE * SET_ASSOCIATIVITY) * max_num_cache_set;
+    size_t max_num_key_in_buffer =
+        cache_config_.cache_refresh_percentage_per_iteration * max_num_keys_set;
+    cache_config_.num_set_in_refresh_workspace_ =
+        max_num_key_in_buffer / (SLAB_SIZE * SET_ASSOCIATIVITY);
+    CK_CUDA_THROW_(cudaSetDevice(cache_config_.cuda_dev_id_));
+    CK_CUDA_THROW_(cudaHostAlloc((void**)&refreshspace.h_refresh_embeddingcolumns_,
+                                 max_num_key_in_buffer * sizeof(TypeHashKey),
+                                 cudaHostAllocPortable));
+    CK_CUDA_THROW_(cudaHostAlloc((void**)&refreshspace.h_refresh_emb_vec_,
+                                 max_num_key_in_buffer * max_embedding_size * sizeof(float),
+                                 cudaHostAllocPortable));
+
+    CK_CUDA_THROW_(cudaMalloc((void**)&refreshspace.d_refresh_embeddingcolumns_,
+                              max_num_key_in_buffer * sizeof(TypeHashKey)));
+    CK_CUDA_THROW_(cudaMalloc((void**)&refreshspace.d_refresh_emb_vec_,
+                              max_num_key_in_buffer * max_embedding_size * sizeof(float)));
+  }
+  MESSAGE_("create_refreshspace2");
   return refreshspace;
 }
 
@@ -598,10 +604,14 @@ void embedding_cache<TypeHashKey>::destroy_workspace(embedding_cache_workspace& 
 template <typename TypeHashKey>
 void embedding_cache<TypeHashKey>::destroy_refreshspace(
     embedding_cache_refreshspace& refreshspace_handler) {
-  CK_CUDA_THROW_(cudaFreeHost(refreshspace_handler.h_refresh_embeddingcolumns_));
-  CK_CUDA_THROW_(cudaFreeHost(refreshspace_handler.h_refresh_emb_vec_));
-  CK_CUDA_THROW_(cudaFree(refreshspace_handler.d_refresh_embeddingcolumns_));
-  CK_CUDA_THROW_(cudaFree(refreshspace_handler.d_refresh_emb_vec_));
+  // If GPU embedding cache is enabled
+  if (cache_config_.use_gpu_embedding_cache_) {
+    CK_CUDA_THROW_(cudaFreeHost(refreshspace_handler.h_refresh_embeddingcolumns_));
+    CK_CUDA_THROW_(cudaFreeHost(refreshspace_handler.h_refresh_emb_vec_));
+
+    CK_CUDA_THROW_(cudaFree(refreshspace_handler.d_refresh_embeddingcolumns_));
+    CK_CUDA_THROW_(cudaFree(refreshspace_handler.d_refresh_emb_vec_));
+  }
 }
 
 template class embedding_cache<unsigned int>;
