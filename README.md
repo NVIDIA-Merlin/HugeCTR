@@ -14,6 +14,7 @@ Design Goals:
 * [HugeCTR SDK](#hugectr-sdk)
 * [Support and Feedback](#support-and-feedback)
 * [Contribute to HugeCTR](#contribute-to-hugectr)
+* [Talks & External Resources](#talks-and-external-resources)
 
 ## Core Features ##
 HugeCTR supports a variety of features, including the following:
@@ -160,4 +161,36 @@ If you encounter any issues and/or have questions, please file an issue [here](h
 
 ## Contribute to HugeCTR ##
 HugeCTR is an open source project, and we encourage you to join the development directly. All of your contributions will be appreciated and can help us to improve our quality and performance. Please find more about how to contribute and the developer specific instructions on our [HugeCTR Contributor Guide](docs/hugectr_contributor_guide.md)
+
+## Talks and External Resources ##
+|Webpages|
+|--------|
+|[NVIDIA Merlin](https://developer.nvidia.com/nvidia-merlin)|
+|[NVIDIA HugeCTR](https://developer.nvidia.com/nvidia-merlin/hugectr)|
+
+### Talks ###
+|Conference / Website|Title|Date|Speaker|Language|
+|--------------------|-----|----|-------|--------|
+|APSARA 2021|[GPU 推荐系统 Merlin](https://yunqi.aliyun.com/2021/agenda/session205?spm=5176.23948577a2c4e.J_6988780170.27.5ae7379893BcVp)|Oct 2021|Joey Wang|中文|
+|GTC Spring 2021|[Learn how Tencent Deployed an Advertising System on the Merlin GPU Recommender Framework](https://www.nvidia.com/en-us/on-demand/session/gtcspring21-s31820/)|April 2021|Xiangting Kong, Joey Wang|English|
+|GTC Spring 2021|[Merlin HugeCTR: Deep Dive Into Performance Optimization](https://www.nvidia.com/en-us/on-demand/session/gtcspring21-s31269/)|April 2021|Minseok Lee|English|
+|GTC Spring 2021|[Integrate HugeCTR Embedding with TensorFlow](https://www.nvidia.com/en-us/on-demand/session/gtcspring21-s31425/)|April 2021|Jianbing Dong|English|
+|GTC China 2020|[MERLIN HUGECTR ：深入研究性能优化](https://on-demand-gtc.gputechconf.com/gtcnew/sessionview.php?sessionName=cns20516-merlin+hugectr+%ef%bc%9a%e6%b7%b1%e5%85%a5%e7%a0%94%e7%a9%b6%e6%80%a7%e8%83%bd%e4%bc%98%e5%8c%96)|Oct 2020|Minseok Lee|English|
+|GTC China 2020|[性能提升 7 倍 + 的高性能 GPU 广告推荐加速系统的落地实现](https://on-demand-gtc.gputechconf.com/gtcnew/sessionview.php?sessionName=cns20483-%E6%80%A7%E8%83%BD%E6%8F%90%E5%8D%87+7+%E5%80%8D+%2B+%E7%9A%84%E9%AB%98%E6%80%A7%E8%83%BD+gpu+%E5%B9%BF%E5%91%8A%E6%8E%A8%E8%8D%90%E5%8A%A0%E9%80%9F%E7%B3%BB%E7%BB%9F%E7%9A%84%E8%90%BD%E5%9C%B0%E5%AE%9E%E7%8E%B0)|Oct 2020|Xiangting Kong|中文|
+|GTC China 2020|[使用 GPU EMBEDDING CACHE 加速 CTR 推理过程](https://on-demand-gtc.gputechconf.com/gtcnew/sessionview.php?sessionName=cns20626-%E4%BD%BF%E7%94%A8+gpu+embedding+cache+%E5%8A%A0%E9%80%9F+ctr+%E6%8E%A8%E7%90%86%E8%BF%87%E7%A8%8B)|Oct 2020|Fan Yu|中文|
+|GTC China 2020|[将 HUGECTR EMBEDDING 集成于 TENSORFLOW](https://on-demand-gtc.gputechconf.com/gtcnew/sessionview.php?sessionName=cns20377-%E5%B0%86+hugectr+embedding+%E9%9B%86%E6%88%90%E4%BA%8E+tensorflow)|Oct 2020|Jianbing Dong|中文|
+|GTC Spring 2020|[HugeCTR: High-Performance Click-Through Rate Estimation Training](https://www.nvidia.com/en-us/on-demand/session/gtcsj20-s21455/)|March 2020|Minseok Lee, Joey Wang|English|
+|GTC China 2019|[HUGECTR: GPU 加速的推荐系统训练](https://on-demand-gtc.gputechconf.com/gtcnew/sessionview.php?sessionName=cn9794-hugectr%3A+gpu+%E5%8A%A0%E9%80%9F%E7%9A%84%E6%8E%A8%E8%8D%90%E7%B3%BB%E7%BB%9F%E8%AE%AD%E7%BB%83)|Oct 2019|Joey Wang|中文|
+### Blogs ### 
+|Conference / Website|Title|Date|Authors|Language|
+|--------------------|-----|----|-------|--------|
+|NVIDIA Devblog|[Accelerating Embedding with the HugeCTR TensorFlow Embedding Plugin](https://developer.nvidia.com/blog/accelerating-embedding-with-the-hugectr-tensorflow-embedding-plugin/)|Sept 2021|Vinh Nguyen, Ann Spencer, Joey Wang and Jianbing Dong|English|
+|medium.com|[Optimizing Meituan’s Machine Learning Platform: An Interview with Jun Huang](https://medium.com/nvidia-merlin/optimizing-meituans-machine-learning-platform-an-interview-with-jun-huang-7e046143131f)|Sept 2021|Sheng Luo and Benedikt Schifferer|English|
+|medium.com|[Leading Design and Development of the Advertising Recommender System at Tencent: An Interview with Xiangting Kong](https://medium.com/nvidia-merlin/leading-design-and-development-of-the-advertising-recommender-system-at-tencent-an-interview-with-37f1eed898a7)|Sept 2021|Xiangting Kong, Ann Spencer|English|
+|medium.com|[Training large Deep Learning Recommender Models with Merlin HugeCTR’s Python APIs — HugeCTR Series Part 2](https://medium.com/nvidia-merlin/training-large-deep-learning-recommender-models-with-merlin-hugectrs-python-apis-hugectr-series-69a666e0bdb7)|May 2021|Minseok Lee, Joey Wang, Vinh Nguyen and Ashish Sardana|English|
+|medium.com|[Scaling and Accelerating large Deep Learning Recommender Systems — HugeCTR Series Part 1](https://medium.com/nvidia-merlin/scaling-and-accelerating-large-deep-learning-recommender-systems-hugectr-series-part-1-c19577acfe9d)|May 2021|Minseok Lee|English|
+|IRS 2020|[Merlin: A GPU Accelerated Recommendation Framework](https://irsworkshop.github.io/2020/publications/paper_21_Oldridge_Merlin.pdf)|Aug 2020|Even Oldridge etc.|English|
+|NVIDIA Devblog|[Introducing NVIDIA Merlin HugeCTR: A Training Framework Dedicated to Recommender Systems](https://developer.nvidia.com/blog/introducing-merlin-hugectr-training-framework-dedicated-to-recommender-systems/)|July 2020|Minseok Lee and Joey Wang|English|
+
+
 
