@@ -80,6 +80,8 @@ void EmbeddingBufferBuilder::build_buffer() {
         // Release the old one and Construct a new EmbeddingBuffer in the existed space
         buffer_->~EmbeddingBuffer();
         new (buffer_.get()) EmbeddingBuffer(tensor_);
+    } else {
+        buffer_->Unref();
     }
 }
 
