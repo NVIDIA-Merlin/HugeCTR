@@ -14,8 +14,10 @@
  * limitations under the License.
  */
 
+#include <algorithm>
 #include <experimental/filesystem>
 #include <inference/embedding_cache.hpp>
+#include <thread>
 
 namespace fs = std::experimental::filesystem;
 
@@ -31,6 +33,37 @@ void decompress_emb_vec_async(const float* d_unique_src_ptr, const uint64_t* d_u
                               cudaStream_t stream);
 
 template <typename TypeHashKey>
+static void parameter_server_insert_thread_func_(HugectrUtility<TypeHashKey>* parameter_server,
+                                                 embedding_interface* embedding_cache,
+                                                 MemoryBlock* memory_block,
+                                                 embedding_cache_config& cache_config,
+                                                 const std::vector<cudaStream_t>& streams) {
+  try {
+    std::vector<cudaEvent_t> insert_events;
+    for (unsigned int i = 0; i < cache_config.num_emb_table_; i++) {
+      cudaEvent_t event;
+      cudaEventCreate(&event);
+      insert_events.push_back(event);
+    }
+    parameter_server->insert_embedding_cache(embedding_cache, cache_config,
+                                             memory_block->worker_buffer, streams);
+    for (unsigned int i = 0; i < cache_config.num_emb_table_; i++) {
+      cudaEventRecord(insert_events[i], streams[i]);
+    }
+    for (unsigned int i = 0; i < cache_config.num_emb_table_; i++) {
+      cudaEventSynchronize(insert_events[i]);
+    }
+    parameter_server->FreeBuffer(memory_block);
+    for (unsigned int i = 0; i < cache_config.num_emb_table_; i++) {
+      cudaEventDestroy(insert_events[i]);
+    }
+  } catch (const std::runtime_error& rt_err) {
+    parameter_server->FreeBuffer(memory_block);
+    std::cerr << rt_err.what() << std::endl;
+  }
+}
+
+template <typename TypeHashKey>
 embedding_cache<TypeHashKey>::embedding_cache(const std::string& model_config_path,
                                               const InferenceParams& inference_params,
                                               HugectrUtility<TypeHashKey>* parameter_server) {
@@ -40,6 +73,8 @@ embedding_cache<TypeHashKey>::embedding_cache(const std::string& model_config_pa
   cache_config_.model_name_ = inference_params.model_name;
   if (cache_config_.use_gpu_embedding_cache_) {
     cache_config_.cuda_dev_id_ = inference_params.device_id;
+    cache_config_.cache_refresh_percentage_per_iteration =
+        inference_params.cache_refresh_percentage_per_iteration;
     cache_config_.cache_size_percentage_ = inference_params.cache_size_percentage;
   }
 
@@ -144,16 +179,46 @@ embedding_cache<TypeHashKey>::embedding_cache(const std::string& model_config_pa
           new cache_(cache_config_.num_set_in_cache_[i], cache_config_.embedding_vec_size_[i]));
     }
   }
+
+  if (cache_config_.use_gpu_embedding_cache_) {
+    // Device Restorer
+    CudaDeviceContext dev_restorer;
+
+    // Set CUDA device before creating gpu embedding cache
+    CK_CUDA_THROW_(cudaSetDevice(cache_config_.cuda_dev_id_));
+
+    for (unsigned int i = 0; i < cache_config_.num_emb_table_; i++) {
+      cudaStream_t stream;
+      cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking);
+      insert_streams_.push_back(stream);
+    }
+
+    for (unsigned int i = 0; i < cache_config_.num_emb_table_; i++) {
+      cudaStream_t stream;
+      cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking);
+      refresh_streams_.push_back(stream);
+    }
+  }
 }
 
 template <typename TypeHashKey>
 embedding_cache<TypeHashKey>::~embedding_cache() {
+  MESSAGE_("***********Dtor of embedding cache***********");
   // Destruct gpu embedding cache
   if (cache_config_.use_gpu_embedding_cache_) {
     // Device Restorer
     CudaDeviceContext dev_restorer;
     // Set CUDA device before destructing gpu embedding cache
     cudaSetDevice(cache_config_.cuda_dev_id_);
+    for (auto& ps_insert_thread : ps_insert_threads_) {
+      ps_insert_thread.join();
+    }
+    for (auto& stream : insert_streams_) {
+      cudaStreamDestroy(stream);
+    }
+    for (auto& stream : refresh_streams_) {
+      cudaStreamDestroy(stream);
+    }
     for (unsigned int i = 0; i < cache_config_.num_emb_table_; i++) {
       delete gpu_emb_caches_[i];
     }
@@ -161,11 +226,13 @@ embedding_cache<TypeHashKey>::~embedding_cache() {
 }
 
 template <typename TypeHashKey>
-void embedding_cache<TypeHashKey>::look_up(const void* h_embeddingcolumns,
+bool embedding_cache<TypeHashKey>::look_up(const void* h_embeddingcolumns,
                                            const std::vector<size_t>& h_embedding_offset,
                                            float* d_shuffled_embeddingoutputvector,
-                                           embedding_cache_workspace& workspace_handler,
-                                           const std::vector<cudaStream_t>& streams) {
+                                           MemoryBlock* memory_block,
+                                           const std::vector<cudaStream_t>& streams,
+                                           float hit_rate_threshold) {
+  embedding_cache_workspace workspace_handler = memory_block->worker_buffer;
   // Shuffle the input embeddingcolumns
   size_t num_sample = (h_embedding_offset.size() - 1) / cache_config_.num_emb_table_;
   size_t acc_offset = 0;
@@ -243,7 +310,8 @@ void embedding_cache<TypeHashKey>::look_up(const void* h_embeddingcolumns,
       size_t task_per_warp_tile = (query_length < 1000000) ? 1 : 32;
       gpu_emb_caches_[i]->Query(d_query_key_ptr, query_length, d_vals_retrieved_ptr,
                                 d_missing_index_ptr, d_missing_key_ptr,
-                                workspace_handler.d_missing_length_ + i, streams[i], task_per_warp_tile);
+                                workspace_handler.d_missing_length_ + i, streams[i],
+                                task_per_warp_tile);
 
       CK_CUDA_THROW_(cudaMemcpyAsync(workspace_handler.h_missing_length_ + i,
                                      workspace_handler.d_missing_length_ + i, sizeof(size_t),
@@ -253,65 +321,40 @@ void embedding_cache<TypeHashKey>::look_up(const void* h_embeddingcolumns,
                             cache_config_.embedding_vec_size_[i];
     }
 
-    // Copy the missing embeddingcolumns to host
+    bool async_insert_flag = true;
+    // Calculate the hit rate of this look_up
     for (unsigned int i = 0; i < cache_config_.num_emb_table_; i++) {
-      TypeHashKey* d_missing_key_ptr =
-          (TypeHashKey*)(workspace_handler.d_missing_embeddingcolumns_) +
-          workspace_handler.h_shuffled_embedding_offset_[i];
-      TypeHashKey* h_missing_key_ptr =
-          (TypeHashKey*)(workspace_handler.h_missing_embeddingcolumns_) +
-          workspace_handler.h_shuffled_embedding_offset_[i];
       CK_CUDA_THROW_(cudaStreamSynchronize(streams[i]));
-      CK_CUDA_THROW_(cudaMemcpyAsync(h_missing_key_ptr, d_missing_key_ptr,
-                                     workspace_handler.h_missing_length_[i] * sizeof(TypeHashKey),
-                                     cudaMemcpyDeviceToHost, streams[i]));
+      if (workspace_handler.h_unique_length_[i] == 0) {
+        workspace_handler.h_hit_rate_[i] = 1.0;
+      } else {
+        workspace_handler.h_hit_rate_[i] = 1.0 - ((double)(workspace_handler.h_missing_length_[i]) /
+                                                  (double)(workspace_handler.h_unique_length_[i]));
+      }
+      async_insert_flag =
+          async_insert_flag && (workspace_handler.h_hit_rate_[i] >= hit_rate_threshold);
     }
 
-    // Query the missing embeddingcolumns from Parameter Server
-    acc_emb_vec_offset = 0;
-    for (unsigned int i = 0; i < cache_config_.num_emb_table_; i++) {
-      TypeHashKey* h_missing_key_ptr =
-          (TypeHashKey*)(workspace_handler.h_missing_embeddingcolumns_) +
-          workspace_handler.h_shuffled_embedding_offset_[i];
-      size_t query_length = workspace_handler.h_shuffled_embedding_offset_[i + 1] -
-                            workspace_handler.h_shuffled_embedding_offset_[i];
-      float* h_vals_retrieved_ptr = workspace_handler.h_missing_emb_vec_ + acc_emb_vec_offset;
-      CK_CUDA_THROW_(cudaStreamSynchronize(streams[i]));
-      parameter_server_->look_up(h_missing_key_ptr, workspace_handler.h_missing_length_[i],
-                                 h_vals_retrieved_ptr, cache_config_.model_name_, i);
-      acc_emb_vec_offset += query_length * cache_config_.embedding_vec_size_[i];
-    }
-
-    // Copy missing emb_vec to device
-    acc_emb_vec_offset = 0;
-    for (unsigned int i = 0; i < cache_config_.num_emb_table_; i++) {
-      float* h_vals_retrieved_ptr = workspace_handler.h_missing_emb_vec_ + acc_emb_vec_offset;
-      float* d_vals_retrieved_ptr = workspace_handler.d_missing_emb_vec_ + acc_emb_vec_offset;
-      size_t missing_len_in_float =
-          workspace_handler.h_missing_length_[i] * cache_config_.embedding_vec_size_[i];
-      size_t missing_len_in_byte = missing_len_in_float * sizeof(float);
-      size_t query_length = workspace_handler.h_shuffled_embedding_offset_[i + 1] -
-                            workspace_handler.h_shuffled_embedding_offset_[i];
-      acc_emb_vec_offset += query_length * cache_config_.embedding_vec_size_[i];
-      CK_CUDA_THROW_(cudaMemcpyAsync(d_vals_retrieved_ptr, h_vals_retrieved_ptr,
-                                     missing_len_in_byte, cudaMemcpyHostToDevice, streams[i]));
-    }
-
-    // Merge missing emb_vec into hit emb_vec buffer
-    acc_emb_vec_offset = 0;
-    for (unsigned int i = 0; i < cache_config_.num_emb_table_; i++) {
-      float* d_vals_retrieved_ptr = workspace_handler.d_missing_emb_vec_ + acc_emb_vec_offset;
-      float* d_vals_merge_dst_ptr = workspace_handler.d_hit_emb_vec_ + acc_emb_vec_offset;
-      uint64_t* d_missing_index_ptr =
-          workspace_handler.d_missing_index_ + workspace_handler.h_shuffled_embedding_offset_[i];
-      size_t query_length = workspace_handler.h_shuffled_embedding_offset_[i + 1] -
-                            workspace_handler.h_shuffled_embedding_offset_[i];
-      acc_emb_vec_offset += query_length * cache_config_.embedding_vec_size_[i];
-      // Wait for memory copy to complete
-      CK_CUDA_THROW_(cudaStreamSynchronize(streams[i]));
-      merge_emb_vec_async(d_vals_merge_dst_ptr, d_vals_retrieved_ptr, d_missing_index_ptr,
-                          workspace_handler.h_missing_length_[i],
-                          cache_config_.embedding_vec_size_[i], BLOCK_SIZE_, streams[i]);
+    // Handle the missing keys, mode 1: synchronous
+    if (!async_insert_flag) {
+      parameter_server_->insert_embedding_cache(this, cache_config_, memory_block->worker_buffer,
+                                                streams);
+      // Merge missing emb_vec into hit emb_vec buffer
+      acc_emb_vec_offset = 0;
+      for (unsigned int i = 0; i < cache_config_.num_emb_table_; i++) {
+        float* d_vals_retrieved_ptr = workspace_handler.d_missing_emb_vec_ + acc_emb_vec_offset;
+        float* d_vals_merge_dst_ptr = workspace_handler.d_hit_emb_vec_ + acc_emb_vec_offset;
+        uint64_t* d_missing_index_ptr =
+            workspace_handler.d_missing_index_ + workspace_handler.h_shuffled_embedding_offset_[i];
+        size_t query_length = workspace_handler.h_shuffled_embedding_offset_[i + 1] -
+                              workspace_handler.h_shuffled_embedding_offset_[i];
+        acc_emb_vec_offset += query_length * cache_config_.embedding_vec_size_[i];
+        // Wait for memory copy to complete
+        CK_CUDA_THROW_(cudaStreamSynchronize(streams[i]));
+        merge_emb_vec_async(d_vals_merge_dst_ptr, d_vals_retrieved_ptr, d_missing_index_ptr,
+                            workspace_handler.h_missing_length_[i],
+                            cache_config_.embedding_vec_size_[i], BLOCK_SIZE_, streams[i]);
+      }
     }
 
     // Decompress the hit emb_vec buffer to output buffer
@@ -336,15 +379,18 @@ void embedding_cache<TypeHashKey>::look_up(const void* h_embeddingcolumns,
     for (unsigned int i = 0; i < cache_config_.num_emb_table_; i++) {
       ((unique_op_*)(workspace_handler.unique_op_obj_[i]))->clear(streams[i]);
     }
-    // Calculate the hit rate of this look_up
     for (unsigned int i = 0; i < cache_config_.num_emb_table_; i++) {
-      if (workspace_handler.h_unique_length_[i] == 0) {
-        workspace_handler.h_hit_rate_[i] = 1.0;
-      } else {
-        workspace_handler.h_hit_rate_[i] = 1.0 - ((double)(workspace_handler.h_missing_length_[i]) /
-                                                  (double)(workspace_handler.h_unique_length_[i]));
-      }
+      CK_CUDA_THROW_(cudaStreamSynchronize(streams[i]));
     }
+
+    // Handle the missing keys, mode 2: synchronous
+    if (async_insert_flag) {
+      // ps_insert_threads_.emplace_back(parameter_server_naive_thread_func_);
+      ps_insert_threads_.emplace_back(parameter_server_insert_thread_func_<TypeHashKey>,
+                                      parameter_server_, this, memory_block,
+                                      std::ref(cache_config_), std::ref(insert_streams_));
+    }
+    return !async_insert_flag;
   } else {
     // Query the shuffled embeddingcolumns from Parameter Server & copy to device output buffer
     size_t acc_emb_vec_offset = 0;
@@ -367,6 +413,7 @@ void embedding_cache<TypeHashKey>::look_up(const void* h_embeddingcolumns,
       CK_CUDA_THROW_(cudaMemcpyAsync(d_vals_retrieved_ptr, h_vals_retrieved_ptr,
                                      query_length_in_byte, cudaMemcpyHostToDevice, streams[i]));
     }
+    return true;
   }
 }
 
@@ -393,6 +440,14 @@ void embedding_cache<TypeHashKey>::update(embedding_cache_workspace& workspace_h
     }
   }
 }
+
+template <typename TypeHashKey>
+void embedding_cache<TypeHashKey>::Dump(int table_id, void* key_buffer, size_t* length,
+                                        int start_index, int end_index, cudaStream_t& stream) {}
+
+template <typename TypeHashKey>
+void embedding_cache<TypeHashKey>::Refresh(int table_id, void* key_buffer, float* vec_buffer,
+                                           size_t length, cudaStream_t& stream) {}
 
 template <typename TypeHashKey>
 embedding_cache_workspace embedding_cache<TypeHashKey>::create_workspace() {
@@ -455,10 +510,63 @@ embedding_cache_workspace embedding_cache<TypeHashKey>::create_workspace() {
     for (unsigned int i = 0; i < cache_config_.num_emb_table_; i++) {
       size_t capacity =
           (size_t)(cache_config_.max_query_len_per_emb_table_[i] / UNIQUE_OP_LOAD_FACTOR);
-      workspace_handler.unique_op_obj_.emplace_back((void*)(new unique_op_(capacity)));
+      workspace_handler.unique_op_obj_.push_back((void*)(new unique_op_(capacity)));
     }
   }
   return workspace_handler;
+}
+
+template <typename TypeHashKey>
+embedding_cache_refreshspace embedding_cache<TypeHashKey>::create_refreshspace() {
+  embedding_cache_refreshspace refreshspace;
+  // If GPU embedding cache is enabled
+  if (cache_config_.use_gpu_embedding_cache_) {
+    int max_num_cache_set = *max_element(cache_config_.num_set_in_cache_.begin(),
+                                         cache_config_.num_set_in_cache_.end());
+    int max_embedding_size = *max_element(cache_config_.embedding_vec_size_.begin(),
+                                          cache_config_.embedding_vec_size_.end());
+    size_t max_num_keys_set = (SLAB_SIZE * SET_ASSOCIATIVITY) * max_num_cache_set;
+    size_t max_num_key_in_buffer =
+        cache_config_.cache_refresh_percentage_per_iteration * max_num_keys_set;
+    cache_config_.num_set_in_refresh_workspace_ =
+        max_num_key_in_buffer / (SLAB_SIZE * SET_ASSOCIATIVITY);
+    CK_CUDA_THROW_(cudaSetDevice(cache_config_.cuda_dev_id_));
+    CK_CUDA_THROW_(cudaHostAlloc((void**)&refreshspace.h_refresh_embeddingcolumns_,
+                                 max_num_key_in_buffer * sizeof(TypeHashKey),
+                                 cudaHostAllocPortable));
+    CK_CUDA_THROW_(cudaHostAlloc((void**)&refreshspace.h_refresh_emb_vec_,
+                                 max_num_key_in_buffer * max_embedding_size * sizeof(float),
+                                 cudaHostAllocPortable));
+
+    CK_CUDA_THROW_(cudaMalloc((void**)&refreshspace.d_refresh_embeddingcolumns_,
+                              max_num_key_in_buffer * sizeof(TypeHashKey)));
+    CK_CUDA_THROW_(cudaMalloc((void**)&refreshspace.d_refresh_emb_vec_,
+                              max_num_key_in_buffer * max_embedding_size * sizeof(float)));
+  }
+  MESSAGE_("create_refreshspace2");
+  return refreshspace;
+}
+
+template <typename TypeHashKey>
+embedding_cache_config embedding_cache<TypeHashKey>::get_cache_config() {
+  return cache_config_;
+};
+
+template <typename TypeHashKey>
+std::vector<cudaStream_t>& embedding_cache<TypeHashKey>::get_refresh_streams() {
+  return refresh_streams_;
+};
+
+template <typename TypeHashKey>
+void* embedding_cache<TypeHashKey>::get_worker_space(const std::string& model_name, int device_id,
+                                                     CACHE_SPACE_TYPE space_type) {
+  return (parameter_server_->ApplyBuffer(model_name, device_id, space_type));
+};
+
+template <typename TypeHashKey>
+void embedding_cache<TypeHashKey>::free_worker_space(void* p) {
+  parameter_server_->FreeBuffer(p);
+  return;
 }
 
 template <typename TypeHashKey>
@@ -493,6 +601,25 @@ void embedding_cache<TypeHashKey>::destroy_workspace(embedding_cache_workspace& 
   }
 }
 
+template <typename TypeHashKey>
+void embedding_cache<TypeHashKey>::destroy_refreshspace(
+    embedding_cache_refreshspace& refreshspace_handler) {
+  // If GPU embedding cache is enabled
+  if (cache_config_.use_gpu_embedding_cache_) {
+    CK_CUDA_THROW_(cudaFreeHost(refreshspace_handler.h_refresh_embeddingcolumns_));
+    CK_CUDA_THROW_(cudaFreeHost(refreshspace_handler.h_refresh_emb_vec_));
+
+    CK_CUDA_THROW_(cudaFree(refreshspace_handler.d_refresh_embeddingcolumns_));
+    CK_CUDA_THROW_(cudaFree(refreshspace_handler.d_refresh_emb_vec_));
+  }
+}
+
 template class embedding_cache<unsigned int>;
 template class embedding_cache<long long>;
+template static void parameter_server_insert_thread_func_<long long>(
+    HugectrUtility<long long>*, embedding_interface*, MemoryBlock*, embedding_cache_config&,
+    const std::vector<cudaStream_t>&);
+template static void parameter_server_insert_thread_func_<unsigned int>(
+    HugectrUtility<unsigned int>*, embedding_interface*, MemoryBlock*, embedding_cache_config&,
+    const std::vector<cudaStream_t>&);
 }  // namespace HugeCTR

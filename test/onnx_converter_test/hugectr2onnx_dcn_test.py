@@ -31,7 +31,7 @@ def hugectr2onnx_dcn_test(batch_size, num_batches, data_source, data_file, graph
 
     inference_params = InferenceParams(model_name = model_name,
                                     max_batchsize = batch_size,
-                                    hit_rate_threshold = 0.6,
+                                    hit_rate_threshold = 1,
                                     dense_model_file = dense_model,
                                     sparse_model_files = sparse_models,
                                     device_id = 0,
