@@ -18,5 +18,6 @@
 optimizers from TensorFlow
 """
 
-__all__ = ["Adam"]
+__all__ = ["Adam", "LazyAdamOptimizer"]
 from .adam import Adam
+from .lazy_adam import LazyAdamOptimizer
