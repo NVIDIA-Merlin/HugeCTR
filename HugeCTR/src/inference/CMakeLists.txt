@@ -65,19 +65,20 @@ file(GLOB huge_ctr_src
   embedding_interface.cpp
   parameter_server.cpp
   inference_utilis.cpp
-  redis_backend.cpp
-  rocksdb_backend.cpp
+  hierarchicaldb.cpp
+  redis.cpp
+  rocksdb.cpp
+  redis_cluster.cpp
   sha1.cpp
   utils.cpp
-  local_memory_backend.cpp
-  database_backend.cpp
+  localized_db.cpp
+  database.cpp
   unique_op/unique_op.cu
   ../data_readers/metadata.cpp
   ../gpu_learning_rate_scheduler.cu
   ../metrics.cu
   ../optimizers/*.cu
   ../optimizer.cpp
-  ../thread_pool.cpp
   ../regularizer.cu
   ../regularizers/l1_regularizer.cu
   ../regularizers/l2_regularizer.cu
@@ -105,7 +106,7 @@ target_link_libraries(hugectr_inference PRIVATE nlohmann_json::nlohmann_json nvT
 target_link_libraries(
   hugectr_inference
   PUBLIC
-    ${DB_LIB_PATHS}/libhiredis.so librocksdb.so libredis++.so  # from Hugectr 
+    ${DB_LIB_PATHS}/libhiredis.so librocksdb.so  # from Hugectr 
 )
 
 target_compile_features(hugectr_inference PUBLIC cxx_std_17)

@@ -38,19 +38,20 @@ InferenceSession::InferenceSession(const std::string& model_config_path,
         embedding_table_slot_size_, &embedding_feature_combiners_, &network_ptr, resource_manager_);
     network_ = std::move(std::unique_ptr<Network>(network_ptr));
     network_->initialize(false);
-    if (inference_params.use_algorithm_search) {
-      network_->search_algorithm();
-    }
     if (inference_params_.dense_model_file.size() > 0) {
       network_->upload_params_to_device_inference(inference_params_.dense_model_file);
     }
     CudaDeviceContext context(inference_params_.device_id);
     for (unsigned int idx_embedding_table = 1;
          idx_embedding_table < embedding_table_slot_size_.size(); ++idx_embedding_table) {
-      cudaStream_t stream;
-      cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking);
-      streams_.push_back(stream);
+      cudaStream_t lookup_stream;
+      cudaStreamCreateWithFlags(&lookup_stream, cudaStreamNonBlocking);
+      lookup_streams_.push_back(lookup_stream);
+      cudaStream_t update_stream;
+      cudaStreamCreateWithFlags(&update_stream, cudaStreamNonBlocking);
+      update_streams_.push_back(update_stream);
     }
+    workspace_handler_ = embedding_cache_->create_workspace();
     CK_CUDA_THROW_(cudaMalloc((void**)&d_embeddingvectors_,
                               inference_params_.max_batchsize *
                                   inference_parser_.max_embedding_vector_size_per_sample *
@@ -63,10 +64,11 @@ InferenceSession::InferenceSession(const std::string& model_config_path,
 }  // namespace HugeCTR
 
 InferenceSession::~InferenceSession() {
-  MESSAGE_("***********Dtor of inference session***********");
   CudaDeviceContext context(inference_params_.device_id);
+  embedding_cache_->destroy_workspace(workspace_handler_);
   cudaFree(d_embeddingvectors_);
-  for (auto stream : streams_) cudaStreamDestroy(stream);
+  for (auto stream : lookup_streams_) cudaStreamDestroy(stream);
+  for (auto stream : update_streams_) cudaStreamDestroy(stream);
 }
 
 void InferenceSession::separate_keys_by_table_(int* d_row_ptrs,
@@ -104,22 +106,16 @@ void InferenceSession::predict(float* d_dense, void* h_embeddingcolumns, int* d_
     CK_THROW_(Error_t::IllegalCall, "embedding feature combiner inconsistent");
   }
   CudaDeviceContext context(resource_manager_->get_local_gpu(0)->get_device_id());
-
-  // apply the memory block for embedding cache workspace
-  memory_block_ = NULL;
-  while (memory_block_ == NULL) {
-    memory_block_ = reinterpret_cast<struct MemoryBlock*>(embedding_cache_->get_worker_space(
-        inference_params_.model_name, inference_params_.device_id, CACHE_SPACE_TYPE::WORKER));
-  }
   // embedding cache look up and update
   separate_keys_by_table_(d_row_ptrs, embedding_table_slot_size_, num_samples);
-  bool sync_flag =
-      embedding_cache_->look_up(h_embeddingcolumns, h_embedding_offset_, d_embeddingvectors_,
-                                memory_block_, streams_, inference_params_.hit_rate_threshold);
-  // free the memory block for the current embedding cache
-  if (sync_flag) {
-    embedding_cache_->free_worker_space(memory_block_);
+  embedding_cache_->look_up(h_embeddingcolumns, h_embedding_offset_, d_embeddingvectors_,
+                            workspace_handler_, lookup_streams_);
+  CK_CUDA_THROW_(cudaStreamSynchronize(lookup_streams_[0]));
+  if (workspace_handler_.use_gpu_embedding_cache_ &&
+      workspace_handler_.h_hit_rate_[0] < inference_params_.hit_rate_threshold) {
+    embedding_cache_->update(workspace_handler_, lookup_streams_);
   }
+  CK_CUDA_THROW_(cudaStreamSynchronize(update_streams_[0]));
 
   // copy dense input to dense tensor
   auto dense_dims = dense_input_tensorbag_.get_dimensions();
