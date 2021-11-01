@@ -235,7 +235,7 @@ void embedding_cache_test(const std::string& config_file,
   std::vector<std::string> model_config_path{config_file};
   std::string dense_model{"/hugectr/test/utest/_dense_10000.model"};
   std::vector<std::string> sparse_models{"/hugectr/test/utest/0_sparse_10000.model"};
-  InferenceParams infer_param(model, max_batch_size, 0.5, dense_model, sparse_models, 0, true, 0.8, false);
+  InferenceParams infer_param(model, max_batch_size, 1, dense_model, sparse_models, 0, true, 0.8, false);
   std::vector<InferenceParams> inference_params{infer_param};
   HugectrUtility<TypeHashKey>* parameter_server = HugectrUtility<TypeHashKey>::Create_Parameter_Server(INFER_TYPE::TRITON, model_config_path, inference_params);
   embedding_interface* embedding_cache = embedding_interface::Create_Embedding_Cache<TypeHashKey>(model_config_path[0], inference_params[0], parameter_server);
