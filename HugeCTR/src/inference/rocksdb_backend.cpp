@@ -14,33 +14,26 @@
  * limitations under the License.
  */
 
+#include <base/debug/logger.hpp>
 #include <inference/rocksdb_backend.hpp>
-#include <iostream>
-
-#define DEBUG                                                  \
-  std::cout << "[DEBUG]" << __FILE__ << "|" << __func__ << "|" \
-            << "LINE" << __LINE__ << " "
 
 namespace HugeCTR {
 
-#define HCTR_ROCKSDB_CHECK(expr)                                        \
-  do {                                                                  \
-    const rocksdb::Status status = expr;                                \
-    if (!status.ok()) {                                                 \
-      std::cerr << "RocksDB error: " << status.ToString() << std::endl; \
-      exit(EXIT_FAILURE);                                               \
-    }                                                                   \
+#define HCTR_ROCKSDB_CHECK(EXPR)                                                    \
+  do {                                                                              \
+    const rocksdb::Status _status = EXPR;                                           \
+    HCTR_CHECK_HINT(_status.ok(), "RocksDB error: %s", _status.ToString().c_str()); \
   } while (0)
 
 template <typename TKey>
-RocksDBBackend<TKey>::RocksDBBackend(const std::string& database_path, const bool read_only,
+RocksDBBackend<TKey>::RocksDBBackend(const std::string& path, const bool read_only,
                                      const size_t max_get_batch_size,
                                      const size_t max_set_batch_size)
     : TBase(),
       db_(nullptr),
       max_get_batch_size_(max_get_batch_size),
       max_set_batch_size_(max_set_batch_size) {
-  DEBUG << "Connecting to RocksDB database..." << std::endl;
+  HCTR_LOG(INFO, WORLD, "Connecting to RocksDB database...\n");
 
   rocksdb::Options options;
   options.create_if_missing = true;
@@ -48,41 +41,52 @@ RocksDBBackend<TKey>::RocksDBBackend(const std::string& database_path, const boo
   options.IncreaseParallelism();
 
   // Enumerate column families.
-  std::vector<std::string> column_names_vec;
-  HCTR_ROCKSDB_CHECK(rocksdb::DB::ListColumnFamilies(options, database_path, &column_names_vec));
-  column_names_vec.push_back(rocksdb::kDefaultColumnFamilyName);
-  std::unordered_set<std::string> column_names(column_names_vec.begin(), column_names_vec.end());
-
-  rocksdb::ColumnFamilyOptions column_options;
-  column_options.OptimizeLevelStyleCompaction();
-
   std::vector<rocksdb::ColumnFamilyDescriptor> column_descriptors;
-  for (const auto& cn : column_names) {
-    column_descriptors.emplace_back(cn, column_options);
+  {
+    std::vector<std::string> column_names;
+    const auto& status = rocksdb::DB::ListColumnFamilies(options, path, &column_names);
+    if (!status.IsIOError()) {
+      HCTR_ROCKSDB_CHECK(status);
+    }
+    bool has_default = false;
+    for (const auto& column_name : column_names) {
+      has_default |= column_name == rocksdb::kDefaultColumnFamilyName;
+    }
+    if (!has_default) {
+      column_names.push_back(rocksdb::kDefaultColumnFamilyName);
+    }
+
+    rocksdb::ColumnFamilyOptions column_options;
+    column_options.OptimizeLevelStyleCompaction();
+    for (const auto& column_name : column_names) {
+      HCTR_LOG(INFO, WORLD, "RocksDB %s, found column family \"%s\".\n", path.c_str(),
+               column_name.c_str());
+      column_descriptors.emplace_back(column_name, column_options);
+    }
   }
 
   // Connect to DB with all column families.
   std::vector<rocksdb::ColumnFamilyHandle*> column_handles;
   if (read_only) {
-    HCTR_ROCKSDB_CHECK(rocksdb::DB::OpenForReadOnly(options, database_path, column_descriptors,
-                                                    &column_handles, &db_));
-  } else {
     HCTR_ROCKSDB_CHECK(
-        rocksdb::DB::Open(options, database_path, column_descriptors, &column_handles, &db_));
+        rocksdb::DB::OpenForReadOnly(options, path, column_descriptors, &column_handles, &db_));
+  } else {
+    HCTR_ROCKSDB_CHECK(rocksdb::DB::Open(options, path, column_descriptors, &column_handles, &db_));
   }
-  assert(column_names_set.size() == column_handles.size());
+  HCTR_CHECK(column_handles.size() == column_descriptors.size());
 
   auto column_handles_it = column_handles.begin();
-  for (const auto& cn : column_names) {
-    column_handles_.emplace(cn, *column_handles_it);
+  for (const auto& column_descriptor : column_descriptors) {
+    column_handles_.emplace(column_descriptor.name, *column_handles_it);
+    column_handles_it++;
   }
 
-  DEBUG << "Connected to RocksDB database!" << std::endl;
+  HCTR_LOG(INFO, WORLD, "Connected to RocksDB database!\n");
 }
 
 template <typename TKey>
 RocksDBBackend<TKey>::~RocksDBBackend() {
-  DEBUG << "Disconnecting from RocksDB database..." << std::endl;
+  HCTR_LOG(INFO, WORLD, "Disconnecting from RocksDB database...\n");
 
   HCTR_ROCKSDB_CHECK(db_->SyncWAL());
   for (auto& ch : column_handles_) {
@@ -93,7 +97,7 @@ RocksDBBackend<TKey>::~RocksDBBackend() {
   delete db_;
   db_ = nullptr;
 
-  DEBUG << "Disconnected from RocksDB database!" << std::endl;
+  HCTR_LOG(INFO, WORLD, "Disconnected from RocksDB database!\n");
 }
 
 template <typename TKey>
@@ -125,9 +129,8 @@ size_t RocksDBBackend<TKey>::contains(const std::string& table_name, const size_
       const auto& status = db_->Get(read_options, column_handle, k_slice, &v_slice);
       if (status.ok()) {
         hit_count++;
-      } else if (!status.IsNotFound()) {
-        std::cerr << "RocksDB error: " << status.ToString() << std::endl;
-        exit(EXIT_FAILURE);
+      } else {
+        HCTR_CHECK_HINT(status.IsNotFound(), "RocksDB error: %s", status.ToString().c_str());
       }
       break;
     }
@@ -139,9 +142,10 @@ size_t RocksDBBackend<TKey>::contains(const std::string& table_name, const size_
       std::unique_ptr<rocksdb::Iterator> it(db_->NewIterator(read_options, column_handle));
       for (it->SeekToFirst(); it->Valid(); it->Next()) {
         HCTR_ROCKSDB_CHECK(it->status());
-        const auto& k = it->key();
 
-        assert(k.size() == sizeof(TKey));
+        const auto& k = it->key();
+        HCTR_CHECK_HINT(k.size() == sizeof(TKey), "RocksDB return key size mismatch!");
+
         if (query.find(*reinterpret_cast<const TKey*>(k.data())) != query.end()) {
           hit_count++;
         }
@@ -150,8 +154,8 @@ size_t RocksDBBackend<TKey>::contains(const std::string& table_name, const size_
     }
   }
 
-  DEBUG << "RocksDB table " << table_name << ": Contains " << hit_count << " / " << num_keys
-        << " keys." << std::endl;
+  HCTR_LOG(INFO, WORLD, "%s backend. Table: %s. Found %d / %d keys.\n", get_name(),
+           table_name.c_str(), hit_count, num_keys);
   return hit_count;
 }
 
@@ -179,6 +183,7 @@ bool RocksDBBackend<TKey>::insert(const std::string& table_name, const size_t nu
   rocksdb::WriteBatch batch;
 
   size_t num_queries = 0;
+  size_t num_inserts = 0;
 
   const TKey* const keys_end = &keys[num_pairs];
   for (; keys != keys_end; num_queries++) {
@@ -191,10 +196,13 @@ bool RocksDBBackend<TKey>::insert(const std::string& table_name, const size_t nu
     }
 
     HCTR_ROCKSDB_CHECK(db_->Write(write_options, &batch));
-    DEBUG << "RocksDB table " << table_name << ", query " << num_queries << "." << std::endl;
+    num_inserts += batch.Count();
+    HCTR_LOG(INFO, WORLD, "RocksDB table %s, query %d: Inserted %d pairs.\n", table_name.c_str(),
+             num_queries, batch.Count());
   }
 
-  DEBUG << "RocksDB table " << table_name << ": Inserted " << num_pairs << " keys." << std::endl;
+  HCTR_LOG(INFO, WORLD, "%s backend. Table: %s. Inserted %d / %d pairs.\n", get_name(),
+           table_name.c_str(), num_inserts, num_pairs);
   return true;
 }
 
@@ -231,31 +239,33 @@ size_t RocksDBBackend<TKey>::fetch(const std::string& table_name, const size_t n
     batch_values.clear();
     const auto& batch_status =
         db_->MultiGet(read_options, batch_handles, batch_keys, &batch_values);
+    HCTR_CHECK(batch_status.size() == batch_values.size());
 
     // Process results.
     auto batch_values_it = batch_values.begin();
     for (const auto& status : batch_status) {
       if (status.ok()) {
-        assert(batch_values_it->size() == value_size);
+        HCTR_CHECK_HINT(batch_values_it->size() == value_size,
+                        "RocksDB table %s, return value embedding size mismatch! (%d != %d)",
+                        table_name.c_str(), batch_values_it->size(), value_size);
         memcpy(values, batch_values_it->data(), value_size);
         hit_count++;
       } else if (status.IsNotFound()) {
         missing_callback(num_queries * max_get_batch_size_ +
                          (batch_values_it - batch_values.begin()));
       } else {
-        std::cerr << "RocksDB error: " << status.ToString() << std::endl;
-        exit(EXIT_FAILURE);
+        HCTR_ROCKSDB_CHECK(status);
       }
       batch_values_it++;
       values += value_size;
     }
 
-    DEBUG << "RocksDB table " << table_name << " | query " << num_queries << ": Fetched "
-          << batch_values.size() << " keys. Hits: " << hit_count << std::endl;
+    HCTR_LOG(INFO, WORLD, "RocksDB table %s, query %d: Fetched %d keys. Hits %d.\n",
+             table_name.c_str(), num_queries, batch_values.size(), hit_count);
   }
 
-  DEBUG << "RocksDB table " << table_name << ": Fetched " << hit_count << " / " << num_keys
-        << " keys." << std::endl;
+  HCTR_LOG(INFO, WORLD, "%s backend. Table: %s. Fetched %d / %d values.\n", get_name(),
+           table_name.c_str(), hit_count, num_keys);
   return hit_count;
 }
 
@@ -294,31 +304,33 @@ size_t RocksDBBackend<TKey>::fetch(const std::string& table_name, const size_t n
     batch_values.clear();
     const auto& batch_status =
         db_->MultiGet(read_options, batch_handles, batch_keys, &batch_values);
+    HCTR_CHECK(batch_status.size() == batch_values.size());
 
     // Process results.
     auto batch_values_it = batch_values.begin();
     for (const auto& status : batch_status) {
       if (status.ok()) {
-        assert(batch_values_it->size() == value_size);
+        HCTR_CHECK_HINT(batch_values_it->size() == value_size,
+                        "RocksDB table %s, return value embedding size mismatch! (%d != %d)",
+                        table_name.c_str(), batch_values_it->size(), value_size);
         memcpy(&values[*indices * value_size], batch_values_it->data(), value_size);
         hit_count++;
       } else if (status.IsNotFound()) {
         missing_callback(*indices);
       } else {
-        std::cerr << "RocksDB error: " << status.ToString() << std::endl;
-        exit(EXIT_FAILURE);
+        HCTR_ROCKSDB_CHECK(status);
       }
       batch_values_it++;
       indices++;
     }
-    assert(indices == batch_end);
+    HCTR_ASSERT(indices == batch_end);
 
-    DEBUG << "RocksDB table " << table_name << " | query " << num_queries << ": Fetched "
-          << batch_values.size() << " keys. Hits: " << hit_count << std::endl;
+    HCTR_LOG(INFO, WORLD, "RocksDB table %s, query %d: Fetched %d keys. Hits %d.\n",
+             table_name.c_str(), num_queries, batch_values.size(), hit_count);
   }
 
-  DEBUG << "RocksDB table " << table_name << ": Fetched " << hit_count << " / " << num_indices
-        << " keys." << std::endl;
+  HCTR_LOG(INFO, WORLD, "%s backend. Table: %s. Fetched %d / %d values.\n", get_name(),
+           table_name.c_str(), hit_count, num_indices);
   return hit_count;
 }
 
@@ -328,15 +340,17 @@ size_t RocksDBBackend<TKey>::evict(const std::string& table_name) {
   if (column_handles_it == column_handles_.end()) {
     return 0;
   }
-  size_t num_keys = -1;
-  db_->GetIntProperty(rocksdb::DB::Properties::kEstimateNumKeys, &num_keys);
+
+  size_t hit_count = -1;
+  db_->GetIntProperty(rocksdb::DB::Properties::kEstimateNumKeys, &hit_count);
+
   HCTR_ROCKSDB_CHECK(db_->DropColumnFamily(column_handles_it->second));
   HCTR_ROCKSDB_CHECK(db_->DestroyColumnFamilyHandle(column_handles_it->second));
   column_handles_.erase(table_name);
 
-  DEBUG << "RocksDB table " << table_name << ": Deleted approximately " << num_keys << " keys."
-        << std::endl;
-  return num_keys;
+  HCTR_LOG(INFO, WORLD, "%s backend. Table %s erased (approximately %d pairs).\n", get_name(),
+           table_name, hit_count);
+  return hit_count;
 }
 
 template <typename TKey>
@@ -354,6 +368,7 @@ size_t RocksDBBackend<TKey>::evict(const std::string& table_name, const size_t n
   rocksdb::Slice key_slice(nullptr, sizeof(TKey));
   rocksdb::WriteBatch batch;
 
+  const size_t hit_count = -1;
   size_t num_queries = 0;
 
   const TKey* const keys_end = &keys[num_keys];
@@ -366,11 +381,13 @@ size_t RocksDBBackend<TKey>::evict(const std::string& table_name, const size_t n
     }
 
     HCTR_ROCKSDB_CHECK(db_->Write(write_options, &batch));
+    HCTR_LOG(INFO, WORLD, "RocksDB table %s, query %d: Deleted %d keys. Hits %d.\n",
+             table_name.c_str(), num_queries, batch.Count(), hit_count);
   }
 
-  DEBUG << "RocksDB table " << table_name << ": Deleted ??? / " << num_keys << " keys."
-        << std::endl;
-  return -1;
+  HCTR_LOG(INFO, WORLD, "%s backend. Table %s. %d / %d pairs erased.\n", get_name(),
+           table_name.c_str(), hit_count, num_keys);
+  return hit_count;
 }
 
 #ifdef HCTR_ROCKSDB_CHECK

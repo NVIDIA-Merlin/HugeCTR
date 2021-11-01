@@ -14,19 +14,18 @@
  * limitations under the License.
  */
 
-#include <base/debug/logger.hpp>
+#include <unistd.h>
 
 #include <algorithm>
+#include <base/debug/logger.hpp>
 #include <chrono>
 #include <common.hpp>
 #include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
+#include <exception>
 #include <iostream>
 #include <string>
-#include <exception>
-
-#include <unistd.h>
 
 #ifdef ENABLE_MPI
 #include <mpi.h>
@@ -43,7 +42,8 @@ void Logger::print_exception(const std::exception& e, int depth) {
     std::rethrow_if_nested(e);
   } catch (const std::exception& e) {
     print_exception(e, depth + 1);
-  } catch (...) {}
+  } catch (...) {
+  }
 }
 
 Logger& Logger::get() {
@@ -91,27 +91,48 @@ void Logger::log(const int level, bool per_rank, bool with_prefix, const char* f
       va_end(args);
       fflush(log_file_.at(level));
     }
-
   }
 }
 
-void Logger::check(bool condition, const SrcLoc& loc) const {
+void Logger::check(bool condition, const SrcLoc& loc, const char* format, ...) const {
   if (condition == false) {
-    log(-1, true, true,
-        "Check Failed!\n"
-        "\tFile: %s:%u\n"
-        "\tFunction: %s\n"
-        "\tExpression: %s\n",
-        loc.file, loc.line, loc.func, loc.expr);
+    if (format) {
+      std::string hint;
+      {
+        va_list args;
+        va_start(args, format);
+        hint.resize(vsnprintf(nullptr, 0, format, args) + 1);
+        va_end(args);
+      }
+      {
+        va_list args;
+        va_start(args, format);
+        vsprintf(hint.data(), format, args);
+        va_end(args);
+      }
+      log(-1, true, true,
+          "Check Failed!\n"
+          "\tFile: %s:%u\n"
+          "\tFunction: %s\n"
+          "\tExpression: %s\n"
+          "\tHint: %s\n",
+          loc.file, loc.line, loc.func, loc.expr, hint.c_str());
+    } else {
+      log(-1, true, true,
+          "Check Failed!\n"
+          "\tFile: %s:%u\n"
+          "\tFunction: %s\n"
+          "\tExpression: %s\n",
+          loc.file, loc.line, loc.func, loc.expr);
+    }
     std::abort();
   }
 }
 
 void Logger::do_throw(HugeCTR::Error_t error_type, const SrcLoc& loc,
                       const std::string& message) const {
-  std::string error_message = "Runtime error: " + message + "\n" + "\t" +
-                              loc.expr + " at " + loc.func + "(" + loc.file + ":" +
-                              std::to_string(loc.line) + ")";
+  std::string error_message = "Runtime error: " + message + "\n" + "\t" + loc.expr + " at " +
+                              loc.func + "(" + loc.file + ":" + std::to_string(loc.line) + ")";
   std::throw_with_nested(internal_runtime_error(error_type, error_message));
 }
 
@@ -131,7 +152,7 @@ Logger::Logger() : rank_(0), max_level_(DEFAULT_LOG_LEVEL), log_to_std_(true), l
   const char* log_to_file_str = std::getenv("HUGECTR_LOG_TO_FILE");
   if (log_to_file_str != nullptr && log_to_file_str[0] != '\0') {
     int log_to_file_val = 0;
-    if (sscanf(log_to_file_str , "%d", &log_to_file_val) == 1) {
+    if (sscanf(log_to_file_str, "%d", &log_to_file_val) == 1) {
       log_to_std_ = log_to_file_val < 2;
       log_to_file_ = log_to_file_val > 0;
     }
@@ -149,10 +170,10 @@ Logger::Logger() : rank_(0), max_level_(DEFAULT_LOG_LEVEL), log_to_std_(true), l
         std::string level_name = level_name_[level];
         std::transform(level_name.begin(), level_name.end(), level_name.begin(),
                        [](unsigned char ch) { return std::tolower(ch); });
-        std::string log_fname = "hctr_" + std::to_string(getpid()) + "_" + std::to_string(rank_) + "_" + level_name + ".log";
+        std::string log_fname = "hctr_" + std::to_string(getpid()) + "_" + std::to_string(rank_) +
+                                "_" + level_name + ".log";
         log_file_[level] = fopen(log_fname.c_str(), "w");
-      }
-      else {
+      } else {
         log_file_[LOG_SILENCE_LEVEL] = nullptr;
       }
     }

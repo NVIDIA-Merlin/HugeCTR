@@ -22,10 +22,6 @@
 #include <inference/redis_backend.hpp>
 #include <inference/rocksdb_backend.hpp>
 
-#define DEBUG                                                  \
-  std::cout << "[DEBUG]" << __FILE__ << "|" << __func__ << "|" \
-            << "LINE" << __LINE__ << " "
-
 namespace fs = std::experimental::filesystem;
 
 namespace HugeCTR {
@@ -130,20 +126,20 @@ parameter_server<TypeHashKey>::parameter_server(
       break;
     }
     case DATABASE_TYPE::REDIS: {
-      DEBUG << "Creating Redis backend..." << std::endl;
+      HCTR_LOG(INFO, WORLD, "Creating Redis backend...\n");
       distributed_db_ = std::make_shared<RedisClusterBackend<TypeHashKey>>(
           inference_params_array[0].redis_ip, "");
       distributed_db_cache_rate_ = 1;
       break;
     }
     case DATABASE_TYPE::ROCKSDB: {
-      DEBUG << "Creating RocksDB backend..." << std::endl;
+      HCTR_LOG(INFO, WORLD, "Creating RocksDB backend...\n");
       persistent_db_ =
           std::make_shared<RocksDBBackend<TypeHashKey>>(inference_params_array[0].rocksdb_path);
       break;
     }
     case DATABASE_TYPE::HIERARCHY: {
-      DEBUG << "Creating Hierarchy backend..." << std::endl;
+      HCTR_LOG(INFO, WORLD, "Creating Hierarchy backend...\n");
       distributed_db_ = std::make_shared<RedisClusterBackend<TypeHashKey>>(
           inference_params_array[0].redis_ip, "");
       distributed_db_cache_rate_ = inference_params_array[0].cache_size_percentage_redis;
@@ -153,7 +149,7 @@ parameter_server<TypeHashKey>::parameter_server(
       break;
     }
     default:
-      DEBUG << "wrong database type!" << std::endl;
+      HCTR_LOG(INFO, WORLD, "Wrong database type!\n");
   }
 
   // Load embeddings for each embedding table from each model
@@ -212,8 +208,8 @@ parameter_server<TypeHashKey>::parameter_server(
         cpu_memory_db_->insert(table_name, cpu_cache_amount, key_vec.data(),
                                reinterpret_cast<const char*>(vec_vec.data()),
                                embedding_size * sizeof(float));
-        DEBUG << "Cached " << cpu_cache_amount << " embeddings in CPU memory database!"
-              << std::endl;
+        HCTR_LOG(INFO, WORLD, "Cached %f * %d embeddings in CPU memory database!\n",
+                 cpu_cache_amount, num_key);
       }
 
       // Distributed could be static but does not have to be.
@@ -221,8 +217,8 @@ parameter_server<TypeHashKey>::parameter_server(
         distributed_db_->insert(table_name, dist_cache_amount, &key_vec[cpu_cache_amount],
                                 reinterpret_cast<const char*>(&vec_vec[cpu_cache_amount]),
                                 embedding_size * sizeof(float));
-        DEBUG << "Cached " << cpu_cache_amount << " embeddings in distributed database!"
-              << std::endl;
+        HCTR_LOG(INFO, WORLD, "Cached %f * %d embeddings in distributed database!\n",
+                 dist_cache_amount, num_key);
       }
 
       // Persistent database - by definition - always gets all keys.
@@ -230,7 +226,7 @@ parameter_server<TypeHashKey>::parameter_server(
         persistent_db_->insert(table_name, num_key, key_vec.data(),
                                reinterpret_cast<const char*>(vec_vec.data()),
                                embedding_size * sizeof(float));
-        DEBUG << "Cached " << num_key << " embeddings in persistent database!" << std::endl;
+        HCTR_LOG(INFO, WORLD, "Cached %d embeddings in persistent database!\n", num_key);
       }
     }
 
@@ -246,7 +242,7 @@ parameter_server<TypeHashKey>::parameter_server(
       inference_params_array[i].deployed_devices.push_back(inference_params_array[i].device_id);
     }
     for (auto device_id : inference_params_array[i].deployed_devices) {
-      DEBUG << "Create embedding cache in device " << device_id << "." << std::endl;
+      HCTR_LOG(INFO, WORLD, "Create embedding cache in device %d.\n", device_id);
       inference_params_array[i].device_id = device_id;
       embedding_cache_map[device_id] =
           std::shared_ptr<embedding_interface>(embedding_interface::Create_Embedding_Cache(
@@ -316,17 +312,17 @@ void parameter_server<TypeHashKey>::look_up(const TypeHashKey* h_embeddingcolumn
   const auto start_time = std::chrono::high_resolution_clock::now();
 
   const auto& model_id = ps_config_.find_model_id(model_name);
-  if (!model_id) {
-    std::cout << "Error: parameter server unknown model name. Note that this error will also come "
-                 "out with "
-                 "using Triton LOAD/UNLOAD APIs which haven't been supported in HugeCTR backend."
-              << std::endl;
-    exit(EXIT_FAILURE);
-  }
+  HCTR_CHECK_HINT(
+      static_cast<bool>(model_id),
+      "Error: parameter server unknown model name. Note that this error will also come "
+      "out with "
+      "using Triton LOAD/UNLOAD APIs which haven't been supported in HugeCTR backend.\n");
+
   const size_t embedding_size = ps_config_.embedding_vec_size_[*model_id][embedding_table_id];
   const std::string table_name = model_name + "#" + std::to_string(embedding_table_id);
 
-  DEBUG << "Looking up " << length << " embeddings..." << std::endl;
+  HCTR_LOG(INFO, WORLD, "Looking up %d embeddings (each with %d values)...\n", length,
+           embedding_size);
 
   size_t hit_count = 0;
   auto db = db_stack_.begin();
@@ -335,7 +331,7 @@ void parameter_server<TypeHashKey>::look_up(const TypeHashKey* h_embeddingcolumn
     case 0: {
       // Everything is default.
       std::fill_n(h_embeddingoutputvector, length * embedding_size, 0);
-      DEBUG << "No database. All embeddings set to default." << std::endl;
+      HCTR_LOG(INFO, WORLD, "No database. All embeddings set to default.\n");
       break;
     }
     case 1: {
@@ -346,8 +342,8 @@ void parameter_server<TypeHashKey>::look_up(const TypeHashKey* h_embeddingcolumn
       hit_count += (*db)->fetch(table_name, length, h_embeddingcolumns,
                                 reinterpret_cast<char*>(h_embeddingoutputvector),
                                 embedding_size * sizeof(float), fill_default_fn);
-      DEBUG << (*db)->get_name() << ": " << hit_count << " hits, " << (length - hit_count)
-            << " missing!" << std::endl;
+      HCTR_LOG(INFO, WORLD, "%s: %d hits, %d missing!\n", (*db)->get_name(), hit_count,
+               length - hit_count);
       break;
     }
     default: {
@@ -356,17 +352,14 @@ void parameter_server<TypeHashKey>::look_up(const TypeHashKey* h_embeddingcolumn
       std::vector<size_t> missing;
 
       MissingKeyCallback record_missing_fn = [&missing](size_t index) -> void {
-        // DEBUG << "Key " << h_embeddingcolumns[index] << " at index " << index << " was not
-        // found!"
-        // << std::endl;
         missing.push_back(index);
       };
 
       hit_count += (*db)->fetch(table_name, length, h_embeddingcolumns,
                                 reinterpret_cast<char*>(h_embeddingoutputvector),
                                 embedding_size * sizeof(float), record_missing_fn);
-      DEBUG << (*db)->get_name() << ": " << hit_count << " hits, " << missing.size() << " missing!"
-            << std::endl;
+      HCTR_LOG(INFO, WORLD, "%s: %d hits, %d missing!\n", (*db)->get_name(), hit_count,
+               missing.size());
       db++;
 
       // Layers 1 thru N-2: Do a sparse lookup. Remember missing keys
@@ -376,8 +369,8 @@ void parameter_server<TypeHashKey>::look_up(const TypeHashKey* h_embeddingcolumn
         hit_count += (*db)->fetch(table_name, indices.size(), indices.data(), h_embeddingcolumns,
                                   reinterpret_cast<char*>(h_embeddingoutputvector),
                                   embedding_size * sizeof(float), record_missing_fn);
-        DEBUG << (*db)->get_name() << ": " << hit_count << " hits, " << missing.size()
-              << " missing!" << std::endl;
+        HCTR_LOG(INFO, WORLD, "%s: %d hits, %d missing!\n", (*db)->get_name(), hit_count,
+                 missing.size());
       }
 
       // Layer N-1: Do a sparse lookup. Fill in default values.
@@ -387,25 +380,22 @@ void parameter_server<TypeHashKey>::look_up(const TypeHashKey* h_embeddingcolumn
       hit_count += (*db)->fetch(table_name, missing.size(), missing.data(), h_embeddingcolumns,
                                 reinterpret_cast<char*>(h_embeddingoutputvector),
                                 embedding_size * sizeof(float), fill_default_fn);
-      DEBUG << (*db)->get_name() << ": " << hit_count << " hits, " << (length - hit_count)
-            << " missing!" << std::endl;
+      HCTR_LOG(INFO, WORLD, "%s: %d hits, %d missing!\n", (*db)->get_name(), hit_count,
+               length - hit_count);
     }
   }
-
-  DEBUG << "Parameter server lookup; total hit count: " << hit_count << " / " << length
-        << std::endl;
 
   const auto end_time = std::chrono::high_resolution_clock::now();
   const auto duration =
       std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
-  std::cout << "Lookup of " << hit_count << " / " << length << " embeddings took "
-            << duration.count() << " us" << std::endl;
+  HCTR_LOG(INFO, WORLD, "Parameter server lookup of %d / %d embeddings took %d us.\n", hit_count,
+           length, duration.count());
 }
 
 template <typename TypeHashKey>
 void parameter_server<TypeHashKey>::refresh_embedding_cache(const std::string& model_name,
                                                             int device_id) {
-  std::cout << "refresh embedding cache" << std::endl;
+  HCTR_LOG(INFO, WORLD, "refresh embedding cache\n");
   std::shared_ptr<embedding_interface> embedding_cache = GetEmbeddingCache(model_name, device_id);
   std::vector<cudaStream_t> streams = embedding_cache->get_refresh_streams();
   embedding_cache_config cache_config = embedding_cache->get_cache_config();

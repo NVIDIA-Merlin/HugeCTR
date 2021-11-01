@@ -15,20 +15,15 @@
  */
 
 #include <atomic>
-#include <cassert>
+#include <base/debug/logger.hpp>
 #include <cstring>
 #include <inference/local_memory_backend.hpp>
-#include <iostream>
 
 namespace HugeCTR {
 
-#define DEBUG                                                  \
-  std::cout << "[DEBUG]" << __FILE__ << "|" << __func__ << "|" \
-            << "LINE" << __LINE__ << " "
-
 template <typename TKey>
 LocalMemoryBackend<TKey>::LocalMemoryBackend() : TBase() {
-  DEBUG << "Created blank database backend in local memory!" << std::endl;
+  HCTR_LOG(INFO, WORLD, "Created blank database backend in local memory!\n");
 }
 
 template <typename TKey>
@@ -57,8 +52,8 @@ size_t LocalMemoryBackend<TKey>::contains(const std::string& table_name, const s
     }
   }
 
-  DEBUG << get_name() << " backend. Contains " << hit_count << " / " << num_keys << " keys."
-        << std::endl;
+  HCTR_LOG(INFO, WORLD, "%s backend. Table: %s. Found %d / %d keys.\n", get_name(),
+           table_name.c_str(), hit_count, num_keys);
   return hit_count;
 }
 
@@ -79,9 +74,10 @@ bool LocalMemoryBackend<TKey>::insert(const std::string& table_name, const size_
                   std::forward_as_tuple(values, values_next));
     values = values_next;
   }
+  const size_t num_inserts = num_pairs;
 
-  DEBUG << get_name() << " backend updated. Inserted " << num_pairs
-        << " key-value pairs. Now containing: " << table.size() << " key-value pairs." << std::endl;
+  HCTR_LOG(INFO, WORLD, "%s backend. Table: %s. Inserted %d / %d pairs.\n", get_name(),
+           table_name.c_str(), num_inserts, num_pairs);
   return true;
 }
 
@@ -103,7 +99,7 @@ size_t LocalMemoryBackend<TKey>::fetch(const std::string& table_name, const size
   for (size_t i = 0; i < num_keys; i++) {
     const auto& it = table.find(keys[i]);
     if (it != table.end()) {
-      assert(it->second.size() == value_size);
+      HCTR_CHECK_HINT(it->second.size() == value_size, "Value size mismatch!");
       memcpy(&values[i * value_size], it->second.data(), value_size);
       hit_count++;
     } else {
@@ -111,8 +107,8 @@ size_t LocalMemoryBackend<TKey>::fetch(const std::string& table_name, const size
     }
   }
 
-  DEBUG << get_name() << " backend. Fetched " << hit_count << " / " << num_keys << " pairs."
-        << std::endl;
+  HCTR_LOG(INFO, WORLD, "%s backend. Table: %s. Fetched %d / %d values.\n", get_name(),
+           table_name.c_str(), hit_count, num_keys);
   return hit_count;
 }
 
@@ -136,7 +132,7 @@ size_t LocalMemoryBackend<TKey>::fetch(const std::string& table_name, const size
   for (; indices != indices_end; indices++) {
     const auto& it = table.find(keys[*indices]);
     if (it != table.end()) {
-      assert(it->second.size() == value_size);
+      HCTR_CHECK_HINT(it->second.size() == value_size, "Value size mismatch!");
       memcpy(&values[*indices * value_size], it->second.data(), value_size);
       hit_count++;
     } else {
@@ -144,8 +140,8 @@ size_t LocalMemoryBackend<TKey>::fetch(const std::string& table_name, const size
     }
   }
 
-  DEBUG << get_name() << " backend. Fetched " << hit_count << " / " << num_indices << " pairs."
-        << std::endl;
+  HCTR_LOG(INFO, WORLD, "%s backend. Table: %s. Fetched %d / %d values.\n", get_name(),
+           table_name.c_str(), hit_count, num_indices);
   return hit_count;
 }
 
@@ -156,12 +152,14 @@ size_t LocalMemoryBackend<TKey>::evict(const std::string& table_name) {
   if (table_it == tables_.end()) {
     return 0;
   }
-  const size_t table_size = table_it->second.size();
+  const size_t hit_count = table_it->second.size();
 
   // Delete table.
   tables_.erase(table_name);
 
-  return table_size;
+  HCTR_LOG(INFO, WORLD, "%s backend. Table %s erased (%d pairs).\n", get_name(), table_name.c_str(),
+           hit_count);
+  return hit_count;
 }
 
 template <typename TKey>
@@ -182,8 +180,8 @@ size_t LocalMemoryBackend<TKey>::evict(const std::string& table_name, const size
     hit_count += table.erase(*keys);
   }
 
-  DEBUG << get_name() << " backend updated. Now containing: " << table.size() << " key-value pairs."
-        << std::endl;
+  HCTR_LOG(INFO, WORLD, "%s backend. Table %s. %d / %d pairs erased.\n", get_name(),
+           table_name.c_str(), hit_count, num_keys);
   return hit_count;
 }
 
@@ -193,12 +191,12 @@ template class LocalMemoryBackend<long long>;
 template <typename TKey>
 ParallelLocalMemoryBackend<TKey>::ParallelLocalMemoryBackend(const size_t num_partitions)
     : TBase(), num_partitions_(num_partitions) {
-  if (num_partitions_ < 1) {
-    DEBUG << "Number of partitions cannot be below 1!" << std::endl;
-    exit(EXIT_FAILURE);
-  }
-  DEBUG << "Created parallel (" << num_partitions_
-        << " partitions) blank database backend in local memory!" << std::endl;
+  HCTR_CHECK_HINT(num_partitions_ >= 1, "Number of partitions (%d) must be 1 or higher!",
+                  num_partitions_);
+
+  HCTR_LOG(INFO, WORLD,
+           "Created parallel (%d partitions) blank database backend in local memory!\n",
+           num_partitions_);
 }
 
 template <typename TKey>
@@ -216,6 +214,7 @@ size_t ParallelLocalMemoryBackend<TKey>::contains(const std::string& table_name,
     return TBase::contains(table_name, num_keys, keys);
   }
   const std::vector<TMap>& tables = table_it->second;
+  HCTR_CHECK(tables.size() == num_partitions_);
 
   std::atomic<size_t> total_hit_count(0);
 
@@ -246,9 +245,9 @@ size_t ParallelLocalMemoryBackend<TKey>::contains(const std::string& table_name,
   }
   ThreadPool::await(res);
 
-  DEBUG << get_name() << " backend. Fetched " << total_hit_count << " / " << num_keys << " pairs."
-        << std::endl;
-  return total_hit_count;
+  const size_t hit_count = total_hit_count;
+  HCTR_LOG(INFO, WORLD, "%s backend. Found %d / %d keys.\n", get_name(), hit_count, num_keys);
+  return hit_count;
 }
 
 template <typename TKey>
@@ -258,10 +257,7 @@ bool ParallelLocalMemoryBackend<TKey>::insert(const std::string& table_name, con
   // Lookup table, or insert it, if it does not exist yet.
   const auto& table_it = tables_.try_emplace(table_name, num_partitions_).first;
   std::vector<TMap>& tables = table_it->second;
-  if (tables.size() != num_partitions_) {
-    DEBUG << "Recalled table list is not of length " << num_partitions_ << "!";
-    exit(EXIT_FAILURE);
-  }
+  HCTR_CHECK(tables.size() == num_partitions_);
 
   std::atomic<size_t> total_num_inserts(0);
 
@@ -292,8 +288,9 @@ bool ParallelLocalMemoryBackend<TKey>::insert(const std::string& table_name, con
   }
   ThreadPool::await(res);
 
-  DEBUG << get_name() << " backend updated. Inserted " << total_num_inserts << " / " << num_pairs
-        << " key-value pairs." << std::endl;
+  const size_t num_inserts = total_num_inserts;
+  HCTR_LOG(INFO, WORLD, "%s backend. Table: %s. Inserted %d / %d pairs.\n", get_name(),
+           table_name.c_str(), num_inserts, num_pairs);
   return true;
 }
 
@@ -308,6 +305,7 @@ size_t ParallelLocalMemoryBackend<TKey>::fetch(const std::string& table_name, co
     return TBase::fetch(table_name, num_keys, keys, values, value_size, missing_callback);
   }
   const std::vector<TMap>& tables = table_it->second;
+  HCTR_CHECK(tables.size() == num_partitions_);
 
   std::atomic<size_t> total_hit_count(0);
 
@@ -325,7 +323,7 @@ size_t ParallelLocalMemoryBackend<TKey>::fetch(const std::string& table_name, co
         if (k % num_partitions_ == partition) {
           const auto& it = table.find(k);
           if (it != table.end()) {
-            assert(it->second.size() == value_size);
+            HCTR_CHECK_HINT(it->second.size() == value_size, "Value size mismatch!");
             memcpy(&values[i * value_size], it->second.data(), value_size);
             hit_count++;
           } else {
@@ -340,9 +338,10 @@ size_t ParallelLocalMemoryBackend<TKey>::fetch(const std::string& table_name, co
   }
   ThreadPool::await(res);
 
-  DEBUG << get_name() << " backend. Fetched " << total_hit_count << " / " << num_keys << " pairs."
-        << std::endl;
-  return total_hit_count;
+  const size_t hit_count = total_hit_count;
+  HCTR_LOG(INFO, WORLD, "%s backend. Table: %s. Fetched %d / %d values.\n", get_name(),
+           table_name.c_str(), hit_count, num_keys);
+  return hit_count;
 }
 
 template <typename TKey>
@@ -358,6 +357,7 @@ size_t ParallelLocalMemoryBackend<TKey>::fetch(const std::string& table_name,
                         missing_callback);
   }
   const std::vector<TMap>& tables = table_it->second;
+  HCTR_CHECK(tables.size() == num_partitions_);
 
   std::atomic<size_t> total_hit_count(0);
 
@@ -376,7 +376,7 @@ size_t ParallelLocalMemoryBackend<TKey>::fetch(const std::string& table_name,
         if (k % num_partitions_ == partition) {
           const auto& it = table.find(k);
           if (it != table.end()) {
-            assert(it->second.size() == value_size);
+            HCTR_CHECK_HINT(it->second.size() == value_size, "Value size mismatch!");
             memcpy(&values[*i * value_size], it->second.data(), value_size);
             hit_count++;
           } else {
@@ -391,9 +391,10 @@ size_t ParallelLocalMemoryBackend<TKey>::fetch(const std::string& table_name,
   }
   ThreadPool::await(res);
 
-  DEBUG << get_name() << " backend. Fetched " << total_hit_count << " / " << num_indices
-        << " pairs." << std::endl;
-  return total_hit_count;
+  const size_t hit_count = total_hit_count;
+  HCTR_LOG(INFO, WORLD, "%s backend. Table: %s. Fetched %d / %d values.\n", get_name(),
+           table_name.c_str(), hit_count, num_indices);
+  return hit_count;
 }
 
 template <typename TKey>
@@ -403,15 +404,20 @@ size_t ParallelLocalMemoryBackend<TKey>::evict(const std::string& table_name) {
   if (table_it == tables_.end()) {
     return 0;
   }
-  size_t table_size = 0;
-  for (const TMap& table : table_it->second) {
-    table_size += table.size();
+  const std::vector<TMap>& tables = table_it->second;
+  HCTR_CHECK(tables.size() == num_partitions_);
+
+  size_t hit_count = 0;
+  for (const TMap& table : tables) {
+    hit_count += table.size();
   }
 
   // Erase table.
   tables_.erase(table_name);
 
-  return table_size;
+  HCTR_LOG(INFO, WORLD, "%s backend. Table %s erased (%d pairs).\n", get_name(), table_name.c_str(),
+           hit_count);
+  return hit_count;
 }
 
 template <typename TKey>
@@ -423,6 +429,7 @@ size_t ParallelLocalMemoryBackend<TKey>::evict(const std::string& table_name, co
     return 0;
   }
   std::vector<TMap>& tables = table_it->second;
+  HCTR_CHECK(tables.size() == num_partitions_);
 
   std::atomic<size_t> total_hit_count(0);
 
@@ -448,8 +455,11 @@ size_t ParallelLocalMemoryBackend<TKey>::evict(const std::string& table_name, co
   }
   ThreadPool::await(res);
 
-  DEBUG << get_name() << " backend updated." << std::endl;
-  return total_hit_count;
+  const size_t hit_count = total_hit_count;
+
+  HCTR_LOG(INFO, WORLD, "%s backend. Table %s. %d / %d pairs erased.\n", get_name(),
+           table_name.c_str(), hit_count, num_keys);
+  return hit_count;
 }
 
 template class ParallelLocalMemoryBackend<unsigned int>;

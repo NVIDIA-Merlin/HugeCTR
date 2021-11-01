@@ -14,14 +14,10 @@
  * limitations under the License.
  */
 
+#include <base/debug/logger.hpp>
 #include <inference/redis_backend.hpp>
-#include <iostream>
 #include <optional>
 #include <unordered_set>
-
-#define DEBUG                                                  \
-  std::cout << "[DEBUG]" << __FILE__ << "|" << __func__ << "|" \
-            << "LINE" << __LINE__ << " "
 
 namespace HugeCTR {
 
@@ -57,21 +53,17 @@ RedisClusterBackend<TKey>::RedisClusterBackend(const std::string& address,
   sw::redis::ConnectionPoolOptions pool_options;
   pool_options.size = 1;
 
-  DEBUG << "Connecting to Redis cluster via " << options.host << ":" << options.port << " ..."
-        << std::endl;
-
+  HCTR_LOG(INFO, WORLD, "Connecting to Redis cluster via %s:%d ...\n", options.host.c_str(),
+           options.port);
   redis_ = std::make_unique<sw::redis::RedisCluster>(options, pool_options);
-
-  DEBUG << "Connected to Redis database!" << std::endl;
+  HCTR_LOG(INFO, WORLD, "Connected to Redis database!\n");
 }
 
 template <typename TKey>
 RedisClusterBackend<TKey>::~RedisClusterBackend() {
-  DEBUG << "Disconnecting from Redis database..." << std::endl;
-
+  HCTR_LOG(INFO, WORLD, "Disconnecting from Redis database...\n");
   redis_.reset();
-
-  DEBUG << "Disconnected from Redis database!" << std::endl;
+  HCTR_LOG(INFO, WORLD, "Disconnected from Redis database!\n");
 }
 
 template <typename TKey>
@@ -99,7 +91,7 @@ size_t RedisClusterBackend<TKey>::contains(const std::string& table_name, const 
       break;
     }
     default: {
-      auto fn = [&, this](const size_t partition) -> size_t {
+      auto fn = [&](const size_t partition) -> size_t {
         const std::string& hkey = make_hash_key(table_name, partition);
 
         // Form query.
@@ -119,7 +111,7 @@ size_t RedisClusterBackend<TKey>::contains(const std::string& table_name, const 
 
         // Iterate over keys and check 1 by 1.
         for (const auto& k : existing_keys) {
-          assert(k.size() == sizeof(TKey));
+          HCTR_CHECK_HINT(k.size() == sizeof(TKey), "Redis return key size mismatch!");
           if (query.find(*reinterpret_cast<const TKey*>(k.data())) != query.end()) {
             hit_count++;
           }
@@ -136,8 +128,8 @@ size_t RedisClusterBackend<TKey>::contains(const std::string& table_name, const 
     }
   }
 
-  DEBUG << "Redis table: " << table_name << ". Contains " << hit_count << " / " << num_keys
-        << " keys." << std::endl;
+  HCTR_LOG(INFO, WORLD, "%s backend. Table: %s. Found %d / %d keys.\n", get_name(),
+           table_name.c_str(), hit_count, num_keys);
   return hit_count;
 }
 
@@ -147,7 +139,7 @@ bool RedisClusterBackend<TKey>::insert(const std::string& table_name, const size
                                        const size_t value_size) {
   size_t num_inserts = 0;
 
-  auto fn = [&, this](const size_t partition) -> void {
+  auto fn = [&](const size_t partition) -> void {
     const std::string& hkey = make_hash_key(table_name, partition);
 
     std::vector<std::pair<std::string, std::string>> batch_pairs;
@@ -171,8 +163,8 @@ bool RedisClusterBackend<TKey>::insert(const std::string& table_name, const size
 
       redis_->hmset(hkey, batch_pairs.begin(), batch_pairs.end());
       num_inserts += batch_pairs.size();
-      DEBUG << "Redis partition " << hkey << ", query " << num_queries << ": Inserted "
-            << batch_pairs.size() << " keys." << std::endl;
+      HCTR_LOG(INFO, WORLD, "Redis partition %s, query %d: Inserted %d pairs.\n", hkey.c_str(),
+               num_queries, batch_pairs.size());
     }
   };
 
@@ -180,8 +172,8 @@ bool RedisClusterBackend<TKey>::insert(const std::string& table_name, const size
   for (size_t partition = 0; partition < num_partitions_; partition++) {
     fn(partition);
   }
-  DEBUG << "Redis table " << table_name << ": Inserted " << num_inserts << " / " << num_pairs
-        << " keys." << std::endl;
+  HCTR_LOG(INFO, WORLD, "%s backend. Table: %s. Inserted %d / %d pairs.\n", get_name(),
+           table_name.c_str(), num_inserts, num_pairs);
   return true;
 }
 
@@ -190,7 +182,7 @@ size_t RedisClusterBackend<TKey>::fetch(const std::string& table_name, const siz
                                         const TKey* const keys, char* const values,
                                         const size_t value_size,
                                         MissingKeyCallback& missing_callback) const {
-  auto fn = [&, this](const size_t partition) -> size_t {
+  auto fn = [&](const size_t partition) -> size_t {
     const std::string& hkey = make_hash_key(table_name, partition);
 
     std::vector<size_t> batch_indices;
@@ -222,10 +214,7 @@ size_t RedisClusterBackend<TKey>::fetch(const std::string& table_name, const siz
       auto batch_indices_it = batch_indices.begin();
       for (const auto& value : batch_values) {
         if (value) {
-          if (value->size() != value_size) {
-            DEBUG << "Redis return value embedding size mismatch!" << std::endl;
-            exit(EXIT_FAILURE);
-          }
+          HCTR_CHECK_HINT(value->size() == value_size, "Redis return value size mismatch!");
           memcpy(&values[*batch_indices_it * value_size], value->data(), value_size);
           hit_count++;
         } else {
@@ -234,8 +223,8 @@ size_t RedisClusterBackend<TKey>::fetch(const std::string& table_name, const siz
         batch_indices_it++;
       }
 
-      DEBUG << "Redis partition " << hkey << " | query " << num_queries << ": Fetched "
-            << batch_values.size() << " keys. Hits: " << hit_count << std::endl;
+      HCTR_LOG(INFO, WORLD, "Redis partition %s, query %d: Fetched %d keys. Hits %d.\n",
+               hkey.c_str(), num_queries, batch_values.size(), hit_count);
     }
 
     return hit_count;
@@ -246,8 +235,8 @@ size_t RedisClusterBackend<TKey>::fetch(const std::string& table_name, const siz
   for (size_t partition = 0; partition < num_partitions_; partition++) {
     hit_count += fn(partition);
   }
-  DEBUG << "Redis table: " << table_name << ". Fetched " << hit_count << " / " << num_keys
-        << " keys." << std::endl;
+  HCTR_LOG(INFO, WORLD, "%s backend. Table: %s. Fetched %d / %d values.\n", get_name(),
+           table_name.c_str(), hit_count, num_keys);
   return hit_count;
 }
 
@@ -256,7 +245,7 @@ size_t RedisClusterBackend<TKey>::fetch(const std::string& table_name, const siz
                                         const size_t* const indices, const TKey* const keys,
                                         char* const values, const size_t value_size,
                                         MissingKeyCallback& missing_callback) const {
-  auto fn = [&, this](const size_t partition) -> size_t {
+  auto fn = [&](const size_t partition) -> size_t {
     const std::string& hkey = make_hash_key(table_name, partition);
 
     std::vector<std::string> batch_keys;
@@ -285,7 +274,7 @@ size_t RedisClusterBackend<TKey>::fetch(const std::string& table_name, const siz
       // Process results.
       for (const auto& value : batch_values) {
         if (value) {
-          assert(value->size() == value_size);
+          HCTR_CHECK_HINT(value->size() == value_size, "Redis return value size mismatch!");
           memcpy(&values[*i * value_size], value->data(), value_size);
           hit_count++;
         } else {
@@ -294,8 +283,8 @@ size_t RedisClusterBackend<TKey>::fetch(const std::string& table_name, const siz
         i++;
       }
 
-      DEBUG << "Redis partition " << hkey << " | query " << num_queries << ": Fetched "
-            << batch_values.size() << " keys. Hits: " << hit_count << std::endl;
+      HCTR_LOG(INFO, WORLD, "Redis partition %s, query %d: Fetched %d keys. Hits %d.\n",
+               hkey.c_str(), num_queries, batch_values.size(), hit_count);
     }
 
     return hit_count;
@@ -306,8 +295,9 @@ size_t RedisClusterBackend<TKey>::fetch(const std::string& table_name, const siz
   for (size_t partition = 0; partition < num_partitions_; partition++) {
     hit_count += fn(partition);
   }
-  DEBUG << "Redis table " << table_name << ": Fetched " << hit_count << " / " << num_indices
-        << " keys." << std::endl;
+
+  HCTR_LOG(INFO, WORLD, "%s backend. Table: %s. Fetched %d / %d values.\n", get_name(),
+           table_name.c_str(), hit_count, num_indices);
   return hit_count;
 }
 
@@ -329,14 +319,15 @@ size_t RedisClusterBackend<TKey>::evict(const std::string& table_name) {
   for (size_t partition = 0; partition < num_partitions_; partition++) {
     hit_count += fn(partition);
   }
-  DEBUG << "Redis table " << table_name << ": Deleted " << hit_count << " keys." << std::endl;
+  HCTR_LOG(INFO, WORLD, "%s backend. Table %s erased (%d pairs).\n", get_name(), table_name.c_str(),
+           hit_count);
   return hit_count;
 }
 
 template <typename TKey>
 size_t RedisClusterBackend<TKey>::evict(const std::string& table_name, const size_t num_keys,
                                         const TKey* const keys) {
-  auto fn = [&, this](const size_t partition) -> size_t {
+  auto fn = [&](const size_t partition) -> size_t {
     const std::string& hkey = make_hash_key(table_name, partition);
 
     std::vector<std::string> batch;
@@ -357,8 +348,8 @@ size_t RedisClusterBackend<TKey>::evict(const std::string& table_name, const siz
       }
 
       hit_count += redis_->hdel(hkey, batch.begin(), batch.end());
-      DEBUG << "Redis partition " << hkey << " | query " << num_queries << ": Deleted "
-            << batch.size() << " keys. Hits: " << hit_count << std::endl;
+      HCTR_LOG(INFO, WORLD, "Redis partition %s, query %d: Deleted %d keys. Hits %d.\n",
+               hkey.c_str(), num_queries, batch.size(), hit_count);
     }
 
     return hit_count;
@@ -369,8 +360,8 @@ size_t RedisClusterBackend<TKey>::evict(const std::string& table_name, const siz
   for (size_t partition = 0; partition < num_partitions_; partition++) {
     hit_count += fn(partition);
   }
-  DEBUG << "Redis table " << table_name << ": Deleted " << hit_count << " / " << num_keys
-        << " keys." << std::endl;
+  HCTR_LOG(INFO, WORLD, "%s backend. Table %s. %d / %d pairs erased.\n", get_name(),
+           table_name.c_str(), hit_count, num_keys);
   return hit_count;
 }
 

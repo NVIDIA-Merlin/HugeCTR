@@ -86,7 +86,7 @@ struct parameter_server_config {
     if (it != model_name_id_map_.end()) {
       return it->second;
     } else {
-      return {};
+      return std::nullopt;
     }
   }
 };
