@@ -34,18 +34,18 @@ class PluginBpropOp : public AsyncOpKernel {
 public:
     explicit PluginBpropOp(OpKernelConstruction* ctx): AsyncOpKernel(ctx) {}
     void ComputeAsync(OpKernelContext* ctx, DoneCallback done) override {
-        Tensor const *emb_handle_tensor = nullptr;
-        OP_REQUIRES_OK_ASYNC(ctx, ctx->input("emb_handle", &emb_handle_tensor), done);
-        Tensor const *global_replica_id_tensor = nullptr;
-        OP_REQUIRES_OK_ASYNC(ctx, ctx->input("global_replica_id", &global_replica_id_tensor), done);
-        Tensor const *top_gradient_tensor = nullptr;
-        OP_REQUIRES_OK_ASYNC(ctx, ctx->input("top_gradient", &top_gradient_tensor), done);
-
-        auto work_func = [ctx, emb_handle_tensor, global_replica_id_tensor, top_gradient_tensor, done]() {
+        auto work_func = [ctx, done]() {
             // Ensure that within the callback, the proper GPU settings are
             // configured.
             auto stream = ctx->op_device_context()->stream();
             ScopedActivateExecutorContext scoped_activation{stream->parent()};
+
+            Tensor const *emb_handle_tensor = nullptr;
+            OP_REQUIRES_OK_ASYNC(ctx, ctx->input("emb_handle", &emb_handle_tensor), done);
+            Tensor const *global_replica_id_tensor = nullptr;
+            OP_REQUIRES_OK_ASYNC(ctx, ctx->input("global_replica_id", &global_replica_id_tensor), done);
+            Tensor const *top_gradient_tensor = nullptr;
+            OP_REQUIRES_OK_ASYNC(ctx, ctx->input("top_gradient", &top_gradient_tensor), done);
 
             try {
                 //FIXME: perhaps we should asynchronously wait till all threads & processes have reached this point??
@@ -74,8 +74,7 @@ public:
             done(); // no error happens
         };
 
-        auto stream = ctx->op_device_context()->stream();
-        ctx->device()->tensorflow_gpu_device_info()->event_mgr->ThenExecute(stream, std::move(work_func));
+        ctx->device()->tensorflow_cpu_worker_threads()->workers->Schedule(std::move(work_func));
     }
 };
 #else

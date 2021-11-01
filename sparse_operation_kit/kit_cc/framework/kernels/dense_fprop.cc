@@ -37,18 +37,18 @@ public:
         OP_REQUIRES_OK(ctx, ctx->GetAttr("dynamic_input", &dynamic_input_));
     }
     void ComputeAsync(OpKernelContext* ctx, DoneCallback done) override {
-        Tensor const *emb_handle_tensor = nullptr;
-        OP_REQUIRES_OK_ASYNC(ctx, ctx->input("emb_handle", &emb_handle_tensor), done);
-        Tensor const *values_tensor = nullptr;
-        OP_REQUIRES_OK_ASYNC(ctx, ctx->input("values", &values_tensor), done);
-        Tensor const *global_replica_id_tensor = nullptr;
-        OP_REQUIRES_OK_ASYNC(ctx, ctx->input("global_replica_id", &global_replica_id_tensor), done);
-
-        auto work_func = [this, ctx, emb_handle_tensor, values_tensor, global_replica_id_tensor, done]() {
+        auto work_func = [this, ctx, done]() {
             // Ensure that within the callback, the proper GPU settings are
             // configured.
             auto stream = ctx->op_device_context()->stream();
             ScopedActivateExecutorContext scoped_activation{stream->parent()};
+
+            Tensor const *emb_handle_tensor = nullptr;
+            OP_REQUIRES_OK_ASYNC(ctx, ctx->input("emb_handle", &emb_handle_tensor), done);
+            Tensor const *values_tensor = nullptr;
+            OP_REQUIRES_OK_ASYNC(ctx, ctx->input("values", &values_tensor), done);
+            Tensor const *global_replica_id_tensor = nullptr;
+            OP_REQUIRES_OK_ASYNC(ctx, ctx->input("global_replica_id", &global_replica_id_tensor), done);
 
             //FIXME: perhaps we should asynchronously wait till all threads & processes have reached this point??
 
@@ -106,8 +106,7 @@ public:
             done(); // no error happens
         };
 
-        auto stream = ctx->op_device_context()->stream();
-        ctx->device()->tensorflow_gpu_device_info()->event_mgr->ThenExecute(stream, std::move(work_func));
+        ctx->device()->tensorflow_cpu_worker_threads()->workers->Schedule(std::move(work_func));
     }
 private:
     bool training_;
