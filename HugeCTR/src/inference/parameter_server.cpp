@@ -239,10 +239,13 @@ parameter_server<TypeHashKey>::parameter_server(
     // unchanged
     //*********
     std::map<int64_t, std::shared_ptr<embedding_interface>> embedding_cache_map;
-    if (inference_params_array[i].depolyed_devices.empty()) {
-      inference_params_array[i].depolyed_devices.push_back(inference_params_array[i].device_id);
+    if (inference_params_array[i].deployed_devices.empty() ||
+        (inference_params_array[i].deployed_devices.size() == 1 &&
+         inference_params_array[i].deployed_devices[0] != inference_params_array[i].device_id)) {
+      inference_params_array[i].deployed_devices.clear();
+      inference_params_array[i].deployed_devices.push_back(inference_params_array[i].device_id);
     }
-    for (auto device_id : inference_params_array[i].depolyed_devices) {
+    for (auto device_id : inference_params_array[i].deployed_devices) {
       DEBUG << "Create embedding cache in device " << device_id << "." << std::endl;
       inference_params_array[i].device_id = device_id;
       embedding_cache_map[device_id] =

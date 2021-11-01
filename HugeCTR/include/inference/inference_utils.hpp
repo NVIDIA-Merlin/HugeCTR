@@ -48,7 +48,7 @@ struct InferenceParams {
   int number_of_worker_buffers_in_pool;
   int number_of_refresh_buffers_in_pool;
   float cache_refresh_percentage_per_iteration;
-  std::vector<int> depolyed_devices;
+  std::vector<int> deployed_devices;
   std::vector<float> default_value_for_each_table;
   InferenceParams(const std::string& model_name, const size_t max_batchsize,
                   const float hit_rate_threshold, const std::string& dense_model_file,
@@ -63,7 +63,7 @@ struct InferenceParams {
                   const int number_of_worker_buffers_in_pool = 2,
                   const int number_of_refresh_buffers_in_pool = 1,
                   const float cache_refresh_percentage_per_iteration = 0.1,
-                  const std::vector<int>& depolyed_devices = {},
+                  const std::vector<int>& deployed_devices = {},
                   const std::vector<float>& default_value_for_each_table = {0.0f});
 };
 
