@@ -25,10 +25,7 @@ InferenceParams::InferenceParams(
     const bool i64_input_key, const bool use_mixed_precision, const float scaler,
     const bool use_algorithm_search, const bool use_cuda_graph, DATABASE_TYPE db_type,
     const std::string redis_ip, const std::string rocksdb_path,
-    const float cache_size_percentage_redis, const int number_of_worker_buffers_in_pool,
-    const int number_of_refresh_buffers_in_pool, const float cache_refresh_percentage_per_iteration,
-    const std::vector<int>& depolyed_devices,
-    const std::vector<float>& default_value_for_each_table)
+    const float cache_size_percentage_redis)
     : model_name(model_name),
       max_batchsize(max_batchsize),
       hit_rate_threshold(hit_rate_threshold),
@@ -45,12 +42,7 @@ InferenceParams::InferenceParams(
       db_type(db_type),
       redis_ip(redis_ip),
       rocksdb_path(rocksdb_path),
-      cache_size_percentage_redis(cache_size_percentage_redis),
-      number_of_worker_buffers_in_pool(number_of_worker_buffers_in_pool),
-      number_of_refresh_buffers_in_pool(number_of_refresh_buffers_in_pool),
-      cache_refresh_percentage_per_iteration(cache_refresh_percentage_per_iteration),
-      depolyed_devices(depolyed_devices),
-      default_value_for_each_table(default_value_for_each_table) {}
+      cache_size_percentage_redis(cache_size_percentage_redis) {}
 
 template <typename TypeEmbeddingComp>
 void InferenceParser::create_pipeline_inference(
