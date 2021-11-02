@@ -402,6 +402,10 @@ Model::~Model() {
 }
 
 void Model::graph_to_json(std::string graph_config_file) {
+  if (!graph_finalized_) {
+    graph_analysis();
+    graph_finalized_ = true;
+  }
   nlohmann::json graph_config;
   std::ofstream file_stream(graph_config_file);
   nlohmann::json layer_config_array = nlohmann::json::array();
@@ -459,9 +463,13 @@ void Model::add(Input& input) {
   activate_tensor(tensor_active_, input.dense_name);
   data_input_info_.push_back(input.label_name);
   data_input_info_.push_back(input.dense_name);
+  tensor_shape_info_raw_.insert(std::make_pair(input.label_name, std::vector<int>{solver_.batchsize, input.label_dim}));
+  tensor_shape_info_raw_.insert(std::make_pair(input.dense_name, std::vector<int>{solver_.batchsize, input.dense_dim}));  
   std::vector<std::string> sparse_names;
   for (size_t i = 0; i < input.data_reader_sparse_param_array.size(); ++i) {
     sparse_names.push_back(input.data_reader_sparse_param_array[i].top_name);
+    tensor_shape_info_raw_.insert(std::make_pair(input.data_reader_sparse_param_array[i].top_name,
+                                            std::vector<int>{solver_.batchsize, input.data_reader_sparse_param_array[i].slot_num}));    
   }
   data_input_info_.push_back(join(sparse_names, ","));
   for (unsigned int i = 0; i < input.data_reader_sparse_param_array.size(); i++) {
@@ -499,6 +507,9 @@ void Model::add(SparseEmbedding& sparse_embedding) {
   sparse_embedding_params_.push_back(sparse_embedding);
   deactivate_tensor(tensor_active_, sparse_embedding.bottom_name);
   activate_tensor(tensor_active_, sparse_embedding.sparse_embedding_name);
+  int slot_num = tensor_shape_info_raw_[sparse_embedding.bottom_name][1];
+  tensor_shape_info_raw_.insert(std::make_pair(sparse_embedding.sparse_embedding_name,
+        std::vector<int>{solver_.batchsize, slot_num, static_cast<int>(sparse_embedding.embedding_vec_size)}));  
   input_output_info_.push_back(
       std::make_pair(sparse_embedding.bottom_name, sparse_embedding.sparse_embedding_name));
   layer_info_.push_back(EMBEDDING_TYPE_TO_STRING[sparse_embedding.embedding_type]);
@@ -540,14 +551,28 @@ void Model::add(SparseEmbedding& sparse_embedding) {
 }
 
 void Model::add(DenseLayer& dense_layer) {
+  for (auto& top_name : dense_layer.top_names) {
+    if (tensor_shape_info_raw_.find(top_name) != tensor_shape_info_raw_.end()) {
+      CK_THROW_(Error_t::WrongInput, top_name + ", top tensor name already exists");
+    }
+  }
+  for (auto& bottom_name : dense_layer.bottom_names) {
+    if (tensor_shape_info_raw_.find(bottom_name) == tensor_shape_info_raw_.end()) {
+      CK_THROW_(Error_t::WrongInput, bottom_name + ", bottom tensor name does not exists");
+    }
+  }
+  calculate_tensor_dimensions(tensor_shape_info_raw_, dense_layer);
+  dense_layer_params_raw_.push_back(dense_layer);
+}
+
+void Model::add_internal(DenseLayer& dense_layer) {
   if (!solver_.is_dlrm && dense_layer.pos_type != FcPosition_t::None) {
     CK_THROW_(Error_t::WrongInput, "Specific fully connected position is restricted to DLRM use");
   }
-  dense_layer_params_.push_back(dense_layer);
-  for (auto bottom_name : dense_layer.bottom_names) {
+  for (auto& bottom_name : dense_layer.bottom_names) {
     deactivate_tensor(tensor_active_, bottom_name);
   }
-  for (auto top_name : dense_layer.top_names) {
+  for (auto& top_name : dense_layer.top_names) {
     activate_tensor(tensor_active_, top_name);
   }
   std::string input_names = join(dense_layer.bottom_names, ",");
@@ -570,7 +595,72 @@ void Model::add(DenseLayer& dense_layer) {
                   wgrad_buff_half_placeholder_list_, dlrm_bottom_mlp_);
 }
 
+void Model::graph_analysis() {
+  HCTR_LOG(INFO, ROOT, "Graph analysis to resolve tensor dependency\n");
+  std::map<std::string, unsigned int> tensor_usage;
+  std::map<std::string, DenseLayer> tensor_slice_layer;
+  std::map<std::string, unsigned int> tensor_slice_index;
+  for (auto& dense_layer : dense_layer_params_raw_) {
+    for (auto& bottom_name : dense_layer.bottom_names) {
+      analyze_tensor(tensor_usage, bottom_name);
+    }
+  }
+  for (auto iter = tensor_usage.begin(); iter != tensor_usage.end(); iter++) {
+    if (iter->second > 5) {
+      CK_THROW_(Error_t::WrongInput, "The graph should not include more than 5-way branches");
+    }
+    if (iter->second > 1) {
+      std::vector<std::string> bottom_names{iter->first};
+      std::vector<std::string> top_names;
+      std::vector<std::pair<int, int>> ranges;
+      for (unsigned int i = 0; i < iter->second; i++) {
+        top_names.push_back(iter->first+"_slice"+std::to_string(i));
+        ranges.emplace_back(std::make_pair(0, tensor_shape_info_raw_[iter->first][1]));
+      }
+      DenseLayer slice_layer(Layer_t::Slice, bottom_names, top_names);
+      slice_layer.ranges = ranges;
+      tensor_slice_layer.insert(std::pair<std::string, DenseLayer>(iter->first, slice_layer));
+      tensor_slice_index.insert(std::pair<std::string, unsigned int>(iter->first, 0));
+      HCTR_LOG(INFO, ROOT, "Add Slice layer for tensor: %s, creating %d copies\n", iter->first.c_str(), iter->second);
+    }
+  }
+  for (auto& dense_layer : dense_layer_params_raw_) {
+    bool flag = true;
+    for (auto& bottom_name : dense_layer.bottom_names) {
+      if (tensor_usage[bottom_name] > 1) {
+        flag = false;
+        break;
+      }
+    }
+    if (flag) {
+      dense_layer_params_.push_back(dense_layer);
+    } else {
+      DenseLayer new_dense_layer = dense_layer;
+      for (unsigned int i = 0; i < new_dense_layer.bottom_names.size(); i++) {
+        std::string old_bottom_name = new_dense_layer.bottom_names[i];
+        if (tensor_slice_index.find(old_bottom_name) != tensor_slice_index.end()) {
+          auto iter = tensor_slice_layer.find(old_bottom_name);
+          if (tensor_slice_index[old_bottom_name] == 0) {
+            dense_layer_params_.push_back(iter->second);
+          }
+          std::string new_bottom_name = iter->second.top_names[tensor_slice_index[old_bottom_name]];
+          tensor_slice_index[old_bottom_name] += 1;          
+          new_dense_layer.bottom_names[i] = new_bottom_name;
+        }
+      }
+      dense_layer_params_.push_back(new_dense_layer);
+    }
+  }
+  for (auto& dense_layer:dense_layer_params_) {
+    add_internal(dense_layer);
+  }
+}
+
 void Model::compile() {
+  if (!graph_finalized_) {
+    graph_analysis();
+    graph_finalized_ = true;
+  }
   if (data_input_info_.size() < 3 || layer_info_.size() < 2) {
     CK_THROW_(Error_t::IllegalCall, "The model should include input and at least two layers");
   }
@@ -738,6 +828,10 @@ void Model::load_sparse_weights(const std::vector<std::string>& sparse_embedding
 }
 
 void Model::summary() {
+  if (!graph_finalized_) {
+    graph_analysis();
+    graph_finalized_ = true;
+  }
   if (data_input_info_.size() < 3 || layer_info_.size() < 2) {
     CK_THROW_(Error_t::IllegalCall, "The model should include input and at least two layers");
   }
@@ -862,7 +956,7 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
   HCTR_LOG(INFO, ROOT,"Use mixed precision: %d, scaler: %d, use cuda graph: %d\n",
                        solver_.use_mixed_precision,
                        solver_.scaler,
-                       solver_.use_cuda_graph);
+                       int(solver_.use_cuda_graph));
   HCTR_LOG(INFO, ROOT,"lr: %f, warmup_steps: %zu, decay_start: %zu, decay_steps: %zu, decay_power: %f, end_lr: %f\n", 
                        solver_.lr,
                        solver_.warmup_steps,

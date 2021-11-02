@@ -51,32 +51,19 @@ model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.FusedReshapeConcat,
                             bottom_names = ["sparse_embedding_good", "sparse_embedding_cate"],
                             top_names = ["FusedReshapeConcat_item_his_em", "FusedReshapeConcat_item"]))
 
-model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Slice,
-                            bottom_names = ["FusedReshapeConcat_item"],
-                            top_names = ["item1", "item2"],
-                            ranges=[(0,36),(0, 36)]))
-model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Slice,
-                            bottom_names = ["FusedReshapeConcat_item_his_em"],
-                            top_names = ["item_his1", "item_his2", "item_his3", "item_his4", "item_his5"],
-                            ranges=[(0,36),(0, 36),(0, 36), (0, 36), (0, 36)]))
-
 model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Scale,
-                            bottom_names = ["item1"],
+                            bottom_names = ["FusedReshapeConcat_item"],
                             top_names = ["Scale_item"],
                             axis = 1, factor = 10))
-model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Slice,
-                            bottom_names = ["Scale_item"],
-                            top_names = ["Scale_item1", "Scale_item2", "Scale_item3"],
-                            ranges=[(0,36),(0, 36),(0, 36)]))
-
+                            
 model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Sub,
-                            bottom_names = ["Scale_item1", "item_his1"],
+                            bottom_names = ["Scale_item", "FusedReshapeConcat_item_his_em"],
                             top_names = ["sub_ih"]))
 model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.DotProduct,
-                            bottom_names = ["Scale_item2", "item_his2"],
+                            bottom_names = ["Scale_item", "FusedReshapeConcat_item_his_em"],
                             top_names = ["DotProduct_i"]))
 model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Concat,
-                            bottom_names = ["Scale_item3", "item_his3", "sub_ih", "DotProduct_i"],
+                            bottom_names = ["Scale_item", "FusedReshapeConcat_item_his_em", "sub_ih", "DotProduct_i"],
                             top_names = ["concat_i_h"]))
 
 model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.InnerProduct,
@@ -99,7 +86,7 @@ model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Scale,
                             top_names = ["Scale_i"],
                             axis = 0, factor = 36))
 model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Reshape,
-                            bottom_names = ["item_his4"],
+                            bottom_names = ["FusedReshapeConcat_item_his_em"],
                             top_names = ["reshape_item_his"],
                             leading_dim=360))
 model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.DotProduct,
@@ -111,7 +98,7 @@ model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.ReduceSum,
                             axis = 1))
 
 model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Reshape,
-                            bottom_names = ["item_his5"],
+                            bottom_names = ["FusedReshapeConcat_item_his_em"],
                             top_names = ["reshape_his"],
                             leading_dim=36,
                             time_step =10))
@@ -129,7 +116,7 @@ model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Reshape,
                             top_names = ["reshape_user"],
                             leading_dim=18))
 model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Concat,
-                            bottom_names = ["reshape_user", "reshape_reduce_item_his", "reduce_ih", "item2"],
+                            bottom_names = ["reshape_user", "reshape_reduce_item_his", "reduce_ih", "FusedReshapeConcat_item"],
                             top_names = ["concat_din_i"]))
 # build_fcn_net
 model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.InnerProduct,

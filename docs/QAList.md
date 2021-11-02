@@ -105,3 +105,5 @@ DGX is not required, but recommended, because the performance of CTR training hi
 For multi-node training, InfiniBand is recommended but not required. You can use any solution with UCX support. InfiniBand with GPU RDMA support will maximize performance of inter-node transactions.
 ### 28. Does HugeCTR support loading pretrained embeddings in other formats? ###
 You can convert the pretrained embeddings to the HugeCTR sparse models and then load them to facilitate the training process. You can refer to [save_params_to_files](python_interface.md#save_params_to_files-method) to get familiar with the HugeCTR sparse model format. We demonstrate the usage in 3.4 Load Pre-trained Embeddings of [hugectr_criteo.ipynb](../notebooks/hugectr_criteo.ipynb).
+### 29. How to construct the model graph with branch topology in HugeCTR? ###
+The branch topology is inherently supported by HugeCTR model graph, and extra layers are abstracted away in HugeCTR Python Interface. Please refer to [Getting Started](../README.md#getting-started) to see how to construct a model graph with branches.
