@@ -424,6 +424,13 @@ inline std::string get_value_from_json_soft(const nlohmann::json& json, const st
 
 OptParams get_optimizer_param(const nlohmann::json& j_optimizer);
 
+inline void analyze_tensor(std::map<std::string, unsigned int>& tensor_usage, std::string bottom_name) {
+  if (tensor_usage.find(bottom_name) == tensor_usage.end()) {
+    tensor_usage.insert(std::pair<std::string, unsigned int>(bottom_name, 0));
+  }
+  tensor_usage[bottom_name] += 1;
+}
+
 inline void activate_tensor(std::map<std::string, bool>& tensor_active, std::string top_name) {
   if (tensor_active.find(top_name) != tensor_active.end()) {
     CK_THROW_(Error_t::WrongInput, top_name + ", top tensor name already exists");

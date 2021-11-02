@@ -405,7 +405,7 @@ The Slice layer extracts multiple output tensors from a 2D input tensors.
 
 Parameter:
 
-* `ranges`: List[Tuple[int, int]], used for the Slice layer. A list of tuples in which each one represents a range in the input tensor to generate the corresponding output tensor. For example, (2, 8) indicates that 8 elements starting from the second element in the input tensor are used to create an output tensor. The number of tuples corresponds to the number of output tensors. Ranges are allowed to overlap unless it is a reverse or negative range. The default value is [].
+* `ranges`: List[Tuple[int, int]], used for the Slice layer. A list of tuples in which each one represents a range in the input tensor to generate the corresponding output tensor. For example, (2, 8) indicates that 6 elements starting from the second element in the input tensor are used to create an output tensor. Note that the start index is inclusive and the end index is exclusive. The number of tuples corresponds to the number of output tensors. Ranges are allowed to overlap unless it is a reverse or negative range. The default value is [].
 
 Input and Output Shapes:
 
@@ -413,11 +413,49 @@ Input and Output Shapes:
 * output: {(batch_size, b-a), (batch_size, d-c), ....) where ranges ={[a, b), [c, d), …} and len(ranges) <= 5
 
 Example:
+
+You can apply the Slice layer to actually slicing a tensor. In this case, it must be explictly added with Python API.
+```python
+model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Slice,
+                            bottom_names = ["dense"],
+                            top_names = ["slice21", "slice22"],
+                            ranges=[(0,10),(10,13)]))
+model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.WeightMultiply,
+                            bottom_names = ["slice21"],
+                            top_names = ["weight_multiply1"],
+                            weight_dims= [10,10]))
+model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.WeightMultiply,
+                            bottom_names = ["slice22"],
+                            top_names = ["weight_multiply2"],
+                            weight_dims= [3,1]))                       
+```
+
+The Slice layer can also be employed to create copies of a tensor, which helps to express a branch topology in your model graph.
 ```python
 model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Slice,
                             bottom_names = ["dense"],
                             top_names = ["slice21", "slice22"],
                             ranges=[(0,13),(0,13)]))
+model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.WeightMultiply,
+                            bottom_names = ["slice21"],
+                            top_names = ["weight_multiply1"],
+                            weight_dims= [13,10]))
+model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.WeightMultiply,
+                            bottom_names = ["slice22"],
+                            top_names = ["weight_multiply2"],
+                            weight_dims= [13,1]))                       
+```
+
+From HugeCTR v.3.3, the aforementioned, Slice layer based branching can be abstracted away. When the same tensor is referenced multiple times in constructing a model in Python, the HugeCTR parser can internally add a Slice layer to handle such a situation. Thus, the example below behaves as the same as the one above whilst simplifying the code.
+```python
+model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.WeightMultiply,
+                            bottom_names = ["dense"],
+                            top_names = ["weight_multiply1"],
+                            weight_dims= [13,10]))
+model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.WeightMultiply,
+                            bottom_names = ["dense"],
+                            top_names = ["weight_multiply2"],
+                            weight_dims= [13,1]))                       
 ```
 
 ### Dropout Layer

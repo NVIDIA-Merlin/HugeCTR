@@ -73,7 +73,8 @@ $ docker run --gpus=all --rm -it --cap-add SYS_NICE nvcr.io/nvidia/merlin/merlin
 To build HugeCTR from scratch, refer to [Build HugeCTR from source code](./hugectr_contributor_guide.md#build-hugectr-from-source). 
 
 ## Use Cases ##
-With the release of HugeCTR version 3.1, training can no longer be performed using the command line and JSON configuration file. To complete model training, use the Python interface. For more information regarding how to use the HugeCTR Python API and comprehend its API signature, refer to [Python Interface](./python_interface.md).
+With the release of HugeCTR version 3.1, training can no longer be performed using the command line and JSON configuration file. You can construct the model graph and train the model with HugeCTR Python Interface. It is worth mentioning that the branch topology is inherently supported by HugeCTR model graph, and extra layers are abstracted away in Python interface. Please refer to [Getting Started](../README.md#getting-started) to see how to construct a model graph with branches.
+For more information regarding how to use the HugeCTR Python API and comprehend its API signature, refer to [Python Interface](./python_interface.md).
 
 ## Core Features ##
 In addition to single-node and full precision training, HugeCTR supports a variety of features including the following:

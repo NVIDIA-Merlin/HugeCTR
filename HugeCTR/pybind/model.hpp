@@ -284,6 +284,9 @@ void save_graph_to_json(nlohmann::json& layer_config_array,
                         std::vector<std::shared_ptr<OptParamsPy>>& embedding_opt_params_list,
                         bool use_mixed_precision);
 
+void calculate_tensor_dimensions(std::map<std::string, std::vector<int>>& tensor_shape_info_raw,
+                                DenseLayer& dense_layer);
+
 void init_optimizer(OptParams& opt_params, const Solver& solver,
                     const std::shared_ptr<OptParamsPy>& opt_params_py);
 
@@ -315,6 +318,10 @@ class Model {
   void add(SparseEmbedding& sparse_embedding);
 
   void add(DenseLayer& dense_layer);
+
+  void add_internal(DenseLayer& dense_layer);
+
+  void graph_analysis();
 
   void compile();
 
@@ -454,8 +461,11 @@ class Model {
   std::vector<std::shared_ptr<BufferBlock2<__half>>> opt_buff_half_list_;
 
   bool set_source_flag_{true};
+  bool graph_finalized_{false};
   std::vector<std::pair<std::vector<long long>, std::vector<float>>> inc_sparse_model_;
 
+  std::vector<DenseLayer> dense_layer_params_raw_;
+  std::map<std::string, std::vector<int>> tensor_shape_info_raw_;
   std::vector<DenseLayer> dense_layer_params_;
   std::vector<SparseEmbedding> sparse_embedding_params_;
   std::vector<Input> input_params_;
