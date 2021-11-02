@@ -151,6 +151,9 @@ public:
         Tensor* y_tensor = nullptr;
         OP_REQUIRES_OK(ctx, ctx->allocate_output(0, x_tensor->shape(), &y_tensor));
 
+        std::cout << "\n[INFO]: input numelements = " << x_tensor->NumElements()
+                  << ", on thread: " << std::this_thread::get_id() << std::endl;
+
         int init_flag = 0;
         CK_MPI(ctx, MPI_Initialized(&init_flag));
         if (1 == init_flag) {
@@ -170,13 +173,15 @@ public:
         } else {
             std::cout << "\n[INFO]: MPI has not been Initialized." << std::endl;
         }
+
+        std::cout << "\n[INFO]: thread " << std::this_thread::get_id() << " done" << std::endl;
     }
 };
 #endif
 
 REGISTER_KERNEL_BUILDER(Name("Test").Device(DEVICE_GPU), 
                         TestOp<GPUDevice>);
-REGISTER_KERNEL_BUILDER(Name("Test").Device(DEVICE_CPU),
-                        TestOp<CPUDevice>);
+// REGISTER_KERNEL_BUILDER(Name("Test").Device(DEVICE_CPU),
+//                         TestOp<CPUDevice>);
 
 } // tensorflow
