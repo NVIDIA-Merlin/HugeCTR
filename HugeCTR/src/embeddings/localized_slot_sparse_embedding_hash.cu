@@ -218,7 +218,9 @@ LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::LocalizedSlotS
         value_table_tensors_.push_back(tensors);
         if (max_vocabulary_size_per_gpu_ > vocabulary_size_in_current_gpu) {
           Tensor2<float> padding_tensor_for_optimizer;
-          block->reserve({max_vocabulary_size_per_gpu_ - vocabulary_size_in_current_gpu, embedding_data_.embedding_params_.embedding_vec_size}, &padding_tensor_for_optimizer);
+          block->reserve({max_vocabulary_size_per_gpu_ - vocabulary_size_in_current_gpu,
+                          embedding_data_.embedding_params_.embedding_vec_size},
+                         &padding_tensor_for_optimizer);
         }
         hash_table_value_tensors_.push_back(block->as_tensor());
       }
@@ -400,7 +402,9 @@ LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::LocalizedSlotS
         value_table_tensors_.push_back(tensors);
         if (max_vocabulary_size_per_gpu_ > vocabulary_size_in_current_gpu) {
           Tensor2<float> padding_tensor_for_optimizer;
-          block->reserve({max_vocabulary_size_per_gpu_ - vocabulary_size_in_current_gpu, embedding_data_.embedding_params_.embedding_vec_size}, &padding_tensor_for_optimizer);
+          block->reserve({max_vocabulary_size_per_gpu_ - vocabulary_size_in_current_gpu,
+                          embedding_data_.embedding_params_.embedding_vec_size},
+                         &padding_tensor_for_optimizer);
         }
         hash_table_value_tensors_.push_back(block->as_tensor());
       }

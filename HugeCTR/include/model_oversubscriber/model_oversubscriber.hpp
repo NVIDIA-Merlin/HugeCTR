@@ -16,10 +16,11 @@
 
 #pragma once
 
-#include "HugeCTR/include/embeddings/embedding_data.hpp"
-#include "HugeCTR/include/model_oversubscriber/model_oversubscriber_impl.hpp"
-#include "HugeCTR/include/model_oversubscriber/parameter_server_manager.hpp"
 #include "embedding.hpp"
+#include "embeddings/embedding_data.hpp"
+#include "model_oversubscriber/hmem_cache/hmem_cache.hpp"
+#include "model_oversubscriber/model_oversubscriber_impl.hpp"
+#include "model_oversubscriber/parameter_server_manager.hpp"
 
 namespace HugeCTR {
 
@@ -28,10 +29,12 @@ class ModelOversubscriber {
   std::unique_ptr<ModelOversubscriberImplBase> impl_base_;
 
  public:
-  ModelOversubscriber(bool use_host_ps, std::vector<std::shared_ptr<IEmbedding>>& embeddings,
-                      const std::vector<std::string>& sparse_embedding_files,
+  ModelOversubscriber(std::vector<TrainPSType_t> ps_types,
+                      std::vector<std::shared_ptr<IEmbedding>> embeddings,
+                      std::vector<std::string> sparse_embedding_files,
                       std::shared_ptr<ResourceManager> resource_manager, bool use_mixed_precision,
-                      bool is_i64_key) {
+                      bool is_i64_key, std::vector<std::string> local_paths,
+                      std::vector<HMemCacheConfig> hmem_cache_configs) {
     std::vector<SparseEmbeddingHashParams> embedding_params;
     if (is_i64_key) {
       for (auto& embedding : embeddings) {
@@ -39,14 +42,16 @@ class ModelOversubscriber {
         embedding_params.push_back(param);
       }
       impl_base_.reset(new ModelOversubscriberImpl<long long>(
-          use_host_ps, embeddings, embedding_params, sparse_embedding_files, resource_manager));
+          ps_types, embeddings, embedding_params, sparse_embedding_files, resource_manager,
+          local_paths, hmem_cache_configs));
     } else {
       for (auto& embedding : embeddings) {
         const auto& param = embedding->get_embedding_params();
         embedding_params.push_back(param);
       }
       impl_base_.reset(new ModelOversubscriberImpl<unsigned>(
-          use_host_ps, embeddings, embedding_params, sparse_embedding_files, resource_manager));
+          ps_types, embeddings, embedding_params, sparse_embedding_files, resource_manager,
+          local_paths, hmem_cache_configs));
     }
   }
 

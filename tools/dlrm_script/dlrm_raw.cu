@@ -23,8 +23,7 @@ using HugeCTR::MESSAGE_;
 #include <iostream>
 
 template <typename T>
-auto dtype()
-{
+auto dtype() {
   return cudf::data_type{cudf::type_to_id<T>()};
 }
 
@@ -65,7 +64,7 @@ void process_kaggle_dataset(const std::string &input_dir_path, const std::string
       new rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource>(base_mr, pool_alloc_size);
   rmm::mr::set_current_device_resource(p_mr);
 
-  std::vector<cudf::data_type> column_dtypes;                 // dtypes of label, dense, categorical
+  std::vector<cudf::data_type> column_dtypes;             // dtypes of label, dense, categorical
   std::vector<std::string> column_names;                  // names of label, dense, categorical
   std::vector<std::string> cat_column_names;              // names of categorical
   std::map<std::string, int32_t> column_name_to_col_idx;  // <col-name, idx>

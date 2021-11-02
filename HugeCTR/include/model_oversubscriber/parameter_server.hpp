@@ -17,15 +17,19 @@
 #pragma once
 
 #include "embedding.hpp"
+#include "model_oversubscriber/hmem_cache/hmem_cache.hpp"
 #include "model_oversubscriber/sparse_model_entity.hpp"
 
 namespace HugeCTR {
 
 template <typename TypeKey>
 class ParameterServer {
-  bool use_host_ps_;
+  TrainPSType_t ps_type_;
+  bool use_slot_id_;
+  std::unique_ptr<HMemCache<TypeKey>> hmem_cache_;
+  std::unique_ptr<SparseModelEntity<TypeKey>> sparse_model_entity_;
+
   std::vector<TypeKey> keyset_;
-  SparseModelEntity<TypeKey> sparse_model_entity_;
 
  public:
   /**
@@ -37,9 +41,10 @@ class ParameterServer {
    * @param emb_vec_size Embedding vector size.
    * @param resource_manager The object of ResourceManager.
    */
-  ParameterServer(bool use_host_ps, const std::string &sparse_model_file,
-                  Embedding_t embedding_type, size_t emb_vec_size,
-                  std::shared_ptr<ResourceManager> resource_manager);
+  ParameterServer(TrainPSType_t ps_type, const std::string &sparse_model_file,
+                  Embedding_t embedding_type, Optimizer_t opt_type, size_t emb_vec_size,
+                  std::shared_ptr<ResourceManager> resource_manager, std::string local_path = "./",
+                  HMemCacheConfig hmem_cache_config = HMemCacheConfig());
 
   ParameterServer(const ParameterServer &) = delete;
   ParameterServer &operator=(const ParameterServer &) = delete;
@@ -77,7 +82,7 @@ class ParameterServer {
    *        table in the host memory.
    *        Note: The API will do nothing when use_host_ps = false.
    */
-  void flush_emb_tbl_to_ssd() { sparse_model_entity_.flush_emb_tbl_to_ssd(); }
+  void flush_emb_tbl_to_ssd();
 };
 
 }  // namespace HugeCTR

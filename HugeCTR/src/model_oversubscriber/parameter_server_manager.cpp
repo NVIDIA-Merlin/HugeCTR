@@ -14,18 +14,19 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/model_oversubscriber/parameter_server_manager.hpp"
+#include "model_oversubscriber/parameter_server_manager.hpp"
 
-#include <string>
+#include <algorithm>
 
 namespace HugeCTR {
 
 template <typename TypeKey>
 ParameterServerManager<TypeKey>::ParameterServerManager(
-    bool use_host_ps, const std::vector<std::string>& sparse_embedding_files,
-    const std::vector<Embedding_t>& embedding_types,
-    const std::vector<SparseEmbeddingHashParams>& embedding_params, size_t buffer_size,
-    std::shared_ptr<ResourceManager> resource_manager) {
+    std::vector<TrainPSType_t>& ps_types, std::vector<std::string>& sparse_embedding_files,
+    std::vector<Embedding_t> embedding_types,
+    std::vector<SparseEmbeddingHashParams>& embedding_params, size_t buffer_size,
+    std::shared_ptr<ResourceManager> resource_manager, std::vector<std::string>& local_paths,
+    std::vector<HMemCacheConfig>& hmem_cache_configs) {
   try {
     if (sparse_embedding_files.size() == 0)
       CK_THROW_(Error_t::WrongInput,
@@ -38,56 +39,94 @@ ParameterServerManager<TypeKey>::ParameterServerManager(
                     std::to_string(embedding_params.size()) +
                     " != " + std::to_string(sparse_embedding_files.size()));
 
-    if (use_host_ps) {
-      MESSAGE_("Host MEM-based Parameter Server is enabled");
-    } else {
-      MESSAGE_("SSD-based Parameter Server is enabled, performance may drop!!!");
+    if (embedding_params.size() != ps_types.size()) {
+      CK_THROW_(Error_t::WrongInput, "Must specify the PS type for each embedding table");
     }
 
-    size_t max_vec_size = 0, max_voc_size_per_gpu = 0;
-    for (int i = 0; i < static_cast<int>(embedding_params.size()); i++) {
-      size_t ith_vec_size = embedding_params[i].embedding_vec_size;
-      max_vec_size = (ith_vec_size > max_vec_size) ? ith_vec_size : max_vec_size;
-
-      size_t tmp_voc_size = embedding_params[i].max_vocabulary_size_per_gpu;
-      max_voc_size_per_gpu =
-          (tmp_voc_size > max_voc_size_per_gpu) ? tmp_voc_size : max_voc_size_per_gpu;
-
-      MESSAGE_("construct sparse models for model oversubscriber: " + sparse_embedding_files[i]);
-      ps_.push_back(std::make_shared<ParameterServer<TypeKey>>(
-          use_host_ps, sparse_embedding_files[i], embedding_types[i],
-          embedding_params[i].embedding_vec_size, resource_manager));
-    }
-
-    bool has_localized_embedding = false;
-    for (auto type : embedding_types) {
-      if (type != Embedding_t::DistributedSlotSparseEmbeddingHash) {
-        has_localized_embedding = true;
-        break;
+    {
+      bool has_cached{std::any_of(ps_types.begin(), ps_types.end(),
+                                  [](auto val) { return val == TrainPSType_t::Cached; })};
+      int num_paths(local_paths.size());
+      int num_procs(resource_manager->get_num_process());
+      if (has_cached && (num_paths != num_procs)) {
+        std::stringstream ss;
+        ss << "Num of local_paths (" << num_paths << ") != Num of MPI ranks (" << num_procs << ")";
+        CK_THROW_(Error_t::WrongInput, ss.str());
       }
     }
 
-    bool all_one_hot_embedding = true;
-    for (auto type : embedding_types) {
-      if (type != Embedding_t::LocalizedSlotSparseEmbeddingOneHot) {
-        all_one_hot_embedding = false;
-        break;
+    for (size_t i{0}; i < ps_types.size(); i++) {
+      switch (ps_types[i]) {
+        case TrainPSType_t::Staged: {
+          MESSAGE_("Enable HMEM-Based Parameter Server");
+          ps_.push_back(std::make_shared<ParameterServer<TypeKey>>(
+              ps_types[i], sparse_embedding_files[i], embedding_types[i],
+              embedding_params[i].opt_params.optimizer, embedding_params[i].embedding_vec_size,
+              resource_manager));
+          break;
+        }
+        case TrainPSType_t::Cached: {
+          MESSAGE_("Enable HMemCache-Based Parameter Server");
+          if (ps_types.size() != hmem_cache_configs.size()) {
+            CK_THROW_(Error_t::WrongInput, "ps_types.size() != hmem_cache_configs.size()");
+          }
+          for (auto& hmem_cache_config : hmem_cache_configs) {
+            hmem_cache_config.block_capacity = buffer_size;
+          }
+          auto rank_id{resource_manager->get_process_id()};
+          ps_.push_back(std::make_shared<ParameterServer<TypeKey>>(
+              ps_types[i], sparse_embedding_files[i], embedding_types[i],
+              embedding_params[i].opt_params.optimizer, embedding_params[i].embedding_vec_size,
+              resource_manager, local_paths[rank_id], hmem_cache_configs[i]));
+          break;
+        }
+        default: {
+          CK_THROW_(Error_t::WrongInput, "Unsuppoted PS type");
+        }
       }
     }
 
-    auto host_blobs_buff = GeneralBuffer2<CudaHostAllocator>::create();
+    auto it{std::max_element(
+        embedding_params.begin(), embedding_params.end(), [](auto const& a, auto const& b) {
+          return vec_per_line[a.opt_params.optimizer] < vec_per_line[b.opt_params.optimizer];
+        })};
+    size_t const num_vec_per_key{vec_per_line[it->opt_params.optimizer]};
 
+    it = std::max_element(
+        embedding_params.begin(), embedding_params.end(),
+        [](auto const& a, auto const& b) { return a.embedding_vec_size < b.embedding_vec_size; });
+    size_t const max_vec_size{it->embedding_vec_size};
+
+    it = std::max_element(embedding_params.begin(), embedding_params.end(),
+                          [](auto const& a, auto const& b) {
+                            return a.max_vocabulary_size_per_gpu < b.max_vocabulary_size_per_gpu;
+                          });
+    size_t const max_voc_size_per_gpu{it->max_vocabulary_size_per_gpu};
+
+    bool const has_localized_embedding{std::any_of(
+        embedding_types.begin(), embedding_types.end(),
+        [](auto type) { return type != Embedding_t::DistributedSlotSparseEmbeddingHash; })};
+
+    bool const all_one_hot_embedding{std::all_of(
+        embedding_types.begin(), embedding_types.end(),
+        [](auto type) { return type == Embedding_t::LocalizedSlotSparseEmbeddingOneHot; })};
+
+    auto host_blobs_buff{GeneralBuffer2<CudaHostAllocator>::create()};
     Tensor2<TypeKey> tensor_keys;
     Tensor2<size_t> tensor_slot_id;
     host_blobs_buff->reserve({buffer_size}, &tensor_keys);
     host_blobs_buff->reserve({buffer_size}, &tensor_slot_id);
     host_blobs_buff->reserve({buffer_size, max_vec_size}, &(buf_bag_.embedding));
 
+    buf_bag_.opt_states.resize(num_vec_per_key - 1);
+    for (auto& opt_state : buf_bag_.opt_states) {
+      host_blobs_buff->reserve({buffer_size, max_vec_size}, &opt_state);
+    }
+
     buf_bag_.keys = tensor_keys.shrink();
     buf_bag_.slot_id = tensor_slot_id.shrink();
 
-    const size_t local_gpu_count = resource_manager->get_local_gpu_count();
-
+    const size_t local_gpu_count{resource_manager->get_local_gpu_count()};
     for (size_t id = 0; id < local_gpu_count; id++) {
       Tensor2<float> tensor;
       host_blobs_buff->reserve({max_voc_size_per_gpu, max_vec_size}, &tensor);
@@ -121,7 +160,6 @@ ParameterServerManager<TypeKey>::ParameterServerManager(
         hbm_blobs_buff->allocate();
       }
     }
-
   } catch (const internal_runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
     throw rt_err;

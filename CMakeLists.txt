@@ -167,6 +167,7 @@ include_directories(
   ${PROJECT_SOURCE_DIR}/HugeCTR/include
   ${PROJECT_SOURCE_DIR}/third_party
   ${PROJECT_SOURCE_DIR}/third_party/cutlass
+  ${PROJECT_SOURCE_DIR}/third_party/cpptqdm
   ${PROJECT_SOURCE_DIR}/third_party/googletest/googletest/include
   ${PROJECT_SOURCE_DIR}/third_party/googletest/googlemock/include
   ${PROJECT_SOURCE_DIR}/third_party/json/single_include

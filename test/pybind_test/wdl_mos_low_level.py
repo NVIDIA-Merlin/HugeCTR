@@ -17,7 +17,8 @@ def model_oversubscriber_test(json_file, output_dir):
                                   eval_source = "./file_list.5.txt",
                                   check_type = hugectr.Check_t.Sum)
   optimizer = hugectr.CreateOptimizer(optimizer_type = hugectr.Optimizer_t.Adam)
-  mos = hugectr.CreateMOS(train_from_scratch = True, dest_sparse_models = [output_dir + "/wdl_0_sparse_model", output_dir + "/wdl_1_sparse_model"])
+  mos = hugectr.CreateMOS(ps_types = [hugectr.TrainPSType_t.Staged, hugectr.TrainPSType_t.Staged],
+                        sparse_models = [output_dir + "/wdl_0_sparse_model", output_dir + "/wdl_1_sparse_model"])
   model = hugectr.Model(solver, reader, optimizer, mos)
   model.construct_from_json(graph_config_file = json_file, include_dense_network = True)
   model.compile()

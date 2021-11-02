@@ -36,12 +36,26 @@ void open_and_get_size(const std::string& file_name, std::ifstream& stream,
 }  // namespace
 
 template <typename TypeKey>
-ParameterServer<TypeKey>::ParameterServer(bool use_host_ps, const std::string& sparse_model_file,
-                                          Embedding_t embedding_type, size_t emb_vec_size,
-                                          std::shared_ptr<ResourceManager> resource_manager)
-    : use_host_ps_(use_host_ps),
-      sparse_model_entity_(SparseModelEntity<TypeKey>(
-          use_host_ps, sparse_model_file, embedding_type, emb_vec_size, resource_manager)) {}
+ParameterServer<TypeKey>::ParameterServer(TrainPSType_t ps_type,
+                                          const std::string& sparse_model_file,
+                                          Embedding_t embedding_type, Optimizer_t opt_type,
+                                          size_t emb_vec_size,
+                                          std::shared_ptr<ResourceManager> resource_manager,
+                                          std::string local_path, HMemCacheConfig hmem_cache_config)
+    : ps_type_(ps_type),
+      use_slot_id_(embedding_type == Embedding_t::LocalizedSlotSparseEmbeddingHash ||
+                   embedding_type == Embedding_t::LocalizedSlotSparseEmbeddingOneHot) {
+  if (ps_type_ != TrainPSType_t::Cached) {
+    sparse_model_entity_.reset(new SparseModelEntity<TypeKey>(sparse_model_file, embedding_type,
+                                                              emb_vec_size, resource_manager));
+    (void)opt_type;
+  } else {
+    hmem_cache_.reset(new HMemCache<TypeKey>(
+        hmem_cache_config.num_cached_pass, hmem_cache_config.target_hit_rate,
+        hmem_cache_config.max_num_evict, hmem_cache_config.block_capacity, sparse_model_file,
+        local_path, use_slot_id_, opt_type, emb_vec_size, resource_manager));
+  }
+}
 
 template <typename TypeKey>
 void ParameterServer<TypeKey>::load_keyset_from_file(std::string keyset_file) {
@@ -74,22 +88,61 @@ void ParameterServer<TypeKey>::pull(BufferBag& buf_bag, size_t& hit_size) {
   if (keyset_.empty()) {
     CK_THROW_(Error_t::WrongInput, "keyset is empty");
   }
-  sparse_model_entity_.load_vec_by_key(keyset_, buf_bag, hit_size);
+  if (ps_type_ != TrainPSType_t::Cached) {
+    sparse_model_entity_->load_vec_by_key(keyset_, buf_bag, hit_size);
+  } else {
+    TypeKey* key_ptr{Tensor2<TypeKey>::stretch_from(buf_bag.keys).get_ptr()};
+    size_t* slot_id_ptr{use_slot_id_ ? Tensor2<size_t>::stretch_from(buf_bag.slot_id).get_ptr()
+                                     : nullptr};
+    std::vector<float*> data_ptrs;
+    data_ptrs.push_back(buf_bag.embedding.get_ptr());
+    for (auto& opt_state : buf_bag.opt_states) {
+      data_ptrs.push_back(opt_state.get_ptr());
+    }
+    memcpy(key_ptr, keyset_.data(), keyset_.size() * sizeof(TypeKey));
+    hit_size = keyset_.size();
+    hmem_cache_->read(key_ptr, hit_size, slot_id_ptr, data_ptrs);
+  }
 }
 
 template <typename TypeKey>
 std::pair<std::vector<long long>, std::vector<float>> ParameterServer<TypeKey>::pull(
     const std::vector<long long>& keys_to_load) {
   if (keys_to_load.empty()) {
-    CK_THROW_(Error_t::WrongInput, "keyset is empty");
+    CK_THROW_(Error_t::WrongInput, "\nkeyset is empty");
   }
-  return sparse_model_entity_.load_vec_by_key(keys_to_load);
+  if (ps_type_ != TrainPSType_t::Cached) {
+    return sparse_model_entity_->load_vec_by_key(keys_to_load);
+  } else {
+    return hmem_cache_->read(keys_to_load.data(), keys_to_load.size());
+  }
 }
 
 template <typename TypeKey>
 void ParameterServer<TypeKey>::push(BufferBag& buf_bag, size_t dump_size) {
   if (dump_size == 0) return;
-  sparse_model_entity_.dump_vec_by_key(buf_bag, dump_size);
+  if (ps_type_ != TrainPSType_t::Cached) {
+    sparse_model_entity_->dump_vec_by_key(buf_bag, dump_size);
+  } else {
+    TypeKey* key_ptr{Tensor2<TypeKey>::stretch_from(buf_bag.keys).get_ptr()};
+    size_t* slot_id_ptr{use_slot_id_ ? Tensor2<size_t>::stretch_from(buf_bag.slot_id).get_ptr()
+                                     : nullptr};
+    std::vector<float*> data_ptrs;
+    data_ptrs.push_back(buf_bag.embedding.get_ptr());
+    for (auto& opt_state : buf_bag.opt_states) {
+      data_ptrs.push_back(opt_state.get_ptr());
+    }
+    hmem_cache_->write(key_ptr, dump_size, slot_id_ptr, data_ptrs);
+  }
+}
+
+template <typename TypeKey>
+void ParameterServer<TypeKey>::flush_emb_tbl_to_ssd() {
+  if (ps_type_ != TrainPSType_t::Cached) {
+    sparse_model_entity_->flush_emb_tbl_to_ssd();
+  } else {
+    hmem_cache_->sync_to_ssd();
+  }
 }
 
 template class ParameterServer<long long>;

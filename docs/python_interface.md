@@ -145,23 +145,41 @@ solver = hugectr.CreateSolver(max_eval_batches = 300,
 ```bash
 hugectr.CreateMOS()
 ```
-`CreateMOS` should **only** be called when using the [Model Oversubscription](./hugectr_user_guide.md#model-oversubscription) feature. It returns a `ModelOversubscriberParams` object that specifies the parameters for initializing a `ModelOversubscriber` instance.
+`CreateMOS` should **only** be called when using the [Embedding Training Cache](./hugectr_user_guide.md#embedding-training-cache)(Model Oversubscription) feature. It returns a `ModelOversubscriberParams` object that specifies the parameters for initializing a `ModelOversubscriber` instance.
 
 **Arguments**
-* `train_from_scratch`: Specify whether the trained embedding table(s) exists or not. When<br/>`train_from_scratch=True`: no trained embedding table is available. A path list of generated embedding table(s) after training needs to be provided through `dest_sparse_models`.<br/>`train_from_scratch=False`: the training will use existing embedding table(s). A path list of existing embedding table(s) needs to be provided through `trained_sparse_models`.
+* `ps_types`: A list specifies each embedding table's parameter server (PS) type. Available PS choices for embeddings are:
+  * `hugectr.TrainPSType_t.Staged`
+    * The whole embedding table will be loaded into the host memory in the initialization stage.
+    * It requires the size of host memory should be large enough to hold the embedding table along with the optimizer states (if any).
+    * *`Staged` type offers better loading and dumping bandwidth than the `Cached` PS.*
+  * `hugectr.TrainPSType_t.Cached` (Please check [Introduction to the HMEM-Cache](./intro_hmem_cache.md) for more information)
+    * A sub-portion of the embedding table will be dynamically cached in the host memory, and it adopts a runtime eviction/insertion mechanism to update the cached table.
+    * The size of the cached table is configurable, which can be substantially smaller than the size of the embedding table stored in the SSD or various kinds of filesystems. E.g., embedding table size (1 TB) v.s. cache size (100 GB).
+    * The bandwidth of `Cached` PS is mainly affected by the hit rate. If the hit rate is 100 %, its bandwidth tends to the `Staged` PS; Otherwise, if the hit rate is 0 %, the bandwidth equals the random-accessing bandwidth of SSD.
 
-* `use_host_memory_ps`: Whether to use the host memory-based parameter server (HM-PS). If set to `False`, the SSD-based parameter server (SSD-PS) will be used.<br/>For HM-PS, the maximum embedding table size is limited by the aggregated capacity of host memory in all working nodes.<br/>For SSD-PS, the maximum embedding table size is determined by the total capacity of SSDs in the file system.
-The HM-PS provides higher bandwidth of pushing/pulling embedding features than the SSD-PS. If embedding table(s) can fit into the host memory, the HM-PS is highly recommended. <br/>The default value is `True`.
+* `sparse_models`: A path list of embedding table(s). If the provided path points to an existing table, this table will be used for incremental training. Otherwise, the newly generated table will be written into this path after training.
 
-* `trained_sparse_models`: A path list of existing embedding table(s).
+* `local_paths`: A path list for storing the temporary embedding table. Its length should be equal to the number of MPI ranks. Each entry in this list should be a path pointing to the local SSD of this node.
 
-* `dest_sparse_models`: A path list of generated embedding table(s) after training.
+  *This entry is only required when there is `hugectr.TrainPSType_t.Cached` in `ps_types`.*
+
+* `hcache_configs`: A path list of the configurations of `Cached` PS. Please check [Configuration](./intro_hmem_cache.md#13-configuration) for more descriptions.
+  * If only one configuration is provided, it will be used for all `Cached` PS.
+  * Otherwise, you need to provide one configuration for each `Cached` PS. And the ith configuration in `hcache_configs` will be used for the ith occurrence of `Cached` PS in `ps_types`.
+
+  *This entry is only required when there is `hugectr.TrainPSType_t.Cached` in `ps_types`.*
 
 Example:
 ```python
-mos = hugectr.CreateMOS(train_from_scratch = False,
-                        trained_sparse_models = ["models/_sparse2000.model"])
+hc_config = hugectr.CreateHMemCache(2, 0.5, 0)
+mos = hugectr.CreateMOS( \
+    ps_types = [hugectr.TrainPSType_t.Staged, hugectr.TrainPSType_t.Cached], \
+    sparse_models = [output_dir + "/wdl_0_sparse_model", output_dir + "/wdl_1_sparse_model"], \
+    local_paths = ["raid/md1/tmp_dir"], hmem_cache_configs = [hc_config])
 ```
+
+For more examples, please refer to the [HugeCTR Continuous Training](../notebooks/continuous_training.ipynb) notebook.
 
 ### **AsyncParam** ###
 #### **AsyncParam class**

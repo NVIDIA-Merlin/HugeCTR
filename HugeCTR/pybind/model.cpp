@@ -121,13 +121,13 @@ auto load_key_files(std::vector<std::string> const& key_files) {
 }  // end namespace
 
 ModelOversubscriberParams::ModelOversubscriberParams(
-    bool _train_from_scratch, bool _use_host_memory_ps,
-    std::vector<std::string>& _trained_sparse_models, std::vector<std::string>& _dest_sparse_models)
+    std::vector<TrainPSType_t>& _ps_types, std::vector<std::string>& _sparse_models,
+    std::vector<std::string>& _local_paths, std::vector<HMemCacheConfig>& _hmem_cache_configs)
     : use_model_oversubscriber(true),
-      use_host_memory_ps(_use_host_memory_ps),
-      train_from_scratch(_train_from_scratch),
-      trained_sparse_models(_trained_sparse_models),
-      dest_sparse_models(_dest_sparse_models) {}
+      ps_types(_ps_types),
+      sparse_models(_sparse_models),
+      local_paths(_local_paths),
+      hmem_cache_configs(_hmem_cache_configs) {}
 
 ModelOversubscriberParams::ModelOversubscriberParams() : use_model_oversubscriber(false) {}
 
@@ -704,11 +704,9 @@ void Model::compile() {
 #endif
   init_params_for_dense_();
   init_params_for_sparse_();
-  if (mos_params_->use_model_oversubscriber && mos_params_->train_from_scratch) {
-    init_model_oversubscriber_(mos_params_->use_host_memory_ps, mos_params_->dest_sparse_models);
-  }
-  if (mos_params_->use_model_oversubscriber && !mos_params_->train_from_scratch) {
-    init_model_oversubscriber_(mos_params_->use_host_memory_ps, mos_params_->trained_sparse_models);
+  if (mos_params_->use_model_oversubscriber) {
+    init_model_oversubscriber_(mos_params_->ps_types, mos_params_->sparse_models,
+                               mos_params_->local_paths, mos_params_->hmem_cache_configs);
   }
   int num_total_gpus = resource_manager_->get_global_gpu_count();
   for (const auto& metric : solver_.metrics_spec) {
@@ -1727,16 +1725,14 @@ Error_t Model::download_sparse_params_to_files_(
 
 template <typename TypeEmbeddingComp>
 std::shared_ptr<ModelOversubscriber> Model::create_model_oversubscriber_(
-    bool use_host_memory_ps, const std::vector<std::string>& sparse_embedding_files) {
+    const std::vector<TrainPSType_t>& ps_types,
+    const std::vector<std::string>& sparse_embedding_files,
+    const std::vector<std::string>& local_paths,
+    const std::vector<HMemCacheConfig>& hmem_cache_configs) {
   try {
-    if (sparse_embedding_files.empty()) {
-      CK_THROW_(Error_t::WrongInput,
-                "must provide sparse_model_file. \
-          if train from scratch, please specify a name to store the trained embedding model");
-    }
     return std::shared_ptr<ModelOversubscriber>(new ModelOversubscriber(
-        use_host_memory_ps, embeddings_, sparse_embedding_files, resource_manager_,
-        solver_.use_mixed_precision, solver_.i64_input_key));
+        ps_types, embeddings_, sparse_embedding_files, resource_manager_,
+        solver_.use_mixed_precision, solver_.i64_input_key, local_paths, hmem_cache_configs));
   } catch (const internal_runtime_error& rt_err) {
     Logger::print_exception(rt_err, 0);
     throw rt_err;
@@ -1852,14 +1848,16 @@ void Model::init_params_for_sparse_() {
   }
 }
 
-void Model::init_model_oversubscriber_(bool use_host_memory_ps,
-                                       const std::vector<std::string>& sparse_embedding_files) {
+void Model::init_model_oversubscriber_(const std::vector<TrainPSType_t>& ps_types,
+                                       const std::vector<std::string>& sparse_embedding_files,
+                                       const std::vector<std::string>& local_paths,
+                                       const std::vector<HMemCacheConfig>& hmem_cache_configs) {
   if (solver_.use_mixed_precision) {
-    model_oversubscriber_ =
-        create_model_oversubscriber_<__half>(use_host_memory_ps, sparse_embedding_files);
+    model_oversubscriber_ = create_model_oversubscriber_<__half>(ps_types, sparse_embedding_files,
+                                                                 local_paths, hmem_cache_configs);
   } else {
-    model_oversubscriber_ =
-        create_model_oversubscriber_<float>(use_host_memory_ps, sparse_embedding_files);
+    model_oversubscriber_ = create_model_oversubscriber_<float>(ps_types, sparse_embedding_files,
+                                                                local_paths, hmem_cache_configs);
   }
   mos_created_ = true;
 }

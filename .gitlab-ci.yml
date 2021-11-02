@@ -353,33 +353,19 @@ mos_single_node:
     DGXNNODES: 1
     TEST_CMD: ./ci/integration_test/mos/mos_single_node.sub
 
-mos_multi_node_ssd:
+mos_multi_node:
   extends: .cluster_test_job
   needs:
     - build_train_multi_node
   variables:
-    GPFSFOLDER: $LOGDIR/mos_multi_node_ssd
+    GPFSFOLDER: $LOGDIR/mos_multi_node
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
     CONT: $TRAIN_IMAGE_MULTINODE_VERSIONED
     MOUNTS: ${DATASET}:${DATASET_MOUNT},${LOGDIR}:/tmp_dir
     SLURM_ACCOUNT: devtech
-    WALLTIME: "00:30:00"
-    DGXNNODES: 4
-    TEST_CMD: ./ci/integration_test/mos/mos_multi_node_ssd.sub
-
-mos_multi_node_mem:
-  extends: .cluster_test_job
-  needs:
-    - build_train_multi_node
-  variables:
-    GPFSFOLDER: $LOGDIR/mos_multi_node_mem
-    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
-    CONT: $TRAIN_IMAGE_MULTINODE_VERSIONED
-    MOUNTS: ${DATASET}:${DATASET_MOUNT},${LOGDIR}:/tmp_dir
-    SLURM_ACCOUNT: devtech
-    WALLTIME: "00:30:00"
-    DGXNNODES: 4
-    TEST_CMD: ./ci/integration_test/mos/mos_multi_node_mem.sub
+    WALLTIME: "00:45:00"
+    DGXNNODES: 2
+    TEST_CMD: ./ci/integration_test/mos/mos_multi_node.sub
 
 # data generator single node
 data_generator_single_node:
