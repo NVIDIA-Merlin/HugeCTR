@@ -47,6 +47,7 @@ private:
     int32_t *nccl_sync_data_;
 
     std::unique_ptr<EventManager> event_mgr_;
+    const bool event_sync_;
 
     GpuResource(const size_t local_device_id, const size_t global_device_id, 
                 const uint64_t replica_uniform_seed,

@@ -17,8 +17,18 @@
 #include "resources/gpu_resource.h"
 #include "common.h"
 #include <iostream>
+#include <cstdlib>
 
 namespace SparseOperationKit {
+
+bool GetEventSync() {
+    const auto sok_event_sync = std::getenv("SOK_EVENT_SYNC");
+    if (nullptr == sok_event_sync || 1 == std::atoi(sok_event_sync)) {
+        return true;
+    } else {
+        return false;
+    }
+}
 
 GpuResource::GpuResource(const size_t local_device_id, const size_t global_device_id, 
                         const uint64_t replica_uniform_seed,
@@ -29,7 +39,7 @@ GpuResource::GpuResource(const size_t local_device_id, const size_t global_devic
 computation_stream_(nullptr), framework_stream_(cuda_stream), 
 nccl_comm_(nccl_comm), sm_count_(0), cc_major_(0), cc_minor_(0),
 max_shared_memory_size_per_sm_(0), warp_size_(0),
-nccl_sync_data_(nullptr), event_mgr_(nullptr)
+nccl_sync_data_(nullptr), event_mgr_(nullptr), event_sync_(GetEventSync())
 {
 #ifdef SOK_ASYNC
     CK_CUDA(cudaStreamCreateWithFlags(&computation_stream_, cudaStreamNonBlocking));
@@ -161,7 +171,8 @@ void GpuResource::event_record(EventRecordType event_record_type,
         case EventRecordType::RDLFramework: {
             event_mgr_->sync_two_streams(/*root_stream=*/get_framework_stream(), 
                                          /*sub_stream=*/get_stream(),
-                                         /*event_name=*/std::move(event_name));
+                                         /*event_name=*/std::move(event_name),
+                                         /*event_sync=*/event_sync_);
             break;
         }
         case EventRecordType::RMyself: {

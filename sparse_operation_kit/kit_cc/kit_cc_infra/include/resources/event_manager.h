@@ -36,7 +36,8 @@ public:
     std::shared_ptr<Event>& get_event(const std::string& event_name);
     void sync_two_streams(cudaStream_t& root_stream, 
                           cudaStream_t& sub_stream,
-                          const std::string& event_name);
+                          const std::string& event_name,
+                          const bool event_sync = false);
 
 protected:
     EventManager();

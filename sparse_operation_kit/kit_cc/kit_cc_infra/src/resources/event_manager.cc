@@ -19,7 +19,8 @@
 
 namespace SparseOperationKit {
 
-EventManager::EventManager(): shared_mu_() {}
+EventManager::EventManager()
+: shared_mu_() {}
 
 EventManager::~EventManager() {}
 
@@ -49,11 +50,12 @@ std::shared_ptr<Event>& EventManager::get_event(const std::string& event_name) {
 
 void EventManager::sync_two_streams(cudaStream_t& root_stream, 
                                     cudaStream_t& sub_stream,
-                                    const std::string& event_name) {
+                                    const std::string& event_name,
+                                    const bool event_sync) {
     /*--root_stream->event->sub_stream--*/
     std::shared_ptr<Event>& event = get_event(std::move(event_name));
     event->Record(root_stream);
-    event->TillReady(sub_stream);
+    return event_sync ? event->TillReady() : event->TillReady(sub_stream);
 }
 
 } // namespace SparseOperationKit
