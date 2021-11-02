@@ -317,6 +317,9 @@ void Facade::forward(const tensorflow::Tensor* emb_handle,
     resources_mgr_->event_record(global_replica_id, EventRecordType::RDLFramework,
                                  /*event_name=*/embedding->get_var_name() + "_forward_begin");
 #endif
+    // sync processes to avoid NCCL waiting
+    resources_mgr_->sync_all_workers_via_mpi();
+
     // delegate embedding forward to embedding manager
     embedding_mgr_->forward(embedding, values, indices, global_replica_id, training, emb_vector);
 #ifdef SOK_ASYNC
@@ -350,6 +353,9 @@ void Facade::forward(const tensorflow::Tensor* emb_handle,
     resources_mgr_->event_record(global_replica_id, EventRecordType::RDLFramework,
                                  /*event_name=*/embedding->get_var_name() + "_forward_begin");
 #endif
+    // sync processes to avoid NCCL waiting
+    resources_mgr_->sync_all_workers_via_mpi();
+
     // delegate embedding forward to embedding manager
     embedding_mgr_->forward(embedding, values, global_replica_id, training, emb_vector);
 #ifdef SOK_ASYNC
@@ -381,6 +387,9 @@ void Facade::backward(const tensorflow::Tensor* emb_handle,
     resources_mgr_->event_record(global_replica_id, EventRecordType::RDLFramework,
                                  /*event_name=*/embedding->get_var_name() + "_backward_begin");
 #endif
+    // sync processes to avoid NCCL waiting
+    resources_mgr_->sync_all_workers_via_mpi();
+
     // delegate embedding backward to embedding manager
     embedding_mgr_->backward(embedding, top_gradient, global_replica_id, gradient, value_index);
 #ifdef SOK_ASYNC

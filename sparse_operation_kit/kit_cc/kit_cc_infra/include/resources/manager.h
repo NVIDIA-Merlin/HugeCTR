@@ -52,7 +52,8 @@ public:
     void sync_local_gpus() const;
     void sync_local_memcpys() const;
     void sync_gpu(const size_t local_dev_id) const;
-    void sync_all_workers() const; // synchronize each CPU-process
+    void sync_all_workers() const; // synchronize each CPU-process via NCCL
+    void sync_all_workers_via_mpi() const;
     void sync_all_gpus(const size_t local_dev_id) const; // synchronize each CPU-thread
 
     // synchronize CPU threads
@@ -99,6 +100,7 @@ private:
     void create_gpu_resource(const size_t global_replica_id, const size_t num_replicas_in_sync,
                              const cudaStream_t& tf_stream);
     void enable_all_peer_access(const size_t global_replica_id);
+    void get_mpi_rank(const size_t global_replica_id);
 
     ncclUniqueId nid_;
     std::once_flag set_nccl_id_once_flag_;
@@ -112,6 +114,9 @@ private:
 
     std::vector<std::shared_ptr<GpuResource>> gpu_resources_;
     std::shared_ptr<CpuResource> cpu_resource_;
+
+    bool mpi_initialized_{false};
+    int32_t mpi_rank_{-1};
 };
 
 } // namespace SparseOperationKit

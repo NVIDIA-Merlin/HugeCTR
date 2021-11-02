@@ -68,6 +68,15 @@ namespace SparseOperationKit {
         }                                                                           \
     } while (0)
 
+#define CK_MPI(cmd)                                                                 \
+    do {                                                                            \
+        auto retval = (cmd);                                                        \
+        if (MPI_SUCCESS != retval) {                                                \
+            throw std::runtime_error(ErrorBase + "MPI failed due to error code" +   \
+                std::to_string(retval));                                            \
+        }                                                                           \
+    } while (0)
+
 
 namespace {
 inline std::string filter_path(const std::string& path) {

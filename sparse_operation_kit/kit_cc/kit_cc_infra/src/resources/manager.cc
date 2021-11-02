@@ -16,11 +16,22 @@
 
 #include "resources/manager.h"
 #include "common.h"
+#include <mpi.h>
 #include <iostream>
 #include <thread>
 #include <random>
+#include <cstdlib>
 
 namespace SparseOperationKit {
+
+bool GetSyncViaMpi() {
+    const auto sok_sync_via_mpi = std::getenv("SOK_SYNC_VIA_MPI");
+    if (nullptr == sok_sync_via_mpi || 1 == std::atoi(sok_sync_via_mpi)) {
+        return true;
+    } else {
+        return false;
+    }
+}
 
 ResourcesManager::ResourcesManager() 
 : set_nccl_id_once_flag_(), cpu_resource_once_flag_(),
@@ -122,6 +133,8 @@ void ResourcesManager::init(const size_t global_replica_id, const size_t num_rep
     create_gpu_resource(global_replica_id, num_replicas_in_sync, tf_stream);
 
     enable_all_peer_access(global_replica_id);
+
+    get_mpi_rank(global_replica_id);
 }
 
 void ResourcesManager::enable_all_peer_access(const size_t global_replica_id) {
@@ -160,6 +173,20 @@ void ResourcesManager::enable_all_peer_access(const size_t global_replica_id) {
         else MESSAGE("Not all peer to peer access enabled.");
     };
     blocking_call_once(helper);
+}
+
+void ResourcesManager::get_mpi_rank(const size_t global_replica_id) {
+    int32_t init_flag = 0;
+    CK_MPI(MPI_Initialized(&init_flag));
+    if (1 == init_flag && 1 == get_local_gpu_count() && GetSyncViaMpi()) {
+        mpi_initialized_ = true;
+        CK_MPI(MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank_));
+        if (global_replica_id != static_cast<size_t>(mpi_rank_)) {
+            throw std::runtime_error(ErrorBase + "global_replica_id != mpi_rank. " 
+                    "Where global_replica_id = " + std::to_string(global_replica_id) + 
+                    ", and mpi_rank = " + std::to_string(mpi_rank_));
+        }
+    }
 }
 
 bool ResourcesManager::p2p_enabled(const size_t src_dev, const size_t dst_dev) const {
@@ -219,6 +246,12 @@ void ResourcesManager::sync_all_workers() const {
     CK_NCCL(ncclGroupEnd());
 
     sync_local_gpus();
+}
+
+void ResourcesManager::sync_all_workers_via_mpi() const {
+    if (mpi_initialized_) {
+        CK_MPI(MPI_Barrier(MPI_COMM_WORLD));
+    }
 }
 
 void ResourcesManager::sync_all_gpus(const size_t local_dev_id) const {
