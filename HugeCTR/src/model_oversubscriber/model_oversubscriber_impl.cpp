@@ -35,13 +35,15 @@ std::vector<Embedding_t> get_embedding_type(
 
 template <typename TypeKey>
 ModelOversubscriberImpl<TypeKey>::ModelOversubscriberImpl(
-    bool use_host_ps, std::vector<std::shared_ptr<IEmbedding>>& embeddings,
-    const std::vector<SparseEmbeddingHashParams>& embedding_params,
-    const std::vector<std::string>& sparse_embedding_files,
-    std::shared_ptr<ResourceManager> resource_manager)
+    std::vector<TrainPSType_t>& ps_types, std::vector<std::shared_ptr<IEmbedding>>& embeddings,
+    std::vector<SparseEmbeddingHashParams>& embedding_params,
+    std::vector<std::string>& sparse_embedding_files,
+    std::shared_ptr<ResourceManager> resource_manager, std::vector<std::string>& local_paths,
+    std::vector<HMemCacheConfig>& hmem_cache_configs)
     : embeddings_(embeddings),
-      ps_manager_(use_host_ps, sparse_embedding_files, get_embedding_type(embeddings),
-                  embedding_params, get_max_embedding_size_(), resource_manager) {}
+      ps_manager_(ps_types, sparse_embedding_files, get_embedding_type(embeddings),
+                  embedding_params, get_max_embedding_size_(), resource_manager, local_paths,
+                  hmem_cache_configs) {}
 
 template <typename TypeKey>
 void ModelOversubscriberImpl<TypeKey>::load_(std::vector<std::string>& keyset_file_list) {
@@ -93,7 +95,7 @@ template <typename TypeKey>
 void ModelOversubscriberImpl<TypeKey>::update(std::vector<std::string>& keyset_file_list) {
   try {
 #ifndef KEY_HIT_RATIO
-    MESSAGE_("Preparing embedding table for next pass", false, false);
+    MESSAGE_("Preparing embedding table for next pass");
 #endif
     dump();
     for (auto& embedding : embeddings_) {
@@ -103,9 +105,6 @@ void ModelOversubscriberImpl<TypeKey>::update(std::vector<std::string>& keyset_f
     load_(keyset_file_list);
 #ifdef ENABLE_MPI
     CK_MPI_THROW_(MPI_Barrier(MPI_COMM_WORLD));
-#endif
-#ifndef KEY_HIT_RATIO
-    MESSAGE_(" [DONE]", false, true, false);
 #endif
   } catch (const internal_runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;

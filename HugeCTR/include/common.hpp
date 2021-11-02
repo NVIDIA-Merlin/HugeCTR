@@ -80,6 +80,8 @@ enum class DataReaderType_t { Norm, Raw, Parquet, RawAsync };
 
 enum class SourceType_t { FileList, Mmap, Parquet };
 
+enum class TrainPSType_t { Staged, Cached };
+
 struct NameID {
   std::string file_name;
   unsigned int id;

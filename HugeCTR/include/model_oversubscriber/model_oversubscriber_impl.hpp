@@ -59,10 +59,13 @@ class ModelOversubscriberImpl : public ModelOversubscriberImplBase {
   void load_(std::vector<std::string>& keyset_file_list);
 
  public:
-  ModelOversubscriberImpl(bool use_host_ps, std::vector<std::shared_ptr<IEmbedding>>& embeddings,
-                          const std::vector<SparseEmbeddingHashParams>& embedding_params,
-                          const std::vector<std::string>& sparse_embedding_files,
-                          std::shared_ptr<ResourceManager> resource_manager);
+  ModelOversubscriberImpl(std::vector<TrainPSType_t>& ps_types,
+                          std::vector<std::shared_ptr<IEmbedding>>& embeddings,
+                          std::vector<SparseEmbeddingHashParams>& embedding_params,
+                          std::vector<std::string>& sparse_embedding_files,
+                          std::shared_ptr<ResourceManager> resource_manager,
+                          std::vector<std::string>& local_paths,
+                          std::vector<HMemCacheConfig>& hmem_cache_configs);
 
   ModelOversubscriberImpl(const ModelOversubscriberImpl&) = delete;
   ModelOversubscriberImpl& operator=(const ModelOversubscriberImpl&) = delete;

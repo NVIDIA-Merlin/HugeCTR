@@ -106,7 +106,7 @@ RUN git clone --branch apache-arrow-5.0.0 --recurse-submodules https://github.co
     rm -rf build-env
 
 # Install CUDA-Aware hwloc from source
-RUN if [ "$BASE_IMAGE" = "tensorlfow" ] && [ "$IMAGE_VER" = "21.09-tf2-py3" ]; \
+RUN if [ "$BASE_IMAGE" = "tensorflow" ] && [ "$IMAGE_VER" = "21.09-tf2-py3" ]; \
     then \
       cd /opt/hpcx/ompi/include/openmpi/opal/mca/hwloc/hwloc201 && rm -rfv hwloc201.h hwloc/include/hwloc.h; \
     else \

@@ -76,7 +76,7 @@ class DataReaderWorkerGroup {
 
     size_t local_gpu_count = resource_manager_->get_local_gpu_count();
 
-    for(size_t i = 0; i < data_readers_.size(); ++i) {
+    for (size_t i = 0; i < data_readers_.size(); ++i) {
       auto local_gpu = resource_manager_->get_local_gpu(i % local_gpu_count);
       data_reader_threads_.emplace_back(data_reader_thread_func_, data_readers_[i],
                                         &data_reader_loop_flag_, local_gpu->get_device_id());

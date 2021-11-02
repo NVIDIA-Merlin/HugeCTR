@@ -25,7 +25,6 @@ template <typename TypeKey>
 class SparseModelEntity {
   using HashTableType = std::unordered_map<TypeKey, std::pair<size_t, size_t>>;
 
-  bool use_host_ps_;
   std::vector<float> host_emb_tabel_;
   HashTableType exist_key_idx_mapping_;
   HashTableType new_key_idx_mapping_;
@@ -35,14 +34,12 @@ class SparseModelEntity {
   SparseModelFile<TypeKey> sparse_model_file_;
 
  public:
-  SparseModelEntity(bool use_host_ps, const std::string &sparse_model_file,
-                    Embedding_t embedding_type, size_t emb_vec_size,
-                    std::shared_ptr<ResourceManager> resource_manager);
+  SparseModelEntity(const std::string &sparse_model_file, Embedding_t embedding_type,
+                    size_t emb_vec_size, std::shared_ptr<ResourceManager> resource_manager);
 
   /**
    * @brief Load embedding features (embedding vectors) through provided keys
-   *        either from disk (if use_host_ps_==false) or the host memory (if
-   *        use_host_ps_==true). Some of the key in keys may not have
+   *        from the host memory. Some of the key in keys may not have
    *        corresponding embedding features, and they will be neglected.
    *
    * @param keys Vector stroing the keyset, their corresponding embedding
@@ -58,9 +55,8 @@ class SparseModelEntity {
 
   /**
    * @brief Dump embedding features (embedding vectors) through provided keys to
-   *        disk (if use_host_ps_==false) or the host memory (if use_host_ps_==
-   *        true). Some of the keys may not exist in the sparse model, and they
-   *        will be inserted after calling this API.
+   *        the host memory. Some of the keys may not exist in the sparse model,
+   *        and they will be inserted after calling this API.
    *
    * @param buf_bag A buffer bag storing the key (slot_id if localized embedding
    *                is used) and embedding vectors, and they will be dumped.

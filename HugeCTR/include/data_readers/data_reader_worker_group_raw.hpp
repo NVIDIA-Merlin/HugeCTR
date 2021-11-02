@@ -63,7 +63,7 @@ class DataReaderWorkerGroupRaw : public DataReaderWorkerGroup {
     size_t num_workers = output_buffers.size();
     size_t local_gpu_count = resource_manager_->get_local_gpu_count();
     set_resource_manager(resource_manager_);
-    
+
     {
       int slots = 0;
       for (auto& param : params) {

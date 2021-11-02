@@ -70,6 +70,10 @@ void CommonPybind(pybind11::module& m) {
       .value("Mmap", HugeCTR::SourceType_t::Mmap)
       .value("Parquet", HugeCTR::SourceType_t::Parquet)
       .export_values();
+  pybind11::enum_<HugeCTR::TrainPSType_t>(m, "TrainPSType_t")
+      .value("Staged", HugeCTR::TrainPSType_t::Staged)
+      .value("Cached", HugeCTR::TrainPSType_t::Cached)
+      .export_values();
   pybind11::enum_<HugeCTR::Embedding_t>(m, "Embedding_t")
       .value("DistributedSlotSparseEmbeddingHash",
              HugeCTR::Embedding_t::DistributedSlotSparseEmbeddingHash)

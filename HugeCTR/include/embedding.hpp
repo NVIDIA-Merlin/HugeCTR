@@ -113,6 +113,7 @@ struct BufferBag {
   TensorBag2 keys;
   TensorBag2 slot_id;
   Tensor2<float> embedding;
+  Tensors2<float> opt_states;
 
   Tensors2<float> h_value_tensors;
   Tensors2<size_t> h_slot_id_tensors;

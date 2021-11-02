@@ -14,13 +14,12 @@
  * limitations under the License.
  */
 #pragma once
-#include <HugeCTR/include/embedding.hpp>
-#include <HugeCTR/include/model_oversubscriber/model_oversubscriber.hpp>
 #include <common.hpp>
 #include <embedding.hpp>
 #include <exchange_wgrad.hpp>
 #include <loss.hpp>
 #include <metrics.hpp>
+#include <model_oversubscriber/model_oversubscriber.hpp>
 #include <network.hpp>
 #include <optimizer.hpp>
 #include <parser.hpp>
@@ -183,14 +182,15 @@ struct SparseEmbedding {
 
 struct ModelOversubscriberParams {
   bool use_model_oversubscriber;
-  bool use_host_memory_ps;
-  bool train_from_scratch;
-  std::vector<std::string> trained_sparse_models;
-  std::vector<std::string> dest_sparse_models;
+  std::vector<TrainPSType_t> ps_types;
+  std::vector<std::string> sparse_models;
+  std::vector<std::string> local_paths;
+  std::vector<HMemCacheConfig> hmem_cache_configs;
   std::vector<std::string> incremental_keyset_files;
-  ModelOversubscriberParams(bool train_from_scratch, bool use_host_memory_ps,
-                            std::vector<std::string>& trained_sparse_models,
-                            std::vector<std::string>& dest_sparse_models);
+  ModelOversubscriberParams(std::vector<TrainPSType_t>& _ps_types,
+                            std::vector<std::string>& _sparse_models,
+                            std::vector<std::string>& _local_paths,
+                            std::vector<HMemCacheConfig>& _hmem_cache_configs);
   ModelOversubscriberParams();
 };
 
@@ -506,11 +506,16 @@ class Model {
 
   template <typename TypeEmbeddingComp>
   std::shared_ptr<ModelOversubscriber> create_model_oversubscriber_(
-      bool use_host_memory_ps, const std::vector<std::string>& sparse_embedding_files);
+      const std::vector<TrainPSType_t>& ps_types,
+      const std::vector<std::string>& sparse_embedding_files,
+      const std::vector<std::string>& local_paths,
+      const std::vector<HMemCacheConfig>& hmem_cache_configs);
   void init_params_for_dense_();
   void init_params_for_sparse_();
-  void init_model_oversubscriber_(bool use_host_memory_ps,
-                                  const std::vector<std::string>& sparse_embedding_files);
+  void init_model_oversubscriber_(const std::vector<TrainPSType_t>& ps_types,
+                                  const std::vector<std::string>& sparse_embedding_files,
+                                  const std::vector<std::string>& local_paths,
+                                  const std::vector<HMemCacheConfig>& hmem_cache_configs);
   Error_t load_params_for_dense_(const std::string& model_file);
   Error_t load_params_for_sparse_(const std::vector<std::string>& embedding_file);
   Error_t load_opt_states_for_dense_(const std::string& dense_opt_states_file);

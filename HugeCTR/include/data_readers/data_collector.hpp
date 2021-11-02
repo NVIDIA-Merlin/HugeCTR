@@ -39,7 +39,10 @@ void split(Tensor2<float> &label_tensor, Tensor2<TypeComp> &dense_tensor,
            cudaStream_t stream);
 
 template <typename T>
-void broadcast(const std::shared_ptr<ThreadBuffer> &thread_buffer, std::shared_ptr<BroadcastBuffer> &broadcast_buffer, std::vector<size_t> &last_batch_nnz_, const std::shared_ptr<ResourceManager> &resource_manager);
+void broadcast(const std::shared_ptr<ThreadBuffer> &thread_buffer,
+               std::shared_ptr<BroadcastBuffer> &broadcast_buffer,
+               std::vector<size_t> &last_batch_nnz_,
+               const std::shared_ptr<ResourceManager> &resource_manager);
 
 /**
  * @brief A helper class of data reader.

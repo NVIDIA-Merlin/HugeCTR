@@ -70,8 +70,10 @@ DataGeneratorParams::DataGeneratorParams(DataReaderType_t format, int label_dim,
     CK_THROW_(Error_t::WrongInput, "nnz_array.size() should be equal to num_slot");
   }
   if (dist_type == Distribution_t::PowerLaw && power_law_type == PowerLaw_t::Specific &&
-      (alpha <= 0 || abs(alpha-1.0) < 1e-6)) {
-    CK_THROW_(Error_t::WrongInput, "alpha should be greater than zero and should not equal to 1.0 for power law distribution");
+      (alpha <= 0 || abs(alpha - 1.0) < 1e-6)) {
+    CK_THROW_(
+        Error_t::WrongInput,
+        "alpha should be greater than zero and should not equal to 1.0 for power law distribution");
   }
 }
 
@@ -238,28 +240,32 @@ void DataGenerator::generate() {
       check_make_dir(train_data_folder);
       check_make_dir(eval_data_folder);
       if (data_generator_params_.i64_input_key) {  // I64 = long long
-        data_generation_for_parquet<int64_t>(data_generator_params_.source, train_data_folder + "/train/gen_", 
-                                              data_generator_params_.num_files,data_generator_params_.num_samples_per_file,
-                                              data_generator_params_.num_slot, data_generator_params_.label_dim, 
-                                              data_generator_params_.dense_dim,data_generator_params_.slot_size_array, 
-                                              data_generator_params_.nnz_array, use_long_tail, alpha);
+        data_generation_for_parquet<int64_t>(
+            data_generator_params_.source, train_data_folder + "/train/gen_",
+            data_generator_params_.num_files, data_generator_params_.num_samples_per_file,
+            data_generator_params_.num_slot, data_generator_params_.label_dim,
+            data_generator_params_.dense_dim, data_generator_params_.slot_size_array,
+            data_generator_params_.nnz_array, use_long_tail, alpha);
 
-        data_generation_for_parquet<int64_t>(data_generator_params_.eval_source, eval_data_folder + "/val/gen_", 
-                                              data_generator_params_.eval_num_files,data_generator_params_.num_samples_per_file,
-                                              data_generator_params_.num_slot, data_generator_params_.label_dim, 
-                                              data_generator_params_.dense_dim,data_generator_params_.slot_size_array, 
-                                              data_generator_params_.nnz_array, use_long_tail, alpha);
+        data_generation_for_parquet<int64_t>(
+            data_generator_params_.eval_source, eval_data_folder + "/val/gen_",
+            data_generator_params_.eval_num_files, data_generator_params_.num_samples_per_file,
+            data_generator_params_.num_slot, data_generator_params_.label_dim,
+            data_generator_params_.dense_dim, data_generator_params_.slot_size_array,
+            data_generator_params_.nnz_array, use_long_tail, alpha);
       } else {  // I32 = unsigned int
-        data_generation_for_parquet<unsigned int>(data_generator_params_.source, train_data_folder + "/train/gen_", 
-                                              data_generator_params_.num_files,data_generator_params_.num_samples_per_file,
-                                              data_generator_params_.num_slot, data_generator_params_.label_dim, 
-                                              data_generator_params_.dense_dim,data_generator_params_.slot_size_array, 
-                                              data_generator_params_.nnz_array, use_long_tail, alpha);
-        data_generation_for_parquet<unsigned int>(data_generator_params_.eval_source, eval_data_folder + "/val/gen_", 
-                                              data_generator_params_.eval_num_files,data_generator_params_.num_samples_per_file,
-                                              data_generator_params_.num_slot, data_generator_params_.label_dim, 
-                                              data_generator_params_.dense_dim,data_generator_params_.slot_size_array, 
-                                              data_generator_params_.nnz_array, use_long_tail, alpha);
+        data_generation_for_parquet<unsigned int>(
+            data_generator_params_.source, train_data_folder + "/train/gen_",
+            data_generator_params_.num_files, data_generator_params_.num_samples_per_file,
+            data_generator_params_.num_slot, data_generator_params_.label_dim,
+            data_generator_params_.dense_dim, data_generator_params_.slot_size_array,
+            data_generator_params_.nnz_array, use_long_tail, alpha);
+        data_generation_for_parquet<unsigned int>(
+            data_generator_params_.eval_source, eval_data_folder + "/val/gen_",
+            data_generator_params_.eval_num_files, data_generator_params_.num_samples_per_file,
+            data_generator_params_.num_slot, data_generator_params_.label_dim,
+            data_generator_params_.dense_dim, data_generator_params_.slot_size_array,
+            data_generator_params_.nnz_array, use_long_tail, alpha);
       }
       break;
     }

@@ -15,9 +15,11 @@
  */
 
 #include <gtest/gtest.h>
-#include "utest/model_oversubscriber/mos_test_utils.hpp"
-#include "HugeCTR/include/model_oversubscriber/model_oversubscriber.hpp"
-#include "HugeCTR/include/parser.hpp"
+#include <iterator>
+#include "mos_test_utils.hpp"
+#include "model_oversubscriber/hmem_cache/hmem_cache.hpp"
+#include "model_oversubscriber/model_oversubscriber.hpp"
+#include "parser.hpp"
 
 using namespace HugeCTR;
 using namespace mos_test;
@@ -52,7 +54,9 @@ const int batch_num_eval = 1;
 
 template <typename TypeKey>
 void do_upload_and_download_snapshot(
-    int batch_num_train, bool use_host_ps, bool is_distributed) {
+    int batch_num_train, TrainPSType_t ps_type, bool is_distributed,
+    Optimizer_t opt_type = Optimizer_t::Adam, std::string local_path = "./",
+    HMemCacheConfig hc_config = HMemCacheConfig()) {
   Embedding_t embedding_type = is_distributed ? 
                                Embedding_t::DistributedSlotSparseEmbeddingHash :
                                Embedding_t::LocalizedSlotSparseEmbeddingHash;
@@ -60,11 +64,11 @@ void do_upload_and_download_snapshot(
   // create a resource manager for a single GPU
   std::vector<std::vector<int>> vvgpu;
   vvgpu.push_back({0});
-  const auto resource_manager = ResourceManagerExt::create(vvgpu, 0);
+  const auto resource_manager{ResourceManagerExt::create(vvgpu, 0)};
 
   // generate train/test datasets
-  if (fs::exists(file_list_name_train)) { fs::remove(file_list_name_train); }
-  if (fs::exists(file_list_name_eval))  { fs::remove(file_list_name_eval); }
+  if (fs::exists(file_list_name_train)) fs::remove_all(file_list_name_train);
+  if (fs::exists(file_list_name_eval))  fs::remove_all(file_list_name_eval);
 
   // data generation
   HugeCTR::data_generation_for_test<TypeKey, check>(file_list_name_train,
@@ -95,8 +99,7 @@ void do_upload_and_download_snapshot(
   hyper_params.momentum.factor = 0.9f;
   hyper_params.nesterov.mu = 0.9f;
 
-  const OptParams opt_params = {Optimizer_t::Adam,
-      0.001f, hyper_params, update_type, scaler};
+  const OptParams opt_params = {opt_type, 0.001f, hyper_params, update_type, scaler};
 
   const SparseEmbeddingHashParams embedding_param = {
       batchsize,       batchsize, vocabulary_size, {},        emb_vec_size,
@@ -125,7 +128,10 @@ void do_upload_and_download_snapshot(
   embedding->update_params();
 
   // store the snapshot from the embedding
+  if (fs::exists(snapshot_src_file)) fs::remove_all(snapshot_src_file);
+  if (fs::exists(snapshot_dst_file)) fs::remove_all(snapshot_dst_file);
   embedding->dump_parameters(snapshot_src_file);
+  generate_opt_state(snapshot_src_file, opt_type);
   copy_sparse_model(snapshot_src_file, snapshot_dst_file);
 
   auto get_ext_file = [](const std::string& sparse_model_file, std::string ext) {
@@ -159,21 +165,26 @@ void do_upload_and_download_snapshot(
 
   std::vector<std::string> keyset_file_list;
   keyset_file_list.emplace_back(keyset_file_name);
-  std::vector<std::string> sparse_embedding_files;
-  sparse_embedding_files.emplace_back(snapshot_dst_file);
 
   // Create a ModelOversubscriber
-  std::vector<std::shared_ptr<IEmbedding>> embeddings;
-  embeddings.push_back(embedding);
-  bool is_i64_key = std::is_same<TypeKey, unsigned>::value ? false : true;
-  bool use_mixed_precision = false;
-
+  bool is_i64_key{std::is_same<TypeKey, unsigned>::value ? false : true};
+  hc_config.block_capacity = vocabulary_size;
+  bool use_mixed_precision{false};
   std::shared_ptr<ModelOversubscriber> model_oversubscriber(
-      new ModelOversubscriber(use_host_ps, embeddings, sparse_embedding_files,
-                              resource_manager, use_mixed_precision, is_i64_key));
+      new ModelOversubscriber({ps_type}, {embedding}, {snapshot_dst_file},
+                              resource_manager, use_mixed_precision, is_i64_key,
+                              {local_path}, {hc_config}));
 
   Timer timer_ps;
   timer_ps.start();
+  auto read_file_and_output = [](std::string file_name, size_t num_output = 10) {
+    std::ifstream ifs(file_name);
+    std::vector<float> data_vec(fs::file_size(file_name) / sizeof(float));
+    ifs.read(reinterpret_cast<char *>(data_vec.data()), fs::file_size(file_name));
+    std::copy(data_vec.begin(), data_vec.begin() + num_output, std::ostream_iterator<float>(std::cout, " "));
+    std::cout << std::endl;
+  };
+  (void)read_file_and_output;
 
   // upload embedding table from disk according to keyset
   model_oversubscriber->update(keyset_file_list);
@@ -183,47 +194,93 @@ void do_upload_and_download_snapshot(
   MESSAGE_("Batch_num=" + std::to_string(batch_num_train) +
            ", embedding_vec_size=" + std::to_string(emb_vec_size) +
            ", elapsed time=" + std::to_string(timer_ps.elapsedSeconds()) + "s");
+  
+  std::vector<std::string> data_files{"key"};
+  if (!is_distributed) data_files.push_back("slot_id");
+  auto vec_files{get_data_file(opt_type)};
+  // if (ps_type == TrainPSType_t::Cached) {
+  //   for (auto const& vec_file : vec_files) data_files.push_back(vec_file);
+  // } else {
+    data_files.push_back(vec_files[0]);
+  // }
 
   // Check if the result is correct
-  ASSERT_TRUE(check_vector_equality(snapshot_src_file, snapshot_dst_file, "key"));
-  ASSERT_TRUE(check_vector_equality(snapshot_src_file, snapshot_dst_file, "emb_vector"));
-  if (!is_distributed) {
-    ASSERT_TRUE(check_vector_equality(snapshot_src_file, snapshot_dst_file, "slot_id"));
+  for (const auto& data_file : data_files) {
+    auto dst_name{snapshot_dst_file};
+    MESSAGE_(std::string("check ") + dst_name + "/" + data_file, true, false);
+    ASSERT_TRUE(check_vector_equality(snapshot_src_file, dst_name, data_file.c_str()));
+    MESSAGE_(" [DONE]", true, true, false);
   }
 
-  if (!use_host_ps) return;
+  if (ps_type == TrainPSType_t::Cached) {
+    auto inc_model{model_oversubscriber->get_incremental_model(keys_in_file)};
 
-  auto inc_model{model_oversubscriber->get_incremental_model(keys_in_file)};
+    ASSERT_EQ(inc_model.size(), 1);
+    auto& key_vec_pair{inc_model[0]};
+    ASSERT_EQ(keys_in_file.size(), inc_model[0].first.size());
+    ASSERT_EQ(key_vec_pair.first.size(), key_vec_pair.second.size() / emb_vec_size);
+    
+    std::vector<std::vector<float>> data_vecs(vec_files.size());
+    {
+      SparseModelFileTS<TypeKey> sparse_model_ts(snapshot_src_file, snapshot_src_file,
+          !is_distributed, opt_type, emb_vec_size, resource_manager);
+      auto& load_key_vec{key_vec_pair.first};
+      for (auto& data_vec : data_vecs) {
+        data_vec.resize(load_key_vec.size() * emb_vec_size);
+      }
+      std::vector<size_t> slot_ids(load_key_vec.size());
+      std::vector<size_t> ssd_idx_vec(load_key_vec.size());
+  #pragma omp parallel num_threads(12)
+      for (size_t i = 0; i < ssd_idx_vec.size(); i++) {
+        auto dst_idx{sparse_model_ts.find(load_key_vec[i])};
+        if (dst_idx == SparseModelFileTS<TypeKey>::end_flag) {
+          CK_THROW_(Error_t::WrongInput, "Key doesn't exist");
+        }
+        ssd_idx_vec[i] = dst_idx;
+      }
+      std::vector<float *> data_ptrs;
+      for (auto& vec : data_vecs) data_ptrs.push_back(vec.data());
+      sparse_model_ts.load(ssd_idx_vec, slot_ids.data(), data_ptrs);
+    }
+    ASSERT_EQ(key_vec_pair.first.size(), keys_in_file.size());
+    ASSERT_TRUE(test::compare_array_approx<char>(
+        reinterpret_cast<char *>(data_vecs[0].data()),
+        reinterpret_cast<char *>(key_vec_pair.second.data()),
+        key_vec_pair.first.size() * sizeof(float) * emb_vec_size, 0));
+  } else {
+    auto inc_model{model_oversubscriber->get_incremental_model(keys_in_file)};
 
-  ASSERT_TRUE(inc_model.size() == 1);
-  auto& key_vec_pair = inc_model[0];
+    auto& key_vec_pair{inc_model[0]};
+    ASSERT_TRUE(inc_model.size() == 1);
+    ASSERT_EQ(keys_in_file.size(), inc_model[0].first.size());
+    ASSERT_EQ(key_vec_pair.first.size(), key_vec_pair.second.size() / emb_vec_size);
 
-  ASSERT_EQ(keys_in_file.size(), inc_model[0].first.size());
-  ASSERT_EQ(key_vec_pair.first.size(), key_vec_pair.second.size() / emb_vec_size);
+    std::string vec_file_name("./emb_vector");
+    std::ofstream vec_ofs(vec_file_name, std::ofstream::binary | std::ofstream::trunc);
+    vec_ofs.write(reinterpret_cast<char *>(key_vec_pair.second.data()),
+        key_vec_pair.second.size() * sizeof(float));
 
-  std::string vec_file_name("./emb_vector");
-  std::ofstream vec_ofs(vec_file_name, std::ofstream::binary | std::ofstream::trunc);
-  vec_ofs.write(reinterpret_cast<char *>(key_vec_pair.second.data()),
-      key_vec_pair.second.size() * sizeof(float));
-
-  ASSERT_EQ(key_vec_pair.first.size(), keys_in_file.size());
-  ASSERT_TRUE(check_vector_equality(snapshot_src_file, "./", "emb_vector"));
-}
-
-TEST(model_oversubscriber_test, long_long_ssd_distributed) {
-  do_upload_and_download_snapshot<long long>(30, false, true);
+    ASSERT_EQ(key_vec_pair.first.size(), keys_in_file.size());
+    ASSERT_TRUE(check_vector_equality(snapshot_src_file, "./", "emb_vector"));
+  }
 }
 
 TEST(model_oversubscriber_test, unsigned_host_distributed) {
-  do_upload_and_download_snapshot<unsigned>(20, true, true);
+  do_upload_and_download_snapshot<unsigned>(20, TrainPSType_t::Staged, true);
 }
-
-TEST(model_oversubscriber_test, long_long_ssd_localized) {
-  do_upload_and_download_snapshot<long long>(20, false, false);
+TEST(model_oversubscriber_test, long_long_cache_distributed_adam) {
+  HMemCacheConfig hc_config(1, 0.5, 0);
+  do_upload_and_download_snapshot<long long>(
+      20, TrainPSType_t::Cached, true, Optimizer_t::Adam, "./", hc_config);
 }
 
 TEST(model_oversubscriber_test, unsigned_host_localized) {
-  do_upload_and_download_snapshot<unsigned>(20, true, false);
+  do_upload_and_download_snapshot<unsigned>(20, TrainPSType_t::Staged, false);
+}
+TEST(model_oversubscriber_test, unsigned_cache_localized_sgd) {
+  HMemCacheConfig hc_config(1, 0.5, 0);
+  do_upload_and_download_snapshot<unsigned>(
+      30, TrainPSType_t::Cached, false, Optimizer_t::SGD, "./", hc_config);
 }
 
 }  // namespace
