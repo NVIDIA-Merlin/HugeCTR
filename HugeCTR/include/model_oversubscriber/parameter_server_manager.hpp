@@ -16,7 +16,8 @@
 
 #pragma once
 
-#include "HugeCTR/include/model_oversubscriber/parameter_server.hpp"
+#include "model_oversubscriber/hmem_cache/hmem_cache.hpp"
+#include "model_oversubscriber/parameter_server.hpp"
 #include "parser.hpp"
 #include "tensor2.hpp"
 
@@ -28,10 +29,13 @@ class ParameterServerManager {
   BufferBag buf_bag_;
 
  public:
-  ParameterServerManager(bool use_host_ps, const std::vector<std::string>& sparse_embedding_files,
-                         const std::vector<Embedding_t>& embedding_types,
-                         const std::vector<SparseEmbeddingHashParams>& embedding_params,
-                         size_t buffer_size, std::shared_ptr<ResourceManager> resource_manager);
+  ParameterServerManager(std::vector<TrainPSType_t>& ps_types,
+                         std::vector<std::string>& sparse_embedding_files,
+                         std::vector<Embedding_t> embedding_types,
+                         std::vector<SparseEmbeddingHashParams>& embedding_params,
+                         size_t buffer_size, std::shared_ptr<ResourceManager> resource_manager,
+                         std::vector<std::string>& local_paths,
+                         std::vector<HMemCacheConfig>& hmem_cache_configs);
 
   ParameterServerManager(const ParameterServerManager&) = delete;
   ParameterServerManager& operator=(const ParameterServerManager&) = delete;
@@ -43,9 +47,7 @@ class ParameterServerManager {
   BufferBag& get_buffer_bag() { return buf_bag_; }
 
   void update_sparse_model_file() {
-    for (auto& ps : ps_) {
-      ps->flush_emb_tbl_to_ssd();
-    }
+    for (auto& ps : ps_) ps->flush_emb_tbl_to_ssd();
   }
 };
 

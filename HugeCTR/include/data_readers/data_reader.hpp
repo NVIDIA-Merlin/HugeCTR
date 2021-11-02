@@ -26,12 +26,12 @@
 #include <data_readers/data_reader_worker_group_norm.hpp>
 #include <data_readers/data_reader_worker_group_parquet.hpp>
 #include <data_readers/data_reader_worker_group_raw.hpp>
+#include <filesystem>
 #include <fstream>
 #include <gpu_resource.hpp>
 #include <tensor2.hpp>
 #include <utils.hpp>
 #include <vector>
-#include <filesystem>
 
 namespace HugeCTR {
 
@@ -288,7 +288,7 @@ class DataReader : public IDataReader {
     // check if key type compatible with dataset
     size_t file_size = std::filesystem::file_size(file_name);
     size_t expected_file_size = (label_dim_ + dense_dim_) * sizeof(float);
-    for(auto &param: params_) {
+    for (auto &param : params_) {
       expected_file_size += param.slot_num * sizeof(TypeKey);
     }
     expected_file_size *= num_samples;

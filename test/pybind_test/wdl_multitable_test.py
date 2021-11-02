@@ -59,6 +59,6 @@ if __name__ == "__main__":
     embedding_file_list = str(sys.argv[4]).split(',')
     print(embedding_file_list)
     data_file = sys.argv[5]
-    wdl_inference(model_name, network_file, dense_file, embedding_file_list, data_file, True, hugectr.Database_t.RocksDB)
+    #wdl_inference(model_name, network_file, dense_file, embedding_file_list, data_file, True, hugectr.Database_t.RocksDB)
     wdl_inference(model_name, network_file, dense_file, embedding_file_list, data_file, True, hugectr.Database_t.Local)
     wdl_inference(model_name, network_file, dense_file, embedding_file_list, data_file, False, hugectr.Database_t.Local)

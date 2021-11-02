@@ -14,13 +14,12 @@
  * limitations under the License.
  */
 #pragma once
-#include <HugeCTR/include/embedding.hpp>
-#include <HugeCTR/include/model_oversubscriber/model_oversubscriber.hpp>
 #include <common.hpp>
 #include <embedding.hpp>
 #include <exchange_wgrad.hpp>
 #include <loss.hpp>
 #include <metrics.hpp>
+#include <model_oversubscriber/model_oversubscriber.hpp>
 #include <network.hpp>
 #include <optimizer.hpp>
 #include <parser.hpp>
@@ -183,14 +182,15 @@ struct SparseEmbedding {
 
 struct ModelOversubscriberParams {
   bool use_model_oversubscriber;
-  bool use_host_memory_ps;
-  bool train_from_scratch;
-  std::vector<std::string> trained_sparse_models;
-  std::vector<std::string> dest_sparse_models;
+  std::vector<TrainPSType_t> ps_types;
+  std::vector<std::string> sparse_models;
+  std::vector<std::string> local_paths;
+  std::vector<HMemCacheConfig> hmem_cache_configs;
   std::vector<std::string> incremental_keyset_files;
-  ModelOversubscriberParams(bool train_from_scratch, bool use_host_memory_ps,
-                            std::vector<std::string>& trained_sparse_models,
-                            std::vector<std::string>& dest_sparse_models);
+  ModelOversubscriberParams(std::vector<TrainPSType_t>& _ps_types,
+                            std::vector<std::string>& _sparse_models,
+                            std::vector<std::string>& _local_paths,
+                            std::vector<HMemCacheConfig>& _hmem_cache_configs);
   ModelOversubscriberParams();
 };
 
@@ -284,6 +284,9 @@ void save_graph_to_json(nlohmann::json& layer_config_array,
                         std::vector<std::shared_ptr<OptParamsPy>>& embedding_opt_params_list,
                         bool use_mixed_precision);
 
+void calculate_tensor_dimensions(std::map<std::string, std::vector<int>>& tensor_shape_info_raw,
+                                DenseLayer& dense_layer);
+
 void init_optimizer(OptParams& opt_params, const Solver& solver,
                     const std::shared_ptr<OptParamsPy>& opt_params_py);
 
@@ -315,6 +318,10 @@ class Model {
   void add(SparseEmbedding& sparse_embedding);
 
   void add(DenseLayer& dense_layer);
+
+  void add_internal(DenseLayer& dense_layer);
+
+  void graph_analysis();
 
   void compile();
 
@@ -454,8 +461,11 @@ class Model {
   std::vector<std::shared_ptr<BufferBlock2<__half>>> opt_buff_half_list_;
 
   bool set_source_flag_{true};
+  bool graph_finalized_{false};
   std::vector<std::pair<std::vector<long long>, std::vector<float>>> inc_sparse_model_;
 
+  std::vector<DenseLayer> dense_layer_params_raw_;
+  std::map<std::string, std::vector<int>> tensor_shape_info_raw_;
   std::vector<DenseLayer> dense_layer_params_;
   std::vector<SparseEmbedding> sparse_embedding_params_;
   std::vector<Input> input_params_;
@@ -496,11 +506,16 @@ class Model {
 
   template <typename TypeEmbeddingComp>
   std::shared_ptr<ModelOversubscriber> create_model_oversubscriber_(
-      bool use_host_memory_ps, const std::vector<std::string>& sparse_embedding_files);
+      const std::vector<TrainPSType_t>& ps_types,
+      const std::vector<std::string>& sparse_embedding_files,
+      const std::vector<std::string>& local_paths,
+      const std::vector<HMemCacheConfig>& hmem_cache_configs);
   void init_params_for_dense_();
   void init_params_for_sparse_();
-  void init_model_oversubscriber_(bool use_host_memory_ps,
-                                  const std::vector<std::string>& sparse_embedding_files);
+  void init_model_oversubscriber_(const std::vector<TrainPSType_t>& ps_types,
+                                  const std::vector<std::string>& sparse_embedding_files,
+                                  const std::vector<std::string>& local_paths,
+                                  const std::vector<HMemCacheConfig>& hmem_cache_configs);
   Error_t load_params_for_dense_(const std::string& model_file);
   Error_t load_params_for_sparse_(const std::vector<std::string>& embedding_file);
   Error_t load_opt_states_for_dense_(const std::string& dense_opt_states_file);

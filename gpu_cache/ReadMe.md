@@ -1,10 +1,9 @@
 # GPU embedding cache
-This project implements a embedding cache on GPU memory designed for CTR inference workload.
+This project implements a embedding cache on GPU memory designed for CTR inference and training workload.
 
 The cache will store the hot [embedding id, embedding vectors] pairs on GPU memory, thus can reduce the traffic to parameter server when doing embedding table lookup.
 
-The cache is designed for CTR inference, it has following features/restrictions:
-* The cache is read-only: modifying the embedding vector of a embedding id is not supported.
+The cache is designed for CTR inference and training, it has following features/restrictions:
 * All the backup memory side operation is performed by parameter server(prefetching, latency hiding etc.).
 * Single-GPU design, each cache belongs to one GPU.
 * The cache is thread-safe: multiple workers(CPU threads) can concurrently call the API of a single cache object with defined-behavior.
@@ -14,7 +13,7 @@ The cache is designed for CTR inference, it has following features/restrictions:
 ## Project structure
 This project is a stand-alone module in HugeCTR project. The root folder of this project is the `gpu_cache` folder under the HugeCTR root directory. 
 
-The `include` folder contains the headers for the cache library and the `src` folder contains the implementations and makefile for the cache library.
+The `include` folder contains the headers for the cache library and the `src` folder contains the implementations and makefile for the cache library. The `test` folder contains a test that tests the correctness and performance of the GPU embedding cache, which is also provided as a sample code to use the cache.
 
 The `nv_gpu_cache.hpp` file contains the definition of the main classes: `gpu_cache` that implement the GPU embedding cache while the `nv_gpu_cache.cu` file contains the implementation.
 
@@ -56,14 +55,29 @@ public:
                uint64_t* d_missing_index, 
                key_type* d_missing_keys, 
                size_t* d_missing_len, 
-               cudaStream_t stream);
-
+               cudaStream_t stream, 
+               const size_t task_per_warp_tile = TASK_PER_WARP_TILE_MACRO);
 
     // Replace API, i.e. Follow the Query API to update the content of the cache to Most Recent
     void Replace(const key_type* d_keys, 
                  const size_t len, 
                  const float* d_values, 
-                 cudaStream_t stream);
+                 cudaStream_t stream, 
+                 const size_t task_per_warp_tile = TASK_PER_WARP_TILE_MACRO);
+
+    // Update API, i.e. update the embeddings which exist in the cache
+    void Update(const key_type* d_keys,
+                const size_t len,
+                const float* d_values,
+                cudaStream_t stream,
+                const size_t task_per_warp_tile = TASK_PER_WARP_TILE_MACRO);
+
+    // Dump API, i.e. dump some slabsets' keys from the cache
+    void Dump(key_type* d_keys,
+              size_t* d_dump_counter,
+              const size_t start_set_index,
+              const size_t end_set_index,
+              cudaStream_t stream);
 
 };
 
@@ -94,18 +108,35 @@ To create a new embedding cache, user need to provide:
 * The GPU kernels will be launched in `stream` CUDA stream.
 * The host thread will return from the API immediately after the kernels are launched, thus this API is Asynchronous with CPU thread.
 * The keys to be queried in the `d_keys` buffer can have duplication. In this case, user will get duplicated returned values or missing information.
-* This API is thread-safe and can be called concurrently with other `Query` and `Replace` APIs.
+* This API is thread-safe and can be called concurrently with other APIs.
+* For hyper-parameter `task_per_warp_tile`, see `Performance hint` session below.
 
 `Replace`
 * The API will replace `len` [key, value] pairs listed in `d_keys` and `d_values` into the embedding cache using the LRU replacement algorithm.
 * The GPU kernels will be launched in `stream` CUDA stream.
 * The host thread will return from the API immediately after the kernels are launched, thus this API is Asynchronous with CPU thread.
 * The keys to be replaced in the `d_keys` buffer can have duplication and can be already stored inside the cache. In these cases, the cache will detect any possible duplication and maintain the uniqueness of all the [key ,value] pairs stored in the cache.
-* This API is thread-safe and can be called concurrently with other `Query` and `Replace` APIs.
+* This API is thread-safe and can be called concurrently with other APIs.
 * This API will first try to insert the [key, value] pairs into the cache if there is any empty slot. If the cache is full, it will do the replacement.
+* For hyper-parameter `task_per_warp_tile`, see `Performance hint` session below.
+
+`Update`
+* The API will search for `len` keys listed in `d_keys` buffer within the cache. If a key is found in the cache, this API will update the value associated with the key to the corresponding values provided in `d_values` buffer. If a key is not found in the cache, this API will do nothing to this key.
+* The GPU kernels will be launched in `stream` CUDA stream.
+* The host thread will return from the API immediately after the kernels are launched, thus this API is Asynchronous with CPU thread.
+* If the keys to be updated in the `d_keys` buffer have duplication, all values associated with this key in the `d_values` buffer will be updated to the cache atomically. The final result depends on the order of updating the value.
+* This API is thread-safe and can be called concurrently with other APIs.
+* For hyper-parameter `task_per_warp_tile`, see `Performance hint` session below.
+
+`Dump`
+* The API will dump all the keys stored in [`start_set_index`, `end_set_index`) cache sets to `d_keys` buffer as a linear array(the key order is not guaranteed). The total # of keys dumped will be reported in `d_dump_counter` variable.
+* The GPU kernels will be launched in `stream` CUDA stream.
+* The host thread will return from the API immediately after the kernels are launched, thus this API is Asynchronous with CPU thread.
+* This API is thread-safe and can be called concurrently with other APIs.
 
 ## More information
 * The detailed introduction of the GPU embedding cache data structure is presented at GTC China 2020: https://on-demand-gtc.gputechconf.com/gtcnew/sessionview.php?sessionName=cns20626-%e4%bd%bf%e7%94%a8+gpu+embedding+cache+%e5%8a%a0%e9%80%9f+ctr+%e6%8e%a8%e7%90%86%e8%bf%87%e7%a8%8b
+* The `test` folder contains a example of using the GPU embedding cache.
 * This project is used by `embedding_cache` class in `HugeCTR/include/inference/embedding_cache.hpp` which can be used as an example.
 
 ## Performance hint
@@ -114,6 +145,7 @@ To create a new embedding cache, user need to provide:
     + If set too small, may cause load imbalance between different cache sets(lower down the effective capacity of the cache, lower down the hit rate). To prevent this, the embedding cache uses a very random hash function to hash the keys to different cache set, thus will achieve load balance statistically. However, larger cache set will tends to have better load balance. 
     + If set too large, the searching space for a single key will be very large. The performance of the embedding cache API will drop dramatically. Also, each set will be accessed exclusively, thus the more cache sets the higher parallelism can be achieved.
     + Recommend setting `set_associativity` to 2 or 4.
+* The runtime hyper-parameter `task_per_warp_tile` is set to 1 as default parameter, thus users don't need to change their code to accommodate this interface change. This hyper-parameter determines how many keys are been queried/replaced/updated by a single warp tile. The acceptable value is between [1, `warp_size`]. For small to medium size operations to the cache, less task per warp tile can increase the total # of warp tiles running concurrently on the GPU chip, thus can bring siginificant performance improvement. For large size operations to the cache, the increased # of warp tile will not bring any performance improvement(even a little regression on the performance, ~5%). User can choose the value for this parameter based on the value of `len` parameter. 
 * The GPU is designed for optimizing throughput. Always try to batch up the inference task and try to have larger `query_size`. 
 * As the APIs of the embedding cache is asynchronous with host threads. Try to optimize the E2E inference pipeline by overlapping asynchronous tasks on GPU or between CPU and GPU. For example, after retrieving the missing values from the parameter server, user can combine the missing values with the hit values and do the rest of inference pipeline at the same time with the `Replace` API. Replacement is not necessarily happens together with Query all the time, user can do query multiple times then do a replacement if the hit rate is acceptable.
 * Try different cache capacity and evaluate the hit rate. If the capacity of embedding cache can be larger than actual embedding footprint, the hit rate can be as high as 99%+.

@@ -12,77 +12,158 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-ARG IMAGE_VERSION=21.06-tf2-py3
-FROM nvcr.io/nvidia/tensorflow:${IMAGE_VERSION} AS devel
-
-ARG UBUNTU_VERSION
-ARG CMAKE_VERSION=3.19.6
-ARG PYTHON_VERSION=3.8
-ARG RAPIDS_VERSION=21.06
-ARG HWLOC_VERSION=2.4.1
-ARG MPI_VERSION=4.1.0
-ARG MPI4PY_VERSION=3.0.3
+ARG BASE_IMAGE=tensorflow
+ARG IMAGE_VER=21.09-tf2-py3
+FROM nvcr.io/nvidia/${BASE_IMAGE}:${IMAGE_VER} AS devel
 
 ARG RELEASE=false
 ARG SM="60;61;70;75;80"
-ARG VAL_MODE=OFF
 ARG ENABLE_MULTINODES=ON
 
-RUN apt-get remove --auto-remove -y python3 cmake && \
-    rm -rfv /usr/local/mpi /usr/local/ucx
+ARG CMAKE_VER=3.21.1
+ARG HWLOC_VER=2.4.1
 
-RUN apt-get update -y && \
+SHELL ["/bin/bash", "-c"]
+
+ARG CUDA_HOME=/usr/local/cuda
+ARG CUDA_CUDA_LIBRARY=${CUDA_HOME}/lib64/stubs
+ENV PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION='python'
+ENV PATH=${CUDA_HOME}/lib64/:${PATH}:${CUDA_HOME}/bin
+ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/cuda/lib64:/usr/local/cuda/extras/CUPTI/lib64:/usr/local/lib:/repos/dist/lib
+
+# Build env variables for rmm
+ENV INSTALL_PREFIX=/usr
+
+RUN export DEBIAN_FRONTEND=noninteractive && \
+    apt-get update -y && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-        vim \
         gdb \
-        git \
-        wget \
-        tar \
-        unzip \
-        curl \
         valgrind \
+        iotop \
         clang-format \
-        libboost-all-dev \
-        libboost-regex-dev \
-        libboost-system-dev \
-        libboost-filesystem-dev \
+        libboost-serialization-dev \
         libtbb-dev \
-        aptitude \
-        libtool \
-        numactl \
         libaio-dev \
-        libnuma-dev \
-        libibverbs-dev && \
+        slapd && \
+    apt install -y --no-install-recommends software-properties-common && \
+    add-apt-repository -y ppa:deadsnakes/ppa && \
+    apt update -y --fix-missing && \
     rm -rf /var/lib/apt/lists/*
 
-RUN mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp http://repo.anaconda.com/miniconda/Miniconda3-4.7.12-Linux-x86_64.sh && \
-    bash /var/tmp/Miniconda3-4.7.12-Linux-x86_64.sh -b -p /opt/conda && \
-    /opt/conda/bin/conda init && \
-    ln -s /opt/conda/etc/profile.d/conda.sh /etc/profile.d/conda.sh && \
-    /opt/conda/bin/conda update -n base -c defaults conda && \
-    /opt/conda/bin/conda clean -afy && \
-    rm -rf /var/tmp/Miniconda3-4.7.12-Linux-x86_64.sh && \
-    rm -rf /opt/conda/lib/libtinfo.so.6 && \
-    ln -s /usr/lib/x86_64-linux-gnu/libtinfo.so.6.2 /opt/conda/lib/libtinfo.so.6
-ENV CPATH=/opt/conda/include:$CPATH
-ENV LD_LIBRARY_PATH=/opt/conda/lib:$LD_LIBRARY_PATH
-ENV LIBRARY_PATH=/opt/conda/lib:$LIBRARY_PATH
-ENV PATH=/opt/conda/bin:$PATH
-ENV CONDA_PREFIX=/opt/conda
+RUN pip install git+git://github.com/gevent/gevent.git@21.8.0#egg=gevent
 
-RUN NCCL_VERSION=`find / -name "libnccl.so.?.*" | cut -d'.' -f 3-` && \
-    CUDNN_VERSION=`find / -name "libcudnn.so.?.*" | cut -d'.' -f 3-` && \
-    conda install -c rapidsai -c nvidia -c conda-forge -c anaconda \
-        cudf=${RAPIDS_VERSION} \
-        python=${PYTHON_VERSION} \
-        cmake=${CMAKE_VERSION} \
-        nccl=$NCCL_VERSION \
-        cudnn=$CUDNN_VERSION \
-        ucx \
-        openmpi=${MPI_VERSION} \
-        openmpi-mpicc=${MPI_VERSION} \
-        mpi4py=${MPI4PY_VERSION} && \
-    conda clean -afy
+RUN pip3 install --no-cache-dir mpi4py ortools sklearn onnx onnxruntime pandas
+
+# Install cmake
+RUN CMAKE_MAJOR_VERSION=`echo ${CMAKE_VER} | cut -d'.' -f1,2` && \
+    mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://cmake.org/files/v$CMAKE_MAJOR_VERSION/cmake-${CMAKE_VER}-linux-x86_64.sh && \
+    mkdir -p /usr/local && \
+    /bin/sh /var/tmp/cmake-${CMAKE_VER}-linux-x86_64.sh --prefix=/usr/local --skip-license && \
+    rm -rf /var/tmp/cmake-${CMAKE_VER}-linux-x86_64.sh
+ENV PATH=/usr/local/bin:$PATH
+
+# Install arrow from source
+ENV ARROW_HOME=/usr/local
+RUN git clone --branch apache-arrow-5.0.0 --recurse-submodules https://github.com/apache/arrow.git build-env && \
+    pushd build-env && \
+      export PARQUET_TEST_DATA="${PWD}/cpp/submodules/parquet-testing/data" && \
+      export ARROW_TEST_DATA="${PWD}/testing/data" && \
+      pip install -r python/requirements-build.txt && \
+      mkdir cpp/release && \
+      pushd cpp/release && \
+        cmake -DCMAKE_INSTALL_PREFIX=${ARROW_HOME} \
+              -DCMAKE_INSTALL_LIBDIR=lib \
+              -DCMAKE_LIBRARY_PATH=${CUDA_CUDA_LIBRARY} \
+              -DARROW_FLIGHT=OFF \
+              -DARROW_GANDIVA=OFF \
+              -DARROW_ORC=ON \
+              -DARROW_WITH_BZ2=ON \
+              -DARROW_WITH_ZLIB=ON \
+              -DARROW_WITH_ZSTD=ON \
+              -DARROW_WITH_LZ4=ON \
+              -DARROW_WITH_SNAPPY=ON \
+              -DARROW_WITH_BROTLI=ON \
+              -DARROW_PARQUET=ON \
+              -DARROW_PYTHON=ON \
+              -DARROW_PLASMA=OFF \
+              -DARROW_BUILD_TESTS=OFF \
+              -DARROW_FILESYSTEM=ON \
+              -DARROW_CUDA=ON \
+              -DARROW_DATASET=ON \
+              .. && \
+        make -j$(nproc) && \
+        make install && \
+      popd && \
+      pushd python && \
+        export PYARROW_WITH_PARQUET=ON && \
+        export PYARROW_WITH_CUDA=ON && \
+        export PYARROW_WITH_ORC=ON && \
+        export PYARROW_WITH_DATASET=ON && \
+        python setup.py build_ext --build-type=release bdist_wheel && \
+        pip install dist/*.whl && \
+      popd && \
+    popd && \
+    rm -rf build-env
+
+# Install CUDA-Aware hwloc from source
+RUN if [ "$BASE_IMAGE" = "tensorflow" ] && [ "$IMAGE_VER" = "21.09-tf2-py3" ]; \
+    then \
+      cd /opt/hpcx/ompi/include/openmpi/opal/mca/hwloc/hwloc201 && rm -rfv hwloc201.h hwloc/include/hwloc.h; \
+    else \
+      cd /usr/local/mpi/include/openmpi/opal/mca/hwloc/hwloc201 && rm -rfv hwloc201.h hwloc/include/hwloc.h; \
+    fi
+RUN mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://download.open-mpi.org/release/hwloc/v2.4/hwloc-${HWLOC_VER}.tar.gz && \
+    mkdir -p /var/tmp && tar -x -f /var/tmp/hwloc-${HWLOC_VER}.tar.gz -C /var/tmp && \
+    cd /var/tmp/hwloc-${HWLOC_VER} && \
+    ./configure CPPFLAGS="-I/usr/local/cuda/include/ -L/usr/local/cuda/lib64/" LDFLAGS="-L/usr/local/cuda/lib64" --enable-cuda && \
+    make -j$(nproc) && make install && \
+    rm -rf /var/tmp/hwloc-${HWLOC_VER} /var/tmp/hwloc-${HWLOC_VER}.tar.gz
+
+# Install rmm from source
+RUN git clone https://github.com/rapidsai/rmm.git build-env && cd build-env/ && \
+    sed -i '/11.2/ a "11.4": "11.x",' python/setup.py && \
+    cd ..; \
+    pushd build-env && \
+      ./build.sh librmm --cmake-args=\"-DBUILD_TESTS=OFF\" && \
+    popd && \
+    rm -rf build-env
+
+# Install cudf from source
+RUN git clone https://github.com/rapidsai/cudf.git build-env && cd build-env/ && \  
+    git submodule update --init --recursive && \
+    cd .. && \
+    pushd build-env && \
+      export CUDF_HOME=${PWD} && \
+      export CUDF_ROOT=${PWD}/cpp/build/ && \
+      export CMAKE_LIBRARY_PATH=${CUDA_CUDA_LIBRARY} && \
+      ./build.sh libcudf --allgpuarch --cmake-args=\"-DBUILD_TESTS=OFF -DCUDF_ENABLE_ARROW_S3=OFF\" && \
+    popd && \
+    rm -rf build-env
+
+# Install Hiredis from source
+RUN mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 https://github.com/redis/hiredis.git && cd - && \
+    cd /var/tmp/hiredis && \
+    mkdir build && cd build && \
+    cmake .. && \
+    make -j$(nproc) && make install && \
+    rm -rf /var/tmp/hiredis
+
+# Install redis++ from source
+RUN mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 -b 1.3.2 https://github.com/sewenew/redis-plus-plus.git && cd - && \
+    cd /var/tmp/redis-plus-plus && \
+    mkdir build && cd build && \
+    cmake -DREDIS_PLUS_PLUS_CXX_STANDARD=17 .. && \
+    make -j$(nproc) && make install && \
+    rm -rf /var/tmp/redis-plus-plus
+
+# Install RocksDB from source
+RUN mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 https://github.com/facebook/rocksdb.git && cd - && \
+    cd /var/tmp/rocksdb && \
+    make -j$(nproc) shared_lib && \
+    make install-shared && \
+    rm -rf /var/tmp/rocksdb
+ENV CPATH=/usr/local/include:$CPATH
+
 ENV OMPI_MCA_plm_rsh_agent=sh
 ENV OMPI_MCA_opal_cuda_support=true
 
@@ -92,43 +173,12 @@ ENV NCCL_COLLNET_ENABLE=0
 ENV SHARP_COLL_NUM_COLL_GROUP_RESOURCE_ALLOC_THRESHOLD=0
 ENV SHARP_COLL_LOCK_ON_COMM_INIT=1
 ENV SHARP_COLL_LOG_LEVEL=3
-
-COPY clean_conda.sh .
-RUN chmod +x ./clean_conda.sh && \
-    ./clean_conda.sh google && \
-    rm -rfv ./clean_conda.sh
-
-# CUDA-Aware hwloc
-RUN mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://download.open-mpi.org/release/hwloc/v2.4/hwloc-${HWLOC_VERSION}.tar.gz && \
-    mkdir -p /var/tmp && tar -x -f /var/tmp/hwloc-${HWLOC_VERSION}.tar.gz -C /var/tmp && \
-    cd /var/tmp/hwloc-${HWLOC_VERSION} && \
-    ./configure CPPFLAGS="-I/usr/local/cuda/include/ -L/usr/local/cuda/lib64/" LDFLAGS="-L/usr/local/cuda/lib64" --enable-cuda && \
-    make -j$(nproc) && make install && \
-    rm -rf /var/tmp/hwloc-${HWLOC_VERSION} /var/tmp/hwloc-${HWLOC_VERSION}.tar.gz
-
-#Hiredis
-RUN mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 https://github.com/redis/hiredis.git && cd - && \
-    cd /var/tmp/hiredis && \
-    mkdir build && cd build && \
-    cmake .. && \
-    make -j$(nproc) && make install && \
-    rm -rf /var/tmp/hiredis
-
-#RocksDB
-RUN mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 https://github.com/facebook/rocksdb.git && cd - && \
-    cd /var/tmp/rocksdb && \
-    make -j$(nproc) shared_lib && \
-    make install-shared && \
-    rm -rf /var/tmp/rocksdb
-ENV CPATH=/usr/local/include:$CPATH
-
-RUN pip3 install ortools sklearn onnx onnxruntime && \
-    pip3 cache purge
+ENV HCOLL_ENABLE_MCAST=0
 
 RUN ln -s /usr/lib/x86_64-linux-gnu/libibverbs.so.1.11.32.1 /usr/lib/x86_64-linux-gnu/libibverbs.so
-RUN CUDA_PATH=`find /usr/local/ -name "cuda-*.?" | head -n 1` && \
-    echo "link $CUDA_PATH to /usr/local/cuda" && \
-    ln -s $CUDA_PATH /usr/local/cuda
+
+RUN rm -rf /usr/lib/x86_64-linux-gnu/libibverbs.so && \
+    ln -s /usr/lib/x86_64-linux-gnu/libibverbs.so.1.14.36.0 /usr/lib/x86_64-linux-gnu/libibverbs.so
 
 # HugeCTR
 RUN if [ "$RELEASE" = "true" ]; \

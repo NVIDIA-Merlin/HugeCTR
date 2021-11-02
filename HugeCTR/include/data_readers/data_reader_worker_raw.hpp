@@ -65,7 +65,7 @@ class DataReaderWorkerRaw : public IDataReaderWorker {
         total_slot_num_(0),
         last_batch_nnz_(params.size(), 0) {
     CudaCPUDeviceContext ctx(gpu_resource->get_device_id());
-    
+
     if (worker_id >= worker_num) {
       CK_THROW_(Error_t::BrokenFile, "DataReaderWorkerRaw: worker_id >= worker_num");
     }

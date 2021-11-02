@@ -1548,4 +1548,243 @@ void add_dense_layer(
   }
 }
 
+void calculate_tensor_dimensions(std::map<std::string, std::vector<int>>& tensor_shape_info_raw,
+                                DenseLayer& dense_layer) {                       
+  switch (dense_layer.layer_type) {
+    case Layer_t::BatchNorm: {
+      tensor_shape_info_raw.insert(std::make_pair(dense_layer.top_names[0],
+                            tensor_shape_info_raw[dense_layer.bottom_names[0]]));
+      break;
+    }
+    case Layer_t::BinaryCrossEntropyLoss: {
+      tensor_shape_info_raw.insert(std::make_pair(dense_layer.top_names[0],
+                            tensor_shape_info_raw[dense_layer.bottom_names[0]]));
+      break;
+    }
+    case Layer_t::Concat: {
+      int batch_size = tensor_shape_info_raw[dense_layer.bottom_names[0]][0];
+      int out_dim{0};
+      for (auto& bottom_name : dense_layer.bottom_names) {
+        out_dim += tensor_shape_info_raw[bottom_name][1];
+      }
+      tensor_shape_info_raw.insert(std::make_pair(dense_layer.top_names[0],
+                            std::vector<int>{batch_size, out_dim}));
+      break;
+    }
+    case Layer_t::CrossEntropyLoss: {
+      tensor_shape_info_raw.insert(std::make_pair(dense_layer.top_names[0],
+                            tensor_shape_info_raw[dense_layer.bottom_names[0]]));    
+      break;
+    }
+    case Layer_t::Dropout: {
+      tensor_shape_info_raw.insert(std::make_pair(dense_layer.top_names[0],
+                            tensor_shape_info_raw[dense_layer.bottom_names[0]]));      
+      break;
+    }
+    case Layer_t::ELU: {
+      tensor_shape_info_raw.insert(std::make_pair(dense_layer.top_names[0],
+                            tensor_shape_info_raw[dense_layer.bottom_names[0]]));      
+      break;
+    }
+    case Layer_t::FusedInnerProduct: {
+      int batch_size = tensor_shape_info_raw[dense_layer.bottom_names[0]][0];
+      int num_output = dense_layer.num_output;
+      auto pos_type = dense_layer.pos_type;
+      if (pos_type == FcPosition_t::None || pos_type == FcPosition_t::Isolated
+                      || pos_type == FcPosition_t::Tail) {
+        tensor_shape_info_raw.insert(std::make_pair(dense_layer.top_names[0],
+                              std::vector<int>{batch_size, num_output}));
+      } else if (pos_type == FcPosition_t::Head || pos_type == FcPosition_t::Body) {
+        tensor_shape_info_raw.insert(std::make_pair(dense_layer.top_names[0],
+                              std::vector<int>{batch_size, num_output}));
+        tensor_shape_info_raw.insert(std::make_pair(dense_layer.top_names[1],
+                              std::vector<int>{batch_size, num_output}));
+        tensor_shape_info_raw.insert(std::make_pair(dense_layer.top_names[2],
+                              std::vector<int>{batch_size, num_output}));
+        tensor_shape_info_raw.insert(std::make_pair(dense_layer.top_names[3],
+                              std::vector<int>{1, num_output}));
+      }
+      break;
+    }
+    case Layer_t::Cast: {
+      tensor_shape_info_raw.insert(std::make_pair(dense_layer.top_names[0],
+                            tensor_shape_info_raw[dense_layer.bottom_names[0]]));
+      break;
+    }
+    case Layer_t::InnerProduct: {
+      int batch_size = tensor_shape_info_raw[dense_layer.bottom_names[0]][0];
+      int num_output = dense_layer.num_output;
+      tensor_shape_info_raw.insert(std::make_pair(dense_layer.top_names[0],
+                            std::vector<int>{batch_size, num_output}));      
+      break;
+    }
+    case Layer_t::Interaction: {
+      int batch_size = tensor_shape_info_raw[dense_layer.bottom_names[1]][0];
+      int slot_num = tensor_shape_info_raw[dense_layer.bottom_names[1]][1];
+      int vec_size = tensor_shape_info_raw[dense_layer.bottom_names[1]][2];
+      int out_dim = vec_size + (slot_num + 1) * (slot_num + 2 ) / 2 - (slot_num + 1) + 1;
+      tensor_shape_info_raw.insert(std::make_pair(dense_layer.top_names[0],
+                            std::vector<int>{batch_size, out_dim}));            
+      break;
+    }
+    case Layer_t::MultiCross: {
+      tensor_shape_info_raw.insert(std::make_pair(dense_layer.top_names[0],
+                            tensor_shape_info_raw[dense_layer.bottom_names[0]]));
+      break;
+    }
+    case Layer_t::MultiCrossEntropyLoss: {
+      tensor_shape_info_raw.insert(std::make_pair(dense_layer.top_names[0],
+                            tensor_shape_info_raw[dense_layer.bottom_names[0]]));      
+      break;
+    }
+    case Layer_t::ReLU: {
+      tensor_shape_info_raw.insert(std::make_pair(dense_layer.top_names[0],
+                            tensor_shape_info_raw[dense_layer.bottom_names[0]]));
+      break;
+    }
+    case Layer_t::Reshape: {
+      int batch_size = tensor_shape_info_raw[dense_layer.bottom_names[0]][0];
+      int reshape_time_step = dense_layer.leading_dim;
+      int leading_dim = dense_layer.leading_dim;
+      if (reshape_time_step == 0) {
+        tensor_shape_info_raw.insert(std::make_pair(dense_layer.top_names[0],
+                              std::vector<int>{batch_size, leading_dim}));
+      } else {
+        tensor_shape_info_raw.insert(std::make_pair(dense_layer.top_names[0],
+                              std::vector<int>{batch_size, reshape_time_step, leading_dim}));        
+      }
+      break;
+    }
+    case Layer_t::Sigmoid: {
+      tensor_shape_info_raw.insert(std::make_pair(dense_layer.top_names[0],
+                            tensor_shape_info_raw[dense_layer.bottom_names[0]]));
+      break;
+    }
+    case Layer_t::Slice: {
+      int batch_size = tensor_shape_info_raw[dense_layer.bottom_names[0]][0];
+      for (unsigned int i = 0; i < dense_layer.top_names.size(); i++) {
+        tensor_shape_info_raw.insert(std::make_pair(dense_layer.top_names[i],
+                              std::vector<int>{batch_size, dense_layer.ranges[i].second-dense_layer.ranges[i].first}));        
+      }      
+      break;
+    }
+    case Layer_t::WeightMultiply: {
+      int batch_size = tensor_shape_info_raw[dense_layer.bottom_names[0]][0];
+      int out_dim = dense_layer.weight_dims[0] * dense_layer.weight_dims[1];
+      tensor_shape_info_raw.insert(std::make_pair(dense_layer.top_names[0],
+                            std::vector<int>{batch_size, out_dim}));      
+      break;
+    }
+    case Layer_t::FmOrder2: {
+      int batch_size = tensor_shape_info_raw[dense_layer.bottom_names[0]][0];
+      int out_dim = dense_layer.out_dim;
+      tensor_shape_info_raw.insert(std::make_pair(dense_layer.top_names[0],
+                            std::vector<int>{batch_size, out_dim}));         
+      break;
+    }
+    case Layer_t::Add: {
+      tensor_shape_info_raw.insert(std::make_pair(dense_layer.top_names[0],
+                            tensor_shape_info_raw[dense_layer.bottom_names[0]]));      
+      break;
+    }
+    case Layer_t::ReduceSum: {
+      std::vector<int> out_dims = tensor_shape_info_raw[dense_layer.bottom_names[0]];
+      out_dims[dense_layer.axis] = 1;
+      tensor_shape_info_raw.insert(std::make_pair(dense_layer.top_names[0], out_dims));       
+      break;
+    }
+    case Layer_t::ReduceMean: {
+      std::vector<int> out_dims = tensor_shape_info_raw[dense_layer.bottom_names[0]];
+      out_dims[dense_layer.axis] = 1;
+      tensor_shape_info_raw.insert(std::make_pair(dense_layer.top_names[0], out_dims));   
+      break;
+    }
+    case Layer_t::Sub: {
+      tensor_shape_info_raw.insert(std::make_pair(dense_layer.top_names[0],
+                            tensor_shape_info_raw[dense_layer.bottom_names[0]]));       
+      break;
+    }
+    case Layer_t::Gather: {
+      int out_batch_size = dense_layer.indices.size();
+      int out_dim = tensor_shape_info_raw[dense_layer.bottom_names[0]][1];
+      tensor_shape_info_raw.insert(std::make_pair(dense_layer.top_names[0],
+                            std::vector<int>{out_batch_size, out_dim})); 
+      break;
+    }
+    case Layer_t::GRU: {
+      int batch_size = tensor_shape_info_raw[dense_layer.bottom_names[0]][0];
+      int num_output = dense_layer.num_output;
+      tensor_shape_info_raw.insert(std::make_pair(dense_layer.top_names[0],
+                            std::vector<int>{batch_size, num_output})); 
+      break;
+    }
+    case Layer_t::MatrixMultiply: {
+      auto& dim1 = tensor_shape_info_raw[dense_layer.bottom_names[0]];
+      auto& dim2 = tensor_shape_info_raw[dense_layer.bottom_names[1]];
+      if (dim1.size() == 3) {
+        tensor_shape_info_raw.insert(std::make_pair(dense_layer.top_names[0],
+                              std::vector<int>{dim1[0], dim1[1], dim2[2]}));      
+      } else {
+        tensor_shape_info_raw.insert(std::make_pair(dense_layer.top_names[0],
+                              std::vector<int>{dim1[0], dim2[1]}));      
+      }
+      break;
+    }
+    case Layer_t::Softmax: {
+      tensor_shape_info_raw.insert(std::make_pair(dense_layer.top_names[0],
+                            tensor_shape_info_raw[dense_layer.bottom_names[0]]));    
+      break;
+    }
+    case Layer_t::PReLU_Dice: {
+      tensor_shape_info_raw.insert(std::make_pair(dense_layer.top_names[0],
+                            tensor_shape_info_raw[dense_layer.bottom_names[0]]));    
+      break;
+    }
+    case Layer_t::Scale: {
+      std::vector<int> out_dims = tensor_shape_info_raw[dense_layer.bottom_names[0]];
+      if (dense_layer.axis == 0) {
+        out_dims[1] *= dense_layer.factor;
+      } else {
+        out_dims[0] *= dense_layer.factor;
+      }
+      tensor_shape_info_raw.insert(std::make_pair(dense_layer.top_names[0], out_dims));
+      break;
+    }
+    case Layer_t::FusedReshapeConcat: {
+      int batch_size = tensor_shape_info_raw[dense_layer.bottom_names[0]][0];
+      int slot_num = tensor_shape_info_raw[dense_layer.bottom_names[0]][1];
+      int out_width{0};
+      for (auto& bottom_name : dense_layer.bottom_names) {
+        out_width += tensor_shape_info_raw[bottom_name][2];
+      }
+      tensor_shape_info_raw.insert(std::make_pair(dense_layer.top_names[0], std::vector<int>{batch_size*(slot_num-1), out_width}));
+      tensor_shape_info_raw.insert(std::make_pair(dense_layer.top_names[1], std::vector<int>{batch_size, out_width}));
+      break;
+    }
+    case Layer_t::FusedReshapeConcatGeneral: {
+      int batch_size = tensor_shape_info_raw[dense_layer.bottom_names[0]][0];
+      int slot_num = tensor_shape_info_raw[dense_layer.bottom_names[0]][1];
+      int out_width{0};
+      for (auto& bottom_name : dense_layer.bottom_names) {
+        out_width += tensor_shape_info_raw[bottom_name][2];
+      }
+      tensor_shape_info_raw.insert(std::make_pair(dense_layer.top_names[0], std::vector<int>{batch_size*slot_num, out_width}));
+      break;
+    }
+    case Layer_t::DotProduct: {
+      tensor_shape_info_raw.insert(std::make_pair(dense_layer.top_names[0],
+                            tensor_shape_info_raw[dense_layer.bottom_names[0]]));       
+      break;
+    }
+    case Layer_t::ElementwiseMultiply: {
+      tensor_shape_info_raw.insert(std::make_pair(dense_layer.top_names[0],
+                            tensor_shape_info_raw[dense_layer.bottom_names[0]])); 
+      break;
+    }
+    default: {
+      assert(!"Error: no such layer && should never get here!");
+    }
+  }  // end of switch
+}
+
 }  // namespace HugeCTR

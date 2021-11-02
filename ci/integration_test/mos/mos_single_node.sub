@@ -3,10 +3,6 @@
 srun --ntasks="${SLURM_JOB_NUM_NODES}" --container-image="${CONT}" --container-mounts="${MOUNTS}" bash -cx " \
     cd /dataset/criteo_kaggle/wdl_data_keyset && \
     rm -rfv /workdir/wdl_0_sparse_model /workdir/wdl_1_sparse_model && \
-    python3 /workdir/test/pybind_test/wdl_1gpu_mos.py /workdir/test/scripts/wdl_1gpu.json /workdir && \
+    python3 /workdir/test/pybind_test/wdl_mos_low_level.py /workdir/test/scripts/wdl_1gpu.json /workdir && \
     rm -rfv /workdir/wdl_0_sparse_model /workdir/wdl_1_sparse_model && \
-    python3 /workdir/test/pybind_test/wdl_mos_scratch_high_level.py /workdir/test/scripts/wdl_1gpu.json false /workdir && \
-    python3 /workdir/test/pybind_test/wdl_mos_high_level.py /workdir/test/scripts/wdl_1gpu.json false /workdir && \
-    rm -rfv /workdir/wdl_0_sparse_model /workdir/wdl_1_sparse_model && \
-    python3 /workdir/test/pybind_test/wdl_mos_scratch_high_level.py /workdir/test/scripts/wdl_1gpu.json true /workdir && \
-    python3 /workdir/test/pybind_test/wdl_mos_high_level.py /workdir/test/scripts/wdl_1gpu.json true /workdir"
+    python3 /workdir/test/pybind_test/wdl_mos.py /workdir/test/scripts/wdl_1gpu.json /workdir"

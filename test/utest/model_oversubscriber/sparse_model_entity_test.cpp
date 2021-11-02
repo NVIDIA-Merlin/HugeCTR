@@ -53,7 +53,7 @@ const Update_t update_type = Update_t::Local;
 const int batch_num_eval = 1;
 
 template <typename TypeKey>
-void sparse_model_entity_test(int batch_num_train, bool use_host_mem, bool is_distributed) {
+void sparse_model_entity_test(int batch_num_train, bool is_distributed) {
   Embedding_t embedding_type = is_distributed ? Embedding_t::DistributedSlotSparseEmbeddingHash :
                                                 Embedding_t::LocalizedSlotSparseEmbeddingHash;
 
@@ -92,7 +92,7 @@ void sparse_model_entity_test(int batch_num_train, bool use_host_mem, bool is_di
   }
   float *emb_ptr = buf_bag.embedding.get_ptr();
 
-  HugeCTR::SparseModelEntity<TypeKey> sparse_model_entity(use_host_mem, snapshot_dst_file,
+  HugeCTR::SparseModelEntity<TypeKey> sparse_model_entity(snapshot_dst_file,
     embedding_type, emb_vec_size, resource_manager);
 
   // test load_vec_by_key
@@ -119,7 +119,6 @@ void sparse_model_entity_test(int batch_num_train, bool use_host_mem, bool is_di
   ASSERT_TRUE(test::compare_array_approx<char>(reinterpret_cast<char *>(vec_in_file.data()),
       reinterpret_cast<char *>(emb_ptr), vec_in_file.size() * sizeof(float), 0));
 
-  if (use_host_mem) {
     std::vector<long long> key_ll(key_in_file.size());
     std::transform(key_in_file.begin(), key_in_file.end(), key_ll.begin(), [](TypeKey key) {
       return static_cast<long long>(key);
@@ -129,7 +128,6 @@ void sparse_model_entity_test(int batch_num_train, bool use_host_mem, bool is_di
     ASSERT_EQ(key_vec_pair.first.size(), key_in_file.size());
     ASSERT_TRUE(test::compare_array_approx<char>(reinterpret_cast<char *>(vec_in_file.data()),
         reinterpret_cast<char *>(key_vec_pair.second.data()), vec_in_file.size() * sizeof(float), 0));
-  }
 
   std::vector<size_t> slot_in_file(num_keys);
   if (!is_distributed) {
@@ -156,7 +154,7 @@ void sparse_model_entity_test(int batch_num_train, bool use_host_mem, bool is_di
 
   // dump all embedding features
   sparse_model_entity.dump_vec_by_key(buf_bag, hit_size);
-  if (use_host_mem) sparse_model_entity.flush_emb_tbl_to_ssd();
+  sparse_model_entity.flush_emb_tbl_to_ssd();
   ASSERT_TRUE(check_vector_equality(snapshot_src_file, snapshot_dst_file, "emb_vector"));
 
   // load part embedding features
@@ -195,20 +193,11 @@ void sparse_model_entity_test(int batch_num_train, bool use_host_mem, bool is_di
 }
 
 TEST(sparse_model_entity_test, long_long_ssd_distributed) {
-  sparse_model_entity_test<long long>(30, false, true);
-}
-
-TEST(sparse_model_entity_test, unsigned_host_distributed) {
-  sparse_model_entity_test<unsigned>(30, true, true);
-}
-
-TEST(sparse_model_entity_test, long_long_ssd_localized) {
-  sparse_model_entity_test<long long>(20, false, false);
+  sparse_model_entity_test<long long>(30, true);
 }
 
 TEST(sparse_model_entity_test, unsigned_host_localized) {
-  sparse_model_entity_test<unsigned>(20, true, false);
+  sparse_model_entity_test<unsigned>(20, false);
 }
-
 
 }  // namespace

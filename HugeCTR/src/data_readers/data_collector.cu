@@ -73,14 +73,17 @@ void split(Tensor2<float>& label_tensor, Tensor2<TypeComp>& dense_tensor,
 }
 
 template <typename T>
-void broadcast(const std::shared_ptr<ThreadBuffer> &thread_buffer, std::shared_ptr<BroadcastBuffer> &broadcast_buffer, std::vector<size_t> &last_batch_nnz_, const std::shared_ptr<ResourceManager> &resource_manager){
+void broadcast(const std::shared_ptr<ThreadBuffer>& thread_buffer,
+               std::shared_ptr<BroadcastBuffer>& broadcast_buffer,
+               std::vector<size_t>& last_batch_nnz_,
+               const std::shared_ptr<ResourceManager>& resource_manager) {
   int param_num = thread_buffer->param_num;
   int dense_dim = thread_buffer->dense_dim;
   int label_dim = thread_buffer->label_dim;
   int batch_size = thread_buffer->batch_size;
   int batch_size_per_gpu = batch_size / resource_manager->get_global_gpu_count();
   int local_gpu_count = resource_manager->get_local_gpu_count();
-  
+
 #pragma omp parallel for num_threads(local_gpu_count)
   for (int i = 0; i < local_gpu_count; ++i) {
     auto local_gpu = resource_manager->get_local_gpu(i);
@@ -88,41 +91,45 @@ void broadcast(const std::shared_ptr<ThreadBuffer> &thread_buffer, std::shared_p
     CudaDeviceContext ctx(local_gpu->get_device_id());
 
     for (int param_id = 0; param_id < param_num; ++param_id) {
-      auto src_sparse_tensor = SparseTensor<T>::stretch_from(
-          thread_buffer->device_sparse_buffers[param_id]);
-      auto dst_sparse_tensor = SparseTensor<T>::stretch_from(
-          broadcast_buffer->sparse_buffers[i * param_num + param_id]);
+      auto src_sparse_tensor =
+          SparseTensor<T>::stretch_from(thread_buffer->device_sparse_buffers[param_id]);
+      auto dst_sparse_tensor =
+          SparseTensor<T>::stretch_from(broadcast_buffer->sparse_buffers[i * param_num + param_id]);
 
       if (thread_buffer->is_fixed_length[param_id] &&
           last_batch_nnz_[i * param_num + param_id] == src_sparse_tensor.nnz()) {
-        CK_CUDA_THROW_(cudaMemcpyAsync(
-            dst_sparse_tensor.get_value_ptr(), src_sparse_tensor.get_value_ptr(),
-            src_sparse_tensor.nnz() * sizeof(T), cudaMemcpyDeviceToDevice,
-            local_gpu->get_p2p_stream()));
+        CK_CUDA_THROW_(cudaMemcpyAsync(dst_sparse_tensor.get_value_ptr(),
+                                       src_sparse_tensor.get_value_ptr(),
+                                       src_sparse_tensor.nnz() * sizeof(T),
+                                       cudaMemcpyDeviceToDevice, local_gpu->get_p2p_stream()));
       } else {
         sparse_tensor_helper::cuda::copy_async(dst_sparse_tensor, src_sparse_tensor,
-                                                cudaMemcpyDeviceToDevice,
-                                                local_gpu->get_p2p_stream());
+                                               cudaMemcpyDeviceToDevice,
+                                               local_gpu->get_p2p_stream());
         last_batch_nnz_[i * param_num + param_id] = src_sparse_tensor.nnz();
       }
     }
 
     auto dst_dense_tensor = Tensor2<float>::stretch_from(broadcast_buffer->dense_tensors[i]);
-    auto src_dense_tensor =
-        Tensor2<float>::stretch_from(thread_buffer->device_dense_buffers);
+    auto src_dense_tensor = Tensor2<float>::stretch_from(thread_buffer->device_dense_buffers);
     CK_CUDA_THROW_(cudaMemcpyAsync(
         dst_dense_tensor.get_ptr(),
         src_dense_tensor.get_ptr() + i * batch_size_per_gpu * (label_dim + dense_dim),
-        batch_size_per_gpu * (label_dim + dense_dim) * sizeof(float),
-        cudaMemcpyDeviceToDevice, local_gpu->get_p2p_stream()));
+        batch_size_per_gpu * (label_dim + dense_dim) * sizeof(float), cudaMemcpyDeviceToDevice,
+        local_gpu->get_p2p_stream()));
     CK_CUDA_THROW_(cudaStreamSynchronize(local_gpu->get_p2p_stream()));
   }
 }
 
-template void broadcast<unsigned int>(const std::shared_ptr<ThreadBuffer> &thread_buffer, std::shared_ptr<BroadcastBuffer> &broadcast_buffer, std::vector<size_t> &last_batch_nnz_, const std::shared_ptr<ResourceManager> &resource_manager);
+template void broadcast<unsigned int>(const std::shared_ptr<ThreadBuffer>& thread_buffer,
+                                      std::shared_ptr<BroadcastBuffer>& broadcast_buffer,
+                                      std::vector<size_t>& last_batch_nnz_,
+                                      const std::shared_ptr<ResourceManager>& resource_manager);
 
-template void broadcast<long long>(const std::shared_ptr<ThreadBuffer> &thread_buffer, std::shared_ptr<BroadcastBuffer> &broadcast_buffer, std::vector<size_t> &last_batch_nnz_, const std::shared_ptr<ResourceManager> &resource_manager);
-
+template void broadcast<long long>(const std::shared_ptr<ThreadBuffer>& thread_buffer,
+                                   std::shared_ptr<BroadcastBuffer>& broadcast_buffer,
+                                   std::vector<size_t>& last_batch_nnz_,
+                                   const std::shared_ptr<ResourceManager>& resource_manager);
 
 template void split<float>(Tensor2<float>& label_tensor, Tensor2<float>& dense_tensor,
                            const Tensor2<float>& label_dense_buffer, const int label_dense_dim,

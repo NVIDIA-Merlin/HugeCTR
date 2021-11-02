@@ -218,7 +218,9 @@ LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::LocalizedSlotS
         value_table_tensors_.push_back(tensors);
         if (max_vocabulary_size_per_gpu_ > vocabulary_size_in_current_gpu) {
           Tensor2<float> padding_tensor_for_optimizer;
-          block->reserve({max_vocabulary_size_per_gpu_ - vocabulary_size_in_current_gpu, embedding_data_.embedding_params_.embedding_vec_size}, &padding_tensor_for_optimizer);
+          block->reserve({max_vocabulary_size_per_gpu_ - vocabulary_size_in_current_gpu,
+                          embedding_data_.embedding_params_.embedding_vec_size},
+                         &padding_tensor_for_optimizer);
         }
         hash_table_value_tensors_.push_back(block->as_tensor());
       }
@@ -326,25 +328,6 @@ LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::LocalizedSlotS
     // sync
     functors_.sync_all_gpus(embedding_data_.get_resource_manager());
 
-    // warm up for nccl all2all
-    MESSAGE_("All2All Warmup Start");
-#ifndef ENABLE_MPI
-    if (embedding_data_.get_resource_manager().get_global_gpu_count() > 1) {
-      functors_.all2all_forward(embedding_data_.get_batch_size_per_gpu(true), slot_num_per_gpu_,
-                                embedding_data_.embedding_params_.embedding_vec_size,
-                                embedding_feature_tensors_, all2all_tensors_,
-                                embedding_data_.get_resource_manager());
-    }
-#else
-    if (embedding_data_.get_resource_manager().get_global_gpu_count() > 1) {
-      functors_.all2all_forward(
-          embedding_data_.get_batch_size_per_gpu(true), embedding_data_.embedding_params_.slot_num,
-          embedding_data_.embedding_params_.embedding_vec_size, embedding_feature_tensors_,
-          all2all_tensors_, embedding_data_.get_resource_manager());
-    }
-#endif
-    MESSAGE_("All2All Warmup End");
-
   } catch (const std::runtime_error &rt_err) {
     std::cerr << rt_err.what() << std::endl;
     throw;
@@ -419,7 +402,9 @@ LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::LocalizedSlotS
         value_table_tensors_.push_back(tensors);
         if (max_vocabulary_size_per_gpu_ > vocabulary_size_in_current_gpu) {
           Tensor2<float> padding_tensor_for_optimizer;
-          block->reserve({max_vocabulary_size_per_gpu_ - vocabulary_size_in_current_gpu, embedding_data_.embedding_params_.embedding_vec_size}, &padding_tensor_for_optimizer);
+          block->reserve({max_vocabulary_size_per_gpu_ - vocabulary_size_in_current_gpu,
+                          embedding_data_.embedding_params_.embedding_vec_size},
+                         &padding_tensor_for_optimizer);
         }
         hash_table_value_tensors_.push_back(block->as_tensor());
       }
@@ -577,25 +562,6 @@ LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::LocalizedSlotS
     }
     // sync
     functors_.sync_all_gpus(embedding_data_.get_resource_manager());
-
-    // warm up for nccl all2all
-    MESSAGE_("All2All Warmup Start");
-#ifndef ENABLE_MPI
-    if (embedding_data_.get_resource_manager().get_global_gpu_count() > 1) {
-      functors_.all2all_forward(embedding_data_.get_batch_size_per_gpu(true), slot_num_per_gpu_,
-                                embedding_data_.embedding_params_.embedding_vec_size,
-                                embedding_feature_tensors_, all2all_tensors_,
-                                embedding_data_.get_resource_manager());
-    }
-#else
-    if (embedding_data_.get_resource_manager().get_global_gpu_count() > 1) {
-      functors_.all2all_forward(
-          embedding_data_.get_batch_size_per_gpu(true), embedding_data_.embedding_params_.slot_num,
-          embedding_data_.embedding_params_.embedding_vec_size, embedding_feature_tensors_,
-          all2all_tensors_, embedding_data_.get_resource_manager());
-    }
-#endif
-    MESSAGE_("All2All Warmup End");
 
   } catch (const std::runtime_error &rt_err) {
     std::cerr << rt_err.what() << std::endl;

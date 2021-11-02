@@ -26,6 +26,7 @@
 
 #define SET_ASSOCIATIVITY 2
 #define SLAB_SIZE 32
+#define TASK_PER_WARP_TILE_MACRO 1
 
 namespace gpu_cache{
 
@@ -67,14 +68,32 @@ public:
              uint64_t* d_missing_index, 
              key_type* d_missing_keys, 
              size_t* d_missing_len, 
-             cudaStream_t stream);
+             cudaStream_t stream, 
+             const size_t task_per_warp_tile = TASK_PER_WARP_TILE_MACRO);
 
 
   // Replace API, i.e. Follow the Query API to update the content of the cache to Most Recent
   void Replace(const key_type* d_keys, 
                const size_t len, 
                const float* d_values, 
-               cudaStream_t stream);
+               cudaStream_t stream, 
+               const size_t task_per_warp_tile = TASK_PER_WARP_TILE_MACRO);
+
+
+  // Update API, i.e. update the embeddings which exist in the cache
+  void Update(const key_type* d_keys,
+              const size_t len,
+              const float* d_values,
+              cudaStream_t stream,
+              const size_t task_per_warp_tile = TASK_PER_WARP_TILE_MACRO);
+
+
+  // Dump API, i.e. dump some slabsets' keys from the cache
+  void Dump(key_type* d_keys,
+            size_t* d_dump_counter,
+            const size_t start_set_index,
+            const size_t end_set_index,
+            cudaStream_t stream);
 
 public:
     using slabset = slab_set<set_associativity, key_type, warp_size>;

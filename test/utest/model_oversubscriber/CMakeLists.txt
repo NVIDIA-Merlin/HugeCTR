@@ -14,12 +14,7 @@
 #
 
 cmake_minimum_required(VERSION 3.17)
-file(GLOB model_oversubscriber_test_src
-  parameter_server_test.cu
-  sparse_model_file_test.cpp
-  sparse_model_entity_test.cpp
-  model_oversubscriber_test.cpp
-)
+file(GLOB_RECURSE model_oversubscriber_test_src RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} *.cu *.cpp)
 
 add_executable(model_oversubscriber_test ${model_oversubscriber_test_src})
 target_compile_features(model_oversubscriber_test PUBLIC cxx_std_17)

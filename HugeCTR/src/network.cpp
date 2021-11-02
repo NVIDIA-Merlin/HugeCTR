@@ -49,7 +49,7 @@ void Network::conv_weight_(Tensor2<__half>& target, const Tensor2<float>& source
   CudaDeviceContext context(get_device_id());
   size_t elems = source.get_num_elements();
   if (target.get_num_elements() != source.get_num_elements())
-    CK_THROW_(Error_t::WrongInput, "weight size of target != weight size of in");
+    HCTR_OWN_THROW(Error_t::WrongInput, "weight size of target != weight size of in");
   const size_t BLOCK = 256;
   size_t GRID = (elems - 1) / BLOCK + 1;
   GRID = GRID > 10 * gpu_resource_->get_sm_count() ? 10 * gpu_resource_->get_sm_count() : GRID;
@@ -60,7 +60,7 @@ void Network::conv_weight_(Tensor2<__half>& target, const Tensor2<float>& source
 cudaEvent_t& Network::get_train_events(TrainState_t key) {
   if (train_events_.find(key) == train_events_.end()) {
     cudaEvent_t event;
-    CK_CUDA_THROW_(cudaEventCreateWithFlags(&event, cudaEventDisableTiming));
+    HCTR_LIB_THROW(cudaEventCreateWithFlags(&event, cudaEventDisableTiming));
     train_events_[key] = event;
   }
   return train_events_[key];
@@ -103,12 +103,12 @@ void Network::prop_layers(const std::vector<LPtr>& layers, Network::GraphWrapper
 #endif
 
   if (do_capture) {
-    CK_CUDA_THROW_(cudaStreamBeginCapture(stream, cudaStreamCaptureModeRelaxed));
+    HCTR_LIB_THROW(cudaStreamBeginCapture(stream, cudaStreamCaptureModeRelaxed));
     execute(fprop);
-    CK_CUDA_THROW_(cudaStreamEndCapture(stream, &graph.graph));
-    CK_CUDA_THROW_(cudaGraphInstantiate(&graph.graph_exec, graph.graph, NULL, NULL, 0));
+    HCTR_LIB_THROW(cudaStreamEndCapture(stream, &graph.graph));
+    HCTR_LIB_THROW(cudaGraphInstantiate(&graph.graph_exec, graph.graph, NULL, NULL, 0));
   }
-  CK_CUDA_THROW_(cudaGraphLaunch(graph.graph_exec, stream));
+  HCTR_LIB_THROW(cudaGraphLaunch(graph.graph_exec, stream));
 }
 
 void Network::train(long long current_batchsize) {
@@ -156,11 +156,11 @@ TrainState Network::train(long long current_batchsize, std::function<void()> exc
     case TrainState_t::Finalize:
       break;
     default:
-      CK_THROW_(Error_t::InvalidEnv, "network train reach invalid status");
+      HCTR_OWN_THROW(Error_t::InvalidEnv, "network train reach invalid status");
   }
 
   cudaEvent_t& event = get_train_events(state.state);
-  CK_CUDA_THROW_(cudaEventRecord(event, stream));
+  HCTR_LIB_THROW(cudaEventRecord(event, stream));
   state.event = &event;
   return state;
 }
@@ -180,7 +180,7 @@ void Network::download_params_to_host(std::ofstream& weight_stream) {
   CudaDeviceContext context(get_device_id());
 
   std::unique_ptr<char[]> weight(new char[train_weight_tensor_.get_size_in_bytes()]);
-  CK_CUDA_THROW_(cudaMemcpy(weight.get(), train_weight_tensor_.get_ptr(),
+  HCTR_LIB_THROW(cudaMemcpy(weight.get(), train_weight_tensor_.get_ptr(),
                             train_weight_tensor_.get_size_in_bytes(), cudaMemcpyDeviceToHost));
   weight_stream.write(weight.get(), train_weight_tensor_.get_size_in_bytes());
 
@@ -197,7 +197,7 @@ void Network::download_opt_states_to_host(std::ofstream& opt_states_stream) {
 
   void* src =
       use_mixed_precision_ ? (void*)opt_tensor_half_.get_ptr() : (void*)opt_tensor_.get_ptr();
-  CK_CUDA_THROW_(cudaMemcpy(h_opt_states.get(), src, dst_size_in_byte, cudaMemcpyDeviceToHost));
+  HCTR_LIB_THROW(cudaMemcpy(h_opt_states.get(), src, dst_size_in_byte, cudaMemcpyDeviceToHost));
 
   opt_states_stream.write(h_opt_states.get(), dst_size_in_byte);
 }
@@ -226,14 +226,14 @@ std::string Network::get_no_trained_params_in_string() {
 void Network::upload_params_to_device(const std::string& model_file) {
   std::ifstream model_stream(model_file, std::ifstream::binary);
   if (!model_stream.is_open()) {
-    CK_THROW_(Error_t::WrongInput,
-              std::string("Cannot open dense model file (reason: ") + std::strerror(errno) + ")");
+    HCTR_OWN_THROW(Error_t::WrongInput, std::string("Cannot open dense model file (reason: ") +
+                                            std::strerror(errno) + ")");
   }
   CudaDeviceContext context(get_device_id());
 
   std::unique_ptr<char[]> params(new char[train_weight_tensor_.get_size_in_bytes()]);
   model_stream.read(params.get(), train_weight_tensor_.get_size_in_bytes());
-  CK_CUDA_THROW_(cudaMemcpy(train_weight_tensor_.get_ptr(), params.get(),
+  HCTR_LIB_THROW(cudaMemcpy(train_weight_tensor_.get_ptr(), params.get(),
                             train_weight_tensor_.get_size_in_bytes(), cudaMemcpyHostToDevice));
   model_stream.close();
   return;
@@ -242,14 +242,14 @@ void Network::upload_params_to_device(const std::string& model_file) {
 void Network::upload_params_to_device_inference(const std::string& model_file) {
   std::ifstream model_stream(model_file, std::ifstream::binary);
   if (!model_stream.is_open()) {
-    CK_THROW_(Error_t::WrongInput,
-              std::string("Cannot open dense model file (reason: ") + std::strerror(errno) + ")");
+    HCTR_OWN_THROW(Error_t::WrongInput, std::string("Cannot open dense model file (reason: ") +
+                                            std::strerror(errno) + ")");
   }
   CudaDeviceContext context(get_device_id());
 
   std::unique_ptr<char[]> params(new char[evaluate_weight_tensor_.get_size_in_bytes()]);
   model_stream.read(params.get(), evaluate_weight_tensor_.get_size_in_bytes());
-  CK_CUDA_THROW_(cudaMemcpyAsync(evaluate_weight_tensor_.get_ptr(), params.get(),
+  HCTR_LIB_THROW(cudaMemcpyAsync(evaluate_weight_tensor_.get_ptr(), params.get(),
                                  evaluate_weight_tensor_.get_size_in_bytes(),
                                  cudaMemcpyHostToDevice, gpu_resource_->get_stream()));
   model_stream.close();
@@ -262,7 +262,7 @@ void Network::upload_params_to_device_inference(const std::string& model_file) {
 void Network::download_params_to_host(float* weight) {
   CudaDeviceContext context(get_device_id());
 
-  CK_CUDA_THROW_(cudaMemcpy(weight, train_weight_tensor_.get_ptr(),
+  HCTR_LIB_THROW(cudaMemcpy(weight, train_weight_tensor_.get_ptr(),
                             train_weight_tensor_.get_size_in_bytes(), cudaMemcpyDeviceToHost));
 
   return;
@@ -271,7 +271,7 @@ void Network::download_params_to_host(float* weight) {
 void Network::upload_params_to_device(float* params) {
   CudaDeviceContext context(get_device_id());
 
-  CK_CUDA_THROW_(cudaMemcpy(train_weight_tensor_.get_ptr(), params,
+  HCTR_LIB_THROW(cudaMemcpy(train_weight_tensor_.get_ptr(), params,
                             train_weight_tensor_.get_size_in_bytes(), cudaMemcpyHostToDevice));
 
   return;
@@ -286,7 +286,7 @@ void Network::upload_opt_states_to_device(char* h_opt_states) {
   void* dst =
       use_mixed_precision_ ? (void*)opt_tensor_half_.get_ptr() : (void*)opt_tensor_.get_ptr();
 
-  CK_CUDA_THROW_(cudaMemcpy(dst, h_opt_states, src_size_in_byte, cudaMemcpyHostToDevice));
+  HCTR_LIB_THROW(cudaMemcpy(dst, h_opt_states, src_size_in_byte, cudaMemcpyHostToDevice));
 
   return;
 }
@@ -324,9 +324,9 @@ float Network::get_loss() {
   float loss_host = 0.f;
 
   CudaDeviceContext context(get_device_id());
-  CK_CUDA_THROW_(cudaMemcpyAsync(&loss_host, train_loss_tensor_.get_ptr(), sizeof(float),
+  HCTR_LIB_THROW(cudaMemcpyAsync(&loss_host, train_loss_tensor_.get_ptr(), sizeof(float),
                                  cudaMemcpyDeviceToHost, gpu_resource_->get_stream()));
-  CK_CUDA_THROW_(cudaStreamSynchronize(gpu_resource_->get_stream()));
+  HCTR_LIB_THROW(cudaStreamSynchronize(gpu_resource_->get_stream()));
   return loss_host;
 }
 
@@ -335,12 +335,12 @@ metrics::RawMetricMap Network::get_raw_metrics() const { return raw_metrics_; }
 void Network::exchange_wgrad() {
   CudaDeviceContext context(get_device_id());
   if (use_mixed_precision_) {
-    CK_NCCL_THROW_(ncclAllReduce((const void*)wgrad_tensor_half_.get_ptr(),
+    HCTR_LIB_THROW(ncclAllReduce((const void*)wgrad_tensor_half_.get_ptr(),
                                  (void*)wgrad_tensor_half_.get_ptr(),
                                  wgrad_tensor_half_.get_num_elements(), ncclHalf, ncclSum,
                                  gpu_resource_->get_nccl(), gpu_resource_->get_stream()));
   } else {
-    CK_NCCL_THROW_(ncclAllReduce((const void*)wgrad_tensor_.get_ptr(),
+    HCTR_LIB_THROW(ncclAllReduce((const void*)wgrad_tensor_.get_ptr(),
                                  (void*)wgrad_tensor_.get_ptr(), wgrad_tensor_.get_num_elements(),
                                  ncclFloat, ncclSum, gpu_resource_->get_nccl(),
                                  gpu_resource_->get_stream()));

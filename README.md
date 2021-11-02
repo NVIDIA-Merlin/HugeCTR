@@ -107,16 +107,12 @@ If you'd like to quickly train a model using the Python interface, follow these 
                               leading_dim=416))
    model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Concat,
                               bottom_names = ["reshape1", "dense"], top_names = ["concat1"]))
-   model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Slice,
-                              bottom_names = ["concat1"],
-                              top_names = ["slice11", "slice12"],
-                              ranges=[(0,429),(0,429)]))
    model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.MultiCross,
-                              bottom_names = ["slice11"],
+                              bottom_names = ["concat1"],
                               top_names = ["multicross1"],
                               num_layers=6))
    model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.InnerProduct,
-                              bottom_names = ["slice12"],
+                              bottom_names = ["concat1"],
                               top_names = ["fc1"],
                               num_output=1024))
    model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.ReLU,

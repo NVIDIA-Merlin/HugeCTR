@@ -20,7 +20,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CUDA_STANDARD 17)
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/Modules)
 
-option(CLANGFORMAT "Setup clangformat target" ON)
+option(CLANGFORMAT "Setup clangformat target" OFF)
 if(CLANGFORMAT)
   include(ClangFormat)
 
@@ -167,6 +167,7 @@ include_directories(
   ${PROJECT_SOURCE_DIR}/HugeCTR/include
   ${PROJECT_SOURCE_DIR}/third_party
   ${PROJECT_SOURCE_DIR}/third_party/cutlass
+  ${PROJECT_SOURCE_DIR}/third_party/cpptqdm
   ${PROJECT_SOURCE_DIR}/third_party/googletest/googletest/include
   ${PROJECT_SOURCE_DIR}/third_party/googletest/googlemock/include
   ${PROJECT_SOURCE_DIR}/third_party/json/single_include
@@ -206,6 +207,7 @@ add_subdirectory(third_party/json)
 install(DIRECTORY ${CMAKE_BINARY_DIR}/bin DESTINATION /usr/local/hugectr)
 
 add_subdirectory(gpu_cache/src)
+add_subdirectory(gpu_cache/test)
 option(ENABLE_INFERENCE "Enable Inference" OFF)
 if(ENABLE_INFERENCE)
 set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}    -DENABLE_INFERENCE")

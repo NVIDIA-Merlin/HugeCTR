@@ -241,6 +241,57 @@ inline void generate_sparse_model(
   }
 }
 
+auto get_data_file = [](Optimizer_t opt_type) {
+  std::vector<std::string> data_files;
+  data_files.emplace_back("emb_vector");
+  switch (opt_type) {
+    case Optimizer_t::Adam:
+      data_files.emplace_back("Adam.m");
+      data_files.emplace_back("Adam.v");
+      break;
+    case Optimizer_t::AdaGrad:
+      data_files.emplace_back("AdaGrad.accm");
+      break;
+    case Optimizer_t::MomentumSGD:
+      data_files.emplace_back("MomentumSGD.momtentum");
+      break;
+    case Optimizer_t::Nesterov:
+      data_files.emplace_back("Nesterov.accm");
+      break;
+    case Optimizer_t::SGD:
+      break;
+    default:
+      CK_THROW_(Error_t::WrongInput, "Wrong optimizer type");
+  }
+  return data_files;
+};
+
+inline void generate_opt_state(std::string sparse_model_file, Optimizer_t opt_type) {
+  std::string emb_vec_file(sparse_model_file + "/emb_vector");
+  if (!fs::exists(emb_vec_file)) {
+    CK_THROW_(Error_t::IllegalCall, emb_vec_file + " doesn't exist");
+  }
+  size_t num_elem{fs::file_size(emb_vec_file) / sizeof(float)};
+
+  std::random_device rd;  //Will be used to obtain a seed for the random number engine
+  std::mt19937 gen(rd()); //Standard mersenne_twister_engine seeded with rd()
+  std::uniform_real_distribution<> dis(0.0, 1.0);
+
+  const auto data_files{get_data_file(opt_type)};
+  for (size_t i{1}; i < data_files.size(); i++) {
+    const std::string file_name(sparse_model_file + "/" + data_files[i]);
+    if (fs::exists(file_name)) fs::remove_all(file_name);
+    std::vector<float> opt_states(num_elem);
+    std::for_each(opt_states.begin(), opt_states.end(), [&](float& elem) { elem = dis(gen); });
+    std::ofstream ofs(file_name, std::ofstream::out | std::ofstream::trunc);
+    if (!ofs.is_open()) {
+      CK_THROW_(Error_t::FileCannotOpen, "Cannot open file");
+    }
+    ofs.write(reinterpret_cast<const char*>(opt_states.data()), opt_states.size() * sizeof(float));
+  }
+}
+
+
 }
 
 }
