@@ -24,6 +24,7 @@ list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmakes)
 find_package(CUDA REQUIRED)
 find_package(NCCL REQUIRED)
 find_package(TensorFlow REQUIRED)
+find_package(MPI REQUIRED)
 find_package(Threads)
 
 set(CUDA_SEPARABLE_COMPILATION ON)
@@ -115,6 +116,7 @@ include_directories(
     ${PROJECT_SOURCE_DIR}/kit_cc_impl/embedding/
     ${CUDA_INCLUDE_DIRS}
     ${NCCL_INC_PATHS}
+    ${MPI_INCLUDE_PATH}
 )
 
 
@@ -175,7 +177,7 @@ file(GLOB test_op
 
 # build dynamic lib
 add_library(sparse_operation_kit SHARED ${framework} ${kit_infra} ${kit_impl})
-target_link_libraries(sparse_operation_kit PUBLIC ${TF_LINK_FLAGS} nccl cusparse)
+target_link_libraries(sparse_operation_kit PUBLIC ${TF_LINK_FLAGS} nccl cusparse ${MPI_LIBRARIES})
 
 if (USE_NVTX)
     target_link_libraries(sparse_operation_kit PUBLIC ${NVTX_LIB})
