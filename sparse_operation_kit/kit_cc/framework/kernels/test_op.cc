@@ -16,7 +16,7 @@
 
 #include "tensorflow/core/framework/op_kernel.h"
 
-#ifdef ASYNC_OP
+#ifdef SOK_ASYNC
     // these headers are only needed in AsyncOpKernel
     #include "tensorflow/core/common_runtime/gpu/gpu_event_mgr.h"
     #include "tensorflow/stream_executor/cuda/cuda_activation.h"
@@ -50,7 +50,7 @@ namespace tensorflow {
 using GPUDevice = Eigen::GpuDevice;
 using CPUDevice = Eigen::ThreadPoolDevice; 
 
-#ifdef ASYNC_OP
+#ifdef SOK_ASYNC
 using ScopedActivateExecutorContext = stream_executor::cuda::ScopedActivateExecutorContext;
 
 template <typename Device>
@@ -59,9 +59,6 @@ public:
     explicit TestOp(OpKernelConstruction* ctx) : AsyncOpKernel(ctx), mu_() {}
     void ComputeAsync(OpKernelContext* ctx, DoneCallback done) override {
         auto work_func = [this, ctx, done]() {
-            const Tensor* x_tensor = nullptr;
-            OP_REQUIRES_OK_ASYNC(ctx, ctx->input("x", &x_tensor), done);
-
             if (std::is_same<Device, CPUDevice>::value) {
                 // did no thing
             } else if (std::is_same<Device, GPUDevice>::value) {
@@ -75,50 +72,24 @@ public:
                 return;
             }
 
-            std::this_thread::sleep_for(std::chrono::seconds(3));
+            std::cout << "\n[INFO]: work_func start on " 
+                      << std::this_thread::get_id() << std::endl;
 
-            // *y_tensor = *x_tensor;
+             const Tensor* x_tensor = nullptr;
+            OP_REQUIRES_OK_ASYNC(ctx, ctx->input("x", &x_tensor), done);
 
-            {
-                std::cout << "\n[INFO]: work_func is called." << std::endl;
-                std::cout << std::this_thread::get_id() << std::endl;
-            }
+            std::this_thread::sleep_for(std::chrono::seconds(10));
 
             Tensor* y_tensor = nullptr;
             OP_REQUIRES_OK_ASYNC(ctx, ctx->allocate_output(0, x_tensor->shape(), &y_tensor), done);
 
-            int init_flag = 0;
-            CK_MPI_ASYNC(ctx, MPI_Initialized(&init_flag), done);
-            if (1 == init_flag) {
-                std::cout << "\n[INFO]: MPI has been Initialized." << std::endl;
+            std::this_thread::sleep_for(std::chrono::seconds(10));
 
-                // FIXME: why sleep to long will make program seg fault.
-                // std::this_thread::sleep_for(std::chrono::seconds(3)); 
-
-                // int rank = 0;
-                // CK_MPI_ASYNC(ctx, MPI_Comm_rank(MPI_COMM_WORLD, &rank), done);
-                // std::cout << "\n[INFO] " << std::this_thread::get_id() 
-                //           << " rank is: " << rank << std::endl;
-                // if (0 == rank) {
-                //     std::this_thread::sleep_for(std::chrono::seconds(3));
-                // }
-
-                // std::cout << "\n[INFO] " << std::this_thread::get_id() << " entered barrier." << std::endl;
-                // // MPI_Request request;
-                // // CK_MPI_ASYNC(ctx, MPI_Ibarrier(MPI_COMM_WORLD, &request), done);
-                // CK_MPI_ASYNC(ctx, MPI_Barrier(MPI_COMM_WORLD), done);
-                // std::cout << "\n[INFO] " << std::this_thread::get_id() << " exit barrier." << std::endl;
-
-            } else {
-                std::cout << "\n[INFO]: MPI has not been Initialized." << std::endl;
-            }
-
+            std::cout << "\n[INFO]: work_func ready to call done() on " 
+                       << std::this_thread::get_id() << std::endl;
             done();
-
-            {
-                std::cout << "\n[INFO]: after done() is called." << std::endl;
-                std::cout << std::this_thread::get_id() << std::endl;
-            }
+            std::cout << "\n[INFO]: work_func called done() on " 
+                       << std::this_thread::get_id() << std::endl;
         };
 
         if (std::is_same<Device, CPUDevice>::value) {
@@ -132,10 +103,8 @@ public:
             return;
         }
 
-        {
-            std::cout << "\n[INFO]: TestOp End" << "\n" << std::endl;
-            std::cout << "\n[INFO]: this_thread_id = " << std::this_thread::get_id() << "\n" << std::endl;    
-        }
+        std::cout << "\n[INFO]: after schdule work_func, " 
+                  << std::this_thread::get_id() << " is done." << std::endl;
     }
 private:
     std::mutex mu_;
@@ -179,9 +148,9 @@ public:
 };
 #endif
 
-REGISTER_KERNEL_BUILDER(Name("Test").Device(DEVICE_GPU), 
-                        TestOp<GPUDevice>);
-// REGISTER_KERNEL_BUILDER(Name("Test").Device(DEVICE_CPU),
-//                         TestOp<CPUDevice>);
+// REGISTER_KERNEL_BUILDER(Name("Test").Device(DEVICE_GPU), 
+//                         TestOp<GPUDevice>);
+REGISTER_KERNEL_BUILDER(Name("Test").Device(DEVICE_CPU),
+                        TestOp<CPUDevice>);
 
 } // tensorflow
