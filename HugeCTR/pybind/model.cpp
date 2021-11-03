@@ -948,13 +948,17 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
   HCTR_LOG(INFO, ROOT,"Evaluation interval: %d, snapshot interval: %d\n",
                       eval_interval,
                       snapshot);
-  HCTR_LOG(INFO, ROOT,"Sparse embedding trainable: %d, dense network trainable: %d\n",
-                      is_embedding_trainable_,
-                      is_dense_trainable_);
-  HCTR_LOG(INFO, ROOT,"Use mixed precision: %d, scaler: %d, use cuda graph: %d\n",
-                       solver_.use_mixed_precision,
+  // FYI, A string literal is statically allocated so we can assume it is safe to return it.
+  auto b2s = [](const char val) { return val? "True" : "False"; };
+
+  HCTR_LOG(INFO, ROOT,"Sparse embedding trainable: %s, dense network trainable: %s\n",
+                      b2s(is_embedding_trainable_),
+                      b2s(is_dense_trainable_));
+  HCTR_LOG(INFO, ROOT,"Use mixed precision: %s, scaler: %f, use cuda graph: %s\n",
+                       b2s(solver_.use_mixed_precision),
                        solver_.scaler,
-                       int(solver_.use_cuda_graph));
+                       b2s(solver_.use_cuda_graph));
+
   HCTR_LOG(INFO, ROOT,"lr: %f, warmup_steps: %zu, decay_start: %zu, decay_steps: %zu, decay_power: %f, end_lr: %f\n", 
                        solver_.lr,
                        solver_.warmup_steps,
