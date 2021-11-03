@@ -6,33 +6,33 @@ include:
   - /ci/template.yml
   
 
-# nightly_build_train:
-#   extends: .build_nightly
-#   variables:
-#     DST_IMAGE: ${IMAGE_TRAIN}
-#     DOCKER_FILE: Dockerfile.train
-#     BUILD_ARGS: --build-arg RELEASE=false
+nightly_build_train:
+  extends: .build_nightly
+  variables:
+    DST_IMAGE: ${IMAGE_TRAIN}
+    DOCKER_FILE: Dockerfile.train
+    BUILD_ARGS: --build-arg RELEASE=false
     
-# nightly_build_train_release:
-#   extends: .build_nightly
-#   variables:
-#     DST_IMAGE: ${IMAGE_TRAIN}.release
-#     DOCKER_FILE: Dockerfile.train
-#     BUILD_ARGS: --build-arg RELEASE=true
+nightly_build_train_release:
+  extends: .build_nightly
+  variables:
+    DST_IMAGE: ${IMAGE_TRAIN}.release
+    DOCKER_FILE: Dockerfile.train
+    BUILD_ARGS: --build-arg RELEASE=true
   
-# nightly_build_inference:
-#   extends: .build_nightly
-#   variables:
-#     DST_IMAGE: ${IMAGE_INFER}
-#     DOCKER_FILE: Dockerfile.inference
-#     BUILD_ARGS: --build-arg RELEASE=false
+nightly_build_inference:
+  extends: .build_nightly
+  variables:
+    DST_IMAGE: ${IMAGE_INFER}
+    DOCKER_FILE: Dockerfile.inference
+    BUILD_ARGS: --build-arg RELEASE=false
 
-# nightly_build_sok:
-#   extends: .build_nightly
-#   variables:
-#     DST_IMAGE: ${IMAGE_SOK}
-#     DOCKER_FILE: Dockerfile.tf-plugin
-#     BUILD_ARGS: --build-arg RELEASE=false --build-arg TF_VERSION=2.5.0 --build-arg CUDA_VERSION=11.2.2
+nightly_build_sok:
+  extends: .build_nightly
+  variables:
+    DST_IMAGE: ${IMAGE_SOK}
+    DOCKER_FILE: Dockerfile.tf-plugin
+    BUILD_ARGS: --build-arg RELEASE=false --build-arg IMAGE_VER=21.07-tf2-py3
 
 nightly_build_unified_container.ctr:
   extends: .build_nightly
