@@ -438,6 +438,18 @@ void Facade::apply_gradients(const tensorflow::core::RefCountPtr<tensorflow::Emb
 
 void Facade::dump_to_file(const tensorflow::core::RefCountPtr<tensorflow::EmbeddingVariable>& emb_variable,
                           const std::string filepath) {
+#ifdef SOK_ASYNC
+    auto wait_framework = [this](const size_t local_replica_id) {
+        HugeCTR::CudaDeviceContext context;
+        auto& local_gpu = resources_mgr_->get_local_gpu(local_replica_id);
+        context.set_device(local_gpu->get_local_device_id());
+        CK_CUDA(cudaStreamSynchronize(local_gpu->get_framework_stream()));
+    };
+    for (size_t id = 0; id < resources_mgr_->get_local_gpu_count(); id++) 
+        resources_mgr_->push_to_threadpool(wait_framework, id);
+    resources_mgr_->sync_threadpool();
+#endif
+
     // get param handle
     std::shared_ptr<ParamInterface> param;
     emb_variable->get_param(param);
@@ -448,6 +460,18 @@ void Facade::dump_to_file(const tensorflow::core::RefCountPtr<tensorflow::Embedd
 
 void Facade::restore_from_file(tensorflow::core::RefCountPtr<tensorflow::EmbeddingVariable>& emb_variable,
                                const std::string filepath) {
+#ifdef SOK_ASYNC
+    auto wait_framework = [this](const size_t local_replica_id) {
+        HugeCTR::CudaDeviceContext context;
+        auto& local_gpu = resources_mgr_->get_local_gpu(local_replica_id);
+        context.set_device(local_gpu->get_local_device_id());
+        CK_CUDA(cudaStreamSynchronize(local_gpu->get_framework_stream()));
+    };
+    for (size_t id = 0; id < resources_mgr_->get_local_gpu_count(); id++) 
+        resources_mgr_->push_to_threadpool(wait_framework, id);
+    resources_mgr_->sync_threadpool();
+#endif
+
     // try to allocate internal memory
     try_allocate_memory();
 
@@ -463,6 +487,18 @@ void Facade::restore_from_file(tensorflow::core::RefCountPtr<tensorflow::Embeddi
 void Facade::load_embedding_values(tensorflow::core::RefCountPtr<tensorflow::EmbeddingVariable>& emb_variable,
                                  const tensorflow::OpInputList* tensor_list) {
     if (tensor_list->size() < 1) throw std::runtime_error(ErrorBase + "There must be at least one tensor.");
+
+#ifdef SOK_ASYNC
+    auto wait_framework = [this](const size_t local_replica_id) {
+        HugeCTR::CudaDeviceContext context;
+        auto& local_gpu = resources_mgr_->get_local_gpu(local_replica_id);
+        context.set_device(local_gpu->get_local_device_id());
+        CK_CUDA(cudaStreamSynchronize(local_gpu->get_framework_stream()));
+    };
+    for (size_t id = 0; id < resources_mgr_->get_local_gpu_count(); id++) 
+        resources_mgr_->push_to_threadpool(wait_framework, id);
+    resources_mgr_->sync_threadpool();
+#endif
 
     // try to allocate internal memory
     try_allocate_memory();
