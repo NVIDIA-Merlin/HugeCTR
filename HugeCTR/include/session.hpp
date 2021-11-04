@@ -15,6 +15,7 @@
  */
 
 #pragma once
+#include <HugeCTR/include/resource_managers/resource_manager_ext.hpp>
 #include <common.hpp>
 #include <embedding.hpp>
 #include <exchange_wgrad.hpp>

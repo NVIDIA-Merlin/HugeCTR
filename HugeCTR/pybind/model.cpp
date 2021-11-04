@@ -313,6 +313,10 @@ Model::Model(const Solver& solver, const DataReaderParams& reader_params,
       current_eval_batchsize_(0),
       dlrm_bottom_mlp_(true),
       high_level_eval_(false) {
+  if(solver_.is_dlrm) {
+    timer_log.start();
+    LOG(timer_log.elapsedMilliseconds(), "init_start");
+  }
   HCTR_PRINT(INFO, "HugeCTR Version: %d.%d\n", HUGECTR_VERSION_MAJOR, HUGECTR_VERSION_MINOR);
   HCTR_PRINT(INFO, "====================================================Model "
                    "Init=====================================================\n");
@@ -464,12 +468,12 @@ void Model::add(Input& input) {
   data_input_info_.push_back(input.label_name);
   data_input_info_.push_back(input.dense_name);
   tensor_shape_info_raw_.insert(std::make_pair(input.label_name, std::vector<int>{solver_.batchsize, input.label_dim}));
-  tensor_shape_info_raw_.insert(std::make_pair(input.dense_name, std::vector<int>{solver_.batchsize, input.dense_dim}));  
+  tensor_shape_info_raw_.insert(std::make_pair(input.dense_name, std::vector<int>{solver_.batchsize, input.dense_dim}));
   std::vector<std::string> sparse_names;
   for (size_t i = 0; i < input.data_reader_sparse_param_array.size(); ++i) {
     sparse_names.push_back(input.data_reader_sparse_param_array[i].top_name);
     tensor_shape_info_raw_.insert(std::make_pair(input.data_reader_sparse_param_array[i].top_name,
-                                            std::vector<int>{solver_.batchsize, input.data_reader_sparse_param_array[i].slot_num}));    
+                                            std::vector<int>{solver_.batchsize, input.data_reader_sparse_param_array[i].slot_num}));
   }
   data_input_info_.push_back(join(sparse_names, ","));
   for (unsigned int i = 0; i < input.data_reader_sparse_param_array.size(); i++) {
@@ -509,7 +513,7 @@ void Model::add(SparseEmbedding& sparse_embedding) {
   activate_tensor(tensor_active_, sparse_embedding.sparse_embedding_name);
   int slot_num = tensor_shape_info_raw_[sparse_embedding.bottom_name][1];
   tensor_shape_info_raw_.insert(std::make_pair(sparse_embedding.sparse_embedding_name,
-        std::vector<int>{solver_.batchsize, slot_num, static_cast<int>(sparse_embedding.embedding_vec_size)}));  
+        std::vector<int>{solver_.batchsize, slot_num, static_cast<int>(sparse_embedding.embedding_vec_size)}));
   input_output_info_.push_back(
       std::make_pair(sparse_embedding.bottom_name, sparse_embedding.sparse_embedding_name));
   layer_info_.push_back(EMBEDDING_TYPE_TO_STRING[sparse_embedding.embedding_type]);
@@ -644,7 +648,7 @@ void Model::graph_analysis() {
             dense_layer_params_.push_back(iter->second);
           }
           std::string new_bottom_name = iter->second.top_names[tensor_slice_index[old_bottom_name]];
-          tensor_slice_index[old_bottom_name] += 1;          
+          tensor_slice_index[old_bottom_name] += 1;
           new_dense_layer.bottom_names[i] = new_bottom_name;
         }
       }
@@ -736,6 +740,11 @@ void Model::compile() {
     }
   }
 
+  // start to touch dataset, so we can record run_start
+  if (solver_.is_dlrm) {
+    HCTR_LOG(INFO, ROOT, "%f init_end\n", timer_log.elapsedMilliseconds());
+    HCTR_LOG(INFO, ROOT, "%f run_start\n", timer_log.elapsedMilliseconds());
+  }
   size_t embed_wgrad_size = 0;
   for (size_t i = 0; i < sparse_embedding_params_.size(); i++) {
     if (sparse_embedding_params_[i].embedding_type == Embedding_t::HybridSparseEmbedding) {
@@ -927,6 +936,10 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
   HugeCTR::Timer timer;
   HugeCTR::Timer timer_train;
   HugeCTR::Timer timer_eval;
+  if(solver_.is_dlrm) {
+    HCTR_LOG(INFO, ROOT, "%f init_end\n", timer_log.elapsedMilliseconds());
+    HCTR_LOG(INFO, ROOT, "%f run_start\n", timer_log.elapsedMilliseconds());
+  }
 
   bool epoch_mode = !solver_.repeat_dataset;
   bool mos_mode = mos_params_->use_model_oversubscriber;
@@ -948,14 +961,18 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
   HCTR_LOG(INFO, ROOT,"Evaluation interval: %d, snapshot interval: %d\n",
                       eval_interval,
                       snapshot);
-  HCTR_LOG(INFO, ROOT,"Sparse embedding trainable: %d, dense network trainable: %d\n",
-                      is_embedding_trainable_,
-                      is_dense_trainable_);
-  HCTR_LOG(INFO, ROOT,"Use mixed precision: %d, scaler: %d, use cuda graph: %d\n",
-                       solver_.use_mixed_precision,
+  // FYI, A string literal is statically allocated so we can assume it is safe to return it.
+  auto b2s = [](const char val) { return val? "True" : "False"; };
+
+  HCTR_LOG(INFO, ROOT,"Sparse embedding trainable: %s, dense network trainable: %s\n",
+                      b2s(is_embedding_trainable_),
+                      b2s(is_dense_trainable_));
+  HCTR_LOG(INFO, ROOT,"Use mixed precision: %s, scaler: %f, use cuda graph: %s\n",
+                       b2s(solver_.use_mixed_precision),
                        solver_.scaler,
-                       int(solver_.use_cuda_graph));
-  HCTR_LOG(INFO, ROOT,"lr: %f, warmup_steps: %zu, decay_start: %zu, decay_steps: %zu, decay_power: %f, end_lr: %f\n", 
+                       b2s(solver_.use_cuda_graph));
+
+  HCTR_LOG(INFO, ROOT,"lr: %f, warmup_steps: %zu, decay_start: %zu, decay_steps: %zu, decay_power: %f, end_lr: %f\n",
                        solver_.lr,
                        solver_.warmup_steps,
                        solver_.decay_start,
@@ -1147,6 +1164,9 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
   } else {
     MESSAGE_("Training source file: " + reader_params_.source[0]);
     MESSAGE_("Evaluation source file: " + reader_params_.eval_source);
+    if (solver_.is_dlrm) {
+      LOG(timer_log.elapsedMilliseconds(), "train_epoch_start", 0);  // just 1 epoch. dlrm logger
+    }
     this->start_data_reading();
     for (int iter = 0; iter < max_iter; iter++) {
       float lr = 0;
@@ -1188,6 +1208,9 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
         this->check_overflow();
         this->copy_weights_for_evaluation();
         timer_eval.start();
+        if (solver_.is_dlrm) {
+          LOG(timer_log.elapsedMilliseconds(), "eval_start", float(iter) / max_iter);
+        }
         for (int batches = 0; batches < solver_.max_eval_batches; batches++) {
           this->eval(batches);
         }
@@ -1195,10 +1218,34 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
         auto eval_metrics = this->get_eval_metrics();
         for (auto& eval_metric : eval_metrics) {
           MESSAGE_("Evaluation, " + eval_metric.first + ": " + std::to_string(eval_metric.second));
+          if (solver_.is_dlrm) {
+            LOG(timer_log.elapsedMilliseconds(), "eval_accuracy", eval_metric.second,
+                float(iter) / max_iter, iter);
+          }
           if (!eval_metric.first.compare("AUC")) {
             const auto auc_threshold = solver_.metrics_spec[HugeCTR::metrics::Type::AUC];
             if (eval_metric.second >= auc_threshold) {
               timer.stop();
+              if (solver_.is_dlrm) {
+                size_t train_samples =
+                    static_cast<size_t>(iter + 1) * static_cast<size_t>(solver_.batchsize);
+
+                std::string epoch_num_str = std::to_string(float(iter) / max_iter);
+
+                HCTR_LOG(INFO, ROOT, "Hit target accuracy AUC %f at %d/%d iterations with batchsize"
+                                     " %d in %.2fs. Average speed %f records/s.\n", auc_threshold,
+                                     iter, max_iter, solver_.batchsize, timer.elapsedSeconds(),
+                                     float(iter) * solver_.batchsize / timer.elapsedSeconds());
+
+                LOG(timer_log.elapsedMilliseconds(), "eval_stop" + epoch_num_str);
+
+                LOG(timer_log.elapsedMilliseconds(), "train_epoch_end", 1);
+
+                HCTR_LOG(INFO, ROOT, "%f run_stop\n", timer_log.elapsedMilliseconds());
+                HCTR_LOG(INFO, ROOT, "%f train_samples %lu\n",
+                         timer_log.elapsedMilliseconds(), train_samples);
+                timer_log.stop();
+              }
               HCTR_LOG(INFO, ROOT, "Hit target accuracy AUC %f at %d / %d iterations with batchsize %d"
                                    " in %.2fs. Average speed %f records/s.\n",
                                    auc_threshold, iter, max_iter,
@@ -1210,11 +1257,25 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
         }
         MESSAGE_("Eval Time for " + std::to_string(solver_.max_eval_batches) +
                  " iters: " + std::to_string(timer_eval.elapsedSeconds()) + "s");
+        if (solver_.is_dlrm) {
+          LOG(timer_log.elapsedMilliseconds(), "eval_stop",
+              float(iter) / max_iter);  // use iteration to calculate it's in which epoch
+        }
       }
       if (snapshot > 0 && iter % snapshot == 0 && iter != 0) {
         this->download_params_to_files(snapshot_prefix, iter);
       }
     }  // end for iter
+    if (solver_.is_dlrm) {
+      LOG(timer_log.elapsedMilliseconds(), "train_epoch_end", 1);
+      size_t train_samples =
+          static_cast<size_t>(max_iter) * static_cast<size_t>(solver_.batchsize);
+      HCTR_LOG(INFO, ROOT, "%f run_stop\n", timer_log.elapsedMilliseconds());
+      HCTR_LOG(INFO, ROOT, "%f train_samples %lu\n",
+               timer_log.elapsedMilliseconds(), train_samples);
+      timer_log.stop();
+    }
+
     timer.stop();
     HCTR_LOG(INFO, ROOT, "Finish %d iterations with batchsize: %d in %.2fs.\n",
                          max_iter, solver_.batchsize, timer.elapsedSeconds());
@@ -1351,7 +1412,7 @@ bool Model::train() {
     // We will look into some alternatives in the long term.
     long long current_batchsize = 0;
     while ((current_batchsize = train_data_reader_->read_a_batch_to_device_delay_release()) &&
-           (current_batchsize < train_data_reader_->get_full_batchsize())) {
+           (current_batchsize < train_data_reader_->get_full_batchsize()) && !solver_.is_dlrm) {
       MESSAGE_("train drop incomplete batch. batchsize:" + std::to_string(current_batchsize));
       train_data_reader_->ready_to_collect();
     }
@@ -1463,7 +1524,7 @@ bool Model::eval(int eval_batch) {
     }
     long long current_batchsize = 0;
     while ((current_batchsize = evaluate_data_reader_->read_a_batch_to_device_delay_release()) &&
-           (current_batchsize < evaluate_data_reader_->get_full_batchsize())) {
+           (current_batchsize < evaluate_data_reader_->get_full_batchsize()) && !solver_.is_dlrm) {
       MESSAGE_("eval drop incomplete batch. batchsize:" + std::to_string(current_batchsize));
       evaluate_data_reader_->ready_to_collect();
     }

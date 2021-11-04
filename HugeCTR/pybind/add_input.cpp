@@ -205,9 +205,13 @@ void add_input(Input& input, DataReaderParams& reader_params,
         break;
       }
       case DataReaderType_t::Parquet: {
+#ifdef DISABLE_CUDF
+        CK_THROW_(Error_t::WrongInput, "Parquet is not supported under DISABLE_CUDF");
+#else
         train_data_reader->create_drwg_parquet(source_data, slot_offset, repeat_dataset);
         evaluate_data_reader->create_drwg_parquet(eval_source, slot_offset, repeat_dataset);
         MESSAGE_("Vocabulary size: " + std::to_string(slot_sum));
+#endif
         break;
       }
       default: {
