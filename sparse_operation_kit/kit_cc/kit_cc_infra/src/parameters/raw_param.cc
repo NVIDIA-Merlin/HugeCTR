@@ -162,6 +162,10 @@ void RawParam::dump_to_file(const std::string filepath) {
         const std::string values_filename = filepath + "/" + var_name_ + "_values.file";
         std::ofstream key_stream(key_filename, std::ios::binary | std::ios::out);
         std::ofstream values_stream(values_filename, std::ios::binary | std::ios::out);
+        if (!key_stream.is_open()) throw std::runtime_error(ErrorBase + "Cannot open " +
+            key_filename + " for writing.");
+        if (!values_stream.is_open()) throw std::runtime_error(ErrorBase + "Cannot open" +
+            values_filename + " for writing.");
         key_stream.write(reinterpret_cast<char*>(keys.get_ptr()), sizeof(int64_t) * num_total_keys);
         values_stream.write(reinterpret_cast<char*>(embedding_values.get_ptr()), 
                             sizeof(float) * num_total_keys * get_embedding_vec_size());

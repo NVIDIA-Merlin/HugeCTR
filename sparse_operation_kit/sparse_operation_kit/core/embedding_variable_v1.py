@@ -80,7 +80,6 @@ class EmbeddingVariable(BaseResourceVariable):
         self.m_trainable = trainable
         self.m_use_hashtable = use_hashtable
         # self.m_var_name = ops.get_default_graph().unique_name(name, mark_as_used=True)
-        self.m_var_name = name
         # self.m_unique_id = "%s_%d" %(self.m_var_name, ops.uid())
 
         collections = [ops.GraphKeys.GLOBAL_VARIABLES]
@@ -89,7 +88,12 @@ class EmbeddingVariable(BaseResourceVariable):
 
         with ops.init_scope():
             self._in_graph_mode = not context.executing_eagerly()
-            with ops.name_scope(self.m_var_name) as var_name:
+            with ops.name_scope(name) as var_name_scope:
+                # TODO: use regulare expression 
+                while var_name_scope[-1] == r"/":
+                    var_name_scope = var_name_scope[:-1]
+                var_name = var_name_scope
+                self.m_var_name = var_name
                 self.m_unique_id = "%s_%d" %(var_name, ops.uid())
 
                 # attr = resource_variable_ops.attr_value_pb2.AttrValue(
