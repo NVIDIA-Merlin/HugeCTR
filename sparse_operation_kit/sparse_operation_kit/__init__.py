@@ -23,7 +23,8 @@ os.environ["TF_FORCE_GPU_ALLOW_GROWTH"] = "true"
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["NCCL_LAUNCH_MODE"] = "PARALLEL"
 os.environ["TF_GPU_THREAD_MODE"] = "gpu_private"
-os.environ["TF_GPU_THREAD_COUNT"] = "16"
+# TODO: this env should be left to users
+# os.environ["TF_GPU_THREAD_COUNT"] = "16"
 del os
 
 # ---------- import submodule ----------- #
