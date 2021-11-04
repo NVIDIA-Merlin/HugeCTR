@@ -5,7 +5,7 @@ From the v3.0 release, we stop releasing the HugeCTR container separately. Inste
 1. Data preprocessing using NVTabular
 2. Model training using HugeCTR
 3. Inference using the Triton HugeCTR Backend
-4. Embedding TensorFlow (TF) plugin
+4. Sparse Operation Kit (SOK)
 
 You may want to use the Merlin NGC container for both research and production purposes. But if you want to build a container from the dockerfile by yourself, please refer to the following content.
 
@@ -45,9 +45,10 @@ If you want to use the HugeCTR [Sparse Operation Kit (SOK)](https://nvidia-merli
 
 * Release mode
   ```
-  docker build -t hugectr:tf-plugin -f Dockerfile.tf-plugin .
+  docker build -t hugectr:tf-plugin -f Dockerfile.tf-plugin --build-arg RELEASE=true .
   ```
 * Development mode
   ```
-  docker build -t hugectr:tf-plugin -f Dockerfile.tf-plugin --build-arg RELEASE=true .
+  docker build -t hugectr:tf-plugin -f Dockerfile.tf-plugin .
   ```
+
