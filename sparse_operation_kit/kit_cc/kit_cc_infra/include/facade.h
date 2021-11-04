@@ -31,6 +31,17 @@
 
 namespace SparseOperationKit {
 
+#define SOK_TF_SCHE_ASYNC(ctx, cmd, done)                    \
+    do {                                                     \
+        try {                                                \
+            (cmd);                                           \
+        } catch (std::exception const &error) {              \
+            (ctx)->SetStatus(errors::Aborted(error.what())); \
+            (done)();                                        \
+            return;                                          \
+        }                                                    \
+    } while (0)
+
 class Facade final {
 private:
     Facade();
@@ -143,6 +154,9 @@ public:
 
     // backdoors for unit test
     const std::shared_ptr<ResourcesManager>& get_resource_mgr() const;
+
+    // backdoors for AsyncOpKernel
+    void Schedule(std::function<void()> func);
 };
 
 // helper function

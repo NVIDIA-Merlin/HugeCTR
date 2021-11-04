@@ -15,8 +15,20 @@
  */
 
 #include "resources/cpu_resource.h"
+#include <cstdlib>
 
 namespace SparseOperationKit {
+
+int32_t GetWorkerThreadsCount() {
+    auto atoi = [](const char* str, int32_t* num) -> bool {
+        *num = std::atoi(str);
+        if (*num < 1) return false;
+        return true;
+    };
+    const auto sok_worker_threads_cnt = std::getenv("SOK_WORKER_THREADS_CNT");
+    int32_t num = 1;
+    return (sok_worker_threads_cnt && atoi(sok_worker_threads_cnt, &num)) ? num : 1;
+}
 
 CpuResource::Barrier::Barrier(const size_t thread_count)
 : mu_(), cond_(), thread_count_(thread_count), 
@@ -44,7 +56,8 @@ generation_(0)
 CpuResource::CpuResource(const size_t thread_count) 
 : barrier_(std::make_shared<Barrier>(thread_count)),
 blocking_call_oncer_(std::make_shared<BlockingCallOnce>(thread_count)),
-mu_(), thread_pool_(new Eigen::SimpleThreadPool(thread_count))
+mu_(), thread_pool_(new Eigen::SimpleThreadPool(thread_count)),
+workers_(new Eigen::SimpleThreadPool(GetWorkerThreadsCount()))
 {}
 
 std::shared_ptr<CpuResource> CpuResource::Create(const size_t thread_count) {

@@ -74,6 +74,11 @@ public:
         cpu_resource_->push_to_threadpool(std::forward<Callable>(func), std::forward<Args>(args)...);
     }
 
+    template <typename Callable, typename... Args>
+    void push_to_workers(Callable&& func, Args&&... args) {
+        cpu_resource_->push_to_workers(std::forward<Callable>(func), std::forward<Args>(args)...);
+    }
+
     void sync_threadpool() const;
 
     size_t get_local_gpu_count() const;

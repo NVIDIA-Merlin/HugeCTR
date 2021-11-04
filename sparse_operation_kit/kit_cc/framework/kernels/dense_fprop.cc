@@ -16,7 +16,8 @@
 
 #include "facade.h"
 #include "tensorflow/core/framework/op_kernel.h"
-#if defined(SOK_ASYNC) && defined(ASYNC_OP)
+// #if defined(SOK_ASYNC) && defined(ASYNC_OP)
+#ifdef SOK_ASYNC
     #include "tensorflow/core/common_runtime/gpu/gpu_event_mgr.h"
     #include "tensorflow/stream_executor/cuda/cuda_activation.h"
 #endif
@@ -26,7 +27,8 @@ namespace tensorflow {
 using GPUDevice = Eigen::GpuDevice;
 using CPUDevice = Eigen::ThreadPoolDevice; 
 
-#if defined(SOK_ASYNC) && defined(ASYNC_OP)
+// #if defined(SOK_ASYNC) && defined(ASYNC_OP)
+#ifdef SOK_ASYNC
 using ScopedActivateExecutorContext = stream_executor::cuda::ScopedActivateExecutorContext;
 
 template <typename Device>
@@ -49,8 +51,6 @@ public:
             OP_REQUIRES_OK_ASYNC(ctx, ctx->input("values", &values_tensor), done);
             Tensor const *global_replica_id_tensor = nullptr;
             OP_REQUIRES_OK_ASYNC(ctx, ctx->input("global_replica_id", &global_replica_id_tensor), done);
-
-            //FIXME: perhaps we should asynchronously wait till all threads & processes have reached this point??
 
             // allocate output
             Tensor *emb_vector_tensor = nullptr;
@@ -106,7 +106,7 @@ public:
             done(); // no error happens
         };
 
-        ctx->device()->tensorflow_cpu_worker_threads()->workers->Schedule(std::move(work_func));
+        SOK_TF_SCHE_ASYNC(ctx, SparseOperationKit::Facade::instance()->Schedule(std::move(work_func)), done);
     }
 private:
     bool training_;
