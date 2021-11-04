@@ -22,6 +22,7 @@
 #include <HugeCTR/pybind/inference_wrapper.hpp>
 #include <HugeCTR/pybind/learning_rate_scheduler_wrapper.hpp>
 #include <HugeCTR/pybind/model_oversubscriber_wrapper.hpp>
+#include <HugeCTR/pybind/model_perf_ext_wrapper.hpp>
 #include <HugeCTR/pybind/model_wrapper.hpp>
 #include <HugeCTR/pybind/optimizer_wrapper.hpp>
 #include <HugeCTR/pybind/solver_wrapper.hpp>
@@ -38,4 +39,5 @@ PYBIND11_MODULE(hugectr, m) {
   OptimizerPybind(m);
   ModelPybind(m);
   InferencePybind(m);
+  ModelPerfExtPybind(m);
 }

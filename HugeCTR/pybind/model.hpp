@@ -302,7 +302,7 @@ void init_learning_rate_scheduler(std::shared_ptr<LearningRateScheduler>& lr_sch
  */
 class Model {
  public:
-  ~Model();
+  virtual ~Model();
   Model(const Solver& solver, const DataReaderParams& reader_params,
         std::shared_ptr<OptParamsPy>& opt_params,
         std::shared_ptr<ModelOversubscriberParams>& mos_params);
@@ -313,31 +313,31 @@ class Model {
 
   void construct_from_json(const std::string& graph_config_file, bool include_dense_network);
 
-  void add(Input& input);
+  virtual void add(Input& input);
 
-  void add(SparseEmbedding& sparse_embedding);
+  virtual void add(SparseEmbedding& sparse_embedding);
 
-  void add(DenseLayer& dense_layer);
+  virtual void add(DenseLayer& dense_layer);
 
   void add_internal(DenseLayer& dense_layer);
 
   void graph_analysis();
 
-  void compile();
+  virtual void compile();
 
   void summary();
 
-  void fit(int num_epochs, int max_iter, int display, int eval_interval, int snapshot,
-           std::string snapshot_prefix);
+  virtual void fit(int num_epochs, int max_iter, int display, int eval_interval, int snapshot,
+                   std::string snapshot_prefix);
 
   void set_source(std::vector<std::string> source, std::vector<std::string> keyset,
                   std::string eval_source);
 
   void set_source(std::string source, std::string eval_source);
 
-  bool train();
+  virtual bool train();
 
-  bool eval(int eval_batch = -1);
+  virtual bool eval(int eval_batch = -1);
 
   std::vector<std::pair<std::string, float>> get_eval_metrics();
 
@@ -425,7 +425,7 @@ class Model {
   void unfreeze_dense() { is_dense_trainable_ = true; };
   std::vector<std::pair<std::vector<long long>, std::vector<float>>>& get_incremental_model();
 
- private:
+ protected:
   Solver solver_;
   DataReaderParams reader_params_;
   OptParams opt_params_;
@@ -497,6 +497,7 @@ class Model {
   } train_graph_;
   bool dlrm_bottom_mlp_;
   bool high_level_eval_;
+  HugeCTR::Timer timer_log;
 
   Error_t download_dense_params_to_files_(std::string weights_file,
                                           std::string dense_opt_states_file);
@@ -520,8 +521,8 @@ class Model {
   Error_t load_params_for_sparse_(const std::vector<std::string>& embedding_file);
   Error_t load_opt_states_for_dense_(const std::string& dense_opt_states_file);
   Error_t load_opt_states_for_sparse_(const std::vector<std::string>& sparse_opt_states_files);
-  void exchange_wgrad(size_t device_id);
-  void train_overlapped();
+  virtual void exchange_wgrad(size_t device_id);
+  virtual void train_overlapped();
 };
 
 }  // namespace HugeCTR

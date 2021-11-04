@@ -44,6 +44,7 @@ void ResourceManagerCore::all2all_warmup() {
     buf->allocate();
   }
 
+#ifndef DISABLE_A2A_WARMUP
   // Do all2all warmup
   HCTR_LOG(INFO, ROOT, "Start all2all warmup\n");
   HCTR_LIB_THROW(ncclGroupStart());
@@ -61,6 +62,9 @@ void ResourceManagerCore::all2all_warmup() {
   }
   HCTR_LIB_THROW(ncclGroupEnd());
   HCTR_LOG(INFO, ROOT, "End all2all warmup\n");
+#else
+  HCTR_LOG(INFO, ROOT, "Skip all2all warmup\n");
+#endif
 }
 
 void ResourceManagerCore::enable_all_peer_accesses() {
@@ -134,7 +138,7 @@ ResourceManagerCore::ResourceManagerCore(int num_process, int process_id, Device
       HCTR_OWN_THROW(Error_t::WrongInput, "Invalid device id: " + std::to_string(device_id));
     }
   }
-  
+
   HCTR_LIB_THROW(nvmlInit_v2());
   #ifndef ENABLE_INFERENCE
   CudaCPUDeviceContext::init_cpu_mapping(device_map.get_device_list());

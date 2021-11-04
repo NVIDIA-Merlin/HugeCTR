@@ -226,6 +226,9 @@ void DataGenerator::generate() {
       break;
     }
     case DataReaderType_t::Parquet: {
+#ifdef DISABLE_CUDF
+      CK_THROW_(Error_t::WrongInput, "Parquet is not supported under DISABLE_CUDF");
+#else
       std::cout << "Generate Parquet dataset" << std::endl;
       std::cout << "train data folder: " << train_data_folder
                 << ", eval data folder: " << eval_data_folder
@@ -267,6 +270,7 @@ void DataGenerator::generate() {
             data_generator_params_.dense_dim, data_generator_params_.slot_size_array,
             data_generator_params_.nnz_array, use_long_tail, alpha);
       }
+#endif
       break;
     }
 
