@@ -41,12 +41,13 @@ public:
     bool IsReady() const;
     void TillReady(cudaStream_t& stream);
     void TillReady();
+    std::string name() const;
     
 protected:
     explicit Event(const std::string& name);
 private:
     cudaEvent_t cuda_event_{nullptr};
-    const std::string& name_;
+    const std::string name_;
 };
 
 } // namespace SparseOperationKit

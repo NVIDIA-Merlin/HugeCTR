@@ -61,4 +61,8 @@ void Event::TillReady() {
     CK_CUDA(cudaEventSynchronize(cuda_event_));
 }
 
+std::string Event::name() const {
+    return name_;
+}
+
 } // namespace SparseOperationKit
