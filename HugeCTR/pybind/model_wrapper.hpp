@@ -96,6 +96,12 @@ void ModelPybind(pybind11::module &m) {
           pybind11::arg("regularizer_type") = Regularizer_t::L1, pybind11::arg("lambda") = 0,
           pybind11::arg("pos_type") = FcPosition_t::None,
           pybind11::arg("act_type") = Activation_t::Relu);
+  pybind11::class_<HugeCTR::GroupDenseLayer, std::shared_ptr<HugeCTR::GroupDenseLayer>>(m, "GroupDenseLayer")
+      .def(
+          pybind11::init<GroupLayer_t, std::string &, std::vector<std::string> &,
+                         std::vector<size_t> &, Activation_t>(),
+          pybind11::arg("group_layer_type"), pybind11::arg("bottom_name"), pybind11::arg("top_name_list"),
+          pybind11::arg("num_outputs"), pybind11::arg("last_act_type") = Activation_t::Relu);
   pybind11::class_<HugeCTR::Model, std::shared_ptr<HugeCTR::Model>>(m, "Model")
       .def(pybind11::init<const Solver &, const DataReaderParams &, std::shared_ptr<OptParamsPy> &,
                           std::shared_ptr<ModelOversubscriberParams> &>(),
@@ -139,6 +145,8 @@ void ModelPybind(pybind11::module &m) {
            pybind11::arg("sparse_embedding"))
       .def("add", pybind11::overload_cast<DenseLayer &>(&HugeCTR::Model::add),
            pybind11::arg("dense_layer"))
+      .def("add", pybind11::overload_cast<GroupDenseLayer &>(&HugeCTR::Model::add),
+           pybind11::arg("group_dense_layer"))
       .def("set_learning_rate", &HugeCTR::Model::set_learning_rate, pybind11::arg("lr"))
       .def("train", &HugeCTR::Model::train)
       .def("eval", &HugeCTR::Model::eval, pybind11::arg("eval_batch") = -1)

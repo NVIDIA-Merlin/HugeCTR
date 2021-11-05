@@ -248,6 +248,23 @@ DenseLayer::DenseLayer(Layer_t layer_type, std::vector<std::string>& bottom_name
       pos_type(pos_type),
       act_type(act_type) {}
 
+GroupDenseLayer::GroupDenseLayer(GroupLayer_t group_layer_type, std::string& bottom_name,
+                std::vector<std::string>& top_name_list, std::vector<size_t>& num_outputs,
+                Activation_t last_act_type):
+      group_layer_type(group_layer_type),
+      bottom_name(bottom_name),
+      top_name_list(top_name_list),
+      num_outputs(num_outputs),
+      last_act_type(last_act_type) {
+  size_t num_layers = num_outputs.size();
+  if (num_layers < 2) {
+    CK_THROW_(Error_t::WrongInput, "There should be at least two layers for GroupDenseLayer");
+  }
+  if (top_name_list.size() != num_layers) {
+    CK_THROW_(Error_t::WrongInput, "There top_name_list.size() should be equal to num_outputs.size()");
+  }
+}
+
 void init_optimizer(OptParams& opt_params, const Solver& solver,
                     const std::shared_ptr<OptParamsPy>& opt_params_py) {
   opt_params.optimizer = opt_params_py->optimizer;
@@ -570,9 +587,6 @@ void Model::add(DenseLayer& dense_layer) {
 }
 
 void Model::add_internal(DenseLayer& dense_layer) {
-  if (!solver_.is_dlrm && dense_layer.pos_type != FcPosition_t::None) {
-    CK_THROW_(Error_t::WrongInput, "Specific fully connected position is restricted to DLRM use");
-  }
   for (auto& bottom_name : dense_layer.bottom_names) {
     deactivate_tensor(tensor_active_, bottom_name);
   }
@@ -597,6 +611,52 @@ void Model::add_internal(DenseLayer& dense_layer) {
                   wgrad_buff_list_, wgrad_buff_half_list_, evaluate_weight_buff_list_,
                   evaluate_weight_buff_half_list_, wgrad_buff_placeholder_list_,
                   wgrad_buff_half_placeholder_list_, dlrm_bottom_mlp_);
+}
+
+void Model::add(GroupDenseLayer& group_dense_layer) {
+  switch (group_dense_layer.group_layer_type) {
+    case GroupLayer_t::GroupFusedInnerProduct: {
+      size_t num_layers = group_dense_layer.num_outputs.size();
+      std::vector<std::vector<std::string>> tensor_names_list(num_layers+1, std::vector<std::string>());
+      tensor_names_list[0].push_back(group_dense_layer.bottom_name);
+      for (unsigned int i = 1; i < num_layers; i++) {
+        std::string tensor_name = group_dense_layer.top_name_list[i-1];
+        tensor_names_list[i].push_back(tensor_name);
+        tensor_names_list[i].push_back(tensor_name+"_mask");
+        tensor_names_list[i].push_back(tensor_name+"_dRelu");
+        tensor_names_list[i].push_back(tensor_name+"_db");
+      }
+      std::string top_name = group_dense_layer.top_name_list[num_layers-1];
+      tensor_names_list[num_layers].push_back(top_name);
+      if (solver_.use_mixed_precision) {
+        // leverage FusedReluBiasFullyConnectedLayer
+        DenseLayer fused_fc_head_layer = DenseLayer(Layer_t::FusedInnerProduct, tensor_names_list[0], tensor_names_list[1]);
+        fused_fc_head_layer.num_output = group_dense_layer.num_outputs[0];
+        fused_fc_head_layer.pos_type = FcPosition_t::Head;
+        fused_fc_head_layer.act_type = Activation_t::Relu;
+        add(fused_fc_head_layer);
+        for (unsigned int i = 1; i < num_layers-1; i++) {
+          DenseLayer fused_fc_body_layer = DenseLayer(Layer_t::FusedInnerProduct, tensor_names_list[i], tensor_names_list[i+1]);
+          fused_fc_body_layer.num_output = group_dense_layer.num_outputs[i];
+          fused_fc_body_layer.pos_type = FcPosition_t::Body;
+          fused_fc_body_layer.act_type = Activation_t::Relu;
+          add(fused_fc_body_layer);
+        }
+        DenseLayer fused_fc_tail_layer = DenseLayer(Layer_t::FusedInnerProduct, tensor_names_list[num_layers-1], tensor_names_list[num_layers]);
+        fused_fc_tail_layer.num_output = group_dense_layer.num_outputs[num_layers-1];
+        fused_fc_tail_layer.pos_type = FcPosition_t::Tail;
+        fused_fc_tail_layer.act_type = group_dense_layer.last_act_type;
+        add(fused_fc_tail_layer);
+      // TODO: support fp32 for FusedReluBiasFullyConnectedLayer
+      } else {
+        CK_THROW_(Error_t::WrongInput, "GroupFusedInnerProduct can only be used when use_mixed_precision is set true");
+      }
+      break;
+    }
+    default: {
+      assert(!"Error: no such group layer && should never get here!");
+    }
+  }
 }
 
 void Model::graph_analysis() {
@@ -857,27 +917,41 @@ void Model::summary() {
             << get_tensor_shape(data_input_info_[0], tensor_shape_info_) << std::left
             << std::setw(40) << std::setfill(' ')
             << get_tensor_shape(data_input_info_[1], tensor_shape_info_) << std::endl;
-  buf << "---------------------------------------------------------------------------------"
-              "---------------------------------"
+  buf << "—————————————————————————————————————————————————————————————————————————————————"
+              "—————————————————————————————————"
             << std::endl;
   buf << std::left << std::setw(40) << std::setfill(' ') << "Layer Type" << std::left
             << std::setw(30) << std::setfill(' ') << "Input Name" << std::left << std::setw(30)
             << std::setfill(' ') << "Output Name" << std::left << std::setw(30)
             << std::setfill(' ') << "Output Shape" << std::endl;
-  buf << "---------------------------------------------------------------------------------"
-              "---------------------------------"
+  buf << "—————————————————————————————————————————————————————————————————————————————————"
+              "—————————————————————————————————"
             << std::endl;
   for (size_t i = 0; i < layer_info_.size(); ++i) {
-    buf << std::left << std::setw(40) << std::setfill(' ') << layer_info_[i] << std::left
-              << std::setw(30) << std::setfill(' ') << input_output_info_[i].first << std::left
-              << std::setw(30) << std::setfill(' ') << input_output_info_[i].second << std::left
-              << std::setw(30) << std::setfill(' ')
-              << get_tensor_shape(input_output_info_[i].second, tensor_shape_info_) << std::endl;
+    std::vector<std::string> layer_type{layer_info_[i]};
+    std::vector<std::string> input_names;
+    std::vector<std::string> output_names;
+    split(input_output_info_[i].first, ',', input_names);
+    split(input_output_info_[i].second, ',', output_names);
+    size_t lines = input_names.size()>output_names.size()?input_names.size():output_names.size();
+    layer_type.insert(layer_type.end(), lines-1, "");
+    if (lines > input_names.size()) {
+      input_names.insert(input_names.end(), lines-input_names.size(), "");
+    }
+    if (lines > output_names.size()) {
+      output_names.insert(output_names.end(), lines-output_names.size(), "");
+    }
+    for (size_t j = 0; j < lines; j++) {
+      buf << std::left << std::setw(40) << std::setfill(' ') << layer_type[j] << std::left
+                << std::setw(30) << std::setfill(' ') << input_names[j] << std::left
+                << std::setw(30) << std::setfill(' ') << output_names[j] << std::left
+                << std::setw(30) << std::setfill(' ')
+                << get_tensor_shape(output_names[j], tensor_shape_info_) << std::endl;
+    }
+    buf << "---------------------------------------------------------------------------------"
+                "---------------------------------"
+              << std::endl;
   }
-  buf << "---------------------------------------------------------------------------------"
-              "---------------------------------"
-            << std::endl;
-
   HCTR_PRINT(INFO, "===================================================Model "
                    "Summary===================================================\n"
                    "%s", buf.str().c_str());

@@ -245,6 +245,17 @@ struct DenseLayer {
              Activation_t act_type = Activation_t::Relu);
 };
 
+struct GroupDenseLayer {
+  GroupLayer_t group_layer_type;
+  std::string bottom_name;
+  std::vector<std::string> top_name_list;
+  std::vector<size_t> num_outputs;
+  Activation_t last_act_type;
+  GroupDenseLayer(GroupLayer_t group_layer_type, std::string& bottom_name,
+                  std::vector<std::string>& top_name_list, std::vector<size_t>& num_outputs,
+                  Activation_t last_act_type = Activation_t::Relu);
+};
+
 template <typename TypeKey>
 void add_input(Input& input, DataReaderParams& reader_params,
                std::map<std::string, SparseInput<TypeKey>>& sparse_input_map,
@@ -320,6 +331,8 @@ class Model {
   virtual void add(DenseLayer& dense_layer);
 
   void add_internal(DenseLayer& dense_layer);
+
+  void add(GroupDenseLayer& group_dense_layer);
 
   void graph_analysis();
 
