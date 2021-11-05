@@ -90,6 +90,9 @@ void CommonPybind(pybind11::module& m) {
       .value("XavierUniform", HugeCTR::Initializer_t::XavierUniform)
       .value("Zero", HugeCTR::Initializer_t::Zero)
       .export_values();
+  pybind11::enum_<HugeCTR::GroupLayer_t>(m, "GroupLayer_t")
+      .value("GroupFusedInnerProduct", HugeCTR::GroupLayer_t::GroupFusedInnerProduct)
+      .export_values();
   pybind11::enum_<HugeCTR::Layer_t>(m, "Layer_t")
       .value("BatchNorm", HugeCTR::Layer_t::BatchNorm)
       .value("BinaryCrossEntropyLoss", HugeCTR::Layer_t::BinaryCrossEntropyLoss)

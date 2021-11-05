@@ -17,6 +17,7 @@ As a recommendation system domain specific framework, HugeCTR has a set of high 
      * [Input](#input-layer)
      * [SparseEmbedding](#sparseembedding)
      * [DenseLayer](#denselayer)
+     * [GroupDenseLayer](#groupdenselayer)
    * [Model](#model)<details>
      * [add()](#add-method)
      * [compile()](#compile-method)
@@ -553,6 +554,34 @@ hugectr.DenseLayer()
 
 * `act_type`: The activation type of `FusedInnerProduct` layer. The supported types include `Activation_t.Relu` and `Activation_t.Non`. This argument is valid only if `is_dlrm` is set `True` within `CreateSolver` and `layer_type` is specified as `hugectr.Layer_t.FusedInnerProduct`. Besides, `Activation_t.Non` can only be used together with `FcPosition_t.Tail`. The default value is `Activation_t.Relu`.
 
+### GroupDenseLayer ###
+```bash
+hugectr.GroupDenseLayer()
+```
+`GroupDenseLayer` specifies the parameters related to a group of dense layers. HugeCTR currently supports only `GroupFusedInnerProduct`, which is comprised of multiple `FusedInnerProduct` layers. Please **NOTE** that the `FusedInnerProduct` layer only supports fp16.
+
+**Arguments**
+* `group_layer_type`: The layer type to be used. There is only one supported type, i.e., `hugectr.GroupLayer_t.GroupFusedInnerProduct`. There is NO default value and it should be specified by users.
+
+* `bottom_name`: String, the bottom tensor name for this group of dense layers. There is NO default value and it should be specified by users.
+
+* `top_name_list`: List[str], the list of top tensor names of each dense layer in the group. There should be only one name for each layer. There is NO default value and it should be specified by users.
+
+* `num_outputs`: List[Integer], the number of output elements for each `FusedInnerProduct` layer in the group. There is NO default value and it should be specified by users.
+
+* `last_act_type`: The activation type of the last `FusedInnerProduct` layer in the group. The supported types include `Activation_t.Relu` and `Activation_t.Non`. Except the last layer, the activation type of the other `FusedInnerProduct` layers in the group must be and will be automatically set as `Activation_t.Relu`, which do not allow any configurations. The default value is `Activation_t.Relu`.
+
+**NOTE**: There should be at least two layers in the group, and the size of `top_name_list` and `num_outputs` should both be equal to the number of layers.
+
+Example:
+```python
+model.add(hugectr.GroupDenseLayer(group_layer_type = hugectr.GroupLayer_t.GroupFusedInnerProduct,
+                                  bottom_name = "dense",
+                                  top_name_list = ["fc1", "fc2", "fc3"],
+                                  num_outputs = [1024, 512, 256],
+                                  last_act_type = hugectr.Activation_t.Relu))
+```
+
 ### **Model** ###
 #### **Model class**
 ```bash
@@ -574,10 +603,10 @@ hugectr.Model()
 ```bash
 hugectr.Model.add()
 ```
-The `add` method of Model adds an instance of Input, SparseEmbedding or DenseLayer to the created Model object. Typically, a Model object is comprised of one Input, several SparseEmbedding and a series of DenseLayer instances. Please note that the loss function for HugeCTR model training is taken as a DenseLayer instance.
+The `add` method of Model adds an instance of Input, SparseEmbedding, DenseLayer or GroupDenseLayer to the created Model object. Typically, a Model object is comprised of one Input, several SparseEmbedding and a series of DenseLayer instances. Please note that the loss function for HugeCTR model training is taken as a DenseLayer instance.
 
 **Arguments**
-* `input` or `sparse_embedding` or `dense_layer`: This method is an overloaded method that can accept `hugectr.Input`, `hugectr.SparseEmbedding` or `hugectr.DenseLayer` as an argument. It allows the users to construct their model flexibly without the JSON configuration file.
+* `input` or `sparse_embedding` or `dense_layer`: This method is an overloaded method that can accept `hugectr.Input`, `hugectr.SparseEmbedding`, `hugectr.DenseLayer` or `hugectr.GroupDenseLayer` as an argument. It allows the users to construct their model flexibly without the JSON configuration file.
 ***
 
 #### **compile method**

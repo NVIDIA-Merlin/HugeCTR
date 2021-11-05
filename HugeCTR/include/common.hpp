@@ -121,6 +121,8 @@ enum class Regularizer_t { L1, L2 };
 
 enum class Alignment_t { Auto, None };
 
+enum class GroupLayer_t { GroupFusedInnerProduct };
+
 enum class Layer_t {
   BatchNorm,
   BinaryCrossEntropyLoss,
