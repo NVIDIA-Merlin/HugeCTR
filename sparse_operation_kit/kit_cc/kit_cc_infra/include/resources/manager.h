@@ -96,7 +96,7 @@ public:
 
     void event_record(const size_t global_replica_id, 
                       EventRecordType event_record_type,
-                      const std::string& event_name);
+                      const std::string event_name);
 
 private:
     ResourcesManager();

@@ -83,7 +83,7 @@ public:
     void sync_gpu_via_nccl(const cudaStream_t& stream) const;
 
     void event_record(EventRecordType event_record_type,
-                      const std::string& event_name);
+                      const std::string event_name);
 };
 
 

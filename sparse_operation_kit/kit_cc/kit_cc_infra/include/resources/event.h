@@ -29,7 +29,7 @@ enum class EventRecordType { RDLFramework, RMyself };
 /*class used to handle cudaEvent*/
 class Event {
 public:
-    static std::shared_ptr<Event> create(const std::string& name);
+    static std::shared_ptr<Event> create(const std::string name);
     ~Event();
 
     Event(Event& event) = delete;
@@ -44,7 +44,7 @@ public:
     std::string name() const;
     
 protected:
-    explicit Event(const std::string& name);
+    explicit Event(const std::string name);
 private:
     cudaEvent_t cuda_event_{nullptr};
     const std::string name_;

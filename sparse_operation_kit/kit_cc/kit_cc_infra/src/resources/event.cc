@@ -19,7 +19,7 @@
 
 namespace SparseOperationKit {
 
-Event::Event(const std::string& name) 
+Event::Event(const std::string name) 
 : name_(name)
 {
     CK_CUDA(cudaEventCreateWithFlags(&cuda_event_, cudaEventDisableTiming));
@@ -33,7 +33,7 @@ Event::~Event() {
     }
 }
 
-std::shared_ptr<Event> Event::create(const std::string& name) {
+std::shared_ptr<Event> Event::create(const std::string name) {
     return std::shared_ptr<Event>(new Event(std::move(name)));
 }
 

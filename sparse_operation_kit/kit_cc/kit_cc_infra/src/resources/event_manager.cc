@@ -28,18 +28,18 @@ std::unique_ptr<EventManager> EventManager::create() {
     return std::unique_ptr<EventManager>(new EventManager());
 }
 
-std::shared_ptr<Event>& EventManager::create_event(const std::string& event_name) {
+std::shared_ptr<Event>& EventManager::create_event(const std::string event_name) {
     std::unique_lock<std::shared_timed_mutex> unique(shared_mu_);
     auto iter = events_.find(event_name);
     if (events_.end() == iter) {
         std::shared_ptr<Event> event = Event::create(event_name);
-        events_.insert(std::make_pair(event_name, event));
+        events_.emplace(std::make_pair(event_name, event));
         iter = events_.find(event_name);
     }
     return iter->second;
 }
 
-std::shared_ptr<Event>& EventManager::get_event(const std::string& event_name) {
+std::shared_ptr<Event>& EventManager::get_event(const std::string event_name) {
     {
         std::shared_lock<std::shared_timed_mutex> shared(shared_mu_);
         auto iter = events_.find(event_name);
@@ -50,7 +50,7 @@ std::shared_ptr<Event>& EventManager::get_event(const std::string& event_name) {
 
 void EventManager::sync_two_streams(cudaStream_t& root_stream, 
                                     cudaStream_t& sub_stream,
-                                    const std::string& event_name,
+                                    const std::string event_name,
                                     const bool event_sync) {
     /*--root_stream->event->sub_stream--*/
     std::shared_ptr<Event>& event = get_event(std::move(event_name));

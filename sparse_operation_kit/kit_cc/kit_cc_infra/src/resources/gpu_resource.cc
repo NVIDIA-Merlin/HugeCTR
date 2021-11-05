@@ -166,7 +166,7 @@ void GpuResource::sync_gpu_via_nccl(const cudaStream_t& stream) const {
 }
 
 void GpuResource::event_record(EventRecordType event_record_type,
-                               const std::string& event_name) {
+                               const std::string event_name) {
     switch (event_record_type) {
         case EventRecordType::RDLFramework: {
             event_mgr_->sync_two_streams(/*root_stream=*/get_framework_stream(), 
