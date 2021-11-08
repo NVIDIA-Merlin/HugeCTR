@@ -1,11 +1,11 @@
-# 
+#
 # Copyright (c) 2021, NVIDIA CORPORATION.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -100,12 +100,12 @@ target_link_libraries(hugectr_inference PUBLIC cudart cublas curand cudnn nccl c
 
 target_link_libraries(hugectr_inference PUBLIC gpu_cache)
 
-target_link_libraries(hugectr_inference PRIVATE nlohmann_json::nlohmann_json nvToolsExt nvidia-ml)
+target_link_libraries(hugectr_inference PRIVATE nlohmann_json::nlohmann_json nvToolsExt)
 
 target_link_libraries(
   hugectr_inference
   PUBLIC
-    ${DB_LIB_PATHS}/libhiredis.so librocksdb.so libredis++.so  # from Hugectr 
+    ${DB_LIB_PATHS}/libhiredis.so librocksdb.so libredis++.so  # from Hugectr
 )
 
 target_compile_features(hugectr_inference PUBLIC cxx_std_17)
