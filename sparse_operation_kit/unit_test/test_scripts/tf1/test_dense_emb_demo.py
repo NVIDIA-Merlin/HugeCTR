@@ -328,6 +328,10 @@ def compare_dense_emb_sok_with_tf(args):
         if not allclose:
             raise ValueError(f"\n{sok_vector} \nis not near to \n{tf_results[i]} \nat rtol={rtol}, atol={atol}")
 
+        print("--------------- step: {}---------------------".format(i))
+        print("sok_embedding_vector:\n{}".format(sok_vector))
+        print("tf_embedding_vector:\n{}".format(tf_results[i]))
+
     print(f"\n[INFO]: For {len(args.slot_num)} Dense Embedding layer, using {args.gpu_num} GPUs + {args.optimizer} optimizer, "
           f"using hashtable? {args.use_hashtable}, dynamic_input? {args.dynamic_input}, "
           "the embedding vectors"
