@@ -38,6 +38,9 @@ std::shared_ptr<Event> Event::create(const std::string name) {
 }
 
 void Event::Record(cudaStream_t& stream) {
+    if (!IsReady()) 
+        throw std::runtime_error(ErrorBase + "cudaEvent: " + name()
+            + " is still in use.");
     CK_CUDA(cudaEventRecord(cuda_event_, stream));
 }
 
