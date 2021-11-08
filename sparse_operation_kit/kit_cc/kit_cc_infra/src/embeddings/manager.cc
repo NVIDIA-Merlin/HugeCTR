@@ -105,11 +105,11 @@ void EmbeddingManager::create_embedding(const std::shared_ptr<ParamInterface>& p
     std::shared_ptr<EmbeddingLayer> embedding_temp = EmbeddingLayer::create(_input_dispatcher,
                                                 _embedding_lookuper, _output_dispatcher,
                                                 construction_context);
-    embedding_temp->allocate_forward_spaces();
-    if (param->trainable()) embedding_temp->allocate_backward_spaces();
-    param->set_user(embedding_temp);
     {
         std::lock_guard<std::mutex> lock(mu_);
+        embedding_temp->allocate_forward_spaces();
+        if (param->trainable()) embedding_temp->allocate_backward_spaces();
+        param->set_user(embedding_temp);
         embeddings_.emplace_back(embedding_temp);
         embedding = embedding_temp;
         // create compute context for this embedding layer
@@ -168,11 +168,11 @@ void EmbeddingManager::create_embedding(const std::shared_ptr<ParamInterface>& p
                                                                 _embedding_lookuper,
                                                                 _output_dispatcher,
                                                                 construction_context);
-    embedding_temp->allocate_forward_spaces();
-    if (param->trainable()) embedding_temp->allocate_backward_spaces();
-    param->set_user(embedding_temp);
     {
         std::lock_guard<std::mutex> lock(mu_);
+        embedding_temp->allocate_forward_spaces();
+        if (param->trainable()) embedding_temp->allocate_backward_spaces();
+        param->set_user(embedding_temp);
         embeddings_.emplace_back(embedding_temp);
         embedding = embedding_temp;
         // create context for this embedding layer
