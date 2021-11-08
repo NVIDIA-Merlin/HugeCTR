@@ -135,7 +135,8 @@ void RawManager::allocate_memory(const size_t global_replica_id) {
     {   // begin read
         std::unique_lock<std::mutex> lock(mu_);
         // wait until no waiting writers and no active writers
-        cond_.wait(lock, [this]{ return (num_writers_waiting_ == 0 && !writer_active_.load()); });
+        cond_.wait(lock, [this]{ return (num_writers_waiting_.load(std::memory_order_acquire) == 0 
+                                         && !writer_active_.load(std::memory_order_acquire)); });
     }
 
     buffers_[local_replica_id]->allocate();

@@ -99,7 +99,10 @@ void RawParam::init(const size_t global_replica_id) {
         throw std::runtime_error(ErrorBase + "local_replica_id is out of the range of emb_table_tensors.size().");
 
     const auto &local_gpu = resource_mgr_->get_local_gpu(local_replica_id);
-
+#ifdef SOK_ASYNC
+    // TODO: necessary?? the underlying buffer might be modified by framework??
+    CK_CUDA(cudaStreamSynchronize(local_gpu->get_framework_stream()));
+#endif
     initializer_->fill(emb_table_tensors_interface_[local_replica_id],
                        local_gpu->get_sm_count(),
                        local_gpu->get_variant_curand_gen(),

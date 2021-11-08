@@ -227,13 +227,7 @@ void ResourcesManager::sync_local_memcpys() const {
 }
 
 void ResourcesManager::sync_gpu(const size_t local_dev_id) const {
-    // CK_CUDA(cudaStreamSynchronize(get_local_gpu(local_dev_id)->get_stream()));
-    while (true) {
-        auto error = cudaStreamQuery(get_local_gpu(local_dev_id)->get_stream());
-        if (error == cudaErrorNotReady) std::this_thread::yield();
-        else if (error == cudaSuccess) break;
-        else CK_CUDA(error);
-    }
+    CK_CUDA(cudaStreamSynchronize(get_local_gpu(local_dev_id)->get_stream()));
 }
 
 void ResourcesManager::sync_all_workers() const {
