@@ -78,6 +78,9 @@ if not in_tensorflow2():
 create_global_adam_optimizer = kit_ops.create_global_adam_optimizer
 custom_optimizer_apply_gradients = kit_ops.custom_optimizer_apply_gradients
 
+@ops.RegisterGradient("Test")
+def _TestGrad(op, top_grad):
+    return top_grad
 
 @ops.RegisterGradient("ReadEmbeddingVariableOp")
 def _PluginReadEmbeddingVariableBprop(op, top_grad):

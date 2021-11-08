@@ -15,6 +15,7 @@
  */
 
 #include "tensorflow/core/framework/op_kernel.h"
+#include "tensorflow/stream_executor/stream.h"
 
 #ifdef SOK_ASYNC
     // these headers are only needed in AsyncOpKernel
@@ -28,6 +29,9 @@
 #include <mutex>
 #include <chrono>
 #include <type_traits>
+#ifdef USE_NVTX
+#include <nvToolsExt.h>
+#endif
 
 #define CK_MPI(ctx, cmd)                                           \
     do {                                                            \
@@ -46,6 +50,28 @@
         (done)();                       \
     } while (0) 
 
+namespace SparseOperationKit {
+namespace {
+
+template <typename Type>
+__global__ void TestOpCudaKernel(Type const *input_ptr, Type *output_ptr, const uint32_t elem_num) {
+    uint32_t gid = blockIdx.x * blockDim.x + threadIdx.x;
+    uint32_t grid = blockDim.x * gridDim.x;
+    for (uint32_t i = gid; i < elem_num; i += grid) {
+        output_ptr[i] = input_ptr[i];
+    }
+}
+
+} // anonymous namespace
+} // namespace SparseOperationKit
+
+
+namespace stream_executor {
+namespace gpu {
+cudaStream_t AsGpuStreamValue(Stream* stream);
+} // namespace gpu
+} // namespace stream_executor
+
 namespace tensorflow {
 using GPUDevice = Eigen::GpuDevice;
 using CPUDevice = Eigen::ThreadPoolDevice; 
@@ -56,7 +82,9 @@ using ScopedActivateExecutorContext = stream_executor::cuda::ScopedActivateExecu
 template <typename Device>
 class TestOp : public AsyncOpKernel {
 public:
-    explicit TestOp(OpKernelConstruction* ctx) : AsyncOpKernel(ctx), mu_() {}
+    explicit TestOp(OpKernelConstruction* ctx) : AsyncOpKernel(ctx), mu_() {
+        OP_REQUIRES_OK(ctx, ctx->GetAttr("unique_op_name", &unique_op_name_));
+    }
     void ComputeAsync(OpKernelContext* ctx, DoneCallback done) override {
         auto work_func = [this, ctx, done]() {
             if (std::is_same<Device, CPUDevice>::value) {
@@ -72,24 +100,30 @@ public:
                 return;
             }
 
-            std::cout << "\n[INFO]: work_func start on " 
-                      << std::this_thread::get_id() << std::endl;
+            Tensor const *input_tensor = nullptr;
+            OP_REQUIRES_OK_ASYNC(ctx, ctx->input("x", &input_tensor), done);
+            Tensor* output_tensor = nullptr;
+            OP_REQUIRES_OK_ASYNC(ctx, ctx->allocate_output(0, input_tensor->shape(), &output_tensor), done);
 
-             const Tensor* x_tensor = nullptr;
-            OP_REQUIRES_OK_ASYNC(ctx, ctx->input("x", &x_tensor), done);
-
-            std::this_thread::sleep_for(std::chrono::seconds(10));
-
-            Tensor* y_tensor = nullptr;
-            OP_REQUIRES_OK_ASYNC(ctx, ctx->allocate_output(0, x_tensor->shape(), &y_tensor), done);
-
-            std::this_thread::sleep_for(std::chrono::seconds(10));
-
-            std::cout << "\n[INFO]: work_func ready to call done() on " 
-                       << std::this_thread::get_id() << std::endl;
+            const cudaStream_t stream = stream_executor::gpu::AsGpuStreamValue(ctx->op_device_context()->stream());
+            // constexpr size_t blocks = 256ul;
+            // const size_t grids = (input_tensor->NumElements() + blocks - 1) / blocks;
+            // SparseOperationKit::TestOpCudaKernel<<<grids, blocks, 0, stream>>>(
+            //                                 reinterpret_cast<const float*>(input_tensor->data()), 
+            //                                 reinterpret_cast<float*>(output_tensor->data()), 
+            //                                 input_tensor->NumElements());
+        #ifdef USE_NVTX
+            nvtxRangeId_t mark = nvtxRangeStartA(std::string("TestOpCudaKernel: ") + unique_op_name_);
+        #endif
+            cudaMemcpyAsync(output_tensor->data(),
+                            input_tensor->data(),
+                            input_tensor->NumElements() * DataTypeSize(input_tensor->dtype()),
+                            cudaMemcpyDeviceToDevice,
+                            stream);
+        #ifdef USE_NVTX
+            nvtxRangeEnd(mark);
+        #endif
             done();
-            std::cout << "\n[INFO]: work_func called done() on " 
-                       << std::this_thread::get_id() << std::endl;
         };
 
         if (std::is_same<Device, CPUDevice>::value) {
@@ -102,12 +136,10 @@ public:
             done();
             return;
         }
-
-        std::cout << "\n[INFO]: after schdule work_func, " 
-                  << std::this_thread::get_id() << " is done." << std::endl;
     }
 private:
     std::mutex mu_;
+    std::string unique_op_name_;
 };
 #else
 template <typename Device>
@@ -148,9 +180,9 @@ public:
 };
 #endif
 
-// REGISTER_KERNEL_BUILDER(Name("Test").Device(DEVICE_GPU), 
-//                         TestOp<GPUDevice>);
-REGISTER_KERNEL_BUILDER(Name("Test").Device(DEVICE_CPU),
-                        TestOp<CPUDevice>);
+REGISTER_KERNEL_BUILDER(Name("Test").Device(DEVICE_GPU), 
+                        TestOp<GPUDevice>);
+// REGISTER_KERNEL_BUILDER(Name("Test").Device(DEVICE_CPU),
+//                         TestOp<CPUDevice>);
 
 } // tensorflow
