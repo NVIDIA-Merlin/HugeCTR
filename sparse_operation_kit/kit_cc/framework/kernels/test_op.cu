@@ -113,7 +113,7 @@ public:
             //                                 reinterpret_cast<float*>(output_tensor->data()), 
             //                                 input_tensor->NumElements());
         #ifdef USE_NVTX
-            nvtxRangeId_t mark = nvtxRangeStartA(std::string("TestOpCudaKernel: ") + unique_op_name_);
+            nvtxRangeId_t mark = nvtxRangeStartA((std::string("TestOpCudaKernel: ") + unique_op_name_).c_str());
         #endif
             cudaMemcpyAsync(output_tensor->data(),
                             input_tensor->data(),
