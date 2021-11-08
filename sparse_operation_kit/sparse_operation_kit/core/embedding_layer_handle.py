@@ -90,7 +90,8 @@ class DenseEmbeddingLayerHandle(EmbeddingLayerHandle):
                                             output_dispatcher=self._output_dispatcher,
                                             output_dispatcher_subsequent_ops=self._output_dispatcher_subsequent_ops,
                                             slot_num=self._slot_num,
-                                            nnz_per_slot=self._nnz_per_slot)
+                                            nnz_per_slot=self._nnz_per_slot,
+                                            layer_handle_name=self._embedding_variable.m_var_name)
 
             self._initializer_op = control_flow_ops.group((self._handle))
 
@@ -141,7 +142,8 @@ class SparseEmbeddingLayerHandle(EmbeddingLayerHandle):
                                                 slot_num=self._slot_num,
                                                 max_nnz=self._max_nnz,
                                                 max_feature_num=self._max_feature_num,
-                                                combiner=self._combiner)
+                                                combiner=self._combiner,
+                                                layer_handle_name=self._embedding_variable.m_var_name)
 
             self._initializer_op = control_flow_ops.group((self._handle))
 
