@@ -18,6 +18,9 @@
 #include "common.h"
 #include <iostream>
 #include <cstdlib>
+#ifdef USE_NVTX
+#include <nvToolsExt.h>
+#endif
 
 namespace SparseOperationKit {
 
@@ -44,6 +47,9 @@ nccl_sync_data_(nullptr), event_mgr_(nullptr), event_sync_(GetEventSync())
 #ifdef SOK_ASYNC
     CK_CUDA(cudaStreamCreateWithFlags(&computation_stream_, cudaStreamNonBlocking));
     event_mgr_.reset(EventManager::create().release());
+#ifdef USE_NVTX
+    nvtxNameCudaStreamA(computation_stream_, "SOKCudaStream");
+#endif
 #else
     computation_stream_ = framework_stream_; // sok will use the same cudaStream_t created by framework.
 #endif
