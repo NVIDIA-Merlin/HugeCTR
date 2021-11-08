@@ -51,6 +51,9 @@ nccl_sync_data_(nullptr), event_mgr_(nullptr), event_sync_(GetEventSync())
     nvtxNameCudaStreamA(computation_stream_, "SOKComputStream");
 #endif
 #else
+#ifdef USE_NVTX
+    nvtxNameCudaStreamA(framework_stream_, "FrameworkComputStream");
+#endif
     computation_stream_ = framework_stream_; // sok will use the same cudaStream_t created by framework.
 #endif
     CK_CUDA(cudaStreamCreateWithFlags(&memcpy_stream_, cudaStreamNonBlocking));
