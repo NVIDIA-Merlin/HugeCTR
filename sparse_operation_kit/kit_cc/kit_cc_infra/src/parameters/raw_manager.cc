@@ -213,6 +213,7 @@ void RawManager::load_embedding_values(std::shared_ptr<ParamInterface>& param,
 
 void RawManager::push_back_embedding_buffer_builder(const size_t local_replica_id,
                                 std::shared_ptr<EmbeddingBufferBuilder>& builder) {
+    std::lock_guard<std::mutex> lock(mu_);
     embedding_buffer_builders_[local_replica_id].emplace_back(builder);
 }
 
