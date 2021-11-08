@@ -92,12 +92,12 @@ void RawManager::create_variables(const std::string& initializer, const bool use
     } else {
         std::shared_ptr<RawParam> raw_param{nullptr};
         {   // begin write
-            num_writers_waiting_ += 1;
+            num_writers_waiting_.fetch_add(1, std::memory_order_acq_rel);
             std::unique_lock<std::mutex> lock(mu_);
             // wait until no active writer
-            cond_.wait(lock, [this]{ return !writer_active_.load(); });
-            num_writers_waiting_ -= 1;
-            writer_active_.store(true);
+            cond_.wait(lock, [this]{ return !writer_active_.load(std::memory_order_acquire); });
+            num_writers_waiting_.fetch_sub(1, std::memory_order_acq_rel);
+            writer_active_.store(true, std::memory_order_release);
 
             // create variable
             // variable will have its own memory buffer
@@ -110,8 +110,8 @@ void RawManager::create_variables(const std::string& initializer, const bool use
             }
 
             // end write
-            writer_active_.store(false);
-            cond_.notify_all();
+            writer_active_.store(false, std::memory_order_release);
+            cond_.notify_one();
         }
 
         // update previous state

@@ -59,10 +59,10 @@ public:
     }
 
     void Compute(OpKernelContext* ctx) override {
-        if (initialized_.load()) { AlreadyInitializedError(ctx, var_name_); }
+        if (initialized_.load(std::memory_order_acquire)) { AlreadyInitializedError(ctx, var_name_); }
         mutex_lock ml(mu_);
         // check again to see if another thread has initialized it.
-        if (initialized_.load()) { AlreadyInitializedError(ctx, var_name_); }
+        if (initialized_.load(std::memory_order_acquire)) { AlreadyInitializedError(ctx, var_name_); }
 
         const Tensor* initial_value_tensor = nullptr;
         OP_REQUIRES_OK(ctx, ctx->input("initial_value", &initial_value_tensor));
@@ -114,7 +114,7 @@ public:
                                     }));
 
         // set the flag
-        initialized_.store(true);
+        initialized_.store(true, std::memory_order_release);
     }
 private:
     bool trainable_;

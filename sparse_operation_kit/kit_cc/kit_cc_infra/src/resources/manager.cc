@@ -72,10 +72,10 @@ void ResourcesManager::get_random_seed(uint64_t* seed) {
 
 void ResourcesManager::set_nccl_unique_id(const int32_t* nccl_unique_id) {
     auto helper = [this, &nccl_unique_id]() {
-        if (set_nccl_id_flag_) 
+        if (set_nccl_id_flag_.load(std::memory_order_acquire)) 
             throw std::runtime_error(ErrorBase + "ncclUniqueId is already set.");
         int_to_ncclUniqueId(nccl_unique_id, this->nid_);
-        set_nccl_id_flag_ = true;
+        set_nccl_id_flag_.store(true, std::memory_order_release);
     };
 
     std::call_once(set_nccl_id_once_flag_, helper);
@@ -83,10 +83,10 @@ void ResourcesManager::set_nccl_unique_id(const int32_t* nccl_unique_id) {
 
 void ResourcesManager::create_cpu_resource(const uint64_t global_seed, const size_t num_replicas_in_sync) {
     auto helper = [this, &global_seed, &num_replicas_in_sync]() {
-        if (cpu_resource_flag_)
+        if (cpu_resource_flag_.load(std::memory_order_acquire))
             throw std::runtime_error(ErrorBase + "cpu_resource is already created.");
         this->seed_ = global_seed;
-        cpu_resource_flag_ = true;
+        cpu_resource_flag_.store(true, std::memory_order_release);
         global_gpu_count_ = num_replicas_in_sync;
 
         MESSAGE("Global seed is " + std::to_string(this->seed_));
@@ -128,7 +128,8 @@ void ResourcesManager::init(const size_t global_replica_id, const size_t num_rep
     
     create_cpu_resource(global_seed, num_replicas_in_sync);
 
-    while (!set_nccl_id_flag_ || !cpu_resource_flag_) { std::this_thread::yield(); }
+    while (!set_nccl_id_flag_.load(std::memory_order_acquire) 
+           || !cpu_resource_flag_.load(std::memory_order_acquire)) { std::this_thread::yield(); }
 
     create_gpu_resource(global_replica_id, num_replicas_in_sync, tf_stream);
 

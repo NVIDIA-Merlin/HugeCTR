@@ -221,10 +221,10 @@ public:
                 std::vector<DtypeAndPartialTensorShape>{dtype_and_shape_});
             ctx->set_output(1, tf_variable_handle);
         } else {
-            if (!initialized_.load()) {
+            if (!initialized_.load(std::memory_order_acquire)) {
                 mutex_lock ml(mutex_);
                 // Checking again to see if another thread has initialized the resource.
-                if (!initialized_.load()) {
+                if (!initialized_.load(std::memory_order_acquire)) {
                     AllocatorAttributes attr;
                     attr.set_on_host(true);
 
@@ -244,7 +244,7 @@ public:
                                     /*name=*/var_name_,
                                     std::vector<DtypeAndPartialTensorShape>{dtype_and_shape_});
 
-                    initialized_.store(true);
+                    initialized_.store(true, std::memory_order_release);
                 }
             }
             ctx->set_output(0, embedding_variable_handle_);
