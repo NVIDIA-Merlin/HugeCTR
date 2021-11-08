@@ -16,7 +16,14 @@
 
 #include "facade.h"
 #include "tensorflow/core/framework/op_kernel.h"
+#include "tensorflow/stream_executor/stream.h"
 #include <exception>
+
+namespace stream_executor {
+namespace gpu {
+cudaStream_t AsGpuStreamValue(Stream* stream);
+} // namespace gpu
+} // namespace stream_executor
 
 namespace tensorflow {
 using GPUDevice = Eigen::GpuDevice;
@@ -45,7 +52,10 @@ public:
             int32_t num_replicas_in_sync = num_replicas_in_sync_tensor->scalar<int32_t>()(0);
             const uint64_t global_seed = global_seed_tensor->scalar<int64_t>()(0);
 
-            const cudaStream_t& tf_stream = ctx->eigen_device<Device>().stream();
+            // const cudaStream_t& tf_stream = ctx->eigen_device<Device>().stream();
+            auto device_ctx = ctx->op_device_context();
+            OP_REQUIRES(ctx, device_ctx != nullptr, errors::Aborted("No valid device context."));
+            const cudaStream_t tf_stream = stream_executor::gpu::AsGpuStreamValue(device_ctx->stream());
 
             SparseOperationKit::Facade::instance()->init(global_replica_id, 
                                                       num_replicas_in_sync, 
