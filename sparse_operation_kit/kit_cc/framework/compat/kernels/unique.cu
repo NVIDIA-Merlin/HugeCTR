@@ -621,4 +621,6 @@ public:
                             UniqueOpGPU<T, Tindices>);
 REGISTER_GPU(int32, int32);
 REGISTER_GPU(int64, int32);
+REGISTER_GPU(int32, int64);
+REGISTER_GPU(int64, int64);
 } // namespace tensorflow
