@@ -52,6 +52,20 @@ public:
             Tensor const *global_replica_id_tensor = nullptr;
             OP_REQUIRES_OK_ASYNC(ctx, ctx->input("global_replica_id", &global_replica_id_tensor), done);
 
+            // check input shape
+            if (dynamic_input_) {
+                // input values must be a vector
+                OP_REQUIRES_ASYNC(ctx, TensorShapeUtils::IsVector(values_tensor->shape()),
+                    errors::Aborted("When dynamic_input is used, the input values must be a 1-D vector."),
+                    done);
+            } else {
+                // input values must be [?, slot_num, nnz_per_slot]
+                OP_REQUIRES_ASYNC(ctx, 3 == values_tensor->shape().dims(), 
+                    errors::Aborted("The shape of input values must be 3-D tensor, which is "
+                                    "[batchsize, slot_num, nnz_per_slot]."),
+                    done);
+            }
+
             // allocate output
             Tensor *emb_vector_tensor = nullptr;
             if (dynamic_input_) { // the input shape is dynamic
@@ -83,8 +97,6 @@ public:
                         return;
                     }
                 } 
-
-                // TODO: check values and indices shape
 
                 OP_REQUIRES_OK_ASYNC(ctx, ctx->allocate_output(0, emb_vector_tensor_shape_, &emb_vector_tensor), 
                                      done);
@@ -130,6 +142,18 @@ public:
         Tensor const *global_replica_id_tensor = nullptr;
         OP_REQUIRES_OK(ctx, ctx->input("global_replica_id", &global_replica_id_tensor));
 
+        // check input shape
+        if (dynamic_input_) {
+            // input values must be a vector
+            OP_REQUIRES(ctx, TensorShapeUtils::IsVector(values_tensor->shape()),
+                errors::Aborted("When dynamic_input is used, the input values must be a 1-D vector."));
+        } else {
+            // input values must be [?, slot_num, nnz_per_slot]
+            OP_REQUIRES(ctx, 3 == values_tensor->shape().dims(), 
+                errors::Aborted("The shape of input values must be 3-D tensor, which is "
+                                "[batchsize, slot_num, nnz_per_slot]."));
+        }
+
         // allocate output
         Tensor *emb_vector_tensor = nullptr;
         if (dynamic_input_) { // the input shape is dynamic
@@ -158,8 +182,6 @@ public:
                     return;
                 }
             } 
-
-            // TODO: check values and indices shape
 
             OP_REQUIRES_OK(ctx, ctx->allocate_output(0, emb_vector_tensor_shape_, &emb_vector_tensor));
         }
