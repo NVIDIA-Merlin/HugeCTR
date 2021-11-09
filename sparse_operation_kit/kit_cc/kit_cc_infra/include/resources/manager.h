@@ -50,7 +50,6 @@ public:
 
     // synchonrize CPU with GPU stream
     void sync_local_gpus() const;
-    void sync_local_memcpys() const;
     void sync_gpu(const size_t local_dev_id) const;
     void sync_all_workers() const; // synchronize each CPU-process via NCCL
     void sync_all_workers_via_mpi() const;

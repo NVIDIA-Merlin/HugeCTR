@@ -217,15 +217,6 @@ void ResourcesManager::sync_local_gpus() const {
     }
 }
 
-void ResourcesManager::sync_local_memcpys() const {
-    HugeCTR::CudaDeviceContext context;
-    for (size_t dev_id = 0; dev_id < local_gpu_count_; ++dev_id) {
-        const auto& local_gpu = get_local_gpu(dev_id);
-        context.set_device(local_gpu->get_local_device_id());
-        CK_CUDA(cudaStreamSynchronize(local_gpu->get_memcpy_stream()));
-    }
-}
-
 void ResourcesManager::sync_gpu(const size_t local_dev_id) const {
     CK_CUDA(cudaStreamSynchronize(get_local_gpu(local_dev_id)->get_stream()));
 }

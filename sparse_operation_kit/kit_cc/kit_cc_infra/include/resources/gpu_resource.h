@@ -32,8 +32,6 @@ private:
     const size_t global_device_id_;
     cudaStream_t computation_stream_; // this is created by SOK
     cudaStream_t framework_stream_; // this is owned by DL framework, for example, tensorflow
-    cudaStream_t memcpy_stream_;
-    cudaEvent_t compute_wait_memcpy_event_;
     curandGenerator_t replica_uniform_curand_generator_;
     curandGenerator_t replica_variant_curand_generator_;
     cusparseHandle_t replica_cusparse_handle_;
@@ -70,7 +68,6 @@ public:
     size_t get_global_device_id() const;
     cudaStream_t& get_stream(); 
     cudaStream_t& get_framework_stream();
-    const cudaStream_t& get_memcpy_stream() const;
     size_t get_sm_count() const;
     size_t get_max_smem_size_per_sm() const;
     size_t get_warp_size() const;
@@ -78,7 +75,6 @@ public:
     const curandGenerator_t& get_uniform_curand_gen() const;
     const ncclComm_t& get_nccl() const;
     const cusparseHandle_t& get_cusparse() const;
-    void make_comput_wait_memcpy() const;
 
     void sync_gpu_via_nccl(const cudaStream_t& stream) const;
 

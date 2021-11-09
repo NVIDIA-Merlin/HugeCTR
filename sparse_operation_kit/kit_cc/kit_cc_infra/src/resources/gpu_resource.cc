@@ -56,9 +56,6 @@ nccl_sync_data_(nullptr), event_mgr_(nullptr), event_sync_(GetEventSync())
 #endif
     computation_stream_ = framework_stream_; // sok will use the same cudaStream_t created by framework.
 #endif
-    CK_CUDA(cudaStreamCreateWithFlags(&memcpy_stream_, cudaStreamNonBlocking));
-    CK_CUDA(cudaEventCreateWithFlags(&compute_wait_memcpy_event_, cudaEventDisableTiming));
-
     CK_CURAND(curandCreateGenerator(&replica_uniform_curand_generator_, CURAND_RNG_PSEUDO_DEFAULT));
     CK_CURAND(curandSetPseudoRandomGeneratorSeed(replica_uniform_curand_generator_, replica_uniform_seed));
     CK_CURAND(curandSetStream(replica_uniform_curand_generator_, computation_stream_));
@@ -87,11 +84,9 @@ GpuResource::~GpuResource() {
         CK_CURAND(curandDestroyGenerator(replica_uniform_curand_generator_));
         CK_CURAND(curandDestroyGenerator(replica_variant_curand_generator_));
         CK_CUSPARSE(cusparseDestroy(replica_cusparse_handle_));
-        CK_CUDA(cudaStreamDestroy(memcpy_stream_));
     #ifdef SOK_ASYNC
         CK_CUDA(cudaStreamDestroy(computation_stream_));
     #endif
-        CK_CUDA(cudaEventDestroy(compute_wait_memcpy_event_));
         if (nccl_sync_data_) CK_CUDA(cudaFree(nccl_sync_data_));
     } catch (const std::exception& error) {
         std::cerr << error.what() << std::endl;
@@ -126,10 +121,6 @@ cudaStream_t& GpuResource::get_framework_stream() {
     return framework_stream_;
 }
 
-const cudaStream_t& GpuResource::get_memcpy_stream() const {
-    return memcpy_stream_;
-}
-
 size_t GpuResource::get_sm_count() const {
     return static_cast<size_t>(sm_count_);
 }
@@ -156,12 +147,6 @@ const ncclComm_t& GpuResource::get_nccl() const {
 
 const cusparseHandle_t& GpuResource::get_cusparse() const {
     return replica_cusparse_handle_;
-}
-
-void GpuResource::make_comput_wait_memcpy() const {
-    CK_CUDA(cudaEventSynchronize(compute_wait_memcpy_event_)); // necessary??
-    CK_CUDA(cudaEventRecord(compute_wait_memcpy_event_, memcpy_stream_));
-    CK_CUDA(cudaStreamWaitEvent(computation_stream_, compute_wait_memcpy_event_, 0));
 }
 
 void GpuResource::sync_gpu_via_nccl(const cudaStream_t& stream) const {
