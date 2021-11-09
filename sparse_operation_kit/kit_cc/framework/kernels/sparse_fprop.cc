@@ -53,6 +53,15 @@ public:
             Tensor const *global_replica_id_tensor = nullptr;
             OP_REQUIRES_OK_ASYNC(ctx, ctx->input("global_replica_id", &global_replica_id_tensor), done);
 
+            // check input shape
+            OP_REQUIRES_ASYNC(ctx, TensorShapeUtils::IsVector(values_tensor->shape()),
+                    errors::Aborted("The shape of values must be 1-D vector"), done);
+            OP_REQUIRES_ASYNC(ctx, TensorShapeUtils::IsVector(indices_tensor->shape()),
+                    errors::Aborted("The shape of indices must be 1-D vector"), done);
+            OP_REQUIRES_ASYNC(ctx, values_tensor->shape() == indices_tensor->shape(),
+                    errors::Aborted("The shape of values and indices must be identical."),
+                    done);
+
             // get output shape for the first time
             if (0 == emb_vector_tensor_shape_.dims()) {
                 try {
@@ -72,8 +81,6 @@ public:
 
             // do forward propagation
             try {
-                // TODO: check values and indices shape
-
                 SparseOperationKit::Facade::instance()->forward(emb_handle_tensor, 
                                                             values_tensor, indices_tensor, 
                                                             global_replica_id_tensor->scalar<int32_t>()(),
@@ -111,6 +118,14 @@ public:
         Tensor const *global_replica_id_tensor = nullptr;
         OP_REQUIRES_OK(ctx, ctx->input("global_replica_id", &global_replica_id_tensor));
 
+        // check input shape
+        OP_REQUIRES(ctx, TensorShapeUtils::IsVector(values_tensor->shape()),
+                errors::Aborted("The shape of values must be 1-D vector"));
+        OP_REQUIRES(ctx, TensorShapeUtils::IsVector(indices_tensor->shape()),
+                errors::Aborted("The shape of indices must be 1-D vector"));
+        OP_REQUIRES(ctx, values_tensor->shape() == indices_tensor->shape(),
+                errors::Aborted("The shape of values and indices must be identical."));
+
         // get output shape for the first time
         if (0 == emb_vector_tensor_shape_.dims()) {
             try {
@@ -128,8 +143,6 @@ public:
 
         // do forward propagation
         try {
-            // TODO: check values and indices shape
-
             SparseOperationKit::Facade::instance()->forward(emb_handle_tensor, 
                                                          values_tensor, indices_tensor, 
                                                          global_replica_id_tensor->scalar<int32_t>()(),

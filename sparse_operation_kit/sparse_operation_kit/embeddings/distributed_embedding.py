@@ -145,7 +145,8 @@ class DistributedEmbedding(tf.keras.layers.Layer):
             raise TypeError("inputs must be SparseTensor")
 
         values = inputs.values
-        row_indices = tf.transpose(inputs.indices, perm=[1, 0])[0]
+        indices = tf.ensure_shape(inputs.indices, shape=(None, 2))
+        row_indices = tf.transpose(indices, perm=[1, 0])[0]
 
         # option 2, return grad for self.emb
         emb_vector = kit_lib.plugin_sparse_fprop(self.emb_layer.handle, 
