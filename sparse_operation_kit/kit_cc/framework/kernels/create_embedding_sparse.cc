@@ -107,10 +107,10 @@ public:
     }
 
     void Compute(OpKernelContext* ctx) override {
-        if (!created_.load()) {
+        if (!created_.load(std::memory_order_acquire)) {
             mutex_lock ml(mutex_);
             // check again to see if another thread has created the embedding layer handle.
-            if (!created_.load()) {
+            if (!created_.load(std::memory_order_acquire)) {
                 AllocatorAttributes attr;
                 attr.set_on_host(true);
 
@@ -133,7 +133,7 @@ public:
                     ctx->SetStatus(errors::Aborted(error.what()));
                     return;
                 }
-                created_.store(true);
+                created_.store(true, std::memory_order_release);
             }
         }
         ctx->set_output(0, emb_layer_handle_);
