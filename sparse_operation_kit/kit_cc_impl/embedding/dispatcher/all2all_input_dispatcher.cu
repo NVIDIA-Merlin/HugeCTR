@@ -221,14 +221,9 @@ public:
         CK_CUDA(cudaMemsetAsync(num_selected_keys_[local_replica_id].get_ptr(), 0, 
                                 num_selected_keys_[local_replica_id].get_size_in_bytes(), 
                                 local_gpu->get_stream()));
-
-        // FIXME: Un-necessary???
-        // CK_CUDA(cudaMemsetAsync(selected_indices_buf_[local_replica_id].get_ptr(), -1,
-        //                         selected_indices_buf_[local_replica_id].get_size_in_bytes(),
-        //                         local_gpu->get_stream()));
-
-        // FIXME: should use cudaMemcpyAsync??
-        // will std::memset be optimized away??
+        CK_CUDA(cudaMemsetAsync(selected_indices_buf_[local_replica_id].get_ptr(), -1,
+                                selected_indices_buf_[local_replica_id].get_size_in_bytes(),
+                                local_gpu->get_stream()));
         std::memset(h_recv_chunk_offsets_[local_replica_id].get_ptr(), 0, 
                     h_recv_chunk_offsets_[local_replica_id].get_size_in_bytes());
         std::memset(h_send_chunk_offsets_[local_replica_id].get_ptr(), 0,
