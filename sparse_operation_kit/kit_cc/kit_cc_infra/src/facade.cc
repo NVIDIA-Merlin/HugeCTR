@@ -248,11 +248,11 @@ void Facade::try_allocate_memory(const size_t global_replica_id) const {
 /*This function will only be called by one CPU threads.*/
 void Facade::try_allocate_memory() {
     static std::atomic<bool> allocated{false};
-    if (allocated.load()) return;
+    if (allocated.load(std::memory_order_acquire)) return;
 
     std::lock_guard<std::mutex> lock(mu_);
     // check again to see if another thread has allocated memory
-    if (allocated.load()) return;
+    if (allocated.load(std::memory_order_relaxed)) return;
 
     auto try_allocate_helper = [this](size_t local_device_id) {
         HugeCTR::CudaDeviceContext context;
@@ -263,7 +263,7 @@ void Facade::try_allocate_memory() {
     for (size_t id = 0; id < resources_mgr_->get_local_gpu_count(); id++) 
         resources_mgr_->push_to_threadpool(try_allocate_helper, id);
     resources_mgr_->sync_threadpool();
-    allocated.store(true);
+    allocated.store(true, std::memory_order_release);
 }
 
 void Facade::get_output_shape(const tensorflow::Tensor* emb_handle,
