@@ -54,9 +54,7 @@ cd $workdir
 cp -r $workdir/sparse_operation_kit/ /usr/local/lib/sparse_operation_kit
 
 # set PYTHONPATH
-echo "export PYTHONPATH=/usr/local/lib/:$PYTHONPATH" > /etc/profile
+echo "PYTHONPATH=$PYTHONPATH:/usr/local/lib/sparse_operation_kit" > /etc/profile
 source /etc/profile
-echo "export PYTHONPATH=/usr/local/lib/:$PYTHONPATH" > ~/.bashrc
-source ~/.bashrc
 
 echo "Successfully installed SparseOperationKit to /usr/local/lib/sparse_operation_kit."

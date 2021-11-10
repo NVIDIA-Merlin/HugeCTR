@@ -27,6 +27,7 @@
 #include <mutex>
 #include <vector>
 #include <atomic>
+#include <unordered_map>
 
 namespace SparseOperationKit {
 
@@ -43,6 +44,7 @@ public:
     
     void init(const size_t global_replica_id, const size_t num_replicas_in_sync, 
               const int32_t* nccl_unique_id, const uint64_t global_seed,
+              const int32_t* visible_devices, const int64_t visible_device_count,
               const cudaStream_t& tf_stream);
 
     bool p2p_enabled(const size_t src_dev, const size_t dst_dev) const;
@@ -101,6 +103,7 @@ private:
     ResourcesManager();
     void set_nccl_unique_id(const int32_t* nccl_unique_id);
     void create_cpu_resource(const uint64_t global_seed, const size_t num_replicas_in_sync);
+    void set_visible_devices(const int32_t* visible_devices, const int64_t visible_device_count);
     void create_gpu_resource(const size_t global_replica_id, const size_t num_replicas_in_sync,
                              const cudaStream_t& tf_stream);
     void enable_all_peer_access(const size_t global_replica_id);
@@ -109,8 +112,10 @@ private:
     ncclUniqueId nid_;
     std::once_flag set_nccl_id_once_flag_;
     std::once_flag cpu_resource_once_flag_;
+    std::once_flag set_visible_devices_once_flag_;
     std::atomic<bool> set_nccl_id_flag_;
     std::atomic<bool> cpu_resource_flag_;
+    std::atomic<bool> set_visible_devices_flag_;
     size_t local_gpu_count_;
     size_t global_gpu_count_;
     uint64_t seed_;
@@ -121,6 +126,10 @@ private:
 
     bool mpi_initialized_{false};
     int32_t mpi_rank_{-1};
+    // a mapping from local_replica_id to device_id
+    std::vector<int32_t> visible_devices_;
+    // a mapping from device_id to local_replica_id
+    std::unordered_map<size_t, size_t> d2local_;
 };
 
 } // namespace SparseOperationKit

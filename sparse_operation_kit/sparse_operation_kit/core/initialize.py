@@ -32,6 +32,7 @@ from tensorflow.python.ops import array_ops
 from tensorflow.python.framework import ops
 from tensorflow.python.platform import tf_logging as logging
 import sys
+from tensorflow.python.framework import config
 
 def Init(**kwargs):
     """
@@ -73,6 +74,16 @@ def Init(**kwargs):
             a string will be returned if this function executed successfully.
             And its contents will be 'OK'.
     """
+
+    def _get_visible_devices():
+        gpus = config.get_visible_devices('GPU')
+        assert(len(gpus) > 0)
+        visible_devices = []
+        for i in range(len(gpus)):
+            visible_devices.append(int(gpus[i].name.split(':')[-1]))
+        return array_ops.constant(visible_devices, dtype=int32)
+    
+    @function
     def _single_worker_init(**kwargs):
         replica_ctx = get_replica_context()
         replica_ctx.merge_call(lambda strategy: 
@@ -83,8 +94,9 @@ def Init(**kwargs):
                                                                     kit_lib.gen_random_seed())
 
         global_id = replica_ctx.replica_id_in_sync_group
-        status = kit_lib.plugin_init(global_id, replica_ctx.num_replicas_in_sync, nccl_unique_id, global_random_seed,
-                             global_batch_size=kwargs['global_batch_size'])
+        visible_devices = _get_visible_devices()
+        status = plugin_init(global_id, replica_ctx.num_replicas_in_sync, nccl_unique_id, global_random_seed, visible_devices,
+                             global_batch_size=kwargs['global_batch_size']) #TODO: input from kwargs
         return status
 
     def _multi_worker_init(**kwargs):
@@ -124,10 +136,12 @@ def Init(**kwargs):
                 logging.warning("The seed: {} is not consistent with that from cheif-node: {}, "
                                 "and the seed from cheif-node will be used.".format(global_seed, re_seed))
 
-        status = kit_lib.plugin_init(global_id, replica_ctx.num_replicas_in_sync, re, re_seed, 
+        visible_devices = _get_visible_devices()
+        status = plugin_init(global_id, replica_ctx.num_replicas_in_sync, re, re_seed, visible_devices,
                              global_batch_size=kwargs['global_batch_size']) #TODO: input from kwargs
         return status
 
+    # @function
     def _horovod_init(**kwargs):
         r"""
         This function uses horovod to broadcast nccl-id and random-seed which is used by sparse_operation_kit.
@@ -151,7 +165,8 @@ def Init(**kwargs):
             logging.warning("The seed: {} is not consistent with that from cheif-node: {}, "
                             "and the seed from cheif-node will be used.".format(global_seed, re_seed))
 
-        status = kit_lib.plugin_init(local_rank, hvd.size(), unique_id, re_seed,
+        visible_devices = _get_visible_devices()
+        status = kit_lib.plugin_init(local_rank, hvd.size(), unique_id, re_seed, visible_devices,
                              global_batch_size=kwargs["global_batch_size"]) #TODO: input from kwargs
         return status
 
@@ -162,7 +177,8 @@ def Init(**kwargs):
         local_rank = 0
         unique_id = kit_lib.get_nccl_unique_id()
         global_seed = kwargs.get("seed", None) or kit_lib.gen_random_seed()
-        status = kit_lib.plugin_init(local_rank, 1, unique_id, global_seed,
+        visible_devices = _get_visible_devices()
+        status = kit_lib.plugin_init(local_rank, 1, unique_id, global_seed, visible_devices,
                                      global_batch_size=kwargs["global_batch_size"])
         return status
 

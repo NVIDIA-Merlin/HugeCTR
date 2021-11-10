@@ -228,22 +228,37 @@ mpiexec -np 8 --allow-run-as-root \
         --dataset_iter_num=30 \
         --optimizer="adam" 
 
-# mpiexec -np 8 --allow-run-as-root \
-#         --oversubscribe \
-#         python3 test_multi_dense_emb_demo_model_mpi.py \
-#         --file_prefix="./data_" \
-#         --global_batch_size=65536 \
-#         --max_vocabulary_size_per_gpu=8192 \
-#         --slot_num_list 6 4 \
-#         --nnz_per_slot=5 \
-#         --num_dense_layers=4 \
-#         --embedding_vec_size_list 4 8 \
-#         --dataset_iter_num=30 \
-#         --optimizer="adam" \
-#         --dynamic_input=1
+# Use tf.config.set_visible_devices() to specify GPU
+# Other parameters are the same as the previous one
+mpiexec -np 8 --allow-run-as-root \
+        --oversubscribe \
+        python3 test_multi_dense_emb_demo_model_mpi_use_tf_set_device.py \
+        --file_prefix="./data_" \
+        --global_batch_size=65536 \
+        --max_vocabulary_size_per_gpu=8192 \
+        --slot_num_list 3 3 4 \
+        --nnz_per_slot=5 \
+        --num_dense_layers=4 \
+        --embedding_vec_size_list 2 4 8 \
+        --dataset_iter_num=30 \
+        --optimizer="adam"
+
+mpiexec -np 8 --allow-run-as-root \
+        --oversubscribe \
+        python3 test_multi_dense_emb_demo_model_mpi.py \
+        --file_prefix="./data_" \
+        --global_batch_size=65536 \
+        --max_vocabulary_size_per_gpu=8192 \
+        --slot_num_list 6 4 \
+        --nnz_per_slot=5 \
+        --num_dense_layers=4 \
+        --embedding_vec_size_list 4 8 \
+        --dataset_iter_num=30 \
+        --optimizer="adam" \
+        --dynamic_input=1
 
 # -------------------- Horovod -------------------- #
-horovodrun --mpi-args="--oversubscribe" -np 8 -H localhost:8 \
+mpiexec --allow-run-as-root -np 8 --oversubscribe \
     python3 test_multi_dense_emb_demo_model_hvd.py \
         --file_prefix="./data_" \
         --global_batch_size=65536 \
@@ -255,7 +270,21 @@ horovodrun --mpi-args="--oversubscribe" -np 8 -H localhost:8 \
         --dataset_iter_num=30 \
         --optimizer="adam" 
 
+# Use tf.config.set_visible_devices() to specify GPU
+# Other parameters are the same as the previous one
 horovodrun --mpi-args="--oversubscribe" -np 8 -H localhost:8 \
+    python3 test_multi_dense_emb_demo_model_hvd_use_tf_set_device.py \
+        --file_prefix="./data_" \
+        --global_batch_size=65536 \
+        --max_vocabulary_size_per_gpu=8192 \
+        --slot_num_list 3 3 4 \
+        --nnz_per_slot=5 \
+        --num_dense_layers=4 \
+        --embedding_vec_size_list 2 4 8 \
+        --dataset_iter_num=30 \
+        --optimizer="adam" 
+
+mpiexec --allow-run-as-root -np 8 --oversubscribe \
     python3 test_multi_dense_emb_demo_model_hvd.py \
         --file_prefix="./data_" \
         --global_batch_size=65536 \
@@ -268,18 +297,33 @@ horovodrun --mpi-args="--oversubscribe" -np 8 -H localhost:8 \
         --optimizer="adam" \
         --use_hashtable=0
 
-# horovodrun --mpi-args="--oversubscribe" -np 8 -H localhost:8 \
-#     python3 test_multi_dense_emb_demo_model_hvd.py \
-#     --file_prefix="./data_" \
-#     --global_batch_size=65536 \
-#     --max_vocabulary_size_per_gpu=8192 \
-#     --slot_num_list 6 4 \
-#     --nnz_per_slot=5 \
-#     --num_dense_layers=4 \
-#     --embedding_vec_size_list 4 8 \
-#     --dataset_iter_num=30 \
-#     --optimizer="adam" \
-#     --dynamic_input=1
+# Use tf.config.set_visible_devices() to specify GPU
+# Other parameters are the same as the previous one
+horovodrun --mpi-args="--oversubscribe" -np 8 -H localhost:8 \
+    python3 test_multi_dense_emb_demo_model_hvd_use_tf_set_device.py \
+        --file_prefix="./data_" \
+        --global_batch_size=65536 \
+        --max_vocabulary_size_per_gpu=8192 \
+        --slot_num_list 3 3 4 \
+        --nnz_per_slot=5 \
+        --num_dense_layers=4 \
+        --embedding_vec_size_list 2 4 8 \
+        --dataset_iter_num=30 \
+        --optimizer="adam" \
+        --use_hashtable=0
+
+horovodrun --mpi-args="--oversubscribe" -np 8 -H localhost:8 \
+    python3 test_multi_dense_emb_demo_model_hvd.py \
+    --file_prefix="./data_" \
+    --global_batch_size=65536 \
+    --max_vocabulary_size_per_gpu=8192 \
+    --slot_num_list 6 4 \
+    --nnz_per_slot=5 \
+    --num_dense_layers=4 \
+    --embedding_vec_size_list 4 8 \
+    --dataset_iter_num=30 \
+    --optimizer="adam" \
+    --dynamic_input=1
 
 # ----- clean intermediate files ------ #
 rm *.file && rm -rf embedding_variables/

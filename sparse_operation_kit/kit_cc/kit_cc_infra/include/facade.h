@@ -71,6 +71,7 @@ public:
 
     void init(const size_t global_replica_id, const size_t num_replicas_in_sync, 
               const int32_t* nccl_unique_id, const uint64_t global_seed,
+              const int32_t* visible_devices, const int64_t visible_device_count,
               const size_t global_batch_size, const cudaStream_t& tf_stream);
 
     void generate_unique_name(const bool trainable, std::string &variable_name);

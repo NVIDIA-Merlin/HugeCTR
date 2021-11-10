@@ -46,6 +46,8 @@ public:
         OP_REQUIRES_OK(ctx, ctx->input("nccl_unique_id", &nccl_unique_id_tensor));
         const Tensor* global_seed_tensor = nullptr;
         OP_REQUIRES_OK(ctx, ctx->input("global_seed", &global_seed_tensor));
+        const Tensor* visible_devices_tensor = nullptr;
+        OP_REQUIRES_OK(ctx, ctx->input("visible_devices", &visible_devices_tensor));
 
         try {
             int32_t global_replica_id = global_replica_id_tensor->scalar<int32_t>()(0);
@@ -60,7 +62,10 @@ public:
             SparseOperationKit::Facade::instance()->init(global_replica_id, 
                                                       num_replicas_in_sync, 
                                                       nccl_unique_id_tensor->flat<int32_t>().data(),
-                                                      global_seed, global_batch_size_, tf_stream);
+                                                      global_seed,
+                                                      visible_devices_tensor->flat<int32_t>().data(),
+                                                      visible_devices_tensor->NumElements(),
+                                                      global_batch_size_, tf_stream);
         } catch (const std::exception& error) {
             ctx->SetStatus(errors::Aborted(error.what()));
             return;
@@ -80,6 +85,7 @@ REGISTER_KERNEL_BUILDER(Name("PluginInit")
                         .HostMemory("num_replicas_in_sync")
                         .HostMemory("nccl_unique_id")
                         .HostMemory("global_seed")
+                        .HostMemory("visible_devices")
                         .HostMemory("status"),
                         PluginInitOp<GPUDevice>);
 
