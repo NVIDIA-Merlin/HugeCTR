@@ -35,9 +35,9 @@ class SGDOptimizer : public Optimizer {
    * @param lr learning rate
    # @param scaler scaler factor for mixed precision
    */
-  SGDOptimizer(const Tensor2<float>& weight_main, const Tensor2<T>& wgrad,
-               const std::shared_ptr<GPUResource>& gpu_resource, float lr = 0.001f,
-               float scaler = 1.f);
+  SGDOptimizer(const Tensor2<float>& weight_main, const Tensor2<__half>& weight_main_half,
+               const Tensor2<T>& wgrad, const std::shared_ptr<GPUResource>& gpu_resource,
+               float lr = 0.001f, float scaler = 1.f, bool use_mixed_precision = false);
 
   /**
    * update the weights using gradient
@@ -47,6 +47,8 @@ class SGDOptimizer : public Optimizer {
 
  private:
   Tensor2<T> wgrad_;
+  Tensor2<__half> weight_main_half_;
+  bool use_mixed_precision_;
 };
 
 }  // namespace HugeCTR

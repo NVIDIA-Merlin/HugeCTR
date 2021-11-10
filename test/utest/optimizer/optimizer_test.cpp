@@ -31,17 +31,17 @@ namespace {
 
 template <typename T, template <typename> typename OptimizerGPU, typename ... ARGS>
 struct OptimizerGPUFactory {
-  std::unique_ptr<Optimizer> operator()(Tensor2<float>&weight, Tensor2<T>&wgrad, std::shared_ptr<BufferBlock2<T>> opt_buff, ARGS... args) {
+  std::unique_ptr<Optimizer> operator()(Tensor2<float>&weight, Tensor2<__half>&weight_half, Tensor2<T>&wgrad, std::shared_ptr<BufferBlock2<T>> opt_buff, ARGS... args) {
   return std::make_unique<OptimizerGPU<T>>(
       weight, wgrad, opt_buff, test::get_default_gpu(), args...);
   }
 };
 
 template <typename T, typename ... ARGS>
-struct OptimizerGPUFactory<T,SGDOptimizer, ARGS...> {
-  std::unique_ptr<Optimizer> operator()(Tensor2<float>&weight, Tensor2<T>&wgrad, std::shared_ptr<BufferBlock2<T>> opt_buff, ARGS... args) {
+struct OptimizerGPUFactory<T, SGDOptimizer, ARGS...> {
+  std::unique_ptr<Optimizer> operator()(Tensor2<float>&weight, Tensor2<__half>&weight_half, Tensor2<T>&wgrad, std::shared_ptr<BufferBlock2<T>> opt_buff, ARGS... args) {
   return std::make_unique<SGDOptimizer<T>>(
-      weight, wgrad, test::get_default_gpu(), args...);
+      weight, weight_half, wgrad, test::get_default_gpu(), args...);
   }
 };
 
@@ -52,12 +52,14 @@ void optimizer_test(size_t len, int num_update, float threshold, ARGS ... args) 
 
   Tensor2<float> weight;
   buff->reserve({len}, &weight);
+  Tensor2<__half> weight_half;
+  buff->reserve({len}, &weight_half);
   Tensor2<T> wgrad;
   buff->reserve({len}, &wgrad);
 
   std::shared_ptr<BufferBlock2<T>> opt_buff = buff->create_block<T>();
 
-  std::unique_ptr<Optimizer> optimizerGPU = OptimizerGPUFactory<T, OptimizerGPU, ARGS...>()(weight, wgrad, opt_buff, args...);
+  std::unique_ptr<Optimizer> optimizerGPU = OptimizerGPUFactory<T, OptimizerGPU, ARGS...>()(weight, weight_half, wgrad, opt_buff, args...);
 
   buff->allocate();
 

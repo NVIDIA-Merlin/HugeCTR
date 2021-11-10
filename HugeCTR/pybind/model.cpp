@@ -332,7 +332,7 @@ Model::Model(const Solver& solver, const DataReaderParams& reader_params,
       high_level_eval_(false) {
   if(solver_.is_dlrm) {
     timer_log.start();
-    LOG(timer_log.elapsedMilliseconds(), "init_start");
+    HCTR_LOG(INFO, ROOT, "[%.2f, init_start, ]\n", timer_log.elapsedMilliseconds());
   }
   HCTR_PRINT(INFO, "HugeCTR Version: %d.%d\n", HUGECTR_VERSION_MAJOR, HUGECTR_VERSION_MINOR);
   HCTR_PRINT(INFO, "====================================================Model "
@@ -732,14 +732,17 @@ void Model::compile() {
                    "Compile===================================================\n");
   for (size_t i = 0; i < resource_manager_->get_local_gpu_count(); i++) {
     if (solver_.use_mixed_precision) {
-      networks_[i]->optimizer_ =
-          std::move(Optimizer::Create(opt_params_, train_weight_buff_list_[i]->as_tensor(),
-                                      wgrad_buff_half_list_[i]->as_tensor(), solver_.scaler,
-                                      opt_buff_half_list_[i], resource_manager_->get_local_gpu(i)));
+      networks_[i]->optimizer_ = std::move(Optimizer::Create(
+          opt_params_, train_weight_buff_list_[i]->as_tensor(),
+          train_weight_buff_half_list_[i]->as_tensor(), wgrad_buff_half_list_[i]->as_tensor(),
+          solver_.scaler, opt_buff_half_list_[i], resource_manager_->get_local_gpu(i),
+          solver_.use_mixed_precision));
     } else {
       networks_[i]->optimizer_ = std::move(Optimizer::Create(
-          opt_params_, train_weight_buff_list_[i]->as_tensor(), wgrad_buff_list_[i]->as_tensor(),
-          solver_.scaler, opt_buff_list_[i], resource_manager_->get_local_gpu(i)));
+          opt_params_, train_weight_buff_list_[i]->as_tensor(),
+          train_weight_buff_half_list_[i]->as_tensor(), wgrad_buff_list_[i]->as_tensor(),
+          solver_.scaler, opt_buff_list_[i], resource_manager_->get_local_gpu(i),
+          solver_.use_mixed_precision));
     }
 
     networks_[i]->train_weight_tensor_ = train_weight_buff_list_[i]->as_tensor();
@@ -1238,9 +1241,6 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
   } else {
     MESSAGE_("Training source file: " + reader_params_.source[0]);
     MESSAGE_("Evaluation source file: " + reader_params_.eval_source);
-    if (solver_.is_dlrm) {
-      LOG(timer_log.elapsedMilliseconds(), "train_epoch_start", 0);  // just 1 epoch. dlrm logger
-    }
     this->start_data_reading();
     for (int iter = 0; iter < max_iter; iter++) {
       float lr = 0;
@@ -1282,9 +1282,6 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
         this->check_overflow();
         this->copy_weights_for_evaluation();
         timer_eval.start();
-        if (solver_.is_dlrm) {
-          LOG(timer_log.elapsedMilliseconds(), "eval_start", float(iter) / max_iter);
-        }
         for (int batches = 0; batches < solver_.max_eval_batches; batches++) {
           this->eval(batches);
         }
@@ -1292,34 +1289,10 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
         auto eval_metrics = this->get_eval_metrics();
         for (auto& eval_metric : eval_metrics) {
           MESSAGE_("Evaluation, " + eval_metric.first + ": " + std::to_string(eval_metric.second));
-          if (solver_.is_dlrm) {
-            LOG(timer_log.elapsedMilliseconds(), "eval_accuracy", eval_metric.second,
-                float(iter) / max_iter, iter);
-          }
           if (!eval_metric.first.compare("AUC")) {
             const auto auc_threshold = solver_.metrics_spec[HugeCTR::metrics::Type::AUC];
             if (eval_metric.second >= auc_threshold) {
               timer.stop();
-              if (solver_.is_dlrm) {
-                size_t train_samples =
-                    static_cast<size_t>(iter + 1) * static_cast<size_t>(solver_.batchsize);
-
-                std::string epoch_num_str = std::to_string(float(iter) / max_iter);
-
-                HCTR_LOG(INFO, ROOT, "Hit target accuracy AUC %f at %d/%d iterations with batchsize"
-                                     " %d in %.2fs. Average speed %f records/s.\n", auc_threshold,
-                                     iter, max_iter, solver_.batchsize, timer.elapsedSeconds(),
-                                     float(iter) * solver_.batchsize / timer.elapsedSeconds());
-
-                LOG(timer_log.elapsedMilliseconds(), "eval_stop" + epoch_num_str);
-
-                LOG(timer_log.elapsedMilliseconds(), "train_epoch_end", 1);
-
-                HCTR_LOG(INFO, ROOT, "%f run_stop\n", timer_log.elapsedMilliseconds());
-                HCTR_LOG(INFO, ROOT, "%f train_samples %lu\n",
-                         timer_log.elapsedMilliseconds(), train_samples);
-                timer_log.stop();
-              }
               HCTR_LOG(INFO, ROOT, "Hit target accuracy AUC %f at %d / %d iterations with batchsize %d"
                                    " in %.2fs. Average speed %f records/s.\n",
                                    auc_threshold, iter, max_iter,
@@ -1331,24 +1304,11 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
         }
         MESSAGE_("Eval Time for " + std::to_string(solver_.max_eval_batches) +
                  " iters: " + std::to_string(timer_eval.elapsedSeconds()) + "s");
-        if (solver_.is_dlrm) {
-          LOG(timer_log.elapsedMilliseconds(), "eval_stop",
-              float(iter) / max_iter);  // use iteration to calculate it's in which epoch
-        }
       }
       if (snapshot > 0 && iter % snapshot == 0 && iter != 0) {
         this->download_params_to_files(snapshot_prefix, iter);
       }
     }  // end for iter
-    if (solver_.is_dlrm) {
-      LOG(timer_log.elapsedMilliseconds(), "train_epoch_end", 1);
-      size_t train_samples =
-          static_cast<size_t>(max_iter) * static_cast<size_t>(solver_.batchsize);
-      HCTR_LOG(INFO, ROOT, "%f run_stop\n", timer_log.elapsedMilliseconds());
-      HCTR_LOG(INFO, ROOT, "%f train_samples %lu\n",
-               timer_log.elapsedMilliseconds(), train_samples);
-      timer_log.stop();
-    }
 
     timer.stop();
     HCTR_LOG(INFO, ROOT, "Finish %d iterations with batchsize: %d in %.2fs.\n",

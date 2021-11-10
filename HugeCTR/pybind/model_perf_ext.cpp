@@ -21,22 +21,25 @@ namespace HugeCTR {
 ModelPerfExt::ModelPerfExt(const Solver& solver, const DataReaderParams& reader_params,
                            std::shared_ptr<OptParamsPy>& opt_params_py,
                            std::shared_ptr<ModelOversubscriberParams>& mos_params)
-    : Model(solver, reader_params, opt_params_py, mos_params) {}
+    : Model(solver, reader_params, opt_params_py, mos_params) {
+      graph_scheduler_ = std::make_unique<GraphScheduler>(resource_manager_);
+    }
 
 bool ModelPerfExt::train() {
   try {
     if (train_data_reader_->is_started() == false) {
       CK_THROW_(Error_t::IllegalCall, "Start the data reader first before calling Model::train()");
     }
+    graph_scheduler_->trickling();
     train_data_reader_->read_a_batch_to_device_delay_release();
 
-#pragma omp parallel num_threads(networks_.size())
-    {
-      size_t id = omp_get_thread_num();
-      CudaCPUDeviceContext ctx(resource_manager_->get_local_gpu(id)->get_device_id());
-      cudaStreamSynchronize(resource_manager_->get_local_gpu(id)->get_stream());
-    }
-
+// #pragma omp parallel num_threads(networks_.size())
+//     {
+//       size_t id = omp_get_thread_num();
+//       CudaCPUDeviceContext ctx(resource_manager_->get_local_gpu(id)->get_device_id());
+//       cudaStreamSynchronize(resource_manager_->get_local_gpu(id)->get_stream());
+//     }
+//    PROFILER_ITER_CHECK(networks_.size());
     train_data_reader_->ready_to_collect();
 
 #ifdef ENABLE_PROFILING
@@ -397,6 +400,7 @@ void ModelPerfExt::train_overlapped() {
         } else {
           scheduled_reader->schedule_here(stream, id);
         }
+        graph_scheduler_->record_execution(id, stream);
       }
     };
 
