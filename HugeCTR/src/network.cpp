@@ -130,7 +130,7 @@ TrainState Network::train(long long current_batchsize, std::function<void()> exc
 
   switch (state.state) {
     case TrainState_t::Init:
-      if (use_mixed_precision_) {
+      if (use_mixed_precision_ && optimizer_->get_optimizer_type() != Optimizer_t::SGD) {
         conv_weight_(train_weight_tensor_half_, train_weight_tensor_);
       }
       break;

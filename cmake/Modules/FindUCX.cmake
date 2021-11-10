@@ -14,22 +14,11 @@
 #
 
 set(UCX_INC_PATHS
-    /usr/include
-    /usr/local/include
-    /usr/local/ucx/include
-    $ENV{UCX_DIR}/include
+    /opt/hpcx/ucx/include
     )
 
 set(UCX_LIB_PATHS
-    /lib
-    /lib64
-    /usr/lib
-    /usr/lib64
-    /usr/local/lib
-    /usr/local/lib64
-    /usr/local/ucx/lib
-    /usr/local/ucx/lib64
-    $ENV{UCX_DIR}/lib
+    /opt/hpcx/ucx/lib
     )
 
 list(APPEND UCX_NAMES ucp libucp ucs libucs ucm libucm uct libuct)
