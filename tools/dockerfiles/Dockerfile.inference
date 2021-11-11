@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-ARG IMAGE_VER=21.09-py3
+ARG IMAGE_VER=21.10-py3
 FROM nvcr.io/nvidia/tritonserver:${IMAGE_VER} AS devel
 
 ARG IMAGE_VER
