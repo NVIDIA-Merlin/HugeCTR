@@ -70,8 +70,8 @@ bool LocalMemoryBackend<TKey>::insert(const std::string& table_name, const size_
   const TKey* const keys_end = &keys[num_pairs];
   for (; keys != keys_end; keys++) {
     const char* const values_next = &values[value_size];
-    table.emplace(std::piecewise_construct, std::forward_as_tuple(*keys),
-                  std::forward_as_tuple(values, values_next));
+    const auto& it = table.try_emplace(*keys).first;
+    it->second.assign(values, values_next);
     values = values_next;
   }
   const size_t num_inserts = num_pairs;
@@ -276,8 +276,8 @@ bool ParallelLocalMemoryBackend<TKey>::insert(const std::string& table_name, con
       for (const TKey* k = keys; k != keys_end; k++) {
         if (*k % num_partitions_ == partition) {
           const char* const v = &values[(k - keys) * value_size];
-          table.emplace(std::piecewise_construct, std::forward_as_tuple(*k),
-                        std::forward_as_tuple(v, &v[value_size]));
+          const auto& it = table.try_emplace(*k).first;
+          it->second.assign(v, &v[value_size]);
           num_inserts++;
         }
       }
