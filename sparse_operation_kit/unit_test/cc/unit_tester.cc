@@ -56,6 +56,10 @@ void UnitTester::test_all_gather_dispatcher(const size_t rows_num_per_sample,
                                             tensorflow::Tensor* indices_out_tensor,
                                             tensorflow::Tensor* num_elements_tensor,
                                             tensorflow::Tensor* total_valid_num_tensor) {
+#ifdef SOK_ASYNC
+    resource_mgr_->event_record(global_replica_id, EventRecordType::RDLFramework,
+                                /*event_name=*/"AllGatherUnitTest_begin");
+#endif
     SparseConstructionContext_t base_context = SparseConstructionContext::create(
         resource_mgr_, buffers_, host_buffers_, 
         /*replica_batch_size=*/global_batch_size / resource_mgr_->get_global_gpu_count(),
@@ -92,31 +96,30 @@ void UnitTester::test_all_gather_dispatcher(const size_t rows_num_per_sample,
     const auto host_total_num_elements = replica_context->output("host_total_num_elements");
 
     auto local_gpu = resource_mgr_->get_local_gpu(local_replica_id);
-#ifdef SOK_ASYNC
-    const auto& stream = local_gpu->get_framework_stream();
-#else
-    const auto& stream = local_gpu->get_stream();
-#endif
     CK_CUDA(cudaMemcpyAsync(values_out_tensor->data(),
                             total_values->GetPtrWithType<void>(),
                             total_values->get_size_in_bytes(),
                             cudaMemcpyDeviceToDevice,
-                            stream));
+                            local_gpu->get_stream()));
     CK_CUDA(cudaMemcpyAsync(indices_out_tensor->data(),
                             total_row_indices->GetPtrWithType<void>(),
                             total_row_indices->get_size_in_bytes(),
                             cudaMemcpyDeviceToDevice,
-                            stream));
+                            local_gpu->get_stream()));
     CK_CUDA(cudaMemcpyAsync(num_elements_tensor->data(),
                             dev_total_num_elements->GetPtrWithType<void>(),
                             dev_total_num_elements->get_size_in_bytes(),
                             cudaMemcpyDeviceToDevice,
-                            stream));
+                            local_gpu->get_stream()));
     CK_CUDA(cudaMemcpyAsync(total_valid_num_tensor->data(),
                             host_total_num_elements->GetPtrWithType<void>(),
                             host_total_num_elements->get_size_in_bytes(),
                             cudaMemcpyDefault,
-                            stream));
+                            local_gpu->get_stream()));
+#ifdef SOK_ASYNC
+    resource_mgr_->event_record(global_replica_id, EventRecordType::RMyself,
+                                /*event_name=*/"AllGatherUnitTest_end");
+#endif
 }
 
 void UnitTester::test_csr_conversion_distributed(const size_t global_replica_id,
@@ -130,6 +133,10 @@ void UnitTester::test_csr_conversion_distributed(const size_t global_replica_id,
                                                  tensorflow::Tensor* replcia_values_tensor,
                                                  tensorflow::Tensor* replica_csr_row_offsets_tensor,
                                                  tensorflow::Tensor* replica_nnz_tensor) {
+#ifdef SOK_ASYNC
+    resource_mgr_->event_record(global_replica_id, EventRecordType::RDLFramework,
+                                /*event_name=*/"CSRConversionDistributedUnitTest_begin");
+#endif
     SparseConstructionContext_t base_context = SparseConstructionContext::create(
         resource_mgr_, buffers_, host_buffers_, 
         /*replica_batch_size=*/global_batch_size / resource_mgr_->get_global_gpu_count(),
@@ -171,27 +178,25 @@ void UnitTester::test_csr_conversion_distributed(const size_t global_replica_id,
     const auto replica_host_nnz = replica_context->output("replica_host_nnz");
 
     auto local_gpu = resource_mgr_->get_local_gpu(local_replica_id);
-#ifdef SOK_ASYNC
-    const auto& stream = local_gpu->get_framework_stream();
-#else
-    const auto& stream = local_gpu->get_stream();
-#endif
     CK_CUDA(cudaMemcpyAsync(replcia_values_tensor->data(),
                             replica_csr_values->GetPtrWithType<void>(),
                             replica_csr_values->get_size_in_bytes(),
                             cudaMemcpyDefault,
-                            stream));
+                            local_gpu->get_stream()));
     CK_CUDA(cudaMemcpyAsync(replica_csr_row_offsets_tensor->data(),
                             replica_row_offset->GetPtrWithType<void>(),
                             replica_row_offset->get_size_in_bytes(),
                             cudaMemcpyDefault,
-                            stream));
+                            local_gpu->get_stream()));
     CK_CUDA(cudaMemcpyAsync(replica_nnz_tensor->data(),
                             replica_host_nnz->GetPtrWithType<void>(),
                             replica_host_nnz->get_size_in_bytes(),
                             cudaMemcpyDefault,
-                            stream));
-
+                            local_gpu->get_stream()));
+#ifdef SOK_ASYNC
+    resource_mgr_->event_record(global_replica_id, EventRecordType::RMyself,
+                                /*event_name=*/"CSRConversionDistributedUnitTest_end");
+#endif
 }
 
 void UnitTester::test_reduce_scatter_dispatcher(const size_t global_replica_id, 
@@ -200,6 +205,10 @@ void UnitTester::test_reduce_scatter_dispatcher(const size_t global_replica_id,
                                                 const size_t max_nnz,
                                                 const tensorflow::Tensor* input,
                                                 tensorflow::Tensor* output) {
+#ifdef SOK_ASYNC
+    resource_mgr_->event_record(global_replica_id, EventRecordType::RDLFramework,
+                                /*event_name=*/"ReduceScatterUnitTest_begin");
+#endif
     SparseConstructionContext_t base_context = SparseConstructionContext::create(
         resource_mgr_, buffers_, host_buffers_, 
         /*replica_batch_size=*/global_batch_size / resource_mgr_->get_global_gpu_count(),
@@ -229,6 +238,10 @@ void UnitTester::test_reduce_scatter_dispatcher(const size_t global_replica_id,
                                 /*overwrite=*/true);
 
     reduce_scatter_dispatcher->forward(replica_context, /*training=*/true);
+#ifdef SOK_ASYNC
+    resource_mgr_->event_record(global_replica_id, EventRecordType::RMyself,
+                                /*event_name=*/"ReduceScatterUnitTest_end");
+#endif
 }
 
 void UnitTester::try_allocate_memory(const size_t local_replica_id) const {
