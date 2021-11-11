@@ -33,7 +33,7 @@ If you have any questions or need clarification, don't hesitate to add comments 
 
 In HugeCTR we provide the development environment by addtional light-weight containers as below for easier modification. By using such containers, you don't need to build source code under NGC Container.
 
-**Note**: the message on terminal below is not error if you are working in such containers.
+**Note**: the message on terminal below is not errors if you are working in such containers.
 ```
 groups: cannot find name for group ID 1007
 I have no name!@56a762eae3f8:/hugectr
