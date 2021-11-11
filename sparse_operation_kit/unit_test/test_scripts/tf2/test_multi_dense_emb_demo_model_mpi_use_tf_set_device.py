@@ -23,7 +23,7 @@ import argparse
 import sys, os
 sys.path.append(os.path.abspath(os.path.join(
                     os.path.dirname(os.path.abspath(__file__)),
-                    "../../"))) # where to find SOK
+                    "../../../"))) # where to find SOK
 import sparse_operation_kit as sok
 import tensorflow as tf
 
@@ -34,12 +34,12 @@ import utils
 
 sys.path.append(os.path.abspath(os.path.join(
                     os.path.dirname(os.path.abspath(__file__)),
-                    "../../documents/tutorials/DenseDemo")))
+                    "../../../documents/tutorials/DenseDemo")))
 from models import SOKDenseModel, TFDenseModel
 
 sys.path.append(os.path.abspath(os.path.join(
                     os.path.dirname(os.path.abspath(__file__)),
-                    "../../documents/tutorials")))
+                    "../../../documents/tutorials")))
 import utility
 
 def test_sok_multi_dense_emb(args):

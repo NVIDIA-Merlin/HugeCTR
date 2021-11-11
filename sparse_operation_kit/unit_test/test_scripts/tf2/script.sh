@@ -5,13 +5,8 @@ TfVersion=`python3 -c "import tensorflow as tf; print(tf.__version__.strip().spl
 TfMajor=`python3 -c "print($TfVersion[0])"`
 TfMinor=`python3 -c "print($TfVersion[1])"`
 
-if [ "$TfMajor" -eq 2 ]; then
-    if [ "$TfMinor" -ge 5 ]; then
-        bash tf25_script.sh; exit 0;
-    fi
-else
-    echo "TF 1 is not supported yet."
-    exit 1;
+if [ "$TfMinor" -ge 5 ]; then
+    bash tf25_script.sh; exit 0;
 fi
 
 export PS4='\n\033[0;33m+[${BASH_SOURCE}:${LINENO}]: \033[0m'
@@ -266,6 +261,19 @@ horovodrun --mpi-args="--oversubscribe" -np 8 -H localhost:8 \
 
 horovodrun --mpi-args="--oversubscribe" -np 8 -H localhost:8 \
     python3 test_multi_dense_emb_demo_model_hvd.py \
+    --file_prefix="./data_" \
+    --global_batch_size=65536 \
+    --max_vocabulary_size_per_gpu=8192 \
+    --slot_num_list 6 4 \
+    --nnz_per_slot=5 \
+    --num_dense_layers=4 \
+    --embedding_vec_size_list 4 8 \
+    --dataset_iter_num=30 \
+    --optimizer="adam" \
+    --dynamic_input=1
+
+horovodrun --mpi-args="--oversubscribe" -np 8 -H localhost:8 \
+    python3 test_multi_dense_emb_demo_model_hvd_use_tf_set_device.py \
     --file_prefix="./data_" \
     --global_batch_size=65536 \
     --max_vocabulary_size_per_gpu=8192 \

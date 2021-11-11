@@ -17,7 +17,7 @@
 import argparse
 import os
 import sys
-sys.path.append('../../') # where to find plugin
+sys.path.append('../../../') # where to find plugin
 import sparse_operation_kit as sok
 import utils
 
@@ -187,7 +187,7 @@ def run_sok_model(args, dense_variables, vocabulary_tensors, samples, labels):
     loss_fn = tf.keras.losses.BinaryCrossentropy(from_logits=True, reduction=tf.keras.losses.Reduction.NONE)
     def _replica_loss(labels, logits):
         loss = loss_fn(labels, logits)
-        return tf.nn.compute_average_loss(loss, global_batch_size=local_batch_size)
+        return tf.nn.compute_average_loss(loss, global_batch_size=args.global_batch_size)
     
     @tf.function
     def _train_step(inputs, labels, first_batch):
