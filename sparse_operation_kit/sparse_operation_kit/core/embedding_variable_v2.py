@@ -18,7 +18,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from sparse_operation_kit.kit_lib import create_var, read_embedding_variable
+from sparse_operation_kit import kit_lib
 from tensorflow.python.ops.resource_variable_ops import BaseResourceVariable, variable_accessed, _maybe_set_handle_data
 from tensorflow.python.ops.resource_variable_ops import _handle_graph
 from tensorflow.python.framework.tensor_shape import TensorShape
@@ -78,11 +78,16 @@ class EmbeddingVariable(BaseResourceVariable):
         self.m_initial_value = initial_value
         self.m_trainable = trainable
         self.m_use_hashtable = use_hashtable
-        self.m_var_name = ops.get_default_graph().unique_name(name, mark_as_used=True)
-        self.m_unique_id = "%s_%d" %(self.m_var_name, ops.uid())
+        # self.m_var_name = ops.get_default_graph().unique_name(name, mark_as_used=True)
+        # self.m_unique_id = "%s_%d" %(self.m_var_name, ops.uid())
 
-        # m_handle is the handle to EmbeddingVariable, tf_handle is the handle to TF Var.
-        self.m_handle, self.tf_handle, _ = create_var(
+        with ops.init_scope():
+            with ops.name_scope(name):
+                self.m_var_name = self._gen_unique_name(name)
+                self.m_unique_id = "%s_%d" %(self.m_var_name, ops.uid())
+
+                # m_handle is the handle to EmbeddingVariable, tf_handle is the handle to TF Var.
+                self.m_handle, self.tf_handle, _ = kit_lib.create_var(
                                             initial_value=self.m_initial_value,
                                             local_replica_id=self.m_local_replica_id,
                                             trainable=self.m_trainable,
@@ -90,26 +95,36 @@ class EmbeddingVariable(BaseResourceVariable):
                                             use_hashtable=self.m_use_hashtable,
                                             var_name=self.m_var_name)
 
-        super(EmbeddingVariable, self).__init__(trainable=self.m_trainable,
-                                                shape=self.m_shape_per_gpu,
-                                                dtype=float32,
-                                                handle=self.m_handle,
-                                                handle_name=self.m_var_name,
-                                                distribute_strategy=get_strategy() if has_strategy() else None,
-                                                synchronization=VariableSynchronization.NONE,
-                                                aggregation=VariableAggregation.ONLY_FIRST_REPLICA,
-                                                unique_id=self.m_unique_id,
-                                                *args, **kwargs)
+            super(EmbeddingVariable, self).__init__(trainable=self.m_trainable,
+                                                    shape=self.m_shape_per_gpu,
+                                                    dtype=float32,
+                                                    handle=self.m_handle,
+                                                    handle_name=self.m_var_name,
+                                                    distribute_strategy=get_strategy() if has_strategy() else None,
+                                                    synchronization=VariableSynchronization.NONE,
+                                                    aggregation=VariableAggregation.ONLY_FIRST_REPLICA,
+                                                    unique_id=self.m_unique_id,
+                                                    *args, **kwargs)
 
-        handle_data = resource_variable_ops.cpp_shape_inference_pb2.CppShapeInferenceResult.HandleData()
-        handle_data.is_set = True
-        handle_data.shape_and_type.append(
-            resource_variable_ops.cpp_shape_inference_pb2.CppShapeInferenceResult.HandleShapeAndType(
-                shape=self.shape.as_proto(), dtype=self.dtype.as_datatype_enum))
-        resource_variable_ops._set_handle_shapes_and_types(self.m_handle, handle_data, 
-            graph_mode=False if context.executing_eagerly() else True)
-        resource_variable_ops._set_handle_shapes_and_types(self.tf_handle, handle_data, 
-            graph_mode=False if context.executing_eagerly() else True)
+            handle_data = resource_variable_ops.cpp_shape_inference_pb2.CppShapeInferenceResult.HandleData()
+            handle_data.is_set = True
+            handle_data.shape_and_type.append(
+                resource_variable_ops.cpp_shape_inference_pb2.CppShapeInferenceResult.HandleShapeAndType(
+                    shape=self.shape.as_proto(), dtype=self.dtype.as_datatype_enum))
+            resource_variable_ops._set_handle_shapes_and_types(self.m_handle, handle_data, 
+                graph_mode=False if context.executing_eagerly() else True)
+            resource_variable_ops._set_handle_shapes_and_types(self.tf_handle, handle_data, 
+                graph_mode=False if context.executing_eagerly() else True)
+
+    def _gen_unique_name(self, var_name):
+        name_scope = ops.get_name_scope()
+        if name_scope is None or "" == name_scope:
+            return ops.get_default_graph().unique_name(var_name, mark_as_used=False)
+        else:
+            # TODO: use regex
+            while name_scope[-1] == r"/":
+                name_scope = name_scope[:-1]
+            return name_scope
 
     @property
     def emb_handle(self):
@@ -119,7 +134,7 @@ class EmbeddingVariable(BaseResourceVariable):
         variable_accessed(self)
 
         def read_and_set_handle():
-            result = read_embedding_variable(self._handle, self.tf_handle, self._dtype, self.name)
+            result = kit_lib.read_embedding_variable(self._handle, self.tf_handle, self._dtype, self.name)
             _maybe_set_handle_data(self._dtype, self._handle, result)
             return result
 
