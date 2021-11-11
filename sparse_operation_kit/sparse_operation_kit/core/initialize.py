@@ -95,8 +95,9 @@ def Init(**kwargs):
 
         global_id = replica_ctx.replica_id_in_sync_group
         visible_devices = _get_visible_devices()
-        status = plugin_init(global_id, replica_ctx.num_replicas_in_sync, nccl_unique_id, global_random_seed, visible_devices,
-                             global_batch_size=kwargs['global_batch_size']) #TODO: input from kwargs
+        status = kit_lib.plugin_init(global_id, replica_ctx.num_replicas_in_sync, 
+                                     nccl_unique_id, global_random_seed, visible_devices,
+                                     global_batch_size=kwargs['global_batch_size']) 
         return status
 
     def _multi_worker_init(**kwargs):
@@ -137,8 +138,9 @@ def Init(**kwargs):
                                 "and the seed from cheif-node will be used.".format(global_seed, re_seed))
 
         visible_devices = _get_visible_devices()
-        status = plugin_init(global_id, replica_ctx.num_replicas_in_sync, re, re_seed, visible_devices,
-                             global_batch_size=kwargs['global_batch_size']) #TODO: input from kwargs
+        status = kit_lib.plugin_init(global_id, replica_ctx.num_replicas_in_sync, 
+                                     re, re_seed, visible_devices,
+                                     global_batch_size=kwargs['global_batch_size'])
         return status
 
     # @function
@@ -166,8 +168,9 @@ def Init(**kwargs):
                             "and the seed from cheif-node will be used.".format(global_seed, re_seed))
 
         visible_devices = _get_visible_devices()
-        status = kit_lib.plugin_init(local_rank, hvd.size(), unique_id, re_seed, visible_devices,
-                             global_batch_size=kwargs["global_batch_size"]) #TODO: input from kwargs
+        status = kit_lib.plugin_init(local_rank, hvd.size(), unique_id, re_seed, 
+                                     visible_devices, 
+                                     global_batch_size=kwargs["global_batch_size"])
         return status
 
     def _one_device_init(**kwargs):
