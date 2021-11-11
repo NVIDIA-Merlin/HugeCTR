@@ -18,6 +18,8 @@
 optimizers from TensorFlow
 """
 
-__all__ = ["Adam", "LazyAdamOptimizer"]
 from .adam import Adam
-from .lazy_adam import LazyAdamOptimizer
+from tensorflow import __version__ as tf_version
+if tf_version.startswith("1"):
+    from .lazy_adam import LazyAdamOptimizer
+__all__ = [item for item in dir() if not item.startswith("__")]
