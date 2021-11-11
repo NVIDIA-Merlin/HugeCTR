@@ -157,7 +157,7 @@ public:
     const std::shared_ptr<ResourcesManager>& get_resource_mgr() const;
 
     // backdoors for AsyncOpKernel
-    void Schedule(std::function<void()> func);
+    void Schedule(const size_t global_replica_id, std::function<void()> func);
 };
 
 // helper function

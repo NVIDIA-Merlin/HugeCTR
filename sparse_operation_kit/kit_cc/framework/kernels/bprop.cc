@@ -36,7 +36,11 @@ class PluginBpropOp : public AsyncOpKernel {
 public:
     explicit PluginBpropOp(OpKernelConstruction* ctx): AsyncOpKernel(ctx) {}
     void ComputeAsync(OpKernelContext* ctx, DoneCallback done) override {
-        auto work_func = [ctx, done]() {
+        Tensor const *global_replica_id_tensor = nullptr;
+        OP_REQUIRES_OK_ASYNC(ctx, ctx->input("global_replica_id", &global_replica_id_tensor), done);
+        const int32_t global_replica_id_value = global_replica_id_tensor->scalar<int32_t>()();
+
+        auto work_func = [ctx, global_replica_id_value, done]() {
             // Ensure that within the callback, the proper GPU settings are
             // configured.
             auto stream = ctx->op_device_context()->stream();
@@ -44,15 +48,13 @@ public:
 
             Tensor const *emb_handle_tensor = nullptr;
             OP_REQUIRES_OK_ASYNC(ctx, ctx->input("emb_handle", &emb_handle_tensor), done);
-            Tensor const *global_replica_id_tensor = nullptr;
-            OP_REQUIRES_OK_ASYNC(ctx, ctx->input("global_replica_id", &global_replica_id_tensor), done);
             Tensor const *top_gradient_tensor = nullptr;
             OP_REQUIRES_OK_ASYNC(ctx, ctx->input("top_gradient", &top_gradient_tensor), done);
 
             try {
                 // get grad shape
                 TensorShape grad_shape;
-                SparseOperationKit::Facade::instance()->get_grad_shape(global_replica_id_tensor->scalar<int32_t>()(),
+                SparseOperationKit::Facade::instance()->get_grad_shape(global_replica_id_value,
                                                                     emb_handle_tensor, 
                                                                     grad_shape);
                 Tensor* gradient_tensor = nullptr;
@@ -62,7 +64,7 @@ public:
 
                 // do backward propagation
                 SparseOperationKit::Facade::instance()->backward(emb_handle_tensor,
-                                                            global_replica_id_tensor->scalar<int32_t>()(),
+                                                            global_replica_id_value,
                                                             top_gradient_tensor,
                                                             gradient_tensor,
                                                             value_index_tensor);
@@ -74,7 +76,9 @@ public:
             done(); // no error happens
         };
 
-        SOK_TF_SCHE_ASYNC(ctx, SparseOperationKit::Facade::instance()->Schedule(std::move(work_func)), done);
+        SOK_TF_SCHE_ASYNC(ctx, 
+            SparseOperationKit::Facade::instance()->Schedule(global_replica_id_value, std::move(work_func)), 
+            done);
     }
 };
 #else

@@ -59,8 +59,14 @@ CpuResource::CpuResource(const size_t local_gpu_cnt,
 barrier_(std::make_shared<Barrier>(local_gpu_cnt)),
 blocking_call_oncer_(std::make_shared<BlockingCallOnce>(local_gpu_cnt)),
 mu_(), thread_pool_(new Eigen::SimpleThreadPool(local_gpu_cnt)),
-workers_(new Eigen::SimpleThreadPool(GetWorkerThreadsCount()))
-{}
+workers_(local_gpu_cnt)
+{
+#ifdef SOK_ASYNC
+    for (size_t dev_id = 0; dev_id < local_gpu_count_; dev_id++) {
+        workers_[dev_id].reset(new Eigen::SimpleThreadPool(GetWorkerThreadsCount()));
+    }
+#endif
+}
 
 std::shared_ptr<CpuResource> CpuResource::Create(const size_t local_gpu_cnt, 
                                                  const size_t global_gpu_cnt) {

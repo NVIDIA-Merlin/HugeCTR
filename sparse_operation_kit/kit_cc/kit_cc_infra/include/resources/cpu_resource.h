@@ -18,6 +18,7 @@
 #define CPU_RESOURCE_H
 
 #include "eigen3/unsupported/Eigen/CXX11/src/ThreadPool/SimpleThreadPool.h"
+#include "common.h"
 #include <memory>
 #include <mutex>
 #include <condition_variable>
@@ -129,9 +130,11 @@ public:
     }
 
     template <typename Callable, typename ...Args>
-    void push_to_workers(Callable&& func, Args&&... args) {
+    void push_to_workers(const size_t local_replica_id, Callable&& func, Args&&... args) {
+        if (local_replica_id >= local_gpu_count_) 
+            throw std::runtime_error(ErrorBase + "Invalid local_replica_id");
         std::function<void()> fn = std::bind(std::forward<Callable>(func), std::forward<Args>(args)...);
-        workers_->Schedule(fn);
+        workers_[local_replica_id]->Schedule(fn);
     }
 
     void sync_threadpool() const;
@@ -147,7 +150,8 @@ private:
     std::shared_ptr<BlockingCallOnce> blocking_call_oncer_;
     std::mutex mu_;
     std::unique_ptr<Eigen::SimpleThreadPool> thread_pool_;
-    std::unique_ptr<Eigen::SimpleThreadPool> workers_;
+    // each GPU has a dedicated threadpool for launching kernels
+    std::vector<std::unique_ptr<Eigen::SimpleThreadPool>> workers_;
 };
 
 } // namespace SparseOperationKit

@@ -39,7 +39,11 @@ public:
         OP_REQUIRES_OK(ctx, ctx->GetAttr("dynamic_input", &dynamic_input_));
     }
     void ComputeAsync(OpKernelContext* ctx, DoneCallback done) override {
-        auto work_func = [this, ctx, done]() {
+        Tensor const *global_replica_id_tensor = nullptr;
+        OP_REQUIRES_OK_ASYNC(ctx, ctx->input("global_replica_id", &global_replica_id_tensor), done);
+        const int32_t global_replica_id_value = global_replica_id_tensor->scalar<int32_t>()();
+
+        auto work_func = [this, ctx, global_replica_id_value, done]() {
             // Ensure that within the callback, the proper GPU settings are
             // configured.
             auto stream = ctx->op_device_context()->stream();
@@ -49,8 +53,6 @@ public:
             OP_REQUIRES_OK_ASYNC(ctx, ctx->input("emb_handle", &emb_handle_tensor), done);
             Tensor const *values_tensor = nullptr;
             OP_REQUIRES_OK_ASYNC(ctx, ctx->input("values", &values_tensor), done);
-            Tensor const *global_replica_id_tensor = nullptr;
-            OP_REQUIRES_OK_ASYNC(ctx, ctx->input("global_replica_id", &global_replica_id_tensor), done);
 
             // check input shape
             if (dynamic_input_) {
@@ -106,7 +108,7 @@ public:
             try {
                 SparseOperationKit::Facade::instance()->forward(emb_handle_tensor, 
                                                             values_tensor, 
-                                                            global_replica_id_tensor->scalar<int32_t>()(),
+                                                            global_replica_id_value,
                                                             training_,
                                                             emb_vector_tensor);
             } catch (std::exception const &error) {
@@ -118,7 +120,9 @@ public:
             done(); // no error happens
         };
 
-        SOK_TF_SCHE_ASYNC(ctx, SparseOperationKit::Facade::instance()->Schedule(std::move(work_func)), done);
+        SOK_TF_SCHE_ASYNC(ctx, 
+            SparseOperationKit::Facade::instance()->Schedule(global_replica_id_value, std::move(work_func)), 
+            done);
     }
 private:
     bool training_;

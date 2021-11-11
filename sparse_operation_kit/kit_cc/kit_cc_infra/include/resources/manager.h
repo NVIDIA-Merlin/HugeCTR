@@ -76,8 +76,8 @@ public:
     }
 
     template <typename Callable, typename... Args>
-    void push_to_workers(Callable&& func, Args&&... args) {
-        cpu_resource_->push_to_workers(std::forward<Callable>(func), std::forward<Args>(args)...);
+    void push_to_workers(const size_t local_replica_id, Callable&& func, Args&&... args) {
+        cpu_resource_->push_to_workers(local_replica_id, std::forward<Callable>(func), std::forward<Args>(args)...);
     }
 
     void sync_threadpool() const;

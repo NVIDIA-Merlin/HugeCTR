@@ -534,9 +534,10 @@ const std::shared_ptr<ResourcesManager>& Facade::get_resource_mgr() const {
     return resources_mgr_;
 }
 
-void Facade::Schedule(std::function<void()> func) {
+void Facade::Schedule(const size_t global_replica_id, std::function<void()> func) {
     // TODO: should use the same threadpool that is used for memory allocation??
-    resources_mgr_->push_to_workers(std::move(func));
+    const size_t local_replica_id = resources_mgr_->cal_local_id_from_global_id(global_replica_id);
+    resources_mgr_->push_to_workers(local_replica_id, std::move(func));
 }
 
 int32_t GetLocalReplicaIdFromDeviceName(const std::string device_name) {
