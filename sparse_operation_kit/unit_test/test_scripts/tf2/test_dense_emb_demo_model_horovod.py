@@ -292,8 +292,10 @@ if __name__ == '__main__':
 
     args = get_args()
 
+    local_rank = os.getenv("OMPI_COMM_WORLD_RANK")
+    os.environ["CUDA_VISIBLE_DEVICES"] = str(local_rank)
+
     hvd.init()
-    os.environ['CUDA_VISIBLE_DEVICES'] = str(hvd.local_rank())
 
     dense_variables, vocabulary_tensors, samples, labels = generate_data(args)
 

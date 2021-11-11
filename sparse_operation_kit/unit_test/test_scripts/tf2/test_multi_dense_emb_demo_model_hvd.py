@@ -23,7 +23,7 @@ import argparse
 import sys, os
 sys.path.append(os.path.abspath(os.path.join(
                     os.path.dirname(os.path.abspath(__file__)),
-                    "../../../"))) # where to find SOK
+                    "../../"))) # where to find SOK
 import sparse_operation_kit as sok
 import tensorflow as tf
 import horovod.tensorflow as hvd
@@ -33,12 +33,12 @@ import utils
 
 sys.path.append(os.path.abspath(os.path.join(
                     os.path.dirname(os.path.abspath(__file__)),
-                    "../../../documents/tutorials/DenseDemo")))
+                    "../../documents/tutorials/DenseDemo")))
 from models import SOKDenseModel, TFDenseModel
 
 sys.path.append(os.path.abspath(os.path.join(
                     os.path.dirname(os.path.abspath(__file__)),
-                    "../../../documents/tutorials")))
+                    "../../documents/tutorials")))
 import utility
 
 def test_sok_multi_dense_emb(args):
@@ -257,11 +257,12 @@ if __name__ == "__main__":
 
     args.use_hashtable = True if 1 == args.use_hashtable else False
 
+    local_rank = os.getenv("OMPI_COMM_WORLD_RANK")
+    os.environ["CUDA_VISIBLE_DEVICES"] = str(local_rank)
+
     # Horovod initialize
     hvd.init()
     args.worker_num = hvd.size()
     args.task_id = hvd.local_rank()
-
-    os.environ["CUDA_VISIBLE_DEVICES"] = str(args.task_id)
 
     compare_sok_and_tf(args)
