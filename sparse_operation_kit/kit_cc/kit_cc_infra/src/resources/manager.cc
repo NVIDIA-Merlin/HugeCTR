@@ -88,7 +88,7 @@ void ResourcesManager::create_cpu_resource(const uint64_t global_seed, const siz
         MESSAGE("Local GPU Count: " + std::to_string(this->local_gpu_count_));
         MESSAGE("Global GPU Count: " + std::to_string(this->global_gpu_count_));
 
-        cpu_resource_ = CpuResource::Create(get_local_gpu_count());
+        cpu_resource_ = CpuResource::Create(get_local_gpu_count(), global_gpu_count_);
     };
 
     std::call_once(cpu_resource_once_flag_, helper);

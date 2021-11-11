@@ -53,15 +53,18 @@ CpuResource::BlockingCallOnce::BlockingCallOnce(const size_t thread_count)
 generation_(0) 
 {}
 
-CpuResource::CpuResource(const size_t thread_count) 
-: barrier_(std::make_shared<Barrier>(thread_count)),
-blocking_call_oncer_(std::make_shared<BlockingCallOnce>(thread_count)),
-mu_(), thread_pool_(new Eigen::SimpleThreadPool(thread_count)),
+CpuResource::CpuResource(const size_t local_gpu_cnt, 
+                         const size_t global_gpu_cnt) 
+: local_gpu_count_(local_gpu_cnt), global_gpu_count_(global_gpu_cnt), 
+barrier_(std::make_shared<Barrier>(local_gpu_cnt)),
+blocking_call_oncer_(std::make_shared<BlockingCallOnce>(local_gpu_cnt)),
+mu_(), thread_pool_(new Eigen::SimpleThreadPool(local_gpu_cnt)),
 workers_(new Eigen::SimpleThreadPool(GetWorkerThreadsCount()))
 {}
 
-std::shared_ptr<CpuResource> CpuResource::Create(const size_t thread_count) {
-    return std::shared_ptr<CpuResource>(new CpuResource(thread_count));
+std::shared_ptr<CpuResource> CpuResource::Create(const size_t local_gpu_cnt, 
+                                                 const size_t global_gpu_cnt) {
+    return std::shared_ptr<CpuResource>(new CpuResource(local_gpu_cnt, global_gpu_cnt));
 }
 
 void CpuResource::sync_cpu_threads() const {

@@ -105,7 +105,8 @@ private:
 public:
     ~CpuResource() = default;
 
-    static std::shared_ptr<CpuResource> Create(const size_t thread_count);
+    static std::shared_ptr<CpuResource> Create(const size_t local_gpu_cnt, 
+                                               const size_t global_gpu_cnt);
 
     void sync_cpu_threads() const;
 
@@ -136,7 +137,11 @@ public:
     void sync_threadpool() const;
 
 private:
-    CpuResource(const size_t thread_count);
+    CpuResource(const size_t local_gpu_cnt, 
+                const size_t global_gpu_cnt);
+
+    const size_t local_gpu_count_;
+    const size_t global_gpu_count_;
 
     std::shared_ptr<Barrier> barrier_;
     std::shared_ptr<BlockingCallOnce> blocking_call_oncer_;
