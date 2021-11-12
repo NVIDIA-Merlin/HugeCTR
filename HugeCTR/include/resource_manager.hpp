@@ -54,6 +54,7 @@ class ResourceManager : public ResourceManagerBase {
   get_device_rmm_device_memory_resource(int local_gpu_id) const = 0;
 
 #ifdef ENABLE_MPI
+  virtual void init_ib_comm() = 0;
   virtual IbComm* get_ib_comm() const = 0;
   virtual void set_ready_to_transfer() = 0;
 #endif
