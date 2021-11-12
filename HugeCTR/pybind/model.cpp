@@ -120,16 +120,16 @@ auto load_key_files(std::vector<std::string> const& key_files) {
 
 }  // end namespace
 
-ModelOversubscriberParams::ModelOversubscriberParams(
+EmbeddingTrainingCacheParams::EmbeddingTrainingCacheParams(
     std::vector<TrainPSType_t>& _ps_types, std::vector<std::string>& _sparse_models,
     std::vector<std::string>& _local_paths, std::vector<HMemCacheConfig>& _hmem_cache_configs)
-    : use_model_oversubscriber(true),
+    : use_embedding_training_cache(true),
       ps_types(_ps_types),
       sparse_models(_sparse_models),
       local_paths(_local_paths),
       hmem_cache_configs(_hmem_cache_configs) {}
 
-ModelOversubscriberParams::ModelOversubscriberParams() : use_model_oversubscriber(false) {}
+EmbeddingTrainingCacheParams::EmbeddingTrainingCacheParams() : use_embedding_training_cache(false) {}
 
 DataReaderParams::DataReaderParams(DataReaderType_t data_reader_type,
                                    std::vector<std::string> source, std::vector<std::string> keyset,
@@ -316,15 +316,15 @@ void init_exchange_wgrad(const std::shared_ptr<ResourceManager>& resource_manage
 
 Model::Model(const Solver& solver, const DataReaderParams& reader_params,
              std::shared_ptr<OptParamsPy>& opt_params_py,
-             std::shared_ptr<ModelOversubscriberParams>& mos_params)
+             std::shared_ptr<EmbeddingTrainingCacheParams>& etc_params)
     : solver_(solver),
       reader_params_(reader_params),
       opt_params_py_(opt_params_py),
-      mos_params_(mos_params),
+      etc_params_(etc_params),
       data_reader_train_status_(false),
       data_reader_eval_status_(false),
       buff_allocated_(false),
-      mos_created_(false),
+      etc_created_(false),
       is_embedding_trainable_(true),
       is_dense_trainable_(true),
       current_eval_batchsize_(0),
@@ -353,16 +353,15 @@ Model::Model(const Solver& solver, const DataReaderParams& reader_params,
     CK_THROW_(Error_t::WrongInput,
               " The data source for training and evaluation should be specified");
   }
-  if (mos_params_->use_model_oversubscriber && solver_.repeat_dataset) {
+  if (etc_params_->use_embedding_training_cache && solver_.repeat_dataset) {
     CK_THROW_(Error_t::WrongInput,
-              "The model oversubscriber can only be used under epoch mode, "
+              "The embedding training cache can only be used under epoch mode, "
               "i.e., repeat_dataset is set False");
   }
-  if (mos_params_->use_model_oversubscriber &&
+  if (etc_params_->use_embedding_training_cache &&
       reader_params_.keyset.size() != reader_params_.source.size()) {
     CK_THROW_(Error_t::WrongInput,
-              "The number of keyset files must equal that of training data source when using model "
-              "oversubscriber");
+              "The number of keyset files must equal that of training data source when using embedding training cache");
   }
   int total_gpu_count = resource_manager_->get_global_gpu_count();
   if (0 != solver_.batchsize % total_gpu_count) {
@@ -771,9 +770,9 @@ void Model::compile() {
 #endif
   init_params_for_dense_();
   init_params_for_sparse_();
-  if (mos_params_->use_model_oversubscriber) {
-    init_model_oversubscriber_(mos_params_->ps_types, mos_params_->sparse_models,
-                               mos_params_->local_paths, mos_params_->hmem_cache_configs);
+  if (etc_params_->use_embedding_training_cache) {
+    init_embedding_training_cache_(etc_params_->ps_types, etc_params_->sparse_models,
+                               etc_params_->local_paths, etc_params_->hmem_cache_configs);
   }
   int num_total_gpus = resource_manager_->get_global_gpu_count();
   for (const auto& metric : solver_.metrics_spec) {
@@ -871,9 +870,9 @@ void Model::load_sparse_optimizer_states(const std::vector<std::string>& sparse_
     CK_THROW_(Error_t::IllegalCall,
               "Cannot load the sparse optimizer states before calling Model.compile()");
   }
-  if (mos_params_->use_model_oversubscriber) {
+  if (etc_params_->use_embedding_training_cache) {
     CK_THROW_(Error_t::IllegalCall,
-              "Cannot load the sparse optimizer states after model oversubscriber is created");
+              "Cannot load the sparse optimizer states after embedding training cache is created");
   }
   load_opt_states_for_sparse_(sparse_opt_states_files);
 }
@@ -890,9 +889,9 @@ void Model::load_sparse_weights(const std::vector<std::string>& sparse_embedding
     CK_THROW_(Error_t::IllegalCall,
               "Cannot load the sparse weights before calling Model.compile()");
   }
-  if (mos_params_->use_model_oversubscriber) {
+  if (etc_params_->use_embedding_training_cache) {
     CK_THROW_(Error_t::IllegalCall,
-              "Cannot load the sparse weights after model oversubscriber is created");
+              "Cannot load the sparse weights after embedding training cache is created");
   }
   load_params_for_sparse_(sparse_embedding_files);
 }
@@ -962,16 +961,16 @@ void Model::summary() {
 
 void Model::set_source(std::vector<std::string> source, std::vector<std::string> keyset,
                        std::string eval_source) {
-  if (solver_.repeat_dataset || !mos_params_->use_model_oversubscriber) {
+  if (solver_.repeat_dataset || !etc_params_->use_embedding_training_cache) {
     CK_THROW_(Error_t::IllegalCall,
-              "The set source method can only be used under the model oversubscription mode");
+              "The set source method can only be used under the embedding training cache mode");
   }
   if (source.size() != keyset.size()) {
     CK_THROW_(Error_t::WrongInput,
               "The number of training data sources should equal that of the keyset files");
   }
   if (set_source_flag_) {
-    mos_params_->incremental_keyset_files.insert(mos_params_->incremental_keyset_files.end(),
+    etc_params_->incremental_keyset_files.insert(etc_params_->incremental_keyset_files.end(),
                                                  reader_params_.keyset.begin(),
                                                  reader_params_.keyset.end());
     set_source_flag_ = false;
@@ -980,12 +979,12 @@ void Model::set_source(std::vector<std::string> source, std::vector<std::string>
   reader_params_.keyset.assign(keyset.begin(), keyset.end());
   reader_params_.eval_source.assign(eval_source);
 
-  auto it{mos_params_->incremental_keyset_files.end()};
-  mos_params_->incremental_keyset_files.insert(it, keyset.begin(), keyset.end());
+  auto it{etc_params_->incremental_keyset_files.end()};
+  etc_params_->incremental_keyset_files.insert(it, keyset.begin(), keyset.end());
 }
 
 void Model::set_source(std::string source, std::string eval_source) {
-  if (solver_.repeat_dataset || mos_params_->use_model_oversubscriber) {
+  if (solver_.repeat_dataset || etc_params_->use_embedding_training_cache) {
     CK_THROW_(Error_t::IllegalCall, "The set source method can only be used under the epoch mode");
   }
   std::vector<std::string>().swap(reader_params_.source);
@@ -1002,11 +1001,11 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
   if (solver_.repeat_dataset && max_iter <= 0) {
     CK_THROW_(Error_t::WrongInput, "Require max_iter>0 under non-epoch mode");
   }
-  if (!solver_.repeat_dataset && !mos_params_->use_model_oversubscriber && num_epochs <= 0) {
+  if (!solver_.repeat_dataset && !etc_params_->use_embedding_training_cache && num_epochs <= 0) {
     CK_THROW_(Error_t::WrongInput, "Require num_epochs>0 under epoch mode");
   }
-  if (mos_params_->use_model_oversubscriber && !mos_created_) {
-    CK_THROW_(Error_t::IllegalCall, "The model oversubscriber should be created first");
+  if (etc_params_->use_embedding_training_cache && !etc_created_) {
+    CK_THROW_(Error_t::IllegalCall, "The embedding training cache should be created first");
   }
   high_level_eval_ = true;
 
@@ -1019,16 +1018,16 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
   }
 
   bool epoch_mode = !solver_.repeat_dataset;
-  bool mos_mode = mos_params_->use_model_oversubscriber;
-  int mos_epochs = num_epochs < 1 ? 1 : num_epochs;
+  bool etc_mode = etc_params_->use_embedding_training_cache;
+  int etc_epochs = num_epochs < 1 ? 1 : num_epochs;
   HCTR_PRINT(INFO, "=====================================================Model "
                    "Fit=====================================================\n");
-  if (epoch_mode && !mos_mode) {
+  if (epoch_mode && !etc_mode) {
     HCTR_LOG(INFO, ROOT, "Use epoch mode with number of epochs: %d\n", num_epochs);
-  } else if (epoch_mode && mos_mode) {
-    HCTR_LOG(INFO, ROOT, "Use model oversubscriber mode with number of training sources: %zu, number of epochs: %d\n",
+  } else if (epoch_mode && etc_mode) {
+    HCTR_LOG(INFO, ROOT, "Use embedding training cache mode with number of training sources: %zu, number of epochs: %d\n",
                          reader_params_.source.size(),
-                         mos_epochs);
+                         etc_epochs);
   } else {
     HCTR_LOG(INFO, ROOT, "Use non-epoch mode with number of iterations: %d\n", max_iter);
   }
@@ -1064,7 +1063,7 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
   HugeCTR::global_profiler.initialize(solver_.use_cuda_graph);
 #endif
 
-  if (epoch_mode && !mos_mode) {
+  if (epoch_mode && !etc_mode) {
     int iter = 0;
     int batches;
     auto data_reader_train = this->get_train_data_reader();
@@ -1159,24 +1158,24 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
     }  // end for epoch
     HCTR_LOG(INFO, ROOT, "Finish %d epochs %d global iterations with batchsize %d in %.2fs.\n",
                          num_epochs, iter, solver_.batchsize, timer.elapsedSeconds());
-  } else if (epoch_mode && mos_mode) {
+  } else if (epoch_mode && etc_mode) {
     int iter = 0;
     int batches;
     auto data_reader_train = this->get_train_data_reader();
     auto data_reader_eval = this->get_evaluate_data_reader();
-    auto model_oversubscriber = this->get_model_oversubscriber();
+    auto embedding_training_cache = this->get_embedding_training_cache();
     if (!data_reader_eval_status_) {
       data_reader_eval->set_source(reader_params_.eval_source);
       data_reader_eval_status_ = true;
     }
     MESSAGE_("Evaluation source file: " + reader_params_.eval_source);
-    for (int e = 0; e < mos_epochs; e++) {
+    for (int e = 0; e < etc_epochs; e++) {
       for (unsigned int f = 0; f < reader_params_.source.size(); f++) {
         MESSAGE_("--------------------Epoch " + std::to_string(e) +
                  ", source file: " + reader_params_.source[f] + "--------------------");
         data_reader_train->set_source(reader_params_.source[f]);
         data_reader_train_status_ = true;
-        model_oversubscriber->update(reader_params_.keyset[f]);
+        embedding_training_cache->update(reader_params_.keyset[f]);
         do {
           float lr = 0;
           if (!this->use_gpu_learning_rate_scheduling()) {
@@ -1734,9 +1733,9 @@ Error_t Model::download_params_to_files(std::string prefix, int iter) {
     snapshot_sparse_opt_names.push_back(prefix + std::to_string(i) + "_opt_sparse_" +
                                         std::to_string(iter) + ".model");
   }
-  if (mos_params_->use_model_oversubscriber) {
-    model_oversubscriber_->dump();
-    model_oversubscriber_->update_sparse_model_file();
+  if (etc_params_->use_embedding_training_cache) {
+    embedding_training_cache_->dump();
+    embedding_training_cache_->update_sparse_model_file();
   } else {
     download_sparse_params_to_files_(snapshot_sparse_names, snapshot_sparse_opt_names);
   }
@@ -1819,13 +1818,13 @@ Error_t Model::download_sparse_params_to_files_(
 }
 
 template <typename TypeEmbeddingComp>
-std::shared_ptr<ModelOversubscriber> Model::create_model_oversubscriber_(
+std::shared_ptr<EmbeddingTrainingCache> Model::create_embedding_training_cache_(
     const std::vector<TrainPSType_t>& ps_types,
     const std::vector<std::string>& sparse_embedding_files,
     const std::vector<std::string>& local_paths,
     const std::vector<HMemCacheConfig>& hmem_cache_configs) {
   try {
-    return std::shared_ptr<ModelOversubscriber>(new ModelOversubscriber(
+    return std::shared_ptr<EmbeddingTrainingCache>(new EmbeddingTrainingCache(
         ps_types, embeddings_, sparse_embedding_files, resource_manager_,
         solver_.use_mixed_precision, solver_.i64_input_key, local_paths, hmem_cache_configs));
   } catch (const internal_runtime_error& rt_err) {
@@ -1943,34 +1942,34 @@ void Model::init_params_for_sparse_() {
   }
 }
 
-void Model::init_model_oversubscriber_(const std::vector<TrainPSType_t>& ps_types,
+void Model::init_embedding_training_cache_(const std::vector<TrainPSType_t>& ps_types,
                                        const std::vector<std::string>& sparse_embedding_files,
                                        const std::vector<std::string>& local_paths,
                                        const std::vector<HMemCacheConfig>& hmem_cache_configs) {
   if (solver_.use_mixed_precision) {
-    model_oversubscriber_ = create_model_oversubscriber_<__half>(ps_types, sparse_embedding_files,
+    embedding_training_cache_ = create_embedding_training_cache_<__half>(ps_types, sparse_embedding_files,
                                                                  local_paths, hmem_cache_configs);
   } else {
-    model_oversubscriber_ = create_model_oversubscriber_<float>(ps_types, sparse_embedding_files,
+    embedding_training_cache_ = create_embedding_training_cache_<float>(ps_types, sparse_embedding_files,
                                                                 local_paths, hmem_cache_configs);
   }
-  mos_created_ = true;
+  etc_created_ = true;
 }
 
 std::vector<std::pair<std::vector<long long>, std::vector<float>>>& Model::get_incremental_model() {
-  if (!mos_params_->use_model_oversubscriber) {
-    CK_THROW_(Error_t::IllegalCall, "Get incremental is only supported in MOS");
+  if (!etc_params_->use_embedding_training_cache) {
+    CK_THROW_(Error_t::IllegalCall, "Get incremental is only supported in ETC");
   }
   if (set_source_flag_) {
-    mos_params_->incremental_keyset_files.insert(mos_params_->incremental_keyset_files.end(),
+    etc_params_->incremental_keyset_files.insert(etc_params_->incremental_keyset_files.end(),
                                                  reader_params_.keyset.begin(),
                                                  reader_params_.keyset.end());
     set_source_flag_ = false;
   }
   // dump model from GPU to PS
-  model_oversubscriber_->dump();
+  embedding_training_cache_->dump();
   // load keyset to vector (processed keys_vec should be long long format)
-  auto& inc_keyset_file{mos_params_->incremental_keyset_files};
+  auto& inc_keyset_file{etc_params_->incremental_keyset_files};
   std::vector<long long> keys_vec;
   if (solver_.i64_input_key) {
     keys_vec = load_key_files<long long>(inc_keyset_file);
@@ -1982,7 +1981,7 @@ std::vector<std::pair<std::vector<long long>, std::vector<float>>>& Model::get_i
   }
   inc_keyset_file.clear();
   // get the incremental sparse model
-  inc_sparse_model_ = model_oversubscriber_->get_incremental_model(keys_vec);
+  inc_sparse_model_ = embedding_training_cache_->get_incremental_model(keys_vec);
   return inc_sparse_model_;
 }
 

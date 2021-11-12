@@ -21,7 +21,7 @@
 #include <HugeCTR/pybind/data_reader_wrapper.hpp>
 #include <HugeCTR/pybind/inference_wrapper.hpp>
 #include <HugeCTR/pybind/learning_rate_scheduler_wrapper.hpp>
-#include <HugeCTR/pybind/model_oversubscriber_wrapper.hpp>
+#include <HugeCTR/pybind/embedding_training_cache_wrapper.hpp>
 #include <HugeCTR/pybind/model_perf_ext_wrapper.hpp>
 #include <HugeCTR/pybind/model_wrapper.hpp>
 #include <HugeCTR/pybind/optimizer_wrapper.hpp>
@@ -34,7 +34,7 @@ PYBIND11_MODULE(hugectr, m) {
   DataGeneratorPybind(m);
   SolverPybind(m);
   DataReaderPybind(m);
-  ModelOversubscriberPybind(m);
+  EmbeddingTrainingCachePybind(m);
   LearningRateSchedulerPybind(m);
   OptimizerPybind(m);
   ModelPybind(m);

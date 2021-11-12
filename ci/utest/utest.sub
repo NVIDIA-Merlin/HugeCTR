@@ -9,6 +9,6 @@ srun --ntasks="${SLURM_JOB_NUM_NODES}" --container-image="${CONT}" --container-m
       ./loss_test && \
       ./optimizer_test && \
       ./regularizers_test && \
-      ./model_oversubscriber_test && \
+      ./embedding_training_cache_test && \
       ./parser_test && \
       ./auc_test"

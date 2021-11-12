@@ -19,7 +19,7 @@
 #include <exchange_wgrad.hpp>
 #include <loss.hpp>
 #include <metrics.hpp>
-#include <model_oversubscriber/model_oversubscriber.hpp>
+#include <embedding_training_cache/embedding_training_cache.hpp>
 #include <network.hpp>
 #include <optimizer.hpp>
 #include <parser.hpp>
@@ -180,18 +180,18 @@ struct SparseEmbedding {
                   const HybridEmbeddingParam& hybrid_embedding_param);
 };
 
-struct ModelOversubscriberParams {
-  bool use_model_oversubscriber;
+struct EmbeddingTrainingCacheParams {
+  bool use_embedding_training_cache;
   std::vector<TrainPSType_t> ps_types;
   std::vector<std::string> sparse_models;
   std::vector<std::string> local_paths;
   std::vector<HMemCacheConfig> hmem_cache_configs;
   std::vector<std::string> incremental_keyset_files;
-  ModelOversubscriberParams(std::vector<TrainPSType_t>& _ps_types,
+  EmbeddingTrainingCacheParams(std::vector<TrainPSType_t>& _ps_types,
                             std::vector<std::string>& _sparse_models,
                             std::vector<std::string>& _local_paths,
                             std::vector<HMemCacheConfig>& _hmem_cache_configs);
-  ModelOversubscriberParams();
+  EmbeddingTrainingCacheParams();
 };
 
 struct DenseLayer {
@@ -316,7 +316,7 @@ class Model {
   virtual ~Model();
   Model(const Solver& solver, const DataReaderParams& reader_params,
         std::shared_ptr<OptParamsPy>& opt_params,
-        std::shared_ptr<ModelOversubscriberParams>& mos_params);
+        std::shared_ptr<EmbeddingTrainingCacheParams>& etc_params);
   Model(const Model&) = delete;
   Model& operator=(const Model&) = delete;
 
@@ -398,11 +398,11 @@ class Model {
     return static_cast<long long>(networks_[0]->get_params_num()) + size;
   }
 
-  const std::shared_ptr<ModelOversubscriber>& get_model_oversubscriber() const {
-    if (!model_oversubscriber_) {
-      CK_THROW_(Error_t::IllegalCall, "model oversubscriber should be initialized first");
+  const std::shared_ptr<EmbeddingTrainingCache>& get_embedding_training_cache() const {
+    if (!embedding_training_cache_) {
+      CK_THROW_(Error_t::IllegalCall, "embedding training cache should be initialized first");
     }
-    return model_oversubscriber_;
+    return embedding_training_cache_;
   }
 
   const std::shared_ptr<IDataReader>& get_train_data_reader() const {
@@ -443,7 +443,7 @@ class Model {
   DataReaderParams reader_params_;
   OptParams opt_params_;
   std::shared_ptr<OptParamsPy> opt_params_py_;
-  std::shared_ptr<ModelOversubscriberParams> mos_params_;
+  std::shared_ptr<EmbeddingTrainingCacheParams> etc_params_;
   std::vector<std::shared_ptr<OptParamsPy>> embedding_opt_params_list_;
   std::shared_ptr<LearningRateScheduler> lr_sch_;
   GpuLearningRateSchedulers gpu_lr_sches_;
@@ -457,7 +457,7 @@ class Model {
   bool data_reader_train_status_;
   bool data_reader_eval_status_;
   bool buff_allocated_;
-  bool mos_created_;
+  bool etc_created_;
   bool is_embedding_trainable_;
   bool is_dense_trainable_;
   std::vector<std::shared_ptr<GeneralBuffer2<CudaAllocator>>> blobs_buff_list_;
@@ -489,8 +489,8 @@ class Model {
   std::vector<std::string> layer_info_;                 /**< type of each layer. */
   std::vector<std::shared_ptr<Network>> networks_;      /**< networks (dense) used in training. */
   std::vector<std::shared_ptr<IEmbedding>> embeddings_; /**< embedding */
-  std::shared_ptr<ModelOversubscriber>
-      model_oversubscriber_; /**< model oversubscriber for model oversubscribing. */
+  std::shared_ptr<EmbeddingTrainingCache>
+      embedding_training_cache_; /**< embedding training cache for model oversubscribing. */
 
   std::shared_ptr<IDataReader>
       train_data_reader_; /**< data reader to reading data from data set to embedding. */
@@ -519,14 +519,14 @@ class Model {
                                            const std::vector<std::string>& sparse_opt_state_files);
 
   template <typename TypeEmbeddingComp>
-  std::shared_ptr<ModelOversubscriber> create_model_oversubscriber_(
+  std::shared_ptr<EmbeddingTrainingCache> create_embedding_training_cache_(
       const std::vector<TrainPSType_t>& ps_types,
       const std::vector<std::string>& sparse_embedding_files,
       const std::vector<std::string>& local_paths,
       const std::vector<HMemCacheConfig>& hmem_cache_configs);
   void init_params_for_dense_();
   void init_params_for_sparse_();
-  void init_model_oversubscriber_(const std::vector<TrainPSType_t>& ps_types,
+  void init_embedding_training_cache_(const std::vector<TrainPSType_t>& ps_types,
                                   const std::vector<std::string>& sparse_embedding_files,
                                   const std::vector<std::string>& local_paths,
                                   const std::vector<HMemCacheConfig>& hmem_cache_configs);
