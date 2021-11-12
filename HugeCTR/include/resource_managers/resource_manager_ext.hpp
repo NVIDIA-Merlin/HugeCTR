@@ -33,7 +33,7 @@ class ResourceManagerExt : public ResourceManager {
 #endif
   std::shared_ptr<AllReduceInPlaceComm> ar_comm_ = NULL;
 
-  ResourceManagerExt(std::shared_ptr<ResourceManager> core);
+  ResourceManagerExt(std::shared_ptr<ResourceManager> core): core_(core) {}
 
  public:
   static std::shared_ptr<ResourceManager> create(
@@ -96,6 +96,7 @@ class ResourceManagerExt : public ResourceManager {
   }
 
 #ifdef ENABLE_MPI
+  void init_ib_comm() override;
   IbComm* get_ib_comm() const override { return ib_comm_.get(); }
   void set_ready_to_transfer() override {
     if (ib_comm_) ib_comm_->set_ready_to_transfer();
