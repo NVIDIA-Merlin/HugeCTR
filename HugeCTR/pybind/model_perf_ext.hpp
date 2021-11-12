@@ -22,7 +22,7 @@ class ModelPerfExt final : public Model {
  public:
   ModelPerfExt(const Solver& solver, const DataReaderParams& reader_params,
                std::shared_ptr<OptParamsPy>& opt_params,
-               std::shared_ptr<ModelOversubscriberParams>& mos_params);
+               std::shared_ptr<EmbeddingTrainingCacheParams>& etc_params);
   ~ModelPerfExt() override {}
   bool train() override;
   bool eval(int eval_batch = -1) override;

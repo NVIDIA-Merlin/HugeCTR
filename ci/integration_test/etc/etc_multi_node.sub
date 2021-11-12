@@ -1,0 +1,5 @@
+#!/bin/bash
+
+srun --ntasks=2 --container-image="${CONT}" --container-mounts="${MOUNTS}" --network sharp bash -cx " \
+    cd /dataset/criteo_kaggle/wdl_data_keyset && \
+    python3 /workdir/test/pybind_test/wdl_etc_mpi.py /workdir/test/scripts/wdl_1gpu.json /tmp_dir/etc_multi_node_mem"

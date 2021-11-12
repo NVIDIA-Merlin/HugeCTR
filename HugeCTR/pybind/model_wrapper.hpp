@@ -104,10 +104,10 @@ void ModelPybind(pybind11::module &m) {
           pybind11::arg("num_outputs"), pybind11::arg("last_act_type") = Activation_t::Relu);
   pybind11::class_<HugeCTR::Model, std::shared_ptr<HugeCTR::Model>>(m, "Model")
       .def(pybind11::init<const Solver &, const DataReaderParams &, std::shared_ptr<OptParamsPy> &,
-                          std::shared_ptr<ModelOversubscriberParams> &>(),
+                          std::shared_ptr<EmbeddingTrainingCacheParams> &>(),
            pybind11::arg("solver"), pybind11::arg("reader_params"), pybind11::arg("opt_params"),
-           pybind11::arg("mos_params") =
-               std::shared_ptr<ModelOversubscriberParams>(new ModelOversubscriberParams()))
+           pybind11::arg("etc_params") =
+               std::shared_ptr<EmbeddingTrainingCacheParams>(new EmbeddingTrainingCacheParams()))
       .def("compile", &HugeCTR::Model::compile)
       .def("summary", &HugeCTR::Model::summary)
       .def("fit", &HugeCTR::Model::fit, pybind11::arg("num_epochs") = 0,
@@ -187,7 +187,7 @@ void ModelPybind(pybind11::module &m) {
            })
       .def("save_params_to_files", &HugeCTR::Model::download_params_to_files,
            pybind11::arg("prefix"), pybind11::arg("iter") = 0)
-      .def("get_model_oversubscriber", &HugeCTR::Model::get_model_oversubscriber)
+      .def("get_embedding_training_cache", &HugeCTR::Model::get_embedding_training_cache)
       .def("get_data_reader_train", &HugeCTR::Model::get_train_data_reader)
       .def("get_data_reader_eval", &HugeCTR::Model::get_evaluate_data_reader)
       .def("get_learning_rate_scheduler", &HugeCTR::Model::get_learning_rate_scheduler)

@@ -27,10 +27,10 @@ namespace python_lib {
 void ModelPerfExtPybind(pybind11::module &m) {
   pybind11::class_<HugeCTR::ModelPerfExt, std::shared_ptr<HugeCTR::ModelPerfExt>>(m, "ModelPerfExt")
       .def(pybind11::init<const Solver &, const DataReaderParams &, std::shared_ptr<OptParamsPy> &,
-                          std::shared_ptr<ModelOversubscriberParams> &>(),
+                          std::shared_ptr<EmbeddingTrainingCacheParams> &>(),
            pybind11::arg("solver"), pybind11::arg("reader_params"), pybind11::arg("opt_params"),
-           pybind11::arg("mos_params") =
-               std::shared_ptr<ModelOversubscriberParams>(new ModelOversubscriberParams()))
+           pybind11::arg("etc_params") =
+               std::shared_ptr<EmbeddingTrainingCacheParams>(new EmbeddingTrainingCacheParams()))
       .def("compile", &HugeCTR::ModelPerfExt::compile)
       .def("summary", &HugeCTR::ModelPerfExt::summary)
       .def("graph_to_json", &HugeCTR::ModelPerfExt::graph_to_json, pybind11::arg("graph_config_file"))

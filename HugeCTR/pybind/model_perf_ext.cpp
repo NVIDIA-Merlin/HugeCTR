@@ -20,8 +20,8 @@ namespace HugeCTR {
 
 ModelPerfExt::ModelPerfExt(const Solver& solver, const DataReaderParams& reader_params,
                            std::shared_ptr<OptParamsPy>& opt_params_py,
-                           std::shared_ptr<ModelOversubscriberParams>& mos_params)
-    : Model(solver, reader_params, opt_params_py, mos_params) {
+                           std::shared_ptr<EmbeddingTrainingCacheParams>& etc_params)
+    : Model(solver, reader_params, opt_params_py, etc_params) {
       graph_scheduler_ = std::make_unique<GraphScheduler>(resource_manager_);
     }
 
@@ -158,8 +158,8 @@ void ModelPerfExt::fit(int num_epochs, int max_iter, int display, int eval_inter
   if (!solver_.repeat_dataset) {
     CK_THROW_(Error_t::WrongInput, "Epoch mode cannot be used with ModelPerfExt");
   }
-  if (mos_params_->use_model_oversubscriber) {
-    CK_THROW_(Error_t::WrongInput, "MOS cannot be used with ModelPerfExt");
+  if (etc_params_->use_embedding_training_cache) {
+    CK_THROW_(Error_t::WrongInput, "ETC cannot be used with ModelPerfExt");
   }
   // if (!solver_.is_dlrm) {
   //   CK_THROW_(Error_t::WrongInput, "ModelPerfExt can be used only with is_dlrm flag");

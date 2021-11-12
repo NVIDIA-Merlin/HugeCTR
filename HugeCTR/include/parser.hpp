@@ -76,7 +76,7 @@ struct SolverParser {
   bool use_holistic_cuda_graph;
   bool use_overlapped_pipeline;
   std::string export_predictions_prefix;
-  bool use_model_oversubscriber;
+  bool use_embedding_training_cache;
   SolverParser(const std::string& file);
   SolverParser() {}
 };

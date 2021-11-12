@@ -339,33 +339,33 @@ din_single_node:
     DGXNNODES: 1
     TEST_CMD: ./ci/integration_test/din/din.sub
 
-mos_single_node:
+etc_single_node:
   extends: .cluster_test_job
   needs:
     - build_train_single_node
   variables:
-    GPFSFOLDER: $LOGDIR/mos_single_node 
+    GPFSFOLDER: $LOGDIR/etc_single_node
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
     CONT: $TRAIN_IMAGE_VERSIONED
     MOUNTS: ${DATASET}:${DATASET_MOUNT}
     SLURM_ACCOUNT: devtech
     WALLTIME: "00:45:00"
     DGXNNODES: 1
-    TEST_CMD: ./ci/integration_test/mos/mos_single_node.sub
+    TEST_CMD: ./ci/integration_test/etc/etc_single_node.sub
 
-mos_multi_node:
+etc_multi_node:
   extends: .cluster_test_job
   needs:
     - build_train_multi_node
   variables:
-    GPFSFOLDER: $LOGDIR/mos_multi_node
+    GPFSFOLDER: $LOGDIR/etc_multi_node
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
     CONT: $TRAIN_IMAGE_MULTINODE_VERSIONED
     MOUNTS: ${DATASET}:${DATASET_MOUNT},${LOGDIR}:/tmp_dir
     SLURM_ACCOUNT: devtech
     WALLTIME: "00:45:00"
     DGXNNODES: 2
-    TEST_CMD: ./ci/integration_test/mos/mos_multi_node.sub
+    TEST_CMD: ./ci/integration_test/etc/etc_multi_node.sub
 
 # data generator single node
 data_generator_single_node:
