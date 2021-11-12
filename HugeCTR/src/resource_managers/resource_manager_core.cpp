@@ -134,9 +134,9 @@ ResourceManagerCore::ResourceManagerCore(int num_process, int process_id, Device
       HCTR_OWN_THROW(Error_t::WrongInput, "Invalid device id: " + std::to_string(device_id));
     }
   }
-  
+
+#ifndef ENABLE_INFERENCE
   HCTR_LIB_THROW(nvmlInit_v2());
-  #ifndef ENABLE_INFERENCE
   CudaCPUDeviceContext::init_cpu_mapping(device_map.get_device_list());
 #endif
 
