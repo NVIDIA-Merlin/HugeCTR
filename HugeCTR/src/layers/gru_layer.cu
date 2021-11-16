@@ -43,6 +43,7 @@ GRULayer<T>::GRULayer(const std::shared_ptr<BufferBlock2<T>>& weight_buff,
                       std::vector<Initializer_t> initializer_types)
     : Layer(gpu_resource, initializer_types) {
   try {
+    CudaDeviceContext context(get_device_id());
     // check the in_tensor and out_tensor
     const auto& in_tensor_dim = in_tensor.get_dimensions();
     const auto& out_tensor_dim = out_tensor.get_dimensions();
@@ -338,6 +339,7 @@ void GRULayer<T>::fprop(bool is_train) {
 
 template <typename T>
 void GRULayer<T>::bprop() {
+  CudaDeviceContext context(get_device_id());
   Tensor2<T>& in_tensor = get_in_tensors(true)[0];
   Tensor2<T>& out_tensor = out_tensors_[0];
 
