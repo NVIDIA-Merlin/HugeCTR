@@ -83,8 +83,8 @@ class SOKBuildExtension(build_ext):
 
         for extension in self.extensions:
             try:
-                subprocess.check_call("cmake {} {} && make -j && make install".format(cmake_args, 
-                                                                    extension._CMakeLists_dir), 
+                subprocess.check_call("cmake {} {} && make -j".format(cmake_args, 
+                                                    extension._CMakeLists_dir), 
                                     shell=True,
                                     cwd=build_dir)
             except OSError as error:
@@ -145,7 +145,7 @@ setup(
     python_requires='>=3', # TODO: make it compatible with python2.7
     packages=find_packages(
         where="./",
-        include=["sparse_operation_kit"],
+        include=["sparse_operation_kit*"],
         exclude=[]
     ),
     package_dir={"": "./"},
