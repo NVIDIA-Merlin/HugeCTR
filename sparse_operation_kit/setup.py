@@ -20,6 +20,7 @@ from setuptools import Extension
 from setuptools.command.build_ext import build_ext
 import os, sys
 import subprocess
+import shutil
 
 def _GetSOKVersion():
     _version_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
@@ -95,6 +96,32 @@ class SOKBuildExtension(build_ext):
             self.extensions = [ext for ext in self.extensions
                                 if os.path.exists(self.get_ext_fullpath(ext.name))]
 
+        # remove intermediate files
+        self.clean_intermediates()
+
+    def get_outputs(self):
+        outputs = list()
+        for ext in self.extensions:
+            outputs.append(os.path.join(self.build_lib, ext.sok_unit_test_name))
+            outputs.append(os.path.join(self.build_lib, ext.sok_lib_name))
+            outputs.append(os.path.join(self.build_lib, ext.sok_compat_ops_name))
+        return outputs
+
+    def clean_intermediates(self):
+        clean_folders = ["CMakeFiles", "kit_cc_impl", "unit_test"]
+        clean_files = ["cmake_install.cmake", "CMakeCache.txt", "Makefile"]
+
+        build_dir = self.get_ext_fullpath(self.extensions[0].name).replace(
+                        self.get_ext_filename(self.extensions[0].name), "")
+        for folder in clean_folders:
+            _folder = os.path.join(build_dir, folder)
+            if os.path.exists(_folder):
+                shutil.rmtree(_folder)
+        for _file in clean_files:
+            _file = os.path.join(build_dir, _file)
+            if os.path.exists(_file):
+                os.remove(_file)
+
     def copy_extensions_to_source(self):
         build_py = self.get_finalized_command("build_py")
         for ext in self.extensions:
@@ -122,7 +149,6 @@ class SOKBuildExtension(build_ext):
 
             if ext._needs_stub:
                 self.write_stub(package_dir or os.curdir, ext, True)
-
 
 setup(
     name="SparseOperationKit",
