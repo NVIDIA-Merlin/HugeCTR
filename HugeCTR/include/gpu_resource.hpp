@@ -40,6 +40,7 @@ class GPUResource {
   curandGenerator_t replica_uniform_curand_generator_;
   curandGenerator_t replica_variant_curand_generator_;
   cublasHandle_t cublas_handle_;
+  cublasHandle_t cublas_handle_wgrad_;
   cudnnHandle_t cudnn_handle_;
   cublasLtHandle_t cublaslt_handle_;
   ncclComm_t comm_;
@@ -49,6 +50,8 @@ class GPUResource {
   cudaStream_t computation_stream_2_;
   cudaEvent_t compute_sync_event_;
   cudaEvent_t compute2_sync_event_;
+
+  cudaEvent_t wait_wgrad_event_;
 
  public:
   GPUResource(int device_id, size_t local_id, size_t global_id,
@@ -72,6 +75,7 @@ class GPUResource {
     return replica_variant_curand_generator_;
   }
   const cublasHandle_t& get_cublas_handle() const { return cublas_handle_; }
+  const cublasHandle_t& get_cublas_handle_wgrad() const { return cublas_handle_wgrad_; }
   const cublasLtHandle_t& get_cublaslt_handle() const { return cublaslt_handle_; }
   const cudnnHandle_t& get_cudnn_handle() const { return cudnn_handle_; }
   const ncclComm_t& get_nccl() const { return comm_; }
@@ -83,6 +87,10 @@ class GPUResource {
   void wait_on_compute_event(const cudaStream_t& sync_stream);
   void set_compute2_event_sync(const cudaStream_t& sync_stream);
   void wait_on_compute2_event(const cudaStream_t& sync_stream);
+
+  void set_wgrad_event_sync(const cudaStream_t& sync_stream) const;
+  void wait_on_wgrad_event(const cudaStream_t& sync_stream) const;
+
 };
 
 }  // namespace HugeCTR

@@ -849,14 +849,11 @@ __global__ void gather_concat_bprop_kernel(const T *out, T *in0, T *mat, const i
 }  // anonymous namespace
 
 template <typename T>
-InteractionLayer<T>::InteractionLayer(
-    const Tensor2<T> &in_bottom_mlp_tensor, const Tensor2<T> &in_embeddings, Tensor2<T> &out_tensor,
+void InteractionLayer<T>::init(
+    const Tensor2<T> &in_bottom_mlp_tensor, const Tensor2<T> &in_embeddings,
+    Tensor2<T> &out_tensor, Tensor2<T> &grad_tensor,
     const std::shared_ptr<GeneralBuffer2<CudaAllocator>> &blobs_buff,
-    const std::shared_ptr<GPUResource> &gpu_resource, bool use_mixed_precision,
-    bool enable_tf32_compute)
-    : Layer(gpu_resource),
-      use_mixed_precision_(use_mixed_precision),
-      enable_tf32_compute_(enable_tf32_compute) {
+    const std::shared_ptr<GPUResource> &gpu_resource) {
   try {
     auto first_in_dims = in_bottom_mlp_tensor.get_dimensions();
     auto second_in_dims = in_embeddings.get_dimensions();
@@ -908,10 +905,43 @@ InteractionLayer<T>::InteractionLayer(
     in_tensors_.push_back(in_embeddings);
     out_tensors_.push_back(out_tensor);
 
+    if (separate_Y_and_dY_) {
+      blobs_buff->reserve(out_dims, &grad_tensor);
+      out_tensors_.push_back(grad_tensor);
+    }
+
+
   } catch (const std::runtime_error &rt_err) {
     std::cerr << rt_err.what() << std::endl;
     throw;
   }
+}
+
+template <typename T>
+InteractionLayer<T>::InteractionLayer(
+    const Tensor2<T> &in_bottom_mlp_tensor, const Tensor2<T> &in_embeddings, Tensor2<T> &out_tensor,
+    const std::shared_ptr<GeneralBuffer2<CudaAllocator>> &blobs_buff,
+    const std::shared_ptr<GPUResource> &gpu_resource, bool use_mixed_precision,
+    bool enable_tf32_compute)
+    : Layer(gpu_resource),
+      use_mixed_precision_(use_mixed_precision),
+      enable_tf32_compute_(enable_tf32_compute),
+      separate_Y_and_dY_(false) {
+  init(in_bottom_mlp_tensor, in_embeddings, out_tensor, out_tensor, blobs_buff, gpu_resource);
+}
+
+template <typename T>
+InteractionLayer<T>::InteractionLayer(
+    const Tensor2<T> &in_bottom_mlp_tensor, const Tensor2<T> &in_embeddings,
+    Tensor2<T> &out_tensor, Tensor2<T> &grad_tensor,
+    const std::shared_ptr<GeneralBuffer2<CudaAllocator>> &blobs_buff,
+    const std::shared_ptr<GPUResource> &gpu_resource, bool use_mixed_precision,
+    bool enable_tf32_compute)
+    : Layer(gpu_resource),
+      use_mixed_precision_(use_mixed_precision),
+      enable_tf32_compute_(enable_tf32_compute),
+      separate_Y_and_dY_(true) {
+  init(in_bottom_mlp_tensor, in_embeddings, out_tensor, grad_tensor, blobs_buff, gpu_resource);
 }
 
 template <typename T>
@@ -1076,7 +1106,8 @@ void InteractionLayer<__half>::bprop() {
   CudaDeviceContext context(get_device_id());
   PROFILE_RECORD("interaction.bprop.start", get_gpu().get_stream());
 
-  __half *up_grad = out_tensors_[0].get_ptr();
+  __half* up_grad = out_tensors_[0].get_ptr();
+  if (separate_Y_and_dY_) up_grad = out_tensors_[1].get_ptr();
   __half *mlp_grad = get_in_tensors(true)[0].get_ptr();
   __half *emb_grad = get_in_tensors(true)[1].get_ptr();
   const int h = get_in_tensors(true)[0].get_dimensions()[0];

@@ -85,10 +85,10 @@ __global__ void inc_var_cuda(T *x) {
 }
 
 template <typename T>
-void inc_var(T *x, cudaStream_t stream){
+void inc_var(volatile T *x, cudaStream_t stream){
   inc_var_cuda<<<1, 32, 0, stream>>>(x);
 }
 
-template void inc_var<size_t>(size_t *x, cudaStream_t stream);
+template void inc_var<size_t>(volatile size_t *x, cudaStream_t stream);
 
 }  // namespace HugeCTR

@@ -16,7 +16,25 @@
 
 #include <HugeCTR/pybind/model_perf_ext.hpp>
 
+
 namespace HugeCTR {
+
+namespace {
+
+static std::string join(std::vector<std::string>& strs, std::string delim) {
+  std::string str;
+  const std::vector<std::string>::iterator itlast = strs.end() - 1;
+  for (auto it = strs.begin(); it != strs.end(); it++) {
+    str += *it;
+    if (it != itlast) {
+      str += delim;
+    }
+  }
+  return str;
+}
+
+} // Anonymous namespace
+
 
 ModelPerfExt::ModelPerfExt(const Solver& solver, const DataReaderParams& reader_params,
                            std::shared_ptr<OptParamsPy>& opt_params_py,
@@ -232,11 +250,13 @@ void ModelPerfExt::fit(int num_epochs, int max_iter, int display, int eval_inter
 #endif
     if (display > 0 && iter % display == 0 && iter != 0) {
       timer_train.stop();
-      float loss = 0;
-      this->get_current_loss(&loss);
-      if (isnan(loss)) {
-        throw std::runtime_error(std::string("Train Runtime error: Loss cannot converge") + " " +
-                                 __FILE__ + ":" + std::to_string(__LINE__) + " \n");
+      float loss = 0.0f;
+      if (solver_.gen_loss_summary) {
+        this->get_current_loss(&loss);
+        if (isnan(loss)) {
+          throw std::runtime_error(std::string("Train Runtime error: Loss cannot converge") + " " +
+                                   __FILE__ + ":" + std::to_string(__LINE__) + " \n");
+        }
       }
       if (!solver_.use_holistic_cuda_graph) {
         MESSAGE_("Iter: " + std::to_string(iter) + " Time(" + std::to_string(display) +
@@ -259,7 +279,6 @@ void ModelPerfExt::fit(int num_epochs, int max_iter, int display, int eval_inter
       for (int batches = 0; batches < solver_.max_eval_batches; batches++) {
         this->eval(batches);
       }
-      timer_eval.stop();
       auto eval_metrics = this->get_eval_metrics();
       for (auto& eval_metric : eval_metrics) {
         MESSAGE_("Evaluation, " + eval_metric.first + ": " + std::to_string(eval_metric.second));
@@ -310,6 +329,7 @@ void ModelPerfExt::fit(int num_epochs, int max_iter, int display, int eval_inter
           }
         }
       }
+      timer_eval.stop();
       MESSAGE_("Eval Time for " + std::to_string(solver_.max_eval_batches) +
                " iters: " + std::to_string(timer_eval.elapsedSeconds()) + "s");
       if (solver_.is_dlrm) {
@@ -448,6 +468,51 @@ void ModelPerfExt::train_overlapped() {
   }
 }
 
-void ModelPerfExt::exchange_wgrad(size_t device_id) { Model::exchange_wgrad(device_id); }
+void ModelPerfExt::exchange_wgrad(size_t device_id) {
+  auto& gpu_resource = resource_manager_->get_local_gpu(device_id);
+  CudaCPUDeviceContext context(gpu_resource->get_device_id());
+  PROFILE_RECORD("exchange_wgrad.start", resource_manager_->get_local_gpu(device_id)->get_stream(), true, device_id);
+  if (solver_.async_mlp_wgrad)
+    gpu_resource->wait_on_wgrad_event(gpu_resource->get_stream());
+  Model::exchange_wgrad(device_id);
+  PROFILE_RECORD("exchange_wgrad.stop", resource_manager_->get_local_gpu(device_id)->get_stream(), true, device_id);
+
+}
+
+void ModelPerfExt::add(DenseLayer& dense_layer) {
+  for (auto& top_name : dense_layer.top_names) {
+    if (tensor_shape_info_raw_.find(top_name) != tensor_shape_info_raw_.end()) {
+      CK_THROW_(Error_t::WrongInput, top_name + ", top tensor name already exists");
+    }
+  }
+  for (auto& bottom_name : dense_layer.bottom_names) {
+    if (tensor_shape_info_raw_.find(bottom_name) == tensor_shape_info_raw_.end()) {
+      CK_THROW_(Error_t::WrongInput, bottom_name + ", bottom tensor name does not exists");
+    }
+  }
+  calculate_tensor_dimensions(tensor_shape_info_raw_, dense_layer);
+  dense_layer_params_raw_.push_back(dense_layer);
+}
+
+void ModelPerfExt::add_internal(DenseLayer& dense_layer) {
+  for (auto& bottom_name : dense_layer.bottom_names) {
+    deactivate_tensor(tensor_active_, bottom_name);
+  }
+  for (auto& top_name : dense_layer.top_names) {
+    activate_tensor(tensor_active_, top_name);
+  }
+  std::string input_names = join(dense_layer.bottom_names, ",");
+  std::string output_names = join(dense_layer.top_names, ",");
+  input_output_info_.push_back(std::make_pair(input_names, output_names));
+  if (solver_.use_mixed_precision) {
+    layer_info_.push_back(LAYER_TYPE_TO_STRING_MP[dense_layer.layer_type]);
+  } else {
+    layer_info_.push_back(LAYER_TYPE_TO_STRING[dense_layer.layer_type]);
+  }
+  if (dense_layer.layer_type == Layer_t::Interaction) {
+    dlrm_bottom_mlp_ = false;
+  }
+  add_dense_layer(dense_layer);
+}
 
 }  // namespace HugeCTR
