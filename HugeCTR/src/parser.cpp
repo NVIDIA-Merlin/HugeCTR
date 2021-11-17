@@ -23,7 +23,7 @@ namespace HugeCTR {
 Parser::Parser(const std::string& configure_file, size_t batch_size, size_t batch_size_eval,
                bool repeat_dataset, bool i64_input_key, bool use_mixed_precision,
                bool enable_tf32_compute, float scaler, bool use_algorithm_search,
-               bool use_cuda_graph)
+               bool use_cuda_graph, bool async_mlp_wgrad)
     : config_(read_json_file(configure_file)),
       batch_size_(batch_size),
       batch_size_eval_(batch_size_eval),
@@ -33,7 +33,8 @@ Parser::Parser(const std::string& configure_file, size_t batch_size, size_t batc
       enable_tf32_compute_(enable_tf32_compute),
       scaler_(scaler),
       use_algorithm_search_(use_algorithm_search),
-      use_cuda_graph_(use_cuda_graph) {}
+      use_cuda_graph_(use_cuda_graph),
+      async_mlp_wgrad_(async_mlp_wgrad) {}
 
 void Parser::create_allreduce_comm(const std::shared_ptr<ResourceManager>& resource_manager,
                                    std::shared_ptr<ExchangeWgrad>& exchange_wgrad) {

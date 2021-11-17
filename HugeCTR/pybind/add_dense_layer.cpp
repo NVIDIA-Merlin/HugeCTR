@@ -1549,7 +1549,7 @@ void add_dense_layer(
 }
 
 void calculate_tensor_dimensions(std::map<std::string, std::vector<int>>& tensor_shape_info_raw,
-                                DenseLayer& dense_layer) {                       
+                                DenseLayer& dense_layer) {
   switch (dense_layer.layer_type) {
     case Layer_t::BatchNorm: {
       tensor_shape_info_raw.insert(std::make_pair(dense_layer.top_names[0],
@@ -1573,17 +1573,17 @@ void calculate_tensor_dimensions(std::map<std::string, std::vector<int>>& tensor
     }
     case Layer_t::CrossEntropyLoss: {
       tensor_shape_info_raw.insert(std::make_pair(dense_layer.top_names[0],
-                            tensor_shape_info_raw[dense_layer.bottom_names[0]]));    
+                            tensor_shape_info_raw[dense_layer.bottom_names[0]]));
       break;
     }
     case Layer_t::Dropout: {
       tensor_shape_info_raw.insert(std::make_pair(dense_layer.top_names[0],
-                            tensor_shape_info_raw[dense_layer.bottom_names[0]]));      
+                            tensor_shape_info_raw[dense_layer.bottom_names[0]]));
       break;
     }
     case Layer_t::ELU: {
       tensor_shape_info_raw.insert(std::make_pair(dense_layer.top_names[0],
-                            tensor_shape_info_raw[dense_layer.bottom_names[0]]));      
+                            tensor_shape_info_raw[dense_layer.bottom_names[0]]));
       break;
     }
     case Layer_t::FusedInnerProduct: {
@@ -1615,7 +1615,7 @@ void calculate_tensor_dimensions(std::map<std::string, std::vector<int>>& tensor
       int batch_size = tensor_shape_info_raw[dense_layer.bottom_names[0]][0];
       int num_output = dense_layer.num_output;
       tensor_shape_info_raw.insert(std::make_pair(dense_layer.top_names[0],
-                            std::vector<int>{batch_size, num_output}));      
+                            std::vector<int>{batch_size, num_output}));
       break;
     }
     case Layer_t::Interaction: {
@@ -1624,7 +1624,11 @@ void calculate_tensor_dimensions(std::map<std::string, std::vector<int>>& tensor
       int vec_size = tensor_shape_info_raw[dense_layer.bottom_names[1]][2];
       int out_dim = vec_size + (slot_num + 1) * (slot_num + 2 ) / 2 - (slot_num + 1) + 1;
       tensor_shape_info_raw.insert(std::make_pair(dense_layer.top_names[0],
-                            std::vector<int>{batch_size, out_dim}));            
+                            std::vector<int>{batch_size, out_dim}));
+      for (const auto& top_name : dense_layer.top_names) {
+        tensor_shape_info_raw.insert(
+                std::make_pair(top_name, std::vector<int>{batch_size, out_dim}));
+      }
       break;
     }
     case Layer_t::MultiCross: {
@@ -1634,7 +1638,7 @@ void calculate_tensor_dimensions(std::map<std::string, std::vector<int>>& tensor
     }
     case Layer_t::MultiCrossEntropyLoss: {
       tensor_shape_info_raw.insert(std::make_pair(dense_layer.top_names[0],
-                            tensor_shape_info_raw[dense_layer.bottom_names[0]]));      
+                            tensor_shape_info_raw[dense_layer.bottom_names[0]]));
       break;
     }
     case Layer_t::ReLU: {
@@ -1651,7 +1655,7 @@ void calculate_tensor_dimensions(std::map<std::string, std::vector<int>>& tensor
                               std::vector<int>{batch_size, leading_dim}));
       } else {
         tensor_shape_info_raw.insert(std::make_pair(dense_layer.top_names[0],
-                              std::vector<int>{batch_size, reshape_time_step, leading_dim}));        
+                              std::vector<int>{batch_size, reshape_time_step, leading_dim}));
       }
       break;
     }
@@ -1664,58 +1668,58 @@ void calculate_tensor_dimensions(std::map<std::string, std::vector<int>>& tensor
       int batch_size = tensor_shape_info_raw[dense_layer.bottom_names[0]][0];
       for (unsigned int i = 0; i < dense_layer.top_names.size(); i++) {
         tensor_shape_info_raw.insert(std::make_pair(dense_layer.top_names[i],
-                              std::vector<int>{batch_size, dense_layer.ranges[i].second-dense_layer.ranges[i].first}));        
-      }      
+                              std::vector<int>{batch_size, dense_layer.ranges[i].second-dense_layer.ranges[i].first}));
+      }
       break;
     }
     case Layer_t::WeightMultiply: {
       int batch_size = tensor_shape_info_raw[dense_layer.bottom_names[0]][0];
       int out_dim = dense_layer.weight_dims[0] * dense_layer.weight_dims[1];
       tensor_shape_info_raw.insert(std::make_pair(dense_layer.top_names[0],
-                            std::vector<int>{batch_size, out_dim}));      
+                            std::vector<int>{batch_size, out_dim}));
       break;
     }
     case Layer_t::FmOrder2: {
       int batch_size = tensor_shape_info_raw[dense_layer.bottom_names[0]][0];
       int out_dim = dense_layer.out_dim;
       tensor_shape_info_raw.insert(std::make_pair(dense_layer.top_names[0],
-                            std::vector<int>{batch_size, out_dim}));         
+                            std::vector<int>{batch_size, out_dim}));
       break;
     }
     case Layer_t::Add: {
       tensor_shape_info_raw.insert(std::make_pair(dense_layer.top_names[0],
-                            tensor_shape_info_raw[dense_layer.bottom_names[0]]));      
+                            tensor_shape_info_raw[dense_layer.bottom_names[0]]));
       break;
     }
     case Layer_t::ReduceSum: {
       std::vector<int> out_dims = tensor_shape_info_raw[dense_layer.bottom_names[0]];
       out_dims[dense_layer.axis] = 1;
-      tensor_shape_info_raw.insert(std::make_pair(dense_layer.top_names[0], out_dims));       
+      tensor_shape_info_raw.insert(std::make_pair(dense_layer.top_names[0], out_dims));
       break;
     }
     case Layer_t::ReduceMean: {
       std::vector<int> out_dims = tensor_shape_info_raw[dense_layer.bottom_names[0]];
       out_dims[dense_layer.axis] = 1;
-      tensor_shape_info_raw.insert(std::make_pair(dense_layer.top_names[0], out_dims));   
+      tensor_shape_info_raw.insert(std::make_pair(dense_layer.top_names[0], out_dims));
       break;
     }
     case Layer_t::Sub: {
       tensor_shape_info_raw.insert(std::make_pair(dense_layer.top_names[0],
-                            tensor_shape_info_raw[dense_layer.bottom_names[0]]));       
+                            tensor_shape_info_raw[dense_layer.bottom_names[0]]));
       break;
     }
     case Layer_t::Gather: {
       int out_batch_size = dense_layer.indices.size();
       int out_dim = tensor_shape_info_raw[dense_layer.bottom_names[0]][1];
       tensor_shape_info_raw.insert(std::make_pair(dense_layer.top_names[0],
-                            std::vector<int>{out_batch_size, out_dim})); 
+                            std::vector<int>{out_batch_size, out_dim}));
       break;
     }
     case Layer_t::GRU: {
       int batch_size = tensor_shape_info_raw[dense_layer.bottom_names[0]][0];
       int num_output = dense_layer.num_output;
       tensor_shape_info_raw.insert(std::make_pair(dense_layer.top_names[0],
-                            std::vector<int>{batch_size, num_output})); 
+                            std::vector<int>{batch_size, num_output}));
       break;
     }
     case Layer_t::MatrixMultiply: {
@@ -1723,21 +1727,21 @@ void calculate_tensor_dimensions(std::map<std::string, std::vector<int>>& tensor
       auto& dim2 = tensor_shape_info_raw[dense_layer.bottom_names[1]];
       if (dim1.size() == 3) {
         tensor_shape_info_raw.insert(std::make_pair(dense_layer.top_names[0],
-                              std::vector<int>{dim1[0], dim1[1], dim2[2]}));      
+                              std::vector<int>{dim1[0], dim1[1], dim2[2]}));
       } else {
         tensor_shape_info_raw.insert(std::make_pair(dense_layer.top_names[0],
-                              std::vector<int>{dim1[0], dim2[1]}));      
+                              std::vector<int>{dim1[0], dim2[1]}));
       }
       break;
     }
     case Layer_t::Softmax: {
       tensor_shape_info_raw.insert(std::make_pair(dense_layer.top_names[0],
-                            tensor_shape_info_raw[dense_layer.bottom_names[0]]));    
+                            tensor_shape_info_raw[dense_layer.bottom_names[0]]));
       break;
     }
     case Layer_t::PReLU_Dice: {
       tensor_shape_info_raw.insert(std::make_pair(dense_layer.top_names[0],
-                            tensor_shape_info_raw[dense_layer.bottom_names[0]]));    
+                            tensor_shape_info_raw[dense_layer.bottom_names[0]]));
       break;
     }
     case Layer_t::Scale: {
@@ -1773,12 +1777,12 @@ void calculate_tensor_dimensions(std::map<std::string, std::vector<int>>& tensor
     }
     case Layer_t::DotProduct: {
       tensor_shape_info_raw.insert(std::make_pair(dense_layer.top_names[0],
-                            tensor_shape_info_raw[dense_layer.bottom_names[0]]));       
+                            tensor_shape_info_raw[dense_layer.bottom_names[0]]));
       break;
     }
     case Layer_t::ElementwiseMultiply: {
       tensor_shape_info_raw.insert(std::make_pair(dense_layer.top_names[0],
-                            tensor_shape_info_raw[dense_layer.bottom_names[0]])); 
+                            tensor_shape_info_raw[dense_layer.bottom_names[0]]));
       break;
     }
     default: {

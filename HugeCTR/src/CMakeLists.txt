@@ -41,6 +41,7 @@ file(GLOB hugectr_pybind
   ../pybind/add_input.cpp
   ../pybind/add_sparse_embedding.cpp
   ../pybind/add_dense_layer.cpp
+  ../pybind/add_dense_layer_perf_ext.cpp
 )
 list (APPEND huge_ctr_src ${hugectr_pybind})
 
