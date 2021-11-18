@@ -71,9 +71,14 @@ class SOKBuildExtension(build_ext):
         if os.getenv("SOK_COMPILE_ASYNC"):
             dedicated_cuda_stream = "ON" if os.getenv("SOK_COMPILE_ASYNC") in ["1", "ON", "On", "on"] else "OFF"
 
+        unit_test = "OFF"
+        if os.getenv("SOK_COMPILE_UNIT_TEST"):
+            unit_test = "ON" if os.getenv("SOK_COMPILE_UNIT_TEST") in ["1", "ON", "On", "on"] else "OFF"
+
         cmake_args = ["-DSM='{}'".format(";".join(gpu_capabilities)),
                       "-DUSE_NVTX={}".format(use_nvtx),
-                      "-DSOK_ASYNC={}".format(dedicated_cuda_stream)]
+                      "-DSOK_ASYNC={}".format(dedicated_cuda_stream),
+                      "-DSOK_UNIT_TEST={}".format(unit_test)]
         cmake_args = " ".join(cmake_args)
 
         build_dir = self.get_ext_fullpath(self.extensions[0].name).replace(
@@ -102,7 +107,6 @@ class SOKBuildExtension(build_ext):
     def get_outputs(self):
         outputs = list()
         for ext in self.extensions:
-            outputs.append(os.path.join(self.build_lib, ext.sok_unit_test_name))
             outputs.append(os.path.join(self.build_lib, ext.sok_lib_name))
             outputs.append(os.path.join(self.build_lib, ext.sok_compat_ops_name))
         return outputs
@@ -134,10 +138,9 @@ class SOKBuildExtension(build_ext):
             package_dir = build_py.get_package_dir(package)
 
             lib_name = ext.sok_lib_name
-            unit_test_name = ext.sok_unit_test_name
             compat_ops_name = ext.sok_compat_ops_name
 
-            for filename in (lib_name, unit_test_name, compat_ops_name):
+            for filename in (lib_name, compat_ops_name):
                 src_filename = os.path.join(build_dir, filename)
                 dest_filename = os.path.join(package_dir, os.path.basename(filename))
                 
@@ -154,6 +157,7 @@ setup(
     name="SparseOperationKit",
     version=_GetSOKVersion(),
     author="NVIDIA",
+    author_email="hugectr-dev@exchange.nvidia.com",
     url="https://github.com/NVIDIA-Merlin/HugeCTR/tree/master/sparse_operation_kit",
     description="SparseOperationKit (SOK) is a python package wrapped GPU accelerated"
                  " operations dedicated for sparse training / inference cases.",
@@ -169,11 +173,7 @@ setup(
     license="Apache 2.0",
     platforms=["Linux"],
     python_requires='>=3', # TODO: make it compatible with python2.7
-    packages=find_packages(
-        where="./",
-        include=["sparse_operation_kit*"],
-        exclude=[]
-    ),
+    packages=find_packages(),
     package_dir={"": "./"},
     cmdclass={"build_ext": SOKBuildExtension},
     ext_modules=[SOKExtension("sparse_operation_kit")],
