@@ -101,6 +101,9 @@ class SOKBuildExtension(build_ext):
             self.extensions = [ext for ext in self.extensions
                                 if os.path.exists(self.get_ext_fullpath(ext.name))]
 
+        # move dynamic libs
+        self.move_dynamic_libs()
+
         # remove intermediate files
         self.clean_intermediates()
 
@@ -112,7 +115,7 @@ class SOKBuildExtension(build_ext):
         return outputs
 
     def clean_intermediates(self):
-        clean_folders = ["CMakeFiles", "kit_cc_impl", "unit_test"]
+        clean_folders = ["CMakeFiles", "kit_cc_impl", "unit_test", "lib"]
         clean_files = ["cmake_install.cmake", "CMakeCache.txt", "Makefile"]
 
         build_dir = self.get_ext_fullpath(self.extensions[0].name).replace(
@@ -125,6 +128,19 @@ class SOKBuildExtension(build_ext):
             _file = os.path.join(build_dir, _file)
             if os.path.exists(_file):
                 os.remove(_file)
+
+    def move_dynamic_libs(self):
+        build_dir = self.get_ext_fullpath(self.extensions[0].name).replace(
+                        self.get_ext_filename(self.extensions[0].name), "")
+        lib_dir = os.path.join(build_dir, "lib")
+        dest_dir = os.path.join(build_dir, self.extensions[0].name)
+        dest_dir = os.path.join(dest_dir, "lib")
+        if not os.path.exists(dest_dir):
+            os.makedirs(dest_dir)
+        lib_files = os.listdir(lib_dir)
+        for filename in lib_files:
+            shutil.move(os.path.join(lib_dir, filename),
+                        os.path.join(dest_dir, filename))
 
     def copy_extensions_to_source(self):
         build_py = self.get_finalized_command("build_py")
