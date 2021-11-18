@@ -186,8 +186,12 @@ endif()
 set_target_properties(sparse_operation_kit PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 set_target_properties(sparse_operation_kit PROPERTIES CUDA_ARCHITECTURES OFF)
 
-# compile ops for unit test
-add_subdirectory(unit_test)
-
 # compile compat ops
 add_subdirectory(kit_cc_impl/operations)
+
+# compile ops for unit test
+option(SOK_UNIT_TEST "Compile SOK unit test" ON)
+if (SOK_UNIT_TEST)
+    message(STATUS "Compile SOK unit test")
+    add_subdirectory(unit_test)
+endif()
