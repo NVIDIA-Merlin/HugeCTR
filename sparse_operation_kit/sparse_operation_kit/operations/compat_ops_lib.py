@@ -19,7 +19,7 @@ import os
 
 lib_name = r"libsparse_operation_kit_compat_ops.so"
 
-install_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../lib"))
+install_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../lib"))
 paths = [r"/usr/local/lib", install_path]
 
 lib_file = None
