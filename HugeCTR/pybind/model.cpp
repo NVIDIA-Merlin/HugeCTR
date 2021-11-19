@@ -743,6 +743,7 @@ void Model::compile() {
           solver_.scaler, opt_buff_list_[i], resource_manager_->get_local_gpu(i),
           solver_.use_mixed_precision));
     }
+    if (solver_.overlap_lr) networks_[i]->optimizer_->set_skip_lr_update();
 
     networks_[i]->train_weight_tensor_ = train_weight_buff_list_[i]->as_tensor();
     networks_[i]->train_weight_tensor_half_ = train_weight_buff_half_list_[i]->as_tensor();
@@ -798,6 +799,9 @@ void Model::compile() {
   if (embeddings_.size() == 1) {
     auto lr_scheds = embeddings_[0]->get_learning_rate_schedulers();
     for (size_t i = 0; i < lr_scheds.size(); i++) {
+      if (solver_.overlap_lr) {
+        lr_scheds[i]->set_overlapped();
+      }
       networks_[i]->set_learning_rate_scheduler(lr_scheds[i]);
     }
   }

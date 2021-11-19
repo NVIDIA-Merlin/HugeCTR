@@ -28,6 +28,7 @@ class ILoss {
   virtual void compute(bool is_train, long long current_batchsize) = 0;
   virtual void compute(bool is_train) = 0;
   virtual int get_device_id() const = 0;
+  virtual void initialize_wgrad_async() = 0;
 };
 
 /**
@@ -105,6 +106,8 @@ class Loss : public ILoss {
   virtual ~Loss() {}
 
   int get_device_id() const override { return gpu_resource_->get_device_id(); }
+
+  void initialize_wgrad_async();
 };
 
 template <typename T>

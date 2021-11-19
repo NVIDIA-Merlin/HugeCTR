@@ -89,6 +89,7 @@ class Network {
   void conv_weight_(Tensor2<__half>& target, const Tensor2<float>& source);
 
   std::map<TrainState_t, cudaEvent_t> train_events_;
+  std::shared_ptr<GpuLearningRateScheduler> lr_sched_;
 
   template <typename LPtr>
   void prop_layers(const std::vector<LPtr>& layers, GraphWrapper& graph, bool use_graph, bool fprop,
@@ -216,6 +217,7 @@ class Network {
    */
   void set_learning_rate_scheduler(std::shared_ptr<GpuLearningRateScheduler>& lr_sched) {
     optimizer_->set_learning_rate_scheduler(lr_sched);
+    lr_sched_ = lr_sched;
   }
 
   /**

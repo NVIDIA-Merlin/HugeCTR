@@ -189,21 +189,29 @@ void ModelPerfExt::add_dense_layer_internal(DenseLayer& dense_layer, std::vector
       blobs_buff->reserve({1, 1}, &loss_tensor);
       if (use_mixed_precision) {
         Tensor2<__half> in_tensor = Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
-        loss.reset(new BinaryCrossEntropyLoss<__half>(
-            label_tensor, in_tensor, loss_tensor,
+        auto regularizer =
             create_regularizer(dense_layer.use_regularizer, dense_layer.regularizer_type,
                                dense_layer.lambda, weight_buff->as_tensor(),
                                wgrad_buff_half->as_tensor(), in_tensor.get_dimensions()[0],
-                               gpu_resource),
+                               gpu_resource);
+        if (true == solver_.overlap_init_wgrad) {
+          regularizer->set_overlapped();
+        }
+        loss.reset(new BinaryCrossEntropyLoss<__half>(
+            label_tensor, in_tensor, loss_tensor, regularizer,
             gpu_resource, num_networks_in_global, scaler, solver_.gen_loss_summary));
       } else {
         Tensor2<float> in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
-        loss.reset(new BinaryCrossEntropyLoss<float>(
-            label_tensor, in_tensor, loss_tensor,
+        auto regularizer =
             create_regularizer(dense_layer.use_regularizer, dense_layer.regularizer_type,
                                dense_layer.lambda, weight_buff->as_tensor(),
                                wgrad_buff->as_tensor(), in_tensor.get_dimensions()[0],
-                               gpu_resource),
+                               gpu_resource);
+        if (true == solver_.overlap_init_wgrad) {
+          regularizer->set_overlapped();
+        }
+        loss.reset(new BinaryCrossEntropyLoss<float>(
+            label_tensor, in_tensor, loss_tensor, regularizer,
             gpu_resource, num_networks_in_global, scaler, solver_.gen_loss_summary));
       }
       break;

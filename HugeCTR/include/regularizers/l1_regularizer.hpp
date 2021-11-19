@@ -61,7 +61,8 @@ class L1Regularizer : public Regularizer<T> {
    * @param num_elements the number of weight values across layers
    * @param stream CUDA Stream where the kernel is executed
    */
-  void do_initialize_wgrad(const float* weight, T* wgrad, int num_elements) override;
+  void do_initialize_wgrad(const float* weight, T* wgrad, int num_elements,
+                           cudaStream_t stream) override;
 
   const float lambda_;
 };
