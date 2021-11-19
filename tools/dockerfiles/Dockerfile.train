@@ -129,7 +129,7 @@ RUN git clone https://github.com/rapidsai/rmm.git build-env && cd build-env/ && 
     rm -rf build-env
 
 # Install cudf from source
-RUN git clone https://github.com/rapidsai/cudf.git build-env && cd build-env/ && \  
+RUN git clone https://github.com/rapidsai/cudf.git -b branch-21.10 build-env && cd build-env/ && \
     git submodule update --init --recursive && \
     cd .. && \
     pushd build-env && \
@@ -141,7 +141,7 @@ RUN git clone https://github.com/rapidsai/cudf.git build-env && cd build-env/ &&
     rm -rf build-env
 
 # Install Hiredis from source
-RUN mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 https://github.com/redis/hiredis.git && cd - && \
+RUN mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 -b v1.0.2 https://github.com/redis/hiredis.git && cd - && \
     cd /var/tmp/hiredis && \
     mkdir build && cd build && \
     cmake .. && \
@@ -162,6 +162,15 @@ RUN mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 -b v6.25.3 https://g
     PORTABLE=1 make -j$(nproc) shared_lib && \
     make install-shared && \
     rm -rf /var/tmp/rocksdb
+
+# Install LibRdKafka from source
+RUN apt-get update -y && \
+    DEBIAN_FRONTEND=noninteractive && apt-get install -y --no-install-recommends libssl-dev libsasl2-dev liblz4-dev libzstd-dev && \
+    mkdir -p /var/tmp && cd /var/tmp && git clone --depth 1 -b v1.8.2 https://github.com/edenhill/librdkafka.git && cd - && \
+    cd /var/tmp/librdkafka && \
+    ./configure && make -j$(nproc) && make install && \
+    rm -rf /var/tmp/librdkafka
+
 ENV CPATH=/usr/local/include:$CPATH
 
 ENV OMPI_MCA_plm_rsh_agent=sh
