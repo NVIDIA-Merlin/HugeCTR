@@ -259,6 +259,14 @@ void ResourcesManager::sync_all_workers() const {
     sync_local_gpus();
 }
 
+void ResourcesManager::sync_all_workers_via_cpu() const {
+    // synchronize local CPU threads
+    sync_cpu_threads();
+
+    // synchronize remote CPU threads
+    sync_all_workers_via_mpi();
+}
+
 void ResourcesManager::sync_all_workers_via_mpi() const {
     if (mpi_initialized_) {
         CK_MPI(MPI_Barrier(MPI_COMM_WORLD));

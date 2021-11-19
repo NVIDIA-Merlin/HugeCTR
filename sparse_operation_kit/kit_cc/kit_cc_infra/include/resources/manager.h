@@ -54,7 +54,7 @@ public:
     void sync_local_gpus() const;
     void sync_gpu(const size_t local_dev_id) const;
     void sync_all_workers() const; // synchronize each CPU-process via NCCL
-    void sync_all_workers_via_mpi() const;
+    void sync_all_workers_via_cpu() const; // synchronize all CPU-process via CPU
     void sync_all_gpus(const size_t local_dev_id) const; // synchronize each CPU-thread
 
     // synchronize CPU threads
@@ -108,6 +108,8 @@ private:
                              const cudaStream_t& tf_stream);
     void enable_all_peer_access(const size_t global_replica_id);
     void get_mpi_rank(const size_t global_replica_id);
+
+    void sync_all_workers_via_mpi() const; // synchronize all CPU-process via MPI
 
     ncclUniqueId nid_;
     std::once_flag set_nccl_id_once_flag_;

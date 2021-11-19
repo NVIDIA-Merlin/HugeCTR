@@ -322,7 +322,7 @@ void Facade::forward(const tensorflow::Tensor* emb_handle,
                                  /*event_name=*/embedding->get_var_name() + "_forward_begin");
 #endif
     // sync processes to avoid NCCL waiting
-    resources_mgr_->sync_all_workers_via_mpi();
+    resources_mgr_->sync_all_workers_via_cpu();
 
     // delegate embedding forward to embedding manager
     embedding_mgr_->forward(embedding, values, indices, global_replica_id, training, emb_vector);
@@ -358,7 +358,7 @@ void Facade::forward(const tensorflow::Tensor* emb_handle,
                                  /*event_name=*/embedding->get_var_name() + "_forward_begin");
 #endif
     // sync processes to avoid NCCL waiting
-    resources_mgr_->sync_all_workers_via_mpi();
+    resources_mgr_->sync_all_workers_via_cpu();
 
     // delegate embedding forward to embedding manager
     embedding_mgr_->forward(embedding, values, global_replica_id, training, emb_vector);
@@ -392,7 +392,7 @@ void Facade::backward(const tensorflow::Tensor* emb_handle,
                                  /*event_name=*/embedding->get_var_name() + "_backward_begin");
 #endif
     // sync processes to avoid NCCL waiting
-    resources_mgr_->sync_all_workers_via_mpi();
+    resources_mgr_->sync_all_workers_via_cpu();
 
     // delegate embedding backward to embedding manager
     embedding_mgr_->backward(embedding, top_gradient, global_replica_id, gradient, value_index);
