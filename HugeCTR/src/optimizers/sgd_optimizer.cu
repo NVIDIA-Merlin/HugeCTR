@@ -150,7 +150,9 @@ void SGDOptimizer<T>::update() {
     float* lr_ptr = gpu_learning_rate_scheduler_->get_learning_rate();
     sgd_update_kernel<<<grid_dim, block_dim, 0, gpu_resource_->get_stream()>>>(
         len, weight, weight_half, wgrad, lr_ptr, scaler_, use_mixed_precision_);
-    gpu_learning_rate_scheduler_->update();
+    if (!skip_lr_update_) {
+      gpu_learning_rate_scheduler_->update();
+    }
   }
 
   PROFILE_RECORD("update.stop", gpu_resource_->get_stream(), false);

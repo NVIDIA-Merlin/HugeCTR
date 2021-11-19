@@ -78,7 +78,8 @@ void end_to_end_impl(std::vector<int> device_list, HybridEmbeddingInputGenerator
   GpuLearningRateSchedulers lr_scheds;
   for (size_t i = 0; i < local_gpu_count; i++) {
     lr_scheds.emplace_back(new GpuLearningRateScheduler(
-          lr, 1, 0, 1, 2.f, 0.f, resource_manager->get_local_gpu(i)));
+          2 * lr, 2, 0, 1, 2.f, 0.f, resource_manager->get_local_gpu(i)));
+    lr_scheds.back()->update();
   }
 
   HybridSparseEmbeddingParams<emtype> params = {

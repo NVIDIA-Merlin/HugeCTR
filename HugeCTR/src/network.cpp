@@ -136,9 +136,11 @@ TrainState Network::train(long long current_batchsize, std::function<void()> exc
       break;
     case TrainState_t::BottomMLPFprop:
       prop_layers(bottom_layers_, bottom_train_fprop_graph_, enable_cuda_graph_, true, stream);
+      train_loss_->initialize_wgrad_async();
       break;
     case TrainState_t::TopMLPFprop:
       prop_layers(top_layers_, train_fprop_graph_, enable_cuda_graph_, true, stream);
+      if (lr_sched_->get_overlapped()) lr_sched_->update();
       train_loss_->compute(true, current_batchsize);
       break;
     case TrainState_t::TopMLPBprop:
