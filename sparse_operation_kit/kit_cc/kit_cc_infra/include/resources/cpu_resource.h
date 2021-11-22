@@ -82,7 +82,7 @@ public:
         } else {
             cond_.wait_for(lock, time_threshold_, [this, local_gen](){ return local_gen != generation_; });
             if (excp_ptr_) { std::rethrow_exception(excp_ptr_); }
-            if (local_gen == generation_) { throw std::runtime_error("Blocking threads time out."); }
+            if (local_gen == generation_) { throw std::runtime_error(ErrorBase + "BlockingCallOnce time out."); }
         }
     }
 
