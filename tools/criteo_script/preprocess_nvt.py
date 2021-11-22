@@ -63,7 +63,7 @@ class FeatureCross(Operator):
 
     def transform(self, columns, gdf):
         new_df = type(gdf)()
-        for col in columns:
+        for col in columns.names:
             new_df[col] = gdf[col] + gdf[self.dependency]
         return new_df
 
