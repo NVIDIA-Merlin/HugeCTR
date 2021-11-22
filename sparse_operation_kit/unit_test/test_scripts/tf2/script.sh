@@ -1,13 +1,14 @@
 set -e
 
 # -------- get TF version -------------- #
-TfVersion=`python3 -c "import tensorflow as tf; print(tf.__version__.strip().split('.'))"`
-TfMajor=`python3 -c "print($TfVersion[0])"`
-TfMinor=`python3 -c "print($TfVersion[1])"`
+# When SOK + MirroredStrategy not working, this is used to run other scripts.
+# TfVersion=`python3 -c "import tensorflow as tf; print(tf.__version__.strip().split('.'))"`
+# TfMajor=`python3 -c "print($TfVersion[0])"`
+# TfMinor=`python3 -c "print($TfVersion[1])"`
 
-if [ "$TfMinor" -ge 5 ]; then
-    bash tf25_script.sh; exit 0;
-fi
+# if [ "$TfMinor" -ge 5 ]; then
+#     bash tf25_script.sh; exit 0;
+# fi
 
 export PS4='\n\033[0;33m+[${BASH_SOURCE}:${LINENO}]: \033[0m'
 set -x
@@ -25,7 +26,7 @@ python3 test_sparse_emb_demo_model_single_worker.py \
         --slot_num=10 --max_nnz=4 \
         --embedding_vec_size=4 \
         --combiner='mean' --global_batch_size=65536 \
-        --optimizer='plugin_adam' \
+        --optimizer='adam' \
         --save_params=1 \
         --generate_new_datas=1 \
         --use_hashtable=0
@@ -36,7 +37,7 @@ python3 test_sparse_emb_demo_model_single_worker.py \
         --slot_num=10 --max_nnz=4 \
         --embedding_vec_size=4 \
         --combiner='mean' --global_batch_size=65536 \
-        --optimizer='adam' \
+        --optimizer='plugin_adam' \
         --save_params=1 \
         --generate_new_datas=1
 
@@ -108,7 +109,7 @@ python3 test_dense_emb_demo_model_single_worker.py \
         --slot_num=10 --nnz_per_slot=4 \
         --embedding_vec_size=4 \
         --global_batch_size=65536 \
-        --optimizer='plugin_adam' \
+        --optimizer='adam' \
         --save_params=1 \
         --generate_new_datas=1 \
         --use_hashtable=0
@@ -119,7 +120,7 @@ python3 test_dense_emb_demo_model_single_worker.py \
         --slot_num=10 --nnz_per_slot=4 \
         --embedding_vec_size=4 \
         --global_batch_size=65536 \
-        --optimizer='adam' \
+        --optimizer='plugin_adam' \
         --save_params=1 \
         --generate_new_datas=1
 
@@ -218,6 +219,21 @@ mpiexec -np 8 --allow-run-as-root \
         --dataset_iter_num=30 \
         --optimizer="adam" 
 
+# Use tf.config.set_visible_devices() to specify GPU
+# Other parameters are the same as the previous one
+mpiexec -np 8 --allow-run-as-root \
+        --oversubscribe \
+        python3 test_multi_dense_emb_demo_model_mpi_use_tf_set_device.py \
+        --file_prefix="./data_" \
+        --global_batch_size=65536 \
+        --max_vocabulary_size_per_gpu=8192 \
+        --slot_num_list 3 3 4 \
+        --nnz_per_slot=5 \
+        --num_dense_layers=4 \
+        --embedding_vec_size_list 2 4 8 \
+        --dataset_iter_num=30 \
+        --optimizer="adam"
+
 mpiexec -np 8 --allow-run-as-root \
         --oversubscribe \
         python3 test_multi_dense_emb_demo_model_mpi.py \
@@ -236,6 +252,20 @@ mpiexec -np 8 --allow-run-as-root \
 # -------------------- Horovod -------------------- #
 horovodrun --mpi-args="--oversubscribe" -np 8 -H localhost:8 \
     python3 test_multi_dense_emb_demo_model_hvd.py \
+        --file_prefix="./data_" \
+        --global_batch_size=65536 \
+        --max_vocabulary_size_per_gpu=8192 \
+        --slot_num_list 3 3 4 \
+        --nnz_per_slot=5 \
+        --num_dense_layers=4 \
+        --embedding_vec_size_list 2 4 8 \
+        --dataset_iter_num=30 \
+        --optimizer="adam" 
+
+# Use tf.config.set_visible_devices() to specify GPU
+# Other parameters are the same as the previous one
+horovodrun --mpi-args="--oversubscribe" -np 8 -H localhost:8 \
+    python3 test_multi_dense_emb_demo_model_hvd_use_tf_set_device.py \
         --file_prefix="./data_" \
         --global_batch_size=65536 \
         --max_vocabulary_size_per_gpu=8192 \
@@ -272,6 +302,8 @@ horovodrun --mpi-args="--oversubscribe" -np 8 -H localhost:8 \
     --optimizer="adam" \
     --dynamic_input=1
 
+# Use tf.config.set_visible_devices() to specify GPU
+# Other parameters are the same as the previous one
 horovodrun --mpi-args="--oversubscribe" -np 8 -H localhost:8 \
     python3 test_multi_dense_emb_demo_model_hvd_use_tf_set_device.py \
     --file_prefix="./data_" \
