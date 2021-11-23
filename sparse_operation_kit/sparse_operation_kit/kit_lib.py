@@ -73,8 +73,8 @@ dump_to_file = kit_ops.dump_to_file
 restore_from_file = kit_ops.restore_from_file
 load_embedding_values = kit_ops.load_embedding_values
 read_embedding_variable = kit_ops.read_embedding_variable_op
+assign_embedding_variable = kit_ops.assign_embedding_variable
 if not in_tensorflow2():
-    assign_embedding_variable = kit_ops.assign_embedding_variable
     optimizer_init = kit_ops.optimizer_init
     embedding_variable_assign_sub = kit_ops.embedding_variable_assign_sub
 

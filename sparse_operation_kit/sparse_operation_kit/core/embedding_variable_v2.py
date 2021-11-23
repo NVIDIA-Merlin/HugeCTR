@@ -30,6 +30,7 @@ from tensorflow.distribute import get_strategy, has_strategy
 from tensorflow.python.ops.variables import VariableSynchronization, VariableAggregation
 from tensorflow.python.distribute.values import DistributedVariable
 from tensorflow.python.ops import resource_variable_ops
+from tensorflow.python.ops import control_flow_ops
 import functools
 
 class EmbeddingVariable(BaseResourceVariable):
@@ -84,16 +85,34 @@ class EmbeddingVariable(BaseResourceVariable):
         with ops.init_scope():
             with ops.name_scope(name):
                 self.m_var_name = self._gen_unique_name(name)
+                print("[INFO]: %s\n" % self.m_var_name)
                 self.m_unique_id = "%s_%d" %(self.m_var_name, ops.uid())
 
                 # m_handle is the handle to EmbeddingVariable, tf_handle is the handle to TF Var.
-                self.m_handle, self.tf_handle, _ = kit_lib.create_var(
-                                            initial_value=self.m_initial_value,
-                                            local_replica_id=self.m_local_replica_id,
-                                            trainable=self.m_trainable,
-                                            shape=self.m_shape_per_gpu,
-                                            use_hashtable=self.m_use_hashtable,
-                                            var_name=self.m_var_name)
+                self.m_handle, self.tf_handle = kit_lib.create_var(
+                                            var_name=self.m_var_name,
+                                            dtype=float32,
+                                            shape=self.m_shape_per_gpu)
+
+                with ops.name_scope("IsInitialized"):
+                    self._is_initialized_op = ops.convert_to_tensor(True)
+
+                    if (isinstance(self.m_initial_value, ops.Tensor) and
+                        not self.m_initial_value.shape.is_compatible_with(self.m_shape_per_gpu)):
+                        raise ValueError("The initial value's shape (%s) is not compatible with "
+                                         "the explicitly supplied `shape` argument (%s)." %
+                                         (self.m_initial_value.shape, self.m_shape_per_gpu))
+
+                    _init_op = kit_lib.assign_embedding_variable(emb_var_handle=self.m_handle,
+                                                            tf_var_handle=self.tf_handle,
+                                                            var_name=self.m_var_name,
+                                                            initial_value=self.m_initial_value,
+                                                            local_replica_id=self.m_local_replica_id,
+                                                            trainable=self.m_trainable,
+                                                            shape=self.m_shape_per_gpu,
+                                                            use_hashtable=self.m_use_hashtable,
+                                                            dtype=float32)
+                    self._initializer_op = control_flow_ops.group((_init_op))
 
             super(EmbeddingVariable, self).__init__(trainable=self.m_trainable,
                                                     shape=self.m_shape_per_gpu,
@@ -119,7 +138,7 @@ class EmbeddingVariable(BaseResourceVariable):
     def _gen_unique_name(self, var_name):
         name_scope = ops.get_name_scope()
         if name_scope is None or "" == name_scope:
-            return ops.get_default_graph().unique_name(var_name, mark_as_used=False)
+            return ops.get_default_graph().unique_name(var_name, mark_as_used=True)
         else:
             # TODO: use regex
             while name_scope[-1] == r"/":

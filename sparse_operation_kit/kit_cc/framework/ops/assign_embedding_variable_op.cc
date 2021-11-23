@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-#if TF_VERSION_MAJOR == 1
-
 #include "tensorflow/core/framework/op.h"
 #include "tensorflow/core/framework/shape_inference.h"
 #include "tensorflow/core/framework/common_shape_fns.h"
@@ -44,6 +42,3 @@ REGISTER_OP("AssignEmbeddingVariable")
     .Doc(R"doc(
         This op is used as the initializer op of embedding variable.
     )doc");
-
-
-#endif

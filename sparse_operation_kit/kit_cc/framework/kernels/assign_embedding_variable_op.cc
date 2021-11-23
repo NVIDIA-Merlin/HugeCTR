@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-#if TF_VERSION_MAJOR == 1
-
 #include "facade.h"
 #include "tensor_buffer/embedding_buffer.h"
 #include "tensorflow/core/framework/op_kernel.h"
@@ -99,14 +97,14 @@ public:
             const size_t local_replica_id_value = local_replica_id_tensor->scalar<int32_t>()();
             if (DT_STRING == initial_value_tensor->dtype()) {
                 SparseOperationKit::Facade::instance()->create_variables(local_replica_id_value,
-                                                                     initial_value_tensor->flat<tstring>()(0),
-                                                                     use_hashtable_, dims_, variable_name, 
-                                                                     trainable_, emb_variable, &tensor);
+                                            std::string(initial_value_tensor->flat<tstring>()(0)),
+                                            use_hashtable_, dims_, variable_name, 
+                                            trainable_, emb_variable, &tensor);
             } else {
                 SparseOperationKit::Facade::instance()->create_variables(local_replica_id_value,
-                                                                     initial_value_tensor,
-                                                                     use_hashtable_, dims_, variable_name, 
-                                                                     trainable_, emb_variable, &tensor);
+                                            initial_value_tensor,
+                                            use_hashtable_, dims_, variable_name, 
+                                            trainable_, emb_variable, &tensor);
             }
         } catch (const std::exception& error) {
             ctx->SetStatus(errors::Aborted(__FILE__, ":", __LINE__, " errors happens due to ", error.what()));
@@ -159,5 +157,3 @@ REGISTER_KERNEL_BUILDER(Name("AssignEmbeddingVariable")
                         AssignEmbeddingVariableOp<GPUDevice>);
 
 } // namespace tensorflow
-
-#endif
