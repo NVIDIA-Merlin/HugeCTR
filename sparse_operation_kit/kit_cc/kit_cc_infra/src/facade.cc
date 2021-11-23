@@ -86,25 +86,48 @@ void Facade::generate_unique_name(const bool trainable, std::string &variable_na
     params_mgr_->gen_unique_name(trainable, variable_name);
 }
 
-void Facade::create_variables(const size_t local_replica_id, const float* initial_value, const bool use_hashtable,
-                              const std::vector<int64_t> shape, const std::string name,
-                              const bool trainable, 
-                              tensorflow::core::RefCountPtr<tensorflow::EmbeddingVariable>& emb_variable,
-                              tensorflow::Tensor* emb_tensor) {
-    throw std::runtime_error("Not implemented yet.");
+namespace {
+template <typename InitializerType>
+struct wrapper;
+
+template <>
+struct wrapper<std::string> {
+    wrapper(const std::string & initializer) : initializer_(initializer) {}
+    std::string get() {
+        return std::string(initializer_);
+    }
+    const std::string initializer_;
+};
+
+template <>
+struct wrapper<const tensorflow::Tensor*> {
+    wrapper(const tensorflow::Tensor* initializer) : initializer_(initializer) {}
+    std::shared_ptr<Tensor> get() {
+        return TFTensorWrapper::create(const_cast<tensorflow::Tensor*>(initializer_));
+    }
+    const tensorflow::Tensor* initializer_;
+};
+
+template <typename InitializerType>
+auto translate_initializer(const InitializerType initializer) {
+    return wrapper<InitializerType>(initializer).get();
 }
+} // anonymous namespace
 
 /*This function will be called multiple times sequentially*/
-void Facade::create_variables(const size_t local_replica_id, const std::string& initializer, const bool use_hashtable,
-                              const std::vector<int64_t> shape, const std::string name,
-                              const bool trainable, 
+template <typename InitializerType>
+void Facade::create_variables(const size_t local_replica_id, const InitializerType initializer, 
+                              const bool use_hashtable, const std::vector<int64_t> shape, 
+                              const std::string name, const bool trainable, 
                               tensorflow::core::RefCountPtr<tensorflow::EmbeddingVariable>& emb_variable,
                               tensorflow::Tensor* emb_tensor) {
     try {
         std::shared_ptr<ParamInterface> param;
         std::vector<size_t> _shape(shape.size());
         for (size_t i = 0; i < shape.size(); i++) _shape[i] = static_cast<size_t>(shape[i]);
-        params_mgr_->create_variables(initializer, use_hashtable, _shape, name, trainable, param);
+
+        params_mgr_->create_variables(local_replica_id, translate_initializer(initializer), 
+                                      use_hashtable, _shape, name, trainable, param);
 
         auto emb_buffer_builder = EmbeddingBufferBuilder::create(param->get_embedding_table_tensor(local_replica_id));
         auto buffer = emb_buffer_builder->get_init_buffer();
@@ -123,13 +146,16 @@ void Facade::create_variables(const size_t local_replica_id, const std::string& 
     }
 }
 
-void Facade::create_variables(const size_t local_replica_id, float* variable, const bool use_hashtable,
-                              const std::vector<int64_t> shape, const std::string name,
-                              const bool trainable, 
+template void Facade::create_variables(const size_t local_replica_id, const std::string initializer, 
+                              const bool use_hashtable, const std::vector<int64_t> shape, 
+                              const std::string name, const bool trainable, 
                               tensorflow::core::RefCountPtr<tensorflow::EmbeddingVariable>& emb_variable,
-                              tensorflow::Tensor* emb_tensor) {
-    throw std::runtime_error("Not implemented yet.");
-}
+                              tensorflow::Tensor* emb_tensor);
+template void Facade::create_variables(const size_t local_replica_id, const tensorflow::Tensor* initializer, 
+                              const bool use_hashtable, const std::vector<int64_t> shape, 
+                              const std::string name, const bool trainable, 
+                              tensorflow::core::RefCountPtr<tensorflow::EmbeddingVariable>& emb_variable,
+                              tensorflow::Tensor* emb_tensor);
 
 void Facade::create_embedding_sparse(const tensorflow::core::RefCountPtr<tensorflow::EmbeddingVariable>& variable,
                                      const std::string input_dispatcher,

@@ -110,6 +110,13 @@ class EmbeddingVariable(BaseResourceVariable):
                     if self._in_graph_mode:
                         with ops.name_scope("IsInitialized"):
                             self._is_initialized_op = ops.convert_to_tensor(True) # TODO: should not hard-writing???
+
+                            if (isinstance(self.m_initial_value, ops.Tensor) and 
+                                not self.m_initial_value.shape.is_compatible_with(self._m_shape_per_gpu)):
+                                raise ValueError("The initial value's shape (%s) is not compatible with "
+                                                 "the explicitly supplied `shape` argument (%s)." %
+                                                 (initial_value.shape, self._m_shape_per_gpu))
+
                             _init_op = kit_lib.assign_embedding_variable(emb_var_handle=self.m_handle,
                                                                  tf_var_handle=self.tf_handle,
                                                                  var_name=var_name,

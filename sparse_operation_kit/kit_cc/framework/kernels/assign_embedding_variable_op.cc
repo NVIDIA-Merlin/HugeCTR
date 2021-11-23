@@ -66,9 +66,11 @@ public:
 
         const Tensor* initial_value_tensor = nullptr;
         OP_REQUIRES_OK(ctx, ctx->input("initial_value", &initial_value_tensor));
-        OP_REQUIRES(ctx, initial_value_tensor->dtype() == DT_STRING, errors::Aborted(
-                    __FILE__, ":", __LINE__, " Currently, only string can be used to"
-                    " set initializer."));
+        OP_REQUIRES(ctx, initial_value_tensor->dtype() == DT_STRING ||
+                         initial_value_tensor->dtype() == DT_FLOAT, 
+                         errors::Aborted(__FILE__, ":", __LINE__, 
+                         " Only string or tensor can be used as"
+                         " initializer."));
         const Tensor* local_replica_id_tensor = nullptr;
         OP_REQUIRES_OK(ctx, ctx->input("local_replica_id", &local_replica_id_tensor));
 
@@ -94,10 +96,18 @@ public:
                                     }));
         Tensor tensor; // used to hold the pointer to allocated GPU memory
         try {
-            SparseOperationKit::Facade::instance()->create_variables(local_replica_id_tensor->scalar<int32_t>()(),
+            const size_t local_replica_id_value = local_replica_id_tensor->scalar<int32_t>()();
+            if (DT_STRING == initial_value_tensor->dtype()) {
+                SparseOperationKit::Facade::instance()->create_variables(local_replica_id_value,
                                                                      initial_value_tensor->flat<tstring>()(0),
                                                                      use_hashtable_, dims_, variable_name, 
                                                                      trainable_, emb_variable, &tensor);
+            } else {
+                SparseOperationKit::Facade::instance()->create_variables(local_replica_id_value,
+                                                                     initial_value_tensor,
+                                                                     use_hashtable_, dims_, variable_name, 
+                                                                     trainable_, emb_variable, &tensor);
+            }
         } catch (const std::exception& error) {
             ctx->SetStatus(errors::Aborted(__FILE__, ":", __LINE__, " errors happens due to ", error.what()));
             return;

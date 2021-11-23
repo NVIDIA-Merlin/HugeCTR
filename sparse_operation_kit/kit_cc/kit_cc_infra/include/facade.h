@@ -76,17 +76,8 @@ public:
 
     void generate_unique_name(const bool trainable, std::string &variable_name);
 
-    void create_variables(const size_t local_replica_id, const float* initial_value, const bool use_hashtable, 
-                          const std::vector<int64_t> shape, const std::string name,
-                          const bool trainable,
-                          tensorflow::core::RefCountPtr<tensorflow::EmbeddingVariable>& emb_variable,
-                          tensorflow::Tensor* emb_tensor);
-    void create_variables(const size_t local_replica_id, const std::string& initializer, const bool use_hashtable,
-                          const std::vector<int64_t> shape, const std::string name,
-                          const bool trainable,
-                          tensorflow::core::RefCountPtr<tensorflow::EmbeddingVariable>& emb_variable,
-                          tensorflow::Tensor* emb_tensor);
-    void create_variables(const size_t local_replica_id, float* variable, const bool use_hashtable,
+    template <typename InitializerType>
+    void create_variables(const size_t local_replica_id, const InitializerType initializer, const bool use_hashtable,
                           const std::vector<int64_t> shape, const std::string name,
                           const bool trainable,
                           tensorflow::core::RefCountPtr<tensorflow::EmbeddingVariable>& emb_variable,

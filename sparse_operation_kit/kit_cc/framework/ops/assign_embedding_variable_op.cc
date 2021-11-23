@@ -27,13 +27,14 @@ using namespace tensorflow::shape_inference;
 REGISTER_OP("AssignEmbeddingVariable")
     .Input("emb_var_handle: resource")
     .Input("tf_var_handle: resource")
-    .Input("initial_value: string")
+    .Input("initial_value: init_dtype")
     .Input("local_replica_id: int32")
     .Attr("var_name: string")
     .Attr("trainable: bool = true")
     .Attr("shape: shape")
     .Attr("use_hashtable: bool = true")
-    .Attr("dtype: {float, string, resource}")
+    .Attr("dtype: {float}")
+    .Attr("init_dtype: {float, string}")
     .SetShapeFn([](InferenceContext* c) {
         std::vector<ShapeAndType> handle_shape_and_type;
         TF_RETURN_IF_ERROR(shape_inference::ValidateVariableResourceHandle(c, &handle_shape_and_type));

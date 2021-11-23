@@ -78,9 +78,10 @@ void RawManager::gen_unique_name(const bool trainable, std::string& name) {
     }
 }
 
-void RawManager::create_variables(const std::string& initializer, const bool use_hashtable,
-                                  const std::vector<size_t> shape, const std::string name,
-                                  const bool trainable, std::shared_ptr<ParamInterface>& param) {
+void RawManager::create_variables(const size_t local_replica_id, const std::string initializer, 
+                                  const bool use_hashtable, const std::vector<size_t> shape, 
+                                  const std::string name, const bool trainable, 
+                                  std::shared_ptr<ParamInterface>& param) {
     // If shape is the same as the previous one, 
     // then the previous param should be returned,
     // rather than creating a new one.
@@ -123,6 +124,16 @@ void RawManager::create_variables(const std::string& initializer, const bool use
     } // if shape == previous_shape
 
     MESSAGE("Created embedding variable whose name is " + name);
+}
+
+void RawManager::create_variables(const size_t local_replica_id, const std::shared_ptr<Tensor> initial_value, 
+                                  const bool use_hashtable, const std::vector<size_t> shape, 
+                                  const std::string name, const bool trainable, 
+                                  std::shared_ptr<ParamInterface>& param) {
+    // create variable
+    create_variables(local_replica_id, /*initializer=*/"ones", use_hashtable, shape, name, trainable, param);
+    // set initial_value
+    param->set_initial_value(local_replica_id, initial_value);
 }
 
 void RawManager::allocate_memory(const size_t global_replica_id) {

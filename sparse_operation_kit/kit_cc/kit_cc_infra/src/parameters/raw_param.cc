@@ -33,7 +33,7 @@ buffers_(resource_mgr->get_local_gpu_count(), nullptr),
 hashtables_(resource_mgr->get_local_gpu_count(), nullptr),
 max_vocabulary_size_per_gpu_(shape[0]), embedding_vector_size_(shape[1]),
 var_name_(var_name), trainable_(trainable), initializer_(Initializer::Get(initializer)),
-use_hashtable_(use_hashtable)
+use_hashtable_(use_hashtable), initialized_(resource_mgr->get_local_gpu_count(), false)
 {
     emb_table_tensors_.reserve(resource_mgr_->get_local_gpu_count());
     emb_table_tensors_interface_.reserve(resource_mgr_->get_local_gpu_count());
@@ -91,8 +91,14 @@ size_t RawParam::get_embedding_vec_size() const {
     return embedding_vector_size_;
 }
 
+bool RawParam::is_initialized(const size_t local_replica_id) const {
+    return initialized_[local_replica_id];
+}
+
 void RawParam::init(const size_t global_replica_id) {
     const size_t local_replica_id = resource_mgr_->cal_local_id_from_global_id(global_replica_id);
+    if (is_initialized(local_replica_id)) return;
+
     MESSAGE("Variable: " + var_name_ + " on global_replica_id: " + 
             std::to_string(global_replica_id) + " start initialization");
     if (local_replica_id >= emb_table_tensors_.size()) 
@@ -136,6 +142,30 @@ std::shared_ptr<Tensor>& RawParam::get_embedding_table_tensor(const size_t local
 
 std::string RawParam::get_var_name() const {
     return var_name_;
+}
+
+void RawParam::set_initial_value(const size_t local_replica_id, 
+                                 const std::shared_ptr<Tensor>& initial_value) {
+    auto &embedding_table = get_embedding_table_tensor(local_replica_id);
+    if (embedding_table->get_num_elements() != initial_value->get_num_elements())
+        throw std::runtime_error(ErrorBase + "The number of elements in initial_value is different from that "
+                                 "of the embedding variable.");
+
+    auto &local_gpu = resource_mgr_->get_local_gpu(local_replica_id);
+#ifdef SOK_ASYNC
+    CK_CUDA(cudaStreamSynchronize(local_gpu->get_framework_stream()));
+#endif
+    CK_CUDA(cudaMemcpyAsync(embedding_table->GetPtrWithType<float>(),
+                            initial_value->GetPtrWithType<float>(),
+                            initial_value->get_size_in_bytes(),
+                            cudaMemcpyHostToDevice,
+                            local_gpu->get_stream()));
+    CK_CUDA(cudaStreamSynchronize(local_gpu->get_stream()));
+    
+    initialized_[local_replica_id] = true;
+    const size_t global_replica_id = resource_mgr_->cal_global_id_from_local_id(local_replica_id);
+    MESSAGE("Variable: " + var_name_ + " on global_replica_id: " + 
+            std::to_string(global_replica_id) + " set initial_value.");
 }
 
 void RawParam::dump_to_file(const std::string filepath) {
