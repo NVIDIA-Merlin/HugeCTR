@@ -86,7 +86,6 @@ class EmbeddingVariable(BaseResourceVariable):
         with ops.init_scope():
             with ops.name_scope(name):
                 self.m_var_name = self._gen_unique_name(name)
-                print("[INFO]: %s\n" % self.m_var_name)
                 self.m_unique_id = "%s_%d" %(self.m_var_name, ops.uid())
 
                 # m_handle is the handle to EmbeddingVariable, tf_handle is the handle to TF Var.

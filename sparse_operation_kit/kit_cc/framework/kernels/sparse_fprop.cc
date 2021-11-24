@@ -166,6 +166,7 @@ private:
 REGISTER_KERNEL_BUILDER(Name("PluginSparseFprop")
                         .Device(DEVICE_GPU)
                         .HostMemory("emb_handle")
+                        .HostMemory("emb_var_handle")
                         .HostMemory("global_replica_id"),
                         PluginSparseFpropOp<GPUDevice>);
 

@@ -25,6 +25,7 @@ from tensorflow.distribute import has_strategy, get_strategy
 from tensorflow.python.framework import sparse_tensor
 from tensorflow.python.ops import check_ops
 from tensorflow.python.ops import array_ops
+from tensorflow.python.ops import resource_variable_ops
 
 try:
     import horovod.tensorflow as hvd
@@ -80,13 +81,16 @@ def embedding_lookup(embedding_variable, values, training=True, dynamic_input=Fa
     """
     embedding_layer = embedding_variable.embedding_layer
 
-    return kit_lib.plugin_dense_fprop(embedding_layer.handle, 
-                                      embedding_variable,
+    resource_variable_ops.variable_accessed(embedding_variable)
+
+    return kit_lib.plugin_dense_fprop(embedding_variable._handle,
+                                      embedding_layer.handle, 
                                       values=values,
                                       global_replica_id=get_global_replica_id(comm_tool),
                                       training=training,
                                       unique_op_name=embedding_variable.name,
-                                      dynamic_input=dynamic_input)
+                                      dynamic_input=dynamic_input,
+                                      dtype=embedding_variable.dtype)
 
 
 def embedding_lookup_sparse(embedding_variable, sp_ids, slot_num, training=True, comm_tool=None):
@@ -102,10 +106,13 @@ def embedding_lookup_sparse(embedding_variable, sp_ids, slot_num, training=True,
 
     embedding_layer = embedding_variable.embedding_layer
 
-    return kit_lib.plugin_sparse_fprop(embedding_layer.handle,
-                                       embedding_variable,
+    resource_variable_ops.variable_accessed(embedding_variable)
+
+    return kit_lib.plugin_sparse_fprop(embedding_variable._handle,
+                                       embedding_layer.handle,
                                        values, row_indices,
                                        get_global_replica_id(comm_tool),
                                        slot_num=slot_num,
                                        training=training,
-                                       unique_op_name=embedding_variable.name)
+                                       unique_op_name=embedding_variable.name,
+                                       dtype=embedding_variable.dtype)

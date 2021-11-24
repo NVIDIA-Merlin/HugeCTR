@@ -212,6 +212,7 @@ private:
 REGISTER_KERNEL_BUILDER(Name("PluginDenseFprop")
                         .Device(DEVICE_GPU)
                         .HostMemory("emb_handle")
+                        .HostMemory("emb_var_handle")
                         .HostMemory("global_replica_id"),
                         PluginDenseFpropOp<GPUDevice>);
 
