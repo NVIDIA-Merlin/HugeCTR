@@ -79,6 +79,7 @@ class EmbeddingVariable(BaseResourceVariable):
         self.m_initial_value = initial_value
         self.m_trainable = trainable
         self.m_use_hashtable = use_hashtable
+        self.m_embedding_layer = None
         # self.m_var_name = ops.get_default_graph().unique_name(name, mark_as_used=True)
         # self.m_unique_id = "%s_%d" %(self.m_var_name, ops.uid())
 
@@ -148,6 +149,17 @@ class EmbeddingVariable(BaseResourceVariable):
     @property
     def emb_handle(self):
         return self.m_handle
+
+    def set_embedding_layer(self, embedding_layer):
+        if self.m_embedding_layer is not None:
+            raise ValueError("EmbeddingLayer for %s is already set." %(self.name))
+        self.m_embedding_layer = embedding_layer
+
+    @property
+    def embedding_layer(self):
+        if self.m_embedding_layer is None:
+            raise ValueError("EmbeddingLayer for %s is not set." %(self.name))
+        return self.m_embedding_layer
 
     def _read_variable_op(self):
         variable_accessed(self)

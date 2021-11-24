@@ -35,9 +35,11 @@ class EmbeddingLayerHandle(trackable.Trackable):
 
         self._embedding_variable = embedding_variable
 
-        self._track_trackable(self._embedding_variable, 
-                              name=self._embedding_variable.name)
-
+        if hasattr(self._embedding_variable, "values"):
+            for variable in self._embedding_variable.values:
+                variable.set_embedding_layer(self)
+        else:
+            self._embedding_variable.set_embedding_layer(self)
     @property
     def initializer(self):
         return self._initializer_op
