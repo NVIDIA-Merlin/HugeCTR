@@ -78,3 +78,45 @@ hugectr2onnx.converter.convert(onnx_model_path = "wdl.onnx",
                             convert_embedding = True,
                             sparse_models = ["wdl0_sparse_2000.model", "wdl1_sparse_2000.model"])
 ```
+
+## Layer Support ##
+
+Most HugeCTR layers are supported in the HugeCTR to ONNX converter, and there are a few unsupported layers because they have not been extended to the general usage of HugeCTR model training.
+
+* Supported Layers
+  * [Add Layer](../docs/hugectr_layer_book.md#add-layer)
+  * [BatchNorm Layer](../docs/hugectr_layer_book.md#batchnorm-layer)
+  * [Concat Layer](../docs/hugectr_layer_book.md#concat-layer)
+  * [DotProduct Layer](../docs/hugectr_layer_book.md#dotproduct-layer)
+  * [Dropout Layer](../docs/hugectr_layer_book.md#dropout-layer)
+  * [ElementwiseMultiply Layer](../docs/hugectr_layer_book.md#elementwisemultiply-layer)
+  * [ELU Layer](../docs/hugectr_layer_book.md#elu-layer)
+  * [FmOrder2 Layer](../docs/hugectr_layer_book.md#fmorder2-layer)
+  * [FullyConnected Layer](../docs/hugectr_layer_book.md#fullyconnected-layer)
+  * [FusedFullyConnected Layer](../docs/hugectr_layer_book.md#fusedfullyconnected-layer)
+  * [FusedReshapeConcat Layer](../docs/hugectr_layer_book.md#fusedreshapeconcat-layer)
+  * [Interaction Layer](../docs/hugectr_layer_book.md#interaction-layer)
+  * [MatrixMultiply Layer](../docs/hugectr_layer_book.md#matrixmutiply-layer)
+  * [MultiCross Layer](../docs/hugectr_layer_book.md#multicross-layer)
+  * [PReLU_Dice Layer](../docs/hugectr_layer_book.md#preludice-layer)
+  * [ReduceMean Layer](../docs/hugectr_layer_book.md#reducemean-layer)
+  * [ReduceSum Layer](../docs/hugectr_layer_book.md#reducesum-layer)
+  * [ReLU Layer](../docs/hugectr_layer_book.md#relu-layer)
+  * [Reshape Layer](../docs/hugectr_layer_book.md#reshape-layer)
+  * [Scale Layer](../docs/hugectr_layer_book.md#scale-layer)
+  * [Sigmoid Layer](../docs/hugectr_layer_book.md#sigmoid-layer)
+  * [Slice Layer](../docs/hugectr_layer_book.md#slice-layer)
+  * [Softmax Layer](../docs/hugectr_layer_book.md#softmax-layer)
+  * [Sub Layer](../docs/hugectr_layer_book.md#sub-layer)
+  * [WeightMultiply](../docs/hugectr_layer_book.md#weightmultiply-layer)
+  * [BinaryCrossEntropyLoss](../docs/hugectr_layer_book.md#binarycrossentropyloss)
+* Unsupported Layers
+  * Cast
+  * [CrossEntropyLoss](../docs/hugectr_layer_book.md#crossentropyloss)
+  * [FusedReshapeConcatGeneral](../docs/hugectr_layer_book.md#fusedreshapeconcatgeneral-layer)
+  * [GRU](../docs/hugectr_layer_book.md#gru-layer)
+  * [Gather](../docs/hugectr_layer_book.md#gather-layer)
+  * [MultiCrossEntropyLoss](../docs/hugectr_layer_book.md#multicrossentropyloss)
+  * ReLUHalf
+
+**Note**: The BinaryCrossEntropyLoss layer will be replaced by a Sigmoid layer when converting the HugeCTR model graph to ONNX.

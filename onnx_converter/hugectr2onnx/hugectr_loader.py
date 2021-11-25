@@ -369,7 +369,9 @@ class HugeCTRLoader(object):
             layer_params.bottom_names = [pred_name]
             layer_params.top_names = []
         else:
-            raise ValueError(layer_type + " is not supported in HugeCTR to ONNX converter")
+            raise ValueError(layer_type + " is not supported in HugeCTR to ONNX converter, please refer to "
+                            + "https://github.com/NVIDIA-Merlin/HugeCTR/tree/master/onnx_converter#layer-support "
+                            + "to see the supported layers.")
         self.__index += 1
         return layer_params, layer_weights_dict, self.dimensions 
 
