@@ -274,7 +274,7 @@ inline void ERROR_MESSAGE_(const std::string msg) {
     if (retval != Error_t::Success) {                                              \
       std::cerr << std::string("Runtime error: ") + (msg) + " " + __FILE__ + ":" + \
                        std::to_string(__LINE__) + " \n";                           \
-      return x;                                                                    \
+      return retval;                                                               \
     }                                                                              \
   } while (0)
 
