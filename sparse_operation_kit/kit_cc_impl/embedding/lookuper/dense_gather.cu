@@ -90,16 +90,17 @@ public:
 
         const auto &replica_exchanged_keys = replica_context->input("replica_exchanged_keys");
         const auto &replica_h_recv_chunk_offsets = replica_context->input("replica_h_recv_chunk_offsets");
+        const uint32_t h_local_nnz = replica_h_recv_chunk_offsets->GetPtrWithType<uint32_t>()[global_gpu_count];
         // step 1: get index using keys
         if (training) {
             hashtable->get_insert(replica_exchanged_keys->GetPtrWithType<int64_t>(),
                                   mapped_indices_buf_[local_replica_id].get_ptr(),
-                                  /*nnz=*/replica_h_recv_chunk_offsets->GetPtrWithType<uint32_t>()[global_gpu_count],
+                                  /*nnz=*/h_local_nnz,
                                   local_gpu->get_stream());
         } else {
             hashtable->get(replica_exchanged_keys->GetPtrWithType<int64_t>(),
                            mapped_indices_buf_[local_replica_id].get_ptr(),
-                           /*nnz=*/replica_h_recv_chunk_offsets->GetPtrWithType<uint32_t>()[global_gpu_count],
+                           /*nnz=*/h_local_nnz,
                            local_gpu->get_stream());
         }
 
@@ -109,15 +110,14 @@ public:
             /*EmbeddingDimension=*/param_->get_embedding_vec_size(),
             /*inputs=*/embedding_table->GetPtrWithType<float>(), 
             /*indices=*/mapped_indices_buf_[local_replica_id].get_ptr(),
-            /*num_indices=*/replica_h_recv_chunk_offsets->GetPtrWithType<uint32_t>()[global_gpu_count],
+            /*num_indices=*/h_local_nnz,
             /*outputs=*/gathered_embeddings_buf_[local_replica_id].get_ptr());
         CK_CUDA(cudaGetLastError());
 
         // step 3: set the output of embedding lookuper
         replica_context->set_output("replica_gathered_embeddings", gathered_embeddings_buf_[local_replica_id]);
         // write host_nnz in current iteration
-        host_nnz_[local_replica_id].get_ptr()[0] = static_cast<size_t>(
-            replica_h_recv_chunk_offsets->GetPtrWithType<uint32_t>()[global_gpu_count]);
+        host_nnz_[local_replica_id].get_ptr()[0] = static_cast<size_t>(h_local_nnz);
         replica_context->set_output("replica_host_nnz", host_nnz_[local_replica_id]);
     }
     
@@ -128,12 +128,13 @@ public:
         const auto &local_gpu = resource_mgr_->get_local_gpu(local_replica_id);
 
         const auto &replica_h_recv_chunk_offsets = replica_context->input("replica_h_recv_chunk_offsets");
+        const uint32_t h_local_nnz = replica_h_recv_chunk_offsets->GetPtrWithType<uint32_t>()[global_gpu_count];
         auto &replica_value_index_tensor = replica_context->output("value_index_tensor");
 
         // FIXME: what if sizeof(size_t) != sizeof(int64_t)
         CK_CUDA(cudaMemcpyAsync(replica_value_index_tensor->GetPtrWithType<int64_t>(),
                                 mapped_indices_buf_[local_replica_id].get_ptr(),
-                                sizeof(size_t) * replica_h_recv_chunk_offsets->GetPtrWithType<uint32_t>()[global_gpu_count],
+                                sizeof(size_t) * h_local_nnz,
                                 cudaMemcpyDeviceToDevice, local_gpu->get_stream()));
     }
 
