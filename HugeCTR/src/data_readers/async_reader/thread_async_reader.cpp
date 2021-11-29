@@ -173,10 +173,8 @@ void ThreadAsyncReader::try_submit_io(size_t batch_id, int io_id) {
   for (size_t block = 0; block < num_blocks; block++) {
     auto req = buffer->io_reqs[block];
 
-    int tmp = params_.io_block_size;
-    // if (params_.wait_for_gpu_idle && buffer->id > 20000) tmp = 512;
     io_prep_pread(req, fd_, buffer->raw_host_ptr + params_.io_block_size * block,
-                  tmp,  // params_.io_block_size,
+                  params_.io_block_size,
                   raw_beg_offset + params_.io_block_size * block);
     req->data = (void*)buffer;
   }
@@ -247,7 +245,6 @@ void ThreadAsyncReader::try_submit_upload(InternalBatchBuffer* buffer) {
   size_t beg_offset = chunk_size * buffer->num_submitted_h2d_chunks;
   size_t end_offset = std::min(buffer->size, chunk_size * (buffer->num_submitted_h2d_chunks + 1));
 
-  // if (buffer->id < 10000)
   CK_CUDA_THROW_(cudaMemcpyAsync(buffer->dev_data[device_id_] + beg_offset,
                                  buffer->host_data + beg_offset, end_offset - beg_offset,
                                  cudaMemcpyHostToDevice, stream_));
@@ -266,7 +263,6 @@ void ThreadAsyncReader::try_submit_p2p(InternalBatchBuffer* buffer) {
   // Broadcast to the other GPUs
   if (buffer->num_submitted_broadcasts != (int)buffer->dev_data.size()) {
     if (device_id_ != buffer->num_submitted_broadcasts) {
-      // if (buffer->id < 5000 || (10000 < buffer->id && buffer->id < 15000))
       CK_CUDA_THROW_(cudaMemcpyAsync(buffer->dev_data[buffer->num_submitted_broadcasts],
                                      buffer->dev_data[device_id_], buffer->size,
                                      cudaMemcpyDeviceToDevice, stream_));

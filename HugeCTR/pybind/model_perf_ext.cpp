@@ -15,6 +15,7 @@
  */
 
 #include <HugeCTR/pybind/model_perf_ext.hpp>
+#include <data_readers/async_reader/data_reader_scheduling.hpp>
 
 
 namespace HugeCTR {
@@ -43,21 +44,15 @@ ModelPerfExt::ModelPerfExt(const Solver& solver, const DataReaderParams& reader_
       graph_scheduler_ = std::make_unique<GraphScheduler>(resource_manager_);
     }
 
-bool ModelPerfExt::train() {
+bool ModelPerfExt::train(bool is_first_batch) {
   try {
     if (train_data_reader_->is_started() == false) {
       CK_THROW_(Error_t::IllegalCall, "Start the data reader first before calling Model::train()");
     }
     graph_scheduler_->trickling();
+    // When async indices is enabled, we prefetch next batch on internal stream, that stream will block until
+    // the schedule event in the graph is executed
     train_data_reader_->read_a_batch_to_device_delay_release();
-
-// #pragma omp parallel num_threads(networks_.size())
-//     {
-//       size_t id = omp_get_thread_num();
-//       CudaCPUDeviceContext ctx(resource_manager_->get_local_gpu(id)->get_device_id());
-//       cudaStreamSynchronize(resource_manager_->get_local_gpu(id)->get_stream());
-//     }
-//    PROFILER_ITER_CHECK(networks_.size());
     train_data_reader_->ready_to_collect();
 
 #ifdef ENABLE_PROFILING
@@ -67,7 +62,7 @@ bool ModelPerfExt::train() {
     if (solver_.use_overlapped_pipeline) {
       train_overlapped();
     } else {
-      embeddings_[0]->forward(true);
+      embeddings_[0]->forward(true, is_first_batch);
 
 #pragma omp parallel num_threads(networks_.size())
       {
@@ -118,7 +113,7 @@ bool ModelPerfExt::train() {
   }
 }
 
-bool ModelPerfExt::eval(int eval_batch) {
+bool ModelPerfExt::eval(bool is_first_batch) {
   try {
     if (evaluate_data_reader_ == nullptr) return true;
     if (evaluate_data_reader_->is_started() == false) {
@@ -133,10 +128,8 @@ bool ModelPerfExt::eval(int eval_batch) {
       metric->set_current_batch_size(current_batchsize);
     }
     current_eval_batchsize_ = current_batchsize;
-
     evaluate_data_reader_->ready_to_collect();
-
-    embeddings_[0]->forward(false, eval_batch);
+    embeddings_[0]->forward(false, is_first_batch);
 
 #pragma omp parallel num_threads(networks_.size())
     {
@@ -231,6 +224,9 @@ void ModelPerfExt::fit(int num_epochs, int max_iter, int display, int eval_inter
   }
 
   this->start_data_reading();
+  this->init_data_reader_.reset();
+
+  bool is_first_train_batch_after_eval = true;
   for (int iter = 0; iter < max_iter; iter++) {
     float lr = 0;
     if (!this->use_gpu_learning_rate_scheduling()) {
@@ -243,7 +239,8 @@ void ModelPerfExt::fit(int num_epochs, int max_iter, int display, int eval_inter
       this->set_learning_rate(lr);
 #endif
     }
-    this->train();
+    this->train(is_first_train_batch_after_eval);
+    is_first_train_batch_after_eval = false;
 #ifdef ENABLE_PROFILING
     iter = 0;
     continue;
@@ -270,14 +267,21 @@ void ModelPerfExt::fit(int num_epochs, int max_iter, int display, int eval_inter
       timer_train.start();
     }
     if (eval_interval > 0 && iter % eval_interval == 0 && iter != 0) {
+      // #pragma omp parallel num_threads(networks_.size())
+      // {
+      //   size_t id = omp_get_thread_num();
+      //   CudaCPUDeviceContext ctx(resource_manager_->get_local_gpu(id)->get_device_id());
+      //   cudaStreamSynchronize(resource_manager_->get_local_gpu(id)->get_stream());
+      // }
       this->check_overflow();
       this->copy_weights_for_evaluation();
+      is_first_train_batch_after_eval = true;
       timer_eval.start();
       if (solver_.is_dlrm) {
         LOG(timer_log.elapsedMilliseconds(), "eval_start", float(iter) / max_iter);
       }
       for (int batches = 0; batches < solver_.max_eval_batches; batches++) {
-        this->eval(batches);
+        this->eval(batches == 0);
       }
       auto eval_metrics = this->get_eval_metrics();
       for (auto& eval_metric : eval_metrics) {
@@ -317,13 +321,11 @@ void ModelPerfExt::fit(int num_epochs, int max_iter, int display, int eval_inter
             }
 
             if (__PID == 0) {
-              std::cout << "Hit target accuracy AUC " + std::to_string(auc_threshold) + " at " +
-                               std::to_string(iter) + "/" + std::to_string(max_iter) +
-                               " iterations with batchsize "
-                        << solver_.batchsize << " in " << std::setiosflags(std::ios::fixed)
-                        << std::setprecision(2) << timer.elapsedSeconds() << " s. Average speed "
-                        << float(iter) * solver_.batchsize / timer.elapsedSeconds() << " records/s."
-                        << std::endl;
+              HCTR_LOG(INFO, ROOT, "Hit target accuracy AUC %f at %d / %d iterations with batchsize %d"
+                                   " in %.2fs. Average speed %f records/s.\n",
+                                   auc_threshold, iter, max_iter,
+                                   solver_.batchsize, timer.elapsedSeconds(),
+                                   float(iter) * solver_.batchsize / timer.elapsedSeconds());
             }
             return;
           }
@@ -424,46 +426,63 @@ void ModelPerfExt::train_overlapped() {
       }
     };
 
-    auto do_it = [&, this](int id, int batch_size) {
+    auto schedule_split3way = [&, this](TrainState_t state_to_schedule) {
+        if (state.state == state_to_schedule) {
+            scheduled_reader->schedule_precompute_here(stream, id, solver_.use_holistic_cuda_graph);
+        }
+    };
+
+    auto schedule_d2d = [&, this](TrainState_t state_to_schedule) {
+        if (state.state == state_to_schedule) {
+          scheduled_reader->schedule_d2d_here(stream, id, solver_.use_holistic_cuda_graph);
+        }
+    };
+
+    auto do_it = [&, this](cudaStream_t submit_stream) {
       if (solver_.use_holistic_cuda_graph) {
-        CK_CUDA_THROW_(cudaEventRecord(train_graph_.fork_event[id], stream));
-        state.event = &train_graph_.fork_event[id];
+        CK_CUDA_THROW_(cudaEventRecord(fork_events_[id], submit_stream));
+        state.event = &fork_events_[id];
       }
 
       // Network just runs unconditionally
       // Embedding manages events from the networks and waits if necessary
       // Session inserts a wait if it gets a non-null event from the embedding
 
+      PROFILE_RECORD("iteration.start", submit_stream, true);
       do {
         state = embeddings_[0]->train(true, id, state);
         sync();
         if (resource_manager_->get_num_process() == 1) {
           schedule_reader(TrainState_t::TopMLPFprop);
+          schedule_split3way(TrainState_t::MLPExchangeWgrad);
+          schedule_d2d(TrainState_t::MLPUpdate);
         }
         state = networks_[id]->train(
-            batch_size, [this, id]() { this->exchange_wgrad(id); }, state);
+            current_batchsize_per_device, [this, id]() { this->exchange_wgrad(id); }, state);
         if (resource_manager_->get_num_process() > 1) {
           schedule_reader(TrainState_t::TopMLPFprop);
+          schedule_split3way(TrainState_t::BottomMLPBprop);
+          schedule_d2d(TrainState_t::MLPExchangeWgrad);
         }
       } while (change_state(&state));
+      PROFILE_RECORD("iteration.stop", submit_stream, true);
       sync();
     };
 
     if (solver_.use_holistic_cuda_graph) {
-      if (!train_graph_.initialized[id]) {
-        cudaGraph_t graph;
-        CK_CUDA_THROW_(cudaStreamBeginCapture(stream, cudaStreamCaptureModeRelaxed));
-        do_it(id, current_batchsize_per_device);
-        CK_CUDA_THROW_(cudaStreamEndCapture(stream, &graph));
-        CK_CUDA_THROW_(cudaGraphInstantiate(&train_graph_.instance[id], graph, NULL, NULL, 0));
-        train_graph_.initialized[id] = true;
+#ifdef ENABLE_PROFILING
+      if (!train_graphs_[id].initialized || profiler_init_cuda_graph_this_iter()) {
+#else
+      if (!train_graphs_[id].initialized) {
+#endif
+        train_graphs_[id].capture(do_it, stream);
       }
-      CK_CUDA_THROW_(cudaGraphLaunch(train_graph_.instance[id], stream));
+      train_graphs_[id].exec(stream);
       if (scheduled_reader) {
         scheduled_reader->update_schedule_graph(id);
       }
     } else {
-      do_it(id, current_batchsize_per_device);
+      do_it(stream);
     }
   }
 }

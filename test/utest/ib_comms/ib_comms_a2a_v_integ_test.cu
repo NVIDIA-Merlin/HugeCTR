@@ -297,7 +297,7 @@ namespace {
             for (size_t g = 0; g < num_gpus_; g++) {
               auto& stream = resource_manager_->get_local_gpu(g)->get_stream();
               CK_CUDA_THROW_(cudaSetDevice(device_list[g]));
-              CK_CUDA_THROW_(cudaStreamBeginCapture(stream, cudaStreamCaptureModeRelaxed));
+              CK_CUDA_THROW_(cudaStreamBeginCapture(stream, cudaStreamCaptureModeThreadLocal));
             }
             do_device_a2a_bare();
             for (size_t g = 0; g < num_gpus_; g++) {
@@ -331,7 +331,7 @@ namespace {
             for (size_t g = 0; g < num_gpus_; g++) {
               auto& stream = resource_manager_->get_local_gpu(g)->get_stream();
               CK_CUDA_THROW_(cudaSetDevice(device_list[g]));
-              CK_CUDA_THROW_(cudaStreamBeginCapture(stream, cudaStreamCaptureModeRelaxed));
+              CK_CUDA_THROW_(cudaStreamBeginCapture(stream, cudaStreamCaptureModeThreadLocal));
             }
             do_intra_node_a2a_bare();
             for (size_t g = 0; g < num_gpus_; g++) {
@@ -365,7 +365,7 @@ namespace {
             for (size_t g = 0; g < num_gpus_; g++) {
               auto& stream = resource_manager_->get_local_gpu(g)->get_stream();
               CK_CUDA_THROW_(cudaSetDevice(device_list[g]));
-              CK_CUDA_THROW_(cudaStreamBeginCapture(stream, cudaStreamCaptureModeRelaxed));
+              CK_CUDA_THROW_(cudaStreamBeginCapture(stream, cudaStreamCaptureModeThreadLocal));
             }
             do_inter_node_a2a_bare();
             for (size_t g = 0; g < num_gpus_; g++) {

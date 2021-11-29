@@ -204,7 +204,7 @@ void create_embedding<TypeKey, TypeFP>::operator()(
       auto j_solver = get_json(config, "solver");
       bool graph_mode = get_value_from_json_soft<bool>(j_solver, "holistic_cuda_graph", false);
 
-      const HybridSparseEmbeddingParams<TypeFP> embedding_params = {
+      const HybridSparseEmbeddingParams embedding_params = {
           batch_size,
           batch_size_eval,
           num_iterations_statistics,                                            // TBD
@@ -218,6 +218,7 @@ void create_embedding<TypeKey, TypeFP>::operator()(
           max_all_reduce_bandwidth,
           max_all_to_all_bandwidth,  // TBD
           efficiency_bandwidth_ratio,
+          false, false,
           hybrid_embedding_type,
           embedding_opt_params};
       embeddings.emplace_back(new HybridSparseEmbedding<TypeKey, TypeFP>(

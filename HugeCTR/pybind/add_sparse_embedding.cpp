@@ -133,6 +133,10 @@ SparseEmbedding get_sparse_embedding_from_json(const nlohmann::json& j_sparse_em
       get_value_from_json_soft<double>(j_hparam, "max_all_to_all_bandwidth", 1.9e11);
   hybrid_embedding_param.efficiency_bandwidth_ratio =
       get_value_from_json_soft<double>(j_hparam, "efficiency_bandwidth_ratio", 1.0);
+  hybrid_embedding_param.use_train_precompute_indices =
+      get_value_from_json_soft<bool>(j_hparam, "use_train_precompute_indices", false);
+  hybrid_embedding_param.use_eval_precompute_indices =
+      get_value_from_json_soft<bool>(j_hparam, "use_eval_precompute_indices", false);
   std::string communication_type_string =
       get_value_from_json_soft<std::string>(j_hparam, "communication_type", "IB_NVLink");
   std::string hybrid_embedding_type_string =
@@ -237,7 +241,7 @@ void add_sparse_embedding(SparseEmbedding& sparse_embedding,
               : std::dynamic_pointer_cast<NetworkExchangeWgrad<TypeFP>>(exchange_wgrad)
                     ->get_embed_wgrad_buffs();
 
-      const HybridSparseEmbeddingParams<TypeFP> embedding_params = {
+      const HybridSparseEmbeddingParams embedding_params = {
           batch_size,
           batch_size_eval,
           num_iterations_statistics,  // TBD
@@ -252,6 +256,8 @@ void add_sparse_embedding(SparseEmbedding& sparse_embedding,
           sparse_embedding.hybrid_embedding_param.max_all_reduce_bandwidth,
           sparse_embedding.hybrid_embedding_param.max_all_to_all_bandwidth,  // TBD
           sparse_embedding.hybrid_embedding_param.efficiency_bandwidth_ratio,
+          sparse_embedding.hybrid_embedding_param.use_train_precompute_indices,
+          sparse_embedding.hybrid_embedding_param.use_eval_precompute_indices,
           sparse_embedding.hybrid_embedding_param.hybrid_embedding_type,
           embedding_opt_params};
       embeddings.emplace_back(new HybridSparseEmbedding<TypeKey, TypeFP>(

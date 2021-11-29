@@ -20,9 +20,12 @@
 #include <cstdio>
 #include <cfloat>
 #include <vector>
+#include <sys/time.h>
 #include "cublas_v2.h"
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"
+#include "nvToolsExt.h"
+#include <cuda_profiler_api.h>
 
 #pragma GCC diagnostic ignored "-Wunused-variable"
 #pragma GCC diagnostic ignored "-Wunused-but-set-variable"
@@ -32,7 +35,8 @@ using namespace HugeCTR;
 
 #define uint unsigned int
 
-__half sign_list[3] = {-1.0, 0.0, 1.0};
+#define REPEAT_NUM 100
+
 static void fill_data(__half* data, int N) {
   unsigned seed = time(0);
   srand(seed);
@@ -128,6 +132,25 @@ static float compare_array(const __half *arr1, const __half *arr2, size_t n, flo
     }
   }
   return 1.0f * m / n;
+}
+
+void set_l2_policy(const cudaStream_t &stream, __half* ptr, int num_bytes) {
+  cudaDeviceProp prop;                                                               
+  cudaGetDeviceProperties(&prop, 0);                                        
+  size_t size = min( int(prop.l2CacheSize * 0.75) , prop.persistingL2CacheMaxSize );
+  //cudaDeviceSetLimit( cudaLimitPersistingL2CacheSize, size);                         
+  
+  size_t window_size = min(prop.accessPolicyMaxWindowSize, num_bytes); 
+  cudaDeviceSetLimit( cudaLimitPersistingL2CacheSize, window_size);
+
+  cudaStreamAttrValue stream_attribute; 
+  stream_attribute.accessPolicyWindow.base_ptr  = reinterpret_cast<void*>(ptr);
+  stream_attribute.accessPolicyWindow.num_bytes = window_size;
+  stream_attribute.accessPolicyWindow.hitRatio  = 1.0;  
+  stream_attribute.accessPolicyWindow.hitProp   = cudaAccessPropertyPersisting;
+  stream_attribute.accessPolicyWindow.missProp  = cudaAccessPropertyStreaming;
+  cudaStreamSetAttribute(stream, cudaStreamAttributeAccessPolicyWindow, &stream_attribute);
+  printf("Stream: %p, ptr: %p, num_bytes: %d, window_size: %d, set-aside cache: %d\n", &stream, ptr, num_bytes, (int)window_size, (int)size);
 }
 
 __half **h_kernel, **h_kernel_grad, **h_bias_grad, **h_bias;
@@ -233,7 +256,7 @@ static float check_data_cpu_and_gpu(__half* host, __half* device, uint N, float 
   else return compare_array(host, d2h, N, threshold, is_print);
 }
 
-static void mlp_test(int* out_dims, bool* is_relu, uint n_out_dims, uint batch_size, uint input_dim) {
+static void mlp_test(int* out_dims, bool* is_relu, uint n_out_dims, uint batch_size, uint input_dim, bool perf_test = false) {
   uint n_layers = n_out_dims;
   uint* input_dims  = new uint[n_out_dims];
   uint* output_dims = new uint[n_out_dims];
@@ -351,91 +374,151 @@ static void mlp_test(int* out_dims, bool* is_relu, uint n_out_dims, uint batch_s
 
   CK_CUDA_THROW_(cudaDeviceSynchronize());
   // Forward pass (CPU)
-  for (uint i=0;i<n_layers;i++) {
-    cpu_mm(h_top[i], h_bottom[i], false, h_kernel[i], false, 0.0, batch_size, input_dims[i], output_dims[i]);
-    cpu_add_bias_and_re(h_top[i], h_middle[i], h_bias[i], is_relu[i], batch_size, output_dims[i]);
-  }
-
- // Forward pass (GPU)
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
-  for (uint i=0;i<n_layers;i++) {
-    fc_layers[i]->fprop(true);
-  }
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
-
-
-
-  // Check results
-  for (uint i=0;i<n_layers;i++) {
-//    ASSERT_LT(check_data_cpu_and_gpu(h_bottom[i], train_in_tensor[i].get_ptr(), batch_size*input_dims[i], 1e-3), 0.1)
-//          << "X of the "<<i<<"th layer cross_check result fail"<<endl;
-//    ASSERT_LT(check_data_cpu_and_gpu(h_kernel[i], fc_layers[i]->get_weights_half_tensor()[0].get_ptr(), input_dims[i]*output_dims[i], 1e-3), 0.05)
-//          << "W of the "<<i<<"th layer cross_check result fail"<<endl;
-    ASSERT_LT(check_data_cpu_and_gpu(h_top[i], train_out_tensor[i].get_ptr(), batch_size*output_dims[i], 1e-4), 0.05)
-            << "Y of the "<<i<<"th layer cross_check result fail"<<endl;
-//    ASSERT_LT(check_data_cpu_and_gpu(h_top[i], mask_out_tensor[i].get_ptr(), batch_size*output_dims[i], 1e-3, true), 0.0)
-//          << "mask of the "<<i<<"th layer cross_check result fail"<<endl;
-
-  }
-
-
-  // initialize dX
-  CK_CUDA_THROW_(
-      cudaMemcpy(mask_out_tensor[n_layers-1].get_ptr(), h_middle[n_layers-1], sizeof(__half) * batch_size * output_dims[n_layers-1], cudaMemcpyHostToDevice));
-  CK_CUDA_THROW_(
-      cudaMemcpy(train_out_tensor[n_layers-1].get_ptr(), h_top_grad[n_layers-1], sizeof(__half) * batch_size * output_dims[n_layers-1], cudaMemcpyHostToDevice));
-//  for (uint i=0;i<n_layers;i++) {
-//    CK_CUDA_THROW_(
-//        cudaMemcpy(train_in_tensor[i].get_ptr(), h_bottom[i], sizeof(__half) * batch_size * input_dims[i], cudaMemcpyHostToDevice));
-//  }
-
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
-  // Forward pass (CPU)
-  for (int i=n_layers-1;i>=0;i--) {
-    if (!is_relu[i]) {
-      memcpy(h_middle[i], h_top_grad[i], batch_size*output_dims[i]*sizeof(__half));
-      for (uint col=0; col<output_dims[i]; col++) {
-	float sum = 0.0;
-	for (uint row=0; row<batch_size; row++) {
-	  sum = sum + h_top_grad[i][row*output_dims[i]+col];
-	}
-	h_bias_grad[i][col] = sum;
-      }
+  if (!perf_test) {
+    for (uint i=0;i<n_layers;i++) {
+      cpu_mm(h_top[i], h_bottom[i], false, h_kernel[i], false, 0.0, batch_size, input_dims[i], output_dims[i]);
+      cpu_add_bias_and_re(h_top[i], h_middle[i], h_bias[i], is_relu[i], batch_size, output_dims[i]);
     }
-    else cpu_reverse_add_bias_and_re(h_bias_grad[i], h_middle[i], h_middle[i], h_top_grad[i], batch_size, output_dims[i], i==int(n_layers-1) );
 
-    cpu_mm(h_kernel_grad[i], h_bottom[i], true, h_middle[i], false, 1.0, input_dims[i], batch_size, output_dims[i]);
-    cpu_mm(h_bottom_grad[i], h_middle[i], false, h_kernel[i], true, 0.0, batch_size, output_dims[i], input_dims[i]);
+   // Forward pass (GPU)
+    CK_CUDA_THROW_(cudaDeviceSynchronize());
+    for (uint i=0;i<n_layers;i++) {
+      fc_layers[i]->fprop(true);
+    }
+    CK_CUDA_THROW_(cudaDeviceSynchronize());
+  
+  
+    // Check results
+    for (uint i=0;i<n_layers;i++) {
+  //    ASSERT_LT(check_data_cpu_and_gpu(h_bottom[i], train_in_tensor[i].get_ptr(), batch_size*input_dims[i], 1e-3), 0.1)
+  //          << "X of the "<<i<<"th layer cross_check result fail"<<endl;
+  //    ASSERT_LT(check_data_cpu_and_gpu(h_kernel[i], fc_layers[i]->get_weights_half_tensor()[0].get_ptr(), input_dims[i]*output_dims[i], 1e-3), 0.05)
+  //          << "W of the "<<i<<"th layer cross_check result fail"<<endl;
+      ASSERT_LE(check_data_cpu_and_gpu(h_top[i], train_out_tensor[i].get_ptr(), batch_size*output_dims[i], 1e-4), 0.0)
+              << "Y of the "<<i<<"th layer cross_check result fail"<<endl;
+  //    ASSERT_LT(check_data_cpu_and_gpu(h_top[i], mask_out_tensor[i].get_ptr(), batch_size*output_dims[i], 1e-3, true), 0.0)
+  //          << "mask of the "<<i<<"th layer cross_check result fail"<<endl;
+  
+    }
+  
+  
+    // initialize dX
+    CK_CUDA_THROW_(
+        cudaMemcpy(mask_out_tensor[n_layers-1].get_ptr(), h_middle[n_layers-1], sizeof(__half) * batch_size * output_dims[n_layers-1], cudaMemcpyHostToDevice));
+    CK_CUDA_THROW_(
+        cudaMemcpy(train_out_tensor[n_layers-1].get_ptr(), h_top_grad[n_layers-1], sizeof(__half) * batch_size * output_dims[n_layers-1], cudaMemcpyHostToDevice));
+  //  for (uint i=0;i<n_layers;i++) {
+  //    CK_CUDA_THROW_(
+  //        cudaMemcpy(train_in_tensor[i].get_ptr(), h_bottom[i], sizeof(__half) * batch_size * input_dims[i], cudaMemcpyHostToDevice));
+  //  }
+  
+    CK_CUDA_THROW_(cudaDeviceSynchronize());
+    // Forward pass (CPU)
+    for (int i=n_layers-1;i>=0;i--) {
+      if (!is_relu[i]) {
+        memcpy(h_middle[i], h_top_grad[i], batch_size*output_dims[i]*sizeof(__half));
+        for (uint col=0; col<output_dims[i]; col++) {
+  	float sum = 0.0;
+  	for (uint row=0; row<batch_size; row++) {
+  	  sum = sum + h_top_grad[i][row*output_dims[i]+col];
+  	}
+  	h_bias_grad[i][col] = sum;
+        }
+      }
+      else cpu_reverse_add_bias_and_re(h_bias_grad[i], h_middle[i], h_middle[i], h_top_grad[i], batch_size, output_dims[i], i==int(n_layers-1) );
+  
+      cpu_mm(h_kernel_grad[i], h_bottom[i], true, h_middle[i], false, 1.0, input_dims[i], batch_size, output_dims[i]);
+      cpu_mm(h_bottom_grad[i], h_middle[i], false, h_kernel[i], true, 0.0, batch_size, output_dims[i], input_dims[i]);
+    }
+  
+   // Forward pass (GPU)
+    CK_CUDA_THROW_(cudaDeviceSynchronize());
+    for (int i=n_layers-1;i>=0;i--) {
+      fc_layers[i]->bprop();
+    }
+    CK_CUDA_THROW_(cudaDeviceSynchronize());
+  
+  
+    // Check results
+    for (int i=n_layers-1;i>=0;i--) {
+  //    ASSERT_LT(check_data_cpu_and_gpu(h_middle[i], dRelu_out_tensor[i].get_ptr(), batch_size*output_dims[1], 1e-3), 0.15)
+  //          << "dRelu_out of the "<<i<<"th layer cross_check result fail"<<endl;
+      ASSERT_LE(check_data_cpu_and_gpu(h_bias_grad[i], db_out_tensor[i].get_ptr(), output_dims[i], 1e-3), 0.0)
+            << "dBias of the "<<i<<"th layer cross_check result fail"<<endl;
+      ASSERT_LE(check_data_cpu_and_gpu(h_kernel_grad[i], fc_layers[i]->get_weights_grad_tensor()[0].get_ptr(), input_dims[i]*output_dims[i], 1e-3), 0.0)
+              << "dW of the "<<i<<"th layer cross_check result fail"<<endl;
+    }
+    // If async_mlp_wgrad is true, then here dX is stored in mask_in_tensor[0] rather than train_in_tensor[0]
+    ASSERT_LE(check_data_cpu_and_gpu(h_bottom_grad[0], train_in_tensor[0].get_ptr(), batch_size*input_dims[0], 1e-3), 0.0)
+              << "dX of the "<<0<<"th layer cross_check result fail"<<endl;
+  } else {
+    cudaProfilerStart();
+    int idx = 0;
+    struct timeval ts1, ts2, ts3;
+    float time_fprop=0.0, time_bprop=0.0;
+    int layer_start = max(0, 0);
+    int layer_end = min((int)n_layers, (int)n_layers);
+    cudaEvent_t e1, e2, e3, e4;
+    cudaEventCreate(&e1);
+    cudaEventCreate(&e2);
+    cudaEventCreate(&e3);
+    cudaEventCreate(&e4);
+    int i_layer = 3;
+    while (idx++<REPEAT_NUM) {
+      CK_CUDA_THROW_(cudaDeviceSynchronize());
+      //gettimeofday(&ts1, NULL);
+      cudaEventRecord(e1, gpu_resource->get_stream());
+      for (int i=layer_start;i<layer_end;i++) {
+        //if (i==i_layer) cudaEventRecord(e1, gpu_resource->get_stream());
+        fc_layers[i]->fprop(true);
+        //if (i==i_layer) cudaEventRecord(e2, gpu_resource->get_stream());
+      }
+      cudaEventRecord(e2, gpu_resource->get_stream());
+      cudaEventRecord(e3, gpu_resource->get_stream());
+      //gettimeofday(&ts2, NULL);
+      for (int i=layer_end-1;i>=layer_start;i--) {
+        //if (i==i_layer) cudaEventRecord(e3, gpu_resource->get_stream());
+        fc_layers[i]->bprop();
+        //if (i==i_layer) cudaEventRecord(e4, gpu_resource->get_stream());
+      }
+      cudaEventRecord(e4, gpu_resource->get_stream());
+      nvtxRangePop();
+      cudaEventSynchronize(e4);
+      //CK_CUDA_THROW_(cudaDeviceSynchronize());
+      //gettimeofday(&ts3, NULL);
+      float time_elapsed = 0.0;
+      cudaEventElapsedTime(&time_elapsed, e1, e2);
+      time_fprop += time_elapsed*1000;
+      cudaEventElapsedTime(&time_elapsed, e3, e4);
+      time_bprop += time_elapsed*1000;
+
+      //float t_f=(ts2.tv_sec-ts1.tv_sec)*1000000+(ts2.tv_usec-ts1.tv_usec);
+      //float t_b=(ts3.tv_sec-ts2.tv_sec)*1000000+(ts3.tv_usec-ts2.tv_usec);
+      //time_fprop += time_elapsed;
+      //time_bprop += t_b;
+    }
+    cudaProfilerStop();
+    printf("time_fprop is %.10f\n",time_fprop/REPEAT_NUM);
+    printf("time_bprop is %.10f\n",time_bprop/REPEAT_NUM);
   }
 
- // Forward pass (GPU)
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
-  for (int i=n_layers-1;i>=0;i--) {
-    fc_layers[i]->bprop();
-  }
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
 
-
-  // Check results
-  for (int i=n_layers-1;i>=0;i--) {
-//    ASSERT_LT(check_data_cpu_and_gpu(h_middle[i], dRelu_out_tensor[i].get_ptr(), batch_size*output_dims[1], 1e-3), 0.15)
-//          << "dRelu_out of the "<<i<<"th layer cross_check result fail"<<endl;
-    ASSERT_LT(check_data_cpu_and_gpu(h_bias_grad[i], db_out_tensor[i].get_ptr(), output_dims[i], 1e-3), 0.15)
-          << "dBias of the "<<i<<"th layer cross_check result fail"<<endl;
-    ASSERT_LT(check_data_cpu_and_gpu(h_kernel_grad[i], fc_layers[i]->get_weights_grad_tensor()[0].get_ptr(), input_dims[i]*output_dims[i], 1e-1), 0.15)
-            << "dW of the "<<i<<"th layer cross_check result fail"<<endl;
-  }
-  // If async_mlp_wgrad is true, then here dX is stored in mask_in_tensor[0] rather than train_in_tensor[0]
-  ASSERT_LT(check_data_cpu_and_gpu(h_bottom_grad[0], train_in_tensor[0].get_ptr(), batch_size*input_dims[0], 1e-1), 0.15)
-            << "dX of the "<<0<<"th layer cross_check result fail"<<endl;
 }
 
+static void mlp_test_batches(int* out_dims, bool* is_relu, uint n_out_dims, int* batch_sizes, int nbatches, uint input_dim, bool perf_test = false) {
+  for (int i=0;i<nbatches;i++) {
+    mlp_test(out_dims, is_relu, n_out_dims, batch_sizes[i], input_dim, perf_test);
+  }
+}
 
-//
-int out_dims_bot[3] = { 512, 256, 128 };
-bool is_relu_bot[3] = {true, true, true };
-TEST(mlp_test, bottom) { mlp_test(out_dims_bot, is_relu_bot, 3, 6912, 16); };
+//int out_dims_bot[3] = { 512, 256, 128 };
+//bool is_relu_bot[3] = { true, true, true };
+//TEST(mlp_test, bottom) { mlp_test(out_dims_bot, is_relu_bot, 3, 6912, 16, true); };
 int out_dims_top[5] = { 1024, 1024, 512, 256, 1};
-bool is_relu_top[5] = {true, true, true, true, false};
-TEST(mlp_test, top) { mlp_test(out_dims_top, is_relu_top,  5, 6912, 480); };
+bool is_relu_top[5] = { true, true, true, true, false};
+TEST(mlp_test, top) { mlp_test(out_dims_top, is_relu_top,  5, 640, 6912, true); };
+
+int batch_sizes[8] = { 448, 480, 500, 512, 560, 576, 640, 6912};
+//TEST(mlp_test, bottom) { mlp_test_batches(out_dims_bot, is_relu_bot, 3, batch_sizes, 8, 16, true); };
+//TEST(mlp_test, top) { mlp_test_batches(out_dims_top, is_relu_top, 5, batch_sizes, 8, 16, true); };
 

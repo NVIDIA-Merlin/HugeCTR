@@ -14,7 +14,7 @@ log_pattern = {
     },
     'dlrm_1node': {
         'cmd_log': r'python3 /workdir/samples/dlrm/dgx_a100.py',
-        'result_log': r'Hit target accuracy AUC 0.802500 at 68220 / 75868 iterations with batchsize 55296 in (.*)s. Average'
+        'result_log': r'Hit target accuracy AUC 0.802500 at 68274 / 75868 iterations with batchsize 55296 in (.*)s. Average'
     },
     'dlrm_14node': {
         'cmd_log': r'HugeCTR Version',
@@ -33,7 +33,7 @@ def extract_result_from_log(job_name, log_path):
     latest_log_file = max(log_files, key=os.path.getctime)
     print("use latest log file", latest_log_file)
     job_log_pattern = log_pattern[job_name]
-    with open(latest_log_file, 'r') as f:
+    with open(latest_log_file, 'r', errors='ignore') as f:
         lines = ''.join(f.readlines())
         job_logs = lines.split('+ ')
         for each_job_log in job_logs:

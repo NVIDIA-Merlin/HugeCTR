@@ -29,7 +29,7 @@ def wdl_test(json_file, export_path_prefix):
   for i in range(10000):
     lr = lr_sch.get_next()
     model.set_learning_rate(lr)
-    model.train()
+    model.train(False)
     if (i%100 == 0):
       loss = model.get_current_loss()
       print("[HUGECTR][INFO] iter: {}; loss: {}".format(i, loss))

@@ -47,6 +47,9 @@ class HybridEmbeddingUnitTest {
   std::vector<FrequentEmbedding<dtype, emtype>> frequent_embeddings;
   std::vector<InfrequentEmbedding<dtype, emtype>> infrequent_embeddings;
 
+  std::vector<FrequentEmbeddingCompression<dtype>> frequent_embedding_indices; 
+  std::vector<InfrequentEmbeddingSelection<dtype>> infrequent_embedding_indices;
+
   float* dev_lr;
 
  public:
@@ -86,8 +89,10 @@ class HybridEmbeddingUnitTest {
     frequent_embeddings.reserve(num_instances);
     for (size_t i = 0; i < num_instances; i++) {
       std::shared_ptr<BufferBlock2<emtype>> placeholder = NULL;
-      frequent_embeddings.emplace_back(data_list[i], data_list[i], model_list[i], fake_resource, placeholder,
+      frequent_embeddings.emplace_back(model_list[i], fake_resource, placeholder,
                                        embedding_vec_size, config.num_frequent);
+      frequent_embedding_indices.emplace_back(
+          config.num_frequent, data_list[i], model_list[i]);
     }
 
     if (config.comm_type == CommunicationType::NVLink_SingleNode) {
@@ -108,8 +113,8 @@ class HybridEmbeddingUnitTest {
   void build_infrequent() {
     infrequent_embeddings.reserve(num_instances);
     for (size_t i = 0; i < num_instances; i++) {
-      infrequent_embeddings.emplace_back(data_list[i], data_list[i], model_list[i], fake_resource,
-                                         embedding_vec_size);
+      infrequent_embeddings.emplace_back(model_list[i], fake_resource, embedding_vec_size);
+      infrequent_embedding_indices.emplace_back(data_list[i], model_list[i]);
       uint32_t samples_size = data_list[i].batch_size * data_list[i].table_sizes.size();
       infrequent_embeddings[i].max_num_infrequent_per_batch_ = samples_size;
       infrequent_embeddings[i].max_num_infrequent_per_train_batch_ = samples_size;
