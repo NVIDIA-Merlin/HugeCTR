@@ -37,6 +37,23 @@ inline void *forward_void_pointer(void *ptr, size_t offset) {
   return reinterpret_cast<unsigned char *>(ptr) + offset;
 }
 
+
+inline size_t tensorScalarSizeFunc(TensorScalarType type) {
+  switch (type)
+  {
+  case TensorScalarType::Void:    return 1ul;
+  case TensorScalarType::Float32: return sizeof(float);
+  case TensorScalarType::Float16: return sizeof(__half);
+  case TensorScalarType::Int64:   return sizeof(int64_t);
+  case TensorScalarType::UInt64:  return sizeof(uint64_t);
+  case TensorScalarType::Int32:   return sizeof(int32_t);
+  case TensorScalarType::UInt32:  return sizeof(uint32_t);
+  case TensorScalarType::Size_t:  return sizeof(size_t);  
+  default:
+    CK_THROW_(Error_t::WrongInput, "Cannot determine size of the None element");
+    return 0;
+  }
+}
 template <typename T>
 struct TensorScalarSizeFunc {
   static size_t get_element_size() { return sizeof(T); }
@@ -102,6 +119,10 @@ class TensorBag2 {
   const std::vector<size_t> &get_dimensions() const { return dimensions_; }
 
   void *get_ptr() { return buffer_->get_ptr(); }
+
+  size_t get_size_in_bytes() const {
+    return get_num_elements_from_dimensions(dimensions_) * tensorScalarSizeFunc(scalar_type_);
+  }
 };
 using TensorBags2 = std::vector<TensorBag2>;
 

@@ -22,6 +22,7 @@ file(GLOB huge_ctr_src
   ../resource_managers/resource_manager_core.cpp
   ../data_simulator.cu
   ../data_reader.cpp
+  ../graph_wrapper.cpp
   ../layer.cpp
   ../layers/batch_norm_layer.cu
   ../layers/cast_layer.cu

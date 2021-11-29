@@ -90,6 +90,7 @@ static void fully_connected_layer_test(size_t m, size_t n, size_t k) {
 
   Tensor2<__half> train_in_tensor, mask_in_tensor, dRelu_in_tensor, db_in_tensor;
   blobs_buff->reserve({m, k}, &train_in_tensor);
+  blobs_buff->reserve({m, k}, &mask_in_tensor);
   Tensor2<__half> train_out_tensor, mask_out_tensor, dRelu_out_tensor, db_out_tensor;
   blobs_buff->reserve({m, n}, &train_out_tensor);
   blobs_buff->reserve({m, n}, &mask_out_tensor);
@@ -118,7 +119,7 @@ static void fully_connected_layer_test(size_t m, size_t n, size_t k) {
   __half *d_kernel_grad = weights_grad.get_ptr();
   __half *d_bias_grad = weights_grad.get_ptr() + k * n;
   __half *d_bottom = train_in_tensor.get_ptr();
-  __half *d_bprop_in = train_in_tensor.get_ptr();
+  __half *d_bprop_in = mask_in_tensor.get_ptr();
   __half *d_top = train_out_tensor.get_ptr();
   __half *d_mask_out = mask_out_tensor.get_ptr();
 

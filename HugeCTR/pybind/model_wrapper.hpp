@@ -65,7 +65,7 @@ void ModelPybind(pybind11::module &m) {
            pybind11::arg("slot_size_array") = std::vector<size_t>(),
            pybind11::arg("optimizer") = std::shared_ptr<OptParamsPy>(new OptParamsPy()),
            pybind11::arg("hybrid_embedding_param") =
-               HybridEmbeddingParam{1, -1, 0.01, 1.3e11, 1.9e11, 1.0,
+               HybridEmbeddingParam{1, -1, 0.01, 1.3e11, 1.9e11, 1.0, false, false,
                                     hybrid_embedding::CommunicationType::NVLink_SingleNode,
                                     hybrid_embedding::HybridEmbeddingType::Distributed});
   pybind11::class_<HugeCTR::DenseLayer, std::shared_ptr<HugeCTR::DenseLayer>>(m, "DenseLayer")
@@ -149,7 +149,7 @@ void ModelPybind(pybind11::module &m) {
            pybind11::arg("group_dense_layer"))
       .def("set_learning_rate", &HugeCTR::Model::set_learning_rate, pybind11::arg("lr"))
       .def("train", &HugeCTR::Model::train)
-      .def("eval", &HugeCTR::Model::eval, pybind11::arg("eval_batch") = -1)
+      .def("eval", &HugeCTR::Model::eval, pybind11::arg("is_first_batch") = true)
       .def("start_data_reading", &HugeCTR::Model::start_data_reading)
       .def("get_current_loss",
            [](HugeCTR::Model &self) {

@@ -33,6 +33,7 @@ class FusedReluBiasFullyConnectedLayer : public Layer {
   // Optimized cublasGemmEx algorithm selection
   cublasLtMatmulAlgo_t falgo_k_;
   cublasLtMatmulAlgo_t balgo_dRelu_;
+  cublasLtMatmulAlgo_t balgo_wgrad_;
   cublasGemmAlgo_t balgo_k_{CUBLAS_GEMM_DEFAULT};
   cublasGemmAlgo_t balgo_x_{CUBLAS_GEMM_DEFAULT};
   cublasGemmAlgo_t balgo_b_{CUBLAS_GEMM_DEFAULT};
@@ -42,14 +43,18 @@ class FusedReluBiasFullyConnectedLayer : public Layer {
   cublasLtMatrixLayout_t cublas_bottom_desc_ = NULL;
   cublasLtMatrixLayout_t cublas_dRelu_top_desc_ = NULL;
   cublasLtMatrixLayout_t cublas_dRelu_bottom_desc_ = NULL;
+
   cublasLtMatmulDesc_t cublas_op_desc_ = NULL;
   cublasLtMatmulDesc_t cublas_op_desc_bprop_ = NULL;
+  cublasLtMatmulDesc_t cublas_op_desc_wgrad_ = NULL;
 
   cublasLtMatmulPreference_t cublas_preference_ = NULL;
   cublasLtMatmulPreference_t cublas_preference_dRelu_ = NULL;
+  cublasLtMatmulPreference_t cublas_preference_wgrad_ = NULL;
   size_t cublaslt_workspace_size_ = 1024 * 1024 * 8;
   void* cublaslt_workspace_;
   void* cublaslt_workspace_dRelu_;
+  void* cublaslt_workspace_wgrad_;
 
   /*
    * stores the weight tensors for compute of this layer.
@@ -150,7 +155,8 @@ class FusedReluBiasFullyConnectedLayer : public Layer {
    */
   void search_algorithm() final;
   void initialize() final;
-  void initialize_bprop();
+  void initialize_dgrad();
+  void initialize_wgrad();
 
   /*
    * Interfaces for unit tests to debug

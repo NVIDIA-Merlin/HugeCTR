@@ -332,7 +332,7 @@ Model::Model(const Solver& solver, const DataReaderParams& reader_params,
       high_level_eval_(false) {
   if(solver_.is_dlrm) {
     timer_log.start();
-    HCTR_LOG(INFO, ROOT, "[%.2f, init_start, ]\n", timer_log.elapsedMilliseconds());
+    LOG(timer_log.elapsedMilliseconds(), "init_start");
   }
   HCTR_PRINT(INFO, "HugeCTR Version: %d.%d\n", HUGECTR_VERSION_MAJOR, HUGECTR_VERSION_MINOR);
   HCTR_PRINT(INFO, "====================================================Model "
@@ -783,15 +783,14 @@ void Model::compile() {
   }
 
   if (solver_.use_holistic_cuda_graph) {
-    train_graph_.initialized.resize(networks_.size(), false);
-    train_graph_.instance.resize(networks_.size());
+    train_graphs_.resize(networks_.size());
     for (size_t i = 0; i < resource_manager_->get_local_gpu_count(); i++) {
       auto& gpu_resource = resource_manager_->get_local_gpu(i);
       CudaCPUDeviceContext context(gpu_resource->get_device_id());
       // CudaDeviceContext context(gpu_resource->get_device_id());
       cudaEvent_t event;
       CK_CUDA_THROW_(cudaEventCreateWithFlags(&event, cudaEventDisableTiming));
-      train_graph_.fork_event.push_back(event);
+      fork_events_.push_back(event);
     }
   }
 
@@ -806,46 +805,63 @@ void Model::compile() {
     }
   }
 
+  auto train_data_reader_ar_i64 = dynamic_cast<AsyncReader<long long>*>(train_data_reader_.get());
+  auto eval_data_reader_ar_i64 =  dynamic_cast<AsyncReader<long long>*>(evaluate_data_reader_.get());
+  auto init_data_reader_ar_i64 =  dynamic_cast<AsyncReader<long long>*>(init_data_reader_.get());
+
+  auto train_data_reader_ar_i32 = dynamic_cast<AsyncReader<unsigned int>*>(train_data_reader_.get());
+  auto eval_data_reader_ar_i32 =  dynamic_cast<AsyncReader<unsigned int>*>(evaluate_data_reader_.get());
+  auto init_data_reader_ar_i32 =  dynamic_cast<AsyncReader<unsigned int>*>(init_data_reader_.get());
+
+  // If doing async indices, init them before touching the data
+  for (size_t i = 0; i < sparse_embedding_params_.size(); i++) {
+    if (sparse_embedding_params_[i].embedding_type == Embedding_t::HybridSparseEmbedding) {
+      if (solver_.use_mixed_precision && solver_.i64_input_key) {
+        auto hybrid_embedding = dynamic_cast<HybridSparseEmbedding<long long, __half>*>(embeddings_[i].get());
+        hybrid_embedding->setup_async_mode(train_data_reader_ar_i64, eval_data_reader_ar_i64);
+      } else if (solver_.use_mixed_precision && !solver_.i64_input_key) {
+        auto hybrid_embedding = dynamic_cast<HybridSparseEmbedding<unsigned int, __half>*>(embeddings_[i].get());
+        hybrid_embedding->setup_async_mode(train_data_reader_ar_i32, eval_data_reader_ar_i32);
+      } else if (!solver_.use_mixed_precision && solver_.i64_input_key) {
+        auto hybrid_embedding = dynamic_cast<HybridSparseEmbedding<long long, float>*>(embeddings_[i].get());
+        hybrid_embedding->setup_async_mode(train_data_reader_ar_i64, eval_data_reader_ar_i64);
+      } else {
+        auto hybrid_embedding = dynamic_cast<HybridSparseEmbedding<unsigned int, float>*>(embeddings_[i].get());
+        hybrid_embedding->setup_async_mode(train_data_reader_ar_i32, eval_data_reader_ar_i32);
+      }
+    }
+  }
+
   // start to touch dataset, so we can record run_start
   if (solver_.is_dlrm) {
-    HCTR_LOG(INFO, ROOT, "%f init_end\n", timer_log.elapsedMilliseconds());
-    HCTR_LOG(INFO, ROOT, "%f run_start\n", timer_log.elapsedMilliseconds());
+    LOG(timer_log.elapsedMilliseconds(), "init_end");
+    LOG(timer_log.elapsedMilliseconds(), "run_start");
   }
+
+  if (init_data_reader_ar_i32) {
+    init_data_reader_ar_i32->start();
+    init_data_reader_ar_i32->read_a_batch_to_device();
+  }
+  if (init_data_reader_ar_i64) {
+    init_data_reader_ar_i64->start();
+    init_data_reader_ar_i64->read_a_batch_to_device();
+  }
+
   size_t embed_wgrad_size = 0;
   for (size_t i = 0; i < sparse_embedding_params_.size(); i++) {
     if (sparse_embedding_params_[i].embedding_type == Embedding_t::HybridSparseEmbedding) {
       if (solver_.use_mixed_precision && solver_.i64_input_key) {
-        auto init_data_reader_as =
-            std::dynamic_pointer_cast<AsyncReader<long long>>(init_data_reader_);
-        std::shared_ptr<HybridSparseEmbedding<long long, __half>> hybrid_embedding =
-            std::dynamic_pointer_cast<HybridSparseEmbedding<long long, __half>>(embeddings_[i]);
-        init_data_reader_as->start();
-        init_data_reader_as->read_a_batch_to_device();
-        hybrid_embedding->init_model(init_data_reader_as->get_value_tensors(), embed_wgrad_size);
+        auto hybrid_embedding = dynamic_cast<HybridSparseEmbedding<long long, __half>*>(embeddings_[i].get());
+        hybrid_embedding->init_model(init_data_reader_ar_i64->get_value_tensors(), embed_wgrad_size);
       } else if (solver_.use_mixed_precision && !solver_.i64_input_key) {
-        auto init_data_reader_as =
-            std::dynamic_pointer_cast<AsyncReader<unsigned int>>(init_data_reader_);
-        std::shared_ptr<HybridSparseEmbedding<unsigned int, __half>> hybrid_embedding =
-            std::dynamic_pointer_cast<HybridSparseEmbedding<unsigned int, __half>>(embeddings_[i]);
-        init_data_reader_as->start();
-        init_data_reader_as->read_a_batch_to_device();
-        hybrid_embedding->init_model(init_data_reader_as->get_value_tensors(), embed_wgrad_size);
+        auto hybrid_embedding = dynamic_cast<HybridSparseEmbedding<unsigned int, __half>*>(embeddings_[i].get());
+        hybrid_embedding->init_model(init_data_reader_ar_i32->get_value_tensors(), embed_wgrad_size);
       } else if (!solver_.use_mixed_precision && solver_.i64_input_key) {
-        auto init_data_reader_as =
-            std::dynamic_pointer_cast<AsyncReader<long long>>(init_data_reader_);
-        std::shared_ptr<HybridSparseEmbedding<long long, float>> hybrid_embedding =
-            std::dynamic_pointer_cast<HybridSparseEmbedding<long long, float>>(embeddings_[i]);
-        init_data_reader_as->start();
-        init_data_reader_as->read_a_batch_to_device();
-        hybrid_embedding->init_model(init_data_reader_as->get_value_tensors(), embed_wgrad_size);
+        auto hybrid_embedding = dynamic_cast<HybridSparseEmbedding<long long, float>*>(embeddings_[i].get());
+        hybrid_embedding->init_model(init_data_reader_ar_i64->get_value_tensors(), embed_wgrad_size);
       } else {
-        auto init_data_reader_as =
-            std::dynamic_pointer_cast<AsyncReader<unsigned int>>(init_data_reader_);
-        std::shared_ptr<HybridSparseEmbedding<unsigned int, float>> hybrid_embedding =
-            std::dynamic_pointer_cast<HybridSparseEmbedding<unsigned int, float>>(embeddings_[0]);
-        init_data_reader_as->start();
-        init_data_reader_as->read_a_batch_to_device();
-        hybrid_embedding->init_model(init_data_reader_as->get_value_tensors(), embed_wgrad_size);
+        auto hybrid_embedding = dynamic_cast<HybridSparseEmbedding<unsigned int, float>*>(embeddings_[i].get());
+        hybrid_embedding->init_model(init_data_reader_ar_i32->get_value_tensors(), embed_wgrad_size);
       }
     }
   }
@@ -1016,10 +1032,6 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
   HugeCTR::Timer timer;
   HugeCTR::Timer timer_train;
   HugeCTR::Timer timer_eval;
-  if(solver_.is_dlrm) {
-    HCTR_LOG(INFO, ROOT, "%f init_end\n", timer_log.elapsedMilliseconds());
-    HCTR_LOG(INFO, ROOT, "%f run_start\n", timer_log.elapsedMilliseconds());
-  }
 
   bool epoch_mode = !solver_.repeat_dataset;
   bool etc_mode = etc_params_->use_embedding_training_cache;
@@ -1067,6 +1079,7 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
   HugeCTR::global_profiler.initialize(solver_.use_cuda_graph);
 #endif
 
+  bool is_first_train_batch_after_eval = true;
   if (epoch_mode && !etc_mode) {
     int iter = 0;
     int batches;
@@ -1095,7 +1108,8 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
           this->set_learning_rate(lr);
 #endif
         }
-        data_reader_train_status_ = this->train();
+        data_reader_train_status_ = this->train(is_first_train_batch_after_eval);
+        is_first_train_batch_after_eval = false;
         if (display > 0 && iter % display == 0 && iter != 0) {
           timer_train.stop();
           float loss = 0;
@@ -1119,12 +1133,13 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
           this->check_overflow();
           this->copy_weights_for_evaluation();
           batches = 0;
+          is_first_train_batch_after_eval = true;
           timer_eval.start();
           while (data_reader_eval_status_) {
             if (solver_.max_eval_batches == 0 || batches >= solver_.max_eval_batches) {
               break;
             }
-            data_reader_eval_status_ = this->eval(batches);
+            data_reader_eval_status_ = this->eval(batches == 0);
             batches++;
           }
           if (!data_reader_eval_status_) {
@@ -1173,6 +1188,7 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
       data_reader_eval_status_ = true;
     }
     MESSAGE_("Evaluation source file: " + reader_params_.eval_source);
+    bool is_first_train_batch_after_eval = true;
     for (int e = 0; e < etc_epochs; e++) {
       for (unsigned int f = 0; f < reader_params_.source.size(); f++) {
         MESSAGE_("--------------------Epoch " + std::to_string(e) +
@@ -1192,7 +1208,8 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
             this->set_learning_rate(lr);
 #endif
           }
-          data_reader_train_status_ = this->train();
+          data_reader_train_status_ = this->train(is_first_train_batch_after_eval);
+          is_first_train_batch_after_eval = false;
           if (display > 0 && iter % display == 0 && iter != 0) {
             timer_train.stop();
             float loss = 0;
@@ -1216,12 +1233,13 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
             this->check_overflow();
             this->copy_weights_for_evaluation();
             batches = 0;
+            is_first_train_batch_after_eval = true;
             timer_eval.start();
             while (data_reader_eval_status_) {
               if (solver_.max_eval_batches == 0 || batches >= solver_.max_eval_batches) {
                 break;
               }
-              data_reader_eval_status_ = this->eval(batches);
+              data_reader_eval_status_ = this->eval(batches == 0);
               batches++;
             }
             if (!data_reader_eval_status_) {
@@ -1245,6 +1263,7 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
     MESSAGE_("Training source file: " + reader_params_.source[0]);
     MESSAGE_("Evaluation source file: " + reader_params_.eval_source);
     this->start_data_reading();
+    bool is_first_train_batch_after_eval = true;
     for (int iter = 0; iter < max_iter; iter++) {
       float lr = 0;
       if (!this->use_gpu_learning_rate_scheduling()) {
@@ -1257,7 +1276,8 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
         this->set_learning_rate(lr);
 #endif
       }
-      this->train();
+      this->train(is_first_train_batch_after_eval);
+      is_first_train_batch_after_eval = false;
 #ifdef ENABLE_PROFILING
       iter = 0;
       continue;
@@ -1284,9 +1304,10 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
       if (eval_interval > 0 && iter % eval_interval == 0 && iter != 0) {
         this->check_overflow();
         this->copy_weights_for_evaluation();
+        is_first_train_batch_after_eval = true;
         timer_eval.start();
         for (int batches = 0; batches < solver_.max_eval_batches; batches++) {
-          this->eval(batches);
+          this->eval(batches == 0);
         }
         timer_eval.stop();
         auto eval_metrics = this->get_eval_metrics();
@@ -1390,10 +1411,10 @@ void Model::train_overlapped() {
       }
     };
 
-    auto do_it = [&, this](int id, int batch_size) {
+    auto do_it = [&, this](cudaStream_t submit_stream) {
       if (solver_.use_holistic_cuda_graph) {
-        CK_CUDA_THROW_(cudaEventRecord(train_graph_.fork_event[id], stream));
-        state.event = &train_graph_.fork_event[id];
+        CK_CUDA_THROW_(cudaEventRecord(fork_events_[id], submit_stream));
+        state.event = &fork_events_[id];
       }
 
       // Network just runs unconditionally
@@ -1407,7 +1428,7 @@ void Model::train_overlapped() {
           schedule_reader(TrainState_t::TopMLPFprop);
         }
         state = networks_[id]->train(
-            batch_size, [this, id]() { this->exchange_wgrad(id); }, state);
+            current_batchsize_per_device, [this, id]() { this->exchange_wgrad(id); }, state);
         if (resource_manager_->get_num_process() > 1) {
           schedule_reader(TrainState_t::TopMLPFprop);
         }
@@ -1416,25 +1437,25 @@ void Model::train_overlapped() {
     };
 
     if (solver_.use_holistic_cuda_graph) {
-      if (!train_graph_.initialized[id]) {
-        cudaGraph_t graph;
-        CK_CUDA_THROW_(cudaStreamBeginCapture(stream, cudaStreamCaptureModeRelaxed));
-        do_it(id, current_batchsize_per_device);
-        CK_CUDA_THROW_(cudaStreamEndCapture(stream, &graph));
-        CK_CUDA_THROW_(cudaGraphInstantiate(&train_graph_.instance[id], graph, NULL, NULL, 0));
-        train_graph_.initialized[id] = true;
+      if (!train_graphs_[id].initialized) {
+        train_graphs_[id].capture(do_it, stream);
+        #ifdef ENABLE_MPI
+        #pragma omp master
+        MPI_Barrier(MPI_COMM_WORLD);
+        #endif
+        #pragma omp barrier
       }
-      CK_CUDA_THROW_(cudaGraphLaunch(train_graph_.instance[id], stream));
+      train_graphs_[id].exec(stream);
       if (scheduled_reader) {
         scheduled_reader->update_schedule_graph(id);
       }
     } else {
-      do_it(id, current_batchsize_per_device);
+      do_it(stream);
     }
   }
 }
 
-bool Model::train() {
+bool Model::train(bool is_first_batch) {
   try {
     if (train_data_reader_->is_started() == false) {
       CK_THROW_(Error_t::IllegalCall, "Start the data reader first before calling Model::train()");
@@ -1472,7 +1493,7 @@ bool Model::train() {
       train_overlapped();
     } else {
       for (auto& one_embedding : embeddings_) {
-        one_embedding->forward(true);
+        one_embedding->forward(true, is_first_batch);
       }
       if (networks_.size() > 1) {
 // execute dense forward and backward with multi-cpu threads
@@ -1549,7 +1570,7 @@ bool Model::train() {
   }
 }
 
-bool Model::eval(int eval_batch) {
+bool Model::eval(bool is_first_batch) {
   try {
     if (evaluate_data_reader_ == nullptr) return true;
     if (evaluate_data_reader_->is_started() == false) {
@@ -1575,7 +1596,7 @@ bool Model::eval(int eval_batch) {
     evaluate_data_reader_->ready_to_collect();
 #ifndef DATA_READING_TEST
     for (auto& one_embedding : embeddings_) {
-      one_embedding->forward(false, eval_batch);
+      one_embedding->forward(false, is_first_batch);
     }
 
     if (networks_.size() > 1) {
