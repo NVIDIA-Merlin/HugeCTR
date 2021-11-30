@@ -380,9 +380,10 @@ class Model {
   }
 
   Error_t set_learning_rate(float lr) {
-    float lr_embedding = is_embedding_trainable_ ? lr : 0.0;
-    float lr_dense = is_dense_trainable_ ? lr : 0.0;
+    float lr_embedding{0.f};
+    float lr_dense = is_dense_trainable_ ? lr : 0.f;
     for (auto& embedding : embeddings_) {
+      lr_embedding = embedding->is_trainable() ? lr : 0.f;
       embedding->set_learning_rate(lr_embedding);
     }
     for (auto& network : networks_) {
@@ -431,11 +432,35 @@ class Model {
 
   void load_dense_weights(const std::string& dense_model_file);
   void load_sparse_weights(const std::vector<std::string>& sparse_embedding_files);
+  void load_sparse_weights(const std::map<std::string, std::string>& sparse_embedding_files_map);
   void load_dense_optimizer_states(const std::string& dense_opt_states_file);
   void load_sparse_optimizer_states(const std::vector<std::string>& sparse_opt_states_files);
-  void freeze_embedding() { is_embedding_trainable_ = false; };
+  void load_sparse_optimizer_states(const std::map<std::string, std::string>& sparse_opt_states_files_map);
+  void freeze_embedding() {
+    for (auto& one_embedding : embeddings_) {
+      one_embedding->freeze();      
+    }
+  };
+  void freeze_embedding(const std::string& embedding_name) {
+    if (embeddings_map_.find(embedding_name) == embeddings_map_.end()) {
+      CK_THROW_(Error_t::WrongInput, "No such embedding name: " + embedding_name);
+    }
+    auto it = embeddings_map_.find(embedding_name);
+    it->second->freeze();
+  }
   void freeze_dense() { is_dense_trainable_ = false; };
-  void unfreeze_embedding() { is_embedding_trainable_ = true; };
+  void unfreeze_embedding() {
+    for (auto& one_embedding : embeddings_) {
+      one_embedding->unfreeze();      
+    }
+  };
+  void unfreeze_embedding(const std::string& embedding_name) {
+    if (embeddings_map_.find(embedding_name) == embeddings_map_.end()) {
+      CK_THROW_(Error_t::WrongInput, "No such embedding name: " + embedding_name);
+    }
+    auto it = embeddings_map_.find(embedding_name);
+    it->second->unfreeze();
+  }
   void unfreeze_dense() { is_dense_trainable_ = true; };
   std::vector<std::pair<std::vector<long long>, std::vector<float>>>& get_incremental_model();
 
@@ -459,7 +484,6 @@ class Model {
   bool data_reader_eval_status_;
   bool buff_allocated_;
   bool etc_created_;
-  bool is_embedding_trainable_;
   bool is_dense_trainable_;
   std::vector<std::shared_ptr<GeneralBuffer2<CudaAllocator>>> blobs_buff_list_;
   std::vector<std::shared_ptr<BufferBlock2<float>>> train_weight_buff_list_;
@@ -509,6 +533,7 @@ class Model {
   bool dlrm_bottom_mlp_;
   bool high_level_eval_;
   HugeCTR::Timer timer_log;
+  std::map<std::string, std::shared_ptr<IEmbedding>> embeddings_map_;
 
   Error_t download_dense_params_to_files_(std::string weights_file,
                                           std::string dense_opt_states_file);

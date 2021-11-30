@@ -123,7 +123,7 @@ class DataReaderWorkerRaw : public IDataReaderWorker {
     long long current_batchsize = source_->get_num_of_items_in_source();
     if (current_batchsize != buffer_->batch_size) {
       std::cout << "current_batchsize: " << current_batchsize
-                << "batchsize: " << buffer_->batch_size << std::endl;
+                << ", batchsize: " << buffer_->batch_size << std::endl;
     }
 
     char* data_buffer = source_->get_ptr();
