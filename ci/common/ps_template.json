@@ -1,0 +1,25 @@
+{
+    "supportlonglong":true,
+    "db_type":"local",
+    "redis_ip":"127.0.0.1:7000,127.0.0.1:7001,127.0.0.1:7002",
+    "rocksdb_path":"/hugectr/test/utest/wdl_test_files/rocksdb",
+    "models":[
+
+        {
+            "model":"dlrm",
+            "sparse_files":["/model/dlrm/1/dlrm0_sparse_20000.model"],
+            "dense_file":"/model/dlrm/1/dlrm_dense_20000.model",
+            "network_file":"/model/dlrm/1/dlrm.json",
+            "num_of_worker_buffer_in_pool": "6",
+            "num_of_refresher_buffer_in_pool":"1",
+            "deployed_device_list":["0","3"],
+            "max_batch_size":"1",
+            "mixed_precision":true,
+            "default_value_for_each_table":["0.0"],
+            "cache_refresh_percentage_per_iteration":"0.2",
+            "hit_rate_threshold":"1.1",
+            "gpucacheper":"0.5",
+            "gpucache":"true"
+        }
+    ]
+}

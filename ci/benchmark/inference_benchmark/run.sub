@@ -1,0 +1,14 @@
+#!/bin/bash
+
+: "${BZ:?BZ not set}"
+: "${MIXED_PRECISION:? MIXED_PRECISION}"
+if [ ${MIXED_PRECISION} == "FP16" ];then
+    export MIXED_PRECISION="True";
+else
+    export MIXED_PRECISION="False"
+fi
+export CATCOLUMN=$(( $BZ * 26 ))
+export DES=$(( 13 * $BZ ))
+export ROWINDEX=$(( 26 * $BZ + 1 ))
+
+srun --ntasks="${SLURM_JOB_NUM_NODES}" --container-image="${CONT}" --container-mounts="${MOUNTS}" --container-workdir=/workdir bash -cx "chmod +x ./ci/benchmark/inference_benchmark/test.sh && ./ci/benchmark/inference_benchmark/test.sh"

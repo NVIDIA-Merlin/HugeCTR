@@ -1,0 +1,4 @@
+#!/bin/bash
+
+srun --ntasks=1 --container-image="${CONT}" --container-mounts="${MOUNTS}" bash -cx " \
+      python3 /workdir/ci/post_test/check_performance.py --collect_result --log_path /logs"
