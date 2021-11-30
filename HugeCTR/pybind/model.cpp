@@ -325,7 +325,6 @@ Model::Model(const Solver& solver, const DataReaderParams& reader_params,
       data_reader_eval_status_(false),
       buff_allocated_(false),
       etc_created_(false),
-      is_embedding_trainable_(true),
       is_dense_trainable_(true),
       current_eval_batchsize_(0),
       dlrm_bottom_mlp_(true),
@@ -568,6 +567,7 @@ void Model::add(SparseEmbedding& sparse_embedding) {
         solver_.grouped_all_reduce, solver_.use_holistic_cuda_graph,
         solver_.num_iterations_statistics, gpu_lr_sches_, solver_.overlap_ar_a2a);
   }
+  embeddings_map_.insert(std::make_pair(sparse_embedding.sparse_embedding_name, embeddings_.back()));
 }
 
 void Model::add(DenseLayer& dense_layer) {
@@ -894,7 +894,35 @@ void Model::load_sparse_optimizer_states(const std::vector<std::string>& sparse_
     CK_THROW_(Error_t::IllegalCall,
               "Cannot load the sparse optimizer states after embedding training cache is created");
   }
+  if (sparse_opt_states_files.size() != embeddings_.size()) {
+    CK_THROW_(Error_t::WrongInput,
+              "The size of sparse opt state files should be equal to the number of embeddings");
+  }  
   load_opt_states_for_sparse_(sparse_opt_states_files);
+}
+
+void Model::load_sparse_optimizer_states(const std::map<std::string, std::string>& sparse_opt_states_files_map) {
+  if (!buff_allocated_) {
+    CK_THROW_(Error_t::IllegalCall,
+              "Cannot load the sparse optimizer states before calling Model.compile()");
+  }
+  if (etc_params_->use_embedding_training_cache) {
+    CK_THROW_(Error_t::IllegalCall,
+              "Cannot load the sparse optimizer states after model oversubscriber is created");
+  }
+  for (auto iter = sparse_opt_states_files_map.begin(); iter != sparse_opt_states_files_map.end(); iter++) {
+    if (embeddings_map_.find(iter->first) == embeddings_map_.end()) {
+      CK_THROW_(Error_t::WrongInput, "No such embedding name: " + iter->first);
+    }
+    auto embedding_target = embeddings_map_.find(iter->first)->second;
+    std::ifstream sparse_opt_stream(iter->first, std::ifstream::binary);
+    if (!sparse_opt_stream.is_open()) {
+      CK_THROW_(Error_t::WrongInput, "Cannot open sparse optimizer states file");
+    }
+    MESSAGE_("Loading sparse optimizer states: " + iter->first);
+    embedding_target->load_opt_states(sparse_opt_stream);
+    sparse_opt_stream.close();
+  }
 }
 
 void Model::load_dense_weights(const std::string& dense_model_file) {
@@ -913,7 +941,30 @@ void Model::load_sparse_weights(const std::vector<std::string>& sparse_embedding
     CK_THROW_(Error_t::IllegalCall,
               "Cannot load the sparse weights after embedding training cache is created");
   }
+  if (sparse_embedding_files.size() != embeddings_.size()) {
+    CK_THROW_(Error_t::WrongInput,
+              "The size of sparse embedding files should be equal to the number of embeddings");
+  }
   load_params_for_sparse_(sparse_embedding_files);
+}
+
+void Model::load_sparse_weights(const std::map<std::string, std::string>& sparse_embedding_files_map) {
+  if (!buff_allocated_) {
+    CK_THROW_(Error_t::IllegalCall,
+              "Cannot load the sparse weights before calling Model.compile()");
+  }
+  if (etc_params_->use_embedding_training_cache) {
+    CK_THROW_(Error_t::IllegalCall,
+              "Cannot load the sparse weights after model oversubscriber is created");
+  }
+  for (auto iter = sparse_embedding_files_map.begin(); iter != sparse_embedding_files_map.end(); iter++) {
+    if (embeddings_map_.find(iter->first) == embeddings_map_.end()) {
+      CK_THROW_(Error_t::WrongInput, "No such embedding name: " + iter->first);
+    }
+    auto embedding_target = embeddings_map_.find(iter->first)->second;
+    MESSAGE_("Loading sparse model: " + iter->second);
+    embedding_target->load_parameters(iter->second);
+  }
 }
 
 void Model::summary() {
@@ -1056,22 +1107,25 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
   // FYI, A string literal is statically allocated so we can assume it is safe to return it.
   auto b2s = [](const char val) { return val? "True" : "False"; };
 
-  HCTR_LOG(INFO, ROOT,"Sparse embedding trainable: %s, dense network trainable: %s\n",
-                      b2s(is_embedding_trainable_),
+  HCTR_LOG(INFO, ROOT,"Dense network trainable: %s\n",
                       b2s(is_dense_trainable_));
+  for (auto iter = embeddings_map_.begin(); iter != embeddings_map_.end(); iter++) {
+    HCTR_LOG(INFO, ROOT, "Sparse embedding %s trainable: %s\n",
+                       iter->first.c_str(),
+                       b2s(iter->second->is_trainable()));
+  }
   HCTR_LOG(INFO, ROOT,"Use mixed precision: %s, scaler: %f, use cuda graph: %s\n",
                        b2s(solver_.use_mixed_precision),
                        solver_.scaler,
                        b2s(solver_.use_cuda_graph));
-
-  HCTR_LOG(INFO, ROOT,"lr: %f, warmup_steps: %zu, decay_start: %zu, decay_steps: %zu, decay_power: %f, end_lr: %f\n",
+  HCTR_LOG(INFO, ROOT,"lr: %f, warmup_steps: %zu, end_lr: %f\n",
                        solver_.lr,
                        solver_.warmup_steps,
+                       solver_.end_lr);
+  HCTR_LOG(INFO, ROOT,"decay_start: %zu, decay_steps: %zu, decay_power: %f\n",
                        solver_.decay_start,
                        solver_.decay_steps,
-                       solver_.decay_power,
-                       solver_.end_lr);
-
+                       solver_.decay_power);
   timer.start();
   timer_train.start();
 

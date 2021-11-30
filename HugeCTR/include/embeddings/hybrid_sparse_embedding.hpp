@@ -288,6 +288,11 @@ class HybridSparseEmbedding : public IEmbedding {
       int raw_device_id,
       int sm_count);
 
+  void freeze() override { HCTR_LOG(WARNING, ROOT, "Hybrid embedding cannot be freezed.\n"); }
+
+  void unfreeze() override { HCTR_LOG(WARNING, ROOT, "Hybrid embedding do not need to be unfreezed.\n"); }
+
+  bool is_trainable() const override { return true; }
 };
 
 }  // namespace HugeCTR

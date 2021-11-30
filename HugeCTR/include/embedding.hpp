@@ -60,6 +60,10 @@ class IEmbedding {
   virtual void get_forward_results_tf(const bool is_train, const bool on_gpu,
                                       void* const forward_result) = 0;
   virtual cudaError_t update_top_gradients(const bool on_gpu, const void* const top_gradients) = 0;
+
+  virtual void freeze() = 0;
+  virtual void unfreeze() = 0;
+  virtual bool is_trainable() const = 0;
 };
 
 struct SparseEmbeddingHashParams {

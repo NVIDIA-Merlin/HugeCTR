@@ -192,23 +192,35 @@ void ModelPerfExt::fit(int num_epochs, int max_iter, int display, int eval_inter
               << std::endl;
   }
 
-  MESSAGE_("Use non-epoch mode with number of iterations: " + std::to_string(max_iter));
+  HCTR_LOG(INFO, ROOT, "Use non-epoch mode with number of iterations: %d\n", max_iter);
 
-  MESSAGE_("Training batchsize: " + std::to_string(solver_.batchsize) +
-           ", evaluation batchsize: " + std::to_string(solver_.batchsize_eval));
-  MESSAGE_("Evaluation interval: " + std::to_string(eval_interval) +
-           ", snapshot interval: " + std::to_string(snapshot));
-  MESSAGE_("Sparse embedding trainable: " + std::to_string(is_embedding_trainable_) +
-           ", dense network trainable: " + std::to_string(is_dense_trainable_));
-  MESSAGE_("Use mixed precision: " + std::to_string(solver_.use_mixed_precision) +
-           ", scaler: " + std::to_string(solver_.scaler) +
-           ", use cuda graph: " + std::to_string(solver_.use_cuda_graph));
-  MESSAGE_("lr: " + std::to_string(solver_.lr) +
-           ", warmup_steps: " + std::to_string(solver_.warmup_steps) +
-           ", decay_start: " + std::to_string(solver_.decay_start) +
-           ", decay_steps: " + std::to_string(solver_.decay_steps) + ", decay_power: " +
-           std::to_string(solver_.decay_power) + ", end_lr: " + std::to_string(solver_.end_lr));
-
+  HCTR_LOG(INFO, ROOT,"Training batchsize: %d, evaluation batchsize: %d\n",
+                      solver_.batchsize,
+                      solver_.batchsize_eval);
+  HCTR_LOG(INFO, ROOT,"Evaluation interval: %d, snapshot interval: %d\n",
+                      eval_interval,
+                      snapshot);
+  // FYI, A string literal is statically allocated so we can assume it is safe to return it.
+  auto b2s = [](const char val) { return val? "True" : "False"; };
+  HCTR_LOG(INFO, ROOT,"Dense network trainable: %s\n",
+                      b2s(is_dense_trainable_));
+  for (auto iter = embeddings_map_.begin(); iter != embeddings_map_.end(); iter++) {
+    HCTR_LOG(INFO, ROOT, "Sparse embedding %s trainable: %s\n",
+                       iter->first.c_str(),
+                       b2s(iter->second->is_trainable()));
+  }
+  HCTR_LOG(INFO, ROOT,"Use mixed precision: %s, scaler: %f, use cuda graph: %s\n",
+                       b2s(solver_.use_mixed_precision),
+                       solver_.scaler,
+                       b2s(solver_.use_cuda_graph));
+  HCTR_LOG(INFO, ROOT,"lr: %f, warmup_steps: %zu, end_lr: %f\n",
+                       solver_.lr,
+                       solver_.warmup_steps,
+                       solver_.end_lr);
+  HCTR_LOG(INFO, ROOT,"decay_start: %zu, decay_steps: %zu, decay_power: %f\n",
+                       solver_.decay_start,
+                       solver_.decay_steps,
+                       solver_.decay_power);
   timer.start();
   timer_train.start();
 

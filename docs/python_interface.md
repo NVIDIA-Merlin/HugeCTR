@@ -687,8 +687,36 @@ hugectr.Model.load_sparse_weights()
 ```
 This method load the sparse weights from the saved sparse embedding files.
 
+Implementation Ⅰ
+
 **Arguments**
 * `sparse_embedding_files`: List[str], the sparse embedding files from which the sparse weights will be loaded. The number of files should equal to that of the sparse embedding layers in the model. There is NO default value and it should be specified by users.
+
+Implementation Ⅱ
+
+**Arguments**
+* `sparse_embedding_files_map`: Dict[str, str], the sparse embedding file will be loaded by the embedding layer with the specified sparse embedding name. There is NO default value and it should be specified by users.
+
+Example:
+```python
+model.add(hugectr.SparseEmbedding(embedding_type = hugectr.Embedding_t.DistributedSlotSparseEmbeddingHash, 
+                            workspace_size_per_gpu_in_mb = 23,
+                            embedding_vec_size = 1,
+                            combiner = "sum",
+                            sparse_embedding_name = "sparse_embedding2",
+                            bottom_name = "wide_data",
+                            optimizer = optimizer))
+model.add(hugectr.SparseEmbedding(embedding_type = hugectr.Embedding_t.DistributedSlotSparseEmbeddingHash, 
+                            workspace_size_per_gpu_in_mb = 358,
+                            embedding_vec_size = 16,
+                            combiner = "sum",
+                            sparse_embedding_name = "sparse_embedding1",
+                            bottom_name = "deep_data",
+                            optimizer = optimizer))
+# ...
+model.load_sparse_weights(["wdl_0_sparse_4000.model", "wdl_1_sparse_4000.model"]) # load models for both embedding layers
+model.load_sparse_weights({"sparse_embedding1": "wdl_1_sparse_4000.model"}) # or load the model for one embedding layer
+```
 ***
 
 #### **load_sparse_optimizer_states method**
@@ -697,8 +725,15 @@ hugectr.Model.load_sparse_optimizer_states()
 ```
 This method load the sparse optimizer states from the saved sparse optimizer states files.
 
+Implementation Ⅰ
+
 **Arguments**
 * `sparse_opt_states_files`: List[str], the sparse optimizer states files from which the sparse optimizer states will be loaded. The number of files should equal to that of the sparse embedding layers in the model. There is NO default value and it should be specified by users.
+
+Implementation Ⅱ
+
+**Arguments**
+* `sparse_opt_states_files_map`: Dict[str, str], the sparse optimizer states file will be loaded by the embedding layer with the specified sparse embedding name. There is NO default value and it should be specified by users.
 ***
 
 #### **freeze_dense method**
@@ -712,21 +747,56 @@ This method takes no extra arguments and freezes the dense weights of the model.
 ```bash
 hugectr.Model.freeze_embedding()
 ```
+
+Implementation Ⅰ: freeze the weights of all the embedding layers.
 This method takes no extra arguments and freezes the sparse weights of the model. Users can use this method when they only want to train the dense weights.
+
+Implementation Ⅱ: freeze the weights of a specific embedding layer. Please refer to Section 3.4 of [HugeCTR Criteo Notebook](../notebooks/hugectr_criteo.ipynb) for the usage.
+
+**Arguments**
+* `embedding_name`: String, the name of the embedding layer.
+
+Example:
+```python
+model.add(hugectr.SparseEmbedding(embedding_type = hugectr.Embedding_t.DistributedSlotSparseEmbeddingHash, 
+                            workspace_size_per_gpu_in_mb = 23,
+                            embedding_vec_size = 1,
+                            combiner = "sum",
+                            sparse_embedding_name = "sparse_embedding2",
+                            bottom_name = "wide_data",
+                            optimizer = optimizer))
+model.add(hugectr.SparseEmbedding(embedding_type = hugectr.Embedding_t.DistributedSlotSparseEmbeddingHash, 
+                            workspace_size_per_gpu_in_mb = 358,
+                            embedding_vec_size = 16,
+                            combiner = "sum",
+                            sparse_embedding_name = "sparse_embedding1",
+                            bottom_name = "deep_data",
+                            optimizer = optimizer))
+# ...
+model.freeze_embedding() # freeze all the embedding layers
+model.freeze_embedding("sparse_embedding1") # or free a specific embedding layer
+```
 ***
 
 #### **unfreeze_dense method**
 ```bash
-hugectr.Model.freeze_dense()
+hugectr.Model.unfreeze_dense()
 ```
 This method takes no extra arguments and unfreezes the dense weights of the model.
 ***
 
 #### **unfreeze_embedding method**
 ```bash
-hugectr.Model.freeze_embedding()
+hugectr.Model.unfreeze_embedding()
 ```
+
+Implementation Ⅰ: unfreeze the weights of all the embedding layers.
 This method takes no extra arguments and unfreezes the sparse weights of the model.
+
+Implementation Ⅱ: unfreeze the weights of a specific embedding layer.
+
+**Arguments**
+* `embedding_name`: String, the name of the embedding layer.
 ***
 
 #### **reset_learning_rate_scheduler method**
