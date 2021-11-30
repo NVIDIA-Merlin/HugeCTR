@@ -1,0 +1,36 @@
+
+sok--8192x1:
+  extends: .sok_benchmark
+sok--16384x1:
+  extends: .sok_benchmark
+sok--32768x1:
+  extends: .sok_benchmark
+sok--65536x1:
+  extends: .sok_benchmark
+  
+sok--8192x2:
+  extends: .sok_benchmark
+sok--16384x2:
+  extends: .sok_benchmark
+sok--32768x2:
+  extends: .sok_benchmark
+sok--65536x2:
+  extends: .sok_benchmark
+
+sok--8192x4:
+  extends: .sok_benchmark
+sok--16384x4:
+  extends: .sok_benchmark
+sok--32768x4:
+  extends: .sok_benchmark
+sok--65536x4:
+  extends: .sok_benchmark
+
+sok--8192x8:
+  extends: .sok_benchmark
+sok--16384x8:
+  extends: .sok_benchmark
+sok--32768x8:
+  extends: .sok_benchmark
+sok--65536x8:
+  extends: .sok_benchmark

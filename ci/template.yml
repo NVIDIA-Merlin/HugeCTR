@@ -1,3 +1,15 @@
+stages:
+  - build_from_scratch
+  - build
+  - test
+  - inference_benchmark
+  - sok_benchmark
+  - wdl_benchmark
+  - dcn_benchmark
+  - deepfm_benchmark
+  - dlrm_benchmark
+  - post_test
+
 .build_nightly:
   stage: build_from_scratch
   tags:
@@ -19,9 +31,10 @@
       --no-cache 
       . ;
     - docker push ${DST_IMAGE}
-  only:
-    variables:
-      - $NIGHTLY == "1"
+  rules:
+    - if: $NIGHTLY == "1"
+      when: always
+    - when: never
   timeout: 5 hours
 
 .build:
@@ -42,8 +55,10 @@
       fi
     - if [[ "$BUILD_SOK" == 1 ]]; then
         echo "RUN cd /workdir/sparse_operation_kit/ && mkdir -p build && cd build && cmake ${CMAKE_OPTION} .. && make -j$(nproc) && make install" >> ${JOB_DOCKERFILE};
+        echo "RUN pip install nvtx" >> ${JOB_DOCKERFILE};
         echo "ENV LD_LIBRARY_PATH=/usr/local/hugectr/lib:/usr/local/lib:\$LD_LIBRARY_PATH" >> ${JOB_DOCKERFILE};
         echo "ENV LIBRARY_PATH=/usr/local/hugectr/lib:/usr/local/lib:\$LIBRARY_PATH" >> ${JOB_DOCKERFILE};
+        echo "ENV PYTHONPATH=/workdir/sparse_operation_kit:\$PYTHONPATH" >> ${JOB_DOCKERFILE};
       fi
     - if [[ "$BUILD_HUGECTR2ONNX" == 1 ]]; then
         echo "RUN cd /workdir/onnx_converter && python3 setup.py install" >> ${JOB_DOCKERFILE};
@@ -62,6 +77,7 @@
   rules:
     - if: $CI_PIPELINE_SOURCE =~ /^(push|web|merge_request_event|trigger)$/
       when: always
+    - when: never
   allow_failure: false
   timeout: 5 hours
 
@@ -71,6 +87,7 @@
   rules:
     - if: $CI_PIPELINE_SOURCE =~ /^(web|merge_request_event)$/
       when: always
+    - when: never
 
 .cluster_post_test_job:
   extends: .cluster_test_job
@@ -78,3 +95,85 @@
   rules:
     - if: $CI_PIPELINE_SOURCE =~ /^(web|merge_request_event)$/
       when: always
+    - when: never
+
+.inference_benchmark:
+  extends: .selene_luna_job
+  stage: inference_benchmark
+  before_script:
+    - export PARAM=$(echo ${CI_JOB_NAME} | awk -F-- '{print $2}')
+    - export BZ=$(echo ${PARAM} | awk -Fx '{print $1}')
+    - export MIXED_PRECISION=$(echo ${PARAM} | awk -Fx '{print $2}')
+    - export GPFSFOLDER=$LOGDIR/inference_benchmark_${BZ}x${MIXED_PRECISION}
+  variables:
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $INFER_IMAGE_VERSIONED
+    MOUNTS: /lustre/fsw/devtech/hpc-hugectr/inference/dlrm_regression/dlrm/1:/model/dlrm/1,/lustre/fsw/devtech/hpc-hugectr/keynote_inference/perf_data:/perf_data
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "00:15:00"
+    DGXNNODES: 1
+    TEST_CMD: ./ci/benchmark/inference_benchmark/run.sub
+  rules:
+    - if: $NIGHTLY == "1"
+      when: manual
+    - when: never
+
+.sok_benchmark:
+  extends: .selene_luna_job
+  stage: sok_benchmark
+  before_script:
+    - export PARAM=$(echo ${CI_JOB_NAME} | awk -F-- '{print $2}')
+    - export BZ=$(echo ${PARAM} | awk -Fx '{print $1}')
+    - export GPU_NUM=$(echo ${PARAM} | awk -Fx '{print $2}')
+    - export GPFSFOLDER=$LOGDIR/sok_benchmark_${BZ}x${GPU_NUM}
+  variables:
+    GPFSFOLDER: $LOGDIR/sok_benchmark
+    CONT: $SOK_IMAGE_VERSIONED
+    MOUNTS: /lustre/fsw/mlperf/mlperft-dlrm/datasets/terabyte_portion_csv/:/dataset
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "00:45:00"
+    DGXNNODES: 1
+    TEST_CMD: ./ci/benchmark/sok/sok_dlrm.sub
+  rules:
+    - if: $NIGHTLY == "1"
+      when: manual
+    - when: never
+
+.train_benchmark:
+  extends: .selene_luna_job
+  before_script:
+    - export BENCHMARK=$(echo ${CI_JOB_NAME} | awk -F-- '{print $2}')
+    - export PARAM=$(echo ${CI_JOB_NAME} | awk -F-- '{print $3}')
+    - export NODE_NUM=$(echo ${PARAM} | awk -Fx '{print $1}')
+    - export GPU_NUM=$(echo ${PARAM} | awk -Fx '{print $2}')
+    - export BZ_PER_GPU=$(echo ${PARAM} | awk -Fx '{print $3}')
+    - export MIXED_PRECISION=$(echo ${PARAM} | awk -Fx '{print $4}')
+    - export DGXNNODES=${NODE_NUM}
+    - export GPFSFOLDER=$LOGDIR/train_benchmark--${BENCHMARK}--${NODE_NUM}x${GPU_NUM}x${BZ_PER_GPU}x${MIXED_PRECISION}
+  variables:
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $TRAIN_IMAGE_MULTINODE_VERSIONED
+    MOUNTS: ${DATASET_NEW_CRITEO_SELENE}:${NEW_CRITEO_MOUNT},/raid:/raid
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "00:15:00"
+    TEST_CMD: ./ci/benchmark/train_benchmark/run.sub
+  rules:
+    - if: $NIGHTLY == "1"
+      when: manual
+    - when: never
+
+collect_benchmark_result:
+  extends: .selene_luna_job
+  stage: post_test
+  variables:
+    GPFSFOLDER: $LOGDIR/collect_benchmark_result
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $TRAIN_IMAGE_MULTINODE_VERSIONED
+    MOUNTS: $LOGDIR:/logs
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "00:15:00"
+    TEST_CMD: ./ci/post_test/collect_benchmark.sub
+  rules:
+    - if: $NIGHTLY == "1"
+      when: manual
+    - when: never
