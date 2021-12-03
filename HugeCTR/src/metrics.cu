@@ -86,10 +86,13 @@ __global__ void find_pivots_kernel(const CountType* bins_sum, int num_bins, Coun
                                    int* pivots) {
   int gid_base = blockIdx.x * blockDim.x + threadIdx.x;
 
-  for (int gid = gid_base; gid < num_bins - 1; gid += blockDim.x * gridDim.x) {
-    int ibin = gid;
-
-    for (int id = bins_sum[ibin] / num_samples; id < bins_sum[ibin + 1] / num_samples; id++) {
+  for (int ibin = gid_base; ibin < num_bins - 1; ibin += blockDim.x * gridDim.x) {
+    int id_start = bins_sum[ibin] / num_samples;
+    int id_end = bins_sum[ibin + 1] / num_samples;
+    if (ibin == 0) {
+      id_start = 0;
+    }
+    for (int id = id_start; id < id_end; id++) {
       pivots[id] = ibin;
     }
   }
@@ -678,7 +681,6 @@ float AUC<T>::_finalize_metric_per_gpu(int local_id) {
                                          st.d_global_bins_sum(), num_bins_, stream);
   });
 
-  initialize_array<<<grid, block, 0, stream>>>(st.d_pivots(), num_partitions_ - 1, num_bins_ - 1);
   find_pivots_kernel<<<grid, block, 0, stream>>>(
       st.d_global_bins_sum(), num_bins_, num_total_samples_ / num_global_gpus_, st.d_pivots());
 
@@ -820,7 +822,6 @@ float AUC<T>::_finalize_metric_per_gpu(int local_id) {
         break;
       }
     }
-    // printf("neighs rank %d : %d and %d\n", global_id, left_neighbor, right_neighbor);
 
     // 8.2 Send the halos
     metric_comm::send_halo_right(st.d_tpr() + num_redistributed_samples - 1, st.d_halo_tpr(), 1,
@@ -844,7 +845,8 @@ float AUC<T>::_finalize_metric_per_gpu(int local_id) {
     // Performance is not a concern on such GPUs
     MESSAGE_("GPU " + std::to_string(global_id) +
              " has no samples in the AUC computation "
-             "due to strongly uneven distribution of the scores. Performance may be impacted");
+             "due to strongly uneven distribution of the scores. "
+             "This may indicate a problem in the training or an extremely accurate model.");
 
     initialize_array<<<grid, block, 0, stream>>>(st.d_halo_tpr(), 1, 0.0f);
     // 7.3 All GPUs need to call allgather
