@@ -13,7 +13,7 @@
 # limitations under the License.
 
 ARG BASE_IMAGE=tensorflow
-ARG IMAGE_VER=21.09-tf2-py3
+ARG IMAGE_VER=21.11-tf2-py3
 FROM nvcr.io/nvidia/${BASE_IMAGE}:${IMAGE_VER} AS devel
 
 ARG RELEASE=false
@@ -25,14 +25,7 @@ ARG HWLOC_VER=2.4.1
 
 SHELL ["/bin/bash", "-c"]
 
-ARG CUDA_HOME=/usr/local/cuda
-ARG CUDA_CUDA_LIBRARY=${CUDA_HOME}/lib64/stubs
 ENV PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION='python'
-ENV PATH=${CUDA_HOME}/lib64/:${PATH}:${CUDA_HOME}/bin
-ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/cuda/lib64:/usr/local/cuda/extras/CUPTI/lib64:/usr/local/lib:/repos/dist/lib
-
-# Build env variables for rmm
-ENV INSTALL_PREFIX=/usr
 
 RUN export DEBIAN_FRONTEND=noninteractive && \
     apt-get update -y && \
@@ -50,8 +43,6 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
     apt update -y --fix-missing && \
     rm -rf /var/lib/apt/lists/*
 
-RUN pip install git+git://github.com/gevent/gevent.git@21.8.0#egg=gevent
-
 RUN pip3 install --no-cache-dir mpi4py ortools sklearn onnx onnxruntime pandas
 
 # Install cmake
@@ -62,83 +53,14 @@ RUN CMAKE_MAJOR_VERSION=`echo ${CMAKE_VER} | cut -d'.' -f1,2` && \
     rm -rf /var/tmp/cmake-${CMAKE_VER}-linux-x86_64.sh
 ENV PATH=/usr/local/bin:$PATH
 
-# Install arrow from source
-ENV ARROW_HOME=/usr/local
-RUN git clone --branch apache-arrow-5.0.0 --recurse-submodules https://github.com/apache/arrow.git build-env && \
-    pushd build-env && \
-      export PARQUET_TEST_DATA="${PWD}/cpp/submodules/parquet-testing/data" && \
-      export ARROW_TEST_DATA="${PWD}/testing/data" && \
-      pip install -r python/requirements-build.txt && \
-      mkdir cpp/release && \
-      pushd cpp/release && \
-        cmake -DCMAKE_INSTALL_PREFIX=${ARROW_HOME} \
-              -DCMAKE_INSTALL_LIBDIR=lib \
-              -DCMAKE_LIBRARY_PATH=${CUDA_CUDA_LIBRARY} \
-              -DARROW_FLIGHT=OFF \
-              -DARROW_GANDIVA=OFF \
-              -DARROW_ORC=ON \
-              -DARROW_WITH_BZ2=ON \
-              -DARROW_WITH_ZLIB=ON \
-              -DARROW_WITH_ZSTD=ON \
-              -DARROW_WITH_LZ4=ON \
-              -DARROW_WITH_SNAPPY=ON \
-              -DARROW_WITH_BROTLI=ON \
-              -DARROW_PARQUET=ON \
-              -DARROW_PYTHON=ON \
-              -DARROW_PLASMA=OFF \
-              -DARROW_BUILD_TESTS=OFF \
-              -DARROW_FILESYSTEM=ON \
-              -DARROW_CUDA=ON \
-              -DARROW_DATASET=ON \
-              .. && \
-        make -j$(nproc) && \
-        make install && \
-      popd && \
-      pushd python && \
-        export PYARROW_WITH_PARQUET=ON && \
-        export PYARROW_WITH_CUDA=ON && \
-        export PYARROW_WITH_ORC=ON && \
-        export PYARROW_WITH_DATASET=ON && \
-        python setup.py build_ext --build-type=release bdist_wheel && \
-        pip install dist/*.whl && \
-      popd && \
-    popd && \
-    rm -rf build-env
-
 # Install CUDA-Aware hwloc from source
-RUN if [ "$BASE_IMAGE" = "tensorflow" ] && [ "$IMAGE_VER" = "21.09-tf2-py3" ]; \
-    then \
-      cd /opt/hpcx/ompi/include/openmpi/opal/mca/hwloc/hwloc201 && rm -rfv hwloc201.h hwloc/include/hwloc.h; \
-    else \
-      cd /usr/local/mpi/include/openmpi/opal/mca/hwloc/hwloc201 && rm -rfv hwloc201.h hwloc/include/hwloc.h; \
-    fi
+RUN cd /opt/hpcx/ompi/include/openmpi/opal/mca/hwloc/hwloc201 && rm -rfv hwloc201.h hwloc/include/hwloc.h;
 RUN mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://download.open-mpi.org/release/hwloc/v2.4/hwloc-${HWLOC_VER}.tar.gz && \
     mkdir -p /var/tmp && tar -x -f /var/tmp/hwloc-${HWLOC_VER}.tar.gz -C /var/tmp && \
     cd /var/tmp/hwloc-${HWLOC_VER} && \
     ./configure CPPFLAGS="-I/usr/local/cuda/include/ -L/usr/local/cuda/lib64/" LDFLAGS="-L/usr/local/cuda/lib64" --enable-cuda && \
     make -j$(nproc) && make install && \
     rm -rf /var/tmp/hwloc-${HWLOC_VER} /var/tmp/hwloc-${HWLOC_VER}.tar.gz
-
-# Install rmm from source
-RUN git clone https://github.com/rapidsai/rmm.git build-env && cd build-env/ && \
-    sed -i '/11.2/ a "11.4": "11.x",' python/setup.py && \
-    cd ..; \
-    pushd build-env && \
-      ./build.sh librmm --cmake-args=\"-DBUILD_TESTS=OFF\" && \
-    popd && \
-    rm -rf build-env
-
-# Install cudf from source
-RUN git clone https://github.com/rapidsai/cudf.git -b branch-21.10 build-env && cd build-env/ && \
-    git submodule update --init --recursive && \
-    cd .. && \
-    pushd build-env && \
-      export CUDF_HOME=${PWD} && \
-      export CUDF_ROOT=${PWD}/cpp/build/ && \
-      export CMAKE_LIBRARY_PATH=${CUDA_CUDA_LIBRARY} && \
-      ./build.sh libcudf --allgpuarch --cmake-args=\"-DBUILD_TESTS=OFF -DCUDF_ENABLE_ARROW_S3=OFF\" && \
-    popd && \
-    rm -rf build-env
 
 # Install Hiredis from source
 RUN mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 -b v1.0.2 https://github.com/redis/hiredis.git && cd - && \
