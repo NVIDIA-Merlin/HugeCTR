@@ -20,8 +20,6 @@
 
 namespace HugeCTR {
 
-static std::unique_ptr<ThreadPool> DEFAULT_THREAD_POOL;
-
 ThreadPool::ThreadPool() : ThreadPool(0) {}
 
 ThreadPool::ThreadPool(size_t num_threads) : terminate_(false) {
@@ -69,10 +67,10 @@ void ThreadPool::await(std::vector<ThreadPoolResult>& results) {
 }
 
 ThreadPool& ThreadPool::get() {
-  if (!DEFAULT_THREAD_POOL) {
-    DEFAULT_THREAD_POOL = std::make_unique<ThreadPool>();
-  }
-  return *DEFAULT_THREAD_POOL.get();
+  static std::unique_ptr<ThreadPool> default_pool;
+  static std::once_flag semaphore;
+  call_once(semaphore, []() { default_pool = std::make_unique<ThreadPool>(); });
+  return *default_pool.get();
 }
 
 void ThreadPool::run(const size_t thread_num) {

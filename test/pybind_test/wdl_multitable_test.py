@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 import sys
 #from mpi4py import MPI
-def wdl_inference(model_name, network_file, dense_file, embedding_file_list, data_file,enable_cache, dbtype=hugectr.Database_t.Local):
+def wdl_inference(model_name, network_file, dense_file, embedding_file_list, data_file,enable_cache):
     CATEGORICAL_COLUMNS=["C" + str(x) for x in range(1, 27)]+["C1_C2","C3_C4"]
     CONTINUOUS_COLUMNS=["I" + str(x) for x in range(1, 14)]
     LABEL_COLUMNS = ['label']
@@ -19,34 +19,45 @@ def wdl_inference(model_name, network_file, dense_file, embedding_file_list, dat
     test_df[CATEGORICAL_COLUMNS].astype(np.int64)
     embedding_columns = list((test_df[CATEGORICAL_COLUMNS]+shift).values.flatten())
     
+    cpuMemoryDatabase=hugectr.inference.CPUMemoryDatabaseParams()
+    rocksdbdatabase=hugectr.inference.PersistentDatabaseParams(path="/hugectr/test/utest/wdl_test_files/rocksdb")
 
     # create parameter server, embedding cache and inference session
     inference_params = InferenceParams(model_name = model_name,
                                 max_batchsize = 64,
-                                hit_rate_threshold = 0.5,
+                                hit_rate_threshold = 1.0,
                                 dense_model_file = dense_file,
                                 sparse_model_files = embedding_file_list,
-                                device_id = 2,
+                                device_id = 0,
                                 use_gpu_embedding_cache = enable_cache,
                                 cache_size_percentage = 0.9,
                                 i64_input_key = True,
                                 use_mixed_precision = False,
-                                db_type = dbtype,
-                                redis_ip="127.0.0.1:7003,127.0.0.1:7001,127.0.0.1:7002",
-                                rocksdb_path="/hugectr/test/utest/wdl_test_files/rocksdb",
-                                cache_size_percentage_redis=0.001)
+                                number_of_worker_buffers_in_pool=4,
+                                number_of_refresh_buffers_in_pool=1,
+                                deployed_devices= [0],
+                                default_value_for_each_table= [0.0,0.0],
+                                cpu_memory_db=cpuMemoryDatabase,
+                                persistent_db=rocksdbdatabase)
     inference_session = CreateInferenceSession(config_file, inference_params)
-    output = inference_session.predict(dense_features, embedding_columns, row_ptrs)
-    miss=np.mean((np.array(output) - np.array(result)) ** 2)
-    print("WDL multi-embedding table inference result is {}".format(output))
+    # predict for the first time
+    output1 = inference_session.predict(dense_features, embedding_columns, row_ptrs)
+    miss1 = np.mean((np.array(output1) - np.array(result)) ** 2)
+    # refresh emebdding cache, void operation since there is no update for the parameter server
+    inference_session.refresh_embedding_cache()
+    # predict for the second time
+    output2 = inference_session.predict(dense_features, embedding_columns, row_ptrs)
+    miss2 = np.mean((np.array(output2) - np.array(result)) ** 2)
+    print("WDL multi-embedding table inference result should be {}".format(result))
+    miss = max(miss1, miss2)
     if enable_cache:
-        if miss>0.0001:
+        if miss > 0.0001:
             raise RuntimeError("WDL multi-embedding table inference using GPU cache, prediction error is greater than threshold: {}, error is {}".format(0.0001, miss))
             sys.exit(1)
         else:
             print("[HUGECTR][INFO] WDL multi-embedding table inference using GPU cache, prediction error is less  than threshold:{}, error is {}".format(0.0001, miss))
     else:
-        if miss>0.0001:
+        if miss > 0.0001:
             raise RuntimeError("[HUGECTR][INFO] WDL multi-embedding table inference without GPU cache, prediction error is greater than threshold:{}, error is {}".format(0.0001, miss))
             sys.exit(1)
         else:
@@ -60,5 +71,5 @@ if __name__ == "__main__":
     print(embedding_file_list)
     data_file = sys.argv[5]
     #wdl_inference(model_name, network_file, dense_file, embedding_file_list, data_file, True, hugectr.Database_t.RocksDB)
-    wdl_inference(model_name, network_file, dense_file, embedding_file_list, data_file, True, hugectr.Database_t.Local)
-    wdl_inference(model_name, network_file, dense_file, embedding_file_list, data_file, False, hugectr.Database_t.Local)
+    wdl_inference(model_name, network_file, dense_file, embedding_file_list, data_file, True)
+    wdl_inference(model_name, network_file, dense_file, embedding_file_list, data_file, False)

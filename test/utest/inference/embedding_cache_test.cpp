@@ -27,11 +27,13 @@
 #include "utest/test_utils.h"
 #include <cuda_profiler_api.h>
 
-#define CACHE_SIZE_PERCENTAGE 0.2
+#define HIT_RATE_THRESHOLD 0.6
+#define CACHE_SIZE_PERCENTAGE 0.5
 #define UNIQUE_KNOWN_PERCENTAGE 0.1
 #define UNIQUE_UNKNOWN_PERCENTAGE 0.1
 #define MODEL_PATH "/workdir/test/utest/simple_inference_config.json"
 #define SPARSE_MODEL_PATH "/hugectr/test/utest/0_sparse_10000.model"
+#define DENSE_MODEL_PATH "/hugectr/test/utest/_dense_10000.model"
 #define MODEL_NAME "DCN"
 #define BATCHSIZE 1024
 
@@ -233,16 +235,19 @@ void embedding_cache_test(const std::string& config_file,
 
   // Parameter server and embedding cache shared by all workers
   std::vector<std::string> model_config_path{config_file};
-  std::string dense_model{"/hugectr/test/utest/_dense_10000.model"};
-  std::vector<std::string> sparse_models{"/hugectr/test/utest/0_sparse_10000.model"};
-  InferenceParams infer_param(model, max_batch_size, 0.5, dense_model, sparse_models, 0, true, 0.8, false);
+  std::string dense_model{DENSE_MODEL_PATH};
+  std::vector<std::string> sparse_models{SPARSE_MODEL_PATH};
+  InferenceParams infer_param(model, max_batch_size, HIT_RATE_THRESHOLD, dense_model,
+                            sparse_models, 0, true, CACHE_SIZE_PERCENTAGE, false);
+  infer_param.number_of_worker_buffers_in_pool = num_of_worker * 2;
   std::vector<InferenceParams> inference_params{infer_param};
-  HugectrUtility<TypeHashKey>* parameter_server = HugectrUtility<TypeHashKey>::Create_Parameter_Server(INFER_TYPE::TRITON, model_config_path, inference_params);
-  embedding_interface* embedding_cache = embedding_interface::Create_Embedding_Cache<TypeHashKey>(model_config_path[0], inference_params[0], parameter_server);
-  
+  std::shared_ptr<HugectrUtility<TypeHashKey>> parameter_server;
+  parameter_server.reset(HugectrUtility<TypeHashKey>::Create_Parameter_Server(INFER_TYPE::TRITON, model_config_path, inference_params));
+  auto embedding_cache = parameter_server->GetEmbeddingCache(model, 0);
+
   // Each worker start to do inference
 #pragma omp parallel default(none) shared(feature_per_batch, embedding_vec_size, num_emb_table, embedding_cache, \
-row_num, num_of_iteration, num_of_sample, num_feature, num_known_embeddingcolumns, \
+row_num, num_of_iteration, num_of_sample, num_feature, num_known_embeddingcolumns, infer_param, \
 num_unknown_embeddingcolumns, num_duplicate_embeddingcolumns, h_embedding_offset, h_total_embeddingcolumns, \
 h_total_embeddingvector, max_emb_id, default_emb_vector_value) num_threads(num_of_worker)
 {
@@ -276,15 +281,15 @@ h_total_embeddingvector, max_emb_id, default_emb_vector_value) num_threads(num_o
                               feature_per_batch * embedding_vec_size * sizeof(float)));
   // Each worker create CUDA stream used to look_up
   std::vector<cudaStream_t> query_streams(num_emb_table);
-  std::vector<cudaStream_t> update_streams(num_emb_table);
   for(size_t i = 0; i < num_emb_table; i++){
     CK_CUDA_THROW_(cudaStreamCreate(&query_streams[i]));
-    CK_CUDA_THROW_(cudaStreamCreate(&update_streams[i]));
   }
-  // Each worker create workspace to do embedding cache operation
-  embedding_cache_workspace workspace = embedding_cache -> create_workspace();
-  MemoryBlock* memory_block = new MemoryBlock();
-  memory_block->worker_buffer = workspace;
+  // Apply a memory block for embedding cache look up
+  MemoryBlock* memory_block = NULL;
+  while (memory_block == NULL) {
+    memory_block = reinterpret_cast<MemoryBlock*>(embedding_cache->get_worker_space(
+        infer_param.model_name, infer_param.device_id, CACHE_SPACE_TYPE::WORKER));
+  }
   // Random number generator for selecting known embedding ids from embedding table
   IntGenerator<size_t> index_gen(0, row_num - 1);
 
@@ -336,8 +341,6 @@ h_total_embeddingvector, max_emb_id, default_emb_vector_value) num_threads(num_o
                                d_shuffled_embeddingoutputvector, 
                                memory_block, 
                                query_streams);
-    // Each worker update the shared embedding cache
-    embedding_cache -> update(workspace, update_streams);
 
     // Each worker wait for look_up to complete
     for(size_t emb_table = 0; emb_table < num_emb_table; emb_table++){
@@ -359,10 +362,6 @@ h_total_embeddingvector, max_emb_id, default_emb_vector_value) num_threads(num_o
     if(result_correct == false){
       CK_THROW_(Error_t::DataCheckError, "Error: The result of embedding_cache is not as expected");
     }
-    // Wait for update to complete before go to next iteration
-    for(size_t emb_table = 0; emb_table < num_emb_table; emb_table++){
-      CK_CUDA_THROW_(cudaStreamSynchronize(update_streams[emb_table]));
-    }
   }
   // Each worker clean its buffers
   // If no features need to be queried, then don't need to free them since they are not allocated
@@ -375,17 +374,12 @@ h_total_embeddingvector, max_emb_id, default_emb_vector_value) num_threads(num_o
   }
   for(size_t i = 0; i < num_emb_table; i++){
     CK_CUDA_THROW_(cudaStreamDestroy(query_streams[i]));
-    CK_CUDA_THROW_(cudaStreamDestroy(update_streams[i]));
   }
-  embedding_cache -> destroy_workspace(workspace);
-  delete memory_block;
 }
 
   // clean up
   CK_CUDA_THROW_(cudaFreeHost(h_total_embeddingcolumns));
   CK_CUDA_THROW_(cudaFreeHost(h_total_embeddingvector));
-  delete parameter_server;
-  delete embedding_cache;
 }
 
 }  // namespace
@@ -411,7 +405,7 @@ TEST(embedding_cache, embedding_cache_usigned_int_32_30_5_1_disable) {embedding_
 TEST(embedding_cache, embedding_cache_usigned_int_32_random_5_1_enable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, SPARSE_MODEL_PATH, 32, -1, 5, 1, true); }
 TEST(embedding_cache, embedding_cache_usigned_int_32_random_5_1_disable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, SPARSE_MODEL_PATH, 32, -1, 5, 1, false); }
 
-/*TEST(embedding_cache, embedding_cache_usigned_int_0_0_5_4_enable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, SPARSE_MODEL_PATH, 0, 0, 5, 4, true); }
+TEST(embedding_cache, embedding_cache_usigned_int_0_0_5_4_enable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, SPARSE_MODEL_PATH, 0, 0, 5, 4, true); }
 TEST(embedding_cache, embedding_cache_usigned_int_0_0_5_4_disable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, SPARSE_MODEL_PATH, 0, 0, 5, 4, false); }
 TEST(embedding_cache, embedding_cache_usigned_int_16_0_5_4_enable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, SPARSE_MODEL_PATH, 16, 0, 5, 4, true); }
 TEST(embedding_cache, embedding_cache_usigned_int_16_0_5_4_disable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, SPARSE_MODEL_PATH, 16, 0, 5, 4, false); }
@@ -432,7 +426,7 @@ TEST(embedding_cache, embedding_cache_usigned_int_32_30_5_4_disable) {embedding_
 TEST(embedding_cache, embedding_cache_usigned_int_32_random_5_4_enable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, SPARSE_MODEL_PATH, 32, -1, 5, 4, true); }
 TEST(embedding_cache, embedding_cache_usigned_int_32_random_5_4_disable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, SPARSE_MODEL_PATH, 32, -1, 5, 4, false); }
 
-TEST(embedding_cache, embedding_cache_long_long_0_0_5_1_enable) {embedding_cache_test<long long>(MODEL_PATH, MODEL_NAME, 0, 0, 5, 1, true); }
+/*TEST(embedding_cache, embedding_cache_long_long_0_0_5_1_enable) {embedding_cache_test<long long>(MODEL_PATH, MODEL_NAME, 0, 0, 5, 1, true); }
 TEST(embedding_cache, embedding_cache_long_long_0_0_5_1_disable) {embedding_cache_test<long long>(MODEL_PATH, MODEL_NAME, 0, 0, 5, 1, false); }
 TEST(embedding_cache, embedding_cache_long_long_16_0_5_1_enable) {embedding_cache_test<long long>(MODEL_PATH, MODEL_NAME, 16, 0, 5, 1, true); }
 TEST(embedding_cache, embedding_cache_long_long_16_0_5_1_disable) {embedding_cache_test<long long>(MODEL_PATH, MODEL_NAME, 16, 0, 5, 1, false); }

@@ -21,13 +21,13 @@ namespace HugeCTR {
 
 #define HCTR_ROCKSDB_CHECK(EXPR)                                                    \
   do {                                                                              \
-    const rocksdb::Status _status = EXPR;                                           \
+    const rocksdb::Status _status = (EXPR);                                         \
     HCTR_CHECK_HINT(_status.ok(), "RocksDB error: %s", _status.ToString().c_str()); \
   } while (0)
 
 template <typename TKey>
-RocksDBBackend<TKey>::RocksDBBackend(const std::string& path, const bool read_only,
-                                     const size_t max_get_batch_size,
+RocksDBBackend<TKey>::RocksDBBackend(const std::string& path, const size_t num_threads,
+                                     const bool read_only, const size_t max_get_batch_size,
                                      const size_t max_set_batch_size)
     : TBase(),
       db_(nullptr),
@@ -35,10 +35,20 @@ RocksDBBackend<TKey>::RocksDBBackend(const std::string& path, const bool read_on
       max_set_batch_size_(max_set_batch_size) {
   HCTR_LOG(INFO, WORLD, "Connecting to RocksDB database...\n");
 
+  // Basic behavior.
   rocksdb::Options options;
   options.create_if_missing = true;
+  options.manual_wal_flush = true;
+  options.OptimizeForPointLookup(8);
   options.OptimizeLevelStyleCompaction();
-  options.IncreaseParallelism();
+  options.IncreaseParallelism(hctr_safe_cast<int>(num_threads));
+
+  // Configure various behaviors and options used in later operations.
+  column_family_options_.OptimizeForPointLookup(8);
+  column_family_options_.OptimizeLevelStyleCompaction();
+  // Need to tune: read_options_.readahead_size
+  // Need to tune: read_options_.verify_checksums
+  write_options_.sync = false;
 
   // Enumerate column families.
   std::vector<rocksdb::ColumnFamilyDescriptor> column_descriptors;
@@ -56,12 +66,10 @@ RocksDBBackend<TKey>::RocksDBBackend(const std::string& path, const bool read_on
       column_names.push_back(rocksdb::kDefaultColumnFamilyName);
     }
 
-    rocksdb::ColumnFamilyOptions column_options;
-    column_options.OptimizeLevelStyleCompaction();
     for (const auto& column_name : column_names) {
       HCTR_LOG(INFO, WORLD, "RocksDB %s, found column family \"%s\".\n", path.c_str(),
                column_name.c_str());
-      column_descriptors.emplace_back(column_name, column_options);
+      column_descriptors.emplace_back(column_name, column_family_options_);
     }
   }
 
@@ -101,15 +109,8 @@ RocksDBBackend<TKey>::~RocksDBBackend() {
 }
 
 template <typename TKey>
-const char* RocksDBBackend<TKey>::get_name() const {
-  return "RocksDB";
-}
-
-template <typename TKey>
 size_t RocksDBBackend<TKey>::contains(const std::string& table_name, const size_t num_keys,
-                                      const TKey* const keys) const {
-  static const rocksdb::ReadOptions read_options;
-
+                                      const TKey* keys) const {
   // Empty result, if database does not contain this column handle.
   const auto& column_handles_it = column_handles_.find(table_name);
   if (column_handles_it == column_handles_.end()) {
@@ -117,44 +118,25 @@ size_t RocksDBBackend<TKey>::contains(const std::string& table_name, const size_
   }
   const auto& column_handle = column_handles_it->second;
 
+  rocksdb::Slice k_slice(nullptr, sizeof(TKey));
+  rocksdb::PinnableSlice v_slice;
+
   size_t hit_count = 0;
 
-  switch (num_keys) {
-    case 0: {
-      break;
+  // For now, just iterate over keys and try to find them.
+  const TKey* const keys_end = &keys[num_keys];
+  for (; keys != keys_end; keys++) {
+    k_slice.data_ = reinterpret_cast<const char*>(keys);
+    const auto& status = db_->Get(read_options_, column_handle, k_slice, &v_slice);
+    if (status.ok()) {
+      hit_count++;
     }
-    case 1: {
-      const rocksdb::Slice k_slice(reinterpret_cast<const char*>(keys), sizeof(TKey));
-      rocksdb::PinnableSlice v_slice;
-      const auto& status = db_->Get(read_options, column_handle, k_slice, &v_slice);
-      if (status.ok()) {
-        hit_count++;
-      } else {
-        HCTR_CHECK_HINT(status.IsNotFound(), "RocksDB error: %s", status.ToString().c_str());
-      }
-      break;
-    }
-    default: {
-      // Form query.
-      const std::unordered_set<TKey> query(keys, &keys[num_keys]);
-
-      // Iterate over column family and check entries 1 by 1.
-      std::unique_ptr<rocksdb::Iterator> it(db_->NewIterator(read_options, column_handle));
-      for (it->SeekToFirst(); it->Valid(); it->Next()) {
-        HCTR_ROCKSDB_CHECK(it->status());
-
-        const auto& k = it->key();
-        HCTR_CHECK_HINT(k.size() == sizeof(TKey), "RocksDB return key size mismatch!");
-
-        if (query.find(*reinterpret_cast<const TKey*>(k.data())) != query.end()) {
-          hit_count++;
-        }
-      }
-      break;
+    if (!status.IsNotFound()) {
+      HCTR_ROCKSDB_CHECK(status);
     }
   }
 
-  HCTR_LOG(INFO, WORLD, "%s backend. Table: %s. Found %d / %d keys.\n", get_name(),
+  HCTR_LOG(DEBUG, WORLD, "%s backend. Table: %s. Found %d / %d keys.\n", get_name(),
            table_name.c_str(), hit_count, num_keys);
   return hit_count;
 }
@@ -162,19 +144,13 @@ size_t RocksDBBackend<TKey>::contains(const std::string& table_name, const size_
 template <typename TKey>
 bool RocksDBBackend<TKey>::insert(const std::string& table_name, const size_t num_pairs,
                                   const TKey* keys, const char* values, const size_t value_size) {
-  static const rocksdb::WriteOptions write_options;
-
   // Locate or create column family.
   rocksdb::ColumnFamilyHandle* column_handle;
   const auto& column_handles_it = column_handles_.find(table_name);
   if (column_handles_it != column_handles_.end()) {
     column_handle = column_handles_it->second;
   } else {
-    rocksdb::ColumnFamilyOptions column_family_options;
-    column_family_options.OptimizeLevelStyleCompaction();
-
-    HCTR_ROCKSDB_CHECK(db_->CreateColumnFamily(column_family_options, table_name, &column_handle));
-
+    HCTR_ROCKSDB_CHECK(db_->CreateColumnFamily(column_family_options_, table_name, &column_handle));
     column_handles_.emplace(table_name, column_handle);
   }
 
@@ -195,13 +171,14 @@ bool RocksDBBackend<TKey>::insert(const std::string& table_name, const size_t nu
       HCTR_ROCKSDB_CHECK(batch.Put(column_handle, key_slice, value_slice));
     }
 
-    HCTR_ROCKSDB_CHECK(db_->Write(write_options, &batch));
+    HCTR_ROCKSDB_CHECK(db_->Write(write_options_, &batch));
     num_inserts += batch.Count();
-    HCTR_LOG(INFO, WORLD, "RocksDB table %s, query %d: Inserted %d pairs.\n", table_name.c_str(),
+    HCTR_LOG(DEBUG, WORLD, "RocksDB table %s, query %d: Inserted %d pairs.\n", table_name.c_str(),
              num_queries, batch.Count());
   }
+  HCTR_ROCKSDB_CHECK(db_->FlushWAL(true));
 
-  HCTR_LOG(INFO, WORLD, "%s backend. Table: %s. Inserted %d / %d pairs.\n", get_name(),
+  HCTR_LOG(DEBUG, WORLD, "%s backend. Table: %s. Inserted %d / %d pairs.\n", get_name(),
            table_name.c_str(), num_inserts, num_pairs);
   return true;
 }
@@ -210,8 +187,6 @@ template <typename TKey>
 size_t RocksDBBackend<TKey>::fetch(const std::string& table_name, const size_t num_keys,
                                    const TKey* keys, char* values, const size_t value_size,
                                    MissingKeyCallback& missing_callback) const {
-  static const rocksdb::ReadOptions read_options;
-
   // Empty result, if database does not contain this column handle.
   const auto& column_handles_it = column_handles_.find(table_name);
   if (column_handles_it == column_handles_.end()) {
@@ -238,7 +213,7 @@ size_t RocksDBBackend<TKey>::fetch(const std::string& table_name, const size_t n
 
     batch_values.clear();
     const auto& batch_status =
-        db_->MultiGet(read_options, batch_handles, batch_keys, &batch_values);
+        db_->MultiGet(read_options_, batch_handles, batch_keys, &batch_values);
     HCTR_CHECK(batch_status.size() == batch_values.size());
 
     // Process results.
@@ -260,11 +235,11 @@ size_t RocksDBBackend<TKey>::fetch(const std::string& table_name, const size_t n
       values += value_size;
     }
 
-    HCTR_LOG(INFO, WORLD, "RocksDB table %s, query %d: Fetched %d keys. Hits %d.\n",
+    HCTR_LOG(DEBUG, WORLD, "RocksDB table %s, query %d: Fetched %d keys. Hits %d.\n",
              table_name.c_str(), num_queries, batch_values.size(), hit_count);
   }
 
-  HCTR_LOG(INFO, WORLD, "%s backend. Table: %s. Fetched %d / %d values.\n", get_name(),
+  HCTR_LOG(DEBUG, WORLD, "%s backend. Table: %s. Fetched %d / %d values.\n", get_name(),
            table_name.c_str(), hit_count, num_keys);
   return hit_count;
 }
@@ -274,8 +249,6 @@ size_t RocksDBBackend<TKey>::fetch(const std::string& table_name, const size_t n
                                    const size_t* indices, const TKey* const keys,
                                    char* const values, const size_t value_size,
                                    MissingKeyCallback& missing_callback) const {
-  static const rocksdb::ReadOptions read_options;
-
   // Empty result, if database does not contain this column handle.
   const auto& column_handles_it = column_handles_.find(table_name);
   if (column_handles_it == column_handles_.end()) {
@@ -303,7 +276,7 @@ size_t RocksDBBackend<TKey>::fetch(const std::string& table_name, const size_t n
 
     batch_values.clear();
     const auto& batch_status =
-        db_->MultiGet(read_options, batch_handles, batch_keys, &batch_values);
+        db_->MultiGet(read_options_, batch_handles, batch_keys, &batch_values);
     HCTR_CHECK(batch_status.size() == batch_values.size());
 
     // Process results.
@@ -325,11 +298,11 @@ size_t RocksDBBackend<TKey>::fetch(const std::string& table_name, const size_t n
     }
     HCTR_ASSERT(indices == batch_end);
 
-    HCTR_LOG(INFO, WORLD, "RocksDB table %s, query %d: Fetched %d keys. Hits %d.\n",
+    HCTR_LOG(DEBUG, WORLD, "RocksDB table %s, query %d: Fetched %d keys. Hits %d.\n",
              table_name.c_str(), num_queries, batch_values.size(), hit_count);
   }
 
-  HCTR_LOG(INFO, WORLD, "%s backend. Table: %s. Fetched %d / %d values.\n", get_name(),
+  HCTR_LOG(DEBUG, WORLD, "%s backend. Table: %s. Fetched %d / %d values.\n", get_name(),
            table_name.c_str(), hit_count, num_indices);
   return hit_count;
 }
@@ -348,7 +321,7 @@ size_t RocksDBBackend<TKey>::evict(const std::string& table_name) {
   HCTR_ROCKSDB_CHECK(db_->DestroyColumnFamilyHandle(column_handles_it->second));
   column_handles_.erase(table_name);
 
-  HCTR_LOG(INFO, WORLD, "%s backend. Table %s erased (approximately %d pairs).\n", get_name(),
+  HCTR_LOG(DEBUG, WORLD, "%s backend. Table %s erased (approximately %d pairs).\n", get_name(),
            table_name, hit_count);
   return hit_count;
 }
@@ -356,8 +329,6 @@ size_t RocksDBBackend<TKey>::evict(const std::string& table_name) {
 template <typename TKey>
 size_t RocksDBBackend<TKey>::evict(const std::string& table_name, const size_t num_keys,
                                    const TKey* keys) {
-  static const rocksdb::WriteOptions write_options;
-
   // Locate column handle.
   const auto& column_handles_it = column_handles_.find(table_name);
   if (column_handles_it == column_handles_.end()) {
@@ -380,12 +351,13 @@ size_t RocksDBBackend<TKey>::evict(const std::string& table_name, const size_t n
       HCTR_ROCKSDB_CHECK(batch.Delete(column_handle, key_slice));
     }
 
-    HCTR_ROCKSDB_CHECK(db_->Write(write_options, &batch));
-    HCTR_LOG(INFO, WORLD, "RocksDB table %s, query %d: Deleted %d keys. Hits %d.\n",
+    HCTR_ROCKSDB_CHECK(db_->Write(write_options_, &batch));
+    HCTR_LOG(DEBUG, WORLD, "RocksDB table %s, query %d: Deleted %d keys. Hits %d.\n",
              table_name.c_str(), num_queries, batch.Count(), hit_count);
   }
+  HCTR_ROCKSDB_CHECK(db_->FlushWAL(true));
 
-  HCTR_LOG(INFO, WORLD, "%s backend. Table %s. %d / %d pairs erased.\n", get_name(),
+  HCTR_LOG(DEBUG, WORLD, "%s backend. Table %s. %d / %d pairs erased.\n", get_name(),
            table_name.c_str(), hit_count, num_keys);
   return hit_count;
 }

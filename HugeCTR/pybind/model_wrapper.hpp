@@ -201,6 +201,7 @@ void ModelPybind(pybind11::module &m) {
              inc_sparse_model.clear();
              return array_inc_sparse_model;
            })
+      .def("dump_incremental_model_2kafka", &HugeCTR::Model::dump_incremental_model_2kafka)
       .def("save_params_to_files", &HugeCTR::Model::download_params_to_files,
            pybind11::arg("prefix"), pybind11::arg("iter") = 0)
       .def("get_embedding_training_cache", &HugeCTR::Model::get_embedding_training_cache)

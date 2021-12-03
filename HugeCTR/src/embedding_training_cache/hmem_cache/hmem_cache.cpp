@@ -382,6 +382,7 @@ void HMemCache<TypeKey>::sync_to_ssd() {
       bar.progress(cnt + 1, num_blk);
     }
   }
+  sparse_model_file_ptr_->update_global_model();
   bar.finish();
 }
 

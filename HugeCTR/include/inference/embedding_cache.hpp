@@ -77,11 +77,17 @@ class embedding_cache : public embedding_interface {
   virtual void update(embedding_cache_workspace& workspace_handler,
                       const std::vector<cudaStream_t>& streams);
 
-  virtual void Dump(int table_id, void* key_buffer, size_t* length, int start_index, int end_index,
-                  cudaStream_t& stream);
+  virtual void Dump(int table_id, void* key_buffer, size_t* length, size_t start_index, size_t end_index,
+                  cudaStream_t stream);
 
   virtual void Refresh(int table_id, void* key_buffer, float* vec_buffer, size_t length,
-                  cudaStream_t& stream);
+                  cudaStream_t stream);
+
+  virtual void finalize();
+
+  virtual int get_device_id() { return cache_config_.cuda_dev_id_; }
+
+  virtual bool use_gpu_embedding_cache() { return cache_config_.use_gpu_embedding_cache_; }
 
  private:
   static const size_t BLOCK_SIZE_ = 64;
@@ -112,6 +118,12 @@ class embedding_cache : public embedding_interface {
 
   // streams for asynchronous parameter server refresh threads
   std::vector<cudaStream_t> refresh_streams_;
+
+  // mutex for insert_threads_
+  std::mutex mutex_;
+
+  // mutex for insert_streams_
+  std::mutex stream_mutex_;
 };
 
 }  // namespace HugeCTR

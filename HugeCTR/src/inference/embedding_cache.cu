@@ -30,6 +30,19 @@ __global__ void merge_emb_vec(float* d_output_emb_vec, const float* d_missing_em
   }
 }
 
+// Kernels to fill the default value to the output buffer
+__global__ void fill_default_emb_vec(float* d_output_emb_vec, const float default_emb_vec,
+                                     const uint64_t* d_missing_index, const size_t len,
+                                     const size_t emb_vec_size) {
+  const size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
+  if (idx < (len * emb_vec_size)) {
+    size_t src_emb_vec = idx / emb_vec_size;
+    size_t dst_emb_vec = d_missing_index[src_emb_vec];
+    size_t dst_float = idx % emb_vec_size;
+    d_output_emb_vec[dst_emb_vec * emb_vec_size + dst_float] = default_emb_vec;
+  }
+}
+
 // Kernels to decompress the value buffer
 __global__ void decompress_emb_vec(const float* d_src_emb_vec, const uint64_t* d_src_index,
                                    float* d_dst_emb_vec, const size_t len,
@@ -54,6 +67,17 @@ void merge_emb_vec_async(float* d_vals_merge_dst_ptr, const float* d_vals_retrie
   merge_emb_vec<<<((missing_len_in_float - 1) / BLOCK_SIZE) + 1, BLOCK_SIZE, 0, stream>>>(
       d_vals_merge_dst_ptr, d_vals_retrieved_ptr, d_missing_index_ptr, missing_len, emb_vec_size);
 }
+
+void fill_default_emb_vec_async(float* d_vals_merge_dst_ptr, const float default_emb_vec,
+                                const uint64_t* d_missing_index_ptr, const size_t missing_len,
+                                const size_t emb_vec_size, const size_t BLOCK_SIZE, cudaStream_t stream) {
+  if (missing_len == 0) {
+    return;
+  }
+  size_t missing_len_in_float = missing_len * emb_vec_size;
+  fill_default_emb_vec<<<((missing_len_in_float - 1) / BLOCK_SIZE) + 1, BLOCK_SIZE, 0, stream>>>(
+      d_vals_merge_dst_ptr, default_emb_vec, d_missing_index_ptr, missing_len, emb_vec_size);
+} 
 
 void decompress_emb_vec_async(const float* d_unique_src_ptr, const uint64_t* d_unique_index_ptr,
                               float* d_decompress_dst_ptr, const size_t decompress_len,

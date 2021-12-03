@@ -336,6 +336,11 @@ Model::Model(const Solver& solver, const DataReaderParams& reader_params,
   HCTR_PRINT(INFO, "HugeCTR Version: %d.%d\n", HUGECTR_VERSION_MAJOR, HUGECTR_VERSION_MINOR);
   HCTR_PRINT(INFO, "====================================================Model "
                    "Init=====================================================\n");
+  if (!solver_.model_name.length()) {
+    HCTR_LOG(WARNING, ROOT, "The model name is not specified when creating the solver.\n");
+  } else {
+    HCTR_LOG(INFO, ROOT, "Initialize model: %s\n", solver_.model_name.c_str());
+  }
   resource_manager_ = ResourceManagerExt::create(solver.vvgpu, solver.seed, solver.device_layout);
 
   init_exchange_wgrad(resource_manager_, exchange_wgrad_, solver_);
@@ -351,6 +356,9 @@ Model::Model(const Solver& solver, const DataReaderParams& reader_params,
   if (reader_params_.source.size() < 1 || reader_params_.eval_source.empty()) {
     CK_THROW_(Error_t::WrongInput,
               " The data source for training and evaluation should be specified");
+  }
+  if (etc_params_->use_embedding_training_cache && solver_.kafka_brokers.length()){
+    message_sink_.reset(new KafkaMessageSink<long long>(solver_.kafka_brokers));
   }
   if (etc_params_->use_embedding_training_cache && solver_.repeat_dataset) {
     CK_THROW_(Error_t::WrongInput,
@@ -431,6 +439,10 @@ void Model::graph_to_json(std::string graph_config_file) {
   save_graph_to_json(layer_config_array, dense_layer_params_, sparse_embedding_params_,
                      input_params_, embedding_opt_params_list_, solver_.use_mixed_precision);
   graph_config["layers"] = layer_config_array;
+  // The model_name in dumped JSON will only be used for inference currently
+  if (solver_.model_name.length()) {
+    graph_config["model_name"] = solver_.model_name;
+  }
   file_stream << std::setw(2) << graph_config;
   file_stream.close();
   HCTR_LOG(INFO, ROOT, "Save the model graph to %s successfully\n", graph_config_file.c_str());
@@ -2062,6 +2074,46 @@ std::vector<std::pair<std::vector<long long>, std::vector<float>>>& Model::get_i
   // get the incremental sparse model
   inc_sparse_model_ = embedding_training_cache_->get_incremental_model(keys_vec);
   return inc_sparse_model_;
+}
+
+void Model::dump_incremental_model_2kafka()
+{
+  if (!etc_params_->use_embedding_training_cache) {
+    CK_THROW_(Error_t::IllegalCall, "Get incremental is only supported in ETC");
+  }
+  if (set_source_flag_) {
+    etc_params_->incremental_keyset_files.insert(etc_params_->incremental_keyset_files.end(),
+                                                 reader_params_.keyset.begin(),
+                                                 reader_params_.keyset.end());
+    set_source_flag_ = false;
+  }
+  // dump model from GPU to PS
+  embedding_training_cache_->dump();
+  // load keyset to vector (processed keys_vec should be long long format)
+  auto& inc_keyset_file{etc_params_->incremental_keyset_files};
+  std::vector<long long> keys_vec;
+  if (solver_.i64_input_key) {
+    keys_vec = load_key_files<long long>(inc_keyset_file);
+  } else {
+    auto keys_i32_vec = load_key_files<unsigned>(inc_keyset_file);
+    keys_vec.resize(keys_i32_vec.size());
+    std::transform(keys_i32_vec.begin(), keys_i32_vec.end(), keys_vec.begin(),
+                   [](unsigned key) { return static_cast<long long>(key); });
+  }
+  inc_keyset_file.clear();
+  // get the incremental sparse model
+  inc_sparse_model_ = embedding_training_cache_->get_incremental_model(keys_vec);
+  
+  for (unsigned int i = 0; i < sparse_embedding_params_.size(); i++){
+    size_t embedding_size = sparse_embedding_params_[i].embedding_vec_size;
+    std::string table_name = sparse_embedding_params_[i].sparse_embedding_name;
+    std::string tag = parameter_server_base::make_tag_name(solver_.model_name,table_name);
+    const char* vectors_ = reinterpret_cast<const char*>(inc_sparse_model_[i].second.data());
+    size_t num_pairs = inc_sparse_model_[i].first.size();
+    HCTR_LOG(INFO, WORLD, "Dump incremental parameters of %s into kafka. Embedding size is %zd, num_pairs is %zd \n", tag.c_str(), embedding_size, num_pairs);
+    message_sink_->post(tag, num_pairs, inc_sparse_model_[i].first.data(), vectors_ , embedding_size * sizeof(float));
+  }
+  
 }
 
 }  // namespace HugeCTR
