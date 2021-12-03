@@ -16,6 +16,7 @@
 #pragma once
 
 #include <functional>
+#include <inference/inference_utils.hpp>
 #include <string>
 
 namespace HugeCTR {
@@ -24,7 +25,7 @@ namespace HugeCTR {
  * Format of callback that is invoked by \p fetch methods of the \p DatabaseBackend if a key does
  * not exist.
  */
-typedef std::function<void(const size_t)> MissingKeyCallback;
+using MissingKeyCallback = std::function<void(const size_t)>;
 
 /**
  * Base class for database backends. Implementations that inherit from this should override all
@@ -36,10 +37,12 @@ template <typename TKey>
 class DatabaseBackend {
  public:
   DatabaseBackend() = default;
-  DatabaseBackend(DatabaseBackend&) = delete;
+
+  DatabaseBackend(const DatabaseBackend&) = delete;
+
   virtual ~DatabaseBackend() = default;
 
-  DatabaseBackend& operator=(DatabaseBackend&) = delete;
+  DatabaseBackend& operator=(const DatabaseBackend&) = delete;
 
   /**
    * Returns that allows identifying the backend implementation.
@@ -52,11 +55,12 @@ class DatabaseBackend {
    * Check whether a set of keys exists in the database.
    *
    * @param table_name The name of the table to be queried (see also
-   * paramter_server_base::make_table_name).
+   * paramter_server_base::make_tag_name).
    * @param num_keys Number of keys in \p keys .
    * @param keys Pointer to the keys.
    *
-   * @return The number of keys that are actually present in the database.
+   * @return The number of keys that are actually present in the database. Will throw if an
+   * recoverable error is encountered.
    */
   virtual size_t contains(const std::string& table_name, size_t num_keys, const TKey* keys) const;
 
@@ -65,7 +69,7 @@ class DatabaseBackend {
    * overriden.
    *
    * @param table_name The name of the table to be queried (see also
-   * paramter_server_base::make_table_name).
+   * paramter_server_base::make_tag_name).
    * @param num_pairs Number of \p keys and \p values .
    * @param keys Pointer to the keys.
    * @param values Pointer to the values.
@@ -81,7 +85,7 @@ class DatabaseBackend {
    * indexing).
    *
    * @param table_name The name of the table to be queried (see also
-   * paramter_server_base::make_table_name).
+   * paramter_server_base::make_tag_name).
    * @param num_keys Number of \p keys .
    * @param keys Pointer to the keys.
    * @param values Pointer to a preallocated memory area where the values will be stored.
@@ -89,7 +93,8 @@ class DatabaseBackend {
    * @param missing_callback A function that is called for every key that was not present in this
    * database.
    *
-   * @return The number of keys that were successfully retrieved from this database.
+   * @return The number of keys that were successfully retrieved from this database. Will throw if
+   * an recoverable error is encountered.
    */
   virtual size_t fetch(const std::string& table_name, size_t num_keys, const TKey* keys,
                        char* values, size_t value_size, MissingKeyCallback& missing_callback) const;
@@ -99,7 +104,7 @@ class DatabaseBackend {
    * supports indirect indexing, to allow sparse lookup.
    *
    * @param table_name The name of the table to be queried (see also
-   * paramter_server_base::make_table_name).
+   * paramter_server_base::make_tag_name).
    * @param num_indices Number of \p indices .
    * @param indices Pointer of indices in \p keys that need to be fetched.
    * @param keys Pointer to the key.
@@ -110,7 +115,8 @@ class DatabaseBackend {
    * @param missing_callback A function that is called for every key that was not present in this
    * database.
    *
-   * @return The number of keys that were successfully retrieved from this database.
+   * @return The number of keys that were successfully retrieved from this database. Will throw if
+   * an recoverable error is encountered.
    */
   virtual size_t fetch(const std::string& table_name, size_t num_indices, const size_t* indices,
                        const TKey* keys, char* values, size_t value_size,
@@ -120,7 +126,7 @@ class DatabaseBackend {
    * Attempt to remove a table and all associated values from the underlying database.
    *
    * @param table_name The name of the table to be queried (see also
-   * paramter_server_base::make_table_name).
+   * paramter_server_base::make_tag_name).
    *
    * @return The number of keys/value pairs removed (not reliable in all implementations).
    */
@@ -130,13 +136,38 @@ class DatabaseBackend {
    * Attempt to remove a set of keys from the underlying database table.
    *
    * @param table_name The name of the table to be queried (see also
-   * paramter_server_base::make_table_name).
+   * paramter_server_base::make_tag_name).
    * @param num_keys Number of \p keys .
    * @param keys Pointer to the keys.
    *
    * @return The number of keys/value pairs removed (not reliable in all implementations).
    */
   virtual size_t evict(const std::string& table_name, size_t num_keys, const TKey* keys) = 0;
+};
+
+class DatabaseBackendError : std::exception {
+ public:
+  explicit DatabaseBackendError(const std::string& backend, size_t partition,
+                                const std::string& what);
+
+  DatabaseBackendError(const DatabaseBackendError&) = default;
+
+  virtual ~DatabaseBackendError() = default;
+
+  DatabaseBackendError& operator=(const DatabaseBackendError&) = default;
+
+  virtual const std::string& backend() const noexcept { return backend_; }
+
+  virtual size_t partition() const noexcept { return partition_; }
+
+  virtual const char* what() const noexcept override { return what_.c_str(); }
+
+  virtual std::string to_string() const;
+
+ private:
+  std::string backend_;
+  size_t partition_;
+  std::string what_;
 };
 
 }  // namespace HugeCTR

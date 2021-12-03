@@ -21,6 +21,7 @@
 #include <inference/embedding_interface.hpp>
 #include <inference/inference_utils.hpp>
 #include <inference/memory_pool.hpp>
+#include <inference/message.hpp>
 #include <iostream>
 #include <memory>
 #include <metrics.hpp>
@@ -37,7 +38,16 @@ namespace HugeCTR {
 
 class parameter_server_base {
  public:
-  virtual ~parameter_server_base() = 0;
+  virtual ~parameter_server_base();
+
+  // Used in some backend implementations to name embedding tables appropriately.
+  // Note: Kafka requires [a-zA-Z0-9\\._\\-]{1,249} for topic names. Also at other
+  //       locations we may want to use this directly in regular expressions. So
+  //       let's avoid using "." (dot).
+  static constexpr const char* PS_EMBEDDING_TABLE_TAG_PREFIX = "hctr_et";
+
+  static std::string make_tag_name(const std::string& model_name,
+                                   const std::string& embedding_table);
 };
 
 template <typename TypeHashKey>
@@ -59,6 +69,8 @@ class parameter_server : public parameter_server_base, public HugectrUtility<Typ
                                       embedding_cache_config& cache_config,
                                       embedding_cache_workspace& workspace_handler,
                                       const std::vector<cudaStream_t>& streams);
+  virtual void update_database_per_model(const std::string& model_config_path,
+                                         const InferenceParams& inference_param);
   virtual std::shared_ptr<embedding_interface> GetEmbeddingCache(const std::string& modelname,
                                                                  int deviceid);
 
@@ -70,20 +82,26 @@ class parameter_server : public parameter_server_base, public HugectrUtility<Typ
   // The parameter server configuration
   parameter_server_config ps_config_;
 
-  DATABASE_TYPE db_type_ = DATABASE_TYPE::LOCAL;
+  // Database layers for multi-tier cache/lookup.
   std::shared_ptr<DatabaseBackend<TypeHashKey>> cpu_memory_db_;
-  float cpu_memory_db_cache_rate_ = 0;
+  double cpu_memory_db_cache_rate_ = 0.0;
   std::shared_ptr<DatabaseBackend<TypeHashKey>> distributed_db_;
-  float distributed_db_cache_rate_ = 0;
+  double distributed_db_cache_rate_ = 0.0;
   std::shared_ptr<DatabaseBackend<TypeHashKey>> persistent_db_;
 
   std::vector<std::shared_ptr<DatabaseBackend<TypeHashKey>>> db_stack_;
 
+  // Realtime data ingestion.
+  std::unique_ptr<MessageSource<TypeHashKey>> cpu_memory_db_source_;
+  std::unique_ptr<MessageSource<TypeHashKey>> distributed_db_source_;
+  std::unique_ptr<MessageSource<TypeHashKey>> persistent_db_source_;
   inference_memory_pool_size_config memory_pool_config;
 
- public:
-  ManagerPool* bufferpool;
+  std::shared_ptr<ManagerPool> bufferpool;
   std::map<std::string, std::map<int64_t, std::shared_ptr<embedding_interface>>> model_cache_map;
+
+  void parse_networks_per_model_(const std::vector<std::string>& model_config_path,
+                                 std::vector<InferenceParams>& inference_params_array);
 };
 
 }  // namespace HugeCTR

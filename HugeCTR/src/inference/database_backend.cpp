@@ -15,6 +15,7 @@
  */
 
 #include <inference/database_backend.hpp>
+#include <sstream>
 
 namespace HugeCTR {
 
@@ -49,5 +50,15 @@ size_t DatabaseBackend<TKey>::fetch(const std::string& table_name, const size_t 
 
 template class DatabaseBackend<unsigned int>;
 template class DatabaseBackend<long long>;
+
+DatabaseBackendError::DatabaseBackendError(const std::string& backend, const size_t partition,
+                                           const std::string& what)
+    : backend_{backend}, partition_{partition}, what_{what} {}
+
+std::string DatabaseBackendError::to_string() const {
+  std::stringstream ss;
+  ss << backend_ << " DB Backend error (partition = " << partition_ << "): " << what_;
+  return ss.str();
+}
 
 }  // namespace HugeCTR

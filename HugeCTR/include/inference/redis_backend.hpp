@@ -48,10 +48,17 @@ class RedisClusterBackend final : public DatabaseBackend<TKey> {
    * databse transaction.
    * @param max_set_batch_size Maximum number of key/value pairs that can participate in a writing
    * databse transaction.
+   * @param overflow_margin Margin at which further inserts will trigger overflow handling.
+   * @param overflow_policy Policy to use in case an overflow has been detected.
+   * @param overflow_resolution_target Target margin after applying overflow handling policy.
    */
-  RedisClusterBackend(const std::string& address, const std::string& password,
-                      size_t num_partitions = 8, size_t max_get_batch_size = 10000,
-                      size_t max_set_batch_size = 10000);
+  RedisClusterBackend(
+      const std::string& address, const std::string& user_name = "default",
+      const std::string& password = "", size_t num_partitions = 8,
+      size_t max_get_batch_size = 10'000, size_t max_set_batch_size = 10'000,
+      size_t overflow_margin = std::numeric_limits<size_t>::max(),
+      DatabaseOverflowPolicy_t overflow_policy = DatabaseOverflowPolicy_t::EvictOldest,
+      double overflow_resolution_target = 0.8);
 
   virtual ~RedisClusterBackend();
 
@@ -74,10 +81,16 @@ class RedisClusterBackend final : public DatabaseBackend<TKey> {
   size_t evict(const std::string& table_name, size_t num_keys, const TKey* keys) override;
 
  protected:
-  size_t num_partitions_;  // Do not change this value, after inserting data for the first time!
-  size_t max_get_batch_size_;
-  size_t max_set_batch_size_;
+  const size_t
+      num_partitions_;  // Do not change this value, after inserting data for the first time!
+  const size_t max_get_batch_size_;
+  const size_t max_set_batch_size_;
   std::unique_ptr<sw::redis::RedisCluster> redis_;
+
+  // Pruning related options.
+  const size_t overflow_margin_;
+  const DatabaseOverflowPolicy_t overflow_policy_;
+  const size_t overflow_resolution_target_;
 };
 
 }  // namespace HugeCTR

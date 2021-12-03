@@ -38,6 +38,7 @@ class RocksDBBackend final : public DatabaseBackend<TKey> {
    * @brief Construct a new RocksDBBackend object.
    *
    * @param path File-system path to the database.
+   * @param num_threads Number of threads that the RocksDB may use.
    * @param read_only If \p true will open the database in \p read-only mode. This allows
    * simultaneously querying the same RocksDB database from multiple clients.
    * @param max_get_batch_size Maximum number of key/value pairs that can participate in a reading
@@ -45,12 +46,12 @@ class RocksDBBackend final : public DatabaseBackend<TKey> {
    * @param max_set_batch_size Maximum number of key/value pairs that can participate in a writing
    * databse transaction.
    */
-  RocksDBBackend(const std::string& path, bool read_only = false, size_t max_get_batch_size = 10000,
-                 size_t max_set_batch_size = 10000);
+  RocksDBBackend(const std::string& path, size_t num_threads = 16, bool read_only = false,
+                 size_t max_get_batch_size = 10'000, size_t max_set_batch_size = 10'000);
 
   virtual ~RocksDBBackend();
 
-  const char* get_name() const override;
+  const char* get_name() const override { return "RocksDB"; }
 
   size_t contains(const std::string& table_name, size_t num_keys, const TKey* keys) const override;
 
@@ -71,8 +72,12 @@ class RocksDBBackend final : public DatabaseBackend<TKey> {
  protected:
   rocksdb::DB* db_;
   std::unordered_map<std::string, rocksdb::ColumnFamilyHandle*> column_handles_;
-  size_t max_get_batch_size_;
-  size_t max_set_batch_size_;
+  const size_t max_get_batch_size_;
+  const size_t max_set_batch_size_;
+
+  rocksdb::ColumnFamilyOptions column_family_options_;
+  rocksdb::ReadOptions read_options_;
+  rocksdb::WriteOptions write_options_;
 };
 
 }  // namespace HugeCTR

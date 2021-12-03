@@ -20,6 +20,9 @@
 #include <loss.hpp>
 #include <metrics.hpp>
 #include <embedding_training_cache/embedding_training_cache.hpp>
+#include <inference/message.hpp>
+#include <inference/kafka_message.hpp>
+#include <inference/parameter_server.hpp>
 #include <network.hpp>
 #include <optimizer.hpp>
 #include <parser.hpp>
@@ -463,6 +466,7 @@ class Model {
   }
   void unfreeze_dense() { is_dense_trainable_ = true; };
   std::vector<std::pair<std::vector<long long>, std::vector<float>>>& get_incremental_model();
+  void dump_incremental_model_2kafka();
 
  protected:
   Solver solver_;
@@ -471,6 +475,7 @@ class Model {
   std::shared_ptr<OptParamsPy> opt_params_py_;
   std::shared_ptr<EmbeddingTrainingCacheParams> etc_params_;
   std::vector<std::shared_ptr<OptParamsPy>> embedding_opt_params_list_;
+  std::shared_ptr<MessageSink<long long>> message_sink_;
   std::shared_ptr<LearningRateScheduler> lr_sch_;
   GpuLearningRateSchedulers gpu_lr_sches_;
 

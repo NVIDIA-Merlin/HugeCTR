@@ -83,7 +83,7 @@ struct SolverParser {
 };
 
 struct Solver {
-  //  std::string configure_file;
+  std::string model_name;
   unsigned long long seed; /**< seed of data simulator */
   LrPolicy_t lr_policy;    /**< the only fixed lr is supported now. */
   float lr;
@@ -116,6 +116,7 @@ struct Solver {
   bool grouped_all_reduce;
   size_t num_iterations_statistics;
   bool is_dlrm;
+  std::string kafka_brokers;
   Solver() {}
 };
 

@@ -21,18 +21,22 @@ def movie_inference(model_name, network_file, dense_file, embedding_file_list, d
     # create parameter server, embedding cache and inference session
     inference_params = InferenceParams(model_name = model_name,
                                 max_batchsize = 64,
-                                hit_rate_threshold = 0.5,
+                                hit_rate_threshold = 1.0,
                                 dense_model_file = dense_file,
                                 sparse_model_files = embedding_file_list,
-                                device_id = 3,
+                                device_id = 0,
                                 use_gpu_embedding_cache = enable_cache,
                                 cache_size_percentage = 0.9,
                                 i64_input_key = True,
                                 use_mixed_precision = False)
     inference_session = CreateInferenceSession(config_file, inference_params)
-    output = inference_session.predict(dense_features, embedding_columns, row_ptrs)
-    miss=np.mean((np.array(output) - np.array(result)) ** 2)
-    print("Movielens model(no dense input) inference result is {}".format(output))
+    output1 = inference_session.predict(dense_features, embedding_columns, row_ptrs)
+    miss1=np.mean((np.array(output1) - np.array(result)) ** 2)
+    inference_session.refresh_embedding_cache()
+    output2 = inference_session.predict(dense_features, embedding_columns, row_ptrs)
+    miss2=np.mean((np.array(output2) - np.array(result)) ** 2)
+    print("Movielens model(no dense input) inference result should be {}".format(result))
+    miss = max(miss1, miss2)
     if enable_cache:
         if miss>0.0001:
             raise RuntimeError("Movielens model(no dense input) inference using GPU cache, prediction error is greater than threshold: {}, error is {}".format(0.0001, miss))

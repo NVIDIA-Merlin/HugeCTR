@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <exception>
+#include <stdexcept>
 #include <string>
 #include <cuda_runtime_api.h>
 

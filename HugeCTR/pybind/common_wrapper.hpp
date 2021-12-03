@@ -220,11 +220,37 @@ void CommonPybind(pybind11::module& m) {
       .value("Short", HugeCTR::PowerLaw_t::Short)
       .value("Specific", HugeCTR::PowerLaw_t::Specific)
       .export_values();
-  pybind11::enum_<HugeCTR::DATABASE_TYPE>(m, "Database_t")
-      .value("Redis", HugeCTR::DATABASE_TYPE::REDIS)
-      .value("RocksDB", HugeCTR::DATABASE_TYPE::ROCKSDB)
-      .value("Local", HugeCTR::DATABASE_TYPE::LOCAL)
-      .value("Hierarchy", HugeCTR::DATABASE_TYPE::HIERARCHY)
+
+  // Inference / parameter server related.
+  pybind11::enum_<HugeCTR::DatabaseType_t>(m, "DatabaseType_t")
+      .value(HugeCTR::hctr_enum_to_c_str(HugeCTR::DatabaseType_t::Disabled),
+             HugeCTR::DatabaseType_t::Disabled)
+      .value(HugeCTR::hctr_enum_to_c_str(HugeCTR::DatabaseType_t::HashMap),
+             HugeCTR::DatabaseType_t::HashMap)
+      .value(HugeCTR::hctr_enum_to_c_str(HugeCTR::DatabaseType_t::ParallelHashMap),
+             HugeCTR::DatabaseType_t::ParallelHashMap)
+      .value(HugeCTR::hctr_enum_to_c_str(HugeCTR::DatabaseType_t::RedisCluster),
+             HugeCTR::DatabaseType_t::RedisCluster)
+      .value(HugeCTR::hctr_enum_to_c_str(HugeCTR::DatabaseType_t::RocksDB),
+             HugeCTR::DatabaseType_t::RocksDB)
+      .export_values();
+  pybind11::enum_<HugeCTR::CPUMemoryHashMapAlgorithm_t>(m, "CPUMemoryHashMapAlgorithm_t")
+      .value(HugeCTR::hctr_enum_to_c_str(HugeCTR::CPUMemoryHashMapAlgorithm_t::STL),
+             HugeCTR::CPUMemoryHashMapAlgorithm_t::STL)
+      .value(HugeCTR::hctr_enum_to_c_str(HugeCTR::CPUMemoryHashMapAlgorithm_t::PHM),
+             HugeCTR::CPUMemoryHashMapAlgorithm_t::PHM)
+      .export_values();
+  pybind11::enum_<HugeCTR::DatabaseOverflowPolicy_t>(m, "DatabaseOverflowPolicy_t")
+      .value(HugeCTR::hctr_enum_to_c_str(HugeCTR::DatabaseOverflowPolicy_t::EvictOldest),
+             HugeCTR::DatabaseOverflowPolicy_t::EvictOldest)
+      .value(HugeCTR::hctr_enum_to_c_str(HugeCTR::DatabaseOverflowPolicy_t::EvictRandom),
+             HugeCTR::DatabaseOverflowPolicy_t::EvictRandom)
+      .export_values();
+  pybind11::enum_<HugeCTR::UpdateSourceType_t>(m, "UpdateSourceType_t")
+      .value(HugeCTR::hctr_enum_to_c_str(HugeCTR::UpdateSourceType_t::Null),
+             HugeCTR::UpdateSourceType_t::Null)
+      .value(HugeCTR::hctr_enum_to_c_str(HugeCTR::UpdateSourceType_t::KafkaMessageQueue),
+             HugeCTR::UpdateSourceType_t::KafkaMessageQueue)
       .export_values();
 }
 

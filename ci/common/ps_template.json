@@ -3,6 +3,15 @@
     "db_type":"local",
     "redis_ip":"127.0.0.1:7000,127.0.0.1:7001,127.0.0.1:7002",
     "rocksdb_path":"/hugectr/test/utest/wdl_test_files/rocksdb",
+    "cpu_memory_db": {
+        "type": "parallel_hash_map",
+        "num_partitions": 15,
+        "overflow_policy": "evict_oldest",
+        "overflow_margin": 1000000,
+        "overflow_resolution_target": 0.95,
+        "initial_cache_rate": 1.0,
+        "update_filters": [ "wurst0", ".+" ]
+    },
     "models":[
 
         {

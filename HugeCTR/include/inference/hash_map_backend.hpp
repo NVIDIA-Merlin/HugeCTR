@@ -15,6 +15,8 @@
  */
 #pragma once
 
+#include <parallel_hashmap/phmap.h>
+
 #include <condition_variable>
 #include <deque>
 #include <functional>
@@ -27,33 +29,55 @@
 
 // TODO: Significantly faster. Enable this by default?
 // #define HCTR_EXPERIMENTAL_USE_BETTER_HASHMAP
-#ifdef HCTR_EXPERIMENTAL_USE_BETTER_HASHMAP
-#include <parallel_hashmap/phmap.h>
-#endif
 
 namespace HugeCTR {
+
+template <typename TPartition>
+class HashMapBackendBase : public DatabaseBackend<typename TPartition::key_type> {
+ public:
+  using TBase = DatabaseBackend<typename TPartition::key_type>;
+  using TKey = typename TPartition::key_type;
+
+  HashMapBackendBase(size_t overflow_margin, DatabaseOverflowPolicy_t overflow_policy,
+                     double overflow_resolution_target);
+
+  virtual ~HashMapBackendBase() = default;
+
+ protected:
+  /**
+   * Called internally in case a partition overflow is detected.
+   */
+  void resolve_overflow_(const std::string& table_name, size_t part_idx, TPartition& part,
+                         size_t value_size) const;
+
+  // Overflow-handling / pruning related parameters.
+  const size_t overflow_margin_;
+  const DatabaseOverflowPolicy_t overflow_policy_;
+  const size_t overflow_resolution_target_;
+};
 
 /**
  * \p DatabaseBackend implementation that stores key/value pairs in the local CPU memory.
  *
  * @tparam TKey The data-type that is used for keys in this database.
  */
-template <typename TKey>
-class LocalMemoryBackend final : public DatabaseBackend<TKey> {
+template <typename TPartition>
+class HashMapBackend final : public HashMapBackendBase<TPartition> {
  public:
-  using TBase = DatabaseBackend<TKey>;
-#ifdef HCTR_EXPERIMENTAL_USE_BETTER_HASHMAP
-  using TMap = phmap::flat_hash_map<TKey, std::vector<char>>;
-#else
-  using TMap = std::unordered_map<TKey, std::vector<char>>;
-#endif
+  using TBase = HashMapBackendBase<TPartition>;
+  using TKey = typename TBase::TKey;
 
   /**
-   * @brief Construct a new LocalMemoryBackend object.
+   * @brief Construct a new HashMapBackend object.
+   * @param overflow_margin Margin at which further inserts will trigger overflow handling.
+   * @param overflow_policy Policy to use in case an overflow has been detected.
+   * @param overflow_resolution_target Target margin after applying overflow handling policy.
    */
-  LocalMemoryBackend();
+  HashMapBackend(size_t overflow_margin = std::numeric_limits<size_t>::max(),
+                 DatabaseOverflowPolicy_t overflow_policy = DatabaseOverflowPolicy_t::EvictOldest,
+                 double overflow_resolution_target = 0.8);
 
-  const char* get_name() const override;
+  const char* get_name() const override { return "HashMap"; }
 
   size_t contains(const std::string& table_name, size_t num_keys, const TKey* keys) const override;
 
@@ -72,7 +96,7 @@ class LocalMemoryBackend final : public DatabaseBackend<TKey> {
   size_t evict(const std::string& table_name, size_t num_keys, const TKey* keys) override;
 
  protected:
-  std::unordered_map<std::string, TMap> tables_;
+  std::unordered_map<std::string, TPartition> tables_;
 };
 
 /**
@@ -81,25 +105,25 @@ class LocalMemoryBackend final : public DatabaseBackend<TKey> {
  *
  * @tparam TKey The data-type that is used for keys in this database.
  */
-
-template <typename TKey>
-class ParallelLocalMemoryBackend final : public DatabaseBackend<TKey> {
+template <typename TPartition>
+class ParallelHashMapBackend final : public HashMapBackendBase<TPartition> {
  public:
-  using TBase = DatabaseBackend<TKey>;
-#ifdef HCTR_EXPERIMENTAL_USE_BETTER_HASHMAP
-  using TMap = phmap::flat_hash_map<TKey, std::vector<char>>;
-#else
-  using TMap = std::unordered_map<TKey, std::vector<char>>;
-#endif
+  using TBase = HashMapBackendBase<TPartition>;
+  using TKey = typename TBase::TKey;
 
   /**
-   * @brief Construct a new ParallelLocalMemoryBackend object.
-   *
-   * @param num_partitions Number of threads that can be utilized in parallel.
+   * @brief Construct a new parallelized HashMapBackend object.
+   * @param num_partitions The number of parallel partitions.
+   * @param overflow_margin Margin at which further inserts will trigger overflow handling.
+   * @param overflow_policy Policy to use in case an overflow has been detected.
+   * @param overflow_resolution_target Target margin after applying overflow handling policy.
    */
-  ParallelLocalMemoryBackend(size_t num_partitions);
+  ParallelHashMapBackend(
+      size_t num_partitions, size_t overflow_margin = std::numeric_limits<size_t>::max(),
+      DatabaseOverflowPolicy_t overflow_policy = DatabaseOverflowPolicy_t::EvictOldest,
+      double overflow_resolution_target = 0.8);
 
-  const char* get_name() const;
+  const char* get_name() const { return "ParallelHashMap"; }
 
   size_t contains(const std::string& table_name, size_t num_keys, const TKey* keys) const override;
 
@@ -119,7 +143,10 @@ class ParallelLocalMemoryBackend final : public DatabaseBackend<TKey> {
 
  protected:
   size_t num_partitions_;
-  std::unordered_map<std::string, std::vector<TMap>> tables_;
+  std::unordered_map<std::string, std::vector<TPartition>> tables_;
 };
+
+#define HCTR_DB_HASH_MAP_STL_(HMAP, DTYPE) HMAP<std::unordered_map<DTYPE, std::vector<char>>>
+#define HCTR_DB_HASH_MAP_PHM_(HMAP, DTYPE) HMAP<phmap::flat_hash_map<DTYPE, std::vector<char>>>
 
 }  // namespace HugeCTR

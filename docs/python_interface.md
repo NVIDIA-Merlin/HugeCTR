@@ -78,6 +78,8 @@ hugectr.CreateSolver()
 `CreateSolver` returns an `Solver` object according to the custom argument values，which specify the training resources.
 
 **Arguments**
+* `model_name`: String, the name of the model. The default value is empty string. If you want to dump the model graph and save the model weights for inference, a unique value should be specified for each model that needs to be deployed.
+
 * `seed`: A random seed to be specified. The default value is 0.
 
 * `lr_policy`: The learning rate policy which suppots only fixed. The default value is `LrPolicy_t.fixed`.
