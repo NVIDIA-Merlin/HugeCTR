@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-ARG IMAGE_VER=21.09-py3
+ARG IMAGE_VER=21.11-py3
 FROM nvcr.io/nvidia/tritonserver:${IMAGE_VER} AS devel
 
 ARG IMAGE_VER
@@ -23,38 +23,62 @@ ARG CMAKE_VER=3.21.1
 
 SHELL ["/bin/bash", "-c"]
 
-ARG CUDA_HOME=/usr/local/cuda
-ARG CUDA_CUDA_LIBRARY=${CUDA_HOME}/lib64/stubs
+ENV CUDA_HOME=/usr/local/cuda
+ENV CUDA_CUDA_LIBRARY=${CUDA_HOME}/lib64/stubs
 ENV PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION='python'
+ENV CUDA_PATH=$CUDA_HOME
 ENV PATH=${CUDA_HOME}/lib64/:${PATH}:${CUDA_HOME}/bin
 ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/cuda/lib64:/usr/local/cuda/extras/CUPTI/lib64:/usr/local/lib:/repos/dist/lib
+ENV DEBIAN_FRONTEND=noninteractive
 
 # Build env variables for rmm
 ENV INSTALL_PREFIX=/usr
 
-RUN apt-get update -y && \
-    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-        vim git wget unzip tar curl zip \
-        gdb valgrind \
-        libtbb-dev \
-        zlib1g-dev lsb-release clang-format \
-        protobuf-compiler libboost-serialization-dev && \
-    apt install -y --no-install-recommends software-properties-common && \
-    add-apt-repository -y ppa:deadsnakes/ppa && \
-    apt update -y --fix-missing && \
+RUN apt update -y --fix-missing && \
+    apt upgrade -y && \
+      apt install -y --no-install-recommends software-properties-common && \
+      add-apt-repository -y ppa:deadsnakes/ppa && \
+      apt update -y --fix-missing
+
+RUN apt install -y --no-install-recommends \
+      git \
+      build-essential \
+      autoconf \
+      bison \
+      flex \
+      libboost-serialization-dev \
+      wget \
+      libssl-dev \
+      zlib1g-dev \
+      protobuf-compiler \
+      clang-format \
+      aptitude \
+      libaio-dev \
+      libtool && \
+    apt-get autoremove -y && \
+    apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
+RUN ln -s /usr/bin/python3 /usr/bin/python
+RUN pip uninstall protobuf -y; pip install protobuf
+RUN pip install git+git://github.com/gevent/gevent.git@21.8.0#egg=gevent
+
 # Install cmake
-RUN CMAKE_MAJOR_VERSION=`echo ${CMAKE_VER} | cut -d'.' -f1,2` && \
-    mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://cmake.org/files/v$CMAKE_MAJOR_VERSION/cmake-${CMAKE_VER}-linux-x86_64.sh && \
-    mkdir -p /usr/local && \
-    /bin/sh /var/tmp/cmake-${CMAKE_VER}-linux-x86_64.sh --prefix=/usr/local --skip-license && \
-    rm -rf /var/tmp/cmake-${CMAKE_VER}-linux-x86_64.sh
-ENV PATH=/usr/local/bin:$PATH
+RUN wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | gpg --dearmor - | tee /etc/apt/trusted.gpg.d/kitware.gpg >/dev/null && \
+    apt-add-repository 'deb https://apt.kitware.com/ubuntu/ focal main' && \
+    apt-get update && \
+    apt-get install -y cmake
+
+# Install spdlog from source
+RUN git clone --branch v1.9.2 https://github.com/gabime/spdlog.git build-env && \
+    pushd build-env && \
+      mkdir build && cd build && cmake .. && make -j && make install && \
+    popd && \
+    rm -rf build-env
 
 # Install arrow from source
 ENV ARROW_HOME=/usr/local
-RUN git clone --branch apache-arrow-5.0.0 --recurse-submodules https://github.com/apache/arrow.git build-env && \
+RUN git clone --branch apache-arrow-4.0.1 --recurse-submodules https://github.com/apache/arrow.git build-env && \
     pushd build-env && \
       export PARQUET_TEST_DATA="${PWD}/cpp/submodules/parquet-testing/data" && \
       export ARROW_TEST_DATA="${PWD}/testing/data" && \
@@ -64,47 +88,56 @@ RUN git clone --branch apache-arrow-5.0.0 --recurse-submodules https://github.co
         cmake -DCMAKE_INSTALL_PREFIX=${ARROW_HOME} \
               -DCMAKE_INSTALL_LIBDIR=lib \
               -DCMAKE_LIBRARY_PATH=${CUDA_CUDA_LIBRARY} \
-              -DARROW_FLIGHT=OFF \
+              -DARROW_FLIGHT=ON \
               -DARROW_GANDIVA=OFF \
-              -DARROW_ORC=OFF \
+              -DARROW_ORC=ON \
               -DARROW_WITH_BZ2=ON \
               -DARROW_WITH_ZLIB=ON \
               -DARROW_WITH_ZSTD=ON \
               -DARROW_WITH_LZ4=ON \
               -DARROW_WITH_SNAPPY=ON \
               -DARROW_WITH_BROTLI=ON \
-              -DARROW_PARQUET=OFF \
-              -DARROW_PYTHON=OFF \
-              -DARROW_PLASMA=OFF \
-              -DARROW_BUILD_TESTS=OFF \
-              -DARROW_FILESYSTEM=ON \
+              -DARROW_PARQUET=ON \
+              -DARROW_PYTHON=ON \
+              -DARROW_PLASMA=ON \
+              -DARROW_BUILD_TESTS=ON \
               -DARROW_CUDA=ON \
-              -DARROW_DATASET=OFF \
+              -DARROW_DATASET=ON \
               .. && \
         make -j$(nproc) && \
         make install && \
+      popd && \
+      pushd python && \
+        export PYARROW_WITH_PARQUET=ON && \
+        export PYARROW_WITH_CUDA=ON && \
+        export PYARROW_WITH_ORC=ON && \
+        export PYARROW_WITH_DATASET=ON && \
+        python setup.py build_ext --build-type=release bdist_wheel && \
+        pip install dist/*.whl && \
       popd && \
     popd && \
     rm -rf build-env
 
 # Install rmm from source
-RUN git clone https://github.com/rapidsai/rmm.git build-env && cd build-env/ && \
+RUN git clone --branch branch-21.08 --recurse-submodules https://github.com/rapidsai/rmm.git build-env && cd build-env/ && \
     sed -i '/11.2/ a "11.4": "11.x",' python/setup.py && \
     cd ..; \
     pushd build-env && \
-      ./build.sh librmm --cmake-args=\"-DBUILD_TESTS=OFF\" && \
+    ./build.sh librmm && \
+    pip install python/. && \
     popd && \
     rm -rf build-env
 
-# Install cudf from source
-RUN git clone https://github.com/rapidsai/cudf.git -b branch-21.10 build-env && cd build-env/ && \
-    git submodule update --init --recursive && \
+# Build env for CUDF build
+RUN git clone --branch branch-21.08 --recurse-submodules https://github.com/rapidsai/cudf.git build-env && cd build-env/ && \
     cd .. && \
     pushd build-env && \
       export CUDF_HOME=${PWD} && \
       export CUDF_ROOT=${PWD}/cpp/build/ && \
       export CMAKE_LIBRARY_PATH=${CUDA_CUDA_LIBRARY} && \
-      ./build.sh libcudf --allgpuarch --cmake-args=\"-DBUILD_TESTS=OFF -DCUDF_ENABLE_ARROW_S3=OFF\" && \
+      export CUDAFLAGS=-Wno-error=unknown-pragmas && \
+      ./build.sh libcudf cudf dask_cudf --allgpuarch && \
+      protoc -I=python/cudf/cudf/utils/metadata --python_out=/usr/local/lib/python3.8/dist-packages/cudf/utils/metadata python/cudf/cudf/utils/metadata/orc_column_statistics.proto && \
     popd && \
     rm -rf build-env
 
@@ -195,3 +228,4 @@ RUN ln -s /usr/local/hugectr/backends/hugectr /opt/tritonserver/backends/
 HEALTHCHECK NONE
 ENTRYPOINT []
 CMD ["/bin/bash"]
+
