@@ -74,3 +74,4 @@ Here's a list of notebooks that you can run:
 - [continuous_training.ipynb](continuous_training.ipynb): Notebook to introduce how to deploy continued training with HugeCTR.
 - [hugectr_wdl_prediction.ipynb](hugectr_wdl_prediction.ipynb): Tutorial how to train a wdl model using HugeCTR High-level python API.
 - [news-example.ipynb](news-example.ipynb): Tutorial to demonstrate NVTabular for ETL the data and HugeCTR for training Deep Neural Network models on MIND dataset.
+- [multi-modal-data](multi-modal-data): This series of notebooks demonstrate the use of multi-modal data (text, image) for the task of movie recommendation, using the Movielens-25M dataset.
