@@ -41,6 +41,7 @@ RUN apt update -y --fix-missing && \
       apt update -y --fix-missing
 
 RUN apt install -y --no-install-recommends \
+      libtbb-dev \
       git \
       build-essential \
       autoconf \
