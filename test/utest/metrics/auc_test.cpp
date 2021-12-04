@@ -135,13 +135,35 @@ void gen_random(std::vector<float>& h_labels, std::vector<T>& h_scores, int offs
 }
 
 template <typename T>
-void gen_same(std::vector<T>& h_labels, std::vector<T>& h_scores, int offset) {
+void gen_same(std::vector<float>& h_labels, std::vector<T>& h_scores, int offset) {
   std::mt19937 gen(424242 + offset);
   std::uniform_int_distribution<int> dis_label(0, 1);
 
   for (size_t i = 0; i < h_labels.size(); ++i) {
     h_labels[i] = (float)dis_label(gen);
     h_scores[i] = 0.2345;
+  }
+}
+
+template <typename T>
+void gen_correct(std::vector<float>& h_labels, std::vector<T>& h_scores, int offset) {
+  std::mt19937 gen(424242 + offset);
+  std::uniform_int_distribution<int> dis_label(0, 1);
+
+  for (size_t i = 0; i < h_labels.size(); ++i) {
+    h_labels[i] = (float)dis_label(gen);
+    h_scores[i] = (T)h_labels[i];
+  }
+}
+
+template <typename T>
+void gen_wrong(std::vector<float>& h_labels, std::vector<T>& h_scores, int offset) {
+  std::mt19937 gen(424242 + offset);
+  std::uniform_int_distribution<int> dis_label(0, 1);
+
+  for (size_t i = 0; i < h_labels.size(); ++i) {
+    h_labels[i] = (float)dis_label(gen);
+    h_scores[i] = (T)(1.0f - h_labels[i]);
   }
 }
 
@@ -284,6 +306,12 @@ TEST(auc_test, fp32_4gpu_multi) {
 TEST(auc_test, fp32_8gpu) {
   auc_test<float>({0, 1, 2, 3, 4, 5, 6, 7}, 4231, 891373, gen_random<float>, 2);
 }
+TEST(auc_test, fp32_8gpu_correct) {
+  auc_test<float>({0, 1, 2, 3, 4, 5, 6, 7}, 5423, 874345, gen_correct<float>);
+}
+TEST(auc_test, fp32_8gpu_wrong) {
+  auc_test<float>({0, 1, 2, 3, 4, 5, 6, 7}, 5423, 874345, gen_wrong<float>);
+}
 // TEST(auc_test, fp32_8gpu_large)      { auc_test<float>({0,1,2,3,4,5,6,7}, 131072, 89137319,
 // gen_random<float>, 2); }
 
@@ -300,6 +328,12 @@ TEST(auc_test, fp16_4gpu_multi) {
 }
 TEST(auc_test, fp16_8gpu) {
   auc_test<__half>({0, 1, 2, 3, 4, 5, 6, 7}, 4321, 891573, gen_random<__half>, 2);
+}
+TEST(auc_test, fp16_8gpu_correct) {
+  auc_test<__half>({0, 1, 2, 3, 4, 5, 6, 7}, 5423, 874345, gen_correct<__half>);
+}
+TEST(auc_test, fp16_8gpu_wrong) {
+  auc_test<__half>({0, 1, 2, 3, 4, 5, 6, 7}, 5423, 874345, gen_wrong<__half>);
 }
 // TEST(auc_test, fp16_8gpu_large)      { auc_test<__half>({0,1,2,3,4,5,6,7}, 131072, 89137319,
 // gen_random<__half>, 2); }
