@@ -34,7 +34,7 @@ There are several ways to install this package.
 
 **Use NGC Container**
 
-In the docker image: `nvcr.io/nvidia/merlin/merlin-training:21.11`, hugectr2onnx is already installed and you can directrly import this package via:
+In the docker image: `nvcr.io/nvidia/merlin/merlin-training:21.12`, hugectr2onnx is already installed and you can directrly import this package via:
 ```python
 import hugectr2onnx
 ```
