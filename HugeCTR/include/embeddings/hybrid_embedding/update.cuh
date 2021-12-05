@@ -45,13 +45,14 @@ __global__ void sgd_global_update_kernel(const emtype *__restrict__ gradients,
       lr * TypeConvertFunc<float, emtype>::convert(gradients[bid * embedding_vec_size + tid]);
 }
 
-template <typename emtype, typename Lambda>
+template <typename emtype, typename LambdaNum, typename LambdaIdx>
 __global__ void sgd_atomic_update_kernel(const emtype *__restrict__ gradients,
                                          float *__restrict__ embedding_vectors,
-                                         const uint32_t *__restrict__ num_indices_ptr,
-                                         Lambda get_index, uint32_t embedding_vec_size,
+                                         LambdaNum get_num_indices,
+                                         LambdaIdx get_index,
+                                         uint32_t embedding_vec_size,
                                          const float *__restrict__ lr_ptr, const float scale) {
-  const uint32_t num_indices = __ldg(num_indices_ptr);
+  const uint32_t num_indices = get_num_indices();
 
   float lr = __ldg(lr_ptr) / scale;
 
@@ -76,15 +77,15 @@ void sgd_global_update(const emtype *gradients, float *embedding_vectors,
   CK_CUDA_THROW_(cudaPeekAtLastError());
 }
 
-template <typename emtype, typename Lambda>
+template <typename emtype, typename LambdaNum, typename LambdaIdx>
 void sgd_atomic_update(const emtype *gradients, float *embedding_vectors,
-                       const uint32_t *num_indices_ptr, Lambda get_index, uint32_t n_blocks,
+                       LambdaNum get_num_indices, LambdaIdx get_index, uint32_t n_blocks,
                        uint32_t embedding_vec_size, float *lr_ptr, float scale,
                        cudaStream_t stream) {
   // Note: currently taking the number of blocks as an argument but we can also compute it here with
   // some heuristics if we think it's better
   sgd_atomic_update_kernel<<<n_blocks, embedding_vec_size, 0, stream>>>(
-      gradients, embedding_vectors, num_indices_ptr, get_index, embedding_vec_size, lr_ptr, scale);
+      gradients, embedding_vectors, get_num_indices, get_index, embedding_vec_size, lr_ptr, scale);
   CK_CUDA_THROW_(cudaPeekAtLastError());
 }
 

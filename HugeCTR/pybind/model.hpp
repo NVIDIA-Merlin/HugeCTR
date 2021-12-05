@@ -19,7 +19,10 @@
 #include <exchange_wgrad.hpp>
 #include <loss.hpp>
 #include <metrics.hpp>
-#include <model_oversubscriber/model_oversubscriber.hpp>
+#include <embedding_training_cache/embedding_training_cache.hpp>
+#include <inference/message.hpp>
+#include <inference/kafka_message.hpp>
+#include <inference/parameter_server.hpp>
 #include <network.hpp>
 #include <optimizer.hpp>
 #include <parser.hpp>
@@ -27,6 +30,7 @@
 #include <thread>
 #include <utility>
 #include <utils.hpp>
+#include <graph_wrapper.hpp>
 
 namespace HugeCTR {
 
@@ -180,18 +184,18 @@ struct SparseEmbedding {
                   const HybridEmbeddingParam& hybrid_embedding_param);
 };
 
-struct ModelOversubscriberParams {
-  bool use_model_oversubscriber;
+struct EmbeddingTrainingCacheParams {
+  bool use_embedding_training_cache;
   std::vector<TrainPSType_t> ps_types;
   std::vector<std::string> sparse_models;
   std::vector<std::string> local_paths;
   std::vector<HMemCacheConfig> hmem_cache_configs;
   std::vector<std::string> incremental_keyset_files;
-  ModelOversubscriberParams(std::vector<TrainPSType_t>& _ps_types,
+  EmbeddingTrainingCacheParams(std::vector<TrainPSType_t>& _ps_types,
                             std::vector<std::string>& _sparse_models,
                             std::vector<std::string>& _local_paths,
                             std::vector<HMemCacheConfig>& _hmem_cache_configs);
-  ModelOversubscriberParams();
+  EmbeddingTrainingCacheParams();
 };
 
 struct DenseLayer {
@@ -245,6 +249,17 @@ struct DenseLayer {
              Activation_t act_type = Activation_t::Relu);
 };
 
+struct GroupDenseLayer {
+  GroupLayer_t group_layer_type;
+  std::string bottom_name;
+  std::vector<std::string> top_name_list;
+  std::vector<size_t> num_outputs;
+  Activation_t last_act_type;
+  GroupDenseLayer(GroupLayer_t group_layer_type, std::string& bottom_name,
+                  std::vector<std::string>& top_name_list, std::vector<size_t>& num_outputs,
+                  Activation_t last_act_type = Activation_t::Relu);
+};
+
 template <typename TypeKey>
 void add_input(Input& input, DataReaderParams& reader_params,
                std::map<std::string, SparseInput<TypeKey>>& sparse_input_map,
@@ -269,7 +284,7 @@ void add_sparse_embedding(SparseEmbedding& sparse_embedding,
                           std::shared_ptr<ExchangeWgrad>& exchange_wgrad, bool use_cuda_graph,
                           bool grouped_all_reduce, bool use_holistic_cuda_graph,
                           size_t num_iterations_statistics,
-                          GpuLearningRateSchedulers& gpu_lr_sches);
+                          GpuLearningRateSchedulers& gpu_lr_sches, bool overlap_ar_a2a);
 
 Input get_input_from_json(const nlohmann::json& j_input);
 
@@ -302,10 +317,10 @@ void init_learning_rate_scheduler(std::shared_ptr<LearningRateScheduler>& lr_sch
  */
 class Model {
  public:
-  ~Model();
+  virtual ~Model();
   Model(const Solver& solver, const DataReaderParams& reader_params,
         std::shared_ptr<OptParamsPy>& opt_params,
-        std::shared_ptr<ModelOversubscriberParams>& mos_params);
+        std::shared_ptr<EmbeddingTrainingCacheParams>& etc_params);
   Model(const Model&) = delete;
   Model& operator=(const Model&) = delete;
 
@@ -313,31 +328,33 @@ class Model {
 
   void construct_from_json(const std::string& graph_config_file, bool include_dense_network);
 
-  void add(Input& input);
+  virtual void add(Input& input);
 
-  void add(SparseEmbedding& sparse_embedding);
+  virtual void add(SparseEmbedding& sparse_embedding);
 
-  void add(DenseLayer& dense_layer);
+  virtual void add(DenseLayer& dense_layer);
 
-  void add_internal(DenseLayer& dense_layer);
+  virtual void add_internal(DenseLayer& dense_layer);
+
+  void add(GroupDenseLayer& group_dense_layer);
 
   void graph_analysis();
 
-  void compile();
+  virtual void compile();
 
   void summary();
 
-  void fit(int num_epochs, int max_iter, int display, int eval_interval, int snapshot,
-           std::string snapshot_prefix);
+  virtual void fit(int num_epochs, int max_iter, int display, int eval_interval, int snapshot,
+                   std::string snapshot_prefix);
 
   void set_source(std::vector<std::string> source, std::vector<std::string> keyset,
                   std::string eval_source);
 
   void set_source(std::string source, std::string eval_source);
 
-  bool train();
+  virtual bool train(bool is_first_batch);
 
-  bool eval(int eval_batch = -1);
+  virtual bool eval (bool is_first_batch);
 
   std::vector<std::pair<std::string, float>> get_eval_metrics();
 
@@ -366,9 +383,10 @@ class Model {
   }
 
   Error_t set_learning_rate(float lr) {
-    float lr_embedding = is_embedding_trainable_ ? lr : 0.0;
-    float lr_dense = is_dense_trainable_ ? lr : 0.0;
+    float lr_embedding{0.f};
+    float lr_dense = is_dense_trainable_ ? lr : 0.f;
     for (auto& embedding : embeddings_) {
+      lr_embedding = embedding->is_trainable() ? lr : 0.f;
       embedding->set_learning_rate(lr_embedding);
     }
     for (auto& network : networks_) {
@@ -385,11 +403,11 @@ class Model {
     return static_cast<long long>(networks_[0]->get_params_num()) + size;
   }
 
-  const std::shared_ptr<ModelOversubscriber>& get_model_oversubscriber() const {
-    if (!model_oversubscriber_) {
-      CK_THROW_(Error_t::IllegalCall, "model oversubscriber should be initialized first");
+  const std::shared_ptr<EmbeddingTrainingCache>& get_embedding_training_cache() const {
+    if (!embedding_training_cache_) {
+      CK_THROW_(Error_t::IllegalCall, "embedding training cache should be initialized first");
     }
-    return model_oversubscriber_;
+    return embedding_training_cache_;
   }
 
   const std::shared_ptr<IDataReader>& get_train_data_reader() const {
@@ -417,21 +435,47 @@ class Model {
 
   void load_dense_weights(const std::string& dense_model_file);
   void load_sparse_weights(const std::vector<std::string>& sparse_embedding_files);
+  void load_sparse_weights(const std::map<std::string, std::string>& sparse_embedding_files_map);
   void load_dense_optimizer_states(const std::string& dense_opt_states_file);
   void load_sparse_optimizer_states(const std::vector<std::string>& sparse_opt_states_files);
-  void freeze_embedding() { is_embedding_trainable_ = false; };
+  void load_sparse_optimizer_states(const std::map<std::string, std::string>& sparse_opt_states_files_map);
+  void freeze_embedding() {
+    for (auto& one_embedding : embeddings_) {
+      one_embedding->freeze();      
+    }
+  };
+  void freeze_embedding(const std::string& embedding_name) {
+    if (embeddings_map_.find(embedding_name) == embeddings_map_.end()) {
+      CK_THROW_(Error_t::WrongInput, "No such embedding name: " + embedding_name);
+    }
+    auto it = embeddings_map_.find(embedding_name);
+    it->second->freeze();
+  }
   void freeze_dense() { is_dense_trainable_ = false; };
-  void unfreeze_embedding() { is_embedding_trainable_ = true; };
+  void unfreeze_embedding() {
+    for (auto& one_embedding : embeddings_) {
+      one_embedding->unfreeze();      
+    }
+  };
+  void unfreeze_embedding(const std::string& embedding_name) {
+    if (embeddings_map_.find(embedding_name) == embeddings_map_.end()) {
+      CK_THROW_(Error_t::WrongInput, "No such embedding name: " + embedding_name);
+    }
+    auto it = embeddings_map_.find(embedding_name);
+    it->second->unfreeze();
+  }
   void unfreeze_dense() { is_dense_trainable_ = true; };
   std::vector<std::pair<std::vector<long long>, std::vector<float>>>& get_incremental_model();
+  void dump_incremental_model_2kafka();
 
- private:
+ protected:
   Solver solver_;
   DataReaderParams reader_params_;
   OptParams opt_params_;
   std::shared_ptr<OptParamsPy> opt_params_py_;
-  std::shared_ptr<ModelOversubscriberParams> mos_params_;
+  std::shared_ptr<EmbeddingTrainingCacheParams> etc_params_;
   std::vector<std::shared_ptr<OptParamsPy>> embedding_opt_params_list_;
+  std::shared_ptr<MessageSink<long long>> message_sink_;
   std::shared_ptr<LearningRateScheduler> lr_sch_;
   GpuLearningRateSchedulers gpu_lr_sches_;
 
@@ -444,8 +488,7 @@ class Model {
   bool data_reader_train_status_;
   bool data_reader_eval_status_;
   bool buff_allocated_;
-  bool mos_created_;
-  bool is_embedding_trainable_;
+  bool etc_created_;
   bool is_dense_trainable_;
   std::vector<std::shared_ptr<GeneralBuffer2<CudaAllocator>>> blobs_buff_list_;
   std::vector<std::shared_ptr<BufferBlock2<float>>> train_weight_buff_list_;
@@ -476,8 +519,8 @@ class Model {
   std::vector<std::string> layer_info_;                 /**< type of each layer. */
   std::vector<std::shared_ptr<Network>> networks_;      /**< networks (dense) used in training. */
   std::vector<std::shared_ptr<IEmbedding>> embeddings_; /**< embedding */
-  std::shared_ptr<ModelOversubscriber>
-      model_oversubscriber_; /**< model oversubscriber for model oversubscribing. */
+  std::shared_ptr<EmbeddingTrainingCache>
+      embedding_training_cache_; /**< embedding training cache for model oversubscribing. */
 
   std::shared_ptr<IDataReader>
       train_data_reader_; /**< data reader to reading data from data set to embedding. */
@@ -490,13 +533,12 @@ class Model {
 
   std::shared_ptr<IDataReader> init_data_reader_;
   std::shared_ptr<ExchangeWgrad> exchange_wgrad_;
-  struct HolisticCudaGraph {
-    std::vector<bool> initialized;
-    std::vector<cudaGraphExec_t> instance;
-    std::vector<cudaEvent_t> fork_event;
-  } train_graph_;
+  std::vector<GraphWrapper> train_graphs_;
+  std::vector<cudaEvent_t> fork_events_;
   bool dlrm_bottom_mlp_;
   bool high_level_eval_;
+  HugeCTR::Timer timer_log;
+  std::map<std::string, std::shared_ptr<IEmbedding>> embeddings_map_;
 
   Error_t download_dense_params_to_files_(std::string weights_file,
                                           std::string dense_opt_states_file);
@@ -505,14 +547,14 @@ class Model {
                                            const std::vector<std::string>& sparse_opt_state_files);
 
   template <typename TypeEmbeddingComp>
-  std::shared_ptr<ModelOversubscriber> create_model_oversubscriber_(
+  std::shared_ptr<EmbeddingTrainingCache> create_embedding_training_cache_(
       const std::vector<TrainPSType_t>& ps_types,
       const std::vector<std::string>& sparse_embedding_files,
       const std::vector<std::string>& local_paths,
       const std::vector<HMemCacheConfig>& hmem_cache_configs);
   void init_params_for_dense_();
   void init_params_for_sparse_();
-  void init_model_oversubscriber_(const std::vector<TrainPSType_t>& ps_types,
+  void init_embedding_training_cache_(const std::vector<TrainPSType_t>& ps_types,
                                   const std::vector<std::string>& sparse_embedding_files,
                                   const std::vector<std::string>& local_paths,
                                   const std::vector<HMemCacheConfig>& hmem_cache_configs);
@@ -520,8 +562,8 @@ class Model {
   Error_t load_params_for_sparse_(const std::vector<std::string>& embedding_file);
   Error_t load_opt_states_for_dense_(const std::string& dense_opt_states_file);
   Error_t load_opt_states_for_sparse_(const std::vector<std::string>& sparse_opt_states_files);
-  void exchange_wgrad(size_t device_id);
-  void train_overlapped();
+  virtual void exchange_wgrad(size_t device_id);
+  virtual void train_overlapped();
 };
 
 }  // namespace HugeCTR

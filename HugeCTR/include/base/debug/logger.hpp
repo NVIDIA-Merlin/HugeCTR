@@ -325,6 +325,14 @@ inline std::string getErrorString(curandStatus_t err) {
     }                                                               \
   } while (0);
 
+#define HCTR_THROW_IF(EXPR, ERROR, MSG)                                     \
+  do {                                                                      \
+    const auto& expr = (EXPR);                                              \
+    if (expr) {                                                             \
+      Logger::get().do_throw((ERROR), CUR_SRC_LOC(EXPR), std::string(MSG)); \
+    }                                                                       \
+  } while (0)
+
 #define CHECK_CALL(MODE) CHECK_##MODE##_CALL
 
 #define CHECK_BLOCKING_CALL true
@@ -339,6 +347,8 @@ inline std::string getErrorString(curandStatus_t err) {
   do {                                                                 \
     Logger::get().check(EXPR, CUR_SRC_LOC(EXPR), HINT, ##__VA_ARGS__); \
   } while (0)
+
+#define HCTR_DIE(HINT, ...) HCTR_CHECK_HINT(false, HINT, ##__VA_ARGS__)
 
 // TODO: print the cuda error string
 #define HCTR_CUDA_CHECK(SYNC_MODE, FUNC)                            \
@@ -391,5 +401,19 @@ class Logger final {
   static std::unique_ptr<Logger> g_instance;
   static std::once_flag g_once_flag;
 };
+
+// TODO: Make fully templated and find better location for this?
+template <typename TTarget>
+inline static TTarget hctr_safe_cast(const size_t value) {
+  HCTR_CHECK(value <= std::numeric_limits<TTarget>::max());
+  return static_cast<TTarget>(value);
+}
+
+template <typename TTarget>
+inline static TTarget hctr_safe_cast(const double value) {
+  HCTR_CHECK(value >= std::numeric_limits<TTarget>::lowest() &&
+             value <= std::numeric_limits<TTarget>::max());
+  return static_cast<TTarget>(value);
+}
 
 }  // namespace HugeCTR

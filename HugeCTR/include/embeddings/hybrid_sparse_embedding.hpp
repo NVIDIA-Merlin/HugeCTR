@@ -19,11 +19,13 @@
 #include <collectives/all_reduce_comm.hpp>
 #include <collectives/ib_comm.hpp>
 #include <gpu_barrier.hpp>
-#include <queue>
-#include <random>
 #include <resource_manager.hpp>
 #include <utils.hpp>
+#include <queue>
+#include <random>
+#include <string>
 #include <vector>
+#include <unordered_map>
 
 #include "HugeCTR/include/embedding.hpp"
 #include "HugeCTR/include/embeddings/hybrid_embedding/calibration_data.hpp"
@@ -36,11 +38,13 @@
 #include "HugeCTR/include/embeddings/hybrid_embedding/utils.hpp"
 #include "HugeCTR/include/tensor2.hpp"
 
+#include "HugeCTR/include/data_readers/async_reader/async_reader_adapter.hpp"
+#include "HugeCTR/include/embeddings/hybrid_embedding/indices_container.hpp"
+
 using namespace HugeCTR::hybrid_embedding;
 
 namespace HugeCTR {
 
-template <typename TypeEmbedding>
 struct HybridSparseEmbeddingParams {
   size_t train_batch_size;
   size_t evaluate_batch_size;
@@ -56,6 +60,7 @@ struct HybridSparseEmbeddingParams {
   double max_all_reduce_bandwidth;
   double max_all_to_all_bandwidth;
   double efficiency_bandwidth_ratio;
+  bool use_train_precompute_indices, use_eval_precompute_indices;
   hybrid_embedding::HybridEmbeddingType hybrid_embedding_type;
   OptParams opt_params;  // optimizer params
 };
@@ -66,6 +71,49 @@ struct HybridSparseEmbeddingParams {
 ///
 template <typename dtype, typename emtype>
 class HybridSparseEmbedding : public IEmbedding {
+ public:
+  class StreamManager {
+    std::vector<std::unordered_map<std::string, cudaStream_t>> stream_map;
+    std::vector<std::unordered_map<std::string, cudaEvent_t>> event_map;
+
+  public:
+    StreamManager(int num_devices):
+      stream_map(num_devices),
+      event_map (num_devices) {
+    }
+
+    cudaStream_t& get_stream(uint32_t device_id, const std::string& key) {
+      if (stream_map[device_id].find(key) == stream_map[device_id].end()) {
+        cudaStream_t stream;
+        CK_CUDA_THROW_(cudaStreamCreate(&stream));
+        stream_map[device_id][key] = stream;
+      }
+      return stream_map[device_id][key];
+    }
+
+    cudaEvent_t& get_event(uint32_t device_id, const std::string& key) {
+      if (event_map[device_id].find(key) == event_map[device_id].end()) {
+        cudaEvent_t event;
+        CK_CUDA_THROW_(cudaEventCreateWithFlags(&event, cudaEventDisableTiming));
+        event_map[device_id][key] = event;
+      }
+      return event_map[device_id][key];
+    }
+
+    ~StreamManager() {
+      for (auto &sm : stream_map) {
+        for (auto &s : sm) {
+          cudaStreamDestroy(s.second);
+        }
+      }
+      for (auto &em : event_map) {
+        for (auto &e : em) {
+          cudaEventDestroy(e.second);
+        }
+      }
+    }
+  };
+
  private:
   // Embedding models, one instance per frequent and the infrequent embedding
   // for each mlp-network in the train session.
@@ -73,8 +121,12 @@ class HybridSparseEmbedding : public IEmbedding {
 
   // data-parallel embedding model
   std::vector<FrequentEmbedding<dtype, emtype>> frequent_embeddings_;
+  std::vector<FrequentEmbeddingCompression<dtype>> frequent_embedding_train_indices_,
+      frequent_embedding_evaluate_indices_;
   // model-parallel embedding model
   std::vector<InfrequentEmbedding<dtype, emtype>> infrequent_embeddings_;
+  std::vector<InfrequentEmbeddingSelection<dtype>> infrequent_embedding_train_indices_,
+      infrequent_embedding_evaluate_indices_;
   // performs the communication scheme
   std::vector<std::unique_ptr<Communication>> frequent_comms_, infrequent_forward_comms_,
       infrequent_backward_comms_;
@@ -106,12 +158,11 @@ class HybridSparseEmbedding : public IEmbedding {
   // std::vector<CudaPreAllocator> pre_alloc_bufs_;
   std::vector<std::shared_ptr<GeneralBuffer2<CudaAllocator>>> bufs_;
 
-  std::vector<std::unordered_map<std::string, cudaStream_t>> stream_map;
-  std::vector<std::unordered_map<std::string, cudaEvent_t>> event_map;
+  StreamManager stream_manager_;
 
   SparseTensors<dtype> train_input_tensors_;
   SparseTensors<dtype> evaluate_input_tensors_;
-  HybridSparseEmbeddingParams<emtype> embedding_params_;
+  HybridSparseEmbeddingParams embedding_params_;
   std::shared_ptr<ResourceManager> resource_manager_;
 
   Tensors2<emtype> train_output_tensors_;    /**< The output tensors. */
@@ -125,15 +176,20 @@ class HybridSparseEmbedding : public IEmbedding {
 
   GpuLearningRateSchedulers lr_scheds_;
   bool graph_mode_;
+  bool overlap_ar_a2a_;
+
+  std::shared_ptr<IndexProcessor<dtype>> train_async_indices_, eval_async_indices_;
 
   // TODO: this parameter is not used by HE at all.
   // We should be in pursuit of merging SparseEmbeddingHashParams and HybridSparseEmbeddingParams
   SparseEmbeddingHashParams dummy_params_;
 
-  void index_calculation(bool is_train, int eval_batch, int i, cudaStream_t stream);
-  void forward(bool is_train, int eval_batch, int i, cudaStream_t stream);
+  void index_calculation(bool is_train, bool is_first_batch, int i, cudaStream_t stream);
+  void forward(bool is_train, bool is_first_batch, int i, cudaStream_t stream, cudaEvent_t* evt_ptr);
   void backward_pre_communication(int i, cudaStream_t stream);
+  void frequent_local_reduce(int i, cudaStream_t stream);
   void backward_communications(int i, cudaStream_t stream);
+  void frequent_update(int i, cudaStream_t stream);
   void backward_post_communication(int i, cudaStream_t stream);
 
  protected:
@@ -171,25 +227,22 @@ class HybridSparseEmbedding : public IEmbedding {
     return num_categories;
   }
 
-  cudaStream_t& get_stream(uint32_t device_id, const std::string& key);
-  cudaEvent_t& get_event(uint32_t device_id, const std::string& key);
-  void destroy_streams();
-  void destroy_events();
-
  public:
   HybridSparseEmbedding(const SparseTensors<dtype>& train_input_tensors,
                         const SparseTensors<dtype>& evaluate_input_tensors,
-                        const HybridSparseEmbeddingParams<emtype>& embedding_params,
+                        const HybridSparseEmbeddingParams& embedding_params,
                         const std::vector<BuffPtr<emtype>>& grouped_wgrad_buff,
                         const GpuLearningRateSchedulers lr_scheds, bool graph_mode,
-                        const std::shared_ptr<ResourceManager>& resource_manager);
-  ~HybridSparseEmbedding();
+                        const std::shared_ptr<ResourceManager>& resource_manager,
+                        bool overlap_ar_a2a);
+  ~HybridSparseEmbedding() = default;
 
   // TODO: consider to merge it with init_params
   void init_model(const SparseTensors<dtype>& data, size_t& wgrad_offset);
+  void setup_async_mode(AsyncReader<dtype>* train_data_reader, AsyncReader<dtype>* eval_data_reader);
 
   TrainState train(bool is_train, int i, TrainState state) override;
-  void forward(bool is_train, int eval_batch = -1) override;
+  void forward(bool is_train, bool is_first_batch = true) override;
   void backward() override;
   void update_params() override;
   void init_params() override;
@@ -224,6 +277,22 @@ class HybridSparseEmbedding : public IEmbedding {
   cudaError_t update_top_gradients(const bool on_gpu, const void* const top_gradients) override {
     throw;
   }
+
+  void compute_indices(
+      FrequentEmbeddingCompression<dtype>& compression,
+      InfrequentEmbeddingSelection<dtype>& selection,
+      CommunicationType communication_type,
+      bool compute_network_cache_indices,
+      cudaStream_t main_stream,
+      StreamManager& manager,
+      int raw_device_id,
+      int sm_count);
+
+  void freeze() override { HCTR_LOG(WARNING, ROOT, "Hybrid embedding cannot be freezed.\n"); }
+
+  void unfreeze() override { HCTR_LOG(WARNING, ROOT, "Hybrid embedding do not need to be unfreezed.\n"); }
+
+  bool is_trainable() const override { return true; }
 };
 
 }  // namespace HugeCTR

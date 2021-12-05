@@ -23,14 +23,15 @@ namespace HugeCTR {
 namespace python_lib {
 
 std::unique_ptr<Solver> CreateSolver(
-    unsigned long long seed, LrPolicy_t lr_policy, float lr, size_t warmup_steps,
+    const std::string& model_name, unsigned long long seed, LrPolicy_t lr_policy, float lr, size_t warmup_steps,
     size_t decay_start, size_t decay_steps, float decay_power, float end_lr, int max_eval_batches,
-    int batchsize_eval, int batchsize, std::vector<std::vector<int>> vvgpu, bool repeat_dataset,
+    int batchsize_eval, int batchsize, const std::vector<std::vector<int>>& vvgpu, bool repeat_dataset,
     bool use_mixed_precision, bool enable_tf32_compute, float scaler,
     std::map<metrics::Type, float> metrics_spec, bool i64_input_key, bool use_algorithm_search,
-    bool use_cuda_graph, DeviceMap::Layout device_layout, bool use_holistic_cuda_graph,
-    bool use_overlapped_pipeline, AllReduceAlgo all_reduce_algo, bool grouped_all_reduce,
-    size_t num_iterations_statistics, bool is_dlrm) {
+    bool use_cuda_graph, bool async_mlp_wgrad, bool gen_loss_summary,
+    bool overlap_lr, bool overlap_init_wgrad, bool overlap_ar_a2a, DeviceMap::Layout device_layout,
+    bool use_holistic_cuda_graph, bool use_overlapped_pipeline, AllReduceAlgo all_reduce_algo,
+    bool grouped_all_reduce, size_t num_iterations_statistics, bool is_dlrm,std::string& kafka_brokers) {
   if (use_mixed_precision && enable_tf32_compute) {
     CK_THROW_(Error_t::WrongInput,
               "use_mixed_precision and enable_tf32_compute cannot be true at the same time");
@@ -51,7 +52,12 @@ std::unique_ptr<Solver> CreateSolver(
   if (use_holistic_cuda_graph && use_cuda_graph) {
     CK_THROW_(Error_t::WrongInput, "Must turn off local cuda graph when using holistic cuda graph");
   }
+  if (async_mlp_wgrad && use_cuda_graph) {
+    CK_THROW_(Error_t::WrongInput, "Must turn off local cuda graph when using asynchronous wgrad computation of mlp");
+  }
+
   std::unique_ptr<Solver> solver(new Solver());
+  solver->model_name = model_name;
   solver->seed = seed;
   solver->lr_policy = lr_policy;
   solver->lr = lr;
@@ -72,6 +78,11 @@ std::unique_ptr<Solver> CreateSolver(
   solver->i64_input_key = i64_input_key;
   solver->use_algorithm_search = use_algorithm_search;
   solver->use_cuda_graph = use_cuda_graph;
+  solver->async_mlp_wgrad = async_mlp_wgrad;
+  solver->gen_loss_summary = gen_loss_summary;
+  solver->overlap_lr = overlap_lr;
+  solver->overlap_init_wgrad = overlap_init_wgrad;
+  solver->overlap_ar_a2a = overlap_ar_a2a;
   solver->device_layout = device_layout;
   solver->use_holistic_cuda_graph = use_holistic_cuda_graph;
   solver->use_overlapped_pipeline = use_overlapped_pipeline;
@@ -79,12 +90,14 @@ std::unique_ptr<Solver> CreateSolver(
   solver->grouped_all_reduce = grouped_all_reduce;
   solver->num_iterations_statistics = num_iterations_statistics;
   solver->is_dlrm = is_dlrm;
+  solver->kafka_brokers = kafka_brokers;
   return solver;
 }
 
 void SolverPybind(pybind11::module& m) {
   pybind11::class_<HugeCTR::Solver, std::unique_ptr<HugeCTR::Solver>>(m, "Solver")
       .def(pybind11::init<>())
+      .def_readonly("model_name", &HugeCTR::Solver::model_name)
       .def_readonly("seed", &HugeCTR::Solver::seed)
       .def_readonly("lr_policy", &HugeCTR::Solver::lr_policy)
       .def_readonly("lr", &HugeCTR::Solver::lr)
@@ -105,6 +118,11 @@ void SolverPybind(pybind11::module& m) {
       .def_readonly("i64_input_key", &HugeCTR::Solver::i64_input_key)
       .def_readonly("use_algorithm_search", &HugeCTR::Solver::use_algorithm_search)
       .def_readonly("use_cuda_graph", &HugeCTR::Solver::use_cuda_graph)
+      .def_readonly("async_mlp_wgrad", &HugeCTR::Solver::async_mlp_wgrad)
+      .def_readonly("gen_loss_summary", &HugeCTR::Solver::gen_loss_summary)
+      .def_readonly("overlap_lr", &HugeCTR::Solver::overlap_lr)
+      .def_readonly("overlap_init_wgrad", &HugeCTR::Solver::overlap_init_wgrad)
+      .def_readonly("overlap_ar_a2a", &HugeCTR::Solver::overlap_ar_a2a)
       .def_readonly("device_layout", &HugeCTR::Solver::device_layout)
       .def_readonly("use_holistic_cuda_graph", &HugeCTR::Solver::use_holistic_cuda_graph)
       .def_readonly("use_overlapped_pipeline", &HugeCTR::Solver::use_overlapped_pipeline)
@@ -112,7 +130,8 @@ void SolverPybind(pybind11::module& m) {
       .def_readonly("grouped_all_reduce", &HugeCTR::Solver::grouped_all_reduce)
       .def_readonly("num_iterations_statistics", &HugeCTR::Solver::num_iterations_statistics)
       .def_readonly("is_dlrm", &HugeCTR::Solver::is_dlrm);
-  m.def("CreateSolver", &HugeCTR::python_lib::CreateSolver, pybind11::arg("seed") = 0,
+  m.def("CreateSolver", &HugeCTR::python_lib::CreateSolver,
+        pybind11::arg("model_name") = "", pybind11::arg("seed") = 0,
         pybind11::arg("lr_policy") = LrPolicy_t::fixed, pybind11::arg("lr") = 0.001,
         pybind11::arg("warmup_steps") = 1, pybind11::arg("decay_start") = 0,
         pybind11::arg("decay_steps") = 1, pybind11::arg("decay_power") = 2.f,
@@ -124,12 +143,18 @@ void SolverPybind(pybind11::module& m) {
         pybind11::arg("metrics_spec") = std::map<metrics::Type, float>({{metrics::Type::AUC, 1.f}}),
         pybind11::arg("i64_input_key") = false, pybind11::arg("use_algorithm_search") = true,
         pybind11::arg("use_cuda_graph") = true,
+        pybind11::arg("async_mlp_wgrad") = false,
+        pybind11::arg("gen_loss_summary") = true,
+        pybind11::arg("overlap_lr") = false,
+        pybind11::arg("overlap_init_wgrad") = false,
+        pybind11::arg("overlap_ar_a2a") = false,
         pybind11::arg("device_layout") = DeviceMap::Layout::LOCAL_FIRST,
         pybind11::arg("use_holistic_cuda_graph") = false,
         pybind11::arg("use_overlapped_pipeline") = false,
         pybind11::arg("all_reduce_algo") = AllReduceAlgo::NCCL,
         pybind11::arg("grouped_all_reduce") = false,
-        pybind11::arg("num_iterations_statistics") = 20, pybind11::arg("is_dlrm") = false);
+        pybind11::arg("num_iterations_statistics") = 20, pybind11::arg("is_dlrm") = false,
+        pybind11::arg("kafka_brockers") = "");
 }
 
 }  // namespace python_lib

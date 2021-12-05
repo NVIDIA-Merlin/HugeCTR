@@ -63,6 +63,7 @@ class PRelu_Dice_Layer : public Layer {
   size_t len;
   Tensor2<T> E_x;
   Tensor2<T> Var_x;
+  Tensor2<T> E_x2;
 };
 
 }  // namespace HugeCTR

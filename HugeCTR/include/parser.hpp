@@ -75,14 +75,15 @@ struct SolverParser {
   bool use_cuda_graph;
   bool use_holistic_cuda_graph;
   bool use_overlapped_pipeline;
+  bool async_mlp_wgrad;
   std::string export_predictions_prefix;
-  bool use_model_oversubscriber;
+  bool use_embedding_training_cache;
   SolverParser(const std::string& file);
   SolverParser() {}
 };
 
 struct Solver {
-  //  std::string configure_file;
+  std::string model_name;
   unsigned long long seed; /**< seed of data simulator */
   LrPolicy_t lr_policy;    /**< the only fixed lr is supported now. */
   float lr;
@@ -104,12 +105,18 @@ struct Solver {
   bool i64_input_key;
   bool use_algorithm_search;
   bool use_cuda_graph;
+  bool async_mlp_wgrad;
+  bool gen_loss_summary;
+  bool overlap_lr;
+  bool overlap_init_wgrad;
+  bool overlap_ar_a2a;
   bool use_holistic_cuda_graph;
   bool use_overlapped_pipeline;
   AllReduceAlgo all_reduce_algo;
   bool grouped_all_reduce;
   size_t num_iterations_statistics;
   bool is_dlrm;
+  std::string kafka_brokers;
   Solver() {}
 };
 
@@ -183,6 +190,7 @@ class Parser {
   const float scaler_{1.f};
   const bool use_algorithm_search_;
   const bool use_cuda_graph_;
+  const bool async_mlp_wgrad_;
   bool grouped_all_reduce_ = false;
 
   std::map<std::string, bool> tensor_active_; /**< whether a tensor is active. */
@@ -200,7 +208,7 @@ class Parser {
   Parser(const std::string& configure_file, size_t batch_size, size_t batch_size_eval,
          bool repeat_dataset, bool i64_input_key = false, bool use_mixed_precision = false,
          bool enable_tf32_compute = false, float scaler = 1.0f, bool use_algorithm_search = true,
-         bool use_cuda_graph = true);
+         bool use_cuda_graph = true, bool async_mlp_wgrad = false);
 
   /**
    * Create the pipeline, which includes data reader, embedding.

@@ -39,3 +39,8 @@ __pycache__/
 samples/*data
 samples/din/din_data
 test/utest/layers/keras_GRU.py
+dlrm.json
+dgx_a100*
+logs*
+archives/
+

@@ -50,20 +50,21 @@ std::shared_ptr<ResourceManager> ResourceManagerExt::create(
   return std::shared_ptr<ResourceManager>(new ResourceManagerExt(core));
 }
 
-ResourceManagerExt::ResourceManagerExt(std::shared_ptr<ResourceManager> core) : core_(core) {
 #ifdef ENABLE_MPI
+void ResourceManagerExt::init_ib_comm() {
   int num_process = get_num_process();
   if (num_process > 1) {
     int process_id = get_process_id();
     ib_comm_ = std::make_unique<IbComm>();
     ib_comm_->init(num_process, get_local_gpu_count(), process_id, get_local_gpu_device_id_list());
   }
-#endif
 }
+#endif
 
 void ResourceManagerExt::set_ar_comm(AllReduceAlgo algo, bool use_mixed_precision) {
   int num_process = get_num_process();
 #ifdef ENABLE_MPI
+  init_ib_comm();
   ar_comm_ = AllReduceInPlaceComm::create(num_process, algo, use_mixed_precision, get_local_gpus(),
                                           ib_comm_.get());
 #else

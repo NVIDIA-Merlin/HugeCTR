@@ -1,0 +1,4 @@
+#!/bin/bash
+
+CUDA_DEVICE_MAX_CONNECTIONS=2 srun --ntasks=1 --container-image="${CONT}" --container-mounts="${MOUNTS}" bash -cx " \
+      numactl --membind=1,3,5,7 python3 /workspace/dlrm/test/pybind_test/dlrm_test/dgx_a100.py"

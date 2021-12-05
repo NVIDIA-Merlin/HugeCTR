@@ -34,25 +34,26 @@ if(NOT pybind11_sources_POPULATED)
 endif()
 
 file(GLOB_RECURSE huge_ctr_src RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} *.cpp *.cu)
-list(FILTER huge_ctr_src EXCLUDE REGEX ".*main.cpp")
 
 file(GLOB hugectr_pybind
   ../pybind/model.cpp
+  ../pybind/model_perf_ext.cpp
   ../pybind/add_input.cpp
   ../pybind/add_sparse_embedding.cpp
   ../pybind/add_dense_layer.cpp
+  ../pybind/add_dense_layer_perf_ext.cpp
 )
 list (APPEND huge_ctr_src ${hugectr_pybind})
 
 add_library(huge_ctr_static STATIC ${huge_ctr_src})
 add_library(huge_ctr_shared SHARED ${huge_ctr_src})
 
-target_link_libraries(huge_ctr_static PUBLIC cublas curand cudnn nccl nvToolsExt ${CMAKE_THREAD_LIBS_INIT} cudf stdc++fs tbb)
-target_link_libraries(huge_ctr_shared PUBLIC cublas curand cudnn nccl nvToolsExt ${CMAKE_THREAD_LIBS_INIT} cudf stdc++fs tbb)
+target_link_libraries(huge_ctr_static PUBLIC cublas curand cudnn nccl nvToolsExt ${CMAKE_THREAD_LIBS_INIT} stdc++fs tbb)
+target_link_libraries(huge_ctr_shared PUBLIC cublas curand cudnn nccl nvToolsExt ${CMAKE_THREAD_LIBS_INIT} stdc++fs tbb)
 target_link_libraries(
   huge_ctr_shared
   PUBLIC
-    ${DB_LIB_PATHS}/libhiredis.so librocksdb.so libredis++.so  # from Hugectr 
+    ${DB_LIB_PATHS}/libhiredis.so librocksdb.so libredis++.so librdkafka.so  # from Hugectr 
 )
 
 if(MPI_FOUND)
@@ -64,8 +65,10 @@ else()
   target_link_libraries(huge_ctr_shared PUBLIC cublas cublasLt curand cudnn nccl nvToolsExt ${CMAKE_THREAD_LIBS_INIT} numa stdc++fs)
 endif()
 
-target_link_libraries(huge_ctr_static PUBLIC cudf)
-target_link_libraries(huge_ctr_shared PUBLIC cudf)
+if(NOT DISABLE_CUDF)
+  target_link_libraries(huge_ctr_static PUBLIC cudf)
+  target_link_libraries(huge_ctr_shared PUBLIC cudf)
+endif()
 
 if (ENABLE_MULTINODES)
   if (SHARP_FOUND)
@@ -89,10 +92,6 @@ target_link_libraries(huge_ctr_shared PUBLIC gpu_cache)
 target_compile_features(huge_ctr_shared PUBLIC cxx_std_17)
 set_target_properties(huge_ctr_shared PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 set_target_properties(huge_ctr_shared PROPERTIES CUDA_ARCHITECTURES OFF)
-
-add_executable(huge_ctr main.cpp)
-target_link_libraries(huge_ctr PUBLIC huge_ctr_static)
-target_compile_features(huge_ctr PUBLIC cxx_std_17)
 
 add_library(hugectr MODULE ../pybind/module_main.cpp)
 target_link_libraries(hugectr PUBLIC pybind11::module ${CUDA_LIBRARIES} huge_ctr_shared)

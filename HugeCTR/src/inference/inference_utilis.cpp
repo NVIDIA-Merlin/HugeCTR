@@ -16,4 +16,80 @@
 
 #include <inference/inference_utils.hpp>
 
-namespace HugeCTR {}  // namespace HugeCTR
+namespace HugeCTR {
+
+std::ostream& operator<<(std::ostream& os, const DatabaseType_t value) {
+  return os << hctr_enum_to_c_str(value);
+}
+std::ostream& operator<<(std::ostream& os, const CPUMemoryHashMapAlgorithm_t value) {
+  return os << hctr_enum_to_c_str(value);
+}
+std::ostream& operator<<(std::ostream& os, const DatabaseOverflowPolicy_t value) {
+  return os << hctr_enum_to_c_str(value);
+}
+std::ostream& operator<<(std::ostream& os, const UpdateSourceType_t value) {
+  return os << hctr_enum_to_c_str(value);
+}
+
+std::optional<size_t> parameter_server_config::find_model_id(const std::string& model_name) const {
+  const auto it = model_name_id_map_.find(model_name);
+  if (it != model_name_id_map_.end()) {
+    return it->second;
+  } else {
+    return std::nullopt;
+  }
+}
+
+bool CPUMemoryDatabaseParams::operator==(const CPUMemoryDatabaseParams& p) const {
+  return type == p.type &&
+         // Backend specific.
+         algorithm == p.algorithm && num_partitions == p.num_partitions &&
+         overflow_margin == p.overflow_margin && overflow_policy == p.overflow_policy &&
+         overflow_resolution_target == p.overflow_resolution_target &&
+         // Initialization related.
+         initial_cache_rate == p.initial_cache_rate &&
+         // Real-time update mechanism related.
+         update_filters == p.update_filters;
+}
+bool CPUMemoryDatabaseParams::operator!=(const CPUMemoryDatabaseParams& p) const {
+  return !operator==(p);
+}
+
+bool DistributedDatabaseParams::operator==(const DistributedDatabaseParams& p) const {
+  return type == p.type &&
+         // Backend specific.
+         address == p.address && password == p.password && num_partitions == p.num_partitions &&
+         max_get_batch_size == p.max_get_batch_size && max_set_batch_size == p.max_set_batch_size &&
+         overflow_margin == p.overflow_margin && overflow_policy == p.overflow_policy &&
+         overflow_resolution_target == p.overflow_resolution_target &&
+         // Initialization related.
+         initial_cache_rate == p.initial_cache_rate &&
+         // Real-time update mechanism related.
+         update_filters == p.update_filters;
+}
+bool DistributedDatabaseParams::operator!=(const DistributedDatabaseParams& p) const {
+  return !operator==(p);
+}
+
+bool PersistentDatabaseParams::operator==(const PersistentDatabaseParams& p) const {
+  return type == p.type &&
+         // Backend specific.
+         path == p.path && num_threads == p.num_threads && read_only == p.read_only &&
+         max_get_batch_size == p.max_get_batch_size && max_set_batch_size == p.max_set_batch_size &&
+         // Real-time update mechanism related.
+         update_filters == p.update_filters;
+}
+bool PersistentDatabaseParams::operator!=(const PersistentDatabaseParams& p) const {
+  return !operator==(p);
+}
+
+bool UpdateSourceParams::operator==(const UpdateSourceParams& p) const {
+  return type == p.type &&
+         // Backend specific.
+         brokers == p.brokers && poll_timeout_ms == p.poll_timeout_ms &&
+         max_receive_buffer_size == p.max_receive_buffer_size &&
+         max_batch_size == p.max_batch_size && failure_backoff_ms == p.failure_backoff_ms;
+}
+bool UpdateSourceParams::operator!=(const UpdateSourceParams& p) const { return !operator==(p); }
+
+}  // namespace HugeCTR

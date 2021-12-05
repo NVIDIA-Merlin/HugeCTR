@@ -29,7 +29,7 @@ class IEmbedding {
 
   virtual TrainState train(bool is_train, int i, TrainState state) { return TrainState(); }
   // TODO: can we remove the default argument?
-  virtual void forward(bool is_train, int eval_batch = -1) = 0;
+  virtual void forward(bool is_train, bool is_first_batch = true) = 0;
   virtual void backward() = 0;
   virtual void update_params() = 0;
   virtual void init_params() = 0;
@@ -60,6 +60,10 @@ class IEmbedding {
   virtual void get_forward_results_tf(const bool is_train, const bool on_gpu,
                                       void* const forward_result) = 0;
   virtual cudaError_t update_top_gradients(const bool on_gpu, const void* const top_gradients) = 0;
+
+  virtual void freeze() = 0;
+  virtual void unfreeze() = 0;
+  virtual bool is_trainable() const = 0;
 };
 
 struct SparseEmbeddingHashParams {

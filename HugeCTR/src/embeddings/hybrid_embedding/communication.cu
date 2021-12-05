@@ -136,6 +136,21 @@ void HierAll2Allv_Multi_IB<commtype>::communicate(cudaStream_t stream) {
 }
 
 template <typename commtype>
+void HierAll2Allv_Multi_IB<commtype>::initiate_communication(cudaStream_t stream) {
+  ib_comm_->post_a2a_send_command<commtype>(coll_handle_, stream, instance_id_);
+  CK_CUDA_THROW_(cudaEventRecord(comm_event_, comm_stream_));
+  CK_CUDA_THROW_(cudaStreamWaitEvent(stream, comm_event_));
+}
+
+template <typename commtype>
+void HierAll2Allv_Multi_IB<commtype>::wait_completion(cudaStream_t stream) {
+  ib_comm_->blocking_wait(coll_handle_, stream, instance_id_);
+  CK_CUDA_THROW_(cudaEventRecord(comm_event_, comm_stream_));
+  CK_CUDA_THROW_(cudaStreamWaitEvent(stream, comm_event_));
+  ib_comm_->wait_global_recv_async(coll_handle_, instance_id_);
+}
+
+template <typename commtype>
 HierAll2Allv_Multi_IB<commtype>::~HierAll2Allv_Multi_IB() {
   cudaEventDestroy(comm_event_);
 }

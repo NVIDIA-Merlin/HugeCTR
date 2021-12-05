@@ -48,7 +48,6 @@ class FusedReshapeConcatLayer : public Layer {
                           const std::shared_ptr<GPUResource>& gpu_resource);
 
   void initialize() override;
-  ~FusedReshapeConcatLayer() override;
   /**
    * FusedReshapeConcatLayer's foward propagation
    * @param stream CUDA stream where the foward propagation is executed
@@ -61,12 +60,12 @@ class FusedReshapeConcatLayer : public Layer {
   void bprop() override;
 
  private:
-  size_t* vecs_size_;
   std::vector<size_t> h_vecs_size_;
   size_t new_width_ = 0;
   size_t num_;
   size_t batch_size_ = 0;
   size_t slot_num_ = 0;
+  Tensor2<size_t> vecs_size_;
   Tensor2<T*> h_inputs_;
   Tensor2<T*> d_inputs_;
 };

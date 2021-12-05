@@ -57,10 +57,11 @@ class InferenceSessionPy : public InferenceSession {
                                    const std::vector<long long>& slot_size_array);
   std::vector<float>& predict(std::vector<float>& dense, std::vector<long long>& embeddingcolumns,
                               std::vector<int>& row_ptrs);
-
+  
+  void refresh_embedding_cache();
+  
  private:
-  void Initialize(const std::string& model_config_path,
-                  const InferenceParams& inference_params,
+  void Initialize(const std::string& model_config_path, const InferenceParams& inference_params,
                   std::shared_ptr<embedding_interface>& embedding_cache);
 
   template <typename TypeKey>
@@ -96,8 +97,8 @@ class InferenceSessionPy : public InferenceSession {
 };
 
 void InferenceSessionPy::Initialize(const std::string& model_config_path,
-                              const InferenceParams& inference_params,
-                              std::shared_ptr<embedding_interface>& embedding_cache) {
+                                    const InferenceParams& inference_params,
+                                    std::shared_ptr<embedding_interface>& embedding_cache) {
   CudaDeviceContext context(resource_manager_->get_local_gpu(0)->get_device_id());
   CK_CUDA_THROW_(cudaMalloc((void**)&d_dense_, inference_params_.max_batchsize *
                                                    inference_parser_.dense_dim * sizeof(float)));
@@ -126,7 +127,7 @@ InferenceSessionPy::InferenceSessionPy(const std::string& model_config_path,
                                        const InferenceParams& inference_params,
                                        std::shared_ptr<embedding_interface>& embedding_cache)
     : InferenceSession(model_config_path, inference_params, embedding_cache) {
-  Initialize(model_config_path, inference_params, embedding_cache);    
+  Initialize(model_config_path, inference_params, embedding_cache);
 }
 
 InferenceSessionPy::InferenceSessionPy(const std::string& model_config_path,
@@ -190,22 +191,21 @@ void InferenceSessionPy::predict_(std::vector<float>& dense, std::vector<TypeKey
   CudaDeviceContext context(resource_manager_->get_local_gpu(0)->get_device_id());
   output_.resize(num_samples);
   size_t num_keys = embeddingcolumns.size();
-  CK_CUDA_THROW_(cudaMemcpy(d_dense_, dense.data(),
-                            num_samples * inference_parser_.dense_dim * sizeof(float),
-                            cudaMemcpyHostToDevice));
-  CK_CUDA_THROW_(cudaMemcpy(
+  CK_CUDA_THROW_(cudaMemcpyAsync(
+      d_dense_, dense.data(), num_samples * inference_parser_.dense_dim * sizeof(float),
+      cudaMemcpyHostToDevice, resource_manager_->get_local_gpu(0)->get_stream()));
+  CK_CUDA_THROW_(cudaMemcpyAsync(
       d_row_ptrs_, row_ptrs.data(),
       (num_samples * inference_parser_.slot_num + inference_parser_.num_embedding_tables) *
           sizeof(int),
-      cudaMemcpyHostToDevice));
+      cudaMemcpyHostToDevice, resource_manager_->get_local_gpu(0)->get_stream()));
   memcpy(h_embeddingcolumns_, embeddingcolumns.data(), num_keys * sizeof(TypeKey));
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
   InferenceSession::predict(d_dense_, h_embeddingcolumns_, d_row_ptrs_, d_output_,
                             static_cast<int>(num_samples));
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
-  CK_CUDA_THROW_(cudaMemcpy(output_.data(), d_output_,
-                            num_samples * inference_parser_.label_dim * sizeof(float),
-                            cudaMemcpyDeviceToHost));
+  CK_CUDA_THROW_(cudaMemcpyAsync(
+      output_.data(), d_output_, num_samples * inference_parser_.label_dim * sizeof(float),
+      cudaMemcpyDeviceToHost, resource_manager_->get_local_gpu(0)->get_stream()));
+  CK_CUDA_THROW_(cudaStreamSynchronize(resource_manager_->get_local_gpu(0)->get_stream()));
 }
 
 std::vector<float>& InferenceSessionPy::predict(std::vector<float>& dense,
@@ -291,8 +291,10 @@ float InferenceSessionPy::evaluate_(const size_t num_batches, const std::string&
     std::vector<TypeKey> h_reader_keys(inference_params_.max_batchsize *
                                        inference_parser_.max_feature_num_per_sample);
     for (size_t i = 0; i < inference_parser_.num_embedding_tables; i++) {
-      CK_CUDA_THROW_(cudaMemcpy(h_reader_keys.data() + keys_offset, d_reader_keys_list_[i],
-                                keys_elements_list[i] * sizeof(TypeKey), cudaMemcpyDeviceToHost));
+      CK_CUDA_THROW_(cudaMemcpyAsync(h_reader_keys.data() + keys_offset, d_reader_keys_list_[i],
+                                     keys_elements_list[i] * sizeof(TypeKey),
+                                     cudaMemcpyDeviceToHost,
+                                     resource_manager_->get_local_gpu(0)->get_stream()));
       convert_array_on_device(
           d_row_ptrs_ + row_ptrs_offset, reinterpret_cast<TypeKey*>(d_reader_row_ptrs_list_[i]),
           row_ptr_elements_list[i], resource_manager_->get_local_gpu(0)->get_stream());
@@ -336,8 +338,10 @@ pybind11::array_t<float> InferenceSessionPy::predict_(
     std::vector<TypeKey> h_reader_keys(inference_params_.max_batchsize *
                                        inference_parser_.max_feature_num_per_sample);
     for (size_t i = 0; i < inference_parser_.num_embedding_tables; i++) {
-      CK_CUDA_THROW_(cudaMemcpy(h_reader_keys.data() + keys_offset, d_reader_keys_list_[i],
-                                keys_elements_list[i] * sizeof(TypeKey), cudaMemcpyDeviceToHost));
+      CK_CUDA_THROW_(cudaMemcpyAsync(h_reader_keys.data() + keys_offset, d_reader_keys_list_[i],
+                                     keys_elements_list[i] * sizeof(TypeKey),
+                                     cudaMemcpyDeviceToHost,
+                                     resource_manager_->get_local_gpu(0)->get_stream()));
       convert_array_on_device(
           d_row_ptrs_ + row_ptrs_offset, reinterpret_cast<TypeKey*>(d_reader_row_ptrs_list_[i]),
           row_ptr_elements_list[i], resource_manager_->get_local_gpu(0)->get_stream());
@@ -349,11 +353,12 @@ pybind11::array_t<float> InferenceSessionPy::predict_(
                                   inference_parser_.max_feature_num_for_tables);
     InferenceSession::predict(d_dense_, h_embeddingcolumns_, d_row_ptrs_, d_output_,
                               current_batchsize);
-    CK_CUDA_THROW_(cudaMemcpy(pred_ptr + pred_ptr_offset, d_output_,
-                              inference_params_.max_batchsize * sizeof(float),
-                              cudaMemcpyDeviceToHost));
+    CK_CUDA_THROW_(cudaMemcpyAsync(
+        pred_ptr + pred_ptr_offset, d_output_, inference_params_.max_batchsize * sizeof(float),
+        cudaMemcpyDeviceToHost, resource_manager_->get_local_gpu(0)->get_stream()));
     pred_ptr_offset += inference_params_.max_batchsize;
   }
+  CK_CUDA_THROW_(cudaStreamSynchronize(resource_manager_->get_local_gpu(0)->get_stream()));
   return pred;
 }
 
@@ -383,6 +388,14 @@ pybind11::array_t<float> InferenceSessionPy::predict(
   }
 }
 
+void InferenceSessionPy::refresh_embedding_cache() {
+  if (inference_params_.i64_input_key) {
+    ps_64_->refresh_embedding_cache(inference_params_.model_name, inference_params_.device_id);
+  } else {
+    ps_32_->refresh_embedding_cache(inference_params_.model_name, inference_params_.device_id);
+  }
+}
+
 std::shared_ptr<InferenceSessionPy> CreateInferenceSession(
     const std::string& model_config_path, const InferenceParams& inference_params) {
   std::shared_ptr<HugectrUtility<long long>> ps_64;
@@ -392,11 +405,13 @@ std::shared_ptr<InferenceSessionPy> CreateInferenceSession(
   std::vector<std::string> model_config_path_array{model_config_path};
   std::vector<InferenceParams> inference_params_array{inference_params};
   if (inference_params.i64_input_key) {
-    ps_64.reset(new parameter_server<long long>("Other", model_config_path_array, inference_params_array));
+    ps_64.reset(
+        new parameter_server<long long>("Other", model_config_path_array, inference_params_array));
     ec = ps_64->GetEmbeddingCache(inference_params.model_name, inference_params.device_id);
     sess.reset(new InferenceSessionPy(model_config_path, inference_params, ec, ps_64));
   } else {
-    ps_32.reset(new parameter_server<unsigned int>("Other", model_config_path_array, inference_params_array));
+    ps_32.reset(new parameter_server<unsigned int>("Other", model_config_path_array,
+                                                   inference_params_array));
     ec = ps_32->GetEmbeddingCache(inference_params.model_name, inference_params.device_id);
     sess.reset(new InferenceSessionPy(model_config_path, inference_params, ec, ps_32));
   }
@@ -409,25 +424,106 @@ void InferencePybind(pybind11::module& m) {
   pybind11::class_<HugeCTR::embedding_interface, std::shared_ptr<HugeCTR::embedding_interface>>(
       infer, "EmbeddingCache");
 
-  pybind11::class_<HugeCTR::parameter_server<unsigned int>, std::shared_ptr<HugeCTR::parameter_server<unsigned int>>>(
-      infer, "ParameterServer")
+  pybind11::class_<HugeCTR::parameter_server<unsigned int>,
+                   std::shared_ptr<HugeCTR::parameter_server<unsigned int>>>(infer,
+                                                                             "ParameterServer")
       .def(pybind11::init<const std::string&, const std::vector<std::string>&,
                           std::vector<InferenceParams>&>(),
-          pybind11::arg("framework_name"), pybind11::arg("model_config_path"),
-          pybind11::arg("inference_params_array"))
+           pybind11::arg("framework_name"), pybind11::arg("model_config_path"),
+           pybind11::arg("inference_params_array"))
       .def("get_embedding_cache", &HugeCTR::parameter_server<unsigned int>::GetEmbeddingCache,
-          pybind11::arg("model_name"), pybind11::arg("device_id"))                                                                                                                        
-      .def("refresh_embedding_cache", &HugeCTR::parameter_server<unsigned int>::refresh_embedding_cache,
-          pybind11::arg("model_name"), pybind11::arg("device_id"));
+           pybind11::arg("model_name"), pybind11::arg("device_id"))
+      .def("refresh_embedding_cache",
+           &HugeCTR::parameter_server<unsigned int>::refresh_embedding_cache,
+           pybind11::arg("model_name"), pybind11::arg("device_id"));
+
+  pybind11::class_<HugeCTR::CPUMemoryDatabaseParams,
+                   std::shared_ptr<HugeCTR::CPUMemoryDatabaseParams>>(infer,
+                                                                      "CPUMemoryDatabaseParams")
+      .def(pybind11::init<DatabaseType_t,
+                          // Backend specific.
+                          CPUMemoryHashMapAlgorithm_t, size_t, size_t, DatabaseOverflowPolicy_t,
+                          double,
+                          // Initialization related.
+                          double,
+                          // Real-time update mechanism related.
+                          const std::vector<std::string>&>(),
+           pybind11::arg("type") = DatabaseType_t::ParallelHashMap,
+           // Backend specific.
+           pybind11::arg("algorithm") = CPUMemoryHashMapAlgorithm_t::PHM,
+           pybind11::arg("num_partitions") = std::min(16U, std::thread::hardware_concurrency()),
+           pybind11::arg("overflow_margin") = std::numeric_limits<size_t>::max(),
+           pybind11::arg("overflow_policy") = DatabaseOverflowPolicy_t::EvictOldest,
+           pybind11::arg("overflow_resolution_target") = 0.8,
+           // Initialization related.
+           pybind11::arg("initial_cache_rate") = 1.0,
+           // Real-time update mechanism related.
+           pybind11::arg("update_filters") = std::vector<std::string>{".+"});
+
+  pybind11::class_<HugeCTR::DistributedDatabaseParams,
+                   std::shared_ptr<HugeCTR::DistributedDatabaseParams>>(infer,
+                                                                        "DistributedDatabaseParams")
+      .def(pybind11::init<DatabaseType_t,
+                          // Backend specific.
+                          const std::string&, const std::string&, const std::string&, size_t,
+                          size_t, size_t, size_t, DatabaseOverflowPolicy_t, double,
+                          // Initialization related.
+                          double,
+                          // Real-time update mechanism related.
+                          const std::vector<std::string>&>(),
+           pybind11::arg("type") = DatabaseType_t::Disabled,
+           // Backend specific.
+           pybind11::arg("address") = "127.0.0.1:7000", pybind11::arg("user_name") = "default",
+           pybind11::arg("password") = "", pybind11::arg("num_partitions") = 8,
+           pybind11::arg("max_get_batch_size") = 10'000,
+           pybind11::arg("max_set_batch_size") = 10'000,
+           pybind11::arg("overflow_margin") = std::numeric_limits<size_t>::max(),
+           pybind11::arg("overflow_policy") = DatabaseOverflowPolicy_t::EvictOldest,
+           pybind11::arg("overflow_resolution_target") = 0.8,
+           // Initialization related.
+           pybind11::arg("initial_cache_rate") = 1.0,
+           // Real-time update mechanism related.
+           pybind11::arg("update_filters") = std::vector<std::string>{".+"});
+
+  pybind11::class_<HugeCTR::PersistentDatabaseParams,
+                   std::shared_ptr<HugeCTR::PersistentDatabaseParams>>(infer,
+                                                                       "PersistentDatabaseParams")
+      .def(pybind11::init<DatabaseType_t,
+                          // Backend specific.
+                          const std::string&, size_t, bool, size_t, size_t,
+                          // Real-time update mechanism related.
+                          const std::vector<std::string>&>(),
+           pybind11::arg("backend") = DatabaseType_t::Disabled,
+           // Backend specific.
+           pybind11::arg("path") = (std::filesystem::temp_directory_path() / "rocksdb").string(),
+           pybind11::arg("num_threads") = 16, pybind11::arg("read_only") = false,
+           pybind11::arg("max_get_batch_size") = 10'000,
+           pybind11::arg("max_set_batch_size") = 10'000,
+           // Real-time update mechanism related.
+           pybind11::arg("update_filters") = std::vector<std::string>{".+"});
+
+  pybind11::class_<HugeCTR::UpdateSourceParams, std::shared_ptr<HugeCTR::UpdateSourceParams>>(
+      infer, "UpdateSourceParams")
+      .def(pybind11::init<UpdateSourceType_t,
+                          // Backend specific.
+                          const std::string&, size_t, size_t, size_t, size_t>(),
+           pybind11::arg("type") = UpdateSourceType_t::Null,
+           // Backend specific.
+           pybind11::arg("brokers") = "127.0.0.1:9092", pybind11::arg("poll_timeout_ms") = 500,
+           pybind11::arg("max_receive_buffer_size") = 2000, pybind11::arg("max_batch_size") = 1000,
+           pybind11::arg("failure_backoff_ms") = 50);
 
   pybind11::class_<HugeCTR::InferenceParams, std::shared_ptr<HugeCTR::InferenceParams>>(
       infer, "InferenceParams")
       .def(pybind11::init<const std::string&, const size_t, const float, const std::string&,
                           const std::vector<std::string>&, const int, const bool, const float,
                           const bool, const bool, const float, const bool, const bool,
-                          HugeCTR::DATABASE_TYPE, const std::string&, const std::string&,
-                          const float, const int, const int, const float, const std::vector<int>&,
-                          const std::vector<float>&>(),
+                          // HugeCTR::DATABASE_TYPE, const std::string&, const std::string&,
+                          // const float,
+                          const int, const int, const float, const std::vector<int>&,
+                          const std::vector<float>&, const CPUMemoryDatabaseParams&,
+                          const DistributedDatabaseParams&, const PersistentDatabaseParams&,
+                          const UpdateSourceParams&>(),
            pybind11::arg("model_name"), pybind11::arg("max_batchsize"),
            pybind11::arg("hit_rate_threshold"), pybind11::arg("dense_model_file"),
            pybind11::arg("sparse_model_files"), pybind11::arg("device_id"),
@@ -435,14 +531,16 @@ void InferencePybind(pybind11::module& m) {
            pybind11::arg("i64_input_key"), pybind11::arg("use_mixed_precision") = false,
            pybind11::arg("scaler") = 1.0, pybind11::arg("use_algorithm_search") = true,
            pybind11::arg("use_cuda_graph") = true,
-           pybind11::arg("db_type") = HugeCTR::DATABASE_TYPE::LOCAL,
-           pybind11::arg("redis_ip") = "127.0.0.1:7000", pybind11::arg("rocksdb_path") = "",
-           pybind11::arg("cache_size_percentage_redis") = 0.5,
            pybind11::arg("number_of_worker_buffers_in_pool") = 2,
            pybind11::arg("number_of_refresh_buffers_in_pool") = 1,
            pybind11::arg("cache_refresh_percentage_per_iteration") = 0.1,
-           pybind11::arg("deployed_devices") = std::vector<int>(1),
-           pybind11::arg("default_value_for_each_table") = std::vector<float>(0.0));
+           pybind11::arg("deployed_devices") = std::vector<int>{0},
+           pybind11::arg("default_value_for_each_table") = std::vector<float>{0.0f},
+           pybind11::arg("cpu_memory_db") = CPUMemoryDatabaseParams{},
+           pybind11::arg("distributed_db") = DistributedDatabaseParams{},
+           pybind11::arg("persistent_db") = PersistentDatabaseParams{},
+           pybind11::arg("update_source") = UpdateSourceParams{});
+
   infer.def("CreateInferenceSession", &HugeCTR::python_lib::CreateInferenceSession,
             pybind11::arg("model_config_path"), pybind11::arg("inference_params"));
 
@@ -450,9 +548,9 @@ void InferencePybind(pybind11::module& m) {
                    std::shared_ptr<HugeCTR::python_lib::InferenceSessionPy>>(infer,
                                                                              "InferenceSession")
       .def(pybind11::init<const std::string&, const InferenceParams&,
-                     std::shared_ptr<embedding_interface>&>(),
-          pybind11::arg("model_config_path"), pybind11::arg("inference_params"),
-          pybind11::arg("embedding_cache"))                                                                            
+                          std::shared_ptr<embedding_interface>&>(),
+           pybind11::arg("model_config_path"), pybind11::arg("inference_params"),
+           pybind11::arg("embedding_cache"))
       .def("evaluate", &HugeCTR::python_lib::InferenceSessionPy::evaluate,
            pybind11::arg("num_batches"), pybind11::arg("source"), pybind11::arg("data_reader_type"),
            pybind11::arg("check_type"), pybind11::arg("slot_size_array") = std::vector<long long>())
@@ -466,7 +564,8 @@ void InferencePybind(pybind11::module& m) {
            pybind11::overload_cast<std::vector<float>&, std::vector<long long>&, std::vector<int>&>(
                &HugeCTR::python_lib::InferenceSessionPy::predict),
            pybind11::arg("dense_feature"), pybind11::arg("embeddingcolumns"),
-           pybind11::arg("row_ptrs"));
+           pybind11::arg("row_ptrs"))
+      .def("refresh_embedding_cache", &HugeCTR::python_lib::InferenceSessionPy::refresh_embedding_cache);
 }
 
 }  // namespace python_lib

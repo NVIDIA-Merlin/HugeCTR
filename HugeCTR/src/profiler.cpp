@@ -2,6 +2,7 @@
 #include <cuda_runtime.h>
 #include <omp.h>
 #include <unistd.h>
+#include <limits.h>
 
 #include <chrono>
 #include <common.hpp>
@@ -132,8 +133,8 @@ void Profiler::initialize(bool use_cuda_graph, bool exit_when_finished) {
   repeat_times_ += 1;
   current_reapted_times_ = 0;
 
-  char host_name[50];
-  gethostname(host_name, 50);
+  char host_name[HOST_NAME_MAX + 1];
+  gethostname(host_name, sizeof(host_name));
   host_name_ = std::string(host_name);
   use_cuda_graph_ = use_cuda_graph;
   if (CUDA_VERSION < 11010 && use_cuda_graph_) {
@@ -544,8 +545,8 @@ void Profiler::unit_test_start(const char* test_name) {
   profiling_dir = std::string(pd);
   MESSAGE_(std::string("Profiler using PROFILING_DIR: ") + profiling_dir);
 
-  char host_name[50];
-  gethostname(host_name, 50);
+  char host_name[HOST_NAME_MAX + 1];
+  gethostname(host_name, sizeof(host_name));
   host_name_ = std::string(host_name);
   map_internal_.clear();
   unit_test_labels_.clear();

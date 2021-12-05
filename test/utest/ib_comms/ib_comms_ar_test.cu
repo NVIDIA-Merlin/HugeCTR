@@ -105,6 +105,7 @@ namespace {
           vvgpu.push_back(device_list);
         }
         resource_manager_ = ResourceManagerExt::create(vvgpu, 0, DeviceMap::LOCAL_FIRST);
+        resource_manager_->init_ib_comm();
         ib_comm_ = resource_manager_->get_ib_comm();
 
         init_buffers();

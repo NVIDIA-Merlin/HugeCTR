@@ -60,8 +60,8 @@
 namespace HugeCTR {
 
 #define HUGECTR_VERSION_MAJOR 3
-#define HUGECTR_VERSION_MINOR 2
-#define HUGECTR_VERSION_PATCH 1
+#define HUGECTR_VERSION_MINOR 3
+#define HUGECTR_VERSION_PATCH 0
 
 #define WARP_SIZE 32
 
@@ -108,7 +108,7 @@ class internal_runtime_error : public std::runtime_error {
 
 enum class LrPolicy_t { fixed };
 
-enum class Optimizer_t { Adam, AdaGrad, MomentumSGD, Nesterov, SGD };
+enum class Optimizer_t { Adam, AdaGrad, MomentumSGD, Nesterov, SGD, DEFAULT };
 
 enum class Update_t { Local, Global, LazyGlobal };
 
@@ -120,6 +120,8 @@ enum class FcPosition_t { None, Head, Body, Tail, Isolated };
 enum class Regularizer_t { L1, L2 };
 
 enum class Alignment_t { Auto, None };
+
+enum class GroupLayer_t { GroupFusedInnerProduct };
 
 enum class Layer_t {
   BatchNorm,
@@ -204,6 +206,7 @@ struct HybridEmbeddingParam {
   double max_all_reduce_bandwidth;
   double max_all_to_all_bandwidth;
   double efficiency_bandwidth_ratio;
+  bool use_train_precompute_indices, use_eval_precompute_indices;
   hybrid_embedding::CommunicationType communication_type;
   hybrid_embedding::HybridEmbeddingType hybrid_embedding_type;
 };
@@ -272,7 +275,7 @@ inline void ERROR_MESSAGE_(const std::string msg) {
     if (retval != Error_t::Success) {                                              \
       std::cerr << std::string("Runtime error: ") + (msg) + " " + __FILE__ + ":" + \
                        std::to_string(__LINE__) + " \n";                           \
-      return x;                                                                    \
+      return retval;                                                               \
     }                                                                              \
   } while (0)
 
@@ -407,8 +410,17 @@ inline void MESSAGE_(const std::string msg, bool per_process = false, bool new_l
   } while (0)
 
 template <typename T>
-inline void print_func(T& t) {
+inline void print_func(T const& t) {
   std::cout << t << ", ";
+  return;
+}
+
+// Set precision for double type
+template <>
+inline void print_func<double>(double const& t) {
+  std::stringstream ss;
+  ss << std::fixed << std::setprecision(2) << t << ", ";
+  std::cout << ss.str();
   return;
 }
 

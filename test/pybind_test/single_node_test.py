@@ -3,8 +3,8 @@ import json
 import sys
 import argparse
 
-DATA_READER_TYPE = {"Norm": hugectr.DataReaderType_t.Norm, 
-                    "Raw": hugectr.DataReaderType_t.Raw, 
+DATA_READER_TYPE = {"Norm": hugectr.DataReaderType_t.Norm,
+                    "Raw": hugectr.DataReaderType_t.Raw,
                     "Parquet": hugectr.DataReaderType_t.Parquet}
 CHECK_TYPE = {"Sum": hugectr.Check_t.Sum,
               "None": hugectr.Check_t.Non}
@@ -105,7 +105,7 @@ def train(model, max_iter, display, max_eval_batches, eval_interval, auc_thresho
   for iter in range(max_iter):
     lr = lr_sch.get_next()
     model.set_learning_rate(lr)
-    model.train()
+    model.train(False)
     if (iter%display == 0):
       loss = model.get_current_loss()
       print("[HUGECTR][INFO] iter: {}; loss: {}".format(iter, loss))

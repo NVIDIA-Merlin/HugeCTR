@@ -36,11 +36,13 @@ __forceinline__ __device__ void atomic_global_sum_div(T val, T *acc, float div) 
 template <typename T>
 Loss<T>::Loss(const Tensor2<float> &label_tensor, const Tensor2<T> &input_tensor,
               const Tensor2<float> &loss_tensor, const std::shared_ptr<Regularizer<T>> &regularizer,
-              const std::shared_ptr<GPUResource> &gpu_resource, int total_gpu_count, float scaler)
+              const std::shared_ptr<GPUResource> &gpu_resource, int total_gpu_count, float scaler,
+              bool gen_loss_summary)
     : regularizer_(regularizer),
       gpu_resource_(gpu_resource),
       total_gpu_count_(total_gpu_count),
-      scaler_(scaler) {
+      scaler_(scaler),
+      gen_loss_summary_(gen_loss_summary) {
   label_tensors_.push_back(label_tensor);
   input_tensors_.push_back(input_tensor);
   loss_tensors_.push_back(loss_tensor);
@@ -103,7 +105,11 @@ void Loss<T>::compute(bool is_train, long long current_batchsize) {
   }
 
   if (is_train) {
-    regularizer_->initialize_wgrad();
+    if (regularizer_->get_overlapped()) {
+      regularizer_->join_initialize_wgrad();
+    } else {
+      regularizer_->initialize_wgrad();
+    }
   }
   PROFILE_RECORD("compute.stop", get_gpu().get_stream(), false);
 
@@ -114,14 +120,21 @@ void Loss<T>::compute(bool is_train, long long current_batchsize) {
 }
 
 template <typename T>
+void Loss<T>::initialize_wgrad_async() {
+  if (regularizer_->get_overlapped()) {
+	regularizer_->initialize_wgrad_async();
+  }
+}
+
+template <typename T>
 CrossEntropyLoss<T>::CrossEntropyLoss(const Tensor2<float> &label_tensor,
                                       const Tensor2<T> &input_tensor,
                                       const Tensor2<float> &loss_tensor,
                                       const std::shared_ptr<Regularizer<T>> &regularizer,
                                       const std::shared_ptr<GPUResource> &gpu_resource,
-                                      int total_gpu_count, float scaler)
+                                      int total_gpu_count, float scaler, bool gen_loss_summary)
     : Loss<T>(label_tensor, input_tensor, loss_tensor, regularizer, gpu_resource, total_gpu_count,
-              scaler) {
+              scaler, gen_loss_summary) {
   const auto &input_dim = input_tensor.get_dimensions();
   const auto &label_dim = label_tensor.get_dimensions();
   int feature_dim = input_dim[1];
@@ -191,9 +204,10 @@ template <typename T>
 BinaryCrossEntropyLoss<T>::BinaryCrossEntropyLoss(
     const Tensor2<float> &label_tensor, const Tensor2<T> &input_tensor,
     const Tensor2<float> &loss_tensor, const std::shared_ptr<Regularizer<T>> &regularizer,
-    const std::shared_ptr<GPUResource> &gpu_resource, int total_gpu_count, float scaler)
+    const std::shared_ptr<GPUResource> &gpu_resource, int total_gpu_count, float scaler,
+    bool gen_loss_summary)
     : Loss<T>(label_tensor, input_tensor, loss_tensor, regularizer, gpu_resource, total_gpu_count,
-              scaler) {
+              scaler, gen_loss_summary) {
   const auto &input_dim = input_tensor.get_dimensions();
   int feature_dim = input_dim[1];
   if (feature_dim != 1)
@@ -204,7 +218,7 @@ BinaryCrossEntropyLoss<T>::BinaryCrossEntropyLoss(
 template <typename T>
 __global__ void BinaryCrossEntropy_Kernel(T *input, const float *label, float *bce_loss,
                                           float scaler, int batch_size, int total_gpu_count,
-                                          float rterm, bool is_train) {
+                                          float rterm, bool is_train, bool gen_loss_summary) {
   int tid = blockIdx.x * blockDim.x + threadIdx.x;
   float val = 0.0f;
   if (tid < batch_size) {
@@ -224,7 +238,7 @@ __global__ void BinaryCrossEntropy_Kernel(T *input, const float *label, float *b
       val = -x * y + log(1 + exp_x);
     }
   }
-
+  if (false == gen_loss_summary) return;
   float ret = blockReduceSum(val);
   if (tid < batch_size) {
     if (threadIdx.x == 0) {
@@ -233,6 +247,7 @@ __global__ void BinaryCrossEntropy_Kernel(T *input, const float *label, float *b
     }
   }
 }
+
 template <typename T>
 void BinaryCrossEntropyLoss<T>::do_compute(T *input, const float *label, float *loss,
                                            int batch_size, int feature_dim, float scaler,
@@ -240,9 +255,10 @@ void BinaryCrossEntropyLoss<T>::do_compute(T *input, const float *label, float *
   int block_size = 512;
   int grid_size = (batch_size + block_size - 1) / block_size;
   if (grid_size > 0) {
-    cudaMemsetAsync(loss, 0, sizeof(float), stream);
+    if (true == Loss<T>::gen_loss_summary_) cudaMemsetAsync(loss, 0, sizeof(float), stream);
     BinaryCrossEntropy_Kernel<<<grid_size, block_size, 0, stream>>>(
-        input, label, loss, scaler, batch_size, Loss<T>::get_total_gpu_count(), rterm, is_train);
+        input, label, loss, scaler, batch_size, Loss<T>::get_total_gpu_count(), rterm, is_train,
+        Loss<T>::gen_loss_summary_);
   }
 }
 
@@ -324,9 +340,10 @@ MultiCrossEntropyLoss<T>::MultiCrossEntropyLoss(const Tensor2<float> &label_tens
                                                 const std::shared_ptr<Regularizer<T>> &regularizer,
                                                 const std::vector<float> &target_weight,
                                                 const std::shared_ptr<GPUResource> &gpu_resource,
-                                                int total_gpu_count, float scaler)
+                                                int total_gpu_count, float scaler,
+                                                bool gen_loss_summary)
     : Loss<T>(label_tensor, input_tensor, loss_tensor, regularizer, gpu_resource, total_gpu_count,
-              scaler) {
+              scaler, gen_loss_summary) {
   if (label_tensor.get_dimensions().size() != 2 || input_tensor.get_dimensions().size() != 2 ||
       label_tensor.get_dimensions()[0] != input_tensor.get_dimensions()[0] ||
       label_tensor.get_dimensions()[1] != input_tensor.get_dimensions()[1]) {

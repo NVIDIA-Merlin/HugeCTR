@@ -66,7 +66,7 @@ HugeCTR is included in the Merlin Docker container, which is available in the [N
 
 You can pull and start the container by running the following command:
 ```shell
-$ docker run --gpus=all --rm -it --cap-add SYS_NICE nvcr.io/nvidia/merlin/merlin-training:21.11  # Start interaction mode
+$ docker run --gpus=all --rm -it --cap-add SYS_NICE nvcr.io/nvidia/merlin/merlin-training:21.12  # Start interaction mode
 ```  
 
 ### Building HugeCTR from Scratch
@@ -135,14 +135,11 @@ For more information, refer to [Python Interface](./python_interface.md).
 <br></br>
 
 ### Embedding Training Cache ###
-Embedding Training Cache (Model Oversubscription) gives you the ability to train a large model up to terabytes. It's implemented by loading a subset of an embedding table, which exceeds the aggregated capacity of GPU memory, into the GPU in a coarse-grained, on-demand manner during the training stage. To use this feature, you need to split your dataset into multiple sub-datasets while extracting the unique key sets from them (see Fig. 7).
+Embedding Training Cache (ETC) gives you the ability to train a large model up to terabytes. It's implemented by loading a subset of an embedding table, which exceeds the aggregated capacity of GPU memory, into the GPU in a coarse-grained, on-demand manner during the training stage.
 
-This feature currently supports both single-node and multi-node training. It supports all embedding types and can be used with [Norm](./python_interface.md#norm) and [Raw](./python_interface.md#raw) dataset formats. We revised our [`criteo2hugectr` tool](../tools/criteo_script/criteo2hugectr.cpp) to support the key set extraction for the Criteo dataset. For more information, refer to our [Python Jupyter Notebook](../notebooks/hugectr_criteo.ipynb) to learn how to use this feature with the Criteo dataset. 
+This feature currently supports both single-node and multi-node training. It supports all embedding types and can be used with [Norm](./python_interface.md#norm), [Raw](./python_interface.md#raw), and [Parquet](./python_interface.md#parquet) dataset formats. We revised our [`criteo2hugectr` tool](../tools/criteo_script/criteo2hugectr.cpp) to support the key set extraction for the Criteo dataset. For more information, refer to [HugeCTR Embedding Training Cache](./hugectr_embedding_training_cache.md) and [Continuous Training Notebook](../notebooks/continuous_training.ipynb) to learn how to use this feature with the Criteo dataset.
 
-**NOTE**: The Criteo dataset is a common use case, but model prefetching is not limited to this dataset.
-
-<div align=center><img width="520" height="153" src="user_guide_src/dataset_split.png"/></div>
-<div align=center>Fig. 7: Preprocessing of dataset for model oversubscription</div>
+**NOTE**: The Criteo dataset is a common use case, but embedding training cache is not limited to this dataset.
 
 ### HugeCTR to ONNX Converter ###
 The HugeCTR to Open Neural Network Exchange (ONNX) converter (hugectr2onnx) is a python package that can convert HugeCTR models to ONNX. It can improve the compatibility of HugeCTR with other deep learning frameworks since ONNX serves as an open-source format for AI models.

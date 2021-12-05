@@ -18,17 +18,100 @@
 #include <parser.hpp>
 
 namespace HugeCTR {
+
+CPUMemoryDatabaseParams::CPUMemoryDatabaseParams(const DatabaseType_t type,
+                                                 // Backend specific.
+                                                 const CPUMemoryHashMapAlgorithm_t algorithm,
+                                                 const size_t num_partitions,
+                                                 const size_t overflow_margin,
+                                                 const DatabaseOverflowPolicy_t overflow_policy,
+                                                 const double overflow_resolution_target,
+                                                 // Initialization related.
+                                                 const double initial_cache_rate,
+                                                 // Real-time update mechanism related.
+                                                 const std::vector<std::string>& update_filters)
+    : type(type),
+      // Backend specific.
+      algorithm(algorithm),
+      num_partitions(num_partitions),
+      overflow_margin(overflow_margin),
+      overflow_policy(overflow_policy),
+      overflow_resolution_target(overflow_resolution_target),
+      // Initialization related.
+      initial_cache_rate(initial_cache_rate),
+      // Real-time update mechanism related.
+      update_filters(update_filters) {}
+
+DistributedDatabaseParams::DistributedDatabaseParams(
+    const DatabaseType_t type,
+    // Backend specific.
+    const std::string& address, const std::string& user_name, const std::string& password,
+    const size_t num_partitions, const size_t max_get_batch_size, const size_t max_set_batch_size,
+    const size_t overflow_margin, const DatabaseOverflowPolicy_t overflow_policy,
+    const double overflow_resolution_target,
+    // Initialization related.
+    const double initial_cache_rate,
+    // Real-time update mechanism related.
+    const std::vector<std::string>& update_filters)
+    : type(type),
+      // Backend specific.
+      address(address),
+      user_name(user_name),
+      password(password),
+      num_partitions(num_partitions),
+      max_get_batch_size(max_get_batch_size),
+      max_set_batch_size(max_set_batch_size),
+      overflow_margin(overflow_margin),
+      overflow_policy(overflow_policy),
+      overflow_resolution_target(overflow_resolution_target),
+      // Initialization related.
+      initial_cache_rate(initial_cache_rate),
+      // Real-time update mechanism related.
+      update_filters(update_filters) {}
+
+PersistentDatabaseParams::PersistentDatabaseParams(const DatabaseType_t type,
+                                                   // Backend specific.
+                                                   const std::string& path,
+                                                   const size_t num_threads, const bool read_only,
+                                                   const size_t max_get_batch_size,
+                                                   const size_t max_set_batch_size,
+                                                   // Real-time update mechanism related.
+                                                   const std::vector<std::string>& update_filters)
+    : type(type),
+      // Backend specific.
+      path(path),
+      num_threads(num_threads),
+      read_only(read_only),
+      max_get_batch_size(max_get_batch_size),
+      max_set_batch_size(max_set_batch_size),
+      // Real-time update mechanism related.
+      update_filters(update_filters) {}
+
+UpdateSourceParams::UpdateSourceParams(const UpdateSourceType_t type,
+                                       // Backend specific.
+                                       const std::string& brokers, const size_t poll_timeout_ms,
+                                       const size_t max_receive_buffer_size,
+                                       const size_t max_batch_size, const size_t failure_backoff_ms)
+    : type(type),
+      // Backend specific.
+      brokers(brokers),
+      poll_timeout_ms(poll_timeout_ms),
+      max_receive_buffer_size(max_receive_buffer_size),
+      max_batch_size(max_batch_size),
+      failure_backoff_ms(failure_backoff_ms) {}
+
 InferenceParams::InferenceParams(
     const std::string& model_name, const size_t max_batchsize, const float hit_rate_threshold,
     const std::string& dense_model_file, const std::vector<std::string>& sparse_model_files,
     const int device_id, const bool use_gpu_embedding_cache, const float cache_size_percentage,
     const bool i64_input_key, const bool use_mixed_precision, const float scaler,
-    const bool use_algorithm_search, const bool use_cuda_graph, DATABASE_TYPE db_type,
-    const std::string redis_ip, const std::string rocksdb_path,
-    const float cache_size_percentage_redis, const int number_of_worker_buffers_in_pool,
-    const int number_of_refresh_buffers_in_pool, const float cache_refresh_percentage_per_iteration,
-    const std::vector<int>& deployed_devices,
-    const std::vector<float>& default_value_for_each_table)
+    const bool use_algorithm_search, const bool use_cuda_graph,
+    const int number_of_worker_buffers_in_pool, const int number_of_refresh_buffers_in_pool,
+    const float cache_refresh_percentage_per_iteration, const std::vector<int>& deployed_devices,
+    const std::vector<float>& default_value_for_each_table,
+    // Database backend.
+    const CPUMemoryDatabaseParams& cpu_memory_db, const DistributedDatabaseParams& distributed_db,
+    const PersistentDatabaseParams& persistent_db, const UpdateSourceParams& update_source)
     : model_name(model_name),
       max_batchsize(max_batchsize),
       hit_rate_threshold(hit_rate_threshold),
@@ -42,15 +125,16 @@ InferenceParams::InferenceParams(
       scaler(scaler),
       use_algorithm_search(use_algorithm_search),
       use_cuda_graph(use_cuda_graph),
-      db_type(db_type),
-      redis_ip(redis_ip),
-      rocksdb_path(rocksdb_path),
-      cache_size_percentage_redis(cache_size_percentage_redis),
       number_of_worker_buffers_in_pool(number_of_worker_buffers_in_pool),
       number_of_refresh_buffers_in_pool(number_of_refresh_buffers_in_pool),
       cache_refresh_percentage_per_iteration(cache_refresh_percentage_per_iteration),
       deployed_devices(deployed_devices),
-      default_value_for_each_table(default_value_for_each_table) {}
+      default_value_for_each_table(default_value_for_each_table),
+      // Database backend.
+      cpu_memory_db(cpu_memory_db),
+      distributed_db(distributed_db),
+      persistent_db(persistent_db),
+      update_source(update_source) {}
 
 template <typename TypeEmbeddingComp>
 void InferenceParser::create_pipeline_inference(

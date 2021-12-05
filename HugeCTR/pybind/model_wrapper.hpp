@@ -65,7 +65,7 @@ void ModelPybind(pybind11::module &m) {
            pybind11::arg("slot_size_array") = std::vector<size_t>(),
            pybind11::arg("optimizer") = std::shared_ptr<OptParamsPy>(new OptParamsPy()),
            pybind11::arg("hybrid_embedding_param") =
-               HybridEmbeddingParam{1, -1, 0.01, 1.3e11, 1.9e11, 1.0,
+               HybridEmbeddingParam{1, -1, 0.01, 1.3e11, 1.9e11, 1.0, false, false,
                                     hybrid_embedding::CommunicationType::NVLink_SingleNode,
                                     hybrid_embedding::HybridEmbeddingType::Distributed});
   pybind11::class_<HugeCTR::DenseLayer, std::shared_ptr<HugeCTR::DenseLayer>>(m, "DenseLayer")
@@ -96,12 +96,18 @@ void ModelPybind(pybind11::module &m) {
           pybind11::arg("regularizer_type") = Regularizer_t::L1, pybind11::arg("lambda") = 0,
           pybind11::arg("pos_type") = FcPosition_t::None,
           pybind11::arg("act_type") = Activation_t::Relu);
+  pybind11::class_<HugeCTR::GroupDenseLayer, std::shared_ptr<HugeCTR::GroupDenseLayer>>(m, "GroupDenseLayer")
+      .def(
+          pybind11::init<GroupLayer_t, std::string &, std::vector<std::string> &,
+                         std::vector<size_t> &, Activation_t>(),
+          pybind11::arg("group_layer_type"), pybind11::arg("bottom_name"), pybind11::arg("top_name_list"),
+          pybind11::arg("num_outputs"), pybind11::arg("last_act_type") = Activation_t::Relu);
   pybind11::class_<HugeCTR::Model, std::shared_ptr<HugeCTR::Model>>(m, "Model")
       .def(pybind11::init<const Solver &, const DataReaderParams &, std::shared_ptr<OptParamsPy> &,
-                          std::shared_ptr<ModelOversubscriberParams> &>(),
+                          std::shared_ptr<EmbeddingTrainingCacheParams> &>(),
            pybind11::arg("solver"), pybind11::arg("reader_params"), pybind11::arg("opt_params"),
-           pybind11::arg("mos_params") =
-               std::shared_ptr<ModelOversubscriberParams>(new ModelOversubscriberParams()))
+           pybind11::arg("etc_params") =
+               std::shared_ptr<EmbeddingTrainingCacheParams>(new EmbeddingTrainingCacheParams()))
       .def("compile", &HugeCTR::Model::compile)
       .def("summary", &HugeCTR::Model::summary)
       .def("fit", &HugeCTR::Model::fit, pybind11::arg("num_epochs") = 0,
@@ -122,26 +128,44 @@ void ModelPybind(pybind11::module &m) {
            pybind11::arg("base_lr"), pybind11::arg("warmup_steps") = 1,
            pybind11::arg("decay_start") = 0, pybind11::arg("decay_steps") = 1,
            pybind11::arg("decay_power") = 2.f, pybind11::arg("end_lr") = 0.f)
-      .def("freeze_embedding", &HugeCTR::Model::freeze_embedding)
+      .def("freeze_embedding",
+           pybind11::overload_cast<>(&HugeCTR::Model::freeze_embedding))
+      .def("freeze_embedding",
+           pybind11::overload_cast<const std::string&>(&HugeCTR::Model::freeze_embedding),
+           pybind11::arg("embedding_name"))
       .def("freeze_dense", &HugeCTR::Model::freeze_dense)
-      .def("unfreeze_embedding", &HugeCTR::Model::unfreeze_embedding)
+      .def("unfreeze_embedding",
+           pybind11::overload_cast<>(&HugeCTR::Model::unfreeze_embedding))
+      .def("unfreeze_embedding",
+           pybind11::overload_cast<const std::string&>(&HugeCTR::Model::unfreeze_embedding),
+           pybind11::arg("embedding_name"))
       .def("unfreeze_dense", &HugeCTR::Model::unfreeze_dense)
       .def("load_dense_weights", &HugeCTR::Model::load_dense_weights,
            pybind11::arg("dense_model_file"))
-      .def("load_sparse_weights", &HugeCTR::Model::load_sparse_weights,
+      .def("load_sparse_weights",
+           pybind11::overload_cast<const std::vector<std::string>&>(&HugeCTR::Model::load_sparse_weights),
            pybind11::arg("sparse_embedding_files"))
+      .def("load_sparse_weights",
+           pybind11::overload_cast<const std::map<std::string, std::string>&>(&HugeCTR::Model::load_sparse_weights),
+           pybind11::arg("sparse_embedding_files_map"))
       .def("load_dense_optimizer_states", &HugeCTR::Model::load_dense_optimizer_states,
            pybind11::arg("dense_opt_states_file"))
-      .def("load_sparse_optimizer_states", &HugeCTR::Model::load_sparse_optimizer_states,
+      .def("load_sparse_optimizer_states",
+           pybind11::overload_cast<const std::vector<std::string>&>(&HugeCTR::Model::load_sparse_optimizer_states),
            pybind11::arg("sparse_opt_states_files"))
+      .def("load_sparse_optimizer_states",
+           pybind11::overload_cast<const std::map<std::string, std::string>&>(&HugeCTR::Model::load_sparse_optimizer_states),
+           pybind11::arg("sparse_opt_states_files_map"))
       .def("add", pybind11::overload_cast<Input &>(&HugeCTR::Model::add), pybind11::arg("input"))
       .def("add", pybind11::overload_cast<SparseEmbedding &>(&HugeCTR::Model::add),
            pybind11::arg("sparse_embedding"))
       .def("add", pybind11::overload_cast<DenseLayer &>(&HugeCTR::Model::add),
            pybind11::arg("dense_layer"))
+      .def("add", pybind11::overload_cast<GroupDenseLayer &>(&HugeCTR::Model::add),
+           pybind11::arg("group_dense_layer"))
       .def("set_learning_rate", &HugeCTR::Model::set_learning_rate, pybind11::arg("lr"))
       .def("train", &HugeCTR::Model::train)
-      .def("eval", &HugeCTR::Model::eval, pybind11::arg("eval_batch") = -1)
+      .def("eval", &HugeCTR::Model::eval, pybind11::arg("is_first_batch") = true)
       .def("start_data_reading", &HugeCTR::Model::start_data_reading)
       .def("get_current_loss",
            [](HugeCTR::Model &self) {
@@ -177,9 +201,10 @@ void ModelPybind(pybind11::module &m) {
              inc_sparse_model.clear();
              return array_inc_sparse_model;
            })
+      .def("dump_incremental_model_2kafka", &HugeCTR::Model::dump_incremental_model_2kafka)
       .def("save_params_to_files", &HugeCTR::Model::download_params_to_files,
            pybind11::arg("prefix"), pybind11::arg("iter") = 0)
-      .def("get_model_oversubscriber", &HugeCTR::Model::get_model_oversubscriber)
+      .def("get_embedding_training_cache", &HugeCTR::Model::get_embedding_training_cache)
       .def("get_data_reader_train", &HugeCTR::Model::get_train_data_reader)
       .def("get_data_reader_eval", &HugeCTR::Model::get_evaluate_data_reader)
       .def("get_learning_rate_scheduler", &HugeCTR::Model::get_learning_rate_scheduler)

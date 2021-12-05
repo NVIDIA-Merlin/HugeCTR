@@ -46,9 +46,18 @@ class InteractionLayer : public Layer {
 
   bool use_mixed_precision_;
 
+  bool separate_Y_and_dY_;
+
   Tensors2<T> internal_tensors_;
 
   Tensors2<T>& get_in_tensors(bool is_train) { return in_tensors_; }
+
+ private:
+  void init(const Tensor2<T>& in_bottom_mlp_tensor, const Tensor2<T>& in_embeddings,
+                   Tensor2<T>& out_tensor, Tensor2<T>& grad_tensor,
+                   const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
+                   const std::shared_ptr<GPUResource>& gpu_resource);
+
 
  public:
   /**
@@ -64,6 +73,13 @@ class InteractionLayer : public Layer {
                    const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
                    const std::shared_ptr<GPUResource>& gpu_resource, bool use_mixed_precision,
                    bool enable_tf32_compute);
+
+  InteractionLayer(const Tensor2<T>& in_bottom_mlp_tensor, const Tensor2<T>& in_embeddings,
+                   Tensor2<T>& out_tensor, Tensor2<T>& grad_tensor,
+                   const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
+                   const std::shared_ptr<GPUResource>& gpu_resource, bool use_mixed_precision,
+                   bool enable_tf32_compute);
+
   ~InteractionLayer() override;
 
   /**

@@ -20,6 +20,7 @@
 #include <nccl.h>
 
 #include <common.hpp>
+#include <graph_wrapper.hpp>
 #include <exchange_wgrad.hpp>
 #include <fstream>
 #include <functional>
@@ -48,20 +49,13 @@ struct TensorEntry {
  * forward/backward/loss/update of the dense layers.
  */
 class Network {
- private:
+ protected:
   std::vector<std::unique_ptr<Layer>> train_layers_;    /**< vector of layers */
   std::vector<std::unique_ptr<Layer>> evaluate_layers_; /**< vector of layers */
   std::unique_ptr<ILoss> train_loss_;                   /**< loss layer */
   std::unique_ptr<ILoss> evaluate_loss_;                /**< loss layer */
   std::unique_ptr<Optimizer> optimizer_;                /**< optimizer */
   std::vector<Layer*> top_layers_, bottom_layers_;
-
-  struct GraphWrapper {
-    bool initialized = false;
-    bool initialized_with_profiling = false;
-    cudaGraph_t graph;
-    cudaGraphExec_t graph_exec;
-  };
 
   Tensor2<float> train_weight_tensor_;
   Tensor2<float> wgrad_tensor_;
@@ -89,6 +83,7 @@ class Network {
   void conv_weight_(Tensor2<__half>& target, const Tensor2<float>& source);
 
   std::map<TrainState_t, cudaEvent_t> train_events_;
+  std::shared_ptr<GpuLearningRateScheduler> lr_sched_;
 
   template <typename LPtr>
   void prop_layers(const std::vector<LPtr>& layers, GraphWrapper& graph, bool use_graph, bool fprop,
@@ -111,14 +106,14 @@ class Network {
   /**
    * Forward, backward and update the network.
    */
-  void train(long long current_batchsize);
+  virtual void train(long long current_batchsize);
 
-  TrainState train(long long current_batchsize, std::function<void()> exchange_wgrad,
-                   TrainState state);
+  virtual TrainState train(long long current_batchsize, std::function<void()> exchange_wgrad,
+                           TrainState state);
   /**
    * Forward only.
    */
-  void eval(long long current_batchsize);
+  virtual void eval(long long current_batchsize);
 
   /**
    * Forward only for inference.
@@ -216,6 +211,7 @@ class Network {
    */
   void set_learning_rate_scheduler(std::shared_ptr<GpuLearningRateScheduler>& lr_sched) {
     optimizer_->set_learning_rate_scheduler(lr_sched);
+    lr_sched_ = lr_sched;
   }
 
   /**
@@ -262,6 +258,7 @@ class Network {
       std::vector<std::shared_ptr<BufferBlock2<__half>>>& wgrad_buff_half_placeholder_list,
       bool dlrm_bottom_mlp);
   friend class Model;
+  friend class ModelPerfExt;
   /**
    * copy weights from train layers to evaluate layers
    */

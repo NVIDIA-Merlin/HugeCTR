@@ -712,7 +712,7 @@ void LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::load_para
       auto dst_rank = embedding_data_.get_resource_manager().get_process_id_from_gpu_global_id(gid);
 
       if (dst_rank != my_rank) {
-        CK_THROW_(Error_t::UnspecificError, "MOS selected keys error");
+        CK_THROW_(Error_t::UnspecificError, "ETC selected keys error");
       }
 
       chunk_keys[tid][id].push_back(key);

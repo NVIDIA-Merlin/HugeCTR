@@ -22,6 +22,7 @@ file(GLOB huge_ctr_src
   ../resource_managers/resource_manager_core.cpp
   ../data_simulator.cu
   ../data_reader.cpp
+  ../graph_wrapper.cpp
   ../layer.cpp
   ../layers/batch_norm_layer.cu
   ../layers/cast_layer.cu
@@ -69,9 +70,11 @@ file(GLOB huge_ctr_src
   rocksdb_backend.cpp
   sha1.cpp
   utils.cpp
-  local_memory_backend.cpp
+  hash_map_backend.cpp
   database_backend.cpp
   unique_op/unique_op.cu
+  message.cpp
+  kafka_message.cpp
   ../data_readers/metadata.cpp
   ../gpu_learning_rate_scheduler.cu
   ../metrics.cu
@@ -96,7 +99,7 @@ file(GLOB huge_ctr_src
 set(CMAKE_CXX_STANDARD 17)
 add_library(hugectr_inference SHARED ${huge_ctr_src})
 
-target_link_libraries(hugectr_inference PUBLIC cudart cublas curand cudnn nccl cudf stdc++fs ${CMAKE_THREAD_LIBS_INIT})
+target_link_libraries(hugectr_inference PUBLIC cudart cublas curand cudnn nccl cudf stdc++fs tbb ${CMAKE_THREAD_LIBS_INIT})
 
 target_link_libraries(hugectr_inference PUBLIC gpu_cache)
 
@@ -105,7 +108,7 @@ target_link_libraries(hugectr_inference PRIVATE nlohmann_json::nlohmann_json nvT
 target_link_libraries(
   hugectr_inference
   PUBLIC
-    ${DB_LIB_PATHS}/libhiredis.so librocksdb.so libredis++.so  # from Hugectr
+    ${DB_LIB_PATHS}/libhiredis.so librocksdb.so libredis++.so librdkafka.so # from Hugectr 
 )
 
 target_compile_features(hugectr_inference PUBLIC cxx_std_17)

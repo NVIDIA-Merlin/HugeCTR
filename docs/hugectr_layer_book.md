@@ -20,6 +20,8 @@ This document introduces different layer classes and corresponding methods in th
   * [Dropout Layer](#dropout-layer)
   * [DotProduct Layer](#dotproduct-layer)
   * [ELU Layer](#elu-layer)
+  * [ReLU Layer](#relu-layer)
+  * [Sigmoid Layer](#sigmoid-layer)
   * [Interaction Layer](#interaction-layer)
   * [Add Layer](#add-layer)
   * [ReduceSum Layer](#reducesum-layer)
@@ -513,6 +515,37 @@ model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.ELU,
                             top_names = ["elu1"],
                             elu_alpha=1.0))
 ```
+
+### ReLU Layer
+The ReLU layer represents the Rectified Linear Unit.
+
+Input and Output Shapes:
+
+* input: (batch_size, *) where * represents any number of elements
+* output: same as input
+
+Example:
+```python
+model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.ReLU,
+                            bottom_names = ["fc1"],
+                            top_names = ["relu1"]))
+```
+
+### Sigmoid Layer
+The Sigmoid layer represents the Sigmoid Unit.
+
+Input and Output Shapes:
+
+* input: (batch_size, *) where * represents any number of elements
+* output: same as input
+
+Example:
+```python
+model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Sigmoid,
+                            bottom_names = ["fc1"],
+                            top_names = ["sigmoid1"]))
+```
+**Note**: The final sigmoid function is fused with the loss function to better utilize memory bandwidth, so do NOT add a Sigmoid layer before the loss layer.
 
 ### Interaction Layer
 The interaction layer is used to explicitly capture second-order interactions between features.

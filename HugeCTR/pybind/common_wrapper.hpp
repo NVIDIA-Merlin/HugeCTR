@@ -90,6 +90,9 @@ void CommonPybind(pybind11::module& m) {
       .value("XavierUniform", HugeCTR::Initializer_t::XavierUniform)
       .value("Zero", HugeCTR::Initializer_t::Zero)
       .export_values();
+  pybind11::enum_<HugeCTR::GroupLayer_t>(m, "GroupLayer_t")
+      .value("GroupFusedInnerProduct", HugeCTR::GroupLayer_t::GroupFusedInnerProduct)
+      .export_values();
   pybind11::enum_<HugeCTR::Layer_t>(m, "Layer_t")
       .value("BatchNorm", HugeCTR::Layer_t::BatchNorm)
       .value("BinaryCrossEntropyLoss", HugeCTR::Layer_t::BinaryCrossEntropyLoss)
@@ -138,14 +141,15 @@ void CommonPybind(pybind11::module& m) {
            pybind11::arg("io_block_size"), pybind11::arg("io_depth"), pybind11::arg("io_alignment"),
            pybind11::arg("shuffle"), pybind11::arg("aligned_type"));
   pybind11::class_<HugeCTR::HybridEmbeddingParam>(m, "HybridEmbeddingParam")
-      .def(pybind11::init<size_t, int64_t, double, double, double, double,
+      .def(pybind11::init<size_t, int64_t, double, double, double, double, bool, bool,
                           hybrid_embedding::CommunicationType,
                           hybrid_embedding::HybridEmbeddingType>(),
            pybind11::arg("max_num_frequent_categories"),
            pybind11::arg("max_num_infrequent_samples"), pybind11::arg("p_dup_max"),
            pybind11::arg("max_all_reduce_bandwidth"), pybind11::arg("max_all_to_all_bandwidth"),
-           pybind11::arg("efficiency_bandwidth_ratio"), pybind11::arg("communication_type"),
-           pybind11::arg("hybrid_embedding_type"));
+           pybind11::arg("efficiency_bandwidth_ratio"),
+           pybind11::arg("use_train_precompute_indices"), pybind11::arg("use_eval_precompute_indices"),
+           pybind11::arg("communication_type"), pybind11::arg("hybrid_embedding_type"));
   pybind11::enum_<HugeCTR::LrPolicy_t>(m, "LrPolicy_t")
       .value("fixed", HugeCTR::LrPolicy_t::fixed)
       .export_values();
@@ -216,11 +220,37 @@ void CommonPybind(pybind11::module& m) {
       .value("Short", HugeCTR::PowerLaw_t::Short)
       .value("Specific", HugeCTR::PowerLaw_t::Specific)
       .export_values();
-  pybind11::enum_<HugeCTR::DATABASE_TYPE>(m, "Database_t")
-      .value("Redis", HugeCTR::DATABASE_TYPE::REDIS)
-      .value("RocksDB", HugeCTR::DATABASE_TYPE::ROCKSDB)
-      .value("Local", HugeCTR::DATABASE_TYPE::LOCAL)
-      .value("Hierarchy", HugeCTR::DATABASE_TYPE::HIERARCHY)
+
+  // Inference / parameter server related.
+  pybind11::enum_<HugeCTR::DatabaseType_t>(m, "DatabaseType_t")
+      .value(HugeCTR::hctr_enum_to_c_str(HugeCTR::DatabaseType_t::Disabled),
+             HugeCTR::DatabaseType_t::Disabled)
+      .value(HugeCTR::hctr_enum_to_c_str(HugeCTR::DatabaseType_t::HashMap),
+             HugeCTR::DatabaseType_t::HashMap)
+      .value(HugeCTR::hctr_enum_to_c_str(HugeCTR::DatabaseType_t::ParallelHashMap),
+             HugeCTR::DatabaseType_t::ParallelHashMap)
+      .value(HugeCTR::hctr_enum_to_c_str(HugeCTR::DatabaseType_t::RedisCluster),
+             HugeCTR::DatabaseType_t::RedisCluster)
+      .value(HugeCTR::hctr_enum_to_c_str(HugeCTR::DatabaseType_t::RocksDB),
+             HugeCTR::DatabaseType_t::RocksDB)
+      .export_values();
+  pybind11::enum_<HugeCTR::CPUMemoryHashMapAlgorithm_t>(m, "CPUMemoryHashMapAlgorithm_t")
+      .value(HugeCTR::hctr_enum_to_c_str(HugeCTR::CPUMemoryHashMapAlgorithm_t::STL),
+             HugeCTR::CPUMemoryHashMapAlgorithm_t::STL)
+      .value(HugeCTR::hctr_enum_to_c_str(HugeCTR::CPUMemoryHashMapAlgorithm_t::PHM),
+             HugeCTR::CPUMemoryHashMapAlgorithm_t::PHM)
+      .export_values();
+  pybind11::enum_<HugeCTR::DatabaseOverflowPolicy_t>(m, "DatabaseOverflowPolicy_t")
+      .value(HugeCTR::hctr_enum_to_c_str(HugeCTR::DatabaseOverflowPolicy_t::EvictOldest),
+             HugeCTR::DatabaseOverflowPolicy_t::EvictOldest)
+      .value(HugeCTR::hctr_enum_to_c_str(HugeCTR::DatabaseOverflowPolicy_t::EvictRandom),
+             HugeCTR::DatabaseOverflowPolicy_t::EvictRandom)
+      .export_values();
+  pybind11::enum_<HugeCTR::UpdateSourceType_t>(m, "UpdateSourceType_t")
+      .value(HugeCTR::hctr_enum_to_c_str(HugeCTR::UpdateSourceType_t::Null),
+             HugeCTR::UpdateSourceType_t::Null)
+      .value(HugeCTR::hctr_enum_to_c_str(HugeCTR::UpdateSourceType_t::KafkaMessageQueue),
+             HugeCTR::UpdateSourceType_t::KafkaMessageQueue)
       .export_values();
 }
 

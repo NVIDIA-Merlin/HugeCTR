@@ -118,7 +118,7 @@ FusedReshapeConcatLayer<T>::FusedReshapeConcatLayer(
     }
 
     blobs_buff->reserve({num_}, &d_inputs_);
-    CK_CUDA_THROW_(cudaMalloc(&vecs_size_, sizeof(size_t) * num_));
+    blobs_buff->reserve({num_}, &vecs_size_);
 
     for (auto& out_tensor : out_tensors) {
       out_tensors_.push_back(out_tensor);
@@ -140,21 +140,13 @@ void FusedReshapeConcatLayer<T>::initialize() {
   for (size_t i = 0; i < num_; i++) {
     h_inputs_.get_ptr()[i] = in_tensors_[i].get_ptr();
   }
-  CK_CUDA_THROW_(cudaMemcpyAsync((void*)vecs_size_, (void*)h_vecs_size_.data(),
+  CK_CUDA_THROW_(cudaMemcpyAsync((void*)vecs_size_.get_ptr(), (void*)h_vecs_size_.data(),
                                  num_ * sizeof(size_t), cudaMemcpyHostToDevice,
                                  get_gpu().get_stream()));
 
   CK_CUDA_THROW_(cudaMemcpyAsync((void*)d_inputs_.get_ptr(), (void*)h_inputs_.get_ptr(),
                                  num_ * sizeof(T*), cudaMemcpyHostToDevice,
                                  get_gpu().get_stream()));
-}
-template <typename T>
-FusedReshapeConcatLayer<T>::~FusedReshapeConcatLayer() {
-  try {
-    CK_CUDA_THROW_(cudaFree(vecs_size_));
-  } catch (const std::runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
-  }
 }
 
 template <typename T>
@@ -167,7 +159,7 @@ void FusedReshapeConcatLayer<T>::fprop(bool is_train) {
   size_t n_sms = get_gpu().get_sm_count();
   dim3 grid_size(n_sms * 8, 1, 1);
   fused_reshape_concat_kernel<<<grid_size, block_size, 0, get_gpu().get_stream()>>>(
-      true, d_inputs_.get_ptr(), output_item, output_ad, batch_size_, slot_num_, vecs_size_,
+      true, d_inputs_.get_ptr(), output_item, output_ad, batch_size_, slot_num_, vecs_size_.get_ptr(),
       new_width_, num_);
 #ifndef NDEBUG
   cudaDeviceSynchronize();
@@ -185,7 +177,7 @@ void FusedReshapeConcatLayer<T>::bprop() {
   size_t n_sms = get_gpu().get_sm_count();
   dim3 grid_size(n_sms * 8, 1, 1);
   fused_reshape_concat_kernel<<<grid_size, block_size, 0, get_gpu().get_stream()>>>(
-      false, d_inputs_.get_ptr(), output_item, output_ad, batch_size_, slot_num_, vecs_size_,
+      false, d_inputs_.get_ptr(), output_item, output_ad, batch_size_, slot_num_, vecs_size_.get_ptr(),
       new_width_, num_);
 #ifndef NDEBUG
   cudaDeviceSynchronize();

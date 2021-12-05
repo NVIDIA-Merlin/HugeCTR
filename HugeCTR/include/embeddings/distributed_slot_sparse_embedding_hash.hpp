@@ -168,7 +168,7 @@ class DistributedSlotSparseEmbeddingHash : public IEmbedding {
   /**
    * The forward propagation of embedding layer.
    */
-  void forward(bool is_train, int eval_batch = -1) override {
+  void forward(bool is_train, bool is_first_batch = true) override {
     // Read data from input_buffers_ -> look up -> write to output_tensors
 
 #pragma omp parallel num_threads(embedding_data_.get_resource_manager().get_local_gpu_count())
@@ -445,6 +445,18 @@ class DistributedSlotSparseEmbeddingHash : public IEmbedding {
     }
 
     return cudaError_t::cudaSuccess;
+  }
+
+  void freeze() override {
+    embedding_data_.is_trainable_ = false;
+  }
+
+  void unfreeze() override {
+    embedding_data_.is_trainable_ = true;
+  }
+
+  bool is_trainable() const override {
+    return embedding_data_.is_trainable_;
   }
 
   USE_EMBEDDING_DATA_FUNCTION(embedding_data_)

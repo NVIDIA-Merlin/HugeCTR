@@ -39,9 +39,11 @@ OptParamsPy::OptParamsPy(Optimizer_t optimizer_type, Update_t update_t,
 template <typename T>
 std::unique_ptr<Optimizer> Optimizer::Create(const OptParams& params,
                                              const Tensor2<float>& weight_main,
+                                             const Tensor2<__half>& weight_main_half,
                                              const Tensor2<T>& wgrad, const float scaler,
                                              const std::shared_ptr<BufferBlock2<T>>& opt_buff,
-                                             const std::shared_ptr<GPUResource>& gpu_resource) {
+                                             const std::shared_ptr<GPUResource>& gpu_resource,
+                                             bool use_mixed_precision) {
   std::unique_ptr<Optimizer> ret;
 
   switch (params.optimizer) {
@@ -77,7 +79,8 @@ std::unique_ptr<Optimizer> Optimizer::Create(const OptParams& params,
     }
     case Optimizer_t::SGD: {
       auto learning_rate = params.lr;
-      ret.reset(new SGDOptimizer<T>(weight_main, wgrad, gpu_resource, learning_rate, scaler));
+      ret.reset(new SGDOptimizer<T>(weight_main, weight_main_half, wgrad, gpu_resource,
+                                    learning_rate, scaler, use_mixed_precision));
       break;
     }
     default:
@@ -87,13 +90,15 @@ std::unique_ptr<Optimizer> Optimizer::Create(const OptParams& params,
 }
 
 template std::unique_ptr<Optimizer> Optimizer::Create<float>(
-    const OptParams& params, const Tensor2<float>& weight_main, const Tensor2<float>& wgrad,
-    const float scaler, const std::shared_ptr<BufferBlock2<float>>& opt_buff,
-    const std::shared_ptr<GPUResource>& gpu_resource);
+    const OptParams& params, const Tensor2<float>& weight_main,
+    const Tensor2<__half>& weight_main_half, const Tensor2<float>& wgrad, const float scaler,
+    const std::shared_ptr<BufferBlock2<float>>& opt_buff,
+    const std::shared_ptr<GPUResource>& gpu_resource, bool use_mixed_precision);
 
 template std::unique_ptr<Optimizer> Optimizer::Create<__half>(
-    const OptParams& params, const Tensor2<float>& weight_main, const Tensor2<__half>& wgrad,
-    const float scaler, const std::shared_ptr<BufferBlock2<__half>>& opt_buff,
-    const std::shared_ptr<GPUResource>& gpu_resource);
+    const OptParams& params, const Tensor2<float>& weight_main,
+    const Tensor2<__half>& weight_main_half, const Tensor2<__half>& wgrad, const float scaler,
+    const std::shared_ptr<BufferBlock2<__half>>& opt_buff,
+    const std::shared_ptr<GPUResource>& gpu_resource, bool use_mixed_precision);
 
 }  // end namespace HugeCTR

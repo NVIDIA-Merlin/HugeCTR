@@ -56,7 +56,7 @@ GatherLayer<T>::GatherLayer(const Tensor2<T>& in_tensor, Tensor2<T>& out_tensor,
                             const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
                             std::vector<int>& indices,
                             const std::shared_ptr<GPUResource>& gpu_resource)
-    : Layer(gpu_resource) {
+    : Layer(gpu_resource), h_indices_(indices) {
   try {
     if (indices.empty()) {
       CK_THROW_(Error_t::WrongInput, "Empty slice indices is not allowed");
@@ -74,8 +74,7 @@ GatherLayer<T>::GatherLayer(const Tensor2<T>& in_tensor, Tensor2<T>& out_tensor,
         CK_THROW_(Error_t::WrongInput, "Index is out of range");
     }
 
-    cudaMalloc((void**)&indices_, num_indices * sizeof(int));
-    cudaMemcpy(indices_, indices.data(), num_indices * sizeof(int), cudaMemcpyHostToDevice);
+    blobs_buff->reserve({num_indices}, &indices_);
     out_tensor_.push_back(out_tensor);
     in_tensors_.push_back(in_tensor);
 
@@ -86,14 +85,12 @@ GatherLayer<T>::GatherLayer(const Tensor2<T>& in_tensor, Tensor2<T>& out_tensor,
 }
 
 template <typename T>
-GatherLayer<T>::~GatherLayer() {
-  try {
-    CK_CUDA_THROW_(cudaFree(indices_));
-  } catch (const std::runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
-  }
+void GatherLayer<T>::initialize() {
+  CK_CUDA_THROW_(cudaMemcpyAsync((void*)indices_.get_ptr(), (void*)h_indices_.data(),
+                                 num_indices * sizeof(int), cudaMemcpyHostToDevice,
+                                 get_gpu().get_stream()));
 }
-
+                                 
 template <typename T>
 void GatherLayer<T>::fprop(bool is_train) {
   int block_size = 512;
@@ -103,7 +100,7 @@ void GatherLayer<T>::fprop(bool is_train) {
   T* out = out_tensor.get_ptr();
   T* in = in_tensor.get_ptr();
   gather_kernel<<<n_blocks, block_size, 0, get_gpu().get_stream()>>>(true, in, out, tensor_size,
-                                                                     num_indices, indices_);
+                                                                     num_indices, indices_.get_ptr());
 #ifndef NDEBUG
   cudaDeviceSynchronize();
   CK_CUDA_THROW_(cudaGetLastError());
@@ -121,7 +118,7 @@ void GatherLayer<T>::bprop() {
   int h = in_tensor.get_dimensions()[0];
   initialize_array<<<n_blocks, block_size, 0, get_gpu().get_stream()>>>(in, h * tensor_size, T(0));
   gather_kernel<<<n_blocks, block_size, 0, get_gpu().get_stream()>>>(false, in, out, tensor_size,
-                                                                     num_indices, indices_);
+                                                                     num_indices, indices_.get_ptr());
 #ifndef NDEBUG
   cudaDeviceSynchronize();
   CK_CUDA_THROW_(cudaGetLastError());

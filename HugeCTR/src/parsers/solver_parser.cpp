@@ -278,6 +278,10 @@ SolverParser::SolverParser(const std::string& file) {
       export_predictions_prefix = "";
       MESSAGE_("Export prediction: OFF");
     }
+
+    async_mlp_wgrad = get_value_from_json_soft<bool>(j, "async_mlp_wgrad", true);
+    MESSAGE_("Asynchronous Wgrad computation of MLP: " + std::string(async_mlp_wgrad ? "ON" : "OFF"));
+
   } catch (const std::runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
   }

@@ -48,6 +48,8 @@ class EmbeddingData {
   SparseTensors<TypeKey> evaluate_keys_;
   Tensors2<TypeKey> embedding_offsets_;
 
+  bool is_trainable_{true};
+
   size_t get_batch_size_per_gpu(bool is_train) const {
     return embedding_params_.get_batch_size(is_train) / resource_manager_->get_global_gpu_count();
   }

@@ -28,6 +28,7 @@ class ILoss {
   virtual void compute(bool is_train, long long current_batchsize) = 0;
   virtual void compute(bool is_train) = 0;
   virtual int get_device_id() const = 0;
+  virtual void initialize_wgrad_async() = 0;
 };
 
 /**
@@ -75,6 +76,7 @@ class Loss : public ILoss {
   Tensors2<T>& get_input_tensors(bool is_train) { return input_tensors_; }
 
  protected:
+  bool gen_loss_summary_;
   const Tensors2<float>& get_loss_tensors() const { return loss_tensors_; }
   int get_total_gpu_count() const { return total_gpu_count_; }
   const GPUResource& get_gpu() const { return *gpu_resource_; }
@@ -97,12 +99,15 @@ class Loss : public ILoss {
    */
   Loss(const Tensor2<float>& label_tensor, const Tensor2<T>& input_tensor,
        const Tensor2<float>& loss_tensor, const std::shared_ptr<Regularizer<T>>& regularizer,
-       const std::shared_ptr<GPUResource>& gpu_resource, int total_gpu_count, float scaler = 1.0);
+       const std::shared_ptr<GPUResource>& gpu_resource, int total_gpu_count, float scaler = 1.0,
+       bool gen_loss_summary = true);
   Loss(const Loss&) = delete;
   Loss& operator=(const Loss&) = delete;
   virtual ~Loss() {}
 
   int get_device_id() const override { return gpu_resource_->get_device_id(); }
+
+  void initialize_wgrad_async();
 };
 
 template <typename T>
@@ -114,7 +119,7 @@ class CrossEntropyLoss : public Loss<T> {
                    const Tensor2<float>& loss_tensor,
                    const std::shared_ptr<Regularizer<T>>& regularizer,
                    const std::shared_ptr<GPUResource>& gpu_resource, int total_gpu_count,
-                   float scaler = 1.f);
+                   float scaler = 1.f, bool gen_loss_summary = true);
 };
 
 template <typename T>
@@ -126,7 +131,7 @@ class BinaryCrossEntropyLoss : public Loss<T> {
                          const Tensor2<float>& loss_tensor,
                          const std::shared_ptr<Regularizer<T>>& regularizer,
                          const std::shared_ptr<GPUResource>& gpu_resource, int total_gpu_count,
-                         float scaler = 1.f);
+                         float scaler = 1.f, bool gen_loss_summary = true);
 };
 
 template <typename T>
@@ -142,7 +147,7 @@ class MultiCrossEntropyLoss : public Loss<T> {
                         const std::shared_ptr<Regularizer<T>>& regularizer,
                         const std::vector<float>& target_weight,
                         const std::shared_ptr<GPUResource>& gpu_resource, int total_gpu_count,
-                        float scaler = 1.f);
+                        float scaler = 1.f, bool gen_loss_summary = true);
 };
 
 }  // namespace HugeCTR

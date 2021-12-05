@@ -4,35 +4,35 @@ include:
     file: "/.gitlab-ci.yml"
   - /ci/common.yml
   - /ci/template.yml
-  
+  - /ci/benchmark.yml
 
-# nightly_build_train:
-#   extends: .build_nightly
-#   variables:
-#     DST_IMAGE: ${IMAGE_TRAIN}
-#     DOCKER_FILE: Dockerfile.train
-#     BUILD_ARGS: --build-arg RELEASE=false
+nightly_build_train:
+  extends: .build_nightly
+  variables:
+    DST_IMAGE: ${IMAGE_TRAIN}
+    DOCKER_FILE: Dockerfile.train
+    BUILD_ARGS: --build-arg RELEASE=false
     
-# nightly_build_train_release:
-#   extends: .build_nightly
-#   variables:
-#     DST_IMAGE: ${IMAGE_TRAIN}.release
-#     DOCKER_FILE: Dockerfile.train
-#     BUILD_ARGS: --build-arg RELEASE=true
+nightly_build_train_release:
+  extends: .build_nightly
+  variables:
+    DST_IMAGE: ${IMAGE_TRAIN}.release
+    DOCKER_FILE: Dockerfile.train
+    BUILD_ARGS: --build-arg RELEASE=true
   
-# nightly_build_inference:
-#   extends: .build_nightly
-#   variables:
-#     DST_IMAGE: ${IMAGE_INFER}
-#     DOCKER_FILE: Dockerfile.inference
-#     BUILD_ARGS: --build-arg RELEASE=false
+nightly_build_inference:
+  extends: .build_nightly
+  variables:
+    DST_IMAGE: ${IMAGE_INFER}
+    DOCKER_FILE: Dockerfile.inference
+    BUILD_ARGS: --build-arg RELEASE=false
 
-# nightly_build_sok:
-#   extends: .build_nightly
-#   variables:
-#     DST_IMAGE: ${IMAGE_SOK}
-#     DOCKER_FILE: Dockerfile.tf-plugin
-#     BUILD_ARGS: --build-arg RELEASE=false --build-arg TF_VERSION=2.5.0 --build-arg CUDA_VERSION=11.2.2
+nightly_build_sok:
+  extends: .build_nightly
+  variables:
+    DST_IMAGE: ${IMAGE_SOK}
+    DOCKER_FILE: Dockerfile.tf-plugin
+    BUILD_ARGS: --build-arg RELEASE=false --build-arg IMAGE_VER=21.07-tf2-py3
 
 nightly_build_unified_container.ctr:
   extends: .build_nightly
@@ -339,33 +339,33 @@ din_single_node:
     DGXNNODES: 1
     TEST_CMD: ./ci/integration_test/din/din.sub
 
-mos_single_node:
+etc_single_node:
   extends: .cluster_test_job
   needs:
     - build_train_single_node
   variables:
-    GPFSFOLDER: $LOGDIR/mos_single_node 
+    GPFSFOLDER: $LOGDIR/etc_single_node 
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
     CONT: $TRAIN_IMAGE_VERSIONED
     MOUNTS: ${DATASET}:${DATASET_MOUNT}
     SLURM_ACCOUNT: devtech
     WALLTIME: "00:45:00"
     DGXNNODES: 1
-    TEST_CMD: ./ci/integration_test/mos/mos_single_node.sub
+    TEST_CMD: ./ci/integration_test/etc/etc_single_node.sub
 
-mos_multi_node:
+etc_multi_node:
   extends: .cluster_test_job
   needs:
     - build_train_multi_node
   variables:
-    GPFSFOLDER: $LOGDIR/mos_multi_node
+    GPFSFOLDER: $LOGDIR/etc_multi_node
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
     CONT: $TRAIN_IMAGE_MULTINODE_VERSIONED
     MOUNTS: ${DATASET}:${DATASET_MOUNT},${LOGDIR}:/tmp_dir
     SLURM_ACCOUNT: devtech
     WALLTIME: "00:45:00"
     DGXNNODES: 2
-    TEST_CMD: ./ci/integration_test/mos/mos_multi_node.sub
+    TEST_CMD: ./ci/integration_test/etc/etc_multi_node.sub
 
 # data generator single node
 data_generator_single_node:
@@ -425,27 +425,13 @@ hugectr2onnx:
     DGXNNODES: 1
     TEST_CMD: ./ci/integration_test/hugectr2onnx/hugectr2onnx.sub
 
-inference_benchmark:
-  extends: .cluster_test_job
-  needs:
-    - build_inference
-  variables:
-    GPFSFOLDER: $LOGDIR/inference_benchmark
-    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
-    CONT: $INFER_IMAGE_VERSIONED
-    MOUNTS: ${DATASET_NEW_CRITEO_SELENE}:${NEW_CRITEO_MOUNT},/lustre/fsw/devtech/hpc-hugectr/inference/dlrm_regression:/model
-    SLURM_ACCOUNT: devtech
-    WALLTIME: "00:15:00"
-    DGXNNODES: 1
-    TEST_CMD: ./ci/integration_test/inference_benchmark/inference_benchmark.sub
-
 # embedding_plugin
 sparse_operation_kit:
   extends: .cluster_test_job
   needs:
     - build_sok
   variables:
-    GPFSFOLDER: $LOGDIR/analyse_job_results
+    GPFSFOLDER: $LOGDIR/sparse_operation_kit
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
     CONT: $SOK_IMAGE_VERSIONED
     MOUNTS: ${DATASET}:${DATASET_MOUNT}
@@ -453,6 +439,23 @@ sparse_operation_kit:
     WALLTIME: "00:45:00"
     DGXNNODES: 1
     TEST_CMD: ./ci/integration_test/sok/sok.sub
+
+inference_benchmark:
+  extends: .cluster_test_job
+  needs:
+    - build_inference
+  before_script:
+    - export BZ=1
+    - export MIXED_PRECISION=FP32
+  variables:
+    GPFSFOLDER: $LOGDIR/inference_benchmark
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $INFER_IMAGE_VERSIONED
+    MOUNTS: /lustre/fsw/devtech/hpc-hugectr/inference/dlrm_regression/dlrm/1:/model/dlrm/1,/lustre/fsw/devtech/hpc-hugectr/keynote_inference/perf_data:/perf_data
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "00:15:00"
+    DGXNNODES: 1
+    TEST_CMD: ./ci/benchmark/inference_benchmark/run.sub
 
 wdl_check:
   # Push logs to gitlab
@@ -469,6 +472,21 @@ wdl_check:
     DGXNNODES: 1
     TEST_CMD: ./ci/post_test/check_wdl.sub
 
+inference_benchmark_check:
+  extends: .cluster_post_test_job
+  needs:
+    - inference_benchmark
+    - build_train_single_node
+  variables:
+    GPFSFOLDER: $LOGDIR/inference_benchmark_check
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $TRAIN_IMAGE_VERSIONED
+    MOUNTS: $LOGDIR/inference_benchmark:/logs
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "00:15:00"
+    DGXNNODES: 1
+    TEST_CMD: ./ci/post_test/check_inference_benchmark.sub
+
 dlrm_1node_check:
   # Push logs to gitlab
   extends: .cluster_post_test_job
@@ -484,7 +502,6 @@ dlrm_1node_check:
     DGXNNODES: 1
     TEST_CMD: ./ci/post_test/check_dlrm_1node.sub
 
-
 dlrm_14node_check:
   # Push logs to gitlab
   extends: .cluster_post_test_job
@@ -499,22 +516,6 @@ dlrm_14node_check:
     WALLTIME: "00:15:00"
     DGXNNODES: 1
     TEST_CMD: ./ci/post_test/check_dlrm_14node.sub
-
-
-inference_benchmark_check:
-  extends: .cluster_post_test_job
-  needs:
-    - inference_benchmark
-    - build_train_single_node
-  variables:
-    GPFSFOLDER: $LOGDIR/inference_benchmark_check
-    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
-    CONT: $TRAIN_IMAGE_VERSIONED
-    MOUNTS: $LOGDIR/inference_benchmark:/logs
-    SLURM_ACCOUNT: devtech
-    WALLTIME: "00:15:00"
-    DGXNNODES: 1
-    TEST_CMD: ./ci/post_test/check_inference_benchmark.sub
 
 # rm_logs:
 #   extends: .cluster_test_job
