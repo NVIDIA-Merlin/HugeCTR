@@ -64,9 +64,13 @@ void ResourceManagerExt::init_ib_comm() {
 void ResourceManagerExt::set_ar_comm(AllReduceAlgo algo, bool use_mixed_precision) {
   int num_process = get_num_process();
 #ifdef ENABLE_MPI
-  init_ib_comm();
+  IbComm* ib_comm_ptr = nullptr;
+  if (algo == AllReduceAlgo::ONESHOT) {
+    init_ib_comm();
+    ib_comm_ptr = ib_comm_.get();
+  }
   ar_comm_ = AllReduceInPlaceComm::create(num_process, algo, use_mixed_precision, get_local_gpus(),
-                                          ib_comm_.get());
+                                          ib_comm_ptr);
 #else
   ar_comm_ = AllReduceInPlaceComm::create(num_process, algo, use_mixed_precision, get_local_gpus());
 #endif

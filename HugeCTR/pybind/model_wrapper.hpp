@@ -164,7 +164,7 @@ void ModelPybind(pybind11::module &m) {
       .def("add", pybind11::overload_cast<GroupDenseLayer &>(&HugeCTR::Model::add),
            pybind11::arg("group_dense_layer"))
       .def("set_learning_rate", &HugeCTR::Model::set_learning_rate, pybind11::arg("lr"))
-      .def("train", &HugeCTR::Model::train)
+      .def("train", &HugeCTR::Model::train, pybind11::arg("is_first_batch") = true)
       .def("eval", &HugeCTR::Model::eval, pybind11::arg("is_first_batch") = true)
       .def("start_data_reading", &HugeCTR::Model::start_data_reading)
       .def("get_current_loss",
