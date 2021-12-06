@@ -24,16 +24,14 @@ namespace tensorflow {
 
 class EmbeddingVariable : public ResourceBase {
 public:
-    EmbeddingVariable(Tensor* handle_tensor);;
+    EmbeddingVariable();
     ~EmbeddingVariable();
     std::string DebugString() const override;
-    void SetHandle(ResourceHandle& handle);
     Tensor* tensor();
     void set_param(const std::shared_ptr<SparseOperationKit::ParamInterface>& param);
     void get_param(std::shared_ptr<SparseOperationKit::ParamInterface>& param);
     mutex* mu();
 private:
-    Tensor* handle_tensor_;
     std::shared_ptr<SparseOperationKit::ParamInterface> param_;
     mutex mu_;
 };

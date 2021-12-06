@@ -18,18 +18,12 @@
 
 namespace tensorflow {
 
-EmbeddingVariable::EmbeddingVariable(Tensor* handle_tensor)
-: handle_tensor_(handle_tensor) 
-{}
+EmbeddingVariable::EmbeddingVariable() {}
 
 EmbeddingVariable::~EmbeddingVariable() {}
 
 std::string EmbeddingVariable::DebugString() const {
     return std::string("EmbeddingVariable");
-}
-
-void EmbeddingVariable::SetHandle(ResourceHandle& handle) {
-    handle_tensor_->scalar<ResourceHandle>()() = handle;
 }
 
 Tensor* EmbeddingVariable::tensor() {

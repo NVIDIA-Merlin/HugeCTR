@@ -1,7 +1,8 @@
 variables:
   IMAGE_TRAIN: gitlab-master.nvidia.com:5005/dl/hugectr/hugectr:devel_train
   IMAGE_INFER: gitlab-master.nvidia.com:5005/dl/hugectr/hugectr:devel_inference
-  IMAGE_SOK: gitlab-master.nvidia.com:5005/dl/hugectr/hugectr:devel_embedding
+  IMAGE_SOK_TF2: gitlab-master.nvidia.com:5005/dl/hugectr/hugectr:devel_embedding_tf2
+  IMAGE_SOK_TF1: gitlab-master.nvidia.com:5005/dl/hugectr/hugectr:devel_embedding_tf1
   DATASET: /lustre/fsw/devtech/hpc-hugectr/criteo_kaggle
   DATASET_MOUNT: /dataset/criteo_kaggle
   DIN_DATASET: /lustre/fsw/devtech/hpc-hugectr/din
@@ -20,5 +21,6 @@ variables:
   TRAIN_IMAGE_MULTINODE_VERSIONED: ${CI_REGISTRY}/dl/hugectr/hugectr:train.multinode.${CI_PIPELINE_ID}
   TRAIN_INFER_IMAGE_VERSIONED: ${CI_REGISTRY}/dl/hugectr/hugectr:train.infer.${CI_PIPELINE_ID}
   INFER_IMAGE_VERSIONED: ${CI_REGISTRY}/dl/hugectr/hugectr:infer.${CI_PIPELINE_ID}
-  SOK_IMAGE_VERSIONED: "${CI_REGISTRY}/dl/hugectr/hugectr:sok_${CI_PIPELINE_ID}"
+  SOK_IMAGE_VERSIONED_TF2: "${CI_REGISTRY}/dl/hugectr/hugectr:sok_tf2_${CI_PIPELINE_ID}"
+  SOK_IMAGE_VERSIONED_TF1: "${CI_REGISTRY}/dl/hugectr/hugectr:sok_tf1_${CI_PIPELINE_ID}"
   LOGDIR: /lustre/fsw/devtech/hpc-hugectr/hugectr-ci/${CI_PIPELINE_ID}

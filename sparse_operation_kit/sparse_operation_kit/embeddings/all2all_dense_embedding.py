@@ -18,8 +18,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from sparse_operation_kit.core.embedding_variable import EmbeddingVariable
-from sparse_operation_kit.kit_lib import create_embedding_dense, plugin_dense_fprop
+from sparse_operation_kit.core import EmbeddingVariable
+from sparse_operation_kit.core import DenseEmbeddingLayerHandle
 from sparse_operation_kit.embeddings import embedding_ops
 from tensorflow.distribute import has_strategy
 import tensorflow as tf
@@ -54,7 +54,9 @@ class All2AllDenseEmbedding(tf.keras.layers.Layer):
             `replica_batchsize * slot_num * nnz_per_slot`.
     use_hashtable: boolean = True
             whether using `Hashtable` in ``EmbeddingVariable``, if `True`,
-            Hashtable will be created for dynamic insertion.
+            Hashtable will be created for dynamic insertion. Otherwise, the input keys
+            will be used as the index for embedding vector looking-up, so that input keys
+            must be in the range ``[0, max_vocabulary_size_per_gpu * gpu_num)``.
 
     Examples
     --------
@@ -87,20 +89,19 @@ class All2AllDenseEmbedding(tf.keras.layers.Layer):
         self.slot_num = slot_num
         self.nnz_per_slot = nnz_per_slot
         self.dynamic_input = dynamic_input
-        self.comm_tool = None if has_strategy() else "Horovod"
+        self.use_hashtable = use_hashtable
 
         self.var = EmbeddingVariable.CreateInstances(
                                 shape=[self.max_vocabulary_size_per_gpu, self.embedding_vec_size],
                                 trainable=True,
-                                use_hashtable=use_hashtable)
-        emb_handle = self.var.emb_handle if isinstance(self.var, EmbeddingVariable) else self.var.values[0].emb_handle
+                                use_hashtable=self.use_hashtable)
 
-        self.emb = create_embedding_dense(emb_handle,
-                                          input_dispatcher="All2AllInput",
-                                          embedding_lookuper="dense_gather",
-                                          output_dispatcher="All2AllOutput",
-                                          slot_num=self.slot_num,
-                                          nnz_per_slot=self.nnz_per_slot)
+        self.emb_layer = DenseEmbeddingLayerHandle(self.var,
+                                                input_dispatcher="All2AllInput",
+                                                embedding_lookuper="dense_gather",
+                                                output_dispatcher="All2AllOutput",
+                                                slot_num=self.slot_num,
+                                                nnz_per_slot=self.nnz_per_slot)
 
     @property
     def embedding_variable(self):
@@ -115,7 +116,8 @@ class All2AllDenseEmbedding(tf.keras.layers.Layer):
         ----------
         inputs: tf.Tensor
                 keys are stored in tf.Tensor. It must be stored in row-major.
-                The shape of tf.Tensor does not matter.
+                If `dynamic_input = True`, then inputs.shape must be [None,], 
+                otherwise, inputs.shape must be [batchsize, slot_num, nnz_per_slot]. 
         training: boolean
                 whether training or not.
 
@@ -127,11 +129,8 @@ class All2AllDenseEmbedding(tf.keras.layers.Layer):
                 Otherwise, its shape is *[None, embedding_vec_size]*, where *None* equals
                 to the size of inputs.
         """
-        emb_vector = plugin_dense_fprop(self.emb,
-                                        self.var,
-                                        values=inputs,
-                                        global_replica_id=embedding_ops.get_global_replica_id(self.comm_tool),
-                                        training=training, 
-                                        unique_op_name=self.var.name,
-                                        dynamic_input=self.dynamic_input)
+        emb_vector = embedding_ops.embedding_lookup(embedding_variable=self.var, 
+                                                    values=inputs,
+                                                    training=training,
+                                                    dynamic_input=self.dynamic_input)
         return emb_vector

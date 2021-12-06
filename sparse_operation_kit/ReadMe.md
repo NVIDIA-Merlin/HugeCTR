@@ -1,7 +1,7 @@
 # SparseOperationKit #
 SparseOperationKit (SOK) is a python package wrapped GPU accelerated operations dedicated for sparse training / inference cases. It is designed to be compatible with common DeepLearning (DL) frameworks, for instance, TensorFlow.
 
-Most of the algorithm implementations in SOK are extracted from HugeCTR, which is a GPU-accelerated recommender framework designed to distribute training across multiple GPUs and nodes and estimate Click-Through Rates (CTRs). If you are looking for a very efficient solution for CTRs, please check [HugeCTR](https://github.com/NVIDIA/HugeCTR#readme).
+Most of the algorithm implementations in SOK are extracted from HugeCTR, which is a GPU-accelerated recommender framework designed to distribute training across multiple GPUs and nodes and estimate Click-Through Rates (CTRs). If you are looking for a very efficient solution for CTRs, please check [HugeCTR](https://github.com/NVIDIA-Merlin/HugeCTR#readme).
 
 ## Features ##
 **Model-Parallelism GPU Embedding Layer** <br>
@@ -24,20 +24,21 @@ import sparse_opeation_kit as sok
 ```
     
 ### *Install this module from pypi* ###
-Install via `PYPI` will be supported in the near future.
+```shell
+$ pip install --user SparseOperationKit
+```
 
 ### *Build from source* ### 
 If you want to build this module from souce code, here are the steps to follow: <br>
 + **download the source code**
 ```shell
-$ git clone https://github.com/NVIDIA/HugeCTR.git hugectr
+$ git clone https://github.com/NVIDIA-Merlin/HugeCTR hugectr
 ```
-+ **install to system path**
++ **install to system**
 ```shell
 $ cd hugectr/sparse_operation_kit/
-$ bash install.sh --SM=[Compute Capability] --USE_NVTX=[OFF/ON]
+$ python setup.py install
 ```
-Where `[Compute Capability]` is related to your GPU hardware. For example, for Ampere A100, the compute capability is `80`. If you want to profiling this module with `nvtx`, you can enable nvtx marks via setting `-DUSE_NVTX=ON`, by default, it is `OFF`.
 
 ## Documents ##
-Want to find more about SparseOperationKit, see our [SparseOperationKit documents](https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/v1.0.1/index.html).
+Want to find more about SparseOperationKit, see our [SparseOperationKit documents](https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/index.html).

@@ -17,16 +17,34 @@
 from tensorflow.python.framework import load_library, ops
 from tensorflow.python.ops import array_ops
 from tensorflow.python.framework.tensor_shape import TensorShape
+from tensorflow.python.ops import resource_variable_ops
+from tensorflow import __version__ as tf_version
+if tf_version.startswith("2"):
+    using_tf2 = True
+elif tf_version.startswith("1"):
+    using_tf2 = False
+else:
+    raise RuntimeError("Not supported TF version: {}".format(tf_version))
+
 import os
+
+def in_tensorflow2():
+    """
+    This function will tell whether the installed TensorFlow is 2.x
+    """
+    return using_tf2
 
 lib_name = r"libsparse_operation_kit.so"
 
-paths = [r"/usr/local/lib"]
+install_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "lib"))
+paths = [r"/usr/local/lib", 
+         install_path]
 
 lib_file = None
 for path in paths:
     try:
-        file = open(os.path.join(path, lib_name))
+        filename = os.path.join(path, lib_name)
+        file = open(filename)
         file.close()
         lib_file = os.path.join(path, lib_name)
         break
@@ -56,10 +74,17 @@ dump_to_file = kit_ops.dump_to_file
 restore_from_file = kit_ops.restore_from_file
 load_embedding_values = kit_ops.load_embedding_values
 read_embedding_variable = kit_ops.read_embedding_variable_op
+assign_embedding_variable = kit_ops.assign_embedding_variable
+if not in_tensorflow2():
+    optimizer_init = kit_ops.optimizer_init
+    embedding_variable_assign_sub = kit_ops.embedding_variable_assign_sub
 
 create_global_adam_optimizer = kit_ops.create_global_adam_optimizer
 custom_optimizer_apply_gradients = kit_ops.custom_optimizer_apply_gradients
 
+@ops.RegisterGradient("Test")
+def _TestGrad(op, top_grad):
+    return top_grad
 
 @ops.RegisterGradient("ReadEmbeddingVariableOp")
 def _PluginReadEmbeddingVariableBprop(op, top_grad):
@@ -67,24 +92,31 @@ def _PluginReadEmbeddingVariableBprop(op, top_grad):
 
 @ops.RegisterGradient("PluginSparseFprop")
 def _PluginSparseBackProp(op, top_grad):
-    emb_var_grads_value, value_index = plugin_bprop(emb_handle=op.inputs[0], 
+    emb_var_grads_value, value_index = plugin_bprop(emb_handle=op.inputs[1], 
                                                     global_replica_id=op.inputs[4],
                                                     top_gradient=top_grad,
                                                     unique_op_name=op.get_attr("unique_op_name"))
     
-    grads = ops.IndexedSlices(values=emb_var_grads_value,
-                              indices=value_index)
+    params_shape = resource_variable_ops.variable_shape(handle=op.inputs[0])
 
-    return [None] + [grads] + [None for _ in op.inputs[2:]]
+    grads = ops.IndexedSlices(values=emb_var_grads_value,
+                              indices=value_index,
+                              dense_shape=params_shape)
+
+    return [grads] + [None for _ in op.inputs[1:]]
+
 
 @ops.RegisterGradient("PluginDenseFprop")
 def _PluginDenseBackProp(op, top_grad):
-    emb_var_grads_value, value_index = plugin_bprop(emb_handle=op.inputs[0], 
+    emb_var_grads_value, value_index = plugin_bprop(emb_handle=op.inputs[1], 
                                                     global_replica_id=op.inputs[3],
                                                     top_gradient=top_grad,
                                                     unique_op_name=op.get_attr("unique_op_name"))
     
+    params_shape = resource_variable_ops.variable_shape(handle=op.inputs[0])
+
     grads = ops.IndexedSlices(values=emb_var_grads_value,
-                              indices=value_index)
+                              indices=value_index,
+                              dense_shape=params_shape)
                     
-    return [None] + [grads] + [None for _ in op.inputs[2:]]
+    return [grads] + [None for _ in op.inputs[1:]]

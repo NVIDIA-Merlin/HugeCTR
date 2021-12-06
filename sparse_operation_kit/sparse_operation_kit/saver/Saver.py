@@ -13,8 +13,9 @@
  See the License for the specific language governing permissions and
  limitations under the License.
 """
-from sparse_operation_kit.kit_lib import dump_to_file, restore_from_file, load_embedding_values
-
+from sparse_operation_kit import kit_lib
+from sparse_operation_kit.core.embedding_layer_handle import GraphKeys
+from tensorflow.python.framework import ops
 
 # TODO: make it inherit from trackable???
 class Saver(object):
@@ -52,10 +53,10 @@ class Saver(object):
         # TODO: check whether embedding_variable is an instance of DistributedVariable
         if hasattr(embedding_variable, "emb_handle"):
             # horovod branch
-            return dump_to_file(embedding_variable.emb_handle, filepath)
+            return kit_lib.dump_to_file(embedding_variable.emb_handle, filepath)
         else:
             # strategy branch
-            return dump_to_file(embedding_variable.values[0].emb_handle, filepath)
+            return kit_lib.dump_to_file(embedding_variable.values[0].emb_handle, filepath)
 
     def restore_from_file(self, embedding_variable, filepath):
         """
@@ -76,12 +77,22 @@ class Saver(object):
         status: tf.Tensor
                 If this op executed successfully, then 'OK' will be returned.
         """
-        if hasattr(embedding_variable, "emb_handle"):
-            # horovod branch
-            return restore_from_file(embedding_variable.emb_handle, filepath)
+        if kit_lib.in_tensorflow2():
+            context = ops.NullContextmanager
+            initializers = None
         else:
-            # strategy branch
-            return restore_from_file(embedding_variable.values[0].emb_handle, filepath)
+            context = ops.control_dependencies
+            # in case the embedding layer has not been created
+            collections = ops.get_collection(GraphKeys.SparseOperationKitEmbeddingLayers)
+            initializers = [collect.initializer for collect in collections]
+
+        with context(initializers):
+            if hasattr(embedding_variable, "emb_handle"):
+                # horovod branch
+                return kit_lib.restore_from_file(embedding_variable.emb_handle, filepath)
+            else:
+                # strategy branch
+                return kit_lib.restore_from_file(embedding_variable.values[0].emb_handle, filepath)
 
     def load_embedding_values(self, embedding_variable, tensors):
         """
@@ -107,9 +118,19 @@ class Saver(object):
         status: tf.Tensor
                 If this op executed successfully, then 'OK' will be returned.
         """
-        if hasattr(embedding_variable, "emb_handle"):
-            # horovod branch
-            return load_embedding_values(embedding_variable.emb_handle, tensors)
+        if kit_lib.in_tensorflow2():
+            context = ops.NullContextmanager
+            initializers = None
         else:
-            # strategy branch
-            return load_embedding_values(embedding_variable.values[0].emb_handle, tensors)
+            context = ops.control_dependencies
+            # in case the embedding layer has not been created
+            collections = ops.get_collection(GraphKeys.SparseOperationKitEmbeddingLayers)
+            initializers = [collect.initializer for collect in collections]
+
+        with context(initializers):
+            if hasattr(embedding_variable, "emb_handle"):
+                # horovod branch
+                return kit_lib.load_embedding_values(embedding_variable.emb_handle, tensors)
+            else:
+                # strategy branch
+                return kit_lib.load_embedding_values(embedding_variable.values[0].emb_handle, tensors)
