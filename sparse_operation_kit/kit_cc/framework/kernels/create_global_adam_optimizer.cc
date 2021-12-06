@@ -31,24 +31,37 @@ public:
         OP_REQUIRES_OK(ctx, ctx->GetAttr("epsilon", &epsilon_));
     }
     void Compute(OpKernelContext* ctx) override {
-        Tensor* optimizer_handle_tensor = nullptr;
-        OP_REQUIRES_OK(ctx, ctx->allocate_output(0, {}, &optimizer_handle_tensor));
+        if (!created_.load()) {
+            mutex_lock ml(mutex_);
+            // check again to see if another thread has created the optimizer handle
+            if (!created_.load()) {
+                AllocatorAttributes attr;
+                attr.set_on_host(true);
 
-        try {
-            SparseOperationKit::Facade::instance()->create_optimizer(/*optimizer_type=*/"Adam",
-                                                                  /*optimizer_handle=*/optimizer_handle_tensor,
-                                                                  /*hyper_params=*/{{"beta1", beta1_},
-                                                                                    {"beta2", beta2_},
-                                                                                    {"epsilon", epsilon_}});
-        } catch (const std::exception& error) {
-            ctx->SetStatus(errors::Aborted(error.what()));
-            return;
-        }
+                OP_REQUIRES_OK(ctx, ctx->allocate_temp(DT_VARIANT, TensorShape({}), &optimizer_handle_, attr));
+                try {
+                    SparseOperationKit::Facade::instance()->create_optimizer(/*optimizer_type=*/"Adam",
+                                                                             /*optimizer_handle=*/&optimizer_handle_,
+                                                                             /*hyper_params=*/{{"beta1", beta1_},
+                                                                                               {"beta2", beta2_},
+                                                                                               {"epsilon", epsilon_}});
+                } catch (const std::exception& error) {
+                    ctx->SetStatus(errors::Aborted(error.what()));
+                    return;
+                }
+
+                created_.store(true);
+            } // second checking
+        } // first checking
+        ctx->set_output(0, optimizer_handle_);
     }
 private:
     float beta1_;
     float beta2_;
     float epsilon_;
+    Tensor optimizer_handle_;
+    std::atomic<bool> created_{false};
+    mutex mutex_;
 };
 
 REGISTER_KERNEL_BUILDER(Name("CreateGlobalAdamOptimizer")

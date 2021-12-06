@@ -25,7 +25,7 @@ RUN if [ "$RELEASE" = "true" ]; \
       cd /var/tmp/HugeCTR && \
       git submodule update --init --recursive && \
       cd sparse_operation_kit && \
-      bash ./install.sh --SM=$SM --USE_NVTX=$USE_NVTX && \
+      python setup.py install && \
       rm -rf /var/tmp/HugeCTR; \
     else \
       echo "Build container for development successfully"; \

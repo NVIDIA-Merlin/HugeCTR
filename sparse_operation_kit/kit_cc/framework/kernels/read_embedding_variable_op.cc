@@ -28,7 +28,6 @@ public:
     }
     void Compute(OpKernelContext* ctx) override {
         // TODO: no need to read the resource handle??
-
         core::RefCountPtr<Var> variable;
         const ResourceHandle& handle = HandleFromInput(ctx, 0);
         auto status = LookupResource(ctx, handle, &variable);
@@ -41,22 +40,24 @@ public:
                             "Error while reading resource variable: ", handle.name(),
                             " from container: ", handle.container(),
                             ", which means the resource handle is neither EmbeddingVariable",
-                            " nor ResourceVariable. ",
+                            " nor ResourceVariable. If you are using TF1, that could also be",
+                            " you haven't initialize this Variable, ",
+                            "please call sess.run(global_variables_initializer()).",
                             status.ToString()));   
         }
 
-        TensorShape tensor_shape = variable->tensor()->shape();
-
 #ifdef DEBUG
+        TensorShape tensor_shape = variable->tensor()->shape();
         std::cout << "tensor shape is: [";
         for (auto iter = tensor_shape.begin(); iter != tensor_shape.end(); ++iter) {
             std::cout << (*iter).size << ",";
         }
         std::cout << "\b]" << std::endl;
 #endif
-
-        Tensor* output_tensor = nullptr;
-        OP_REQUIRES_OK(ctx, ctx->allocate_output(0, tensor_shape, &output_tensor));
+        // FIXME: lock should be used here??
+        // FIXME: should copy values from variable to output??
+        Tensor* t = variable->tensor();
+        OP_REQUIRES_OK(ctx, ctx->set_output("value", *t));
     }
 private:
     DataType dtype_;

@@ -188,6 +188,9 @@ public:
 
         // step 2: reorder embedding values
         {
+            CK_CUDA(cudaMemsetAsync(replica_output->GetPtrWithType<float>(),
+                                    0, replica_output->get_size_in_bytes(),
+                                    local_gpu->get_stream())); // TODO: merge it to reorderKernel
             const size_t smem_size = local_gpu->get_max_smem_size_per_sm();
             CK_CUDA(cudaFuncSetAttribute(reorderKernel<float>, 
                                          cudaFuncAttributeMaxDynamicSharedMemorySize, 
@@ -202,6 +205,7 @@ public:
                 /*chunks=*/global_gpu_count,
                 /*max_chunk_size=*/num_keys_per_rank_,
                 /*chunk_sizes=*/replica_num_selected_keys->GetPtrWithType<uint32_t>());
+            CK_CUDA(cudaGetLastError());
         }
     }
 
@@ -237,6 +241,7 @@ public:
                 /*chunks=*/global_gpu_count,
                 /*max_chunk_size=*/num_keys_per_rank_,
                 /*chunk_sizes=*/replica_num_selected_keys->GetPtrWithType<uint32_t>());
+            CK_CUDA(cudaGetLastError());
         }
 
         // step 2: exchange gradients among all GPUs.
