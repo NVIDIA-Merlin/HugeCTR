@@ -426,10 +426,11 @@ inline void print_func<double>(double const& t) {
 
 template <typename... Args>
 inline void LOG(const Args&... args) {
-  std::cout << "[";
-  std::initializer_list<char>{(print_func(args), 'a')...};
-  std::cout << "]" << std::endl;
-
+  if (Logger::get().get_rank() == 0) {
+    std::cout << "[";
+    std::initializer_list<char>{(print_func(args), 'a')...};
+    std::cout << "]" << std::endl;
+  }
   return;
 }
 
