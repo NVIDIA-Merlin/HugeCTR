@@ -381,7 +381,8 @@ class Logger final {
     check(condition(), loc);
   }
   void do_throw(HugeCTR::Error_t error_type, const SrcLoc& loc, const std::string& message) const;
-
+  int get_rank();
+  
  private:
   Logger();
   Logger(const Logger&) = delete;
