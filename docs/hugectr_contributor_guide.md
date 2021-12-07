@@ -107,7 +107,7 @@ To build the Sparse Operation Kit component in HugeCTR, do the following:
 3. Build and install libraries to the system paths by running the following commands:
    ```shell
    $ cd hugectr/sparse_operation_kit
-   $ bash ./install.sh --SM=[GPU Compute Capability] --USE_NVTX=[ON/OFF]
+   $ python setup.py install
    ```
    
-   If you want to profile this module with nvtx, you can enable nvtx marks by setting `--USE_NVTX=ON`.
+   You can config different environment variables for compiling SOK, please refer to [this section](https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/env_vars/env_vars.html) for more details.
