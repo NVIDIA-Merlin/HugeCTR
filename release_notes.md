@@ -1,4 +1,31 @@
 # Release Notes
+## What's New in Version 3.3
+
++ **Hierarchical Parameter Server**: 
+    + **Support Incremental Models Updating From Online Training**: HPS now supports iterative model updating via Kafka message queues. It is now possible to connect HugeCTR with Apache Kafka deployments to update the model in-place in real-time. This feature is supported in both phases, training and inference. Please refer to the [Demo Notebok](https://github.com/triton-inference-server/hugectr_backend/tree/main/samples/hierarchical_deployment/hps_e2e_demo).
+    + **Support Embedding keys Eviction Mechanism**: In-memory databases such as Redis or CPU memory backed storage are used now as the feature memory management. Hence, when performing iterative updating, they will automatically evict infrequently used embeddings as training progresses.
+    + **Support Embedding Cache Asynchronous Refresh Mechanism**: We have supported the asynchronous refreshing of incremental embedding keys into the embedding cache. Refresh operation will be triggered when completing the model version iteration or incremental parameters output from online training. The Distributed Database and Persistent Database will be updated by the distributed event streaming platform(Kafka). And then the GPU embedding cache will refresh the values of the existing embedding keys and replace them with the latest incremental embedding vectors. Please refer to the [HPS README](https://github.com/triton-inference-server/hugectr_backend#hugectr-hierarchical-parameter-server).
+    + **Other Improvements**: Backend implementations for databases are now fully configurable. JSON interface parser can cope better with inaccurate parameterization. Less and if (hopefully) more meaningful jabber! Based on your requests, we revised the log levels for throughout the entire database backend API of the parameter server. Selected configuration options are now printed wholesomely and uniformly to the log. Errors provide more verbose information on the matter at hand. Improved performance of Redis cluster backend. Improved performance of CPU memory database backend.
+
++ **SOK TF 1.15 Support**: In this version, SOK can be used along with TensorFlow 1.15. See [README](https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/get_started/get_started.html#tensorflow-1-15). Dedicated CUDA stream is used for SOK’s Ops, and kernel interleaving might be eliminated. Users can now install SOK via pip install SparseOperationKit, which no longer requires root access to compile SOK and no need to copy python scripts. There was a hanging issue in `tf.distribute.MirroredStrategy` when TensorFlow version greater than 2.4. In this version, this issue in TensorFlow 2.5+ is fixed.
+
++ **MLPerf v1.1 integration**：
+    + **Hybrid-embedding indices pre-computing**：The indices needed for hybrid embedding are pre-computed ahead of time and are overlapped with previous iterations.
+    + **Cached evaluation indices:**：The hybrid-embedding indices for eval are cached when applicable, hence eliminating the re-computing of the indices at every eval iteration.
+    + **MLP weight/data gradients calculation overlap:**：The weight gradients of MLP are calculated asynchronously with respect to the data gradients, enabling overlap between these two computations.
+    + **Better compute-communication overlap:**：Better overlap between compute and communication has been enabled to improve training throughput.
+    + **Fused weight conversion:**：The FP32-to-FP16 conversion of the weights are now fused into the SGD optimizer, saving trips to memory.
+    + **GraphScheduler:**：GrapScheduler was added to control the timing of cudaGraph launching. With GraphScheduler, the gap between adjacent cudaGraphs is eliminated.
+
++ **Multi-node training support on the cluster without RDMA**：We support multi-node training without RDMA now. You can specify allreduce algorithm as `AllReduceAlgo.NCCL` and it can support non-RDMA hardware. For more information, please refer to `all_reduce_algo` in [CreateSolver API](docs/python_interface.md#createsolver-method).
+
++ **SOK support device setting with tf.config**：`tf.config.set_visible_device` can be used to set the visible GPUs for each process. Meanwhile, `CUDA_VISIBLE_DEVICES` can also be used to achieve the same purpose. When `tf.distribute.Strategy` is used, device argument must not be set.
+
++ **User defined name is supported in model dumping**: We support specifying the model name with the training API `CreateSolver`, which will be dumped to the JSON configuration file with the API `Model.graph_to_json`. This feature will facilitate the Triton deployment of saved HugeCTR models, and help to distinguish between models when Kafka sends parameters from the training side to the inference side.
+
++ **Fine-grained control of the embedding layers**: We support the fine-grained control of the embedding layers. Users can freeze or unfreeze the weights of a specific embedding layer with the APIs `Model.freeze_embedding` and `Model.unfreeze_embedding`. Besides, the weights of multiple embedding layers can be loaded independently, which enables the use case of loading pre-trained embeddings for a particular layer. For more information, please refer to [Model API](docs/python_interface.md#model) and Section 3.4 of [HugeCTR Criteo Notebook](https://github.com/NVIDIA-Merlin/HugeCTR/blob/master/notebooks/hugectr_criteo.ipynb).
+
+
 
 ## What's New in Version 3.2.1
 
@@ -140,3 +167,9 @@
 + If the number of samples in a dataset is not divisible by the batch size when in epoch mode and using the `num_epochs` instead of `max_iter`, a few remaining samples are truncated. If the training dataset is large enough, its impact can be negligible. If you want to minimize the wasted batches, try adjusting the number of data reader workers. For example, using a file list source, set the `num_workers` parameter to an advisor based on the number of data files in the file list.
 
 + The MultiCross layer doesn't support mixed precision mode yet.
+
++ Asynchronously inserts missed embeddings into the in-memory database backend.
+Currently, we only fix misses in the database backend through the insertion logic via Kafka. That means if the model is not updated, we also do not improve caching. We need to establish an asynchronous process that also inserts lookup-misses into the database backend.
+
++ Kafka producer's asynchronous connection built-up may lead to message loss.
+Rdkafka client checks connections are performed asynchronously in the background. During this period, the application thinks it is connected and keeps producing data. These messages will never reach Kafka and will be lost.
