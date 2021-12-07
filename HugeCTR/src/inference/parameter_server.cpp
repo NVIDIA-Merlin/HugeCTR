@@ -178,11 +178,11 @@ parameter_server<TypeHashKey>::parameter_server(
     //*********
     if (inference_params_array[i].deployed_devices.empty()) {
       CK_THROW_(Error_t::WrongInput, "The list of deployed devices is empty.");
-    } 
+    }
     if (std::find(inference_params_array[i].deployed_devices.begin(),
                   inference_params_array[i].deployed_devices.end(),
-                  inference_params_array[i].device_id) == 
-                  inference_params_array[i].deployed_devices.end()) {
+                  inference_params_array[i].device_id) ==
+        inference_params_array[i].deployed_devices.end()) {
       CK_THROW_(Error_t::WrongInput, "The device id is not in the list of deployed devices.");
     }
     std::map<int64_t, std::shared_ptr<embedding_interface>> embedding_cache_map;
@@ -284,7 +284,8 @@ void parameter_server<TypeHashKey>::parse_networks_per_model_(
     ps_config_.distributed_emb_.emplace_back(distributed_emb);
     ps_config_.emb_table_name_[inference_params_array[i].model_name] = emb_table_name;
     ps_config_.embedding_vec_size_[inference_params_array[i].model_name] = embedding_vec_size;
-    ps_config_.default_emb_vec_value_.emplace_back(inference_params_array[i].default_value_for_each_table);
+    ps_config_.default_emb_vec_value_.emplace_back(
+        inference_params_array[i].default_value_for_each_table);
   }
 }
 
@@ -537,7 +538,9 @@ void parameter_server<TypeHashKey>::look_up(const TypeHashKey* h_embeddingcolumn
   const size_t embedding_size = ps_config_.embedding_vec_size_[model_name][embedding_table_id];
   const std::string& tag_name =
       make_tag_name(model_name, ps_config_.emb_table_name_[model_name][embedding_table_id]);
-  float defalut_vec_value =  ps_config_.default_emb_vec_value_[ps_config_.model_name_id_map_[model_name]][embedding_table_id];
+  float defalut_vec_value =
+      ps_config_
+          .default_emb_vec_value_[ps_config_.model_name_id_map_[model_name]][embedding_table_id];
   HCTR_LOG(INFO, WORLD, "Looking up %d embeddings (each with %d values)...\n", length,
            embedding_size);
 
@@ -554,7 +557,8 @@ void parameter_server<TypeHashKey>::look_up(const TypeHashKey* h_embeddingcolumn
     case 1: {
       // Query database, and fill in default value for unavailable embeddings.
       MissingKeyCallback fill_default_fn = [&](size_t index) -> void {
-        std::fill_n(&h_embeddingoutputvector[index * embedding_size], embedding_size, defalut_vec_value);
+        std::fill_n(&h_embeddingoutputvector[index * embedding_size], embedding_size,
+                    defalut_vec_value);
       };
       hit_count += (*db)->fetch(tag_name, length, h_embeddingcolumns,
                                 reinterpret_cast<char*>(h_embeddingoutputvector),
@@ -592,7 +596,8 @@ void parameter_server<TypeHashKey>::look_up(const TypeHashKey* h_embeddingcolumn
 
       // Layer N-1: Do a sparse lookup. Fill in default values.
       MissingKeyCallback fill_default_fn = [&](size_t index) -> void {
-        std::fill_n(&h_embeddingoutputvector[index * embedding_size], embedding_size, defalut_vec_value);
+        std::fill_n(&h_embeddingoutputvector[index * embedding_size], embedding_size,
+                    defalut_vec_value);
       };
       hit_count += (*db)->fetch(tag_name, missing.size(), missing.data(), h_embeddingcolumns,
                                 reinterpret_cast<char*>(h_embeddingoutputvector),
@@ -612,7 +617,8 @@ void parameter_server<TypeHashKey>::look_up(const TypeHashKey* h_embeddingcolumn
 template <typename TypeHashKey>
 void parameter_server<TypeHashKey>::refresh_embedding_cache(const std::string& model_name,
                                                             int device_id) {
-  HCTR_LOG(INFO, WORLD, "*****Refresh embedding cache of model %s on device %d*****\n", model_name.c_str(), device_id);
+  HCTR_LOG(INFO, WORLD, "*****Refresh embedding cache of model %s on device %d*****\n",
+           model_name.c_str(), device_id);
   HugeCTR::Timer timer_refresh;
   timer_refresh.start();
   std::shared_ptr<embedding_interface> embedding_cache = GetEmbeddingCache(model_name, device_id);
@@ -635,33 +641,45 @@ void parameter_server<TypeHashKey>::refresh_embedding_cache(const std::string& m
   for (unsigned int i = 0; i < cache_config.num_emb_table_; i++) {
     for (unsigned int idx_set = 0; idx_set < cache_config.num_set_in_cache_[i];
          idx_set += stride_set) {
-      size_t end_idx = (idx_set + stride_set > cache_config.num_set_in_cache_[i]) ? cache_config.num_set_in_cache_[i]: idx_set+stride_set;
+      size_t end_idx = (idx_set + stride_set > cache_config.num_set_in_cache_[i])
+                           ? cache_config.num_set_in_cache_[i]
+                           : idx_set + stride_set;
       timer.start();
-      embedding_cache->Dump(i, refreshspace_handler.d_refresh_embeddingcolumns_, refreshspace_handler.d_length_, idx_set, end_idx, streams[i]);
+      embedding_cache->Dump(i, refreshspace_handler.d_refresh_embeddingcolumns_,
+                            refreshspace_handler.d_length_, idx_set, end_idx, streams[i]);
 
-      CK_CUDA_THROW_(cudaMemcpyAsync(refreshspace_handler.h_length_, refreshspace_handler.d_length_, sizeof(size_t), cudaMemcpyDeviceToHost,streams[i]));
+      CK_CUDA_THROW_(cudaMemcpyAsync(refreshspace_handler.h_length_, refreshspace_handler.d_length_,
+                                     sizeof(size_t), cudaMemcpyDeviceToHost, streams[i]));
       CK_CUDA_THROW_(cudaStreamSynchronize(streams[i]));
-      CK_CUDA_THROW_(cudaMemcpyAsync(refreshspace_handler.h_refresh_embeddingcolumns_, refreshspace_handler.d_refresh_embeddingcolumns_,
-                                      *refreshspace_handler.h_length_ * sizeof(TypeHashKey), cudaMemcpyDeviceToHost,
-                                     streams[i])); 
+      CK_CUDA_THROW_(cudaMemcpyAsync(refreshspace_handler.h_refresh_embeddingcolumns_,
+                                     refreshspace_handler.d_refresh_embeddingcolumns_,
+                                     *refreshspace_handler.h_length_ * sizeof(TypeHashKey),
+                                     cudaMemcpyDeviceToHost, streams[i]));
       CK_CUDA_THROW_(cudaStreamSynchronize(streams[i]));
       timer.stop();
-      MESSAGE_("Embedding Cache dumping the number of " +std::to_string(stride_set)+ " sets takes: " + std::to_string(timer.elapsedSeconds()) + "s");
+      MESSAGE_("Embedding Cache dumping the number of " + std::to_string(stride_set) +
+               " sets takes: " + std::to_string(timer.elapsedSeconds()) + "s");
       timer.start();
-      this->look_up((TypeHashKey*)refreshspace_handler.h_refresh_embeddingcolumns_, *refreshspace_handler.h_length_,
-                    refreshspace_handler.h_refresh_emb_vec_, model_name, i);
-      CK_CUDA_THROW_(cudaMemcpyAsync(refreshspace_handler.d_refresh_emb_vec_,
-                                     refreshspace_handler.h_refresh_emb_vec_,
-                                     *refreshspace_handler.h_length_ * cache_config.embedding_vec_size_[i] * sizeof(float),
-                                     cudaMemcpyHostToDevice, streams[i]));
+      this->look_up((TypeHashKey*)refreshspace_handler.h_refresh_embeddingcolumns_,
+                    *refreshspace_handler.h_length_, refreshspace_handler.h_refresh_emb_vec_,
+                    model_name, i);
+      CK_CUDA_THROW_(cudaMemcpyAsync(
+          refreshspace_handler.d_refresh_emb_vec_, refreshspace_handler.h_refresh_emb_vec_,
+          *refreshspace_handler.h_length_ * cache_config.embedding_vec_size_[i] * sizeof(float),
+          cudaMemcpyHostToDevice, streams[i]));
       CK_CUDA_THROW_(cudaStreamSynchronize(streams[i]));
       timer.stop();
-      MESSAGE_("Parameter Server looking up the number of " +std::to_string(*refreshspace_handler.h_length_)+ " keys takes: " + std::to_string(timer.elapsedSeconds()) + "s");
+      MESSAGE_("Parameter Server looking up the number of " +
+               std::to_string(*refreshspace_handler.h_length_) +
+               " keys takes: " + std::to_string(timer.elapsedSeconds()) + "s");
       timer.start();
       embedding_cache->Refresh(i, refreshspace_handler.d_refresh_embeddingcolumns_,
-                               refreshspace_handler.d_refresh_emb_vec_, *refreshspace_handler.h_length_, streams[i]); 
+                               refreshspace_handler.d_refresh_emb_vec_,
+                               *refreshspace_handler.h_length_, streams[i]);
       timer.stop();
-      MESSAGE_("Embedding Cache refreshing the number of " +std::to_string(*refreshspace_handler.h_length_)+ " keys takes: " + std::to_string(timer.elapsedSeconds()) + "s");
+      MESSAGE_("Embedding Cache refreshing the number of " +
+               std::to_string(*refreshspace_handler.h_length_) +
+               " keys takes: " + std::to_string(timer.elapsedSeconds()) + "s");
     }
   }
   for (auto& stream : streams) {
@@ -670,14 +688,16 @@ void parameter_server<TypeHashKey>::refresh_embedding_cache(const std::string& m
   // apply the memory block for embedding cache refresh workspace
   this->FreeBuffer(memory_block);
   timer_refresh.stop();
-   MESSAGE_("The total Time of embedding cache refresh is : " + std::to_string(timer_refresh.elapsedSeconds()) + "s");
+  MESSAGE_("The total Time of embedding cache refresh is : " +
+           std::to_string(timer_refresh.elapsedSeconds()) + "s");
 }
 
 template <typename TypeHashKey>
 void parameter_server<TypeHashKey>::insert_embedding_cache(
     embedding_interface* embedding_cache, embedding_cache_config& cache_config,
     embedding_cache_workspace& workspace_handler, const std::vector<cudaStream_t>& streams) {
-  HCTR_LOG(INFO, WORLD, "*****Insert embedding cache of model %s on device %d*****\n", cache_config.model_name_.c_str(), cache_config.cuda_dev_id_);
+  HCTR_LOG(INFO, WORLD, "*****Insert embedding cache of model %s on device %d*****\n",
+           cache_config.model_name_.c_str(), cache_config.cuda_dev_id_);
   // Copy the missing embeddingcolumns to host
   for (unsigned int i = 0; i < cache_config.num_emb_table_; i++) {
     TypeHashKey* d_missing_key_ptr = (TypeHashKey*)(workspace_handler.d_missing_embeddingcolumns_) +

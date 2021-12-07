@@ -142,7 +142,8 @@ void FusedReshapeConcatGeneralLayer<T>::fprop(bool is_train) {
   size_t n_sms = get_gpu().get_sm_count();
   dim3 grid_size(n_sms * 8, 1, 1);
   fused_reshape_concat_general_kernel<<<grid_size, block_size, 0, get_gpu().get_stream()>>>(
-      true, d_inputs_.get_ptr(), output, batch_size_, slot_num_, vecs_size_.get_ptr(), new_width_, num_);
+      true, d_inputs_.get_ptr(), output, batch_size_, slot_num_, vecs_size_.get_ptr(), new_width_,
+      num_);
 #ifndef NDEBUG
   cudaDeviceSynchronize();
   CK_CUDA_THROW_(cudaGetLastError());
@@ -158,7 +159,8 @@ void FusedReshapeConcatGeneralLayer<T>::bprop() {
   size_t n_sms = get_gpu().get_sm_count();
   dim3 grid_size(n_sms * 8, 1, 1);
   fused_reshape_concat_general_kernel<<<grid_size, block_size, 0, get_gpu().get_stream()>>>(
-      false, d_inputs_.get_ptr(), output, batch_size_, slot_num_, vecs_size_.get_ptr(), new_width_, num_);
+      false, d_inputs_.get_ptr(), output, batch_size_, slot_num_, vecs_size_.get_ptr(), new_width_,
+      num_);
 #ifndef NDEBUG
   cudaDeviceSynchronize();
   CK_CUDA_THROW_(cudaGetLastError());

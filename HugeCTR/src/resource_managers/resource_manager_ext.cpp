@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
+#include <base/debug/logger.hpp>
 #include <random>
 #include <resource_managers/resource_manager_ext.hpp>
 #include <utils.hpp>
-#include <base/debug/logger.hpp>
 
 namespace HugeCTR {
 

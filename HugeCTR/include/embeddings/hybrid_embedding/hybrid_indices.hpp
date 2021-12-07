@@ -18,10 +18,10 @@ namespace hybrid_embedding {
 // Frequent Compression
 // ===========================================================================================
 
-template<typename dtype>
+template <typename dtype>
 struct FrequentEmbeddingCompressionView {
   const dtype* samples;
-  bool *cache_masks;
+  bool* cache_masks;
   uint32_t *model_cache_indices, *model_cache_indices_offsets;
   uint32_t *network_cache_indices, *network_cache_indices_offsets;
   uint32_t *d_num_frequent_sample_indices, *frequent_sample_indices;
@@ -34,12 +34,12 @@ class FrequentEmbeddingCompression {
   void calculate_network_cache_indices_temp_storage_bytes(const size_t num_frequent);
 
   const Model<dtype>& model_;
-  const Data<dtype>&  data_;
+  const Data<dtype>& data_;
 
   FrequentEmbeddingCompressionView<dtype>* device_indices_view_;
 
-public:
-// Role:
+ public:
+  // Role:
   //   push from the locally reduced gradient buffer => update embedding vector
   //   pull embedding vector from the model => update local cache
   //
@@ -106,8 +106,8 @@ public:
   size_t model_cache_indices_temp_storage_bytes_;
   size_t network_cache_indices_temp_storage_bytes_;
 
-  FrequentEmbeddingCompression(size_t max_num_frequent_categories,
-                               const Data<dtype> &data, const Model<dtype> &model);
+  FrequentEmbeddingCompression(size_t max_num_frequent_categories, const Data<dtype>& data,
+                               const Model<dtype>& model);
 
   void calculate_frequent_sample_indices(cudaStream_t stream);
   void calculate_model_cache_indices(size_t sm_count, cudaStream_t stream);
@@ -119,13 +119,11 @@ public:
   const Data<dtype>* get_data() { return &data_; }
 };
 
-
-
 // ===========================================================================================
 // Infrequent Selection
 // ===========================================================================================
 
-template<typename dtype>
+template <typename dtype>
 struct InfrequentEmbeddingSelectionView {
   const dtype* samples;
   uint32_t *model_indices, *model_indices_offsets;
@@ -139,7 +137,7 @@ class InfrequentEmbeddingSelection {
                                                     const uint32_t num_instances);
 
   const Model<dtype>& model_;
-  const Data<dtype>&  data_;
+  const Data<dtype>& data_;
   InfrequentEmbeddingSelectionView<dtype>* device_indices_view_;
 
  public:
@@ -191,16 +189,16 @@ class InfrequentEmbeddingSelection {
   Tensor2<char> network_indices_temp_storage_;
   size_t network_indices_temp_storage_bytes_;
 
-  InfrequentEmbeddingSelection(const Data<dtype> &data,
-                               const Model<dtype> &model);
+  InfrequentEmbeddingSelection(const Data<dtype>& data, const Model<dtype>& model);
 
   void calculate_model_indices(cudaStream_t stream);
   void calculate_network_indices(size_t sm_count, cudaStream_t stream);
 
   // For now these functions stay in InfreqeuentEmbedding
   //  since the communications can only use one offsets tensor
-  // void calculate_model_indices_sizes_from_offsets(  size_t embedding_vec_bytes, cudaStream_t stream);
-  // void calculate_network_indices_sizes_from_offsets(size_t embedding_vec_bytes, cudaStream_t stream);
+  // void calculate_model_indices_sizes_from_offsets(  size_t embedding_vec_bytes, cudaStream_t
+  // stream); void calculate_network_indices_sizes_from_offsets(size_t embedding_vec_bytes,
+  // cudaStream_t stream);
 
   InfrequentEmbeddingSelectionView<dtype>* get_device_view() { return device_indices_view_; }
   const Data<dtype>* get_data() { return &data_; }
@@ -208,13 +206,10 @@ class InfrequentEmbeddingSelection {
 
 // Single-stream version
 template <typename dtype>
-void compute_indices(
-    FrequentEmbeddingCompression<dtype>& compression,
-    InfrequentEmbeddingSelection<dtype>& selection,
-    CommunicationType communication_type,
-    bool compute_network_cache_indices,
-    cudaStream_t main_stream,
-    int sm_count);
+void compute_indices(FrequentEmbeddingCompression<dtype>& compression,
+                     InfrequentEmbeddingSelection<dtype>& selection,
+                     CommunicationType communication_type, bool compute_network_cache_indices,
+                     cudaStream_t main_stream, int sm_count);
 
-}
-}
+}  // namespace hybrid_embedding
+}  // namespace HugeCTR

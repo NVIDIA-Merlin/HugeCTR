@@ -25,28 +25,27 @@ namespace HugeCTR {
 
 namespace {
 
-__global__ void reverse_relu_kernel(__half *dRelu, __half* mask, const __half* dY, int n) {
+__global__ void reverse_relu_kernel(__half* dRelu, __half* mask, const __half* dY, int n) {
   const size_t tid = blockIdx.x * blockDim.x + threadIdx.x;
   const size_t num_threads = blockDim.x * gridDim.x;
   const __half2 zero = TypeFunc<__half2>::zero();
   __half2* dRelu2 = reinterpret_cast<__half2*>(dRelu);
-  __half2* mask2  = reinterpret_cast<__half2*>(mask);
+  __half2* mask2 = reinterpret_cast<__half2*>(mask);
   const __half2* dY2 = reinterpret_cast<const __half2*>(dY);
   __half2 m = __hgt2(mask2[tid], zero);
-  dRelu2[tid] = __hmul2(__ldg(dY2+tid), m);
-  m = __hgt2(mask2[tid+num_threads], zero);
-  dRelu2[tid+num_threads] = __hmul2(__ldg(dY2+tid+num_threads), m);
-
+  dRelu2[tid] = __hmul2(__ldg(dY2 + tid), m);
+  m = __hgt2(mask2[tid + num_threads], zero);
+  dRelu2[tid + num_threads] = __hmul2(__ldg(dY2 + tid + num_threads), m);
 }
 
-__global__ void reverse_relu_kernel_not_aligned(__half *dRelu, __half* mask, const __half* dY, int n) {
+__global__ void reverse_relu_kernel_not_aligned(__half* dRelu, __half* mask, const __half* dY,
+                                                int n) {
   const size_t tid = blockIdx.x * blockDim.x + threadIdx.x;
   const size_t num_threads = blockDim.x * gridDim.x;
   const __half zero = TypeFunc<__half>::zero();
   __half m = __hgt(mask[tid], zero);
-  dRelu[tid] = __hmul(__ldg(dY+tid), m);
+  dRelu[tid] = __hmul(__ldg(dY + tid), m);
 }
-
 
 }  // namespace
 
@@ -60,7 +59,8 @@ FusedReluBiasFullyConnectedLayer::FusedReluBiasFullyConnectedLayer(
     const Tensor2<__half>& train_out_tensor, const Tensor2<__half>& mask_out_tensor,
     const Tensor2<__half>& dRelu_out_tensor, Tensor2<__half>& db_out_tensor,
     const std::shared_ptr<GPUResource>& gpu_resource, const FcPosition_t& pos,
-    const Activation_t& act, const bool& skip_dgrad, std::vector<Initializer_t> initializer_types, const bool async_mlp_wgrad)
+    const Activation_t& act, const bool& skip_dgrad, std::vector<Initializer_t> initializer_types,
+    const bool async_mlp_wgrad)
     : Layer(gpu_resource, initializer_types),
       balgo_k_(CUBLAS_GEMM_DEFAULT_TENSOR_OP),
       balgo_x_(CUBLAS_GEMM_DEFAULT_TENSOR_OP),
@@ -133,8 +133,10 @@ FusedReluBiasFullyConnectedLayer::FusedReluBiasFullyConnectedLayer(
   std::vector<size_t> mask_dim = {m, n};
   blobs_buff->reserve(mask_dim, &mask_in_tensor_temp_);
 
-  if (async_mlp_wgrad_) cublas_handle_wgrad_ = gpu_resource->get_cublas_handle_wgrad();
-  else cublas_handle_wgrad_ = gpu_resource->get_cublas_handle();
+  if (async_mlp_wgrad_)
+    cublas_handle_wgrad_ = gpu_resource->get_cublas_handle_wgrad();
+  else
+    cublas_handle_wgrad_ = gpu_resource->get_cublas_handle();
 }
 
 void FusedReluBiasFullyConnectedLayer::initialize() {
@@ -327,8 +329,8 @@ void FusedReluBiasFullyConnectedLayer::initialize_wgrad() {
   int returned_res = 0;
   CK_CUBLAS_THROW_(cublasLtMatmulAlgoGetHeuristic(
       get_gpu().get_cublaslt_handle(), cublas_op_desc_wgrad_, cublas_dRelu_top_desc_,
-      cublas_dRelu_bottom_desc_, cublas_kernel_desc_, cublas_kernel_desc_,
-      cublas_preference_wgrad_, 1, &heuristic_result, &returned_res));
+      cublas_dRelu_bottom_desc_, cublas_kernel_desc_, cublas_kernel_desc_, cublas_preference_wgrad_,
+      1, &heuristic_result, &returned_res));
 
   memcpy(&balgo_wgrad_, &heuristic_result.algo, sizeof(balgo_wgrad_));
 
@@ -406,23 +408,21 @@ void FusedReluBiasFullyConnectedLayer::bprop() {
   const float beta_x = 0.0f;
   const float beta_b = 0.0f;
 
-  PROFILE_RECORD("fused_relu_bias_fully_connected.bprop.dRelu.start",
-                 get_gpu().get_stream());
+  PROFILE_RECORD("fused_relu_bias_fully_connected.bprop.dRelu.start", get_gpu().get_stream());
   // dRelu
   if (pos_ == FcPosition_t::Tail || pos_ == FcPosition_t::Isolated) {
     if (act_ != Activation_t::None) {
       if ((m * n) % 4 == 0) {
-        reverse_relu_kernel<<<(m * n / 4 -1) / 1024 + 1, 1024, 0, get_gpu().get_stream()>>>(dRelu_top,
-  		      mask_out, train_out, m * n / 4);
+        reverse_relu_kernel<<<(m * n / 4 - 1) / 1024 + 1, 1024, 0, get_gpu().get_stream()>>>(
+            dRelu_top, mask_out, train_out, m * n / 4);
       } else
-        reverse_relu_kernel_not_aligned<<<(m * n -1) / 1024 + 1, 1024, 0, get_gpu().get_stream()>>>(dRelu_top,
-  		      mask_out, train_out, m * n);
+        reverse_relu_kernel_not_aligned<<<(m * n - 1) / 1024 + 1, 1024, 0,
+                                          get_gpu().get_stream()>>>(dRelu_top, mask_out, train_out,
+                                                                    m * n);
     } else
       dRelu_top = train_out_tensor_.get_ptr();
   }
-  PROFILE_RECORD("fused_relu_bias_fully_connected.bprop.dRelu.stop",
-                 get_gpu().get_stream());
-
+  PROFILE_RECORD("fused_relu_bias_fully_connected.bprop.dRelu.stop", get_gpu().get_stream());
 
   // wait for dRelu
   if (async_mlp_wgrad_) {
@@ -433,8 +433,8 @@ void FusedReluBiasFullyConnectedLayer::bprop() {
   // dgrad
   if (!skip_dgrad_) {
     __half* bottom_bprop = mask_in_tensor_.get_ptr();
-//    if (async_mlp_wgrad_) bottom_bprop = mask_in_tensor_.get_ptr();
-    
+    //    if (async_mlp_wgrad_) bottom_bprop = mask_in_tensor_.get_ptr();
+
     if (pos_ == FcPosition_t::Body || pos_ == FcPosition_t::Tail) {
       bottom_bprop = dRelu_in_tensor_.get_ptr();
     }
@@ -447,24 +447,23 @@ void FusedReluBiasFullyConnectedLayer::bprop() {
 
   // bgrad+wgrad
   if (n == 1) {
-      CK_CUBLAS_THROW_(cublasGemmEx(cublas_handle_wgrad_, CUBLAS_OP_N, CUBLAS_OP_N, n, 1,
-                                    m, &alpha, dRelu_top, CUDA_R_16F, n, identity, CUDA_R_16F, m,
-                                    &beta_b, bias_grad, CUDA_R_16F, n, CUDA_R_32F, balgo_b_));
-      CK_CUBLAS_THROW_(cublasGemmEx(cublas_handle_wgrad_, CUBLAS_OP_N, CUBLAS_OP_T, n, k, m,
-                                    &alpha, dRelu_top, CUDA_R_16F, n, bottom, CUDA_R_16F, k, &beta_k,
-                                    kernel_grad, CUDA_R_16F, n, CUDA_R_32F, balgo_k_));
+    CK_CUBLAS_THROW_(cublasGemmEx(cublas_handle_wgrad_, CUBLAS_OP_N, CUBLAS_OP_N, n, 1, m, &alpha,
+                                  dRelu_top, CUDA_R_16F, n, identity, CUDA_R_16F, m, &beta_b,
+                                  bias_grad, CUDA_R_16F, n, CUDA_R_32F, balgo_b_));
+    CK_CUBLAS_THROW_(cublasGemmEx(cublas_handle_wgrad_, CUBLAS_OP_N, CUBLAS_OP_T, n, k, m, &alpha,
+                                  dRelu_top, CUDA_R_16F, n, bottom, CUDA_R_16F, k, &beta_k,
+                                  kernel_grad, CUDA_R_16F, n, CUDA_R_32F, balgo_k_));
   } else {
     CK_CUBLAS_THROW_(cublasLtMatmul(
-         get_gpu().get_cublaslt_handle(), cublas_op_desc_wgrad_, &alpha, dRelu_top, cublas_dRelu_top_desc_,
-         bottom, cublas_dRelu_bottom_desc_, &beta_k, kernel_grad, cublas_kernel_desc_,
-         kernel_grad, cublas_kernel_desc_, &balgo_wgrad_, cublaslt_workspace_wgrad_,
-         cublaslt_workspace_size_, get_gpu().get_comp_overlap_stream()));
+        get_gpu().get_cublaslt_handle(), cublas_op_desc_wgrad_, &alpha, dRelu_top,
+        cublas_dRelu_top_desc_, bottom, cublas_dRelu_bottom_desc_, &beta_k, kernel_grad,
+        cublas_kernel_desc_, kernel_grad, cublas_kernel_desc_, &balgo_wgrad_,
+        cublaslt_workspace_wgrad_, cublaslt_workspace_size_, get_gpu().get_comp_overlap_stream()));
   }
 
   if (async_mlp_wgrad_ && pos_ == FcPosition_t::Head) {
     get_gpu().set_wgrad_event_sync(get_gpu().get_comp_overlap_stream());
   }
-
 
   PROFILE_RECORD("fused_relu_bias_fully_connected.bprop.cublasGemmEx_2.stop",
                  get_gpu().get_stream());
@@ -608,8 +607,8 @@ void FusedReluBiasFullyConnectedLayer::search_algorithm() {
   int algo_count_wgrad = 0;
   CK_CUBLAS_THROW_(cublasLtMatmulAlgoGetHeuristic(
       get_gpu().get_cublaslt_handle(), cublas_op_desc_wgrad_, cublas_dRelu_top_desc_,
-      cublas_dRelu_bottom_desc_, cublas_kernel_desc_, cublas_kernel_desc_,
-      cublas_preference_wgrad_, max_algo_count, heuristic_result_wgrad, &algo_count_wgrad));
+      cublas_dRelu_bottom_desc_, cublas_kernel_desc_, cublas_kernel_desc_, cublas_preference_wgrad_,
+      max_algo_count, heuristic_result_wgrad, &algo_count_wgrad));
 
   if (algo_count_wgrad == 0) {
     CK_CUBLAS_THROW_(CUBLAS_STATUS_NOT_SUPPORTED);
@@ -622,8 +621,8 @@ void FusedReluBiasFullyConnectedLayer::search_algorithm() {
     const float beta = 1.0f;
     CK_CUDA_THROW_(cudaEventRecord(start, get_gpu().get_stream()));
     for (size_t i = 0; i < repeat_num && status == CUBLAS_STATUS_SUCCESS; ++i) {
-      status = cublasLtMatmul(get_gpu().get_cublaslt_handle(), cublas_op_desc_wgrad_, &alpha,
-                              top, cublas_dRelu_top_desc_, bottom, cublas_dRelu_bottom_desc_, &beta,
+      status = cublasLtMatmul(get_gpu().get_cublaslt_handle(), cublas_op_desc_wgrad_, &alpha, top,
+                              cublas_dRelu_top_desc_, bottom, cublas_dRelu_bottom_desc_, &beta,
                               kernel, cublas_kernel_desc_, kernel, cublas_kernel_desc_,
                               &heuristic_result_wgrad[algoIdx].algo, cublaslt_workspace_wgrad_,
                               cublaslt_workspace_size_, get_gpu().get_stream());
@@ -634,7 +633,7 @@ void FusedReluBiasFullyConnectedLayer::search_algorithm() {
 
     // Avg Time(ms) for this alorithm for fprop GEMM
     time = time / repeat_num;
-    //printf("algoIdx: %d, time: %f, shortest time: %f\n", algoIdx, time, shortestTime);
+    // printf("algoIdx: %d, time: %f, shortest time: %f\n", algoIdx, time, shortestTime);
     // Skip if the algorithm is supported for fprop configuration
     if (status != CUBLAS_STATUS_SUCCESS) {
       //      printf("The algorithms %d is not supported for fprop, skipped.\n", testAlgo);
@@ -643,7 +642,7 @@ void FusedReluBiasFullyConnectedLayer::search_algorithm() {
     // Record the optimal time and algorithm
     if (time < shortestTime) {
       shortestTime = time;
-      //printf("wgrad cublasMatmul algoIdx: %d, time: %f\n", algoIdx, shortestTime);
+      // printf("wgrad cublasMatmul algoIdx: %d, time: %f\n", algoIdx, shortestTime);
       memcpy(&balgo_wgrad_, &heuristic_result_wgrad[algoIdx].algo, sizeof(balgo_wgrad_));
     }
   }
@@ -682,7 +681,7 @@ void FusedReluBiasFullyConnectedLayer::search_algorithm() {
     // Record the optimal time and algorithm
     if (time < shortestTime) {
       shortestTime = time;
-      //printf("wgrad cublasGemmEx algoIdx: %d, time: %f\n", testAlgo, shortestTime);
+      // printf("wgrad cublasGemmEx algoIdx: %d, time: %f\n", testAlgo, shortestTime);
       balgo_k_ = static_cast<cublasGemmAlgo_t>(testAlgo);
     }
   }

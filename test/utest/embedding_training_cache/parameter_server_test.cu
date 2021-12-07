@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 
- #include <gtest/gtest.h>
-#include "etc_test_utils.hpp"
+#include <gtest/gtest.h>
+
 #include "embedding_training_cache/hmem_cache/hmem_cache.hpp"
 #include "embedding_training_cache/parameter_server.hpp"
+#include "etc_test_utils.hpp"
 
 using namespace HugeCTR;
 using namespace etc_test;
@@ -53,24 +54,22 @@ const Update_t update_type = Update_t::Local;
 const int batch_num_eval = 1;
 
 template <typename TypeKey>
-void do_upload_and_download_snapshot(
-    int batch_num_train, TrainPSType_t ps_type, bool is_distributed,
-    Optimizer_t opt_type = Optimizer_t::Adam, std::string local_path = "./",
-    HMemCacheConfig hc_config = HMemCacheConfig()) {
-  Embedding_t embedding_type = is_distributed ? 
-                               Embedding_t::DistributedSlotSparseEmbeddingHash :
-                               Embedding_t::LocalizedSlotSparseEmbeddingHash;
+void do_upload_and_download_snapshot(int batch_num_train, TrainPSType_t ps_type,
+                                     bool is_distributed, Optimizer_t opt_type = Optimizer_t::Adam,
+                                     std::string local_path = "./",
+                                     HMemCacheConfig hc_config = HMemCacheConfig()) {
+  Embedding_t embedding_type = is_distributed ? Embedding_t::DistributedSlotSparseEmbeddingHash
+                                              : Embedding_t::LocalizedSlotSparseEmbeddingHash;
   // create a resource manager for a single GPU
   std::vector<std::vector<int>> vvgpu;
   vvgpu.push_back({0});
   const auto resource_manager{ResourceManagerExt::create(vvgpu, 0)};
 
-  generate_sparse_model<TypeKey, check>(snapshot_src_file, snapshot_dst_file,
-      snapshot_bkp_file_unsigned, snapshot_bkp_file_longlong,
-      file_list_name_train, file_list_name_eval, prefix, num_files, label_dim,
-      dense_dim, slot_num, max_nnz_per_slot, max_feature_num,
-      vocabulary_size, emb_vec_size, combiner, scaler, num_workers, batchsize,
-      batch_num_train, batch_num_eval, update_type, resource_manager);
+  generate_sparse_model<TypeKey, check>(
+      snapshot_src_file, snapshot_dst_file, snapshot_bkp_file_unsigned, snapshot_bkp_file_longlong,
+      file_list_name_train, file_list_name_eval, prefix, num_files, label_dim, dense_dim, slot_num,
+      max_nnz_per_slot, max_feature_num, vocabulary_size, emb_vec_size, combiner, scaler,
+      num_workers, batchsize, batch_num_train, batch_num_eval, update_type, resource_manager);
   generate_opt_state(snapshot_src_file, opt_type);
   if (fs::exists(snapshot_dst_file)) {
     fs::remove_all(snapshot_dst_file);
@@ -83,20 +82,18 @@ void do_upload_and_download_snapshot(
 
   // Create a ParameterServer
   hc_config.block_capacity = vocabulary_size;
-  ParameterServer<TypeKey> parameter_server(ps_type, snapshot_dst_file,
-      embedding_type, opt_type, emb_vec_size, resource_manager, local_path, hc_config);
+  ParameterServer<TypeKey> parameter_server(ps_type, snapshot_dst_file, embedding_type, opt_type,
+                                            emb_vec_size, resource_manager, local_path, hc_config);
 
   // Make a synthetic keyset files
   std::vector<long long> keys_in_file;
   {
-    size_t key_file_size_in_byte =
-        fs::file_size(get_ext_file(snapshot_dst_file, "key"));
+    size_t key_file_size_in_byte = fs::file_size(get_ext_file(snapshot_dst_file, "key"));
     size_t num_keys = key_file_size_in_byte / sizeof(long long);
     keys_in_file.resize(num_keys);
     std::ifstream key_ifs(get_ext_file(snapshot_dst_file, "key"));
-    key_ifs.read(reinterpret_cast<char *>(keys_in_file.data()),
-                                          key_file_size_in_byte);
-    TypeKey *key_ptr = nullptr;
+    key_ifs.read(reinterpret_cast<char*>(keys_in_file.data()), key_file_size_in_byte);
+    TypeKey* key_ptr = nullptr;
     std::vector<TypeKey> key_vec;
     if (std::is_same<TypeKey, long long>::value) {
       key_ptr = reinterpret_cast<TypeKey*>(keys_in_file.data());
@@ -106,9 +103,8 @@ void do_upload_and_download_snapshot(
                      [](long long key) { return static_cast<unsigned>(key); });
       key_ptr = key_vec.data();
     }
-    std::ofstream key_ofs(keyset_file_name, std::ofstream::binary |
-                                            std::ofstream::trunc);
-    key_ofs.write(reinterpret_cast<char *>(key_ptr), num_keys * sizeof(TypeKey));
+    std::ofstream key_ofs(keyset_file_name, std::ofstream::binary | std::ofstream::trunc);
+    key_ofs.write(reinterpret_cast<char*>(key_ptr), num_keys * sizeof(TypeKey));
   }
 
   BufferBag buf_bag;
@@ -163,8 +159,8 @@ void do_upload_and_download_snapshot(
   auto key_vec_pair{parameter_server.pull(keys_in_file)};
   std::string vec_file_name("./emb_vector");
   std::ofstream vec_ofs(vec_file_name, std::ofstream::binary | std::ofstream::trunc);
-  vec_ofs.write(reinterpret_cast<char *>(key_vec_pair.second.data()),
-      key_vec_pair.second.size() * sizeof(float));
+  vec_ofs.write(reinterpret_cast<char*>(key_vec_pair.second.data()),
+                key_vec_pair.second.size() * sizeof(float));
 
   ASSERT_EQ(key_vec_pair.first.size(), keys_in_file.size());
   ASSERT_TRUE(check_vector_equality(snapshot_src_file, "./", "emb_vector"));
@@ -175,8 +171,8 @@ TEST(parameter_server_test, unsigned_host_distributed) {
 }
 TEST(parameter_server_test, long_long_cache_distributed_Adam) {
   HMemCacheConfig hc_config(1, 0.5, 0);
-  do_upload_and_download_snapshot<long long>(
-      20, TrainPSType_t::Cached, true,  Optimizer_t::Adam, "./", hc_config);
+  do_upload_and_download_snapshot<long long>(20, TrainPSType_t::Cached, true, Optimizer_t::Adam,
+                                             "./", hc_config);
 }
 
 TEST(parameter_server_test, unsigned_host_localized) {
@@ -184,8 +180,8 @@ TEST(parameter_server_test, unsigned_host_localized) {
 }
 TEST(parameter_server_test, unsigned_cache_localized_SGD) {
   HMemCacheConfig hc_config(1, 0.5, 0);
-  do_upload_and_download_snapshot<unsigned>(
-      20, TrainPSType_t::Cached, false,  Optimizer_t::SGD, "./", hc_config);
+  do_upload_and_download_snapshot<unsigned>(20, TrainPSType_t::Cached, false, Optimizer_t::SGD,
+                                            "./", hc_config);
 }
 
 }  // namespace

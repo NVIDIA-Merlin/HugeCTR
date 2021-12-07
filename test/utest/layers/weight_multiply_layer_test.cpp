@@ -41,7 +41,7 @@ __half eps() {
 
 template <typename T>
 void weight_multiply_cpu(const T* input, const T* weight, T* output, int batch_size, int slot_num,
-                  int embedding_vec_size) {
+                         int embedding_vec_size) {
   for (int i = 0; i < batch_size; i++) {
     for (int j = 0; j < slot_num; j++) {
       for (int k = 0; k < embedding_vec_size; k++) {
@@ -53,8 +53,8 @@ void weight_multiply_cpu(const T* input, const T* weight, T* output, int batch_s
 }
 
 template <typename T>
-void weight_multiply_wgrad_cpu(const T* top_grad, const T* input, T* wgrad, int batch_size, int slot_num,
-                        int embedding_vec_size) {
+void weight_multiply_wgrad_cpu(const T* top_grad, const T* input, T* wgrad, int batch_size,
+                               int slot_num, int embedding_vec_size) {
   int len_w = slot_num * embedding_vec_size;
   for (int i = 0; i < len_w; i++) {
     double tmp = 0.0;
@@ -66,8 +66,8 @@ void weight_multiply_wgrad_cpu(const T* top_grad, const T* input, T* wgrad, int 
 }
 
 template <typename T>
-void weight_multiply_dgrad_cpu(const T* top_grad, const T* weight, T* dgrad, int batch_size, int slot_num,
-                        int embedding_vec_size) {
+void weight_multiply_dgrad_cpu(const T* top_grad, const T* weight, T* dgrad, int batch_size,
+                               int slot_num, int embedding_vec_size) {
   for (int i = 0; i < batch_size; i++) {
     for (int j = 0; j < slot_num; j++) {
       T tmp = T(0.0);
@@ -95,7 +95,8 @@ void weight_multiply_test(size_t batch_size, size_t slot_num, size_t embedding_v
   Tensor2<T> out_tensor;
 
   test::GaussianDataSimulator simulator(0.0f, 1.0f);
-  WeightMultiplyLayer<T> weight_multiply_layer(master_weight_buff, weight_buff, wgrad_buff, buff, in_tensor, out_tensor, weight_dims,
+  WeightMultiplyLayer<T> weight_multiply_layer(master_weight_buff, weight_buff, wgrad_buff, buff,
+                                               in_tensor, out_tensor, weight_dims,
                                                test::get_default_gpu());
 
   buff->allocate();
@@ -132,7 +133,7 @@ void weight_multiply_test(size_t batch_size, size_t slot_num, size_t embedding_v
   CK_CUDA_THROW_(cudaMemcpy(h_out.get(), d_out, len_out * sizeof(T), cudaMemcpyDeviceToHost));
 
   weight_multiply_cpu(h_in.get(), h_weight.get(), h_expected.get(), batch_size, slot_num,
-               embedding_vec_size);
+                      embedding_vec_size);
   ASSERT_TRUE(test::compare_array_approx<T>(h_out.get(), h_expected.get(), len_out, eps<T>()));
 
   // bprop
@@ -155,15 +156,15 @@ void weight_multiply_test(size_t batch_size, size_t slot_num, size_t embedding_v
   CK_CUDA_THROW_(
       cudaMemcpy(h_in.get(), d_in, len_in * sizeof(T), cudaMemcpyDeviceToHost));  // dgrad
 
-  weight_multiply_wgrad_cpu(h_out.get(), h_expected.get(), h_expected_wgrad.get(), batch_size, slot_num,
-                     embedding_vec_size);
+  weight_multiply_wgrad_cpu(h_out.get(), h_expected.get(), h_expected_wgrad.get(), batch_size,
+                            slot_num, embedding_vec_size);
   // TODO: because of the accumulated error, comparing absolute error can not pass when esp<1e-3
   ASSERT_TRUE(test::compare_array_approx<T>(h_wgrad.get(), h_expected_wgrad.get(), len_w,
                                             eps<T>()));  // compare wgrad
 
   // CAUSION: dgrad computation will modify the "input", so it must be put after wgrad computation
   weight_multiply_dgrad_cpu(h_out.get(), h_weight.get(), h_expected.get(), batch_size, slot_num,
-                     embedding_vec_size);
+                            embedding_vec_size);
   ASSERT_TRUE(test::compare_array_approx<T>(h_in.get(), h_expected.get(), len_in,
                                             eps<T>()));  // compare dgrad
 }

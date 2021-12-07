@@ -55,8 +55,7 @@ void shuffle_one2one(int num_elems, int num_dimensions) {
   std::shuffle(dst_ids, dst_ids + num_elems, gen);
 
   auto copy_info = CopyDescriptors::make_OneToOne<SrcT, DstT, 1>(
-      num_dimensions,
-      [=] __device__() { return num_elems; },
+      num_dimensions, [=] __device__() { return num_elems; },
       [=] __device__(size_t src_id) -> CopyDescriptors::CopyDetails<SrcT, DstT, 1> {
         return {src + src_ids[src_id] * num_dimensions,
                 {dst + dst_ids[src_id] * num_dimensions},

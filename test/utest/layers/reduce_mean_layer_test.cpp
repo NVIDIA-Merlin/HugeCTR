@@ -15,7 +15,9 @@
  */
 
 #include "HugeCTR/include/layers/reduce_mean_layer.hpp"
+
 #include <vector>
+
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"
 

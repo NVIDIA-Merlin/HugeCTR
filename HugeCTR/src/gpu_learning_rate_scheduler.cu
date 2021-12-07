@@ -31,13 +31,14 @@ __global__ void lr_update_kernel(float base_lr, size_t warmup_steps, size_t deca
   if (step_val < warmup_steps) {
     *current_lr = step_val * base_lr / warmup_steps;
     *last_lr = *current_lr;
-  } else if(step_val >= decay_start && step_val < decay_start + decay_steps) {
+  } else if (step_val >= decay_start && step_val < decay_start + decay_steps) {
     size_t decayed_steps = step_val - decay_start;
     float scale = pow((decay_steps - decayed_steps) / ((float)decay_steps), decay_power);
-    *current_lr = base_lr * scale > end_lr ? base_lr * scale : end_lr;;
+    *current_lr = base_lr * scale > end_lr ? base_lr * scale : end_lr;
+    ;
     *last_lr = *current_lr;
   } else {
-    if (decay_steps > 0){
+    if (decay_steps > 0) {
       *current_lr = *last_lr;
     } else {
       *current_lr = base_lr;
@@ -92,15 +93,13 @@ void GpuLearningRateScheduler::update() {
   if (true == overlapped_) {
     CK_CUDA_THROW_(cudaEventRecord(fork_event_, gpu_resource_->get_stream()));
     CK_CUDA_THROW_(cudaStreamWaitEvent(lr_stream_, fork_event_));
-    lr_update_kernel<<<1, 1, 0, lr_stream_>>>(base_lr_, warmup_steps_, decay_start_,
-                                              decay_steps_, decay_power_, end_lr_,
-                                              step_, current_lr_, last_lr_);
+    lr_update_kernel<<<1, 1, 0, lr_stream_>>>(base_lr_, warmup_steps_, decay_start_, decay_steps_,
+                                              decay_power_, end_lr_, step_, current_lr_, last_lr_);
     CK_CUDA_THROW_(cudaEventRecord(join_event_, lr_stream_));
   } else {
-    lr_update_kernel<<<1, 1, 0, gpu_resource_->get_stream()>>>(base_lr_, warmup_steps_,
-                                                               decay_start_, decay_steps_,
-                                                               decay_power_, end_lr_,
-                                                               step_, current_lr_, last_lr_);
+    lr_update_kernel<<<1, 1, 0, gpu_resource_->get_stream()>>>(
+        base_lr_, warmup_steps_, decay_start_, decay_steps_, decay_power_, end_lr_, step_,
+        current_lr_, last_lr_);
   }
 }
 

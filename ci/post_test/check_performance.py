@@ -14,11 +14,11 @@ log_pattern = {
     },
     'dlrm_1node': {
         'cmd_log': r'python3 /workdir/samples/dlrm/dgx_a100.py',
-        'result_log': r'Hit target accuracy AUC 0.802500 at 68274 / 75868 iterations with batchsize 55296 in (\d+\.?\d*)s. Average'
+        'result_log': r'/ 75868 iterations with batchsize 55296 in (\d+\.?\d*)s. Average'
     },
     'dlrm_14node': {
         'cmd_log': r'HugeCTR Version',
-        'result_log': r'Hit target accuracy AUC 0.802500 at 58520 / 58527 iterations with batchsize 71680 in (\d+\.?\d*)s. Average'
+        'result_log': r'/ 58527 iterations with batchsize 71680 in (\d+\.?\d*)s. Average'
     },
     'inference_benchmark': {
         'cmd_log': r'Server:',

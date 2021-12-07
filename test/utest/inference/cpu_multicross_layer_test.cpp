@@ -14,11 +14,13 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/cpu/layers/multi_cross_layer_cpu.hpp"
-#include "HugeCTR/include/layer.hpp"
 #include <math.h>
+
 #include <memory>
 #include <vector>
+
+#include "HugeCTR/include/cpu/layers/multi_cross_layer_cpu.hpp"
+#include "HugeCTR/include/layer.hpp"
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"
 
@@ -137,7 +139,7 @@ class MultiCrossLayerCPUTest {
 
     // todo compare
     for (size_t i = 0; i < h_outputs_.back().size(); i++) {
-      if (abs(d2h_output[i]-h_outputs_.back()[i]) > 0.05f) {
+      if (abs(d2h_output[i] - h_outputs_.back()[i]) > 0.05f) {
         CK_THROW_(Error_t::WrongInput, "cpu multicross layer wrong result");
       }
     }
@@ -170,7 +172,8 @@ class MultiCrossLayerCPUTest {
     }
 
     // layer
-    layer_.reset(new MultiCrossLayerCPU(weight_buf_, wgrad_buf_, blob_buf_, input_, output_, layers));
+    layer_.reset(
+        new MultiCrossLayerCPU(weight_buf_, wgrad_buf_, blob_buf_, input_, output_, layers));
 
     blob_buf_->allocate();
     layer_->initialize();

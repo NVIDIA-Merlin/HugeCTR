@@ -1,13 +1,14 @@
 #pragma once
 
 #include <common.hpp>
-#include <data_readers/async_reader/data_reader_scheduling.hpp>
 #include <data_readers/async_reader/async_reader.hpp>
 #include <data_readers/async_reader/async_reader_common.hpp>
+#include <data_readers/async_reader/data_reader_scheduling.hpp>
 #include <data_readers/async_reader/split_label_dense_sparse.hpp>
 #include <tensor2.hpp>
-#include "HugeCTR/include/graph_wrapper.hpp"
+
 #include "HugeCTR/include/embeddings/hybrid_embedding/indices_container.hpp"
+#include "HugeCTR/include/graph_wrapper.hpp"
 
 namespace HugeCTR {
 
@@ -36,12 +37,13 @@ class AsyncReader : public IDataReaderWithScheduling {
   void schedule_here_graph(cudaStream_t stream, int raw_device_id) override;
   void update_schedule_graph(int raw_device_id) override;
 
-  void register_extra_processing(const std::shared_ptr<hybrid_embedding::IndexProcessor<SparseType>>& proc);
+  void register_extra_processing(
+      const std::shared_ptr<hybrid_embedding::IndexProcessor<SparseType>>& proc);
   size_t get_total_queue_size();
   bool is_mixed_precision();
   // TODO: need to get rid of this, pass the dims directly from Model to the HybridEmbedding
   void get_dimensions(size_t& label_dim, size_t& dense_dim, size_t& sparse_dim,
-      size_t& sample_size_items);
+                      size_t& sample_size_items);
 
   long long get_current_batchsize_per_device(size_t local_id) override;
   TensorScalarType get_scalar_type() const override;
@@ -78,7 +80,8 @@ class AsyncReader : public IDataReaderWithScheduling {
   std::vector<TensorBag2> label_tensors_;
   std::vector<TensorBag2> dense_tensors_;
   std::vector<SparseTensorBag> sparse_tensors_;
-  std::vector<cudaEvent_t> completion_events_, schedule_events_, split_schedule_events_, graph_complete_events_, d2d_schedule_events_;
+  std::vector<cudaEvent_t> completion_events_, schedule_events_, split_schedule_events_,
+      graph_complete_events_, d2d_schedule_events_;
   std::vector<cudaStream_t> split_streams_;
   std::vector<GraphWrapper> graphs_;
 };

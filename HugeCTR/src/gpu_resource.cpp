@@ -109,5 +109,4 @@ void GPUResource::wait_on_wgrad_event(const cudaStream_t& sync_stream) const {
   return;
 }
 
-
 }  // namespace HugeCTR

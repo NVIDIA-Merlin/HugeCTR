@@ -20,9 +20,9 @@
 #include <embedding.hpp>
 #include <iterator>
 
+#include "HugeCTR/include/embedding_training_cache/parameter_server_manager.hpp"
 #include "HugeCTR/include/embeddings/distributed_slot_sparse_embedding_hash.hpp"
 #include "HugeCTR/include/embeddings/localized_slot_sparse_embedding_hash.hpp"
-#include "HugeCTR/include/embedding_training_cache/parameter_server_manager.hpp"
 
 namespace HugeCTR {
 
@@ -60,12 +60,12 @@ class EmbeddingTrainingCacheImpl : public EmbeddingTrainingCacheImplBase {
 
  public:
   EmbeddingTrainingCacheImpl(std::vector<TrainPSType_t>& ps_types,
-                          std::vector<std::shared_ptr<IEmbedding>>& embeddings,
-                          std::vector<SparseEmbeddingHashParams>& embedding_params,
-                          std::vector<std::string>& sparse_embedding_files,
-                          std::shared_ptr<ResourceManager> resource_manager,
-                          std::vector<std::string>& local_paths,
-                          std::vector<HMemCacheConfig>& hmem_cache_configs);
+                             std::vector<std::shared_ptr<IEmbedding>>& embeddings,
+                             std::vector<SparseEmbeddingHashParams>& embedding_params,
+                             std::vector<std::string>& sparse_embedding_files,
+                             std::shared_ptr<ResourceManager> resource_manager,
+                             std::vector<std::string>& local_paths,
+                             std::vector<HMemCacheConfig>& hmem_cache_configs);
 
   EmbeddingTrainingCacheImpl(const EmbeddingTrainingCacheImpl&) = delete;
   EmbeddingTrainingCacheImpl& operator=(const EmbeddingTrainingCacheImpl&) = delete;

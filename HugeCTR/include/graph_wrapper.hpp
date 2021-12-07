@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cuda_runtime.h>
+
 #include <functional>
 
 namespace HugeCTR {
@@ -14,4 +15,4 @@ struct GraphWrapper {
   void exec(cudaStream_t stream);
 };
 
-}
+}  // namespace HugeCTR

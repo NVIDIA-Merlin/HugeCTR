@@ -473,17 +473,11 @@ class LocalizedSlotSparseEmbeddingOneHot : public IEmbedding {
     return cudaError_t::cudaSuccess;
   }
 
-  void freeze() override {
-    embedding_data_.is_trainable_ = false;
-  }
+  void freeze() override { embedding_data_.is_trainable_ = false; }
 
-  void unfreeze() override {
-    embedding_data_.is_trainable_ = true;
-  }
+  void unfreeze() override { embedding_data_.is_trainable_ = true; }
 
-  bool is_trainable() const override {
-    return embedding_data_.is_trainable_;
-  }
+  bool is_trainable() const override { return embedding_data_.is_trainable_; }
 
   USE_EMBEDDING_DATA_FUNCTION(embedding_data_)
 };  // end of class LocalizedSlotSparseEmbeddingOneHot

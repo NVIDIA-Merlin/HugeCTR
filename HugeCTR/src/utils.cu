@@ -79,13 +79,13 @@ template void data_to_unique_categories<unsigned int>(unsigned int *, const unsi
 
 template <typename T>
 __global__ void inc_var_cuda(T *x) {
-  if (blockIdx.x == 0 and threadIdx.x == 0){
+  if (blockIdx.x == 0 and threadIdx.x == 0) {
     (*x)++;
   }
 }
 
 template <typename T>
-void inc_var(volatile T *x, cudaStream_t stream){
+void inc_var(volatile T *x, cudaStream_t stream) {
   inc_var_cuda<<<1, 32, 0, stream>>>(x);
 }
 

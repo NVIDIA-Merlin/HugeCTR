@@ -16,15 +16,12 @@
 <<<<<<< HEAD:test/utest/embedding/hybrid_embedding/model_test.hpp
 =======
 
+#include "tensorflow/core/framework/common_shape_fns.h"
 #include "tensorflow/core/framework/op.h"
 #include "tensorflow/core/framework/shape_inference.h"
-#include "tensorflow/core/framework/common_shape_fns.h"
 
-using namespace tensorflow;
+    using namespace tensorflow;
 using namespace tensorflow::shape_inference;
 
-REGISTER_OP("Test")
-    .Input("x: T")
-    .Output("y: T")
-    .Attr("T: numbertype");
+REGISTER_OP("Test").Input("x: T").Output("y: T").Attr("T: numbertype");
 >>>>>>> v3.1-integration:sparse_operation_kit/kit_cc/framework/ops/test_op.cc

@@ -728,8 +728,7 @@ void IbComm::post_a2a_send_command<T>(HierA2AvCollHandle coll, cudaStream_t dep_
       (T*)gpu_ctx.d_recv_ptrs_[0] + (my_proc_ * num_gpus_ * offset), copy_sizes, num_gpus_, offset);
 }
 
-void IbComm::blocking_wait(HierA2AvCollHandle coll, cudaStream_t dep_stream,
-                                      size_t device_id) {
+void IbComm::blocking_wait(HierA2AvCollHandle coll, cudaStream_t dep_stream, size_t device_id) {
   auto& ctx = *hier_a2a_v_coll_ctx_[coll];
   auto& gpu_ctx = *ctx.ctx_[device_id];
   CK_CUDA_THROW_(cudaEventRecord(gpu_ctx.event_, dep_stream));
@@ -738,8 +737,6 @@ void IbComm::blocking_wait(HierA2AvCollHandle coll, cudaStream_t dep_stream,
   wait_completion<<<1, 32, 0, gpu_ctx.stream_>>>(
       ctx.d_send_cmd_[device_id], ctx.d_ibv_atomic_[device_id], num_procs_, my_proc_, device_id);
 }
-
-
 
 static __global__ void wait_recv(size_t* d_ibv_cmd, size_t* atomic, int nDest, int myDest) {
   if ((threadIdx.x < nDest) && (threadIdx.x != myDest)) {

@@ -35,13 +35,13 @@ namespace hybrid_embedding {
 
 // TODO sort out public/private fields
 // In order to use it easier in the IndicesContainer
-template<typename dtype> 
+template <typename dtype>
 class FrequentEmbeddingBase {
-protected:
-  const Data<dtype>* data_ = nullptr;
+ protected:
+  const Data<dtype> *data_ = nullptr;
   FrequentEmbeddingCompressionView<dtype> *indices_view_ = nullptr;
 
-public:
+ public:
   // Frequent indices and device pointer!
   FrequentEmbeddingCompression<dtype> *indices_;
 
@@ -86,7 +86,8 @@ class FrequentEmbedding : public FrequentEmbeddingBase<dtype> {
                     size_t max_num_frequent_categories);
   ~FrequentEmbedding() {}
 
-  void initialize_embedding_vectors(const std::vector<size_t>& table_sizes, size_t grouped_wgrad_offset);
+  void initialize_embedding_vectors(const std::vector<size_t> &table_sizes,
+                                    size_t grouped_wgrad_offset);
   void forward_model(cudaStream_t stream);
   void forward_model_eval(cudaStream_t stream);
   template <typename vectype>

@@ -67,8 +67,8 @@ cudaEvent_t& Network::get_train_events(TrainState_t key) {
 }
 
 template <typename LPtr>
-void Network::prop_layers(const std::vector<LPtr>& layers, GraphWrapper& graph,
-                          bool use_graph, bool fprop, const cudaStream_t stream, bool train) {
+void Network::prop_layers(const std::vector<LPtr>& layers, GraphWrapper& graph, bool use_graph,
+                          bool fprop, const cudaStream_t stream, bool train) {
   auto execute = [&layers, train, fprop](cudaStream_t submit_stream) {
     if (fprop) {
       for (auto& layer : layers) {

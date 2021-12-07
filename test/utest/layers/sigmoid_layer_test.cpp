@@ -15,12 +15,15 @@
  */
 
 #include "HugeCTR/include/layers/sigmoid_layer.hpp"
-#include "gtest/gtest.h"
-#include "utest/test_utils.h"
-#include <vector>
+
+#include <cuda_fp16.h>
+
 #include <algorithm>
 #include <functional>
-#include <cuda_fp16.h>
+#include <vector>
+
+#include "gtest/gtest.h"
+#include "utest/test_utils.h"
 using namespace std;
 using namespace HugeCTR;
 
@@ -31,30 +34,30 @@ const float eps = 1e-2;
 template <typename T>
 void sigmoid_cpu(T* top, const T* bottom, int len) {
   for (int i = 0; i < len; ++i) {
-    top[i] = T(1.) / ( T(1.) + exp(-bottom[i]) );
+    top[i] = T(1.) / (T(1.) + exp(-bottom[i]));
   }
 }
 
-template<>
+template <>
 void sigmoid_cpu(__half* top, const __half* bottom, int len) {
   for (int i = 0; i < len; ++i) {
-    top[i] = __float2half(1.0 / ( 1.0 + exp(-__half2float(bottom[i])) ) );
+    top[i] = __float2half(1.0 / (1.0 + exp(-__half2float(bottom[i]))));
   }
 }
 
 template <typename T>
 void sigmoid_bprop_cpu(T* d_bottom, const T* d_top, const T* bottom, int len) {
   for (int i = 0; i < len; ++i) {
-    T y = T(1.) / ( T(1.) + exp(-bottom[i]) );
-    d_bottom[i] = d_top[i] * y * (T(1.)-y);
+    T y = T(1.) / (T(1.) + exp(-bottom[i]));
+    d_bottom[i] = d_top[i] * y * (T(1.) - y);
   }
 }
 
-template<>
+template <>
 void sigmoid_bprop_cpu(__half* d_bottom, const __half* d_top, const __half* bottom, int len) {
   for (int i = 0; i < len; ++i) {
-      float y = 1.0 / ( 1.0 + exp(-__half2float(bottom[i])) );
-      d_bottom[i] = __float2half(__half2float(d_top[i]) * y * (1.0 - y));
+    float y = 1.0 / (1.0 + exp(-__half2float(bottom[i])));
+    d_bottom[i] = __float2half(__half2float(d_top[i]) * y * (1.0 - y));
   }
 }
 
@@ -120,5 +123,3 @@ TEST(sigmoid_layer, fp32_512x2048) { sigmoid_test<float>(512, 1024 * 2); }
 TEST(sigmoid_layer, fp16_10x20) { sigmoid_test<__half>(10, 20); }
 TEST(sigmoid_layer, fp16_10x500) { sigmoid_test<__half>(10, 500); }
 TEST(sigmoid_layer, fp16_512x2048) { sigmoid_test<__half>(512, 1024 * 2); }
-
-

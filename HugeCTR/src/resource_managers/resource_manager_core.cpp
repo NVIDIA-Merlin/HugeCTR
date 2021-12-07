@@ -16,10 +16,10 @@
 
 #include <omp.h>
 
+#include <base/debug/logger.hpp>
 #include <random>
 #include <resource_managers/resource_manager_core.hpp>
 #include <utils.hpp>
-#include <base/debug/logger.hpp>
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-variable"
 #include <rmm/mr/device/cuda_memory_resource.hpp>

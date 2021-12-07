@@ -35,23 +35,23 @@ std::vector<size_t> HybridEmbeddingInputGenerator<dtype>::generate_rand_table_si
   std::vector<size_t> table_sizes(num_tables);
 
   // mem = sizeof(float) * vec_size * num_tables * max_table_size;
-  // => 
-  const size_t max_table_size = (size_t) (max_mem / (sizeof(float) * vec_size * num_tables));
+  // =>
+  const size_t max_table_size = (size_t)(max_mem / (sizeof(float) * vec_size * num_tables));
   const double max_exp = log(max_table_size) / log(10.);
 
   for (size_t embedding = 0; embedding < num_tables; ++embedding) {
-    double r = rand() / (double) RAND_MAX;
-    table_sizes[embedding] = std::max((size_t)2, (size_t) floor(pow(10., 1.+r*(max_exp-1))));
+    double r = rand() / (double)RAND_MAX;
+    table_sizes[embedding] = std::max((size_t)2, (size_t)floor(pow(10., 1. + r * (max_exp - 1))));
   }
 
   return table_sizes;
 }
 
 template <typename dtype>
-void HybridEmbeddingInputGenerator<dtype>::generate_uniform_rand_table_sizes(
-    size_t num_categories, size_t num_tables) {
+void HybridEmbeddingInputGenerator<dtype>::generate_uniform_rand_table_sizes(size_t num_categories,
+                                                                             size_t num_tables) {
   if (num_categories > 0) config_.num_categories = num_categories;
-  if (num_tables > 0 ) config_.num_tables = num_tables;
+  if (num_tables > 0) config_.num_tables = num_tables;
 
   std::set<size_t> separators;
   separators.insert(0);
@@ -212,8 +212,8 @@ void HybridEmbeddingInputGenerator<dtype>::generate_category_location() {
 
 template <typename dtype>
 HybridEmbeddingInputGenerator<dtype>::HybridEmbeddingInputGenerator(
-  HybridEmbeddingConfig<dtype> config, size_t seed) 
-  : config_(config), seed_(seed), gen_(seed) {
+    HybridEmbeddingConfig<dtype> config, size_t seed)
+    : config_(config), seed_(seed), gen_(seed) {
   generate_uniform_rand_table_sizes(config_.num_categories, config_.num_tables);
   create_probability_distribution();
 }
@@ -229,7 +229,7 @@ HybridEmbeddingInputGenerator<dtype>::HybridEmbeddingInputGenerator(
 
 template <typename dtype>
 std::vector<dtype> HybridEmbeddingInputGenerator<dtype>::generate_categorical_input(
-  size_t batch_size, size_t num_tables) {
+    size_t batch_size, size_t num_tables) {
   table_sizes_ = generate_rand_table_sizes(num_tables);
   config_.num_tables = table_sizes_.size();
   config_.num_categories = std::accumulate(table_sizes_.begin(), table_sizes_.end(), 0);
@@ -242,7 +242,7 @@ std::vector<dtype> HybridEmbeddingInputGenerator<dtype>::generate_categorical_in
 
 template <typename dtype>
 std::vector<dtype> HybridEmbeddingInputGenerator<dtype>::generate_flattened_categorical_input(
-  size_t batch_size, size_t num_tables) {
+    size_t batch_size, size_t num_tables) {
   table_sizes_ = generate_rand_table_sizes(num_tables);
   config_.num_tables = table_sizes_.size();
   config_.num_categories = std::accumulate(table_sizes_.begin(), table_sizes_.end(), 0);
@@ -270,8 +270,8 @@ std::vector<dtype> HybridEmbeddingInputGenerator<dtype>::generate_flattened_cate
 }
 
 template <typename dtype>
-void HybridEmbeddingInputGenerator<dtype>::generate_categorical_input(
-    dtype* batch, size_t batch_size) {
+void HybridEmbeddingInputGenerator<dtype>::generate_categorical_input(dtype* batch,
+                                                                      size_t batch_size) {
   generate_categories(batch, batch_size, false);
 }
 
@@ -298,6 +298,6 @@ std::vector<size_t>& HybridEmbeddingInputGenerator<dtype>::get_table_sizes() {
 
 template class HybridEmbeddingInputGenerator<uint32_t>;
 template class HybridEmbeddingInputGenerator<long long>;
-}
+}  // namespace hybrid_embedding
 
-}
+}  // namespace HugeCTR

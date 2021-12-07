@@ -72,9 +72,9 @@ void dropout_test(size_t dim0, size_t dim1, float rate) {
   }
 
   float ref_zero_cnt = rate * len;
-  float p = (cnt_zero_fprop < ref_zero_cnt)? ref_zero_cnt : cnt_zero_fprop;
-  float c = (cnt_zero_fprop < ref_zero_cnt)? cnt_zero_fprop : ref_zero_cnt;
-  ASSERT_TRUE(c/p > thr);
+  float p = (cnt_zero_fprop < ref_zero_cnt) ? ref_zero_cnt : cnt_zero_fprop;
+  float c = (cnt_zero_fprop < ref_zero_cnt) ? cnt_zero_fprop : ref_zero_cnt;
+  ASSERT_TRUE(c / p > thr);
 
   // bprop test
   CK_CUDA_THROW_(cudaDeviceSynchronize());

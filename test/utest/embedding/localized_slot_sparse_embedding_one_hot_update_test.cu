@@ -138,8 +138,8 @@ void update_test(const std::vector<size_t>& value_index, size_t max_vocabulary_s
 
   std::cout << "performing atomic cached kernel..." << std::endl;
   SparseEmbeddingFunctors::opt_sgd_atomic_cached<TypeEmbeddingComp>(
-      num_samples, embedding_vec_size, gpu_data.value_index.get_ptr(), 1.0f,
-      1.0f, gpu_data.wgrad.get_ptr(), gpu_data.weights.get_ptr(), gpu_data.top_categories.get_ptr(),
+      num_samples, embedding_vec_size, gpu_data.value_index.get_ptr(), 1.0f, 1.0f,
+      gpu_data.wgrad.get_ptr(), gpu_data.weights.get_ptr(), gpu_data.top_categories.get_ptr(),
       gpu_data.size_top_categories, stream, true);
 
   std::cout << "done performing kernel, testing results.." << std::endl;

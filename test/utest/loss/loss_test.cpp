@@ -15,11 +15,11 @@
  */
 
 #include "HugeCTR/include/loss.hpp"
-#include "HugeCTR/include/regularizers/no_regularizer.hpp"
 
 #include <cstdlib>
 #include <vector>
 
+#include "HugeCTR/include/regularizers/no_regularizer.hpp"
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"
 using namespace std;
@@ -49,8 +49,7 @@ void cross_entropy_loss(size_t batch_size) {
   std::shared_ptr<BufferBlock2<float>> wgrad_buff = buff->create_block<float>();
 
   std::shared_ptr<NoRegularizer<float>> no_regularizer(new NoRegularizer<float>(
-        weight_buff->as_tensor(), wgrad_buff->as_tensor(),
-        batch_size, test::get_default_gpu()));
+      weight_buff->as_tensor(), wgrad_buff->as_tensor(), batch_size, test::get_default_gpu()));
 
   CrossEntropyLoss<float> cel(label_tensor, input_tensor, loss_tensor, no_regularizer,
                               test::get_default_gpu(), 1);
@@ -124,8 +123,7 @@ void binary_cross_entropy_loss(size_t batch_size) {
   std::shared_ptr<BufferBlock2<float>> wgrad_buff = buff->create_block<float>();
 
   std::shared_ptr<NoRegularizer<float>> no_regularizer(new NoRegularizer<float>(
-        weight_buff->as_tensor(), wgrad_buff->as_tensor(),
-        batch_size, test::get_default_gpu()));
+      weight_buff->as_tensor(), wgrad_buff->as_tensor(), batch_size, test::get_default_gpu()));
 
   BinaryCrossEntropyLoss<float> bce(label_tensor, input_tensor, loss_tensor, no_regularizer,
                                     test::get_default_gpu(), 1);

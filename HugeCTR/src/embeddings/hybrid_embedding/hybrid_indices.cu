@@ -1,8 +1,8 @@
+#include <cub/cub.cuh>
+
 #include "HugeCTR/include/embeddings/hybrid_embedding/hybrid_indices.hpp"
 #include "HugeCTR/include/embeddings/hybrid_embedding/utils.cuh"
 #include "HugeCTR/include/utils.cuh"
-
-#include <cub/cub.cuh>
 
 namespace indices_kernels {
 
@@ -60,7 +60,7 @@ __global__ void calculate_network_indices_mask(const dtype* __restrict__ local_s
   }
 }
 
-}
+}  // namespace indices_kernels
 
 namespace HugeCTR {
 namespace hybrid_embedding {
@@ -71,13 +71,10 @@ namespace hybrid_embedding {
 
 template <typename dtype>
 FrequentEmbeddingCompression<dtype>::FrequentEmbeddingCompression(
-    size_t max_num_frequent_categories,
-    const Data<dtype>& data, const Model<dtype>& model) 
-    : data_(data),
-      model_(model) {
-
+    size_t max_num_frequent_categories, const Data<dtype>& data, const Model<dtype>& model)
+    : data_(data), model_(model) {
   const int num_tables = data_.table_sizes.size();
-  
+
   std::shared_ptr<GeneralBuffer2<CudaAllocator>> buf = GeneralBuffer2<CudaAllocator>::create();
   buf->reserve({max_num_frequent_categories, 1}, &model_cache_indices_);
   buf->reserve({model.num_instances + 1, 1}, &model_cache_indices_offsets_);
@@ -96,19 +93,18 @@ FrequentEmbeddingCompression<dtype>::FrequentEmbeddingCompression(
   buf->reserve({frequent_sample_indices_temp_storage_bytes_, 1},
                &frequent_sample_indices_temp_storage_);
   buf->reserve({model_cache_indices_temp_storage_bytes_, 1}, &model_cache_indices_temp_storage_);
-  buf->reserve({network_cache_indices_temp_storage_bytes_, 1}, &network_cache_indices_temp_storage_);
+  buf->reserve({network_cache_indices_temp_storage_bytes_, 1},
+               &network_cache_indices_temp_storage_);
   buf->allocate();
 
-  FrequentEmbeddingCompressionView<dtype> view = {
-      data_.samples.get_ptr(),
-      cache_masks_.get_ptr(),
-      model_cache_indices_.get_ptr(),
-      model_cache_indices_offsets_.get_ptr(),
-      network_cache_indices_.get_ptr(),
-      network_cache_indices_offsets_.get_ptr(),
-      d_num_frequent_sample_indices_.get_ptr(),
-      frequent_sample_indices_.get_ptr()
-  };
+  FrequentEmbeddingCompressionView<dtype> view = {data_.samples.get_ptr(),
+                                                  cache_masks_.get_ptr(),
+                                                  model_cache_indices_.get_ptr(),
+                                                  model_cache_indices_offsets_.get_ptr(),
+                                                  network_cache_indices_.get_ptr(),
+                                                  network_cache_indices_offsets_.get_ptr(),
+                                                  d_num_frequent_sample_indices_.get_ptr(),
+                                                  frequent_sample_indices_.get_ptr()};
 
   CK_CUDA_THROW_(cudaMalloc(&device_indices_view_, sizeof(view)));
   CK_CUDA_THROW_(cudaMemcpy(device_indices_view_, &view, sizeof(view), cudaMemcpyHostToDevice));
@@ -183,7 +179,8 @@ void FrequentEmbeddingCompression<dtype>::calculate_frequent_sample_indices(cuda
 }
 
 template <typename dtype>
-void FrequentEmbeddingCompression<dtype>::calculate_model_cache_indices(size_t sm_count, cudaStream_t stream) {
+void FrequentEmbeddingCompression<dtype>::calculate_model_cache_indices(size_t sm_count,
+                                                                        cudaStream_t stream) {
   const size_t num_instances = model_.num_instances;
   const size_t num_frequent = model_.num_frequent;
   const size_t samples_size = data_.batch_size * data_.table_sizes.size();
@@ -309,8 +306,7 @@ void FrequentEmbeddingCompression<dtype>::calculate_network_cache_indices(cudaSt
 template <typename dtype>
 InfrequentEmbeddingSelection<dtype>::InfrequentEmbeddingSelection(const Data<dtype>& data,
                                                                   const Model<dtype>& model)
-    : data_(data),
-      model_(model) {
+    : data_(data), model_(model) {
   const size_t num_tables = data_.table_sizes.size();
 
   auto buf = GeneralBuffer2<CudaAllocator>::create();
@@ -326,8 +322,7 @@ InfrequentEmbeddingSelection<dtype>::InfrequentEmbeddingSelection(const Data<dty
 
   // Temporary storage
   calculate_model_indices_temp_storage_bytes(data_.batch_size, num_tables);
-  calculate_network_indices_temp_storage_bytes(data_.batch_size, num_tables,
-                                               model.num_instances);
+  calculate_network_indices_temp_storage_bytes(data_.batch_size, num_tables, model.num_instances);
   buf->reserve({model_indices_temp_storage_bytes_, 1}, &model_indices_temp_storage_);
   buf->reserve({network_indices_temp_storage_bytes_, 1}, &network_indices_temp_storage_);
 
@@ -343,12 +338,8 @@ InfrequentEmbeddingSelection<dtype>::InfrequentEmbeddingSelection(const Data<dty
                                cudaMemAdviseSetReadMostly, current_device));
 
   InfrequentEmbeddingSelectionView<dtype> view = {
-      data_.samples.get_ptr(),
-      model_indices_.get_ptr(),
-      model_indices_offsets_.get_ptr(),
-      network_indices_.get_ptr(),
-      network_indices_offsets_.get_ptr()
-  };
+      data_.samples.get_ptr(), model_indices_.get_ptr(), model_indices_offsets_.get_ptr(),
+      network_indices_.get_ptr(), network_indices_offsets_.get_ptr()};
 
   CK_CUDA_THROW_(cudaMalloc(&device_indices_view_, sizeof(view)));
   CK_CUDA_THROW_(cudaMemcpy(device_indices_view_, &view, sizeof(view), cudaMemcpyHostToDevice));
@@ -425,9 +416,9 @@ void InfrequentEmbeddingSelection<dtype>::calculate_model_indices(cudaStream_t s
   CK_CUDA_THROW_(cudaPeekAtLastError());
 }
 
-
 template <typename dtype>
-void InfrequentEmbeddingSelection<dtype>::calculate_network_indices(size_t sm_count, cudaStream_t stream) {
+void InfrequentEmbeddingSelection<dtype>::calculate_network_indices(size_t sm_count,
+                                                                    cudaStream_t stream) {
   const uint32_t num_instances = model_.num_instances;
   uint32_t samples_size = data_.batch_size * data_.table_sizes.size();
   uint32_t local_samples_size = ceildiv<uint32_t>(samples_size, num_instances);
@@ -444,11 +435,11 @@ void InfrequentEmbeddingSelection<dtype>::calculate_network_indices(size_t sm_co
   // Compute mask (for each source GPU, whether each element in the batch is located there)
   constexpr uint32_t TPB_mask = 256;
   uint32_t n_blocks_mask = ceildiv<uint32_t>(local_samples_size, TPB_mask);
-  // // PROFILE_RECORD("inf_calculate_network_indices.calculate_network_indices_mask.start", stream);
-  indices_kernels::
-      calculate_network_indices_mask<<<n_blocks_mask, TPB_mask, 0, stream>>>(
-          data_.samples.get_ptr() + model_.global_instance_id * local_samples_size,
-          model_.category_location.get_ptr(), d_mask, local_samples_size, num_instances);
+  // // PROFILE_RECORD("inf_calculate_network_indices.calculate_network_indices_mask.start",
+  // stream);
+  indices_kernels::calculate_network_indices_mask<<<n_blocks_mask, TPB_mask, 0, stream>>>(
+      data_.samples.get_ptr() + model_.global_instance_id * local_samples_size,
+      model_.category_location.get_ptr(), d_mask, local_samples_size, num_instances);
   CK_CUDA_THROW_(cudaPeekAtLastError());
   // // PROFILE_RECORD("inf_calculate_network_indices.calculate_network_indices_mask.stop", stream);
 
@@ -502,17 +493,13 @@ void InfrequentEmbeddingSelection<dtype>::calculate_network_indices(size_t sm_co
 // }
 
 template <typename dtype>
-void compute_indices(
-    FrequentEmbeddingCompression<dtype>& compression,
-    InfrequentEmbeddingSelection<dtype>& selection,
-    CommunicationType communication_type,
-    bool compute_network_cache_indices,
-    cudaStream_t stream,
-    int sm_count) {
-
+void compute_indices(FrequentEmbeddingCompression<dtype>& compression,
+                     InfrequentEmbeddingSelection<dtype>& selection,
+                     CommunicationType communication_type, bool compute_network_cache_indices,
+                     cudaStream_t stream, int sm_count) {
   compression.calculate_frequent_sample_indices(stream);
   selection.calculate_model_indices(stream);
-  
+
   if (communication_type != CommunicationType::NVLink_SingleNode) {
     selection.calculate_network_indices(sm_count, stream);
   } else {
@@ -523,27 +510,23 @@ void compute_indices(
     compression.calculate_model_cache_indices(sm_count, stream);
   }
 }
-    
-template void compute_indices<uint32_t>(
-    FrequentEmbeddingCompression<uint32_t>& compression,
-    InfrequentEmbeddingSelection<uint32_t>& selection,
-    CommunicationType communication_type,
-    bool compute_network_cache_indices,
-    cudaStream_t stream,
-    int sm_count);
 
-template void compute_indices<long long>(
-    FrequentEmbeddingCompression<long long>& compression,
-    InfrequentEmbeddingSelection<long long>& selection,
-    CommunicationType communication_type,
-    bool compute_network_cache_indices,
-    cudaStream_t stream,
-    int sm_count);
+template void compute_indices<uint32_t>(FrequentEmbeddingCompression<uint32_t>& compression,
+                                        InfrequentEmbeddingSelection<uint32_t>& selection,
+                                        CommunicationType communication_type,
+                                        bool compute_network_cache_indices, cudaStream_t stream,
+                                        int sm_count);
+
+template void compute_indices<long long>(FrequentEmbeddingCompression<long long>& compression,
+                                         InfrequentEmbeddingSelection<long long>& selection,
+                                         CommunicationType communication_type,
+                                         bool compute_network_cache_indices, cudaStream_t stream,
+                                         int sm_count);
 
 template class FrequentEmbeddingCompression<uint32_t>;
 template class FrequentEmbeddingCompression<long long>;
 template class InfrequentEmbeddingSelection<uint32_t>;
 template class InfrequentEmbeddingSelection<long long>;
 
-}
-}
+}  // namespace hybrid_embedding
+}  // namespace HugeCTR

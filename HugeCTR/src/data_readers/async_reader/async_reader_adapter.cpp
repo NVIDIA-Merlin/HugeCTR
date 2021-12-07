@@ -8,7 +8,6 @@
 #include <tensor2.hpp>
 #include <utils.hpp>
 
-
 namespace HugeCTR {
 
 template <typename SparseType>
@@ -29,7 +28,7 @@ AsyncReader<SparseType>::AsyncReader(std::string fname, size_t batch_size, size_
       graph_complete_events_(resource_manager->get_local_gpu_count()),
       d2d_schedule_events_(resource_manager->get_local_gpu_count()),
       split_streams_(resource_manager->get_local_gpu_count()),
-      graphs_(2 * resource_manager->get_local_gpu_count()) { // double buffered
+      graphs_(2 * resource_manager->get_local_gpu_count()) {  // double buffered
   assert(batch_size_ % resource_manager_->get_global_gpu_count() == 0);
   assert(params.size() == 1);
   static_assert(sizeof(LabelType) == sizeof(InputType));
@@ -59,12 +58,12 @@ AsyncReader<SparseType>::AsyncReader(std::string fname, size_t batch_size, size_
     CK_CUDA_THROW_(cudaEventCreateWithFlags(&d2d_schedule_events_[i], cudaEventDisableTiming));
     CK_CUDA_THROW_(cudaStreamCreate(&split_streams_[i]));
 
-    auto label_dense_buffer =
-        std::make_shared<RawPtrBuffer>(batch_size_per_dev_ *
-            ( label_dim * sizeof(LabelType) + 
-              dense_dim_align8 * (mixed_precision ? sizeof(__half) : sizeof(float)) ));
+    auto label_dense_buffer = std::make_shared<RawPtrBuffer>(
+        batch_size_per_dev_ *
+        (label_dim * sizeof(LabelType) +
+         dense_dim_align8 * (mixed_precision ? sizeof(__half) : sizeof(float))));
     auto dense_buffer = std::make_shared<RawPtrWrapper>(
-        (LabelType*)(label_dense_buffer->get_ptr()) + batch_size_per_dev_*label_dim);
+        (LabelType*)(label_dense_buffer->get_ptr()) + batch_size_per_dev_ * label_dim);
 
     label_tensors_.emplace_back(
         Tensor2<LabelType>({batch_size_per_dev_, label_dim}, label_dense_buffer).shrink());
@@ -73,7 +72,7 @@ AsyncReader<SparseType>::AsyncReader(std::string fname, size_t batch_size, size_
           Tensor2<__half>({batch_size_per_dev_, dense_dim_align8}, dense_buffer).shrink());
     } else {
       dense_tensors_.emplace_back(
-          Tensor2<float> ({batch_size_per_dev_, dense_dim_align8}, dense_buffer).shrink());
+          Tensor2<float>({batch_size_per_dev_, dense_dim_align8}, dense_buffer).shrink());
     }
 
     auto sparse_buffer_ =
@@ -113,7 +112,7 @@ long long AsyncReader<SparseType>::read_a_batch_to_device_delay_release() {
   current_batch_size_ = batch.size_bytes / (sample_size_items_ * sizeof(InputType));
 
   int num_local_gpus = resource_manager_->get_local_gpu_count();
-  #pragma omp parallel for num_threads(num_local_gpus)
+#pragma omp parallel for num_threads(num_local_gpus)
   for (int i = 0; i < num_local_gpus; i++) {
     auto local_gpu = resource_manager_->get_local_gpu(i);
     CudaCPUDeviceContext ctx(local_gpu->get_device_id());
@@ -126,14 +125,20 @@ long long AsyncReader<SparseType>::read_a_batch_to_device_delay_release() {
         CK_CUDA_THROW_(cudaStreamWaitEvent(split_streams_[i], split_schedule_events_[i]));
         index_processor_->split3way(batch, queue_id_, i, split_streams_[i]);
         if (!graph.initialized) {
-          graph.capture( [&, this, i] (cudaStream_t graph_stream) {
-              // Index calculation
-              index_processor_->calculate_indices(batch, queue_id_, i, graph_stream);
-              // Copy precomputed tensors for the next iteration, wait until we are safe to overwrite
-              CK_CUDA_THROW_(cudaStreamWaitEvent(graph_stream, d2d_schedule_events_[i], cudaEventWaitExternal));
-              index_processor_->finalize(label_tensors_[i], dense_tensors_[i], sparse_tensors_[i], queue_id_, i, graph_stream);
-              CK_CUDA_THROW_(cudaEventRecordWithFlags(graph_complete_events_[i], graph_stream, cudaEventRecordExternal));
-          }, split_streams_[i]);
+          graph.capture(
+              [&, this, i](cudaStream_t graph_stream) {
+                // Index calculation
+                index_processor_->calculate_indices(batch, queue_id_, i, graph_stream);
+                // Copy precomputed tensors for the next iteration, wait until we are safe to
+                // overwrite
+                CK_CUDA_THROW_(cudaStreamWaitEvent(graph_stream, d2d_schedule_events_[i],
+                                                   cudaEventWaitExternal));
+                index_processor_->finalize(label_tensors_[i], dense_tensors_[i], sparse_tensors_[i],
+                                           queue_id_, i, graph_stream);
+                CK_CUDA_THROW_(cudaEventRecordWithFlags(graph_complete_events_[i], graph_stream,
+                                                        cudaEventRecordExternal));
+              },
+              split_streams_[i]);
         }
         graph.exec(split_streams_[i]);
         CK_CUDA_THROW_(cudaStreamWaitEvent(local_gpu->get_stream(), graph_complete_events_[i]));
@@ -141,31 +146,32 @@ long long AsyncReader<SparseType>::read_a_batch_to_device_delay_release() {
         // The queue size of extra processor is exactly the same as for the DR
         // No graphs here
         if (!batch.cached) {
-          index_processor_->split3way    (batch, queue_id_, i, local_gpu->get_stream());
+          index_processor_->split3way(batch, queue_id_, i, local_gpu->get_stream());
           index_processor_->calculate_indices(batch, queue_id_, i, local_gpu->get_stream());
         }
         index_processor_->finalize(label_tensors_[i], dense_tensors_[i], sparse_tensors_[i],
-            queue_id_, i, local_gpu->get_stream());
+                                   queue_id_, i, local_gpu->get_stream());
       }
-    } else { // synchronous processing
-      auto ptr_wrap = std::make_shared<RawPtrWrapper>(reinterpret_cast<InputType*>(batch.dev_data[i]));
+    } else {  // synchronous processing
+      auto ptr_wrap =
+          std::make_shared<RawPtrWrapper>(reinterpret_cast<InputType*>(batch.dev_data[i]));
 
       if (mixed_precision_) {
         split_3_way<__half, SparseType>(
-                Tensor2<LabelType>::stretch_from(label_tensors_[i]),
-                Tensor2<__half>::stretch_from(dense_tensors_[i]),
-                SparseTensor<SparseType>::stretch_from(sparse_tensors_[i]).get_value_tensor(),
-                Tensor2<InputType>({current_batch_size_, sample_size_items_}, ptr_wrap),
-                global_dev_id * batch_size_per_dev_, (global_dev_id+1) * batch_size_per_dev_, 
-                local_gpu->get_stream());
+            Tensor2<LabelType>::stretch_from(label_tensors_[i]),
+            Tensor2<__half>::stretch_from(dense_tensors_[i]),
+            SparseTensor<SparseType>::stretch_from(sparse_tensors_[i]).get_value_tensor(),
+            Tensor2<InputType>({current_batch_size_, sample_size_items_}, ptr_wrap),
+            global_dev_id * batch_size_per_dev_, (global_dev_id + 1) * batch_size_per_dev_,
+            local_gpu->get_stream());
       } else {
         split_3_way<float, SparseType>(
-                Tensor2<LabelType>::stretch_from(label_tensors_[i]),
-                Tensor2<float>::stretch_from(dense_tensors_[i]),
-                SparseTensor<SparseType>::stretch_from(sparse_tensors_[i]).get_value_tensor(),
-                Tensor2<InputType>({current_batch_size_, sample_size_items_}, ptr_wrap),
-                global_dev_id * batch_size_per_dev_, (global_dev_id+1) * batch_size_per_dev_, 
-                local_gpu->get_stream());
+            Tensor2<LabelType>::stretch_from(label_tensors_[i]),
+            Tensor2<float>::stretch_from(dense_tensors_[i]),
+            SparseTensor<SparseType>::stretch_from(sparse_tensors_[i]).get_value_tensor(),
+            Tensor2<InputType>({current_batch_size_, sample_size_items_}, ptr_wrap),
+            global_dev_id * batch_size_per_dev_, (global_dev_id + 1) * batch_size_per_dev_,
+            local_gpu->get_stream());
       }
     }
   }
@@ -173,7 +179,7 @@ long long AsyncReader<SparseType>::read_a_batch_to_device_delay_release() {
   if (precomputing_) {
     queue_id_ = (queue_id_ + 1) % index_processor_->get_queue_size();
   }
-  
+
   // TODO: here we may need a GPU barrier if there's no stream sync
   return current_batch_size_;
 }
@@ -188,7 +194,8 @@ void AsyncReader<SparseType>::ready_to_collect() {
   auto raw_device_id = reader_impl_->get_last_batch_device();
   auto local_gpu = resource_manager_->get_local_gpu(raw_device_id);
   CudaDeviceContext ctx(local_gpu->get_device_id());
-  cudaStream_t processing_stream = precomputing_ ? split_streams_[raw_device_id] : local_gpu->get_stream();
+  cudaStream_t processing_stream =
+      precomputing_ ? split_streams_[raw_device_id] : local_gpu->get_stream();
   CK_CUDA_THROW_(cudaEventRecord(completion_events_[raw_device_id], processing_stream));
 
   reader_impl_->finalize_batch(&completion_events_[raw_device_id]);
@@ -202,13 +209,15 @@ long long AsyncReader<SparseType>::read_a_batch_to_device() {
 }
 
 template <typename SparseType>
-void AsyncReader<SparseType>::schedule_precompute_here(cudaStream_t stream, int raw_device_id, bool from_graph) {
-    unsigned int flags = from_graph ? cudaEventRecordExternal : 0;
-    CK_CUDA_THROW_(cudaEventRecordWithFlags(split_schedule_events_[raw_device_id], stream, flags));
+void AsyncReader<SparseType>::schedule_precompute_here(cudaStream_t stream, int raw_device_id,
+                                                       bool from_graph) {
+  unsigned int flags = from_graph ? cudaEventRecordExternal : 0;
+  CK_CUDA_THROW_(cudaEventRecordWithFlags(split_schedule_events_[raw_device_id], stream, flags));
 }
 
 template <typename SparseType>
-void AsyncReader<SparseType>::schedule_d2d_here(cudaStream_t stream, int raw_device_id, bool from_graph) {
+void AsyncReader<SparseType>::schedule_d2d_here(cudaStream_t stream, int raw_device_id,
+                                                bool from_graph) {
   unsigned int flags = from_graph ? cudaEventRecordExternal : 0;
   CK_CUDA_THROW_(cudaEventRecordWithFlags(d2d_schedule_events_[raw_device_id], stream, flags));
 }
@@ -231,7 +240,8 @@ void AsyncReader<SparseType>::update_schedule_graph(int raw_device_id) {
 }
 
 template <typename SparseType>
-void AsyncReader<SparseType>::register_extra_processing(const std::shared_ptr<hybrid_embedding::IndexProcessor<SparseType>>& proc) {
+void AsyncReader<SparseType>::register_extra_processing(
+    const std::shared_ptr<hybrid_embedding::IndexProcessor<SparseType>>& proc) {
   index_processor_ = proc;
   precomputing_ = true;
 }
@@ -247,8 +257,8 @@ bool AsyncReader<SparseType>::is_mixed_precision() {
 }
 
 template <typename SparseType>
-void AsyncReader<SparseType>::get_dimensions(
-    size_t& label_dim, size_t& dense_dim, size_t& sparse_dim, size_t& sample_size_items) {
+void AsyncReader<SparseType>::get_dimensions(size_t& label_dim, size_t& dense_dim,
+                                             size_t& sparse_dim, size_t& sample_size_items) {
   label_dim = label_dim_;
   dense_dim = dense_dim_;
   sparse_dim = sparse_dim_;

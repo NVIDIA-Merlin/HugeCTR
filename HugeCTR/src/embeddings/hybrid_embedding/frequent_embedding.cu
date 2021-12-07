@@ -40,9 +40,8 @@ namespace hybrid_embedding {
 
 namespace frequent_embedding_kernels {
 
-template<typename dtype>
-__global__ void reset_relevant_gradients(float* __restrict__ gradients,
-                                         uint32_t embedding_vec_size,
+template <typename dtype>
+__global__ void reset_relevant_gradients(float* __restrict__ gradients, uint32_t embedding_vec_size,
                                          FrequentEmbeddingCompressionView<dtype>* indices,
                                          uint32_t num_instances) {
   const uint32_t num_network_cache_indices = indices->network_cache_indices_offsets[num_instances];
@@ -119,20 +118,20 @@ FrequentEmbeddingBase<dtype>::~FrequentEmbeddingBase() {
 }
 
 template <typename dtype>
-void FrequentEmbeddingBase<dtype>::set_current_indices(
-    FrequentEmbeddingCompression<dtype> *indices, cudaStream_t stream) {
-  
+void FrequentEmbeddingBase<dtype>::set_current_indices(FrequentEmbeddingCompression<dtype>* indices,
+                                                       cudaStream_t stream) {
   indices_ = indices;
   data_ = indices->get_data();
-  CK_CUDA_THROW_(cudaMemcpyAsync(indices_view_, indices->get_device_view(),
-      sizeof(*indices_view_), cudaMemcpyDeviceToDevice, stream));
+  CK_CUDA_THROW_(cudaMemcpyAsync(indices_view_, indices->get_device_view(), sizeof(*indices_view_),
+                                 cudaMemcpyDeviceToDevice, stream));
 }
 
 template <typename dtype, typename emtype>
-FrequentEmbedding<dtype, emtype>::FrequentEmbedding(
-    const Model<dtype>& model,
-    const GPUResource& gpu_resource, BuffPtr<emtype>& grouped_wgrad_buff,
-    uint32_t embedding_vec_size, size_t max_num_frequent_categories)
+FrequentEmbedding<dtype, emtype>::FrequentEmbedding(const Model<dtype>& model,
+                                                    const GPUResource& gpu_resource,
+                                                    BuffPtr<emtype>& grouped_wgrad_buff,
+                                                    uint32_t embedding_vec_size,
+                                                    size_t max_num_frequent_categories)
     : model_(model),
       gpu_resource(gpu_resource),
       grouped_wgrad_buff_(grouped_wgrad_buff),
@@ -167,8 +166,7 @@ FrequentEmbedding<dtype, emtype>::FrequentEmbedding(
 
 template <typename dtype, typename emtype>
 void FrequentEmbedding<dtype, emtype>::initialize_embedding_vectors(
-    const std::vector<size_t>& table_sizes, 
-    size_t grouped_wgrad_offset_in_bytes) {
+    const std::vector<size_t>& table_sizes, size_t grouped_wgrad_offset_in_bytes) {
   CudaDeviceContext context(gpu_resource.get_device_id());
 
   const size_t num_tables = table_sizes.size();
@@ -220,13 +218,14 @@ void FrequentEmbedding<dtype, emtype>::forward_model(cudaStream_t stream) {
       [=] __device__() { return indices->model_cache_indices_offsets[num_instances]; },
       [=] __device__(size_t i) -> CopyDescriptors::CopyDetails<float, emtype, 1> {
         const uint32_t offset = indices->model_cache_indices_offsets[model_id + 1];
-        const uint32_t num_model_cache_indices = indices->model_cache_indices_offsets[num_instances];
+        const uint32_t num_model_cache_indices =
+            indices->model_cache_indices_offsets[num_instances];
         int vid = (i + offset) % num_model_cache_indices;
         uint32_t frequent_index = indices->model_cache_indices[vid];
 
         uint32_t network_id;
-        for (network_id = 0;
-             network_id < num_instances && indices->model_cache_indices_offsets[network_id + 1] <= vid;
+        for (network_id = 0; network_id < num_instances &&
+                             indices->model_cache_indices_offsets[network_id + 1] <= vid;
              network_id++)
           ;
         emtype* embedding_vectors_out = embedding_vectors_cache_pointers[network_id];
@@ -257,8 +256,7 @@ void FrequentEmbedding<dtype, emtype>::forward_model_eval(cudaStream_t stream) {
   const uint32_t num_frequent_per_model = model_.num_frequent / num_instances;
 
   auto copy_desc = CopyDescriptors::make_OneToOne<float, emtype, 1>(
-      embedding_vec_size,
-      [=] __device__() { return num_frequent; },
+      embedding_vec_size, [=] __device__() { return num_frequent; },
       [=] __device__(size_t i) -> CopyDescriptors::CopyDetails<float, emtype, 1> {
         // Shift pattern
         uint32_t shifted_i = (i + (model_id + 1) * num_frequent_per_model) % num_frequent;
@@ -300,9 +298,10 @@ void FrequentEmbedding<dtype, emtype>::forward_network_aux<vectype>(
         auto category = indices->samples[index + global_sample_index_base];
         auto frequent_index = category_frequent_index[category];
 
-        return {embedding_vectors + frequent_index * embedding_vec_size,
-                {interaction_layer_input + indices->frequent_sample_indices[i] * embedding_vec_size},
-                {true}};
+        return {
+            embedding_vectors + frequent_index * embedding_vec_size,
+            {interaction_layer_input + indices->frequent_sample_indices[i] * embedding_vec_size},
+            {true}};
       });
 
   shuffle(copy_desc, stream, samples_per_instance);
@@ -344,18 +343,16 @@ void FrequentEmbedding<dtype, emtype>::local_reduce(const emtype* gradients, cud
     PROFILE_RECORD("fre_local_reduce.reset_relevant_gradients.start", stream, false);
     frequent_embedding_kernels::
         reset_relevant_gradients<<<n_blocks, embedding_vec_size_, 0, stream>>>(
-            float_frequent_gradients_.get_ptr(), embedding_vec_size_,
-            this->indices_view_, num_instances);
+            float_frequent_gradients_.get_ptr(), embedding_vec_size_, this->indices_view_,
+            num_instances);
     CK_CUDA_THROW_(cudaPeekAtLastError());
     PROFILE_RECORD("fre_local_reduce.reset_relevant_gradients.stop", stream, false);
   }
 
   /* Local reduce */
   frequent_embedding_kernels::frequent_local_reduce<<<n_blocks, embedding_vec_size_, 0, stream>>>(
-      gradients, float_frequent_gradients_.get_ptr(),
-      network_id * local_samples_size,
-      model_.category_frequent_index.get_ptr(), embedding_vec_size_,
-      this->indices_view_);
+      gradients, float_frequent_gradients_.get_ptr(), network_id * local_samples_size,
+      model_.category_frequent_index.get_ptr(), embedding_vec_size_, this->indices_view_);
   CK_CUDA_THROW_(cudaPeekAtLastError());
 
   if (sizeof(emtype) != sizeof(float)) {
@@ -389,8 +386,8 @@ void FrequentEmbedding<dtype, emtype>::update_model_direct(float* dev_lr, float 
   PROFILE_RECORD("fre_update_model_direct.update_model_direct.start", stream, false);
   frequent_embedding_kernels::update_model_direct<<<n_blocks, embedding_vec_size_, 0, stream>>>(
       partial_gradients_pointers_.get_ptr(), frequent_embedding_vectors_.get_ptr(),
-      this->indices_view_, num_instances,
-      model_id, num_frequent_per_model, embedding_vec_size_, dev_lr, scale);
+      this->indices_view_, num_instances, model_id, num_frequent_per_model, embedding_vec_size_,
+      dev_lr, scale);
   CK_CUDA_THROW_(cudaPeekAtLastError());
   PROFILE_RECORD("fre_update_model_direct.update_model_direct.stop", stream, false);
 }

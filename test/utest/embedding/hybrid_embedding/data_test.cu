@@ -15,7 +15,6 @@
  */
 
 #include <cuda_runtime.h>
-
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
@@ -64,26 +63,21 @@ namespace HugeCTR {
 namespace hybrid_embedding {
 
 template <typename dtype>
-void test_raw_data(dtype *d_raw_data,
-                   size_t num_samples, 
-                   size_t num_tables, 
-                   size_t num_iterations, 
+void test_raw_data(dtype *d_raw_data, size_t num_samples, size_t num_tables, size_t num_iterations,
                    const std::vector<size_t> &table_sizes) {
   size_t num_elements = num_samples * num_tables * num_iterations;
 
-  std::vector<dtype> h_raw_data(num_elements, (dtype) 0);
+  std::vector<dtype> h_raw_data(num_elements, (dtype)0);
   cudaStream_t stream = 0;
-  CK_CUDA_THROW_(
-    cudaMemcpyAsync(h_raw_data.data(),
-                    d_raw_data, num_elements * sizeof(dtype),
-                    cudaMemcpyDeviceToHost, stream));
+  CK_CUDA_THROW_(cudaMemcpyAsync(h_raw_data.data(), d_raw_data, num_elements * sizeof(dtype),
+                                 cudaMemcpyDeviceToHost, stream));
   CK_CUDA_THROW_(cudaStreamSynchronize(stream));
 
-  for (size_t iteration = 0; iteration < num_iterations; ++iteration) { 
+  for (size_t iteration = 0; iteration < num_iterations; ++iteration) {
     for (size_t sample = 0; sample < num_samples; ++sample) {
       for (size_t embedding = 0; embedding < num_tables; ++embedding) {
-        size_t category = 
-          (size_t) h_raw_data[iteration*num_samples*num_tables + sample*num_tables + embedding];
+        size_t category = (size_t)
+            h_raw_data[iteration * num_samples * num_tables + sample * num_tables + embedding];
         EXPECT_TRUE(category < table_sizes[embedding]);
       }
     }
@@ -103,11 +97,9 @@ void test_samples(dtype *d_raw_data, Data<dtype> &data) {
   EmbeddingTableFunctors<dtype>::get_embedding_offsets(embedding_offsets, data.table_sizes);
 
   cudaStream_t stream = 0;
-  std::vector<dtype> h_raw_data(num_elements, (dtype) 0);
-  CK_CUDA_THROW_(
-    cudaMemcpyAsync(h_raw_data.data(),
-                    d_raw_data, num_elements * sizeof(dtype),
-                    cudaMemcpyDeviceToHost, stream));
+  std::vector<dtype> h_raw_data(num_elements, (dtype)0);
+  CK_CUDA_THROW_(cudaMemcpyAsync(h_raw_data.data(), d_raw_data, num_elements * sizeof(dtype),
+                                 cudaMemcpyDeviceToHost, stream));
   CK_CUDA_THROW_(cudaStreamSynchronize(stream));
   std::vector<dtype> h_samples;
   download_tensor(h_samples, data.samples, stream);
@@ -116,9 +108,9 @@ void test_samples(dtype *d_raw_data, Data<dtype> &data) {
     for (size_t sample = 0; sample < num_samples; ++sample) {
       for (size_t embedding = 0; embedding < num_tables; ++embedding) {
         size_t indx = iteration * num_samples * num_tables + sample * num_tables + embedding;
-        size_t unique_category = (size_t) h_samples[indx];
-        size_t category_samples = (size_t) unique_category - embedding_offsets[embedding];
-        size_t category_data = (size_t) h_raw_data[indx];
+        size_t unique_category = (size_t)h_samples[indx];
+        size_t category_samples = (size_t)unique_category - embedding_offsets[embedding];
+        size_t category_data = (size_t)h_raw_data[indx];
 
         EXPECT_TRUE(category_samples == category_data);
         EXPECT_TRUE(unique_category < num_categories);
@@ -127,15 +119,17 @@ void test_samples(dtype *d_raw_data, Data<dtype> &data) {
   }
 }
 
-template void test_raw_data<uint32_t>(uint32_t *d_raw_data, size_t num_samples, size_t num_tables, 
-                                      size_t num_iterations, const std::vector<size_t> &table_sizes);
-template void test_raw_data<long long>(long long *d_raw_data, size_t num_samples, size_t num_tables, 
-                                       size_t num_iterations, const std::vector<size_t> &table_sizes);
+template void test_raw_data<uint32_t>(uint32_t *d_raw_data, size_t num_samples, size_t num_tables,
+                                      size_t num_iterations,
+                                      const std::vector<size_t> &table_sizes);
+template void test_raw_data<long long>(long long *d_raw_data, size_t num_samples, size_t num_tables,
+                                       size_t num_iterations,
+                                       const std::vector<size_t> &table_sizes);
 template void test_samples<uint32_t>(uint32_t *d_raw_data, Data<uint32_t> &data);
 template void test_samples<long long>(long long *d_raw_data, Data<long long> &data);
-}
+}  // namespace hybrid_embedding
 
-}
+}  // namespace HugeCTR
 
 TEST(data_test, uint32) { data_test<uint32_t>(); };
 TEST(data_test, long_long) { data_test<long long>(); };

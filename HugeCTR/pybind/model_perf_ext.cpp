@@ -17,7 +17,6 @@
 #include <HugeCTR/pybind/model_perf_ext.hpp>
 #include <data_readers/async_reader/data_reader_scheduling.hpp>
 
-
 namespace HugeCTR {
 
 namespace {
@@ -34,15 +33,14 @@ static std::string join(std::vector<std::string>& strs, std::string delim) {
   return str;
 }
 
-} // Anonymous namespace
-
+}  // Anonymous namespace
 
 ModelPerfExt::ModelPerfExt(const Solver& solver, const DataReaderParams& reader_params,
                            std::shared_ptr<OptParamsPy>& opt_params_py,
                            std::shared_ptr<EmbeddingTrainingCacheParams>& etc_params)
     : Model(solver, reader_params, opt_params_py, etc_params) {
-      graph_scheduler_ = std::make_unique<GraphScheduler>(resource_manager_);
-    }
+  graph_scheduler_ = std::make_unique<GraphScheduler>(resource_manager_);
+}
 
 bool ModelPerfExt::train(bool is_first_batch) {
   try {
@@ -50,8 +48,8 @@ bool ModelPerfExt::train(bool is_first_batch) {
       CK_THROW_(Error_t::IllegalCall, "Start the data reader first before calling Model::train()");
     }
     graph_scheduler_->trickling();
-    // When async indices is enabled, we prefetch next batch on internal stream, that stream will block until
-    // the schedule event in the graph is executed
+    // When async indices is enabled, we prefetch next batch on internal stream, that stream will
+    // block until the schedule event in the graph is executed
     train_data_reader_->read_a_batch_to_device_delay_release();
     train_data_reader_->ready_to_collect();
 
@@ -194,33 +192,22 @@ void ModelPerfExt::fit(int num_epochs, int max_iter, int display, int eval_inter
 
   HCTR_LOG(INFO, ROOT, "Use non-epoch mode with number of iterations: %d\n", max_iter);
 
-  HCTR_LOG(INFO, ROOT,"Training batchsize: %d, evaluation batchsize: %d\n",
-                      solver_.batchsize,
-                      solver_.batchsize_eval);
-  HCTR_LOG(INFO, ROOT,"Evaluation interval: %d, snapshot interval: %d\n",
-                      eval_interval,
-                      snapshot);
+  HCTR_LOG(INFO, ROOT, "Training batchsize: %d, evaluation batchsize: %d\n", solver_.batchsize,
+           solver_.batchsize_eval);
+  HCTR_LOG(INFO, ROOT, "Evaluation interval: %d, snapshot interval: %d\n", eval_interval, snapshot);
   // FYI, A string literal is statically allocated so we can assume it is safe to return it.
-  auto b2s = [](const char val) { return val? "True" : "False"; };
-  HCTR_LOG(INFO, ROOT,"Dense network trainable: %s\n",
-                      b2s(is_dense_trainable_));
+  auto b2s = [](const char val) { return val ? "True" : "False"; };
+  HCTR_LOG(INFO, ROOT, "Dense network trainable: %s\n", b2s(is_dense_trainable_));
   for (auto iter = embeddings_map_.begin(); iter != embeddings_map_.end(); iter++) {
-    HCTR_LOG(INFO, ROOT, "Sparse embedding %s trainable: %s\n",
-                       iter->first.c_str(),
-                       b2s(iter->second->is_trainable()));
+    HCTR_LOG(INFO, ROOT, "Sparse embedding %s trainable: %s\n", iter->first.c_str(),
+             b2s(iter->second->is_trainable()));
   }
-  HCTR_LOG(INFO, ROOT,"Use mixed precision: %s, scaler: %f, use cuda graph: %s\n",
-                       b2s(solver_.use_mixed_precision),
-                       solver_.scaler,
-                       b2s(solver_.use_cuda_graph));
-  HCTR_LOG(INFO, ROOT,"lr: %f, warmup_steps: %zu, end_lr: %f\n",
-                       solver_.lr,
-                       solver_.warmup_steps,
-                       solver_.end_lr);
-  HCTR_LOG(INFO, ROOT,"decay_start: %zu, decay_steps: %zu, decay_power: %f\n",
-                       solver_.decay_start,
-                       solver_.decay_steps,
-                       solver_.decay_power);
+  HCTR_LOG(INFO, ROOT, "Use mixed precision: %s, scaler: %f, use cuda graph: %s\n",
+           b2s(solver_.use_mixed_precision), solver_.scaler, b2s(solver_.use_cuda_graph));
+  HCTR_LOG(INFO, ROOT, "lr: %f, warmup_steps: %zu, end_lr: %f\n", solver_.lr, solver_.warmup_steps,
+           solver_.end_lr);
+  HCTR_LOG(INFO, ROOT, "decay_start: %zu, decay_steps: %zu, decay_power: %f\n", solver_.decay_start,
+           solver_.decay_steps, solver_.decay_power);
   timer.start();
   timer_train.start();
 
@@ -304,7 +291,7 @@ void ModelPerfExt::fit(int num_epochs, int max_iter, int display, int eval_inter
         }
         if (!eval_metric.first.compare("AUC")) {
           const auto auc_threshold = solver_.metrics_spec[HugeCTR::metrics::Type::AUC];
-          if (eval_metric.second >= auc_threshold) {
+          if (eval_metric.second > auc_threshold) {
             timer.stop();
 
             if (solver_.is_dlrm) {
@@ -333,11 +320,11 @@ void ModelPerfExt::fit(int num_epochs, int max_iter, int display, int eval_inter
             }
 
             if (__PID == 0) {
-              HCTR_LOG(INFO, ROOT, "Hit target accuracy AUC %f at %d / %d iterations with batchsize %d"
-                                   " in %.2fs. Average speed %f records/s.\n",
-                                   auc_threshold, iter, max_iter,
-                                   solver_.batchsize, timer.elapsedSeconds(),
-                                   float(iter) * solver_.batchsize / timer.elapsedSeconds());
+              HCTR_LOG(INFO, ROOT,
+                       "Hit target accuracy AUC %f at %d / %d iterations with batchsize %d"
+                       " in %.2fs. Average speed %f records/s.\n",
+                       auc_threshold, iter, max_iter, solver_.batchsize, timer.elapsedSeconds(),
+                       float(iter) * solver_.batchsize / timer.elapsedSeconds());
             }
             return;
           }
@@ -439,15 +426,15 @@ void ModelPerfExt::train_overlapped() {
     };
 
     auto schedule_split3way = [&, this](TrainState_t state_to_schedule) {
-        if (state.state == state_to_schedule) {
-            scheduled_reader->schedule_precompute_here(stream, id, solver_.use_holistic_cuda_graph);
-        }
+      if (state.state == state_to_schedule) {
+        scheduled_reader->schedule_precompute_here(stream, id, solver_.use_holistic_cuda_graph);
+      }
     };
 
     auto schedule_d2d = [&, this](TrainState_t state_to_schedule) {
-        if (state.state == state_to_schedule) {
-          scheduled_reader->schedule_d2d_here(stream, id, solver_.use_holistic_cuda_graph);
-        }
+      if (state.state == state_to_schedule) {
+        scheduled_reader->schedule_d2d_here(stream, id, solver_.use_holistic_cuda_graph);
+      }
     };
 
     auto do_it = [&, this](cudaStream_t submit_stream) {
@@ -502,12 +489,12 @@ void ModelPerfExt::train_overlapped() {
 void ModelPerfExt::exchange_wgrad(size_t device_id) {
   auto& gpu_resource = resource_manager_->get_local_gpu(device_id);
   CudaCPUDeviceContext context(gpu_resource->get_device_id());
-  PROFILE_RECORD("exchange_wgrad.start", resource_manager_->get_local_gpu(device_id)->get_stream(), true, device_id);
-  if (solver_.async_mlp_wgrad)
-    gpu_resource->wait_on_wgrad_event(gpu_resource->get_stream());
+  PROFILE_RECORD("exchange_wgrad.start", resource_manager_->get_local_gpu(device_id)->get_stream(),
+                 true, device_id);
+  if (solver_.async_mlp_wgrad) gpu_resource->wait_on_wgrad_event(gpu_resource->get_stream());
   Model::exchange_wgrad(device_id);
-  PROFILE_RECORD("exchange_wgrad.stop", resource_manager_->get_local_gpu(device_id)->get_stream(), true, device_id);
-
+  PROFILE_RECORD("exchange_wgrad.stop", resource_manager_->get_local_gpu(device_id)->get_stream(),
+                 true, device_id);
 }
 
 void ModelPerfExt::add(DenseLayer& dense_layer) {

@@ -53,15 +53,12 @@ std::shared_ptr<Data<dtype>> create_data_from_distribution(
 }
 
 template <typename dtype>
-void test_raw_data(dtype *raw_data,
-                   size_t num_samples, 
-                   size_t num_tables, 
-                   size_t num_iterations, 
+void test_raw_data(dtype *raw_data, size_t num_samples, size_t num_tables, size_t num_iterations,
                    const std::vector<size_t> &table_sizes);
 
 template <typename dtype>
 void test_samples(dtype *raw_data, Data<dtype> &data);
 
-}
+}  // namespace hybrid_embedding
 
-}
+}  // namespace HugeCTR

@@ -14,12 +14,11 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/loss.hpp"
-#include "HugeCTR/include/regularizers/no_regularizer.hpp"
-
 #include <cstdlib>
 #include <vector>
 
+#include "HugeCTR/include/loss.hpp"
+#include "HugeCTR/include/regularizers/no_regularizer.hpp"
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"
 using namespace std;
@@ -44,12 +43,10 @@ void multi_cross_entropy_loss(size_t label_dim, size_t batch_size) {
   const std::vector<float> target_weight(label_dim, 1.0);
 
   std::shared_ptr<NoRegularizer<float>> no_regularizer(new NoRegularizer<float>(
-        weight_buff->as_tensor(), wgrad_buff->as_tensor(),
-        batch_size, test::get_default_gpu()));
+      weight_buff->as_tensor(), wgrad_buff->as_tensor(), batch_size, test::get_default_gpu()));
 
-  MultiCrossEntropyLoss<float> mel(label_tensor, input_tensor, loss_tensor,
-                                   no_regularizer, target_weight,
-                                   test::get_default_gpu(), 1);
+  MultiCrossEntropyLoss<float> mel(label_tensor, input_tensor, loss_tensor, no_regularizer,
+                                   target_weight, test::get_default_gpu(), 1);
 
   std::unique_ptr<float[]> h_input(new float[batch_size * label_dim]);
   std::unique_ptr<float[]> h_label(new float[batch_size * label_dim]);

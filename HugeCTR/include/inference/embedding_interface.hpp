@@ -88,7 +88,8 @@ struct embedding_cache_config {
   size_t num_emb_table_;                    // # of embedding table in this model
   std::vector<size_t> embedding_vec_size_;  // # of float in emb_vec
   std::vector<size_t> num_set_in_cache_;    // # of cache set in the cache
-  std::vector<std::string> embedding_table_name_; // ## of embedding tables be cached by current embedding cache
+  std::vector<std::string>
+      embedding_table_name_;  // ## of embedding tables be cached by current embedding cache
   std::vector<size_t>
       max_query_len_per_emb_table_;  // The max # of embeddingcolumns each inference instance(batch)
                                      // will query from a embedding table
@@ -113,15 +114,15 @@ class HugectrUtility {
                                                                  int deviceid) = 0;
   virtual void FreeBuffer(void* p) = 0;
 
-  virtual void refresh_embedding_cache(const std::string& model_name,
-                                      int device_id) = 0;
+  virtual void refresh_embedding_cache(const std::string& model_name, int device_id) = 0;
 
   virtual void insert_embedding_cache(embedding_interface* embedding_cache,
                                       embedding_cache_config& cache_config,
                                       embedding_cache_workspace& workspace_handler,
                                       const std::vector<cudaStream_t>& streams) = 0;
 
-  virtual void update_database_per_model(const std::string& model_config_path,const InferenceParams& inference_params_array) = 0;
+  virtual void update_database_per_model(const std::string& model_config_path,
+                                         const InferenceParams& inference_params_array) = 0;
 
   static HugectrUtility<TypeHashKey>* Create_Parameter_Server(
       INFER_TYPE Infer_type, const std::vector<std::string>& model_config_path,
@@ -159,11 +160,11 @@ class embedding_interface {
   virtual void update(embedding_cache_workspace& workspace_handler,
                       const std::vector<cudaStream_t>& streams) = 0;
 
-  virtual void Dump(int table_id, void* key_buffer, size_t* length, size_t start_index, size_t end_index,
-                  cudaStream_t stream) = 0;
+  virtual void Dump(int table_id, void* key_buffer, size_t* length, size_t start_index,
+                    size_t end_index, cudaStream_t stream) = 0;
 
   virtual void Refresh(int table_id, void* keybuffer, float* vec_buffer, size_t length,
-                  cudaStream_t stream) = 0;
+                       cudaStream_t stream) = 0;
 
   virtual embedding_cache_config get_cache_config() = 0;
 

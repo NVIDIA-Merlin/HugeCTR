@@ -41,12 +41,13 @@ namespace hybrid_embedding {
 namespace infrequent_embedding_kernels {
 
 template <typename dtype, typename emtype>
-__global__ void hier_update_model(
-    InfrequentEmbeddingSelectionView<dtype>* indices,
-    const dtype* __restrict__ category_location,
-    const emtype* __restrict__ gradients, float* __restrict__ embedding_vectors,
-    uint32_t embedding_vec_size, uint32_t num_instances, uint32_t local_samples_size,
-    uint32_t local_comm_buff_size, const float* __restrict__ lr_ptr, const float scale) {
+__global__ void hier_update_model(InfrequentEmbeddingSelectionView<dtype>* indices,
+                                  const dtype* __restrict__ category_location,
+                                  const emtype* __restrict__ gradients,
+                                  float* __restrict__ embedding_vectors,
+                                  uint32_t embedding_vec_size, uint32_t num_instances,
+                                  uint32_t local_samples_size, uint32_t local_comm_buff_size,
+                                  const float* __restrict__ lr_ptr, const float scale) {
   float lr = __ldg(lr_ptr) / scale;
   const uint32_t num_indices = indices->model_indices_offsets[num_instances];
 
@@ -74,8 +75,7 @@ __global__ void hier_update_model(
 template <typename dtype, typename emtype>
 __global__ void infrequent_update_model_direct(
     const emtype* const* __restrict__ gradients_pointers, float* embedding_vectors,
-    InfrequentEmbeddingSelectionView<dtype>* indices,
-    const dtype* __restrict__ category_location,
+    InfrequentEmbeddingSelectionView<dtype>* indices, const dtype* __restrict__ category_location,
     uint32_t num_instances, uint32_t model_id, uint32_t embedding_vec_size,
     uint32_t local_samples_size, const float* __restrict__ lr_ptr, const float scale) {
   float lr = __ldg(lr_ptr) / scale;
@@ -116,8 +116,8 @@ __global__ void infrequent_update_model_direct(
 // }
 
 template <typename LambdaPtr>
-static __global__ void offsets_to_sizes(size_t* sizes, LambdaPtr get_offsets_ptr, size_t element_size,
-                                        uint32_t num_instances) {
+static __global__ void offsets_to_sizes(size_t* sizes, LambdaPtr get_offsets_ptr,
+                                        size_t element_size, uint32_t num_instances) {
   uint32_t* offsets = get_offsets_ptr();
   for (int t = blockIdx.x * blockDim.x + threadIdx.x; t < num_instances;
        t += gridDim.x * blockDim.x) {
@@ -126,7 +126,6 @@ static __global__ void offsets_to_sizes(size_t* sizes, LambdaPtr get_offsets_ptr
 }
 
 }  // namespace infrequent_embedding_kernels
-
 
 template <typename dtype>
 InfrequentEmbeddingBase<dtype>::InfrequentEmbeddingBase() {
@@ -140,21 +139,18 @@ InfrequentEmbeddingBase<dtype>::~InfrequentEmbeddingBase() {
 
 template <typename dtype>
 void InfrequentEmbeddingBase<dtype>::set_current_indices(
-    InfrequentEmbeddingSelection<dtype> *indices, cudaStream_t stream) {
-  
+    InfrequentEmbeddingSelection<dtype>* indices, cudaStream_t stream) {
   indices_ = indices;
   data_ = indices->get_data();
-  CK_CUDA_THROW_(cudaMemcpyAsync(indices_view_, indices->get_device_view(),
-      sizeof(*indices_view_), cudaMemcpyDeviceToDevice, stream));
+  CK_CUDA_THROW_(cudaMemcpyAsync(indices_view_, indices->get_device_view(), sizeof(*indices_view_),
+                                 cudaMemcpyDeviceToDevice, stream));
 }
 
 template <typename dtype, typename emtype>
 InfrequentEmbedding<dtype, emtype>::InfrequentEmbedding(const Model<dtype>& model,
                                                         const GPUResource& gpu_resource,
                                                         uint32_t embedding_vec_size)
-    : model_(model),
-      gpu_resource(gpu_resource),
-      embedding_vec_size_(embedding_vec_size) {
+    : model_(model), gpu_resource(gpu_resource), embedding_vec_size_(embedding_vec_size) {
   auto buf = GeneralBuffer2<CudaAllocator>::create();
   buf->reserve({ceildiv<size_t>(model.num_categories, model.num_instances), embedding_vec_size_},
                &infrequent_embedding_vectors_);
@@ -244,8 +240,9 @@ void InfrequentEmbedding<dtype, emtype>::fused_intra_forward_model(emtype** mess
       [=] __device__() { return indices->model_indices_offsets[num_instances]; },
       [=] __device__(size_t i) -> CopyDescriptors::CopyDetails<float, emtype, 1> {
         uint32_t num_selected = indices->model_indices_offsets[num_instances];
-        uint32_t vid = (i + indices->model_indices_offsets[(local_instance_id + 1) % per_node_instances]) %
-                       num_selected;
+        uint32_t vid =
+            (i + indices->model_indices_offsets[(local_instance_id + 1) % per_node_instances]) %
+            num_selected;
         uint32_t index = indices->model_indices[vid];
         uint32_t network_id = (index / local_samples_size);
         dtype category = indices->samples[index];
@@ -255,9 +252,10 @@ void InfrequentEmbedding<dtype, emtype>::fused_intra_forward_model(emtype** mess
             &message_buffer[local_network_id][(network_id - local_network_id + local_instance_id) *
                                               local_comm_buff_size * embedding_vec_size];
 
-        return {infrequent_embedding_vectors + location * embedding_vec_size,
-                {output_ptr + (vid - indices->model_indices_offsets[network_id]) * embedding_vec_size},
-                {true}};
+        return {
+            infrequent_embedding_vectors + location * embedding_vec_size,
+            {output_ptr + (vid - indices->model_indices_offsets[network_id]) * embedding_vec_size},
+            {true}};
       });
 
   shuffle(copy_desc, stream, data_->samples.get_num_elements() / model_.num_instances / 8);
@@ -409,12 +407,14 @@ void InfrequentEmbedding<dtype, emtype>::fused_intra_update_network(const emtype
       [=] __device__() { return indices->network_indices_offsets[num_instances]; },
       [=] __device__(size_t i) -> CopyDescriptors::CopyDetails<emtype, emtype, 1> {
         uint32_t num_selected = indices->network_indices_offsets[num_instances];
-        uint32_t vid = (i + indices->network_indices_offsets[(local_instance_id + 1) % per_node_instances]) %
-                       num_selected;
+        uint32_t vid =
+            (i + indices->network_indices_offsets[(local_instance_id + 1) % per_node_instances]) %
+            num_selected;
         uint32_t index = indices->network_indices[vid];
 
         uint32_t model_id;
-        for (model_id = 0; model_id < num_instances && indices->network_indices_offsets[model_id + 1] <= vid;
+        for (model_id = 0;
+             model_id < num_instances && indices->network_indices_offsets[model_id + 1] <= vid;
              model_id++)
           ;
 
@@ -423,9 +423,10 @@ void InfrequentEmbedding<dtype, emtype>::fused_intra_update_network(const emtype
             &message_buffer[local_model_id][(model_id - local_model_id + local_instance_id) *
                                             local_comm_buff_size * embedding_vec_size];
 
-        return {gradients + index * embedding_vec_size,
-                {output_ptr + (vid - indices->network_indices_offsets[model_id]) * embedding_vec_size},
-                {true}};
+        return {
+            gradients + index * embedding_vec_size,
+            {output_ptr + (vid - indices->network_indices_offsets[model_id]) * embedding_vec_size},
+            {true}};
       });
 
   shuffle(copy_desc, stream, data_->samples.get_num_elements() / model_.num_instances / 8);
@@ -443,7 +444,9 @@ void InfrequentEmbedding<dtype, emtype>::update_model(const emtype* message_buff
 
   sgd_atomic_update(
       message_buffer, infrequent_embedding_vectors_.get_ptr(),
-      [indices, num_instances] __device__() { return indices->model_indices_offsets[num_instances]; },
+      [indices, num_instances] __device__() {
+        return indices->model_indices_offsets[num_instances];
+      },
       [indices, category_location] __device__(uint32_t i) {
         uint32_t index = indices->model_indices[i];
         dtype category = indices->samples[index];
@@ -466,9 +469,9 @@ void InfrequentEmbedding<dtype, emtype>::hier_update_model(const emtype* message
   int n_blocks = 16 * num_sm;  // TODO: better heuristics
 
   infrequent_embedding_kernels::hier_update_model<<<n_blocks, embedding_vec_size_, 0, stream>>>(
-      this->indices_view_,
-      model_.category_location.get_ptr(), message_buffer, infrequent_embedding_vectors_.get_ptr(),
-      embedding_vec_size_, model_.num_instances, local_samples_size, local_comm_buff_size, dev_lr, scale);
+      this->indices_view_, model_.category_location.get_ptr(), message_buffer,
+      infrequent_embedding_vectors_.get_ptr(), embedding_vec_size_, model_.num_instances,
+      local_samples_size, local_comm_buff_size, dev_lr, scale);
   CK_CUDA_THROW_(cudaPeekAtLastError());
 }
 
@@ -488,9 +491,8 @@ void InfrequentEmbedding<dtype, emtype>::update_model_direct(float* dev_lr, floa
   infrequent_embedding_kernels::
       infrequent_update_model_direct<<<n_blocks, embedding_vec_size_, 0, stream>>>(
           gradients_pointers_.get_ptr(), infrequent_embedding_vectors_.get_ptr(),
-          this->indices_view_,
-          model_.category_location.get_ptr(), model_.num_instances, model_.global_instance_id,
-          embedding_vec_size_, local_samples_size, dev_lr, scale);
+          this->indices_view_, model_.category_location.get_ptr(), model_.num_instances,
+          model_.global_instance_id, embedding_vec_size_, local_samples_size, dev_lr, scale);
   CK_CUDA_THROW_(cudaPeekAtLastError());
   PROFILE_RECORD("inf_update_model_direct.infrequent_update_model_direct.stop", stream, false);
 }
@@ -502,8 +504,7 @@ void InfrequentEmbedding<dtype, emtype>::calculate_model_indices_sizes_from_offs
   constexpr size_t TPB = 256;
   const size_t n_blocks = ceildiv<size_t>(model_.num_instances, TPB);
   infrequent_embedding_kernels::offsets_to_sizes<<<n_blocks, TPB, 0, stream>>>(
-      model_indices_sizes_.get_ptr(),
-      [=] __device__() { return indices->model_indices_offsets; },
+      model_indices_sizes_.get_ptr(), [=] __device__() { return indices->model_indices_offsets; },
       embedding_vec_size_ * sizeof(emtype), model_.num_instances);
 }
 
@@ -518,7 +519,6 @@ void InfrequentEmbedding<dtype, emtype>::calculate_network_indices_sizes_from_of
       [=] __device__() { return indices->network_indices_offsets; },
       embedding_vec_size_ * sizeof(emtype), model_.num_instances);
 }
-
 
 template class InfrequentEmbeddingBase<uint32_t>;
 template class InfrequentEmbeddingBase<long long>;
