@@ -16,13 +16,14 @@
 #pragma once
 #include <common.hpp>
 #include <embedding.hpp>
+#include <embedding_training_cache/embedding_training_cache.hpp>
 #include <exchange_wgrad.hpp>
+#include <graph_wrapper.hpp>
+#include <inference/kafka_message.hpp>
+#include <inference/message.hpp>
+#include <inference/parameter_server.hpp>
 #include <loss.hpp>
 #include <metrics.hpp>
-#include <embedding_training_cache/embedding_training_cache.hpp>
-#include <inference/message.hpp>
-#include <inference/kafka_message.hpp>
-#include <inference/parameter_server.hpp>
 #include <network.hpp>
 #include <optimizer.hpp>
 #include <parser.hpp>
@@ -30,7 +31,6 @@
 #include <thread>
 #include <utility>
 #include <utils.hpp>
-#include <graph_wrapper.hpp>
 
 namespace HugeCTR {
 
@@ -192,9 +192,9 @@ struct EmbeddingTrainingCacheParams {
   std::vector<HMemCacheConfig> hmem_cache_configs;
   std::vector<std::string> incremental_keyset_files;
   EmbeddingTrainingCacheParams(std::vector<TrainPSType_t>& _ps_types,
-                            std::vector<std::string>& _sparse_models,
-                            std::vector<std::string>& _local_paths,
-                            std::vector<HMemCacheConfig>& _hmem_cache_configs);
+                               std::vector<std::string>& _sparse_models,
+                               std::vector<std::string>& _local_paths,
+                               std::vector<HMemCacheConfig>& _hmem_cache_configs);
   EmbeddingTrainingCacheParams();
 };
 
@@ -283,8 +283,8 @@ void add_sparse_embedding(SparseEmbedding& sparse_embedding,
                           OptParams& embedding_opt_params,
                           std::shared_ptr<ExchangeWgrad>& exchange_wgrad, bool use_cuda_graph,
                           bool grouped_all_reduce, bool use_holistic_cuda_graph,
-                          size_t num_iterations_statistics,
-                          GpuLearningRateSchedulers& gpu_lr_sches, bool overlap_ar_a2a);
+                          size_t num_iterations_statistics, GpuLearningRateSchedulers& gpu_lr_sches,
+                          bool overlap_ar_a2a);
 
 Input get_input_from_json(const nlohmann::json& j_input);
 
@@ -300,7 +300,7 @@ void save_graph_to_json(nlohmann::json& layer_config_array,
                         bool use_mixed_precision);
 
 void calculate_tensor_dimensions(std::map<std::string, std::vector<int>>& tensor_shape_info_raw,
-                                DenseLayer& dense_layer);
+                                 DenseLayer& dense_layer);
 
 void init_optimizer(OptParams& opt_params, const Solver& solver,
                     const std::shared_ptr<OptParamsPy>& opt_params_py);
@@ -354,7 +354,7 @@ class Model {
 
   virtual bool train(bool is_first_batch);
 
-  virtual bool eval (bool is_first_batch);
+  virtual bool eval(bool is_first_batch);
 
   std::vector<std::pair<std::string, float>> get_eval_metrics();
 
@@ -438,10 +438,11 @@ class Model {
   void load_sparse_weights(const std::map<std::string, std::string>& sparse_embedding_files_map);
   void load_dense_optimizer_states(const std::string& dense_opt_states_file);
   void load_sparse_optimizer_states(const std::vector<std::string>& sparse_opt_states_files);
-  void load_sparse_optimizer_states(const std::map<std::string, std::string>& sparse_opt_states_files_map);
+  void load_sparse_optimizer_states(
+      const std::map<std::string, std::string>& sparse_opt_states_files_map);
   void freeze_embedding() {
     for (auto& one_embedding : embeddings_) {
-      one_embedding->freeze();      
+      one_embedding->freeze();
     }
   };
   void freeze_embedding(const std::string& embedding_name) {
@@ -454,7 +455,7 @@ class Model {
   void freeze_dense() { is_dense_trainable_ = false; };
   void unfreeze_embedding() {
     for (auto& one_embedding : embeddings_) {
-      one_embedding->unfreeze();      
+      one_embedding->unfreeze();
     }
   };
   void unfreeze_embedding(const std::string& embedding_name) {
@@ -555,9 +556,9 @@ class Model {
   void init_params_for_dense_();
   void init_params_for_sparse_();
   void init_embedding_training_cache_(const std::vector<TrainPSType_t>& ps_types,
-                                  const std::vector<std::string>& sparse_embedding_files,
-                                  const std::vector<std::string>& local_paths,
-                                  const std::vector<HMemCacheConfig>& hmem_cache_configs);
+                                      const std::vector<std::string>& sparse_embedding_files,
+                                      const std::vector<std::string>& local_paths,
+                                      const std::vector<HMemCacheConfig>& hmem_cache_configs);
   Error_t load_params_for_dense_(const std::string& model_file);
   Error_t load_params_for_sparse_(const std::vector<std::string>& embedding_file);
   Error_t load_opt_states_for_dense_(const std::string& dense_opt_states_file);

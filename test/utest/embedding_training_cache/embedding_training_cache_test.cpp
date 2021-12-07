@@ -14,11 +14,14 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-#include <iterator>
-#include "etc_test_utils.hpp"
-#include "embedding_training_cache/hmem_cache/hmem_cache.hpp"
 #include "embedding_training_cache/embedding_training_cache.hpp"
+
+#include <gtest/gtest.h>
+
+#include <iterator>
+
+#include "embedding_training_cache/hmem_cache/hmem_cache.hpp"
+#include "etc_test_utils.hpp"
 #include "parser.hpp"
 
 using namespace HugeCTR;
@@ -53,13 +56,12 @@ const Update_t update_type = Update_t::Local;
 const int batch_num_eval = 1;
 
 template <typename TypeKey>
-void do_upload_and_download_snapshot(
-    int batch_num_train, TrainPSType_t ps_type, bool is_distributed,
-    Optimizer_t opt_type = Optimizer_t::Adam, std::string local_path = "./",
-    HMemCacheConfig hc_config = HMemCacheConfig()) {
-  Embedding_t embedding_type = is_distributed ? 
-                               Embedding_t::DistributedSlotSparseEmbeddingHash :
-                               Embedding_t::LocalizedSlotSparseEmbeddingHash;
+void do_upload_and_download_snapshot(int batch_num_train, TrainPSType_t ps_type,
+                                     bool is_distributed, Optimizer_t opt_type = Optimizer_t::Adam,
+                                     std::string local_path = "./",
+                                     HMemCacheConfig hc_config = HMemCacheConfig()) {
+  Embedding_t embedding_type = is_distributed ? Embedding_t::DistributedSlotSparseEmbeddingHash
+                                              : Embedding_t::LocalizedSlotSparseEmbeddingHash;
 
   // create a resource manager for a single GPU
   std::vector<std::vector<int>> vvgpu;
@@ -68,25 +70,28 @@ void do_upload_and_download_snapshot(
 
   // generate train/test datasets
   if (fs::exists(file_list_name_train)) fs::remove_all(file_list_name_train);
-  if (fs::exists(file_list_name_eval))  fs::remove_all(file_list_name_eval);
+  if (fs::exists(file_list_name_eval)) fs::remove_all(file_list_name_eval);
 
   // data generation
-  HugeCTR::data_generation_for_test<TypeKey, check>(file_list_name_train,
-      prefix, num_files, batch_num_train * batchsize, slot_num,
+  HugeCTR::data_generation_for_test<TypeKey, check>(
+      file_list_name_train, prefix, num_files, batch_num_train * batchsize, slot_num,
       vocabulary_size, label_dim, dense_dim, max_nnz_per_slot);
-  HugeCTR::data_generation_for_test<TypeKey, check>(file_list_name_eval,
-      prefix, num_files, batch_num_eval * batchsize, slot_num,
-      vocabulary_size, label_dim, dense_dim, max_nnz_per_slot);
+  HugeCTR::data_generation_for_test<TypeKey, check>(
+      file_list_name_eval, prefix, num_files, batch_num_eval * batchsize, slot_num, vocabulary_size,
+      label_dim, dense_dim, max_nnz_per_slot);
 
   // create train/eval data readers
-  const DataReaderSparseParam param = {"distributed", std::vector<int>(slot_num, max_nnz_per_slot), false, slot_num};
+  const DataReaderSparseParam param = {"distributed", std::vector<int>(slot_num, max_nnz_per_slot),
+                                       false, slot_num};
   std::vector<DataReaderSparseParam> data_reader_params;
   data_reader_params.push_back(param);
 
-  std::unique_ptr<DataReader<TypeKey>> data_reader_train(new DataReader<TypeKey>(
-      batchsize, label_dim, dense_dim, data_reader_params, resource_manager, true, num_workers, false));
-  std::unique_ptr<DataReader<TypeKey>> data_reader_eval(new DataReader<TypeKey>(
-      batchsize, label_dim, dense_dim, data_reader_params, resource_manager, true, num_workers, false));
+  std::unique_ptr<DataReader<TypeKey>> data_reader_train(
+      new DataReader<TypeKey>(batchsize, label_dim, dense_dim, data_reader_params, resource_manager,
+                              true, num_workers, false));
+  std::unique_ptr<DataReader<TypeKey>> data_reader_eval(
+      new DataReader<TypeKey>(batchsize, label_dim, dense_dim, data_reader_params, resource_manager,
+                              true, num_workers, false));
 
   data_reader_train->create_drwg_norm(file_list_name_train, check);
   data_reader_eval->create_drwg_norm(file_list_name_eval, check);
@@ -101,13 +106,14 @@ void do_upload_and_download_snapshot(
 
   const OptParams opt_params = {opt_type, 0.001f, hyper_params, update_type, scaler};
 
-  const SparseEmbeddingHashParams embedding_param = {
-      batchsize,       batchsize, vocabulary_size, {},        emb_vec_size,
-      max_feature_num, slot_num,  combiner,        opt_params};
+  const SparseEmbeddingHashParams embedding_param = {batchsize, batchsize,    vocabulary_size,
+                                                     {},        emb_vec_size, max_feature_num,
+                                                     slot_num,  combiner,     opt_params};
 
-  auto copy = [](const std::vector<SparseTensorBag> &tensorbags, SparseTensors<TypeKey> &sparse_tensors) {
+  auto copy = [](const std::vector<SparseTensorBag>& tensorbags,
+                 SparseTensors<TypeKey>& sparse_tensors) {
     sparse_tensors.resize(tensorbags.size());
-    for(size_t j = 0; j < tensorbags.size(); ++j){
+    for (size_t j = 0; j < tensorbags.size(); ++j) {
       sparse_tensors[j] = SparseTensor<TypeKey>::stretch_from(tensorbags[j]);
     }
   };
@@ -117,8 +123,7 @@ void do_upload_and_download_snapshot(
   copy(data_reader_eval->get_sparse_tensors("distributed"), eval_inputs);
 
   std::shared_ptr<IEmbedding> embedding = init_embedding<TypeKey, float>(
-          train_inputs, eval_inputs,
-          embedding_param, resource_manager, embedding_type);
+      train_inputs, eval_inputs, embedding_param, resource_manager, embedding_type);
   embedding->init_params();
 
   // train the embedding
@@ -141,14 +146,12 @@ void do_upload_and_download_snapshot(
   // Make a synthetic keyset files
   std::vector<long long> keys_in_file;
   {
-    size_t key_file_size_in_byte =
-        fs::file_size(get_ext_file(snapshot_dst_file, "key"));
+    size_t key_file_size_in_byte = fs::file_size(get_ext_file(snapshot_dst_file, "key"));
     size_t num_keys = key_file_size_in_byte / sizeof(long long);
     keys_in_file.resize(num_keys);
     std::ifstream key_ifs(get_ext_file(snapshot_dst_file, "key"));
-    key_ifs.read(reinterpret_cast<char *>(keys_in_file.data()),
-                                          key_file_size_in_byte);
-    TypeKey *key_ptr = nullptr;
+    key_ifs.read(reinterpret_cast<char*>(keys_in_file.data()), key_file_size_in_byte);
+    TypeKey* key_ptr = nullptr;
     std::vector<TypeKey> key_vec;
     if (std::is_same<TypeKey, long long>::value) {
       key_ptr = reinterpret_cast<TypeKey*>(keys_in_file.data());
@@ -158,9 +161,8 @@ void do_upload_and_download_snapshot(
                      [](long long key) { return static_cast<unsigned>(key); });
       key_ptr = key_vec.data();
     }
-    std::ofstream key_ofs(keyset_file_name, std::ofstream::binary |
-                                            std::ofstream::trunc);
-    key_ofs.write(reinterpret_cast<char *>(key_ptr), num_keys * sizeof(TypeKey));
+    std::ofstream key_ofs(keyset_file_name, std::ofstream::binary | std::ofstream::trunc);
+    key_ofs.write(reinterpret_cast<char*>(key_ptr), num_keys * sizeof(TypeKey));
   }
 
   std::vector<std::string> keyset_file_list;
@@ -171,17 +173,17 @@ void do_upload_and_download_snapshot(
   hc_config.block_capacity = vocabulary_size;
   bool use_mixed_precision{false};
   std::shared_ptr<EmbeddingTrainingCache> embedding_training_cache(
-      new EmbeddingTrainingCache({ps_type}, {embedding}, {snapshot_dst_file},
-                              resource_manager, use_mixed_precision, is_i64_key,
-                              {local_path}, {hc_config}));
+      new EmbeddingTrainingCache({ps_type}, {embedding}, {snapshot_dst_file}, resource_manager,
+                                 use_mixed_precision, is_i64_key, {local_path}, {hc_config}));
 
   Timer timer_ps;
   timer_ps.start();
   auto read_file_and_output = [](std::string file_name, size_t num_output = 10) {
     std::ifstream ifs(file_name);
     std::vector<float> data_vec(fs::file_size(file_name) / sizeof(float));
-    ifs.read(reinterpret_cast<char *>(data_vec.data()), fs::file_size(file_name));
-    std::copy(data_vec.begin(), data_vec.begin() + num_output, std::ostream_iterator<float>(std::cout, " "));
+    ifs.read(reinterpret_cast<char*>(data_vec.data()), fs::file_size(file_name));
+    std::copy(data_vec.begin(), data_vec.begin() + num_output,
+              std::ostream_iterator<float>(std::cout, " "));
     std::cout << std::endl;
   };
   (void)read_file_and_output;
@@ -194,14 +196,14 @@ void do_upload_and_download_snapshot(
   MESSAGE_("Batch_num=" + std::to_string(batch_num_train) +
            ", embedding_vec_size=" + std::to_string(emb_vec_size) +
            ", elapsed time=" + std::to_string(timer_ps.elapsedSeconds()) + "s");
-  
+
   std::vector<std::string> data_files{"key"};
   if (!is_distributed) data_files.push_back("slot_id");
   auto vec_files{get_data_file(opt_type)};
   // if (ps_type == TrainPSType_t::Cached) {
   //   for (auto const& vec_file : vec_files) data_files.push_back(vec_file);
   // } else {
-    data_files.push_back(vec_files[0]);
+  data_files.push_back(vec_files[0]);
   // }
 
   // Check if the result is correct
@@ -219,18 +221,19 @@ void do_upload_and_download_snapshot(
     auto& key_vec_pair{inc_model[0]};
     ASSERT_EQ(keys_in_file.size(), inc_model[0].first.size());
     ASSERT_EQ(key_vec_pair.first.size(), key_vec_pair.second.size() / emb_vec_size);
-    
+
     std::vector<std::vector<float>> data_vecs(vec_files.size());
     {
       SparseModelFileTS<TypeKey> sparse_model_ts(snapshot_src_file, snapshot_src_file,
-          !is_distributed, opt_type, emb_vec_size, resource_manager);
+                                                 !is_distributed, opt_type, emb_vec_size,
+                                                 resource_manager);
       auto& load_key_vec{key_vec_pair.first};
       for (auto& data_vec : data_vecs) {
         data_vec.resize(load_key_vec.size() * emb_vec_size);
       }
       std::vector<size_t> slot_ids(load_key_vec.size());
       std::vector<size_t> ssd_idx_vec(load_key_vec.size());
-  #pragma omp parallel num_threads(12)
+#pragma omp parallel num_threads(12)
       for (size_t i = 0; i < ssd_idx_vec.size(); i++) {
         auto dst_idx{sparse_model_ts.find(load_key_vec[i])};
         if (dst_idx == SparseModelFileTS<TypeKey>::end_flag) {
@@ -238,14 +241,14 @@ void do_upload_and_download_snapshot(
         }
         ssd_idx_vec[i] = dst_idx;
       }
-      std::vector<float *> data_ptrs;
+      std::vector<float*> data_ptrs;
       for (auto& vec : data_vecs) data_ptrs.push_back(vec.data());
       sparse_model_ts.load(ssd_idx_vec, slot_ids.data(), data_ptrs);
     }
     ASSERT_EQ(key_vec_pair.first.size(), keys_in_file.size());
     ASSERT_TRUE(test::compare_array_approx<char>(
-        reinterpret_cast<char *>(data_vecs[0].data()),
-        reinterpret_cast<char *>(key_vec_pair.second.data()),
+        reinterpret_cast<char*>(data_vecs[0].data()),
+        reinterpret_cast<char*>(key_vec_pair.second.data()),
         key_vec_pair.first.size() * sizeof(float) * emb_vec_size, 0));
   } else {
     auto inc_model{embedding_training_cache->get_incremental_model(keys_in_file)};
@@ -257,8 +260,8 @@ void do_upload_and_download_snapshot(
 
     std::string vec_file_name("./emb_vector");
     std::ofstream vec_ofs(vec_file_name, std::ofstream::binary | std::ofstream::trunc);
-    vec_ofs.write(reinterpret_cast<char *>(key_vec_pair.second.data()),
-        key_vec_pair.second.size() * sizeof(float));
+    vec_ofs.write(reinterpret_cast<char*>(key_vec_pair.second.data()),
+                  key_vec_pair.second.size() * sizeof(float));
 
     ASSERT_EQ(key_vec_pair.first.size(), keys_in_file.size());
     ASSERT_TRUE(check_vector_equality(snapshot_src_file, "./", "emb_vector"));
@@ -270,8 +273,8 @@ TEST(embedding_training_cache_test, unsigned_host_distributed) {
 }
 TEST(embedding_training_cache_test, long_long_cache_distributed_adam) {
   HMemCacheConfig hc_config(1, 0.5, 0);
-  do_upload_and_download_snapshot<long long>(
-      20, TrainPSType_t::Cached, true, Optimizer_t::Adam, "./", hc_config);
+  do_upload_and_download_snapshot<long long>(20, TrainPSType_t::Cached, true, Optimizer_t::Adam,
+                                             "./", hc_config);
 }
 
 TEST(embedding_training_cache_test, unsigned_host_localized) {
@@ -279,8 +282,8 @@ TEST(embedding_training_cache_test, unsigned_host_localized) {
 }
 TEST(embedding_training_cache_test, unsigned_cache_localized_sgd) {
   HMemCacheConfig hc_config(1, 0.5, 0);
-  do_upload_and_download_snapshot<unsigned>(
-      30, TrainPSType_t::Cached, false, Optimizer_t::SGD, "./", hc_config);
+  do_upload_and_download_snapshot<unsigned>(30, TrainPSType_t::Cached, false, Optimizer_t::SGD,
+                                            "./", hc_config);
 }
 
 }  // namespace

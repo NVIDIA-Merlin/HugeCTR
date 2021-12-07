@@ -24,10 +24,10 @@
 
 #include <algorithm>
 #include <cstdlib>
+#include <embedding_training_cache/sparse_model_file.hpp>
 #include <experimental/filesystem>
 #include <fstream>
 #include <map>
-#include <embedding_training_cache/sparse_model_file.hpp>
 
 namespace fs = std::experimental::filesystem;
 

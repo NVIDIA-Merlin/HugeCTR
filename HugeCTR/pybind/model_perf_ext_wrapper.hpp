@@ -33,12 +33,14 @@ void ModelPerfExtPybind(pybind11::module &m) {
                std::shared_ptr<EmbeddingTrainingCacheParams>(new EmbeddingTrainingCacheParams()))
       .def("compile", &HugeCTR::ModelPerfExt::compile)
       .def("summary", &HugeCTR::ModelPerfExt::summary)
-      .def("graph_to_json", &HugeCTR::ModelPerfExt::graph_to_json, pybind11::arg("graph_config_file"))
+      .def("graph_to_json", &HugeCTR::ModelPerfExt::graph_to_json,
+           pybind11::arg("graph_config_file"))
       .def("fit", &HugeCTR::ModelPerfExt::fit, pybind11::arg("num_epochs") = 0,
            pybind11::arg("max_iter") = 2000, pybind11::arg("display") = 200,
            pybind11::arg("eval_interval") = 1000, pybind11::arg("snapshot") = 10000,
            pybind11::arg("snapshot_prefix") = "")
-      .def("add", pybind11::overload_cast<Input &>(&HugeCTR::ModelPerfExt::add), pybind11::arg("input"))
+      .def("add", pybind11::overload_cast<Input &>(&HugeCTR::ModelPerfExt::add),
+           pybind11::arg("input"))
       .def("add", pybind11::overload_cast<SparseEmbedding &>(&HugeCTR::ModelPerfExt::add),
            pybind11::arg("sparse_embedding"))
       .def("add", pybind11::overload_cast<DenseLayer &>(&HugeCTR::ModelPerfExt::add),

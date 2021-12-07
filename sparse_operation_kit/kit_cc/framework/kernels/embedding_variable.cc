@@ -18,34 +18,25 @@
 
 namespace tensorflow {
 
-EmbeddingVariable::EmbeddingVariable(Tensor* handle_tensor)
-: handle_tensor_(handle_tensor) 
-{}
+EmbeddingVariable::EmbeddingVariable() {}
 
 EmbeddingVariable::~EmbeddingVariable() {}
 
-std::string EmbeddingVariable::DebugString() const {
-    return std::string("EmbeddingVariable");
-}
-
-void EmbeddingVariable::SetHandle(ResourceHandle& handle) {
-    handle_tensor_->scalar<ResourceHandle>()() = handle;
-}
+std::string EmbeddingVariable::DebugString() const { return std::string("EmbeddingVariable"); }
 
 Tensor* EmbeddingVariable::tensor() {
-    static Tensor tensor(10.0);
-    return &tensor;
+  static Tensor tensor(10.0);
+  return &tensor;
 }
 
-void EmbeddingVariable::set_param(const std::shared_ptr<SparseOperationKit::ParamInterface>& param) {
-    param_ = param;
+void EmbeddingVariable::set_param(
+    const std::shared_ptr<SparseOperationKit::ParamInterface>& param) {
+  param_ = param;
 }
 void EmbeddingVariable::get_param(std::shared_ptr<SparseOperationKit::ParamInterface>& param) {
-    param = param_;
+  param = param_;
 }
 
-mutex* EmbeddingVariable::mu() {
-    return &mu_;
-}
+mutex* EmbeddingVariable::mu() { return &mu_; }
 
-} // namespace tensorflow
+}  // namespace tensorflow

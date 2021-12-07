@@ -16,8 +16,8 @@
 
 #ifndef CPUV_HASHTABLE_H_
 #define CPUV_HASHTABLE_H_
-#include <unordered_map>
 #include <iostream>
+#include <unordered_map>
 template <typename KeyType, typename ValType>
 class HashTableCpu {
  public:

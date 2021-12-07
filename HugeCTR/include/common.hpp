@@ -22,13 +22,13 @@
 #include <nvml.h>
 
 #include <algorithm>
+#include <base/debug/logger.hpp>
 #include <config.hpp>
 #include <ctime>
 #include <exception>
 #include <initializer_list>
 #include <iomanip>
 #include <iostream>
-#include <base/debug/logger.hpp>
 #include <numeric>
 #include <unordered_map>
 #include <utility>
@@ -426,10 +426,11 @@ inline void print_func<double>(double const& t) {
 
 template <typename... Args>
 inline void LOG(const Args&... args) {
-  std::cout << "[";
-  std::initializer_list<char>{(print_func(args), 'a')...};
-  std::cout << "]" << std::endl;
-
+  if (Logger::get().get_rank() == 0) {
+    std::cout << "[";
+    std::initializer_list<char>{(print_func(args), 'a')...};
+    std::cout << "]" << std::endl;
+  }
   return;
 }
 

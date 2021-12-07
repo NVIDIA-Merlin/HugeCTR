@@ -18,7 +18,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from sparse_operation_kit.core.embedding_variable import EmbeddingVariable
+from sparse_operation_kit.core import EmbeddingVariable
 from tensorflow.python.distribute.values import MirroredVariable
 from tensorflow.python.distribute.values import DistributedVariable
 

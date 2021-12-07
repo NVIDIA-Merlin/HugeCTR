@@ -24,11 +24,11 @@
 #include "HugeCTR/include/embeddings/hybrid_embedding/calibration_data.hpp"
 #include "HugeCTR/include/embeddings/hybrid_embedding/data.hpp"
 #include "HugeCTR/include/embeddings/hybrid_embedding/frequent_embedding.hpp"
+#include "HugeCTR/include/embeddings/hybrid_embedding/indices_container.hpp"
 #include "HugeCTR/include/embeddings/hybrid_embedding/infrequent_embedding.hpp"
 #include "HugeCTR/include/embeddings/hybrid_embedding/model.hpp"
 #include "HugeCTR/include/embeddings/hybrid_embedding/statistics.hpp"
 #include "HugeCTR/include/embeddings/hybrid_embedding/utils.hpp"
-#include "HugeCTR/include/embeddings/hybrid_embedding/indices_container.hpp"
 #include "HugeCTR/include/embeddings/hybrid_sparse_embedding.hpp"
 #include "HugeCTR/include/tensor2.hpp"
 
@@ -40,8 +40,7 @@ HybridSparseEmbedding<dtype, emtype>::HybridSparseEmbedding(
     const HybridSparseEmbeddingParams &embedding_params,
     const std::vector<BuffPtr<emtype>> &grouped_wgrad_buff,
     const GpuLearningRateSchedulers lr_scheds, bool graph_mode,
-    const std::shared_ptr<ResourceManager> &resource_manager,
-    bool overlap_ar_a2a)
+    const std::shared_ptr<ResourceManager> &resource_manager, bool overlap_ar_a2a)
     : train_input_tensors_(train_input_tensors),
       evaluate_input_tensors_(evaluate_input_tensors),
       embedding_params_(embedding_params),
@@ -87,19 +86,18 @@ HybridSparseEmbedding<dtype, emtype>::HybridSparseEmbedding(
       opt_params_.emplace_back(opt_params);
     }
     // 2. reserve buffers for different tensors
-    data_statistics_.                 reserve(local_gpu_count);
-    data_train_.                      reserve(local_gpu_count);
-    data_evaluate_.                   reserve(local_gpu_count);
-    model_.                           reserve(local_gpu_count);
-    calibration_.                     reserve(local_gpu_count);
-    statistics_.                      reserve(local_gpu_count);
-    train_output_tensors_.            reserve(local_gpu_count);
-    evaluate_output_tensors_.         reserve(local_gpu_count);
-    frequent_embeddings_.             reserve(local_gpu_count);
-    infrequent_embeddings_.           reserve(local_gpu_count);
-    infrequent_forward_comm_buffers_. reserve(local_gpu_count);
+    data_statistics_.reserve(local_gpu_count);
+    data_train_.reserve(local_gpu_count);
+    data_evaluate_.reserve(local_gpu_count);
+    model_.reserve(local_gpu_count);
+    calibration_.reserve(local_gpu_count);
+    statistics_.reserve(local_gpu_count);
+    train_output_tensors_.reserve(local_gpu_count);
+    evaluate_output_tensors_.reserve(local_gpu_count);
+    frequent_embeddings_.reserve(local_gpu_count);
+    infrequent_embeddings_.reserve(local_gpu_count);
+    infrequent_forward_comm_buffers_.reserve(local_gpu_count);
     infrequent_backward_comm_buffers_.reserve(local_gpu_count);
-
 
     assert(bufs_.empty());
     CudaDeviceContext context;
@@ -111,7 +109,7 @@ HybridSparseEmbedding<dtype, emtype>::HybridSparseEmbedding(
       data_statistics_.emplace_back(embedding_params_.slot_size_array, get_batch_size(true),
                                     embedding_params_.num_iterations_statistics);
       if (!embedding_params_.use_train_precompute_indices) {
-        data_train_. emplace_back(embedding_params_.slot_size_array, get_batch_size(true), 1);
+        data_train_.emplace_back(embedding_params_.slot_size_array, get_batch_size(true), 1);
       }
       if (!embedding_params_.use_eval_precompute_indices) {
         data_evaluate_.emplace_back(embedding_params_.slot_size_array, get_batch_size(false), 1);
@@ -165,12 +163,12 @@ HybridSparseEmbedding<dtype, emtype>::HybridSparseEmbedding(
       evaluate_output_tensors_.emplace_back(tensor);
 
       // 2.6 construct frequent embedding
-      frequent_embeddings_.emplace_back(
-          model_[i], get_local_gpu(i), grouped_wgrad_buff_[i],
-          get_embedding_vec_size(), embedding_params_.max_num_frequent_categories);
+      frequent_embeddings_.emplace_back(model_[i], get_local_gpu(i), grouped_wgrad_buff_[i],
+                                        get_embedding_vec_size(),
+                                        embedding_params_.max_num_frequent_categories);
       if (!embedding_params_.use_train_precompute_indices) {
         frequent_embedding_train_indices_.emplace_back(
-            embedding_params_.max_num_frequent_categories, data_train_[i],    model_[i]);
+            embedding_params_.max_num_frequent_categories, data_train_[i], model_[i]);
       }
       if (!embedding_params_.use_eval_precompute_indices) {
         frequent_embedding_evaluate_indices_.emplace_back(
@@ -180,7 +178,7 @@ HybridSparseEmbedding<dtype, emtype>::HybridSparseEmbedding(
       // 2.7 construct infrequent embedding
       infrequent_embeddings_.emplace_back(model_[i], get_local_gpu(i), get_embedding_vec_size());
       if (!embedding_params_.use_train_precompute_indices) {
-        infrequent_embedding_train_indices_.   emplace_back(data_train_[i],    model_[i]);
+        infrequent_embedding_train_indices_.emplace_back(data_train_[i], model_[i]);
       }
       if (!embedding_params_.use_eval_precompute_indices) {
         infrequent_embedding_evaluate_indices_.emplace_back(data_evaluate_[i], model_[i]);
@@ -431,7 +429,7 @@ void HybridSparseEmbedding<dtype, emtype>::init_model(const SparseTensors<dtype>
     data_statistics_[id].data_to_unique_categories(data[id].get_value_tensor(), stream);
     model_[id].init_hybrid_model(calibration_[id], statistics_[id], data_statistics_[id], stream);
     frequent_embeddings_[id].initialize_embedding_vectors(data_statistics_[id].table_sizes,
-        wgrad_offset_in_bytes);
+                                                          wgrad_offset_in_bytes);
     infrequent_embeddings_[id].initialize_embedding_vectors(data_statistics_[id].table_sizes);
 
     if (embedding_params_.max_num_frequent_categories < (size_t)model_[id].num_frequent) {
@@ -440,18 +438,15 @@ void HybridSparseEmbedding<dtype, emtype>::init_model(const SparseTensors<dtype>
           "Found too many frequent categories, please increase 'max_num_frequent_categories'");
     }
   }
-  
 
   MESSAGE_("Initialized hybrid model with " + std::to_string(model_[0].num_frequent) +
            " frequent categories, probability of being frequent is " +
            std::to_string(model_[0].frequent_probability));
 
   size_t avg_train_infrequent = (1 - model_[0].frequent_probability) *
-                                embedding_params_.slot_size_array.size() * 
-                                get_batch_size(true);
+                                embedding_params_.slot_size_array.size() * get_batch_size(true);
   size_t avg_evaluate_infrequent = (1 - model_[0].frequent_probability) *
-                                   embedding_params_.slot_size_array.size() *
-                                   get_batch_size(false);
+                                   embedding_params_.slot_size_array.size() * get_batch_size(false);
 
   MESSAGE_("Estimated number of infrequent categories per train batch: " +
            std::to_string(avg_train_infrequent) +
@@ -472,34 +467,30 @@ void HybridSparseEmbedding<dtype, emtype>::init_model(const SparseTensors<dtype>
 }
 
 template <typename dtype, typename emtype>
-void HybridSparseEmbedding<dtype, emtype>::setup_async_mode(
-    AsyncReader<dtype>* train_data_reader, AsyncReader<dtype>* eval_data_reader) {
-
-  auto create_async_indices = [this] (AsyncReader<dtype>* data_reader, bool is_train) {
+void HybridSparseEmbedding<dtype, emtype>::setup_async_mode(AsyncReader<dtype> *train_data_reader,
+                                                            AsyncReader<dtype> *eval_data_reader) {
+  auto create_async_indices = [this](AsyncReader<dtype> *data_reader, bool is_train) {
     size_t batch_size = get_batch_size(is_train);
     size_t label_dim, dense_dim, sparse_dim, sample_size_items;
-    data_reader->get_dimensions(label_dim, dense_dim, sparse_dim,
-        sample_size_items);
+    data_reader->get_dimensions(label_dim, dense_dim, sparse_dim, sample_size_items);
 
-    std::vector<FrequentEmbeddingBase<dtype>*> frequent_base_ptrs;
-    for (auto& freq : frequent_embeddings_) {
-      frequent_base_ptrs.push_back(dynamic_cast<FrequentEmbeddingBase<dtype>*>(&freq));
+    std::vector<FrequentEmbeddingBase<dtype> *> frequent_base_ptrs;
+    for (auto &freq : frequent_embeddings_) {
+      frequent_base_ptrs.push_back(dynamic_cast<FrequentEmbeddingBase<dtype> *>(&freq));
     }
 
-    std::vector<InfrequentEmbeddingBase<dtype>*> infrequent_base_ptrs;
-    for (auto& infreq : infrequent_embeddings_) {
-      infrequent_base_ptrs.push_back(dynamic_cast<InfrequentEmbeddingBase<dtype>*>(&infreq));
+    std::vector<InfrequentEmbeddingBase<dtype> *> infrequent_base_ptrs;
+    for (auto &infreq : infrequent_embeddings_) {
+      infrequent_base_ptrs.push_back(dynamic_cast<InfrequentEmbeddingBase<dtype> *>(&infreq));
     }
 
-    return std::make_shared<IndexProcessor<dtype>> (
-      model_, frequent_base_ptrs, infrequent_base_ptrs, resource_manager_,
-      // double buffer for train, cache each batch for eval
-      is_train ? 2 : data_reader->get_total_queue_size(), batch_size,
-      embedding_params_.slot_size_array,
-      embedding_params_.max_num_frequent_categories,
-      data_reader->is_mixed_precision(),
-      embedding_params_.communication_type,
-      label_dim, dense_dim, sparse_dim, sample_size_items);
+    return std::make_shared<IndexProcessor<dtype>>(
+        model_, frequent_base_ptrs, infrequent_base_ptrs, resource_manager_,
+        // double buffer for train, cache each batch for eval
+        is_train ? 2 : data_reader->get_total_queue_size(), batch_size,
+        embedding_params_.slot_size_array, embedding_params_.max_num_frequent_categories,
+        data_reader->is_mixed_precision(), embedding_params_.communication_type, label_dim,
+        dense_dim, sparse_dim, sample_size_items);
   };
 
   if (embedding_params_.use_train_precompute_indices) {
@@ -512,10 +503,9 @@ void HybridSparseEmbedding<dtype, emtype>::setup_async_mode(
   }
 }
 
-
 template <typename dtype, typename emtype>
-void HybridSparseEmbedding<dtype, emtype>::index_calculation(bool is_train, bool is_first_batch, int i,
-                                                             cudaStream_t stream) {
+void HybridSparseEmbedding<dtype, emtype>::index_calculation(bool is_train, bool is_first_batch,
+                                                             int i, cudaStream_t stream) {
   int cur_device = get_local_gpu(i).get_device_id();
   CudaDeviceContext context(cur_device);
 
@@ -524,20 +514,18 @@ void HybridSparseEmbedding<dtype, emtype>::index_calculation(bool is_train, bool
   } else if (!is_train && embedding_params_.use_eval_precompute_indices) {
     // Async indices, need to do nothing at all here
   } else {
-    auto frequent_indices =   (is_train) ?
-        &frequent_embedding_train_indices_[i] :
-        &frequent_embedding_evaluate_indices_[i];
-    auto infrequent_indices = (is_train) ?
-        &infrequent_embedding_train_indices_[i] :
-        &infrequent_embedding_evaluate_indices_[i];
+    auto frequent_indices = (is_train) ? &frequent_embedding_train_indices_[i]
+                                       : &frequent_embedding_evaluate_indices_[i];
+    auto infrequent_indices = (is_train) ? &infrequent_embedding_train_indices_[i]
+                                         : &infrequent_embedding_evaluate_indices_[i];
 
     auto data = (is_train) ? &data_train_[i] : &data_evaluate_[i];
     auto input = (is_train) ? train_input_tensors_[i].get_value_tensor()
                             : evaluate_input_tensors_[i].get_value_tensor();
 
     if (is_first_batch) {
-      auto& before_idx_event  = stream_manager_.get_event (i, "before_idx");
-      auto& set_idx_stream    = stream_manager_.get_stream(i, "set_idx_stream");
+      auto &before_idx_event = stream_manager_.get_event(i, "before_idx");
+      auto &set_idx_stream = stream_manager_.get_stream(i, "set_idx_stream");
       CK_CUDA_THROW_(cudaEventRecord(before_idx_event, stream));
       CK_CUDA_THROW_(cudaStreamWaitEvent(set_idx_stream, before_idx_event));
     }
@@ -546,17 +534,17 @@ void HybridSparseEmbedding<dtype, emtype>::index_calculation(bool is_train, bool
     data->data_to_unique_categories(input, stream);
     PROFILE_RECORD("data_to_unique_categories.stop", stream);
 
-    compute_indices(*frequent_indices, *infrequent_indices, 
-        embedding_params_.communication_type, is_train || is_first_batch,
-        stream, stream_manager_, i, resource_manager_->get_local_gpu(i)->get_sm_count());
+    compute_indices(*frequent_indices, *infrequent_indices, embedding_params_.communication_type,
+                    is_train || is_first_batch, stream, stream_manager_, i,
+                    resource_manager_->get_local_gpu(i)->get_sm_count());
 
-    // Setting the indices involves cudaMemcpy, so we'll only do that 
+    // Setting the indices involves cudaMemcpy, so we'll only do that
     // for the first batch after we switch from train to eval (and from eval to train)
     if (is_first_batch) {
-      auto& set_idx_stream = stream_manager_.get_stream(i, "set_idx_stream");
-      auto& set_idx_event  = stream_manager_.get_event (i, "set_idx");
+      auto &set_idx_stream = stream_manager_.get_stream(i, "set_idx_stream");
+      auto &set_idx_event = stream_manager_.get_event(i, "set_idx");
 
-        frequent_embeddings_[i].set_current_indices(  frequent_indices, stream);
+      frequent_embeddings_[i].set_current_indices(frequent_indices, stream);
       infrequent_embeddings_[i].set_current_indices(infrequent_indices, stream);
 
       CK_CUDA_THROW_(cudaEventRecord(set_idx_event, set_idx_stream));
@@ -567,7 +555,7 @@ void HybridSparseEmbedding<dtype, emtype>::index_calculation(bool is_train, bool
 
 template <typename dtype, typename emtype>
 void HybridSparseEmbedding<dtype, emtype>::forward(bool is_train, bool is_first_batch, int i,
-                                                   cudaStream_t stream, cudaEvent_t* evt_ptr) {
+                                                   cudaStream_t stream, cudaEvent_t *evt_ptr) {
   int cur_device = get_local_gpu(i).get_device_id();
   CudaDeviceContext context(cur_device);
 
@@ -575,22 +563,18 @@ void HybridSparseEmbedding<dtype, emtype>::forward(bool is_train, bool is_first_
 
   PROFILE_RECORD("hybrid_embedding.forward.start", stream, false);
   if (embedding_params_.communication_type == CommunicationType::IB_NVLink) {
-
     // TODO: These copies need to be moved to the index computation
-    CK_CUDA_THROW_(cudaMemcpyAsync(
-        infrequent_embeddings_[i].          model_indices_offsets_.get_ptr(),
-        infrequent_embeddings_[i].indices_->model_indices_offsets_.get_ptr(),
-        infrequent_embeddings_[i].          model_indices_offsets_.get_size_in_bytes(),
-        cudaMemcpyDeviceToDevice,
-        stream));
+    CK_CUDA_THROW_(
+        cudaMemcpyAsync(infrequent_embeddings_[i].model_indices_offsets_.get_ptr(),
+                        infrequent_embeddings_[i].indices_->model_indices_offsets_.get_ptr(),
+                        infrequent_embeddings_[i].model_indices_offsets_.get_size_in_bytes(),
+                        cudaMemcpyDeviceToDevice, stream));
 
-    CK_CUDA_THROW_(cudaMemcpyAsync(
-        infrequent_embeddings_[i].          network_indices_offsets_.get_ptr(),
-        infrequent_embeddings_[i].indices_->network_indices_offsets_.get_ptr(),
-        infrequent_embeddings_[i].          network_indices_offsets_.get_size_in_bytes(),
-        cudaMemcpyDeviceToDevice,
-        stream));
-
+    CK_CUDA_THROW_(
+        cudaMemcpyAsync(infrequent_embeddings_[i].network_indices_offsets_.get_ptr(),
+                        infrequent_embeddings_[i].indices_->network_indices_offsets_.get_ptr(),
+                        infrequent_embeddings_[i].network_indices_offsets_.get_size_in_bytes(),
+                        cudaMemcpyDeviceToDevice, stream));
 
     CK_CUDA_THROW_(cudaStreamSynchronize(stream));
     PROFILE_RECORD("multi_node_fre_forward_network.start", stream, false);
@@ -613,7 +597,6 @@ void HybridSparseEmbedding<dtype, emtype>::forward(bool is_train, bool is_first_
     evt_ptr = nullptr;
 
   } else if (embedding_params_.communication_type == CommunicationType::IB_NVLink_Hier) {
-
     PROFILE_RECORD("multi_node_inf_calculate_model_indices_sizes_from_offsets.start", stream);
     infrequent_embeddings_[i].calculate_model_indices_sizes_from_offsets(stream);
     PROFILE_RECORD("multi_node_inf_calculate_model_indices_sizes_from_offsets.stop", stream);
@@ -632,8 +615,7 @@ void HybridSparseEmbedding<dtype, emtype>::forward(bool is_train, bool is_first_
     PROFILE_RECORD("multi_node_inf_forward_a2a_init.stop", stream);
     // Let's initiate the communication as soon as we can and start every other non-urgent work here
     // This is for network
-    if (is_train) 
-        CK_CUDA_THROW_(cudaEventRecord(*evt_ptr, stream));
+    if (is_train) CK_CUDA_THROW_(cudaEventRecord(*evt_ptr, stream));
 
     // This is for frequent forward network running in a side stream
     auto &stream_side = stream_manager_.get_stream(i, "stream_side");
@@ -736,8 +718,7 @@ void HybridSparseEmbedding<dtype, emtype>::backward_pre_communication(int i, cud
         train_output_tensors_[i].get_ptr(),
         infrequent_backward_comm_buffers_[i].send_buffer.get_ptr(), stream);
     PROFILE_RECORD("multi_node_inf_update_network.stop", stream);
-  }
-  else if (embedding_params_.communication_type == CommunicationType::IB_NVLink_Hier) {
+  } else if (embedding_params_.communication_type == CommunicationType::IB_NVLink_Hier) {
     PROFILE_RECORD("multi_node_inf_fused_intra_update_network.start", stream);
     infrequent_embeddings_[i].fused_intra_update_network(
         train_output_tensors_[i].get_ptr(),
@@ -920,11 +901,11 @@ void HybridSparseEmbedding<dtype, emtype>::update_params() {
 
 template <typename dtype, typename emtype>
 TrainState HybridSparseEmbedding<dtype, emtype>::train(bool is_train, int i, TrainState state) {
-  auto &stream              = stream_manager_.get_stream(i, "main_stream");
-  auto &ready_bot_mlp_fprop = stream_manager_.get_event (i, "ready_bot_mlp_fprop");
-  auto &ready_top_mlp_fprop = stream_manager_.get_event (i, "ready_top_mlp_fprop");
-  auto &finish_backward_pre = stream_manager_.get_event (i, "finish_backward_pre");
-  auto &finish_iteration    = stream_manager_.get_event (i, "finish_iteration");
+  auto &stream = stream_manager_.get_stream(i, "main_stream");
+  auto &ready_bot_mlp_fprop = stream_manager_.get_event(i, "ready_bot_mlp_fprop");
+  auto &ready_top_mlp_fprop = stream_manager_.get_event(i, "ready_top_mlp_fprop");
+  auto &finish_backward_pre = stream_manager_.get_event(i, "finish_backward_pre");
+  auto &finish_iteration = stream_manager_.get_event(i, "finish_iteration");
 
   auto sync = [&state, &stream]() {
     if (state.event) {
@@ -950,13 +931,13 @@ TrainState HybridSparseEmbedding<dtype, emtype>::train(bool is_train, int i, Tra
     case TrainState_t::TopMLPBprop:
       break;
     case TrainState_t::BottomMLPBprop:
-      if (overlap_ar_a2a_){
+      if (overlap_ar_a2a_) {
         sync();
         frequent_local_reduce(i, stream);
       }
       break;
     case TrainState_t::MLPExchangeWgrad:
-      if (!overlap_ar_a2a_){
+      if (!overlap_ar_a2a_) {
         sync();
         frequent_local_reduce(i, stream);
         backward_pre_communication(i, stream);
@@ -965,20 +946,19 @@ TrainState HybridSparseEmbedding<dtype, emtype>::train(bool is_train, int i, Tra
         CK_CUDA_THROW_(cudaEventRecord(finish_backward_pre, stream));
         event_ptr = &finish_backward_pre;
       }
-      if (overlap_ar_a2a_){
+      if (overlap_ar_a2a_) {
         backward_pre_communication(i, stream);
         backward_communications(i, stream);
         backward_post_communication(i, stream);
       }
       break;
     case TrainState_t::MLPUpdate:
-      if (!overlap_ar_a2a_){
+      if (!overlap_ar_a2a_) {
         sync();
         backward_communications(i, stream);
         frequent_update(i, stream);
         backward_post_communication(i, stream);
-      }
-      else{
+      } else {
         sync();
         frequent_update(i, stream);
       }
@@ -1049,21 +1029,18 @@ std::vector<TensorBag2> HybridSparseEmbedding<dtype, emtype>::get_evaluate_outpu
 
 template <typename dtype, typename emtype>
 void HybridSparseEmbedding<dtype, emtype>::compute_indices(
-    FrequentEmbeddingCompression<dtype>& compression,
-    InfrequentEmbeddingSelection<dtype>& selection,
-    CommunicationType communication_type,
-    bool compute_network_cache_indices,
-    cudaStream_t main_stream,
-    StreamManager& manager,
-    int raw_device_id,
-    int sm_count) {
-
-  cudaStream_t stream_frequent_sample_indices = manager.get_stream(raw_device_id, "stream_frequent_sample_indices");
+    FrequentEmbeddingCompression<dtype> &compression,
+    InfrequentEmbeddingSelection<dtype> &selection, CommunicationType communication_type,
+    bool compute_network_cache_indices, cudaStream_t main_stream, StreamManager &manager,
+    int raw_device_id, int sm_count) {
+  cudaStream_t stream_frequent_sample_indices =
+      manager.get_stream(raw_device_id, "stream_frequent_sample_indices");
   cudaStream_t stream_model_indices = manager.get_stream(raw_device_id, "stream_model_indices");
   cudaStream_t stream_network_indices = manager.get_stream(raw_device_id, "stream_network_indices");
 
   cudaEvent_t event_main = manager.get_event(raw_device_id, "event_main");
-  cudaEvent_t event_frequent_sample_indices = manager.get_event(raw_device_id, "event_frequent_sample_indices");
+  cudaEvent_t event_frequent_sample_indices =
+      manager.get_event(raw_device_id, "event_frequent_sample_indices");
   cudaEvent_t event_model_indices = manager.get_event(raw_device_id, "event_model_indices");
   cudaEvent_t event_network_indices = manager.get_event(raw_device_id, "event_network_indices");
 
@@ -1094,11 +1071,15 @@ void HybridSparseEmbedding<dtype, emtype>::compute_indices(
 
   } else {
     cudaStream_t stream_cache_masks = manager.get_stream(raw_device_id, "stream_cache_masks");
-    cudaStream_t stream_network_cache_indices = manager.get_stream(raw_device_id, "stream_network_cache_indices");
-    cudaStream_t stream_model_cache_indices = manager.get_stream(raw_device_id, "stream_model_cache_indices");
+    cudaStream_t stream_network_cache_indices =
+        manager.get_stream(raw_device_id, "stream_network_cache_indices");
+    cudaStream_t stream_model_cache_indices =
+        manager.get_stream(raw_device_id, "stream_model_cache_indices");
     cudaEvent_t event_cache_masks = manager.get_event(raw_device_id, "event_cache_masks");
-    cudaEvent_t event_network_cache_indices = manager.get_event(raw_device_id, "event_network_cache_indices");
-    cudaEvent_t event_model_cache_indices = manager.get_event(raw_device_id, "event_model_cache_indices");
+    cudaEvent_t event_network_cache_indices =
+        manager.get_event(raw_device_id, "event_network_cache_indices");
+    cudaEvent_t event_model_cache_indices =
+        manager.get_event(raw_device_id, "event_model_cache_indices");
 
     CK_CUDA_THROW_(cudaStreamWaitEvent(stream_cache_masks, event_main));
 
@@ -1124,7 +1105,8 @@ void HybridSparseEmbedding<dtype, emtype>::compute_indices(
     // PROFILE_RECORD("single_node_fre_calculate_model_cache_indices.start",
     //                stream_model_cache_indices);
     compression.calculate_model_cache_indices(sm_count, stream_model_cache_indices);
-    // PROFILE_RECORD("single_node_fre_calculate_model_cache_indices.stop", stream_model_cache_indices);
+    // PROFILE_RECORD("single_node_fre_calculate_model_cache_indices.stop",
+    // stream_model_cache_indices);
     CK_CUDA_THROW_(cudaEventRecord(event_model_cache_indices, stream_model_cache_indices));
     CK_CUDA_THROW_(cudaStreamWaitEvent(main_stream, event_model_cache_indices));
   }

@@ -62,7 +62,8 @@ void interaction_layer_test(size_t height, size_t n_emb, size_t in_width,
     buff->reserve(dims, &in_tensor);
     in_tensors.push_back(in_tensor);
 
-    h_ins.push_back(std::vector<T>(in_tensor.get_num_elements(), TypeConvert<T, float>::convert(0.0f)));
+    h_ins.push_back(
+        std::vector<T>(in_tensor.get_num_elements(), TypeConvert<T, float>::convert(0.0f)));
 
     data_sim.fill(h_ins[ni].data(), h_ins[ni].size());
   }

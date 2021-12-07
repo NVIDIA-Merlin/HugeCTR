@@ -57,9 +57,9 @@ class InferenceSessionPy : public InferenceSession {
                                    const std::vector<long long>& slot_size_array);
   std::vector<float>& predict(std::vector<float>& dense, std::vector<long long>& embeddingcolumns,
                               std::vector<int>& row_ptrs);
-  
+
   void refresh_embedding_cache();
-  
+
  private:
   void Initialize(const std::string& model_config_path, const InferenceParams& inference_params,
                   std::shared_ptr<embedding_interface>& embedding_cache);
@@ -565,7 +565,8 @@ void InferencePybind(pybind11::module& m) {
                &HugeCTR::python_lib::InferenceSessionPy::predict),
            pybind11::arg("dense_feature"), pybind11::arg("embeddingcolumns"),
            pybind11::arg("row_ptrs"))
-      .def("refresh_embedding_cache", &HugeCTR::python_lib::InferenceSessionPy::refresh_embedding_cache);
+      .def("refresh_embedding_cache",
+           &HugeCTR::python_lib::InferenceSessionPy::refresh_embedding_cache);
 }
 
 }  // namespace python_lib

@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
+#include "tensorflow/core/framework/common_shape_fns.h"
 #include "tensorflow/core/framework/op.h"
 #include "tensorflow/core/framework/shape_inference.h"
-#include "tensorflow/core/framework/common_shape_fns.h"
 
 using namespace tensorflow;
 using namespace tensorflow::shape_inference;
@@ -24,4 +24,5 @@ using namespace tensorflow::shape_inference;
 REGISTER_OP("Test")
     .Input("x: T")
     .Output("y: T")
-    .Attr("T: numbertype");
+    .Attr("T: numbertype")
+    .Attr("unique_op_name: string = ''");

@@ -14,40 +14,45 @@
  * limitations under the License.
  */
 
+#include "tensorflow/core/framework/common_shape_fns.h"
 #include "tensorflow/core/framework/op.h"
 #include "tensorflow/core/framework/shape_inference.h"
-#include "tensorflow/core/framework/common_shape_fns.h"
 
 using namespace tensorflow;
 using namespace tensorflow::shape_inference;
 
 REGISTER_OP("PluginSparseFprop")
+    .Input("emb_var_handle: resource")
     .Input("emb_handle: variant")
-    .Input("emb_variable: T")
     .Input("values: value_dtype")
-    .Input("indices: int64")
+    .Input("indices: indice_dtype")
     .Input("global_replica_id: int32")
-    .Output("emb_vector: T")
+    .Output("emb_vector: dtype")
     .Attr("slot_num: int")
     .Attr("training: bool")
     .Attr("value_dtype: {int64}")
-    .Attr("T: {float32}")
+    .Attr("indice_dtype: {int64}")
+    .Attr("dtype: type")
     .Attr("unique_op_name: string")
     .SetShapeFn([](InferenceContext* ctx) {
-        ShapeHandle variable_shape;
-        TF_RETURN_IF_ERROR(ctx->WithRank(ctx->input(1), 2, &variable_shape));
-        DimensionHandle emb_vec_size_dim = ctx->Dim(variable_shape, 1);
+      std::vector<ShapeAndType> handle_shape_and_type;
+      TF_RETURN_IF_ERROR(
+          shape_inference::ValidateVariableResourceHandle(ctx, &handle_shape_and_type));
 
-        tensorflow::int64 slot_num = 0;
-        TF_RETURN_IF_ERROR(ctx->GetAttr("slot_num", &slot_num));
-        DimensionHandle slot_num_dim = ctx->MakeDim(slot_num);
-        
-        DimensionHandle batch_dim = ctx->UnknownDim();
+      ShapeHandle variable_shape;
+      TF_RETURN_IF_ERROR(ctx->WithRank(handle_shape_and_type[0].shape, 2, &variable_shape));
+      DimensionHandle emb_vec_size_dim = ctx->Dim(variable_shape, 1);
 
-        ShapeHandle output_shape = ctx->MakeShape({batch_dim, slot_num_dim, emb_vec_size_dim});
-        ctx->set_output(0, output_shape);
+      tensorflow::int64 slot_num = 0;
+      TF_RETURN_IF_ERROR(ctx->GetAttr("slot_num", &slot_num));
+      DimensionHandle slot_num_dim = ctx->MakeDim(slot_num);
 
-        return Status::OK();
+      DimensionHandle batch_dim = ctx->UnknownDim();
+
+      ShapeHandle output_shape = ctx->MakeShape({batch_dim, slot_num_dim, emb_vec_size_dim});
+      ctx->set_output(0, output_shape);
+
+      return Status::OK();
     })
     .Doc(R"doc(
         This op can be used for all kinds of embedding forward propagation,

@@ -1,8 +1,8 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
+#include <limits.h>
 #include <omp.h>
 #include <unistd.h>
-#include <limits.h>
 
 #include <chrono>
 #include <common.hpp>

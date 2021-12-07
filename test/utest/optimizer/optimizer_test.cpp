@@ -14,13 +14,12 @@
  * limitations under the License.
  */
 
+#include "HugeCTR/include/general_buffer2.hpp"
 #include "HugeCTR/include/optimizers/adagrad_optimizer.hpp"
 #include "HugeCTR/include/optimizers/adam_optimizer.hpp"
-#include "HugeCTR/include/optimizers/sgd_optimizer.hpp"
 #include "HugeCTR/include/optimizers/momentum_sgd_optimizer.hpp"
 #include "HugeCTR/include/optimizers/nesterov_optimizer.hpp"
-
-#include "HugeCTR/include/general_buffer2.hpp"
+#include "HugeCTR/include/optimizers/sgd_optimizer.hpp"
 #include "HugeCTR/include/utils.hpp"
 #include "gtest/gtest.h"
 #include "optimizer_cpu.hpp"
@@ -29,25 +28,29 @@ using namespace HugeCTR;
 
 namespace {
 
-template <typename T, template <typename> typename OptimizerGPU, typename ... ARGS>
+template <typename T, template <typename> typename OptimizerGPU, typename... ARGS>
 struct OptimizerGPUFactory {
-  std::unique_ptr<Optimizer> operator()(Tensor2<float>&weight, Tensor2<__half>&weight_half, Tensor2<T>&wgrad, std::shared_ptr<BufferBlock2<T>> opt_buff, ARGS... args) {
-  return std::make_unique<OptimizerGPU<T>>(
-      weight, wgrad, opt_buff, test::get_default_gpu(), args...);
+  std::unique_ptr<Optimizer> operator()(Tensor2<float>& weight, Tensor2<__half>& weight_half,
+                                        Tensor2<T>& wgrad,
+                                        std::shared_ptr<BufferBlock2<T>> opt_buff, ARGS... args) {
+    return std::make_unique<OptimizerGPU<T>>(weight, wgrad, opt_buff, test::get_default_gpu(),
+                                             args...);
   }
 };
 
-template <typename T, typename ... ARGS>
+template <typename T, typename... ARGS>
 struct OptimizerGPUFactory<T, SGDOptimizer, ARGS...> {
-  std::unique_ptr<Optimizer> operator()(Tensor2<float>&weight, Tensor2<__half>&weight_half, Tensor2<T>&wgrad, std::shared_ptr<BufferBlock2<T>> opt_buff, ARGS... args) {
-  return std::make_unique<SGDOptimizer<T>>(
-      weight, weight_half, wgrad, test::get_default_gpu(), args...);
+  std::unique_ptr<Optimizer> operator()(Tensor2<float>& weight, Tensor2<__half>& weight_half,
+                                        Tensor2<T>& wgrad,
+                                        std::shared_ptr<BufferBlock2<T>> opt_buff, ARGS... args) {
+    return std::make_unique<SGDOptimizer<T>>(weight, weight_half, wgrad, test::get_default_gpu(),
+                                             args...);
   }
 };
 
-
-template <typename T, template <typename> typename OptimizerGPU, template <typename> typename OptimizerCPU, typename ... ARGS>
-void optimizer_test(size_t len, int num_update, float threshold, ARGS ... args) {
+template <typename T, template <typename> typename OptimizerGPU,
+          template <typename> typename OptimizerCPU, typename... ARGS>
+void optimizer_test(size_t len, int num_update, float threshold, ARGS... args) {
   std::shared_ptr<GeneralBuffer2<CudaAllocator>> buff = GeneralBuffer2<CudaAllocator>::create();
 
   Tensor2<float> weight;
@@ -59,7 +62,8 @@ void optimizer_test(size_t len, int num_update, float threshold, ARGS ... args) 
 
   std::shared_ptr<BufferBlock2<T>> opt_buff = buff->create_block<T>();
 
-  std::unique_ptr<Optimizer> optimizerGPU = OptimizerGPUFactory<T, OptimizerGPU, ARGS...>()(weight, weight_half, wgrad, opt_buff, args...);
+  std::unique_ptr<Optimizer> optimizerGPU = OptimizerGPUFactory<T, OptimizerGPU, ARGS...>()(
+      weight, weight_half, wgrad, opt_buff, args...);
 
   buff->allocate();
 
@@ -95,14 +99,17 @@ void optimizer_test(size_t len, int num_update, float threshold, ARGS ... args) 
 }  // namespace
 
 TEST(adagrad_test, fp32_ada_grad) {
-  optimizer_test<float, AdaGradOptimizer, AdaGradCPU, float, float, float, float>(1024, 5, 1e-6, 1.f, 0.f, 0.f, 1);
-  optimizer_test<float, AdaGradOptimizer, AdaGradCPU, float, float, float, float>(10240, 5, 1e-6, 1.f, 0.f, 0.f, 1);
+  optimizer_test<float, AdaGradOptimizer, AdaGradCPU, float, float, float, float>(1024, 5, 1e-6,
+                                                                                  1.f, 0.f, 0.f, 1);
+  optimizer_test<float, AdaGradOptimizer, AdaGradCPU, float, float, float, float>(10240, 5, 1e-6,
+                                                                                  1.f, 0.f, 0.f, 1);
 }
 
-
 TEST(adagrad_test, fp16_ada_grad) {
-  optimizer_test<__half, AdaGradOptimizer, AdaGradCPU, float, float, float, float>(1024, 5, 1e-3, 1.f, 0.f, 0.f, 1);
-  optimizer_test<__half, AdaGradOptimizer, AdaGradCPU, float, float, float, float>(10240, 5, 1e-3, 1.f, 0.f, 0.f, 1);
+  optimizer_test<__half, AdaGradOptimizer, AdaGradCPU, float, float, float, float>(
+      1024, 5, 1e-3, 1.f, 0.f, 0.f, 1);
+  optimizer_test<__half, AdaGradOptimizer, AdaGradCPU, float, float, float, float>(
+      10240, 5, 1e-3, 1.f, 0.f, 0.f, 1);
 }
 
 TEST(adam_test, fp32_adam) {
@@ -110,33 +117,37 @@ TEST(adam_test, fp32_adam) {
   optimizer_test<float, AdamOptimizer, AdamCPU>(10240, 5, 1e-6);
 }
 
-
 TEST(adam_test, fp16_adam) {
   optimizer_test<__half, AdamOptimizer, AdamCPU>(1024, 5, 1e-3);
   optimizer_test<__half, AdamOptimizer, AdamCPU>(10240, 5, 1e-3);
 }
 
-
 TEST(momentum_test, fp32_momentum) {
-  optimizer_test<float, MomentumSGDOptimizer, MomentumSGDCPU, float, float, float>(1024, 5, 1e-6, 0.01, 0.9, 1.f);
-  optimizer_test<float, MomentumSGDOptimizer, MomentumSGDCPU, float, float, float>(10240, 5, 1e-6, 0.01, 0.9, 1.f);
+  optimizer_test<float, MomentumSGDOptimizer, MomentumSGDCPU, float, float, float>(1024, 5, 1e-6,
+                                                                                   0.01, 0.9, 1.f);
+  optimizer_test<float, MomentumSGDOptimizer, MomentumSGDCPU, float, float, float>(10240, 5, 1e-6,
+                                                                                   0.01, 0.9, 1.f);
 }
 
-
 TEST(momentum_test, fp16_momentum) {
-  optimizer_test<__half, MomentumSGDOptimizer, MomentumSGDCPU, float, float, float>(1024, 5, 1e-3, 0.01, 0.9, 1.f);
-  optimizer_test<__half, MomentumSGDOptimizer, MomentumSGDCPU, float, float, float>(10240, 5, 1e-3, 0.01, 0.9,  1.f);
+  optimizer_test<__half, MomentumSGDOptimizer, MomentumSGDCPU, float, float, float>(1024, 5, 1e-3,
+                                                                                    0.01, 0.9, 1.f);
+  optimizer_test<__half, MomentumSGDOptimizer, MomentumSGDCPU, float, float, float>(10240, 5, 1e-3,
+                                                                                    0.01, 0.9, 1.f);
 }
 
 TEST(nesterov, fp32_nesterov) {
-  optimizer_test<float, NesterovOptimizer, NesterovCPU, float, float, float>(1024, 5, 1e-6, 0.01, 0.9,  1.f);
-  optimizer_test<float, NesterovOptimizer, NesterovCPU, float, float, float>(10240, 5, 1e-6, 0.01, 0.9, 1.f);
+  optimizer_test<float, NesterovOptimizer, NesterovCPU, float, float, float>(1024, 5, 1e-6, 0.01,
+                                                                             0.9, 1.f);
+  optimizer_test<float, NesterovOptimizer, NesterovCPU, float, float, float>(10240, 5, 1e-6, 0.01,
+                                                                             0.9, 1.f);
 }
 
-
 TEST(nesterov, fp16_nesterov) {
-  optimizer_test<__half, NesterovOptimizer, NesterovCPU, float, float, float>(1024, 5, 1e-3, 0.01, 0.9, 1.f);
-  optimizer_test<__half, NesterovOptimizer, NesterovCPU, float, float, float>(10240, 5, 1e-3, 0.01, 0.9, 1.f);
+  optimizer_test<__half, NesterovOptimizer, NesterovCPU, float, float, float>(1024, 5, 1e-3, 0.01,
+                                                                              0.9, 1.f);
+  optimizer_test<__half, NesterovOptimizer, NesterovCPU, float, float, float>(10240, 5, 1e-3, 0.01,
+                                                                              0.9, 1.f);
 }
 
 TEST(sgd, fp32_sgd) {
@@ -144,9 +155,7 @@ TEST(sgd, fp32_sgd) {
   optimizer_test<float, SGDOptimizer, SGDCPU>(10240, 5, 1e-6);
 }
 
-
 TEST(sgd, fp16_sgd) {
   optimizer_test<__half, SGDOptimizer, SGDCPU>(1024, 5, 1e-3);
   optimizer_test<__half, SGDOptimizer, SGDCPU>(10240, 5, 1e-3);
 }
-

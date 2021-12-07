@@ -167,8 +167,8 @@ void add_sparse_embedding(SparseEmbedding& sparse_embedding,
                           OptParams& embedding_opt_params,
                           std::shared_ptr<ExchangeWgrad>& exchange_wgrad, bool use_cuda_graph,
                           bool grouped_all_reduce, bool use_holistic_cuda_graph,
-                          size_t num_iterations_statistics,
-                          GpuLearningRateSchedulers& gpu_lr_sches, bool overlap_ar_a2a) {
+                          size_t num_iterations_statistics, GpuLearningRateSchedulers& gpu_lr_sches,
+                          bool overlap_ar_a2a) {
 #ifdef ENABLE_MPI
   int num_procs = 1, pid = 0;
   MPI_Comm_rank(MPI_COMM_WORLD, &pid);
@@ -262,7 +262,8 @@ void add_sparse_embedding(SparseEmbedding& sparse_embedding,
           embedding_opt_params};
       embeddings.emplace_back(new HybridSparseEmbedding<TypeKey, TypeFP>(
           sparse_input.train_sparse_tensors, sparse_input.evaluate_sparse_tensors, embedding_params,
-          embed_wgrad_buff, gpu_lr_sches, use_holistic_cuda_graph, resource_manager, overlap_ar_a2a));
+          embed_wgrad_buff, gpu_lr_sches, use_holistic_cuda_graph, resource_manager,
+          overlap_ar_a2a));
       break;
     }
     default:

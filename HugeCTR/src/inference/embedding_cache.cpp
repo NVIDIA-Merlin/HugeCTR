@@ -30,7 +30,8 @@ void merge_emb_vec_async(float* d_vals_merge_dst_ptr, const float* d_vals_retrie
 
 void fill_default_emb_vec_async(float* d_vals_merge_dst_ptr, const float default_emb_vec,
                                 const uint64_t* d_missing_index_ptr, const size_t missing_len,
-                                const size_t emb_vec_size, const size_t BLOCK_SIZE, cudaStream_t stream);
+                                const size_t emb_vec_size, const size_t BLOCK_SIZE,
+                                cudaStream_t stream);
 
 void decompress_emb_vec_async(const float* d_unique_src_ptr, const uint64_t* d_unique_index_ptr,
                               float* d_decompress_dst_ptr, const size_t decompress_len,
@@ -74,12 +75,11 @@ template <typename TypeHashKey>
 embedding_cache<TypeHashKey>::embedding_cache(const std::string& model_config_path,
                                               const InferenceParams& inference_params,
                                               HugectrUtility<TypeHashKey>* parameter_server) {
-  auto b2s = [](const char val) { return val? "True" : "False"; };
+  auto b2s = [](const char val) { return val ? "True" : "False"; };
   HCTR_LOG(INFO, ROOT, "Use GPU embedding cache: %s, cache size percentage: %f\n",
-                    b2s(inference_params.use_gpu_embedding_cache),
-                    inference_params.cache_size_percentage);
+           b2s(inference_params.use_gpu_embedding_cache), inference_params.cache_size_percentage);
   HCTR_LOG(INFO, ROOT, "Configured cache hit rate threshold: %f\n",
-                    inference_params.hit_rate_threshold);
+           inference_params.hit_rate_threshold);
   // Store the configuration
   parameter_server_ = parameter_server;
   cache_config_.use_gpu_embedding_cache_ = inference_params.use_gpu_embedding_cache;
@@ -139,14 +139,16 @@ embedding_cache<TypeHashKey>::embedding_cache(const std::string& model_config_pa
     std::string embedding_type = get_value_from_json<std::string>(j_single_layer, "type");
     if (embedding_type.compare("DistributedSlotSparseEmbeddingHash") == 0) {
       distributed_emb.emplace_back(true);
-      cache_config_.embedding_table_name_.emplace_back(get_value_from_json<std::string>(j_single_layer, "top"));
+      cache_config_.embedding_table_name_.emplace_back(
+          get_value_from_json<std::string>(j_single_layer, "top"));
       const nlohmann::json& embedding_hparam = get_json(j_single_layer, "sparse_embedding_hparam");
       cache_config_.embedding_vec_size_.emplace_back(
           get_value_from_json<size_t>(embedding_hparam, "embedding_vec_size"));
     } else if (embedding_type.compare("LocalizedSlotSparseEmbeddingHash") == 0 ||
                embedding_type.compare("LocalizedSlotSparseEmbeddingOneHot") == 0) {
       distributed_emb.emplace_back(false);
-      cache_config_.embedding_table_name_.emplace_back(get_value_from_json<std::string>(j_single_layer, "top"));
+      cache_config_.embedding_table_name_.emplace_back(
+          get_value_from_json<std::string>(j_single_layer, "top"));
       const nlohmann::json& embedding_hparam = get_json(j_single_layer, "sparse_embedding_hparam");
       cache_config_.embedding_vec_size_.emplace_back(
           get_value_from_json<size_t>(embedding_hparam, "embedding_vec_size"));
@@ -384,14 +386,15 @@ bool embedding_cache<TypeHashKey>::look_up(const void* h_embeddingcolumns,
       }
     }
     // mode 2: Asynchronous
-    else{
+    else {
       acc_emb_vec_offset = 0;
       for (unsigned int i = 0; i < cache_config_.num_emb_table_; i++) {
         // Fill the default emb vec into output buffer
         float* d_vals_merge_dst_ptr = workspace_handler.d_hit_emb_vec_ + acc_emb_vec_offset;
         uint64_t* d_missing_index_ptr =
             workspace_handler.d_missing_index_ + workspace_handler.h_shuffled_embedding_offset_[i];
-        fill_default_emb_vec_async(d_vals_merge_dst_ptr, cache_config_.default_value_for_each_table[i],
+        fill_default_emb_vec_async(d_vals_merge_dst_ptr,
+                                   cache_config_.default_value_for_each_table[i],
                                    d_missing_index_ptr, workspace_handler.h_missing_length_[i],
                                    cache_config_.embedding_vec_size_[i], BLOCK_SIZE_, streams[i]);
 
@@ -430,10 +433,9 @@ bool embedding_cache<TypeHashKey>::look_up(const void* h_embeddingcolumns,
     // Handle the missing keys, mode 2: synchronous
     if (async_insert_flag) {
       std::lock_guard<std::mutex> lock(mutex_);
-      ps_insert_threads_.emplace_back(parameter_server_insert_thread_func_<TypeHashKey>,
-                                      parameter_server_, this, memory_block,
-                                      std::ref(cache_config_), std::ref(insert_streams_),
-                                      std::ref(stream_mutex_));
+      ps_insert_threads_.emplace_back(
+          parameter_server_insert_thread_func_<TypeHashKey>, parameter_server_, this, memory_block,
+          std::ref(cache_config_), std::ref(insert_streams_), std::ref(stream_mutex_));
     }
     return !async_insert_flag;
   } else {
@@ -493,22 +495,21 @@ template <typename TypeHashKey>
 void embedding_cache<TypeHashKey>::Dump(int table_id, void* key_buffer, size_t* length,
                                         size_t start_index, size_t end_index, cudaStream_t stream) {
   // If GPU embedding cache is enabled
-  if(cache_config_.use_gpu_embedding_cache_){
+  if (cache_config_.use_gpu_embedding_cache_) {
     // Check for corner case
-    if(start_index >= cache_config_.num_set_in_cache_[table_id]){
-      CK_THROW_(Error_t::WrongInput,
-                "Error: Invalid value for start_index.");
+    if (start_index >= cache_config_.num_set_in_cache_[table_id]) {
+      CK_THROW_(Error_t::WrongInput, "Error: Invalid value for start_index.");
     }
-    if(end_index <= start_index || end_index > cache_config_.num_set_in_cache_[table_id]){
-      CK_THROW_(Error_t::WrongInput,
-                "Error: Invalid value for end_index.");
+    if (end_index <= start_index || end_index > cache_config_.num_set_in_cache_[table_id]) {
+      CK_THROW_(Error_t::WrongInput, "Error: Invalid value for end_index.");
     }
     // Device Restorer
     CudaDeviceContext dev_restorer;
     // Set CUDA device before doing Dump
     CK_CUDA_THROW_(cudaSetDevice(cache_config_.cuda_dev_id_));
     // Call GPU cache API
-    gpu_emb_caches_[table_id]->Dump((TypeHashKey*)key_buffer, length, start_index, end_index, stream);
+    gpu_emb_caches_[table_id]->Dump((TypeHashKey*)key_buffer, length, start_index, end_index,
+                                    stream);
   }
 }
 
@@ -516,9 +517,9 @@ template <typename TypeHashKey>
 void embedding_cache<TypeHashKey>::Refresh(int table_id, void* key_buffer, float* vec_buffer,
                                            size_t length, cudaStream_t stream) {
   // If GPU embedding cache is enabled
-  if(cache_config_.use_gpu_embedding_cache_){
+  if (cache_config_.use_gpu_embedding_cache_) {
     // Check for corner case
-    if(length == 0){
+    if (length == 0) {
       return;
     }
     // Device Restorer
@@ -526,7 +527,8 @@ void embedding_cache<TypeHashKey>::Refresh(int table_id, void* key_buffer, float
     // Set CUDA device before doing Refresh
     CK_CUDA_THROW_(cudaSetDevice(cache_config_.cuda_dev_id_));
     // Call GPU cache API
-    gpu_emb_caches_[table_id]->Update((TypeHashKey*)key_buffer, length, vec_buffer, stream, SLAB_SIZE);
+    gpu_emb_caches_[table_id]->Update((TypeHashKey*)key_buffer, length, vec_buffer, stream,
+                                      SLAB_SIZE);
   }
 }
 
@@ -618,7 +620,8 @@ embedding_cache_refreshspace embedding_cache<TypeHashKey>::create_refreshspace()
     CK_CUDA_THROW_(cudaHostAlloc((void**)&refreshspace.h_refresh_emb_vec_,
                                  max_num_key_in_buffer * max_embedding_size * sizeof(float),
                                  cudaHostAllocPortable));
-    CK_CUDA_THROW_(cudaHostAlloc((void**)&refreshspace.h_length_, sizeof(size_t),cudaHostAllocPortable));
+    CK_CUDA_THROW_(
+        cudaHostAlloc((void**)&refreshspace.h_length_, sizeof(size_t), cudaHostAllocPortable));
 
     CK_CUDA_THROW_(cudaMalloc((void**)&refreshspace.d_refresh_embeddingcolumns_,
                               max_num_key_in_buffer * sizeof(TypeHashKey)));

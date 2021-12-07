@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
+#include <embedding_training_cache/parameter_server.hpp>
 #include <experimental/filesystem>
 #include <fstream>
-#include <embedding_training_cache/parameter_server.hpp>
 
 namespace fs = std::experimental::filesystem;
 

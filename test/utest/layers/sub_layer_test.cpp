@@ -15,9 +15,12 @@
  */
 
 #include "HugeCTR/include/layers/sub_layer.hpp"
+
 #include <gtest/gtest.h>
 #include <utest/test_utils.h>
+
 #include <vector>
+
 #include "HugeCTR/include/utils.hpp"
 
 using namespace std;

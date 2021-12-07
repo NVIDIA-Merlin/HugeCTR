@@ -75,7 +75,8 @@ void elementwise_multiply_dgrad_cpu(const T *top_grad, T **dgrad, size_t size, s
 }
 
 template <typename T>
-void elementwise_multiply_test(size_t batch_size, size_t slot_num, size_t embedding_vec_size, size_t num) {
+void elementwise_multiply_test(size_t batch_size, size_t slot_num, size_t embedding_vec_size,
+                               size_t num) {
   std::shared_ptr<GeneralBuffer2<CudaAllocator>> buff = GeneralBuffer2<CudaAllocator>::create();
 
   vector<size_t> dims_in = {batch_size, slot_num, embedding_vec_size};
@@ -91,7 +92,8 @@ void elementwise_multiply_test(size_t batch_size, size_t slot_num, size_t embedd
   Tensor2<T> out_tensor;
   buff->reserve(dims_out, &out_tensor);
 
-  ElementwiseMultiplyLayer<T> elementwise_multiply_layer(in_tensors, out_tensor, buff, test::get_default_gpu());
+  ElementwiseMultiplyLayer<T> elementwise_multiply_layer(in_tensors, out_tensor, buff,
+                                                         test::get_default_gpu());
 
   buff->allocate();
   elementwise_multiply_layer.initialize();
@@ -156,9 +158,21 @@ void elementwise_multiply_test(size_t batch_size, size_t slot_num, size_t embedd
 
 }  // namespace
 
-TEST(elementwise_multiply_layer, fp32_40960x1x1) { elementwise_multiply_test<float>(40960, 1, 1, 3); }
-TEST(elementwise_multiply_layer, fp16_40960x1x1) { elementwise_multiply_test<__half>(40960, 1, 1, 3); }
-TEST(elementwise_multiply_layer, fp32_40960x4x3) { elementwise_multiply_test<float>(40960, 4, 3, 3); }
-TEST(elementwise_multiply_layer, fp16_40960x4x3) { elementwise_multiply_test<__half>(40960, 4, 3, 3); }
-TEST(elementwise_multiply_layer, fp32_4096x4x256) { elementwise_multiply_test<float>(4096, 4, 256, 3); }
-TEST(elementwise_multiply_layer, fp16_4096x4x256) { elementwise_multiply_test<__half>(4096, 4, 256, 3); }
+TEST(elementwise_multiply_layer, fp32_40960x1x1) {
+  elementwise_multiply_test<float>(40960, 1, 1, 3);
+}
+TEST(elementwise_multiply_layer, fp16_40960x1x1) {
+  elementwise_multiply_test<__half>(40960, 1, 1, 3);
+}
+TEST(elementwise_multiply_layer, fp32_40960x4x3) {
+  elementwise_multiply_test<float>(40960, 4, 3, 3);
+}
+TEST(elementwise_multiply_layer, fp16_40960x4x3) {
+  elementwise_multiply_test<__half>(40960, 4, 3, 3);
+}
+TEST(elementwise_multiply_layer, fp32_4096x4x256) {
+  elementwise_multiply_test<float>(4096, 4, 256, 3);
+}
+TEST(elementwise_multiply_layer, fp16_4096x4x256) {
+  elementwise_multiply_test<__half>(4096, 4, 256, 3);
+}

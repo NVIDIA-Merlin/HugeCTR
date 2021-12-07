@@ -77,11 +77,11 @@ class embedding_cache : public embedding_interface {
   virtual void update(embedding_cache_workspace& workspace_handler,
                       const std::vector<cudaStream_t>& streams);
 
-  virtual void Dump(int table_id, void* key_buffer, size_t* length, size_t start_index, size_t end_index,
-                  cudaStream_t stream);
+  virtual void Dump(int table_id, void* key_buffer, size_t* length, size_t start_index,
+                    size_t end_index, cudaStream_t stream);
 
   virtual void Refresh(int table_id, void* key_buffer, float* vec_buffer, size_t length,
-                  cudaStream_t stream);
+                       cudaStream_t stream);
 
   virtual void finalize();
 

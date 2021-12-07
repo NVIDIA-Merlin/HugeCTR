@@ -25,12 +25,13 @@ namespace HugeCTR {
  * computation to enable better overlap within the pipeline.
  */
 class IDataReaderWithScheduling : public IDataReader {
-public:
-    virtual void schedule_precompute_here(cudaStream_t stream, int raw_device_id, bool from_graph) = 0;
-    virtual void schedule_d2d_here(cudaStream_t stream, int raw_device_id, bool from_graph) = 0;
-    virtual void schedule_here(cudaStream_t stream, int raw_device_id) = 0;
-    virtual void schedule_here_graph(cudaStream_t stream, int raw_device_id) = 0;
-    virtual void update_schedule_graph(int raw_device_id) = 0;
+ public:
+  virtual void schedule_precompute_here(cudaStream_t stream, int raw_device_id,
+                                        bool from_graph) = 0;
+  virtual void schedule_d2d_here(cudaStream_t stream, int raw_device_id, bool from_graph) = 0;
+  virtual void schedule_here(cudaStream_t stream, int raw_device_id) = 0;
+  virtual void schedule_here_graph(cudaStream_t stream, int raw_device_id) = 0;
+  virtual void update_schedule_graph(int raw_device_id) = 0;
 };
 
-} // namespace HugeCTR
+}  // namespace HugeCTR

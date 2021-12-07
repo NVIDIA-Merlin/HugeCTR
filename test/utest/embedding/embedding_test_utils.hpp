@@ -20,9 +20,9 @@
 
 #include <cmath>
 #include <fstream>
+#include <memory>
 #include <type_traits>
 #include <unordered_set>
-#include <memory>
 
 #include "HugeCTR/include/common.hpp"
 #include "utest/embedding/sparse_embedding_hash_cpu.hpp"
@@ -353,14 +353,15 @@ bool compare_hash_table(long long capacity, TypeHashKey *hash_table_key_from_gpu
 }
 
 template <typename TypeKey, typename TypeSlot>
-bool compare_key_slot(long long capacity,
-    TypeKey *hash_table_key_from_gpu, TypeSlot *slot_id_from_gpu,
-    TypeKey *hash_table_key_from_cpu, TypeSlot *slot_id_from_cpu) {
+bool compare_key_slot(long long capacity, TypeKey *hash_table_key_from_gpu,
+                      TypeSlot *slot_id_from_gpu, TypeKey *hash_table_key_from_cpu,
+                      TypeSlot *slot_id_from_cpu) {
   bool rtn = true;
 
   // Since the <key1,value1> and <key2,value2> is not the same ordered, we need to insert <key1,
   // value1> into a hash_table, then compare value1=hash_table->get(key2) with value2
-  std::unique_ptr<HashTableCpu<TypeKey, TypeSlot>> hash_table(new HashTableCpu<TypeKey, TypeSlot>());
+  std::unique_ptr<HashTableCpu<TypeKey, TypeSlot>> hash_table(
+      new HashTableCpu<TypeKey, TypeSlot>());
   hash_table->insert(hash_table_key_from_gpu, slot_id_from_gpu, capacity);
 
   TypeKey *key;

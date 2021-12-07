@@ -25,7 +25,7 @@ using namespace HugeCTR;
 
 namespace {
 
-constexpr float eps = 1e-4; // Epsilon for CPU computation
+constexpr float eps = 1e-4;  // Epsilon for CPU computation
 
 // Eps type for error
 template <typename T>

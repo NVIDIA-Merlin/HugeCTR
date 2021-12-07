@@ -122,7 +122,7 @@ void Loss<T>::compute(bool is_train, long long current_batchsize) {
 template <typename T>
 void Loss<T>::initialize_wgrad_async() {
   if (regularizer_->get_overlapped()) {
-	regularizer_->initialize_wgrad_async();
+    regularizer_->initialize_wgrad_async();
   }
 }
 
@@ -334,14 +334,11 @@ void MultiCrossEntropyLoss<T>::do_compute(T *input, const float *label, float *l
 }
 
 template <typename T>
-MultiCrossEntropyLoss<T>::MultiCrossEntropyLoss(const Tensor2<float> &label_tensor,
-                                                const Tensor2<T> &input_tensor,
-                                                const Tensor2<float> &loss_tensor,
-                                                const std::shared_ptr<Regularizer<T>> &regularizer,
-                                                const std::vector<float> &target_weight,
-                                                const std::shared_ptr<GPUResource> &gpu_resource,
-                                                int total_gpu_count, float scaler,
-                                                bool gen_loss_summary)
+MultiCrossEntropyLoss<T>::MultiCrossEntropyLoss(
+    const Tensor2<float> &label_tensor, const Tensor2<T> &input_tensor,
+    const Tensor2<float> &loss_tensor, const std::shared_ptr<Regularizer<T>> &regularizer,
+    const std::vector<float> &target_weight, const std::shared_ptr<GPUResource> &gpu_resource,
+    int total_gpu_count, float scaler, bool gen_loss_summary)
     : Loss<T>(label_tensor, input_tensor, loss_tensor, regularizer, gpu_resource, total_gpu_count,
               scaler, gen_loss_summary) {
   if (label_tensor.get_dimensions().size() != 2 || input_tensor.get_dimensions().size() != 2 ||

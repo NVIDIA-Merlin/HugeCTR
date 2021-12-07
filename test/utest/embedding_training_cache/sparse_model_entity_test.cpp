@@ -14,10 +14,13 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-#include <algorithm>
-#include "utest/embedding_training_cache/etc_test_utils.hpp"
 #include "HugeCTR/include/embedding_training_cache/sparse_model_entity.hpp"
+
+#include <gtest/gtest.h>
+
+#include <algorithm>
+
+#include "utest/embedding_training_cache/etc_test_utils.hpp"
 
 using namespace HugeCTR;
 using namespace etc_test;
@@ -54,20 +57,19 @@ const int batch_num_eval = 1;
 
 template <typename TypeKey>
 void sparse_model_entity_test(int batch_num_train, bool is_distributed) {
-  Embedding_t embedding_type = is_distributed ? Embedding_t::DistributedSlotSparseEmbeddingHash :
-                                                Embedding_t::LocalizedSlotSparseEmbeddingHash;
+  Embedding_t embedding_type = is_distributed ? Embedding_t::DistributedSlotSparseEmbeddingHash
+                                              : Embedding_t::LocalizedSlotSparseEmbeddingHash;
 
   // create a resource manager for a single GPU
   std::vector<std::vector<int>> vvgpu;
   vvgpu.push_back({0});
   const auto resource_manager = ResourceManagerExt::create(vvgpu, 0);
 
-  generate_sparse_model<TypeKey, check>(snapshot_src_file, snapshot_dst_file,
-      snapshot_bkp_file_unsigned, snapshot_bkp_file_longlong,
-      file_list_name_train, file_list_name_eval, prefix, num_files, label_dim,
-      dense_dim, slot_num, max_nnz_per_slot, max_feature_num,
-      vocabulary_size, emb_vec_size, combiner, scaler, num_workers, batchsize,
-      batch_num_train, batch_num_eval, update_type, resource_manager);
+  generate_sparse_model<TypeKey, check>(
+      snapshot_src_file, snapshot_dst_file, snapshot_bkp_file_unsigned, snapshot_bkp_file_longlong,
+      file_list_name_train, file_list_name_eval, prefix, num_files, label_dim, dense_dim, slot_num,
+      max_nnz_per_slot, max_feature_num, vocabulary_size, emb_vec_size, combiner, scaler,
+      num_workers, batchsize, batch_num_train, batch_num_eval, update_type, resource_manager);
   copy_sparse_model(snapshot_src_file, snapshot_dst_file);
 
   auto get_ext_file = [](const std::string& sparse_model_file, std::string ext) {
@@ -77,7 +79,7 @@ void sparse_model_entity_test(int batch_num_train, bool is_distributed) {
   BufferBag buf_bag;
   {
     std::shared_ptr<GeneralBuffer2<CudaHostAllocator>> blobs_buff =
-      GeneralBuffer2<CudaHostAllocator>::create();
+        GeneralBuffer2<CudaHostAllocator>::create();
 
     Tensor2<TypeKey> tensor_keys;
     Tensor2<size_t> tensor_slot_id;
@@ -90,10 +92,10 @@ void sparse_model_entity_test(int batch_num_train, bool is_distributed) {
     buf_bag.keys = tensor_keys.shrink();
     buf_bag.slot_id = tensor_slot_id.shrink();
   }
-  float *emb_ptr = buf_bag.embedding.get_ptr();
+  float* emb_ptr = buf_bag.embedding.get_ptr();
 
-  HugeCTR::SparseModelEntity<TypeKey> sparse_model_entity(snapshot_dst_file,
-    embedding_type, emb_vec_size, resource_manager);
+  HugeCTR::SparseModelEntity<TypeKey> sparse_model_entity(snapshot_dst_file, embedding_type,
+                                                          emb_vec_size, resource_manager);
 
   // test load_vec_by_key
   MESSAGE_("[TEST] sparse_model_entity::load_vec_by_key");
@@ -109,47 +111,48 @@ void sparse_model_entity_test(int batch_num_train, bool is_distributed) {
 
   std::vector<float> vec_in_file(num_keys * emb_vec_size);
   std::ifstream vec_ifs(get_ext_file(snapshot_dst_file, "emb_vector"));
-  vec_ifs.read(reinterpret_cast<char *>(vec_in_file.data()), vec_file_size_in_byte);
+  vec_ifs.read(reinterpret_cast<char*>(vec_in_file.data()), vec_file_size_in_byte);
 
   // load all embedding features
   size_t hit_size;
   sparse_model_entity.load_vec_by_key(key_in_file, buf_bag, hit_size);
   ASSERT_EQ(hit_size, key_in_file.size());
 
-  ASSERT_TRUE(test::compare_array_approx<char>(reinterpret_cast<char *>(vec_in_file.data()),
-      reinterpret_cast<char *>(emb_ptr), vec_in_file.size() * sizeof(float), 0));
+  ASSERT_TRUE(test::compare_array_approx<char>(reinterpret_cast<char*>(vec_in_file.data()),
+                                               reinterpret_cast<char*>(emb_ptr),
+                                               vec_in_file.size() * sizeof(float), 0));
 
-    std::vector<long long> key_ll(key_in_file.size());
-    std::transform(key_in_file.begin(), key_in_file.end(), key_ll.begin(), [](TypeKey key) {
-      return static_cast<long long>(key);
-    });
+  std::vector<long long> key_ll(key_in_file.size());
+  std::transform(key_in_file.begin(), key_in_file.end(), key_ll.begin(),
+                 [](TypeKey key) { return static_cast<long long>(key); });
 
-    auto key_vec_pair = sparse_model_entity.load_vec_by_key(key_ll);
-    ASSERT_EQ(key_vec_pair.first.size(), key_in_file.size());
-    ASSERT_TRUE(test::compare_array_approx<char>(reinterpret_cast<char *>(vec_in_file.data()),
-        reinterpret_cast<char *>(key_vec_pair.second.data()), vec_in_file.size() * sizeof(float), 0));
+  auto key_vec_pair = sparse_model_entity.load_vec_by_key(key_ll);
+  ASSERT_EQ(key_vec_pair.first.size(), key_in_file.size());
+  ASSERT_TRUE(test::compare_array_approx<char>(reinterpret_cast<char*>(vec_in_file.data()),
+                                               reinterpret_cast<char*>(key_vec_pair.second.data()),
+                                               vec_in_file.size() * sizeof(float), 0));
 
   std::vector<size_t> slot_in_file(num_keys);
   if (!is_distributed) {
     size_t slot_file_size_in_byte = fs::file_size(get_ext_file(snapshot_dst_file, "slot_id"));
     std::ifstream slot_ifs(get_ext_file(snapshot_dst_file, "slot_id"));
-    slot_ifs.read(reinterpret_cast<char *>(slot_in_file.data()), slot_file_size_in_byte);
+    slot_ifs.read(reinterpret_cast<char*>(slot_in_file.data()), slot_file_size_in_byte);
 
-    size_t *slot_id_ptr = Tensor2<size_t>::stretch_from(buf_bag.slot_id).get_ptr();
-    ASSERT_TRUE(test::compare_array_approx<size_t>(slot_in_file.data(), slot_id_ptr,
-        hit_size, 0));
+    size_t* slot_id_ptr = Tensor2<size_t>::stretch_from(buf_bag.slot_id).get_ptr();
+    ASSERT_TRUE(test::compare_array_approx<size_t>(slot_in_file.data(), slot_id_ptr, hit_size, 0));
   }
 
   MESSAGE_("[TEST] sparse_model_entity::dump_vec_by_key");
   std::default_random_engine generator;
   std::uniform_real_distribution<float> real_distribution(0.0f, 1.0f);
   auto gen_real_rand_op = [&generator, &real_distribution](float& elem) {
-    elem = real_distribution(generator); };
+    elem = real_distribution(generator);
+  };
   for_each(vec_in_file.begin(), vec_in_file.end(), gen_real_rand_op);
   memcpy(emb_ptr, vec_in_file.data(), vec_in_file.size() * sizeof(float));
   {
     std::ofstream vec_ofs(get_ext_file(snapshot_src_file, "emb_vector"), std::ofstream::trunc);
-    vec_ofs.write(reinterpret_cast<char *>(vec_in_file.data()), vec_in_file.size() * sizeof(float));
+    vec_ofs.write(reinterpret_cast<char*>(vec_in_file.data()), vec_in_file.size() * sizeof(float));
   }
 
   // dump all embedding features
@@ -182,8 +185,8 @@ void sparse_model_entity_test(int batch_num_train, bool is_distributed) {
   sparse_model_entity.flush_emb_tbl_to_ssd();
 
   {
-    HugeCTR::SparseModelFile<TypeKey> sparse_model_file(snapshot_src_file,
-          embedding_type, emb_vec_size, resource_manager);
+    HugeCTR::SparseModelFile<TypeKey> sparse_model_file(snapshot_src_file, embedding_type,
+                                                        emb_vec_size, resource_manager);
 
     std::vector<size_t> vec_indices(selt_keys.size());
     iota(vec_indices.begin(), vec_indices.end(), 0);

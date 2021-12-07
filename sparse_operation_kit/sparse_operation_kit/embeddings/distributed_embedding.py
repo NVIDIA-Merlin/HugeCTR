@@ -18,8 +18,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from sparse_operation_kit.kit_lib import create_embedding_sparse, plugin_sparse_fprop
-from sparse_operation_kit.core.embedding_variable import EmbeddingVariable
+from sparse_operation_kit.core import EmbeddingVariable
+from sparse_operation_kit.core import SparseEmbeddingLayerHandle
 from sparse_operation_kit.embeddings import embedding_ops
 from tensorflow.distribute import has_strategy
 import tensorflow as tf
@@ -55,7 +55,9 @@ class DistributedEmbedding(tf.keras.layers.Layer):
             to :math:`max\_feature\_num=slot\_num*max\_nnz`.
     use_hashtable: boolean = True
             whether using `Hashtable` in ``EmbeddingVariable``, if `True`,
-            Hashtable will be created for dynamic insertion.
+            Hashtable will be created for dynamic insertion. Otherwise, the input keys
+            will be used as the index for embedding vector looking-up, so that input keys
+            must be in the range ``[0, max_vocabulary_size_per_gpu * gpu_num)``.
 
     Examples
     --------
@@ -89,23 +91,21 @@ class DistributedEmbedding(tf.keras.layers.Layer):
         self.slot_num = slot_num
         self.max_nnz = max_nnz
         self.max_feature_num = max_feature_num
-        self.comm_tool = None if has_strategy() else "Horovod"
 
         self.var = EmbeddingVariable.CreateInstances(
                                 shape=[self.max_vocabulary_size_per_gpu, self.embedding_vec_size],
                                 trainable=True,
                                 use_hashtable=use_hashtable)
-        emb_handle = self.var.emb_handle if isinstance(self.var, EmbeddingVariable) else self.var.values[0].emb_handle
 
-        self.emb = create_embedding_sparse(emb_handle,
-                                           input_dispatcher="all_gather_dispatcher",
-                                           input_dispatcher_subsequent_ops=["csr_conversion_distributed"],
-                                           embedding_executor="distributed",
-                                           output_dispatcher="reduce_scatter_dispatcher",
-                                           slot_num=self.slot_num, 
-                                           max_nnz=self.max_nnz,
-                                           max_feature_num=self.max_feature_num,
-                                           combiner=self.combiner)
+        self.emb_layer = SparseEmbeddingLayerHandle(self.var,
+                                                    input_dispatcher="all_gather_dispatcher",
+                                                    input_dispatcher_subsequent_ops=["csr_conversion_distributed"],
+                                                    embedding_executor="distributed",
+                                                    output_dispatcher="reduce_scatter_dispatcher",
+                                                    slot_num=self.slot_num, 
+                                                    max_nnz=self.max_nnz,
+                                                    max_feature_num=self.max_feature_num,
+                                                    combiner=self.combiner)
 
     @property
     def embedding_variable(self):
@@ -141,18 +141,9 @@ class DistributedEmbedding(tf.keras.layers.Layer):
                 the embedding vectors for the input keys. Its shape is
                 *[batchsize, slot_num, embedding_vec_size]*
         """
-        if not isinstance(inputs, tf.SparseTensor):
-            raise TypeError("inputs must be SparseTensor")
-
-        values = inputs.values
-        row_indices = tf.transpose(inputs.indices, perm=[1, 0])[0]
-
-        # option 2, return grad for self.emb
-        emb_vector = plugin_sparse_fprop(self.emb, 
-                                         self.var,
-                                         values, row_indices, 
-                                         embedding_ops.get_global_replica_id(self.comm_tool),
-                                         slot_num=self.slot_num,
-                                         training=training, 
-                                         unique_op_name=self.var.name)
+        emb_vector = embedding_ops.embedding_lookup_sparse(
+                                        embedding_variable=self.var, 
+                                        sp_ids=inputs, 
+                                        slot_num=self.slot_num,
+                                        training=training)
         return emb_vector

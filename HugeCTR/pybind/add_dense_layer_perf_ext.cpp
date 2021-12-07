@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <HugeCTR/pybind/model_perf_ext.hpp>
 #include <HugeCTR/pybind/model.hpp>
+#include <HugeCTR/pybind/model_perf_ext.hpp>
 #include <layer.hpp>
 #include <layers/add_layer.hpp>
 #include <layers/batch_norm_layer.hpp>
@@ -56,7 +56,6 @@
 #endif
 
 namespace HugeCTR {
-
 
 struct InputOutputInfo {
   std::vector<TensorBag2> inputs;
@@ -118,22 +117,18 @@ static std::shared_ptr<Regularizer<T>> create_regularizer(
   return reg;
 }
 
-void ModelPerfExt::add_dense_layer_internal(DenseLayer& dense_layer, std::vector<TensorEntry>& tensor_entries,
-                              const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
-                              const std::shared_ptr<BufferBlock2<float>>& weight_buff,
-                              const std::shared_ptr<BufferBlock2<__half>>& weight_buff_half,
-                              const std::shared_ptr<BufferBlock2<float>>& wgrad_buff,
-                              const std::shared_ptr<BufferBlock2<__half>>& wgrad_buff_half,
-                              Tensor2<float>& loss_tensor,
-                              std::vector<std::unique_ptr<Layer>>& layers,
-                              std::unique_ptr<ILoss>& loss, bool enable_cuda_graph,
-                              bool async_mlp_wgrad,
-                              metrics::RawMetricMap* raw_metrics, int num_networks_in_global,
-                              const std::shared_ptr<GPUResource>& gpu_resource,
-                              bool use_mixed_precision, bool enable_tf32_compute, float scaler,
-                              bool use_algorithm_search, std::vector<Layer*>* top_layers,
-                              std::vector<Layer*>* bottom_layers,
-                              bool dlrm_bottom_mlp) {
+void ModelPerfExt::add_dense_layer_internal(
+    DenseLayer& dense_layer, std::vector<TensorEntry>& tensor_entries,
+    const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
+    const std::shared_ptr<BufferBlock2<float>>& weight_buff,
+    const std::shared_ptr<BufferBlock2<__half>>& weight_buff_half,
+    const std::shared_ptr<BufferBlock2<float>>& wgrad_buff,
+    const std::shared_ptr<BufferBlock2<__half>>& wgrad_buff_half, Tensor2<float>& loss_tensor,
+    std::vector<std::unique_ptr<Layer>>& layers, std::unique_ptr<ILoss>& loss,
+    bool enable_cuda_graph, bool async_mlp_wgrad, metrics::RawMetricMap* raw_metrics,
+    int num_networks_in_global, const std::shared_ptr<GPUResource>& gpu_resource,
+    bool use_mixed_precision, bool enable_tf32_compute, float scaler, bool use_algorithm_search,
+    std::vector<Layer*>* top_layers, std::vector<Layer*>* bottom_layers, bool dlrm_bottom_mlp) {
   bool skip_dgrad = layers.size() == 0;
   Layer_t layer_type = dense_layer.layer_type;
   const auto& layer_type_to_string =
@@ -189,30 +184,28 @@ void ModelPerfExt::add_dense_layer_internal(DenseLayer& dense_layer, std::vector
       blobs_buff->reserve({1, 1}, &loss_tensor);
       if (use_mixed_precision) {
         Tensor2<__half> in_tensor = Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
-        auto regularizer =
-            create_regularizer(dense_layer.use_regularizer, dense_layer.regularizer_type,
-                               dense_layer.lambda, weight_buff->as_tensor(),
-                               wgrad_buff_half->as_tensor(), in_tensor.get_dimensions()[0],
-                               gpu_resource);
+        auto regularizer = create_regularizer(
+            dense_layer.use_regularizer, dense_layer.regularizer_type, dense_layer.lambda,
+            weight_buff->as_tensor(), wgrad_buff_half->as_tensor(), in_tensor.get_dimensions()[0],
+            gpu_resource);
         if (true == solver_.overlap_init_wgrad) {
           regularizer->set_overlapped();
         }
         loss.reset(new BinaryCrossEntropyLoss<__half>(
-            label_tensor, in_tensor, loss_tensor, regularizer,
-            gpu_resource, num_networks_in_global, scaler, solver_.gen_loss_summary));
+            label_tensor, in_tensor, loss_tensor, regularizer, gpu_resource, num_networks_in_global,
+            scaler, solver_.gen_loss_summary));
       } else {
         Tensor2<float> in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
-        auto regularizer =
-            create_regularizer(dense_layer.use_regularizer, dense_layer.regularizer_type,
-                               dense_layer.lambda, weight_buff->as_tensor(),
-                               wgrad_buff->as_tensor(), in_tensor.get_dimensions()[0],
-                               gpu_resource);
+        auto regularizer = create_regularizer(dense_layer.use_regularizer,
+                                              dense_layer.regularizer_type, dense_layer.lambda,
+                                              weight_buff->as_tensor(), wgrad_buff->as_tensor(),
+                                              in_tensor.get_dimensions()[0], gpu_resource);
         if (true == solver_.overlap_init_wgrad) {
           regularizer->set_overlapped();
         }
         loss.reset(new BinaryCrossEntropyLoss<float>(
-            label_tensor, in_tensor, loss_tensor, regularizer,
-            gpu_resource, num_networks_in_global, scaler, solver_.gen_loss_summary));
+            label_tensor, in_tensor, loss_tensor, regularizer, gpu_resource, num_networks_in_global,
+            scaler, solver_.gen_loss_summary));
       }
       break;
     }
@@ -863,28 +856,28 @@ void ModelPerfExt::add_dense_layer_internal(DenseLayer& dense_layer, std::vector
   }
 }
 
-void ModelPerfExt::add_dense_layer(
-    DenseLayer& dense_layer) {
+void ModelPerfExt::add_dense_layer(DenseLayer& dense_layer) {
   for (size_t i = 0; i < resource_manager_->get_local_gpu_count(); i++) {
     // add dense layer for train
     add_dense_layer_internal(
         dense_layer, train_tensor_entries_list_[i], blobs_buff_list_[i], train_weight_buff_list_[i],
         train_weight_buff_half_list_[i], wgrad_buff_list_[i], wgrad_buff_half_list_[i],
         networks_[i]->train_loss_tensor_, networks_[i]->train_layers_, networks_[i]->train_loss_,
-        networks_[i]->enable_cuda_graph_, solver_.async_mlp_wgrad, nullptr, resource_manager_->get_global_gpu_count(),
-        resource_manager_->get_local_gpu(i), solver_.use_mixed_precision, solver_.enable_tf32_compute, solver_.scaler,
+        networks_[i]->enable_cuda_graph_, solver_.async_mlp_wgrad, nullptr,
+        resource_manager_->get_global_gpu_count(), resource_manager_->get_local_gpu(i),
+        solver_.use_mixed_precision, solver_.enable_tf32_compute, solver_.scaler,
         solver_.use_algorithm_search, &networks_[i]->top_layers_, &networks_[i]->bottom_layers_,
         dlrm_bottom_mlp_);
     // add dense layer for evaluation
-    add_dense_layer_internal(dense_layer, evaluate_tensor_entries_list_[i], blobs_buff_list_[i],
-                             evaluate_weight_buff_list_[i], evaluate_weight_buff_half_list_[i],
-                             wgrad_buff_placeholder_list_[i], wgrad_buff_half_placeholder_list_[i],
-                             networks_[i]->evaluate_loss_tensor_, networks_[i]->evaluate_layers_,
-                             networks_[i]->evaluate_loss_, networks_[i]->enable_cuda_graph_,
-                             solver_.async_mlp_wgrad,
-                             &(networks_[i]->raw_metrics_), resource_manager_->get_global_gpu_count(),
-                             resource_manager_->get_local_gpu(i), solver_.use_mixed_precision,
-                             solver_.enable_tf32_compute, solver_.scaler, solver_.use_algorithm_search);
+    add_dense_layer_internal(
+        dense_layer, evaluate_tensor_entries_list_[i], blobs_buff_list_[i],
+        evaluate_weight_buff_list_[i], evaluate_weight_buff_half_list_[i],
+        wgrad_buff_placeholder_list_[i], wgrad_buff_half_placeholder_list_[i],
+        networks_[i]->evaluate_loss_tensor_, networks_[i]->evaluate_layers_,
+        networks_[i]->evaluate_loss_, networks_[i]->enable_cuda_graph_, solver_.async_mlp_wgrad,
+        &(networks_[i]->raw_metrics_), resource_manager_->get_global_gpu_count(),
+        resource_manager_->get_local_gpu(i), solver_.use_mixed_precision,
+        solver_.enable_tf32_compute, solver_.scaler, solver_.use_algorithm_search);
   }
 }
 

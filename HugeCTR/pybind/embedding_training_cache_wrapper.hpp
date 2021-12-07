@@ -77,10 +77,9 @@ HMemCacheConfig CreateHMemCache(size_t num_blocks, double target_hit_rate, size_
   return HMemCacheConfig(num_blocks, target_hit_rate, max_num_evict);
 }
 
-std::shared_ptr<EmbeddingTrainingCacheParams> CreateETC(std::vector<TrainPSType_t>& ps_types,
-                                                     std::vector<std::string>& sparse_models,
-                                                     std::vector<std::string>& local_paths,
-                                                     std::vector<HMemCacheConfig>& hcache_configs) {
+std::shared_ptr<EmbeddingTrainingCacheParams> CreateETC(
+    std::vector<TrainPSType_t>& ps_types, std::vector<std::string>& sparse_models,
+    std::vector<std::string>& local_paths, std::vector<HMemCacheConfig>& hcache_configs) {
   std::shared_ptr<EmbeddingTrainingCacheParams> etc_params;
   check_sparse_models(sparse_models);
 
@@ -137,14 +136,15 @@ void EmbeddingTrainingCachePybind(pybind11::module& m) {
   pybind11::class_<HugeCTR::EmbeddingTrainingCacheParams,
                    std::shared_ptr<HugeCTR::EmbeddingTrainingCacheParams>>(
       m, "EmbeddingTrainingCacheParams");
-  pybind11::class_<HugeCTR::EmbeddingTrainingCache, std::shared_ptr<HugeCTR::EmbeddingTrainingCache>>(
-      m, "EmbeddingTrainingCache")
-      .def("update", pybind11::overload_cast<std::string&>(&HugeCTR::EmbeddingTrainingCache::update),
+  pybind11::class_<HugeCTR::EmbeddingTrainingCache,
+                   std::shared_ptr<HugeCTR::EmbeddingTrainingCache>>(m, "EmbeddingTrainingCache")
+      .def("update",
+           pybind11::overload_cast<std::string&>(&HugeCTR::EmbeddingTrainingCache::update),
            pybind11::arg("keyset_file"))
-      .def(
-          "update",
-          pybind11::overload_cast<std::vector<std::string>&>(&HugeCTR::EmbeddingTrainingCache::update),
-          pybind11::arg("keyset_file_list"));
+      .def("update",
+           pybind11::overload_cast<std::vector<std::string>&>(
+               &HugeCTR::EmbeddingTrainingCache::update),
+           pybind11::arg("keyset_file_list"));
 }
 
 }  //  namespace python_lib

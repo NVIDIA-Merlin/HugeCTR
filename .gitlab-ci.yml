@@ -27,12 +27,19 @@ nightly_build_inference:
     DOCKER_FILE: Dockerfile.inference
     BUILD_ARGS: --build-arg RELEASE=false
 
-nightly_build_sok:
+nightly_build_sok_tf2:
   extends: .build_nightly
   variables:
-    DST_IMAGE: ${IMAGE_SOK}
+    DST_IMAGE: ${IMAGE_SOK_TF2}
     DOCKER_FILE: Dockerfile.tf-plugin
     BUILD_ARGS: --build-arg RELEASE=false --build-arg IMAGE_VER=21.07-tf2-py3
+
+nightly_build_sok_tf1:
+  extends: .build_nightly
+  variables:
+    DST_IMAGE: ${IMAGE_SOK_TF1}
+    DOCKER_FILE: Dockerfile.tf-plugin
+    BUILD_ARGS: --build-arg RELEASE=false --build-arg IMAGE_VER=21.11-tf1-py3
 
 nightly_build_unified_container.ctr:
   extends: .build_nightly
@@ -102,11 +109,19 @@ build_inference:
     BUILD_HUGECTR_BACKEND: 1
     TRITON_BRANCH: r21.06
 
-build_sok:
+build_sok_tf2:
   extends: .build
   variables:
-    FROM_IMAGE: ${IMAGE_SOK}
-    DST_IMAGE: $SOK_IMAGE_VERSIONED
+    FROM_IMAGE: ${IMAGE_SOK_TF2}
+    DST_IMAGE: $SOK_IMAGE_VERSIONED_TF2
+    CMAKE_OPTION: "-DSM=\"60;61;70;75;80\""
+    BUILD_SOK: 1
+
+build_sok_tf1:
+  extends: .build
+  variables:
+    FROM_IMAGE: ${IMAGE_SOK_TF1}
+    DST_IMAGE: $SOK_IMAGE_VERSIONED_TF1
     CMAKE_OPTION: "-DSM=\"60;61;70;75;80\""
     BUILD_SOK: 1
 
@@ -426,14 +441,28 @@ hugectr2onnx:
     TEST_CMD: ./ci/integration_test/hugectr2onnx/hugectr2onnx.sub
 
 # embedding_plugin
-sparse_operation_kit:
+sparse_operation_kit-TF2:
   extends: .cluster_test_job
   needs:
-    - build_sok
+    - build_sok_tf2
   variables:
     GPFSFOLDER: $LOGDIR/sparse_operation_kit
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
-    CONT: $SOK_IMAGE_VERSIONED
+    CONT: $SOK_IMAGE_VERSIONED_TF2
+    MOUNTS: ${DATASET}:${DATASET_MOUNT}
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "00:45:00"
+    DGXNNODES: 1
+    TEST_CMD: ./ci/integration_test/sok/sok.sub
+
+sparse_operation_kit-TF1:
+  extends: .cluster_test_job
+  needs:
+    - build_sok_tf1
+  variables:
+    GPFSFOLDER: $LOGDIR/sparse_operation_kit
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $SOK_IMAGE_VERSIONED_TF1
     MOUNTS: ${DATASET}:${DATASET_MOUNT}
     SLURM_ACCOUNT: devtech
     WALLTIME: "00:45:00"

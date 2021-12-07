@@ -432,7 +432,8 @@ inline std::string get_value_from_json_soft(const nlohmann::json& json, const st
 
 OptParams get_optimizer_param(const nlohmann::json& j_optimizer);
 
-inline void analyze_tensor(std::map<std::string, unsigned int>& tensor_usage, std::string bottom_name) {
+inline void analyze_tensor(std::map<std::string, unsigned int>& tensor_usage,
+                           std::string bottom_name) {
   if (tensor_usage.find(bottom_name) == tensor_usage.end()) {
     tensor_usage.insert(std::pair<std::string, unsigned int>(bottom_name, 0));
   }

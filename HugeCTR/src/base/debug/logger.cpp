@@ -136,6 +136,8 @@ void Logger::do_throw(HugeCTR::Error_t error_type, const SrcLoc& loc,
   std::throw_with_nested(internal_runtime_error(error_type, error_message));
 }
 
+int Logger::get_rank() { return rank_; }
+
 Logger::Logger() : rank_(0), max_level_(DEFAULT_LOG_LEVEL), log_to_std_(true), log_to_file_(false) {
 #ifdef ENABLE_MPI
   MPI_Comm_rank(MPI_COMM_WORLD, &rank_);

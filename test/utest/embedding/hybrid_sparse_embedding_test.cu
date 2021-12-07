@@ -64,8 +64,7 @@ void hybrid_sparse_embedding_construct(const std::vector<int> &device_list, size
     vvgpu.push_back(device_list);
   }
 
-  auto resource_manager =
-      ResourceManagerExt::create(vvgpu, (unsigned long long)1234);
+  auto resource_manager = ResourceManagerExt::create(vvgpu, (unsigned long long)1234);
   size_t total_gpu_count = resource_manager->get_global_gpu_count();
   size_t local_gpu_count = resource_manager->get_local_gpu_count();
   size_t total_categories = 0;
@@ -107,8 +106,8 @@ void hybrid_sparse_embedding_construct(const std::vector<int> &device_list, size
   Tensors2<TypeKey> train_input_tensors;
   Tensors2<TypeKey> evaluate_input_tensors;
   Tensors2<TypeKey> inits;
-  auto initial_input = generator.generate_categorical_input(train_batch_size *
-                                                                        num_iterations_statistics);
+  auto initial_input =
+      generator.generate_categorical_input(train_batch_size * num_iterations_statistics);
   auto input = generator.generate_categorical_input(train_batch_size);
   CudaDeviceContext context;
 
@@ -138,15 +137,16 @@ void hybrid_sparse_embedding_construct(const std::vector<int> &device_list, size
     upload_tensor(initial_input, inits[lgpu], stream);
     upload_tensor(input, train_input_tensors[lgpu], stream);
 
-    lr_scheds.emplace_back(new GpuLearningRateScheduler(
-          lr, 1, 0, 1, 2.f, 0.f, resource_manager->get_local_gpu(lgpu)));
+    lr_scheds.emplace_back(
+        new GpuLearningRateScheduler(lr, 1, 0, 1, 2.f, 0.f, resource_manager->get_local_gpu(lgpu)));
   }
   std::cout << "hybridEmbdeding" << std::endl;
   std::vector<std::shared_ptr<BufferBlock2<TypeFP>>> placeholder(
       resource_manager->get_local_gpu_count(), NULL);
   std::unique_ptr<HybridSparseEmbedding<TypeKey, TypeFP>> embedding(
       new HybridSparseEmbedding<TypeKey, TypeFP>(train_input_tensors, evaluate_input_tensors,
-                                                 embedding_params, placeholder, lr_scheds, false, resource_manager));
+                                                 embedding_params, placeholder, lr_scheds, false,
+                                                 resource_manager));
   std::cout << "init_model" << std::endl;
   embedding->init_model(inits);
   // std::cout << "forward" << std::endl;

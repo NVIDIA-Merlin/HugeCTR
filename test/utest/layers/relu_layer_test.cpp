@@ -114,7 +114,8 @@ void relu_test(size_t dim0, size_t dim1) {
                             cudaMemcpyDeviceToHost));
 
   relu_bprop_cpu<T>(h_bottom_grad.get(), h_top.get(), h_bottom.get(), len);
-  ASSERT_TRUE(test::compare_array_approx<T>(d2h_bottom_grad.get(), h_bottom_grad.get(), len, Eps<T>::value()));
+  ASSERT_TRUE(test::compare_array_approx<T>(d2h_bottom_grad.get(), h_bottom_grad.get(), len,
+                                            Eps<T>::value()));
 }
 
 }  // namespace

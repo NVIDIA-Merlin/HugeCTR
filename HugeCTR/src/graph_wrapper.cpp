@@ -1,8 +1,10 @@
 #include "HugeCTR/include/graph_wrapper.hpp"
-#include "HugeCTR/include/common.hpp"
+
+#include <atomic>
 #include <map>
 #include <mutex>
-#include <atomic>
+
+#include "HugeCTR/include/common.hpp"
 
 namespace HugeCTR {
 
@@ -25,4 +27,4 @@ void GraphWrapper::exec(cudaStream_t stream) {
   CK_CUDA_THROW_(cudaGraphLaunch(graph_exec, stream));
 }
 
-}
+}  // namespace HugeCTR

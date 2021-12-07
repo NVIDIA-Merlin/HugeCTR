@@ -20,24 +20,23 @@
 #include "parameters/param_interface.h"
 #include "tensorflow/core/framework/resource_var.h"
 
-namespace tensorflow { 
+namespace tensorflow {
 
 class EmbeddingVariable : public ResourceBase {
-public:
-    EmbeddingVariable(Tensor* handle_tensor);;
-    ~EmbeddingVariable();
-    std::string DebugString() const override;
-    void SetHandle(ResourceHandle& handle);
-    Tensor* tensor();
-    void set_param(const std::shared_ptr<SparseOperationKit::ParamInterface>& param);
-    void get_param(std::shared_ptr<SparseOperationKit::ParamInterface>& param);
-    mutex* mu();
-private:
-    Tensor* handle_tensor_;
-    std::shared_ptr<SparseOperationKit::ParamInterface> param_;
-    mutex mu_;
+ public:
+  EmbeddingVariable();
+  ~EmbeddingVariable();
+  std::string DebugString() const override;
+  Tensor* tensor();
+  void set_param(const std::shared_ptr<SparseOperationKit::ParamInterface>& param);
+  void get_param(std::shared_ptr<SparseOperationKit::ParamInterface>& param);
+  mutex* mu();
+
+ private:
+  std::shared_ptr<SparseOperationKit::ParamInterface> param_;
+  mutex mu_;
 };
 
-} // namespace tensorflow
+}  // namespace tensorflow
 
 #endif

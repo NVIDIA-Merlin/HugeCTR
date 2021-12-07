@@ -96,12 +96,13 @@ void ModelPybind(pybind11::module &m) {
           pybind11::arg("regularizer_type") = Regularizer_t::L1, pybind11::arg("lambda") = 0,
           pybind11::arg("pos_type") = FcPosition_t::None,
           pybind11::arg("act_type") = Activation_t::Relu);
-  pybind11::class_<HugeCTR::GroupDenseLayer, std::shared_ptr<HugeCTR::GroupDenseLayer>>(m, "GroupDenseLayer")
-      .def(
-          pybind11::init<GroupLayer_t, std::string &, std::vector<std::string> &,
-                         std::vector<size_t> &, Activation_t>(),
-          pybind11::arg("group_layer_type"), pybind11::arg("bottom_name"), pybind11::arg("top_name_list"),
-          pybind11::arg("num_outputs"), pybind11::arg("last_act_type") = Activation_t::Relu);
+  pybind11::class_<HugeCTR::GroupDenseLayer, std::shared_ptr<HugeCTR::GroupDenseLayer>>(
+      m, "GroupDenseLayer")
+      .def(pybind11::init<GroupLayer_t, std::string &, std::vector<std::string> &,
+                          std::vector<size_t> &, Activation_t>(),
+           pybind11::arg("group_layer_type"), pybind11::arg("bottom_name"),
+           pybind11::arg("top_name_list"), pybind11::arg("num_outputs"),
+           pybind11::arg("last_act_type") = Activation_t::Relu);
   pybind11::class_<HugeCTR::Model, std::shared_ptr<HugeCTR::Model>>(m, "Model")
       .def(pybind11::init<const Solver &, const DataReaderParams &, std::shared_ptr<OptParamsPy> &,
                           std::shared_ptr<EmbeddingTrainingCacheParams> &>(),
@@ -128,33 +129,35 @@ void ModelPybind(pybind11::module &m) {
            pybind11::arg("base_lr"), pybind11::arg("warmup_steps") = 1,
            pybind11::arg("decay_start") = 0, pybind11::arg("decay_steps") = 1,
            pybind11::arg("decay_power") = 2.f, pybind11::arg("end_lr") = 0.f)
+      .def("freeze_embedding", pybind11::overload_cast<>(&HugeCTR::Model::freeze_embedding))
       .def("freeze_embedding",
-           pybind11::overload_cast<>(&HugeCTR::Model::freeze_embedding))
-      .def("freeze_embedding",
-           pybind11::overload_cast<const std::string&>(&HugeCTR::Model::freeze_embedding),
+           pybind11::overload_cast<const std::string &>(&HugeCTR::Model::freeze_embedding),
            pybind11::arg("embedding_name"))
       .def("freeze_dense", &HugeCTR::Model::freeze_dense)
+      .def("unfreeze_embedding", pybind11::overload_cast<>(&HugeCTR::Model::unfreeze_embedding))
       .def("unfreeze_embedding",
-           pybind11::overload_cast<>(&HugeCTR::Model::unfreeze_embedding))
-      .def("unfreeze_embedding",
-           pybind11::overload_cast<const std::string&>(&HugeCTR::Model::unfreeze_embedding),
+           pybind11::overload_cast<const std::string &>(&HugeCTR::Model::unfreeze_embedding),
            pybind11::arg("embedding_name"))
       .def("unfreeze_dense", &HugeCTR::Model::unfreeze_dense)
       .def("load_dense_weights", &HugeCTR::Model::load_dense_weights,
            pybind11::arg("dense_model_file"))
       .def("load_sparse_weights",
-           pybind11::overload_cast<const std::vector<std::string>&>(&HugeCTR::Model::load_sparse_weights),
+           pybind11::overload_cast<const std::vector<std::string> &>(
+               &HugeCTR::Model::load_sparse_weights),
            pybind11::arg("sparse_embedding_files"))
       .def("load_sparse_weights",
-           pybind11::overload_cast<const std::map<std::string, std::string>&>(&HugeCTR::Model::load_sparse_weights),
+           pybind11::overload_cast<const std::map<std::string, std::string> &>(
+               &HugeCTR::Model::load_sparse_weights),
            pybind11::arg("sparse_embedding_files_map"))
       .def("load_dense_optimizer_states", &HugeCTR::Model::load_dense_optimizer_states,
            pybind11::arg("dense_opt_states_file"))
       .def("load_sparse_optimizer_states",
-           pybind11::overload_cast<const std::vector<std::string>&>(&HugeCTR::Model::load_sparse_optimizer_states),
+           pybind11::overload_cast<const std::vector<std::string> &>(
+               &HugeCTR::Model::load_sparse_optimizer_states),
            pybind11::arg("sparse_opt_states_files"))
       .def("load_sparse_optimizer_states",
-           pybind11::overload_cast<const std::map<std::string, std::string>&>(&HugeCTR::Model::load_sparse_optimizer_states),
+           pybind11::overload_cast<const std::map<std::string, std::string> &>(
+               &HugeCTR::Model::load_sparse_optimizer_states),
            pybind11::arg("sparse_opt_states_files_map"))
       .def("add", pybind11::overload_cast<Input &>(&HugeCTR::Model::add), pybind11::arg("input"))
       .def("add", pybind11::overload_cast<SparseEmbedding &>(&HugeCTR::Model::add),
@@ -164,7 +167,7 @@ void ModelPybind(pybind11::module &m) {
       .def("add", pybind11::overload_cast<GroupDenseLayer &>(&HugeCTR::Model::add),
            pybind11::arg("group_dense_layer"))
       .def("set_learning_rate", &HugeCTR::Model::set_learning_rate, pybind11::arg("lr"))
-      .def("train", &HugeCTR::Model::train)
+      .def("train", &HugeCTR::Model::train, pybind11::arg("is_first_batch") = true)
       .def("eval", &HugeCTR::Model::eval, pybind11::arg("is_first_batch") = true)
       .def("start_data_reading", &HugeCTR::Model::start_data_reading)
       .def("get_current_loss",

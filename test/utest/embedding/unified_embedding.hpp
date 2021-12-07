@@ -48,7 +48,7 @@ bool compare_host_and_device_array(Type *host_array, Type *device_array, size_t 
   std::unique_ptr<Type[]> h_array(new Type[n]);
   CK_CUDA_THROW_(cudaMemcpy(h_array.get(), device_array, sizeof(Type) * n, cudaMemcpyDeviceToHost));
   for (size_t i = 0; i < n; ++i) {
-    if(h_array[i] != host_array[i]) return false;
+    if (h_array[i] != host_array[i]) return false;
   }
   return true;
 }
@@ -68,9 +68,9 @@ struct TestParams {
   float eposilon;
 
   TestParams(size_t train_steps_, size_t batch_size_per_gpu_, size_t slot_num_,
-             size_t max_nnz_per_sample_, bool fixed_length_, size_t vocabulary_size_, size_t embedding_vec_size_,
-             float lr_, bool reference_check_, bool measure_performance_,
-             float eposilon_)
+             size_t max_nnz_per_sample_, bool fixed_length_, size_t vocabulary_size_,
+             size_t embedding_vec_size_, float lr_, bool reference_check_,
+             bool measure_performance_, float eposilon_)
       : train_steps(train_steps_),
         batch_size_per_gpu(batch_size_per_gpu_),
         slot_num(slot_num_),
@@ -91,7 +91,8 @@ struct TestParams {
 
 template <typename KeyType>
 void init_sparse_tensor(SparseTensor<KeyType> &sparse_tensor,
-                        const std::vector<size_t> &feature_num_per_sample, bool on_device, bool fixed_length) {
+                        const std::vector<size_t> &feature_num_per_sample, bool on_device,
+                        bool fixed_length) {
   IntUniformDataSimulator<KeyType> int_generator(0, 1);
 
   size_t batch_size = sparse_tensor.get_dimensions()[0];
@@ -104,7 +105,7 @@ void init_sparse_tensor(SparseTensor<KeyType> &sparse_tensor,
     for (size_t s = 0; s < slot_num; ++s) {
       size_t feature_num_per_sample_per_slot = feature_num_per_sample[s];
       for (size_t n = 0; n < feature_num_per_sample_per_slot; ++n) {
-        if(int_generator.get_num() > 0 || fixed_length){
+        if (int_generator.get_num() > 0 || fixed_length) {
           value_vec.push_back(s * feature_num_per_sample_per_slot + n);
           ++value_count;
         }
@@ -112,13 +113,13 @@ void init_sparse_tensor(SparseTensor<KeyType> &sparse_tensor,
       rowoffset_vec.push_back(value_count);
     }
   }
-  
+
   if (sparse_tensor.rowoffset_count() != rowoffset_vec.size()) {
     CK_THROW_(Error_t::DataCheckError, "init sparse_tensor rowoffset count not match");
   }
 
   *sparse_tensor.get_nnz_ptr() = value_count;
-  
+
   if (on_device) {
     CK_CUDA_THROW_(cudaMemcpy(sparse_tensor.get_value_ptr(), value_vec.data(),
                               sizeof(KeyType) * value_count, cudaMemcpyHostToDevice));
@@ -132,16 +133,15 @@ void init_sparse_tensor(SparseTensor<KeyType> &sparse_tensor,
   }
 }
 
-
 template <typename Type>
 void all_gather_cpu(const SparseTensors<Type> &send_tensors, SparseTensors<Type> &recv_tensors) {
   const size_t rowoffset_count = send_tensors[0].rowoffset_count() - 1;
 
   size_t local_count = send_tensors.size();
   size_t global_count = recv_tensors.size();
-// do local all gather
+  // do local all gather
   size_t local_total_nnz = 0;
-  for(auto& t: send_tensors){
+  for (auto &t : send_tensors) {
     local_total_nnz += t.nnz();
   }
   std::vector<Type> local_all_gather_value;
@@ -149,22 +149,23 @@ void all_gather_cpu(const SparseTensors<Type> &send_tensors, SparseTensors<Type>
   std::vector<Type> local_all_gather_rowoffset{0};
   local_all_gather_rowoffset.reserve(rowoffset_count * local_count + 1);
   Type value_count = 0;
-  for(auto& t: send_tensors){
-    for(size_t i = 1; i < t.rowoffset_count(); ++i){
+  for (auto &t : send_tensors) {
+    for (size_t i = 1; i < t.rowoffset_count(); ++i) {
       local_all_gather_rowoffset.push_back(t.get_rowoffset_ptr()[i] + value_count);
     }
-    for(size_t i = 0; i < t.nnz(); ++i){
+    for (size_t i = 0; i < t.nnz(); ++i) {
       local_all_gather_value.push_back(t.get_value_ptr()[i]);
     }
     value_count += t.nnz();
   }
-  
-  auto broadcast_result = [&recv_tensors] (const std::vector<Type> &all_gather_value, const std::vector<Type> &all_gather_rowoffset) {
-    for(size_t id = 0; id < recv_tensors.size(); ++id){
-      for(size_t i = 0; i < all_gather_value.size(); ++i){
+
+  auto broadcast_result = [&recv_tensors](const std::vector<Type> &all_gather_value,
+                                          const std::vector<Type> &all_gather_rowoffset) {
+    for (size_t id = 0; id < recv_tensors.size(); ++id) {
+      for (size_t i = 0; i < all_gather_value.size(); ++i) {
         recv_tensors[id].get_value_ptr()[i] = all_gather_value[i];
       }
-      for(size_t i = 0; i < all_gather_rowoffset.size(); ++i){
+      for (size_t i = 0; i < all_gather_rowoffset.size(); ++i) {
         recv_tensors[id].get_rowoffset_ptr()[i] = all_gather_rowoffset[i];
       }
       *recv_tensors[id].get_nnz_ptr() = all_gather_value.size();
@@ -177,22 +178,27 @@ void all_gather_cpu(const SparseTensors<Type> &send_tensors, SparseTensors<Type>
 
   std::vector<int> global_total_nnz(num_procs);
   CK_MPI_THROW_(MPI_Allgather(&local_total_nnz, sizeof(int), MPI_CHAR, global_total_nnz.data(),
-  num_procs * sizeof(int), MPI_CHAR, MPI_COMM_WORLD)); 
+                              num_procs * sizeof(int), MPI_CHAR, MPI_COMM_WORLD));
   std::vector<int> displs(num_procs);
-  std::exclusive_scan(global_total_nnz.begin(), global_total_nnz.end(), global_total_nnz.begin(), 0);
+  std::exclusive_scan(global_total_nnz.begin(), global_total_nnz.end(), global_total_nnz.begin(),
+                      0);
   MPI_Datatype mpi_type = ToMpiType<Type>::T();
 
   size_t total_nnz_num = std::accumulate(global_total_nnz.begin(), global_total_nnz.end(), 0);
   std::vector<Type> global_all_gather_value(total_nnz_num);
   CK_MPI_THROW_(MPI_Allgatherv(local_all_gather_value.data(), local_all_gather_value.size(),
-  mpi_type, global_all_gather_value.data(), global_total_nnz.data(), displs.data(), mpi_type, MPI_COMM_WORLD));
+                               mpi_type, global_all_gather_value.data(), global_total_nnz.data(),
+                               displs.data(), mpi_type, MPI_COMM_WORLD));
 
   std::vector<Type> global_all_gather_rowoffset{0};
   global_all_gather_rowoffset.reserve(rowoffset_count * global_count + 1);
-  CK_MPI_THROW_(MPI_Allgather(local_all_gather_rowoffset.data() + 1, local_all_gather_rowoffset.size() - 1, mpi_type, global_all_gather_rowoffset.data() + 1, rowoffset_count * global_count, mpi_type, MPI_COMM_WORLD)); 
-  for(int i = 0; i < num_procs; ++i) {
+  CK_MPI_THROW_(MPI_Allgather(local_all_gather_rowoffset.data() + 1,
+                              local_all_gather_rowoffset.size() - 1, mpi_type,
+                              global_all_gather_rowoffset.data() + 1,
+                              rowoffset_count * global_count, mpi_type, MPI_COMM_WORLD));
+  for (int i = 0; i < num_procs; ++i) {
     int restore_offset = global_total_nnz[i];
-    for(size_t j = 0; j < rowoffset_count * local_count; ++j){
+    for (size_t j = 0; j < rowoffset_count * local_count; ++j) {
       size_t idx = i * rowoffset_count * local_count + j;
       global_all_gather_rowoffset[1 + idx] += restore_offset;
     }
@@ -251,16 +257,16 @@ class EmbeddingCpu {
     int embedding_vec_size = params.embedding_vec_size;
 
     auto &cpu_keys = is_train ? train_keys : evaluate_keys;
-    
+
     const TypeKey *hash_key_ = cpu_keys.get_value_ptr();
     const TypeKey *row_offset = cpu_keys.get_rowoffset_ptr();
     size_t *hash_value_index = hash_value_index_tensors_.get_ptr();
     const float *hash_table_value = hash_table_value_tensors_.get_ptr();
     TypeEmbeddingComp *embedding_feature = embedding_feature_tensors_.get_ptr();
-    
+
     hash_table_->get(hash_key_, hash_value_index, cpu_keys.nnz());
     for (int user = 0; user < batchsize * slot_num; user++) {
-      int feature_num = row_offset[user + 1] - row_offset[user]; // 1
+      int feature_num = row_offset[user + 1] - row_offset[user];  // 1
 
       for (int vec = 0; vec < embedding_vec_size; vec++) {
         float mean = 0.0f;

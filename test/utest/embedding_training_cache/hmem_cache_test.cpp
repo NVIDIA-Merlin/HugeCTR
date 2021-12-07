@@ -14,15 +14,17 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-#include "utest/embedding_training_cache/etc_test_utils.hpp"
 #include "embedding_training_cache/hmem_cache/hmem_cache.hpp"
+
+#include <gtest/gtest.h>
+#include <omp.h>
 
 #include <algorithm>
 #include <fstream>
 #include <random>
 #include <type_traits>
-#include <omp.h>
+
+#include "utest/embedding_training_cache/etc_test_utils.hpp"
 
 using namespace HugeCTR;
 using namespace etc_test;
@@ -34,10 +36,10 @@ std::string snapshot_dst_file{"hmem_cache_table_dst"};
 const long long vocabulary_size = 100000;
 const int emb_vec_size = 64;
 
-void generate_embedding_table(std::string table_name, double table_size_in_gb,
-                              Optimizer_t opt_type, size_t emb_vec_size) {
-  size_t num_target_key{static_cast<size_t>(
-      table_size_in_gb * (pow(1024, 3) / emb_vec_size / sizeof(float)))};
+void generate_embedding_table(std::string table_name, double table_size_in_gb, Optimizer_t opt_type,
+                              size_t emb_vec_size) {
+  size_t num_target_key{
+      static_cast<size_t>(table_size_in_gb * (pow(1024, 3) / emb_vec_size / sizeof(float)))};
 
   std::string key_file{table_name + "/key"};
   std::string slot_id_file{table_name + "/slot_id"};
@@ -63,8 +65,8 @@ void generate_embedding_table(std::string table_name, double table_size_in_gb,
   if (is_exist && is_valid) return;
 
   data_files.clear();
-  data_files = std::vector<std::string>({"emb_vector", "Adam.m", "Adam.v", "AdaGrad.accm",
-                                         "MomentumSGD.momtentum", "Nesterov.accm"});
+  data_files = std::vector<std::string>(
+      {"emb_vector", "Adam.m", "Adam.v", "AdaGrad.accm", "MomentumSGD.momtentum", "Nesterov.accm"});
   if (is_exist) fs::remove_all(table_name);
   fs::create_directories(table_name);
   std::vector<long long> keys(num_target_key);
@@ -77,19 +79,20 @@ void generate_embedding_table(std::string table_name, double table_size_in_gb,
   auto gen_rand_op = [&generator, &distribution](auto& elem) { elem = distribution(generator); };
   std::uniform_real_distribution<float> real_distribution(0.0f, 1.0f);
   auto gen_real_rand_op = [&generator, &real_distribution](float& elem) {
-    elem = real_distribution(generator); };
+    elem = real_distribution(generator);
+  };
 
   {
     std::iota(keys.begin(), keys.end(), 0);
     std::ofstream ofs(key_file, std::ofstream::trunc);
     if (!ofs.is_open()) CK_THROW_(Error_t::FileCannotOpen, "File open error");
-    ofs.write(reinterpret_cast<char *>(keys.data()), keys.size() * sizeof(long long));
+    ofs.write(reinterpret_cast<char*>(keys.data()), keys.size() * sizeof(long long));
   }
   {
     std::for_each(slot_ids.begin(), slot_ids.end(), gen_rand_op);
     std::ofstream ofs(slot_id_file, std::ofstream::trunc);
     if (!ofs.is_open()) CK_THROW_(Error_t::FileCannotOpen, "File open error");
-    ofs.write(reinterpret_cast<char *>(slot_ids.data()), slot_ids.size() * sizeof(size_t));
+    ofs.write(reinterpret_cast<char*>(slot_ids.data()), slot_ids.size() * sizeof(size_t));
   }
 #pragma omp parallel for num_threads(data_files.size())
   for (size_t i = 0; i < data_files.size(); i++) {
@@ -97,14 +100,14 @@ void generate_embedding_table(std::string table_name, double table_size_in_gb,
     std::string file_name{table_name + "/" + data_files[i]};
     std::ofstream ofs(file_name, std::ofstream::trunc);
     if (!ofs.is_open()) CK_THROW_(Error_t::FileCannotOpen, "File open error");
-    ofs.write(reinterpret_cast<char *>(data_vecs[i].data()), data_vecs[i].size() * sizeof(float));
+    ofs.write(reinterpret_cast<char*>(data_vecs[i].data()), data_vecs[i].size() * sizeof(float));
   }
 }
 
 template <typename TypeKey>
 void read_api_test(double table_size, size_t num_pass, size_t num_cached_pass,
-                   double target_hit_rate, size_t max_eviction,
-                   bool use_slot_id, Optimizer_t opt_type) {
+                   double target_hit_rate, size_t max_eviction, bool use_slot_id,
+                   Optimizer_t opt_type) {
   // create a resource manager for a single GPU
   std::vector<std::vector<int>> vvgpu;
   vvgpu.push_back({0});
@@ -120,7 +123,7 @@ void read_api_test(double table_size, size_t num_pass, size_t num_cached_pass,
   {
     std::vector<long long> key_i64(num_key);
     std::ifstream ifs(key_file);
-    ifs.read(reinterpret_cast<char *>(key_i64.data()), fs::file_size(key_file));
+    ifs.read(reinterpret_cast<char*>(key_i64.data()), fs::file_size(key_file));
     if (std::is_same<TypeKey, long long>::value) {
       keys.resize(num_key);
       std::transform(key_i64.begin(), key_i64.end(), keys.begin(),
@@ -136,7 +139,8 @@ void read_api_test(double table_size, size_t num_pass, size_t num_cached_pass,
   auto overlap_rate{0.2};
   size_t max_vocabulary_size{num_key / num_pass * 2};
   HMemCache<TypeKey> hmem_cache(num_cached_pass, target_hit_rate, max_eviction, max_vocabulary_size,
-      snapshot_dst_file, "./", use_slot_id, opt_type, emb_vec_size, resource_manager);
+                                snapshot_dst_file, "./", use_slot_id, opt_type, emb_vec_size,
+                                resource_manager);
 
   std::vector<std::vector<TypeKey>> key_vecs(num_pass);
   auto num_overlap{static_cast<size_t>(std::floor(num_key / num_pass * overlap_rate))};
@@ -154,33 +158,32 @@ void read_api_test(double table_size, size_t num_pass, size_t num_cached_pass,
   std::vector<size_t> slot_ids;
   if (use_slot_id) slot_ids.resize(max_vocabulary_size);
   std::vector<std::vector<float>> data_vecs(data_files.size());
-  std::vector<float *> data_ptrs;
+  std::vector<float*> data_ptrs;
   for (auto& data_vec : data_vecs) {
     data_vec.resize(max_vocabulary_size * emb_vec_size);
     data_ptrs.push_back(data_vec.data());
   }
 
-  auto check_vector_equality = [use_slot_id, &data_files](size_t len,
-      std::vector<size_t>& slot_ids_src,
-      std::vector<size_t>& slot_ids_dst,
-      std::vector<std::vector<float>>& data_vecs_src,
-      std::vector<std::vector<float>>& data_vecs_dst) {
+  auto check_vector_equality = [use_slot_id, &data_files](
+                                   size_t len, std::vector<size_t>& slot_ids_src,
+                                   std::vector<size_t>& slot_ids_dst,
+                                   std::vector<std::vector<float>>& data_vecs_src,
+                                   std::vector<std::vector<float>>& data_vecs_dst) {
     // check equality
     if (use_slot_id) {
       MESSAGE_("check slot_id", true, false);
-      ASSERT_TRUE(test::compare_array_approx<char>(
-          reinterpret_cast<char *>(slot_ids_src.data()),
-          reinterpret_cast<char *>(slot_ids_dst.data()),
-          len * sizeof(size_t), 0));
+      ASSERT_TRUE(test::compare_array_approx<char>(reinterpret_cast<char*>(slot_ids_src.data()),
+                                                   reinterpret_cast<char*>(slot_ids_dst.data()),
+                                                   len * sizeof(size_t), 0));
       MESSAGE_(" [DONE]", true, true, false);
     }
     size_t counter{0};
     for (const auto& data_file : data_files) {
       MESSAGE_(std::string("check ") + data_file, true, false);
-      ASSERT_TRUE(test::compare_array_approx<char>(
-          reinterpret_cast<char *>(data_vecs_src[counter].data()),
-          reinterpret_cast<char *>(data_vecs_dst[counter].data()),
-          len * emb_vec_size * sizeof(float), 0));
+      ASSERT_TRUE(
+          test::compare_array_approx<char>(reinterpret_cast<char*>(data_vecs_src[counter].data()),
+                                           reinterpret_cast<char*>(data_vecs_dst[counter].data()),
+                                           len * emb_vec_size * sizeof(float), 0));
       MESSAGE_(" [DONE]", true, true, false);
       counter++;
     }
@@ -191,7 +194,7 @@ void read_api_test(double table_size, size_t num_pass, size_t num_cached_pass,
   std::vector<size_t> tmp_slot_ids;
   if (use_slot_id) tmp_slot_ids.resize(max_vocabulary_size);
   std::vector<std::vector<float>> tmp_data_vecs(data_files.size());
-  std::vector<float *> tmp_data_ptrs;
+  std::vector<float*> tmp_data_ptrs;
   for (auto& data_vec : tmp_data_vecs) {
     data_vec.resize(max_vocabulary_size * emb_vec_size);
     tmp_data_ptrs.push_back(data_vec.data());
@@ -204,7 +207,7 @@ void read_api_test(double table_size, size_t num_pass, size_t num_cached_pass,
 
       // parallel find
       std::vector<size_t> ssd_idx_vec(len);
-    #pragma omp parallel num_threads(12)
+#pragma omp parallel num_threads(12)
       for (size_t i = 0; i < len; i++) {
         auto dst_idx{sparse_model_ptr->find(key_vecs[pass_id][i])};
         if (dst_idx == SparseModelFileTS<TypeKey>::end_flag) {
@@ -231,7 +234,7 @@ void read_api_test(double table_size, size_t num_pass, size_t num_cached_pass,
   }
   {
     std::vector<size_t> ssd_idx_vec(num_dump);
-  #pragma omp parallel num_threads(12)
+#pragma omp parallel num_threads(12)
     for (size_t i = 0; i < num_dump; i++) {
       auto dst_idx{sparse_model_ptr->find(dump_keys[i])};
       if (dst_idx == SparseModelFileTS<TypeKey>::end_flag) {
@@ -254,7 +257,8 @@ void read_api_test(double table_size, size_t num_pass, size_t num_cached_pass,
   auto gen_rand_op = [&generator, &distribution](auto& elem) { elem = distribution(generator); };
   std::uniform_real_distribution<float> real_distribution(0.0f, 1.0f);
   auto gen_real_rand_op = [&generator, &real_distribution](float& elem) {
-    elem = real_distribution(generator); };
+    elem = real_distribution(generator);
+  };
   if (use_slot_id) {
     for_each(tmp_slot_ids.begin(), tmp_slot_ids.begin() + num_dump, gen_rand_op);
   }
@@ -273,7 +277,7 @@ void read_api_test(double table_size, size_t num_pass, size_t num_cached_pass,
   hmem_cache.sync_to_ssd();
   {
     std::vector<size_t> ssd_idx_vec(num_dump);
-  #pragma omp parallel num_threads(12)
+#pragma omp parallel num_threads(12)
     for (size_t i = 0; i < num_dump; i++) {
       auto dst_idx{sparse_model_ptr->find(dump_keys[i])};
       if (dst_idx == SparseModelFileTS<TypeKey>::end_flag) {

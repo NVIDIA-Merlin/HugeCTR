@@ -14,12 +14,14 @@
  * limitations under the License.
  */
 
+#include "tensorflow/core/framework/common_shape_fns.h"
 #include "tensorflow/core/framework/op.h"
 #include "tensorflow/core/framework/shape_inference.h"
-#include "tensorflow/core/framework/common_shape_fns.h"
 
 using namespace tensorflow;
 using namespace tensorflow::shape_inference;
+
+#if TF_VERSION_MAJOR == 2
 
 REGISTER_OP("CreateEmbeddingDense")
     .Input("var_handle: resource")
@@ -31,13 +33,35 @@ REGISTER_OP("CreateEmbeddingDense")
     .Output("emb_handle: variant")
     .Attr("slot_num: int >= 1 = 1")
     .Attr("nnz_per_slot: int >= 1 = 1")
+    .Attr("layer_handle_name: string")
     .SetShapeFn([](InferenceContext* ctx) {
-        ShapeHandle output_shape = ctx->Scalar();
-        ctx->set_output(0, output_shape);
-        return Status::OK();
+      ShapeHandle output_shape = ctx->Scalar();
+      ctx->set_output(0, output_shape);
+      return Status::OK();
     })
     .Doc(R"doc(
         This operation is used to create embedding layer that will not 
         do reduction intra slots, which means embedding vectors will
         be concatenated.
     )doc");
+
+#else
+
+REGISTER_OP("CreateEmbeddingDense")
+    .Input("emb_var_handle: resource")
+    .Attr("input_dispatcher: string")
+    .Attr("input_dispatcher_subsequent_ops: list(string) = []")
+    .Attr("embedding_lookuper: string")
+    .Attr("output_dispatcher: string")
+    .Attr("output_dispatcher_subsequent_ops: list(string) = []")
+    .Output("emb_layer_handle: variant")
+    .Attr("slot_num: int >= 1 = 1")
+    .Attr("nnz_per_slot: int >= 1 = 1")
+    .Attr("layer_handle_name: string")
+    .SetShapeFn([](InferenceContext* ctx) {
+      ShapeHandle output_shape = ctx->Scalar();
+      ctx->set_output(0, output_shape);
+      return Status::OK();
+    });
+
+#endif

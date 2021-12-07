@@ -49,18 +49,19 @@ void data_reader_worker_norm_test_impl(bool repeat) {
   std::vector<float> generated_label_data;
   std::vector<float> generated_dense_data;
 
-  if(HugeCTR::file_exist(file_list_name)) {
+  if (HugeCTR::file_exist(file_list_name)) {
     remove(file_list_name.c_str());
   }
   // data generation
-  HugeCTR::data_generation_for_test<T, CHK>(file_list_name, prefix, num_files, num_samples_per_file,
-                                            slot_num, vocabulary_size, label_dim, dense_dim,
-                                            max_nnz, false, 0.0, &generated_sparse_value, &generated_sparse_rowoffset, &generated_label_data, &generated_dense_data);
+  HugeCTR::data_generation_for_test<T, CHK>(
+      file_list_name, prefix, num_files, num_samples_per_file, slot_num, vocabulary_size, label_dim,
+      dense_dim, max_nnz, false, 0.0, &generated_sparse_value, &generated_sparse_rowoffset,
+      &generated_label_data, &generated_dense_data);
 
   ASSERT_TRUE(generated_sparse_rowoffset.size() == num_samples * slot_num);
   ASSERT_TRUE(generated_dense_data.size() == num_samples * dense_dim);
   ASSERT_TRUE(generated_label_data.size() == num_samples * label_dim);
-  
+
   auto resource_manager = ResourceManagerExt::create({{0}}, 0);
   auto local_gpu = resource_manager->get_local_gpu(0);
   const DataReaderSparseParam param = {"distributed", std::vector<int>(slot_num, max_nnz), false,
@@ -98,7 +99,8 @@ void data_reader_worker_norm_test_impl(bool repeat) {
 
   // setup a data reader
   int loop_flag = 1;
-  DataReaderWorker<T> data_reader(0, 1, local_gpu, &loop_flag, thread_buffer, file_list_name, buffer_length, repeat, CHK, params);
+  DataReaderWorker<T> data_reader(0, 1, local_gpu, &loop_flag, thread_buffer, file_list_name,
+                                  buffer_length, repeat, CHK, params);
 
   // call read a batch
   size_t value_offset = 0;
@@ -108,9 +110,9 @@ void data_reader_worker_norm_test_impl(bool repeat) {
     // call read a batch
     data_reader.read_a_batch();
     long long current_batch_size = thread_buffer->current_batch_size;
-    if(repeat) {
+    if (repeat) {
       ASSERT_TRUE(current_batch_size == batchsize);
-    }else {
+    } else {
       if (iter % round == round - 1) {
         ASSERT_TRUE(current_batch_size == num_samples % batchsize);
       } else {
@@ -122,11 +124,13 @@ void data_reader_worker_norm_test_impl(bool repeat) {
     size_t nnz = sparse_tensor.nnz();
 
     std::unique_ptr<T[]> keys(new T[nnz]);
-    CK_CUDA_THROW_(cudaMemcpy(keys.get(), sparse_tensor.get_value_ptr(),
-                              nnz * sizeof(T), cudaMemcpyDeviceToHost));
+    CK_CUDA_THROW_(cudaMemcpy(keys.get(), sparse_tensor.get_value_ptr(), nnz * sizeof(T),
+                              cudaMemcpyDeviceToHost));
 
     for (size_t i = 0; i < nnz; ++i) {
-      ASSERT_TRUE(generated_sparse_value[(value_offset + i) % generated_sparse_value.size()] == keys[i]) << "idx:" << i;
+      ASSERT_TRUE(generated_sparse_value[(value_offset + i) % generated_sparse_value.size()] ==
+                  keys[i])
+          << "idx:" << i;
     }
 
     value_offset += nnz;
@@ -134,14 +138,17 @@ void data_reader_worker_norm_test_impl(bool repeat) {
 
     std::unique_ptr<T[]> rowoffsets(new T[1 + current_batch_size * slot_num]);
     CK_CUDA_THROW_(cudaMemcpy(rowoffsets.get(), sparse_tensor.get_rowoffset_ptr(),
-                              (1 + current_batch_size * slot_num) * sizeof(T), cudaMemcpyDeviceToHost));
-    
+                              (1 + current_batch_size * slot_num) * sizeof(T),
+                              cudaMemcpyDeviceToHost));
+
     T generated_nnz = 0;
     for (int i = 0; i < current_batch_size * slot_num; ++i) {
-      T expected = generated_sparse_rowoffset[(iter *  batchsize * slot_num + i) % generated_sparse_rowoffset.size()];
+      T expected = generated_sparse_rowoffset[(iter * batchsize * slot_num + i) %
+                                              generated_sparse_rowoffset.size()];
 
       T value = rowoffsets[i + 1] - rowoffsets[i];
-      ASSERT_TRUE(value == expected) << "idx:" << i << "value:" << value << " expected:" << expected;
+      ASSERT_TRUE(value == expected)
+          << "idx:" << i << "value:" << value << " expected:" << expected;
       generated_nnz += expected;
     }
 
@@ -150,78 +157,80 @@ void data_reader_worker_norm_test_impl(bool repeat) {
     auto dense_tensorbag = thread_buffer->device_dense_buffers;
     auto label_dense_tensor = Tensor2<float>::stretch_from(dense_tensorbag);
 
-    std::unique_ptr<float[]> label_dense_vec(new float[current_batch_size * (dense_dim + label_dim)]);
+    std::unique_ptr<float[]> label_dense_vec(
+        new float[current_batch_size * (dense_dim + label_dim)]);
     CK_CUDA_THROW_(cudaMemcpy(label_dense_vec.get(), label_dense_tensor.get_ptr(),
-                              current_batch_size * (dense_dim + label_dim) * sizeof(float), cudaMemcpyDeviceToHost));
+                              current_batch_size * (dense_dim + label_dim) * sizeof(float),
+                              cudaMemcpyDeviceToHost));
 
-    for(int i = 0; i < current_batch_size; ++i){
+    for (int i = 0; i < current_batch_size; ++i) {
       int batch_idx = (iter * batchsize + i) % num_samples;
-      for(int j = 0; j < label_dim; ++j){
-        ASSERT_FLOAT_EQ(label_dense_vec[i * (label_dim + dense_dim) + j], generated_label_data[batch_idx * label_dim + j]);
+      for (int j = 0; j < label_dim; ++j) {
+        ASSERT_FLOAT_EQ(label_dense_vec[i * (label_dim + dense_dim) + j],
+                        generated_label_data[batch_idx * label_dim + j]);
       }
-      for(int j = 0; j < dense_dim; ++j){
+      for (int j = 0; j < dense_dim; ++j) {
         float generated_dense = generated_dense_data[batch_idx * dense_dim + j];
-        ASSERT_FLOAT_EQ(label_dense_vec[i * (label_dim + dense_dim) + label_dim + j], generated_dense);
+        ASSERT_FLOAT_EQ(label_dense_vec[i * (label_dim + dense_dim) + label_dim + j],
+                        generated_dense);
       }
     }
-    
-    if(!repeat && iter % round == round - 1) { // need break
+
+    if (!repeat && iter % round == round - 1) {  // need break
       break;
     }
     thread_buffer->state.store(BufferState::ReadyForWrite);
   }
 }
 
-void data_reader_norm_test_impl(const std::vector<int> &device_list, int num_threads, bool repeat, bool use_mixed_precision) {
+void data_reader_norm_test_impl(const std::vector<int> &device_list, int num_threads, bool repeat,
+                                bool use_mixed_precision) {
   std::vector<T> generated_sparse_value;
   std::vector<T> generated_sparse_rowoffset;
   std::vector<float> generated_label_data;
   std::vector<float> generated_dense_data;
 
-  if(HugeCTR::file_exist(file_list_name)) {
+  if (HugeCTR::file_exist(file_list_name)) {
     remove(file_list_name.c_str());
   }
   // data generation
-  HugeCTR::data_generation_for_test<T, CHK>(file_list_name, prefix, num_files, num_samples_per_file,
-                                            slot_num, vocabulary_size, label_dim, dense_dim,
-                                            max_nnz, false, 0.0, &generated_sparse_value, &generated_sparse_rowoffset, &generated_label_data, &generated_dense_data);
+  HugeCTR::data_generation_for_test<T, CHK>(
+      file_list_name, prefix, num_files, num_samples_per_file, slot_num, vocabulary_size, label_dim,
+      dense_dim, max_nnz, false, 0.0, &generated_sparse_value, &generated_sparse_rowoffset,
+      &generated_label_data, &generated_dense_data);
 
   std::vector<std::vector<int>> vvgpu{device_list};
 
-  const auto& resource_manager = ResourceManagerExt::create(vvgpu, 0);
+  const auto &resource_manager = ResourceManagerExt::create(vvgpu, 0);
   // size_t local_gpu_count = resource_manager->get_local_gpu_count();
-  
+
   const DataReaderSparseParam param = {"distributed", std::vector<int>(slot_num, max_nnz), false,
                                        slot_num};
   std::vector<DataReaderSparseParam> params;
   params.push_back(param);
 
-  DataReader<T> data_reader(batchsize, label_dim, dense_dim, params, resource_manager, repeat, num_threads, use_mixed_precision);
-  
+  DataReader<T> data_reader(batchsize, label_dim, dense_dim, params, resource_manager, repeat,
+                            num_threads, use_mixed_precision);
+
   // auto &sparse_tensorbag = data_reader.get_sparse_tensors("distributed");
 
   data_reader.create_drwg_norm(file_list_name, CHK);
-  
+
   // int round = (num_samples - 1) / batchsize + 1;
 
   for (int iter = 0; iter < 50; ++iter) {
     long long current_batch_size = data_reader.read_a_batch_to_device();
-    if(current_batch_size == 0) break;
+    if (current_batch_size == 0) break;
     std::cout << "iter:" << iter << ",current_batch_size:" << current_batch_size << std::endl;
-    if(repeat) {
+    if (repeat) {
       ASSERT_TRUE(current_batch_size == batchsize);
     }
   }
-
 }
 
-TEST(data_reader_worker, data_reader_worker_test_1) {
-  data_reader_worker_norm_test_impl(true);
-}
+TEST(data_reader_worker, data_reader_worker_test_1) { data_reader_worker_norm_test_impl(true); }
 
-TEST(data_reader_worker, data_reader_worker_test_2) {
-  data_reader_worker_norm_test_impl(false);
-}
+TEST(data_reader_worker, data_reader_worker_test_2) { data_reader_worker_norm_test_impl(false); }
 
 TEST(data_reader_test, data_reader_test_repeat_1) {
   data_reader_norm_test_impl({0}, 1, true, false);
@@ -263,13 +272,14 @@ TEST(data_reader_test, data_reader_test_epoch_3) {
 //     vvgpu.push_back(device_list);
 //   }
 //   const auto& resource_manager = ResourceManagerExt::create(vvgpu, 0);
-//   const DataReaderSparseParam param_localized = {"localized", std::vector<int>(slot_num - 5, max_nnz), false, slot_num - 5};
-//   const DataReaderSparseParam param_distributed = {"localized", std::vector<int>(5, max_nnz), false, 5};
-//   std::vector<DataReaderSparseParam> params;
+//   const DataReaderSparseParam param_localized = {"localized", std::vector<int>(slot_num - 5,
+//   max_nnz), false, slot_num - 5}; const DataReaderSparseParam param_distributed = {"localized",
+//   std::vector<int>(5, max_nnz), false, 5}; std::vector<DataReaderSparseParam> params;
 //   params.push_back(param_localized);
 //   params.push_back(param_distributed);
 
-//   DataReader<T> data_reader(batchsize, label_dim, dense_dim, params, resource_manager, true, 1, true);
+//   DataReader<T> data_reader(batchsize, label_dim, dense_dim, params, resource_manager, true, 1,
+//   true);
 
 //   data_reader.create_drwg_norm(file_list_name, CHK);
 
@@ -316,11 +326,12 @@ TEST(data_reader_test, data_reader_test_epoch_3) {
 //     vvgpu.push_back(device_list_1);
 
 //     auto resource_manager = ResourceManagerExt::create(vvgpu, 0);
-//     const DataReaderSparseParam param_localized = {"localized", std::vector<int>(slot_num, max_nnz), false, slot_num};
-//     std::vector<DataReaderSparseParam> params;
+//     const DataReaderSparseParam param_localized = {"localized", std::vector<int>(slot_num,
+//     max_nnz), false, slot_num}; std::vector<DataReaderSparseParam> params;
 //     params.push_back(param_localized);
 
-//     DataReader<T> data_reader(batchsize, label_dim, dense_dim, params, resource_manager, true, 1, false);
+//     DataReader<T> data_reader(batchsize, label_dim, dense_dim, params, resource_manager, true, 1,
+//     false);
 
 //     data_reader.create_drwg_norm(file_list_name, CHK);
 
@@ -344,11 +355,12 @@ TEST(data_reader_test, data_reader_test_epoch_3) {
 //     vvgpu.push_back(device_list_0);
 
 //     auto resource_manager = ResourceManagerExt::create(vvgpu, 0);
-//     const DataReaderSparseParam param_localized = {"localized", std::vector<int>(slot_num, max_nnz), false, slot_num};
-//     std::vector<DataReaderSparseParam> params;
+//     const DataReaderSparseParam param_localized = {"localized", std::vector<int>(slot_num,
+//     max_nnz), false, slot_num}; std::vector<DataReaderSparseParam> params;
 //     params.push_back(param_localized);
 
-//     DataReader<T> data_reader(batchsize, label_dim, dense_dim, params, resource_manager, true, 1, false, 0);
+//     DataReader<T> data_reader(batchsize, label_dim, dense_dim, params, resource_manager, true, 1,
+//     false, 0);
 
 //     data_reader.create_drwg_norm(file_list_name, CHK);
 

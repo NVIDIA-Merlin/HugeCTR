@@ -14,13 +14,12 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/layers/matrix_multiply_layer.hpp"
-
 #include <gtest/gtest.h>
 #include <utest/test_utils.h>
 
 #include <vector>
 
+#include "HugeCTR/include/layers/matrix_multiply_layer.hpp"
 #include "HugeCTR/include/utils.hpp"
 
 using namespace std;

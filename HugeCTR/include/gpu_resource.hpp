@@ -90,7 +90,6 @@ class GPUResource {
 
   void set_wgrad_event_sync(const cudaStream_t& sync_stream) const;
   void wait_on_wgrad_event(const cudaStream_t& sync_stream) const;
-
 };
 
 }  // namespace HugeCTR
