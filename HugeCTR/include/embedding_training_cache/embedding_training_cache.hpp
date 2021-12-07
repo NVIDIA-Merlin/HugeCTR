@@ -17,10 +17,10 @@
 #pragma once
 
 #include "embedding.hpp"
-#include "embeddings/embedding_data.hpp"
-#include "embedding_training_cache/hmem_cache/hmem_cache.hpp"
 #include "embedding_training_cache/embedding_training_cache_impl.hpp"
+#include "embedding_training_cache/hmem_cache/hmem_cache.hpp"
 #include "embedding_training_cache/parameter_server_manager.hpp"
+#include "embeddings/embedding_data.hpp"
 
 namespace HugeCTR {
 
@@ -30,11 +30,12 @@ class EmbeddingTrainingCache {
 
  public:
   EmbeddingTrainingCache(std::vector<TrainPSType_t> ps_types,
-                      std::vector<std::shared_ptr<IEmbedding>> embeddings,
-                      std::vector<std::string> sparse_embedding_files,
-                      std::shared_ptr<ResourceManager> resource_manager, bool use_mixed_precision,
-                      bool is_i64_key, std::vector<std::string> local_paths,
-                      std::vector<HMemCacheConfig> hmem_cache_configs) {
+                         std::vector<std::shared_ptr<IEmbedding>> embeddings,
+                         std::vector<std::string> sparse_embedding_files,
+                         std::shared_ptr<ResourceManager> resource_manager,
+                         bool use_mixed_precision, bool is_i64_key,
+                         std::vector<std::string> local_paths,
+                         std::vector<HMemCacheConfig> hmem_cache_configs) {
     std::vector<SparseEmbeddingHashParams> embedding_params;
     if (is_i64_key) {
       for (auto& embedding : embeddings) {

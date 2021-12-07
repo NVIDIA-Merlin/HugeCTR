@@ -32,10 +32,12 @@ InferenceSession::InferenceSession(const std::string& model_config_path,
       resource_manager_(ResourceManagerCore::create({{inference_params.device_id}}, 0)) {
   try {
     if (inference_params_.use_gpu_embedding_cache &&
-          embedding_cache -> get_device_id() != inference_params_.device_id) {
-      CK_THROW_(Error_t::WrongInput, "The device id of inference_params is not consistent with that of embedding cache.");
+        embedding_cache->get_device_id() != inference_params_.device_id) {
+      CK_THROW_(
+          Error_t::WrongInput,
+          "The device id of inference_params is not consistent with that of embedding cache.");
     }
-    auto b2s = [](const char val) { return val? "True" : "False"; };
+    auto b2s = [](const char val) { return val ? "True" : "False"; };
     HCTR_LOG(INFO, ROOT, "Model name: %s\n", inference_params_.model_name.c_str());
     HCTR_LOG(INFO, ROOT, "Use mixed precision: %s\n", b2s(inference_params.use_mixed_precision));
     HCTR_LOG(INFO, ROOT, "Use cuda graph: %s\n", b2s(inference_params.use_cuda_graph));
@@ -86,7 +88,8 @@ void InferenceSession::separate_keys_by_table_(int* d_row_ptrs,
   size_t row_ptrs_size_in_bytes_sample = row_ptrs_size_sample * sizeof(int);
   std::unique_ptr<int[]> h_row_ptrs(new int[row_ptrs_size_sample]);
   CK_CUDA_THROW_(cudaMemcpyAsync(h_row_ptrs.get(), d_row_ptrs, row_ptrs_size_in_bytes_sample,
-                            cudaMemcpyDeviceToHost, resource_manager_->get_local_gpu(0)->get_stream()));
+                                 cudaMemcpyDeviceToHost,
+                                 resource_manager_->get_local_gpu(0)->get_stream()));
   CK_CUDA_THROW_(cudaStreamSynchronize(resource_manager_->get_local_gpu(0)->get_stream()));
   h_embedding_offset_.resize(num_samples * num_embedding_tables + 1);
 

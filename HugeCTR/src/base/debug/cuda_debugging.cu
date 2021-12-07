@@ -21,46 +21,50 @@ namespace HugeCTR {
 namespace {
 
 __device__ char* kernel_strcpy(const char* dst_base, char* dst_cur, const char* src) {
-    int n = 0;
-    while(*src != '\0') {
-        if ((size_t)(dst_cur - dst_base) >= KERNEL_PRINTF_MAX_LENGTH ) { return dst_cur; }
-        *dst_cur++ = *src++;
-        n++;
+  int n = 0;
+  while (*src != '\0') {
+    if ((size_t)(dst_cur - dst_base) >= KERNEL_PRINTF_MAX_LENGTH) {
+      return dst_cur;
     }
-    return dst_cur;
+    *dst_cur++ = *src++;
+    n++;
+  }
+  return dst_cur;
 }
 
 __device__ char* kernel_utoa(const char* dst_base, char* dst_cur, unsigned val) {
-    int n = 0;
-    do {
-        if ((size_t)(dst_cur - dst_base) >= KERNEL_PRINTF_MAX_LENGTH ) { return dst_cur + n; }
-        unsigned dgt = val % 10;
-        char ch = '0' + dgt;
-        *(dst_cur + n) = ch;
-        n++;
-    } while (val /= 10);
-    dst_cur[n] = '\0';
-
-    for (int i = 0; i < n / 2; i++) {
-        char tmp = dst_cur[n - i - 1];
-        dst_cur[n - i - 1] = dst_cur[i];
-        dst_cur[i] = tmp;
+  int n = 0;
+  do {
+    if ((size_t)(dst_cur - dst_base) >= KERNEL_PRINTF_MAX_LENGTH) {
+      return dst_cur + n;
     }
+    unsigned dgt = val % 10;
+    char ch = '0' + dgt;
+    *(dst_cur + n) = ch;
+    n++;
+  } while (val /= 10);
+  dst_cur[n] = '\0';
 
-    return dst_cur + n;
+  for (int i = 0; i < n / 2; i++) {
+    char tmp = dst_cur[n - i - 1];
+    dst_cur[n - i - 1] = dst_cur[i];
+    dst_cur[i] = tmp;
+  }
+
+  return dst_cur + n;
 }
 
-__device__ char* kernel_printf_info(char* dst){
+__device__ char* kernel_printf_info(char* dst) {
   unsigned grid_id;
-  asm("mov.u32 %0, %gridid;" : "=r"(grid_id) : );
+  asm("mov.u32 %0, %gridid;" : "=r"(grid_id) :);
   int device_id;
   cudaGetDevice(&device_id);
   unsigned sm_id;
-  asm("mov.u32 %0, %smid;" : "=r"(sm_id) : );
+  asm("mov.u32 %0, %smid;" : "=r"(sm_id) :);
   unsigned warp_id;
-  asm("mov.u32 %0, %warpid;" : "=r"(warp_id) : );
+  asm("mov.u32 %0, %warpid;" : "=r"(warp_id) :);
   unsigned lane_id;
-  asm("mov.u32 %0, %laneid;" : "=r"(lane_id) : );
+  asm("mov.u32 %0, %laneid;" : "=r"(lane_id) :);
 
   char* nxt = dst;
   nxt = kernel_strcpy(dst, nxt, "[HUGECTR][KERNEL][device ");
@@ -90,13 +94,13 @@ __device__ char* kernel_printf_info(char* dst){
   return nxt;
 }
 
-} // namespace
+}  // namespace
 
 __device__ void kernel_printf_extend_format(char* dst, const char* src) {
-    char* dst_base = dst;
-    dst = kernel_printf_info(dst);
-    dst = kernel_strcpy(dst_base, dst, src);
-    *dst = '\0';
+  char* dst_base = dst;
+  dst = kernel_printf_info(dst);
+  dst = kernel_strcpy(dst_base, dst, src);
+  *dst = '\0';
 }
 
-} // namespace HugeCTR
+}  // namespace HugeCTR

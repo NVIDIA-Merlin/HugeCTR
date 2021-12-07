@@ -134,12 +134,11 @@ void data_reader_worker_raw_test_impl(bool float_label_dense, bool repeat) {
     // rowoffset always have (1 + batchsize * slot_num) number
     std::unique_ptr<T[]> rowoffsets(new T[1 + batchsize * slot_num]);
     CK_CUDA_THROW_(cudaMemcpy(rowoffsets.get(), sparse_tensor.get_rowoffset_ptr(),
-                              (1 + batchsize * slot_num) * sizeof(T),
-                              cudaMemcpyDeviceToHost));
+                              (1 + batchsize * slot_num) * sizeof(T), cudaMemcpyDeviceToHost));
     for (int i = 0; i < batchsize * slot_num + 1; ++i) {
-      if(i < 1 + current_batch_size * slot_num){
+      if (i < 1 + current_batch_size * slot_num) {
         ASSERT_TRUE(rowoffsets[i] == static_cast<T>(i)) << "idx:" << i;
-      }else {
+      } else {
         ASSERT_TRUE(rowoffsets[i] == static_cast<T>(current_batch_size * slot_num)) << "idx:" << i;
       }
     }
@@ -210,7 +209,7 @@ void data_reader_raw_test_impl(const std::vector<int> &device_list, int num_thre
   for (int iter = 0; iter < 12; ++iter) {
     long long current_batch_size = data_reader.read_a_batch_to_device();
     std::cout << "current_batch_size:" << current_batch_size << std::endl;
-    if(current_batch_size == 0) return;
+    if (current_batch_size == 0) return;
     if (iter % round == round - 1) {
       ASSERT_TRUE(current_batch_size == num_samples % batchsize);
     } else {
@@ -228,18 +227,20 @@ void data_reader_raw_test_impl(const std::vector<int> &device_list, int num_thre
       // std::cout << "iter:" << iter << " keys:" << keys[0];
       for (int i = 0; i < current_batch_size * slot_num; ++i) {
         ASSERT_TRUE(keys[i] == generated_sparse_data[batchsize * slot_num * (iter % round) + i])
-            << "idx:" << i << ",a:" << keys[i] << ",b:" << generated_sparse_data[batchsize * slot_num * (iter % round) + i];
+            << "idx:" << i << ",a:" << keys[i]
+            << ",b:" << generated_sparse_data[batchsize * slot_num * (iter % round) + i];
       }
 
       std::unique_ptr<T[]> rowoffsets(new T[1 + batchsize * slot_num]);
       CK_CUDA_THROW_(cudaMemcpy(rowoffsets.get(), sparse_tensor.get_rowoffset_ptr(),
-                                (1 + batchsize * slot_num) * sizeof(T),
-                                cudaMemcpyDeviceToHost));
+                                (1 + batchsize * slot_num) * sizeof(T), cudaMemcpyDeviceToHost));
       for (int i = 0; i < batchsize * slot_num + 1; ++i) {
-        if(i < 1 + current_batch_size * slot_num){
-          ASSERT_TRUE(rowoffsets[i] == static_cast<T>(i)) << "idx:" << i << ",a:" << rowoffsets[i] << ",b:" << i;
-        }else {
-          ASSERT_TRUE(rowoffsets[i] == static_cast<T>(current_batch_size * slot_num)) << "idx:" << i << ",a:" << rowoffsets[i] << ",b:" << current_batch_size * slot_num;
+        if (i < 1 + current_batch_size * slot_num) {
+          ASSERT_TRUE(rowoffsets[i] == static_cast<T>(i))
+              << "idx:" << i << ",a:" << rowoffsets[i] << ",b:" << i;
+        } else {
+          ASSERT_TRUE(rowoffsets[i] == static_cast<T>(current_batch_size * slot_num))
+              << "idx:" << i << ",a:" << rowoffsets[i] << ",b:" << current_batch_size * slot_num;
         }
       }
 
@@ -328,8 +329,12 @@ TEST(data_reader_raw, float_test_4) { data_reader_raw_test_impl({0, 1}, 4, true,
 
 TEST(data_reader_raw_epoch, float_test_1) { data_reader_raw_test_impl({0}, 1, true, false, false); }
 TEST(data_reader_raw_epoch, float_test_2) { data_reader_raw_test_impl({0}, 2, true, false, false); }
-TEST(data_reader_raw_epoch, float_test_3) { data_reader_raw_test_impl({0, 1}, 2, true, false, false); }
-TEST(data_reader_raw_epoch, float_test_4) { data_reader_raw_test_impl({0, 1}, 4, true, false, false); }
+TEST(data_reader_raw_epoch, float_test_3) {
+  data_reader_raw_test_impl({0, 1}, 2, true, false, false);
+}
+TEST(data_reader_raw_epoch, float_test_4) {
+  data_reader_raw_test_impl({0, 1}, 4, true, false, false);
+}
 
 TEST(data_reader_raw_half, float_test_1) { data_reader_raw_test_impl({0}, 1, true, true, true); }
 TEST(data_reader_raw_half, float_test_2) { data_reader_raw_test_impl({0}, 2, true, true, true); }

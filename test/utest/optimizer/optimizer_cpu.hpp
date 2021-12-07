@@ -13,7 +13,8 @@ void compare_array(const float* a, const float* b, int len, float eps) {
 template <typename T>
 class AdaGradCPU {
  public:
-  AdaGradCPU(int len, float* w, const T* g, const float lr, const float initial_accu_value, const float epsilon, const float scaler)
+  AdaGradCPU(int len, float* w, const T* g, const float lr, const float initial_accu_value,
+             const float epsilon, const float scaler)
       : w_(w), g_(g), len_(len), lr_(lr), epsilon_(epsilon), scaler_(scaler) {
     sum_.resize(len);
     std::fill(sum_.begin(), sum_.end(), initial_accu_value);
@@ -44,8 +45,8 @@ class AdaGradCPU {
 template <typename T>
 class AdamCPU {
  public:
-  AdamCPU(int len, float* w, const T* g, float lr = 1.f,
-          float alpha = 0.001, float beta1 = 0.9, float beta2 = 0.999, float epsilon = 1e-7, float scaler = 1.f)
+  AdamCPU(int len, float* w, const T* g, float lr = 1.f, float alpha = 0.001, float beta1 = 0.9,
+          float beta2 = 0.999, float epsilon = 1e-7, float scaler = 1.f)
       : w_(w),
         g_(g),
         len_(len),
@@ -56,8 +57,8 @@ class AdamCPU {
         beta2_(beta2),
         epsilon_(epsilon),
         scaler_(scaler) {
-      m_.resize(len);
-      v_.resize(len);
+    m_.resize(len);
+    v_.resize(len);
   }
 
   void update() {
@@ -93,21 +94,15 @@ class AdamCPU {
 template <typename T>
 class MomentumSGDCPU {
  public:
-  MomentumSGDCPU(int len, float* w, T* g, float lr = 0.01,
-         float mu = 0.9, float scaler = 1.f)
-      : w_(w),
-        g_(g),
-        len_(len),
-        lr_(lr),
-        mu_(mu),
-        scaler_(scaler) {
+  MomentumSGDCPU(int len, float* w, T* g, float lr = 0.01, float mu = 0.9, float scaler = 1.f)
+      : w_(w), g_(g), len_(len), lr_(lr), mu_(mu), scaler_(scaler) {
     accum_.resize(len);
   }
 
   void update() {
-    
     for (int i = 0; i < len_; ++i) {
-      float acc = mu_ *TypeConvert<float, T>::convert(accum_[i]) - lr_ * TypeConvert<float, T>::convert(g_[i]) / scaler_;
+      float acc = mu_ * TypeConvert<float, T>::convert(accum_[i]) -
+                  lr_ * TypeConvert<float, T>::convert(g_[i]) / scaler_;
       accum_[i] = TypeConvert<T, float>::convert(acc);
       w_[i] += acc;
     }
@@ -126,17 +121,11 @@ template <typename T>
 class NesterovCPU {
  public:
   NesterovCPU(int len, float* w, const T* g, float lr, float mu, float scaler)
-      : w_(w),
-        g_(g),
-        len_(len),
-        lr_(lr),
-        mu_(mu),
-        scaler_(scaler) {
+      : w_(w), g_(g), len_(len), lr_(lr), mu_(mu), scaler_(scaler) {
     accum_.resize(len);
   }
 
   void update() {
-
     for (int i = 0; i < len_; ++i) {
       float accum_old = TypeConvert<float, T>::convert(accum_[i]);
       float accum_new = mu_ * accum_old - lr_ * TypeConvert<float, T>::convert(g_[i]) / scaler_;
@@ -157,12 +146,10 @@ class NesterovCPU {
 template <typename T>
 class SGDCPU {
  public:
-  SGDCPU(int len, float* w, const T* g, 
-         float lr = 0.001, float scaler = 1.f)
+  SGDCPU(int len, float* w, const T* g, float lr = 0.001, float scaler = 1.f)
       : w_(w), g_(g), len_(len), lr_(lr), scaler_(scaler) {}
 
   void update() {
-
     for (int i = 0; i < len_; ++i) {
       float gi = TypeConvert<float, T>::convert(g_[i]) / scaler_;
       w_[i] -= lr_ * gi;

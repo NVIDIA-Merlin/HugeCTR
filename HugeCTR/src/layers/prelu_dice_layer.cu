@@ -124,8 +124,8 @@ void PRelu_Dice_Layer<T>::fprop(bool is_train) {
   // Get Variance of each batch. Var_x = E(x^2) - E(x)^2;
   // E(x^2);
   MLCommon::LinAlg::reduce(
-      E_x2.get_ptr(), in_tensor.get_ptr(), hiddensize, batchsize, T(0), true, false, get_gpu().get_stream(),
-      false, [] __device__(T in, int i) { return pow(in, 2.0); },
+      E_x2.get_ptr(), in_tensor.get_ptr(), hiddensize, batchsize, T(0), true, false,
+      get_gpu().get_stream(), false, [] __device__(T in, int i) { return pow(in, 2.0); },
       [] __device__(T a, T b) { return a + b; },
       [batchsize] __device__(T out) { return out / batchsize; });
   // E(x)^2;
@@ -134,12 +134,11 @@ void PRelu_Dice_Layer<T>::fprop(bool is_train) {
       get_gpu().get_stream());
   // Var_x = E(x^2) - E(x)^2;
   MLCommon::LinAlg::binaryOp(
-      Var_x.get_ptr(), E_x2.get_ptr(), Var_x.get_ptr(), hiddensize, [] __device__(T a, T b) { return a - b; },
-      get_gpu().get_stream());
+      Var_x.get_ptr(), E_x2.get_ptr(), Var_x.get_ptr(), hiddensize,
+      [] __device__(T a, T b) { return a - b; }, get_gpu().get_stream());
 
   Dice_fprop(out_tensor.get_ptr(), in_tensor.get_ptr(), E_x.get_ptr(), Var_x.get_ptr(), alpha,
              epsilon, in_tensor_dim[0], in_tensor_dim[1], get_gpu().get_stream());
-
 }
 
 template <typename T>

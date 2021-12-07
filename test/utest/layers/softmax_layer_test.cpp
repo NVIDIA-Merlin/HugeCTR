@@ -15,7 +15,9 @@
  */
 
 #include "HugeCTR/include/layers/softmax_layer.hpp"
+
 #include <vector>
+
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"
 

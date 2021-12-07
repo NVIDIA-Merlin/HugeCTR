@@ -98,7 +98,8 @@ class ForwardSentMessageTest : public HybridEmbeddingUnitTest<dtype, emtype> {
 
     /* Infrequent forward_model */
     for (size_t i = 0; i < this->num_instances; i++) {
-      this->infrequent_embeddings[i].set_current_indices(&this->infrequent_embedding_indices[i], this->stream);
+      this->infrequent_embeddings[i].set_current_indices(&this->infrequent_embedding_indices[i],
+                                                         this->stream);
       upload_tensor(cpu_embedding.infrequent_embedding_vectors[i],
                     this->infrequent_embeddings[i].infrequent_embedding_vectors_, this->stream);
       this->infrequent_embeddings[i].indices_->calculate_model_indices(this->stream);
@@ -206,7 +207,8 @@ class BackwardSentMessageTest : public HybridEmbeddingUnitTest<dtype, emtype> {
 
     /* Infrequent update_network */
     for (size_t i = 0; i < this->num_instances; i++) {
-      this->infrequent_embeddings[i].set_current_indices(&this->infrequent_embedding_indices[i], this->stream);
+      this->infrequent_embeddings[i].set_current_indices(&this->infrequent_embedding_indices[i],
+                                                         this->stream);
       upload_tensor(cpu_embedding.gradients[i], gradients[i], this->stream);
       this->infrequent_embeddings[i].indices_->calculate_network_indices(80, this->stream);
       if (this->config.comm_type == CommunicationType::IB_NVLink_Hier) {

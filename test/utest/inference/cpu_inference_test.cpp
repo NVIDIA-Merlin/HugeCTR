@@ -14,18 +14,19 @@
  * limitations under the License.
  */
 
+#include <cuda_profiler_api.h>
+
+#include <fstream>
+#include <vector>
+
+#include "HugeCTR/include/cpu/embedding_feature_combiner_cpu.hpp"
+#include "HugeCTR/include/cpu/session_inference_cpu.hpp"
 #include "HugeCTR/include/data_generator.hpp"
 #include "HugeCTR/include/general_buffer2.hpp"
 #include "HugeCTR/include/inference/inference_utils.hpp"
 #include "HugeCTR/include/utils.hpp"
-#include "HugeCTR/include/cpu/embedding_feature_combiner_cpu.hpp"
-#include "HugeCTR/include/cpu/session_inference_cpu.hpp"
-#include <vector>
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"
-#include <fstream>
-#include <vector>
-#include <cuda_profiler_api.h>
 
 using namespace HugeCTR;
 
@@ -36,7 +37,7 @@ const int RANGE[] = {0,       1460,    2018,    337396,  549106,  549411,  54943
                      954609,  966800,  1268011, 1268021, 1272862, 1274948, 1274952,
                      1599225, 1599242, 1599257, 1678991, 1679087, 1737709};
 
-std::vector<std::string> &split(const std::string &s, char delim, std::vector<std::string> &elems) {
+std::vector<std::string>& split(const std::string& s, char delim, std::vector<std::string>& elems) {
   std::stringstream ss(s);
   std::string item;
   while (std::getline(ss, item, delim)) {
@@ -64,9 +65,10 @@ InferenceInfo::InferenceInfo(const nlohmann::json& config) {
   for (int i = 0; i < (int)j_sparse_inputs.size(); i++) {
     const nlohmann::json& j_sparse = j_sparse_inputs[0];
     slot_num.push_back(get_value_from_json<int>(j_sparse, "slot_num"));
-    
-    size_t max_feature_num_per_sample_ = static_cast<size_t>(get_max_feature_num_per_sample_from_nnz_per_slot(j_sparse));
-    
+
+    size_t max_feature_num_per_sample_ =
+        static_cast<size_t>(get_max_feature_num_per_sample_from_nnz_per_slot(j_sparse));
+
     max_feature_num_per_sample.push_back(max_feature_num_per_sample_);
   }
   // get embedding params: embedding_vec_size, combiner_type
@@ -80,7 +82,7 @@ InferenceInfo::InferenceInfo(const nlohmann::json& config) {
           embedding_name.compare("LocalizedSlotSparseEmbeddingOneHot") != 0) {
         break;
       }
-      auto j_embed_params =  get_json(j, "sparse_embedding_hparam");
+      auto j_embed_params = get_json(j, "sparse_embedding_hparam");
       auto vec_size = get_value_from_json<int>(j_embed_params, "embedding_vec_size");
       auto combiner = get_value_from_json<std::string>(j_embed_params, "combiner");
       embedding_vec_size.push_back(vec_size);
@@ -94,7 +96,8 @@ InferenceInfo::InferenceInfo(const nlohmann::json& config) {
 }
 
 template <typename TypeHashKey>
-void session_inference_criteo_test(const std::string& config_file, const std::string& model, const std::string& criteo_data_path, int batchsize) {
+void session_inference_criteo_test(const std::string& config_file, const std::string& model,
+                                   const std::string& criteo_data_path, int batchsize) {
   InferenceInfo inference_info(read_json_file(config_file));
   int batch_size = batchsize;
   int dense_dim = inference_info.dense_dim;
@@ -171,10 +174,10 @@ void session_inference_criteo_test(const std::string& config_file, const std::st
   if (batch_size == 0) {
     CK_THROW_(Error_t::WrongInput, "batch size should not be zero!");
   }
-  num_samples = num_samples < batch_size? num_samples : batch_size;
+  num_samples = num_samples < batch_size ? num_samples : batch_size;
 
   // h_row_ptrs
-  std::vector<size_t> row_ptrs_dims = { static_cast<size_t>(batch_size * slot_num + 1) };  // 1D
+  std::vector<size_t> row_ptrs_dims = {static_cast<size_t>(batch_size * slot_num + 1)};  // 1D
   size_t row_ptrs_size = 1;
   for (auto dim : row_ptrs_dims) {
     row_ptrs_size *= dim;
@@ -193,16 +196,17 @@ void session_inference_criteo_test(const std::string& config_file, const std::st
   size_t dense_size_in_bytes = dense_size * sizeof(float);
   size_t dense_size_in_bytes_samples = dense_size_samples * sizeof(float);
   float* h_dense_features = reinterpret_cast<float*>(host_allocator.allocate(dense_size_in_bytes));
-  
+
   // h_embeddingcolumns
   size_t embeddingcolumns_size = batch_size * max_feature_num_per_sample;
   size_t embeddingcolumns_size_samples = num_samples * max_feature_num_per_sample;
   size_t embeddingcolumns_size_in_bytes = embeddingcolumns_size * sizeof(TypeHashKey);
-  size_t embeddingcolumns_size_in_bytes_samples = embeddingcolumns_size_samples * sizeof(TypeHashKey);
+  size_t embeddingcolumns_size_in_bytes_samples =
+      embeddingcolumns_size_samples * sizeof(TypeHashKey);
   void* h_embeddingcolumns = host_allocator.allocate(embeddingcolumns_size_in_bytes);
-  //TypeHashKey* h_keys = reinterpret_cast<TypeHashKey*>(h_embeddingcolumns);
+  // TypeHashKey* h_keys = reinterpret_cast<TypeHashKey*>(h_embeddingcolumns);
 
-  // h_output 
+  // h_output
   std::unique_ptr<float[]> h_out(new float[batch_size]);
 
   // memory copy
@@ -213,47 +217,51 @@ void session_inference_criteo_test(const std::string& config_file, const std::st
   // inference session
   std::string dense_model{"/hugectr/test/utest/_dense_10000.model"};
   std::vector<std::string> sparse_models{"/hugectr/test/utest/0_sparse_10000.model"};
-  InferenceParams infer_param(model, batchsize, 0.5, dense_model, sparse_models, 0, true, 0.8, false);
+  InferenceParams infer_param(model, batchsize, 0.5, dense_model, sparse_models, 0, true, 0.8,
+                              false);
   std::vector<InferenceParams> inference_params{infer_param};
   std::vector<std::string> model_config_path{config_file};
-  std::shared_ptr<HugectrUtility<TypeHashKey>> parameter_server(HugectrUtility<TypeHashKey>::Create_Parameter_Server(INFER_TYPE::TRITON, model_config_path, inference_params));
-  InferenceSessionCPU<TypeHashKey> sess(model_config_path[0], inference_params[0], parameter_server);
+  std::shared_ptr<HugectrUtility<TypeHashKey>> parameter_server(
+      HugectrUtility<TypeHashKey>::Create_Parameter_Server(INFER_TYPE::TRITON, model_config_path,
+                                                           inference_params));
+  InferenceSessionCPU<TypeHashKey> sess(model_config_path[0], inference_params[0],
+                                        parameter_server);
   timer_inference.start();
   sess.predict(h_dense_features, h_embeddingcolumns, h_row_ptrs, h_out.get(), num_samples);
   timer_inference.stop();
-  
+
   std::cout << "==========================labels===================" << std::endl;
-  for (int i = 0; i < num_samples; i++)
-    std::cout << labels[i] << " ";
+  for (int i = 0; i < num_samples; i++) std::cout << labels[i] << " ";
   std::cout << std::endl;
-  
+
   std::cout << "==========================prediction result===================" << std::endl;
   for (int i = 0; i < num_samples; i++) {
-      std::cout << h_out[i] << " ";
+    std::cout << h_out[i] << " ";
   }
   std::cout << std::endl;
-  MESSAGE_("Batch size: " + std::to_string(batch_size)
-          + ", Number samples: " + std::to_string(num_samples)
-          + ", Time: " + std::to_string(timer_inference.elapsedSeconds()) + "s");
+  MESSAGE_("Batch size: " + std::to_string(batch_size) +
+           ", Number samples: " + std::to_string(num_samples) +
+           ", Time: " + std::to_string(timer_inference.elapsedSeconds()) + "s");
   host_allocator.deallocate(h_embeddingcolumns);
   host_allocator.deallocate(h_dense_features);
   host_allocator.deallocate(h_row_ptrs);
 }
 
 template <typename TypeHashKey>
-void session_inference_generated_test(const std::string& config_file, const std::string& model, int num_samples, int batchsize) {
+void session_inference_generated_test(const std::string& config_file, const std::string& model,
+                                      int num_samples, int batchsize) {
   InferenceInfo inference_info(read_json_file(config_file));
   int batch_size = batchsize;
   int dense_dim = inference_info.dense_dim;
   int slot_num = inference_info.slot_num[0];
   int max_feature_num_per_sample = inference_info.max_feature_num_per_sample[0];
   int max_nnz = max_feature_num_per_sample / slot_num;
-  num_samples = num_samples < batch_size? num_samples:batch_size;
+  num_samples = num_samples < batch_size ? num_samples : batch_size;
   HostAllocator host_allocator;
   HugeCTR::Timer timer_inference;
 
-  //h_row_ptrs
-  std::vector<size_t> row_ptrs_dims = { static_cast<size_t>(batch_size * slot_num + 1) };  // 1D
+  // h_row_ptrs
+  std::vector<size_t> row_ptrs_dims = {static_cast<size_t>(batch_size * slot_num + 1)};  // 1D
   size_t row_ptrs_size = 1;
   for (auto dim : row_ptrs_dims) {
     row_ptrs_size *= dim;
@@ -263,15 +271,14 @@ void session_inference_generated_test(const std::string& config_file, const std:
   ldata_sim.reset(new IntUniformDataSimulator<int>(1, max_nnz));
   h_row_ptrs[0] = 0;
   for (int i = 1; i < (int)row_ptrs_size; i++) {
-    h_row_ptrs[i] = (h_row_ptrs[i-1] + ldata_sim->get_num());
+    h_row_ptrs[i] = (h_row_ptrs[i - 1] + ldata_sim->get_num());
   }
 
   // h_dense_features
   size_t dense_size = batch_size * dense_dim;
   std::unique_ptr<float[]> h_dense(new float[dense_size]);
-  FloatUniformDataSimulator<float> fdata_sim(0, 1);     
-  for (int i = 0; i < (int)dense_size; i++)
-    h_dense[i] = fdata_sim.get_num();
+  FloatUniformDataSimulator<float> fdata_sim(0, 1);
+  for (int i = 0; i < (int)dense_size; i++) h_dense[i] = fdata_sim.get_num();
 
   // h_embeddingcolumns
   size_t embeddingcolumns_size = batch_size * max_feature_num_per_sample;
@@ -280,8 +287,8 @@ void session_inference_generated_test(const std::string& config_file, const std:
   TypeHashKey* h_keys = reinterpret_cast<TypeHashKey*>(h_embeddingcolumns);
   for (int i = 0; i < num_samples; i++) {
     for (int j = 0; j < slot_num; j++) {
-      ldata_sim.reset(new IntUniformDataSimulator<int>(RANGE[j], RANGE[j+1]-1));
-      h_keys[i*slot_num + j] = static_cast<TypeHashKey>(ldata_sim->get_num());
+      ldata_sim.reset(new IntUniformDataSimulator<int>(RANGE[j], RANGE[j + 1] - 1));
+      h_keys[i * slot_num + j] = static_cast<TypeHashKey>(ldata_sim->get_num());
     }
   }
 
@@ -290,28 +297,37 @@ void session_inference_generated_test(const std::string& config_file, const std:
   // inference session
   std::string dense_model{"/hugectr/test/utest/_dense_10000.model"};
   std::vector<std::string> sparse_models{"/hugectr/test/utest/0_sparse_10000.model"};
-  InferenceParams infer_param(model, batchsize, 0.5, dense_model, sparse_models, 0, true, 0.8, false);
+  InferenceParams infer_param(model, batchsize, 0.5, dense_model, sparse_models, 0, true, 0.8,
+                              false);
   std::vector<InferenceParams> inference_params{infer_param};
   std::vector<std::string> model_config_path{config_file};
-  std::shared_ptr<HugectrUtility<TypeHashKey>> parameter_server(HugectrUtility<TypeHashKey>::Create_Parameter_Server(INFER_TYPE::TRITON, model_config_path, inference_params));
-  InferenceSessionCPU<TypeHashKey> sess(model_config_path[0], inference_params[0], parameter_server);
+  std::shared_ptr<HugectrUtility<TypeHashKey>> parameter_server(
+      HugectrUtility<TypeHashKey>::Create_Parameter_Server(INFER_TYPE::TRITON, model_config_path,
+                                                           inference_params));
+  InferenceSessionCPU<TypeHashKey> sess(model_config_path[0], inference_params[0],
+                                        parameter_server);
   timer_inference.start();
   sess.predict(h_dense.get(), h_embeddingcolumns, h_row_ptrs.get(), h_out.get(), num_samples);
   timer_inference.stop();
 
   std::cout << "==========================prediction result===================" << std::endl;
   for (int i = 0; i < num_samples; i++) {
-      std::cout << h_out[i] << " ";
+    std::cout << h_out[i] << " ";
   }
   std::cout << std::endl;
-  MESSAGE_("Batch size: " + std::to_string(batch_size)
-        + ", Number samples: " + std::to_string(num_samples)
-        + ", Time: " + std::to_string(timer_inference.elapsedSeconds()) + "s");
+  MESSAGE_("Batch size: " + std::to_string(batch_size) +
+           ", Number samples: " + std::to_string(num_samples) +
+           ", Time: " + std::to_string(timer_inference.elapsedSeconds()) + "s");
   host_allocator.deallocate(h_embeddingcolumns);
 }
 
 }  // namespace
 
-
-TEST(session_inference_cpu, criteo_dcn) { session_inference_criteo_test<unsigned int>("/workdir/test/utest/simple_inference_config.json", "DCN", "/hugectr/test/utest/dcn_csr.txt", 32); }
-TEST(session_inference_cpu, generated_dcn_32) { session_inference_generated_test<unsigned int>("/workdir/test/utest/simple_inference_config.json", "DCN", 32, 32); }
+TEST(session_inference_cpu, criteo_dcn) {
+  session_inference_criteo_test<unsigned int>("/workdir/test/utest/simple_inference_config.json",
+                                              "DCN", "/hugectr/test/utest/dcn_csr.txt", 32);
+}
+TEST(session_inference_cpu, generated_dcn_32) {
+  session_inference_generated_test<unsigned int>("/workdir/test/utest/simple_inference_config.json",
+                                                 "DCN", 32, 32);
+}

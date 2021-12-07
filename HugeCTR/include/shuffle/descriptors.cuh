@@ -41,8 +41,8 @@ struct CopyDetails {
   bool do_copy[NumDests];
 };
 
-template <typename SrcType, typename DstType, int NumDests,
-          typename LambdaNumElemType, typename LambdaDetailsType>
+template <typename SrcType, typename DstType, int NumDests, typename LambdaNumElemType,
+          typename LambdaDetailsType>
 struct OneToOne {
   using SrcT = SrcType;
   using DstT = DstType;
@@ -59,8 +59,8 @@ struct OneToOne {
   LambdaDetailsType get_details_;
 };
 
-template <typename SrcType, typename DstType, int NumDests,
-          typename LambdaNumElemType, typename LambdaDetailsType>
+template <typename SrcType, typename DstType, int NumDests, typename LambdaNumElemType,
+          typename LambdaDetailsType>
 OneToOne<SrcType, DstType, NumDests, LambdaNumElemType, LambdaDetailsType> make_OneToOne(
     uint32_t num_dimensions, LambdaNumElemType get_num_elems, LambdaDetailsType get_details) {
   return {num_dimensions, get_num_elems, get_details};

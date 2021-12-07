@@ -54,10 +54,9 @@ class InteractionLayer : public Layer {
 
  private:
   void init(const Tensor2<T>& in_bottom_mlp_tensor, const Tensor2<T>& in_embeddings,
-                   Tensor2<T>& out_tensor, Tensor2<T>& grad_tensor,
-                   const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
-                   const std::shared_ptr<GPUResource>& gpu_resource);
-
+            Tensor2<T>& out_tensor, Tensor2<T>& grad_tensor,
+            const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
+            const std::shared_ptr<GPUResource>& gpu_resource);
 
  public:
   /**

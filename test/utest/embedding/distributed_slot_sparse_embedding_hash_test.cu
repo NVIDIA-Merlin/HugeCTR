@@ -16,6 +16,7 @@
 
 #include <sys/time.h>
 
+#include <experimental/filesystem>
 #include <fstream>
 #include <functional>
 #include <memory>
@@ -30,8 +31,6 @@
 #include "utest/embedding/embedding_test_utils.hpp"
 #include "utest/embedding/sparse_embedding_hash_cpu.hpp"
 #include "utest/test_utils.h"
-
-#include <experimental/filesystem>
 
 using namespace HugeCTR;
 using namespace embedding_test;
@@ -60,7 +59,7 @@ const float scaler = 1.0f;  // used in mixed precision training
 // size of max_vocabulary_size_per_gpu, which should be more than vocabulary_size/gpu_count,
 // eg: 1.25x of that.
 
-const int num_threads = 1; // must be 1 to keep data reading consistency with cpu and gpu
+const int num_threads = 1;  // must be 1 to keep data reading consistency with cpu and gpu
 const int num_files = 1;
 const Check_t CHK = Check_t::Sum;  // Check_t::Sum
 const char *train_file_list_name = "train_file_list.txt";
@@ -70,8 +69,8 @@ const char *sparse_model_file = "distributed_hash_table";
 const char *opt_file_name = "distributed_opt.bin";
 //-----------------------------------------------------------------------------------------
 
-auto load_sparse_model_to_map = [](std::vector<T>& key_vec,
-    std::vector<float>& vec_vec, const std::string& sparse_model) {
+auto load_sparse_model_to_map = [](std::vector<T> &key_vec, std::vector<float> &vec_vec,
+                                   const std::string &sparse_model) {
   const std::string key_file(sparse_model + "/key");
   const std::string vec_file(sparse_model + "/emb_vector");
 
@@ -154,8 +153,7 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
 
   const float lr = optimizer == Optimizer_t::Adam ? 0.001f : 0.01f;
 
-  const OptParams opt_params = {optimizer, lr, hyper_params, update_type,
-                                                   scaler};
+  const OptParams opt_params = {optimizer, lr, hyper_params, update_type, scaler};
 
   int numprocs = 1, pid = 0;
   std::vector<std::vector<int>> vvgpu;
@@ -190,11 +188,10 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
 
 #ifdef ENABLE_MPI
   MPI_Barrier(MPI_COMM_WORLD);
-#endif  
+#endif
 
   // setup a data reader
-  const DataReaderSparseParam param = {"distributed", max_nnz_per_slot,
-                                       false, slot_num};
+  const DataReaderSparseParam param = {"distributed", max_nnz_per_slot, false, slot_num};
   std::vector<DataReaderSparseParam> params;
   params.push_back(param);
 
@@ -217,13 +214,21 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
   MPI_Barrier(MPI_COMM_WORLD);
 #endif
 
-  const SparseEmbeddingHashParams embedding_params = {
-      train_batchsize, test_batchsize, vocabulary_size, {},        embedding_vec_size,
-      max_feature_num, slot_num,       combiner,        opt_params, true, false};
+  const SparseEmbeddingHashParams embedding_params = {train_batchsize,
+                                                      test_batchsize,
+                                                      vocabulary_size,
+                                                      {},
+                                                      embedding_vec_size,
+                                                      max_feature_num,
+                                                      slot_num,
+                                                      combiner,
+                                                      opt_params,
+                                                      true,
+                                                      false};
 
   auto copy = [](const std::vector<SparseTensorBag> &tensorbags, SparseTensors<T> &sparse_tensors) {
     sparse_tensors.resize(tensorbags.size());
-    for(size_t j = 0; j < tensorbags.size(); ++j){
+    for (size_t j = 0; j < tensorbags.size(); ++j) {
       sparse_tensors[j] = SparseTensor<T>::stretch_from(tensorbags[j]);
     }
   };
@@ -234,8 +239,7 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
 
   std::unique_ptr<DistributedSlotSparseEmbeddingHash<T, TypeEmbeddingComp>> embedding(
       new DistributedSlotSparseEmbeddingHash<T, TypeEmbeddingComp>(
-          train_input, test_input,
-          embedding_params, resource_manager));
+          train_input, test_input, embedding_params, resource_manager));
 
   // upload hash table to device
   embedding->load_parameters(sparse_model_file);
@@ -282,7 +286,7 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
     // call read a batch
     printf("Rank%d: data_reader->read_a_batch_to_device()\n", pid);
     train_data_reader->read_a_batch_to_device();
-    
+
     // GPU forward
     printf("Rank%d: embedding->forward()\n", pid);
     embedding->forward(true);
@@ -444,8 +448,7 @@ void load_and_dump(const std::vector<int> &device_list, const Optimizer_t &optim
 
   const float lr = optimizer == Optimizer_t::Adam ? 0.001f : 0.01f;
 
-  const OptParams opt_params = {optimizer, lr, hyper_params, update_type,
-                                                   scaler};
+  const OptParams opt_params = {optimizer, lr, hyper_params, update_type, scaler};
 
   std::vector<std::vector<int>> vvgpu;
   vvgpu.push_back(device_list);
@@ -465,8 +468,7 @@ void load_and_dump(const std::vector<int> &device_list, const Optimizer_t &optim
       vocabulary_size, label_dim, dense_dim, max_nnz_per_slot);
 
   // setup a data reader
-  const DataReaderSparseParam param = {"distributed", max_nnz_per_slot,
-                                       false, slot_num};
+  const DataReaderSparseParam param = {"distributed", max_nnz_per_slot, false, slot_num};
   std::vector<DataReaderSparseParam> params;
   params.push_back(param);
 
@@ -478,24 +480,30 @@ void load_and_dump(const std::vector<int> &device_list, const Optimizer_t &optim
   // init hash table file
   init_sparse_model(sparse_model_file);
 
-  const SparseEmbeddingHashParams embedding_params = {
-      train_batchsize, test_batchsize, vocabulary_size, {},        embedding_vec_size,
-      max_feature_num, slot_num,       combiner,        opt_params, true, false};
-
+  const SparseEmbeddingHashParams embedding_params = {train_batchsize,
+                                                      test_batchsize,
+                                                      vocabulary_size,
+                                                      {},
+                                                      embedding_vec_size,
+                                                      max_feature_num,
+                                                      slot_num,
+                                                      combiner,
+                                                      opt_params,
+                                                      true,
+                                                      false};
 
   auto copy = [](const std::vector<SparseTensorBag> &tensorbags, SparseTensors<T> &sparse_tensors) {
     sparse_tensors.resize(tensorbags.size());
-    for(size_t j = 0; j < tensorbags.size(); ++j){
+    for (size_t j = 0; j < tensorbags.size(); ++j) {
       sparse_tensors[j] = SparseTensor<T>::stretch_from(tensorbags[j]);
     }
   };
   SparseTensors<T> train_input;
   copy(train_data_reader->get_sparse_tensors("distributed"), train_input);
-  
+
   std::unique_ptr<DistributedSlotSparseEmbeddingHash<T, TypeEmbeddingComp>> embedding(
       new DistributedSlotSparseEmbeddingHash<T, TypeEmbeddingComp>(
-          train_input, train_input,
-          embedding_params, resource_manager));
+          train_input, train_input, embedding_params, resource_manager));
 
   // upload hash table to device
   embedding->load_parameters(sparse_model_file);
@@ -583,19 +591,23 @@ void load_and_dump(const std::vector<int> &device_list, const Optimizer_t &optim
 
   std::vector<T> hash_table_key_from_gpu;
   std::vector<float> hash_table_value_from_gpu;
-  load_sparse_model_to_map(hash_table_key_from_gpu, hash_table_value_from_gpu, tmp_sparse_model_file);
+  load_sparse_model_to_map(hash_table_key_from_gpu, hash_table_value_from_gpu,
+                           tmp_sparse_model_file);
 
-  typedef struct TypeHashValue_ { float data[embedding_vec_size]; } TypeHashValue;
+  typedef struct TypeHashValue_ {
+    float data[embedding_vec_size];
+  } TypeHashValue;
 
-  ASSERT_TRUE(compare_hash_table(vocabulary_size,
-    hash_table_key_from_gpu.data(), reinterpret_cast<TypeHashValue *>(hash_table_value_from_gpu.data()),
-    hash_table_key_from_cpu.data(), reinterpret_cast<TypeHashValue *>(hash_table_value_from_cpu.data()),
-    tolerance));
+  ASSERT_TRUE(compare_hash_table(
+      vocabulary_size, hash_table_key_from_gpu.data(),
+      reinterpret_cast<TypeHashValue *>(hash_table_value_from_gpu.data()),
+      hash_table_key_from_cpu.data(),
+      reinterpret_cast<TypeHashValue *>(hash_table_value_from_cpu.data()), tolerance));
 }
 
 template <typename TypeEmbeddingComp>
 void load_and_dump_file(const std::vector<int> &device_list, const Optimizer_t &optimizer,
-                   const Update_t &update_type) {
+                        const Update_t &update_type) {
   std::string sparse_model_src("sparse_model_src");
   std::string sparse_model_dst("sparse_model_dst");
 
@@ -632,8 +644,8 @@ void load_and_dump_file(const std::vector<int> &device_list, const Optimizer_t &
 
     // data generation
     HugeCTR::data_generation_for_test<T, CHK>(
-      train_file_list_name, prefix, num_files, train_batch_num * train_batchsize, slot_num,
-      vocabulary_size, label_dim, dense_dim, max_nnz_per_slot);
+        train_file_list_name, prefix, num_files, train_batch_num * train_batchsize, slot_num,
+        vocabulary_size, label_dim, dense_dim, max_nnz_per_slot);
   }
 
 #ifdef ENABLE_MPI
@@ -641,8 +653,7 @@ void load_and_dump_file(const std::vector<int> &device_list, const Optimizer_t &
 #endif
 
   // setup a data reader
-  const DataReaderSparseParam param = {"distributed", max_nnz_per_slot,
-                                       false, slot_num};
+  const DataReaderSparseParam param = {"distributed", max_nnz_per_slot, false, slot_num};
   std::vector<DataReaderSparseParam> params;
   params.push_back(param);
 
@@ -651,13 +662,21 @@ void load_and_dump_file(const std::vector<int> &device_list, const Optimizer_t &
 
   train_data_reader->create_drwg_norm(train_file_list_name, CHK);
 
-  const SparseEmbeddingHashParams embedding_params = {
-      train_batchsize, test_batchsize, vocabulary_size, {},        embedding_vec_size,
-      max_feature_num, slot_num,       combiner,        opt_params, true, false};
-  
+  const SparseEmbeddingHashParams embedding_params = {train_batchsize,
+                                                      test_batchsize,
+                                                      vocabulary_size,
+                                                      {},
+                                                      embedding_vec_size,
+                                                      max_feature_num,
+                                                      slot_num,
+                                                      combiner,
+                                                      opt_params,
+                                                      true,
+                                                      false};
+
   auto copy = [](const std::vector<SparseTensorBag> &tensorbags, SparseTensors<T> &sparse_tensors) {
     sparse_tensors.resize(tensorbags.size());
-    for(size_t j = 0; j < tensorbags.size(); ++j){
+    for (size_t j = 0; j < tensorbags.size(); ++j) {
       sparse_tensors[j] = SparseTensor<T>::stretch_from(tensorbags[j]);
     }
   };
@@ -666,8 +685,7 @@ void load_and_dump_file(const std::vector<int> &device_list, const Optimizer_t &
 
   std::unique_ptr<DistributedSlotSparseEmbeddingHash<T, TypeEmbeddingComp>> embedding(
       new DistributedSlotSparseEmbeddingHash<T, TypeEmbeddingComp>(
-          train_input, train_input,
-          embedding_params, resource_manager));
+          train_input, train_input, embedding_params, resource_manager));
 
   // init hash table file
   if (pid == 0) {
@@ -683,7 +701,7 @@ void load_and_dump_file(const std::vector<int> &device_list, const Optimizer_t &
 
   if (pid == 0) {
     printf("max_vocabulary_size=%zu, vocabulary_size=%zu\n", embedding->get_max_vocabulary_size(),
-      embedding->get_vocabulary_size());
+           embedding->get_vocabulary_size());
   }
 
   // dump sparse model to file
@@ -701,12 +719,15 @@ void load_and_dump_file(const std::vector<int> &device_list, const Optimizer_t &
   std::vector<float> hash_table_value_from_gpu;
   load_sparse_model_to_map(hash_table_key_from_gpu, hash_table_value_from_gpu, sparse_model_dst);
 
-  typedef struct TypeHashValue_ { float data[embedding_vec_size]; } TypeHashValue;
+  typedef struct TypeHashValue_ {
+    float data[embedding_vec_size];
+  } TypeHashValue;
 
-  ASSERT_TRUE(compare_hash_table(vocabulary_size,
-    hash_table_key_from_gpu.data(), reinterpret_cast<TypeHashValue *>(hash_table_value_from_gpu.data()),
-    hash_table_key_from_cpu.data(), reinterpret_cast<TypeHashValue *>(hash_table_value_from_cpu.data()),
-    tolerance));
+  ASSERT_TRUE(compare_hash_table(
+      vocabulary_size, hash_table_key_from_gpu.data(),
+      reinterpret_cast<TypeHashValue *>(hash_table_value_from_gpu.data()),
+      hash_table_key_from_cpu.data(),
+      reinterpret_cast<TypeHashValue *>(hash_table_value_from_cpu.data()), tolerance));
 
   test::mpi_finalize();
 }

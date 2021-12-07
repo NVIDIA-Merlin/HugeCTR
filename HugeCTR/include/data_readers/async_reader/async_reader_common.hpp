@@ -3,10 +3,10 @@
 #include <cuda_runtime.h>
 
 // For the tensor bags
-#include "HugeCTR/include/tensor2.hpp"
-
 #include <atomic>
 #include <vector>
+
+#include "HugeCTR/include/tensor2.hpp"
 
 struct iocb;
 

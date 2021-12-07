@@ -174,8 +174,7 @@ void ThreadAsyncReader::try_submit_io(size_t batch_id, int io_id) {
     auto req = buffer->io_reqs[block];
 
     io_prep_pread(req, fd_, buffer->raw_host_ptr + params_.io_block_size * block,
-                  params_.io_block_size,
-                  raw_beg_offset + params_.io_block_size * block);
+                  params_.io_block_size, raw_beg_offset + params_.io_block_size * block);
     req->data = (void*)buffer;
   }
 

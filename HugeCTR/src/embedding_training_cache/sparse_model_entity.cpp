@@ -181,9 +181,8 @@ void SparseModelEntity<TypeKey>::load_vec_by_key(std::vector<TypeKey> &keys, Buf
 
 #ifdef KEY_HIT_RATIO
     std::stringstream ss;
-    ss << "HMEM-PS: Load " << keys.size() << " keys, hit " << hit_size << " ("
-       << std::fixed << std::setprecision(4) << hit_size * 100.0 / keys.size()
-       << "%) in existing model";
+    ss << "HMEM-PS: Load " << keys.size() << " keys, hit " << hit_size << " (" << std::fixed
+       << std::setprecision(4) << hit_size * 100.0 / keys.size() << "%) in existing model";
     MESSAGE_(ss.str(), true);
 #endif
   } catch (const internal_runtime_error &rt_err) {
@@ -357,9 +356,8 @@ void SparseModelEntity<TypeKey>::dump_vec_by_key(BufferBag &buf_bag, const size_
     size_t num_hit = dump_size - cnt_new_keys;
 
     std::stringstream ss;
-    ss << "HMEM-PS: Dump " << dump_size << " keys, hit " << num_hit << " ("
-       << std::fixed << std::setprecision(4) << num_hit * 100.0 / dump_size
-       << "%) in existing model";
+    ss << "HMEM-PS: Dump " << dump_size << " keys, hit " << num_hit << " (" << std::fixed
+       << std::setprecision(4) << num_hit * 100.0 / dump_size << "%) in existing model";
     MESSAGE_(ss.str(), true);
 #endif
   } catch (const internal_runtime_error &rt_err) {

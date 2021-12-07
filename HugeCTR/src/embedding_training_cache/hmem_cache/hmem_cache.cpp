@@ -18,9 +18,9 @@
 #include <tqdm.h>
 
 #include <cstddef>
+#include <embedding_training_cache/hmem_cache/hmem_cache.hpp>
 #include <execution>
 #include <iomanip>
-#include <embedding_training_cache/hmem_cache/hmem_cache.hpp>
 
 namespace HugeCTR {
 

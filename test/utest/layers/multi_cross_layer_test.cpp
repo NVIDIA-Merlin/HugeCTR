@@ -16,8 +16,9 @@
 
 #include "HugeCTR/include/layers/multi_cross_layer.hpp"
 
-#include <math.h>
 #include <cuda_fp16.h>
+#include <math.h>
+
 #include <memory>
 #include <vector>
 
@@ -64,7 +65,7 @@ class MultiCrossLayerTest {
       return {0.0f, 0.125f};
     }
     return {0.0f, 1.0f};
-  } 
+  }
 
   constexpr T eps_() const noexcept {
     if (std::is_same<T, __half>::value) {
@@ -86,11 +87,9 @@ class MultiCrossLayerTest {
                               cudaMemcpyHostToDevice));
     T* p = weight_.get_ptr();
     for (int i = 0; i < layers_; i++) {
-      CK_CUDA_THROW_(
-          cudaMemcpy(p, h_kernels_[i].data(), w_ * sizeof(T), cudaMemcpyHostToDevice));
+      CK_CUDA_THROW_(cudaMemcpy(p, h_kernels_[i].data(), w_ * sizeof(T), cudaMemcpyHostToDevice));
       p += w_;
-      CK_CUDA_THROW_(
-          cudaMemcpy(p, h_biases_[i].data(), w_ * sizeof(T), cudaMemcpyHostToDevice));
+      CK_CUDA_THROW_(cudaMemcpy(p, h_biases_[i].data(), w_ * sizeof(T), cudaMemcpyHostToDevice));
       p += w_;
     }
     return;
@@ -253,8 +252,8 @@ class MultiCrossLayerTest {
     CK_CUDA_THROW_(cudaMemcpy(d2h_output.data(), d_output_.get_ptr(), d_output_.get_size_in_bytes(),
                               cudaMemcpyDeviceToHost));
 
-    ASSERT_TRUE(test::compare_array_approx_rel<T>(
-        d2h_output.data(), h_outputs_.back().data(), h_outputs_.back().size(), 0.1f, eps_())); 
+    ASSERT_TRUE(test::compare_array_approx_rel<T>(d2h_output.data(), h_outputs_.back().data(),
+                                                  h_outputs_.back().size(), 0.1f, eps_()));
   }
 
   void compare_backward_() {
@@ -280,14 +279,15 @@ class MultiCrossLayerTest {
       p += w_;
     }
 
-    ASSERT_TRUE(test::compare_array_approx_rel<T>(
-        d2h_input_grad.data(), h_input_grad_.data(), h_input_grad_.size(), 0.4f, eps_()));
+    ASSERT_TRUE(test::compare_array_approx_rel<T>(d2h_input_grad.data(), h_input_grad_.data(),
+                                                  h_input_grad_.size(), 0.4f, eps_()));
     for (int i = 0; i < layers_; i++) {
-      ASSERT_TRUE(test::compare_array_approx_rel<T>(
-          d2h_kernel_grads_[i].data(), h_kernel_grads_[i].data(), h_kernel_grads_[i].size(),
-          0.4f, eps_()));
-      ASSERT_TRUE(test::compare_array_approx_rel<T>(
-          d2h_bias_grads_[i].data(), h_bias_grads_[i].data(), h_bias_grads_[i].size(), 0.2f, eps_()));
+      ASSERT_TRUE(test::compare_array_approx_rel<T>(d2h_kernel_grads_[i].data(),
+                                                    h_kernel_grads_[i].data(),
+                                                    h_kernel_grads_[i].size(), 0.4f, eps_()));
+      ASSERT_TRUE(test::compare_array_approx_rel<T>(d2h_bias_grads_[i].data(),
+                                                    h_bias_grads_[i].data(),
+                                                    h_bias_grads_[i].size(), 0.2f, eps_()));
     }
   }
 
@@ -319,8 +319,8 @@ class MultiCrossLayerTest {
     }
 
     // layer
-    layer_.reset(new MultiCrossLayer<T>(master_weight_buff_, weight_buf_, wgrad_buf_, blob_buf_, d_input_, d_output_,
-                                     test::get_default_gpu(), layers));
+    layer_.reset(new MultiCrossLayer<T>(master_weight_buff_, weight_buf_, wgrad_buf_, blob_buf_,
+                                        d_input_, d_output_, test::get_default_gpu(), layers));
 
     blob_buf_->allocate();
     layer_->initialize();

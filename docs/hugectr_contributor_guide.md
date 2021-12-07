@@ -59,7 +59,6 @@ To build HugeCTR from source, do the following:
      is 70, which uses the NVIDIA V100 GPU. For more information, refer to [Compute Capability](https://github.com/NVIDIA/HugeCTR/blob/master/docs/hugectr_user_guide.md#compute-capability). 60 is not supported for inference deployments. For more information, refer to [Quick Start](https://github.com/triton-inference-server/hugectr_backend#quick-start).
    - **CMAKE_BUILD_TYPE**: You can use this option to build HugeCTR with Debug or Release. When using Debug to build, HugeCTR will print more verbose logs and execute GPU tasks 
      in a synchronous manner.
-   - **VAL_MODE**: You can use this option to build HugeCTR in validation mode, which was designed for framework validation. In this mode, loss of training will be shown as the 
      average of eval_batches results. Only one thread and chunk will be used in the data reader. Performance will be lower when in validation mode. This option is set to OFF by 
      default.
    - **ENABLE_MULTINODES**: You can use this option to build HugeCTR with multiple nodes. This option is set to OFF by default. For more information, refer to [samples/dcn2nodes](../samples/dcn).
@@ -76,13 +75,13 @@ To build HugeCTR from source, do the following:
 
    ```shell
    $ mkdir -p build && cd build
-   $ cmake -DCMAKE_BUILD_TYPE=Release -DSM="70;80" -DVAL_MODE=ON .. # Target is NVIDIA V100 / A100 with Validation mode on.
+   $ cmake -DCMAKE_BUILD_TYPE=Release -DSM="70;80" -DENABLE_MULTINODES=ON .. # Target is NVIDIA V100 / A100 with the multi-node mode on.
    $ make -j && make install
    ```
 
    ```shell
    $ mkdir -p build && cd build
-   $ cmake -DCMAKE_BUILD_TYPE=Release -DSM="70;80" -DCMAKE_BUILD_TYPE=Debug .. # Target is NVIDIA V100 / A100 with Debug mode.
+   $ cmake -DCMAKE_BUILD_TYPE=Debug -DSM="70;80" .. # Target is NVIDIA V100 / A100 with Debug mode.
    $ make -j && make install
    ```
 

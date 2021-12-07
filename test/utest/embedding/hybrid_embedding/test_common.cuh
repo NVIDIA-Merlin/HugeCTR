@@ -47,10 +47,10 @@ class HybridEmbeddingUnitTest {
   std::vector<FrequentEmbedding<dtype, emtype>> frequent_embeddings;
   std::vector<InfrequentEmbedding<dtype, emtype>> infrequent_embeddings;
 
-  std::vector<FrequentEmbeddingCompression<dtype>> frequent_embedding_indices; 
+  std::vector<FrequentEmbeddingCompression<dtype>> frequent_embedding_indices;
   std::vector<InfrequentEmbeddingSelection<dtype>> infrequent_embedding_indices;
 
-  float* dev_lr;
+  float *dev_lr;
 
  public:
   void build_model() {
@@ -81,8 +81,7 @@ class HybridEmbeddingUnitTest {
     }
 
     CK_CUDA_THROW_(cudaMalloc(&dev_lr, sizeof(float)));
-    CK_CUDA_THROW_(cudaMemcpy(dev_lr, &config.lr, sizeof(float),
-                              cudaMemcpyHostToDevice));
+    CK_CUDA_THROW_(cudaMemcpy(dev_lr, &config.lr, sizeof(float), cudaMemcpyHostToDevice));
   }
 
   void build_frequent() {
@@ -91,8 +90,7 @@ class HybridEmbeddingUnitTest {
       std::shared_ptr<BufferBlock2<emtype>> placeholder = NULL;
       frequent_embeddings.emplace_back(model_list[i], fake_resource, placeholder,
                                        embedding_vec_size, config.num_frequent);
-      frequent_embedding_indices.emplace_back(
-          config.num_frequent, data_list[i], model_list[i]);
+      frequent_embedding_indices.emplace_back(config.num_frequent, data_list[i], model_list[i]);
     }
 
     if (config.comm_type == CommunicationType::NVLink_SingleNode) {

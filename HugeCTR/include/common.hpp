@@ -22,13 +22,13 @@
 #include <nvml.h>
 
 #include <algorithm>
+#include <base/debug/logger.hpp>
 #include <config.hpp>
 #include <ctime>
 #include <exception>
 #include <initializer_list>
 #include <iomanip>
 #include <iostream>
-#include <base/debug/logger.hpp>
 #include <numeric>
 #include <unordered_map>
 #include <utility>

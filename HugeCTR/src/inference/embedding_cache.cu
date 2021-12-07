@@ -70,14 +70,15 @@ void merge_emb_vec_async(float* d_vals_merge_dst_ptr, const float* d_vals_retrie
 
 void fill_default_emb_vec_async(float* d_vals_merge_dst_ptr, const float default_emb_vec,
                                 const uint64_t* d_missing_index_ptr, const size_t missing_len,
-                                const size_t emb_vec_size, const size_t BLOCK_SIZE, cudaStream_t stream) {
+                                const size_t emb_vec_size, const size_t BLOCK_SIZE,
+                                cudaStream_t stream) {
   if (missing_len == 0) {
     return;
   }
   size_t missing_len_in_float = missing_len * emb_vec_size;
   fill_default_emb_vec<<<((missing_len_in_float - 1) / BLOCK_SIZE) + 1, BLOCK_SIZE, 0, stream>>>(
       d_vals_merge_dst_ptr, default_emb_vec, d_missing_index_ptr, missing_len, emb_vec_size);
-} 
+}
 
 void decompress_emb_vec_async(const float* d_unique_src_ptr, const uint64_t* d_unique_index_ptr,
                               float* d_decompress_dst_ptr, const size_t decompress_len,

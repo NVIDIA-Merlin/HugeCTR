@@ -15,9 +15,11 @@
  */
 
 #include "HugeCTR/include/layers/fused_relu_bias_fully_connected_layer.hpp"
+
 #include <cmath>
 #include <cstdlib>
 #include <vector>
+
 #include "cublas_v2.h"
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"
@@ -162,43 +164,49 @@ static void fully_connected_layer_test(size_t m, size_t n, size_t k) {
 
   // check result
   ASSERT_LT(compare_array(h_top.get(), d2h_top.get(), m * n, 1e-3), 0.15f)
-     << "fprop cross_check result fail" << endl;
+      << "fprop cross_check result fail" << endl;
 
-   simulator.fill(h_top.get(), m * n);
-   simulator.fill(h_bprop_out.get(), m * n);
+  simulator.fill(h_top.get(), m * n);
+  simulator.fill(h_bprop_out.get(), m * n);
 
-   CK_CUDA_THROW_(cudaMemcpy(d_top, h_bprop_out.get(), sizeof(__half) * m * n, cudaMemcpyHostToDevice));
-   CK_CUDA_THROW_(cudaMemcpy(d_mask_out, h_top.get(), sizeof(__half) * m * n, cudaMemcpyHostToDevice));
+  CK_CUDA_THROW_(
+      cudaMemcpy(d_top, h_bprop_out.get(), sizeof(__half) * m * n, cudaMemcpyHostToDevice));
+  CK_CUDA_THROW_(
+      cudaMemcpy(d_mask_out, h_top.get(), sizeof(__half) * m * n, cudaMemcpyHostToDevice));
 
-   // cpu bprop
-   cpu_reverse_add_bias_and_re(h_bias_grad.get(), h_top.get(), h_bprop_out.get(), m, n);
+  // cpu bprop
+  cpu_reverse_add_bias_and_re(h_bias_grad.get(), h_top.get(), h_bprop_out.get(), m, n);
 
-   cpu_mm(h_kernel_grad.get(), h_bottom.get(), true, h_top.get(), false, k, m, n);
-   cpu_mm(h_bprop_in.get(), h_top.get(), false, h_kernel.get(), true, m, n, k);
+  cpu_mm(h_kernel_grad.get(), h_bottom.get(), true, h_top.get(), false, k, m, n);
+  cpu_mm(h_bprop_in.get(), h_top.get(), false, h_kernel.get(), true, m, n, k);
 
-   // gpu bprop
-   CK_CUDA_THROW_(cudaDeviceSynchronize());
-   fully_connected_layer.bprop();
-   CK_CUDA_THROW_(cudaDeviceSynchronize());
+  // gpu bprop
+  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  fully_connected_layer.bprop();
+  CK_CUDA_THROW_(cudaDeviceSynchronize());
 
-   CK_CUDA_THROW_(
-       cudaMemcpy(d2h_bprop_in.get(), d_bprop_in, sizeof(__half) * m * k, cudaMemcpyDeviceToHost));
-   CK_CUDA_THROW_(cudaMemcpy(d2h_kernel_grad.get(), d_kernel_grad, sizeof(__half) * k * n,
-                             cudaMemcpyDeviceToHost));
-   CK_CUDA_THROW_(
-       cudaMemcpy(d2h_bias_grad.get(), d_bias_grad, sizeof(__half) * n, cudaMemcpyDeviceToHost));
+  CK_CUDA_THROW_(
+      cudaMemcpy(d2h_bprop_in.get(), d_bprop_in, sizeof(__half) * m * k, cudaMemcpyDeviceToHost));
+  CK_CUDA_THROW_(cudaMemcpy(d2h_kernel_grad.get(), d_kernel_grad, sizeof(__half) * k * n,
+                            cudaMemcpyDeviceToHost));
+  CK_CUDA_THROW_(
+      cudaMemcpy(d2h_bias_grad.get(), d_bias_grad, sizeof(__half) * n, cudaMemcpyDeviceToHost));
 
-   // check result
-   ASSERT_LT(compare_array(h_bprop_in.get(), d2h_bprop_in.get(), m * k, 1e-1), 0.05f)
-       << " bprop cross_check input_grad fail" << endl;
-   ASSERT_LT(compare_array(h_kernel_grad.get(), d2h_kernel_grad.get(), k * n, 1e-1), 0.05f)
-       << " bprop cross_check weight_grad fail" << endl;
-   ASSERT_LT(compare_array(h_bias_grad.get(), d2h_bias_grad.get(), n, 1e-1), 0.05f)
-       << " bprop cross_check bias_grad fail" << endl;
+  // check result
+  ASSERT_LT(compare_array(h_bprop_in.get(), d2h_bprop_in.get(), m * k, 1e-1), 0.05f)
+      << " bprop cross_check input_grad fail" << endl;
+  ASSERT_LT(compare_array(h_kernel_grad.get(), d2h_kernel_grad.get(), k * n, 1e-1), 0.05f)
+      << " bprop cross_check weight_grad fail" << endl;
+  ASSERT_LT(compare_array(h_bias_grad.get(), d2h_bias_grad.get(), n, 1e-1), 0.05f)
+      << " bprop cross_check bias_grad fail" << endl;
 }
 
-TEST(fused_relu_bias_fully_connected_layer, fp16_32x64x32) { fully_connected_layer_test(32, 128, 32); }
-TEST(fused_relu_bias_fully_connected_layer, fp16_2048x512x16) { fully_connected_layer_test(2048, 512, 16); }
+TEST(fused_relu_bias_fully_connected_layer, fp16_32x64x32) {
+  fully_connected_layer_test(32, 128, 32);
+}
+TEST(fused_relu_bias_fully_connected_layer, fp16_2048x512x16) {
+  fully_connected_layer_test(2048, 512, 16);
+}
 TEST(fused_relu_bias_fully_connected_layer, fp16_2048x1024x480) {
   fully_connected_layer_test(2048, 1024, 480);
 }

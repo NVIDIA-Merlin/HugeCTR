@@ -19,16 +19,15 @@
 //#include "rnn_example/data.h"
 #include <cmath>
 #include <cstdlib>
-#include <random>
-#include <vector>
-#include "HugeCTR/include/data_simulator.hpp"
-#include "utest/test_utils.h"
-
 #include <fstream>
 #include <iostream>
 #include <iterator>
+#include <random>
 #include <sstream>
 #include <vector>
+
+#include "HugeCTR/include/data_simulator.hpp"
+#include "utest/test_utils.h"
 //#include <Python.h>
 using namespace std;
 using namespace HugeCTR;

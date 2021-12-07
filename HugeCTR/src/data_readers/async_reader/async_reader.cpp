@@ -7,16 +7,15 @@
 
 #include <cassert>
 #include <cstdio>
+#include <filesystem>
 #include <fstream>
 #include <map>
 #include <numeric>
 #include <random>
-#include <filesystem>
 
 #include "common.hpp"
 #include "resource_manager.hpp"
 #include "utils.hpp"
-
 
 namespace HugeCTR {
 
@@ -116,13 +115,9 @@ void AsyncReaderImpl::create_workers() {
   threads_.clear();
 }
 
-bool AsyncReaderImpl::is_currently_loading() {
-  return !threads_.empty();
-}
+bool AsyncReaderImpl::is_currently_loading() { return !threads_.empty(); }
 
-size_t AsyncReaderImpl::get_num_buffers() {
-  return buffers_.size();
-}
+size_t AsyncReaderImpl::get_num_buffers() { return buffers_.size(); }
 
 void AsyncReaderImpl::load_async() {
   if (is_currently_loading()) {

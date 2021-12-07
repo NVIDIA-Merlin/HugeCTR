@@ -35,13 +35,13 @@ namespace HugeCTR {
 namespace hybrid_embedding {
 
 // In order to use it easier in the IndicesContainer
-template<typename dtype> 
+template <typename dtype>
 class InfrequentEmbeddingBase {
-protected:
-  const Data<dtype>* data_ = nullptr;
+ protected:
+  const Data<dtype> *data_ = nullptr;
   InfrequentEmbeddingSelectionView<dtype> *indices_view_ = nullptr;
 
-public:
+ public:
   // Infrequent indices and device pointer!
   InfrequentEmbeddingSelection<dtype> *indices_;
 
@@ -51,9 +51,9 @@ public:
 };
 
 template <typename dtype, typename emtype>
-class InfrequentEmbedding : public InfrequentEmbeddingBase<dtype> {  
+class InfrequentEmbedding : public InfrequentEmbeddingBase<dtype> {
  public:
-   using InfrequentEmbeddingBase<dtype>::data_;
+  using InfrequentEmbeddingBase<dtype>::data_;
 
   // copy of the model parameters and the input data, managed by HybridSparseEmbedding
   const Model<dtype> &model_;
@@ -73,8 +73,8 @@ class InfrequentEmbedding : public InfrequentEmbeddingBase<dtype> {
 
   // Tensors to be passed to the hierarchical comms
   // TODO: move these to the index containers
-  Tensor2<uint32_t> network_indices_offsets_, model_indices_offsets_; 
-  Tensor2<size_t> network_indices_sizes_, model_indices_sizes_; 
+  Tensor2<uint32_t> network_indices_offsets_, model_indices_offsets_;
+  Tensor2<size_t> network_indices_sizes_, model_indices_sizes_;
   Tensor2<size_t *> network_indices_sizes_ptrs_, model_indices_sizes_ptrs_;
 
   // to do, we need to initialize it in the constructor
@@ -85,7 +85,7 @@ class InfrequentEmbedding : public InfrequentEmbeddingBase<dtype> {
                       uint32_t embedding_vec_size);
   ~InfrequentEmbedding(){};
 
-  void initialize_embedding_vectors(const std::vector<size_t>& table_sizes);
+  void initialize_embedding_vectors(const std::vector<size_t> &table_sizes);
   void forward_model(emtype *message_buffer, cudaStream_t stream);
   void fused_intra_forward_model(emtype **message_buffer, cudaStream_t stream);
   void forward_network(const emtype *message_buffer, emtype *interaction_layer_input,

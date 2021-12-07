@@ -99,9 +99,7 @@ class ResourceManagerCore : public ResourceManager {
       int local_gpu_id) const override;
 
 #ifdef ENABLE_MPI
-  void init_ib_comm() override {
-    CK_THROW_(Error_t::IllegalCall, "Error: should not be reached");
-  }
+  void init_ib_comm() override { CK_THROW_(Error_t::IllegalCall, "Error: should not be reached"); }
   IbComm* get_ib_comm() const override {
     CK_THROW_(Error_t::IllegalCall, "Error: should not be reached");
     return nullptr;

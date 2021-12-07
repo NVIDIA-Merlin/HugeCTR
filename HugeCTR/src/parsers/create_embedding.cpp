@@ -218,7 +218,8 @@ void create_embedding<TypeKey, TypeFP>::operator()(
           max_all_reduce_bandwidth,
           max_all_to_all_bandwidth,  // TBD
           efficiency_bandwidth_ratio,
-          false, false,
+          false,
+          false,
           hybrid_embedding_type,
           embedding_opt_params};
       embeddings.emplace_back(new HybridSparseEmbedding<TypeKey, TypeFP>(

@@ -155,8 +155,7 @@ void model_init_test(const size_t num_instances, const size_t num_tables, const 
   std::cout << "Number of iterations : " << num_iterations << std::endl;
 
   HybridEmbeddingInputGenerator<dtype> input_generator(848484);
-  std::vector<dtype> raw_data = input_generator.generate_categorical_input(batch_size, 
-                                                                           num_tables);
+  std::vector<dtype> raw_data = input_generator.generate_categorical_input(batch_size, num_tables);
   std::vector<size_t> table_sizes = input_generator.get_table_sizes();
   const size_t num_categories = std::accumulate(table_sizes.begin(), table_sizes.end(), 0);
   std::cout << "Table sizes          : ";
@@ -287,11 +286,12 @@ void model_init_test(const size_t num_instances, const size_t num_tables, const 
       size_t next_offset = model.h_infrequent_model_table_offsets[embedding + 1];
       size_t indx_infrequent_instance = 0;
       for (size_t category = 0; category < num_categories; ++category) {
-        if (category_location[2 * category] < num_categories && category_location[2 *category] == instance) {
+        if (category_location[2 * category] < num_categories &&
+            category_location[2 * category] == instance) {
           if (indx_infrequent_instance >= cur_offset && indx_infrequent_instance < next_offset) {
             size_t embedding_category =
-              EmbeddingTableFunctors<dtype>::get_embedding_table_index(table_sizes, category);
-              EXPECT_EQ(embedding_category, embedding);
+                EmbeddingTableFunctors<dtype>::get_embedding_table_index(table_sizes, category);
+            EXPECT_EQ(embedding_category, embedding);
           }
           indx_infrequent_instance++;
         }
@@ -418,11 +418,11 @@ TEST(hybrid_embedding_model_test, init_model) {
   const size_t N = 5;
   const size_t batch_size = 15 * 64 * 1024;
 
-  for (size_t num_instances=1; num_instances <= 16; num_instances = 4*num_instances) {
-    for (size_t num_tables=1; num_tables <= 32; num_tables = 4*num_tables) {
+  for (size_t num_instances = 1; num_instances <= 16; num_instances = 4 * num_instances) {
+    for (size_t num_tables = 1; num_tables <= 32; num_tables = 4 * num_tables) {
       for (size_t i = 0; i < N; ++i) {
         model_init_test<uint32_t>(num_instances, num_tables, batch_size,
-        CommunicationType::NVLink_SingleNode);
+                                  CommunicationType::NVLink_SingleNode);
       }
     }
   }

@@ -89,8 +89,10 @@ class ForwardNetworkTest : public HybridEmbeddingUnitTest<dtype, emtype> {
                     this->infrequent_embeddings[i].infrequent_embedding_vectors_, this->stream);
     }
     for (size_t i = 0; i < this->num_instances; i++) {
-      this->  frequent_embeddings[i].set_current_indices(&this->  frequent_embedding_indices[i], this->stream);
-      this->infrequent_embeddings[i].set_current_indices(&this->infrequent_embedding_indices[i], this->stream);
+      this->frequent_embeddings[i].set_current_indices(&this->frequent_embedding_indices[i],
+                                                       this->stream);
+      this->infrequent_embeddings[i].set_current_indices(&this->infrequent_embedding_indices[i],
+                                                         this->stream);
 
       if (single_node) {
         this->frequent_embeddings[i].indices_->calculate_cache_masks(this->stream);
@@ -177,7 +179,8 @@ class FrequentForwardModelTest : public HybridEmbeddingUnitTest<dtype, emtype> {
       upload_tensor(cpu_embedding.gradients[i], gradients[i], this->stream);
       frequent_partial_gradients_pointers[i] =
           this->frequent_embeddings[i].get_gradients().get_ptr();
-      this->frequent_embeddings[i].set_current_indices(&this->frequent_embedding_indices[i], this->stream);
+      this->frequent_embeddings[i].set_current_indices(&this->frequent_embedding_indices[i],
+                                                       this->stream);
     }
     for (size_t i = 0; i < this->num_instances; i++) {
       this->frequent_embeddings[i].indices_->calculate_cache_masks(this->stream);

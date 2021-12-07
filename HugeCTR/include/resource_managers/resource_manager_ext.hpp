@@ -33,7 +33,7 @@ class ResourceManagerExt : public ResourceManager {
 #endif
   std::shared_ptr<AllReduceInPlaceComm> ar_comm_ = NULL;
 
-  ResourceManagerExt(std::shared_ptr<ResourceManager> core): core_(core) {}
+  ResourceManagerExt(std::shared_ptr<ResourceManager> core) : core_(core) {}
 
  public:
   static std::shared_ptr<ResourceManager> create(

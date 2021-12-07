@@ -23,15 +23,16 @@ namespace HugeCTR {
 namespace python_lib {
 
 std::unique_ptr<Solver> CreateSolver(
-    const std::string& model_name, unsigned long long seed, LrPolicy_t lr_policy, float lr, size_t warmup_steps,
-    size_t decay_start, size_t decay_steps, float decay_power, float end_lr, int max_eval_batches,
-    int batchsize_eval, int batchsize, const std::vector<std::vector<int>>& vvgpu, bool repeat_dataset,
-    bool use_mixed_precision, bool enable_tf32_compute, float scaler,
-    std::map<metrics::Type, float> metrics_spec, bool i64_input_key, bool use_algorithm_search,
-    bool use_cuda_graph, bool async_mlp_wgrad, bool gen_loss_summary,
-    bool overlap_lr, bool overlap_init_wgrad, bool overlap_ar_a2a, DeviceMap::Layout device_layout,
-    bool use_holistic_cuda_graph, bool use_overlapped_pipeline, AllReduceAlgo all_reduce_algo,
-    bool grouped_all_reduce, size_t num_iterations_statistics, bool is_dlrm,std::string& kafka_brokers) {
+    const std::string& model_name, unsigned long long seed, LrPolicy_t lr_policy, float lr,
+    size_t warmup_steps, size_t decay_start, size_t decay_steps, float decay_power, float end_lr,
+    int max_eval_batches, int batchsize_eval, int batchsize,
+    const std::vector<std::vector<int>>& vvgpu, bool repeat_dataset, bool use_mixed_precision,
+    bool enable_tf32_compute, float scaler, std::map<metrics::Type, float> metrics_spec,
+    bool i64_input_key, bool use_algorithm_search, bool use_cuda_graph, bool async_mlp_wgrad,
+    bool gen_loss_summary, bool overlap_lr, bool overlap_init_wgrad, bool overlap_ar_a2a,
+    DeviceMap::Layout device_layout, bool use_holistic_cuda_graph, bool use_overlapped_pipeline,
+    AllReduceAlgo all_reduce_algo, bool grouped_all_reduce, size_t num_iterations_statistics,
+    bool is_dlrm, std::string& kafka_brokers) {
   if (use_mixed_precision && enable_tf32_compute) {
     CK_THROW_(Error_t::WrongInput,
               "use_mixed_precision and enable_tf32_compute cannot be true at the same time");
@@ -53,7 +54,8 @@ std::unique_ptr<Solver> CreateSolver(
     CK_THROW_(Error_t::WrongInput, "Must turn off local cuda graph when using holistic cuda graph");
   }
   if (async_mlp_wgrad && use_cuda_graph) {
-    CK_THROW_(Error_t::WrongInput, "Must turn off local cuda graph when using asynchronous wgrad computation of mlp");
+    CK_THROW_(Error_t::WrongInput,
+              "Must turn off local cuda graph when using asynchronous wgrad computation of mlp");
   }
 
   std::unique_ptr<Solver> solver(new Solver());
@@ -130,24 +132,21 @@ void SolverPybind(pybind11::module& m) {
       .def_readonly("grouped_all_reduce", &HugeCTR::Solver::grouped_all_reduce)
       .def_readonly("num_iterations_statistics", &HugeCTR::Solver::num_iterations_statistics)
       .def_readonly("is_dlrm", &HugeCTR::Solver::is_dlrm);
-  m.def("CreateSolver", &HugeCTR::python_lib::CreateSolver,
-        pybind11::arg("model_name") = "", pybind11::arg("seed") = 0,
-        pybind11::arg("lr_policy") = LrPolicy_t::fixed, pybind11::arg("lr") = 0.001,
-        pybind11::arg("warmup_steps") = 1, pybind11::arg("decay_start") = 0,
-        pybind11::arg("decay_steps") = 1, pybind11::arg("decay_power") = 2.f,
-        pybind11::arg("end_lr") = 0.f, pybind11::arg("max_eval_batches") = 100,
-        pybind11::arg("batchsize_eval") = 2048, pybind11::arg("batchsize") = 2048,
+  m.def("CreateSolver", &HugeCTR::python_lib::CreateSolver, pybind11::arg("model_name") = "",
+        pybind11::arg("seed") = 0, pybind11::arg("lr_policy") = LrPolicy_t::fixed,
+        pybind11::arg("lr") = 0.001, pybind11::arg("warmup_steps") = 1,
+        pybind11::arg("decay_start") = 0, pybind11::arg("decay_steps") = 1,
+        pybind11::arg("decay_power") = 2.f, pybind11::arg("end_lr") = 0.f,
+        pybind11::arg("max_eval_batches") = 100, pybind11::arg("batchsize_eval") = 2048,
+        pybind11::arg("batchsize") = 2048,
         pybind11::arg("vvgpu") = std::vector<std::vector<int>>(1, std::vector<int>(1, 0)),
         pybind11::arg("repeat_dataset") = true, pybind11::arg("use_mixed_precision") = false,
         pybind11::arg("enable_tf32_compute") = false, pybind11::arg("scaler") = 1.f,
         pybind11::arg("metrics_spec") = std::map<metrics::Type, float>({{metrics::Type::AUC, 1.f}}),
         pybind11::arg("i64_input_key") = false, pybind11::arg("use_algorithm_search") = true,
-        pybind11::arg("use_cuda_graph") = true,
-        pybind11::arg("async_mlp_wgrad") = false,
-        pybind11::arg("gen_loss_summary") = true,
-        pybind11::arg("overlap_lr") = false,
-        pybind11::arg("overlap_init_wgrad") = false,
-        pybind11::arg("overlap_ar_a2a") = false,
+        pybind11::arg("use_cuda_graph") = true, pybind11::arg("async_mlp_wgrad") = false,
+        pybind11::arg("gen_loss_summary") = true, pybind11::arg("overlap_lr") = false,
+        pybind11::arg("overlap_init_wgrad") = false, pybind11::arg("overlap_ar_a2a") = false,
         pybind11::arg("device_layout") = DeviceMap::Layout::LOCAL_FIRST,
         pybind11::arg("use_holistic_cuda_graph") = false,
         pybind11::arg("use_overlapped_pipeline") = false,

@@ -90,7 +90,7 @@ void GatherLayer<T>::initialize() {
                                  num_indices * sizeof(int), cudaMemcpyHostToDevice,
                                  get_gpu().get_stream()));
 }
-                                 
+
 template <typename T>
 void GatherLayer<T>::fprop(bool is_train) {
   int block_size = 512;
@@ -99,8 +99,8 @@ void GatherLayer<T>::fprop(bool is_train) {
   Tensor2<T>& out_tensor = out_tensor_[0];
   T* out = out_tensor.get_ptr();
   T* in = in_tensor.get_ptr();
-  gather_kernel<<<n_blocks, block_size, 0, get_gpu().get_stream()>>>(true, in, out, tensor_size,
-                                                                     num_indices, indices_.get_ptr());
+  gather_kernel<<<n_blocks, block_size, 0, get_gpu().get_stream()>>>(
+      true, in, out, tensor_size, num_indices, indices_.get_ptr());
 #ifndef NDEBUG
   cudaDeviceSynchronize();
   CK_CUDA_THROW_(cudaGetLastError());
@@ -117,8 +117,8 @@ void GatherLayer<T>::bprop() {
   T* in = in_tensor.get_ptr();
   int h = in_tensor.get_dimensions()[0];
   initialize_array<<<n_blocks, block_size, 0, get_gpu().get_stream()>>>(in, h * tensor_size, T(0));
-  gather_kernel<<<n_blocks, block_size, 0, get_gpu().get_stream()>>>(false, in, out, tensor_size,
-                                                                     num_indices, indices_.get_ptr());
+  gather_kernel<<<n_blocks, block_size, 0, get_gpu().get_stream()>>>(
+      false, in, out, tensor_size, num_indices, indices_.get_ptr());
 #ifndef NDEBUG
   cudaDeviceSynchronize();
   CK_CUDA_THROW_(cudaGetLastError());
