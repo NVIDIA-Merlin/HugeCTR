@@ -11,8 +11,11 @@
     + **More Meaningful Jabber**: As requested, we've revised the log levels throughout the entire API database backend of the HPS. Selected configuration options are now printed entirely and uniformly to the log. Errors provide more verbose information about pending issues. 
 
 + **Sparse Operation Kit (SOK) Enhancements**:
-    + **TensorFlow (TF) 1.15 Support**: SOK can now be used with TensorFlow 1.15. For more information, refer to [README](https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/get_started/get_started.html#tensorflow-1-15). A dedicated CUDA stream is used for SOK’s Ops, so this may help to eliminate kernel interleaving. SOK can now be installed using the pip install SparseOperationKit. With this install option, root access to compile SOK is no longer required and python scripts don't need to be copied. There was a hanging issue in `tf.distribute.MirroredStrategy` when using TensorFlow version 2.4 and higher. However, this no longer an issue when using TensorFlow version 2.5 and higher.
+    + **TensorFlow (TF) 1.15 Support**: SOK can now be used with TensorFlow 1.15. For more information, refer to [README](https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/get_started/get_started.html#tensorflow-1-15).
+    + **Dedicated CUDA Stream**: A dedicated CUDA stream is now used for SOK’s Ops, so this may help to eliminate kernel interleaving.
+    + **New pip Installation Option**: SOK can now be installed using the pip install SparseOperationKit. With this install option, root access to compile SOK is no longer required and python scripts don't need to be copied.
     + **Visible Device Configuration Support**：`tf.config.set_visible_device` can now be used to set visible GPUs for each process. `CUDA_VISIBLE_DEVICES` can also be used. When `tf.distribute.Strategy` is used, the `tf.config.set_visible_device` argument shouldn't be set.
+    + **Hanging Issue Fix**: There was a hanging issue in `tf.distribute.MirroredStrategy` when using TensorFlow version 2.4 and higher. However, this is no longer an issue when using TensorFlow version 2.5 and higher.
 
 + **MLPerf v1.1 Integration Enhancements**：
     + **Precomputed Hybrid Embedding Indices**：The necessary indices for hybrid embedding are now precomputed ahead of time and overlapped with previous iterations.
@@ -167,7 +170,7 @@
 
 + If the number of samples in a dataset is not divisible by the batch size when in epoch mode and using the `num_epochs` instead of `max_iter`, a few remaining samples are truncated. If the training dataset is large enough, its impact can be negligible. If you want to minimize the wasted batches, try adjusting the number of data reader workers. For example, using a file list source, set the `num_workers` parameter to an advisor based on the number of data files in the file list.
 
-+ The Multi-Cross layer doesn't support mixed precision mode yet.
++ The MultiCross layer doesn't support mixed precision mode yet.
 
 + Missed embeddings are asynchronously inserted into the in-memory database backend. Currently, we only fix misses in the database backend through the insertion logic via Apache Kafka. That means if the model is not updated, we don't improve caching. We're working on establishing an asynchronous process that also inserts lookup-misses into the database backend.
 
