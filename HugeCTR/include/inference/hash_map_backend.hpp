@@ -21,7 +21,7 @@
 #include <deque>
 #include <functional>
 #include <inference/database_backend.hpp>
-#include <mutex>
+#include <shared_mutex>
 #include <thread>
 #include <thread_pool.hpp>
 #include <unordered_map>
@@ -49,6 +49,9 @@ class HashMapBackendBase : public DatabaseBackend<typename TPartition::key_type>
    */
   void resolve_overflow_(const std::string& table_name, size_t part_idx, TPartition& part,
                          size_t value_size) const;
+
+  // Access control.
+  mutable std::shared_mutex read_write_guard_;
 
   // Overflow-handling / pruning related parameters.
   const size_t overflow_margin_;

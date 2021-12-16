@@ -151,6 +151,8 @@ HashMapBackend<TPartition>::HashMapBackend(const size_t overflow_margin,
 template <typename TPartition>
 size_t HashMapBackend<TPartition>::contains(const std::string& table_name, const size_t num_keys,
                                             const TKey* keys) const {
+  std::shared_lock lock(this->read_write_guard_);
+
   // Locate the partition.
   const auto& tables_it = tables_.find(table_name);
   if (tables_it == tables_.end()) {
@@ -175,6 +177,8 @@ template <typename TPartition>
 bool HashMapBackend<TPartition>::insert(const std::string& table_name, const size_t num_pairs,
                                         const TKey* const keys, const char* values,
                                         const size_t value_size) {
+  std::unique_lock lock(this->read_write_guard_);
+
   // Locate the partition, or create it, if it does not exist yet.
   const auto& table_it = tables_.try_emplace(table_name).first;
   TPartition& part = table_it->second;
@@ -203,6 +207,8 @@ size_t HashMapBackend<TPartition>::fetch(const std::string& table_name, const si
                                          const TKey* const keys, char* const values,
                                          const size_t value_size,
                                          MissingKeyCallback& missing_callback) const {
+  std::shared_lock lock(this->read_write_guard_);
+
   // Locate the partition.
   const auto& tables_it = tables_.find(table_name);
   if (tables_it == tables_.end()) {
@@ -229,6 +235,8 @@ size_t HashMapBackend<TPartition>::fetch(const std::string& table_name, const si
                                          const size_t* indices, const TKey* const keys,
                                          char* const values, const size_t value_size,
                                          MissingKeyCallback& missing_callback) const {
+  std::shared_lock lock(this->read_write_guard_);
+
   // Locate the partition.
   const auto& tables_it = tables_.find(table_name);
   if (tables_it == tables_.end()) {
@@ -253,6 +261,8 @@ size_t HashMapBackend<TPartition>::fetch(const std::string& table_name, const si
 
 template <typename TPartition>
 size_t HashMapBackend<TPartition>::evict(const std::string& table_name) {
+  std::unique_lock lock(this->read_write_guard_);
+
   // Locate the partition.
   const auto& tables_it = tables_.find(table_name);
   if (tables_it == tables_.end()) {
@@ -272,6 +282,8 @@ size_t HashMapBackend<TPartition>::evict(const std::string& table_name) {
 template <typename TPartition>
 size_t HashMapBackend<TPartition>::evict(const std::string& table_name, const size_t num_keys,
                                          const TKey* keys) {
+  std::unique_lock lock(this->read_write_guard_);
+
   // Locate the partition.
   const auto& tables_it = tables_.find(table_name);
   if (tables_it == tables_.end()) {
@@ -315,6 +327,8 @@ template <typename TPartition>
 size_t ParallelHashMapBackend<TPartition>::contains(const std::string& table_name,
                                                     const size_t num_keys,
                                                     const TKey* const keys) const {
+  std::shared_lock lock(this->read_write_guard_);
+
   // Locate the partitions.
   const auto& tables_it = tables_.find(table_name);
   if (tables_it == tables_.end()) {
@@ -357,6 +371,8 @@ template <typename TPartition>
 bool ParallelHashMapBackend<TPartition>::insert(const std::string& table_name,
                                                 const size_t num_pairs, const TKey* const keys,
                                                 const char* const values, const size_t value_size) {
+  std::unique_lock lock(this->read_write_guard_);
+
   // Locate the partitions, or create them, if they do not exist yet.
   const auto& tables_it = tables_.try_emplace(table_name, num_partitions_).first;
   std::vector<TPartition>& parts = tables_it->second;
@@ -408,6 +424,8 @@ size_t ParallelHashMapBackend<TPartition>::fetch(const std::string& table_name,
                                                  const size_t num_keys, const TKey* const keys,
                                                  char* const values, const size_t value_size,
                                                  MissingKeyCallback& missing_callback) const {
+  std::shared_lock lock(this->read_write_guard_);
+
   // Locate the partitions.
   const auto& tables_it = tables_.find(table_name);
   if (tables_it == tables_.end()) {
@@ -456,6 +474,8 @@ size_t ParallelHashMapBackend<TPartition>::fetch(const std::string& table_name,
                                                  const TKey* const keys, char* const values,
                                                  const size_t value_size,
                                                  MissingKeyCallback& missing_callback) const {
+  std::shared_lock lock(this->read_write_guard_);
+
   // Locate the partitions.
   const auto& tables_it = tables_.find(table_name);
   if (tables_it == tables_.end()) {
@@ -501,6 +521,8 @@ size_t ParallelHashMapBackend<TPartition>::fetch(const std::string& table_name,
 
 template <typename TPartition>
 size_t ParallelHashMapBackend<TPartition>::evict(const std::string& table_name) {
+  std::unique_lock lock(this->read_write_guard_);
+
   // Locate the partitions.
   const auto& tables_it = tables_.find(table_name);
   if (tables_it == tables_.end()) {
@@ -524,6 +546,8 @@ size_t ParallelHashMapBackend<TPartition>::evict(const std::string& table_name) 
 template <typename TPartition>
 size_t ParallelHashMapBackend<TPartition>::evict(const std::string& table_name,
                                                  const size_t num_keys, const TKey* const keys) {
+  std::unique_lock lock(this->read_write_guard_);
+
   // Locate the partitions.
   const auto& tables_it = tables_.find(table_name);
   if (tables_it == tables_.end()) {
