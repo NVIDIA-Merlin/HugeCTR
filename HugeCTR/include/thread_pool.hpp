@@ -21,14 +21,11 @@
 #include <functional>
 #include <future>
 #include <memory>
-#include <mutex>
+#include <shared_mutex>
 #include <thread>
 #include <vector>
 
 namespace HugeCTR {
-
-using ThreadPoolTask = std::function<void(size_t, size_t)>;
-using ThreadPoolResult = std::future<void>;
 
 class ThreadPool {
  public:
@@ -36,28 +33,36 @@ class ThreadPool {
 
   ThreadPool(const ThreadPool&) = delete;
 
-  ThreadPool(size_t num_threads);
+  ThreadPool(size_t num_workers);
 
   virtual ~ThreadPool();
 
   ThreadPool& operator=(const ThreadPool&) = delete;
 
-  size_t size() const;
+  size_t size() const { return workers_.size(); }
 
-  ThreadPoolResult post(ThreadPoolTask task);
+  bool idle() const;
 
-  static void await(std::vector<ThreadPoolResult>& results);
+  void await_idle() const;
+
+  std::future<void> submit(std::function<void()> task);
 
   static ThreadPool& get();
 
  private:
-  bool terminate_;
-  std::vector<std::thread> pool_;
-  std::condition_variable sempahore_;
-  std::mutex queue_guard_;
-  std::deque<std::packaged_task<void(size_t, size_t)>> queue_;
+  std::vector<std::thread> workers_;
 
-  void run(const size_t thread_num);
+  mutable std::mutex barrier_;  // Must be obtained to ensure exclusive access.
+  mutable std::condition_variable
+      submit_sempahore_;  // Triggered on submission. Workers wait for this.
+  mutable std::condition_variable idle_semaphore_;  // Trigger
+
+  bool terminate_ = false;  // Used to signal to the workers that termination is imminent.
+  size_t num_idle_workers_ = 0;
+  std::deque<std::packaged_task<void()>>
+      packages_;  // Work packages that have not been processed yet.
+
+  void run(const size_t thread_index);
 };
 
 }  // namespace HugeCTR

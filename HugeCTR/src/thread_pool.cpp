@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <base/debug/logger.hpp>
 #include <cstdlib>
 #include <iostream>
 #include <thread_pool.hpp>
@@ -22,71 +23,118 @@ namespace HugeCTR {
 
 ThreadPool::ThreadPool() : ThreadPool(0) {}
 
-ThreadPool::ThreadPool(size_t num_threads) : terminate_(false) {
+ThreadPool::ThreadPool(size_t num_workers) {
   // Determine eventual number of threads.
-  if (num_threads == 0) {
-    const char* num_threads_str = getenv("HCTR_DEFAULT_CONCURRENCY");
-    if (num_threads_str) {
-      num_threads = std::stoull(num_threads_str);
+  if (num_workers == 0) {
+    const char* num_workers_str = getenv("HCTR_DEFAULT_CONCURRENCY");
+    if (num_workers_str) {
+      num_workers = std::stoull(num_workers_str);
     } else {
-      num_threads = std::thread::hardware_concurrency();
+      num_workers = std::thread::hardware_concurrency();
     }
   }
 
-  // Create threads.
-  for (size_t thread_num = 0; thread_num < num_threads; thread_num++) {
-    pool_.emplace_back(&ThreadPool::run, this, thread_num);
+  // Create worker threads.
+  for (size_t i = 0; i < num_workers; i++) {
+    workers_.emplace_back(&ThreadPool::run, this, i);
   }
+
+  // Block until all workers entered the idle state.
+  await_idle();
 }
 
 ThreadPool::~ThreadPool() {
-  terminate_ = true;
-  sempahore_.notify_all();
-  for (auto& thread : pool_) {
-    thread.join();
+  // Momentarily request exclusive access, and set terminate condition.
+  {
+    std::lock_guard<std::mutex> lock(barrier_);
+    terminate_ = true;
+    submit_sempahore_.notify_all();
+  }
+
+  // Wait for the worker threads to exit.
+  for (auto& worker : workers_) {
+    worker.join();
   }
 }
 
-size_t ThreadPool::size() const { return pool_.size(); }
+bool ThreadPool::idle() const {
+  // Momentarily request exclusive access, and read out the idle status.
+  std::lock_guard<std::mutex> lock(barrier_);
+  return num_idle_workers_ == workers_.size() && packages_.empty();
+}
 
-ThreadPoolResult ThreadPool::post(ThreadPoolTask task) {
-  std::packaged_task<void(size_t, size_t)> actual_task(std::move(task));
-  ThreadPoolResult result = actual_task.get_future();
-  {
-    std::unique_lock<std::mutex> lock(queue_guard_);
-    queue_.push_back(std::move(actual_task));
+void ThreadPool::await_idle() const {
+  // Momentarily request exclusive access.
+  std::unique_lock<std::mutex> lock(barrier_);
+
+  // Are we idle already? If not wait for a worker to exit.
+  while (num_idle_workers_ != workers_.size() || !packages_.empty()) {
+    HCTR_THROW_IF(terminate_, Error_t::IllegalCall,
+                  "Attempted to await an already terminated ThreadPool!");
+    idle_semaphore_.wait(lock);
   }
-  sempahore_.notify_one();
+}
+
+std::future<void> ThreadPool::submit(std::function<void()> task) {
+  std::packaged_task<void()> package(std::move(task));
+  std::future<void> result = package.get_future();
+
+  // Momentarily request exclusive access, to submit the task.
+  {
+    std::lock_guard<std::mutex> lock(barrier_);
+    HCTR_THROW_IF(terminate_, Error_t::IllegalCall,
+                  "Attempted to submit work to an already terminated ThreadPool!");
+    packages_.push_back(std::move(package));
+  }
+
+  // Wake up a worker.
+  submit_sempahore_.notify_one();
+
   return result;
 }
 
-void ThreadPool::await(std::vector<ThreadPoolResult>& results) {
-  for (const auto& result : results) {
-    result.wait();
-  }
-}
-
 ThreadPool& ThreadPool::get() {
+  // Lazy init of default thread-pool on first call to this function..
   static std::unique_ptr<ThreadPool> default_pool;
   static std::once_flag semaphore;
   call_once(semaphore, []() { default_pool = std::make_unique<ThreadPool>(); });
   return *default_pool.get();
 }
 
-void ThreadPool::run(const size_t thread_num) {
-  const size_t num_threads = pool_.size();
-  while (!terminate_) {
-    thread_local std::packaged_task<void(size_t, size_t)> task;
+void ThreadPool::run(const size_t thread_index) {
+  while (true) {
+    thread_local std::packaged_task<void()> package;
+
+    // Acquire exclusive access.
     {
-      std::unique_lock<std::mutex> lock(queue_guard_);
-      sempahore_.wait(lock, [&] { return terminate_ || queue_.size(); });
+      std::unique_lock<std::mutex> lock(barrier_);
+
+      // If termination request occured.
       if (terminate_) {
-        break;
+        return;
       }
-      task = std::move(queue_.front());
-      queue_.pop_front();
+
+      // If no work package queued.
+      while (packages_.empty()) {
+        // Enter idle state (notify threads that wait for the threadpool to go idle).
+        num_idle_workers_ += 1;
+        idle_semaphore_.notify_all();
+
+        // Wait for a task.
+        submit_sempahore_.wait(lock);
+        num_idle_workers_ -= 1;
+
+        // If woken up by terminate request.
+        if (terminate_) {
+          return;
+        }
+      }
+      package = std::move(packages_.front());
+      packages_.pop_front();
     }
-    task(thread_num, num_threads);
+
+    // Execute work package.
+    package();
   }
 }
 
