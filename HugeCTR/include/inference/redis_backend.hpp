@@ -20,6 +20,7 @@
 
 #include <inference/database_backend.hpp>
 #include <memory>
+#include <thread_pool.hpp>
 
 namespace HugeCTR {
 
@@ -83,6 +84,7 @@ class RedisClusterBackend final : public DatabaseBackend<TKey> {
  protected:
   const size_t
       num_partitions_;  // Do not change this value, after inserting data for the first time!
+  mutable ThreadPool thread_pool_;
   const size_t max_get_batch_size_;
   const size_t max_set_batch_size_;
   std::unique_ptr<sw::redis::RedisCluster> redis_;
