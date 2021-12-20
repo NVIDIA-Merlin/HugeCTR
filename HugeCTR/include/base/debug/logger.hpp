@@ -109,9 +109,11 @@
 #include <nccl.h>
 #include <nvml.h>
 
+#include <functional>
 #include <map>
 #include <memory>
 #include <mutex>
+#include <sstream>
 #include <vector>
 
 #ifdef ENABLE_MPI
@@ -168,6 +170,8 @@ enum class Error_t {
 #define HCTR_LOG(NAME, TYPE, ...) \
   Logger::get().log(LOG_LEVEL(NAME), LOG_RANK(TYPE), true, __VA_ARGS__)
 #define HCTR_LOG_AT(LEVEL, TYPE, ...) Logger::get().log(LEVEL, LOG_RANK(TYPE), true, __VA_ARGS__)
+
+#define HCTR_LOG_S(NAME, TYPE) Logger::get().log(LOG_LEVEL(NAME), LOG_RANK(TYPE), true)
 
 #define HCTR_PRINT(NAME, ...) Logger::get().log(LOG_LEVEL(NAME), LOG_RANK_ROOT, false, __VA_ARGS__)
 #define HCTR_PRINT_AT(LEVEL, ...) Logger::get().log(LEVEL, LOG_RANK_ROOT, false, __VA_ARGS__)
@@ -369,12 +373,47 @@ inline std::string getErrorString(curandStatus_t err) {
 #define HCTR_ASSERT(EXPR)
 #endif
 
+class DeferredLogEntry {
+ public:
+  inline DeferredLogEntry(const bool bypass,
+                          std::function<void(std::ostringstream&)> make_log_entry)
+      : bypass_{bypass}, make_log_entry_{make_log_entry} {}
+
+  inline ~DeferredLogEntry() { make_log_entry_(ss_); }
+
+  DeferredLogEntry(const DeferredLogEntry&) = delete;
+  DeferredLogEntry(const DeferredLogEntry&&) = delete;
+  DeferredLogEntry& operator=(const DeferredLogEntry&) = delete;
+  DeferredLogEntry&& operator=(const DeferredLogEntry&&) = delete;
+
+  template <typename T>
+  inline DeferredLogEntry& operator<<(const T& value) {
+    if (!bypass_) {
+      ss_ << value;
+    }
+    return *this;
+  }
+
+  inline DeferredLogEntry& operator<<(std::ostream& (*fn)(std::ostream&)) {
+    if (!bypass_) {
+      fn(ss_);
+    }
+    return *this;
+  }
+
+ private:
+  bool bypass_;
+  std::ostringstream ss_;
+  std::function<void(std::ostringstream&)> make_log_entry_;
+};
+
 class Logger final {
  public:
   static void print_exception(const std::exception& e, int depth);
   static Logger& get();
   ~Logger();
   void log(const int level, bool per_rank, bool with_prefix, const char* format, ...) const;
+  DeferredLogEntry log(const int level, bool per_rank, bool with_prefix) const;
   void check(bool condition, const SrcLoc& loc, const char* format = nullptr, ...) const;
   template <typename Condition>
   void check_lazy(const Condition& condition, const SrcLoc& loc) {

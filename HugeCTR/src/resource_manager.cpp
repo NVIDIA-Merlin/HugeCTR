@@ -43,7 +43,7 @@ std::shared_ptr<ResourceManager> ResourceManager::create(
   CK_MPI_THROW_(MPI_Bcast(&seed, 1, MPI_UNSIGNED_LONG_LONG, 0, MPI_COMM_WORLD));
 #endif
 
-  HCTR_LOG(INFO, ROOT, "Global seed is %llu\n", seed);
+  HCTR_LOG_S(INFO, ROOT) << "Global seed is " << seed << std::endl;
 
   return std::shared_ptr<ResourceManager>(
       new ResourceManagerCore(size, rank, std::move(device_map), seed));
