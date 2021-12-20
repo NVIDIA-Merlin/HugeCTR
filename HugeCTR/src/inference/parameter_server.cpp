@@ -571,8 +571,10 @@ void parameter_server<TypeHashKey>::look_up(const TypeHashKey* h_embeddingcolumn
       // Layer 0: Do a sequential lookup. Remember missing keys.
       std::vector<size_t> indices;
       std::vector<size_t> missing;
+      std::mutex missing_guard;
 
-      MissingKeyCallback record_missing_fn = [&missing](size_t index) -> void {
+      MissingKeyCallback record_missing_fn = [&missing, &missing_guard](size_t index) -> void {
+        std::lock_guard<std::mutex> lock(missing_guard);
         missing.push_back(index);
       };
 
