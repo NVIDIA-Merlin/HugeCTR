@@ -79,18 +79,48 @@ void Logger::log(const int level, bool per_rank, bool with_prefix, const char* f
     if (log_to_std_) {
       va_list args;
       va_start(args, format);
-      vfprintf(log_std_.at(level), new_format.c_str(), args);
+      auto& file = log_std_.at(level);
+      vfprintf(file, new_format.c_str(), args);
       va_end(args);
-      fflush(log_std_.at(level));
+      fflush(file);
     }
 
     if (log_to_file_) {
       va_list args;
       va_start(args, format);
-      vfprintf(log_file_.at(level), new_format.c_str(), args);
+      auto& file = log_file_.at(level);
+      vfprintf(file, new_format.c_str(), args);
       va_end(args);
-      fflush(log_file_.at(level));
+      fflush(file);
     }
+  }
+}
+
+DeferredLogEntry Logger::log(const int level, bool per_rank, bool with_prefix) const {
+  if (level == LOG_SILENCE_LEVEL || level > max_level_) {
+    return {true, [](std::ostringstream&) {}};
+  } else if (rank_ == 0 || per_rank) {
+    return {false, [level, with_prefix, this](std::ostringstream& ss) {
+              if (log_to_std_) {
+                auto& file = log_std_.at(level);
+                if (with_prefix) {
+                  fputs(get_log_prefix(level).c_str(), file);
+                }
+                fputs(ss.str().c_str(), file);
+                fflush(file);
+              }
+
+              if (log_to_file_) {
+                auto& file = log_file_.at(level);
+                if (with_prefix) {
+                  fputs(get_log_prefix(level).c_str(), file);
+                }
+                fputs(ss.str().c_str(), file);
+                fflush(file);
+              }
+            }};
+  } else {
+    return {true, [](std::ostringstream&) {}};
   }
 }
 
