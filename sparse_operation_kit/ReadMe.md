@@ -27,18 +27,38 @@ import sparse_opeation_kit as sok
 ```shell
 $ pip install --user SparseOperationKit
 ```
+**Note:** Currently, SOK has not been uploaded to PYPI, therefore this command does not work. But you may take the following commands to build a pip installable package by yourself.
++ **config building env** <br>
+Build SOK pip package within a system where python3.x and the following modules are installed.
+    ```text
+    setuptools, os, sys, subprocess, shutil
+    ```
++ **build pip package**
+    ```shell
+    $ git clone https://github.com/NVIDIA-Merlin/HugeCTR.git
+    $ cd hugectr/sparse_operation_kit/
+    $ python setup.py sdist
+    ```
++ **copy that package to target system**
+    ```shell
+    $ cp ./dist/*.tar.gz /<YourTargetPath>
+    ```
++ **install SOK**
+    ```shell
+    $ pip install --user SparseOperationKit
+    ```
 
 ### *Build from source* ### 
 If you want to build this module from souce code, here are the steps to follow: <br>
 + **download the source code**
-```shell
-$ git clone https://github.com/NVIDIA-Merlin/HugeCTR hugectr
-```
+    ```shell
+    $ git clone https://github.com/NVIDIA-Merlin/HugeCTR hugectr
+    ```
 + **install to system**
-```shell
-$ cd hugectr/sparse_operation_kit/
-$ python setup.py install
-```
+    ```shell
+    $ cd hugectr/sparse_operation_kit/
+    $ python setup.py install
+    ```
 
 ## Documents ##
 Want to find more about SparseOperationKit, see our [SparseOperationKit documents](https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/index.html).

@@ -90,7 +90,8 @@ def test_sok_dense_demo(args, init_tensors, *random_samples):
     for i, (input_tensors, replica_labels) in enumerate(dataset):
         print("-"*30, "step ", str(i), "-"*30)
         logit, embedding_vector = strategy.run(_train_step, args=(input_tensors, replica_labels))
-        print("[INFO]: embedding_vector\n", embedding_vector)
+        if args.print_output:
+            print("[INFO]: embedding_vector\n", embedding_vector)
         sok_results.append(embedding_vector)
         # FIXME: when the forward computation is too fast, there
         # may exist some conficts with datareader, which cause the program hang.
@@ -252,10 +253,14 @@ if __name__ == "__main__":
                              'rather than restore trainable parameters from file.',
                         required=False, default=0)
     parser.add_argument("--use_hashtable", type=int, choices=[0, 1], default=1)
+    parser.add_argument("--print_output", type=int, choices=[0, 1], default=0)
 
     args = parser.parse_args()
 
     args.use_hashtable = True if 1 == args.use_hashtable else False
+    args.print_output = True if 1 == args.print_output else False
+    if os.getenv("PRINT_OUTPUT") and int(os.getenv("PRINT_OUTPUT")):
+        args.print_output = True
 
     if not isinstance(args.ips, list):
         args.ips = [args.ips]
