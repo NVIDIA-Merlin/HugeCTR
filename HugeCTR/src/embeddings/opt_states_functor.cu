@@ -166,8 +166,31 @@ void SparseEmbeddingFunctors::load_opt_states(
       }
     };
 
+    std::unique_ptr<size_t[]> proc_sizes(new size_t[resource_manager.get_num_process()]);
+    proc_sizes[0] = total_size;
+#ifdef ENABLE_MPI
+    CK_MPI_THROW_(MPI_Gather(&total_size, sizeof(size_t), MPI_CHAR, proc_sizes.get(), 
+                             sizeof(size_t), MPI_CHAR, 0, MPI_COMM_WORLD));
+#endif
+
     if (resource_manager.is_master_process()) {
-      std::unique_ptr<char[]> h_opt_state(new char[total_size]);
+      size_t sum_sizes = 0;
+      size_t max_size = 0;
+      for (int i = 0; i < resource_manager.get_num_process(); ++i) {
+        sum_sizes += proc_sizes[i];
+        if (proc_sizes[i] > max_size) {
+          max_size = proc_sizes[i];
+        }
+      }
+      size_t cur_pos = stream.tellg();
+      stream.seekg(0, stream.end);
+      size_t remaining_file_size = stream.tellg() - cur_pos;
+      if (remaining_file_size < sum_sizes) {
+        CK_THROW_(Error_t::WrongInput, "optimizer state file size is incompatible with the embedding!");
+      }
+      stream.seekg(cur_pos);
+
+      std::unique_ptr<char[]> h_opt_state(new char[max_size]);
       MESSAGE_("Rank" + std::to_string(pid) + ": Read optimzer state from file", true);
       stream.read(h_opt_state.get(), total_size);
 
@@ -179,9 +202,9 @@ void SparseEmbeddingFunctors::load_opt_states(
         MESSAGE_("Rank" + std::to_string(pid) + ": Read from file" +
                      ", and send optimzer state to rank" + std::to_string(r),
                  true);
-        stream.read(h_opt_state.get(), total_size);
+        stream.read(h_opt_state.get(), proc_sizes[r]);
         int tag = (r << 8) | 0xAB;
-        CK_MPI_THROW_(MPI_Send(h_opt_state.get(), total_size, MPI_CHAR, r, tag, MPI_COMM_WORLD));
+        CK_MPI_THROW_(MPI_Send(h_opt_state.get(), proc_sizes[r], MPI_CHAR, r, tag, MPI_COMM_WORLD));
       }
 #endif
     }
