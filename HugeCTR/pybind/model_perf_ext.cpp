@@ -491,7 +491,6 @@ void ModelPerfExt::exchange_wgrad(size_t device_id) {
   CudaCPUDeviceContext context(gpu_resource->get_device_id());
   PROFILE_RECORD("exchange_wgrad.start", resource_manager_->get_local_gpu(device_id)->get_stream(),
                  true, device_id);
-  if (solver_.async_mlp_wgrad) gpu_resource->wait_on_wgrad_event(gpu_resource->get_stream());
   Model::exchange_wgrad(device_id);
   PROFILE_RECORD("exchange_wgrad.stop", resource_manager_->get_local_gpu(device_id)->get_stream(),
                  true, device_id);

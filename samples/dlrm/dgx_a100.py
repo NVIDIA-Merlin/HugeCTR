@@ -40,7 +40,7 @@ optimizer = hugectr.CreateOptimizer(optimizer_type = hugectr.Optimizer_t.SGD,
                                     update_type = hugectr.Update_t.Local,
                                     atomic_update = True)
 # 2. Initialize the Model instance
-model = hugectr.ModelPerfExt(solver, reader, optimizer)
+model = hugectr.Model(solver, reader, optimizer)
 # 3. Construct the Model graph
 model.add(hugectr.Input(label_dim = 1, label_name = "label",
                         dense_dim = 13, dense_name = "dense",
@@ -57,50 +57,19 @@ model.add(hugectr.SparseEmbedding(embedding_type = hugectr.Embedding_t.HybridSpa
                             hybrid_embedding_param = hugectr.HybridEmbeddingParam(2, -1, 0.02, 1.3e11, 1.9e11, 1.0, True, True, 
                                                                                 hugectr.CommunicationType.NVLink_SingleNode,
                                                                                 hugectr.HybridEmbeddingType.Distributed)))
-model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.FusedInnerProduct,
-                            pos_type = hugectr.FcPosition_t.Head,
-                            bottom_names = ["dense"],
-                            top_names = ["fc11","fc12", "fc13", "fc14"],
-                            num_output=512))                   
-model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.FusedInnerProduct,
-                            pos_type = hugectr.FcPosition_t.Body,
-                            bottom_names = ["fc11","fc12", "fc13", "fc14"],
-                            top_names = ["fc21","fc22", "fc23", "fc24"],
-                            num_output=256))                     
-model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.FusedInnerProduct,
-                            pos_type = hugectr.FcPosition_t.Tail,
-                            bottom_names = ["fc21","fc22", "fc23", "fc24"],
-                            top_names = ["fc3"],
-                            num_output=128))                         
+model.add(hugectr.GroupDenseLayer(group_layer_type = hugectr.GroupLayer_t.GroupFusedInnerProduct,
+                            bottom_name_list = ["dense"],
+                            top_name_list = ["fc1", "fc2", "fc3"],
+                            num_outputs = [512, 256, 128],
+                            last_act_type = hugectr.Activation_t.Relu))                   
 model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Interaction,
                             bottom_names = ["fc3","sparse_embedding1"],
-                            top_names = ["interaction1", "interaction_grad"]))
-model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.FusedInnerProduct,
-                            pos_type = hugectr.FcPosition_t.Head,
-                            bottom_names = ["interaction1", "interaction_grad"],
-                            top_names = ["fc41","fc42", "fc43", "fc44"],
-                            num_output=1024))                                                                              
-model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.FusedInnerProduct,
-                            pos_type = hugectr.FcPosition_t.Body,
-                            bottom_names = ["fc41","fc42", "fc43", "fc44"],
-                            top_names = ["fc51","fc52", "fc53", "fc54"],
-                            num_output=1024))
-model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.FusedInnerProduct,
-                            pos_type = hugectr.FcPosition_t.Body,
-                            bottom_names = ["fc51","fc52", "fc53", "fc54"],
-                            top_names = ["fc61","fc62", "fc63", "fc64"],
-                            num_output=512))
-model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.FusedInnerProduct,
-                            pos_type = hugectr.FcPosition_t.Body,
-                            bottom_names = ["fc61","fc62", "fc63", "fc64"],
-                            top_names = ["fc71","fc72","fc73","fc74"],
-                            num_output=256))
-model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.FusedInnerProduct,
-                            pos_type = hugectr.FcPosition_t.Tail,
-                            act_type = hugectr.Activation_t.Non,
-                            bottom_names = ["fc71","fc72","fc73","fc74"],
-                            top_names = ["fc8"],
-                            num_output=1))                                                                                         
+                            top_names = ["interaction1", "interaction1_grad"]))
+model.add(hugectr.GroupDenseLayer(group_layer_type = hugectr.GroupLayer_t.GroupFusedInnerProduct,
+                            bottom_name_list = ["interaction1", "interaction1_grad"],
+                            top_name_list = ["fc4", "fc5", "fc6", "fc7", "fc8"],
+                            num_outputs = [1024, 1024, 512, 256, 1],
+                            last_act_type = hugectr.Activation_t.Non))                                                                                 
 model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.BinaryCrossEntropyLoss,
                             bottom_names = ["fc8", "label"],
                             top_names = ["loss"]))

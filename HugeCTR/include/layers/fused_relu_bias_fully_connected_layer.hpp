@@ -122,6 +122,13 @@ class FusedReluBiasFullyConnectedLayer : public Layer {
    */
   bool async_mlp_wgrad_;
 
+  /*
+   * indicates whether there is mask in tensor for Head layer
+   */
+  bool head_mask_in_;
+
+  bool event_overlap_created_;
+
   cublasHandle_t cublas_handle_wgrad_;
 
   /*
@@ -195,13 +202,15 @@ class FusedReluBiasFullyConnectedLayer : public Layer {
       const std::shared_ptr<GPUResource>& gpu_resource, const FcPosition_t& pos,
       const Activation_t& act, const bool& skip_dgrad,
       std::vector<Initializer_t> initializer_types = std::vector<Initializer_t>(),
-      const bool async_mlp_wgrad = false);
+      const bool async_mlp_wgrad = false, const bool head_mask_in = false);
   FusedReluBiasFullyConnectedLayer(const FusedReluBiasFullyConnectedLayer&) = delete;
   FusedReluBiasFullyConnectedLayer& operator=(const FusedReluBiasFullyConnectedLayer&);
 
   ~FusedReluBiasFullyConnectedLayer() {
-    CudaDeviceContext context(get_device_id());
-    cudaEventDestroy(event_overlap_);
+    if (event_overlap_created_) {
+      CudaDeviceContext context(get_device_id());
+      cudaEventDestroy(event_overlap_);
+    }
   };
 };
 }  // namespace HugeCTR

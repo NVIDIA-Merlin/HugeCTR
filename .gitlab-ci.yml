@@ -311,6 +311,21 @@ dcn_multi_node:
     DGXNNODES: 4                                                                              # using 4 node
     TEST_CMD: ./ci/integration_test/dcn/dcn_multi_node.sub
 
+
+group_fc:
+  extends: .cluster_test_job
+  needs:
+    - build_train_single_node
+  variables:
+    GPFSFOLDER: $LOGDIR/group_fc
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $TRAIN_IMAGE_VERSIONED
+    MOUNTS: ${DATASET_NEW_CRITEO_SELENE}:${NEW_CRITEO_MOUNT}
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "00:15:00"
+    DGXNNODES: 1
+    TEST_CMD: ./ci/integration_test/group_fc/group_fc.sub
+
 # python interface inference
 py_inference:
   extends: .cluster_test_job
