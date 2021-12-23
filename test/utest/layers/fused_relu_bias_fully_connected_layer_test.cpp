@@ -102,7 +102,7 @@ static void fully_connected_layer_test(size_t m, size_t n, size_t k) {
       master_weights_buff, weights_buff, weights_grad_buff, blobs_buff, train_in_tensor,
       mask_in_tensor, dRelu_in_tensor, db_in_tensor, train_out_tensor, mask_out_tensor,
       dRelu_out_tensor, db_out_tensor, test::get_default_gpu(), FcPosition_t::Isolated,
-      Activation_t::Relu, false);
+      Activation_t::Relu, false, std::vector<Initializer_t>(), false, true);
 
   // Initialize tensors to 0 and choose cublas algorithms
   blobs_buff->allocate();

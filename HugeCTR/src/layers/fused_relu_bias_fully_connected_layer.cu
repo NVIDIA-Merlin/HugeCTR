@@ -60,7 +60,7 @@ FusedReluBiasFullyConnectedLayer::FusedReluBiasFullyConnectedLayer(
     const Tensor2<__half>& dRelu_out_tensor, Tensor2<__half>& db_out_tensor,
     const std::shared_ptr<GPUResource>& gpu_resource, const FcPosition_t& pos,
     const Activation_t& act, const bool& skip_dgrad, std::vector<Initializer_t> initializer_types,
-    const bool async_mlp_wgrad)
+    const bool async_mlp_wgrad, const bool head_mask_in)
     : Layer(gpu_resource, initializer_types),
       balgo_k_(CUBLAS_GEMM_DEFAULT_TENSOR_OP),
       balgo_x_(CUBLAS_GEMM_DEFAULT_TENSOR_OP),
@@ -68,7 +68,9 @@ FusedReluBiasFullyConnectedLayer::FusedReluBiasFullyConnectedLayer(
       pos_(pos),
       act_(act),
       skip_dgrad_(skip_dgrad),
-      async_mlp_wgrad_(async_mlp_wgrad) {
+      async_mlp_wgrad_(async_mlp_wgrad),
+      head_mask_in_(head_mask_in),
+      event_overlap_created_(false) {
   const auto& bottom_tensor_dim = train_in_tensor.get_dimensions();
   const auto& top_tensor_dim = train_out_tensor.get_dimensions();
 
@@ -142,6 +144,7 @@ FusedReluBiasFullyConnectedLayer::FusedReluBiasFullyConnectedLayer(
 void FusedReluBiasFullyConnectedLayer::initialize() {
   CudaDeviceContext context(get_device_id());
   CK_CUDA_THROW_(cudaEventCreate(&event_overlap_));
+  event_overlap_created_ = true;
 
   // TODO: We need different bottom desc based on is_train or not
   const auto& bottom_tensor_dim = get_bottom_tensor_fprop(true).get_dimensions();
@@ -432,8 +435,12 @@ void FusedReluBiasFullyConnectedLayer::bprop() {
 
   // dgrad
   if (!skip_dgrad_) {
-    __half* bottom_bprop = mask_in_tensor_.get_ptr();
-    //    if (async_mlp_wgrad_) bottom_bprop = mask_in_tensor_.get_ptr();
+    __half* bottom_bprop;
+    if (head_mask_in_) {
+      bottom_bprop = mask_in_tensor_.get_ptr();
+    } else {
+      bottom_bprop = train_in_tensor_.get_ptr();
+    }
 
     if (pos_ == FcPosition_t::Body || pos_ == FcPosition_t::Tail) {
       bottom_bprop = dRelu_in_tensor_.get_ptr();

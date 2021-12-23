@@ -561,7 +561,7 @@ hugectr.GroupDenseLayer()
 **Arguments**
 * `group_layer_type`: The layer type to be used. There is only one supported type, i.e., `hugectr.GroupLayer_t.GroupFusedInnerProduct`. There is NO default value and it should be specified by users.
 
-* `bottom_name`: String, the bottom tensor name for this group of dense layers. There is NO default value and it should be specified by users.
+* `bottom_name_list`: List[str], the list of bottom tensor names for the first dense layer in this group. Currently, the `FusedInnerProduct` layer at the head position can take one or two input tensors. There is NO default value and it should be specified by users.
 
 * `top_name_list`: List[str], the list of top tensor names of each dense layer in the group. There should be only one name for each layer. There is NO default value and it should be specified by users.
 
@@ -574,10 +574,21 @@ hugectr.GroupDenseLayer()
 Example:
 ```python
 model.add(hugectr.GroupDenseLayer(group_layer_type = hugectr.GroupLayer_t.GroupFusedInnerProduct,
-                                  bottom_name = "dense",
+                                  bottom_name = ["dense"],
                                   top_name_list = ["fc1", "fc2", "fc3"],
                                   num_outputs = [1024, 512, 256],
                                   last_act_type = hugectr.Activation_t.Relu))
+model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Interaction,
+                            bottom_names = ["fc3","sparse_embedding1"],
+                            top_names = ["interaction1", "interaction1_grad"]))
+model.add(hugectr.GroupDenseLayer(group_layer_type = hugectr.GroupLayer_t.GroupFusedInnerProduct,
+                            bottom_name_list = ["interaction1", "interaction1_grad"],
+                            top_name_list = ["fc4", "fc5", "fc6", "fc7", "fc8"],
+                            num_outputs = [1024, 1024, 512, 256, 1],
+                            last_act_type = hugectr.Activation_t.Non))
+model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.BinaryCrossEntropyLoss,
+                            bottom_names = ["fc8", "label"],
+                            top_names = ["loss"]))
 ```
 
 ### **Model** ###

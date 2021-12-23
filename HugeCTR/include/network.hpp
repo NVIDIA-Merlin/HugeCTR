@@ -241,22 +241,6 @@ class Network {
   /**
    * add layer to network, python interface use only
    */
-  friend void add_dense_layer(
-      DenseLayer& dense_layer, std::vector<std::vector<TensorEntry>>& train_tensor_entries_list,
-      std::vector<std::vector<TensorEntry>>& evaluate_tensor_entries_list,
-      const std::shared_ptr<ResourceManager>& resource_manager, bool use_mixed_precision,
-      bool enable_tf32_compute, float scaler, bool use_algorithm_search, bool use_cuda_graph,
-      std::vector<std::shared_ptr<Network>>& networks,
-      std::vector<std::shared_ptr<GeneralBuffer2<CudaAllocator>>>& blobs_buff_list,
-      std::vector<std::shared_ptr<BufferBlock2<float>>>& train_weight_buff_list,
-      std::vector<std::shared_ptr<BufferBlock2<__half>>>& train_weight_buff_half_list,
-      std::vector<std::shared_ptr<BufferBlock2<float>>>& wgrad_buff_list,
-      std::vector<std::shared_ptr<BufferBlock2<__half>>>& wgrad_buff_half_list,
-      std::vector<std::shared_ptr<BufferBlock2<float>>>& evaluate_weight_buff_list,
-      std::vector<std::shared_ptr<BufferBlock2<__half>>>& evaluate_weight_buff_half_list,
-      std::vector<std::shared_ptr<BufferBlock2<float>>>& wgrad_buff_placeholder_list,
-      std::vector<std::shared_ptr<BufferBlock2<__half>>>& wgrad_buff_half_placeholder_list,
-      bool dlrm_bottom_mlp);
   friend class Model;
   friend class ModelPerfExt;
   /**
