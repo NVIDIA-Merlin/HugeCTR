@@ -52,9 +52,9 @@ __global__ void selectKernel(KeyType const *input_keys, size_t num_keys, KeyType
   if (thread_idx < gpu_cnt_by_warps_cnt) {
     cnt_smem[thread_idx] = 0;
   }
-  if (thread_idx < chunks) {
-    chunk_sizes[thread_idx] = 0;
-  }
+  // if (thread_idx + blockIdx.x * thread_cnt < chunks) {
+  //   chunk_sizes[thread_idx] = 0;
+  // }
   __syncthreads();
   // do offset
   KeyType *curr_warp_key_smem = key_smem + threadIdx.y * items_per_warp;
