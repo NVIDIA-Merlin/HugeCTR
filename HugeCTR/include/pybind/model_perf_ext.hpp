@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 #pragma once
-#include <HugeCTR/pybind/model.hpp>
+#include <pybind/model.hpp>
 
 namespace HugeCTR {
 

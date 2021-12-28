@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-#include <HugeCTR/pybind/model.hpp>
-#include <HugeCTR/pybind/model_perf_ext.hpp>
 #include <layer.hpp>
 #include <layers/add_layer.hpp>
 #include <layers/batch_norm_layer.hpp>
@@ -47,6 +45,8 @@
 #include <layers/softmax_layer.hpp>
 #include <layers/sub_layer.hpp>
 #include <layers/weight_multiply_layer.hpp>
+#include <pybind/model.hpp>
+#include <pybind/model_perf_ext.hpp>
 #include <regularizers/l1_regularizer.hpp>
 #include <regularizers/l2_regularizer.hpp>
 #include <regularizers/no_regularizer.hpp>

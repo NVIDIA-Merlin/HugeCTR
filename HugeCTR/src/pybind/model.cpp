@@ -16,7 +16,6 @@
 
 #include <HugeCTR/include/base/debug/logger.hpp>
 #include <HugeCTR/include/resource_managers/resource_manager_ext.hpp>
-#include <HugeCTR/pybind/model.hpp>
 #include <algorithm>
 #include <data_readers/async_reader/async_reader_adapter.hpp>
 #include <embeddings/hybrid_sparse_embedding.hpp>
@@ -24,6 +23,7 @@
 #include <fstream>
 #include <iomanip>
 #include <iterator>
+#include <pybind/model.hpp>
 #include <sstream>
 
 namespace fs = std::experimental::filesystem;

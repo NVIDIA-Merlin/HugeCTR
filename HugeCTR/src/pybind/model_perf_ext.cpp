@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <HugeCTR/pybind/model_perf_ext.hpp>
 #include <data_readers/async_reader/data_reader_scheduling.hpp>
+#include <pybind/model_perf_ext.hpp>
 
 namespace HugeCTR {
 

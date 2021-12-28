@@ -17,8 +17,8 @@
 #include <pybind11/stl.h>
 
 #include <HugeCTR/include/embedding_training_cache/embedding_training_cache.hpp>
-#include <HugeCTR/pybind/model.hpp>
 #include <experimental/filesystem>
+#include <pybind/model.hpp>
 
 namespace fs = std::experimental::filesystem;
 
