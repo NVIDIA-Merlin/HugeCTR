@@ -172,6 +172,74 @@ size_t RedisClusterBackend<TKey>::contains(const std::string& table_name, const 
 }
 
 template <typename TKey>
+void RedisClusterBackend<TKey>::resolve_overflow_(const std::string& hkey_kv,
+                                                  const std::string& hkey_kt,
+                                                  const size_t partition_size) const {
+  if (overflow_policy_ == DatabaseOverflowPolicy_t::EvictOldest) {
+    // Fetch keys and insert times.
+    std::vector<std::pair<std::string, std::string>> kt;
+    kt.reserve(partition_size);
+    redis_->hgetall(hkey_kt, std::back_inserter(kt));
+
+    const size_t evict_amount = kt.size() - overflow_resolution_target_;
+    if (evict_amount > 0) {
+      // Sort by ascending by time.
+      std::sort(kt.begin(), kt.end(), [](const auto& a, const auto& b) {
+        HCTR_CHECK_HINT(a.second.size() == sizeof(time_t), "Value size mismatch (left)!");
+        HCTR_CHECK_HINT(b.second.size() == sizeof(time_t), "Value size mismatch (right)!");
+        const time_t* t0 = reinterpret_cast<const time_t*>(a.second.data());
+        const time_t* t1 = reinterpret_cast<const time_t*>(b.second.data());
+        return *t0 < *t1;
+      });
+
+      // Take keys until eviction theshold has been reached.
+      std::vector<sw::redis::StringView> k;
+      k.reserve(evict_amount);
+      const auto kt_end = kt.begin() + evict_amount;
+      for (auto kt_it = kt.begin(); kt_it != kt_end; kt_it++) {
+        k.emplace_back(kt_it->first);
+      }
+
+      // Perform deletions.
+      HCTR_LOG(INFO, WORLD,
+               "Redis partition %s (size = %d > %d). Overflow detected, evicting the %d "
+               "OLDEST key/value pairs!\n",
+               hkey_kv.c_str(), partition_size, overflow_margin_, evict_amount);
+
+      redis_->hdel(hkey_kv, k.begin(), k.end());
+      redis_->hdel(hkey_kt, k.begin(), k.end());
+    }
+  } else if (overflow_policy_ == DatabaseOverflowPolicy_t::EvictRandom) {
+    // Fetch all keys in partition.
+    std::vector<std::string> k;
+    k.reserve(partition_size);
+    redis_->hkeys(hkey_kt, std::back_inserter(k));
+
+    const size_t evict_amount = k.size() - overflow_resolution_target_;
+    if (evict_amount > 0) {
+      // Shuffle the keys.
+      std::random_device rd;
+      std::default_random_engine gen(rd());
+      std::shuffle(k.begin(), k.end(), gen);
+
+      // Perform deletions.
+      HCTR_LOG(INFO, WORLD,
+               "Redis partition %s (size = %d > %d). Overflow detected, evicting %d "
+               "RANDOM key/value pairs!\n",
+               hkey_kv.c_str(), partition_size, overflow_margin_, evict_amount);
+
+      redis_->hdel(hkey_kv, &k[0], &k[evict_amount]);
+      redis_->hdel(hkey_kt, &k[0], &k[evict_amount]);
+    }
+  } else {
+    HCTR_LOG(DEBUG, WORLD,
+             "Redis partition %s (size = %d), surpasses specified maximum size (= %d), but "
+             "no compatible overflow policy (=%d) was selected!\n",
+             hkey_kv.c_str(), partition_size, overflow_margin_, overflow_policy_);
+  }
+}
+
+template <typename TKey>
 bool RedisClusterBackend<TKey>::insert(const std::string& table_name, const size_t num_pairs,
                                        const TKey* const keys, const char* const values,
                                        const size_t value_size) {
@@ -182,8 +250,14 @@ bool RedisClusterBackend<TKey>::insert(const std::string& table_name, const size
   } else if (num_pairs <= 1) {
     const size_t part = *keys % num_partitions_;
     try {
-      const auto& hkey_kv = make_hash_key(table_name, part, REDIS_HKEY_VALUE_SUFFIX);
-      const auto& hkey_kt = make_hash_key(table_name, part, REDIS_HKEY_TIME_SUFFIX);
+      const std::string& hkey_kv = make_hash_key(table_name, part, REDIS_HKEY_VALUE_SUFFIX);
+      const std::string& hkey_kt = make_hash_key(table_name, part, REDIS_HKEY_TIME_SUFFIX);
+
+      // Partition overflow handling.
+      const size_t partition_size = redis_->hlen(hkey_kv);
+      if (partition_size > overflow_margin_) {
+        resolve_overflow_(hkey_kv, hkey_kt, partition_size);
+      }
 
       const time_t unix_time = time(nullptr);
       const sw::redis::StringView k_view(reinterpret_cast<const char*>(keys), sizeof(TKey));
@@ -206,8 +280,8 @@ bool RedisClusterBackend<TKey>::insert(const std::string& table_name, const size
       thread_pool_.submit([&, part]() {
         size_t num_inserts = 0;
         try {
-          const auto& hkey_kv = make_hash_key(table_name, part, REDIS_HKEY_VALUE_SUFFIX);
-          const auto& hkey_kt = make_hash_key(table_name, part, REDIS_HKEY_TIME_SUFFIX);
+          const std::string& hkey_kv = make_hash_key(table_name, part, REDIS_HKEY_VALUE_SUFFIX);
+          const std::string& hkey_kt = make_hash_key(table_name, part, REDIS_HKEY_TIME_SUFFIX);
 
           std::vector<std::pair<sw::redis::StringView, sw::redis::StringView>> kv_views;
           std::vector<std::pair<sw::redis::StringView, sw::redis::StringView>> kt_views;
@@ -216,76 +290,13 @@ bool RedisClusterBackend<TKey>::insert(const std::string& table_name, const size
 
           const TKey* const keys_end = &keys[num_pairs];
           for (const TKey* k = keys; k != keys_end; num_queries++) {
-            const time_t unix_time = time(nullptr);
-
             // Partition overflow handling.
             const size_t partition_size = redis_->hlen(hkey_kv);
             if (partition_size > overflow_margin_) {
-              if (overflow_policy_ == DatabaseOverflowPolicy_t::EvictOldest) {
-                // Fetch keys and insert times.
-                std::vector<std::pair<std::string, std::string>> kt;
-                kt.reserve(partition_size);
-                redis_->hgetall(hkey_kt, std::back_inserter(kt));
-
-                const size_t evict_amount = kt.size() - overflow_resolution_target_;
-                if (evict_amount > 0) {
-                  // Sort by ascending by time.
-                  std::sort(kt.begin(), kt.end(), [](const auto& a, const auto& b) {
-                    HCTR_CHECK_HINT(a.second.size() == sizeof(time_t), "Value size mismatch!");
-                    HCTR_CHECK_HINT(b.second.size() == sizeof(time_t), "Value size mismatch!");
-                    const time_t* t0 = reinterpret_cast<const time_t*>(a.second.data());
-                    const time_t* t1 = reinterpret_cast<const time_t*>(b.second.data());
-                    return *t0 < *t1;
-                  });
-
-                  // Take keys until eviction theshold has been reached.
-                  std::vector<sw::redis::StringView> k;
-                  k.reserve(evict_amount);
-                  const auto kt_end = kt.begin() + evict_amount;
-                  for (auto kt_it = kt.begin(); kt_it != kt_end; kt_it++) {
-                    k.emplace_back(kt_it->first);
-                  }
-
-                  // Perform deletions.
-                  HCTR_LOG(
-                      INFO, WORLD,
-                      "Redis partition %s (size = %d > %d). Overflow detected, evicting the %d "
-                      "OLDEST key/value pairs!\n",
-                      hkey_kv.c_str(), partition_size, overflow_margin_, evict_amount);
-
-                  redis_->hdel(hkey_kv, k.begin(), k.end());
-                  redis_->hdel(hkey_kt, k.begin(), k.end());
-                }
-              } else if (overflow_policy_ == DatabaseOverflowPolicy_t::EvictRandom) {
-                // Fetch all keys in partition.
-                std::vector<std::string> k;
-                k.reserve(partition_size);
-                redis_->hkeys(hkey_kt, std::back_inserter(k));
-
-                const size_t evict_amount = k.size() - overflow_resolution_target_;
-                if (evict_amount > 0) {
-                  // Shuffle the keys.
-                  std::random_device rd;
-                  std::default_random_engine gen(rd());
-                  std::shuffle(k.begin(), k.end(), gen);
-
-                  // Perform deletions.
-                  HCTR_LOG(INFO, WORLD,
-                           "Redis partition %s (size = %d > %d). Overflow detected, evicting %d "
-                           "RANDOM key/value pairs!\n",
-                           hkey_kv.c_str(), partition_size, overflow_margin_, evict_amount);
-
-                  redis_->hdel(hkey_kv, &k[0], &k[evict_amount]);
-                  redis_->hdel(hkey_kt, &k[0], &k[evict_amount]);
-                }
-              } else {
-                HCTR_LOG(
-                    DEBUG, WORLD,
-                    "Redis partition %s (size = %d), surpasses specified maximum size (= %d), but "
-                    "no compatible overflow policy (=%d) was selected!\n",
-                    hkey_kv.c_str(), partition_size, overflow_margin_, overflow_policy_);
-              }
+              resolve_overflow_(hkey_kv, hkey_kt, partition_size);
             }
+
+            const time_t unix_time = time(nullptr);
 
             // Prepare and launch query.
             kt_views.clear();
