@@ -37,7 +37,7 @@ enum class DatabaseType_t {
   RedisCluster,
   RocksDB,
 };
-enum class CPUMemoryHashMapAlgorithm_t {
+enum class DatabaseHashMapAlgorithm_t {
   STL,
   PHM,
 };
@@ -67,15 +67,15 @@ constexpr const char* hctr_enum_to_c_str(const DatabaseType_t value) {
       return "<unknown DatabaseType_t value>";
   }
 }
-constexpr const char* hctr_enum_to_c_str(const CPUMemoryHashMapAlgorithm_t value) {
+constexpr const char* hctr_enum_to_c_str(const DatabaseHashMapAlgorithm_t value) {
   // Remark: Dependent functions assume lower-case, and underscore separated.
   switch (value) {
-    case CPUMemoryHashMapAlgorithm_t::STL:
+    case DatabaseHashMapAlgorithm_t::STL:
       return "stl";
-    case CPUMemoryHashMapAlgorithm_t::PHM:
+    case DatabaseHashMapAlgorithm_t::PHM:
       return "phm";
     default:
-      return "<unknown CPUMemoryHashMapAlgorithm_t value>";
+      return "<unknown DatabaseHashMapAlgorithm_t value>";
   }
 }
 constexpr const char* hctr_enum_to_c_str(const DatabaseOverflowPolicy_t value) {
@@ -102,53 +102,23 @@ constexpr const char* hctr_enum_to_c_str(const UpdateSourceType_t value) {
 }
 
 std::ostream& operator<<(std::ostream& os, DatabaseType_t value);
-std::ostream& operator<<(std::ostream& os, CPUMemoryHashMapAlgorithm_t value);
+std::ostream& operator<<(std::ostream& os, DatabaseHashMapAlgorithm_t value);
 std::ostream& operator<<(std::ostream& os, DatabaseOverflowPolicy_t value);
 std::ostream& operator<<(std::ostream& os, UpdateSourceType_t value);
 
-struct CPUMemoryDatabaseParams {
-  DatabaseType_t type;
-
-  // Backend specific.
-  CPUMemoryHashMapAlgorithm_t algorithm;
-  size_t num_partitions;
-  size_t overflow_margin;
-  DatabaseOverflowPolicy_t overflow_policy;
-  double overflow_resolution_target;
-
-  // Initialization related.
-  double initial_cache_rate;
-
-  // Real-time update mechanism related.
-  std::vector<std::string> update_filters;  // Should be a regex for Kafka.
-
-  CPUMemoryDatabaseParams(
-      DatabaseType_t type = DatabaseType_t::ParallelHashMap,
-      // Backend specific.
-      CPUMemoryHashMapAlgorithm_t algorithm = CPUMemoryHashMapAlgorithm_t::PHM,
-      size_t num_partitions = std::min(16U, std::thread::hardware_concurrency()),
-      size_t overflow_margin = std::numeric_limits<size_t>::max(),
-      DatabaseOverflowPolicy_t overflow_policy = DatabaseOverflowPolicy_t::EvictOldest,
-      double overflow_resolution_target = 0.8,
-      // Initialization related.
-      double initial_cache_rate = 1.0,
-      // Real-time update mechanism related.
-      const std::vector<std::string>& update_filters = {".+"});
-
-  bool operator==(const CPUMemoryDatabaseParams& p) const;
-  bool operator!=(const CPUMemoryDatabaseParams& p) const;
-};
-
-struct DistributedDatabaseParams {
+struct VolatileDatabaseParams {
   DatabaseType_t type;
 
   // Backend specific.
   std::string address;    // hostname[:port][[;hostname[:port]]...]
   std::string user_name;  // "default" = Standard user for Redis!
   std::string password;
+  DatabaseHashMapAlgorithm_t algorithm;  // Only used with HashMap type backends.
   size_t num_partitions;
   size_t max_get_batch_size;
   size_t max_set_batch_size;
+
+  // Overflow handling related.
   size_t overflow_margin;
   DatabaseOverflowPolicy_t overflow_policy;
   double overflow_resolution_target;
@@ -159,12 +129,15 @@ struct DistributedDatabaseParams {
   // Real-time update mechanism related.
   std::vector<std::string> update_filters;  // Should be a regex for Kafka.
 
-  DistributedDatabaseParams(
-      DatabaseType_t type = DatabaseType_t::Disabled,
+  VolatileDatabaseParams(
+      DatabaseType_t type = DatabaseType_t::ParallelHashMap,
       // Backend specific.
       const std::string& address = "127.0.0.1:7000", const std::string& user_name = "default",
-      const std::string& password = "", size_t num_partitions = 8,
+      const std::string& password = "",
+      DatabaseHashMapAlgorithm_t algorithm = DatabaseHashMapAlgorithm_t::PHM,
+      size_t num_partitions = std::min(16u, std::thread::hardware_concurrency()),
       size_t max_get_batch_size = 10'000, size_t max_set_batch_size = 10'000,
+      // Overflow handling related.
       size_t overflow_margin = std::numeric_limits<size_t>::max(),
       DatabaseOverflowPolicy_t overflow_policy = DatabaseOverflowPolicy_t::EvictOldest,
       double overflow_resolution_target = 0.8,
@@ -173,8 +146,8 @@ struct DistributedDatabaseParams {
       // Real-time update mechanism related.
       const std::vector<std::string>& update_filters = {".+"});
 
-  bool operator==(const DistributedDatabaseParams& p) const;
-  bool operator!=(const DistributedDatabaseParams& p) const;
+  bool operator==(const VolatileDatabaseParams& p) const;
+  bool operator!=(const VolatileDatabaseParams& p) const;
 };
 
 struct PersistentDatabaseParams {
@@ -245,8 +218,7 @@ struct InferenceParams {
   std::vector<int> deployed_devices;
   std::vector<float> default_value_for_each_table;
   // Database backend.
-  CPUMemoryDatabaseParams cpu_memory_db;
-  DistributedDatabaseParams distributed_db;
+  VolatileDatabaseParams volatile_db;
   PersistentDatabaseParams persistent_db;
   UpdateSourceParams update_source;
 
@@ -262,8 +234,7 @@ struct InferenceParams {
                   const std::vector<int>& deployed_devices = {0},
                   const std::vector<float>& default_value_for_each_table = {0.0f},
                   // Database backend.
-                  const CPUMemoryDatabaseParams& cpu_memory_db = {},
-                  const DistributedDatabaseParams& distributed_db = {},
+                  const VolatileDatabaseParams& volatile_db = {},
                   const PersistentDatabaseParams& persistent_db = {},
                   const UpdateSourceParams& update_source = {});
 };

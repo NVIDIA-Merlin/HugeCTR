@@ -63,9 +63,15 @@ class RedisClusterBackend final : public DatabaseBackend<TKey> {
 
   virtual ~RedisClusterBackend();
 
-  const char* get_name() const override;
+  const char* get_name() const override { return "RedisCluster"; }
+
+  bool is_shared() const override { return true; }
 
   size_t contains(const std::string& table_name, size_t num_keys, const TKey* keys) const override;
+
+  size_t max_capacity(const std::string& table_name) const override {
+    return this->overflow_margin_ * num_partitions_;
+  }
 
   bool insert(const std::string& table_name, size_t num_pairs, const TKey* keys, const char* values,
               size_t value_size) override;

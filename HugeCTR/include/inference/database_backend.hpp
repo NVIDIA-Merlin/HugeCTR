@@ -52,6 +52,15 @@ class DatabaseBackend {
   virtual const char* get_name() const = 0;
 
   /**
+   * Flag indicating whether the backing database is shared among all backend instances.
+   *
+   * @return Is this is a distributed database?
+   */
+  virtual bool is_shared() const = 0;
+
+  virtual size_t max_capacity(const std::string& table_name) const = 0;
+
+  /**
    * Check whether a set of keys exists in the database.
    *
    * @param table_name The name of the table to be queried (see also
@@ -168,6 +177,45 @@ class DatabaseBackendError : std::exception {
   std::string backend_;
   size_t partition_;
   std::string what_;
+};
+
+template <typename TKey>
+class VolatileBackend : public DatabaseBackend<TKey> {
+ public:
+  using TBase = DatabaseBackend<TKey>;
+
+  VolatileBackend(size_t overflow_margin, DatabaseOverflowPolicy_t overflow_policy,
+                  double overflow_resolution_target);
+
+  VolatileBackend(const VolatileBackend&) = delete;
+
+  virtual ~VolatileBackend() = default;
+
+  VolatileBackend& operator=(const VolatileBackend&) = delete;
+
+ protected:
+  // Overflow-handling / pruning related parameters.
+  const size_t overflow_margin_;
+  const DatabaseOverflowPolicy_t overflow_policy_;
+  const size_t overflow_resolution_target_;
+};
+
+template <typename TKey>
+class PersistentBackend : public DatabaseBackend<TKey> {
+ public:
+  using TBase = DatabaseBackend<TKey>;
+
+  PersistentBackend() = default;
+
+  PersistentBackend(const PersistentBackend&) = delete;
+
+  virtual ~PersistentBackend() = default;
+
+  PersistentBackend& operator=(const PersistentBackend&) = delete;
+
+  size_t max_capacity(const std::string& table_name) const override final {
+    return std::numeric_limits<size_t>::max();
+  }
 };
 
 }  // namespace HugeCTR

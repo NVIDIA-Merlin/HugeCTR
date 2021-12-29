@@ -21,7 +21,7 @@ namespace HugeCTR {
 std::ostream& operator<<(std::ostream& os, const DatabaseType_t value) {
   return os << hctr_enum_to_c_str(value);
 }
-std::ostream& operator<<(std::ostream& os, const CPUMemoryHashMapAlgorithm_t value) {
+std::ostream& operator<<(std::ostream& os, const DatabaseHashMapAlgorithm_t value) {
   return os << hctr_enum_to_c_str(value);
 }
 std::ostream& operator<<(std::ostream& os, const DatabaseOverflowPolicy_t value) {
@@ -40,26 +40,13 @@ std::optional<size_t> parameter_server_config::find_model_id(const std::string& 
   }
 }
 
-bool CPUMemoryDatabaseParams::operator==(const CPUMemoryDatabaseParams& p) const {
+bool VolatileDatabaseParams::operator==(const VolatileDatabaseParams& p) const {
   return type == p.type &&
          // Backend specific.
+         address == p.address && user_name == p.user_name && password == p.password &&
          algorithm == p.algorithm && num_partitions == p.num_partitions &&
-         overflow_margin == p.overflow_margin && overflow_policy == p.overflow_policy &&
-         overflow_resolution_target == p.overflow_resolution_target &&
-         // Initialization related.
-         initial_cache_rate == p.initial_cache_rate &&
-         // Real-time update mechanism related.
-         update_filters == p.update_filters;
-}
-bool CPUMemoryDatabaseParams::operator!=(const CPUMemoryDatabaseParams& p) const {
-  return !operator==(p);
-}
-
-bool DistributedDatabaseParams::operator==(const DistributedDatabaseParams& p) const {
-  return type == p.type &&
-         // Backend specific.
-         address == p.address && password == p.password && num_partitions == p.num_partitions &&
          max_get_batch_size == p.max_get_batch_size && max_set_batch_size == p.max_set_batch_size &&
+         // Overflow handling related.
          overflow_margin == p.overflow_margin && overflow_policy == p.overflow_policy &&
          overflow_resolution_target == p.overflow_resolution_target &&
          // Initialization related.
@@ -67,7 +54,7 @@ bool DistributedDatabaseParams::operator==(const DistributedDatabaseParams& p) c
          // Real-time update mechanism related.
          update_filters == p.update_filters;
 }
-bool DistributedDatabaseParams::operator!=(const DistributedDatabaseParams& p) const {
+bool VolatileDatabaseParams::operator!=(const VolatileDatabaseParams& p) const {
   return !operator==(p);
 }
 

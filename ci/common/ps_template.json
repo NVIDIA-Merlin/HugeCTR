@@ -1,19 +1,20 @@
 {
-    "supportlonglong":true,
-    "db_type":"local",
-    "redis_ip":"127.0.0.1:7000,127.0.0.1:7001,127.0.0.1:7002",
-    "rocksdb_path":"/hugectr/test/utest/wdl_test_files/rocksdb",
-    "cpu_memory_db": {
+    "supportlonglong": true,
+    "volatile_db": {
         "type": "parallel_hash_map",
+        "address":"127.0.0.1:7000,127.0.0.1:7001,127.0.0.1:7002",
         "num_partitions": 15,
         "overflow_policy": "evict_oldest",
         "overflow_margin": 1000000,
         "overflow_resolution_target": 0.95,
         "initial_cache_rate": 1.0,
-        "update_filters": [ "wurst0", ".+" ]
+        "update_filters": [ ".+" ]
     },
-    "models":[
-
+    "persistent_db": {
+        "type": "disabled",
+        "path": "/hugectr/test/utest/wdl_test_files/rocksdb"
+    },
+    "models": [
         {
             "model":"dlrm",
             "sparse_files":["/model/dlrm/1/dlrm0_sparse_20000.model"],

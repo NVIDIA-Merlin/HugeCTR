@@ -83,17 +83,14 @@ class parameter_server : public parameter_server_base, public HugectrUtility<Typ
   parameter_server_config ps_config_;
 
   // Database layers for multi-tier cache/lookup.
-  std::shared_ptr<DatabaseBackend<TypeHashKey>> cpu_memory_db_;
-  double cpu_memory_db_cache_rate_ = 0.0;
-  std::shared_ptr<DatabaseBackend<TypeHashKey>> distributed_db_;
-  double distributed_db_cache_rate_ = 0.0;
+  std::shared_ptr<DatabaseBackend<TypeHashKey>> volatile_db_;
+  double volatile_db_cache_rate_ = 0.0;
   std::shared_ptr<DatabaseBackend<TypeHashKey>> persistent_db_;
 
   std::vector<std::shared_ptr<DatabaseBackend<TypeHashKey>>> db_stack_;
 
   // Realtime data ingestion.
-  std::unique_ptr<MessageSource<TypeHashKey>> cpu_memory_db_source_;
-  std::unique_ptr<MessageSource<TypeHashKey>> distributed_db_source_;
+  std::unique_ptr<MessageSource<TypeHashKey>> volatile_db_source_;
   std::unique_ptr<MessageSource<TypeHashKey>> persistent_db_source_;
   inference_memory_pool_size_config memory_pool_config;
 

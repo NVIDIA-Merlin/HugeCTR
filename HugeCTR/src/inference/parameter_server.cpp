@@ -64,12 +64,13 @@ parameter_server<TypeHashKey>::parameter_server(
               "Wrong input: The size of parameter server parameters are not correct.");
   }
 
-  // Connect to CPU memory database.
+  // Connect to volatile database.
   {
-    const auto& conf = inference_params_array[0].cpu_memory_db;
+    const auto& conf = inference_params_array[0].volatile_db;
     switch (conf.type) {
       case DatabaseType_t::Disabled:
-        break;  // No CPU memory database.
+        break;  // No volatile database.
+
       case DatabaseType_t::HashMap:
         HCTR_LOG(INFO, WORLD, "Creating HashMap CPU database backend...\n");
         if (conf.num_partitions > 1) {
@@ -79,12 +80,12 @@ parameter_server<TypeHashKey>::parameter_server(
                    conf.num_partitions);
         }
         switch (conf.algorithm) {
-          case CPUMemoryHashMapAlgorithm_t::STL:
-            cpu_memory_db_ = std::make_shared<HCTR_DB_HASH_MAP_STL_(HashMapBackend, TypeHashKey)>(
+          case DatabaseHashMapAlgorithm_t::STL:
+            volatile_db_ = std::make_shared<HCTR_DB_HASH_MAP_STL_(HashMapBackend, TypeHashKey)>(
                 conf.overflow_margin, conf.overflow_policy, conf.overflow_resolution_target);
             break;
-          case CPUMemoryHashMapAlgorithm_t::PHM:
-            cpu_memory_db_ = std::make_shared<HCTR_DB_HASH_MAP_PHM_(HashMapBackend, TypeHashKey)>(
+          case DatabaseHashMapAlgorithm_t::PHM:
+            volatile_db_ = std::make_shared<HCTR_DB_HASH_MAP_PHM_(HashMapBackend, TypeHashKey)>(
                 conf.overflow_margin, conf.overflow_policy, conf.overflow_resolution_target);
             break;
           default:
@@ -93,6 +94,7 @@ parameter_server<TypeHashKey>::parameter_server(
             break;
         }
         break;
+
       case DatabaseType_t::ParallelHashMap:
         HCTR_LOG(INFO, WORLD, "Creating ParallelHashMap CPU database backend...\n");
         if (conf.num_partitions < 2) {
@@ -102,14 +104,14 @@ parameter_server<TypeHashKey>::parameter_server(
                    conf.num_partitions);
         }
         switch (conf.algorithm) {
-          case CPUMemoryHashMapAlgorithm_t::STL:
-            cpu_memory_db_ =
+          case DatabaseHashMapAlgorithm_t::STL:
+            volatile_db_ =
                 std::make_shared<HCTR_DB_HASH_MAP_STL_(ParallelHashMapBackend, TypeHashKey)>(
                     conf.num_partitions, conf.overflow_margin, conf.overflow_policy,
                     conf.overflow_resolution_target);
             break;
-          case CPUMemoryHashMapAlgorithm_t::PHM:
-            cpu_memory_db_ =
+          case DatabaseHashMapAlgorithm_t::PHM:
+            volatile_db_ =
                 std::make_shared<HCTR_DB_HASH_MAP_PHM_(ParallelHashMapBackend, TypeHashKey)>(
                     conf.num_partitions, conf.overflow_margin, conf.overflow_policy,
                     conf.overflow_resolution_target);
@@ -120,31 +122,20 @@ parameter_server<TypeHashKey>::parameter_server(
             break;
         }
         break;
-      default:
-        HCTR_DIE("Selected backend (cpu_memory_db.type = %d) is not supported!", conf.type);
-        break;
-    }
-    cpu_memory_db_cache_rate_ = conf.initial_cache_rate;
-  }
 
-  // Connect to distributed database.
-  {
-    const auto& conf = inference_params_array[0].distributed_db;
-    switch (conf.type) {
-      case DatabaseType_t::Disabled:
-        break;  // No distributed database.
       case DatabaseType_t::RedisCluster:
         HCTR_LOG(INFO, WORLD, "Creating RedisCluster backend...\n");
-        distributed_db_ = std::make_shared<RedisClusterBackend<TypeHashKey>>(
+        volatile_db_ = std::make_shared<RedisClusterBackend<TypeHashKey>>(
             conf.address, conf.user_name, conf.password, conf.num_partitions,
             conf.max_get_batch_size, conf.max_set_batch_size, conf.overflow_margin,
             conf.overflow_policy, conf.overflow_resolution_target);
         break;
+
       default:
         HCTR_DIE("Selected backend (distributed_db.type = %d) is not supported!", conf.type);
         break;
     }
-    distributed_db_cache_rate_ = conf.initial_cache_rate;
+    volatile_db_cache_rate_ = conf.initial_cache_rate;
   }
 
   // Connect to persistent database.
@@ -201,11 +192,8 @@ parameter_server<TypeHashKey>::parameter_server(
   }
 
   // Populate DB stack.
-  if (cpu_memory_db_) {
-    db_stack_.push_back(cpu_memory_db_);
-  }
-  if (distributed_db_) {
-    db_stack_.push_back(distributed_db_);
+  if (volatile_db_) {
+    db_stack_.push_back(volatile_db_);
   }
   if (persistent_db_) {
     db_stack_.push_back(persistent_db_);
@@ -226,8 +214,7 @@ void parameter_server<TypeHashKey>::parse_networks_per_model_(
   // Initialize for each model
   for (unsigned int i = 0; i < model_config_path.size(); i++) {
     HCTR_THROW_IF(
-        inference_params_array[i].cpu_memory_db != inference_params_array[0].cpu_memory_db ||
-            inference_params_array[i].distributed_db != inference_params_array[0].distributed_db ||
+        inference_params_array[i].volatile_db != inference_params_array[0].volatile_db ||
             inference_params_array[i].persistent_db != inference_params_array[0].persistent_db,
         Error_t::WrongInput,
         "Inconsistent database setup. HugeCTR paramter server does currently not support hybrid "
@@ -338,32 +325,21 @@ void parameter_server<TypeHashKey>::update_database_per_model(
     std::vector<float> vec_vec(num_float_val_in_vec_file, 0.0f);
     vec_stream.read(reinterpret_cast<char*>(vec_vec.data()), vec_file_size_in_byte);
 
-    const size_t cpu_cache_amount = std::min(
-        hctr_safe_cast<size_t>(cpu_memory_db_cache_rate_ * static_cast<double>(num_key) + 0.5),
-        num_key);
-    const size_t dist_cache_amount = std::min(
-        hctr_safe_cast<size_t>(distributed_db_cache_rate_ * static_cast<double>(num_key) + 0.5),
+    const size_t volatile_cache_amount = std::min(
+        hctr_safe_cast<size_t>(volatile_db_cache_rate_ * static_cast<double>(num_key) + 0.5),
         num_key);
 
     std::string current_emb_table_name = ps_config_.emb_table_name_[inference_params.model_name][j];
     const std::string tag_name = make_tag_name(inference_params.model_name, current_emb_table_name);
 
-    // Populate databases. CPU is static.
-    if (cpu_memory_db_) {
-      HCTR_CHECK(cpu_memory_db_->insert(tag_name, cpu_cache_amount, key_vec.data(),
-                                        reinterpret_cast<const char*>(vec_vec.data()),
-                                        embedding_size * sizeof(float)));
-      HCTR_LOG(INFO, WORLD, "Table: %s; cached %d / %d embeddings in CPU memory database!\n",
-               tag_name.c_str(), cpu_cache_amount, num_key);
-    }
-
-    // Distributed could be static but does not have to be.
-    if (distributed_db_) {
-      HCTR_CHECK(distributed_db_->insert(tag_name, dist_cache_amount, key_vec.data(),
-                                         reinterpret_cast<const char*>(vec_vec.data()),
-                                         embedding_size * sizeof(float)));
-      HCTR_LOG(INFO, WORLD, "Table: %s; cached %d / %d embeddings in distributed database!\n",
-               tag_name.c_str(), dist_cache_amount, num_key);
+    // Populate volatile database(s).
+    if (volatile_db_) {
+      HCTR_CHECK(volatile_db_->insert(tag_name, volatile_cache_amount, key_vec.data(),
+                                      reinterpret_cast<const char*>(vec_vec.data()),
+                                      embedding_size * sizeof(float)));
+      HCTR_LOG_S(INFO, WORLD) << "Table: " << tag_name << "; cached " << volatile_cache_amount
+                              << " / " << num_key << " embeddings in " << volatile_db_->get_name()
+                              << " database!" << std::endl;
     }
 
     // Persistent database - by definition - always gets all keys.
@@ -371,14 +347,14 @@ void parameter_server<TypeHashKey>::update_database_per_model(
       HCTR_CHECK(persistent_db_->insert(tag_name, num_key, key_vec.data(),
                                         reinterpret_cast<const char*>(vec_vec.data()),
                                         embedding_size * sizeof(float)));
-      HCTR_LOG(INFO, WORLD, "Table: %s; cached %d embeddings in persistent database!\n",
-               tag_name.c_str(), num_key);
+      HCTR_LOG_S(INFO, WORLD) << "Table: " << tag_name << "; cached " << num_key
+                              << " embeddings in persistent database!" << std::endl;
     }
   }
 
   // Connect to online update service (if configured).
   // TODO: Maybe need to change the location where this is initialized.
-  const std::string kafka_group_prefix = "hctr_ps.";
+  const char kafka_group_prefix[] = "hctr_ps.";
 
   auto kafka_prepare_filter = [](const std::string& s) -> std::string {
     std::ostringstream ss;
@@ -392,47 +368,50 @@ void parameter_server<TypeHashKey>::update_database_per_model(
   switch (inference_params.update_source.type) {
     case UpdateSourceType_t::Null:
       break;  // Disabled
+
     case UpdateSourceType_t::KafkaMessageQueue:
-      // CPU memory updates.
-      if (cpu_memory_db_ && !inference_params.cpu_memory_db.update_filters.empty()) {
+      // Volatile database updates.
+      if (volatile_db_ && !inference_params.volatile_db.update_filters.empty()) {
+        std::ostringstream consumer_group;
+        consumer_group << kafka_group_prefix << "volatile";
+        if (!volatile_db_->is_shared()) {
+          consumer_group << '.' << host_name;
+        }
+
         std::vector<std::string> tag_filters;
-        std::transform(inference_params.cpu_memory_db.update_filters.begin(),
-                       inference_params.cpu_memory_db.update_filters.end(),
+        std::transform(inference_params.volatile_db.update_filters.begin(),
+                       inference_params.volatile_db.update_filters.end(),
                        std::back_inserter(tag_filters), kafka_prepare_filter);
-        cpu_memory_db_source_ = std::make_unique<KafkaMessageSource<TypeHashKey>>(
-            inference_params.update_source.brokers, kafka_group_prefix + "cpu_memory." + host_name,
-            tag_filters, inference_params.update_source.poll_timeout_ms,
-            inference_params.update_source.max_receive_buffer_size,
-            inference_params.update_source.max_batch_size,
-            inference_params.update_source.failure_backoff_ms);
-      }
-      // Distributed updates.
-      if (distributed_db_ && !inference_params.distributed_db.update_filters.empty()) {
-        std::vector<std::string> tag_filters;
-        std::transform(inference_params.distributed_db.update_filters.begin(),
-                       inference_params.distributed_db.update_filters.end(),
-                       std::back_inserter(tag_filters), kafka_prepare_filter);
-        distributed_db_source_ = std::make_unique<KafkaMessageSource<TypeHashKey>>(
-            inference_params.update_source.brokers, kafka_group_prefix + "distributed", tag_filters,
+
+        volatile_db_source_ = std::make_unique<KafkaMessageSource<TypeHashKey>>(
+            inference_params.update_source.brokers, consumer_group.str(), tag_filters,
             inference_params.update_source.poll_timeout_ms,
             inference_params.update_source.max_receive_buffer_size,
             inference_params.update_source.max_batch_size,
             inference_params.update_source.failure_backoff_ms);
       }
-      // Persistent updates.
+      // Persistent database updates.
       if (persistent_db_ && !inference_params.persistent_db.update_filters.empty()) {
+        std::ostringstream consumer_group;
+        consumer_group << kafka_group_prefix << "persistent";
+        if (!persistent_db_->is_shared()) {
+          consumer_group << '.' << host_name;
+        }
+
         std::vector<std::string> tag_filters;
         std::transform(inference_params.persistent_db.update_filters.begin(),
                        inference_params.persistent_db.update_filters.end(),
                        std::back_inserter(tag_filters), kafka_prepare_filter);
+
         persistent_db_source_ = std::make_unique<KafkaMessageSource<TypeHashKey>>(
-            inference_params.update_source.brokers, kafka_group_prefix + "persistent." + host_name,
-            tag_filters, inference_params.update_source.poll_timeout_ms,
+            inference_params.update_source.brokers, consumer_group.str(), tag_filters,
+            inference_params.update_source.poll_timeout_ms,
             inference_params.update_source.max_receive_buffer_size,
             inference_params.update_source.max_batch_size,
             inference_params.update_source.failure_backoff_ms);
       }
       break;
+
     default:
       HCTR_DIE("Unsupported update source!\n");
       break;
@@ -452,21 +431,12 @@ void parameter_server<TypeHashKey>::update_database_per_model(
   // TODO: Update embedding cache!
 
   // Turn on background updates.
-  if (cpu_memory_db_source_) {
-    cpu_memory_db_source_->enable([&](const std::string& tag, const size_t num_pairs,
-                                      const TypeHashKey* keys, const char* values,
-                                      const size_t value_size) -> bool {
+  if (volatile_db_source_) {
+    volatile_db_source_->enable([&](const std::string& tag, const size_t num_pairs,
+                                    const TypeHashKey* keys, const char* values,
+                                    const size_t value_size) -> bool {
       // Try a search. If we can find the value, override it. If not, do nothing.
-      return insert_fn(cpu_memory_db_, tag, num_pairs, keys, values, value_size);
-    });
-  }
-
-  if (distributed_db_source_) {
-    distributed_db_source_->enable([&](const std::string& tag, const size_t num_pairs,
-                                       const TypeHashKey* keys, const char* values,
-                                       const size_t value_size) -> bool {
-      // Try a search. If we can find the value, override it. If not, do nothing.
-      return insert_fn(distributed_db_, tag, num_pairs, keys, values, value_size);
+      return insert_fn(volatile_db_, tag, num_pairs, keys, values, value_size);
     });
   }
 

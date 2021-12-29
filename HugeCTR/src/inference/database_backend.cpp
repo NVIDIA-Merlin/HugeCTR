@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <base/debug/logger.hpp>
 #include <inference/database_backend.hpp>
 #include <sstream>
 
@@ -60,5 +61,22 @@ std::string DatabaseBackendError::to_string() const {
   ss << backend_ << " DB Backend error (partition = " << partition_ << "): " << what_;
   return ss.str();
 }
+
+template <typename TKey>
+VolatileBackend<TKey>::VolatileBackend(const size_t overflow_margin,
+                                       const DatabaseOverflowPolicy_t overflow_policy,
+                                       const double overflow_resolution_target)
+    : overflow_margin_(overflow_margin),
+      overflow_policy_(overflow_policy),
+      overflow_resolution_target_(hctr_safe_cast<size_t>(
+          static_cast<double>(overflow_margin) * overflow_resolution_target + 0.5)) {
+  HCTR_CHECK(overflow_resolution_target_ <= overflow_margin_);
+}
+
+template class VolatileBackend<unsigned int>;
+template class VolatileBackend<long long>;
+
+template class PersistentBackend<unsigned int>;
+template class PersistentBackend<long long>;
 
 }  // namespace HugeCTR

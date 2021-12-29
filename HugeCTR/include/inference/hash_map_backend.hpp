@@ -33,15 +33,17 @@
 namespace HugeCTR {
 
 template <typename TPartition>
-class HashMapBackendBase : public DatabaseBackend<typename TPartition::key_type> {
+class HashMapBackendBase : public VolatileBackend<typename TPartition::key_type> {
  public:
-  using TBase = DatabaseBackend<typename TPartition::key_type>;
   using TKey = typename TPartition::key_type;
+  using TBase = VolatileBackend<TKey>;
 
   HashMapBackendBase(size_t overflow_margin, DatabaseOverflowPolicy_t overflow_policy,
                      double overflow_resolution_target);
 
   virtual ~HashMapBackendBase() = default;
+
+  bool is_shared() const override final { return false; }
 
  protected:
   /**
@@ -52,11 +54,6 @@ class HashMapBackendBase : public DatabaseBackend<typename TPartition::key_type>
 
   // Access control.
   mutable std::shared_mutex read_write_guard_;
-
-  // Overflow-handling / pruning related parameters.
-  const size_t overflow_margin_;
-  const DatabaseOverflowPolicy_t overflow_policy_;
-  const size_t overflow_resolution_target_;
 };
 
 /**
@@ -81,6 +78,10 @@ class HashMapBackend final : public HashMapBackendBase<TPartition> {
                  double overflow_resolution_target = 0.8);
 
   const char* get_name() const override { return "HashMap"; }
+
+  size_t max_capacity(const std::string& table_name) const override {
+    return this->overflow_margin_;
+  }
 
   size_t contains(const std::string& table_name, size_t num_keys, const TKey* keys) const override;
 
@@ -127,6 +128,10 @@ class ParallelHashMapBackend final : public HashMapBackendBase<TPartition> {
       double overflow_resolution_target = 0.8);
 
   const char* get_name() const { return "ParallelHashMap"; }
+
+  size_t max_capacity(const std::string& table_name) const override {
+    return this->overflow_margin_ * num_partitions_;
+  }
 
   size_t contains(const std::string& table_name, size_t num_keys, const TKey* keys) const override;
 

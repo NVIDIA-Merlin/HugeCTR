@@ -19,8 +19,8 @@ def wdl_inference(model_name, network_file, dense_file, embedding_file_list, dat
     test_df[CATEGORICAL_COLUMNS].astype(np.int64)
     embedding_columns = list((test_df[CATEGORICAL_COLUMNS]+shift).values.flatten())
     
-    cpuMemoryDatabase=hugectr.inference.CPUMemoryDatabaseParams()
-    rocksdbdatabase=hugectr.inference.PersistentDatabaseParams(path="/hugectr/test/utest/wdl_test_files/rocksdb")
+    hash_map_database = hugectr.inference.VolatileDatabaseParams()
+    rocksdb_database = hugectr.inference.PersistentDatabaseParams(path="/hugectr/test/utest/wdl_test_files/rocksdb")
 
     # create parameter server, embedding cache and inference session
     inference_params = InferenceParams(model_name = model_name,
@@ -37,8 +37,8 @@ def wdl_inference(model_name, network_file, dense_file, embedding_file_list, dat
                                 number_of_refresh_buffers_in_pool=1,
                                 deployed_devices= [0],
                                 default_value_for_each_table= [0.0,0.0],
-                                cpu_memory_db=cpuMemoryDatabase,
-                                persistent_db=rocksdbdatabase)
+                                volatile_db=hash_map_database,
+                                persistent_db=rocksdb_database)
     inference_session = CreateInferenceSession(config_file, inference_params)
     # predict for the first time
     output1 = inference_session.predict(dense_features, embedding_columns, row_ptrs)
