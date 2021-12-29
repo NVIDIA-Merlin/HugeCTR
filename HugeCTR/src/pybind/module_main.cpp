@@ -16,16 +16,16 @@
 
 #include <pybind11/pybind11.h>
 
-#include <HugeCTR/pybind/common_wrapper.hpp>
-#include <HugeCTR/pybind/data_generator_wrapper.hpp>
-#include <HugeCTR/pybind/data_reader_wrapper.hpp>
-#include <HugeCTR/pybind/embedding_training_cache_wrapper.hpp>
-#include <HugeCTR/pybind/inference_wrapper.hpp>
-#include <HugeCTR/pybind/learning_rate_scheduler_wrapper.hpp>
-#include <HugeCTR/pybind/model_perf_ext_wrapper.hpp>
-#include <HugeCTR/pybind/model_wrapper.hpp>
-#include <HugeCTR/pybind/optimizer_wrapper.hpp>
-#include <HugeCTR/pybind/solver_wrapper.hpp>
+#include <pybind/common_wrapper.hpp>
+#include <pybind/data_generator_wrapper.hpp>
+#include <pybind/data_reader_wrapper.hpp>
+#include <pybind/embedding_training_cache_wrapper.hpp>
+#include <pybind/inference_wrapper.hpp>
+#include <pybind/learning_rate_scheduler_wrapper.hpp>
+#include <pybind/model_perf_ext_wrapper.hpp>
+#include <pybind/model_wrapper.hpp>
+#include <pybind/optimizer_wrapper.hpp>
+#include <pybind/solver_wrapper.hpp>
 using namespace HugeCTR::python_lib;
 
 PYBIND11_MODULE(hugectr, m) {

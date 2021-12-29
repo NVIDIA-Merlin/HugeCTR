@@ -17,10 +17,10 @@
 #include <HugeCTR/include/embeddings/distributed_slot_sparse_embedding_hash.hpp>
 #include <HugeCTR/include/embeddings/localized_slot_sparse_embedding_hash.hpp>
 #include <HugeCTR/include/embeddings/localized_slot_sparse_embedding_one_hot.hpp>
-#include <HugeCTR/pybind/model.hpp>
 #include <embeddings/hybrid_sparse_embedding.hpp>
 #include <loss.hpp>
 #include <optimizer.hpp>
+#include <pybind/model.hpp>
 
 #ifdef ENABLE_MPI
 #include <mpi.h>

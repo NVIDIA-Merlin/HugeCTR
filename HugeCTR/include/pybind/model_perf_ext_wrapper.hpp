@@ -18,7 +18,7 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
-#include <HugeCTR/pybind/model_perf_ext.hpp>
+#include <pybind/model_perf_ext.hpp>
 
 namespace HugeCTR {
 
