@@ -85,11 +85,6 @@ RedisClusterBackend<TKey>::~RedisClusterBackend() {
 }
 
 template <typename TKey>
-const char* RedisClusterBackend<TKey>::get_name() const {
-  return "RedisCluster";
-}
-
-template <typename TKey>
 size_t RedisClusterBackend<TKey>::contains(const std::string& table_name, const size_t num_keys,
                                            const TKey* const keys) const {
   size_t hit_count = 0;

@@ -28,30 +28,25 @@ template <typename TPartition>
 HashMapBackendBase<TPartition>::HashMapBackendBase(const size_t overflow_margin,
                                                    const DatabaseOverflowPolicy_t overflow_policy,
                                                    const double overflow_resolution_target)
-    : overflow_margin_(overflow_margin),
-      overflow_policy_(overflow_policy),
-      overflow_resolution_target_(hctr_safe_cast<size_t>(
-          static_cast<double>(overflow_margin) * overflow_resolution_target + 0.5)) {
-  HCTR_CHECK(overflow_resolution_target_ <= overflow_margin_);
-}
+    : TBase(overflow_margin, overflow_policy, overflow_resolution_target) {}
 
 template <typename TPartition>
 void HashMapBackendBase<TPartition>::resolve_overflow_(const std::string& table_name,
                                                        const size_t part_idx, TPartition& part,
                                                        const size_t value_size) const {
-  const size_t evict_amount = part.size() - overflow_resolution_target_;
+  const size_t evict_amount = part.size() - this->overflow_resolution_target_;
   if (evict_amount <= 0) {
     HCTR_LOG(WARNING, WORLD,
              "%s backend. Table '%s' p%d (size = %d > %d). Overflow cannot be resolved. Evict "
              "amount (=%d) is negative!",
-             this->get_name(), table_name.c_str(), part_idx, part.size(), overflow_margin_,
+             this->get_name(), table_name.c_str(), part_idx, part.size(), this->overflow_margin_,
              evict_amount);
     return;
   }
 
   const size_t value_time_size = value_size + sizeof(time_t);
 
-  if (overflow_policy_ == DatabaseOverflowPolicy_t::EvictOldest) {
+  if (this->overflow_policy_ == DatabaseOverflowPolicy_t::EvictOldest) {
     // Fetch keys and insert times.
     std::vector<std::pair<TKey, time_t>> keys_times;
     keys_times.reserve(part.size());
@@ -69,14 +64,14 @@ void HashMapBackendBase<TPartition>::resolve_overflow_(const std::string& table_
     HCTR_LOG(INFO, WORLD,
              "%s backend. Table '%s' p%d (size = %d > %d). Resolving overflow by evicting the %d "
              "OLDEST key/value pairs!\n",
-             this->get_name(), table_name.c_str(), part_idx, part.size(), overflow_margin_,
+             this->get_name(), table_name.c_str(), part_idx, part.size(), this->overflow_margin_,
              evict_amount);
 
     const auto& keys_times_end = keys_times.begin() + evict_amount;
     for (auto kt = keys_times.begin(); kt != keys_times_end; kt++) {
       part.erase(kt->first);
     }
-  } else if (overflow_policy_ == DatabaseOverflowPolicy_t::EvictRandom) {
+  } else if (this->overflow_policy_ == DatabaseOverflowPolicy_t::EvictRandom) {
     // Fetch all keys.
     std::vector<TKey> keys;
     keys.reserve(part.size());
@@ -93,7 +88,7 @@ void HashMapBackendBase<TPartition>::resolve_overflow_(const std::string& table_
     HCTR_LOG(INFO, WORLD,
              "%s backend. Table '%s' p%d (size = %d > %d). Resolving overflow by evicting the %d "
              "RANDOM key/value pairs!\n",
-             this->get_name(), table_name.c_str(), part_idx, part.size(), overflow_margin_,
+             this->get_name(), table_name.c_str(), part_idx, part.size(), this->overflow_margin_,
              evict_amount);
 
     for (const auto& k : keys) {
@@ -103,8 +98,8 @@ void HashMapBackendBase<TPartition>::resolve_overflow_(const std::string& table_
     HCTR_LOG(WARNING, WORLD,
              "%s backend. Table '%s' p%d (size = %d > %d). Overflow cannot be resolved. "
              "No implementation for selected policy (=%d)!",
-             this->get_name(), table_name.c_str(), part_idx, part.size(), overflow_margin_,
-             overflow_policy_);
+             this->get_name(), table_name.c_str(), part_idx, part.size(), this->overflow_margin_,
+             this->overflow_policy_);
   }
 }
 

@@ -30,9 +30,9 @@ namespace HugeCTR {
  * @tparam TKey The data-type that is used for keys in this database.
  */
 template <typename TKey>
-class RocksDBBackend final : public DatabaseBackend<TKey> {
+class RocksDBBackend final : public PersistentBackend<TKey> {
  public:
-  using TBase = DatabaseBackend<TKey>;
+  using TBase = PersistentBackend<TKey>;
 
   /**
    * @brief Construct a new RocksDBBackend object.
@@ -52,6 +52,8 @@ class RocksDBBackend final : public DatabaseBackend<TKey> {
   virtual ~RocksDBBackend();
 
   const char* get_name() const override { return "RocksDB"; }
+
+  bool is_shared() const override { return false; }
 
   size_t contains(const std::string& table_name, size_t num_keys, const TKey* keys) const override;
 

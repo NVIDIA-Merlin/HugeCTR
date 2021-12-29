@@ -19,34 +19,13 @@
 
 namespace HugeCTR {
 
-CPUMemoryDatabaseParams::CPUMemoryDatabaseParams(const DatabaseType_t type,
-                                                 // Backend specific.
-                                                 const CPUMemoryHashMapAlgorithm_t algorithm,
-                                                 const size_t num_partitions,
-                                                 const size_t overflow_margin,
-                                                 const DatabaseOverflowPolicy_t overflow_policy,
-                                                 const double overflow_resolution_target,
-                                                 // Initialization related.
-                                                 const double initial_cache_rate,
-                                                 // Real-time update mechanism related.
-                                                 const std::vector<std::string>& update_filters)
-    : type(type),
-      // Backend specific.
-      algorithm(algorithm),
-      num_partitions(num_partitions),
-      overflow_margin(overflow_margin),
-      overflow_policy(overflow_policy),
-      overflow_resolution_target(overflow_resolution_target),
-      // Initialization related.
-      initial_cache_rate(initial_cache_rate),
-      // Real-time update mechanism related.
-      update_filters(update_filters) {}
-
-DistributedDatabaseParams::DistributedDatabaseParams(
+VolatileDatabaseParams::VolatileDatabaseParams(
     const DatabaseType_t type,
     // Backend specific.
     const std::string& address, const std::string& user_name, const std::string& password,
-    const size_t num_partitions, const size_t max_get_batch_size, const size_t max_set_batch_size,
+    const DatabaseHashMapAlgorithm_t algorithm, const size_t num_partitions,
+    const size_t max_get_batch_size, const size_t max_set_batch_size,
+    // Overflow handling related.
     const size_t overflow_margin, const DatabaseOverflowPolicy_t overflow_policy,
     const double overflow_resolution_target,
     // Initialization related.
@@ -58,9 +37,11 @@ DistributedDatabaseParams::DistributedDatabaseParams(
       address(address),
       user_name(user_name),
       password(password),
+      algorithm(algorithm),
       num_partitions(num_partitions),
       max_get_batch_size(max_get_batch_size),
       max_set_batch_size(max_set_batch_size),
+      // Overflow handling related.
       overflow_margin(overflow_margin),
       overflow_policy(overflow_policy),
       overflow_resolution_target(overflow_resolution_target),
@@ -110,8 +91,8 @@ InferenceParams::InferenceParams(
     const float cache_refresh_percentage_per_iteration, const std::vector<int>& deployed_devices,
     const std::vector<float>& default_value_for_each_table,
     // Database backend.
-    const CPUMemoryDatabaseParams& cpu_memory_db, const DistributedDatabaseParams& distributed_db,
-    const PersistentDatabaseParams& persistent_db, const UpdateSourceParams& update_source)
+    const VolatileDatabaseParams& volatile_db, const PersistentDatabaseParams& persistent_db,
+    const UpdateSourceParams& update_source)
     : model_name(model_name),
       max_batchsize(max_batchsize),
       hit_rate_threshold(hit_rate_threshold),
@@ -131,8 +112,7 @@ InferenceParams::InferenceParams(
       deployed_devices(deployed_devices),
       default_value_for_each_table(default_value_for_each_table),
       // Database backend.
-      cpu_memory_db(cpu_memory_db),
-      distributed_db(distributed_db),
+      volatile_db(volatile_db),
       persistent_db(persistent_db),
       update_source(update_source) {}
 

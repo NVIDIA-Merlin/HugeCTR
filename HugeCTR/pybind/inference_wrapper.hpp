@@ -437,46 +437,28 @@ void InferencePybind(pybind11::module& m) {
            &HugeCTR::parameter_server<unsigned int>::refresh_embedding_cache,
            pybind11::arg("model_name"), pybind11::arg("device_id"));
 
-  pybind11::class_<HugeCTR::CPUMemoryDatabaseParams,
-                   std::shared_ptr<HugeCTR::CPUMemoryDatabaseParams>>(infer,
-                                                                      "CPUMemoryDatabaseParams")
+  pybind11::class_<HugeCTR::VolatileDatabaseParams,
+                   std::shared_ptr<HugeCTR::VolatileDatabaseParams>>(infer,
+                                                                     "VolatileDatabaseParams")
       .def(pybind11::init<DatabaseType_t,
                           // Backend specific.
-                          CPUMemoryHashMapAlgorithm_t, size_t, size_t, DatabaseOverflowPolicy_t,
-                          double,
+                          const std::string&, const std::string&, const std::string&,
+                          DatabaseHashMapAlgorithm_t, size_t, size_t, size_t,
+                          // Overflow handling related.
+                          size_t, DatabaseOverflowPolicy_t, double,
                           // Initialization related.
                           double,
                           // Real-time update mechanism related.
                           const std::vector<std::string>&>(),
            pybind11::arg("type") = DatabaseType_t::ParallelHashMap,
            // Backend specific.
-           pybind11::arg("algorithm") = CPUMemoryHashMapAlgorithm_t::PHM,
-           pybind11::arg("num_partitions") = std::min(16U, std::thread::hardware_concurrency()),
-           pybind11::arg("overflow_margin") = std::numeric_limits<size_t>::max(),
-           pybind11::arg("overflow_policy") = DatabaseOverflowPolicy_t::EvictOldest,
-           pybind11::arg("overflow_resolution_target") = 0.8,
-           // Initialization related.
-           pybind11::arg("initial_cache_rate") = 1.0,
-           // Real-time update mechanism related.
-           pybind11::arg("update_filters") = std::vector<std::string>{".+"});
-
-  pybind11::class_<HugeCTR::DistributedDatabaseParams,
-                   std::shared_ptr<HugeCTR::DistributedDatabaseParams>>(infer,
-                                                                        "DistributedDatabaseParams")
-      .def(pybind11::init<DatabaseType_t,
-                          // Backend specific.
-                          const std::string&, const std::string&, const std::string&, size_t,
-                          size_t, size_t, size_t, DatabaseOverflowPolicy_t, double,
-                          // Initialization related.
-                          double,
-                          // Real-time update mechanism related.
-                          const std::vector<std::string>&>(),
-           pybind11::arg("type") = DatabaseType_t::Disabled,
-           // Backend specific.
            pybind11::arg("address") = "127.0.0.1:7000", pybind11::arg("user_name") = "default",
-           pybind11::arg("password") = "", pybind11::arg("num_partitions") = 8,
+           pybind11::arg("password") = "",
+           pybind11::arg("algorithm") = DatabaseHashMapAlgorithm_t::PHM,
+           pybind11::arg("num_partitions") = std::min(16u, std::thread::hardware_concurrency()),
            pybind11::arg("max_get_batch_size") = 10'000,
            pybind11::arg("max_set_batch_size") = 10'000,
+           // Overflow handling related.
            pybind11::arg("overflow_margin") = std::numeric_limits<size_t>::max(),
            pybind11::arg("overflow_policy") = DatabaseOverflowPolicy_t::EvictOldest,
            pybind11::arg("overflow_resolution_target") = 0.8,
@@ -521,9 +503,8 @@ void InferencePybind(pybind11::module& m) {
                           // HugeCTR::DATABASE_TYPE, const std::string&, const std::string&,
                           // const float,
                           const int, const int, const float, const std::vector<int>&,
-                          const std::vector<float>&, const CPUMemoryDatabaseParams&,
-                          const DistributedDatabaseParams&, const PersistentDatabaseParams&,
-                          const UpdateSourceParams&>(),
+                          const std::vector<float>&, const VolatileDatabaseParams&,
+                          const PersistentDatabaseParams&, const UpdateSourceParams&>(),
            pybind11::arg("model_name"), pybind11::arg("max_batchsize"),
            pybind11::arg("hit_rate_threshold"), pybind11::arg("dense_model_file"),
            pybind11::arg("sparse_model_files"), pybind11::arg("device_id"),
@@ -536,8 +517,8 @@ void InferencePybind(pybind11::module& m) {
            pybind11::arg("cache_refresh_percentage_per_iteration") = 0.1,
            pybind11::arg("deployed_devices") = std::vector<int>{0},
            pybind11::arg("default_value_for_each_table") = std::vector<float>{0.0f},
-           pybind11::arg("cpu_memory_db") = CPUMemoryDatabaseParams{},
-           pybind11::arg("distributed_db") = DistributedDatabaseParams{},
+           // Database backend.
+           pybind11::arg("volatile_db") = VolatileDatabaseParams{},
            pybind11::arg("persistent_db") = PersistentDatabaseParams{},
            pybind11::arg("update_source") = UpdateSourceParams{});
 
