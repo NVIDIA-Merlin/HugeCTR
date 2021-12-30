@@ -275,6 +275,10 @@ HybridSparseEmbedding<dtype, emtype>::HybridSparseEmbedding(
     if (embedding_params_.communication_type == CommunicationType::IB_NVLink_Hier) {
 #ifdef ENABLE_MPI
       ib_comm_ = resource_manager_->get_ib_comm();
+      if (!ib_comm_){
+        resource_manager_->init_ib_comm();
+        ib_comm_ = resource_manager_->get_ib_comm();
+      }
       comm_stream_.resize(local_gpu_count);
 
       std::vector<size_t *> h_model_indices_sizes_ptrs(local_gpu_count);
