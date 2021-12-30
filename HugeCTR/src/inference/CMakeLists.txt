@@ -12,7 +12,6 @@
 #
 
 cmake_minimum_required(VERSION 3.8)
-include_directories(/opt/conda/include)
 set(DB_LIB_PATHS "/usr/local/lib" CACHE PATH "Paths to Hiredis/rocksdb lib")
 
 file(GLOB huge_ctr_src

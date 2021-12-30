@@ -36,18 +36,12 @@ If you'd like to quickly train a model using the Python interface, do the follow
 
 1. Start a NGC container with your local host directory (/your/host/dir mounted) by running the following command:
    ```
-   docker run --gpus=all --rm -it --cap-add SYS_NICE -v /your/host/dir:/your/container/dir -w /your/container/dir -it -u $(id -u):$(id -g) nvcr.io/nvidia/merlin/merlin-
-   training:21.12
+   docker run --gpus=all --rm -it --cap-add SYS_NICE -v /your/host/dir:/your/container/dir -w /your/container/dir -it -u $(id -u):$(id -g) nvcr.io/nvidia/merlin/merlin-training:21.12
    ```
 
    **NOTE**: The **/your/host/dir** directory is just as visible as the **/your/container/dir** directory. The **/your/host/dir** directory is also your starting directory.
 
-2. Activate the Merlin conda environment by running the following command:  
-   ```shell.
-   source activate merlin
-   ```
-
-3. Write a simple Python script to generate a synthetic dataset:
+2. Write a simple Python script to generate a synthetic dataset:
    ```
    # dcn_norm_generate.py
    import hugectr
@@ -69,13 +63,13 @@ If you'd like to quickly train a model using the Python interface, do the follow
    data_generator.generate()
    ```
 
-4. Generate the Norm dataset for your DCN model by running the following command:
+3. Generate the Norm dataset for your DCN model by running the following command:
    ```
    python dcn_norm_generate.py
    ```
    **NOTE**: The generated dataset will reside in the folder `./dcn_norm`, which contains training and evaluation data.
 
-5. Write a simple Python script for training:
+4. Write a simple Python script for training:
    ```
    # dcn_norm_train.py
    import hugectr
@@ -143,7 +137,7 @@ If you'd like to quickly train a model using the Python interface, do the follow
    **NOTE**: Ensure that the paths to the synthetic datasets are correct with respect to this Python script. `data_reader_type`, `check_type`, `label_dim`, `dense_dim`, and 
    `data_reader_sparse_param_array` should be consistent with the generated dataset.
 
-6. Train the model by running the following command:
+5. Train the model by running the following command:
    ```
    python dcn_norm_train.py
    ```
