@@ -131,7 +131,6 @@ class ParquetDataReaderWorker : public IDataReaderWorker {
             int i = 0;
             for (auto& c : cat_col_names) {
               tmp_col_index.insert(c.index);
-              categorical_idx_parquet_col_.insert(std::make_pair(i, c.index));
             }
             for (auto it = tmp_col_index.begin(); it != tmp_col_index.end(); it++) {
               categorical_idx_parquet_col_.insert(std::make_pair(i, *it));
