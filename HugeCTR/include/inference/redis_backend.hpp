@@ -88,6 +88,13 @@ class RedisClusterBackend final : public DatabaseBackend<TKey> {
   size_t evict(const std::string& table_name, size_t num_keys, const TKey* keys) override;
 
  protected:
+  /**
+   * Called internally in case a partition overflow is detected.
+   */
+  void resolve_overflow_(const std::string& hkey_kv, const std::string& hkey_kt,
+                         size_t partition_size) const;
+
+ protected:
   const size_t
       num_partitions_;  // Do not change this value, after inserting data for the first time!
   mutable ThreadPool thread_pool_;
