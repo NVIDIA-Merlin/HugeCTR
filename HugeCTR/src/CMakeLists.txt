@@ -13,7 +13,6 @@
 
 cmake_minimum_required(VERSION 3.17)
 find_package(CUDAToolkit)
-include_directories(/opt/conda/include)
 set(DB_LIB_PATHS "/usr/local/lib" CACHE PATH "Paths to Hiredis/RocksDB lib")
 
 include(FetchContent)

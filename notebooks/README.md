@@ -32,31 +32,26 @@ git clone https://github.com/NVIDIA/HugeCTR
    docker run --runtime=nvidia --rm -it --cap-add SYS_NICE -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr -p 8888:8888 nvcr.io/nvstaging/merlin/merlin-tensorflow-training:21.12
    ```
 
-2. Activate the merlin conda environment by running the following command:  
-   ```shell.
-   source activate merlin
-   ```
-
-3. Start Jupyter using these commands: 
+2. Start Jupyter using these commands: 
    ```
    cd /hugectr/notebooks
    jupyter-notebook --allow-root --ip 0.0.0.0 --port 8888 --NotebookApp.token='hugectr'
    ```
 
-4. Connect to your host machine using the 8888 port by accessing its IP address or name from your web browser: `http://[host machine]:8888`
+3. Connect to your host machine using the 8888 port by accessing its IP address or name from your web browser: `http://[host machine]:8888`
 
    Use the token available from the output by running the command above to log in. For example:
 
    `http://[host machine]:8888/?token=aae96ae9387cd28151868fee318c3b3581a2d794f3b25c6b`
 
-5. Import MPI:
+4. Import MPI:
 
    If HugeCTR is built and installed with `MULTINODES=ON` within NGC Merlin docker. To use HugeCTR Python interface correctly, you should add `from mpi4py import MPI` in the scripts that `import hugectr`. Otherwise you will expect error message like
    ```
    MPI_Comm_rank function was called before MPI_INIT was invoked
    ```
    
-6. Important Note:
+5. Important Note:
 
    HugeCTR is written in CUDA/C++ and wrapped to Python using Pybind11. The C++ output will not display in Notebook cells unless you run the Python script in a command line manner.
 
