@@ -79,7 +79,8 @@ class parameter_server : public parameter_server_base, public HugectrUtility<Typ
 
   virtual std::shared_ptr<embedding_interface> GetEmbeddingCache(const std::string& modelname,
                                                                  int deviceid);
-  virtual void parse_networks_per_model(const std::string& model_config_path, InferenceParams& inference_params_array);
+  virtual void parse_networks_per_model(const std::string& model_config_path,
+                                        InferenceParams& inference_params_array);
 
  private:
   // The framework name

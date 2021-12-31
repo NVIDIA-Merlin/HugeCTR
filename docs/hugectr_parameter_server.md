@@ -70,13 +70,12 @@ Models deployed viat the HugeCTR parameter server allow streaming model paramete
 
 ### 5.1 Inference
 
-With respect to embedding lookups via the HugeCTR embedding cache and parameter server, the following logic applies. Whenever the HugeCTR inference engine receives a batch of model input parameters for inference, it will first determine the associated unique embedding keys and try to resolve these embeddings using the embedding cache. If there are cache misses, it will then turn to the parameter server to determine the embedding representations. The query sequence inside the parameter server follows a strict latency optimized order to fill in the missing embedding:
+With respect to embedding lookups via the HugeCTR embedding cache and parameter server, the following logic applies. Whenever the HugeCTR inference engine receives a batch of model input parameters for inference, it will first determine the associated unique embedding keys and try to resolve these embeddings using the embedding cache. If there are cache misses, it will then turn to the parameter server to determine the embedding representations. The query sequence inside the parameter server queries its configured backends in the following order to fill in the missing embeddings:
 
-1. Local CPU accessible memory
-2. Remote memory locations
-3. Permanent storage
+1. Local / Remote CPU memory locations
+2. Permanent storage
 
-Hence, if configured, HugeCTR will first try to lookup the *CPU Memory Database*. If there are still missing embedding representations after that, HugeCTR will turn to the *Distributed Database* (if configured). If and only if, we still miss embeddings at this point in time, HugeCTR will turn to non-volatile memory (via the *Persistent Database, which contains a copy of all existing embeddings) to find the corresponding embedding representations.
+Hence, if configured, HugeCTR will first try to lookup missing embeddings in either a *CPU Memory Database* or *Distributed Database*. If and only if, there are still missing embedding representations after that, HugeCTR will turn to non-volatile memory (via the *Persistent Database*, which contains a copy of all existing embeddings) to find the corresponding embedding representations.
 
 ### 5.2 Training
 
@@ -90,38 +89,40 @@ If volatile memory resources, i.e. the *CPU Memory Database* and/or *Distributed
 
 ## 6 Configuration
 
-The HugeCTR parameter server and iterative update can be configured using 4 separate configuration objects. Namely, the `CPUMemoryDatabaseParams`, `DistributedDatabaseParams` and `PersistentDatabaseParams` are used to configure the previously described 3 database backends of each parameter server instance. If you desire iterative or online model updating, you must also provide the `UpdateSourceParams` configuration object to link the parameter server instance with your Kafka reployment. These objects are part of the Python package `hugectr.inference`.
+The HugeCTR parameter server and iterative update can be configured using 3 separate configuration objects. Namely, the `VolatileDatabaseParams` and `PersistentDatabaseParams` are used to configure the database backends of each parameter server instance. If you desire iterative or online model updating, you must also provide the `UpdateSourceParams` configuration object to link the parameter server instance with your Kafka reployment. These objects are part of the Python package `hugectr.inference`.
 
 If you deploy HugeCTR as a backend for [NVIDIA Triton Inference Server](https://developer.nvidia.com/nvidia-triton-inference-server), you can also provide these configuration options by extending your Triton deployment's JSON configuration:
 
 ```json
 {
-   ...
-   "cpu_memory_db": {
-      ...
-   },
-   "distributed_db": {
-      ...
-   },
-   "persistent_db": {
-      ...
-   },
-   "update_source": {
-      ...
-   },
-   ...
+  // ...
+  "volatile_db": {
+    // ...
+  },
+  "persistent_db": {
+    // ...
+  },
+  "update_source": {
+    // ...
+  },
+  // ...
 }
 ```
 
 Next we will describe all available configuration options. Generally speaking, each node in your HugeCTR cluster should deploy the same configuration. However, it may make sense to vary some arguments in some situations, especially in heterogeneous cluster setups.
 
-### 6.1 CPU Memory Database
+### 6.1 Volatile Database
 
-CPU memory databases are instanced per machine and only use the locally available RAM memory as backing storage. Hence, you may indvidually vary their configuration parameters per machine.
+We provide various volatile database implementations. Generally speaking, two categories can be distinguished.
+
+* **CPU memory databases** are instanced per machine and only use the locally available RAM memory as backing storage. Hence, you may indvidually vary their configuration parameters per machine.
+
+* **Distributed CPU memory databases** are typically shared by all machines in your HugeCTR deployment. They allow you to take advantage of the combined memory capacity of your cluster machines.The configuration parameters for this kind of database should, thus, be identical across all achines in your deployment.
+
 
 **Python:**
 ```python
-params = hugectr.inference.CPUMemoryDatabaseParams()
+params = hugectr.inference.VolatileDatabaseParams()
 ```
 
 #### Implementation selection
@@ -132,56 +133,107 @@ params.type = hugectr.DatabaseType_t.<enum_value>
 ```
 **JSON:**
 ```json
-"cpu_memory_db": { 
-   "type": "<enum_value>"
+"volatile_db": {
+  "type": "<enum_value>"
+  // ...
 }
 ```
 
 Where `<enum_value>` is either:
 * `disabled`: Do not use this kind of database.
-* `hash_map`: Hash-map based implementation.
-* `parallel_hash_map`: Hash-map based implementation with multi threading support **(default)**.
+* `hash_map`: Hash-map based CPU memory database implementation.
+* `parallel_hash_map`: Hash-map based CPU memory database implementation with multi threading support **(default)**.
+* `redis_cluster`: Connect to an existing Redis cluster deployment (Distributed CPU memory database implementation).
 
 
-#### CPU memory algorithm selection
+#### Configuration of normal hash-map backend
 
 **Python:**
 ```python
-params.algorithm = hugectr.CPUMemoryHashMapAlgorithm_t.<enum_value>
+params.type = hugectr.DatabaseType_t.hash_map
+params.algorithm = hugectr.DatabaseHashMapAlgorithm_t.<enum_value>
 ```
 **JSON:**
 ```json
-{
-  "cpu_memory_db": { 
-    "algorithm": "<enum_value>"
-  }
+"volatile_db": {
+  "type": "hash_map",
+  "algorithm": "<enum_value>"
+  // ...
 }
 ```
 
 Where `<enum_value>` is either:
+
 * `stl`: Use C++ standard template library-based hash-maps. This is a fallback implementation, that is generally less memory efficient and slower than `phm`. Use this, if you experience stability issues or problems with `phm`.
+
 * `phm`: Use use an [performance optimized hash-map implementation](https://greg7mdp.github.io/parallel-hashma) **(default)**.
 
+All other settings will be ignored.
 
-#### Number of partitions 
+
+#### Configuration of parallelized hash-map backend
 
 **Python:**
 ```python
+params.type = hugectr.DatabaseType_t.parallel_hash_map
+params.algorithm = hugectr.DatabaseHashMapAlgorithm_t.<enum_value>
 params.num_partitions = <integer_value>
 ```
 **JSON:**
 ```json
-{
-  "cpu_memory_db": {
-     "num_partitions": <integer_value>
-  }
+"volatile_db": {
+  "type": "parallel_hash_map",
+  "algorithm": "<enum_value>",
+  "num_partitions": <integer_value>
+  // ...
 }
 ```
 
-Only interpreted when using the parallel hash-map implementation (i.e., if `type = DatabaseType_t.paralle_hash_map`). This type of hash-map splits the your embedding tables into roughly evenly sized partitions parallelizes look-up and insert operations accordingly. The **default value** is the equivalent to `min(number_of_cpu_cores, 16)` of the system that you used to build the HugeCTR binaries. For any other setting of `type` will ignore this setting and assume `num_partitions = 1`.
+Where `<enum_value>` is either:
+
+* `stl`: Use C++ standard template library-based hash-maps. This is a fallback implementation, that is generally less memory efficient and slower than `phm`. Use this, if you experience stability issues or problems with `phm`.
+
+* `phm`: Use use an [performance optimized hash-map implementation](https://greg7mdp.github.io/parallel-hashma) **(default)**.
+
+Parallel hash-map implementations split your embedding tables into roughly evenly sized partitions and parallelizes look-up and insert operations accordingly. With `<integer_value>` you can control the degree of parallelism. The **default value** is the equivalent to `min(number_of_cpu_cores, 16)` of the system that you used to build the HugeCTR binaries.
+
+
+#### Configuration of Redis cluster backend
+
+**Python:**
+```python
+params.type = "redis_cluster"
+params.address = "<host_name_or_ip_address:port_number>"
+params.user_name = "<login_user_name>"
+params.password = "<login_password>"
+params.num_partitions = <int_value>
+params.max_get_batch_size = <int_value>
+params.max_set_batch_size = <int_value>
+```
+**JSON:**
+```json
+"volatile_db": { 
+  "type": "redis_cluster",
+  "address": "<host_name_or_ip_address:port_number>",
+  "user_name":  "<login_user_name>",
+  "password": "<login_password>",
+  "num_partitions": <integer_value>,
+  "max_get_batch_size": <integer_value>,
+  "max_set_batch_size": <integer_value>
+  // ...
+}
+```
+
+Interpreted if `type` is set to `redis_cluster`. In order to successfully let the HugeCTR parameter server to your Redis cluster you need to provide at least the `address` (format `"host_name[:port_number]"`; **default**: `"127.0.0.1:7000"`) of one of your Redis servers, a valid `user_name` (**default**: `"default"`) and their `password` (**default**: `""`, *i.e.*, blank / no password.
+
+Our Redis cluster implementation breaks each embedding table into `num_partitions` approximately equal sized partitions. Each partition is assigned a storage location in your Redis cluster. We do not provide guarantees regarding the placement of partitions. Hence, multiple partitions might end up in the same node for some models and setups. Gernally speaking, to take advantage of your cluster resources, `num_partitions` need to be at least equal to the number of Redis nodes. For optimal performance `num_parititions` should be strictly larger than the amount of machines. However, each partition incurs a small processing overhead. So, the value should also not be too large. To retain a high performance and good cluster utilization, we **suggest** to adjust this value to 2-5x the number ofmachines in your Redis cluster. The **default value** is `8`.
+
+`max_get_batch_size` and `max_set_batch_size` represent optimization parameters. Mass lookup and insert requests to distributed endpoints are chunked into batches. For maximum performance `max_*_batch_size` should be large. However, if the available memory for buffering requests in your endpoints is limited, or if you experience transmission stability issues, lowering this value may help. By **default**, both values are set to `10000`. With high-performance networking and endpoint hardware, it is **recommended** to increase these values to `1 million`.
 
 
 #### Overflow handling related parameters
+
+To maximize performance and avoid instabilies caused by sporadic high memory usage (*i.e.*, out of memory situations), we provide the overflow handling mechanism. It allows limiting the maximum amount of embeddings to be stored per partition, and, thus, upper-bounding the memory consumption of your distributed database.
 
 **Python:**
 ```python
@@ -191,12 +243,11 @@ params.overflow_resolution_target = <double_value>
 ```
 **JSON:**
 ```json
-{
-  "cpu_memory_db": {
-     "overflow_margin": <integer_value>,
-     "overflow_policy": "<overflow_policy>",
-     "overflow_resolution_target": <overflow_resolution_target>
-  }
+"volatile_db": {
+  "overflow_margin": <integer_value>,
+  "overflow_policy": "<overflow_policy>",
+  "overflow_resolution_target": <overflow_resolution_target>
+  // ...
 }
 ```
 
@@ -217,14 +268,13 @@ params.initial_cache_rate = <double_value>
 ```
 **JSON:**
 ```json
-{
-  "cpu_memory_db": {
-     "initial_cache_rate": <double_value>
-  }
+"volatile_db": {
+  "initial_cache_rate": <double_value>
+  // ...
 }
 ```
 
-This is the fraction (`[0.0, 1.0]`) of your dataset that we will attempt to cache immediately upon startup of the parameter server. Hence, setting a value of `0.5` causes the HugeCTR parameter server to insert 50% of your dataset directly after initialization.
+This is the fraction (`[0.0, 1.0]`) of your dataset that we will attempt to cache immediately upon startup of the parameter server. Hence, setting a value of `0.5` causes the HugeCTR parameter server to attempt caching up to 50% of your dataset directly using the respectively configured volatile database after initialization.
 
 
 #### Real-time updating
@@ -235,132 +285,17 @@ params.update_filters = [ "<filter 0>", "<filter 1>", ... ]
 ```
 **JSON:**
 ```json
-{
-  "cpu_memory_db": {
-     "update_filters": [ "<filter 0>", "<filter 1>", ... ]
-  }
+"volatile_db": {
+  "update_filters": [ "<filter 0>", "<filter 1>", /* ... */ ]
+  // ...
 }
 ```
 
-**[Behavior will likely change in future versions]** This setting allows you specify a series of filters, in to permit / deny passing certain model updates from Kafka to the CPU memory database backend. Filters take the form of regular expressions. The default value of this setting is "[ ".+" ]" (*i.e.*, process updates for all models, irrespective of their name). 
+**[Behavior will likely change in future versions]** This setting allows you specify a series of filters, in to permit / deny passing certain model updates from Kafka to the CPU memory database backend. Filters take the form of regular expressions. The **default** value of this setting is `[ ".+" ]` (*i.e.*, process updates for all models, irrespective of their name).
 
-
-
-### 6.2 Distributed Database
-
-Distributed memory databases are typically shared by all machines in your HugeCTR deployment. They allow you to take advantage of the combined memory capacity of your cluster machines.The configuration parameters for this kind of database should, thus, be identical across all achines in your deployment.
-
-**Python:**
-```python
-params = hugectr.inference.DistributedDatabaseParams()
-```
-
-#### Implementation selection
-
-**Python:**
-```python
-params.type = hugectr.DatabaseType_t.<enum_value>
-```
-**JSON:**
-```json
-"distributed_db": { 
-   "type": "<enum_value>"
-}
-```
-
-Where `<enum_value>` is either:
-* `disabled`: Do not use this kind of database  **(default)**. 
-* `redis_cluster`: Connect to an existing Redis cluster deployment.
-
-
-### Redis cluster specific parameters
-
-**Python:**
-```python
-params.address = "<host_name_or_ip_address:port_number>"
-params.user_name = "<login_user_name>"
-params.password = "<login_password>"
-params.num_partitions = <int_value>
-params.max_get_batch_size = <int_value>
-params.max_set_batch_size = <int_value>
-```
-**JSON:**
-```json
-"distributed_db": { 
-   "address": "<host_name_or_ip_address:port_number>",
-   "user_name":  "<login_user_name>",
-   "password": "<login_password>",
-   "num_partitions": <int_value>,
-   "max_get_batch_size": <int_value>,
-   "max_set_batch_size": <int_value>
-}
-```
-
-Interpreted if `type` is set to `redis_cluster`. In order to successfully let the HugeCTR parameter server to your Redis cluster you need to provide at least the `address` (format `"host_name[:port_number]"`; **default**: `"127.0.0.1:7000"`) of one of your Redis servers, a valid `user_name` (**default**: `"default"`) and their `password` (**default**: `""`, *i.e.*, blank / no password.
-
-Our Redis cluster implementation breaks each embedding table into `num_partitions` approximately equal sized partitions. Each partition is assigned a storage location in your Redis cluster. We do not provide guarantees regarding the placement of partitions. Hence, multiple partitions might end up in the same node for some models and setups. Gernally speaking, to take advantage of your cluster resources, `num_partitions` need to be at least equal to the number of Redis nodes. For optimal performance `num_parititions` should be strictly larger than the amount of machines. However, each partition incurs a small processing overhead. So, the value should also not be too large. To retain a high performance and good cluster utilization, we **suggest** to adjust this value to 2-5x the number ofmachines in your Redis cluster. The **default value** is `8`.
-
-`max_get_batch_size` and `max_set_batch_size` represent optimization parameters. Mass lookup and insert requests to distributed endpoints are chunked into batches. For maximum performance `max_*_batch_size` should be large. However, if the available memory for buffering requests in your endpoints is limited, or if you experience transmission stability issues, lowering this value may help. By **default**, both values are set to `10000`. With high-performance networking and endpoint hardware, it is **recommended** to increase these values to `1 million`.
-
-
-#### Overflow handling related parameters
-
-**Python:**
-```python
-params.overflow_margin = <integer_value>
-params.overflow_policy = hugectr.DatabaseOverflowPolicy_t.<enum_value>
-params.overflow_resolution_target = <double_value>
-```
-**JSON:**
-```json
-{
-  "cpu_memory_db": {
-     "overflow_margin": <integer_value>,
-     "overflow_policy": "<overflow_policy>",
-     "overflow_resolution_target": <overflow_resolution_target>
-  }
-}
-```
-
-Allows limiting the maximum amount of embeddings to be stored per partition, and, thus, upper-bounding the memory consumption of your distributed database. Operates analgous to the [overflow handling in CPU memory databases](#overflow-handling-related-parameters).
-
-
-#### Initial caching
-
-**Python:**
-```python
-params.initial_cache_rate = <double_value>
-```
-**JSON:**
-```json
-{
-  "cpu_memory_db": {
-     "initial_cache_rate": <double_value>
-  }
-}
-```
-
-This is the fraction (`[0.0, 1.0]`) of your dataset that we will attempt to cache immediately upon startup of the parameter server. Hence, setting a value of `0.5` causes the HugeCTR parameter server to insert 50% of your dataset directly after initialization.
-
-
-#### Real-time updating
-
-**Python:**
-```python
-params.update_filters = [ "<filter 0>", "<filter 1>", ... ]
-```
-**JSON:**
-```json
-{
-  "cpu_memory_db": {
-     "update_filters": [ "<filter 0>", "<filter 1>", ... ]
-  }
-}
-```
-
-**[Behavior will likely change in future versions]** This setting allows you specify a series of filters, in to permit / deny passing certain model updates from Kafka to the CPU memory database backend. Filters take the form of regular expressions. The default value of this setting is "[ ".+" ]" (*i.e.*, process updates for all models, irrespective of their name).
 
 Distributed databases are shared by all your HugeCTR nodes. These nodes will collaborate to inject updates into the underlying database. The assignment of what nodes update what partition may change at runtime.
+
 
 ### 6.3 Persisent Database
 
@@ -380,19 +315,20 @@ params.type = hugectr.DatabaseType_t.<enum_value>
 **JSON:**
 ```json
 "persistent_db": { 
-   "type": "<enum_value>"
+  "type": "<enum_value>"
 }
 ```
 
 Where `<enum_value>` is either:
 * `disabled`: Do not use this kind of database  **(default)**. 
-* `rocksdb`: Create or connect to a RocksDB database.
+* `rocks_db`: Create or connect to a RocksDB database.
 
 
-### RocksDB database specific parameters
+#### Configuration of RocksDB database backend
 
 **Python:**
 ```python
+params.type = hugectr.DatabaseType_t.rocks_db
 params.path = "<file_system_path>"
 params.num_threads = <int_value>
 params.read_only = <boolean_value>
@@ -401,12 +337,13 @@ params.max_set_batch_size = <int_value>
 ```
 **JSON:**
 ```json
-"persistent_db": { 
-   "path": "<file_system_path>",
-   "num_threads": <int_value>,
-   "read_only": <boolean_value>,
-   "max_get_batch_size": <int_value>,
-   "max_set_batch_size": <int_value>
+"persistent_db": {
+  "type": "rocks_db",
+  "path": "<file_system_path>",
+  "num_threads": <int_value>,
+  "read_only": <boolean_value>,
+  "max_get_batch_size": <int_value>,
+  "max_set_batch_size": <int_value>
 }
 ```
 
@@ -427,14 +364,13 @@ params.update_filters = [ "<filter 0>", "<filter 1>", ... ]
 ```
 **JSON:**
 ```json
-{
-  "cpu_memory_db": {
-     "update_filters": [ "<filter 0>", "<filter 1>", ... ]
-  }
+"persistent_db": {
+  "update_filters": [ "<filter 0>", "<filter 1>", /* ... */ ]
+  // ...
 }
 ```
 
-**[Behavior will likely change in future versions]** This setting allows you specify a series of filters, in to permit / deny passing certain model updates from Kafka to the CPU memory database backend. Filters take the form of regular expressions. The default value of this setting is "[ ".+" ]" (*i.e.*, process updates for all models, irrespective of their name).
+**[Behavior will likely change in future versions]** This setting allows you specify a series of filters, in to permit / deny passing certain model updates from Kafka to the CPU memory database backend. Filters take the form of regular expressions. The **default value** of this setting is `[ ".+" ]` (*i.e.*, process updates for all models, irrespective of their name).
 
 
 ### 6.4 Real-time Update Source
@@ -454,7 +390,7 @@ params.type = hugectr.UpdateSourceType_t.<enum_value>
 ```
 **JSON:**
 ```json
-"distributed_db": { 
+"update_source": { 
    "type": "<enum_value>"
 }
 ```
@@ -468,6 +404,7 @@ Where `<enum_value>` is either:
 
 **Python:**
 ```python
+params.type = hugectr.UpdateSourceType_t.kafka_message_queue
 params.brokers = "host_name[:port][;host_name[:port]...]"
 params.poll_timeout_ms = <int_value>
 params.max_receive_buffer_size = <int_value>
@@ -476,12 +413,13 @@ params.failure_backoff_ms = <int_value>
 ```
 **JSON:**
 ```json
-"distributed_db": { 
-   "brokers": "host_name[:port][;host_name[:port]...]",
-   "poll_timeout_ms": <int_value>,
-   "max_receive_buffer_size": <int_value>,
-   "max_batch_size": <int_value>,
-   "failure_backoff_ms": <int_value>
+"update_source": {
+  "type": "kafka_message_queue",
+  "brokers": "host_name[:port][;host_name[:port]...]",
+  "poll_timeout_ms": <int_value>,
+  "max_receive_buffer_size": <int_value>,
+  "max_batch_size": <int_value>,
+  "failure_backoff_ms": <int_value>
 }
 ```
 
