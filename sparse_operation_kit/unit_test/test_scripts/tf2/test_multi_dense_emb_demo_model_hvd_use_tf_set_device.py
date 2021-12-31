@@ -252,10 +252,14 @@ if __name__ == "__main__":
                         help="whether to use unique before dense_fprop. 1 means dynamic_input,"+\
                             "0 means static_input.")
     parser.add_argument("--use_hashtable", type=int, choices=[0, 1], default=1)
+    parser.add_argument("--print_output", type=int, choices=[0, 1], default=0)
 
     args = parser.parse_args()
 
     args.use_hashtable = True if 1 == args.use_hashtable else False
+    args.print_output = True if 1 == args.print_output else False
+    if os.getenv("PRINT_OUTPUT") and int(os.getenv("PRINT_OUTPUT")):
+        args.print_output = True
 
     # Horovod initialize
     hvd.init()

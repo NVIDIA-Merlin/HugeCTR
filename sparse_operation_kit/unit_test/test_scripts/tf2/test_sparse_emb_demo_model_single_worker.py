@@ -152,7 +152,8 @@ def test_sok_demo(args, init_tensors, *random_samples):
     for i, (sparse_tensors, replica_labels) in enumerate(dataset):
         print("-" * 30, "step ", str(i), "-" * 30)
         logit, embedding_vector = strategy.run(_train_step, args=(sparse_tensors, replica_labels))
-        print("[INFO]: embedding_vector\n", embedding_vector)
+        if args.print_output:
+            print("[INFO]: embedding_vector\n", embedding_vector)
         sok_results.append(embedding_vector)
 
         # FIXME: when the forward computation is too fast, there
@@ -192,7 +193,8 @@ def test_tf_demo(args, init_tensors, *random_samples):
     for i, (sparse_tensors, labels) in enumerate(dataset):
         print("-"*30, str(i), "-"*30)
         logit, embedding_vector = _train_step(sparse_tensors, labels)
-        print("[INFO]: embedding_vector:\n", embedding_vector)
+        if args.print_output:
+            print("[INFO]: embedding_vector:\n", embedding_vector)
         tf_results.append(embedding_vector)
 
         # FIXME: because plugin sleepd, here is only used for 
@@ -336,10 +338,14 @@ if __name__ == "__main__":
                              'rather than restore trainable parameters from file.',
                         required=False, default=0)
     parser.add_argument("--use_hashtable", type=int, choices=[0, 1], default=1)
+    parser.add_argument("--print_output", type=int, choices=[0, 1], default=0)
 
     args = parser.parse_args()
 
     args.use_hashtable = True if args.use_hashtable == 1 else False
+    args.print_output = True if 1 == args.print_output else False
+    if os.getenv("PRINT_OUTPUT") and int(os.getenv("PRINT_OUTPUT")):
+        args.print_output = True
 
     import os
     os.environ['CUDA_VISIBLE_DEVICES'] = ",".join([str(i) for i in range(args.gpu_num)])

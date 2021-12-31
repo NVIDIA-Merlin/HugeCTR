@@ -19,25 +19,36 @@
     + **Support Embedding Cache Asynchronous Refresh Mechanism**: We have supported the asynchronous refreshing of incremental embedding keys into the embedding cache. Refresh operation will be triggered when completing the model version iteration or incremental parameters output from online training. The Distributed Database and Persistent Database will be updated by the distributed event streaming platform(Kafka). And then the GPU embedding cache will refresh the values of the existing embedding keys and replace them with the latest incremental embedding vectors. Please refer to the [HPS README](https://github.com/triton-inference-server/hugectr_backend#hugectr-hierarchical-parameter-server).
     + **Other Improvements**: Backend implementations for databases are now fully configurable. JSON interface parser can cope better with inaccurate parameterization. Less and if (hopefully) more meaningful jabber! Based on your requests, we revised the log levels for throughout the entire database backend API of the parameter server. Selected configuration options are now printed wholesomely and uniformly to the log. Errors provide more verbose information on the matter at hand. Improved performance of Redis cluster backend. Improved performance of CPU memory database backend.
 
-+ **SOK TF 1.15 Support**: In this version, SOK can be used along with TensorFlow 1.15. See [README](https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/get_started/get_started.html#tensorflow-1-15). Dedicated CUDA stream is used for SOK’s Ops, and kernel interleaving might be eliminated. Users can now install SOK via pip install SparseOperationKit, which no longer requires root access to compile SOK and no need to copy python scripts. There was a hanging issue in `tf.distribute.MirroredStrategy` when TensorFlow version greater than 2.4. In this version, this issue in TensorFlow 2.5+ is fixed.
+## What's New in Version 3.3
 
-+ **MLPerf v1.1 integration**：
-    + **Hybrid-embedding indices pre-computing**：The indices needed for hybrid embedding are pre-computed ahead of time and are overlapped with previous iterations.
-    + **Cached evaluation indices:**：The hybrid-embedding indices for eval are cached when applicable, hence eliminating the re-computing of the indices at every eval iteration.
-    + **MLP weight/data gradients calculation overlap:**：The weight gradients of MLP are calculated asynchronously with respect to the data gradients, enabling overlap between these two computations.
-    + **Better compute-communication overlap:**：Better overlap between compute and communication has been enabled to improve training throughput.
-    + **Fused weight conversion:**：The FP32-to-FP16 conversion of the weights are now fused into the SGD optimizer, saving trips to memory.
-    + **GraphScheduler:**：GrapScheduler was added to control the timing of cudaGraph launching. With GraphScheduler, the gap between adjacent cudaGraphs is eliminated.
++ **Hierarchical Parameter Server (HPS) Enhancements**: 
+    + **Support for Incremental Model Updates**: HPS now supports incremental model updates via Apache Kafka (a distributed event streaming platform) message queues. With this enhancement, HugeCTR can now be connected with Apache Kafka deployments to update models in real time during training and inference. For more information, refer to the [Demo Notebok](https://github.com/triton-inference-server/hugectr_backend/tree/main/samples/hierarchical_deployment/hps_e2e_demo).
+    + **Improvements to the Memory Management**: The Redis cluster and CPU memory database backends are now the primary sources for memory management. When performing incremental model updates, these memory database backends will automatically evict infrequently used embeddings as training progresses. The performance of the Redis cluster and CPU memory database backends have also been improved.
+    + **New Asynchronous Refresh Mechanism**: Support for asynchronous refreshing of incremental embedding keys into the embedding cache has been added. The Refresh operation will be triggered when completing the model version iteration or outputting incremental parameters from online training. The Distributed Database and Persistent Database will be updated by Apache Kafka. The GPU embedding cache will then refresh the values of the existing embedding keys and replace them with the latest incremental embedding vectors. For more information, refer to the [HPS README](https://github.com/triton-inference-server/hugectr_backend#hugectr-hierarchical-parameter-server).
+    + **Configurable Backend Implementations for Databases**: Backend implementations for databases are now fully configurable. 
+    + **Improvements to the JSON Interface Parser**: The JSON interface parser can now handle inaccurate parameterization.
+    + **More Meaningful Jabber**: As requested, we've revised the log levels throughout the entire API database backend of the HPS. Selected configuration options are now printed entirely and uniformly to the log. Errors provide more verbose information about pending issues. 
 
-+ **Multi-node training support on the cluster without RDMA**：We support multi-node training without RDMA now. You can specify allreduce algorithm as `AllReduceAlgo.NCCL` and it can support non-RDMA hardware. For more information, please refer to `all_reduce_algo` in [CreateSolver API](docs/python_interface.md#createsolver-method).
++ **Sparse Operation Kit (SOK) Enhancements**:
+    + **TensorFlow (TF) 1.15 Support**: SOK can now be used with TensorFlow 1.15. For more information, refer to [README](https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/get_started/get_started.html#tensorflow-1-15).
+    + **Dedicated CUDA Stream**: A dedicated CUDA stream is now used for SOK’s Ops, so this may help to eliminate kernel interleaving.
+    + **New pip Installation Option**: SOK can now be installed using the pip install SparseOperationKit (see more in our [instructions](sparse_operation_kit/ReadMe.md#install-this-module-from-pypi)). With this install option, root access to compile SOK is no longer required and python scripts don't need to be copied.
+    + **Visible Device Configuration Support**：`tf.config.set_visible_device` can now be used to set visible GPUs for each process. `CUDA_VISIBLE_DEVICES` can also be used. When `tf.distribute.Strategy` is used, the `tf.config.set_visible_device` argument shouldn't be set.
+    + **Hanging Issue Fix**: There was a hanging issue in `tf.distribute.MirroredStrategy` when using TensorFlow version 2.4 and higher. However, this is no longer an issue when using TensorFlow version 2.5 and higher.
 
-+ **SOK support device setting with tf.config**：`tf.config.set_visible_device` can be used to set the visible GPUs for each process. Meanwhile, `CUDA_VISIBLE_DEVICES` can also be used to achieve the same purpose. When `tf.distribute.Strategy` is used, device argument must not be set.
++ **MLPerf v1.1 Integration Enhancements**：
+    + **Precomputed Hybrid Embedding Indices**：The necessary indices for hybrid embedding are now precomputed ahead of time and overlapped with previous iterations.
+    + **Cached Eval Indices:**：The hybrid embedding indices for eval are cached when applicable. Index re-computing is no longer needed at every eval iteration.
+    + **MLP Weight/Data Gradients Calculation Overlap:**：The weight gradients of MLP are calculated asynchronously with respect to the data gradients, enabling overlap between these two computations.
+    + **Improved Compute/Communication Overlap:**：Enhancements to the overlap between the compute and communication has been implemented to improve training throughput.
+    + **Fused Weight Conversion:**：The FP32-to-FP16 conversion of the weights are now fused into the SGD optimizer, saving trips to memory.
+    + **GraphScheduler Support:**：GrapScheduler was added to control the cudaGraph launch timing. With GraphScheduler, the gap between adjacent cudaGraphs has been eliminated.
 
-+ **User defined name is supported in model dumping**: We support specifying the model name with the training API `CreateSolver`, which will be dumped to the JSON configuration file with the API `Model.graph_to_json`. This feature will facilitate the Triton deployment of saved HugeCTR models, and help to distinguish between models when Kafka sends parameters from the training side to the inference side.
++ **Multi-Node Training Support Enhancements**：You can now perform multi-node training on the cluster with non-RDMA hardware by setting the `AllReduceAlgo.NCCL` value for the `all_reduce_algo` argument. For more information, refer to the details for the `all_reduce_algo` argument in the [CreateSolver API](docs/python_interface.md#createsolver-method).
 
-+ **Fine-grained control of the embedding layers**: We support the fine-grained control of the embedding layers. Users can freeze or unfreeze the weights of a specific embedding layer with the APIs `Model.freeze_embedding` and `Model.unfreeze_embedding`. Besides, the weights of multiple embedding layers can be loaded independently, which enables the use case of loading pre-trained embeddings for a particular layer. For more information, please refer to [Model API](docs/python_interface.md#model) and Section 3.4 of [HugeCTR Criteo Notebook](https://github.com/NVIDIA-Merlin/HugeCTR/blob/master/notebooks/hugectr_criteo.ipynb).
++ **Support for Model Naming During Model Dumping**: You can now specify names for models with the `CreateSolver`training API, which will be dumped to the JSON configuration file with the `Model.graph_to_json` API. This will facilitate the Triton deployment of saved HugeCTR models, as well as help to distinguish between models when Apache Kafka sends parameters from training to inference.
 
-
++ **Fine-Grained Control Accessibility Enhancements for Embedding Layers**: We've added fine-grained control accessibility to embedding layers. Using the `Model.freeze_embedding` and `Model.unfreeze_embedding` APIs, embedding layer weights can be frozen and unfrozen. Additionally, weights for multiple embedding layers can be loaded independently, making it possible to load pre-trained embeddings for a particular layer. For more information, refer to [Model API](docs/python_interface.md#model) and [Section 3.4 of the HugeCTR Criteo Notebook](https://github.com/NVIDIA-Merlin/HugeCTR/blob/master/notebooks/hugectr_criteo.ipynb).
 
 ## What's New in Version 3.2.1
 
@@ -57,7 +68,7 @@
 
 + **New HugeCTR to ONNX Converter**: We’re introducing a new HugeCTR to ONNX converter in the form of a Python package. All graph configuration files are required and model weights must be formatted as inputs. You can specify where you want to save the converted ONNX model. You can also convert sparse embedding models. For more information, refer to [HugeCTR to ONNX Converter](./onnx_converter) and [HugeCTR2ONNX Demo Notebook](notebooks/hugectr2onnx_demo.ipynb).
 
-+ **New Hierarchical Storage Mechanicsm on the Parameter Server (POC)**: We’ve implemented a hierarchical storage mechanism between local SSDs and CPU memory. As a result, embedding tables no longer have to be stored in the local CPU memory. The distributed Redis cluster is being implemented as a CPU cache to store larger embedding tables and interact with the GPU embedding cache directly. The local RocksDB serves as a query engine to back up the complete embedding table on the local SSDs and assist the Redis cluster with looking up missing embedding keys. For more information about how this works, refer to our [HugeCTR Backend documentation](https://github.com/triton-inference-server/hugectr_backend/blob/main/docs/architecture.md#distributed-deployment-with-hierarchical-hugectr-parameter-server)
++ **New Hierarchical Storage Mechanism on the Parameter Server (POC)**: We’ve implemented a hierarchical storage mechanism between local SSDs and CPU memory. As a result, embedding tables no longer have to be stored in the local CPU memory. The distributed Redis cluster is being implemented as a CPU cache to store larger embedding tables and interact with the GPU embedding cache directly. The local RocksDB serves as a query engine to back up the complete embedding table on the local SSDs and assist the Redis cluster with looking up missing embedding keys. For more information about how this works, refer to our [HugeCTR Backend documentation](https://github.com/triton-inference-server/hugectr_backend/blob/main/docs/architecture.md#distributed-deployment-with-hierarchical-hugectr-parameter-server)
 
 + **Parquet Format Support within the Data Generator**: The HugeCTR data generator now supports the parquet format, which can be configured easily using the Python API. For more information, refer to [Data Generator API](docs/python_interface.md#data-generator-api).
 
@@ -71,13 +82,13 @@
 
 + **New HugeCTR Contributor Guide**: We've added a new [HugeCTR Contributor Guide](docs/hugectr_contributor_guide.md) that explains how to contribute to HugeCTR, which may involve reporting and fixing a bug, introducing a new feature, or implementing a new or pending feature.
 
-+ **Enhancements to Sparse Operation Kits (SOK)**: SOK now supports TensorFlow 2.5 and 2.6. We also added support for identity hashing, dynamic input, and Horovod within SOK. Lastly, we added a new [SOK docs set](https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/v1.0.0/index.html) to help you get started with SOK.
++ **Sparse Operation Kit (SOK) Enhancements**: SOK now supports TensorFlow 2.5 and 2.6. We also added support for identity hashing, dynamic input, and Horovod within SOK. Lastly, we added a new [SOK docs set](https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/v1.0.0/index.html) to help you get started with SOK.
 
 ## What's New in Version 3.1
 
 + **MLPerf v1.0 Integration**: We've integrated MLPerf optimizations for DLRM training and enabled them as configurable options in Python interface. Specifically, we have incorporated AsyncRaw data reader, HybridEmbedding, FusedReluBiasFullyConnectedLayer, overlapped pipeline, holistic CUDA Graph and so on. The performance of 14-node DGX-A100 DLRM training with Python APIs is comparable to CLI usage. For more information, refer to [HugeCTR Python Interface](docs/python_interface.md) and [DLRM Sample](samples/dlrm).
 
-+ **Enhancements to the Python Interface**: We’ve enhanced the Python interface for HugeCTR so that you no longer have to manually create a JSON configuration file. Our Python APIs can now be used to create the computation graph. They can also be used to dump the model graph as a JSON object and save the model weights as binary files so that continuous training and inference can take place. We've added an Inference API that takes Norm or Parquet datasets as input to facilitate the inference process. For more information, refer to [HugeCTR Python Interface](docs/python_interface.md) and [HugeCTR Criteo Notebook](notebooks/hugectr_criteo.ipynb).
++ **Python Interface Enhancements**: We’ve enhanced the Python interface for HugeCTR so that you no longer have to manually create a JSON configuration file. Our Python APIs can now be used to create the computation graph. They can also be used to dump the model graph as a JSON object and save the model weights as binary files so that continuous training and inference can take place. We've added an Inference API that takes Norm or Parquet datasets as input to facilitate the inference process. For more information, refer to [HugeCTR Python Interface](docs/python_interface.md) and [HugeCTR Criteo Notebook](notebooks/hugectr_criteo.ipynb).
 
 + **New Interface for Unified Embedding**: We’re introducing a new interface to simplify the use of embeddings and datareaders. To help you specify the number of keys in each slot, we added `nnz_per_slot` and `is_fixed_length`. You can now directly configure how much memory usage you need by specifying `workspace_size_per_gpu_in_mb` instead of `max_vocabulary_size_per_gpu`. For convenience, `mean/sum` is used in combinators instead of 0 and 1. In cases where you don't know which embedding type you should use, you can specify `use_hash_table` and let HugeCTR automatically select the embedding type based on your configuration. For more information, refer to [HugeCTR Python Interface](docs/python_interface.md).
 
@@ -109,7 +120,7 @@
 
 + **FP16 Optimization**: We've optimized the DotProduct, ELU, and Sigmoid layers based on `__half2` vectorized loads and stores, improving their device memory bandwidth utilization. MultiCross, FmOrder2, ReduceSum, and Multiply are the only layers that still need to be optimized for FP16.
 
-+ **Synthetic Data Generator Enhancement**: We've enhanced our synthetic data generator so that it can generate uniformly distributed datasets, as well as power-law based datasets. You can now specify the `vocabulary_size` and `max_nnz` per categorical feature instead of across all categorial features. For more information, refer to our [user guide](docs/hugectr_user_guide.md#generating-synthetic-data-and-benchmarks).
++ **Synthetic Data Generator Enhancements**: We've enhanced our synthetic data generator so that it can generate uniformly distributed datasets, as well as power-law based datasets. You can now specify the `vocabulary_size` and `max_nnz` per categorical feature instead of across all categorial features. For more information, refer to our [user guide](docs/hugectr_user_guide.md#generating-synthetic-data-and-benchmarks).
 
 + **Reduced Memory Allocation for Trained Model Exportation**: To prevent the "Out of Memory" error message from displaying when exporting a trained model, which may include a very large embedding table, the amount of memory allocated by the related functions has been significantly reduced.
 
@@ -127,7 +138,7 @@
 
 + **Extended Embedding Training Cache**: We’ve extended the embedding training cache feature to support `LocalizedSlotSparseEmbeddingHash` and `LocalizedSlotSparseEmbeddingHashOneHot`.
 
-+ **Epoch-Based Training Enhancement**: The `num_epochs` option in the **Solver** clause can now be used with the `Raw` dataset format.
++ **Epoch-Based Training Enhancements**: The `num_epochs` option in the **Solver** clause can now be used with the `Raw` dataset format.
 
 + **Deprecation of the `eval_batches` Parameter**: The `eval_batches` parameter has been deprecated and replaced with the `max_eval_batches` and `max_eval_samples` parameters. In epoch mode, these parameters control the maximum number of evaluations. An error message will appear when attempting to use the `eval_batches` parameter.
 
@@ -158,30 +169,3 @@
 + **Power Law Distribution Support with Data Generator**: Because of the increased need for generating a random dataset whose categorical features follows the power-law distribution, we've revised our data generation tool to support this use case. For additional information, refer to the `--long-tail` description [here](../docs/hugectr_user_guide.md#Generating Synthetic Data and Benchmarks).
 
 + **Multi-GPU Preprocessing Script for Criteo Samples**: Multiple GPUs can now be used when preparing the dataset for our [samples](../samples). For more information, see how [preprocess_nvt.py](../tools/criteo_script/preprocess_nvt.py) is used to preprocess the Criteo dataset for DCN, DeepFM, and W&D samples.
-
-## Known Issues
-+ Since the automatic plan file generator isn't able to handle systems that contain one GPU, you must manually create a JSON plan file with the following parameters and rename it using the name listed in the HugeCTR configuration file: `{"type": "all2all", "num_gpus": 1, "main_gpu": 0, "num_steps": 1, "num_chunks": 1, "plan": [[0, 0]], and "chunks": [1]}`.
-
-+ If using a system that contains two GPUs with two NVLink connections, the auto plan file generator will print the following warning message: `RuntimeWarning: divide by zero encountered in true_divide`. This is an erroneous warning message and should be ignored.
-
-+ The current plan file generator doesn't support a system where the NVSwitch or a full peer-to-peer connection between all nodes is unavailable.
-
-+ Users need to set an `export CUDA_DEVICE_ORDER=PCI_BUS_ID` environment variable to ensure that the CUDA runtime and driver have a consistent GPU numbering.
-
-+ `LocalizedSlotSparseEmbeddingOneHot` only supports a single-node machine where all the GPUs are fully connected such as NVSwitch.
-
-+ HugeCTR version 3.0 crashes when running the DLRM sample on DGX2 due to a CUDA Graph issue. To run the sample on DGX2, disable the CUDA Graph by setting the `cuda_graph` parameter to false even if it degrades the performance a bit. This issue doesn't exist when using the DGX A100.
-
-+ The HugeCTR embedding TensorFlow plugin only works with single-node machines.
-
-+ The HugeCTR embedding TensorFlow plugin assumes that the input keys are in `int64` and its output is in `float`.
-
-+ If the number of samples in a dataset is not divisible by the batch size when in epoch mode and using the `num_epochs` instead of `max_iter`, a few remaining samples are truncated. If the training dataset is large enough, its impact can be negligible. If you want to minimize the wasted batches, try adjusting the number of data reader workers. For example, using a file list source, set the `num_workers` parameter to an advisor based on the number of data files in the file list.
-
-+ The MultiCross layer doesn't support mixed precision mode yet.
-
-+ Asynchronously inserts missed embeddings into the in-memory database backend.
-Currently, we only fix misses in the database backend through the insertion logic via Kafka. That means if the model is not updated, we also do not improve caching. We need to establish an asynchronous process that also inserts lookup-misses into the database backend.
-
-+ Kafka producer's asynchronous connection built-up may lead to message loss.
-Rdkafka client checks connections are performed asynchronously in the background. During this period, the application thinks it is connected and keeps producing data. These messages will never reach Kafka and will be lost.
