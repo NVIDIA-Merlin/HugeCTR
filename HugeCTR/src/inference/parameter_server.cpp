@@ -97,7 +97,7 @@ parameter_server<TypeHashKey>::parameter_server(
                 conf.overflow_margin, conf.overflow_policy, conf.overflow_resolution_target);
             break;
           default:
-            HCTR_DIE("Selected algorithm (cpu_memory_db.algorithm = %d) is not supported!",
+            HCTR_DIE("Selected algorithm (volatile_db.algorithm = %d) is not supported!",
                      conf.type);
             break;
         }
@@ -125,7 +125,7 @@ parameter_server<TypeHashKey>::parameter_server(
                     conf.overflow_resolution_target);
             break;
           default:
-            HCTR_DIE("Selected algorithm (cpu_memory_db.algorithm = %d) is not supported!",
+            HCTR_DIE("Selected algorithm (volatile_db.algorithm = %d) is not supported!",
                      conf.type);
             break;
         }
@@ -140,7 +140,7 @@ parameter_server<TypeHashKey>::parameter_server(
         break;
 
       default:
-        HCTR_DIE("Selected backend (distributed_db.type = %d) is not supported!", conf.type);
+        HCTR_DIE("Selected backend (volatile_db.type = %d) is not supported!", conf.type);
         break;
     }
     volatile_db_cache_rate_ = conf.initial_cache_rate;
@@ -191,67 +191,65 @@ parameter_server<TypeHashKey>::parameter_server(
 
 template <typename TypeHashKey>
 void parameter_server<TypeHashKey>::parse_networks_per_model(
-    const std::string& model_config_path,
-    InferenceParams& inference_params_array) {
+    const std::string& model_config_path, InferenceParams& inference_params_array) {
   // Initialize <model_name, id> map
-  if (ps_config_.model_name_id_map_.count(inference_params_array.model_name)==0){
-    ps_config_.model_name_id_map_.emplace(inference_params_array.model_name, (size_t)ps_config_.model_name_id_map_.size());
+  if (ps_config_.model_name_id_map_.count(inference_params_array.model_name) == 0) {
+    ps_config_.model_name_id_map_.emplace(inference_params_array.model_name,
+                                          (size_t)ps_config_.model_name_id_map_.size());
   }
 
   // Initialize for each model
-    // Open model config file and input model json config
-    nlohmann::json model_config(read_json_file(model_config_path));
+  // Open model config file and input model json config
+  nlohmann::json model_config(read_json_file(model_config_path));
 
-    // Read inference config
-    std::vector<std::string> emb_file_path;
-    if (inference_params_array.sparse_model_files.size() > 1) {
-      for (unsigned int j = 0; j < inference_params_array.sparse_model_files.size(); j++) {
-        emb_file_path.emplace_back(inference_params_array.sparse_model_files[j]);
-      }
+  // Read inference config
+  std::vector<std::string> emb_file_path;
+  if (inference_params_array.sparse_model_files.size() > 1) {
+    for (unsigned int j = 0; j < inference_params_array.sparse_model_files.size(); j++) {
+      emb_file_path.emplace_back(inference_params_array.sparse_model_files[j]);
+    }
+  } else {
+    emb_file_path.emplace_back(inference_params_array.sparse_model_files[0]);
+  }
+  ps_config_.emb_file_name_[inference_params_array.model_name] = (emb_file_path);
+
+  // Read embedding layer config
+  const nlohmann::json& j_layers = get_json(model_config, "layers");
+  std::vector<bool> distributed_emb;
+  std::vector<size_t> embedding_vec_size;
+  std::vector<float> default_emb_vec_value;
+  std::vector<std::string> emb_table_name;
+  // Search for all embedding layers
+  for (unsigned int j = 1; j < j_layers.size(); j++) {
+    const nlohmann::json& j_single_layer = j_layers[j];
+    std::string embedding_type = get_value_from_json<std::string>(j_single_layer, "type");
+    if (embedding_type.compare("DistributedSlotSparseEmbeddingHash") == 0) {
+      distributed_emb.emplace_back(true);
+      // parse embedding table name from network json file
+      emb_table_name.emplace_back(get_value_from_json<std::string>(j_single_layer, "top"));
+      const nlohmann::json& embedding_hparam = get_json(j_single_layer, "sparse_embedding_hparam");
+      embedding_vec_size.emplace_back(
+          get_value_from_json<size_t>(embedding_hparam, "embedding_vec_size"));
+      default_emb_vec_value.emplace_back(
+          get_value_from_json_soft<float>(embedding_hparam, "default_emb_vec_value", 0.0f));
+    } else if (embedding_type.compare("LocalizedSlotSparseEmbeddingHash") == 0 ||
+               embedding_type.compare("LocalizedSlotSparseEmbeddingOneHot") == 0) {
+      distributed_emb.emplace_back(false);
+      emb_table_name.emplace_back(get_value_from_json<std::string>(j_single_layer, "top"));
+      const nlohmann::json& embedding_hparam = get_json(j_single_layer, "sparse_embedding_hparam");
+      embedding_vec_size.emplace_back(
+          get_value_from_json<size_t>(embedding_hparam, "embedding_vec_size"));
+      default_emb_vec_value.emplace_back(
+          get_value_from_json_soft<float>(embedding_hparam, "default_emb_vec_value", 0.0f));
     } else {
-      emb_file_path.emplace_back(inference_params_array.sparse_model_files[0]);
+      break;
     }
-    ps_config_.emb_file_name_[inference_params_array.model_name] = (emb_file_path);
-
-    // Read embedding layer config
-    const nlohmann::json& j_layers = get_json(model_config, "layers");
-    std::vector<bool> distributed_emb;
-    std::vector<size_t> embedding_vec_size;
-    std::vector<float> default_emb_vec_value;
-    std::vector<std::string> emb_table_name;
-    // Search for all embedding layers
-    for (unsigned int j = 1; j < j_layers.size(); j++) {
-      const nlohmann::json& j_single_layer = j_layers[j];
-      std::string embedding_type = get_value_from_json<std::string>(j_single_layer, "type");
-      if (embedding_type.compare("DistributedSlotSparseEmbeddingHash") == 0) {
-        distributed_emb.emplace_back(true);
-        // parse embedding table name from network json file
-        emb_table_name.emplace_back(get_value_from_json<std::string>(j_single_layer, "top"));
-        const nlohmann::json& embedding_hparam =
-            get_json(j_single_layer, "sparse_embedding_hparam");
-        embedding_vec_size.emplace_back(
-            get_value_from_json<size_t>(embedding_hparam, "embedding_vec_size"));
-        default_emb_vec_value.emplace_back(
-            get_value_from_json_soft<float>(embedding_hparam, "default_emb_vec_value", 0.0f));
-      } else if (embedding_type.compare("LocalizedSlotSparseEmbeddingHash") == 0 ||
-                 embedding_type.compare("LocalizedSlotSparseEmbeddingOneHot") == 0) {
-        distributed_emb.emplace_back(false);
-        emb_table_name.emplace_back(get_value_from_json<std::string>(j_single_layer, "top"));
-        const nlohmann::json& embedding_hparam =
-            get_json(j_single_layer, "sparse_embedding_hparam");
-        embedding_vec_size.emplace_back(
-            get_value_from_json<size_t>(embedding_hparam, "embedding_vec_size"));
-        default_emb_vec_value.emplace_back(
-            get_value_from_json_soft<float>(embedding_hparam, "default_emb_vec_value", 0.0f));
-      } else {
-        break;
-      }
-    }
-    ps_config_.distributed_emb_.emplace_back(distributed_emb);
-    ps_config_.emb_table_name_[inference_params_array.model_name] = emb_table_name;
-    ps_config_.embedding_vec_size_[inference_params_array.model_name] = embedding_vec_size;
-    ps_config_.default_emb_vec_value_.emplace_back(inference_params_array.default_value_for_each_table);
-  
+  }
+  ps_config_.distributed_emb_.emplace_back(distributed_emb);
+  ps_config_.emb_table_name_[inference_params_array.model_name] = emb_table_name;
+  ps_config_.embedding_vec_size_[inference_params_array.model_name] = embedding_vec_size;
+  ps_config_.default_emb_vec_value_.emplace_back(
+      inference_params_array.default_value_for_each_table);
 }
 
 template <typename TypeHashKey>
