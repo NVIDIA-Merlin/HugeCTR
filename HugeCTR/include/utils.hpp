@@ -450,24 +450,36 @@ void data_to_unique_categories(TypeKey* value, const TypeKey* emmbedding_offsets
 
 template <typename TypeKey>
 void distribute_keys_for_inference(TypeKey* out, TypeKey* in, size_t batchsize,
-                                   std::vector<size_t>& max_feature_num_for_tables) {
-  size_t num_tables = max_feature_num_for_tables.size();
-  std::vector<size_t> batch_keys_offset(num_tables, 0);
-  std::vector<size_t> sample_keys_offset(num_tables, 0);
-  size_t num_keys_per_sample = 0;
-  for (size_t i = 0; i < num_tables; i++) {
-    num_keys_per_sample += max_feature_num_for_tables[i];
-    if (i > 0) {
-      batch_keys_offset[i] =
-          batch_keys_offset[i - 1] + batchsize * max_feature_num_for_tables[i - 1];
-      sample_keys_offset[i] = sample_keys_offset[i - 1] + max_feature_num_for_tables[i - 1];
-    }
-  }
+                                   std::vector<std::vector<TypeKey>>& h_reader_row_ptrs_list,
+                                   std::vector<size_t> slot_num_for_tables) {
+  size_t num_tables = h_reader_row_ptrs_list.size();
+  std::vector<size_t> h_embedding_offset_sample_first(batchsize * num_tables + 1, 0);
+  std::vector<size_t> h_embedding_offset_table_first(batchsize * num_tables + 1, 0);
   for (size_t i = 0; i < batchsize; i++) {
     for (size_t j = 0; j < num_tables; j++) {
-      for (size_t k = 0; k < max_feature_num_for_tables[j]; k++) {
-        out[i * num_keys_per_sample + sample_keys_offset[j] + k] =
-            in[batch_keys_offset[j] + i * max_feature_num_for_tables[j] + k];
+      size_t num_of_feature = h_reader_row_ptrs_list[j][(i + 1) * slot_num_for_tables[j]] -
+                              h_reader_row_ptrs_list[j][i * slot_num_for_tables[j]];
+      h_embedding_offset_sample_first[i * num_tables + j + 1] =
+          h_embedding_offset_sample_first[i * num_tables + j] + num_of_feature;
+    }
+  }
+
+  for (size_t j = 0; j < num_tables; j++) {
+    for (size_t i = 0; i < batchsize; i++) {
+      size_t num_of_feature = h_reader_row_ptrs_list[j][(i + 1) * slot_num_for_tables[j]] -
+                              h_reader_row_ptrs_list[j][i * slot_num_for_tables[j]];
+      h_embedding_offset_table_first[j * batchsize + i + 1] =
+          h_embedding_offset_table_first[j * batchsize + i] + num_of_feature;
+    }
+  }
+
+  for (size_t i = 0; i < batchsize; i++) {
+    for (size_t j = 0; j < num_tables; j++) {
+      size_t num_keys = h_embedding_offset_sample_first[i * num_tables + j + 1] -
+                        h_embedding_offset_sample_first[i * num_tables + j];
+      for (size_t k = 0; k < num_keys; k++) {
+        out[h_embedding_offset_sample_first[i * num_tables + j] + k] =
+            in[h_embedding_offset_table_first[j * batchsize + i] + k];
       }
     }
   }

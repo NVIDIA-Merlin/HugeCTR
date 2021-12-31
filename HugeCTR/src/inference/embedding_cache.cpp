@@ -229,7 +229,9 @@ void embedding_cache<TypeHashKey>::finalize() {
     CK_CUDA_THROW_(cudaSetDevice(cache_config_.cuda_dev_id_));
     // Join insert threads
     for (auto& ps_insert_thread : ps_insert_threads_) {
-      ps_insert_thread.join();
+      if (ps_insert_thread.joinable()) {
+        ps_insert_thread.join();
+      }
     }
   }
 }

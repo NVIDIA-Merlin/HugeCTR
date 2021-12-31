@@ -440,6 +440,21 @@ py_multi_node:
     DGXNNODES: 4
     TEST_CMD: ./ci/integration_test/py_interface/py_multi_node.sub
 
+# hugectr inference correctness test
+inference_correctness:
+  extends: .cluster_test_job
+  needs:
+    - build_train_single_node
+  variables:
+    GPFSFOLDER: $LOGDIR/inference_correctness
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $TRAIN_IMAGE_VERSIONED
+    MOUNTS: ${DATASET_NEW_CRITEO_SELENE}:${NEW_CRITEO_MOUNT}
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "00:30:00"
+    DGXNNODES: 1
+    TEST_CMD: ./ci/integration_test/inference/inference_correctness.sub
+
 # hugectr to onnx converter test
 hugectr2onnx:
   extends: .cluster_test_job
@@ -501,6 +516,34 @@ inference_benchmark:
     DGXNNODES: 1
     TEST_CMD: ./ci/benchmark/inference_benchmark/run.sub
 
+inference_ps_test:
+  extends: .dlcluster_job
+  allow_failure: false
+  stage: test
+  needs:
+    - build_inference
+  script:
+    - export CONT=${INFER_IMAGE_VERSIONED}
+    - srun -N 1 -p dgx1v,dgx1v16g,dgx1v32g bash ./ci/integration_test/inference/ps_test.sh
+  rules:
+    - if: $CI_PIPELINE_SOURCE =~ /^(web|merge_request_event)$/
+      when: always
+    - when: never
+
+inference_embedding_cache_update_test:
+  extends: .dlcluster_job
+  allow_failure: false
+  stage: test
+  needs:
+    - build_inference
+  script:
+    - export CONT=${INFER_IMAGE_VERSIONED}
+    - srun -N 1 -p dgx1v,dgx1v16g,dgx1v32g bash ./ci/integration_test/inference/embedding_cache_update_test.sh
+  rules:
+    - if: $CI_PIPELINE_SOURCE =~ /^(web|merge_request_event)$/
+      when: always
+    - when: never
+    
 wdl_check:
   # Push logs to gitlab
   extends: .cluster_post_test_job

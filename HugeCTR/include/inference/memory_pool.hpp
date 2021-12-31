@@ -179,17 +179,39 @@ class ManagerPool {
       pBlock->pMem->FreeMemory(p);
     }
   }
+
   void DestoryManagerPool(CACHE_SPACE_TYPE space_type = CACHE_SPACE_TYPE::WORKER) {
     std::map<std::string, std::map<int64_t, std::shared_ptr<MemoryPool>>>::iterator iter;
-    for (iter = _model_pool_map.begin(); iter != _model_pool_map.end(); ++iter) {
+    for (iter = _model_pool_map.begin(); iter != _model_pool_map.end();) {
       for (auto& f : iter->second) {
         f.second->DestoryMemoryPool(CACHE_SPACE_TYPE::WORKER);
       }
+      iter = _model_pool_map.erase(iter);
     }
-    for (iter = _model_refresh_pool_map.begin(); iter != _model_refresh_pool_map.end(); ++iter) {
+    _model_pool_map.clear();
+    for (iter = _model_refresh_pool_map.begin(); iter != _model_refresh_pool_map.end();) {
       for (auto& f : iter->second) {
         f.second->DestoryMemoryPool(CACHE_SPACE_TYPE::REFRESHER);
       }
+      iter = _model_refresh_pool_map.erase(iter);
+    }
+    _model_refresh_pool_map.clear();
+  }
+
+  void DestoryManagerPool(std::string model_name,
+                          CACHE_SPACE_TYPE space_type = CACHE_SPACE_TYPE::WORKER) {
+    if (_model_pool_map.find(model_name) != _model_pool_map.end()) {
+      for (auto& f : _model_pool_map[model_name]) {
+        f.second->DestoryMemoryPool(CACHE_SPACE_TYPE::WORKER);
+      }
+      _model_pool_map.erase(model_name);
+    }
+
+    if (_model_refresh_pool_map.find(model_name) != _model_refresh_pool_map.end()) {
+      for (auto& f : _model_refresh_pool_map[model_name]) {
+        f.second->DestoryMemoryPool(CACHE_SPACE_TYPE::REFRESHER);
+      }
+      _model_refresh_pool_map.erase(model_name);
     }
   }
 
@@ -204,6 +226,30 @@ class ManagerPool {
     _create_memory_pool_map(&_model_refresh_pool_map,
                             _memory_pool_config.num_refresh_buffer_size_per_model,
                             CACHE_SPACE_TYPE::REFRESHER);
+    /*std::map<std::string, std::map<int64_t, std::shared_ptr<embedding_interface>>>::iterator iter;
+      for (iter = _model_cache_map.begin(); iter != _model_cache_map.end(); ++iter) {
+        _create_memory_pool_per_model(iter->first,_memory_pool_config.num_woker_buffer_size_per_model[iter->first],
+      iter->second,CACHE_SPACE_TYPE::WORKER);
+        _create_memory_pool_per_model(iter->first,_memory_pool_config.num_refresh_buffer_size_per_model[iter->first],
+      iter->second,CACHE_SPACE_TYPE::REFRESHER);
+      } */
+  }
+
+  void _create_memory_pool_per_model(
+      std::string model_name, int pool_size,
+      std::map<int64_t, std::shared_ptr<embedding_interface>> embedding_cache_map,
+      CACHE_SPACE_TYPE space_type) {
+    std::map<int64_t, std::shared_ptr<MemoryPool>> device_mempool;
+    for (auto& f : embedding_cache_map) {
+      MemoryPool* tempmemorypool = MemoryPool::create(pool_size, f.second, space_type);
+      device_mempool[f.first] = std::shared_ptr<MemoryPool>(tempmemorypool);
+    }
+    if (space_type == CACHE_SPACE_TYPE::WORKER) {
+      _model_pool_map[model_name] = device_mempool;
+    }
+    if (space_type == CACHE_SPACE_TYPE::REFRESHER) {
+      _model_refresh_pool_map[model_name] = device_mempool;
+    }
   }
 
   void _create_memory_pool_map(

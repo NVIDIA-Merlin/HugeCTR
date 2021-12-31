@@ -71,8 +71,15 @@ class parameter_server : public parameter_server_base, public HugectrUtility<Typ
                                       const std::vector<cudaStream_t>& streams);
   virtual void update_database_per_model(const std::string& model_config_path,
                                          const InferenceParams& inference_param);
+
+  virtual void create_embedding_cache_per_model(const std::string& model_config_path,
+                                                InferenceParams& inference_params_array);
+
+  virtual void destory_embedding_cache_per_model(const std::string& model_name);
+
   virtual std::shared_ptr<embedding_interface> GetEmbeddingCache(const std::string& modelname,
                                                                  int deviceid);
+  virtual void parse_networks_per_model(const std::string& model_config_path, InferenceParams& inference_params_array);
 
  private:
   // The framework name
@@ -96,9 +103,6 @@ class parameter_server : public parameter_server_base, public HugectrUtility<Typ
 
   std::shared_ptr<ManagerPool> bufferpool;
   std::map<std::string, std::map<int64_t, std::shared_ptr<embedding_interface>>> model_cache_map;
-
-  void parse_networks_per_model_(const std::vector<std::string>& model_config_path,
-                                 std::vector<InferenceParams>& inference_params_array);
 };
 
 }  // namespace HugeCTR
