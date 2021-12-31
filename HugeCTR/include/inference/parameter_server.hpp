@@ -71,8 +71,16 @@ class parameter_server : public parameter_server_base, public HugectrUtility<Typ
                                       const std::vector<cudaStream_t>& streams);
   virtual void update_database_per_model(const std::string& model_config_path,
                                          const InferenceParams& inference_param);
+
+  virtual void create_embedding_cache_per_model(const std::string& model_config_path,
+                                                InferenceParams& inference_params_array);
+
+  virtual void destory_embedding_cache_per_model(const std::string& model_name);
+
   virtual std::shared_ptr<embedding_interface> GetEmbeddingCache(const std::string& modelname,
                                                                  int deviceid);
+  virtual void parse_networks_per_model(const std::string& model_config_path,
+                                        InferenceParams& inference_params_array);
 
  private:
   // The framework name
@@ -83,25 +91,19 @@ class parameter_server : public parameter_server_base, public HugectrUtility<Typ
   parameter_server_config ps_config_;
 
   // Database layers for multi-tier cache/lookup.
-  std::shared_ptr<DatabaseBackend<TypeHashKey>> cpu_memory_db_;
-  double cpu_memory_db_cache_rate_ = 0.0;
-  std::shared_ptr<DatabaseBackend<TypeHashKey>> distributed_db_;
-  double distributed_db_cache_rate_ = 0.0;
+  std::shared_ptr<DatabaseBackend<TypeHashKey>> volatile_db_;
+  double volatile_db_cache_rate_ = 0.0;
   std::shared_ptr<DatabaseBackend<TypeHashKey>> persistent_db_;
 
   std::vector<std::shared_ptr<DatabaseBackend<TypeHashKey>>> db_stack_;
 
   // Realtime data ingestion.
-  std::unique_ptr<MessageSource<TypeHashKey>> cpu_memory_db_source_;
-  std::unique_ptr<MessageSource<TypeHashKey>> distributed_db_source_;
+  std::unique_ptr<MessageSource<TypeHashKey>> volatile_db_source_;
   std::unique_ptr<MessageSource<TypeHashKey>> persistent_db_source_;
   inference_memory_pool_size_config memory_pool_config;
 
   std::shared_ptr<ManagerPool> bufferpool;
   std::map<std::string, std::map<int64_t, std::shared_ptr<embedding_interface>>> model_cache_map;
-
-  void parse_networks_per_model_(const std::vector<std::string>& model_config_path,
-                                 std::vector<InferenceParams>& inference_params_array);
 };
 
 }  // namespace HugeCTR

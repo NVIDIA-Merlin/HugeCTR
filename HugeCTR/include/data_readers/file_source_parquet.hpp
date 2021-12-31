@@ -17,7 +17,6 @@
 #pragma once
 #include <fcntl.h>
 #include <nvToolsExt.h>
-#include <sys/io.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/types.h>

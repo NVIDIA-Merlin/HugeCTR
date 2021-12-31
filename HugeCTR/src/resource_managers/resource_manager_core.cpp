@@ -46,7 +46,7 @@ void ResourceManagerCore::all2all_warmup() {
 
 #ifndef DISABLE_A2A_WARMUP
   // Do all2all warmup
-  HCTR_LOG(INFO, ROOT, "Start all2all warmup\n");
+  HCTR_LOG_S(INFO, ROOT) << "Start all2all warmup" << std::endl;
   HCTR_LIB_THROW(ncclGroupStart());
   for (size_t g = 0; g < get_local_gpu_count(); g++) {
     auto& local_gpu = get_local_gpu(g);
@@ -61,9 +61,9 @@ void ResourceManagerCore::all2all_warmup() {
     }
   }
   HCTR_LIB_THROW(ncclGroupEnd());
-  HCTR_LOG(INFO, ROOT, "End all2all warmup\n");
+  HCTR_LOG_S(INFO, ROOT) << "End all2all warmup" << std::endl;
 #else
-  HCTR_LOG(INFO, ROOT, "Skip all2all warmup\n");
+  HCTR_LOG_S(INFO, ROOT) << "Skip all2all warmup" << std::endl;
 #endif
 }
 
@@ -195,7 +195,7 @@ ResourceManagerCore::ResourceManagerCore(int num_process, int process_id, Device
 
   enable_all_peer_accesses();
   if (all_p2p_enabled() == false) {
-    HCTR_LOG(WARNING, ROOT, "Peer-to-peer access cannot be fully enabled.\n");
+    HCTR_LOG_S(WARNING, ROOT) << "Peer-to-peer access cannot be fully enabled." << std::endl;
   }
 
   all2all_warmup();

@@ -16,7 +16,6 @@
 
 #include <HugeCTR/include/base/debug/logger.hpp>
 #include <HugeCTR/include/resource_managers/resource_manager_ext.hpp>
-#include <HugeCTR/pybind/model.hpp>
 #include <algorithm>
 #include <data_readers/async_reader/async_reader_adapter.hpp>
 #include <embeddings/hybrid_sparse_embedding.hpp>
@@ -24,6 +23,7 @@
 #include <fstream>
 #include <iomanip>
 #include <iterator>
+#include <pybind/model.hpp>
 #include <sstream>
 
 namespace fs = std::experimental::filesystem;
@@ -249,11 +249,12 @@ DenseLayer::DenseLayer(Layer_t layer_type, std::vector<std::string>& bottom_name
       pos_type(pos_type),
       act_type(act_type) {}
 
-GroupDenseLayer::GroupDenseLayer(GroupLayer_t group_layer_type, std::string& bottom_name,
+GroupDenseLayer::GroupDenseLayer(GroupLayer_t group_layer_type,
+                                 std::vector<std::string>& bottom_name_list,
                                  std::vector<std::string>& top_name_list,
                                  std::vector<size_t>& num_outputs, Activation_t last_act_type)
     : group_layer_type(group_layer_type),
-      bottom_name(bottom_name),
+      bottom_name_list(bottom_name_list),
       top_name_list(top_name_list),
       num_outputs(num_outputs),
       last_act_type(last_act_type) {
@@ -332,6 +333,14 @@ Model::Model(const Solver& solver, const DataReaderParams& reader_params,
       current_eval_batchsize_(0),
       dlrm_bottom_mlp_(true),
       high_level_eval_(false) {
+#ifdef ENABLE_MPI
+  HCTR_MPI_THROW(MPI_Initialized(&mpi_preinitialized_));
+  if (!mpi_preinitialized_) {
+    HCTR_LOG(WARNING, ROOT, "Please add \"from mpi4py import MPI\" in your Python script\n");
+    HCTR_MPI_THROW(MPI_Init(nullptr, nullptr));
+    HCTR_LOG(INFO, ROOT, "MPI initialization is done\n");
+  }
+#endif
   if (solver_.is_dlrm) {
     timer_log.start();
     LOG(timer_log.elapsedMilliseconds(), "init_start");
@@ -349,6 +358,7 @@ Model::Model(const Solver& solver, const DataReaderParams& reader_params,
 
   init_exchange_wgrad(resource_manager_, exchange_wgrad_, solver_);
 
+  graph_scheduler_ = std::make_unique<GraphScheduler>(resource_manager_);
   for (auto dev : resource_manager_->get_local_gpu_device_id_list()) {
     if (solver_.use_mixed_precision) {
       check_device(dev, 7,
@@ -431,6 +441,12 @@ Model::~Model() {
     CudaDeviceContext context(device);
     cudaDeviceSynchronize();
   }
+#ifdef ENABLE_MPI
+  if (!mpi_preinitialized_) {
+    HCTR_MPI_THROW(MPI_Finalize());
+    HCTR_LOG(INFO, ROOT, "The MPI finalization is done\n");
+  }
+#endif
 }
 
 void Model::graph_to_json(std::string graph_config_file) {
@@ -626,13 +642,7 @@ void Model::add_internal(DenseLayer& dense_layer) {
   if (dense_layer.layer_type == Layer_t::Interaction) {
     dlrm_bottom_mlp_ = false;
   }
-  add_dense_layer(dense_layer, train_tensor_entries_list_, evaluate_tensor_entries_list_,
-                  resource_manager_, solver_.use_mixed_precision, solver_.enable_tf32_compute,
-                  solver_.scaler, solver_.use_algorithm_search, solver_.use_cuda_graph, networks_,
-                  blobs_buff_list_, train_weight_buff_list_, train_weight_buff_half_list_,
-                  wgrad_buff_list_, wgrad_buff_half_list_, evaluate_weight_buff_list_,
-                  evaluate_weight_buff_half_list_, wgrad_buff_placeholder_list_,
-                  wgrad_buff_half_placeholder_list_, dlrm_bottom_mlp_);
+  add_dense_layer(dense_layer);
 }
 
 void Model::add(GroupDenseLayer& group_dense_layer) {
@@ -641,7 +651,9 @@ void Model::add(GroupDenseLayer& group_dense_layer) {
       size_t num_layers = group_dense_layer.num_outputs.size();
       std::vector<std::vector<std::string>> tensor_names_list(num_layers + 1,
                                                               std::vector<std::string>());
-      tensor_names_list[0].push_back(group_dense_layer.bottom_name);
+      for (auto& bottom_name : group_dense_layer.bottom_name_list) {
+        tensor_names_list[0].push_back(bottom_name);
+      }
       for (unsigned int i = 1; i < num_layers; i++) {
         std::string tensor_name = group_dense_layer.top_name_list[i - 1];
         tensor_names_list[i].push_back(tensor_name);
@@ -1443,6 +1455,7 @@ void Model::exchange_wgrad(size_t device_id) {
   CudaCPUDeviceContext context(gpu_resource->get_device_id());
   // CudaDeviceContext context(gpu_resource->get_device_id());
   PROFILE_RECORD("exchange_wgrad.start", gpu_resource->get_stream(), false);
+  if (solver_.async_mlp_wgrad) gpu_resource->wait_on_wgrad_event(gpu_resource->get_stream());
   exchange_wgrad_->allreduce(device_id, gpu_resource->get_stream());
   PROFILE_RECORD("exchange_wgrad.stop", gpu_resource->get_stream(), false);
 }
@@ -1505,6 +1518,19 @@ void Model::train_overlapped() {
         } else {
           scheduled_reader->schedule_here(stream, id);
         }
+        graph_scheduler_->record_execution(id, stream);
+      }
+    };
+
+    auto schedule_split3way = [&, this](TrainState_t state_to_schedule) {
+      if (state.state == state_to_schedule) {
+        scheduled_reader->schedule_precompute_here(stream, id, solver_.use_holistic_cuda_graph);
+      }
+    };
+
+    auto schedule_d2d = [&, this](TrainState_t state_to_schedule) {
+      if (state.state == state_to_schedule) {
+        scheduled_reader->schedule_d2d_here(stream, id, solver_.use_holistic_cuda_graph);
       }
     };
 
@@ -1523,11 +1549,15 @@ void Model::train_overlapped() {
         sync();
         if (resource_manager_->get_num_process() == 1) {
           schedule_reader(TrainState_t::TopMLPFprop);
+          schedule_split3way(TrainState_t::MLPExchangeWgrad);
+          schedule_d2d(TrainState_t::MLPUpdate);
         }
         state = networks_[id]->train(
             current_batchsize_per_device, [this, id]() { this->exchange_wgrad(id); }, state);
         if (resource_manager_->get_num_process() > 1) {
           schedule_reader(TrainState_t::TopMLPFprop);
+          schedule_split3way(TrainState_t::BottomMLPBprop);
+          schedule_d2d(TrainState_t::MLPExchangeWgrad);
         }
       } while (change_state(&state));
       sync();
@@ -1565,6 +1595,9 @@ bool Model::train(bool is_first_batch) {
     // For instance, with a file list source, set "num_workers" to a dvisior of
     // the number of data files in the file list.
     // We will look into some alternatives in the long term.
+    if (solver_.is_dlrm) {
+      graph_scheduler_->trickling();
+    }
     long long current_batchsize = 0;
     while ((current_batchsize = train_data_reader_->read_a_batch_to_device_delay_release()) &&
            (current_batchsize < train_data_reader_->get_full_batchsize()) && !solver_.is_dlrm) {

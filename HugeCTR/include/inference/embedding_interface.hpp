@@ -124,6 +124,13 @@ class HugectrUtility {
   virtual void update_database_per_model(const std::string& model_config_path,
                                          const InferenceParams& inference_params_array) = 0;
 
+  virtual void create_embedding_cache_per_model(const std::string& model_config_path,
+                                                InferenceParams& inference_params_array) = 0;
+  virtual void parse_networks_per_model(const std::string& model_config_path,
+                                        InferenceParams& inference_params_array) = 0;
+
+  virtual void destory_embedding_cache_per_model(const std::string& model_name) = 0;
+
   static HugectrUtility<TypeHashKey>* Create_Parameter_Server(
       INFER_TYPE Infer_type, const std::vector<std::string>& model_config_path,
       std::vector<InferenceParams>& inference_params_array);

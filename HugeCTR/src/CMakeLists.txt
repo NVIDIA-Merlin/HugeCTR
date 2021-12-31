@@ -13,7 +13,6 @@
 
 cmake_minimum_required(VERSION 3.17)
 find_package(CUDAToolkit)
-include_directories(/opt/conda/include)
 set(DB_LIB_PATHS "/usr/local/lib" CACHE PATH "Paths to Hiredis/RocksDB lib")
 
 include(FetchContent)
@@ -34,17 +33,7 @@ if(NOT pybind11_sources_POPULATED)
 endif()
 
 file(GLOB_RECURSE huge_ctr_src RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} *.cpp *.cu)
-
-file(GLOB hugectr_pybind
-  ../pybind/model.cpp
-  ../pybind/model_perf_ext.cpp
-  ../pybind/add_input.cpp
-  ../pybind/add_sparse_embedding.cpp
-  ../pybind/add_dense_layer.cpp
-  ../pybind/add_dense_layer_perf_ext.cpp
-)
-list (APPEND huge_ctr_src ${hugectr_pybind})
-
+list(REMOVE_ITEM huge_ctr_src "pybind/module_main.cpp")
 add_library(huge_ctr_static STATIC ${huge_ctr_src})
 add_library(huge_ctr_shared SHARED ${huge_ctr_src})
 
@@ -93,6 +82,6 @@ target_compile_features(huge_ctr_shared PUBLIC cxx_std_17)
 set_target_properties(huge_ctr_shared PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 set_target_properties(huge_ctr_shared PROPERTIES CUDA_ARCHITECTURES OFF)
 
-add_library(hugectr MODULE ../pybind/module_main.cpp)
+add_library(hugectr MODULE pybind/module_main.cpp)
 target_link_libraries(hugectr PUBLIC pybind11::module ${CUDA_LIBRARIES} huge_ctr_shared)
 set_target_properties(hugectr PROPERTIES PREFIX "")

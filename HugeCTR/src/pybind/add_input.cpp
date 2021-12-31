@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-#include <HugeCTR/include/data_readers/data_reader.hpp>
-#include <HugeCTR/pybind/model.hpp>
 #include <data_readers/async_reader/async_reader_adapter.hpp>
+#include <data_readers/data_reader.hpp>
+#include <pybind/model.hpp>
 
 namespace HugeCTR {
 

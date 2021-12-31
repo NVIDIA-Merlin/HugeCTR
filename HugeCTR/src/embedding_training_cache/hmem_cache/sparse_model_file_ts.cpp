@@ -16,7 +16,6 @@
 
 #include <fcntl.h>
 #include <omp.h>
-#include <sys/io.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/types.h>

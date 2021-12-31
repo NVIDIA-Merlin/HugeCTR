@@ -1,4 +1,23 @@
 # Release Notes
+## What's New in Version 3.3.1
++ **Hierarchical Parameter Server Enhancements**:
+    + **Online deployment of new models and recycling of old models**: In this release, HugeCTR Backend is fully compatible with the [model control protocol](https://github.com/triton-inference-server/server/blob/main/docs/protocol/extension_model_repository.md) of Triton. Adding the configuration of a new model to the [HPS configuration file](https://github.com/triton-inference-server/hugectr_backend#independent-parameter-server-configuration). The HugeCTR Backend has supported online deployment of new models by the Load API of Triton. The old models can also be recycled online by the [Unload API](https://github.com/triton-inference-server/server/blob/main/docs/protocol/extension_model_repository.md#unload).
+    + **Simplified database backend**: Multi-nodes, single-node and all other kinds of volatile database backends can now be configured using the same configuration object.
+    + **Multi-threaded optimization of Redis code**: ~2.3x speedup up over HugeCTR v3.3.
+    + **Fix to some issues**: Build HPS test environment and implement unit test of each component; Access violation issue of online Kafka updates; Parquet data reader incorrectly parses the index of categorical features in the case of multiple embedded tables; HPS Redis Backend overflow handling not invoked upon single insertions.
++ **New group of fused fully connected layers**: We support adding a group of fused fully connected layers when constructing the model graph. A concise Python interface is provided for users to adjust the number of layers, as well as to specify the output dimensions in each layer, which makes it easy to leverage the highly-optimized fused fully connected layer in HugeCTR. For more information, please refer to [GroupDenseLayer](docs/python_interface.md#groupdenselayer)
++ **Fix to some issues**: 
+   + Warnning is added for the case users forget to import mpi before launching multi-process job
+   + Removing massive log when runing with embedding training cache
+   + Removing lagacy conda related informations from documents
+
+## What's New in Version 3.3
+
++ **Hierarchical Parameter Server**: 
+    + **Support Incremental Models Updating From Online Training**: HPS now supports iterative model updating via Kafka message queues. It is now possible to connect HugeCTR with Apache Kafka deployments to update the model in-place in real-time. This feature is supported in both phases, training and inference. Please refer to the [Demo Notebok](https://github.com/triton-inference-server/hugectr_backend/tree/main/samples/hierarchical_deployment/hps_e2e_demo).
+    + **Support Embedding keys Eviction Mechanism**: In-memory databases such as Redis or CPU memory backed storage are used now as the feature memory management. Hence, when performing iterative updating, they will automatically evict infrequently used embeddings as training progresses.
+    + **Support Embedding Cache Asynchronous Refresh Mechanism**: We have supported the asynchronous refreshing of incremental embedding keys into the embedding cache. Refresh operation will be triggered when completing the model version iteration or incremental parameters output from online training. The Distributed Database and Persistent Database will be updated by the distributed event streaming platform(Kafka). And then the GPU embedding cache will refresh the values of the existing embedding keys and replace them with the latest incremental embedding vectors. Please refer to the [HPS README](https://github.com/triton-inference-server/hugectr_backend#hugectr-hierarchical-parameter-server).
+    + **Other Improvements**: Backend implementations for databases are now fully configurable. JSON interface parser can cope better with inaccurate parameterization. Less and if (hopefully) more meaningful jabber! Based on your requests, we revised the log levels for throughout the entire database backend API of the parameter server. Selected configuration options are now printed wholesomely and uniformly to the log. Errors provide more verbose information on the matter at hand. Improved performance of Redis cluster backend. Improved performance of CPU memory database backend.
 
 ## What's New in Version 3.3
 
@@ -150,28 +169,3 @@
 + **Power Law Distribution Support with Data Generator**: Because of the increased need for generating a random dataset whose categorical features follows the power-law distribution, we've revised our data generation tool to support this use case. For additional information, refer to the `--long-tail` description [here](../docs/hugectr_user_guide.md#Generating Synthetic Data and Benchmarks).
 
 + **Multi-GPU Preprocessing Script for Criteo Samples**: Multiple GPUs can now be used when preparing the dataset for our [samples](../samples). For more information, see how [preprocess_nvt.py](../tools/criteo_script/preprocess_nvt.py) is used to preprocess the Criteo dataset for DCN, DeepFM, and W&D samples.
-
-## Known Issues
-+ Since the automatic plan file generator isn't able to handle systems that contain one GPU, you must manually create a JSON plan file with the following parameters and rename it using the name listed in the HugeCTR configuration file: `{"type": "all2all", "num_gpus": 1, "main_gpu": 0, "num_steps": 1, "num_chunks": 1, "plan": [[0, 0]], and "chunks": [1]}`.
-
-+ If using a system that contains two GPUs with two NVLink connections, the auto plan file generator will print the following warning message: `RuntimeWarning: divide by zero encountered in true_divide`. This is an erroneous warning message and should be ignored.
-
-+ The current plan file generator doesn't support a system where the NVSwitch or a full peer-to-peer connection between all nodes is unavailable.
-
-+ The `export CUDA_DEVICE_ORDER=PCI_BUS_ID` environment variable needs to be set to ensure that the CUDA runtime and driver have a consistent GPU numbering.
-
-+ `LocalizedSlotSparseEmbeddingOneHot` only supports a single-node machine where all the GPUs are fully connected such as NVSwitch.
-
-+ HugeCTR version 3.0 crashes when running the DLRM sample on DGX2 due to a CUDA Graph issue. To run the sample on DGX2, disable the CUDA Graph by setting the `cuda_graph` parameter to false even if it degrades the performance a bit. This issue doesn't exist when using the DGX A100.
-
-+ The HugeCTR embedding TensorFlow plugin only works with single-node machines.
-
-+ The HugeCTR embedding TensorFlow plugin assumes that the input keys are in `int64` and its output is in `float`.
-
-+ If the number of samples in a dataset is not divisible by the batch size when in epoch mode and using the `num_epochs` instead of `max_iter`, a few remaining samples are truncated. If the training dataset is large enough, its impact can be negligible. If you want to minimize the wasted batches, try adjusting the number of data reader workers. For example, using a file list source, set the `num_workers` parameter to an advisor based on the number of data files in the file list.
-
-+ The MultiCross layer doesn't support mixed precision mode yet.
-
-+ Missed embeddings are asynchronously inserted into the in-memory database backend. Currently, we only fix misses in the database backend through the insertion logic via Apache Kafka. That means if the model is not updated, we don't improve caching. We're working on establishing an asynchronous process that also inserts lookup-misses into the database backend.
-
-+ The Apache Kafka producer's asynchronous connection build-up may lead to message loss. Rdkafka client connection checks are performed asynchronously in the background. During this period, the application thinks it is connected and keeps producing data. These messages will never reach Kafka and will be lost.

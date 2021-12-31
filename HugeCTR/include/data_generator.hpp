@@ -22,14 +22,16 @@
 #include <fstream>
 #include <memory>
 #include <random>
-// !TODO add macro ENABLE_CUDF for those don't that have cudf installed
-// data generation for parquet,
+
+#ifndef DISABLE_CUDF
 #include <cudf/column/column.hpp>
 #include <cudf/column/column_factories.hpp>
 #include <cudf/io/parquet.hpp>
 #include <cudf/table/table.hpp>
 #include <cudf/table/table_view.hpp>
 #include <cudf/utilities/bit.hpp>
+#endif
+
 #include <rmm/device_buffer.hpp>
 namespace HugeCTR {
 
@@ -379,6 +381,7 @@ void data_generation_for_test2(std::string file_list_name, std::string data_pref
   return;
 }
 
+#ifndef DISABLE_CUDF
 template <typename T>
 void data_generation_for_parquet(std::string file_list_name, std::string data_prefix, int num_files,
                                  int num_records_per_file, int slot_num, int label_dim,
@@ -540,6 +543,7 @@ void data_generation_for_parquet(std::string file_list_name, std::string data_pr
   metadata_file_stream.close();
   return;
 }
+#endif
 
 // Add a new data_generation function for LocalizedSparseEmbedding testing
 // In this function, the relationship between key and slot_id is: key's slot_id=(key%slot_num)

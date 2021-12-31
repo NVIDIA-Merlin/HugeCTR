@@ -63,9 +63,15 @@ class RedisClusterBackend final : public DatabaseBackend<TKey> {
 
   virtual ~RedisClusterBackend();
 
-  const char* get_name() const override;
+  const char* get_name() const override { return "RedisCluster"; }
+
+  bool is_shared() const override { return true; }
 
   size_t contains(const std::string& table_name, size_t num_keys, const TKey* keys) const override;
+
+  size_t max_capacity(const std::string& table_name) const override {
+    return this->overflow_margin_ * num_partitions_;
+  }
 
   bool insert(const std::string& table_name, size_t num_pairs, const TKey* keys, const char* values,
               size_t value_size) override;
@@ -80,6 +86,13 @@ class RedisClusterBackend final : public DatabaseBackend<TKey> {
   size_t evict(const std::string& table_name) override;
 
   size_t evict(const std::string& table_name, size_t num_keys, const TKey* keys) override;
+
+ protected:
+  /**
+   * Called internally in case a partition overflow is detected.
+   */
+  void resolve_overflow_(const std::string& hkey_kv, const std::string& hkey_kt,
+                         size_t partition_size) const;
 
  protected:
   const size_t

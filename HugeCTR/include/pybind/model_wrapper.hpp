@@ -18,7 +18,7 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
-#include <HugeCTR/pybind/model.hpp>
+#include <pybind/model.hpp>
 
 namespace HugeCTR {
 
@@ -98,9 +98,9 @@ void ModelPybind(pybind11::module &m) {
           pybind11::arg("act_type") = Activation_t::Relu);
   pybind11::class_<HugeCTR::GroupDenseLayer, std::shared_ptr<HugeCTR::GroupDenseLayer>>(
       m, "GroupDenseLayer")
-      .def(pybind11::init<GroupLayer_t, std::string &, std::vector<std::string> &,
+      .def(pybind11::init<GroupLayer_t, std::vector<std::string> &, std::vector<std::string> &,
                           std::vector<size_t> &, Activation_t>(),
-           pybind11::arg("group_layer_type"), pybind11::arg("bottom_name"),
+           pybind11::arg("group_layer_type"), pybind11::arg("bottom_name_list"),
            pybind11::arg("top_name_list"), pybind11::arg("num_outputs"),
            pybind11::arg("last_act_type") = Activation_t::Relu);
   pybind11::class_<HugeCTR::Model, std::shared_ptr<HugeCTR::Model>>(m, "Model")

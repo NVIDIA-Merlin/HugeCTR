@@ -38,9 +38,9 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
         libtbb-dev \
         libaio-dev \
         slapd && \
-    apt install -y --no-install-recommends software-properties-common && \
+    apt-get install -y --no-install-recommends software-properties-common && \
     add-apt-repository -y ppa:deadsnakes/ppa && \
-    apt update -y --fix-missing && \
+    apt-get update -y --fix-missing && \
     rm -rf /var/lib/apt/lists/*
 
 RUN pip3 install --no-cache-dir mpi4py ortools sklearn onnx onnxruntime pandas

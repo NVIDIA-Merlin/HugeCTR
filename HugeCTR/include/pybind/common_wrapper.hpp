@@ -235,11 +235,11 @@ void CommonPybind(pybind11::module& m) {
       .value(HugeCTR::hctr_enum_to_c_str(HugeCTR::DatabaseType_t::RocksDB),
              HugeCTR::DatabaseType_t::RocksDB)
       .export_values();
-  pybind11::enum_<HugeCTR::CPUMemoryHashMapAlgorithm_t>(m, "CPUMemoryHashMapAlgorithm_t")
-      .value(HugeCTR::hctr_enum_to_c_str(HugeCTR::CPUMemoryHashMapAlgorithm_t::STL),
-             HugeCTR::CPUMemoryHashMapAlgorithm_t::STL)
-      .value(HugeCTR::hctr_enum_to_c_str(HugeCTR::CPUMemoryHashMapAlgorithm_t::PHM),
-             HugeCTR::CPUMemoryHashMapAlgorithm_t::PHM)
+  pybind11::enum_<HugeCTR::DatabaseHashMapAlgorithm_t>(m, "DatabaseHashMapAlgorithm_t")
+      .value(HugeCTR::hctr_enum_to_c_str(HugeCTR::DatabaseHashMapAlgorithm_t::STL),
+             HugeCTR::DatabaseHashMapAlgorithm_t::STL)
+      .value(HugeCTR::hctr_enum_to_c_str(HugeCTR::DatabaseHashMapAlgorithm_t::PHM),
+             HugeCTR::DatabaseHashMapAlgorithm_t::PHM)
       .export_values();
   pybind11::enum_<HugeCTR::DatabaseOverflowPolicy_t>(m, "DatabaseOverflowPolicy_t")
       .value(HugeCTR::hctr_enum_to_c_str(HugeCTR::DatabaseOverflowPolicy_t::EvictOldest),

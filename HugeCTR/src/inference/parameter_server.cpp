@@ -55,7 +55,15 @@ parameter_server<TypeHashKey>::parameter_server(
     CK_THROW_(Error_t::WrongInput, "Wrong input: The size of input args are not consistent.");
   }
 
-  parse_networks_per_model_(model_config_path, inference_params_array);
+  for (unsigned int i = 0; i < model_config_path.size(); i++) {
+    HCTR_THROW_IF(
+        inference_params_array[i].volatile_db != inference_params_array[0].volatile_db ||
+            inference_params_array[i].persistent_db != inference_params_array[0].persistent_db,
+        Error_t::WrongInput,
+        "Inconsistent database setup. HugeCTR paramter server does currently not support hybrid "
+        "database deployment.");
+    parse_networks_per_model(model_config_path[i], inference_params_array[i]);
+  }
 
   if (ps_config_.distributed_emb_.size() != model_config_path.size() ||
       ps_config_.embedding_vec_size_.size() != model_config_path.size() ||
@@ -64,12 +72,13 @@ parameter_server<TypeHashKey>::parameter_server(
               "Wrong input: The size of parameter server parameters are not correct.");
   }
 
-  // Connect to CPU memory database.
+  // Connect to volatile database.
   {
-    const auto& conf = inference_params_array[0].cpu_memory_db;
+    const auto& conf = inference_params_array[0].volatile_db;
     switch (conf.type) {
       case DatabaseType_t::Disabled:
-        break;  // No CPU memory database.
+        break;  // No volatile database.
+
       case DatabaseType_t::HashMap:
         HCTR_LOG(INFO, WORLD, "Creating HashMap CPU database backend...\n");
         if (conf.num_partitions > 1) {
@@ -79,20 +88,21 @@ parameter_server<TypeHashKey>::parameter_server(
                    conf.num_partitions);
         }
         switch (conf.algorithm) {
-          case CPUMemoryHashMapAlgorithm_t::STL:
-            cpu_memory_db_ = std::make_shared<HCTR_DB_HASH_MAP_STL_(HashMapBackend, TypeHashKey)>(
+          case DatabaseHashMapAlgorithm_t::STL:
+            volatile_db_ = std::make_shared<HCTR_DB_HASH_MAP_STL_(HashMapBackend, TypeHashKey)>(
                 conf.overflow_margin, conf.overflow_policy, conf.overflow_resolution_target);
             break;
-          case CPUMemoryHashMapAlgorithm_t::PHM:
-            cpu_memory_db_ = std::make_shared<HCTR_DB_HASH_MAP_PHM_(HashMapBackend, TypeHashKey)>(
+          case DatabaseHashMapAlgorithm_t::PHM:
+            volatile_db_ = std::make_shared<HCTR_DB_HASH_MAP_PHM_(HashMapBackend, TypeHashKey)>(
                 conf.overflow_margin, conf.overflow_policy, conf.overflow_resolution_target);
             break;
           default:
-            HCTR_DIE("Selected algorithm (cpu_memory_db.algorithm = %d) is not supported!",
+            HCTR_DIE("Selected algorithm (volatile_db.algorithm = %d) is not supported!",
                      conf.type);
             break;
         }
         break;
+
       case DatabaseType_t::ParallelHashMap:
         HCTR_LOG(INFO, WORLD, "Creating ParallelHashMap CPU database backend...\n");
         if (conf.num_partitions < 2) {
@@ -102,49 +112,38 @@ parameter_server<TypeHashKey>::parameter_server(
                    conf.num_partitions);
         }
         switch (conf.algorithm) {
-          case CPUMemoryHashMapAlgorithm_t::STL:
-            cpu_memory_db_ =
+          case DatabaseHashMapAlgorithm_t::STL:
+            volatile_db_ =
                 std::make_shared<HCTR_DB_HASH_MAP_STL_(ParallelHashMapBackend, TypeHashKey)>(
                     conf.num_partitions, conf.overflow_margin, conf.overflow_policy,
                     conf.overflow_resolution_target);
             break;
-          case CPUMemoryHashMapAlgorithm_t::PHM:
-            cpu_memory_db_ =
+          case DatabaseHashMapAlgorithm_t::PHM:
+            volatile_db_ =
                 std::make_shared<HCTR_DB_HASH_MAP_PHM_(ParallelHashMapBackend, TypeHashKey)>(
                     conf.num_partitions, conf.overflow_margin, conf.overflow_policy,
                     conf.overflow_resolution_target);
             break;
           default:
-            HCTR_DIE("Selected algorithm (cpu_memory_db.algorithm = %d) is not supported!",
+            HCTR_DIE("Selected algorithm (volatile_db.algorithm = %d) is not supported!",
                      conf.type);
             break;
         }
         break;
-      default:
-        HCTR_DIE("Selected backend (cpu_memory_db.type = %d) is not supported!", conf.type);
-        break;
-    }
-    cpu_memory_db_cache_rate_ = conf.initial_cache_rate;
-  }
 
-  // Connect to distributed database.
-  {
-    const auto& conf = inference_params_array[0].distributed_db;
-    switch (conf.type) {
-      case DatabaseType_t::Disabled:
-        break;  // No distributed database.
       case DatabaseType_t::RedisCluster:
         HCTR_LOG(INFO, WORLD, "Creating RedisCluster backend...\n");
-        distributed_db_ = std::make_shared<RedisClusterBackend<TypeHashKey>>(
+        volatile_db_ = std::make_shared<RedisClusterBackend<TypeHashKey>>(
             conf.address, conf.user_name, conf.password, conf.num_partitions,
             conf.max_get_batch_size, conf.max_set_batch_size, conf.overflow_margin,
             conf.overflow_policy, conf.overflow_resolution_target);
         break;
+
       default:
-        HCTR_DIE("Selected backend (distributed_db.type = %d) is not supported!", conf.type);
+        HCTR_DIE("Selected backend (volatile_db.type = %d) is not supported!", conf.type);
         break;
     }
-    distributed_db_cache_rate_ = conf.initial_cache_rate;
+    volatile_db_cache_rate_ = conf.initial_cache_rate;
   }
 
   // Connect to persistent database.
@@ -176,36 +175,12 @@ parameter_server<TypeHashKey>::parameter_server(
     // The operation here is just to keep the logic of device_id in the python api
     // unchanged
     //*********
-    if (inference_params_array[i].deployed_devices.empty()) {
-      CK_THROW_(Error_t::WrongInput, "The list of deployed devices is empty.");
-    }
-    if (std::find(inference_params_array[i].deployed_devices.begin(),
-                  inference_params_array[i].deployed_devices.end(),
-                  inference_params_array[i].device_id) ==
-        inference_params_array[i].deployed_devices.end()) {
-      CK_THROW_(Error_t::WrongInput, "The device id is not in the list of deployed devices.");
-    }
-    std::map<int64_t, std::shared_ptr<embedding_interface>> embedding_cache_map;
-    for (auto device_id : inference_params_array[i].deployed_devices) {
-      HCTR_LOG(INFO, WORLD, "Create embedding cache in device %d.\n", device_id);
-      inference_params_array[i].device_id = device_id;
-      embedding_cache_map[device_id] =
-          std::shared_ptr<embedding_interface>(embedding_interface::Create_Embedding_Cache(
-              model_config_path[i], inference_params_array[i], this));
-    }
-    model_cache_map[inference_params_array[i].model_name] = embedding_cache_map;
-    memory_pool_config.num_woker_buffer_size_per_model[inference_params_array[i].model_name] =
-        inference_params_array[i].number_of_worker_buffers_in_pool;
-    memory_pool_config.num_refresh_buffer_size_per_model[inference_params_array[i].model_name] =
-        inference_params_array[i].number_of_refresh_buffers_in_pool;
+    create_embedding_cache_per_model(model_config_path[i], inference_params_array[i]);
   }
 
   // Populate DB stack.
-  if (cpu_memory_db_) {
-    db_stack_.push_back(cpu_memory_db_);
-  }
-  if (distributed_db_) {
-    db_stack_.push_back(distributed_db_);
+  if (volatile_db_) {
+    db_stack_.push_back(volatile_db_);
   }
   if (persistent_db_) {
     db_stack_.push_back(persistent_db_);
@@ -215,77 +190,112 @@ parameter_server<TypeHashKey>::parameter_server(
 }
 
 template <typename TypeHashKey>
-void parameter_server<TypeHashKey>::parse_networks_per_model_(
-    const std::vector<std::string>& model_config_path,
-    std::vector<InferenceParams>& inference_params_array) {
+void parameter_server<TypeHashKey>::parse_networks_per_model(
+    const std::string& model_config_path, InferenceParams& inference_params_array) {
   // Initialize <model_name, id> map
-  for (unsigned int i = 0; i < inference_params_array.size(); i++) {
-    ps_config_.model_name_id_map_.emplace(inference_params_array[i].model_name, (size_t)i);
+  if (ps_config_.model_name_id_map_.count(inference_params_array.model_name) == 0) {
+    ps_config_.model_name_id_map_.emplace(inference_params_array.model_name,
+                                          (size_t)ps_config_.model_name_id_map_.size());
   }
 
   // Initialize for each model
-  for (unsigned int i = 0; i < model_config_path.size(); i++) {
-    HCTR_THROW_IF(
-        inference_params_array[i].cpu_memory_db != inference_params_array[0].cpu_memory_db ||
-            inference_params_array[i].distributed_db != inference_params_array[0].distributed_db ||
-            inference_params_array[i].persistent_db != inference_params_array[0].persistent_db,
-        Error_t::WrongInput,
-        "Inconsistent database setup. HugeCTR paramter server does currently not support hybrid "
-        "database deployment.");
+  // Open model config file and input model json config
+  nlohmann::json model_config(read_json_file(model_config_path));
 
-    // Open model config file and input model json config
-    nlohmann::json model_config(read_json_file(model_config_path[i]));
+  // Read inference config
+  std::vector<std::string> emb_file_path;
+  if (inference_params_array.sparse_model_files.size() > 1) {
+    for (unsigned int j = 0; j < inference_params_array.sparse_model_files.size(); j++) {
+      emb_file_path.emplace_back(inference_params_array.sparse_model_files[j]);
+    }
+  } else {
+    emb_file_path.emplace_back(inference_params_array.sparse_model_files[0]);
+  }
+  ps_config_.emb_file_name_[inference_params_array.model_name] = (emb_file_path);
 
-    // Read inference config
-    std::vector<std::string> emb_file_path;
-    if (inference_params_array[i].sparse_model_files.size() > 1) {
-      for (unsigned int j = 0; j < inference_params_array[i].sparse_model_files.size(); j++) {
-        emb_file_path.emplace_back(inference_params_array[i].sparse_model_files[j]);
-      }
+  // Read embedding layer config
+  const nlohmann::json& j_layers = get_json(model_config, "layers");
+  std::vector<bool> distributed_emb;
+  std::vector<size_t> embedding_vec_size;
+  std::vector<float> default_emb_vec_value;
+  std::vector<std::string> emb_table_name;
+  // Search for all embedding layers
+  for (unsigned int j = 1; j < j_layers.size(); j++) {
+    const nlohmann::json& j_single_layer = j_layers[j];
+    std::string embedding_type = get_value_from_json<std::string>(j_single_layer, "type");
+    if (embedding_type.compare("DistributedSlotSparseEmbeddingHash") == 0) {
+      distributed_emb.emplace_back(true);
+      // parse embedding table name from network json file
+      emb_table_name.emplace_back(get_value_from_json<std::string>(j_single_layer, "top"));
+      const nlohmann::json& embedding_hparam = get_json(j_single_layer, "sparse_embedding_hparam");
+      embedding_vec_size.emplace_back(
+          get_value_from_json<size_t>(embedding_hparam, "embedding_vec_size"));
+      default_emb_vec_value.emplace_back(
+          get_value_from_json_soft<float>(embedding_hparam, "default_emb_vec_value", 0.0f));
+    } else if (embedding_type.compare("LocalizedSlotSparseEmbeddingHash") == 0 ||
+               embedding_type.compare("LocalizedSlotSparseEmbeddingOneHot") == 0) {
+      distributed_emb.emplace_back(false);
+      emb_table_name.emplace_back(get_value_from_json<std::string>(j_single_layer, "top"));
+      const nlohmann::json& embedding_hparam = get_json(j_single_layer, "sparse_embedding_hparam");
+      embedding_vec_size.emplace_back(
+          get_value_from_json<size_t>(embedding_hparam, "embedding_vec_size"));
+      default_emb_vec_value.emplace_back(
+          get_value_from_json_soft<float>(embedding_hparam, "default_emb_vec_value", 0.0f));
     } else {
-      emb_file_path.emplace_back(inference_params_array[i].sparse_model_files[0]);
+      break;
     }
-    ps_config_.emb_file_name_[inference_params_array[i].model_name] = (emb_file_path);
+  }
+  ps_config_.distributed_emb_.emplace_back(distributed_emb);
+  ps_config_.emb_table_name_[inference_params_array.model_name] = emb_table_name;
+  ps_config_.embedding_vec_size_[inference_params_array.model_name] = embedding_vec_size;
+  ps_config_.default_emb_vec_value_.emplace_back(
+      inference_params_array.default_value_for_each_table);
+}
 
-    // Read embedding layer config
-    const nlohmann::json& j_layers = get_json(model_config, "layers");
-    std::vector<bool> distributed_emb;
-    std::vector<size_t> embedding_vec_size;
-    std::vector<float> default_emb_vec_value;
-    std::vector<std::string> emb_table_name;
-    // Search for all embedding layers
-    for (unsigned int j = 1; j < j_layers.size(); j++) {
-      const nlohmann::json& j_single_layer = j_layers[j];
-      std::string embedding_type = get_value_from_json<std::string>(j_single_layer, "type");
-      if (embedding_type.compare("DistributedSlotSparseEmbeddingHash") == 0) {
-        distributed_emb.emplace_back(true);
-        // parse embedding table name from network json file
-        emb_table_name.emplace_back(get_value_from_json<std::string>(j_single_layer, "top"));
-        const nlohmann::json& embedding_hparam =
-            get_json(j_single_layer, "sparse_embedding_hparam");
-        embedding_vec_size.emplace_back(
-            get_value_from_json<size_t>(embedding_hparam, "embedding_vec_size"));
-        default_emb_vec_value.emplace_back(
-            get_value_from_json_soft<float>(embedding_hparam, "default_emb_vec_value", 0.0f));
-      } else if (embedding_type.compare("LocalizedSlotSparseEmbeddingHash") == 0 ||
-                 embedding_type.compare("LocalizedSlotSparseEmbeddingOneHot") == 0) {
-        distributed_emb.emplace_back(false);
-        emb_table_name.emplace_back(get_value_from_json<std::string>(j_single_layer, "top"));
-        const nlohmann::json& embedding_hparam =
-            get_json(j_single_layer, "sparse_embedding_hparam");
-        embedding_vec_size.emplace_back(
-            get_value_from_json<size_t>(embedding_hparam, "embedding_vec_size"));
-        default_emb_vec_value.emplace_back(
-            get_value_from_json_soft<float>(embedding_hparam, "default_emb_vec_value", 0.0f));
-      } else {
-        break;
-      }
+template <typename TypeHashKey>
+void parameter_server<TypeHashKey>::destory_embedding_cache_per_model(
+    const std::string& model_name) {
+  if (model_cache_map.find(model_name) != model_cache_map.end()) {
+    for (auto& f : model_cache_map[model_name]) {
+      f.second->finalize();
     }
-    ps_config_.distributed_emb_.emplace_back(distributed_emb);
-    ps_config_.emb_table_name_[inference_params_array[i].model_name] = emb_table_name;
-    ps_config_.embedding_vec_size_[inference_params_array[i].model_name] = embedding_vec_size;
-    ps_config_.default_emb_vec_value_.emplace_back(
-        inference_params_array[i].default_value_for_each_table);
+    model_cache_map.erase(model_name);
+  }
+  bufferpool->DestoryManagerPool(model_name);
+}
+
+template <typename TypeHashKey>
+void parameter_server<TypeHashKey>::create_embedding_cache_per_model(
+    const std::string& model_config_path, InferenceParams& inference_params_array) {
+  if (inference_params_array.deployed_devices.empty()) {
+    CK_THROW_(Error_t::WrongInput, "The list of deployed devices is empty.");
+  }
+  if (std::find(inference_params_array.deployed_devices.begin(),
+                inference_params_array.deployed_devices.end(), inference_params_array.device_id) ==
+      inference_params_array.deployed_devices.end()) {
+    CK_THROW_(Error_t::WrongInput, "The device id is not in the list of deployed devices.");
+  }
+  std::map<int64_t, std::shared_ptr<embedding_interface>> embedding_cache_map;
+  for (auto device_id : inference_params_array.deployed_devices) {
+    HCTR_LOG(INFO, WORLD, "Create embedding cache in device %d.\n", device_id);
+    inference_params_array.device_id = device_id;
+    embedding_cache_map[device_id] =
+        std::shared_ptr<embedding_interface>(embedding_interface::Create_Embedding_Cache(
+            model_config_path, inference_params_array, this));
+  }
+  model_cache_map[inference_params_array.model_name] = embedding_cache_map;
+  memory_pool_config.num_woker_buffer_size_per_model[inference_params_array.model_name] =
+      inference_params_array.number_of_worker_buffers_in_pool;
+  memory_pool_config.num_refresh_buffer_size_per_model[inference_params_array.model_name] =
+      inference_params_array.number_of_refresh_buffers_in_pool;
+
+  if (bufferpool != nullptr) {
+    bufferpool->_create_memory_pool_per_model(
+        inference_params_array.model_name, inference_params_array.number_of_worker_buffers_in_pool,
+        embedding_cache_map, CACHE_SPACE_TYPE::WORKER);
+    bufferpool->_create_memory_pool_per_model(
+        inference_params_array.model_name, inference_params_array.number_of_refresh_buffers_in_pool,
+        embedding_cache_map, CACHE_SPACE_TYPE::REFRESHER);
   }
 }
 
@@ -338,32 +348,21 @@ void parameter_server<TypeHashKey>::update_database_per_model(
     std::vector<float> vec_vec(num_float_val_in_vec_file, 0.0f);
     vec_stream.read(reinterpret_cast<char*>(vec_vec.data()), vec_file_size_in_byte);
 
-    const size_t cpu_cache_amount = std::min(
-        hctr_safe_cast<size_t>(cpu_memory_db_cache_rate_ * static_cast<double>(num_key) + 0.5),
-        num_key);
-    const size_t dist_cache_amount = std::min(
-        hctr_safe_cast<size_t>(distributed_db_cache_rate_ * static_cast<double>(num_key) + 0.5),
+    const size_t volatile_cache_amount = std::min(
+        hctr_safe_cast<size_t>(volatile_db_cache_rate_ * static_cast<double>(num_key) + 0.5),
         num_key);
 
     std::string current_emb_table_name = ps_config_.emb_table_name_[inference_params.model_name][j];
     const std::string tag_name = make_tag_name(inference_params.model_name, current_emb_table_name);
 
-    // Populate databases. CPU is static.
-    if (cpu_memory_db_) {
-      HCTR_CHECK(cpu_memory_db_->insert(tag_name, cpu_cache_amount, key_vec.data(),
-                                        reinterpret_cast<const char*>(vec_vec.data()),
-                                        embedding_size * sizeof(float)));
-      HCTR_LOG(INFO, WORLD, "Table: %s; cached %d / %d embeddings in CPU memory database!\n",
-               tag_name.c_str(), cpu_cache_amount, num_key);
-    }
-
-    // Distributed could be static but does not have to be.
-    if (distributed_db_) {
-      HCTR_CHECK(distributed_db_->insert(tag_name, dist_cache_amount, key_vec.data(),
-                                         reinterpret_cast<const char*>(vec_vec.data()),
-                                         embedding_size * sizeof(float)));
-      HCTR_LOG(INFO, WORLD, "Table: %s; cached %d / %d embeddings in distributed database!\n",
-               tag_name.c_str(), dist_cache_amount, num_key);
+    // Populate volatile database(s).
+    if (volatile_db_) {
+      HCTR_CHECK(volatile_db_->insert(tag_name, volatile_cache_amount, key_vec.data(),
+                                      reinterpret_cast<const char*>(vec_vec.data()),
+                                      embedding_size * sizeof(float)));
+      HCTR_LOG_S(INFO, WORLD) << "Table: " << tag_name << "; cached " << volatile_cache_amount
+                              << " / " << num_key << " embeddings in " << volatile_db_->get_name()
+                              << " database!" << std::endl;
     }
 
     // Persistent database - by definition - always gets all keys.
@@ -371,14 +370,14 @@ void parameter_server<TypeHashKey>::update_database_per_model(
       HCTR_CHECK(persistent_db_->insert(tag_name, num_key, key_vec.data(),
                                         reinterpret_cast<const char*>(vec_vec.data()),
                                         embedding_size * sizeof(float)));
-      HCTR_LOG(INFO, WORLD, "Table: %s; cached %d embeddings in persistent database!\n",
-               tag_name.c_str(), num_key);
+      HCTR_LOG_S(INFO, WORLD) << "Table: " << tag_name << "; cached " << num_key
+                              << " embeddings in persistent database!" << std::endl;
     }
   }
 
   // Connect to online update service (if configured).
   // TODO: Maybe need to change the location where this is initialized.
-  const std::string kafka_group_prefix = "hctr_ps.";
+  const char kafka_group_prefix[] = "hctr_ps.";
 
   auto kafka_prepare_filter = [](const std::string& s) -> std::string {
     std::ostringstream ss;
@@ -392,47 +391,50 @@ void parameter_server<TypeHashKey>::update_database_per_model(
   switch (inference_params.update_source.type) {
     case UpdateSourceType_t::Null:
       break;  // Disabled
+
     case UpdateSourceType_t::KafkaMessageQueue:
-      // CPU memory updates.
-      if (cpu_memory_db_ && !inference_params.cpu_memory_db.update_filters.empty()) {
+      // Volatile database updates.
+      if (volatile_db_ && !inference_params.volatile_db.update_filters.empty()) {
+        std::ostringstream consumer_group;
+        consumer_group << kafka_group_prefix << "volatile";
+        if (!volatile_db_->is_shared()) {
+          consumer_group << '.' << host_name;
+        }
+
         std::vector<std::string> tag_filters;
-        std::transform(inference_params.cpu_memory_db.update_filters.begin(),
-                       inference_params.cpu_memory_db.update_filters.end(),
+        std::transform(inference_params.volatile_db.update_filters.begin(),
+                       inference_params.volatile_db.update_filters.end(),
                        std::back_inserter(tag_filters), kafka_prepare_filter);
-        cpu_memory_db_source_ = std::make_unique<KafkaMessageSource<TypeHashKey>>(
-            inference_params.update_source.brokers, kafka_group_prefix + "cpu_memory." + host_name,
-            tag_filters, inference_params.update_source.poll_timeout_ms,
-            inference_params.update_source.max_receive_buffer_size,
-            inference_params.update_source.max_batch_size,
-            inference_params.update_source.failure_backoff_ms);
-      }
-      // Distributed updates.
-      if (distributed_db_ && !inference_params.distributed_db.update_filters.empty()) {
-        std::vector<std::string> tag_filters;
-        std::transform(inference_params.distributed_db.update_filters.begin(),
-                       inference_params.distributed_db.update_filters.end(),
-                       std::back_inserter(tag_filters), kafka_prepare_filter);
-        distributed_db_source_ = std::make_unique<KafkaMessageSource<TypeHashKey>>(
-            inference_params.update_source.brokers, kafka_group_prefix + "distributed", tag_filters,
+
+        volatile_db_source_ = std::make_unique<KafkaMessageSource<TypeHashKey>>(
+            inference_params.update_source.brokers, consumer_group.str(), tag_filters,
             inference_params.update_source.poll_timeout_ms,
             inference_params.update_source.max_receive_buffer_size,
             inference_params.update_source.max_batch_size,
             inference_params.update_source.failure_backoff_ms);
       }
-      // Persistent updates.
+      // Persistent database updates.
       if (persistent_db_ && !inference_params.persistent_db.update_filters.empty()) {
+        std::ostringstream consumer_group;
+        consumer_group << kafka_group_prefix << "persistent";
+        if (!persistent_db_->is_shared()) {
+          consumer_group << '.' << host_name;
+        }
+
         std::vector<std::string> tag_filters;
         std::transform(inference_params.persistent_db.update_filters.begin(),
                        inference_params.persistent_db.update_filters.end(),
                        std::back_inserter(tag_filters), kafka_prepare_filter);
+
         persistent_db_source_ = std::make_unique<KafkaMessageSource<TypeHashKey>>(
-            inference_params.update_source.brokers, kafka_group_prefix + "persistent." + host_name,
-            tag_filters, inference_params.update_source.poll_timeout_ms,
+            inference_params.update_source.brokers, consumer_group.str(), tag_filters,
+            inference_params.update_source.poll_timeout_ms,
             inference_params.update_source.max_receive_buffer_size,
             inference_params.update_source.max_batch_size,
             inference_params.update_source.failure_backoff_ms);
       }
       break;
+
     default:
       HCTR_DIE("Unsupported update source!\n");
       break;
@@ -452,21 +454,12 @@ void parameter_server<TypeHashKey>::update_database_per_model(
   // TODO: Update embedding cache!
 
   // Turn on background updates.
-  if (cpu_memory_db_source_) {
-    cpu_memory_db_source_->enable([&](const std::string& tag, const size_t num_pairs,
-                                      const TypeHashKey* keys, const char* values,
-                                      const size_t value_size) -> bool {
+  if (volatile_db_source_) {
+    volatile_db_source_->enable([&](const std::string& tag, const size_t num_pairs,
+                                    const TypeHashKey* keys, const char* values,
+                                    const size_t value_size) -> bool {
       // Try a search. If we can find the value, override it. If not, do nothing.
-      return insert_fn(cpu_memory_db_, tag, num_pairs, keys, values, value_size);
-    });
-  }
-
-  if (distributed_db_source_) {
-    distributed_db_source_->enable([&](const std::string& tag, const size_t num_pairs,
-                                       const TypeHashKey* keys, const char* values,
-                                       const size_t value_size) -> bool {
-      // Try a search. If we can find the value, override it. If not, do nothing.
-      return insert_fn(distributed_db_, tag, num_pairs, keys, values, value_size);
+      return insert_fn(volatile_db_, tag, num_pairs, keys, values, value_size);
     });
   }
 
@@ -507,7 +500,7 @@ std::shared_ptr<embedding_interface> parameter_server<TypeHashKey>::GetEmbedding
     const std::string& model_name, int device_id) {
   auto it = model_cache_map.find(model_name);
   if (it == model_cache_map.end()) {
-    CK_THROW_(Error_t::WrongInput, "No such model: " + model_name);
+    return nullptr;
   } else {
     auto f = it->second.find(device_id);
     if (f == it->second.end()) {
@@ -571,8 +564,10 @@ void parameter_server<TypeHashKey>::look_up(const TypeHashKey* h_embeddingcolumn
       // Layer 0: Do a sequential lookup. Remember missing keys.
       std::vector<size_t> indices;
       std::vector<size_t> missing;
+      std::mutex missing_guard;
 
-      MissingKeyCallback record_missing_fn = [&missing](size_t index) -> void {
+      MissingKeyCallback record_missing_fn = [&missing, &missing_guard](size_t index) -> void {
+        std::lock_guard<std::mutex> lock(missing_guard);
         missing.push_back(index);
       };
 

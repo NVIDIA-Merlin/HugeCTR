@@ -564,6 +564,9 @@ model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Interaction,
                             top_names = ["interaction1"]))
 ```
 
+**Important Notes**:
+There are optimizations that can be employed on the `Interaction` layer and the following `GroupFusedInnerProduct` layer during fp16 training. In this case, you should specify two output tensor names for the `Interaction` layer, and use them as the input tensors for the following `GroupFusedInnerProduct` layer. Please refer to the example of [GroupDenseLayer](python_interface.md#groupdenselayer) for the detailed usage.
+
 ### Add Layer
 The Add layer adds up an arbitrary number of tensors that have the same size in an element-wise manner.
 

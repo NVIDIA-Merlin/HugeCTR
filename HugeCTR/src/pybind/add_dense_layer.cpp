@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-#include <HugeCTR/pybind/model.hpp>
 #include <layer.hpp>
 #include <layers/add_layer.hpp>
 #include <layers/batch_norm_layer.hpp>
@@ -47,6 +46,7 @@
 #include <layers/softmax_layer.hpp>
 #include <layers/sub_layer.hpp>
 #include <layers/weight_multiply_layer.hpp>
+#include <pybind/model.hpp>
 #include <regularizers/l1_regularizer.hpp>
 #include <regularizers/l2_regularizer.hpp>
 #include <regularizers/no_regularizer.hpp>
@@ -771,21 +771,18 @@ static std::shared_ptr<Regularizer<T>> create_regularizer(
   return reg;
 }
 
-void add_dense_layer_internal(DenseLayer& dense_layer, std::vector<TensorEntry>& tensor_entries,
-                              const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
-                              const std::shared_ptr<BufferBlock2<float>>& weight_buff,
-                              const std::shared_ptr<BufferBlock2<__half>>& weight_buff_half,
-                              const std::shared_ptr<BufferBlock2<float>>& wgrad_buff,
-                              const std::shared_ptr<BufferBlock2<__half>>& wgrad_buff_half,
-                              Tensor2<float>& loss_tensor,
-                              std::vector<std::unique_ptr<Layer>>& layers,
-                              std::unique_ptr<ILoss>& loss, bool enable_cuda_graph,
-                              metrics::RawMetricMap* raw_metrics, int num_networks_in_global,
-                              const std::shared_ptr<GPUResource>& gpu_resource,
-                              bool use_mixed_precision, bool enable_tf32_compute, float scaler,
-                              bool use_algorithm_search, std::vector<Layer*>* top_layers = nullptr,
-                              std::vector<Layer*>* bottom_layers = nullptr,
-                              bool dlrm_bottom_mlp = false) {
+void Model::add_dense_layer_internal(
+    DenseLayer& dense_layer, std::vector<TensorEntry>& tensor_entries,
+    const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
+    const std::shared_ptr<BufferBlock2<float>>& weight_buff,
+    const std::shared_ptr<BufferBlock2<__half>>& weight_buff_half,
+    const std::shared_ptr<BufferBlock2<float>>& wgrad_buff,
+    const std::shared_ptr<BufferBlock2<__half>>& wgrad_buff_half, Tensor2<float>& loss_tensor,
+    std::vector<std::unique_ptr<Layer>>& layers, std::unique_ptr<ILoss>& loss,
+    bool enable_cuda_graph, bool async_mlp_wgrad, metrics::RawMetricMap* raw_metrics,
+    int num_networks_in_global, const std::shared_ptr<GPUResource>& gpu_resource,
+    bool use_mixed_precision, bool enable_tf32_compute, float scaler, bool use_algorithm_search,
+    std::vector<Layer*>* top_layers, std::vector<Layer*>* bottom_layers, bool dlrm_bottom_mlp) {
   bool skip_dgrad = layers.size() == 0;
   Layer_t layer_type = dense_layer.layer_type;
   const auto& layer_type_to_string =
@@ -965,7 +962,19 @@ void add_dense_layer_internal(DenseLayer& dense_layer, std::vector<TensorEntry>&
       size_t output = dense_layer.num_output;
       auto pos_type = dense_layer.pos_type;
       auto act_type = dense_layer.act_type;
+      bool head_mask_in = pos_type == FcPosition_t::Head && input_size == 2;
+      if (skip_dgrad && pos_type == FcPosition_t::Head && input_size == 2) {
+        CK_THROW_(Error_t::WrongInput,
+                  "FusedInnerProduct Head Layer should have only one input tensors when it is the "
+                  "first dense layer");
+      }
+      if (async_mlp_wgrad && !skip_dgrad && pos_type == FcPosition_t::Head && input_size == 1) {
+        CK_THROW_(Error_t::WrongInput,
+                  "FusedInnerProduct Head Layer should have two input tensors when turning on "
+                  "async wgrad knob");
+      }
       if (pos_type == FcPosition_t::Head && input_size == 1 && output_size == 4) {
+      } else if (pos_type == FcPosition_t::Head && input_size == 2 && output_size == 4) {
       } else if (pos_type == FcPosition_t::Body && input_size == 4 && output_size == 4) {
       } else if (pos_type == FcPosition_t::Tail && input_size == 4 && output_size == 1) {
       } else if (pos_type == FcPosition_t::Isolated && input_size == 1 && output_size == 1) {
@@ -975,12 +984,10 @@ void add_dense_layer_internal(DenseLayer& dense_layer, std::vector<TensorEntry>&
                   "The position and dimension of bottom and top layer aren't compatible: " +
                       LAYER_TYPE_TO_STRING_MP[layer_type]);
       }
-
       if (act_type == Activation_t::None && pos_type != FcPosition_t::Tail) {
         CK_THROW_(Error_t::WrongInput,
                   "The layer without activation function must be the last layer in MLP.");
       }
-
       if (use_mixed_precision) {
         Tensor2<__half> train_in_tensor =
             Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
@@ -989,6 +996,8 @@ void add_dense_layer_internal(DenseLayer& dense_layer, std::vector<TensorEntry>&
           mask_in_tensor = Tensor2<__half>::stretch_from(input_output_info.inputs[1]);
           dRelu_in_tensor = Tensor2<__half>::stretch_from(input_output_info.inputs[2]);
           db_in_tensor = Tensor2<__half>::stretch_from(input_output_info.inputs[3]);
+        } else if (pos_type == FcPosition_t::Head && input_size == 2) {
+          mask_in_tensor = Tensor2<__half>::stretch_from(input_output_info.inputs[1]);
         }
         Tensor2<__half> train_out_tensor, mask_out_tensor, dRelu_out_tensor, db_out_tensor;
         blobs_buff->reserve({(train_in_tensor.get_dimensions())[0], output}, &train_out_tensor);
@@ -1005,7 +1014,7 @@ void add_dense_layer_internal(DenseLayer& dense_layer, std::vector<TensorEntry>&
               weight_buff, weight_buff_half, wgrad_buff_half, blobs_buff, train_in_tensor,
               mask_in_tensor, dRelu_in_tensor, db_in_tensor, train_out_tensor, mask_out_tensor,
               dRelu_out_tensor, db_out_tensor, gpu_resource, pos_type, act_type, skip_dgrad,
-              initializer_types));
+              initializer_types, async_mlp_wgrad, head_mask_in));
         }
 
         if (pos_type == FcPosition_t::Tail || pos_type == FcPosition_t::Isolated ||
@@ -1069,6 +1078,22 @@ void add_dense_layer_internal(DenseLayer& dense_layer, std::vector<TensorEntry>&
       break;
     }
     case Layer_t::Interaction: {
+      if (input_output_info.inputs.size() != 2) {
+        CK_THROW_(Error_t::WrongInput, "InteractionLayer needs two input tensors ");
+      }
+      if (input_output_info.output_names.size() != 2 &&
+          input_output_info.output_names.size() != 1) {
+        CK_THROW_(Error_t::WrongInput, "InteractionLayer should have one or two output tensors");
+      }
+      if (input_output_info.output_names.size() == 1 && async_mlp_wgrad == true) {
+        CK_THROW_(
+            Error_t::WrongInput,
+            "InteractionLayer should have two output tensors when turning on async wgrad knob");
+      }
+      if (input_output_info.output_names.size() == 2 && !use_mixed_precision) {
+        CK_THROW_(Error_t::WrongInput,
+                  "InteractionLayer<float> should have only one output tensor");
+      }
       if (use_mixed_precision) {
         if (gpu_resource->get_cc_major() < 7) {
           CK_THROW_(Error_t::WrongInput, "InteractionLayer<__half> is not supported in SM " +
@@ -1077,11 +1102,20 @@ void add_dense_layer_internal(DenseLayer& dense_layer, std::vector<TensorEntry>&
         }
         Tensor2<__half> in_mlp_tensor = Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
         Tensor2<__half> in_emb_tensor = Tensor2<__half>::stretch_from(input_output_info.inputs[1]);
-        Tensor2<__half> out_tensor;
-        layers.emplace_back(new InteractionLayer<__half>(in_mlp_tensor, in_emb_tensor, out_tensor,
-                                                         blobs_buff, gpu_resource,
-                                                         use_mixed_precision, enable_tf32_compute));
-        output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
+        Tensor2<__half> out_tensor, grad_tensor;
+        if (input_output_info.output_names.size() == 2) {
+          layers.emplace_back(new InteractionLayer<__half>(
+              in_mlp_tensor, in_emb_tensor, out_tensor, grad_tensor, blobs_buff, gpu_resource,
+              use_mixed_precision, enable_tf32_compute));
+          output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
+          output_tensor_entries.push_back(
+              {input_output_info.output_names[1], grad_tensor.shrink()});
+        } else {
+          layers.emplace_back(
+              new InteractionLayer<__half>(in_mlp_tensor, in_emb_tensor, out_tensor, blobs_buff,
+                                           gpu_resource, use_mixed_precision, enable_tf32_compute));
+          output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
+        }
       } else {
         Tensor2<float> in_mlp_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
         Tensor2<float> in_emb_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[1]);
@@ -1510,41 +1544,29 @@ void add_dense_layer_internal(DenseLayer& dense_layer, std::vector<TensorEntry>&
   }
 }
 
-void add_dense_layer(
-    DenseLayer& dense_layer, std::vector<std::vector<TensorEntry>>& train_tensor_entries_list,
-    std::vector<std::vector<TensorEntry>>& evaluate_tensor_entries_list,
-    const std::shared_ptr<ResourceManager>& resource_manager, bool use_mixed_precision,
-    bool enable_tf32_compute, float scaler, bool use_algorithm_search, bool use_cuda_graph,
-    std::vector<std::shared_ptr<Network>>& networks,
-    std::vector<std::shared_ptr<GeneralBuffer2<CudaAllocator>>>& blobs_buff_list,
-    std::vector<std::shared_ptr<BufferBlock2<float>>>& train_weight_buff_list,
-    std::vector<std::shared_ptr<BufferBlock2<__half>>>& train_weight_buff_half_list,
-    std::vector<std::shared_ptr<BufferBlock2<float>>>& wgrad_buff_list,
-    std::vector<std::shared_ptr<BufferBlock2<__half>>>& wgrad_buff_half_list,
-    std::vector<std::shared_ptr<BufferBlock2<float>>>& evaluate_weight_buff_list,
-    std::vector<std::shared_ptr<BufferBlock2<__half>>>& evaluate_weight_buff_half_list,
-    std::vector<std::shared_ptr<BufferBlock2<float>>>& wgrad_buff_placeholder_list,
-    std::vector<std::shared_ptr<BufferBlock2<__half>>>& wgrad_buff_half_placeholder_list,
-    bool dlrm_bottom_mlp) {
-  for (size_t i = 0; i < resource_manager->get_local_gpu_count(); i++) {
+void Model::add_dense_layer(DenseLayer& dense_layer) {
+  for (size_t i = 0; i < resource_manager_->get_local_gpu_count(); i++) {
     // add dense layer for train
     add_dense_layer_internal(
-        dense_layer, train_tensor_entries_list[i], blobs_buff_list[i], train_weight_buff_list[i],
-        train_weight_buff_half_list[i], wgrad_buff_list[i], wgrad_buff_half_list[i],
-        networks[i]->train_loss_tensor_, networks[i]->train_layers_, networks[i]->train_loss_,
-        networks[i]->enable_cuda_graph_, nullptr, resource_manager->get_global_gpu_count(),
-        resource_manager->get_local_gpu(i), use_mixed_precision, enable_tf32_compute, scaler,
-        use_algorithm_search, &networks[i]->top_layers_, &networks[i]->bottom_layers_,
-        dlrm_bottom_mlp);
+        dense_layer, train_tensor_entries_list_[i], blobs_buff_list_[i], train_weight_buff_list_[i],
+        train_weight_buff_half_list_[i], wgrad_buff_list_[i], wgrad_buff_half_list_[i],
+        networks_[i]->train_loss_tensor_, networks_[i]->train_layers_, networks_[i]->train_loss_,
+        networks_[i]->enable_cuda_graph_, solver_.async_mlp_wgrad, nullptr,
+        resource_manager_->get_global_gpu_count(), resource_manager_->get_local_gpu(i),
+        solver_.use_mixed_precision, solver_.enable_tf32_compute, solver_.scaler,
+        solver_.use_algorithm_search, &networks_[i]->top_layers_, &networks_[i]->bottom_layers_,
+        dlrm_bottom_mlp_);
     // add dense layer for evaluation
-    add_dense_layer_internal(dense_layer, evaluate_tensor_entries_list[i], blobs_buff_list[i],
-                             evaluate_weight_buff_list[i], evaluate_weight_buff_half_list[i],
-                             wgrad_buff_placeholder_list[i], wgrad_buff_half_placeholder_list[i],
-                             networks[i]->evaluate_loss_tensor_, networks[i]->evaluate_layers_,
-                             networks[i]->evaluate_loss_, networks[i]->enable_cuda_graph_,
-                             &(networks[i]->raw_metrics_), resource_manager->get_global_gpu_count(),
-                             resource_manager->get_local_gpu(i), use_mixed_precision,
-                             enable_tf32_compute, scaler, use_algorithm_search);
+    add_dense_layer_internal(dense_layer, evaluate_tensor_entries_list_[i], blobs_buff_list_[i],
+                             evaluate_weight_buff_list_[i], evaluate_weight_buff_half_list_[i],
+                             wgrad_buff_placeholder_list_[i], wgrad_buff_half_placeholder_list_[i],
+                             networks_[i]->evaluate_loss_tensor_, networks_[i]->evaluate_layers_,
+                             networks_[i]->evaluate_loss_, networks_[i]->enable_cuda_graph_,
+                             solver_.async_mlp_wgrad, &(networks_[i]->raw_metrics_),
+                             resource_manager_->get_global_gpu_count(),
+                             resource_manager_->get_local_gpu(i), solver_.use_mixed_precision,
+                             solver_.enable_tf32_compute, solver_.scaler,
+                             solver_.use_algorithm_search, nullptr, nullptr, false);
   }
 }
 
@@ -1623,8 +1645,6 @@ void calculate_tensor_dimensions(std::map<std::string, std::vector<int>>& tensor
       int slot_num = tensor_shape_info_raw[dense_layer.bottom_names[1]][1];
       int vec_size = tensor_shape_info_raw[dense_layer.bottom_names[1]][2];
       int out_dim = vec_size + (slot_num + 1) * (slot_num + 2) / 2 - (slot_num + 1) + 1;
-      tensor_shape_info_raw.insert(
-          std::make_pair(dense_layer.top_names[0], std::vector<int>{batch_size, out_dim}));
       for (const auto& top_name : dense_layer.top_names) {
         tensor_shape_info_raw.insert(
             std::make_pair(top_name, std::vector<int>{batch_size, out_dim}));

@@ -19,14 +19,13 @@ with open(args.config_output, 'w') as f:
   f.write(config_pbtxt)
 
 with open(args.ps_template, 'r') as f:
-  ps_json_tempalte = json.load(f)
+  ps_json_template = json.load(f)
 
 def str2bool(v):
   return v.lower() in ('true')
 
-ps_json_tempalte['models'][0]['max_batch_size'] = args.batchsize
-ps_json_tempalte['models'][0]['mixed_precision'] = str2bool(args.mixed_precision)
+ps_json_template['models'][0]['max_batch_size'] = args.batchsize
+ps_json_template['models'][0]['mixed_precision'] = str2bool(args.mixed_precision)
 
 with open(args.ps_output, 'w') as f:
-  json.dump(ps_json_tempalte, f)
-
+  json.dump(ps_json_template, f)

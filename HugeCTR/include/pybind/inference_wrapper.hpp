@@ -290,20 +290,28 @@ float InferenceSessionPy::evaluate_(const size_t num_batches, const std::string&
     size_t row_ptrs_offset = 0;
     std::vector<TypeKey> h_reader_keys(inference_params_.max_batchsize *
                                        inference_parser_.max_feature_num_per_sample);
+    std::vector<std::vector<TypeKey>> h_reader_row_ptrs_list;
     for (size_t i = 0; i < inference_parser_.num_embedding_tables; i++) {
-      CK_CUDA_THROW_(cudaMemcpyAsync(h_reader_keys.data() + keys_offset, d_reader_keys_list_[i],
-                                     keys_elements_list[i] * sizeof(TypeKey),
-                                     cudaMemcpyDeviceToHost,
-                                     resource_manager_->get_local_gpu(0)->get_stream()));
+      std::vector<TypeKey> h_reader_row_ptrs(row_ptr_elements_list[i]);
       convert_array_on_device(
           d_row_ptrs_ + row_ptrs_offset, reinterpret_cast<TypeKey*>(d_reader_row_ptrs_list_[i]),
           row_ptr_elements_list[i], resource_manager_->get_local_gpu(0)->get_stream());
-      keys_offset += keys_elements_list[i];
+      CK_CUDA_THROW_(cudaMemcpyAsync(h_reader_row_ptrs.data(), d_reader_row_ptrs_list_[i],
+                                     row_ptr_elements_list[i] * sizeof(TypeKey),
+                                     cudaMemcpyDeviceToHost,
+                                     resource_manager_->get_local_gpu(0)->get_stream()));
+      CK_CUDA_THROW_(cudaStreamSynchronize(resource_manager_->get_local_gpu(0)->get_stream()));
+      size_t num_keys = h_reader_row_ptrs.back() - h_reader_row_ptrs.front();
+      h_reader_row_ptrs_list.push_back(h_reader_row_ptrs);
+      CK_CUDA_THROW_(cudaMemcpyAsync(h_reader_keys.data() + keys_offset, d_reader_keys_list_[i],
+                                     num_keys * sizeof(TypeKey), cudaMemcpyDeviceToHost,
+                                     resource_manager_->get_local_gpu(0)->get_stream()));
+      keys_offset += num_keys;
       row_ptrs_offset += row_ptr_elements_list[i];
     }
     distribute_keys_for_inference(reinterpret_cast<TypeKey*>(h_embeddingcolumns_),
-                                  h_reader_keys.data(), inference_params_.max_batchsize,
-                                  inference_parser_.max_feature_num_for_tables);
+                                  h_reader_keys.data(), current_batchsize, h_reader_row_ptrs_list,
+                                  inference_parser_.slot_num_for_tables);
     InferenceSession::predict(d_dense_, h_embeddingcolumns_, d_row_ptrs_, d_output_,
                               current_batchsize);
     metric->set_current_batch_size(current_batchsize);
@@ -337,20 +345,28 @@ pybind11::array_t<float> InferenceSessionPy::predict_(
     size_t row_ptrs_offset = 0;
     std::vector<TypeKey> h_reader_keys(inference_params_.max_batchsize *
                                        inference_parser_.max_feature_num_per_sample);
+    std::vector<std::vector<TypeKey>> h_reader_row_ptrs_list;
     for (size_t i = 0; i < inference_parser_.num_embedding_tables; i++) {
-      CK_CUDA_THROW_(cudaMemcpyAsync(h_reader_keys.data() + keys_offset, d_reader_keys_list_[i],
-                                     keys_elements_list[i] * sizeof(TypeKey),
-                                     cudaMemcpyDeviceToHost,
-                                     resource_manager_->get_local_gpu(0)->get_stream()));
+      std::vector<TypeKey> h_reader_row_ptrs(row_ptr_elements_list[i]);
       convert_array_on_device(
           d_row_ptrs_ + row_ptrs_offset, reinterpret_cast<TypeKey*>(d_reader_row_ptrs_list_[i]),
           row_ptr_elements_list[i], resource_manager_->get_local_gpu(0)->get_stream());
-      keys_offset += keys_elements_list[i];
+      CK_CUDA_THROW_(cudaMemcpyAsync(h_reader_row_ptrs.data(), d_reader_row_ptrs_list_[i],
+                                     row_ptr_elements_list[i] * sizeof(TypeKey),
+                                     cudaMemcpyDeviceToHost,
+                                     resource_manager_->get_local_gpu(0)->get_stream()));
+      CK_CUDA_THROW_(cudaStreamSynchronize(resource_manager_->get_local_gpu(0)->get_stream()));
+      size_t num_keys = h_reader_row_ptrs.back() - h_reader_row_ptrs.front();
+      h_reader_row_ptrs_list.push_back(h_reader_row_ptrs);
+      CK_CUDA_THROW_(cudaMemcpyAsync(h_reader_keys.data() + keys_offset, d_reader_keys_list_[i],
+                                     num_keys * sizeof(TypeKey), cudaMemcpyDeviceToHost,
+                                     resource_manager_->get_local_gpu(0)->get_stream()));
+      keys_offset += num_keys;
       row_ptrs_offset += row_ptr_elements_list[i];
     }
     distribute_keys_for_inference(reinterpret_cast<TypeKey*>(h_embeddingcolumns_),
-                                  h_reader_keys.data(), inference_params_.max_batchsize,
-                                  inference_parser_.max_feature_num_for_tables);
+                                  h_reader_keys.data(), current_batchsize, h_reader_row_ptrs_list,
+                                  inference_parser_.slot_num_for_tables);
     InferenceSession::predict(d_dense_, h_embeddingcolumns_, d_row_ptrs_, d_output_,
                               current_batchsize);
     CK_CUDA_THROW_(cudaMemcpyAsync(
@@ -437,46 +453,28 @@ void InferencePybind(pybind11::module& m) {
            &HugeCTR::parameter_server<unsigned int>::refresh_embedding_cache,
            pybind11::arg("model_name"), pybind11::arg("device_id"));
 
-  pybind11::class_<HugeCTR::CPUMemoryDatabaseParams,
-                   std::shared_ptr<HugeCTR::CPUMemoryDatabaseParams>>(infer,
-                                                                      "CPUMemoryDatabaseParams")
+  pybind11::class_<HugeCTR::VolatileDatabaseParams,
+                   std::shared_ptr<HugeCTR::VolatileDatabaseParams>>(infer,
+                                                                     "VolatileDatabaseParams")
       .def(pybind11::init<DatabaseType_t,
                           // Backend specific.
-                          CPUMemoryHashMapAlgorithm_t, size_t, size_t, DatabaseOverflowPolicy_t,
-                          double,
+                          const std::string&, const std::string&, const std::string&,
+                          DatabaseHashMapAlgorithm_t, size_t, size_t, size_t,
+                          // Overflow handling related.
+                          size_t, DatabaseOverflowPolicy_t, double,
                           // Initialization related.
                           double,
                           // Real-time update mechanism related.
                           const std::vector<std::string>&>(),
            pybind11::arg("type") = DatabaseType_t::ParallelHashMap,
            // Backend specific.
-           pybind11::arg("algorithm") = CPUMemoryHashMapAlgorithm_t::PHM,
-           pybind11::arg("num_partitions") = std::min(16U, std::thread::hardware_concurrency()),
-           pybind11::arg("overflow_margin") = std::numeric_limits<size_t>::max(),
-           pybind11::arg("overflow_policy") = DatabaseOverflowPolicy_t::EvictOldest,
-           pybind11::arg("overflow_resolution_target") = 0.8,
-           // Initialization related.
-           pybind11::arg("initial_cache_rate") = 1.0,
-           // Real-time update mechanism related.
-           pybind11::arg("update_filters") = std::vector<std::string>{".+"});
-
-  pybind11::class_<HugeCTR::DistributedDatabaseParams,
-                   std::shared_ptr<HugeCTR::DistributedDatabaseParams>>(infer,
-                                                                        "DistributedDatabaseParams")
-      .def(pybind11::init<DatabaseType_t,
-                          // Backend specific.
-                          const std::string&, const std::string&, const std::string&, size_t,
-                          size_t, size_t, size_t, DatabaseOverflowPolicy_t, double,
-                          // Initialization related.
-                          double,
-                          // Real-time update mechanism related.
-                          const std::vector<std::string>&>(),
-           pybind11::arg("type") = DatabaseType_t::Disabled,
-           // Backend specific.
            pybind11::arg("address") = "127.0.0.1:7000", pybind11::arg("user_name") = "default",
-           pybind11::arg("password") = "", pybind11::arg("num_partitions") = 8,
+           pybind11::arg("password") = "",
+           pybind11::arg("algorithm") = DatabaseHashMapAlgorithm_t::PHM,
+           pybind11::arg("num_partitions") = std::min(16u, std::thread::hardware_concurrency()),
            pybind11::arg("max_get_batch_size") = 10'000,
            pybind11::arg("max_set_batch_size") = 10'000,
+           // Overflow handling related.
            pybind11::arg("overflow_margin") = std::numeric_limits<size_t>::max(),
            pybind11::arg("overflow_policy") = DatabaseOverflowPolicy_t::EvictOldest,
            pybind11::arg("overflow_resolution_target") = 0.8,
@@ -521,9 +519,8 @@ void InferencePybind(pybind11::module& m) {
                           // HugeCTR::DATABASE_TYPE, const std::string&, const std::string&,
                           // const float,
                           const int, const int, const float, const std::vector<int>&,
-                          const std::vector<float>&, const CPUMemoryDatabaseParams&,
-                          const DistributedDatabaseParams&, const PersistentDatabaseParams&,
-                          const UpdateSourceParams&>(),
+                          const std::vector<float>&, const VolatileDatabaseParams&,
+                          const PersistentDatabaseParams&, const UpdateSourceParams&>(),
            pybind11::arg("model_name"), pybind11::arg("max_batchsize"),
            pybind11::arg("hit_rate_threshold"), pybind11::arg("dense_model_file"),
            pybind11::arg("sparse_model_files"), pybind11::arg("device_id"),
@@ -536,8 +533,8 @@ void InferencePybind(pybind11::module& m) {
            pybind11::arg("cache_refresh_percentage_per_iteration") = 0.1,
            pybind11::arg("deployed_devices") = std::vector<int>{0},
            pybind11::arg("default_value_for_each_table") = std::vector<float>{0.0f},
-           pybind11::arg("cpu_memory_db") = CPUMemoryDatabaseParams{},
-           pybind11::arg("distributed_db") = DistributedDatabaseParams{},
+           // Database backend.
+           pybind11::arg("volatile_db") = VolatileDatabaseParams{},
            pybind11::arg("persistent_db") = PersistentDatabaseParams{},
            pybind11::arg("update_source") = UpdateSourceParams{});
 
