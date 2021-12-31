@@ -55,7 +55,15 @@ parameter_server<TypeHashKey>::parameter_server(
     CK_THROW_(Error_t::WrongInput, "Wrong input: The size of input args are not consistent.");
   }
 
-  parse_networks_per_model_(model_config_path, inference_params_array);
+  for (unsigned int i = 0; i < model_config_path.size(); i++) {
+    HCTR_THROW_IF(
+        inference_params_array[i].volatile_db != inference_params_array[0].volatile_db ||
+            inference_params_array[i].persistent_db != inference_params_array[0].persistent_db,
+        Error_t::WrongInput,
+        "Inconsistent database setup. HugeCTR paramter server does currently not support hybrid "
+        "database deployment.");
+    parse_networks_per_model(model_config_path[i], inference_params_array[i]);
+  }
 
   if (ps_config_.distributed_emb_.size() != model_config_path.size() ||
       ps_config_.embedding_vec_size_.size() != model_config_path.size() ||
@@ -167,28 +175,7 @@ parameter_server<TypeHashKey>::parameter_server(
     // The operation here is just to keep the logic of device_id in the python api
     // unchanged
     //*********
-    if (inference_params_array[i].deployed_devices.empty()) {
-      CK_THROW_(Error_t::WrongInput, "The list of deployed devices is empty.");
-    }
-    if (std::find(inference_params_array[i].deployed_devices.begin(),
-                  inference_params_array[i].deployed_devices.end(),
-                  inference_params_array[i].device_id) ==
-        inference_params_array[i].deployed_devices.end()) {
-      CK_THROW_(Error_t::WrongInput, "The device id is not in the list of deployed devices.");
-    }
-    std::map<int64_t, std::shared_ptr<embedding_interface>> embedding_cache_map;
-    for (auto device_id : inference_params_array[i].deployed_devices) {
-      HCTR_LOG(INFO, WORLD, "Create embedding cache in device %d.\n", device_id);
-      inference_params_array[i].device_id = device_id;
-      embedding_cache_map[device_id] =
-          std::shared_ptr<embedding_interface>(embedding_interface::Create_Embedding_Cache(
-              model_config_path[i], inference_params_array[i], this));
-    }
-    model_cache_map[inference_params_array[i].model_name] = embedding_cache_map;
-    memory_pool_config.num_woker_buffer_size_per_model[inference_params_array[i].model_name] =
-        inference_params_array[i].number_of_worker_buffers_in_pool;
-    memory_pool_config.num_refresh_buffer_size_per_model[inference_params_array[i].model_name] =
-        inference_params_array[i].number_of_refresh_buffers_in_pool;
+    create_embedding_cache_per_model(model_config_path[i], inference_params_array[i]);
   }
 
   // Populate DB stack.
@@ -203,36 +190,28 @@ parameter_server<TypeHashKey>::parameter_server(
 }
 
 template <typename TypeHashKey>
-void parameter_server<TypeHashKey>::parse_networks_per_model_(
-    const std::vector<std::string>& model_config_path,
-    std::vector<InferenceParams>& inference_params_array) {
+void parameter_server<TypeHashKey>::parse_networks_per_model(
+    const std::string& model_config_path,
+    InferenceParams& inference_params_array) {
   // Initialize <model_name, id> map
-  for (unsigned int i = 0; i < inference_params_array.size(); i++) {
-    ps_config_.model_name_id_map_.emplace(inference_params_array[i].model_name, (size_t)i);
+  if (ps_config_.model_name_id_map_.count(inference_params_array.model_name)==0){
+    ps_config_.model_name_id_map_.emplace(inference_params_array.model_name, (size_t)ps_config_.model_name_id_map_.size());
   }
 
   // Initialize for each model
-  for (unsigned int i = 0; i < model_config_path.size(); i++) {
-    HCTR_THROW_IF(
-        inference_params_array[i].volatile_db != inference_params_array[0].volatile_db ||
-            inference_params_array[i].persistent_db != inference_params_array[0].persistent_db,
-        Error_t::WrongInput,
-        "Inconsistent database setup. HugeCTR paramter server does currently not support hybrid "
-        "database deployment.");
-
     // Open model config file and input model json config
-    nlohmann::json model_config(read_json_file(model_config_path[i]));
+    nlohmann::json model_config(read_json_file(model_config_path));
 
     // Read inference config
     std::vector<std::string> emb_file_path;
-    if (inference_params_array[i].sparse_model_files.size() > 1) {
-      for (unsigned int j = 0; j < inference_params_array[i].sparse_model_files.size(); j++) {
-        emb_file_path.emplace_back(inference_params_array[i].sparse_model_files[j]);
+    if (inference_params_array.sparse_model_files.size() > 1) {
+      for (unsigned int j = 0; j < inference_params_array.sparse_model_files.size(); j++) {
+        emb_file_path.emplace_back(inference_params_array.sparse_model_files[j]);
       }
     } else {
-      emb_file_path.emplace_back(inference_params_array[i].sparse_model_files[0]);
+      emb_file_path.emplace_back(inference_params_array.sparse_model_files[0]);
     }
-    ps_config_.emb_file_name_[inference_params_array[i].model_name] = (emb_file_path);
+    ps_config_.emb_file_name_[inference_params_array.model_name] = (emb_file_path);
 
     // Read embedding layer config
     const nlohmann::json& j_layers = get_json(model_config, "layers");
@@ -269,10 +248,56 @@ void parameter_server<TypeHashKey>::parse_networks_per_model_(
       }
     }
     ps_config_.distributed_emb_.emplace_back(distributed_emb);
-    ps_config_.emb_table_name_[inference_params_array[i].model_name] = emb_table_name;
-    ps_config_.embedding_vec_size_[inference_params_array[i].model_name] = embedding_vec_size;
-    ps_config_.default_emb_vec_value_.emplace_back(
-        inference_params_array[i].default_value_for_each_table);
+    ps_config_.emb_table_name_[inference_params_array.model_name] = emb_table_name;
+    ps_config_.embedding_vec_size_[inference_params_array.model_name] = embedding_vec_size;
+    ps_config_.default_emb_vec_value_.emplace_back(inference_params_array.default_value_for_each_table);
+  
+}
+
+template <typename TypeHashKey>
+void parameter_server<TypeHashKey>::destory_embedding_cache_per_model(
+    const std::string& model_name) {
+  if (model_cache_map.find(model_name) != model_cache_map.end()) {
+    for (auto& f : model_cache_map[model_name]) {
+      f.second->finalize();
+    }
+    model_cache_map.erase(model_name);
+  }
+  bufferpool->DestoryManagerPool(model_name);
+}
+
+template <typename TypeHashKey>
+void parameter_server<TypeHashKey>::create_embedding_cache_per_model(
+    const std::string& model_config_path, InferenceParams& inference_params_array) {
+  if (inference_params_array.deployed_devices.empty()) {
+    CK_THROW_(Error_t::WrongInput, "The list of deployed devices is empty.");
+  }
+  if (std::find(inference_params_array.deployed_devices.begin(),
+                inference_params_array.deployed_devices.end(), inference_params_array.device_id) ==
+      inference_params_array.deployed_devices.end()) {
+    CK_THROW_(Error_t::WrongInput, "The device id is not in the list of deployed devices.");
+  }
+  std::map<int64_t, std::shared_ptr<embedding_interface>> embedding_cache_map;
+  for (auto device_id : inference_params_array.deployed_devices) {
+    HCTR_LOG(INFO, WORLD, "Create embedding cache in device %d.\n", device_id);
+    inference_params_array.device_id = device_id;
+    embedding_cache_map[device_id] =
+        std::shared_ptr<embedding_interface>(embedding_interface::Create_Embedding_Cache(
+            model_config_path, inference_params_array, this));
+  }
+  model_cache_map[inference_params_array.model_name] = embedding_cache_map;
+  memory_pool_config.num_woker_buffer_size_per_model[inference_params_array.model_name] =
+      inference_params_array.number_of_worker_buffers_in_pool;
+  memory_pool_config.num_refresh_buffer_size_per_model[inference_params_array.model_name] =
+      inference_params_array.number_of_refresh_buffers_in_pool;
+
+  if (bufferpool != nullptr) {
+    bufferpool->_create_memory_pool_per_model(
+        inference_params_array.model_name, inference_params_array.number_of_worker_buffers_in_pool,
+        embedding_cache_map, CACHE_SPACE_TYPE::WORKER);
+    bufferpool->_create_memory_pool_per_model(
+        inference_params_array.model_name, inference_params_array.number_of_refresh_buffers_in_pool,
+        embedding_cache_map, CACHE_SPACE_TYPE::REFRESHER);
   }
 }
 
@@ -477,7 +502,7 @@ std::shared_ptr<embedding_interface> parameter_server<TypeHashKey>::GetEmbedding
     const std::string& model_name, int device_id) {
   auto it = model_cache_map.find(model_name);
   if (it == model_cache_map.end()) {
-    CK_THROW_(Error_t::WrongInput, "No such model: " + model_name);
+    return nullptr;
   } else {
     auto f = it->second.find(device_id);
     if (f == it->second.end()) {

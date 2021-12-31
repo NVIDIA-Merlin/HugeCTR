@@ -290,20 +290,28 @@ float InferenceSessionPy::evaluate_(const size_t num_batches, const std::string&
     size_t row_ptrs_offset = 0;
     std::vector<TypeKey> h_reader_keys(inference_params_.max_batchsize *
                                        inference_parser_.max_feature_num_per_sample);
+    std::vector<std::vector<TypeKey>> h_reader_row_ptrs_list;
     for (size_t i = 0; i < inference_parser_.num_embedding_tables; i++) {
-      CK_CUDA_THROW_(cudaMemcpyAsync(h_reader_keys.data() + keys_offset, d_reader_keys_list_[i],
-                                     keys_elements_list[i] * sizeof(TypeKey),
-                                     cudaMemcpyDeviceToHost,
-                                     resource_manager_->get_local_gpu(0)->get_stream()));
+      std::vector<TypeKey> h_reader_row_ptrs(row_ptr_elements_list[i]);
       convert_array_on_device(
           d_row_ptrs_ + row_ptrs_offset, reinterpret_cast<TypeKey*>(d_reader_row_ptrs_list_[i]),
           row_ptr_elements_list[i], resource_manager_->get_local_gpu(0)->get_stream());
-      keys_offset += keys_elements_list[i];
+      CK_CUDA_THROW_(cudaMemcpyAsync(h_reader_row_ptrs.data(), d_reader_row_ptrs_list_[i],
+                                     row_ptr_elements_list[i] * sizeof(TypeKey),
+                                     cudaMemcpyDeviceToHost,
+                                     resource_manager_->get_local_gpu(0)->get_stream()));
+      CK_CUDA_THROW_(cudaStreamSynchronize(resource_manager_->get_local_gpu(0)->get_stream()));
+      size_t num_keys = h_reader_row_ptrs.back() - h_reader_row_ptrs.front();
+      h_reader_row_ptrs_list.push_back(h_reader_row_ptrs);
+      CK_CUDA_THROW_(cudaMemcpyAsync(h_reader_keys.data() + keys_offset, d_reader_keys_list_[i],
+                                     num_keys * sizeof(TypeKey), cudaMemcpyDeviceToHost,
+                                     resource_manager_->get_local_gpu(0)->get_stream()));
+      keys_offset += num_keys;
       row_ptrs_offset += row_ptr_elements_list[i];
     }
     distribute_keys_for_inference(reinterpret_cast<TypeKey*>(h_embeddingcolumns_),
-                                  h_reader_keys.data(), inference_params_.max_batchsize,
-                                  inference_parser_.max_feature_num_for_tables);
+                                  h_reader_keys.data(), current_batchsize, h_reader_row_ptrs_list,
+                                  inference_parser_.slot_num_for_tables);
     InferenceSession::predict(d_dense_, h_embeddingcolumns_, d_row_ptrs_, d_output_,
                               current_batchsize);
     metric->set_current_batch_size(current_batchsize);
@@ -337,20 +345,28 @@ pybind11::array_t<float> InferenceSessionPy::predict_(
     size_t row_ptrs_offset = 0;
     std::vector<TypeKey> h_reader_keys(inference_params_.max_batchsize *
                                        inference_parser_.max_feature_num_per_sample);
+    std::vector<std::vector<TypeKey>> h_reader_row_ptrs_list;
     for (size_t i = 0; i < inference_parser_.num_embedding_tables; i++) {
-      CK_CUDA_THROW_(cudaMemcpyAsync(h_reader_keys.data() + keys_offset, d_reader_keys_list_[i],
-                                     keys_elements_list[i] * sizeof(TypeKey),
-                                     cudaMemcpyDeviceToHost,
-                                     resource_manager_->get_local_gpu(0)->get_stream()));
+      std::vector<TypeKey> h_reader_row_ptrs(row_ptr_elements_list[i]);
       convert_array_on_device(
           d_row_ptrs_ + row_ptrs_offset, reinterpret_cast<TypeKey*>(d_reader_row_ptrs_list_[i]),
           row_ptr_elements_list[i], resource_manager_->get_local_gpu(0)->get_stream());
-      keys_offset += keys_elements_list[i];
+      CK_CUDA_THROW_(cudaMemcpyAsync(h_reader_row_ptrs.data(), d_reader_row_ptrs_list_[i],
+                                     row_ptr_elements_list[i] * sizeof(TypeKey),
+                                     cudaMemcpyDeviceToHost,
+                                     resource_manager_->get_local_gpu(0)->get_stream()));
+      CK_CUDA_THROW_(cudaStreamSynchronize(resource_manager_->get_local_gpu(0)->get_stream()));
+      size_t num_keys = h_reader_row_ptrs.back() - h_reader_row_ptrs.front();
+      h_reader_row_ptrs_list.push_back(h_reader_row_ptrs);
+      CK_CUDA_THROW_(cudaMemcpyAsync(h_reader_keys.data() + keys_offset, d_reader_keys_list_[i],
+                                     num_keys * sizeof(TypeKey), cudaMemcpyDeviceToHost,
+                                     resource_manager_->get_local_gpu(0)->get_stream()));
+      keys_offset += num_keys;
       row_ptrs_offset += row_ptr_elements_list[i];
     }
     distribute_keys_for_inference(reinterpret_cast<TypeKey*>(h_embeddingcolumns_),
-                                  h_reader_keys.data(), inference_params_.max_batchsize,
-                                  inference_parser_.max_feature_num_for_tables);
+                                  h_reader_keys.data(), current_batchsize, h_reader_row_ptrs_list,
+                                  inference_parser_.slot_num_for_tables);
     InferenceSession::predict(d_dense_, h_embeddingcolumns_, d_row_ptrs_, d_output_,
                               current_batchsize);
     CK_CUDA_THROW_(cudaMemcpyAsync(
