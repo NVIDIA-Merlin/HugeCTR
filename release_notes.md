@@ -1,4 +1,16 @@
 # Release Notes
+## What's New in Version 3.3.1
++ **Hierarchical Parameter Server Enhancements**:
+    + **Online deployment of new models and recycling of old models**: In this release, HugeCTR Backend is fully compatible with the [model control protocol](https://github.com/triton-inference-server/server/blob/main/docs/protocol/extension_model_repository.md) of Triton. Adding the configuration of a new model to the [HPS configuration file](https://github.com/triton-inference-server/hugectr_backend#independent-parameter-server-configuration). The HugeCTR Backend has supported online deployment of new models by the Load API of Triton. The old models can also be recycled online by the [Unload API](https://github.com/triton-inference-server/server/blob/main/docs/protocol/extension_model_repository.md#unload).
+    + **Simplified database backend**: Multi-nodes, single-node and all other kinds of volatile database backends can now be configured using the same configuration object.
+    + **Multi-threaded optimization of Redis code**: ~2.3x speedup up over HugeCTR v3.3.
+    + **Fix to some issues**: Build HPS test environment and implement unit test of each component; Access violation issue of online Kafka updates; Parquet data reader incorrectly parses the index of categorical features in the case of multiple embedded tables; HPS Redis Backend overflow handling not invoked upon single insertions.
++ **New group of fused fully connected layers**: We support adding a group of fused fully connected layers when constructing the model graph. A concise Python interface is provided for users to adjust the number of layers, as well as to specify the output dimensions in each layer, which makes it easy to leverage the highly-optimized fused fully connected layer in HugeCTR. For more information, please refer to [GroupDenseLayer](docs/python_interface.md#groupdenselayer)
++ **Fix to some issues**: 
+   + Warnning is added for the case users forget to import mpi before launching multi-process job
+   + Removing massive log when runing with embedding training cache
+   + Removing lagacy conda related informations from documents
+
 ## What's New in Version 3.3
 
 + **Hierarchical Parameter Server**: 
