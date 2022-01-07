@@ -30,7 +30,28 @@ python3 test_sparse_emb_demo_model_single_worker.py \
         --save_params=1 \
         --generate_new_datas=1 \
         --use_hashtable=0
+python3 test_sparse_emb_demo_model_single_worker.py \
+        --gpu_num=8 --iter_num=100 \
+        --max_vocabulary_size_per_gpu=1024 \
+        --slot_num=10 --max_nnz=4 \
+        --embedding_vec_size=4 \
+        --combiner='mean' --global_batch_size=65536 \
+        --optimizer='adam' \
+        --save_params=1 \
+        --generate_new_datas=1 \
+        --use_hashtable=0 \
+        --mixed_precision=1
 
+python3 test_sparse_emb_demo_model_single_worker.py \
+        --gpu_num=8 --iter_num=100 \
+        --max_vocabulary_size_per_gpu=1024 \
+        --slot_num=10 --max_nnz=4 \
+        --embedding_vec_size=4 \
+        --combiner='mean' --global_batch_size=65536 \
+        --optimizer='plugin_adam' \
+        --save_params=1 \
+        --generate_new_datas=1 \
+        --mixed_precision=1
 python3 test_sparse_emb_demo_model_single_worker.py \
         --gpu_num=8 --iter_num=100 \
         --max_vocabulary_size_per_gpu=1024 \
@@ -86,6 +107,17 @@ python3 test_sparse_emb_demo_model_multi_worker.py \
         --optimizer='adam' \
         --generate_new_datas=1 \
         --save_params=1 \
+        --mixed_precision=1 \
+        --ips "localhost" "localhost"
+python3 test_sparse_emb_demo_model_multi_worker.py \
+        --local_gpu_num=4 --iter_num=100 \
+        --max_vocabulary_size_per_gpu=1024 \
+        --slot_num=10 --max_nnz=4 \
+        --embedding_vec_size=4 \
+        --combiner='mean' --global_batch_size=65536 \
+        --optimizer='adam' \
+        --generate_new_datas=1 \
+        --save_params=1 \
         --ips "localhost" "localhost"
 
 # ------ multi worker test within single worker but using different GPUs. restore
@@ -100,7 +132,6 @@ python3 test_sparse_emb_demo_model_multi_worker.py \
         --restore_params=1 \
         --ips "localhost" "localhost"
 
-
 # ---------------------------- Dense Embedding Layers testing ------------------- #
 # ---------- single node save testing ------- #
 python3 test_dense_emb_demo_model_single_worker.py \
@@ -113,7 +144,28 @@ python3 test_dense_emb_demo_model_single_worker.py \
         --save_params=1 \
         --generate_new_datas=1 \
         --use_hashtable=0
+python3 test_dense_emb_demo_model_single_worker.py \
+        --gpu_num=8 --iter_num=100 \
+        --max_vocabulary_size_per_gpu=1024 \
+        --slot_num=10 --nnz_per_slot=4 \
+        --embedding_vec_size=4 \
+        --global_batch_size=65536 \
+        --optimizer='adam' \
+        --save_params=1 \
+        --generate_new_datas=1 \
+        --use_hashtable=0 \
+        --mixed_precision=1
 
+python3 test_dense_emb_demo_model_single_worker.py \
+        --gpu_num=8 --iter_num=100 \
+        --max_vocabulary_size_per_gpu=1024 \
+        --slot_num=10 --nnz_per_slot=4 \
+        --embedding_vec_size=4 \
+        --global_batch_size=65536 \
+        --optimizer='plugin_adam' \
+        --save_params=1 \
+        --generate_new_datas=1 \
+        --mixed_precision=1
 python3 test_dense_emb_demo_model_single_worker.py \
         --gpu_num=8 --iter_num=100 \
         --max_vocabulary_size_per_gpu=1024 \
@@ -171,7 +223,30 @@ python3 test_dense_emb_demo_model_multi_worker.py \
         --generate_new_datas=1 \
         --ips "localhost" "localhost" \
         --use_hashtable=0
+python3 test_dense_emb_demo_model_multi_worker.py \
+        --local_gpu_num=4 --iter_num=100 \
+        --max_vocabulary_size_per_gpu=1024 \
+        --slot_num=10 --nnz_per_slot=4 \
+        --embedding_vec_size=4 \
+        --global_batch_size=65536 \
+        --optimizer='plugin_adam' \
+        --save_params=1 \
+        --generate_new_datas=1 \
+        --ips "localhost" "localhost" \
+        --use_hashtable=0 \
+        --mixed_precision=1
 
+python3 test_dense_emb_demo_model_multi_worker.py \
+        --local_gpu_num=4 --iter_num=100 \
+        --max_vocabulary_size_per_gpu=1024 \
+        --slot_num=10 --nnz_per_slot=4 \
+        --embedding_vec_size=4 \
+        --global_batch_size=65536 \
+        --optimizer='plugin_adam' \
+        --save_params=1 \
+        --generate_new_datas=1 \
+        --ips "localhost" "localhost" \
+        --mixed_precision=1
 python3 test_dense_emb_demo_model_multi_worker.py \
         --local_gpu_num=4 --iter_num=100 \
         --max_vocabulary_size_per_gpu=1024 \
@@ -193,7 +268,8 @@ python3 test_dense_emb_demo_model_multi_worker.py \
         --optimizer='adam' \
         --restore_params=1 \
         --generate_new_datas=1 \
-        --ips "localhost" "localhost"
+        --ips "localhost" "localhost" \
+        --mixed_precision=1
 
 # --------------------- MPI --------------------------------------- #
 python3 prepare_dataset.py \
@@ -218,6 +294,19 @@ mpiexec -np 8 --allow-run-as-root \
         --embedding_vec_size_list 2 4 8 \
         --dataset_iter_num=30 \
         --optimizer="adam" 
+mpiexec -np 8 --allow-run-as-root \
+        --oversubscribe \
+        python3 test_multi_dense_emb_demo_model_mpi.py \
+        --file_prefix="./data_" \
+        --global_batch_size=65536 \
+        --max_vocabulary_size_per_gpu=8192 \
+        --slot_num_list 3 3 4 \
+        --nnz_per_slot=5 \
+        --num_dense_layers=0 \
+        --embedding_vec_size_list 2 4 8 \
+        --dataset_iter_num=30 \
+        --optimizer="adam" \
+        --mixed_precision=1
 
 # Use tf.config.set_visible_devices() to specify GPU
 # Other parameters are the same as the previous one
@@ -247,7 +336,20 @@ mpiexec -np 8 --allow-run-as-root \
         --dataset_iter_num=30 \
         --optimizer="adam" \
         --dynamic_input=1
-
+mpiexec -np 8 --allow-run-as-root \
+        --oversubscribe \
+        python3 test_multi_dense_emb_demo_model_mpi.py \
+        --file_prefix="./data_" \
+        --global_batch_size=65536 \
+        --max_vocabulary_size_per_gpu=8192 \
+        --slot_num_list 6 4 \
+        --nnz_per_slot=5 \
+        --num_dense_layers=0 \
+        --embedding_vec_size_list 4 8 \
+        --dataset_iter_num=30 \
+        --optimizer="adam" \
+        --dynamic_input=1 \
+        --mixed_precision=1
 
 # -------------------- Horovod -------------------- #
 horovodrun --mpi-args="--oversubscribe" -np 8 -H localhost:8 \
@@ -261,6 +363,18 @@ horovodrun --mpi-args="--oversubscribe" -np 8 -H localhost:8 \
         --embedding_vec_size_list 2 4 8 \
         --dataset_iter_num=30 \
         --optimizer="adam" 
+horovodrun --mpi-args="--oversubscribe" -np 8 -H localhost:8 \
+    python3 test_multi_dense_emb_demo_model_hvd.py \
+        --file_prefix="./data_" \
+        --global_batch_size=65536 \
+        --max_vocabulary_size_per_gpu=8192 \
+        --slot_num_list 3 3 4 \
+        --nnz_per_slot=5 \
+        --num_dense_layers=0 \
+        --embedding_vec_size_list 2 4 8 \
+        --dataset_iter_num=30 \
+        --optimizer="adam" \
+        --mixed_precision=1
 
 # Use tf.config.set_visible_devices() to specify GPU
 # Other parameters are the same as the previous one

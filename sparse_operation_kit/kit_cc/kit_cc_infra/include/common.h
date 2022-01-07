@@ -84,6 +84,11 @@ namespace SparseOperationKit {
     }                                                                                    \
   } while (0)
 
+#define REQUIRES_TRUE(condition, msg)                              \
+  do {                                                             \
+    if (!(condition)) throw std::runtime_error(ErrorBase + (msg)); \
+  } while (0)
+
 namespace {
 inline std::string filter_path(const std::string& path) {
   auto find_str = [](const std::string input, const char* pattern) {
@@ -120,13 +125,23 @@ void string_to_ncclUniqueId(const std::string& uniqueId_s, ncclUniqueId& uniqueI
 void ncclUniqueId_to_int(const ncclUniqueId& uniqueId, int* uniqueId_num);
 void int_to_ncclUniqueId(const int32_t* uniqueId_num, ncclUniqueId& uniqueId);
 
-enum class SparseEmbeddingType { Distributed, Localized };
-enum class DenseEmbeddingType { Custom };  // TODO: give it a better name.
 enum class CombinerType { Sum, Mean };
 enum class OptimizerType { Adam };
+enum class DataType : uint32_t {Unknown = 0,
+                                Float32 = 1, 
+                                Half = 2, Float16 = 2,
+                                Int64 = 3,
+                                Uint64 = 4,
+                                Int32 = 5,
+                                Uint32 = 6};
+template <typename T> 
+DataType DType();
 
-extern const std::unordered_map<std::string, SparseEmbeddingType> SparseEmbeddingTypeMap;
-extern const std::unordered_map<std::string, DenseEmbeddingType> DenseEmbeddingTypeMap;
+template <DataType dtype> 
+struct Type;
+
+std::string DataTypeString(DataType dtype);
+
 extern const std::unordered_map<std::string, CombinerType> CombinerMap;
 extern const std::unordered_map<std::string, OptimizerType> OptimizerMap;
 using optimizer_hyper_params = std::unordered_map<std::string, float>;

@@ -92,10 +92,17 @@ class DistributedEmbedding(tf.keras.layers.Layer):
         self.max_nnz = max_nnz
         self.max_feature_num = max_feature_num
 
+        if self._dtype_policy.variable_dtype is None:
+            # in TF1 and policy is not set
+            # therefore variable dtype and compute dtype should be fp32
+            from tensorflow.python.keras.mixed_precision import experimental as mixed_precision
+            self._dtype_policy = mixed_precision.Policy("float32")
+
         self.var = EmbeddingVariable.CreateInstances(
                                 shape=[self.max_vocabulary_size_per_gpu, self.embedding_vec_size],
                                 trainable=True,
-                                use_hashtable=use_hashtable)
+                                use_hashtable=use_hashtable,
+                                dtype=self._dtype_policy.variable_dtype)
 
         self.emb_layer = SparseEmbeddingLayerHandle(self.var,
                                                     input_dispatcher="all_gather_dispatcher",
@@ -105,7 +112,8 @@ class DistributedEmbedding(tf.keras.layers.Layer):
                                                     slot_num=self.slot_num, 
                                                     max_nnz=self.max_nnz,
                                                     max_feature_num=self.max_feature_num,
-                                                    combiner=self.combiner)
+                                                    combiner=self.combiner,
+                                                    compute_dtype=self._dtype_policy.compute_dtype)
 
     @property
     def embedding_variable(self):

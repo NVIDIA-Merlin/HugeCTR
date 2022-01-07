@@ -149,6 +149,10 @@ void EmbeddingLayer::load_embedding_values(
   output_dispatcher_->LoadEmbeddingValues(tensor_list);
 }
 
+DataType EmbeddingLayer::compute_dtype() const {
+  return base_context_->compute_dtype();
+}
+
 ConstructionContext_t EmbeddingLayer::base_context() const { return base_context_; }
 
 DenseEmbeddingLayer::DenseEmbeddingLayer(std::shared_ptr<Dispatcher> input_dispatcher,

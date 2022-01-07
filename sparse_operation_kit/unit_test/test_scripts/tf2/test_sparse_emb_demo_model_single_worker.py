@@ -62,6 +62,25 @@ class SOKDemo(tf.keras.models.Model):
         logit = self.dense_layer(embedding_vector)
         return logit, embedding_vector
 
+class TFSparseEmbedding(tf.keras.layers.Layer):
+    def __init__(self,
+                 init_tensors,
+                 combiner,
+                 **unused):
+        super(TFSparseEmbedding, self).__init__()
+
+        self._init_tensors = init_tensors
+        self._combiner = combiner
+
+    def build(self, input_shape):
+        self._params = tf.Variable(initial_value=tf.concat(self._init_tensors, axis=0),
+                                   dtype=self._dtype_policy.variable_dtype)
+
+    def call(self, inputs):
+        outputs = tf.nn.embedding_lookup_sparse(params=self._params, sp_ids=inputs, 
+                                             sp_weights=None, combiner=self._combiner)
+        return tf.cast(outputs, self._dtype_policy.compute_dtype)
+
 class TfDemo(tf.keras.models.Model):
     def __init__(self, 
                  init_tensors, 
@@ -77,19 +96,24 @@ class TfDemo(tf.keras.models.Model):
         self.embedding_vec_size = embedding_vec_size
 
         self.init_tensors = init_tensors
-        self.params = tf.Variable(initial_value=tf.concat(self.init_tensors, axis=0))
+        self.embedding_layer = TFSparseEmbedding(init_tensors=init_tensors, 
+                                                 combiner=combiner)
 
         self.dense_layer = tf.keras.layers.Dense(units=1, activation=None,
                                                  kernel_initializer="ones",
                                                  bias_initializer="zeros")
 
+    @property
+    def params(self):
+        return self.embedding_layer._params
+
     def call(self, inputs, training=True):
         # [batchsize * slot_num, embedding_vec_size]
-        embedding_vector = tf.nn.embedding_lookup_sparse(params=self.params, sp_ids=inputs,
-                                                        sp_weights=None, combiner=self.combiner)
+        embedding_vector = self.embedding_layer(inputs)
 
         # [batchsize, slot_num * embedding_vec_size]
-        embedding_vector = tf.reshape(embedding_vector, shape=[self.global_batch_size, self.slot_num * self.embedding_vec_size])
+        embedding_vector = tf.reshape(embedding_vector, 
+            shape=[self.global_batch_size, self.slot_num * self.embedding_vec_size])
         logit = self.dense_layer(embedding_vector)
         return logit, embedding_vector
 
@@ -106,6 +130,8 @@ def test_sok_demo(args, init_tensors, *random_samples):
 
         emb_opt = utils.get_embedding_optimizer(args.optimizer)(learning_rate=0.1)
         dense_opt = utils.get_dense_optimizer(args.optimizer)(learning_rate=0.1)
+        if args.mixed_precision:
+            emb_opt = tf.keras.mixed_precision.LossScaleOptimizer(emb_opt, initial_scale=1024)
 
     plugin_saver = sok.Saver()
 
@@ -118,15 +144,26 @@ def test_sok_demo(args, init_tensors, *random_samples):
     loss_fn = tf.keras.losses.BinaryCrossentropy(from_logits=True, reduction=tf.keras.losses.Reduction.NONE)
     def _replica_loss(labels, logits):
         loss = loss_fn(labels, logits)
-        return tf.nn.compute_average_loss(loss, global_batch_size=args.global_batch_size)
+        _dtype = loss.dtype
+        loss = tf.cast(loss, tf.float32)
+        loss = tf.nn.compute_average_loss(loss, global_batch_size=args.global_batch_size)
+        return tf.cast(loss, _dtype)
 
     @tf.function
     def _train_step(inputs, labels):
         with tf.GradientTape() as tape:
             logit, embedding_vector = plugin_demo(inputs, training=True)
             loss = _replica_loss(labels, logit)
+            if args.mixed_precision:
+                _loss = emb_opt.get_scaled_loss(loss)
+            else:
+                _loss = loss
         embedding_variables, other_variable = sok.split_embedding_variable_from_others(plugin_demo.trainable_variables)
-        grads, emb_grads = tape.gradient(loss, [other_variable, embedding_variables])
+        grads, emb_grads = tape.gradient(_loss, [other_variable, embedding_variables])
+        if args.mixed_precision:
+            grads = emb_opt.get_unscaled_gradients(grads)
+            emb_grads = emb_opt.get_unscaled_gradients(emb_grads)
+
         with tf.control_dependencies([*emb_grads]):
             # in case NCCL runs concurrently via SOK and TF
             if 'plugin' not in args.optimizer:
@@ -137,7 +174,7 @@ def test_sok_demo(args, init_tensors, *random_samples):
                 emb_opt.apply_gradients(zip(emb_grads, embedding_variables),
                                         experimental_aggregate_gradients=False)
             dense_opt.apply_gradients(zip(grads, other_variable))
-            return logit, embedding_vector
+            return loss, embedding_vector
 
     sok_results = list()
 
@@ -151,15 +188,10 @@ def test_sok_demo(args, init_tensors, *random_samples):
     
     for i, (sparse_tensors, replica_labels) in enumerate(dataset):
         print("-" * 30, "step ", str(i), "-" * 30)
-        logit, embedding_vector = strategy.run(_train_step, args=(sparse_tensors, replica_labels))
-        if args.print_output:
-            print("[INFO]: embedding_vector\n", embedding_vector)
+        loss, embedding_vector = strategy.run(_train_step, args=(sparse_tensors, replica_labels))
+        loss = strategy.reduce("sum", loss, axis=None)
+        print("[INFO]: iteration {}, loss {}".format(i, loss))
         sok_results.append(embedding_vector)
-
-        # FIXME: when the forward computation is too fast, there
-        # may exist some conficts with datareader, which cause the program hang.
-        import time
-        time.sleep(0.2) # seconds
     
     # save params to file.
     if 1 == args.save_params:
@@ -178,29 +210,31 @@ def test_tf_demo(args, init_tensors, *random_samples):
     tf_demo = TfDemo(init_tensors, args.combiner, args.global_batch_size, args.slot_num, args.embedding_vec_size)
 
     optimizer = utils.get_dense_optimizer(args.optimizer)(learning_rate=0.1)
+    if args.mixed_precision:
+        optimizer = tf.keras.mixed_precision.LossScaleOptimizer(optimizer, initial_scale=1024)
 
     @tf.function
     def _train_step(inputs, labels):
         with tf.GradientTape() as tape:
             logit, embedding_vector = tf_demo(inputs, training=True)
             loss = loss_fn(labels, logit)
-        grads = tape.gradient(loss, tf_demo.trainable_variables)
+            if args.mixed_precision:
+                _loss = optimizer.get_scaled_loss(loss)
+            else:
+                _loss = loss
+        grads = tape.gradient(_loss, tf_demo.trainable_variables)
+        if args.mixed_precision:
+            grads = optimizer.get_unscaled_gradients(grads)
         optimizer.apply_gradients(zip(grads, tf_demo.trainable_variables))
-        return logit, embedding_vector
+        return loss, embedding_vector
 
     tf_results = list()
 
     for i, (sparse_tensors, labels) in enumerate(dataset):
         print("-"*30, str(i), "-"*30)
-        logit, embedding_vector = _train_step(sparse_tensors, labels)
-        if args.print_output:
-            print("[INFO]: embedding_vector:\n", embedding_vector)
+        loss, embedding_vector = _train_step(sparse_tensors, labels)
+        print("[INFO]: iteration {}, loss {}".format(i, loss))
         tf_results.append(embedding_vector)
-
-        # FIXME: because plugin sleepd, here is only used for 
-        # simulate the same DNN structure. 
-        import time
-        time.sleep(0.2) # seconds
 
     if not hasattr(args, "task_id"):
         # In single worker, which means MirroedStrategy is used.
@@ -282,20 +316,27 @@ def compare_sok_with_tf(args):
         raise ValueError("The length of embedding vectors: %d is not equal to iteration number: %d."
                          %(len(tf_results), args.iter_num))
 
+    tolerance = 1e-4
+    if args.mixed_precision:
+        tolerance = 1e-3
+
     for i, sok_vector in enumerate(sok_results):
         if args.gpu_num != 1:
             sok_vector = tf.stack(sok_vector.values, axis=0)
         tf.debugging.assert_near(tf.reshape(sok_vector,
                                             shape=[-1, tf.shape(sok_vector)[-1]]),
                                 tf_results[i],
-                                atol=1e-4,
-                                rtol=1e-4)
+                                atol=tolerance,
+                                rtol=tolerance)
     print("\n[INFO]: With MirroredStrategy, the embedding vector obtained from " +\
           "sparse operation kit and tensorflow are consistent for %d iterations." 
-          %args.iter_num)
+          " With mixed_precision = %s"
+          %(args.iter_num, args.mixed_precision))
 
     if (1 == args.save_params):
-        check_saved_embedding_variables(args, embedding_variable_name, use_hashtable=args.use_hashtable, gpu_num=args.gpu_num)
+        check_saved_embedding_variables(args, embedding_variable_name, 
+                use_hashtable=args.use_hashtable, gpu_num=args.gpu_num,
+                atol=tolerance, rtol=tolerance)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='test demo model with single worker.')
@@ -338,14 +379,16 @@ if __name__ == "__main__":
                              'rather than restore trainable parameters from file.',
                         required=False, default=0)
     parser.add_argument("--use_hashtable", type=int, choices=[0, 1], default=1)
-    parser.add_argument("--print_output", type=int, choices=[0, 1], default=0)
+    parser.add_argument("--mixed_precision", type=int, choices=[0, 1], default=0)
 
     args = parser.parse_args()
 
     args.use_hashtable = True if args.use_hashtable == 1 else False
-    args.print_output = True if 1 == args.print_output else False
-    if os.getenv("PRINT_OUTPUT") and int(os.getenv("PRINT_OUTPUT")):
-        args.print_output = True
+    args.mixed_precision = True if 1 == args.mixed_precision else False
+
+    if args.mixed_precision:
+        policy = tf.keras.mixed_precision.Policy("mixed_float16")
+        tf.keras.mixed_precision.set_global_policy(policy)
 
     import os
     os.environ['CUDA_VISIBLE_DEVICES'] = ",".join([str(i) for i in range(args.gpu_num)])

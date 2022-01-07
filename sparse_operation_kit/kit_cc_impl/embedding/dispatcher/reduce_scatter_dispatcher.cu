@@ -19,6 +19,7 @@
 
 namespace SparseOperationKit {
 
+template <typename ValueType>
 class ReduceScatterDispatcher : public Dispatcher {
  public:
   explicit ReduceScatterDispatcher(ConstructionContext_t context)
@@ -39,10 +40,10 @@ class ReduceScatterDispatcher : public Dispatcher {
 
     const auto &local_gpu = resource_mgr_->get_local_gpu(local_replica_id);
 
-    CK_NCCL(ncclReduceScatter(embedding_features->GetPtrWithType<float>(),
-                              replica_output->GetPtrWithType<float>(),
-                              replica_output->get_num_elements(), ncclFloat, ncclSum,
-                              local_gpu->get_nccl(), local_gpu->get_stream()));
+    CK_NCCL(ncclReduceScatter(embedding_features->GetPtrWithType<ValueType>(),
+                              replica_output->GetPtrWithType<ValueType>(),
+                              replica_output->get_num_elements(), GetNCCLType<ValueType>(), 
+                              ncclSum, local_gpu->get_nccl(), local_gpu->get_stream()));
 
     // do mean scale when Combiner::Mean is used.
     if (replica_context->has_internal_tensor("row_offset_allreduce_tensor")) {
@@ -65,7 +66,7 @@ class ReduceScatterDispatcher : public Dispatcher {
                        /*slot_num=*/rows_num_per_sample,
                        /*embedding_vec_size=*/emb_vec_size,
                        /*row_offset=*/row_offset,
-                       /*embedding_feature=*/replica_output->GetPtrWithType<float>(),
+                       /*embedding_feature=*/replica_output->GetPtrWithType<ValueType>(),
                        local_gpu->get_stream());
     }  // if row_offset_allreduce_tensor_
   }
@@ -78,10 +79,11 @@ class ReduceScatterDispatcher : public Dispatcher {
     const size_t local_replica_id = resource_mgr_->cal_local_id_from_global_id(global_replica_id);
     const auto &local_gpu = resource_mgr_->get_local_gpu(local_replica_id);
 
-    CK_NCCL(ncclAllGather(/*sendbuff=*/replica_top_gradient->GetPtrWithType<float>(),
-                          /*recvbuff=*/embedding_feature->GetPtrWithType<float>(),
+    CK_NCCL(ncclAllGather(/*sendbuff=*/replica_top_gradient->GetPtrWithType<ValueType>(),
+                          /*recvbuff=*/embedding_feature->GetPtrWithType<ValueType>(),
                           /*sendcount=*/replica_top_gradient->get_num_elements(),
-                          /*datatype=*/ncclFloat, local_gpu->get_nccl(), local_gpu->get_stream()));
+                          /*datatype=*/GetNCCLType<ValueType>(), 
+                          local_gpu->get_nccl(), local_gpu->get_stream()));
   }
 
  private:
@@ -89,6 +91,11 @@ class ReduceScatterDispatcher : public Dispatcher {
   const size_t global_batch_size_;
 };
 
-REGISTER_OUTPUT_DISPATHER_BUILDER("reduce_scatter_dispatcher", ReduceScatterDispatcher);
+REGISTER_OUTPUT_DISPATHER_BUILDER("reduce_scatter_dispatcher", 
+                                  DataType::Float32, 
+                                  ReduceScatterDispatcher<float>);
+REGISTER_OUTPUT_DISPATHER_BUILDER("reduce_scatter_dispatcher", 
+                                  DataType::Float16, 
+                                  ReduceScatterDispatcher<__half>);
 
 }  // namespace SparseOperationKit

@@ -47,6 +47,8 @@ def test_sok_dense_demo(args, init_tensors, *random_samples):
 
         emb_opt = utils.get_embedding_optimizer(args.optimizer)(learning_rate=0.1)
         dense_opt = utils.get_dense_optimizer(args.optimizer)(learning_rate=0.1)
+        if args.mixed_precision:
+            emb_opt = tf.keras.mixed_precision.LossScaleOptimizer(emb_opt, initial_scale=1024)
 
     sok_saver = sok.Saver()
     if 1 == args.restore_params:
@@ -58,15 +60,27 @@ def test_sok_dense_demo(args, init_tensors, *random_samples):
     loss_fn = tf.keras.losses.BinaryCrossentropy(from_logits=True, reduction=tf.keras.losses.Reduction.NONE)
     def _replica_loss(labels, logits):
         loss = loss_fn(labels, logits)
-        return tf.nn.compute_average_loss(loss, global_batch_size=args.global_batch_size)
+        _dtype = loss.dtype
+        loss = tf.cast(loss, tf.float32)
+        loss = tf.nn.compute_average_loss(loss, global_batch_size=args.global_batch_size)
+        return tf.cast(loss, _dtype)
 
     @tf.function
     def _train_step(inputs, labels):
         with tf.GradientTape() as tape:
             logit, embedding_vector = sok_dense_demo(inputs, training=True)
             loss = _replica_loss(labels, logit)
+            if args.mixed_precision:
+                _loss = emb_opt.get_scaled_loss(loss)
+            else:
+                _loss = loss
+
         embedding_variables, other_variable = sok.split_embedding_variable_from_others(sok_dense_demo.trainable_variables)
-        grads, emb_grads = tape.gradient(loss, [other_variable, embedding_variables])
+        grads, emb_grads = tape.gradient(_loss, [other_variable, embedding_variables])
+        if args.mixed_precision:
+            grads = emb_opt.get_unscaled_gradients(grads)
+            emb_grads = emb_opt.get_unscaled_gradients(emb_grads)
+
         if "plugin" not in args.optimizer:
             with sok.OptimizerScope(embedding_variables):
                 emb_opt.apply_gradients(zip(emb_grads, embedding_variables),
@@ -75,7 +89,7 @@ def test_sok_dense_demo(args, init_tensors, *random_samples):
             emb_opt.apply_gradients(zip(emb_grads, embedding_variables),
                                     experimental_aggregate_gradients=False)
         dense_opt.apply_gradients(zip(grads, other_variable))
-        return logit, embedding_vector
+        return loss, embedding_vector
 
     sok_results = list()
 
@@ -89,14 +103,11 @@ def test_sok_dense_demo(args, init_tensors, *random_samples):
 
     for i, (input_tensors, replica_labels) in enumerate(dataset):
         print("-"*30, "step ", str(i), "-"*30)
-        logit, embedding_vector = strategy.run(_train_step, args=(input_tensors, replica_labels))
-        if args.print_output:
-            print("[INFO]: embedding_vector\n", embedding_vector)
+        loss, embedding_vector = strategy.run(_train_step, args=(input_tensors, replica_labels))
+        loss = strategy.reduce("sum", loss, axis=None)
+        print("[INFO]: iteration {}, loss {}".format(i, loss))
         sok_results.append(embedding_vector)
-        # FIXME: when the forward computation is too fast, there
-        # may exist some conficts with datareader, which cause the program hang.
-        import time
-        time.sleep(0.2) # seconds
+
 
     # save params to file.
     if 1 == args.save_params:
@@ -114,6 +125,10 @@ def compare_dense_emb_sok_with_tf(args):
     if (args.global_batch_size % args.worker_num != 0):
         raise ValueError("global_batch_size: %d is not divisible by worker_num: %d"
                         %(args.global_batch_size, args.worker_num))
+
+    if args.mixed_precision:
+        policy = tf.keras.mixed_precision.Policy("mixed_float16")
+        tf.keras.mixed_precision.set_global_policy(policy)
 
     #each worker generate different dataset
     if args.generate_new_datas:
@@ -146,6 +161,10 @@ def compare_dense_emb_sok_with_tf(args):
     # save the forward embedding vector from different worker to file
     utils.save_to_file(r"./sok_embedding_vectors_" + str(args.task_id) + r".file", *sok_results_local)
 
+    # only 1 process needs to do tf computation
+    if args.task_id != 0:
+        return
+
     # aggregate dataset from different worker
     dataset_filenames = [r"./random_samples_" + str(task_id) + r".file"
                          for task_id in range(args.worker_num)]
@@ -177,7 +196,7 @@ def compare_dense_emb_sok_with_tf(args):
         raise ValueError("The length of embedding vectors: %d is not equal to iteration number: %d."
                          %(len(tf_results), args.iter_num))
     
-    if 1 == args.restore_params:
+    if 1 == args.restore_params or args.mixed_precision:
         tolerance = 1e-2
     else:
         tolerance = 1e-4
@@ -197,13 +216,15 @@ def compare_dense_emb_sok_with_tf(args):
                                 rtol=tolerance)
 
     print("\n[INFO]: For Dense Embedding Layer, with MultiWorkerMirroredStrategy, the embedding vectors "+\
-          "obtained from sparse operation kit and TensorFlow are consistent for %d iterations."
-          %args.iter_num)
+          "obtained from sparse operation kit and TensorFlow are consistent for %d iterations"
+          ", with mixed_precision = %s"
+          %(args.iter_num, args.mixed_precision))
 
     if 1 == args.save_params:
         check_saved_embedding_variables(args, embedding_variable_name, 
                                         use_hashtable=args.use_hashtable, 
-                                        gpu_num=args.worker_num * args.local_gpu_num)
+                                        gpu_num=args.worker_num * args.local_gpu_num,
+                                        atol=tolerance, rtol=tolerance)
 
 def get_task_id(ips):
     local_ip = utils.get_local_ip()
@@ -253,14 +274,12 @@ if __name__ == "__main__":
                              'rather than restore trainable parameters from file.',
                         required=False, default=0)
     parser.add_argument("--use_hashtable", type=int, choices=[0, 1], default=1)
-    parser.add_argument("--print_output", type=int, choices=[0, 1], default=0)
+    parser.add_argument("--mixed_precision", type=int, choices=[0, 1], default=0)
 
     args = parser.parse_args()
 
     args.use_hashtable = True if 1 == args.use_hashtable else False
-    args.print_output = True if 1 == args.print_output else False
-    if os.getenv("PRINT_OUTPUT") and int(os.getenv("PRINT_OUTPUT")):
-        args.print_output = True
+    args.mixed_precision = True if 1 == args.mixed_precision else False
 
     if not isinstance(args.ips, list):
         args.ips = [args.ips]

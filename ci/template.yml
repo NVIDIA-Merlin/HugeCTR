@@ -54,7 +54,7 @@ stages:
         echo "RUN cd /workdir && mkdir build && cd build && cmake ${CMAKE_OPTION} .. && make -j\$(nproc) && make install" >> ${JOB_DOCKERFILE};
       fi
     - if [[ "$BUILD_SOK" == 1 ]]; then
-        echo "RUN cd /workdir/sparse_operation_kit/ && mkdir -p build && cd build && cmake ${CMAKE_OPTION} .. && make -j$(nproc) && make install" >> ${JOB_DOCKERFILE};
+        echo "RUN cd /workdir/sparse_operation_kit/ && mkdir -p build && cd build && cmake ${CMAKE_OPTION} .. && make -j`expr $(nproc) / 2` && make install" >> ${JOB_DOCKERFILE};
         echo "RUN pip install nvtx" >> ${JOB_DOCKERFILE};
         echo "ENV LD_LIBRARY_PATH=/usr/local/hugectr/lib:/usr/local/lib:\$LD_LIBRARY_PATH" >> ${JOB_DOCKERFILE};
         echo "ENV LIBRARY_PATH=/usr/local/hugectr/lib:/usr/local/lib:\$LIBRARY_PATH" >> ${JOB_DOCKERFILE};

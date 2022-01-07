@@ -28,7 +28,8 @@ class EmbeddingLayer {
   static std::shared_ptr<EmbeddingLayer> create(
       std::shared_ptr<Dispatcher> input_dispatcher,
       std::shared_ptr<EmbeddingLookuper> embedding_lookuper,
-      std::shared_ptr<Dispatcher> output_dispatcher, ConstructionContext_t context);
+      std::shared_ptr<Dispatcher> output_dispatcher, 
+      ConstructionContext_t context);
 
   void allocate_forward_spaces();
   void allocate_backward_spaces();
@@ -54,6 +55,8 @@ class EmbeddingLayer {
   void save_params(std::shared_ptr<Tensor> &keys, std::shared_ptr<Tensor> &embedding_values,
                    size_t &num_total_keys) const;
   void load_embedding_values(const std::vector<std::shared_ptr<Tensor>> &tensor_list);
+
+  DataType compute_dtype() const;
 
  protected:
   EmbeddingLayer(std::shared_ptr<Dispatcher> input_dispatcher,

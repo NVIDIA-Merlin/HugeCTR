@@ -18,6 +18,7 @@
 #define EMBEDDING_FUNCTIONS_H_
 
 #include <cuda_runtime_api.h>
+#include <nccl.h>
 
 namespace SparseOperationKit {
 
@@ -49,6 +50,9 @@ void do_forward_scale(size_t batchsize_per_gpu, size_t slot_num, size_t embeddin
 
 template <typename Type>
 void memset_liner(Type *data, Type start_value, Type stride_value, size_t n, cudaStream_t stream);
+
+template <typename T>
+ncclDataType_t GetNCCLType();
 
 }  // namespace SparseOperationKit
 

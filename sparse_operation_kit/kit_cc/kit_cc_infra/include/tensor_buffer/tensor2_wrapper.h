@@ -43,6 +43,8 @@ class Tensor2Wrapper : public Tensor {
 
   bool allocated() const override { return tensor2_.allocated(); }
 
+  DataType dtype() const override { return dtype_; }
+
  protected:
   void* get_ptr() override { return tensor2_.get_ptr(); }
 
@@ -50,6 +52,7 @@ class Tensor2Wrapper : public Tensor {
   Tensor2Wrapper(HugeCTR::Tensor2<T>& tensor2) : tensor2_(tensor2) {}
 
   HugeCTR::Tensor2<T> tensor2_;
+  const DataType dtype_ = DType<T>();
 };
 
 }  // namespace SparseOperationKit

@@ -14,18 +14,9 @@
  limitations under the License.
 """
 
-"""
-This folder contains TF ops that might not be in current TF version.
-
-For example, the tf.unique has GPU implementation in TF 2.5, but it
-is not so in TF 1.15. Therefore in this folder, we place it here.
-
-And the module chains originated from TF is honored. For example, 
-sok.tf.unique is equal to tf.unique in TF 2.5.
-"""
-import sparse_operation_kit.tf.keras
-
-from sparse_operation_kit.operations import unique
-from sparse_operation_kit.operations import unsorted_segment_sum
+from tensorflow import __version__ as tf_version
+if tf_version.startswith("1"):
+    # only TF 1.15 needs this wrapper
+    from .loss_scale_optimizer import LossScaleOptimizer
 
 __all__ = [item for item in dir() if not item.startswith("__")]

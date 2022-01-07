@@ -185,5 +185,6 @@ class UnsortedSegmentReductionOp : public OpKernel {
   REGISTER_SUM_GPU_UNSORTED_KERNELS(type, int64)
 
 TF_CALL_float(REGISTER_SUM_GPU_UNSORTED_KERNELS_ALL);
+TF_CALL_half(REGISTER_SUM_GPU_UNSORTED_KERNELS_ALL);
 
 }  // namespace tensorflow

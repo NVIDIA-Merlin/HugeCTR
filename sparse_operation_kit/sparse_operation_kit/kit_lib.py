@@ -14,6 +14,7 @@
  limitations under the License.
 """
 
+from sparse_operation_kit import operations as sok_ops
 from tensorflow.python.framework import load_library, ops
 from tensorflow.python.ops import array_ops
 from tensorflow.python.framework.tensor_shape import TensorShape
@@ -90,12 +91,27 @@ def _TestGrad(op, top_grad):
 def _PluginReadEmbeddingVariableBprop(op, top_grad):
     return top_grad, None
 
+def _IndexedSlicesToTensorDisableWarning(indexed_slices):
+    if not isinstance(indexed_slices, ops.IndexedSlices):
+        return indexed_slices
+    if indexed_slices.dense_shape is None:
+        raise ValueError("Convert IndexedSlices to Tensor needs dense_shape: %s"
+                         %(str(indexed_slices)))
+    # in case UnsortedSegmentSum is implemented on CPU, use SOK's version
+    # rather than array_ops.gen_math_ops.unsorted_segment_sum
+    return sok_ops.unsorted_segment_sum(indexed_slices.values,
+                                        indexed_slices.indices,
+                                        indexed_slices.dense_shape[0])
+
 @ops.RegisterGradient("PluginSparseFprop")
 def _PluginSparseBackProp(op, top_grad):
+    top_grad = _IndexedSlicesToTensorDisableWarning(top_grad)
     emb_var_grads_value, value_index = plugin_bprop(emb_handle=op.inputs[1], 
                                                     global_replica_id=op.inputs[4],
                                                     top_gradient=top_grad,
                                                     unique_op_name=op.get_attr("unique_op_name"))
+    emb_var_grads_value = array_ops.gen_math_ops.cast(emb_var_grads_value, 
+                            DstT=array_ops.dtypes.float32)
     
     params_shape = resource_variable_ops.variable_shape(handle=op.inputs[0])
 
@@ -108,10 +124,13 @@ def _PluginSparseBackProp(op, top_grad):
 
 @ops.RegisterGradient("PluginDenseFprop")
 def _PluginDenseBackProp(op, top_grad):
+    top_grad = _IndexedSlicesToTensorDisableWarning(top_grad)
     emb_var_grads_value, value_index = plugin_bprop(emb_handle=op.inputs[1], 
                                                     global_replica_id=op.inputs[3],
                                                     top_gradient=top_grad,
                                                     unique_op_name=op.get_attr("unique_op_name"))
+    emb_var_grads_value = array_ops.gen_math_ops.cast(emb_var_grads_value, 
+                            DstT=array_ops.dtypes.float32)
     
     params_shape = resource_variable_ops.variable_shape(handle=op.inputs[0])
 

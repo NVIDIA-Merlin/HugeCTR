@@ -79,6 +79,10 @@ class SOKBuildExtension(build_ext):
         if os.getenv("SOK_COMPILE_BUILD_TYPE"):
             cmake_build_type = "Debug" if os.getenv("SOK_COMPILE_BUILD_TYPE") in ["DEBUG", "debug", "Debug"] else "Release"
 
+        make_jobs_num = "$(nproc)"
+        if os.getenv("SOK_COMPILE_JOBS_NUM"):
+            make_jobs_num = str(os.getenv("SOK_COMPILE_JOBS_NUM"))
+
 
         cmake_args = ["-DSM='{}'".format(";".join(gpu_capabilities)),
                       "-DUSE_NVTX={}".format(use_nvtx),
@@ -95,8 +99,8 @@ class SOKBuildExtension(build_ext):
 
         for extension in self.extensions:
             try:
-                subprocess.check_call("cmake {} {} && make -j".format(cmake_args, 
-                                                    extension._CMakeLists_dir), 
+                subprocess.check_call("cmake {} {} && make -j{}".format(cmake_args, 
+                                        extension._CMakeLists_dir, make_jobs_num), 
                                     shell=True,
                                     cwd=build_dir)
             except OSError as error:

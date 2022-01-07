@@ -106,11 +106,18 @@ class AssignEmbeddingVariableOp : public OpKernel {
       if (DT_STRING == initial_value_tensor->dtype()) {
         SparseOperationKit::Facade::instance()->create_variables(
             local_replica_id_value, std::string(initial_value_tensor->flat<tstring>()(0)),
-            use_hashtable_, dims_, variable_name, trainable_, emb_variable, &tensor);
+            use_hashtable_, dims_, variable_name, trainable_, dtype_and_shape_.dtype,
+            emb_variable, &tensor);
       } else {
+        OP_REQUIRES(ctx, initial_value_tensor->dtype() == dtype_and_shape_.dtype,
+                    errors::Aborted("The dtype of initial_value is not compatible "
+                                    "with EmbeddingVariable's."));
+        OP_REQUIRES(ctx, dtype_and_shape_.dtype == DT_FLOAT,
+                    errors::Aborted("The dtype of EmbeddingVariable must be float32."));
         SparseOperationKit::Facade::instance()->create_variables(
-            local_replica_id_value, initial_value_tensor, use_hashtable_, dims_, variable_name,
-            trainable_, emb_variable, &tensor);
+            local_replica_id_value, initial_value_tensor, use_hashtable_, 
+            dims_, variable_name, trainable_, dtype_and_shape_.dtype,
+            emb_variable, &tensor);
       }
     } catch (const std::exception& error) {
       ctx->SetStatus(
