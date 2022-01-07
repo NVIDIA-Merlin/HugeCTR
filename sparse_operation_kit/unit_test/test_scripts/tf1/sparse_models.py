@@ -164,6 +164,10 @@ class TFDemo(tf.keras.models.Model):
                                                                  sp_ids=_input,
                                                                  sp_weights=None,
                                                                  combiner=self._combiner)
+                if (self._dtype_policy.compute_dtype and 
+                    self._dtype_policy.compute_dtype != self._dtype_policy.variable_dtype):
+                    embedding_vector = tf.cast(embedding_vector, self._dtype_policy.compute_dtype)
+
                 embedding_vector = tf.reshape(embedding_vector,
                                     shape=[-1, self._slot_num[i] * self._embedding_vec_size[i]])
                 vectors.append(embedding_vector)

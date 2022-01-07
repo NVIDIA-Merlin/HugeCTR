@@ -91,17 +91,25 @@ class All2AllDenseEmbedding(tf.keras.layers.Layer):
         self.dynamic_input = dynamic_input
         self.use_hashtable = use_hashtable
 
+        if self._dtype_policy.variable_dtype is None:
+            # in TF1 and policy is not set
+            # therefore variable dtype and compute dtype should be fp32
+            from tensorflow.python.keras.mixed_precision import experimental as mixed_precision
+            self._dtype_policy = mixed_precision.Policy("float32")
+
         self.var = EmbeddingVariable.CreateInstances(
                                 shape=[self.max_vocabulary_size_per_gpu, self.embedding_vec_size],
                                 trainable=True,
-                                use_hashtable=self.use_hashtable)
+                                use_hashtable=self.use_hashtable,
+                                dtype=self._dtype_policy.variable_dtype)
 
         self.emb_layer = DenseEmbeddingLayerHandle(self.var,
                                                 input_dispatcher="All2AllInput",
                                                 embedding_lookuper="dense_gather",
                                                 output_dispatcher="All2AllOutput",
                                                 slot_num=self.slot_num,
-                                                nnz_per_slot=self.nnz_per_slot)
+                                                nnz_per_slot=self.nnz_per_slot,
+                                                compute_dtype=self._dtype_policy.compute_dtype)
 
     @property
     def embedding_variable(self):

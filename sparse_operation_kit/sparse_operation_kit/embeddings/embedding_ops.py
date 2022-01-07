@@ -96,7 +96,7 @@ def embedding_lookup(embedding_variable, values, training=True, dynamic_input=Fa
                                       training=training,
                                       unique_op_name=embedding_variable.name,
                                       dynamic_input=dynamic_input,
-                                      dtype=embedding_variable.dtype)
+                                      dtype=embedding_layer.compute_dtype)
 
 
 def embedding_lookup_sparse(embedding_variable, sp_ids, slot_num, training=True):
@@ -123,4 +123,4 @@ def embedding_lookup_sparse(embedding_variable, sp_ids, slot_num, training=True)
                                        slot_num=slot_num,
                                        training=training,
                                        unique_op_name=embedding_variable.name,
-                                       dtype=embedding_variable.dtype)
+                                       dtype=embedding_layer.compute_dtype)

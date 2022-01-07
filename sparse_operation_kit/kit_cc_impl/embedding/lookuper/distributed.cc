@@ -22,6 +22,7 @@
 
 namespace SparseOperationKit {
 
+template <typename ValueType>
 class DistribtuedLookuper : public EmbeddingLookuper {
  public:
   explicit DistribtuedLookuper(ConstructionContext_t context, std::shared_ptr<ParamInterface> param)
@@ -56,8 +57,6 @@ class DistribtuedLookuper : public EmbeddingLookuper {
     size_t max_vocabulary_size_in_total =
         max_vocabulary_size_per_gpu * resource_mgr_->get_global_gpu_count();
 
-    MESSAGE("max_vocabulary_size_in_total = " + std::to_string(max_vocabulary_size_in_total));
-
     for (size_t dev_id = 0; dev_id < resource_mgr_->get_local_gpu_count(); ++dev_id) {
       auto &buffer = base_context()->get_buffer(dev_id);
       // new hash table value (index) that get() from hashtable
@@ -75,7 +74,7 @@ class DistribtuedLookuper : public EmbeddingLookuper {
       }
       // new embedding features reduced by hash table values.
       {
-        Tensor2<float> tensor;
+        Tensor2<ValueType> tensor;
         buffer->reserve({global_batch_size_ * slot_num_, param_->get_embedding_vec_size()},
                         &tensor);
         embedding_feature_tensors_.push_back(tensor);
@@ -88,7 +87,7 @@ class DistribtuedLookuper : public EmbeddingLookuper {
       auto &buffer = base_context()->get_buffer(dev_id);
       // new wgrad used by backward
       {
-        Tensor2<float> tensor;
+        Tensor2<ValueType> tensor;
         buffer->reserve({global_batch_size_ * slot_num_, param_->get_embedding_vec_size()},
                         &tensor);
         wgrad_tensors_.push_back(tensor);
@@ -172,7 +171,7 @@ class DistribtuedLookuper : public EmbeddingLookuper {
     switch (combiner_) {
       case CombinerType::Sum: {
         backward_sum(/*batch_size=*/global_batch_size_, slot_num_, param_->get_embedding_vec_size(),
-                     /*top_grad=*/embedding_features->GetPtrWithType<float>(),
+                     /*top_grad=*/embedding_features->GetPtrWithType<ValueType>(),
                      /*wgrad=*/wgrad_tensors_[local_replica_id].get_ptr(), stream);
         break;
       }
@@ -180,7 +179,7 @@ class DistribtuedLookuper : public EmbeddingLookuper {
         backward_mean(/*batch_size=*/global_batch_size_, slot_num_,
                       param_->get_embedding_vec_size(),
                       /*row_offset=*/row_offset_allreduce_tensors_[local_replica_id].get_ptr(),
-                      /*top_grad=*/embedding_features->GetPtrWithType<float>(),
+                      /*top_grad=*/embedding_features->GetPtrWithType<ValueType>(),
                       /*wgrad=*/wgrad_tensors_[local_replica_id].get_ptr(), stream);
         break;
       }
@@ -194,7 +193,7 @@ class DistribtuedLookuper : public EmbeddingLookuper {
     expand_input_grad(global_batch_size_, slot_num_, param_->get_embedding_vec_size(),
                       replica_row_offset->GetPtrWithType<int64_t>(),
                       wgrad_tensors_[local_replica_id].get_ptr(),
-                      replica_input_grad->GetPtrWithType<float>(), stream);
+                      replica_input_grad->GetPtrWithType<ValueType>(), stream);
 
     // set hash_value index
     const auto &replica_hash_value_index =
@@ -291,13 +290,18 @@ class DistribtuedLookuper : public EmbeddingLookuper {
 
   // forward spaces
   Tensors2<size_t> hash_value_index_tensors_;
-  Tensors2<float> embedding_feature_tensors_;
+  Tensors2<ValueType> embedding_feature_tensors_;
 
   // backward spaces
-  Tensors2<float> wgrad_tensors_;
+  Tensors2<ValueType> wgrad_tensors_;
   Tensors2<int64_t> row_offset_allreduce_tensors_;
 };
 
-REGISTER_EMB_LOOKUPER_BUILDER("distributed", DistribtuedLookuper);
+REGISTER_EMB_LOOKUPER_BUILDER("distributed", 
+                              DataType::Float32, 
+                              DistribtuedLookuper<float>);
+REGISTER_EMB_LOOKUPER_BUILDER("distributed", 
+                              DataType::Float16, 
+                              DistribtuedLookuper<__half>);
 
 }  // namespace SparseOperationKit

@@ -31,7 +31,7 @@ REGISTER_OP("AssignEmbeddingVariable")
     .Attr("trainable: bool = true")
     .Attr("shape: shape")
     .Attr("use_hashtable: bool = true")
-    .Attr("dtype: {float}")
+    .Attr("dtype: type")
     .Attr("init_dtype: {float, string}")
     .SetShapeFn([](InferenceContext* c) {
       std::vector<ShapeAndType> handle_shape_and_type;

@@ -18,11 +18,12 @@
 #include "common/include/forward_functions.h"
 #include "hashtable/simple_hashtable.h"
 #include "operation/operation_interface.h"
+#include "common.cuh"
 
 namespace SparseOperationKit {
 
 template <typename EmbeddingType>
-__global__ static void gatherKernel(const size_t EmbeddingDimension, EmbeddingType *inputs,
+__global__ static void gatherKernel(const size_t EmbeddingDimension, float * __restrict__ inputs,
                                     size_t *indices, size_t num_indices, EmbeddingType *outputs) {
   for (size_t id = blockIdx.x * blockDim.x + threadIdx.x; id < num_indices * EmbeddingDimension;
        id += blockDim.x * gridDim.x) {
@@ -30,10 +31,12 @@ __global__ static void gatherKernel(const size_t EmbeddingDimension, EmbeddingTy
     size_t embedding_id = id - item_id * EmbeddingDimension;
 
     size_t index = static_cast<size_t>(indices[item_id]);
-    outputs[id] = inputs[index * EmbeddingDimension + embedding_id];
+    outputs[id] = HugeCTR::TypeConvertFunc<EmbeddingType, float>::convert(
+      inputs[index * EmbeddingDimension + embedding_id]);
   }
 }
 
+template <typename ValueType>
 class DenseGather : public EmbeddingLookuper {
  public:
   DenseGather(ConstructionContext_t context, std::shared_ptr<ParamInterface> param)
@@ -79,7 +82,7 @@ class DenseGather : public EmbeddingLookuper {
         mapped_indices_buf_.push_back(tensor);
       }
       {
-        Tensor2<float> tensor;
+        Tensor2<ValueType> tensor;
         buffer->reserve({global_gpu_count, embedding_vec_size * num_keys_per_rank_}, &tensor);
         gathered_embeddings_buf_.push_back(tensor);
       }
@@ -117,7 +120,7 @@ class DenseGather : public EmbeddingLookuper {
 
     // step 2: gather embedding vectors from embedding table
     const auto &embedding_table = param_->get_embedding_table_tensor(local_replica_id);
-    gatherKernel<float><<<local_gpu->get_sm_count() * 2, 1024ul, 0, local_gpu->get_stream()>>>(
+    gatherKernel<ValueType><<<local_gpu->get_sm_count() * 2, 1024ul, 0, local_gpu->get_stream()>>>(
         /*EmbeddingDimension=*/param_->get_embedding_vec_size(),
         /*inputs=*/embedding_table->GetPtrWithType<float>(),
         /*indices=*/mapped_indices_buf_[local_replica_id].get_ptr(),
@@ -172,9 +175,14 @@ class DenseGather : public EmbeddingLookuper {
   // forward spaces
   Tensors2<size_t> mapped_indices_buf_;
   Tensors2<size_t> host_nnz_;
-  Tensors2<float> gathered_embeddings_buf_;
+  Tensors2<ValueType> gathered_embeddings_buf_;
 };
 
-REGISTER_EMB_LOOKUPER_BUILDER("dense_gather", DenseGather);
+REGISTER_EMB_LOOKUPER_BUILDER("dense_gather", 
+                              DataType::Float32, 
+                              DenseGather<float>);
+REGISTER_EMB_LOOKUPER_BUILDER("dense_gather", 
+                              DataType::Float16, 
+                              DenseGather<__half>);
 
 }  // namespace SparseOperationKit

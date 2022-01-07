@@ -22,6 +22,7 @@
 
 namespace SparseOperationKit {
 
+template <typename ValueType>
 class CsrConversionDistributed : public Operation {
  public:
   explicit CsrConversionDistributed(ConstructionContext_t context)
@@ -224,6 +225,11 @@ class CsrConversionDistributed : public Operation {
   }
 };
 
-REGISTER_OPERATION_BUILDER("csr_conversion_distributed", CsrConversionDistributed);
+REGISTER_OPERATION_BUILDER("csr_conversion_distributed", 
+                           DataType::Float32, 
+                           CsrConversionDistributed<float>);
+REGISTER_OPERATION_BUILDER("csr_conversion_distributed", 
+                           DataType::Float16, 
+                           CsrConversionDistributed<__half>);
 
 }  // namespace SparseOperationKit

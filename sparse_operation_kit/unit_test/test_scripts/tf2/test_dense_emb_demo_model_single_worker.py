@@ -27,6 +27,13 @@ from test_sparse_emb_demo_model_single_worker import check_saved_embedding_varia
 import pickle
 import utils
 
+class Initializer(object):
+    def __init__(self, value):
+        self._value = value
+
+    def __call__(self, shape, dtype=None, **kwargs):
+        return self._value
+
 class SOKDenseDemo(tf.keras.models.Model):
     def __init__(self, 
                  max_vocabulary_size_per_gpu,
@@ -107,6 +114,9 @@ def test_sok_dense_demo(args, init_tensors, *random_samples):
                                       use_hashtable=args.use_hashtable)
         emb_opt = utils.get_embedding_optimizer(args.optimizer)(learning_rate=0.1)
         dense_opt = utils.get_dense_optimizer(args.optimizer)(learning_rate=0.1)
+        if args.mixed_precision:
+            # only one LossScaleOptimizer is needed, since it will not track trainable variables.
+            emb_opt = tf.keras.mixed_precision.LossScaleOptimizer(emb_opt, initial_scale=1024)
 
     sok_saver = sok.Saver()
 
@@ -119,15 +129,26 @@ def test_sok_dense_demo(args, init_tensors, *random_samples):
     loss_fn = tf.keras.losses.BinaryCrossentropy(from_logits=True, reduction=tf.keras.losses.Reduction.NONE)
     def _replica_loss(labels, logits):
         loss = loss_fn(labels, logits)
-        return tf.nn.compute_average_loss(loss, global_batch_size=args.global_batch_size)
+        _dtype = loss.dtype
+        loss = tf.cast(loss, dtype=tf.float32)
+        loss = tf.nn.compute_average_loss(loss, global_batch_size=args.global_batch_size)
+        return tf.cast(loss, dtype=_dtype)
 
     @tf.function
     def _train_step(inputs, labels):
         with tf.GradientTape() as tape:
             logit, embedding_vector = sok_dense_demo(inputs, training=True)
             loss = _replica_loss(labels, logit)
-        embedding_variables, other_variable = sok.split_embedding_variable_from_others(sok_dense_demo.trainable_variables)
-        grads, emb_grads = tape.gradient(loss, [other_variable, embedding_variables])
+            if args.mixed_precision:
+                _loss = emb_opt.get_scaled_loss(loss)
+            else:
+                _loss = loss
+        embedding_variables, other_variable = sok.split_embedding_variable_from_others(
+                                                    sok_dense_demo.trainable_variables)
+        grads, emb_grads = tape.gradient(_loss, [other_variable, embedding_variables])
+        if args.mixed_precision:
+            grads = emb_opt.get_unscaled_gradients(grads)
+            emb_grads = emb_opt.get_unscaled_gradients(emb_grads)
         if "plugin" not in args.optimizer:
             with sok.OptimizerScope(embedding_variables):
                 emb_opt.apply_gradients(zip(emb_grads, embedding_variables),
@@ -136,7 +157,7 @@ def test_sok_dense_demo(args, init_tensors, *random_samples):
             emb_opt.apply_gradients(zip(emb_grads, embedding_variables),
                                     experimental_aggregate_gradients=False)
         dense_opt.apply_gradients(zip(grads, other_variable))
-        return logit, embedding_vector
+        return loss, embedding_vector
 
     def _dataset_fn(input_context):
         replica_batch_size = input_context.get_per_replica_batch_size(args.global_batch_size)
@@ -150,15 +171,10 @@ def test_sok_dense_demo(args, init_tensors, *random_samples):
     sok_results = list()
     for i, (input_tensors, replica_labels) in enumerate(dataset):
         print("-" * 30, "step ", str(i), "-" * 30)
-        logit, embedding_vector = strategy.run(_train_step, args=(input_tensors, replica_labels))
-        if args.print_output:
-            print("[INFO]: embedding_vector\n", embedding_vector)
+        loss, embedding_vector = strategy.run(_train_step, args=(input_tensors, replica_labels))
+        loss = strategy.reduce("sum", loss, axis=None)
+        print("[INFO]: iteration {}, loss {}".format(i, loss))
         sok_results.append(embedding_vector)
-
-        # FIXME: when the forward computation is too fast, there
-        # may exist some conficts with datareader, which cause the program hang.
-        import time
-        time.sleep(0.2) # seconds
 
     if 1 == args.save_params:
         filepath = r"./embedding_variables/"
@@ -178,29 +194,31 @@ def test_tf_dense_model(args, init_tensors, *random_samples):
                                 args.nnz_per_slot, args.embedding_vec_size)
     
     optimizer = utils.get_dense_optimizer(args.optimizer)(learning_rate=0.1)
+    if args.mixed_precision:
+        optimizer = tf.keras.mixed_precision.LossScaleOptimizer(optimizer, initial_scale=1024)
 
     @tf.function
     def _train_step(inputs, labels):
         with tf.GradientTape() as tape:
             logit, embedding_vector = tf_dense_demo(inputs, training=True)
             loss = loss_fn(labels, logit)
-        grads = tape.gradient(loss, tf_dense_demo.trainable_variables)
+            if args.mixed_precision:
+                _loss = optimizer.get_scaled_loss(loss)
+            else:
+                _loss = loss
+        grads = tape.gradient(_loss, tf_dense_demo.trainable_variables)
+        if args.mixed_precision:
+            grads = optimizer.get_unscaled_gradients(grads)
         optimizer.apply_gradients(zip(grads, tf_dense_demo.trainable_variables))
-        return logit, embedding_vector
+        return loss, embedding_vector
 
     tf_results = list()
 
     for i, (input_tensors, labels) in enumerate(dataset):
         print("-"*30, str(i), "-"*30)
-        logit, embedding_vector = _train_step(input_tensors, labels)
-        if args.print_output:
-            print("[INFO]: embedding_vector:\n", embedding_vector)
+        loss, embedding_vector = _train_step(input_tensors, labels)
+        print("[INFO]: iteration {}, loss {}".format(i, loss))
         tf_results.append(embedding_vector.numpy())
-
-        # FIXME: because plugin sleepd, here is only used for 
-        # simulate the same DNN structure. 
-        import time
-        time.sleep(0.2) # seconds
 
     if not hasattr(args, "task_id"):
         args.task_id = 0
@@ -241,9 +259,10 @@ def compare_dense_emb_sok_with_tf(args):
         tf_values_filename = os.path.join(filepath, r"tf_variable.file")
         init_tensors = utils.restore_from_file(tf_values_filename)
     else:
-        init_tensors = utils.get_ones_tensor(max_vocab_size_per_gpu=args.max_vocabulary_size_per_gpu,
-                                        embedding_vec_size=args.embedding_vec_size,
-                                        num=args.gpu_num)
+        init_tensors = utils.get_ones_tensor(
+                    max_vocab_size_per_gpu=args.max_vocabulary_size_per_gpu,
+                    embedding_vec_size=args.embedding_vec_size,
+                    num=args.gpu_num)
 
     sok_results, embedding_variable_name = test_sok_dense_demo(args, init_tensors, *random_samples)
     tf_results = test_tf_dense_model(args, init_tensors, *random_samples)
@@ -254,7 +273,7 @@ def compare_dense_emb_sok_with_tf(args):
         raise ValueError("The length of embedding vectors: %d is not equal to iteration number: %d."
                         %(len(sok_results), args.iter_num))
 
-    if 1 == args.restore_params:
+    if 1 == args.restore_params or args.mixed_precision:
         tolerance = 1e-2
     else:
         tolerance = 1e-4
@@ -270,11 +289,14 @@ def compare_dense_emb_sok_with_tf(args):
                                 message="the values is not consistent on Iteration: %d" %i)
 
     print("\n[INFO]: For Dense Embedding Layer: with MirroredStrategy, the embedding vector obtained from " +\
-          "sparse operation kit and TensorFlow are consistent for %d iterations."
-          %args.iter_num)
+          "sparse operation kit and TensorFlow are consistent for %d iterations with mixed_precision = %s."
+          %(args.iter_num, args.mixed_precision))
 
     if 1 == args.save_params:
-        check_saved_embedding_variables(args, embedding_variable_name, use_hashtable=args.use_hashtable, gpu_num=args.gpu_num)
+        check_saved_embedding_variables(args, embedding_variable_name, 
+                                        use_hashtable=args.use_hashtable, 
+                                        gpu_num=args.gpu_num,
+                                        atol=tolerance, rtol=tolerance)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='test demo model with single worker.')
@@ -313,14 +335,16 @@ if __name__ == "__main__":
                              'rather than restore trainable parameters from file.',
                         required=False, default=0)
     parser.add_argument("--use_hashtable", type=int, choices=[0, 1], default=1)
-    parser.add_argument("--print_output", type=int, choices=[0, 1], default=0)
+    parser.add_argument("--mixed_precision", type=int, choices=[0, 1], default=0)
 
     args = parser.parse_args()
 
     args.use_hashtable = True if args.use_hashtable == 1 else False
-    args.print_output = True if 1 == args.print_output else False
-    if os.getenv("PRINT_OUTPUT") and int(os.getenv("PRINT_OUTPUT")):
-        args.print_output = True
+    args.mixed_precision = True if args.mixed_precision == 1 else False
+
+    if args.mixed_precision:
+        policy = tf.keras.mixed_precision.Policy("mixed_float16")
+        tf.keras.mixed_precision.set_global_policy(policy)
 
     import os
     os.environ['CUDA_VISIBLE_DEVICES'] = ",".join([str(i) for i in range(args.gpu_num)])

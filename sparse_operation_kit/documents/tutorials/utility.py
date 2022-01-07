@@ -15,7 +15,6 @@
 """
 
 import sys, os
-import sparse_operation_kit
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                              "../../unit_test/test_scripts/tf2/")))
 from utils import *

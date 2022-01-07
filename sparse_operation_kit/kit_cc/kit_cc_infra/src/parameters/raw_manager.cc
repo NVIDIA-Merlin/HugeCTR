@@ -79,6 +79,7 @@ void RawManager::gen_unique_name(const bool trainable, std::string& name) {
 void RawManager::create_variables(const size_t local_replica_id, const std::string initializer,
                                   const bool use_hashtable, const std::vector<size_t> shape,
                                   const std::string name, const bool trainable,
+                                  const DataType dtype,
                                   std::shared_ptr<ParamInterface>& param) {
   // If shape is the same as the previous one,
   // then the previous param should be returned,
@@ -89,7 +90,7 @@ void RawManager::create_variables(const size_t local_replica_id, const std::stri
     // return the previous param
     param = previous_param;
   } else {
-    std::shared_ptr<RawParam> raw_param{nullptr};
+    std::shared_ptr<ParamInterface> raw_param{nullptr};
     {  // begin write
       num_writers_waiting_.fetch_add(1, std::memory_order_acq_rel);
       std::unique_lock<std::mutex> lock(mu_);
@@ -100,8 +101,13 @@ void RawManager::create_variables(const size_t local_replica_id, const std::stri
 
       // create variable
       // variable will have its own memory buffer
-      raw_param =
-          RawParam::create(initializer, use_hashtable, shape, resource_mgr_, name, trainable);
+      if (DataType::Float32 == dtype) {
+        raw_param =
+          RawParam<float>::create(initializer, use_hashtable, shape, resource_mgr_, name, trainable);
+      } else if (DataType::Float16 == dtype) {
+        raw_param = 
+          RawParam<__half>::create(initializer, use_hashtable, shape, resource_mgr_, name, trainable);
+      }
       if (trainable) {
         trainable_params_.emplace(std::make_pair(name, raw_param));
       } else {
@@ -128,10 +134,11 @@ void RawManager::create_variables(const size_t local_replica_id,
                                   const std::shared_ptr<Tensor> initial_value,
                                   const bool use_hashtable, const std::vector<size_t> shape,
                                   const std::string name, const bool trainable,
+                                  const DataType dtype,
                                   std::shared_ptr<ParamInterface>& param) {
   // create variable
-  create_variables(local_replica_id, /*initializer=*/"ones", use_hashtable, shape, name, trainable,
-                   param);
+  create_variables(local_replica_id, /*initializer=*/"ones", use_hashtable, shape, 
+                   name, trainable, dtype, param);
   // set initial_value
   param->set_initial_value(local_replica_id, initial_value);
 }
@@ -234,6 +241,7 @@ void RawManager::push_back_embedding_buffer_builder(
 
 // This function should be called once.
 void RawManager::reserve_spaces_for_Adam() {
+  // FIXME: should use template arg for RawStates??
   // iterate all trainable params
   for (const auto& params : trainable_params_) {
     auto param_name = params.first;

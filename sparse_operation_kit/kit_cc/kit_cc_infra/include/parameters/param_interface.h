@@ -20,7 +20,7 @@
 #include "hashtable/hashtable.h"
 #include "hashtable/simple_hashtable.h"
 #include "parameters/state_interface.h"
-#include "tensorflow/core/framework/tensor.h"
+#include "common.h"
 
 namespace SparseOperationKit {
 
@@ -32,25 +32,37 @@ class EmbeddingLayer;
 class ParamInterface : public States {
  public:
   virtual ~ParamInterface() {}
-  virtual size_t get_max_vocabulary_size_per_gpu() const = 0;
-  virtual size_t get_embedding_vec_size() const = 0;
-  virtual bool trainable() const = 0;
+  ParamInterface(const size_t max_vocabulary_size_per_gpu, const size_t embedding_vec_size,
+                 const bool trainable, const std::string var_name,
+                 const DataType dtype);
   virtual std::shared_ptr<HashTable>& get_hashtable(const size_t local_replica_id) = 0;
   virtual std::shared_ptr<Tensor>& get_embedding_table_tensor(const size_t local_replica_id) = 0;
   std::shared_ptr<Tensor>& get_tensor(const size_t local_replica_id) override;
-  virtual std::string get_var_name() const = 0;
   virtual void set_initial_value(const size_t local_replica_id,
                                  const std::shared_ptr<Tensor>& initial_value) = 0;
   virtual void dump_to_file(const std::string filepath) = 0;
   virtual void restore_from_file(const std::string filepath) = 0;
   virtual void load_embedding_values(const std::vector<std::shared_ptr<Tensor>>& tensors) = 0;
   // It is not compulsory for the subclass to override this function.
+  virtual size_t get_max_vocabulary_size_per_gpu() const;
+  virtual size_t get_embedding_vec_size() const;
+  virtual bool trainable() const;
+  virtual std::string get_var_name() const;
+  virtual DataType dtype() const;
+
   virtual void set_user(std::shared_ptr<EmbeddingLayer>& embedding);
   virtual void let_user_dump_to_file(const std::string filepath);
   virtual void let_user_restore_from_file(const std::string filepath);
   virtual void let_user_load_embedding_values(
       const std::vector<std::shared_ptr<Tensor>>& tensor_list);
   virtual void set_hashtable(std::shared_ptr<BaseSimpleHashtable> hashtable);
+
+ private:
+  const size_t max_vocabulary_size_per_gpu_;
+  const size_t embedding_vec_size_;
+  const bool trainable_;
+  const std::string var_name_;
+  DataType dtype_;
 };
 
 }  // namespace SparseOperationKit

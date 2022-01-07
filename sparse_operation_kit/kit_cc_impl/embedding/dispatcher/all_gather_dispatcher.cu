@@ -48,6 +48,7 @@ __global__ void add_offset(int64_t *ptr, size_t size, size_t *valid_nums, size_t
   }
 }
 
+template <typename ValueType>
 class AllGatherDispatcher : public Dispatcher {
  public:
   explicit AllGatherDispatcher(ConstructionContext_t context)
@@ -192,6 +193,11 @@ class AllGatherDispatcher : public Dispatcher {
   Tensors2<size_t> total_valid_num_;
 };
 
-REGISTER_INPUT_DISPATCHER_BUILDER("all_gather_dispatcher", AllGatherDispatcher);
+REGISTER_INPUT_DISPATCHER_BUILDER("all_gather_dispatcher", 
+                                  DataType::Float32, 
+                                  AllGatherDispatcher<float>);
+REGISTER_INPUT_DISPATCHER_BUILDER("all_gather_dispatcher", 
+                                  DataType::Float16, 
+                                  AllGatherDispatcher<__half>);
 
 }  // namespace SparseOperationKit

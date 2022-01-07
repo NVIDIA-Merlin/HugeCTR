@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-#include <cub/cub.cuh>
-
 #include "common/include/forward_functions.h"
 #include "operation/operation_interface.h"
 
@@ -128,6 +126,7 @@ __global__ void selectKernel(KeyType const *input_keys, size_t num_keys, KeyType
   }
 }
 
+template <typename ValueType>
 class All2AllInputDispatcher : public Dispatcher {
  public:
   explicit All2AllInputDispatcher(ConstructionContext_t context)
@@ -315,6 +314,11 @@ class All2AllInputDispatcher : public Dispatcher {
   Tensors2<uint32_t> h_recv_chunk_offsets_;
 };
 
-REGISTER_INPUT_DISPATCHER_BUILDER("All2AllInput", All2AllInputDispatcher);
+REGISTER_INPUT_DISPATCHER_BUILDER("All2AllInput", 
+                                  DataType::Float32, 
+                                  All2AllInputDispatcher<float>);
+REGISTER_INPUT_DISPATCHER_BUILDER("All2AllInput", 
+                                  DataType::Float16, 
+                                  All2AllInputDispatcher<__half>);
 
 }  // namespace SparseOperationKit

@@ -127,6 +127,11 @@ def get_ones_tensor(max_vocab_size_per_gpu,
 
     return all_tensors
 
+def get_random_value(shape, dtype=None):
+    tensor = np.random.normal(size=shape)
+    tensor = tensor.astype(np.float32)
+    return tensor
+
 
 def generate_random_samples(num_of_samples,
                             vocabulary_size,
