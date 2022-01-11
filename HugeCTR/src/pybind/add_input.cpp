@@ -96,6 +96,11 @@ void add_input(Input& input, DataReaderParams& reader_params,
   }
 
   if ((format == DataReaderType_t::RawAsync)) {
+    if (!repeat_dataset) {
+      HCTR_OWN_THROW(
+          Error_t::WrongInput,
+          "Epoch mode cannot be used with RawAsync reader, please set repeat_dataset as true");
+    }
     Alignment_t aligned_type = reader_params.async_param.aligned_type;
     int num_threads = reader_params.async_param.num_threads;
     int num_batches_per_thread = reader_params.async_param.num_batches_per_thread;
