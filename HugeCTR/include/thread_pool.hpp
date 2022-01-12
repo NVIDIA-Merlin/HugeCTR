@@ -49,6 +49,9 @@ class ThreadPool {
 
   static ThreadPool& get();
 
+  template <typename TInputIterator>
+  static void await(TInputIterator first, const TInputIterator& last);
+
  private:
   std::vector<std::thread> workers_;
 
@@ -62,7 +65,14 @@ class ThreadPool {
   std::deque<std::packaged_task<void()>>
       packages_;  // Work packages that have not been processed yet.
 
-  void run(const size_t thread_index);
+  void run_(const size_t thread_index);
 };
+
+template <typename TInputIterator>
+void ThreadPool::await(TInputIterator first, const TInputIterator& last) {
+  for (; first != last; first++) {
+    first->wait();
+  }
+}
 
 }  // namespace HugeCTR
