@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <time.h>
 #include <unistd.h>
 
 #include <algorithm>
@@ -33,9 +34,6 @@
 
 namespace HugeCTR {
 
-std::unique_ptr<Logger> Logger::g_instance;
-std::once_flag Logger::g_once_flag;
-
 void Logger::print_exception(const std::exception& e, int depth) {
   Logger::get().log(LOG_ERROR_LEVEL, true, false, "%d. %s\n", depth, e.what());
   try {
@@ -47,8 +45,11 @@ void Logger::print_exception(const std::exception& e, int depth) {
 }
 
 Logger& Logger::get() {
-  call_once(Logger::g_once_flag, []() { g_instance.reset(new Logger()); });
-  return *(g_instance.get());
+  static std::unique_ptr<Logger> instance;
+  static std::once_flag once_flag;
+
+  call_once(once_flag, []() { instance.reset(new Logger()); });
+  return *instance;
 }
 
 Logger::~Logger() {
@@ -168,7 +169,12 @@ void Logger::do_throw(HugeCTR::Error_t error_type, const SrcLoc& loc,
 
 int Logger::get_rank() { return rank_; }
 
-Logger::Logger() : rank_(0), max_level_(DEFAULT_LOG_LEVEL), log_to_std_(true), log_to_file_(false) {
+Logger::Logger()
+    : rank_(0),
+      main_thread_id_(std::this_thread::get_id()),
+      max_level_(DEFAULT_LOG_LEVEL),
+      log_to_std_(true),
+      log_to_file_(false) {
 #ifdef ENABLE_MPI
   MPI_Comm_rank(MPI_COMM_WORLD, &rank_);
 #endif
@@ -195,6 +201,7 @@ Logger::Logger() : rank_(0), max_level_(DEFAULT_LOG_LEVEL), log_to_std_(true), l
   LEVEL_MAP(level_name_, INFO);
   LEVEL_MAP(level_name_, WARNING);
   LEVEL_MAP(level_name_, DEBUG);
+  LEVEL_MAP(level_name_, TRACE);
 
   if (log_to_file_) {
     for (int level = LOG_ERROR_LEVEL; level <= max_level_; level++) {
@@ -221,29 +228,49 @@ Logger::Logger() : rank_(0), max_level_(DEFAULT_LOG_LEVEL), log_to_std_(true), l
 }
 
 std::string Logger::get_log_prefix(int level) const {
-  using std::chrono::system_clock;
+  std::ostringstream prefix;
 
-  system_clock::time_point time_now = system_clock::now();
-  auto tt = system_clock::to_time_t(time_now);
-  char time[18];
-  std::strftime(time, sizeof(time), "%T", std::localtime(&tt));
+  // Base & time
+  prefix << "[HCTR][";
+  {
+    const time_t now = std::time(nullptr);
+    std::tm now_local;
+    localtime_r(&now, &now_local);
 
-  std::string prefix_str = std::string("[HUGECTR][") + std::string(time) + "]";
-
-  std::string level_name;
-  auto it = level_name_.find(level);
-  if (it != level_name_.end()) {
-    level_name = it->second;
-  } else {
-    level_name = "LEVEL" + std::to_string(level);
+    // %H:%M:%S = [00-23]:[00-59]:[00-60] == e.g., 23:59:60 = 8 bytes + 1 zero terminate.
+    // (60 = for second-time-shift years)
+    char buffer[8 + 1];
+    std::strftime(buffer, sizeof(buffer), "%T", &now_local);
+    prefix << buffer;
   }
-  prefix_str += "[" + level_name + "]";
 
-  prefix_str += "[RANK" + std::to_string(rank_) + "]";
+  // Level
+  prefix << "][";
+  {
+    const auto level_it = level_name_.find(level);
+    if (level_it != level_name_.end()) {
+      prefix << level_it->second;
+    } else {
+      prefix << "LEVEL" << level;
+    }
+  }
 
-  prefix_str += ": ";
+  // Rank
+  prefix << "][RK" << rank_;
 
-  return prefix_str;
+  // Thread ID (for readability, print main thread as thread 0)
+  prefix << "][THR";
+  if (sizeof(std::thread::id) == sizeof(size_t)) {
+    // Note: size_t should always be trivial hash function. Hence we can do arithmetics with it.
+    static const std::hash<std::thread::id> h;
+    prefix << (h(std::this_thread::get_id()) - h(main_thread_id_));
+  } else {
+    prefix << std::this_thread::get_id();
+  }
+
+  // Prompt & return.
+  prefix << "]: ";
+  return prefix.str();
 }
 
 }  // namespace HugeCTR

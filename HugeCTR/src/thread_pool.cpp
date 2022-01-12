@@ -36,7 +36,7 @@ ThreadPool::ThreadPool(size_t num_workers) {
 
   // Create worker threads.
   for (size_t i = 0; i < num_workers; i++) {
-    workers_.emplace_back(&ThreadPool::run, this, i);
+    workers_.emplace_back(&ThreadPool::run_, this, i);
   }
 
   // Block until all workers entered the idle state.
@@ -101,7 +101,7 @@ ThreadPool& ThreadPool::get() {
   return *default_pool.get();
 }
 
-void ThreadPool::run(const size_t thread_index) {
+void ThreadPool::run_(const size_t thread_index) {
   while (true) {
     thread_local std::packaged_task<void()> package;
 
