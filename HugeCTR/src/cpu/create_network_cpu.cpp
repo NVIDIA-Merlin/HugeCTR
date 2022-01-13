@@ -19,7 +19,6 @@
 #include <cpu/layers/batch_norm_layer_cpu.hpp>
 #include <cpu/layers/cast_layer_cpu.hpp>
 #include <cpu/layers/concat_layer_cpu.hpp>
-#include <cpu/layers/dot_product_layer_cpu.hpp>
 #include <cpu/layers/dropout_layer_cpu.hpp>
 #include <cpu/layers/elu_layer_cpu.hpp>
 #include <cpu/layers/fm_order2_layer_cpu.hpp>
@@ -632,28 +631,6 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
           Tensor2<float> out_tensor;
           layers.emplace_back(
               new ReduceSumLayerCPU<float>(in_tensor, out_tensor, blobs_buff, axis));
-          output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
-        }
-        break;
-      }
-      case Layer_t::DotProduct: {
-        if (use_mixed_precision) {
-          Tensors2<__half> in_tensors;
-          for (const auto& bag : input_output_info.inputs) {
-            in_tensors.push_back(Tensor2<__half>::stretch_from(bag));
-          }
-          Tensor2<__half> out_tensor;
-          blobs_buff->reserve(in_tensors[0].get_dimensions(), &out_tensor);
-          layers.emplace_back(new DotProductLayerCPU<__half>(in_tensors, out_tensor, blobs_buff));
-          output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
-        } else {
-          Tensors2<float> in_tensors;
-          for (const auto& bag : input_output_info.inputs) {
-            in_tensors.push_back(Tensor2<float>::stretch_from(bag));
-          }
-          Tensor2<float> out_tensor;
-          blobs_buff->reserve(in_tensors[0].get_dimensions(), &out_tensor);
-          layers.emplace_back(new DotProductLayerCPU<float>(in_tensors, out_tensor, blobs_buff));
           output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
         }
         break;

@@ -155,7 +155,6 @@ enum class Layer_t {
   ReduceSum,
   MultiCross,
   Cast,
-  DotProduct,
   ElementwiseMultiply
 };
 
