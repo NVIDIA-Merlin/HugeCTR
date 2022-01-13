@@ -16,7 +16,6 @@ file(GLOB cpu_inference_src
   layers/batch_norm_layer_cpu.cpp
   layers/cast_layer_cpu.cpp
   layers/concat_layer_cpu.cpp
-  layers/dot_product_layer_cpu.cpp
   layers/dropout_layer_cpu.cpp
   layers/elu_layer_cpu.cpp
   layers/fm_order2_layer_cpu.cpp

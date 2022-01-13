@@ -42,7 +42,6 @@ file(GLOB huge_ctr_src
   ../layers/multi_cross_layer.cu
   ../layers/add_layer.cu
   ../layers/reduce_sum_layer.cu
-  ../layers/dot_product_layer.cu
   ../layers/elementwise_multiply_layer.cu
   ../layers/gru_layer.cu
   ../layers/matrix_multiply_layer.cu

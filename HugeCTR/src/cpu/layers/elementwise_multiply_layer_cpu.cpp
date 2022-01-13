@@ -15,7 +15,7 @@
  */
 
 #include <algorithm>
-#include <cpu/layers/dot_product_layer_cpu.hpp>
+#include <cpu/layers/elementwise_multiply_layer_cpu.hpp>
 #include <functional>
 #include <utils.hpp>
 
@@ -28,7 +28,7 @@ namespace HugeCTR {
 namespace {
 
 template <typename T>
-void dot_product_cpu(T** input, T* output, size_t size, size_t num) {
+void elementwise_multiply_cpu(T** input, T* output, size_t size, size_t num) {
   T one = 1.0;
 
   for (size_t i = 0; i < size; i++) {
@@ -41,7 +41,7 @@ void dot_product_cpu(T** input, T* output, size_t size, size_t num) {
 }
 
 template <typename T>
-void dot_product_dgrad_cpu(const T* top_grad, T** dgrad, const T* fprop_output, size_t size,
+void elementwise_multiply_dgrad_cpu(const T* top_grad, T** dgrad, const T* fprop_output, size_t size,
                            size_t num) {
   T zero = 0.0;
 
@@ -60,7 +60,7 @@ void dot_product_dgrad_cpu(const T* top_grad, T** dgrad, const T* fprop_output, 
 }  // end of namespace
 
 template <typename T>
-DotProductLayerCPU<T>::DotProductLayerCPU(
+ElementwiseMultiplyLayerCPU<T>::ElementwiseMultiplyLayerCPU(
     const Tensors2<T>& in_tensors, const Tensor2<T>& out_tensor,
     const std::shared_ptr<GeneralBuffer2<HostAllocator>>& blobs_buff)
     : LayerCPU() {
@@ -71,7 +71,7 @@ DotProductLayerCPU<T>::DotProductLayerCPU(
     // error input checking
     auto dims = in_tensors[0].get_dimensions();
     if (num_ < 2) {
-      CK_THROW_(Error_t::WrongInput, "DotProductLayer needs at least 2 input tensors");
+      CK_THROW_(Error_t::WrongInput, "ElementwiseMultiplyLayer needs at least 2 input tensors");
     }
     for (size_t i = 1; i < num_; i++) {
       if (in_tensors[i].get_dimensions().size() != dims.size()) {
@@ -99,14 +99,14 @@ DotProductLayerCPU<T>::DotProductLayerCPU(
 }
 
 template <typename T>
-void DotProductLayerCPU<T>::initialize() {
+void ElementwiseMultiplyLayerCPU<T>::initialize() {
   for (size_t i = 0; i < num_; i++) {
     h_inputs_.get_ptr()[i] = in_tensors_[i].get_ptr();
   }
 }
 
 template <typename T>
-void DotProductLayerCPU<T>::fprop(bool is_train) {
+void ElementwiseMultiplyLayerCPU<T>::fprop(bool is_train) {
   if (!initialized_) {
     for (size_t i = 0; i < num_; i++) {
       h_inputs_.get_ptr()[i] = in_tensors_[i].get_ptr();
@@ -114,13 +114,13 @@ void DotProductLayerCPU<T>::fprop(bool is_train) {
     initialized_ = true;
   }
   T* output = out_tensors_[0].get_ptr();
-  dot_product_cpu(h_inputs_.get_ptr(), output, size_, num_);
+  elementwise_multiply_cpu(h_inputs_.get_ptr(), output, size_, num_);
 }
 
 template <typename T>
-void DotProductLayerCPU<T>::bprop() {}
+void ElementwiseMultiplyLayerCPU<T>::bprop() {}
 
-template class DotProductLayerCPU<float>;
-template class DotProductLayerCPU<__half>;
+template class ElementwiseMultiplyLayerCPU<float>;
+template class ElementwiseMultiplyLayerCPU<__half>;
 
 }  // namespace HugeCTR

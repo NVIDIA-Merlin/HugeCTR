@@ -94,7 +94,7 @@ model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Slice,
                             bottom_names = ["gmf_embedding"],
                             top_names = ["user", "item"],
                             ranges=[(0,7),(8,15)]))
-model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.DotProduct,
+model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.ElementwiseMultiply,
                             bottom_names = ["user", "item"],
                             top_names = ["gmf_multiply"]))
 

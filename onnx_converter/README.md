@@ -87,7 +87,6 @@ Most HugeCTR layers are supported in the HugeCTR to ONNX converter, and there ar
   * [Add Layer](../docs/hugectr_layer_book.md#add-layer)
   * [BatchNorm Layer](../docs/hugectr_layer_book.md#batchnorm-layer)
   * [Concat Layer](../docs/hugectr_layer_book.md#concat-layer)
-  * [DotProduct Layer](../docs/hugectr_layer_book.md#dotproduct-layer)
   * [Dropout Layer](../docs/hugectr_layer_book.md#dropout-layer)
   * [ElementwiseMultiply Layer](../docs/hugectr_layer_book.md#elementwisemultiply-layer)
   * [ELU Layer](../docs/hugectr_layer_book.md#elu-layer)

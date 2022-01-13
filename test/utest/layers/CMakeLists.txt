@@ -44,7 +44,6 @@ file(GLOB layers_test_src
   sub_layer_test.cpp
   gather_layer_test.cpp
   reduce_mean_layer_test.cpp
-  dot_product_layer_test.cpp
   sigmoid_layer_test.cpp
   elementwise_multiply_layer_test.cpp
   mlp_test.cpp

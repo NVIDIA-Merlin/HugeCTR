@@ -16,9 +16,8 @@
 
 #pragma once
 
+#include <cpu/layer_cpu.hpp>
 #include <vector>
-
-#include "HugeCTR/include/layer.hpp"
 
 namespace HugeCTR {
 
@@ -27,7 +26,7 @@ namespace HugeCTR {
  * All the input tensors should have the same shape.
  */
 template <typename T>
-class DotProductLayer : public Layer {
+class ElementwiseMultiplyLayerCPU : public LayerCPU {
  public:
   /*
    * stores the references to the input tensors of this layer.
@@ -39,24 +38,23 @@ class DotProductLayer : public Layer {
   Tensors2<T> out_tensors_;
 
   /**
-   * Ctor of DotProductLayer.
+   * Ctor of ElementwiseMultiplyLayer.
    * @param in_tensor the input tensor
    * @param out_tensor the resulting output tensor
    * @param device_id the id of GPU where this layer belongs
    */
-  DotProductLayer(const Tensors2<T>& in_tensors, const Tensor2<T>& out_tensor,
-                  const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
-                  const std::shared_ptr<GPUResource>& gpu_resource);
+  ElementwiseMultiplyLayerCPU(const Tensors2<T>& in_tensors, const Tensor2<T>& out_tensor,
+                     const std::shared_ptr<GeneralBuffer2<HostAllocator>>& blobs_buff);
 
   void initialize() override;
 
   /**
-   * DotProductLayer's foward propagation
+   * ElementwiseMultiplyLayer's foward propagation
    * @param stream CUDA stream where the foward propagation is executed
    */
   void fprop(bool is_train) override;
   /**
-   * DotProductLayer's backward propagation
+   * ElementwiseMultiplyLayer's backward propagation
    * @param stream CUDA stream where the foward propagation is executed
    */
   void bprop() override;
@@ -65,7 +63,6 @@ class DotProductLayer : public Layer {
   int size_;
   size_t num_;
   Tensor2<T*> h_inputs_;
-  Tensor2<T*> d_inputs_;
   bool initialized_{false};
   Tensor2<T> fprop_output_;
 };
