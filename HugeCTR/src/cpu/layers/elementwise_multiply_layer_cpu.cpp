@@ -41,8 +41,8 @@ void elementwise_multiply_cpu(T** input, T* output, size_t size, size_t num) {
 }
 
 template <typename T>
-void elementwise_multiply_dgrad_cpu(const T* top_grad, T** dgrad, const T* fprop_output, size_t size,
-                           size_t num) {
+void elementwise_multiply_dgrad_cpu(const T* top_grad, T** dgrad, const T* fprop_output,
+                                    size_t size, size_t num) {
   T zero = 0.0;
 
   for (size_t i = 0; i < size; i++) {

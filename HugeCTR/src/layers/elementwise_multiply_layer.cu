@@ -18,7 +18,6 @@
 
 #include <algorithm>
 #include <functional>
-
 #include <layers/elementwise_multiply_layer.hpp>
 #include <utils.cuh>
 #include <utils.hpp>
@@ -48,7 +47,8 @@ __global__ void elementwise_multiply_kernel(T** inputs, T* output, int size, int
 }
 
 template <>
-__global__ void elementwise_multiply_kernel<__half>(__half** inputs, __half* output, int size, int num) {
+__global__ void elementwise_multiply_kernel<__half>(__half** inputs, __half* output, int size,
+                                                    int num) {
   __half2** inputs2 = reinterpret_cast<__half2**>(inputs);
   __half2* output2 = reinterpret_cast<__half2*>(output);
   const int size2 = size / 2;
@@ -74,8 +74,8 @@ __global__ void elementwise_multiply_kernel<__half>(__half** inputs, __half* out
 }
 
 template <typename T>
-__global__ void elementwise_multiply_dgrad_kernel(const T* top_grad, T** dgrads, T* fprop_output, int size,
-                                         int num) {
+__global__ void elementwise_multiply_dgrad_kernel(const T* top_grad, T** dgrads, T* fprop_output,
+                                                  int size, int num) {
   T zero = 0.0;
   int tid = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -93,7 +93,7 @@ __global__ void elementwise_multiply_dgrad_kernel(const T* top_grad, T** dgrads,
 
 template <>
 __global__ void elementwise_multiply_dgrad_kernel<__half>(const __half* top_grad, __half** dgrads,
-                                                 __half* fprop_output, int size, int num) {
+                                                          __half* fprop_output, int size, int num) {
   const __half2* top_grad2 = reinterpret_cast<const __half2*>(top_grad);
   __half2** dgrads2 = reinterpret_cast<__half2**>(dgrads);
   __half2* fprop_output2 = reinterpret_cast<__half2*>(fprop_output);
@@ -185,8 +185,8 @@ void ElementwiseMultiplyLayer<T>::fprop(bool is_train) {
 
   dim3 blockSize(256, 1, 1);
   dim3 gridSize((size_ + blockSize.x - 1) / blockSize.x, 1, 1);
-  elementwise_multiply_kernel<<<gridSize, blockSize, 0, get_gpu().get_stream()>>>(d_inputs_.get_ptr(),
-                                                                         output, size_, num_);
+  elementwise_multiply_kernel<<<gridSize, blockSize, 0, get_gpu().get_stream()>>>(
+      d_inputs_.get_ptr(), output, size_, num_);
 
   CK_CUDA_THROW_(cudaMemcpyAsync((void*)fprop_output_.get_ptr(), (void*)output,
                                  out_tensors_[0].get_size_in_bytes(), cudaMemcpyDeviceToDevice,
@@ -209,8 +209,8 @@ void ElementwiseMultiplyLayer<__half>::fprop(bool is_train) {
 
   dim3 blockSize(256, 1, 1);
   dim3 gridSize((size_ / 2 + blockSize.x - 1) / blockSize.x, 1, 1);
-  elementwise_multiply_kernel<<<gridSize, blockSize, 0, get_gpu().get_stream()>>>(d_inputs_.get_ptr(),
-                                                                         output, size_, num_);
+  elementwise_multiply_kernel<<<gridSize, blockSize, 0, get_gpu().get_stream()>>>(
+      d_inputs_.get_ptr(), output, size_, num_);
 
   CK_CUDA_THROW_(cudaMemcpyAsync((void*)fprop_output_.get_ptr(), (void*)output,
                                  out_tensors_[0].get_size_in_bytes(), cudaMemcpyDeviceToDevice,

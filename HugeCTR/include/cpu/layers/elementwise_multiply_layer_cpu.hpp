@@ -44,7 +44,7 @@ class ElementwiseMultiplyLayerCPU : public LayerCPU {
    * @param device_id the id of GPU where this layer belongs
    */
   ElementwiseMultiplyLayerCPU(const Tensors2<T>& in_tensors, const Tensor2<T>& out_tensor,
-                     const std::shared_ptr<GeneralBuffer2<HostAllocator>>& blobs_buff);
+                              const std::shared_ptr<GeneralBuffer2<HostAllocator>>& blobs_buff);
 
   void initialize() override;
 

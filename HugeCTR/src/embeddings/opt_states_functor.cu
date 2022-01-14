@@ -169,7 +169,7 @@ void SparseEmbeddingFunctors::load_opt_states(
     std::unique_ptr<size_t[]> proc_sizes(new size_t[resource_manager.get_num_process()]);
     proc_sizes[0] = total_size;
 #ifdef ENABLE_MPI
-    CK_MPI_THROW_(MPI_Gather(&total_size, sizeof(size_t), MPI_CHAR, proc_sizes.get(), 
+    CK_MPI_THROW_(MPI_Gather(&total_size, sizeof(size_t), MPI_CHAR, proc_sizes.get(),
                              sizeof(size_t), MPI_CHAR, 0, MPI_COMM_WORLD));
 #endif
 
@@ -186,7 +186,8 @@ void SparseEmbeddingFunctors::load_opt_states(
       stream.seekg(0, stream.end);
       size_t remaining_file_size = stream.tellg() - cur_pos;
       if (remaining_file_size < sum_sizes) {
-        CK_THROW_(Error_t::WrongInput, "optimizer state file size is incompatible with the embedding!");
+        CK_THROW_(Error_t::WrongInput,
+                  "optimizer state file size is incompatible with the embedding!");
       }
       stream.seekg(cur_pos);
 
