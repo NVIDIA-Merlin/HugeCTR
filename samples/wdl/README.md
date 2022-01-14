@@ -61,7 +61,7 @@ $ bash preprocess.sh 1 criteo_data pandas 1 1
 ### Preprocess the Dataset Through NVTabular ###
 HugeCTR supports data processing through NVTabular. Make sure that the NVTabular Docker environment has been set up successfully. For more information, see [NVTAbular github](https://github.com/NVIDIA/NVTabular). Ensure that you're using the latest version of NVTabular and mount the HugeCTR ${project_root} volume into the NVTabular Docker.
 
-1. Run NVTabular docker and execute one of the following preprocessing commands:
+Execute one of the following preprocessing commands:
    ```shell
    $ bash preprocess.sh 1 criteo_data nvt 1 0 1 # parquet output
    ```
@@ -69,8 +69,6 @@ HugeCTR supports data processing through NVTabular. Make sure that the NVTabular
    ```shell
    $ bash preprocess.sh 1 criteo_data nvt 0 0 1 # nvt binary output
    ```
-2. Exit from the NVTabular Docker environment and launch the HugeCTR Docker in interactive mode with the HugeCTR root directory mounted into the  
-   container.
 
 **IMPORTANT NOTES**: 
 - The first and second arguments are as the same as Pandas's as shown above.
