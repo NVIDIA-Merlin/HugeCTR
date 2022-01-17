@@ -29,10 +29,10 @@ if(CLANGFORMAT)
     ${PROJECT_SOURCE_DIR}/HugeCTR/*.cpp
     ${PROJECT_SOURCE_DIR}/HugeCTR/*.cu
     ${PROJECT_SOURCE_DIR}/HugeCTR/*.cuh
-    ${PROJECT_SOURCE_DIR}/utest/*.hpp
-    ${PROJECT_SOURCE_DIR}/utest/*.cpp
-    ${PROJECT_SOURCE_DIR}/utest/*.cu
-    ${PROJECT_SOURCE_DIR}/utest/*.cuh
+    ${PROJECT_SOURCE_DIR}/test/utest/*.hpp
+    ${PROJECT_SOURCE_DIR}/test/utest/*.cpp
+    ${PROJECT_SOURCE_DIR}/test/utest/*.cu
+    ${PROJECT_SOURCE_DIR}/test/utest/*.cuh
     ${PROJECT_SOURCE_DIR}/tools/*.hpp
     ${PROJECT_SOURCE_DIR}/tools/*.cpp
     ${PROJECT_SOURCE_DIR}/tools/*.cu
