@@ -151,12 +151,12 @@ void Operation::restore(const std::ifstream &filestream) {
   // by default, it does nothing.
 }
 
-void Operation::LoadEmbeddingValues(const std::vector<std::shared_ptr<Tensor>> &tensor_list) {
-  load_embedding_values(tensor_list);
-  if (next_op_) next_op_->LoadEmbeddingValues(tensor_list);
+void Operation::LoadEmbeddingValues(const std::shared_ptr<Tensor> &emb_values) {
+  load_embedding_values(emb_values);
+  if (next_op_) next_op_->LoadEmbeddingValues(emb_values);
 }
 
-void Operation::load_embedding_values(const std::vector<std::shared_ptr<Tensor>> &tensor_list) {
+void Operation::load_embedding_values(const std::shared_ptr<Tensor> &emb_values) {
   // by default, it does nothing.
 }
 

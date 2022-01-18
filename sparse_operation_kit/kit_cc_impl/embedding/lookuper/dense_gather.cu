@@ -36,7 +36,7 @@ __global__ static void gatherKernel(const size_t EmbeddingDimension, float * __r
   }
 }
 
-template <typename ValueType>
+template <typename KeyType, typename ValueType>
 class DenseGather : public EmbeddingLookuper {
  public:
   DenseGather(ConstructionContext_t context, std::shared_ptr<ParamInterface> param)
@@ -61,10 +61,10 @@ class DenseGather : public EmbeddingLookuper {
       const size_t global_gpu_count = resource_mgr_->get_global_gpu_count();
       auto stream = resource_mgr_->get_local_gpu(0)->get_stream();
       const size_t capacity = param->get_hashtable(0)->get_capacity(stream);
-      HashFunctor_t hash_func = HashFunctors::Divisive<int64_t, size_t>::create(
+      HashFunctor_t hash_func = HashFunctors::Divisive<KeyType, size_t>::create(
           /*interval=*/global_gpu_count, /*capacity=*/capacity,
           /*global_replica_id=*/resource_mgr_->cal_global_id_from_local_id(0));
-      auto hashtable = SimpleHashtable<int64_t, size_t>::create(capacity, hash_func);
+      auto hashtable = SimpleHashtable<KeyType, size_t>::create(capacity, hash_func);
       param->set_hashtable(hashtable);
     }  // if identical_mapping
   }
@@ -109,11 +109,11 @@ class DenseGather : public EmbeddingLookuper {
         replica_h_recv_chunk_offsets->GetPtrWithType<uint32_t>()[global_gpu_count];
     // step 1: get index using keys
     if (training) {
-      hashtable->get_insert(replica_exchanged_keys->GetPtrWithType<int64_t>(),
+      hashtable->get_insert(replica_exchanged_keys->GetPtrWithType<KeyType>(),
                             mapped_indices_buf_[local_replica_id].get_ptr(),
                             /*nnz=*/h_local_nnz, local_gpu->get_stream());
     } else {
-      hashtable->get(replica_exchanged_keys->GetPtrWithType<int64_t>(),
+      hashtable->get(replica_exchanged_keys->GetPtrWithType<KeyType>(),
                      mapped_indices_buf_[local_replica_id].get_ptr(),
                      /*nnz=*/h_local_nnz, local_gpu->get_stream());
     }
@@ -158,14 +158,14 @@ class DenseGather : public EmbeddingLookuper {
   void save_params(std::shared_ptr<Tensor> &keys, std::shared_ptr<Tensor> &embedding_values,
                    size_t &num_total_keys) const override {
     // this lookuper distribute keys to each GPU based on key % GPU_NUM
-    save_params_helper(param_, resource_mgr_, keys, embedding_values, num_total_keys);
+    save_params_helper<KeyType>(param_, resource_mgr_, keys, embedding_values, num_total_keys);
   }
 
   void restore_params(const std::shared_ptr<Tensor> &keys,
                       const std::shared_ptr<Tensor> &embedding_values,
                       const size_t num_total_keys) override {
     // this lookuper distribute keys to each GPU based on key % GPU_NUM
-    restore_params_helper(param_, resource_mgr_, keys, embedding_values, num_total_keys);
+    restore_params_helper<KeyType>(param_, resource_mgr_, keys, embedding_values, num_total_keys);
   }
 
  private:
@@ -179,10 +179,20 @@ class DenseGather : public EmbeddingLookuper {
 };
 
 REGISTER_EMB_LOOKUPER_BUILDER("dense_gather", 
+                              DataType::Int64,
                               DataType::Float32, 
-                              DenseGather<float>);
+                              DenseGather<int64_t, float>);
 REGISTER_EMB_LOOKUPER_BUILDER("dense_gather", 
+                              DataType::Int64,
                               DataType::Float16, 
-                              DenseGather<__half>);
+                              DenseGather<int64_t, __half>);
+REGISTER_EMB_LOOKUPER_BUILDER("dense_gather", 
+                              DataType::Uint32,
+                              DataType::Float32, 
+                              DenseGather<uint32_t, float>);
+REGISTER_EMB_LOOKUPER_BUILDER("dense_gather", 
+                              DataType::Uint32,
+                              DataType::Float16, 
+                              DenseGather<uint32_t, __half>);
 
 }  // namespace SparseOperationKit

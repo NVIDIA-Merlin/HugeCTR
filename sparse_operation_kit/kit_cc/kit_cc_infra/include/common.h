@@ -127,6 +127,7 @@ void int_to_ncclUniqueId(const int32_t* uniqueId_num, ncclUniqueId& uniqueId);
 
 enum class CombinerType { Sum, Mean };
 enum class OptimizerType { Adam };
+enum class ParamType : uint32_t { RawParam = 0 }; 
 enum class DataType : uint32_t {Unknown = 0,
                                 Float32 = 1, 
                                 Half = 2, Float16 = 2,
@@ -138,7 +139,10 @@ template <typename T>
 DataType DType();
 
 template <DataType dtype> 
-struct Type;
+struct TypeImpl;
+
+template <DataType dtype>
+using Type = typename TypeImpl<dtype>::type;
 
 std::string DataTypeString(DataType dtype);
 

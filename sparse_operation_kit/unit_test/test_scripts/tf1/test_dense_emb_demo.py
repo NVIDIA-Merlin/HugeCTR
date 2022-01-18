@@ -30,7 +30,10 @@ def check_saved_embedding_variables(args, embedding_variable_names, use_hashtabl
     filepath = r"./embedding_variables"
     for i, embedding_variable_name in enumerate(embedding_variable_names):
         sok_keys_filename = os.path.join(filepath, embedding_variable_name + r"_keys.file")
-        sok_keys = utils.read_binary_file(sok_keys_filename, element_type="long long")
+        element_type = "long long"
+        if hasattr(args, "key_dtype"):
+            element_type = "long long" if args.key_dtype == "int64" else "unsigned int"
+        sok_keys = utils.read_binary_file(sok_keys_filename, element_type=element_type)
         sok_values_filename = os.path.join(filepath, embedding_variable_name + r"_values.file")
         sok_values = utils.read_binary_file(sok_values_filename, element_type="float")
 
@@ -71,7 +74,8 @@ def get_sok_results(args, init_tensors, *random_samples):
                                  nnz_per_slot=args.nnz_per_slot,
                                  use_hashtable=args.use_hashtable,
                                  dynamic_input=args.dynamic_input,
-                                 num_of_dense_layers=0)
+                                 num_of_dense_layers=0,
+                                 key_dtype=args.key_dtype)
 
         emb_opt = utils.get_embedding_optimizer(args.optimizer)(learning_rate=0.1)
         dense_opt = utils.get_dense_optimizer(args.optimizer)(learning_rate=0.1)
@@ -132,7 +136,7 @@ def get_sok_results(args, init_tensors, *random_samples):
 
     replica_batch_size = args.global_batch_size // args.gpu_num
     dataset = utils.tf_dataset(*random_samples, batchsize=replica_batch_size,
-                               to_sparse_tensor=False, repeat=1)
+                               to_sparse_tensor=False, repeat=1, args=args)
     train_iterator = dataset.make_initializable_iterator()
     iterator_init = train_iterator.initializer
 
@@ -358,7 +362,7 @@ def compare_dense_emb_sok_with_tf(args):
           f"using hashtable? {args.use_hashtable}, dynamic_input? {args.dynamic_input}, "
           "the embedding vectors"
           f" obtained from sok and tf are consistent for {args.iter_num} iterations,"
-          f" with mixed_precision={args.mixed_precision}")
+          f" with mixed_precision = {args.mixed_precision}, key_dtype = {args.key_dtype}")
 
     if args.save_params:
         check_saved_embedding_variables(args, embedding_variable_name, 
@@ -401,6 +405,7 @@ if __name__ == "__main__":
                         required=False, default=0)
     parser.add_argument("--mixed_precision", type=int, choices=[0, 1],
                         required=False, default=0)
+    parser.add_argument("--key_dtype", type=str, choices=["int64", "uint32"], default="int64")
 
     args = parser.parse_args()
 

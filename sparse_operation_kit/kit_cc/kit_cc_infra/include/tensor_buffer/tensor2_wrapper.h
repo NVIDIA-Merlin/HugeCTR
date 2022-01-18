@@ -45,7 +45,6 @@ class Tensor2Wrapper : public Tensor {
 
   DataType dtype() const override { return dtype_; }
 
- protected:
   void* get_ptr() override { return tensor2_.get_ptr(); }
 
  private:

@@ -41,6 +41,7 @@ class SOKDenseDemo(tf.keras.models.Model):
                  slot_num, 
                  nnz_per_slot,
                  use_hashtable=True,
+                 key_dtype=None,
                  **kwargs):
         super(SOKDenseDemo, self).__init__(**kwargs)
 
@@ -53,7 +54,8 @@ class SOKDenseDemo(tf.keras.models.Model):
                                                          embedding_vec_size=self.embedding_vec_size,
                                                          slot_num=self.slot_num,
                                                          nnz_per_slot=self.nnz_per_slot,
-                                                         use_hashtable=use_hashtable)
+                                                         use_hashtable=use_hashtable,
+                                                         key_dtype=key_dtype)
         
         self.dense_layer = tf.keras.layers.Dense(units=1, activation=None,
                                                  kernel_initializer="ones",
@@ -111,7 +113,8 @@ def test_sok_dense_demo(args, init_tensors, *random_samples):
                                       embedding_vec_size=args.embedding_vec_size,
                                       slot_num=args.slot_num,
                                       nnz_per_slot=args.nnz_per_slot,
-                                      use_hashtable=args.use_hashtable)
+                                      use_hashtable=args.use_hashtable,
+                                      key_dtype=args.key_dtype)
         emb_opt = utils.get_embedding_optimizer(args.optimizer)(learning_rate=0.1)
         dense_opt = utils.get_dense_optimizer(args.optimizer)(learning_rate=0.1)
         if args.mixed_precision:
@@ -162,7 +165,7 @@ def test_sok_dense_demo(args, init_tensors, *random_samples):
     def _dataset_fn(input_context):
         replica_batch_size = input_context.get_per_replica_batch_size(args.global_batch_size)
         dataset = utils.tf_dataset(*random_samples, batchsize=replica_batch_size, 
-                                    to_sparse_tensor=False, repeat=1)
+                                    to_sparse_tensor=False, repeat=1, args=args)
         dataset = dataset.shard(input_context.num_input_pipelines, input_context.input_pipeline_id)
         return dataset
 
@@ -289,8 +292,8 @@ def compare_dense_emb_sok_with_tf(args):
                                 message="the values is not consistent on Iteration: %d" %i)
 
     print("\n[INFO]: For Dense Embedding Layer: with MirroredStrategy, the embedding vector obtained from " +\
-          "sparse operation kit and TensorFlow are consistent for %d iterations with mixed_precision = %s."
-          %(args.iter_num, args.mixed_precision))
+          "sparse operation kit and TensorFlow are consistent for %d iterations with mixed_precision = %s, "
+          "and key_dtype = %s" %(args.iter_num, args.mixed_precision, args.key_dtype))
 
     if 1 == args.save_params:
         check_saved_embedding_variables(args, embedding_variable_name, 
@@ -336,6 +339,7 @@ if __name__ == "__main__":
                         required=False, default=0)
     parser.add_argument("--use_hashtable", type=int, choices=[0, 1], default=1)
     parser.add_argument("--mixed_precision", type=int, choices=[0, 1], default=0)
+    parser.add_argument("--key_dtype", type=str, choices=['int64', 'uint32'], default='int64')
 
     args = parser.parse_args()
 

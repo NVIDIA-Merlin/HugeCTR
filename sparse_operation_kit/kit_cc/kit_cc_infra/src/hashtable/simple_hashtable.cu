@@ -92,6 +92,7 @@ std::unique_ptr<HashFunctor> Divisive<KeyType, ValType>::clone(const size_t glob
 }
 
 template class Divisive<int64_t, size_t>;
+template class Divisive<uint32_t, size_t>;
 
 }  // namespace HashFunctors
 
@@ -171,5 +172,6 @@ std::shared_ptr<BaseSimpleHashtable> SimpleHashtable<KeyType, ValType>::clone(
 }
 
 template class SimpleHashtable<int64_t, size_t>;
+template class SimpleHashtable<uint32_t, size_t>;
 
 }  // namespace SparseOperationKit

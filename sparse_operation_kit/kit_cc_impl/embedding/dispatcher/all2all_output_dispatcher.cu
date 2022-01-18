@@ -273,9 +273,19 @@ class All2AllOutputDispatcher : public Dispatcher {
 };
 
 REGISTER_OUTPUT_DISPATHER_BUILDER("All2AllOutput", 
+                                  DataType::Int64,
                                   DataType::Float32, 
                                   All2AllOutputDispatcher<float>);
 REGISTER_OUTPUT_DISPATHER_BUILDER("All2AllOutput", 
+                                  DataType::Int64,
+                                  DataType::Float16, 
+                                  All2AllOutputDispatcher<__half>);
+REGISTER_OUTPUT_DISPATHER_BUILDER("All2AllOutput", 
+                                  DataType::Uint32,
+                                  DataType::Float32, 
+                                  All2AllOutputDispatcher<float>);
+REGISTER_OUTPUT_DISPATHER_BUILDER("All2AllOutput", 
+                                  DataType::Uint32,
                                   DataType::Float16, 
                                   All2AllOutputDispatcher<__half>);
 

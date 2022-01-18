@@ -82,6 +82,7 @@ class DistributedEmbedding(tf.keras.layers.Layer):
                  max_nnz,
                  max_feature_num = 1,
                  use_hashtable=True,
+                 key_dtype=None,
                  **kwargs):
         super(DistributedEmbedding, self).__init__(**kwargs)
 
@@ -102,7 +103,8 @@ class DistributedEmbedding(tf.keras.layers.Layer):
                                 shape=[self.max_vocabulary_size_per_gpu, self.embedding_vec_size],
                                 trainable=True,
                                 use_hashtable=use_hashtable,
-                                dtype=self._dtype_policy.variable_dtype)
+                                dtype=self._dtype_policy.variable_dtype,
+                                key_dtype=key_dtype)
 
         self.emb_layer = SparseEmbeddingLayerHandle(self.var,
                                                     input_dispatcher="all_gather_dispatcher",

@@ -215,7 +215,8 @@ def generate_random_samples(num_of_samples,
 def tf_dataset(keys, labels,
                batchsize,
                to_sparse_tensor=False,
-               repeat=None):
+               repeat=None,
+               args=None):
 
     num_of_samples, slot_num, max_nnz = keys.shape
     def _convert_to_sparse(keys, labels):
@@ -223,9 +224,25 @@ def tf_dataset(keys, labels,
             keys = tf.reshape(keys, shape=[-1, max_nnz])
         indices = tf.where(keys != -1)
         values = tf.gather_nd(keys, indices)
+        if args is not None and hasattr(args, "key_dtype"):
+            if args.key_dtype == "int64":
+                values = tf.cast(values, dtype=tf.int64)
+            elif args.key_dtype == "uint32":
+                values = tf.cast(values, dtype=tf.uint32)
+            else:
+                raise ValueError("Not supported key_dtype.")
         return tf.sparse.SparseTensor(indices=indices, 
                                       values=values, 
                                       dense_shape=[batchsize * slot_num, max_nnz]), labels
+    def _cast_values(keys, labels):
+        if args is not None and hasattr(args, "key_dtype"):
+            if args.key_dtype == "int64":
+                keys = tf.cast(keys, dtype=tf.int64)
+            elif args.key_dtype == "uint32":
+                keys = tf.cast(keys, dtype=tf.uint32)
+            else:
+                raise ValueError("Not supported key_dtype.")
+        return keys, labels
 
     dataset = tf.data.Dataset.from_tensor_slices((keys, labels))
     dataset = dataset.repeat(repeat)
@@ -233,6 +250,10 @@ def tf_dataset(keys, labels,
     if to_sparse_tensor:
         dataset = dataset.map(lambda keys, labels: 
                                 _convert_to_sparse(keys, labels),
+                            num_parallel_calls=1)
+    else:
+        dataset = dataset.map(lambda keys, labels:
+                                _cast_values(keys, labels),
                             num_parallel_calls=1)
     return dataset
 
@@ -322,7 +343,8 @@ def read_binary_file(filename,
                         "int32": ["i", 4],
                         "long long": ["q", 8],
                         "unsigned long long": ["Q", 8],
-                        "size_t": ["N", 8]}
+                        "size_t": ["N", 8],
+                        "unsigned int": ["I", 4]}
 
     elem_size_in_bytes = element_type_map[element_type][1]
 

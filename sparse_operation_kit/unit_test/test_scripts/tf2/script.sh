@@ -60,7 +60,8 @@ python3 test_sparse_emb_demo_model_single_worker.py \
         --combiner='mean' --global_batch_size=65536 \
         --optimizer='plugin_adam' \
         --save_params=1 \
-        --generate_new_datas=1
+        --generate_new_datas=1 \
+        --key_dtype="uint32"
 
 # ------------ single node restore testing ------- #
 python3 test_sparse_emb_demo_model_single_worker.py \
@@ -174,7 +175,8 @@ python3 test_dense_emb_demo_model_single_worker.py \
         --global_batch_size=65536 \
         --optimizer='plugin_adam' \
         --save_params=1 \
-        --generate_new_datas=1
+        --generate_new_datas=1 \
+        --key_dtype="uint32"
 
 # ---------- single node restore testing ------- #
 python3 test_dense_emb_demo_model_single_worker.py \

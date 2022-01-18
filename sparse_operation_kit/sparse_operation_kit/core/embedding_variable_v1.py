@@ -70,6 +70,7 @@ class EmbeddingVariable(BaseResourceVariable):
                  use_hashtable=True,
                  name="EmbeddingVariable",
                  dtype=None,
+                 key_dtype=None,
                  *args,
                  **kwargs):
         if (not isinstance(shape, list)) or (len(shape) != 2):
@@ -82,8 +83,7 @@ class EmbeddingVariable(BaseResourceVariable):
         self.m_use_hashtable = use_hashtable
         self.m_embedding_layer = None
         self.m_dtype = dtype or dtypes.float32
-        # self.m_var_name = ops.get_default_graph().unique_name(name, mark_as_used=True)
-        # self.m_unique_id = "%s_%d" %(self.m_var_name, ops.uid())
+        self.m_key_dtype = key_dtype or dtypes.int64
 
         collections = [ops.GraphKeys.GLOBAL_VARIABLES]
         if trainable and ops.GraphKeys.TRAINABLE_VARIABLES not in collections:
@@ -128,7 +128,8 @@ class EmbeddingVariable(BaseResourceVariable):
                                                                  trainable=self.m_trainable,
                                                                  shape=self.m_shape_per_gpu,
                                                                  use_hashtable=self.m_use_hashtable,
-                                                                 dtype=self.m_dtype)
+                                                                 dtype=self.m_dtype,
+                                                                 key_dtype=self.m_key_dtype)
                             self._initializer_op = control_flow_ops.group((_init_op))
                     else:
                         raise RuntimeError("Currently, EmbeddingVariable does not support Eager mode.")

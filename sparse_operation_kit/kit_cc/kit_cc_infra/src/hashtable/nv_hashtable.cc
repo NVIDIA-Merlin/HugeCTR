@@ -89,5 +89,6 @@ bool NvHashTable<KeyType, ValType>::identical_mapping() const {
 }
 
 template class NvHashTable<int64_t, size_t>;
+template class NvHashTable<uint32_t, size_t>;
 
 }  // namespace SparseOperationKit

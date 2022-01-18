@@ -79,7 +79,7 @@ void RawManager::gen_unique_name(const bool trainable, std::string& name) {
 void RawManager::create_variables(const size_t local_replica_id, const std::string initializer,
                                   const bool use_hashtable, const std::vector<size_t> shape,
                                   const std::string name, const bool trainable,
-                                  const DataType dtype,
+                                  const DataType dtype, const DataType key_dtype,
                                   std::shared_ptr<ParamInterface>& param) {
   // If shape is the same as the previous one,
   // then the previous param should be returned,
@@ -101,13 +101,15 @@ void RawManager::create_variables(const size_t local_replica_id, const std::stri
 
       // create variable
       // variable will have its own memory buffer
-      if (DataType::Float32 == dtype) {
-        raw_param =
-          RawParam<float>::create(initializer, use_hashtable, shape, resource_mgr_, name, trainable);
-      } else if (DataType::Float16 == dtype) {
-        raw_param = 
-          RawParam<__half>::create(initializer, use_hashtable, shape, resource_mgr_, name, trainable);
-      }
+      raw_param = ParamInterface::CreateParam(/*param_type=*/ParamType::RawParam,
+                                              /*initializer=*/initializer,
+                                              /*use_hashtable=*/use_hashtable,
+                                              /*shape=*/shape,
+                                              /*resource_mgr=*/resource_mgr_,
+                                              /*var_name=*/name,
+                                              /*trainable=*/trainable,
+                                              /*key_dtype=*/key_dtype,
+                                              /*value_dtype=*/dtype);
       if (trainable) {
         trainable_params_.emplace(std::make_pair(name, raw_param));
       } else {
@@ -134,11 +136,11 @@ void RawManager::create_variables(const size_t local_replica_id,
                                   const std::shared_ptr<Tensor> initial_value,
                                   const bool use_hashtable, const std::vector<size_t> shape,
                                   const std::string name, const bool trainable,
-                                  const DataType dtype,
+                                  const DataType dtype, const DataType key_dtype,
                                   std::shared_ptr<ParamInterface>& param) {
   // create variable
   create_variables(local_replica_id, /*initializer=*/"ones", use_hashtable, shape, 
-                   name, trainable, dtype, param);
+                   name, trainable, dtype, key_dtype, param);
   // set initial_value
   param->set_initial_value(local_replica_id, initial_value);
 }
@@ -219,15 +221,15 @@ void RawManager::restore_from_file(const std::shared_ptr<ParamInterface>& param,
 }
 
 void RawManager::load_embedding_values(std::shared_ptr<ParamInterface>& param,
-                                       const std::vector<std::shared_ptr<Tensor>>& tensor_list) {
+                                       const std::shared_ptr<Tensor>& emb_values) {
   MESSAGE("Loading embedding values to Variable: " + param->get_var_name() + "...");
   resource_mgr_->sync_all_workers();
 
   // step 1: let param to modify its memory states with these tensor_list
-  param->load_embedding_values(tensor_list);
+  param->load_embedding_values(emb_values);
 
   // step 2: let operations modify their memory states with these tensor_list
-  param->let_user_load_embedding_values(tensor_list);
+  param->let_user_load_embedding_values(emb_values);
 
   resource_mgr_->sync_all_workers();
   MESSAGE("Loaded embedding values to Variable: " + param->get_var_name() + ".");

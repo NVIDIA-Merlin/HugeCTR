@@ -30,6 +30,7 @@ class SOKDemo(tf.keras.models.Model):
                  use_hashtable=True,
                  dynamic_input=False,
                  num_of_dense_layers=5,
+                 key_dtype=None,
                  **unused):
         super(SOKDemo, self).__init__()
 
@@ -55,11 +56,12 @@ class SOKDemo(tf.keras.models.Model):
         self.embedding_layers = list()
         for i in range(self._embedding_num):
             embedding_layer = sok.All2AllDenseEmbedding(max_vocabulary_size_per_gpu=self._max_vocabulary_size_per_gpu,
-                                                            embedding_vec_size=self._embedding_vec_size[i],
-                                                            slot_num=self._slot_num[i],
-                                                            nnz_per_slot=self._nnz_per_slot,
-                                                            use_hashtable=self._use_hashtable,
-                                                            dynamic_input=self._dynamic_input)
+                                                        embedding_vec_size=self._embedding_vec_size[i],
+                                                        slot_num=self._slot_num[i],
+                                                        nnz_per_slot=self._nnz_per_slot,
+                                                        use_hashtable=self._use_hashtable,
+                                                        dynamic_input=self._dynamic_input,
+                                                        key_dtype=key_dtype)
             self.embedding_layers.append(embedding_layer)
 
         self.dense_layers = list()
