@@ -28,7 +28,7 @@
 
 namespace SparseOperationKit {
 
-template <typename ValueType>
+template <typename KeyType, typename ValueType>
 class RawParam : public ParamInterface {
   template <typename T>
   using Tensor2 = HugeCTR::Tensor2<T>;
@@ -37,7 +37,7 @@ class RawParam : public ParamInterface {
 
  public:
   ~RawParam();
-  static std::shared_ptr<RawParam<ValueType>> 
+  static std::shared_ptr<RawParam<KeyType, ValueType>> 
     create(const std::string& initializer, const bool use_hashtable,
           const std::vector<size_t> shape,
           const std::shared_ptr<ResourcesManager>& resource_mgr,
@@ -55,9 +55,9 @@ class RawParam : public ParamInterface {
   void let_user_dump_to_file(const std::string filepath) override;
   void restore_from_file(const std::string filepath) override;
   void let_user_restore_from_file(const std::string filepath) override;
-  void load_embedding_values(const std::vector<std::shared_ptr<Tensor>>& tensor_list) override;
+  void load_embedding_values(const std::shared_ptr<Tensor>& emb_values) override;
   void let_user_load_embedding_values(
-      const std::vector<std::shared_ptr<Tensor>>& tensor_list) override;
+      const std::shared_ptr<Tensor>& emb_values) override;
   void set_hashtable(std::shared_ptr<BaseSimpleHashtable> hashtable) override;
 
  private:
@@ -79,6 +79,12 @@ class RawParam : public ParamInterface {
   std::shared_ptr<EmbeddingLayer> user_;  // which embedding used this param
   std::vector<bool> initialized_;         // indicates whether this variable has been initialized.
 };
+
+using RawParamCtor_t = std::function<std::shared_ptr<ParamInterface>(
+      const std::string&, const bool, const std::vector<size_t>,
+      const std::shared_ptr<ResourcesManager>&, const std::string, const bool)>;
+
+RawParamCtor_t GetRawParamCtor(const DataType key_dtype, const DataType value_dtype);
 
 }  // namespace SparseOperationKit
 

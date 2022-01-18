@@ -20,21 +20,27 @@
 
 namespace SparseOperationKit {
 
-OperationIdentifier::OperationIdentifier(const std::string op_name, const DataType dtype)
-: op_name_(op_name), dtype_(dtype) {}
+OperationIdentifier::OperationIdentifier(const std::string op_name, 
+                                         const DataType key_dtype, 
+                                         const DataType dtype)
+: op_name_(op_name), key_dtype_(key_dtype), dtype_(dtype) {}
 
 std::string OperationIdentifier::DebugString() const {
-  return op_name_ + " with dtype " + DataTypeString(dtype_);
+  return op_name_ + " with key_dtype = " + DataTypeString(key_dtype_) 
+          + ", dtype = " + DataTypeString(dtype_);
 }
 
 size_t IdentifierHash::operator()(const OperationIdentifier& identifier) const {
-  return std::hash<std::string>()(identifier.op_name_) ^ 
-          (std::hash<DataType>()(identifier.dtype_) << 1);
+  return std::hash<std::string>()(identifier.op_name_) ^
+          (std::hash<DataType>()(identifier.key_dtype_) << 1) ^ 
+          (std::hash<DataType>()(identifier.dtype_) << 2);
 }
 
 bool IdentifierEqual::operator()(const OperationIdentifier& lid, 
                                  const OperationIdentifier& rid) const {
-  return (lid.op_name_ == rid.op_name_) && (lid.dtype_ == rid.dtype_);
+  return (lid.op_name_ == rid.op_name_) && 
+         (lid.key_dtype_ == rid.key_dtype_) && 
+         (lid.dtype_ == rid.dtype_);
 }
 
 BuilderContainer::BuilderContainer(const std::string name) : name_(name) {}
@@ -43,7 +49,7 @@ void BuilderContainer::push_back(const OperationIdentifier op_identifier,
                                  const std::shared_ptr<Builder> builder) {
   auto iter = components_.find(op_identifier);
   if (components_.end() != iter)
-    throw std::runtime_error(ErrorBase + "There exists a builder "
+    throw std::runtime_error(ErrorBase + "There already exists a builder "
                              + op_identifier.DebugString() + " in container: " + name_);
 
   components_.emplace(std::make_pair(op_identifier, builder));

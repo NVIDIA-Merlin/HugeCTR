@@ -280,5 +280,6 @@ void HashTable<KeyType, ValType>::clear(cudaStream_t stream) {
 }
 
 template class HashTable<int64_t, size_t>;
+template class HashTable<uint32_t, size_t>;
 
 }  // namespace HugeCTR

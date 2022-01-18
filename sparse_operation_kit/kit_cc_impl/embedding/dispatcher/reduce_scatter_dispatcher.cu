@@ -92,9 +92,19 @@ class ReduceScatterDispatcher : public Dispatcher {
 };
 
 REGISTER_OUTPUT_DISPATHER_BUILDER("reduce_scatter_dispatcher", 
+                                  DataType::Int64,
                                   DataType::Float32, 
                                   ReduceScatterDispatcher<float>);
 REGISTER_OUTPUT_DISPATHER_BUILDER("reduce_scatter_dispatcher", 
+                                  DataType::Int64,
+                                  DataType::Float16, 
+                                  ReduceScatterDispatcher<__half>);
+REGISTER_OUTPUT_DISPATHER_BUILDER("reduce_scatter_dispatcher", 
+                                  DataType::Uint32,
+                                  DataType::Float32, 
+                                  ReduceScatterDispatcher<float>);
+REGISTER_OUTPUT_DISPATHER_BUILDER("reduce_scatter_dispatcher", 
+                                  DataType::Uint32,
                                   DataType::Float16, 
                                   ReduceScatterDispatcher<__half>);
 

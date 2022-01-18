@@ -29,6 +29,7 @@ class SOKDemo(tf.keras.models.Model):
                  max_nnz,
                  use_hashtable=True,
                  num_of_dense_layers=5,
+                 key_dtype=None,
                  **unused):
         super(SOKDemo, self).__init__()
 
@@ -39,6 +40,7 @@ class SOKDemo(tf.keras.models.Model):
         self._max_nnz = max_nnz
         self._use_hashtable = use_hashtable
         self._num_of_dense_layers = num_of_dense_layers
+        self._key_dtype = key_dtype
 
         if (isinstance(self._embedding_vec_size, list) or
             isinstance(self._embedding_vec_size, tuple)):
@@ -58,7 +60,8 @@ class SOKDemo(tf.keras.models.Model):
                                                        combiner=self._combiner,
                                                        slot_num=self._slot_num[i],
                                                        max_nnz=self._max_nnz,
-                                                       use_hashtable=self._use_hashtable)
+                                                       use_hashtable=self._use_hashtable,
+                                                       key_dtype=key_dtype)
             self.embedding_layers.append(embedding_layer)
 
         self.dense_layers = list()
@@ -76,6 +79,10 @@ class SOKDemo(tf.keras.models.Model):
         vectors = list()
 
         inputs = tf.sparse.reshape(inputs, [-1, sum(self._slot_num), self._max_nnz])
+        if self._key_dtype == 'uint32':
+            inputs = tf.sparse.SparseTensor(indices=inputs.indices,
+                                            values=tf.cast(inputs.values, dtype=tf.int32),
+                                            dense_shape=inputs.dense_shape)
 
         for i, embedding_layer in enumerate(self.embedding_layers):
             control_inputs = [vectors[-1]] if vectors else None
@@ -83,6 +90,10 @@ class SOKDemo(tf.keras.models.Model):
                 _input = tf.sparse.slice(inputs, [0, self._slot_num_prefix_num[i], 0],
                                         [tf.shape(inputs)[0], self._slot_num[i], tf.shape(inputs)[-1]])
                 _input = tf.sparse.reshape(_input, [-1, self._max_nnz])
+                if self._key_dtype == "uint32":
+                    _input = tf.sparse.SparseTensor(indices=_input.indices,
+                                                    values=tf.cast(_input.values, dtype=tf.uint32),
+                                                    dense_shape=_input.dense_shape)
                 embedding_vector = embedding_layer(_input, training)
                 embedding_vector = tf.reshape(embedding_vector,
                                     shape=[-1, self._slot_num[i] * self._embedding_vec_size[i]])

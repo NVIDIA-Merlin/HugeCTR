@@ -47,7 +47,8 @@ def get_sok_results(args, init_tensors, *random_samples):
                                   slot_num=args.slot_num,
                                   max_nnz=args.max_nnz,
                                   use_hashtable=args.use_hashtable,
-                                  num_of_dense_layers=0)
+                                  num_of_dense_layers=0,
+                                  key_dtype=args.key_dtype)
         
         emb_opt = utils.get_embedding_optimizer(args.optimizer)(learning_rate=0.1)
         dense_opt = utils.get_dense_optimizer(args.optimizer)(learning_rate=0.1)
@@ -107,7 +108,7 @@ def get_sok_results(args, init_tensors, *random_samples):
 
     replica_batch_size = args.global_batch_size // args.gpu_num
     dataset = utils.tf_dataset(*random_samples, batchsize=replica_batch_size,
-                               to_sparse_tensor=True, repeat=1)
+                               to_sparse_tensor=True, repeat=1, args=args)
     train_iterator = dataset.make_initializable_iterator()
     iterator_init = train_iterator.initializer
 
@@ -323,7 +324,7 @@ def compare_sparse_emb_sok_with_tf(args):
     print(f"\n[INFO]: For {len(args.slot_num)} Sparse Embedding layer, using {args.gpu_num} GPUs + {args.optimizer} optimizer, "
           f"using hashtable? {args.use_hashtable}, combiner = {args.combiner}, the embedding vectors"
           f" obtained from sok and tf are consistent for {args.iter_num} iterations, "
-          f"with mixed_precision={args.mixed_precision}")
+          f"with mixed_precision = {args.mixed_precision}, key_dtype = {args.key_dtype}")
 
     if args.save_params:
         check_saved_embedding_variables(args, variable_names,
@@ -364,6 +365,7 @@ if __name__ == "__main__":
                         required=False, default=1)
     parser.add_argument("--mixed_precision", type=int, choices=[0, 1],
                         required=False, default=0)
+    parser.add_argument("--key_dtype", type=str, choices=["int64", "uint32"], default="int64")
 
     args = parser.parse_args()
 

@@ -62,7 +62,8 @@ python3 test_dense_emb_demo.py \
     --generate_new_datas=1 \
     --save_params=0 \
     --restore_params=1 \
-    --use_hashtable=1
+    --use_hashtable=1 \
+    --key_dtype="uint32"
 python3 test_dense_emb_demo.py \
     --gpu_num=1 \
     --distributed_tool="onedevice" \
@@ -247,7 +248,8 @@ python3 test_sparse_emb_demo.py \
     --generate_new_datas=1 \
     --save_params=0 \
     --restore_params=1 \
-    --use_hashtable=1
+    --use_hashtable=1 \
+    --key_dtype="uint32"
 
 # sparse embedding + adam + save_params + no-hashtable
 python3 test_sparse_emb_demo.py \
@@ -308,7 +310,8 @@ mpiexec --allow-run-as-root -np 8 --oversubscribe \
     --optimizer="compat_adam" \
     --generate_new_datas=1 \
     --save_params=1 \
-    --use_hashtable=1
+    --use_hashtable=1 \
+    --key_dtype='uint32'
 mpiexec --allow-run-as-root -np 8 --oversubscribe \
     python3 test_dense_emb_demo.py \
     --distributed_tool="horovod" \

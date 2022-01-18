@@ -52,5 +52,8 @@ void generate_dummy_keys(KeyType *d_keys, const size_t num_keys, const size_t gl
 template void generate_dummy_keys(int64_t *d_keys, const size_t num_keys,
                                   const size_t global_replica_id, const size_t global_gpu_count,
                                   cudaStream_t stream);
+template void generate_dummy_keys(uint32_t *d_keys, const size_t num_keys,
+                                  const size_t global_replica_id, const size_t global_gpu_count,
+                                  cudaStream_t stream);
 
 }  // namespace SparseOperationKit

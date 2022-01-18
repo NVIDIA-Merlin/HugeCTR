@@ -28,10 +28,13 @@ void get_hash_value(size_t count, size_t embedding_vec_size, const size_t *value
                     const float *embedding_table, float *value_retrieved, cudaStream_t stream);
 
 // distribute keys to GPU based on key % GPU_NUM
+template <typename KeyType>
 void save_params_helper(const std::shared_ptr<ParamInterface> &param,
                         const std::shared_ptr<ResourcesManager> &resource_mgr,
                         std::shared_ptr<Tensor> &keys, std::shared_ptr<Tensor> &embedding_values,
                         size_t &num_total_keys);
+
+template <typename KeyType>
 void restore_params_helper(std::shared_ptr<ParamInterface> &param,
                            const std::shared_ptr<ResourcesManager> &resource_mgr,
                            const std::shared_ptr<Tensor> &keys,

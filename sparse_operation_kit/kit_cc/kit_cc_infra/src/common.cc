@@ -29,12 +29,12 @@ template <> DataType DType<uint64_t>() { return DataType::Uint64; }
 template <> DataType DType<int32_t>() { return DataType::Int32; }
 template <> DataType DType<uint32_t>() { return DataType::Uint32; }
  
-template <> struct Type<DataType::Float32> { using type = float; };
-template <> struct Type<DataType::Float16> { using type = __half; };
-template <> struct Type<DataType::Int64> { using type = int64_t; };
-template <> struct Type<DataType::Uint64> { using type = uint64_t; };
-template <> struct Type<DataType::Int32> { using type = int32_t; };
-template <> struct Type<DataType::Uint32> { using type = uint32_t; };
+template <> struct TypeImpl<DataType::Float32> { using type = float; };
+template <> struct TypeImpl<DataType::Float16> { using type = __half; };
+template <> struct TypeImpl<DataType::Int64> { using type = int64_t; };
+template <> struct TypeImpl<DataType::Uint64> { using type = uint64_t; };
+template <> struct TypeImpl<DataType::Int32> { using type = int32_t; };
+template <> struct TypeImpl<DataType::Uint32> { using type = uint32_t; };
 
 std::string DataTypeString(DataType dtype) {
   switch (dtype) {

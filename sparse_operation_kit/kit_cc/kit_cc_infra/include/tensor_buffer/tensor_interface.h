@@ -38,7 +38,6 @@ class Tensor {
     return reinterpret_cast<TARGET_TYPE*>(get_ptr());
   }
 
- protected:
   virtual void* get_ptr() = 0;
 };
 

@@ -25,9 +25,10 @@
 namespace SparseOperationKit {
 
 struct OperationIdentifier {
-  OperationIdentifier(const std::string op_name, const DataType dtype);
+  OperationIdentifier(const std::string op_name, const DataType key_dtype, const DataType dtype);
   std::string DebugString() const;
   const std::string op_name_;
+  const DataType key_dtype_;
   const DataType dtype_;
 };
 

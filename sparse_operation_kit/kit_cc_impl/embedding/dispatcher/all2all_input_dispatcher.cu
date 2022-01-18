@@ -43,8 +43,8 @@ __global__ void selectKernel(KeyType const *input_keys, size_t num_keys, KeyType
   const size_t gpu_cnt_by_warps_cnt = chunks * KEY_WARPS_PER_BLOCK;
   int thread_idx = threadIdx.x + blockDim.x * threadIdx.y;
   // set ptrs in smem
-  extern __shared__ KeyType smem[];
-  KeyType *key_smem = smem;
+  extern __shared__ char smem[];
+  KeyType *key_smem = (KeyType *)smem;
   uint32_t *idx_smem = (uint32_t *)(key_smem + items_per_block);
   uint32_t *cnt_smem = idx_smem + items_per_block;
   if (thread_idx < gpu_cnt_by_warps_cnt) {
@@ -126,7 +126,7 @@ __global__ void selectKernel(KeyType const *input_keys, size_t num_keys, KeyType
   }
 }
 
-template <typename ValueType>
+template <typename KeyType, typename ValueType>
 class All2AllInputDispatcher : public Dispatcher {
  public:
   explicit All2AllInputDispatcher(ConstructionContext_t context)
@@ -150,7 +150,7 @@ class All2AllInputDispatcher : public Dispatcher {
     ITEMS_PER_GPU_PER_WARP_ =
         max_smem_size - (sizeof(uint32_t) * KEY_WARPS_PER_BLOCK * global_gpu_count);
     ITEMS_PER_GPU_PER_WARP_ /=
-        (global_gpu_count * KEY_WARPS_PER_BLOCK * (sizeof(int64_t) + sizeof(uint32_t)));
+        (global_gpu_count * KEY_WARPS_PER_BLOCK * (sizeof(KeyType) + sizeof(uint32_t)));
     ITEMS_PER_GPU_PER_WARP_ = (ITEMS_PER_GPU_PER_WARP_ / 16) * 16;
     if (ITEMS_PER_GPU_PER_WARP_ <= 33) {
       MESSAGE("[WARNING]: the performance in this device is not good enough..");
@@ -166,7 +166,7 @@ class All2AllInputDispatcher : public Dispatcher {
       auto &host_buffer = base_context()->get_host_buffer(dev_id);
 
       {
-        Tensor2<int64_t> tensor;
+        Tensor2<KeyType> tensor;
         buffer->reserve({global_gpu_count, num_keys_per_rank_}, &tensor);
         selected_keys_buf_.push_back(tensor);
       }
@@ -196,7 +196,7 @@ class All2AllInputDispatcher : public Dispatcher {
         h_num_exchanged_keys_.push_back(tensor);
       }
       {
-        Tensor2<int64_t> tensor;
+        Tensor2<KeyType> tensor;
         buffer->reserve({global_gpu_count, num_keys_per_rank_}, &tensor);
         exchanged_keys_buf_.push_back(tensor);
       }
@@ -227,13 +227,13 @@ class All2AllInputDispatcher : public Dispatcher {
     const auto &input_keys = replica_context->input("replica_values");
     {
       const size_t smem_size = local_gpu->get_max_smem_size_per_sm();
-      CK_CUDA(cudaFuncSetAttribute(selectKernel<int64_t, IdenticalHash>,
+      CK_CUDA(cudaFuncSetAttribute(selectKernel<KeyType, IdenticalHash>,
                                    cudaFuncAttributeMaxDynamicSharedMemorySize, smem_size));
       size_t const grid_dim = local_gpu->get_sm_count();
       dim3 const block_dim(local_gpu->get_warp_size(), KEY_WARPS_PER_BLOCK);
-      selectKernel<int64_t, IdenticalHash>
+      selectKernel<KeyType, IdenticalHash>
           <<<grid_dim, block_dim, smem_size, local_gpu->get_stream()>>>(
-              /*input_keys=*/input_keys->GetPtrWithType<int64_t>(),
+              /*input_keys=*/input_keys->GetPtrWithType<KeyType>(),
               /*num_keys=*/input_keys->get_num_elements(),
               /*output_keys=*/selected_keys_buf_[local_replica_id].get_ptr(),
               /*output_indices=*/selected_indices_buf_[local_replica_id].get_ptr(),
@@ -274,11 +274,11 @@ class All2AllInputDispatcher : public Dispatcher {
     CK_NCCL(ncclGroupStart());
     for (size_t dev_id = 0; dev_id < global_gpu_count; dev_id++) {
       CK_NCCL(ncclSend(selected_keys_buf_[local_replica_id].get_ptr() + dev_id * num_keys_per_rank_,
-                       h_num_selected_keys_[local_replica_id].get_ptr()[dev_id], ncclInt64,
+                       h_num_selected_keys_[local_replica_id].get_ptr()[dev_id], GetNCCLType<KeyType>(),
                        /*peer=*/dev_id, local_gpu->get_nccl(), local_gpu->get_stream()));
       CK_NCCL(ncclRecv(exchanged_keys_buf_[local_replica_id].get_ptr() +
                            h_recv_chunk_offsets_[local_replica_id].get_ptr()[dev_id],
-                       h_num_exchanged_keys_[local_replica_id].get_ptr()[dev_id], ncclInt64,
+                       h_num_exchanged_keys_[local_replica_id].get_ptr()[dev_id], GetNCCLType<KeyType>(),
                        /*peer=*/dev_id, local_gpu->get_nccl(), local_gpu->get_stream()));
     }  // for dev_id in global_gpu_count
     CK_NCCL(ncclGroupEnd());
@@ -304,21 +304,31 @@ class All2AllInputDispatcher : public Dispatcher {
   size_t ITEMS_PER_GPU_PER_WARP_;
 
   // forward spaces
-  Tensors2<int64_t> selected_keys_buf_;
+  Tensors2<KeyType> selected_keys_buf_;
   Tensors2<uint32_t> selected_indices_buf_;
   Tensors2<uint32_t> num_selected_keys_;
   Tensors2<uint32_t> num_exchanged_keys_;
   Tensors2<uint32_t> h_num_selected_keys_;
   Tensors2<uint32_t> h_num_exchanged_keys_;
-  Tensors2<int64_t> exchanged_keys_buf_;
+  Tensors2<KeyType> exchanged_keys_buf_;
   Tensors2<uint32_t> h_recv_chunk_offsets_;
 };
 
 REGISTER_INPUT_DISPATCHER_BUILDER("All2AllInput", 
+                                  DataType::Int64,
                                   DataType::Float32, 
-                                  All2AllInputDispatcher<float>);
+                                  All2AllInputDispatcher<int64_t, float>);
 REGISTER_INPUT_DISPATCHER_BUILDER("All2AllInput", 
+                                  DataType::Int64,
                                   DataType::Float16, 
-                                  All2AllInputDispatcher<__half>);
+                                  All2AllInputDispatcher<int64_t, __half>);
+REGISTER_INPUT_DISPATCHER_BUILDER("All2AllInput", 
+                                  DataType::Uint32,
+                                  DataType::Float32, 
+                                  All2AllInputDispatcher<uint32_t, float>);
+REGISTER_INPUT_DISPATCHER_BUILDER("All2AllInput", 
+                                  DataType::Uint32,
+                                  DataType::Float16, 
+                                  All2AllInputDispatcher<uint32_t, __half>);
 
 }  // namespace SparseOperationKit

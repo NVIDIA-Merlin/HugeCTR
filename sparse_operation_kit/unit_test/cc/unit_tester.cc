@@ -56,16 +56,18 @@ void UnitTester::test_all_gather_dispatcher(
   resource_mgr_->event_record(global_replica_id, EventRecordType::RDLFramework,
                               /*event_name=*/"AllGatherUnitTest_begin");
 #endif
+  auto key_dtype = DataType::Int64;
+
   SparseConstructionContext_t base_context = SparseConstructionContext::create(
       resource_mgr_, buffers_, host_buffers_,
       /*replica_batch_size=*/global_batch_size / resource_mgr_->get_global_gpu_count(),
       rows_num_per_sample, max_nnz, /*max_feature_num=*/rows_num_per_sample * max_nnz,
-      /*combiner=*/CombinerType::Mean, /*compute_dtype=*/DataType::Float32, 
-      /*param=*/nullptr);
+      /*combiner=*/CombinerType::Mean, /*key_dtype=*/key_dtype,
+      /*compute_dtype=*/DataType::Float32, /*param=*/nullptr);
 
   auto builder =
       InputContainer::instance("input_dispatcher_builders")
-            ->get_builder({"all_gather_dispatcher", DataType::Float32});
+            ->get_builder({"all_gather_dispatcher", key_dtype, DataType::Float32});
   static std::shared_ptr<Dispatcher> dispatcher = builder->produce(base_context);
 
   auto init = [this, rows_num_per_sample, max_nnz]() {
@@ -128,12 +130,12 @@ void UnitTester::test_csr_conversion_distributed(
       resource_mgr_, buffers_, host_buffers_,
       /*replica_batch_size=*/global_batch_size / resource_mgr_->get_global_gpu_count(), slot_num,
       max_nnz, /*max_feature_num=*/slot_num * max_nnz,
-      /*combiner=*/CombinerType::Mean, /*compute_dtype=*/DataType::Float32, 
-      /*param=*/nullptr);
+      /*combiner=*/CombinerType::Mean, /*key_dtype=*/DataType::Int64,
+      /*compute_dtype=*/DataType::Float32, /*param=*/nullptr);
 
   auto builder =
       OperationContainer::instance("operation_builders")
-          ->get_builder({"csr_conversion_distributed", DataType::Float32});
+          ->get_builder({"csr_conversion_distributed", DataType::Int64, DataType::Float32});
   static std::shared_ptr<Operation> csr_conver = builder->produce(base_context);
 
   auto init = [this, slot_num, max_nnz]() {
@@ -199,11 +201,11 @@ void UnitTester::test_reduce_scatter_dispatcher(const size_t global_replica_id,
       resource_mgr_, buffers_, host_buffers_,
       /*replica_batch_size=*/global_batch_size / resource_mgr_->get_global_gpu_count(), slot_num,
       max_nnz, /*max_feature_num=*/slot_num * max_nnz,
-      /*combiner=*/CombinerType::Mean, /*compute_dtype=*/DataType::Float32, 
-      /*param=*/nullptr);
+      /*combiner=*/CombinerType::Mean, /*key_dtype=*/DataType::Int64, 
+      /*compute_dtype=*/DataType::Float32, /*param=*/nullptr);
 
   auto builder = OutputContainer::instance("output_dispatcher_builders")
-                     ->get_builder({"reduce_scatter_dispatcher", DataType::Float32});
+                     ->get_builder({"reduce_scatter_dispatcher", DataType::Int64, DataType::Float32});
   static std::shared_ptr<Dispatcher> reduce_scatter_dispatcher = builder->produce(base_context);
 
   auto init = [this, slot_num, max_nnz]() {

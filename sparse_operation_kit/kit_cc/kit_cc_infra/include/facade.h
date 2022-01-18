@@ -82,6 +82,7 @@ class Facade final {
                         const bool use_hashtable, const std::vector<int64_t> shape,
                         const std::string name, const bool trainable, 
                         const tensorflow::DataType dtype,
+                        const tensorflow::DataType key_dtype,
                         tensorflow::core::RefCountPtr<tensorflow::EmbeddingVariable>& emb_variable,
                         tensorflow::Tensor* emb_tensor);
 
@@ -134,7 +135,7 @@ class Facade final {
                          const std::string filepath);
   void load_embedding_values(
       tensorflow::core::RefCountPtr<tensorflow::EmbeddingVariable>& emb_variable,
-      const tensorflow::OpInputList* tensor_list);
+      const tensorflow::Tensor* emb_values);
 
   // backdoors for unit test
   const std::shared_ptr<ResourcesManager>& get_resource_mgr() const;

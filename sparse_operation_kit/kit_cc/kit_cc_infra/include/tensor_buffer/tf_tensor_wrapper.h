@@ -40,7 +40,6 @@ class TFTensorWrapper : public Tensor {
   bool allocated() const override;
   DataType dtype() const override;
 
- protected:
   void* get_ptr() override;
 
  private:

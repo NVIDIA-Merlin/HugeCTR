@@ -33,7 +33,8 @@ class EmbeddingLookuper : public Operation {
       And there is a mapping between key and embedding_value.
   @param num_total_keys, how many items in keys and embedding_values.
   */
-  virtual void save_params(std::shared_ptr<Tensor> &keys, std::shared_ptr<Tensor> &embedding_values,
+  virtual void save_params(std::shared_ptr<Tensor> &keys, 
+                           std::shared_ptr<Tensor> &embedding_values,
                            size_t &num_total_keys) const = 0;
 
   /** help Param to restore parameters from CPU tensor to GPU memory

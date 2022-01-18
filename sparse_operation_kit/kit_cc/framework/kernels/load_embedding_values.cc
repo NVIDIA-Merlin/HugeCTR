@@ -38,14 +38,14 @@ class LoadEmbeddingValuesOp : public OpKernel {
                                            ". This could mean that you haven't create it. ",
                                            status.ToString()));
 
-    OpInputList tensors_list;
-    OP_REQUIRES_OK(ctx, ctx->input_list("embedding_values", &tensors_list));
+    Tensor const* embedding_values_tensor = nullptr;
+    OP_REQUIRES_OK(ctx, ctx->input("embedding_values", &embedding_values_tensor));
 
     Tensor* status_tensor = nullptr;
     OP_REQUIRES_OK(ctx, ctx->allocate_output(0, {}, &status_tensor));
 
     try {
-      SparseOperationKit::Facade::instance()->load_embedding_values(variable, &tensors_list);
+      SparseOperationKit::Facade::instance()->load_embedding_values(variable, embedding_values_tensor);
     } catch (const std::exception& error) {
       ctx->SetStatus(errors::Aborted(error.what()));
       return;
