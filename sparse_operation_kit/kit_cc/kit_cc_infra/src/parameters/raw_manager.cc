@@ -88,6 +88,9 @@ void RawManager::create_variables(const size_t local_replica_id, const std::stri
   if (shape == previous_shape) {
     // return the previous param
     param = previous_param;
+    
+    // reset previoud_shape for the case that two different table use same param
+    previous_param = std::vector<size_t>();
   } else {
     std::shared_ptr<RawParam> raw_param{nullptr};
     {  // begin write
