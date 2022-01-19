@@ -56,6 +56,7 @@ git clone https://github.com/NVIDIA/HugeCTR
    HugeCTR is written in CUDA/C++ and wrapped to Python using Pybind11. The C++ output will not display in Notebook cells unless you run the Python script in a command line manner.
 
 
+
 ## Notebook List
 The notebooks are located within the container and can be found here: `/hugectr/notebooks`.
 
@@ -70,3 +71,17 @@ Here's a list of notebooks that you can run:
 - [hugectr_wdl_prediction.ipynb](hugectr_wdl_prediction.ipynb): Tutorial how to train a wdl model using HugeCTR High-level python API.
 - [news-example.ipynb](news-example.ipynb): Tutorial to demonstrate NVTabular for ETL the data and HugeCTR for training Deep Neural Network models on MIND dataset.
 - [multi-modal-data](multi-modal-data): This series of notebooks demonstrate the use of multi-modal data (text, image) for the task of movie recommendation, using the Movielens-25M dataset.
+
+## System Specifications
+The specifications of the system on which each notebook can run successfully are summarized in the table. The notebooks are verified on the system below but it does not mean the minimum requirements.
+
+| Notebook                                                     | CPU                                                          | GPU                                    | #GPUs | Author         |
+| ------------------------------------------------------------ | ------------------------------------------------------------ | -------------------------------------- | ----- | -------------- |
+| [multi-modal-data](multi-modal-data)                         | Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory | Tesla V100-SXM2-32GB<br />32 GB Memory | 1     | Vinh Nguyen    |
+| [continuous_training.ipynb](continuous_training.ipynb)       | Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory | Tesla V100-SXM2-32GB<br />32 GB Memory | 1     | Xiaolei Shi    |
+| [ecommerce-example.ipynb](ecommerce-example.ipynb)           | Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory | Tesla V100-SXM2-16GB<br />16 GB Memory | 8     | Vinh Nguyen    |
+| [hugectr2onnx_demo.ipynb](hugectr2onnx_demo.ipynb)           | Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory | Tesla V100-SXM2-16GB<br />16 GB Memory | 1     | Kingsley Liu   |
+| [hugectr-criteo.ipynb](hugectr_criteo.ipynb)                 | Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory | Tesla V100-SXM2-32GB<br />32 GB Memory | 1     | Kingsley Liu   |
+| [hugectr_wdl_prediction.ipynb](hugectr_wdl_prediction.ipynb) | AMD Ryzen 9 3900X 12-Core <br />32 GB Memory                 | GeForce RTX 2080Ti<br />11 GB Memory   | 1     | Yingcan Wei    |
+| [movie-lens-example.ipynb](movie-lens-example.ipynb)         | Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory | Tesla V100-SXM2-32GB<br />32 GB Memory | 1     | Vinh Nguyen    |
+| [news-example.ipynb](news-example.ipynb)                     | Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory | Tesla V100-SXM2-32GB<br />32 GB Memory | 4     | Ashish Sardana |
