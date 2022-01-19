@@ -55,8 +55,8 @@ void elementwise_multiply_cpu(T **input, T *output, size_t size, size_t num) {
 }
 
 template <typename T>
-void elementwise_multiply_dgrad_cpu(const T *top_grad, T **dgrad, const T *fprop_output, size_t size,
-                           size_t num) {
+void elementwise_multiply_dgrad_cpu(const T *top_grad, T **dgrad, const T *fprop_output,
+                                    size_t size, size_t num) {
   T zero = 0.0;
 
   for (size_t i = 0; i < size; i++) {
@@ -72,7 +72,8 @@ void elementwise_multiply_dgrad_cpu(const T *top_grad, T **dgrad, const T *fprop
 }
 
 template <typename T>
-void elementwise_multiply_test(size_t batch_size, size_t slot_num, size_t embedding_vec_size, size_t num) {
+void elementwise_multiply_test(size_t batch_size, size_t slot_num, size_t embedding_vec_size,
+                               size_t num) {
   std::shared_ptr<GeneralBuffer2<CudaAllocator>> buff = GeneralBuffer2<CudaAllocator>::create();
 
   vector<size_t> dims_in = {batch_size, slot_num, embedding_vec_size};
@@ -88,7 +89,8 @@ void elementwise_multiply_test(size_t batch_size, size_t slot_num, size_t embedd
   Tensor2<T> out_tensor;
   buff->reserve(dims_out, &out_tensor);
 
-  ElementwiseMultiplyLayer<T> elementwise_multiply_layer(in_tensors, out_tensor, buff, test::get_default_gpu());
+  ElementwiseMultiplyLayer<T> elementwise_multiply_layer(in_tensors, out_tensor, buff,
+                                                         test::get_default_gpu());
 
   buff->allocate();
   elementwise_multiply_layer.initialize();
