@@ -100,8 +100,9 @@ void sparse_model_entity_test(int batch_num_train, bool is_distributed) {
   // test load_vec_by_key
   MESSAGE_("[TEST] sparse_model_entity::load_vec_by_key");
 
-  size_t key_file_size_in_byte = fs::file_size(get_ext_file(snapshot_dst_file, "key"));
-  size_t vec_file_size_in_byte = fs::file_size(get_ext_file(snapshot_dst_file, "emb_vector"));
+  size_t key_file_size_in_byte = std::filesystem::file_size(get_ext_file(snapshot_dst_file, "key"));
+  size_t vec_file_size_in_byte =
+      std::filesystem::file_size(get_ext_file(snapshot_dst_file, "emb_vector"));
   size_t num_keys = key_file_size_in_byte / sizeof(long long);
   ASSERT_TRUE(num_keys == vec_file_size_in_byte / sizeof(float) / emb_vec_size);
 
@@ -134,7 +135,8 @@ void sparse_model_entity_test(int batch_num_train, bool is_distributed) {
 
   std::vector<size_t> slot_in_file(num_keys);
   if (!is_distributed) {
-    size_t slot_file_size_in_byte = fs::file_size(get_ext_file(snapshot_dst_file, "slot_id"));
+    const size_t slot_file_size_in_byte =
+        std::filesystem::file_size(get_ext_file(snapshot_dst_file, "slot_id"));
     std::ifstream slot_ifs(get_ext_file(snapshot_dst_file, "slot_id"));
     slot_ifs.read(reinterpret_cast<char*>(slot_in_file.data()), slot_file_size_in_byte);
 

@@ -17,7 +17,7 @@
 #pragma once
 
 #include <algorithm>
-#include <experimental/filesystem>
+#include <filesystem>
 #include <fstream>
 #include <iterator>
 #include <string>
@@ -30,8 +30,6 @@
 #include "gtest/gtest.h"
 #include "utest/embedding/embedding_test_utils.hpp"
 #include "utest/test_utils.h"
-
-namespace fs = std::experimental::filesystem;
 
 namespace HugeCTR {
 
@@ -57,7 +55,7 @@ inline std::vector<char> load_to_vector(const std::string &file_name) {
     CK_THROW_(Error_t::FileCannotOpen, "Can not open " + file_name);
   }
 
-  size_t file_size_in_byte = fs::file_size(file_name);
+  size_t file_size_in_byte = std::filesystem::file_size(file_name);
 
   std::vector<char> vec(file_size_in_byte);
   stream.read(vec.data(), file_size_in_byte);
@@ -84,10 +82,11 @@ std::unique_ptr<IEmbedding> init_embedding(const SparseTensors<KeyType> &train_s
 }
 
 inline void copy_sparse_model(std::string sparse_model_src, std::string sparse_model_dst) {
-  if (fs::exists(sparse_model_dst)) {
-    fs::remove_all(sparse_model_dst);
+  if (std::filesystem::exists(sparse_model_dst)) {
+    std::filesystem::remove_all(sparse_model_dst);
   }
-  fs::copy(sparse_model_src, sparse_model_dst, fs::copy_options::recursive);
+  std::filesystem::copy(sparse_model_src, sparse_model_dst,
+                        std::filesystem::copy_options::recursive);
 }
 
 inline bool check_vector_equality(const char *sparse_model_src, const char *sparse_model_dst,
@@ -117,12 +116,12 @@ inline void generate_sparse_model_impl(
     size_t batchsize, int batch_num_train, int batch_num_eval, Update_t update_type,
     std::shared_ptr<ResourceManager> resource_manager) {
   // generate train/test datasets
-  if (fs::exists(file_list_name_train)) {
-    fs::remove(file_list_name_train);
+  if (std::filesystem::exists(file_list_name_train)) {
+    std::filesystem::remove(file_list_name_train);
   }
 
-  if (fs::exists(file_list_name_eval)) {
-    fs::remove(file_list_name_eval);
+  if (std::filesystem::exists(file_list_name_eval)) {
+    std::filesystem::remove(file_list_name_eval);
   }
 
   // data generation
@@ -201,9 +200,11 @@ inline void generate_sparse_model(
     size_t batchsize, int batch_num_train, int batch_num_eval, Update_t update_type,
     std::shared_ptr<ResourceManager> resource_manager) {
   if (std::is_same<TypeKey, unsigned>::value) {
-    if (fs::exists(sparse_model_unsigned)) {
-      if (fs::exists(snapshot_src_file)) fs::remove_all(snapshot_src_file);
-      if (fs::exists(snapshot_dst_file)) fs::remove_all(snapshot_dst_file);
+    if (std::filesystem::exists(sparse_model_unsigned)) {
+      if (std::filesystem::exists(snapshot_src_file))
+        std::filesystem::remove_all(snapshot_src_file);
+      if (std::filesystem::exists(snapshot_dst_file))
+        std::filesystem::remove_all(snapshot_dst_file);
       copy_sparse_model(sparse_model_unsigned, snapshot_src_file);
     } else {
       generate_sparse_model_impl<unsigned, check>(
@@ -214,9 +215,11 @@ inline void generate_sparse_model(
       copy_sparse_model(snapshot_src_file, sparse_model_unsigned);
     }
   } else {
-    if (fs::exists(sparse_model_longlong)) {
-      if (fs::exists(snapshot_src_file)) fs::remove_all(snapshot_src_file);
-      if (fs::exists(snapshot_dst_file)) fs::remove_all(snapshot_dst_file);
+    if (std::filesystem::exists(sparse_model_longlong)) {
+      if (std::filesystem::exists(snapshot_src_file))
+        std::filesystem::remove_all(snapshot_src_file);
+      if (std::filesystem::exists(snapshot_dst_file))
+        std::filesystem::remove_all(snapshot_dst_file);
       copy_sparse_model(sparse_model_longlong, snapshot_src_file);
     } else {
       generate_sparse_model_impl<long long, check>(
@@ -256,10 +259,10 @@ auto get_data_file = [](Optimizer_t opt_type) {
 
 inline void generate_opt_state(std::string sparse_model_file, Optimizer_t opt_type) {
   std::string emb_vec_file(sparse_model_file + "/emb_vector");
-  if (!fs::exists(emb_vec_file)) {
+  if (!std::filesystem::exists(emb_vec_file)) {
     CK_THROW_(Error_t::IllegalCall, emb_vec_file + " doesn't exist");
   }
-  size_t num_elem{fs::file_size(emb_vec_file) / sizeof(float)};
+  size_t num_elem{std::filesystem::file_size(emb_vec_file) / sizeof(float)};
 
   std::random_device rd;   // Will be used to obtain a seed for the random number engine
   std::mt19937 gen(rd());  // Standard mersenne_twister_engine seeded with rd()
@@ -268,7 +271,7 @@ inline void generate_opt_state(std::string sparse_model_file, Optimizer_t opt_ty
   const auto data_files{get_data_file(opt_type)};
   for (size_t i{1}; i < data_files.size(); i++) {
     const std::string file_name(sparse_model_file + "/" + data_files[i]);
-    if (fs::exists(file_name)) fs::remove_all(file_name);
+    if (std::filesystem::exists(file_name)) std::filesystem::remove_all(file_name);
     std::vector<float> opt_states(num_elem);
     std::for_each(opt_states.begin(), opt_states.end(), [&](float &elem) { elem = dis(gen); });
     std::ofstream ofs(file_name, std::ofstream::out | std::ofstream::trunc);

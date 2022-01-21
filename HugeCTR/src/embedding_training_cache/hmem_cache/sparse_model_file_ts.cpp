@@ -25,14 +25,12 @@
 #include <chrono>
 #include <cstdlib>
 #include <embedding_training_cache/hmem_cache/sparse_model_file_ts.hpp>
-#include <experimental/filesystem>
+#include <filesystem>
 #include <fstream>
 #include <map>
 #include <sstream>
 #include <string>
 #include <thread>
-
-namespace fs = std::experimental::filesystem;
 
 namespace HugeCTR {
 
@@ -44,19 +42,19 @@ inline void open_and_get_size(const std::string& file_name, std::ifstream& strea
   if (!stream.is_open()) {
     CK_THROW_(Error_t::WrongInput, "Cannot open the file: " + file_name);
   }
-  file_size_in_byte = fs::file_size(file_name);
+  file_size_in_byte = std::filesystem::file_size(file_name);
 }
 
 template <typename T>
 std::vector<T> load_data_from_file(std::string file_path) {
-  if (!fs::exists(file_path)) {
+  if (!std::filesystem::exists(file_path)) {
     CK_THROW_(Error_t::FileCannotOpen, file_path + " doesn't exist.");
   }
   std::ifstream ifs;
   size_t file_size;
   open_and_get_size(file_path, ifs, file_size);
 
-  std::vector<T> data_vec(fs::file_size(file_path) / sizeof(T));
+  std::vector<T> data_vec(std::filesystem::file_size(file_path) / sizeof(T));
   ifs.read(reinterpret_cast<char*>(data_vec.data()), file_size);
 
   return data_vec;
@@ -64,14 +62,14 @@ std::vector<T> load_data_from_file(std::string file_path) {
 
 template <typename T>
 void mmap_file_to_memory(T** mmaped_ptr, std::string file_name) {
-  if (!fs::exists(file_name)) {
+  if (!std::filesystem::exists(file_name)) {
     CK_THROW_(Error_t::FileCannotOpen, file_name + " doesn't exist");
   }
   int fd{open(file_name.c_str(), O_RDWR, S_IRUSR | S_IWUSR)};
   if (fd == -1) {
     CK_THROW_(Error_t::FileCannotOpen, std::string("Can't open ") + file_name);
   }
-  size_t file_size_in_byte{fs::file_size(file_name)};
+  size_t file_size_in_byte{std::filesystem::file_size(file_name)};
   if (file_size_in_byte == 0) {
     return;
     CK_THROW_(Error_t::WrongInput, std::string("Can't mmap empty file ") + file_name);
@@ -91,7 +89,7 @@ void sync_mmap_with_disk(T** mmaped_ptr, std::string file_name) {
   if (*mmaped_ptr == nullptr) {
     CK_THROW_(Error_t::WrongInput, "Invalid pointer");
   }
-  size_t file_size_in_byte{fs::file_size(file_name)};
+  size_t file_size_in_byte{std::filesystem::file_size(file_name)};
   auto ret{msync(*mmaped_ptr, file_size_in_byte, MS_SYNC)};
   if (ret != 0) {
     CK_THROW_(Error_t::WrongInput, "Mmap sync error");
@@ -103,7 +101,7 @@ void unmap_file_from_memory(T** mmaped_ptr, std::string file_name) {
   if (*mmaped_ptr == nullptr) {
     CK_THROW_(Error_t::WrongInput, "Can't unmap nullptr");
   }
-  size_t file_size_in_byte{fs::file_size(file_name)};
+  size_t file_size_in_byte{std::filesystem::file_size(file_name)};
   munmap(*mmaped_ptr, file_size_in_byte);
   *mmaped_ptr = nullptr;
 }
@@ -161,7 +159,7 @@ void SparseModelFileTS<TypeKey>::mmap_to_memory_() {
       std::vector<bool> is_empty(data_files.size());
       auto cnt{0};
       for (auto& data_file : data_files) {
-        is_empty[cnt++] = (fs::file_size(data_file) == 0);
+        is_empty[cnt++] = (std::filesystem::file_size(data_file) == 0);
       }
       auto has_empty{std::any_of(is_empty.begin(), is_empty.end(), [](auto val) { return val; })};
       if (has_empty) {
@@ -235,7 +233,8 @@ void SparseModelFileTS<TypeKey>::expand_(size_t expand_size) {
     }
     size_t file_size_expand{expand_size * sizeof(float) * emb_vec_size_};
     for (const auto& file_name : mmap_handler_.get_data_files()) {
-      fs::resize_file(file_name, fs::file_size(file_name) + file_size_expand);
+      std::filesystem::resize_file(file_name,
+                                   std::filesystem::file_size(file_name) + file_size_expand);
     }
     mmap_to_memory_();
 
@@ -262,19 +261,19 @@ SparseModelFileTS<TypeKey>::SparseModelFileTS(std::string sparse_model_path,
       resource_manager_(resource_manager) {
   try {
     auto check_integrate_and_init = [&](EmbeddingTableFile& etf) {
-      auto const num_key{fs::file_size(etf.key_file) / sizeof(long long)};
+      auto const num_key{std::filesystem::file_size(etf.key_file) / sizeof(long long)};
       if (use_slot_id_) {
-        if (!fs::exists(etf.slot_file)) {
+        if (!std::filesystem::exists(etf.slot_file)) {
           CK_THROW_(Error_t::BrokenFile, std::string("Can't find ") + etf.folder_name + "/slot_id");
         }
-        auto num_slot_id{fs::file_size(etf.slot_file) / sizeof(size_t)};
+        auto num_slot_id{std::filesystem::file_size(etf.slot_file) / sizeof(size_t)};
         if (num_slot_id != num_key) {
           std::stringstream ss;
           ss << "Num of keys(" << num_key << ") != num of slot_id(" << num_slot_id << ")";
           CK_THROW_(Error_t::BrokenFile, ss.str());
         }
       }
-      auto num_vec{fs::file_size(etf.data_files[0]) / emb_vec_size_ / sizeof(float)};
+      auto num_vec{std::filesystem::file_size(etf.data_files[0]) / emb_vec_size_ / sizeof(float)};
       if (num_vec != num_key) {
         std::stringstream ss;
         ss << "Num of keys(" << num_key << ") != num of embedding vectors(" << num_vec << ")";
@@ -283,8 +282,8 @@ SparseModelFileTS<TypeKey>::SparseModelFileTS(std::string sparse_model_path,
       // check whether the opt state file exists, create if not exist
       for (size_t i{1}; i < etf.data_files.size(); i++) {
         auto file_name{etf.data_files[i]};
-        if (fs::exists(file_name)) {
-          auto num_state{fs::file_size(file_name) / emb_vec_size_ / sizeof(float)};
+        if (std::filesystem::exists(file_name)) {
+          auto num_state{std::filesystem::file_size(file_name) / emb_vec_size_ / sizeof(float)};
           if (num_state != num_key) {
             std::stringstream ss;
             ss << "Num of keys(" << num_key << ") != num of opt states(" << num_vec << ") in "
@@ -295,7 +294,7 @@ SparseModelFileTS<TypeKey>::SparseModelFileTS(std::string sparse_model_path,
           MESSAGE_(file_name + " doesn't exist, create and initialize with zeros");
           auto ret = std::system((std::string("touch ") + file_name).c_str());
           (void)ret;
-          fs::resize_file(file_name, fs::file_size(etf.data_files[0]));
+          std::filesystem::resize_file(file_name, std::filesystem::file_size(etf.data_files[0]));
         }
       }
     };
@@ -307,8 +306,8 @@ SparseModelFileTS<TypeKey>::SparseModelFileTS(std::string sparse_model_path,
     };
 
     auto create_sparse_model = [&](EmbeddingTableFile& emb_tbl) {
-      if (!fs::exists(emb_tbl.folder_name)) {
-        fs::create_directories(emb_tbl.folder_name);
+      if (!std::filesystem::exists(emb_tbl.folder_name)) {
+        std::filesystem::create_directories(emb_tbl.folder_name);
       }
       create_file_in_ssd(emb_tbl.key_file);
       if (use_slot_id_) create_file_in_ssd(emb_tbl.slot_file);
@@ -317,8 +316,8 @@ SparseModelFileTS<TypeKey>::SparseModelFileTS(std::string sparse_model_path,
       }
     };
 
-    bool const from_scratch{
-        !(fs::exists(sparse_model_path) && fs::is_directory(sparse_model_path))};
+    bool const from_scratch{!(std::filesystem::exists(sparse_model_path) &&
+                              std::filesystem::is_directory(sparse_model_path))};
     bool const localized_train{(resource_manager_->get_num_process() == 1)};
     EmbeddingTableFile global_sparse_model(sparse_model_path, opt_type);
 
@@ -356,12 +355,12 @@ SparseModelFileTS<TypeKey>::SparseModelFileTS(std::string sparse_model_path,
     std::vector<bool> data_exists(mmap_handler_.get_data_files().size(), true);
 
     // check the existance of sparse model file to be used
-    if (fs::exists(mmap_handler_.get_folder_name()) && my_rank == 0) {
+    if (std::filesystem::exists(mmap_handler_.get_folder_name()) && my_rank == 0) {
       MESSAGE_(std::string("Remove existing") + mmap_handler_.get_folder_name());
-      fs::remove_all(mmap_handler_.get_folder_name());
+      std::filesystem::remove_all(mmap_handler_.get_folder_name());
     }
 
-    if (!fs::exists(sparse_model_path)) {
+    if (!std::filesystem::exists(sparse_model_path)) {
       data_exists = std::vector(mmap_handler_.get_data_files().size(), false);
 #ifdef ENABLE_MPI
       CK_MPI_THROW_(MPI_Barrier(MPI_COMM_WORLD));
@@ -372,7 +371,7 @@ SparseModelFileTS<TypeKey>::SparseModelFileTS(std::string sparse_model_path,
     } else {
       auto data_files{global_sparse_model.data_files};
       for (size_t i{1}; i < data_files.size(); i++) {
-        if (!fs::exists(data_files[i])) {
+        if (!std::filesystem::exists(data_files[i])) {
           data_exists[i] = false;
 #ifdef ENABLE_MPI
           CK_MPI_THROW_(MPI_Barrier(MPI_COMM_WORLD));
@@ -410,7 +409,7 @@ SparseModelFileTS<TypeKey>::SparseModelFileTS(std::string sparse_model_path,
     auto global_data_files{global_sparse_model.data_files};
     for (size_t i{0}; i < global_data_files.size(); i++) {
       if (data_exists[i]) {
-        size_t num_bytes{fs::file_size(global_data_files[i])};
+        size_t num_bytes{std::filesystem::file_size(global_data_files[i])};
         num_of_data.push_back(num_bytes / (sizeof(float) * emb_vec_size_));
       }
     }
@@ -461,7 +460,7 @@ SparseModelFileTS<TypeKey>::SparseModelFileTS(std::string sparse_model_path,
     auto local_num_key{global_key_idx_map_.size()};
     auto local_data_file_size{local_num_key * sizeof(float) * emb_vec_size_};
     for (auto file : mmap_handler_.get_data_files()) {
-      fs::resize_file(file, local_data_file_size);
+      std::filesystem::resize_file(file, local_data_file_size);
     }
 
     mmap_to_memory_();
@@ -499,8 +498,8 @@ template <typename TypeKey>
 SparseModelFileTS<TypeKey>::~SparseModelFileTS() {
   if (mmap_handler_.mapped_to_file_) unmap_from_memory_();
   bool const localized_train{(resource_manager_->get_num_process() == 1)};
-  if (!localized_train && fs::exists(mmap_handler_.get_folder_name())) {
-    fs::remove_all(mmap_handler_.get_folder_name());
+  if (!localized_train && std::filesystem::exists(mmap_handler_.get_folder_name())) {
+    std::filesystem::remove_all(mmap_handler_.get_folder_name());
   }
 }
 
@@ -765,8 +764,8 @@ void SparseModelFileTS<TypeKey>::update_global_model() {
     size_t global_num_keys;
     MPI_Allreduce(&local_num_keys, &global_num_keys, 1, MPI_SIZE_T, MPI_SUM, MPI_COMM_WORLD);
     if (resource_manager_->is_master_process()) {
-      fs::remove_all(global_model_path_);
-      fs::create_directories(global_model_path_);
+      std::filesystem::remove_all(global_model_path_);
+      std::filesystem::create_directories(global_model_path_);
     }
     CK_MPI_THROW_(MPI_Barrier(MPI_COMM_WORLD));
 

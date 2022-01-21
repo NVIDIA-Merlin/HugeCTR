@@ -69,8 +69,10 @@ void do_upload_and_download_snapshot(int batch_num_train, TrainPSType_t ps_type,
   const auto resource_manager{ResourceManagerExt::create(vvgpu, 0)};
 
   // generate train/test datasets
-  if (fs::exists(file_list_name_train)) fs::remove_all(file_list_name_train);
-  if (fs::exists(file_list_name_eval)) fs::remove_all(file_list_name_eval);
+  if (std::filesystem::exists(file_list_name_train))
+    std::filesystem::remove_all(file_list_name_train);
+  if (std::filesystem::exists(file_list_name_eval))
+    std::filesystem::remove_all(file_list_name_eval);
 
   // data generation
   HugeCTR::data_generation_for_test<TypeKey, check>(
@@ -133,8 +135,8 @@ void do_upload_and_download_snapshot(int batch_num_train, TrainPSType_t ps_type,
   embedding->update_params();
 
   // store the snapshot from the embedding
-  if (fs::exists(snapshot_src_file)) fs::remove_all(snapshot_src_file);
-  if (fs::exists(snapshot_dst_file)) fs::remove_all(snapshot_dst_file);
+  if (std::filesystem::exists(snapshot_src_file)) std::filesystem::remove_all(snapshot_src_file);
+  if (std::filesystem::exists(snapshot_dst_file)) std::filesystem::remove_all(snapshot_dst_file);
   embedding->dump_parameters(snapshot_src_file);
   generate_opt_state(snapshot_src_file, opt_type);
   copy_sparse_model(snapshot_src_file, snapshot_dst_file);
@@ -146,7 +148,8 @@ void do_upload_and_download_snapshot(int batch_num_train, TrainPSType_t ps_type,
   // Make a synthetic keyset files
   std::vector<long long> keys_in_file;
   {
-    size_t key_file_size_in_byte = fs::file_size(get_ext_file(snapshot_dst_file, "key"));
+    size_t key_file_size_in_byte =
+        std::filesystem::file_size(get_ext_file(snapshot_dst_file, "key"));
     size_t num_keys = key_file_size_in_byte / sizeof(long long);
     keys_in_file.resize(num_keys);
     std::ifstream key_ifs(get_ext_file(snapshot_dst_file, "key"));
@@ -180,8 +183,8 @@ void do_upload_and_download_snapshot(int batch_num_train, TrainPSType_t ps_type,
   timer_ps.start();
   auto read_file_and_output = [](std::string file_name, size_t num_output = 10) {
     std::ifstream ifs(file_name);
-    std::vector<float> data_vec(fs::file_size(file_name) / sizeof(float));
-    ifs.read(reinterpret_cast<char*>(data_vec.data()), fs::file_size(file_name));
+    std::vector<float> data_vec(std::filesystem::file_size(file_name) / sizeof(float));
+    ifs.read(reinterpret_cast<char*>(data_vec.data()), std::filesystem::file_size(file_name));
     std::copy(data_vec.begin(), data_vec.begin() + num_output,
               std::ostream_iterator<float>(std::cout, " "));
     std::cout << std::endl;

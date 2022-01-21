@@ -15,10 +15,8 @@
  */
 
 #include <embedding_training_cache/parameter_server.hpp>
-#include <experimental/filesystem>
+#include <filesystem>
 #include <fstream>
-
-namespace fs = std::experimental::filesystem;
 
 namespace HugeCTR {
 
@@ -30,7 +28,7 @@ void open_and_get_size(const std::string& file_name, std::ifstream& stream,
   if (!stream.is_open()) {
     CK_THROW_(Error_t::WrongInput, "Cannot open the file: " + file_name);
   }
-  file_size_in_byte = fs::file_size(file_name);
+  file_size_in_byte = std::filesystem::file_size(file_name);
 }
 
 }  // namespace

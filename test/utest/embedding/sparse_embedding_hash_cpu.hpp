@@ -19,7 +19,7 @@
 #include <math.h>
 #include <stdlib.h>
 
-#include <experimental/filesystem>
+#include <filesystem>
 
 #include "HugeCTR/include/common.hpp"
 #include "HugeCTR/include/data_readers/check_none.hpp"
@@ -28,7 +28,6 @@
 #include "HugeCTR/include/data_readers/file_source.hpp"
 #include "utest/embedding/cpu_hashtable.hpp"
 
-namespace fs = std::experimental::filesystem;
 using namespace HugeCTR;
 
 namespace {
@@ -296,8 +295,8 @@ SparseEmbeddingHashCpu<TypeHashKey, TypeEmbeddingComp>::SparseEmbeddingHashCpu(
       ERROR_MESSAGE_("Error: hash table file open failed");
       return;
     }
-    auto key_file_size_in_B = fs::file_size(key_file);
-    auto vec_file_size_in_B = fs::file_size(vec_file);
+    auto key_file_size_in_B = std::filesystem::file_size(key_file);
+    auto vec_file_size_in_B = std::filesystem::file_size(vec_file);
     const int num_key = key_file_size_in_B / sizeof(long long);
     const int num_vec = vec_file_size_in_B / (sizeof(float) * embedding_vec_size_);
 
