@@ -27,12 +27,19 @@
 #include <exception>
 #include <iostream>
 #include <string>
+#include <thread>
 
 #ifdef ENABLE_MPI
 #include <mpi.h>
 #endif
 
 namespace HugeCTR {
+
+thread_local std::string THREAD_NAME;
+
+const std::string& hctr_get_thread_name() { return THREAD_NAME; }
+
+void hctr_set_thread_name(const std::string& name) { THREAD_NAME = name; }
 
 void Logger::print_exception(const std::exception& e, int depth) {
   Logger::get().log(LOG_ERROR_LEVEL, true, false, "%d. %s\n", depth, e.what());
@@ -169,12 +176,9 @@ void Logger::do_throw(HugeCTR::Error_t error_type, const SrcLoc& loc,
 
 int Logger::get_rank() { return rank_; }
 
-Logger::Logger()
-    : rank_(0),
-      main_thread_id_(std::this_thread::get_id()),
-      max_level_(DEFAULT_LOG_LEVEL),
-      log_to_std_(true),
-      log_to_file_(false) {
+Logger::Logger() : rank_(0), max_level_(DEFAULT_LOG_LEVEL), log_to_std_(true), log_to_file_(false) {
+  hctr_set_thread_name("main");
+
 #ifdef ENABLE_MPI
   MPI_Comm_rank(MPI_COMM_WORLD, &rank_);
 #endif
@@ -258,14 +262,13 @@ std::string Logger::get_log_prefix(int level) const {
   // Rank
   prefix << "][RK" << rank_;
 
-  // Thread ID (for readability, print main thread as thread 0)
-  prefix << "][THR";
-  if (sizeof(std::thread::id) == sizeof(size_t)) {
-    // Note: size_t should always be trivial hash function. Hence we can do arithmetics with it.
-    static const std::hash<std::thread::id> h;
-    prefix << (h(std::this_thread::get_id()) - h(main_thread_id_));
+  // Thread
+  prefix << "][";
+  const std::string& thread_name = hctr_get_thread_name();
+  if (thread_name.empty()) {
+    prefix << "tid #" << std::this_thread::get_id();
   } else {
-    prefix << std::this_thread::get_id();
+    prefix << thread_name;
   }
 
   // Prompt & return.
