@@ -57,6 +57,11 @@ class All2AllDenseEmbedding(tf.keras.layers.Layer):
             Hashtable will be created for dynamic insertion. Otherwise, the input keys
             will be used as the index for embedding vector looking-up, so that input keys
             must be in the range ``[0, max_vocabulary_size_per_gpu * gpu_num)``.
+    key_dtype: tf.dtypes = tf.int64
+            the data type of input keys. By default, it is `tf.int64`.
+    embedding_initializer: string or an instance of `tf.keras.initializers.Initializer`
+            the initializer used to generate initial value for embedding variable.
+            By default, it will use `random_uniform` where ``minval=-0.05, maxval=0.05``.
 
     Examples
     --------
