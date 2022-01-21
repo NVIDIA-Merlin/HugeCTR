@@ -311,7 +311,8 @@ mpiexec --allow-run-as-root -np 8 --oversubscribe \
     --generate_new_datas=1 \
     --save_params=1 \
     --use_hashtable=1 \
-    --key_dtype='uint32'
+    --key_dtype='uint32' \
+    --use_tf_initializer=1
 mpiexec --allow-run-as-root -np 8 --oversubscribe \
     python3 test_dense_emb_demo.py \
     --distributed_tool="horovod" \
@@ -370,7 +371,8 @@ mpiexec --allow-run-as-root -np 8 --oversubscribe \
     --optimizer="compat_adam" \
     --generate_new_datas=1 \
     --save_params=1 \
-    --use_hashtable=1
+    --use_hashtable=1 \
+    --use_tf_initializer=1
 mpiexec --allow-run-as-root -np 8 --oversubscribe \
     python3 test_sparse_emb_demo.py \
     --distributed_tool="horovod" \

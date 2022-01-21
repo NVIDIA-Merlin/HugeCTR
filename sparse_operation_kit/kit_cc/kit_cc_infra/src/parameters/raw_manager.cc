@@ -142,7 +142,7 @@ void RawManager::create_variables(const size_t local_replica_id,
   create_variables(local_replica_id, /*initializer=*/"ones", use_hashtable, shape, 
                    name, trainable, dtype, key_dtype, param);
   // set initial_value
-  param->set_initial_value(local_replica_id, initial_value);
+  param->assign_initial_value(local_replica_id, initial_value);
 }
 
 void RawManager::allocate_memory(const size_t global_replica_id) {

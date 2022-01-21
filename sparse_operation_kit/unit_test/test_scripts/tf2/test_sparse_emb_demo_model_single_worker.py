@@ -34,6 +34,7 @@ class SOKDemo(tf.keras.models.Model):
                  embedding_vec_size, 
                  use_hashtable=True,
                  key_dtype=None,
+                 embedding_initializer=None,
                  **kwargs):
         super(SOKDemo, self).__init__(**kwargs)
 
@@ -49,7 +50,8 @@ class SOKDemo(tf.keras.models.Model):
                                                         slot_num=self.slot_num,
                                                         max_nnz=self.max_nnz,
                                                         use_hashtable=use_hashtable,
-                                                        key_dtype=key_dtype)
+                                                        key_dtype=key_dtype,
+                                                        embedding_initializer=embedding_initializer)
 
         self.dense_layer = tf.keras.layers.Dense(units=1, activation=None,
                                                  kernel_initializer="ones",
@@ -124,12 +126,15 @@ def test_sok_demo(args, init_tensors, *random_samples):
     with strategy.scope():
         result = sok.Init(global_batch_size=args.global_batch_size)
 
+        embedding_initializer = tf.keras.initializers.Ones() if args.use_tf_initializer else None
+
         plugin_demo = SOKDemo(combiner=args.combiner, 
                             max_vocabulary_size_per_gpu=args.max_vocabulary_size_per_gpu,
                             slot_num=args.slot_num, max_nnz=args.max_nnz,
                             embedding_vec_size=args.embedding_vec_size,
                             use_hashtable=args.use_hashtable,
-                            key_dtype=args.key_dtype)
+                            key_dtype=args.key_dtype,
+                            embedding_initializer=embedding_initializer)
 
         emb_opt = utils.get_embedding_optimizer(args.optimizer)(learning_rate=0.1)
         dense_opt = utils.get_dense_optimizer(args.optimizer)(learning_rate=0.1)
@@ -142,7 +147,8 @@ def test_sok_demo(args, init_tensors, *random_samples):
         filepath = r"./embedding_variables"
         plugin_saver.restore_from_file(plugin_demo.embedding_layer.embedding_variable, filepath)
     else: # initialize using randomized initial value
-        status = plugin_saver.load_embedding_values(plugin_demo.embedding_layer.embedding_variable, init_tensors)
+        if not args.use_tf_initializer and init_tensors:
+            status = plugin_saver.load_embedding_values(plugin_demo.embedding_layer.embedding_variable, init_tensors)
 
     loss_fn = tf.keras.losses.BinaryCrossentropy(from_logits=True, reduction=tf.keras.losses.Reduction.NONE)
     def _replica_loss(labels, logits):
@@ -337,8 +343,8 @@ def compare_sok_with_tf(args):
                                 rtol=tolerance)
     print("\n[INFO]: With MirroredStrategy, the embedding vector obtained from " +\
           "sparse operation kit and tensorflow are consistent for %d iterations." 
-          " With mixed_precision = %s, and key_dtype = %s"
-          %(args.iter_num, args.mixed_precision, args.key_dtype))
+          " With mixed_precision = %s, and key_dtype = %s, and use_tf_initializer = %s"
+          %(args.iter_num, args.mixed_precision, args.key_dtype, args.use_tf_initializer))
 
     if (1 == args.save_params):
         check_saved_embedding_variables(args, embedding_variable_name, 
@@ -388,11 +394,13 @@ if __name__ == "__main__":
     parser.add_argument("--use_hashtable", type=int, choices=[0, 1], default=1)
     parser.add_argument("--mixed_precision", type=int, choices=[0, 1], default=0)
     parser.add_argument("--key_dtype", type=str, choices=['int64', 'uint32'], default='int64')
+    parser.add_argument("--use_tf_initializer", type=int, choices=[0, 1], default=0)
 
     args = parser.parse_args()
 
     args.use_hashtable = True if args.use_hashtable == 1 else False
     args.mixed_precision = True if 1 == args.mixed_precision else False
+    args.use_tf_initializer = True if 1 == args.use_tf_initializer else False
 
     if args.mixed_precision:
         policy = tf.keras.mixed_precision.Policy("mixed_float16")

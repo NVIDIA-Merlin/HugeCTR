@@ -49,8 +49,8 @@ class ParamInterface : public States {
   virtual std::shared_ptr<HashTable>& get_hashtable(const size_t local_replica_id) = 0;
   virtual std::shared_ptr<Tensor>& get_embedding_table_tensor(const size_t local_replica_id) = 0;
   std::shared_ptr<Tensor>& get_tensor(const size_t local_replica_id) override;
-  virtual void set_initial_value(const size_t local_replica_id,
-                                 const std::shared_ptr<Tensor>& initial_value) = 0;
+  virtual void assign_initial_value(const size_t local_replica_id,
+                                    const std::shared_ptr<Tensor>& initial_value) = 0;
   virtual void dump_to_file(const std::string filepath) = 0;
   virtual void restore_from_file(const std::string filepath) = 0;
   virtual void load_embedding_values(const std::shared_ptr<Tensor>& emb_values) = 0;

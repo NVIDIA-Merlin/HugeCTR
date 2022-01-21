@@ -43,7 +43,7 @@ RawParam<KeyType, ValueType>::RawParam(const std::string& initializer, const boo
       hashtables_(resource_mgr->get_local_gpu_count(), nullptr),
       initializer_(Initializer::Get(initializer)),
       use_hashtable_(use_hashtable),
-      initialized_(resource_mgr->get_local_gpu_count(), false) {
+      initialized_(resource_mgr->get_local_gpu_count()) {
   emb_table_tensors_.reserve(resource_mgr_->get_local_gpu_count());
   emb_table_tensors_interface_.reserve(resource_mgr_->get_local_gpu_count());
 
@@ -81,6 +81,9 @@ RawParam<KeyType, ValueType>::RawParam(const std::string& initializer, const boo
     device_context.set_device(resource_mgr_->get_local_gpu(dev_id)->get_local_device_id());
     buffers_[dev_id]->allocate();
   }  // for dev_id
+
+  // explicitly set default value for initialized_
+  for (auto& flag : initialized_) { flag.store(false, std::memory_order_release); }
 }
 
 template <typename KeyType, typename ValueType>
@@ -99,7 +102,14 @@ RawParam<KeyType, ValueType>::create(const std::string& initializer, const bool 
 
 template <typename KeyType, typename ValueType>
 bool RawParam<KeyType, ValueType>::is_initialized(const size_t local_replica_id) const {
-  return initialized_[local_replica_id];
+  return initialized_[local_replica_id].load(std::memory_order_acquire);
+}
+
+template <typename KeyType, typename ValueType>
+void RawParam<KeyType, ValueType>::set_initialized(const size_t local_replica_id) {
+  if (is_initialized(local_replica_id)) 
+    throw std::runtime_error(ErrorBase + get_var_name() + " has already been initialized.");
+  initialized_[local_replica_id].store(true, std::memory_order_release);
 }
 
 template <typename KeyType, typename ValueType>
@@ -123,6 +133,7 @@ void RawParam<KeyType, ValueType>::init(const size_t global_replica_id) {
 
   resource_mgr_->sync_gpu(local_replica_id);
 
+  set_initialized(local_replica_id);
   MESSAGE("Variable: " + get_var_name() + " on global_replica_id: " + std::to_string(global_replica_id) +
           " initialization done.");
 }
@@ -145,8 +156,11 @@ std::shared_ptr<Tensor>& RawParam<KeyType, ValueType>::get_embedding_table_tenso
 }
 
 template <typename KeyType, typename ValueType>
-void RawParam<KeyType, ValueType>::set_initial_value(const size_t local_replica_id,
-                                 const std::shared_ptr<Tensor>& initial_value) {
+void RawParam<KeyType, ValueType>::assign_initial_value(const size_t local_replica_id,
+                                        const std::shared_ptr<Tensor>& initial_value) {
+  if (is_initialized(local_replica_id))
+    throw std::runtime_error(ErrorBase + get_var_name() + " has already been initialized.");
+
   auto& embedding_table = get_embedding_table_tensor(local_replica_id);
   if (embedding_table->get_num_elements() != initial_value->get_num_elements())
     throw std::runtime_error(ErrorBase +
@@ -163,10 +177,10 @@ void RawParam<KeyType, ValueType>::set_initial_value(const size_t local_replica_
                           cudaMemcpyDefault, local_gpu->get_stream()));
   CK_CUDA(cudaStreamSynchronize(local_gpu->get_stream()));
 
-  initialized_[local_replica_id] = true;
+  set_initialized(local_replica_id);
   const size_t global_replica_id = resource_mgr_->cal_global_id_from_local_id(local_replica_id);
   MESSAGE("Variable: " + get_var_name() + " on global_replica_id: " + std::to_string(global_replica_id) +
-          " set initial_value.");
+          " initial_value set.");
 }
 
 template <typename KeyType, typename ValueType>

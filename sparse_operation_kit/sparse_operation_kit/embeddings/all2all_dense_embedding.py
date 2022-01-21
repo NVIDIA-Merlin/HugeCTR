@@ -82,6 +82,7 @@ class All2AllDenseEmbedding(tf.keras.layers.Layer):
                  dynamic_input=False,
                  use_hashtable=True,
                  key_dtype=None,
+                 embedding_initializer=None,
                  **kwargs):
         super(All2AllDenseEmbedding, self).__init__(**kwargs)
 
@@ -99,11 +100,12 @@ class All2AllDenseEmbedding(tf.keras.layers.Layer):
             self._dtype_policy = mixed_precision.Policy("float32")
 
         self.var = EmbeddingVariable.CreateInstances(
-                                shape=[self.max_vocabulary_size_per_gpu, self.embedding_vec_size],
-                                trainable=True,
-                                use_hashtable=self.use_hashtable,
-                                dtype=self._dtype_policy.variable_dtype,
-                                key_dtype=key_dtype)
+                        shape=[self.max_vocabulary_size_per_gpu, self.embedding_vec_size],
+                        trainable=True,
+                        use_hashtable=self.use_hashtable,
+                        dtype=self._dtype_policy.variable_dtype,
+                        key_dtype=key_dtype,
+                        initializer=embedding_initializer)
 
         self.emb_layer = DenseEmbeddingLayerHandle(self.var,
                                                 input_dispatcher="All2AllInput",

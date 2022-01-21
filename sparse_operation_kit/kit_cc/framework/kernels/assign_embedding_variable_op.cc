@@ -100,11 +100,13 @@ class AssignEmbeddingVariableOp : public OpKernel {
     try {
       const size_t local_replica_id_value = local_replica_id_tensor->scalar<int32_t>()();
       if (DT_STRING == initial_value_tensor->dtype()) {
+        // this will use in-place initializer
         SparseOperationKit::Facade::instance()->create_variables(
             local_replica_id_value, std::string(initial_value_tensor->flat<tstring>()(0)),
             use_hashtable_, dims_, variable_name, trainable_, dtype_and_shape_.dtype,
             key_dtype_, emb_variable, &tensor);
       } else {
+        // this will copy initial value to variable's memory
         OP_REQUIRES(ctx, initial_value_tensor->dtype() == dtype_and_shape_.dtype,
                     errors::Aborted("The dtype of initial_value is not compatible "
                                     "with EmbeddingVariable's."));

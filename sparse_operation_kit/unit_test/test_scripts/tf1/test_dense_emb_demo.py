@@ -68,6 +68,8 @@ def get_sok_results(args, init_tensors, *random_samples):
     with strategy.scope():
         sok_init_op = sok.Init(global_batch_size=args.global_batch_size)
 
+        embedding_initializer = tf.keras.initializers.Ones() if args.use_tf_initializer else None
+
         sok_dense_demo = SOKDemo(max_vocabulary_size_per_gpu=args.max_vocabulary_size_per_gpu,
                                  embedding_vec_size=args.embedding_vec_size,
                                  slot_num=args.slot_num,
@@ -75,7 +77,8 @@ def get_sok_results(args, init_tensors, *random_samples):
                                  use_hashtable=args.use_hashtable,
                                  dynamic_input=args.dynamic_input,
                                  num_of_dense_layers=0,
-                                 key_dtype=args.key_dtype)
+                                 key_dtype=args.key_dtype,
+                                 embedding_initializer=embedding_initializer)
 
         emb_opt = utils.get_embedding_optimizer(args.optimizer)(learning_rate=0.1)
         dense_opt = utils.get_dense_optimizer(args.optimizer)(learning_rate=0.1)
@@ -91,7 +94,10 @@ def get_sok_results(args, init_tensors, *random_samples):
                 filepath = r"./embedding_variables"
                 op = sok_saver.restore_from_file(embedding_layer.embedding_variable, filepath)
             else:
-                op = sok_saver.load_embedding_values(embedding_layer.embedding_variable, init_tensors[i])
+                if not args.use_tf_initializer:
+                    op = sok_saver.load_embedding_values(embedding_layer.embedding_variable, init_tensors[i])
+                else:
+                    op = tf.constant(1.0)
             restore_op.append(op)
 
     loss_fn = tf.keras.losses.BinaryCrossentropy(from_logits=True, reduction='none')
@@ -362,7 +368,8 @@ def compare_dense_emb_sok_with_tf(args):
           f"using hashtable? {args.use_hashtable}, dynamic_input? {args.dynamic_input}, "
           "the embedding vectors"
           f" obtained from sok and tf are consistent for {args.iter_num} iterations,"
-          f" with mixed_precision = {args.mixed_precision}, key_dtype = {args.key_dtype}")
+          f" with mixed_precision = {args.mixed_precision}, key_dtype = {args.key_dtype}",
+          f" use_tf_initializer = {args.use_tf_initializer}")
 
     if args.save_params:
         check_saved_embedding_variables(args, embedding_variable_name, 
@@ -406,6 +413,7 @@ if __name__ == "__main__":
     parser.add_argument("--mixed_precision", type=int, choices=[0, 1],
                         required=False, default=0)
     parser.add_argument("--key_dtype", type=str, choices=["int64", "uint32"], default="int64")
+    parser.add_argument("--use_tf_initializer", type=int, choices=[0, 1], default=0)
 
     args = parser.parse_args()
 
@@ -415,6 +423,7 @@ if __name__ == "__main__":
     args.use_hashtable = True if args.use_hashtable == 1 else False
     args.dynamic_input = True if args.dynamic_input == 1 else False
     args.mixed_precision = True if args.mixed_precision == 1 else False
+    args.use_tf_initializer = True if args.use_tf_initializer == 1 else False
 
     if (args.distributed_tool == "onedevice" and args.gpu_num != 1):
         raise ValueError(f"When 'onedevice' is used as the distributed_tool, "
