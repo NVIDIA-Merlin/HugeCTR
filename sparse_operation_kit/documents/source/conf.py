@@ -33,7 +33,7 @@ sys.path.append(os.path.abspath(os.path.join(os.getcwd(), "../..")))
 # -- Project information -----------------------------------------------------
 
 project = 'SparseOperationKit'
-copyright = '2021, NVIDIA'
+copyright = '2022, NVIDIA'
 author = 'NVIDIA'
 
 # version

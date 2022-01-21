@@ -1,6 +1,11 @@
 # SparseOperationKit Release Notes #
 The release notes for SparseOperationKit.
 
+## What's new in Version 1.1.1 ##
++ Add Auto-Mixed-precision training support.
++ Add uint32 key dtype support
++ Add TensorFlow initializers support
+
 ## What's new in Version 1.1.0 ##
 + Supports TensorFlow 1.15.
 + Supports configuring visible devices via `tf.config.set_visible_devices`.
