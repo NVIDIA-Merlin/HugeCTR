@@ -19,14 +19,11 @@
 #include <algorithm>
 #include <data_readers/async_reader/async_reader_adapter.hpp>
 #include <embeddings/hybrid_sparse_embedding.hpp>
-#include <experimental/filesystem>
 #include <fstream>
 #include <iomanip>
 #include <iterator>
 #include <pybind/model.hpp>
 #include <sstream>
-
-namespace fs = std::experimental::filesystem;
 
 namespace HugeCTR {
 
@@ -103,7 +100,7 @@ template <typename TypeKey>
 auto load_key_files(std::vector<std::string> const& key_files) {
   std::vector<TypeKey> keys_vec;
   for (auto const& key_file : key_files) {
-    auto key_file_size = fs::file_size(key_file);
+    auto key_file_size = std::filesystem::file_size(key_file);
     auto num_new_keys = key_file_size / sizeof(TypeKey);
     std::ifstream key_fs(key_file, std::ifstream::binary);
     if (!key_fs.is_open()) {

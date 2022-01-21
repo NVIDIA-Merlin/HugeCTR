@@ -18,6 +18,7 @@
 #include <omp.h>
 
 #include <algorithm>
+#include <filesystem>
 #include <fstream>
 #include <unordered_map>
 #include <unordered_set>
@@ -38,10 +39,6 @@
 #define DENSE_MODEL_PATH "/hugectr/test/utest/_dense_10000.model"
 #define MODEL_NAME "DCN"
 #define BATCHSIZE 1024
-
-#include <experimental/filesystem>
-
-namespace fs = std::experimental::filesystem;
 
 using namespace HugeCTR;
 namespace {
@@ -218,7 +215,7 @@ void embedding_cache_test(const std::string& config_file, const std::string& mod
   // The max value of all embedding ids
   TypeHashKey max_emb_id = 0;
   // The num of embeddings in the file
-  size_t row_num = fs::file_size(emb_file_prefix + "key") / sizeof(long long);
+  size_t row_num = std::filesystem::file_size(emb_file_prefix + "key") / sizeof(long long);
 
   CK_CUDA_THROW_(cudaHostAlloc((void**)&h_total_embeddingcolumns, row_num * sizeof(TypeHashKey),
                                cudaHostAllocPortable));

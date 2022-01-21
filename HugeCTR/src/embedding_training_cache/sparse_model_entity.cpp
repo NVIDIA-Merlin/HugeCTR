@@ -20,7 +20,6 @@
 
 #include <algorithm>
 #include <execution>
-#include <experimental/filesystem>
 #include <fstream>
 #include <iterator>
 #include <numeric>
@@ -29,8 +28,6 @@
 #include <thread>
 
 #include "utils.hpp"
-
-namespace fs = std::experimental::filesystem;
 
 namespace {
 

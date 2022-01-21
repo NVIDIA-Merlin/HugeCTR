@@ -16,7 +16,7 @@
 
 #include <sys/time.h>
 
-#include <experimental/filesystem>
+#include <filesystem>
 #include <fstream>
 #include <functional>
 
@@ -32,7 +32,6 @@
 
 using namespace HugeCTR;
 using namespace embedding_test;
-namespace fs = std::experimental::filesystem;
 
 namespace {
 //---------------------------------------------------------------------------------------
@@ -89,9 +88,9 @@ auto load_sparse_model_to_map = [](std::vector<T> &key_vec, std::vector<size_t> 
   std::ifstream fs_slot(slot_file, std::ifstream::binary);
   std::ifstream fs_vec(vec_file, std::ifstream::binary);
 
-  const size_t key_file_size_in_B = fs::file_size(key_file);
-  const size_t slot_file_size_in_B = fs::file_size(slot_file);
-  const size_t vec_file_size_in_B = fs::file_size(vec_file);
+  const size_t key_file_size_in_B = std::filesystem::file_size(key_file);
+  const size_t slot_file_size_in_B = std::filesystem::file_size(slot_file);
+  const size_t vec_file_size_in_B = std::filesystem::file_size(vec_file);
   const long long num_key = key_file_size_in_B / sizeof(long long);
   const long long num_slot = slot_file_size_in_B / sizeof(size_t);
   const long long num_vec = vec_file_size_in_B / (sizeof(float) * embedding_vec_size);
@@ -123,8 +122,8 @@ auto load_sparse_model_to_map = [](std::vector<T> &key_vec, std::vector<size_t> 
 void init_sparse_model(const char *sparse_model) {
   std::cout << "Init hash table";
   // init hash table file: <key, solt_id, value>
-  if (!fs::exists(sparse_model)) {
-    fs::create_directories(sparse_model);
+  if (!std::filesystem::exists(sparse_model)) {
+    std::filesystem::create_directories(sparse_model);
   }
   const std::string key_file = std::string(sparse_model) + "/key";
   const std::string slot_file = std::string(sparse_model) + "/slot_id";
@@ -720,8 +719,8 @@ void load_and_dump_file(const std::vector<int> &device_list, const Optimizer_t &
 
   if (pid == 0) {
     // re-generate the dataset files
-    if (fs::exists(train_file_list_name)) {
-      fs::remove(train_file_list_name);
+    if (std::filesystem::exists(train_file_list_name)) {
+      std::filesystem::remove(train_file_list_name);
     }
 
     // data generation

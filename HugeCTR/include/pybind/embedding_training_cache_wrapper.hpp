@@ -13,14 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
 #include <HugeCTR/include/embedding_training_cache/embedding_training_cache.hpp>
-#include <experimental/filesystem>
+#include <filesystem>
 #include <pybind/model.hpp>
-
-namespace fs = std::experimental::filesystem;
 
 namespace HugeCTR {
 
@@ -38,8 +37,8 @@ auto check_sparse_models = [](std::vector<std::string>& sparse_models) {
   auto check_integrity = [](std::string sparse_model) {
     auto key_file{sparse_model + "/key"};
     auto vec_file{sparse_model + "/emb_vector"};
-    if (fs::exists(key_file) && fs::exists(vec_file)) {
-      if (fs::file_size(key_file) != 0 && fs::file_size(vec_file) != 0) {
+    if (std::filesystem::exists(key_file) && std::filesystem::exists(vec_file)) {
+      if (std::filesystem::file_size(key_file) != 0 && std::filesystem::file_size(vec_file) != 0) {
         return true;
       } else {
         MESSAGE_(std::string("Wrong File: key or emb_vector is empty in ") + sparse_model);
@@ -52,19 +51,20 @@ auto check_sparse_models = [](std::vector<std::string>& sparse_models) {
   };
 
   for (auto const& sparse_model : sparse_models) {
-    if (fs::exists(sparse_model) && fs::is_directory(sparse_model) && !fs::is_empty(sparse_model)) {
+    if (std::filesystem::exists(sparse_model) && std::filesystem::is_directory(sparse_model) &&
+        !std::filesystem::is_empty(sparse_model)) {
       if (!check_integrity(sparse_model)) {
         CK_THROW_(Error_t::BrokenFile, std::string("Please check ") + sparse_model);
       }
       MESSAGE_(std::string("Use existing embedding: ") + sparse_model);
     } else {
-      if (fs::exists(sparse_model) && !fs::is_directory(sparse_model)) {
+      if (std::filesystem::exists(sparse_model) && !std::filesystem::is_directory(sparse_model)) {
         CK_THROW_(Error_t::BrokenFile,
                   std::string("File with the same name ") + sparse_model + " exists");
       }
-      if (fs::exists(sparse_model) && fs::is_directory(sparse_model) &&
-          fs::is_empty(sparse_model)) {
-        fs::remove_all(sparse_model);
+      if (std::filesystem::exists(sparse_model) && std::filesystem::is_directory(sparse_model) &&
+          std::filesystem::is_empty(sparse_model)) {
+        std::filesystem::remove_all(sparse_model);
       }
       MESSAGE_(std::string("Empty embedding, trained table will be stored in ") + sparse_model);
     }

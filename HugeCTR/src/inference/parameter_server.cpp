@@ -18,15 +18,13 @@
 
 #include <chrono>
 #include <cstdio>
-#include <experimental/filesystem>
+#include <filesystem>
 #include <inference/hash_map_backend.hpp>
 #include <inference/kafka_message.hpp>
 #include <inference/parameter_server.hpp>
 #include <inference/redis_backend.hpp>
 #include <inference/rocksdb_backend.hpp>
 #include <regex>
-
-namespace fs = std::experimental::filesystem;
 
 namespace HugeCTR {
 
@@ -320,8 +318,8 @@ void parameter_server<TypeHashKey>::update_database_per_model(
     if (!key_stream.is_open() || !vec_stream.is_open()) {
       CK_THROW_(Error_t::WrongInput, "Error: embeddings file not open for reading");
     }
-    const size_t key_file_size_in_byte = fs::file_size(key_file);
-    const size_t vec_file_size_in_byte = fs::file_size(vec_file);
+    const size_t key_file_size_in_byte = std::filesystem::file_size(key_file);
+    const size_t vec_file_size_in_byte = std::filesystem::file_size(vec_file);
 
     const size_t key_size_in_byte = sizeof(long long);
     const size_t embedding_size = ps_config_.embedding_vec_size_[inference_params.model_name][j];

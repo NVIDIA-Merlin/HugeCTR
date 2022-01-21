@@ -20,10 +20,8 @@
 #include <mpi.h>
 #endif
 
-#include <experimental/filesystem>
+#include <filesystem>
 #include <numeric>
-
-namespace fs = std::experimental::filesystem;
 
 namespace HugeCTR {
 namespace localized_onehot_filter_keys_kernel {
@@ -667,7 +665,7 @@ LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::
 template <typename TypeHashKey, typename TypeEmbeddingComp>
 void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::load_parameters(
     std::string sparse_model) {
-  if (!fs::exists(sparse_model)) {
+  if (!std::filesystem::exists(sparse_model)) {
     CK_THROW_(Error_t::WrongInput, std::string("Error: folder ") + sparse_model + " doesn't exist");
   }
   const std::string key_file(sparse_model + "/key");
@@ -682,9 +680,9 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::load_pa
     CK_THROW_(Error_t::WrongInput, "Error: file not open for reading");
   }
 
-  size_t key_file_size_in_byte = fs::file_size(key_file);
-  size_t slot_file_size_in_byte = fs::file_size(slot_file);
-  size_t vec_file_size_in_byte = fs::file_size(vec_file);
+  size_t key_file_size_in_byte = std::filesystem::file_size(key_file);
+  size_t slot_file_size_in_byte = std::filesystem::file_size(slot_file);
+  size_t vec_file_size_in_byte = std::filesystem::file_size(vec_file);
 
   size_t key_size = sizeof(long long);
   size_t slot_size = sizeof(size_t);
@@ -1020,8 +1018,8 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::dump_pa
   CudaDeviceContext context;
   size_t local_gpu_count = embedding_data_.get_resource_manager().get_local_gpu_count();
 
-  if (!fs::exists(sparse_model)) {
-    fs::create_directories(sparse_model);
+  if (!std::filesystem::exists(sparse_model)) {
+    std::filesystem::create_directories(sparse_model);
   }
   const std::string key_file(sparse_model + "/key");
   const std::string slot_file(sparse_model + "/slot_id");

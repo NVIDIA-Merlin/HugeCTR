@@ -14,19 +14,20 @@
  * limitations under the License.
  */
 
+#include <cassert>
+#include <filesystem>
+#include <fstream>
+#include <vector>
+
 #include "HugeCTR/include/data_generator.hpp"
 #include "HugeCTR/include/general_buffer2.hpp"
 #include "HugeCTR/include/inference/embedding_interface.hpp"
 #include "HugeCTR/include/inference/session_inference.hpp"
 #include "HugeCTR/include/utils.hpp"
-#include "cassert"
 #include "cuda_profiler_api.h"
-#include "experimental/filesystem"
-#include "fstream"
 #include "gtest/gtest.h"
 #include "inference/embedding_feature_combiner.hpp"
 #include "utest/test_utils.h"
-#include "vector"
 
 using namespace HugeCTR;
 namespace {
@@ -47,8 +48,8 @@ void validate_lookup_result_per_table(const std::string model_config_path,
     if (!key_stream.is_open() || !vec_stream.is_open()) {
       CK_THROW_(Error_t::WrongInput, "Error: embeddings file not open for reading");
     }
-    const size_t key_file_size_in_byte = std::experimental::filesystem::file_size(key_file);
-    const size_t vec_file_size_in_byte = std::experimental::filesystem::file_size(vec_file);
+    const size_t key_file_size_in_byte = std::filesystem::file_size(key_file);
+    const size_t vec_file_size_in_byte = std::filesystem::file_size(vec_file);
 
     const size_t key_size_in_byte = sizeof(long long);
     const size_t embedding_size = embedding_vec_size[j];

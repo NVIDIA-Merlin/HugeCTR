@@ -64,7 +64,7 @@ void compare_with_ssd(std::vector<std::string>& data_files, std::vector<TypeKey>
   if (std::is_same<TypeKey, long long>::value) {
     std::string src_data_file(std::string(snapshot_dst_file) + "/key");
     auto file_size{keys.size() * sizeof(size_t)};
-    // ASSERT_EQ(file_size, fs::file_size(src_data_file));
+    // ASSERT_EQ(file_size, std::filesystem::file_size(src_data_file));
     std::vector<char> data_vec(file_size);
     std::ifstream ifs(src_data_file);
     ifs.read(data_vec.data(), file_size);
@@ -76,7 +76,7 @@ void compare_with_ssd(std::vector<std::string>& data_files, std::vector<TypeKey>
   if (use_slot_id) {
     std::string src_data_file(std::string(snapshot_dst_file) + "/slot_id");
     auto file_size{keys.size() * sizeof(size_t)};
-    // ASSERT_EQ(file_size, fs::file_size(src_data_file));
+    // ASSERT_EQ(file_size, std::filesystem::file_size(src_data_file));
     std::vector<char> data_vec(file_size);
     std::ifstream ifs(src_data_file);
     ifs.read(data_vec.data(), file_size);
@@ -89,7 +89,7 @@ void compare_with_ssd(std::vector<std::string>& data_files, std::vector<TypeKey>
   for (const auto& data_file : data_files) {
     std::string src_data_file(std::string(snapshot_dst_file) + "/" + data_file);
     auto file_size{keys.size() * emb_vec_size * sizeof(float)};
-    // ASSERT_EQ(file_size, fs::file_size(src_data_file));
+    // ASSERT_EQ(file_size, std::filesystem::file_size(src_data_file));
     std::vector<char> data_vec(file_size);
     std::ifstream ifs(src_data_file);
     ifs.read(data_vec.data(), file_size);
@@ -108,14 +108,14 @@ void ctor_test_scratch(Optimizer_t opt_type) {
   vvgpu.push_back({0});
   const auto resource_manager{ResourceManagerExt::create(vvgpu, 0)};
   std::string path_prefix{"./global_sparse_model"};
-  if (fs::exists(path_prefix)) fs::remove_all(path_prefix);
+  if (std::filesystem::exists(path_prefix)) std::filesystem::remove_all(path_prefix);
 
   SparseModelFileTS<TypeKey> sparse_model_ts(path_prefix, "./", true, opt_type, emb_vec_size,
                                              resource_manager);
   auto data_files{get_data_file(opt_type)};
   for (const auto& data_file : data_files) {
     auto file_path{path_prefix + "/" + data_file};
-    ASSERT_TRUE(fs::exists(file_path));
+    ASSERT_TRUE(std::filesystem::exists(file_path));
   }
 }
 
@@ -132,21 +132,21 @@ void load_api_test(int batch_num_train, bool use_slot_id, Optimizer_t opt_type, 
       max_nnz_per_slot, max_feature_num, vocabulary_size, emb_vec_size, combiner, scaler,
       num_workers, batchsize, batch_num_train, batch_num_eval, update_type, resource_manager);
   generate_opt_state(snapshot_src_file, opt_type);
-  if (fs::exists(snapshot_dst_file)) {
-    fs::remove_all(snapshot_dst_file);
+  if (std::filesystem::exists(snapshot_dst_file)) {
+    std::filesystem::remove_all(snapshot_dst_file);
   }
-  fs::copy(snapshot_src_file, snapshot_dst_file);
+  std::filesystem::copy(snapshot_src_file, snapshot_dst_file);
 
   SparseModelFileTS<TypeKey> sparse_model_ts(snapshot_dst_file, "./", use_slot_id, opt_type,
                                              emb_vec_size, resource_manager);
 
   const std::string key_file{std::string(snapshot_dst_file) + "/key"};
-  auto num_key{fs::file_size(key_file) / sizeof(long long)};
+  auto num_key{std::filesystem::file_size(key_file) / sizeof(long long)};
   std::vector<TypeKey> keys;
   {
     std::vector<long long> key_i64(num_key);
     std::ifstream ifs(key_file);
-    ifs.read(reinterpret_cast<char*>(key_i64.data()), fs::file_size(key_file));
+    ifs.read(reinterpret_cast<char*>(key_i64.data()), std::filesystem::file_size(key_file));
     if (std::is_same<TypeKey, long long>::value) {
       keys.resize(num_key);
       std::transform(key_i64.begin(), key_i64.end(), keys.begin(),
