@@ -114,7 +114,6 @@
 #include <memory>
 #include <mutex>
 #include <sstream>
-#include <thread>
 #include <vector>
 
 #ifdef ENABLE_MPI
@@ -435,7 +434,6 @@ class Logger final {
   std::string get_log_prefix(int level) const;
 
   int rank_;
-  const std::thread::id main_thread_id_;
   int max_level_;
   bool log_to_std_;
   bool log_to_file_;
@@ -457,5 +455,8 @@ inline static TTarget hctr_safe_cast(const double value) {
              value <= std::numeric_limits<TTarget>::max());
   return static_cast<TTarget>(value);
 }
+
+const std::string& hctr_get_thread_name();
+void hctr_set_thread_name(const std::string& name);
 
 }  // namespace HugeCTR

@@ -81,7 +81,7 @@ embedding_cache<TypeHashKey>::embedding_cache(const std::string& model_config_pa
                                               const InferenceParams& inference_params,
                                               HugectrUtility<TypeHashKey>* const parameter_server)
     : parameter_server_(parameter_server),
-      insert_workers_(std::min(16u, std::thread::hardware_concurrency())) {
+      insert_workers_("EC insert", std::min(16u, std::thread::hardware_concurrency())) {
   HCTR_LOG(INFO, ROOT, "Use GPU embedding cache: %s, cache size percentage: %f\n",
            inference_params.use_gpu_embedding_cache ? "True" : "False",
            inference_params.cache_size_percentage);

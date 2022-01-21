@@ -42,8 +42,8 @@ RedisClusterBackend<TKey>::RedisClusterBackend(
     const double overflow_resolution_target)
     : num_partitions_(num_partitions),
       // TODO: Make this configurable?
-      thread_pool_(
-          std::min(num_partitions, static_cast<size_t>(std::thread::hardware_concurrency()))),
+      thread_pool_("redis", std::min(num_partitions,
+                                     static_cast<size_t>(std::thread::hardware_concurrency()))),
       max_get_batch_size_(max_get_batch_size),
       max_set_batch_size_(max_set_batch_size),
       overflow_margin_(overflow_margin),

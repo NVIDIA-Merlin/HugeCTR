@@ -21,9 +21,9 @@
 
 namespace HugeCTR {
 
-ThreadPool::ThreadPool() : ThreadPool(0) {}
+ThreadPool::ThreadPool(const std::string& name) : ThreadPool(name, 0) {}
 
-ThreadPool::ThreadPool(size_t num_workers) {
+ThreadPool::ThreadPool(const std::string& name, size_t num_workers) : name_(name) {
   // Determine eventual number of threads.
   if (num_workers == 0) {
     const char* num_workers_str = getenv("HCTR_DEFAULT_CONCURRENCY");
@@ -97,11 +97,12 @@ ThreadPool& ThreadPool::get() {
   // Lazy init of default thread-pool on first call to this function..
   static std::unique_ptr<ThreadPool> default_pool;
   static std::once_flag semaphore;
-  call_once(semaphore, []() { default_pool = std::make_unique<ThreadPool>(); });
+  call_once(semaphore, []() { default_pool = std::make_unique<ThreadPool>("default"); });
   return *default_pool.get();
 }
 
 void ThreadPool::run_(const size_t thread_index) {
+  hctr_set_thread_name(name_ + " #" + std::to_string(thread_index));
   while (true) {
     thread_local std::packaged_task<void()> package;
 
