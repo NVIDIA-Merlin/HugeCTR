@@ -30,6 +30,7 @@ class SOKDemo(tf.keras.models.Model):
                  use_hashtable=True,
                  num_of_dense_layers=5,
                  key_dtype=None,
+                 embedding_initializer=None,
                  **unused):
         super(SOKDemo, self).__init__()
 
@@ -61,7 +62,8 @@ class SOKDemo(tf.keras.models.Model):
                                                        slot_num=self._slot_num[i],
                                                        max_nnz=self._max_nnz,
                                                        use_hashtable=self._use_hashtable,
-                                                       key_dtype=key_dtype)
+                                                       key_dtype=key_dtype,
+                                                       embedding_initializer=embedding_initializer)
             self.embedding_layers.append(embedding_layer)
 
         self.dense_layers = list()

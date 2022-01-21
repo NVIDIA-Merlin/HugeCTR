@@ -19,6 +19,7 @@
 
 #include <memory>
 #include <vector>
+#include <atomic>
 
 #include "initializer/initializer_interface.h"
 #include "parameters/param_interface.h"
@@ -49,8 +50,8 @@ class RawParam : public ParamInterface {
   std::shared_ptr<HashTable>& get_hashtable(const size_t local_replica_id) override;
   std::shared_ptr<Tensor>& get_embedding_table_tensor(const size_t local_replica_id) override;
   // this function use existing values for initialization
-  void set_initial_value(const size_t local_replica_id,
-                         const std::shared_ptr<Tensor>& initial_value) override;
+  void assign_initial_value(const size_t local_replica_id,
+                            const std::shared_ptr<Tensor>& initial_value) override;
   void dump_to_file(const std::string filepath) override;
   void let_user_dump_to_file(const std::string filepath) override;
   void restore_from_file(const std::string filepath) override;
@@ -67,6 +68,7 @@ class RawParam : public ParamInterface {
            const std::string var_name, const bool trainable);
 
   bool is_initialized(const size_t local_replica_id) const;
+  void set_initialized(const size_t local_replica_id);
 
   std::shared_ptr<ResourcesManager> resource_mgr_;
   std::vector<std::shared_ptr<HugeCTR::GeneralBuffer2<HugeCTR::CudaAllocator>>>
@@ -77,7 +79,7 @@ class RawParam : public ParamInterface {
   std::shared_ptr<Initializer> initializer_;
   const bool use_hashtable_;
   std::shared_ptr<EmbeddingLayer> user_;  // which embedding used this param
-  std::vector<bool> initialized_;         // indicates whether this variable has been initialized.
+  std::vector<std::atomic<bool>> initialized_;         // indicates whether this variable has been initialized.
 };
 
 using RawParamCtor_t = std::function<std::shared_ptr<ParamInterface>(

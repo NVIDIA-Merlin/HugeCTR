@@ -29,7 +29,8 @@ python3 test_sparse_emb_demo_model_single_worker.py \
         --optimizer='adam' \
         --save_params=1 \
         --generate_new_datas=1 \
-        --use_hashtable=0
+        --use_hashtable=0 \
+        --use_tf_initializer=1
 python3 test_sparse_emb_demo_model_single_worker.py \
         --gpu_num=8 --iter_num=100 \
         --max_vocabulary_size_per_gpu=1024 \
@@ -144,7 +145,8 @@ python3 test_dense_emb_demo_model_single_worker.py \
         --optimizer='adam' \
         --save_params=1 \
         --generate_new_datas=1 \
-        --use_hashtable=0
+        --use_hashtable=0 \
+        --use_tf_initializer=1
 python3 test_dense_emb_demo_model_single_worker.py \
         --gpu_num=8 --iter_num=100 \
         --max_vocabulary_size_per_gpu=1024 \
