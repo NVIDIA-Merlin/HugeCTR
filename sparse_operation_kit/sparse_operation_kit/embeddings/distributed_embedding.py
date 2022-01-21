@@ -68,8 +68,11 @@ class DistributedEmbedding(tf.keras.layers.Layer):
     --------
     .. code-block:: python
 
+        initializer = tf.keras.initializers.RandomUniform() # or "random_uniform"
+
         emb_layer = sok.DistributedEmbedding(combiner, max_vocabulary_size_per_gpu, 
-                                             embedding_vec_size, slot_num, max_nnz)
+                                             embedding_vec_size, slot_num, max_nnz,
+                                             embedding_initializer=initializer)
         
         @tf.function
         def _train_step(inputs, labels):

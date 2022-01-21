@@ -67,9 +67,12 @@ class All2AllDenseEmbedding(tf.keras.layers.Layer):
     --------
     .. code-block:: python
 
+        initializer = tf.keras.initializers.RandomUniform() # or "random_uniform"
+
         emb_layer = sok.All2AllDenseEmbedding(max_vocabulary_size_per_gpu, 
                                               embedding_vec_size, 
-                                              slot_num, nnz_per_slot)
+                                              slot_num, nnz_per_slot,
+                                              embedding_initializer=initializer)
         
         @tf.function
         def _train_step(inputs, labels):
