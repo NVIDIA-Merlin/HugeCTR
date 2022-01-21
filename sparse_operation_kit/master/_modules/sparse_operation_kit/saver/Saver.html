@@ -27,7 +27,7 @@
             <a href="../../../index.html" class="icon icon-home"> SparseOperationKit
           </a>
               <div class="version">
-                1.1.0
+                1.1.1
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -41,7 +41,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../../../intro_link.html">Introduction</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../features/features.html">Features</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../get_started/get_started.html">Get Started</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../examples/index.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../examples/index.html">Examples &amp; Tutorials</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../performance/index.html">Performance</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../api/index.html">API Docs</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../release_notes/release_notes.html">Release Notes</a></li>
@@ -92,6 +92,7 @@
 <span class="kn">from</span> <span class="nn">sparse_operation_kit</span> <span class="kn">import</span> <span class="n">kit_lib</span>
 <span class="kn">from</span> <span class="nn">sparse_operation_kit.core.embedding_layer_handle</span> <span class="kn">import</span> <span class="n">GraphKeys</span>
 <span class="kn">from</span> <span class="nn">tensorflow.python.framework</span> <span class="kn">import</span> <span class="n">ops</span>
+<span class="kn">from</span> <span class="nn">tensorflow.python.ops</span> <span class="kn">import</span> <span class="n">array_ops</span>
 
 <span class="c1"># TODO: make it inherit from trackable???</span>
 <div class="viewcode-block" id="Saver"><a class="viewcode-back" href="../../../api/embeddings/saver.html#sparse_operation_kit.saver.Saver.Saver">[docs]</a><span class="k">class</span> <span class="nc">Saver</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
@@ -181,7 +182,7 @@
 <span class="sd">        ----------</span>
 <span class="sd">        embedding_variable: sok.EmbeddingVariable, tf.DistributedVariable</span>
 <span class="sd">                    Which embedding_variable&#39;s value will be assigned.</span>
-<span class="sd">        tensors: list of tf.Tensor, tuple of tf.Tensor</span>
+<span class="sd">        tensors: tf.Tensor, list of tf.Tensor, tuple of tf.Tensor</span>
 <span class="sd">                    Each tf.Tensor must be 2-rank and the shape must be `[None, embedding_vec_size]`,</span>
 <span class="sd">                    where the `embedding_vec_size` must be equal to that of embedding_variable&#39;s. </span>
 <span class="sd">                    All tf.Tensors make up to a big tensor, which just like they are stacked. For example:</span>
@@ -203,6 +204,10 @@
             <span class="n">collections</span> <span class="o">=</span> <span class="n">ops</span><span class="o">.</span><span class="n">get_collection</span><span class="p">(</span><span class="n">GraphKeys</span><span class="o">.</span><span class="n">SparseOperationKitEmbeddingLayers</span><span class="p">)</span>
             <span class="n">initializers</span> <span class="o">=</span> <span class="p">[</span><span class="n">collect</span><span class="o">.</span><span class="n">initializer</span> <span class="k">for</span> <span class="n">collect</span> <span class="ow">in</span> <span class="n">collections</span><span class="p">]</span>
 
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">tensors</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">tensors</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
+            <span class="c1"># stack those tensors along dim-0</span>
+            <span class="n">tensors</span> <span class="o">=</span> <span class="n">array_ops</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">tensors</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
         <span class="k">with</span> <span class="n">context</span><span class="p">(</span><span class="n">initializers</span><span class="p">):</span>
             <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">embedding_variable</span><span class="p">,</span> <span class="s2">&quot;emb_handle&quot;</span><span class="p">):</span>
                 <span class="c1"># horovod branch</span>
@@ -219,7 +224,7 @@
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2021, NVIDIA.</p>
+    <p>&#169; Copyright 2022, NVIDIA.</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
@@ -236,14 +241,15 @@
 <div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
   <span class="rst-current-version" data-toggle="rst-current-version">
     <span class="fa fa-book"> Other Versions</span>
-    master: sok_v1.1.0
+    master: sok_v1.1.1
     <span class="fa fa-caret-down"></span>
   </span>
   <div class="rst-other-versions">
     <dl>
       <dt>Tags</dt>
       <dd><a href="../../../../sok_v1.0.0/index.html">sok_v1.0.0</a></dd>
-      <dd><a href="Saver.html">sok_v1.1.0</a></dd>
+      <dd><a href="../../../../sok_v1.1.0/index.html">sok_v1.1.0</a></dd>
+      <dd><a href="Saver.html">sok_v1.1.1</a></dd>
     </dl>
   </div>
 </div><script>

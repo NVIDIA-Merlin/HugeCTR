@@ -30,7 +30,7 @@
             <a href="index.html" class="icon icon-home"> SparseOperationKit
           </a>
               <div class="version">
-                1.1.0
+                1.1.1
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
@@ -54,7 +54,7 @@
 </li>
 <li class="toctree-l1"><a class="reference internal" href="features/features.html">Features</a></li>
 <li class="toctree-l1"><a class="reference internal" href="get_started/get_started.html">Get Started</a></li>
-<li class="toctree-l1"><a class="reference internal" href="examples/index.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="examples/index.html">Examples &amp; Tutorials</a></li>
 <li class="toctree-l1"><a class="reference internal" href="performance/index.html">Performance</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api/index.html">API Docs</a></li>
 <li class="toctree-l1"><a class="reference internal" href="release_notes/release_notes.html">Release Notes</a></li>
@@ -104,7 +104,7 @@ In sparse training / inference scenarios, for instance, CTRs, there are very hug
 <p>There are several ways to install this package. <br></p>
 <section id="install-this-module-along-with-hugectr">
 <h3><em>Install this module along with HugeCTR</em><a class="headerlink" href="#install-this-module-along-with-hugectr" title="Permalink to this headline"></a></h3>
-<p>In the docker image: <code class="docutils literal notranslate"><span class="pre">nvcr.io/nvidia/merlin/merlin-tensorflow-training:21.11</span></code>, SparseOpeationKit is already installed, and you can directrly import this module via:</p>
+<p>In the docker image: <code class="docutils literal notranslate"><span class="pre">nvcr.io/nvidia/merlin/merlin-tensorflow-training:22.01</span></code>, SparseOpeationKit is already installed, and you can directrly import this module via:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">sparse_opeation_kit</span> <span class="k">as</span> <span class="nn">sok</span>
 </pre></div>
 </div>
@@ -114,23 +114,49 @@ In sparse training / inference scenarios, for instance, CTRs, there are very hug
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ pip install --user SparseOperationKit
 </pre></div>
 </div>
+<p><strong>Note:</strong> Currently, SOK has not been uploaded to PYPI, therefore this command does not work. But you may take the following commands to build a pip installable package by yourself.</p>
+<ul>
+<li><p><strong>config building env</strong> <br>
+Build SOK pip package within a system where python3.x and the following modules are installed.</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>setuptools, os, sys, subprocess, shutil
+</pre></div>
+</div>
+</li>
+<li><p><strong>build pip package</strong></p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ git clone https://github.com/NVIDIA-Merlin/HugeCTR.git
+$ <span class="nb">cd</span> hugectr/sparse_operation_kit/
+$ python setup.py sdist
+</pre></div>
+</div>
+</li>
+<li><p><strong>copy that package to target system</strong></p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ cp ./dist/*.tar.gz /&lt;YourTargetPath&gt;
+</pre></div>
+</div>
+</li>
+<li><p><strong>install SOK</strong></p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ pip install --user SparseOperationKit
+</pre></div>
+</div>
+</li>
+</ul>
 </section>
 <section id="build-from-source">
 <h3><em>Build from source</em><a class="headerlink" href="#build-from-source" title="Permalink to this headline"></a></h3>
 <p>If you want to build this module from souce code, here are the steps to follow: <br></p>
-<ul class="simple">
-<li><p><strong>download the source code</strong></p></li>
-</ul>
+<ul>
+<li><p><strong>download the source code</strong></p>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ git clone https://github.com/NVIDIA-Merlin/HugeCTR hugectr
 </pre></div>
 </div>
-<ul class="simple">
-<li><p><strong>install to system</strong></p></li>
-</ul>
+</li>
+<li><p><strong>install to system</strong></p>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ <span class="nb">cd</span> hugectr/sparse_operation_kit/
 $ python setup.py install
 </pre></div>
 </div>
+</li>
+</ul>
 </section>
 </section>
 <section id="documents">
@@ -150,7 +176,7 @@ $ python setup.py install
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2021, NVIDIA.</p>
+    <p>&#169; Copyright 2022, NVIDIA.</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
@@ -167,14 +193,15 @@ $ python setup.py install
 <div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
   <span class="rst-current-version" data-toggle="rst-current-version">
     <span class="fa fa-book"> Other Versions</span>
-    master: sok_v1.1.0
+    master: sok_v1.1.1
     <span class="fa fa-caret-down"></span>
   </span>
   <div class="rst-other-versions">
     <dl>
       <dt>Tags</dt>
       <dd><a href="../sok_v1.0.0/intro_link.html">sok_v1.0.0</a></dd>
-      <dd><a href="intro_link.html">sok_v1.1.0</a></dd>
+      <dd><a href="../sok_v1.1.0/intro_link.html">sok_v1.1.0</a></dd>
+      <dd><a href="intro_link.html">sok_v1.1.1</a></dd>
     </dl>
   </div>
 </div><script>

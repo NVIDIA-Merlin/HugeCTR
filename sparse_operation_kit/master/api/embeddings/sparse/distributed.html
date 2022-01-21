@@ -15,8 +15,8 @@
         <script src="../../../_static/jquery.js"></script>
         <script src="../../../_static/underscore.js"></script>
         <script src="../../../_static/doctools.js"></script>
-        <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
         <script>window.MathJax = {"options": {"processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
+        <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <script src="../../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
@@ -32,7 +32,7 @@
             <a href="../../../index.html" class="icon icon-home"> SparseOperationKit
           </a>
               <div class="version">
-                1.1.0
+                1.1.1
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -46,7 +46,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../../../intro_link.html">Introduction</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../features/features.html">Features</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../get_started/get_started.html">Get Started</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../examples/index.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../examples/index.html">Examples &amp; Tutorials</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../performance/index.html">Performance</a></li>
 <li class="toctree-l1 current"><a class="reference internal" href="../../index.html">API Docs</a><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="../../init.html">Initialize</a></li>
@@ -100,7 +100,7 @@
 <h1>Distributed Sparse Embedding<a class="headerlink" href="#distributed-sparse-embedding" title="Permalink to this headline"></a></h1>
 <dl class="py class">
 <dt class="sig sig-object py" id="sparse_operation_kit.embeddings.distributed_embedding.DistributedEmbedding">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">sparse_operation_kit.embeddings.distributed_embedding.</span></span><span class="sig-name descname"><span class="pre">DistributedEmbedding</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">combiner</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_vocabulary_size_per_gpu</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">embedding_vec_size</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">slot_num</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_nnz</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_feature_num</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_hashtable</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/sparse_operation_kit/embeddings/distributed_embedding.html#DistributedEmbedding"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#sparse_operation_kit.embeddings.distributed_embedding.DistributedEmbedding" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">sparse_operation_kit.embeddings.distributed_embedding.</span></span><span class="sig-name descname"><span class="pre">DistributedEmbedding</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">combiner</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_vocabulary_size_per_gpu</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">embedding_vec_size</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">slot_num</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_nnz</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_feature_num</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_hashtable</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">key_dtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">embedding_initializer</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/sparse_operation_kit/embeddings/distributed_embedding.html#DistributedEmbedding"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#sparse_operation_kit.embeddings.distributed_embedding.DistributedEmbedding" title="Permalink to this definition"></a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">tensorflow.python.keras.engine.base_layer.Layer</span></code></p>
 <p>Abbreviated as <code class="docutils literal notranslate"><span class="pre">sok.DistributedEmbedding(*args,</span> <span class="pre">**kwargs)</span></code>.</p>
 <p>This is a wrapper class for distributed sparse embedding layer.
@@ -126,12 +126,18 @@ to <span class="math notranslate nohighlight">\(max\_feature\_num=slot\_num*max\
 Hashtable will be created for dynamic insertion. Otherwise, the input keys
 will be used as the index for embedding vector looking-up, so that input keys
 must be in the range <code class="docutils literal notranslate"><span class="pre">[0,</span> <span class="pre">max_vocabulary_size_per_gpu</span> <span class="pre">*</span> <span class="pre">gpu_num)</span></code>.</p></li>
+<li><p><strong>key_dtype</strong> (<em>tf.dtypes = tf.int64</em>) – the data type of input keys. By default, it is <cite>tf.int64</cite>.</p></li>
+<li><p><strong>embedding_initializer</strong> (string or an instance of <cite>tf.keras.initializers.Initializer</cite>) – the initializer used to generate initial value for embedding variable.
+By default, it will use <cite>random_uniform</cite> where <code class="docutils literal notranslate"><span class="pre">minval=-0.05,</span> <span class="pre">maxval=0.05</span></code>.</p></li>
 </ul>
 </dd>
 </dl>
 <p class="rubric">Examples</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">emb_layer</span> <span class="o">=</span> <span class="n">sok</span><span class="o">.</span><span class="n">DistributedEmbedding</span><span class="p">(</span><span class="n">combiner</span><span class="p">,</span> <span class="n">max_vocabulary_size_per_gpu</span><span class="p">,</span>
-                                     <span class="n">embedding_vec_size</span><span class="p">,</span> <span class="n">slot_num</span><span class="p">,</span> <span class="n">max_nnz</span><span class="p">)</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">initializer</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">initializers</span><span class="o">.</span><span class="n">RandomUniform</span><span class="p">()</span> <span class="c1"># or &quot;random_uniform&quot;</span>
+
+<span class="n">emb_layer</span> <span class="o">=</span> <span class="n">sok</span><span class="o">.</span><span class="n">DistributedEmbedding</span><span class="p">(</span><span class="n">combiner</span><span class="p">,</span> <span class="n">max_vocabulary_size_per_gpu</span><span class="p">,</span>
+                                     <span class="n">embedding_vec_size</span><span class="p">,</span> <span class="n">slot_num</span><span class="p">,</span> <span class="n">max_nnz</span><span class="p">,</span>
+                                     <span class="n">embedding_initializer</span><span class="o">=</span><span class="n">initializer</span><span class="p">)</span>
 
 <span class="nd">@tf</span><span class="o">.</span><span class="n">function</span>
 <span class="k">def</span> <span class="nf">_train_step</span><span class="p">(</span><span class="n">inputs</span><span class="p">,</span> <span class="n">labels</span><span class="p">):</span>
@@ -181,7 +187,7 @@ in the corresponding dense tensor.</p></li>
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2021, NVIDIA.</p>
+    <p>&#169; Copyright 2022, NVIDIA.</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
@@ -198,14 +204,15 @@ in the corresponding dense tensor.</p></li>
 <div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
   <span class="rst-current-version" data-toggle="rst-current-version">
     <span class="fa fa-book"> Other Versions</span>
-    master: sok_v1.1.0
+    master: sok_v1.1.1
     <span class="fa fa-caret-down"></span>
   </span>
   <div class="rst-other-versions">
     <dl>
       <dt>Tags</dt>
       <dd><a href="../../../../sok_v1.0.0/api/embeddings/sparse/distributed.html">sok_v1.0.0</a></dd>
-      <dd><a href="distributed.html">sok_v1.1.0</a></dd>
+      <dd><a href="../../../../sok_v1.1.0/api/embeddings/sparse/distributed.html">sok_v1.1.0</a></dd>
+      <dd><a href="distributed.html">sok_v1.1.1</a></dd>
     </dl>
   </div>
 </div><script>

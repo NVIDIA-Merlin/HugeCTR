@@ -30,7 +30,7 @@
             <a href="../../index.html" class="icon icon-home"> SparseOperationKit
           </a>
               <div class="version">
-                1.1.0
+                1.1.1
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
@@ -44,7 +44,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../../intro_link.html">Introduction</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../features/features.html">Features</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../get_started/get_started.html">Get Started</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../examples/index.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../examples/index.html">Examples &amp; Tutorials</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../performance/index.html">Performance</a></li>
 <li class="toctree-l1 current"><a class="reference internal" href="../index.html">API Docs</a><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="../init.html">Initialize</a></li>
@@ -156,7 +156,7 @@ within each CPU processes.</p>
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>embedding_variable</strong> (<em>sok.EmbeddingVariable</em><em>, </em><em>tf.DistributedVariable</em>) – Which embedding_variable’s value will be assigned.</p></li>
-<li><p><strong>tensors</strong> (<em>list of tf.Tensor</em><em>, </em><em>tuple of tf.Tensor</em>) – Each tf.Tensor must be 2-rank and the shape must be <cite>[None, embedding_vec_size]</cite>,
+<li><p><strong>tensors</strong> (<em>tf.Tensor</em><em>, </em><em>list of tf.Tensor</em><em>, </em><em>tuple of tf.Tensor</em>) – Each tf.Tensor must be 2-rank and the shape must be <cite>[None, embedding_vec_size]</cite>,
 where the <cite>embedding_vec_size</cite> must be equal to that of embedding_variable’s.
 All tf.Tensors make up to a big tensor, which just like they are stacked. For example:
 <cite>[tf.Tensor(shape=(bs_0, embedding_vec_size)), tf.Tensor(shape=(bs_1, embedding_vec_size)),                      tf.Tensor(shape=(bs_2, embedding_vec_size))]</cite> will be treated as
@@ -187,7 +187,7 @@ All tf.Tensors make up to a big tensor, which just like they are stacked. For ex
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2021, NVIDIA.</p>
+    <p>&#169; Copyright 2022, NVIDIA.</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
@@ -204,14 +204,15 @@ All tf.Tensors make up to a big tensor, which just like they are stacked. For ex
 <div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
   <span class="rst-current-version" data-toggle="rst-current-version">
     <span class="fa fa-book"> Other Versions</span>
-    master: sok_v1.1.0
+    master: sok_v1.1.1
     <span class="fa fa-caret-down"></span>
   </span>
   <div class="rst-other-versions">
     <dl>
       <dt>Tags</dt>
       <dd><a href="../../../sok_v1.0.0/api/embeddings/saver.html">sok_v1.0.0</a></dd>
-      <dd><a href="saver.html">sok_v1.1.0</a></dd>
+      <dd><a href="../../../sok_v1.1.0/api/embeddings/saver.html">sok_v1.1.0</a></dd>
+      <dd><a href="saver.html">sok_v1.1.1</a></dd>
     </dl>
   </div>
 </div><script>

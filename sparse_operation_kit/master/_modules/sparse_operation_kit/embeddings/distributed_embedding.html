@@ -27,7 +27,7 @@
             <a href="../../../index.html" class="icon icon-home"> SparseOperationKit
           </a>
               <div class="version">
-                1.1.0
+                1.1.1
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -41,7 +41,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../../../intro_link.html">Introduction</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../features/features.html">Features</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../get_started/get_started.html">Get Started</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../examples/index.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../examples/index.html">Examples &amp; Tutorials</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../performance/index.html">Performance</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../api/index.html">API Docs</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../release_notes/release_notes.html">Release Notes</a></li>
@@ -134,13 +134,21 @@
 <span class="sd">            Hashtable will be created for dynamic insertion. Otherwise, the input keys</span>
 <span class="sd">            will be used as the index for embedding vector looking-up, so that input keys</span>
 <span class="sd">            must be in the range ``[0, max_vocabulary_size_per_gpu * gpu_num)``.</span>
+<span class="sd">    key_dtype: tf.dtypes = tf.int64</span>
+<span class="sd">            the data type of input keys. By default, it is `tf.int64`.</span>
+<span class="sd">    embedding_initializer: string or an instance of `tf.keras.initializers.Initializer`</span>
+<span class="sd">            the initializer used to generate initial value for embedding variable.</span>
+<span class="sd">            By default, it will use `random_uniform` where ``minval=-0.05, maxval=0.05``.</span>
 
 <span class="sd">    Examples</span>
 <span class="sd">    --------</span>
 <span class="sd">    .. code-block:: python</span>
 
+<span class="sd">        initializer = tf.keras.initializers.RandomUniform() # or &quot;random_uniform&quot;</span>
+
 <span class="sd">        emb_layer = sok.DistributedEmbedding(combiner, max_vocabulary_size_per_gpu, </span>
-<span class="sd">                                             embedding_vec_size, slot_num, max_nnz)</span>
+<span class="sd">                                             embedding_vec_size, slot_num, max_nnz,</span>
+<span class="sd">                                             embedding_initializer=initializer)</span>
 <span class="sd">        </span>
 <span class="sd">        @tf.function</span>
 <span class="sd">        def _train_step(inputs, labels):</span>
@@ -158,6 +166,8 @@
                  <span class="n">max_nnz</span><span class="p">,</span>
                  <span class="n">max_feature_num</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
                  <span class="n">use_hashtable</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                 <span class="n">key_dtype</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                 <span class="n">embedding_initializer</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                  <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">DistributedEmbedding</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
 
@@ -167,12 +177,20 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">slot_num</span> <span class="o">=</span> <span class="n">slot_num</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">max_nnz</span> <span class="o">=</span> <span class="n">max_nnz</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">max_feature_num</span> <span class="o">=</span> <span class="n">max_feature_num</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">comm_tool</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">has_strategy</span><span class="p">()</span> <span class="k">else</span> <span class="s2">&quot;Horovod&quot;</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dtype_policy</span><span class="o">.</span><span class="n">variable_dtype</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># in TF1 and policy is not set</span>
+            <span class="c1"># therefore variable dtype and compute dtype should be fp32</span>
+            <span class="kn">from</span> <span class="nn">tensorflow.python.keras.mixed_precision</span> <span class="kn">import</span> <span class="n">experimental</span> <span class="k">as</span> <span class="n">mixed_precision</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_dtype_policy</span> <span class="o">=</span> <span class="n">mixed_precision</span><span class="o">.</span><span class="n">Policy</span><span class="p">(</span><span class="s2">&quot;float32&quot;</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">var</span> <span class="o">=</span> <span class="n">EmbeddingVariable</span><span class="o">.</span><span class="n">CreateInstances</span><span class="p">(</span>
                                 <span class="n">shape</span><span class="o">=</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">max_vocabulary_size_per_gpu</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">embedding_vec_size</span><span class="p">],</span>
                                 <span class="n">trainable</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-                                <span class="n">use_hashtable</span><span class="o">=</span><span class="n">use_hashtable</span><span class="p">)</span>
+                                <span class="n">use_hashtable</span><span class="o">=</span><span class="n">use_hashtable</span><span class="p">,</span>
+                                <span class="n">dtype</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_dtype_policy</span><span class="o">.</span><span class="n">variable_dtype</span><span class="p">,</span>
+                                <span class="n">key_dtype</span><span class="o">=</span><span class="n">key_dtype</span><span class="p">,</span>
+                                <span class="n">initializer</span><span class="o">=</span><span class="n">embedding_initializer</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">emb_layer</span> <span class="o">=</span> <span class="n">SparseEmbeddingLayerHandle</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">var</span><span class="p">,</span>
                                                     <span class="n">input_dispatcher</span><span class="o">=</span><span class="s2">&quot;all_gather_dispatcher&quot;</span><span class="p">,</span>
@@ -182,7 +200,8 @@
                                                     <span class="n">slot_num</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">slot_num</span><span class="p">,</span> 
                                                     <span class="n">max_nnz</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">max_nnz</span><span class="p">,</span>
                                                     <span class="n">max_feature_num</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">max_feature_num</span><span class="p">,</span>
-                                                    <span class="n">combiner</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">combiner</span><span class="p">)</span>
+                                                    <span class="n">combiner</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">combiner</span><span class="p">,</span>
+                                                    <span class="n">compute_dtype</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_dtype_policy</span><span class="o">.</span><span class="n">compute_dtype</span><span class="p">)</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">embedding_variable</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -222,8 +241,7 @@
                                         <span class="n">embedding_variable</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">var</span><span class="p">,</span> 
                                         <span class="n">sp_ids</span><span class="o">=</span><span class="n">inputs</span><span class="p">,</span> 
                                         <span class="n">slot_num</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">slot_num</span><span class="p">,</span>
-                                        <span class="n">training</span><span class="o">=</span><span class="n">training</span><span class="p">,</span>
-                                        <span class="n">comm_tool</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">comm_tool</span><span class="p">)</span>
+                                        <span class="n">training</span><span class="o">=</span><span class="n">training</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">emb_vector</span></div></div>
 </pre></div>
 
@@ -234,7 +252,7 @@
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2021, NVIDIA.</p>
+    <p>&#169; Copyright 2022, NVIDIA.</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
@@ -251,14 +269,15 @@
 <div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
   <span class="rst-current-version" data-toggle="rst-current-version">
     <span class="fa fa-book"> Other Versions</span>
-    master: sok_v1.1.0
+    master: sok_v1.1.1
     <span class="fa fa-caret-down"></span>
   </span>
   <div class="rst-other-versions">
     <dl>
       <dt>Tags</dt>
       <dd><a href="../../../../sok_v1.0.0/index.html">sok_v1.0.0</a></dd>
-      <dd><a href="distributed_embedding.html">sok_v1.1.0</a></dd>
+      <dd><a href="../../../../sok_v1.1.0/index.html">sok_v1.1.0</a></dd>
+      <dd><a href="distributed_embedding.html">sok_v1.1.1</a></dd>
     </dl>
   </div>
 </div><script>
