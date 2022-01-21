@@ -1,4 +1,4 @@
-# Multinode Training with HugeCTR
+# Multi-Node Training with HugeCTR
 
 This tutorial explains how to perform multi-node training with HugeCTR. 
 
