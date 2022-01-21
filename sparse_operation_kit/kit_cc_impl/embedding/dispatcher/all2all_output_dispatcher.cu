@@ -21,7 +21,7 @@ namespace SparseOperationKit {
 
 template <typename EmbeddingType>
 __global__ void reorderKernel(const size_t EmbeddingDimension, EmbeddingType const *inputs,
-                              uint32_t const *indices, EmbeddingType *outputs, size_t chunks,
+                              uint32_t const *indices, EmbeddingType *outputs, size_t,
                               size_t max_chunk_size, uint32_t const *chunk_sizes) {
   // set indices
   uint32_t gpu_idx = blockIdx.y;
@@ -30,13 +30,10 @@ __global__ void reorderKernel(const size_t EmbeddingDimension, EmbeddingType con
   uint32_t curr_chunk_size = chunk_sizes[gpu_idx];
   // set shared memory
   extern __shared__ uint32_t idx_smem[];
-  EmbeddingType *emb_smem = (EmbeddingType *)(idx_smem + thread_cnt);
-  bool using_smem = (EmbeddingDimension * sizeof(EmbeddingType) <= EMB_LEN_THRESHOLD);
   // set pointers and offsets
   uint32_t const *curr_input_idx = indices + gpu_idx * max_chunk_size;
   EmbeddingType const *curr_input_emb = inputs + gpu_idx * max_chunk_size * EmbeddingDimension;
-  uint32_t size_per_block =
-      (curr_chunk_size + gridDim.x * warpSize - 1) / (gridDim.x * warpSize) * warpSize;
+  uint32_t size_per_block = (curr_chunk_size + gridDim.x * warpSize - 1) / (gridDim.x * warpSize) * warpSize;
   uint32_t lbound = blockIdx.x * size_per_block;
   uint32_t rbound = lbound + size_per_block;
   if (rbound > curr_chunk_size) {
@@ -50,23 +47,12 @@ __global__ void reorderKernel(const size_t EmbeddingDimension, EmbeddingType con
     if (thread_idx < curr_len) {
       idx_smem[thread_idx] = curr_input_idx[offset + thread_idx];
     }
-    if (using_smem) {
-      for (size_t idx = thread_idx; idx < curr_len * EmbeddingDimension; idx += thread_cnt) {
-        emb_smem[idx] = curr_input_emb[offset * EmbeddingDimension + idx];
-      }
-    }
     __syncthreads();
     for (uint32_t warp_idx = threadIdx.y; warp_idx < curr_len; warp_idx += blockDim.y) {
       uint32_t orig_idx = idx_smem[warp_idx];
       uint32_t pos_idx = offset + warp_idx;
       for (uint32_t elem_idx = threadIdx.x; elem_idx < EmbeddingDimension; elem_idx += blockDim.x) {
-        if (using_smem) {
-          outputs[orig_idx * EmbeddingDimension + elem_idx] =
-              emb_smem[warp_idx * EmbeddingDimension + elem_idx];
-        } else {
-          outputs[orig_idx * EmbeddingDimension + elem_idx] = 
-              curr_input_emb[pos_idx * EmbeddingDimension + elem_idx];
-        }
+        outputs[orig_idx * EmbeddingDimension + elem_idx] = curr_input_emb[pos_idx * EmbeddingDimension + elem_idx];
       }
     }
     __syncthreads();
@@ -188,10 +174,10 @@ class All2AllOutputDispatcher : public Dispatcher {
 
     // step 2: reorder embedding values
     {
-      CK_CUDA(cudaMemsetAsync(replica_output->GetPtrWithType<ValueType>(), 0,
-                              replica_output->get_size_in_bytes(),
-                              local_gpu->get_stream()));  // TODO: merge it to reorderKernel
-      const size_t smem_size = local_gpu->get_max_smem_size_per_sm();
+      // CK_CUDA(cudaMemsetAsync(replica_output->GetPtrWithType<float>(), 0,
+      //                         replica_output->get_size_in_bytes(),
+      //                         local_gpu->get_stream()));  // TODO: merge it to reorderKernel
+      const size_t smem_size = local_gpu->get_max_smem_size_per_sm() / 2;
       CK_CUDA(cudaFuncSetAttribute(reorderKernel<ValueType>,
                                    cudaFuncAttributeMaxDynamicSharedMemorySize, smem_size));
       dim3 const grid_dim(2 * local_gpu->get_sm_count() / global_gpu_count, global_gpu_count);
@@ -228,7 +214,7 @@ class All2AllOutputDispatcher : public Dispatcher {
     // step 1: gather top gradients for local GPU.
     const size_t embedding_vec_size = base_context()->get_param()->get_embedding_vec_size();
     {
-      const size_t smem_size = local_gpu->get_max_smem_size_per_sm();
+      const size_t smem_size = local_gpu->get_max_smem_size_per_sm() / 2;
       CK_CUDA(cudaFuncSetAttribute(gatherExKernel<ValueType>,
                                    cudaFuncAttributeMaxDynamicSharedMemorySize, smem_size));
       dim3 const grid_dim(2 * local_gpu->get_sm_count() / global_gpu_count, global_gpu_count);
