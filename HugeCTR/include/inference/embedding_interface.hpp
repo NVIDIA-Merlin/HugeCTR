@@ -170,7 +170,7 @@ class embedding_interface {
   virtual void Dump(int table_id, void* key_buffer, size_t* length, size_t start_index,
                     size_t end_index, cudaStream_t stream) = 0;
 
-  virtual void Refresh(int table_id, void* keybuffer, float* vec_buffer, size_t length,
+  virtual void Refresh(int table_id, const void* keybuffer, const float* vec_buffer, size_t length,
                        cudaStream_t stream) = 0;
 
   virtual embedding_cache_config get_cache_config() = 0;
