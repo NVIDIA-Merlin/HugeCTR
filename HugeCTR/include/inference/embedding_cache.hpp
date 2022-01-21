@@ -26,6 +26,7 @@
 #include <parser.hpp>
 #include <string>
 #include <thread>
+#include <thread_pool.hpp>
 #include <utility>
 #include <utils.hpp>
 #include <vector>
@@ -80,7 +81,7 @@ class embedding_cache : public embedding_interface {
   virtual void Dump(int table_id, void* key_buffer, size_t* length, size_t start_index,
                     size_t end_index, cudaStream_t stream);
 
-  virtual void Refresh(int table_id, void* key_buffer, float* vec_buffer, size_t length,
+  virtual void Refresh(int table_id, const void* key_buffer, const float* vec_buffer, size_t length,
                        cudaStream_t stream);
 
   virtual void finalize();
@@ -111,7 +112,7 @@ class embedding_cache : public embedding_interface {
   embedding_cache_config cache_config_;
 
   // parameter server insert threads
-  std::vector<std::thread> ps_insert_threads_;
+  ThreadPool insert_workers_;
 
   // streams for asynchronous parameter server insert threads
   std::vector<cudaStream_t> insert_streams_;
