@@ -173,6 +173,9 @@ __global__ void CrossEntropy_Kernel(T *input, const float *label, float *cel_los
       // calculate the grad
       input[id1] = (a0 - (no_click ? 1.0f : 0.0f)) / batch_size * scaler / total_gpu_count;
       input[id2] = (a1 - (!no_click ? 1.0f : 0.0f)) / batch_size * scaler / total_gpu_count;
+    } else {
+      input[id1] = a0;
+      input[id2] = a1;
     }
 
     loss_s[tid] += -1 * log(no_click ? a0 : a1);
@@ -299,6 +302,7 @@ __global__ void MultiCrossEntropy_Kernel(T *input, const float *label, const flo
     int target_weight_idx = i % labels_per_sample;
     const float x = input[i];
     const float y = label[i];
+    const float exp_x = exp(x);
     float loss =
         (label[i] < -0.5) ? 0.f : (target_weight[target_weight_idx] * cross_entropy_loss(x, y));
     loss_s += loss;
@@ -307,6 +311,8 @@ __global__ void MultiCrossEntropy_Kernel(T *input, const float *label, const flo
                      ? 0.f
                      : (target_weight[target_weight_idx] * cross_entropy_loss_backward(x, y) /
                         size * scaler / total_gpu_count);
+    } else {
+      input[i] = exp_x / (exp_x + 1);
     }
   }
 
@@ -326,7 +332,7 @@ void MultiCrossEntropyLoss<T>::do_compute(T *input, const float *label, float *l
       cudaMemsetAsync(loss, 0, Loss<T>::get_loss_tensors()[0].get_size_in_bytes(), stream));
 
   const int BLOCK_SIZE = 256;
-  const int GRID_SIZE = min(40, (batch_size * labels_per_sample - 1) / BLOCK_SIZE);
+  const int GRID_SIZE = min(40, (batch_size * labels_per_sample + BLOCK_SIZE - 1) / BLOCK_SIZE);
   float *target_weight = target_weight_.get_ptr();
   MultiCrossEntropy_Kernel<<<GRID_SIZE, BLOCK_SIZE, 0, stream>>>(
       input, label, target_weight, loss, batch_size, Loss<T>::get_total_gpu_count(),

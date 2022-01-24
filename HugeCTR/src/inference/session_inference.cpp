@@ -175,11 +175,11 @@ void InferenceSession::predict(float* d_dense, void* h_embeddingcolumns, int* d_
   // copy the prediction result to output
   if (inference_params_.use_mixed_precision) {
     convert_array_on_device(d_output, network_->get_pred_tensor_half().get_ptr(),
-                            inference_params_.max_batchsize,
+                            network_->get_pred_tensor_half().get_num_elements(),
                             resource_manager_->get_local_gpu(0)->get_stream());
   } else {
     convert_array_on_device(d_output, network_->get_pred_tensor().get_ptr(),
-                            inference_params_.max_batchsize,
+                            network_->get_pred_tensor().get_num_elements(),
                             resource_manager_->get_local_gpu(0)->get_stream());
   }
   CK_CUDA_THROW_(cudaStreamSynchronize(resource_manager_->get_local_gpu(0)->get_stream()));

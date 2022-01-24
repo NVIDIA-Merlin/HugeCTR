@@ -1773,8 +1773,10 @@ Error_t Model::export_predictions(const std::string& output_prediction_file_name
     const size_t local_gpu_count = resource_manager_->get_local_gpu_count();
     size_t batchsize_eval_per_gpu = solver_.batchsize_eval / global_gpu_count;
     size_t total_prediction_count = batchsize_eval_per_gpu * local_gpu_count;
-    std::unique_ptr<float[]> local_prediction_result(new float[total_prediction_count]);
-    std::unique_ptr<float[]> local_label_result(new float[total_prediction_count]);
+    std::unique_ptr<float[]> local_prediction_result(
+        new float[total_prediction_count * input_params_[0].label_dim]);
+    std::unique_ptr<float[]> local_label_result(
+        new float[total_prediction_count * input_params_[0].label_dim]);
 
     for (unsigned int i = 0; i < networks_.size(); ++i) {
       int gpu_id = local_gpu_device_id_list[i];
@@ -1782,10 +1784,12 @@ Error_t Model::export_predictions(const std::string& output_prediction_file_name
 
       get_raw_metric_as_host_float_tensor(
           networks_[i]->get_raw_metrics(), metrics::RawType::Pred, solver_.use_mixed_precision,
-          local_prediction_result.get() + batchsize_eval_per_gpu * i, batchsize_eval_per_gpu);
+          local_prediction_result.get() + batchsize_eval_per_gpu * input_params_[0].label_dim * i,
+          batchsize_eval_per_gpu * input_params_[0].label_dim);
       get_raw_metric_as_host_float_tensor(
           networks_[i]->get_raw_metrics(), metrics::RawType::Label, false,
-          local_label_result.get() + batchsize_eval_per_gpu * i, batchsize_eval_per_gpu);
+          local_label_result.get() + batchsize_eval_per_gpu * input_params_[0].label_dim * i,
+          batchsize_eval_per_gpu * input_params_[0].label_dim);
     }
 
     std::unique_ptr<float[]> global_prediction_result;
@@ -1799,15 +1803,18 @@ Error_t Model::export_predictions(const std::string& output_prediction_file_name
     if (numprocs > 1) {
 #ifdef ENABLE_MPI
       if (pid == 0) {
-        global_prediction_result.reset(new float[solver_.batchsize_eval]);
-        global_label_result.reset(new float[solver_.batchsize_eval]);
+        global_prediction_result.reset(
+            new float[solver_.batchsize_eval * input_params_[0].label_dim]);
+        global_label_result.reset(new float[solver_.batchsize_eval * input_params_[0].label_dim]);
       }
-      CK_MPI_THROW_(MPI_Gather(local_prediction_result.get(), total_prediction_count, MPI_FLOAT,
-                               global_prediction_result.get(), total_prediction_count, MPI_FLOAT, 0,
-                               MPI_COMM_WORLD));
-      CK_MPI_THROW_(MPI_Gather(local_label_result.get(), total_prediction_count, MPI_FLOAT,
-                               global_label_result.get(), total_prediction_count, MPI_FLOAT, 0,
-                               MPI_COMM_WORLD));
+      CK_MPI_THROW_(MPI_Gather(
+          local_prediction_result.get(), total_prediction_count * input_params_[0].label_dim,
+          MPI_FLOAT, global_prediction_result.get(),
+          total_prediction_count * input_params_[0].label_dim, MPI_FLOAT, 0, MPI_COMM_WORLD));
+      CK_MPI_THROW_(MPI_Gather(
+          local_label_result.get(), total_prediction_count * input_params_[0].label_dim, MPI_FLOAT,
+          global_label_result.get(), total_prediction_count * input_params_[0].label_dim, MPI_FLOAT,
+          0, MPI_COMM_WORLD));
 #endif
     } else {
       global_prediction_result = std::move(local_prediction_result);
@@ -1826,8 +1833,9 @@ Error_t Model::export_predictions(const std::string& output_prediction_file_name
         output_stream.close();
       };
       write_func(output_prediction_file_name, global_prediction_result.get(),
-                 current_eval_batchsize_);
-      write_func(output_label_file_name, global_label_result.get(), current_eval_batchsize_);
+                 current_eval_batchsize_ * input_params_[0].label_dim);
+      write_func(output_label_file_name, global_label_result.get(),
+                 current_eval_batchsize_ * input_params_[0].label_dim);
     }
   } catch (const internal_runtime_error& rt_err) {
     Logger::print_exception(rt_err, 0);
