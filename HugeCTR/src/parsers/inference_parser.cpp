@@ -26,10 +26,10 @@ VolatileDatabaseParams::VolatileDatabaseParams(
     const DatabaseHashMapAlgorithm_t algorithm, const size_t num_partitions,
     const size_t max_get_batch_size, const size_t max_set_batch_size,
     // Overflow handling related.
-    const size_t overflow_margin, const DatabaseOverflowPolicy_t overflow_policy,
-    const double overflow_resolution_target,
-    // Initialization related.
-    const double initial_cache_rate,
+    const bool refresh_time_after_fetch, const size_t overflow_margin,
+    const DatabaseOverflowPolicy_t overflow_policy, const double overflow_resolution_target,
+    // Caching behavior related.
+    const double initial_cache_rate, const bool cache_missed_embeddings,
     // Real-time update mechanism related.
     const std::vector<std::string>& update_filters)
     : type(type),
@@ -42,11 +42,13 @@ VolatileDatabaseParams::VolatileDatabaseParams(
       max_get_batch_size(max_get_batch_size),
       max_set_batch_size(max_set_batch_size),
       // Overflow handling related.
+      refresh_time_after_fetch(refresh_time_after_fetch),
       overflow_margin(overflow_margin),
       overflow_policy(overflow_policy),
       overflow_resolution_target(overflow_resolution_target),
-      // Initialization related.
+      // Caching behavior related.
       initial_cache_rate(initial_cache_rate),
+      cache_missed_embeddings(cache_missed_embeddings),
       // Real-time update mechanism related.
       update_filters(update_filters) {}
 

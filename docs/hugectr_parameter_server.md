@@ -277,6 +277,43 @@ params.initial_cache_rate = <double_value>
 This is the fraction (`[0.0, 1.0]`) of your dataset that we will attempt to cache immediately upon startup of the parameter server. Hence, setting a value of `0.5` causes the HugeCTR parameter server to attempt caching up to 50% of your dataset directly using the respectively configured volatile database after initialization.
 
 
+#### Refreshing timestamps
+
+**Python:**
+```python
+params.refresh_time_after_fetch = <True|False>
+```
+```
+**JSON:**
+```json
+"volatile_db": {
+  "refresh_time_after_fetch": <true|false>
+  // ...
+}
+```
+
+Some algorithms to organize certain processes, such as the evication of embeddings upon overflow, take time into account. To evalute the affected embeddings, HugeCTR records the time when an embeddings is overridden. This is sufficient in training mode where embeddings are frequently replaced. Hence, the **default value** for this setting is is `false`. However, if you deploy HugeCTR only for inference (*e.g.*, with Triton), this might lead to suboptimal eviction patterns. By setting this value to `true`, HugeCTR will replace the time stored alongside an embedding right after this embedding is accessed. This operation may happen asynchronously (*i.e.*, with some delay).
+
+
+#### Caching of missed keys
+
+**Python:**
+```python
+params.cache_missed_embeddings = <True|False>
+```
+**JSON:**
+```json
+"volatile_db": {
+  "cache_missed_embeddings": <true|false>
+  // ...
+}
+```
+
+A boolean value denoting whether or not to migrate embeddings into the volatile database if they were missed during lookup. Hence, if this value is set to `true`, an embedding that could not be retrieved from the volatile database, but could be retrieved from the persistent database, will be inserted into the volatile database - potentially replacing another value. The **default value** is `false`, which disables this functionality.
+
+This feature will optimize the volatile database in response to the queries experienced in inference mode. In training mode, updated embeddings will be automatically written back to the databse after each training step. Thus, if you apply training, setting this setting to `true` will likely increase the number of writes to the database and degrade performance, without providing significant improvements, which is undesirable.
+
+
 #### Real-time updating
 
 **Python:**

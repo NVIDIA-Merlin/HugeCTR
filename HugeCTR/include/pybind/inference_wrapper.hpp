@@ -461,9 +461,9 @@ void InferencePybind(pybind11::module& m) {
                           const std::string&, const std::string&, const std::string&,
                           DatabaseHashMapAlgorithm_t, size_t, size_t, size_t,
                           // Overflow handling related.
-                          size_t, DatabaseOverflowPolicy_t, double,
-                          // Initialization related.
-                          double,
+                          bool, size_t, DatabaseOverflowPolicy_t, double,
+                          // Caching behavior related.
+                          double, bool,
                           // Real-time update mechanism related.
                           const std::vector<std::string>&>(),
            pybind11::arg("type") = DatabaseType_t::ParallelHashMap,
@@ -475,11 +475,13 @@ void InferencePybind(pybind11::module& m) {
            pybind11::arg("max_get_batch_size") = 10'000,
            pybind11::arg("max_set_batch_size") = 10'000,
            // Overflow handling related.
+           pybind11::arg("refresh_time_after_fetch") = false,
            pybind11::arg("overflow_margin") = std::numeric_limits<size_t>::max(),
            pybind11::arg("overflow_policy") = DatabaseOverflowPolicy_t::EvictOldest,
            pybind11::arg("overflow_resolution_target") = 0.8,
-           // Initialization related.
+           // Caching behavior related.
            pybind11::arg("initial_cache_rate") = 1.0,
+           pybind11::arg("cache_missed_embeddings") = false,
            // Real-time update mechanism related.
            pybind11::arg("update_filters") = std::vector<std::string>{".+"});
 

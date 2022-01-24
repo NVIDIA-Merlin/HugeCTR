@@ -47,10 +47,12 @@ bool VolatileDatabaseParams::operator==(const VolatileDatabaseParams& p) const {
          algorithm == p.algorithm && num_partitions == p.num_partitions &&
          max_get_batch_size == p.max_get_batch_size && max_set_batch_size == p.max_set_batch_size &&
          // Overflow handling related.
+         refresh_time_after_fetch == p.refresh_time_after_fetch &&
          overflow_margin == p.overflow_margin && overflow_policy == p.overflow_policy &&
          overflow_resolution_target == p.overflow_resolution_target &&
-         // Initialization related.
+         // Caching behavior related.
          initial_cache_rate == p.initial_cache_rate &&
+         cache_missed_embeddings == p.cache_missed_embeddings &&
          // Real-time update mechanism related.
          update_filters == p.update_filters;
 }

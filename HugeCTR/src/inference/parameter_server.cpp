@@ -26,13 +26,16 @@
 #include <inference/rocksdb_backend.hpp>
 #include <regex>
 
+// TODO: Remove me!
+#pragma GCC diagnostic error "-Wconversion"
+
 namespace HugeCTR {
 
 parameter_server_base::~parameter_server_base() {}
 
 std::string parameter_server_base::make_tag_name(const std::string& model_name,
                                                  const std::string& embedding_table) {
-  static std::regex syntax{"[a-zA-Z0-9_\\-]{1,120}"};
+  static const std::regex syntax{"[a-zA-Z0-9_\\-]{1,120}"};
   HCTR_CHECK_HINT(std::regex_match(model_name, syntax), "The provided 'model_name' is invalid!");
   HCTR_CHECK_HINT(std::regex_match(embedding_table, syntax),
                   "The provided 'embedding_table' is invalid!");
@@ -46,14 +49,14 @@ std::string parameter_server_base::make_tag_name(const std::string& model_name,
 template <typename TypeHashKey>
 parameter_server<TypeHashKey>::parameter_server(
     const std::string& framework_name, const std::vector<std::string>& model_config_path,
-    std::vector<InferenceParams>& inference_params_array) {
+    std::vector<InferenceParams>& inference_params_array)
+    : framework_name_(framework_name) {
   // Store the configuration
-  framework_name_ = framework_name;
   if (model_config_path.size() != inference_params_array.size()) {
     CK_THROW_(Error_t::WrongInput, "Wrong input: The size of input args are not consistent.");
   }
 
-  for (unsigned int i = 0; i < model_config_path.size(); i++) {
+  for (size_t i = 0; i < model_config_path.size(); i++) {
     HCTR_THROW_IF(
         inference_params_array[i].volatile_db != inference_params_array[0].volatile_db ||
             inference_params_array[i].persistent_db != inference_params_array[0].persistent_db,
@@ -78,7 +81,7 @@ parameter_server<TypeHashKey>::parameter_server(
         break;  // No volatile database.
 
       case DatabaseType_t::HashMap:
-        HCTR_LOG(INFO, WORLD, "Creating HashMap CPU database backend...\n");
+        HCTR_LOG_S(INFO, WORLD) << "Creating HashMap CPU database backend..." << std::endl;
         if (conf.num_partitions > 1) {
           HCTR_LOG(WARNING, WORLD,
                    "Setting 'num_partitions' = %d is not supported by the non-parallelized "
@@ -87,12 +90,14 @@ parameter_server<TypeHashKey>::parameter_server(
         }
         switch (conf.algorithm) {
           case DatabaseHashMapAlgorithm_t::STL:
-            volatile_db_ = std::make_shared<HCTR_DB_HASH_MAP_STL_(HashMapBackend, TypeHashKey)>(
-                conf.overflow_margin, conf.overflow_policy, conf.overflow_resolution_target);
+            volatile_db_ = std::make_unique<HCTR_DB_HASH_MAP_STL_(HashMapBackend, TypeHashKey)>(
+                conf.refresh_time_after_fetch, conf.overflow_margin, conf.overflow_policy,
+                conf.overflow_resolution_target);
             break;
           case DatabaseHashMapAlgorithm_t::PHM:
-            volatile_db_ = std::make_shared<HCTR_DB_HASH_MAP_PHM_(HashMapBackend, TypeHashKey)>(
-                conf.overflow_margin, conf.overflow_policy, conf.overflow_resolution_target);
+            volatile_db_ = std::make_unique<HCTR_DB_HASH_MAP_PHM_(HashMapBackend, TypeHashKey)>(
+                conf.refresh_time_after_fetch, conf.overflow_margin, conf.overflow_policy,
+                conf.overflow_resolution_target);
             break;
           default:
             HCTR_DIE("Selected algorithm (volatile_db.algorithm = %d) is not supported!",
@@ -102,7 +107,7 @@ parameter_server<TypeHashKey>::parameter_server(
         break;
 
       case DatabaseType_t::ParallelHashMap:
-        HCTR_LOG(INFO, WORLD, "Creating ParallelHashMap CPU database backend...\n");
+        HCTR_LOG_S(INFO, WORLD) << "Creating ParallelHashMap CPU database backend..." << std::endl;
         if (conf.num_partitions < 2) {
           HCTR_LOG(WARNING, WORLD,
                    "ParallelHashMap configured with 'num_partitions' = %d, which will likely "
@@ -112,15 +117,15 @@ parameter_server<TypeHashKey>::parameter_server(
         switch (conf.algorithm) {
           case DatabaseHashMapAlgorithm_t::STL:
             volatile_db_ =
-                std::make_shared<HCTR_DB_HASH_MAP_STL_(ParallelHashMapBackend, TypeHashKey)>(
-                    conf.num_partitions, conf.overflow_margin, conf.overflow_policy,
-                    conf.overflow_resolution_target);
+                std::make_unique<HCTR_DB_HASH_MAP_STL_(ParallelHashMapBackend, TypeHashKey)>(
+                    conf.num_partitions, conf.refresh_time_after_fetch, conf.overflow_margin,
+                    conf.overflow_policy, conf.overflow_resolution_target);
             break;
           case DatabaseHashMapAlgorithm_t::PHM:
             volatile_db_ =
-                std::make_shared<HCTR_DB_HASH_MAP_PHM_(ParallelHashMapBackend, TypeHashKey)>(
-                    conf.num_partitions, conf.overflow_margin, conf.overflow_policy,
-                    conf.overflow_resolution_target);
+                std::make_unique<HCTR_DB_HASH_MAP_PHM_(ParallelHashMapBackend, TypeHashKey)>(
+                    conf.num_partitions, conf.refresh_time_after_fetch, conf.overflow_margin,
+                    conf.overflow_policy, conf.overflow_resolution_target);
             break;
           default:
             HCTR_DIE("Selected algorithm (volatile_db.algorithm = %d) is not supported!",
@@ -130,11 +135,11 @@ parameter_server<TypeHashKey>::parameter_server(
         break;
 
       case DatabaseType_t::RedisCluster:
-        HCTR_LOG(INFO, WORLD, "Creating RedisCluster backend...\n");
-        volatile_db_ = std::make_shared<RedisClusterBackend<TypeHashKey>>(
+        HCTR_LOG_S(INFO, WORLD) << "Creating RedisCluster backend..." << std::endl;
+        volatile_db_ = std::make_unique<RedisClusterBackend<TypeHashKey>>(
             conf.address, conf.user_name, conf.password, conf.num_partitions,
-            conf.max_get_batch_size, conf.max_set_batch_size, conf.overflow_margin,
-            conf.overflow_policy, conf.overflow_resolution_target);
+            conf.max_get_batch_size, conf.max_set_batch_size, conf.refresh_time_after_fetch,
+            conf.overflow_margin, conf.overflow_policy, conf.overflow_resolution_target);
         break;
 
       default:
@@ -142,6 +147,11 @@ parameter_server<TypeHashKey>::parameter_server(
         break;
     }
     volatile_db_cache_rate_ = conf.initial_cache_rate;
+    volatile_db_cache_missed_embeddings_ = conf.cache_missed_embeddings;
+    HCTR_LOG_S(INFO, WORLD) << "Volatile DB: initial cache rate = " << volatile_db_cache_rate_
+                            << std::endl;
+    HCTR_LOG_S(INFO, WORLD) << "Volatile DB: cache missed embeddings = "
+                            << volatile_db_cache_missed_embeddings_ << std::endl;
   }
 
   // Connect to persistent database.
@@ -152,7 +162,7 @@ parameter_server<TypeHashKey>::parameter_server(
         break;  // No persistent database.
       case DatabaseType_t::RocksDB:
         HCTR_LOG(INFO, WORLD, "Creating RocksDB backend...\n");
-        persistent_db_ = std::make_shared<RocksDBBackend<TypeHashKey>>(
+        persistent_db_ = std::make_unique<RocksDBBackend<TypeHashKey>>(
             conf.path, conf.num_threads, conf.read_only, conf.max_get_batch_size,
             conf.max_set_batch_size);
         break;
@@ -163,25 +173,17 @@ parameter_server<TypeHashKey>::parameter_server(
   }
 
   // Load embeddings for each embedding table from each model
-  for (unsigned int i = 0; i < model_config_path.size(); i++) {
+  for (size_t i = 0; i < model_config_path.size(); i++) {
     update_database_per_model(model_config_path[i], inference_params_array[i]);
   }
 
   // Initilize embedding cache for each embedding table of each model
-  for (unsigned int i = 0; i < model_config_path.size(); i++) {
+  for (size_t i = 0; i < model_config_path.size(); i++) {
     //*********
     // The operation here is just to keep the logic of device_id in the python api
     // unchanged
     //*********
     create_embedding_cache_per_model(model_config_path[i], inference_params_array[i]);
-  }
-
-  // Populate DB stack.
-  if (volatile_db_) {
-    db_stack_.push_back(volatile_db_);
-  }
-  if (persistent_db_) {
-    db_stack_.push_back(persistent_db_);
   }
 
   bufferpool.reset(new ManagerPool(model_cache_map, memory_pool_config));
@@ -203,7 +205,7 @@ void parameter_server<TypeHashKey>::parse_networks_per_model(
   // Read inference config
   std::vector<std::string> emb_file_path;
   if (inference_params_array.sparse_model_files.size() > 1) {
-    for (unsigned int j = 0; j < inference_params_array.sparse_model_files.size(); j++) {
+    for (size_t j = 0; j < inference_params_array.sparse_model_files.size(); j++) {
       emb_file_path.emplace_back(inference_params_array.sparse_model_files[j]);
     }
   } else {
@@ -212,20 +214,21 @@ void parameter_server<TypeHashKey>::parse_networks_per_model(
   ps_config_.emb_file_name_[inference_params_array.model_name] = (emb_file_path);
 
   // Read embedding layer config
-  const nlohmann::json& j_layers = get_json(model_config, "layers");
   std::vector<bool> distributed_emb;
   std::vector<size_t> embedding_vec_size;
   std::vector<float> default_emb_vec_value;
   std::vector<std::string> emb_table_name;
+
   // Search for all embedding layers
-  for (unsigned int j = 1; j < j_layers.size(); j++) {
-    const nlohmann::json& j_single_layer = j_layers[j];
-    std::string embedding_type = get_value_from_json<std::string>(j_single_layer, "type");
+  const nlohmann::json& layers = get_json(model_config, "layers");
+  for (size_t j = 1; j < layers.size(); j++) {
+    const nlohmann::json& layer = layers[j];
+    std::string embedding_type = get_value_from_json<std::string>(layer, "type");
     if (embedding_type.compare("DistributedSlotSparseEmbeddingHash") == 0) {
       distributed_emb.emplace_back(true);
       // parse embedding table name from network json file
-      emb_table_name.emplace_back(get_value_from_json<std::string>(j_single_layer, "top"));
-      const nlohmann::json& embedding_hparam = get_json(j_single_layer, "sparse_embedding_hparam");
+      emb_table_name.emplace_back(get_value_from_json<std::string>(layer, "top"));
+      const nlohmann::json& embedding_hparam = get_json(layer, "sparse_embedding_hparam");
       embedding_vec_size.emplace_back(
           get_value_from_json<size_t>(embedding_hparam, "embedding_vec_size"));
       default_emb_vec_value.emplace_back(
@@ -233,8 +236,8 @@ void parameter_server<TypeHashKey>::parse_networks_per_model(
     } else if (embedding_type.compare("LocalizedSlotSparseEmbeddingHash") == 0 ||
                embedding_type.compare("LocalizedSlotSparseEmbeddingOneHot") == 0) {
       distributed_emb.emplace_back(false);
-      emb_table_name.emplace_back(get_value_from_json<std::string>(j_single_layer, "top"));
-      const nlohmann::json& embedding_hparam = get_json(j_single_layer, "sparse_embedding_hparam");
+      emb_table_name.emplace_back(get_value_from_json<std::string>(layer, "top"));
+      const nlohmann::json& embedding_hparam = get_json(layer, "sparse_embedding_hparam");
       embedding_vec_size.emplace_back(
           get_value_from_json<size_t>(embedding_hparam, "embedding_vec_size"));
       default_emb_vec_value.emplace_back(
@@ -301,7 +304,7 @@ template <typename TypeHashKey>
 void parameter_server<TypeHashKey>::update_database_per_model(
     const std::string& model_config_path, const InferenceParams& inference_params) {
   // Create input file stream to read the embedding file
-  for (unsigned int j = 0; j < inference_params.sparse_model_files.size(); j++) {
+  for (size_t j = 0; j < inference_params.sparse_model_files.size(); j++) {
     if (ps_config_.embedding_vec_size_[inference_params.model_name].size() !=
         inference_params.sparse_model_files.size()) {
       CK_THROW_(Error_t::WrongInput,
@@ -330,7 +333,7 @@ void parameter_server<TypeHashKey>::update_database_per_model(
     if (num_key != num_vec) {
       CK_THROW_(Error_t::WrongInput, "Error: num_key != num_vec in embedding file");
     }
-    size_t num_float_val_in_vec_file = vec_file_size_in_byte / sizeof(float);
+    const size_t num_float_val_in_vec_file = vec_file_size_in_byte / sizeof(float);
 
     // The temp embedding table
     std::vector<TypeHashKey> key_vec(num_key, 0);
@@ -346,21 +349,29 @@ void parameter_server<TypeHashKey>::update_database_per_model(
     std::vector<float> vec_vec(num_float_val_in_vec_file, 0.0f);
     vec_stream.read(reinterpret_cast<char*>(vec_vec.data()), vec_file_size_in_byte);
 
-    const size_t volatile_cache_amount = std::min(
-        hctr_safe_cast<size_t>(volatile_db_cache_rate_ * static_cast<double>(num_key) + 0.5),
-        num_key);
-
-    std::string current_emb_table_name = ps_config_.emb_table_name_[inference_params.model_name][j];
-    const std::string tag_name = make_tag_name(inference_params.model_name, current_emb_table_name);
+    const std::string tag_name = make_tag_name(
+        inference_params.model_name, ps_config_.emb_table_name_[inference_params.model_name][j]);
+    const size_t volatile_capacity = volatile_db_->capacity(tag_name);
+    const size_t volatile_cache_amount =
+        (num_key <= volatile_capacity)
+            ? num_key
+            : static_cast<size_t>(volatile_db_cache_rate_ * static_cast<double>(volatile_capacity) +
+                                  0.5);
 
     // Populate volatile database(s).
     if (volatile_db_) {
       HCTR_CHECK(volatile_db_->insert(tag_name, volatile_cache_amount, key_vec.data(),
                                       reinterpret_cast<const char*>(vec_vec.data()),
                                       embedding_size * sizeof(float)));
+      volatile_db_->synchronize();
       HCTR_LOG_S(INFO, WORLD) << "Table: " << tag_name << "; cached " << volatile_cache_amount
-                              << " / " << num_key << " embeddings in " << volatile_db_->get_name()
-                              << " database!" << std::endl;
+                              << " / " << num_key << " embeddings in volatile database ("
+                              << volatile_db_->get_name()
+                              << "); load: " << volatile_db_->size(tag_name) << " / "
+                              << volatile_capacity << " (" << std::fixed << std::setprecision(2)
+                              << (static_cast<double>(volatile_db_->size(tag_name)) * 100.0 /
+                                  static_cast<double>(volatile_capacity))
+                              << "%)." << std::endl;
     }
 
     // Persistent database - by definition - always gets all keys.
@@ -369,7 +380,8 @@ void parameter_server<TypeHashKey>::update_database_per_model(
                                         reinterpret_cast<const char*>(vec_vec.data()),
                                         embedding_size * sizeof(float)));
       HCTR_LOG_S(INFO, WORLD) << "Table: " << tag_name << "; cached " << num_key
-                              << " embeddings in persistent database!" << std::endl;
+                              << " embeddings in persistent database ("
+                              << persistent_db_->get_name() << ")." << std::endl;
     }
   }
 
@@ -440,9 +452,9 @@ void parameter_server<TypeHashKey>::update_database_per_model(
 
   HCTR_LOG(DEBUG, WORLD, "Real-time subscribers created!\n");
 
-  auto insert_fn = [&](const std::shared_ptr<DatabaseBackend<TypeHashKey>>& db,
-                       const std::string& tag, const size_t num_pairs, const TypeHashKey* keys,
-                       const char* values, const size_t value_size) -> bool {
+  auto insert_fn = [&](DatabaseBackend<TypeHashKey>* const db, const std::string& tag,
+                       const size_t num_pairs, const TypeHashKey* keys, const char* values,
+                       const size_t value_size) -> bool {
     HCTR_LOG(DEBUG, WORLD,
              "Database \"%s\" update for tag: \"%s\", num_pairs: %d, value_size: %d bytes\n",
              db->get_name(), tag.c_str(), num_pairs, value_size);
@@ -457,7 +469,7 @@ void parameter_server<TypeHashKey>::update_database_per_model(
                                     const TypeHashKey* keys, const char* values,
                                     const size_t value_size) -> bool {
       // Try a search. If we can find the value, override it. If not, do nothing.
-      return insert_fn(volatile_db_, tag, num_pairs, keys, values, value_size);
+      return insert_fn(volatile_db_.get(), tag, num_pairs, keys, values, value_size);
     });
   }
 
@@ -466,7 +478,7 @@ void parameter_server<TypeHashKey>::update_database_per_model(
                                       const TypeHashKey* keys, const char* values,
                                       const size_t value_size) -> bool {
       // For persistent, we always insert.
-      return insert_fn(persistent_db_, tag, num_pairs, keys, values, value_size);
+      return insert_fn(persistent_db_.get(), tag, num_pairs, keys, values, value_size);
     });
   }
 }
@@ -496,115 +508,134 @@ void parameter_server<TypeHashKey>::FreeBuffer(void* p) {
 template <typename TypeHashKey>
 std::shared_ptr<embedding_interface> parameter_server<TypeHashKey>::GetEmbeddingCache(
     const std::string& model_name, int device_id) {
-  auto it = model_cache_map.find(model_name);
+  const auto it = model_cache_map.find(model_name);
   if (it == model_cache_map.end()) {
     return nullptr;
-  } else {
-    auto f = it->second.find(device_id);
-    if (f == it->second.end()) {
-      CK_THROW_(Error_t::WrongInput, "No embedding cache on device " + std::to_string(device_id) +
-                                         " for model " + model_name);
-    }
   }
+
+  if (it->second.find(device_id) == it->second.end()) {
+    CK_THROW_(Error_t::WrongInput, "No embedding cache on device " + std::to_string(device_id) +
+                                       " for model " + model_name);
+  }
+
   return model_cache_map[model_name][device_id];
 }
 
 template <typename TypeHashKey>
-void parameter_server<TypeHashKey>::look_up(const TypeHashKey* h_embeddingcolumns, size_t length,
-                                            float* h_embeddingoutputvector,
+void parameter_server<TypeHashKey>::look_up(const TypeHashKey* h_embeddingcolumns,
+                                            const size_t length,
+                                            float* const h_embeddingoutputvector,
                                             const std::string& model_name,
-                                            size_t embedding_table_id) {
+                                            const size_t embedding_table_id) {
   if (!length) {
     return;
   }
-
   const auto start_time = std::chrono::high_resolution_clock::now();
+
   const auto& model_id = ps_config_.find_model_id(model_name);
   HCTR_CHECK_HINT(
       static_cast<bool>(model_id),
-      "Error: parameter server unknown model name. Note that this error will also come "
-      "out with "
+      "Error: parameter server unknown model name. Note that this error will also come out with "
       "using Triton LOAD/UNLOAD APIs which haven't been supported in HugeCTR backend.\n");
 
   const size_t embedding_size = ps_config_.embedding_vec_size_[model_name][embedding_table_id];
-  const std::string& tag_name =
-      make_tag_name(model_name, ps_config_.emb_table_name_[model_name][embedding_table_id]);
-  float defalut_vec_value =
-      ps_config_
-          .default_emb_vec_value_[ps_config_.model_name_id_map_[model_name]][embedding_table_id];
-  HCTR_LOG(INFO, WORLD, "Looking up %d embeddings (each with %d values)...\n", length,
-           embedding_size);
+  const size_t expected_value_size = embedding_size * sizeof(float);
+  const std::string& embedding_table_name =
+      ps_config_.emb_table_name_[model_name][embedding_table_id];
+  const std::string& tag_name = make_tag_name(model_name, embedding_table_name);
+  const float default_vec_value = ps_config_.default_emb_vec_value_[*model_id][embedding_table_id];
+  HCTR_LOG_S(INFO, WORLD) << "Looking up " << length << " embeddings (each with " << embedding_size
+                          << " values)..." << std::endl;
 
   size_t hit_count = 0;
-  auto db = db_stack_.begin();
 
-  switch (db_stack_.size()) {
-    case 0: {
-      // Everything is default.
-      std::fill_n(h_embeddingoutputvector, length * embedding_size, defalut_vec_value);
-      HCTR_LOG(INFO, WORLD, "No database. All embeddings set to default.\n");
-      break;
+  DatabaseHitCallback check_and_copy = [&](const size_t index, const char* const value,
+                                           const size_t value_size) {
+    HCTR_CHECK_HINT(value_size == expected_value_size,
+                    "Table: %s; Batch[%d]: Value size mismatch! (%d <> %d)!", tag_name.c_str(),
+                    index, value_size, expected_value_size);
+    memcpy(&h_embeddingoutputvector[index * embedding_size], value, value_size);
+  };
+
+  DatabaseMissCallback fill_default = [&](const size_t index) {
+    std::fill_n(&h_embeddingoutputvector[index * embedding_size], embedding_size,
+                default_vec_value);
+  };
+
+  // If have volatile and persistant database.
+  if (volatile_db_ && persistent_db_) {
+    std::mutex resource_guard;
+
+    // Do a sequential lookup in the volatile DB, and remember the missing keys.
+    std::vector<size_t> missing;
+    auto record_missing = [&](const size_t index) {
+      std::lock_guard<std::mutex> lock(resource_guard);
+      missing.push_back(index);
+    };
+
+    hit_count +=
+        volatile_db_->fetch(tag_name, length, h_embeddingcolumns, check_and_copy, record_missing);
+
+    HCTR_LOG_S(TRACE, WORLD) << volatile_db_->get_name() << ": " << hit_count << " hits, "
+                             << missing.size() << " missing!" << std::endl;
+
+    // If the layer 0 cache should be optimized as we go, elevate missed keys.
+    std::shared_ptr<std::vector<TypeHashKey>> keys_to_elevate;
+    std::shared_ptr<std::vector<char>> values_to_elevate;
+
+    if (volatile_db_cache_missed_embeddings_) {
+      keys_to_elevate = std::make_shared<std::vector<TypeHashKey>>();
+      values_to_elevate = std::make_shared<std::vector<char>>();
+
+      check_and_copy = [&](const size_t index, const char* const value, const size_t value_size) {
+        HCTR_CHECK_HINT(value_size == expected_value_size,
+                        "Table: %s; Batch[%d]: Value size mismatch! (%d <> %d)!", tag_name.c_str(),
+                        index, value_size, expected_value_size);
+        memcpy(&h_embeddingoutputvector[index * embedding_size], value, value_size);
+
+        std::lock_guard<std::mutex> lock(resource_guard);
+        keys_to_elevate->emplace_back(h_embeddingcolumns[index]);
+        values_to_elevate->insert(values_to_elevate->end(), value, &value[value_size]);
+      };
     }
-    case 1: {
-      // Query database, and fill in default value for unavailable embeddings.
-      MissingKeyCallback fill_default_fn = [&](size_t index) -> void {
-        std::fill_n(&h_embeddingoutputvector[index * embedding_size], embedding_size,
-                    defalut_vec_value);
-      };
-      hit_count += (*db)->fetch(tag_name, length, h_embeddingcolumns,
-                                reinterpret_cast<char*>(h_embeddingoutputvector),
-                                embedding_size * sizeof(float), fill_default_fn);
-      HCTR_LOG(DEBUG, WORLD, "%s: %d hits, %d missing!\n", (*db)->get_name(), hit_count,
-               length - hit_count);
-      break;
+
+    // Do a sparse lookup in the persisent DB, to fill gaps and set others to default.
+    hit_count += persistent_db_->fetch(tag_name, missing.size(), missing.data(), h_embeddingcolumns,
+                                       check_and_copy, fill_default);
+
+    HCTR_LOG_S(TRACE, WORLD) << persistent_db_->get_name() << ": " << hit_count << " hits, "
+                             << (length - hit_count) << " missing!" << std::endl;
+
+    // Elevate keys if desired and possible.
+    if (keys_to_elevate && !keys_to_elevate->empty()) {
+      HCTR_LOG_S(DEBUG, WORLD) << "Attempting to migrate " << keys_to_elevate->size()
+                               << " embeddings from " << persistent_db_->get_name() << " to "
+                               << volatile_db_->get_name() << "." << std::endl;
+      volatile_db_->insert_async(tag_name, keys_to_elevate, values_to_elevate, expected_value_size);
     }
-    default: {
-      // Layer 0: Do a sequential lookup. Remember missing keys.
-      std::vector<size_t> indices;
-      std::vector<size_t> missing;
-      std::mutex missing_guard;
+  } else {
+    // If any database.
+    DatabaseBackend<TypeHashKey>* const db =
+        volatile_db_ ? static_cast<DatabaseBackend<TypeHashKey>*>(volatile_db_.get())
+                     : static_cast<DatabaseBackend<TypeHashKey>*>(persistent_db_.get());
+    if (db) {
+      // Do a sequential lookup in the volatile DB, but fill gaps with a default value.
+      hit_count += db->fetch(tag_name, length, h_embeddingcolumns, check_and_copy, fill_default);
 
-      MissingKeyCallback record_missing_fn = [&missing, &missing_guard](size_t index) -> void {
-        std::lock_guard<std::mutex> lock(missing_guard);
-        missing.push_back(index);
-      };
-
-      hit_count += (*db)->fetch(tag_name, length, h_embeddingcolumns,
-                                reinterpret_cast<char*>(h_embeddingoutputvector),
-                                embedding_size * sizeof(float), record_missing_fn);
-      HCTR_LOG(DEBUG, WORLD, "%s: %d hits, %d missing!\n", (*db)->get_name(), hit_count,
-               missing.size());
-      db++;
-
-      // Layers 1 thru N-2: Do a sparse lookup. Remember missing keys
-      for (size_t i = 2; i < db_stack_.size(); i++, db++) {
-        indices.clear();
-        indices.swap(missing);
-        hit_count += (*db)->fetch(tag_name, indices.size(), indices.data(), h_embeddingcolumns,
-                                  reinterpret_cast<char*>(h_embeddingoutputvector),
-                                  embedding_size * sizeof(float), record_missing_fn);
-        HCTR_LOG(DEBUG, WORLD, "%s: %d hits, %d missing!\n", (*db)->get_name(), hit_count,
-                 missing.size());
-      }
-
-      // Layer N-1: Do a sparse lookup. Fill in default values.
-      MissingKeyCallback fill_default_fn = [&](size_t index) -> void {
-        std::fill_n(&h_embeddingoutputvector[index * embedding_size], embedding_size,
-                    defalut_vec_value);
-      };
-      hit_count += (*db)->fetch(tag_name, missing.size(), missing.data(), h_embeddingcolumns,
-                                reinterpret_cast<char*>(h_embeddingoutputvector),
-                                embedding_size * sizeof(float), fill_default_fn);
-      HCTR_LOG(DEBUG, WORLD, "%s: %d hits, %d missing!\n", (*db)->get_name(), hit_count,
-               length - hit_count);
+      HCTR_LOG_S(TRACE, WORLD) << db->get_name() << ": " << hit_count << " hits, "
+                               << (length - hit_count) << " missing!" << std::endl;
+    } else {
+      // Without a database, set everything to default.
+      std::fill_n(h_embeddingoutputvector, length * embedding_size, default_vec_value);
+      HCTR_LOG_S(WARNING, WORLD) << "No database. All embeddings set to default." << std::endl;
     }
   }
 
   const auto end_time = std::chrono::high_resolution_clock::now();
   const auto duration =
       std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
-  HCTR_LOG(INFO, WORLD, "Parameter server lookup of %d / %d embeddings took %d us.\n", hit_count,
-           length, duration.count());
+  HCTR_LOG_S(INFO, WORLD) << "Parameter server lookup of " << hit_count << " / " << length
+                          << " embeddings took " << duration.count() << " us." << std::endl;
 }
 
 template <typename TypeHashKey>
@@ -622,23 +653,22 @@ void parameter_server<TypeHashKey>::refresh_embedding_cache(const std::string& m
   std::vector<cudaStream_t> streams = embedding_cache->get_refresh_streams();
   embedding_cache_config cache_config = embedding_cache->get_cache_config();
   // apply the memory block for embedding cache refresh workspace
-  MemoryBlock* memory_block = NULL;
-  while (memory_block == NULL) {
+  MemoryBlock* memory_block = nullptr;
+  while (memory_block == nullptr) {
     memory_block = reinterpret_cast<struct MemoryBlock*>(
         this->ApplyBuffer(model_name, device_id, CACHE_SPACE_TYPE::REFRESHER));
   }
   embedding_cache_refreshspace refreshspace_handler = memory_block->refresh_buffer;
   // Refresh the embedding cache for each table
-  size_t stride_set = cache_config.num_set_in_refresh_workspace_;
+  const size_t stride_set = cache_config.num_set_in_refresh_workspace_;
   HugeCTR::Timer timer;
-  for (unsigned int i = 0; i < cache_config.num_emb_table_; i++) {
-    for (unsigned int idx_set = 0; idx_set < cache_config.num_set_in_cache_[i];
-         idx_set += stride_set) {
-      size_t end_idx = (idx_set + stride_set > cache_config.num_set_in_cache_[i])
-                           ? cache_config.num_set_in_cache_[i]
-                           : idx_set + stride_set;
+  for (size_t i = 0; i < cache_config.num_emb_table_; i++) {
+    for (size_t idx_set = 0; idx_set < cache_config.num_set_in_cache_[i]; idx_set += stride_set) {
+      const size_t end_idx = (idx_set + stride_set > cache_config.num_set_in_cache_[i])
+                                 ? cache_config.num_set_in_cache_[i]
+                                 : idx_set + stride_set;
       timer.start();
-      embedding_cache->Dump(i, refreshspace_handler.d_refresh_embeddingcolumns_,
+      embedding_cache->Dump(static_cast<int>(i), refreshspace_handler.d_refresh_embeddingcolumns_,
                             refreshspace_handler.d_length_, idx_set, end_idx, streams[i]);
 
       CK_CUDA_THROW_(cudaMemcpyAsync(refreshspace_handler.h_length_, refreshspace_handler.d_length_,
@@ -653,9 +683,9 @@ void parameter_server<TypeHashKey>::refresh_embedding_cache(const std::string& m
       MESSAGE_("Embedding Cache dumping the number of " + std::to_string(stride_set) +
                " sets takes: " + std::to_string(timer.elapsedSeconds()) + "s");
       timer.start();
-      this->look_up((TypeHashKey*)refreshspace_handler.h_refresh_embeddingcolumns_,
-                    *refreshspace_handler.h_length_, refreshspace_handler.h_refresh_emb_vec_,
-                    model_name, i);
+      this->look_up(
+          reinterpret_cast<const TypeHashKey*>(refreshspace_handler.h_refresh_embeddingcolumns_),
+          *refreshspace_handler.h_length_, refreshspace_handler.h_refresh_emb_vec_, model_name, i);
       CK_CUDA_THROW_(cudaMemcpyAsync(
           refreshspace_handler.d_refresh_emb_vec_, refreshspace_handler.h_refresh_emb_vec_,
           *refreshspace_handler.h_length_ * cache_config.embedding_vec_size_[i] * sizeof(float),
@@ -666,9 +696,9 @@ void parameter_server<TypeHashKey>::refresh_embedding_cache(const std::string& m
                std::to_string(*refreshspace_handler.h_length_) +
                " keys takes: " + std::to_string(timer.elapsedSeconds()) + "s");
       timer.start();
-      embedding_cache->Refresh(i, refreshspace_handler.d_refresh_embeddingcolumns_,
-                               refreshspace_handler.d_refresh_emb_vec_,
-                               *refreshspace_handler.h_length_, streams[i]);
+      embedding_cache->Refresh(
+          static_cast<int>(i), refreshspace_handler.d_refresh_embeddingcolumns_,
+          refreshspace_handler.d_refresh_emb_vec_, *refreshspace_handler.h_length_, streams[i]);
       timer.stop();
       MESSAGE_("Embedding Cache refreshing the number of " +
                std::to_string(*refreshspace_handler.h_length_) +
@@ -692,9 +722,10 @@ void parameter_server<TypeHashKey>::insert_embedding_cache(
   HCTR_LOG(INFO, WORLD, "*****Insert embedding cache of model %s on device %d*****\n",
            cache_config.model_name_.c_str(), cache_config.cuda_dev_id_);
   // Copy the missing embeddingcolumns to host
-  for (unsigned int i = 0; i < cache_config.num_emb_table_; i++) {
-    TypeHashKey* d_missing_key_ptr = (TypeHashKey*)(workspace_handler.d_missing_embeddingcolumns_) +
-                                     workspace_handler.h_shuffled_embedding_offset_[i];
+  for (size_t i = 0; i < cache_config.num_emb_table_; i++) {
+    const TypeHashKey* d_missing_key_ptr =
+        (TypeHashKey*)(workspace_handler.d_missing_embeddingcolumns_) +
+        workspace_handler.h_shuffled_embedding_offset_[i];
     TypeHashKey* h_missing_key_ptr = (TypeHashKey*)(workspace_handler.h_missing_embeddingcolumns_) +
                                      workspace_handler.h_shuffled_embedding_offset_[i];
     CK_CUDA_THROW_(cudaStreamSynchronize(streams[i]));
@@ -704,11 +735,12 @@ void parameter_server<TypeHashKey>::insert_embedding_cache(
   }
   // Query the missing embeddingcolumns from Parameter Server
   size_t acc_emb_vec_offset = 0;
-  for (unsigned int i = 0; i < cache_config.num_emb_table_; i++) {
-    TypeHashKey* h_missing_key_ptr = (TypeHashKey*)(workspace_handler.h_missing_embeddingcolumns_) +
-                                     workspace_handler.h_shuffled_embedding_offset_[i];
-    size_t query_length = workspace_handler.h_shuffled_embedding_offset_[i + 1] -
-                          workspace_handler.h_shuffled_embedding_offset_[i];
+  for (size_t i = 0; i < cache_config.num_emb_table_; i++) {
+    const TypeHashKey* h_missing_key_ptr =
+        (TypeHashKey*)(workspace_handler.h_missing_embeddingcolumns_) +
+        workspace_handler.h_shuffled_embedding_offset_[i];
+    const size_t query_length = workspace_handler.h_shuffled_embedding_offset_[i + 1] -
+                                workspace_handler.h_shuffled_embedding_offset_[i];
     float* h_vals_retrieved_ptr = workspace_handler.h_missing_emb_vec_ + acc_emb_vec_offset;
     CK_CUDA_THROW_(cudaStreamSynchronize(streams[i]));
     this->look_up(h_missing_key_ptr, workspace_handler.h_missing_length_[i], h_vals_retrieved_ptr,
@@ -717,14 +749,14 @@ void parameter_server<TypeHashKey>::insert_embedding_cache(
   }
   // Copy missing emb_vec to device
   acc_emb_vec_offset = 0;
-  for (unsigned int i = 0; i < cache_config.num_emb_table_; i++) {
-    float* h_vals_retrieved_ptr = workspace_handler.h_missing_emb_vec_ + acc_emb_vec_offset;
+  for (size_t i = 0; i < cache_config.num_emb_table_; i++) {
+    const float* h_vals_retrieved_ptr = workspace_handler.h_missing_emb_vec_ + acc_emb_vec_offset;
     float* d_vals_retrieved_ptr = workspace_handler.d_missing_emb_vec_ + acc_emb_vec_offset;
-    size_t missing_len_in_float =
+    const size_t missing_len_in_float =
         workspace_handler.h_missing_length_[i] * cache_config.embedding_vec_size_[i];
-    size_t missing_len_in_byte = missing_len_in_float * sizeof(float);
-    size_t query_length = workspace_handler.h_shuffled_embedding_offset_[i + 1] -
-                          workspace_handler.h_shuffled_embedding_offset_[i];
+    const size_t missing_len_in_byte = missing_len_in_float * sizeof(float);
+    const size_t query_length = workspace_handler.h_shuffled_embedding_offset_[i + 1] -
+                                workspace_handler.h_shuffled_embedding_offset_[i];
     acc_emb_vec_offset += query_length * cache_config.embedding_vec_size_[i];
     CK_CUDA_THROW_(cudaMemcpyAsync(d_vals_retrieved_ptr, h_vals_retrieved_ptr, missing_len_in_byte,
                                    cudaMemcpyHostToDevice, streams[i]));
