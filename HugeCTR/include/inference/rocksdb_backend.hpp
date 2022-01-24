@@ -23,6 +23,10 @@
 
 namespace HugeCTR {
 
+// TODO: Remove me!
+#pragma GCC diagnostic push
+#pragma GCC diagnostic error "-Wconversion"
+
 /**
  * \p DatabaseBackend implementation that connects to a RocksDB to store/retrieve information (i.e.
  * harddisk storage).
@@ -55,17 +59,19 @@ class RocksDBBackend final : public PersistentBackend<TKey> {
 
   bool is_shared() const override { return false; }
 
+  size_t size(const std::string& table_name) const override;
+
   size_t contains(const std::string& table_name, size_t num_keys, const TKey* keys) const override;
 
   bool insert(const std::string& table_name, size_t num_pairs, const TKey* keys, const char* values,
               size_t value_size) override;
 
-  size_t fetch(const std::string& table_name, size_t num_keys, const TKey* keys, char* values,
-               size_t value_size, MissingKeyCallback& missing_callback) const override;
+  size_t fetch(const std::string& table_name, size_t num_keys, const TKey* keys,
+               const DatabaseHitCallback& on_hit, const DatabaseMissCallback& on_miss) override;
 
   size_t fetch(const std::string& table_name, size_t num_indices, const size_t* indices,
-               const TKey* keys, char* values, size_t value_size,
-               MissingKeyCallback& missing_callback) const override;
+               const TKey* keys, const DatabaseHitCallback& on_hit,
+               const DatabaseMissCallback& on_miss) override;
 
   size_t evict(const std::string& table_name) override;
 
@@ -81,5 +87,8 @@ class RocksDBBackend final : public PersistentBackend<TKey> {
   rocksdb::ReadOptions read_options_;
   rocksdb::WriteOptions write_options_;
 };
+
+// TODO: Remove me!
+#pragma GCC diagnostic pop
 
 }  // namespace HugeCTR

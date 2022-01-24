@@ -27,10 +27,16 @@
 #include <unordered_map>
 #include <vector>
 
-// TODO: Significantly faster. Enable this by default?
-// #define HCTR_EXPERIMENTAL_USE_BETTER_HASHMAP
-
 namespace HugeCTR {
+
+// TODO: Remove me!
+#pragma GCC diagnostic push
+#pragma GCC diagnostic error "-Wconversion"
+
+struct HashMapBackendData {
+  std::vector<char> bits;
+  time_t time;
+};
 
 template <typename TPartition>
 class HashMapBackendBase : public VolatileBackend<typename TPartition::key_type> {
@@ -38,8 +44,8 @@ class HashMapBackendBase : public VolatileBackend<typename TPartition::key_type>
   using TKey = typename TPartition::key_type;
   using TBase = VolatileBackend<TKey>;
 
-  HashMapBackendBase(size_t overflow_margin, DatabaseOverflowPolicy_t overflow_policy,
-                     double overflow_resolution_target);
+  HashMapBackendBase(bool refresh_time_after_fetch, size_t overflow_margin,
+                     DatabaseOverflowPolicy_t overflow_policy, double overflow_resolution_target);
 
   virtual ~HashMapBackendBase() = default;
 
@@ -73,27 +79,28 @@ class HashMapBackend final : public HashMapBackendBase<TPartition> {
    * @param overflow_policy Policy to use in case an overflow has been detected.
    * @param overflow_resolution_target Target margin after applying overflow handling policy.
    */
-  HashMapBackend(size_t overflow_margin = std::numeric_limits<size_t>::max(),
+  HashMapBackend(bool refresh_times_after_fetch = false,
+                 size_t overflow_margin = std::numeric_limits<size_t>::max(),
                  DatabaseOverflowPolicy_t overflow_policy = DatabaseOverflowPolicy_t::EvictOldest,
                  double overflow_resolution_target = 0.8);
 
   const char* get_name() const override { return "HashMap"; }
 
-  size_t max_capacity(const std::string& table_name) const override {
-    return this->overflow_margin_;
-  }
+  size_t capacity(const std::string& table_name) const override { return this->overflow_margin_; }
+
+  size_t size(const std::string& table_name) const override;
 
   size_t contains(const std::string& table_name, size_t num_keys, const TKey* keys) const override;
 
   bool insert(const std::string& table_name, size_t num_pairs, const TKey* keys, const char* values,
               size_t value_size) override;
 
-  size_t fetch(const std::string& table_name, size_t num_keys, const TKey* keys, char* values,
-               size_t value_size, MissingKeyCallback& missing_callback) const override;
+  size_t fetch(const std::string& table_name, size_t num_keys, const TKey* keys,
+               const DatabaseHitCallback& on_hit, const DatabaseMissCallback& on_miss) override;
 
   size_t fetch(const std::string& table_name, size_t num_indices, const size_t* indices,
-               const TKey* keys, char* values, size_t value_size,
-               MissingKeyCallback& missing_callback) const override;
+               const TKey* keys, const DatabaseHitCallback& on_hit,
+               const DatabaseMissCallback& on_miss) override;
 
   size_t evict(const std::string& table_name) override;
 
@@ -123,27 +130,32 @@ class ParallelHashMapBackend final : public HashMapBackendBase<TPartition> {
    * @param overflow_resolution_target Target margin after applying overflow handling policy.
    */
   ParallelHashMapBackend(
-      size_t num_partitions, size_t overflow_margin = std::numeric_limits<size_t>::max(),
+      size_t num_partitions, bool refresh_time_after_fetch = false,
+      size_t overflow_margin = std::numeric_limits<size_t>::max(),
       DatabaseOverflowPolicy_t overflow_policy = DatabaseOverflowPolicy_t::EvictOldest,
       double overflow_resolution_target = 0.8);
 
   const char* get_name() const { return "ParallelHashMap"; }
 
-  size_t max_capacity(const std::string& table_name) const override {
-    return this->overflow_margin_ * num_partitions_;
+  size_t capacity(const std::string& table_name) const override {
+    const size_t part_cap = this->overflow_margin_;
+    const size_t total_cap = part_cap * num_partitions_;
+    return (total_cap > part_cap) ? total_cap : part_cap;
   }
+
+  size_t size(const std::string& table_name) const override;
 
   size_t contains(const std::string& table_name, size_t num_keys, const TKey* keys) const override;
 
   bool insert(const std::string& table_name, size_t num_pairs, const TKey* keys, const char* values,
               size_t value_size) override;
 
-  size_t fetch(const std::string& table_name, size_t num_keys, const TKey* keys, char* values,
-               size_t value_size, MissingKeyCallback& missing_callback) const override;
+  size_t fetch(const std::string& table_name, size_t num_keys, const TKey* keys,
+               const DatabaseHitCallback& on_hit, const DatabaseMissCallback& on_miss) override;
 
   size_t fetch(const std::string& table_name, size_t num_indices, const size_t* indices,
-               const TKey* keys, char* values, size_t value_size,
-               MissingKeyCallback& missing_callback) const override;
+               const TKey* keys, const DatabaseHitCallback& on_hit,
+               const DatabaseMissCallback& on_miss) override;
 
   size_t evict(const std::string& table_name) override;
 
@@ -154,7 +166,10 @@ class ParallelHashMapBackend final : public HashMapBackendBase<TPartition> {
   std::unordered_map<std::string, std::vector<TPartition>> tables_;
 };
 
-#define HCTR_DB_HASH_MAP_STL_(HMAP, DTYPE) HMAP<std::unordered_map<DTYPE, std::vector<char>>>
-#define HCTR_DB_HASH_MAP_PHM_(HMAP, DTYPE) HMAP<phmap::flat_hash_map<DTYPE, std::vector<char>>>
+#define HCTR_DB_HASH_MAP_STL_(HMAP, DTYPE) HMAP<std::unordered_map<DTYPE, HashMapBackendData>>
+#define HCTR_DB_HASH_MAP_PHM_(HMAP, DTYPE) HMAP<phmap::flat_hash_map<DTYPE, HashMapBackendData>>
+
+// TODO: Remove me!
+#pragma GCC diagnostic pop
 
 }  // namespace HugeCTR

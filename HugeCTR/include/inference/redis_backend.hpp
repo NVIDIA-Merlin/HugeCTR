@@ -20,9 +20,12 @@
 
 #include <inference/database_backend.hpp>
 #include <memory>
-#include <thread_pool.hpp>
 
 namespace HugeCTR {
+
+// TODO: Remove me!
+#pragma GCC diagnostic push
+#pragma GCC diagnostic error "-Wconversion"
 
 /**
  * \p DatabaseBackend implementation that connects to a Redis to store/retrieve information (i.e.
@@ -31,9 +34,9 @@ namespace HugeCTR {
  * @tparam TKey The data-type that is used for keys in this database.
  */
 template <typename TKey>
-class RedisClusterBackend final : public DatabaseBackend<TKey> {
+class RedisClusterBackend final : public VolatileBackend<TKey> {
  public:
-  using TBase = DatabaseBackend<TKey>;
+  using TBase = VolatileBackend<TKey>;
 
   /**
    * @brief Construct a new RedisClusterBackend object.
@@ -57,6 +60,7 @@ class RedisClusterBackend final : public DatabaseBackend<TKey> {
       const std::string& address, const std::string& user_name = "default",
       const std::string& password = "", size_t num_partitions = 8,
       size_t max_get_batch_size = 10'000, size_t max_set_batch_size = 10'000,
+      bool refresh_time_after_fetch = false,
       size_t overflow_margin = std::numeric_limits<size_t>::max(),
       DatabaseOverflowPolicy_t overflow_policy = DatabaseOverflowPolicy_t::EvictOldest,
       double overflow_resolution_target = 0.8);
@@ -69,19 +73,23 @@ class RedisClusterBackend final : public DatabaseBackend<TKey> {
 
   size_t contains(const std::string& table_name, size_t num_keys, const TKey* keys) const override;
 
-  size_t max_capacity(const std::string& table_name) const override {
-    return this->overflow_margin_ * num_partitions_;
+  size_t capacity(const std::string& table_name) const override {
+    const size_t part_cap = this->overflow_margin_;
+    const size_t total_cap = part_cap * num_partitions_;
+    return (total_cap > part_cap) ? total_cap : part_cap;
   }
+
+  size_t size(const std::string& table_name) const override;
 
   bool insert(const std::string& table_name, size_t num_pairs, const TKey* keys, const char* values,
               size_t value_size) override;
 
-  size_t fetch(const std::string& table_name, size_t num_keys, const TKey* keys, char* values,
-               size_t value_size, MissingKeyCallback& missing_callback) const override;
+  size_t fetch(const std::string& table_name, size_t num_keys, const TKey* keys,
+               const DatabaseHitCallback& on_hit, const DatabaseMissCallback& on_miss) override;
 
   size_t fetch(const std::string& table_name, size_t num_indices, const size_t* indices,
-               const TKey* keys, char* values, size_t value_size,
-               MissingKeyCallback& missing_callback) const override;
+               const TKey* keys, const DatabaseHitCallback& on_hit,
+               const DatabaseMissCallback& on_miss) override;
 
   size_t evict(const std::string& table_name) override;
 
@@ -89,23 +97,40 @@ class RedisClusterBackend final : public DatabaseBackend<TKey> {
 
  protected:
   /**
-   * Called internally in case a partition overflow is detected.
+   * Called internally. Checks for overflow and initiate overflow handling in case a partition
+   * overflow is detected.
    */
-  void resolve_overflow_(const std::string& hkey_kv, const std::string& hkey_kt,
-                         size_t partition_size) const;
+  void resolve_overflow_(const std::string& hkey_kv, const std::string& hkey_kt);
+
+  /**
+   * Called internally to reset a single timestamp.
+   *
+   * @param table_name Name of the table.
+   * @param part Table partition number (not checked. Assumed to be correct!).
+   * @param key The key for which to refresh the timestamp.
+   */
+  void touch_(const std::string& table_name, size_t part, const TKey& key, time_t time);
+
+  /**
+   * Called internally to reset many timestamps.
+   *
+   * @param table_name Name of the table.
+   * @param part Table partition number (not checked. Assumed to be correct!).
+   * @param keys The keys for which to refresh the timestamp.
+   */
+  void touch_(const std::string& table_name, size_t part,
+              const std::shared_ptr<std::vector<TKey>>& keys, time_t time);
 
  protected:
-  const size_t
-      num_partitions_;  // Do not change this value, after inserting data for the first time!
-  mutable ThreadPool thread_pool_;
+  // Do not change this vector, after inserting data for the first time!
+  const size_t num_partitions_;
   const size_t max_get_batch_size_;
   const size_t max_set_batch_size_;
   std::unique_ptr<sw::redis::RedisCluster> redis_;
-
-  // Pruning related options.
-  const size_t overflow_margin_;
-  const DatabaseOverflowPolicy_t overflow_policy_;
-  const size_t overflow_resolution_target_;
+  mutable ThreadPool workers_;
 };
+
+// TODO: Remove me!
+#pragma GCC diagnostic pop
 
 }  // namespace HugeCTR

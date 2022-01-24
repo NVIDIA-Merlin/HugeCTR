@@ -119,12 +119,14 @@ struct VolatileDatabaseParams {
   size_t max_set_batch_size;
 
   // Overflow handling related.
+  bool refresh_time_after_fetch;
   size_t overflow_margin;
   DatabaseOverflowPolicy_t overflow_policy;
   double overflow_resolution_target;
 
-  // Initialization related.
+  // Chaching behavior related.
   double initial_cache_rate;
+  bool cache_missed_embeddings;
 
   // Real-time update mechanism related.
   std::vector<std::string> update_filters;  // Should be a regex for Kafka.
@@ -138,11 +140,12 @@ struct VolatileDatabaseParams {
       size_t num_partitions = std::min(16u, std::thread::hardware_concurrency()),
       size_t max_get_batch_size = 10'000, size_t max_set_batch_size = 10'000,
       // Overflow handling related.
+      bool refresh_time_after_fetch = false,
       size_t overflow_margin = std::numeric_limits<size_t>::max(),
       DatabaseOverflowPolicy_t overflow_policy = DatabaseOverflowPolicy_t::EvictOldest,
       double overflow_resolution_target = 0.8,
-      // Initialization related.
-      double initial_cache_rate = 1.0,
+      // Caching behavior related.
+      double initial_cache_rate = 1.0, bool cache_missed_embeddings = false,
       // Real-time update mechanism related.
       const std::vector<std::string>& update_filters = {".+"});
 

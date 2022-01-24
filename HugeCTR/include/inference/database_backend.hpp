@@ -18,14 +18,20 @@
 #include <functional>
 #include <inference/inference_utils.hpp>
 #include <string>
+#include <thread_pool.hpp>
 
 namespace HugeCTR {
+
+// TODO: Remove me!
+#pragma GCC diagnostic push
+#pragma GCC diagnostic error "-Wconversion"
 
 /**
  * Format of callback that is invoked by \p fetch methods of the \p DatabaseBackend if a key does
  * not exist.
  */
-using MissingKeyCallback = std::function<void(const size_t)>;
+using DatabaseMissCallback = std::function<void(size_t)>;
+using DatabaseHitCallback = std::function<void(size_t, const char*, size_t)>;
 
 /**
  * Base class for database backends. Implementations that inherit from this should override all
@@ -58,7 +64,19 @@ class DatabaseBackend {
    */
   virtual bool is_shared() const = 0;
 
-  virtual size_t max_capacity(const std::string& table_name) const = 0;
+  /**
+   * @return Maximum capacity of the table (if every partition would be fully populated).
+   */
+  virtual size_t capacity(const std::string& table_name) const = 0;
+
+  /**
+   * Determine the number of entries currently stored in the table. This might be the actual value
+   * current or past (if lock-free parallel updates are permitted) value, or just a rough
+   * approximation.
+   *
+   * @return Current amount of entries stored in the table (or -1 if unable to determine).
+   */
+  virtual size_t size(const std::string& table_name) const = 0;
 
   /**
    * Check whether a set of keys exists in the database.
@@ -99,14 +117,14 @@ class DatabaseBackend {
    * @param keys Pointer to the keys.
    * @param values Pointer to a preallocated memory area where the values will be stored.
    * @param value_size The size of each value in bytes.
-   * @param missing_callback A function that is called for every key that was not present in this
+   * @param on_miss A function that is called for every key that was not present in this
    * database.
    *
    * @return The number of keys that were successfully retrieved from this database. Will throw if
    * an recoverable error is encountered.
    */
   virtual size_t fetch(const std::string& table_name, size_t num_keys, const TKey* keys,
-                       char* values, size_t value_size, MissingKeyCallback& missing_callback) const;
+                       const DatabaseHitCallback& on_hit, const DatabaseMissCallback& on_miss);
 
   /**
    * Attempt to retrieve the stored value for a set of keys in the backing database. This variant
@@ -121,15 +139,15 @@ class DatabaseBackend {
    * function operates sparse and will only update values that correspond to \p keys referenced by
    * \p indices .
    * @param value_size The size of each value in bytes.
-   * @param missing_callback A function that is called for every key that was not present in this
+   * @param on_miss A function that is called for every key that was not present in this
    * database.
    *
    * @return The number of keys that were successfully retrieved from this database. Will throw if
    * an recoverable error is encountered.
    */
   virtual size_t fetch(const std::string& table_name, size_t num_indices, const size_t* indices,
-                       const TKey* keys, char* values, size_t value_size,
-                       MissingKeyCallback& missing_callback) const;
+                       const TKey* keys, const DatabaseHitCallback& on_hit,
+                       const DatabaseMissCallback& on_miss);
 
   /**
    * Attempt to remove a table and all associated values from the underlying database.
@@ -184,8 +202,8 @@ class VolatileBackend : public DatabaseBackend<TKey> {
  public:
   using TBase = DatabaseBackend<TKey>;
 
-  VolatileBackend(size_t overflow_margin, DatabaseOverflowPolicy_t overflow_policy,
-                  double overflow_resolution_target);
+  VolatileBackend(bool refresh_time_after_fetch, size_t overflow_margin,
+                  DatabaseOverflowPolicy_t overflow_policy, double overflow_resolution_target);
 
   VolatileBackend(const VolatileBackend&) = delete;
 
@@ -193,11 +211,34 @@ class VolatileBackend : public DatabaseBackend<TKey> {
 
   VolatileBackend& operator=(const VolatileBackend&) = delete;
 
+  /**
+   * Asynchronously inserts the provided keys/values into the database.
+   *
+   * @param table_name
+   * @param keys
+   * @param values
+   * @param value_size
+   */
+  std::future<void> insert_async(const std::string& table_name,
+                                 const std::shared_ptr<std::vector<TKey>>& keys,
+                                 const std::shared_ptr<std::vector<char>>& values,
+                                 size_t value_size);
+
+  /**
+   * Synchronize with the database (await background tasks)!
+   */
+  void synchronize();
+
  protected:
   // Overflow-handling / pruning related parameters.
+  const bool refresh_time_after_fetch_;
   const size_t overflow_margin_;
   const DatabaseOverflowPolicy_t overflow_policy_;
   const size_t overflow_resolution_target_;
+
+  // Worker used for asynchronours insertion, and other tasks that subclasses might want to apply
+  // asynchronously.
+  mutable ThreadPool background_worker_{"vol. db bg", 1};
 };
 
 template <typename TKey>
@@ -213,9 +254,12 @@ class PersistentBackend : public DatabaseBackend<TKey> {
 
   PersistentBackend& operator=(const PersistentBackend&) = delete;
 
-  size_t max_capacity(const std::string& table_name) const override final {
+  size_t capacity(const std::string& table_name) const override final {
     return std::numeric_limits<size_t>::max();
   }
 };
+
+// TODO: Remove me!
+#pragma GCC diagnostic pop
 
 }  // namespace HugeCTR
