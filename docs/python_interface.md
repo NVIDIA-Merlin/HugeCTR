@@ -1076,7 +1076,7 @@ hugectr.inference.CreateInferenceSession()
 ```bash
 hugectr.inference.InferenceSession.predict()
 ```
-The `predict` method of InferenceSession makes predictions based on the dataset of Norm or Parquet format. It returns the prediction results in the form of 1-D numpy array for the specified number of prediction batches. 
+The `predict` method of InferenceSession makes predictions based on the dataset of Norm or Parquet format. If `label_dim` is 1, it returns the prediction results in the form of 1-D numpy array of the shape `(max_batchsize*num_batches, )`. If `label_dim` is greater than 1, it will return the 2-D numpy array of the shape `(max_batchsize*num_batches, label_dim)`.
 
 **Arguments**
 * `num_batches`: Integer, the number of prediction batches.

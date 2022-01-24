@@ -315,24 +315,17 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
           CK_THROW_(Error_t::WrongInput, "bottom of CrossEntropyLoss must be two dim");
         }
         if (inference_flag) {
-          MESSAGE_("Inference stage skip CrossEntropyLoss layer, replaced by Sigmoid layer");
+          MESSAGE_("Inference stage skip CrossEntropyLoss layer, replaced by Softmax layer");
           if (use_mixed_precision) {
-            Tensor2<__half> sigmoid_in_tensor =
-                Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
-            Tensor2<__half> sigmoid_out_tensor;
-            blobs_buff->reserve(sigmoid_in_tensor.get_dimensions(), &sigmoid_out_tensor);
-            emplaceback_layer(
-                new SigmoidLayer<__half>(sigmoid_in_tensor, sigmoid_out_tensor, gpu_resource));
-            output_tensor_entries.push_back({"sigmoid", sigmoid_out_tensor.shrink()});
+            CK_THROW_(Error_t::WrongInput, "Softmax layer does not support fp16");
           } else {
-            // establish out tensor
-            Tensor2<float> sigmoid_in_tensor =
-                Tensor2<float>::stretch_from(input_output_info.inputs[0]);
-            Tensor2<float> sigmoid_out_tensor;
-            blobs_buff->reserve(sigmoid_in_tensor.get_dimensions(), &sigmoid_out_tensor);
+            Tensor2<float> in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
+            Tensor2<float> out_tensor;
+            blobs_buff->reserve(in_tensor.get_dimensions(), &out_tensor);
+            output_tensor_entries.push_back(
+                {input_output_info.output_names[0], out_tensor.shrink()});
             emplaceback_layer(
-                new SigmoidLayer<float>(sigmoid_in_tensor, sigmoid_out_tensor, gpu_resource));
-            output_tensor_entries.push_back({"sigmoid", sigmoid_out_tensor.shrink()});
+                new SoftmaxLayer<float>(in_tensor, out_tensor, blobs_buff, gpu_resource));
           }
           break;
         }
@@ -839,11 +832,16 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
         break;
       }
       case Layer_t::Softmax: {
-        Tensor2<float> in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
-        Tensor2<float> out_tensor;
-        blobs_buff->reserve(in_tensor.get_dimensions(), &out_tensor);
-        output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
-        emplaceback_layer(new SoftmaxLayer<float>(in_tensor, out_tensor, blobs_buff, gpu_resource));
+        if (use_mixed_precision) {
+          CK_THROW_(Error_t::WrongInput, "Softmax layer does not support fp16");
+        } else {
+          Tensor2<float> in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
+          Tensor2<float> out_tensor;
+          blobs_buff->reserve(in_tensor.get_dimensions(), &out_tensor);
+          output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
+          emplaceback_layer(
+              new SoftmaxLayer<float>(in_tensor, out_tensor, blobs_buff, gpu_resource));
+        }
         break;
       }
       case Layer_t::PReLU_Dice: {
