@@ -411,6 +411,21 @@ data_generator_single_node:
     DGXNNODES: 1
     TEST_CMD: ./ci/integration_test/data_generator/data_generator.sub
 
+#hdfs backend test
+hdfs_backend_test:
+  extends: .dlcluster_job
+  allow_failure: false
+  stage: test
+  needs:
+    - build_train_single_node
+  script:
+    - export CONT=${INFER_IMAGE_VERSIONED}
+    - srun -N 1 -p dgx1v32g,v100pcie32g bash ./ci/integration_test/hdfs/hdfs_backend_test.sh
+  rules:
+    - if: $CI_PIPELINE_SOURCE =~ /^(web|merge_request_event)$/
+      when: always
+    - when: never
+
 # # python interface single node
 py_single_node:
   extends: .cluster_test_job

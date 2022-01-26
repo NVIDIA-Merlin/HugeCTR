@@ -114,7 +114,8 @@ void ModelPybind(pybind11::module &m) {
       .def("fit", &HugeCTR::Model::fit, pybind11::arg("num_epochs") = 0,
            pybind11::arg("max_iter") = 2000, pybind11::arg("display") = 200,
            pybind11::arg("eval_interval") = 1000, pybind11::arg("snapshot") = 10000,
-           pybind11::arg("snapshot_prefix") = "")
+           pybind11::arg("snapshot_prefix") = "",
+           pybind11::arg("data_source_params") = new DataSourceParams())
       .def("set_source",
            pybind11::overload_cast<std::vector<std::string>, std::vector<std::string>, std::string>(
                &HugeCTR::Model::set_source),
@@ -206,7 +207,8 @@ void ModelPybind(pybind11::module &m) {
            })
       .def("dump_incremental_model_2kafka", &HugeCTR::Model::dump_incremental_model_2kafka)
       .def("save_params_to_files", &HugeCTR::Model::download_params_to_files,
-           pybind11::arg("prefix"), pybind11::arg("iter") = 0)
+           pybind11::arg("prefix"), pybind11::arg("iter") = 0,
+           pybind11::arg("data_source_params") = new DataSourceParams())
       .def("get_embedding_training_cache", &HugeCTR::Model::get_embedding_training_cache)
       .def("get_data_reader_train", &HugeCTR::Model::get_train_data_reader)
       .def("get_data_reader_eval", &HugeCTR::Model::get_evaluate_data_reader)

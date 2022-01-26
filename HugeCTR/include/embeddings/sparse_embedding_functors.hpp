@@ -17,6 +17,7 @@
 #pragma once
 #include "HugeCTR/include/embedding.hpp"
 #include "HugeCTR/include/hashtable/nv_hashtable.hpp"
+#include "HugeCTR/include/hdfs_backend.hpp"
 #include "HugeCTR/include/resource_manager.hpp"
 #include "HugeCTR/include/tensor2.hpp"
 namespace HugeCTR {
@@ -529,7 +530,8 @@ class SparseEmbeddingFunctors {
       Optimizer_t optimizer_type, size_t local_gpu_count);
 
   template <typename TypeEmbeddingComp>
-  void dump_opt_states(std::ofstream &stream, const ResourceManager &resource_manager,
+  void dump_opt_states(std::ofstream &stream, std::string &write_path,
+                       DataSourceParams data_source_params, const ResourceManager &resource_manager,
                        std::vector<Tensors2<TypeEmbeddingComp>> &opt_states);
   template <typename TypeEmbeddingComp>
   void load_opt_states(std::ifstream &stream, const ResourceManager &resource_manager,

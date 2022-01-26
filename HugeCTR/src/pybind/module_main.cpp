@@ -19,6 +19,7 @@
 #include <pybind/common_wrapper.hpp>
 #include <pybind/data_generator_wrapper.hpp>
 #include <pybind/data_reader_wrapper.hpp>
+#include <pybind/data_source_wrapper.hpp>
 #include <pybind/embedding_training_cache_wrapper.hpp>
 #include <pybind/inference_wrapper.hpp>
 #include <pybind/learning_rate_scheduler_wrapper.hpp>
@@ -32,6 +33,7 @@ PYBIND11_MODULE(hugectr, m) {
   m.doc() = "hugectr python interface";
   CommonPybind(m);
   DataGeneratorPybind(m);
+  DataSourcePybind(m);
   SolverPybind(m);
   DataReaderPybind(m);
   EmbeddingTrainingCachePybind(m);

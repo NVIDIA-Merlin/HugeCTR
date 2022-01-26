@@ -38,6 +38,7 @@
 #include "HugeCTR/include/embeddings/hybrid_embedding/model.hpp"
 #include "HugeCTR/include/embeddings/hybrid_embedding/statistics.hpp"
 #include "HugeCTR/include/embeddings/hybrid_embedding/utils.hpp"
+#include "HugeCTR/include/hdfs_backend.hpp"
 #include "HugeCTR/include/tensor2.hpp"
 
 using namespace HugeCTR::hybrid_embedding;
@@ -245,7 +246,8 @@ class HybridSparseEmbedding : public IEmbedding {
   void update_params() override;
   void init_params() override;
   void load_parameters(std::string sparse_model) override;
-  void dump_parameters(std::string sparse_model) const override;
+  void dump_parameters(std::string sparse_model,
+                       DataSourceParams data_source_params) const override;
   void set_learning_rate(float lr) override;
   // TODO: a workaround to enable GPU LR for HE only; need a better way
   GpuLearningRateSchedulers get_learning_rate_schedulers() const override;
@@ -259,7 +261,8 @@ class HybridSparseEmbedding : public IEmbedding {
   void load_parameters(BufferBag& keys, size_t num) override {}
   void dump_parameters(BufferBag& keys, size_t* num) const override {}
 
-  void dump_opt_states(std::ofstream& stream) override {}
+  void dump_opt_states(std::ofstream& stream, std::string sparse_model,
+                       DataSourceParams data_source_params) override {}
   void load_opt_states(std::ifstream& stream) override {}
   void reset_optimizer() override {}
   void reset() override {}
