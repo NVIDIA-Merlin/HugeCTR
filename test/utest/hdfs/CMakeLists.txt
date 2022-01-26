@@ -12,20 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
 cmake_minimum_required(VERSION 3.17)
-add_subdirectory(layers)
-add_subdirectory(data_reader)
-add_subdirectory(optimizer)
-add_subdirectory(loss)
-add_subdirectory(parser)
-add_subdirectory(regularizers)
-add_subdirectory(device_map)
-add_subdirectory(embedding)
-add_subdirectory(ib_comms)
-add_subdirectory(embedding_training_cache)
-add_subdirectory(checker)
-add_subdirectory(prims)
-add_subdirectory(metrics)
-add_subdirectory(misc)
-add_subdirectory(hdfs)
+set(DB_LIB_PATHS "/usr/local/lib" CACHE PATH "Paths to Hiredis/RocksDB lib")
+file (GLOB hdfs_backend_test_src
+  hdfs_backend_test.cpp
+)
+
+add_executable(hdfs_backend_test ${hdfs_backend_test_src})
+target_compile_features(hdfs_backend_test PUBLIC cxx_std_17)
+target_link_libraries(hdfs_backend_test PUBLIC huge_ctr_shared gtest gtest_main stdc++fs)

@@ -16,7 +16,6 @@
 
 #include "HugeCTR/include/embeddings/sparse_embedding_functors.hpp"
 #include "HugeCTR/include/utils.hpp"
-
 namespace HugeCTR {
 template <typename TypeEmbeddingComp>
 std::vector<Tensors2<TypeEmbeddingComp>> SparseEmbeddingFunctors::get_opt_states(
@@ -75,10 +74,11 @@ std::vector<Tensors2<TypeEmbeddingComp>> SparseEmbeddingFunctors::get_opt_states
 
 template <typename TypeEmbeddingComp>
 void SparseEmbeddingFunctors::dump_opt_states(
-    std::ofstream& stream, const ResourceManager& resource_manager,
-    std::vector<Tensors2<TypeEmbeddingComp>>& opt_states) {
+    std::ofstream& stream, std::string& write_path, DataSourceParams data_source_params,
+    const ResourceManager& resource_manager, std::vector<Tensors2<TypeEmbeddingComp>>& opt_states) {
   size_t local_gpu_count = resource_manager.get_local_gpu_count();
 
+  bool hdfs_append_flag = false;
   CudaDeviceContext context;
   for (auto& opt_state : opt_states) {
     size_t total_size = 0;
@@ -105,11 +105,20 @@ void SparseEmbeddingFunctors::dump_opt_states(
       offset += local_size;
     }
     sync_all_gpus(resource_manager);
-
     int pid = resource_manager.get_process_id();
     if (resource_manager.is_master_process()) {
       MESSAGE_("Rank" + std::to_string(pid) + ": Write optimzer state to file", true);
-      stream.write(h_opt_state.get(), total_size);
+      if (data_source_params.use_hdfs) {
+        HdfsService hs = HdfsService(data_source_params.namenode, data_source_params.port);
+        if (!hdfs_append_flag) {
+          hs.write(write_path, h_opt_state.get(), total_size, true);
+          hdfs_append_flag = true;
+        } else {
+          hs.write(write_path, h_opt_state.get(), total_size, false);
+        }
+      } else {
+        stream.write(h_opt_state.get(), total_size);
+      }
     }
 #ifdef ENABLE_MPI
     else {
@@ -131,10 +140,19 @@ void SparseEmbeddingFunctors::dump_opt_states(
         CK_MPI_THROW_(MPI_Get_count(&status, MPI_CHAR, &recv_size));
         CK_MPI_THROW_(MPI_Recv(h_opt_state.get(), recv_size, MPI_CHAR, r, tag, MPI_COMM_WORLD,
                                MPI_STATUS_IGNORE));
-        stream.write(h_opt_state.get(), recv_size);
+        if (data_source_params.use_hdfs) {
+          HdfsService hs = HdfsService(data_source_params.namenode, data_source_params.port);
+          if (!hdfs_append_flag) {
+            hs.write(write_path, h_opt_state.get(), recv_size, true);
+            hdfs_append_flag = true;
+          } else {
+            hs.write(write_path, h_opt_state.get(), recv_size, false);
+          }
+        } else {
+          stream.write(h_opt_state.get(), recv_size);
+        }
       }
     }
-
 #endif
     MESSAGE_("Done");
   }
@@ -241,12 +259,12 @@ template std::vector<Tensors2<__half>> SparseEmbeddingFunctors::get_opt_states(
     size_t local_gpu_count);
 
 template void SparseEmbeddingFunctors::dump_opt_states<float>(
-    std::ofstream& stream, const ResourceManager& resource_manager,
-    std::vector<Tensors2<float>>& opt_states);
+    std::ofstream& stream, std::string& write_path, DataSourceParams data_source_params,
+    const ResourceManager& resource_manager, std::vector<Tensors2<float>>& opt_states);
 
 template void SparseEmbeddingFunctors::dump_opt_states<__half>(
-    std::ofstream& stream, const ResourceManager& resource_manager,
-    std::vector<Tensors2<__half>>& opt_states);
+    std::ofstream& stream, std::string& write_path, DataSourceParams data_source_params,
+    const ResourceManager& resource_manager, std::vector<Tensors2<__half>>& opt_states);
 
 template void SparseEmbeddingFunctors::load_opt_states<float>(
     std::ifstream& stream, const ResourceManager& resource_manager,

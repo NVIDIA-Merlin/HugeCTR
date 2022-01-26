@@ -183,6 +183,22 @@ RUN apt-get update -y && \
     ./configure && make -j$(nproc) && make install && \
     rm -rf /var/tmp/librdkafka
 
+RUN mkdir -p /var/tmp && cd /var/tmp && wget https://download.java.net/java/GA/jdk16.0.2/d4a915d82b4c4fbb9bde534da945d746/7/GPL/openjdk-16.0.2_linux-x64_bin.tar.gz && \
+    mkdir -p /usr/java && tar -zxvf ./openjdk-16.0.2_linux-x64_bin.tar.gz -C /usr/java &&  \
+    rm -rf ./openjdk-16.0.2_linux-x64_bin.tar.gz
+
+#Intall libhdfs client
+RUN mkdir -p /var/tmp && cd /var/tmp && wget https://archive.apache.org/dist/hadoop/common/hadoop-3.3.1/hadoop-3.3.1.tar.gz && \
+    tar -zxvf ./hadoop-3.3.1.tar.gz && rm -rf hadoop-3.3.1.tar.gz && \
+    cp ./hadoop-3.3.1/lib/native/libhdfs.so.0.0.0 /usr/local/lib/ && cp hadoop-3.3.1/include/hdfs.h /usr/local/include/ && \
+    mv ./hadoop-3.3.1 /usr/local/hadoop && cd /usr/local/lib/ && ln -s libhdfs.so.0.0.0 libhdfs.so 
+
+ENV JAVA_HOME=/usr/java/jdk-16.0.2
+ENV PATH=$JAVA_HOME/bin:$PATH
+ENV LD_LIBRARY_PATH=$JAVA_HOME/lib/server
+ENV HADOOP_HOME=/usr/local/hadoop
+ENV PATH=$PATH:$HADOOP_HOME/bin:$HADOOP_HOME/sbin
+
 ENV CPATH=/usr/local/include:$CPATH
 
 ENV NCCL_LAUNCH_MODE=PARALLEL

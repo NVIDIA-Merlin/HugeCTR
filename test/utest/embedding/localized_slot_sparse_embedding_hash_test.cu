@@ -416,12 +416,12 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // create new obj for eval()
-  embedding->dump_parameters(sparse_model_file);
+  embedding->dump_parameters(sparse_model_file, DataSourceParams());
 
   {
     printf("Rank%d: embedding->dump_opt_states()\n", resource_manager->get_process_id());
     std::ofstream fs(opt_file_name);
-    embedding->dump_opt_states(fs);
+    embedding->dump_opt_states(fs, opt_file_name, DataSourceParams());
     fs.close();
   }
 
@@ -657,7 +657,7 @@ void load_and_dump(const std::vector<int> &device_list, const Optimizer_t &optim
          embedding->get_max_vocabulary_size(), embedding->get_vocabulary_size());
 
   std::string tmp_sparse_model_file{"tmp_sparse_model"};
-  embedding->dump_parameters(tmp_sparse_model_file);
+  embedding->dump_parameters(tmp_sparse_model_file, DataSourceParams());
 
   std::vector<T> hash_table_key_from_cpu;
   std::vector<size_t> slot_id_from_cpu;
@@ -795,7 +795,7 @@ void load_and_dump_file(const std::vector<int> &device_list, const Optimizer_t &
   }
 
   // dump sparse model to file
-  embedding->dump_parameters(sparse_model_dst);
+  embedding->dump_parameters(sparse_model_dst, DataSourceParams());
 
 #ifdef ENABLE_MPI
   MPI_Barrier(MPI_COMM_WORLD);
