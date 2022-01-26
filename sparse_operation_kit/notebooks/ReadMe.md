@@ -5,7 +5,7 @@ This directory contains a set of Jupyter Notebook demos for SparseOperationKit.
 Before trying the notebooks here, you have to follow [these instructions](../../notebooks/README.md#Quickstart) to prepare the operating environment. Summarized bellow:
 + Pull the NGC Docker
 ```shell
-$ docker pull nvcr.io/nvidia/merlin/merlin-tensorflow-training:22.01
+$ docker pull nvcr.io/nvidia/merlin/merlin-tensorflow-training:22.02
 ```
 + Clone the HugeCTR Repo
 ```shell
@@ -14,7 +14,7 @@ $ git clone https://github.com/NVIDIA/HugeCTR hugectr
 + Start the Jupyter Notebook
     - Launch the container in interactive mode and mount the HugeCTR root directory into the container for your convenience by running this command:
     ```shell
-    $ docker run --runtime=nvidia --rm -it -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr -p 8888:8888 nvcr.io/nvidia/merlin/merlin-tensorflow-training:22.01
+    $ docker run --runtime=nvidia --rm -it -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr -p 8888:8888 nvcr.io/nvidia/merlin/merlin-tensorflow-training:22.02
     ```
     - Start Jupyter using these commands:
     ```shell
