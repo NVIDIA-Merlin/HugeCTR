@@ -207,8 +207,8 @@ def compare_sok_and_tf(args):
 
     barrier = hvd.allreduce(tf.zeros([1]))
 
-    if args.task_id != 0:
-        return
+    # if args.task_id != 0:
+    #     return
 
     tf_results = test_tf_multi_dense_emb(args)
 
@@ -292,3 +292,7 @@ if __name__ == "__main__":
     tf.config.set_visible_devices(gpus[hvd.local_rank()], "GPU")
 
     compare_sok_and_tf(args)
+
+    # use these as a barrier
+    from mpi4py import MPI
+    MPI.COMM_WORLD.Barrier()
