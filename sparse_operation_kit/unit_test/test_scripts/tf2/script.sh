@@ -286,6 +286,9 @@ python3 prepare_dataset.py \
         --split_num=8 \
         --save_prefix="data_"
 
+# install mpi4py
+pip install mpi4py
+
 mpiexec -np 8 --allow-run-as-root \
         --oversubscribe \
         python3 test_multi_dense_emb_demo_model_mpi.py \
