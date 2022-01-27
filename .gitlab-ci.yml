@@ -9,58 +9,50 @@ include:
 nightly_build_train:
   extends: .build_nightly
   variables:
+    REMOTE_REPO: https://github.com/NVIDIA-Merlin/Merlin.git
     DST_IMAGE: ${IMAGE_TRAIN}
-    DOCKER_FILE: Dockerfile.train
-    BUILD_ARGS: --build-arg RELEASE=false
-    
-nightly_build_train_release:
-  extends: .build_nightly
-  variables:
-    DST_IMAGE: ${IMAGE_TRAIN}.release
-    DOCKER_FILE: Dockerfile.train
-    BUILD_ARGS: --build-arg RELEASE=true
+    DOCKER_FILE: dockerfile.ctr
+    BUILD_ARGS: --build-arg HUGECTR_DEV_MODE=true
   
 nightly_build_inference:
   extends: .build_nightly
   variables:
+    REMOTE_REPO: https://github.com/NVIDIA-Merlin/Merlin.git
     DST_IMAGE: ${IMAGE_INFER}
-    DOCKER_FILE: Dockerfile.inference
-    BUILD_ARGS: --build-arg RELEASE=false
-
+    DOCKER_FILE: dockerfile.tri
+    BUILD_ARGS: --build-arg HUGECTR_DEV_MODE=true
+  
 nightly_build_sok_tf2:
   extends: .build_nightly
   variables:
+    REMOTE_REPO: https://github.com/NVIDIA-Merlin/Merlin.git
     DST_IMAGE: ${IMAGE_SOK_TF2}
-    DOCKER_FILE: Dockerfile.tf-plugin
-    BUILD_ARGS: --build-arg RELEASE=false --build-arg IMAGE_VER=21.07-tf2-py3
-
+    DOCKER_FILE: dockerfile.tf
+    BUILD_ARGS: --build-arg HUGECTR_DEV_MODE=true
+  
 nightly_build_sok_tf1:
   extends: .build_nightly
   variables:
+    REMOTE_REPO: https://github.com/NVIDIA-Merlin/Merlin.git
     DST_IMAGE: ${IMAGE_SOK_TF1}
-    DOCKER_FILE: Dockerfile.tf-plugin
-    BUILD_ARGS: --build-arg RELEASE=false --build-arg IMAGE_VER=21.11-tf1-py3
-
+    DOCKER_FILE: dockerfile.tf
+    BUILD_ARGS: --build-arg HUGECTR_DEV_MODE=true --build-arg IMAGE=nvcr.io/nvidia/tensorflow:21.11-tf1-py3 --build-arg INSTALL_NVT=false
+  
 nightly_build_unified_container.ctr:
   extends: .build_nightly
   variables:
     REMOTE_REPO: https://github.com/NVIDIA-Merlin/Merlin.git
     DST_IMAGE: ${CI_REGISTRY}/dl/hugectr/hugectr:unified.ctr.latest
     DOCKER_FILE: dockerfile.ctr
-    BUILD_ARGS: --build-arg RELEASE=false --build-arg RMM_VER=vnightly --build-arg CUDF_VER=vnightly --build-arg NVTAB_VER=vnightly --build-arg HUGECTR_VER=vnightly
-    UNIFIED: 1
-  timeout: 5 hours
+    BUILD_ARGS: --build-arg _CI_JOB_TOKEN=${RD_CI_JOB_TOKEN} --build-arg _HUGECTR_REPO=gitlab-master.nvidia.com/dl/hugectr/hugectr.git --build-arg _HUGECTR_BRANCH=${CI_COMMIT_SHA}
   
-
 nightly_build_unified_container.tf:
   extends: .build_nightly
   variables:
     REMOTE_REPO: https://github.com/NVIDIA-Merlin/Merlin.git
     DST_IMAGE: ${CI_REGISTRY}/dl/hugectr/hugectr:unified.tf.latest
     DOCKER_FILE: dockerfile.tf
-    BUILD_ARGS: --build-arg RELEASE=false --build-arg RMM_VER=vnightly --build-arg CUDF_VER=vnightly --build-arg NVTAB_VER=vnightly --build-arg HUGECTR_VER=vnightly
-    UNIFIED: 1
-  timeout: 5 hours
+    BUILD_ARGS: --build-arg _CI_JOB_TOKEN=${RD_CI_JOB_TOKEN} --build-arg _HUGECTR_REPO=gitlab-master.nvidia.com/dl/hugectr/hugectr.git --build-arg _HUGECTR_BRANCH=${CI_COMMIT_SHA}
 
 nightly_build_unified_container.tri:
   extends: .build_nightly
@@ -68,9 +60,7 @@ nightly_build_unified_container.tri:
     REMOTE_REPO: https://github.com/NVIDIA-Merlin/Merlin.git
     DST_IMAGE: ${CI_REGISTRY}/dl/hugectr/hugectr:unified.tri.latest
     DOCKER_FILE: dockerfile.tri
-    BUILD_ARGS: --build-arg RELEASE=false --build-arg RMM_VER=vnightly --build-arg CUDF_VER=vnightly --build-arg NVTAB_VER=vnightly --build-arg HUGECTR_VER=vnightly
-    UNIFIED: 1
-  timeout: 5 hours
+    BUILD_ARGS: --build-arg _CI_JOB_TOKEN=${RD_CI_JOB_TOKEN} --build-arg _HUGECTR_REPO=gitlab-master.nvidia.com/dl/hugectr/hugectr.git --build-arg _HUGECTR_BRANCH=${CI_COMMIT_SHA} --build-arg _HUGECTR_BACKEND_REPO=gitlab-master.nvidia.com/dl/hugectr/hugectr_inference_backend.git --build-arg _HUGECTR_BACKEND_BRANCH=hugectr_performance_test
 
 ### Stage: build
 build_train_single_node:
