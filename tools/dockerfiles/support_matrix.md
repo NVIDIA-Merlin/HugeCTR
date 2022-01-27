@@ -1,6 +1,9 @@
 HugeCTR Support Matrix
 ----------------------
 
+**Note**: From v3.4, we don't provide standalone containers for HugeCTR development. Instead you will be able to develop HugeCTR with Merlin containers. Please find the how-to [here](../../docs/hugectr_contributor_guide.md). For the infromation of v3.3 and before please refer to the document below.
+
+-----------
 The tables below provide the software and model versions that HugeCTR supports for each container. We offer the following containers:
 
 * <a href="#md_cap_train">Dockerfile.train</a>
