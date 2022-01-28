@@ -15,10 +15,12 @@
 """
 
 import sys, os
-import sparse_operation_kit
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                              "../../unit_test/test_scripts/tf2/")))
 from utils import *
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                             "DenseDemo/")))
+from models import SOKDenseDemo
 
 def TFDataset(filename, batchsize, as_sparse_tensor, repeat=1):
     samples, labels = restore_from_file(filename)
@@ -31,39 +33,23 @@ def TFDataset(filename, batchsize, as_sparse_tensor, repeat=1):
     return dataset
 
 
-def test_DALI():
-    from nvidia.dali import pipeline_def, Pipeline
-    import nvidia.dali.fn as fn
-    import nvidia.dali.types as types
-    import nvidia.dali.plugin.tf as dali_tf
-    import numpy as np
-    
-    @pipeline_def(device_id=0)
-    def data_pipeline():
-        # samples, labels = restore_from_file(r"./data.file")
-        samples = np.ones(shape=(100, 10), dtype=np.int64)
-        labels = np.ones(shape=(1,), dtype=np.float32)
-        return types.Constant(value=samples, dtype=types.DALIDataType.INT64, device='cpu'),\
-               types.Constant(value=labels, dtype=types.DALIDataType.FLOAT, device='cpu')
-
-    pipeline = data_pipeline()
-    
-    dataset = dali_tf.DALIDataset(pipeline=pipeline,
-                                  batch_size=2,
-                                  output_shapes=((2, 100, 10), (2, 1)),
-                                  output_dtypes=(tf.int64, tf.int32),
-                                  device_id=0)
-
-    for i, (keys, labels) in enumerate(dataset):
-        print("Iter: {}, keys: {}, labels: {}".format(i, keys, labels))
-        break
-
-if __name__ == "__main__":
-    # dataset = TFDataset(filename=r"./datas.file",
-    #                     batchsize=2,
-    #                     as_sparse_tensor=False)
-
-    # for i, (keys, labels) in enumerate(dataset):
-    #     print("iteration: {}, keys={}, labels={}".format(i, keys.shape, labels.shape))
-    #     break
-    test_DALI()
+def get_dataset(global_batch_size,
+                read_batchsize,
+                iter_num=10,
+                vocabulary_size=1024,
+                slot_num=10,
+                max_nnz=5,
+                use_sparse_mask=False,
+                repeat=1):
+    random_samples, ramdom_labels = generate_random_samples(
+                                num_of_samples=global_batch_size * iter_num,
+                                vocabulary_size=vocabulary_size,
+                                slot_num=slot_num,
+                                max_nnz=max_nnz,
+                                use_sparse_mask=use_sparse_mask)
+    dataset = tf_dataset(keys=random_samples, 
+                        labels=ramdom_labels,
+                        batchsize=read_batchsize,
+                        to_sparse_tensor=use_sparse_mask,
+                        repeat=repeat)
+    return dataset

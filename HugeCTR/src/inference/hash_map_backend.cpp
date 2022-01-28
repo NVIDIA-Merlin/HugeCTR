@@ -22,13 +22,18 @@
 #include <inference/hash_map_backend.hpp>
 #include <random>
 
+// TODO: Remove me!
+#pragma GCC diagnostic error "-Wconversion"
+
 namespace HugeCTR {
 
 template <typename TPartition>
-HashMapBackendBase<TPartition>::HashMapBackendBase(const size_t overflow_margin,
+HashMapBackendBase<TPartition>::HashMapBackendBase(const bool refresh_time_after_fetch,
+                                                   const size_t overflow_margin,
                                                    const DatabaseOverflowPolicy_t overflow_policy,
                                                    const double overflow_resolution_target)
-    : TBase(overflow_margin, overflow_policy, overflow_resolution_target) {}
+    : TBase(refresh_time_after_fetch, overflow_margin, overflow_policy,
+            overflow_resolution_target) {}
 
 template <typename TPartition>
 void HashMapBackendBase<TPartition>::resolve_overflow_(const std::string& table_name,
@@ -44,16 +49,12 @@ void HashMapBackendBase<TPartition>::resolve_overflow_(const std::string& table_
     return;
   }
 
-  const size_t value_time_size = value_size + sizeof(time_t);
-
   if (this->overflow_policy_ == DatabaseOverflowPolicy_t::EvictOldest) {
     // Fetch keys and insert times.
     std::vector<std::pair<TKey, time_t>> keys_times;
     keys_times.reserve(part.size());
     for (const auto& pair : part) {
-      HCTR_CHECK_HINT(pair.second.size() == value_time_size, "Value size mismatch!");
-      keys_times.emplace_back(pair.first,
-                              *reinterpret_cast<const time_t*>(&pair.second[value_size]));
+      keys_times.emplace_back(pair.first, pair.second.time);
     }
 
     // Sort by ascending by time.
@@ -75,8 +76,8 @@ void HashMapBackendBase<TPartition>::resolve_overflow_(const std::string& table_
     // Fetch all keys.
     std::vector<TKey> keys;
     keys.reserve(part.size());
-    for (const auto& kt : part) {
-      keys.emplace_back(kt.first);
+    for (const auto& pair : part) {
+      keys.emplace_back(pair.first);
     }
 
     // Shuffle the keys.
@@ -91,8 +92,9 @@ void HashMapBackendBase<TPartition>::resolve_overflow_(const std::string& table_
              this->get_name(), table_name.c_str(), part_idx, part.size(), this->overflow_margin_,
              evict_amount);
 
-    for (const auto& k : keys) {
-      part.erase(k);
+    const auto& keys_end = keys.begin() + evict_amount;
+    for (auto k = keys.begin(); k != keys_end; k++) {
+      part.erase(*k);
     }
   } else {
     HCTR_LOG(WARNING, WORLD,
@@ -106,15 +108,12 @@ void HashMapBackendBase<TPartition>::resolve_overflow_(const std::string& table_
 #ifdef HCTR_HASH_MAP_BACKEND_INSERT_
 #error HCTR_HASH_MAP_BACKEND_INSERT_ already defined. Potential naming conflict!
 #else
-#define HCTR_HASH_MAP_BACKEND_INSERT_(KEY, VALUES_PTR)                                       \
-  do {                                                                                       \
-    const auto& it = part.try_emplace((KEY), value_time_size).first;                         \
-    HCTR_CHECK_HINT(it->second.size() == value_time_size, "Value size mismatch (%d <> %d)!", \
-                    it->second.size(), value_time_size);                                     \
-                                                                                             \
-    memcpy(&it->second[0], (VALUES_PTR), value_size);                                        \
-    memcpy(&it->second[value_size], &now_time, sizeof(time_t));                              \
-    num_inserts++;                                                                           \
+#define HCTR_HASH_MAP_BACKEND_INSERT_(KEY, VALUES_PTR)                \
+  do {                                                                \
+    HashMapBackendData& data = part.try_emplace((KEY)).first->second; \
+    data.time = now;                                                  \
+    data.bits.assign((VALUES_PTR), &(VALUES_PTR)[value_size]);        \
+    num_inserts++;                                                    \
   } while (0)
 #endif
 
@@ -125,22 +124,41 @@ void HashMapBackendBase<TPartition>::resolve_overflow_(const std::string& table_
   do {                                                                                         \
     const auto& it = part.find((KEY));                                                         \
     if (it != part.end()) {                                                                    \
-      HCTR_CHECK_HINT(it->second.size() == value_time_size, "Value size mismatch (%d <> %d)!", \
-                      it->second.size(), value_time_size);                                     \
-      memcpy(&values[(INDEX)*value_size], it->second.data(), value_size);                      \
+      HashMapBackendData& data = it->second;                                                   \
+      if (this->refresh_time_after_fetch_) {                                                   \
+        /* Race-conditions here are deliberately ignored because insignificant in practice. */ \
+        data.time = now;                                                                       \
+      }                                                                                        \
+      on_hit((INDEX), data.bits.data(), data.bits.size());                                     \
       hit_count++;                                                                             \
     } else {                                                                                   \
-      missing_callback((INDEX));                                                               \
+      on_miss((INDEX));                                                                        \
     }                                                                                          \
   } while (0)
 #endif
 
 template <typename TPartition>
-HashMapBackend<TPartition>::HashMapBackend(const size_t overflow_margin,
+HashMapBackend<TPartition>::HashMapBackend(const bool refresh_time_after_fetch,
+                                           const size_t overflow_margin,
                                            const DatabaseOverflowPolicy_t overflow_policy,
                                            const double overflow_resolution_target)
-    : TBase(overflow_margin, overflow_policy, overflow_resolution_target) {
-  HCTR_LOG(INFO, WORLD, "Created blank database backend in local memory!\n");
+    : TBase(refresh_time_after_fetch, overflow_margin, overflow_policy,
+            overflow_resolution_target) {
+  HCTR_LOG_S(INFO, WORLD) << "Created blank database backend in local memory!" << std::endl;
+}
+
+template <typename TPartition>
+size_t HashMapBackend<TPartition>::size(const std::string& table_name) const {
+  std::shared_lock lock(this->read_write_guard_);
+
+  // Locate the partition.
+  const auto& tables_it = tables_.find(table_name);
+  if (tables_it == tables_.end()) {
+    return 0;
+  }
+  const TPartition& part = tables_it->second;
+
+  return part.size();
 }
 
 template <typename TPartition>
@@ -178,8 +196,7 @@ bool HashMapBackend<TPartition>::insert(const std::string& table_name, const siz
   const auto& table_it = tables_.try_emplace(table_name).first;
   TPartition& part = table_it->second;
 
-  const size_t value_time_size = value_size + sizeof(time_t);
-  const time_t now_time = time(nullptr);
+  const std::time_t now = std::time(nullptr);
   size_t num_inserts = 0;
   const TKey* const keys_end = &keys[num_pairs];
 
@@ -199,19 +216,18 @@ bool HashMapBackend<TPartition>::insert(const std::string& table_name, const siz
 
 template <typename TPartition>
 size_t HashMapBackend<TPartition>::fetch(const std::string& table_name, const size_t num_keys,
-                                         const TKey* const keys, char* const values,
-                                         const size_t value_size,
-                                         MissingKeyCallback& missing_callback) const {
+                                         const TKey* const keys, const DatabaseHitCallback& on_hit,
+                                         const DatabaseMissCallback& on_miss) {
   std::shared_lock lock(this->read_write_guard_);
 
   // Locate the partition.
   const auto& tables_it = tables_.find(table_name);
   if (tables_it == tables_.end()) {
-    return TBase::fetch(table_name, num_keys, keys, values, value_size, missing_callback);
+    return TBase::fetch(table_name, num_keys, keys, on_hit, on_miss);
   }
-  const TPartition& part = tables_it->second;
+  TPartition& part = tables_it->second;
 
-  const size_t value_time_size = value_size + sizeof(time_t);
+  const time_t now = std::time(nullptr);
   size_t hit_count = 0;
   const TKey* const keys_end = &keys[num_keys];
 
@@ -228,23 +244,22 @@ size_t HashMapBackend<TPartition>::fetch(const std::string& table_name, const si
 template <typename TPartition>
 size_t HashMapBackend<TPartition>::fetch(const std::string& table_name, const size_t num_indices,
                                          const size_t* indices, const TKey* const keys,
-                                         char* const values, const size_t value_size,
-                                         MissingKeyCallback& missing_callback) const {
+                                         const DatabaseHitCallback& on_hit,
+                                         const DatabaseMissCallback& on_miss) {
   std::shared_lock lock(this->read_write_guard_);
 
   // Locate the partition.
   const auto& tables_it = tables_.find(table_name);
   if (tables_it == tables_.end()) {
-    return TBase::fetch(table_name, num_indices, indices, keys, values, value_size,
-                        missing_callback);
+    return TBase::fetch(table_name, num_indices, indices, keys, on_hit, on_miss);
   }
-  const TPartition& part = tables_it->second;
+  TPartition& part = tables_it->second;
 
-  const size_t value_time_size = value_size + sizeof(time_t);
+  const time_t now = std::time(nullptr);
   size_t hit_count = 0;
+  const size_t* const indices_end = &indices[num_indices];
 
   // Traverse through indices, lookup the keys, and fetch them one by one.
-  const size_t* const indices_end = &indices[num_indices];
   for (; indices != indices_end; indices++) {
     HCTR_HASH_MAP_BACKEND_FETCH_(keys[*indices], *indices);
   }
@@ -306,16 +321,34 @@ template class HCTR_DB_HASH_MAP_PHM_(HashMapBackend, long long);
 
 template <typename TPartition>
 ParallelHashMapBackend<TPartition>::ParallelHashMapBackend(
-    const size_t num_partitions, const size_t overflow_margin,
+    const size_t num_partitions, const bool refresh_time_after_fetch, const size_t overflow_margin,
     const DatabaseOverflowPolicy_t overflow_policy, const double overflow_resolution_target)
-    : TBase(overflow_margin, overflow_policy, overflow_resolution_target),
+    : TBase(refresh_time_after_fetch, overflow_margin, overflow_policy, overflow_resolution_target),
       num_partitions_(num_partitions) {
   HCTR_CHECK_HINT(num_partitions_ >= 1, "Number of partitions (%d) must be 1 or higher!",
                   num_partitions_);
 
-  HCTR_LOG(INFO, WORLD,
-           "Created parallel (%d partitions) blank database backend in local memory!\n",
-           num_partitions_);
+  HCTR_LOG_S(INFO, WORLD) << "Created parallel (" << num_partitions_
+                          << " partitions) blank database backend in local memory!" << std::endl;
+}
+
+template <typename TPartition>
+size_t ParallelHashMapBackend<TPartition>::size(const std::string& table_name) const {
+  std::shared_lock lock(this->read_write_guard_);
+
+  // Locate the partitions.
+  const auto& tables_it = tables_.find(table_name);
+  if (tables_it == tables_.end()) {
+    return 0;
+  }
+  const std::vector<TPartition>& parts = tables_it->second;
+  HCTR_CHECK(parts.size() == num_partitions_);
+
+  size_t num_keys = 0;
+  for (const TPartition& part : parts) {
+    num_keys += part.size();
+  }
+  return num_keys;
 }
 
 template <typename TPartition>
@@ -373,8 +406,7 @@ bool ParallelHashMapBackend<TPartition>::insert(const std::string& table_name,
   std::vector<TPartition>& parts = tables_it->second;
   HCTR_CHECK(parts.size() == num_partitions_);
 
-  const size_t value_time_size = value_size + sizeof(time_t);
-  const time_t now_time = time(nullptr);
+  const time_t now = std::time(nullptr);
   size_t num_inserts;
   const TKey* const keys_end = &keys[num_pairs];
 
@@ -417,19 +449,19 @@ bool ParallelHashMapBackend<TPartition>::insert(const std::string& table_name,
 template <typename TPartition>
 size_t ParallelHashMapBackend<TPartition>::fetch(const std::string& table_name,
                                                  const size_t num_keys, const TKey* const keys,
-                                                 char* const values, const size_t value_size,
-                                                 MissingKeyCallback& missing_callback) const {
+                                                 const DatabaseHitCallback& on_hit,
+                                                 const DatabaseMissCallback& on_miss) {
   std::shared_lock lock(this->read_write_guard_);
 
   // Locate the partitions.
   const auto& tables_it = tables_.find(table_name);
   if (tables_it == tables_.end()) {
-    return TBase::fetch(table_name, num_keys, keys, values, value_size, missing_callback);
+    return TBase::fetch(table_name, num_keys, keys, on_hit, on_miss);
   }
-  const std::vector<TPartition>& parts = tables_it->second;
+  std::vector<TPartition>& parts = tables_it->second;
   HCTR_CHECK(parts.size() == num_partitions_);
 
-  const size_t value_time_size = value_size + sizeof(time_t);
+  const time_t now = std::time(nullptr);
   size_t hit_count;
   const TKey* const keys_end = &keys[num_keys];
 
@@ -438,12 +470,12 @@ size_t ParallelHashMapBackend<TPartition>::fetch(const std::string& table_name,
     hit_count = 0;
     for (const TKey* k = keys; k != keys_end; k++) {
       const size_t part_idx = *k % num_partitions_;
-      const TPartition& part = parts[part_idx];
+      TPartition& part = parts[part_idx];
       HCTR_HASH_MAP_BACKEND_FETCH_(*k, k - keys);
     }
   } else {
     std::atomic<size_t> joint_hit_count(0);
-    std::for_each(std::execution::par, parts.begin(), parts.end(), [&](const TPartition& part) {
+    std::for_each(std::execution::par, parts.begin(), parts.end(), [&](TPartition& part) {
       const size_t part_idx = &part - &parts[0];
 
       size_t hit_count = 0;
@@ -466,21 +498,20 @@ template <typename TPartition>
 size_t ParallelHashMapBackend<TPartition>::fetch(const std::string& table_name,
                                                  const size_t num_indices,
                                                  const size_t* const indices,
-                                                 const TKey* const keys, char* const values,
-                                                 const size_t value_size,
-                                                 MissingKeyCallback& missing_callback) const {
+                                                 const TKey* const keys,
+                                                 const DatabaseHitCallback& on_hit,
+                                                 const DatabaseMissCallback& on_miss) {
   std::shared_lock lock(this->read_write_guard_);
 
   // Locate the partitions.
   const auto& tables_it = tables_.find(table_name);
   if (tables_it == tables_.end()) {
-    return TBase::fetch(table_name, num_indices, indices, keys, values, value_size,
-                        missing_callback);
+    return TBase::fetch(table_name, num_indices, indices, keys, on_hit, on_miss);
   }
-  const std::vector<TPartition>& parts = tables_it->second;
+  std::vector<TPartition>& parts = tables_it->second;
   HCTR_CHECK(parts.size() == num_partitions_);
 
-  const size_t value_time_size = value_size + sizeof(time_t);
+  const time_t now = std::time(nullptr);
   size_t hit_count;
   const size_t* const indices_end = &indices[num_indices];
 
@@ -489,12 +520,12 @@ size_t ParallelHashMapBackend<TPartition>::fetch(const std::string& table_name,
     hit_count = 0;
     for (const size_t* i = indices; i != indices_end; i++) {
       const TKey& k = keys[*i];
-      const TPartition& part = parts[k % num_partitions_];
+      TPartition& part = parts[k % num_partitions_];
       HCTR_HASH_MAP_BACKEND_FETCH_(k, *i);
     }
   } else {
     std::atomic<size_t> joint_hit_count(0);
-    std::for_each(std::execution::par, parts.begin(), parts.end(), [&](const TPartition& part) {
+    std::for_each(std::execution::par, parts.begin(), parts.end(), [&](TPartition& part) {
       const size_t part_idx = &part - &parts[0];
 
       size_t hit_count = 0;

@@ -31,8 +31,9 @@ REGISTER_OP("AssignEmbeddingVariable")
     .Attr("trainable: bool = true")
     .Attr("shape: shape")
     .Attr("use_hashtable: bool = true")
-    .Attr("dtype: {float}")
+    .Attr("dtype: type")
     .Attr("init_dtype: {float, string}")
+    .Attr("key_dtype: {uint32, int64} = DT_INT64")
     .SetShapeFn([](InferenceContext* c) {
       std::vector<ShapeAndType> handle_shape_and_type;
       TF_RETURN_IF_ERROR(

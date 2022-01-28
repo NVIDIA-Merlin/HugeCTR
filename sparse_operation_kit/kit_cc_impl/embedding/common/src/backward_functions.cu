@@ -21,11 +21,11 @@
 
 namespace SparseOperationKit {
 
-template <typename TypeKey>
+template <typename TypeKey, typename TypeEmbeddingComp>
 __global__ void expand_input_grad_kernel(const size_t global_batch_size, const size_t slot_num,
                                          const size_t embedding_vec_size,
-                                         const TypeKey *replica_row_offset, const float *wgrad,
-                                         float *replica_input_grad) {
+                                         const TypeKey *replica_row_offset, const TypeEmbeddingComp *wgrad,
+                                         TypeEmbeddingComp *replica_input_grad) {
   size_t bid = blockIdx.x;   // each block corresponding to one sample
   size_t tid = threadIdx.x;  // each thread corresponding to one element in the wgrad
 
@@ -45,10 +45,10 @@ __global__ void expand_input_grad_kernel(const size_t global_batch_size, const s
   }    // if bid < global_batch_size && tid < embedding_vec_size
 }
 
-template <typename TypeKey>
+template <typename TypeKey, typename TypeEmbeddingComp>
 void expand_input_grad(const size_t global_batch_size, const size_t slot_num,
                        const size_t embedding_vec_size, const TypeKey *replica_row_offset,
-                       const float *wgrad, float *replica_input_grad, cudaStream_t stream) {
+                       const TypeEmbeddingComp *wgrad, TypeEmbeddingComp *replica_input_grad, cudaStream_t stream) {
   const size_t grid_size = global_batch_size;
   const size_t block_size = embedding_vec_size;
   expand_input_grad_kernel<<<grid_size, block_size, 0, stream>>>(
@@ -59,6 +59,9 @@ void expand_input_grad(const size_t global_batch_size, const size_t slot_num,
 template void expand_input_grad(const size_t global_batch_size, const size_t slot_num,
                                 const size_t embedding_vec_size, const int64_t *replica_row_offset,
                                 const float *wgrad, float *replica_input_grad, cudaStream_t stream);
+template void expand_input_grad(const size_t global_batch_size, const size_t slot_num,
+                                const size_t embedding_vec_size, const int64_t *replica_row_offset,
+                                const __half *wgrad, __half *replica_input_grad, cudaStream_t stream);
 
 template <typename TypeEmbeddingComp>
 void backward_sum(size_t batch_size, size_t slot_num, size_t embedding_vec_size,
@@ -69,6 +72,8 @@ void backward_sum(size_t batch_size, size_t slot_num, size_t embedding_vec_size,
 
 template void backward_sum(size_t batch_size, size_t slot_num, size_t embedding_vec_size,
                            const float *top_grad, float *wgrad, cudaStream_t stream);
+template void backward_sum(size_t batch_size, size_t slot_num, size_t embedding_vec_size,
+                           const __half *top_grad, __half *wgrad, cudaStream_t stream);
 
 template <typename TypeKey, typename TypeEmbeddingComp>
 void backward_mean(size_t batch_size, size_t slot_size, size_t embedding_vec_size,
@@ -80,6 +85,9 @@ void backward_mean(size_t batch_size, size_t slot_size, size_t embedding_vec_siz
 
 template void backward_mean(size_t batch_size, size_t slot_size, size_t embedding_vec_size,
                             const int64_t *row_offset, const float *top_grad, float *wgrad,
+                            cudaStream_t stream);
+template void backward_mean(size_t batch_size, size_t slot_size, size_t embedding_vec_size,
+                            const int64_t *row_offset, const __half *top_grad, __half *wgrad,
                             cudaStream_t stream);
 
 }  // namespace SparseOperationKit

@@ -36,10 +36,15 @@ If you'd like to quickly train a model using the Python interface, do the follow
 
 1. Start a NGC container with your local host directory (/your/host/dir mounted) by running the following command:
    ```
-   docker run --gpus=all --rm -it --cap-add SYS_NICE -v /your/host/dir:/your/container/dir -w /your/container/dir -it -u $(id -u):$(id -g) nvcr.io/nvidia/merlin/merlin-training:22.01
+   docker run --gpus=all --rm -it --cap-add SYS_NICE -v /your/host/dir:/your/container/dir -w /your/container/dir -it -u $(id -u):$(id -g) nvcr.io/nvidia/merlin/merlin-training:22.02
    ```
 
    **NOTE**: The **/your/host/dir** directory is just as visible as the **/your/container/dir** directory. The **/your/host/dir** directory is also your starting directory.
+   
+   **NOTE**: HugeCTR uses NCCL to share data between ranks, and NCCL may requires shared memory for IPC and pinned (page-locked) system memory resources. It is recommended that you increase these resources by issuing the following options in the `docker run` command.
+   ```text
+   -shm-size=1g -ulimit memlock=-1
+   ```
 
 2. Write a simple Python script to generate a synthetic dataset:
    ```

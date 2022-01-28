@@ -60,8 +60,8 @@
 namespace HugeCTR {
 
 #define HUGECTR_VERSION_MAJOR 3
-#define HUGECTR_VERSION_MINOR 3
-#define HUGECTR_VERSION_PATCH 1
+#define HUGECTR_VERSION_MINOR 4
+#define HUGECTR_VERSION_PATCH 0
 
 #define WARP_SIZE 32
 
@@ -155,7 +155,6 @@ enum class Layer_t {
   ReduceSum,
   MultiCross,
   Cast,
-  DotProduct,
   ElementwiseMultiply
 };
 

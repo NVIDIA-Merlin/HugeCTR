@@ -19,14 +19,11 @@
 #include <algorithm>
 #include <data_readers/async_reader/async_reader_adapter.hpp>
 #include <embeddings/hybrid_sparse_embedding.hpp>
-#include <experimental/filesystem>
 #include <fstream>
 #include <iomanip>
 #include <iterator>
 #include <pybind/model.hpp>
 #include <sstream>
-
-namespace fs = std::experimental::filesystem;
 
 namespace HugeCTR {
 
@@ -103,7 +100,7 @@ template <typename TypeKey>
 auto load_key_files(std::vector<std::string> const& key_files) {
   std::vector<TypeKey> keys_vec;
   for (auto const& key_file : key_files) {
-    auto key_file_size = fs::file_size(key_file);
+    auto key_file_size = std::filesystem::file_size(key_file);
     auto num_new_keys = key_file_size / sizeof(TypeKey);
     std::ifstream key_fs(key_file, std::ifstream::binary);
     if (!key_fs.is_open()) {
@@ -1127,7 +1124,7 @@ void Model::set_source(std::string source, std::string eval_source) {
 }
 
 void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, int snapshot,
-                std::string snapshot_prefix) {
+                std::string snapshot_prefix, DataSourceParams data_source_params) {
   if (!buff_allocated_) {
     CK_THROW_(Error_t::IllegalCall,
               "Cannot start the training process before calling Model.compile()");
@@ -1278,7 +1275,7 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
                    " iters: " + std::to_string(timer_eval.elapsedSeconds()) + "s");
         }
         if (snapshot > 0 && iter % snapshot == 0 && iter != 0) {
-          this->download_params_to_files(snapshot_prefix, iter);
+          this->download_params_to_files(snapshot_prefix, iter, data_source_params);
         }
         iter++;
       } while (data_reader_train_status_);
@@ -1439,7 +1436,7 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
                  " iters: " + std::to_string(timer_eval.elapsedSeconds()) + "s");
       }
       if (snapshot > 0 && iter % snapshot == 0 && iter != 0) {
-        this->download_params_to_files(snapshot_prefix, iter);
+        this->download_params_to_files(snapshot_prefix, iter, data_source_params);
       }
     }  // end for iter
 
@@ -1776,8 +1773,10 @@ Error_t Model::export_predictions(const std::string& output_prediction_file_name
     const size_t local_gpu_count = resource_manager_->get_local_gpu_count();
     size_t batchsize_eval_per_gpu = solver_.batchsize_eval / global_gpu_count;
     size_t total_prediction_count = batchsize_eval_per_gpu * local_gpu_count;
-    std::unique_ptr<float[]> local_prediction_result(new float[total_prediction_count]);
-    std::unique_ptr<float[]> local_label_result(new float[total_prediction_count]);
+    std::unique_ptr<float[]> local_prediction_result(
+        new float[total_prediction_count * input_params_[0].label_dim]);
+    std::unique_ptr<float[]> local_label_result(
+        new float[total_prediction_count * input_params_[0].label_dim]);
 
     for (unsigned int i = 0; i < networks_.size(); ++i) {
       int gpu_id = local_gpu_device_id_list[i];
@@ -1785,10 +1784,12 @@ Error_t Model::export_predictions(const std::string& output_prediction_file_name
 
       get_raw_metric_as_host_float_tensor(
           networks_[i]->get_raw_metrics(), metrics::RawType::Pred, solver_.use_mixed_precision,
-          local_prediction_result.get() + batchsize_eval_per_gpu * i, batchsize_eval_per_gpu);
+          local_prediction_result.get() + batchsize_eval_per_gpu * input_params_[0].label_dim * i,
+          batchsize_eval_per_gpu * input_params_[0].label_dim);
       get_raw_metric_as_host_float_tensor(
           networks_[i]->get_raw_metrics(), metrics::RawType::Label, false,
-          local_label_result.get() + batchsize_eval_per_gpu * i, batchsize_eval_per_gpu);
+          local_label_result.get() + batchsize_eval_per_gpu * input_params_[0].label_dim * i,
+          batchsize_eval_per_gpu * input_params_[0].label_dim);
     }
 
     std::unique_ptr<float[]> global_prediction_result;
@@ -1802,15 +1803,18 @@ Error_t Model::export_predictions(const std::string& output_prediction_file_name
     if (numprocs > 1) {
 #ifdef ENABLE_MPI
       if (pid == 0) {
-        global_prediction_result.reset(new float[solver_.batchsize_eval]);
-        global_label_result.reset(new float[solver_.batchsize_eval]);
+        global_prediction_result.reset(
+            new float[solver_.batchsize_eval * input_params_[0].label_dim]);
+        global_label_result.reset(new float[solver_.batchsize_eval * input_params_[0].label_dim]);
       }
-      CK_MPI_THROW_(MPI_Gather(local_prediction_result.get(), total_prediction_count, MPI_FLOAT,
-                               global_prediction_result.get(), total_prediction_count, MPI_FLOAT, 0,
-                               MPI_COMM_WORLD));
-      CK_MPI_THROW_(MPI_Gather(local_label_result.get(), total_prediction_count, MPI_FLOAT,
-                               global_label_result.get(), total_prediction_count, MPI_FLOAT, 0,
-                               MPI_COMM_WORLD));
+      CK_MPI_THROW_(MPI_Gather(
+          local_prediction_result.get(), total_prediction_count * input_params_[0].label_dim,
+          MPI_FLOAT, global_prediction_result.get(),
+          total_prediction_count * input_params_[0].label_dim, MPI_FLOAT, 0, MPI_COMM_WORLD));
+      CK_MPI_THROW_(MPI_Gather(
+          local_label_result.get(), total_prediction_count * input_params_[0].label_dim, MPI_FLOAT,
+          global_label_result.get(), total_prediction_count * input_params_[0].label_dim, MPI_FLOAT,
+          0, MPI_COMM_WORLD));
 #endif
     } else {
       global_prediction_result = std::move(local_prediction_result);
@@ -1829,8 +1833,9 @@ Error_t Model::export_predictions(const std::string& output_prediction_file_name
         output_stream.close();
       };
       write_func(output_prediction_file_name, global_prediction_result.get(),
-                 current_eval_batchsize_);
-      write_func(output_label_file_name, global_label_result.get(), current_eval_batchsize_);
+                 current_eval_batchsize_ * input_params_[0].label_dim);
+      write_func(output_label_file_name, global_label_result.get(),
+                 current_eval_batchsize_ * input_params_[0].label_dim);
     }
   } catch (const internal_runtime_error& rt_err) {
     Logger::print_exception(rt_err, 0);
@@ -1877,24 +1882,35 @@ Error_t Model::get_current_loss(float* loss) {
   return Error_t::Success;
 }
 
-Error_t Model::download_params_to_files(std::string prefix, int iter) {
-  std::string snapshot_dense_name = prefix + "_dense_" + std::to_string(iter) + ".model";
-  std::string snapshot_dense_opt_name = prefix + "_opt_dense_" + std::to_string(iter) + ".model";
+Error_t Model::download_params_to_files(std::string prefix, int iter,
+                                        DataSourceParams data_source_params) {
+  std::string path_prefix;
+  if (data_source_params.use_hdfs) {
+    path_prefix = data_source_params.hdfs_model_home;
+  } else {
+    path_prefix = data_source_params.local_model_home;
+  }
+  std::string snapshot_dense_name =
+      path_prefix + prefix + "_dense_" + std::to_string(iter) + ".model";
+  std::string snapshot_dense_opt_name =
+      path_prefix + prefix + "_opt_dense_" + std::to_string(iter) + ".model";
   std::vector<std::string> snapshot_sparse_names;
   std::vector<std::string> snapshot_sparse_opt_names;
   for (unsigned int i = 0; i < embeddings_.size(); i++) {
-    snapshot_sparse_names.push_back(prefix + std::to_string(i) + "_sparse_" + std::to_string(iter) +
-                                    ".model");
-    snapshot_sparse_opt_names.push_back(prefix + std::to_string(i) + "_opt_sparse_" +
+    snapshot_sparse_names.push_back(path_prefix + prefix + std::to_string(i) + "_sparse_" +
+                                    std::to_string(iter) + ".model");
+    snapshot_sparse_opt_names.push_back(path_prefix + prefix + std::to_string(i) + "_opt_sparse_" +
                                         std::to_string(iter) + ".model");
   }
   if (etc_params_->use_embedding_training_cache) {
     embedding_training_cache_->dump();
     embedding_training_cache_->update_sparse_model_file();
   } else {
-    download_sparse_params_to_files_(snapshot_sparse_names, snapshot_sparse_opt_names);
+    download_sparse_params_to_files_(snapshot_sparse_names, snapshot_sparse_opt_names,
+                                     data_source_params);
   }
-  return download_dense_params_to_files_(snapshot_dense_name, snapshot_dense_opt_name);
+  return download_dense_params_to_files_(snapshot_dense_name, snapshot_dense_opt_name,
+                                         data_source_params);
 }
 
 void Model::check_overflow() const {
@@ -1910,25 +1926,40 @@ void Model::copy_weights_for_evaluation() {
 }
 
 Error_t Model::download_dense_params_to_files_(std::string weights_file,
-                                               std::string dense_opt_states_file) {
+                                               std::string dense_opt_states_file,
+                                               DataSourceParams data_source_params) {
   try {
     if (resource_manager_->is_master_process()) {
-      std::ofstream out_stream_weight(weights_file, std::ofstream::binary);
-      networks_[0]->download_params_to_host(out_stream_weight);
-      MESSAGE_("Dumping dense weights to file, successful");
-      std::ofstream out_dense_opt_state_weight(dense_opt_states_file, std::ofstream::binary);
-      networks_[0]->download_opt_states_to_host(out_dense_opt_state_weight);
-      MESSAGE_("Dumping dense optimizer states to file, successful");
-      std::string no_trained_params = networks_[0]->get_no_trained_params_in_string();
-      if (no_trained_params.length() != 0) {
-        std::string ntp_file = weights_file + ".ntp.json";
-        std::ofstream out_stream_ntp(ntp_file, std::ofstream::out);
-        out_stream_ntp.write(no_trained_params.c_str(), no_trained_params.length());
-        out_stream_ntp.close();
+      if (data_source_params.use_hdfs) {
+        networks_[0]->download_params_to_hdfs(weights_file, data_source_params);
+        MESSAGE_("Dumping dense weights to HDFS, successful");
+        networks_[0]->download_opt_states_to_hdfs(dense_opt_states_file, data_source_params);
+        MESSAGE_("Dumping dense optimizer states to HDFS, successful");
+        std::string no_trained_params = networks_[0]->get_no_trained_params_in_string();
+        if (no_trained_params.length() != 0) {
+          std::string ntp_file = weights_file + ".ntp.json";
+          HdfsService hs = HdfsService(data_source_params.namenode, data_source_params.port);
+          hs.write(ntp_file, no_trained_params.c_str(), no_trained_params.length(), true);
+          MESSAGE_("Dumping untrainable weights to file, successful");
+        }
+      } else {
+        std::ofstream out_stream_weight(weights_file, std::ofstream::binary);
+        networks_[0]->download_params_to_host(out_stream_weight);
+        MESSAGE_("Dumping dense weights to file, successful");
+        std::ofstream out_dense_opt_state_weight(dense_opt_states_file, std::ofstream::binary);
+        networks_[0]->download_opt_states_to_host(out_dense_opt_state_weight);
+        MESSAGE_("Dumping dense optimizer states to file, successful");
+        std::string no_trained_params = networks_[0]->get_no_trained_params_in_string();
+        if (no_trained_params.length() != 0) {
+          std::string ntp_file = weights_file + ".ntp.json";
+          std::ofstream out_stream_ntp(ntp_file, std::ofstream::out);
+          out_stream_ntp.write(no_trained_params.c_str(), no_trained_params.length());
+          out_stream_ntp.close();
+          MESSAGE_("Dumping untrainable weights to file, successful");
+        }
+        out_stream_weight.close();
+        out_dense_opt_state_weight.close();
       }
-      MESSAGE_("Dumping untrainable weights to file, successful");
-      out_stream_weight.close();
-      out_dense_opt_state_weight.close();
     }
   } catch (const internal_runtime_error& rt_err) {
     Logger::print_exception(rt_err, 0);
@@ -1942,12 +1973,12 @@ Error_t Model::download_dense_params_to_files_(std::string weights_file,
 
 Error_t Model::download_sparse_params_to_files_(
     const std::vector<std::string>& embedding_files,
-    const std::vector<std::string>& sparse_opt_state_files) {
+    const std::vector<std::string>& sparse_opt_state_files, DataSourceParams data_source_params) {
   try {
     {
       int i = 0;
       for (auto& embedding_file : embedding_files) {
-        embeddings_[i]->dump_parameters(embedding_file);
+        embeddings_[i]->dump_parameters(embedding_file, data_source_params);
         i++;
       }
     }
@@ -1956,7 +1987,7 @@ Error_t Model::download_sparse_params_to_files_(
       int i = 0;
       for (auto& sparse_opt_state_file : sparse_opt_state_files) {
         std::ofstream out_stream_opt(sparse_opt_state_file, std::ofstream::binary);
-        embeddings_[i]->dump_opt_states(out_stream_opt);
+        embeddings_[i]->dump_opt_states(out_stream_opt, sparse_opt_state_file, data_source_params);
         out_stream_opt.close();
         i++;
       }

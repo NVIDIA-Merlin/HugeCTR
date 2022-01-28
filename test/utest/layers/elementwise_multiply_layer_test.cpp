@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,47 +29,44 @@ using namespace HugeCTR;
 namespace {
 
 template <typename T>
-struct Eps {
-  static T value();
-};
+T eps();
 
 template <>
-struct Eps<float> {
-  static constexpr float value() { return 1e-5f; }
-};
+constexpr float eps() {
+  return 1e-5f;
+}
 
 template <>
-struct Eps<__half> {
-  static __half value() { return __float2half(1e-1f); }
-};
+__half eps() {
+  return __float2half(1e-3f);
+}
 
 template <typename T>
 void elementwise_multiply_cpu(T **input, T *output, size_t size, size_t num) {
+  T one = 1.0;
+
   for (size_t i = 0; i < size; i++) {
-    float tmp = 1.0f;
+    T tmp = one;
     for (size_t j = 0; j < num; j++) {
-      tmp *= input[j][i];
+      tmp = tmp * input[j][i];
     }
     output[i] = tmp;
   }
 }
 
-template <>
-void elementwise_multiply_cpu(__half **input, __half *output, size_t size, size_t num) {
-  for (size_t i = 0; i < size; i++) {
-    float tmp = 1.0f;
-    for (size_t j = 0; j < num; j++) {
-      tmp *= __half2float(input[j][i]);
-    }
-    output[i] = __float2half(tmp);
-  }
-}
-
 template <typename T>
-void elementwise_multiply_dgrad_cpu(const T *top_grad, T **dgrad, size_t size, size_t num) {
+void elementwise_multiply_dgrad_cpu(const T *top_grad, T **dgrad, const T *fprop_output,
+                                    size_t size, size_t num) {
+  T zero = 0.0;
+
   for (size_t i = 0; i < size; i++) {
     for (size_t j = 0; j < num; j++) {
-      dgrad[j][i] = top_grad[i];
+      if (0 == fprop_output[i]) {
+        dgrad[j][i] = zero;
+      } else {
+        T d_input = dgrad[j][i];
+        dgrad[j][i] = top_grad[i] * T(fprop_output[i] / d_input);
+      }
     }
   }
 }
@@ -102,6 +99,10 @@ void elementwise_multiply_test(size_t batch_size, size_t slot_num, size_t embedd
   for (size_t i = 0; i < num; i++) {
     h_d_ins[i] = in_tensors[i].get_ptr();
   }
+  T **d_ins;
+  CK_CUDA_THROW_(cudaMalloc((void **)(&d_ins), num * sizeof(T *)));
+  CK_CUDA_THROW_(
+      cudaMemcpy((void *)d_ins, (void *)h_d_ins.get(), num * sizeof(T *), cudaMemcpyHostToDevice));
   T *d_out = out_tensor.get_ptr();
 
   std::unique_ptr<T *[]> h_ins(new T *[num]);
@@ -109,6 +110,7 @@ void elementwise_multiply_test(size_t batch_size, size_t slot_num, size_t embedd
     h_ins[i] = new T[size];
   }
   std::unique_ptr<T[]> h_out(new T[size]);
+  std::unique_ptr<T[]> fprop_output(new T[size]);
   std::unique_ptr<T[]> h_cpu_out(new T[size]);
   std::unique_ptr<T *[]> h_gpu_dgrads(new T *[num]);
   for (size_t i = 0; i < num; i++) {
@@ -128,9 +130,10 @@ void elementwise_multiply_test(size_t batch_size, size_t slot_num, size_t embedd
   CK_CUDA_THROW_(cudaDeviceSynchronize());
 
   CK_CUDA_THROW_(cudaMemcpy(h_out.get(), d_out, size * sizeof(T), cudaMemcpyDeviceToHost));
+  CK_CUDA_THROW_(cudaMemcpy(fprop_output.get(), d_out, size * sizeof(T), cudaMemcpyDeviceToHost));
 
   elementwise_multiply_cpu(h_ins.get(), h_cpu_out.get(), size, num);
-  ASSERT_TRUE(test::compare_array_approx<T>(h_out.get(), h_cpu_out.get(), size, Eps<T>::value()));
+  ASSERT_TRUE(test::compare_array_approx<T>(h_out.get(), h_cpu_out.get(), size, eps<T>()));
 
   // bprop
   for (size_t i = 0; i < num; i++) {
@@ -149,10 +152,10 @@ void elementwise_multiply_test(size_t batch_size, size_t slot_num, size_t embedd
         cudaMemcpy(h_gpu_dgrads[i], h_d_ins[i], size * sizeof(T), cudaMemcpyDeviceToHost));
   }
 
-  elementwise_multiply_dgrad_cpu(h_out.get(), h_ins.get(), size, num);
+  elementwise_multiply_dgrad_cpu(h_out.get(), h_ins.get(), fprop_output.get(), size, num);
   for (size_t i = 0; i < num; i++) {
-    ASSERT_TRUE(test::compare_array_approx<T>(h_ins[i], h_gpu_dgrads[i], size,
-                                              Eps<T>::value()));  // compare dgrad
+    ASSERT_TRUE(
+        test::compare_array_approx<T>(h_ins[i], h_gpu_dgrads[i], size, eps<T>()));  // compare dgrad
   }
 }
 

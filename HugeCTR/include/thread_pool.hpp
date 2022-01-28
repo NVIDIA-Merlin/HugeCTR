@@ -22,6 +22,7 @@
 #include <future>
 #include <memory>
 #include <shared_mutex>
+#include <string>
 #include <thread>
 #include <vector>
 
@@ -29,15 +30,16 @@ namespace HugeCTR {
 
 class ThreadPool {
  public:
-  ThreadPool();
+  ThreadPool(const std::string& name);
+  ThreadPool(const std::string& name, size_t num_workers);
 
   ThreadPool(const ThreadPool&) = delete;
-
-  ThreadPool(size_t num_workers);
 
   virtual ~ThreadPool();
 
   ThreadPool& operator=(const ThreadPool&) = delete;
+
+  const std::string& name() const { return name_; }
 
   size_t size() const { return workers_.size(); }
 
@@ -49,7 +51,11 @@ class ThreadPool {
 
   static ThreadPool& get();
 
+  template <typename TInputIterator>
+  static void await(TInputIterator first, const TInputIterator& last);
+
  private:
+  const std::string name_;
   std::vector<std::thread> workers_;
 
   mutable std::mutex barrier_;  // Must be obtained to ensure exclusive access.
@@ -62,7 +68,14 @@ class ThreadPool {
   std::deque<std::packaged_task<void()>>
       packages_;  // Work packages that have not been processed yet.
 
-  void run(const size_t thread_index);
+  void run_(const size_t thread_index);
 };
+
+template <typename TInputIterator>
+void ThreadPool::await(TInputIterator first, const TInputIterator& last) {
+  for (; first != last; first++) {
+    first->wait();
+  }
+}
 
 }  // namespace HugeCTR

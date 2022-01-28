@@ -1,5 +1,35 @@
 # Release Notes
+
+## What's New in Version 3.4
++ **Supporting HugeCTR Development with Merlin Unified Container**: From Merlin v22.02 we encourage you to develop HugeCTR under Merlin Unified Container (release container) according to the instructions in [Contributor Guide](docs/hugectr_contributor_guide.md) to keep consistent.
+
++ **Hierarchical Parameter Server (HPS) Enhancements**:
+    + **Missing key insertion feature**: Via a simple flag, it is now possible to configure HugeCTR such that missed embedding-table entries during lookup are automatically inserted into volatile database layers such as the Redis and Hashmap backends.
+    + **Asynchronous timestamp refresh**: In the last release we introduced the passing-of-time-aware eviction policies. These are policies that are applied to shrink database partitions through dropping keys if they grow beyond certain limits. However, the time-information utilized by these eviction policies represented the update time. Hence, an embedding was evicted based on the time passed since its last update. If you operate HugeCTR in inference mode, the embedding table is typically immutable. With the above-described missing key insertion feature we now support actively tuning the contents of volatile database layers to the data distribution during lookup. To allow time-based eviction to take place, it is now possible to enable timestamp refreshing for frequently used embeddings. Once enabled, refreshing is handled asynchronously using background threads. Hence, it won’t block your inference jobs. For most applications, the associated performance impact from enabling this feature is barely noticeable.
+    + **Support HDFS(Hadoop Distributed File System) Parameter Server in Training**:
+        + A new Python API DataSourceParams used to specify the file system and paths to data and model files.
+        + Support loading data from HDFS to the local file system for HugeCTR training.
+        + Support dumping trained model and optimizer states into HDFS.
+    + **Online seamless update of the parameters of the dense part of the model**: HugeCTR Backend has supported online model version updating by the [Load API](https://github.com/triton-inference-server/server/blob/main/docs/protocol/extension_model_repository.md#load) of Triton (including the seamless update of the dense part and corresponding embedding inference cache for the same model), and the Load API is still fully compatible with online deployment of new models.
+
++ **Sparse Operation Kit Enhancements**:
+    + **Mixed Precision Training**: Mixed precision training can be enabled via TF’s pattern to enhance the training performance and lessen memory usage.
+    + DLRM Benchmark
+    + Pip installation with Pypi
+    + **Support Uint32_t / int64_t key dtype in SOK**: Int64 or uint32 can be used as the key data type for SOK’s embedding. By default, it is int64.
+    + Add TensorFlow initializers support
+
++ **User Experience Enhancements**
+    + We have revised several notebooks and readme files to clarify instructions and make HugeCTR more accessible in general.
+    + Thanks to GitHub user @MuYu-zhi , who brought to our attention that having configured too few shared memory can impact the proper operation of HugeCTR. We extended the SOK docker setup instructions to address how such issues can be resolved using the `--shm-size` setting of docker.
+    + Although HugeCTR is designed for scalability, having a beefy machine is not necessary for smaller workloads and testing. We added information about the required specs for notebook testing environments in [README]( /notebooks#system-specifications).
+
++ **Inference for Multi-tasking**： We support HugeCTR inference for multiple tasks. When the label dimension is the number of binary classification tasks and `MultiCrossEntropyLoss` is employed during training, the shape of inference results will be `(batch_size*num_batches, label_dim)`. For more information, please refer to [Inference API](docs/python_interface.md#predict-method).
+
++ **Fix the Embedding Cache Issue for Super Small Embedding Tables**
+
 ## What's New in Version 3.3.1
+
 + **Hierarchical Parameter Server (HPS) Enhancements**:
     + **HugeCTR Backend Enhancements**: The HugeCTR Backend is now fully compatible with the [Triton model control protocol](https://github.com/triton-inference-server/server/blob/main/docs/protocol/extension_model_repository.md), so new model configurations can be simply added to the [HPS configuration file](https://github.com/triton-inference-server/hugectr_backend#independent-parameter-server-configuration). The HugeCTR Backend will continue to support online deployments of new models using the Triton Load API. However, with this enhancement, old models can be recycled online using the [Triton Unload API](https://github.com/triton-inference-server/server/blob/main/docs/protocol/extension_model_repository.md#unload).
     + **Simplified Database Backend**: Multi-nodes, single-node, and all other kinds of volatile database backends can now be configured using the same configuration object.
@@ -167,3 +197,12 @@
 + **Power Law Distribution Support with Data Generator**: Because of the increased need for generating a random dataset whose categorical features follows the power-law distribution, we've revised our data generation tool to support this use case. For additional information, refer to the `--long-tail` description [here](../docs/hugectr_user_guide.md#Generating Synthetic Data and Benchmarks).
 
 + **Multi-GPU Preprocessing Script for Criteo Samples**: Multiple GPUs can now be used when preparing the dataset for our [samples](../samples). For more information, see how [preprocess_nvt.py](../tools/criteo_script/preprocess_nvt.py) is used to preprocess the Criteo dataset for DCN, DeepFM, and W&D samples.
+
+## Known Issues
+
++ HugeCTR uses NCCL to share data between ranks, and NCCL may require shared system memory for IPC and pinned (page-locked) system memory resources. When using NCCL inside a container, it is recommended that you increase these resources by issuing: `-shm-size=1g -ulimit memlock=-1`
+See also [NCCL's known issue](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/troubleshooting.html#sharing-data). And the [GitHub issue](https://github.com/NVIDIA-Merlin/HugeCTR/issues/243).
+
++ Softmax layer currently does not support fp16 mode.
+
++ KafkaProducers startup will succeed, even if the target Kafka broker is unresponsive. In order to avoid data-loss in conjunction with streaming model updates from Kafka, you have to make sure that a sufficient number of Kafka brokers is up, working properly and reachable from the node where you run HugeCTR.

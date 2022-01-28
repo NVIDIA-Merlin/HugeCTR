@@ -19,7 +19,6 @@
 #include <layers/batch_norm_layer.hpp>
 #include <layers/cast_layer.hpp>
 #include <layers/concat_layer.hpp>
-#include <layers/dot_product_layer.hpp>
 #include <layers/dropout_layer.hpp>
 #include <layers/elementwise_multiply_layer.hpp>
 #include <layers/elu_layer.hpp>
@@ -1471,30 +1470,6 @@ void Model::add_dense_layer_internal(
       output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
       break;
     }
-    case Layer_t::DotProduct: {
-      if (use_mixed_precision) {
-        Tensors2<__half> in_tensors;
-        for (const auto& bag : input_output_info.inputs) {
-          in_tensors.push_back(Tensor2<__half>::stretch_from(bag));
-        }
-        Tensor2<__half> out_tensor;
-        blobs_buff->reserve(in_tensors[0].get_dimensions(), &out_tensor);
-        layers.emplace_back(
-            new DotProductLayer<__half>(in_tensors, out_tensor, blobs_buff, gpu_resource));
-        output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
-      } else {
-        Tensors2<float> in_tensors;
-        for (const auto& bag : input_output_info.inputs) {
-          in_tensors.push_back(Tensor2<float>::stretch_from(bag));
-        }
-        Tensor2<float> out_tensor;
-        blobs_buff->reserve(in_tensors[0].get_dimensions(), &out_tensor);
-        layers.emplace_back(
-            new DotProductLayer<float>(in_tensors, out_tensor, blobs_buff, gpu_resource));
-        output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
-      }
-      break;
-    }
     case Layer_t::ElementwiseMultiply: {
       if (use_mixed_precision) {
         Tensors2<__half> in_tensors;
@@ -1799,11 +1774,6 @@ void calculate_tensor_dimensions(std::map<std::string, std::vector<int>>& tensor
       }
       tensor_shape_info_raw.insert(std::make_pair(
           dense_layer.top_names[0], std::vector<int>{batch_size * slot_num, out_width}));
-      break;
-    }
-    case Layer_t::DotProduct: {
-      tensor_shape_info_raw.insert(std::make_pair(
-          dense_layer.top_names[0], tensor_shape_info_raw[dense_layer.bottom_names[0]]));
       break;
     }
     case Layer_t::ElementwiseMultiply: {

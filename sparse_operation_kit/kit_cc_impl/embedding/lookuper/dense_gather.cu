@@ -18,11 +18,12 @@
 #include "common/include/forward_functions.h"
 #include "hashtable/simple_hashtable.h"
 #include "operation/operation_interface.h"
+#include "common.cuh"
 
 namespace SparseOperationKit {
 
 template <typename EmbeddingType>
-__global__ static void gatherKernel(const size_t EmbeddingDimension, EmbeddingType *inputs,
+__global__ static void gatherKernel(const size_t EmbeddingDimension, float * __restrict__ inputs,
                                     size_t *indices, size_t num_indices, EmbeddingType *outputs) {
   for (size_t id = blockIdx.x * blockDim.x + threadIdx.x; id < num_indices * EmbeddingDimension;
        id += blockDim.x * gridDim.x) {
@@ -30,10 +31,12 @@ __global__ static void gatherKernel(const size_t EmbeddingDimension, EmbeddingTy
     size_t embedding_id = id - item_id * EmbeddingDimension;
 
     size_t index = static_cast<size_t>(indices[item_id]);
-    outputs[id] = inputs[index * EmbeddingDimension + embedding_id];
+    outputs[id] = HugeCTR::TypeConvertFunc<EmbeddingType, float>::convert(
+      inputs[index * EmbeddingDimension + embedding_id]);
   }
 }
 
+template <typename KeyType, typename ValueType>
 class DenseGather : public EmbeddingLookuper {
  public:
   DenseGather(ConstructionContext_t context, std::shared_ptr<ParamInterface> param)
@@ -58,10 +61,10 @@ class DenseGather : public EmbeddingLookuper {
       const size_t global_gpu_count = resource_mgr_->get_global_gpu_count();
       auto stream = resource_mgr_->get_local_gpu(0)->get_stream();
       const size_t capacity = param->get_hashtable(0)->get_capacity(stream);
-      HashFunctor_t hash_func = HashFunctors::Divisive<int64_t, size_t>::create(
+      HashFunctor_t hash_func = HashFunctors::Divisive<KeyType, size_t>::create(
           /*interval=*/global_gpu_count, /*capacity=*/capacity,
           /*global_replica_id=*/resource_mgr_->cal_global_id_from_local_id(0));
-      auto hashtable = SimpleHashtable<int64_t, size_t>::create(capacity, hash_func);
+      auto hashtable = SimpleHashtable<KeyType, size_t>::create(capacity, hash_func);
       param->set_hashtable(hashtable);
     }  // if identical_mapping
   }
@@ -79,7 +82,7 @@ class DenseGather : public EmbeddingLookuper {
         mapped_indices_buf_.push_back(tensor);
       }
       {
-        Tensor2<float> tensor;
+        Tensor2<ValueType> tensor;
         buffer->reserve({global_gpu_count, embedding_vec_size * num_keys_per_rank_}, &tensor);
         gathered_embeddings_buf_.push_back(tensor);
       }
@@ -106,18 +109,18 @@ class DenseGather : public EmbeddingLookuper {
         replica_h_recv_chunk_offsets->GetPtrWithType<uint32_t>()[global_gpu_count];
     // step 1: get index using keys
     if (training) {
-      hashtable->get_insert(replica_exchanged_keys->GetPtrWithType<int64_t>(),
+      hashtable->get_insert(replica_exchanged_keys->GetPtrWithType<KeyType>(),
                             mapped_indices_buf_[local_replica_id].get_ptr(),
                             /*nnz=*/h_local_nnz, local_gpu->get_stream());
     } else {
-      hashtable->get(replica_exchanged_keys->GetPtrWithType<int64_t>(),
+      hashtable->get(replica_exchanged_keys->GetPtrWithType<KeyType>(),
                      mapped_indices_buf_[local_replica_id].get_ptr(),
                      /*nnz=*/h_local_nnz, local_gpu->get_stream());
     }
 
     // step 2: gather embedding vectors from embedding table
     const auto &embedding_table = param_->get_embedding_table_tensor(local_replica_id);
-    gatherKernel<float><<<local_gpu->get_sm_count() * 2, 1024ul, 0, local_gpu->get_stream()>>>(
+    gatherKernel<ValueType><<<local_gpu->get_sm_count() * 2, 1024ul, 0, local_gpu->get_stream()>>>(
         /*EmbeddingDimension=*/param_->get_embedding_vec_size(),
         /*inputs=*/embedding_table->GetPtrWithType<float>(),
         /*indices=*/mapped_indices_buf_[local_replica_id].get_ptr(),
@@ -155,14 +158,14 @@ class DenseGather : public EmbeddingLookuper {
   void save_params(std::shared_ptr<Tensor> &keys, std::shared_ptr<Tensor> &embedding_values,
                    size_t &num_total_keys) const override {
     // this lookuper distribute keys to each GPU based on key % GPU_NUM
-    save_params_helper(param_, resource_mgr_, keys, embedding_values, num_total_keys);
+    save_params_helper<KeyType>(param_, resource_mgr_, keys, embedding_values, num_total_keys);
   }
 
   void restore_params(const std::shared_ptr<Tensor> &keys,
                       const std::shared_ptr<Tensor> &embedding_values,
                       const size_t num_total_keys) override {
     // this lookuper distribute keys to each GPU based on key % GPU_NUM
-    restore_params_helper(param_, resource_mgr_, keys, embedding_values, num_total_keys);
+    restore_params_helper<KeyType>(param_, resource_mgr_, keys, embedding_values, num_total_keys);
   }
 
  private:
@@ -172,9 +175,24 @@ class DenseGather : public EmbeddingLookuper {
   // forward spaces
   Tensors2<size_t> mapped_indices_buf_;
   Tensors2<size_t> host_nnz_;
-  Tensors2<float> gathered_embeddings_buf_;
+  Tensors2<ValueType> gathered_embeddings_buf_;
 };
 
-REGISTER_EMB_LOOKUPER_BUILDER("dense_gather", DenseGather);
+REGISTER_EMB_LOOKUPER_BUILDER("dense_gather", 
+                              DataType::Int64,
+                              DataType::Float32, 
+                              DenseGather<int64_t, float>);
+REGISTER_EMB_LOOKUPER_BUILDER("dense_gather", 
+                              DataType::Int64,
+                              DataType::Float16, 
+                              DenseGather<int64_t, __half>);
+REGISTER_EMB_LOOKUPER_BUILDER("dense_gather", 
+                              DataType::Uint32,
+                              DataType::Float32, 
+                              DenseGather<uint32_t, float>);
+REGISTER_EMB_LOOKUPER_BUILDER("dense_gather", 
+                              DataType::Uint32,
+                              DataType::Float16, 
+                              DenseGather<uint32_t, __half>);
 
 }  // namespace SparseOperationKit

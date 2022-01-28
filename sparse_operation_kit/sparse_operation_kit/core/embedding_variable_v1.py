@@ -19,10 +19,12 @@ from __future__ import division
 from __future__ import print_function
 
 from sparse_operation_kit import kit_lib
+from sparse_operation_kit.core.inplace_initializer import InPlaceInitializer
+from tensorflow.python.keras import initializers as tf_initializers
 from tensorflow.python.ops.resource_variable_ops import BaseResourceVariable, variable_accessed, _maybe_set_handle_data
 from tensorflow.python.ops.resource_variable_ops import _handle_graph
 from tensorflow.python.framework.tensor_shape import TensorShape
-from tensorflow.python.framework.dtypes import float32
+from tensorflow.python.framework import dtypes
 from tensorflow.python.eager import context
 from tensorflow.python.eager import tape
 from tensorflow.python.framework import ops
@@ -65,10 +67,12 @@ class EmbeddingVariable(BaseResourceVariable):
     def __init__(self,
                  shape,
                  local_replica_id,
-                 initial_value="random_uniform",
+                 initializer=None,
                  trainable=True,
                  use_hashtable=True,
                  name="EmbeddingVariable",
+                 dtype=None,
+                 key_dtype=None,
                  *args,
                  **kwargs):
         if (not isinstance(shape, list)) or (len(shape) != 2):
@@ -76,12 +80,20 @@ class EmbeddingVariable(BaseResourceVariable):
                              "[vocabulary_size_per_gpu, embedding_vector_size].")
         self.m_shape_per_gpu = TensorShape(shape)
         self.m_local_replica_id = local_replica_id
-        self.m_initial_value = initial_value
+        self.m_initializer = initializer or InPlaceInitializer(name="random_uniform")
+        if not isinstance(self.m_initializer, InPlaceInitializer):
+            self.m_initializer = tf_initializers.get(self.m_initializer)
         self.m_trainable = trainable
         self.m_use_hashtable = use_hashtable
         self.m_embedding_layer = None
-        # self.m_var_name = ops.get_default_graph().unique_name(name, mark_as_used=True)
-        # self.m_unique_id = "%s_%d" %(self.m_var_name, ops.uid())
+        self.m_dtype = dtype or dtypes.float32
+        self.m_key_dtype = key_dtype or dtypes.int64
+        # produce intial_value
+        if isinstance(self.m_initializer, InPlaceInitializer):
+            # TODO: serialize it
+            self.m_initial_value = self.m_initializer.name
+        else:
+            self.m_initial_value = self.m_initializer(shape=self.m_shape_per_gpu, dtype=self.m_dtype)
 
         collections = [ops.GraphKeys.GLOBAL_VARIABLES]
         if trainable and ops.GraphKeys.TRAINABLE_VARIABLES not in collections:
@@ -105,7 +117,7 @@ class EmbeddingVariable(BaseResourceVariable):
                 with ops.NullContextmanager():
                     # m_handle is the handle to EmbeddingVariable, tf_handle is the handle to TF Var.
                     self.m_handle, self.tf_handle = kit_lib.create_var(var_name=var_name,
-                                                               dtype=float32,
+                                                               dtype=self.m_dtype,
                                                                shape=self.m_shape_per_gpu)
 
                     if self._in_graph_mode:
@@ -113,10 +125,10 @@ class EmbeddingVariable(BaseResourceVariable):
                             self._is_initialized_op = ops.convert_to_tensor(True) # TODO: should not hard-writing???
 
                             if (isinstance(self.m_initial_value, ops.Tensor) and 
-                                not self.m_initial_value.shape.is_compatible_with(self._m_shape_per_gpu)):
+                                not self.m_initial_value.shape.is_compatible_with(self.m_shape_per_gpu)):
                                 raise ValueError("The initial value's shape (%s) is not compatible with "
                                                  "the explicitly supplied `shape` argument (%s)." %
-                                                 (initial_value.shape, self._m_shape_per_gpu))
+                                                 (initial_value.shape, self.m_shape_per_gpu))
 
                             _init_op = kit_lib.assign_embedding_variable(emb_var_handle=self.m_handle,
                                                                  tf_var_handle=self.tf_handle,
@@ -126,7 +138,8 @@ class EmbeddingVariable(BaseResourceVariable):
                                                                  trainable=self.m_trainable,
                                                                  shape=self.m_shape_per_gpu,
                                                                  use_hashtable=self.m_use_hashtable,
-                                                                 dtype=float32)
+                                                                 dtype=self.m_dtype,
+                                                                 key_dtype=self.m_key_dtype)
                             self._initializer_op = control_flow_ops.group((_init_op))
                     else:
                         raise RuntimeError("Currently, EmbeddingVariable does not support Eager mode.")
@@ -136,7 +149,7 @@ class EmbeddingVariable(BaseResourceVariable):
 
             super(EmbeddingVariable, self).__init__(trainable=self.m_trainable,
                                                     shape=self.m_shape_per_gpu,
-                                                    dtype=float32,
+                                                    dtype=self.m_dtype,
                                                     handle=self.m_handle,
                                                     handle_name=var_name,
                                                     distribute_strategy=get_strategy() if has_strategy() else None,
@@ -146,6 +159,15 @@ class EmbeddingVariable(BaseResourceVariable):
                                                     initializer_op=self._initializer_op,
                                                     is_initialized_op=self._is_initialized_op,
                                                     *args, **kwargs)
+            handle_data = resource_variable_ops.cpp_shape_inference_pb2.CppShapeInferenceResult.HandleData()
+            handle_data.is_set = True
+            handle_data.shape_and_type.append(
+                resource_variable_ops.cpp_shape_inference_pb2.CppShapeInferenceResult.HandleShapeAndType(
+                    shape=self.shape.as_proto(), dtype=self.dtype.as_datatype_enum))
+            resource_variable_ops._set_handle_shapes_and_types(self.m_handle, handle_data, 
+                graph_mode=False if context.executing_eagerly() else True)
+            resource_variable_ops._set_handle_shapes_and_types(self.tf_handle, handle_data, 
+                graph_mode=False if context.executing_eagerly() else True)
 
     @property
     def emb_handle(self):

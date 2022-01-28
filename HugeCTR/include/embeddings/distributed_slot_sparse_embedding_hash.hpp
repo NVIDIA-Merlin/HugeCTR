@@ -22,6 +22,7 @@
 #include "HugeCTR/include/common.hpp"
 #include "HugeCTR/include/embeddings/embedding_data.hpp"
 #include "HugeCTR/include/embeddings/sparse_embedding_functors.hpp"
+#include "HugeCTR/include/hdfs_backend.hpp"
 #include "HugeCTR/include/utils.hpp"
 
 namespace HugeCTR {
@@ -131,8 +132,8 @@ class DistributedSlotSparseEmbeddingHash : public IEmbedding {
    * @param context gpu device context, for switching device
    */
   void dump_parameters(
-      const std::string &sparse_model, size_t vocabulary_size, size_t embedding_vec_size,
-      const Tensors2<float> &hash_table_value_tensors,
+      const std::string &sparse_model, DataSourceParams data_source_params, size_t vocabulary_size,
+      size_t embedding_vec_size, const Tensors2<float> &hash_table_value_tensors,
       const std::vector<std::shared_ptr<HashTable<TypeHashKey, size_t>>> &hash_tables) const;
   void dump_parameters(
       Tensor2<TypeHashKey> &keys, Tensor2<float> &embeddings, size_t *num, size_t vocabulary_size,
@@ -289,10 +290,12 @@ class DistributedSlotSparseEmbeddingHash : public IEmbedding {
    * and write it to the weight_stream on the host.
    * @param sparse_model the folder name of sparse model.
    */
-  void dump_parameters(std::string sparse_model) const override;
+  void dump_parameters(std::string sparse_model,
+                       DataSourceParams data_source_params) const override;
   void dump_parameters(BufferBag &buf_bag, size_t *num) const override;
 
-  void dump_opt_states(std::ofstream &stream) override;
+  void dump_opt_states(std::ofstream &stream, std::string sparse_model,
+                       DataSourceParams data_source_params) override;
   void load_opt_states(std::ifstream &stream) override;
   void reset_optimizer() override;
 

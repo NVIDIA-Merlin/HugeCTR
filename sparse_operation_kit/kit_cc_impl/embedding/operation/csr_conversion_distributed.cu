@@ -22,6 +22,7 @@
 
 namespace SparseOperationKit {
 
+template <typename KeyType, typename ValueType>
 class CsrConversionDistributed : public Operation {
  public:
   explicit CsrConversionDistributed(ConstructionContext_t context)
@@ -56,7 +57,7 @@ class CsrConversionDistributed : public Operation {
         cub_coo_indices_output_.push_back(cub_coo_indices_output);
       }
       {
-        Tensor2<int64_t> cub_values_output;
+        Tensor2<KeyType> cub_values_output;
         buffer->reserve({1, global_batch_size * slot_num_ * max_nnz_}, &cub_values_output);
         cub_values_output_.push_back(cub_values_output);
       }
@@ -83,7 +84,7 @@ class CsrConversionDistributed : public Operation {
       {
         size_t size_0 = 0;
         CK_CUDA(cub::DeviceSelect::Flagged(
-            (void *)nullptr, size_0, (int64_t *)nullptr, (bool *)nullptr, (int64_t *)nullptr,
+            (void *)nullptr, size_0, (KeyType *)nullptr, (bool *)nullptr, (KeyType *)nullptr,
             (size_t *)nullptr, static_cast<int32_t>(global_batch_size * slot_num_ * max_nnz_)));
         size_t size_1 = 0;
         CK_CUDA(cub::DeviceSelect::Flagged(
@@ -127,7 +128,7 @@ class CsrConversionDistributed : public Operation {
     CK_CUDA(cub::DeviceSelect::Flagged(
         /*d_temp_storage=*/cub_d_temp_storage_[local_replica_id].get_ptr(),
         /*temp_storage_bytes=*/size,
-        /*d_in=*/total_values->GetPtrWithType<int64_t>(),
+        /*d_in=*/total_values->GetPtrWithType<KeyType>(),
         /*d_flags=*/binary_flags_[local_replica_id].get_ptr(),
         /*d_out=*/cub_values_output_[local_replica_id].get_ptr(),
         /*d_num_selected_out=*/cub_dev_num_selected_[local_replica_id].get_ptr(),
@@ -184,11 +185,11 @@ class CsrConversionDistributed : public Operation {
   Tensors2<bool> binary_flags_;
   Tensors2<void> cub_d_temp_storage_;
   Tensors2<int32_t> cub_coo_indices_output_;
-  Tensors2<int64_t> cub_values_output_;  // TODO: make it template
+  Tensors2<KeyType> cub_values_output_; 
   Tensors2<size_t> cub_host_num_selected_;
   Tensors2<size_t> cub_dev_num_selected_;
   Tensors2<int32_t> cusparse_csr_row_offsets_output_;
-  Tensors2<int64_t> csr_row_offsets_cast_;  // TODO: make it template
+  Tensors2<int64_t> csr_row_offsets_cast_;  // always int64, cause coo-indices always int64
 
   void reset(const size_t local_replica_id) {
     const auto &stream = resource_mgr_->get_local_gpu(local_replica_id)->get_stream();
@@ -214,16 +215,31 @@ class CsrConversionDistributed : public Operation {
     const size_t global_gpu_count = resource_mgr_->get_global_gpu_count();
     const auto &local_gpu = resource_mgr_->get_local_gpu(local_replica_id);
 
-    auto fn = [global_replica_id, global_gpu_count] __device__(int64_t value) -> bool {
+    auto fn = [global_replica_id, global_gpu_count] __device__(KeyType value) -> bool {
       return (global_replica_id == value % global_gpu_count) ? true : false;
     };
 
     boolean_vector<<<local_gpu->get_sm_count() * 2, 1024, 0, local_gpu->get_stream()>>>(
-        values->GetPtrWithType<int64_t>(), total_valid_num->GetPtrWithType<size_t>()[0], fn,
+        values->GetPtrWithType<KeyType>(), total_valid_num->GetPtrWithType<size_t>()[0], fn,
         binary_flag.get_ptr());
   }
 };
 
-REGISTER_OPERATION_BUILDER("csr_conversion_distributed", CsrConversionDistributed);
+REGISTER_OPERATION_BUILDER("csr_conversion_distributed", 
+                           DataType::Int64,
+                           DataType::Float32, 
+                           CsrConversionDistributed<int64_t, float>);
+REGISTER_OPERATION_BUILDER("csr_conversion_distributed", 
+                           DataType::Int64,
+                           DataType::Float16, 
+                           CsrConversionDistributed<int64_t, __half>);
+REGISTER_OPERATION_BUILDER("csr_conversion_distributed", 
+                           DataType::Uint32,
+                           DataType::Float32, 
+                           CsrConversionDistributed<uint32_t, float>);
+REGISTER_OPERATION_BUILDER("csr_conversion_distributed", 
+                           DataType::Uint32,
+                           DataType::Float16, 
+                           CsrConversionDistributed<uint32_t, __half>);
 
 }  // namespace SparseOperationKit

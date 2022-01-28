@@ -110,6 +110,7 @@ template <typename InitializerType>
 void Facade::create_variables(
     const size_t local_replica_id, const InitializerType initializer, const bool use_hashtable,
     const std::vector<int64_t> shape, const std::string name, const bool trainable,
+    const tensorflow::DataType dtype, const tensorflow::DataType key_dtype,
     tensorflow::core::RefCountPtr<tensorflow::EmbeddingVariable>& emb_variable,
     tensorflow::Tensor* emb_tensor) {
   try {
@@ -118,15 +119,16 @@ void Facade::create_variables(
     for (size_t i = 0; i < shape.size(); i++) _shape[i] = static_cast<size_t>(shape[i]);
 
     params_mgr_->create_variables(local_replica_id, translate_initializer(initializer),
-                                  use_hashtable, _shape, name, trainable, param);
+                                  use_hashtable, _shape, name, trainable, 
+                                  get_datatype(dtype), get_datatype(key_dtype),
+                                  param);
 
     auto emb_buffer_builder =
         EmbeddingBufferBuilder::create(param->get_embedding_table_tensor(local_replica_id));
     auto buffer = emb_buffer_builder->get_init_buffer();
-    // FIXME: in TF 2.4, int64_t is not equal to long long
     const std::vector<tensorflow::int64> temp_shape(shape.begin(), shape.end());
     tensorflow::TensorShape tensor_shape = tensorflow::TensorShape(temp_shape);
-    *emb_tensor = tensorflow::Tensor(/*type=*/tensorflow::DT_FLOAT,
+    *emb_tensor = tensorflow::Tensor(/*type=*/dtype,
                                      /*shape=*/tensor_shape,
                                      /*buf=*/buffer);
     params_mgr_->push_back_embedding_buffer_builder(local_replica_id, emb_buffer_builder);
@@ -141,11 +143,13 @@ void Facade::create_variables(
 template void Facade::create_variables(
     const size_t local_replica_id, const std::string initializer, const bool use_hashtable,
     const std::vector<int64_t> shape, const std::string name, const bool trainable,
+    const tensorflow::DataType dtype, const tensorflow::DataType key_dtype,
     tensorflow::core::RefCountPtr<tensorflow::EmbeddingVariable>& emb_variable,
     tensorflow::Tensor* emb_tensor);
 template void Facade::create_variables(
     const size_t local_replica_id, const tensorflow::Tensor* initializer, const bool use_hashtable,
     const std::vector<int64_t> shape, const std::string name, const bool trainable,
+    const tensorflow::DataType dtype, const tensorflow::DataType key_dtype,
     tensorflow::core::RefCountPtr<tensorflow::EmbeddingVariable>& emb_variable,
     tensorflow::Tensor* emb_tensor);
 
@@ -156,6 +160,7 @@ void Facade::create_embedding_sparse(
     const std::string embedding_executor, const std::string output_dispatcher,
     const std::vector<std::string>& output_dispatcher_subsequent_ops, const size_t slot_num,
     const size_t max_nnz, const size_t max_feature_num, const std::string combiner,
+    const tensorflow::DataType compute_dtype,
     tensorflow::Tensor* emb_handle) {
   // check input validness
   CombinerType combiner_type_enum;
@@ -175,7 +180,8 @@ void Facade::create_embedding_sparse(
   embedding_mgr_->create_embedding(param, input_dispatcher, input_dispatcher_subsequent_ops,
                                    embedding_executor, output_dispatcher,
                                    output_dispatcher_subsequent_ops, slot_num, max_nnz,
-                                   max_feature_num, combiner_type_enum, embedding);
+                                   max_feature_num, combiner_type_enum, get_datatype(compute_dtype),
+                                   embedding);
 
   // set output
   StoreEmbeddingInVariantTensor(embedding, emb_handle);
@@ -187,7 +193,8 @@ void Facade::create_embedding_dense(
     const std::vector<std::string>& input_dispatcher_subsequent_ops,
     const std::string embedding_executor, const std::string output_dispatcher,
     const std::vector<std::string>& output_dispatcher_subsequent_ops, const size_t slot_num,
-    const size_t nnz_per_slot, tensorflow::Tensor* emb_handle) {
+    const size_t nnz_per_slot, const tensorflow::DataType compute_dtype,
+    tensorflow::Tensor* emb_handle) {
   // check input validness
   if (slot_num <= 0) throw std::runtime_error(ErrorBase + "slot_num must be >= 1.");
   if (nnz_per_slot <= 0) throw std::runtime_error(ErrorBase + "nnz_per_slot must be >= 1.");
@@ -199,7 +206,9 @@ void Facade::create_embedding_dense(
   std::shared_ptr<EmbeddingLayer> embedding;
   embedding_mgr_->create_embedding(
       param, input_dispatcher, input_dispatcher_subsequent_ops, embedding_executor,
-      output_dispatcher, output_dispatcher_subsequent_ops, slot_num, nnz_per_slot, embedding);
+      output_dispatcher, output_dispatcher_subsequent_ops, 
+      slot_num, nnz_per_slot, get_datatype(compute_dtype),
+      embedding);
 
   // store output
   StoreEmbeddingInVariantTensor(embedding, emb_handle);
@@ -335,6 +344,12 @@ void Facade::forward(const tensorflow::Tensor* emb_handle, const tensorflow::Ten
   // sync processes to avoid NCCL waiting
   resources_mgr_->sync_all_workers_via_cpu();
 
+  // check inputs dtype as early as possible
+  REQUIRES_TRUE(embedding->key_dtype() == values->dtype(),
+                "values_tensor.dtype is not consistent with key_dtype.");
+  REQUIRES_TRUE(embedding->compute_dtype() == emb_vector->dtype(), 
+                "emb_vector.dtype is not consistent with compute_dtype.");
+
   // delegate embedding forward to embedding manager
   embedding_mgr_->forward(embedding, values, indices, global_replica_id, training, emb_vector);
 #ifdef SOK_ASYNC
@@ -370,6 +385,12 @@ void Facade::forward(const tensorflow::Tensor* emb_handle, const tensorflow::Ten
   // sync processes to avoid NCCL waiting
   resources_mgr_->sync_all_workers_via_cpu();
 
+  // check inputs dtype as early as possible
+  REQUIRES_TRUE(embedding->key_dtype() == values->dtype(),
+                "values_tensor.dtype is not consistent with key_dtype.");
+  REQUIRES_TRUE(embedding->compute_dtype() == emb_vector->dtype(), 
+                "emb_vector.dtype is not consistent with compute_dtype.");
+
   // delegate embedding forward to embedding manager
   embedding_mgr_->forward(embedding, values, global_replica_id, training, emb_vector);
 #ifdef SOK_ASYNC
@@ -404,6 +425,12 @@ void Facade::backward(const tensorflow::Tensor* emb_handle, const size_t global_
 #endif
   // sync processes to avoid NCCL waiting
   resources_mgr_->sync_all_workers_via_cpu();
+
+  // check inputs dtype as early as possible
+  REQUIRES_TRUE(embedding->compute_dtype() == top_gradient->dtype(), 
+                "top_gradient.dtype is not consistent with compute_dtype.");
+  REQUIRES_TRUE(embedding->compute_dtype() == gradient->dtype(), 
+                "gradient.dtype is not consistent with compute_dtype.");
 
   // delegate embedding backward to embedding manager
   embedding_mgr_->backward(embedding, top_gradient, global_replica_id, gradient, value_index);
@@ -501,9 +528,13 @@ void Facade::restore_from_file(
 
 void Facade::load_embedding_values(
     tensorflow::core::RefCountPtr<tensorflow::EmbeddingVariable>& emb_variable,
-    const tensorflow::OpInputList* tensor_list) {
-  if (tensor_list->size() < 1)
-    throw std::runtime_error(ErrorBase + "There must be at least one tensor.");
+    const tensorflow::Tensor* emb_values) {
+  if (emb_values->NumElements() <= 0) 
+    throw std::runtime_error(ErrorBase + "Empty embedding values.");
+  if (!tensorflow::TensorShapeUtils::IsMatrix(emb_values->shape()))
+      throw std::runtime_error(
+          ErrorBase + "The shape of tensor must be [vocabulary_size, embedding_vec_size], "
+          "but got " + emb_values->DebugString());
 
 #ifdef SOK_ASYNC
   auto wait_framework = [this](const size_t local_replica_id) {
@@ -524,22 +555,12 @@ void Facade::load_embedding_values(
   std::shared_ptr<ParamInterface> param;
   emb_variable->get_param(param);
 
-  std::vector<std::shared_ptr<Tensor>> tensors;
   const size_t emb_vec_size = param->get_embedding_vec_size();
-  for (auto iter = tensor_list->begin(); iter != tensor_list->end(); iter++) {
-    const tensorflow::Tensor* tensor = iter.operator->();
-
-    if (!tensorflow::TensorShapeUtils::IsMatrix(tensor->shape()))
-      throw std::runtime_error(
-          ErrorBase + "The shape of tensor must be [sub_vocabulary_size, embedding_vec_size].");
-    if (static_cast<size_t>(tensor->dim_size(1)) != emb_vec_size)
-      throw std::runtime_error(ErrorBase + "embedding_vec_size dimension is not consistent.");
-
-    tensors.emplace_back(TFTensorWrapper::create(const_cast<tensorflow::Tensor*>(tensor)));
-  }  // iter in tensor_list
+  if (static_cast<size_t>(emb_values->dim_size(1)) != emb_vec_size)
+    throw std::runtime_error(ErrorBase + "embedding_vec_size dimension is not consistent.");
 
   // delegate this job to param manager
-  params_mgr_->load_embedding_values(param, tensors);
+  params_mgr_->load_embedding_values(param, TFTensorWrapper::create(const_cast<tensorflow::Tensor*>(emb_values)));
 }
 
 // backdoors for unit test

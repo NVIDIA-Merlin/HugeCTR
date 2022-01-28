@@ -36,6 +36,10 @@
 
 namespace HugeCTR {
 
+// TODO: Remove me!
+#pragma GCC diagnostic push
+#pragma GCC diagnostic error "-Wconversion"
+
 class parameter_server_base {
  public:
   virtual ~parameter_server_base();
@@ -84,18 +88,17 @@ class parameter_server : public parameter_server_base, public HugectrUtility<Typ
 
  private:
   // The framework name
-  std::string framework_name_;
+  const std::string framework_name_;
   // Currently, embedding tables are implemented as CPU hashtable, 1 hashtable per embedding table
   // per model
   // The parameter server configuration
   parameter_server_config ps_config_;
 
   // Database layers for multi-tier cache/lookup.
-  std::shared_ptr<DatabaseBackend<TypeHashKey>> volatile_db_;
-  double volatile_db_cache_rate_ = 0.0;
-  std::shared_ptr<DatabaseBackend<TypeHashKey>> persistent_db_;
-
-  std::vector<std::shared_ptr<DatabaseBackend<TypeHashKey>>> db_stack_;
+  std::unique_ptr<VolatileBackend<TypeHashKey>> volatile_db_;
+  double volatile_db_cache_rate_;
+  bool volatile_db_cache_missed_embeddings_;
+  std::unique_ptr<PersistentBackend<TypeHashKey>> persistent_db_;
 
   // Realtime data ingestion.
   std::unique_ptr<MessageSource<TypeHashKey>> volatile_db_source_;
@@ -105,5 +108,8 @@ class parameter_server : public parameter_server_base, public HugectrUtility<Typ
   std::shared_ptr<ManagerPool> bufferpool;
   std::map<std::string, std::map<int64_t, std::shared_ptr<embedding_interface>>> model_cache_map;
 };
+
+// TODO: Remove me!
+#pragma GCC diagnostic pop
 
 }  // namespace HugeCTR

@@ -40,6 +40,8 @@ class ConstructionContext {
   virtual size_t get_max_feature_num() const = 0;
   virtual CombinerType get_combiner() const = 0;
   virtual bool used_for_sparse_embedding() const = 0;
+  virtual DataType compute_dtype() const = 0;
+  virtual DataType key_dtype() const = 0;
 };
 
 using ConstructionContext_t = std::shared_ptr<ConstructionContext>;
@@ -52,6 +54,7 @@ class DenseConstructionContext : public ConstructionContext {
       const std::vector<std::shared_ptr<HugeCTR::GeneralBuffer2<HugeCTR::CudaHostAllocator>>>&
           host_buffers,
       const size_t replica_batch_size, const size_t slot_num, const size_t nnz_per_slot,
+      const DataType key_dtype, const DataType compute_dtype, 
       std::shared_ptr<ParamInterface> param);
 
   const std::shared_ptr<ResourcesManager>& get_resource_mgr() const override;
@@ -68,6 +71,8 @@ class DenseConstructionContext : public ConstructionContext {
   size_t get_max_feature_num() const override;
   CombinerType get_combiner() const override;
   bool used_for_sparse_embedding() const override;
+  DataType key_dtype() const override;
+  DataType compute_dtype() const override;
 
  protected:
   DenseConstructionContext(
@@ -76,6 +81,7 @@ class DenseConstructionContext : public ConstructionContext {
       const std::vector<std::shared_ptr<HugeCTR::GeneralBuffer2<HugeCTR::CudaHostAllocator>>>&
           host_buffers,
       const size_t replica_batch_size, const size_t slot_num, const size_t nnz_per_slot,
+      const DataType key_dtype, const DataType compute_dtype, 
       std::shared_ptr<ParamInterface> param);
 
  private:
@@ -86,6 +92,8 @@ class DenseConstructionContext : public ConstructionContext {
   const size_t global_batch_size_;
   const size_t slot_num_;
   const size_t nnz_per_slot_;
+  const DataType key_dtype_;
+  const DataType compute_dtype_;
   std::shared_ptr<ParamInterface> param_;
 };
 
@@ -100,6 +108,7 @@ class SparseConstructionContext : public DenseConstructionContext {
           host_buffers,
       const size_t replica_batch_size, const size_t rows_num_per_sample, const size_t max_nnz,
       const size_t max_feature_num, const CombinerType combiner,
+      const DataType key_dtype, const DataType compute_dtype, 
       std::shared_ptr<ParamInterface> param);
 
   size_t get_nnz_per_slot() const override;
@@ -115,7 +124,8 @@ class SparseConstructionContext : public DenseConstructionContext {
       const std::vector<std::shared_ptr<HugeCTR::GeneralBuffer2<HugeCTR::CudaHostAllocator>>>&
           host_buffers,
       const size_t replica_batch_size, const size_t rows_num_per_sample, const size_t max_nnz,
-      const size_t max_feature_num, const CombinerType combiner,
+      const size_t max_feature_num, const CombinerType combiner, 
+      const DataType key_dtype, const DataType compute_dtype, 
       std::shared_ptr<ParamInterface> param);
 
   const size_t max_nnz_;

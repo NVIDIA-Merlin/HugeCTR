@@ -289,7 +289,9 @@ bool AsyncReader<SparseType>::is_started() const {
 }
 template <typename SparseType>
 void AsyncReader<SparseType>::start() {
-  reader_impl_->load_async();
+  if (!this->is_started()) {
+    reader_impl_->load_async();
+  }
 }
 template <typename SparseType>
 std::vector<TensorBag2> AsyncReader<SparseType>::get_label_tensors() const {

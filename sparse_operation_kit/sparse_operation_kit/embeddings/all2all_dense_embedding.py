@@ -57,14 +57,22 @@ class All2AllDenseEmbedding(tf.keras.layers.Layer):
             Hashtable will be created for dynamic insertion. Otherwise, the input keys
             will be used as the index for embedding vector looking-up, so that input keys
             must be in the range ``[0, max_vocabulary_size_per_gpu * gpu_num)``.
+    key_dtype: tf.dtypes = tf.int64
+            the data type of input keys. By default, it is `tf.int64`.
+    embedding_initializer: string or an instance of `tf.keras.initializers.Initializer`
+            the initializer used to generate initial value for embedding variable.
+            By default, it will use `random_uniform` where ``minval=-0.05, maxval=0.05``.
 
     Examples
     --------
     .. code-block:: python
 
+        initializer = tf.keras.initializers.RandomUniform() # or "random_uniform"
+
         emb_layer = sok.All2AllDenseEmbedding(max_vocabulary_size_per_gpu, 
                                               embedding_vec_size, 
-                                              slot_num, nnz_per_slot)
+                                              slot_num, nnz_per_slot,
+                                              embedding_initializer=initializer)
         
         @tf.function
         def _train_step(inputs, labels):
@@ -81,6 +89,8 @@ class All2AllDenseEmbedding(tf.keras.layers.Layer):
                  nnz_per_slot,
                  dynamic_input=False,
                  use_hashtable=True,
+                 key_dtype=None,
+                 embedding_initializer=None,
                  **kwargs):
         super(All2AllDenseEmbedding, self).__init__(**kwargs)
 
@@ -91,17 +101,27 @@ class All2AllDenseEmbedding(tf.keras.layers.Layer):
         self.dynamic_input = dynamic_input
         self.use_hashtable = use_hashtable
 
+        if self._dtype_policy.variable_dtype is None:
+            # in TF1 and policy is not set
+            # therefore variable dtype and compute dtype should be fp32
+            from tensorflow.python.keras.mixed_precision import experimental as mixed_precision
+            self._dtype_policy = mixed_precision.Policy("float32")
+
         self.var = EmbeddingVariable.CreateInstances(
-                                shape=[self.max_vocabulary_size_per_gpu, self.embedding_vec_size],
-                                trainable=True,
-                                use_hashtable=self.use_hashtable)
+                        shape=[self.max_vocabulary_size_per_gpu, self.embedding_vec_size],
+                        trainable=True,
+                        use_hashtable=self.use_hashtable,
+                        dtype=self._dtype_policy.variable_dtype,
+                        key_dtype=key_dtype,
+                        initializer=embedding_initializer)
 
         self.emb_layer = DenseEmbeddingLayerHandle(self.var,
                                                 input_dispatcher="All2AllInput",
                                                 embedding_lookuper="dense_gather",
                                                 output_dispatcher="All2AllOutput",
                                                 slot_num=self.slot_num,
-                                                nnz_per_slot=self.nnz_per_slot)
+                                                nnz_per_slot=self.nnz_per_slot,
+                                                compute_dtype=self._dtype_policy.compute_dtype)
 
     @property
     def embedding_variable(self):

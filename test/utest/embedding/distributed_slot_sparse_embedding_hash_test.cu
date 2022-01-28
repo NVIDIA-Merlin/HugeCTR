@@ -16,7 +16,7 @@
 
 #include <sys/time.h>
 
-#include <experimental/filesystem>
+#include <filesystem>
 #include <fstream>
 #include <functional>
 #include <memory>
@@ -34,7 +34,6 @@
 
 using namespace HugeCTR;
 using namespace embedding_test;
-namespace fs = std::experimental::filesystem;
 
 namespace {
 //---------------------------------------------------------------------------------------
@@ -77,8 +76,8 @@ auto load_sparse_model_to_map = [](std::vector<T> &key_vec, std::vector<float> &
   std::ifstream fs_key(key_file, std::ifstream::binary);
   std::ifstream fs_vec(vec_file, std::ifstream::binary);
 
-  const size_t key_file_size_in_B = fs::file_size(key_file);
-  const size_t vec_file_size_in_B = fs::file_size(vec_file);
+  const size_t key_file_size_in_B = std::filesystem::file_size(key_file);
+  const size_t vec_file_size_in_B = std::filesystem::file_size(vec_file);
   const long long num_key = key_file_size_in_B / sizeof(long long);
   const long long num_vec = vec_file_size_in_B / (sizeof(float) * embedding_vec_size);
 
@@ -104,8 +103,8 @@ auto load_sparse_model_to_map = [](std::vector<T> &key_vec, std::vector<float> &
 };
 
 void init_sparse_model(const char *sparse_model) {
-  if (!fs::exists(sparse_model)) {
-    fs::create_directories(sparse_model);
+  if (!std::filesystem::exists(sparse_model)) {
+    std::filesystem::create_directories(sparse_model);
   }
   const std::string key_file = std::string(sparse_model) + "/key";
   const std::string vec_file = std::string(sparse_model) + "/emb_vector";
@@ -363,12 +362,12 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // create new obj for eval()
-  embedding->dump_parameters(sparse_model_file);
+  embedding->dump_parameters(sparse_model_file, DataSourceParams());
 
   {
     printf("Rank%d: embedding->dump_opt_states()\n", pid);
     std::ofstream fs(opt_file_name);
-    embedding->dump_opt_states(fs);
+    embedding->dump_opt_states(fs, opt_file_name, DataSourceParams());
     fs.close();
   }
 
@@ -583,7 +582,7 @@ void load_and_dump(const std::vector<int> &device_list, const Optimizer_t &optim
          embedding->get_max_vocabulary_size(), embedding->get_vocabulary_size());
 
   std::string tmp_sparse_model_file{"tmp_sparse_model"};
-  embedding->dump_parameters(tmp_sparse_model_file);
+  embedding->dump_parameters(tmp_sparse_model_file, DataSourceParams());
 
   std::vector<T> hash_table_key_from_cpu;
   std::vector<float> hash_table_value_from_cpu;
@@ -638,8 +637,8 @@ void load_and_dump_file(const std::vector<int> &device_list, const Optimizer_t &
 
   if (pid == 0) {
     // re-generate the dataset files
-    if (fs::exists(train_file_list_name)) {
-      fs::remove(train_file_list_name);
+    if (std::filesystem::exists(train_file_list_name)) {
+      std::filesystem::remove(train_file_list_name);
     }
 
     // data generation
@@ -705,7 +704,7 @@ void load_and_dump_file(const std::vector<int> &device_list, const Optimizer_t &
   }
 
   // dump sparse model to file
-  embedding->dump_parameters(sparse_model_dst);
+  embedding->dump_parameters(sparse_model_dst, DataSourceParams());
 
 #ifdef ENABLE_MPI
   MPI_Barrier(MPI_COMM_WORLD);

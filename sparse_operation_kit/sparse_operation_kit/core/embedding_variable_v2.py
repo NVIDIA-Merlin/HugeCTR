@@ -19,10 +19,12 @@ from __future__ import division
 from __future__ import print_function
 
 from sparse_operation_kit import kit_lib
+from sparse_operation_kit.core.inplace_initializer import InPlaceInitializer
+from tensorflow.python.keras import initializers as tf_initializers
 from tensorflow.python.ops.resource_variable_ops import BaseResourceVariable, variable_accessed, _maybe_set_handle_data
 from tensorflow.python.ops.resource_variable_ops import _handle_graph
 from tensorflow.python.framework.tensor_shape import TensorShape
-from tensorflow.python.framework.dtypes import float32
+from tensorflow.python.framework import dtypes
 from tensorflow.python.eager import context
 from tensorflow.python.eager import tape
 from tensorflow.python.framework import ops
@@ -65,10 +67,12 @@ class EmbeddingVariable(BaseResourceVariable):
     def __init__(self,
                  shape,
                  local_replica_id,
-                 initial_value="random_uniform",
+                 initializer=None,
                  trainable=True,
                  use_hashtable=True,
                  name="EmbeddingVariable",
+                 dtype=None,
+                 key_dtype=None,
                  *args,
                  **kwargs):
         if (not isinstance(shape, list)) or (len(shape) != 2):
@@ -76,12 +80,20 @@ class EmbeddingVariable(BaseResourceVariable):
                              "[vocabulary_size_per_gpu, embedding_vector_size].")
         self.m_shape_per_gpu = TensorShape(shape)
         self.m_local_replica_id = local_replica_id
-        self.m_initial_value = initial_value
+        self.m_initializer = initializer or InPlaceInitializer(name="random_uniform")
+        if not isinstance(self.m_initializer, InPlaceInitializer):
+            self.m_initializer = tf_initializers.get(self.m_initializer)
         self.m_trainable = trainable
         self.m_use_hashtable = use_hashtable
         self.m_embedding_layer = None
-        # self.m_var_name = ops.get_default_graph().unique_name(name, mark_as_used=True)
-        # self.m_unique_id = "%s_%d" %(self.m_var_name, ops.uid())
+        self.m_dtype = dtype or dtypes.float32
+        self.m_key_dtype = key_dtype or dtypes.int64
+        # produce intial_value
+        if isinstance(self.m_initializer, InPlaceInitializer):
+            # TODO: serialize it
+            self.m_initial_value = self.m_initializer.name
+        else:
+            self.m_initial_value = self.m_initializer(shape=self.m_shape_per_gpu, dtype=self.m_dtype)
 
         with ops.init_scope():
             with ops.name_scope(name):
@@ -91,7 +103,7 @@ class EmbeddingVariable(BaseResourceVariable):
                 # m_handle is the handle to EmbeddingVariable, tf_handle is the handle to TF Var.
                 self.m_handle, self.tf_handle = kit_lib.create_var(
                                             var_name=self.m_var_name,
-                                            dtype=float32,
+                                            dtype=self.m_dtype,
                                             shape=self.m_shape_per_gpu)
 
                 with ops.name_scope("IsInitialized"):
@@ -111,12 +123,13 @@ class EmbeddingVariable(BaseResourceVariable):
                                                             trainable=self.m_trainable,
                                                             shape=self.m_shape_per_gpu,
                                                             use_hashtable=self.m_use_hashtable,
-                                                            dtype=float32)
+                                                            dtype=self.m_dtype,
+                                                            key_dtype=self.m_key_dtype)
                     self._initializer_op = control_flow_ops.group((_init_op))
 
             super(EmbeddingVariable, self).__init__(trainable=self.m_trainable,
                                                     shape=self.m_shape_per_gpu,
-                                                    dtype=float32,
+                                                    dtype=self.m_dtype,
                                                     handle=self.m_handle,
                                                     handle_name=self.m_var_name,
                                                     distribute_strategy=get_strategy() if has_strategy() else None,

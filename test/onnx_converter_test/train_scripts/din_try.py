@@ -73,11 +73,11 @@ model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Slice,
 model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Sub,
                             bottom_names = ["Scale_item1", "item_his1"],
                             top_names = ["sub_ih"]))
-model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.DotProduct, 
+model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.ElementwiseMultiply, 
                             bottom_names = ["Scale_item2", "item_his2"],
-                            top_names = ["DotProduct_i"]))
+                            top_names = ["ElementwiseMul_i"]))
 model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Concat,
-                            bottom_names = ["Scale_item3", "item_his3", "sub_ih", "DotProduct_i"],
+                            bottom_names = ["Scale_item3", "item_his3", "sub_ih", "ElementwiseMul_i"],
                             top_names = ["concat_i_h"]))
 
 model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.InnerProduct,

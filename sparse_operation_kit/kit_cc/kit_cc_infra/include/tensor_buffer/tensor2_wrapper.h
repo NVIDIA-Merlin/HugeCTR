@@ -43,13 +43,15 @@ class Tensor2Wrapper : public Tensor {
 
   bool allocated() const override { return tensor2_.allocated(); }
 
- protected:
+  DataType dtype() const override { return dtype_; }
+
   void* get_ptr() override { return tensor2_.get_ptr(); }
 
  private:
   Tensor2Wrapper(HugeCTR::Tensor2<T>& tensor2) : tensor2_(tensor2) {}
 
   HugeCTR::Tensor2<T> tensor2_;
+  const DataType dtype_ = DType<T>();
 };
 
 }  // namespace SparseOperationKit

@@ -42,7 +42,6 @@ file(GLOB huge_ctr_src
   ../layers/multi_cross_layer.cu
   ../layers/add_layer.cu
   ../layers/reduce_sum_layer.cu
-  ../layers/dot_product_layer.cu
   ../layers/elementwise_multiply_layer.cu
   ../layers/gru_layer.cu
   ../layers/matrix_multiply_layer.cu
@@ -98,6 +97,14 @@ file(GLOB huge_ctr_src
 set(CMAKE_CXX_STANDARD 17)
 add_library(hugectr_inference SHARED ${huge_ctr_src})
 
+file(GLOB hdfs_backend ${CMAKE_CURRENT_SOURCE_DIR}/../hdfs_backend.cpp)
+add_library(huge_ctr_hdfs_backend SHARED ${hdfs_backend})
+target_link_libraries(
+  huge_ctr_hdfs_backend
+  PUBLIC
+    ${DB_LIB_PATHS}/libhdfs.so # from Hugectr 
+)
+
 target_link_libraries(hugectr_inference PUBLIC cudart cublas curand cudnn nccl cudf stdc++fs tbb ${CMAKE_THREAD_LIBS_INIT})
 
 target_link_libraries(hugectr_inference PUBLIC gpu_cache)
@@ -107,7 +114,10 @@ target_link_libraries(hugectr_inference PRIVATE nlohmann_json::nlohmann_json nvT
 target_link_libraries(
   hugectr_inference
   PUBLIC
-    ${DB_LIB_PATHS}/libhiredis.so librocksdb.so libredis++.so librdkafka.so # from Hugectr 
+    ${DB_LIB_PATHS}/libhiredis.so librocksdb.so libredis++.so librdkafka.so libhdfs.so # from Hugectr 
+)
+target_link_libraries(
+  hugectr_inference PUBLIC huge_ctr_hdfs_backend
 )
 
 target_compile_features(hugectr_inference PUBLIC cxx_std_17)

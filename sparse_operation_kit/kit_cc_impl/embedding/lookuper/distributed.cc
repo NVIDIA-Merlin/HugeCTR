@@ -22,6 +22,7 @@
 
 namespace SparseOperationKit {
 
+template <typename KeyType, typename ValueType>
 class DistribtuedLookuper : public EmbeddingLookuper {
  public:
   explicit DistribtuedLookuper(ConstructionContext_t context, std::shared_ptr<ParamInterface> param)
@@ -43,10 +44,10 @@ class DistribtuedLookuper : public EmbeddingLookuper {
       const size_t global_gpu_count = resource_mgr_->get_global_gpu_count();
       auto stream = resource_mgr_->get_local_gpu(0)->get_stream();
       const size_t capacity = param->get_hashtable(0)->get_capacity(stream);
-      HashFunctor_t hash_func = HashFunctors::Divisive<int64_t, size_t>::create(
+      HashFunctor_t hash_func = HashFunctors::Divisive<KeyType, size_t>::create(
           /*interval=*/global_gpu_count, /*capacity=*/capacity,
           /*global_replica_id=*/resource_mgr_->cal_global_id_from_local_id(0));
-      auto hashtable = SimpleHashtable<int64_t, size_t>::create(capacity, hash_func);
+      auto hashtable = SimpleHashtable<KeyType, size_t>::create(capacity, hash_func);
       param->set_hashtable(hashtable);
     }  // if identical_mapping
   }
@@ -56,8 +57,6 @@ class DistribtuedLookuper : public EmbeddingLookuper {
     size_t max_vocabulary_size_in_total =
         max_vocabulary_size_per_gpu * resource_mgr_->get_global_gpu_count();
 
-    MESSAGE("max_vocabulary_size_in_total = " + std::to_string(max_vocabulary_size_in_total));
-
     for (size_t dev_id = 0; dev_id < resource_mgr_->get_local_gpu_count(); ++dev_id) {
       auto &buffer = base_context()->get_buffer(dev_id);
       // new hash table value (index) that get() from hashtable
@@ -65,17 +64,10 @@ class DistribtuedLookuper : public EmbeddingLookuper {
         Tensor2<size_t> tensor;
         buffer->reserve({1, global_batch_size_ * max_feature_num_}, &tensor);
         hash_value_index_tensors_.push_back(tensor);
-#ifdef DEBUG
-        std::cout << "hash_value_index_tensor size on dev_id " << dev_id << " = "
-                  << "global_batch_size * max_feature_num "
-                  << ", "
-                  << "global_batch_size = " << global_batch_size_ << ", "
-                  << "max_feature_num = " << max_feature_num_ << std::endl;
-#endif  // DEBUG
       }
       // new embedding features reduced by hash table values.
       {
-        Tensor2<float> tensor;
+        Tensor2<ValueType> tensor;
         buffer->reserve({global_batch_size_ * slot_num_, param_->get_embedding_vec_size()},
                         &tensor);
         embedding_feature_tensors_.push_back(tensor);
@@ -88,7 +80,7 @@ class DistribtuedLookuper : public EmbeddingLookuper {
       auto &buffer = base_context()->get_buffer(dev_id);
       // new wgrad used by backward
       {
-        Tensor2<float> tensor;
+        Tensor2<ValueType> tensor;
         buffer->reserve({global_batch_size_ * slot_num_, param_->get_embedding_vec_size()},
                         &tensor);
         wgrad_tensors_.push_back(tensor);
@@ -116,11 +108,11 @@ class DistribtuedLookuper : public EmbeddingLookuper {
     // get hash_value_index from hash_table by hash_key
     auto &hashtable = param_->get_hashtable(local_replica_id);
     if (training) {
-      hashtable->get_insert(replica_csr_values->GetPtrWithType<int64_t>(),
+      hashtable->get_insert(replica_csr_values->GetPtrWithType<KeyType>(),
                             hash_value_index_tensors_[local_replica_id].get_ptr(),
                             replica_host_nnz->GetPtrWithType<size_t>()[0], local_gpu->get_stream());
     } else {
-      hashtable->get(replica_csr_values->GetPtrWithType<int64_t>(),
+      hashtable->get(replica_csr_values->GetPtrWithType<KeyType>(),
                      hash_value_index_tensors_[local_replica_id].get_ptr(),
                      replica_host_nnz->GetPtrWithType<size_t>()[0], local_gpu->get_stream());
     }
@@ -172,7 +164,7 @@ class DistribtuedLookuper : public EmbeddingLookuper {
     switch (combiner_) {
       case CombinerType::Sum: {
         backward_sum(/*batch_size=*/global_batch_size_, slot_num_, param_->get_embedding_vec_size(),
-                     /*top_grad=*/embedding_features->GetPtrWithType<float>(),
+                     /*top_grad=*/embedding_features->GetPtrWithType<ValueType>(),
                      /*wgrad=*/wgrad_tensors_[local_replica_id].get_ptr(), stream);
         break;
       }
@@ -180,7 +172,7 @@ class DistribtuedLookuper : public EmbeddingLookuper {
         backward_mean(/*batch_size=*/global_batch_size_, slot_num_,
                       param_->get_embedding_vec_size(),
                       /*row_offset=*/row_offset_allreduce_tensors_[local_replica_id].get_ptr(),
-                      /*top_grad=*/embedding_features->GetPtrWithType<float>(),
+                      /*top_grad=*/embedding_features->GetPtrWithType<ValueType>(),
                       /*wgrad=*/wgrad_tensors_[local_replica_id].get_ptr(), stream);
         break;
       }
@@ -194,7 +186,7 @@ class DistribtuedLookuper : public EmbeddingLookuper {
     expand_input_grad(global_batch_size_, slot_num_, param_->get_embedding_vec_size(),
                       replica_row_offset->GetPtrWithType<int64_t>(),
                       wgrad_tensors_[local_replica_id].get_ptr(),
-                      replica_input_grad->GetPtrWithType<float>(), stream);
+                      replica_input_grad->GetPtrWithType<ValueType>(), stream);
 
     // set hash_value index
     const auto &replica_hash_value_index =
@@ -204,82 +196,19 @@ class DistribtuedLookuper : public EmbeddingLookuper {
                             replica_hash_value_index->GetPtrWithType<int64_t>(),
                             value_index_tensor->get_size_in_bytes(), cudaMemcpyDeviceToDevice,
                             stream));
-#ifdef DEBUG
-    {
-      const auto replica_host_nnz = replica_context->input("replica_host_nnz");
-      const auto replica_row_offset = replica_context->input("replica_row_offset");
-      const auto replica_csr_values = replica_context->input("replica_csr_values");
-      const size_t host_nnz = replica_host_nnz->GetPtrWithType<size_t>()[0];
-      CK_CUDA(cudaStreamSynchronize(stream));
-
-      int64_t *host_row_offset = nullptr;
-      CK_CUDA(cudaMallocHost(&host_row_offset, replica_row_offset->get_size_in_bytes(),
-                             cudaHostAllocDefault));
-      int64_t *host_csr_values = nullptr;
-      CK_CUDA(cudaMallocHost(&host_csr_values, sizeof(int64_t) * host_nnz, cudaHostAllocDefault));
-      size_t *host_replica_hash_value_index = nullptr;
-      CK_CUDA(cudaMallocHost(&host_replica_hash_value_index, sizeof(size_t) * host_nnz,
-                             cudaHostAllocDefault));
-
-      CK_CUDA(cudaMemcpyAsync(host_row_offset, replica_row_offset->GetPtrWithType<int64_t>(),
-                              replica_row_offset->get_size_in_bytes(), cudaMemcpyDefault, stream));
-      CK_CUDA(cudaMemcpyAsync(host_csr_values, replica_csr_values->GetPtrWithType<int64_t>(),
-                              sizeof(int64_t) * host_nnz, cudaMemcpyDefault, stream));
-      CK_CUDA(cudaMemcpyAsync(host_replica_hash_value_index,
-                              replica_hash_value_index->GetPtrWithType<size_t>(),
-                              sizeof(size_t) * host_nnz, cudaMemcpyDefault, stream));
-      CK_CUDA(cudaStreamSynchronize(stream));
-
-      std::cout << "host_row_offset on GPU: " << local_replica_id << std::endl;
-      for (size_t i = 0; i < replica_row_offset->get_num_elements(); i++)
-        std::cout << host_row_offset[i] << " ";
-      std::cout << std::endl;
-      std::cout << "host_csr_values: " << std::endl;
-      for (size_t i = 0; i < host_nnz; i++) std::cout << host_csr_values[i] << " ";
-      std::cout << std::endl;
-      std::cout << "host_hash_value_index: " << std::endl;
-      for (size_t i = 0; i < host_nnz; i++) std::cout << host_replica_hash_value_index[i] << " ";
-      std::cout << std::endl;
-      CK_CUDA(cudaFreeHost(host_row_offset));
-      CK_CUDA(cudaFreeHost(host_csr_values));
-      CK_CUDA(cudaFreeHost(host_replica_hash_value_index));
-
-      {
-        if (local_replica_id == 0) {
-          std::cout << "\nwhole wgrad:" << std::endl;
-          float *host_wgrad = nullptr;
-          CK_CUDA(cudaMallocHost(&host_wgrad, wgrad_tensors_[0].get_size_in_bytes(),
-                                 cudaHostAllocDefault));
-          CK_CUDA(cudaMemcpyAsync(host_wgrad, wgrad_tensors_[0].get_ptr(),
-                                  wgrad_tensors_[0].get_size_in_bytes(), cudaMemcpyDefault,
-                                  stream));
-          CK_CUDA(cudaStreamSynchronize(stream));
-          for (size_t row = 0; row < global_batch_size_ * slot_num_; row++) {
-            std::cout << "Row: " << row << " ";
-            for (size_t col = 0; col < param_->get_embedding_vec_size(); col++) {
-              std::cout << host_wgrad[row * param_->get_embedding_vec_size() + col] << " ";
-            }
-            std::cout << std::endl;
-          }
-
-          CK_CUDA(cudaFreeHost(host_wgrad));
-        }
-      }
-    }
-#endif  // DEBUG
   }
 
   void save_params(std::shared_ptr<Tensor> &keys, std::shared_ptr<Tensor> &embedding_values,
                    size_t &num_total_keys) const override {
     // this lookuper distribute keys to each GPU based on key % GPU_NUM
-    save_params_helper(param_, resource_mgr_, keys, embedding_values, num_total_keys);
+    save_params_helper<KeyType>(param_, resource_mgr_, keys, embedding_values, num_total_keys);
   }
 
   void restore_params(const std::shared_ptr<Tensor> &keys,
                       const std::shared_ptr<Tensor> &embedding_values,
                       const size_t num_total_keys) override {
     // this lookuper distribute keys to each GPU based on key % GPU_NUM
-    restore_params_helper(param_, resource_mgr_, keys, embedding_values, num_total_keys);
+    restore_params_helper<KeyType>(param_, resource_mgr_, keys, embedding_values, num_total_keys);
   }
 
  private:
@@ -291,13 +220,28 @@ class DistribtuedLookuper : public EmbeddingLookuper {
 
   // forward spaces
   Tensors2<size_t> hash_value_index_tensors_;
-  Tensors2<float> embedding_feature_tensors_;
+  Tensors2<ValueType> embedding_feature_tensors_;
 
   // backward spaces
-  Tensors2<float> wgrad_tensors_;
+  Tensors2<ValueType> wgrad_tensors_;
   Tensors2<int64_t> row_offset_allreduce_tensors_;
 };
 
-REGISTER_EMB_LOOKUPER_BUILDER("distributed", DistribtuedLookuper);
+REGISTER_EMB_LOOKUPER_BUILDER("distributed", 
+                              DataType::Int64,
+                              DataType::Float32, 
+                              DistribtuedLookuper<int64_t, float>);
+REGISTER_EMB_LOOKUPER_BUILDER("distributed", 
+                              DataType::Int64,
+                              DataType::Float16, 
+                              DistribtuedLookuper<int64_t, __half>);
+REGISTER_EMB_LOOKUPER_BUILDER("distributed", 
+                              DataType::Uint32,
+                              DataType::Float32, 
+                              DistribtuedLookuper<uint32_t, float>);
+REGISTER_EMB_LOOKUPER_BUILDER("distributed", 
+                              DataType::Uint32,
+                              DataType::Float16, 
+                              DistribtuedLookuper<uint32_t, __half>);
 
 }  // namespace SparseOperationKit

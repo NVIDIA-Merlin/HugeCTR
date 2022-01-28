@@ -94,5 +94,6 @@ bool IdentityHashTable<KeyType, ValType>::identical_mapping() const {
 }
 
 template class IdentityHashTable<int64_t, size_t>;
+template class IdentityHashTable<uint32_t, size_t>;
 
 }  // namespace SparseOperationKit

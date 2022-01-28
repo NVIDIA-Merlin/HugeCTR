@@ -24,5 +24,5 @@ using namespace tensorflow::shape_inference;
 REGISTER_OP("LoadEmbeddingValues")
     .Input("var_handle: resource")
     .Input("embedding_values: T")
-    .Attr("T: list({float})")
+    .Attr("T: {float}")
     .Output("status: string");
