@@ -20,22 +20,46 @@
 
 namespace SparseOperationKit {
 
-BuilderContainer::BuilderContainer(const std::string name) : name_(name) {}
+OperationIdentifier::OperationIdentifier(const std::string op_name, 
+                                         const DataType key_dtype, 
+                                         const DataType dtype)
+: op_name_(op_name), key_dtype_(key_dtype), dtype_(dtype) {}
 
-void BuilderContainer::push_back(const std::string builder_name,
-                                 const std::shared_ptr<Builder> builder) {
-  auto iter = components_.find(builder_name);
-  if (components_.end() != iter)
-    throw std::runtime_error(ErrorBase + "There exists a builder whose name is " + builder_name +
-                             " in container: " + name_);
-
-  components_.emplace(std::make_pair(builder_name, builder));
+std::string OperationIdentifier::DebugString() const {
+  return op_name_ + " with key_dtype = " + DataTypeString(key_dtype_) 
+          + ", dtype = " + DataTypeString(dtype_);
 }
 
-std::shared_ptr<Builder> BuilderContainer::get_builder(const std::string builder_name) {
-  auto iter = components_.find(builder_name);
+size_t IdentifierHash::operator()(const OperationIdentifier& identifier) const {
+  return std::hash<std::string>()(identifier.op_name_) ^
+          (std::hash<DataType>()(identifier.key_dtype_) << 1) ^ 
+          (std::hash<DataType>()(identifier.dtype_) << 2);
+}
+
+bool IdentifierEqual::operator()(const OperationIdentifier& lid, 
+                                 const OperationIdentifier& rid) const {
+  return (lid.op_name_ == rid.op_name_) && 
+         (lid.key_dtype_ == rid.key_dtype_) && 
+         (lid.dtype_ == rid.dtype_);
+}
+
+BuilderContainer::BuilderContainer(const std::string name) : name_(name) {}
+
+void BuilderContainer::push_back(const OperationIdentifier op_identifier,
+                                 const std::shared_ptr<Builder> builder) {
+  auto iter = components_.find(op_identifier);
+  if (components_.end() != iter)
+    throw std::runtime_error(ErrorBase + "There already exists a builder "
+                             + op_identifier.DebugString() + " in container: " + name_);
+
+  components_.emplace(std::make_pair(op_identifier, builder));
+}
+
+std::shared_ptr<Builder> BuilderContainer::get_builder(const OperationIdentifier op_identifier) {
+  auto iter = components_.find(op_identifier);
   if (components_.end() == iter)
-    throw std::runtime_error(ErrorBase + "Cannot find " + builder_name + " in container: " + name_);
+    throw std::runtime_error(ErrorBase + "Cannot find " + op_identifier.DebugString() 
+                             + " in container: " + name_);
 
   return iter->second;
 }
@@ -43,7 +67,7 @@ std::shared_ptr<Builder> BuilderContainer::get_builder(const std::string builder
 std::vector<std::string> BuilderContainer::get_builder_names() const {
   std::vector<std::string> builder_names;
   for (auto iter : components_) {
-    builder_names.emplace_back(iter.first);
+    builder_names.emplace_back(iter.first.op_name_);
   }
   return builder_names;
 }

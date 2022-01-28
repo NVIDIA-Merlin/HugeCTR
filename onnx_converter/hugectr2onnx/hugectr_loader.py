@@ -23,7 +23,6 @@ ONNX_LAYER_TYPES = {
     "Add",
     "BatchNorm",
     "Concat",
-    "DotProduct",
     "Dropout",
     "ElementwiseMultiply",
     "ELU",
@@ -228,9 +227,7 @@ class HugeCTRLoader(object):
             dim = 0
             for tensor in layer_config["bottom"]:
                 dim += self.__dimensions[tensor]
-            self.__dimensions[layer_config["top"]] = dim        
-        elif layer_type == "DotProduct":
-            self.__dimensions[layer_config["top"]] = self.__dimensions[layer_config["bottom"][0]]     
+            self.__dimensions[layer_config["top"]] = dim            
         elif layer_type == "Dropout":
             layer_params.dropout_rate = layer_config["rate"]
             self.__dimensions[layer_config["top"]] = self.__dimensions[layer_config["bottom"]]

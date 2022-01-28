@@ -24,6 +24,7 @@ DenseConstructionContext::DenseConstructionContext(
     const std::vector<std::shared_ptr<HugeCTR::GeneralBuffer2<HugeCTR::CudaHostAllocator>>>&
         host_buffers,
     const size_t replica_batch_size, const size_t slot_num, const size_t nnz_per_slot,
+    const DataType key_dtype, const DataType compute_dtype, 
     std::shared_ptr<ParamInterface> param)
     : resource_mgr_(resource_mgr),
       buffers_(buffers),
@@ -32,6 +33,8 @@ DenseConstructionContext::DenseConstructionContext(
       global_batch_size_(replica_batch_size_ * resource_mgr_->get_global_gpu_count()),
       slot_num_(slot_num),
       nnz_per_slot_(nnz_per_slot),
+      key_dtype_(key_dtype),
+      compute_dtype_(compute_dtype),
       param_(param) {}
 
 std::shared_ptr<DenseConstructionContext> DenseConstructionContext::create(
@@ -40,9 +43,11 @@ std::shared_ptr<DenseConstructionContext> DenseConstructionContext::create(
     const std::vector<std::shared_ptr<HugeCTR::GeneralBuffer2<HugeCTR::CudaHostAllocator>>>&
         host_buffers,
     const size_t replica_batch_size, const size_t slot_num, const size_t nnz_per_slot,
+    const DataType key_dtype, const DataType compute_dtype, 
     std::shared_ptr<ParamInterface> param) {
   return std::shared_ptr<DenseConstructionContext>(new DenseConstructionContext(
-      resource_mgr, buffers, host_buffers, replica_batch_size, slot_num, nnz_per_slot, param));
+      resource_mgr, buffers, host_buffers, replica_batch_size, 
+      slot_num, nnz_per_slot, key_dtype, compute_dtype, param));
 }
 
 const std::shared_ptr<ResourcesManager>& DenseConstructionContext::get_resource_mgr() const {
@@ -94,6 +99,10 @@ CombinerType DenseConstructionContext::get_combiner() const {
 
 bool DenseConstructionContext::used_for_sparse_embedding() const { return false; }
 
+DataType DenseConstructionContext::key_dtype() const { return key_dtype_; }
+
+DataType DenseConstructionContext::compute_dtype() const { return compute_dtype_; }
+
 SparseConstructionContext::SparseConstructionContext(
     const std::shared_ptr<ResourcesManager>& resource_mgr,
     const std::vector<std::shared_ptr<HugeCTR::GeneralBuffer2<HugeCTR::CudaAllocator>>>& buffers,
@@ -101,10 +110,11 @@ SparseConstructionContext::SparseConstructionContext(
         host_buffers,
     const size_t replica_batch_size, const size_t rows_num_per_sample, const size_t max_nnz,
     const size_t max_feature_num, const CombinerType combiner,
+    const DataType key_dtype, const DataType compute_dtype, 
     std::shared_ptr<ParamInterface> param)
     : DenseConstructionContext(resource_mgr, buffers, host_buffers, replica_batch_size,
                                /*slot_num=*/rows_num_per_sample,
-                               /*nnz_per_slot=*/0, param),
+                               /*nnz_per_slot=*/0, key_dtype, compute_dtype, param),
       max_nnz_(max_nnz),
       max_feature_num_(max_feature_num),
       combiner_(combiner) {}
@@ -116,10 +126,11 @@ std::shared_ptr<SparseConstructionContext> SparseConstructionContext::create(
         host_buffers,
     const size_t replica_batch_size, const size_t rows_num_per_sample, const size_t max_nnz,
     const size_t max_feature_num, const CombinerType combiner,
+    const DataType key_dtype, const DataType compute_dtype, 
     std::shared_ptr<ParamInterface> param) {
   return std::shared_ptr<SparseConstructionContext>(new SparseConstructionContext(
       resource_mgr, buffers, host_buffers, replica_batch_size, rows_num_per_sample, max_nnz,
-      max_feature_num, combiner, param));
+      max_feature_num, combiner, key_dtype, compute_dtype, param));
 }
 
 size_t SparseConstructionContext::get_nnz_per_slot() const {

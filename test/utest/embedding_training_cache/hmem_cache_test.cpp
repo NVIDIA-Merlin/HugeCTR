@@ -45,17 +45,17 @@ void generate_embedding_table(std::string table_name, double table_size_in_gb, O
   std::string slot_id_file{table_name + "/slot_id"};
   auto data_files{get_data_file(opt_type)};
 
-  bool is_exist{fs::exists(table_name)};
+  bool is_exist{std::filesystem::exists(table_name)};
   bool is_valid{true};
   if (is_exist) {
-    size_t num_key{fs::file_size(key_file) / sizeof(long long)};
-    size_t num_slot_id{fs::file_size(slot_id_file) / sizeof(size_t)};
+    size_t num_key{std::filesystem::file_size(key_file) / sizeof(long long)};
+    size_t num_slot_id{std::filesystem::file_size(slot_id_file) / sizeof(size_t)};
     if (num_key != num_slot_id || num_key != num_target_key) {
       is_valid = false;
     }
     for (auto& data_file : data_files) {
       std::string file_name{table_name + "/" + data_file};
-      size_t num_vec{fs::file_size(file_name) / emb_vec_size / sizeof(float)};
+      size_t num_vec{std::filesystem::file_size(file_name) / emb_vec_size / sizeof(float)};
       if (num_key != num_vec) {
         is_valid = false;
         break;
@@ -67,8 +67,8 @@ void generate_embedding_table(std::string table_name, double table_size_in_gb, O
   data_files.clear();
   data_files = std::vector<std::string>(
       {"emb_vector", "Adam.m", "Adam.v", "AdaGrad.accm", "MomentumSGD.momtentum", "Nesterov.accm"});
-  if (is_exist) fs::remove_all(table_name);
-  fs::create_directories(table_name);
+  if (is_exist) std::filesystem::remove_all(table_name);
+  std::filesystem::create_directories(table_name);
   std::vector<long long> keys(num_target_key);
   std::vector<size_t> slot_ids(num_target_key);
   std::vector<std::vector<float>> data_vecs(data_files.size(),
@@ -114,16 +114,16 @@ void read_api_test(double table_size, size_t num_pass, size_t num_cached_pass,
   const auto resource_manager{ResourceManagerExt::create(vvgpu, 0)};
 
   generate_embedding_table(snapshot_src_file, table_size, opt_type, emb_vec_size);
-  if (fs::exists(snapshot_dst_file)) fs::remove_all(snapshot_dst_file);
-  fs::copy(snapshot_src_file, snapshot_dst_file);
+  if (std::filesystem::exists(snapshot_dst_file)) std::filesystem::remove_all(snapshot_dst_file);
+  std::filesystem::copy(snapshot_src_file, snapshot_dst_file);
 
   const std::string key_file{std::string(snapshot_dst_file) + "/key"};
-  auto num_key{fs::file_size(key_file) / sizeof(long long)};
+  auto num_key{std::filesystem::file_size(key_file) / sizeof(long long)};
   std::vector<TypeKey> keys;
   {
     std::vector<long long> key_i64(num_key);
     std::ifstream ifs(key_file);
-    ifs.read(reinterpret_cast<char*>(key_i64.data()), fs::file_size(key_file));
+    ifs.read(reinterpret_cast<char*>(key_i64.data()), std::filesystem::file_size(key_file));
     if (std::is_same<TypeKey, long long>::value) {
       keys.resize(num_key);
       std::transform(key_i64.begin(), key_i64.end(), keys.begin(),

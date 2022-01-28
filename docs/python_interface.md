@@ -66,6 +66,10 @@ As a recommendation system domain specific framework, HugeCTR has a set of high 
   * [DataGeneratorParams class](#datageneratorparams-class)
   * [DataGenerator class](#datagenerator)
     * [generate()](#generate-method)
+* [Data Source API](#data-source-api)
+  * [DataSourceParams class](#datasourceparams-class)
+  * [DataSource class](#datasource)
+    * [move_to_local()](#move_to_local-method)
 
 ## High-level Training API ##
 For HugeCTR high-level training API, the core data structures are `Solver`, `EmbeddingTrainingCacheParams`, `DataReaderParams`, `OptParamsPy`, `Input`, `SparseEmbedding`, `DenseLayer` and `Model`. You can create a `Model` instance with `Solver`, `EmbeddingTrainingCacheParams`, `DataReaderParams` and `OptParamsPy` instances, and then add instances of `Input`, `SparseEmbedding` or `DenseLayer` to it. After compiling the model with the `Model.compile()` method, you can start the epoch mode or non-epoch mode training by simply calling the `Model.fit()` method. Moreover, the `Model.summary()` method gives you an overview of the model structure. We also provide some other methods, such as saving the model graph to a JSON file, constructing the model graph based on the saved JSON file, loading model weights and optimizer status, etc.
@@ -490,7 +494,7 @@ hugectr.DenseLayer()
 `DenseLayer` specifies the parameters related to the dense layer or the loss function. HugeCTR currently supports multiple dense layers and loss functions, Please refer to [DenseLayer Detail](./hugectr_layer_book.md#dense-layers) if you want to get detailed information about dense layers. Please **NOTE** that the final sigmoid function is fused with the loss function to better utilize memory bandwidth.
 
 **Arguments**
-* `layer_type`: The layer type to be used. The supported types include `hugectr.Layer_t.Add`, `hugectr.Layer_t.BatchNorm`, `hugectr.Layer_t.Cast`, `hugectr.Layer_t.Concat`, `hugectr.Layer_t.DotProduct`, `hugectr.Layer_t.Dropout`, `hugectr.Layer_t.ELU`, `hugectr.Layer_t.FmOrder2`, `hugectr.Layer_t.FusedInnerProduct`, `hugectr.Layer_t.InnerProduct`, `hugectr.Layer_t.Interaction`, `hugectr.Layer_t.MultiCross`, `hugectr.Layer_t.ReLU`, `hugectr.Layer_t.ReduceSum`, `hugectr.Layer_t.Reshape`, `hugectr.Layer_t.Sigmoid`, `hugectr.Layer_t.Slice`, `hugectr.Layer_t.WeightMultiply`, `hugectr.ElementWiseMultiply`, `hugectr.Layer_t.GRU`, `hugectr.Layer_t.Scale`, `hugectr.Layer_t.FusedReshapeConcat`, `hugectr.Layer_t.FusedReshapeConcatGeneral`, `hugectr.Layer_t.Softmax`, `hugectr.Layer_t.PReLU_Dice`, `hugectr.Layer_t.ReduceMean`, `hugectr.Layer_t.Sub`, `hugectr.Layer_t.Gather`, `hugectr.Layer_t.BinaryCrossEntropyLoss`, `hugectr.Layer_t.CrossEntropyLoss` and `hugectr.Layer_t.MultiCrossEntropyLoss`. There is NO default value and it should be specified by users.
+* `layer_type`: The layer type to be used. The supported types include `hugectr.Layer_t.Add`, `hugectr.Layer_t.BatchNorm`, `hugectr.Layer_t.Cast`, `hugectr.Layer_t.Concat`, `hugectr.Layer_t.Dropout`, `hugectr.Layer_t.ELU`, `hugectr.Layer_t.FmOrder2`, `hugectr.Layer_t.FusedInnerProduct`, `hugectr.Layer_t.InnerProduct`, `hugectr.Layer_t.Interaction`, `hugectr.Layer_t.MultiCross`, `hugectr.Layer_t.ReLU`, `hugectr.Layer_t.ReduceSum`, `hugectr.Layer_t.Reshape`, `hugectr.Layer_t.Sigmoid`, `hugectr.Layer_t.Slice`, `hugectr.Layer_t.WeightMultiply`, `hugectr.ElementWiseMultiply`, `hugectr.Layer_t.GRU`, `hugectr.Layer_t.Scale`, `hugectr.Layer_t.FusedReshapeConcat`, `hugectr.Layer_t.FusedReshapeConcatGeneral`, `hugectr.Layer_t.Softmax`, `hugectr.Layer_t.PReLU_Dice`, `hugectr.Layer_t.ReduceMean`, `hugectr.Layer_t.Sub`, `hugectr.Layer_t.Gather`, `hugectr.Layer_t.BinaryCrossEntropyLoss`, `hugectr.Layer_t.CrossEntropyLoss` and `hugectr.Layer_t.MultiCrossEntropyLoss`. There is NO default value and it should be specified by users.
 
 * `bottom_names`: List[str], the list of bottom tensor names to be consumed by this dense layer. Each name in the list should be the predefined tensor name. There is NO default value and it should be specified by users.
 
@@ -1076,7 +1080,7 @@ hugectr.inference.CreateInferenceSession()
 ```bash
 hugectr.inference.InferenceSession.predict()
 ```
-The `predict` method of InferenceSession makes predictions based on the dataset of Norm or Parquet format. It returns the prediction results in the form of 1-D numpy array for the specified number of prediction batches. 
+The `predict` method of InferenceSession makes predictions based on the dataset of Norm or Parquet format. If `label_dim` is 1, it returns the prediction results in the form of 1-D numpy array of the shape `(max_batchsize*num_batches, )`. If `label_dim` is greater than 1, it will return the 2-D numpy array of the shape `(max_batchsize*num_batches, label_dim)`.
 
 **Arguments**
 * `num_batches`: Integer, the number of prediction batches.
@@ -1189,3 +1193,75 @@ hugectr.tools.DataGenerator()
 hugectr.tools.DataGenerator.generate()
 ```
 This method takes no extra arguments and starts to generate the synthetic dataset based on the configurations within `data_generator_params`.
+
+## Data Source API ##
+The data source API is used to specify which file system to use in the following training process. There are two data structures: `DataSourceParams` and `DataSource`. Please refer to [Data Source](../tools/data_source) to check out how to write Python scripts to move data from HDFS to local FS.
+
+#### **DataSourceParams class**
+```bash
+hugectr.data.DataSourceParams()
+```
+`DataSourceParams` specifies the file system information and the paths to data and model used for training. An `DataSourceParams` instance is required to initialize the `DataSource` instance.
+
+**Arguments**
+* `use_hdfs`: Boolean, whether to use HDFS or not for dump models. Default is false (use local file system).
+
+* `namenode`: String, the IP address of Hadoop Namenode. Will be ignored if use_hdfs is false. Default is 'localhost'.
+
+* `port`:  Integer, the port of Hadoop Namenode. Will be ignored if use_hdfs is false. Default is 9000.
+
+* `hdfs_train_source`: String, the HDFS path to data used for training.
+
+* `hdfs_train_filelist`: String, the HDFS path to filelist.txt used for training.
+
+* `hdfs_eval_source`: String, the HDFS path to data used to validation.
+
+* `hdfs_eval_filelist`: String, the HDFS path to filelist.txt used for validation.
+
+* `hdfs_dense_model`: String, the HDFS path to load dense model.
+
+* `hdfs_dense_opt_states`: String, the HDFS path to load dense optimizer states.
+
+* `hdfs_sparse_model`: List of strings, the HDFS paths to load sparse models.
+
+* `hdfs_sparse_opt_states`: List of strings, the HDFS paths to load sparse optimizer states.
+
+* `hdfs_model_home`: String, the path to HDFS directory used to store the dumped models and optimizer states.
+
+* `local_train_source`: String, the local path to data used for training.
+
+* `local_train_filelist`: String, the local path to filelist.txt used for training.
+
+* `local_eval_source`: String, the local path to data used to validation.
+
+* `local_eval_filelist`: String, the local path to filelist.txt used for validation.
+
+* `local_dense_model`: String, the local path to load dense model.
+
+* `local_dense_opt_states`: String, the local path to load dense optimizer states.
+
+* `local_sparse_model`: List of strings, the local paths to load sparse models.
+
+* `local_sparse_opt_states`: List of strings, the local paths to load sparse optimizer states.
+
+* `local_model_home`: String, the path to local directory used to store the dumped models and optimizer states.
+
+
+
+
+### **DataSource** ###
+#### **DataSource class**
+```bash
+hugectr.data.DataSource())
+```
+`DataSource` provides an API to help user specify the paths to their data and model file. It can also help user transfer data from HDFS to local filesystem. The construction of `DataSource` requires a `DataSourceParams` instance.
+
+**Arguments**
+* `data_source_params`: The DataSourceParams instance.
+***
+
+#### **move_to_local method**
+```bash
+hugectr.data.DataSource.move_to_local()
+```
+This method takes no extra arguments and moves all the data user specified in hdfs path to the corresponding local path.

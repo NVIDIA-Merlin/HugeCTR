@@ -183,23 +183,36 @@ def run_sok_model(args, dense_variables, vocabulary_tensors, samples, labels):
     
     embedding_optimizer = utils.get_embedding_optimizer(args.optimizer)(learning_rate=0.1)
     dense_optimizer = utils.get_dense_optimizer(args.optimizer)(learning_rate=0.1)
+    if args.mixed_precision:
+        embedding_optimizer = tf.keras.mixed_precision.LossScaleOptimizer(
+            embedding_optimizer, initial_scale=1024)
 
     loss_fn = tf.keras.losses.BinaryCrossentropy(from_logits=True, reduction=tf.keras.losses.Reduction.NONE)
     def _replica_loss(labels, logits):
         loss = loss_fn(labels, logits)
-        return tf.nn.compute_average_loss(loss, global_batch_size=args.global_batch_size)
-    
+        _dtype = loss.dtype
+        loss = tf.cast(loss, tf.float32)
+        loss = tf.nn.compute_average_loss(loss, global_batch_size=args.global_batch_size)
+        return tf.cast(loss, dtype=_dtype)
+
     @tf.function
     def _train_step(inputs, labels, first_batch):
         with tf.GradientTape() as tape, tf.GradientTape() as emb_tape:
             logit = model(inputs, training=True)
             replica_loss = _replica_loss(labels, logit)
+            if args.mixed_precision:
+                _loss = embedding_optimizer.get_scaled_loss(replica_loss)
+            else:
+                _loss = replica_loss
         
         tape = hvd.DistributedGradientTape(tape)
 
         emb_variable, other_variable = sok.split_embedding_variable_from_others(model.trainable_variables)
-        emb_grads = emb_tape.gradient(replica_loss, emb_variable)
-        grads = tape.gradient(replica_loss, other_variable)
+        emb_grads = emb_tape.gradient(_loss, emb_variable)
+        grads = tape.gradient(_loss, other_variable)
+        if args.mixed_precision:
+            emb_grads = embedding_optimizer.get_unscaled_gradients(emb_grads)
+            grads = embedding_optimizer.get_unscaled_gradients(grads)
 
         if 'plugin' not in args.optimizer:
             with sok.OptimizerScope(emb_variable):
@@ -244,6 +257,8 @@ def run_tf_model(args, dense_variables, vocabulary_tensors, samples, labels):
         model.params.assign(vocabulary_table)
 
     optimizer = utils.get_dense_optimizer(args.optimizer)(learning_rate=0.1)
+    if args.mixed_precision:
+        optimizer = tf.keras.mixed_precision.LossScaleOptimizer(optimizer, initial_scale=1024)
     loss_fn = tf.keras.losses.BinaryCrossentropy(from_logits=True)
 
     @tf.function
@@ -251,7 +266,13 @@ def run_tf_model(args, dense_variables, vocabulary_tensors, samples, labels):
         with tf.GradientTape() as tape:
             logit = model(inputs, training=True)
             loss = loss_fn(labels, logit)
-        grads = tape.gradient(loss, model.trainable_variables)
+            if args.mixed_precision:
+                _loss = optimizer.get_scaled_loss(loss)
+            else:
+                _loss = loss
+        grads = tape.gradient(_loss, model.trainable_variables)
+        if args.mixed_precision:
+            grads = optimizer.get_unscaled_gradients(grads)
         optimizer.apply_gradients(zip(grads, model.trainable_variables))
         return loss
     
@@ -285,12 +306,18 @@ def get_args():
                         choices=['plugin_adam', 'adam', 'sgd'])
     parser.add_argument('--num_dense_layers', type=int, required=False, default=6)
     parser.add_argument('--num_dense_units', type=int, required=False, default=1024)
+    parser.add_argument("--mixed_precision", type=int, choices=[0,1], default=0)
     args = parser.parse_args()
+    args.mixed_precision = True if 1 == args.mixed_precision else False
     return args
 
 if __name__ == '__main__':
 
     args = get_args()
+
+    if args.mixed_precision:
+        policy = tf.keras.mixed_precision.Policy("mixed_float16")
+        tf.keras.mixed_precision.set_global_policy(policy)
 
     local_rank = os.getenv("OMPI_COMM_WORLD_RANK")
     os.environ["CUDA_VISIBLE_DEVICES"] = str(local_rank)

@@ -71,10 +71,11 @@ void do_upload_and_download_snapshot(int batch_num_train, TrainPSType_t ps_type,
       max_nnz_per_slot, max_feature_num, vocabulary_size, emb_vec_size, combiner, scaler,
       num_workers, batchsize, batch_num_train, batch_num_eval, update_type, resource_manager);
   generate_opt_state(snapshot_src_file, opt_type);
-  if (fs::exists(snapshot_dst_file)) {
-    fs::remove_all(snapshot_dst_file);
+  if (std::filesystem::exists(snapshot_dst_file)) {
+    std::filesystem::remove_all(snapshot_dst_file);
   }
-  fs::copy(snapshot_src_file, snapshot_dst_file, fs::copy_options::recursive);
+  std::filesystem::copy(snapshot_src_file, snapshot_dst_file,
+                        std::filesystem::copy_options::recursive);
 
   auto get_ext_file = [](const std::string& sparse_model_file, std::string ext) {
     return std::string(sparse_model_file) + "/" + ext;
@@ -88,7 +89,8 @@ void do_upload_and_download_snapshot(int batch_num_train, TrainPSType_t ps_type,
   // Make a synthetic keyset files
   std::vector<long long> keys_in_file;
   {
-    size_t key_file_size_in_byte = fs::file_size(get_ext_file(snapshot_dst_file, "key"));
+    size_t key_file_size_in_byte =
+        std::filesystem::file_size(get_ext_file(snapshot_dst_file, "key"));
     size_t num_keys = key_file_size_in_byte / sizeof(long long);
     keys_in_file.resize(num_keys);
     std::ifstream key_ifs(get_ext_file(snapshot_dst_file, "key"));

@@ -3,6 +3,8 @@
 srun --ntasks="${SLURM_JOB_NUM_NODES}" --container-image="${CONT}" --container-mounts="${MOUNTS}" bash -cx " \
     mkdir -p /dump_infer &&
     cd ${NEW_CRITEO_MOUNT} &&
+    mpirun -np 1 --allow-run-as-root python3 /workdir/test/inference_correctness/cross_entropy_loss.py &&
+    mpirun -np 1 --allow-run-as-root python3 /workdir/test/inference_correctness/multi_cross_entropy_loss.py &&
     mpirun -np 1 --allow-run-as-root python3 /workdir/test/inference_correctness/dcn_one_hot.py &&
     mpirun -np 1 --allow-run-as-root python3 /workdir/test/inference_correctness/wdl_one_hot.py"
 srun --ntasks="${SLURM_JOB_NUM_NODES}" --container-image="${CONT}" --container-mounts="${MOUNTS}" bash -cx " \

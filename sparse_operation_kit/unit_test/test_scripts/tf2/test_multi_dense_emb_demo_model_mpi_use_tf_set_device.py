@@ -83,6 +83,8 @@ def test_sok_multi_dense_emb(args):
 
         emb_opt = utils.get_embedding_optimizer(args.optimizer)(learning_rate=0.1)
         dense_opt = utils.get_dense_optimizer(args.optimizer)(learning_rate=0.1)
+        if args.mixed_precision:
+            emb_opt = tf.keras.mixed_precision.LossScaleOptimizer(emb_opt, initial_scale=1024)
 
     # set initial value to embedding variables.
     sok_saver = sok.Saver()
@@ -95,16 +97,25 @@ def test_sok_multi_dense_emb(args):
     loss_fn = tf.keras.losses.BinaryCrossentropy(from_logits=True, reduction=tf.keras.losses.Reduction.NONE)
     def _replica_loss(labels, logits):
         loss = loss_fn(labels, logits)
-        return tf.nn.compute_average_loss(loss, global_batch_size=args.global_batch_size)
+        _dtype = loss.dtype
+        loss = tf.cast(loss, tf.float32)
+        loss = tf.nn.compute_average_loss(loss, global_batch_size=args.global_batch_size)
+        return tf.cast(loss, _dtype)
 
     @tf.function
     def _train_step(inputs, labels):
         with tf.GradientTape() as tape:
             logit, all_vectors = model(inputs, training=True)
             loss = _replica_loss(labels, logit)
+            if args.mixed_precision:
+                _loss = emb_opt.get_scaled_loss(loss)
+            else:
+                _loss = loss
         emb_variable, other_variable = sok.split_embedding_variable_from_others(model.trainable_variables)
-
-        grads, emb_grads = tape.gradient(loss, [other_variable, emb_variable])
+        grads, emb_grads = tape.gradient(_loss, [other_variable, emb_variable])
+        if args.mixed_precision:
+            grads = emb_opt.get_unscaled_gradients(grads)
+            emb_grads = emb_opt.get_unscaled_gradients(emb_grads)
         
         if "plugin" not in args.optimizer:
             with sok.OptimizerScope(emb_variable):
@@ -171,6 +182,8 @@ def test_tf_multi_dense_emb(args):
                          num_dense_layers=args.num_dense_layers)
 
     optimizer = tf.keras.optimizers.Adam(learning_rate=0.1)
+    if args.mixed_precision:
+        optimizer = tf.keras.mixed_precision.LossScaleOptimizer(optimizer, initial_scale=1024)
 
     # set initial value to embedding variables
     for i, param in enumerate(model.embedding_params):
@@ -186,7 +199,13 @@ def test_tf_multi_dense_emb(args):
         with tf.GradientTape() as tape:
             logit, all_vectors = model(inputs, training=True)
             loss = loss_fn(labels, logit)
-        grads = tape.gradient(loss, model.trainable_variables)
+            if args.mixed_precision:
+                _loss = optimizer.get_scaled_loss(loss)
+            else:
+                _loss = loss
+        grads = tape.gradient(_loss, model.trainable_variables)
+        if args.mixed_precision:
+            grads = optimizer.get_unscaled_gradients(grads)
         optimizer.apply_gradients(zip(grads, model.trainable_variables))
         return loss, all_vectors
 
@@ -208,8 +227,8 @@ def compare_sok_and_tf(args):
     utils.save_to_file("./sok_results_" + str(args.task_id) + ".file", sok_results)
 
     # only process-0 to do the cross-checking.
-    if args.task_id != 0:
-        return
+    # if args.task_id != 0:
+    #     return
 
     tf_results = test_tf_multi_dense_emb(args)
 
@@ -240,8 +259,9 @@ def compare_sok_and_tf(args):
                                 message=("the values is not consistent on Iteration: %d" %i))
 
     print("\n[INFO]: For multiple dense embedding layer: with MPI + MultiWorkerMirroredStrategy, the embedding"+\
-          " vectors obtained from SOK and TF are consistent for %d iterations." %
-          len(sok_results))
+          " vectors obtained from SOK and TF are consistent for %d iterations." 
+          " With mixed_precision = %s"
+          %(len(sok_results), args.mixed_precision))
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="run DNN model with SparseOperationKit")
@@ -271,8 +291,14 @@ if __name__ == "__main__":
     parser.add_argument("--dynamic_input", type=int, required=False, default=0, choices=[0, 1],
                         help="whether to use unique before dense_fprop. 1 means dynamic_input,"+\
                             "0 means static_input.")
+    parser.add_argument("--mixed_precision", type=int, choices=[0, 1], default=0)
 
     args = parser.parse_args()
+
+    args.mixed_precision = True if 1 == args.mixed_precision else False
+    if args.mixed_precision:
+        policy = tf.keras.mixed_precision.Policy("mixed_float16")
+        tf.keras.mixed_precision.set_global_policy(policy)
 
     size = os.getenv("OMPI_COMM_WORLD_SIZE")
     if size is None:
@@ -288,3 +314,7 @@ if __name__ == "__main__":
     tf.config.set_visible_devices(gpus[task_id], "GPU")
 
     compare_sok_and_tf(args)
+
+    # use these as a barrier
+    from mpi4py import MPI
+    MPI.COMM_WORLD.Barrier()

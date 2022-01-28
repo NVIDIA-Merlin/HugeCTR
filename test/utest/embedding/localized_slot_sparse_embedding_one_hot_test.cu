@@ -18,7 +18,7 @@
 #include <sys/time.h>
 
 #include <algorithm>
-#include <experimental/filesystem>
+#include <filesystem>
 #include <fstream>
 #include <functional>
 #include <random>
@@ -35,7 +35,6 @@
 
 using namespace HugeCTR;
 using namespace embedding_test;
-namespace fs = std::experimental::filesystem;
 
 namespace {
 
@@ -94,9 +93,9 @@ auto load_sparse_model_to_map = [](std::vector<T> &key_vec, std::vector<size_t> 
   std::ifstream fs_slot(slot_file, std::ifstream::binary);
   std::ifstream fs_vec(vec_file, std::ifstream::binary);
 
-  const size_t key_file_size_in_B = fs::file_size(key_file);
-  const size_t slot_file_size_in_B = fs::file_size(slot_file);
-  const size_t vec_file_size_in_B = fs::file_size(vec_file);
+  const size_t key_file_size_in_B = std::filesystem::file_size(key_file);
+  const size_t slot_file_size_in_B = std::filesystem::file_size(slot_file);
+  const size_t vec_file_size_in_B = std::filesystem::file_size(vec_file);
 
   const long long num_key = key_file_size_in_B / sizeof(long long);
   const long long num_slot = slot_file_size_in_B / sizeof(size_t);
@@ -127,8 +126,8 @@ auto load_sparse_model_to_map = [](std::vector<T> &key_vec, std::vector<size_t> 
 void init_sparse_model(const char *sparse_model) {
   std::cout << "Init hash table";
   // init hash table file: <key, solt_id, value>
-  if (!fs::exists(sparse_model)) {
-    fs::create_directories(sparse_model);
+  if (!std::filesystem::exists(sparse_model)) {
+    std::filesystem::create_directories(sparse_model);
   }
   const std::string key_file = std::string(sparse_model) + "/key";
   const std::string slot_file = std::string(sparse_model) + "/slot_id";
@@ -415,7 +414,7 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // create new obj for eval()
-  embedding->dump_parameters(sparse_model_file);
+  embedding->dump_parameters(sparse_model_file, DataSourceParams());
 
 #ifdef ENABLE_MPI
   MPI_Barrier(MPI_COMM_WORLD);
@@ -588,7 +587,7 @@ void load_and_dump(const std::vector<int> &device_list, const Optimizer_t &optim
          embedding->get_max_vocabulary_size(), embedding->get_vocabulary_size());
 
   std::string tmp_sparse_model_file{"tmp_sparse_model"};
-  embedding->dump_parameters(tmp_sparse_model_file);
+  embedding->dump_parameters(tmp_sparse_model_file, DataSourceParams());
 
   std::vector<T> hash_table_key_from_cpu;
   std::vector<size_t> slot_id_from_cpu;
@@ -638,8 +637,8 @@ void load_and_dump_file(const std::vector<int> &device_list, const Optimizer_t &
 
   if (pid == 0) {
     // re-generate the dataset files
-    if (fs::exists(train_file_list_name)) {
-      fs::remove(train_file_list_name);
+    if (std::filesystem::exists(train_file_list_name)) {
+      std::filesystem::remove(train_file_list_name);
     }
 
     // data generation: key's corresponding slot_id=(key%slot_num)
@@ -715,7 +714,7 @@ void load_and_dump_file(const std::vector<int> &device_list, const Optimizer_t &
   }
 
   // dump sparse model to file
-  embedding->dump_parameters(sparse_model_dst);
+  embedding->dump_parameters(sparse_model_dst, DataSourceParams());
 
 #ifdef ENABLE_MPI
   MPI_Barrier(MPI_COMM_WORLD);

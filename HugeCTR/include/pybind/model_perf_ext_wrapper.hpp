@@ -38,7 +38,8 @@ void ModelPerfExtPybind(pybind11::module &m) {
       .def("fit", &HugeCTR::ModelPerfExt::fit, pybind11::arg("num_epochs") = 0,
            pybind11::arg("max_iter") = 2000, pybind11::arg("display") = 200,
            pybind11::arg("eval_interval") = 1000, pybind11::arg("snapshot") = 10000,
-           pybind11::arg("snapshot_prefix") = "")
+           pybind11::arg("snapshot_prefix") = "",
+           pybind11::arg("data_source_params") = new DataSourceParams())
       .def("add", pybind11::overload_cast<Input &>(&HugeCTR::ModelPerfExt::add),
            pybind11::arg("input"))
       .def("add", pybind11::overload_cast<SparseEmbedding &>(&HugeCTR::ModelPerfExt::add),

@@ -53,8 +53,7 @@ class ReadEmbeddingVariableOp : public OpKernel {
     }
     std::cout << "\b]" << std::endl;
 #endif
-    // FIXME: lock should be used here??
-    // FIXME: should copy values from variable to output??
+    mutex_lock ml(*variable->mu());
     Tensor* t = variable->tensor();
     OP_REQUIRES_OK(ctx, ctx->set_output("value", *t));
   }

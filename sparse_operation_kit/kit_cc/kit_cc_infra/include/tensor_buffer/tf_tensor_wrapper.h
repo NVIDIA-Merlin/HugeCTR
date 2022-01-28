@@ -24,6 +24,8 @@
 
 namespace SparseOperationKit {
 
+DataType get_datatype(const tensorflow::DataType dtype);
+
 /*
  * This is the wrapper for TF tensor to Tensor.
  */
@@ -36,14 +38,15 @@ class TFTensorWrapper : public Tensor {
   size_t get_size_in_bytes() override;
   size_t get_num_elements() override;
   bool allocated() const override;
+  DataType dtype() const override;
 
- protected:
   void* get_ptr() override;
 
  private:
   TFTensorWrapper(tensorflow::Tensor* tf_tensor);
 
   tensorflow::Tensor* tf_tensor_;
+  mutable DataType dtype_;
 };
 
 }  // namespace SparseOperationKit

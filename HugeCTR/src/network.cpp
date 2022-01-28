@@ -187,6 +187,19 @@ void Network::download_params_to_host(std::ofstream& weight_stream) {
   return;
 }
 
+void Network::download_params_to_hdfs(std::string& write_path,
+                                      DataSourceParams data_source_params) {
+  // forward
+  CudaDeviceContext context(get_device_id());
+
+  std::unique_ptr<char[]> weight(new char[train_weight_tensor_.get_size_in_bytes()]);
+  HCTR_LIB_THROW(cudaMemcpy(weight.get(), train_weight_tensor_.get_ptr(),
+                            train_weight_tensor_.get_size_in_bytes(), cudaMemcpyDeviceToHost));
+  HdfsService hs = HdfsService(data_source_params.namenode, data_source_params.port);
+  hs.write(write_path, weight.get(), train_weight_tensor_.get_size_in_bytes(), true);
+  return;
+}
+
 void Network::download_opt_states_to_host(std::ofstream& opt_states_stream) {
   // forward
   CudaDeviceContext context(get_device_id());
@@ -200,6 +213,23 @@ void Network::download_opt_states_to_host(std::ofstream& opt_states_stream) {
   HCTR_LIB_THROW(cudaMemcpy(h_opt_states.get(), src, dst_size_in_byte, cudaMemcpyDeviceToHost));
 
   opt_states_stream.write(h_opt_states.get(), dst_size_in_byte);
+}
+
+void Network::download_opt_states_to_hdfs(std::string& write_path,
+                                          DataSourceParams data_source_params) {
+  // forward
+  CudaDeviceContext context(get_device_id());
+
+  size_t dst_size_in_byte =
+      use_mixed_precision_ ? opt_tensor_half_.get_size_in_bytes() : opt_tensor_.get_size_in_bytes();
+  std::unique_ptr<char[]> h_opt_states(new char[dst_size_in_byte]);
+
+  void* src =
+      use_mixed_precision_ ? (void*)opt_tensor_half_.get_ptr() : (void*)opt_tensor_.get_ptr();
+  HCTR_LIB_THROW(cudaMemcpy(h_opt_states.get(), src, dst_size_in_byte, cudaMemcpyDeviceToHost));
+
+  HdfsService hs = HdfsService(data_source_params.namenode, data_source_params.port);
+  hs.write(write_path, h_opt_states.get(), dst_size_in_byte, true);
 }
 
 std::string Network::get_no_trained_params_in_string() {

@@ -24,11 +24,9 @@
 #include <algorithm>
 #include <cstdlib>
 #include <embedding_training_cache/sparse_model_file.hpp>
-#include <experimental/filesystem>
+#include <filesystem>
 #include <fstream>
 #include <map>
-
-namespace fs = std::experimental::filesystem;
 
 namespace HugeCTR {
 
@@ -41,7 +39,7 @@ void open_and_get_size(const std::string& file_name, std::ifstream& stream,
     CK_THROW_(Error_t::WrongInput, "Cannot open the file: " + file_name);
   }
 
-  file_size_in_byte = fs::file_size(file_name);
+  file_size_in_byte = std::filesystem::file_size(file_name);
 }
 
 }  // namespace
@@ -69,7 +67,7 @@ void SparseModelFile<TypeKey>::map_embedding_to_memory_() {
       CK_THROW_(Error_t::FileCannotOpen, std::string("Cannot open the file: ") + emb_vec_file);
     }
 
-    size_t vec_file_size_in_byte = fs::file_size(emb_vec_file);
+    size_t vec_file_size_in_byte = std::filesystem::file_size(emb_vec_file);
     if (vec_file_size_in_byte == 0) {
       CK_THROW_(Error_t::WrongInput, std::string("Cannot mmap empty file: ") + emb_vec_file);
     }
@@ -104,7 +102,7 @@ void SparseModelFile<TypeKey>::sync_mmaped_embedding_with_disk_() {
                 std::string(mmap_handler_.get_vec_file()) + " not mapped to HMEM");
     }
     const char* emb_vec_file = mmap_handler_.get_vec_file();
-    size_t vec_file_size_in_byte = fs::file_size(emb_vec_file);
+    size_t vec_file_size_in_byte = std::filesystem::file_size(emb_vec_file);
     int ret = msync(mmap_handler_.mmaped_table_, vec_file_size_in_byte, MS_SYNC);
     if (ret != 0) {
       CK_THROW_(Error_t::WrongInput, "Mmap sync error");
@@ -123,7 +121,7 @@ void SparseModelFile<TypeKey>::unmap_embedding_from_memory_() {
   try {
     const char* emb_vec_file = mmap_handler_.get_vec_file();
     if (mmap_handler_.maped_to_memory_ && mmap_handler_.mmaped_table_ != nullptr) {
-      size_t vec_file_size_in_byte = fs::file_size(emb_vec_file);
+      size_t vec_file_size_in_byte = std::filesystem::file_size(emb_vec_file);
       munmap(mmap_handler_.mmaped_table_, vec_file_size_in_byte);
       mmap_handler_.mmaped_table_ = nullptr;
       mmap_handler_.maped_to_memory_ = false;
@@ -149,13 +147,13 @@ SparseModelFile<TypeKey>::SparseModelFile(const std::string& sparse_model_file,
       resource_manager_(resource_manager) {
   try {
     mmap_handler_.emb_tbl_.reset(new EmbeddingTableFile(sparse_model_file));
-    if (!fs::exists(mmap_handler_.get_folder_name())) {
+    if (!std::filesystem::exists(mmap_handler_.get_folder_name())) {
 #ifdef ENABLE_MPI
       CK_MPI_THROW_(MPI_Barrier(MPI_COMM_WORLD));
 #endif
       if (resource_manager_->is_master_process()) {
         MESSAGE_(sparse_model_file + " not exist, create and train from scratch");
-        fs::create_directories(mmap_handler_.get_folder_name());
+        std::filesystem::create_directories(mmap_handler_.get_folder_name());
 
         int ret;
         std::string command("touch ");
@@ -174,7 +172,8 @@ SparseModelFile<TypeKey>::SparseModelFile(const std::string& sparse_model_file,
     open_and_get_size(mmap_handler_.get_key_file(), key_stream, key_file_size_in_byte);
 
     size_t num_key = key_file_size_in_byte / sizeof(long long);
-    size_t num_vec = fs::file_size(mmap_handler_.get_vec_file()) / (sizeof(float) * emb_vec_size_);
+    size_t num_vec =
+        std::filesystem::file_size(mmap_handler_.get_vec_file()) / (sizeof(float) * emb_vec_size_);
     if (num_key != num_vec) {
       CK_THROW_(Error_t::BrokenFile, "num of vec and num of key do not equal");
     }
@@ -344,7 +343,7 @@ void SparseModelFile<TypeKey>::append_new_vec_and_key(const std::vector<TypeKey>
 
     const size_t emb_vec_size_in_byte = emb_vec_size_ * sizeof(float);
     const size_t num_vec_in_file =
-        fs::file_size(mmap_handler_.get_vec_file()) / emb_vec_size_in_byte;
+        std::filesystem::file_size(mmap_handler_.get_vec_file()) / emb_vec_size_in_byte;
     // write keys, slots, vectors to file
     std::ofstream key_ofs(mmap_handler_.get_key_file(), std::ofstream::out | std::ofstream::app);
     if (!key_ofs.is_open()) {
@@ -361,9 +360,9 @@ void SparseModelFile<TypeKey>::append_new_vec_and_key(const std::vector<TypeKey>
       slot_ofs.write(reinterpret_cast<const char*>(slots), keys.size() * sizeof(size_t));
     }
 
-    size_t extended_vec_file_size =
-        fs::file_size(mmap_handler_.get_vec_file()) + keys.size() * emb_vec_size_in_byte;
-    fs::resize_file(mmap_handler_.get_vec_file(), extended_vec_file_size);
+    size_t extended_vec_file_size = std::filesystem::file_size(mmap_handler_.get_vec_file()) +
+                                    keys.size() * emb_vec_size_in_byte;
+    std::filesystem::resize_file(mmap_handler_.get_vec_file(), extended_vec_file_size);
 
     // update key_idx_map_
     for (size_t i = 0; i < keys.size(); i++) {

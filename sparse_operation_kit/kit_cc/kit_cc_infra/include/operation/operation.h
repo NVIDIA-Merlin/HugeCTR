@@ -76,13 +76,13 @@ class Operation {
    */
   virtual void restore(const std::ifstream &filestream);
 
-  void LoadEmbeddingValues(const std::vector<std::shared_ptr<Tensor>> &tensor_list);
+  void LoadEmbeddingValues(const std::shared_ptr<Tensor> &emb_values);
   /**
    * by default, operation did not do anything when this function is called.
    * if an operation instance has something needed to be modified with embedding values,
    * it has to override this virtual function.
    */
-  virtual void load_embedding_values(const std::vector<std::shared_ptr<Tensor>> &tensor_list);
+  virtual void load_embedding_values(const std::shared_ptr<Tensor> &emb_values);
 
   static std::string gen_unique_op_name(const std::string op_name);
 

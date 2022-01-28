@@ -16,6 +16,7 @@
 from sparse_operation_kit import kit_lib
 from sparse_operation_kit.core.embedding_layer_handle import GraphKeys
 from tensorflow.python.framework import ops
+from tensorflow.python.ops import array_ops
 
 # TODO: make it inherit from trackable???
 class Saver(object):
@@ -105,7 +106,7 @@ class Saver(object):
         ----------
         embedding_variable: sok.EmbeddingVariable, tf.DistributedVariable
                     Which embedding_variable's value will be assigned.
-        tensors: list of tf.Tensor, tuple of tf.Tensor
+        tensors: tf.Tensor, list of tf.Tensor, tuple of tf.Tensor
                     Each tf.Tensor must be 2-rank and the shape must be `[None, embedding_vec_size]`,
                     where the `embedding_vec_size` must be equal to that of embedding_variable's. 
                     All tf.Tensors make up to a big tensor, which just like they are stacked. For example:
@@ -126,6 +127,10 @@ class Saver(object):
             # in case the embedding layer has not been created
             collections = ops.get_collection(GraphKeys.SparseOperationKitEmbeddingLayers)
             initializers = [collect.initializer for collect in collections]
+
+        if isinstance(tensors, list) or isinstance(tensors, tuple):
+            # stack those tensors along dim-0
+            tensors = array_ops.concat(tensors, axis=0)
 
         with context(initializers):
             if hasattr(embedding_variable, "emb_handle"):

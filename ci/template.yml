@@ -16,13 +16,17 @@ stages:
     - nvidia.com/cuda.driver.major=470
   script:
     - docker login -u ${CI_PRIVATE_USER} -p "${CI_PRIVATE_KEY}" "${CI_REGISTRY}"
-    - if [[ "$UNIFIED" == 1 ]]; then
+    - if [[ "$MERLIN_REMOTE_REPO" == "" ]]; then
         git clone $REMOTE_REPO;
-        cd Merlin/docker;
-        sed -i "s/https:\/\/github.com\/NVIDIA-Merlin\/HugeCTR.git/https:\/\/gitlab-ci-token:${CI_JOB_TOKEN}@gitlab-master.nvidia.com\/dl\/hugectr\/hugectr.git/g" ${DOCKER_FILE};
-        sed -i "s/git checkout master/git checkout ${CI_COMMIT_BRANCH}/g" ${DOCKER_FILE};
       else
-        cd ./tools/dockerfiles/;
+        git clone $MERLIN_REMOTE_REPO;
+      fi
+    - cd Merlin/docker;
+    - if [[ "$MERLIN_REMOTE_BRANCH" != "" ]]; then
+        git checkout $MERLIN_REMOTE_BRANCH;
+      fi
+    - if [[ "$TEST_NEW_IMAGE" == "1" ]]; then
+        DST_IMAGE=${DST_IMAGE}.new_image;
       fi
     - docker build --pull
       -t ${DST_IMAGE}
@@ -31,8 +35,11 @@ stages:
       --no-cache 
       . ;
     - docker push ${DST_IMAGE}
+  allow_failure: true
   rules:
     - if: $NIGHTLY == "1"
+      when: always
+    - if: $TEST_NEW_IMAGE == "1"
       when: always
     - when: never
   timeout: 5 hours
@@ -47,14 +54,18 @@ stages:
     - echo "BUILD_HUGECTR2ONNX=${BUILD_HUGECTR2ONNX}"
     - echo "BUILD_SOK=${BUILD_SOK}"
     - git submodule update --init --recursive
-    - echo "FROM ${FROM_IMAGE}" > ${JOB_DOCKERFILE}
+    - if [[ "$TEST_NEW_IMAGE" == "1" ]]; then
+        echo "FROM ${FROM_IMAGE}.new_image" > ${JOB_DOCKERFILE};
+      else
+        echo "FROM ${FROM_IMAGE}" > ${JOB_DOCKERFILE};
+      fi
     - echo "WORKDIR /workdir" >> ${JOB_DOCKERFILE}
     - echo "COPY . ." >> ${JOB_DOCKERFILE}
     - if [[ "$BUILD_HUGECTR" == 1 ]]; then
         echo "RUN cd /workdir && mkdir build && cd build && cmake ${CMAKE_OPTION} .. && make -j\$(nproc) && make install" >> ${JOB_DOCKERFILE};
       fi
     - if [[ "$BUILD_SOK" == 1 ]]; then
-        echo "RUN cd /workdir/sparse_operation_kit/ && mkdir -p build && cd build && cmake ${CMAKE_OPTION} .. && make -j$(nproc) && make install" >> ${JOB_DOCKERFILE};
+        echo "RUN cd /workdir/sparse_operation_kit/ && mkdir -p build && cd build && cmake ${CMAKE_OPTION} .. && make -j`expr $(nproc) / 2` && make install" >> ${JOB_DOCKERFILE};
         echo "RUN pip install nvtx" >> ${JOB_DOCKERFILE};
         echo "ENV LD_LIBRARY_PATH=/usr/local/hugectr/lib:/usr/local/lib:\$LD_LIBRARY_PATH" >> ${JOB_DOCKERFILE};
         echo "ENV LIBRARY_PATH=/usr/local/hugectr/lib:/usr/local/lib:\$LIBRARY_PATH" >> ${JOB_DOCKERFILE};
@@ -74,11 +85,13 @@ stages:
       -f ${JOB_DOCKERFILE}
       --no-cache .
     - docker push ${DST_IMAGE}
+  allow_failure: false
   rules:
     - if: $CI_PIPELINE_SOURCE =~ /^(push|web|merge_request_event|trigger)$/
       when: always
+    - if: $TEST_NEW_IMAGE == "1"
+      when: always
     - when: never
-  allow_failure: false
   timeout: 5 hours
 
 .cluster_test_job:
@@ -86,6 +99,8 @@ stages:
   allow_failure: false
   rules:
     - if: $CI_PIPELINE_SOURCE =~ /^(web|merge_request_event)$/
+      when: always
+    - if: $TEST_NEW_IMAGE == "1"
       when: always
     - when: never
 

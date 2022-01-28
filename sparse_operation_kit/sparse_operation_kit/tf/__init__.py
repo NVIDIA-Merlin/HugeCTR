@@ -23,10 +23,9 @@ is not so in TF 1.15. Therefore in this folder, we place it here.
 And the module chains originated from TF is honored. For example, 
 sok.tf.unique is equal to tf.unique in TF 2.5.
 """
-__all__ = ["keras"]
-from . import *
+import sparse_operation_kit.tf.keras
 
 from sparse_operation_kit.operations import unique
 from sparse_operation_kit.operations import unsorted_segment_sum
 
-__all__ += [item for item in dir() if not item.startswith("__")]
+__all__ = [item for item in dir() if not item.startswith("__")]

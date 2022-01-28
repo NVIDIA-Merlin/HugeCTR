@@ -19,6 +19,7 @@
 #include <embedding_training_cache/embedding_training_cache.hpp>
 #include <exchange_wgrad.hpp>
 #include <graph_wrapper.hpp>
+#include <hdfs_backend.hpp>
 #include <inference/kafka_message.hpp>
 #include <inference/message.hpp>
 #include <inference/parameter_server.hpp>
@@ -63,7 +64,6 @@ std::map<Layer_t, std::string> LAYER_TYPE_TO_STRING = {
     {Layer_t::FusedReshapeConcatGeneral, "FusedReshapeConcatGeneral"},
     {Layer_t::Sub, "Sub"},
     {Layer_t::ReduceMean, "ReduceMean"},
-    {Layer_t::DotProduct, "DotProduct"},
     {Layer_t::CrossEntropyLoss, "CrossEntropyLoss"},
     {Layer_t::MultiCrossEntropyLoss, "MultiCrossEntropyLoss"},
     {Layer_t::ElementwiseMultiply, "ElementwiseMultiply"},
@@ -86,7 +86,6 @@ std::map<Layer_t, std::string> LAYER_TYPE_TO_STRING_MP = {
     {Layer_t::FmOrder2, "FmOrder2"},
     {Layer_t::Add, "Add"},
     {Layer_t::ReduceSum, "ReduceSum"},
-    {Layer_t::DotProduct, "DotProduct"},
     {Layer_t::ElementwiseMultiply, "ElementwiseMultiply"},
     {Layer_t::FusedInnerProduct, "FusedInnerProduct"},
     {Layer_t::MultiCross, "MultiCross"}};
@@ -345,7 +344,7 @@ class Model {
   void summary();
 
   virtual void fit(int num_epochs, int max_iter, int display, int eval_interval, int snapshot,
-                   std::string snapshot_prefix);
+                   std::string snapshot_prefix, DataSourceParams data_source_params);
 
   void set_source(std::vector<std::string> source, std::vector<std::string> keyset,
                   std::string eval_source);
@@ -360,7 +359,8 @@ class Model {
 
   Error_t get_current_loss(float* loss);
 
-  Error_t download_params_to_files(std::string prefix, int iter);
+  Error_t download_params_to_files(std::string prefix, int iter,
+                                   DataSourceParams data_source_params);
 
   Error_t export_predictions(const std::string& output_prediction_file_name,
                              const std::string& output_label_file_name);
@@ -543,10 +543,12 @@ class Model {
   int mpi_preinitialized_{0};
 
   Error_t download_dense_params_to_files_(std::string weights_file,
-                                          std::string dense_opt_states_file);
+                                          std::string dense_opt_states_file,
+                                          DataSourceParams data_source_params);
 
   Error_t download_sparse_params_to_files_(const std::vector<std::string>& embedding_files,
-                                           const std::vector<std::string>& sparse_opt_state_files);
+                                           const std::vector<std::string>& sparse_opt_state_files,
+                                           DataSourceParams data_source_params);
 
   template <typename TypeEmbeddingComp>
   std::shared_ptr<EmbeddingTrainingCache> create_embedding_training_cache_(

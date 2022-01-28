@@ -30,6 +30,8 @@ class SOKDemo(tf.keras.models.Model):
                  use_hashtable=True,
                  dynamic_input=False,
                  num_of_dense_layers=5,
+                 key_dtype=None,
+                 embedding_initializer=None,
                  **unused):
         super(SOKDemo, self).__init__()
 
@@ -55,11 +57,13 @@ class SOKDemo(tf.keras.models.Model):
         self.embedding_layers = list()
         for i in range(self._embedding_num):
             embedding_layer = sok.All2AllDenseEmbedding(max_vocabulary_size_per_gpu=self._max_vocabulary_size_per_gpu,
-                                                            embedding_vec_size=self._embedding_vec_size[i],
-                                                            slot_num=self._slot_num[i],
-                                                            nnz_per_slot=self._nnz_per_slot,
-                                                            use_hashtable=self._use_hashtable,
-                                                            dynamic_input=self._dynamic_input)
+                                                        embedding_vec_size=self._embedding_vec_size[i],
+                                                        slot_num=self._slot_num[i],
+                                                        nnz_per_slot=self._nnz_per_slot,
+                                                        use_hashtable=self._use_hashtable,
+                                                        dynamic_input=self._dynamic_input,
+                                                        key_dtype=key_dtype,
+                                                        embedding_initializer=embedding_initializer)
             self.embedding_layers.append(embedding_layer)
 
         self.dense_layers = list()
@@ -198,8 +202,29 @@ class HashtableEmbedding(tf.keras.layers.Layer):
 
         hash_ids = tf.reshape(hash_ids, tf.shape(ids))
         embedding = tf.nn.embedding_lookup([self.embedding_var, self.default_embedding], hash_ids)
+        if (self._dtype_policy.compute_dtype and 
+            self._dtype_policy.compute_dtype != self._dtype_policy.variable_dtype):
+            embedding = tf.cast(embedding, self._dtype_policy.compute_dtype)
 
         return embedding
+
+
+class Embedding(tf.keras.layers.Layer):
+    def __init__(self, *args, **kwargs):
+        super(Embedding, self).__init__()
+
+        self._embedding = tf.keras.layers.Embedding(*args, **kwargs)
+
+    @property
+    def embeddings(self):
+        return self._embedding.embeddings
+
+    def call(self, *args, **kwargs):
+        out = self._embedding(*args, **kwargs)
+        if (self._dtype_policy.compute_dtype and 
+            self._dtype_policy.compute_dtype != self._dtype_policy.variable_dtype):
+            out = tf.cast(out, self._dtype_policy.compute_dtype)
+        return out
 
 
 class TFDemo(tf.keras.models.Model):
@@ -238,8 +263,8 @@ class TFDemo(tf.keras.models.Model):
                 embedding_layer = HashtableEmbedding(max_vocabulary_size=self._vocabulary_size,
                                                     embedding_vec_size=self._embedding_vec_size[i])
             else:
-                embedding_layer = tf.keras.layers.Embedding(input_dim=self._vocabulary_size,
-                                                            output_dim=self._embedding_vec_size[i])
+                embedding_layer = Embedding(input_dim=self._vocabulary_size,
+                                            output_dim=self._embedding_vec_size[i])
             self.embedding_layers.append(embedding_layer)
 
         self.dense_layers = list()

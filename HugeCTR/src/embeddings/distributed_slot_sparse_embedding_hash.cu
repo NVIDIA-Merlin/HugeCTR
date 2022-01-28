@@ -18,14 +18,12 @@
 
 #include <algorithm>
 #include <cub/cub.cuh>
-#include <experimental/filesystem>
+#include <filesystem>
 #include <numeric>
 
 #include "HugeCTR/include/data_simulator.hpp"
 #include "HugeCTR/include/embeddings/distributed_slot_sparse_embedding_hash.hpp"
 #include "HugeCTR/include/utils.cuh"
-
-namespace fs = std::experimental::filesystem;
 
 namespace HugeCTR {
 
@@ -452,7 +450,7 @@ DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::
 template <typename TypeHashKey, typename TypeEmbeddingComp>
 void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::load_parameters(
     std::string sparse_model) {
-  if (!fs::exists(sparse_model)) {
+  if (!std::filesystem::exists(sparse_model)) {
     CK_THROW_(Error_t::WrongInput, std::string("Folder ") + sparse_model + " doesn't exist");
   }
   const std::string key_file(sparse_model + "/key");
@@ -465,8 +463,8 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::load_pa
     CK_THROW_(Error_t::WrongInput, "Error: file not open for reading");
   }
 
-  size_t key_file_size_in_byte = fs::file_size(key_file);
-  size_t vec_file_size_in_byte = fs::file_size(vec_file);
+  size_t key_file_size_in_byte = std::filesystem::file_size(key_file);
+  size_t vec_file_size_in_byte = std::filesystem::file_size(vec_file);
 
   size_t key_size = sizeof(long long);
   size_t vec_size = sizeof(float) * embedding_data_.embedding_params_.embedding_vec_size;
@@ -913,8 +911,8 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::load_pa
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
 void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::dump_parameters(
-    std::string sparse_model) const {
-  dump_parameters(sparse_model, max_vocabulary_size_,
+    std::string sparse_model, DataSourceParams data_source_params) const {
+  dump_parameters(sparse_model, data_source_params, max_vocabulary_size_,
                   embedding_data_.embedding_params_.embedding_vec_size, hash_table_value_tensors_,
                   hash_tables_);
 }
@@ -932,14 +930,14 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::dump_pa
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
 void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::dump_parameters(
-    const std::string &sparse_model, size_t vocabulary_size, size_t embedding_vec_size,
-    const Tensors2<float> &hash_table_value_tensors,
+    const std::string &sparse_model, DataSourceParams data_source_params, size_t vocabulary_size,
+    size_t embedding_vec_size, const Tensors2<float> &hash_table_value_tensors,
     const std::vector<std::shared_ptr<HashTable<TypeHashKey, size_t>>> &hash_tables) const {
   CudaDeviceContext context;
   size_t local_gpu_count = embedding_data_.get_resource_manager().get_local_gpu_count();
 
-  if (!fs::exists(sparse_model)) {
-    fs::create_directories(sparse_model);
+  if (!data_source_params.use_hdfs && !std::filesystem::exists(sparse_model)) {
+    std::filesystem::create_directories(sparse_model);
   }
   const std::string key_file(sparse_model + "/key");
   const std::string vec_file(sparse_model + "/emb_vector");
@@ -950,14 +948,6 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::dump_pa
                               MPI_INFO_NULL, &key_fh));
   CK_MPI_THROW_(MPI_File_open(MPI_COMM_WORLD, vec_file.c_str(), MPI_MODE_CREATE | MPI_MODE_WRONLY,
                               MPI_INFO_NULL, &vec_fh));
-#else
-  std::ofstream key_stream(key_file, std::ofstream::binary | std::ofstream::trunc);
-  std::ofstream vec_stream(vec_file, std::ofstream::binary | std::ofstream::trunc);
-  // check if the file is opened successfully
-  if (!vec_stream.is_open() || !key_stream.is_open()) {
-    CK_THROW_(Error_t::WrongInput, "Error: file not open for writing");
-    return;
-  }
 #endif
 
   // memory allocation
@@ -1078,8 +1068,21 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::dump_pa
   CK_MPI_THROW_(MPI_File_close(&vec_fh));
   CK_MPI_THROW_(MPI_Type_free(&TYPE_EMB_VECTOR));
 #else
-  key_stream.write(reinterpret_cast<char *>(h_key_ptr), total_count * key_size);
-  vec_stream.write(reinterpret_cast<char *>(h_hash_table_value), total_count * vec_size);
+  if (data_source_params.use_hdfs) {
+    HdfsService hs(data_source_params.namenode, data_source_params.port);
+    hs.write(key_file, reinterpret_cast<char *>(h_key_ptr), total_count * key_size, true);
+    hs.write(vec_file, reinterpret_cast<char *>(h_hash_table_value), total_count * vec_size, true);
+  } else {
+    std::ofstream key_stream(key_file, std::ofstream::binary | std::ofstream::trunc);
+    std::ofstream vec_stream(vec_file, std::ofstream::binary | std::ofstream::trunc);
+    // check if the file is opened successfully
+    if (!vec_stream.is_open() || !key_stream.is_open()) {
+      CK_THROW_(Error_t::WrongInput, "Error: file not open for writing");
+      return;
+    }
+    key_stream.write(reinterpret_cast<char *>(h_key_ptr), total_count * key_size);
+    vec_stream.write(reinterpret_cast<char *>(h_hash_table_value), total_count * vec_size);
+  }
 #endif
 
   for (size_t id = 0; id < local_gpu_count; id++) {
@@ -1183,7 +1186,7 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::dump_pa
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
 void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::dump_opt_states(
-    std::ofstream &stream) {
+    std::ofstream &stream, std::string write_path, DataSourceParams data_source_params) {
   std::vector<OptimizerTensor<TypeEmbeddingComp>> opt_tensors_;
   for (auto &opt : embedding_optimizers_) {
     opt_tensors_.push_back(opt.opt_tensors_);
@@ -1192,7 +1195,8 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::dump_op
       functors_.get_opt_states(opt_tensors_, embedding_data_.embedding_params_.opt_params.optimizer,
                                embedding_data_.get_resource_manager().get_local_gpu_count());
 
-  functors_.dump_opt_states(stream, embedding_data_.get_resource_manager(), opt_states);
+  functors_.dump_opt_states(stream, write_path, data_source_params,
+                            embedding_data_.get_resource_manager(), opt_states);
 }
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>

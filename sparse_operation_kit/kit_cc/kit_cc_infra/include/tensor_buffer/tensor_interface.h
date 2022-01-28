@@ -17,7 +17,9 @@
 #ifndef TENSOR_INTERFACE_H
 #define TENSOR_INTERFACE_H
 
+#include "common.h"
 #include <cstddef>
+
 namespace SparseOperationKit {
 
 /*
@@ -29,13 +31,13 @@ class Tensor {
   virtual size_t get_size_in_bytes() = 0;
   virtual size_t get_num_elements() = 0;
   virtual bool allocated() const = 0;
+  virtual DataType dtype() const = 0;
 
   template <typename TARGET_TYPE>
   TARGET_TYPE* GetPtrWithType() {
     return reinterpret_cast<TARGET_TYPE*>(get_ptr());
   }
 
- protected:
   virtual void* get_ptr() = 0;
 };
 

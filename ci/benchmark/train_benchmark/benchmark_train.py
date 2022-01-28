@@ -626,15 +626,15 @@ def create_din(solver):
     )
     model.add(
         hugectr.DenseLayer(
-            layer_type=hugectr.Layer_t.DotProduct,
+            layer_type=hugectr.Layer_t.ElementwiseMultiply,
             bottom_names=["Scale_item2", "item_his2"],
-            top_names=["DotProduct_i"],
+            top_names=["ElementWiseMul_i"],
         )
     )
     model.add(
         hugectr.DenseLayer(
             layer_type=hugectr.Layer_t.Concat,
-            bottom_names=["Scale_item3", "item_his3", "sub_ih", "DotProduct_i"],
+            bottom_names=["Scale_item3", "item_his3", "sub_ih", "ElementWiseMul_i"],
             top_names=["concat_i_h"],
         )
     )
@@ -689,15 +689,15 @@ def create_din(solver):
     )
     model.add(
         hugectr.DenseLayer(
-            layer_type=hugectr.Layer_t.DotProduct,  # matmul
+            layer_type=hugectr.Layer_t.ElementwiseMultiply,  # matmul
             bottom_names=["Scale_i", "reshape_item_his"],
-            top_names=["DotProduct_ih"],
+            top_names=["ElementwiseMul_ih"],
         )
     )
     model.add(
         hugectr.DenseLayer(
             layer_type=hugectr.Layer_t.ReduceSum,
-            bottom_names=["DotProduct_ih"],
+            bottom_names=["ElementwiseMul_ih"],
             top_names=["reduce_ih"],
             axis=1,
         )

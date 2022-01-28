@@ -1,0 +1,69 @@
+FROM ubuntu
+ARG CMAKE_VER=3.21.1
+ENV DEBIAN_FRONTEND=noninteractive
+ENV GIT_SSL_NO_VERIFY=1
+#install system packages
+
+RUN apt-get update -y && \
+    apt-get install -y --no-install-recommends \
+        wget \
+        vim \
+        ssh \
+        git \
+        make \
+        build-essential \
+        gcc \
+        openssl \
+        openssh-server \
+        openssh*
+
+RUN CMAKE_MAJOR_VERSION=`echo ${CMAKE_VER} | cut -d'.' -f1,2` && \
+    mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://cmake.org/files/v$CMAKE_MAJOR_VERSION/cmake-${CMAKE_VER}-linux-x86_64.sh && \
+    mkdir -p /usr/local && \
+    /bin/sh /var/tmp/cmake-${CMAKE_VER}-linux-x86_64.sh --prefix=/usr/local --skip-license && \
+    rm -rf /var/tmp/cmake-${CMAKE_VER}-linux-x86_64.sh
+ENV PATH=/usr/local/bin:$PATH
+
+#install redis
+RUN cd /usr/local && \
+    git clone https://github.com/redis/redis.git && \
+    cd redis && \
+    make && \
+    cd /usr/local
+
+#install openjdk
+RUN cd /usr/local && \
+    wget --no-check-certificate https://download.java.net/java/GA/jdk16.0.2/d4a915d82b4c4fbb9bde534da945d746/7/GPL/openjdk-16.0.2_linux-x64_bin.tar.gz && \
+    tar -zxvf openjdk-16.0.2_linux-x64_bin.tar.gz && \
+    rm openjdk-16.0.2_linux-x64_bin.tar.gz
+
+#set JAVA environments
+ENV JAVA_HOME=/usr/local/jdk-16.0.2
+ENV JRE_HOME=${JAVA_HOME}/jre
+ENV CLASSPATH=.:${JAVA_HOME}/lib:${JRE_HOME}/lib
+ENV PATH=.:${JAVA_HOME}/bin:$PATH
+
+#install zookeeper
+RUN cd /usr/local && \
+    wget --no-check-certificate https://dlcdn.apache.org/zookeeper/zookeeper-3.7.0/apache-zookeeper-3.7.0-bin.tar.gz && \
+    tar -zxvf apache-zookeeper-3.7.0-bin.tar.gz && \
+    rm apache-zookeeper-3.7.0-bin.tar.gz && \
+    mv apache-zookeeper-3.7.0-bin zookeeper && \
+    cp zookeeper/conf/zoo_sample.cfg zookeeper/conf/zoo.cfg
+
+#install kafka
+RUN cd /usr/local && \
+    wget --no-check-certificate https://dlcdn.apache.org/kafka/3.0.0/kafka_2.13-3.0.0.tgz && \
+    tar -zxvf kafka_2.13-3.0.0.tgz && \
+    rm kafka_2.13-3.0.0.tgz && \
+    mv kafka_2.13-3.0.0 kafka
+
+#install hadoop
+RUN cd /usr/local && \
+    wget --no-check-certificate https://mirrors.tuna.tsinghua.edu.cn/apache/hadoop/common/hadoop-3.3.1/hadoop-3.3.1.tar.gz && \
+    tar -zxvf hadoop-3.3.1.tar.gz && \
+    rm hadoop-3.3.1.tar.gz && \
+    mv hadoop-3.3.1 hadoop
+
+#Set Hadoop environments
+ENV PATH=.:/usr/local/hadoop/bin:${JAVA_HOME}/bin:$PATH

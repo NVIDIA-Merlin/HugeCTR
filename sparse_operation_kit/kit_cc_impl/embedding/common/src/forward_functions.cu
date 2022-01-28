@@ -32,6 +32,10 @@ template void forward_sum(size_t batch_size, size_t slot_num, size_t embedding_v
                           const int64_t *row_offset, const size_t *hash_value_index,
                           const float *hash_table_value, float *embedding_feature,
                           cudaStream_t stream);
+template void forward_sum(size_t batch_size, size_t slot_num, size_t embedding_vec_size,
+                          const int64_t *row_offset, const size_t *hash_value_index,
+                          const float *hash_table_value, __half *embedding_feature,
+                          cudaStream_t stream);
 
 // template <typename TypeHashKey, typename TypeEmbeddingComp>
 // void forward_mean(size_t batch_size, size_t slot_num, size_t embedding_vec_size,
@@ -59,6 +63,9 @@ void do_forward_scale(size_t batchsize_per_gpu, size_t slot_num, size_t embeddin
 template void do_forward_scale(size_t batchsize_per_gpu, size_t slot_num, size_t embedding_vec_size,
                                const int64_t *row_offset, float *embedding_feature,
                                cudaStream_t stream);
+template void do_forward_scale(size_t batchsize_per_gpu, size_t slot_num, size_t embedding_vec_size,
+                               const int64_t *row_offset, __half *embedding_feature,
+                               cudaStream_t stream);
 
 template <typename Type>
 void memset_liner(Type *data, Type start_value, Type stride_value, size_t n, cudaStream_t stream) {
@@ -67,5 +74,10 @@ void memset_liner(Type *data, Type start_value, Type stride_value, size_t n, cud
 
 template void memset_liner(size_t *data, size_t start_value, size_t stride_value, size_t n,
                            cudaStream_t stream);
+
+template<> ncclDataType_t GetNCCLType<float>() { return ncclFloat32; }
+template<> ncclDataType_t GetNCCLType<__half>() { return ncclHalf; }
+template<> ncclDataType_t GetNCCLType<int64_t>() { return ncclInt64; }
+template<> ncclDataType_t GetNCCLType<uint32_t>() { return ncclUint32; }
 
 }  // namespace SparseOperationKit

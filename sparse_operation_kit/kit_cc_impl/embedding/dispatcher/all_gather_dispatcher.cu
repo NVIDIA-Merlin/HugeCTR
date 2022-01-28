@@ -16,10 +16,12 @@
 
 #include "common.cuh"
 #include "operation/operation_interface.h"
+#include "common/include/forward_functions.h"
 
 namespace SparseOperationKit {
 
-__global__ void move_data(const int64_t *src_ptr, int64_t *dst_ptr, size_t size, size_t *valid_nums,
+template <typename T>
+__global__ void move_data(const T *src_ptr, T *dst_ptr, size_t size, size_t *valid_nums,
                           size_t num_per_replica) {
   size_t gid = blockIdx.x * blockDim.x + threadIdx.x;
   size_t grid = blockDim.x * gridDim.x;
@@ -36,7 +38,8 @@ __global__ void move_data(const int64_t *src_ptr, int64_t *dst_ptr, size_t size,
   }
 }
 
-__global__ void add_offset(int64_t *ptr, size_t size, size_t *valid_nums, size_t num_per_replica,
+template <typename T>
+__global__ void add_offset(T *ptr, size_t size, size_t *valid_nums, size_t num_per_replica,
                            size_t rows_num_per_replica) {
   size_t gid = blockIdx.x * blockDim.x + threadIdx.x;
   size_t grid = blockDim.x * gridDim.x;
@@ -48,6 +51,7 @@ __global__ void add_offset(int64_t *ptr, size_t size, size_t *valid_nums, size_t
   }
 }
 
+template <typename KeyType, typename ValueType>
 class AllGatherDispatcher : public Dispatcher {
  public:
   explicit AllGatherDispatcher(ConstructionContext_t context)
@@ -66,7 +70,7 @@ class AllGatherDispatcher : public Dispatcher {
 
       // reserve spaces for values buffers
       {
-        Tensor2<int64_t> values_buffer;
+        Tensor2<KeyType> values_buffer;
         buffer->reserve({1, global_batch_size * rows_num_per_sample * max_nnz}, &values_buffer);
         values_buffers_.push_back(values_buffer);
         replica_num_elements_ = (global_batch_size * rows_num_per_sample * max_nnz) /
@@ -74,12 +78,18 @@ class AllGatherDispatcher : public Dispatcher {
       }
       // reserve spaces for indices buffers
       {
+        // indices is always int64
         Tensor2<int64_t> indices_buffer;
         buffer->reserve({1, global_batch_size * rows_num_per_sample * max_nnz}, &indices_buffer);
         indices_buffers_.push_back(indices_buffer);
       }
       {
-        Tensor2<int64_t> output_values;
+        Tensor2<int64_t> output_indices;
+        buffer->reserve({1, global_batch_size * rows_num_per_sample * max_nnz}, &output_indices);
+        output_indices_.push_back(output_indices);
+      }
+      {
+        Tensor2<KeyType> output_values;
         buffer->reserve({1, global_batch_size * rows_num_per_sample * max_nnz}, &output_values);
         output_values_.push_back(output_values);
       }
@@ -128,7 +138,7 @@ class AllGatherDispatcher : public Dispatcher {
     CK_NCCL(ncclGroupStart());
     CK_NCCL(ncclAllGather(
         values_buffers_[local_replica_id].get_ptr() + (global_replica_id * replica_num_elements_),
-        values_buffers_[local_replica_id].get_ptr(), replica_num_elements_, ncclInt64,
+        values_buffers_[local_replica_id].get_ptr(), replica_num_elements_, GetNCCLType<KeyType>(),
         local_gpu->get_nccl(), local_gpu->get_stream()));
     CK_NCCL(ncclAllGather(
         indices_buffers_[local_replica_id].get_ptr() + (global_replica_id * replica_num_elements_),
@@ -152,9 +162,9 @@ class AllGatherDispatcher : public Dispatcher {
         num_elements_[local_replica_id].get_ptr(), replica_num_elements_,
         replica_num_elements_ / base_context()->get_max_nnz());
 
-    // values_buffers_ is useless now, so use it as the indices output buffer.
+    // make the memory successive
     move_data<<<local_gpu->get_sm_count(), 1024, 0, local_gpu->get_stream()>>>(
-        indices_buffers_[local_replica_id].get_ptr(), values_buffers_[local_replica_id].get_ptr(),
+        indices_buffers_[local_replica_id].get_ptr(), output_indices_[local_replica_id].get_ptr(),
         indices_buffers_[local_replica_id].get_num_elements(),
         num_elements_[local_replica_id].get_ptr(), replica_num_elements_);
     reduce_sum<<<1, 1, 0, local_gpu->get_stream()>>>(
@@ -171,7 +181,7 @@ class AllGatherDispatcher : public Dispatcher {
 
     // set output for this operation
     replica_context->set_output("total_values", output_values_[local_replica_id]);
-    replica_context->set_output("total_row_indices", values_buffers_[local_replica_id]);
+    replica_context->set_output("total_row_indices", output_indices_[local_replica_id]);
     replica_context->set_output("dev_total_num_elements", num_elements_[local_replica_id]);
     replica_context->set_output("host_total_num_elements", host_num_elements_[local_replica_id]);
   }
@@ -184,14 +194,30 @@ class AllGatherDispatcher : public Dispatcher {
   std::shared_ptr<ResourcesManager> resource_mgr_;
   size_t replica_num_elements_ = 0;
 
-  Tensors2<int64_t> values_buffers_;
-  Tensors2<int64_t> indices_buffers_;
-  Tensors2<int64_t> output_values_;
+  Tensors2<KeyType> values_buffers_;
+  Tensors2<KeyType> output_values_;
+  Tensors2<int64_t> indices_buffers_; // always int64
+  Tensors2<int64_t> output_indices_; // always int64
   Tensors2<size_t> host_num_elements_;
   Tensors2<size_t> num_elements_;
   Tensors2<size_t> total_valid_num_;
 };
 
-REGISTER_INPUT_DISPATCHER_BUILDER("all_gather_dispatcher", AllGatherDispatcher);
+REGISTER_INPUT_DISPATCHER_BUILDER("all_gather_dispatcher", 
+                                  DataType::Int64,
+                                  DataType::Float32, 
+                                  AllGatherDispatcher<int64_t, float>);
+REGISTER_INPUT_DISPATCHER_BUILDER("all_gather_dispatcher", 
+                                  DataType::Int64,
+                                  DataType::Float16, 
+                                  AllGatherDispatcher<int64_t, __half>);
+REGISTER_INPUT_DISPATCHER_BUILDER("all_gather_dispatcher", 
+                                  DataType::Uint32,
+                                  DataType::Float32, 
+                                  AllGatherDispatcher<uint32_t, float>);
+REGISTER_INPUT_DISPATCHER_BUILDER("all_gather_dispatcher", 
+                                  DataType::Uint32,
+                                  DataType::Float16, 
+                                  AllGatherDispatcher<uint32_t, __half>);
 
 }  // namespace SparseOperationKit

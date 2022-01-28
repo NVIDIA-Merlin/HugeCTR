@@ -151,6 +151,7 @@ enum class Error_t {
 #define LOG_INFO_LEVEL 1
 #define LOG_WARNING_LEVEL 2
 #define LOG_DEBUG_LEVEL 3  // If you build in debug mode, it is the default mode
+#define LOG_TRACE_LEVEL 9
 
 #define LOG_LEVEL(NAME) LOG_##NAME##_LEVEL
 
@@ -217,79 +218,79 @@ template <typename SrcType>
 std::string getErrorString(SrcType err);
 template <>
 inline std::string getErrorString(cudaError_t err) {
-  return std::string(cudaGetErrorString(err));
+  return cudaGetErrorString(err);
 }
 template <>
 inline std::string getErrorString(nvmlReturn_t err) {
-  return std::string(nvmlErrorString(err));
+  return nvmlErrorString(err);
 }
 template <>
 inline std::string getErrorString(cublasStatus_t err) {
   switch (err) {
     case CUBLAS_STATUS_SUCCESS:
-      return std::string("cuBLAS operation completed successfully. What are you doing here?");
+      return "cuBLAS operation completed successfully. What are you doing here?";
     case CUBLAS_STATUS_NOT_INITIALIZED:
-      return std::string("cuBLAS was not initialized.");
+      return "cuBLAS was not initialized.";
     case CUBLAS_STATUS_ALLOC_FAILED:
-      return std::string("cuBLAS internal resource allocation failed.");
+      return "cuBLAS internal resource allocation failed.";
     case CUBLAS_STATUS_INVALID_VALUE:
-      return std::string("cuBLAS got an upsopported value or parameter.");
+      return "cuBLAS got an upsopported value or parameter.";
     case CUBLAS_STATUS_ARCH_MISMATCH:
-      return std::string("cuBLAS feature is unavailable on the current device arch.");
+      return "cuBLAS feature is unavailable on the current device arch.";
     case CUBLAS_STATUS_MAPPING_ERROR:
-      return std::string("cuBLAS failed to access GPU memory space.");
+      return "cuBLAS failed to access GPU memory space.";
     case CUBLAS_STATUS_EXECUTION_FAILED:
-      return std::string("cuBLAS failed execute the GPU program or launch the kernel.");
+      return "cuBLAS failed execute the GPU program or launch the kernel.";
     case CUBLAS_STATUS_INTERNAL_ERROR:
-      return std::string("cuBLAS internal operation failed.");
+      return "cuBLAS internal operation failed.";
     case CUBLAS_STATUS_NOT_SUPPORTED:
-      return std::string("cuBLAS doen't support the requested functionality.");
+      return "cuBLAS doen't support the requested functionality.";
     case CUBLAS_STATUS_LICENSE_ERROR:
-      return std::string("cuBLAS failed to check the current licencing.");
+      return "cuBLAS failed to check the current licencing.";
     default:
-      return std::string("cuBLAS unkown error.");
+      return "cuBLAS unkown error.";
   }
 }
 
 template <>
 inline std::string getErrorString(ncclResult_t err) {
-  return std::string(ncclGetErrorString(err));
+  return ncclGetErrorString(err);
 }
 template <>
 inline std::string getErrorString(cudnnStatus_t err) {
-  return std::string(cudnnGetErrorString(err));
+  return cudnnGetErrorString(err);
 }
 template <>
 inline std::string getErrorString(curandStatus_t err) {
   switch (err) {
     case CURAND_STATUS_SUCCESS:
-      std::string("cuRAND no errors.");
+      return "cuRAND no errors.";
     case CURAND_STATUS_VERSION_MISMATCH:
-      std::string("cuRAND header file and linked library version do not match.");
+      return "cuRAND header file and linked library version do not match.";
     case CURAND_STATUS_NOT_INITIALIZED:
-      std::string("cuRAND generator not initialized.");
+      return "cuRAND generator not initialized.";
     case CURAND_STATUS_ALLOCATION_FAILED:
-      std::string("cuRAND memory allocation failed.");
+      return "cuRAND memory allocation failed.";
     case CURAND_STATUS_TYPE_ERROR:
-      std::string("cuRAND generator is wrong type.");
+      return "cuRAND generator is wrong type.";
     case CURAND_STATUS_OUT_OF_RANGE:
-      std::string("cuRAND argument out of range.");
+      return "cuRAND argument out of range.";
     case CURAND_STATUS_LENGTH_NOT_MULTIPLE:
-      std::string("cuRAND length requested is not a multple of dimension.");
+      return "cuRAND length requested is not a multple of dimension.";
     case CURAND_STATUS_DOUBLE_PRECISION_REQUIRED:
-      std::string("cuRAND GPU does not have double precision required by MRG32k3a.");
+      return "cuRAND GPU does not have double precision required by MRG32k3a.";
     case CURAND_STATUS_LAUNCH_FAILURE:
-      std::string("cuRAND kernel launch failure.");
+      return "cuRAND kernel launch failure.";
     case CURAND_STATUS_PREEXISTING_FAILURE:
-      std::string("cuRAND preexisting failure on library entry.");
+      return "cuRAND preexisting failure on library entry.";
     case CURAND_STATUS_INITIALIZATION_FAILED:
-      std::string("cuRAND initialization of CUDA failed.");
+      return "cuRAND initialization of CUDA failed.";
     case CURAND_STATUS_ARCH_MISMATCH:
-      std::string("cuRAND architecture mismatch, GPU does not support requested feature.");
+      return "cuRAND architecture mismatch, GPU does not support requested feature.";
     case CURAND_STATUS_INTERNAL_ERROR:
-      std::string("cuRAND Internal library error.");
+      return "cuRAND Internal library error.";
     default:
-      return std::string("cuRAND unkown error.");
+      return "cuRAND unkown error.";
   }
 }
 
@@ -425,7 +426,9 @@ class Logger final {
  private:
   Logger();
   Logger(const Logger&) = delete;
+  Logger(const Logger&&) = delete;
   Logger& operator=(const Logger&) = delete;
+  Logger& operator=(const Logger&&) = delete;
 
   FILE* get_file_stream(int level);
   std::string get_log_prefix(int level) const;
@@ -437,9 +440,6 @@ class Logger final {
   std::map<int, FILE*> log_std_;
   std::map<int, FILE*> log_file_;
   std::map<int, std::string> level_name_;
-
-  static std::unique_ptr<Logger> g_instance;
-  static std::once_flag g_once_flag;
 };
 
 // TODO: Make fully templated and find better location for this?
@@ -455,5 +455,8 @@ inline static TTarget hctr_safe_cast(const double value) {
              value <= std::numeric_limits<TTarget>::max());
   return static_cast<TTarget>(value);
 }
+
+const std::string& hctr_get_thread_name();
+void hctr_set_thread_name(const std::string& name);
 
 }  // namespace HugeCTR

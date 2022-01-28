@@ -40,10 +40,12 @@ class RawManager : public ParamsManager {
   void create_variables(const size_t local_replica_id, const std::string initializer,
                         const bool use_hashtable, const std::vector<size_t> shape,
                         const std::string name, const bool trainable,
+                        const DataType dtype, const DataType key_dtype,
                         std::shared_ptr<ParamInterface>& param) override;
   void create_variables(const size_t local_replica_id, const std::shared_ptr<Tensor> initial_value,
                         const bool use_hashtable, const std::vector<size_t> shape,
                         const std::string name, const bool trainable,
+                        const DataType dtype, const DataType key_dtype,
                         std::shared_ptr<ParamInterface>& param) override;
   void allocate_memory(const size_t global_replica_id) override;
   void params_initialization(const size_t global_replica_id) const override;
@@ -52,7 +54,7 @@ class RawManager : public ParamsManager {
   void restore_from_file(const std::shared_ptr<ParamInterface>& param,
                          const std::string filepath) override;
   void load_embedding_values(std::shared_ptr<ParamInterface>& param,
-                             const std::vector<std::shared_ptr<Tensor>>& tensor_list) override;
+                             const std::shared_ptr<Tensor>& emb_values) override;
   void push_back_embedding_buffer_builder(
       const size_t local_replica_id, std::shared_ptr<EmbeddingBufferBuilder>& builder) override;
 

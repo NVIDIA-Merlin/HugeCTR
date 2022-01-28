@@ -47,7 +47,8 @@ class EmbeddingManager final {
                         const std::string embedding_executor, const std::string output_dispatcher,
                         const std::vector<std::string> output_dispatcher_subsequent_ops,
                         const size_t slot_num, const size_t max_nnz, const size_t max_feature_num,
-                        const CombinerType combiner, std::shared_ptr<EmbeddingLayer>& embedding);
+                        const CombinerType combiner, const DataType compute_dtype,
+                        std::shared_ptr<EmbeddingLayer>& embedding);
 
   // create dense embedding layer
   void create_embedding(const std::shared_ptr<ParamInterface>& param,
@@ -56,6 +57,7 @@ class EmbeddingManager final {
                         const std::string embedding_lookuper, const std::string output_dispatcher,
                         const std::vector<std::string> output_dispatcher_subsequent_ops,
                         const size_t slot_num, const size_t nnz_per_slot,
+                        const DataType compute_dtype,
                         std::shared_ptr<EmbeddingLayer>& embedding);
 
   void allocate_memory(const size_t global_replica_id);

@@ -24,6 +24,7 @@
 namespace SparseOperationKit {
 
 // distribute keys to GPU based on key % GPU_NUM
+template <typename KeyType>
 void save_params_helper(const std::shared_ptr<ParamInterface> &param,
                         const std::shared_ptr<ResourcesManager> &resource_mgr,
                         std::shared_ptr<Tensor> &keys, std::shared_ptr<Tensor> &embedding_values,
@@ -122,7 +123,7 @@ void save_params_helper(const std::shared_ptr<ParamInterface> &param,
   }  // chief worker
 
   // step 3: allocate temp spaces for dump parameters from GPU to CPU
-  std::unique_ptr<int64_t *[]> d_hash_table_key(new int64_t *[local_gpu_count]);
+  std::unique_ptr<KeyType *[]> d_hash_table_key(new KeyType *[local_gpu_count]);
   std::unique_ptr<size_t *[]> d_hash_table_value_index(new size_t *[local_gpu_count]);
   std::unique_ptr<float *[]> d_hash_table_value(new float *[local_gpu_count]);
   std::unique_ptr<size_t *[]> d_dump_counter(new size_t *[local_gpu_count]);
@@ -130,7 +131,7 @@ void save_params_helper(const std::shared_ptr<ParamInterface> &param,
     const auto &local_gpu = resource_mgr->get_local_gpu(dev_id);
     device_context.set_device(local_gpu->get_local_device_id());
 
-    CK_CUDA(cudaMalloc(&d_hash_table_key[dev_id], local_worker_max_count * sizeof(int64_t)));
+    CK_CUDA(cudaMalloc(&d_hash_table_key[dev_id], local_worker_max_count * sizeof(KeyType)));
     CK_CUDA(cudaMalloc(&d_hash_table_value_index[dev_id], local_worker_max_count * sizeof(size_t)));
     CK_CUDA(cudaMalloc(&d_hash_table_value[dev_id],
                        local_worker_max_count * embedding_vector_size * sizeof(float)));
@@ -189,7 +190,7 @@ void save_params_helper(const std::shared_ptr<ParamInterface> &param,
               const int32_t peer = worker * local_gpu_count + dev_id;
               const auto &local_gpu = resource_mgr->get_local_gpu(dev_id);
               const size_t pair_count = count[recv_worker * local_gpu_count + dev_id];
-              CK_NCCL(ncclRecv(d_hash_table_key[dev_id], pair_count, ncclInt64, /*peer=*/peer,
+              CK_NCCL(ncclRecv(d_hash_table_key[dev_id], pair_count, GetNCCLType<KeyType>(), /*peer=*/peer,
                                local_gpu->get_nccl(), local_gpu->get_stream()));
               CK_NCCL(ncclRecv(d_hash_table_value[dev_id], pair_count * embedding_vector_size,
                                ncclFloat32, /*peer=*/peer, local_gpu->get_nccl(),
@@ -212,8 +213,8 @@ void save_params_helper(const std::shared_ptr<ParamInterface> &param,
       for (size_t dev_id = 0; dev_id < local_gpu_count; dev_id++) {
         const size_t pair_count = count[worker * local_gpu_count + dev_id];
         const auto &local_gpu = resource_mgr->get_local_gpu(dev_id);
-        CK_CUDA(cudaMemcpyAsync(keys->GetPtrWithType<int64_t>() + host_num_keys_offset,
-                                d_hash_table_key[dev_id], pair_count * sizeof(int64_t),
+        CK_CUDA(cudaMemcpyAsync(keys->GetPtrWithType<KeyType>() + host_num_keys_offset,
+                                d_hash_table_key[dev_id], pair_count * sizeof(KeyType),
                                 cudaMemcpyDeviceToHost, local_gpu->get_stream()));
         CK_CUDA(cudaMemcpyAsync(embedding_values->GetPtrWithType<float>() +
                                     host_num_keys_offset * embedding_vector_size,
@@ -234,7 +235,7 @@ void save_params_helper(const std::shared_ptr<ParamInterface> &param,
           const size_t pair_count = count[dev_id];
           const auto &local_gpu = resource_mgr->get_local_gpu(dev_id);
           const int32_t peer = 0 * local_gpu_count + dev_id;
-          CK_NCCL(ncclSend(d_hash_table_key[dev_id], pair_count, ncclInt64,
+          CK_NCCL(ncclSend(d_hash_table_key[dev_id], pair_count, GetNCCLType<KeyType>(),
                            /*peer=*/peer, local_gpu->get_nccl(), local_gpu->get_stream()));
           CK_NCCL(ncclSend(d_hash_table_value[dev_id], pair_count * embedding_vector_size,
                            ncclFloat32, /*peer=*/peer, local_gpu->get_nccl(),
@@ -275,6 +276,18 @@ void save_params_helper(const std::shared_ptr<ParamInterface> &param,
   }  // for dev_id in local_gpu_count
 }
 
+template void save_params_helper<int64_t>(
+      const std::shared_ptr<ParamInterface> &param,
+      const std::shared_ptr<ResourcesManager> &resource_mgr,
+      std::shared_ptr<Tensor> &keys, std::shared_ptr<Tensor> &embedding_values,
+      size_t &num_total_keys);
+template void save_params_helper<uint32_t>(
+      const std::shared_ptr<ParamInterface> &param,
+      const std::shared_ptr<ResourcesManager> &resource_mgr,
+      std::shared_ptr<Tensor> &keys, std::shared_ptr<Tensor> &embedding_values,
+      size_t &num_total_keys);
+
+template <typename KeyType>
 void restore_params_helper(std::shared_ptr<ParamInterface> &param,
                            const std::shared_ptr<ResourcesManager> &resource_mgr,
                            const std::shared_ptr<Tensor> &keys,
@@ -288,7 +301,7 @@ void restore_params_helper(std::shared_ptr<ParamInterface> &param,
           "while total_max_vocabulary_size = " +
           std::to_string(total_max_vocabulary_size));
 
-  const int64_t *key_ptr = keys->GetPtrWithType<int64_t>();
+  const KeyType *key_ptr = keys->GetPtrWithType<KeyType>();
   const float *embedding_ptr = embedding_values->GetPtrWithType<float>();
 
   // step 1: allocate temporary spaces
@@ -297,9 +310,9 @@ void restore_params_helper(std::shared_ptr<ParamInterface> &param,
   constexpr size_t chunk_size = 1000;
   constexpr size_t hash_table_key_tile_size = 1;
   const size_t embedding_vec_size = param->get_embedding_vec_size();
-  const size_t hash_table_key_tile_size_in_bytes = hash_table_key_tile_size * sizeof(int64_t);
+  const size_t hash_table_key_tile_size_in_bytes = hash_table_key_tile_size * sizeof(KeyType);
   const size_t hash_table_key_chunk_size = hash_table_key_tile_size * chunk_size;
-  const size_t hash_table_key_chunk_size_in_bytes = hash_table_key_chunk_size * sizeof(int64_t);
+  const size_t hash_table_key_chunk_size_in_bytes = hash_table_key_chunk_size * sizeof(KeyType);
   const size_t hash_table_value_index_chunk_size_in_bytes =
       hash_table_key_chunk_size * sizeof(size_t);
   const size_t hash_table_value_tile_size = embedding_vec_size;
@@ -311,8 +324,8 @@ void restore_params_helper(std::shared_ptr<ParamInterface> &param,
   std::unique_ptr<size_t[]> tile_counter_per_gpu(new size_t[local_gpu_count]());
   std::unique_ptr<size_t[]> tile_counter_in_chunk_per_gpu(new size_t[local_gpu_count]());
   std::unique_ptr<size_t *[]> d_hash_table_value_index_chunk_per_gpu(new size_t *[local_gpu_count]);
-  std::unique_ptr<int64_t *[]> h_hash_table_key_chunk_per_gpu(new int64_t *[local_gpu_count]);
-  std::unique_ptr<int64_t *[]> d_hash_table_key_chunk_per_gpu(new int64_t *[local_gpu_count]);
+  std::unique_ptr<KeyType *[]> h_hash_table_key_chunk_per_gpu(new KeyType *[local_gpu_count]);
+  std::unique_ptr<KeyType *[]> d_hash_table_key_chunk_per_gpu(new KeyType *[local_gpu_count]);
   std::unique_ptr<float *[]> h_hash_table_value_chunk_per_gpu(new float *[local_gpu_count]);
 
   HugeCTR::CudaDeviceContext context;
@@ -339,10 +352,10 @@ void restore_params_helper(std::shared_ptr<ParamInterface> &param,
           "Total loop_num = " +
           std::to_string(loop_num));
   for (size_t i = 0; i < loop_num; i++) {
-    int64_t *key_dst_buf;
+    KeyType *key_dst_buf;
     float *value_dst_buf;
     for (size_t k = 0; k < chunk_size; k++) {
-      const int64_t key = key_ptr[i * chunk_size + k];
+      const KeyType key = key_ptr[i * chunk_size + k];
       const size_t global_gpu_id = key % resource_mgr->get_global_gpu_count();
       const size_t local_gpu_id = resource_mgr->cal_local_id_from_global_id(global_gpu_id);
       const size_t dst_worker = resource_mgr->cal_worker_id_from_global_id(global_gpu_id);
@@ -368,7 +381,7 @@ void restore_params_helper(std::shared_ptr<ParamInterface> &param,
 
       const size_t tile_count = tile_counter_in_chunk_per_gpu[id];
       CK_CUDA(cudaMemcpyAsync(d_hash_table_key_chunk_per_gpu[id],
-                              h_hash_table_key_chunk_per_gpu[id], tile_count * sizeof(int64_t),
+                              h_hash_table_key_chunk_per_gpu[id], tile_count * sizeof(KeyType),
                               cudaMemcpyHostToDevice, local_gpu->get_stream()));
 
       const size_t value_index_offset = tile_counter_per_gpu[id];
@@ -412,11 +425,11 @@ void restore_params_helper(std::shared_ptr<ParamInterface> &param,
 
   // step 3: process the remaining data (less than a chunk)
   const size_t remain_loop_num = num_total_keys - loop_num * chunk_size;
-  int64_t *key_dst_buf;
+  KeyType *key_dst_buf;
   size_t *value_index_buf;
   float *value_dst_buf;
   for (size_t i = 0; i < remain_loop_num; i++) {
-    const int64_t key = key_ptr[loop_num * chunk_size + i];
+    const KeyType key = key_ptr[loop_num * chunk_size + i];
     const size_t global_gpu_id = key % resource_mgr->get_global_gpu_count();
     const size_t local_gpu_id = resource_mgr->cal_local_id_from_global_id(global_gpu_id);
     const size_t dst_worker = resource_mgr->cal_worker_id_from_global_id(global_gpu_id);
@@ -471,5 +484,19 @@ void restore_params_helper(std::shared_ptr<ParamInterface> &param,
     CK_CUDA(cudaFreeHost(h_hash_table_value_chunk_per_gpu[id]));
   }
 }
+
+template void restore_params_helper<int64_t>(
+    std::shared_ptr<ParamInterface> &param,
+    const std::shared_ptr<ResourcesManager> &resource_mgr,
+    const std::shared_ptr<Tensor> &keys,
+    const std::shared_ptr<Tensor> &embedding_values,
+    const size_t num_total_keys);
+template void restore_params_helper<uint32_t>(
+    std::shared_ptr<ParamInterface> &param,
+    const std::shared_ptr<ResourcesManager> &resource_mgr,
+    const std::shared_ptr<Tensor> &keys,
+    const std::shared_ptr<Tensor> &embedding_values,
+    const size_t num_total_keys);
+      
 
 }  // namespace SparseOperationKit

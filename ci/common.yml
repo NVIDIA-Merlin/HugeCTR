@@ -24,3 +24,4 @@ variables:
   SOK_IMAGE_VERSIONED_TF2: "${CI_REGISTRY}/dl/hugectr/hugectr:sok_tf2_${CI_PIPELINE_ID}"
   SOK_IMAGE_VERSIONED_TF1: "${CI_REGISTRY}/dl/hugectr/hugectr:sok_tf1_${CI_PIPELINE_ID}"
   LOGDIR: /lustre/fsw/devtech/hpc-hugectr/hugectr-ci/${CI_PIPELINE_ID}
+  RD_CI_JOB_TOKEN: gitlab-ci-token:${CI_JOB_TOKEN}@

@@ -30,10 +30,12 @@ class EmbeddingLayerHandle(trackable.Trackable):
     """
     def __init__(self,
                  embedding_variable,
+                 compute_dtype,
                  **unused):
         super(EmbeddingLayerHandle, self).__init__()
 
         self._embedding_variable = embedding_variable
+        self._compute_dtype = compute_dtype
 
         if hasattr(self._embedding_variable, "values"):
             for variable in self._embedding_variable.values:
@@ -47,6 +49,10 @@ class EmbeddingLayerHandle(trackable.Trackable):
     @property
     def handle(self):
         return self._handle
+
+    @property
+    def compute_dtype(self):
+        return self._compute_dtype
 
     def __repr__(self):
         return (f"<sok.EmbeddingLayerHandle '{type(self).__name__}' "
@@ -66,8 +72,9 @@ class DenseEmbeddingLayerHandle(EmbeddingLayerHandle):
                  output_dispatcher_subsequent_ops = [],
                  slot_num = 1,
                  nnz_per_slot = 1,
+                 compute_dtype=None,
                  **unused):
-        super(DenseEmbeddingLayerHandle, self).__init__(embedding_variable)
+        super(DenseEmbeddingLayerHandle, self).__init__(embedding_variable, compute_dtype)
 
         self._embedding_variable = embedding_variable
         self._input_dispatcher = input_dispatcher
@@ -95,7 +102,8 @@ class DenseEmbeddingLayerHandle(EmbeddingLayerHandle):
                                             output_dispatcher_subsequent_ops=self._output_dispatcher_subsequent_ops,
                                             slot_num=self._slot_num,
                                             nnz_per_slot=self._nnz_per_slot,
-                                            layer_handle_name=emb_var_name)
+                                            layer_handle_name=emb_var_name,
+                                            compute_dtype=self.compute_dtype)
 
             self._initializer_op = control_flow_ops.group((self._handle))
 
@@ -117,8 +125,9 @@ class SparseEmbeddingLayerHandle(EmbeddingLayerHandle):
                  slot_num = 1,
                  max_nnz = 1,
                  max_feature_num = 1,
-                 combiner="sum"):
-        super(SparseEmbeddingLayerHandle, self).__init__(embedding_variable)
+                 combiner="sum",
+                 compute_dtype=None):
+        super(SparseEmbeddingLayerHandle, self).__init__(embedding_variable, compute_dtype)
 
         self._embedding_variable = embedding_variable
         self._input_dispatcher = input_dispatcher
@@ -149,7 +158,8 @@ class SparseEmbeddingLayerHandle(EmbeddingLayerHandle):
                                                 max_nnz=self._max_nnz,
                                                 max_feature_num=self._max_feature_num,
                                                 combiner=self._combiner,
-                                                layer_handle_name=emb_var_name)
+                                                layer_handle_name=emb_var_name,
+                                                compute_dtype=self.compute_dtype)
 
             self._initializer_op = control_flow_ops.group((self._handle))
 

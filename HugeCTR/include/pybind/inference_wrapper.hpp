@@ -276,7 +276,7 @@ float InferenceSessionPy::evaluate_(const size_t num_batches, const std::string&
     row_ptr_elements_list[i] =
         inference_params_.max_batchsize * inference_parser_.slot_num_for_tables[i] + 1;
   }
-  std::vector<size_t> pred_dims = {1, inference_params_.max_batchsize};
+  std::vector<size_t> pred_dims = {inference_params_.max_batchsize, inference_parser_.label_dim};
   std::shared_ptr<TensorBuffer2> pred_buff =
       PreallocatedBuffer2<float>::create(d_output_, pred_dims);
   Tensor2<float> pred_tensor(pred_dims, pred_buff);
@@ -335,7 +335,13 @@ pybind11::array_t<float> InferenceSessionPy::predict_(
     row_ptr_elements_list[i] =
         inference_params_.max_batchsize * inference_parser_.slot_num_for_tables[i] + 1;
   }
-  auto pred = pybind11::array_t<float>(inference_params_.max_batchsize * num_batches);
+  std::vector<size_t> pred_size;
+  if (inference_parser_.label_dim == 1) {
+    pred_size = {inference_params_.max_batchsize * num_batches};
+  } else {
+    pred_size = {inference_params_.max_batchsize * num_batches, inference_parser_.label_dim};
+  }
+  auto pred = pybind11::array_t<float>(pred_size);
   pybind11::buffer_info pred_array_buff = pred.request();
   float* pred_ptr = static_cast<float*>(pred_array_buff.ptr);
   size_t pred_ptr_offset = 0;
@@ -370,9 +376,10 @@ pybind11::array_t<float> InferenceSessionPy::predict_(
     InferenceSession::predict(d_dense_, h_embeddingcolumns_, d_row_ptrs_, d_output_,
                               current_batchsize);
     CK_CUDA_THROW_(cudaMemcpyAsync(
-        pred_ptr + pred_ptr_offset, d_output_, inference_params_.max_batchsize * sizeof(float),
+        pred_ptr + pred_ptr_offset, d_output_,
+        inference_params_.max_batchsize * inference_parser_.label_dim * sizeof(float),
         cudaMemcpyDeviceToHost, resource_manager_->get_local_gpu(0)->get_stream()));
-    pred_ptr_offset += inference_params_.max_batchsize;
+    pred_ptr_offset += inference_params_.max_batchsize * inference_parser_.label_dim;
   }
   CK_CUDA_THROW_(cudaStreamSynchronize(resource_manager_->get_local_gpu(0)->get_stream()));
   return pred;
@@ -461,9 +468,9 @@ void InferencePybind(pybind11::module& m) {
                           const std::string&, const std::string&, const std::string&,
                           DatabaseHashMapAlgorithm_t, size_t, size_t, size_t,
                           // Overflow handling related.
-                          size_t, DatabaseOverflowPolicy_t, double,
-                          // Initialization related.
-                          double,
+                          bool, size_t, DatabaseOverflowPolicy_t, double,
+                          // Caching behavior related.
+                          double, bool,
                           // Real-time update mechanism related.
                           const std::vector<std::string>&>(),
            pybind11::arg("type") = DatabaseType_t::ParallelHashMap,
@@ -475,11 +482,13 @@ void InferencePybind(pybind11::module& m) {
            pybind11::arg("max_get_batch_size") = 10'000,
            pybind11::arg("max_set_batch_size") = 10'000,
            // Overflow handling related.
+           pybind11::arg("refresh_time_after_fetch") = false,
            pybind11::arg("overflow_margin") = std::numeric_limits<size_t>::max(),
            pybind11::arg("overflow_policy") = DatabaseOverflowPolicy_t::EvictOldest,
            pybind11::arg("overflow_resolution_target") = 0.8,
-           // Initialization related.
+           // Caching behavior related.
            pybind11::arg("initial_cache_rate") = 1.0,
+           pybind11::arg("cache_missed_embeddings") = false,
            // Real-time update mechanism related.
            pybind11::arg("update_filters") = std::vector<std::string>{".+"});
 

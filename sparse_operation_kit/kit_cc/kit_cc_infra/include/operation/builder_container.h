@@ -24,16 +24,33 @@
 
 namespace SparseOperationKit {
 
+struct OperationIdentifier {
+  OperationIdentifier(const std::string op_name, const DataType key_dtype, const DataType dtype);
+  std::string DebugString() const;
+  const std::string op_name_;
+  const DataType key_dtype_;
+  const DataType dtype_;
+};
+
+struct IdentifierHash {
+  size_t operator()(const OperationIdentifier& identifier) const;
+};
+
+struct IdentifierEqual {
+  bool operator()(const OperationIdentifier& lid, const OperationIdentifier& rid) const;
+};
+
 class BuilderContainer {
  public:
   explicit BuilderContainer(const std::string name);
-  void push_back(const std::string builder_name, const std::shared_ptr<Builder> builder);
-  std::shared_ptr<Builder> get_builder(const std::string builder_name);
+  void push_back(const OperationIdentifier op_identifier, const std::shared_ptr<Builder> builder);
+  std::shared_ptr<Builder> get_builder(const OperationIdentifier op_identifier);
   std::vector<std::string> get_builder_names() const;
 
  protected:
   const std::string name_;
-  std::unordered_map<std::string, std::shared_ptr<Builder>> components_;
+  std::unordered_map<OperationIdentifier, std::shared_ptr<Builder>, 
+                    IdentifierHash, IdentifierEqual> components_;
 };
 
 class InputContainer : public BuilderContainer {

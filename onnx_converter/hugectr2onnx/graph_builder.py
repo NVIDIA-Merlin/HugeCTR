@@ -124,7 +124,7 @@ class GraphBuilder(object):
                                                 inputs=layer_params.bottom_names,
                                                 outputs=layer_params.top_names,
                                                 axis = -1))
-        elif layer_type == "DotProduct" or layer_type == "ElementwiseMultiply":
+        elif layer_type == "ElementwiseMultiply":
             for i in range(len(layer_params.bottom_names)-1):
                 x_name = layer_params.bottom_names[0] if i == 0 else layer_params.top_names[0] + str(i)
                 y_name = layer_params.bottom_names[i+1]

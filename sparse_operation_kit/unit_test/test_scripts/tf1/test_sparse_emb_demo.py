@@ -41,16 +41,22 @@ def get_sok_results(args, init_tensors, *random_samples):
     with strategy.scope():
         sok_init_op = sok.Init(global_batch_size=args.global_batch_size)
 
+        embedding_initializer = tf.keras.initializers.Ones() if args.use_tf_initializer else None
+
         sok_sparse_demo = SOKDemo(max_vocabulary_size_per_gpu=args.max_vocabulary_size_per_gpu,
                                   embedding_vec_size=args.embedding_vec_size,
                                   combiner=args.combiner,
                                   slot_num=args.slot_num,
                                   max_nnz=args.max_nnz,
                                   use_hashtable=args.use_hashtable,
-                                  num_of_dense_layers=0)
+                                  num_of_dense_layers=0,
+                                  key_dtype=args.key_dtype,
+                                  embedding_initializer=embedding_initializer)
         
         emb_opt = utils.get_embedding_optimizer(args.optimizer)(learning_rate=0.1)
         dense_opt = utils.get_dense_optimizer(args.optimizer)(learning_rate=0.1)
+        if args.mixed_precision:
+            emb_opt = sok.tf.keras.mixed_precision.LossScaleOptimizer(emb_opt, 1024)
 
     sok_saver = sok.Saver()
     restore_op = list()
@@ -61,22 +67,35 @@ def get_sok_results(args, init_tensors, *random_samples):
                 filepath = r"./embedding_variables"
                 op = sok_saver.restore_from_file(embedding_layer.embedding_variable, filepath)
             else:
-                op = sok_saver.load_embedding_values(embedding_layer.embedding_variable, init_tensors[i])
+                if not args.use_tf_initializer:
+                    op = sok_saver.load_embedding_values(embedding_layer.embedding_variable, init_tensors[i])
+                else:
+                    op = tf.constant(1.0)
             restore_op.append(op)
 
     loss_fn = tf.keras.losses.BinaryCrossentropy(from_logits=True, reduction="none")
     def _replica_loss(labels, logits):
         loss = loss_fn(labels, logits)
-        return tf.nn.compute_average_loss(loss, global_batch_size=args.global_batch_size)
+        _dtype = loss.dtype
+        loss = tf.cast(loss, tf.float32)
+        loss = tf.nn.compute_average_loss(loss, global_batch_size=args.global_batch_size)
+        return tf.cast(loss, _dtype)
 
     def _train_step(inputs, labels, training):
         def _step_fn(inputs, labels):
             logit, embedding_vector = sok_sparse_demo(inputs, training=training)
             loss = _replica_loss(labels, logit)
+            if args.mixed_precision:
+                _loss = emb_opt.get_scaled_loss(loss)
+            else:
+                _loss = loss
             emb_var, other_var = sok.split_embedding_variable_from_others(sok_sparse_demo.trainable_variables)
-            grads = tf.gradients(loss, emb_var + other_var, colocate_gradients_with_ops=True,
+            grads = tf.gradients(_loss, emb_var + other_var, colocate_gradients_with_ops=True,
                                  unconnected_gradients=tf.UnconnectedGradients.NONE)
             emb_grads, other_grads = grads[:len(emb_var)], grads[len(emb_var):]
+            if args.mixed_precision:
+                other_grads = emb_opt.get_unscaled_gradients(other_grads)
+                emb_grads = emb_opt.get_unscaled_gradients(emb_grads)
             if "plugin" in args.optimizer:
                 emb_train_op = emb_opt.apply_gradients(zip(emb_grads, emb_var))
             else:
@@ -95,7 +114,7 @@ def get_sok_results(args, init_tensors, *random_samples):
 
     replica_batch_size = args.global_batch_size // args.gpu_num
     dataset = utils.tf_dataset(*random_samples, batchsize=replica_batch_size,
-                               to_sparse_tensor=True, repeat=1)
+                               to_sparse_tensor=True, repeat=1, args=args)
     train_iterator = dataset.make_initializable_iterator()
     iterator_init = train_iterator.initializer
 
@@ -129,7 +148,7 @@ def get_sok_results(args, init_tensors, *random_samples):
         for step in range(args.iter_num):
             loss_v, emb_vector_v = sess.run([*graph_results])
             print("*" * 80)
-            print(f"Step: {step}, loss: {loss_v}, embedding_vector:\n{emb_vector_v}")
+            print(f"Step: {step}, loss: {loss_v}")#", embedding_vector:\n{emb_vector_v}")
             sok_results.append(emb_vector_v)
 
         sess.run(save_op)
@@ -152,14 +171,22 @@ def get_tf_results(args, init_tensors, *random_samples):
                                 num_of_dense_layers=0)
         
         optimizer = utils.get_dense_optimizer(args.optimizer)(learning_rate=0.1)
+        if args.mixed_precision:
+            optimizer = sok.tf.keras.mixed_precision.LossScaleOptimizer(optimizer, 1024)
 
         loss_fn = tf.keras.losses.BinaryCrossentropy(from_logits=True)
         def _train_step(inputs, labels, training):
             logit, embedding_vector = tf_sparse_demo(inputs, training=training)
             loss = loss_fn(labels, logit)
-            grads = tf.gradients(loss, tf_sparse_demo.trainable_variables,
+            if args.mixed_precision:
+                _loss = optimizer.get_scaled_loss(loss)
+            else:
+                _loss = loss
+            grads = tf.gradients(_loss, tf_sparse_demo.trainable_variables,
                                  colocate_gradients_with_ops=True,
                                  unconnected_gradients=tf.UnconnectedGradients.NONE)
+            if args.mixed_precision:
+                grads = optimizer.get_unscaled_gradients(grads)
             train_op = optimizer.apply_gradients(zip(grads, tf_sparse_demo.trainable_variables))
             with tf.control_dependencies([train_op]):
                 loss = tf.identity(loss)
@@ -198,7 +225,7 @@ def get_tf_results(args, init_tensors, *random_samples):
         for step in range(args.iter_num):
             loss_v, emb_vector_v = sess.run([*graph_results])
             print("*" * 80)
-            print(f"step: {step}, loss: {loss_v}, embedding_vector:\n{emb_vector_v}")
+            print(f"step: {step}, loss: {loss_v}")#", embedding_vector:\n{emb_vector_v}")
             tf_results.append(emb_vector_v)
 
         emb_values_v = sess.run(emb_values)
@@ -288,8 +315,11 @@ def compare_sparse_emb_sok_with_tf(args):
     rtol, atol = 1e-3, 1e-3
     if args.restore_params:
         rtol, atol = rtol * 10, atol * 10
-    if args.distributed_tool == "horovod":
+    elif args.distributed_tool == "horovod":
         rtol, atol = rtol * 10, atol * 10
+    elif args.mixed_precision:
+        rtol, atol = 1e-2, 1e-2
+
     for i in range(args.iter_num):
         sok_vector = np.concatenate([sok_results_total[rank_idx][i]
                                      for rank_idx in range(args.rank_size)], axis=0)
@@ -299,11 +329,15 @@ def compare_sparse_emb_sok_with_tf(args):
 
     print(f"\n[INFO]: For {len(args.slot_num)} Sparse Embedding layer, using {args.gpu_num} GPUs + {args.optimizer} optimizer, "
           f"using hashtable? {args.use_hashtable}, combiner = {args.combiner}, the embedding vectors"
-          f" obtained from sok and tf are consistent for {args.iter_num} iterations.")
+          f" obtained from sok and tf are consistent for {args.iter_num} iterations, "
+          f"with mixed_precision = {args.mixed_precision}, key_dtype = {args.key_dtype}"
+          f" use_tf_initializer = {args.use_tf_initializer}")
 
     if args.save_params:
         check_saved_embedding_variables(args, variable_names,
-                                        use_hashtable=args.use_hashtable, gpu_num=args.gpu_num)
+                                        use_hashtable=args.use_hashtable, 
+                                        gpu_num=args.gpu_num,
+                                        atol=atol, rtol=rtol)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -336,6 +370,10 @@ if __name__ == "__main__":
                         required=False, default=0)
     parser.add_argument("--use_hashtable", type=int, choices=[0, 1],
                         required=False, default=1)
+    parser.add_argument("--mixed_precision", type=int, choices=[0, 1],
+                        required=False, default=0)
+    parser.add_argument("--key_dtype", type=str, choices=["int64", "uint32"], default="int64")
+    parser.add_argument("--use_tf_initializer", type=int, choices=[0, 1], default=0)
 
     args = parser.parse_args()
 
@@ -343,6 +381,8 @@ if __name__ == "__main__":
     args.save_params = True if args.save_params == 1 else False
     args.restore_params = True if args.restore_params == 1 else False
     args.use_hashtable = True if args.use_hashtable == 1 else False
+    args.mixed_precision = True if args.mixed_precision == 1 else False
+    args.use_tf_initializer = True if args.use_tf_initializer == 1 else False
 
     if (args.distributed_tool == "onedevice" and args.gpu_num != 1):
         raise ValueError(f"When 'onedevice' is used as the distributed_tool, "
@@ -368,5 +408,11 @@ if __name__ == "__main__":
     args.rank_size = rank_size
     args.rank_idx = rank_idx
     args.gpu_num = rank_size
+
+    if args.mixed_precision:
+        from tensorflow.python.keras.engine import base_layer_utils
+        base_layer_utils.enable_v2_dtype_behavior()
+        policy = tf.keras.mixed_precision.experimental.Policy("mixed_float16")
+        tf.keras.mixed_precision.experimental.set_policy(policy)
 
     compare_sparse_emb_sok_with_tf(args)

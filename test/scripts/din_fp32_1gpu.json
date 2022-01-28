@@ -140,15 +140,15 @@
       "top": "sub_ih"
     },
     {
-      "name": "DotProduct_i",
-      "type": "DotProduct",
+      "name": "ElementwiseMul_i",
+      "type": "ElementwiseMultiply",
       "bottom": ["Scale_item2", "item_his2"],
-      "top": "DotProduct_i"
+      "top": "ElementwiseMul_i"
     },
     {
       "name": "concat_i_h",
       "type": "Concat",
-      "bottom": ["Scale_item3","item_his3", "sub_ih", "DotProduct_i"],
+      "bottom": ["Scale_item3","item_his3", "sub_ih", "ElementwiseMul_i"],
       "top": "concat_i_h"
     },
     {
@@ -200,15 +200,15 @@
       "leading_dim": 360
     },
     {
-      "name": "DotProduct_ih",
-      "type": "DotProduct",
+      "name": "ElementwiseMul_ih",
+      "type": "ElementwiseMultiply",
       "bottom": ["Scale_i", "reshape_item_his"],
-      "top": "DotProduct_ih"
+      "top": "ElementwiseMul_ih"
     },
     {
       "name": "reduce_ih",
       "type": "ReduceSum",
-      "bottom": ["DotProduct_ih"],
+      "bottom": ["ElementwiseMul_ih"],
       "top": "reduce_ih"
     },
 

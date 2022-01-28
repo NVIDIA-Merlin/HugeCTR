@@ -37,34 +37,34 @@ class Registry {
   Registry& operator=(Registry&&) = delete;
 
   template <typename DispatcherClass>
-  int register_input_builder_helper(const std::string dispatcher_name) {
+  int register_input_builder_helper(const OperationIdentifier op_identifier) {
     auto temp = std::shared_ptr<Builder>(new InputDispatcherBuilder<DispatcherClass>());
     std::lock_guard<std::mutex> lock(mu_);
-    InputContainer::instance("input_dispatcher_builders")->push_back(dispatcher_name, temp);
+    InputContainer::instance("input_dispatcher_builders")->push_back(op_identifier, temp);
     return 0;
   }
 
   template <typename OperationClass>
-  int register_operation_builder_helper(const std::string operation_name) {
+  int register_operation_builder_helper(const OperationIdentifier op_identifier) {
     auto temp = std::shared_ptr<Builder>(new OperationBuilder<OperationClass>());
     std::lock_guard<std::mutex> lock(mu_);
-    OperationContainer::instance("operation_builders")->push_back(operation_name, temp);
+    OperationContainer::instance("operation_builders")->push_back(op_identifier, temp);
     return 0;
   }
 
   template <typename DispatcherClass>
-  int register_output_builder_helper(const std::string dispatcher_name) {
+  int register_output_builder_helper(const OperationIdentifier op_identifier) {
     auto temp = std::shared_ptr<Builder>(new OutputDispatcherBuilder<DispatcherClass>());
     std::lock_guard<std::mutex> lock(mu_);
-    OutputContainer::instance("output_dispatcher_builders")->push_back(dispatcher_name, temp);
+    OutputContainer::instance("output_dispatcher_builders")->push_back(op_identifier, temp);
     return 0;
   }
 
   template <typename EmbeddingLookuperClass>
-  int register_emb_lookuper_helper(const std::string lookuper_name) {
+  int register_emb_lookuper_helper(const OperationIdentifier op_identifier) {
     auto temp = std::shared_ptr<Builder>(new EmbeddingLookuperBuilder<EmbeddingLookuperClass>());
     std::lock_guard<std::mutex> lock(mu_);
-    LookuperContainer::instance("embedding_lookuper_builders")->push_back(lookuper_name, temp);
+    LookuperContainer::instance("embedding_lookuper_builders")->push_back(op_identifier, temp);
     return 0;
   }
 
@@ -73,21 +73,25 @@ class Registry {
   std::mutex mu_;
 };
 
-#define REGISTER_INPUT_DISPATCHER_BUILDER(dispatcher_name, dispatcher_class) \
-  auto _##dispatcher_class =                                                 \
-      Registry::instance()->register_input_builder_helper<dispatcher_class>(dispatcher_name);
+#define UNIQUE_NAME_IMPL_2(x, y) x##y
+#define UNIQUE_NAME_IMPL(x, y) UNIQUE_NAME_IMPL_2(x, y)
+#define UNIQUE_NAME(x) UNIQUE_NAME_IMPL(x, __COUNTER__)
 
-#define REGISTER_OPERATION_BUILDER(operation_name, operation_class) \
-  auto _##operation_class =                                         \
-      Registry::instance()->register_operation_builder_helper<operation_class>(operation_name);
+#define REGISTER_INPUT_DISPATCHER_BUILDER(name, key_dtype, dtype, ...) \
+  static auto UNIQUE_NAME(in_dispatcher) =                             \
+      Registry::instance()->register_input_builder_helper<__VA_ARGS__>({(name), (key_dtype), (dtype)});
 
-#define REGISTER_OUTPUT_DISPATHER_BUILDER(dispatcher_name, dispatcher_class) \
-  auto _##dispatcher_class =                                                 \
-      Registry::instance()->register_output_builder_helper<dispatcher_class>(dispatcher_name);
+#define REGISTER_OPERATION_BUILDER(name, key_dtype, dtype, ...) \
+  static auto UNIQUE_NAME(operation) =                          \
+      Registry::instance()->register_operation_builder_helper<__VA_ARGS__>({(name), (key_dtype), (dtype)});
 
-#define REGISTER_EMB_LOOKUPER_BUILDER(lookuper_name, lookuper_class) \
-  auto _##lookuper_class =                                           \
-      Registry::instance()->register_emb_lookuper_helper<lookuper_class>(lookuper_name);
+#define REGISTER_OUTPUT_DISPATHER_BUILDER(name, key_dtype, dtype, ...) \
+  static auto UNIQUE_NAME(out_dispatcher) =                            \
+      Registry::instance()->register_output_builder_helper<__VA_ARGS__>({(name), (key_dtype), (dtype)});
+
+#define REGISTER_EMB_LOOKUPER_BUILDER(name, key_dtype, dtype, ...) \
+  static auto UNIQUE_NAME(lookuper) =                              \
+      Registry::instance()->register_emb_lookuper_helper<__VA_ARGS__>({(name), (key_dtype), (dtype)});
 
 }  // namespace SparseOperationKit
 

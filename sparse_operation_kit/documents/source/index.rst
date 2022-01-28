@@ -12,7 +12,7 @@ Welcome to SparseOperationKit's documentation!
    Introduction <intro_link>
    Features <features/features>
    Get Started <get_started/get_started>
-   Examples <examples/index>
+   Examples & Tutorials <examples/index>
    Performance <performance/index>
    API Docs <api/index>
    Release Notes <release_notes/release_notes>

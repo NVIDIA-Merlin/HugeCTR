@@ -553,5 +553,5 @@ TEST(mlp_test, top) { mlp_test(out_dims_top, is_relu_top, 5, 640, 6912, true); }
 
 int batch_sizes[8] = {448, 480, 500, 512, 560, 576, 640, 6912};
 // TEST(mlp_test, bottom) { mlp_test_batches(out_dims_bot, is_relu_bot, 3, batch_sizes, 8, 16,
-// true); }; TEST(mlp_test, top) { mlp_test_batches(out_dims_top, is_relu_top, 5, batch_sizes, 8, 16,
-// true); };
+// true); }; TEST(mlp_test, top) { mlp_test_batches(out_dims_top, is_relu_top, 5, batch_sizes, 8,
+// 16, true); };
