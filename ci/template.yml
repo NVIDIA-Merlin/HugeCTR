@@ -35,6 +35,7 @@ stages:
       --no-cache 
       . ;
     - docker push ${DST_IMAGE}
+  allow_failure: true
   rules:
     - if: $NIGHTLY == "1"
       when: always
@@ -84,13 +85,13 @@ stages:
       -f ${JOB_DOCKERFILE}
       --no-cache .
     - docker push ${DST_IMAGE}
+  allow_failure: false
   rules:
     - if: $CI_PIPELINE_SOURCE =~ /^(push|web|merge_request_event|trigger)$/
       when: always
     - if: $TEST_NEW_IMAGE == "1"
       when: always
     - when: never
-  allow_failure: false
   timeout: 5 hours
 
 .cluster_test_job:
