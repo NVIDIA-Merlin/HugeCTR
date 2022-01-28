@@ -1,23 +1,21 @@
 # Release Notes
 ## What's New in Version 3.3.1
-+ **Hierarchical Parameter Server Enhancements**:
-    + **Online deployment of new models and recycling of old models**: In this release, HugeCTR Backend is fully compatible with the [model control protocol](https://github.com/triton-inference-server/server/blob/main/docs/protocol/extension_model_repository.md) of Triton. Adding the configuration of a new model to the [HPS configuration file](https://github.com/triton-inference-server/hugectr_backend#independent-parameter-server-configuration). The HugeCTR Backend has supported online deployment of new models by the Load API of Triton. The old models can also be recycled online by the [Unload API](https://github.com/triton-inference-server/server/blob/main/docs/protocol/extension_model_repository.md#unload).
-    + **Simplified database backend**: Multi-nodes, single-node and all other kinds of volatile database backends can now be configured using the same configuration object.
-    + **Multi-threaded optimization of Redis code**: ~2.3x speedup up over HugeCTR v3.3.
-    + **Fix to some issues**: Build HPS test environment and implement unit test of each component; Access violation issue of online Kafka updates; Parquet data reader incorrectly parses the index of categorical features in the case of multiple embedded tables; HPS Redis Backend overflow handling not invoked upon single insertions.
-+ **New group of fused fully connected layers**: We support adding a group of fused fully connected layers when constructing the model graph. A concise Python interface is provided for users to adjust the number of layers, as well as to specify the output dimensions in each layer, which makes it easy to leverage the highly-optimized fused fully connected layer in HugeCTR. For more information, please refer to [GroupDenseLayer](docs/python_interface.md#groupdenselayer)
-+ **Fix to some issues**: 
-   + Warnning is added for the case users forget to import mpi before launching multi-process job
-   + Removing massive log when runing with embedding training cache
-   + Removing lagacy conda related informations from documents
++ **Hierarchical Parameter Server (HPS) Enhancements**:
+    + **HugeCTR Backend Enhancements**: The HugeCTR Backend is now fully compatible with the [Triton model control protocol](https://github.com/triton-inference-server/server/blob/main/docs/protocol/extension_model_repository.md), so new model configurations can be simply added to the [HPS configuration file](https://github.com/triton-inference-server/hugectr_backend#independent-parameter-server-configuration). The HugeCTR Backend will continue to support online deployments of new models using the Triton Load API. However, with this enhancement, old models can be recycled online using the [Triton Unload API](https://github.com/triton-inference-server/server/blob/main/docs/protocol/extension_model_repository.md#unload).
+    + **Simplified Database Backend**: Multi-nodes, single-node, and all other kinds of volatile database backends can now be configured using the same configuration object.
+    + **Multi-Threaded Optimization of Redis Code**: The speedup of HugeCTR version 3.3.1 is 2.3 times faster than HugeCTR version 3.3.
+    + **Additional HPS Enhancements and Fixes**:
+        + You can now build the HPS test environment and implement unit tests for each component.
+        + You'll no longer encounter the access violation issue when updating Apache Kafka online.
+    	+ The parquet data reader no longer incorrectly parses the index of categorical features when multiple embedded tables are being used.
+    	+ The HPS Redis Backend overflow is now invoked during single insertions.
+    
++ **New GroupDenseLayer**: We're introducing a new GroupDenseLayer. It can be used to group fused fully connected layers when constructing the model graph. A simplified Python interface is provided for adjusting the number of layers and specifying the output dimensions in each layer, which makes it easy to leverage the highly-optimized fused fully connected layers in HugeCTR. For more information, refer to [GroupDenseLayer](docs/python_interface.md#groupdenselayer).
 
-## What's New in Version 3.3
-
-+ **Hierarchical Parameter Server**: 
-    + **Support Incremental Models Updating From Online Training**: HPS now supports iterative model updating via Kafka message queues. It is now possible to connect HugeCTR with Apache Kafka deployments to update the model in-place in real-time. This feature is supported in both phases, training and inference. Please refer to the [Demo Notebok](https://github.com/triton-inference-server/hugectr_backend/tree/main/samples/hierarchical_deployment/hps_e2e_demo).
-    + **Support Embedding keys Eviction Mechanism**: In-memory databases such as Redis or CPU memory backed storage are used now as the feature memory management. Hence, when performing iterative updating, they will automatically evict infrequently used embeddings as training progresses.
-    + **Support Embedding Cache Asynchronous Refresh Mechanism**: We have supported the asynchronous refreshing of incremental embedding keys into the embedding cache. Refresh operation will be triggered when completing the model version iteration or incremental parameters output from online training. The Distributed Database and Persistent Database will be updated by the distributed event streaming platform(Kafka). And then the GPU embedding cache will refresh the values of the existing embedding keys and replace them with the latest incremental embedding vectors. Please refer to the [HPS README](https://github.com/triton-inference-server/hugectr_backend#hugectr-hierarchical-parameter-server).
-    + **Other Improvements**: Backend implementations for databases are now fully configurable. JSON interface parser can cope better with inaccurate parameterization. Less and if (hopefully) more meaningful jabber! Based on your requests, we revised the log levels for throughout the entire database backend API of the parameter server. Selected configuration options are now printed wholesomely and uniformly to the log. Errors provide more verbose information on the matter at hand. Improved performance of Redis cluster backend. Improved performance of CPU memory database backend.
++ **Global Fixes**: 
+   + A warning message now appears when attempting to launch a multi-process job before importing the mpi.
+   + When running with embedding training cache, a massive log is no longer generated.
+   + Legacy conda information has been removed from the HugeCTR documentation.
 
 ## What's New in Version 3.3
 
