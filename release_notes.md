@@ -16,7 +16,7 @@
     + **Mixed Precision Training**: Mixed precision training can be enabled via TF’s pattern to enhance the training performance and lessen memory usage.
     + **DLRM Benchmark**: DLRM is a standard benchmark for recommendation model training. A [note book](sparse_operation_kit/documents/tutorials/DLRM_Benchmark#sok-dlrm-benchmark) is added to address the performance of SOK on this benchmark in this release.
     + **Support Uint32_t / int64_t key dtype in SOK**: Int64 or uint32 can be used as the key data type for SOK’s embedding. By default, it is int64.
-    + **Add TensorFlow initializers support**: Tensorflow native initializer can be used in SOK now. e.g. `sok.All2AllDenseEmbedding(embedding_initializer=tf.keras.initializers.RandomUniform())`
+    + **Add TensorFlow initializers support**: Tensorflow native initializer can be used in SOK now. e.g. `sok.All2AllDenseEmbedding(embedding_initializer=tf.keras.initializers.RandomUniform())` Please find more details in SOK [API document](https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/api/embeddings/dense/all2all.html).
 
 + **User Experience Enhancements**
     + We have revised several notebooks and readme files to clarify instructions and make HugeCTR more accessible in general.
