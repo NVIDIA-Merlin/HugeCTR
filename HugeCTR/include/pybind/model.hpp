@@ -540,7 +540,6 @@ class Model {
   bool high_level_eval_;
   HugeCTR::Timer timer_log;
   std::map<std::string, std::shared_ptr<IEmbedding>> embeddings_map_;
-  int mpi_preinitialized_{0};
 
   Error_t download_dense_params_to_files_(std::string weights_file,
                                           std::string dense_opt_states_file,

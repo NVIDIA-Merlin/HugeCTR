@@ -19,9 +19,7 @@ from __future__ import division
 from __future__ import print_function
 
 from sparse_operation_kit import kit_lib
-from tensorflow.distribute import MirroredStrategy
-from tensorflow.distribute import get_replica_context
-from tensorflow.distribute import has_strategy, get_strategy
+import tensorflow.distribute as tf_dist
 from tensorflow.python.framework import sparse_tensor
 from tensorflow.python.ops import check_ops
 from tensorflow.python.ops import array_ops
@@ -31,7 +29,7 @@ import sys, os
 CommToolSet = set(["Strategy", "MPI", "Horovod", "OneDevice"])
 def get_global_replica_id(comm_tool=None):
     def _strategy():
-        replica_ctx = get_replica_context()
+        replica_ctx = tf_dist.get_replica_context()
         return replica_ctx.replica_id_in_sync_group
 
     def _MPI():
@@ -64,7 +62,7 @@ def get_global_replica_id(comm_tool=None):
 def _get_comm_tool():
     if "horovod.tensorflow" in sys.modules:
         return "Horovod"
-    elif has_strategy():
+    elif tf_dist.has_strategy():
         return "Strategy"
     elif os.getenv("OMPI_COMM_WORLD_SIZE") is not None:
         return "MPI"
