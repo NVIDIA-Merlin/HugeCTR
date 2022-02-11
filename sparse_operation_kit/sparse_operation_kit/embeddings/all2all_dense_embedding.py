@@ -21,7 +21,6 @@ from __future__ import print_function
 from sparse_operation_kit.core import EmbeddingVariable
 from sparse_operation_kit.core import DenseEmbeddingLayerHandle
 from sparse_operation_kit.embeddings import embedding_ops
-from tensorflow.distribute import has_strategy
 import tensorflow as tf
 
 class All2AllDenseEmbedding(tf.keras.layers.Layer):

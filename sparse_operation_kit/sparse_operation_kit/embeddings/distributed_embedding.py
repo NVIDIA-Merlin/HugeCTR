@@ -21,7 +21,6 @@ from __future__ import print_function
 from sparse_operation_kit.core import EmbeddingVariable
 from sparse_operation_kit.core import SparseEmbeddingLayerHandle
 from sparse_operation_kit.embeddings import embedding_ops
-from tensorflow.distribute import has_strategy
 import tensorflow as tf
 
 class DistributedEmbedding(tf.keras.layers.Layer):
