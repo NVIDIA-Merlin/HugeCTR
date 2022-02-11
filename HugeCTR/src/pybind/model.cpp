@@ -330,14 +330,6 @@ Model::Model(const Solver& solver, const DataReaderParams& reader_params,
       current_eval_batchsize_(0),
       dlrm_bottom_mlp_(true),
       high_level_eval_(false) {
-#ifdef ENABLE_MPI
-  HCTR_MPI_THROW(MPI_Initialized(&mpi_preinitialized_));
-  if (!mpi_preinitialized_) {
-    HCTR_LOG(WARNING, ROOT, "Please add \"from mpi4py import MPI\" in your Python script\n");
-    HCTR_MPI_THROW(MPI_Init(nullptr, nullptr));
-    HCTR_LOG(INFO, ROOT, "MPI initialization is done\n");
-  }
-#endif
   if (solver_.is_dlrm) {
     timer_log.start();
     LOG(timer_log.elapsedMilliseconds(), "init_start");
@@ -438,12 +430,6 @@ Model::~Model() {
     CudaDeviceContext context(device);
     cudaDeviceSynchronize();
   }
-#ifdef ENABLE_MPI
-  if (!mpi_preinitialized_) {
-    HCTR_MPI_THROW(MPI_Finalize());
-    HCTR_LOG(INFO, ROOT, "The MPI finalization is done\n");
-  }
-#endif
 }
 
 void Model::graph_to_json(std::string graph_config_file) {

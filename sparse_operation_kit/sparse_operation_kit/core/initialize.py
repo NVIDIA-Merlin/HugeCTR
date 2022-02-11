@@ -20,11 +20,12 @@ from __future__ import print_function
 
 from sparse_operation_kit import kit_lib
 from tensorflow.python.ops import collective_ops
-try:
-    from tensorflow.distribute import MultiWorkerMirroredStrategy
-except:
-    from tensorflow.distribute.experimental import MultiWorkerMirroredStrategy
-from tensorflow.distribute import MirroredStrategy, get_replica_context, has_strategy, get_strategy
+import tensorflow.distribute as tf_dist
+MirroredStrategy = tf_dist.MirroredStrategy
+try:   
+    MultiWorkerMirroredStrategy = tf_dist.MultiWorkerMirroredStrategy
+except AttributeError:
+    MultiWorkerMirroredStrategy = tf_dist.experimental.MultiWorkerMirroredStrategy
 from tensorflow import constant, TensorShape, function
 from tensorflow.dtypes import int32, int64
 from tensorflow import print as tf_print
@@ -98,7 +99,7 @@ def Init(**kwargs):
     
     @function
     def _single_worker_init(**kwargs):
-        replica_ctx = get_replica_context()
+        replica_ctx = tf_dist.get_replica_context()
         replica_ctx.merge_call(lambda strategy: 
             tf_print("You are using the plugin with MirroredStrategy."))
         nccl_unique_id = replica_ctx.merge_call(lambda strategy:
@@ -114,7 +115,7 @@ def Init(**kwargs):
         return status
 
     def _multi_worker_init(**kwargs):
-        replica_ctx = get_replica_context()
+        replica_ctx = tf_dist.get_replica_context()
         global_id = replica_ctx.replica_id_in_sync_group
         if global_id == 0:
             unique_id = kit_lib.get_nccl_unique_id()
@@ -198,8 +199,8 @@ def Init(**kwargs):
                                      global_batch_size=kwargs["global_batch_size"])
         return status
 
-    if has_strategy():
-        strategy = get_strategy()
+    if tf_dist.has_strategy():
+        strategy = tf_dist.get_strategy()
 
         @function
         def _init_wrapper(run_fn, init_fn, **kwargs):

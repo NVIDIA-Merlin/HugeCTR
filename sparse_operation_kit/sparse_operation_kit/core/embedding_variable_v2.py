@@ -28,7 +28,7 @@ from tensorflow.python.framework import dtypes
 from tensorflow.python.eager import context
 from tensorflow.python.eager import tape
 from tensorflow.python.framework import ops
-from tensorflow.distribute import get_strategy, has_strategy
+import tensorflow.distribute as tf_dist
 from tensorflow.python.ops.variables import VariableSynchronization, VariableAggregation
 from tensorflow.python.distribute.values import DistributedVariable
 from tensorflow.python.ops import resource_variable_ops
@@ -41,10 +41,10 @@ class EmbeddingVariable(BaseResourceVariable):
     """
     @classmethod
     def CreateInstances(cls, *args, **kwargs):
-        if not has_strategy():
+        if not tf_dist.has_strategy():
             return EmbeddingVariable(local_replica_id=0, *args, **kwargs)
 
-        strategy = get_strategy()
+        strategy = tf_dist.get_strategy()
         strategy_extended = strategy.extended
         devices = strategy_extended._devices
         
@@ -132,7 +132,7 @@ class EmbeddingVariable(BaseResourceVariable):
                                                     dtype=self.m_dtype,
                                                     handle=self.m_handle,
                                                     handle_name=self.m_var_name,
-                                                    distribute_strategy=get_strategy() if has_strategy() else None,
+                                                    distribute_strategy=tf_dist.get_strategy() if tf_dist.has_strategy() else None,
                                                     synchronization=VariableSynchronization.NONE,
                                                     aggregation=VariableAggregation.ONLY_FIRST_REPLICA,
                                                     unique_id=self.m_unique_id,
