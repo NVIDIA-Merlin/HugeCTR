@@ -27,7 +27,7 @@ $ export PYTHONPATH=/usr/local/hugectr/lib:$PYTHONPATH
 ``` 
 
 ## Download the Dataset ##
-Go [here](https://ailab.criteo.com/download-criteo-1tb-click-logs-dataset/) and download one of the daaset files into the "${project_root}/tools" directory.
+Go [here](https://ailab.criteo.com/download-criteo-1tb-click-logs-dataset/) and download one of the dataset files into the "${project_root}/tools" directory.
 
 As an alternative, you can run the following command:
 ```

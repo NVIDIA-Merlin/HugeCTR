@@ -46,8 +46,9 @@ git clone https://github.com/NVIDIA/HugeCTR
 
 4. Import MPI:
 
-   If HugeCTR is built and installed with `MULTINODES=ON` within NGC Merlin docker. To use HugeCTR Python interface correctly, you should add `from mpi4py import MPI` in the scripts that `import hugectr`. Otherwise you will expect error message like
-   ```
+   You can use MPI if HugeCTR is built and installed with `MULTINODES=ON` within the NGC Merlin container. To use the HugeCTR Python interface, add `from mpi4py import MPI` in your Python programs that already include the `import hugectr` statement. Otherwise, you can expect an error message like the following:
+
+   ```text
    MPI_Comm_rank function was called before MPI_INIT was invoked
    ```
    
