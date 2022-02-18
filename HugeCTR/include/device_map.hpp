@@ -63,14 +63,14 @@ class DeviceMap {
         device_layout_(layout) {
     try {
       if (device_list_total_.size() <= (unsigned int)my_pid) {
-        CK_THROW_(Error_t::WrongInput, "device_list_total_.size() <= my_pid");
+        HCTR_OWN_THROW(Error_t::WrongInput, "device_list_total_.size() <= my_pid");
       }
 
       for (const std::vector<int>& device_list : device_list_total) {
         std::vector<int> tmp_device_list(device_list);
         auto it = std::unique(tmp_device_list.begin(), tmp_device_list.end());
         if (it != tmp_device_list.end()) {
-          CK_THROW_(Error_t::WrongInput, "duplicated device id");
+          HCTR_OWN_THROW(Error_t::WrongInput, "duplicated device id");
         }
       }
 
@@ -93,12 +93,12 @@ class DeviceMap {
         }
       } else if (layout == NODE_FIRST) {
         // Need to have same number of devices on all nodes else A2A won't work
-        MESSAGE_("Using NODE_FIRST layout");
+        HCTR_LOG(INFO, ROOT, "Using NODE_FIRST layout\n");
         unsigned int mysize = device_list_.size();
         for (auto tmp_device_list : device_list_total_) {
           if (tmp_device_list.size() != mysize) {
-            CK_THROW_(Error_t::WrongInput,
-                      "All nodes should have same number of devices for NODE_FIRST layout");
+            HCTR_OWN_THROW(Error_t::WrongInput,
+                           "All nodes should have same number of devices for NODE_FIRST layout");
           }
         }
 
@@ -118,11 +118,10 @@ class DeviceMap {
           pid++;
         }
       } else {
-        throw std::runtime_error(
-            std::string("[HCDEBUG][ERROR] Runtime error: Invalid device layout"));
+        throw std::runtime_error("[HCDEBUG][ERROR] Runtime error: Invalid device layout");
       }
     } catch (const std::runtime_error& rt_err) {
-      std::cerr << rt_err.what() << std::endl;
+      HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     }
   }
 

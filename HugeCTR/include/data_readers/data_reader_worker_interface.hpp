@@ -29,9 +29,10 @@ class IDataReaderWorker {
   virtual void skip_read(){};
   void set_source(std::shared_ptr<Source> source) {
     if (!is_eof_) {
-      CK_THROW_(Error_t::IllegalCall,
-                "DataSource cannot be changed in the \"repeat\" mode or when a data reader worker "
-                "is not in the EOF state.");
+      HCTR_OWN_THROW(
+          Error_t::IllegalCall,
+          "DataSource cannot be changed in the \"repeat\" mode or when a data reader worker "
+          "is not in the EOF state.");
     }
     pre_set_source();
     source_ = source;

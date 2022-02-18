@@ -166,7 +166,7 @@ class DataCollector {
   }
 
   long long read_a_batch_to_device() {
-    // MESSAGE_("data collector waiting read_a_batch_to_device");
+    // HCTR_LOG(INFO, ROOT, "data collector waiting read_a_batch_to_device\n");
     BufferState expected = BufferState::ReadyForRead;
     while (!broadcast_buffer_->state.compare_exchange_weak(expected, BufferState::Reading)) {
       expected = BufferState::ReadyForRead;
@@ -193,14 +193,14 @@ class DataCollector {
               SparseTensor<T>::stretch_from(broadcast_buffer_->sparse_buffers[idx_broadcast]);
           if (output_buffer_->sparse_tensors_map.find(top_name) ==
               output_buffer_->sparse_tensors_map.end()) {
-            CK_THROW_(Error_t::IllegalCall, "can not find sparse name");
+            HCTR_OWN_THROW(Error_t::IllegalCall, "can not find sparse name");
           }
           auto dst_sparse_tensor =
               SparseTensor<T>::stretch_from(output_buffer_->sparse_tensors_map[top_name][i]);
 
           if (broadcast_buffer_->is_fixed_length[idx_broadcast] &&
               last_batch_nnz_[idx_broadcast] == src_sparse_tensor.nnz()) {
-            CK_CUDA_THROW_(cudaMemcpyAsync(dst_sparse_tensor.get_value_ptr(),
+            HCTR_LIB_THROW(cudaMemcpyAsync(dst_sparse_tensor.get_value_ptr(),
                                            src_sparse_tensor.get_value_ptr(),
                                            src_sparse_tensor.nnz() * sizeof(T),
                                            cudaMemcpyDeviceToDevice, local_gpu->get_stream()));
@@ -233,7 +233,7 @@ class DataCollector {
     for (size_t i = 0; i < resource_manager_->get_local_gpu_count(); i++) {
       const auto &local_gpu = resource_manager_->get_local_gpu(i);
       CudaDeviceContext context(local_gpu->get_device_id());
-      CK_CUDA_THROW_(cudaStreamSynchronize(local_gpu->get_stream()));
+      HCTR_LIB_THROW(cudaStreamSynchronize(local_gpu->get_stream()));
     }
 
     broadcast_buffer_->state.store(BufferState::ReadyForWrite);

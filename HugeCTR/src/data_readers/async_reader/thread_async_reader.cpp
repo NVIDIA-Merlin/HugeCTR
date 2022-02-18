@@ -46,9 +46,9 @@ ThreadAsyncReader::ThreadAsyncReader(std::string fname, const ResourceManager* r
   max_num_blocks_per_batch_ = batch_size_bytes_ / params_.io_block_size + 2;
   for (auto buf : dest_buffers_) {
     assert((size_t)buf->raw_host_ptr % params_.io_alignment == 0);
-    CK_CUDA_THROW_(
+    HCTR_LIB_THROW(
         cudaMallocHost(&buf->raw_host_ptr, max_num_blocks_per_batch_ * params_.io_block_size));
-    CK_CUDA_THROW_(cudaEventCreateWithFlags(&buf->event, cudaEventDisableTiming));
+    HCTR_LIB_THROW(cudaEventCreateWithFlags(&buf->event, cudaEventDisableTiming));
 
     buf->io_reqs.resize(max_num_blocks_per_batch_);
     for (auto& req : buf->io_reqs) {
@@ -128,7 +128,7 @@ void ThreadAsyncReader::load() {
     throw std::runtime_error("io_destroy failed");
   }
 
-  CK_CUDA_THROW_(cudaStreamSynchronize(stream_));
+  HCTR_LIB_THROW(cudaStreamSynchronize(stream_));
 
   if (status_.load() != WorkerStatus::Terminate) {
     for (int i = 0; i < num_dest_buffers_; i++) {
@@ -219,7 +219,7 @@ bool ThreadAsyncReader::wait_for_gpu_idle(InternalBatchBuffer* buffer) {
       return false;
     } else {
       buffer->ready_to_upload_event.store(nullptr);
-      CK_CUDA_THROW_(cudaStreamWaitEvent(stream_, *event_ptr));
+      HCTR_LIB_THROW(cudaStreamWaitEvent(stream_, *event_ptr));
     }
   }
   return true;
@@ -237,14 +237,14 @@ void ThreadAsyncReader::try_submit_upload(InternalBatchBuffer* buffer) {
   // H2D upload
   // Wait until the buffers are consumed (one event after a barrier)
   if (buffer->num_submitted_h2d_chunks == 0 && buffer->safe_to_upload_event != nullptr) {
-    CK_CUDA_THROW_(cudaStreamWaitEvent(stream_, *buffer->safe_to_upload_event));
+    HCTR_LIB_THROW(cudaStreamWaitEvent(stream_, *buffer->safe_to_upload_event));
   }
 
   size_t chunk_size = (buffer->size + params_.num_h2d_chunks - 1) / params_.num_h2d_chunks;
   size_t beg_offset = chunk_size * buffer->num_submitted_h2d_chunks;
   size_t end_offset = std::min(buffer->size, chunk_size * (buffer->num_submitted_h2d_chunks + 1));
 
-  CK_CUDA_THROW_(cudaMemcpyAsync(buffer->dev_data[device_id_] + beg_offset,
+  HCTR_LIB_THROW(cudaMemcpyAsync(buffer->dev_data[device_id_] + beg_offset,
                                  buffer->host_data + beg_offset, end_offset - beg_offset,
                                  cudaMemcpyHostToDevice, stream_));
   buffer->num_submitted_h2d_chunks++;
@@ -262,7 +262,7 @@ void ThreadAsyncReader::try_submit_p2p(InternalBatchBuffer* buffer) {
   // Broadcast to the other GPUs
   if (buffer->num_submitted_broadcasts != (int)buffer->dev_data.size()) {
     if (device_id_ != buffer->num_submitted_broadcasts) {
-      CK_CUDA_THROW_(cudaMemcpyAsync(buffer->dev_data[buffer->num_submitted_broadcasts],
+      HCTR_LIB_THROW(cudaMemcpyAsync(buffer->dev_data[buffer->num_submitted_broadcasts],
                                      buffer->dev_data[device_id_], buffer->size,
                                      cudaMemcpyDeviceToDevice, stream_));
     }
@@ -276,7 +276,7 @@ void ThreadAsyncReader::try_submit_p2p(InternalBatchBuffer* buffer) {
   buffer->preload_done = true;
   buffer->num_submitted_h2d_chunks = 0;
   buffer->num_submitted_broadcasts = 0;
-  CK_CUDA_THROW_(cudaEventRecord(buffer->event, stream_));
+  HCTR_LIB_THROW(cudaEventRecord(buffer->event, stream_));
   buffer->status.store(BufferStatus::UploadSubmitted);
 }
 
@@ -293,7 +293,7 @@ bool ThreadAsyncReader::check_completion(InternalBatchBuffer* buffer) {
   if (res == cudaErrorNotReady) {
     return false;
   }
-  CK_CUDA_THROW_(res);
+  HCTR_LIB_THROW(res);
   return false;
 }
 

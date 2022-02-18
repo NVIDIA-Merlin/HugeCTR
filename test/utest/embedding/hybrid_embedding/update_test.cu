@@ -91,7 +91,7 @@ class InfrequentUpdateTest : public HybridEmbeddingUnitTest<dtype, emtype> {
         std::vector<const emtype *> gradients_pointers(this->num_instances);
         for (uint32_t network_id = 0; network_id < this->num_instances; network_id++)
           gradients_pointers[network_id] = gradients[network_id].get_ptr();
-        CK_CUDA_THROW_(cudaMemcpyAsync(
+        HCTR_LIB_THROW(cudaMemcpyAsync(
             this->infrequent_embeddings[i].gradients_pointers_.get_ptr(), gradients_pointers.data(),
             this->num_instances * sizeof(emtype *), cudaMemcpyHostToDevice, this->stream));
         this->infrequent_embeddings[i].update_model_direct(this->dev_lr, 1.f, this->stream);
@@ -193,7 +193,7 @@ class FrequentUpdateTest : public HybridEmbeddingUnitTest<dtype, emtype> {
     }
     for (size_t i = 0; i < this->num_instances; i++) {
       if (single_node) {
-        CK_CUDA_THROW_(cudaMemcpyAsync(
+        HCTR_LIB_THROW(cudaMemcpyAsync(
             this->frequent_embeddings[i].partial_gradients_pointers_.get_ptr(),
             frequent_partial_gradients_pointers.data(), this->num_instances * sizeof(emtype *),
             cudaMemcpyHostToDevice, this->stream));

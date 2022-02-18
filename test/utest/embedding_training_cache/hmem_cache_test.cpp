@@ -85,13 +85,13 @@ void generate_embedding_table(std::string table_name, double table_size_in_gb, O
   {
     std::iota(keys.begin(), keys.end(), 0);
     std::ofstream ofs(key_file, std::ofstream::trunc);
-    if (!ofs.is_open()) CK_THROW_(Error_t::FileCannotOpen, "File open error");
+    if (!ofs.is_open()) HCTR_OWN_THROW(Error_t::FileCannotOpen, "File open error");
     ofs.write(reinterpret_cast<char*>(keys.data()), keys.size() * sizeof(long long));
   }
   {
     std::for_each(slot_ids.begin(), slot_ids.end(), gen_rand_op);
     std::ofstream ofs(slot_id_file, std::ofstream::trunc);
-    if (!ofs.is_open()) CK_THROW_(Error_t::FileCannotOpen, "File open error");
+    if (!ofs.is_open()) HCTR_OWN_THROW(Error_t::FileCannotOpen, "File open error");
     ofs.write(reinterpret_cast<char*>(slot_ids.data()), slot_ids.size() * sizeof(size_t));
   }
 #pragma omp parallel for num_threads(data_files.size())
@@ -99,7 +99,7 @@ void generate_embedding_table(std::string table_name, double table_size_in_gb, O
     for_each(data_vecs[i].begin(), data_vecs[i].end(), gen_real_rand_op);
     std::string file_name{table_name + "/" + data_files[i]};
     std::ofstream ofs(file_name, std::ofstream::trunc);
-    if (!ofs.is_open()) CK_THROW_(Error_t::FileCannotOpen, "File open error");
+    if (!ofs.is_open()) HCTR_OWN_THROW(Error_t::FileCannotOpen, "File open error");
     ofs.write(reinterpret_cast<char*>(data_vecs[i].data()), data_vecs[i].size() * sizeof(float));
   }
 }
@@ -171,25 +171,25 @@ void read_api_test(double table_size, size_t num_pass, size_t num_cached_pass,
                                    std::vector<std::vector<float>>& data_vecs_dst) {
     // check equality
     if (use_slot_id) {
-      MESSAGE_("check slot_id", true, false);
+      HCTR_LOG(INFO, WORLD, "check slot_id\n");
       ASSERT_TRUE(test::compare_array_approx<char>(reinterpret_cast<char*>(slot_ids_src.data()),
                                                    reinterpret_cast<char*>(slot_ids_dst.data()),
                                                    len * sizeof(size_t), 0));
-      MESSAGE_(" [DONE]", true, true, false);
+      HCTR_LOG(INFO, WORLD, "Done!\n");
     }
     size_t counter{0};
     for (const auto& data_file : data_files) {
-      MESSAGE_(std::string("check ") + data_file, true, false);
+      HCTR_LOG_S(INFO, WORLD) << "check " << data_file << std::endl;
       ASSERT_TRUE(
           test::compare_array_approx<char>(reinterpret_cast<char*>(data_vecs_src[counter].data()),
                                            reinterpret_cast<char*>(data_vecs_dst[counter].data()),
                                            len * emb_vec_size * sizeof(float), 0));
-      MESSAGE_(" [DONE]", true, true, false);
+      HCTR_LOG(INFO, WORLD, "Done!\n");
       counter++;
     }
   };
 
-  MESSAGE_("Check HMemCache::read()");
+  HCTR_LOG(INFO, ROOT, "Check HMemCache::read()\n");
   auto sparse_model_ptr{hmem_cache.get_sparse_model_file()};
   std::vector<size_t> tmp_slot_ids;
   if (use_slot_id) tmp_slot_ids.resize(max_vocabulary_size);
@@ -211,7 +211,7 @@ void read_api_test(double table_size, size_t num_pass, size_t num_cached_pass,
       for (size_t i = 0; i < len; i++) {
         auto dst_idx{sparse_model_ptr->find(key_vecs[pass_id][i])};
         if (dst_idx == SparseModelFileTS<TypeKey>::end_flag) {
-          CK_THROW_(Error_t::WrongInput, "Key doesn't exist");
+          HCTR_OWN_THROW(Error_t::WrongInput, "Key doesn't exist");
         }
         ssd_idx_vec[i] = dst_idx;
       }
@@ -221,7 +221,7 @@ void read_api_test(double table_size, size_t num_pass, size_t num_cached_pass,
   }
 
   // write test
-  MESSAGE_("Check HMemCache::write()");
+  HCTR_LOG(INFO, ROOT, "Check HMemCache::write()\n");
   auto num_dump{num_key / num_pass};
   std::vector<TypeKey> dump_keys(num_dump);
   size_t offset{0};
@@ -238,7 +238,7 @@ void read_api_test(double table_size, size_t num_pass, size_t num_cached_pass,
     for (size_t i = 0; i < num_dump; i++) {
       auto dst_idx{sparse_model_ptr->find(dump_keys[i])};
       if (dst_idx == SparseModelFileTS<TypeKey>::end_flag) {
-        CK_THROW_(Error_t::WrongInput, "Key doesn't exist");
+        HCTR_OWN_THROW(Error_t::WrongInput, "Key doesn't exist");
       }
       ssd_idx_vec[i] = dst_idx;
     }
@@ -273,7 +273,7 @@ void read_api_test(double table_size, size_t num_pass, size_t num_cached_pass,
   ASSERT_EQ(load_len, num_dump);
   check_vector_equality(num_dump, slot_ids, tmp_slot_ids, data_vecs, tmp_data_vecs);
 
-  HugeCTR::MESSAGE_("Check HMemCache::sync_to_ssd()");
+  HCTR_LOG(INFO, ROOT, "Check HMemCache::sync_to_ssd()\n");
   hmem_cache.sync_to_ssd();
   {
     std::vector<size_t> ssd_idx_vec(num_dump);
@@ -281,7 +281,7 @@ void read_api_test(double table_size, size_t num_pass, size_t num_cached_pass,
     for (size_t i = 0; i < num_dump; i++) {
       auto dst_idx{sparse_model_ptr->find(dump_keys[i])};
       if (dst_idx == SparseModelFileTS<TypeKey>::end_flag) {
-        CK_THROW_(Error_t::WrongInput, "Key doesn't exist");
+        HCTR_OWN_THROW(Error_t::WrongInput, "Key doesn't exist");
       }
       ssd_idx_vec[i] = dst_idx;
     }

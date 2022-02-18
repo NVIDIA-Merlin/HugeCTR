@@ -48,6 +48,7 @@
 #endif
 
 namespace HugeCTR {
+
 template <class T>
 class ParquetDataReaderWorker : public IDataReaderWorker {
  private:
@@ -141,15 +142,15 @@ class ParquetDataReaderWorker : public IDataReaderWorker {
           current_record_index_ = 0;
         } else {
           // raise exception
-          CK_THROW_(Error_t::BrokenFile, "failed to read a file");
+          HCTR_OWN_THROW(Error_t::BrokenFile, "failed to read a file");
         }
         return;
       } else if (err == Error_t::EndOfFile) {
-        // std::cout<<" catch EOF\n";
+        // HCTR_INFO(ERROR, WORLD, " catch EOF\n");
         throw internal_runtime_error(Error_t::EndOfFile, "EndOfFile");
       }
     }
-    CK_THROW_(Error_t::BrokenFile, "failed to read a file");
+    HCTR_OWN_THROW(Error_t::BrokenFile, "failed to read a file");
   }
 
  public:
@@ -180,7 +181,7 @@ class ParquetDataReaderWorker : public IDataReaderWorker {
     memory_resource_ = resource_manager_->get_device_rmm_device_memory_resource(device_id_);
 
     if (worker_id >= worker_num) {
-      CK_THROW_(Error_t::BrokenFile, "ParquetDataReaderWorker: worker_id >= worker_num");
+      HCTR_OWN_THROW(Error_t::BrokenFile, "ParquetDataReaderWorker: worker_id >= worker_num");
     }
     slots_ = 0;
     for (auto& p : params) {
@@ -193,10 +194,11 @@ class ParquetDataReaderWorker : public IDataReaderWorker {
       slot_offset_.resize(slots_, static_cast<long long int>(0));
     }
     for (auto& c : slot_offset_) {
-      if ((c >= std::numeric_limits<T>::min()) && (c <= std::numeric_limits<T>::max()))
+      if ((c >= std::numeric_limits<T>::min()) && (c <= std::numeric_limits<T>::max())) {
         slot_offset_dtype_.push_back((T)c);
-      else
-        CK_THROW_(Error_t::DataCheckError, "Slot offset value exceed the key type range");
+      } else {
+        HCTR_OWN_THROW(Error_t::DataCheckError, "Slot offset value exceed the key type range");
+      }
     }
   }
 
@@ -235,14 +237,14 @@ void ParquetDataReaderWorker<T>::read_a_batch() {
 
   if (!thread_resource_allocated_) {
     // cant allocate and set resources in constructor
-    CK_CUDA_THROW_(cudaSetDevice(device_id_));  // for multiple devices
-    CK_CUDA_THROW_(cudaStreamCreateWithFlags(&task_stream_, cudaStreamNonBlocking));
-    CK_CUDA_THROW_(cudaStreamCreateWithFlags(&dense_stream_, cudaStreamNonBlocking));
+    HCTR_LIB_THROW(cudaSetDevice(device_id_));  // for multiple devices
+    HCTR_LIB_THROW(cudaStreamCreateWithFlags(&task_stream_, cudaStreamNonBlocking));
+    HCTR_LIB_THROW(cudaStreamCreateWithFlags(&dense_stream_, cudaStreamNonBlocking));
     size_t slot_offset_buf_size = sizeof(T) * slot_offset_dtype_.size();
     slot_offset_device_buf_ = std::make_shared<rmm::device_buffer>(
         slot_offset_buf_size, task_stream_, memory_resource_.get());
 
-    CK_CUDA_THROW_(cudaMemcpyAsync(slot_offset_device_buf_->data(), slot_offset_dtype_.data(),
+    HCTR_LIB_THROW(cudaMemcpyAsync(slot_offset_device_buf_->data(), slot_offset_dtype_.data(),
                                    slot_offset_buf_size, cudaMemcpyHostToDevice, task_stream_));
     thread_resource_allocated_ = true;
   }
@@ -331,7 +333,7 @@ void ParquetDataReaderWorker<T>::read_a_batch() {
             if (err == Error_t::EndOfFile) {
               elements_to_read = 0;
             } else {
-              std::cerr << rt_err.what() << std::endl;
+              HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
               throw;
             }
           }
@@ -348,8 +350,9 @@ void ParquetDataReaderWorker<T>::read_a_batch() {
           2 * (buffer_->label_dim + buffer_->label_dim + 1) + 2 * params_.size() + 2 * slots_;
 
       // PinnedBuffer extend on unique_ptr cant realloc properly and safely (cudaContext)
-      if ((int64_t)host_memory_pointer_staging_.get_num_elements() < num_of_pointer_staging)
-        CK_THROW_(Error_t::UnspecificError, "Parquet reader worker: not enough pinned storge");
+      if ((int64_t)host_memory_pointer_staging_.get_num_elements() < num_of_pointer_staging) {
+        HCTR_OWN_THROW(Error_t::UnspecificError, "Parquet reader worker: not enough pinned storge");
+      }
       // calculate rows for each buffer
       size_t device_staging_dense_size = dense_end - dense_start;
       device_staging_dense_size *= ((size_t)label_dense_dim * sizeof(dtype_dense));
@@ -358,8 +361,8 @@ void ParquetDataReaderWorker<T>::read_a_batch() {
         dense_columns_view_ref.emplace_back(
             std::move(data_view.column(dense_idx_to_parquet_col_[k])));
         if (dense_columns_view_ref.back().type().id() != cudf::type_to_id<dtype_dense>()) {
-          CK_THROW_(Error_t::WrongInput,
-                    "Parquet reader: Dense KeyType and Parquet column type don't match");
+          HCTR_OWN_THROW(Error_t::WrongInput,
+                         "Parquet reader: Dense KeyType and Parquet column type don't match");
         }
       }
 
@@ -395,7 +398,7 @@ void ParquetDataReaderWorker<T>::read_a_batch() {
         device_csr_row_offset_buffers[k] =
             reinterpret_cast<void*>(dst_sparse_tensor.get_rowoffset_ptr());
         size_t size_of_csr_roff_buffer = sizeof(T) * (params_[k].slot_num * batch_size + 1);
-        CK_CUDA_THROW_(cudaMemsetAsync(device_csr_row_offset_buffers[k], 0, size_of_csr_roff_buffer,
+        HCTR_LIB_THROW(cudaMemsetAsync(device_csr_row_offset_buffers[k], 0, size_of_csr_roff_buffer,
                                        task_stream_));
       }
 
@@ -431,11 +434,13 @@ void ParquetDataReaderWorker<T>::read_a_batch() {
             cudf::column_view row_offset_view = cat_columns_view_ref[k].child(0);
             cudf::column_view value_view = cat_columns_view_ref[k].child(1);
             if (cudf::size_of(value_view.type()) != sizeof(T)) {
-              CK_THROW_(Error_t::WrongInput,
-                        "Parquet worker : cat m-hot KeyType does not match Parquet column type");
+              HCTR_OWN_THROW(
+                  Error_t::WrongInput,
+                  "Parquet worker : cat m-hot KeyType does not match Parquet column type");
             }
             if (row_offset_view.type().id() != cudf::type_to_id<int32_t>()) {
-              CK_THROW_(Error_t::WrongInput, "Parquet worker : row_offset type should be int32_t");
+              HCTR_OWN_THROW(Error_t::WrongInput,
+                             "Parquet worker : row_offset type should be int32_t");
             }
             int32_t* row_ptr = const_cast<int32_t*>(row_offset_view.data<int32_t>());
             T* column_ptr = const_cast<T*>(value_view.data<T>());
@@ -449,8 +454,8 @@ void ParquetDataReaderWorker<T>::read_a_batch() {
             cat_column_data_ptr.push_back(column_ptr);
             cat_column_row_offset_ptr.push_back(nullptr);
           } else {
-            CK_THROW_(Error_t::WrongInput,
-                      "Parquet worker : cat m-hot KeyType does not match Parquet column type");
+            HCTR_OWN_THROW(Error_t::WrongInput,
+                           "Parquet worker : cat m-hot KeyType does not match Parquet column type");
           }
         }
         T* dev_slot_offset_ptr = reinterpret_cast<T*>((size_t)slot_offset_device_buf_->data() +
@@ -470,7 +475,7 @@ void ParquetDataReaderWorker<T>::read_a_batch() {
         param_id++;
       }
 
-      CK_CUDA_THROW_(cudaStreamSynchronize(task_stream_));
+      HCTR_LIB_THROW(cudaStreamSynchronize(task_stream_));
 
       // get nnz info
       for (size_t buffer_id = 0; buffer_id < param_num; buffer_id++) {
@@ -481,16 +486,16 @@ void ParquetDataReaderWorker<T>::read_a_batch() {
             last_row * sizeof(T);
 
         auto dst_sparse_tensor = SparseTensor<T>::stretch_from(dst_sparse_tensors[buffer_id]);
-        CK_CUDA_THROW_(cudaMemcpyAsync(reinterpret_cast<void*>(host_pinned_csr_inc_.get_ptr()),
+        HCTR_LIB_THROW(cudaMemcpyAsync(reinterpret_cast<void*>(host_pinned_csr_inc_.get_ptr()),
                                        reinterpret_cast<void*>(dev_row_pointer), sizeof(T) * 1,
                                        cudaMemcpyDeviceToHost, task_stream_));
-        CK_CUDA_THROW_(cudaStreamSynchronize(task_stream_));
+        HCTR_LIB_THROW(cudaStreamSynchronize(task_stream_));
         size_t nnz = static_cast<size_t>(host_pinned_csr_inc_.get_ptr()[0]);
         *dst_sparse_tensor.get_nnz_ptr() = nnz;
       }
 
-      CK_CUDA_THROW_(cudaStreamSynchronize(task_stream_));
-      CK_CUDA_THROW_(cudaStreamSynchronize(dense_stream_));
+      HCTR_LIB_THROW(cudaStreamSynchronize(task_stream_));
+      HCTR_LIB_THROW(cudaStreamSynchronize(dense_stream_));
 
       view_offset_ = row_group_index_;
     }

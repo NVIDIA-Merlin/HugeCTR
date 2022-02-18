@@ -56,7 +56,7 @@ class FileSource : public Source {
       }
       return Error_t::Success;
     } catch (const std::runtime_error& rt_err) {
-      std::cerr << rt_err.what() << std::endl;
+      HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
       return Error_t::UnspecificError;
     }
   }
@@ -77,11 +77,13 @@ class FileSource : public Source {
       }
       in_file_stream_.open(file_name, std::ifstream::binary);
       if (!in_file_stream_.is_open()) {
-        CK_RETURN_(Error_t::FileCannotOpen, "in_file_stream_.is_open() failed: " + file_name);
+        HCTR_LOG_S(ERROR, WORLD) << "in_file_stream_.is_open() failed: " << file_name << ' '
+                                 << HCTR_LOCATION() << std::endl;
+        return Error_t::FileCannotOpen;
       }
       return Error_t::Success;
     } catch (const std::runtime_error& rt_err) {
-      std::cerr << rt_err.what() << std::endl;
+      HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
       return Error_t::UnspecificError;
     }
   }

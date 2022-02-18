@@ -67,7 +67,7 @@ void Dice_fprop(T *out, T *in, T *E_x, T *Var_x, T alpha, T epsilon, int m, int 
   Dice_fprop_kernel<<<grid, block, 0, stream>>>(out, in, E_x, Var_x, alpha, epsilon, m, n);
 #ifndef NDEBUG
   cudaDeviceSynchronize();
-  CK_CUDA_THROW_(cudaGetLastError());
+  HCTR_LIB_THROW(cudaGetLastError());
 #endif
 }
 
@@ -98,7 +98,7 @@ void Dice_bprop(T *top, T *bottom, T *E_x, T *Var_x, T alpha, T epsilon, int m, 
   Dice_bprop_kernel<<<grid, block, 0, stream>>>(top, bottom, E_x, Var_x, alpha, epsilon, m, n);
 #ifndef NDEBUG
   cudaDeviceSynchronize();
-  CK_CUDA_THROW_(cudaGetLastError());
+  HCTR_LIB_THROW(cudaGetLastError());
 #endif
 }
 

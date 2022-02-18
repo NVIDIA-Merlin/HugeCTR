@@ -49,9 +49,9 @@ void Parser::create_allreduce_comm(const std::shared_ptr<ResourceManager>& resou
     if (has_key_(j_all_reduce, "grouped")) {
       grouped_all_reduce = get_value_from_json<bool>(j_all_reduce, "grouped");
     }
-    MESSAGE_("Using All-reduce algorithm " + ar_algo_name);
+    HCTR_LOG_S(INFO, ROOT) << "Using All-reduce algorithm " << ar_algo_name << std::endl;
     if (!find_item_in_map(ar_algo, ar_algo_name, ALLREDUCE_ALGO_MAP)) {
-      CK_THROW_(Error_t::WrongInput, "All reduce algo unknown: " + ar_algo_name);
+      HCTR_OWN_THROW(Error_t::WrongInput, "All reduce algo unknown: " + ar_algo_name);
     }
   }
 
@@ -89,7 +89,7 @@ void Parser::create_pipeline_internal(std::shared_ptr<IDataReader>& init_data_re
     std::vector<TensorEntry> evaluate_tensor_entries_list[resource_manager->get_local_gpu_count()];
     {
       if (!networks.empty()) {
-        CK_THROW_(Error_t::WrongInput, "vector network is not empty");
+        HCTR_OWN_THROW(Error_t::WrongInput, "vector network is not empty");
       }
 
       auto j_layers_array = get_json(config_, "layers");
@@ -123,7 +123,7 @@ void Parser::create_pipeline_internal(std::shared_ptr<IDataReader>& init_data_re
             Layer_t layer_type;
             if (!find_item_in_map(layer_type, embedding_name, LAYER_TYPE_MAP) &&
                 !find_item_in_map(layer_type, embedding_name, LAYER_TYPE_MAP_MP)) {
-              CK_THROW_(Error_t::WrongInput, "No such layer: " + embedding_name);
+              HCTR_OWN_THROW(Error_t::WrongInput, "No such layer: " + embedding_name);
             }
             break;
           }
@@ -147,7 +147,7 @@ void Parser::create_pipeline_internal(std::shared_ptr<IDataReader>& init_data_re
       // create network
       int total_gpu_count = resource_manager->get_global_gpu_count();
       if (0 != batch_size_ % total_gpu_count) {
-        CK_THROW_(Error_t::WrongInput, "0 != batch_size\%total_gpu_count");
+        HCTR_OWN_THROW(Error_t::WrongInput, "0 != batch_size\%total_gpu_count");
       }
       for (size_t i = 0; i < resource_manager->get_local_gpu_count(); i++) {
         networks.emplace_back(Network::create_network(
@@ -161,7 +161,7 @@ void Parser::create_pipeline_internal(std::shared_ptr<IDataReader>& init_data_re
     exchange_wgrad->allocate();
 
   } catch (const std::runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     throw;
   }
 }
@@ -229,7 +229,7 @@ void Parser::initialize_pipeline_internal(std::shared_ptr<IDataReader>& init_dat
       exchange_wgrad->update_embed_wgrad_size(embed_wgrad_size);
     }
   } catch (const std::runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     throw;
   }
 }

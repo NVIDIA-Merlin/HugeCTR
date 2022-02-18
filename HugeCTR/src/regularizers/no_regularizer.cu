@@ -41,7 +41,7 @@ void NoRegularizer<T>::do_initialize_wgrad(const float* weight, T* wgrad, int nu
   // int block_size = 512;
   // initialize_array<<<n_blocks, block_size, 0, stream>>>(
   //     wgrad, num_elements, T(0.0f));
-  CK_CUDA_THROW_(cudaMemsetAsync(wgrad, 0, num_elements * sizeof(T), stream));
+  HCTR_LIB_THROW(cudaMemsetAsync(wgrad, 0, num_elements * sizeof(T), stream));
 }
 
 template class NoRegularizer<__half>;

@@ -41,7 +41,7 @@ std::unique_ptr<LearningRateScheduler> get_learning_rate_scheduler(
   nlohmann::json config;
   std::ifstream file_stream(configure_file);
   if (!file_stream.is_open()) {
-    CK_THROW_(Error_t::FileCannotOpen, "file_stream.is_open() failed: " + configure_file);
+    HCTR_OWN_THROW(Error_t::FileCannotOpen, "file_stream.is_open() failed: " + configure_file);
   }
   file_stream >> config;
   file_stream.close();
@@ -50,9 +50,9 @@ std::unique_ptr<LearningRateScheduler> get_learning_rate_scheduler(
   auto j_optimizer = get_json(config, "optimizer");
 
   auto optimizer_name = get_value_from_json<std::string>(j_optimizer, "type");
-  Optimizer_t optimizer_type;
+  Optimizer_t optimizer_type = Optimizer_t::DEFAULT;
   if (!find_item_in_map(optimizer_type, optimizer_name, OPTIMIZER_TYPE_MAP)) {
-    CK_THROW_(Error_t::WrongInput, "No such optimizer: " + optimizer_name);
+    HCTR_OWN_THROW(Error_t::WrongInput, "No such optimizer: " + optimizer_name);
   }
 
   float lr = 0;
@@ -95,9 +95,9 @@ GpuLearningRateSchedulers get_gpu_learning_rate_schedulers(
   auto j_optimizer = get_json(config, "optimizer");
 
   auto optimizer_name = get_value_from_json<std::string>(j_optimizer, "type");
-  Optimizer_t optimizer_type;
+  Optimizer_t optimizer_type = Optimizer_t::DEFAULT;
   if (!find_item_in_map(optimizer_type, optimizer_name, OPTIMIZER_TYPE_MAP)) {
-    CK_THROW_(Error_t::WrongInput, "No such optimizer: " + optimizer_name);
+    HCTR_OWN_THROW(Error_t::WrongInput, "No such optimizer: " + optimizer_name);
   }
 
   float base_lr = 0;

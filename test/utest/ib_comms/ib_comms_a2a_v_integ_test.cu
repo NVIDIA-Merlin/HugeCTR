@@ -125,9 +125,9 @@ struct IbCommsTest {
     comm_stream_.resize(num_gpus_);
     comm_events_.resize(num_gpus_);
     for (size_t g = 0; g < num_gpus_; g++) {
-      CK_CUDA_THROW_(cudaSetDevice(device_list[g]));
-      CK_CUDA_THROW_(cudaStreamCreate(&comm_stream_[g]));
-      CK_CUDA_THROW_(cudaEventCreate(&comm_events_[g]));
+      HCTR_LIB_THROW(cudaSetDevice(device_list[g]));
+      HCTR_LIB_THROW(cudaStreamCreate(&comm_stream_[g]));
+      HCTR_LIB_THROW(cudaEventCreate(&comm_events_[g]));
       ib_comm_->set_a2a_coll_stream(coll_handle_, comm_stream_[g], g);
     }
   }
@@ -148,11 +148,11 @@ struct IbCommsTest {
         h_send_size_ptr[d] = send_size_per_dst;
         h_recv_size_ptr[d] = send_size_per_dst;
       }
-      CK_CUDA_THROW_(cudaSetDevice(device_list[g]));
-      CK_CUDA_THROW_(cudaMemcpy(d_send_sizes_[g].get_ptr(), h_send_sizes_[g].get_ptr(),
+      HCTR_LIB_THROW(cudaSetDevice(device_list[g]));
+      HCTR_LIB_THROW(cudaMemcpy(d_send_sizes_[g].get_ptr(), h_send_sizes_[g].get_ptr(),
                                 h_send_sizes_[g].get_num_elements() * sizeof(size_t),
                                 cudaMemcpyHostToDevice));
-      CK_CUDA_THROW_(cudaMemcpy(d_recv_sizes_[g].get_ptr(), h_recv_sizes_[g].get_ptr(),
+      HCTR_LIB_THROW(cudaMemcpy(d_recv_sizes_[g].get_ptr(), h_recv_sizes_[g].get_ptr(),
                                 h_recv_sizes_[g].get_num_elements() * sizeof(size_t),
                                 cudaMemcpyHostToDevice));
     }
@@ -186,15 +186,15 @@ struct IbCommsTest {
         }
       }
 
-      CK_MPI_THROW_(MPI_Alltoall(h_interim_recv_sizes.data(), sizeof(size_t) * num_gpus_, MPI_BYTE,
-                                 h_recv_size_ptr, sizeof(size_t) * num_gpus_, MPI_BYTE,
-                                 MPI_COMM_WORLD));
+      HCTR_MPI_THROW(MPI_Alltoall(h_interim_recv_sizes.data(), sizeof(size_t) * num_gpus_, MPI_BYTE,
+                                  h_recv_size_ptr, sizeof(size_t) * num_gpus_, MPI_BYTE,
+                                  MPI_COMM_WORLD));
 
-      CK_CUDA_THROW_(cudaSetDevice(device_list[g]));
-      CK_CUDA_THROW_(cudaMemcpy(d_send_sizes_[g].get_ptr(), h_send_sizes_[g].get_ptr(),
+      HCTR_LIB_THROW(cudaSetDevice(device_list[g]));
+      HCTR_LIB_THROW(cudaMemcpy(d_send_sizes_[g].get_ptr(), h_send_sizes_[g].get_ptr(),
                                 h_send_sizes_[g].get_num_elements() * sizeof(size_t),
                                 cudaMemcpyHostToDevice));
-      CK_CUDA_THROW_(cudaMemcpy(d_recv_sizes_[g].get_ptr(), h_recv_sizes_[g].get_ptr(),
+      HCTR_LIB_THROW(cudaMemcpy(d_recv_sizes_[g].get_ptr(), h_recv_sizes_[g].get_ptr(),
                                 h_recv_sizes_[g].get_num_elements() * sizeof(size_t),
                                 cudaMemcpyHostToDevice));
     }
@@ -224,15 +224,15 @@ struct IbCommsTest {
 
     auto& device_list = resource_manager_->get_local_gpu_device_id_list();
     for (size_t g = 0; g < num_gpus_; g++) {
-      CK_CUDA_THROW_(cudaSetDevice(device_list[g]));
-      CK_CUDA_THROW_(cudaMemcpy(d_send_buffs_[g].get_ptr(), h_send_buffs_[g].get_ptr(),
+      HCTR_LIB_THROW(cudaSetDevice(device_list[g]));
+      HCTR_LIB_THROW(cudaMemcpy(d_send_buffs_[g].get_ptr(), h_send_buffs_[g].get_ptr(),
                                 max_elems_ * sizeof(TypeEmbeddingComp), cudaMemcpyHostToDevice));
-      CK_CUDA_THROW_(cudaMemcpy(d_recv_buffs_[g].get_ptr(), h_recv_buffs_[g].get_ptr(),
+      HCTR_LIB_THROW(cudaMemcpy(d_recv_buffs_[g].get_ptr(), h_recv_buffs_[g].get_ptr(),
                                 max_elems_ * sizeof(TypeEmbeddingComp), cudaMemcpyHostToDevice));
     }
 
     for (size_t g = 0; g < num_gpus_; g++) {
-      CK_CUDA_THROW_(cudaSetDevice(device_list[g]));
+      HCTR_LIB_THROW(cudaSetDevice(device_list[g]));
       ib_comm_->pre_intra_update_a2a_coll_sizes(coll_handle_, d_send_sizes_ptrs_[g].get_ptr(), 0,
                                                 g);
     }
@@ -242,7 +242,7 @@ struct IbCommsTest {
     auto& device_list = resource_manager_->get_local_gpu_device_id_list();
     for (size_t g = 0; g < num_gpus_; g++) {
       auto& stream = resource_manager_->get_local_gpu(g)->get_stream();
-      CK_CUDA_THROW_(cudaSetDevice(device_list[g]));
+      HCTR_LIB_THROW(cudaSetDevice(device_list[g]));
       intra_node_a2a<TypeEmbeddingComp><<<96, 256, 0, stream>>>(
           d_send_buffs_[g].get_ptr(), d_interim_send_buffs_ptrs_[g].get_ptr(),
           d_send_sizes_[g].get_ptr(), max_elems_per_dest_, num_gpus_, num_procs_, g);
@@ -253,15 +253,15 @@ struct IbCommsTest {
     auto& device_list = resource_manager_->get_local_gpu_device_id_list();
     for (size_t g = 0; g < num_gpus_; g++) {
       auto& stream = resource_manager_->get_local_gpu(g)->get_stream();
-      CK_CUDA_THROW_(cudaSetDevice(device_list[g]));
+      HCTR_LIB_THROW(cudaSetDevice(device_list[g]));
       ib_comm_->post_send_command_a2a<TypeEmbeddingComp>(coll_handle_, stream, g);
     }
 
     for (size_t g = 0; g < num_gpus_; g++) {
-      CK_CUDA_THROW_(cudaSetDevice(device_list[g]));
+      HCTR_LIB_THROW(cudaSetDevice(device_list[g]));
       auto& stream = resource_manager_->get_local_gpu(g)->get_stream();
-      CK_CUDA_THROW_(cudaEventRecord(comm_events_[g], comm_stream_[g]));
-      CK_CUDA_THROW_(cudaStreamWaitEvent(stream, comm_events_[g]));
+      HCTR_LIB_THROW(cudaEventRecord(comm_events_[g], comm_stream_[g]));
+      HCTR_LIB_THROW(cudaStreamWaitEvent(stream, comm_events_[g]));
     }
   }
 
@@ -279,15 +279,15 @@ struct IbCommsTest {
         integ_graph_instance_.resize(num_gpus_);
         for (size_t g = 0; g < num_gpus_; g++) {
           auto& stream = resource_manager_->get_local_gpu(g)->get_stream();
-          CK_CUDA_THROW_(cudaSetDevice(device_list[g]));
-          CK_CUDA_THROW_(cudaStreamBeginCapture(stream, cudaStreamCaptureModeThreadLocal));
+          HCTR_LIB_THROW(cudaSetDevice(device_list[g]));
+          HCTR_LIB_THROW(cudaStreamBeginCapture(stream, cudaStreamCaptureModeThreadLocal));
         }
         do_device_a2a_bare();
         for (size_t g = 0; g < num_gpus_; g++) {
           auto& stream = resource_manager_->get_local_gpu(g)->get_stream();
-          CK_CUDA_THROW_(cudaSetDevice(device_list[g]));
-          CK_CUDA_THROW_(cudaStreamEndCapture(stream, &integ_graph_[g]));
-          CK_CUDA_THROW_(
+          HCTR_LIB_THROW(cudaSetDevice(device_list[g]));
+          HCTR_LIB_THROW(cudaStreamEndCapture(stream, &integ_graph_[g]));
+          HCTR_LIB_THROW(
               cudaGraphInstantiate(&integ_graph_instance_[g], integ_graph_[g], NULL, NULL, 0));
         }
       }
@@ -295,7 +295,7 @@ struct IbCommsTest {
       {
         int g = omp_get_thread_num();
         auto& stream = resource_manager_->get_local_gpu(g)->get_stream();
-        CK_CUDA_THROW_(cudaGraphLaunch(integ_graph_instance_[g], stream));
+        HCTR_LIB_THROW(cudaGraphLaunch(integ_graph_instance_[g], stream));
       }
     } else {
       do_device_a2a_bare();
@@ -311,15 +311,15 @@ struct IbCommsTest {
         intra_graph_instance_.resize(num_gpus_);
         for (size_t g = 0; g < num_gpus_; g++) {
           auto& stream = resource_manager_->get_local_gpu(g)->get_stream();
-          CK_CUDA_THROW_(cudaSetDevice(device_list[g]));
-          CK_CUDA_THROW_(cudaStreamBeginCapture(stream, cudaStreamCaptureModeThreadLocal));
+          HCTR_LIB_THROW(cudaSetDevice(device_list[g]));
+          HCTR_LIB_THROW(cudaStreamBeginCapture(stream, cudaStreamCaptureModeThreadLocal));
         }
         do_intra_node_a2a_bare();
         for (size_t g = 0; g < num_gpus_; g++) {
           auto& stream = resource_manager_->get_local_gpu(g)->get_stream();
-          CK_CUDA_THROW_(cudaSetDevice(device_list[g]));
-          CK_CUDA_THROW_(cudaStreamEndCapture(stream, &intra_graph_[g]));
-          CK_CUDA_THROW_(
+          HCTR_LIB_THROW(cudaSetDevice(device_list[g]));
+          HCTR_LIB_THROW(cudaStreamEndCapture(stream, &intra_graph_[g]));
+          HCTR_LIB_THROW(
               cudaGraphInstantiate(&intra_graph_instance_[g], intra_graph_[g], NULL, NULL, 0));
         }
       }
@@ -327,7 +327,7 @@ struct IbCommsTest {
       {
         int g = omp_get_thread_num();
         auto& stream = resource_manager_->get_local_gpu(g)->get_stream();
-        CK_CUDA_THROW_(cudaGraphLaunch(intra_graph_instance_[g], stream));
+        HCTR_LIB_THROW(cudaGraphLaunch(intra_graph_instance_[g], stream));
       }
     } else {
       do_intra_node_a2a_bare();
@@ -343,15 +343,15 @@ struct IbCommsTest {
         inter_graph_instance_.resize(num_gpus_);
         for (size_t g = 0; g < num_gpus_; g++) {
           auto& stream = resource_manager_->get_local_gpu(g)->get_stream();
-          CK_CUDA_THROW_(cudaSetDevice(device_list[g]));
-          CK_CUDA_THROW_(cudaStreamBeginCapture(stream, cudaStreamCaptureModeThreadLocal));
+          HCTR_LIB_THROW(cudaSetDevice(device_list[g]));
+          HCTR_LIB_THROW(cudaStreamBeginCapture(stream, cudaStreamCaptureModeThreadLocal));
         }
         do_inter_node_a2a_bare();
         for (size_t g = 0; g < num_gpus_; g++) {
           auto& stream = resource_manager_->get_local_gpu(g)->get_stream();
-          CK_CUDA_THROW_(cudaSetDevice(device_list[g]));
-          CK_CUDA_THROW_(cudaStreamEndCapture(stream, &inter_graph_[g]));
-          CK_CUDA_THROW_(
+          HCTR_LIB_THROW(cudaSetDevice(device_list[g]));
+          HCTR_LIB_THROW(cudaStreamEndCapture(stream, &inter_graph_[g]));
+          HCTR_LIB_THROW(
               cudaGraphInstantiate(&inter_graph_instance_[g], inter_graph_[g], NULL, NULL, 0));
         }
       }
@@ -359,7 +359,7 @@ struct IbCommsTest {
       {
         int g = omp_get_thread_num();
         auto& stream = resource_manager_->get_local_gpu(g)->get_stream();
-        CK_CUDA_THROW_(cudaGraphLaunch(inter_graph_instance_[g], stream));
+        HCTR_LIB_THROW(cudaGraphLaunch(inter_graph_instance_[g], stream));
       }
     } else {
       do_inter_node_a2a_bare();
@@ -369,45 +369,45 @@ struct IbCommsTest {
   void stream_sync_all() {
     auto& device_list = resource_manager_->get_local_gpu_device_id_list();
     for (size_t g = 0; g < num_gpus_; g++) {
-      CK_CUDA_THROW_(cudaSetDevice(device_list[g]));
+      HCTR_LIB_THROW(cudaSetDevice(device_list[g]));
       auto& stream = resource_manager_->get_local_gpu(g)->get_stream();
-      CK_CUDA_THROW_(cudaStreamSynchronize(stream));
+      HCTR_LIB_THROW(cudaStreamSynchronize(stream));
     }
   }
 
   void do_nccl_a2a() {
     size_t num_dest = num_procs_ * num_gpus_;
     auto& device_list = resource_manager_->get_local_gpu_device_id_list();
-    CK_NCCL_THROW_(ncclGroupStart());
+    HCTR_LIB_THROW(ncclGroupStart());
     for (size_t s = 0; s < num_gpus_; s++) {
       const auto& local_gpu = resource_manager_->get_local_gpu(s);
-      CK_CUDA_THROW_(cudaSetDevice(device_list[s]));
+      HCTR_LIB_THROW(cudaSetDevice(device_list[s]));
       for (size_t d = 0; d < num_dest; d++) {
-        CK_NCCL_THROW_(ncclSend(d_send_buffs_[s].get_ptr() + d * max_elems_per_dest_,
+        HCTR_LIB_THROW(ncclSend(d_send_buffs_[s].get_ptr() + d * max_elems_per_dest_,
                                 (h_send_sizes_[s].get_ptr())[d], ncclChar, d, local_gpu->get_nccl(),
                                 0));
-        CK_NCCL_THROW_(ncclRecv(d_recv_buffs_[s].get_ptr() + d * max_elems_per_dest_,
+        HCTR_LIB_THROW(ncclRecv(d_recv_buffs_[s].get_ptr() + d * max_elems_per_dest_,
                                 (h_recv_sizes_[s].get_ptr())[d], ncclChar, d, local_gpu->get_nccl(),
                                 0));
       }
     }
-    CK_NCCL_THROW_(ncclGroupEnd());
+    HCTR_LIB_THROW(ncclGroupEnd());
 
     for (size_t g = 0; g < num_gpus_; g++) {
-      CK_CUDA_THROW_(cudaSetDevice(device_list[g]));
-      CK_CUDA_THROW_(cudaMemcpy(h_recv_buffs_[g].get_ptr(), d_recv_buffs_[g].get_ptr(),
+      HCTR_LIB_THROW(cudaSetDevice(device_list[g]));
+      HCTR_LIB_THROW(cudaMemcpy(h_recv_buffs_[g].get_ptr(), d_recv_buffs_[g].get_ptr(),
                                 max_elems_ * sizeof(TypeEmbeddingComp), cudaMemcpyDeviceToHost));
-      CK_CUDA_THROW_(
+      HCTR_LIB_THROW(
           cudaMemset(d_recv_buffs_[g].get_ptr(), 0, max_elems_ * sizeof(TypeEmbeddingComp)));
-      CK_CUDA_THROW_(cudaDeviceSynchronize());
+      HCTR_LIB_THROW(cudaDeviceSynchronize());
     }
   }
 
   void compare_host_and_device() {
     auto& device_list = resource_manager_->get_local_gpu_device_id_list();
     for (size_t g = 0; g < num_gpus_; g++) {
-      CK_CUDA_THROW_(cudaSetDevice(device_list[g]));
-      CK_CUDA_THROW_(cudaMemcpy(h_recv_buffs_out_[g].get_ptr(), d_recv_buffs_[g].get_ptr(),
+      HCTR_LIB_THROW(cudaSetDevice(device_list[g]));
+      HCTR_LIB_THROW(cudaMemcpy(h_recv_buffs_out_[g].get_ptr(), d_recv_buffs_[g].get_ptr(),
                                 max_elems_ * sizeof(TypeEmbeddingComp), cudaMemcpyDeviceToHost));
     }
 
@@ -579,9 +579,9 @@ struct IbCommsTest {
     for (size_t g = 0; g < num_gpus_; g++) {
       auto& device_list = resource_manager_->get_local_gpu_device_id_list();
       context.set_device(device_list[g]);
-      CK_CUDA_THROW_(cudaMemcpy(d_send_sizes_ptrs_[g].get_ptr(), (void*)h_d_send_sizes_ptrs_.data(),
+      HCTR_LIB_THROW(cudaMemcpy(d_send_sizes_ptrs_[g].get_ptr(), (void*)h_d_send_sizes_ptrs_.data(),
                                 num_gpus_ * sizeof(size_t*), cudaMemcpyHostToDevice));
-      CK_CUDA_THROW_(cudaMemcpy(d_interim_send_buffs_ptrs_[g].get_ptr(),
+      HCTR_LIB_THROW(cudaMemcpy(d_interim_send_buffs_ptrs_[g].get_ptr(),
                                 (void*)h_d_interim_send_buffs_ptrs_.data(),
                                 num_gpus_ * sizeof(TypeEmbeddingComp*), cudaMemcpyHostToDevice));
     }

@@ -261,7 +261,7 @@ class LocalizedSlotSparseEmbeddingHash : public IEmbedding {
                                 embedding_feature_tensors_, all2all_tensors_,
                                 embedding_data_.get_resource_manager());
     } else {
-      CK_CUDA_THROW_(cudaMemcpyAsync(
+      HCTR_LIB_THROW(cudaMemcpyAsync(
           all2all_tensors_[0].get_ptr(), embedding_feature_tensors_[0].get_ptr(),
           embedding_data_.get_batch_size_per_gpu(is_train) * slot_num_per_gpu_[0] *
               embedding_data_.embedding_params_.embedding_vec_size * sizeof(TypeEmbeddingComp),
@@ -275,7 +275,7 @@ class LocalizedSlotSparseEmbeddingHash : public IEmbedding {
                                 embedding_feature_tensors_, all2all_tensors_,
                                 embedding_data_.get_resource_manager());
     } else {
-      CK_CUDA_THROW_(cudaMemcpyAsync(
+      HCTR_LIB_THROW(cudaMemcpyAsync(
           all2all_tensors_[0].get_ptr(), embedding_feature_tensors_[0].get_ptr(),
           (size_t)embedding_data_.get_batch_size_per_gpu(is_train) * slot_num_per_gpu_[0] *
               embedding_data_.embedding_params_.embedding_vec_size * sizeof(TypeEmbeddingComp),
@@ -324,7 +324,7 @@ class LocalizedSlotSparseEmbeddingHash : public IEmbedding {
 
     } else {
       CudaDeviceContext context(embedding_data_.get_local_gpu(0).get_device_id());
-      CK_CUDA_THROW_(cudaMemcpyAsync(
+      HCTR_LIB_THROW(cudaMemcpyAsync(
           embedding_feature_tensors_[0].get_ptr(), all2all_tensors_[0].get_ptr(),
           embedding_data_.get_batch_size_per_gpu(true) * slot_num_per_gpu_[0] *
               embedding_data_.embedding_params_.embedding_vec_size * sizeof(TypeEmbeddingComp),
@@ -339,7 +339,7 @@ class LocalizedSlotSparseEmbeddingHash : public IEmbedding {
 
     } else {
       CudaDeviceContext context(embedding_data_.get_local_gpu(0).get_device_id());
-      CK_CUDA_THROW_(cudaMemcpyAsync(
+      HCTR_LIB_THROW(cudaMemcpyAsync(
           embedding_feature_tensors_[0].get_ptr(), all2all_tensors_[0].get_ptr(),
           embedding_data_.get_batch_size_per_gpu(true) * slot_num_per_gpu_[0] *
               embedding_data_.embedding_params_.embedding_vec_size * sizeof(TypeEmbeddingComp),
@@ -503,7 +503,7 @@ class LocalizedSlotSparseEmbeddingHash : public IEmbedding {
                                 wgrad_tensors_, utest_all2all_tensors_,
                                 embedding_data_.get_resource_manager());
     } else {
-      CK_CUDA_THROW_(cudaMemcpyAsync(
+      HCTR_LIB_THROW(cudaMemcpyAsync(
           utest_all2all_tensors_[0].get_ptr(), wgrad_tensors_[0].get_ptr(),
           embedding_data_.get_batch_size_per_gpu(true) * slot_num_per_gpu_[0] *
               embedding_data_.embedding_params_.embedding_vec_size * sizeof(TypeEmbeddingComp),
@@ -516,7 +516,7 @@ class LocalizedSlotSparseEmbeddingHash : public IEmbedding {
           embedding_data_.embedding_params_.embedding_vec_size, wgrad_tensors_,
           utest_all2all_tensors_, embedding_data_.get_resource_manager());
     } else {
-      CK_CUDA_THROW_(cudaMemcpyAsync(
+      HCTR_LIB_THROW(cudaMemcpyAsync(
           utest_all2all_tensors_[0].get_ptr(), wgrad_tensors_[0].get_ptr(),
           (size_t)embedding_data_.get_batch_size_per_gpu(true) * slot_num_per_gpu_[0] *
               embedding_data_.embedding_params_.embedding_vec_size * sizeof(TypeEmbeddingComp),
@@ -576,12 +576,12 @@ class LocalizedSlotSparseEmbeddingHash : public IEmbedding {
       context.set_device(embedding_data_.get_local_gpu(id).get_device_id());
       size_t count = hash_tables_[id]->get_size(embedding_data_.get_local_gpu(id).get_stream());
       if (count > max_vocabulary_size_per_gpu_) {
-        CK_THROW_(Error_t::OutOfBound,
-                  "Runtime vocabulary size (" + std::to_string(count) +
-                      ") exceeds max_vocabulary_size_per_gpu (" +
-                      std::to_string(max_vocabulary_size_per_gpu_) + ") on GPU " +
-                      std::to_string(embedding_data_.get_local_gpu(id).get_device_id()) +
-                      ", new feature insertion failed.\n");
+        std::ostringstream os;
+        os << "Runtime vocabulary size (" << count << ") exceeds max_vocabulary_size_per_gpu ("
+           << max_vocabulary_size_per_gpu_ << ") on GPU "
+           << embedding_data_.get_local_gpu(id).get_device_id()
+           << ", new feature insertion failed.\n";
+        HCTR_OWN_THROW(Error_t::OutOfBound, os.str());
       }
     }
   }

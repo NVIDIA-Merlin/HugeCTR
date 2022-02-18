@@ -21,7 +21,6 @@
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"
 
-using namespace std;
 using namespace HugeCTR;
 
 namespace {
@@ -87,8 +86,8 @@ void weight_multiply_test(size_t batch_size, size_t slot_num, size_t embedding_v
   std::shared_ptr<BufferBlock2<T>> weight_buff = buff->create_block<T>();
   std::shared_ptr<BufferBlock2<T>> wgrad_buff = buff->create_block<T>();
 
-  vector<size_t> in_dims = {batch_size, slot_num};
-  vector<size_t> weight_dims = {slot_num, embedding_vec_size};
+  std::vector<size_t> in_dims = {batch_size, slot_num};
+  std::vector<size_t> weight_dims = {slot_num, embedding_vec_size};
 
   Tensor2<T> in_tensor;
   buff->reserve(in_dims, &in_tensor);
@@ -123,14 +122,14 @@ void weight_multiply_test(size_t batch_size, size_t slot_num, size_t embedding_v
   // fprop
   simulator.fill(h_in.get(), len_in);
   simulator.fill(h_weight.get(), len_w);
-  CK_CUDA_THROW_(cudaMemcpy(d_in, h_in.get(), len_in * sizeof(T), cudaMemcpyHostToDevice));
-  CK_CUDA_THROW_(cudaMemcpy(d_weight, h_weight.get(), len_w * sizeof(T), cudaMemcpyHostToDevice));
+  HCTR_LIB_THROW(cudaMemcpy(d_in, h_in.get(), len_in * sizeof(T), cudaMemcpyHostToDevice));
+  HCTR_LIB_THROW(cudaMemcpy(d_weight, h_weight.get(), len_w * sizeof(T), cudaMemcpyHostToDevice));
 
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
   weight_multiply_layer.fprop(true);
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
 
-  CK_CUDA_THROW_(cudaMemcpy(h_out.get(), d_out, len_out * sizeof(T), cudaMemcpyDeviceToHost));
+  HCTR_LIB_THROW(cudaMemcpy(h_out.get(), d_out, len_out * sizeof(T), cudaMemcpyDeviceToHost));
 
   weight_multiply_cpu(h_in.get(), h_weight.get(), h_expected.get(), batch_size, slot_num,
                       embedding_vec_size);
@@ -143,17 +142,17 @@ void weight_multiply_test(size_t batch_size, size_t slot_num, size_t embedding_v
   }
   simulator.fill(h_out.get(), len_out);
   simulator.fill(h_weight.get(), len_w);
-  CK_CUDA_THROW_(cudaMemcpy(d_in, h_in.get(), len_in * sizeof(T), cudaMemcpyHostToDevice));
-  CK_CUDA_THROW_(cudaMemcpy(d_out, h_out.get(), len_out * sizeof(T), cudaMemcpyHostToDevice));
-  CK_CUDA_THROW_(cudaMemcpy(d_weight, h_weight.get(), len_w * sizeof(T), cudaMemcpyHostToDevice));
+  HCTR_LIB_THROW(cudaMemcpy(d_in, h_in.get(), len_in * sizeof(T), cudaMemcpyHostToDevice));
+  HCTR_LIB_THROW(cudaMemcpy(d_out, h_out.get(), len_out * sizeof(T), cudaMemcpyHostToDevice));
+  HCTR_LIB_THROW(cudaMemcpy(d_weight, h_weight.get(), len_w * sizeof(T), cudaMemcpyHostToDevice));
 
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
   weight_multiply_layer.bprop();  // compute wgrad and dgrad
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
 
-  CK_CUDA_THROW_(
+  HCTR_LIB_THROW(
       cudaMemcpy(h_wgrad.get(), d_wgrad, len_w * sizeof(T), cudaMemcpyDeviceToHost));  // wgrad
-  CK_CUDA_THROW_(
+  HCTR_LIB_THROW(
       cudaMemcpy(h_in.get(), d_in, len_in * sizeof(T), cudaMemcpyDeviceToHost));  // dgrad
 
   weight_multiply_wgrad_cpu(h_out.get(), h_expected.get(), h_expected_wgrad.get(), batch_size,

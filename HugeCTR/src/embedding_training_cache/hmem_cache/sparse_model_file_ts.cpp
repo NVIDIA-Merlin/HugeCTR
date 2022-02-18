@@ -40,7 +40,7 @@ inline void open_and_get_size(const std::string& file_name, std::ifstream& strea
                               size_t& file_size_in_byte) {
   stream.open(file_name, std::ifstream::binary);
   if (!stream.is_open()) {
-    CK_THROW_(Error_t::WrongInput, "Cannot open the file: " + file_name);
+    HCTR_OWN_THROW(Error_t::WrongInput, "Cannot open the file: " + file_name);
   }
   file_size_in_byte = std::filesystem::file_size(file_name);
 }
@@ -48,7 +48,7 @@ inline void open_and_get_size(const std::string& file_name, std::ifstream& strea
 template <typename T>
 std::vector<T> load_data_from_file(std::string file_path) {
   if (!std::filesystem::exists(file_path)) {
-    CK_THROW_(Error_t::FileCannotOpen, file_path + " doesn't exist.");
+    HCTR_OWN_THROW(Error_t::FileCannotOpen, file_path + " doesn't exist.");
   }
   std::ifstream ifs;
   size_t file_size;
@@ -63,21 +63,22 @@ std::vector<T> load_data_from_file(std::string file_path) {
 template <typename T>
 void mmap_file_to_memory(T** mmaped_ptr, std::string file_name) {
   if (!std::filesystem::exists(file_name)) {
-    CK_THROW_(Error_t::FileCannotOpen, file_name + " doesn't exist");
+    HCTR_OWN_THROW(Error_t::FileCannotOpen, file_name + " doesn't exist");
   }
   int fd{open(file_name.c_str(), O_RDWR, S_IRUSR | S_IWUSR)};
   if (fd == -1) {
-    CK_THROW_(Error_t::FileCannotOpen, std::string("Can't open ") + file_name);
+    HCTR_OWN_THROW(Error_t::FileCannotOpen, "Can't open " + file_name);
   }
   size_t file_size_in_byte{std::filesystem::file_size(file_name)};
   if (file_size_in_byte == 0) {
     return;
-    CK_THROW_(Error_t::WrongInput, std::string("Can't mmap empty file ") + file_name);
+    // TODO: Unreachable code! Why?
+    HCTR_OWN_THROW(Error_t::WrongInput, "Can't mmap empty file " + file_name);
   }
   *mmaped_ptr = (T*)mmap(NULL, file_size_in_byte, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
   if (*mmaped_ptr == MAP_FAILED) {
     close(fd);
-    CK_THROW_(Error_t::WrongInput, std::string("Fail mmap file ") + file_name);
+    HCTR_OWN_THROW(Error_t::WrongInput, "Fail mmap file " + file_name);
   }
   if (fd != -1) {
     close(fd);
@@ -87,19 +88,19 @@ void mmap_file_to_memory(T** mmaped_ptr, std::string file_name) {
 template <typename T>
 void sync_mmap_with_disk(T** mmaped_ptr, std::string file_name) {
   if (*mmaped_ptr == nullptr) {
-    CK_THROW_(Error_t::WrongInput, "Invalid pointer");
+    HCTR_OWN_THROW(Error_t::WrongInput, "Invalid pointer");
   }
   size_t file_size_in_byte{std::filesystem::file_size(file_name)};
   auto ret{msync(*mmaped_ptr, file_size_in_byte, MS_SYNC)};
   if (ret != 0) {
-    CK_THROW_(Error_t::WrongInput, "Mmap sync error");
+    HCTR_OWN_THROW(Error_t::WrongInput, "Mmap sync error");
   }
 }
 
 template <typename T>
 void unmap_file_from_memory(T** mmaped_ptr, std::string file_name) {
   if (*mmaped_ptr == nullptr) {
-    CK_THROW_(Error_t::WrongInput, "Can't unmap nullptr");
+    HCTR_OWN_THROW(Error_t::WrongInput, "Can't unmap nullptr");
   }
   size_t file_size_in_byte{std::filesystem::file_size(file_name)};
   munmap(*mmaped_ptr, file_size_in_byte);
@@ -143,7 +144,7 @@ struct SparseModelFileTS<TypeKey>::EmbeddingTableFile {
       case Optimizer_t::SGD:
         break;
       default:
-        CK_THROW_(Error_t::WrongInput, "Wrong optimizer type");
+        HCTR_OWN_THROW(Error_t::WrongInput, "Wrong optimizer type");
     }
   }
 };
@@ -152,7 +153,7 @@ template <typename TypeKey>
 void SparseModelFileTS<TypeKey>::mmap_to_memory_() {
   try {
     if (mmap_handler_.mapped_to_file_) {
-      CK_THROW_(Error_t::IllegalCall, "data files are already mapped to memory");
+      HCTR_OWN_THROW(Error_t::IllegalCall, "data files are already mapped to memory");
     }
     const auto& data_files{mmap_handler_.get_data_files()};
     {
@@ -165,8 +166,8 @@ void SparseModelFileTS<TypeKey>::mmap_to_memory_() {
       if (has_empty) {
         auto all_empty{std::all_of(is_empty.begin(), is_empty.end(), [](auto val) { return val; })};
         if (!all_empty) {
-          CK_THROW_(Error_t::BrokenFile,
-                    "Broken sparse model, some files are empty while others are not");
+          HCTR_OWN_THROW(Error_t::BrokenFile,
+                         "Broken sparse model, some files are empty while others are not");
         }
         return;
       }
@@ -176,10 +177,10 @@ void SparseModelFileTS<TypeKey>::mmap_to_memory_() {
     }
     mmap_handler_.mapped_to_file_ = true;
   } catch (const internal_runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     throw;
   } catch (const std::exception& err) {
-    std::cerr << err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << err.what() << std::endl;
     throw;
   }
 }
@@ -188,17 +189,17 @@ template <typename TypeKey>
 void SparseModelFileTS<TypeKey>::flush_mmap_to_disk_() {
   try {
     if (!mmap_handler_.mapped_to_file_) {
-      CK_THROW_(Error_t::IllegalCall, "data files doesn't mapped to memory");
+      HCTR_OWN_THROW(Error_t::IllegalCall, "data files doesn't mapped to memory");
     }
     const auto& data_files{mmap_handler_.get_data_files()};
     for (size_t i{0}; i < data_files.size(); i++) {
       sync_mmap_with_disk(&(mmap_handler_.mmaped_ptrs_[i]), data_files[i]);
     }
   } catch (const internal_runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     throw;
   } catch (const std::exception& err) {
-    std::cerr << err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << err.what() << std::endl;
     throw;
   }
 }
@@ -207,7 +208,7 @@ template <typename TypeKey>
 void SparseModelFileTS<TypeKey>::unmap_from_memory_() {
   try {
     if (!mmap_handler_.mapped_to_file_) {
-      CK_THROW_(Error_t::IllegalCall, "data files doesn't mapped to memory");
+      HCTR_OWN_THROW(Error_t::IllegalCall, "data files doesn't mapped to memory");
     }
     const auto& data_files{mmap_handler_.get_data_files()};
     for (size_t i{0}; i < data_files.size(); i++) {
@@ -215,10 +216,10 @@ void SparseModelFileTS<TypeKey>::unmap_from_memory_() {
     }
     mmap_handler_.mapped_to_file_ = false;
   } catch (const internal_runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    HCTR_LOG_S(ERROR, ROOT) << rt_err.what() << std::endl;
     throw;
   } catch (const std::exception& err) {
-    std::cerr << err.what() << std::endl;
+    HCTR_LOG_S(ERROR, ROOT) << err.what() << std::endl;
     throw;
   }
 }
@@ -241,10 +242,10 @@ void SparseModelFileTS<TypeKey>::expand_(size_t expand_size) {
     size_t const expanded_num{key_idx_map_.size() + expand_size};
     if (slot_ids.size() < expanded_num) slot_ids.resize(expanded_num);
   } catch (const internal_runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     throw;
   } catch (const std::exception& err) {
-    std::cerr << err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << err.what() << std::endl;
     throw;
   }
 }
@@ -264,20 +265,20 @@ SparseModelFileTS<TypeKey>::SparseModelFileTS(std::string sparse_model_path,
       auto const num_key{std::filesystem::file_size(etf.key_file) / sizeof(long long)};
       if (use_slot_id_) {
         if (!std::filesystem::exists(etf.slot_file)) {
-          CK_THROW_(Error_t::BrokenFile, std::string("Can't find ") + etf.folder_name + "/slot_id");
+          HCTR_OWN_THROW(Error_t::BrokenFile, "Can't find " + etf.folder_name + "/slot_id");
         }
         auto num_slot_id{std::filesystem::file_size(etf.slot_file) / sizeof(size_t)};
         if (num_slot_id != num_key) {
-          std::stringstream ss;
-          ss << "Num of keys(" << num_key << ") != num of slot_id(" << num_slot_id << ")";
-          CK_THROW_(Error_t::BrokenFile, ss.str());
+          std::ostringstream os;
+          os << "Num of keys(" << num_key << ") != num of slot_id(" << num_slot_id << ")";
+          HCTR_OWN_THROW(Error_t::BrokenFile, os.str());
         }
       }
       auto num_vec{std::filesystem::file_size(etf.data_files[0]) / emb_vec_size_ / sizeof(float)};
       if (num_vec != num_key) {
-        std::stringstream ss;
-        ss << "Num of keys(" << num_key << ") != num of embedding vectors(" << num_vec << ")";
-        CK_THROW_(Error_t::BrokenFile, ss.str());
+        std::ostringstream os;
+        os << "Num of keys(" << num_key << ") != num of embedding vectors(" << num_vec << ")";
+        HCTR_OWN_THROW(Error_t::BrokenFile, os.str());
       }
       // check whether the opt state file exists, create if not exist
       for (size_t i{1}; i < etf.data_files.size(); i++) {
@@ -285,13 +286,14 @@ SparseModelFileTS<TypeKey>::SparseModelFileTS(std::string sparse_model_path,
         if (std::filesystem::exists(file_name)) {
           auto num_state{std::filesystem::file_size(file_name) / emb_vec_size_ / sizeof(float)};
           if (num_state != num_key) {
-            std::stringstream ss;
-            ss << "Num of keys(" << num_key << ") != num of opt states(" << num_vec << ") in "
+            std::ostringstream os;
+            os << "Num of keys(" << num_key << ") != num of opt states(" << num_vec << ") in "
                << file_name;
-            CK_THROW_(Error_t::BrokenFile, ss.str());
+            HCTR_OWN_THROW(Error_t::BrokenFile, os.str());
           }
         } else {
-          MESSAGE_(file_name + " doesn't exist, create and initialize with zeros");
+          HCTR_LOG_S(INFO, ROOT) << file_name << " doesn't exist, create and initialize with zeros"
+                                 << std::endl;
           auto ret = std::system((std::string("touch ") + file_name).c_str());
           (void)ret;
           std::filesystem::resize_file(file_name, std::filesystem::file_size(etf.data_files[0]));
@@ -300,7 +302,7 @@ SparseModelFileTS<TypeKey>::SparseModelFileTS(std::string sparse_model_path,
     };
 
     auto create_file_in_ssd = [](std::string file_path) {
-      MESSAGE_(file_path + " doesn't exist, created");
+      HCTR_LOG_S(INFO, ROOT) << file_path << " doesn't exist, created" << std::endl;
       auto ret = std::system((std::string("touch ") + file_path).c_str());
       (void)ret;
     };
@@ -345,9 +347,9 @@ SparseModelFileTS<TypeKey>::SparseModelFileTS(std::string sparse_model_path,
     // Train using multiple nodes, read/write to the local copy of sparse model
     auto const my_rank{resource_manager_->get_process_id()};
     {
-      std::stringstream ss;
-      ss << local_temp_path << "/tmp_hctr." << num_instance++ << "." << my_rank;
-      mmap_handler_.emb_tbl_.reset(new EmbeddingTableFile(ss.str(), opt_type));
+      std::ostringstream os;
+      os << local_temp_path << "/tmp_hctr." << num_instance++ << '.' << my_rank;
+      mmap_handler_.emb_tbl_.reset(new EmbeddingTableFile(os.str(), opt_type));
     }
     mmap_handler_.mmaped_ptrs_ =
         std::vector<float*>(mmap_handler_.get_data_files().size(), nullptr);
@@ -356,14 +358,14 @@ SparseModelFileTS<TypeKey>::SparseModelFileTS(std::string sparse_model_path,
 
     // check the existance of sparse model file to be used
     if (std::filesystem::exists(mmap_handler_.get_folder_name()) && my_rank == 0) {
-      MESSAGE_(std::string("Remove existing") + mmap_handler_.get_folder_name());
+      HCTR_LOG_S(INFO, ROOT) << "Remove existing " << mmap_handler_.get_folder_name() << std::endl;
       std::filesystem::remove_all(mmap_handler_.get_folder_name());
     }
 
     if (!std::filesystem::exists(sparse_model_path)) {
       data_exists = std::vector(mmap_handler_.get_data_files().size(), false);
 #ifdef ENABLE_MPI
-      CK_MPI_THROW_(MPI_Barrier(MPI_COMM_WORLD));
+      HCTR_MPI_THROW(MPI_Barrier(MPI_COMM_WORLD));
 #endif
       if (resource_manager_->is_master_process()) {
         create_sparse_model(global_sparse_model);
@@ -374,7 +376,7 @@ SparseModelFileTS<TypeKey>::SparseModelFileTS(std::string sparse_model_path,
         if (!std::filesystem::exists(data_files[i])) {
           data_exists[i] = false;
 #ifdef ENABLE_MPI
-          CK_MPI_THROW_(MPI_Barrier(MPI_COMM_WORLD));
+          HCTR_MPI_THROW(MPI_Barrier(MPI_COMM_WORLD));
 #endif
           if (resource_manager_->is_master_process()) {
             create_file_in_ssd(data_files[i]);
@@ -384,7 +386,7 @@ SparseModelFileTS<TypeKey>::SparseModelFileTS(std::string sparse_model_path,
     }
     create_sparse_model(*(mmap_handler_.emb_tbl_.get()));
 #ifdef ENABLE_MPI
-    CK_MPI_THROW_(MPI_Barrier(MPI_COMM_WORLD));
+    HCTR_MPI_THROW(MPI_Barrier(MPI_COMM_WORLD));
 #endif
 
     if (from_scratch) return;
@@ -401,7 +403,7 @@ SparseModelFileTS<TypeKey>::SparseModelFileTS(std::string sparse_model_path,
       open_and_get_size(global_sparse_model.slot_file, slot_stream, slot_file_size_in_byte);
       size_t num_slot{slot_file_size_in_byte / sizeof(size_t)};
       if (num_key != num_slot) {
-        CK_THROW_(Error_t::BrokenFile, "key and slot_id num do not equal");
+        HCTR_OWN_THROW(Error_t::BrokenFile, "key and slot_id num do not equal");
       }
     }
 
@@ -416,7 +418,7 @@ SparseModelFileTS<TypeKey>::SparseModelFileTS(std::string sparse_model_path,
     auto is_broken_file{std::all_of(num_of_data.begin(), num_of_data.end(),
                                     [=](auto elem) { return elem == num_key; })};
     if (!is_broken_file) {
-      CK_THROW_(Error_t::BrokenFile, "num of vec/opt_states and num of key do not equal");
+      HCTR_OWN_THROW(Error_t::BrokenFile, "num of vec/opt_states and num of key do not equal");
     }
 
     // load key & slot_id from the global sparse model
@@ -474,7 +476,7 @@ SparseModelFileTS<TypeKey>::SparseModelFileTS(std::string sparse_model_path,
 
         auto it{key_idx_map_.find(pair.first)};
         if (it == key_idx_map_.end()) {
-          CK_THROW_(Error_t::UnspecificError, "Key doesn't found in init");
+          HCTR_OWN_THROW(Error_t::UnspecificError, "Key doesn't found in init");
         }
         auto dst_idx{it->second * emb_vec_size_};
         memcpy(mmap_handler_.mmaped_ptrs_[i] + dst_idx, temp_mmaped_ptr + src_idx,
@@ -483,13 +485,13 @@ SparseModelFileTS<TypeKey>::SparseModelFileTS(std::string sparse_model_path,
       unmap_file_from_memory(&temp_mmaped_ptr, global_data_files[i]);
     }
 #ifdef ENABLE_MPI
-    CK_MPI_THROW_(MPI_Barrier(MPI_COMM_WORLD));
+    HCTR_MPI_THROW(MPI_Barrier(MPI_COMM_WORLD));
 #endif
   } catch (const internal_runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     throw;
   } catch (const std::exception& err) {
-    std::cerr << err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << err.what() << std::endl;
     throw;
   }
 }
@@ -511,7 +513,7 @@ void SparseModelFileTS<TypeKey>::load(std::vector<size_t> const& mem_src_idx, si
       mmap_to_memory_();
     }
     if (data_ptrs.size() != mmap_handler_.mmaped_ptrs_.size()) {
-      CK_THROW_(Error_t::WrongInput, "Num of data files and pointers doesn't equal");
+      HCTR_OWN_THROW(Error_t::WrongInput, "Num of data files and pointers doesn't equal");
     }
     size_t const len{mem_src_idx.size()};
 #pragma omp parallel for num_threads(24)
@@ -525,10 +527,10 @@ void SparseModelFileTS<TypeKey>::load(std::vector<size_t> const& mem_src_idx, si
       }
     }
   } catch (const internal_runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     throw;
   } catch (const std::exception& err) {
-    std::cerr << err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << err.what() << std::endl;
     throw;
   }
 }
@@ -543,7 +545,7 @@ void SparseModelFileTS<TypeKey>::dump_update(HashTableType& dump_key_idx_map,
       mmap_to_memory_();
     }
     if (data_vecs.size() != mmap_handler_.mmaped_ptrs_.size()) {
-      CK_THROW_(Error_t::WrongInput, "Num of data files and pointers doesn't equal");
+      HCTR_OWN_THROW(Error_t::WrongInput, "Num of data files and pointers doesn't equal");
     }
     std::vector<TypeKey> keys_vec;
     keys_vec.reserve(dump_key_idx_map.size());
@@ -571,7 +573,7 @@ void SparseModelFileTS<TypeKey>::dump_update(HashTableType& dump_key_idx_map,
       for (size_t i{idx}; i < idx + sub_chunk_size; i++) {
         auto it{key_idx_map_.find(keys_vec[i])};
         if (it == key_idx_map_.end()) {
-          CK_THROW_(Error_t::WrongInput, "key not found");
+          HCTR_OWN_THROW(Error_t::WrongInput, "key not found");
         } else {
           sub_idx_vecs[tid][0].push_back(mem_idx_vec[i]);
           sub_idx_vecs[tid][1].push_back(it->second);
@@ -605,10 +607,10 @@ void SparseModelFileTS<TypeKey>::dump_update(HashTableType& dump_key_idx_map,
     }
     dump_update(idx_vecs[1], idx_vecs[0], slot_id_vec.data(), data_ptrs);
   } catch (const internal_runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     throw;
   } catch (const std::exception& err) {
-    std::cerr << err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << err.what() << std::endl;
     throw;
   }
 }
@@ -623,10 +625,10 @@ void SparseModelFileTS<TypeKey>::dump_update(std::vector<size_t> const& ssd_idx_
       mmap_to_memory_();
     }
     if (data_ptrs.size() != mmap_handler_.mmaped_ptrs_.size()) {
-      CK_THROW_(Error_t::WrongInput, "Num of data files and pointers doesn't equal");
+      HCTR_OWN_THROW(Error_t::WrongInput, "Num of data files and pointers doesn't equal");
     }
     if (ssd_idx_vec.size() != mem_idx_vec.size()) {
-      CK_THROW_(Error_t::WrongInput, "ssd_idx_vec.size() != mem_idx_vec.size()");
+      HCTR_OWN_THROW(Error_t::WrongInput, "ssd_idx_vec.size() != mem_idx_vec.size()");
     }
     size_t const len{ssd_idx_vec.size()};
 #pragma omp parallel for num_threads(24)
@@ -641,10 +643,10 @@ void SparseModelFileTS<TypeKey>::dump_update(std::vector<size_t> const& ssd_idx_
       }
     }
   } catch (const internal_runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     throw;
   } catch (const std::exception& err) {
-    std::cerr << err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << err.what() << std::endl;
     throw;
   }
 }
@@ -659,7 +661,7 @@ void SparseModelFileTS<TypeKey>::dump_insert(TypeKey const* key_ptr,
       mmap_to_memory_();
     }
     if (data_ptrs.size() != mmap_handler_.mmaped_ptrs_.size()) {
-      CK_THROW_(Error_t::WrongInput, "Num of data files and pointers doesn't equal");
+      HCTR_OWN_THROW(Error_t::WrongInput, "Num of data files and pointers doesn't equal");
     }
     size_t const len{mem_idx_vec.size()}, num_exist_keys{key_idx_map_.size()};
     omp_set_nested(2);
@@ -682,10 +684,10 @@ void SparseModelFileTS<TypeKey>::dump_insert(TypeKey const* key_ptr,
       }
     }
   } catch (const internal_runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     throw;
   } catch (const std::exception& err) {
-    std::cerr << err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << err.what() << std::endl;
     throw;
   }
 }
@@ -727,14 +729,14 @@ void SparseModelFileTS<TypeKey>::update_local_model_() {
 
     std::ofstream key_ofs(mmap_handler_.get_key_file(), std::ofstream::trunc);
     if (!key_ofs.is_open()) {
-      CK_THROW_(Error_t::FileCannotOpen, "Cannot open key file");
+      HCTR_OWN_THROW(Error_t::FileCannotOpen, "Cannot open key file");
     }
     key_ofs.write(reinterpret_cast<const char*>(key_ptr), key_vec.size() * sizeof(long long));
 
     if (use_slot_id_) {
       std::ofstream slot_ofs(mmap_handler_.get_slot_file(), std::ofstream::trunc);
       if (!slot_ofs.is_open()) {
-        CK_THROW_(Error_t::FileCannotOpen, "Cannot open slot file");
+        HCTR_OWN_THROW(Error_t::FileCannotOpen, "Cannot open slot file");
       }
       slot_ofs.write(reinterpret_cast<const char*>(slot_id_vec.data()),
                      key_vec.size() * sizeof(size_t));
@@ -742,10 +744,10 @@ void SparseModelFileTS<TypeKey>::update_local_model_() {
 
     mmap_to_memory_();
   } catch (const internal_runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     throw;
   } catch (const std::exception& err) {
-    std::cerr << err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << err.what() << std::endl;
     throw;
   }
 }
@@ -757,7 +759,7 @@ void SparseModelFileTS<TypeKey>::update_global_model() {
     bool const localized_train{(resource_manager_->get_num_process() == 1)};
     if (localized_train) return;
 #ifdef ENABLE_MPI
-    CK_MPI_THROW_(MPI_Barrier(MPI_COMM_WORLD));
+    HCTR_MPI_THROW(MPI_Barrier(MPI_COMM_WORLD));
 
     EmbeddingTableFile global_model(global_model_path_, opt_type_);
     size_t local_num_keys{key_idx_map_.size()};
@@ -767,33 +769,33 @@ void SparseModelFileTS<TypeKey>::update_global_model() {
       std::filesystem::remove_all(global_model_path_);
       std::filesystem::create_directories(global_model_path_);
     }
-    CK_MPI_THROW_(MPI_Barrier(MPI_COMM_WORLD));
+    HCTR_MPI_THROW(MPI_Barrier(MPI_COMM_WORLD));
 
     MPI_File key_fh, slot_id_fh;
     std::vector<MPI_File> data_fhs(global_model.data_files.size());
 
-    CK_MPI_THROW_(MPI_File_open(MPI_COMM_WORLD, global_model.key_file.c_str(),
-                                MPI_MODE_CREATE | MPI_MODE_WRONLY, MPI_INFO_NULL, &key_fh));
+    HCTR_MPI_THROW(MPI_File_open(MPI_COMM_WORLD, global_model.key_file.c_str(),
+                                 MPI_MODE_CREATE | MPI_MODE_WRONLY, MPI_INFO_NULL, &key_fh));
     if (use_slot_id_) {
-      CK_MPI_THROW_(MPI_File_open(MPI_COMM_WORLD, global_model.slot_file.c_str(),
-                                  MPI_MODE_CREATE | MPI_MODE_WRONLY, MPI_INFO_NULL, &slot_id_fh));
+      HCTR_MPI_THROW(MPI_File_open(MPI_COMM_WORLD, global_model.slot_file.c_str(),
+                                   MPI_MODE_CREATE | MPI_MODE_WRONLY, MPI_INFO_NULL, &slot_id_fh));
     }
     const auto data_files{global_model.data_files};
     for (size_t i{0}; i < data_files.size(); i++) {
-      CK_MPI_THROW_(MPI_File_open(MPI_COMM_WORLD, data_files[i].c_str(),
-                                  MPI_MODE_CREATE | MPI_MODE_WRONLY, MPI_INFO_NULL,
-                                  &(data_fhs[i])));
+      HCTR_MPI_THROW(MPI_File_open(MPI_COMM_WORLD, data_files[i].c_str(),
+                                   MPI_MODE_CREATE | MPI_MODE_WRONLY, MPI_INFO_NULL,
+                                   &(data_fhs[i])));
     }
     MPI_Datatype TYPE_EMB_VECTOR;
-    CK_MPI_THROW_(MPI_Type_contiguous(emb_vec_size_, MPI_FLOAT, &TYPE_EMB_VECTOR));
-    CK_MPI_THROW_(MPI_Type_commit(&TYPE_EMB_VECTOR));
+    HCTR_MPI_THROW(MPI_Type_contiguous(emb_vec_size_, MPI_FLOAT, &TYPE_EMB_VECTOR));
+    HCTR_MPI_THROW(MPI_Type_commit(&TYPE_EMB_VECTOR));
 
     int my_rank{resource_manager_->get_process_id()};
     int n_ranks{resource_manager_->get_num_process()};
 
     std::vector<size_t> offset_per_rank(n_ranks, 0);
-    CK_MPI_THROW_(MPI_Allgather(&local_num_keys, sizeof(size_t), MPI_CHAR, offset_per_rank.data(),
-                                sizeof(size_t), MPI_CHAR, MPI_COMM_WORLD));
+    HCTR_MPI_THROW(MPI_Allgather(&local_num_keys, sizeof(size_t), MPI_CHAR, offset_per_rank.data(),
+                                 sizeof(size_t), MPI_CHAR, MPI_COMM_WORLD));
     std::exclusive_scan(offset_per_rank.begin(), offset_per_rank.end(), offset_per_rank.begin(), 0);
 
     const size_t key_offset{offset_per_rank[my_rank] * sizeof(long long)};
@@ -806,32 +808,32 @@ void SparseModelFileTS<TypeKey>::update_global_model() {
     if (use_slot_id_) mmap_file_to_memory(&h_slot_id_ptr, mmap_handler_.get_slot_file());
     if (!mmap_handler_.mapped_to_file_) mmap_to_memory_();
 
-    CK_MPI_THROW_(MPI_Barrier(MPI_COMM_WORLD));
+    HCTR_MPI_THROW(MPI_Barrier(MPI_COMM_WORLD));
     MPI_Status status;
-    CK_MPI_THROW_(MPI_File_write_at(key_fh, key_offset, h_key_ptr, local_num_keys,
-                                    MPI_LONG_LONG_INT, &status));
+    HCTR_MPI_THROW(MPI_File_write_at(key_fh, key_offset, h_key_ptr, local_num_keys,
+                                     MPI_LONG_LONG_INT, &status));
     if (use_slot_id_) {
-      CK_MPI_THROW_(MPI_File_write_at(slot_id_fh, slot_id_offset, h_slot_id_ptr, local_num_keys,
-                                      MPI_SIZE_T, &status));
+      HCTR_MPI_THROW(MPI_File_write_at(slot_id_fh, slot_id_offset, h_slot_id_ptr, local_num_keys,
+                                       MPI_SIZE_T, &status));
     }
     for (size_t i{0}; i < data_fhs.size(); i++) {
-      CK_MPI_THROW_(MPI_File_write_at(data_fhs[i], vec_offset, mmap_handler_.mmaped_ptrs_[i],
-                                      local_num_keys, TYPE_EMB_VECTOR, &status));
+      HCTR_MPI_THROW(MPI_File_write_at(data_fhs[i], vec_offset, mmap_handler_.mmaped_ptrs_[i],
+                                       local_num_keys, TYPE_EMB_VECTOR, &status));
     }
 
     if (use_slot_id_) unmap_file_from_memory(&h_slot_id_ptr, mmap_handler_.get_slot_file());
     unmap_file_from_memory(&h_key_ptr, mmap_handler_.get_key_file());
 
-    CK_MPI_THROW_(MPI_File_close(&key_fh));
-    if (use_slot_id_) CK_MPI_THROW_(MPI_File_close(&slot_id_fh));
-    for (auto& fh : data_fhs) CK_MPI_THROW_(MPI_File_close(&fh));
-    CK_MPI_THROW_(MPI_Type_free(&TYPE_EMB_VECTOR));
+    HCTR_MPI_THROW(MPI_File_close(&key_fh));
+    if (use_slot_id_) HCTR_MPI_THROW(MPI_File_close(&slot_id_fh));
+    for (auto& fh : data_fhs) HCTR_MPI_THROW(MPI_File_close(&fh));
+    HCTR_MPI_THROW(MPI_Type_free(&TYPE_EMB_VECTOR));
 #endif
   } catch (const internal_runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     throw;
   } catch (const std::exception& err) {
-    std::cerr << err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << err.what() << std::endl;
     throw;
   }
 }

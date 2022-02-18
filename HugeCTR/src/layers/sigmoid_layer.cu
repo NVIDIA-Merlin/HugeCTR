@@ -67,7 +67,7 @@ void SigmoidLayer<T>::fprop(bool is_train) {
 
 #ifndef NDEBUG
   cudaDeviceSynchronize();
-  CK_CUDA_THROW_(cudaGetLastError());
+  HCTR_LIB_THROW(cudaGetLastError());
 #endif
 }
 
@@ -86,7 +86,7 @@ void SigmoidLayer<__half>::fprop(bool is_train) {
 
 #ifndef NDEBUG
   cudaDeviceSynchronize();
-  CK_CUDA_THROW_(cudaGetLastError());
+  HCTR_LIB_THROW(cudaGetLastError());
 #endif
 }
 
@@ -106,7 +106,7 @@ void SigmoidLayer<T>::bprop() {
 
 #ifndef NDEBUG
   cudaDeviceSynchronize();
-  CK_CUDA_THROW_(cudaGetLastError());
+  HCTR_LIB_THROW(cudaGetLastError());
 #endif
 }
 
@@ -129,7 +129,7 @@ void SigmoidLayer<__half>::bprop() {
 
 #ifndef NDEBUG
   cudaDeviceSynchronize();
-  CK_CUDA_THROW_(cudaGetLastError());
+  HCTR_LIB_THROW(cudaGetLastError());
 #endif
 }
 

@@ -59,9 +59,9 @@ DatabaseBackendError::DatabaseBackendError(const std::string& backend, const siz
     : backend_{backend}, partition_{partition}, what_{what} {}
 
 std::string DatabaseBackendError::to_string() const {
-  std::stringstream ss;
-  ss << backend_ << " DB Backend error (partition = " << partition_ << "): " << what_;
-  return ss.str();
+  std::ostringstream os;
+  os << backend_ << " DB Backend error (partition = " << partition_ << "): " << what_;
+  return os.str();
 }
 
 template <typename TKey>

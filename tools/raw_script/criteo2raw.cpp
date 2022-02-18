@@ -32,9 +32,9 @@ static const int label_dim = 1;
 static const int SLOT_NUM = 26;
 
 std::vector<std::string> &split(const std::string &s, char delim, std::vector<std::string> &elems) {
-  std::stringstream ss(s);
+  std::istringstream is(s);
   std::string item;
-  while (std::getline(ss, item, delim)) {
+  while (std::getline(is, item, delim)) {
     elems.push_back(item);
   }
   return elems;
@@ -42,14 +42,14 @@ std::vector<std::string> &split(const std::string &s, char delim, std::vector<st
 
 int main(int argc, char *argv[]) {
   if (argc != 3) {
-    std::cout << usage_str << std::endl;
+    HCTR_LOG_S(INFO, WORLD) << usage_str << std::endl;
     exit(-1);
   }
 
   // open txt file
   std::ifstream txt_file(argv[1], std::ifstream::binary);
   if (!txt_file.is_open()) {
-    std::cerr << "Cannot open argv[1]" << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << "Cannot open argv[1]" << std::endl;
   }
 
   std::ofstream out_file(argv[2], std::ofstream::out);
@@ -66,7 +66,8 @@ int main(int argc, char *argv[]) {
     std::vector<std::string> vec_string;
     split(line, ' ', vec_string);
     if (vec_string.size() != dense_dim + label_dim + SLOT_NUM) {
-      std::cout << "Error: vec_string.size() != dense_dim+label_dim+SLOT_NUM" << std::endl;
+      HCTR_LOG_S(ERROR, WORLD) << "Error: vec_string.size() != dense_dim+label_dim+SLOT_NUM"
+                               << std::endl;
       exit(-1);
     }
     for (int j = 0; j < dense_dim + label_dim; j++) {

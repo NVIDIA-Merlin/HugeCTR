@@ -40,16 +40,16 @@ void data_test() {
       3,  103, 113, 123, 50, 102, 114, 130, 2, 102, 112, 122, 1, 101, 111, 121};
 
   Tensor2<dtype> d_data_in;
-  // std::cout << "debug2" << std::endl;
+  // HCTR_LOG_S(DEBUG, WORLD) << "debug2" << std::endl;
   std::shared_ptr<GeneralBuffer2<CudaAllocator>> buff = GeneralBuffer2<CudaAllocator>::create();
   buff->reserve({batch_size * num_iterations * table_sizes.size()}, &d_data_in);
   buff->allocate();
   upload_tensor(data_in, d_data_in, 0);
-  // std::cout << "debug3" << std::endl;
+  // HCTR_LOG_S(DEBUG, WORLD) << "debug3" << std::endl;
   Data<dtype> data(table_sizes, batch_size, num_iterations);
-  // std::cout << "debug" << std::endl;
+  // HCTR_LOG_S(DEBUG, WORLD) << "debug" << std::endl;
   data.data_to_unique_categories(d_data_in, 0);
-  // std::cout << "debug1" << std::endl;
+  // HCTR_LOG_S(DEBUG, WORLD) << "debug1" << std::endl;
   std::vector<dtype> data_to_unique_categories_ret;
   download_tensor(data_to_unique_categories_ret, data.samples, 0);
   EXPECT_THAT(data_to_unique_categories_ret,
@@ -69,9 +69,9 @@ void test_raw_data(dtype *d_raw_data, size_t num_samples, size_t num_tables, siz
 
   std::vector<dtype> h_raw_data(num_elements, (dtype)0);
   cudaStream_t stream = 0;
-  CK_CUDA_THROW_(cudaMemcpyAsync(h_raw_data.data(), d_raw_data, num_elements * sizeof(dtype),
+  HCTR_LIB_THROW(cudaMemcpyAsync(h_raw_data.data(), d_raw_data, num_elements * sizeof(dtype),
                                  cudaMemcpyDeviceToHost, stream));
-  CK_CUDA_THROW_(cudaStreamSynchronize(stream));
+  HCTR_LIB_THROW(cudaStreamSynchronize(stream));
 
   for (size_t iteration = 0; iteration < num_iterations; ++iteration) {
     for (size_t sample = 0; sample < num_samples; ++sample) {
@@ -98,9 +98,9 @@ void test_samples(dtype *d_raw_data, Data<dtype> &data) {
 
   cudaStream_t stream = 0;
   std::vector<dtype> h_raw_data(num_elements, (dtype)0);
-  CK_CUDA_THROW_(cudaMemcpyAsync(h_raw_data.data(), d_raw_data, num_elements * sizeof(dtype),
+  HCTR_LIB_THROW(cudaMemcpyAsync(h_raw_data.data(), d_raw_data, num_elements * sizeof(dtype),
                                  cudaMemcpyDeviceToHost, stream));
-  CK_CUDA_THROW_(cudaStreamSynchronize(stream));
+  HCTR_LIB_THROW(cudaStreamSynchronize(stream));
   std::vector<dtype> h_samples;
   download_tensor(h_samples, data.samples, stream);
 

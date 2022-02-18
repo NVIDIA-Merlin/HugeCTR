@@ -15,18 +15,21 @@
  */
 
 #pragma once
-#include <iostream>
-#include <mutex>
 
-#include "cuda_runtime_api.h"
-#include "inference/embedding_interface.hpp"
-#include "map"
-#include "thread"
-#include "vector"
+#include <cuda_runtime_api.h>
+
+#include <base/debug/logger.hpp>
+#include <inference/embedding_interface.hpp>
+#include <iostream>
+#include <map>
+#include <mutex>
+#include <thread>
+#include <vector>
 
 #define MAX_MEMORY_SIZE 256
 
 namespace HugeCTR {
+
 class MemoryPool;
 
 class MemoryBlock {
@@ -40,8 +43,8 @@ class MemoryBlock {
   MemoryBlock() {
     this->bBelong = false;
     this->bUsed = false;
-    this->pMem = NULL;
-    this->pNext = NULL;
+    this->pMem = nullptr;
+    this->pNext = nullptr;
   };
 };
 class MemoryPool {
@@ -49,8 +52,8 @@ class MemoryPool {
   MemoryPool(size_t nBlock, std::shared_ptr<embedding_interface> embeddinginterface,
              CACHE_SPACE_TYPE cache_type = CACHE_SPACE_TYPE::WORKER) {
     _nBlock = nBlock;
-    _pHeader = NULL;
-    _pBuffer = NULL;
+    _pHeader = nullptr;
+    _pBuffer = nullptr;
     _embeddinginterface = embeddinginterface;
     _cache_type = cache_type;
     InitMemory(cache_type);
@@ -61,16 +64,16 @@ class MemoryPool {
   }
   virtual ~MemoryPool() {
     for (size_t i = 0; i < _nBlock; i++) {
-      if (_Alloc[i] != NULL) {
+      if (_Alloc[i] != nullptr) {
         delete _Alloc[i];
       }
     }
   }
   void* AllcoMemory() {
     std::lock_guard<std::mutex> lock(_mutex);
-    MemoryBlock* pRes = NULL;
-    if (_pHeader == NULL) {
-      std::cout << "memory pool is empty" << std::endl;
+    MemoryBlock* pRes = nullptr;
+    if (_pHeader == nullptr) {
+      HCTR_LOG(WARNING, WORLD, "memory pool is empty\n");
     } else {
       pRes = _pHeader;
       _pHeader = _pHeader->pNext;

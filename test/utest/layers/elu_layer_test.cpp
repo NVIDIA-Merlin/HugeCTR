@@ -23,7 +23,6 @@
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"
 
-using namespace std;
 using namespace HugeCTR;
 
 namespace {
@@ -60,7 +59,7 @@ void elu_bprop_cpu(const T* d_out, T* d_in, int len, T alpha) {
 template <typename T>
 void elu_test(size_t dim0, size_t dim1, T alpha) {
   std::shared_ptr<GeneralBuffer2<CudaAllocator>> buf = GeneralBuffer2<CudaAllocator>::create();
-  vector<size_t> dims = {dim0, dim1};
+  std::vector<size_t> dims = {dim0, dim1};
 
   Tensor2<T> in_tensor;
   buf->reserve(dims, &in_tensor);
@@ -83,13 +82,13 @@ void elu_test(size_t dim0, size_t dim1, T alpha) {
 
   // fprop
   simulator.fill(h_in.get(), len);
-  CK_CUDA_THROW_(cudaMemcpy(d_in, h_in.get(), len * sizeof(T), cudaMemcpyHostToDevice));
+  HCTR_LIB_THROW(cudaMemcpy(d_in, h_in.get(), len * sizeof(T), cudaMemcpyHostToDevice));
 
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
   elu_layer.fprop(true);
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
 
-  CK_CUDA_THROW_(cudaMemcpy(h_out.get(), d_out, len * sizeof(T), cudaMemcpyDeviceToHost));
+  HCTR_LIB_THROW(cudaMemcpy(h_out.get(), d_out, len * sizeof(T), cudaMemcpyDeviceToHost));
 
   elu_cpu(h_in.get(), h_expected.get(), len, alpha);
   ASSERT_TRUE(test::compare_array_approx<T>(h_out.get(), h_expected.get(), len, Eps<T>::value()));
@@ -100,14 +99,14 @@ void elu_test(size_t dim0, size_t dim1, T alpha) {
   for (int i = 0; i < len; ++i) {
     h_expected[i] = h_in[i];
   }
-  CK_CUDA_THROW_(cudaMemcpy(d_in, h_in.get(), len * sizeof(T), cudaMemcpyHostToDevice));
-  CK_CUDA_THROW_(cudaMemcpy(d_out, h_out.get(), len * sizeof(T), cudaMemcpyHostToDevice));
+  HCTR_LIB_THROW(cudaMemcpy(d_in, h_in.get(), len * sizeof(T), cudaMemcpyHostToDevice));
+  HCTR_LIB_THROW(cudaMemcpy(d_out, h_out.get(), len * sizeof(T), cudaMemcpyHostToDevice));
 
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
   elu_layer.bprop();
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
 
-  CK_CUDA_THROW_(cudaMemcpy(h_in.get(), d_in, len * sizeof(T), cudaMemcpyDeviceToHost));
+  HCTR_LIB_THROW(cudaMemcpy(h_in.get(), d_in, len * sizeof(T), cudaMemcpyDeviceToHost));
 
   elu_bprop_cpu(h_out.get(), h_expected.get(), len, alpha);
   ASSERT_TRUE(test::compare_array_approx<T>(h_in.get(), h_expected.get(), len, Eps<T>::value()));

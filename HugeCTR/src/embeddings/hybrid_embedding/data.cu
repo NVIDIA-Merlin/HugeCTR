@@ -96,7 +96,7 @@ template <typename dtype>
 void Data<dtype>::data_to_unique_categories(Tensor2<dtype> data, cudaStream_t stream) {
   /// === TODO: PERFORM ON GPU ===
   /// ============================
-  // std::cout << "WARNING: data_to_unique_categories() needs to be placed on the GPU!" <<
+  // HCTR_LOG_S(WARNING, WORLD) << "data_to_unique_categories() needs to be placed on the GPU!" <<
   // std::endl;
   // TODO : perform conversion by kernel (before start of iteration ? => see below)
   //        for batch_size = 55*1024
@@ -120,7 +120,7 @@ void Data<dtype>::data_to_unique_categories(Tensor2<dtype> data, cudaStream_t st
         data.get_ptr(), embedding_offsets.get_ptr(), table_sizes.size(), num_samples,
         samples.get_ptr());
   }
-  CK_CUDA_THROW_(cudaPeekAtLastError());
+  HCTR_LIB_THROW(cudaPeekAtLastError());
 }
 
 template class Data<uint32_t>;

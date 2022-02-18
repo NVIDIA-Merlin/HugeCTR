@@ -97,7 +97,7 @@ __forceinline__ bool cpu_gpu_cmp(float* cpu_p, float* gpu_p, int len) {
   bool flag = true;
   for (int i = 0; i < len; ++i) {
     if (fabs(gpu_tmp[i] - cpu_p[i]) >= 1e-5) {
-      printf("gpu_tmp(%f) - cpu_p(%f) >= 1e-5 when i = %d\n", gpu_tmp[i], cpu_p[i], i);
+      HCTR_LOG(INFO, WORLD, "gpu_tmp(%f) - cpu_p(%f) >= 1e-5 when i = %d\n", gpu_tmp[i], cpu_p[i], i);
       flag = false;
       break;
     }
@@ -131,18 +131,18 @@ class GaussianDataSimulator {
 
  public:
   GaussianDataSimulator(float mean, float stddev) : mean_(mean), stddev_(stddev) {
-    CK_CURAND_THROW_(curandCreateGeneratorHost(&curand_generator_, CURAND_RNG_PSEUDO_DEFAULT));
+    HCTR_LIB_THROW(curandCreateGeneratorHost(&curand_generator_, CURAND_RNG_PSEUDO_DEFAULT));
   }
 
   ~GaussianDataSimulator() { curandDestroyGenerator(curand_generator_); }
 
   void fill(float* arr, size_t len) {
-    CK_CURAND_THROW_(curandGenerateNormal(curand_generator_, arr, len, mean_, stddev_));
+    HCTR_LIB_THROW(curandGenerateNormal(curand_generator_, arr, len, mean_, stddev_));
   }
 
   void fill(__half* arr, size_t len) {
     std::unique_ptr<float[]> farr(new float[len]);
-    CK_CURAND_THROW_(curandGenerateNormal(curand_generator_, farr.get(), len, mean_, stddev_));
+    HCTR_LIB_THROW(curandGenerateNormal(curand_generator_, farr.get(), len, mean_, stddev_));
     for (size_t i = 0; i < len; i++) {
       arr[i] = __float2half(farr[i]);
     }
@@ -154,16 +154,16 @@ class UniformDataSimulator {
 
  public:
   UniformDataSimulator() {
-    CK_CURAND_THROW_(curandCreateGeneratorHost(&curand_generator_, CURAND_RNG_PSEUDO_DEFAULT));
+    HCTR_LIB_THROW(curandCreateGeneratorHost(&curand_generator_, CURAND_RNG_PSEUDO_DEFAULT));
   }
 
   ~UniformDataSimulator() { curandDestroyGenerator(curand_generator_); }
 
   void fill(int* arr, size_t len, int a, int b) {
     if (a >= b) {
-      CK_THROW_(Error_t::WrongInput, "a must be smaller than b");
+      HCTR_OWN_THROW(Error_t::WrongInput, "a must be smaller than b");
     }
-    CK_CURAND_THROW_(curandGenerate(curand_generator_, reinterpret_cast<unsigned int*>(arr), len));
+    HCTR_LIB_THROW(curandGenerate(curand_generator_, reinterpret_cast<unsigned int*>(arr), len));
     for (size_t i = 0; i < len; i++) {
       arr[i] = arr[i] % (b - a) + a;
     }
@@ -171,9 +171,9 @@ class UniformDataSimulator {
 
   void fill(float* arr, size_t len, float a, float b) {
     if (a >= b) {
-      CK_THROW_(Error_t::WrongInput, "a must be smaller than b");
+      HCTR_OWN_THROW(Error_t::WrongInput, "a must be smaller than b");
     }
-    CK_CURAND_THROW_(curandGenerateUniform(curand_generator_, arr, len));
+    HCTR_LIB_THROW(curandGenerateUniform(curand_generator_, arr, len));
     for (size_t i = 0; i < len; i++) {
       arr[i] = arr[i] * (b - a) + a;
     }

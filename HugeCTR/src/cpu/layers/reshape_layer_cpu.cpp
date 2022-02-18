@@ -62,17 +62,17 @@ ReshapeLayerCPU<T>::ReshapeLayerCPU(
     const std::vector<size_t>& in_dims = in_tensor.get_dimensions();
     int im_idx = in_dims.size() - 1;
     if (leading_dim < in_dims[im_idx] || leading_dim % in_dims[im_idx] != 0) {
-      CK_THROW_(Error_t::WrongInput,
-                "leading_dim < in_dims[im_idx] or leading_dim % in_dims[2] != 0");
+      HCTR_OWN_THROW(Error_t::WrongInput,
+                     "leading_dim < in_dims[im_idx] or leading_dim % in_dims[2] != 0");
     }
 
     size_t n_in_elems = in_tensor.get_num_elements();
     if (leading_dim > n_in_elems) {
-      CK_THROW_(Error_t::WrongInput, "leading_dim cannot be bigger than n_in_elems");
+      HCTR_OWN_THROW(Error_t::WrongInput, "leading_dim cannot be bigger than n_in_elems");
     }
 
     if (n_in_elems % leading_dim != 0) {
-      CK_THROW_(Error_t::WrongInput, "n_in_elems % leading_dim != 0");
+      HCTR_OWN_THROW(Error_t::WrongInput, "n_in_elems % leading_dim != 0");
     }
 
     size_t trailing_dim = n_in_elems / leading_dim;
@@ -84,7 +84,7 @@ ReshapeLayerCPU<T>::ReshapeLayerCPU(
     out_tensors_.push_back(out_tensor);
 
   } catch (const std::runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     throw;
   }
 }
@@ -103,7 +103,7 @@ ReshapeLayerCPU<T>::ReshapeLayerCPU(
   try {
     const std::vector<size_t>& in_dims = in_tensor.get_dimensions();
     if (in_dims[1] < n_active_slot_) {
-      CK_THROW_(Error_t::WrongInput, "selected is invalid");
+      HCTR_OWN_THROW(Error_t::WrongInput, "selected is invalid");
     }
 
     size_t in_dims_1 = selected.empty() ? in_dims[1] : n_active_slot_;
@@ -122,7 +122,7 @@ ReshapeLayerCPU<T>::ReshapeLayerCPU(
     out_tensors_.push_back(out_tensor);
 
   } catch (const std::runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     throw;
   }
 }

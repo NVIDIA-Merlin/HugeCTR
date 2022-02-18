@@ -408,12 +408,12 @@ class DistributedSlotSparseEmbeddingHash : public IEmbedding {
       context.set_device(embedding_data_.get_local_gpu(id).get_device_id());
       size_t count = hash_tables_[id]->get_size(embedding_data_.get_local_gpu(id).get_stream());
       if (count > max_vocabulary_size_per_gpu_) {
-        CK_THROW_(Error_t::OutOfBound,
-                  "Runtime vocabulary size (" + std::to_string(count) +
-                      ") exceeds max_vocabulary_size_per_gpu (" +
-                      std::to_string(max_vocabulary_size_per_gpu_) + ") on GPU " +
-                      std::to_string(embedding_data_.get_local_gpu(id).get_device_id()) +
-                      ", new feature insertion failed.\n");
+        std::ostringstream os;
+        os << "Runtime vocabulary size (" << count << ") exceeds max_vocabulary_size_per_gpu ("
+           << max_vocabulary_size_per_gpu_ << ") on GPU "
+           << embedding_data_.get_local_gpu(id).get_device_id()
+           << ", new feature insertion failed.\n";
+        HCTR_OWN_THROW(Error_t::OutOfBound, os.str());
       }
     }
   }

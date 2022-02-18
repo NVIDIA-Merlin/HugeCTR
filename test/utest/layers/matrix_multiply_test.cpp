@@ -22,7 +22,6 @@
 #include "HugeCTR/include/layers/matrix_multiply_layer.hpp"
 #include "HugeCTR/include/utils.hpp"
 
-using namespace std;
 using namespace HugeCTR;
 
 namespace {
@@ -120,33 +119,33 @@ void matmul_test(size_t b, size_t m, size_t n, size_t k) {
     h_bprop_out[i] = new T[size];
     h_cpu_bprop_out[i] = new T[size];
     simulator.fill(h_ins[i], test::align_to_even(size));
-    CK_CUDA_THROW_(cudaMemcpy(h_d_ins[i], h_ins[i], size * sizeof(T), cudaMemcpyHostToDevice));
+    HCTR_LIB_THROW(cudaMemcpy(h_d_ins[i], h_ins[i], size * sizeof(T), cudaMemcpyHostToDevice));
   }
 
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
   matmul_layer.fprop(true);
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
 
   T *d_out = out_tensor.get_ptr();
-  CK_CUDA_THROW_(cudaMemcpy(h_out.get(), d_out, out_size * sizeof(T), cudaMemcpyDeviceToHost));
+  HCTR_LIB_THROW(cudaMemcpy(h_out.get(), d_out, out_size * sizeof(T), cudaMemcpyDeviceToHost));
   matmul_cpu(h_ins[0], h_ins[1], h_cpu_out.get(), b, m, n, k);
   ASSERT_TRUE(
       test::compare_array_approx<T>(h_out.get(), h_cpu_out.get(), out_size, Eps<T>::value()));
 
   // bprop
   simulator.fill(h_out.get(), test::align_to_even(out_size));
-  CK_CUDA_THROW_(cudaMemcpy(d_out, h_out.get(), out_size * sizeof(T), cudaMemcpyHostToDevice));
+  HCTR_LIB_THROW(cudaMemcpy(d_out, h_out.get(), out_size * sizeof(T), cudaMemcpyHostToDevice));
 
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
   matmul_layer.bprop();  // compute wgrad and dgrad
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
 
   matmul_dgrad_cpu(h_out.get(), h_ins.get(), h_cpu_bprop_out.get(), b, m, n, k);
   for (size_t i = 0; i < num; i++) {
     size_t size =
         b * in_tensors[i].get_dimensions()[dims - 2] * in_tensors[i].get_dimensions()[dims - 1];
     T *d_out = in_tensors[i].get_ptr();
-    CK_CUDA_THROW_(cudaMemcpy(h_bprop_out[i], d_out, size * sizeof(T), cudaMemcpyDeviceToHost));
+    HCTR_LIB_THROW(cudaMemcpy(h_bprop_out[i], d_out, size * sizeof(T), cudaMemcpyDeviceToHost));
     ASSERT_TRUE(test::compare_array_approx<T>(h_bprop_out[i], h_cpu_bprop_out[i], size,
                                               Eps<T>::value()));  // compare dgrad
   }

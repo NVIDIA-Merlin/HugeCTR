@@ -98,7 +98,7 @@ void scale(T* out, T* in, int batchsize, int num_elems, int axis, int factor, cu
     downscale_kernel<<<grid, block, 0, stream>>>(out, in, batchsize, num_elems, axis, factor);
 #ifndef NDEBUG
   cudaDeviceSynchronize();
-  CK_CUDA_THROW_(cudaGetLastError());
+  HCTR_LIB_THROW(cudaGetLastError());
 #endif
 }
 

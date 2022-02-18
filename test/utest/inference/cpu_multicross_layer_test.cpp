@@ -140,7 +140,7 @@ class MultiCrossLayerCPUTest {
     // todo compare
     for (size_t i = 0; i < h_outputs_.back().size(); i++) {
       if (abs(d2h_output[i] - h_outputs_.back()[i]) > 0.05f) {
-        CK_THROW_(Error_t::WrongInput, "cpu multicross layer wrong result");
+        HCTR_OWN_THROW(Error_t::WrongInput, "cpu multicross layer wrong result");
       }
     }
   }

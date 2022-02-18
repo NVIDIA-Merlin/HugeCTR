@@ -58,16 +58,16 @@ SliceLayer<T>::SliceLayer(const Tensor2<T>& in_tensor, Tensors2<T>& out_tensors,
     : Layer(gpu_resource) {
   try {
     if (ranges.empty()) {
-      CK_THROW_(Error_t::WrongInput, "Empty slice ranges is not allowed");
+      HCTR_OWN_THROW(Error_t::WrongInput, "Empty slice ranges is not allowed");
     }
 
     if (!out_tensors.empty()) {
-      CK_THROW_(Error_t::WrongInput, "output tensor vector must be empty");
+      HCTR_OWN_THROW(Error_t::WrongInput, "output tensor vector must be empty");
     }
 
     auto in_dims = in_tensor.get_dimensions();
     if (in_dims.size() != 2) {
-      CK_THROW_(Error_t::WrongInput, "Only 2D tensors can be concatenated");
+      HCTR_OWN_THROW(Error_t::WrongInput, "Only 2D tensors can be concatenated");
     }
 
     size_t height = in_dims[0];
@@ -78,16 +78,16 @@ SliceLayer<T>::SliceLayer(const Tensor2<T>& in_tensor, Tensors2<T>& out_tensors,
       int cur_min = range.first;
       int cur_max = range.second;
       if (cur_min >= cur_max) {
-        CK_THROW_(Error_t::WrongInput, "Reverse range is not allowed");
+        HCTR_OWN_THROW(Error_t::WrongInput, "Reverse range is not allowed");
       }
       if (cur_min < 0 || cur_max < 0) {
-        CK_THROW_(Error_t::WrongInput, "Negative ranges cannot be allowed");
+        HCTR_OWN_THROW(Error_t::WrongInput, "Negative ranges cannot be allowed");
       }
       if (!(prev_min <= cur_min && prev_max <= cur_max)) {
-        CK_THROW_(Error_t::WrongInput, "A range cannot be out-order nor included in another");
+        HCTR_OWN_THROW(Error_t::WrongInput, "A range cannot be out-order nor included in another");
       }
       if (cur_min >= in_w || cur_max > in_w) {
-        CK_THROW_(Error_t::WrongInput, "Ranges cannot be bigger than the input width");
+        HCTR_OWN_THROW(Error_t::WrongInput, "Ranges cannot be bigger than the input width");
       }
       size_t out_w = cur_max - cur_min;
       std::vector<size_t> out_dims = {height, out_w};
@@ -106,7 +106,7 @@ SliceLayer<T>::SliceLayer(const Tensor2<T>& in_tensor, Tensors2<T>& out_tensors,
     in_tensor_ = in_tensor;
 
   } catch (const std::runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     throw;
   }
 }

@@ -45,7 +45,7 @@ void reader_adapter_test(std::vector<int> device_list, size_t batch_size, int nu
   const bool mixed_precision = true;
   const float epsilon = mixed_precision ? 1e0f : 1e-3f;
 
-  CK_NVML_THROW_(nvmlInit_v2());
+  HCTR_LIB_THROW(nvmlInit_v2());
 
   std::vector<std::vector<int>> vvgpu;
   vvgpu.push_back(device_list);

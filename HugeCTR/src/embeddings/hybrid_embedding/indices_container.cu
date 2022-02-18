@@ -69,7 +69,7 @@ IndexProcessor<dtype>::IndexProcessor(
 
       // Zero-initialize in case we're aligning dense tensor
       auto& dense_tensor_bag = container.dense_tensors.back();
-      CK_CUDA_THROW_(
+      HCTR_LIB_THROW(
           cudaMemset(dense_tensor_bag.get_ptr(), 0, dense_tensor_bag.get_size_in_bytes()));
     }
   }
@@ -125,16 +125,16 @@ void IndexProcessor<dtype>::finalize(TensorBag2& label_tensor, TensorBag2& dense
 
   if ((char*)label_tensor.get_ptr() + label_tensor.get_size_in_bytes() ==
       (char*)dense_tensor.get_ptr()) {
-    CK_CUDA_THROW_(
+    HCTR_LIB_THROW(
         cudaMemcpyAsync(label_tensor.get_ptr(), container.label_tensors[raw_device_id].get_ptr(),
                         label_tensor.get_size_in_bytes() + dense_tensor.get_size_in_bytes(),
                         cudaMemcpyDeviceToDevice, stream));
   } else {
-    CK_CUDA_THROW_(
+    HCTR_LIB_THROW(
         cudaMemcpyAsync(label_tensor.get_ptr(), container.label_tensors[raw_device_id].get_ptr(),
                         label_tensor.get_size_in_bytes(), cudaMemcpyDeviceToDevice, stream));
 
-    CK_CUDA_THROW_(
+    HCTR_LIB_THROW(
         cudaMemcpyAsync(dense_tensor.get_ptr(), container.dense_tensors[raw_device_id].get_ptr(),
                         dense_tensor.get_size_in_bytes(), cudaMemcpyDeviceToDevice, stream));
   }

@@ -45,7 +45,8 @@ ModelPerfExt::ModelPerfExt(const Solver& solver, const DataReaderParams& reader_
 bool ModelPerfExt::train(bool is_first_batch) {
   try {
     if (train_data_reader_->is_started() == false) {
-      CK_THROW_(Error_t::IllegalCall, "Start the data reader first before calling Model::train()");
+      HCTR_OWN_THROW(Error_t::IllegalCall,
+                     "Start the data reader first before calling Model::train()");
     }
     graph_scheduler_->trickling();
     // When async indices is enabled, we prefetch next batch on internal stream, that stream will
@@ -103,10 +104,10 @@ bool ModelPerfExt::train(bool is_first_batch) {
     }
     return true;
   } catch (const internal_runtime_error& err) {
-    std::cerr << err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << err.what() << std::endl;
     throw err;
   } catch (const std::exception& err) {
-    std::cerr << err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << err.what() << std::endl;
     throw err;
   }
 }
@@ -115,7 +116,8 @@ bool ModelPerfExt::eval(bool is_first_batch) {
   try {
     if (evaluate_data_reader_ == nullptr) return true;
     if (evaluate_data_reader_->is_started() == false) {
-      CK_THROW_(Error_t::IllegalCall, "Start the data reader first before calling Model::eval()");
+      HCTR_OWN_THROW(Error_t::IllegalCall,
+                     "Start the data reader first before calling Model::eval()");
     }
     if (!high_level_eval_) {
       this->check_overflow();
@@ -146,10 +148,10 @@ bool ModelPerfExt::eval(bool is_first_batch) {
 
     return true;
   } catch (const internal_runtime_error& err) {
-    std::cerr << err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << err.what() << std::endl;
     throw err;
   } catch (const std::exception& err) {
-    std::cerr << err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << err.what() << std::endl;
     throw err;
   }
 }
@@ -157,21 +159,21 @@ bool ModelPerfExt::eval(bool is_first_batch) {
 void ModelPerfExt::fit(int num_epochs, int max_iter, int display, int eval_interval, int snapshot,
                        std::string snapshot_prefix, DataSourceParams data_source_params) {
   if (!buff_allocated_) {
-    CK_THROW_(Error_t::IllegalCall,
-              "Cannot start the training process before calling Model.compile()");
+    HCTR_OWN_THROW(Error_t::IllegalCall,
+                   "Cannot start the training process before calling Model.compile()");
   }
 
   if (solver_.repeat_dataset && max_iter <= 0) {
-    CK_THROW_(Error_t::WrongInput, "Require max_iter>0 under non-epoch mode");
+    HCTR_OWN_THROW(Error_t::WrongInput, "Require max_iter>0 under non-epoch mode");
   }
   if (!solver_.repeat_dataset) {
-    CK_THROW_(Error_t::WrongInput, "Epoch mode cannot be used with ModelPerfExt");
+    HCTR_OWN_THROW(Error_t::WrongInput, "Epoch mode cannot be used with ModelPerfExt");
   }
   if (etc_params_->use_embedding_training_cache) {
-    CK_THROW_(Error_t::WrongInput, "ETC cannot be used with ModelPerfExt");
+    HCTR_OWN_THROW(Error_t::WrongInput, "ETC cannot be used with ModelPerfExt");
   }
   // if (!solver_.is_dlrm) {
-  //   CK_THROW_(Error_t::WrongInput, "ModelPerfExt can be used only with is_dlrm flag");
+  //   HCTR_OWN_THROW(Error_t::WrongInput, "ModelPerfExt can be used only with is_dlrm flag");
   // }
 
   high_level_eval_ = true;
@@ -185,9 +187,9 @@ void ModelPerfExt::fit(int num_epochs, int max_iter, int display, int eval_inter
   HugeCTR::Timer timer_eval;
 
   if (__PID == 0) {
-    std::cout << "=====================================================Model "
-                 "Fit====================================================="
-              << std::endl;
+    HCTR_LOG_S(INFO, ROOT) << "=====================================================Model "
+                              "Fit====================================================="
+                           << std::endl;
   }
 
   HCTR_LOG(INFO, ROOT, "Use non-epoch mode with number of iterations: %d\n", max_iter);
@@ -215,8 +217,8 @@ void ModelPerfExt::fit(int num_epochs, int max_iter, int display, int eval_inter
   HugeCTR::global_profiler.initialize(solver_.use_cuda_graph);
 #endif
 
-  MESSAGE_("Training source file: " + reader_params_.source[0]);
-  MESSAGE_("Evaluation source file: " + reader_params_.eval_source);
+  HCTR_LOG_S(INFO, ROOT) << "Training source file: " << reader_params_.source[0] << std::endl;
+  HCTR_LOG_S(INFO, ROOT) << "Evaluation source file: " << reader_params_.eval_source << std::endl;
 
   if (solver_.is_dlrm) {
     LOG(timer_log.elapsedMilliseconds(), "train_epoch_start", 0);  // just 1 epoch. dlrm logger
@@ -255,13 +257,13 @@ void ModelPerfExt::fit(int num_epochs, int max_iter, int display, int eval_inter
         }
       }
       if (!solver_.use_holistic_cuda_graph) {
-        MESSAGE_("Iter: " + std::to_string(iter) + " Time(" + std::to_string(display) +
-                 " iters): " + std::to_string(timer_train.elapsedSeconds()) +
-                 "s Loss: " + std::to_string(loss) + " lr:" + std::to_string(lr));
+        HCTR_LOG_S(INFO, ROOT) << "Iter: " << iter << " Time(" << display
+                               << " iters): " << timer_train.elapsedSeconds() << "s Loss: " << loss
+                               << " lr:" << lr << std::endl;
       } else {
-        MESSAGE_("Iter: " + std::to_string(iter) + " Time(" + std::to_string(display) +
-                 " iters): " + std::to_string(timer_train.elapsedSeconds()) +
-                 "s Loss: " + std::to_string(loss));
+        HCTR_LOG_S(INFO, ROOT) << "Iter: " << iter << " Time(" << display
+                               << " iters): " << timer_train.elapsedSeconds() << "s Loss: " << loss
+                               << std::endl;
       }
       timer_train.start();
     }
@@ -284,7 +286,8 @@ void ModelPerfExt::fit(int num_epochs, int max_iter, int display, int eval_inter
       }
       auto eval_metrics = this->get_eval_metrics();
       for (auto& eval_metric : eval_metrics) {
-        MESSAGE_("Evaluation, " + eval_metric.first + ": " + std::to_string(eval_metric.second));
+        HCTR_LOG_S(INFO, ROOT) << "Evaluation, " << eval_metric.first << ": " << eval_metric.second
+                               << std::endl;
         if (solver_.is_dlrm) {
           LOG(timer_log.elapsedMilliseconds(), "eval_accuracy", eval_metric.second,
               float(iter) / max_iter, iter);
@@ -300,13 +303,13 @@ void ModelPerfExt::fit(int num_epochs, int max_iter, int display, int eval_inter
 
               std::string epoch_num_str = std::to_string(float(iter) / max_iter);
 
-              std::cout << "Hit target accuracy AUC " + std::to_string(auc_threshold) + " at " +
-                               std::to_string(iter) + "/" + std::to_string(max_iter) +
-                               " iterations with batchsize "
-                        << solver_.batchsize << " in " << std::setiosflags(std::ios::fixed)
-                        << std::setprecision(2) << timer.elapsedSeconds() << " s. Average speed "
-                        << float(iter) * solver_.batchsize / timer.elapsedSeconds() << " records/s."
-                        << std::endl;
+              HCTR_LOG_S(INFO, WORLD)
+                  << "Hit target accuracy AUC " << auc_threshold << " at " << iter << "/"
+                  << max_iter << " iterations with batchsize " << solver_.batchsize << " in "
+                  << std::setiosflags(std::ios::fixed) << std::setprecision(2)
+                  << timer.elapsedSeconds() << " s. Average speed "
+                  << (float(iter) * solver_.batchsize / timer.elapsedSeconds()) << " records/s."
+                  << std::endl;
 
               LOG(timer_log.elapsedMilliseconds(), "eval_stop" + epoch_num_str);
 
@@ -331,8 +334,8 @@ void ModelPerfExt::fit(int num_epochs, int max_iter, int display, int eval_inter
         }
       }
       timer_eval.stop();
-      MESSAGE_("Eval Time for " + std::to_string(solver_.max_eval_batches) +
-               " iters: " + std::to_string(timer_eval.elapsedSeconds()) + "s");
+      HCTR_LOG_S(INFO, ROOT) << "Eval Time for " << solver_.max_eval_batches
+                             << " iters: " << timer_eval.elapsedSeconds() << "s" << std::endl;
       if (solver_.is_dlrm) {
         LOG(timer_log.elapsedMilliseconds(), "eval_stop",
             float(iter) / max_iter);  // use iteration to calculate it's in which epoch
@@ -355,10 +358,10 @@ void ModelPerfExt::fit(int num_epochs, int max_iter, int display, int eval_inter
 
   timer.stop();
   if (__PID == 0) {
-    std::cout << "Finish "
-              << std::to_string(max_iter) + " iterations with batchsize: " << solver_.batchsize
-              << " in " << std::setiosflags(std::ios::fixed) << std::setprecision(2)
-              << timer.elapsedSeconds() << "s" << std::endl;
+    HCTR_LOG_S(INFO, ROOT) << "Finish "
+                           << max_iter + " iterations with batchsize: " << solver_.batchsize
+                           << " in " << std::setiosflags(std::ios::fixed) << std::setprecision(2)
+                           << timer.elapsedSeconds() << "s" << std::endl;
   }
 
   high_level_eval_ = false;
@@ -391,7 +394,7 @@ void ModelPerfExt::train_overlapped() {
       case TrainState_t::Finalize:
         return false;
       default:
-        CK_THROW_(Error_t::InvalidEnv, "model state reached invalid status");
+        HCTR_OWN_THROW(Error_t::InvalidEnv, "model state reached invalid status");
     }
     return true;
   };
@@ -409,7 +412,7 @@ void ModelPerfExt::train_overlapped() {
     TrainState state;
     auto sync = [&state, &stream, id]() {
       if (state.event) {
-        CK_CUDA_THROW_(cudaStreamWaitEvent(stream, *state.event));
+        HCTR_LIB_THROW(cudaStreamWaitEvent(stream, *state.event));
       }
       state.event = nullptr;
     };
@@ -439,7 +442,7 @@ void ModelPerfExt::train_overlapped() {
 
     auto do_it = [&, this](cudaStream_t submit_stream) {
       if (solver_.use_holistic_cuda_graph) {
-        CK_CUDA_THROW_(cudaEventRecord(fork_events_[id], submit_stream));
+        HCTR_LIB_THROW(cudaEventRecord(fork_events_[id], submit_stream));
         state.event = &fork_events_[id];
       }
 
@@ -499,12 +502,12 @@ void ModelPerfExt::exchange_wgrad(size_t device_id) {
 void ModelPerfExt::add(DenseLayer& dense_layer) {
   for (auto& top_name : dense_layer.top_names) {
     if (tensor_shape_info_raw_.find(top_name) != tensor_shape_info_raw_.end()) {
-      CK_THROW_(Error_t::WrongInput, top_name + ", top tensor name already exists");
+      HCTR_OWN_THROW(Error_t::WrongInput, top_name + ", top tensor name already exists");
     }
   }
   for (auto& bottom_name : dense_layer.bottom_names) {
     if (tensor_shape_info_raw_.find(bottom_name) == tensor_shape_info_raw_.end()) {
-      CK_THROW_(Error_t::WrongInput, bottom_name + ", bottom tensor name does not exists");
+      HCTR_OWN_THROW(Error_t::WrongInput, bottom_name + ", bottom tensor name does not exists");
     }
   }
   calculate_tensor_dimensions(tensor_shape_info_raw_, dense_layer);

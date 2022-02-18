@@ -148,7 +148,7 @@ class HashTable {
    * @param counter_value the new counter value to be set.
    */
   void set_value_head(size_t counter_value, cudaStream_t stream) {
-    CK_CUDA_THROW_(cudaMemcpyAsync(d_counter_, &counter_value, sizeof(size_t),
+    HCTR_LIB_THROW(cudaMemcpyAsync(d_counter_, &counter_value, sizeof(size_t),
                                    cudaMemcpyHostToDevice, stream));
   }
 
@@ -159,11 +159,11 @@ class HashTable {
    */
   size_t get_and_add_value_head(size_t counter_add, cudaStream_t stream) {
     size_t counter;
-    CK_CUDA_THROW_(
+    HCTR_LIB_THROW(
         cudaMemcpyAsync(&counter, d_counter_, sizeof(*d_counter_), cudaMemcpyDeviceToHost, stream));
-    CK_CUDA_THROW_(cudaStreamSynchronize(stream));
+    HCTR_LIB_THROW(cudaStreamSynchronize(stream));
     counter += counter_add;
-    CK_CUDA_THROW_(
+    HCTR_LIB_THROW(
         cudaMemcpyAsync(d_counter_, &counter, sizeof(*d_counter_), cudaMemcpyHostToDevice, stream));
     return counter;
   }

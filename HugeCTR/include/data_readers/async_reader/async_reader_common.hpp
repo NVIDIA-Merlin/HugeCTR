@@ -75,7 +75,7 @@ class RawPtrWrapper : public TensorBuffer2 {
 
 class RawPtrBuffer : public TensorBuffer2 {
  public:
-  RawPtrBuffer(size_t size_bytes) { CK_CUDA_THROW_(cudaMalloc(&ptr_, size_bytes)); }
+  RawPtrBuffer(size_t size_bytes) { HCTR_LIB_THROW(cudaMalloc(&ptr_, size_bytes)); }
   bool allocated() const override { return true; }
   void* get_ptr() override { return ptr_; }
   ~RawPtrBuffer() override { cudaFree(ptr_); }

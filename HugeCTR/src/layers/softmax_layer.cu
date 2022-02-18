@@ -61,7 +61,7 @@ void Softmax_fprop(T* out, T* workspace, int m, int n, cudaStream_t stream) {
   Softmax_fprop_kernel<<<grid, block, 0, stream>>>(out, workspace, m, n);
 #ifndef NDEBUG
   cudaDeviceSynchronize();
-  CK_CUDA_THROW_(cudaGetLastError());
+  HCTR_LIB_THROW(cudaGetLastError());
 #endif
 }
 
@@ -82,7 +82,7 @@ void Softmax_bprop(T* top, T* bottom, T* workspace, int m, int n, cudaStream_t s
   Softmax_bprop_kernel<<<grid, block, 0, stream>>>(top, bottom, workspace, m, n);
 #ifndef NDEBUG
   cudaDeviceSynchronize();
-  CK_CUDA_THROW_(cudaGetLastError());
+  HCTR_LIB_THROW(cudaGetLastError());
 #endif
 }
 
@@ -104,7 +104,7 @@ void SoftmaxLayer<T>::fprop(bool is_train) {
                 get_gpu().get_stream());
 #ifndef NDEBUG
   cudaDeviceSynchronize();
-  CK_CUDA_THROW_(cudaGetLastError());
+  HCTR_LIB_THROW(cudaGetLastError());
 #endif
 }
 
@@ -130,7 +130,7 @@ void SoftmaxLayer<T>::bprop() {
 
 #ifndef NDEBUG
   cudaDeviceSynchronize();
-  CK_CUDA_THROW_(cudaGetLastError());
+  HCTR_LIB_THROW(cudaGetLastError());
 #endif
 }
 

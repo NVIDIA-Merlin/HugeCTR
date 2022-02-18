@@ -22,7 +22,7 @@
 #include "HugeCTR/include/regularizers/no_regularizer.hpp"
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"
-using namespace std;
+
 using namespace HugeCTR;
 using namespace HugeCTR::test;
 
@@ -101,9 +101,9 @@ void cross_entropy_loss(size_t batch_size) {
   }
   cpu_loss /= batch_size;
 
-  ASSERT_EQ(true, cpu_gpu_cmp(&cpu_loss, d_loss, 1)) << " CSE Loss calulation failed" << endl;
+  ASSERT_EQ(true, cpu_gpu_cmp(&cpu_loss, d_loss, 1)) << " CSE Loss calulation failed" << std::endl;
   ASSERT_EQ(true, cpu_gpu_cmp(h_input.get(), d_input, batch_size * feature_dim))
-      << " CSE Gradient calulation failed" << endl;
+      << " CSE Gradient calulation failed" << std::endl;
 }
 
 TEST(loss_test, CrossEntropyLoss_2048_row_major) { cross_entropy_loss(2048); }
@@ -167,9 +167,9 @@ void binary_cross_entropy_loss(size_t batch_size) {
   }
   cpu_loss = -cpu_loss / batch_size;
 
-  ASSERT_EQ(true, cpu_gpu_cmp(&cpu_loss, d_loss, 1)) << " CSE Loss calulation failed" << endl;
+  ASSERT_EQ(true, cpu_gpu_cmp(&cpu_loss, d_loss, 1)) << " CSE Loss calulation failed" << std::endl;
   ASSERT_EQ(true, cpu_gpu_cmp(h_input.get(), d_input, batch_size))
-      << " CSE Gradient calulation failed" << endl;
+      << " CSE Gradient calulation failed" << std::endl;
 }
 
 TEST(loss_test, BinaryCrossEntropyLoss_2048) { binary_cross_entropy_loss(2048); }

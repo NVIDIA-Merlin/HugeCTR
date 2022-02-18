@@ -88,11 +88,11 @@ struct IbCommsTest {
         h_send_size_ptr[d] = send_size_per_dst;
         h_recv_size_ptr[d] = send_size_per_dst;
       }
-      CK_CUDA_THROW_(cudaSetDevice(device_list[g]));
-      CK_CUDA_THROW_(cudaMemcpy(d_send_sizes_[g].get_ptr(), h_send_sizes_[g].get_ptr(),
+      HCTR_LIB_THROW(cudaSetDevice(device_list[g]));
+      HCTR_LIB_THROW(cudaMemcpy(d_send_sizes_[g].get_ptr(), h_send_sizes_[g].get_ptr(),
                                 h_send_sizes_[g].get_num_elements() * sizeof(size_t),
                                 cudaMemcpyHostToDevice));
-      CK_CUDA_THROW_(cudaMemcpy(d_recv_sizes_[g].get_ptr(), h_recv_sizes_[g].get_ptr(),
+      HCTR_LIB_THROW(cudaMemcpy(d_recv_sizes_[g].get_ptr(), h_recv_sizes_[g].get_ptr(),
                                 h_recv_sizes_[g].get_num_elements() * sizeof(size_t),
                                 cudaMemcpyHostToDevice));
     }
@@ -111,15 +111,15 @@ struct IbCommsTest {
       for (size_t d = 0; d < num_dest; d++) {
         h_send_size_ptr[d] = distribution(generator) * sizeof(TypeEmbeddingComp);
       }
-      CK_MPI_THROW_(MPI_Alltoall(h_send_size_ptr, sizeof(size_t) * num_gpus_, MPI_BYTE,
-                                 h_recv_size_ptr, sizeof(size_t) * num_gpus_, MPI_BYTE,
-                                 MPI_COMM_WORLD));
+      HCTR_MPI_THROW(MPI_Alltoall(h_send_size_ptr, sizeof(size_t) * num_gpus_, MPI_BYTE,
+                                  h_recv_size_ptr, sizeof(size_t) * num_gpus_, MPI_BYTE,
+                                  MPI_COMM_WORLD));
 
-      CK_CUDA_THROW_(cudaSetDevice(device_list[g]));
-      CK_CUDA_THROW_(cudaMemcpy(d_send_sizes_[g].get_ptr(), h_send_sizes_[g].get_ptr(),
+      HCTR_LIB_THROW(cudaSetDevice(device_list[g]));
+      HCTR_LIB_THROW(cudaMemcpy(d_send_sizes_[g].get_ptr(), h_send_sizes_[g].get_ptr(),
                                 h_send_sizes_[g].get_num_elements() * sizeof(size_t),
                                 cudaMemcpyHostToDevice));
-      CK_CUDA_THROW_(cudaMemcpy(d_recv_sizes_[g].get_ptr(), h_recv_sizes_[g].get_ptr(),
+      HCTR_LIB_THROW(cudaMemcpy(d_recv_sizes_[g].get_ptr(), h_recv_sizes_[g].get_ptr(),
                                 h_recv_sizes_[g].get_num_elements() * sizeof(size_t),
                                 cudaMemcpyHostToDevice));
     }
@@ -149,15 +149,15 @@ struct IbCommsTest {
 
     auto& device_list = resource_manager_->get_local_gpu_device_id_list();
     for (size_t g = 0; g < num_gpus_; g++) {
-      CK_CUDA_THROW_(cudaSetDevice(device_list[g]));
-      CK_CUDA_THROW_(cudaMemcpy(d_send_buffs_[g].get_ptr(), h_send_buffs_[g].get_ptr(),
+      HCTR_LIB_THROW(cudaSetDevice(device_list[g]));
+      HCTR_LIB_THROW(cudaMemcpy(d_send_buffs_[g].get_ptr(), h_send_buffs_[g].get_ptr(),
                                 max_elems_ * sizeof(TypeEmbeddingComp), cudaMemcpyHostToDevice));
-      CK_CUDA_THROW_(cudaMemcpy(d_recv_buffs_[g].get_ptr(), h_recv_buffs_[g].get_ptr(),
+      HCTR_LIB_THROW(cudaMemcpy(d_recv_buffs_[g].get_ptr(), h_recv_buffs_[g].get_ptr(),
                                 max_elems_ * sizeof(TypeEmbeddingComp), cudaMemcpyHostToDevice));
     }
 
     for (size_t g = 0; g < num_gpus_; g++) {
-      CK_CUDA_THROW_(cudaSetDevice(device_list[g]));
+      HCTR_LIB_THROW(cudaSetDevice(device_list[g]));
       ib_comm_->update_a2a_coll_sizes(coll_handle_, d_send_sizes_[g].get_ptr(),
                                       d_recv_sizes_[g].get_ptr(), 0, g);
     }
@@ -166,12 +166,12 @@ struct IbCommsTest {
   void do_device_a2a() {
     auto& device_list = resource_manager_->get_local_gpu_device_id_list();
     for (size_t g = 0; g < num_gpus_; g++) {
-      CK_CUDA_THROW_(cudaSetDevice(device_list[g]));
+      HCTR_LIB_THROW(cudaSetDevice(device_list[g]));
       ib_comm_->post_send_command_a2a<TypeEmbeddingComp>(coll_handle_, 0, g);
     }
     for (size_t g = 0; g < num_gpus_; g++) {
-      CK_CUDA_THROW_(cudaSetDevice(device_list[g]));
-      CK_CUDA_THROW_(cudaDeviceSynchronize());
+      HCTR_LIB_THROW(cudaSetDevice(device_list[g]));
+      HCTR_LIB_THROW(cudaDeviceSynchronize());
     }
   }
 
@@ -210,21 +210,21 @@ struct IbCommsTest {
         MPI_Type_commit(&send_dtypes[offset]);
         MPI_Type_commit(&recv_dtypes[offset]);
 
-        CK_MPI_THROW_(MPI_Isend(h_send_buffs_[g].get_ptr() + (r * num_gpus_ * max_elems_per_dest_),
-                                1, send_dtypes[offset], r, g, MPI_COMM_WORLD,
-                                &send_requests[offset]));
-        CK_MPI_THROW_(MPI_Irecv(h_recv_buffs_[g].get_ptr() + (r * num_gpus_ * max_elems_per_dest_),
-                                1, recv_dtypes[offset], r, g, MPI_COMM_WORLD,
-                                &recv_requests[offset]));
+        HCTR_MPI_THROW(MPI_Isend(h_send_buffs_[g].get_ptr() + (r * num_gpus_ * max_elems_per_dest_),
+                                 1, send_dtypes[offset], r, g, MPI_COMM_WORLD,
+                                 &send_requests[offset]));
+        HCTR_MPI_THROW(MPI_Irecv(h_recv_buffs_[g].get_ptr() + (r * num_gpus_ * max_elems_per_dest_),
+                                 1, recv_dtypes[offset], r, g, MPI_COMM_WORLD,
+                                 &recv_requests[offset]));
       }
     }
-    CK_MPI_THROW_(MPI_Waitall(num_procs_ * num_gpus_, send_requests.data(), statuses.data()));
-    CK_MPI_THROW_(MPI_Waitall(num_procs_ * num_gpus_, recv_requests.data(), statuses.data()));
+    HCTR_MPI_THROW(MPI_Waitall(num_procs_ * num_gpus_, send_requests.data(), statuses.data()));
+    HCTR_MPI_THROW(MPI_Waitall(num_procs_ * num_gpus_, recv_requests.data(), statuses.data()));
   }
 
   void compare_host_and_device() {
     for (size_t g = 0; g < num_gpus_; g++) {
-      CK_CUDA_THROW_(cudaMemcpy(h_recv_buffs_out_[g].get_ptr(), d_recv_buffs_[g].get_ptr(),
+      HCTR_LIB_THROW(cudaMemcpy(h_recv_buffs_out_[g].get_ptr(), d_recv_buffs_[g].get_ptr(),
                                 max_elems_ * sizeof(TypeEmbeddingComp), cudaMemcpyDeviceToHost));
     }
 

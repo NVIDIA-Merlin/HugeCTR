@@ -38,9 +38,9 @@ const int RANGE[] = {0,       1460,    2018,    337396,  549106,  549411,  54943
                      1599225, 1599242, 1599257, 1678991, 1679087, 1737709};
 
 std::vector<std::string>& split(const std::string& s, char delim, std::vector<std::string>& elems) {
-  std::stringstream ss(s);
+  std::istringstream is(s);
   std::string item;
-  while (std::getline(ss, item, delim)) {
+  while (std::getline(is, item, delim)) {
     elems.push_back(item);
   }
   return elems;
@@ -115,7 +115,7 @@ void session_inference_criteo_test(const std::string& config_file, const std::st
   // open criteo data file
   std::ifstream criteo_data_file(criteo_data_path, std::ifstream::binary);
   if (!criteo_data_file.is_open()) {
-    std::cerr << "Cannot open " << criteo_data_path << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << "Cannot open " << criteo_data_path << std::endl;
   }
 
   // 4 lines: labels, dense_features, keys, row_ptrs
@@ -136,7 +136,8 @@ void session_inference_criteo_test(const std::string& config_file, const std::st
       case 1: {
         int dense_features_dim = static_cast<int>(vec_string.size());
         if (dense_features_dim != num_samples * dense_dim) {
-          std::cerr << "dense_features_dim does not equal to num_samples*dense_dim" << std::endl;
+          HCTR_LOG_S(ERROR, WORLD)
+              << "dense_features_dim does not equal to num_samples*dense_dim" << std::endl;
         }
         for (int j = 0; j < dense_features_dim; j++) {
           float dense_feature = std::stod(vec_string[j]);
@@ -147,7 +148,8 @@ void session_inference_criteo_test(const std::string& config_file, const std::st
       case 2: {
         int keys_dim = static_cast<int>(vec_string.size());
         if (keys_dim != num_samples * slot_num) {
-          std::cerr << "keys_dim does not equal to num_samples*slot_num" << std::endl;
+          HCTR_LOG_S(ERROR, WORLD)
+              << "keys_dim does not equal to num_samples*slot_num" << std::endl;
         }
         for (int j = 0; j < keys_dim; j++) {
           TypeHashKey key = static_cast<TypeHashKey>(std::stoll(vec_string[j]));
@@ -158,7 +160,8 @@ void session_inference_criteo_test(const std::string& config_file, const std::st
       case 3: {
         int row_ptrs_dim = static_cast<int>(vec_string.size());
         if (row_ptrs_dim != num_samples * slot_num + 1) {
-          std::cerr << "row_ptrs_dim does not equal to num_samples*slot_num + 1" << std::endl;
+          HCTR_LOG_S(ERROR, WORLD)
+              << "row_ptrs_dim does not equal to num_samples*slot_num + 1" << std::endl;
         }
         for (int j = 0; j < row_ptrs_dim; j++) {
           int row_ptr = std::stoi(vec_string[j]);
@@ -173,7 +176,7 @@ void session_inference_criteo_test(const std::string& config_file, const std::st
   }
 
   if (batch_size == 0) {
-    CK_THROW_(Error_t::WrongInput, "batch size should not be zero!");
+    HCTR_OWN_THROW(Error_t::WrongInput, "batch size should not be zero!");
   }
   num_samples = num_samples < batch_size ? num_samples : batch_size;
 
@@ -209,9 +212,9 @@ void session_inference_criteo_test(const std::string& config_file, const std::st
   std::unique_ptr<float[]> h_out(new float[num_samples]);
 
   // memory copy
-  CK_CUDA_THROW_(cudaMemcpy(d_row_ptrs, row_ptrs.data(), row_ptrs_size_in_bytes_samples,
+  HCTR_LIB_THROW(cudaMemcpy(d_row_ptrs, row_ptrs.data(), row_ptrs_size_in_bytes_samples,
                             cudaMemcpyHostToDevice));
-  CK_CUDA_THROW_(cudaMemcpy(d_dense_features, dense_features.data(), dense_size_in_bytes_samples,
+  HCTR_LIB_THROW(cudaMemcpy(d_dense_features, dense_features.data(), dense_size_in_bytes_samples,
                             cudaMemcpyHostToDevice));
   memcpy(h_embeddingcolumns, keys.data(), embeddingcolumns_size_in_bytes_samples);
 
@@ -230,28 +233,34 @@ void session_inference_criteo_test(const std::string& config_file, const std::st
           model_config_path[0], inference_params[0], parameter_server));
 
   InferenceSession sess(model_config_path[0], inference_params[0], embedding_cache);
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
   timer_inference.start();
   sess.predict(d_dense_features, h_embeddingcolumns, d_row_ptrs, d_output, num_samples);
   timer_inference.stop();
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
-  CK_CUDA_THROW_(
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(
       cudaMemcpy(h_out.get(), d_output, num_samples * sizeof(float), cudaMemcpyDeviceToHost));
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
 
-  std::cout << "==========================labels===================" << std::endl;
-  for (int i = 0; i < num_samples; i++) std::cout << labels[i] << " ";
-  std::cout << std::endl;
-
-  std::cout << "==========================prediction result===================" << std::endl;
-  for (int i = 0; i < num_samples; i++) {
-    std::cout << h_out[i] << " ";
+  {
+    auto log = HCTR_LOG_S(INFO, WORLD);
+    log << "==========================labels===================" << std::endl;
+    for (int i = 0; i < num_samples; i++) {
+      log << labels[i] << " ";
+    }
+    log << std::endl;
   }
-  std::cout << std::endl;
+  {
+    auto log = HCTR_LOG_S(INFO, WORLD);
+    log << "==========================prediction result===================" << std::endl;
+    for (int i = 0; i < num_samples; i++) {
+      log << h_out[i] << " ";
+    }
+    log << std::endl;
+  }
 
-  MESSAGE_("Batch size: " + std::to_string(batch_size) +
-           ", Number samples: " + std::to_string(num_samples) +
-           ", Time: " + std::to_string(timer_inference.elapsedSeconds()) + "s");
+  HCTR_LOG_S(INFO, ROOT) << "Batch size: " << batch_size << ", Number samples: " << num_samples
+                         << ", Time: " << timer_inference.elapsedSeconds() << "s" << std::endl;
 
   host_allocator.deallocate(h_embeddingcolumns);
   allocator.deallocate(d_row_ptrs);
@@ -314,9 +323,9 @@ void session_inference_generated_test(const std::string& config_file, const std:
   }
 
   // memory copy
-  CK_CUDA_THROW_(cudaMemcpy(d_row_ptrs, h_row_ptrs.get(), row_ptrs_size_in_bytes_samples,
+  HCTR_LIB_THROW(cudaMemcpy(d_row_ptrs, h_row_ptrs.get(), row_ptrs_size_in_bytes_samples,
                             cudaMemcpyHostToDevice));
-  CK_CUDA_THROW_(cudaMemcpy(d_dense_features, h_dense.get(), dense_size_in_bytes_samples,
+  HCTR_LIB_THROW(cudaMemcpy(d_dense_features, h_dense.get(), dense_size_in_bytes_samples,
                             cudaMemcpyHostToDevice));
 
   // d_output
@@ -338,23 +347,25 @@ void session_inference_generated_test(const std::string& config_file, const std:
           model_config_path[0], inference_params[0], parameter_server));
 
   InferenceSession sess(model_config_path[0], inference_params[0], embedding_cache);
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
   timer_inference.start();
   sess.predict(d_dense_features, h_embeddingcolumns, d_row_ptrs, d_output, num_samples);
   timer_inference.stop();
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
-  CK_CUDA_THROW_(
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(
       cudaMemcpy(h_out.get(), d_output, num_samples * sizeof(float), cudaMemcpyDeviceToHost));
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
 
-  std::cout << "==========================prediction result===================" << std::endl;
-  for (int i = 0; i < num_samples; i++) {
-    std::cout << h_out[i] << " ";
+  {
+    auto log = HCTR_LOG_S(INFO, WORLD);
+    log << "==========================prediction result===================" << std::endl;
+    for (int i = 0; i < num_samples; i++) {
+      log << h_out[i] << " ";
+    }
+    log << std::endl;
   }
-  std::cout << std::endl;
-  MESSAGE_("Batch size: " + std::to_string(batch_size) +
-           ", Number samples: " + std::to_string(num_samples) +
-           ", Time: " + std::to_string(timer_inference.elapsedSeconds()) + "s");
+  HCTR_LOG_S(INFO, ROOT) << "Batch size: " << batch_size << ", Number samples: " << num_samples
+                         << ", Time: " << timer_inference.elapsedSeconds() << "s" << std::endl;
   host_allocator.deallocate(h_embeddingcolumns);
   allocator.deallocate(d_row_ptrs);
   allocator.deallocate(d_dense_features);

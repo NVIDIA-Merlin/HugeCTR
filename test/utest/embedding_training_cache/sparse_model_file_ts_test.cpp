@@ -68,10 +68,10 @@ void compare_with_ssd(std::vector<std::string>& data_files, std::vector<TypeKey>
     std::vector<char> data_vec(file_size);
     std::ifstream ifs(src_data_file);
     ifs.read(data_vec.data(), file_size);
-    MESSAGE_("check key", true, false);
+    HCTR_LOG(INFO, WORLD, "check key\n");
     ASSERT_TRUE(test::compare_array_approx<char>(reinterpret_cast<char*>(keys.data()),
                                                  data_vec.data(), file_size, 0));
-    MESSAGE_(" [DONE]", true, true, false);
+    HCTR_LOG(INFO, WORLD, "Done!\n");
   }
   if (use_slot_id) {
     std::string src_data_file(std::string(snapshot_dst_file) + "/slot_id");
@@ -80,10 +80,10 @@ void compare_with_ssd(std::vector<std::string>& data_files, std::vector<TypeKey>
     std::vector<char> data_vec(file_size);
     std::ifstream ifs(src_data_file);
     ifs.read(data_vec.data(), file_size);
-    MESSAGE_("check slot_id", true, false);
+    HCTR_LOG(INFO, WORLD, "check slot_id\n");
     ASSERT_TRUE(test::compare_array_approx<char>(reinterpret_cast<char*>(slot_ids.data()),
                                                  data_vec.data(), file_size, 0));
-    MESSAGE_(" [DONE]", true, true, false);
+    HCTR_LOG(INFO, WORLD, "Done!\n");
   }
   size_t counter{0};
   for (const auto& data_file : data_files) {
@@ -93,10 +93,10 @@ void compare_with_ssd(std::vector<std::string>& data_files, std::vector<TypeKey>
     std::vector<char> data_vec(file_size);
     std::ifstream ifs(src_data_file);
     ifs.read(data_vec.data(), file_size);
-    MESSAGE_(std::string("check ") + data_file, true, false);
+    HCTR_LOG_S(INFO, WORLD) << "check " << data_file << std::endl;
     ASSERT_TRUE(test::compare_array_approx<char>(reinterpret_cast<char*>(data_vecs[counter].data()),
                                                  data_vec.data(), file_size, 0));
-    MESSAGE_(" [DONE]", true, true, false);
+    HCTR_LOG(INFO, WORLD, "Done!\n");
     counter++;
   }
 }
@@ -179,7 +179,7 @@ void load_api_test(int batch_num_train, bool use_slot_id, Optimizer_t opt_type, 
   for (size_t i = 0; i < num_key; i++) {
     auto dst_idx{sparse_model_ts.find(keys[i])};
     if (dst_idx == SparseModelFileTS<TypeKey>::end_flag) {
-      CK_THROW_(Error_t::WrongInput, "Key doesn't exist");
+      HCTR_OWN_THROW(Error_t::WrongInput, "Key doesn't exist");
     }
     ssd_idx_vec[i] = dst_idx;
   }
@@ -197,7 +197,7 @@ void load_api_test(int batch_num_train, bool use_slot_id, Optimizer_t opt_type, 
   for_each(mem_idx_vec.begin(), mem_idx_vec.end(), gen_rand_op);
   sort(mem_idx_vec.begin(), mem_idx_vec.end());
   mem_idx_vec.erase(std::unique(mem_idx_vec.begin(), mem_idx_vec.end()), mem_idx_vec.end());
-  MESSAGE_(std::to_string(mem_idx_vec.size()) + " keys selected");
+  HCTR_LOG_S(INFO, ROOT) << mem_idx_vec.size() << " keys selected" << std::endl;
 
   // determine the ssd_idx_vec
   ssd_idx_vec.resize(mem_idx_vec.size());
@@ -205,7 +205,7 @@ void load_api_test(int batch_num_train, bool use_slot_id, Optimizer_t opt_type, 
   for (size_t i = 0; i < mem_idx_vec.size(); i++) {
     auto dst_idx{sparse_model_ts.find(keys[mem_idx_vec[i]])};
     if (dst_idx == SparseModelFileTS<TypeKey>::end_flag) {
-      CK_THROW_(Error_t::WrongInput, "Key doesn't exist");
+      HCTR_OWN_THROW(Error_t::WrongInput, "Key doesn't exist");
     }
     ssd_idx_vec[i] = dst_idx;
   }
@@ -284,27 +284,27 @@ void load_api_test(int batch_num_train, bool use_slot_id, Optimizer_t opt_type, 
   for (size_t i = 0; i < keys.size(); i++) {
     auto dst_idx{sparse_model_ts.find(keys[i])};
     if (dst_idx == SparseModelFileTS<TypeKey>::end_flag) {
-      CK_THROW_(Error_t::WrongInput, "Key doesn't exist");
+      HCTR_OWN_THROW(Error_t::WrongInput, "Key doesn't exist");
     }
     ssd_idx_vec[i] = dst_idx;
   }
   sparse_model_ts.load(ssd_idx_vec, tmp_slot_id_ptr, tmp_data_ptrs);
 
   if (use_slot_id) {
-    MESSAGE_(std::string("check slot_id"), true, false);
+    HCTR_LOG(INFO, WORLD, "check slot_id\n");
     ASSERT_TRUE(test::compare_array_approx<char>(reinterpret_cast<char*>(tmp_slot_ids.data()),
                                                  reinterpret_cast<char*>(slot_ids.data()),
                                                  slot_ids.size() * sizeof(size_t), 0));
-    MESSAGE_(" [DONE]", true, true, false);
+    HCTR_LOG(INFO, WORLD, "Done!\n");
   }
   size_t counter{0};
   for (auto const& file : data_files) {
-    MESSAGE_(std::string("check ") + file, true, false);
+    HCTR_LOG_S(INFO, WORLD) << "check " << file << std::endl;
     ASSERT_TRUE(
         test::compare_array_approx<char>(reinterpret_cast<char*>(tmp_data_vecs[counter].data()),
                                          reinterpret_cast<char*>(data_vecs[counter].data()),
                                          data_vecs[counter].size() * sizeof(float), 0));
-    MESSAGE_(" [DONE]", true, true, false);
+    HCTR_LOG(INFO, WORLD, "Done!\n");
     counter++;
   }
 }

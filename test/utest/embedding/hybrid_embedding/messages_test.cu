@@ -80,7 +80,7 @@ class ForwardSentMessageTest : public HybridEmbeddingUnitTest<dtype, emtype> {
 
       /* Copy the arrays to device */
       for (size_t i = 0; i < this->num_instances; i++) {
-        CK_CUDA_THROW_(cudaMemcpyAsync(message_buffer_pointers[i].get_ptr(),
+        HCTR_LIB_THROW(cudaMemcpyAsync(message_buffer_pointers[i].get_ptr(),
                                        h_message_buffer_pointers[i / instances_per_node].data(),
                                        instances_per_node * sizeof(emtype*), cudaMemcpyHostToDevice,
                                        this->stream));
@@ -88,7 +88,7 @@ class ForwardSentMessageTest : public HybridEmbeddingUnitTest<dtype, emtype> {
 
       /* Fill buffers with zeroes */
       for (size_t i = 0; i < this->num_instances; i++) {
-        CK_CUDA_THROW_(
+        HCTR_LIB_THROW(
             cudaMemsetAsync(sent_messages[i].get_ptr(), 0,
                             this->num_instances * local_batch_size * this->config.num_tables *
                                 this->config.embedding_vec_size * sizeof(emtype),
@@ -189,7 +189,7 @@ class BackwardSentMessageTest : public HybridEmbeddingUnitTest<dtype, emtype> {
 
       /* Copy the arrays to device */
       for (size_t i = 0; i < this->num_instances; i++) {
-        CK_CUDA_THROW_(cudaMemcpyAsync(message_buffer_pointers[i].get_ptr(),
+        HCTR_LIB_THROW(cudaMemcpyAsync(message_buffer_pointers[i].get_ptr(),
                                        h_message_buffer_pointers[i / instances_per_node].data(),
                                        instances_per_node * sizeof(emtype*), cudaMemcpyHostToDevice,
                                        this->stream));
@@ -197,7 +197,7 @@ class BackwardSentMessageTest : public HybridEmbeddingUnitTest<dtype, emtype> {
 
       /* Fill buffers with zeroes */
       for (size_t i = 0; i < this->num_instances; i++) {
-        CK_CUDA_THROW_(
+        HCTR_LIB_THROW(
             cudaMemsetAsync(sent_messages[i].get_ptr(), 0,
                             this->num_instances * local_batch_size * this->config.num_tables *
                                 this->config.embedding_vec_size * sizeof(emtype),

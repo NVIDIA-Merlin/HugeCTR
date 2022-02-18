@@ -31,12 +31,12 @@ class Source {
    * @return `DataCheckError` `OutOfBound` `Success` `UnspecificError`
    */
   virtual Error_t read(char* ptr, size_t bytes_to_read) {
-    CK_THROW_(Error_t::BrokenFile, "Invalid Call");
+    HCTR_OWN_THROW(Error_t::BrokenFile, "Invalid Call");
     return Error_t::Success;
   }
 
   virtual char* get_ptr() {
-    CK_THROW_(Error_t::BrokenFile, "Invalid Call");
+    HCTR_OWN_THROW(Error_t::BrokenFile, "Invalid Call");
     return nullptr;
   }
 

@@ -26,10 +26,10 @@ void SparseEmbeddingFunctors::get_backward_results(size_t id, size_t memcpy_size
                                                    const ResourceManager &resource_manager) {
   const auto &local_gpu = resource_manager.get_local_gpu(id);
   CudaDeviceContext context(local_gpu->get_device_id());
-  CK_CUDA_THROW_(cudaMemcpyAsync(wgrad.get_ptr(), wgrad_tensors[id].get_ptr(),
+  HCTR_LIB_THROW(cudaMemcpyAsync(wgrad.get_ptr(), wgrad_tensors[id].get_ptr(),
                                  memcpy_size * sizeof(TypeEmbeddingComp), cudaMemcpyDeviceToHost,
                                  local_gpu->get_stream()));
-  CK_CUDA_THROW_(cudaStreamSynchronize(local_gpu->get_stream()));
+  HCTR_LIB_THROW(cudaStreamSynchronize(local_gpu->get_stream()));
 
   return;
 }

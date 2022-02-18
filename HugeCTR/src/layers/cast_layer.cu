@@ -77,8 +77,8 @@ void CastLayer<From, To>::fprop(bool is_train) {
                                                               bottom_tensor_.get_num_elements());
 
 #ifndef NDEBUG
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
-  CK_CUDA_THROW_(cudaGetLastError());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaGetLastError());
 #endif
 }
 
@@ -87,8 +87,8 @@ void CastLayer<From, To>::bprop() {
   CudaDeviceContext context(get_device_id());
 
 #ifndef NDEBUG
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
-  CK_CUDA_THROW_(cudaGetLastError());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaGetLastError());
 #endif
 }
 

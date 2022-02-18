@@ -25,7 +25,6 @@
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"
 
-using namespace std;
 using namespace HugeCTR;
 
 namespace {
@@ -74,7 +73,7 @@ void slice_layer_test(size_t height, size_t width, std::vector<std::pair<int, in
   }
 
   T* d_in = in_tensor.get_ptr();
-  CK_CUDA_THROW_(
+  HCTR_LIB_THROW(
       cudaMemcpy(d_in, &h_in.front(), in_tensor.get_size_in_bytes(), cudaMemcpyHostToDevice));
 
   slice_layer.fprop(true);
@@ -82,7 +81,7 @@ void slice_layer_test(size_t height, size_t width, std::vector<std::pair<int, in
   for (size_t i = 0; i < n_outs; i++) {
     std::vector<T> h_out(out_tensors[i].get_num_elements(), 0.0);
     T* d_out = out_tensors[i].get_ptr();
-    CK_CUDA_THROW_(cudaMemcpy(&h_out.front(), d_out, out_tensors[i].get_size_in_bytes(),
+    HCTR_LIB_THROW(cudaMemcpy(&h_out.front(), d_out, out_tensors[i].get_size_in_bytes(),
                               cudaMemcpyDeviceToHost));
     ASSERT_TRUE(
         test::compare_array_approx<T>(&h_out.front(), &h_refs[i].front(), h_out.size(), eps));
@@ -107,7 +106,7 @@ void slice_layer_test(size_t height, size_t width, std::vector<std::pair<int, in
     i++;
   }
   std::vector<T> h_out(in_tensor.get_num_elements(), 0.0);
-  CK_CUDA_THROW_(
+  HCTR_LIB_THROW(
       cudaMemcpy(&h_out.front(), d_in, in_tensor.get_size_in_bytes(), cudaMemcpyDeviceToHost));
   ASSERT_TRUE(test::compare_array_approx<T>(&h_out.front(), &h_in.front(), h_out.size(), eps));
 }

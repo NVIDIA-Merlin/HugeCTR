@@ -151,27 +151,27 @@ unique_op<KeyType, CounterType, empty_key, empty_val, hasher>::unique_op(
     : capacity_(capacity), init_counter_val_(init_counter_val) {
   // Check parameter
   if (capacity_ == 0) {
-    CK_THROW_(Error_t::WrongInput, "Invalid value for unique_op capacity");
+    HCTR_OWN_THROW(Error_t::WrongInput, "Invalid value for unique_op capacity");
     return;
   }
 
   // Get the current CUDA dev
-  CK_CUDA_THROW_(cudaGetDevice(&dev_));
+  HCTR_LIB_THROW(cudaGetDevice(&dev_));
 
   // Allocate keys and vals buffer
-  CK_CUDA_THROW_(cudaMalloc((void**)&keys_, sizeof(KeyType) * capacity_));
-  CK_CUDA_THROW_(cudaMalloc((void**)&vals_, sizeof(CounterType) * capacity_));
+  HCTR_LIB_THROW(cudaMalloc((void**)&keys_, sizeof(KeyType) * capacity_));
+  HCTR_LIB_THROW(cudaMalloc((void**)&vals_, sizeof(CounterType) * capacity_));
 
   // Allocate device-side counter
-  CK_CUDA_THROW_(cudaMalloc((void**)&counter_, sizeof(CounterType)));
+  HCTR_LIB_THROW(cudaMalloc((void**)&counter_, sizeof(CounterType)));
 
   // Initialization kernel, set all entry to unused <K,V>, set counter to init value
   init_kernel<KeyType, CounterType><<<((capacity_ - 1) / BLOCK_SIZE_) + 1, BLOCK_SIZE_>>>(
       keys_, vals_, counter_, capacity_, empty_key, empty_val, init_counter_val_);
 
   // Wait for initialization to finish
-  CK_CUDA_THROW_(cudaStreamSynchronize(0));
-  CK_CUDA_THROW_(cudaGetLastError());
+  HCTR_LIB_THROW(cudaStreamSynchronize(0));
+  HCTR_LIB_THROW(cudaGetLastError());
 }
 
 template <typename KeyType, typename CounterType, KeyType empty_key, CounterType empty_val,
@@ -180,14 +180,14 @@ unique_op<KeyType, CounterType, empty_key, empty_val, hasher>::~unique_op() noex
   // Device Restorer
   CudaDeviceContext dev_restorer;
   // Set device
-  CK_CUDA_THROW_(cudaSetDevice(dev_));
+  HCTR_LIB_THROW(cudaSetDevice(dev_));
 
   // Free keys and vals
-  CK_CUDA_THROW_(cudaFree(keys_));
-  CK_CUDA_THROW_(cudaFree(vals_));
+  HCTR_LIB_THROW(cudaFree(keys_));
+  HCTR_LIB_THROW(cudaFree(vals_));
 
   // Free device-side counter
-  CK_CUDA_THROW_(cudaFree(counter_));
+  HCTR_LIB_THROW(cudaFree(counter_));
 }
 
 template <typename KeyType, typename CounterType, KeyType empty_key, CounterType empty_val,
@@ -204,10 +204,10 @@ void unique_op<KeyType, CounterType, empty_key, empty_val, hasher>::unique(
   // Device Restorer
   CudaDeviceContext dev_restorer;
   // Set to the device of this op
-  CK_CUDA_THROW_(cudaSetDevice(dev_));
+  HCTR_LIB_THROW(cudaSetDevice(dev_));
 
   // Set the d_output_counter to 0
-  CK_CUDA_THROW_(cudaMemsetAsync(d_output_counter, 0, sizeof(size_t), stream));
+  HCTR_LIB_THROW(cudaMemsetAsync(d_output_counter, 0, sizeof(size_t), stream));
 
   if (len == 0) {
     return;
@@ -222,7 +222,7 @@ void unique_op<KeyType, CounterType, empty_key, empty_val, hasher>::unique(
   dump_kernel<KeyType, CounterType><<<(capacity_ - 1) / BLOCK_SIZE_ + 1, BLOCK_SIZE_, 0, stream>>>(
       d_unique_key, keys_, vals_, 0, capacity_, d_output_counter, empty_key);
 
-  CK_CUDA_THROW_(cudaGetLastError());
+  HCTR_LIB_THROW(cudaGetLastError());
 }
 
 template <typename KeyType, typename CounterType, KeyType empty_key, CounterType empty_val,
@@ -231,14 +231,14 @@ void unique_op<KeyType, CounterType, empty_key, empty_val, hasher>::clear(cudaSt
   // Device Restorer
   CudaDeviceContext dev_restorer;
   // Set to the device of this op
-  CK_CUDA_THROW_(cudaSetDevice(dev_));
+  HCTR_LIB_THROW(cudaSetDevice(dev_));
 
   // Initialization kernel, set all entry to unused <K,V>, set counter to init value
   init_kernel<KeyType, CounterType>
       <<<((capacity_ - 1) / BLOCK_SIZE_) + 1, BLOCK_SIZE_, 0, stream>>>(
           keys_, vals_, counter_, capacity_, empty_key, empty_val, init_counter_val_);
 
-  CK_CUDA_THROW_(cudaGetLastError());
+  HCTR_LIB_THROW(cudaGetLastError());
 }
 
 template class unique_op<unsigned int, uint64_t, std::numeric_limits<unsigned int>::max(),

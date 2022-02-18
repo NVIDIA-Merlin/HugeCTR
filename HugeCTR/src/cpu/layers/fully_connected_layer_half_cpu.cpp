@@ -65,7 +65,7 @@ FullyConnectedLayerCPU<__half>::FullyConnectedLayerCPU(
   const auto& top_tensor_dim = top_tensor.get_dimensions();
 
   if (bottom_tensor_dim.size() != 2 || top_tensor_dim.size() != 2) {
-    CK_THROW_(Error_t::WrongInput, "input or output tensor doesn't has two dimensions");
+    HCTR_OWN_THROW(Error_t::WrongInput, "input or output tensor doesn't has two dimensions");
   }
 
   size_t m = bottom_tensor_dim[0];

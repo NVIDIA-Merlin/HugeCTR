@@ -66,7 +66,7 @@ class MmapOffsetList {
     try {
       fd_ = open(file_name.c_str(), O_RDONLY, 0);
       if (fd_ == -1) {
-        CK_THROW_(Error_t::BrokenFile, "Error open file for read");
+        HCTR_OWN_THROW(Error_t::BrokenFile, "Error open file for read");
         return;
       }
 
@@ -74,7 +74,7 @@ class MmapOffsetList {
       mmapped_data_ = (char*)mmap(0, length_, PROT_READ, MAP_PRIVATE, fd_, 0);
       if (mmapped_data_ == MAP_FAILED) {
         close(fd_);
-        CK_THROW_(Error_t::BrokenFile, "Error mmapping the file");
+        HCTR_OWN_THROW(Error_t::BrokenFile, "Error mmapping the file");
         return;
       }
 
@@ -98,14 +98,14 @@ class MmapOffsetList {
         unsigned int seed = rd();
 
 #ifdef ENABLE_MPI
-        CK_MPI_THROW_(MPI_Bcast(&seed, 1, MPI_UNSIGNED, 0, MPI_COMM_WORLD));
+        HCTR_MPI_THROW(MPI_Bcast(&seed, 1, MPI_UNSIGNED, 0, MPI_COMM_WORLD));
 #endif
         auto rng = std::default_random_engine{seed};
         std::shuffle(std::begin(offsets_), std::end(offsets_), rng);
       }
 
     } catch (const std::runtime_error& rt_err) {
-      std::cerr << rt_err.what() << std::endl;
+      HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
       throw;
     }
   }
@@ -122,11 +122,11 @@ class MmapOffsetList {
     }
     size_t counter = (round * num_workers_ + worker_id) % offsets_.size();
     if (worker_id >= num_workers_) {
-      CK_THROW_(Error_t::WrongInput, "worker_id >= num_workers_");
+      HCTR_OWN_THROW(Error_t::WrongInput, "worker_id >= num_workers_");
     }
     if (counter == offsets_.size() - 1) {
-      // CK_THROW_(Error_t::OutOfBound, "End of File");
-      std::cout << "End of File, worker:  " << worker_id << std::endl;
+      // HCTR_OWN_THROW(Error_t::OutOfBound, "End of File");
+      HCTR_LOG_S(INFO, WORLD) << "End of File, worker:  " << worker_id << std::endl;
     }
     return offsets_[counter];
   }

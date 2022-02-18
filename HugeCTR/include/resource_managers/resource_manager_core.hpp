@@ -49,10 +49,10 @@ class ResourceManagerCore : public ResourceManager {
   // from ResourceManagerBase
   void set_local_gpu(std::shared_ptr<GPUResource> gpu_resource, size_t local_gpu_id) override {
     if (local_gpu_id >= get_local_gpu_count()) {
-      CK_THROW_(Error_t::WrongInput, "Error: Invalid local_gpu_id");
+      HCTR_OWN_THROW(Error_t::WrongInput, "Error: Invalid local_gpu_id");
     }
     if (gpu_resources_[local_gpu_id] != nullptr) {
-      CK_THROW_(Error_t::WrongInput, "Error: Already initialized");
+      HCTR_OWN_THROW(Error_t::WrongInput, "Error: Already initialized");
     }
     gpu_resources_[local_gpu_id] = gpu_resource;
   }
@@ -99,20 +99,22 @@ class ResourceManagerCore : public ResourceManager {
       int local_gpu_id) const override;
 
 #ifdef ENABLE_MPI
-  void init_ib_comm() override { CK_THROW_(Error_t::IllegalCall, "Error: should not be reached"); }
+  void init_ib_comm() override {
+    HCTR_OWN_THROW(Error_t::IllegalCall, "Error: should not be reached");
+  }
   IbComm* get_ib_comm() const override {
-    CK_THROW_(Error_t::IllegalCall, "Error: should not be reached");
+    HCTR_OWN_THROW(Error_t::IllegalCall, "Error: should not be reached");
     return nullptr;
   }
   void set_ready_to_transfer() override {
-    CK_THROW_(Error_t::IllegalCall, "Error: should not be reached");
+    HCTR_OWN_THROW(Error_t::IllegalCall, "Error: should not be reached");
   }
 #endif
   void set_ar_comm(AllReduceAlgo algo, bool use_mixed_precision) override {
-    CK_THROW_(Error_t::IllegalCall, "Error: should not be reached");
+    HCTR_OWN_THROW(Error_t::IllegalCall, "Error: should not be reached");
   }
   AllReduceInPlaceComm* get_ar_comm() const override {
-    CK_THROW_(Error_t::IllegalCall, "Error: should not be reached");
+    HCTR_OWN_THROW(Error_t::IllegalCall, "Error: should not be reached");
     return nullptr;
   }
 };

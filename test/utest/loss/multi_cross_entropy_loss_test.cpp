@@ -21,7 +21,7 @@
 #include "HugeCTR/include/regularizers/no_regularizer.hpp"
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"
-using namespace std;
+
 using namespace HugeCTR;
 using namespace HugeCTR::test;
 
@@ -91,14 +91,14 @@ void multi_cross_entropy_loss(size_t label_dim, size_t batch_size) {
             : (target_weight[target_weight_idx] * grad / (batch_size * label_dim) * scaler);
 
     // if(i == 0){
-    //   printf("i=%d, x=%f, y=%f, target_weight[target_weight_idx]=%f, loss=%f, h_input=%f\n", i,
-    //   x, y, target_weight[target_weight_idx], loss, h_input[i]);
+    //   HCTR_LOG(INFO, WORLD, "i=%d, x=%f, y=%f, target_weight[target_weight_idx]=%f, loss=%f,
+    //   h_input=%f\n", i, x, y, target_weight[target_weight_idx], loss, h_input[i]);
     // }
   }
   cpu_loss = -cpu_loss / (batch_size * label_dim);
   ASSERT_EQ(true, cpu_gpu_cmp(h_input.get(), d_input, batch_size * label_dim))
-      << " CSE Gradient calulation failed" << endl;
-  ASSERT_EQ(true, cpu_gpu_cmp(&cpu_loss, d_loss, 1)) << " CSE Loss calulation failed" << endl;
+      << " CSE Gradient calulation failed" << std::endl;
+  ASSERT_EQ(true, cpu_gpu_cmp(&cpu_loss, d_loss, 1)) << " CSE Loss calulation failed" << std::endl;
 }
 
 TEST(loss_test, MultiCrossEntropyLoss11_1024) { multi_cross_entropy_loss(11, 1024); }

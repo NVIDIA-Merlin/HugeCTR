@@ -178,9 +178,9 @@ HashTable<KeyType, ValType>::HashTable(size_t capacity, size_t count) : capacity
       new HashTableContainer<KeyType, ValType>(static_cast<size_t>(capacity / LOAD_FACTOR));
 
   // Allocate device-side counter and copy user input to it
-  CK_CUDA_THROW_(cudaMalloc((void**)&d_counter_, sizeof(size_t)));
-  CK_CUDA_THROW_(cudaMalloc((void**)&d_container_size_, sizeof(size_t)));
-  CK_CUDA_THROW_(cudaMemcpy(d_counter_, &count, sizeof(size_t), cudaMemcpyHostToDevice));
+  HCTR_LIB_THROW(cudaMalloc((void**)&d_counter_, sizeof(size_t)));
+  HCTR_LIB_THROW(cudaMalloc((void**)&d_container_size_, sizeof(size_t)));
+  HCTR_LIB_THROW(cudaMemcpy(d_counter_, &count, sizeof(size_t), cudaMemcpyHostToDevice));
 }
 
 template <typename KeyType, typename ValType>
@@ -188,10 +188,10 @@ HashTable<KeyType, ValType>::~HashTable() {
   try {
     delete container_;
     // De-allocate device-side counter
-    CK_CUDA_THROW_(cudaFree(d_counter_));
-    CK_CUDA_THROW_(cudaFree(d_container_size_));
+    HCTR_LIB_THROW(cudaFree(d_counter_));
+    HCTR_LIB_THROW(cudaFree(d_container_size_));
   } catch (const std::runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
   }
 }
 
@@ -246,12 +246,12 @@ size_t HashTable<KeyType, ValType>::get_size(cudaStream_t stream) const {
   /* grid_size and allocating/initializing variable on dev, launching kernel*/
   const int grid_size = (hash_capacity - 1) / BLOCK_SIZE_ + 1;
 
-  CK_CUDA_THROW_(cudaMemsetAsync(d_container_size_, 0, sizeof(size_t), stream));
+  HCTR_LIB_THROW(cudaMemsetAsync(d_container_size_, 0, sizeof(size_t), stream));
   size_kernel<<<grid_size, BLOCK_SIZE_, 0, stream>>>(container_, hash_capacity, d_container_size_,
                                                      empty_key);
-  CK_CUDA_THROW_(cudaMemcpyAsync(&container_size, d_container_size_, sizeof(size_t),
+  HCTR_LIB_THROW(cudaMemcpyAsync(&container_size, d_container_size_, sizeof(size_t),
                                  cudaMemcpyDeviceToHost, stream));
-  CK_CUDA_THROW_(cudaStreamSynchronize(stream));
+  HCTR_LIB_THROW(cudaStreamSynchronize(stream));
 
   return container_size;
 }
@@ -259,9 +259,9 @@ size_t HashTable<KeyType, ValType>::get_size(cudaStream_t stream) const {
 template <typename KeyType, typename ValType>
 size_t HashTable<KeyType, ValType>::get_value_head(cudaStream_t stream) const {
   size_t counter;
-  CK_CUDA_THROW_(
+  HCTR_LIB_THROW(
       cudaMemcpyAsync(&counter, d_counter_, sizeof(size_t), cudaMemcpyDeviceToHost, stream));
-  CK_CUDA_THROW_(cudaStreamSynchronize(stream));
+  HCTR_LIB_THROW(cudaStreamSynchronize(stream));
   return counter;
 }
 
@@ -270,7 +270,7 @@ void HashTable<KeyType, ValType>::dump(KeyType* d_key, ValType* d_val, size_t* d
                                        cudaStream_t stream) const {
   size_t search_length = static_cast<size_t>(capacity_ / LOAD_FACTOR);
   // Before we call the kernel, set the global counter to 0
-  CK_CUDA_THROW_(cudaMemset(d_dump_counter, 0, sizeof(size_t)));
+  HCTR_LIB_THROW(cudaMemset(d_dump_counter, 0, sizeof(size_t)));
   // grid size according to the searching length.
   const int grid_size = (search_length - 1) / BLOCK_SIZE_ + 1;
   // dump_kernel: dump bucket container_[0, search_length) to d_key and d_val, and report

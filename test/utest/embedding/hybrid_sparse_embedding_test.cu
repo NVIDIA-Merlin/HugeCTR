@@ -46,11 +46,12 @@ const float lr = 0.01f;
 const DeviceMap::Layout layout = DeviceMap::LOCAL_FIRST;
 template <typename dtype>
 void print_vector(const std::vector<dtype> &vec, size_t num_elment, const std::string &vec_name) {
-  std::cout << "vector name: " << vec_name << ",vector size: " << vec.size() << std::endl;
+  auto log = HCTR_LOG_S(INFO, WORLD);
+  log << "vector name: " << vec_name << ",vector size: " << vec.size() << std::endl;
   for (size_t i = 0; i < std::min(num_elment, vec.size()); ++i) {
-    std::cout << vec[i] << ",";
+    log << vec[i] << ",";
   }
-  std::cout << std::endl;
+  log << std::endl;
 }
 template <typename TypeKey, typename TypeFP>
 void hybrid_sparse_embedding_construct(const std::vector<int> &device_list, size_t train_batch_size,
@@ -58,7 +59,7 @@ void hybrid_sparse_embedding_construct(const std::vector<int> &device_list, size
                                        hybrid_embedding::CommunicationType communication_type,
                                        hybrid_embedding::HybridEmbeddingType hybrid_embedding_type,
                                        const Optimizer_t &optimizer, const Update_t &update_type) {
-  // CK_NVML_THROW_(nvmlInit_v2());
+  // HCTR_LIB_THROW(nvmlInit_v2());
   std::vector<std::vector<int>> vvgpu;
   for (int i = 0; i < numprocs; i++) {
     vvgpu.push_back(device_list);
@@ -140,23 +141,24 @@ void hybrid_sparse_embedding_construct(const std::vector<int> &device_list, size
     lr_scheds.emplace_back(
         new GpuLearningRateScheduler(lr, 1, 0, 1, 2.f, 0.f, resource_manager->get_local_gpu(lgpu)));
   }
-  std::cout << "hybridEmbdeding" << std::endl;
+  HCTR_LOG_S(INFO, WORLD) << "hybridEmbdeding" << std::endl;
   std::vector<std::shared_ptr<BufferBlock2<TypeFP>>> placeholder(
       resource_manager->get_local_gpu_count(), NULL);
   std::unique_ptr<HybridSparseEmbedding<TypeKey, TypeFP>> embedding(
       new HybridSparseEmbedding<TypeKey, TypeFP>(train_input_tensors, evaluate_input_tensors,
                                                  embedding_params, placeholder, lr_scheds, false,
                                                  resource_manager));
-  std::cout << "init_model" << std::endl;
+  HCTR_LOG_S(INFO, WORLD) << "init_model" << std::endl;
   embedding->init_model(inits);
   // std::cout << "forward" << std::endl;
-  std::cout << "batch size = " << train_batch_size << std::endl;
-  std::cout << "total_categories = " << total_categories
-            << ", num_frequent = " << embedding->model_[0].num_frequent << std::endl;
+  HCTR_LOG_S(INFO, WORLD) << "batch size = " << train_batch_size << std::endl;
+  HCTR_LOG_S(INFO, WORLD) << "total_categories = " << total_categories
+                          << ", num_frequent = " << embedding->model_[0].num_frequent << std::endl;
   for (size_t lgpu = 0; lgpu < local_gpu_count; ++lgpu) {
-    std::cout << "GPU[" << lgpu << "]"
-              << " num_infrequent = "
-              << embedding->model_[lgpu].h_infrequent_model_table_offsets[slot_num] << std::endl;
+    HCTR_LOG_S(INFO, WORLD) << "GPU[" << lgpu << "]"
+                            << " num_infrequent = "
+                            << embedding->model_[lgpu].h_infrequent_model_table_offsets[slot_num]
+                            << std::endl;
   }
 
 #ifdef ENABLE_PROFILING
@@ -167,7 +169,7 @@ void hybrid_sparse_embedding_construct(const std::vector<int> &device_list, size
     for (int i = 0; i < int(resource_manager->get_local_gpu_count()); i++) {
       auto device_id = resource_manager->get_local_gpu(i)->get_device_id();
       context.set_device(device_id);
-      CK_CUDA_THROW_(cudaDeviceSynchronize());
+      HCTR_LIB_THROW(cudaDeviceSynchronize());
     }
 
     finished = global_profiler.iter_check();
@@ -180,14 +182,14 @@ void hybrid_sparse_embedding_construct(const std::vector<int> &device_list, size
     for (int i = 0; i < int(resource_manager->get_local_gpu_count()); i++) {
       auto device_id = resource_manager->get_local_gpu(i)->get_device_id();
       context.set_device(device_id);
-      CK_CUDA_THROW_(cudaDeviceSynchronize());
+      HCTR_LIB_THROW(cudaDeviceSynchronize());
     }
     if (j % 100 == 0) {
       auto cost = std::chrono::duration_cast<std::chrono::nanoseconds>(
                       std::chrono::steady_clock::now() - check)
                       .count() /
                   1000000.0;
-      MESSAGE_(std::string("100 iter time: ") + std::to_string(cost));
+      HCTR_LOG_S(INFO, ROOT) << "100 iter time: " << cost << std::endl;
       check = std::chrono::steady_clock::now();
     }
 

@@ -56,7 +56,7 @@ inline size_t tensorScalarSizeFunc(TensorScalarType type) {
     case TensorScalarType::Size_t:
       return sizeof(size_t);
     default:
-      CK_THROW_(Error_t::WrongInput, "Cannot determine size of the None element");
+      HCTR_OWN_THROW(Error_t::WrongInput, "Cannot determine size of the None element");
       return 0;
   }
 }
@@ -141,7 +141,7 @@ class Tensor2 {
  public:
   static Tensor2 stretch_from(const TensorBag2 &bag) {
     if (bag.scalar_type_ != TensorScalarTypeFunc<T>::get_type()) {
-      CK_THROW_(Error_t::WrongInput, "Inconsistent tensor type");
+      HCTR_OWN_THROW(Error_t::WrongInput, "Inconsistent tensor type");
     }
 
     return Tensor2(bag.dimensions_, bag.buffer_);
@@ -186,12 +186,12 @@ class Tensor2 {
     try {
       size_t new_num_elements = get_num_elements_from_dimensions(new_dimensions);
       if (new_num_elements > num_elements_) {
-        CK_THROW_(Error_t::WrongInput, "new dimensions out of memory");
+        HCTR_OWN_THROW(Error_t::WrongInput, "new dimensions out of memory");
       }
       dimensions_ = new_dimensions;
       num_elements_ = new_num_elements;
     } catch (const std::runtime_error &rt_err) {
-      std::cerr << rt_err.what() << std::endl;
+      HCTR_LOG_S(ERROR, ROOT) << rt_err.what() << std::endl;
     }
   }
 };
@@ -275,7 +275,7 @@ class SparseTensor {
 
   static SparseTensor stretch_from(const SparseTensorBag &bag) {
     if (bag.scalar_type_ != TensorScalarTypeFunc<T>::get_type()) {
-      CK_THROW_(Error_t::WrongInput, "Inconsistent sparse tensor type");
+      HCTR_OWN_THROW(Error_t::WrongInput, "Inconsistent sparse tensor type");
     }
     return SparseTensor(bag.dimensions_, bag.value_buffer_, bag.rowoffset_buffer_, bag.nnz_,
                         bag.rowoffset_count_);
@@ -323,10 +323,10 @@ namespace cuda {
 template <typename T>
 void copy_async(SparseTensor<T> &dst, const SparseTensor<T> &src, cudaMemcpyKind kind,
                 cudaStream_t stream) {
-  CK_CUDA_THROW_(cudaMemcpyAsync(dst.get_value_ptr(), src.get_value_ptr(), src.nnz() * sizeof(T),
+  HCTR_LIB_THROW(cudaMemcpyAsync(dst.get_value_ptr(), src.get_value_ptr(), src.nnz() * sizeof(T),
                                  kind, stream));
 
-  CK_CUDA_THROW_(cudaMemcpyAsync(dst.get_rowoffset_ptr(), src.get_rowoffset_ptr(),
+  HCTR_LIB_THROW(cudaMemcpyAsync(dst.get_rowoffset_ptr(), src.get_rowoffset_ptr(),
                                  src.rowoffset_count() * sizeof(T), kind, stream));
 
   *dst.get_nnz_ptr() = src.nnz();
@@ -334,10 +334,10 @@ void copy_async(SparseTensor<T> &dst, const SparseTensor<T> &src, cudaMemcpyKind
 
 template <typename T>
 void copy_async(SparseTensor<T> &dst, const CSR<T> &src, cudaStream_t stream) {
-  CK_CUDA_THROW_(cudaMemcpyAsync(dst.get_value_ptr(), src.get_value_tensor().get_ptr(),
+  HCTR_LIB_THROW(cudaMemcpyAsync(dst.get_value_ptr(), src.get_value_tensor().get_ptr(),
                                  src.get_num_values() * sizeof(T), cudaMemcpyHostToDevice, stream));
 
-  CK_CUDA_THROW_(cudaMemcpyAsync(dst.get_rowoffset_ptr(), src.get_row_offset_tensor().get_ptr(),
+  HCTR_LIB_THROW(cudaMemcpyAsync(dst.get_rowoffset_ptr(), src.get_row_offset_tensor().get_ptr(),
                                  src.get_row_offset_tensor().get_size_in_bytes(),
                                  cudaMemcpyHostToDevice, stream));
 

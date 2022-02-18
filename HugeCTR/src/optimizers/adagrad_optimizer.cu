@@ -48,14 +48,14 @@ AdaGradOptimizer<T>::AdaGradOptimizer(const Tensor2<float>& weight_main, const T
       initial_accumulator_value_(initial_accu_value),
       epsilon_(epsilon) {
   if (weight_main_.get_num_elements() != wgrad_.get_num_elements()) {
-    CK_THROW_(Error_t::WrongInput, "weight->get_num_elements() != wgrad->get_num_elements()");
+    HCTR_OWN_THROW(Error_t::WrongInput, "weight->get_num_elements() != wgrad->get_num_elements()");
   }
   opt_buf->reserve({weight_main.get_num_elements()}, &accum_);
 }
 
 template <typename T>
 void AdaGradOptimizer<T>::initialize() {
-  CK_CUDA_THROW_(cudaMemsetAsync(accum_.get_ptr(), initial_accumulator_value_,
+  HCTR_LIB_THROW(cudaMemsetAsync(accum_.get_ptr(), initial_accumulator_value_,
                                  accum_.get_size_in_bytes(), gpu_resource_->get_stream()));
 }
 
@@ -74,7 +74,7 @@ void AdaGradOptimizer<T>::update() {
 
 #ifndef NDEBUG
   cudaDeviceSynchronize();
-  CK_CUDA_THROW_(cudaGetLastError());
+  HCTR_LIB_THROW(cudaGetLastError());
 #endif
 }
 

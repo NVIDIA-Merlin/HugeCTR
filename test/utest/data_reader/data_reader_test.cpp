@@ -124,7 +124,7 @@ void data_reader_worker_norm_test_impl(bool repeat) {
     size_t nnz = sparse_tensor.nnz();
 
     std::unique_ptr<T[]> keys(new T[nnz]);
-    CK_CUDA_THROW_(cudaMemcpy(keys.get(), sparse_tensor.get_value_ptr(), nnz * sizeof(T),
+    HCTR_LIB_THROW(cudaMemcpy(keys.get(), sparse_tensor.get_value_ptr(), nnz * sizeof(T),
                               cudaMemcpyDeviceToHost));
 
     for (size_t i = 0; i < nnz; ++i) {
@@ -137,7 +137,7 @@ void data_reader_worker_norm_test_impl(bool repeat) {
     value_offset = value_offset % generated_sparse_value.size();
 
     std::unique_ptr<T[]> rowoffsets(new T[1 + current_batch_size * slot_num]);
-    CK_CUDA_THROW_(cudaMemcpy(rowoffsets.get(), sparse_tensor.get_rowoffset_ptr(),
+    HCTR_LIB_THROW(cudaMemcpy(rowoffsets.get(), sparse_tensor.get_rowoffset_ptr(),
                               (1 + current_batch_size * slot_num) * sizeof(T),
                               cudaMemcpyDeviceToHost));
 
@@ -159,7 +159,7 @@ void data_reader_worker_norm_test_impl(bool repeat) {
 
     std::unique_ptr<float[]> label_dense_vec(
         new float[current_batch_size * (dense_dim + label_dim)]);
-    CK_CUDA_THROW_(cudaMemcpy(label_dense_vec.get(), label_dense_tensor.get_ptr(),
+    HCTR_LIB_THROW(cudaMemcpy(label_dense_vec.get(), label_dense_tensor.get_ptr(),
                               current_batch_size * (dense_dim + label_dim) * sizeof(float),
                               cudaMemcpyDeviceToHost));
 

@@ -110,7 +110,7 @@ template <typename TypeKey>
 void HMemCache<TypeKey>::read(TypeKey *key_ptr, size_t &len, size_t *slot_id_ptr,
                               std::vector<float *> &data_ptrs) {
   if (data_ptrs.size() != vec_per_line_) {
-    CK_THROW_(Error_t::WrongInput, "Num of data files and pointers doesn't equal");
+    HCTR_OWN_THROW(Error_t::WrongInput, "Num of data files and pointers doesn't equal");
   }
   auto const num_thread{24};
   std::vector<std::vector<std::vector<TypeKey>>> sub_exist_keys(
@@ -249,11 +249,8 @@ void HMemCache<TypeKey>::read(TypeKey *key_ptr, size_t &len, size_t *slot_id_ptr
       is_full_ = true;
     }
   }
-  {
-    std::stringstream ss;
-    ss << "HMEM-Cache PS: Hit rate [load]: " << std::setprecision(4) << (hit_rate * 100.) << " %";
-    MESSAGE_(ss.str(), true);
-  }
+  HCTR_LOG_S(INFO, WORLD) << "HMEM-Cache PS: Hit rate [load]: " << std::setprecision(4)
+                          << (hit_rate * 100.) << " %" << std::endl;
 }
 
 template <typename TypeKey>
@@ -357,10 +354,9 @@ void HMemCache<TypeKey>::write(const TypeKey *key_ptr, size_t len, size_t const 
   }
   sparse_model_file_ptr_->dump_insert(key_ptr, new_key_src_idx_vec, slot_id_ptr, data_ptrs);
   {
-    auto hit_rate{100.0 * src_idx_vecs[0].size() / len};
-    std::stringstream ss;
-    ss << "HMEM-Cache PS: Hit rate [dump]: " << std::setprecision(4) << hit_rate << " %";
-    MESSAGE_(ss.str(), true);
+    const double hit_rate{100.0 * src_idx_vecs[0].size() / len};
+    HCTR_LOG_S(INFO, WORLD) << "HMEM-Cache PS: Hit rate [dump]: " << std::setprecision(4)
+                            << hit_rate << " %" << std::endl;
   }
 }
 
@@ -369,7 +365,7 @@ void HMemCache<TypeKey>::sync_to_ssd() {
   if (!is_full_ && head_id_ == -1) return;
   auto num_blk{is_full_ ? num_block_ : (head_id_ + 1)};
   auto tail_id{is_full_ ? (head_id_ + 1) % num_block_ : 0};
-  MESSAGE_("Sync blocks from HMEM-Cache to SSD");
+  HCTR_LOG(INFO, ROOT, "Sync blocks from HMEM-Cache to SSD\n");
   tqdm bar;
   if (resource_manager_->is_master_process()) {
     bar.progress(0, num_blk);

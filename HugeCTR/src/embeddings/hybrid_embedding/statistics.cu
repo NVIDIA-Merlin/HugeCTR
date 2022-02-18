@@ -192,13 +192,13 @@ template <typename dtype>
 void Statistics<dtype>::reserve_temp_storage(std::shared_ptr<GeneralBuffer2<CudaAllocator>> buf) {
   size_t size_sort_keys_temp = 0;
   sort_categories_by_count_temp_storages_.resize(7);
-  CK_CUDA_THROW_(cub::DeviceRadixSort::SortKeys((void *)nullptr, size_sort_keys_temp,
+  HCTR_LIB_THROW(cub::DeviceRadixSort::SortKeys((void *)nullptr, size_sort_keys_temp,
                                                 (dtype *)nullptr, (dtype *)nullptr,
                                                 (int)num_samples, 0, sizeof(dtype) * 8, 0));
   buf->reserve({size_sort_keys_temp, 1}, &sort_categories_by_count_temp_storages_[0]);
   buf->reserve({num_samples * sizeof(dtype), 1}, &sort_categories_by_count_temp_storages_[1]);
   size_t size_unique_categories_temp = 0;
-  CK_CUDA_THROW_(cub::DeviceRunLengthEncode::Encode(
+  HCTR_LIB_THROW(cub::DeviceRunLengthEncode::Encode(
       (void *)nullptr, size_unique_categories_temp, (dtype *)nullptr, (dtype *)nullptr,
       (uint32_t *)nullptr, (uint32_t *)nullptr, (int)num_samples, 0));
 
@@ -208,7 +208,7 @@ void Statistics<dtype>::reserve_temp_storage(std::shared_ptr<GeneralBuffer2<Cuda
   buf->reserve({sizeof(uint32_t), 1}, &sort_categories_by_count_temp_storages_[5]);
 
   size_t size_sort_pairs_temp = 0;
-  CK_CUDA_THROW_(cub::DeviceRadixSort::SortPairsDescending(
+  HCTR_LIB_THROW(cub::DeviceRadixSort::SortPairsDescending(
       (void *)nullptr, size_sort_pairs_temp, (uint32_t *)nullptr, (uint32_t *)nullptr,
       (dtype *)nullptr, (dtype *)nullptr, (int)num_samples, 0, sizeof(uint32_t) * 8, 0));
   buf->reserve({size_sort_pairs_temp, 1}, &sort_categories_by_count_temp_storages_[6]);
@@ -219,7 +219,7 @@ void Statistics<dtype>::reserve_temp_storage(std::shared_ptr<GeneralBuffer2<Cuda
   size_t size_sort_temp = 0;
   int bit_width = 1;
   for (uint32_t i = num_instances * num_tables - 1; i >>= 1;) bit_width++;
-  CK_CUDA_THROW_(cub::DeviceRadixSort::SortPairs(
+  HCTR_LIB_THROW(cub::DeviceRadixSort::SortPairs(
       (void *)nullptr, size_sort_temp, (uint32_t *)nullptr, (uint32_t *)nullptr, (dtype *)nullptr,
       (dtype *)nullptr, (int)num_samples, 0, bit_width, 0));
 
@@ -233,7 +233,7 @@ void Statistics<dtype>::reserve_temp_storage(std::shared_ptr<GeneralBuffer2<Cuda
   size_t size_select_temp = 0;
   cub::CountingInputIterator<dtype> counting(0);
   InfrequentSelectOp<dtype> select_op(nullptr, 0);
-  CK_CUDA_THROW_(cub::DeviceSelect::If((void *)nullptr, size_select_temp, counting,
+  HCTR_LIB_THROW(cub::DeviceSelect::If((void *)nullptr, size_select_temp, counting,
                                        (dtype *)nullptr, (dtype *)nullptr, num_categories,
                                        select_op, 0));
   buf->reserve({size_select_temp, 1}, &calculate_infrequent_categories_temp_storages_[0]);
@@ -246,8 +246,8 @@ void Statistics<dtype>::sort_categories_by_count(const dtype *samples, size_t nu
                                                  uint32_t &num_unique_categories,
                                                  cudaStream_t stream) {
   if (num_samples > 0x7fffffff) {
-    std::cout << "Num samples: " << std::hex << num_samples << std::dec << std::endl;
-    CK_THROW_(Error_t::WrongInput, "num_samples is too large, overflow for int type");
+    HCTR_LOG_S(ERROR, WORLD) << "Num samples: " << std::hex << num_samples << std::dec << std::endl;
+    HCTR_OWN_THROW(Error_t::WrongInput, "num_samples is too large, overflow for int type");
   }
   void *p_sort_keys_temp =
       reinterpret_cast<void *>(sort_categories_by_count_temp_storages_[0].get_ptr());  // void*
@@ -265,20 +265,20 @@ void Statistics<dtype>::sort_categories_by_count(const dtype *samples, size_t nu
       reinterpret_cast<void *>(sort_categories_by_count_temp_storages_[6].get_ptr());  // void*
 
   size_t temp_size = sort_categories_by_count_temp_storages_[0].get_size_in_bytes();
-  CK_CUDA_THROW_(cub::DeviceRadixSort::SortKeys(p_sort_keys_temp, temp_size, samples,
+  HCTR_LIB_THROW(cub::DeviceRadixSort::SortKeys(p_sort_keys_temp, temp_size, samples,
                                                 p_sort_keys_out, (int)num_samples, 0,
                                                 sizeof(dtype) * 8, stream));
 
   temp_size = sort_categories_by_count_temp_storages_[2].get_size_in_bytes();
-  CK_CUDA_THROW_(cub::DeviceRunLengthEncode::Encode(
+  HCTR_LIB_THROW(cub::DeviceRunLengthEncode::Encode(
       p_unique_categories_temp, temp_size, p_sort_keys_out, p_unique_categories_out,
       p_unique_categories_counts, p_num_unique_categories, (int)num_samples, stream));
-  CK_CUDA_THROW_(cudaMemcpyAsync((void *)&num_unique_categories, (void *)p_num_unique_categories,
+  HCTR_LIB_THROW(cudaMemcpyAsync((void *)&num_unique_categories, (void *)p_num_unique_categories,
                                  sizeof(uint32_t), cudaMemcpyDeviceToHost, stream));
-  CK_CUDA_THROW_(cudaPeekAtLastError());
+  HCTR_LIB_THROW(cudaPeekAtLastError());
 
   temp_size = sort_categories_by_count_temp_storages_[6].get_size_in_bytes();
-  CK_CUDA_THROW_(cub::DeviceRadixSort::SortPairsDescending(
+  HCTR_LIB_THROW(cub::DeviceRadixSort::SortPairsDescending(
       p_sort_pairs_temp, temp_size, p_unique_categories_counts, counts_sorted,
       p_unique_categories_out, categories_sorted, (int)num_unique_categories, 0,
       sizeof(uint32_t) * 8, stream));
@@ -304,12 +304,12 @@ void Statistics<dtype>::calculate_frequent_categories(dtype *frequent_categories
     statistics_kernels::category_to_frequent_section<<<n_blocks_keys, TPB_keys, 0, stream>>>(
         categories_sorted.get_ptr(), p_keys_in, table_offsets.get_ptr(), num_frequent, num_tables,
         num_instances);
-    CK_CUDA_THROW_(cudaPeekAtLastError());
+    HCTR_LIB_THROW(cudaPeekAtLastError());
 
     /* Step 2: sort */
     int bit_width = 1;
     for (uint32_t i = num_instances * num_tables - 1; i >>= 1;) bit_width++;
-    CK_CUDA_THROW_(cub::DeviceRadixSort::SortPairs(
+    HCTR_LIB_THROW(cub::DeviceRadixSort::SortPairs(
         p_sort_temp, sort_temp_size, p_keys_in, p_keys_out, categories_sorted.get_ptr(),
         frequent_categories, (int)num_frequent, 0, bit_width, stream));
   }
@@ -319,7 +319,7 @@ void Statistics<dtype>::calculate_frequent_categories(dtype *frequent_categories
   const size_t n_blocks_fill = ceildiv<size_t>(num_categories, TPB_fill);
   statistics_kernels::fill<<<n_blocks_fill, TPB_fill, 0, stream>>>(
       category_frequent_index, (dtype)num_categories, num_categories);
-  CK_CUDA_THROW_(cudaPeekAtLastError());
+  HCTR_LIB_THROW(cudaPeekAtLastError());
 
   if (num_frequent > 0) {
     constexpr size_t TPB_inversion = 256;
@@ -327,7 +327,7 @@ void Statistics<dtype>::calculate_frequent_categories(dtype *frequent_categories
     statistics_kernels::
         calculate_category_frequent_index<<<n_blocks_inversion, TPB_inversion, 0, stream>>>(
             frequent_categories, category_frequent_index, num_frequent);
-    CK_CUDA_THROW_(cudaPeekAtLastError());
+    HCTR_LIB_THROW(cudaPeekAtLastError());
   }
 }
 
@@ -348,14 +348,14 @@ void Statistics<dtype>::calculate_infrequent_categories(dtype *infrequent_catego
   const size_t n_blocks_fill = ceildiv<size_t>(2 * num_categories, TPB_fill);
   statistics_kernels::fill<<<n_blocks_fill, TPB_fill, 0, stream>>>(
       category_location, (dtype)num_categories, 2 * num_categories);
-  CK_CUDA_THROW_(cudaPeekAtLastError());
+  HCTR_LIB_THROW(cudaPeekAtLastError());
 
   /// TODO: combine select and writing to category_location with a custom output iterator
 
   /* Select the infrequent categories */
   cub::CountingInputIterator<dtype> counting(0);
   InfrequentSelectOp<dtype> select_op(category_frequent_index, num_categories);
-  CK_CUDA_THROW_(cub::DeviceSelect::If(p_select_temp, select_temp_size, counting,
+  HCTR_LIB_THROW(cub::DeviceSelect::If(p_select_temp, select_temp_size, counting,
                                        infrequent_categories, p_num_selected, num_categories,
                                        select_op, stream));
 
@@ -365,7 +365,7 @@ void Statistics<dtype>::calculate_infrequent_categories(dtype *infrequent_catego
     const size_t n_blocks_loc = (size_t)ceildiv<dtype>(num_infrequent, TPB_loc);
     statistics_kernels::calculate_category_location<<<n_blocks_loc, TPB_loc, 0, stream>>>(
         infrequent_categories, category_location, num_infrequent, num_instances);
-    CK_CUDA_THROW_(cudaPeekAtLastError());
+    HCTR_LIB_THROW(cudaPeekAtLastError());
   }
 }
 
@@ -381,10 +381,10 @@ void Statistics<dtype>::calculate_infrequent_model_table_offsets(
       infrequent_categories.get_ptr(), category_location.get_ptr(), table_offsets.get_ptr(),
       infrequent_model_table_offsets.get_ptr(), num_tables, num_infrequent, num_model_infrequent,
       global_instance_id);
-  CK_CUDA_THROW_(cudaPeekAtLastError());
+  HCTR_LIB_THROW(cudaPeekAtLastError());
 
   h_infrequent_model_table_offsets.resize(num_tables + 1);
-  CK_CUDA_THROW_(cudaMemcpyAsync(h_infrequent_model_table_offsets.data(),
+  HCTR_LIB_THROW(cudaMemcpyAsync(h_infrequent_model_table_offsets.data(),
                                  infrequent_model_table_offsets.get_ptr(),
                                  (num_tables + 1) * sizeof(dtype), cudaMemcpyDeviceToHost, stream));
 }
@@ -397,10 +397,10 @@ void Statistics<dtype>::calculate_frequent_model_table_offsets(
       calculate_frequent_model_table_offsets<<<num_instances, num_tables + 1, 0, stream>>>(
           frequent_categories.get_ptr(), table_offsets.get_ptr(),
           frequent_model_table_offsets.get_ptr(), num_instances, num_tables, num_frequent);
-  CK_CUDA_THROW_(cudaPeekAtLastError());
+  HCTR_LIB_THROW(cudaPeekAtLastError());
 
   h_frequent_model_table_offsets.resize(num_instances * (num_tables + 1));
-  CK_CUDA_THROW_(cudaMemcpyAsync(
+  HCTR_LIB_THROW(cudaMemcpyAsync(
       h_frequent_model_table_offsets.data(), frequent_model_table_offsets.get_ptr(),
       num_instances * (num_tables + 1) * sizeof(dtype), cudaMemcpyDeviceToHost, stream));
 }

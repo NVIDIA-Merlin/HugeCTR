@@ -177,6 +177,8 @@ enum class Error_t {
 #define HCTR_PRINT(NAME, ...) Logger::get().log(LOG_LEVEL(NAME), LOG_RANK_ROOT, false, __VA_ARGS__)
 #define HCTR_PRINT_AT(LEVEL, ...) Logger::get().log(LEVEL, LOG_RANK_ROOT, false, __VA_ARGS__)
 
+// #define HCTR_PRINT_S(NAME) Logger::get().log(LOG_LEVEL(NAME), LOG_RANK_ROOT, false)
+
 struct SrcLoc {
   const char* file;
   unsigned line;
@@ -186,6 +188,8 @@ struct SrcLoc {
 
 #define CUR_SRC_LOC(EXPR) \
   SrcLoc { __FILE__, __LINE__, __func__, #EXPR }
+
+#define HCTR_LOCATION() '(' << __FILE__ << ':' << __LINE__ << ')'
 
 template <typename SrcType>
 Error_t getErrorType(SrcType err);
@@ -295,47 +299,39 @@ inline std::string getErrorString(curandStatus_t err) {
 }
 
 // For HugeCTR own error types, it is up to users to define the msesage.
-#define HCTR_OWN_THROW(EXPR, MSG)                                           \
-  do {                                                                      \
-    Error_t err_thr = (EXPR);                                               \
-    if (err_thr != Error_t::Success) {                                      \
-      Logger::get().do_throw(err_thr, CUR_SRC_LOC(EXPR), std::string(MSG)); \
-    }                                                                       \
-  } while (0);
+#define HCTR_OWN_THROW(EXPR, MSG)                            \
+  do {                                                       \
+    const Error_t err = (EXPR);                              \
+    if (err != Error_t::Success) {                           \
+      Logger::get().do_throw(err, CUR_SRC_LOC(EXPR), (MSG)); \
+    }                                                        \
+  } while (0)
 
 #ifdef ENABLE_MPI
 // Because MPI error code is in int, it is safe to have a separate macro for MPI,
 // rather than reserving `int` as MPI error type.
 // We don't want this set of macros to become another source of errors.
-#define HCTR_MPI_THROW(EXPR)                                                              \
-  do {                                                                                    \
-    auto err_thr = (EXPR);                                                                \
-    if (err_thr != MPI_SUCCESS) {                                                         \
-      char err_str[MPI_MAX_ERROR_STRING];                                                 \
-      int err_len = MPI_MAX_ERROR_STRING;                                                 \
-      MPI_Error_string(err_thr, err_str, &err_len);                                       \
-      Logger::get().do_throw(Error_t::MpiError, CUR_SRC_LOC(EXPR), std::string(err_str)); \
-    }                                                                                     \
-  } while (0);
+#define HCTR_MPI_THROW(EXPR)                                                 \
+  do {                                                                       \
+    const int err_code = (EXPR);                                             \
+    if (err_code != MPI_SUCCESS) {                                           \
+      char err_str[MPI_MAX_ERROR_STRING];                                    \
+      int err_len = MPI_MAX_ERROR_STRING;                                    \
+      MPI_Error_string(err_code, err_str, &err_len);                         \
+      Logger::get().do_throw(Error_t::MpiError, CUR_SRC_LOC(EXPR), err_str); \
+    }                                                                        \
+  } while (0)
 #endif
 
 // For other library calls such as CUDA, cuBLAS and NCCL, use this macro
-#define HCTR_LIB_THROW(EXPR)                                        \
-  do {                                                              \
-    auto ret_thr = (EXPR);                                          \
-    Error_t err_type = getErrorType(ret_thr);                       \
-    if (err_type != Error_t::Success) {                             \
-      std::string err_msg = getErrorString(ret_thr);                \
-      Logger::get().do_throw(err_type, CUR_SRC_LOC(EXPR), err_msg); \
-    }                                                               \
-  } while (0);
-
-#define HCTR_THROW_IF(EXPR, ERROR, MSG)                                     \
-  do {                                                                      \
-    const auto& expr = (EXPR);                                              \
-    if (expr) {                                                             \
-      Logger::get().do_throw((ERROR), CUR_SRC_LOC(EXPR), std::string(MSG)); \
-    }                                                                       \
+#define HCTR_LIB_THROW(EXPR)                               \
+  do {                                                     \
+    const auto lib_err = (EXPR);                           \
+    const Error_t err = getErrorType(lib_err);             \
+    if (err != Error_t::Success) {                         \
+      const std::string msg = getErrorString(lib_err);     \
+      Logger::get().do_throw(err, CUR_SRC_LOC(EXPR), msg); \
+    }                                                      \
   } while (0)
 
 #define CHECK_CALL(MODE) CHECK_##MODE##_CALL
@@ -380,7 +376,7 @@ class DeferredLogEntry {
                           std::function<void(std::ostringstream&)> make_log_entry)
       : bypass_{bypass}, make_log_entry_{make_log_entry} {}
 
-  inline ~DeferredLogEntry() { make_log_entry_(ss_); }
+  inline ~DeferredLogEntry() { make_log_entry_(os_); }
 
   DeferredLogEntry(const DeferredLogEntry&) = delete;
   DeferredLogEntry(const DeferredLogEntry&&) = delete;
@@ -390,21 +386,21 @@ class DeferredLogEntry {
   template <typename T>
   inline DeferredLogEntry& operator<<(const T& value) {
     if (!bypass_) {
-      ss_ << value;
+      os_ << value;
     }
     return *this;
   }
 
   inline DeferredLogEntry& operator<<(std::ostream& (*fn)(std::ostream&)) {
     if (!bypass_) {
-      fn(ss_);
+      fn(os_);
     }
     return *this;
   }
 
  private:
   bool bypass_;
-  std::ostringstream ss_;
+  std::ostringstream os_;
   std::function<void(std::ostringstream&)> make_log_entry_;
 };
 

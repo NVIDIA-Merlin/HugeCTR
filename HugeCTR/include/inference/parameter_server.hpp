@@ -47,7 +47,7 @@ class parameter_server_base {
   // Used in some backend implementations to name embedding tables appropriately.
   // Note: Kafka requires [a-zA-Z0-9\\._\\-]{1,249} for topic names. Also at other
   //       locations we may want to use this directly in regular expressions. So
-  //       let's avoid using "." (dot).
+  //       let's avoid using '.' (dot).
   static constexpr const char* PS_EMBEDDING_TABLE_TAG_PREFIX = "hctr_et";
 
   static std::string make_tag_name(const std::string& model_name,

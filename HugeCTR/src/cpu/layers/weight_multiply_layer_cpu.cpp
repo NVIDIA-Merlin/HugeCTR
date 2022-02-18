@@ -80,13 +80,13 @@ WeightMultiplyLayerCPU<T>::WeightMultiplyLayerCPU(
   try {
     const auto& in_dims = in_tensor.get_dimensions();
     if (in_dims.size() != 2) {
-      CK_THROW_(Error_t::WrongInput, "Only 2D tensors can be multiplied");
+      HCTR_OWN_THROW(Error_t::WrongInput, "Only 2D tensors can be multiplied");
     }
     if (weight_dims.size() != 2) {
-      CK_THROW_(Error_t::WrongInput, "Only 2D weights is allowed for weight_multiply layer");
+      HCTR_OWN_THROW(Error_t::WrongInput, "Only 2D weights is allowed for weight_multiply layer");
     }
     if (weight_dims[0] != in_dims[1]) {
-      CK_THROW_(Error_t::WrongInput, "weight_dims[0] must be equal to in_dims[1]");
+      HCTR_OWN_THROW(Error_t::WrongInput, "weight_dims[0] must be equal to in_dims[1]");
     }
 
     batch_size_ = in_dims[0];
@@ -112,7 +112,7 @@ WeightMultiplyLayerCPU<T>::WeightMultiplyLayerCPU(
     blob_buff->reserve(out_dims, &wgrad_tmp_trans_);
 
   } catch (const std::runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     throw;
   }
 }

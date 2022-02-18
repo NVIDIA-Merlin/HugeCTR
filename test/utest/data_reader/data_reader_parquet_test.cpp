@@ -59,7 +59,7 @@ using CVector = std::vector<std::unique_ptr<cudf::column>>;
 typedef long long T;
 // generate parquet files and return data in the form of `row-major` stored in vector<>
 void generate_parquet_input_files(int num_files, int sample_per_file, std::vector<bool>& is_mhot,
-                                  std ::vector<LABEL_TYPE>& labels, std::vector<DENSE_TYPE>& denses,
+                                  std::vector<LABEL_TYPE>& labels, std::vector<DENSE_TYPE>& denses,
                                   std::vector<int32_t>& row_offsets,
                                   std::vector<CAT_TYPE>& sparse_values) {
   check_make_dir(prefix);
@@ -173,7 +173,7 @@ void generate_parquet_input_files(int num_files, int sample_per_file, std::vecto
   output_file_stream.close();
 
   // also write metadata
-  std::stringstream metadata;
+  std::ostringstream metadata;
   metadata << "{ \"file_stats\": [";
   for (int i = 0; i < num_files - 1; i++) {
     std::string filepath = std::to_string(i) + std::string(".parquet");
@@ -210,9 +210,8 @@ void generate_parquet_input_files(int num_files, int sample_per_file, std::vecto
   metadata << "] ";
   metadata << "}";
 
-  std::ofstream metadata_file_stream;
-  metadata_file_stream.open(prefix + "_metadata.json", std::ofstream::out);
-  metadata_file_stream << metadata.rdbuf();
+  std::ofstream metadata_file_stream{prefix + "_metadata.json"};
+  metadata_file_stream << metadata.str();
   metadata_file_stream.close();
 }
 
@@ -298,9 +297,9 @@ TEST(data_reader_parquet_worker, data_reader_parquet_worker_single_worker_iter) 
     size_t nnz = sparse_tensor.nnz();
     std::unique_ptr<T[]> keys(new T[nnz]);
     std::unique_ptr<T[]> row_offset_read_a_batch(new T[batchsize * slot_num + 1]);
-    CK_CUDA_THROW_(cudaMemcpy(keys.get(), sparse_tensor.get_value_ptr(), nnz * sizeof(T),
+    HCTR_LIB_THROW(cudaMemcpy(keys.get(), sparse_tensor.get_value_ptr(), nnz * sizeof(T),
                               cudaMemcpyDeviceToHost));
-    CK_CUDA_THROW_(cudaMemcpy(row_offset_read_a_batch.get(), sparse_tensor.get_rowoffset_ptr(),
+    HCTR_LIB_THROW(cudaMemcpy(row_offset_read_a_batch.get(), sparse_tensor.get_rowoffset_ptr(),
                               (batchsize * slot_num + 1) * sizeof(T), cudaMemcpyDeviceToHost));
     for (int nnz_id = 0; nnz_id < batchsize * slot_num; ++nnz_id) {
       T expected = row_offsets[(sample_offset * slot_num + nnz_id) % (total_samples * slot_num)];
@@ -328,7 +327,7 @@ TEST(data_reader_parquet_worker, data_reader_parquet_worker_single_worker_iter) 
     auto dense_tensor = Tensor2<DENSE_TYPE>::stretch_from(dense_tensor_bag);
 
     std::unique_ptr<DENSE_TYPE[]> dense(new DENSE_TYPE[batchsize * (label_dim + dense_dim)]);
-    CK_CUDA_THROW_(cudaMemcpy(dense.get(), dense_tensor.get_ptr(),
+    HCTR_LIB_THROW(cudaMemcpy(dense.get(), dense_tensor.get_ptr(),
                               (batch_end - batch_start) * label_dense_dim * sizeof(DENSE_TYPE),
                               cudaMemcpyDeviceToHost));
     for (int sample = 0; sample < batch_current_worker; ++sample) {
@@ -447,9 +446,9 @@ TEST(data_reader_group_test, data_reader_group_test_3files_1worker_iter) {
       std::unique_ptr<LABEL_TYPE[]> label_read(new LABEL_TYPE[label_size]);
       std::unique_ptr<DENSE_TYPE[]> dense_read(new DENSE_TYPE[dense_size]);
 
-      CK_CUDA_THROW_(cudaMemcpy(label_read.get(), label_tensor.get_ptr(),
+      HCTR_LIB_THROW(cudaMemcpy(label_read.get(), label_tensor.get_ptr(),
                                 label_size * sizeof(LABEL_TYPE), cudaMemcpyDeviceToHost));
-      CK_CUDA_THROW_(cudaMemcpy(dense_read.get(), dense_tensor.get_ptr(),
+      HCTR_LIB_THROW(cudaMemcpy(dense_read.get(), dense_tensor.get_ptr(),
                                 dense_size * sizeof(DENSE_TYPE), cudaMemcpyDeviceToHost));
 
       int batch_starting = gpu * batchsize_per_gpu;
@@ -462,11 +461,11 @@ TEST(data_reader_group_test, data_reader_group_test_3files_1worker_iter) {
       }
       size_t nnz = sparse_tensor.nnz();
       std::unique_ptr<CAT_TYPE[]> keys(new CAT_TYPE[nnz]);
-      CK_CUDA_THROW_(cudaMemcpy(keys.get(), sparse_tensor.get_value_ptr(), nnz * sizeof(CAT_TYPE),
+      HCTR_LIB_THROW(cudaMemcpy(keys.get(), sparse_tensor.get_value_ptr(), nnz * sizeof(CAT_TYPE),
                                 cudaMemcpyDeviceToHost));
 
       std::unique_ptr<T[]> rowoffsets(new T[batchsize * slot_num + 1]);
-      CK_CUDA_THROW_(cudaMemcpy(rowoffsets.get(), sparse_tensor.get_rowoffset_ptr(),
+      HCTR_LIB_THROW(cudaMemcpy(rowoffsets.get(), sparse_tensor.get_rowoffset_ptr(),
                                 (1 + batchsize * slot_num) * sizeof(T), cudaMemcpyDeviceToHost));
       for (int nnz_id = 0; nnz_id < batchsize * slot_num; ++nnz_id) {
         T expected = row_offsets[(sample_offset * slot_num + nnz_id) % (total_samples * slot_num)];
@@ -609,9 +608,9 @@ TEST(data_reader_test, data_reader_group_test_3files_3workers_iter) {
       std::unique_ptr<LABEL_TYPE[]> label_read(new LABEL_TYPE[label_size]);
       std::unique_ptr<DENSE_TYPE[]> dense_read(new DENSE_TYPE[dense_size]);
 
-      CK_CUDA_THROW_(cudaMemcpy(label_read.get(), label_tensor.get_ptr(),
+      HCTR_LIB_THROW(cudaMemcpy(label_read.get(), label_tensor.get_ptr(),
                                 label_size * sizeof(LABEL_TYPE), cudaMemcpyDeviceToHost));
-      CK_CUDA_THROW_(cudaMemcpy(dense_read.get(), dense_tensor.get_ptr(),
+      HCTR_LIB_THROW(cudaMemcpy(dense_read.get(), dense_tensor.get_ptr(),
                                 dense_size * sizeof(DENSE_TYPE), cudaMemcpyDeviceToHost));
 
       int batch_starting = gpu * batchsize_per_gpu;
@@ -631,11 +630,11 @@ TEST(data_reader_test, data_reader_group_test_3files_3workers_iter) {
 
       size_t nnz = sparse_tensor.nnz();
       std::unique_ptr<CAT_TYPE[]> keys(new CAT_TYPE[nnz]);
-      CK_CUDA_THROW_(cudaMemcpy(keys.get(), sparse_tensor.get_value_ptr(), nnz * sizeof(CAT_TYPE),
+      HCTR_LIB_THROW(cudaMemcpy(keys.get(), sparse_tensor.get_value_ptr(), nnz * sizeof(CAT_TYPE),
                                 cudaMemcpyDeviceToHost));
 
       std::unique_ptr<T[]> rowoffsets(new T[batchsize * slot_num + 1]);
-      CK_CUDA_THROW_(cudaMemcpy(rowoffsets.get(), sparse_tensor.get_rowoffset_ptr(),
+      HCTR_LIB_THROW(cudaMemcpy(rowoffsets.get(), sparse_tensor.get_rowoffset_ptr(),
                                 (1 + batchsize * slot_num) * sizeof(T), cudaMemcpyDeviceToHost));
       for (int nnz_id = 0; nnz_id < batchsize * slot_num; ++nnz_id) {
         T expected =
@@ -793,9 +792,9 @@ void data_reader_epoch_test_impl(int num_files, const int batchsize, std::vector
         std::unique_ptr<LABEL_TYPE[]> label_read(new LABEL_TYPE[label_size]);
         std::unique_ptr<DENSE_TYPE[]> dense_read(new DENSE_TYPE[dense_size]);
 
-        CK_CUDA_THROW_(cudaMemcpy(label_read.get(), label_tensor.get_ptr(),
+        HCTR_LIB_THROW(cudaMemcpy(label_read.get(), label_tensor.get_ptr(),
                                   label_size * sizeof(LABEL_TYPE), cudaMemcpyDeviceToHost));
-        CK_CUDA_THROW_(cudaMemcpy(dense_read.get(), dense_tensor.get_ptr(),
+        HCTR_LIB_THROW(cudaMemcpy(dense_read.get(), dense_tensor.get_ptr(),
                                   dense_size * sizeof(DENSE_TYPE), cudaMemcpyDeviceToHost));
         size_t batch_starting = std::min(static_cast<size_t>(gpu * batchsize_per_gpu),
                                          static_cast<size_t>(current_batchsize));
@@ -821,11 +820,11 @@ void data_reader_epoch_test_impl(int num_files, const int batchsize, std::vector
 
         size_t nnz = sparse_tensor.nnz();
         std::unique_ptr<CAT_TYPE[]> keys(new CAT_TYPE[nnz]);
-        CK_CUDA_THROW_(cudaMemcpy(keys.get(), sparse_tensor.get_value_ptr(), nnz * sizeof(CAT_TYPE),
+        HCTR_LIB_THROW(cudaMemcpy(keys.get(), sparse_tensor.get_value_ptr(), nnz * sizeof(CAT_TYPE),
                                   cudaMemcpyDeviceToHost));
 
         std::unique_ptr<T[]> rowoffsets(new T[current_batchsize * slot_num + 1]);
-        CK_CUDA_THROW_(cudaMemcpy(rowoffsets.get(), sparse_tensor.get_rowoffset_ptr(),
+        HCTR_LIB_THROW(cudaMemcpy(rowoffsets.get(), sparse_tensor.get_rowoffset_ptr(),
                                   (1 + current_batchsize * slot_num) * sizeof(T),
                                   cudaMemcpyDeviceToHost));
         for (int nnz_id = 0; nnz_id < current_batchsize * slot_num; ++nnz_id) {

@@ -106,14 +106,15 @@ FmOrder2LayerCPU<T>::FmOrder2LayerCPU(const Tensor2<T>& in_tensor, const Tensor2
   try {
     const auto& in_dims = in_tensor.get_dimensions();
     if (in_dims.size() != 2) {
-      CK_THROW_(Error_t::WrongInput, "only 2D tensors can be used as input for FmOrder2Layer");
+      HCTR_OWN_THROW(Error_t::WrongInput, "only 2D tensors can be used as input for FmOrder2Layer");
     }
     const auto& out_dims = out_tensor.get_dimensions();
     if (out_dims.size() != 2) {
-      CK_THROW_(Error_t::WrongInput, "only 2D tensors can be used as output for FmOrder2Layer");
+      HCTR_OWN_THROW(Error_t::WrongInput,
+                     "only 2D tensors can be used as output for FmOrder2Layer");
     }
     if ((in_dims[1] % out_dims[1]) != 0) {
-      CK_THROW_(Error_t::WrongInput, "(in_dims[1] % out_dims[1]) != 0");
+      HCTR_OWN_THROW(Error_t::WrongInput, "(in_dims[1] % out_dims[1]) != 0");
     }
 
     batch_size_ = in_dims[0];
@@ -124,7 +125,7 @@ FmOrder2LayerCPU<T>::FmOrder2LayerCPU(const Tensor2<T>& in_tensor, const Tensor2
     out_tensors_.push_back(out_tensor);
 
   } catch (const std::runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     throw;
   }
 }

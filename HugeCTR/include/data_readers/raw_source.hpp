@@ -25,6 +25,7 @@
 #include <data_readers/source.hpp>
 
 namespace HugeCTR {
+
 class RawSource : public Source {
  private:
   std::shared_ptr<RawOffsetList> raw_offset_list_;
@@ -46,11 +47,11 @@ class RawSource : public Source {
         // try without O_DIRECT flag
         fd_ = open(raw_offset_list_->get_file_name().c_str(), O_RDONLY);
         if (fd_ == -1) {
-          std::cout << "File open error: " << strerror(errno) << std::endl;
-          CK_THROW_(Error_t::BrokenFile, "Error open file for read");
+          HCTR_LOG_S(ERROR, WORLD) << "File open error: " << strerror(errno) << std::endl;
+          HCTR_OWN_THROW(Error_t::BrokenFile, "Error open file for read");
         }
       } else {
-        CK_THROW_(Error_t::BrokenFile, "Error open file for read");
+        HCTR_OWN_THROW(Error_t::BrokenFile, "Error open file for read");
       }
     }
     batch_size_ = raw_offset_list_->get_batch_size();
@@ -72,10 +73,10 @@ class RawSource : public Source {
         ((req_end_offset + alignment_bytes_ - 1) / alignment_bytes_) * alignment_bytes_;
 
     if (lseek(fd_, raw_beg_offset, SEEK_SET) == -1) {
-      CK_THROW_(Error_t::BrokenFile, "File seek read");
+      HCTR_OWN_THROW(Error_t::BrokenFile, "File seek read");
     }
     if (::read(fd_, buffer_, raw_end_offset - raw_beg_offset) < 0) {
-      CK_THROW_(Error_t::BrokenFile, "File read failed");
+      HCTR_OWN_THROW(Error_t::BrokenFile, "File read failed");
     }
     return buffer_ + (req_beg_offset - raw_beg_offset);
   }
@@ -96,7 +97,7 @@ class RawSource : public Source {
         return Error_t::UnspecificError;
       }
     } catch (const std::runtime_error& rt_err) {
-      std::cerr << rt_err.what() << std::endl;
+      HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
       return Error_t::UnspecificError;
     }
   }

@@ -40,7 +40,7 @@ class CheckNone : public Checker {
       Checker::src_.read(ptr, bytes_to_read);
       return Error_t::Success;
     } catch (const std::runtime_error& rt_err) {
-      std::cerr << rt_err.what() << std::endl;
+      HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
       return Error_t::BrokenFile;
     }
   }
@@ -56,7 +56,8 @@ class CheckNone : public Checker {
         return flag_eof;
       }
     }
-    CK_THROW_(Error_t::FileCannotOpen, "Checker::src_.next_source() == Error_t::Success failed");
+    HCTR_OWN_THROW(Error_t::FileCannotOpen,
+                   "Checker::src_.next_source() == Error_t::Success failed");
     return Error_t::FileCannotOpen;  // to elimate compile error
   }
 };

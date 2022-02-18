@@ -96,29 +96,29 @@ void verify_and_histogram(const char* category, const Tensor2<T>& tensor,
   int h_flag;
   float* d_array;
   int* d_flag;
-  CK_CUDA_THROW_(cudaMalloc(&d_array, sizeof(h_array)));
-  CK_CUDA_THROW_(cudaMalloc(&d_flag, sizeof(int)));
-  CK_CUDA_THROW_(
+  HCTR_LIB_THROW(cudaMalloc(&d_array, sizeof(h_array)));
+  HCTR_LIB_THROW(cudaMalloc(&d_flag, sizeof(int)));
+  HCTR_LIB_THROW(
       cudaMemcpyAsync(d_array, h_array, sizeof(h_array), cudaMemcpyHostToDevice, stream));
-  CK_CUDA_THROW_(cudaMemsetAsync(d_flag, 0, sizeof(int), stream));
+  HCTR_LIB_THROW(cudaMemsetAsync(d_flag, 0, sizeof(int), stream));
   histogram_kernel<<<160, 1024, 0, stream>>>(tensor.get_ptr(), tensor.get_num_elements(), d_array);
   verify_kernel<<<160, 1024, 0, stream>>>(tensor.get_ptr(), tensor.get_num_elements(), d_flag);
-  CK_CUDA_THROW_(
+  HCTR_LIB_THROW(
       cudaMemcpyAsync(h_array, d_array, sizeof(h_array), cudaMemcpyDeviceToHost, stream));
-  CK_CUDA_THROW_(cudaMemcpyAsync(&h_flag, d_flag, sizeof(int), cudaMemcpyDeviceToHost, stream));
-  CK_CUDA_THROW_(cudaStreamSynchronize(stream));
+  HCTR_LIB_THROW(cudaMemcpyAsync(&h_flag, d_flag, sizeof(int), cudaMemcpyDeviceToHost, stream));
+  HCTR_LIB_THROW(cudaStreamSynchronize(stream));
 
-  std::stringstream ss;
-  ss << "Diagnose for (" << category << "), Histogram [" << h_array[0] << ", " << h_array[1] << "]"
-     << ", [" << h_array[2] << ", " << h_array[3] << "]" << std::endl;
-  MESSAGE_(ss.str());
+  HCTR_LOG_S(INFO, ROOT) << "Diagnose for (" << category << "), Histogram [" << h_array[0] << ", "
+                         << h_array[1] << "]"
+                         << ", [" << h_array[2] << ", " << h_array[3] << "]" << std::endl;
 
   if (h_flag != 0) {
-    CK_THROW_(Error_t::DataCheckError, std::string("Nan assert for ") + category + " failed(" +
-                                           std::to_string(h_flag) + ").");
+    std::ostringstream os;
+    os << "Nan assert for " << category << " failed(" << h_flag << ").";
+    HCTR_OWN_THROW(Error_t::DataCheckError, os.str());
   }
-  CK_CUDA_THROW_(cudaFree(d_array));
-  CK_CUDA_THROW_(cudaFree(d_flag));
+  HCTR_LIB_THROW(cudaFree(d_array));
+  HCTR_LIB_THROW(cudaFree(d_flag));
 }
 
 template <typename T>
@@ -129,24 +129,25 @@ void sample_and_print(const char* category, const Tensor2<T>& tensor, size_t sam
   std::unique_ptr<float[]> h_array(new float[sample_count]);
 
   float* d_array;
-  CK_CUDA_THROW_(cudaMalloc(&d_array, sample_count * sizeof(float)));
-  CK_CUDA_THROW_(cudaMemsetAsync(d_array, 0, sample_count * sizeof(float), stream));
+  HCTR_LIB_THROW(cudaMalloc(&d_array, sample_count * sizeof(float)));
+  HCTR_LIB_THROW(cudaMemsetAsync(d_array, 0, sample_count * sizeof(float), stream));
   sample_kernel<<<160, 1024, 0, stream>>>(tensor.get_ptr(), tensor.get_num_elements(), d_array,
                                           tensor.get_num_elements() / sample_count, sample_count);
-  CK_CUDA_THROW_(cudaMemcpyAsync(h_array.get(), d_array, sample_count * sizeof(float),
+  HCTR_LIB_THROW(cudaMemcpyAsync(h_array.get(), d_array, sample_count * sizeof(float),
                                  cudaMemcpyDeviceToHost, stream));
-  CK_CUDA_THROW_(cudaStreamSynchronize(stream));
+  HCTR_LIB_THROW(cudaStreamSynchronize(stream));
 
-  std::stringstream ss;
-  ss << "Diagnose for (" << category << "), Sampling [";
-  for (size_t i = 0; i < min(sample_count, tensor.get_num_elements()); i++) {
-    if (i != 0) ss << ",";
-    ss << h_array[i];
+  {
+    auto log = HCTR_LOG_S(INFO, ROOT);
+    log << "Diagnose for (" << category << "), Sampling [";
+    for (size_t i = 0; i < min(sample_count, tensor.get_num_elements()); i++) {
+      if (i != 0) log << ",";
+      log << h_array[i];
+    }
+    log << "]" << std::endl;
   }
-  ss << "]" << std::endl;
-  MESSAGE_(ss.str());
 
-  CK_CUDA_THROW_(cudaFree(d_array));
+  HCTR_LIB_THROW(cudaFree(d_array));
 }
 
 template <typename T>
@@ -161,26 +162,27 @@ void sample_and_print(const char* category, const Tensor2<T>& tensor, int begin,
   }
 
   std::unique_ptr<T[]> h_array(new T[end - begin]);
-  CK_CUDA_THROW_(cudaMemcpyAsync(h_array.get(), tensor.get_ptr() + begin,
+  HCTR_LIB_THROW(cudaMemcpyAsync(h_array.get(), tensor.get_ptr() + begin,
                                  (begin - end) * sizeof(float), cudaMemcpyDeviceToHost, stream));
-  CK_CUDA_THROW_(cudaStreamSynchronize(stream));
+  HCTR_LIB_THROW(cudaStreamSynchronize(stream));
 
-  std::stringstream ss;
-  ss << "Diagnose for (" << category << "), Sampling [";
-  for (size_t i = 0; i < end - begin; i++) {
-    if (i != 0) ss << ",";
-    ss << h_array[i];
+  {
+    auto log = HCTR_LOG_S(INFO, ROOT);
+    log << "Diagnose for (" << category << "), Sampling [";
+    for (size_t i = 0; i < end - begin; i++) {
+      if (i != 0) log << ",";
+      log << h_array[i];
+    }
+    log << "]" << std::endl;
   }
-  ss << "]" << std::endl;
-  MESSAGE_(ss.str());
 }
 
 template <typename T>
 void dump(const char* filename, const Tensor2<T>& tensor, const cudaStream_t& stream) {
   std::unique_ptr<T[]> h_array(new T[tensor.get_num_elements()]);
-  CK_CUDA_THROW_(cudaMemcpyAsync(h_array.get(), tensor.get_ptr(), tensor.get_size_in_bytes(),
+  HCTR_LIB_THROW(cudaMemcpyAsync(h_array.get(), tensor.get_ptr(), tensor.get_size_in_bytes(),
                                  cudaMemcpyDeviceToHost, stream));
-  CK_CUDA_THROW_(cudaStreamSynchronize(stream));
+  HCTR_LIB_THROW(cudaStreamSynchronize(stream));
 
   std::ofstream s(filename, std::ios::out | std::ios::binary);
   s.write(reinterpret_cast<const char*>(h_array.get()), tensor.get_size_in_bytes());

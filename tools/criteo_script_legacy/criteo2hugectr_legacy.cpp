@@ -36,9 +36,9 @@ static const long long label_dim = 1;
 static const int voc_size = 1603616;
 
 std::vector<std::string> &split(const std::string &s, char delim, std::vector<std::string> &elems) {
-  std::stringstream ss(s);
+  std::istringstream is(s);
   std::string item;
-  while (std::getline(ss, item, delim)) {
+  while (std::getline(is, item, delim)) {
     elems.push_back(item);
   }
   return elems;
@@ -48,14 +48,14 @@ int main(int argc, char *argv[]) {
   const std::string tmp_file_list_name("file_list.tmp");
 
   if (argc != 5) {
-    std::cout << usage_str << std::endl;
+    HCTR_LOG_S(INFO, WORLD) << usage_str << std::endl;
     exit(-1);
   }
   const int SLOT_NUM = atoi(argv[1]);
   // open txt file
   std::ifstream txt_file(argv[2], std::ifstream::binary);
   if (!txt_file.is_open()) {
-    std::cerr << "Cannot open argv[2]" << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << "Cannot open argv[2]" << std::endl;
   }
   // create a data file under prefix
   std::string data_prefix(argv[3]);
@@ -68,16 +68,16 @@ int main(int argc, char *argv[]) {
   int file_counter = 0;
   std::ofstream file_list_tmp(tmp_file_list_name, std::ofstream::out);
   if (!file_list_tmp.is_open()) {
-    std::cerr << "Cannot open file_list.tmp" << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << "Cannot open file_list.tmp" << std::endl;
   }
 
   do {
     std::string data_file_name(data_prefix + std::to_string(file_counter) + ".data");
     std::ofstream data_file(data_file_name, std::ofstream::binary);
     file_list_tmp << (data_file_name + "\n");
-    std::cout << data_file_name << std::endl;
+    HCTR_LOG_S(INFO, WORLD) << data_file_name << std::endl;
     if (!data_file.is_open()) {
-      std::cerr << "Cannot open data_file" << std::endl;
+      HCTR_LOG_S(ERROR, WORLD) << "Cannot open data_file" << std::endl;
     }
 
     DataWriter<Check_t::Sum> data_writer(data_file);
@@ -106,13 +106,13 @@ int main(int argc, char *argv[]) {
         {
           std::ifstream tmp(tmp_file_list_name);
           if (!tmp.is_open()) {
-            std::cerr << "Cannot open " << tmp_file_list_name << std::endl;
+            HCTR_LOG_S(ERROR, WORLD) << "Cannot open " << tmp_file_list_name << std::endl;
           }
 
-          std::cout << "Opening " << argv[4] << std::endl;
+          HCTR_LOG_S(INFO, WORLD) << "Opening " << argv[4] << std::endl;
           std::ofstream file_list(argv[4], std::ofstream::out);
           if (!file_list.is_open()) {
-            std::cerr << "Cannot open " << argv[4] << std::endl;
+            HCTR_LOG_S(ERROR, WORLD) << "Cannot open " << argv[4] << std::endl;
           }
 
           // there are some remaining samples
@@ -132,8 +132,8 @@ int main(int argc, char *argv[]) {
       split(line, ' ', vec_string);
       if (vec_string.size() != KEYS_PER_SAMPLE + 1)  // first one is label
       {
-        std::cerr << "vec_string.size() != KEYS_PER_SAMPLE+1" << std::endl;
-        std::cerr << line << std::endl;
+        HCTR_LOG_S(ERROR, WORLD) << "vec_string.size() != KEYS_PER_SAMPLE+1" << std::endl;
+        HCTR_LOG_S(ERROR, WORLD) << line << std::endl;
         exit(-1);
       }
       float label = std::stoi(vec_string[0]);

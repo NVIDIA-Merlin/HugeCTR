@@ -23,7 +23,6 @@
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"
 
-using namespace std;
 using namespace HugeCTR;
 
 namespace {
@@ -71,7 +70,7 @@ void reshape_layer_test(size_t batch_size, size_t n_slot, size_t vector_length,
   }
 
   T* d_in = in_tensor.get_ptr();
-  CK_CUDA_THROW_(
+  HCTR_LIB_THROW(
       cudaMemcpy(d_in, &h_in.front(), in_tensor.get_size_in_bytes(), cudaMemcpyHostToDevice));
 
   reshape_layer.fprop(true);
@@ -79,7 +78,7 @@ void reshape_layer_test(size_t batch_size, size_t n_slot, size_t vector_length,
   std::vector<T> h_result;
   h_result.resize(batch_size * n_active_slot * vector_length);
   T* d_out = out_tensor.get_ptr();
-  CK_CUDA_THROW_(
+  HCTR_LIB_THROW(
       cudaMemcpy(&h_result.front(), d_out, out_tensor.get_size_in_bytes(), cudaMemcpyDeviceToHost));
 
   ASSERT_TRUE(

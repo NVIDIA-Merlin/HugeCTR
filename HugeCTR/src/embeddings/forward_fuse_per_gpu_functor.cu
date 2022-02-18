@@ -119,7 +119,7 @@ void forward_fuse(size_t id, size_t local_gpu_count, size_t batch_size, size_t b
                   size_t sm_count, cudaStream_t stream) {
   const size_t block_size = embedding_vec_size;
   int maxActiveBlocks;
-  CK_CUDA_THROW_(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
+  HCTR_LIB_THROW(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
       &maxActiveBlocks, forward_sum_fuse_kernel<TypeHashKey, TypeEmbeddingComp>, block_size, 0));
   const size_t grid_size = min(batch_size, sm_count * static_cast<size_t>(maxActiveBlocks));
 
@@ -137,7 +137,7 @@ void forward_fuse(size_t id, size_t local_gpu_count, size_t batch_size, size_t b
   if (embedding_vec_size % 2 == 0) {
     const size_t block_size = embedding_vec_size / 2;
     int maxActiveBlocks;
-    CK_CUDA_THROW_(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
+    HCTR_LIB_THROW(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
         &maxActiveBlocks, forward_sum_fuse_align2_kernel<TypeHashKey>, block_size, 0));
     const size_t grid_size = min(batch_size, sm_count * static_cast<size_t>(maxActiveBlocks));
 
@@ -148,7 +148,7 @@ void forward_fuse(size_t id, size_t local_gpu_count, size_t batch_size, size_t b
   } else {
     const size_t block_size = embedding_vec_size;
     int maxActiveBlocks;
-    CK_CUDA_THROW_(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
+    HCTR_LIB_THROW(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
         &maxActiveBlocks, forward_sum_fuse_kernel<TypeHashKey, __half>, block_size, 0));
     const size_t grid_size = min(batch_size, sm_count * static_cast<size_t>(maxActiveBlocks));
 
@@ -173,7 +173,7 @@ void SparseEmbeddingFunctors::forward_fuse_per_gpu(
                  hash_table_value.get_ptr(), embedding_features.get_ptr(), sm_count, stream);
 
   } else {
-    CK_THROW_(Error_t::WrongInput, "Invalid combiner type ");
+    HCTR_OWN_THROW(Error_t::WrongInput, "Invalid combiner type ");
   }
 
   return;

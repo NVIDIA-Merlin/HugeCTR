@@ -20,7 +20,8 @@
 #include <cuda_runtime_api.h>
 #include <curand_kernel.h>
 
-#include <HugeCTR/include/common.hpp>
+#include <common.hpp>
+#include <base/debug/logger.hpp>
 #include <algorithm>
 #include <cassert>
 #include <cstdlib>
@@ -46,7 +47,10 @@
 
 static size_t process_read_bytes = 0;
 static size_t process_write_bytes = 0;
-using HugeCTR::ERROR_MESSAGE_;
+using HugeCTR::SrcLoc;
+using HugeCTR::Logger;
+using HugeCTR::getErrorString;
+using HugeCTR::getErrorType;
 
 namespace DLRM_RAW {
 
@@ -116,7 +120,7 @@ __global__ void build_historgram(char *in_char, int *offsets, int num_strings,
         // increment count
         atomicAdd(&(ht_pair.first->second), 1);
       } else {
-        printf("insert and increment error");
+        HCTR_LOG(INFO, WORLD, "insert and increment error");
       }
     }
   }
@@ -149,7 +153,7 @@ __global__ void build_historgram_from_ints(key *in_col, bitmask_type *mask_ptr, 
         // increment count
         atomicAdd(&(ht_pair.first->second), 1);
       } else {
-        printf("insert and increment error");
+        HCTR_LOG(INFO, WORLD, "insert and increment error");
       }
     }
   }
@@ -572,19 +576,19 @@ size_t convert_input_binaries(rmm::mr::device_memory_resource *mr, std::string i
       offset_ptrs.push_back(const_cast<int32_t *>(str_col_view.offsets().data<int32_t>()));
     }
 
-    CK_CUDA_THROW_(cudaMemset(dev_int_col_nullmask_ptrs, 0, sz_dev_int_col));
-    CK_CUDA_THROW_(cudaMemset(dev_cat_col_nullmask_ptrs, 0, sz_dev_str_ptrs));
+    HCTR_LIB_THROW(cudaMemset(dev_int_col_nullmask_ptrs, 0, sz_dev_int_col));
+    HCTR_LIB_THROW(cudaMemset(dev_cat_col_nullmask_ptrs, 0, sz_dev_str_ptrs));
 
-    CK_CUDA_THROW_(cudaMemcpy((void *)dev_int_col_ptrs, (void *)int_col_dev_ptrs.data(),
+    HCTR_LIB_THROW(cudaMemcpy((void *)dev_int_col_ptrs, (void *)int_col_dev_ptrs.data(),
                               sz_dev_int_col, cudaMemcpyHostToDevice));
-    CK_CUDA_THROW_(cudaMemcpy((void *)dev_int_col_nullmask_ptrs,
+    HCTR_LIB_THROW(cudaMemcpy((void *)dev_int_col_nullmask_ptrs,
                               (void *)int_col_nullmask_dev_ptrs.data(), sz_dev_int_col,
                               cudaMemcpyHostToDevice));
-    CK_CUDA_THROW_(cudaMemcpy((void *)dev_char_ptrs, (void *)char_ptrs.data(), sz_dev_str_ptrs,
+    HCTR_LIB_THROW(cudaMemcpy((void *)dev_char_ptrs, (void *)char_ptrs.data(), sz_dev_str_ptrs,
                               cudaMemcpyHostToDevice));
-    CK_CUDA_THROW_(cudaMemcpy((void *)dev_offset_ptrs, (void *)offset_ptrs.data(), sz_dev_str_ptrs,
+    HCTR_LIB_THROW(cudaMemcpy((void *)dev_offset_ptrs, (void *)offset_ptrs.data(), sz_dev_str_ptrs,
                               cudaMemcpyHostToDevice));
-    CK_CUDA_THROW_(cudaMemcpy((void *)dev_cat_col_nullmask_ptrs,
+    HCTR_LIB_THROW(cudaMemcpy((void *)dev_cat_col_nullmask_ptrs,
                               (void *)cat_col_nullmask_ptrs.data(), sz_dev_str_ptrs,
                               cudaMemcpyHostToDevice));
 
@@ -598,16 +602,16 @@ size_t convert_input_binaries(rmm::mr::device_memory_resource *mr, std::string i
 
     size_t size_of_output_binary = num_rows * (num_numericals + num_categoricals) * sizeof(int32_t);
 
-    CK_CUDA_THROW_(cudaDeviceSynchronize());
+    HCTR_LIB_THROW(cudaDeviceSynchronize());
 
     {
       int block = 32;
       int grid = (num_rows * (num_numericals + num_categoricals) + block - 1) / block;
       data_preprocess<<<grid, block>>>(dev_out_buffer, num_rows, dev_slot_size_array, dense_bias);
-      CK_CUDA_THROW_(cudaDeviceSynchronize());
+      HCTR_LIB_THROW(cudaDeviceSynchronize());
     }
 
-    CK_CUDA_THROW_(
+    HCTR_LIB_THROW(
         cudaMemcpy(host_out_buffer, dev_out_buffer, size_of_output_binary, cudaMemcpyDeviceToHost));
 
     if (binary_writer) {
@@ -618,9 +622,10 @@ size_t convert_input_binaries(rmm::mr::device_memory_resource *mr, std::string i
         int32_t write_rows = indices.end_idx - indices.begin_idx;
 
         if (write_rows <= 0) {
-          ERROR_MESSAGE_("begin_idx = " + std::to_string(indices.begin_idx) +
-                         ", end_idx = " + std::to_string(indices.end_idx) +
-                         ", total rows now = " + std::to_string(read_row_nums));
+          HCTR_LOG_S(ERROR, WORLD) <<
+            "begin_idx = " << indices.begin_idx <<
+                         ", end_idx = " << indices.end_idx <<
+                         ", total rows now = " << read_row_nums << HCTR_LOCATION() << std::endl;
           exit(-1);
         }
 
