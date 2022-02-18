@@ -36,10 +36,9 @@ void SparseEmbeddingFunctors::init_embedding_per_gpu(size_t gid, size_t total_gp
   for (size_t i = 0, j = 0; i < slot_sizes.size(); i++) {
     size_t slot_size = slot_sizes[i];
     if ((i % total_gpu_count) == gid) {
-      MESSAGE_("gpu" + std::to_string(gid) + " start to init embedding of slot" +
-               std::to_string(i) + " , slot_size=" + std::to_string(slot_size) +
-               ", key_offset=" + std::to_string(key_offset) +
-               ", value_index_offset=" + std::to_string(value_index_offset));
+      HCTR_LOG_S(INFO, ROOT) << "gpu" << gid << " start to init embedding of slot" << i
+                             << " , slot_size=" << slot_size << ", key_offset=" << key_offset
+                             << ", value_index_offset=" << value_index_offset << std::endl;
 
       float up_bound = sqrt(1.f / slot_size);
       HugeCTR::UniformGenerator::fill(

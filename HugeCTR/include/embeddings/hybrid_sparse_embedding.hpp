@@ -82,7 +82,7 @@ class HybridSparseEmbedding : public IEmbedding {
     cudaStream_t& get_stream(uint32_t device_id, const std::string& key) {
       if (stream_map[device_id].find(key) == stream_map[device_id].end()) {
         cudaStream_t stream;
-        CK_CUDA_THROW_(cudaStreamCreate(&stream));
+        HCTR_LIB_THROW(cudaStreamCreate(&stream));
         stream_map[device_id][key] = stream;
       }
       return stream_map[device_id][key];
@@ -91,7 +91,7 @@ class HybridSparseEmbedding : public IEmbedding {
     cudaEvent_t& get_event(uint32_t device_id, const std::string& key) {
       if (event_map[device_id].find(key) == event_map[device_id].end()) {
         cudaEvent_t event;
-        CK_CUDA_THROW_(cudaEventCreateWithFlags(&event, cudaEventDisableTiming));
+        HCTR_LIB_THROW(cudaEventCreateWithFlags(&event, cudaEventDisableTiming));
         event_map[device_id][key] = event;
       }
       return event_map[device_id][key];

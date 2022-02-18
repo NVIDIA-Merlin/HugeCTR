@@ -37,26 +37,26 @@ void SparseEmbeddingFunctors::reduce_scatter(size_t recv_count,
       type = ncclFloat;
       break;
     default:
-      CK_THROW_(Error_t::WrongInput, "Error: TypeHashKey not support by now");
+      HCTR_OWN_THROW(Error_t::WrongInput, "Error: TypeHashKey not support by now");
   }
 
   // for multi GPUs, use NCCL to do Reduce-Scatter(supporting multi-node GPU servers)
   if (total_gpu_count > 1) {
-    CK_NCCL_THROW_(ncclGroupStart());
+    HCTR_LIB_THROW(ncclGroupStart());
     for (size_t id = 0; id < local_gpu_count; id++) {
       const auto &local_gpu = resource_manager.get_local_gpu(id);
-      CK_NCCL_THROW_(ncclReduceScatter(send_tensors[id].get_ptr(),  // send buf
+      HCTR_LIB_THROW(ncclReduceScatter(send_tensors[id].get_ptr(),  // send buf
                                        recv_tensors[id].get_ptr(),  // recv buff
                                        recv_count, type, ncclSum, local_gpu->get_nccl(),
                                        local_gpu->get_stream()));
     }
-    CK_NCCL_THROW_(ncclGroupEnd());
+    HCTR_LIB_THROW(ncclGroupEnd());
   }
   // for single GPU, just do memcpyD2D
   else {  // total_gpu_count == 1
     const auto &local_gpu = resource_manager.get_local_gpu(0);
     CudaDeviceContext context(local_gpu->get_device_id());
-    CK_CUDA_THROW_(cudaMemcpyAsync(recv_tensors[0].get_ptr(), send_tensors[0].get_ptr(),
+    HCTR_LIB_THROW(cudaMemcpyAsync(recv_tensors[0].get_ptr(), send_tensors[0].get_ptr(),
                                    recv_count * sizeof(TypeEmbeddingComp), cudaMemcpyDeviceToDevice,
                                    local_gpu->get_stream()));
   }

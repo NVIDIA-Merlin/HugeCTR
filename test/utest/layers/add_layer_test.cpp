@@ -23,7 +23,6 @@
 
 #include "HugeCTR/include/utils.hpp"
 
-using namespace std;
 using namespace HugeCTR;
 
 namespace {
@@ -78,8 +77,8 @@ template <typename T>
 void add_test(size_t batch_size, size_t slot_num, size_t embedding_vec_size, size_t num) {
   std::shared_ptr<GeneralBuffer2<CudaAllocator>> buff = GeneralBuffer2<CudaAllocator>::create();
 
-  vector<size_t> dims_in = {batch_size, slot_num, embedding_vec_size};
-  vector<size_t> dims_out = {batch_size, slot_num, embedding_vec_size};
+  std::vector<size_t> dims_in = {batch_size, slot_num, embedding_vec_size};
+  std::vector<size_t> dims_out = {batch_size, slot_num, embedding_vec_size};
   size_t size = batch_size * slot_num * embedding_vec_size;
 
   Tensors2<T> in_tensors;
@@ -118,14 +117,14 @@ void add_test(size_t batch_size, size_t slot_num, size_t embedding_vec_size, siz
   // fprop
   for (size_t i = 0; i < num; i++) {
     simulator.fill(h_ins[i], size);
-    CK_CUDA_THROW_(cudaMemcpy(h_d_ins[i], h_ins[i], size * sizeof(T), cudaMemcpyHostToDevice));
+    HCTR_LIB_THROW(cudaMemcpy(h_d_ins[i], h_ins[i], size * sizeof(T), cudaMemcpyHostToDevice));
   }
 
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
   add_layer.fprop(true);
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
 
-  CK_CUDA_THROW_(cudaMemcpy(h_out.get(), d_out, size * sizeof(T), cudaMemcpyDeviceToHost));
+  HCTR_LIB_THROW(cudaMemcpy(h_out.get(), d_out, size * sizeof(T), cudaMemcpyDeviceToHost));
 
   add_cpu(h_ins.get(), h_cpu_out.get(), size, num);
   ASSERT_TRUE(test::compare_array_approx<T>(h_out.get(), h_cpu_out.get(), size, Eps<T>::value()));
@@ -133,17 +132,17 @@ void add_test(size_t batch_size, size_t slot_num, size_t embedding_vec_size, siz
   // bprop
   for (size_t i = 0; i < num; i++) {
     simulator.fill(h_ins[i], size);
-    CK_CUDA_THROW_(cudaMemcpy(h_d_ins[i], h_ins[i], size * sizeof(T), cudaMemcpyHostToDevice));
+    HCTR_LIB_THROW(cudaMemcpy(h_d_ins[i], h_ins[i], size * sizeof(T), cudaMemcpyHostToDevice));
   }
   simulator.fill(h_out.get(), size);
-  CK_CUDA_THROW_(cudaMemcpy(d_out, h_out.get(), size * sizeof(T), cudaMemcpyHostToDevice));
+  HCTR_LIB_THROW(cudaMemcpy(d_out, h_out.get(), size * sizeof(T), cudaMemcpyHostToDevice));
 
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
   add_layer.bprop();  // compute wgrad and dgrad
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
 
   for (size_t i = 0; i < num; i++) {
-    CK_CUDA_THROW_(
+    HCTR_LIB_THROW(
         cudaMemcpy(h_gpu_dgrads[i], h_d_ins[i], size * sizeof(T), cudaMemcpyDeviceToHost));
   }
 

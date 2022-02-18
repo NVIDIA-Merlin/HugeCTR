@@ -176,7 +176,7 @@ void split_3_way(Tensor2<float> label_tensor_per_dev, Tensor2<DenseType> dense_t
           local_idx_end);
     }
 
-    CK_CUDA_THROW_(cudaPeekAtLastError());
+    HCTR_LIB_THROW(cudaPeekAtLastError());
   }
 }
 

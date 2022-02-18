@@ -61,7 +61,7 @@ FullyConnectedLayerCPU<float>::FullyConnectedLayerCPU(
     const auto& out_tensor_dim = out_tensor.get_dimensions();
     // 1. two dim?
     if (in_tensor_dim.size() != 2 || out_tensor_dim.size() != 2) {
-      CK_THROW_(Error_t::WrongInput, "input or output tensor doesn't has two dimensions");
+      HCTR_OWN_THROW(Error_t::WrongInput, "input or output tensor doesn't has two dimensions");
     }
     // 2. dim match?
     size_t m = in_tensor_dim[0];
@@ -69,7 +69,7 @@ FullyConnectedLayerCPU<float>::FullyConnectedLayerCPU(
     size_t k = in_tensor_dim[1];
     size_t m_ck = out_tensor_dim[0];
     if (m != m_ck) {
-      CK_THROW_(Error_t::WrongInput, "size of input / output tensor doesn't match");
+      HCTR_OWN_THROW(Error_t::WrongInput, "size of input / output tensor doesn't match");
     }
 
     std::vector<size_t> weight_dim = {k, n};
@@ -99,7 +99,7 @@ FullyConnectedLayerCPU<float>::FullyConnectedLayerCPU(
     out_tensors_.push_back(out_tensor);
     // Where should we create this cuBLAS handle?
   } catch (const std::runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     throw;
   }
 }

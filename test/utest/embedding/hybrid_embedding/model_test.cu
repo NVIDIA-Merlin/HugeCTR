@@ -180,7 +180,7 @@ void model_init_test(const size_t num_instances, const size_t num_tables, const 
   std::cout << "performing statistics and calibration intialization..." << std::endl;
   Data<dtype> data(table_sizes, batch_size, num_iterations);
   data.data_to_unique_categories(d_raw_data, stream);
-  CK_CUDA_THROW_(cudaStreamSynchronize(stream));
+  HCTR_LIB_THROW(cudaStreamSynchronize(stream));
 
   std::cout << "Testing samples..." << std::endl;
   test_samples<dtype>(d_raw_data.get_ptr(), data);

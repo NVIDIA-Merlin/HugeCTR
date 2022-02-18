@@ -245,10 +245,10 @@ void create_embedding<TypeKey, TypeFP>::operator()(
     std::vector<std::shared_ptr<Layer>>* embeddings,
     const std::shared_ptr<GPUResource> gpu_resource,
     std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff) {
-  MESSAGE_("start create embedding for inference");
+  HCTR_LOG(INFO, ROOT, "start create embedding for inference\n");
   auto j_data = j_layers_array[0];
   if (!has_key_(j_data, "sparse")) {
-    MESSAGE_("no sparse data input");
+    HCTR_LOG(INFO, ROOT, "no sparse data input\n");
     return;
   }
   auto j_sparse_input = get_json(j_data, "sparse");
@@ -258,11 +258,11 @@ void create_embedding<TypeKey, TypeFP>::operator()(
     auto slot_num = get_value_from_json<int>(j_sparse_input[i], "slot_num");
     int max_feature_num_per_sample =
         get_max_feature_num_per_sample_from_nnz_per_slot(j_sparse_input[i]);
-    MESSAGE_("sparse_input name " + top);
+    HCTR_LOG_S(INFO, ROOT) << "sparse_input name " << top << std::endl;
     slot_nums_map[top] = std::make_pair(slot_num, max_feature_num_per_sample);
   }
   if (j_layers_array.size() < 1) {
-    CK_THROW_(Error_t::WrongInput, "layer not defined in config");
+    HCTR_OWN_THROW(Error_t::WrongInput, "layer not defined in config");
   }
   for (unsigned int i = 1; i < j_layers_array.size(); i++) {
     const nlohmann::json& j = j_layers_array[i];
@@ -287,7 +287,7 @@ void create_embedding<TypeKey, TypeFP>::operator()(
     } else if (combiner_str == "mean") {
       feature_combiner_type = EmbeddingFeatureCombiner_t::Mean;
     } else {
-      CK_THROW_(Error_t::WrongInput, "combiner need to be sum or mean");
+      HCTR_OWN_THROW(Error_t::WrongInput, "combiner need to be sum or mean");
     }
     size_t embedding_vec_size = get_value_from_json<size_t>(j_hparam, "embedding_vec_size");
 
@@ -312,7 +312,7 @@ void create_embedding<TypeKey, TypeFP>::operator()(
     tensor_entries->push_back({layer_top, embedding_output.shrink()});
   }
 
-  MESSAGE_("create embedding for inference success");
+  HCTR_LOG(INFO, ROOT, "create embedding for inference success\n");
 }
 
 template struct create_embedding<long long, float>;

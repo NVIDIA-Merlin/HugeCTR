@@ -55,7 +55,7 @@ Logger& Logger::get() {
   static std::unique_ptr<Logger> instance;
   static std::once_flag once_flag;
 
-  call_once(once_flag, []() { instance.reset(new Logger()); });
+  std::call_once(once_flag, []() { instance.reset(new Logger()); });
   return *instance;
 }
 
@@ -108,13 +108,13 @@ DeferredLogEntry Logger::log(const int level, bool per_rank, bool with_prefix) c
   if (level == LOG_SILENCE_LEVEL || level > max_level_) {
     return {true, [](std::ostringstream&) {}};
   } else if (rank_ == 0 || per_rank) {
-    return {false, [level, with_prefix, this](std::ostringstream& ss) {
+    return {false, [level, with_prefix, this](std::ostringstream& os) {
               if (log_to_std_) {
                 auto& file = log_std_.at(level);
                 if (with_prefix) {
                   fputs(get_log_prefix(level).c_str(), file);
                 }
-                fputs(ss.str().c_str(), file);
+                fputs(os.str().c_str(), file);
                 fflush(file);
               }
 
@@ -123,7 +123,7 @@ DeferredLogEntry Logger::log(const int level, bool per_rank, bool with_prefix) c
                 if (with_prefix) {
                   fputs(get_log_prefix(level).c_str(), file);
                 }
-                fputs(ss.str().c_str(), file);
+                fputs(os.str().c_str(), file);
                 fflush(file);
               }
             }};
@@ -169,9 +169,10 @@ void Logger::check(bool condition, const SrcLoc& loc, const char* format, ...) c
 
 void Logger::do_throw(HugeCTR::Error_t error_type, const SrcLoc& loc,
                       const std::string& message) const {
-  std::string error_message = "Runtime error: " + message + "\n" + "\t" + loc.expr + " at " +
-                              loc.func + "(" + loc.file + ":" + std::to_string(loc.line) + ")";
-  std::throw_with_nested(internal_runtime_error(error_type, error_message));
+  std::ostringstream os;
+  os << "Runtime error: " << message << std::endl;
+  os << '\t' << loc.expr << " at " << loc.func << '(' << loc.file << ':' << loc.line << ')';
+  std::throw_with_nested(internal_runtime_error(error_type, os.str()));
 }
 
 int Logger::get_rank() { return rank_; }
@@ -232,10 +233,10 @@ Logger::Logger() : rank_(0), max_level_(DEFAULT_LOG_LEVEL), log_to_std_(true), l
 }
 
 std::string Logger::get_log_prefix(int level) const {
-  std::ostringstream prefix;
+  std::ostringstream os;
 
   // Base & time
-  prefix << "[HCTR][";
+  os << "[HCTR][";
   {
     const time_t now = std::time(nullptr);
     std::tm now_local;
@@ -245,35 +246,35 @@ std::string Logger::get_log_prefix(int level) const {
     // (60 = for second-time-shift years)
     char buffer[8 + 1];
     std::strftime(buffer, sizeof(buffer), "%T", &now_local);
-    prefix << buffer;
+    os << buffer;
   }
 
   // Level
-  prefix << "][";
+  os << "][";
   {
     const auto level_it = level_name_.find(level);
     if (level_it != level_name_.end()) {
-      prefix << level_it->second;
+      os << level_it->second;
     } else {
-      prefix << "LEVEL" << level;
+      os << "LEVEL" << level;
     }
   }
 
   // Rank
-  prefix << "][RK" << rank_;
+  os << "][RK" << rank_;
 
   // Thread
-  prefix << "][";
+  os << "][";
   const std::string& thread_name = hctr_get_thread_name();
   if (thread_name.empty()) {
-    prefix << "tid #" << std::this_thread::get_id();
+    os << "tid #" << std::this_thread::get_id();
   } else {
-    prefix << thread_name;
+    os << thread_name;
   }
 
   // Prompt & return.
-  prefix << "]: ";
-  return prefix.str();
+  os << "]: ";
+  return os.str();
 }
 
 }  // namespace HugeCTR

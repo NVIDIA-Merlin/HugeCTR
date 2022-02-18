@@ -138,9 +138,9 @@ void do_upload_and_download_snapshot(int batch_num_train, TrainPSType_t ps_type,
   parameter_server.push(buf_bag, size_tmp);
   parameter_server.flush_emb_tbl_to_ssd();
 
-  MESSAGE_("Batch_num=" + std::to_string(batch_num_train) +
-           ", embedding_vec_size=" + std::to_string(emb_vec_size) +
-           ", elapsed time=" + std::to_string(timer_ps.elapsedSeconds()) + "s");
+  HCTR_LOG_S(INFO, ROOT) << "Batch_num=" << batch_num_train
+                         << ", embedding_vec_size=" << emb_vec_size
+                         << ", elapsed time=" << timer_ps.elapsedSeconds() << "s" << std::endl;
 
   // Check if the result is correct
   std::vector<std::string> data_files{"key"};
@@ -153,9 +153,9 @@ void do_upload_and_download_snapshot(int batch_num_train, TrainPSType_t ps_type,
   }
   for (const auto& data_file : data_files) {
     std::string dst_name(snapshot_dst_file);
-    MESSAGE_(std::string("check ") + dst_name + "/" + data_file, true, false);
+    HCTR_LOG_S(INFO, WORLD) << "check " << dst_name << "/" << data_file << std::endl;
     ASSERT_TRUE(check_vector_equality(snapshot_src_file, dst_name.c_str(), data_file.c_str()));
-    MESSAGE_(" [DONE]", true, true, false);
+    HCTR_LOG(INFO, WORLD, "Done!\n");
   }
 
   auto key_vec_pair{parameter_server.pull(keys_in_file)};

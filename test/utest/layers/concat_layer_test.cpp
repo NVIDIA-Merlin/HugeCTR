@@ -24,7 +24,6 @@
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"
 
-using namespace std;
 using namespace HugeCTR;
 
 namespace {
@@ -86,17 +85,17 @@ void concat_layer_test(size_t height, std::vector<size_t> widths) {
   for (int i = 0; i < n_ins; i++) {
     T* d_in = in_tensors[i].get_ptr();
     std::vector<T>& h_in = h_ins[i];
-    CK_CUDA_THROW_(
+    HCTR_LIB_THROW(
         cudaMemcpy(d_in, &h_in.front(), in_tensors[i].get_size_in_bytes(), cudaMemcpyHostToDevice));
   }
 
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
   concat_layer.fprop(true);
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
 
   std::vector<T> h_out(out_tensor.get_num_elements(), 0.0);
   T* d_out = out_tensor.get_ptr();
-  CK_CUDA_THROW_(
+  HCTR_LIB_THROW(
       cudaMemcpy(&h_out.front(), d_out, out_tensor.get_size_in_bytes(), cudaMemcpyDeviceToHost));
 
   ASSERT_TRUE(test::compare_array_approx<T>(&h_out.front(), &h_ref.front(), h_out.size(), eps));
@@ -105,7 +104,7 @@ void concat_layer_test(size_t height, std::vector<size_t> widths) {
   concat_layer.bprop();
   concat_layer.fprop(true);
 
-  CK_CUDA_THROW_(
+  HCTR_LIB_THROW(
       cudaMemcpy(&h_out.front(), d_out, out_tensor.get_size_in_bytes(), cudaMemcpyDeviceToHost));
 
   ASSERT_TRUE(test::compare_array_approx<T>(&h_out.front(), &h_ref.front(), h_out.size(), eps));

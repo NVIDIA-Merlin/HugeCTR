@@ -14,16 +14,13 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/optimizer.hpp"
-
+#include <optimizer.hpp>
+#include <optimizers/adagrad_optimizer.hpp>
+#include <optimizers/adam_optimizer.hpp>
+#include <optimizers/momentum_sgd_optimizer.hpp>
+#include <optimizers/nesterov_optimizer.hpp>
+#include <optimizers/sgd_optimizer.hpp>
 #include <type_traits>
-
-#include "HugeCTR/include/common.hpp"
-#include "HugeCTR/include/optimizers/adagrad_optimizer.hpp"
-#include "HugeCTR/include/optimizers/adam_optimizer.hpp"
-#include "HugeCTR/include/optimizers/momentum_sgd_optimizer.hpp"
-#include "HugeCTR/include/optimizers/nesterov_optimizer.hpp"
-#include "HugeCTR/include/optimizers/sgd_optimizer.hpp"
 
 namespace HugeCTR {
 

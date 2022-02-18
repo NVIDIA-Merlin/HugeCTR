@@ -87,7 +87,7 @@ class ElementWiseFunctor {
 
 #ifndef NDEBUG
     cudaDeviceSynchronize();
-    CK_CUDA_THROW_(cudaGetLastError());
+    HCTR_LIB_THROW(cudaGetLastError());
 #endif
   }
 
@@ -114,7 +114,7 @@ class ElementWiseFunctor {
 
 #ifndef NDEBUG
     cudaDeviceSynchronize();
-    CK_CUDA_THROW_(cudaGetLastError());
+    HCTR_LIB_THROW(cudaGetLastError());
 #endif
   }
 };

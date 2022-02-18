@@ -21,7 +21,6 @@
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"
 
-using namespace std;
 using namespace HugeCTR;
 
 namespace {
@@ -140,7 +139,7 @@ template <typename T>
 void reduce_mean_test(size_t batch_size, size_t slot_num, size_t embedding_vec_size, size_t axis) {
   std::shared_ptr<GeneralBuffer2<CudaAllocator>> buff = GeneralBuffer2<CudaAllocator>::create();
 
-  vector<size_t> in_dims = {batch_size, slot_num, embedding_vec_size};  // 3D
+  std::vector<size_t> in_dims = {batch_size, slot_num, embedding_vec_size};  // 3D
 
   Tensor2<T> in_tensor;
   buff->reserve(in_dims, &in_tensor);
@@ -172,11 +171,11 @@ void reduce_mean_test(size_t batch_size, size_t slot_num, size_t embedding_vec_s
   // fprop
   simulator.fill(h_in.get(), in_size);
 
-  CK_CUDA_THROW_(cudaMemcpy(d_in, h_in.get(), in_size * sizeof(T), cudaMemcpyHostToDevice));
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaMemcpy(d_in, h_in.get(), in_size * sizeof(T), cudaMemcpyHostToDevice));
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
   reduce_mean_layer.fprop(true);
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
-  CK_CUDA_THROW_(cudaMemcpy(h_out.get(), d_out, out_size * sizeof(T), cudaMemcpyDeviceToHost));
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaMemcpy(h_out.get(), d_out, out_size * sizeof(T), cudaMemcpyDeviceToHost));
 
   reduce_mean_cpu<T>(h_in.get(), h_cpu_out.get(), in_dims, axis);
 
@@ -184,11 +183,11 @@ void reduce_mean_test(size_t batch_size, size_t slot_num, size_t embedding_vec_s
 
   // bprop
   simulator.fill(h_out.get(), out_size);
-  CK_CUDA_THROW_(cudaMemcpy(d_out, h_out.get(), out_size * sizeof(T), cudaMemcpyHostToDevice));
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaMemcpy(d_out, h_out.get(), out_size * sizeof(T), cudaMemcpyHostToDevice));
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
   reduce_mean_layer.bprop();  // compute wgrad and dgrad
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
-  CK_CUDA_THROW_(cudaMemcpy(h_gpu_dgrad.get(), d_in, in_size * sizeof(T), cudaMemcpyDeviceToHost));
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaMemcpy(h_gpu_dgrad.get(), d_in, in_size * sizeof(T), cudaMemcpyDeviceToHost));
 
   reduce_mean_dgrad_cpu<T>(h_out.get(), h_in.get(), in_dims, axis);
   ASSERT_TRUE(test::compare_array_approx<T>(h_in.get(), h_gpu_dgrad.get(), in_size,

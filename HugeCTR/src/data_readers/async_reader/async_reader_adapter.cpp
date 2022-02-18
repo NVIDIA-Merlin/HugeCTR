@@ -51,12 +51,12 @@ AsyncReader<SparseType>::AsyncReader(std::string fname, size_t batch_size, size_
   for (uint32_t i = 0; i < resource_manager_->get_local_gpu_count(); i++) {
     auto local_gpu = resource_manager_->get_local_gpu(i);
     CudaDeviceContext ctx(local_gpu->get_device_id());
-    CK_CUDA_THROW_(cudaEventCreateWithFlags(&completion_events_[i], cudaEventDisableTiming));
-    CK_CUDA_THROW_(cudaEventCreateWithFlags(&schedule_events_[i], cudaEventDisableTiming));
-    CK_CUDA_THROW_(cudaEventCreateWithFlags(&split_schedule_events_[i], cudaEventDisableTiming));
-    CK_CUDA_THROW_(cudaEventCreateWithFlags(&graph_complete_events_[i], cudaEventDisableTiming));
-    CK_CUDA_THROW_(cudaEventCreateWithFlags(&d2d_schedule_events_[i], cudaEventDisableTiming));
-    CK_CUDA_THROW_(cudaStreamCreate(&split_streams_[i]));
+    HCTR_LIB_THROW(cudaEventCreateWithFlags(&completion_events_[i], cudaEventDisableTiming));
+    HCTR_LIB_THROW(cudaEventCreateWithFlags(&schedule_events_[i], cudaEventDisableTiming));
+    HCTR_LIB_THROW(cudaEventCreateWithFlags(&split_schedule_events_[i], cudaEventDisableTiming));
+    HCTR_LIB_THROW(cudaEventCreateWithFlags(&graph_complete_events_[i], cudaEventDisableTiming));
+    HCTR_LIB_THROW(cudaEventCreateWithFlags(&d2d_schedule_events_[i], cudaEventDisableTiming));
+    HCTR_LIB_THROW(cudaStreamCreate(&split_streams_[i]));
 
     auto label_dense_buffer = std::make_shared<RawPtrBuffer>(
         batch_size_per_dev_ *
@@ -90,12 +90,12 @@ AsyncReader<SparseType>::AsyncReader(std::string fname, size_t batch_size, size_
     const auto local_gpu = resource_manager_->get_local_gpu(i);
     if (mixed_precision_) {
       Tensor2<__half> tensor = Tensor2<__half>::stretch_from(dense_tensors_[i]);
-      CK_CUDA_THROW_(cudaMemsetAsync(tensor.get_ptr(), 0,
+      HCTR_LIB_THROW(cudaMemsetAsync(tensor.get_ptr(), 0,
                                      tensor.get_num_elements() * sizeof(__half),
                                      local_gpu->get_memcpy_stream()));
     } else {
       Tensor2<float> tensor = Tensor2<float>::stretch_from(dense_tensors_[i]);
-      CK_CUDA_THROW_(cudaMemsetAsync(tensor.get_ptr(), 0, tensor.get_num_elements() * sizeof(float),
+      HCTR_LIB_THROW(cudaMemsetAsync(tensor.get_ptr(), 0, tensor.get_num_elements() * sizeof(float),
                                      local_gpu->get_memcpy_stream()));
     }
   }
@@ -122,7 +122,7 @@ long long AsyncReader<SparseType>::read_a_batch_to_device_delay_release() {
       if (index_processor_->get_queue_size() != get_total_queue_size()) {
         auto& graph = graphs_[queue_id_ * num_local_gpus + i];
         // ensures we schedule this async processing at the correct location
-        CK_CUDA_THROW_(cudaStreamWaitEvent(split_streams_[i], split_schedule_events_[i]));
+        HCTR_LIB_THROW(cudaStreamWaitEvent(split_streams_[i], split_schedule_events_[i]));
         index_processor_->split3way(batch, queue_id_, i, split_streams_[i]);
         if (!graph.initialized) {
           graph.capture(
@@ -131,17 +131,17 @@ long long AsyncReader<SparseType>::read_a_batch_to_device_delay_release() {
                 index_processor_->calculate_indices(batch, queue_id_, i, graph_stream);
                 // Copy precomputed tensors for the next iteration, wait until we are safe to
                 // overwrite
-                CK_CUDA_THROW_(cudaStreamWaitEvent(graph_stream, d2d_schedule_events_[i],
+                HCTR_LIB_THROW(cudaStreamWaitEvent(graph_stream, d2d_schedule_events_[i],
                                                    cudaEventWaitExternal));
                 index_processor_->finalize(label_tensors_[i], dense_tensors_[i], sparse_tensors_[i],
                                            queue_id_, i, graph_stream);
-                CK_CUDA_THROW_(cudaEventRecordWithFlags(graph_complete_events_[i], graph_stream,
+                HCTR_LIB_THROW(cudaEventRecordWithFlags(graph_complete_events_[i], graph_stream,
                                                         cudaEventRecordExternal));
               },
               split_streams_[i]);
         }
         graph.exec(split_streams_[i]);
-        CK_CUDA_THROW_(cudaStreamWaitEvent(local_gpu->get_stream(), graph_complete_events_[i]));
+        HCTR_LIB_THROW(cudaStreamWaitEvent(local_gpu->get_stream(), graph_complete_events_[i]));
       } else {
         // The queue size of extra processor is exactly the same as for the DR
         // No graphs here
@@ -196,7 +196,7 @@ void AsyncReader<SparseType>::ready_to_collect() {
   CudaDeviceContext ctx(local_gpu->get_device_id());
   cudaStream_t processing_stream =
       precomputing_ ? split_streams_[raw_device_id] : local_gpu->get_stream();
-  CK_CUDA_THROW_(cudaEventRecord(completion_events_[raw_device_id], processing_stream));
+  HCTR_LIB_THROW(cudaEventRecord(completion_events_[raw_device_id], processing_stream));
 
   reader_impl_->finalize_batch(&completion_events_[raw_device_id]);
 }
@@ -212,25 +212,25 @@ template <typename SparseType>
 void AsyncReader<SparseType>::schedule_precompute_here(cudaStream_t stream, int raw_device_id,
                                                        bool from_graph) {
   unsigned int flags = from_graph ? cudaEventRecordExternal : 0;
-  CK_CUDA_THROW_(cudaEventRecordWithFlags(split_schedule_events_[raw_device_id], stream, flags));
+  HCTR_LIB_THROW(cudaEventRecordWithFlags(split_schedule_events_[raw_device_id], stream, flags));
 }
 
 template <typename SparseType>
 void AsyncReader<SparseType>::schedule_d2d_here(cudaStream_t stream, int raw_device_id,
                                                 bool from_graph) {
   unsigned int flags = from_graph ? cudaEventRecordExternal : 0;
-  CK_CUDA_THROW_(cudaEventRecordWithFlags(d2d_schedule_events_[raw_device_id], stream, flags));
+  HCTR_LIB_THROW(cudaEventRecordWithFlags(d2d_schedule_events_[raw_device_id], stream, flags));
 }
 
 template <typename SparseType>
 void AsyncReader<SparseType>::schedule_here(cudaStream_t stream, int raw_device_id) {
-  CK_CUDA_THROW_(cudaEventRecord(schedule_events_[raw_device_id], stream));
+  HCTR_LIB_THROW(cudaEventRecord(schedule_events_[raw_device_id], stream));
   reader_impl_->wait_for_gpu_event(&schedule_events_[raw_device_id], raw_device_id);
 }
 
 template <typename SparseType>
 void AsyncReader<SparseType>::schedule_here_graph(cudaStream_t stream, int raw_device_id) {
-  CK_CUDA_THROW_(
+  HCTR_LIB_THROW(
       cudaEventRecordWithFlags(schedule_events_[raw_device_id], stream, cudaEventRecordExternal));
 }
 

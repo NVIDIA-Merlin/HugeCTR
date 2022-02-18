@@ -61,7 +61,7 @@ InferenceSessionCPU<TypeHashKey>::InferenceSessionCPU(
     h_shuffled_embedding_offset_ =
         (size_t*)malloc((inference_parser_.num_embedding_tables + 1) * sizeof(size_t));
   } catch (const std::runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     throw;
   }
   return;
@@ -111,8 +111,8 @@ void InferenceSessionCPU<TypeHashKey>::look_up_(const void* h_embeddingcolumns,
   h_shuffled_embedding_offset_[inference_parser_.num_embedding_tables] = acc_offset;
   if (h_shuffled_embedding_offset_[inference_parser_.num_embedding_tables] !=
       h_embedding_offset[num_sample * inference_parser_.num_embedding_tables]) {
-    CK_THROW_(Error_t::WrongInput,
-              "Error: embeddingcolumns buffer size is not consist before and after shuffle.");
+    HCTR_OWN_THROW(Error_t::WrongInput,
+                   "Error: embeddingcolumns buffer size is not consist before and after shuffle.");
   }
 
   // look up
@@ -136,7 +136,7 @@ void InferenceSessionCPU<TypeHashKey>::predict(float* h_dense, void* h_embedding
   if (num_embedding_tables != row_ptrs_tensors_.size() ||
       num_embedding_tables != embedding_features_tensors_.size() ||
       num_embedding_tables != embedding_feature_combiners_.size()) {
-    CK_THROW_(Error_t::IllegalCall, "embedding feature combiner inconsistent");
+    HCTR_OWN_THROW(Error_t::IllegalCall, "embedding feature combiner inconsistent");
   }
 
   // embedding cache look up and update

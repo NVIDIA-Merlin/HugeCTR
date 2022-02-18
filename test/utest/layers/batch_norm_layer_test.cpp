@@ -20,7 +20,6 @@
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"
 
-using namespace std;
 using namespace HugeCTR;
 
 namespace {
@@ -200,7 +199,7 @@ void batch_norm_test(size_t batch_size, size_t num_feature) {
   std::shared_ptr<BufferBlock2<float>> wbuff = buff->create_block<float>();
   std::shared_ptr<BufferBlock2<float>> wgbuff = buff->create_block<float>();
 
-  vector<size_t> dims = {batch_size, num_feature};
+  std::vector<size_t> dims = {batch_size, num_feature};
 
   Tensor2<T> in_tensor;
   buff->reserve(dims, &in_tensor);
@@ -237,9 +236,9 @@ void batch_norm_test(size_t batch_size, size_t num_feature) {
 
   float* d_gamma = weight_tensor.get_ptr();
   float* d_beta = weight_tensor.get_ptr() + num_feature;
-  CK_CUDA_THROW_(
+  HCTR_LIB_THROW(
       cudaMemcpy(d_gamma, h_gamma.get(), num_feature * sizeof(float), cudaMemcpyHostToDevice));
-  CK_CUDA_THROW_(
+  HCTR_LIB_THROW(
       cudaMemcpy(d_beta, h_beta.get(), num_feature * sizeof(float), cudaMemcpyHostToDevice));
 
   simulator.fill(h_in.get(), len);
@@ -247,28 +246,28 @@ void batch_norm_test(size_t batch_size, size_t num_feature) {
   batch_norm_fprop_cpu<T>(h_gamma.get(), h_beta.get(), h_in.get(), h_expected.get(), batch_size,
                           num_feature);
 
-  CK_CUDA_THROW_(cudaMemcpy(d_in, h_in.get(), len * sizeof(T), cudaMemcpyHostToDevice));
+  HCTR_LIB_THROW(cudaMemcpy(d_in, h_in.get(), len * sizeof(T), cudaMemcpyHostToDevice));
 
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
   batch_norm_layer.fprop(true);
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
 
-  CK_CUDA_THROW_(cudaMemcpy(h_out.get(), d_out, len * sizeof(T), cudaMemcpyDeviceToHost));
+  HCTR_LIB_THROW(cudaMemcpy(h_out.get(), d_out, len * sizeof(T), cudaMemcpyDeviceToHost));
 
   ASSERT_TRUE(test::compare_array_approx<T>(h_out.get(), h_expected.get(), len, Eps<T>::value()));
 
   simulator.fill(h_out.get(), len);
 
-  CK_CUDA_THROW_(cudaMemcpy(h_expected.get(), d_in, len * sizeof(T), cudaMemcpyDeviceToHost));
+  HCTR_LIB_THROW(cudaMemcpy(h_expected.get(), d_in, len * sizeof(T), cudaMemcpyDeviceToHost));
   batch_norm_bprop_cpu<T>(h_gamma.get(), h_out.get(), h_expected.get(), batch_size, num_feature);
 
-  CK_CUDA_THROW_(cudaMemcpy(d_out, h_out.get(), len * sizeof(T), cudaMemcpyHostToDevice));
+  HCTR_LIB_THROW(cudaMemcpy(d_out, h_out.get(), len * sizeof(T), cudaMemcpyHostToDevice));
 
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
   batch_norm_layer.bprop();
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
 
-  CK_CUDA_THROW_(cudaMemcpy(h_in.get(), d_in, len * sizeof(T), cudaMemcpyDeviceToHost));
+  HCTR_LIB_THROW(cudaMemcpy(h_in.get(), d_in, len * sizeof(T), cudaMemcpyDeviceToHost));
 
   ASSERT_TRUE(test::compare_array_approx<T>(h_in.get(), h_expected.get(), len, Eps<T>::value()));
 }

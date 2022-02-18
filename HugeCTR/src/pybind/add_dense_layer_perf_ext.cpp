@@ -79,12 +79,12 @@ static InputOutputInfo get_input_tensor_and_output_name(
   for (auto& bottom_name : bottom_names) {
     for (auto& top_name : top_names) {
       if (bottom_name == top_name) {
-        CK_THROW_(Error_t::WrongInput, "bottom and top include a same layer name");
+        HCTR_OWN_THROW(Error_t::WrongInput, "bottom and top include a same layer name");
       }
     }
     TensorBag2 bag;
     if (!get_tensor_from_entries(tensor_entries, bottom_name, &bag)) {
-      CK_THROW_(Error_t::WrongInput, "No such bottom: " + bottom_name);
+      HCTR_OWN_THROW(Error_t::WrongInput, "No such bottom: " + bottom_name);
     }
     bottom_bags.push_back(bag);
   }
@@ -135,10 +135,10 @@ void ModelPerfExt::add_dense_layer_internal(
   if (layer_type_to_string.find(layer_type) == layer_type_to_string.end()) {
     if (use_mixed_precision) {
       auto layer_type_name = LAYER_TYPE_TO_STRING[layer_type];
-      CK_THROW_(Error_t::WrongInput, "Mixed precision not supported for: " + layer_type_name);
+      HCTR_OWN_THROW(Error_t::WrongInput, "Mixed precision not supported for: " + layer_type_name);
     } else {
       auto layer_type_name = LAYER_TYPE_TO_STRING_MP[layer_type];
-      CK_THROW_(Error_t::WrongInput, "Single precision not supported for: " + layer_type_name);
+      HCTR_OWN_THROW(Error_t::WrongInput, "Single precision not supported for: " + layer_type_name);
     }
   }
   std::vector<TensorEntry> output_tensor_entries;
@@ -177,7 +177,7 @@ void ModelPerfExt::add_dense_layer_internal(
     }
     case Layer_t::BinaryCrossEntropyLoss: {
       if (input_output_info.inputs.size() != 2) {
-        CK_THROW_(Error_t::WrongInput, "bottom of BinaryCrossEntropyLoss must be two dim");
+        HCTR_OWN_THROW(Error_t::WrongInput, "bottom of BinaryCrossEntropyLoss must be two dim");
       }
       Tensor2<float> label_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[1]);
       blobs_buff->reserve({1, 1}, &loss_tensor);
@@ -232,7 +232,7 @@ void ModelPerfExt::add_dense_layer_internal(
     }
     case Layer_t::CrossEntropyLoss: {
       if (input_output_info.inputs.size() != 2) {
-        CK_THROW_(Error_t::WrongInput, "bottom of CrossEntropyLoss must be two dim");
+        HCTR_OWN_THROW(Error_t::WrongInput, "bottom of CrossEntropyLoss must be two dim");
       }
       Tensor2<float> label_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[1]);
       blobs_buff->reserve({1, 1}, &loss_tensor);
@@ -315,14 +315,15 @@ void ModelPerfExt::add_dense_layer_internal(
       auto act_type = dense_layer.act_type;
       bool head_mask_in = pos_type == FcPosition_t::Head && input_size == 2;
       if (skip_dgrad && pos_type == FcPosition_t::Head && input_size == 2) {
-        CK_THROW_(Error_t::WrongInput,
-                  "FusedInnerProduct Head Layer should have only one input tensors when it is the "
-                  "first dense layer");
+        HCTR_OWN_THROW(
+            Error_t::WrongInput,
+            "FusedInnerProduct Head Layer should have only one input tensors when it is the "
+            "first dense layer");
       }
       if (async_mlp_wgrad && !skip_dgrad && pos_type == FcPosition_t::Head && input_size == 1) {
-        CK_THROW_(Error_t::WrongInput,
-                  "FusedInnerProduct Head Layer should have two input tensors when turning on "
-                  "async wgrad knob");
+        HCTR_OWN_THROW(Error_t::WrongInput,
+                       "FusedInnerProduct Head Layer should have two input tensors when turning on "
+                       "async wgrad knob");
       }
       if (pos_type == FcPosition_t::Head && skip_dgrad && input_size == 1 && output_size == 4) {
       } else if (pos_type == FcPosition_t::Head && !skip_dgrad && input_size == 2 &&
@@ -332,14 +333,14 @@ void ModelPerfExt::add_dense_layer_internal(
       } else if (pos_type == FcPosition_t::Isolated && input_size == 1 && output_size == 1) {
       } else if (pos_type == FcPosition_t::None && input_size == 1 && output_size == 1) {
       } else {
-        CK_THROW_(Error_t::WrongInput,
-                  "The position and dimension of bottom and top layer aren't compatible: " +
-                      LAYER_TYPE_TO_STRING_MP[layer_type]);
+        HCTR_OWN_THROW(Error_t::WrongInput,
+                       "The position and dimension of bottom and top layer aren't compatible: " +
+                           LAYER_TYPE_TO_STRING_MP[layer_type]);
       }
 
       if (act_type == Activation_t::None && pos_type != FcPosition_t::Tail) {
-        CK_THROW_(Error_t::WrongInput,
-                  "The layer without activation function must be the last layer in MLP.");
+        HCTR_OWN_THROW(Error_t::WrongInput,
+                       "The layer without activation function must be the last layer in MLP.");
       }
 
       if (use_mixed_precision) {
@@ -386,7 +387,7 @@ void ModelPerfExt::add_dense_layer_internal(
               {input_output_info.output_names[3], db_out_tensor.shrink()});
         }
       } else {
-        CK_THROW_(Error_t::WrongInput, "FusedInnerProduct support half only");
+        HCTR_OWN_THROW(Error_t::WrongInput, "FusedInnerProduct support half only");
       }
       break;
     }
@@ -434,12 +435,13 @@ void ModelPerfExt::add_dense_layer_internal(
     case Layer_t::Interaction: {
       if (use_mixed_precision) {
         if (gpu_resource->get_cc_major() < 7) {
-          CK_THROW_(Error_t::WrongInput, "InteractionLayer<__half> is not supported in SM " +
-                                             std::to_string(gpu_resource->get_cc_major()) + "." +
-                                             std::to_string(gpu_resource->get_cc_minor()));
+          std::ostringstream os;
+          os << "InteractionLayer<__half> is not supported in SM " << gpu_resource->get_cc_major()
+             << '.' << gpu_resource->get_cc_minor();
+          HCTR_OWN_THROW(Error_t::WrongInput, os.str());
         }
         if (input_output_info.inputs.size() != 2) {
-          CK_THROW_(Error_t::WrongInput, "InteractionLayer<__half> needs two output tensors ");
+          HCTR_OWN_THROW(Error_t::WrongInput, "InteractionLayer<__half> needs two output tensors ");
         }
         Tensor2<__half> in_mlp_tensor = Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
         Tensor2<__half> in_emb_tensor = Tensor2<__half>::stretch_from(input_output_info.inputs[1]);
@@ -485,7 +487,7 @@ void ModelPerfExt::add_dense_layer_internal(
     }
     case Layer_t::MultiCrossEntropyLoss: {
       if (input_output_info.inputs.size() != 2) {
-        CK_THROW_(Error_t::WrongInput, "bottom of MultiCrossEntropyLoss must be two dim");
+        HCTR_OWN_THROW(Error_t::WrongInput, "bottom of MultiCrossEntropyLoss must be two dim");
       }
       Tensor2<float> label_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[1]);
       blobs_buff->reserve({1, 1}, &loss_tensor);

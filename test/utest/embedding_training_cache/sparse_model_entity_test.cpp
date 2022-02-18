@@ -98,7 +98,7 @@ void sparse_model_entity_test(int batch_num_train, bool is_distributed) {
                                                           emb_vec_size, resource_manager);
 
   // test load_vec_by_key
-  MESSAGE_("[TEST] sparse_model_entity::load_vec_by_key");
+  HCTR_LOG(INFO, ROOT, "[TEST] sparse_model_entity::load_vec_by_key\n");
 
   size_t key_file_size_in_byte = std::filesystem::file_size(get_ext_file(snapshot_dst_file, "key"));
   size_t vec_file_size_in_byte =
@@ -144,7 +144,7 @@ void sparse_model_entity_test(int batch_num_train, bool is_distributed) {
     ASSERT_TRUE(test::compare_array_approx<size_t>(slot_in_file.data(), slot_id_ptr, hit_size, 0));
   }
 
-  MESSAGE_("[TEST] sparse_model_entity::dump_vec_by_key");
+  HCTR_LOG(INFO, ROOT, "[TEST] sparse_model_entity::dump_vec_by_key\n");
   std::default_random_engine generator;
   std::uniform_real_distribution<float> real_distribution(0.0f, 1.0f);
   auto gen_real_rand_op = [&generator, &real_distribution](float& elem) {
@@ -163,14 +163,14 @@ void sparse_model_entity_test(int batch_num_train, bool is_distributed) {
   ASSERT_TRUE(check_vector_equality(snapshot_src_file, snapshot_dst_file, "emb_vector"));
 
   // load part embedding features
-  MESSAGE_("[TEST] both load and dump");
+  HCTR_LOG(INFO, ROOT, "[TEST] both load and dump\n");
   std::vector<TypeKey> rand_idx(static_cast<size_t>(key_in_file.size() * 0.4));
   std::uniform_int_distribution<size_t> distribution(0, num_keys - 1);
   auto gen_rand_op = [&generator, &distribution](auto& elem) { elem = distribution(generator); };
   for_each(rand_idx.begin(), rand_idx.end(), gen_rand_op);
   sort(rand_idx.begin(), rand_idx.end());
   rand_idx.erase(std::unique(rand_idx.begin(), rand_idx.end()), rand_idx.end());
-  MESSAGE_(std::to_string(rand_idx.size()) + " keys selected");
+  HCTR_LOG_S(INFO, ROOT) << rand_idx.size() << " keys selected" << std::endl;
 
   std::vector<TypeKey> selt_keys(rand_idx.size());
   auto get_key_op = [&key_in_file](size_t idx) { return key_in_file[idx]; };

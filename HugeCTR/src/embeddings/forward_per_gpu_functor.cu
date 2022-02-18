@@ -299,10 +299,10 @@ void SparseEmbeddingFunctors::forward_per_gpu(
                    hash_value_index.get_ptr(), hash_table_value.get_ptr(),
                    embedding_feature.get_ptr(), stream);
     } else {
-      CK_THROW_(Error_t::WrongInput, "Invalid combiner type ");
+      HCTR_OWN_THROW(Error_t::WrongInput, "Invalid combiner type ");
     }
   } catch (const std::runtime_error &rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     throw;
   }
 
@@ -350,10 +350,10 @@ void SparseEmbeddingFunctors::forward_sum_per_gpu(
                    hash_value_index.get_ptr(), hash_table_value.get_ptr(),
                    embedding_feature.get_ptr(), stream);
     } else {
-      CK_THROW_(Error_t::WrongInput, "Invalid combiner type ");
+      HCTR_OWN_THROW(Error_t::WrongInput, "Invalid combiner type ");
     }
   } catch (const std::runtime_error &rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     throw;
   }
 

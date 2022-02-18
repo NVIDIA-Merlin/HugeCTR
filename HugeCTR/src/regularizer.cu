@@ -53,7 +53,7 @@ void Regularizer<T>::compute_rterm() {
 
 #ifndef NDEBUG
   cudaDeviceSynchronize();
-  CK_CUDA_THROW_(cudaGetLastError());
+  HCTR_LIB_THROW(cudaGetLastError());
 #endif
 }
 
@@ -67,7 +67,7 @@ void Regularizer<T>::initialize_wgrad() {
 
 #ifndef NDEBUG
   cudaDeviceSynchronize();
-  CK_CUDA_THROW_(cudaGetLastError());
+  HCTR_LIB_THROW(cudaGetLastError());
 #endif
 }
 
@@ -76,20 +76,20 @@ void Regularizer<T>::initialize_wgrad_async() {
   CudaDeviceContext context(get_device_id());
   const float* weight = weight_buff_.get_ptr();
   T* wgrad = wgrad_buff_.get_ptr();
-  CK_CUDA_THROW_(cudaEventRecord(fork_event_, get_gpu().get_stream()));
-  CK_CUDA_THROW_(cudaStreamWaitEvent(reg_stream_, fork_event_));
+  HCTR_LIB_THROW(cudaEventRecord(fork_event_, get_gpu().get_stream()));
+  HCTR_LIB_THROW(cudaStreamWaitEvent(reg_stream_, fork_event_));
   do_initialize_wgrad(weight, wgrad, weight_buff_.get_num_elements(), reg_stream_);
-  CK_CUDA_THROW_(cudaEventRecord(join_event_, reg_stream_));
+  HCTR_LIB_THROW(cudaEventRecord(join_event_, reg_stream_));
 
 #ifndef NDEBUG
   cudaDeviceSynchronize();
-  CK_CUDA_THROW_(cudaGetLastError());
+  HCTR_LIB_THROW(cudaGetLastError());
 #endif
 }
 
 template <typename T>
 void Regularizer<T>::join_initialize_wgrad() {
-  CK_CUDA_THROW_(cudaStreamWaitEvent(get_gpu().get_stream(), join_event_));
+  HCTR_LIB_THROW(cudaStreamWaitEvent(get_gpu().get_stream(), join_event_));
 }
 
 template class Regularizer<float>;

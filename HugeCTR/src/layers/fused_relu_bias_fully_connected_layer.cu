@@ -75,7 +75,7 @@ FusedReluBiasFullyConnectedLayer::FusedReluBiasFullyConnectedLayer(
   const auto& top_tensor_dim = train_out_tensor.get_dimensions();
 
   if (bottom_tensor_dim.size() != 2 || top_tensor_dim.size() != 2) {
-    CK_THROW_(Error_t::WrongInput, "input or output tensor doesn't has two dimensions");
+    HCTR_OWN_THROW(Error_t::WrongInput, "input or output tensor doesn't has two dimensions");
   }
 
   size_t m = bottom_tensor_dim[0];
@@ -143,7 +143,7 @@ FusedReluBiasFullyConnectedLayer::FusedReluBiasFullyConnectedLayer(
 
 void FusedReluBiasFullyConnectedLayer::initialize() {
   CudaDeviceContext context(get_device_id());
-  CK_CUDA_THROW_(cudaEventCreate(&event_overlap_));
+  HCTR_LIB_THROW(cudaEventCreate(&event_overlap_));
   event_overlap_created_ = true;
 
   // TODO: We need different bottom desc based on is_train or not
@@ -158,20 +158,20 @@ void FusedReluBiasFullyConnectedLayer::initialize() {
   initialize_array<<<(m - 1) / 1024 + 1, 1024, 0, get_gpu().get_stream()>>>(identity, m,
                                                                             __float2half(1.0f));
 
-  CK_CUBLAS_THROW_(cublasLtMatmulDescCreate(&cublas_op_desc_, CUBLAS_COMPUTE_32F, CUDA_R_32F));
+  HCTR_LIB_THROW(cublasLtMatmulDescCreate(&cublas_op_desc_, CUBLAS_COMPUTE_32F, CUDA_R_32F));
 
   cublasOperation_t trans = CUBLAS_OP_N;
-  CK_CUBLAS_THROW_(cublasLtMatmulDescSetAttribute(cublas_op_desc_, CUBLASLT_MATMUL_DESC_TRANSA,
-                                                  &trans, sizeof(trans)));
-  CK_CUBLAS_THROW_(cublasLtMatmulDescSetAttribute(cublas_op_desc_, CUBLASLT_MATMUL_DESC_TRANSB,
-                                                  &trans, sizeof(trans)));
+  HCTR_LIB_THROW(cublasLtMatmulDescSetAttribute(cublas_op_desc_, CUBLASLT_MATMUL_DESC_TRANSA,
+                                                &trans, sizeof(trans)));
+  HCTR_LIB_THROW(cublasLtMatmulDescSetAttribute(cublas_op_desc_, CUBLASLT_MATMUL_DESC_TRANSB,
+                                                &trans, sizeof(trans)));
   cublasLtEpilogue_t epi = CUBLASLT_EPILOGUE_RELU_AUX_BIAS;
   if (act_ == Activation_t::None) epi = CUBLASLT_EPILOGUE_BIAS;
-  CK_CUBLAS_THROW_(cublasLtMatmulDescSetAttribute(cublas_op_desc_, CUBLASLT_MATMUL_DESC_EPILOGUE,
-                                                  &epi, sizeof(epi)));
+  HCTR_LIB_THROW(cublasLtMatmulDescSetAttribute(cublas_op_desc_, CUBLASLT_MATMUL_DESC_EPILOGUE,
+                                                &epi, sizeof(epi)));
   const __half* bias = weights_half_[1].get_ptr();
-  CK_CUBLAS_THROW_(cublasLtMatmulDescSetAttribute(
-      cublas_op_desc_, CUBLASLT_MATMUL_DESC_BIAS_POINTER, &bias, sizeof(bias)));
+  HCTR_LIB_THROW(cublasLtMatmulDescSetAttribute(cublas_op_desc_, CUBLASLT_MATMUL_DESC_BIAS_POINTER,
+                                                &bias, sizeof(bias)));
   if (act_ != Activation_t::None) {
     __half* reluMask = mask_out_tensor_.get_ptr();
     cublasLtMatmulDescSetAttribute(cublas_op_desc_, CUBLASLT_MATMUL_DESC_EPILOGUE_AUX_POINTER,
@@ -181,34 +181,34 @@ void FusedReluBiasFullyConnectedLayer::initialize() {
                                    &reluMaskLd, sizeof(reluMaskLd));
   }
 
-  CK_CUBLAS_THROW_(cublasLtMatrixLayoutCreate(&cublas_kernel_desc_, CUDA_R_16F, n, k, n));
-  CK_CUBLAS_THROW_(cublasLtMatrixLayoutCreate(&cublas_bottom_desc_, CUDA_R_16F, k, m, k));
-  CK_CUBLAS_THROW_(cublasLtMatrixLayoutCreate(&cublas_top_desc_, CUDA_R_16F, n, m, n));
+  HCTR_LIB_THROW(cublasLtMatrixLayoutCreate(&cublas_kernel_desc_, CUDA_R_16F, n, k, n));
+  HCTR_LIB_THROW(cublasLtMatrixLayoutCreate(&cublas_bottom_desc_, CUDA_R_16F, k, m, k));
+  HCTR_LIB_THROW(cublasLtMatrixLayoutCreate(&cublas_top_desc_, CUDA_R_16F, n, m, n));
 
-  CK_CUBLAS_THROW_(cublasLtMatmulPreferenceCreate(&cublas_preference_));
+  HCTR_LIB_THROW(cublasLtMatmulPreferenceCreate(&cublas_preference_));
 
   cublaslt_workspace_size_ = 1024 * 1024 * 16;  // Set it to 8MB for now
-  CK_CUDA_THROW_(cudaMalloc(&cublaslt_workspace_, cublaslt_workspace_size_));
-  CK_CUBLAS_THROW_(cublasLtMatmulPreferenceSetAttribute(
+  HCTR_LIB_THROW(cudaMalloc(&cublaslt_workspace_, cublaslt_workspace_size_));
+  HCTR_LIB_THROW(cublasLtMatmulPreferenceSetAttribute(
       cublas_preference_, CUBLASLT_MATMUL_PREF_MAX_WORKSPACE_BYTES, &cublaslt_workspace_size_,
       sizeof(cublaslt_workspace_size_)));
 
   uint32_t pointer_mode = CUBLASLT_POINTER_MODE_MASK_HOST;
-  CK_CUBLAS_THROW_(cublasLtMatmulPreferenceSetAttribute(cublas_preference_,
-                                                        CUBLASLT_MATMUL_PREF_POINTER_MODE_MASK,
-                                                        &pointer_mode, sizeof(pointer_mode)));
+  HCTR_LIB_THROW(cublasLtMatmulPreferenceSetAttribute(cublas_preference_,
+                                                      CUBLASLT_MATMUL_PREF_POINTER_MODE_MASK,
+                                                      &pointer_mode, sizeof(pointer_mode)));
 
   // By default set algo to best estimated heurstic
   cublasLtMatmulHeuristicResult_t heuristic_result;
   int returned_res = 0;
-  CK_CUBLAS_THROW_(cublasLtMatmulAlgoGetHeuristic(
+  HCTR_LIB_THROW(cublasLtMatmulAlgoGetHeuristic(
       get_gpu().get_cublaslt_handle(), cublas_op_desc_, cublas_kernel_desc_, cublas_bottom_desc_,
       cublas_top_desc_, cublas_top_desc_, cublas_preference_, 1, &heuristic_result, &returned_res));
 
   memcpy(&falgo_k_, &heuristic_result.algo, sizeof(falgo_k_));
 
   if (returned_res == 0) {
-    CK_CUBLAS_THROW_(CUBLAS_STATUS_NOT_SUPPORTED);
+    HCTR_LIB_THROW(CUBLAS_STATUS_NOT_SUPPORTED);
   }
 
   initialize_dgrad();
@@ -224,18 +224,17 @@ void FusedReluBiasFullyConnectedLayer::initialize_dgrad() {
   size_t n = top_tensor_dim[1];
   size_t k = bottom_tensor_dim[1];
 
-  CK_CUBLAS_THROW_(
-      cublasLtMatmulDescCreate(&cublas_op_desc_bprop_, CUBLAS_COMPUTE_32F, CUDA_R_32F));
+  HCTR_LIB_THROW(cublasLtMatmulDescCreate(&cublas_op_desc_bprop_, CUBLAS_COMPUTE_32F, CUDA_R_32F));
 
   cublasOperation_t transA = CUBLAS_OP_T;
   cublasOperation_t transB = CUBLAS_OP_N;
-  CK_CUBLAS_THROW_(cublasLtMatmulDescSetAttribute(
-      cublas_op_desc_bprop_, CUBLASLT_MATMUL_DESC_TRANSA, &transA, sizeof(transA)));
-  CK_CUBLAS_THROW_(cublasLtMatmulDescSetAttribute(
-      cublas_op_desc_bprop_, CUBLASLT_MATMUL_DESC_TRANSB, &transB, sizeof(transB)));
+  HCTR_LIB_THROW(cublasLtMatmulDescSetAttribute(cublas_op_desc_bprop_, CUBLASLT_MATMUL_DESC_TRANSA,
+                                                &transA, sizeof(transA)));
+  HCTR_LIB_THROW(cublasLtMatmulDescSetAttribute(cublas_op_desc_bprop_, CUBLASLT_MATMUL_DESC_TRANSB,
+                                                &transB, sizeof(transB)));
   if (pos_ == FcPosition_t::Head || pos_ == FcPosition_t::Isolated) {
     cublasLtEpilogue_t epi = CUBLASLT_EPILOGUE_DEFAULT;
-    CK_CUBLAS_THROW_(cublasLtMatmulDescSetAttribute(
+    HCTR_LIB_THROW(cublasLtMatmulDescSetAttribute(
         cublas_op_desc_bprop_, CUBLASLT_MATMUL_DESC_EPILOGUE, &epi, sizeof(epi)));
   } else if (pos_ == FcPosition_t::Body || pos_ == FcPosition_t::Tail) {
     cublasLtEpilogue_t epi = CUBLASLT_EPILOGUE_DRELU_BGRAD;
@@ -252,26 +251,26 @@ void FusedReluBiasFullyConnectedLayer::initialize_dgrad() {
                                    &reluMaskLd, sizeof(reluMaskLd));
   }
 
-  CK_CUBLAS_THROW_(cublasLtMatrixLayoutCreate(&cublas_dRelu_top_desc_, CUDA_R_16F, n, m, n));
-  CK_CUBLAS_THROW_(cublasLtMatrixLayoutCreate(&cublas_dRelu_bottom_desc_, CUDA_R_16F, k, m, k));
+  HCTR_LIB_THROW(cublasLtMatrixLayoutCreate(&cublas_dRelu_top_desc_, CUDA_R_16F, n, m, n));
+  HCTR_LIB_THROW(cublasLtMatrixLayoutCreate(&cublas_dRelu_bottom_desc_, CUDA_R_16F, k, m, k));
 
-  CK_CUBLAS_THROW_(cublasLtMatmulPreferenceCreate(&cublas_preference_dRelu_));
+  HCTR_LIB_THROW(cublasLtMatmulPreferenceCreate(&cublas_preference_dRelu_));
 
   cublaslt_workspace_size_ = 1024 * 1024 * 8;  // Set it to 8MB for now
-  CK_CUDA_THROW_(cudaMalloc(&cublaslt_workspace_dRelu_, cublaslt_workspace_size_));
-  CK_CUBLAS_THROW_(cublasLtMatmulPreferenceSetAttribute(
+  HCTR_LIB_THROW(cudaMalloc(&cublaslt_workspace_dRelu_, cublaslt_workspace_size_));
+  HCTR_LIB_THROW(cublasLtMatmulPreferenceSetAttribute(
       cublas_preference_dRelu_, CUBLASLT_MATMUL_PREF_MAX_WORKSPACE_BYTES, &cublaslt_workspace_size_,
       sizeof(cublaslt_workspace_size_)));
 
   uint32_t pointer_mode = CUBLASLT_POINTER_MODE_MASK_HOST;
-  CK_CUBLAS_THROW_(cublasLtMatmulPreferenceSetAttribute(cublas_preference_dRelu_,
-                                                        CUBLASLT_MATMUL_PREF_POINTER_MODE_MASK,
-                                                        &pointer_mode, sizeof(pointer_mode)));
+  HCTR_LIB_THROW(cublasLtMatmulPreferenceSetAttribute(cublas_preference_dRelu_,
+                                                      CUBLASLT_MATMUL_PREF_POINTER_MODE_MASK,
+                                                      &pointer_mode, sizeof(pointer_mode)));
 
   // By default set algo to best estimated heurstic
   cublasLtMatmulHeuristicResult_t heuristic_result;
   int returned_res = 0;
-  CK_CUBLAS_THROW_(cublasLtMatmulAlgoGetHeuristic(
+  HCTR_LIB_THROW(cublasLtMatmulAlgoGetHeuristic(
       get_gpu().get_cublaslt_handle(), cublas_op_desc_bprop_, cublas_kernel_desc_,
       cublas_dRelu_top_desc_, cublas_dRelu_bottom_desc_, cublas_dRelu_bottom_desc_,
       cublas_preference_dRelu_, 1, &heuristic_result, &returned_res));
@@ -279,7 +278,7 @@ void FusedReluBiasFullyConnectedLayer::initialize_dgrad() {
   memcpy(&balgo_dRelu_, &heuristic_result.algo, sizeof(balgo_dRelu_));
 
   if (returned_res == 0) {
-    CK_CUBLAS_THROW_(CUBLAS_STATUS_NOT_SUPPORTED);
+    HCTR_LIB_THROW(CUBLAS_STATUS_NOT_SUPPORTED);
   }
 }
 
@@ -292,15 +291,14 @@ void FusedReluBiasFullyConnectedLayer::initialize_wgrad() {
   size_t n = top_tensor_dim[1];
   size_t k = bottom_tensor_dim[1];
 
-  CK_CUBLAS_THROW_(
-      cublasLtMatmulDescCreate(&cublas_op_desc_wgrad_, CUBLAS_COMPUTE_32F, CUDA_R_32F));
+  HCTR_LIB_THROW(cublasLtMatmulDescCreate(&cublas_op_desc_wgrad_, CUBLAS_COMPUTE_32F, CUDA_R_32F));
 
   cublasOperation_t transA = CUBLAS_OP_N;
   cublasOperation_t transB = CUBLAS_OP_T;
-  CK_CUBLAS_THROW_(cublasLtMatmulDescSetAttribute(
-      cublas_op_desc_wgrad_, CUBLASLT_MATMUL_DESC_TRANSA, &transA, sizeof(transA)));
-  CK_CUBLAS_THROW_(cublasLtMatmulDescSetAttribute(
-      cublas_op_desc_wgrad_, CUBLASLT_MATMUL_DESC_TRANSB, &transB, sizeof(transB)));
+  HCTR_LIB_THROW(cublasLtMatmulDescSetAttribute(cublas_op_desc_wgrad_, CUBLASLT_MATMUL_DESC_TRANSA,
+                                                &transA, sizeof(transA)));
+  HCTR_LIB_THROW(cublasLtMatmulDescSetAttribute(cublas_op_desc_wgrad_, CUBLASLT_MATMUL_DESC_TRANSB,
+                                                &transB, sizeof(transB)));
   cublasLtEpilogue_t epi;
   if (pos_ == FcPosition_t::Tail || pos_ == FcPosition_t::Isolated) {
     epi = CUBLASLT_EPILOGUE_BGRADA;
@@ -311,26 +309,26 @@ void FusedReluBiasFullyConnectedLayer::initialize_wgrad() {
     epi = CUBLASLT_EPILOGUE_DEFAULT;
   }
 
-  CK_CUBLAS_THROW_(cublasLtMatmulDescSetAttribute(
-      cublas_op_desc_wgrad_, CUBLASLT_MATMUL_DESC_EPILOGUE, &epi, sizeof(epi)));
+  HCTR_LIB_THROW(cublasLtMatmulDescSetAttribute(cublas_op_desc_wgrad_,
+                                                CUBLASLT_MATMUL_DESC_EPILOGUE, &epi, sizeof(epi)));
 
-  CK_CUBLAS_THROW_(cublasLtMatmulPreferenceCreate(&cublas_preference_wgrad_));
+  HCTR_LIB_THROW(cublasLtMatmulPreferenceCreate(&cublas_preference_wgrad_));
 
   cublaslt_workspace_size_ = 1024 * 1024 * 8;  // Set it to 8MB for now
-  CK_CUDA_THROW_(cudaMalloc(&cublaslt_workspace_wgrad_, cublaslt_workspace_size_));
-  CK_CUBLAS_THROW_(cublasLtMatmulPreferenceSetAttribute(
+  HCTR_LIB_THROW(cudaMalloc(&cublaslt_workspace_wgrad_, cublaslt_workspace_size_));
+  HCTR_LIB_THROW(cublasLtMatmulPreferenceSetAttribute(
       cublas_preference_wgrad_, CUBLASLT_MATMUL_PREF_MAX_WORKSPACE_BYTES, &cublaslt_workspace_size_,
       sizeof(cublaslt_workspace_size_)));
 
   uint32_t pointer_mode = CUBLASLT_POINTER_MODE_MASK_HOST;
-  CK_CUBLAS_THROW_(cublasLtMatmulPreferenceSetAttribute(cublas_preference_wgrad_,
-                                                        CUBLASLT_MATMUL_PREF_POINTER_MODE_MASK,
-                                                        &pointer_mode, sizeof(pointer_mode)));
+  HCTR_LIB_THROW(cublasLtMatmulPreferenceSetAttribute(cublas_preference_wgrad_,
+                                                      CUBLASLT_MATMUL_PREF_POINTER_MODE_MASK,
+                                                      &pointer_mode, sizeof(pointer_mode)));
 
   // By default set algo to best estimated heurstic
   cublasLtMatmulHeuristicResult_t heuristic_result;
   int returned_res = 0;
-  CK_CUBLAS_THROW_(cublasLtMatmulAlgoGetHeuristic(
+  HCTR_LIB_THROW(cublasLtMatmulAlgoGetHeuristic(
       get_gpu().get_cublaslt_handle(), cublas_op_desc_wgrad_, cublas_dRelu_top_desc_,
       cublas_dRelu_bottom_desc_, cublas_kernel_desc_, cublas_kernel_desc_, cublas_preference_wgrad_,
       1, &heuristic_result, &returned_res));
@@ -338,7 +336,7 @@ void FusedReluBiasFullyConnectedLayer::initialize_wgrad() {
   memcpy(&balgo_wgrad_, &heuristic_result.algo, sizeof(balgo_wgrad_));
 
   if (returned_res == 0) {
-    CK_CUBLAS_THROW_(CUBLAS_STATUS_NOT_SUPPORTED);
+    HCTR_LIB_THROW(CUBLAS_STATUS_NOT_SUPPORTED);
   }
 }
 
@@ -364,7 +362,7 @@ void FusedReluBiasFullyConnectedLayer::fprop(bool is_train) {
 
   PROFILE_RECORD("fused_relu_bias_fully_connected.fprop.cublasLtMatmul.start",
                  get_gpu().get_stream());
-  CK_CUBLAS_THROW_(cublasLtMatmul(
+  HCTR_LIB_THROW(cublasLtMatmul(
       get_gpu().get_cublaslt_handle(), cublas_op_desc_, &alpha, kernel, cublas_kernel_desc_, bottom,
       cublas_bottom_desc_, &beta, top_fprop, cublas_top_desc_, top_fprop, cublas_top_desc_,
       &falgo_k_, cublaslt_workspace_, cublaslt_workspace_size_, get_gpu().get_stream()));
@@ -374,13 +372,13 @@ void FusedReluBiasFullyConnectedLayer::fprop(bool is_train) {
   if ((pos_ == FcPosition_t::Tail || pos_ == FcPosition_t::Isolated) &&
       act_ != Activation_t::None) {
     size_t len = train_out_tensor_.get_num_elements();
-    CK_CUDA_THROW_(cudaMemcpyAsync(mask_out, top_fprop, len * sizeof(__half),
+    HCTR_LIB_THROW(cudaMemcpyAsync(mask_out, top_fprop, len * sizeof(__half),
                                    cudaMemcpyDeviceToDevice, get_gpu().get_stream()));
   }
   PROFILE_RECORD("fused_relu_bias_fully_connected.fprop.stop", get_gpu().get_stream());
 #ifndef NDEBUG
   cudaDeviceSynchronize();
-  CK_CUDA_THROW_(cudaGetLastError());
+  HCTR_LIB_THROW(cudaGetLastError());
 #endif
 }
 
@@ -429,8 +427,8 @@ void FusedReluBiasFullyConnectedLayer::bprop() {
 
   // wait for dRelu
   if (async_mlp_wgrad_) {
-    CK_CUDA_THROW_(cudaEventRecord(event_overlap_, get_gpu().get_stream()));
-    CK_CUDA_THROW_(cudaStreamWaitEvent(get_gpu().get_comp_overlap_stream(), event_overlap_));
+    HCTR_LIB_THROW(cudaEventRecord(event_overlap_, get_gpu().get_stream()));
+    HCTR_LIB_THROW(cudaStreamWaitEvent(get_gpu().get_comp_overlap_stream(), event_overlap_));
   }
 
   // dgrad
@@ -445,7 +443,7 @@ void FusedReluBiasFullyConnectedLayer::bprop() {
     if (pos_ == FcPosition_t::Body || pos_ == FcPosition_t::Tail) {
       bottom_bprop = dRelu_in_tensor_.get_ptr();
     }
-    CK_CUBLAS_THROW_(cublasLtMatmul(
+    HCTR_LIB_THROW(cublasLtMatmul(
         get_gpu().get_cublaslt_handle(), cublas_op_desc_bprop_, &alpha, kernel, cublas_kernel_desc_,
         dRelu_top, cublas_dRelu_top_desc_, &beta_x, bottom_bprop, cublas_dRelu_bottom_desc_,
         bottom_bprop, cublas_dRelu_bottom_desc_, &balgo_dRelu_, cublaslt_workspace_dRelu_,
@@ -454,14 +452,14 @@ void FusedReluBiasFullyConnectedLayer::bprop() {
 
   // bgrad+wgrad
   if (n == 1) {
-    CK_CUBLAS_THROW_(cublasGemmEx(cublas_handle_wgrad_, CUBLAS_OP_N, CUBLAS_OP_N, n, 1, m, &alpha,
-                                  dRelu_top, CUDA_R_16F, n, identity, CUDA_R_16F, m, &beta_b,
-                                  bias_grad, CUDA_R_16F, n, CUDA_R_32F, balgo_b_));
-    CK_CUBLAS_THROW_(cublasGemmEx(cublas_handle_wgrad_, CUBLAS_OP_N, CUBLAS_OP_T, n, k, m, &alpha,
-                                  dRelu_top, CUDA_R_16F, n, bottom, CUDA_R_16F, k, &beta_k,
-                                  kernel_grad, CUDA_R_16F, n, CUDA_R_32F, balgo_k_));
+    HCTR_LIB_THROW(cublasGemmEx(cublas_handle_wgrad_, CUBLAS_OP_N, CUBLAS_OP_N, n, 1, m, &alpha,
+                                dRelu_top, CUDA_R_16F, n, identity, CUDA_R_16F, m, &beta_b,
+                                bias_grad, CUDA_R_16F, n, CUDA_R_32F, balgo_b_));
+    HCTR_LIB_THROW(cublasGemmEx(cublas_handle_wgrad_, CUBLAS_OP_N, CUBLAS_OP_T, n, k, m, &alpha,
+                                dRelu_top, CUDA_R_16F, n, bottom, CUDA_R_16F, k, &beta_k,
+                                kernel_grad, CUDA_R_16F, n, CUDA_R_32F, balgo_k_));
   } else {
-    CK_CUBLAS_THROW_(cublasLtMatmul(
+    HCTR_LIB_THROW(cublasLtMatmul(
         get_gpu().get_cublaslt_handle(), cublas_op_desc_wgrad_, &alpha, dRelu_top,
         cublas_dRelu_top_desc_, bottom, cublas_dRelu_bottom_desc_, &beta_k, kernel_grad,
         cublas_kernel_desc_, kernel_grad, cublas_kernel_desc_, &balgo_wgrad_,
@@ -479,7 +477,7 @@ void FusedReluBiasFullyConnectedLayer::bprop() {
 
 #ifndef NDEBUG
   cudaDeviceSynchronize();
-  CK_CUDA_THROW_(cudaGetLastError());
+  HCTR_LIB_THROW(cudaGetLastError());
 #endif
 }
 
@@ -510,27 +508,27 @@ void FusedReluBiasFullyConnectedLayer::search_algorithm() {
   float shortestTime = std::numeric_limits<float>::max();
   float time;
   cudaEvent_t start, stop;
-  CK_CUDA_THROW_(cudaEventCreate(&start));
-  CK_CUDA_THROW_(cudaEventCreate(&stop));
+  HCTR_LIB_THROW(cudaEventCreate(&start));
+  HCTR_LIB_THROW(cudaEventCreate(&stop));
 
   cublasLtMatmulHeuristicResult_t heuristic_result[max_algo_count] = {0};
   int algo_count = 0;
-  CK_CUBLAS_THROW_(cublasLtMatmulAlgoGetHeuristic(
+  HCTR_LIB_THROW(cublasLtMatmulAlgoGetHeuristic(
       get_gpu().get_cublaslt_handle(), cublas_op_desc_, cublas_kernel_desc_, cublas_bottom_desc_,
       cublas_top_desc_, cublas_top_desc_, cublas_preference_, max_algo_count, heuristic_result,
       &algo_count));
 
   if (algo_count == 0) {
-    CK_CUBLAS_THROW_(CUBLAS_STATUS_NOT_SUPPORTED);
+    HCTR_LIB_THROW(CUBLAS_STATUS_NOT_SUPPORTED);
   }
 
-  // if(get_device_id()==0) printf("M: %d, N: %d, K: %d\n", m, n, k);
+  // if(get_device_id()==0) HCTR_LOG(INFO, WORLD, "M: %d, N: %d, K: %d\n", m, n, k);
   for (int algoIdx = 0; algoIdx < algo_count; algoIdx++) {
     cublasStatus_t status = CUBLAS_STATUS_SUCCESS;
 
     const float alpha = 1.0f;
     const float beta = 0.0f;
-    CK_CUDA_THROW_(cudaEventRecord(start, get_gpu().get_stream()));
+    HCTR_LIB_THROW(cudaEventRecord(start, get_gpu().get_stream()));
     for (size_t i = 0; i < repeat_num && status == CUBLAS_STATUS_SUCCESS; ++i) {
       status =
           cublasLtMatmul(get_gpu().get_cublaslt_handle(), cublas_op_desc_, &alpha, kernel,
@@ -538,19 +536,20 @@ void FusedReluBiasFullyConnectedLayer::search_algorithm() {
                          cublas_top_desc_, top, cublas_top_desc_, &heuristic_result[algoIdx].algo,
                          cublaslt_workspace_, cublaslt_workspace_size_, get_gpu().get_stream());
     }
-    CK_CUDA_THROW_(cudaEventRecord(stop, get_gpu().get_stream()));
-    CK_CUDA_THROW_(cudaEventSynchronize(stop));
-    CK_CUDA_THROW_(cudaEventElapsedTime(&time, start, stop));
+    HCTR_LIB_THROW(cudaEventRecord(stop, get_gpu().get_stream()));
+    HCTR_LIB_THROW(cudaEventSynchronize(stop));
+    HCTR_LIB_THROW(cudaEventElapsedTime(&time, start, stop));
 
     // Avg Time(ms) for this alorithm for fprop GEMM
     time = time / repeat_num;
     // Skip if the algorithm is supported for fprop configuration
     if (status != CUBLAS_STATUS_SUCCESS) {
-      //      printf("The algorithms %d is not supported for fprop, skipped.\n", testAlgo);
+      //      HCTR_LOG(INFO, WORLD, "The algorithms %d is not supported for fprop, skipped.\n",
+      //      testAlgo);
       continue;
     }
 
-    // if(get_device_id()==0) printf("Algo: %d, wavesCount: %f, time: %f\n",
+    // if(get_device_id()==0) HCTR_LOG(INFO, WORLD, "Algo: %d, wavesCount: %f, time: %f\n",
     //           (int)heuristic_result[algoIdx].algo,
     //           heuristic_result[algoIdx].wavesCount,
     //           time);
@@ -558,7 +557,8 @@ void FusedReluBiasFullyConnectedLayer::search_algorithm() {
     if (time < shortestTime) {
       shortestTime = time;
       memcpy(&falgo_k_, &heuristic_result[algoIdx].algo, sizeof(falgo_k_));
-      // if(get_device_id()==0) printf("Picked algorithm: %d", heuristic_result[algoIdx].algo);
+      // if(get_device_id()==0) HCTR_LOG(INFO, WORLD, "Picked algorithm: %d",
+      // heuristic_result[algoIdx].algo);
     }
   }
 
@@ -567,13 +567,13 @@ void FusedReluBiasFullyConnectedLayer::search_algorithm() {
   shortestTime = std::numeric_limits<float>::max();
   cublasLtMatmulHeuristicResult_t heuristic_result_dRelu[max_algo_count] = {0};
   int algo_count_dRelu = 0;
-  CK_CUBLAS_THROW_(cublasLtMatmulAlgoGetHeuristic(
+  HCTR_LIB_THROW(cublasLtMatmulAlgoGetHeuristic(
       get_gpu().get_cublaslt_handle(), cublas_op_desc_bprop_, cublas_kernel_desc_,
       cublas_dRelu_top_desc_, cublas_dRelu_bottom_desc_, cublas_dRelu_bottom_desc_,
       cublas_preference_dRelu_, max_algo_count, heuristic_result_dRelu, &algo_count_dRelu));
 
   if (algo_count_dRelu == 0) {
-    CK_CUBLAS_THROW_(CUBLAS_STATUS_NOT_SUPPORTED);
+    HCTR_LIB_THROW(CUBLAS_STATUS_NOT_SUPPORTED);
   }
 
   for (int algoIdx = 0; algoIdx < algo_count_dRelu; algoIdx++) {
@@ -581,7 +581,7 @@ void FusedReluBiasFullyConnectedLayer::search_algorithm() {
 
     const float alpha = 1.0f;
     const float beta = 0.0f;
-    CK_CUDA_THROW_(cudaEventRecord(start, get_gpu().get_stream()));
+    HCTR_LIB_THROW(cudaEventRecord(start, get_gpu().get_stream()));
     for (size_t i = 0; i < repeat_num && status == CUBLAS_STATUS_SUCCESS; ++i) {
       status = cublasLtMatmul(get_gpu().get_cublaslt_handle(), cublas_op_desc_bprop_, &alpha,
                               kernel, cublas_kernel_desc_, top, cublas_dRelu_top_desc_, &beta,
@@ -589,15 +589,16 @@ void FusedReluBiasFullyConnectedLayer::search_algorithm() {
                               &heuristic_result_dRelu[algoIdx].algo, cublaslt_workspace_dRelu_,
                               cublaslt_workspace_size_, get_gpu().get_stream());
     }
-    CK_CUDA_THROW_(cudaEventRecord(stop, get_gpu().get_stream()));
-    CK_CUDA_THROW_(cudaEventSynchronize(stop));
-    CK_CUDA_THROW_(cudaEventElapsedTime(&time, start, stop));
+    HCTR_LIB_THROW(cudaEventRecord(stop, get_gpu().get_stream()));
+    HCTR_LIB_THROW(cudaEventSynchronize(stop));
+    HCTR_LIB_THROW(cudaEventElapsedTime(&time, start, stop));
 
     // Avg Time(ms) for this alorithm for fprop GEMM
     time = time / repeat_num;
     // Skip if the algorithm is supported for fprop configuration
     if (status != CUBLAS_STATUS_SUCCESS) {
-      //      printf("The algorithms %d is not supported for fprop, skipped.\n", testAlgo);
+      //      HCTR_LOG(INFO, WORLD, "The algorithms %d is not supported for fprop, skipped.\n",
+      //      testAlgo);
       continue;
     }
     // Record the optimal time and algorithm
@@ -612,13 +613,13 @@ void FusedReluBiasFullyConnectedLayer::search_algorithm() {
   shortestTime = std::numeric_limits<float>::max();
   cublasLtMatmulHeuristicResult_t heuristic_result_wgrad[max_algo_count] = {0};
   int algo_count_wgrad = 0;
-  CK_CUBLAS_THROW_(cublasLtMatmulAlgoGetHeuristic(
+  HCTR_LIB_THROW(cublasLtMatmulAlgoGetHeuristic(
       get_gpu().get_cublaslt_handle(), cublas_op_desc_wgrad_, cublas_dRelu_top_desc_,
       cublas_dRelu_bottom_desc_, cublas_kernel_desc_, cublas_kernel_desc_, cublas_preference_wgrad_,
       max_algo_count, heuristic_result_wgrad, &algo_count_wgrad));
 
   if (algo_count_wgrad == 0) {
-    CK_CUBLAS_THROW_(CUBLAS_STATUS_NOT_SUPPORTED);
+    HCTR_LIB_THROW(CUBLAS_STATUS_NOT_SUPPORTED);
   }
 
   for (int algoIdx = 0; algoIdx < algo_count_wgrad; algoIdx++) {
@@ -626,7 +627,7 @@ void FusedReluBiasFullyConnectedLayer::search_algorithm() {
 
     const float alpha = 1.0f;
     const float beta = 1.0f;
-    CK_CUDA_THROW_(cudaEventRecord(start, get_gpu().get_stream()));
+    HCTR_LIB_THROW(cudaEventRecord(start, get_gpu().get_stream()));
     for (size_t i = 0; i < repeat_num && status == CUBLAS_STATUS_SUCCESS; ++i) {
       status = cublasLtMatmul(get_gpu().get_cublaslt_handle(), cublas_op_desc_wgrad_, &alpha, top,
                               cublas_dRelu_top_desc_, bottom, cublas_dRelu_bottom_desc_, &beta,
@@ -634,22 +635,23 @@ void FusedReluBiasFullyConnectedLayer::search_algorithm() {
                               &heuristic_result_wgrad[algoIdx].algo, cublaslt_workspace_wgrad_,
                               cublaslt_workspace_size_, get_gpu().get_stream());
     }
-    CK_CUDA_THROW_(cudaEventRecord(stop, get_gpu().get_stream()));
-    CK_CUDA_THROW_(cudaEventSynchronize(stop));
-    CK_CUDA_THROW_(cudaEventElapsedTime(&time, start, stop));
+    HCTR_LIB_THROW(cudaEventRecord(stop, get_gpu().get_stream()));
+    HCTR_LIB_THROW(cudaEventSynchronize(stop));
+    HCTR_LIB_THROW(cudaEventElapsedTime(&time, start, stop));
 
     // Avg Time(ms) for this alorithm for fprop GEMM
     time = time / repeat_num;
-    // printf("algoIdx: %d, time: %f, shortest time: %f\n", algoIdx, time, shortestTime);
-    // Skip if the algorithm is supported for fprop configuration
+    // HCTR_LOG(INFO, WORLD, "algoIdx: %d, time: %f, shortest time: %f\n", algoIdx, time,
+    // shortestTime); Skip if the algorithm is supported for fprop configuration
     if (status != CUBLAS_STATUS_SUCCESS) {
-      //      printf("The algorithms %d is not supported for fprop, skipped.\n", testAlgo);
+      //      HCTR_LOG(INFO, WORLD, "The algorithms %d is not supported for fprop, skipped.\n",
+      //      testAlgo);
       continue;
     }
     // Record the optimal time and algorithm
     if (time < shortestTime) {
       shortestTime = time;
-      // printf("wgrad cublasMatmul algoIdx: %d, time: %f\n", algoIdx, shortestTime);
+      // HCTR_LOG(INFO, WORLD, "wgrad cublasMatmul algoIdx: %d, time: %f\n", algoIdx, shortestTime);
       memcpy(&balgo_wgrad_, &heuristic_result_wgrad[algoIdx].algo, sizeof(balgo_wgrad_));
     }
   }
@@ -669,26 +671,28 @@ void FusedReluBiasFullyConnectedLayer::search_algorithm() {
     const float beta = 1.0f;
 
     // Record start event
-    CK_CUDA_THROW_(cudaEventRecord(start, get_gpu().get_stream()));
+    HCTR_LIB_THROW(cudaEventRecord(start, get_gpu().get_stream()));
     for (size_t i = 0; i < repeat_num && status == CUBLAS_STATUS_SUCCESS; ++i) {
       status = cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_T, n, k, m,
                             &alpha, top, CUDA_R_16F, n, bottom, CUDA_R_16F, k, &beta, kernel_grad,
                             CUDA_R_16F, n, CUDA_R_32F, static_cast<cublasGemmAlgo_t>(testAlgo));
     }
-    CK_CUDA_THROW_(cudaEventRecord(stop, get_gpu().get_stream()));
-    CK_CUDA_THROW_(cudaEventSynchronize(stop));
-    CK_CUDA_THROW_(cudaEventElapsedTime(&time, start, stop));
+    HCTR_LIB_THROW(cudaEventRecord(stop, get_gpu().get_stream()));
+    HCTR_LIB_THROW(cudaEventSynchronize(stop));
+    HCTR_LIB_THROW(cudaEventElapsedTime(&time, start, stop));
     // Avg Time(ms) for this alorithm for fprop GEMM
     time = time / repeat_num;
     // Skip if the algorithm is supported for fprop configuration
     if (status != CUBLAS_STATUS_SUCCESS) {
-      //      printf("The algorithms %d is not supported for bprop_W, skipped.\n", testAlgo);
+      //      HCTR_LOG(INFO, WORLD, "The algorithms %d is not supported for bprop_W, skipped.\n",
+      //      testAlgo);
       continue;
     }
     // Record the optimal time and algorithm
     if (time < shortestTime) {
       shortestTime = time;
-      // printf("wgrad cublasGemmEx algoIdx: %d, time: %f\n", testAlgo, shortestTime);
+      // HCTR_LOG(INFO, WORLD, "wgrad cublasGemmEx algoIdx: %d, time: %f\n", testAlgo,
+      // shortestTime);
       balgo_k_ = static_cast<cublasGemmAlgo_t>(testAlgo);
     }
   }
@@ -704,20 +708,21 @@ void FusedReluBiasFullyConnectedLayer::search_algorithm() {
     const float beta = 0.0f;
 
     // Record start event
-    CK_CUDA_THROW_(cudaEventRecord(start, get_gpu().get_stream()));
+    HCTR_LIB_THROW(cudaEventRecord(start, get_gpu().get_stream()));
     for (size_t i = 0; i < repeat_num && status == CUBLAS_STATUS_SUCCESS; ++i) {
       status = cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_N, n, 1, m,
                             &alpha, top, CUDA_R_16F, n, identity, CUDA_R_16F, m, &beta, bias_grad,
                             CUDA_R_16F, n, CUDA_R_32F, static_cast<cublasGemmAlgo_t>(testAlgo));
     }
-    CK_CUDA_THROW_(cudaEventRecord(stop, get_gpu().get_stream()));
-    CK_CUDA_THROW_(cudaEventSynchronize(stop));
-    CK_CUDA_THROW_(cudaEventElapsedTime(&time, start, stop));
+    HCTR_LIB_THROW(cudaEventRecord(stop, get_gpu().get_stream()));
+    HCTR_LIB_THROW(cudaEventSynchronize(stop));
+    HCTR_LIB_THROW(cudaEventElapsedTime(&time, start, stop));
     // Avg Time(ms) for this alorithm for fprop GEMM
     time = time / repeat_num;
     // Skip if the algorithm is supported for fprop configuration
     if (status != CUBLAS_STATUS_SUCCESS) {
-      // printf("The algorithms %d is not supported for bprop_W, skipped.\n", testAlgo);
+      // HCTR_LOG(INFO, WORLD, "The algorithms %d is not supported for bprop_W, skipped.\n",
+      // testAlgo);
       continue;
     }
     // Record the optimal time and algorithm
@@ -737,21 +742,22 @@ void FusedReluBiasFullyConnectedLayer::search_algorithm() {
     const __half beta = 0.0f;
 
     // Record start event
-    CK_CUDA_THROW_(cudaEventRecord(start, get_gpu().get_stream()));
+    HCTR_LIB_THROW(cudaEventRecord(start, get_gpu().get_stream()));
     for (size_t i = 0; i < repeat_num && status == CUBLAS_STATUS_SUCCESS; ++i) {
       status = cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_T, CUBLAS_OP_N, k, m, n,
                             &alpha, kernel, CUDA_R_16F, n, top, CUDA_R_16F, n, &beta, bottom,
                             CUDA_R_16F, k, CUDA_R_32F, static_cast<cublasGemmAlgo_t>(testAlgo));
     }
 
-    CK_CUDA_THROW_(cudaEventRecord(stop, get_gpu().get_stream()));
-    CK_CUDA_THROW_(cudaEventSynchronize(stop));
-    CK_CUDA_THROW_(cudaEventElapsedTime(&time, start, stop));
+    HCTR_LIB_THROW(cudaEventRecord(stop, get_gpu().get_stream()));
+    HCTR_LIB_THROW(cudaEventSynchronize(stop));
+    HCTR_LIB_THROW(cudaEventElapsedTime(&time, start, stop));
     // Avg Time(ms) for this alorithm for fprop GEMM
     time = time / repeat_num;
     // Skip if the algorithm is supported for fprop configuration
     if (status != CUBLAS_STATUS_SUCCESS) {
-      //      printf("The algorithms %d is not supported for bprop_Xn, skipped.\n", testAlgo);
+      //      HCTR_LOG(INFO, WORLD, "The algorithms %d is not supported for bprop_Xn, skipped.\n",
+      //      testAlgo);
       continue;
     }
     // Record the optimal time and algorithm
@@ -762,16 +768,17 @@ void FusedReluBiasFullyConnectedLayer::search_algorithm() {
   }
 
   // Print selection information
-  // printf("The algorithm selection for falgo_k_, balgo_k_, balgo_x_ are: %d, %d and %d.\n",
+  // HCTR_LOG(INFO, WORLD, "The algorithm selection for falgo_k_, balgo_k_, balgo_x_ are: %d, %d and
+  // %d.\n",
   //        (int)falgo_k_ - CUBLAS_GEMM_DEFAULT_TENSOR_OP,
   //        (int)balgo_k_ - CUBLAS_GEMM_DEFAULT_TENSOR_OP,
   //        (int)balgo_x_ - CUBLAS_GEMM_DEFAULT_TENSOR_OP);
 
   // Output msg
-  // MESSAGE_("The fully-connected layer has finished choosing the algorithm for cublas Gemm.");
-  // Clean-up
-  CK_CUDA_THROW_(cudaEventDestroy(start));
-  CK_CUDA_THROW_(cudaEventDestroy(stop));
+  // HCTR_LOG(INFO, ROOT, "The fully-connected layer has finished choosing the algorithm for cublas
+  // Gemm.\n"); Clean-up
+  HCTR_LIB_THROW(cudaEventDestroy(start));
+  HCTR_LIB_THROW(cudaEventDestroy(stop));
 }  // namespace HugeCTR
 
 std::unique_ptr<DataSimulator> FusedReluBiasFullyConnectedLayer::get_uniform_initializer(
@@ -816,7 +823,7 @@ std::unique_ptr<DataSimulator> FusedReluBiasFullyConnectedLayer::get_default_ini
     float stddev = sqrt(1.f / top_dim);
     simu.reset(new GaussianDataSimulator(0, stddev, -2 * stddev, 2 * stddev));
   } else {
-    CK_THROW_(Error_t::OutOfBound, "index != {0, 1}.");
+    HCTR_OWN_THROW(Error_t::OutOfBound, "index != {0, 1}.");
   }
 
   return simu;

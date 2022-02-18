@@ -196,9 +196,9 @@ void do_upload_and_download_snapshot(int batch_num_train, TrainPSType_t ps_type,
   embedding_training_cache->dump();
   embedding_training_cache->update_sparse_model_file();
 
-  MESSAGE_("Batch_num=" + std::to_string(batch_num_train) +
-           ", embedding_vec_size=" + std::to_string(emb_vec_size) +
-           ", elapsed time=" + std::to_string(timer_ps.elapsedSeconds()) + "s");
+  HCTR_LOG_S(INFO, ROOT) << "Batch_num=" << batch_num_train
+                         << ", embedding_vec_size=" << emb_vec_size
+                         << ", elapsed time=" << timer_ps.elapsedSeconds() << "s" << std::endl;
 
   std::vector<std::string> data_files{"key"};
   if (!is_distributed) data_files.push_back("slot_id");
@@ -212,9 +212,9 @@ void do_upload_and_download_snapshot(int batch_num_train, TrainPSType_t ps_type,
   // Check if the result is correct
   for (const auto& data_file : data_files) {
     auto dst_name{snapshot_dst_file};
-    MESSAGE_(std::string("check ") + dst_name + "/" + data_file, true, false);
+    HCTR_LOG_S(INFO, WORLD) << "check " << dst_name << "/" << data_file << std::endl;
     ASSERT_TRUE(check_vector_equality(snapshot_src_file, dst_name, data_file.c_str()));
-    MESSAGE_(" [DONE]", true, true, false);
+    HCTR_LOG(INFO, WORLD, "Done!\n");
   }
 
   if (ps_type == TrainPSType_t::Cached) {
@@ -240,7 +240,7 @@ void do_upload_and_download_snapshot(int batch_num_train, TrainPSType_t ps_type,
       for (size_t i = 0; i < ssd_idx_vec.size(); i++) {
         auto dst_idx{sparse_model_ts.find(load_key_vec[i])};
         if (dst_idx == SparseModelFileTS<TypeKey>::end_flag) {
-          CK_THROW_(Error_t::WrongInput, "Key doesn't exist");
+          HCTR_OWN_THROW(Error_t::WrongInput, "Key doesn't exist");
         }
         ssd_idx_vec[i] = dst_idx;
       }

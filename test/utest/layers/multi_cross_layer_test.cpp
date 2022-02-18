@@ -83,13 +83,13 @@ class MultiCrossLayerTest {
       data_sim_.fill(a.data(), w_);
     }
 
-    CK_CUDA_THROW_(cudaMemcpy(d_input_.get_ptr(), h_input_.data(), d_input_.get_size_in_bytes(),
+    HCTR_LIB_THROW(cudaMemcpy(d_input_.get_ptr(), h_input_.data(), d_input_.get_size_in_bytes(),
                               cudaMemcpyHostToDevice));
     T* p = weight_.get_ptr();
     for (int i = 0; i < layers_; i++) {
-      CK_CUDA_THROW_(cudaMemcpy(p, h_kernels_[i].data(), w_ * sizeof(T), cudaMemcpyHostToDevice));
+      HCTR_LIB_THROW(cudaMemcpy(p, h_kernels_[i].data(), w_ * sizeof(T), cudaMemcpyHostToDevice));
       p += w_;
-      CK_CUDA_THROW_(cudaMemcpy(p, h_biases_[i].data(), w_ * sizeof(T), cudaMemcpyHostToDevice));
+      HCTR_LIB_THROW(cudaMemcpy(p, h_biases_[i].data(), w_ * sizeof(T), cudaMemcpyHostToDevice));
       p += w_;
     }
     return;
@@ -109,14 +109,14 @@ class MultiCrossLayerTest {
         b = 0.0f;
       }
     }
-    CK_CUDA_THROW_(cudaMemcpy(d_output_.get_ptr(), h_output_grad_.data(),
+    HCTR_LIB_THROW(cudaMemcpy(d_output_.get_ptr(), h_output_grad_.data(),
                               batchsize_ * w_ * sizeof(T), cudaMemcpyHostToDevice));
     T* p = wgrad_.get_ptr();
     for (int i = 0; i < layers_; i++) {
-      CK_CUDA_THROW_(
+      HCTR_LIB_THROW(
           cudaMemcpy(p, h_kernel_grads_[i].data(), w_ * sizeof(T), cudaMemcpyHostToDevice));
       p += w_;
-      CK_CUDA_THROW_(
+      HCTR_LIB_THROW(
           cudaMemcpy(p, h_bias_grads_[i].data(), w_ * sizeof(T), cudaMemcpyHostToDevice));
       p += w_;
     }
@@ -212,7 +212,7 @@ class MultiCrossLayerTest {
 
   void gpu_fprop_() {
     layer_->fprop(true);
-    CK_CUDA_THROW_(cudaDeviceSynchronize());
+    HCTR_LIB_THROW(cudaDeviceSynchronize());
     return;
   }
 
@@ -241,7 +241,7 @@ class MultiCrossLayerTest {
 
   void gpu_bprop_() {
     layer_->bprop();
-    CK_CUDA_THROW_(cudaDeviceSynchronize());
+    HCTR_LIB_THROW(cudaDeviceSynchronize());
     return;
   }
 
@@ -249,7 +249,7 @@ class MultiCrossLayerTest {
     std::vector<T> d2h_output;
     d2h_output.resize(batchsize_ * w_);
 
-    CK_CUDA_THROW_(cudaMemcpy(d2h_output.data(), d_output_.get_ptr(), d_output_.get_size_in_bytes(),
+    HCTR_LIB_THROW(cudaMemcpy(d2h_output.data(), d_output_.get_ptr(), d_output_.get_size_in_bytes(),
                               cudaMemcpyDeviceToHost));
 
     ASSERT_TRUE(test::compare_array_approx_rel<T>(d2h_output.data(), h_outputs_.back().data(),
@@ -267,14 +267,14 @@ class MultiCrossLayerTest {
       d2h_bias_grads_.push_back(std::vector<T>(1 * w_));
     }
 
-    CK_CUDA_THROW_(cudaMemcpy(d2h_input_grad.data(), d_input_.get_ptr(),
+    HCTR_LIB_THROW(cudaMemcpy(d2h_input_grad.data(), d_input_.get_ptr(),
                               d_input_.get_size_in_bytes(), cudaMemcpyDeviceToHost));
     T* p = wgrad_.get_ptr();
     for (int i = 0; i < layers_; i++) {
-      CK_CUDA_THROW_(
+      HCTR_LIB_THROW(
           cudaMemcpy(d2h_kernel_grads_[i].data(), p, w_ * sizeof(T), cudaMemcpyDeviceToHost));
       p += w_;
-      CK_CUDA_THROW_(
+      HCTR_LIB_THROW(
           cudaMemcpy(d2h_bias_grads_[i].data(), p, w_ * sizeof(T), cudaMemcpyDeviceToHost));
       p += w_;
     }

@@ -36,7 +36,7 @@ void open_and_get_size(const std::string& file_name, std::ifstream& stream,
                        size_t& file_size_in_byte) {
   stream.open(file_name, std::ifstream::binary);
   if (!stream.is_open()) {
-    CK_THROW_(Error_t::WrongInput, "Cannot open the file: " + file_name);
+    HCTR_OWN_THROW(Error_t::WrongInput, "Cannot open the file: " + file_name);
   }
 
   file_size_in_byte = std::filesystem::file_size(file_name);
@@ -61,15 +61,15 @@ struct SparseModelFile<TypeKey>::EmbeddingTableFile {
 template <typename TypeKey>
 void SparseModelFile<TypeKey>::map_embedding_to_memory_() {
   try {
-    const char* emb_vec_file = mmap_handler_.get_vec_file();
-    int fd = open(emb_vec_file, O_RDWR, S_IRUSR | S_IWUSR);
+    const std::string emb_vec_file = mmap_handler_.get_vec_file();
+    int fd = open(emb_vec_file.c_str(), O_RDWR, S_IRUSR | S_IWUSR);
     if (fd == -1) {
-      CK_THROW_(Error_t::FileCannotOpen, std::string("Cannot open the file: ") + emb_vec_file);
+      HCTR_OWN_THROW(Error_t::FileCannotOpen, "Cannot open the file: " + emb_vec_file);
     }
 
     size_t vec_file_size_in_byte = std::filesystem::file_size(emb_vec_file);
     if (vec_file_size_in_byte == 0) {
-      CK_THROW_(Error_t::WrongInput, std::string("Cannot mmap empty file: ") + emb_vec_file);
+      HCTR_OWN_THROW(Error_t::WrongInput, "Cannot mmap empty file: " + emb_vec_file);
     }
 
     mmap_handler_.mmaped_table_ =
@@ -78,7 +78,7 @@ void SparseModelFile<TypeKey>::map_embedding_to_memory_() {
       close(fd);
       fd = -1;
       mmap_handler_.mmaped_table_ = nullptr;
-      CK_THROW_(Error_t::WrongInput, std::string("Mmap file ") + emb_vec_file + " failed");
+      HCTR_OWN_THROW(Error_t::WrongInput, "Mmap file " + emb_vec_file + " failed");
     }
 
     mmap_handler_.maped_to_memory_ = true;
@@ -86,10 +86,10 @@ void SparseModelFile<TypeKey>::map_embedding_to_memory_() {
       close(fd);
     }
   } catch (const internal_runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     throw;
   } catch (const std::exception& err) {
-    std::cerr << err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << err.what() << std::endl;
     throw;
   }
 }
@@ -97,21 +97,20 @@ void SparseModelFile<TypeKey>::map_embedding_to_memory_() {
 template <typename TypeKey>
 void SparseModelFile<TypeKey>::sync_mmaped_embedding_with_disk_() {
   try {
+    const std::string emb_vec_file = mmap_handler_.get_vec_file();
     if (!mmap_handler_.maped_to_memory_) {
-      CK_THROW_(Error_t::IllegalCall,
-                std::string(mmap_handler_.get_vec_file()) + " not mapped to HMEM");
+      HCTR_OWN_THROW(Error_t::IllegalCall, emb_vec_file + " not mapped to HMEM");
     }
-    const char* emb_vec_file = mmap_handler_.get_vec_file();
-    size_t vec_file_size_in_byte = std::filesystem::file_size(emb_vec_file);
+    const size_t vec_file_size_in_byte = std::filesystem::file_size(emb_vec_file);
     int ret = msync(mmap_handler_.mmaped_table_, vec_file_size_in_byte, MS_SYNC);
     if (ret != 0) {
-      CK_THROW_(Error_t::WrongInput, "Mmap sync error");
+      HCTR_OWN_THROW(Error_t::WrongInput, "Mmap sync error");
     }
   } catch (const internal_runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     throw;
   } catch (const std::exception& err) {
-    std::cerr << err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << err.what() << std::endl;
     throw;
   }
 }
@@ -119,21 +118,20 @@ void SparseModelFile<TypeKey>::sync_mmaped_embedding_with_disk_() {
 template <typename TypeKey>
 void SparseModelFile<TypeKey>::unmap_embedding_from_memory_() {
   try {
-    const char* emb_vec_file = mmap_handler_.get_vec_file();
+    const std::string emb_vec_file = mmap_handler_.get_vec_file();
     if (mmap_handler_.maped_to_memory_ && mmap_handler_.mmaped_table_ != nullptr) {
       size_t vec_file_size_in_byte = std::filesystem::file_size(emb_vec_file);
       munmap(mmap_handler_.mmaped_table_, vec_file_size_in_byte);
       mmap_handler_.mmaped_table_ = nullptr;
       mmap_handler_.maped_to_memory_ = false;
     } else {
-      CK_THROW_(Error_t::IllegalCall,
-                std::string(mmap_handler_.get_vec_file()) + " not mapped to HMEM");
+      HCTR_OWN_THROW(Error_t::IllegalCall, emb_vec_file + " not mapped to HMEM");
     }
   } catch (const internal_runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     throw;
   } catch (const std::exception& err) {
-    std::cerr << err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << err.what() << std::endl;
     throw;
   }
 }
@@ -149,10 +147,11 @@ SparseModelFile<TypeKey>::SparseModelFile(const std::string& sparse_model_file,
     mmap_handler_.emb_tbl_.reset(new EmbeddingTableFile(sparse_model_file));
     if (!std::filesystem::exists(mmap_handler_.get_folder_name())) {
 #ifdef ENABLE_MPI
-      CK_MPI_THROW_(MPI_Barrier(MPI_COMM_WORLD));
+      HCTR_MPI_THROW(MPI_Barrier(MPI_COMM_WORLD));
 #endif
       if (resource_manager_->is_master_process()) {
-        MESSAGE_(sparse_model_file + " not exist, create and train from scratch");
+        HCTR_LOG_S(INFO, ROOT) << sparse_model_file << " not exist, create and train from scratch"
+                               << std::endl;
         std::filesystem::create_directories(mmap_handler_.get_folder_name());
 
         int ret;
@@ -175,7 +174,7 @@ SparseModelFile<TypeKey>::SparseModelFile(const std::string& sparse_model_file,
     size_t num_vec =
         std::filesystem::file_size(mmap_handler_.get_vec_file()) / (sizeof(float) * emb_vec_size_);
     if (num_key != num_vec) {
-      CK_THROW_(Error_t::BrokenFile, "num of vec and num of key do not equal");
+      HCTR_OWN_THROW(Error_t::BrokenFile, "num of vec and num of key do not equal");
     }
 
     std::ifstream slot_stream;
@@ -184,7 +183,7 @@ SparseModelFile<TypeKey>::SparseModelFile(const std::string& sparse_model_file,
       open_and_get_size(mmap_handler_.get_slot_file(), slot_stream, slot_file_size_in_byte);
       size_t num_slot = slot_file_size_in_byte / sizeof(size_t);
       if (num_key != num_slot) {
-        CK_THROW_(Error_t::BrokenFile, "num of key and num of slot_id do not equal");
+        HCTR_OWN_THROW(Error_t::BrokenFile, "num of key and num of slot_id do not equal");
       }
     }
 
@@ -221,10 +220,10 @@ SparseModelFile<TypeKey>::SparseModelFile(const std::string& sparse_model_file,
       }
     }
   } catch (const internal_runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     throw;
   } catch (const std::exception& err) {
-    std::cerr << err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << err.what() << std::endl;
     throw;
   }
 }
@@ -265,10 +264,10 @@ void SparseModelFile<TypeKey>::load_exist_vec_by_key(const std::vector<TypeKey>&
     sync_mmaped_embedding_with_disk_();
     unmap_embedding_from_memory_();
   } catch (const internal_runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     throw;
   } catch (const std::exception& err) {
-    std::cerr << err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << err.what() << std::endl;
     throw;
   }
 }
@@ -279,7 +278,7 @@ void SparseModelFile<TypeKey>::dump_exist_vec_by_key(const std::vector<TypeKey>&
                                                      const float* vecs) {
   try {
     if (keys.size() != vec_indices.size()) {
-      CK_THROW_(Error_t::WrongInput, "keys.size() != vec_indices.size()");
+      HCTR_OWN_THROW(Error_t::WrongInput, "keys.size() != vec_indices.size()");
     }
     if (keys.size() == 0) return;
 
@@ -307,10 +306,10 @@ void SparseModelFile<TypeKey>::dump_exist_vec_by_key(const std::vector<TypeKey>&
     sync_mmaped_embedding_with_disk_();
     unmap_embedding_from_memory_();
   } catch (const internal_runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     throw;
   } catch (const std::exception& err) {
-    std::cerr << err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << err.what() << std::endl;
     throw;
   }
 }
@@ -322,11 +321,14 @@ void SparseModelFile<TypeKey>::append_new_vec_and_key(const std::vector<TypeKey>
                                                       const float* vecs) {
   try {
     if (keys.size() != vec_indices.size()) {
-      CK_THROW_(Error_t::WrongInput, "keys.size() != vec_indices.size()");
+      HCTR_OWN_THROW(Error_t::WrongInput, "keys.size() != vec_indices.size()");
     }
     auto check_key_exists_op = [this](auto key) {
-      if (this->key_idx_map_.find(key) != this->key_idx_map_.end())
-        CK_THROW_(Error_t::WrongInput, std::to_string(key) + " exists in key_idx_map_!");
+      if (this->key_idx_map_.find(key) != this->key_idx_map_.end()) {
+        std::ostringstream os;
+        os << key << " exists in key_idx_map_!";
+        HCTR_OWN_THROW(Error_t::WrongInput, os.str());
+      }
     };
     std::for_each(keys.begin(), keys.end(), check_key_exists_op);
 
@@ -347,7 +349,7 @@ void SparseModelFile<TypeKey>::append_new_vec_and_key(const std::vector<TypeKey>
     // write keys, slots, vectors to file
     std::ofstream key_ofs(mmap_handler_.get_key_file(), std::ofstream::out | std::ofstream::app);
     if (!key_ofs.is_open()) {
-      CK_THROW_(Error_t::FileCannotOpen, "Cannot open key file");
+      HCTR_OWN_THROW(Error_t::FileCannotOpen, "Cannot open key file");
     }
     key_ofs.write(reinterpret_cast<const char*>(key_ptr), keys.size() * sizeof(long long));
 
@@ -355,7 +357,7 @@ void SparseModelFile<TypeKey>::append_new_vec_and_key(const std::vector<TypeKey>
       std::ofstream slot_ofs(mmap_handler_.get_slot_file(),
                              std::ofstream::out | std::ofstream::app);
       if (!slot_ofs.is_open()) {
-        CK_THROW_(Error_t::FileCannotOpen, "Cannot open slot file");
+        HCTR_OWN_THROW(Error_t::FileCannotOpen, "Cannot open slot file");
       }
       slot_ofs.write(reinterpret_cast<const char*>(slots), keys.size() * sizeof(size_t));
     }
@@ -373,10 +375,10 @@ void SparseModelFile<TypeKey>::append_new_vec_and_key(const std::vector<TypeKey>
     // write embedding vector to disk
     dump_exist_vec_by_key(keys, vec_indices, vecs);
   } catch (const internal_runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     throw;
   } catch (const std::exception& err) {
-    std::cerr << err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << err.what() << std::endl;
     throw;
   }
 }
@@ -402,10 +404,10 @@ void SparseModelFile<TypeKey>::load_emb_tbl_to_mem(HashTableType& mem_key_index_
     std::vector<size_t> temp_slots;
     load_exist_vec_by_key(exist_key, temp_slots, vecs);
   } catch (const internal_runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     throw;
   } catch (const std::exception& err) {
-    std::cerr << err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << err.what() << std::endl;
     throw;
   }
 }

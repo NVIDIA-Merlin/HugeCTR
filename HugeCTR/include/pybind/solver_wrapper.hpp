@@ -34,28 +34,30 @@ std::unique_ptr<Solver> CreateSolver(
     AllReduceAlgo all_reduce_algo, bool grouped_all_reduce, size_t num_iterations_statistics,
     bool is_dlrm, std::string& kafka_brokers) {
   if (use_mixed_precision && enable_tf32_compute) {
-    CK_THROW_(Error_t::WrongInput,
-              "use_mixed_precision and enable_tf32_compute cannot be true at the same time");
+    HCTR_OWN_THROW(Error_t::WrongInput,
+                   "use_mixed_precision and enable_tf32_compute cannot be true at the same time");
   }
   if (use_mixed_precision && scaler != 128 && scaler != 256 && scaler != 512 && scaler != 1024) {
-    CK_THROW_(Error_t::WrongInput,
-              "Scaler of mixed precision training should be either 128/256/512/1024");
+    HCTR_OWN_THROW(Error_t::WrongInput,
+                   "Scaler of mixed precision training should be either 128/256/512/1024");
   }
   if (!is_dlrm && use_holistic_cuda_graph) {
-    CK_THROW_(Error_t::WrongInput, "Holistic cuda graph is restricted to DLRM use");
+    HCTR_OWN_THROW(Error_t::WrongInput, "Holistic cuda graph is restricted to DLRM use");
   }
   if (!is_dlrm && use_overlapped_pipeline) {
-    CK_THROW_(Error_t::WrongInput, "Overlapped pipeline is restricted to DLRM use");
+    HCTR_OWN_THROW(Error_t::WrongInput, "Overlapped pipeline is restricted to DLRM use");
   }
   if (!is_dlrm && grouped_all_reduce) {
-    CK_THROW_(Error_t::WrongInput, "Grouped all reduce is restricted to DLRM use");
+    HCTR_OWN_THROW(Error_t::WrongInput, "Grouped all reduce is restricted to DLRM use");
   }
   if (use_holistic_cuda_graph && use_cuda_graph) {
-    CK_THROW_(Error_t::WrongInput, "Must turn off local cuda graph when using holistic cuda graph");
+    HCTR_OWN_THROW(Error_t::WrongInput,
+                   "Must turn off local cuda graph when using holistic cuda graph");
   }
   if (async_mlp_wgrad && use_cuda_graph) {
-    CK_THROW_(Error_t::WrongInput,
-              "Must turn off local cuda graph when using asynchronous wgrad computation of mlp");
+    HCTR_OWN_THROW(
+        Error_t::WrongInput,
+        "Must turn off local cuda graph when using asynchronous wgrad computation of mlp");
   }
 
   std::unique_ptr<Solver> solver(new Solver());

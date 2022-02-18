@@ -120,19 +120,19 @@ InteractionLayerCPU<T>::InteractionLayerCPU(
     auto second_in_dims = in_embeddings.get_dimensions();
 
     if (first_in_dims.size() != 2) {
-      CK_THROW_(Error_t::WrongInput, "Input Bottom MLP must be a 2D tensor");
+      HCTR_OWN_THROW(Error_t::WrongInput, "Input Bottom MLP must be a 2D tensor");
     }
 
     if (second_in_dims.size() != 3) {
-      CK_THROW_(Error_t::WrongInput, "Input Embeddings must be a 3D tensor");
+      HCTR_OWN_THROW(Error_t::WrongInput, "Input Embeddings must be a 3D tensor");
     }
 
     if (first_in_dims[0] != second_in_dims[0]) {
-      CK_THROW_(Error_t::WrongInput, "the input tensors' batch sizes must be the same");
+      HCTR_OWN_THROW(Error_t::WrongInput, "the input tensors' batch sizes must be the same");
     }
 
     if (first_in_dims[1] != second_in_dims[2]) {
-      CK_THROW_(Error_t::WrongInput, "the input tensors' widths must be the same");
+      HCTR_OWN_THROW(Error_t::WrongInput, "the input tensors' widths must be the same");
     }
 
     size_t n_ins = 1 + second_in_dims[1];
@@ -167,7 +167,7 @@ InteractionLayerCPU<T>::InteractionLayerCPU(
     out_tensors_.push_back(out_tensor);
 
   } catch (const std::runtime_error &rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     throw;
   }
 }

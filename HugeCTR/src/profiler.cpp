@@ -30,9 +30,9 @@ using nlohmann::json;
 namespace HugeCTR {
 
 Profiler::GPUTimer::GPUTimer() {
-  CK_CUDA_THROW_(cudaEventCreateWithFlags(&iter_start_, cudaEventBlockingSync));
-  CK_CUDA_THROW_(cudaEventCreateWithFlags(&start_, cudaEventBlockingSync));
-  CK_CUDA_THROW_(cudaEventCreateWithFlags(&stop_, cudaEventBlockingSync));
+  HCTR_LIB_THROW(cudaEventCreateWithFlags(&iter_start_, cudaEventBlockingSync));
+  HCTR_LIB_THROW(cudaEventCreateWithFlags(&start_, cudaEventBlockingSync));
+  HCTR_LIB_THROW(cudaEventCreateWithFlags(&stop_, cudaEventBlockingSync));
 }
 
 Profiler::GPUTimer::~GPUTimer() {
@@ -42,54 +42,54 @@ Profiler::GPUTimer::~GPUTimer() {
 }
 
 void Profiler::GPUTimer::iter_start(cudaStream_t stream) {
-  CK_CUDA_THROW_(cudaEventRecord(iter_start_, stream));
+  HCTR_LIB_THROW(cudaEventRecord(iter_start_, stream));
 }
 
 void Profiler::GPUTimer::event_start(cudaStream_t stream, bool in_cuda_graph) {
   if (in_cuda_graph) {
-    CK_CUDA_THROW_(CUDA_GRAPH_EVENT_RECORD(start_, stream));
+    HCTR_LIB_THROW(CUDA_GRAPH_EVENT_RECORD(start_, stream));
   } else {
-    CK_CUDA_THROW_(cudaEventRecord(start_, stream));
+    HCTR_LIB_THROW(cudaEventRecord(start_, stream));
   }
 }
 
 void Profiler::GPUTimer::event_stop(cudaStream_t stream, bool in_cuda_graph) {
   if (in_cuda_graph) {
-    CK_CUDA_THROW_(CUDA_GRAPH_EVENT_RECORD(stop_, stream));
+    HCTR_LIB_THROW(CUDA_GRAPH_EVENT_RECORD(stop_, stream));
   } else {
-    CK_CUDA_THROW_(cudaEventRecord(stop_, stream));
+    HCTR_LIB_THROW(cudaEventRecord(stop_, stream));
   }
 }
 
-void Profiler::GPUTimer::sync_stop() { CK_CUDA_THROW_(cudaEventSynchronize(stop_)); }
+void Profiler::GPUTimer::sync_stop() { HCTR_LIB_THROW(cudaEventSynchronize(stop_)); }
 
 float Profiler::GPUTimer::get_iter_start_to_event_start_ms() {
   float iter_start_to_event_start_ms;
-  CK_CUDA_THROW_(cudaEventElapsedTime(&iter_start_to_event_start_ms, iter_start_, start_));
+  HCTR_LIB_THROW(cudaEventElapsedTime(&iter_start_to_event_start_ms, iter_start_, start_));
   return iter_start_to_event_start_ms;
 }
 
 float Profiler::GPUTimer::get_measured_time_ms() {
   float measured_time_ms;
-  CK_CUDA_THROW_(cudaEventElapsedTime(&measured_time_ms, start_, stop_));
+  HCTR_LIB_THROW(cudaEventElapsedTime(&measured_time_ms, start_, stop_));
   return measured_time_ms;
 }
 
 void Profiler::initialize(bool use_cuda_graph, bool exit_when_finished) {
   char* pd = std::getenv("PROFILING_DIR");
   if (pd == NULL) {
-    std::string msg(
-        "Got empty for env PROFILING_DIR. You must specify if when using this profiler");
-    MESSAGE_(msg);
+    const std::string msg{
+        "Got empty for env PROFILING_DIR. You must specify it when using this profiler."};
+    HCTR_LOG_S(ERROR, ROOT) << msg << std::endl;
     throw std::invalid_argument(msg);
   }
   profiling_dir = std::string(pd);
-  MESSAGE_(std::string("Profiler using PROFILING_DIR: ") + profiling_dir);
+  HCTR_LOG_S(INFO, ROOT) << "Profiler using PROFILING_DIR: " << profiling_dir << std::endl;
 
   interested_events_.clear();
   std::ifstream interested_events_file((profiling_dir + "/" + "prof.events").c_str());
   if (interested_events_file.good()) {
-    MESSAGE_("Profiler using prof.events inside PROFILING_DIR");
+    HCTR_LOG(INFO, ROOT, "Profiler using prof.events inside PROFILING_DIR\n");
     for (std::string line; getline(interested_events_file, line);) {
       interested_events_.push_back(line);
     }
@@ -101,14 +101,15 @@ void Profiler::initialize(bool use_cuda_graph, bool exit_when_finished) {
   } else {
     warmup_iterations_ = std::atoi(warmup_iterations_str) + 1;
   }
-  MESSAGE_(std::string("Profiler using WARMUP_ITERS: ") + std::to_string(warmup_iterations_ - 1));
+  HCTR_LOG_S(INFO, ROOT) << "Profiler using WARMUP_ITERS: " << (warmup_iterations_ - 1)
+                         << std::endl;
   char* repeat_times_str = std::getenv("PROFILING_REPEAT_TIMES_PER_EVENT");
   if (repeat_times_str == NULL) {
     repeat_times_ = 50;
   } else {
     repeat_times_ = std::atoi(repeat_times_str);
   }
-  MESSAGE_(std::string("Profiler using REPEAT_TIMES_PER_EVENT: ") + std::to_string(repeat_times_));
+  HCTR_LOG_S(INFO, ROOT) << "Profiler using REPEAT_TIMES_PER_EVENT: " << repeat_times_ << std::endl;
   char* warmup_after_cudagraph_reinit_str = std::getenv("PROFILING_WARMUP_AFTER_CUDAGRAPH_REINIT");
   if (warmup_after_cudagraph_reinit_str == NULL) {
     warmup_after_cudagraph_reinit_ = 10;
@@ -116,8 +117,8 @@ void Profiler::initialize(bool use_cuda_graph, bool exit_when_finished) {
     warmup_after_cudagraph_reinit_ = std::atoi(warmup_after_cudagraph_reinit_str);
   }
   if (use_cuda_graph) {
-    MESSAGE_(std::string("Profiler using WARMUP_AFTER_CUDAGRAPH_REINIT: ") +
-             std::to_string(warmup_after_cudagraph_reinit_));
+    HCTR_LOG_S(INFO, ROOT) << "Profiler using WARMUP_AFTER_CUDAGRAPH_REINIT: "
+                           << warmup_after_cudagraph_reinit_ << std::endl;
     // for extra cuda graph init iter, it won't count
     repeat_times_ += warmup_after_cudagraph_reinit_;
   }
@@ -127,8 +128,8 @@ void Profiler::initialize(bool use_cuda_graph, bool exit_when_finished) {
   } else {
     data_collection_iterations_ = std::atoi(data_collection_iterations_str);
   }
-  MESSAGE_(std::string("Profiler using DATA_COLLECTION_ITERS: ") +
-           std::to_string(data_collection_iterations_));
+  HCTR_LOG_S(INFO, ROOT) << "Profiler using DATA_COLLECTION_ITERS: " << data_collection_iterations_
+                         << std::endl;
 
   repeat_times_ += 1;
   current_reapted_times_ = 0;
@@ -138,20 +139,22 @@ void Profiler::initialize(bool use_cuda_graph, bool exit_when_finished) {
   host_name_ = std::string(host_name);
   use_cuda_graph_ = use_cuda_graph;
   if (CUDA_VERSION < 11010 && use_cuda_graph_) {
-    MESSAGE_(std::string("CUDA version is ") + std::to_string(CUDA_VERSION) +
-             ". Profiler do not support use_cuda_graph = true and CUDA version < 11.1 at the same "
-             "time." +
-             " Consider use higher CUDA version or use_cuda_graph = false. Program exit.");
+    HCTR_LOG_S(INFO, ROOT)
+        << "CUDA version is " << CUDA_VERSION
+        << ". Profiler do not support use_cuda_graph = true and CUDA version < 11.1 at the same "
+           "time. Consider use higher CUDA version or use_cuda_graph = false. Program exit."
+        << std::endl;
     std::exit(0);
   }
 
-  MESSAGE_(std::string("Profiler using cuda graph: ") + std::to_string(use_cuda_graph_));
+  HCTR_LOG_S(INFO, ROOT) << "Profiler using cuda graph: " << use_cuda_graph_ << std::endl;
   if (use_cuda_graph_) {
-    MESSAGE_(
-        "Profiler Warning. 'extra_info' arg in the PROFILE_RECORD maybe ignored, if the event is "
-        "executed in cuda graph.");
+    HCTR_LOG(INFO, ROOT,
+             "Profiler Warning. 'extra_info' arg in the PROFILE_RECORD maybe ignored, if the event "
+             "is executed in cuda graph.\n");
     if (data_collection_iterations_ > 0) {
-      MESSAGE_("Profiler Warning. Data collection may not fuction when cuda graph is ON!");
+      HCTR_LOG(INFO, ROOT,
+               "Profiler Warning. Data collection may not fuction when cuda graph is ON!\n");
     }
   }
 
@@ -183,9 +186,9 @@ bool Profiler::iter_check() {
     return false;
   } else {
     if (events_.size() == 0) {
-      MESSAGE_(
-          "No profiling labels found int code or they are not in prof.events. Please have a check. "
-          "Program exit.");
+      HCTR_LOG(INFO, ROOT,
+               "No profiling labels found int code or they are not in prof.events. Please have a "
+               "check. Program exit.\n");
       std::exit(0);
     }
   }
@@ -236,16 +239,16 @@ bool Profiler::iter_check() {
     if (current_event_idx_ >= int(events_.size())) {
       if (current_data_collection_iteration_ >= data_collection_iterations_) {
         write_result();
-        MESSAGE_("Profiling complete!");
+        HCTR_LOG(INFO, ROOT, "Profiling complete!\n");
         if (exit_when_finished_) {
-          MESSAGE_("Program exit.");
+          HCTR_LOG(INFO, ROOT, "Program exit.\n");
           std::exit(0);
         }
         return true;
       } else {
         if (current_data_collection_iteration_ % 100 == 0) {
-          MESSAGE_(std::string("Iteration: ") + std::to_string(current_iteration_) +
-                   ". Profiler collecting run time data ...");
+          HCTR_LOG_S(INFO, ROOT) << "Iteration: " << current_iteration_
+                                 << ". Profiler collecting run time data ..." << std::endl;
         }
         record_data_phase = true;
         current_data_collection_iteration_++;
@@ -255,31 +258,30 @@ bool Profiler::iter_check() {
     prepare_iter_start();
   }
   return false;
-  // MESSAGE_(std::string("Iter: ") + std::to_string(current_iteration_) + " event_idx: " +
-  //          std::to_string(current_event_idx_) + " repeat_times: " +
-  //          std::to_string(current_reapted_times_) + " init cudagraph: " +
-  //          std::to_string(init_cuda_graph_this_iter));
+  // HCTR_LOG_S(INFO, ROOT) << "Iter: " << current_iteration_ << " event_idx: "
+  //                        << current_event_idx_ << " repeat_times: "
+  //                        << current_reapted_times_ << " init cudagraph: "
+  //                        << init_cuda_graph_this_iter << std::endl;
 }
 
 void Profiler::prepare_iter_start() {
   if (use_cuda_graph_) {
     if (current_reapted_times_ == 0) {
-      MESSAGE_(std::string("Iteration: ") + std::to_string(current_iteration_) +
-               std::string(". Profiler re-instantiate cuda graph for ") +
-               gpu_event_strfy(events_[current_event_idx_].get()));
+      HCTR_LOG_S(INFO, ROOT) << "Iteration: " << current_iteration_
+                             << ". Profiler re-instantiate cuda graph for "
+                             << gpu_event_strfy(events_[current_event_idx_].get()) << std::endl;
       init_cuda_graph_this_iter = true;
     } else {
       init_cuda_graph_this_iter = false;
     }
   } else {
     if (current_reapted_times_ == 0) {
-      MESSAGE_(std::string("Iteration: ") + std::to_string(current_iteration_) + ". " +
-               std::to_string(current_event_idx_) + " : " +
-               events_[current_event_idx_]->event_name + " " +
-               std::to_string(static_cast<GPUEvent*>(events_[current_event_idx_].get())
-                                  ->met_times_within_this_stream) +
-               " on " +
-               stream_str(static_cast<GPUEvent*>(events_[current_event_idx_].get())->stream));
+      HCTR_LOG_S(INFO, ROOT)
+          << "Iteration: " << current_iteration_ << ". " << current_event_idx_ << " : "
+          << events_[current_event_idx_]->event_name << " "
+          << static_cast<GPUEvent*>(events_[current_event_idx_].get())->met_times_within_this_stream
+          << " on " << stream_str(static_cast<GPUEvent*>(events_[current_event_idx_].get())->stream)
+          << std::endl;
     }
     init_cuda_graph_this_iter = false;
   }
@@ -313,12 +315,12 @@ void Profiler::record_event(const char* event_label_char, cudaStream_t stream,
       mtx_.lock();
 
       thread_local int current_device_id;
-      CK_CUDA_THROW_(cudaGetDevice(&current_device_id));
+      HCTR_LIB_THROW(cudaGetDevice(&current_device_id));
       if (device_id < 0) {
         device_id = current_device_id;
       }
       if (current_device_id != device_id) {
-        CK_CUDA_THROW_(cudaSetDevice(device_id));
+        HCTR_LIB_THROW(cudaSetDevice(device_id));
       }
 
       auto map_iter = map_stream_to_gpu_timer_.find(stream);
@@ -342,7 +344,7 @@ void Profiler::record_event(const char* event_label_char, cudaStream_t stream,
             map_internal_[stream]->operator[](event_name) = met_times_within_this_stream + 1;
           }
           if (current_device_id != device_id) {
-            CK_CUDA_THROW_(cudaSetDevice(current_device_id));
+            HCTR_LIB_THROW(cudaSetDevice(current_device_id));
           }
           mtx_.unlock();
           return;
@@ -355,7 +357,7 @@ void Profiler::record_event(const char* event_label_char, cudaStream_t stream,
         if (event_idx >= 0) {
           // event exist!
           if (current_device_id != device_id) {
-            CK_CUDA_THROW_(cudaSetDevice(current_device_id));
+            HCTR_LIB_THROW(cudaSetDevice(current_device_id));
           }
           mtx_.unlock();
           return;
@@ -379,7 +381,7 @@ void Profiler::record_event(const char* event_label_char, cudaStream_t stream,
         // PROFILER_DEBUG_(std::string("Parsed a new GPU event ") + event_label + " occured_time " +
         // std::to_string(met_times_within_this_stream));
         if (current_device_id != device_id) {
-          CK_CUDA_THROW_(cudaSetDevice(current_device_id));
+          HCTR_LIB_THROW(cudaSetDevice(current_device_id));
         }
       } else {
         // event_name == "stop"
@@ -400,7 +402,7 @@ void Profiler::record_event(const char* event_label_char, cudaStream_t stream,
         }
       }
       if (current_device_id != device_id) {
-        CK_CUDA_THROW_(cudaSetDevice(current_device_id));
+        HCTR_LIB_THROW(cudaSetDevice(current_device_id));
       }
       mtx_.unlock();
     } else {
@@ -416,12 +418,12 @@ void Profiler::record_event(const char* event_label_char, cudaStream_t stream,
       }
       // above map and if compare costs 0.000x ms on DGXA100, x is usually 1 - 7.
       thread_local int current_device_id;
-      CK_CUDA_THROW_(cudaGetDevice(&current_device_id));
+      HCTR_LIB_THROW(cudaGetDevice(&current_device_id));
       if (device_id < 0) {
         device_id = current_device_id;
       }
       if (current_device_id != device_id) {
-        CK_CUDA_THROW_(cudaSetDevice(device_id));
+        HCTR_LIB_THROW(cudaSetDevice(device_id));
       }
       auto gpu_timer = map_stream_to_gpu_timer_[stream];
       // above getdevice and mapping costs 0.000x ms on DGXA100, x is usually 1 - 2.
@@ -437,11 +439,11 @@ void Profiler::record_event(const char* event_label_char, cudaStream_t stream,
         // Above post event record operation costs 0.00x on DGXA100, usually x is 1 - 2.
       }
       if (current_device_id != device_id) {
-        CK_CUDA_THROW_(cudaSetDevice(current_device_id));
+        HCTR_LIB_THROW(cudaSetDevice(current_device_id));
       }
     }
   } catch (const std::runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     throw;
   }
 }
@@ -465,7 +467,7 @@ bool Profiler::record_data(const char* data_label_char, cudaStream_t stream,
       return true;
     }
     thread_local int current_device_id;
-    CK_CUDA_THROW_(cudaGetDevice(&current_device_id));
+    HCTR_LIB_THROW(cudaGetDevice(&current_device_id));
     if (device_id < 0) {
       device_id = current_device_id;
     }
@@ -491,7 +493,7 @@ bool Profiler::record_data(const char* data_label_char, cudaStream_t stream,
     mtx_.unlock();
     return false;
   } catch (const std::runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     throw;
   }
 }
@@ -502,48 +504,48 @@ void Profiler::record_event_unit_test(const char* event_label_char, cudaStream_t
   try {
     // should only be working in single thread
     thread_local int current_device_id;
-    CK_CUDA_THROW_(cudaGetDevice(&current_device_id));
+    HCTR_LIB_THROW(cudaGetDevice(&current_device_id));
     if (device_id < 0) {
       device_id = current_device_id;
     }
     if (current_device_id != device_id) {
-      CK_CUDA_THROW_(cudaSetDevice(device_id));
+      HCTR_LIB_THROW(cudaSetDevice(device_id));
     }
     mtx_.lock();
     cudaEvent_t check_point;
     unit_test_events_.push_back(check_point);
     cudaEvent_t* p = &(*(unit_test_events_.end() - 1));
-    CK_CUDA_THROW_(cudaEventCreateWithFlags(p, cudaEventBlockingSync));
+    HCTR_LIB_THROW(cudaEventCreateWithFlags(p, cudaEventBlockingSync));
     unit_test_labels_.push_back(std::string(event_label_char));
     unit_test_streams_.push_back(stream);
     unit_test_devices_.push_back(device_id);
     unit_test_extra_infos_.push_back(extra_info);
     mtx_.unlock();
 
-    CK_CUDA_THROW_(cudaEventRecord(*p, stream));
+    HCTR_LIB_THROW(cudaEventRecord(*p, stream));
 
     if (current_device_id != device_id) {
-      CK_CUDA_THROW_(cudaSetDevice(current_device_id));
+      HCTR_LIB_THROW(cudaSetDevice(current_device_id));
     }
 
   } catch (const std::runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     throw;
   }
 }
 
 void Profiler::unit_test_start(const char* test_name) {
   unit_test_mode = true;
-  MESSAGE_("Just a info. Profiler does not support cuda graph in unit test.");
+  HCTR_LOG(INFO, ROOT, "Just a info. Profiler does not support cuda graph in unit test.\n");
   char* pd = std::getenv("PROFILING_DIR");
   if (pd == NULL) {
-    std::string msg(
-        "Got empty for env PROFILING_DIR. You must specify if when using this profiler");
-    MESSAGE_(msg);
+    const std::string msg =
+        "Got empty for env PROFILING_DIR. You must specify if when using this profiler";
+    HCTR_LOG_S(ERROR, ROOT) << msg << std::endl;
     throw std::invalid_argument(msg);
   }
   profiling_dir = std::string(pd);
-  MESSAGE_(std::string("Profiler using PROFILING_DIR: ") + profiling_dir);
+  HCTR_LOG_S(INFO, ROOT) << "Profiler using PROFILING_DIR: " << profiling_dir << std::endl;
 
   char host_name[HOST_NAME_MAX + 1];
   gethostname(host_name, sizeof(host_name));
@@ -566,7 +568,7 @@ void Profiler::unit_test_end() {
   std::vector<cudaEvent_t> stream_first_points;
 
   thread_local int current_device_id;
-  CK_CUDA_THROW_(cudaGetDevice(&current_device_id));
+  HCTR_LIB_THROW(cudaGetDevice(&current_device_id));
 
   for (int i = 0; i < int(unit_test_labels_.size()); i++) {
     if (std::find(streams.begin(), streams.end(), unit_test_streams_[i]) == streams.end()) {
@@ -575,12 +577,12 @@ void Profiler::unit_test_end() {
     }
     if (std::find(devices.begin(), devices.end(), unit_test_devices_[i]) == devices.end()) {
       devices.push_back(unit_test_devices_[i]);
-      CK_CUDA_THROW_(cudaSetDevice(unit_test_devices_[i]));
+      HCTR_LIB_THROW(cudaSetDevice(unit_test_devices_[i]));
       cudaDeviceSynchronize();
     }
   }
 
-  CK_CUDA_THROW_(cudaSetDevice(current_device_id));
+  HCTR_LIB_THROW(cudaSetDevice(current_device_id));
 
   for (int i = 0; i < int(unit_test_labels_.size()); i++) {
     auto event_label = unit_test_labels_[i];
@@ -650,10 +652,10 @@ void Profiler::unit_test_end() {
         }
         float start_to_event_start_ms;
         float measured_time_ms;
-        CK_CUDA_THROW_(cudaSetDevice(static_cast<GPUEvent*>(event.get())->device_id));
-        CK_CUDA_THROW_(cudaEventElapsedTime(
+        HCTR_LIB_THROW(cudaSetDevice(static_cast<GPUEvent*>(event.get())->device_id));
+        HCTR_LIB_THROW(cudaEventElapsedTime(
             &measured_time_ms, unit_test_events_[event->start_index], unit_test_events_[i]));
-        CK_CUDA_THROW_(cudaEventElapsedTime(&start_to_event_start_ms,
+        HCTR_LIB_THROW(cudaEventElapsedTime(&start_to_event_start_ms,
                                             stream_first_points[stream_index],
                                             unit_test_events_[event->start_index]));
         event->measured_times_ms.push_back(measured_time_ms);
@@ -697,7 +699,7 @@ int Profiler::find_event(std::string& event_key) {
 void Profiler::write_result(const char* file_path) {
   int ret = std::system((std::string("mkdir -p ") + profiling_dir).c_str());
   if (ret != 0) {
-    MESSAGE_("Creating PROFILING_DIR failed?");
+    HCTR_LOG(WARNING, ROOT, "Creating PROFILING_DIR failed?\n");
   }
 
   std::string result_file;
@@ -707,7 +709,7 @@ void Profiler::write_result(const char* file_path) {
     result_file = profiling_dir + '/' + host_name_ + ".prof.json";
   }
 
-  MESSAGE_(std::string("Result json file is wrote in ") + result_file + ".");
+  HCTR_LOG_S(INFO, ROOT) << "Result json file is wrote in " << result_file << "." << std::endl;
 
   json result;
   result["host_name"] = host_name_;

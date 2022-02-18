@@ -37,7 +37,7 @@ FullyConnectedLayer<__half>::FullyConnectedLayer(
   const auto& top_tensor_dim = top_tensor.get_dimensions();
 
   if (bottom_tensor_dim.size() != 2 || top_tensor_dim.size() != 2) {
-    CK_THROW_(Error_t::WrongInput, "input or output tensor doesn't has two dimensions");
+    HCTR_OWN_THROW(Error_t::WrongInput, "input or output tensor doesn't has two dimensions");
   }
 
   size_t m = bottom_tensor_dim[0];
@@ -106,15 +106,15 @@ void FullyConnectedLayer<__half>::fprop(bool is_train) {
   const float beta_k = 1.0f;
 
   PROFILE_RECORD("fully_connected_layer_half.fprop.cublasGemmEx_1.start", get_gpu().get_stream());
-  CK_CUBLAS_THROW_(cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_N, n, m, 1,
-                                &alpha, bias, CUDA_R_16F, n, identity, CUDA_R_16F, 1, &beta_b, top,
-                                CUDA_R_16F, n, CUDA_R_32F, falgo_b_));
+  HCTR_LIB_THROW(cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_N, n, m, 1,
+                              &alpha, bias, CUDA_R_16F, n, identity, CUDA_R_16F, 1, &beta_b, top,
+                              CUDA_R_16F, n, CUDA_R_32F, falgo_b_));
   PROFILE_RECORD("fully_connected_layer_half.fprop.cublasGemmEx_1.stop", get_gpu().get_stream());
 
   PROFILE_RECORD("fully_connected_layer_half.fprop.cublasGemmEx_2.start", get_gpu().get_stream());
-  CK_CUBLAS_THROW_(cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_N, n, m, k,
-                                &alpha, kernel, CUDA_R_16F, n, bottom, CUDA_R_16F, k, &beta_k, top,
-                                CUDA_R_16F, n, CUDA_R_32F, falgo_k_));
+  HCTR_LIB_THROW(cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_N, n, m, k,
+                              &alpha, kernel, CUDA_R_16F, n, bottom, CUDA_R_16F, k, &beta_k, top,
+                              CUDA_R_16F, n, CUDA_R_32F, falgo_k_));
   PROFILE_RECORD("fully_connected_layer_half.fprop.cublasGemmEx_2.stop", get_gpu().get_stream());
 
   PROFILE_RECORD("fully_connected_layer_half.fprop.stop", get_gpu().get_stream());
@@ -124,7 +124,7 @@ void FullyConnectedLayer<__half>::fprop(bool is_train) {
 
 #ifndef NDEBUG
   cudaDeviceSynchronize();
-  CK_CUDA_THROW_(cudaGetLastError());
+  HCTR_LIB_THROW(cudaGetLastError());
 #endif
 }
 
@@ -154,28 +154,28 @@ void FullyConnectedLayer<__half>::bprop() {
   PROFILE_RECORD("fully_connected_layer_half.bprop.start", get_gpu().get_stream());
 
   PROFILE_RECORD("fully_connected_layer_half.bprop.cublasGemmEx_1.start", get_gpu().get_stream());
-  CK_CUBLAS_THROW_(cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_N, n, 1, m,
-                                &alpha, top, CUDA_R_16F, n, identity, CUDA_R_16F, m, &beta_b,
-                                bias_grad, CUDA_R_16F, n, CUDA_R_32F, balgo_b_));
+  HCTR_LIB_THROW(cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_N, n, 1, m,
+                              &alpha, top, CUDA_R_16F, n, identity, CUDA_R_16F, m, &beta_b,
+                              bias_grad, CUDA_R_16F, n, CUDA_R_32F, balgo_b_));
   PROFILE_RECORD("fully_connected_layer_half.bprop.cublasGemmEx_1.stop", get_gpu().get_stream());
 
   PROFILE_RECORD("fully_connected_layer_half.bprop.cublasGemmEx_2.start", get_gpu().get_stream());
-  CK_CUBLAS_THROW_(cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_T, n, k, m,
-                                &alpha, top, CUDA_R_16F, n, bottom, CUDA_R_16F, k, &beta_k,
-                                kernel_grad, CUDA_R_16F, n, CUDA_R_32F, balgo_k_));
+  HCTR_LIB_THROW(cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_T, n, k, m,
+                              &alpha, top, CUDA_R_16F, n, bottom, CUDA_R_16F, k, &beta_k,
+                              kernel_grad, CUDA_R_16F, n, CUDA_R_32F, balgo_k_));
   PROFILE_RECORD("fully_connected_layer_half.bprop.cublasGemmEx_2.stop", get_gpu().get_stream());
 
   PROFILE_RECORD("fully_connected_layer_half.bprop.cublasGemmEx_3.start", get_gpu().get_stream());
-  CK_CUBLAS_THROW_(cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_T, CUBLAS_OP_N, k, m, n,
-                                &alpha, kernel, CUDA_R_16F, n, top, CUDA_R_16F, n, &beta_x, bottom,
-                                CUDA_R_16F, k, CUDA_R_32F, balgo_x_));
+  HCTR_LIB_THROW(cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_T, CUBLAS_OP_N, k, m, n,
+                              &alpha, kernel, CUDA_R_16F, n, top, CUDA_R_16F, n, &beta_x, bottom,
+                              CUDA_R_16F, k, CUDA_R_32F, balgo_x_));
   PROFILE_RECORD("fully_connected_layer_half.bprop.cublasGemmEx_3.stop", get_gpu().get_stream());
 
   PROFILE_RECORD("fully_connected_layer_half.bprop.stop", get_gpu().get_stream());
 
 #ifndef NDEBUG
   cudaDeviceSynchronize();
-  CK_CUDA_THROW_(cudaGetLastError());
+  HCTR_LIB_THROW(cudaGetLastError());
 #endif
 }
 
@@ -218,8 +218,8 @@ void FullyConnectedLayer<__half>::search_algorithm() {
   float shortestTime = std::numeric_limits<float>::max();
   float time;
   cudaEvent_t start, stop;
-  CK_CUDA_THROW_(cudaEventCreate(&start));
-  CK_CUDA_THROW_(cudaEventCreate(&stop));
+  HCTR_LIB_THROW(cudaEventCreate(&start));
+  HCTR_LIB_THROW(cudaEventCreate(&stop));
 
   // Start, end for search
   const cublasGemmAlgo_t startAlgo = CUBLAS_GEMM_DEFAULT_TENSOR_OP;
@@ -233,20 +233,21 @@ void FullyConnectedLayer<__half>::search_algorithm() {
     const float beta = 0.0f;
 
     // Record start event
-    CK_CUDA_THROW_(cudaEventRecord(start, get_gpu().get_stream()));
+    HCTR_LIB_THROW(cudaEventRecord(start, get_gpu().get_stream()));
     for (size_t i = 0; i < repeat_num && status == CUBLAS_STATUS_SUCCESS; ++i) {
       status = cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_N, n, m, 1,
                             &alpha, bias, CUDA_R_16F, n, identity, CUDA_R_16F, 1, &beta, top,
                             CUDA_R_16F, n, CUDA_R_32F, static_cast<cublasGemmAlgo_t>(testAlgo));
     }
-    CK_CUDA_THROW_(cudaEventRecord(stop, get_gpu().get_stream()));
-    CK_CUDA_THROW_(cudaEventSynchronize(stop));
-    CK_CUDA_THROW_(cudaEventElapsedTime(&time, start, stop));
+    HCTR_LIB_THROW(cudaEventRecord(stop, get_gpu().get_stream()));
+    HCTR_LIB_THROW(cudaEventSynchronize(stop));
+    HCTR_LIB_THROW(cudaEventElapsedTime(&time, start, stop));
     // Avg Time(ms) for this alorithm for fprop GEMM
     time = time / repeat_num;
     // Skip if the algorithm is supported for fprop configuration
     if (status != CUBLAS_STATUS_SUCCESS) {
-      // printf("The algorithms %d is not supported for fprop_b, skipped.\n", testAlgo);
+      // HCTR_LOG(INFO, WORLD, "The algorithms %d is not supported for fprop_b, skipped.\n",
+      // testAlgo);
       continue;
     }
     // Record the optimal time and algorithm
@@ -267,20 +268,21 @@ void FullyConnectedLayer<__half>::search_algorithm() {
     const float beta = 1.0f;
 
     // Record start event
-    CK_CUDA_THROW_(cudaEventRecord(start, get_gpu().get_stream()));
+    HCTR_LIB_THROW(cudaEventRecord(start, get_gpu().get_stream()));
     for (size_t i = 0; i < repeat_num && status == CUBLAS_STATUS_SUCCESS; ++i) {
       status = cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_N, n, m, k,
                             &alpha, kernel, CUDA_R_16F, n, bottom, CUDA_R_16F, k, &beta, top,
                             CUDA_R_16F, n, CUDA_R_32F, static_cast<cublasGemmAlgo_t>(testAlgo));
     }
-    CK_CUDA_THROW_(cudaEventRecord(stop, get_gpu().get_stream()));
-    CK_CUDA_THROW_(cudaEventSynchronize(stop));
-    CK_CUDA_THROW_(cudaEventElapsedTime(&time, start, stop));
+    HCTR_LIB_THROW(cudaEventRecord(stop, get_gpu().get_stream()));
+    HCTR_LIB_THROW(cudaEventSynchronize(stop));
+    HCTR_LIB_THROW(cudaEventElapsedTime(&time, start, stop));
     // Avg Time(ms) for this alorithm for fprop GEMM
     time = time / repeat_num;
     // Skip if the algorithm is supported for fprop configuration
     if (status != CUBLAS_STATUS_SUCCESS) {
-      // printf("The algorithms %d is not supported for fprop, skipped.\n", testAlgo);
+      // HCTR_LOG(INFO, WORLD, "The algorithms %d is not supported for fprop, skipped.\n",
+      // testAlgo);
       continue;
     }
     // Record the optimal time and algorithm
@@ -301,20 +303,21 @@ void FullyConnectedLayer<__half>::search_algorithm() {
     const float beta = 0.0f;
 
     // Record start event
-    CK_CUDA_THROW_(cudaEventRecord(start, get_gpu().get_stream()));
+    HCTR_LIB_THROW(cudaEventRecord(start, get_gpu().get_stream()));
     for (size_t i = 0; i < repeat_num && status == CUBLAS_STATUS_SUCCESS; ++i) {
       status = cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_N, n, 1, m,
                             &alpha, top, CUDA_R_16F, n, identity, CUDA_R_16F, m, &beta, bias_grad,
                             CUDA_R_16F, n, CUDA_R_32F, static_cast<cublasGemmAlgo_t>(testAlgo));
     }
-    CK_CUDA_THROW_(cudaEventRecord(stop, get_gpu().get_stream()));
-    CK_CUDA_THROW_(cudaEventSynchronize(stop));
-    CK_CUDA_THROW_(cudaEventElapsedTime(&time, start, stop));
+    HCTR_LIB_THROW(cudaEventRecord(stop, get_gpu().get_stream()));
+    HCTR_LIB_THROW(cudaEventSynchronize(stop));
+    HCTR_LIB_THROW(cudaEventElapsedTime(&time, start, stop));
     // Avg Time(ms) for this alorithm for fprop GEMM
     time = time / repeat_num;
     // Skip if the algorithm is supported for fprop configuration
     if (status != CUBLAS_STATUS_SUCCESS) {
-      // printf("The algorithms %d is not supported for bprop_W, skipped.\n", testAlgo);
+      // HCTR_LOG(INFO, WORLD, "The algorithms %d is not supported for bprop_W, skipped.\n",
+      // testAlgo);
       continue;
     }
     // Record the optimal time and algorithm
@@ -335,20 +338,21 @@ void FullyConnectedLayer<__half>::search_algorithm() {
     const float beta = 1.0f;
 
     // Record start event
-    CK_CUDA_THROW_(cudaEventRecord(start, get_gpu().get_stream()));
+    HCTR_LIB_THROW(cudaEventRecord(start, get_gpu().get_stream()));
     for (size_t i = 0; i < repeat_num && status == CUBLAS_STATUS_SUCCESS; ++i) {
       status = cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_T, n, k, m,
                             &alpha, top, CUDA_R_16F, n, bottom, CUDA_R_16F, k, &beta, kernel_grad,
                             CUDA_R_16F, n, CUDA_R_32F, static_cast<cublasGemmAlgo_t>(testAlgo));
     }
-    CK_CUDA_THROW_(cudaEventRecord(stop, get_gpu().get_stream()));
-    CK_CUDA_THROW_(cudaEventSynchronize(stop));
-    CK_CUDA_THROW_(cudaEventElapsedTime(&time, start, stop));
+    HCTR_LIB_THROW(cudaEventRecord(stop, get_gpu().get_stream()));
+    HCTR_LIB_THROW(cudaEventSynchronize(stop));
+    HCTR_LIB_THROW(cudaEventElapsedTime(&time, start, stop));
     // Avg Time(ms) for this alorithm for fprop GEMM
     time = time / repeat_num;
     // Skip if the algorithm is supported for fprop configuration
     if (status != CUBLAS_STATUS_SUCCESS) {
-      // printf("The algorithms %d is not supported for bprop_W, skipped.\n", testAlgo);
+      // HCTR_LOG(INFO, WORLD, "The algorithms %d is not supported for bprop_W, skipped.\n",
+      // testAlgo);
       continue;
     }
     // Record the optimal time and algorithm
@@ -369,21 +373,22 @@ void FullyConnectedLayer<__half>::search_algorithm() {
     const float beta = 0.0f;
 
     // Record start event
-    CK_CUDA_THROW_(cudaEventRecord(start, get_gpu().get_stream()));
+    HCTR_LIB_THROW(cudaEventRecord(start, get_gpu().get_stream()));
     for (size_t i = 0; i < repeat_num && status == CUBLAS_STATUS_SUCCESS; ++i) {
       status = cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_T, CUBLAS_OP_N, k, m, n,
                             &alpha, kernel, CUDA_R_16F, n, top, CUDA_R_16F, n, &beta, bottom,
                             CUDA_R_16F, k, CUDA_R_32F, static_cast<cublasGemmAlgo_t>(testAlgo));
     }
 
-    CK_CUDA_THROW_(cudaEventRecord(stop, get_gpu().get_stream()));
-    CK_CUDA_THROW_(cudaEventSynchronize(stop));
-    CK_CUDA_THROW_(cudaEventElapsedTime(&time, start, stop));
+    HCTR_LIB_THROW(cudaEventRecord(stop, get_gpu().get_stream()));
+    HCTR_LIB_THROW(cudaEventSynchronize(stop));
+    HCTR_LIB_THROW(cudaEventElapsedTime(&time, start, stop));
     // Avg Time(ms) for this alorithm for fprop GEMM
     time = time / repeat_num;
     // Skip if the algorithm is supported for fprop configuration
     if (status != CUBLAS_STATUS_SUCCESS) {
-      // printf("The algorithms %d is not supported for bprop_Xn, skipped.\n", testAlgo);
+      // HCTR_LOG(INFO, WORLD, "The algorithms %d is not supported for bprop_Xn, skipped.\n",
+      // testAlgo);
       continue;
     }
     // Record the optimal time and algorithm
@@ -394,7 +399,7 @@ void FullyConnectedLayer<__half>::search_algorithm() {
   }
 
   // Print selection information
-  // printf(
+  // HCTR_LOG(INFO, WORLD,
   //     "The algorithm selection for falgo_b_, falgo_k_, balgo_b_, balgo_k_, balgo_x_ are: %d, %d,
   //     "
   //     "%d, %d and %d.\n",
@@ -403,10 +408,10 @@ void FullyConnectedLayer<__half>::search_algorithm() {
   //     - CUBLAS_GEMM_DEFAULT_TENSOR_OP, (int)balgo_x_ - CUBLAS_GEMM_DEFAULT_TENSOR_OP);
 
   // Output msg
-  // MESSAGE_("The fully-connected layer has finished choosing the algorithm for cublas Gemm.");
-  // Clean-up
-  CK_CUDA_THROW_(cudaEventDestroy(start));
-  CK_CUDA_THROW_(cudaEventDestroy(stop));
+  // HCTR_LOG(INFO, ROOT, "The fully-connected layer has finished choosing the algorithm for cublas
+  // Gemm.\n"); Clean-up
+  HCTR_LIB_THROW(cudaEventDestroy(start));
+  HCTR_LIB_THROW(cudaEventDestroy(stop));
 }  // namespace HugeCTR
 
 std::unique_ptr<DataSimulator> FullyConnectedLayer<__half>::get_uniform_initializer(
@@ -451,7 +456,7 @@ std::unique_ptr<DataSimulator> FullyConnectedLayer<__half>::get_default_initiali
     float stddev = sqrt(1.f / top_dim);
     simu.reset(new GaussianDataSimulator(0, stddev, -2 * stddev, 2 * stddev));
   } else {
-    CK_THROW_(Error_t::OutOfBound, "index != {0, 1}.");
+    HCTR_OWN_THROW(Error_t::OutOfBound, "index != {0, 1}.");
   }
 
   return simu;

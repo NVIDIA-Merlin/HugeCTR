@@ -103,10 +103,12 @@ void shuffle_one2one(int num_elems, int num_dimensions) {
   cudaEventSynchronize(stop);
   cudaEventElapsedTime(&kernel_time, start, stop);
 
-  printf("Memcpy time: %.3f us (%.1f GB/s), kernel time: %.3f us (%.1f GB/s), %.2f%% of the peak\n",
-         1e3 * copy_time / niters, total_size / (copy_time / niters) * 1e-6,
-         1e3 * kernel_time / niters, total_size / (kernel_time / niters) * 1e-6,
-         copy_time / kernel_time * 100.0);
+  HCTR_LOG(
+      INFO, WORLD,
+      "Memcpy time: %.3f us (%.1f GB/s), kernel time: %.3f us (%.1f GB/s), %.2f%% of the peak\n",
+      1e3 * copy_time / niters, total_size / (copy_time / niters) * 1e-6,
+      1e3 * kernel_time / niters, total_size / (kernel_time / niters) * 1e-6,
+      copy_time / kernel_time * 100.0);
 
   cudaFree(src);
   cudaFree(dst);

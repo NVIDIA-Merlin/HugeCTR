@@ -21,7 +21,7 @@
 #include <vector>
 
 #include "utest/test_utils.h"
-using namespace std;
+
 using namespace HugeCTR;
 
 const __half eps = 1.0f;
@@ -68,7 +68,7 @@ static float compare_array(const __half *arr1, const __half *arr2, size_t n, flo
 }
 
 static void fully_connected_layer_test(size_t m, size_t n, size_t k) {
-  printf("Testing m=%zu, n=%zu, k=%zu\n", m, n, k);
+  HCTR_LOG(INFO, WORLD, "Testing m=%zu, n=%zu, k=%zu\n", m, n, k);
 
   test::GaussianDataSimulator simulator(0.0f, 1.0f);
 
@@ -125,47 +125,47 @@ static void fully_connected_layer_test(size_t m, size_t n, size_t k) {
   cpu_mm(h_top.get(), h_bottom.get(), false, h_kernel.get(), false, m, k, n);
   cpu_add_bias(h_top.get(), h_bias.get(), m, n);
 
-  CK_CUDA_THROW_(
+  HCTR_LIB_THROW(
       cudaMemcpy(d_kernel, h_kernel.get(), sizeof(__half) * k * n, cudaMemcpyHostToDevice));
-  CK_CUDA_THROW_(cudaMemcpy(d_bias, h_bias.get(), sizeof(__half) * n, cudaMemcpyHostToDevice));
-  CK_CUDA_THROW_(
+  HCTR_LIB_THROW(cudaMemcpy(d_bias, h_bias.get(), sizeof(__half) * n, cudaMemcpyHostToDevice));
+  HCTR_LIB_THROW(
       cudaMemcpy(d_bottom, h_bottom.get(), sizeof(__half) * m * k, cudaMemcpyHostToDevice));
 
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
   fully_connected_layer.fprop(true);
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
 
-  CK_CUDA_THROW_(cudaMemcpy(d2h_top.get(), d_top, sizeof(__half) * m * n, cudaMemcpyDeviceToHost));
+  HCTR_LIB_THROW(cudaMemcpy(d2h_top.get(), d_top, sizeof(__half) * m * n, cudaMemcpyDeviceToHost));
 
   ASSERT_LT(compare_array(h_top.get(), d2h_top.get(), m * n, 1e-1), 0.01f)
-      << "fprop cross_check result fail" << endl;
+      << "fprop cross_check result fail" << std::endl;
 
   simulator.fill(h_top.get(), test::align_to_even(m * n));
 
-  CK_CUDA_THROW_(cudaMemcpy(d_top, h_top.get(), sizeof(__half) * m * n, cudaMemcpyHostToDevice));
+  HCTR_LIB_THROW(cudaMemcpy(d_top, h_top.get(), sizeof(__half) * m * n, cudaMemcpyHostToDevice));
 
   cpu_reverse_add_bias(h_bias_grad.get(), h_top.get(), m, n);
 
   cpu_mm(h_kernel_grad.get(), h_bottom.get(), true, h_top.get(), false, k, m, n);
   cpu_mm(h_bottom.get(), h_top.get(), false, h_kernel.get(), true, m, n, k);
 
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
   fully_connected_layer.bprop();
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
 
-  CK_CUDA_THROW_(
+  HCTR_LIB_THROW(
       cudaMemcpy(d2h_bottom.get(), d_bottom, sizeof(__half) * m * k, cudaMemcpyDeviceToHost));
-  CK_CUDA_THROW_(cudaMemcpy(d2h_kernel_grad.get(), d_kernel_grad, sizeof(__half) * k * n,
+  HCTR_LIB_THROW(cudaMemcpy(d2h_kernel_grad.get(), d_kernel_grad, sizeof(__half) * k * n,
                             cudaMemcpyDeviceToHost));
-  CK_CUDA_THROW_(
+  HCTR_LIB_THROW(
       cudaMemcpy(d2h_bias_grad.get(), d_bias_grad, sizeof(__half) * n, cudaMemcpyDeviceToHost));
 
   ASSERT_LT(compare_array(h_bottom.get(), d2h_bottom.get(), m * k, 1e-1), 0.01f)
-      << " bprop cross_check input_grad fail" << endl;
+      << " bprop cross_check input_grad fail" << std::endl;
   ASSERT_LT(compare_array(h_kernel_grad.get(), d2h_kernel_grad.get(), k * n, 1e-1), 0.05f)
-      << " bprop cross_check weight_grad fail" << endl;
+      << " bprop cross_check weight_grad fail" << std::endl;
   ASSERT_LT(compare_array(h_bias_grad.get(), d2h_bias_grad.get(), n, 1e-5), 0.01f)
-      << " bprop cross_check bias_grad fail" << endl;
+      << " bprop cross_check bias_grad fail" << std::endl;
 }
 
 TEST(fully_connected_layer, fp16_1x1x1) { fully_connected_layer_test(1, 1, 1); }

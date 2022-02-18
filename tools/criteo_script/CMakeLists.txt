@@ -21,7 +21,9 @@ file(GLOB criteo2hugectr_src
 add_executable(criteo2hugectr ${criteo2hugectr_src})
 target_compile_features(criteo2hugectr PUBLIC cxx_std_17)
 if(MPI_FOUND)
-  target_link_libraries(criteo2hugectr PUBLIC ${MPI_CXX_LIBRARIES})
+  target_link_libraries(criteo2hugectr PUBLIC huge_ctr_static ${MPI_CXX_LIBRARIES})
+else()
+  target_link_libraries(criteo2hugectr PUBLIC huge_ctr_static)
 endif()
 
 

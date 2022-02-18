@@ -56,7 +56,7 @@ struct Data {
 
     std::vector<dtype> h_embedding_offsets;
     EmbeddingTableFunctors<dtype>::get_embedding_offsets(h_embedding_offsets, table_sizes);
-    CK_CUDA_THROW_(cudaMemcpy(embedding_offsets.get_ptr(), h_embedding_offsets.data(),
+    HCTR_LIB_THROW(cudaMemcpy(embedding_offsets.get_ptr(), h_embedding_offsets.data(),
                               sizeof(dtype) * h_embedding_offsets.size(), cudaMemcpyHostToDevice));
   }
 

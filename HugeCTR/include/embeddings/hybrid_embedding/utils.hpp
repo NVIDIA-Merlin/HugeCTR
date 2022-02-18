@@ -24,8 +24,8 @@ namespace HugeCTR {
 
 namespace hybrid_embedding {
 
-enum class HybridEmbeddingType { Distributed };
-enum class CommunicationType { IB_NVLink_Hier, IB_NVLink, NVLink_SingleNode };
+enum class HybridEmbeddingType { Distributed, Unknown };
+enum class CommunicationType { IB_NVLink_Hier, IB_NVLink, NVLink_SingleNode, Unknown };
 enum class CommunicationDirection { CommunicationForward, CommunicationBackward };
 
 template <typename dtype>

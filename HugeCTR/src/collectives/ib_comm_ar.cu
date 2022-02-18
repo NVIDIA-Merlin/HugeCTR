@@ -51,9 +51,9 @@ IbComm::ARCollContext::ARCollContext(IbComm* comm) {
   PROXY_ASSERT_MSG(cfg_nchannels_ <= MAX_AR_CHANNELS, "Max oneshot channels is 31");
   PROXY_ASSERT(cfg_nblocks_ <= AR_MAX_BLOCKS);
 
-  MESSAGE_("using oneshot nblocks: " + std::to_string(cfg_nblocks_));
-  MESSAGE_("using oneshot nchannels: " + std::to_string(cfg_nchannels_));
-  MESSAGE_("using oneshot min block: " + std::to_string(cfg_min_block_));
+  HCTR_LOG_S(INFO, ROOT) << "using oneshot nblocks: " << cfg_nblocks_ << std::endl;
+  HCTR_LOG_S(INFO, ROOT) << "using oneshot nchannels: " << cfg_nchannels_ << std::endl;
+  HCTR_LOG_S(INFO, ROOT) << "using oneshot min block: " << cfg_min_block_ << std::endl;
 }
 
 void IbComm::ARCollContext::update_size(size_t ar_size) {
@@ -113,7 +113,8 @@ void IbComm::set_ar_coll_buf(ARCollHandle coll, void* ar_ptr, const size_t ar_si
   PROXY_ASSERT(ar_size != 0);
   auto& coll_ctx = *ar_coll_ctx_[coll];
   if (proxy_cmd_->cmd_[device_id].which() != 0) {
-    ERROR_MESSAGE_("Proxy command is already populated. Don't mix up set API");
+    HCTR_LOG_S(ERROR, WORLD) << "Proxy command is already populated. Don't mix up set API "
+                             << HCTR_LOCATION() << std::endl;
     exit(1);
   }
   proxy_cmd_->cmd_[device_id] = ARBufInitCmd();
@@ -153,7 +154,7 @@ void IbComm::register_ar_coll_buf(ARCollHandle coll) {
 
   // Allocations
   for (size_t g = 0; g < num_gpus_; g++) {
-    CK_CUDA_THROW_(cudaSetDevice(device_list_[g]));
+    HCTR_LIB_THROW(cudaSetDevice(device_list_[g]));
     auto& gpu_ctx = *coll_ctx->ctx_[g];
     gpu_ctx.buf_ = GeneralBuffer2<CudaAllocator>::create();
     gpu_ctx.buf_->reserve({num_gpus_}, &gpu_ctx.d_peer_ptrs_);
@@ -161,7 +162,7 @@ void IbComm::register_ar_coll_buf(ARCollHandle coll) {
     gpu_ctx.buf_->reserve({TOTAL_FLAGS}, &gpu_ctx.d_flags_);
     gpu_ctx.buf_->reserve({num_gpus_}, &gpu_ctx.d_flags_ptrs_);
     gpu_ctx.buf_->allocate();
-    CK_CUDA_THROW_(cudaMemset(gpu_ctx.buf_->get_ptr(), 0, gpu_ctx.buf_->get_size_in_bytes()));
+    HCTR_LIB_THROW(cudaMemset(gpu_ctx.buf_->get_ptr(), 0, gpu_ctx.buf_->get_size_in_bytes()));
   }
 
   // Get proxy output
@@ -180,10 +181,10 @@ void IbComm::register_ar_coll_buf(ARCollHandle coll) {
 
   for (size_t g = 0; g < num_gpus_; g++) {
     auto& gpu_ctx = *coll_ctx->ctx_[g];
-    CK_CUDA_THROW_(cudaSetDevice(device_list_[g]));
-    CK_CUDA_THROW_(cudaMemcpy(gpu_ctx.d_peer_ptrs_.get_ptr(), h_peer_ptrs.data(),
+    HCTR_LIB_THROW(cudaSetDevice(device_list_[g]));
+    HCTR_LIB_THROW(cudaMemcpy(gpu_ctx.d_peer_ptrs_.get_ptr(), h_peer_ptrs.data(),
                               num_gpus_ * sizeof(void*), cudaMemcpyHostToDevice));
-    CK_CUDA_THROW_(cudaMemcpy(gpu_ctx.d_flags_ptrs_.get_ptr(), h_peer_flag_ptrs.data(),
+    HCTR_LIB_THROW(cudaMemcpy(gpu_ctx.d_flags_ptrs_.get_ptr(), h_peer_flag_ptrs.data(),
                               num_gpus_ * sizeof(size_t*), cudaMemcpyHostToDevice));
   }
   coll_ctx->update_size(coll_ctx->ar_size_);
@@ -270,7 +271,8 @@ static __global__ void __launch_bounds__(AR_MAX_THREADS)
         cachedflag = newflag;
         size_t* rem_flag = flags[threadIdx.x];
         rem_flag[AG_RANK_BCAST_OFFSET + device_id] = cachedflag;
-        // printf("Wrote flag from %d: %llu %x\n", device_id, cachedflag, d_peer_ptrs[device_id]);
+        // HCTR_LOG(INFO, WORLD, "Wrote flag from %d: %llu %x\n", device_id, cachedflag,
+        // d_peer_ptrs[device_id]);
       }
     }
   } else {
@@ -350,8 +352,8 @@ static __global__ void __launch_bounds__(AR_MAX_THREADS)
           if (mythreadIdx == 0) {
             while (*flag < gather_count) {
             }
-            // printf("Gather flag received %llu %d %d %d %d %d %d %x\n", *flag, device_id,
-            // blockstart, blocklines, numlines, remainder, mydest, dest_ptr);
+            // HCTR_LOG(INFO, WORLD, "Gather flag received %llu %d %d %d %d %d %d %x\n", *flag,
+            // device_id, blockstart, blocklines, numlines, remainder, mydest, dest_ptr);
             gather_count++;
           }
           asm volatile("bar.sync %0, %1;" ::"r"(3 + mydest), "r"(myblockDim));

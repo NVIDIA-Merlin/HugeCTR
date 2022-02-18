@@ -49,7 +49,7 @@ class MmapSource : public Source {
         return Error_t::UnspecificError;
       }
     } catch (const std::runtime_error& rt_err) {
-      std::cerr << rt_err.what() << std::endl;
+      HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
       return Error_t::UnspecificError;
     }
   }

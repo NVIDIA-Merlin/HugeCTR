@@ -135,12 +135,13 @@ class EmbeddingData {
       // Error check
       if (embedding_params.train_batch_size < 1 || embedding_params.evaluate_batch_size < 1 ||
           embedding_params.slot_num < 1 || embedding_params.embedding_vec_size < 1) {
-        CK_THROW_(Error_t::WrongInput, "batchsize < 1 || slot_num < 1 || embedding_vec_size < 1");
+        HCTR_OWN_THROW(Error_t::WrongInput,
+                       "batchsize < 1 || slot_num < 1 || embedding_vec_size < 1");
       }
 
       if (embedding_params.embedding_vec_size > 1024) {
-        CK_THROW_(Error_t::WrongInput,
-                  "the embedding_vec_size can not be more than 1024 in embedding layer");
+        HCTR_OWN_THROW(Error_t::WrongInput,
+                       "the embedding_vec_size can not be more than 1024 in embedding layer");
       }
 
       size_t total_gpu_count = resource_manager_->get_global_gpu_count();
@@ -150,7 +151,7 @@ class EmbeddingData {
           train_value_tensors.size() != local_gpu_count ||
           evaluate_row_offsets_tensors.size() != local_gpu_count ||
           evaluate_value_tensors.size() != local_gpu_count) {
-        CK_THROW_(
+        HCTR_OWN_THROW(
             Error_t::WrongInput,
             "either row_offsets_tensors.size() or value_tensors.size() isn't local_gpu_count_");
       }
@@ -179,7 +180,7 @@ class EmbeddingData {
                                     evaluate_nnz_array_[i]);
       }
     } catch (const std::runtime_error& rt_err) {
-      std::cerr << rt_err.what() << std::endl;
+      HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
       throw;
     }
     return;
@@ -210,12 +211,13 @@ class EmbeddingData {
       // Error check
       if (embedding_params.train_batch_size < 1 || embedding_params.evaluate_batch_size < 1 ||
           embedding_params.slot_num < 1 || embedding_params.embedding_vec_size < 1) {
-        CK_THROW_(Error_t::WrongInput, "batchsize < 1 || slot_num < 1 || embedding_vec_size < 1");
+        HCTR_OWN_THROW(Error_t::WrongInput,
+                       "batchsize < 1 || slot_num < 1 || embedding_vec_size < 1");
       }
 
       if (embedding_params.embedding_vec_size > 1024) {
-        CK_THROW_(Error_t::WrongInput,
-                  "the embedding_vec_size can not be more than 1024 in embedding layer");
+        HCTR_OWN_THROW(Error_t::WrongInput,
+                       "the embedding_vec_size can not be more than 1024 in embedding layer");
       }
 
       size_t total_gpu_count = resource_manager_->get_global_gpu_count();
@@ -249,7 +251,7 @@ class EmbeddingData {
       }
 
     } catch (const std::runtime_error& rt_err) {
-      std::cerr << rt_err.what() << std::endl;
+      HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
       throw;
     }
     return;

@@ -129,7 +129,7 @@ void embedding_cache_test(const std::string& config_file, const std::string& mod
                           int num_feature_per_sample, size_t num_of_iteration, size_t num_of_worker,
                           bool use_gpu_cache) {
   // Test will use 0# GPU
-  CK_CUDA_THROW_(cudaSetDevice(0));
+  HCTR_LIB_THROW(cudaSetDevice(0));
 
   InferenceInfo inference_info(read_json_file(config_file));
 
@@ -206,7 +206,7 @@ void embedding_cache_test(const std::string& config_file, const std::string& mod
   std::ifstream vec_stream(emb_file_prefix + "emb_vector");
   // Check if file is opened successfully
   if (!key_stream.is_open() || !vec_stream.is_open()) {
-    CK_THROW_(Error_t::WrongInput, "Error: embeddings file cannot open for reading");
+    HCTR_OWN_THROW(Error_t::WrongInput, "Error: embeddings file cannot open for reading");
   }
 
   // The buffers for all embeddings
@@ -217,9 +217,9 @@ void embedding_cache_test(const std::string& config_file, const std::string& mod
   // The num of embeddings in the file
   size_t row_num = std::filesystem::file_size(emb_file_prefix + "key") / sizeof(long long);
 
-  CK_CUDA_THROW_(cudaHostAlloc((void**)&h_total_embeddingcolumns, row_num * sizeof(TypeHashKey),
+  HCTR_LIB_THROW(cudaHostAlloc((void**)&h_total_embeddingcolumns, row_num * sizeof(TypeHashKey),
                                cudaHostAllocPortable));
-  CK_CUDA_THROW_(cudaHostAlloc((void**)&h_total_embeddingvector,
+  HCTR_LIB_THROW(cudaHostAlloc((void**)&h_total_embeddingvector,
                                row_num * embedding_vec_size * sizeof(float),
                                cudaHostAllocPortable));
   for (size_t pair = 0; pair < row_num; pair++) {
@@ -259,35 +259,35 @@ void embedding_cache_test(const std::string& config_file, const std::string& mod
            default_emb_vector_value) num_threads(num_of_worker)
   {
     // All workers will share the #0 GPU
-    CK_CUDA_THROW_(cudaSetDevice(0));
+    HCTR_LIB_THROW(cudaSetDevice(0));
     // Get thread id
     int thread_id = omp_get_thread_num();
     int num_of_thread = omp_get_num_threads();
     if (thread_id == 0) {
-      printf("Number of workers: %d.\n", num_of_thread);
+      HCTR_LOG(INFO, WORLD, "Number of workers: %d.\n", num_of_thread);
     }
     // Each worker create IO buffers
     size_t* h_index;
     TypeHashKey* h_embeddingcolumns;
     float* h_shuffled_embeddingoutputvector;
     float* h_expected_shuffled_embeddingoutputvector;
-    CK_CUDA_THROW_(
+    HCTR_LIB_THROW(
         cudaHostAlloc((void**)&h_index, feature_per_batch * sizeof(size_t), cudaHostAllocPortable));
-    CK_CUDA_THROW_(cudaHostAlloc((void**)&h_embeddingcolumns,
+    HCTR_LIB_THROW(cudaHostAlloc((void**)&h_embeddingcolumns,
                                  feature_per_batch * sizeof(TypeHashKey), cudaHostAllocPortable));
-    CK_CUDA_THROW_(cudaHostAlloc((void**)&h_shuffled_embeddingoutputvector,
+    HCTR_LIB_THROW(cudaHostAlloc((void**)&h_shuffled_embeddingoutputvector,
                                  feature_per_batch * embedding_vec_size * sizeof(float),
                                  cudaHostAllocPortable));
-    CK_CUDA_THROW_(cudaHostAlloc((void**)&h_expected_shuffled_embeddingoutputvector,
+    HCTR_LIB_THROW(cudaHostAlloc((void**)&h_expected_shuffled_embeddingoutputvector,
                                  feature_per_batch * embedding_vec_size * sizeof(float),
                                  cudaHostAllocPortable));
     float* d_shuffled_embeddingoutputvector;
-    CK_CUDA_THROW_(cudaMalloc((void**)&d_shuffled_embeddingoutputvector,
+    HCTR_LIB_THROW(cudaMalloc((void**)&d_shuffled_embeddingoutputvector,
                               feature_per_batch * embedding_vec_size * sizeof(float)));
     // Each worker create CUDA stream used to look_up
     std::vector<cudaStream_t> query_streams(num_emb_table);
     for (size_t i = 0; i < num_emb_table; i++) {
-      CK_CUDA_THROW_(cudaStreamCreate(&query_streams[i]));
+      HCTR_LIB_THROW(cudaStreamCreate(&query_streams[i]));
     }
     // Apply a memory block for embedding cache look up
     MemoryBlock* memory_block = NULL;
@@ -353,15 +353,15 @@ void embedding_cache_test(const std::string& config_file, const std::string& mod
 
       // Each worker wait for look_up to complete
       for (size_t emb_table = 0; emb_table < num_emb_table; emb_table++) {
-        CK_CUDA_THROW_(cudaStreamSynchronize(query_streams[emb_table]));
+        HCTR_LIB_THROW(cudaStreamSynchronize(query_streams[emb_table]));
       }
       // Each worker copy look_up result back to host
-      CK_CUDA_THROW_(cudaMemcpyAsync(h_shuffled_embeddingoutputvector,
+      HCTR_LIB_THROW(cudaMemcpyAsync(h_shuffled_embeddingoutputvector,
                                      d_shuffled_embeddingoutputvector,
                                      feature_per_batch * embedding_vec_size * sizeof(float),
                                      cudaMemcpyDeviceToHost, query_streams[0]));
       // Each worker wait for copy to complete
-      CK_CUDA_THROW_(cudaStreamSynchronize(query_streams[0]));
+      HCTR_LIB_THROW(cudaStreamSynchronize(query_streams[0]));
       // Each worker check the correctness, both buffer should be bit-indentical
       bool result_correct = true;
       for (size_t float_id = 0; float_id < feature_per_batch * embedding_vec_size; float_id++) {
@@ -373,27 +373,27 @@ void embedding_cache_test(const std::string& config_file, const std::string& mod
       }
       // ASSERT_TRUE(result_correct);
       if (result_correct == false) {
-        CK_THROW_(Error_t::DataCheckError,
-                  "Error: The result of embedding_cache is not as expected");
+        HCTR_OWN_THROW(Error_t::DataCheckError,
+                       "Error: The result of embedding_cache is not as expected");
       }
     }
     // Each worker clean its buffers
     // If no features need to be queried, then don't need to free them since they are not allocated
     if (feature_per_batch != 0) {
-      CK_CUDA_THROW_(cudaFreeHost(h_index));
-      CK_CUDA_THROW_(cudaFreeHost(h_embeddingcolumns));
-      CK_CUDA_THROW_(cudaFreeHost(h_shuffled_embeddingoutputvector));
-      CK_CUDA_THROW_(cudaFreeHost(h_expected_shuffled_embeddingoutputvector));
-      CK_CUDA_THROW_(cudaFree(d_shuffled_embeddingoutputvector));
+      HCTR_LIB_THROW(cudaFreeHost(h_index));
+      HCTR_LIB_THROW(cudaFreeHost(h_embeddingcolumns));
+      HCTR_LIB_THROW(cudaFreeHost(h_shuffled_embeddingoutputvector));
+      HCTR_LIB_THROW(cudaFreeHost(h_expected_shuffled_embeddingoutputvector));
+      HCTR_LIB_THROW(cudaFree(d_shuffled_embeddingoutputvector));
     }
     for (size_t i = 0; i < num_emb_table; i++) {
-      CK_CUDA_THROW_(cudaStreamDestroy(query_streams[i]));
+      HCTR_LIB_THROW(cudaStreamDestroy(query_streams[i]));
     }
   }
 
   // clean up
-  CK_CUDA_THROW_(cudaFreeHost(h_total_embeddingcolumns));
-  CK_CUDA_THROW_(cudaFreeHost(h_total_embeddingvector));
+  HCTR_LIB_THROW(cudaFreeHost(h_total_embeddingcolumns));
+  HCTR_LIB_THROW(cudaFreeHost(h_total_embeddingvector));
 }
 
 }  // namespace

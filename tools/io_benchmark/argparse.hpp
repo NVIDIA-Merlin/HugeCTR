@@ -90,26 +90,25 @@ std::string repr(T const &val) {
   } else if constexpr (std::is_convertible_v<T, std::string_view>) {
     return '"' + std::string{std::string_view{val}} + '"';
   } else if constexpr (is_container_v<T>) {
-    std::stringstream out;
-    out << "{";
     const auto size = val.size();
     if (size > 1) {
-      out << repr(*val.begin());
+      std::ostringstream os;
+      os << "{" << repr(*val.begin());
       std::for_each(std::next(val.begin()),
                     std::next(val.begin(), std::min(size, repr_max_container_size) - 1),
-                    [&out](const auto &v) { out << " " << repr(v); });
+                    [&os](const auto &v) { os << " " << repr(v); });
       if (size <= repr_max_container_size)
-        out << " ";
+        os << " ";
       else
-        out << "...";
+        os << "...";
     }
     if (size > 0) out << repr(*std::prev(val.end()));
-    out << "}";
-    return out.str();
+    os << "}";
+    return os.str();
   } else if constexpr (is_streamable_v<T>) {
-    std::stringstream out;
-    out << val;
-    return out.str();
+    std::ostringstream os;
+    os << val;
+    return os.str();
   } else {
     return "<not representable>";
   }
@@ -463,29 +462,29 @@ class Argument {
     if (auto expected = maybe_nargs()) {
       if (mIsOptional) {
         if (mIsUsed && mValues.size() != *expected && !mDefaultValue.has_value()) {
-          std::stringstream stream;
-          stream << mUsedName << ": expected " << *expected << " argument(s). " << mValues.size()
-                 << " provided.";
-          throw std::runtime_error(stream.str());
+          std::ostringstream os;
+          os << mUsedName << ": expected " << *expected << " argument(s). " << mValues.size()
+             << " provided.";
+          throw std::runtime_error(os.str());
         } else {
           // TODO: check if an implicit value was programmed for this argument
           if (!mIsUsed && !mDefaultValue.has_value() && mIsRequired) {
-            std::stringstream stream;
-            stream << mNames[0] << ": required.";
-            throw std::runtime_error(stream.str());
+            std::ostringstream os;
+            os << mNames[0] << ": required.";
+            throw std::runtime_error(os.str());
           }
           if (mIsUsed && mIsRequired && mValues.size() == 0) {
-            std::stringstream stream;
-            stream << mUsedName << ": no value provided.";
-            throw std::runtime_error(stream.str());
+            std::ostringstream os;
+            os << mUsedName << ": no value provided.";
+            throw std::runtime_error(os.str());
           }
         }
       } else {
         if (mValues.size() != expected && !mDefaultValue.has_value()) {
-          std::stringstream stream;
-          if (!mUsedName.empty()) stream << mUsedName << ": ";
-          stream << *expected << " argument(s) expected. " << mValues.size() << " provided.";
-          throw std::runtime_error(stream.str());
+          std::ostringstream os;
+          if (!mUsedName.empty()) os << mUsedName << ": ";
+          os << *expected << " argument(s) expected. " << mValues.size() << " provided.";
+          throw std::runtime_error(os.str());
         }
       }
     }

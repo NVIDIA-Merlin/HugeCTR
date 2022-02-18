@@ -13,18 +13,18 @@ void GraphWrapper::capture(std::function<void(cudaStream_t)> workload, cudaStrea
     return;
   }
 
-  CK_CUDA_THROW_(cudaStreamBeginCapture(stream, cudaStreamCaptureModeThreadLocal));
+  HCTR_LIB_THROW(cudaStreamBeginCapture(stream, cudaStreamCaptureModeThreadLocal));
   workload(stream);
-  CK_CUDA_THROW_(cudaStreamEndCapture(stream, &graph));
-  CK_CUDA_THROW_(cudaGraphInstantiate(&graph_exec, graph, NULL, NULL, 0));
+  HCTR_LIB_THROW(cudaStreamEndCapture(stream, &graph));
+  HCTR_LIB_THROW(cudaGraphInstantiate(&graph_exec, graph, NULL, NULL, 0));
   initialized = true;
 }
 
 void GraphWrapper::exec(cudaStream_t stream) {
   if (!initialized) {
-    CK_THROW_(Error_t::IllegalCall, "Trying to execute graph which was not captured");
+    HCTR_OWN_THROW(Error_t::IllegalCall, "Trying to execute graph which was not captured");
   }
-  CK_CUDA_THROW_(cudaGraphLaunch(graph_exec, stream));
+  HCTR_LIB_THROW(cudaGraphLaunch(graph_exec, stream));
 }
 
 }  // namespace HugeCTR

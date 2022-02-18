@@ -38,27 +38,28 @@ void SparseEmbeddingFunctors::get_update_params_results(
     context.set_device(local_gpu->get_device_id());
     if ((count[id] = hash_tables[id]->get_value_head(local_gpu->get_stream())) !=
         hash_tables[id]->get_size(local_gpu->get_stream())) {
-      std::cout << "hashtable: get_value_head()="
-                << hash_tables[id]->get_value_head(local_gpu->get_stream())
-                << ", get_size()=" << hash_tables[id]->get_size(local_gpu->get_stream())
-                << std::endl;
-      CK_THROW_(Error_t::WrongInput,
-                "Error: hash_table get_value_head() size not equal to get_size()");
+      HCTR_LOG_S(ERROR, WORLD) << "hashtable: get_value_head()="
+                               << hash_tables[id]->get_value_head(local_gpu->get_stream())
+                               << ", get_size()="
+                               << hash_tables[id]->get_size(local_gpu->get_stream()) << std::endl;
+      HCTR_OWN_THROW(Error_t::WrongInput,
+                     "Error: hash_table get_value_head() size not equal to get_size()");
     }
     total_count += count[id];
 
 #ifndef NDEBUG
-    std::cout << "GPU[" << id << "]: number of <key,value> pairs:" << count[id] << std::endl;
+    HCTR_LOG_S(DEBUG, WORLD) << "GPU[" << id << "]: number of <key,value> pairs:" << count[id]
+                             << std::endl;
 #endif
   }
 
 #ifndef NDEBUG
-  std::cout << "Total number of <key,value> pairs:" << total_count << std::endl;
+  HCTR_LOG_S(DEBUG, WORLD) << "Total number of <key,value> pairs:" << total_count << std::endl;
 #endif
 
   if (total_count > (size_t)vocabulary_size) {
-    CK_THROW_(Error_t::WrongInput,
-              "Error: required download size is larger than hash table vocabulary_size");
+    HCTR_OWN_THROW(Error_t::WrongInput,
+                   "Error: required download size is larger than hash table vocabulary_size");
   }
 
   std::unique_ptr<TypeHashKey *[]> d_hash_table_key(new TypeHashKey *[local_gpu_count]);
@@ -108,11 +109,11 @@ void SparseEmbeddingFunctors::get_update_params_results(
 
     context.set_device(resource_manager.get_local_gpu(id)->get_device_id());
 
-    CK_CUDA_THROW_(cudaMemcpy(hash_table_key.get_ptr() + key_offset, d_hash_table_key[id],
+    HCTR_LIB_THROW(cudaMemcpy(hash_table_key.get_ptr() + key_offset, d_hash_table_key[id],
                               count[id] * sizeof(TypeHashKey), cudaMemcpyDeviceToHost));
     key_offset += count[id];
 
-    CK_CUDA_THROW_(cudaMemcpy(hash_table_value.get_ptr() + value_offset, d_hash_table_value[id],
+    HCTR_LIB_THROW(cudaMemcpy(hash_table_value.get_ptr() + value_offset, d_hash_table_value[id],
                               count[id] * embedding_vec_size * sizeof(float),
                               cudaMemcpyDeviceToHost));
     value_offset += count[id] * embedding_vec_size;
@@ -125,10 +126,10 @@ void SparseEmbeddingFunctors::get_update_params_results(
 
     context.set_device(resource_manager.get_local_gpu(id)->get_device_id());
 
-    CK_CUDA_THROW_(cudaFree(d_hash_table_key[id]));
-    CK_CUDA_THROW_(cudaFree(d_hash_table_value_index[id]));
-    CK_CUDA_THROW_(cudaFree(d_hash_table_value[id]));
-    CK_CUDA_THROW_(cudaFree(d_dump_counter[id]));
+    HCTR_LIB_THROW(cudaFree(d_hash_table_key[id]));
+    HCTR_LIB_THROW(cudaFree(d_hash_table_value_index[id]));
+    HCTR_LIB_THROW(cudaFree(d_hash_table_value[id]));
+    HCTR_LIB_THROW(cudaFree(d_dump_counter[id]));
   }
 
 #ifdef ENABLE_MPI

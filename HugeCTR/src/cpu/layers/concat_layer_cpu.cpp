@@ -57,7 +57,7 @@ ConcatLayerCPU<T>::ConcatLayerCPU(const Tensors2<T>& in_tensors, Tensor2<T>& out
     : LayerCPU() {
   try {
     if (in_tensors.empty()) {
-      CK_THROW_(Error_t::WrongInput, "Empty input tensors");
+      HCTR_OWN_THROW(Error_t::WrongInput, "Empty input tensors");
     }
 
     int n_in_tensors = in_tensors.size();
@@ -68,11 +68,11 @@ ConcatLayerCPU<T>::ConcatLayerCPU(const Tensors2<T>& in_tensors, Tensor2<T>& out
       if (i != 0) {
         auto first_in_dims = in_tensors[0].get_dimensions();
         if (cur_in_dims[0] != first_in_dims[0]) {
-          CK_THROW_(Error_t::WrongInput, "All the input tensors must have the same height");
+          HCTR_OWN_THROW(Error_t::WrongInput, "All the input tensors must have the same height");
         }
       }
       if (cur_in_dims.size() != 2) {
-        CK_THROW_(Error_t::WrongInput, "Only 2D tensors can be concatenated");
+        HCTR_OWN_THROW(Error_t::WrongInput, "Only 2D tensors can be concatenated");
       }
       if (i == 0) {
         height = cur_in_dims[0];
@@ -91,7 +91,7 @@ ConcatLayerCPU<T>::ConcatLayerCPU(const Tensors2<T>& in_tensors, Tensor2<T>& out
     blobs_buff->reserve({in_tensors.size()}, &h_inputs_);
 
   } catch (const std::runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     throw;
   }
 }

@@ -58,7 +58,7 @@ class DataReaderWorkerGroupRaw : public DataReaderWorkerGroup {
         data_shuffle_(data_shuffle) {
     // todo param check
     if (file_name.empty()) {
-      CK_THROW_(Error_t::WrongInput, "file_name.empty()");
+      HCTR_OWN_THROW(Error_t::WrongInput, "file_name.empty()");
     }
     size_t num_workers = output_buffers.size();
     size_t local_gpu_count = resource_manager_->get_local_gpu_count();

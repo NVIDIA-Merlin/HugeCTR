@@ -57,7 +57,7 @@ void broadcast(float** dev_pointers, const bool* dev_p2p_accessible, int batch_s
   for (int i = 1; i < num_dests; i++) {
     int dst_id = (src_id + i) % num_dests;
     if (!dev_p2p_accessible[dst_id] || (!use_kernel)) {
-      CK_CUDA_THROW_(cudaMemcpyAsync(dev_pointers[dst_id], dev_pointers[src_id],
+      HCTR_LIB_THROW(cudaMemcpyAsync(dev_pointers[dst_id], dev_pointers[src_id],
                                      batch_size_floats * sizeof(float), cudaMemcpyDeviceToDevice,
                                      stream));
     }

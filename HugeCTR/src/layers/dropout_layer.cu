@@ -50,36 +50,36 @@ DropoutLayer<T>::DropoutLayer(const Tensor2<T>& in_tensor, const Tensor2<T>& out
   cudnnDataType_t data_type = CudnnDataType<T>::getType();
   int n_stride = num_feature;
   int w_stride = 1;
-  CK_CUDNN_THROW_(cudnnCreateTensorDescriptor(&in_out_desc_));
-  CK_CUDNN_THROW_(cudnnSetTensor4dDescriptorEx(in_out_desc_, data_type, batch_size, 1, 1,
-                                               num_feature, n_stride, 1, 1, w_stride));
+  HCTR_LIB_THROW(cudnnCreateTensorDescriptor(&in_out_desc_));
+  HCTR_LIB_THROW(cudnnSetTensor4dDescriptorEx(in_out_desc_, data_type, batch_size, 1, 1,
+                                              num_feature, n_stride, 1, 1, w_stride));
 
-  CK_CUDNN_THROW_(cudnnCreateDropoutDescriptor(&dropout_descriptor_));
+  HCTR_LIB_THROW(cudnnCreateDropoutDescriptor(&dropout_descriptor_));
 
   size_t sizeInBytes = 0;
 
-  CK_CUDNN_THROW_(cudnnDropoutGetStatesSize(gpu_resource->get_cudnn_handle(), &sizeInBytes));
+  HCTR_LIB_THROW(cudnnDropoutGetStatesSize(gpu_resource->get_cudnn_handle(), &sizeInBytes));
 
   assert(sizeInBytes != 0);
 
-  CK_CUDNN_THROW_(cudnnDropoutGetReserveSpaceSize(in_out_desc_, &reserveSpaceSizeInBytes_));
+  HCTR_LIB_THROW(cudnnDropoutGetReserveSpaceSize(in_out_desc_, &reserveSpaceSizeInBytes_));
 
   blobs_buff->reserve({1, reserveSpaceSizeInBytes_}, &mask_);
 
-  CK_CUDA_THROW_(cudaMalloc(&cudnn_status_, sizeInBytes));
+  HCTR_LIB_THROW(cudaMalloc(&cudnn_status_, sizeInBytes));
 
-  CK_CUDNN_THROW_(cudnnSetDropoutDescriptor(dropout_descriptor_, gpu_resource->get_cudnn_handle(),
-                                            rate, cudnn_status_, sizeInBytes, 0));
+  HCTR_LIB_THROW(cudnnSetDropoutDescriptor(dropout_descriptor_, gpu_resource->get_cudnn_handle(),
+                                           rate, cudnn_status_, sizeInBytes, 0));
 }
 
 template <typename T>
 DropoutLayer<T>::~DropoutLayer() {
   try {
-    CK_CUDNN_THROW_(cudnnDestroyDropoutDescriptor(dropout_descriptor_));
-    CK_CUDA_THROW_(cudaFree(cudnn_status_));
-    CK_CUDNN_THROW_(cudnnDestroyTensorDescriptor(in_out_desc_));
+    HCTR_LIB_THROW(cudnnDestroyDropoutDescriptor(dropout_descriptor_));
+    HCTR_LIB_THROW(cudaFree(cudnn_status_));
+    HCTR_LIB_THROW(cudnnDestroyTensorDescriptor(in_out_desc_));
   } catch (const std::runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
   }
 }
 
@@ -88,31 +88,31 @@ void DropoutLayer<T>::fprop(bool is_train) {
   CudaDeviceContext context(get_device_id());
 
   if (is_train) {
-    CK_CUDNN_THROW_(cudnnDropoutForward(
+    HCTR_LIB_THROW(cudnnDropoutForward(
         get_gpu().get_cudnn_handle(), dropout_descriptor_, in_out_desc_, in_tensors_[0].get_ptr(),
         in_out_desc_, out_tensors_[0].get_ptr(), mask_.get_ptr(), reserveSpaceSizeInBytes_));
   } else {
-    CK_CUDA_THROW_(cudaMemcpyAsync(out_tensors_[0].get_ptr(), in_tensors_[0].get_ptr(),
+    HCTR_LIB_THROW(cudaMemcpyAsync(out_tensors_[0].get_ptr(), in_tensors_[0].get_ptr(),
                                    in_tensors_[0].get_size_in_bytes(), cudaMemcpyDeviceToDevice,
                                    get_gpu().get_stream()));
   }
 
 #ifndef NDEBUG
   cudaDeviceSynchronize();
-  CK_CUDA_THROW_(cudaGetLastError());
+  HCTR_LIB_THROW(cudaGetLastError());
 #endif
 }
 
 template <typename T>
 void DropoutLayer<T>::bprop() {
   CudaDeviceContext context(get_device_id());
-  CK_CUDNN_THROW_(cudnnDropoutBackward(
+  HCTR_LIB_THROW(cudnnDropoutBackward(
       get_gpu().get_cudnn_handle(), dropout_descriptor_, in_out_desc_, out_tensors_[0].get_ptr(),
       in_out_desc_, in_tensors_[0].get_ptr(), mask_.get_ptr(), reserveSpaceSizeInBytes_));
 
 #ifndef NDEBUG
   cudaDeviceSynchronize();
-  CK_CUDA_THROW_(cudaGetLastError());
+  HCTR_LIB_THROW(cudaGetLastError());
 #endif
 }
 

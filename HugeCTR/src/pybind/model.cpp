@@ -39,9 +39,9 @@ namespace {
 
 static std::vector<std::string>& split(const std::string& s, char delim,
                                        std::vector<std::string>& elems) {
-  std::stringstream ss(s);
+  std::istringstream is(s);
   std::string item;
-  while (std::getline(ss, item, delim)) {
+  while (std::getline(is, item, delim)) {
     elems.push_back(item);
   }
   return elems;
@@ -75,23 +75,25 @@ static std::string get_tensor_shape(std::string tensor_name,
 
 static void check_device(int device_id, int min_major, int min_minor) {
   int device_count = 0;
-  CK_CUDA_THROW_(cudaGetDeviceCount(&device_count));
+  HCTR_LIB_THROW(cudaGetDeviceCount(&device_count));
   if (device_id >= device_count) {
-    CK_THROW_(Error_t::WrongInput, "device is not avaliable");
+    HCTR_OWN_THROW(Error_t::WrongInput, "device is not avaliable");
   }
   CudaDeviceContext context(device_id);
   cudaDeviceProp deviceProp;
   if (cudaGetDeviceProperties(&deviceProp, device_id) != cudaSuccess) {
-    CK_THROW_(Error_t::InvalidEnv, "Invalid device:" + std::to_string(device_id));
+    std::ostringstream os;
+    os << "Invalid device:" << device_id;
+    HCTR_OWN_THROW(Error_t::InvalidEnv, os.str());
     return;
   }
   HCTR_LOG(INFO, WORLD, "Device %d: %s\n", device_id, deviceProp.name);
   int major = deviceProp.major;
   int minor = deviceProp.minor;
   if (major < min_major) {
-    CK_THROW_(Error_t::InvalidEnv, "Device Compute Compacity is low");
+    HCTR_OWN_THROW(Error_t::InvalidEnv, "Device Compute Compacity is low");
   } else if (major == min_major && minor < min_minor) {
-    CK_THROW_(Error_t::InvalidEnv, "Device Compute Compacity is low");
+    HCTR_OWN_THROW(Error_t::InvalidEnv, "Device Compute Compacity is low");
   }
   return;
 }
@@ -104,7 +106,7 @@ auto load_key_files(std::vector<std::string> const& key_files) {
     auto num_new_keys = key_file_size / sizeof(TypeKey);
     std::ifstream key_fs(key_file, std::ifstream::binary);
     if (!key_fs.is_open()) {
-      CK_THROW_(Error_t::WrongInput, "Cannot open the file: " + key_file);
+      HCTR_OWN_THROW(Error_t::WrongInput, "Cannot open the file: " + key_file);
     }
     auto num_exist_keys = keys_vec.size();
     keys_vec.resize(num_exist_keys + num_new_keys);
@@ -196,7 +198,7 @@ SparseEmbedding::SparseEmbedding(Embedding_t embedding_type, size_t workspace_si
   } else if (combiner_str == "mean") {
     combiner = 1;
   } else {
-    CK_THROW_(Error_t::WrongInput, "No such combiner type: " + combiner_str);
+    HCTR_OWN_THROW(Error_t::WrongInput, "No such combiner type: " + combiner_str);
   }
   max_vocabulary_size_per_gpu =
       (workspace_size_per_gpu_in_mb * 1024 * 1024) / (sizeof(float) * embedding_vec_size);
@@ -257,11 +259,11 @@ GroupDenseLayer::GroupDenseLayer(GroupLayer_t group_layer_type,
       last_act_type(last_act_type) {
   size_t num_layers = num_outputs.size();
   if (num_layers < 2) {
-    CK_THROW_(Error_t::WrongInput, "There should be at least two layers for GroupDenseLayer");
+    HCTR_OWN_THROW(Error_t::WrongInput, "There should be at least two layers for GroupDenseLayer");
   }
   if (top_name_list.size() != num_layers) {
-    CK_THROW_(Error_t::WrongInput,
-              "There top_name_list.size() should be equal to num_outputs.size()");
+    HCTR_OWN_THROW(Error_t::WrongInput,
+                   "There top_name_list.size() should be equal to num_outputs.size()");
   }
 }
 
@@ -357,26 +359,26 @@ Model::Model(const Solver& solver, const DataReaderParams& reader_params,
     }
   }
   if (reader_params_.source.size() < 1 || reader_params_.eval_source.empty()) {
-    CK_THROW_(Error_t::WrongInput,
-              " The data source for training and evaluation should be specified");
+    HCTR_OWN_THROW(Error_t::WrongInput,
+                   " The data source for training and evaluation should be specified");
   }
   if (etc_params_->use_embedding_training_cache && solver_.kafka_brokers.length()) {
     message_sink_.reset(new KafkaMessageSink<long long>(solver_.kafka_brokers));
   }
   if (etc_params_->use_embedding_training_cache && solver_.repeat_dataset) {
-    CK_THROW_(Error_t::WrongInput,
-              "The embedding training cache can only be used under epoch mode, "
-              "i.e., repeat_dataset is set False");
+    HCTR_OWN_THROW(Error_t::WrongInput,
+                   "The embedding training cache can only be used under epoch mode, "
+                   "i.e., repeat_dataset is set False");
   }
   if (etc_params_->use_embedding_training_cache &&
       reader_params_.keyset.size() != reader_params_.source.size()) {
-    CK_THROW_(Error_t::WrongInput,
-              "The number of keyset files must equal that of training data source when using "
-              "embedding training cache");
+    HCTR_OWN_THROW(Error_t::WrongInput,
+                   "The number of keyset files must equal that of training data source when using "
+                   "embedding training cache");
   }
   int total_gpu_count = resource_manager_->get_global_gpu_count();
   if (0 != solver_.batchsize % total_gpu_count) {
-    CK_THROW_(Error_t::WrongInput, "0 != batch_size\%total_gpu_count");
+    HCTR_OWN_THROW(Error_t::WrongInput, "0 != batch_size\%total_gpu_count");
   }
   // reserve networks to be created
   for (size_t i = 0; i < resource_manager_->get_local_gpu_count(); i++) {
@@ -479,7 +481,7 @@ void Model::construct_from_json(const std::string& graph_config_file, bool inclu
       auto layer_type_name = get_value_from_json<std::string>(j, "type");
       if (!find_item_in_map(layer_type, layer_type_name, LAYER_TYPE_MAP) &&
           !find_item_in_map(layer_type, layer_type_name, LAYER_TYPE_MAP_MP)) {
-        CK_THROW_(Error_t::WrongInput, "No such layer: " + layer_type_name);
+        HCTR_OWN_THROW(Error_t::WrongInput, "No such layer: " + layer_type_name);
       }
       DenseLayer dense_layer = get_dense_layer_from_json(j);
       add(dense_layer);
@@ -491,7 +493,7 @@ void Model::construct_from_json(const std::string& graph_config_file, bool inclu
 
 void Model::add(Input& input) {
   if (!solver_.is_dlrm && reader_params_.data_reader_type == DataReaderType_t::RawAsync) {
-    CK_THROW_(Error_t::WrongInput, "Raw async reader is restricted to DLRM use");
+    HCTR_OWN_THROW(Error_t::WrongInput, "Raw async reader is restricted to DLRM use");
   }
   input_params_.push_back(input);
   activate_tensor(tensor_active_, input.label_name);
@@ -532,13 +534,13 @@ void Model::add(Input& input) {
 
 void Model::add(SparseEmbedding& sparse_embedding) {
   if (!solver_.is_dlrm && sparse_embedding.embedding_type == Embedding_t::HybridSparseEmbedding) {
-    CK_THROW_(Error_t::WrongInput, "Hybrid embedding is restricted to DLRM use");
+    HCTR_OWN_THROW(Error_t::WrongInput, "Hybrid embedding is restricted to DLRM use");
   }
   if ((reader_params_.data_reader_type == DataReaderType_t::RawAsync &&
        sparse_embedding.embedding_type != Embedding_t::HybridSparseEmbedding) ||
       (reader_params_.data_reader_type != DataReaderType_t::RawAsync &&
        sparse_embedding.embedding_type == Embedding_t::HybridSparseEmbedding)) {
-    CK_THROW_(Error_t::WrongInput, "Raw async reader and hybrid embedding must come together");
+    HCTR_OWN_THROW(Error_t::WrongInput, "Raw async reader and hybrid embedding must come together");
   }
   sparse_embedding.max_vocabulary_size_global =
       sparse_embedding.max_vocabulary_size_per_gpu * resource_manager_->get_global_gpu_count();
@@ -595,12 +597,12 @@ void Model::add(SparseEmbedding& sparse_embedding) {
 void Model::add(DenseLayer& dense_layer) {
   for (auto& top_name : dense_layer.top_names) {
     if (tensor_shape_info_raw_.find(top_name) != tensor_shape_info_raw_.end()) {
-      CK_THROW_(Error_t::WrongInput, top_name + ", top tensor name already exists");
+      HCTR_OWN_THROW(Error_t::WrongInput, top_name + ", top tensor name already exists");
     }
   }
   for (auto& bottom_name : dense_layer.bottom_names) {
     if (tensor_shape_info_raw_.find(bottom_name) == tensor_shape_info_raw_.end()) {
-      CK_THROW_(Error_t::WrongInput, bottom_name + ", bottom tensor name does not exists");
+      HCTR_OWN_THROW(Error_t::WrongInput, bottom_name + ", bottom tensor name does not exists");
     }
   }
   calculate_tensor_dimensions(tensor_shape_info_raw_, dense_layer);
@@ -671,8 +673,9 @@ void Model::add(GroupDenseLayer& group_dense_layer) {
         add(fused_fc_tail_layer);
         // TODO: support fp32 for FusedReluBiasFullyConnectedLayer
       } else {
-        CK_THROW_(Error_t::WrongInput,
-                  "GroupFusedInnerProduct can only be used when use_mixed_precision is set true");
+        HCTR_OWN_THROW(
+            Error_t::WrongInput,
+            "GroupFusedInnerProduct can only be used when use_mixed_precision is set true");
       }
       break;
     }
@@ -694,7 +697,7 @@ void Model::graph_analysis() {
   }
   for (auto iter = tensor_usage.begin(); iter != tensor_usage.end(); iter++) {
     if (iter->second > 5) {
-      CK_THROW_(Error_t::WrongInput, "The graph should not include more than 5-way branches");
+      HCTR_OWN_THROW(Error_t::WrongInput, "The graph should not include more than 5-way branches");
     }
     if (iter->second > 1) {
       std::vector<std::string> bottom_names{iter->first};
@@ -750,7 +753,7 @@ void Model::compile() {
     graph_finalized_ = true;
   }
   if (data_input_info_.size() < 3 || layer_info_.size() < 2) {
-    CK_THROW_(Error_t::IllegalCall, "The model should include input and at least two layers");
+    HCTR_OWN_THROW(Error_t::IllegalCall, "The model should include input and at least two layers");
   }
   HCTR_PRINT(INFO,
              "===================================================Model "
@@ -792,7 +795,7 @@ void Model::compile() {
     if (solver_.use_algorithm_search) {
       networks_[id]->search_algorithm();
     }
-    CK_CUDA_THROW_(cudaStreamSynchronize(resource_manager_->get_local_gpu(id)->get_stream()));
+    HCTR_LIB_THROW(cudaStreamSynchronize(resource_manager_->get_local_gpu(id)->get_stream()));
   }
 #endif
   init_params_for_dense_();
@@ -815,7 +818,7 @@ void Model::compile() {
       CudaCPUDeviceContext context(gpu_resource->get_device_id());
       // CudaDeviceContext context(gpu_resource->get_device_id());
       cudaEvent_t event;
-      CK_CUDA_THROW_(cudaEventCreateWithFlags(&event, cudaEventDisableTiming));
+      HCTR_LIB_THROW(cudaEventCreateWithFlags(&event, cudaEventDisableTiming));
       fork_events_.push_back(event);
     }
   }
@@ -919,24 +922,26 @@ void Model::compile() {
 
 void Model::load_dense_optimizer_states(const std::string& dense_opt_states_file) {
   if (!buff_allocated_) {
-    CK_THROW_(Error_t::IllegalCall,
-              "Cannot load the dense optimizer states before calling Model.compile()");
+    HCTR_OWN_THROW(Error_t::IllegalCall,
+                   "Cannot load the dense optimizer states before calling Model.compile()");
   }
   load_opt_states_for_dense_(dense_opt_states_file);
 }
 
 void Model::load_sparse_optimizer_states(const std::vector<std::string>& sparse_opt_states_files) {
   if (!buff_allocated_) {
-    CK_THROW_(Error_t::IllegalCall,
-              "Cannot load the sparse optimizer states before calling Model.compile()");
+    HCTR_OWN_THROW(Error_t::IllegalCall,
+                   "Cannot load the sparse optimizer states before calling Model.compile()");
   }
   if (etc_params_->use_embedding_training_cache) {
-    CK_THROW_(Error_t::IllegalCall,
-              "Cannot load the sparse optimizer states after embedding training cache is created");
+    HCTR_OWN_THROW(
+        Error_t::IllegalCall,
+        "Cannot load the sparse optimizer states after embedding training cache is created");
   }
   if (sparse_opt_states_files.size() != embeddings_.size()) {
-    CK_THROW_(Error_t::WrongInput,
-              "The size of sparse opt state files should be equal to the number of embeddings");
+    HCTR_OWN_THROW(
+        Error_t::WrongInput,
+        "The size of sparse opt state files should be equal to the number of embeddings");
   }
   load_opt_states_for_sparse_(sparse_opt_states_files);
 }
@@ -944,24 +949,24 @@ void Model::load_sparse_optimizer_states(const std::vector<std::string>& sparse_
 void Model::load_sparse_optimizer_states(
     const std::map<std::string, std::string>& sparse_opt_states_files_map) {
   if (!buff_allocated_) {
-    CK_THROW_(Error_t::IllegalCall,
-              "Cannot load the sparse optimizer states before calling Model.compile()");
+    HCTR_OWN_THROW(Error_t::IllegalCall,
+                   "Cannot load the sparse optimizer states before calling Model.compile()");
   }
   if (etc_params_->use_embedding_training_cache) {
-    CK_THROW_(Error_t::IllegalCall,
-              "Cannot load the sparse optimizer states after model oversubscriber is created");
+    HCTR_OWN_THROW(Error_t::IllegalCall,
+                   "Cannot load the sparse optimizer states after model oversubscriber is created");
   }
   for (auto iter = sparse_opt_states_files_map.begin(); iter != sparse_opt_states_files_map.end();
        iter++) {
     if (embeddings_map_.find(iter->first) == embeddings_map_.end()) {
-      CK_THROW_(Error_t::WrongInput, "No such embedding name: " + iter->first);
+      HCTR_OWN_THROW(Error_t::WrongInput, "No such embedding name: " + iter->first);
     }
     auto embedding_target = embeddings_map_.find(iter->first)->second;
     std::ifstream sparse_opt_stream(iter->first, std::ifstream::binary);
     if (!sparse_opt_stream.is_open()) {
-      CK_THROW_(Error_t::WrongInput, "Cannot open sparse optimizer states file");
+      HCTR_OWN_THROW(Error_t::WrongInput, "Cannot open sparse optimizer states file");
     }
-    MESSAGE_("Loading sparse optimizer states: " + iter->first);
+    HCTR_LOG_S(INFO, ROOT) << "Loading sparse optimizer states: " << iter->first << std::endl;
     embedding_target->load_opt_states(sparse_opt_stream);
     sparse_opt_stream.close();
   }
@@ -969,23 +974,25 @@ void Model::load_sparse_optimizer_states(
 
 void Model::load_dense_weights(const std::string& dense_model_file) {
   if (!buff_allocated_) {
-    CK_THROW_(Error_t::IllegalCall, "Cannot load the dense weights before calling Model.compile()");
+    HCTR_OWN_THROW(Error_t::IllegalCall,
+                   "Cannot load the dense weights before calling Model.compile()");
   }
   load_params_for_dense_(dense_model_file);
 }
 
 void Model::load_sparse_weights(const std::vector<std::string>& sparse_embedding_files) {
   if (!buff_allocated_) {
-    CK_THROW_(Error_t::IllegalCall,
-              "Cannot load the sparse weights before calling Model.compile()");
+    HCTR_OWN_THROW(Error_t::IllegalCall,
+                   "Cannot load the sparse weights before calling Model.compile()");
   }
   if (etc_params_->use_embedding_training_cache) {
-    CK_THROW_(Error_t::IllegalCall,
-              "Cannot load the sparse weights after embedding training cache is created");
+    HCTR_OWN_THROW(Error_t::IllegalCall,
+                   "Cannot load the sparse weights after embedding training cache is created");
   }
   if (sparse_embedding_files.size() != embeddings_.size()) {
-    CK_THROW_(Error_t::WrongInput,
-              "The size of sparse embedding files should be equal to the number of embeddings");
+    HCTR_OWN_THROW(
+        Error_t::WrongInput,
+        "The size of sparse embedding files should be equal to the number of embeddings");
   }
   load_params_for_sparse_(sparse_embedding_files);
 }
@@ -993,20 +1000,20 @@ void Model::load_sparse_weights(const std::vector<std::string>& sparse_embedding
 void Model::load_sparse_weights(
     const std::map<std::string, std::string>& sparse_embedding_files_map) {
   if (!buff_allocated_) {
-    CK_THROW_(Error_t::IllegalCall,
-              "Cannot load the sparse weights before calling Model.compile()");
+    HCTR_OWN_THROW(Error_t::IllegalCall,
+                   "Cannot load the sparse weights before calling Model.compile()");
   }
   if (etc_params_->use_embedding_training_cache) {
-    CK_THROW_(Error_t::IllegalCall,
-              "Cannot load the sparse weights after model oversubscriber is created");
+    HCTR_OWN_THROW(Error_t::IllegalCall,
+                   "Cannot load the sparse weights after model oversubscriber is created");
   }
   for (auto iter = sparse_embedding_files_map.begin(); iter != sparse_embedding_files_map.end();
        iter++) {
     if (embeddings_map_.find(iter->first) == embeddings_map_.end()) {
-      CK_THROW_(Error_t::WrongInput, "No such embedding name: " + iter->first);
+      HCTR_OWN_THROW(Error_t::WrongInput, "No such embedding name: " + iter->first);
     }
     auto embedding_target = embeddings_map_.find(iter->first)->second;
-    MESSAGE_("Loading sparse model: " + iter->second);
+    HCTR_LOG_S(INFO, ROOT) << "Loading sparse model: " << iter->second << std::endl;
     embedding_target->load_parameters(iter->second);
   }
 }
@@ -1017,31 +1024,34 @@ void Model::summary() {
     graph_finalized_ = true;
   }
   if (data_input_info_.size() < 3 || layer_info_.size() < 2) {
-    CK_THROW_(Error_t::IllegalCall, "The model should include input and at least two layers");
+    HCTR_OWN_THROW(Error_t::IllegalCall, "The model should include input and at least two layers");
   }
   for (auto tensor_entry : train_tensor_entries_list_[0]) {
     tensor_shape_info_.insert(std::make_pair(tensor_entry.name, tensor_entry.bag.get_dimensions()));
   }
 
-  std::stringstream buf;
-  buf << std::left << std::setw(40) << std::setfill(' ') << "label" << std::left << std::setw(30)
+  auto log = HCTR_LOG_S(INFO, ROOT);
+  log << "===================================================Model "
+         "Summary==================================================="
+      << std::endl;
+  log << std::left << std::setw(40) << std::setfill(' ') << "label" << std::left << std::setw(30)
       << std::setfill(' ') << "Dense" << std::left << std::setw(30) << std::setfill(' ') << "Sparse"
       << std::endl;
-  buf << std::left << std::setw(40) << std::setfill(' ') << data_input_info_[0] << std::left
+  log << std::left << std::setw(40) << std::setfill(' ') << data_input_info_[0] << std::left
       << std::setw(30) << std::setfill(' ') << data_input_info_[1] << " " << std::left
       << std::setw(30) << std::setfill(' ') << data_input_info_[2] << std::endl;
-  buf << std::left << std::setw(40) << std::setfill(' ')
+  log << std::left << std::setw(40) << std::setfill(' ')
       << get_tensor_shape(data_input_info_[0], tensor_shape_info_) << std::left << std::setw(40)
       << std::setfill(' ') << get_tensor_shape(data_input_info_[1], tensor_shape_info_)
       << std::endl;
-  buf << "—————————————————————————————————————————————————————————————————————————————————"
+  log << "—————————————————————————————————————————————————————————————————————————————————"
          "—————————————————————————————————"
       << std::endl;
-  buf << std::left << std::setw(40) << std::setfill(' ') << "Layer Type" << std::left
+  log << std::left << std::setw(40) << std::setfill(' ') << "Layer Type" << std::left
       << std::setw(30) << std::setfill(' ') << "Input Name" << std::left << std::setw(30)
       << std::setfill(' ') << "Output Name" << std::left << std::setw(30) << std::setfill(' ')
       << "Output Shape" << std::endl;
-  buf << "—————————————————————————————————————————————————————————————————————————————————"
+  log << "—————————————————————————————————————————————————————————————————————————————————"
          "—————————————————————————————————"
       << std::endl;
   for (size_t i = 0; i < layer_info_.size(); ++i) {
@@ -1060,31 +1070,27 @@ void Model::summary() {
       output_names.insert(output_names.end(), lines - output_names.size(), "");
     }
     for (size_t j = 0; j < lines; j++) {
-      buf << std::left << std::setw(40) << std::setfill(' ') << layer_type[j] << std::left
+      log << std::left << std::setw(40) << std::setfill(' ') << layer_type[j] << std::left
           << std::setw(30) << std::setfill(' ') << input_names[j] << std::left << std::setw(30)
           << std::setfill(' ') << output_names[j] << std::left << std::setw(30) << std::setfill(' ')
           << get_tensor_shape(output_names[j], tensor_shape_info_) << std::endl;
     }
-    buf << "---------------------------------------------------------------------------------"
+    log << "---------------------------------------------------------------------------------"
            "---------------------------------"
         << std::endl;
   }
-  HCTR_PRINT(INFO,
-             "===================================================Model "
-             "Summary===================================================\n"
-             "%s",
-             buf.str().c_str());
 }
 
 void Model::set_source(std::vector<std::string> source, std::vector<std::string> keyset,
                        std::string eval_source) {
   if (solver_.repeat_dataset || !etc_params_->use_embedding_training_cache) {
-    CK_THROW_(Error_t::IllegalCall,
-              "The set source method can only be used under the embedding training cache mode");
+    HCTR_OWN_THROW(
+        Error_t::IllegalCall,
+        "The set source method can only be used under the embedding training cache mode");
   }
   if (source.size() != keyset.size()) {
-    CK_THROW_(Error_t::WrongInput,
-              "The number of training data sources should equal that of the keyset files");
+    HCTR_OWN_THROW(Error_t::WrongInput,
+                   "The number of training data sources should equal that of the keyset files");
   }
   if (set_source_flag_) {
     etc_params_->incremental_keyset_files.insert(etc_params_->incremental_keyset_files.end(),
@@ -1102,7 +1108,8 @@ void Model::set_source(std::vector<std::string> source, std::vector<std::string>
 
 void Model::set_source(std::string source, std::string eval_source) {
   if (solver_.repeat_dataset || etc_params_->use_embedding_training_cache) {
-    CK_THROW_(Error_t::IllegalCall, "The set source method can only be used under the epoch mode");
+    HCTR_OWN_THROW(Error_t::IllegalCall,
+                   "The set source method can only be used under the epoch mode");
   }
   std::vector<std::string>().swap(reader_params_.source);
   reader_params_.source.push_back(source);
@@ -1112,17 +1119,17 @@ void Model::set_source(std::string source, std::string eval_source) {
 void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, int snapshot,
                 std::string snapshot_prefix, DataSourceParams data_source_params) {
   if (!buff_allocated_) {
-    CK_THROW_(Error_t::IllegalCall,
-              "Cannot start the training process before calling Model.compile()");
+    HCTR_OWN_THROW(Error_t::IllegalCall,
+                   "Cannot start the training process before calling Model.compile()");
   }
   if (solver_.repeat_dataset && max_iter <= 0) {
-    CK_THROW_(Error_t::WrongInput, "Require max_iter>0 under non-epoch mode");
+    HCTR_OWN_THROW(Error_t::WrongInput, "Require max_iter>0 under non-epoch mode");
   }
   if (!solver_.repeat_dataset && !etc_params_->use_embedding_training_cache && num_epochs <= 0) {
-    CK_THROW_(Error_t::WrongInput, "Require num_epochs>0 under epoch mode");
+    HCTR_OWN_THROW(Error_t::WrongInput, "Require num_epochs>0 under epoch mode");
   }
   if (etc_params_->use_embedding_training_cache && !etc_created_) {
-    CK_THROW_(Error_t::IllegalCall, "The embedding training cache should be created first");
+    HCTR_OWN_THROW(Error_t::IllegalCall, "The embedding training cache should be created first");
   }
   high_level_eval_ = true;
 
@@ -1180,11 +1187,11 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
       data_reader_eval->set_source(reader_params_.eval_source);
       data_reader_eval_status_ = true;
     }
-    MESSAGE_("Training source file: " + reader_params_.source[0]);
-    MESSAGE_("Evaluation source file: " + reader_params_.eval_source);
+    HCTR_LOG_S(INFO, ROOT) << "Training source file: " << reader_params_.source[0] << std::endl;
+    HCTR_LOG_S(INFO, ROOT) << "Evaluation source file: " << reader_params_.eval_source << std::endl;
     for (int e = 0; e < num_epochs; e++) {
-      MESSAGE_("-----------------------------------Epoch " + std::to_string(e) +
-               "-----------------------------------");
+      HCTR_LOG_S(INFO, ROOT) << "-----------------------------------Epoch " << e
+                             << "-----------------------------------" << std::endl;
       data_reader_train->set_source(reader_params_.source[0]);
       data_reader_train_status_ = true;
       do {
@@ -1210,13 +1217,13 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
                                      " " + __FILE__ + ":" + std::to_string(__LINE__) + " \n");
           }
           if (!solver_.use_holistic_cuda_graph) {
-            MESSAGE_("Iter: " + std::to_string(iter) + " Time(" + std::to_string(display) +
-                     " iters): " + std::to_string(timer_train.elapsedSeconds()) +
-                     "s Loss: " + std::to_string(loss) + " lr:" + std::to_string(lr));
+            HCTR_LOG_S(INFO, ROOT) << "Iter: " << iter << " Time(" << display
+                                   << " iters): " << timer_train.elapsedSeconds()
+                                   << "s Loss: " << loss << " lr:" << lr << std::endl;
           } else {
-            MESSAGE_("Iter: " + std::to_string(iter) + " Time(" + std::to_string(display) +
-                     " iters): " + std::to_string(timer_train.elapsedSeconds()) +
-                     "s Loss: " + std::to_string(loss));
+            HCTR_LOG_S(INFO, ROOT)
+                << "Iter: " << iter << " Time(" << display
+                << " iters): " << timer_train.elapsedSeconds() << "s Loss: " << loss << std::endl;
           }
           timer_train.start();
         }
@@ -1240,8 +1247,8 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
           timer_eval.stop();
           auto eval_metrics = this->get_eval_metrics();
           for (auto& eval_metric : eval_metrics) {
-            MESSAGE_("Evaluation, " + eval_metric.first + ": " +
-                     std::to_string(eval_metric.second));
+            HCTR_LOG_S(INFO, ROOT)
+                << "Evaluation, " << eval_metric.first << ": " << eval_metric.second << std::endl;
             if (!eval_metric.first.compare("AUC")) {
               const auto auc_threshold = solver_.metrics_spec[HugeCTR::metrics::Type::AUC];
               if (eval_metric.second > auc_threshold) {
@@ -1257,8 +1264,8 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
               }
             }
           }
-          MESSAGE_("Eval Time for " + std::to_string(solver_.max_eval_batches) +
-                   " iters: " + std::to_string(timer_eval.elapsedSeconds()) + "s");
+          HCTR_LOG_S(INFO, ROOT) << "Eval Time for " << solver_.max_eval_batches
+                                 << " iters: " << timer_eval.elapsedSeconds() << "s" << std::endl;
         }
         if (snapshot > 0 && iter % snapshot == 0 && iter != 0) {
           this->download_params_to_files(snapshot_prefix, iter, data_source_params);
@@ -1279,12 +1286,13 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
       data_reader_eval->set_source(reader_params_.eval_source);
       data_reader_eval_status_ = true;
     }
-    MESSAGE_("Evaluation source file: " + reader_params_.eval_source);
+    HCTR_LOG_S(INFO, ROOT) << "Evaluation source file: " << reader_params_.eval_source << std::endl;
     bool is_first_train_batch_after_eval = true;
     for (int e = 0; e < etc_epochs; e++) {
       for (unsigned int f = 0; f < reader_params_.source.size(); f++) {
-        MESSAGE_("--------------------Epoch " + std::to_string(e) +
-                 ", source file: " + reader_params_.source[f] + "--------------------");
+        HCTR_LOG_S(INFO, ROOT) << "--------------------Epoch " << e
+                               << ", source file: " << reader_params_.source[f]
+                               << "--------------------" << std::endl;
         data_reader_train->set_source(reader_params_.source[f]);
         data_reader_train_status_ = true;
         embedding_training_cache->update(reader_params_.keyset[f]);
@@ -1311,13 +1319,13 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
                                        " " + __FILE__ + ":" + std::to_string(__LINE__) + " \n");
             }
             if (!solver_.use_holistic_cuda_graph) {
-              MESSAGE_("Iter: " + std::to_string(iter) + " Time(" + std::to_string(display) +
-                       " iters): " + std::to_string(timer_train.elapsedSeconds()) +
-                       "s Loss: " + std::to_string(loss) + " lr:" + std::to_string(lr));
+              HCTR_LOG_S(INFO, ROOT) << "Iter: " << iter << " Time(" << display
+                                     << " iters): " << timer_train.elapsedSeconds()
+                                     << "s Loss: " << loss << " lr:" << lr << std::endl;
             } else {
-              MESSAGE_("Iter: " + std::to_string(iter) + " Time(" + std::to_string(display) +
-                       " iters): " + std::to_string(timer_train.elapsedSeconds()) +
-                       "s Loss: " + std::to_string(loss));
+              HCTR_LOG_S(INFO, ROOT)
+                  << "Iter: " << iter << " Time(" << display
+                  << " iters): " << timer_train.elapsedSeconds() << "s Loss: " << loss << std::endl;
             }
             timer_train.start();
           }
@@ -1341,19 +1349,19 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
             timer_eval.stop();
             auto eval_metrics = this->get_eval_metrics();
             for (auto& eval_metric : eval_metrics) {
-              MESSAGE_("Evaluation, " + eval_metric.first + ": " +
-                       std::to_string(eval_metric.second));
+              HCTR_LOG_S(INFO, ROOT)
+                  << "Evaluation, " << eval_metric.first << ": " << eval_metric.second << std::endl;
             }
-            MESSAGE_("Eval Time for " + std::to_string(solver_.max_eval_batches) +
-                     " iters: " + std::to_string(timer_eval.elapsedSeconds()) + "s");
+            HCTR_LOG_S(INFO, ROOT) << "Eval Time for " << solver_.max_eval_batches
+                                   << " iters: " << timer_eval.elapsedSeconds() << "s" << std::endl;
           }
           iter++;
         } while (data_reader_train_status_);
       }  // end for file list
     }    // end for epoch
   } else {
-    MESSAGE_("Training source file: " + reader_params_.source[0]);
-    MESSAGE_("Evaluation source file: " + reader_params_.eval_source);
+    HCTR_LOG_S(INFO, ROOT) << "Training source file: " << reader_params_.source[0] << std::endl;
+    HCTR_LOG_S(INFO, ROOT) << "Evaluation source file: " << reader_params_.eval_source << std::endl;
     this->start_data_reading();
     bool is_first_train_batch_after_eval = true;
     for (int iter = 0; iter < max_iter; iter++) {
@@ -1383,13 +1391,13 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
                                    __FILE__ + ":" + std::to_string(__LINE__) + " \n");
         }
         if (!solver_.use_holistic_cuda_graph) {
-          MESSAGE_("Iter: " + std::to_string(iter) + " Time(" + std::to_string(display) +
-                   " iters): " + std::to_string(timer_train.elapsedSeconds()) +
-                   "s Loss: " + std::to_string(loss) + " lr:" + std::to_string(lr));
+          HCTR_LOG_S(INFO, ROOT) << "Iter: " << iter << " Time(" << display
+                                 << " iters): " << timer_train.elapsedSeconds()
+                                 << "s Loss: " << loss << " lr:" << lr << std::endl;
         } else {
-          MESSAGE_("Iter: " + std::to_string(iter) + " Time(" + std::to_string(display) +
-                   " iters): " + std::to_string(timer_train.elapsedSeconds()) +
-                   "s Loss: " + std::to_string(loss));
+          HCTR_LOG_S(INFO, ROOT) << "Iter: " << iter << " Time(" << display
+                                 << " iters): " << timer_train.elapsedSeconds()
+                                 << "s Loss: " << loss << std::endl;
         }
         timer_train.start();
       }
@@ -1404,7 +1412,8 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
         timer_eval.stop();
         auto eval_metrics = this->get_eval_metrics();
         for (auto& eval_metric : eval_metrics) {
-          MESSAGE_("Evaluation, " + eval_metric.first + ": " + std::to_string(eval_metric.second));
+          HCTR_LOG_S(INFO, ROOT) << "Evaluation, " << eval_metric.first << ": "
+                                 << eval_metric.second << std::endl;
           if (!eval_metric.first.compare("AUC")) {
             const auto auc_threshold = solver_.metrics_spec[HugeCTR::metrics::Type::AUC];
             if (eval_metric.second > auc_threshold) {
@@ -1418,8 +1427,8 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
             }
           }
         }
-        MESSAGE_("Eval Time for " + std::to_string(solver_.max_eval_batches) +
-                 " iters: " + std::to_string(timer_eval.elapsedSeconds()) + "s");
+        HCTR_LOG_S(INFO, ROOT) << "Eval Time for " << solver_.max_eval_batches
+                               << " iters: " << timer_eval.elapsedSeconds() << "s" << std::endl;
       }
       if (snapshot > 0 && iter % snapshot == 0 && iter != 0) {
         this->download_params_to_files(snapshot_prefix, iter, data_source_params);
@@ -1470,7 +1479,7 @@ void Model::train_overlapped() {
       case TrainState_t::Finalize:
         return false;
       default:
-        CK_THROW_(Error_t::InvalidEnv, "model state reached invalid status");
+        HCTR_OWN_THROW(Error_t::InvalidEnv, "model state reached invalid status");
     }
     return true;
   };
@@ -1489,7 +1498,7 @@ void Model::train_overlapped() {
     TrainState state;
     auto sync = [&state, &stream, id]() {
       if (state.event) {
-        CK_CUDA_THROW_(cudaStreamWaitEvent(stream, *state.event));
+        HCTR_LIB_THROW(cudaStreamWaitEvent(stream, *state.event));
       }
       state.event = nullptr;
     };
@@ -1519,7 +1528,7 @@ void Model::train_overlapped() {
 
     auto do_it = [&, this](cudaStream_t submit_stream) {
       if (solver_.use_holistic_cuda_graph) {
-        CK_CUDA_THROW_(cudaEventRecord(fork_events_[id], submit_stream));
+        HCTR_LIB_THROW(cudaEventRecord(fork_events_[id], submit_stream));
         state.event = &fork_events_[id];
       }
 
@@ -1568,7 +1577,8 @@ void Model::train_overlapped() {
 bool Model::train(bool is_first_batch) {
   try {
     if (train_data_reader_->is_started() == false) {
-      CK_THROW_(Error_t::IllegalCall, "Start the data reader first before calling Model::train()");
+      HCTR_OWN_THROW(Error_t::IllegalCall,
+                     "Start the data reader first before calling Model::train()");
     }
 #ifndef DATA_READING_TEST
     // TODO: assuming the there are enough training iterations, incomplete batches
@@ -1584,7 +1594,8 @@ bool Model::train(bool is_first_batch) {
     long long current_batchsize = 0;
     while ((current_batchsize = train_data_reader_->read_a_batch_to_device_delay_release()) &&
            (current_batchsize < train_data_reader_->get_full_batchsize()) && !solver_.is_dlrm) {
-      MESSAGE_("train drop incomplete batch. batchsize:" + std::to_string(current_batchsize));
+      HCTR_LOG_S(INFO, ROOT) << "train drop incomplete batch. batchsize:" << current_batchsize
+                             << std::endl;
       train_data_reader_->ready_to_collect();
     }
     if (!current_batchsize) {
@@ -1687,7 +1698,8 @@ bool Model::eval(bool is_first_batch) {
   try {
     if (evaluate_data_reader_ == nullptr) return true;
     if (evaluate_data_reader_->is_started() == false) {
-      CK_THROW_(Error_t::IllegalCall, "Start the data reader first before calling Model::eval()");
+      HCTR_OWN_THROW(Error_t::IllegalCall,
+                     "Start the data reader first before calling Model::eval()");
     }
     if (!high_level_eval_) {
       this->check_overflow();
@@ -1696,7 +1708,8 @@ bool Model::eval(bool is_first_batch) {
     long long current_batchsize = 0;
     while ((current_batchsize = evaluate_data_reader_->read_a_batch_to_device_delay_release()) &&
            (current_batchsize < evaluate_data_reader_->get_full_batchsize()) && !solver_.is_dlrm) {
-      MESSAGE_("eval drop incomplete batch. batchsize:" + std::to_string(current_batchsize));
+      HCTR_LOG_S(INFO, ROOT) << "eval drop incomplete batch. batchsize:" << current_batchsize
+                             << std::endl;
       evaluate_data_reader_->ready_to_collect();
     }
     for (auto& metric : metrics_) {
@@ -1749,7 +1762,7 @@ Error_t Model::export_predictions(const std::string& output_prediction_file_name
                                   const std::string& output_label_file_name) {
   try {
     if (current_eval_batchsize_ == 0) {
-      MESSAGE_("Reach end of eval dataset. Skip export prediction");
+      HCTR_LOG(INFO, ROOT, "Reach end of eval dataset. Skip export prediction\n");
       return Error_t::Success;
     }
     CudaDeviceContext context;
@@ -1783,8 +1796,8 @@ Error_t Model::export_predictions(const std::string& output_prediction_file_name
     int numprocs = 1;
     int pid = 0;
 #ifdef ENABLE_MPI
-    CK_MPI_THROW_(MPI_Comm_rank(MPI_COMM_WORLD, &pid));
-    CK_MPI_THROW_(MPI_Comm_size(MPI_COMM_WORLD, &numprocs));
+    HCTR_MPI_THROW(MPI_Comm_rank(MPI_COMM_WORLD, &pid));
+    HCTR_MPI_THROW(MPI_Comm_size(MPI_COMM_WORLD, &numprocs));
 #endif
     if (numprocs > 1) {
 #ifdef ENABLE_MPI
@@ -1793,11 +1806,11 @@ Error_t Model::export_predictions(const std::string& output_prediction_file_name
             new float[solver_.batchsize_eval * input_params_[0].label_dim]);
         global_label_result.reset(new float[solver_.batchsize_eval * input_params_[0].label_dim]);
       }
-      CK_MPI_THROW_(MPI_Gather(
+      HCTR_MPI_THROW(MPI_Gather(
           local_prediction_result.get(), total_prediction_count * input_params_[0].label_dim,
           MPI_FLOAT, global_prediction_result.get(),
           total_prediction_count * input_params_[0].label_dim, MPI_FLOAT, 0, MPI_COMM_WORLD));
-      CK_MPI_THROW_(MPI_Gather(
+      HCTR_MPI_THROW(MPI_Gather(
           local_label_result.get(), total_prediction_count * input_params_[0].label_dim, MPI_FLOAT,
           global_label_result.get(), total_prediction_count * input_params_[0].label_dim, MPI_FLOAT,
           0, MPI_COMM_WORLD));
@@ -1811,7 +1824,7 @@ Error_t Model::export_predictions(const std::string& output_prediction_file_name
       auto write_func = [](const std::string& output_file_name, float* res, size_t num) {
         std::ofstream output_stream(output_file_name, std::ios::out | std::ios::app);
         if (!output_stream.is_open()) {
-          CK_THROW_(Error_t::WrongInput, "Cannot open output file " + output_file_name);
+          HCTR_OWN_THROW(Error_t::WrongInput, "Cannot open output file " + output_file_name);
         }
         for (unsigned int i = 0; i < num; ++i) {
           output_stream << res[i] << " ";
@@ -1852,7 +1865,8 @@ Error_t Model::get_current_loss(float* loss) {
     }
     if (resource_manager_->get_num_process() > 1) {
 #ifdef ENABLE_MPI
-      CK_MPI_THROW_(MPI_Reduce(&loss_sum, &loss_reduced, 1, MPI_FLOAT, MPI_SUM, 0, MPI_COMM_WORLD));
+      HCTR_MPI_THROW(
+          MPI_Reduce(&loss_sum, &loss_reduced, 1, MPI_FLOAT, MPI_SUM, 0, MPI_COMM_WORLD));
 #endif
     } else {
       loss_reduced = loss_sum;
@@ -1918,30 +1932,30 @@ Error_t Model::download_dense_params_to_files_(std::string weights_file,
     if (resource_manager_->is_master_process()) {
       if (data_source_params.use_hdfs) {
         networks_[0]->download_params_to_hdfs(weights_file, data_source_params);
-        MESSAGE_("Dumping dense weights to HDFS, successful");
+        HCTR_LOG(INFO, ROOT, "Dumping dense weights to HDFS, successful\n");
         networks_[0]->download_opt_states_to_hdfs(dense_opt_states_file, data_source_params);
-        MESSAGE_("Dumping dense optimizer states to HDFS, successful");
+        HCTR_LOG(INFO, ROOT, "Dumping dense optimizer states to HDFS, successful\n");
         std::string no_trained_params = networks_[0]->get_no_trained_params_in_string();
         if (no_trained_params.length() != 0) {
           std::string ntp_file = weights_file + ".ntp.json";
           HdfsService hs = HdfsService(data_source_params.namenode, data_source_params.port);
           hs.write(ntp_file, no_trained_params.c_str(), no_trained_params.length(), true);
-          MESSAGE_("Dumping untrainable weights to file, successful");
+          HCTR_LOG(INFO, ROOT, "Dumping untrainable weights to file, successful\n");
         }
       } else {
         std::ofstream out_stream_weight(weights_file, std::ofstream::binary);
         networks_[0]->download_params_to_host(out_stream_weight);
-        MESSAGE_("Dumping dense weights to file, successful");
+        HCTR_LOG(INFO, ROOT, "Dumping dense weights to file, successful\n");
         std::ofstream out_dense_opt_state_weight(dense_opt_states_file, std::ofstream::binary);
         networks_[0]->download_opt_states_to_host(out_dense_opt_state_weight);
-        MESSAGE_("Dumping dense optimizer states to file, successful");
+        HCTR_LOG(INFO, ROOT, "Dumping dense optimizer states to file, successful\n");
         std::string no_trained_params = networks_[0]->get_no_trained_params_in_string();
         if (no_trained_params.length() != 0) {
           std::string ntp_file = weights_file + ".ntp.json";
           std::ofstream out_stream_ntp(ntp_file, std::ofstream::out);
           out_stream_ntp.write(no_trained_params.c_str(), no_trained_params.length());
           out_stream_ntp.close();
-          MESSAGE_("Dumping untrainable weights to file, successful");
+          HCTR_LOG(INFO, ROOT, "Dumping untrainable weights to file, successful\n");
         }
         out_stream_weight.close();
         out_dense_opt_state_weight.close();
@@ -1968,7 +1982,7 @@ Error_t Model::download_sparse_params_to_files_(
         i++;
       }
     }
-    MESSAGE_("Dumping sparse weights to files, successful");
+    HCTR_LOG(INFO, ROOT, "Dumping sparse weights to files, successful\n");
     {
       int i = 0;
       for (auto& sparse_opt_state_file : sparse_opt_state_files) {
@@ -1978,7 +1992,7 @@ Error_t Model::download_sparse_params_to_files_(
         i++;
       }
     }
-    MESSAGE_("Dumping sparse optimzer states to files, successful");
+    HCTR_LOG(INFO, ROOT, "Dumping sparse optimzer states to files, successful\n");
   } catch (const internal_runtime_error& rt_err) {
     Logger::print_exception(rt_err, 0);
     return rt_err.get_error();
@@ -2012,13 +2026,13 @@ Error_t Model::load_opt_states_for_dense_(const std::string& dense_opt_states_fi
   try {
     std::ifstream opt_states_stream(dense_opt_states_file, std::ifstream::binary);
     if (!opt_states_stream.is_open()) {
-      CK_THROW_(Error_t::WrongInput, "Cannot open dense opt states file");
+      HCTR_OWN_THROW(Error_t::WrongInput, "Cannot open dense opt states file");
     }
     size_t opt_states_size_in_byte = networks_[0]->get_opt_states_size_in_byte();
     std::unique_ptr<char[]> opt_states(new char[opt_states_size_in_byte]());
     opt_states_stream.read(opt_states.get(), opt_states_size_in_byte);
 
-    MESSAGE_("Loading dense opt states: " + dense_opt_states_file);
+    HCTR_LOG_S(INFO, ROOT) << "Loading dense opt states: " << dense_opt_states_file << std::endl;
     for (auto& network : networks_) {
       network->upload_opt_states_to_device(opt_states.get());
     }
@@ -2040,9 +2054,10 @@ Error_t Model::load_opt_states_for_sparse_(
       if (i < sparse_opt_states_files.size()) {
         std::ifstream sparse_opt_stream(sparse_opt_states_files[i], std::ifstream::binary);
         if (!sparse_opt_stream.is_open()) {
-          CK_THROW_(Error_t::WrongInput, "Cannot open sparse optimizer states file");
+          HCTR_OWN_THROW(Error_t::WrongInput, "Cannot open sparse optimizer states file");
         }
-        MESSAGE_("Loading sparse optimizer states: " + sparse_opt_states_files[i]);
+        HCTR_LOG_S(INFO, ROOT) << "Loading sparse optimizer states: " << sparse_opt_states_files[i]
+                               << std::endl;
         embeddings_[i]->load_opt_states(sparse_opt_stream);
         sparse_opt_stream.close();
       }
@@ -2061,12 +2076,12 @@ Error_t Model::load_params_for_dense_(const std::string& model_file) {
   try {
     std::ifstream model_stream(model_file, std::ifstream::binary);
     if (!model_stream.is_open()) {
-      CK_THROW_(Error_t::WrongInput, "Cannot open dense model file");
+      HCTR_OWN_THROW(Error_t::WrongInput, "Cannot open dense model file");
     }
     std::unique_ptr<float[]> weight(new float[networks_[0]->get_params_num()]());
     model_stream.read(reinterpret_cast<char*>(weight.get()),
                       networks_[0]->get_params_num() * sizeof(float));
-    MESSAGE_("Loading dense model: " + model_file);
+    HCTR_LOG_S(INFO, ROOT) << "Loading dense model: " << model_file << std::endl;
     for (auto& network : networks_) {
       network->upload_params_to_device(weight.get());
     }
@@ -2085,7 +2100,7 @@ Error_t Model::load_params_for_sparse_(const std::vector<std::string>& embedding
   try {
     for (size_t i = 0; i < embeddings_.size(); i++) {
       if (i < embedding_model_files.size()) {
-        MESSAGE_("Loading sparse model: " + embedding_model_files[i]);
+        HCTR_LOG_S(INFO, ROOT) << "Loading sparse model: " << embedding_model_files[i] << std::endl;
         embeddings_[i]->load_parameters(embedding_model_files[i]);
       }
     }
@@ -2104,7 +2119,7 @@ void Model::init_params_for_dense_() {
     networks_[i]->init_params(i);
   }
   for (size_t i = 0; i < resource_manager_->get_local_gpu_count(); i++) {
-    CK_CUDA_THROW_(cudaStreamSynchronize(resource_manager_->get_local_gpu(i)->get_stream()));
+    HCTR_LIB_THROW(cudaStreamSynchronize(resource_manager_->get_local_gpu(i)->get_stream()));
   }
 }
 
@@ -2130,7 +2145,7 @@ void Model::init_embedding_training_cache_(const std::vector<TrainPSType_t>& ps_
 
 std::vector<std::pair<std::vector<long long>, std::vector<float>>>& Model::get_incremental_model() {
   if (!etc_params_->use_embedding_training_cache) {
-    CK_THROW_(Error_t::IllegalCall, "Get incremental is only supported in ETC");
+    HCTR_OWN_THROW(Error_t::IllegalCall, "Get incremental is only supported in ETC");
   }
   if (set_source_flag_) {
     etc_params_->incremental_keyset_files.insert(etc_params_->incremental_keyset_files.end(),
@@ -2159,7 +2174,7 @@ std::vector<std::pair<std::vector<long long>, std::vector<float>>>& Model::get_i
 
 void Model::dump_incremental_model_2kafka() {
   if (!etc_params_->use_embedding_training_cache) {
-    CK_THROW_(Error_t::IllegalCall, "Get incremental is only supported in ETC");
+    HCTR_OWN_THROW(Error_t::IllegalCall, "Get incremental is only supported in ETC");
   }
   if (set_source_flag_) {
     etc_params_->incremental_keyset_files.insert(etc_params_->incremental_keyset_files.end(),

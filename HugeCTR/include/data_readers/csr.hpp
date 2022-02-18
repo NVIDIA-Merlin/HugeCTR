@@ -96,9 +96,11 @@ class CSR {
    * @param value the value to be pushed back.
    */
   inline void push_back(const T& value) {
-    if (size_of_value_ >= max_value_size_)
-      CK_THROW_(Error_t::OutOfBound, "CSR out of bound " + std::to_string(max_value_size_) +
-                                         "offset" + std::to_string(size_of_value_));
+    if (size_of_value_ >= max_value_size_) {
+      std::ostringstream os;
+      os << "CSR out of bound " << max_value_size_ << ", offset " << size_of_value_;
+      HCTR_OWN_THROW(Error_t::OutOfBound, os.str());
+    }
     value_ptr_[size_of_value_] = value;
     size_of_value_++;
   }
@@ -110,7 +112,9 @@ class CSR {
    * again.
    */
   inline void new_row() {  // call before push_back values in this line
-    if (size_of_row_offset_ > num_rows_) CK_THROW_(Error_t::OutOfBound, "CSR out of bound");
+    if (size_of_row_offset_ > num_rows_) {
+      HCTR_OWN_THROW(Error_t::OutOfBound, "CSR out of bound");
+    }
     row_offset_ptr_[size_of_row_offset_] = static_cast<T>(size_of_value_);
     size_of_row_offset_++;
   }

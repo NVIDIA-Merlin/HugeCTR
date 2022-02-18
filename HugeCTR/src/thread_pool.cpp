@@ -69,8 +69,9 @@ void ThreadPool::await_idle() const {
 
   // Are we idle already? If not wait for a worker to exit.
   while (num_idle_workers_ != workers_.size() || !packages_.empty()) {
-    HCTR_THROW_IF(terminate_, Error_t::IllegalCall,
-                  "Attempted to await an already terminated ThreadPool!");
+    if (terminate_) {
+      HCTR_OWN_THROW(Error_t::IllegalCall, "Attempted to await an already terminated ThreadPool!");
+    }
     idle_semaphore_.wait(lock);
   }
 }
@@ -82,8 +83,10 @@ std::future<void> ThreadPool::submit(std::function<void()> task) {
   // Momentarily request exclusive access, to submit the task.
   {
     std::lock_guard<std::mutex> lock(barrier_);
-    HCTR_THROW_IF(terminate_, Error_t::IllegalCall,
-                  "Attempted to submit work to an already terminated ThreadPool!");
+    if (terminate_) {
+      HCTR_OWN_THROW(Error_t::IllegalCall,
+                     "Attempted to submit work to an already terminated ThreadPool!");
+    }
     packages_.push_back(std::move(package));
   }
 
@@ -97,7 +100,7 @@ ThreadPool& ThreadPool::get() {
   // Lazy init of default thread-pool on first call to this function..
   static std::unique_ptr<ThreadPool> default_pool;
   static std::once_flag semaphore;
-  call_once(semaphore, []() { default_pool = std::make_unique<ThreadPool>("default"); });
+  std::call_once(semaphore, []() { default_pool = std::make_unique<ThreadPool>("default"); });
   return *default_pool.get();
 }
 

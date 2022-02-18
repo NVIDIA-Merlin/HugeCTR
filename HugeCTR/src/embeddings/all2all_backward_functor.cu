@@ -41,7 +41,7 @@ void SparseEmbeddingFunctors::all2all_backward(size_t batch_size_per_gpu, size_t
   size_t num_proc = resource_manager.get_num_process();
 
   if (total_gpu_count != (num_proc * local_gpu_count)) {
-    CK_THROW_(Error_t::WrongInput, "Error: the total gpu count doesn't match");
+    HCTR_OWN_THROW(Error_t::WrongInput, "Error: the total gpu count doesn't match");
   }
 
   std::vector<const Type *> src(local_gpu_count);
@@ -101,23 +101,26 @@ void SparseEmbeddingFunctors::all2all_backward(size_t batch_size_per_gpu, size_t
   }
 
 #ifndef NDEBUG
-  std::cout << "nccl all2all backward src_pos:" << std::endl;
-  for (size_t i = 0; i < local_gpu_count; i++) {
-    for (size_t j = 0; j < total_gpu_count; j++) {
-      std::cout << src_pos[i][j] << ", ";
+  {
+    auto log = HCTR_LOG_S(DEBUG, ROOT);
+    log << "nccl all2all backward src_pos:" << std::endl;
+    for (size_t i = 0; i < local_gpu_count; i++) {
+      for (size_t j = 0; j < total_gpu_count; j++) {
+        log << src_pos[i][j] << ", ";
+      }
+      log << std::endl;
     }
-    std::cout << std::endl;
   }
-  std::cout << std::endl;
-
-  std::cout << "nccl all2all backward dst_pos:" << std::endl;
-  for (size_t i = 0; i < local_gpu_count; i++) {
-    for (size_t j = 0; j < total_gpu_count; j++) {
-      std::cout << dst_pos[i][j] << ", ";
+  {
+    auto log = HCTR_LOG_S(DEBUG, ROOT);
+    log << "nccl all2all backward dst_pos:" << std::endl;
+    for (size_t i = 0; i < local_gpu_count; i++) {
+      for (size_t j = 0; j < total_gpu_count; j++) {
+        log << dst_pos[i][j] << ", ";
+      }
+      log << std::endl;
     }
-    std::cout << std::endl;
   }
-  std::cout << std::endl;
 #endif
 
   // need to know the Type
@@ -130,21 +133,21 @@ void SparseEmbeddingFunctors::all2all_backward(size_t batch_size_per_gpu, size_t
       type = ncclFloat;
       break;
     default:
-      CK_THROW_(Error_t::WrongInput, "Error: Type not support by now");
+      HCTR_OWN_THROW(Error_t::WrongInput, "Error: Type not support by now");
   }
 
   // Do the all2all transfer
-  CK_NCCL_THROW_(ncclGroupStart());
+  HCTR_LIB_THROW(ncclGroupStart());
   for (size_t i = 0; i < local_gpu_count; i++) {
     const auto &local_gpu = resource_manager.get_local_gpu(i);
     for (size_t j = 0; j < total_gpu_count; j++) {
-      CK_NCCL_THROW_(ncclSend(src_pos[i][j], send_table[i][j], type, j, local_gpu->get_nccl(),
+      HCTR_LIB_THROW(ncclSend(src_pos[i][j], send_table[i][j], type, j, local_gpu->get_nccl(),
                               local_gpu->get_stream()));
-      CK_NCCL_THROW_(ncclRecv(dst_pos[i][j], recv_table[i][j], type, j, local_gpu->get_nccl(),
+      HCTR_LIB_THROW(ncclRecv(dst_pos[i][j], recv_table[i][j], type, j, local_gpu->get_nccl(),
                               local_gpu->get_stream()));
     }
   }
-  CK_NCCL_THROW_(ncclGroupEnd());
+  HCTR_LIB_THROW(ncclGroupEnd());
 
   return;
 }
@@ -190,14 +193,16 @@ void SparseEmbeddingFunctors::all2all_backward(size_t batch_size_per_gpu,
   }
 
 #ifndef NDEBUG
-  std::cout << "nccl all2all backward table:" << std::endl;
-  for (size_t i = 0; i < local_gpu_count; i++) {
-    for (size_t j = 0; j < local_gpu_count; j++) {
-      std::cout << table[i][j] << ", ";
+  {
+    auto log = HCTR_LOG_S(DEBUG, ROOT);
+    log << "nccl all2all backward table:" << std::endl;
+    for (size_t i = 0; i < local_gpu_count; i++) {
+      for (size_t j = 0; j < local_gpu_count; j++) {
+        log << table[i][j] << ", ";
+      }
+      log << std::endl;
     }
-    std::cout << std::endl;
   }
-  std::cout << std::endl;
 #endif
 
   std::vector<const Type *> src(local_gpu_count);
@@ -227,23 +232,26 @@ void SparseEmbeddingFunctors::all2all_backward(size_t batch_size_per_gpu,
   }
 
 #ifndef NDEBUG
-  std::cout << "nccl all2all backward src_pos:" << std::endl;
-  for (size_t i = 0; i < local_gpu_count; i++) {
-    for (size_t j = 0; j < local_gpu_count; j++) {
-      std::cout << src_pos[i][j] << ", ";
+  {
+    auto log = HCTR_LOG_S(DEBUG, ROOT);
+    log << "nccl all2all backward src_pos:" << std::endl;
+    for (size_t i = 0; i < local_gpu_count; i++) {
+      for (size_t j = 0; j < local_gpu_count; j++) {
+        log << src_pos[i][j] << ", ";
+      }
+      log << std::endl;
     }
-    std::cout << std::endl;
   }
-  std::cout << std::endl;
-
-  std::cout << "nccl all2all backward dst_pos:" << std::endl;
-  for (size_t i = 0; i < local_gpu_count; i++) {
-    for (size_t j = 0; j < local_gpu_count; j++) {
-      std::cout << dst_pos[i][j] << ", ";
+  {
+    auto log = HCTR_LOG_S(DEBUG, ROOT);
+    log << "nccl all2all backward dst_pos:" << std::endl;
+    for (size_t i = 0; i < local_gpu_count; i++) {
+      for (size_t j = 0; j < local_gpu_count; j++) {
+        log << dst_pos[i][j] << ", ";
+      }
+      log << std::endl;
     }
-    std::cout << std::endl;
   }
-  std::cout << std::endl;
 #endif
 
   // need to know the Type
@@ -256,25 +264,25 @@ void SparseEmbeddingFunctors::all2all_backward(size_t batch_size_per_gpu,
       type = ncclFloat;
       break;
     default:
-      CK_THROW_(Error_t::WrongInput, "Error: Type not support by now");
+      HCTR_OWN_THROW(Error_t::WrongInput, "Error: Type not support by now");
   }
 
   // Do the all2all transfer
-  CK_NCCL_THROW_(ncclGroupStart());
+  HCTR_LIB_THROW(ncclGroupStart());
   for (size_t i = 0; i < local_gpu_count; i++) {
     const auto &local_gpu = resource_manager.get_local_gpu(i);
     PROFILE_RECORD("all2all_backward.start", local_gpu->get_stream(), false,
                    local_gpu->get_device_id());
     for (size_t j = 0; j < local_gpu_count; j++) {
-      CK_NCCL_THROW_(ncclSend(src_pos[i][j], table[i][j], type, j, local_gpu->get_nccl(),
+      HCTR_LIB_THROW(ncclSend(src_pos[i][j], table[i][j], type, j, local_gpu->get_nccl(),
                               local_gpu->get_stream()));
-      CK_NCCL_THROW_(ncclRecv(dst_pos[i][j], table[j][i], type, j, local_gpu->get_nccl(),
+      HCTR_LIB_THROW(ncclRecv(dst_pos[i][j], table[j][i], type, j, local_gpu->get_nccl(),
                               local_gpu->get_stream()));
     }
     PROFILE_RECORD("all2all_backward.stop", local_gpu->get_stream(), false,
                    local_gpu->get_device_id());
   }
-  CK_NCCL_THROW_(ncclGroupEnd());
+  HCTR_LIB_THROW(ncclGroupEnd());
 
   return;
 }

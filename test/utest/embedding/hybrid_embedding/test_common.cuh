@@ -80,8 +80,8 @@ class HybridEmbeddingUnitTest {
       upload_tensor(samples, data_list[i].samples, stream);
     }
 
-    CK_CUDA_THROW_(cudaMalloc(&dev_lr, sizeof(float)));
-    CK_CUDA_THROW_(cudaMemcpy(dev_lr, &config.lr, sizeof(float), cudaMemcpyHostToDevice));
+    HCTR_LIB_THROW(cudaMalloc(&dev_lr, sizeof(float)));
+    HCTR_LIB_THROW(cudaMemcpy(dev_lr, &config.lr, sizeof(float), cudaMemcpyHostToDevice));
   }
 
   void build_frequent() {
@@ -100,7 +100,7 @@ class HybridEmbeddingUnitTest {
             frequent_embeddings[i].get_embedding_vectors_cache().get_ptr();
       }
       for (uint32_t i = 0; i < num_instances; i++) {
-        CK_CUDA_THROW_(
+        HCTR_LIB_THROW(
             cudaMemcpyAsync(frequent_embeddings[i].embedding_vectors_cache_pointers_.get_ptr(),
                             h_vectors_cache_pointers.data(), num_instances * sizeof(emtype *),
                             cudaMemcpyHostToDevice, stream));
@@ -139,7 +139,7 @@ class HybridEmbeddingUnitTest {
         samples(input_generator.generate_flattened_categorical_input(batch_size)),
         table_sizes(input_generator.get_table_sizes()),
         fake_resource(0, 0, 0, seed, seed, get_fake_comm()) {
-    CK_CUDA_THROW_(cudaStreamCreate(&stream));
+    HCTR_LIB_THROW(cudaStreamCreate(&stream));
     build_model();
     build_data();
   }
@@ -164,7 +164,7 @@ inline bool compare_element(float a, float b, float epsilon) {
 inline bool compare_array(size_t len, const float *a, const float *b, float epsilon) {
   for (size_t i = 0; i < len; i++) {
     if (!compare_element(a[i], b[i], epsilon)) {
-      printf("Error in compare_array: i=%zu, a=%.8f, b=%.8f\n", i, a[i], b[i]);
+      HCTR_LOG(INFO, WORLD, "Error in compare_array: i=%zu, a=%.8f, b=%.8f\n", i, a[i], b[i]);
       return false;
     }
   }
@@ -178,7 +178,7 @@ inline bool compare_array(size_t len, const __half *a, const __half *b, float ep
     float fa = __half2float(a[i]);
     float fb = __half2float(b[i]);
     if (!compare_element(fa, fb, epsilon)) {
-      printf("Error in compare_array: i=%zu, a=%.8f, b=%.8f\n", i, fa, fb);
+      HCTR_LOG(INFO, WORLD, "Error in compare_array: i=%zu, a=%.8f, b=%.8f\n", i, fa, fb);
       return false;
     }
   }

@@ -48,26 +48,26 @@ void SparseEmbeddingFunctors::all_gather(size_t send_count, const Tensors2<Type>
       type = ncclFloat;
       break;
     default:
-      CK_THROW_(Error_t::WrongInput, "Error: Type not support by now");
+      HCTR_OWN_THROW(Error_t::WrongInput, "Error: Type not support by now");
   }
 
   // for multi GPUs, use NCCL to do All-Gather
   if (total_gpu_count > 1) {
-    CK_NCCL_THROW_(ncclGroupStart());
+    HCTR_LIB_THROW(ncclGroupStart());
     for (size_t id = 0; id < local_gpu_count; id++) {
       const auto &local_gpu = resource_manager.get_local_gpu(id);
-      CK_NCCL_THROW_(ncclAllGather(send_tensors[id].get_ptr(),  // send buff
+      HCTR_LIB_THROW(ncclAllGather(send_tensors[id].get_ptr(),  // send buff
                                    recv_tensors[id].get_ptr(),  // recv buff
                                    send_count, type, local_gpu->get_nccl(),
                                    local_gpu->get_stream()));
     }
-    CK_NCCL_THROW_(ncclGroupEnd());
+    HCTR_LIB_THROW(ncclGroupEnd());
   }
   // for single GPU, just do memcpyD2D
   else {  // total_gpu_count == 1
     const auto &local_gpu = resource_manager.get_local_gpu(0);
     CudaDeviceContext context(local_gpu->get_device_id());
-    CK_CUDA_THROW_(cudaMemcpyAsync(recv_tensors[0].get_ptr(), send_tensors[0].get_ptr(),
+    HCTR_LIB_THROW(cudaMemcpyAsync(recv_tensors[0].get_ptr(), send_tensors[0].get_ptr(),
                                    send_count * sizeof(Type), cudaMemcpyDeviceToDevice,
                                    local_gpu->get_stream()));
   }
@@ -82,7 +82,7 @@ void SparseEmbeddingFunctors::prepare_for_sparse_all_gather(
   size_t local_gpu_count = resource_manager.get_local_gpu_count();
   size_t total_gpu_count = resource_manager.get_global_gpu_count();
   if (send_tensors.size() != local_gpu_count) {
-    CK_THROW_(Error_t::OutOfBound, "prepare_for_sparse_all_gather send tensors check error");
+    HCTR_OWN_THROW(Error_t::OutOfBound, "prepare_for_sparse_all_gather send tensors check error");
   }
 
   if (local_gpu_count == total_gpu_count) {
@@ -103,9 +103,9 @@ void SparseEmbeddingFunctors::prepare_for_sparse_all_gather(
   }
   std::vector<size_t> global_nnzs(total_gpu_count, 0);
 
-  CK_MPI_THROW_(MPI_Allgather(local_nnzs.data(), local_gpu_count * sizeof(size_t), MPI_CHAR,
-                              global_nnzs.data(), total_gpu_count * sizeof(size_t), MPI_CHAR,
-                              MPI_COMM_WORLD));
+  HCTR_MPI_THROW(MPI_Allgather(local_nnzs.data(), local_gpu_count * sizeof(size_t), MPI_CHAR,
+                               global_nnzs.data(), total_gpu_count * sizeof(size_t), MPI_CHAR,
+                               MPI_COMM_WORLD));
 
   size_t total_nnz = 0;
   for (size_t i = 0; i < total_gpu_count; ++i) {
@@ -151,18 +151,18 @@ void SparseEmbeddingFunctors::all_gather(const SparseTensor<Type> &send_tensor,
         recv_tensor.get_rowoffset_ptr() + id * send_rowoffset_num);
   }
   {
-    CK_NCCL_THROW_(ncclGroupStart());
+    HCTR_LIB_THROW(ncclGroupStart());
     for (size_t recv_id = 0; recv_id < total_gpu_count; ++recv_id) {
-      CK_NCCL_THROW_(ncclBroadcast(
+      HCTR_LIB_THROW(ncclBroadcast(
           send_tensor.get_value_ptr(), recv_tensor.get_value_ptr() + config.nnzs.get_ptr()[recv_id],
           config.nnzs_num.get_ptr()[recv_id], nccl_type, recv_id, local_gpu->get_nccl(), stream));
     }
 
-    CK_NCCL_THROW_(ncclAllGather(
+    HCTR_LIB_THROW(ncclAllGather(
         recv_tensor.get_rowoffset_ptr() + id * send_rowoffset_num, recv_tensor.get_rowoffset_ptr(),
         send_rowoffset_num, nccl_type, local_gpu->get_nccl(),
         stream));  // send_rowoffset_num may vary between train and evaluate
-    CK_NCCL_THROW_(ncclGroupEnd());
+    HCTR_LIB_THROW(ncclGroupEnd());
   }
 
   *recv_tensor.get_nnz_ptr() = config.total_nnz;

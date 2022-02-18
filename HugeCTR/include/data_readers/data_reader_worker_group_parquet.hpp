@@ -37,20 +37,20 @@ class DataReaderWorkerGroupParquet : public DataReaderWorkerGroup {
                                bool start_reading_from_beginning = true)
       : DataReaderWorkerGroup(start_reading_from_beginning, DataReaderType_t::Parquet) {
     if (file_list.empty()) {
-      CK_THROW_(Error_t::WrongInput, "file_name.empty()");
+      HCTR_OWN_THROW(Error_t::WrongInput, "file_name.empty()");
     }
     // create data reader workers
     size_t num_workers = output_buffers.size();
     size_t local_gpu_count = resource_manager_->get_local_gpu_count();
     if (num_workers != local_gpu_count) {
-      CK_THROW_(Error_t::WrongInput, "parquet workers should be as many as local_gpu_count");
+      HCTR_OWN_THROW(Error_t::WrongInput, "parquet workers should be as many as local_gpu_count");
     }
     int max_feature_num_per_sample = 0;
     for (auto& param : params) {
       max_feature_num_per_sample += param.max_feature_num;
 
       if (param.max_feature_num <= 0 || param.slot_num <= 0) {
-        CK_THROW_(Error_t::WrongInput, "param.max_feature_num <= 0 || param.slot_num <= 0");
+        HCTR_OWN_THROW(Error_t::WrongInput, "param.max_feature_num <= 0 || param.slot_num <= 0");
       }
     }
     this->set_resource_manager(resource_manager_);

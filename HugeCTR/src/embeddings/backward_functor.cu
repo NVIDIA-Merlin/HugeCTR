@@ -197,7 +197,7 @@ void SparseEmbeddingFunctors::backward(size_t batch_size, size_t slot_num,
       backward_mean(batch_size, slot_num, embedding_vec_size, row_offset, top_grad, wgrad,
                     local_gpu->get_stream());
     } else {
-      CK_THROW_(Error_t::WrongInput, "Invalid combiner type ");
+      HCTR_OWN_THROW(Error_t::WrongInput, "Invalid combiner type ");
     }
   }
 
@@ -235,7 +235,7 @@ void SparseEmbeddingFunctors::backward(size_t batch_size,
       backward_mean(batch_size, slot_num_per_gpu[id], embedding_vec_size, row_offset, top_grad,
                     wgrad, local_gpu->get_stream());
     } else {
-      CK_THROW_(Error_t::WrongInput, "Invalid combiner type ");
+      HCTR_OWN_THROW(Error_t::WrongInput, "Invalid combiner type ");
     }
   }
 

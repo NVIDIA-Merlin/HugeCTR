@@ -394,12 +394,12 @@ MultiCrossLayer<T>::MultiCrossLayer(
     const auto& out_tensor_dim = out_tensor.get_dimensions();
     // 1. two dim?
     if (in_tensor_dim.size() != 2 || out_tensor_dim.size() != 2) {
-      CK_THROW_(Error_t::WrongInput, "input or output tensor doesn't has two dimensions");
+      HCTR_OWN_THROW(Error_t::WrongInput, "input or output tensor doesn't has two dimensions");
     }
     // 2. same dim?
     for (int i = 0; i < 2; i++) {
       if (in_tensor_dim[i] != out_tensor_dim[i]) {
-        CK_THROW_(Error_t::WrongInput, "input and output tensor doesn't match");
+        HCTR_OWN_THROW(Error_t::WrongInput, "input and output tensor doesn't match");
       }
     }
     size_t vec_length = in_tensor_dim[1];
@@ -407,7 +407,7 @@ MultiCrossLayer<T>::MultiCrossLayer(
 
     // check num_lyaers
     if (num_layers < 1) {
-      CK_THROW_(Error_t::WrongInput, "num_layers < 1");
+      HCTR_OWN_THROW(Error_t::WrongInput, "num_layers < 1");
     }
 
     std::vector<size_t> weight_bias_dim = {1, vec_length};
@@ -464,7 +464,7 @@ MultiCrossLayer<T>::MultiCrossLayer(
     }
 
   } catch (const std::runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     throw;
   }
 }
@@ -557,7 +557,7 @@ std::unique_ptr<DataSimulator> MultiCrossLayer<T>::get_default_initializer(const
   } else if (1 == index) {
     simu.reset(new ConstantDataSimulator(0.0f));
   } else {
-    CK_THROW_(Error_t::OutOfBound, "index != {0, 1}.");
+    HCTR_OWN_THROW(Error_t::OutOfBound, "index != {0, 1}.");
   }
 
   return simu;

@@ -52,7 +52,7 @@ BatchNormLayer<T>::BatchNormLayer(const std::shared_ptr<BufferBlock2<float>>& we
   assert(in_tensor_dim[0] == out_tensor_dim[0]);
   assert(in_tensor_dim[1] == out_tensor_dim[1]);
 
-  CK_CUDNN_THROW_(cudnnCreateTensorDescriptor(&in_out_desc_));
+  HCTR_LIB_THROW(cudnnCreateTensorDescriptor(&in_out_desc_));
 
   size_t num_feature = in_tensor_dim[1];
   int batch_size = in_tensor_dim[0];
@@ -61,15 +61,15 @@ BatchNormLayer<T>::BatchNormLayer(const std::shared_ptr<BufferBlock2<float>>& we
   int n_stride = num_feature;
   int w_stride = 1;
 
-  CK_CUDNN_THROW_(cudnnSetTensor4dDescriptorEx(in_out_desc_, data_type, batch_size, 1, 1,
-                                               num_feature, n_stride, 1, 1, w_stride));
+  HCTR_LIB_THROW(cudnnSetTensor4dDescriptorEx(in_out_desc_, data_type, batch_size, 1, 1,
+                                              num_feature, n_stride, 1, 1, w_stride));
 
   in_tensors_.push_back(in_tensor);
   out_tensors_.push_back(out_tensor);
 
-  CK_CUDNN_THROW_(cudnnCreateTensorDescriptor(&gamma_beta_desc_));
+  HCTR_LIB_THROW(cudnnCreateTensorDescriptor(&gamma_beta_desc_));
 
-  CK_CUDNN_THROW_(cudnnDeriveBNTensorDescriptor(gamma_beta_desc_, in_out_desc_, mode_));
+  HCTR_LIB_THROW(cudnnDeriveBNTensorDescriptor(gamma_beta_desc_, in_out_desc_, mode_));
 
   std::vector<size_t> gamma_dim = {num_feature, 1};
 
@@ -97,10 +97,10 @@ BatchNormLayer<T>::BatchNormLayer(const std::shared_ptr<BufferBlock2<float>>& we
 template <typename T>
 BatchNormLayer<T>::~BatchNormLayer() {
   try {
-    CK_CUDNN_THROW_(cudnnDestroyTensorDescriptor(in_out_desc_));
-    CK_CUDNN_THROW_(cudnnDestroyTensorDescriptor(gamma_beta_desc_));
+    HCTR_LIB_THROW(cudnnDestroyTensorDescriptor(in_out_desc_));
+    HCTR_LIB_THROW(cudnnDestroyTensorDescriptor(gamma_beta_desc_));
   } catch (const std::runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
   }
 }
 
@@ -138,12 +138,12 @@ void BatchNormLayer<T>::fprop(bool is_train) {
   float* result_save_inv_var = result_save_inv_var_.get_ptr();
 
   if (is_train) {
-    CK_CUDNN_THROW_(cudnnBatchNormalizationForwardTraining(
+    HCTR_LIB_THROW(cudnnBatchNormalizationForwardTraining(
         get_gpu().get_cudnn_handle(), mode_, &one, &zero, in_out_desc_, in, in_out_desc_, out,
         gamma_beta_desc_, gamma, beta, params_.factor, result_running_mean, result_running_var,
         params_.eps, result_save_mean, result_save_inv_var));
   } else {
-    CK_CUDNN_THROW_(cudnnBatchNormalizationForwardInference(
+    HCTR_LIB_THROW(cudnnBatchNormalizationForwardInference(
         get_gpu().get_cudnn_handle(), mode_, &one, &zero, in_out_desc_, in, in_out_desc_, out,
         gamma_beta_desc_, gamma, beta, result_running_mean, result_running_var, params_.eps));
   }
@@ -168,7 +168,7 @@ void BatchNormLayer<T>::bprop() {
   float* result_save_mean = result_save_mean_.get_ptr();
   float* result_save_inv_var = result_save_inv_var_.get_ptr();
 
-  CK_CUDNN_THROW_(cudnnBatchNormalizationBackward(
+  HCTR_LIB_THROW(cudnnBatchNormalizationBackward(
       get_gpu().get_cudnn_handle(), mode_, &one, &zero, &one, &zero, in_out_desc_, in, in_out_desc_,
       out, in_out_desc_, in, gamma_beta_desc_, gamma, gamma_grad, beta_grad, params_.eps,
       result_save_mean, result_save_inv_var));
@@ -181,9 +181,9 @@ std::string BatchNormLayer<T>::get_no_trained_params_in_string() {
   size_t n_byte = result_running_mean_.get_size_in_bytes();
   size_t n_elem = n_byte / sizeof(T);
 
-  CK_CUDA_THROW_(cudaMemcpy(h_result_running_mean_.get_ptr(), d_result_running_mean, n_byte,
+  HCTR_LIB_THROW(cudaMemcpy(h_result_running_mean_.get_ptr(), d_result_running_mean, n_byte,
                             cudaMemcpyDeviceToHost));
-  CK_CUDA_THROW_(cudaMemcpy(h_result_running_var_.get_ptr(), d_result_running_var, n_byte,
+  HCTR_LIB_THROW(cudaMemcpy(h_result_running_var_.get_ptr(), d_result_running_var, n_byte,
                             cudaMemcpyDeviceToHost));
 
   std::string result = "      \"type\": \"BatchNorm\",\n";
@@ -212,7 +212,7 @@ std::unique_ptr<DataSimulator> BatchNormLayer<T>::get_default_initializer(const 
   } else if (1 == index) {
     simu.reset(new ConstantDataSimulator(0.0f));
   } else {
-    CK_THROW_(Error_t::OutOfBound, "index != {0, 1}.");
+    HCTR_OWN_THROW(Error_t::OutOfBound, "index != {0, 1}.");
   }
   return simu;
 }

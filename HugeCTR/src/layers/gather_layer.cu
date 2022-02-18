@@ -59,7 +59,7 @@ GatherLayer<T>::GatherLayer(const Tensor2<T>& in_tensor, Tensor2<T>& out_tensor,
     : Layer(gpu_resource), h_indices_(indices) {
   try {
     if (indices.empty()) {
-      CK_THROW_(Error_t::WrongInput, "Empty slice indices is not allowed");
+      HCTR_OWN_THROW(Error_t::WrongInput, "Empty slice indices is not allowed");
     }
     // input tensor is 2D.
     // dim_0 represents the most outside dimension.
@@ -71,7 +71,7 @@ GatherLayer<T>::GatherLayer(const Tensor2<T>& in_tensor, Tensor2<T>& out_tensor,
 
     for (size_t i = 0; i < num_indices; i++) {
       if (indices.data()[i] > int(tensor_num) - 1)
-        CK_THROW_(Error_t::WrongInput, "Index is out of range");
+        HCTR_OWN_THROW(Error_t::WrongInput, "Index is out of range");
     }
 
     blobs_buff->reserve({num_indices}, &indices_);
@@ -79,14 +79,14 @@ GatherLayer<T>::GatherLayer(const Tensor2<T>& in_tensor, Tensor2<T>& out_tensor,
     in_tensors_.push_back(in_tensor);
 
   } catch (const std::runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     throw;
   }
 }
 
 template <typename T>
 void GatherLayer<T>::initialize() {
-  CK_CUDA_THROW_(cudaMemcpyAsync((void*)indices_.get_ptr(), (void*)h_indices_.data(),
+  HCTR_LIB_THROW(cudaMemcpyAsync((void*)indices_.get_ptr(), (void*)h_indices_.data(),
                                  num_indices * sizeof(int), cudaMemcpyHostToDevice,
                                  get_gpu().get_stream()));
 }
@@ -103,7 +103,7 @@ void GatherLayer<T>::fprop(bool is_train) {
       true, in, out, tensor_size, num_indices, indices_.get_ptr());
 #ifndef NDEBUG
   cudaDeviceSynchronize();
-  CK_CUDA_THROW_(cudaGetLastError());
+  HCTR_LIB_THROW(cudaGetLastError());
 #endif
 }
 
@@ -121,7 +121,7 @@ void GatherLayer<T>::bprop() {
       false, in, out, tensor_size, num_indices, indices_.get_ptr());
 #ifndef NDEBUG
   cudaDeviceSynchronize();
-  CK_CUDA_THROW_(cudaGetLastError());
+  HCTR_LIB_THROW(cudaGetLastError());
 #endif
 }
 

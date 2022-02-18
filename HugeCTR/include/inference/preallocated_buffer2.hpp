@@ -48,7 +48,7 @@ class PreallocatedBuffer2 : public TensorBuffer2 {
 
   bool allocated() const override {
     if (ptr_ == nullptr) {
-      CK_THROW_(Error_t::NotInitialized, "The buffer for Tensor2 should be pre allocated");
+      HCTR_OWN_THROW(Error_t::NotInitialized, "The buffer for Tensor2 should be pre allocated");
     }
     return true;
   }
@@ -63,11 +63,11 @@ void bind_tensor_to_buffer(const std::vector<size_t> &dimensions,
                            std::shared_ptr<Tensor2<TypeTensor>> &tensor) {
   try {
     if (!buffer->allocated()) {
-      CK_THROW_(Error_t::IllegalCall, "Cannot bind tensor to buffer that is not allocated");
+      HCTR_OWN_THROW(Error_t::IllegalCall, "Cannot bind tensor to buffer that is not allocated");
     }
     tensor->set_buffer(buffer);
   } catch (const std::runtime_error &rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     throw;
   }
 }

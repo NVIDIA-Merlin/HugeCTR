@@ -60,7 +60,7 @@ class FileList {
     try {
       std::ifstream read_stream(file_list_name, std::ifstream::in);
       if (!read_stream.is_open()) {
-        CK_THROW_(Error_t::FileCannotOpen, "file list open failed: " + file_list_name);
+        HCTR_OWN_THROW(Error_t::FileCannotOpen, "file list open failed: " + file_list_name);
       }
 
       std::string buff;
@@ -77,11 +77,11 @@ class FileList {
         }
         read_stream.close();
       } else {
-        CK_THROW_(Error_t::UnSupportedFormat,
-                  "The file format is invalid or there is no data file in the file list.");
+        HCTR_OWN_THROW(Error_t::UnSupportedFormat,
+                       "The file format is invalid or there is no data file in the file list.");
       }
     } catch (const std::runtime_error& rt_err) {
-      std::cerr << rt_err.what() << std::endl;
+      HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
       throw;
     }
   }

@@ -30,15 +30,15 @@
 
 // TODO: replace this with CUDA_TRY and propagate the error
 #ifndef CUDA_RT_CALL
-#define CUDA_RT_CALL(call)                                                                       \
-  {                                                                                              \
-    cudaError_t cudaStatus = call;                                                               \
-    if (cudaSuccess != cudaStatus) {                                                             \
-      fprintf(stderr, "ERROR: CUDA RT call \"%s\" in line %d of file %s failed with %s (%d).\n", \
-              #call, __LINE__, __FILE__, cudaGetErrorString(cudaStatus), cudaStatus);            \
+#define CUDA_RT_CALL(EXPR)                                                                       \
+  do {                                                                                           \
+    const cudaError_t status = (EXPR);                                                           \
+    if (cudaSuccess != status) {                                                                 \
+      HCTR_LOG(ERROR, WORLD, "CUDA RT call \"%s\" in line %d of file %s failed with %s (%d).\n", \
+               #EXPR, __LINE__, __FILE__, cudaGetErrorString(status), status);                   \
       exit(1);                                                                                   \
     }                                                                                            \
-  }
+  } while (0)
 #endif
 
 // TODO: can we do this more efficiently?
@@ -692,12 +692,14 @@ int*>(tmp_it), unused, value ); if ( old_val == unused ) { it = tmp_it;
 
   unsigned long long get_num_collisions() const { return m_collisions; }
 
-  void print() {
-    for (size_type i = 0; i < m_hashtbl_size; ++i) {
-      std::cout << i << ": " << m_hashtbl_values[i].first << "," << m_hashtbl_values[i].second
-                << std::endl;
+  /*
+    void print() {
+      for (size_type i = 0; i < m_hashtbl_size; ++i) {
+        HCTR_LOG_S(INFO, WORLD) << i << ": " << m_hashtbl_values[i].first << ","
+                                << m_hashtbl_values[i].second << std::endl;
+      }
     }
-  }
+  */
 
   int prefetch(const int dev_id, cudaStream_t stream = 0) {
     cudaPointerAttributes hashtbl_values_ptr_attributes;

@@ -37,16 +37,16 @@ void SparseEmbeddingFunctors::get_forward_results(
 
     // memcpy D2H
     context.set_device(local_gpu->get_device_id());
-    CK_CUDA_THROW_(cudaMemcpyAsync(embedding_feature.get_ptr(), temp_tensors[0].get_ptr(),
+    HCTR_LIB_THROW(cudaMemcpyAsync(embedding_feature.get_ptr(), temp_tensors[0].get_ptr(),
                                    total_gpu_count * memcpy_size * sizeof(TypeEmbeddingComp),
                                    cudaMemcpyDeviceToHost, local_gpu->get_stream()));
-    CK_CUDA_THROW_(cudaStreamSynchronize(local_gpu->get_stream()));
+    HCTR_LIB_THROW(cudaStreamSynchronize(local_gpu->get_stream()));
   } else {
     context.set_device(local_gpu->get_device_id());
-    CK_CUDA_THROW_(cudaMemcpyAsync(
+    HCTR_LIB_THROW(cudaMemcpyAsync(
         embedding_feature.get_ptr(), embedding_feature_tensors[0].get_ptr(),
         memcpy_size * sizeof(TypeEmbeddingComp), cudaMemcpyDeviceToHost, local_gpu->get_stream()));
-    CK_CUDA_THROW_(cudaStreamSynchronize(local_gpu->get_stream()));
+    HCTR_LIB_THROW(cudaStreamSynchronize(local_gpu->get_stream()));
   }
 
   return;
@@ -72,17 +72,17 @@ void SparseEmbeddingFunctors::get_forward_results(
     // memcpy D2H
     CudaDeviceContext context;
     context.set_device(local_gpu->get_device_id());
-    CK_CUDA_THROW_(cudaMemcpyAsync(embedding_feature, temp_tensors[0].get_ptr(),
+    HCTR_LIB_THROW(cudaMemcpyAsync(embedding_feature, temp_tensors[0].get_ptr(),
                                    total_gpu_count * memcpy_size * sizeof(TypeEmbeddingComp),
                                    direction, local_gpu->get_stream()));
-    CK_CUDA_THROW_(cudaStreamSynchronize(local_gpu->get_stream()));
+    HCTR_LIB_THROW(cudaStreamSynchronize(local_gpu->get_stream()));
   } else {
     CudaDeviceContext context;
     context.set_device(local_gpu->get_device_id());
-    CK_CUDA_THROW_(cudaMemcpyAsync(embedding_feature, embedding_feature_tensors[0].get_ptr(),
+    HCTR_LIB_THROW(cudaMemcpyAsync(embedding_feature, embedding_feature_tensors[0].get_ptr(),
                                    memcpy_size * sizeof(TypeEmbeddingComp), direction,
                                    local_gpu->get_stream()));
-    CK_CUDA_THROW_(cudaStreamSynchronize(local_gpu->get_stream()));
+    HCTR_LIB_THROW(cudaStreamSynchronize(local_gpu->get_stream()));
   }
 
   return;

@@ -75,7 +75,7 @@ FusedReshapeConcatLayer<T>::FusedReshapeConcatLayer(
     : Layer(gpu_resource) {
   try {
     if (in_tensors.empty()) {
-      CK_THROW_(Error_t::WrongInput, "Empty input tensors");
+      HCTR_OWN_THROW(Error_t::WrongInput, "Empty input tensors");
     }
 
     num_ = in_tensors.size();
@@ -84,14 +84,15 @@ FusedReshapeConcatLayer<T>::FusedReshapeConcatLayer(
       if (i != 0) {
         auto first_in_dims = in_tensors[0].get_dimensions();
         if (cur_in_dims[0] != first_in_dims[0]) {
-          CK_THROW_(Error_t::WrongInput, "All the input tensors must have the same batch_size");
+          HCTR_OWN_THROW(Error_t::WrongInput,
+                         "All the input tensors must have the same batch_size");
         }
         if (cur_in_dims[1] != first_in_dims[1]) {
-          CK_THROW_(Error_t::WrongInput, "All the input tensors must have the same slot_num");
+          HCTR_OWN_THROW(Error_t::WrongInput, "All the input tensors must have the same slot_num");
         }
       }
       if (cur_in_dims.size() != 3) {
-        CK_THROW_(Error_t::WrongInput, "All the input tensors must be 3D");
+        HCTR_OWN_THROW(Error_t::WrongInput, "All the input tensors must be 3D");
       }
       if (i == 0) {
         batch_size_ = cur_in_dims[0];
@@ -125,7 +126,7 @@ FusedReshapeConcatLayer<T>::FusedReshapeConcatLayer(
     }
 
   } catch (const std::runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     throw;
   }
 }
@@ -140,11 +141,11 @@ void FusedReshapeConcatLayer<T>::initialize() {
   for (size_t i = 0; i < num_; i++) {
     h_inputs_.get_ptr()[i] = in_tensors_[i].get_ptr();
   }
-  CK_CUDA_THROW_(cudaMemcpyAsync((void*)vecs_size_.get_ptr(), (void*)h_vecs_size_.data(),
+  HCTR_LIB_THROW(cudaMemcpyAsync((void*)vecs_size_.get_ptr(), (void*)h_vecs_size_.data(),
                                  num_ * sizeof(size_t), cudaMemcpyHostToDevice,
                                  get_gpu().get_stream()));
 
-  CK_CUDA_THROW_(cudaMemcpyAsync((void*)d_inputs_.get_ptr(), (void*)h_inputs_.get_ptr(),
+  HCTR_LIB_THROW(cudaMemcpyAsync((void*)d_inputs_.get_ptr(), (void*)h_inputs_.get_ptr(),
                                  num_ * sizeof(T*), cudaMemcpyHostToDevice,
                                  get_gpu().get_stream()));
 }
@@ -163,7 +164,7 @@ void FusedReshapeConcatLayer<T>::fprop(bool is_train) {
       vecs_size_.get_ptr(), new_width_, num_);
 #ifndef NDEBUG
   cudaDeviceSynchronize();
-  CK_CUDA_THROW_(cudaGetLastError());
+  HCTR_LIB_THROW(cudaGetLastError());
 #endif
 }
 
@@ -181,7 +182,7 @@ void FusedReshapeConcatLayer<T>::bprop() {
       vecs_size_.get_ptr(), new_width_, num_);
 #ifndef NDEBUG
   cudaDeviceSynchronize();
-  CK_CUDA_THROW_(cudaGetLastError());
+  HCTR_LIB_THROW(cudaGetLastError());
 #endif
 }
 

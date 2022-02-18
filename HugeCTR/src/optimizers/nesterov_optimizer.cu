@@ -46,14 +46,14 @@ NesterovOptimizer<T>::NesterovOptimizer(const Tensor2<float>& weight_main, const
       wgrad_(wgrad),
       mu_(momentum_factor) {
   if (weight_main_.get_num_elements() != wgrad_.get_num_elements()) {
-    CK_THROW_(Error_t::WrongInput, "weight->get_num_elements() != wgrad->get_num_elements()");
+    HCTR_OWN_THROW(Error_t::WrongInput, "weight->get_num_elements() != wgrad->get_num_elements()");
   }
   opt_buf->reserve({weight_main.get_num_elements()}, &accum_);
 }
 
 template <typename T>
 void NesterovOptimizer<T>::initialize() {
-  CK_CUDA_THROW_(cudaMemsetAsync(accum_.get_ptr(), 0, accum_.get_size_in_bytes(),
+  HCTR_LIB_THROW(cudaMemsetAsync(accum_.get_ptr(), 0, accum_.get_size_in_bytes(),
                                  gpu_resource_->get_stream()));
 }
 
@@ -72,8 +72,8 @@ void NesterovOptimizer<T>::update() {
       len, weight, accum, wgrad, lr_, mu_, scaler_);
 
 #ifndef NDEBUG
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
-  CK_CUDA_THROW_(cudaGetLastError());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaGetLastError());
 #endif
 }
 

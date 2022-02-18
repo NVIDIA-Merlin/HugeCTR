@@ -56,7 +56,7 @@ class GpuData {
           const size_t embedding_vec_size) {
     size_t num_samples = h_value_index.size();
     init_data(num_samples, max_vocabulary_size, embedding_vec_size);
-    CK_CUDA_THROW_(cudaMemcpy(value_index.get_ptr(), h_value_index.data(),
+    HCTR_LIB_THROW(cudaMemcpy(value_index.get_ptr(), h_value_index.data(),
                               sizeof(size_t) * num_samples, cudaMemcpyHostToDevice));
   }
 
@@ -84,10 +84,10 @@ class GpuData {
 
   void init_weights(size_t num_samples, size_t max_vocabulary_size, size_t embedding_vec_size,
                     const std::vector<TypeEmbeddingComp>& h_wgrad) {
-    CK_CUDA_THROW_(cudaMemcpy(wgrad.get_ptr(), h_wgrad.data(),
+    HCTR_LIB_THROW(cudaMemcpy(wgrad.get_ptr(), h_wgrad.data(),
                               sizeof(TypeEmbeddingComp) * num_samples * embedding_vec_size,
                               cudaMemcpyHostToDevice));
-    CK_CUDA_THROW_(cudaMemset(weights.get_ptr(), 0.f,
+    HCTR_LIB_THROW(cudaMemset(weights.get_ptr(), 0.f,
                               sizeof(float) * max_vocabulary_size * embedding_vec_size));
   }
 };
@@ -143,7 +143,7 @@ void update_test(const std::vector<size_t>& value_index, size_t max_vocabulary_s
       gpu_data.size_top_categories, stream, true);
 
   std::cout << "done performing kernel, testing results.." << std::endl;
-  CK_CUDA_THROW_(cudaMemcpy(weights_test.data(), gpu_data.weights.get_ptr(),
+  HCTR_LIB_THROW(cudaMemcpy(weights_test.data(), gpu_data.weights.get_ptr(),
                             sizeof(float) * embedding_vec_size * max_vocabulary_size,
                             cudaMemcpyDeviceToHost));
 

@@ -23,12 +23,11 @@
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"
 
-using namespace std;
 using namespace HugeCTR;
 
 namespace {
 template <typename T>
-void reshape_test(vector<size_t>& dims_in, vector<size_t>& dims_out) {
+void reshape_test(std::vector<size_t>& dims_in, std::vector<size_t>& dims_out) {
   std::shared_ptr<GeneralBuffer2<CudaAllocator>> buff = GeneralBuffer2<CudaAllocator>::create();
   Tensor2<T> in_tensor;
   buff->reserve(dims_in, &in_tensor);
@@ -58,25 +57,25 @@ void reshape_test(vector<size_t>& dims_in, vector<size_t>& dims_out) {
 
 template <typename T>
 void reshape_2d_test(size_t dim0, size_t dim1, size_t leading_dim) {
-  vector<size_t> in_dims = {dim0, dim1};
-  vector<size_t> dims_out = {dim0 * dim1 / leading_dim, leading_dim};
+  std::vector<size_t> in_dims = {dim0, dim1};
+  std::vector<size_t> dims_out = {dim0 * dim1 / leading_dim, leading_dim};
   reshape_test<T>(in_dims, dims_out);
 }
 
 template <typename T>
 void reshape_3d_test(size_t dim0, size_t dim1, size_t dim2, size_t leading_dim) {
-  vector<size_t> in_dims = {dim0, dim1, dim2};
-  vector<size_t> dims_out = {dim0 * dim1 * dim2 / leading_dim, leading_dim};
+  std::vector<size_t> in_dims = {dim0, dim1, dim2};
+  std::vector<size_t> dims_out = {dim0 * dim1 * dim2 / leading_dim, leading_dim};
   reshape_test<T>(in_dims, dims_out);
 }
 
 template <typename T>
 void reshape_2d_to_3d_test(size_t dim0, size_t leading_dim, size_t time_step) {
-  vector<size_t> dims_in = {dim0, leading_dim};
+  std::vector<size_t> dims_in = {dim0, leading_dim};
   if (dim0 % time_step != 0)
     throw std::runtime_error("Error: the input first dimension is not divisible by time step");
   else {
-    vector<size_t> dims_out = {dim0 / time_step, time_step, leading_dim};
+    std::vector<size_t> dims_out = {dim0 / time_step, time_step, leading_dim};
     reshape_test<T>(dims_in, dims_out);
   }
 }

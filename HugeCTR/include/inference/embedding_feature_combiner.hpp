@@ -71,7 +71,8 @@ class EmbeddingFeatureCombiner : public Layer {
   void fprop(bool is_train = false) override;
 
   void bprop() override {
-    CK_THROW_(Error_t::IllegalCall, "The bprop() of EmbeddingFeatureCombiner is not implemented!");
+    HCTR_OWN_THROW(Error_t::IllegalCall,
+                   "The bprop() of EmbeddingFeatureCombiner is not implemented!");
   }
 
  private:

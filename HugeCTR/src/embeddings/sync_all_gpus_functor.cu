@@ -25,7 +25,7 @@ void SparseEmbeddingFunctors::sync_all_gpus(const ResourceManager& resource_mana
   for (size_t id = 0; id < local_gpu_count; id++) {
     const auto& local_gpu = resource_manager.get_local_gpu(id);
     context.set_device(local_gpu->get_device_id());
-    CK_CUDA_THROW_(cudaStreamSynchronize(local_gpu->get_stream()));
+    HCTR_LIB_THROW(cudaStreamSynchronize(local_gpu->get_stream()));
   }
 }
 

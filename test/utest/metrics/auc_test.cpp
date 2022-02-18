@@ -37,8 +37,8 @@ float sklearn_auc(size_t num_total_samples, const std::vector<float>& labels,
                   const std::vector<T>& scores) {
   int num_procs = 1, rank = 0;
 #ifdef ENABLE_MPI
-  CK_MPI_THROW_(MPI_Comm_rank(MPI_COMM_WORLD, &rank));
-  CK_MPI_THROW_(MPI_Comm_size(MPI_COMM_WORLD, &num_procs));
+  HCTR_MPI_THROW(MPI_Comm_rank(MPI_COMM_WORLD, &rank));
+  HCTR_MPI_THROW(MPI_Comm_size(MPI_COMM_WORLD, &num_procs));
 #endif
   std::string temp_name = "tmpdata.bin";
 
@@ -55,8 +55,8 @@ float sklearn_auc(size_t num_total_samples, const std::vector<float>& labels,
     int offset = 0;
     std::vector<int> recv_offsets(num_procs + 1);
 
-    CK_MPI_THROW_(MPI_Exscan(&my_size, &offset, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD));
-    CK_MPI_THROW_(
+    HCTR_MPI_THROW(MPI_Exscan(&my_size, &offset, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD));
+    HCTR_MPI_THROW(
         MPI_Gather(&offset, 1, MPI_INT, recv_offsets.data(), 1, MPI_INT, 0, MPI_COMM_WORLD));
     recv_offsets[num_procs] = num_total_samples;
 
@@ -75,11 +75,11 @@ float sklearn_auc(size_t num_total_samples, const std::vector<float>& labels,
 
     glob_labels.resize(num_total_samples);
     glob_scores.resize(num_total_samples);
-    CK_MPI_THROW_(MPI_Gatherv(labels.data(), my_size, MPI_FLOAT, glob_labels.data(),
-                              recv_sizes.data(), recv_offsets.data(), MPI_FLOAT, 0,
-                              MPI_COMM_WORLD));
-    CK_MPI_THROW_(MPI_Gatherv(scores.data(), my_size, t_type, glob_scores.data(), recv_sizes.data(),
-                              recv_offsets.data(), t_type, 0, MPI_COMM_WORLD));
+    HCTR_MPI_THROW(MPI_Gatherv(labels.data(), my_size, MPI_FLOAT, glob_labels.data(),
+                               recv_sizes.data(), recv_offsets.data(), MPI_FLOAT, 0,
+                               MPI_COMM_WORLD));
+    HCTR_MPI_THROW(MPI_Gatherv(scores.data(), my_size, t_type, glob_scores.data(),
+                               recv_sizes.data(), recv_offsets.data(), t_type, 0, MPI_COMM_WORLD));
 
     labels_ptr = (char*)glob_labels.data();
     scores_ptr = (char*)glob_scores.data();
@@ -93,8 +93,7 @@ float sklearn_auc(size_t num_total_samples, const std::vector<float>& labels,
         .write(scores_ptr, num_total_samples * sizeof(T));
     py_input.close();
 
-    std::stringstream command;
-
+    std::ostringstream command;
     command << "python3 python_auc.py " << num_total_samples << " " << sizeof(T) << " "
             << temp_name;
     auto py_output = popen(command.str().c_str(), "r");
@@ -110,7 +109,7 @@ float sklearn_auc(size_t num_total_samples, const std::vector<float>& labels,
   }
 
 #ifdef ENABLE_MPI
-  CK_MPI_THROW_(MPI_Bcast(&result, 1, MPI_FLOAT, 0, MPI_COMM_WORLD));
+  HCTR_MPI_THROW(MPI_Bcast(&result, 1, MPI_FLOAT, 0, MPI_COMM_WORLD));
 #endif
 
   return result;
@@ -187,8 +186,8 @@ void auc_test(std::vector<int> device_list, size_t batch_size, size_t num_total_
               Generator gen, size_t num_evals = 1) {
   int num_procs = 1, rank = 0;
 #ifdef ENABLE_MPI
-  CK_MPI_THROW_(MPI_Comm_rank(MPI_COMM_WORLD, &rank));
-  CK_MPI_THROW_(MPI_Comm_size(MPI_COMM_WORLD, &num_procs));
+  HCTR_MPI_THROW(MPI_Comm_rank(MPI_COMM_WORLD, &rank));
+  HCTR_MPI_THROW(MPI_Comm_size(MPI_COMM_WORLD, &num_procs));
 #endif
 
   std::vector<std::vector<int>> vvgpu;
@@ -272,7 +271,7 @@ void auc_test(std::vector<int> device_list, size_t batch_size, size_t num_total_
   }
 
   float ref_result = sklearn_auc(num_total_samples, h_labels, h_scores);
-  // printf("GPU %f, ref %f \n", gpu_result, ref_result);
+  // HCTR_LOG(INFO, WORLD, "GPU %f, ref %f \n", gpu_result, ref_result);
 
   ASSERT_NEAR(gpu_result, ref_result, eps);
 }

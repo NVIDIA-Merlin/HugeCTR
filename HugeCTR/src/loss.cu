@@ -48,9 +48,10 @@ Loss<T>::Loss(const Tensor2<float> &label_tensor, const Tensor2<T> &input_tensor
   loss_tensors_.push_back(loss_tensor);
 
   if (regularizer_ == nullptr) {
-    CK_THROW_(Error_t::WrongInput,
-              "There is no regularizer specified. If you intend not to use any regularizer, pass a "
-              "NoRegularizer object.");
+    HCTR_OWN_THROW(
+        Error_t::WrongInput,
+        "There is no regularizer specified. If you intend not to use any regularizer, pass a "
+        "NoRegularizer object.");
   }
 }
 
@@ -66,7 +67,8 @@ void Loss<T>::compute(bool is_train) {
 template <typename T>
 void Loss<T>::compute(bool is_train, long long current_batchsize) {
   if (regularizer_ == nullptr) {
-    CK_THROW_(Error_t::WrongInput, "Null regularizer is not allowed in calling Loss::compute().");
+    HCTR_OWN_THROW(Error_t::WrongInput,
+                   "Null regularizer is not allowed in calling Loss::compute().");
   }
 
   CudaDeviceContext context(get_device_id());
@@ -90,7 +92,7 @@ void Loss<T>::compute(bool is_train, long long current_batchsize) {
   rterm = regularizer_->get_rterm();
 
   if (current_batchsize > batch_size && current_batchsize < 0) {
-    CK_THROW_(Error_t::WrongInput, "current_batchsize > batch_size && current_batchsize < 0");
+    HCTR_OWN_THROW(Error_t::WrongInput, "current_batchsize > batch_size && current_batchsize < 0");
   }
 
   do_compute(input, label, loss, current_batchsize, feature_dim, scaler_, rterm, is_train,
@@ -98,7 +100,7 @@ void Loss<T>::compute(bool is_train, long long current_batchsize) {
   if (is_train) {
     // once current_batchsize < batch_size in train we set the rest dgrad to 0
     if (current_batchsize < batch_size) {
-      CK_CUDA_THROW_(cudaMemsetAsync(input + current_batchsize * feature_dim, 0,
+      HCTR_LIB_THROW(cudaMemsetAsync(input + current_batchsize * feature_dim, 0,
                                      (batch_size - current_batchsize) * feature_dim * sizeof(T),
                                      get_gpu().get_stream()));
     }
@@ -114,8 +116,8 @@ void Loss<T>::compute(bool is_train, long long current_batchsize) {
   PROFILE_RECORD("compute.stop", get_gpu().get_stream(), false);
 
 #ifndef NDEBUG
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
-  CK_CUDA_THROW_(cudaGetLastError());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaGetLastError());
 #endif
 }
 
@@ -139,10 +141,13 @@ CrossEntropyLoss<T>::CrossEntropyLoss(const Tensor2<float> &label_tensor,
   const auto &label_dim = label_tensor.get_dimensions();
   int feature_dim = input_dim[1];
 
-  if (feature_dim != 2)
-    CK_THROW_(Error_t::WrongInput, "The feature dimension of CE loss input should be 2");
-  if (input_dim[0] != label_dim[0])
-    CK_THROW_(Error_t::WrongInput, "The batch sizes of input tensor and label tensor are not same");
+  if (feature_dim != 2) {
+    HCTR_OWN_THROW(Error_t::WrongInput, "The feature dimension of CE loss input should be 2");
+  }
+  if (input_dim[0] != label_dim[0]) {
+    HCTR_OWN_THROW(Error_t::WrongInput,
+                   "The batch sizes of input tensor and label tensor are not same");
+  }
 }
 
 // Suppose we use one thread to calculate one sample
@@ -213,8 +218,9 @@ BinaryCrossEntropyLoss<T>::BinaryCrossEntropyLoss(
               scaler, gen_loss_summary) {
   const auto &input_dim = input_tensor.get_dimensions();
   int feature_dim = input_dim[1];
-  if (feature_dim != 1)
-    CK_THROW_(Error_t::WrongInput, "The feature dimension of BCE loss input should be 1");
+  if (feature_dim != 1) {
+    HCTR_OWN_THROW(Error_t::WrongInput, "The feature dimension of BCE loss input should be 1");
+  }
 }
 
 // Suppose we use one thread to calculate one sample
@@ -328,7 +334,7 @@ void MultiCrossEntropyLoss<T>::do_compute(T *input, const float *label, float *l
                                           int feature_dim, float scaler, float rterm, bool is_train,
                                           cudaStream_t stream) {
   int labels_per_sample = feature_dim;
-  CK_CUDA_THROW_(
+  HCTR_LIB_THROW(
       cudaMemsetAsync(loss, 0, Loss<T>::get_loss_tensors()[0].get_size_in_bytes(), stream));
 
   const int BLOCK_SIZE = 256;
@@ -350,11 +356,11 @@ MultiCrossEntropyLoss<T>::MultiCrossEntropyLoss(
   if (label_tensor.get_dimensions().size() != 2 || input_tensor.get_dimensions().size() != 2 ||
       label_tensor.get_dimensions()[0] != input_tensor.get_dimensions()[0] ||
       label_tensor.get_dimensions()[1] != input_tensor.get_dimensions()[1]) {
-    CK_THROW_(Error_t::WrongInput, "Format of input tensor and label tensor don't match");
+    HCTR_OWN_THROW(Error_t::WrongInput, "Format of input tensor and label tensor don't match");
   }
   // verify the length of target_weight
   if (target_weight.size() != input_tensor.get_dimensions()[1]) {
-    CK_THROW_(Error_t::WrongInput, "target_weight.size() != input_tensor.get_dims()[0]");
+    HCTR_OWN_THROW(Error_t::WrongInput, "target_weight.size() != input_tensor.get_dims()[0]");
   }
 
   // load target_weight to internal Tensor
@@ -365,7 +371,7 @@ MultiCrossEntropyLoss<T>::MultiCrossEntropyLoss(
 
   CudaDeviceContext context(Loss<T>::get_device_id());
   internal_buff->allocate();
-  CK_CUDA_THROW_(cudaMemcpy(target_weight_.get_ptr(), target_weight.data(),
+  HCTR_LIB_THROW(cudaMemcpy(target_weight_.get_ptr(), target_weight.data(),
                             target_weight_.get_size_in_bytes(), cudaMemcpyHostToDevice));
 
   return;

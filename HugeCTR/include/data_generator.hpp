@@ -18,6 +18,7 @@
 
 #include <sys/stat.h>
 
+#include <base/debug/logger.hpp>
 #include <common.hpp>
 #include <fstream>
 #include <memory>
@@ -33,6 +34,7 @@
 #endif
 
 #include <rmm/device_buffer.hpp>
+
 namespace HugeCTR {
 
 /**
@@ -53,9 +55,9 @@ inline bool file_exist(const std::string& name) {
 inline void check_make_dir(const std::string& finalpath) {
   if (mkdir(finalpath.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH) == -1) {
     if (errno == EEXIST) {
-      std::cout << (finalpath + " exist") << std::endl;
+      HCTR_LOG_S(INFO, WORLD) << finalpath << " exist" << std::endl;
     } else {
-      CK_THROW_(Error_t::UnspecificError, "cannot create" + finalpath + ": unexpected error");
+      HCTR_OWN_THROW(Error_t::UnspecificError, "cannot create" + finalpath + ": unexpected error");
       exit(-1);
     }
   }
@@ -195,9 +197,9 @@ void data_generation_for_test(std::string file_list_name, std::string data_prefi
                               std::vector<float>* generated_label = nullptr,
                               std::vector<float>* generated_dense = nullptr) {
   if (file_exist(file_list_name)) {
-    std::cout << "File (" + file_list_name +
-                     ") exist. To generate new dataset plesae remove this file."
-              << std::endl;
+    HCTR_LOG_S(INFO, WORLD) << "File (" << file_list_name
+                            << ") exist. To generate new dataset plesae remove this file."
+                            << std::endl;
     return;
   }
   std::string directory;
@@ -212,7 +214,7 @@ void data_generation_for_test(std::string file_list_name, std::string data_prefi
   for (int k = 0; k < num_files; k++) {
     std::string tmp_file_name(data_prefix + std::to_string(k) + ".data");
     file_list_stream << (tmp_file_name + "\n");
-    std::cout << tmp_file_name << std::endl;
+    HCTR_LOG_S(INFO, WORLD) << tmp_file_name << std::endl;
     // data generation;
     std::ofstream out_stream(tmp_file_name, std::ofstream::binary);
 
@@ -265,7 +267,7 @@ void data_generation_for_test(std::string file_list_name, std::string data_prefi
     out_stream.close();
   }
   file_list_stream.close();
-  std::cout << file_list_name << " done!" << std::endl;
+  HCTR_LOG_S(INFO, WORLD) << file_list_name << " done!" << std::endl;
   return;
 }
 
@@ -281,15 +283,14 @@ void data_generation_for_test2(std::string file_list_name, std::string data_pref
                                float alpha = 0.0) {
   // check if slot_num == voc_size_array.size == nnz_array.size
   if (slot_num != (int)voc_size_array.size() || slot_num != (int)nnz_array.size()) {
-    std::cout << "Error: slot_num != voc_size_array.size() || slot_num != nnz_array.size()"
-              << std::endl;
+    HCTR_LOG(ERROR, WORLD, "slot_num != voc_size_array.size() || slot_num != nnz_array.size()\n");
     exit(-1);
   }
 
   if (file_exist(file_list_name)) {
-    std::cout << "File (" + file_list_name +
-                     ") exist. To generate new dataset plesae remove this file."
-              << std::endl;
+    HCTR_LOG_S(INFO, WORLD) << "File (" << file_list_name
+                            << ") exist. To generate new dataset plesae remove this file."
+                            << std::endl;
     return;
   }
   std::string directory;
@@ -304,7 +305,7 @@ void data_generation_for_test2(std::string file_list_name, std::string data_pref
   for (int k = 0; k < num_files; k++) {
     std::string tmp_file_name(data_prefix + std::to_string(k) + ".data");
     file_list_stream << (tmp_file_name + "\n");
-    std::cout << tmp_file_name << std::endl;
+    HCTR_LOG_S(INFO, WORLD) << tmp_file_name << std::endl;
     // data generation;
     std::ofstream out_stream(tmp_file_name, std::ofstream::binary);
 
@@ -377,7 +378,7 @@ void data_generation_for_test2(std::string file_list_name, std::string data_pref
     out_stream.close();
   }
   file_list_stream.close();
-  std::cout << file_list_name << " done!" << std::endl;
+  HCTR_LOG_S(INFO, WORLD) << file_list_name << " done!" << std::endl;
   return;
 }
 
@@ -389,8 +390,7 @@ void data_generation_for_parquet(std::string file_list_name, std::string data_pr
                                  std::vector<int> nnz_array, bool long_tail = false,
                                  float alpha = 0.0) {
   if (slot_num != (int)slot_size_array.size() || slot_num != (int)nnz_array.size()) {
-    std::cout << "Error: slot_num != slot_size_array.size() || slot_num != nnz_array.size()"
-              << std::endl;
+    HCTR_LOG(ERROR, WORLD, "slot_num != slot_size_array.size() || slot_num != nnz_array.size()\n");
     exit(-1);
   }
   std::string directory;
@@ -409,7 +409,7 @@ void data_generation_for_parquet(std::string file_list_name, std::string data_pr
     CVector cols;
     std::string tmp_file_name(data_prefix + std::to_string(k) + ".parquet");
     file_list_stream << (tmp_file_name + "\n");
-    std::cout << tmp_file_name << std::endl;
+    HCTR_LOG_S(INFO, WORLD) << tmp_file_name << std::endl;
     // Initialize Simulators
     FloatUniformDataSimulator<float> fdata_sim(0, 1);  // for lable and dense
     std::vector<std::shared_ptr<IDataSimulator<T>>> ldata_sim_vec;
@@ -497,9 +497,9 @@ void data_generation_for_parquet(std::string file_list_name, std::string data_pr
     cudf::io::write_parquet(writer_args);
   }
   file_list_stream.close();
-  std::cout << file_list_name << " done!" << std::endl;
+  HCTR_LOG_S(INFO, WORLD) << file_list_name << " done!" << std::endl;
   // also write metadata
-  std::stringstream metadata;
+  std::ostringstream metadata;
   metadata << "{ \"file_stats\": [";
   for (int i = 0; i < num_files - 1; i++) {
     std::string filepath = data_prefix + std::to_string(i) + std::string(".parquet");
@@ -536,12 +536,9 @@ void data_generation_for_parquet(std::string file_list_name, std::string data_pr
   metadata << "] ";
   metadata << "}";
 
-  std::ofstream metadata_file_stream;
-  // std::cout<<"directory is "<<directory<<std::endl;
-  metadata_file_stream.open(directory + "/_metadata.json", std::ofstream::out);
-  metadata_file_stream << metadata.rdbuf();
+  std::ofstream metadata_file_stream{directory + "/_metadata.json"};
+  metadata_file_stream << metadata.str();
   metadata_file_stream.close();
-  return;
 }
 #endif
 
@@ -685,7 +682,8 @@ inline void data_generation_for_raw(std::string file_name, long long num_samples
                                     std::vector<float>* generated_dense_data = nullptr,
                                     std::vector<float>* generated_label_data = nullptr) {
   if (file_exist(file_name)) {
-    std::cout << "File (" + file_name + ") exists and it will be overwritten." << std::endl;
+    HCTR_LOG_S(INFO, WORLD) << "File (" + file_name + ") exists and it will be overwritten."
+                            << std::endl;
   }
   static_assert(std::is_same<T, long long>::value || std::is_same<T, unsigned int>::value,
                 "type not support");
@@ -697,7 +695,7 @@ inline void data_generation_for_raw(std::string file_name, long long num_samples
   std::vector<std::shared_ptr<IDataSimulator<long long>>> ldata_sim_vec;
 
   if (slot_size.size() != nnz_array.size() && !nnz_array.empty()) {
-    std::cout << "Error: slot_size.size() != nnz_array.size() && !nnz_array.empty()" << std::endl;
+    HCTR_LOG(ERROR, WORLD, "Error: slot_size.size() != nnz_array.size() && !nnz_array.empty()\n");
     exit(-1);
   }
 

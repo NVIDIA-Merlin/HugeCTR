@@ -29,8 +29,8 @@ namespace {
 
 auto check_sparse_models = [](std::vector<std::string>& sparse_models) {
   if (sparse_models.empty()) {
-    CK_THROW_(Error_t::WrongInput,
-              "Must provide the path of sparse models, if:\n\
+    HCTR_OWN_THROW(Error_t::WrongInput,
+                   "Must provide the path of sparse models, if:\n\
         \tTrain from scratch: please provide name(s) for the generated model after train;\n\
         \tTrain with existing model: please provide the path of existing sparse model(s);");
   }
@@ -41,11 +41,13 @@ auto check_sparse_models = [](std::vector<std::string>& sparse_models) {
       if (std::filesystem::file_size(key_file) != 0 && std::filesystem::file_size(vec_file) != 0) {
         return true;
       } else {
-        MESSAGE_(std::string("Wrong File: key or emb_vector is empty in ") + sparse_model);
+        HCTR_LOG_S(ERROR, ROOT) << "Wrong File: key or emb_vector is empty in " << sparse_model
+                                << std::endl;
         return false;
       }
     } else {
-      MESSAGE_(std::string("Wrong File: key and emb_vector must exists in ") + sparse_model);
+      HCTR_LOG_S(ERROR, ROOT) << "Wrong File: key and emb_vector must exists in " << sparse_model
+                              << std::endl;
       return false;
     }
   };
@@ -54,19 +56,19 @@ auto check_sparse_models = [](std::vector<std::string>& sparse_models) {
     if (std::filesystem::exists(sparse_model) && std::filesystem::is_directory(sparse_model) &&
         !std::filesystem::is_empty(sparse_model)) {
       if (!check_integrity(sparse_model)) {
-        CK_THROW_(Error_t::BrokenFile, std::string("Please check ") + sparse_model);
+        HCTR_OWN_THROW(Error_t::BrokenFile, "Please check " + sparse_model);
       }
-      MESSAGE_(std::string("Use existing embedding: ") + sparse_model);
+      HCTR_LOG_S(INFO, ROOT) << "Use existing embedding: " << sparse_model << std::endl;
     } else {
       if (std::filesystem::exists(sparse_model) && !std::filesystem::is_directory(sparse_model)) {
-        CK_THROW_(Error_t::BrokenFile,
-                  std::string("File with the same name ") + sparse_model + " exists");
+        HCTR_OWN_THROW(Error_t::BrokenFile, "File with the same name " + sparse_model + " exists");
       }
       if (std::filesystem::exists(sparse_model) && std::filesystem::is_directory(sparse_model) &&
           std::filesystem::is_empty(sparse_model)) {
         std::filesystem::remove_all(sparse_model);
       }
-      MESSAGE_(std::string("Empty embedding, trained table will be stored in ") + sparse_model);
+      HCTR_LOG_S(INFO, ROOT) << "Empty embedding, trained table will be stored in " << sparse_model
+                             << std::endl;
     }
   }
 };
@@ -95,9 +97,10 @@ std::shared_ptr<EmbeddingTrainingCacheParams> CreateETC(
       hcache_configs = std::move(tmp_hc_configs);
     } else if (ps_types.size() != hcache_configs.size()) {
       if (hcache_configs.size() != num_cache) {
-        CK_THROW_(Error_t::WrongInput,
-                  "hcache_configs.size() > 1: hcache_configs.size() should be equal to the num of "
-                  "Cached PS");
+        HCTR_OWN_THROW(
+            Error_t::WrongInput,
+            "hcache_configs.size() > 1: hcache_configs.size() should be equal to the num of "
+            "Cached PS");
       }
 
       auto cnt{0};
@@ -111,11 +114,11 @@ std::shared_ptr<EmbeddingTrainingCacheParams> CreateETC(
     } else if (num_cache == ps_types.size() && num_cache == hcache_configs.size()) {
       // do nothing
     } else {
-      std::stringstream ss;
-      ss << "Wrong hcache_configs:\n"
-         << "  If hcache_configs.size() == 1, all Cached PS will use the same HMemCacheConfig\n"
-         << "  Otherwise, hcache_configs.size() should be equal to the num of Cached PS";
-      CK_THROW_(Error_t::WrongInput, ss.str());
+      HCTR_OWN_THROW(
+          Error_t::WrongInput,
+          "Wrong hcache_configs:\n"
+          "  If hcache_configs.size() == 1, all Cached PS will use the same HMemCacheConfig\n"
+          "  Otherwise, hcache_configs.size() should be equal to the num of Cached PS");
     }
   }
 

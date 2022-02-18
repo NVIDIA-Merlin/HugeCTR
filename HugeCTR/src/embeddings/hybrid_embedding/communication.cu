@@ -75,20 +75,20 @@ void AllToAll_Multi_NCCL<commtype>::communicate(cudaStream_t stream) {
   auto type = get_nccl_type<commtype>();
 
   int num_global_gpus;
-  CK_NCCL_THROW_(ncclCommCount(comm, &num_global_gpus));
+  HCTR_LIB_THROW(ncclCommCount(comm, &num_global_gpus));
 
-  CK_NCCL_THROW_(ncclGroupStart());
+  HCTR_LIB_THROW(ncclGroupStart());
   for (int i = 0; i < num_global_gpus; i++) {
-    CK_NCCL_THROW_(
+    HCTR_LIB_THROW(
         ncclSend(this->send_buffer_.get_ptr() + this->send_offsets_[i] * this->width_data_field_,
                  (this->send_offsets_[i + 1] - this->send_offsets_[i]) * this->width_data_field_,
                  type, i, comm, stream));
-    CK_NCCL_THROW_(
+    HCTR_LIB_THROW(
         ncclRecv(this->recv_buffer_.get_ptr() + this->recv_offsets_[i] * this->width_data_field_,
                  (this->recv_offsets_[i + 1] - this->recv_offsets_[i]) * this->width_data_field_,
                  type, i, comm, stream));
   }
-  CK_NCCL_THROW_(ncclGroupEnd());
+  HCTR_LIB_THROW(ncclGroupEnd());
 }
 
 /*
@@ -119,7 +119,7 @@ HierAll2Allv_Multi_IB<commtype>::HierAll2Allv_Multi_IB(uint32_t instance_id,
       gpu_resource_(gpu_resource),
       ib_comm_(ib_comm),
       comm_stream_(comm_stream) {
-  CK_CUDA_THROW_(cudaEventCreate(&comm_event_));
+  HCTR_LIB_THROW(cudaEventCreate(&comm_event_));
 }
 
 template <typename commtype>
@@ -130,23 +130,23 @@ void HierAll2Allv_Multi_IB<commtype>::update_sizes(cudaStream_t stream) {
 template <typename commtype>
 void HierAll2Allv_Multi_IB<commtype>::communicate(cudaStream_t stream) {
   ib_comm_->post_send_command_a2a<commtype>(coll_handle_, stream, instance_id_);
-  CK_CUDA_THROW_(cudaEventRecord(comm_event_, comm_stream_));
-  CK_CUDA_THROW_(cudaStreamWaitEvent(stream, comm_event_));
+  HCTR_LIB_THROW(cudaEventRecord(comm_event_, comm_stream_));
+  HCTR_LIB_THROW(cudaStreamWaitEvent(stream, comm_event_));
   ib_comm_->wait_global_recv_async(coll_handle_, instance_id_);
 }
 
 template <typename commtype>
 void HierAll2Allv_Multi_IB<commtype>::initiate_communication(cudaStream_t stream) {
   ib_comm_->post_a2a_send_command<commtype>(coll_handle_, stream, instance_id_);
-  CK_CUDA_THROW_(cudaEventRecord(comm_event_, comm_stream_));
-  CK_CUDA_THROW_(cudaStreamWaitEvent(stream, comm_event_));
+  HCTR_LIB_THROW(cudaEventRecord(comm_event_, comm_stream_));
+  HCTR_LIB_THROW(cudaStreamWaitEvent(stream, comm_event_));
 }
 
 template <typename commtype>
 void HierAll2Allv_Multi_IB<commtype>::wait_completion(cudaStream_t stream) {
   ib_comm_->blocking_wait(coll_handle_, stream, instance_id_);
-  CK_CUDA_THROW_(cudaEventRecord(comm_event_, comm_stream_));
-  CK_CUDA_THROW_(cudaStreamWaitEvent(stream, comm_event_));
+  HCTR_LIB_THROW(cudaEventRecord(comm_event_, comm_stream_));
+  HCTR_LIB_THROW(cudaStreamWaitEvent(stream, comm_event_));
   ib_comm_->wait_global_recv_async(coll_handle_, instance_id_);
 }
 

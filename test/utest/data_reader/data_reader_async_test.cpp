@@ -38,14 +38,14 @@ void reader_test(std::vector<int> device_list, size_t file_size, size_t batch_si
   char* ref_data;
   char* read_data;
 
-  CK_NVML_THROW_(nvmlInit_v2());
+  HCTR_LIB_THROW(nvmlInit_v2());
 
   std::vector<std::vector<int>> vvgpu;
   vvgpu.push_back(device_list);
   const auto resource_manager = ResourceManagerExt::create(vvgpu, 424242);
 
-  CK_CUDA_THROW_(cudaMallocManaged(&ref_data, file_size));
-  CK_CUDA_THROW_(cudaMallocManaged(&read_data, file_size));
+  HCTR_LIB_THROW(cudaMallocManaged(&ref_data, file_size));
+  HCTR_LIB_THROW(cudaMallocManaged(&read_data, file_size));
 
 #pragma omp parallel
   {
@@ -75,7 +75,7 @@ void reader_test(std::vector<int> device_list, size_t file_size, size_t batch_si
     size_t sz = desc.size_bytes;
 
     if (sz > 0) {
-      CK_CUDA_THROW_(
+      HCTR_LIB_THROW(
           cudaMemcpy(read_data + total_sz, desc.dev_data[0], sz, cudaMemcpyDeviceToDevice));
       total_sz += sz;
       usleep(wait_time_us);

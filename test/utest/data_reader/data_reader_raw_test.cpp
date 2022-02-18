@@ -123,7 +123,7 @@ void data_reader_worker_raw_test_impl(bool float_label_dense, bool repeat) {
     auto sparse_tensorbag = thread_buffer->device_sparse_buffers[0];
     auto sparse_tensor = SparseTensor<T>::stretch_from(sparse_tensorbag);
     std::unique_ptr<T[]> keys(new T[current_batch_size * slot_num]);
-    CK_CUDA_THROW_(cudaMemcpy(keys.get(), sparse_tensor.get_value_ptr(),
+    HCTR_LIB_THROW(cudaMemcpy(keys.get(), sparse_tensor.get_value_ptr(),
                               current_batch_size * slot_num * sizeof(T), cudaMemcpyDeviceToHost));
 
     for (int i = 0; i < current_batch_size * slot_num; ++i) {
@@ -133,7 +133,7 @@ void data_reader_worker_raw_test_impl(bool float_label_dense, bool repeat) {
 
     // rowoffset always have (1 + batchsize * slot_num) number
     std::unique_ptr<T[]> rowoffsets(new T[1 + batchsize * slot_num]);
-    CK_CUDA_THROW_(cudaMemcpy(rowoffsets.get(), sparse_tensor.get_rowoffset_ptr(),
+    HCTR_LIB_THROW(cudaMemcpy(rowoffsets.get(), sparse_tensor.get_rowoffset_ptr(),
                               (1 + batchsize * slot_num) * sizeof(T), cudaMemcpyDeviceToHost));
     for (int i = 0; i < batchsize * slot_num + 1; ++i) {
       if (i < 1 + current_batch_size * slot_num) {
@@ -150,7 +150,7 @@ void data_reader_worker_raw_test_impl(bool float_label_dense, bool repeat) {
 
     std::unique_ptr<float[]> label_dense_vec(
         new float[current_batch_size * (dense_dim + label_dim)]);
-    CK_CUDA_THROW_(cudaMemcpy(label_dense_vec.get(), label_dense_tensor.get_ptr(),
+    HCTR_LIB_THROW(cudaMemcpy(label_dense_vec.get(), label_dense_tensor.get_ptr(),
                               current_batch_size * (dense_dim + label_dim) * sizeof(float),
                               cudaMemcpyDeviceToHost));
 
@@ -222,7 +222,7 @@ void data_reader_raw_test_impl(const std::vector<int> &device_list, int num_thre
       ASSERT_TRUE(sparse_tensor.nnz() == static_cast<size_t>(current_batch_size * slot_num));
 
       std::unique_ptr<T[]> keys(new T[current_batch_size * slot_num]);
-      CK_CUDA_THROW_(cudaMemcpy(keys.get(), sparse_tensor.get_value_ptr(),
+      HCTR_LIB_THROW(cudaMemcpy(keys.get(), sparse_tensor.get_value_ptr(),
                                 current_batch_size * slot_num * sizeof(T), cudaMemcpyDeviceToHost));
       // std::cout << "iter:" << iter << " keys:" << keys[0];
       for (int i = 0; i < current_batch_size * slot_num; ++i) {
@@ -232,7 +232,7 @@ void data_reader_raw_test_impl(const std::vector<int> &device_list, int num_thre
       }
 
       std::unique_ptr<T[]> rowoffsets(new T[1 + batchsize * slot_num]);
-      CK_CUDA_THROW_(cudaMemcpy(rowoffsets.get(), sparse_tensor.get_rowoffset_ptr(),
+      HCTR_LIB_THROW(cudaMemcpy(rowoffsets.get(), sparse_tensor.get_rowoffset_ptr(),
                                 (1 + batchsize * slot_num) * sizeof(T), cudaMemcpyDeviceToHost));
       for (int i = 0; i < batchsize * slot_num + 1; ++i) {
         if (i < 1 + current_batch_size * slot_num) {
@@ -249,7 +249,7 @@ void data_reader_raw_test_impl(const std::vector<int> &device_list, int num_thre
         auto dense_tensor = Tensor2<__half>::stretch_from(dense_tensorbag);
 
         std::unique_ptr<__half[]> dense(new __half[batch_size_per_gpu * dense_dim]);
-        CK_CUDA_THROW_(cudaMemcpy(dense.get(), dense_tensor.get_ptr(),
+        HCTR_LIB_THROW(cudaMemcpy(dense.get(), dense_tensor.get_ptr(),
                                   batch_size_per_gpu * dense_dim * sizeof(__half),
                                   cudaMemcpyDeviceToHost));
 
@@ -272,7 +272,7 @@ void data_reader_raw_test_impl(const std::vector<int> &device_list, int num_thre
         auto dense_tensor = Tensor2<float>::stretch_from(dense_tensorbag);
 
         std::unique_ptr<float[]> dense(new float[batch_size_per_gpu * dense_dim]);
-        CK_CUDA_THROW_(cudaMemcpy(dense.get(), dense_tensor.get_ptr(),
+        HCTR_LIB_THROW(cudaMemcpy(dense.get(), dense_tensor.get_ptr(),
                                   batch_size_per_gpu * dense_dim * sizeof(float),
                                   cudaMemcpyDeviceToHost));
 
@@ -295,7 +295,7 @@ void data_reader_raw_test_impl(const std::vector<int> &device_list, int num_thre
         auto label_tensor = Tensor2<float>::stretch_from(label_tensorbag);
 
         std::unique_ptr<float[]> label(new float[batch_size_per_gpu * label_dim]);
-        CK_CUDA_THROW_(cudaMemcpy(label.get(), label_tensor.get_ptr(),
+        HCTR_LIB_THROW(cudaMemcpy(label.get(), label_tensor.get_ptr(),
                                   batch_size_per_gpu * label_dim * sizeof(float),
                                   cudaMemcpyDeviceToHost));
 

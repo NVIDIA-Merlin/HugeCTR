@@ -49,7 +49,7 @@ static void data_reader_thread_func_(const std::shared_ptr<IDataReaderWorker>& d
       data_reader->read_a_batch();
     }
   } catch (const std::runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
   }
 }
 
@@ -68,10 +68,10 @@ class DataReaderWorkerGroup {
    */
   void create_data_reader_threads() {
     if (data_readers_.empty()) {
-      CK_THROW_(Error_t::WrongInput, "data_readers_.empty()");
+      HCTR_OWN_THROW(Error_t::WrongInput, "data_readers_.empty()");
     }
     if (!data_reader_threads_.empty()) {
-      CK_THROW_(Error_t::WrongInput, "!data_reader_threads_.empty()");
+      HCTR_OWN_THROW(Error_t::WrongInput, "!data_reader_threads_.empty()");
     }
 
     size_t local_gpu_count = resource_manager_->get_local_gpu_count();
@@ -119,8 +119,9 @@ class DataReaderWorkerGroup {
           (source_type == SourceType_t::Mmap && data_reader_type_ == DataReaderType_t::Raw) ||
           (source_type == SourceType_t::Parquet &&
            data_reader_type_ == DataReaderType_t::Parquet))) {
-      CK_THROW_(Error_t::WrongInput,
-                "set_source only supports FileList for Norm & Mmap for Raw & Parquet for Parquet");
+      HCTR_OWN_THROW(
+          Error_t::WrongInput,
+          "set_source only supports FileList for Norm & Mmap for Raw & Parquet for Parquet");
     }
     size_t num_workers = data_readers_.size();
     for (size_t worker_id = 0; worker_id < num_workers; worker_id++) {

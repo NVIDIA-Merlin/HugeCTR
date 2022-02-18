@@ -859,19 +859,19 @@ void InteractionLayer<T>::init(const Tensor2<T> &in_bottom_mlp_tensor,
     auto second_in_dims = in_embeddings.get_dimensions();
 
     if (first_in_dims.size() != 2) {
-      CK_THROW_(Error_t::WrongInput, "Input Bottom MLP must be a 2D tensor");
+      HCTR_OWN_THROW(Error_t::WrongInput, "Input Bottom MLP must be a 2D tensor");
     }
 
     if (second_in_dims.size() != 3) {
-      CK_THROW_(Error_t::WrongInput, "Input Embeddings must be a 3D tensor");
+      HCTR_OWN_THROW(Error_t::WrongInput, "Input Embeddings must be a 3D tensor");
     }
 
     if (first_in_dims[0] != second_in_dims[0]) {
-      CK_THROW_(Error_t::WrongInput, "the input tensors' batch sizes must be the same");
+      HCTR_OWN_THROW(Error_t::WrongInput, "the input tensors' batch sizes must be the same");
     }
 
     if (first_in_dims[1] != second_in_dims[2]) {
-      CK_THROW_(Error_t::WrongInput, "the input tensors' widths must be the same");
+      HCTR_OWN_THROW(Error_t::WrongInput, "the input tensors' widths must be the same");
     }
 
     size_t n_ins = 1 + second_in_dims[1];
@@ -911,7 +911,7 @@ void InteractionLayer<T>::init(const Tensor2<T> &in_bottom_mlp_tensor,
     }
 
   } catch (const std::runtime_error &rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    HCTR_LOG_S(ERROR, ROOT) << rt_err.what() << std::endl;
     throw;
   }
 }
@@ -985,10 +985,10 @@ void InteractionLayer<T>::fprop(bool is_train) {
   cublasGemmAlgo_t algo =
       use_mixed_precision_ ? CUBLAS_GEMM_DEFAULT_TENSOR_OP : CUBLAS_GEMM_DEFAULT;
 
-  CK_CUBLAS_THROW_(
-      cublasGemmStridedBatchedEx(get_gpu().get_cublas_handle(), CUBLAS_OP_T, CUBLAS_OP_N, m, n, k,
-                                 &alpha, concat, a_type, k, stride_a, concat, b_type, k, stride_b,
-                                 &beta, mat, c_type, n, stride_c, batch_count, compute_type, algo));
+  HCTR_LIB_THROW(cublasGemmStridedBatchedEx(get_gpu().get_cublas_handle(), CUBLAS_OP_T, CUBLAS_OP_N,
+                                            m, n, k, &alpha, concat, a_type, k, stride_a, concat,
+                                            b_type, k, stride_b, &beta, mat, c_type, n, stride_c,
+                                            batch_count, compute_type, algo));
 
   // phase 2: gather & concat
   T *in0 = get_in_tensors(is_train)[0].get_ptr();
@@ -1002,8 +1002,8 @@ void InteractionLayer<T>::fprop(bool is_train) {
 
   PROFILE_RECORD("interaction.fprop.stop", get_gpu().get_stream());
 #ifndef NDEBUG
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
-  CK_CUDA_THROW_(cudaGetLastError());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaGetLastError());
 #endif
 }
 
@@ -1023,8 +1023,8 @@ void InteractionLayer<__half>::fprop(bool is_train) {
   dotBasedInteractFwd(in_mlp, in_emb, output, h, n_ins, in_w, get_gpu().get_stream());
   PROFILE_RECORD("interaction.fprop.stop", get_gpu().get_stream());
 #ifndef NDEBUG
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
-  CK_CUDA_THROW_(cudaGetLastError());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaGetLastError());
 #endif
 }
 
@@ -1076,10 +1076,10 @@ void InteractionLayer<T>::bprop() {
     transpose_and_add<<<grid, block, smem_size, get_gpu().get_stream()>>>(mat, mat, h, n_ins);
   }
 
-  CK_CUBLAS_THROW_(cublasGemmStridedBatchedEx(
-      get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_N, n, m, k, &alpha, concat, a_type, n,
-      stride_a, mat, b_type, k, stride_b, &beta, concat_tmp, c_type, n, stride_c, batch_count,
-      compute_type, algo));
+  HCTR_LIB_THROW(cublasGemmStridedBatchedEx(get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_N,
+                                            n, m, k, &alpha, concat, a_type, n, stride_a, mat,
+                                            b_type, k, stride_b, &beta, concat_tmp, c_type, n,
+                                            stride_c, batch_count, compute_type, algo));
 
   // phase 2:
   T *in_mlp = get_in_tensors(true)[0].get_ptr();
@@ -1094,8 +1094,8 @@ void InteractionLayer<T>::bprop() {
 
   PROFILE_RECORD("interaction.bprop.stop", get_gpu().get_stream());
 #ifndef NDEBUG
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
-  CK_CUDA_THROW_(cudaGetLastError());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaGetLastError());
 #endif
 }
 
@@ -1116,8 +1116,8 @@ void InteractionLayer<__half>::bprop() {
   dotBasedInteractBwd(up_grad, mlp_grad, emb_grad, h, n_ins, in_w, get_gpu().get_stream());
   PROFILE_RECORD("interaction.bprop.stop", get_gpu().get_stream());
 #ifndef NDEBUG
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
-  CK_CUDA_THROW_(cudaGetLastError());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaGetLastError());
 #endif
 }
 

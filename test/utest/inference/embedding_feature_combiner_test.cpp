@@ -22,7 +22,6 @@
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"
 
-using namespace std;
 using namespace HugeCTR;
 
 namespace {
@@ -83,7 +82,7 @@ void embedding_feature_combine_test(int batch_size, int slot_num, int embedding_
   std::shared_ptr<GeneralBuffer2<CudaAllocator>> buff = GeneralBuffer2<CudaAllocator>::create();
 
   std::shared_ptr<Tensor2<int>> row_ptrs_tensor = std::make_shared<Tensor2<int>>();
-  vector<size_t> row_ptrs_dims = {static_cast<size_t>(batch_size * slot_num + 1)};  // 1D
+  std::vector<size_t> row_ptrs_dims = {static_cast<size_t>(batch_size * slot_num + 1)};  // 1D
   buff->reserve(row_ptrs_dims, row_ptrs_tensor.get());
   size_t row_ptrs_size = 1;
   for (auto dim : row_ptrs_dims) {
@@ -99,8 +98,8 @@ void embedding_feature_combine_test(int batch_size, int slot_num, int embedding_
 
   size_t feature_num = h_row_ptrs[row_ptrs_size - 1];
   std::shared_ptr<Tensor2<float>> in_tensor = std::make_shared<Tensor2<float>>();
-  vector<size_t> in_dims = {static_cast<size_t>(feature_num),
-                            static_cast<size_t>(embedding_vec_size)};  // 2D
+  std::vector<size_t> in_dims = {static_cast<size_t>(feature_num),
+                                 static_cast<size_t>(embedding_vec_size)};  // 2D
   buff->reserve(in_dims, in_tensor.get());
 
   Tensor2<TypeEmbedding> out_tensor;
@@ -127,13 +126,13 @@ void embedding_feature_combine_test(int batch_size, int slot_num, int embedding_
 
   // fprop
   simulator.fill(h_in.get(), in_size);
-  CK_CUDA_THROW_(cudaMemcpy(d_in, h_in.get(), in_size * sizeof(float), cudaMemcpyHostToDevice));
-  CK_CUDA_THROW_(cudaMemcpy(d_row_ptrs, h_row_ptrs.get(), row_ptrs_size * sizeof(int),
+  HCTR_LIB_THROW(cudaMemcpy(d_in, h_in.get(), in_size * sizeof(float), cudaMemcpyHostToDevice));
+  HCTR_LIB_THROW(cudaMemcpy(d_row_ptrs, h_row_ptrs.get(), row_ptrs_size * sizeof(int),
                             cudaMemcpyHostToDevice));
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
   embedding_feature_combiner.fprop(false);
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
-  CK_CUDA_THROW_(
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(
       cudaMemcpy(h_out.get(), d_out, out_size * sizeof(TypeEmbedding), cudaMemcpyDeviceToHost));
 
   embedding_feature_combine_cpu(h_in.get(), h_cpu_out.get(), h_row_ptrs.get(), batch_size, slot_num,

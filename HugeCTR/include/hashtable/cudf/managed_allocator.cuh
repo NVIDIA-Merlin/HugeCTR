@@ -17,7 +17,8 @@
 #ifndef MANAGED_ALLOCATOR_CUH
 #define MANAGED_ALLOCATOR_CUH
 
-#include <new>
+#include <base/debug/logger.hpp>
+using HugeCTR::Logger;
 
 template <class T>
 struct managed_allocator {
@@ -29,12 +30,13 @@ struct managed_allocator {
   constexpr managed_allocator(const managed_allocator<U>&) noexcept {}
 
   T* allocate(std::size_t n) const {
-    T* ptr = 0;
+    T* ptr = nullptr;
     cudaError_t result = cudaMallocManaged(&ptr, n * sizeof(T));
     if (cudaSuccess != result || nullptr == ptr) {
-      std::cerr << "ERROR: CUDA Runtime call in line " << __LINE__ << "of file " << __FILE__
-                << " failed with " << cudaGetErrorString(result) << " (" << result << ") "
-                << " Attempted to allocate: " << n * sizeof(T) << " bytes.\n";
+      HCTR_LOG_S(ERROR, WORLD) << "CUDA Runtime call in line " << __LINE__ << " of file "
+                               << __FILE__ << " failed with " << cudaGetErrorString(result) << " ("
+                               << result << "). Attempted to allocate: " << n * sizeof(T)
+                               << " bytes." << std::endl;
       throw std::bad_alloc();
     }
     return ptr;

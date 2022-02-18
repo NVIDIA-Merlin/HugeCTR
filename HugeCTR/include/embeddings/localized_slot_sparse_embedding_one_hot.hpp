@@ -386,7 +386,7 @@ class LocalizedSlotSparseEmbeddingOneHot : public IEmbedding {
                                 wgrad_tensors_, utest_all2all_tensors_,
                                 embedding_data_.get_resource_manager());
     } else {
-      CK_CUDA_THROW_(cudaMemcpyAsync(
+      HCTR_LIB_THROW(cudaMemcpyAsync(
           utest_all2all_tensors_[0].get_ptr(), wgrad_tensors_[0].get_ptr(),
           embedding_data_.get_batch_size_per_gpu(true) * slot_num_per_gpu_[0] *
               embedding_data_.embedding_params_.embedding_vec_size * sizeof(TypeEmbeddingComp),
@@ -399,7 +399,7 @@ class LocalizedSlotSparseEmbeddingOneHot : public IEmbedding {
           embedding_data_.embedding_params_.embedding_vec_size, wgrad_tensors_,
           utest_all2all_tensors_, embedding_data_.get_resource_manager());
     } else {
-      CK_CUDA_THROW_(cudaMemcpyAsync(
+      HCTR_LIB_THROW(cudaMemcpyAsync(
           utest_all2all_tensors_[0].get_ptr(), wgrad_tensors_[0].get_ptr(),
           embedding_data_.get_batch_size_per_gpu(true) * slot_num_per_gpu_[0] *
               embedding_data_.embedding_params_.embedding_vec_size * sizeof(TypeEmbeddingComp),

@@ -53,7 +53,7 @@ void load_key_to_vec(std::vector<TypeKey> &key_vec, std::ifstream &key_ifs, size
 inline std::vector<char> load_to_vector(const std::string &file_name) {
   std::ifstream stream(file_name, std::ifstream::binary);
   if (!stream.is_open()) {
-    CK_THROW_(Error_t::FileCannotOpen, "Can not open " + file_name);
+    HCTR_OWN_THROW(Error_t::FileCannotOpen, "Can not open " + file_name);
   }
 
   size_t file_size_in_byte = std::filesystem::file_size(file_name);
@@ -253,7 +253,7 @@ auto get_data_file = [](Optimizer_t opt_type) {
     case Optimizer_t::SGD:
       break;
     default:
-      CK_THROW_(Error_t::WrongInput, "Wrong optimizer type");
+      HCTR_OWN_THROW(Error_t::WrongInput, "Wrong optimizer type");
   }
   return data_files;
 };
@@ -261,7 +261,7 @@ auto get_data_file = [](Optimizer_t opt_type) {
 inline void generate_opt_state(std::string sparse_model_file, Optimizer_t opt_type) {
   std::string emb_vec_file(sparse_model_file + "/emb_vector");
   if (!std::filesystem::exists(emb_vec_file)) {
-    CK_THROW_(Error_t::IllegalCall, emb_vec_file + " doesn't exist");
+    HCTR_OWN_THROW(Error_t::IllegalCall, emb_vec_file + " doesn't exist");
   }
   size_t num_elem{std::filesystem::file_size(emb_vec_file) / sizeof(float)};
 
@@ -277,7 +277,7 @@ inline void generate_opt_state(std::string sparse_model_file, Optimizer_t opt_ty
     std::for_each(opt_states.begin(), opt_states.end(), [&](float &elem) { elem = dis(gen); });
     std::ofstream ofs(file_name, std::ofstream::out | std::ofstream::trunc);
     if (!ofs.is_open()) {
-      CK_THROW_(Error_t::FileCannotOpen, "Cannot open file");
+      HCTR_OWN_THROW(Error_t::FileCannotOpen, "Cannot open file");
     }
     ofs.write(reinterpret_cast<const char *>(opt_states.data()), opt_states.size() * sizeof(float));
   }

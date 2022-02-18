@@ -81,21 +81,21 @@ GPUBarrier::GPUBarrier(size_t num_gpus, const std::vector<int>& dev_list, bool e
   d_global_barrier_store_ = new float*[num_gpus_];
 
   for (size_t g = 0; g < num_gpus_; g++) {
-    CK_CUDA_THROW_(cudaSetDevice(dev_list_[g]));
-    CK_CUDA_THROW_(cudaMalloc(&d_barrier_flags_[g], num_gpus_ * sizeof(size_t)));
-    CK_CUDA_THROW_(cudaMemset(d_barrier_flags_[g], 0, num_gpus_ * sizeof(size_t)));
+    HCTR_LIB_THROW(cudaSetDevice(dev_list_[g]));
+    HCTR_LIB_THROW(cudaMalloc(&d_barrier_flags_[g], num_gpus_ * sizeof(size_t)));
+    HCTR_LIB_THROW(cudaMemset(d_barrier_flags_[g], 0, num_gpus_ * sizeof(size_t)));
   }
 
   for (size_t g = 0; g < num_gpus_; g++) {
-    CK_CUDA_THROW_(cudaSetDevice(dev_list_[g]));
-    CK_CUDA_THROW_(cudaMalloc(&d_rem_barrier_flags_[g], num_gpus_ * sizeof(size_t*)));
-    CK_CUDA_THROW_(cudaMemcpy(d_rem_barrier_flags_[g], d_barrier_flags_,
+    HCTR_LIB_THROW(cudaSetDevice(dev_list_[g]));
+    HCTR_LIB_THROW(cudaMalloc(&d_rem_barrier_flags_[g], num_gpus_ * sizeof(size_t*)));
+    HCTR_LIB_THROW(cudaMemcpy(d_rem_barrier_flags_[g], d_barrier_flags_,
                               num_gpus_ * sizeof(size_t*), cudaMemcpyHostToDevice));
   }
 
   for (size_t g = 0; g < num_gpus_; g++) {
-    CK_CUDA_THROW_(cudaSetDevice(dev_list_[g]));
-    CK_CUDA_THROW_(cudaMalloc(&d_global_barrier_store_[g], sizeof(float)));
+    HCTR_LIB_THROW(cudaSetDevice(dev_list_[g]));
+    HCTR_LIB_THROW(cudaMalloc(&d_global_barrier_store_[g], sizeof(float)));
   }
 }
 
@@ -103,7 +103,7 @@ void GPUBarrier::sync_all_gpus(const cudaStream_t* streams) {
   constexpr size_t MAX_TPB = 256;
   size_t n_blocks = ceildiv<size_t>(num_gpus_, MAX_TPB);
   for (size_t g = 0; g < num_gpus_; g++) {
-    CK_CUDA_THROW_(cudaSetDevice(dev_list_[g]));
+    HCTR_LIB_THROW(cudaSetDevice(dev_list_[g]));
     sync_all_gpus_cuda<<<n_blocks, MAX_TPB, 0, streams[g]>>>(d_rem_barrier_flags_[g], g, num_gpus_);
   }
 }
@@ -111,7 +111,7 @@ void GPUBarrier::sync_all_gpus(const cudaStream_t* streams) {
 void GPUBarrier::sync_all_gpus(const cudaStream_t stream, size_t device_id) {
   constexpr size_t MAX_TPB = 256;
   size_t n_blocks = ceildiv<size_t>(num_gpus_, MAX_TPB);
-  CK_CUDA_THROW_(cudaSetDevice(dev_list_[device_id]));
+  HCTR_LIB_THROW(cudaSetDevice(dev_list_[device_id]));
   sync_all_gpus_cuda<<<n_blocks, MAX_TPB, 0, stream>>>(d_rem_barrier_flags_[device_id], device_id,
                                                        num_gpus_, enforce_order_);
 }
@@ -119,7 +119,7 @@ void GPUBarrier::sync_all_gpus(const cudaStream_t stream, size_t device_id) {
 void GPUBarrier::sync_all_gpus_report_host(size_t** d_report_count, size_t* h_report_ptr,
                                            const cudaStream_t* streams) {
   for (size_t g = 0; g < num_gpus_; g++) {
-    CK_CUDA_THROW_(cudaSetDevice(dev_list_[g]));
+    HCTR_LIB_THROW(cudaSetDevice(dev_list_[g]));
     sync_all_gpus_report_host_cuda<<<1, num_gpus_, 0, streams[g]>>>(
         d_rem_barrier_flags_[g], d_report_count[g], h_report_ptr, g, num_gpus_);
   }
@@ -127,14 +127,14 @@ void GPUBarrier::sync_all_gpus_report_host(size_t** d_report_count, size_t* h_re
 
 void GPUBarrier::sync_all_gpus_report_host(size_t* d_report_count, size_t* h_report_ptr,
                                            const cudaStream_t stream, size_t device_id) {
-  CK_CUDA_THROW_(cudaSetDevice(dev_list_[device_id]));
+  HCTR_LIB_THROW(cudaSetDevice(dev_list_[device_id]));
   sync_all_gpus_report_host_cuda<<<1, num_gpus_, 0, stream>>>(
       d_rem_barrier_flags_[device_id], d_report_count, h_report_ptr, device_id, num_gpus_);
 }
 
 void GPUBarrier::sync_all_gpus_report_host_and_inc(size_t* d_report_count, size_t* h_report_ptr,
                                                    const cudaStream_t stream, size_t device_id) {
-  CK_CUDA_THROW_(cudaSetDevice(dev_list_[device_id]));
+  HCTR_LIB_THROW(cudaSetDevice(dev_list_[device_id]));
   sync_all_gpus_report_host_and_inc_cuda<<<1, num_gpus_, 0, stream>>>(
       d_rem_barrier_flags_[device_id], d_report_count, h_report_ptr, device_id, num_gpus_,
       enforce_order_);

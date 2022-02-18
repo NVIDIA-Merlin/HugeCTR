@@ -23,7 +23,6 @@
 
 #include "HugeCTR/include/utils.hpp"
 
-using namespace std;
 using namespace HugeCTR;
 
 namespace {
@@ -79,7 +78,7 @@ void fused_reshape_concat_test(size_t batch_size, size_t slot_num, std::vector<i
 
   for (int i = 0; i < num; i++) {
     size_t embedding_vec_size = items[i];
-    vector<size_t> dims_in = {batch_size, slot_num, embedding_vec_size};
+    std::vector<size_t> dims_in = {batch_size, slot_num, embedding_vec_size};
     Tensor2<T> in_tensor;
     buff->reserve(dims_in, &in_tensor);
     in_tensors.push_back(in_tensor);
@@ -123,16 +122,16 @@ void fused_reshape_concat_test(size_t batch_size, size_t slot_num, std::vector<i
   for (int i = 0; i < num; i++) {
     size_t size = rows * items[i];
     simulator.fill(h_ins[i], size);
-    CK_CUDA_THROW_(cudaMemcpy(h_d_ins[i], h_ins[i], size * sizeof(T), cudaMemcpyHostToDevice));
+    HCTR_LIB_THROW(cudaMemcpy(h_d_ins[i], h_ins[i], size * sizeof(T), cudaMemcpyHostToDevice));
   }
 
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
   fused_reshape_concat_layer.fprop(true);
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
 
-  CK_CUDA_THROW_(
+  HCTR_LIB_THROW(
       cudaMemcpy(h_out_item.get(), d_out_item, out_size_item * sizeof(T), cudaMemcpyDeviceToHost));
-  CK_CUDA_THROW_(
+  HCTR_LIB_THROW(
       cudaMemcpy(h_out_ad.get(), d_out_ad, out_size_ad * sizeof(T), cudaMemcpyDeviceToHost));
 
   fused_reshape_concat_cpu(true, h_cpu_out_item.get(), h_cpu_out_ad.get(), h_ins.get(), batch_size,
@@ -147,22 +146,22 @@ void fused_reshape_concat_test(size_t batch_size, size_t slot_num, std::vector<i
   for (int i = 0; i < num; i++) {
     size_t size = rows * items[i];
     memset(h_ins[i], 0, size * sizeof(T));
-    CK_CUDA_THROW_(cudaMemcpy(h_d_ins[i], h_ins[i], size * sizeof(T), cudaMemcpyHostToDevice));
+    HCTR_LIB_THROW(cudaMemcpy(h_d_ins[i], h_ins[i], size * sizeof(T), cudaMemcpyHostToDevice));
   }
   simulatorb.fill(h_out_item.get(), out_size_item);
   simulatorb.fill(h_out_ad.get(), out_size_ad);
-  CK_CUDA_THROW_(
+  HCTR_LIB_THROW(
       cudaMemcpy(d_out_item, h_out_item.get(), out_size_item * sizeof(T), cudaMemcpyHostToDevice));
-  CK_CUDA_THROW_(
+  HCTR_LIB_THROW(
       cudaMemcpy(d_out_ad, h_out_ad.get(), out_size_ad * sizeof(T), cudaMemcpyHostToDevice));
 
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
   fused_reshape_concat_layer.bprop();  // compute wgrad and dgrad
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
 
   for (int i = 0; i < num; i++) {
     size_t size = rows * items[i];
-    CK_CUDA_THROW_(cudaMemcpy(h_ins_b[i], h_d_ins[i], size * sizeof(T), cudaMemcpyDeviceToHost));
+    HCTR_LIB_THROW(cudaMemcpy(h_ins_b[i], h_d_ins[i], size * sizeof(T), cudaMemcpyDeviceToHost));
   }
 
   fused_reshape_concat_cpu(false, h_out_item.get(), h_out_ad.get(), h_ins.get(), batch_size,

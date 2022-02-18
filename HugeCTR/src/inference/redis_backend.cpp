@@ -34,9 +34,9 @@ const char REDIS_HKEY_TIME_SUFFIX = 't';
 std::string make_hash_key(const std::string& table_name, const size_t partition,
                           const char suffix) {
   static const char SEPARATOR = '/';
-  std::stringstream ss;
-  ss << table_name << SEPARATOR << 'p' << partition << SEPARATOR << suffix;
-  return ss.str();
+  std::ostringstream os;
+  os << table_name << SEPARATOR << 'p' << partition << SEPARATOR << suffix;
+  return os.str();
 }
 
 template <typename TKey>
@@ -431,7 +431,7 @@ size_t RedisClusterBackend<TKey>::fetch(const std::string& table_name, const siz
 
             HCTR_LOG_S(TRACE, WORLD)
                 << get_name() << " backend. Partition " << hkey_kv << ", query " << num_queries
-                << ": Fetched " << v_opts.size() << " keys. Hits " << hit_count << "." << std::endl;
+                << ": Fetched " << v_opts.size() << " keys. Hits " << hit_count << '.' << std::endl;
           }
         } catch (...) {
           std::unique_lock lock(error_guard);
@@ -563,7 +563,7 @@ size_t RedisClusterBackend<TKey>::fetch(const std::string& table_name, const siz
 
             HCTR_LOG_S(TRACE, WORLD)
                 << get_name() << " backend. Partition " << hkey_kv << ", query " << num_queries
-                << ": Fetched " << v_opts.size() << " keys. Hits " << hit_count << "." << std::endl;
+                << ": Fetched " << v_opts.size() << " keys. Hits " << hit_count << '.' << std::endl;
           }
         } catch (...) {
           std::unique_lock lock(error_guard);
@@ -692,7 +692,7 @@ size_t RedisClusterBackend<TKey>::evict(const std::string& table_name, const siz
 
             HCTR_LOG_S(TRACE, WORLD) << get_name() << " backend. Partition " << hkey_kv
                                      << ", query " << num_queries << ": Deleted " << k_views.size()
-                                     << " keys. Hits " << hit_count << "." << std::endl;
+                                     << " keys. Hits " << hit_count << '.' << std::endl;
           }
         } catch (...) {
           std::unique_lock lock(error_guard);
@@ -830,13 +830,13 @@ void RedisClusterBackend<TKey>::touch_(const std::string& table_name, const size
   const std::string& hkey_kt = make_hash_key(table_name, part, REDIS_HKEY_TIME_SUFFIX);
 
   try {
-    HCTR_LOG_S(TRACE, WORLD) << get_name() << ": Touching single key of " << hkey_kt << "."
+    HCTR_LOG_S(TRACE, WORLD) << get_name() << ": Touching single key of " << hkey_kt << '.'
                              << std::endl;
     redis_->hset(hkey_kt, {reinterpret_cast<const char*>(&key), sizeof(TKey)},
                  {reinterpret_cast<const char*>(&time), sizeof(time_t)});
   } catch (sw::redis::Error& e) {
     HCTR_LOG_S(ERROR, WORLD) << get_name() << " partition " << hkey_kt
-                             << "; error during refresh: " << e.what() << "." << std::endl;
+                             << "; error during refresh: " << e.what() << '.' << std::endl;
   }
 }
 
@@ -857,11 +857,11 @@ void RedisClusterBackend<TKey>::touch_(const std::string& table_name, const size
 
   try {
     HCTR_LOG_S(TRACE, WORLD) << get_name() << ": Touching " << kt_views.size() << " keys of "
-                             << hkey_kt << "." << std::endl;
+                             << hkey_kt << '.' << std::endl;
     redis_->hmset(hkey_kt, kt_views.begin(), kt_views.end());
   } catch (sw::redis::Error& e) {
     HCTR_LOG_S(ERROR, WORLD) << get_name() << " partition " << hkey_kt
-                             << "; error touching refresh: " << e.what() << "." << std::endl;
+                             << "; error touching refresh: " << e.what() << '.' << std::endl;
   }
 }
 

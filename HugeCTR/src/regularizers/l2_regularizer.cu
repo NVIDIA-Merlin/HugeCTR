@@ -39,8 +39,8 @@ L2Regularizer<T>::L2Regularizer(const Tensor2<float>& weight_buff, const Tensor2
 
 template <typename T>
 void L2Regularizer<T>::do_compute_rterm(const float* weight, float* h_rterm, int num_elements) {
-  CK_CUBLAS_THROW_(cublasSdot(Regularizer<T>::get_gpu().get_cublas_handle(), num_elements, weight,
-                              1, weight, 1, h_rterm));
+  HCTR_LIB_THROW(cublasSdot(Regularizer<T>::get_gpu().get_cublas_handle(), num_elements, weight, 1,
+                            weight, 1, h_rterm));
   const float alpha = lambda_ / (Regularizer<T>::get_batch_size() * 2);
   *h_rterm *= alpha;
 }

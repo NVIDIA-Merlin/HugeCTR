@@ -24,7 +24,7 @@ class MPIEnvironment : public ::testing::Environment {
  protected:
   virtual void SetUp() {
     test::mpi_init();
-    CK_NVML_THROW_(nvmlInit_v2());
+    HCTR_LIB_THROW(nvmlInit_v2());
   };
   virtual void TearDown() { test::mpi_finalize(); }
   virtual ~MPIEnvironment(){};

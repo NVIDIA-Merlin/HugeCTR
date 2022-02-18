@@ -198,11 +198,11 @@ void SparseEmbeddingFunctors::opt_sgd_atomic_cached<TypeEmbeddingComp>(
   size_t grid_size = max(1ul, (num_samples - 1) / num_samples_per_block + 1);
   // each thread sets one embedding vector element
   size_t block_size = embedding_vec_size;
-  CK_CUDA_THROW_(cudaPeekAtLastError());
+  HCTR_LIB_THROW(cudaPeekAtLastError());
   opt_sgd_cached_kernel<<<grid_size, block_size, 0, stream>>>(
       num_samples, embedding_vec_size, lr_scale, top_categories, size_top_categories,
       hash_value_index, wgrad, hash_table_value);
-  CK_CUDA_THROW_(cudaPeekAtLastError());
+  HCTR_LIB_THROW(cudaPeekAtLastError());
 }
 
 template <typename TypeEmbeddingComp>
@@ -220,11 +220,11 @@ void SparseEmbeddingFunctors::update_params<TypeEmbeddingComp>(
                                                hash_table_value.get_ptr(), top_categories.get_ptr(),
                                                size_top_categories, stream, force_stats);
     } else {
-      CK_THROW_(Error_t::WrongInput, "Error: Invalid opitimizer type");
+      HCTR_OWN_THROW(Error_t::WrongInput, "Error: Invalid opitimizer type");
     }
 
   } catch (const std::runtime_error &rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     throw;
   }
 

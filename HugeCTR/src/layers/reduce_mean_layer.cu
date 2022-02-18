@@ -137,11 +137,11 @@ ReduceMeanLayer<T>::ReduceMeanLayer(
     const auto& in_dims = in_tensor.get_dimensions();
     for (auto i : in_dims) {
       if (i == 0) {
-        CK_THROW_(Error_t::WrongInput, "The input dims can not be 0");
+        HCTR_OWN_THROW(Error_t::WrongInput, "The input dims can not be 0");
       }
     }
     if (axis >= (int)(in_dims.size()) || axis < 0) {
-      CK_THROW_(Error_t::WrongInput, "The axis is overflow");
+      HCTR_OWN_THROW(Error_t::WrongInput, "The axis is overflow");
     }
 
     std::vector<size_t> out_dims(in_dims.size());
@@ -158,7 +158,7 @@ ReduceMeanLayer<T>::ReduceMeanLayer(
     in_tensors_.push_back(in_tensor);
 
   } catch (const std::runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     throw;
   }
 }
@@ -191,7 +191,7 @@ void ReduceMeanLayer<T>::fprop(bool is_train) {
 
 #ifndef NDEBUG
   cudaDeviceSynchronize();
-  CK_CUDA_THROW_(cudaGetLastError());
+  HCTR_LIB_THROW(cudaGetLastError());
 #endif
 }
 
@@ -223,7 +223,7 @@ void ReduceMeanLayer<T>::bprop() {
 
 #ifndef NDEBUG
   cudaDeviceSynchronize();
-  CK_CUDA_THROW_(cudaGetLastError());
+  HCTR_LIB_THROW(cudaGetLastError());
 #endif
 }
 
