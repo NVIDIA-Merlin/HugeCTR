@@ -30,7 +30,7 @@
             <a href="../index.html" class="icon icon-home"> SparseOperationKit
           </a>
               <div class="version">
-                1.1.1
+                1.1.2
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
@@ -47,7 +47,11 @@
 <li class="toctree-l2"><a class="reference internal" href="#install-sparseoperationkit">Install SparseOperationKit</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#import-sparseoperationkit">Import SparseOperationKit</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#tensorflow-2-x">TensorFlow 2.x</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#define-a-model-with-tensorflow">Define a model with TensorFlow</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#define-a-model-with-tensorflow">Define a model with TensorFlow</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#via-subclassing">Via Subclassing</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#via-functional-api">Via Functional API</a></li>
+</ul>
+</li>
 <li class="toctree-l3"><a class="reference internal" href="#use-sparseoperationkit-with-tf-distribute-strategy">Use SparseOperationKit with tf.distribute.Strategy</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#with-tf-distribute-mirroredstrategy">with tf.distribute.MirroredStrategy</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#with-tf-distribute-multiworkermirroredstrategy">With tf.distribute.MultiWorkerMirroredStrategy</a></li>
@@ -125,6 +129,9 @@
 <center><b>Fig 1. The structure of demo model</b></center>
 <br>
 <br>
+<section id="via-subclassing">
+<h4>Via Subclassing<a class="headerlink" href="#via-subclassing" title="Permalink to this headline"></a></h4>
+<p>You can create this demo model via subclassing <code class="docutils literal notranslate"><span class="pre">tf.keras.Model</span></code>. See also <a class="reference external" href="https://tensorflow.google.cn/guide/keras/custom_layers_and_models">TensorFlow’s Docs</a>.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">tensorflow</span> <span class="k">as</span> <span class="nn">tf</span>
 
 <span class="k">class</span> <span class="nc">DemoModel</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">models</span><span class="o">.</span><span class="n">Model</span><span class="p">):</span>
@@ -172,6 +179,44 @@
         <span class="k">return</span> <span class="n">logit</span>
 </pre></div>
 </div>
+</section>
+<section id="via-functional-api">
+<h4>Via Functional API<a class="headerlink" href="#via-functional-api" title="Permalink to this headline"></a></h4>
+<p>You can also create this demo model via <code class="docutils literal notranslate"><span class="pre">TensorFlow</span> <span class="pre">Functional</span> <span class="pre">API</span></code>. See <a class="reference external" href="https://tensorflow.google.cn/guide/keras/functional">TensorFlow’s Docs</a>.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">tensorflow</span> <span class="k">as</span> <span class="nn">tf</span>
+
+<span class="k">def</span> <span class="nf">create_DemoModel</span><span class="p">(</span><span class="n">max_vocabulary_size_per_gpu</span><span class="p">,</span>
+                     <span class="n">slot_num</span><span class="p">,</span>
+                     <span class="n">nnz_per_slot</span><span class="p">,</span>
+                     <span class="n">embedding_vector_size</span><span class="p">,</span>
+                     <span class="n">num_of_dense_layers</span><span class="p">):</span>
+    <span class="c1"># config the placeholder for embedding layer</span>
+    <span class="n">input_tensor</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">Input</span><span class="p">(</span>
+                <span class="n">type_spec</span><span class="o">=</span><span class="n">tf</span><span class="o">.</span><span class="n">TensorSpec</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">slot_num</span><span class="p">,</span> <span class="n">nnz_per_slot</span><span class="p">),</span> 
+                <span class="n">dtype</span><span class="o">=</span><span class="n">tf</span><span class="o">.</span><span class="n">int64</span><span class="p">))</span>
+
+    <span class="c1"># create embedding layer and produce embedding vector</span>
+    <span class="n">embedding_layer</span> <span class="o">=</span> <span class="n">sok</span><span class="o">.</span><span class="n">All2AllDenseEmbedding</span><span class="p">(</span>
+                <span class="n">max_vocabulary_size_per_gpu</span><span class="o">=</span><span class="n">max_vocabulary_size_per_gpu</span><span class="p">,</span>
+                <span class="n">embedding_vec_size</span><span class="o">=</span><span class="n">embedding_vector_size</span><span class="p">,</span>
+                <span class="n">slot_num</span><span class="o">=</span><span class="n">slot_num</span><span class="p">,</span>
+                <span class="n">nnz_per_slot</span><span class="o">=</span><span class="n">nnz_per_slot</span><span class="p">)</span>
+    <span class="n">embedding</span> <span class="o">=</span> <span class="n">embedding_layer</span><span class="p">(</span><span class="n">input_tensor</span><span class="p">)</span>
+
+    <span class="c1"># create dense layers and produce logit</span>
+    <span class="n">embedding</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">layers</span><span class="o">.</span><span class="n">Reshape</span><span class="p">(</span>
+                <span class="n">target_shape</span><span class="o">=</span><span class="p">(</span><span class="n">slot_num</span> <span class="o">*</span> <span class="n">nnz_per_slot</span> <span class="o">*</span> <span class="n">embedding_vector_size</span><span class="p">,))(</span><span class="n">embedding</span><span class="p">)</span>
+    
+    <span class="n">hidden</span> <span class="o">=</span> <span class="n">embedding</span>
+    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_of_dense_layers</span><span class="p">):</span>
+        <span class="n">hidden</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">layers</span><span class="o">.</span><span class="n">Dense</span><span class="p">(</span><span class="n">units</span><span class="o">=</span><span class="mi">1024</span><span class="p">,</span> <span class="n">activation</span><span class="o">=</span><span class="s2">&quot;relu&quot;</span><span class="p">)(</span><span class="n">hidden</span><span class="p">)</span>
+    <span class="n">logit</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">layers</span><span class="o">.</span><span class="n">Dense</span><span class="p">(</span><span class="n">units</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">activation</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+
+    <span class="n">model</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">Model</span><span class="p">(</span><span class="n">inputs</span><span class="o">=</span><span class="n">input_tensor</span><span class="p">,</span> <span class="n">outputs</span><span class="o">=</span><span class="n">logit</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">model</span>
+</pre></div>
+</div>
+</section>
 </section>
 <section id="use-sparseoperationkit-with-tf-distribute-strategy">
 <h3>Use SparseOperationKit with tf.distribute.Strategy<a class="headerlink" href="#use-sparseoperationkit-with-tf-distribute-strategy" title="Permalink to this headline"></a></h3>
@@ -279,7 +324,7 @@
 </pre></div>
 </div>
 <p><em><strong>Other Steps</strong></em><br>
-The steps <em><strong>create model instance under MultiWorkerMirroredStrategy.scope</strong></em>, <em><strong>define training step</strong></em> and <em><strong>start training</strong></em> are the same as which are described in <a class="reference external" href="#with-tf-distribute-mirroredstrategy">with tf.distribute.MirroredStrategy</a>. Please check that section.</p>
+The steps <em><strong>create model instance under MultiWorkerMirroredStrategy.scope</strong></em>, <em><strong>define training step</strong></em> and <em><strong>start training</strong></em> are the same as which are described in <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/get_started/get_started.html#with-tf-distribute-mirroredstrategy">with tf.distribute.MirroredStrategy</a>. Please check that section.</p>
 <p><em><strong>launch training program</strong></em><br>
 Because multiple CPU processes are used in each machine for synchronized training, therefore <code class="docutils literal notranslate"><span class="pre">MPI</span></code> can be used to launch this program. For example:</p>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ mpiexec -np <span class="m">8</span> <span class="o">[</span>mpi-args<span class="o">]</span> python3 main.py <span class="o">[</span>python-args<span class="o">]</span>
@@ -485,7 +530,7 @@ You can use <code class="docutils literal notranslate"><span class="pre">horovod
 <div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
   <span class="rst-current-version" data-toggle="rst-current-version">
     <span class="fa fa-book"> Other Versions</span>
-    master: sok_v1.1.1
+    master: sok_v1.1.2
     <span class="fa fa-caret-down"></span>
   </span>
   <div class="rst-other-versions">
@@ -493,7 +538,8 @@ You can use <code class="docutils literal notranslate"><span class="pre">horovod
       <dt>Tags</dt>
       <dd><a href="../../sok_v1.0.0/get_started/get_started.html">sok_v1.0.0</a></dd>
       <dd><a href="../../sok_v1.1.0/get_started/get_started.html">sok_v1.1.0</a></dd>
-      <dd><a href="get_started.html">sok_v1.1.1</a></dd>
+      <dd><a href="../../sok_v1.1.1/get_started/get_started.html">sok_v1.1.1</a></dd>
+      <dd><a href="get_started.html">sok_v1.1.2</a></dd>
     </dl>
   </div>
 </div><script>
