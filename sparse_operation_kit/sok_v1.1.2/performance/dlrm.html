@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SOK DLRM Benchmark &mdash; SparseOperationKit  documentation</title>
+      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/underscore.js"></script>
+        <script src="../_static/doctools.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="SparseOperationKit API" href="../api/index.html" />
+    <link rel="prev" title="Performance of demo model using Dense Embedding Layer" href="dense_demo.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../index.html" class="icon icon-home"> SparseOperationKit
+          </a>
+              <div class="version">
+                1.1.2
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../intro_link.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features/features.html">Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../get_started/get_started.html">Get Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples/index.html">Examples &amp; Tutorials</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Performance</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="dense_demo.html">DenseDemo</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">DLRM</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#prepare-dataset">Prepare Dataset</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#environment">Environment</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#run-benchmark">Run Benchmark</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#performance">Performance</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#profile">Profile</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../api/index.html">API Docs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../release_notes/release_notes.html">Release Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../env_vars/env_vars.html">Environment Variables</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../known_issues/issues.html">Known Issues</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">SparseOperationKit</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="index.html">Performance</a> &raquo;</li>
+      <li>SOK DLRM Benchmark</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/performance/dlrm.md.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section class="tex2jax_ignore mathjax_ignore" id="sok-dlrm-benchmark">
+<h1>SOK DLRM Benchmark<a class="headerlink" href="#sok-dlrm-benchmark" title="Permalink to this headline"></a></h1>
+<p>This is the SOK DLRM benchmark on Criteo Terabyte dataset.</p>
+<section id="prepare-dataset">
+<h2>Prepare Dataset<a class="headerlink" href="#prepare-dataset" title="Permalink to this headline"></a></h2>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git clone https://gitlab-master.nvidia.com/dl/hugectr/hugectr.git
+<span class="nb">cd</span> hugectr/
+<span class="nb">cd</span> sparse_operation_kit/documents/tutorials/DLRM_Benchmark/
+<span class="c1"># train_data.bin and test_data.bin is the binary dataset generated by hugectr</span>
+<span class="c1"># $DATA is the target directory to save the splited dataset</span>
+python3 split_bin.py train_data.bin <span class="nv">$DATA</span>/train
+python3 split_bin.py test_data.bin <span class="nv">$DATA</span>/test
+</pre></div>
+</div>
+</section>
+<section id="environment">
+<h2>Environment<a class="headerlink" href="#environment" title="Permalink to this headline"></a></h2>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>docker run --privileged<span class="o">=</span><span class="nb">true</span> --gpus<span class="o">=</span>all -it --rm nvcr.io/nvidia/merlin/merlin-tensorflow-training:21.11
+git clone https://gitlab-master.nvidia.com/dl/hugectr/hugectr.git
+<span class="nb">cd</span> hugectr/
+<span class="nb">cd</span> sparse_operation_kit/
+mkdir build
+<span class="nb">cd</span> build
+<span class="c1"># use &quot;-DSM=70&quot; in V100</span>
+cmake -DSM<span class="o">=</span><span class="m">80</span> ..
+make -j
+make install
+<span class="nb">cd</span> ..
+cp -r sparse_operation_kit /usr/local/lib/
+</pre></div>
+</div>
+</section>
+<section id="run-benchmark">
+<h2>Run Benchmark<a class="headerlink" href="#run-benchmark" title="Permalink to this headline"></a></h2>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span> hugectr/sparse_operation_kit/documents/tutorials/DLRM_Benchmark/
+<span class="c1"># FP32 Result</span>
+horovodrun -np <span class="m">8</span> ./hvd_wrapper.sh python3 main.py --data_dir<span class="o">=(</span><span class="nv">$DATA</span><span class="o">)</span> --global_batch_size<span class="o">=</span><span class="m">65536</span> --xla --compress --custom_interact --eval_in_last
+
+<span class="c1"># AMP result</span>
+horovodrun -np <span class="m">8</span> ./hvd_wrapper.sh python3 main.py --data_dir<span class="o">=(</span><span class="nv">$DATA</span><span class="o">)</span> --global_batch_size<span class="o">=</span><span class="m">65536</span> --xla --amp --custom_interact --eval_in_last
+</pre></div>
+</div>
+</section>
+<section id="performance">
+<h2>Performance<a class="headerlink" href="#performance" title="Permalink to this headline"></a></h2>
+<p>8 x A100 (82GB embedding table):</p>
+<table class="colwidths-auto docutils align-default">
+<thead>
+<tr class="row-odd"><th class="text-center head"><p>batch size</p></th>
+<th class="text-center head"><p>exit criteria</p></th>
+<th class="text-center head"><p>frequent of evaluation</p></th>
+<th class="text-center head"><p>xla</p></th>
+<th class="text-center head"><p>custom interact</p></th>
+<th class="text-center head"><p>amp</p></th>
+<th class="text-center head"><p>compress</p></th>
+<th class="text-center head"><p>training time (minutes)</p></th>
+<th class="text-center head"><p>evaluating time (minutes)</p></th>
+<th class="text-center head"><p>total time (minutes)</p></th>
+<th class="text-center head"><p>average time of iteration (ms)</p></th>
+<th class="text-center head"><p>throughput(samples/second)</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td class="text-center"><p>65536</p></td>
+<td class="text-center"><p>1 epoch</p></td>
+<td class="text-center"><p>at end</p></td>
+<td class="text-center"><p>yes</p></td>
+<td class="text-center"><p>yes</p></td>
+<td class="text-center"><p>no</p></td>
+<td class="text-center"><p>yes</p></td>
+<td class="text-center"><p>5.93</p></td>
+<td class="text-center"><p>0.09</p></td>
+<td class="text-center"><p>6.02</p></td>
+<td class="text-center"><p>5.55</p></td>
+<td class="text-center"><p>12.08M</p></td>
+</tr>
+<tr class="row-odd"><td class="text-center"><p>65536</p></td>
+<td class="text-center"><p>1 epoch</p></td>
+<td class="text-center"><p>at end</p></td>
+<td class="text-center"><p>yes</p></td>
+<td class="text-center"><p>yes</p></td>
+<td class="text-center"><p>yes</p></td>
+<td class="text-center"><p>no</p></td>
+<td class="text-center"><p>5.06</p></td>
+<td class="text-center"><p>0.07</p></td>
+<td class="text-center"><p>5.13</p></td>
+<td class="text-center"><p>4.74</p></td>
+<td class="text-center"><p>14.51M</p></td>
+</tr>
+<tr class="row-even"><td class="text-center"><p>55296</p></td>
+<td class="text-center"><p>AUC &gt; 0.8025</p></td>
+<td class="text-center"><p>every 3793 steps</p></td>
+<td class="text-center"><p>yes</p></td>
+<td class="text-center"><p>yes</p></td>
+<td class="text-center"><p>no</p></td>
+<td class="text-center"><p>yes</p></td>
+<td class="text-center"><p>5.23</p></td>
+<td class="text-center"><p>1.44</p></td>
+<td class="text-center"><p>6.67</p></td>
+<td class="text-center"><p>4.87</p></td>
+<td class="text-center"><p>11.66M</p></td>
+</tr>
+<tr class="row-odd"><td class="text-center"><p>55296</p></td>
+<td class="text-center"><p>AUC &gt; 0.8025</p></td>
+<td class="text-center"><p>every 3793 steps</p></td>
+<td class="text-center"><p>yes</p></td>
+<td class="text-center"><p>yes</p></td>
+<td class="text-center"><p>yes</p></td>
+<td class="text-center"><p>no</p></td>
+<td class="text-center"><p>4.99</p></td>
+<td class="text-center"><p>1.26</p></td>
+<td class="text-center"><p>6.25</p></td>
+<td class="text-center"><p>4.64</p></td>
+<td class="text-center"><p>12.50M</p></td>
+</tr>
+</tbody>
+</table>
+<p>8 x V100 (82GB embedding table):</p>
+<table class="colwidths-auto docutils align-default">
+<thead>
+<tr class="row-odd"><th class="text-center head"><p>batch size</p></th>
+<th class="text-center head"><p>exit criteria</p></th>
+<th class="text-center head"><p>frequent of evaluation</p></th>
+<th class="text-center head"><p>xla</p></th>
+<th class="text-center head"><p>custom interact</p></th>
+<th class="text-center head"><p>amp</p></th>
+<th class="text-center head"><p>compress</p></th>
+<th class="text-center head"><p>training time (minutes)</p></th>
+<th class="text-center head"><p>evaluating time (minutes)</p></th>
+<th class="text-center head"><p>total time (minutes)</p></th>
+<th class="text-center head"><p>average time of iteration (ms)</p></th>
+<th class="text-center head"><p>throughput(samples/second)</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td class="text-center"><p>65536</p></td>
+<td class="text-center"><p>1 epoch</p></td>
+<td class="text-center"><p>at end</p></td>
+<td class="text-center"><p>yes</p></td>
+<td class="text-center"><p>yes</p></td>
+<td class="text-center"><p>no</p></td>
+<td class="text-center"><p>yes</p></td>
+<td class="text-center"><p>17.52</p></td>
+<td class="text-center"><p>0.19</p></td>
+<td class="text-center"><p>17.71</p></td>
+<td class="text-center"><p>16.42</p></td>
+<td class="text-center"><p>4.02M</p></td>
+</tr>
+<tr class="row-odd"><td class="text-center"><p>65536</p></td>
+<td class="text-center"><p>1 epoch</p></td>
+<td class="text-center"><p>at end</p></td>
+<td class="text-center"><p>yes</p></td>
+<td class="text-center"><p>yes</p></td>
+<td class="text-center"><p>yes</p></td>
+<td class="text-center"><p>no</p></td>
+<td class="text-center"><p>10.20</p></td>
+<td class="text-center"><p>0.15</p></td>
+<td class="text-center"><p>10.35</p></td>
+<td class="text-center"><p>9.56</p></td>
+<td class="text-center"><p>6.99M</p></td>
+</tr>
+<tr class="row-even"><td class="text-center"><p>55296</p></td>
+<td class="text-center"><p>AUC &gt; 0.8025</p></td>
+<td class="text-center"><p>every 3793 steps</p></td>
+<td class="text-center"><p>yes</p></td>
+<td class="text-center"><p>yes</p></td>
+<td class="text-center"><p>no</p></td>
+<td class="text-center"><p>yes</p></td>
+<td class="text-center"><p>16.45</p></td>
+<td class="text-center"><p>3.59</p></td>
+<td class="text-center"><p>20.04</p></td>
+<td class="text-center"><p>14.45</p></td>
+<td class="text-center"><p>3.85M</p></td>
+</tr>
+<tr class="row-odd"><td class="text-center"><p>55296</p></td>
+<td class="text-center"><p>AUC &gt; 0.8025</p></td>
+<td class="text-center"><p>every 3793 steps</p></td>
+<td class="text-center"><p>yes</p></td>
+<td class="text-center"><p>yes</p></td>
+<td class="text-center"><p>yes</p></td>
+<td class="text-center"><p>no</p></td>
+<td class="text-center"><p>9.69</p></td>
+<td class="text-center"><p>2.54</p></td>
+<td class="text-center"><p>12.23</p></td>
+<td class="text-center"><p>8.52</p></td>
+<td class="text-center"><p>6.62M</p></td>
+</tr>
+</tbody>
+</table>
+<p>Note: The custom interact op can be seen in <a class="reference external" href="https://github.com/NVIDIA/DeepLearningExamples/tree/master/TensorFlow2/Recommendation/DLRM/tensorflow-dot-based-interact">here</a>, be careful to clone the repo from <code class="docutils literal notranslate"><span class="pre">https://github.com/NVIDIA/DeepLearningExamples/</span></code>, instead of cloning it from <code class="docutils literal notranslate"><span class="pre">https://gitlab-master.nvidia.com/wraveane/tensorflow-dot-based-interact</span></code> as written in the README.</p>
+</section>
+<section id="profile">
+<h2>Profile<a class="headerlink" href="#profile" title="Permalink to this headline"></a></h2>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span> hugectr/sparse_operation_kit/documents/tutorials/DLRM_Benchmark/
+nsys profile --sample<span class="o">=</span>none --backtrace<span class="o">=</span>none --cudabacktrace<span class="o">=</span>none --cpuctxsw<span class="o">=</span>none --trace-fork-before-exec<span class="o">=</span><span class="nb">true</span> horovodrun -np <span class="m">8</span> ./hvd_wrapper.sh python3 main.py --data_dir<span class="o">=(</span><span class="nv">$DATA</span><span class="o">)</span> --global_batch_size<span class="o">=</span><span class="m">65536</span> --xla --compress --custom_interact --early_stop<span class="o">=</span><span class="m">30</span>
+</pre></div>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="dense_demo.html" class="btn btn-neutral float-left" title="Performance of demo model using Dense Embedding Layer" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../api/index.html" class="btn btn-neutral float-right" title="SparseOperationKit API" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, NVIDIA.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    master: sok_v1.1.2
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="../../sok_v1.0.0/index.html">sok_v1.0.0</a></dd>
+      <dd><a href="../../sok_v1.1.0/index.html">sok_v1.1.0</a></dd>
+      <dd><a href="../../sok_v1.1.1/performance/dlrm.html">sok_v1.1.1</a></dd>
+      <dd><a href="dlrm.html">sok_v1.1.2</a></dd>
+    </dl>
+  </div>
+</div><script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
