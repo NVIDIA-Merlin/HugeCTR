@@ -1,12 +1,17 @@
 # HugeCTR Layer Book
+
 This document introduces different layer classes and corresponding methods in the Python API of HugeCTR. The description of each method includes its functionaliy, arguments, and examples of usage.
-## Table of contents:
+
+## Table of Contents
+
 * [Input Layer](#input-layer)
-* [Sparse Embedding Layers](#sparse-embedding)
+* [Sparse Embedding](#sparse-embedding)
+* [Embedding Types Detail](#embedding-types-detail)
   * [DistributedSlotSparseEmbeddingHash Layer](#distributedslotsparseembeddinghash-layer)
   * [LocalizedSlotSparseEmbeddingHash Layer](#localizedslotsparseembeddinghash-layer)
-  * [LocalizedSlotSparseEmbeddingoneHot Layer](#localizedslotsparseembeddingonehot-layer)
+  * [LocalizedSlotSparseEmbeddingOneHot Layer](#localizedslotsparseembeddingonehot-layer)
 * [Dense Layers](#dense-layers)
+* [Dense Layers Usage](#dense-layers-usage)
   * [FullyConnected Layer](#fullyconnected-layer)
   * [FusedFullyConnected Layer](#fusedfullyconnected-layer)
   * [MultiCross Layer](#multicross-layer)
@@ -24,16 +29,6 @@ This document introduces different layer classes and corresponding methods in th
   * [Interaction Layer](#interaction-layer)
   * [Add Layer](#add-layer)
   * [ReduceSum Layer](#reducesum-layer)
-  * [GRU Layer](#gru-layer)
-  * [FusedReshapeConcat Layer](#fusedreshapeconcat-layer)
-  * [FusedReshapeConcatGeneral Layer](#fusedreshapeconcatgeneral-layer)
-  * [Gather Layer](#gather-layer)
-  * [MatrixMutiply Layer](#matrixmutiply-layer)
-  * [PReLUDice Layer](#preludice-layer)
-  * [ReduceMean Layer](#reducemean-layer)
-  * [Scale Layer](#scale-layer)
-  * [Softmax Layer](#softmax-layer)
-  * [Sub Layer](#sub-layer)
   * [BinaryCrossEntropyLoss](#binarycrossentropyloss)
   * [CrossEntropyLoss](#crossentropyloss)
   * [MultiCrossEntropyLoss](#multicrossentropyloss)

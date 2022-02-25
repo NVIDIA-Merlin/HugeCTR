@@ -175,12 +175,12 @@ With HugeCTR being an open source project, we welcome contributions from the gen
 |GTC Spring 2021|[Learn how Tencent Deployed an Advertising System on the Merlin GPU Recommender Framework](https://www.nvidia.com/en-us/on-demand/session/gtcspring21-s31820/)|April 2021|Xiangting Kong, Joey Wang|English|
 |GTC Spring 2021|[Merlin HugeCTR: Deep Dive Into Performance Optimization](https://www.nvidia.com/en-us/on-demand/session/gtcspring21-s31269/)|April 2021|Minseok Lee|English|
 |GTC Spring 2021|[Integrate HugeCTR Embedding with TensorFlow](https://www.nvidia.com/en-us/on-demand/session/gtcspring21-s31425/)|April 2021|Jianbing Dong|English|
-|GTC China 2020|[MERLIN HUGECTR ：深入研究性能优化](https://on-demand-gtc.gputechconf.com/gtcnew/sessionview.php?sessionName=cns20516-merlin+hugectr+%ef%bc%9a%e6%b7%b1%e5%85%a5%e7%a0%94%e7%a9%b6%e6%80%a7%e8%83%bd%e4%bc%98%e5%8c%96)|Oct 2020|Minseok Lee|English|
-|GTC China 2020|[性能提升 7 倍 + 的高性能 GPU 广告推荐加速系统的落地实现](https://on-demand-gtc.gputechconf.com/gtcnew/sessionview.php?sessionName=cns20483-%E6%80%A7%E8%83%BD%E6%8F%90%E5%8D%87+7+%E5%80%8D+%2B+%E7%9A%84%E9%AB%98%E6%80%A7%E8%83%BD+gpu+%E5%B9%BF%E5%91%8A%E6%8E%A8%E8%8D%90%E5%8A%A0%E9%80%9F%E7%B3%BB%E7%BB%9F%E7%9A%84%E8%90%BD%E5%9C%B0%E5%AE%9E%E7%8E%B0)|Oct 2020|Xiangting Kong|中文|
-|GTC China 2020|[使用 GPU EMBEDDING CACHE 加速 CTR 推理过程](https://on-demand-gtc.gputechconf.com/gtcnew/sessionview.php?sessionName=cns20626-%E4%BD%BF%E7%94%A8+gpu+embedding+cache+%E5%8A%A0%E9%80%9F+ctr+%E6%8E%A8%E7%90%86%E8%BF%87%E7%A8%8B)|Oct 2020|Fan Yu|中文|
-|GTC China 2020|[将 HUGECTR EMBEDDING 集成于 TENSORFLOW](https://on-demand-gtc.gputechconf.com/gtcnew/sessionview.php?sessionName=cns20377-%E5%B0%86+hugectr+embedding+%E9%9B%86%E6%88%90%E4%BA%8E+tensorflow)|Oct 2020|Jianbing Dong|中文|
+|GTC China 2020|[MERLIN HUGECTR ：深入研究性能优化](https://www.nvidia.cn/on-demand/session/gtccn2020-cns20516/)|Oct 2020|Minseok Lee|English|
+|GTC China 2020|[性能提升 7 倍 + 的高性能 GPU 广告推荐加速系统的落地实现](https://www.nvidia.cn/on-demand/session/gtccn2020-cns20483/)|Oct 2020|Xiangting Kong|中文|
+|GTC China 2020|[使用 GPU EMBEDDING CACHE 加速 CTR 推理过程](https://www.nvidia.cn/on-demand/session/gtccn2020-cns20626/)|Oct 2020|Fan Yu|中文|
+|GTC China 2020|[将 HUGECTR EMBEDDING 集成于 TENSORFLOW](https://www.nvidia.cn/on-demand/session/gtccn2020-cns20377/)|Oct 2020|Jianbing Dong|中文|
 |GTC Spring 2020|[HugeCTR: High-Performance Click-Through Rate Estimation Training](https://www.nvidia.com/en-us/on-demand/session/gtcsj20-s21455/)|March 2020|Minseok Lee, Joey Wang|English|
-|GTC China 2019|[HUGECTR: GPU 加速的推荐系统训练](https://on-demand-gtc.gputechconf.com/gtcnew/sessionview.php?sessionName=cn9794-hugectr%3A+gpu+%E5%8A%A0%E9%80%9F%E7%9A%84%E6%8E%A8%E8%8D%90%E7%B3%BB%E7%BB%9F%E8%AE%AD%E7%BB%83)|Oct 2019|Joey Wang|中文|
+|GTC China 2019|[HUGECTR: GPU 加速的推荐系统训练](https://www.nvidia.cn/on-demand/session/gtcchina2019-cn9794/)|Oct 2019|Joey Wang|中文|
 
 ### Blogs ### 
 |Conference / Website|Title|Date|Authors|Language|
