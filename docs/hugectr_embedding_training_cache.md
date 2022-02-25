@@ -1,34 +1,20 @@
 # HugeCTR Embedding Training Cached
 
+## Table of Contents
 
-## Table of Content
-- [HugeCTR Embedding Training Cached](#hugectr-embedding-training-cache)
-  - [Table of Content](#table-of-content)
-  - [1 Introduction](#1-introduction)
-  - [2 Feature Description](#2-feature-description)
-  - [3 Parameter Server in ETC](#3-parameter-server-in-etc)
-    - [3.1 Staged Host Memory Parameter Server](#31-staged-host-memory-parameter-server)
-    - [3.2 Cached Host Memory Parameter Server](#32-cached-host-memory-parameter-server)
-      - [3.2.1 Assumption](#321-assumption)
-      - [3.2.2 Design of Cached-PS](#322-design-of-cached-ps)
-      - [3.2.3 Cached-PS Configuration](#323-cached-ps-configuration)
-      - [3.2.4 How It Works](#324-how-it-works)
-      - [3.2.5 Shortcomings](#325-shortcomings)
-  - [4 User Guide](#4-user-guide)
-    - [4.1 Check Your Dataset](#41-check-your-dataset)
-    - [4.2 Preprocessing](#42-preprocessing)
-    - [4.3 Configuration](#43-configuration)
-      - [4.3.1 Staged-PS](#431-staged-ps)
-      - [4.3.2 Cached-PS](#432-cached-ps)
-    - [5 Parameter Server Performance](#5-parameter-server-performance)
-      - [5.1 Test Condition](#51-test-condition)
-        - [5.1.1 Hardware Setup](#511-hardware-setup)
-        - [5.1.2 Logic of Test Code](#512-logic-of-test-code)
-      - [5.2 Result and Discussion](#52-result-and-discussion)
-  - [6 Related Reading](#6-related-reading)
+* [Introduction](#introduction)
+* [Feature Description](#feature-description)
+* [Parameter Server in ETC](#parameter-server-in-etc)
+  * [Staged Host Memory Parameter Server](#staged-host-memory-parameter-server)
+  * [Cached Host Memory Parameter Server](#cached-host-memory-parameter-server)
+* [User Guide](#user-guide)
+  * [Check Your Dataset](#check-your-dataset)
+  * [Preprocessing](#preprocessing)
+  * [Configuration](#configuration)
+  * [Parameter Server Performance](#parameter-server-performance)
+* [Related Reading](#related-reading)
 
-
-## 1 Introduction
+## Introduction
 This document introduces the **Embedding Training Cached (ETC)** feature in HugeCTR for incremental training. The ETC allows training models with huge embedding tables that exceed the available GPU memory in size.
 
 Normally, the maximum model size in HugeCTR is limited by the hardware resources. A model with larger embedding tables will of course require more GPU memory. However, the amount of GPU's and, therefore, also the amount of GPU memory that can be fit into a single machine or a cluster is finite. This naturally upper-bounds the size of the models that can be executed in a specific setup. The ETC feature is designed to ease this restriction by prefetching portions of the embedding table to the GPU in the granularity of pass as they are required.
@@ -48,7 +34,7 @@ The ETC feature in HugeCTR also provides a satisfactory solution for incremental
 Please check the [HugeCTR Continuous Training Notebook](../notebooks/continuous_training.ipynb) to learn how the ETC can be used to accelerate continuous training.
 
 
-## 2 Feature Description
+## Feature Description
 As illustrated in Fig. 1, HugeCTR datasets can be composed of multiple dataset files. We refer to the training process of a single dataset file as a pass. One such pass is composed of one or more training batches.
 
 <center>
@@ -78,14 +64,14 @@ Fig. 2: Train different passes in the ETC.
 </center>
 
 
-## 3 Parameter Server in ETC
+## Parameter Server in ETC
 With the ETC feature, we provide two kinds of parameter servers, the **[staged host memory parameter server](#431-staged-ps) (Staged-PS)** and the **[cached host memory parameter server](#432-cached-ps) (Cached-PS)**:
 
 * Because of its higher bandwidth and lower latency, the Staged-PS is preferable if the host memory can hold the entire embedding table.
 
 * If that is not the case, we provide the Cached-PS, which overcomes this restriction through only caching several passes' embedding tables.
 
-### 3.1 Staged Host Memory Parameter Server
+### Staged Host Memory Parameter Server
 The Staged-PS loads the entire embedding table into the host memory from a local SSD/HDD or a Network File System (NFS) during initialization. Throughout the lifetime of the ETC, this PS will read from and write to the embedding features *staged* in the host memory without accessing the SSD/HDD or NFS. After training, the [`save_params_to_files`](./python_interface.md#save_params_to_files-method) API allows writing the embedding table in host memory back to the SSD/HDD/NFS.
 
 When conducting distributed training with multiple nodes, the Staged-PS utilizes the combined memories across the cluster as a cache. Thereby, it will only load subsets of the embedding table in each node, so that there are no duplicated embedding features on different nodes. Hence, for users of large models who want to use the ETC, but are stuck by the limited host memory size of a single node, increasing the number of nodes and can allow overcoming this limitation.
@@ -94,17 +80,17 @@ Since all reading and writing operations of the Staged-PS are applied within the
 
 For the configuration of a Staged-PS in a python script, please see [Configuration](#43-configuration).
 
-### 3.2 Cached Host Memory Parameter Server
+### Cached Host Memory Parameter Server
 The Cached-PS is designed to complement the Staged-PS when an embedding table cannot fit into the host memory. The following description covers its principle, functionality, and examples of its usage. This PS is intrinsically more complex. You may skip this section, if the Staged-PS can satisfy your requirements.
 
-#### 3.2.1 Assumption
+#### Assumption
 Generally speaking, the design of the Cached-PS is based on the following assumptions:
 
 * The categorical features in the dataset follow the power-law distribution and exhibit the long-tail phenomenon. Hence, there exists a small number of popular embedding features (i.e., the *hot keys*) will be rather frequently accessed, while the vast majority of embedding features is only occasionally required.
 
 * The composition of these hot keys may vary in actual applications. There amount may vary as well. Thus, the most recently accessed pass in the ETC may contain more or less hot keys than a previous pass.
 
-#### 3.2.2 Design of Cached-PS
+#### Design of Cached-PS
 We designed the Cached-PS as a custom tailored dedicated ETC-aware buffering mechanism. It is not a general-purpose software cache, and can not be generalized to other scenarios.
 
 Its design aligns with the distinguishing characteristics of the ETC, which is that *embeddings are transferred between host and device at the granularity of a pass*. I.e., the caching granularity of the Cached-PS is the embedding table corresponding to the passes, which are marked as blocks in Fig. 3. The *head* marker is used to indicate the latest cached pass.
@@ -115,7 +101,7 @@ Its design aligns with the distinguishing characteristics of the ETC, which is t
 Fig. 3: Blocks in the Cached-PS.
 </center>
 
-#### 3.2.3 Cached-PS Configuration
+#### Cached-PS Configuration
 The Cached-PS is configured through the following parameters:
 
 * `num_blocks`: The maximum number of passes to be cached (`num_blocks=6` in Fig. 3).
@@ -141,7 +127,7 @@ Suggestions for configuration the Cached-PS for actual use-cases:
 
 2. More eviction/insertion operations will happen if you set a larger value for `max_num_evict`. Such operations are expensive, because they need to access the SSD/HDD/NFS. Configuring small or moderate values for this entry will improve the performance of the Cached-PS in `Phase 3` (see [How It Works](#324-how-it-works)).
 
-#### 3.2.4 How It Works
+#### How It Works
 We will use an example in this section to illustrate how the Cached-PS works in an actual use-case in the animation shown in Fig. 4. The configuration used for this example is `CreateHMemCache(6, 0.8, 3)`.
 
 <center>
@@ -161,14 +147,14 @@ The process can be divided into 3 phases:
 * **Phase 3: Cached freezing**
   If all blocks are occupied (`is_full==true`) and the number of eviction/inseration operations reaches `max_num_evict` (`num_evict == max_num_evict`), the cache will be frozen, and no updating will occur for later queries.
 
-#### 3.2.5 Shortcomings
+#### Shortcomings
 To optimize throughput performance, we do not check for duplicates when storing the embedding table of a new pass into the cache block. Consequently, some portions of the embedding table are repeatedly cached, which can be considered as a drawback of the Cached-PS.
 
 
-## 4 User Guide
+## User Guide
 This section gives guidance regarding the preprocessing of the dataset and how the ETC object can be configured in a Python script.
 
-### 4.1 Check Your Dataset
+### Check Your Dataset
 First, you need to decide whether you need to split the dataset into sub-datasets. To do so, you need to:
 
 1. Extract the unique keys of categorical features from your dataset and get the number of unique keys.
@@ -192,7 +178,7 @@ Tab. 1: Suggested value for "Factor" of when using different optimizers
 
 *Note: Please mind that the equation above represents a crude estimation because other components (e.g., data reader, dense model, etc.) may share the GPU memory in HugeCTR. In practice, the available size for the embedding table is smaller than the aggregated size.*
 
-### 4.2 Preprocessing
+### Preprocessing
 Each dataset trained by the ETC is supposed to have a keyset file extracted from the categorical features. The file format of the keyset file as follows:
 
 * Keys are stored in binary format using the respective host system's native byte order.
@@ -203,10 +189,10 @@ Each dataset trained by the ETC is supposed to have a keyset file extracted from
 
 * There are no requirements with respect to the sequential ordering. Hence, keys may be stored in any order.
 
-### 4.3 Configuration
+### Configuration
 Before moving on, please have a look at the [`CreateETC()`](./python_interface.md#createetc-method) section in HugeCTR Python Interface, as it provides a description of the general configuration process of the ETC. Also, please refer to the [HugeCTR Continuous Training Notebook](../notebooks/continuous_training.ipynb) for usage examples of the ETC in actual applications.
 
-#### 4.3.1 Staged-PS
+#### Staged-PS
 To configure the Staged-PS, you need to provide two configuration entries: `ps_types` and `sparse_models`. Each entry is a list, and the number of entries in these lists must be equal to the number of embedding tables in your model.
 
 For example, assume we want to train a WDL model, which contains two embedding tables. Then, we could configure to use the Staged-PS for both of these tables, using the following configuration:
@@ -216,7 +202,7 @@ etc = hugectr.CreateETC(
     sparse_models = [output_dir + "/wdl_0_sparse_model", output_dir + "/wdl_1_sparse_model"])
 ```
 
-#### 4.3.2 Cached-PS
+#### Cached-PS
 To configure the Cached-PS, you need to provide the following 4 configuration entries: `ps_types`, `sparse_models`, `local_paths` and `hcache_configs`. The length of these entries are:
 
 * `ps_types`: The number of embedding tables in the model.
@@ -250,17 +236,17 @@ etc = hugectr.CreateETC(
 ```
 
 
-### 5 Parameter Server Performance
+### Parameter Server Performance
 Next, we provide performance figures for the Staged-PS and the Cached-PS in an actual use-case. In these tests, the query is conducted by providing a list of keys to the PS, upon which the corresponding embedding table will be loaded into a buffer of the host memory. Write operations are applied in the reverse order of the query.
 
 For reference, we also provide the performance data for the `SSD-PS` (read from and write to the SSD/HDD/NFS directly without caching in the host memory, deprecated from v3.3 release).
 
-#### 5.1 Test Condition
+#### Test Condition
 
-##### 5.1.1 Hardware Setup
+##### Hardware Setup
 This test is performed on a single [NVIDIA DGX-2 node](https://docs.nvidia.com/dgx/pdf/dgx2-user-guide.pdf). For more hardware specifications, please see the [DGX-2 User Guide](https://docs.nvidia.com/dgx/pdf/dgx2-user-guide.pdf).
 
-##### 5.1.2 Logic of Test Code
+##### Logic of Test Code
 In this test, we used the data for the first three days in the [Criteo Terabyte Click Logs dataset](https://labs.criteo.com/2013/12/download-terabyte-click-logs/). The raw dataset is divided into ten passes. The number of unique keys and corresponding embedding table sizes are shown in Tab. 2.
 
 We chose an embedding vector size of 128. Hence, the total embedding table size is 53.90 GB. The cache configuration used in this test was `CreateHMemCache(2, 0.4, 0)`.
@@ -286,7 +272,7 @@ In this test, all passes are looped over by two iterations. We first load the em
 
 To make results comparable, we execute the `sync && sysctl vm.drop_caches=3` command to clear the system cache before running the testing code.
 
-#### 5.2 Result and Discussion
+#### Result and Discussion
 The effective bandwidth (embedding size / reading or writing time) of reading and writing along with the hit rate are shown in Fig. 5 and Fig. 6, respectively.
 
 <center>
@@ -312,5 +298,5 @@ These results show that:
 * A properly configured Cached-PS can significantly outperform the SSD-PS (about one order of magnitude in this test).
 
 
-## 6 Related Reading
+## Related Reading
 [HugeCTR Continuous Training Notebook](../notebooks/continuous_training.ipynb)
