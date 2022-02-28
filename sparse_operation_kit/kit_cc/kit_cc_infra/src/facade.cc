@@ -321,7 +321,8 @@ void Facade::get_grad_shape(const size_t global_replica_id, const tensorflow::Te
 
 void Facade::forward(const tensorflow::Tensor* emb_handle, const tensorflow::Tensor* values_tensor,
                      const tensorflow::Tensor* indices_tensor, const size_t global_replica_id,
-                     const bool training, tensorflow::Tensor* emb_vector_tensor) {
+                     const bool training, tensorflow::Tensor* emb_vector_tensor,
+                     tensorflow::Tensor* h_replica_nnz_tensor) {
 #ifdef USE_NVTX
   nvtxRangeId_t forward_marker = nvtxRangeStartA("forward");
 #endif
@@ -336,6 +337,7 @@ void Facade::forward(const tensorflow::Tensor* emb_handle, const tensorflow::Ten
   const std::shared_ptr<Tensor> indices =
       TFTensorWrapper::create(const_cast<tensorflow::Tensor*>(indices_tensor));
   std::shared_ptr<Tensor> emb_vector = TFTensorWrapper::create(emb_vector_tensor);
+  std::shared_ptr<Tensor> h_replica_nnz = TFTensorWrapper::create(h_replica_nnz_tensor);
 
 #ifdef SOK_ASYNC
   resources_mgr_->event_record(global_replica_id, EventRecordType::RDLFramework,
@@ -351,7 +353,7 @@ void Facade::forward(const tensorflow::Tensor* emb_handle, const tensorflow::Ten
                 "emb_vector.dtype is not consistent with compute_dtype.");
 
   // delegate embedding forward to embedding manager
-  embedding_mgr_->forward(embedding, values, indices, global_replica_id, training, emb_vector);
+  embedding_mgr_->forward(embedding, values, indices, global_replica_id, training, emb_vector, h_replica_nnz);
 #ifdef SOK_ASYNC
   resources_mgr_->event_record(global_replica_id, EventRecordType::RMyself,
                                /*event_name=*/embedding->get_var_name() + "_forward_end");
@@ -364,7 +366,8 @@ void Facade::forward(const tensorflow::Tensor* emb_handle, const tensorflow::Ten
 
 void Facade::forward(const tensorflow::Tensor* emb_handle, const tensorflow::Tensor* values_tensor,
                      const size_t global_replica_id, const bool training,
-                     tensorflow::Tensor* emb_vector_tensor) {
+                     tensorflow::Tensor* emb_vector_tensor,
+                     tensorflow::Tensor* h_replica_nnz_tensor) {
 #ifdef USE_NVTX
   nvtxRangeId_t forward_marker = nvtxRangeStartA("forward");
 #endif
@@ -377,6 +380,7 @@ void Facade::forward(const tensorflow::Tensor* emb_handle, const tensorflow::Ten
   const std::shared_ptr<Tensor> values =
       TFTensorWrapper::create(const_cast<tensorflow::Tensor*>(values_tensor));
   std::shared_ptr<Tensor> emb_vector = TFTensorWrapper::create(emb_vector_tensor);
+  std::shared_ptr<Tensor> h_replica_nnz = TFTensorWrapper::create(h_replica_nnz_tensor);
 
 #ifdef SOK_ASYNC
   resources_mgr_->event_record(global_replica_id, EventRecordType::RDLFramework,
@@ -392,7 +396,7 @@ void Facade::forward(const tensorflow::Tensor* emb_handle, const tensorflow::Ten
                 "emb_vector.dtype is not consistent with compute_dtype.");
 
   // delegate embedding forward to embedding manager
-  embedding_mgr_->forward(embedding, values, global_replica_id, training, emb_vector);
+  embedding_mgr_->forward(embedding, values, global_replica_id, training, emb_vector, h_replica_nnz);
 #ifdef SOK_ASYNC
   resources_mgr_->event_record(global_replica_id, EventRecordType::RMyself,
                                /*event_name=*/embedding->get_var_name() + "_forward_end");

@@ -30,10 +30,27 @@ from tensorflow.python.eager import tape
 from tensorflow.python.framework import ops
 import tensorflow.distribute as tf_dist
 from tensorflow.python.ops.variables import VariableSynchronization, VariableAggregation
-from tensorflow.python.distribute.values import DistributedVariable
+from tensorflow.python.distribute import values as values_lib
 from tensorflow.python.ops import resource_variable_ops
 from tensorflow.python.ops import control_flow_ops
 import functools
+
+
+class DistributedPolicy(values_lib.VariablePolicy):
+    def value(self):
+        raise NotImplementedError("value not implementd")
+
+    def _is_mirrored(self):
+        raise NotImplementedError("is_mirrored not implemented")
+    
+    def _as_graph_element(self, _):
+        raise NotImplementedError("as_graph_element not implemented")
+
+    def _get_cross_replica(self, var):
+        return var._get_on_device_or_primary()
+
+    def _update_replica(self, var, update_fn, value, **kwargs):
+        raise NotImplementedError("_update_replica not implemented")
 
 class EmbeddingVariable(BaseResourceVariable):
     """
@@ -60,9 +77,9 @@ class EmbeddingVariable(BaseResourceVariable):
                 value_list.append(v)
         
         # TODO: check whether it will impact the performance due to the aggregation or synchronization setting.
-        return DistributedVariable(strategy=strategy, values=value_list,
+        return values_lib.DistributedVariable(strategy=strategy, values=value_list,
                                     aggregation=VariableAggregation.ONLY_FIRST_REPLICA,
-                                    var_policy=VariableSynchronization.NONE)
+                                    var_policy=DistributedPolicy(VariableAggregation.ONLY_FIRST_REPLICA))
 
     def __init__(self,
                  shape,

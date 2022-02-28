@@ -25,101 +25,7 @@ import tensorflow as tf
 import pickle
 import utils
 
-class SOKDemo(tf.keras.models.Model):
-    def __init__(self,
-                 combiner,
-                 max_vocabulary_size_per_gpu,
-                 slot_num,
-                 max_nnz,
-                 embedding_vec_size, 
-                 use_hashtable=True,
-                 key_dtype=None,
-                 embedding_initializer=None,
-                 **kwargs):
-        super(SOKDemo, self).__init__(**kwargs)
-
-        self.combiner = combiner
-        self.max_vocabulary_size_per_gpu = max_vocabulary_size_per_gpu
-        self.slot_num = slot_num
-        self.max_nnz = max_nnz
-        self.embedding_vec_size = embedding_vec_size
-
-        self.embedding_layer = sok.DistributedEmbedding(combiner=self.combiner,
-                                                        max_vocabulary_size_per_gpu=self.max_vocabulary_size_per_gpu,
-                                                        embedding_vec_size=self.embedding_vec_size,
-                                                        slot_num=self.slot_num,
-                                                        max_nnz=self.max_nnz,
-                                                        use_hashtable=use_hashtable,
-                                                        key_dtype=key_dtype,
-                                                        embedding_initializer=embedding_initializer)
-
-        self.dense_layer = tf.keras.layers.Dense(units=1, activation=None,
-                                                 kernel_initializer="ones",
-                                                 bias_initializer="zeros")
-
-    def call(self, inputs, training=True):
-        # [batchsize, slot_num, embedding_vec_size]
-        embedding_vector = self.embedding_layer(inputs, training=training)
-        # [batchsize, slot_num * embedding_vec_size]
-        embedding_vector = tf.reshape(embedding_vector, shape=[-1, self.slot_num * self.embedding_vec_size])
-        # [batchsize, 1]
-        logit = self.dense_layer(embedding_vector)
-        return logit, embedding_vector
-
-class TFSparseEmbedding(tf.keras.layers.Layer):
-    def __init__(self,
-                 init_tensors,
-                 combiner,
-                 **unused):
-        super(TFSparseEmbedding, self).__init__()
-
-        self._init_tensors = init_tensors
-        self._combiner = combiner
-
-    def build(self, input_shape):
-        self._params = tf.Variable(initial_value=tf.concat(self._init_tensors, axis=0),
-                                   dtype=self._dtype_policy.variable_dtype)
-
-    def call(self, inputs):
-        outputs = tf.nn.embedding_lookup_sparse(params=self._params, sp_ids=inputs, 
-                                             sp_weights=None, combiner=self._combiner)
-        return tf.cast(outputs, self._dtype_policy.compute_dtype)
-
-class TfDemo(tf.keras.models.Model):
-    def __init__(self, 
-                 init_tensors, 
-                 combiner, 
-                 global_batch_size,
-                 slot_num, 
-                 embedding_vec_size,
-                 **kwargs):
-        super(TfDemo, self).__init__(**kwargs)
-        self.combiner = combiner
-        self.global_batch_size = global_batch_size
-        self.slot_num = slot_num
-        self.embedding_vec_size = embedding_vec_size
-
-        self.init_tensors = init_tensors
-        self.embedding_layer = TFSparseEmbedding(init_tensors=init_tensors, 
-                                                 combiner=combiner)
-
-        self.dense_layer = tf.keras.layers.Dense(units=1, activation=None,
-                                                 kernel_initializer="ones",
-                                                 bias_initializer="zeros")
-
-    @property
-    def params(self):
-        return self.embedding_layer._params
-
-    def call(self, inputs, training=True):
-        # [batchsize * slot_num, embedding_vec_size]
-        embedding_vector = self.embedding_layer(inputs)
-
-        # [batchsize, slot_num * embedding_vec_size]
-        embedding_vector = tf.reshape(embedding_vector, 
-            shape=[self.global_batch_size, self.slot_num * self.embedding_vec_size])
-        logit = self.dense_layer(embedding_vector)
-        return logit, embedding_vector
+from sparse_models import SOKDemo, TfDemo, create_SOKSparseDemo_model
 
 def test_sok_demo(args, init_tensors, *random_samples):
     strategy = tf.distribute.MirroredStrategy()
@@ -128,13 +34,22 @@ def test_sok_demo(args, init_tensors, *random_samples):
 
         embedding_initializer = tf.keras.initializers.Ones() if args.use_tf_initializer else None
 
-        plugin_demo = SOKDemo(combiner=args.combiner, 
-                            max_vocabulary_size_per_gpu=args.max_vocabulary_size_per_gpu,
-                            slot_num=args.slot_num, max_nnz=args.max_nnz,
-                            embedding_vec_size=args.embedding_vec_size,
-                            use_hashtable=args.use_hashtable,
-                            key_dtype=args.key_dtype,
-                            embedding_initializer=embedding_initializer)
+        if args.functional_api:
+            plugin_demo = create_SOKSparseDemo_model(
+                                combiner=args.combiner,
+                                max_vocabulary_size_per_gpu=args.max_vocabulary_size_per_gpu,
+                                slot_num=args.slot_num,
+                                max_nnz=args.max_nnz,
+                                embedding_vec_size=args.embedding_vec_size,
+                                use_hashtable=args.use_hashtable)
+        else:
+            plugin_demo = SOKDemo(combiner=args.combiner, 
+                                  max_vocabulary_size_per_gpu=args.max_vocabulary_size_per_gpu,
+                                  slot_num=args.slot_num, max_nnz=args.max_nnz,
+                                  embedding_vec_size=args.embedding_vec_size,
+                                  use_hashtable=args.use_hashtable,
+                                  key_dtype=args.key_dtype,
+                                  embedding_initializer=embedding_initializer)
 
         emb_opt = utils.get_embedding_optimizer(args.optimizer)(learning_rate=0.1)
         dense_opt = utils.get_dense_optimizer(args.optimizer)(learning_rate=0.1)
@@ -395,12 +310,14 @@ if __name__ == "__main__":
     parser.add_argument("--mixed_precision", type=int, choices=[0, 1], default=0)
     parser.add_argument("--key_dtype", type=str, choices=['int64', 'uint32'], default='int64')
     parser.add_argument("--use_tf_initializer", type=int, choices=[0, 1], default=0)
+    parser.add_argument("--functional_api", type=int, choices=[0, 1], default=0)
 
     args = parser.parse_args()
 
     args.use_hashtable = True if args.use_hashtable == 1 else False
     args.mixed_precision = True if 1 == args.mixed_precision else False
     args.use_tf_initializer = True if 1 == args.use_tf_initializer else False
+    args.functional_api = True if 1 == args.functional_api else False
 
     if args.mixed_precision:
         policy = tf.keras.mixed_precision.Policy("mixed_float16")
