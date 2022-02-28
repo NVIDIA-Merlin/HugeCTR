@@ -203,8 +203,9 @@ embedding_cache<TypeHashKey>::embedding_cache(const std::string& model_config_pa
       const size_t row_num = key_file_size / sizeof(long long);
       const size_t num_feature_in_cache = static_cast<size_t>(
           static_cast<double>(cache_config_.cache_size_percentage_) * static_cast<double>(row_num));
-      cache_config_.num_set_in_cache_.emplace_back(num_feature_in_cache /
-                                                   (SLAB_SIZE * SET_ASSOCIATIVITY));
+      cache_config_.num_set_in_cache_.emplace_back(
+          (num_feature_in_cache + SLAB_SIZE * SET_ASSOCIATIVITY - 1) /
+          (SLAB_SIZE * SET_ASSOCIATIVITY));
     }
   }
 
@@ -667,7 +668,8 @@ embedding_cache_refreshspace embedding_cache<TypeHashKey>::create_refreshspace()
     const size_t max_num_key_in_buffer =
         cache_config_.cache_refresh_percentage_per_iteration * max_num_keys_set;
     cache_config_.num_set_in_refresh_workspace_ =
-        max_num_key_in_buffer / (SLAB_SIZE * SET_ASSOCIATIVITY);
+        (max_num_key_in_buffer + SLAB_SIZE * SET_ASSOCIATIVITY - 1) /
+        (SLAB_SIZE * SET_ASSOCIATIVITY);
 
     // Swap device.
     CudaDeviceContext dev_restorer;
