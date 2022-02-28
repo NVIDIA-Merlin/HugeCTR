@@ -352,15 +352,16 @@ void parameter_server<TypeHashKey>::update_database_per_model(
 
     const std::string tag_name = make_tag_name(
         inference_params.model_name, ps_config_.emb_table_name_[inference_params.model_name][j]);
-    const size_t volatile_capacity = volatile_db_->capacity(tag_name);
-    const size_t volatile_cache_amount =
-        (num_key <= volatile_capacity)
-            ? num_key
-            : static_cast<size_t>(volatile_db_cache_rate_ * static_cast<double>(volatile_capacity) +
-                                  0.5);
 
     // Populate volatile database(s).
     if (volatile_db_) {
+      const size_t volatile_capacity = volatile_db_->capacity(tag_name);
+      const size_t volatile_cache_amount =
+          (num_key <= volatile_capacity)
+              ? num_key
+              : static_cast<size_t>(
+                    volatile_db_cache_rate_ * static_cast<double>(volatile_capacity) + 0.5);
+
       HCTR_CHECK(volatile_db_->insert(tag_name, volatile_cache_amount, key_vec.data(),
                                       reinterpret_cast<const char*>(vec_vec.data()),
                                       embedding_size * sizeof(float)));
