@@ -99,7 +99,7 @@ Run the following command after preprocessing the dataset with Pandas:
    ```
 
 ## Train with Multinodes ##
-To train with mutlinodes, do the following:
+To train with multinodes, do the following:
 Run the following command after preprocessing the dataset with Pandas:
    ```shell
    $ mpirun -np 2 python3 ../samples/dcn/dcn_2node_8gpu.py

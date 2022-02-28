@@ -27,7 +27,7 @@ $ export PYTHONPATH=/usr/local/hugectr/lib:$PYTHONPATH
 ``` 
 
 ## Download the Dataset ##
-Go [here](https://ailab.criteo.com/download-criteo-1tb-click-logs-dataset/) and download one of the daaset files into the "${project_root}/tools" directory.
+Go [here](https://ailab.criteo.com/download-criteo-1tb-click-logs-dataset/) and download one of the dataset files into the "${project_root}/tools" directory.
 
 As an alternative, you can run the following command:
 ```
@@ -71,7 +71,7 @@ Execute one of the following preprocessing commands:
    ```
 
 **IMPORTANT NOTES**: 
-- The first and second arguments are as the same as Pandas's as shown above.
+- The first and second arguments are the same as Pandas's, as shown above.
 - If you want to generate binary data using the `Norm` data format instead of the `Parquet` data format, set the fourth argument (the one after `nvt`) to `0`. Generating binary data using the `Norm` data format can take much longer than it does when using the `Parquet` data format because of the additional conversion process. Use the NVTabular binary mode if you encounter an issue with Pandas mode.
 - The last argument determines whether the feature crossing should be applied (1=ON, 0=OFF).
 
@@ -81,7 +81,7 @@ Run the following command after preprocessing the dataset through Pandas:
 $ python3 ../samples/wdl/wdl.py
 ```
 
-If you want to train your model with HugeCTR on a 8-GPU machine such as DGX, run the following command after preprocessing the dataset through Pandas:
+To train your model with HugeCTR on an 8-GPU machine such as DGX, run the following command after preprocessing the dataset through Pandas:
 ```shell
 $ python3 ../samples/wdl/wdl_8gpu.py
 ```
@@ -125,7 +125,7 @@ model.add(hugectr.SparseEmbedding(embedding_type = hugectr.Embedding_t.Distribut
                             bottom_name = "deep_data",
                             optimizer = optimizer))
 ```
-Since the wide model in WDL is Logistic Regression, the `slot_num` in the data layer and `embedding_vec_size` in the Embedding layer should be always be `1`. 
+Because the wide model in WDL is Logistic Regression, the `slot_num` in the data layer and `embedding_vec_size` in the Embedding layer should always be `1`.
 
 P = sigmoid(b0 + b1*x1 + b2*x2 + b3*x3)
 
