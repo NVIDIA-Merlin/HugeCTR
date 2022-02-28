@@ -1,6 +1,9 @@
 # SparseOperationKit Release Notes #
 The release notes for SparseOperationKit.
 
+## What's new in Version 1.1.2 ##
++ Add TensorFlow Functional API support
+
 ## What's new in Version 1.1.1 ##
 + Add Auto-Mixed-Precision training support
 + Add uint32 key dtype support
