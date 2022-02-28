@@ -1,31 +1,32 @@
 # Release Notes
 
 ## What's New in Version 3.4
-+ **Supporting HugeCTR Development with Merlin Unified Container**: From Merlin v22.02 we encourage you to develop HugeCTR under Merlin Unified Container (release container) according to the instructions in [Contributor Guide](docs/hugectr_contributor_guide.md) to keep consistent.
+
++ **Support for Building HugeCTR with the Unified Merlin Container**: HugeCTR can now be built using our unified Merlin container. For more information, refer to our [Contributor Guide](docs/hugectr_contributor_guide.md).
 
 + **Hierarchical Parameter Server (HPS) Enhancements**:
-    + **Missing key insertion feature**: Via a simple flag, it is now possible to configure HugeCTR such that missed embedding-table entries during lookup are automatically inserted into volatile database layers such as the Redis and Hashmap backends.
-    + **Asynchronous timestamp refresh**: In the last release we introduced the passing-of-time-aware eviction policies. These are policies that are applied to shrink database partitions through dropping keys if they grow beyond certain limits. However, the time-information utilized by these eviction policies represented the update time. Hence, an embedding was evicted based on the time passed since its last update. If you operate HugeCTR in inference mode, the embedding table is typically immutable. With the above-described missing key insertion feature we now support actively tuning the contents of volatile database layers to the data distribution during lookup. To allow time-based eviction to take place, it is now possible to enable timestamp refreshing for frequently used embeddings. Once enabled, refreshing is handled asynchronously using background threads. Hence, it won’t block your inference jobs. For most applications, the associated performance impact from enabling this feature is barely noticeable.
-    + **Support HDFS(Hadoop Distributed File System) Parameter Server in Training**:
-        + A new Python API DataSourceParams used to specify the file system and paths to data and model files.
-        + Support loading data from HDFS to the local file system for HugeCTR training.
-        + Support dumping trained model and optimizer states into HDFS.
-    + **Online seamless update of the parameters of the dense part of the model**: HugeCTR Backend has supported online model version updating by the [Load API](https://github.com/triton-inference-server/server/blob/main/docs/protocol/extension_model_repository.md#load) of Triton (including the seamless update of the dense part and corresponding embedding inference cache for the same model), and the Load API is still fully compatible with online deployment of new models.
+    + **New Missing Key (Embedding Table Entries) Insertion Feature**: Using a simple flag, it is now possible to configure HugeCTR with missing keys (embedding table entries). During lookup, these missing keys will automatically be inserted into volatile database layers such as the Redis and Hashmap backends.
+    + **Asynchronous Timestamp Refresh**: To allow time-based eviction to take place, it is now possible to enable timestamp refreshing for frequently used embeddings. Once enabled, refreshing is handled asynchronously using background threads, which won’t block your inference jobs. For most applications, the associated performance impact from enabling this feature is barely noticeable.
+    + **HDFS (Hadoop Distributed File System) Parameter Server Support During Training**:
+        + We're introducing a new DataSourceParams API, which is a python API that can be used to specify the file system and paths to data and model files.
+        + We've added support for loading data from HDFS to the local file system for HugeCTR training.
+        + We've added support for dumping trained model and optimizer states into HDFS.
+    + **New Load API Capabilities**: In addition to being able to deploy new models, the HugeCTR Backend's [Load API](https://github.com/triton-inference-server/server/blob/main/docs/protocol/extension_model_repository.md#load) can now be used to update the dense parameters for models and corresponding embedding inference cache online. 
 
-+ **Sparse Operation Kit Enhancements**:
-    + **Mixed Precision Training**: Mixed precision training can be enabled via TF’s pattern to enhance the training performance and lessen memory usage.
-    + **DLRM Benchmark**: DLRM is a standard benchmark for recommendation model training. A [note book](sparse_operation_kit/documents/tutorials/DLRM_Benchmark#sok-dlrm-benchmark) is added to address the performance of SOK on this benchmark in this release.
-    + **Support Uint32_t / int64_t key dtype in SOK**: Int64 or uint32 can be used as the key data type for SOK’s embedding. By default, it is int64.
-    + **Add TensorFlow initializers support**: Tensorflow native initializer can be used in SOK now. e.g. `sok.All2AllDenseEmbedding(embedding_initializer=tf.keras.initializers.RandomUniform())` Please find more details in SOK [API document](https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/api/embeddings/dense/all2all.html).
++ **Sparse Operation Kit (SOK) Enhancements**:
+    + **Mixed Precision Training**: Enabling mixed precision training using TensorFlow’s pattern to enhance the training performance and lessen memory usage is now possible.
+    + **DLRM Benchmark**: DLRM is a standard benchmark for recommendation model training, so we added a new [notebook](sparse_operation_kit/documents/tutorials/DLRM_Benchmark#sok-dlrm-benchmark) to address the performance of SOK on this benchmark.
+    + **Uint32_t / int64_t key dtype Support in SOK**: Int64 or uint32 can now be used as the key data type for SOK’s embedding. Int64 is the default.
+    + **TensorFlow Initializers Support**: We now support the TensorFlow native initializer within SOK, such as `sok.All2AllDenseEmbedding(embedding_initializer=tf.keras.initializers.RandomUniform())`. For more information, refer to [All2All Dense Embedding](https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/api/embeddings/dense/all2all.html).
 
-+ **User Experience Enhancements**
-    + We have revised several notebooks and readme files to clarify instructions and make HugeCTR more accessible in general.
-    + Thanks to GitHub user @MuYu-zhi , who brought to our attention that having configured too few shared memory can impact the proper operation of HugeCTR. We extended the SOK docker setup instructions to address how such issues can be resolved using the `--shm-size` setting of docker.
-    + Although HugeCTR is designed for scalability, having a beefy machine is not necessary for smaller workloads and testing. We added information about the required specs for notebook testing environments in [README]( /notebooks#system-specifications).
++ **Documentation Enhancements**
+    + We've revised several of our notebooks and readme files to improve readability and accessibility.
+    + We've revised the SOK docker setup instructions to indicate that HugeCTR setup issues can be resolved using the `--shm-size` setting within docker.
+    + Although HugeCTR is designed for scalability, having a robust machine is not necessary for smaller workloads and testing. We've documented the required specifications for notebook testing environments. For more information, refer to our [README for HugeCTR Jupyter Demo Notebooks]( /notebooks#system-specifications).
 
-+ **Inference for Multi-tasking**： We support HugeCTR inference for multiple tasks. When the label dimension is the number of binary classification tasks and `MultiCrossEntropyLoss` is employed during training, the shape of inference results will be `(batch_size*num_batches, label_dim)`. For more information, please refer to [Inference API](docs/python_interface.md#predict-method).
++ **Inference Enhancements**：We now support HugeCTR inference for managing multiple tasks. When the label dimension is the number of binary classification tasks and `MultiCrossEntropyLoss` is employed during training, the shape of inference results will be `(batch_size*num_batches, label_dim)`. For more information, refer to [Inference API](docs/python_interface.md#predict-method).
 
-+ **Fix the Embedding Cache Issue for Super Small Embedding Tables**
++ **Embedding Cache Issue Resolution**: The embedding cache issue for very small embedding tables has been resolved.
 
 ## What's New in Version 3.3.1
 
