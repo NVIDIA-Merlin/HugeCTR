@@ -327,6 +327,7 @@ const std::map<std::string, Layer_t> LAYER_TYPE_MAP_MP = {
     {"MultiCrossEntropyLoss", Layer_t::MultiCrossEntropyLoss},
     {"WeightMultiply", Layer_t::WeightMultiply},
     {"ReduceSum", Layer_t::ReduceSum},
+    {"Softmax", Layer_t::Softmax},
     {"ReLU", Layer_t::ReLU},
     {"Reshape", Layer_t::Reshape},
     {"Sigmoid", Layer_t::Sigmoid},
