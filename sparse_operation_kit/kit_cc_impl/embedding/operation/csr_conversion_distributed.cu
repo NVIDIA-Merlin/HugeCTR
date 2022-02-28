@@ -170,7 +170,10 @@ class CsrConversionDistributed : public Operation {
     // set outputs
     replica_context->set_output("replica_csr_values", cub_values_output_[local_replica_id]);
     replica_context->set_output("replica_row_offset", csr_row_offsets_cast_[local_replica_id]);
-    replica_context->set_output("replica_host_nnz", cub_host_num_selected_[local_replica_id]);
+
+    auto& host_nnz = replica_context->output("replica_host_nnz");
+    host_nnz->GetPtrWithType<size_t>()[0] = static_cast<size_t>(
+            cub_host_num_selected_[local_replica_id].get_ptr()[0]);
   }
 
   void backward(const Context_t &replica_context) override {

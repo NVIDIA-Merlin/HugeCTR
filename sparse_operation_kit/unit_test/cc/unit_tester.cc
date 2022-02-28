@@ -165,12 +165,15 @@ void UnitTester::test_csr_conversion_distributed(
       "host_total_num_elements",
       TFTensorWrapper::create(const_cast<tensorflow::Tensor*>(total_valid_num_tensor)),
       /*overwrite=*/true);
+  replica_context->set_output(
+      "replica_host_nnz",
+      TFTensorWrapper::create(const_cast<tensorflow::Tensor*>(replica_nnz_tensor)),
+      /*overwrite=*/true);
 
   csr_conver->forward(replica_context, /*training=*/true);
 
   const auto replica_csr_values = replica_context->output("replica_csr_values");
   const auto replica_row_offset = replica_context->output("replica_row_offset");
-  const auto replica_host_nnz = replica_context->output("replica_host_nnz");
 
   auto local_gpu = resource_mgr_->get_local_gpu(local_replica_id);
   CK_CUDA(cudaMemcpyAsync(replcia_values_tensor->data(), replica_csr_values->GetPtrWithType<void>(),
@@ -179,9 +182,6 @@ void UnitTester::test_csr_conversion_distributed(
   CK_CUDA(cudaMemcpyAsync(
       replica_csr_row_offsets_tensor->data(), replica_row_offset->GetPtrWithType<void>(),
       replica_row_offset->get_size_in_bytes(), cudaMemcpyDefault, local_gpu->get_stream()));
-  CK_CUDA(cudaMemcpyAsync(replica_nnz_tensor->data(), replica_host_nnz->GetPtrWithType<void>(),
-                          replica_host_nnz->get_size_in_bytes(), cudaMemcpyDefault,
-                          local_gpu->get_stream()));
 #ifdef SOK_ASYNC
   resource_mgr_->event_record(global_replica_id, EventRecordType::RMyself,
                               /*event_name=*/"CSRConversionDistributedUnitTest_end");

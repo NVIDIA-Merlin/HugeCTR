@@ -110,6 +110,33 @@ class SOKDemo(tf.keras.models.Model):
         logit = self.out_layer(hidden)
         return logit, all_vectors
 
+def create_SOKDemo(combiner,
+                   max_vocabulary_size_per_gpu,
+                   embedding_vec_size,
+                   slot_num,
+                   max_nnz,
+                   use_hashtable=True):
+    """
+    Only 1 Embedding + 1 Dense
+    """
+    input_tensor = tf.keras.Input(shape=(max_nnz,), sparse=True, dtype=tf.int64)
+    embedding_layer = sok.DistributedEmbedding(combiner=combiner,
+                                               max_vocabulary_size_per_gpu=max_vocabulary_size_per_gpu,
+                                               embedding_vec_size=embedding_vec_size,
+                                               slot_num=slot_num,
+                                               max_nnz=max_nnz,
+                                               use_hashtable=use_hashtable)
+    embedding = embedding_layer(input_tensor)
+    embedding = tf.keras.layers.Reshape(target_shape=(slot_num * embedding_vec_size,))(embedding)
+
+    logit = tf.keras.layers.Dense(units=1, activation=None,
+                                  kernel_initializer="ones",
+                                  bias_initializer="zeros")(embedding)
+    model = tf.keras.Model(inputs=input_tensor, outputs=[logit, embedding])
+
+    # set attr
+    model.embedding_layers = [embedding_layer]
+    return model
 
 
 class TFDemo(tf.keras.models.Model):

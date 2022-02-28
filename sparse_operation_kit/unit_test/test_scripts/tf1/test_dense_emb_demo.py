@@ -21,7 +21,7 @@ sys.path.append(os.path.abspath(os.path.join(
 import sparse_operation_kit as sok
 import tensorflow as tf
 import utils
-from dense_models import SOKDemo, TFDemo
+from dense_models import SOKDemo, TFDemo, create_SOKDemo
 import strategy_wrapper
 import numpy as np
 
@@ -70,15 +70,22 @@ def get_sok_results(args, init_tensors, *random_samples):
 
         embedding_initializer = tf.keras.initializers.Ones() if args.use_tf_initializer else None
 
-        sok_dense_demo = SOKDemo(max_vocabulary_size_per_gpu=args.max_vocabulary_size_per_gpu,
-                                 embedding_vec_size=args.embedding_vec_size,
-                                 slot_num=args.slot_num,
-                                 nnz_per_slot=args.nnz_per_slot,
-                                 use_hashtable=args.use_hashtable,
-                                 dynamic_input=args.dynamic_input,
-                                 num_of_dense_layers=0,
-                                 key_dtype=args.key_dtype,
-                                 embedding_initializer=embedding_initializer)
+        if not args.functional_api:
+            sok_dense_demo = SOKDemo(max_vocabulary_size_per_gpu=args.max_vocabulary_size_per_gpu,
+                                    embedding_vec_size=args.embedding_vec_size,
+                                    slot_num=args.slot_num,
+                                    nnz_per_slot=args.nnz_per_slot,
+                                    use_hashtable=args.use_hashtable,
+                                    dynamic_input=args.dynamic_input,
+                                    num_of_dense_layers=0,
+                                    key_dtype=args.key_dtype,
+                                    embedding_initializer=embedding_initializer)
+        else:
+            sok_dense_demo = create_SOKDemo(max_vocabulary_size_per_gpu=args.max_vocabulary_size_per_gpu,
+                                            embedding_vec_size=args.embedding_vec_size[0],
+                                            slot_num=args.slot_num[0],
+                                            nnz_per_slot=args.nnz_per_slot,
+                                            use_hashtable=args.use_hashtable)
 
         emb_opt = utils.get_embedding_optimizer(args.optimizer)(learning_rate=0.1)
         dense_opt = utils.get_dense_optimizer(args.optimizer)(learning_rate=0.1)
@@ -414,6 +421,7 @@ if __name__ == "__main__":
                         required=False, default=0)
     parser.add_argument("--key_dtype", type=str, choices=["int64", "uint32"], default="int64")
     parser.add_argument("--use_tf_initializer", type=int, choices=[0, 1], default=0)
+    parser.add_argument("--functional_api", type=int, choices=[0, 1], default=0)
 
     args = parser.parse_args()
 
@@ -424,6 +432,7 @@ if __name__ == "__main__":
     args.dynamic_input = True if args.dynamic_input == 1 else False
     args.mixed_precision = True if args.mixed_precision == 1 else False
     args.use_tf_initializer = True if args.use_tf_initializer == 1 else False
+    args.functional_api = True if args.functional_api == 1 else False
 
     if (args.distributed_tool == "onedevice" and args.gpu_num != 1):
         raise ValueError(f"When 'onedevice' is used as the distributed_tool, "

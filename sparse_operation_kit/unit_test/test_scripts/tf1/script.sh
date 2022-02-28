@@ -311,6 +311,21 @@ mpiexec --allow-run-as-root -np 8 --oversubscribe \
     --generate_new_datas=1 \
     --save_params=1 \
     --use_hashtable=1 \
+    --functional_api=1
+
+mpiexec --allow-run-as-root -np 8 --oversubscribe \
+    python3 test_dense_emb_demo.py \
+    --distributed_tool="horovod" \
+    --iter_num=30 \
+    --max_vocabulary_size_per_gpu=8192 \
+    --slot_num=30 \
+    --nnz_per_slot=10 \
+    --embedding_vec_size=4 \
+    --global_batch_size=16384 \
+    --optimizer="compat_adam" \
+    --generate_new_datas=1 \
+    --save_params=1 \
+    --use_hashtable=1 \
     --key_dtype='uint32' \
     --use_tf_initializer=1
 mpiexec --allow-run-as-root -np 8 --oversubscribe \
@@ -359,6 +374,21 @@ mpiexec --allow-run-as-root -np 8 --oversubscribe \
     --use_hashtable=1
 
 # sparse_embedding + compat_adam + save_params + hashtable
+mpiexec --allow-run-as-root -np 8 --oversubscribe \
+    python3 test_sparse_emb_demo.py \
+    --distributed_tool="horovod" \
+    --iter_num=30 \
+    --max_vocabulary_size_per_gpu=8192 \
+    --slot_num=30 \
+    --max_nnz=10 \
+    --embedding_vec_size=4 \
+    --global_batch_size=16384 \
+    --optimizer="compat_adam" \
+    --generate_new_datas=1 \
+    --save_params=1 \
+    --use_hashtable=1 \
+    --functional_api=1
+
 mpiexec --allow-run-as-root -np 8 --oversubscribe \
     python3 test_sparse_emb_demo.py \
     --distributed_tool="horovod" \

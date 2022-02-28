@@ -21,16 +21,28 @@ from __future__ import print_function
 from sparse_operation_kit import kit_lib
 import tensorflow.distribute as tf_dist
 from tensorflow.python.framework import sparse_tensor
+from tensorflow.python.distribute import distribute_lib
 from tensorflow.python.ops import check_ops
 from tensorflow.python.ops import array_ops
 from tensorflow.python.ops import resource_variable_ops
 import sys, os
 
 CommToolSet = set(["Strategy", "MPI", "Horovod", "OneDevice"])
-def get_global_replica_id(comm_tool=None):
+
+def get_global_replica_id(comm_tool=None, var=None):
     def _strategy():
-        replica_ctx = tf_dist.get_replica_context()
-        return replica_ctx.replica_id_in_sync_group
+        def _get_current_replica_id_in_group_sync():
+            replica_ctx = tf_dist.get_replica_context()
+            if replica_ctx:
+                replica_id = replica_ctx.replica_id_in_sync_group
+            else:
+                replica_id = (distribute_lib.get_update_replica_id() if kit_lib.in_tensorflow2() 
+                             else distribute_lib.get_update_device())
+            if replica_id is None:
+                replica_id = array_ops.constant(0, dtype=array_ops.dtypes.int32)
+            return replica_id
+
+        return _get_current_replica_id_in_group_sync()
 
     def _MPI():
         return int(os.getenv("OMPI_COMM_WORLD_RANK"))
@@ -85,16 +97,17 @@ def embedding_lookup(embedding_variable, values, training=True, dynamic_input=Fa
 
     resource_variable_ops.variable_accessed(embedding_variable)
 
-    comm_tool = _get_comm_tool()
+    global_replica_id = get_global_replica_id(_get_comm_tool(), embedding_variable)
 
-    return kit_lib.plugin_dense_fprop(embedding_variable._handle,
-                                      embedding_layer.handle, 
-                                      values=values,
-                                      global_replica_id=get_global_replica_id(comm_tool),
-                                      training=training,
-                                      unique_op_name=embedding_variable.name,
-                                      dynamic_input=dynamic_input,
-                                      dtype=embedding_layer.compute_dtype)
+    vector, _  = kit_lib.plugin_dense_fprop(embedding_variable._handle,
+                                            embedding_layer.handle, 
+                                            values=values,
+                                            global_replica_id=global_replica_id,
+                                            training=training,
+                                            unique_op_name=embedding_variable.name,
+                                            dynamic_input=dynamic_input,
+                                            dtype=embedding_layer.compute_dtype)
+    return vector
 
 
 def embedding_lookup_sparse(embedding_variable, sp_ids, slot_num, training=True):
@@ -112,13 +125,14 @@ def embedding_lookup_sparse(embedding_variable, sp_ids, slot_num, training=True)
 
     resource_variable_ops.variable_accessed(embedding_variable)
 
-    comm_tool = _get_comm_tool()
+    global_replica_id = get_global_replica_id(_get_comm_tool(), embedding_variable)
 
-    return kit_lib.plugin_sparse_fprop(embedding_variable._handle,
+    vector, _ = kit_lib.plugin_sparse_fprop(embedding_variable._handle,
                                        embedding_layer.handle,
                                        values, row_indices,
-                                       get_global_replica_id(comm_tool),
+                                       global_replica_id,
                                        slot_num=slot_num,
                                        training=training,
                                        unique_op_name=embedding_variable.name,
                                        dtype=embedding_layer.compute_dtype)
+    return vector
