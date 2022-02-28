@@ -320,7 +320,13 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
           HCTR_LOG(INFO, ROOT,
                    "Inference stage skip CrossEntropyLoss layer, replaced by Softmax layer\n");
           if (use_mixed_precision) {
-            HCTR_OWN_THROW(Error_t::WrongInput, "Softmax layer does not support fp16");
+            Tensor2<__half> in_tensor = Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
+            Tensor2<__half> out_tensor;
+            blobs_buff->reserve(in_tensor.get_dimensions(), &out_tensor);
+            output_tensor_entries.push_back(
+                {input_output_info.output_names[0], out_tensor.shrink()});
+            emplaceback_layer(
+                new SoftmaxLayer<__half>(in_tensor, out_tensor, blobs_buff, gpu_resource));
           } else {
             Tensor2<float> in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
             Tensor2<float> out_tensor;

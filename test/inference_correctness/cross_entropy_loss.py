@@ -139,7 +139,7 @@ inference_params = InferenceParams(
     device_id=0,
     use_gpu_embedding_cache=True,
     cache_size_percentage=0.5,
-    use_mixed_precision=False,
+    use_mixed_precision=True,
     i64_input_key=True,
 )
 

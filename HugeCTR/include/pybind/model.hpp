@@ -86,6 +86,7 @@ std::map<Layer_t, std::string> LAYER_TYPE_TO_STRING_MP = {
     {Layer_t::FmOrder2, "FmOrder2"},
     {Layer_t::Add, "Add"},
     {Layer_t::ReduceSum, "ReduceSum"},
+    {Layer_t::Softmax, "Softmax"},
     {Layer_t::ElementwiseMultiply, "ElementwiseMultiply"},
     {Layer_t::FusedInnerProduct, "FusedInnerProduct"},
     {Layer_t::MultiCross, "MultiCross"}};
