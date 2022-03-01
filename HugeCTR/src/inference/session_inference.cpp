@@ -37,6 +37,7 @@ InferenceSession::InferenceSession(const std::string& model_config_path,
           Error_t::WrongInput,
           "The device id of inference_params is not consistent with that of embedding cache.");
     }
+    HCTR_LOG(INFO, ROOT, "Create inference session on device: %d\n", inference_params_.device_id);
     auto b2s = [](const char val) { return val ? "True" : "False"; };
     HCTR_LOG(INFO, ROOT, "Model name: %s\n", inference_params_.model_name.c_str());
     HCTR_LOG(INFO, ROOT, "Use mixed precision: %s\n", b2s(inference_params.use_mixed_precision));
@@ -71,7 +72,7 @@ InferenceSession::InferenceSession(const std::string& model_config_path,
     throw;
   }
   return;
-}  // namespace HugeCTR
+}
 
 InferenceSession::~InferenceSession() {
   CudaDeviceContext context(inference_params_.device_id);
@@ -105,6 +106,8 @@ void InferenceSession::separate_keys_by_table_(int* d_row_ptrs,
     }
   }
 }
+
+const InferenceParser& InferenceSession::get_inference_parser() const { return inference_parser_; }
 
 void InferenceSession::predict(float* d_dense, void* h_embeddingcolumns, int* d_row_ptrs,
                                float* d_output, int num_samples) {

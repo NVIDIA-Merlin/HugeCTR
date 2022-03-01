@@ -457,16 +457,18 @@ void data_generation_for_parquet(std::string file_list_name, std::string data_pr
       constexpr size_t bitmask_bits = cudf::detail::size_in_bits<cudf::bitmask_type>();
       size_t bits = (num_records_per_file + bitmask_bits - 1) / bitmask_bits;
       std::vector<cudf::bitmask_type> null_mask(bits, 0);
-      int nnz = nnz_array[k];
+      int32_t offset = 0;
       for (int i = 0; i < num_records_per_file; i++) {
-        row_offset_vector[i] = i * nnz;
+        int nnz = 1 + rand() % nnz_array[k];
+        row_offset_vector[i] = offset;
+        offset += nnz;
         for (int j = 0; j < nnz; j++) {
           T key = ldata_sim_vec[k]->get_num();
           slot_vector.push_back(key);
         }
-        row_offset_vector[num_records_per_file] = num_records_per_file * nnz;
       }
-      if (nnz == 1) {
+      row_offset_vector[num_records_per_file] = offset;
+      if (nnz_array[k] == 1) {
         rmm::device_buffer dev_buffer(slot_vector.data(), sizeof(T) * slot_vector.size(),
                                       rmm::cuda_stream_default);
         cols.emplace_back(std::make_unique<cudf::column>(cudf::data_type{cudf::type_to_id<T>()},
@@ -511,10 +513,12 @@ void data_generation_for_parquet(std::string file_list_name, std::string data_pr
            << "\"num_rows\":" << num_records_per_file << "} ";
   metadata << "], ";
   metadata << "\"labels\": [";
-  for (int i = 0; i < label_dim; i++) {
-    metadata << "{\"col_name\": \"label\", "
-             << "\"index\":" << i << "} ";
+  for (int i = 0; i < label_dim - 1; i++) {
+    metadata << "{\"col_name\": \"label" << i << "\", "
+             << "\"index\":" << i << "}, ";
   }
+  metadata << "{\"col_name\": \"label" << label_dim - 1 << "\", "
+           << "\"index\":" << label_dim - 1 << "} ";
   metadata << "], ";
 
   metadata << "\"conts\": [";

@@ -35,7 +35,12 @@ class FileSource : public Source {
 
  public:
   FileSource(long long offset, long long stride, const std::string& file_list, bool repeat)
-      : file_list_(file_list), offset_(offset), stride_(stride), repeat_(repeat) {}
+      : file_list_(file_list), offset_(offset), stride_(stride), repeat_(repeat) {
+    HCTR_CHECK_HINT(
+        file_list_.get_num_of_files() >= stride_,
+        "The number of data reader workers should be no greater than the number of files in the "
+        "file list. Please re-configure num_workers within DataReaderParams.");
+  }
 
   /**
    * Read "bytes_to_read" byte to the memory associated to ptr.

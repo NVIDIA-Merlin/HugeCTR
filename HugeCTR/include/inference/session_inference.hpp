@@ -68,6 +68,7 @@ class InferenceSession : public HugeCTRModel {
   virtual ~InferenceSession();
   void predict(float* d_dense, void* h_embeddingcolumns, int* d_row_ptrs, float* d_output,
                int num_samples);
+  const InferenceParser& get_inference_parser() const;
 };
 
 }  // namespace HugeCTR

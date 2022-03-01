@@ -55,13 +55,11 @@ As a recommendation system domain specific framework, HugeCTR has a set of high 
   * [save_params_to_files()](#saveparamstofiles-method)
   * [export_predictions()](#exportpredictions-method)
   <summary>Details</summary>
-* [Inference API](#inference-api)<details>
+* [Inference API](#inference-api)
   * [InferenceParams class](#inferenceparams-class)
-  * [InferenceSession class](#inferencesession)
-    * [CreateInferenceSession()](#createinferencesession-method)
+  * [InferenceModel class](#inferencemodel)
     * [predict()](#predict-method)
     * [evaluate()](#evaluate-method)
-  <summary>Details</summary>
 * [Data Generator API](#data-generator-api)
   * [DataGeneratorParams class](#datageneratorparams-class)
   * [DataGenerator class](#datagenerator)
@@ -1123,21 +1121,21 @@ for i in range(train_steps):
 * `output_label_file_name`: String, the file to which the evaluation labels will be writen. The order of the labels are the same as that of the prediction results, but may be different with the order of the samples in the dataset. There is NO default value and it should be specified by users.
 
 ## Inference API ##
-For HugeCTR inference API, the core data structures are `InferenceParams` and `InferenceSession`. Please refer to [Inference Framework](https://gitlab-master.nvidia.com/dl/hugectr/hugectr_inference_backend/-/blob/main/docs/user_guide.md#inference-framework) to get informed of the hierarchy of HugeCTR inference implementation.
+For HugeCTR inference API, the core data structures are `InferenceParams` and `InferenceModel`. They are designed and implemented for the purpose of multi-GPU offline inference. Please refer to [HugeCTR Backend](https://github.com/triton-inference-server/hugectr_backend) if online inference with Triton is needed.
 
-Please **NOTE** that Inference API requires a configuration JSON file of the model graph, which can derived from the `Model.graph_to_json()` method.
+Please **NOTE** that Inference API requires a configuration JSON file of the model graph, which can derived from the `Model.graph_to_json()` method. Besides, `model_name` within `CreateSolver` should be specified during training in order to correctly dump the JSON file.
 
 ### **InferenceParams** ###
 #### **InferenceParams class**
 ```bash
 hugectr.inference.InferenceParams()
 ```
-`InferenceParams` specifies the parameters related to the inference. An `InferenceParams` instance is required to initialize the `InferenceSession` instance.
+`InferenceParams` specifies the parameters related to the inference. An `InferenceParams` instance is required to initialize the `InferenceModel` instance.
 
 **Arguments**
-* `model_name`: String, the name of the model to be used for inference. There is NO default value and it should be specified by users.
+* `model_name`: String, the name of the model to be used for inference. It should be consistent with `model_name` specified during training. There is NO default value and it should be specified by users.
 
-* `max_batchsize`: Integer, the maximum batchsize for inference. There is NO default value and it should be specified by users.
+* `max_batchsize`: Integer, the maximum batchsize for inference. It is the global batch size and should be divisible by the length of `deployed_devices`. There is NO default value and it should be specified by users.
 
 * `hit_rate_threshold`: Float, the hit rate threshold for updating the GPU embedding cache. If the hit rate of looking up GPU embedding cahce during inference is below this threshold, then the GPU embedding cache will be updated. The threshold should be between 0 and 1. There is NO default value and it should be specified by users.
 
@@ -1145,39 +1143,38 @@ hugectr.inference.InferenceParams()
 
 * `sparse_model_files`: List[str], the sparse model files to be loaded for inference. There is NO default value and it should be specified by users.
 
-* `device_id`: Integer, GPU device index. There is NO default value and it should be specified by users.
-
 * `use_gpu_embedding_cache`: Boolean, whether to employ the features of GPU embedding cache. If the value is `True`, the embedding vector look up will go to GPU embedding cache. Otherwise, it will reach out to the CPU parameter server directly. There is NO default value and it should be specified by users.
 
 * `cache_size_percentage`: Float, the percentage of cached embeddings on GPU relative to all the embedding tables on CPU.  There is NO default value and it should be specified by users.
 
 * `i64_input_key`: Boolean, this value should be set to `True` when you need to use I64 input key. There is NO default value and it should be specified by users.
 
-* `use_mixed_precision`: Boolean, whether to enable mixed precision training. The default value is `False`.
-
-* `scaler`: Float, the scaler to be used when mixed precision training is enabled. Only 128, 256, 512, and 1024 scalers are supported for mixed precision training. The default value is 1.0, which corresponds to no mixed precision training.
+* `use_mixed_precision`: Boolean, whether to enable mixed precision inference. The default value is `False`.
 
 * `use_algorithm_search`: Boolean, whether to use algorithm search for cublasGemmEx within the FullyConnectedLayer. The default value is `True`.
 
 * `use_cuda_graph`: Boolean, whether to enable cuda graph for dense network forward propagation. The default value is `True`.
 
-### **InferenceSession** ###
-#### **CreateInferenceSession method**
+* `deployed_devices`: List[Integer], the list of device id of GPUs. The offline inference will be executed concurrently on the specified multiple GPUs. The default value is `[0]`.
+
+### **InferenceModel** ###
+#### **InferenceModel class**
 ```bash
-hugectr.inference.CreateInferenceSession()
+hugectr.inference.InferenceModel()
 ```
-`CreateInferenceSession` returns an `InferenceSession` instance.
+`InferenceModel` is a collection of inference sessions deployed on multiple GPUs, which can leverage [Hierarchical Parameter Server](hugectr_parameter_server.md) and enable concurrent execution. The construction of `InferenceModel` requires a model configuration file and an `InferenceParams` instance.
 
 **Arguments**
 * `model_config_path`: String, the inference model configuration file (which can be derived from `Model.graph_to_json`). There is NO default value and it should be specified by users.
 
-* `inference_params`: InferenceParams, the `InferenceParams` object. There is NO default value and it should be specified by users.
+* `inference_params`: InferenceParams, the InferenceParams object. There is NO default value and it should be specified by users.
 ***
+
 #### **predict method**
 ```bash
-hugectr.inference.InferenceSession.predict()
+hugectr.inference.InferenceModel.predict()
 ```
-The `predict` method of InferenceSession makes predictions based on the dataset of Norm or Parquet format. If `label_dim` is 1, it returns the prediction results in the form of 1-D numpy array of the shape `(max_batchsize*num_batches, )`. If `label_dim` is greater than 1, it will return the 2-D numpy array of the shape `(max_batchsize*num_batches, label_dim)`.
+The `predict` method of InferenceModel makes predictions based on the dataset of Norm or Parquet format. It will return the 2-D numpy array of the shape `(max_batchsize*num_batches, label_dim)`, whose order is consistent with the sample order in the dataset. If `max_batchsize*num_batches` is greater than the total number of samples in the dataset, it will loop over the dataset. For example, there are totally 40000 samples in the dataset, `max_batchsize` equals 4096, `num_batches` equals 10 and `label_dim` equals 2. The returned array will be of the shape `(40960, 2)`, of which first 40000 rows should be desired results and the last 960 rows correspond to the first 960 samples in the dataset.
 
 **Arguments**
 * `num_batches`: Integer, the number of prediction batches.
@@ -1191,29 +1188,11 @@ The `predict` method of InferenceSession makes predictions based on the dataset 
 * `slot_size_array`: List[int], the cardinality array of input features. It should be consistent with that of the sparse input. We requires this argument for Parquet format data. The default value is an empty list, which is suitable for Norm format data.
 ***
 
-#### **predict method**
-```bash
-hugectr.inference.InferenceSession.predict()
-```
-The `predict` method of InferenceSession makes predictions for the samples in the inference inputs. 
-
-**Arguments**
-* `dense_feature`: List[float], the dense features of the samples.
-
-* `embeddingcolumns`: List[int], the embedding keys of the samples.
-
-* `row_ptrs`: List[int], the row pointers that indicate which embedding keys belong to the same slot.
-
-* `i64_input_key`: Boolean, whether to use I64 input key for the inference session.
-
-Taking Deep and Cross Model on Criteo dataset for example, if the inference request includes two samples, then `dense_feature` will be of the length 2\*13, `embeddingcolumns` will be of the length 2\*26, and `row_ptrs` will be like [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52].
-***
-
 #### **evaluate method**
 ```bash
-hugectr.inference.InferenceSession.evaluate()
+hugectr.inference.InferenceModel.evaluate()
 ```
-The `evaluate` method of InferenceSession does evaluations based on the dataset of Norm or Parquet format. It requires that the dataset contains the label field. This method returns the AUC value for the specified evaluation batches.
+The `evaluate` method of InferenceModel does evaluations based on the dataset of Norm or Parquet format. It requires that the dataset contains the label field. This method returns the AUC value for the specified evaluation batches.
 
 **Arguments**
 * `num_batches`: Integer, the number of evaluation batches.

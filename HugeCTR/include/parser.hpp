@@ -545,6 +545,14 @@ struct create_datareader {
                   std::map<std::string, TensorBag2>& label_dense_map, const std::string& source,
                   const DataReaderType_t data_reader_type, const Check_t check_type,
                   const std::vector<long long>& slot_size_array, const bool repeat_dataset);
+  void operator()(const InferenceParams& inference_params, const InferenceParser& inference_parser,
+                  std::shared_ptr<IDataReader>& data_reader,
+                  const std::shared_ptr<ResourceManager> resource_manager,
+                  std::map<std::string, SparseInput<TypeKey>>& sparse_input_map,
+                  std::vector<TensorBag2>& label_tensor_list,
+                  std::vector<TensorBag2>& dense_tensor_list, const std::string& source,
+                  const DataReaderType_t data_reader_type, const Check_t check_type,
+                  const std::vector<long long>& slot_size_array, const bool repeat_dataset);
 };
 
 inline int get_max_feature_num_per_sample_from_nnz_per_slot(const nlohmann::json& j) {

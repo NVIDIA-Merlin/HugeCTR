@@ -61,7 +61,7 @@ void simple_sparse_embedding_test(std::string json_name) {
   const int vocabulary_size = 1603616;
   const std::string prefix("./simple_sparse_embedding/simple_sparse_embedding");
   const std::string file_list_name = prefix + "_file_list.txt";
-  const int num_files = 3;
+  const int num_files = 16;
   const long long num_records = 4096 * 3;
   const long long slot_num = 20;
   const Check_t CHK = Check_t::Sum;

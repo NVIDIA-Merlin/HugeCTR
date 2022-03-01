@@ -96,6 +96,11 @@ class ParquetFileSource : public Source {
         mmapped_data_(nullptr),
         fd_(-1) {
     slice_stream_ = NULL;
+    HCTR_CHECK_HINT(
+        file_list_.get_num_of_files() >= stride_,
+        "The number of data reader workers should be no greater than the number of files in the "
+        "file list. There is one worker on each GPU for Parquet dataset, please re-configure vvgpu "
+        "within CreateSolver or guarantee enough files in the file list.");
   }
 
   ~ParquetFileSource() {

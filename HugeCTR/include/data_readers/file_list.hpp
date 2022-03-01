@@ -117,6 +117,8 @@ class FileList {
   }
 
   std::string get_file_type() { return file_type_; }
+
+  int get_num_of_files() const { return num_of_files_; }
 };
 
 }  // namespace HugeCTR
