@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
+#pragma once
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
@@ -21,6 +21,7 @@
 #include <HugeCTR/include/inference/embedding_cache.hpp>
 #include <HugeCTR/include/inference/parameter_server.hpp>
 #include <HugeCTR/include/inference/session_inference.hpp>
+#include <HugeCTR/include/pybind/inference_model.hpp>
 #include <HugeCTR/include/utils.hpp>
 
 namespace HugeCTR {
@@ -85,6 +86,7 @@ class InferenceSessionPy : public InferenceSession {
 
   std::vector<unsigned int> embeddingcolumns_u32_;
   std::vector<float> output_;
+  float* d_reader_dense_;
   float* d_dense_;
   void* h_embeddingcolumns_;
   int* d_row_ptrs_;
@@ -246,7 +248,7 @@ void InferenceSessionPy::load_data_(const std::string& source,
   if (!find_item_in_map(dense_tensor, inference_parser_.dense_name, label_dense_map)) {
     HCTR_OWN_THROW(Error_t::WrongInput, "Cannot find " + inference_parser_.dense_name);
   }
-  d_dense_ = reinterpret_cast<float*>(dense_tensor.get_ptr());
+  d_reader_dense_ = reinterpret_cast<float*>(dense_tensor.get_ptr());
   d_reader_keys_list_.clear();
   d_reader_row_ptrs_list_.clear();
   for (size_t i = 0; i < inference_parser_.num_embedding_tables; i++) {
@@ -312,7 +314,7 @@ float InferenceSessionPy::evaluate_(const size_t num_batches, const std::string&
     distribute_keys_for_inference(reinterpret_cast<TypeKey*>(h_embeddingcolumns_),
                                   h_reader_keys.data(), current_batchsize, h_reader_row_ptrs_list,
                                   inference_parser_.slot_num_for_tables);
-    InferenceSession::predict(d_dense_, h_embeddingcolumns_, d_row_ptrs_, d_output_,
+    InferenceSession::predict(d_reader_dense_, h_embeddingcolumns_, d_row_ptrs_, d_output_,
                               current_batchsize);
     metric->set_current_batch_size(current_batchsize);
     metric->local_reduce(0, metric_maps);
@@ -373,7 +375,7 @@ pybind11::array_t<float> InferenceSessionPy::predict_(
     distribute_keys_for_inference(reinterpret_cast<TypeKey*>(h_embeddingcolumns_),
                                   h_reader_keys.data(), current_batchsize, h_reader_row_ptrs_list,
                                   inference_parser_.slot_num_for_tables);
-    InferenceSession::predict(d_dense_, h_embeddingcolumns_, d_row_ptrs_, d_output_,
+    InferenceSession::predict(d_reader_dense_, h_embeddingcolumns_, d_row_ptrs_, d_output_,
                               current_batchsize);
     HCTR_LIB_THROW(cudaMemcpyAsync(
         pred_ptr + pred_ptr_offset, d_output_,
@@ -532,7 +534,7 @@ void InferencePybind(pybind11::module& m) {
                           const PersistentDatabaseParams&, const UpdateSourceParams&>(),
            pybind11::arg("model_name"), pybind11::arg("max_batchsize"),
            pybind11::arg("hit_rate_threshold"), pybind11::arg("dense_model_file"),
-           pybind11::arg("sparse_model_files"), pybind11::arg("device_id"),
+           pybind11::arg("sparse_model_files"), pybind11::arg("device_id") = 0,
            pybind11::arg("use_gpu_embedding_cache"), pybind11::arg("cache_size_percentage"),
            pybind11::arg("i64_input_key"), pybind11::arg("use_mixed_precision") = false,
            pybind11::arg("scaler") = 1.0, pybind11::arg("use_algorithm_search") = true,
@@ -573,6 +575,35 @@ void InferencePybind(pybind11::module& m) {
            pybind11::arg("row_ptrs"))
       .def("refresh_embedding_cache",
            &HugeCTR::python_lib::InferenceSessionPy::refresh_embedding_cache);
+  pybind11::class_<HugeCTR::InferenceModel, std::shared_ptr<HugeCTR::InferenceModel>>(
+      infer, "InferenceModel")
+      .def(pybind11::init<const std::string&, const InferenceParams&>(),
+           pybind11::arg("model_config_path"), pybind11::arg("inference_params"))
+      .def(
+          "predict",
+          [](HugeCTR::InferenceModel& self, size_t num_batches, const std::string& source,
+             DataReaderType_t data_reader_type, Check_t check_type,
+             const std::vector<long long>& slot_size_array) {
+            auto& inference_params = self.get_inference_params();
+            auto& inference_parser = self.get_inference_parser();
+            float* pred_output = new float[num_batches * inference_params.max_batchsize *
+                                           inference_parser.label_dim];
+            self.predict(pred_output, num_batches, source, data_reader_type, check_type,
+                         slot_size_array);
+            auto pred_output_capsule = pybind11::capsule(pred_output, [](void* v) {
+              float* vv = reinterpret_cast<float*>(v);
+              delete[] vv;
+            });
+            pybind11::array_t<float> pred_array(
+                {num_batches * inference_params.max_batchsize, inference_parser.label_dim},
+                pred_output, pred_output_capsule);
+            return pred_array;
+          },
+          pybind11::arg("num_batches"), pybind11::arg("source"), pybind11::arg("data_reader_type"),
+          pybind11::arg("check_type"), pybind11::arg("slot_size_array") = std::vector<long long>())
+      .def("evaluate", &HugeCTR::InferenceModel::evaluate, pybind11::arg("num_batches"),
+           pybind11::arg("source"), pybind11::arg("data_reader_type"), pybind11::arg("check_type"),
+           pybind11::arg("slot_size_array") = std::vector<long long>());
 }
 
 }  // namespace python_lib

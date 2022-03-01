@@ -28,6 +28,7 @@ std::shared_ptr<ResourceManager> ResourceManager::create(
   int size = 1, rank = 0;
 
 #ifdef ENABLE_MPI
+  MPILifetimeService::init();
   HCTR_MPI_THROW(MPI_Comm_size(MPI_COMM_WORLD, &size));
   HCTR_MPI_THROW(MPI_Comm_rank(MPI_COMM_WORLD, &rank));
 #endif
