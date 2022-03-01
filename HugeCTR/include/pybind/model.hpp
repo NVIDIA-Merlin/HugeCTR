@@ -436,13 +436,18 @@ class Model {
     return !embeddings_[0]->get_learning_rate_schedulers().empty();
   }
 
-  void load_dense_weights(const std::string& dense_model_file);
-  void load_sparse_weights(const std::vector<std::string>& sparse_embedding_files);
-  void load_sparse_weights(const std::map<std::string, std::string>& sparse_embedding_files_map);
-  void load_dense_optimizer_states(const std::string& dense_opt_states_file);
-  void load_sparse_optimizer_states(const std::vector<std::string>& sparse_opt_states_files);
+  void load_dense_weights(const std::string& dense_model_file, DataSourceParams data_source_params);
+  void load_sparse_weights(const std::vector<std::string>& sparse_embedding_files,
+                           DataSourceParams data_source_params);
+  void load_sparse_weights(const std::map<std::string, std::string>& sparse_embedding_files_map,
+                           DataSourceParams data_source_params);
+  void load_dense_optimizer_states(const std::string& dense_opt_states_file,
+                                   DataSourceParams data_source_params);
+  void load_sparse_optimizer_states(const std::vector<std::string>& sparse_opt_states_files,
+                                    DataSourceParams data_source_params);
   void load_sparse_optimizer_states(
-      const std::map<std::string, std::string>& sparse_opt_states_files_map);
+      const std::map<std::string, std::string>& sparse_opt_states_files_map,
+      DataSourceParams data_source_params);
   void freeze_embedding() {
     for (auto& one_embedding : embeddings_) {
       one_embedding->freeze();
@@ -564,10 +569,14 @@ class Model {
                                       const std::vector<std::string>& sparse_embedding_files,
                                       const std::vector<std::string>& local_paths,
                                       const std::vector<HMemCacheConfig>& hmem_cache_configs);
-  Error_t load_params_for_dense_(const std::string& model_file);
-  Error_t load_params_for_sparse_(const std::vector<std::string>& embedding_file);
-  Error_t load_opt_states_for_dense_(const std::string& dense_opt_states_file);
-  Error_t load_opt_states_for_sparse_(const std::vector<std::string>& sparse_opt_states_files);
+  Error_t load_params_for_dense_(const std::string& model_file,
+                                 DataSourceParams data_source_params);
+  Error_t load_params_for_sparse_(const std::vector<std::string>& embedding_file,
+                                  DataSourceParams data_source_params);
+  Error_t load_opt_states_for_dense_(const std::string& dense_opt_states_file,
+                                     DataSourceParams data_source_params);
+  Error_t load_opt_states_for_sparse_(const std::vector<std::string>& sparse_opt_states_files,
+                                      DataSourceParams data_source_params);
   virtual void exchange_wgrad(size_t device_id);
   virtual void train_overlapped();
   virtual void add_dense_layer(DenseLayer& dense_layer);

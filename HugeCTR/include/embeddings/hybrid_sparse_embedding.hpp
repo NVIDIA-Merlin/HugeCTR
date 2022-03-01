@@ -245,7 +245,7 @@ class HybridSparseEmbedding : public IEmbedding {
   void backward() override;
   void update_params() override;
   void init_params() override;
-  void load_parameters(std::string sparse_model) override;
+  void load_parameters(std::string sparse_model, DataSourceParams data_source_params) override;
   void dump_parameters(std::string sparse_model,
                        DataSourceParams data_source_params) const override;
   void set_learning_rate(float lr) override;
@@ -263,7 +263,8 @@ class HybridSparseEmbedding : public IEmbedding {
 
   void dump_opt_states(std::ofstream& stream, std::string sparse_model,
                        DataSourceParams data_source_params) override {}
-  void load_opt_states(std::ifstream& stream) override {}
+  void load_opt_states(std::ifstream& stream, std::string read_path,
+                       DataSourceParams data_source_params) override {}
   void reset_optimizer() override {}
   void reset() override {}
 

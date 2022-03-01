@@ -742,6 +742,8 @@ It trains the model for a fixed number of epochs (epoch mode) or iterations (non
 * `snapshot`: Integer, the interval of iterations at which the snapshot model weights and optimizer states will be saved to files. This argument is invalid when embedding training cache is being used, which means no model parameters will be saved. The default value is 10000.
 
 * `snapshot_prefix`: String, the prefix of the file names for the saved model weights and optimizer states. This argument is invalid when embedding training cache is being used, which means no model parameters will be saved. The default value is `''`.
+
+* `data_source_params`: Optional, hugectr.data.`DataSourceParams`, a struct to specify the file system and paths to use while dumping the models.
 ***
 
 #### **summary method**
@@ -781,6 +783,8 @@ This method load the dense weights from the saved dense model file.
 
 **Arguments**
 * `dense_model_file`: String, the saved dense model file from which the dense weights will be loaded. There is NO default value and it should be specified by users.
+
+* `data_source_params`: Optional, hugectr.data.`DataSourceParams`, a struct to specify the file system and paths to use while loading the dense model. If `data_source_params.use_hdfs` is set to `False`, `dense_model_file` will be used as the path.
 ***
 
 #### **load_dense_optimizer_states method**
@@ -791,6 +795,8 @@ This method load the dense optimizer states from the saved dense optimizer state
 
 **Arguments**
 * `dense_opt_states_file`: String, the saved dense optimizer states file from which the dense optimizer states will be loaded. There is NO default value and it should be specified by users.
+
+* `data_source_params`: Optional, hugectr.data.`DataSourceParams`, a struct to specify the file system and paths to use while loading the dense optimizer states. If `data_source_params.use_hdfs` is set to `False`, `dense_opt_states_file` will be used as the path.
 ***
 
 #### **load_sparse_weights method**
@@ -803,6 +809,8 @@ Implementation Ⅰ
 
 **Arguments**
 * `sparse_embedding_files`: List[str], the sparse embedding files from which the sparse weights will be loaded. The number of files should equal to that of the sparse embedding layers in the model. There is NO default value and it should be specified by users.
+
+* `data_source_params`: Optional, hugectr.data.`DataSourceParams`, a struct to specify the file system and paths to use while loading the sparse models. If `data_source_params.use_hdfs` is set to `False`, `sparse_embedding_files` will be used as the path.
 
 Implementation Ⅱ
 
@@ -841,6 +849,8 @@ Implementation Ⅰ
 
 **Arguments**
 * `sparse_opt_states_files`: List[str], the sparse optimizer states files from which the sparse optimizer states will be loaded. The number of files should equal to that of the sparse embedding layers in the model. There is NO default value and it should be specified by users.
+
+* `data_source_params`: Optional, hugectr.data.`DataSourceParams`, a struct to specify the file system and paths to use while loading the sparse optimizer states. If `data_source_params.use_hdfs` is set to `False`, `sparse_opt_states_files` will be used as the path.
 
 Implementation Ⅱ
 
@@ -1156,6 +1166,154 @@ hugectr.inference.InferenceParams()
 * `use_cuda_graph`: Boolean, whether to enable cuda graph for dense network forward propagation. The default value is `True`.
 
 * `deployed_devices`: List[Integer], the list of device id of GPUs. The offline inference will be executed concurrently on the specified multiple GPUs. The default value is `[0]`.
+
+### **VolatileDatabaseParams** ###
+We provide various volatile database implementations. Generally speaking, two categories can be distinguished.
+
+* **CPU memory databases** are instanced per machine and only use the locally available RAM memory as backing storage. Hence, you may indvidually vary their configuration parameters per machine.
+
+* **Distributed CPU memory databases** are typically shared by all machines in your HugeCTR deployment. They allow you to take advantage of the combined memory capacity of your cluster machines.The configuration parameters for this kind of database should, thus, be identical across all achines in your deployment.
+#### **VolatileDatabaseParams class** ####
+
+```python
+params = hugectr.inference.VolatileDatabaseParams()
+params.type = hugectr.DatabaseType_t.<enum_value>
+```
+
+Where `<enum_value>` is either:
+* `disabled`: Do not use this kind of database.
+* `hash_map`: Hash-map based CPU memory database implementation.
+* `parallel_hash_map`: Hash-map based CPU memory database implementation with multi threading support **(default)**.
+* `redis_cluster`: Connect to an existing Redis cluster deployment (Distributed CPU memory database implementation).
+
+
+**Configuration of normal hash-map backend**
+```python
+params.type = hugectr.DatabaseType_t.hash_map
+params.algorithm = hugectr.DatabaseHashMapAlgorithm_t.<enum_value>
+```
+
+**Configuration of parallelized hash-map backend**
+```python
+params.type = hugectr.DatabaseType_t.parallel_hash_map
+params.algorithm = hugectr.DatabaseHashMapAlgorithm_t.<enum_value>
+params.num_partitions = <integer_value>
+```
+
+**Configuration of Redis cluster backend**
+```python
+params.type = "redis_cluster"
+params.address = "<host_name_or_ip_address:port_number>"
+params.user_name = "<login_user_name>"
+params.password = "<login_password>"
+params.num_partitions = <int_value>
+params.max_get_batch_size = <int_value>
+params.max_set_batch_size = <int_value>
+```
+
+**Overflow handling related parameters**
+
+To maximize performance and avoid instabilies caused by sporadic high memory usage (*i.e.*, out of memory situations), we provide the overflow handling mechanism. It allows limiting the maximum amount of embeddings to be stored per partition, and, thus, upper-bounding the memory consumption of your distributed database.
+
+```python
+params.overflow_margin = <integer_value>
+params.overflow_policy = hugectr.DatabaseOverflowPolicy_t.<enum_value>
+params.overflow_resolution_target = <double_value>
+```
+`overflow_margin` denotes the maximum amount of embeddings that will be stored *per partition*. Inserting more than `overflow_margin` embeddings into the database will trigger the execution of the configured `overflow_policy`. Hence, `overflow_margin` upper-bounds the maximum amount of memory that your CPU memory database may occupy. Thumb rule: Larger `overflow_margin` will result higher hit rates, but also increased memory consumption. By **default**, the value of `overflow_margin` is set to `2^64 - 1` (*i.e.*, de-facto infinite). When using the CPU memory database in conjunction with a Persistent database, the idea value for `overflow_margin` may vary. In practice, a setting value to somewhere between `[1 million, 100 million]` tends deliver reliable performance and throughput.
+
+Currently the following values for `overflow_policy` are supported:
+* `evict_oldest` **(default)**: Prune embeddings starting from the oldest (i.e., least recently used) until the paratition contains at most `overflow_margin * overflow_resolution_target` embeddings. 
+* `evict_random`: Prune embeddings random embeddings until the paratition contains at most `overflow_margin * overflow_resolution_target` embeddings.
+
+Unlike `evict_oldest`,  `evict_random` requires no comparison of time-stamps, and thus can be faster. However, `evict_oldest` is likely to deliver better performance over time because embeddings are evicted based on the frequency of their usage. For all eviction policies, `overflow_resolution_target` is expected to be in `]0, 1[` (*i.e.*, between `0` and `1`, but not exactly `0` or `1`). The default value of `overflow_resolution_target` is `0.8` (*i.e.*, the partition is shrunk to 80% of its maximum size, or in other words, when the partition size surpasses `overflow_margin` embeddings, 20% of the embeddings are evicted according to the respective `overflow_policy`).
+
+**Initial caching**
+```python
+params.initial_cache_rate = <double_value>
+```
+This is the fraction (`[0.0, 1.0]`) of your dataset that we will attempt to cache immediately upon startup of the parameter server. Hence, setting a value of `0.5` causes the HugeCTR parameter server to attempt caching up to 50% of your dataset directly using the respectively configured volatile database after initialization.
+
+**Refreshing timestamps**
+```python
+params.refresh_time_after_fetch = <True|False>
+```
+Some algorithms to organize certain processes, such as the evication of embeddings upon overflow, take time into account. To evalute the affected embeddings, HugeCTR records the time when an embeddings is overridden. This is sufficient in training mode where embeddings are frequently replaced. Hence, the **default value** for this setting is is `false`. However, if you deploy HugeCTR only for inference (*e.g.*, with Triton), this might lead to suboptimal eviction patterns. By setting this value to `true`, HugeCTR will replace the time stored alongside an embedding right after this embedding is accessed. This operation may happen asynchronously (*i.e.*, with some delay).
+
+**Real-time updating**
+```python
+params.update_filters = [ "<filter 0>", "<filter 1>", ... ]
+```
+**[Behavior will likely change in future versions]** This setting allows you specify a series of filters, in to permit / deny passing certain model updates from Kafka to the CPU memory database backend. Filters take the form of regular expressions. The **default** value of this setting is `[ ".+" ]` (*i.e.*, process updates for all models, irrespective of their name).
+
+Distributed databases are shared by all your HugeCTR nodes. These nodes will collaborate to inject updates into the underlying database. The assignment of what nodes update what partition may change at runtime.
+
+### **PersistentDatabaseParams** ###
+Persistent databases are instanced per machine and use the locally available non-volatile memory as backing storage. Hence, you may indvidually vary their configuration parameters per machine.
+
+#### **PersistentDatabaseParams class** ####
+```python
+params = hugectr.inference.PersistentDatabaseParams()
+params.type = hugectr.DatabaseType_t.<enum_value>
+```
+Where `<enum_value>` is either:
+* `disabled`: Do not use this kind of database  **(default)**. 
+* `rocks_db`: Create or connect to a RocksDB database.
+
+**Configuration of RocksDB database backend**
+```python
+params.type = hugectr.DatabaseType_t.rocks_db
+params.path = "<file_system_path>"
+params.num_threads = <int_value>
+params.read_only = <boolean_value>
+params.max_get_batch_size = <int_value>
+params.max_set_batch_size = <int_value>
+```
+`path` denotes the directory in your file-system where the RocksDB database can be found. If the directory does not contain a RocksDB databse, HugeCTR will create an database for you. Note that this may override files that are currently stored in this database. Hence, make sure that `path` points either to an actual RocksDB database or an empty directy. The **default** path is `/tmp/rocksdb`.
+
+`num_threads` is an optimization parameter. This denotes the amount of threads that the RocksDB driver may use internally. By **default**, this value is set to `16`
+
+If the flag `read_only` is set to `true`, the databse will be opened in *Read-Only mode*. Naturally, this means that any attempt to update values in this database will fail. Use for inference, if model is static and the database is shared by multiple nodes (for example via NFS). By **default** this flag is set to `false`.
+
+`max_get_batch_size` and `max_set_batch_size` represent optimization parameters. Mass lookup and insert requests to RocksDB are chunked into batches. For maximum performance `max_*_batch_size` should be large. However, if the available memory for buffering requests in your endpoints is limited, lowering this value may help. By **default**, both values are set to `10000`. With high-performance hardware setups it is **recommended** to increase these values to `1 million`.
+
+**Real-time updating**
+```python
+params.update_filters = [ "<filter 0>", "<filter 1>", ... ]
+```
+**[Behavior will likely change in future versions]** This setting allows you specify a series of filters, in to permit / deny passing certain model updates from Kafka to the CPU memory database backend. Filters take the form of regular expressions. The **default value** of this setting is `[ ".+" ]` (*i.e.*, process updates for all models, irrespective of their name).
+
+
+### **UpdateSourceParams** ###
+The real-time update source is the origin for model updates during online retraining. To ensure that all database layers are kept in sync, it is advisable configure all nodes in your HugeCTR deployment identical.
+#### **UpdateSourceParams class** ####
+```python
+params = hugectr.UpdateSourceParams()
+params.type = hugectr.UpdateSourceType_t.<enum_value>
+``` 
+Where `<enum_value>` is either:
+* `null`: Do not use this kind of database  **(default)**. 
+* `kafka_message_queue`: Connect to an axisting Apache Kafka message queue.
+
+**Configuration parameters for Apache Kafka update sources**
+```python
+params.type = hugectr.UpdateSourceType_t.kafka_message_queue
+params.brokers = "host_name[:port][;host_name[:port]...]"
+params.poll_timeout_ms = <int_value>
+params.max_receive_buffer_size = <int_value>
+params.max_batch_size <int_value>
+params.failure_backoff_ms = <int_value>
+```
+In order to connect to a Kafka deployments, you need to fill in at least one host-address (hostname + port number) of a Kafka broker node (`brokers` configuration option in the above listings). The **default** value of `brokers` is `127.0.0.1:9092`.
+
+The remaining parameters control certain properties within the notification chain. In particular, `poll_timeout_ms` denotes the maximum time we will wait for additional updates before dispatching them to the database layers in milliseconds. The **default** value is `500` ms.
+
+If, before this limit has run out, more than `max_receive_buffer_size` embedding updates have been received, we will also dispatch these updates immediately. The **default** receive buffer size is `2000`.
+
+Dispatching of updates is conducted in chunks. The maximum size of these chunks is upper-bounded by `max_batch_size`, which is set to `1000` by default.
+
+In some situations, there might be issues that prevent the successful dispatch of an update to a database. For example, if a Redis node is temporarily unreachable. `failure_backoff_ms` is the delay in milliseconds after which we retry dispatching a set of updates in such an event. The **default** backoff delay is `50` ms.
+
 
 ### **InferenceModel** ###
 #### **InferenceModel class**

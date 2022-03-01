@@ -667,25 +667,28 @@ LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
 void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::load_parameters(
-    std::string sparse_model) {
-  if (!std::filesystem::exists(sparse_model)) {
-    HCTR_OWN_THROW(Error_t::WrongInput, "Error: folder " + sparse_model + " doesn't exist");
-  }
+    std::string sparse_model, DataSourceParams data_source_params) {
   const std::string key_file(sparse_model + "/key");
   const std::string slot_file(sparse_model + "/slot_id");
   const std::string vec_file(sparse_model + "/emb_vector");
 
-  std::ifstream key_stream(key_file, std::ifstream::binary);
-  std::ifstream slot_stream(slot_file, std::ifstream::binary);
-  std::ifstream vec_stream(vec_file, std::ifstream::binary);
-  // check if file is opened successfully
-  if (!vec_stream.is_open() || !key_stream.is_open() || !slot_stream.is_open()) {
-    HCTR_OWN_THROW(Error_t::WrongInput, "Error: file not open for reading");
-  }
+  size_t key_file_size_in_byte;
+  size_t slot_file_size_in_byte;
+  size_t vec_file_size_in_byte;
 
-  size_t key_file_size_in_byte = std::filesystem::file_size(key_file);
-  size_t slot_file_size_in_byte = std::filesystem::file_size(slot_file);
-  size_t vec_file_size_in_byte = std::filesystem::file_size(vec_file);
+  if (data_source_params.use_hdfs) {
+    HdfsService hs(data_source_params.namenode, data_source_params.port);
+    key_file_size_in_byte = hs.getFileSize(key_file);
+    slot_file_size_in_byte = hs.getFileSize(slot_file);
+    vec_file_size_in_byte = hs.getFileSize(vec_file);
+  } else {
+    if (!std::filesystem::exists(sparse_model)) {
+      HCTR_OWN_THROW(Error_t::WrongInput, "Error: folder " + sparse_model + " doesn't exist");
+    }
+    key_file_size_in_byte = std::filesystem::file_size(key_file);
+    slot_file_size_in_byte = std::filesystem::file_size(slot_file);
+    vec_file_size_in_byte = std::filesystem::file_size(vec_file);
+  }
 
   size_t key_size = sizeof(long long);
   size_t slot_size = sizeof(size_t);
@@ -717,17 +720,38 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::load_pa
   size_t *slot_id_ptr = slot_id.get_ptr();
   float *embedding_ptr = embeddings.get_ptr();
 
-  if (std::is_same<TypeHashKey, long long>::value) {
-    key_stream.read(reinterpret_cast<char *>(key_ptr), key_file_size_in_byte);
+  if (data_source_params.use_hdfs) {
+    HdfsService hs(data_source_params.namenode, data_source_params.port);
+    if (std::is_same<TypeHashKey, long long>::value) {
+      hs.read(key_file, reinterpret_cast<char *>(key_ptr), key_file_size_in_byte, 0);
+    } else {
+      std::vector<long long> i64_key_vec(key_num, 0);
+      hs.read(key_file, reinterpret_cast<char *>(i64_key_vec.data()), key_file_size_in_byte, 0);
+      std::transform(i64_key_vec.begin(), i64_key_vec.end(), key_ptr,
+                     [](long long key) { return static_cast<unsigned>(key); });
+    }
+    hs.read(slot_file, reinterpret_cast<char *>(slot_id_ptr), slot_file_size_in_byte, 0);
+    hs.read(vec_file, reinterpret_cast<char *>(embedding_ptr), vec_file_size_in_byte, 0);
   } else {
-    std::vector<long long> i64_key_vec(key_num, 0);
-    key_stream.read(reinterpret_cast<char *>(i64_key_vec.data()), key_file_size_in_byte);
-    std::transform(i64_key_vec.begin(), i64_key_vec.end(), key_ptr,
-                   [](long long key) { return static_cast<unsigned>(key); });
-  }
-  slot_stream.read(reinterpret_cast<char *>(slot_id_ptr), slot_file_size_in_byte);
-  vec_stream.read(reinterpret_cast<char *>(embedding_ptr), vec_file_size_in_byte);
+    std::ifstream key_stream(key_file, std::ifstream::binary);
+    std::ifstream slot_stream(slot_file, std::ifstream::binary);
+    std::ifstream vec_stream(vec_file, std::ifstream::binary);
+    // check if file is opened successfully
+    if (!vec_stream.is_open() || !key_stream.is_open() || !slot_stream.is_open()) {
+      HCTR_OWN_THROW(Error_t::WrongInput, "Error: file not open for reading");
+    }
 
+    if (std::is_same<TypeHashKey, long long>::value) {
+      key_stream.read(reinterpret_cast<char *>(key_ptr), key_file_size_in_byte);
+    } else {
+      std::vector<long long> i64_key_vec(key_num, 0);
+      key_stream.read(reinterpret_cast<char *>(i64_key_vec.data()), key_file_size_in_byte);
+      std::transform(i64_key_vec.begin(), i64_key_vec.end(), key_ptr,
+                     [](long long key) { return static_cast<unsigned>(key); });
+    }
+    slot_stream.read(reinterpret_cast<char *>(slot_id_ptr), slot_file_size_in_byte);
+    vec_stream.read(reinterpret_cast<char *>(embedding_ptr), vec_file_size_in_byte);
+  }
   load_parameters(keys, slot_id, embeddings, key_num,
                   embedding_data_.embedding_params_.embedding_vec_size, hash_table_value_tensors_,
                   slot_size_array_, mapping_offsets_per_gpu_tensors_);

@@ -13,23 +13,23 @@ data_source_params = DataSourceParams(
     hdfs_eval_filelist = '/data/file_list_test.txt',
     hdfs_dense_model = '/model/wdl/_dense_1000.model',
     hdfs_dense_opt_states = '/model/wdl/_opt_dense_1000.model',
-    hdfs_sparse_model = ['/model/wdl/0_sparse_1000.model/', '/model/wdl/1_sparse_1000.model/'],
+    hdfs_sparse_model = ['/model/wdl/0_sparse_1000.model', '/model/wdl/1_sparse_1000.model'],
     hdfs_sparse_opt_states = ['/model/wdl/0_opt_sparse_1000.model', '/model/wdl/1_opt_sparse_1000.model'],         
                                               
     local_train_source = './wdl_norm/train/',
     local_train_filelist = './wdl_norm/file_list.txt',
     local_eval_source = './wdl_norm/val/',
     local_eval_filelist = './wdl_norm/file_list_test.txt',
-    local_dense_model = '/model/wdl/_dense_1000.model',
-    local_dense_opt_states = '/model/wdl/_opt_dense_1000.model',
-    local_sparse_model = ['/model/wdl/0_sparse_1000.model/', '/model/wdl/1_sparse_1000.model/'],
-    local_sparse_opt_states = ['/model/wdl/0_opt_sparse_1000.model', '/model/wdl/1_opt_sparse_1000.model'],
+    local_dense_model = './_dense_1000.model',
+    local_dense_opt_states = './_opt_dense_1000.model',
+    local_sparse_model = ['./0_sparse_1000.model', './1_sparse_1000.model'],
+    local_sparse_opt_states = ['./0_opt_sparse_1000.model', './1_opt_sparse_1000.model'],
     
     hdfs_model_home = '/model/wdl/',
     local_model_home = '/model/wdl/'
 )
 data_source = DataSource(data_source_params)
-data_source.move_to_local()
+#data_source.move_to_local()
 
 solver = hugectr.CreateSolver(max_eval_batches = 1280,
                               batchsize_eval = 1024,
@@ -113,9 +113,14 @@ model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.BinaryCrossEntropyLoss
 model.compile()
 model.summary()
 
-model.load_dense_weights(data_source_params.local_dense_model)
-model.load_dense_optimizer_states(data_source_params.local_dense_opt_states)
-model.load_sparse_weights(data_source_params.local_sparse_model)
-model.load_sparse_optimizer_states(data_source_params.local_sparse_opt_states)
+# model.load_dense_weights(data_source_params.local_dense_model)
+# model.load_dense_optimizer_states(data_source_params.local_dense_opt_states)
+# model.load_sparse_weights(data_source_params.local_sparse_model)
+# model.load_sparse_optimizer_states(data_source_params.local_sparse_opt_states)
 
-model.fit(max_iter = 1020, display = 200, eval_interval = 500, snapshot = 1000, data_source_params = data_source_params)
+model.load_dense_weights('', data_source_params)
+model.load_dense_optimizer_states('', data_source_params)
+model.load_sparse_weights(['', ''], data_source_params)
+model.load_sparse_optimizer_states(['', ''], data_source_params)
+
+model.fit(max_iter = 1020, display = 200, eval_interval = 500, snapshot = 1100, data_source_params = data_source_params)

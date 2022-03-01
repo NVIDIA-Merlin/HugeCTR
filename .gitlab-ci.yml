@@ -11,23 +11,31 @@ nightly_build_train:
   variables:
     REMOTE_REPO: https://github.com/NVIDIA-Merlin/Merlin.git
     DST_IMAGE: ${IMAGE_TRAIN}
-    DOCKER_FILE: dockerfile.ctr
+    DOCKER_FILE: ./training/dockerfile.ctr
     BUILD_ARGS: --build-arg HUGECTR_DEV_MODE=true
+
+nightly_build_train_with_hdfs:
+  extends: .build_nightly
+  variables:
+    REMOTE_REPO: https://github.com/NVIDIA-Merlin/Merlin.git
+    DST_IMAGE: ${IMAGE_TRAIN_WITH_HDFS}
+    DOCKER_FILE: ./training/dockerfile.ctr
+    BUILD_ARGS: --build-arg HUGECTR_DEV_MODE=true --build-arg INSTALL_HDFS=true
   
 nightly_build_inference:
   extends: .build_nightly
   variables:
     REMOTE_REPO: https://github.com/NVIDIA-Merlin/Merlin.git
     DST_IMAGE: ${IMAGE_INFER}
-    DOCKER_FILE: dockerfile.tri
+    DOCKER_FILE: ./inference/dockerfile.ctr
     BUILD_ARGS: --build-arg HUGECTR_DEV_MODE=true
-  
+
 nightly_build_sok_tf2:
   extends: .build_nightly
   variables:
     REMOTE_REPO: https://github.com/NVIDIA-Merlin/Merlin.git
     DST_IMAGE: ${IMAGE_SOK_TF2}
-    DOCKER_FILE: dockerfile.tf
+    DOCKER_FILE: ./training/dockerfile.tf
     BUILD_ARGS: --build-arg HUGECTR_DEV_MODE=true
   
 nightly_build_sok_tf1:
@@ -35,7 +43,7 @@ nightly_build_sok_tf1:
   variables:
     REMOTE_REPO: https://github.com/NVIDIA-Merlin/Merlin.git
     DST_IMAGE: ${IMAGE_SOK_TF1}
-    DOCKER_FILE: dockerfile.tf
+    DOCKER_FILE: ./training/dockerfile.tf
     BUILD_ARGS: --build-arg HUGECTR_DEV_MODE=true --build-arg IMAGE=nvcr.io/nvidia/tensorflow:21.11-tf1-py3 --build-arg INSTALL_NVT=false
   
 nightly_build_unified_container.ctr:
@@ -43,24 +51,24 @@ nightly_build_unified_container.ctr:
   variables:
     REMOTE_REPO: https://github.com/NVIDIA-Merlin/Merlin.git
     DST_IMAGE: ${CI_REGISTRY}/dl/hugectr/hugectr:unified.ctr.latest
-    DOCKER_FILE: dockerfile.ctr
-    BUILD_ARGS: --build-arg _CI_JOB_TOKEN=${RD_CI_JOB_TOKEN} --build-arg _HUGECTR_REPO=gitlab-master.nvidia.com/dl/hugectr/hugectr.git --build-arg _HUGECTR_BRANCH=${CI_COMMIT_SHA}
+    DOCKER_FILE: ./training/dockerfile.ctr
+    BUILD_ARGS: --build-arg _CI_JOB_TOKEN=${RD_CI_JOB_TOKEN} --build-arg _HUGECTR_REPO=gitlab-master.nvidia.com/dl/hugectr/hugectr.git --build-arg HUGECTR_VER=${CI_COMMIT_SHA}
   
 nightly_build_unified_container.tf:
   extends: .build_nightly
   variables:
     REMOTE_REPO: https://github.com/NVIDIA-Merlin/Merlin.git
     DST_IMAGE: ${CI_REGISTRY}/dl/hugectr/hugectr:unified.tf.latest
-    DOCKER_FILE: dockerfile.tf
-    BUILD_ARGS: --build-arg _CI_JOB_TOKEN=${RD_CI_JOB_TOKEN} --build-arg _HUGECTR_REPO=gitlab-master.nvidia.com/dl/hugectr/hugectr.git --build-arg _HUGECTR_BRANCH=${CI_COMMIT_SHA}
+    DOCKER_FILE: ./training/dockerfile.tf
+    BUILD_ARGS: --build-arg _CI_JOB_TOKEN=${RD_CI_JOB_TOKEN} --build-arg _HUGECTR_REPO=gitlab-master.nvidia.com/dl/hugectr/hugectr.git --build-arg HUGECTR_VER=${CI_COMMIT_SHA}
 
 nightly_build_unified_container.tri:
   extends: .build_nightly
   variables:
     REMOTE_REPO: https://github.com/NVIDIA-Merlin/Merlin.git
     DST_IMAGE: ${CI_REGISTRY}/dl/hugectr/hugectr:unified.tri.latest
-    DOCKER_FILE: dockerfile.tri
-    BUILD_ARGS: --build-arg _CI_JOB_TOKEN=${RD_CI_JOB_TOKEN} --build-arg _HUGECTR_REPO=gitlab-master.nvidia.com/dl/hugectr/hugectr.git --build-arg _HUGECTR_BRANCH=${CI_COMMIT_SHA} --build-arg _HUGECTR_BACKEND_REPO=gitlab-master.nvidia.com/dl/hugectr/hugectr_inference_backend.git --build-arg _HUGECTR_BACKEND_BRANCH=hugectr_performance_test
+    DOCKER_FILE: ./inference/dockerfile.ctr
+    BUILD_ARGS: --build-arg _CI_JOB_TOKEN=${RD_CI_JOB_TOKEN} --build-arg _HUGECTR_REPO=gitlab-master.nvidia.com/dl/hugectr/hugectr.git --build-arg HUGECTR_VER=${CI_COMMIT_SHA} --build-arg _HUGECTR_BACKEND_REPO=gitlab-master.nvidia.com/dl/hugectr/hugectr_inference_backend.git --build-arg HUGECTR_BACKEND_VER=hugectr_performance_test
 
 ### Stage: build
 build_train_single_node:
@@ -71,6 +79,16 @@ build_train_single_node:
     CMAKE_OPTION: "-DCMAKE_BUILD_TYPE=Release -DKEY_HIT_RATIO=ON -DSM=\"60;61;70;75;80\" -DCLANGFORMAT=OFF"
     BUILD_HUGECTR: 1
     BUILD_HUGECTR2ONNX: 1
+
+build_train_single_node_with_hdfs:
+  extends: .build
+  variables:
+    FROM_IMAGE: ${IMAGE_TRAIN_WITH_HDFS}
+    DST_IMAGE: $TRAIN_IMAGE_VERSIONED_WITH_HDFS
+    CMAKE_OPTION: "-DCMAKE_BUILD_TYPE=Release -DKEY_HIT_RATIO=ON -DSM=\"60;61;70;75;80\" -DCLANGFORMAT=OFF -DENABLE_HDFS=ON"
+    BUILD_HUGECTR: 1
+    BUILD_HUGECTR2ONNX: 1
+
 
 build_train_multi_node:
   extends: .build
@@ -401,21 +419,6 @@ data_generator_single_node:
     DGXNNODES: 1
     TEST_CMD: ./ci/integration_test/data_generator/data_generator.sub
 
-#hdfs backend test
-hdfs_backend_test:
-  extends: .dlcluster_job
-  allow_failure: false
-  stage: test
-  needs:
-    - build_train_single_node
-  script:
-    - export CONT=${INFER_IMAGE_VERSIONED}
-    - srun -N 1 -p dgx1v32g,v100pcie32g bash ./ci/integration_test/hdfs/hdfs_backend_test.sh
-  rules:
-    - if: $CI_PIPELINE_SOURCE =~ /^(web|merge_request_event)$/
-      when: always
-    - when: never
-
 # # python interface single node
 py_single_node:
   extends: .cluster_test_job
@@ -533,6 +536,8 @@ inference_ps_test:
   rules:
     - if: $CI_PIPELINE_SOURCE =~ /^(web|merge_request_event)$/
       when: always
+    - if: $TEST_NEW_IMAGE == "1"
+      when: always
     - when: never
 
 inference_embedding_cache_update_test:
@@ -547,8 +552,27 @@ inference_embedding_cache_update_test:
   rules:
     - if: $CI_PIPELINE_SOURCE =~ /^(web|merge_request_event)$/
       when: always
+    - if: $TEST_NEW_IMAGE == "1"
+      when: always
     - when: never
     
+#hdfs backend test
+hdfs_backend_test:
+  extends: .dlcluster_job
+  allow_failure: false
+  stage: test
+  needs:
+    - build_train_single_node_with_hdfs
+  script:
+    - export CONT=${TRAIN_IMAGE_VERSIONED_WITH_HDFS}
+    - srun -N 1 -p dgx1v32g,v100pcie32g bash ./ci/integration_test/hdfs/hdfs_backend_test.sh
+  rules:
+    - if: $CI_PIPELINE_SOURCE =~ /^(web|merge_request_event)$/
+      when: always
+    - if: $TEST_NEW_IMAGE == "1"
+      when: always
+    - when: never
+
 wdl_check:
   # Push logs to gitlab
   extends: .cluster_post_test_job

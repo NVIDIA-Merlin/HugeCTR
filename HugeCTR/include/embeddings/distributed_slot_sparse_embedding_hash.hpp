@@ -264,7 +264,7 @@ class DistributedSlotSparseEmbeddingHash : public IEmbedding {
    * upload it onto multi-GPUs global memory.
    * @param sparse_model the folder name of sparse model.
    */
-  void load_parameters(std::string sparse_model) override;
+  void load_parameters(std::string sparse_model, DataSourceParams data_source_params) override;
   void load_parameters(BufferBag &buf_bag, size_t num) override;
 
   /**
@@ -278,7 +278,8 @@ class DistributedSlotSparseEmbeddingHash : public IEmbedding {
 
   void dump_opt_states(std::ofstream &stream, std::string sparse_model,
                        DataSourceParams data_source_params) override;
-  void load_opt_states(std::ifstream &stream) override;
+  void load_opt_states(std::ifstream &stream, std::string read_path,
+                       DataSourceParams data_source_params) override;
   void reset_optimizer() override;
 
   /**
