@@ -1,4 +1,32 @@
 # Release Notes
+## What's New in Version 3.4.1
++ **Support mixed precision inference for dataset with multiple labels**: We enable FP16 for the `Softmax` layer and support mixed precision for multi-label inference. For more information, please refer to [Inference API](docs/python_interface.md#inference-api).
+
++ **Support multi-GPU offline inference with Python API**: We support multi-GPU offline inference with the Python interface, which can leverage [Hierarchical Parameter Server](docs/hugectr_parameter_server.md) and enable concurrent execution on multiple devices. For more information, please refer to [Inference API](docs/python_interface.md#inference-api) and [Multi-GPU Offline Inference Notebook](notebooks/multi_gpu_offline_inference.ipynb).
+
++ **Introduction to metadata.json**: We add the introduction to `_metadata.json` for Parquet datasets. For more information, please refer to [Parquet](docs/python_interface.md#parquet).
+
++ **Documents and tool for workspace size per GPU estimation**: we add a tool named [embedding_workspace_calculator](tools/embedding_workspace_calculator) to help calculate `workspace_size_per_gpu_in_mb` required by hugectr.SparseEmbedding. For more information, please refer to [embedding_workspace_calculator/README.md](tools/embedding_workspace_calculator/README.md) and [QA 24](docs/QAList.md#24-how-to-set-workspace_size_per_gpu_in_mb-and-slot_size_array).
+
++ **Improved Debugging Capability**: The old logging system, which was flagged as deprecated for some time has been removed. All remaining log messages and outputs have been revised and migrated to the new logging system (base/debug/logging.hpp/cpp). During this revision, we also adjusted log levels for log messages throughout the entire codebase to improve visibility of relevant information.
+
++ **Support HDFS Parameter Server in Training**: 
+    + Decoupled HDFS in Merlin containers to make the HDFS support more flexible. Users can now compile HDFS related functionalities optionally.
+    + Now supports loading and dumping models and optimizer states from HDFS.
+    + Added a [notebook](notebooks/training_with_hdfs.ipynb) to show how to use HugeCTR with HDFS.
+
++ **Support Multi-hot Inference on Hugectr Backend**: We support categorical input in multi-hot format for HugeCTR Backend inference.
+
++ **Multi-label inference with mixed precision**: Mixed precision training is enabled for softmax layer.
+
++ **Python Script and documentation demonstrating how to analyze model files**: In this release, we provide a script to retreive vocabulary information from model file. Please find more details on the [readme](tools/model_analyzer/README.md) 
+
++ **Bug Fixing**:
+    + Mirror strategy bug in SOK (see in https://github.com/NVIDIA-Merlin/HugeCTR/issues/291)  
+    + Can't import sparse operation kit in nvcr.io/nvidia/merlin/merlin-tensorflow-training:22.03 (see in https://github.com/NVIDIA-Merlin/HugeCTR/issues/296)
+    + HPS: Fixed access violation that can occur during initialization when not configuring a volatile DB.
+
+
 
 ## What's New in Version 3.4
 + **Supporting HugeCTR Development with Merlin Unified Container**: From Merlin v22.02 we encourage you to develop HugeCTR under Merlin Unified Container (release container) according to the instructions in [Contributor Guide](docs/hugectr_contributor_guide.md) to keep consistent.
@@ -202,6 +230,6 @@
 + HugeCTR uses NCCL to share data between ranks, and NCCL may require shared system memory for IPC and pinned (page-locked) system memory resources. When using NCCL inside a container, it is recommended that you increase these resources by issuing: `-shm-size=1g -ulimit memlock=-1`
 See also [NCCL's known issue](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/troubleshooting.html#sharing-data). And the [GitHub issue](https://github.com/NVIDIA-Merlin/HugeCTR/issues/243).
 
-+ Softmax layer currently does not support fp16 mode.
-
 + KafkaProducers startup will succeed, even if the target Kafka broker is unresponsive. In order to avoid data-loss in conjunction with streaming model updates from Kafka, you have to make sure that a sufficient number of Kafka brokers is up, working properly and reachable from the node where you run HugeCTR.
+
++ The number of data files in the file list should be no less than the number of data reader workers. Otherwise, different workers will be mapped to the same file and data loading does not progress as expected.

@@ -18,7 +18,7 @@ Due to SOK is compatible with DP training provided by common synchronized traini
 There are several ways to install this package. <br>
 
 ### *Install this module along with HugeCTR* ###
-In the docker image: `nvcr.io/nvidia/merlin/merlin-tensorflow-training:22.02`, SparseOpeationKit is already installed, and you can directrly import this module via:
+In the docker image: `nvcr.io/nvidia/merlin/merlin-tensorflow-training:22.03`, SparseOpeationKit is already installed, and you can directrly import this module via:
 ```python
 import sparse_opeation_kit as sok
 ```
