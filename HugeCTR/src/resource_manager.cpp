@@ -28,8 +28,9 @@ std::shared_ptr<ResourceManager> ResourceManager::create(
   int size = 1, rank = 0;
 
 #ifdef ENABLE_MPI
-  CK_MPI_THROW_(MPI_Comm_size(MPI_COMM_WORLD, &size));
-  CK_MPI_THROW_(MPI_Comm_rank(MPI_COMM_WORLD, &rank));
+  MPILifetimeService::init();
+  HCTR_MPI_THROW(MPI_Comm_size(MPI_COMM_WORLD, &size));
+  HCTR_MPI_THROW(MPI_Comm_rank(MPI_COMM_WORLD, &rank));
 #endif
 
   DeviceMap device_map(visible_devices, rank, layout);
@@ -40,7 +41,7 @@ std::shared_ptr<ResourceManager> ResourceManager::create(
   }
 
 #ifdef ENABLE_MPI
-  CK_MPI_THROW_(MPI_Bcast(&seed, 1, MPI_UNSIGNED_LONG_LONG, 0, MPI_COMM_WORLD));
+  HCTR_MPI_THROW(MPI_Bcast(&seed, 1, MPI_UNSIGNED_LONG_LONG, 0, MPI_COMM_WORLD));
 #endif
 
   HCTR_LOG_S(INFO, ROOT) << "Global seed is " << seed << std::endl;

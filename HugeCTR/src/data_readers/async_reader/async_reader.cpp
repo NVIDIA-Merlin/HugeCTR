@@ -58,7 +58,7 @@ AsyncReaderImpl::AsyncReaderImpl(std::string fname, size_t batch_size_bytes,
     for (int id = 0; id < num_devices_; id++) {
       auto device_id = resource_manager_->get_local_gpu(id)->get_device_id();
       CudaDeviceContext ctx(device_id);
-      CK_CUDA_THROW_(cudaMalloc(&buf->dev_data[id], batch_size_bytes_));
+      HCTR_LIB_THROW(cudaMalloc(&buf->dev_data[id], batch_size_bytes_));
     }
   }
 
@@ -66,9 +66,9 @@ AsyncReaderImpl::AsyncReaderImpl(std::string fname, size_t batch_size_bytes,
   for (int id = 0; id < num_devices_; id++) {
     auto device_id = resource_manager_->get_local_gpu(id)->get_device_id();
     CudaDeviceContext ctx(device_id);
-    CK_CUDA_THROW_(cudaStreamCreateWithPriority(&streams_[id], cudaStreamNonBlocking, -100));
+    HCTR_LIB_THROW(cudaStreamCreateWithPriority(&streams_[id], cudaStreamNonBlocking, -100));
   }
-  CK_CUDA_THROW_(cudaEventCreateWithFlags(&event_success_, cudaEventDisableTiming));
+  HCTR_LIB_THROW(cudaEventCreateWithFlags(&event_success_, cudaEventDisableTiming));
 
   // For correct perf benchmarking create the thread readers upfront
   create_workers();
@@ -79,7 +79,7 @@ void AsyncReaderImpl::create_workers() {
   for (size_t i = 0; i < num_batches_; i++) {
     int thid = i % num_threads_;
     thread_batch_ids_[thid].push_back(batch_ids_[i]);
-    // printf("thread %d got buffer %lu\n", thid, i);
+    // HCTR_LOG(INFO, WORLD, "thread %d got buffer %lu\n", thid, i);
   }
 
   gpu_thread_ids_.clear();
@@ -184,7 +184,8 @@ void AsyncReaderImpl::wait_for_gpu_event(cudaEvent_t* event, int raw_device_id) 
     for (auto bufid : thread_buffer_ids_[thid]) {
       if (buffers_[bufid]->status == BufferStatus::UploadInProcess) {
         buffers_[bufid]->ready_to_upload_event.store(event);
-        // printf("storing %p to thread %d gpu %d\n", (void*)event, (int)thid, (int)raw_id);
+        // HCTR_LOG(INFO, WORLD, "storing %p to thread %d gpu %d\n", (void*)event, (int)thid,
+        // (int)raw_id);
       }
     }
   }

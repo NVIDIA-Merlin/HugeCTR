@@ -151,7 +151,7 @@ void statistics_test(const size_t batch_size, const size_t num_tables) {
   size_t num_instances = 8;  // not important here
   HugeCTR::hybrid_embedding::Statistics<dtype> statistics(data, num_instances);
   statistics.sort_categories_by_count(data.samples, stream);
-  CK_CUDA_THROW_(cudaStreamSynchronize(stream));
+  HCTR_LIB_THROW(cudaStreamSynchronize(stream));
   EXPECT_EQ(statistics.num_samples, raw_data.size());
   EXPECT_EQ(categories.size(), statistics.num_unique_categories);
 

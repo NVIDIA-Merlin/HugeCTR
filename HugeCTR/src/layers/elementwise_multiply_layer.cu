@@ -134,15 +134,16 @@ ElementwiseMultiplyLayer<T>::ElementwiseMultiplyLayer(
     // error input checking
     auto dims = in_tensors[0].get_dimensions();
     if (num_ < 2) {
-      CK_THROW_(Error_t::WrongInput, "ElementwiseMultiplyLayer needs at least 2 input tensors");
+      HCTR_OWN_THROW(Error_t::WrongInput,
+                     "ElementwiseMultiplyLayer needs at least 2 input tensors");
     }
     for (size_t i = 1; i < num_; i++) {
       if (in_tensors[i].get_dimensions().size() != dims.size()) {
-        CK_THROW_(Error_t::WrongInput, "All the input tensors must have the same num of dims");
+        HCTR_OWN_THROW(Error_t::WrongInput, "All the input tensors must have the same num of dims");
       }
       for (unsigned int j = 0; j < dims.size(); j++) {
         if (in_tensors[i].get_dimensions()[j] != dims[j]) {
-          CK_THROW_(Error_t::WrongInput, "All the input tensors must have the same dims");
+          HCTR_OWN_THROW(Error_t::WrongInput, "All the input tensors must have the same dims");
         }
       }
     }
@@ -156,7 +157,7 @@ ElementwiseMultiplyLayer<T>::ElementwiseMultiplyLayer(
     blobs_buff->reserve(out_tensor.get_dimensions(), &fprop_output_);
 
   } catch (const std::runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     throw;
   }
 }
@@ -176,7 +177,7 @@ void ElementwiseMultiplyLayer<T>::fprop(bool is_train) {
     for (size_t i = 0; i < num_; i++) {
       h_inputs_.get_ptr()[i] = in_tensors_[i].get_ptr();
     }
-    CK_CUDA_THROW_(cudaMemcpyAsync((void*)d_inputs_.get_ptr(), (void*)h_inputs_.get_ptr(),
+    HCTR_LIB_THROW(cudaMemcpyAsync((void*)d_inputs_.get_ptr(), (void*)h_inputs_.get_ptr(),
                                    num_ * sizeof(T*), cudaMemcpyHostToDevice,
                                    get_gpu().get_stream()));
     initialized_ = true;
@@ -188,7 +189,7 @@ void ElementwiseMultiplyLayer<T>::fprop(bool is_train) {
   elementwise_multiply_kernel<<<gridSize, blockSize, 0, get_gpu().get_stream()>>>(
       d_inputs_.get_ptr(), output, size_, num_);
 
-  CK_CUDA_THROW_(cudaMemcpyAsync((void*)fprop_output_.get_ptr(), (void*)output,
+  HCTR_LIB_THROW(cudaMemcpyAsync((void*)fprop_output_.get_ptr(), (void*)output,
                                  out_tensors_[0].get_size_in_bytes(), cudaMemcpyDeviceToDevice,
                                  get_gpu().get_stream()));
 }
@@ -200,7 +201,7 @@ void ElementwiseMultiplyLayer<__half>::fprop(bool is_train) {
     for (size_t i = 0; i < num_; i++) {
       h_inputs_.get_ptr()[i] = in_tensors_[i].get_ptr();
     }
-    CK_CUDA_THROW_(cudaMemcpyAsync((void*)d_inputs_.get_ptr(), (void*)h_inputs_.get_ptr(),
+    HCTR_LIB_THROW(cudaMemcpyAsync((void*)d_inputs_.get_ptr(), (void*)h_inputs_.get_ptr(),
                                    num_ * sizeof(__half*), cudaMemcpyHostToDevice,
                                    get_gpu().get_stream()));
     initialized_ = true;
@@ -212,7 +213,7 @@ void ElementwiseMultiplyLayer<__half>::fprop(bool is_train) {
   elementwise_multiply_kernel<<<gridSize, blockSize, 0, get_gpu().get_stream()>>>(
       d_inputs_.get_ptr(), output, size_, num_);
 
-  CK_CUDA_THROW_(cudaMemcpyAsync((void*)fprop_output_.get_ptr(), (void*)output,
+  HCTR_LIB_THROW(cudaMemcpyAsync((void*)fprop_output_.get_ptr(), (void*)output,
                                  out_tensors_[0].get_size_in_bytes(), cudaMemcpyDeviceToDevice,
                                  get_gpu().get_stream()));
 }
@@ -224,7 +225,7 @@ void ElementwiseMultiplyLayer<T>::bprop() {
     for (size_t i = 0; i < num_; i++) {
       h_inputs_.get_ptr()[i] = in_tensors_[i].get_ptr();
     }
-    CK_CUDA_THROW_(cudaMemcpyAsync((void*)d_inputs_.get_ptr(), (void*)h_inputs_.get_ptr(),
+    HCTR_LIB_THROW(cudaMemcpyAsync((void*)d_inputs_.get_ptr(), (void*)h_inputs_.get_ptr(),
                                    num_ * sizeof(T*), cudaMemcpyHostToDevice,
                                    get_gpu().get_stream()));
     initialized_ = true;
@@ -244,7 +245,7 @@ void ElementwiseMultiplyLayer<__half>::bprop() {
     for (size_t i = 0; i < num_; i++) {
       h_inputs_.get_ptr()[i] = in_tensors_[i].get_ptr();
     }
-    CK_CUDA_THROW_(cudaMemcpyAsync((void*)d_inputs_.get_ptr(), (void*)h_inputs_.get_ptr(),
+    HCTR_LIB_THROW(cudaMemcpyAsync((void*)d_inputs_.get_ptr(), (void*)h_inputs_.get_ptr(),
                                    num_ * sizeof(__half*), cudaMemcpyHostToDevice,
                                    get_gpu().get_stream()));
     initialized_ = true;

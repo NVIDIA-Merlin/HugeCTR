@@ -34,7 +34,7 @@ std::shared_ptr<AllReduceInPlaceComm> AllReduceInPlaceComm::create_oneshot(
     size_t num_process, bool use_mixed_precision,
     const std::vector<std::shared_ptr<GPUResource>>& gpu_resources) {
   if (num_process > 1) {
-    CK_THROW_(Error_t::WrongInput, "Oneshot multi-node is not supported without MPI");
+    HCTR_OWN_THROW(Error_t::WrongInput, "Oneshot multi-node is not supported without MPI");
   }
   if (use_mixed_precision) {
     return std::make_shared<OneshotSingleARInplaceComm<__half>>(gpu_resources);
@@ -110,11 +110,11 @@ void OneshotMultiARInplaceComm<T>::set_coll_buf(Handle coll, void* ar_ptr, size_
   auto& ctx_g = ctx->ctx_[g];
   ctx_g.ar_ptr_ = ar_ptr;
   if ((ctx->ar_size_ != 0) && (ctx->ar_size_ != ar_size)) {
-    CK_THROW_(Error_t::WrongInput, "AR size mismatch");
+    HCTR_OWN_THROW(Error_t::WrongInput, "AR size mismatch");
   }
   ctx->ar_size_ = ar_size;
   ib_comm_->set_ar_coll_buf<T>(ctx->ib_comm_handle_, ar_ptr, ar_size, g);
-  // MESSAGE_("Oneshot AR size: " + std::to_string(ar_size));
+  // HCTR_LOG_S(INFO, ROOT) << "Oneshot AR size: " << ar_size << std::endl
 }
 
 template <typename T>
@@ -122,7 +122,7 @@ void OneshotMultiARInplaceComm<T>::update_size(Handle coll, const size_t ar_size
   auto& ctx = ar_ctx_[coll];
   ctx->ar_size_ = ar_size;
   ib_comm_->update_size(ctx->ib_comm_handle_, ar_size);
-  // MESSAGE_("Oneshot AR size updated to: " + std::to_string(ar_size));
+  // HCTR_LOG_S(INFO, ROOT) << "Oneshot AR size updated to: " << ar_size << std::endl;
 }
 
 template <typename T>
@@ -220,7 +220,8 @@ static __global__ void __launch_bounds__(AR_MAX_THREADS)
   if ((blockIdx.x == 0) && (threadIdx.x < RANKS)) {
     size_t* rem_flag = flags[threadIdx.x];
     rem_flag[AG_RANK_BCAST_OFFSET + device_id] = (base_count + 1);
-    // printf("Wrote flag from %d: %llu %x\n", device_id, cachedflag, d_peer_ptrs[device_id]);
+    // HCTR_LOG(INFO, WORLD, "Wrote flag from %d: %llu %x\n", device_id, cachedflag,
+    // d_peer_ptrs[device_id]);
   }
 
   /* All gather */
@@ -247,8 +248,8 @@ static __global__ void __launch_bounds__(AR_MAX_THREADS)
     if (mythreadIdx == 0) {
       while (*flag < (base_count + 1)) {
       }
-      // printf("Gather flag received %llu %d %d %d %d %d %d %x\n", *flag, device_id, blockstart,
-      // blocklines, numlines, remainder, mydest, dest_ptr);
+      // HCTR_LOG(INFO, WORLD, "Gather flag received %llu %d %d %d %d %d %d %x\n", *flag, device_id,
+      // blockstart, blocklines, numlines, remainder, mydest, dest_ptr);
     }
     asm volatile("bar.sync %0, %1;" ::"r"(3 + mydest), "r"(myblockDim));
 
@@ -300,17 +301,17 @@ void OneshotSingleARInplaceComm<T>::set_coll_buf(Handle coll, void* ar_ptr, size
   auto& ctx_g = ctx->ctx_[g];
   ctx_g.ar_ptr_ = ar_ptr;
   if ((ctx->ar_size_ != 0) && (ctx->ar_size_ != ar_size)) {
-    CK_THROW_(Error_t::WrongInput, "AR size mismatch");
+    HCTR_OWN_THROW(Error_t::WrongInput, "AR size mismatch");
   }
   ctx->ar_size_ = ar_size;
-  // MESSAGE_("Oneshot AR size: " + std::to_string(ar_size));
+  // HCTR_LOG_S(INFO, ROOT) << "Oneshot AR size: " << ar_size << std::endl;
 }
 
 template <typename T>
 void OneshotSingleARInplaceComm<T>::update_size(Handle coll, const size_t ar_size) {
   auto& ctx = ar_ctx_[coll];
   ctx->ar_size_ = ar_size;
-  // MESSAGE_("Oneshot AR size updated to: " + std::to_string(ar_size));
+  // HCTR_LOG_S(INFO, ROOT) << "Oneshot AR size updated to: " << ar_size << std::endl;
 }
 
 template <typename T>
@@ -318,7 +319,7 @@ void OneshotSingleARInplaceComm<T>::register_coll_buf(Handle coll) {
   auto& ctx = ar_ctx_[coll];
   // Allocations
   for (size_t g = 0; g < num_gpus_; g++) {
-    CK_CUDA_THROW_(cudaSetDevice(gpu_resources_[g]->get_device_id()));
+    HCTR_LIB_THROW(cudaSetDevice(gpu_resources_[g]->get_device_id()));
     auto& gpu_ctx = ctx->ctx_[g];
     gpu_ctx.buf_ = GeneralBuffer2<CudaAllocator>::create();
     gpu_ctx.buf_->reserve({num_gpus_}, &gpu_ctx.d_peer_ptrs_);
@@ -326,7 +327,7 @@ void OneshotSingleARInplaceComm<T>::register_coll_buf(Handle coll) {
     gpu_ctx.buf_->reserve({TOTAL_FLAGS}, &gpu_ctx.d_flags_);
     gpu_ctx.buf_->reserve({num_gpus_}, &gpu_ctx.d_flags_ptrs_);
     gpu_ctx.buf_->allocate();
-    CK_CUDA_THROW_(cudaMemset(gpu_ctx.buf_->get_ptr(), 0, gpu_ctx.buf_->get_size_in_bytes()));
+    HCTR_LIB_THROW(cudaMemset(gpu_ctx.buf_->get_ptr(), 0, gpu_ctx.buf_->get_size_in_bytes()));
   }
 
   std::vector<void*> h_peer_ptrs(num_gpus_);
@@ -339,10 +340,10 @@ void OneshotSingleARInplaceComm<T>::register_coll_buf(Handle coll) {
 
   for (size_t g = 0; g < num_gpus_; g++) {
     auto& gpu_ctx = ctx->ctx_[g];
-    CK_CUDA_THROW_(cudaSetDevice(gpu_resources_[g]->get_device_id()));
-    CK_CUDA_THROW_(cudaMemcpy(gpu_ctx.d_peer_ptrs_.get_ptr(), h_peer_ptrs.data(),
+    HCTR_LIB_THROW(cudaSetDevice(gpu_resources_[g]->get_device_id()));
+    HCTR_LIB_THROW(cudaMemcpy(gpu_ctx.d_peer_ptrs_.get_ptr(), h_peer_ptrs.data(),
                               num_gpus_ * sizeof(void*), cudaMemcpyHostToDevice));
-    CK_CUDA_THROW_(cudaMemcpy(gpu_ctx.d_flags_ptrs_.get_ptr(), h_peer_flag_ptrs.data(),
+    HCTR_LIB_THROW(cudaMemcpy(gpu_ctx.d_flags_ptrs_.get_ptr(), h_peer_flag_ptrs.data(),
                               num_gpus_ * sizeof(size_t*), cudaMemcpyHostToDevice));
   }
 }
@@ -388,17 +389,17 @@ void NCCLARInplaceComm<T>::set_coll_buf(Handle coll, void* ar_ptr, size_t ar_siz
   auto& ctx_g = ctx->ctx_[g];
   ctx_g.ar_ptr_ = ar_ptr;
   if ((ctx->ar_size_ != 0) && (ctx->ar_size_ != ar_size)) {
-    CK_THROW_(Error_t::WrongInput, "AR size mismatch");
+    HCTR_OWN_THROW(Error_t::WrongInput, "AR size mismatch");
   }
   ctx->ar_size_ = ar_size;
-  // MESSAGE_("NCCL AR size: " + std::to_string(ar_size));
+  // HCTR_LOG_S(INFO, ROOT) << "NCCL AR size: " << ar_size << std::endl;
 }
 
 template <typename T>
 void NCCLARInplaceComm<T>::update_size(Handle coll, const size_t ar_size) {
   auto& ctx = ar_ctx_[coll];
   ctx->ar_size_ = ar_size;
-  // MESSAGE_("NCCL AR size updated to: " + std::to_string(ar_size));
+  // HCTR_LOG_S(INFO, ROOT) << "NCCL AR size updated to: " << ar_size << std::endl;
 }
 
 template <typename T>
@@ -409,11 +410,12 @@ void NCCLARInplaceComm<T>::all_reduce(AllReduceInPlaceComm::Handle coll, cudaStr
                                       size_t g) {
   auto& ctx = ar_ctx_[coll];
   auto& ctx_g = ctx->ctx_[g];
-  CK_NCCL_THROW_(ncclAllReduce((const void*)ctx_g.ar_ptr_, ctx_g.ar_ptr_, ctx->ar_size_ / sizeof(T),
+  HCTR_LIB_THROW(ncclAllReduce((const void*)ctx_g.ar_ptr_, ctx_g.ar_ptr_, ctx->ar_size_ / sizeof(T),
                                NcclDataType<T>::getType(), ncclSum, gpu_resources_[g]->get_nccl(),
                                stream));
 }
 
 template class NCCLARInplaceComm<__half>;
 template class NCCLARInplaceComm<float>;
+
 }  // namespace HugeCTR

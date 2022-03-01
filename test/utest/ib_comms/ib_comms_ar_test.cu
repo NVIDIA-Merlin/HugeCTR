@@ -189,10 +189,10 @@ struct IbCommsTest {
 
     auto& device_list = resource_manager_->get_local_gpu_device_id_list();
     for (size_t g = 0; g < num_gpus_; g++) {
-      CK_CUDA_THROW_(cudaSetDevice(device_list[g]));
-      CK_CUDA_THROW_(cudaMemcpy(d_ar_buff_[g].get_ptr(), h_ar_buff_[g].get_ptr(), max_size_,
+      HCTR_LIB_THROW(cudaSetDevice(device_list[g]));
+      HCTR_LIB_THROW(cudaMemcpy(d_ar_buff_[g].get_ptr(), h_ar_buff_[g].get_ptr(), max_size_,
                                 cudaMemcpyHostToDevice));
-      CK_CUDA_THROW_(cudaMemcpy(d_ar_buff_ref_[g].get_ptr(), h_ar_buff_[g].get_ptr(), max_size_,
+      HCTR_LIB_THROW(cudaMemcpy(d_ar_buff_ref_[g].get_ptr(), h_ar_buff_[g].get_ptr(), max_size_,
                                 cudaMemcpyHostToDevice));
     }
   }
@@ -236,8 +236,8 @@ struct IbCommsTest {
     auto& device_list = resource_manager_->get_local_gpu_device_id_list();
     for (size_t g = 0; g < num_gpus_; g++) {
       const auto& local_gpu = resource_manager_->get_local_gpu(g);
-      CK_CUDA_THROW_(cudaSetDevice(device_list[g]));
-      CK_CUDA_THROW_(cudaStreamSynchronize(local_gpu->get_stream()));
+      HCTR_LIB_THROW(cudaSetDevice(device_list[g]));
+      HCTR_LIB_THROW(cudaStreamSynchronize(local_gpu->get_stream()));
     }
   }
 
@@ -246,8 +246,8 @@ struct IbCommsTest {
     auto& device_list = resource_manager_->get_local_gpu_device_id_list();
     for (size_t g = 0; g < num_gpus_; g++) {
       const auto& local_gpu = resource_manager_->get_local_gpu(g);
-      CK_CUDA_THROW_(cudaSetDevice(device_list[g]));
-      CK_NCCL_THROW_(ncclAllReduce(
+      HCTR_LIB_THROW(cudaSetDevice(device_list[g]));
+      HCTR_LIB_THROW(ncclAllReduce(
           (const void*)d_ar_buff_ref_[g].get_ptr(), (void*)d_ar_buff_ref_[g].get_ptr(),
           size / sizeof(TypeEmbeddingComp), get_nccl_type<TypeEmbeddingComp>(), ncclSum,
           local_gpu->get_nccl(), local_gpu->get_stream()));
@@ -260,7 +260,7 @@ struct IbCommsTest {
 #pragma omp parallel for num_threads(num_gpus_)
     for (size_t g = 0; g < num_gpus_; g++) {
       const auto& local_gpu = resource_manager_->get_local_gpu(g);
-      CK_CUDA_THROW_(cudaSetDevice(device_list[g]));
+      HCTR_LIB_THROW(cudaSetDevice(device_list[g]));
       ib_comm_->all_reduce<TypeEmbeddingComp>(handle, local_gpu->get_stream(), g);
     }
   }
@@ -269,11 +269,11 @@ struct IbCommsTest {
     auto& device_list = resource_manager_->get_local_gpu_device_id_list();
     for (size_t g = 0; g < num_gpus_; g++) {
       const auto& local_gpu = resource_manager_->get_local_gpu(g);
-      CK_CUDA_THROW_(cudaSetDevice(device_list[g]));
-      CK_CUDA_THROW_(cudaMemcpyAsync(h_ar_buff_out_[g].get_ptr(), d_ar_buff_[g].get_ptr(),
+      HCTR_LIB_THROW(cudaSetDevice(device_list[g]));
+      HCTR_LIB_THROW(cudaMemcpyAsync(h_ar_buff_out_[g].get_ptr(), d_ar_buff_[g].get_ptr(),
                                      max_size_, cudaMemcpyDeviceToHost, local_gpu->get_stream()));
 
-      CK_CUDA_THROW_(cudaMemcpyAsync(h_ar_buff_out_ref_[g].get_ptr(), d_ar_buff_ref_[g].get_ptr(),
+      HCTR_LIB_THROW(cudaMemcpyAsync(h_ar_buff_out_ref_[g].get_ptr(), d_ar_buff_ref_[g].get_ptr(),
                                      max_size_, cudaMemcpyDeviceToHost, local_gpu->get_stream()));
     }
     stream_sync_all();

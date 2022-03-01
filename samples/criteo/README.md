@@ -11,11 +11,11 @@ HugeCTR is available as buildable source code, but the easiest way to install an
 
 1. Pull the HugeCTR NGC Docker by running the following command:
    ```bash
-   $ docker pull nvcr.io/nvidia/merlin/merlin-training:22.02
+   $ docker pull nvcr.io/nvidia/merlin/merlin-training:22.03
    ```
 2. Launch the container in interactive mode with the HugeCTR root directory mounted into the container by running the following command:
    ```bash
-   $ docker run --gpus=all --rm -it --cap-add SYS_NICE -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr nvcr.io/nvidia/merlin/merlin-training:22.02
+   $ docker run --gpus=all --rm -it --cap-add SYS_NICE -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr nvcr.io/nvidia/merlin/merlin-training:22.03
    ```  
 
 ### Build the HugeCTR Docker Container on Your Own ###
@@ -65,7 +65,7 @@ Execute the following preprocessing command:
    ```
 
 **IMPORTANT NOTES**: 
-- The first and second arguments are as the same as Perl's as shown above.
+- The first and second arguments are the same as Perl's, as shown above.
 - If you want to generate binary data using the `Norm` data format instead of the `Parquet` data format, set the fourth argument (the one after `nvt`) to `0`. Generating binary data using the `Norm` data format can take much longer than it does when using the `Parquet` data format because of the additional conversion process. Use the NVTabular binary mode if you encounter an issue with Pandas mode.
 - The fifth argument (the one after `nvt`)  must be set to `1`.
 - The last argument determines whether the feature crossing should be applied (1=ON, 0=OFF). It must remain set to `0`.

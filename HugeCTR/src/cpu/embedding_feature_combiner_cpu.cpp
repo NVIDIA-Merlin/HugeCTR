@@ -88,18 +88,22 @@ EmbeddingFeatureCombinerCPU<TypeEmbedding>::EmbeddingFeatureCombinerCPU(
     // error input checking
     const auto& in_dims = in_tensor->get_dimensions();
     const auto& row_ptrs_dims = row_ptrs_tensor->get_dimensions();
-    if ((int)in_dims.size() != 2) CK_THROW_(Error_t::WrongInput, "The input tensor must be 2D");
+    if ((int)in_dims.size() != 2) {
+      HCTR_OWN_THROW(Error_t::WrongInput, "The input tensor must be 2D");
+    }
     for (auto i : in_dims) {
       if (i == 0) {
-        CK_THROW_(Error_t::WrongInput, "The input dims can not be 0");
+        HCTR_OWN_THROW(Error_t::WrongInput, "The input dims can not be 0");
       }
     }
 
-    if ((int)row_ptrs_dims.size() != 1)
-      CK_THROW_(Error_t::WrongInput, "The row pointers tensor must be 1D");
-    if ((int)row_ptrs_dims[0] != batch_size * slot_num + 1)
-      CK_THROW_(Error_t::WrongInput,
-                "The dimension of row pointers tensor mismatch number of samples");
+    if ((int)row_ptrs_dims.size() != 1) {
+      HCTR_OWN_THROW(Error_t::WrongInput, "The row pointers tensor must be 1D");
+    }
+    if ((int)row_ptrs_dims[0] != batch_size * slot_num + 1) {
+      HCTR_OWN_THROW(Error_t::WrongInput,
+                     "The dimension of row pointers tensor mismatch number of samples");
+    }
 
     embedding_vec_size_ = in_dims[1];
     std::vector<size_t> out_dims{static_cast<size_t>(batch_size_), static_cast<size_t>(slot_num_),
@@ -109,16 +113,17 @@ EmbeddingFeatureCombinerCPU<TypeEmbedding>::EmbeddingFeatureCombinerCPU(
     in_tensors_.push_back(in_tensor);
     row_ptrs_tensors_.push_back(row_ptrs_tensor);
   } catch (const std::runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     throw;
   }
 }
 
 template <typename TypeEmbedding>
 void EmbeddingFeatureCombinerCPU<TypeEmbedding>::fprop(bool is_train) {
-  if (is_train)
-    CK_THROW_(Error_t::IllegalCall,
-              "The fprop() of EmbeddingFeatureCombiner should only be used for inference");
+  if (is_train) {
+    HCTR_OWN_THROW(Error_t::IllegalCall,
+                   "The fprop() of EmbeddingFeatureCombiner should only be used for inference");
+  }
 
   float* input = in_tensors_[0]->get_ptr();
   TypeEmbedding* output = out_tensors_[0].get_ptr();

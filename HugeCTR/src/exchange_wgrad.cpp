@@ -59,7 +59,7 @@ void NetworkExchangeWgrad<T>::allocate() {
 
 template <typename T>
 void NetworkExchangeWgrad<T>::update_embed_wgrad_size(size_t size) {
-  CK_THROW_(Error_t::IllegalCall, "Network wgrad exchange can't update embed wgrad size!");
+  HCTR_OWN_THROW(Error_t::IllegalCall, "Network wgrad exchange can't update embed wgrad size!");
 }
 
 template <typename T>

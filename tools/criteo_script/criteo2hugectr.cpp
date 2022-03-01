@@ -41,9 +41,9 @@ static int FILELIST_LENGTH = 0;  // number of files in each file_list.txt
 std::unordered_set<unsigned int> keyset;
 
 std::vector<std::string> &split(const std::string &s, char delim, std::vector<std::string> &elems) {
-  std::stringstream ss(s);
+  std::istringstream is(s);
   std::string item;
-  while (std::getline(ss, item, delim)) {
+  while (std::getline(is, item, delim)) {
     elems.push_back(item);
   }
   return elems;
@@ -53,7 +53,7 @@ int main(int argc, char *argv[]) {
   const std::string tmp_file_list_name("file_list.tmp");
 
   if (argc != 4 && argc != 5 && argc != 6) {
-    std::cout << usage_str << std::endl;
+    HCTR_LOG_S(INFO, WORLD) << usage_str << std::endl;
     exit(-1);
   }
 
@@ -62,7 +62,7 @@ int main(int argc, char *argv[]) {
       KEYS_WIDE_MODEL = atoi(argv[4]);
       SLOT_NUM += 1;
     } else {
-      std::cout << "Checking the range of each key..." << std::endl;
+      HCTR_LOG_S(INFO, WORLD) << "Checking the range of each key..." << std::endl;
     }
   }
 
@@ -70,21 +70,22 @@ int main(int argc, char *argv[]) {
     if (atoi(argv[4]) != 0) {
       KEYS_WIDE_MODEL = atoi(argv[4]);
       SLOT_NUM += 1;
-      std::cout << "slot_num for w&D is:" << SLOT_NUM << std::endl;
+      HCTR_LOG_S(INFO, WORLD) << "slot_num for w&D is:" << SLOT_NUM << std::endl;
     }
     if (atoi(argv[5]) > 0) {
       FILELIST_LENGTH = atoi(argv[5]);
-      std::cout << FILELIST_LENGTH << std::endl;
+      HCTR_LOG_S(INFO, WORLD) << FILELIST_LENGTH << std::endl;
     } else {
-      std::cerr << "The number of files in file_list should greater than 0 (default is 0)..."
-                << std::endl;
+      HCTR_LOG_S(ERROR, WORLD)
+          << "The number of files in file_list should greater than 0 (default is 0)..."
+          << std::endl;
     }
   }
 
   // open txt file
   std::ifstream txt_file(argv[1], std::ifstream::binary);
   if (!txt_file.is_open()) {
-    std::cerr << "Cannot open argv[1]" << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << "Cannot open argv[1]" << std::endl;
   }
   // create a data file under prefix
   std::string data_prefix(argv[2]);
@@ -97,7 +98,8 @@ int main(int argc, char *argv[]) {
   // check file_list.txt prefix
   std::string file_name(argv[3]);
   if (file_name.find(".") == std::string::npos) {
-    std::cerr << "Please provide aviable file_list with extension(.txt) " << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << "Please provide aviable file_list with extension(.txt) "
+                             << std::endl;
     exit(-1);
   }
   const size_t last_point_idx = file_name.rfind('.');
@@ -108,12 +110,12 @@ int main(int argc, char *argv[]) {
   std::ofstream file_list_tmp(tmp_file_list_name, std::ofstream::out);
 
   if (!file_list_tmp.is_open()) {
-    std::cerr << "Cannot open file_list.tmp" << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << "Cannot open file_list.tmp" << std::endl;
   }
 
   std::string keyset_name(file_name_prefix + ".keyset");
   if (FILELIST_LENGTH > 0) {
-    keyset_name = file_name_prefix + "." + std::to_string(file_counter) + ".keyset";
+    keyset_name = file_name_prefix + '.' + std::to_string(file_counter) + ".keyset";
   }
   std::ofstream keyset_file(keyset_name, std::ofstream::binary);
   DataWriter<Check_t::None> keyset_writer(keyset_file);
@@ -121,10 +123,10 @@ int main(int argc, char *argv[]) {
   do {
     std::string data_file_name(data_prefix + std::to_string(file_counter) + ".data");
     std::ofstream data_file(data_file_name, std::ofstream::binary);
-    file_list_tmp << (data_file_name + "\n");
-    std::cout << data_file_name << std::endl;
+    file_list_tmp << (data_file_name + '\n');
+    HCTR_LOG_S(INFO, WORLD) << data_file_name << std::endl;
     if (!data_file.is_open()) {
-      std::cerr << "Cannot open data_file" << std::endl;
+      HCTR_LOG_S(ERROR, WORLD) << "Cannot open data_file" << std::endl;
     }
 
     DataWriter<Check_t::Sum> data_writer(data_file);
@@ -157,7 +159,7 @@ int main(int argc, char *argv[]) {
         data_writer.append(reinterpret_cast<char *>(&last_header), sizeof(DataSetHeader));
         data_writer.write();
         data_file.close();
-        std::cout << "last keyset size is:" << keyset.size() << std::endl;
+        HCTR_LOG_S(INFO, WORLD) << "last keyset size is:" << keyset.size() << std::endl;
         keyset_writer.write();
         keyset_file.close();
 
@@ -166,23 +168,23 @@ int main(int argc, char *argv[]) {
         {
           std::ifstream tmp(tmp_file_list_name);
           if (!tmp.is_open()) {
-            std::cerr << "Cannot open " << tmp_file_list_name << std::endl;
+            HCTR_LOG_S(ERROR, WORLD) << "Cannot open " << tmp_file_list_name << std::endl;
           }
 
-          std::cout << "Opening " << argv[3] << std::endl;
+          HCTR_LOG_S(INFO, WORLD) << "Opening " << argv[3] << std::endl;
           // std::ofstream file_list(argv[3], std::ofstream::out);
 
           std::string file_list_name = file_name;
 
           if (FILELIST_LENGTH > 0) {
-            file_list_name = file_name_prefix + "." +
+            file_list_name = file_name_prefix + '.' +
                              std::to_string((file_counter / FILELIST_LENGTH)) + file_name_postfix;
           }
 
           std::ofstream file_list(file_list_name, std::ofstream::out);
 
           if (!file_list.is_open()) {
-            std::cerr << "Cannot open " << argv[3] << std::endl;
+            HCTR_LOG_S(ERROR, WORLD) << "Cannot open " << argv[3] << std::endl;
           }
 
           // file_list << (std::to_string(file_counter + 1) + "\n");
@@ -190,11 +192,11 @@ int main(int argc, char *argv[]) {
             file_counter++;
           }
           if (FILELIST_LENGTH == 0) {
-            file_list << (std::to_string(file_counter) + "\n");
+            file_list << file_counter << '\n';
           } else if (file_counter % FILELIST_LENGTH != 0 && FILELIST_LENGTH != 1) {
-            file_list << (std::to_string(file_counter % FILELIST_LENGTH) + "\n");
+            file_list << (file_counter % FILELIST_LENGTH) << '\n';
           } else {
-            file_list << (std::to_string(FILELIST_LENGTH) + "\n");
+            file_list << FILELIST_LENGTH << '\n';
           }
 
           file_list << tmp.rdbuf();
@@ -210,9 +212,10 @@ int main(int argc, char *argv[]) {
       if (vec_string.size() != (unsigned int)(KEYS_WIDE_MODEL + KEYS_DENSE_MODEL + dense_dim +
                                               label_dim))  // first one is label
       {
-        std::cerr << "vec_string.size() != KEYS_WIDE_MODEL+KEYS_DENSE_MODEL+dense_dim+label_dim"
-                  << std::endl;
-        std::cerr << line << std::endl;
+        HCTR_LOG_S(ERROR, WORLD)
+            << "vec_string.size() != KEYS_WIDE_MODEL+KEYS_DENSE_MODEL+dense_dim+label_dim"
+            << std::endl;
+        HCTR_LOG_S(ERROR, WORLD) << line << std::endl;
         exit(-1);
       }
 #ifndef NDEBUG
@@ -264,37 +267,37 @@ int main(int argc, char *argv[]) {
       file_list_tmp.close();
       std::ifstream tmp(tmp_file_list_name);
       if (!tmp.is_open()) {
-        std::cerr << "Cannot open " << tmp_file_list_name << std::endl;
+        HCTR_LOG_S(ERROR, WORLD) << "Cannot open " << tmp_file_list_name << std::endl;
       }
 
-      std::cout << "Opening " << argv[3] << std::endl;
+      HCTR_LOG_S(INFO, WORLD) << "Opening " << argv[3] << std::endl;
 
       std::string file_list_name =
-          file_name_prefix + "." + std::to_string(NOFile) + file_name_postfix;
+          file_name_prefix + '.' + std::to_string(NOFile) + file_name_postfix;
 
       std::ofstream file_list(file_list_name, std::ofstream::out);
       if (!file_list.is_open()) {
-        std::cerr << "Cannot open " << argv[3] << std::endl;
+        HCTR_LOG_S(ERROR, WORLD) << "Cannot open " << argv[3] << std::endl;
       }
 
-      file_list << (std::to_string(FILELIST_LENGTH) + "\n");
+      file_list << (std::to_string(FILELIST_LENGTH) + '\n');
       file_list << tmp.rdbuf();
 
       tmp.close();
       file_list.close();
 
-      std::cout << std::to_string(NOFile) << " keyset size is: " << keyset.size() << std::endl;
+      HCTR_LOG_S(INFO, WORLD) << NOFile << " keyset size is: " << keyset.size() << std::endl;
       keyset.clear();
       keyset_writer.write();
       keyset_file.close();
-      keyset_name = file_name_prefix + "." + std::to_string(NOFile + 1) + ".keyset";
+      keyset_name = file_name_prefix + '.' + std::to_string(NOFile + 1) + ".keyset";
       keyset_file.open(keyset_name, std::ofstream::binary);
       DataWriter<Check_t::None> keyset_writer(keyset_file);
 
-      std::cout << "reopen file_list_tmp" << std::endl;
+      HCTR_LOG_S(INFO, WORLD) << "reopen file_list_tmp" << std::endl;
       file_list_tmp.open(tmp_file_list_name);
       if (!file_list_tmp.is_open()) {
-        std::cerr << "Cannot open file_list.tmp during iteration" << std::endl;
+        HCTR_LOG_S(ERROR, WORLD) << "Cannot open file_list.tmp during iteration" << std::endl;
       }
     }
     file_counter++;

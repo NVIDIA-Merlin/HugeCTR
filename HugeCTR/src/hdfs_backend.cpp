@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 #include "hdfs_backend.hpp"
 
 #include <stdio.h>
@@ -22,28 +23,36 @@
 #include <exception>
 #include <iostream>
 
-#define INVALID_POINT(p) p == NULL
-
 namespace HugeCTR {
 
 HdfsService::HdfsService() {
+#ifdef ENABLE_HDFS
   fs_ = NULL;
   local_fs_ = NULL;
+#endif
 }
 
 HdfsService::HdfsService(const std::string& name_node, const int port) {
   name_node_ = name_node;
   hdfs_port_ = port;
+#ifdef ENABLE_HDFS
   fs_ = connect();
   local_fs_ = connectToLocal();
-  if (fs_ && local_fs_) {
-    std::cout << "[HDFS][INFO]: HDFS service start successfully!" << std::endl;
-  }
+#endif
+#ifndef ENABLE_HDFS
+  std::cout << "[HDFS][WARN]: Please install Hadoop and compile HugeCTR with ENABLE_HDFS to use "
+               "HDFS functionalities."
+            << std::endl;
+#endif
+  // if (fs_ && local_fs_) {
+  //   std::cout << "[HDFS][INFO]: HDFS service start successfully!" << std::endl;
+  // }
 }
 
 HdfsService::~HdfsService() { disconnect(); }
 
 void HdfsService::disconnect() {
+#ifdef ENABLE_HDFS
   if (fs_) {
     int result = hdfsDisconnect(fs_);
     if (result != 0) {
@@ -58,9 +67,10 @@ void HdfsService::disconnect() {
       exit(1);
     }
   }
-  std::cout << "[HDFS][INFO]: HDFS service disconnect successfully!" << std::endl;
+#endif
+  // std::cout << "[HDFS][INFO]: HDFS service disconnect successfully!" << std::endl;
 }
-
+#ifdef ENABLE_HDFS
 hdfsFS HdfsService::connect() {
   struct hdfsBuilder* bld = hdfsNewBuilder();
   if (!bld) {
@@ -77,7 +87,9 @@ hdfsFS HdfsService::connect() {
   }
   return fs;
 }
+#endif
 
+#ifdef ENABLE_HDFS
 hdfsFS HdfsService::connectToLocal() {
   struct hdfsBuilder* bld = hdfsNewBuilder();
   if (!bld) {
@@ -94,19 +106,24 @@ hdfsFS HdfsService::connectToLocal() {
   }
   return fs;
 }
+#endif
 
 size_t HdfsService::getFileSize(const std::string& path) {
+#ifdef ENABLE_HDFS
   hdfsFileInfo* info = hdfsGetPathInfo(fs_, path.c_str());
   if (info == NULL) {
     std::cout << "[HDFS][ERROR]: File does not exist" << std::endl;
     exit(1);
   }
-  size_t file_size = (info->mSize) + 1;
+  size_t file_size = (info->mSize);
   return file_size;
+#endif
+  return 0;
 }
 
 int HdfsService::write(const std::string& writepath, const void* data, size_t dataSize,
                        bool overwrite) {
+#ifdef ENABLE_HDFS
   if (!fs_) {
     std::cout << "[HDFS][ERROR]: Not connected to HDFS" << std::endl;
     exit(1);
@@ -134,10 +151,13 @@ int HdfsService::write(const std::string& writepath, const void* data, size_t da
   std::cout << "[HDFS][INFO]: Write to HDFS " << writepath << " successfully!" << std::endl;
   hdfsCloseFile(fs_, writeFile);
   return result;
+#endif
+  return 0;
 }
 
 int HdfsService::read(const std::string& readpath, const void* buffer, size_t data_size,
                       size_t offset) {
+#ifdef ENABLE_HDFS
   if (buffer == NULL) {
     std::cout << "[HDFS][ERROR]: Buffer error" << std::endl;
     exit(1);
@@ -146,11 +166,16 @@ int HdfsService::read(const std::string& readpath, const void* buffer, size_t da
     if (handle_hdfsFile_w == NULL) {
       std::cout << "[HDFS][ERROR]: Failed to open file!" << std::endl;
       exit(1);
-      ;
     } else {
+      hdfsFileInfo* info = hdfsGetPathInfo(fs_, readpath.c_str());
+      size_t file_size = (info->mSize);
+      if (file_size - offset < data_size) {
+        std::cout << "[HDFS][ERROR]: No enough bytes to read!" << std::endl;
+        exit(1);
+      }
       tSize num_read_bytes = hdfsPread(fs_, handle_hdfsFile_w, offset, (void*)buffer, data_size);
-      if ((int)(data_size - 1) == num_read_bytes) {
-        std::cout << "[HDFS][INFO]: Read file successfully!" << std::endl;
+      if ((int)data_size == num_read_bytes) {
+        std::cout << "[HDFS][INFO]: Read file " << readpath << " successfully!" << std::endl;
       } else {
         std::cout << "[HDFS][ERROR]: Failed to read file!" << std::endl;
         exit(1);
@@ -159,9 +184,12 @@ int HdfsService::read(const std::string& readpath, const void* buffer, size_t da
       return num_read_bytes;
     }
   }
+#endif
+  return 0;
 }
 
 int HdfsService::copyToLocal(const std::string& hdfs_path, const std::string& local_path) {
+#ifdef ENABLE_HDFS
   if (!local_fs_) {
     std::cout << "[HDFS][ERROR]: Not connected to local FS" << std::endl;
     exit(1);
@@ -174,9 +202,12 @@ int HdfsService::copyToLocal(const std::string& hdfs_path, const std::string& lo
     exit(1);
   }
   return result;
+#endif
+  return 0;
 }
 
 int HdfsService::batchCopyToLocal(const std::string& hdfs_path, const std::string& local_path) {
+#ifdef ENABLE_HDFS
   int hdfs_exist = hdfsExists(fs_, hdfs_path.c_str());
   int local_exist = hdfsExists(local_fs_, local_path.c_str());
   if (hdfs_exist != 0) {
@@ -210,6 +241,8 @@ int HdfsService::batchCopyToLocal(const std::string& hdfs_path, const std::strin
     std::cout << "[HDFS][INFO]: Batch copy done !" << std::endl;
   }
   hdfsFreeFileInfo(file_info, 1);
+  return 0;
+#endif
   return 0;
 }
 

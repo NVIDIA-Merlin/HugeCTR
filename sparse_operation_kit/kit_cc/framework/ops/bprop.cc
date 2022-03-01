@@ -25,6 +25,7 @@ REGISTER_OP("PluginBprop")
     .Input("emb_handle: variant")
     .Input("global_replica_id: int32")
     .Input("top_gradient: dtype")
+    .Input("replica_nnz: uint64")
     .Output("gradient: dtype")
     .Output("value_index: int64")
     .Attr("dtype: {float32, float16}")
@@ -38,4 +39,6 @@ REGISTER_OP("PluginBprop")
 
         This op is used to calculate the gradient for embedding variable based
         on the top_gradients.
+
+        'replica_nnz' represents how many keys are processed in this step by this GPU.
     )doc");

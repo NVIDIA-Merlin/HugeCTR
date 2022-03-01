@@ -117,7 +117,7 @@ class SparseEmbeddingHashCpu {
         return;
       }
     }
-    CK_THROW_(Error_t::BrokenFile, "failed to read a file");
+    HCTR_OWN_THROW(Error_t::BrokenFile, "failed to read a file");
   }
 
   std::unique_ptr<HashTableCpu<TypeHashKey, TypeHashValueIndex>> hash_table_;
@@ -292,7 +292,7 @@ SparseEmbeddingHashCpu<TypeHashKey, TypeEmbeddingComp>::SparseEmbeddingHashCpu(
     std::ifstream key_stream(key_file, std::ifstream::binary);
     std::ifstream vec_stream(vec_file, std::ifstream::binary);
     if (!key_stream.is_open() || !vec_stream.is_open()) {
-      ERROR_MESSAGE_("Error: hash table file open failed");
+      HCTR_LOG_S(ERROR, WORLD) << "Hash table file open failed. " << HCTR_LOCATION() << std::endl;
       return;
     }
     auto key_file_size_in_B = std::filesystem::file_size(key_file);
@@ -301,7 +301,9 @@ SparseEmbeddingHashCpu<TypeHashKey, TypeEmbeddingComp>::SparseEmbeddingHashCpu(
     const int num_vec = vec_file_size_in_B / (sizeof(float) * embedding_vec_size_);
 
     if (num_key != num_vec || num_key > vocabulary_size_) {
-      ERROR_MESSAGE_("Error: hash table file size is smaller than embedding_table_size required");
+      HCTR_LOG_S(ERROR, WORLD)
+          << "Hash table file size is smaller than embedding_table_size required. "
+          << HCTR_LOCATION() << std::endl;
       return;
     }
     if (std::is_same<TypeHashKey, long long>::value) {
@@ -376,7 +378,7 @@ void SparseEmbeddingHashCpu<TypeHashKey, TypeEmbeddingComp>::read_a_batch() {
       }
     }  // batch loop
   } catch (const std::runtime_error &rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     throw;
   }
   return;
@@ -654,7 +656,7 @@ void SparseEmbeddingHashCpu<TypeHashKey, TypeEmbeddingComp>::cpu_optimizer_adam(
           break;
         }
         default: {
-          CK_THROW_(Error_t::WrongInput, "Error: Invalid update type");
+          HCTR_OWN_THROW(Error_t::WrongInput, "Error: Invalid update type");
         }
       }
     }
@@ -909,7 +911,7 @@ void SparseEmbeddingHashCpu<TypeHashKey, TypeEmbeddingComp>::update_params() {
       break;
     }
     default: {
-      printf("Error: optimizer not supported in CPU version\n");
+      HCTR_LOG(INFO, WORLD, "Error: optimizer not supported in CPU version\n");
     }
   }
 

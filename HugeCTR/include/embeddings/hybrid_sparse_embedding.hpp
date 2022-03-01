@@ -82,7 +82,7 @@ class HybridSparseEmbedding : public IEmbedding {
     cudaStream_t& get_stream(uint32_t device_id, const std::string& key) {
       if (stream_map[device_id].find(key) == stream_map[device_id].end()) {
         cudaStream_t stream;
-        CK_CUDA_THROW_(cudaStreamCreate(&stream));
+        HCTR_LIB_THROW(cudaStreamCreate(&stream));
         stream_map[device_id][key] = stream;
       }
       return stream_map[device_id][key];
@@ -91,7 +91,7 @@ class HybridSparseEmbedding : public IEmbedding {
     cudaEvent_t& get_event(uint32_t device_id, const std::string& key) {
       if (event_map[device_id].find(key) == event_map[device_id].end()) {
         cudaEvent_t event;
-        CK_CUDA_THROW_(cudaEventCreateWithFlags(&event, cudaEventDisableTiming));
+        HCTR_LIB_THROW(cudaEventCreateWithFlags(&event, cudaEventDisableTiming));
         event_map[device_id][key] = event;
       }
       return event_map[device_id][key];
@@ -245,7 +245,7 @@ class HybridSparseEmbedding : public IEmbedding {
   void backward() override;
   void update_params() override;
   void init_params() override;
-  void load_parameters(std::string sparse_model) override;
+  void load_parameters(std::string sparse_model, DataSourceParams data_source_params) override;
   void dump_parameters(std::string sparse_model,
                        DataSourceParams data_source_params) const override;
   void set_learning_rate(float lr) override;
@@ -263,7 +263,8 @@ class HybridSparseEmbedding : public IEmbedding {
 
   void dump_opt_states(std::ofstream& stream, std::string sparse_model,
                        DataSourceParams data_source_params) override {}
-  void load_opt_states(std::ifstream& stream) override {}
+  void load_opt_states(std::ifstream& stream, std::string read_path,
+                       DataSourceParams data_source_params) override {}
   void reset_optimizer() override {}
   void reset() override {}
 

@@ -35,6 +35,7 @@ workspace_size_per_gpu_in_mb = (
         40004
         * 16
         * 4
+        * 3
         / 1000000
     )
     + 10

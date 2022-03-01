@@ -87,10 +87,11 @@ Secondly, using our `data_generator` to generate a random dataset. Seeing [intro
 Thirdly, run with `./huge_ctr --train ./your_config.json`
 ### 24. How to set workspace_size_per_gpu_in_mb and slot_size_array? ###
 As embeddings are model parallel in HugeCTR,
-`workspace_size_per_gpu_in_mb` is a reference number for HugeCTR to allocate GPU memory accordingly and not necessarily the exact number of features in your dataset.
+`workspace_size_per_gpu_in_mb` is a reference number for HugeCTR to allocate GPU memory accordingly and not necessarily the exact number of features in your dataset. It is depending on vocabulary size per gpu, embedding vector size and optimizer type. Please refer to [embedding_workspace_calculator](../tools/embedding_workspace_calculator) to see how to calculate vocabulary size per gpu and workspace_size per gpu for different embedding types, embedding vector size and optimizer type.
+
 In practice, we usually set it larger than the real size because of the non-uniform distribution of the keys.
 
-`slot_size_array` has 2 usages. It can be used as a replacement for `workspace_size_per_gpu_in_mb` to avoid waiting memory caused by imbalance vocabulary size. And it can also be used as a reference to add offset for keys in different slot.
+`slot_size_array` has 2 usages. It can be used as a replacement for `workspace_size_per_gpu_in_mb` to avoid wasting memory caused by imbalance vocabulary size. And it can also be used as a reference to add offset for keys in different slot.
 
 The relation between embedding type, `workspace_size_per_gpu_in_mb` and `slot_size_array` is:
 * For `DistributedSlotEmbedding`, `workspace_size_per_gpu_in_mb` is needed and `slot_size_array` is not needed. Each GPU will allocate the same amount of memory for embedding table usage.

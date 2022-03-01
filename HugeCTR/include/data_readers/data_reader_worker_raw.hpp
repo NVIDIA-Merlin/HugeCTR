@@ -27,6 +27,7 @@
 #include "tensor2.hpp"
 
 namespace HugeCTR {
+
 template <class T>
 class DataReaderWorkerRaw : public IDataReaderWorker {
  private:
@@ -67,7 +68,7 @@ class DataReaderWorkerRaw : public IDataReaderWorker {
     CudaCPUDeviceContext ctx(gpu_resource->get_device_id());
 
     if (worker_id >= worker_num) {
-      CK_THROW_(Error_t::BrokenFile, "DataReaderWorkerRaw: worker_id >= worker_num");
+      HCTR_OWN_THROW(Error_t::BrokenFile, "DataReaderWorkerRaw: worker_id >= worker_num");
     }
 
     source_ = std::make_shared<MmapSource>(file_offset_list, worker_id);
@@ -122,8 +123,8 @@ class DataReaderWorkerRaw : public IDataReaderWorker {
 
     long long current_batchsize = source_->get_num_of_items_in_source();
     if (current_batchsize != buffer_->batch_size) {
-      std::cout << "current_batchsize: " << current_batchsize
-                << ", batchsize: " << buffer_->batch_size << std::endl;
+      HCTR_LOG_S(INFO, WORLD) << "current_batchsize: " << current_batchsize
+                              << ", batchsize: " << buffer_->batch_size << std::endl;
     }
 
     char* data_buffer = source_->get_ptr();
@@ -204,7 +205,7 @@ class DataReaderWorkerRaw : public IDataReaderWorker {
     {
       CudaCPUDeviceContext context(gpu_resource_->get_device_id());
       auto dst_dense_tensor = Tensor2<float>::stretch_from(buffer_->device_dense_buffers);
-      CK_CUDA_THROW_(cudaMemcpyAsync(dst_dense_tensor.get_ptr(), host_dense_buffer_.get_ptr(),
+      HCTR_LIB_THROW(cudaMemcpyAsync(dst_dense_tensor.get_ptr(), host_dense_buffer_.get_ptr(),
                                      host_dense_buffer_.get_size_in_bytes(), cudaMemcpyHostToDevice,
                                      gpu_resource_->get_memcpy_stream()));
 
@@ -213,7 +214,7 @@ class DataReaderWorkerRaw : public IDataReaderWorker {
             SparseTensor<T>::stretch_from(buffer_->device_sparse_buffers[param_id]);
         if (buffer_->is_fixed_length[param_id] &&
             last_batch_nnz_[param_id] == host_sparse_buffer_[param_id].get_num_values()) {
-          CK_CUDA_THROW_(cudaMemcpyAsync(dst_sparse_tensor.get_value_ptr(),
+          HCTR_LIB_THROW(cudaMemcpyAsync(dst_sparse_tensor.get_value_ptr(),
                                          host_sparse_buffer_[param_id].get_value_tensor().get_ptr(),
                                          host_sparse_buffer_[param_id].get_num_values() * sizeof(T),
                                          cudaMemcpyHostToDevice,
@@ -224,7 +225,7 @@ class DataReaderWorkerRaw : public IDataReaderWorker {
           last_batch_nnz_[param_id] = host_sparse_buffer_[param_id].get_num_values();
         }
       }
-      CK_CUDA_THROW_(cudaStreamSynchronize(gpu_resource_->get_memcpy_stream()));
+      HCTR_LIB_THROW(cudaStreamSynchronize(gpu_resource_->get_memcpy_stream()));
     }
 
     assert(buffer_->state.load() == BufferState::Writing);

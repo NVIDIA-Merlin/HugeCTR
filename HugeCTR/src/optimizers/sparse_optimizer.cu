@@ -27,6 +27,8 @@ EmbeddingOptimizer<TypeHashKey, TypeEmbeddingComp>::EmbeddingOptimizer(
     const std::shared_ptr<GeneralBuffer2<CudaAllocator>> &buf)
     : param(param) {
   // new optimizer params used by update_params
+  // should be match with HugeCTR/src/parsers/create_embedding.cpp
+  // should be match with HugeCTR/src/pybind/model.cpp
   switch (param.opt_params.optimizer) {
     case Optimizer_t::Adam:  // adam
     {
@@ -115,10 +117,10 @@ template <typename TypeHashKey, typename TypeEmbeddingComp>
 void EmbeddingOptimizer<TypeHashKey, TypeEmbeddingComp>::initialize(const GPUResource &local_gpu) {
   switch (param.opt_params.optimizer) {
     case Optimizer_t::Adam:  // adam
-      CK_CUDA_THROW_(cudaMemsetAsync(opt_tensors_.opt_m_tensors_.get_ptr(), 0,
+      HCTR_LIB_THROW(cudaMemsetAsync(opt_tensors_.opt_m_tensors_.get_ptr(), 0,
                                      opt_tensors_.opt_m_tensors_.get_size_in_bytes(),
                                      local_gpu.get_stream()));
-      CK_CUDA_THROW_(cudaMemsetAsync(opt_tensors_.opt_v_tensors_.get_ptr(), 0,
+      HCTR_LIB_THROW(cudaMemsetAsync(opt_tensors_.opt_v_tensors_.get_ptr(), 0,
                                      opt_tensors_.opt_v_tensors_.get_size_in_bytes(),
                                      local_gpu.get_stream()));
       param.opt_params.hyperparams.adam.times = 0;
@@ -131,19 +133,19 @@ void EmbeddingOptimizer<TypeHashKey, TypeEmbeddingComp>::initialize(const GPURes
       }
       break;
     case Optimizer_t::AdaGrad:
-      CK_CUDA_THROW_(cudaMemsetAsync(opt_tensors_.opt_accm_tensors_.get_ptr(),
+      HCTR_LIB_THROW(cudaMemsetAsync(opt_tensors_.opt_accm_tensors_.get_ptr(),
                                      param.opt_params.hyperparams.adagrad.initial_accu_value,
                                      opt_tensors_.opt_accm_tensors_.get_size_in_bytes(),
                                      local_gpu.get_stream()));
       break;
     case Optimizer_t::MomentumSGD:  // momentum_sgd
-      CK_CUDA_THROW_(cudaMemsetAsync(opt_tensors_.opt_momentum_tensors_.get_ptr(), 0,
+      HCTR_LIB_THROW(cudaMemsetAsync(opt_tensors_.opt_momentum_tensors_.get_ptr(), 0,
                                      opt_tensors_.opt_momentum_tensors_.get_size_in_bytes(),
                                      local_gpu.get_stream()));
       break;
 
     case Optimizer_t::Nesterov:  // nesterov
-      CK_CUDA_THROW_(cudaMemsetAsync(opt_tensors_.opt_accm_tensors_.get_ptr(), 0,
+      HCTR_LIB_THROW(cudaMemsetAsync(opt_tensors_.opt_accm_tensors_.get_ptr(), 0,
                                      opt_tensors_.opt_accm_tensors_.get_size_in_bytes(),
                                      local_gpu.get_stream()));
       break;
@@ -641,13 +643,13 @@ void EmbeddingOptimizer<TypeHashKey, TypeEmbeddingComp>::update(
       // step3: sort by hash_value_index
       int end_bit = static_cast<int>(log2(static_cast<float>(max_vocabulary_size_per_gpu))) + 1;
       size_t temp_storage_sort_size = temp_storage_sort.get_size_in_bytes();
-      CK_CUDA_THROW_(cub::DeviceRadixSort::SortPairs(
+      HCTR_LIB_THROW(cub::DeviceRadixSort::SortPairs(
           temp_storage_sort.get_ptr(), temp_storage_sort_size, hash_value_index.get_ptr(),
           hash_value_index_sort.get_ptr(), sample_id.get_ptr(), sample_id_sort.get_ptr(), nnz, 0,
           end_bit, stream, false));
 
       // step4: count the number for each unduplicated hash_value_index
-      CK_CUDA_THROW_(
+      HCTR_LIB_THROW(
           cudaMemsetAsync(hash_value_index_count_counter.get_ptr(), 0, sizeof(uint32_t), stream));
 
       constexpr size_t max_grid_size = 384;
@@ -659,7 +661,7 @@ void EmbeddingOptimizer<TypeHashKey, TypeEmbeddingComp>::update(
 
       // prefix_sum
       size_t temp_storage_scan_size = temp_storage_scan.get_size_in_bytes();
-      CK_CUDA_THROW_(cub::DeviceScan::InclusiveSum(
+      HCTR_LIB_THROW(cub::DeviceScan::InclusiveSum(
           temp_storage_scan.get_ptr(), temp_storage_scan_size, new_hash_value_flag.get_ptr(),
           hash_value_flag_sumed.get_ptr(), nnz, stream));
 
@@ -670,7 +672,7 @@ void EmbeddingOptimizer<TypeHashKey, TypeEmbeddingComp>::update(
       uint32_t hash_hash_value_index_count_num = 0;
       // this async memcpy will not perform as a async operation because the host memory is not
       // a pinned memroy
-      CK_CUDA_THROW_(cudaMemcpyAsync(&hash_hash_value_index_count_num,
+      HCTR_LIB_THROW(cudaMemcpyAsync(&hash_hash_value_index_count_num,
                                      hash_value_index_count_counter.get_ptr(), sizeof(uint32_t),
                                      cudaMemcpyDeviceToHost, stream));
 
@@ -740,7 +742,7 @@ void EmbeddingOptimizer<TypeHashKey, TypeEmbeddingComp>::update(
                   hash_table_value.get_ptr(), opt_params.scaler);
               break;
             default:
-              CK_THROW_(Error_t::WrongInput, "Error: Invalid opitimizer type");
+              HCTR_OWN_THROW(Error_t::WrongInput, "Error: Invalid opitimizer type");
           }  // switch (optimizer)
           break;
         }
@@ -794,7 +796,7 @@ void EmbeddingOptimizer<TypeHashKey, TypeEmbeddingComp>::update(
                   hash_table_value.get_ptr(), opt_params.scaler);
               break;
             default:
-              CK_THROW_(Error_t::WrongInput, "Error: Invalid opitimizer type");
+              HCTR_OWN_THROW(Error_t::WrongInput, "Error: Invalid opitimizer type");
           }  // switch (optimizer)
           break;
         }
@@ -818,25 +820,25 @@ void EmbeddingOptimizer<TypeHashKey, TypeEmbeddingComp>::update(
             case Optimizer_t::Nesterov:
             case Optimizer_t::SGD: {
               /// TODO: implement lazy global update for other optimizer types
-              CK_THROW_(Error_t::WrongInput,
-                        "Error: lazy global update is only implemented for Adam");
+              HCTR_OWN_THROW(Error_t::WrongInput,
+                             "Error: lazy global update is only implemented for Adam");
               break;
             }
             default:
-              CK_THROW_(Error_t::WrongInput, "Error: Invalid opitimizer type");
+              HCTR_OWN_THROW(Error_t::WrongInput, "Error: Invalid opitimizer type");
           }
           break;
         }
         default:
-          CK_THROW_(Error_t::WrongInput, "Error: Invalid update type");
+          HCTR_OWN_THROW(Error_t::WrongInput, "Error: Invalid update type");
       }  // switch (update type)
     }
 #ifndef NDEBUG
     cudaDeviceSynchronize();
-    CK_CUDA_THROW_(cudaGetLastError());
+    HCTR_LIB_THROW(cudaGetLastError());
 #endif
   } catch (const std::runtime_error &rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     throw;
   }
 

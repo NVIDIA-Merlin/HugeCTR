@@ -56,18 +56,18 @@ class DataReaderWorker : public IDataReaderWorker {
       current_record_index_ = 0;
       if (!(data_set_header_.error_check == 0 && check_type_ == Check_t::None) &&
           !(data_set_header_.error_check == 1 && check_type_ == Check_t::Sum)) {
-        ERROR_MESSAGE_("DataHeaderError");
+        HCTR_LOG_S(ERROR, WORLD) << "DataHeaderError " << HCTR_LOCATION() << std::endl;
         continue;
       }
       if (static_cast<size_t>(data_set_header_.slot_num) != total_slot_num_) {
-        ERROR_MESSAGE_("DataHeaderError");
+        HCTR_LOG_S(ERROR, WORLD) << "DataHeaderError " << HCTR_LOCATION() << std::endl;
         continue;
       }
       if (err == Error_t::Success) {
         return;
       }
     }
-    CK_THROW_(Error_t::BrokenFile, "failed to read a file");
+    HCTR_OWN_THROW(Error_t::BrokenFile, "failed to read a file");
   }
 
   void create_checker() {
@@ -106,7 +106,7 @@ class DataReaderWorker : public IDataReaderWorker {
         total_slot_num_(0),
         last_batch_nnz_(params.size(), 0) {
     if (worker_id >= worker_num) {
-      CK_THROW_(Error_t::BrokenFile, "DataReaderWorker: worker_id >= worker_num");
+      HCTR_OWN_THROW(Error_t::BrokenFile, "DataReaderWorker: worker_id >= worker_num");
     }
     total_slot_num_ = 0;
     for (auto& p : params) {
@@ -177,9 +177,10 @@ class DataReaderWorker : public IDataReaderWorker {
     }
 
     // if the EOF is faced, the current batch size can be changed later
-    if (data_set_header_.label_dim + data_set_header_.dense_dim != label_dense_dim)
-      CK_THROW_(Error_t::WrongInput,
-                "data_set_header_.label_dim + data_set_header_.dense_dim != label_dense_dim");
+    if (data_set_header_.label_dim + data_set_header_.dense_dim != label_dense_dim) {
+      HCTR_OWN_THROW(Error_t::WrongInput,
+                     "data_set_header_.label_dim + data_set_header_.dense_dim != label_dense_dim");
+    }
 
     for (auto& each_csr : host_sparse_buffer_) {
       each_csr.reset();
@@ -209,15 +210,16 @@ class DataReaderWorker : public IDataReaderWorker {
         try {
           if (batch_idx >= batch_size_start_idx &&
               batch_idx < batch_size_end_idx) {  // only read local device dense data
-            CK_THROW_(checker_->read(reinterpret_cast<char*>(host_dense_buffer_.get_ptr() +
-                                                             (batch_idx - batch_size_start_idx) *
-                                                                 label_dense_dim),
-                                     sizeof(float) * label_dense_dim),
-                      "failure in reading label_dense");
+            HCTR_OWN_THROW(checker_->read(reinterpret_cast<char*>(
+                                              host_dense_buffer_.get_ptr() +
+                                              (batch_idx - batch_size_start_idx) * label_dense_dim),
+                                          sizeof(float) * label_dense_dim),
+                           "failure in reading label_dense");
           } else {
-            CK_THROW_(checker_->read(reinterpret_cast<char*>(temp_host_dense_buffer_.get_ptr()),
-                                     sizeof(float) * label_dense_dim),
-                      "failure in reading label_dense");
+            HCTR_OWN_THROW(
+                checker_->read(reinterpret_cast<char*>(temp_host_dense_buffer_.get_ptr()),
+                               sizeof(float) * label_dense_dim),
+                "failure in reading label_dense");
           }
 
           for (size_t param_id = 0; param_id < params_.size(); ++param_id) {
@@ -229,20 +231,22 @@ class DataReaderWorker : public IDataReaderWorker {
             auto& current_csr = host_sparse_buffer_[param_id];
             for (int k = 0; k < param.slot_num; k++) {
               int nnz;
-              CK_THROW_(checker_->read(reinterpret_cast<char*>(&nnz), sizeof(int)),
-                        "failure in reading nnz");
+              HCTR_OWN_THROW(checker_->read(reinterpret_cast<char*>(&nnz), sizeof(int)),
+                             "failure in reading nnz");
               if (nnz > (int)buffer_length_ || nnz < 0) {
-                ERROR_MESSAGE_(
-                    "nnz > buffer_length_ | nnz < 0 nnz:" + std::to_string(nnz) +
-                    ". Please check if i64_input_key in config is compatible with dataset");
+                HCTR_LOG_S(ERROR, WORLD)
+                    << "nnz > buffer_length_ | nnz < 0 nnz: " << nnz
+                    << ". Please check if i64_input_key in config is compatible with dataset"
+                    << HCTR_LOCATION() << std::endl;
               }
               current_csr.new_row();
               size_t num_value = current_csr.get_num_values();
 
-              CK_THROW_(checker_->read(reinterpret_cast<char*>(
-                                           current_csr.get_value_tensor().get_ptr() + num_value),
-                                       sizeof(T) * nnz),
-                        "failure in reading feature_ids_");
+              HCTR_OWN_THROW(
+                  checker_->read(
+                      reinterpret_cast<char*>(current_csr.get_value_tensor().get_ptr() + num_value),
+                      sizeof(T) * nnz),
+                  "failure in reading feature_ids_");
               current_csr.update_value_size(nnz);
             }
           }
@@ -253,7 +257,7 @@ class DataReaderWorker : public IDataReaderWorker {
           }
           Error_t err = rt_err.get_error();
           if (err == Error_t::DataCheckError) {
-            ERROR_MESSAGE_("Error_t::DataCheckError");
+            HCTR_LOG_S(ERROR, WORLD) << "Error_t::DataCheckError " << HCTR_LOCATION() << std::endl;
           } else {            // Error_t::BrokenFile, Error_t::UnspecificEror, ...
             read_new_file();  // can throw Error_t::EOF
           }
@@ -286,7 +290,7 @@ class DataReaderWorker : public IDataReaderWorker {
     {
       CudaCPUDeviceContext context(gpu_resource_->get_device_id());
       auto dst_dense_tensor = Tensor2<float>::stretch_from(buffer_->device_dense_buffers);
-      CK_CUDA_THROW_(cudaMemcpyAsync(dst_dense_tensor.get_ptr(), host_dense_buffer_.get_ptr(),
+      HCTR_LIB_THROW(cudaMemcpyAsync(dst_dense_tensor.get_ptr(), host_dense_buffer_.get_ptr(),
                                      host_dense_buffer_.get_size_in_bytes(), cudaMemcpyHostToDevice,
                                      gpu_resource_->get_memcpy_stream()));
 
@@ -295,7 +299,7 @@ class DataReaderWorker : public IDataReaderWorker {
             SparseTensor<T>::stretch_from(buffer_->device_sparse_buffers[param_id]);
         if (buffer_->is_fixed_length[param_id] &&
             last_batch_nnz_[param_id] == host_sparse_buffer_[param_id].get_num_values()) {
-          CK_CUDA_THROW_(cudaMemcpyAsync(dst_sparse_tensor.get_value_ptr(),
+          HCTR_LIB_THROW(cudaMemcpyAsync(dst_sparse_tensor.get_value_ptr(),
                                          host_sparse_buffer_[param_id].get_value_tensor().get_ptr(),
                                          host_sparse_buffer_[param_id].get_num_values() * sizeof(T),
                                          cudaMemcpyHostToDevice,
@@ -306,7 +310,7 @@ class DataReaderWorker : public IDataReaderWorker {
           last_batch_nnz_[param_id] = host_sparse_buffer_[param_id].get_num_values();
         }
       }
-      CK_CUDA_THROW_(cudaStreamSynchronize(gpu_resource_->get_memcpy_stream()));
+      HCTR_LIB_THROW(cudaStreamSynchronize(gpu_resource_->get_memcpy_stream()));
     }
     assert(buffer_->state.load() == BufferState::Writing);
     buffer_->state.store(BufferState::ReadyForRead);

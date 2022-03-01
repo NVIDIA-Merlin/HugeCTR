@@ -137,11 +137,11 @@ class CalculateFrequentSampleIndicesTest : public HybridEmbeddingUnitTest<dtype,
     /* Compare */
     for (size_t i = 0; i < this->num_instances; i++) {
       uint32_t num_frequent_sample_indices;
-      CK_CUDA_THROW_(cudaMemcpyAsync(
+      HCTR_LIB_THROW(cudaMemcpyAsync(
           &num_frequent_sample_indices,
           this->frequent_embeddings[i].indices_->d_num_frequent_sample_indices_.get_ptr(),
           sizeof(uint32_t), cudaMemcpyDeviceToHost, this->stream));
-      CK_CUDA_THROW_(cudaStreamSynchronize(this->stream));
+      HCTR_LIB_THROW(cudaStreamSynchronize(this->stream));
       h_frequent_sample_indices[i].resize(num_frequent_sample_indices);
       EXPECT_THAT(h_frequent_sample_indices[i],
                   ::testing::ElementsAreArray(cpu_embedding.frequent_sample_indices[i]));
@@ -225,11 +225,11 @@ class CalculateNetworkCacheIndicesTest : public HybridEmbeddingUnitTest<dtype, e
                       this->frequent_embeddings[i].indices_->network_cache_indices_offsets_,
                       this->stream);
       h_network_cache_mask[i].resize(this->config.num_frequent);
-      CK_CUDA_THROW_(cudaMemcpyAsync(
+      HCTR_LIB_THROW(cudaMemcpyAsync(
           h_network_cache_mask[i].data(),
           reinterpret_cast<uint8_t*>(this->frequent_embeddings[i].indices_->cache_masks_.get_ptr()),
           this->config.num_frequent, cudaMemcpyDeviceToHost, this->stream));
-      CK_CUDA_THROW_(cudaStreamSynchronize(this->stream));
+      HCTR_LIB_THROW(cudaStreamSynchronize(this->stream));
     }
 
     /* Compare */

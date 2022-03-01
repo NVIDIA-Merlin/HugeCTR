@@ -218,6 +218,13 @@ install(DIRECTORY ${CMAKE_BINARY_DIR}/bin DESTINATION /usr/local/hugectr)
 
 add_subdirectory(gpu_cache/src)
 add_subdirectory(gpu_cache/test)
+
+option(ENABLE_HDFS "Enable HDFS" OFF)
+if(ENABLE_HDFS)
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}    -DENABLE_HDFS")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}    -DENABLE_HDFS")
+endif()
+
 option(ENABLE_INFERENCE "Enable Inference" OFF)
 if(ENABLE_INFERENCE)
 set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}    -DENABLE_INFERENCE")

@@ -147,7 +147,7 @@ void SparseModelEntity<TypeKey>::load_vec_by_key(std::vector<TypeKey> &keys, Buf
                                                  size_t &hit_size) {
   try {
     if (keys.empty()) {
-      MESSAGE_("No keyset specified for loading");
+      HCTR_LOG(INFO, ROOT, "No keyset specified for loading\n");
       return;
     }
     float *vec_ptr = buf_bag.embedding.get_ptr();
@@ -177,16 +177,15 @@ void SparseModelEntity<TypeKey>::load_vec_by_key(std::vector<TypeKey> &keys, Buf
     }
 
 #ifdef KEY_HIT_RATIO
-    std::stringstream ss;
-    ss << "HMEM-PS: Load " << keys.size() << " keys, hit " << hit_size << " (" << std::fixed
-       << std::setprecision(4) << hit_size * 100.0 / keys.size() << "%) in existing model";
-    MESSAGE_(ss.str(), true);
+    HCTR_LOG_S(INFO, WORLD) << "HMEM-PS: Load " << keys.size() << " keys, hit " << hit_size << " ("
+                            << std::fixed << std::setprecision(4) << hit_size * 100.0 / keys.size()
+                            << "%) in existing model" << std::endl;
 #endif
   } catch (const internal_runtime_error &rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     throw;
   } catch (const std::exception &err) {
-    std::cerr << err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << err.what() << std::endl;
     throw;
   }
 }
@@ -231,10 +230,10 @@ std::pair<std::vector<long long>, std::vector<float>> SparseModelEntity<TypeKey>
 
     return std::pair(std::move(key_ll_exist), std::move(emb_vectors));
   } catch (const internal_runtime_error &rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     throw;
   } catch (const std::exception &err) {
-    std::cerr << err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << err.what() << std::endl;
     throw;
   }
 }
@@ -350,18 +349,16 @@ void SparseModelEntity<TypeKey>::dump_vec_by_key(BufferBag &buf_bag, const size_
     }
 
 #ifdef KEY_HIT_RATIO
-    size_t num_hit = dump_size - cnt_new_keys;
-
-    std::stringstream ss;
-    ss << "HMEM-PS: Dump " << dump_size << " keys, hit " << num_hit << " (" << std::fixed
-       << std::setprecision(4) << num_hit * 100.0 / dump_size << "%) in existing model";
-    MESSAGE_(ss.str(), true);
+    const size_t num_hit = dump_size - cnt_new_keys;
+    HCTR_LOG_S(INFO, WORLD) << "HMEM-PS: Dump " << dump_size << " keys, hit " << num_hit << " ("
+                            << std::fixed << std::setprecision(4) << num_hit * 100.0 / dump_size
+                            << "%) in existing model" << std::endl;
 #endif
   } catch (const internal_runtime_error &rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     throw;
   } catch (const std::exception &err) {
-    std::cerr << err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << err.what() << std::endl;
     throw;
   }
 }
@@ -369,7 +366,7 @@ void SparseModelEntity<TypeKey>::dump_vec_by_key(BufferBag &buf_bag, const size_
 template <typename TypeKey>
 void SparseModelEntity<TypeKey>::flush_emb_tbl_to_ssd() {
   try {
-    MESSAGE_("Updating sparse model in SSD", false, false);
+    HCTR_LOG(INFO, ROOT, "Updating sparse model in SSD\n");
 
     std::vector<TypeKey> exist_keys, new_keys;
     std::vector<size_t> exist_vec_idx, new_vec_idx, new_slots;
@@ -394,7 +391,7 @@ void SparseModelEntity<TypeKey>::flush_emb_tbl_to_ssd() {
     new_key_idx_mapping_.clear();
 
 #ifdef ENABLE_MPI
-    CK_MPI_THROW_(MPI_Barrier(MPI_COMM_WORLD));
+    HCTR_MPI_THROW(MPI_Barrier(MPI_COMM_WORLD));
     int num_proc = resource_manager_->get_num_process();
     int my_rank = resource_manager_->get_process_id();
     for (int pid = 0; pid < num_proc; pid++) {
@@ -405,15 +402,15 @@ void SparseModelEntity<TypeKey>::flush_emb_tbl_to_ssd() {
                                                   host_emb_tabel_.data());
 #ifdef ENABLE_MPI
       }
-      CK_MPI_THROW_(MPI_Barrier(MPI_COMM_WORLD));
+      HCTR_MPI_THROW(MPI_Barrier(MPI_COMM_WORLD));
     }
 #endif
-    MESSAGE_(" [DONE]", false, true, false);
+    HCTR_LOG(INFO, ROOT, "Done!\n");
   } catch (const internal_runtime_error &rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     throw;
   } catch (const std::exception &err) {
-    std::cerr << err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << err.what() << std::endl;
     throw;
   }
 }

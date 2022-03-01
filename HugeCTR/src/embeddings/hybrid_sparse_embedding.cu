@@ -55,12 +55,13 @@ HybridSparseEmbedding<dtype, emtype>::HybridSparseEmbedding(
     // 0. Error check
     if (embedding_params_.train_batch_size < 1 || embedding_params_.evaluate_batch_size < 1 ||
         embedding_params_.slot_num < 1 || embedding_params_.embedding_vec_size < 1) {
-      CK_THROW_(Error_t::WrongInput, "batchsize < 1 || slot_num < 1 || embedding_vec_size < 1");
+      HCTR_OWN_THROW(Error_t::WrongInput,
+                     "batchsize < 1 || slot_num < 1 || embedding_vec_size < 1");
     }
 
     if (embedding_params_.embedding_vec_size > 1024) {
-      CK_THROW_(Error_t::WrongInput,
-                "the embedding_vec_size can not be more than 1024 in embedding layer");
+      HCTR_OWN_THROW(Error_t::WrongInput,
+                     "the embedding_vec_size can not be more than 1024 in embedding layer");
     }
 
     size_t total_gpu_count = resource_manager_->get_global_gpu_count();
@@ -68,13 +69,13 @@ HybridSparseEmbedding<dtype, emtype>::HybridSparseEmbedding(
 
     if (train_input_tensors.size() != local_gpu_count ||
         evaluate_input_tensors.size() != local_gpu_count) {
-      CK_THROW_(Error_t::WrongInput,
-                "either train_input_tensors.size() or evaluate_input_tensors.size() isn't "
-                "local_gpu_count_");
+      HCTR_OWN_THROW(Error_t::WrongInput,
+                     "either train_input_tensors.size() or evaluate_input_tensors.size() isn't "
+                     "local_gpu_count_");
     }
 
-    MESSAGE_("Using Hybrid Embedding with train batch " + std::to_string(get_batch_size(true)) +
-             " and eval batch " + std::to_string(get_batch_size(false)));
+    HCTR_LOG_S(INFO, ROOT) << "Using Hybrid Embedding with train batch " << get_batch_size(true)
+                           << " and eval batch " << get_batch_size(false) << std::endl;
 
     // 1. initialize optimizer
     for (size_t id = 0; id < local_gpu_count; id++) {
@@ -229,10 +230,11 @@ HybridSparseEmbedding<dtype, emtype>::HybridSparseEmbedding(
         size_t max_back_buf_size = embedding_params_.embedding_vec_size *
                                    infrequent_embeddings_[i].max_num_infrequent_per_train_batch_;
 
-        MESSAGE_("Allocating A2A buffers for infrequent categories. For training: " +
-                 std::to_string(infrequent_embeddings_[i].max_num_infrequent_per_train_batch_) +
-                 ", for evaluation:  " +
-                 std::to_string(infrequent_embeddings_[i].max_num_infrequent_per_batch_));
+        HCTR_LOG_S(INFO, ROOT) << "Allocating A2A buffers for infrequent categories. For training: "
+                               << infrequent_embeddings_[i].max_num_infrequent_per_train_batch_
+                               << ", for evaluation:  "
+                               << infrequent_embeddings_[i].max_num_infrequent_per_batch_
+                               << std::endl;
 
         infrequent_backward_comm_buffers_.emplace_back(buf.get(), max_back_buf_size);
         infrequent_forward_comm_buffers_.emplace_back(buf.get(), max_buf_size);
@@ -301,30 +303,30 @@ HybridSparseEmbedding<dtype, emtype>::HybridSparseEmbedding(
         context.set_device(cur_device);
 
         // download pointers
-        CK_CUDA_THROW_(
+        HCTR_LIB_THROW(
             cudaMemcpyAsync(infrequent_embeddings_[i].model_indices_sizes_ptrs_.get_ptr(),
                             h_model_indices_sizes_ptrs.data(), sizeof(size_t *) * local_gpu_count,
                             cudaMemcpyHostToDevice, get_local_gpu(i).get_stream()));
 
-        CK_CUDA_THROW_(
+        HCTR_LIB_THROW(
             cudaMemcpyAsync(infrequent_embeddings_[i].network_indices_sizes_ptrs_.get_ptr(),
                             h_network_indices_sizes_ptrs.data(), sizeof(size_t *) * local_gpu_count,
                             cudaMemcpyHostToDevice, get_local_gpu(i).get_stream()));
 
-        CK_CUDA_THROW_(
+        HCTR_LIB_THROW(
             cudaMemcpyAsync(infrequent_forward_comm_buffers_[i].send_buffer_ptrs.get_ptr(),
                             h_fwd_send_buffer_ptrs.data(), sizeof(emtype *) * local_gpu_count,
                             cudaMemcpyHostToDevice, get_local_gpu(i).get_stream()));
 
-        CK_CUDA_THROW_(
+        HCTR_LIB_THROW(
             cudaMemcpyAsync(infrequent_backward_comm_buffers_[i].send_buffer_ptrs.get_ptr(),
                             h_bwd_send_buffer_ptrs.data(), sizeof(emtype *) * local_gpu_count,
                             cudaMemcpyHostToDevice, get_local_gpu(i).get_stream()));
 
-        CK_CUDA_THROW_(cudaStreamSynchronize(get_local_gpu(i).get_stream()));
+        HCTR_LIB_THROW(cudaStreamSynchronize(get_local_gpu(i).get_stream()));
 
         // Initialize IB comm
-        CK_CUDA_THROW_(cudaStreamCreateWithPriority(&comm_stream_[i], cudaStreamNonBlocking, -100));
+        HCTR_LIB_THROW(cudaStreamCreateWithPriority(&comm_stream_[i], cudaStreamNonBlocking, -100));
         ib_comm_->set_a2a_coll_stream(infrequent_forward_coll_handle, comm_stream_[i], i);
 
         ib_comm_->set_a2a_coll_buf(
@@ -362,7 +364,7 @@ HybridSparseEmbedding<dtype, emtype>::HybridSparseEmbedding(
       }
       ib_comm_->register_a2a_coll_buf(infrequent_backward_coll_handle);
 #else
-      CK_THROW_(Error_t::WrongInput, "MPI is not enabled but trying to use IB_NVLink_Hier");
+      HCTR_OWN_THROW(Error_t::WrongInput, "MPI is not enabled but trying to use IB_NVLink_Hier");
 #endif
     }
 
@@ -392,30 +394,30 @@ HybridSparseEmbedding<dtype, emtype>::HybridSparseEmbedding(
         int cur_device = get_local_gpu(i).get_device_id();
         context.set_device(cur_device);
 
-        CK_CUDA_THROW_(cudaMemcpyAsync(
+        HCTR_LIB_THROW(cudaMemcpyAsync(
             frequent_embeddings_[i].embedding_vectors_cache_pointers_.get_ptr(),
             frequent_vectors_cache_pointers.data(), local_gpu_count * sizeof(float *),
             cudaMemcpyHostToDevice, get_local_gpu(i).get_stream()));
-        CK_CUDA_THROW_(cudaMemcpyAsync(
+        HCTR_LIB_THROW(cudaMemcpyAsync(
             infrequent_embeddings_[i].interaction_layer_input_pointers_train_.get_ptr(),
             interaction_layer_input_pointers_train.data(), local_gpu_count * sizeof(emtype *),
             cudaMemcpyHostToDevice, get_local_gpu(i).get_stream()));
-        CK_CUDA_THROW_(cudaMemcpyAsync(
+        HCTR_LIB_THROW(cudaMemcpyAsync(
             infrequent_embeddings_[i].interaction_layer_input_pointers_eval_.get_ptr(),
             interaction_layer_input_pointers_eval.data(), local_gpu_count * sizeof(emtype *),
             cudaMemcpyHostToDevice, get_local_gpu(i).get_stream()));
-        CK_CUDA_THROW_(cudaMemcpyAsync(infrequent_embeddings_[i].gradients_pointers_.get_ptr(),
+        HCTR_LIB_THROW(cudaMemcpyAsync(infrequent_embeddings_[i].gradients_pointers_.get_ptr(),
                                        gradients_pointers.data(),
                                        local_gpu_count * sizeof(emtype *), cudaMemcpyHostToDevice,
                                        get_local_gpu(i).get_stream()));
-        CK_CUDA_THROW_(cudaMemcpyAsync(
+        HCTR_LIB_THROW(cudaMemcpyAsync(
             frequent_embeddings_[i].partial_gradients_pointers_.get_ptr(),
             frequent_partial_gradients_pointers.data(), local_gpu_count * sizeof(emtype *),
             cudaMemcpyHostToDevice, get_local_gpu(i).get_stream()));
       }
     }
   } catch (const std::runtime_error &rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     throw;
   }
 }
@@ -424,7 +426,7 @@ template <typename dtype, typename emtype>
 void HybridSparseEmbedding<dtype, emtype>::init_model(const SparseTensors<dtype> &data,
                                                       size_t &wgrad_offset_in_bytes) {
   size_t local_gpu_count = resource_manager_->get_local_gpu_count();
-  MESSAGE_("Initializing Hybrid Embedding");
+  HCTR_LOG(INFO, ROOT, "Initializing Hybrid Embedding\n");
 #pragma omp parallel for num_threads(local_gpu_count)
   for (size_t id = 0; id < local_gpu_count; ++id) {
     int cur_device = get_local_gpu(id).get_device_id();
@@ -437,24 +439,24 @@ void HybridSparseEmbedding<dtype, emtype>::init_model(const SparseTensors<dtype>
     infrequent_embeddings_[id].initialize_embedding_vectors(data_statistics_[id].table_sizes);
 
     if (embedding_params_.max_num_frequent_categories < (size_t)model_[id].num_frequent) {
-      CK_THROW_(
+      HCTR_OWN_THROW(
           Error_t::WrongInput,
           "Found too many frequent categories, please increase 'max_num_frequent_categories'");
     }
   }
 
-  MESSAGE_("Initialized hybrid model with " + std::to_string(model_[0].num_frequent) +
-           " frequent categories, probability of being frequent is " +
-           std::to_string(model_[0].frequent_probability));
+  HCTR_LOG_S(INFO, ROOT) << "Initialized hybrid model with " << model_[0].num_frequent
+                         << " frequent categories, probability of being frequent is "
+                         << model_[0].frequent_probability << std::endl;
 
   size_t avg_train_infrequent = (1 - model_[0].frequent_probability) *
                                 embedding_params_.slot_size_array.size() * get_batch_size(true);
   size_t avg_evaluate_infrequent = (1 - model_[0].frequent_probability) *
                                    embedding_params_.slot_size_array.size() * get_batch_size(false);
 
-  MESSAGE_("Estimated number of infrequent categories per train batch: " +
-           std::to_string(avg_train_infrequent) +
-           ", eval batch:  " + std::to_string(avg_evaluate_infrequent));
+  HCTR_LOG_S(INFO, ROOT) << "Estimated number of infrequent categories per train batch: "
+                         << avg_train_infrequent << ", eval batch: " << avg_evaluate_infrequent
+                         << std::endl;
 
   size_t wgrad_size =
       model_[0].num_frequent * embedding_params_.embedding_vec_size * sizeof(emtype);
@@ -530,8 +532,8 @@ void HybridSparseEmbedding<dtype, emtype>::index_calculation(bool is_train, bool
     if (is_first_batch) {
       auto &before_idx_event = stream_manager_.get_event(i, "before_idx");
       auto &set_idx_stream = stream_manager_.get_stream(i, "set_idx_stream");
-      CK_CUDA_THROW_(cudaEventRecord(before_idx_event, stream));
-      CK_CUDA_THROW_(cudaStreamWaitEvent(set_idx_stream, before_idx_event));
+      HCTR_LIB_THROW(cudaEventRecord(before_idx_event, stream));
+      HCTR_LIB_THROW(cudaStreamWaitEvent(set_idx_stream, before_idx_event));
     }
 
     PROFILE_RECORD("data_to_unique_categories.start", stream);
@@ -551,8 +553,8 @@ void HybridSparseEmbedding<dtype, emtype>::index_calculation(bool is_train, bool
       frequent_embeddings_[i].set_current_indices(frequent_indices, stream);
       infrequent_embeddings_[i].set_current_indices(infrequent_indices, stream);
 
-      CK_CUDA_THROW_(cudaEventRecord(set_idx_event, set_idx_stream));
-      CK_CUDA_THROW_(cudaStreamWaitEvent(stream, set_idx_event));
+      HCTR_LIB_THROW(cudaEventRecord(set_idx_event, set_idx_stream));
+      HCTR_LIB_THROW(cudaStreamWaitEvent(stream, set_idx_event));
     }
   }
 }
@@ -568,19 +570,19 @@ void HybridSparseEmbedding<dtype, emtype>::forward(bool is_train, bool is_first_
   PROFILE_RECORD("hybrid_embedding.forward.start", stream, false);
   if (embedding_params_.communication_type == CommunicationType::IB_NVLink) {
     // TODO: These copies need to be moved to the index computation
-    CK_CUDA_THROW_(
+    HCTR_LIB_THROW(
         cudaMemcpyAsync(infrequent_embeddings_[i].model_indices_offsets_.get_ptr(),
                         infrequent_embeddings_[i].indices_->model_indices_offsets_.get_ptr(),
                         infrequent_embeddings_[i].model_indices_offsets_.get_size_in_bytes(),
                         cudaMemcpyDeviceToDevice, stream));
 
-    CK_CUDA_THROW_(
+    HCTR_LIB_THROW(
         cudaMemcpyAsync(infrequent_embeddings_[i].network_indices_offsets_.get_ptr(),
                         infrequent_embeddings_[i].indices_->network_indices_offsets_.get_ptr(),
                         infrequent_embeddings_[i].network_indices_offsets_.get_size_in_bytes(),
                         cudaMemcpyDeviceToDevice, stream));
 
-    CK_CUDA_THROW_(cudaStreamSynchronize(stream));
+    HCTR_LIB_THROW(cudaStreamSynchronize(stream));
     PROFILE_RECORD("multi_node_fre_forward_network.start", stream, false);
     frequent_embeddings_[i].forward_network(output.get_ptr(), false, stream);
     PROFILE_RECORD("multi_node_fre_forward_network.stop", stream, false);
@@ -619,14 +621,16 @@ void HybridSparseEmbedding<dtype, emtype>::forward(bool is_train, bool is_first_
     PROFILE_RECORD("multi_node_inf_forward_a2a_init.stop", stream);
     // Let's initiate the communication as soon as we can and start every other non-urgent work here
     // This is for network
-    if (is_train) CK_CUDA_THROW_(cudaEventRecord(*evt_ptr, stream));
+    if (is_train) {
+      HCTR_LIB_THROW(cudaEventRecord(*evt_ptr, stream));
+    }
 
     // This is for frequent forward network running in a side stream
     auto &stream_side = stream_manager_.get_stream(i, "stream_side");
     auto &ready_freq_fwd_net = stream_manager_.get_event(i, "ready_freq_fwd_net");
     auto &freq_fwd_net_completion = stream_manager_.get_event(i, "freq_fwd_net_completion");
-    CK_CUDA_THROW_(cudaEventRecord(ready_freq_fwd_net, stream));
-    CK_CUDA_THROW_(cudaStreamWaitEvent(stream_side, ready_freq_fwd_net));
+    HCTR_LIB_THROW(cudaEventRecord(ready_freq_fwd_net, stream));
+    HCTR_LIB_THROW(cudaStreamWaitEvent(stream_side, ready_freq_fwd_net));
 
     PROFILE_RECORD("multi_node_fre_forward_network.start", stream_side);
     frequent_embeddings_[i].forward_network(output.get_ptr(), false, stream_side);
@@ -643,12 +647,12 @@ void HybridSparseEmbedding<dtype, emtype>::forward(bool is_train, bool is_first_
     infrequent_backward_comms_[i]->update_sizes(stream);
 
     // join back frequent forward network
-    CK_CUDA_THROW_(cudaEventRecord(freq_fwd_net_completion, stream_side));
-    CK_CUDA_THROW_(cudaStreamWaitEvent(stream, freq_fwd_net_completion));
+    HCTR_LIB_THROW(cudaEventRecord(freq_fwd_net_completion, stream_side));
+    HCTR_LIB_THROW(cudaStreamWaitEvent(stream, freq_fwd_net_completion));
 
     if (!is_train) {
       // Global barrier
-      CK_NCCL_THROW_(ncclAllReduce((const void *)d_barrier_store_[i].get_ptr(),
+      HCTR_LIB_THROW(ncclAllReduce((const void *)d_barrier_store_[i].get_ptr(),
                                    d_barrier_store_[i].get_ptr(), sizeof(uint32_t),
                                    NcclDataType<uint32_t>::getType(), ncclSum,
                                    get_local_gpu(i).get_nccl(), stream));
@@ -797,13 +801,13 @@ void HybridSparseEmbedding<dtype, emtype>::backward_post_communication(int i, cu
 
     if (graph_mode_) {
       cudaEvent_t update_comm_event = stream_manager_.get_event(i, "update_comm_event");
-      CK_CUDA_THROW_(cudaEventRecord(update_comm_event, comm_stream_[i]));
-      CK_CUDA_THROW_(cudaStreamWaitEvent(stream, update_comm_event));
+      HCTR_LIB_THROW(cudaEventRecord(update_comm_event, comm_stream_[i]));
+      HCTR_LIB_THROW(cudaStreamWaitEvent(stream, update_comm_event));
     }
 
     PROFILE_RECORD("multi_node_inf_hier_update_model.stop", stream, false);
 #else
-    CK_THROW_(Error_t::WrongInput, "MPI is not enabled but trying to use IB_NVLink_Hier");
+    HCTR_OWN_THROW(Error_t::WrongInput, "MPI is not enabled but trying to use IB_NVLink_Hier");
 #endif
   }
 
@@ -913,7 +917,7 @@ TrainState HybridSparseEmbedding<dtype, emtype>::train(bool is_train, int i, Tra
 
   auto sync = [&state, &stream]() {
     if (state.event) {
-      CK_CUDA_THROW_(cudaStreamWaitEvent(stream, *state.event));
+      HCTR_LIB_THROW(cudaStreamWaitEvent(stream, *state.event));
     }
   };
 
@@ -929,7 +933,7 @@ TrainState HybridSparseEmbedding<dtype, emtype>::train(bool is_train, int i, Tra
       sync();
       break;
     case TrainState_t::TopMLPFprop:
-      CK_CUDA_THROW_(cudaEventRecord(ready_top_mlp_fprop, stream));
+      HCTR_LIB_THROW(cudaEventRecord(ready_top_mlp_fprop, stream));
       event_ptr = &ready_top_mlp_fprop;
       break;
     case TrainState_t::TopMLPBprop:
@@ -947,7 +951,7 @@ TrainState HybridSparseEmbedding<dtype, emtype>::train(bool is_train, int i, Tra
         backward_pre_communication(i, stream);
       }
       if (grouped_all_reduce_) {
-        CK_CUDA_THROW_(cudaEventRecord(finish_backward_pre, stream));
+        HCTR_LIB_THROW(cudaEventRecord(finish_backward_pre, stream));
         event_ptr = &finish_backward_pre;
       }
       if (overlap_ar_a2a_) {
@@ -968,11 +972,11 @@ TrainState HybridSparseEmbedding<dtype, emtype>::train(bool is_train, int i, Tra
       }
       break;
     case TrainState_t::Finalize:
-      CK_CUDA_THROW_(cudaEventRecord(finish_iteration, stream));
+      HCTR_LIB_THROW(cudaEventRecord(finish_iteration, stream));
       event_ptr = &finish_iteration;
       break;
     default:
-      CK_THROW_(Error_t::InvalidEnv, "hybrid embedding train reach invalid status");
+      HCTR_OWN_THROW(Error_t::InvalidEnv, "hybrid embedding train reach invalid status");
   }
   state.event = event_ptr;
   return state;
@@ -984,7 +988,8 @@ void HybridSparseEmbedding<dtype, emtype>::init_params() {
 }
 
 template <typename dtype, typename emtype>
-void HybridSparseEmbedding<dtype, emtype>::load_parameters(std::string sparse_model) {
+void HybridSparseEmbedding<dtype, emtype>::load_parameters(std::string sparse_model,
+                                                           DataSourceParams data_source_params) {
   // TODO: create load_parameters()
 }
 
@@ -996,7 +1001,7 @@ void HybridSparseEmbedding<dtype, emtype>::dump_parameters(
 
 template <typename dtype, typename emtype>
 void HybridSparseEmbedding<dtype, emtype>::set_learning_rate(float lr) {
-  CK_THROW_(Error_t::WrongInput, "HybridSparseEmbedding only supports GPU LR scheduler");
+  HCTR_OWN_THROW(Error_t::WrongInput, "HybridSparseEmbedding only supports GPU LR scheduler");
 }
 
 template <typename dtype, typename emtype>
@@ -1050,29 +1055,29 @@ void HybridSparseEmbedding<dtype, emtype>::compute_indices(
   cudaEvent_t event_network_indices = manager.get_event(raw_device_id, "event_network_indices");
 
   // The new streams can only start after previous work in the main stream has completed
-  CK_CUDA_THROW_(cudaEventRecord(event_main, main_stream));
-  CK_CUDA_THROW_(cudaStreamWaitEvent(stream_frequent_sample_indices, event_main));
-  CK_CUDA_THROW_(cudaStreamWaitEvent(stream_model_indices, event_main));
-  CK_CUDA_THROW_(cudaStreamWaitEvent(stream_network_indices, event_main));
+  HCTR_LIB_THROW(cudaEventRecord(event_main, main_stream));
+  HCTR_LIB_THROW(cudaStreamWaitEvent(stream_frequent_sample_indices, event_main));
+  HCTR_LIB_THROW(cudaStreamWaitEvent(stream_model_indices, event_main));
+  HCTR_LIB_THROW(cudaStreamWaitEvent(stream_network_indices, event_main));
 
   // PROFILE_RECORD("index_calculation.start", main_stream);
   // PROFILE_RECORD("calculate_frequent_sample_indices.start", stream_frequent_sample_indices);
   compression.calculate_frequent_sample_indices(stream_frequent_sample_indices);
   // PROFILE_RECORD("calculate_frequent_sample_indices.stop", stream_frequent_sample_indices, true,
   //               -1, std::string("num_frequent: ") + std::to_string(model_.num_frequent));
-  CK_CUDA_THROW_(cudaEventRecord(event_frequent_sample_indices, stream_frequent_sample_indices));
+  HCTR_LIB_THROW(cudaEventRecord(event_frequent_sample_indices, stream_frequent_sample_indices));
 
   // PROFILE_RECORD("inf_calculate_model_indices.start", stream_model_indices);
   selection.calculate_model_indices(stream_model_indices);
   // PROFILE_RECORD("inf_calculate_model_indices.stop", stream_model_indices);
-  CK_CUDA_THROW_(cudaEventRecord(event_model_indices, stream_model_indices));
+  HCTR_LIB_THROW(cudaEventRecord(event_model_indices, stream_model_indices));
 
   if (communication_type != CommunicationType::NVLink_SingleNode) {
     // PROFILE_RECORD("inf_calculate_network_indices.start", stream_network_indices);
     selection.calculate_network_indices(sm_count, stream_network_indices);
     // PROFILE_RECORD("inf_calculate_network_indices.stop", stream_network_indices);
-    CK_CUDA_THROW_(cudaEventRecord(event_network_indices, stream_network_indices));
-    CK_CUDA_THROW_(cudaStreamWaitEvent(main_stream, event_network_indices));
+    HCTR_LIB_THROW(cudaEventRecord(event_network_indices, stream_network_indices));
+    HCTR_LIB_THROW(cudaStreamWaitEvent(main_stream, event_network_indices));
 
   } else {
     cudaStream_t stream_cache_masks = manager.get_stream(raw_device_id, "stream_cache_masks");
@@ -1086,15 +1091,15 @@ void HybridSparseEmbedding<dtype, emtype>::compute_indices(
     cudaEvent_t event_model_cache_indices =
         manager.get_event(raw_device_id, "event_model_cache_indices");
 
-    CK_CUDA_THROW_(cudaStreamWaitEvent(stream_cache_masks, event_main));
+    HCTR_LIB_THROW(cudaStreamWaitEvent(stream_cache_masks, event_main));
 
     // PROFILE_RECORD("single_node_fre_calculate_cache_masks.start", stream_cache_masks);
     compression.calculate_cache_masks(stream_cache_masks);
     // PROFILE_RECORD("single_node_fre_calculate_cache_masks.stop", stream_cache_masks);
-    CK_CUDA_THROW_(cudaEventRecord(event_cache_masks, stream_cache_masks));
+    HCTR_LIB_THROW(cudaEventRecord(event_cache_masks, stream_cache_masks));
 
-    CK_CUDA_THROW_(cudaStreamWaitEvent(stream_network_cache_indices, event_cache_masks));
-    CK_CUDA_THROW_(cudaStreamWaitEvent(stream_model_cache_indices, event_cache_masks));
+    HCTR_LIB_THROW(cudaStreamWaitEvent(stream_network_cache_indices, event_cache_masks));
+    HCTR_LIB_THROW(cudaStreamWaitEvent(stream_model_cache_indices, event_cache_masks));
 
     // PROFILE_RECORD("single_node_fre_calculate_network_cache_indices.start",
     //                stream_network_cache_indices);
@@ -1104,21 +1109,21 @@ void HybridSparseEmbedding<dtype, emtype>::compute_indices(
     }
     // PROFILE_RECORD("single_node_fre_calculate_network_cache_indices.stop",
     //               stream_network_cache_indices);
-    CK_CUDA_THROW_(cudaEventRecord(event_network_cache_indices, stream_network_cache_indices));
-    CK_CUDA_THROW_(cudaStreamWaitEvent(main_stream, event_network_cache_indices));
+    HCTR_LIB_THROW(cudaEventRecord(event_network_cache_indices, stream_network_cache_indices));
+    HCTR_LIB_THROW(cudaStreamWaitEvent(main_stream, event_network_cache_indices));
 
     // PROFILE_RECORD("single_node_fre_calculate_model_cache_indices.start",
     //                stream_model_cache_indices);
     compression.calculate_model_cache_indices(sm_count, stream_model_cache_indices);
     // PROFILE_RECORD("single_node_fre_calculate_model_cache_indices.stop",
     // stream_model_cache_indices);
-    CK_CUDA_THROW_(cudaEventRecord(event_model_cache_indices, stream_model_cache_indices));
-    CK_CUDA_THROW_(cudaStreamWaitEvent(main_stream, event_model_cache_indices));
+    HCTR_LIB_THROW(cudaEventRecord(event_model_cache_indices, stream_model_cache_indices));
+    HCTR_LIB_THROW(cudaStreamWaitEvent(main_stream, event_model_cache_indices));
   }
 
   // Join streams to the main stream
-  CK_CUDA_THROW_(cudaStreamWaitEvent(main_stream, event_frequent_sample_indices));
-  CK_CUDA_THROW_(cudaStreamWaitEvent(main_stream, event_model_indices));
+  HCTR_LIB_THROW(cudaStreamWaitEvent(main_stream, event_frequent_sample_indices));
+  HCTR_LIB_THROW(cudaStreamWaitEvent(main_stream, event_model_indices));
 
   // PROFILE_RECORD("index_calculation.stop", main_stream);
 }

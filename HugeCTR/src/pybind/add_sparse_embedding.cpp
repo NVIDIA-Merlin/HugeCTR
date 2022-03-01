@@ -32,15 +32,15 @@ SparseEmbedding get_sparse_embedding_from_json(const nlohmann::json& j_sparse_em
   auto bottom_name = get_value_from_json<std::string>(j_sparse_embedding, "bottom");
   auto top_name = get_value_from_json<std::string>(j_sparse_embedding, "top");
   auto embedding_type_name = get_value_from_json<std::string>(j_sparse_embedding, "type");
-  Embedding_t embedding_type;
+  Embedding_t embedding_type = Embedding_t::None;
   if (!find_item_in_map(embedding_type, embedding_type_name, EMBEDDING_TYPE_MAP)) {
-    CK_THROW_(Error_t::WrongInput, "No such embedding type: " + embedding_type_name);
+    HCTR_OWN_THROW(Error_t::WrongInput, "No such embedding type: " + embedding_type_name);
   }
   auto j_hparam = get_json(j_sparse_embedding, "sparse_embedding_hparam");
 
   if (!has_key_(j_hparam, "workspace_size_per_gpu_in_mb") &&
       !has_key_(j_hparam, "slot_size_array")) {
-    CK_THROW_(Error_t::WrongInput, "need workspace_size_per_gpu_in_mb or slot_size_array");
+    HCTR_OWN_THROW(Error_t::WrongInput, "need workspace_size_per_gpu_in_mb or slot_size_array");
   }
   size_t workspace_size_per_gpu_in_mb =
       get_value_from_json_soft<size_t>(j_hparam, "workspace_size_per_gpu_in_mb", 0);
@@ -66,10 +66,10 @@ SparseEmbedding get_sparse_embedding_from_json(const nlohmann::json& j_sparse_em
     embedding_opt_params->initialized = true;
     if (!find_item_in_map(embedding_opt_params->optimizer, optimizer_type_name,
                           OPTIMIZER_TYPE_MAP)) {
-      CK_THROW_(Error_t::WrongInput, "No such optimizer: " + optimizer_type_name);
+      HCTR_OWN_THROW(Error_t::WrongInput, "No such optimizer: " + optimizer_type_name);
     }
     if (!find_item_in_map(embedding_opt_params->update_type, update_type_name, UPDATE_TYPE_MAP)) {
-      CK_THROW_(Error_t::WrongInput, "No such update type: " + update_type_name);
+      HCTR_OWN_THROW(Error_t::WrongInput, "No such update type: " + update_type_name);
     }
     OptHyperParams hyperparams;
     switch (embedding_opt_params->optimizer) {
@@ -143,12 +143,12 @@ SparseEmbedding get_sparse_embedding_from_json(const nlohmann::json& j_sparse_em
       get_value_from_json_soft<std::string>(j_hparam, "hybrid_embedding_type", "Distributed");
   if (!find_item_in_map(hybrid_embedding_param.communication_type, communication_type_string,
                         COMMUNICATION_TYPE_MAP)) {
-    CK_THROW_(Error_t::WrongInput, "No such communication type: " + communication_type_string);
+    HCTR_OWN_THROW(Error_t::WrongInput, "No such communication type: " + communication_type_string);
   }
   if (!find_item_in_map(hybrid_embedding_param.hybrid_embedding_type, hybrid_embedding_type_string,
                         HYBRID_EMBEDDING_TYPE_MAP)) {
-    CK_THROW_(Error_t::WrongInput,
-              "No such hybrid embedding type: " + hybrid_embedding_type_string);
+    HCTR_OWN_THROW(Error_t::WrongInput,
+                   "No such hybrid embedding type: " + hybrid_embedding_type_string);
   }
   SparseEmbedding sparse_embedding = SparseEmbedding(
       embedding_type, workspace_size_per_gpu_in_mb, embedding_vec_size, combiner_str, top_name,
@@ -184,7 +184,7 @@ void add_sparse_embedding(SparseEmbedding& sparse_embedding,
 
   SparseInput<TypeKey> sparse_input;
   if (!find_item_in_map(sparse_input, bottom_name, sparse_input_map)) {
-    CK_THROW_(Error_t::WrongInput, "Cannot find bottom");
+    HCTR_OWN_THROW(Error_t::WrongInput, "Cannot find bottom");
   }
 
   switch (embedding_type) {
@@ -267,7 +267,8 @@ void add_sparse_embedding(SparseEmbedding& sparse_embedding,
       break;
     }
     default:
-      CK_THROW_(Error_t::UnspecificError, "add_sparse_embedding with no specified embedding type.");
+      HCTR_OWN_THROW(Error_t::UnspecificError,
+                     "add_sparse_embedding with no specified embedding type.");
   }  // switch
 
   for (size_t i = 0; i < resource_manager->get_local_gpu_count(); i++) {

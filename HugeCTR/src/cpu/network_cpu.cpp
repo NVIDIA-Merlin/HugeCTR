@@ -24,7 +24,7 @@ NetworkCPU::NetworkCPU(const std::shared_ptr<CPUResource>& cpu_resource, bool us
 void NetworkCPU::conv_weight_(Tensor2<__half>& target, const Tensor2<float>& source) {
   size_t elems = source.get_num_elements();
   if (target.get_num_elements() != source.get_num_elements())
-    CK_THROW_(Error_t::WrongInput, "weight size of target != weight size of in");
+    HCTR_OWN_THROW(Error_t::WrongInput, "weight size of target != weight size of in");
   __half* h_target = target.get_ptr();
   const float* h_source = source.get_ptr();
   for (size_t i = 0; i < elems; i++) {
@@ -46,8 +46,9 @@ void NetworkCPU::predict() {
 void NetworkCPU::load_params_from_model(const std::string& model_file) {
   std::ifstream model_stream(model_file, std::ifstream::binary);
   if (!model_stream.is_open()) {
-    CK_THROW_(Error_t::WrongInput,
-              std::string("Cannot open dense model file (reason: ") + std::strerror(errno) + ")");
+    std::ostringstream os;
+    os << "Cannot open dense model file (reason: " << std::strerror(errno) << ')';
+    HCTR_OWN_THROW(Error_t::WrongInput, os.str());
   }
   model_stream.read((char*)weight_tensor_.get_ptr(), weight_tensor_.get_size_in_bytes());
   model_stream.close();

@@ -31,6 +31,7 @@
 #include <mpi.h>
 #endif
 using namespace HugeCTR;
+using HugeCTR::Logger;
 
 DataGeneratorParams::DataGeneratorParams(DataReaderType_t format, int label_dim, int dense_dim,
                                          int num_slot, bool i64_input_key,
@@ -64,14 +65,14 @@ DataGeneratorParams::DataGeneratorParams(DataReaderType_t format, int label_dim,
     this->nnz_array.assign(num_slot, 1);
   }
   if (slot_size_array.size() != static_cast<size_t>(num_slot)) {
-    CK_THROW_(Error_t::WrongInput, "slot_size_array.size() should be equal to num_slot");
+    HCTR_OWN_THROW(Error_t::WrongInput, "slot_size_array.size() should be equal to num_slot");
   }
   if (this->nnz_array.size() != static_cast<size_t>(num_slot)) {
-    CK_THROW_(Error_t::WrongInput, "nnz_array.size() should be equal to num_slot");
+    HCTR_OWN_THROW(Error_t::WrongInput, "nnz_array.size() should be equal to num_slot");
   }
   if (dist_type == Distribution_t::PowerLaw && power_law_type == PowerLaw_t::Specific &&
       (alpha <= 0 || abs(alpha - 1.0) < 1e-6)) {
-    CK_THROW_(
+    HCTR_OWN_THROW(
         Error_t::WrongInput,
         "alpha should be greater than zero and should not equal to 1.0 for power law distribution");
   }
@@ -117,16 +118,17 @@ void DataGenerator::generate() {
   }
   switch (data_generator_params_.format) {
     case DataReaderType_t::Norm: {
-      std::cout << "Generate Norm dataset" << std::endl;
-      std::cout << "train data folder: " << train_data_folder
-                << ", eval data folder: " << eval_data_folder
-                << ", slot_size_array: " << vec_to_string(data_generator_params_.slot_size_array)
-                << ", nnz array: " << vec_to_string(data_generator_params_.nnz_array)
-                << ", #files for train: " << data_generator_params_.num_files
-                << ", #files for eval: " << data_generator_params_.eval_num_files
-                << ", #samples per file: " << data_generator_params_.num_samples_per_file
-                << ", Use power law distribution: " << use_long_tail
-                << ", alpha of power law: " << alpha << std::endl;
+      HCTR_LOG_S(INFO, WORLD) << "Generate Norm dataset" << std::endl;
+      HCTR_LOG_S(INFO, WORLD) << "train data folder: " << train_data_folder
+                              << ", eval data folder: " << eval_data_folder << ", slot_size_array: "
+                              << vec_to_string(data_generator_params_.slot_size_array)
+                              << ", nnz array: " << vec_to_string(data_generator_params_.nnz_array)
+                              << ", #files for train: " << data_generator_params_.num_files
+                              << ", #files for eval: " << data_generator_params_.eval_num_files
+                              << ", #samples per file: "
+                              << data_generator_params_.num_samples_per_file
+                              << ", Use power law distribution: " << use_long_tail
+                              << ", alpha of power law: " << alpha << std::endl;
       check_make_dir(train_data_folder);
       check_make_dir(eval_data_folder);
       if (data_generator_params_.check_type == Check_t::Sum) {
@@ -189,15 +191,16 @@ void DataGenerator::generate() {
       break;
     }
     case DataReaderType_t::Raw: {
-      std::cout << "Generate Raw dataset" << std::endl;
-      std::cout << "train data folder: " << train_data_folder
-                << ", eval data folder: " << eval_data_folder
-                << ", slot_size_array: " << vec_to_string(data_generator_params_.slot_size_array)
-                << ", nnz array: " << vec_to_string(data_generator_params_.nnz_array)
-                << ", Number of train samples: " << data_generator_params_.num_samples
-                << ", Number of eval samples: " << data_generator_params_.eval_num_samples
-                << ", Use power law distribution: " << use_long_tail
-                << ", alpha of power law: " << alpha << std::endl;
+      HCTR_LOG_S(INFO, WORLD) << "Generate Raw dataset" << std::endl;
+      HCTR_LOG_S(INFO, WORLD) << "train data folder: " << train_data_folder
+                              << ", eval data folder: " << eval_data_folder << ", slot_size_array: "
+                              << vec_to_string(data_generator_params_.slot_size_array)
+                              << ", nnz array: " << vec_to_string(data_generator_params_.nnz_array)
+                              << ", Number of train samples: " << data_generator_params_.num_samples
+                              << ", Number of eval samples: "
+                              << data_generator_params_.eval_num_samples
+                              << ", Use power law distribution: " << use_long_tail
+                              << ", alpha of power law: " << alpha << std::endl;
       check_make_dir(train_data_folder);
       check_make_dir(eval_data_folder);
       if (data_generator_params_.i64_input_key) {
@@ -227,18 +230,19 @@ void DataGenerator::generate() {
     }
     case DataReaderType_t::Parquet: {
 #ifdef DISABLE_CUDF
-      CK_THROW_(Error_t::WrongInput, "Parquet is not supported under DISABLE_CUDF");
+      HCTR_OWN_THROW(Error_t::WrongInput, "Parquet is not supported under DISABLE_CUDF");
 #else
-      std::cout << "Generate Parquet dataset" << std::endl;
-      std::cout << "train data folder: " << train_data_folder
-                << ", eval data folder: " << eval_data_folder
-                << ", slot_size_array: " << vec_to_string(data_generator_params_.slot_size_array)
-                << ", nnz array: " << vec_to_string(data_generator_params_.nnz_array)
-                << ", #files for train: " << data_generator_params_.num_files
-                << ", #files for eval: " << data_generator_params_.eval_num_files
-                << ", #samples per file: " << data_generator_params_.num_samples_per_file
-                << ", Use power law distribution: " << use_long_tail
-                << ", alpha of power law: " << alpha << std::endl;
+      HCTR_LOG_S(INFO, WORLD) << "Generate Parquet dataset" << std::endl;
+      HCTR_LOG_S(INFO, WORLD) << "train data folder: " << train_data_folder
+                              << ", eval data folder: " << eval_data_folder << ", slot_size_array: "
+                              << vec_to_string(data_generator_params_.slot_size_array)
+                              << ", nnz array: " << vec_to_string(data_generator_params_.nnz_array)
+                              << ", #files for train: " << data_generator_params_.num_files
+                              << ", #files for eval: " << data_generator_params_.eval_num_files
+                              << ", #samples per file: "
+                              << data_generator_params_.num_samples_per_file
+                              << ", Use power law distribution: " << use_long_tail
+                              << ", alpha of power law: " << alpha << std::endl;
 
       check_make_dir(train_data_folder);
       check_make_dir(eval_data_folder);

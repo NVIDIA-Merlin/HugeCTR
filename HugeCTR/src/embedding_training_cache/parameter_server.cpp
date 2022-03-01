@@ -26,7 +26,7 @@ void open_and_get_size(const std::string& file_name, std::ifstream& stream,
                        size_t& file_size_in_byte) {
   stream.open(file_name, std::ifstream::binary);
   if (!stream.is_open()) {
-    CK_THROW_(Error_t::WrongInput, "Cannot open the file: " + file_name);
+    HCTR_OWN_THROW(Error_t::WrongInput, "Cannot open the file: " + file_name);
   }
   file_size_in_byte = std::filesystem::file_size(file_name);
 }
@@ -63,20 +63,20 @@ void ParameterServer<TypeKey>::load_keyset_from_file(std::string keyset_file) {
     open_and_get_size(keyset_file, keyset_stream, file_size_in_byte);
 
     if (file_size_in_byte == 0) {
-      CK_THROW_(Error_t::WrongInput, std::string(keyset_file) + " is empty");
+      HCTR_OWN_THROW(Error_t::WrongInput, keyset_file + " is empty");
     }
 
     size_t num_keys_in_file = file_size_in_byte / sizeof(TypeKey);
     keyset_.resize(num_keys_in_file);
     keyset_stream.read((char*)keyset_.data(), file_size_in_byte);
 #ifdef ENABLE_MPI
-    CK_MPI_THROW_(MPI_Barrier(MPI_COMM_WORLD));
+    HCTR_MPI_THROW(MPI_Barrier(MPI_COMM_WORLD));
 #endif
   } catch (const internal_runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     throw;
   } catch (const std::exception& err) {
-    std::cerr << err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << err.what() << std::endl;
     throw;
   }
 }
@@ -84,7 +84,7 @@ void ParameterServer<TypeKey>::load_keyset_from_file(std::string keyset_file) {
 template <typename TypeKey>
 void ParameterServer<TypeKey>::pull(BufferBag& buf_bag, size_t& hit_size) {
   if (keyset_.empty()) {
-    CK_THROW_(Error_t::WrongInput, "keyset is empty");
+    HCTR_OWN_THROW(Error_t::WrongInput, "keyset is empty");
   }
   if (ps_type_ != TrainPSType_t::Cached) {
     sparse_model_entity_->load_vec_by_key(keyset_, buf_bag, hit_size);
@@ -107,7 +107,7 @@ template <typename TypeKey>
 std::pair<std::vector<long long>, std::vector<float>> ParameterServer<TypeKey>::pull(
     const std::vector<long long>& keys_to_load) {
   if (keys_to_load.empty()) {
-    CK_THROW_(Error_t::WrongInput, "\nkeyset is empty");
+    HCTR_OWN_THROW(Error_t::WrongInput, "\nkeyset is empty");
   }
   if (ps_type_ != TrainPSType_t::Cached) {
     return sparse_model_entity_->load_vec_by_key(keys_to_load);

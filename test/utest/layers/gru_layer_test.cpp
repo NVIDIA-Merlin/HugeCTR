@@ -28,8 +28,7 @@
 
 #include "HugeCTR/include/data_simulator.hpp"
 #include "utest/test_utils.h"
-//#include <Python.h>
-using namespace std;
+
 using namespace HugeCTR;
 
 namespace {
@@ -38,7 +37,7 @@ namespace {
 template <typename T>
 static bool check_cpu_gpu(T *cpu_p, T *gpu_p, size_t len) {
   T *cpu_tmp = (T *)malloc(sizeof(T) * len);
-  CK_CUDA_THROW_(cudaMemcpy(cpu_tmp, gpu_p, sizeof(T) * len, cudaMemcpyDeviceToHost));
+  HCTR_LIB_THROW(cudaMemcpy(cpu_tmp, gpu_p, sizeof(T) * len, cudaMemcpyDeviceToHost));
   T max_diff = fabs(cpu_p[0] - cpu_tmp[0]);
   bool flag = true;
   int start_pos = 0;
@@ -47,13 +46,13 @@ static bool check_cpu_gpu(T *cpu_p, T *gpu_p, size_t len) {
       if (flag) start_pos = i;
       flag = false;
       // if(fabs(cpu_p[i] - cpu_tmp[i]) >= 0.03){
-      //  printf("wrong at %d %.32f %.32f\n",i, cpu_p[i], cpu_tmp[i]);
+      //  HCTR_LOG(INFO, WORLD, "wrong at %d %.32f %.32f\n",i, cpu_p[i], cpu_tmp[i]);
       //  //break;
       //}
     }
     max_diff = max(max_diff, fabs(cpu_p[i] - cpu_tmp[i]));
   }
-  // if (!flag) printf("max_diff %f, start at %d\n", max_diff, start_pos);
+  // if (!flag) HCTR_LOG(INFO, WORLD, "max_diff %f, start at %d\n", max_diff, start_pos);
   free(cpu_tmp);
   return flag;
 }
@@ -69,12 +68,13 @@ bool check_correctness(float *a, float *b, int len, float error) {
       flag = false;
       count++;
       // if(fabs(a[i] - b[i]) >= 0.1)
-      // printf("i %d %f %f\n", i, a[i], b[i]);
+      // HCTR_LOG(INFO, WORLD, "i %d %f %f\n", i, a[i], b[i]);
     }
     max_diff = std::max(max_diff, fabs(a[i] - b[i]));
   }
-  // printf("number %d\n", count);
-  // if (!flag) printf("Fail matched max_diff %f, start at %d\n", max_diff, start_pos);
+  // HCTR_LOG(INFO, WORLD, "number %d\n", count);
+  // if (!flag) HCTR_LOG(INFO, WORLD, "Fail matched max_diff %f, start at %d\n", max_diff,
+  // start_pos);
   return flag;
 }
 
@@ -188,7 +188,7 @@ void cpu_gru(T *weight, T *in, T *hx, T *out, size_t h, size_t v, size_t b, size
       // for(unsigned int a = 0; a < h; a++)
       //{
       //  if( It[a]<-0.99) //h1_t[a]>0.99 ||
-      //    printf("satruate sigmoid timestep %d %f \n", i, h1_t[a]);
+      //    HCTR_LOG(INFO, WORLD, "satruate sigmoid timestep %d %f \n", i, h1_t[a]);
       //}
       // ht = (1 - it) ◦ h't + it ◦ ht-1
       T *ht_1 = i > 0 ? out + out_index : t_hx;
@@ -197,7 +197,7 @@ void cpu_gru(T *weight, T *in, T *hx, T *out, size_t h, size_t v, size_t b, size
       // for(unsigned int a = 0; a < h; a++)
       //{
       //  if(ht_1[a]>0.99 || ht_1[a]<-0.99)
-      //    printf("satruate sigmoid timestep %d %f \n", i, ht_1[a]);
+      //    HCTR_LOG(INFO, WORLD, "satruate sigmoid timestep %d %f \n", i, ht_1[a]);
       //}
     }
     // cpu_mm(Ri, out )
@@ -237,8 +237,8 @@ static void gru_layer_test(size_t batch_size, size_t hiddenSize, size_t embeddin
   size_t weightSpaceSize =
       3 * hiddenSize * embedding_vec_size + 3 * hiddenSize * hiddenSize + 3 * hiddenSize;
 
-  CK_CUDA_THROW_(cudaMemset(weight.get_ptr(), 0, weight.get_size_in_bytes()));
-  CK_CUDA_THROW_(cudaMemset(wgrad.get_ptr(), 0, wgrad.get_size_in_bytes()));
+  HCTR_LIB_THROW(cudaMemset(weight.get_ptr(), 0, weight.get_size_in_bytes()));
+  HCTR_LIB_THROW(cudaMemset(wgrad.get_ptr(), 0, wgrad.get_size_in_bytes()));
 
   T *d_weight = weight.get_ptr();
   T *d_in = in_tensor.get_ptr();
@@ -267,19 +267,19 @@ static void gru_layer_test(size_t batch_size, size_t hiddenSize, size_t embeddin
   simulator.fill(h_weight.get(), test::align_to_even(weightSpaceSize));
   simulator.fill(h_in.get(), test::align_to_even(inputTensorSize));
   // T* h_data= h_in.get();
-  // printf("input %zu ", inputTensorSize);
+  // HCTR_LOG(INFO, ROOT, "input %zu ", inputTensorSize);
   // for(unsigned int i=0;i<inputTensorSize;i++)
   //{
-  //  printf("%f", h_data[i]);
+  //  HCTR_PRINT(INFO, "%f", h_data[i]);
   //}
-  // printf("\n");
+  // HCTR_PRINT(INFO, "\n");
   // T* h_w = h_weight.get();
-  // printf("out weight start:\n");
+  // HCTR_LOG(INFO, ROOT, "out weight start:\n");
   // for(unsigned int i=0;i<weightSpaceSize/sizeof(T);i++)
   //{
-  //  printf("%f ", h_w[i]);
+  //  HCTR_PRINT(INFO, "%f ", h_w[i]);
   //}
-  // printf("\nout weight end size %zu\n", weightSpaceSize/sizeof(T));
+  // HCTR_PRINT(INFO, "\nout weight end size %zu\n", weightSpaceSize/sizeof(T));
   // exit(1);
 #elif defined CUSTOMIZE
   T *tptr = h_in.get();
@@ -312,24 +312,24 @@ static void gru_layer_test(size_t batch_size, size_t hiddenSize, size_t embeddin
   for (unsigned int i = 0; i < weightSpaceSize; i++) tptr[i] = 1.0;
 #endif
 // T *tptr = h_in.get();
-// printf("inputX:\n");
+// HCTR_LOG(INFO, ROOT, "inputX:\n");
 // for(unsigned int i =0; i<inputTensorSize;i++){
-//  printf("%.8f ", tptr[i]);
+//  HCTR_PRINT(INFO, "%.8f ", tptr[i]);
 //  if((i+1)% embedding_vec_size==0)
-//    printf("\n");
+//    HCTR_PRINT(INFO, "\n");
 //}
 // T *tptr = h_weight.get();
-////printf("inputW: %zu %zu %zu\n", weightSpaceSize, hiddenSize*embedding_vec_size*3,
+////HCTR_LOG(INFO, ROOT, "inputW: %zu %zu %zu\n", weightSpaceSize, hiddenSize*embedding_vec_size*3,
 /// hiddenSize*hiddenSize*3 );
 // for(unsigned int i =0; i<weightSpaceSize;i++){
-//  printf("%.8f ", tptr[i]);
+//  HCTR_PRINT(INFO, "%.8f ", tptr[i]);
 //  if(i<hiddenSize*embedding_vec_size*3 && (i+1)% embedding_vec_size==0)
-//    printf("\n");
+//    HCTR_PRINT(INFO, "\n");
 //  if(i>hiddenSize*embedding_vec_size*3 && i< hiddenSize*embedding_vec_size*3 +
 //  hiddenSize*hiddenSize*3 && (i+1)% hiddenSize==0)
-//    printf("\n");
+//    HCTR_PRINT(INFO, "\n");
 //  if(i>=hiddenSize*embedding_vec_size*3 + hiddenSize*hiddenSize*3)
-//    printf("\n");
+//    HCTR_PRINT(INFO, "\n");
 //}
 // T* tptr = h_in.get();
 // T tmp[4] = {-0.747210, -1.379702, 0.995153, -1.136765};
@@ -350,21 +350,22 @@ static void gru_layer_test(size_t batch_size, size_t hiddenSize, size_t embeddin
   T *d_dweight = wgrad.get_ptr() + inputTensorSize + outputTensorSize + 2 * hiddenTensorSize;
 
   // T* h_data= h_in.get();
-  // printf("input %zu ", inputTensorSize);
+  // HCTR_LOG(INFO, ROOT, "input %zu ", inputTensorSize);
   // for(unsigned int i=0;i<inputTensorSize;i++)
   //{
-  //  printf("%f", h_data[i]);
+  //  HCTR_PRINT(INFO, "%f", h_data[i]);
   //}
-  // printf("\n");
+  // HCTR_PRINT(INFO, "\n");
 
-  printf("parameter 4 %zu %zu %zu %zu \n", batch_size, hiddenSize, embedding_vec_size, SeqLength);
+  HCTR_LOG(INFO, ROOT, "parameter 4 %zu %zu %zu %zu \n", batch_size, hiddenSize, embedding_vec_size,
+           SeqLength);
 
   T *h_data = h_in.get();
-  printf("input %zu ", inputTensorSize);
+  HCTR_LOG(INFO, ROOT, "input %zu ", inputTensorSize);
   for (unsigned int i = 0; i < inputTensorSize; i++) {
-    printf("%f ", h_data[i]);
+    HCTR_PRINT(INFO, "%f ", h_data[i]);
   }
-  printf("\n");
+  HCTR_PRINT(INFO, "\n");
 #endif
 
   //#define CUDNNTEST
@@ -381,50 +382,50 @@ static void gru_layer_test(size_t batch_size, size_t hiddenSize, size_t embeddin
   C_y = NULL;
 #endif
   // for (unsigned int i = 0; i < inputTensorSize; i++)
-  //  if (C_in[i] > 1 || C_in[i] < -1) printf("C_in %f\n", C_in[i]);
+  //  if (C_in[i] > 1 || C_in[i] < -1) HCTR_LOG(INFO, ROOT, "C_in %f\n", C_in[i]);
   // for (unsigned int i = 0; i < weightSpaceSize; i++)
-  //  if (C_weight[i] > 1 || C_weight[i] < -1) printf("C_weight %f\n", C_weight[i]);
+  //  if (C_weight[i] > 1 || C_weight[i] < -1) HCTR_LOG(INFO, ROOT, "C_weight %f\n", C_weight[i]);
 
   // for(unsigned int i=0;i<outputTensorSize; i++)
   //  if(C_y[i]>0.6 || C_y[i]<0.1)
-  //    printf("C_y %f\n", C_y[i]);
+  //    HCTR_LOG(INFO, ROOT, "C_y %f\n", C_y[i]);
   // memset(testHx, 0, sizeof(hiddenTensorSize)*sizeof(T));
-  // CK_CUDA_THROW_(cudaMemcpy(d_weight, h_weight.get(), weightSpaceSize*sizeof(T),
-  // cudaMemcpyHostToDevice)); CK_CUDA_THROW_(cudaMemcpy(d_in, h_in.get(), sizeof(T) *
+  // HCTR_LIB_THROW(cudaMemcpy(d_weight, h_weight.get(), weightSpaceSize*sizeof(T),
+  // cudaMemcpyHostToDevice)); HCTR_LIB_THROW(cudaMemcpy(d_in, h_in.get(), sizeof(T) *
   // inputTensorSize, cudaMemcpyHostToDevice));
   T *testHx = new T[hiddenTensorSize];
   memset(testHx, 0, hiddenTensorSize);
-  CK_CUDA_THROW_(cudaMemcpy(d_hx, testHx, sizeof(T) * hiddenTensorSize, cudaMemcpyHostToDevice));
-  CK_CUDA_THROW_(
+  HCTR_LIB_THROW(cudaMemcpy(d_hx, testHx, sizeof(T) * hiddenTensorSize, cudaMemcpyHostToDevice));
+  HCTR_LIB_THROW(
       cudaMemcpy(d_weight, C_weight, weightSpaceSize * sizeof(T), cudaMemcpyHostToDevice));
-  CK_CUDA_THROW_(cudaMemcpy(d_in, C_in, sizeof(T) * inputTensorSize, cudaMemcpyHostToDevice));
+  HCTR_LIB_THROW(cudaMemcpy(d_in, C_in, sizeof(T) * inputTensorSize, cudaMemcpyHostToDevice));
 
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
   gru_layer.fprop(true);
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
 
-  CK_CUDA_THROW_(
+  HCTR_LIB_THROW(
       cudaMemcpy(h_out.get(), d_out, sizeof(T) * outputTensorSize, cudaMemcpyDeviceToHost));
 
-  // printf("outputY:\n");
+  // HCTR_LOG(INFO, ROOT, "outputY:\n");
   // T* tptr = h_out.get();
   // for(unsigned int i =0; i<outputTensorSize;i++){
-  //    printf("%.8f ", tptr[i]);
+  //    HCTR_PRINT(INFO, "%.8f ", tptr[i]);
   //    if((i+1)% hiddenSize==0)
-  //      printf("\n");
+  //      HCTR_PRINT(INFO, "\n");
   //}
 
   // T* y = h_out.get();
   // for(unsigned int i=0;i<outputTensorSize; i++)
   //  if(y[i]>1 || y[i]< -1)
-  //    printf("y %f\n", y[i]);
+  //    HCTR_LOG(INFO, ROOT, "y %f\n", y[i]);
   // check refY
   if (C_y != NULL) {
     result = check_correctness(h_out.get(), C_y, outputTensorSize, 1e-3);
     if (result)
-      printf("forward prop hugectr v8 matched with cudnnTest2\n");
+      HCTR_LOG(INFO, WORLD, "forward prop hugectr v8 matched with cudnnTest2\n");
     else
-      printf("forward prop hugectr v8 failed match with cudnnTest2!!\n");
+      HCTR_LOG(INFO, WORLD, "forward prop hugectr v8 failed match with cudnnTest2!!\n");
   }
   // rnn_v6(testX, testW, testHx, refY, h_dy.get(), h_dhy.get(), hiddenSize, batch_size,
   // SeqLength, embedding_vec_size,  h_dweight.get(), h_out.get());
@@ -439,28 +440,28 @@ static void gru_layer_test(size_t batch_size, size_t hiddenSize, size_t embeddin
   delete[] testHx;
   result = check_correctness(h_out.get(), cpu_y, outputTensorSize, 1e-3);
   if (result)
-    printf("forward prop CPU matched with V8\n");
+    HCTR_LOG(INFO, WORLD, "forward prop CPU matched with V8\n");
   else
-    printf("forward prop CPU failed match with V8!!\n");
+    HCTR_LOG(INFO, WORLD, "forward prop CPU failed match with V8!!\n");
 
   if (C_y != NULL) {
     result = check_correctness(cpu_y, C_y, outputTensorSize, 1e-3);
     if (result)
-      printf("forward prop CPU matched with cudnnTest\n");
+      HCTR_LOG(INFO, WORLD, "forward prop CPU matched with cudnnTest\n");
     else
-      printf("forward prop CPU failed match with cudnnTest!!\n");
+      HCTR_LOG(INFO, WORLD, "forward prop CPU failed match with cudnnTest!!\n");
   }
   // check refY end
 
 #ifdef KERAS_CHECK
-  CK_CUDA_THROW_(
+  HCTR_LIB_THROW(
       cudaMemcpy(h_weight.get(), d_weight, weightSpaceSize * sizeof(T), cudaMemcpyDeviceToHost));
   h_data = h_out.get();
-  printf("output_gpu %zu ", outputTensorSize);
+  HCTR_LOG(INFO, ROOT, "output_gpu %zu ", outputTensorSize);
   for (unsigned int i = 0; i < outputTensorSize; i++) {
-    printf("%f ", h_data[i]);
+    HCTR_PRINT(INFO, "%f ", h_data[i]);
   }
-  printf("\n");
+  HCTR_PRINT(INFO, "\n");
 #endif
 // CPU reference
 // cpu_gru<T>(h_weight.get(), h_in.get(), h_out.get(), hiddenSize, embedding_vec_size, batch_size,
@@ -468,18 +469,18 @@ static void gru_layer_test(size_t batch_size, size_t hiddenSize, size_t embeddin
 #ifndef KERAS_CHECK
 // T *d_out = out_tensor.get_ptr();
 // ASSERT_EQ(true, check_cpu_gpu(h_out.get(), d_out, outputTensorSize)) << "fprop cross_check result
-// fail"<< endl;
+// fail"<< std::endl;
 #endif
 // CPU bprop TODO
 // simulator.fill(h_dy.get(), test::align_to_even(outputTensorSize));
 // simulator.fill(h_dhy.get(), test::align_to_even(hiddenTensorSize));
 #ifdef KERAS_CHECK
   h_data = h_out.get();
-  printf("output_cpu %zu ", outputTensorSize);
+  HCTR_LOG(INFO, ROOT, "output_cpu %zu ", outputTensorSize);
   for (unsigned int i = 0; i < outputTensorSize; i++) {
-    printf("%.32f ", h_data[i]);
+    HCTR_PRINT(INFO, "%.32f ", h_data[i]);
   }
-  printf("\n");
+  HCTR_PRINT(INFO, "\n");
 
   T *ptr = h_dy.get();
   for (unsigned int i = 0; i < outputTensorSize; i++) ptr[i] = 1.0;
@@ -488,59 +489,59 @@ static void gru_layer_test(size_t batch_size, size_t hiddenSize, size_t embeddin
   for (unsigned int i = 0; i < hiddenTensorSize; i++) ptr[i] = 0;
 
     // ptr = h_dy.get();
-    // printf("dy %zu ", outputTensorSize);
+    // HCTR_LOG(INFO, ROOT, "dy %zu ", outputTensorSize);
     // for(unsigned int i=0;i<outputTensorSize;i++)
     //{
-    //  printf("%f ", ptr[i]);
+    //  HCTR_PRINT(INFO, "%f ", ptr[i]);
     //}
-    // printf("\n");
+    // HCTR_PRINT(INFO, "\n");
     //
     // ptr = h_dhy.get();
-    // printf("dhy %zu ", hiddenTensorSize);
+    // HCTR_LOG(INFO, ROOT, "dhy %zu ", hiddenTensorSize);
     // for(unsigned int i=0;i<hiddenTensorSize;i++)
     //{
-    //  printf("%f ", ptr[i]);
+    //  HCTR_PRINT(INFO, "%f ", ptr[i]);
     //}
-    // printf("\n");
+    // HCTR_PRINT(INFO, "\n");
 #endif
-  CK_CUDA_THROW_(
+  HCTR_LIB_THROW(
       cudaMemcpy(d_dy, h_dy.get(), sizeof(T) * outputTensorSize, cudaMemcpyHostToDevice));
-  CK_CUDA_THROW_(
+  HCTR_LIB_THROW(
       cudaMemcpy(d_dhy, h_dhy.get(), sizeof(T) * hiddenTensorSize, cudaMemcpyHostToDevice));
 
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
   gru_layer.bprop();
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
 
 #ifdef KERAS_CHECK
-  CK_CUDA_THROW_(cudaMemcpy(h_dx.get(), d_dx, sizeof(T) * inputTensorSize, cudaMemcpyDeviceToHost));
-  CK_CUDA_THROW_(
+  HCTR_LIB_THROW(cudaMemcpy(h_dx.get(), d_dx, sizeof(T) * inputTensorSize, cudaMemcpyDeviceToHost));
+  HCTR_LIB_THROW(
       cudaMemcpy(h_dhx.get(), d_dhx, hiddenTensorSize * sizeof(T), cudaMemcpyDeviceToHost));
-  CK_CUDA_THROW_(
+  HCTR_LIB_THROW(
       cudaMemcpy(h_dweight.get(), d_dweight, weightSpaceSize * sizeof(T), cudaMemcpyDeviceToHost));
 
   // ptr = h_dx.get();
-  // printf("dx %zu ", inputTensorSize);
+  // HCTR_LOG(INFO, ROOT, "dx %zu ", inputTensorSize);
   // for(unsigned int i=0;i<inputTensorSize;i++)
   //{
-  //  printf("%.32f ", ptr[i]);
+  //  HCTR_PRINT(INFO, "%.32f ", ptr[i]);
   //}
-  // printf("\n");
+  // HCTR_PRINT(INFO, "\n");
   //
   // ptr = h_dhx.get();
-  // printf("dhx %zu ", hiddenTensorSize);
+  // HCTR_LOG(INFO, ROOT, "dhx %zu ", hiddenTensorSize);
   // for(unsigned int i=0;i<hiddenTensorSize;i++)
   //{
-  //  printf("%f ", ptr[i]);
+  //  HCTR_PRINT(INFO, "%f ", ptr[i]);
   //}
-  // printf("\n");
+  // HCTR_PRINT(INFO, "\n");
 
   ptr = h_dweight.get();
-  printf("dweight %zu ", weightSpaceSize);
+  HCTR_LOG(INFO, ROOT, "dweight %zu ", weightSpaceSize);
   for (unsigned int i = 0; i < weightSpaceSize; i++) {
-    printf("%.32f ", ptr[i]);
+    HCTR_PRINT(INFO, "%.32f ", ptr[i]);
   }
-  printf("\n");
+  HCTR_PRINT(INFO, "\n");
 
 // std::fstream fs;
 // fs.open("tmp.log", std::fstream::out | std::fstream::binary);

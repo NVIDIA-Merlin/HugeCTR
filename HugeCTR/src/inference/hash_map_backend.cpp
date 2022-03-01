@@ -390,8 +390,9 @@ size_t ParallelHashMapBackend<TPartition>::contains(const std::string& table_nam
     });
     hit_count = static_cast<size_t>(joint_hit_count);
   }
-
+#ifdef ENABLE_INFERENCE
   HCTR_LOG(DEBUG, WORLD, "%s backend. Found %d / %d keys.\n", get_name(), hit_count, num_keys);
+#endif
   return hit_count;
 }
 
@@ -440,9 +441,10 @@ bool ParallelHashMapBackend<TPartition>::insert(const std::string& table_name,
     });
     num_inserts = static_cast<size_t>(joint_num_inserts);
   }
-
+#ifdef ENABLE_INFERENCE
   HCTR_LOG(DEBUG, WORLD, "%s backend. Table: %s. Inserted %d / %d pairs.\n", get_name(),
            table_name.c_str(), num_inserts, num_pairs);
+#endif
   return true;
 }
 
@@ -488,9 +490,10 @@ size_t ParallelHashMapBackend<TPartition>::fetch(const std::string& table_name,
     });
     hit_count = static_cast<size_t>(joint_hit_count);
   }
-
+#ifdef ENABLE_INFERENCE
   HCTR_LOG(DEBUG, WORLD, "%s backend. Table: %s. Fetched %d / %d values.\n", get_name(),
            table_name.c_str(), hit_count, num_keys);
+#endif
   return hit_count;
 }
 
@@ -539,9 +542,10 @@ size_t ParallelHashMapBackend<TPartition>::fetch(const std::string& table_name,
     });
     hit_count = static_cast<size_t>(joint_hit_count);
   }
-
+#ifdef ENABLE_INFERENCE
   HCTR_LOG(DEBUG, WORLD, "%s backend. Table: %s. Fetched %d / %d values.\n", get_name(),
            table_name.c_str(), hit_count, num_indices);
+#endif
   return hit_count;
 }
 
@@ -563,9 +567,10 @@ size_t ParallelHashMapBackend<TPartition>::evict(const std::string& table_name) 
     hit_count += part.size();
   }
   tables_.erase(table_name);
-
+#ifdef ENABLE_INFERENCE
   HCTR_LOG(DEBUG, WORLD, "%s backend. Table %s erased (%d pairs).\n", get_name(),
            table_name.c_str(), hit_count);
+#endif
   return hit_count;
 }
 
@@ -608,9 +613,10 @@ size_t ParallelHashMapBackend<TPartition>::evict(const std::string& table_name,
     });
     hit_count = static_cast<size_t>(joint_hit_count);
   }
-
+#ifdef ENABLE_INFERENCE
   HCTR_LOG(DEBUG, WORLD, "%s backend. Table %s. %d / %d pairs erased.\n", get_name(),
            table_name.c_str(), hit_count, num_keys);
+#endif
   return hit_count;
 }
 

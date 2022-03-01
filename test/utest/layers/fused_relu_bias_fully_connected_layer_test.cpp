@@ -23,7 +23,7 @@
 #include "cublas_v2.h"
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"
-using namespace std;
+
 using namespace HugeCTR;
 
 static void cpu_mm(__half *c, const __half *a, bool transpose_a, const __half *b, bool transpose_b,
@@ -80,7 +80,7 @@ static float compare_array(const __half *arr1, const __half *arr2, size_t n, flo
 }
 
 static void fully_connected_layer_test(size_t m, size_t n, size_t k) {
-  printf("Testing m=%zu, n=%zu, k=%zu\n", m, n, k);
+  HCTR_LOG(INFO, WORLD, "Testing m=%zu, n=%zu, k=%zu\n", m, n, k);
 
   test::GaussianDataSimulator simulator(0.0f, 1.0f);
 
@@ -113,8 +113,8 @@ static void fully_connected_layer_test(size_t m, size_t n, size_t k) {
 
   Tensor2<__half> weights = weights_buff->as_tensor();
   Tensor2<__half> weights_grad = weights_grad_buff->as_tensor();
-  CK_CUDA_THROW_(cudaMemset(weights.get_ptr(), 0, weights.get_size_in_bytes()));
-  CK_CUDA_THROW_(cudaMemset(weights_grad.get_ptr(), 0, weights_grad.get_size_in_bytes()));
+  HCTR_LIB_THROW(cudaMemset(weights.get_ptr(), 0, weights.get_size_in_bytes()));
+  HCTR_LIB_THROW(cudaMemset(weights_grad.get_ptr(), 0, weights_grad.get_size_in_bytes()));
   // TODO: result check
   __half *d_kernel = weights.get_ptr();
   __half *d_bias = weights.get_ptr() + k * n;
@@ -145,10 +145,10 @@ static void fully_connected_layer_test(size_t m, size_t n, size_t k) {
   simulator.fill(h_kernel.get(), k * n);
   simulator.fill(h_bias.get(), n);
 
-  CK_CUDA_THROW_(
+  HCTR_LIB_THROW(
       cudaMemcpy(d_kernel, h_kernel.get(), sizeof(__half) * k * n, cudaMemcpyHostToDevice));
-  CK_CUDA_THROW_(cudaMemcpy(d_bias, h_bias.get(), sizeof(__half) * n, cudaMemcpyHostToDevice));
-  CK_CUDA_THROW_(
+  HCTR_LIB_THROW(cudaMemcpy(d_bias, h_bias.get(), sizeof(__half) * n, cudaMemcpyHostToDevice));
+  HCTR_LIB_THROW(
       cudaMemcpy(d_bottom, h_bottom.get(), sizeof(__half) * m * k, cudaMemcpyHostToDevice));
 
   // cpu fprop
@@ -156,22 +156,22 @@ static void fully_connected_layer_test(size_t m, size_t n, size_t k) {
   cpu_add_bias_and_re(h_top.get(), h_middle.get(), h_bias.get(), m, n);
 
   // gpu fprop
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
   fully_connected_layer.fprop(true);
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
 
-  CK_CUDA_THROW_(cudaMemcpy(d2h_top.get(), d_top, sizeof(__half) * m * n, cudaMemcpyDeviceToHost));
+  HCTR_LIB_THROW(cudaMemcpy(d2h_top.get(), d_top, sizeof(__half) * m * n, cudaMemcpyDeviceToHost));
 
   // check result
   ASSERT_LT(compare_array(h_top.get(), d2h_top.get(), m * n, 1e-3), 0.15f)
-      << "fprop cross_check result fail" << endl;
+      << "fprop cross_check result fail" << std::endl;
 
   simulator.fill(h_top.get(), m * n);
   simulator.fill(h_bprop_out.get(), m * n);
 
-  CK_CUDA_THROW_(
+  HCTR_LIB_THROW(
       cudaMemcpy(d_top, h_bprop_out.get(), sizeof(__half) * m * n, cudaMemcpyHostToDevice));
-  CK_CUDA_THROW_(
+  HCTR_LIB_THROW(
       cudaMemcpy(d_mask_out, h_top.get(), sizeof(__half) * m * n, cudaMemcpyHostToDevice));
 
   // cpu bprop
@@ -181,24 +181,24 @@ static void fully_connected_layer_test(size_t m, size_t n, size_t k) {
   cpu_mm(h_bprop_in.get(), h_top.get(), false, h_kernel.get(), true, m, n, k);
 
   // gpu bprop
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
   fully_connected_layer.bprop();
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
 
-  CK_CUDA_THROW_(
+  HCTR_LIB_THROW(
       cudaMemcpy(d2h_bprop_in.get(), d_bprop_in, sizeof(__half) * m * k, cudaMemcpyDeviceToHost));
-  CK_CUDA_THROW_(cudaMemcpy(d2h_kernel_grad.get(), d_kernel_grad, sizeof(__half) * k * n,
+  HCTR_LIB_THROW(cudaMemcpy(d2h_kernel_grad.get(), d_kernel_grad, sizeof(__half) * k * n,
                             cudaMemcpyDeviceToHost));
-  CK_CUDA_THROW_(
+  HCTR_LIB_THROW(
       cudaMemcpy(d2h_bias_grad.get(), d_bias_grad, sizeof(__half) * n, cudaMemcpyDeviceToHost));
 
   // check result
   ASSERT_LT(compare_array(h_bprop_in.get(), d2h_bprop_in.get(), m * k, 1e-1), 0.05f)
-      << " bprop cross_check input_grad fail" << endl;
+      << " bprop cross_check input_grad fail" << std::endl;
   ASSERT_LT(compare_array(h_kernel_grad.get(), d2h_kernel_grad.get(), k * n, 1e-1), 0.05f)
-      << " bprop cross_check weight_grad fail" << endl;
+      << " bprop cross_check weight_grad fail" << std::endl;
   ASSERT_LT(compare_array(h_bias_grad.get(), d2h_bias_grad.get(), n, 1e-1), 0.05f)
-      << " bprop cross_check bias_grad fail" << endl;
+      << " bprop cross_check bias_grad fail" << std::endl;
 }
 
 TEST(fused_relu_bias_fully_connected_layer, fp16_32x64x32) {

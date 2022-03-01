@@ -70,11 +70,13 @@ class EmbeddingManager final {
 
   void forward(std::shared_ptr<EmbeddingLayer>& embedding, const std::shared_ptr<Tensor> values,
                const std::shared_ptr<Tensor> indices, const size_t global_replica_id,
-               const bool training, std::shared_ptr<Tensor> embedding_vector);
+               const bool training, std::shared_ptr<Tensor> embedding_vector,
+               std::shared_ptr<Tensor> h_replica_nnz);
 
   void forward(std::shared_ptr<EmbeddingLayer>& embedding, const std::shared_ptr<Tensor> values,
                const size_t global_replica_id, const bool training,
-               std::shared_ptr<Tensor> embedding_vector);
+               std::shared_ptr<Tensor> embedding_vector,
+               std::shared_ptr<Tensor> h_replica_nnz);
 
   void backward(std::shared_ptr<EmbeddingLayer>& embedding,
                 const std::shared_ptr<Tensor> top_gradient, const size_t global_replica_id,

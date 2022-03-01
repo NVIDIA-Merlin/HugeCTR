@@ -72,7 +72,7 @@ enum class CommunicationType;
 
 }  // namespace hybrid_embedding
 
-enum class Check_t { Sum, None };
+enum class Check_t { Sum, None, Unknown };
 
 enum class DataReaderSparse_t { Distributed, Localized };
 
@@ -117,7 +117,7 @@ enum class Activation_t { Relu, None };
 
 enum class FcPosition_t { None, Head, Body, Tail, Isolated };
 
-enum class Regularizer_t { L1, L2 };
+enum class Regularizer_t { L1, L2, None };
 
 enum class Alignment_t { Auto, None };
 
@@ -155,14 +155,16 @@ enum class Layer_t {
   ReduceSum,
   MultiCross,
   Cast,
-  ElementwiseMultiply
+  ElementwiseMultiply,
+  Unknown
 };
 
 enum class Embedding_t {
   DistributedSlotSparseEmbeddingHash,
   LocalizedSlotSparseEmbeddingHash,
   LocalizedSlotSparseEmbeddingOneHot,
-  HybridSparseEmbedding
+  HybridSparseEmbedding,
+  None
 };
 
 enum class Initializer_t { Default, Uniform, XavierNorm, XavierUniform, Zero };
@@ -232,91 +234,6 @@ typedef struct DataSetHeader_ {
   DISALLOW_MOVE(ClassName)
 
 #ifdef ENABLE_MPI
-#define CK_MPI_THROW_(cmd)                                                                       \
-  do {                                                                                           \
-    auto retval = (cmd);                                                                         \
-    if (retval != MPI_SUCCESS) {                                                                 \
-      throw internal_runtime_error(                                                              \
-          Error_t::MpiError, std::string("MPI Runtime error: ") + std::to_string(retval) + " " + \
-                                 __FILE__ + ":" + std::to_string(__LINE__) + " \n");             \
-    }                                                                                            \
-  } while (0)
-
-#endif
-
-#define CK_(err)                                                                       \
-  do {                                                                                 \
-    Error_t retval = (err);                                                            \
-    if (retval != Error_t::Success) {                                                  \
-      std::cerr << "[HCDEBUG][ERROR] Return Error: at " << __FILE__ << ":" << __LINE__ \
-                << std::endl;                                                          \
-    }                                                                                  \
-  } while (0)
-
-inline void ERROR_MESSAGE_(const std::string msg) {
-  std::string str = msg;
-  str += std::string(" ") + __FILE__ + ":" + std::to_string(__LINE__);
-  HugeCTR::Logger::get().log(-1, true, true, "%s", str.c_str());
-}
-
-#define CK_THROW_(x, msg)                                                                       \
-  do {                                                                                          \
-    Error_t retval = (x);                                                                       \
-    if (retval != Error_t::Success) {                                                           \
-      throw internal_runtime_error(x, std::string("Runtime error: ") + (msg) + " " + __FILE__ + \
-                                          ":" + std::to_string(__LINE__) + " \n");              \
-    }                                                                                           \
-  } while (0)
-
-#define CK_RETURN_(x, msg)                                                         \
-  do {                                                                             \
-    Error_t retval = (x);                                                          \
-    if (retval != Error_t::Success) {                                              \
-      std::cerr << std::string("Runtime error: ") + (msg) + " " + __FILE__ + ":" + \
-                       std::to_string(__LINE__) + " \n";                           \
-      return retval;                                                               \
-    }                                                                              \
-  } while (0)
-
-inline void MESSAGE_(const std::string msg, bool per_process = false, bool new_line = true,
-                     bool timestamp = true) {
-  std::string final_msg = msg;
-  if (new_line) {
-    final_msg += "\n";
-  }
-  Logger::get().log(LOG_INFO_LEVEL, per_process, timestamp, "%s", final_msg.c_str());
-}
-
-#define CK_CUDA_THROW_(x)                                                                          \
-  do {                                                                                             \
-    cudaError_t retval = (x);                                                                      \
-    if (retval != cudaSuccess) {                                                                   \
-      throw internal_runtime_error(Error_t::CudaError,                                             \
-                                   std::string("Runtime error: ") + (cudaGetErrorString(retval)) + \
-                                       " " + __FILE__ + ":" + std::to_string(__LINE__) + " \n");   \
-    }                                                                                              \
-  } while (0)
-
-#define CK_NVML_THROW_(x)                                                                          \
-  do {                                                                                             \
-    nvmlReturn_t retval = (x);                                                                     \
-    if (retval != NVML_SUCCESS) {                                                                  \
-      throw HugeCTR::internal_runtime_error(HugeCTR::Error_t::NvmlError,                           \
-                                            std::string("Runtime error: ") +                       \
-                                                (nvmlErrorString(retval)) + " " + __FILE__ + ":" + \
-                                                std::to_string(__LINE__) + " \n");                 \
-    }                                                                                              \
-  } while (0)
-
-#define CK_CUDA_RETURN_BOOL_(x)  \
-  do {                           \
-    cudaError_t retval = (x);    \
-    if (retval != cudaSuccess) { \
-      return false;              \
-    }                            \
-  } while (0)
-
-#ifdef ENABLE_MPI
 #define PRINT_FUNC_NAME_()                                                            \
   do {                                                                                \
     int __PID(-1), __NUM_PROCS(-1);                                                   \
@@ -332,105 +249,26 @@ inline void MESSAGE_(const std::string msg, bool per_process = false, bool new_l
   } while (0)
 #endif
 
-#define CK_CU_RESULT_(x)                                                                        \
-  do {                                                                                          \
-    if (x > 0) {                                                                                \
-      throw internal_runtime_error(                                                             \
-          Error_t::CudaError, std::string("CUresult Error, error code: ") + std::to_string(x) + \
-                                  ", " + __FILE__ + ":" + std::to_string(__LINE__) + " \n");    \
-    }                                                                                           \
-  } while (0)
-
-#define CK_CUBLAS_THROW_(x)                                                                        \
-  do {                                                                                             \
-    cublasStatus_t retval = (x);                                                                   \
-    if (retval == CUBLAS_STATUS_NOT_INITIALIZED) {                                                 \
-      throw internal_runtime_error(Error_t::CublasError, std::string("Runtime error: ") +          \
-                                                             ("cublas_status_not_initialized ") +  \
-                                                             __FILE__ + ":" +                      \
-                                                             std::to_string(__LINE__) + " \n");    \
-    }                                                                                              \
-    if (retval == CUBLAS_STATUS_ARCH_MISMATCH) {                                                   \
-      throw internal_runtime_error(Error_t::CublasError, std::string("Runtime error: ") +          \
-                                                             ("cublas_status_arch_mismatch ") +    \
-                                                             __FILE__ + ":" +                      \
-                                                             std::to_string(__LINE__) + " \n");    \
-    }                                                                                              \
-    if (retval == CUBLAS_STATUS_NOT_SUPPORTED) {                                                   \
-      throw internal_runtime_error(Error_t::CublasError, std::string("Runtime error: ") +          \
-                                                             ("cublas_status_not_supported ") +    \
-                                                             __FILE__ + ":" +                      \
-                                                             std::to_string(__LINE__) + " \n");    \
-    }                                                                                              \
-    if (retval == CUBLAS_STATUS_INVALID_VALUE) {                                                   \
-      throw internal_runtime_error(Error_t::CublasError, std::string("Runtime error: ") +          \
-                                                             ("cublas_status_invalid_value ") +    \
-                                                             __FILE__ + ":" +                      \
-                                                             std::to_string(__LINE__) + " \n");    \
-    }                                                                                              \
-    if (retval == CUBLAS_STATUS_EXECUTION_FAILED) {                                                \
-      throw internal_runtime_error(Error_t::CublasError, std::string("Runtime error: ") +          \
-                                                             ("cublas_status_execution_failed ") + \
-                                                             __FILE__ + ":" +                      \
-                                                             std::to_string(__LINE__) + " \n");    \
-    }                                                                                              \
-  } while (0)
-
-#define CK_NCCL_THROW_(cmd)                                                                        \
-  do {                                                                                             \
-    ncclResult_t r = (cmd);                                                                        \
-    if (r != ncclSuccess) {                                                                        \
-      throw internal_runtime_error(Error_t::NcclError, std::string("Runtime error: NCCL Error ") + \
-                                                           std::string(ncclGetErrorString(r)) +    \
-                                                           " " + __FILE__ + ":" +                  \
-                                                           std::to_string(__LINE__) + " \n");      \
-    }                                                                                              \
-  } while (0)
-
-#define CK_CUDNN_THROW_(cmd)                                                                      \
-  do {                                                                                            \
-    cudnnStatus_t retval = (cmd);                                                                 \
-    if (retval != CUDNN_STATUS_SUCCESS) {                                                         \
-      throw internal_runtime_error(                                                               \
-          Error_t::CudnnError, std::string("CUDNN Runtime error: ") +                             \
-                                   std::string(cudnnGetErrorString(cmd)) + " " + __FILE__ + ":" + \
-                                   std::to_string(__LINE__) + " \n");                             \
-    }                                                                                             \
-  } while (0)
-
-#define CK_CURAND_THROW_(cmd)                                                                    \
-  do {                                                                                           \
-    curandStatus_t retval = (cmd);                                                               \
-    if (retval != CURAND_STATUS_SUCCESS) {                                                       \
-      throw internal_runtime_error(                                                              \
-          Error_t::CurandError, std::string("CURAND Runtime error: ") + std::to_string(retval) + \
-                                    " " + __FILE__ + ":" + std::to_string(__LINE__) + " \n");    \
-    }                                                                                            \
-  } while (0)
-
 template <typename T>
 inline void print_func(T const& t) {
   std::cout << t << ", ";
-  return;
 }
 
 // Set precision for double type
 template <>
 inline void print_func<double>(double const& t) {
-  std::stringstream ss;
-  ss << std::fixed << std::setprecision(2) << t << ", ";
-  std::cout << ss.str();
-  return;
+  std::ostringstream os;
+  os << std::fixed << std::setprecision(2) << t << ", ";
+  std::cout << os.str();
 }
 
 template <typename... Args>
 inline void LOG(const Args&... args) {
   if (Logger::get().get_rank() == 0) {
-    std::cout << "[";
+    std::cout << '[';
     std::initializer_list<char>{(print_func(args), 'a')...};
-    std::cout << "]" << std::endl;
+    std::cout << ']' << std::endl;
   }
-  return;
 }
 
 struct DataReaderSparseParam {
@@ -452,7 +290,7 @@ struct DataReaderSparseParam {
         slot_num(slot_num_),
         type(DataReaderSparse_t::Distributed) {
     if (static_cast<size_t>(slot_num_) != nnz_per_slot_.size()) {
-      CK_THROW_(Error_t::WrongInput, "slot num != nnz_per_slot.size().");
+      HCTR_OWN_THROW(Error_t::WrongInput, "slot num != nnz_per_slot.size().");
     }
     max_feature_num = std::accumulate(nnz_per_slot.begin(), nnz_per_slot.end(), 0);
     max_nnz = *std::max_element(nnz_per_slot.begin(), nnz_per_slot.end());

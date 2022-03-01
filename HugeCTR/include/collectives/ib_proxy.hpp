@@ -26,15 +26,15 @@
 
 #include "gdrapi.h"
 
-#define PROXY_ASSERT(expr) \
-  if (!(expr)) {           \
-    ERROR_MESSAGE_(#expr); \
-    exit(1);               \
+#define PROXY_ASSERT(expr)                                                    \
+  if (!(expr)) {                                                              \
+    HCTR_LOG_S(ERROR, WORLD) << #expr << ' ' << HCTR_LOCATION() << std::endl; \
+    exit(1);                                                                  \
   }
-#define PROXY_ASSERT_MSG(expr, msg) \
-  if (!(expr)) {                    \
-    ERROR_MESSAGE_(msg);            \
-    exit(1);                        \
+#define PROXY_ASSERT_MSG(expr, msg)                                         \
+  if (!(expr)) {                                                            \
+    HCTR_LOG_S(ERROR, WORLD) << msg << ' ' << HCTR_LOCATION() << std::endl; \
+    exit(1);                                                                \
   }
 
 #define MAX_IBV_DEST 1024
@@ -468,7 +468,7 @@ struct ProxyCommandVisitor : public boost::static_visitor<void> {
     proxy_->exec_proxy_cmd(std::get<0>(cmd), std::get<1>(cmd));
   }
   void operator()(boost::blank __unused) const {
-    ERROR_MESSAGE_("Invalid proxy command");
+    HCTR_LOG_S(ERROR, WORLD) << "Invalid proxy command " << HCTR_LOCATION() << std::endl;
     exit(1);
   }
   ProxyCommandVisitor(IbvProxy* proxy) { proxy_ = proxy; };

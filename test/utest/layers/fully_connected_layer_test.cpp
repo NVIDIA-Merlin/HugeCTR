@@ -21,17 +21,17 @@
 #include <vector>
 
 #include "utest/test_utils.h"
-using namespace std;
+
 using namespace HugeCTR;
 
 static bool check_cpu_gpu(float *cpu_p, float *gpu_p, int len, float tol) {
   float *cpu_tmp = (float *)malloc(sizeof(float) * len);
-  CK_CUDA_THROW_(cudaMemcpy(cpu_tmp, gpu_p, sizeof(float) * len, cudaMemcpyDeviceToHost));
+  HCTR_LIB_THROW(cudaMemcpy(cpu_tmp, gpu_p, sizeof(float) * len, cudaMemcpyDeviceToHost));
   float max_diff = fabs(cpu_p[0] - cpu_tmp[0]);
   bool flag = true;
   for (int i = 0; i < len; ++i) {
     if (fabs(cpu_p[i] - cpu_tmp[i]) >= tol) flag = false;
-    max_diff = max(max_diff, fabs(cpu_p[i] - cpu_tmp[i]));
+    max_diff = std::max(max_diff, fabs(cpu_p[i] - cpu_tmp[i]));
   }
   free(cpu_tmp);
   return flag;
@@ -84,8 +84,8 @@ static void fully_connected_layer_test(size_t m, size_t n, size_t k, float tol =
   Tensor2<float> weight = weight_buff->as_tensor();
   Tensor2<float> wgrad = wgrad_buff->as_tensor();
 
-  CK_CUDA_THROW_(cudaMemset(weight.get_ptr(), 0, weight.get_size_in_bytes()));
-  CK_CUDA_THROW_(cudaMemset(wgrad.get_ptr(), 0, wgrad.get_size_in_bytes()));
+  HCTR_LIB_THROW(cudaMemset(weight.get_ptr(), 0, weight.get_size_in_bytes()));
+  HCTR_LIB_THROW(cudaMemset(wgrad.get_ptr(), 0, wgrad.get_size_in_bytes()));
 
   // TODO: result check
   float *d_weight = weight.get_ptr();
@@ -110,18 +110,18 @@ static void fully_connected_layer_test(size_t m, size_t n, size_t k, float tol =
   cpu_mm(h_in.get(), h_weight.get(), h_out.get(), m, k, n);
   cpu_add_bias(h_out.get(), h_bias.get(), m, n);
 
-  CK_CUDA_THROW_(
+  HCTR_LIB_THROW(
       cudaMemcpy(d_weight, h_weight.get(), sizeof(float) * k * n, cudaMemcpyHostToDevice));
-  CK_CUDA_THROW_(
+  HCTR_LIB_THROW(
       cudaMemcpy(d_weight + k * n, h_bias.get(), sizeof(float) * n, cudaMemcpyHostToDevice));
-  CK_CUDA_THROW_(cudaMemcpy(d_in, h_in.get(), sizeof(float) * m * k, cudaMemcpyHostToDevice));
+  HCTR_LIB_THROW(cudaMemcpy(d_in, h_in.get(), sizeof(float) * m * k, cudaMemcpyHostToDevice));
 
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
   fully_connected_layer.fprop(true);
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
 
   ASSERT_EQ(true, check_cpu_gpu(h_out.get(), d_out, m * n, tol))
-      << "fprop cross_check result fail" << endl;
+      << "fprop cross_check result fail" << std::endl;
 
   simulator.fill(h_out.get(), test::align_to_even(m * n));
 
@@ -135,18 +135,18 @@ static void fully_connected_layer_test(size_t m, size_t n, size_t k, float tol =
   cpu_mm(h_in.get(), h_out.get(), h_weight_grad.get(), k, m, n);
   cpu_mm(h_out.get(), h_weight.get(), h_in.get(), m, n, k);
 
-  CK_CUDA_THROW_(cudaMemcpy(d_out, h_out.get(), sizeof(float) * m * n, cudaMemcpyHostToDevice));
+  HCTR_LIB_THROW(cudaMemcpy(d_out, h_out.get(), sizeof(float) * m * n, cudaMemcpyHostToDevice));
 
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
   fully_connected_layer.bprop();
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
 
   ASSERT_EQ(true, check_cpu_gpu(h_in.get(), d_in, m * k, tol))
-      << " bprop cross_check input_grad fail" << endl;
+      << " bprop cross_check input_grad fail" << std::endl;
   ASSERT_EQ(true, check_cpu_gpu(h_weight_grad.get(), d_weight_grad, k * n, tol))
-      << " bprop cross_check weight_grad fail" << endl;
+      << " bprop cross_check weight_grad fail" << std::endl;
   ASSERT_EQ(true, check_cpu_gpu(h_bias_grad.get(), d_weight_grad + k * n, n, tol))
-      << " bprop cross_check bias_grad fail" << endl;
+      << " bprop cross_check bias_grad fail" << std::endl;
 }
 
 TEST(fully_connected_layer, fp32_1024x1024x1024) { fully_connected_layer_test(1024, 1024, 1024); }

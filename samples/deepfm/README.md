@@ -11,11 +11,11 @@ HugeCTR is available as buildable source code, but the easiest way to install an
 
 1. Pull the HugeCTR NGC Docker by running the following command:
    ```bash
-   $ docker pull nvcr.io/nvidia/merlin/merlin-training:22.02
+   $ docker pull nvcr.io/nvidia/merlin/merlin-training:22.03
    ```
 2. Launch the container in interactive mode with the HugeCTR root directory mounted into the container by running the following command:
    ```bash
-   $ docker run --gpus=all --rm -it --cap-add SYS_NICE -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr nvcr.io/nvidia/merlin/merlin-training:22.02
+   $ docker run --gpus=all --rm -it --cap-add SYS_NICE -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr nvcr.io/nvidia/merlin/merlin-training:22.03
    ```
 
 ### Build the HugeCTR Docker Container on Your Own ###
@@ -27,7 +27,7 @@ $ export PYTHONPATH=/usr/local/hugectr/lib:$PYTHONPATH
 ``` 
 
 ## Download the Dataset ##
-Go [here](https://ailab.criteo.com/download-criteo-1tb-click-logs-dataset/) and download one of the daaset files into the "${project_root}/tools" directory.
+Go [here](https://ailab.criteo.com/download-criteo-1tb-click-logs-dataset/) and download one of the dataset files into the "${project_root}/tools" directory.
 
 As an alternative, you can run the following command:
 ```

@@ -23,7 +23,7 @@ namespace {
 __device__ char* kernel_strcpy(const char* dst_base, char* dst_cur, const char* src) {
   int n = 0;
   while (*src != '\0') {
-    if ((size_t)(dst_cur - dst_base) >= KERNEL_PRINTF_MAX_LENGTH) {
+    if ((dst_cur - dst_base) >= KERNEL_PRINTF_MAX_LENGTH) {
       return dst_cur;
     }
     *dst_cur++ = *src++;
@@ -35,7 +35,7 @@ __device__ char* kernel_strcpy(const char* dst_base, char* dst_cur, const char* 
 __device__ char* kernel_utoa(const char* dst_base, char* dst_cur, unsigned val) {
   int n = 0;
   do {
-    if ((size_t)(dst_cur - dst_base) >= KERNEL_PRINTF_MAX_LENGTH) {
+    if ((dst_cur - dst_base) >= KERNEL_PRINTF_MAX_LENGTH) {
       return dst_cur + n;
     }
     unsigned dgt = val % 10;

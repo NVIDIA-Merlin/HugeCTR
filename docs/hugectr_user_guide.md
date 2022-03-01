@@ -1,5 +1,4 @@
-HugeCTR User Guide
-==================
+# HugeCTR User Guide
 
 HugeCTR is a GPU-accelerated framework designed to distribute training across multiple GPUs and nodes and estimate click-through rates (CTRs). HugeCTR supports model-parallel embedding tables and data-parallel neural networks and their variants such as [Wide and Deep Learning (WDL)](https://arxiv.org/abs/1606.07792), [Deep Cross Network (DCN)](https://arxiv.org/abs/1708.05123), [DeepFM](https://arxiv.org/abs/1703.04247), and [Deep Learning Recommendation Model (DLRM)](https://ai.facebook.com/blog/dlrm-an-advanced-open-source-deep-learning-recommendation-model/). HugeCTR is a component of [NVIDIA Merlin Open Beta](https://developer.nvidia.com/nvidia-merlin#getstarted). NVIDIA Merlin is used for building large-scale recommender systems, which require massive datasets to train, particularly for deep learning based solutions.
 
@@ -62,11 +61,23 @@ For more information about our support matrix, refer to [Support Matrix](../tool
 ### Installing HugeCTR Using NGC Containers
 All NVIDIA Merlin components are available as open source projects. However, a more convenient way to utilize these components is by using our Merlin NGC containers. These containers allow you to package your software application, libraries, dependencies, and runtime compilers in a self-contained environment. When installing HugeCTR using NGC containers, the application environment remains portable, consistent, reproducible, and agnostic to the underlying host system's software configuration.
 
-HugeCTR is included in the Merlin Docker container, which is available in the [NVIDIA container repository](https://ngc.nvidia.com/catalog/containers/nvidia:hugectr).
+HugeCTR is included in the Merlin Docker containers that are available from the [NVIDIA container repository](https://catalog.ngc.nvidia.com/containers).
+You can query the collection for containers that [match the HugeCTR label](https://catalog.ngc.nvidia.com/containers?filters=&orderBy=scoreDESC&query=label:%22HugeCTR%22). 
+The following table also identifies the containers:
 
-You can pull and start the container by running the following command:
+| Container Name             | Container Location | Functionality |
+| -------------------------- | ------------------ | ------------- |
+| merlin-inference           | https://catalog.ngc.nvidia.com/orgs/nvidia/teams/merlin/containers/merlin-inference | NVTabular, HugeCTR, and Triton Inference |
+| merlin-training            | https://catalog.ngc.nvidia.com/orgs/nvidia/teams/merlin/containers/merlin-training | NVTabular and HugeCTR                    |
+| merlin-tensorflow-training | https://catalog.ngc.nvidia.com/orgs/nvidia/teams/merlin/containers/merlin-tensorflow-training | NVTabular, TensorFlow, and HugeCTR Tensorflow Embedding plugin |
+
+To use these Docker containers, you'll first need to install the [NVIDIA Container Toolkit](https://github.com/NVIDIA/nvidia-docker) to provide GPU support for Docker. You can use the NGC links referenced in the table above to obtain more information about how to launch and run these containers.
+
+The following sample command pulls and starts the Merlin Training container:
+
 ```shell
-$ docker run --gpus=all --rm -it --cap-add SYS_NICE nvcr.io/nvidia/merlin/merlin-training:22.02  # Start interaction mode
+# Run the container in interactive mode
+$ docker run --gpus=all --rm -it --cap-add SYS_NICE nvcr.io/nvidia/merlin/merlin-training:22.03
 ```  
 
 ### Building HugeCTR from Scratch

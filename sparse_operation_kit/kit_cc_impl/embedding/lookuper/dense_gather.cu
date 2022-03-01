@@ -46,7 +46,6 @@ class DenseGather : public EmbeddingLookuper {
                            base_context()->get_slot_num() * base_context()->get_nnz_per_slot()) {
     const size_t local_gpu_count = resource_mgr_->get_local_gpu_count();
     mapped_indices_buf_.reserve(local_gpu_count);
-    host_nnz_.reserve(local_gpu_count);
     gathered_embeddings_buf_.reserve(local_gpu_count);
 
     if (sizeof(size_t) != sizeof(int64_t))
@@ -85,11 +84,6 @@ class DenseGather : public EmbeddingLookuper {
         Tensor2<ValueType> tensor;
         buffer->reserve({global_gpu_count, embedding_vec_size * num_keys_per_rank_}, &tensor);
         gathered_embeddings_buf_.push_back(tensor);
-      }
-      {
-        Tensor2<size_t> tensor;
-        host_buffer->reserve({1}, &tensor);
-        host_nnz_.push_back(tensor);
       }
     }  // for dev_id in local_gpu_count
   }
@@ -132,8 +126,8 @@ class DenseGather : public EmbeddingLookuper {
     replica_context->set_output("replica_gathered_embeddings",
                                 gathered_embeddings_buf_[local_replica_id]);
     // write host_nnz in current iteration
-    host_nnz_[local_replica_id].get_ptr()[0] = static_cast<size_t>(h_local_nnz);
-    replica_context->set_output("replica_host_nnz", host_nnz_[local_replica_id]);
+    auto& host_nnz = replica_context->output("replica_host_nnz");
+    host_nnz->GetPtrWithType<size_t>()[0] = static_cast<size_t>(h_local_nnz);
   }
 
   void backward(const Context_t &replica_context) override {
@@ -174,7 +168,6 @@ class DenseGather : public EmbeddingLookuper {
 
   // forward spaces
   Tensors2<size_t> mapped_indices_buf_;
-  Tensors2<size_t> host_nnz_;
   Tensors2<ValueType> gathered_embeddings_buf_;
 };
 

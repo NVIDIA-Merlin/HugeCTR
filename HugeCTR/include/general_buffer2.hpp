@@ -34,30 +34,30 @@ class CudaHostAllocator {
  public:
   void *allocate(size_t size) const {
     void *ptr;
-    CK_CUDA_THROW_(cudaHostAlloc(&ptr, size, cudaHostAllocDefault));
+    HCTR_LIB_THROW(cudaHostAlloc(&ptr, size, cudaHostAllocDefault));
     return ptr;
   }
-  void deallocate(void *ptr) const { CK_CUDA_THROW_(cudaFreeHost(ptr)); }
+  void deallocate(void *ptr) const { HCTR_LIB_THROW(cudaFreeHost(ptr)); }
 };
 
 class CudaManagedAllocator {
  public:
   void *allocate(size_t size) const {
     void *ptr;
-    CK_CUDA_THROW_(cudaMallocManaged(&ptr, size));
+    HCTR_LIB_THROW(cudaMallocManaged(&ptr, size));
     return ptr;
   }
-  void deallocate(void *ptr) const { CK_CUDA_THROW_(cudaFree(ptr)); }
+  void deallocate(void *ptr) const { HCTR_LIB_THROW(cudaFree(ptr)); }
 };
 
 class CudaAllocator {
  public:
   void *allocate(size_t size) const {
     void *ptr;
-    CK_CUDA_THROW_(cudaMalloc(&ptr, size));
+    HCTR_LIB_THROW(cudaMalloc(&ptr, size));
     return ptr;
   }
-  void deallocate(void *ptr) const { CK_CUDA_THROW_(cudaFree(ptr)); }
+  void deallocate(void *ptr) const { HCTR_LIB_THROW(cudaFree(ptr)); }
 };
 
 template <typename T>
@@ -107,7 +107,7 @@ class GeneralBuffer2 : public std::enable_shared_from_this<GeneralBuffer2<Alloca
 
     void reserve(const std::vector<size_t> &dimensions, Tensor2<T> *tensor) override {
       if (finalized_) {
-        CK_THROW_(Error_t::IllegalCall, "Buffer block is finalized.");
+        HCTR_OWN_THROW(Error_t::IllegalCall, "Buffer block is finalized.");
       }
       size_t num_elements = get_num_elements_from_dimensions(dimensions);
       size_t size_in_bytes = num_elements * TensorScalarSizeFunc<T>::get_element_size();
@@ -179,7 +179,7 @@ class GeneralBuffer2 : public std::enable_shared_from_this<GeneralBuffer2<Alloca
 
   void allocate_aligned(size_t align_size) {
     if (ptr_ != nullptr) {
-      CK_THROW_(Error_t::WrongInput, "Memory has already been allocated.");
+      HCTR_OWN_THROW(Error_t::WrongInput, "Memory has already been allocated.");
     }
 
     size_t offset = 0;
@@ -202,7 +202,7 @@ class GeneralBuffer2 : public std::enable_shared_from_this<GeneralBuffer2<Alloca
   template <typename T>
   std::shared_ptr<BufferBlock2<T>> create_block() {
     if (allocated()) {
-      CK_THROW_(Error_t::IllegalCall, "General buffer is finalized.");
+      HCTR_OWN_THROW(Error_t::IllegalCall, "General buffer is finalized.");
     }
     std::shared_ptr<BufferBlockImpl<T>> block_impl = std::make_shared<BufferBlockImpl<T>>();
     reserved_buffers_.push_back(block_impl);
@@ -212,7 +212,7 @@ class GeneralBuffer2 : public std::enable_shared_from_this<GeneralBuffer2<Alloca
   template <typename T>
   void reserve(const std::vector<size_t> &dimensions, Tensor2<T> *tensor) {
     if (allocated()) {
-      CK_THROW_(Error_t::IllegalCall, "General buffer is finalized.");
+      HCTR_OWN_THROW(Error_t::IllegalCall, "General buffer is finalized.");
     }
 
     size_t size_in_bytes =
@@ -229,7 +229,7 @@ class GeneralBuffer2 : public std::enable_shared_from_this<GeneralBuffer2<Alloca
   void reserve(const std::vector<size_t> &dimensions, const size_t slot_num,
                SparseTensor<T> *tensor) {
     if (allocated()) {
-      CK_THROW_(Error_t::IllegalCall, "General buffer is finalized.");
+      HCTR_OWN_THROW(Error_t::IllegalCall, "General buffer is finalized.");
     }
     size_t max_nnz = get_num_elements_from_dimensions(dimensions);
     size_t value_size_in_bytes = max_nnz * TensorScalarSizeFunc<T>::get_element_size();

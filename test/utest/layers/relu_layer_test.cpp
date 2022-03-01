@@ -21,7 +21,6 @@
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"
 
-using namespace std;
 using namespace HugeCTR;
 
 namespace {
@@ -65,8 +64,8 @@ void relu_bprop_cpu(T* d_bottom, const T* d_top, const T* bottom, int len) {
 
 template <typename T>
 void relu_test(size_t dim0, size_t dim1) {
-  shared_ptr<GeneralBuffer2<CudaAllocator>> buf = GeneralBuffer2<CudaAllocator>::create();
-  vector<size_t> dims = {dim0, dim1};
+  std::shared_ptr<GeneralBuffer2<CudaAllocator>> buf = GeneralBuffer2<CudaAllocator>::create();
+  std::vector<size_t> dims = {dim0, dim1};
 
   Tensor2<T> bottom_tensor;
   buf->reserve(dims, &bottom_tensor);
@@ -91,12 +90,12 @@ void relu_test(size_t dim0, size_t dim1) {
 
   // fprop
 
-  CK_CUDA_THROW_(
+  HCTR_LIB_THROW(
       cudaMemcpy(bottom_tensor.get_ptr(), h_bottom.get(), len * sizeof(T), cudaMemcpyHostToDevice));
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
   relu_layer.fprop(true);
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
-  CK_CUDA_THROW_(
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(
       cudaMemcpy(d2h_top.get(), top_tensor.get_ptr(), len * sizeof(T), cudaMemcpyDeviceToHost));
 
   relu_cpu<T>(h_top.get(), h_bottom.get(), len);
@@ -105,12 +104,12 @@ void relu_test(size_t dim0, size_t dim1) {
   // bprop
   simulator.fill(h_top.get(), len);
 
-  CK_CUDA_THROW_(
+  HCTR_LIB_THROW(
       cudaMemcpy(top_tensor.get_ptr(), h_top.get(), len * sizeof(T), cudaMemcpyHostToDevice));
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
   relu_layer.bprop();
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
-  CK_CUDA_THROW_(cudaMemcpy(d2h_bottom_grad.get(), bottom_tensor.get_ptr(), len * sizeof(T),
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaMemcpy(d2h_bottom_grad.get(), bottom_tensor.get_ptr(), len * sizeof(T),
                             cudaMemcpyDeviceToHost));
 
   relu_bprop_cpu<T>(h_bottom_grad.get(), h_top.get(), h_bottom.get(), len);

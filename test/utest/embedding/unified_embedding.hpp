@@ -35,7 +35,7 @@ template <typename T>
 inline bool compare_array(size_t len, const T *a, const T *b, float epsilon) {
   for (size_t i = 0; i < len; i++) {
     if (fabs(a[i] - b[i]) >= epsilon) {
-      printf("Error in compare_array: i=%zu, a=%.8f, b=%.8f\n", i, a[i], b[i]);
+      HCTR_LOG(INFO, WORLD, "Error in compare_array: i=%zu, a=%.8f, b=%.8f\n", i, a[i], b[i]);
       return false;
     }
   }
@@ -46,7 +46,7 @@ inline bool compare_array(size_t len, const T *a, const T *b, float epsilon) {
 template <typename Type>
 bool compare_host_and_device_array(Type *host_array, Type *device_array, size_t n) {
   std::unique_ptr<Type[]> h_array(new Type[n]);
-  CK_CUDA_THROW_(cudaMemcpy(h_array.get(), device_array, sizeof(Type) * n, cudaMemcpyDeviceToHost));
+  HCTR_LIB_THROW(cudaMemcpy(h_array.get(), device_array, sizeof(Type) * n, cudaMemcpyDeviceToHost));
   for (size_t i = 0; i < n; ++i) {
     if (h_array[i] != host_array[i]) return false;
   }
@@ -84,7 +84,7 @@ struct TestParams {
         measure_performance(measure_performance_),
         eposilon(eposilon_) {
     if (max_nnz_per_sample_ < slot_num_ || max_nnz_per_sample_ % slot_num_ != 0) {
-      CK_THROW_(Error_t::WrongInput, "test param is not illegal.");
+      HCTR_OWN_THROW(Error_t::WrongInput, "test param is not illegal.");
     }
   }
 };
@@ -115,15 +115,15 @@ void init_sparse_tensor(SparseTensor<KeyType> &sparse_tensor,
   }
 
   if (sparse_tensor.rowoffset_count() != rowoffset_vec.size()) {
-    CK_THROW_(Error_t::DataCheckError, "init sparse_tensor rowoffset count not match");
+    HCTR_OWN_THROW(Error_t::DataCheckError, "init sparse_tensor rowoffset count not match");
   }
 
   *sparse_tensor.get_nnz_ptr() = value_count;
 
   if (on_device) {
-    CK_CUDA_THROW_(cudaMemcpy(sparse_tensor.get_value_ptr(), value_vec.data(),
+    HCTR_LIB_THROW(cudaMemcpy(sparse_tensor.get_value_ptr(), value_vec.data(),
                               sizeof(KeyType) * value_count, cudaMemcpyHostToDevice));
-    CK_CUDA_THROW_(cudaMemcpy(sparse_tensor.get_rowoffset_ptr(), rowoffset_vec.data(),
+    HCTR_LIB_THROW(cudaMemcpy(sparse_tensor.get_rowoffset_ptr(), rowoffset_vec.data(),
                               sizeof(KeyType) * sparse_tensor.rowoffset_count(),
                               cudaMemcpyHostToDevice));
   } else {
@@ -177,8 +177,8 @@ void all_gather_cpu(const SparseTensors<Type> &send_tensors, SparseTensors<Type>
   MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
 
   std::vector<int> global_total_nnz(num_procs);
-  CK_MPI_THROW_(MPI_Allgather(&local_total_nnz, sizeof(int), MPI_CHAR, global_total_nnz.data(),
-                              num_procs * sizeof(int), MPI_CHAR, MPI_COMM_WORLD));
+  HCTR_MPI_THROW(MPI_Allgather(&local_total_nnz, sizeof(int), MPI_CHAR, global_total_nnz.data(),
+                               num_procs * sizeof(int), MPI_CHAR, MPI_COMM_WORLD));
   std::vector<int> displs(num_procs);
   std::exclusive_scan(global_total_nnz.begin(), global_total_nnz.end(), global_total_nnz.begin(),
                       0);
@@ -186,16 +186,16 @@ void all_gather_cpu(const SparseTensors<Type> &send_tensors, SparseTensors<Type>
 
   size_t total_nnz_num = std::accumulate(global_total_nnz.begin(), global_total_nnz.end(), 0);
   std::vector<Type> global_all_gather_value(total_nnz_num);
-  CK_MPI_THROW_(MPI_Allgatherv(local_all_gather_value.data(), local_all_gather_value.size(),
-                               mpi_type, global_all_gather_value.data(), global_total_nnz.data(),
-                               displs.data(), mpi_type, MPI_COMM_WORLD));
+  HCTR_MPI_THROW(MPI_Allgatherv(local_all_gather_value.data(), local_all_gather_value.size(),
+                                mpi_type, global_all_gather_value.data(), global_total_nnz.data(),
+                                displs.data(), mpi_type, MPI_COMM_WORLD));
 
   std::vector<Type> global_all_gather_rowoffset{0};
   global_all_gather_rowoffset.reserve(rowoffset_count * global_count + 1);
-  CK_MPI_THROW_(MPI_Allgather(local_all_gather_rowoffset.data() + 1,
-                              local_all_gather_rowoffset.size() - 1, mpi_type,
-                              global_all_gather_rowoffset.data() + 1,
-                              rowoffset_count * global_count, mpi_type, MPI_COMM_WORLD));
+  HCTR_MPI_THROW(MPI_Allgather(local_all_gather_rowoffset.data() + 1,
+                               local_all_gather_rowoffset.size() - 1, mpi_type,
+                               global_all_gather_rowoffset.data() + 1,
+                               rowoffset_count * global_count, mpi_type, MPI_COMM_WORLD));
   for (int i = 0; i < num_procs; ++i) {
     int restore_offset = global_total_nnz[i];
     for (size_t j = 0; j < rowoffset_count * local_count; ++j) {

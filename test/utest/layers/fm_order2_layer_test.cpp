@@ -146,13 +146,13 @@ void fm_order2_test(size_t batch_size, size_t slot_num, size_t emb_vec_size) {
 
   simulator.fill(h_in.get(), in_len);
 
-  CK_CUDA_THROW_(cudaMemcpy(d_in, h_in.get(), in_len * sizeof(T), cudaMemcpyHostToDevice));
+  HCTR_LIB_THROW(cudaMemcpy(d_in, h_in.get(), in_len * sizeof(T), cudaMemcpyHostToDevice));
 
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
   fm_order2_layer.fprop(true);
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
 
-  CK_CUDA_THROW_(cudaMemcpy(h_out.get(), d_out, out_len * sizeof(T), cudaMemcpyDeviceToHost));
+  HCTR_LIB_THROW(cudaMemcpy(h_out.get(), d_out, out_len * sizeof(T), cudaMemcpyDeviceToHost));
 
   fm_order2_fprop_cpu(h_in.get(), h_expected.get(), batch_size, slot_num, emb_vec_size);
   ASSERT_TRUE(
@@ -164,14 +164,14 @@ void fm_order2_test(size_t batch_size, size_t slot_num, size_t emb_vec_size) {
   }
   simulator.fill(h_out.get(), out_len);
 
-  CK_CUDA_THROW_(cudaMemcpy(d_in, h_in.get(), in_len * sizeof(T), cudaMemcpyHostToDevice));
-  CK_CUDA_THROW_(cudaMemcpy(d_out, h_out.get(), out_len * sizeof(T), cudaMemcpyHostToDevice));
+  HCTR_LIB_THROW(cudaMemcpy(d_in, h_in.get(), in_len * sizeof(T), cudaMemcpyHostToDevice));
+  HCTR_LIB_THROW(cudaMemcpy(d_out, h_out.get(), out_len * sizeof(T), cudaMemcpyHostToDevice));
 
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
   fm_order2_layer.bprop();
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
 
-  CK_CUDA_THROW_(cudaMemcpy(h_in.get(), d_in, in_len * sizeof(T), cudaMemcpyDeviceToHost));
+  HCTR_LIB_THROW(cudaMemcpy(h_in.get(), d_in, in_len * sizeof(T), cudaMemcpyDeviceToHost));
 
   fm_order2_bprop_cpu(h_expected_dgrad.get(), h_out.get(), h_expected_dgrad.get(), batch_size,
                       slot_num, emb_vec_size);

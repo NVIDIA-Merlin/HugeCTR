@@ -109,7 +109,7 @@ __global__ void update_model_direct(const emtype* const* __restrict__ gradients_
 
 template <typename dtype>
 FrequentEmbeddingBase<dtype>::FrequentEmbeddingBase() {
-  CK_CUDA_THROW_(cudaMalloc(&indices_view_, sizeof(*indices_view_)));
+  HCTR_LIB_THROW(cudaMalloc(&indices_view_, sizeof(*indices_view_)));
 }
 
 template <typename dtype>
@@ -122,7 +122,7 @@ void FrequentEmbeddingBase<dtype>::set_current_indices(FrequentEmbeddingCompress
                                                        cudaStream_t stream) {
   indices_ = indices;
   data_ = indices->get_data();
-  CK_CUDA_THROW_(cudaMemcpyAsync(indices_view_, indices->get_device_view(), sizeof(*indices_view_),
+  HCTR_LIB_THROW(cudaMemcpyAsync(indices_view_, indices->get_device_view(), sizeof(*indices_view_),
                                  cudaMemcpyDeviceToDevice, stream));
 }
 
@@ -239,7 +239,7 @@ void FrequentEmbedding<dtype, emtype>::forward_model(cudaStream_t stream) {
 
   PROFILE_RECORD("fre_forward_model.forward_model.start", stream, false);
   shuffle(copy_desc, stream, model_.num_frequent / 4);
-  CK_CUDA_THROW_(cudaPeekAtLastError());
+  HCTR_LIB_THROW(cudaPeekAtLastError());
   PROFILE_RECORD("fre_forward_model.forward_model.stop", stream, false);
 }
 
@@ -275,7 +275,7 @@ void FrequentEmbedding<dtype, emtype>::forward_model_eval(cudaStream_t stream) {
 
   PROFILE_RECORD("fre_forward_model.forward_model_eval.start", stream, false);
   shuffle(copy_desc, stream, model_.num_frequent);
-  CK_CUDA_THROW_(cudaPeekAtLastError());
+  HCTR_LIB_THROW(cudaPeekAtLastError());
   PROFILE_RECORD("fre_forward_model.forward_model_eval.stop", stream, false);
 }
 
@@ -305,7 +305,7 @@ void FrequentEmbedding<dtype, emtype>::forward_network_aux<vectype>(
       });
 
   shuffle(copy_desc, stream, samples_per_instance);
-  CK_CUDA_THROW_(cudaPeekAtLastError());
+  HCTR_LIB_THROW(cudaPeekAtLastError());
 }
 
 /* Concatenate the embedding vectors into the buffer for top-mlp input */
@@ -334,7 +334,7 @@ void FrequentEmbedding<dtype, emtype>::local_reduce(const emtype* gradients, cud
   if (reset_all) { /* Set to zero all the gradients */
     if (model_.num_frequent > 0) {
       PROFILE_RECORD("fre_local_reduce.reset_all_gradients.start", stream, false);
-      CK_CUDA_THROW_(cudaMemsetAsync(float_frequent_gradients_.get_ptr(), 0,
+      HCTR_LIB_THROW(cudaMemsetAsync(float_frequent_gradients_.get_ptr(), 0,
                                      model_.num_frequent * embedding_vec_size_ * sizeof(float),
                                      stream));
       PROFILE_RECORD("fre_local_reduce.reset_all_gradients.stop", stream, false);
@@ -345,7 +345,7 @@ void FrequentEmbedding<dtype, emtype>::local_reduce(const emtype* gradients, cud
         reset_relevant_gradients<<<n_blocks, embedding_vec_size_, 0, stream>>>(
             float_frequent_gradients_.get_ptr(), embedding_vec_size_, this->indices_view_,
             num_instances);
-    CK_CUDA_THROW_(cudaPeekAtLastError());
+    HCTR_LIB_THROW(cudaPeekAtLastError());
     PROFILE_RECORD("fre_local_reduce.reset_relevant_gradients.stop", stream, false);
   }
 
@@ -353,13 +353,13 @@ void FrequentEmbedding<dtype, emtype>::local_reduce(const emtype* gradients, cud
   frequent_embedding_kernels::frequent_local_reduce<<<n_blocks, embedding_vec_size_, 0, stream>>>(
       gradients, float_frequent_gradients_.get_ptr(), network_id * local_samples_size,
       model_.category_frequent_index.get_ptr(), embedding_vec_size_, this->indices_view_);
-  CK_CUDA_THROW_(cudaPeekAtLastError());
+  HCTR_LIB_THROW(cudaPeekAtLastError());
 
   if (sizeof(emtype) != sizeof(float)) {
     convert_array<<<1000, 128, 0, stream>>>(frequent_gradients_.get_ptr(),
                                             float_frequent_gradients_.get_ptr(),
                                             model_.num_frequent * embedding_vec_size_);
-    CK_CUDA_THROW_(cudaPeekAtLastError());
+    HCTR_LIB_THROW(cudaPeekAtLastError());
   }
 }
 
@@ -388,7 +388,7 @@ void FrequentEmbedding<dtype, emtype>::update_model_direct(float* dev_lr, float 
       partial_gradients_pointers_.get_ptr(), frequent_embedding_vectors_.get_ptr(),
       this->indices_view_, num_instances, model_id, num_frequent_per_model, embedding_vec_size_,
       dev_lr, scale);
-  CK_CUDA_THROW_(cudaPeekAtLastError());
+  HCTR_LIB_THROW(cudaPeekAtLastError());
   PROFILE_RECORD("fre_update_model_direct.update_model_direct.stop", stream, false);
 }
 

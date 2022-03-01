@@ -25,7 +25,6 @@
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"
 
-using namespace std;
 using namespace HugeCTR;
 
 namespace {
@@ -67,23 +66,23 @@ void gather_layer_test(size_t dimention, size_t height, size_t width, std::vecto
     }
   }
   T* d_in = in_tensor.get_ptr();
-  CK_CUDA_THROW_(
+  HCTR_LIB_THROW(
       cudaMemcpy(d_in, h_in.get(), in_tensor.get_size_in_bytes(), cudaMemcpyHostToDevice));
 
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
   gather_layer.fprop(true);
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
 
   T* d_out = out_tensor.get_ptr();
-  CK_CUDA_THROW_(
+  HCTR_LIB_THROW(
       cudaMemcpy(d2h_top.get(), d_out, out_tensor.get_size_in_bytes(), cudaMemcpyDeviceToHost));
 
   ASSERT_TRUE(test::compare_array_approx<T>(d2h_top.get(), h_refs.get(), output_size, eps));
 
   // bprop
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
   gather_layer.bprop();
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
 
   for (unsigned int i = 0; i < input_size; i++) {
     h_in.get()[i] = 0.0f;
@@ -94,7 +93,7 @@ void gather_layer_test(size_t dimention, size_t height, size_t width, std::vecto
     }
   }
 
-  CK_CUDA_THROW_(
+  HCTR_LIB_THROW(
       cudaMemcpy(h_bottom.get(), d_in, in_tensor.get_size_in_bytes(), cudaMemcpyDeviceToHost));
   ASSERT_TRUE(test::compare_array_approx<T>(h_bottom.get(), h_in.get(), input_size, eps));
 }

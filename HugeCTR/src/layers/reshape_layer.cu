@@ -66,32 +66,32 @@ ReshapeLayer<T>::ReshapeLayer(const Tensor2<T>& in_tensor, Tensor2<T>& out_tenso
       case 2:
         vector_length_ = out_tensor.get_dimensions()[1];
         if (size_t(vector_length_) > n_in_elems) {
-          CK_THROW_(Error_t::WrongInput, "leading_dim cannot be bigger than n_in_elems");
+          HCTR_OWN_THROW(Error_t::WrongInput, "leading_dim cannot be bigger than n_in_elems");
         }
         if (n_in_elems % vector_length_ != 0) {
-          CK_THROW_(Error_t::WrongInput, "n_in_elems % leading_dim != 0");
+          HCTR_OWN_THROW(Error_t::WrongInput, "n_in_elems % leading_dim != 0");
         }
         break;
       case 3:
         n_slot_ = out_tensor.get_dimensions()[1];
         vector_length_ = out_tensor.get_dimensions()[2];
         if (size_t(vector_length_ * n_slot_) > n_in_elems) {
-          CK_THROW_(Error_t::WrongInput,
-                    "leading_dim and time_step cannot be bigger than n_in_elems");
+          HCTR_OWN_THROW(Error_t::WrongInput,
+                         "leading_dim and time_step cannot be bigger than n_in_elems");
         }
         if (n_in_elems % (vector_length_ * n_slot_) != 0) {
-          CK_THROW_(Error_t::WrongInput, "n_in_elems % (vector_length_ * n_slot_) != 0");
+          HCTR_OWN_THROW(Error_t::WrongInput, "n_in_elems % (vector_length_ * n_slot_) != 0");
         }
         break;
       default:
-        CK_THROW_(Error_t::WrongInput, "Output tensor dimension is not supported.");
+        HCTR_OWN_THROW(Error_t::WrongInput, "Output tensor dimension is not supported.");
     }
 
     in_tensors_.push_back(in_tensor);
     out_tensors_.push_back(out_tensor);
 
   } catch (const std::runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     throw;
   }
 }
@@ -111,7 +111,7 @@ ReshapeLayer<T>::ReshapeLayer(const Tensor2<T>& in_tensor, Tensor2<T>& out_tenso
   try {
     const std::vector<size_t>& in_dims = in_tensor.get_dimensions();
     if (in_dims[1] < n_active_slot_) {
-      CK_THROW_(Error_t::WrongInput, "selected is invalid");
+      HCTR_OWN_THROW(Error_t::WrongInput, "selected is invalid");
     }
 
     size_t in_dims_1 = selected.empty() ? in_dims[1] : n_active_slot_;
@@ -130,7 +130,7 @@ ReshapeLayer<T>::ReshapeLayer(const Tensor2<T>& in_tensor, Tensor2<T>& out_tenso
     out_tensors_.push_back(out_tensor);
 
   } catch (const std::runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     throw;
   }
 }
@@ -138,7 +138,7 @@ ReshapeLayer<T>::ReshapeLayer(const Tensor2<T>& in_tensor, Tensor2<T>& out_tenso
 template <typename T>
 void ReshapeLayer<T>::initialize() {
   if (!in_place_) {
-    CK_CUDA_THROW_(cudaMemcpyAsync(selected_tensor_.get_ptr(), &selected_.front(),
+    HCTR_LIB_THROW(cudaMemcpyAsync(selected_tensor_.get_ptr(), &selected_.front(),
                                    n_active_slot_ * sizeof(int), cudaMemcpyHostToDevice,
                                    get_gpu().get_stream()));
   }
@@ -162,11 +162,11 @@ void ReshapeLayer<T>::prop_common(bool forward, bool is_train, cudaStream_t stre
 
   if (in_place_) {
     if (forward) {
-      CK_CUDA_THROW_(cudaMemcpyAsync(out_tensor.get_ptr(), in_tensor.get_ptr(),
+      HCTR_LIB_THROW(cudaMemcpyAsync(out_tensor.get_ptr(), in_tensor.get_ptr(),
                                      in_tensor.get_size_in_bytes(), cudaMemcpyDeviceToDevice,
                                      stream));
     } else {
-      CK_CUDA_THROW_(cudaMemcpyAsync(in_tensor.get_ptr(), out_tensor.get_ptr(),
+      HCTR_LIB_THROW(cudaMemcpyAsync(in_tensor.get_ptr(), out_tensor.get_ptr(),
                                      out_tensor.get_size_in_bytes(), cudaMemcpyDeviceToDevice,
                                      stream));
     }
@@ -179,8 +179,8 @@ void ReshapeLayer<T>::prop_common(bool forward, bool is_train, cudaStream_t stre
                                             selected_tensor_.get_ptr(), n_active_slot_, forward);
   }
 #ifndef NDEBUG
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
-  CK_CUDA_THROW_(cudaGetLastError());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaGetLastError());
 #endif
 }
 

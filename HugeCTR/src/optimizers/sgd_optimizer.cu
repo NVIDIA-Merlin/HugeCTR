@@ -126,7 +126,7 @@ SGDOptimizer<T>::SGDOptimizer(const Tensor2<float>& weight_main,
       use_mixed_precision_(use_mixed_precision) {
   optimizer_type_ = Optimizer_t::SGD;
   if (weight_main_.get_num_elements() != wgrad_.get_num_elements()) {
-    CK_THROW_(Error_t::WrongInput, "weight->get_num_elements() != wgrad->get_num_elements()");
+    HCTR_OWN_THROW(Error_t::WrongInput, "weight->get_num_elements() != wgrad->get_num_elements()");
   }
 }
 
@@ -158,7 +158,7 @@ void SGDOptimizer<T>::update() {
   PROFILE_RECORD("update.stop", gpu_resource_->get_stream(), false);
 #ifndef NDEBUG
   cudaDeviceSynchronize();
-  CK_CUDA_THROW_(cudaGetLastError());
+  HCTR_LIB_THROW(cudaGetLastError());
 #endif
 }
 

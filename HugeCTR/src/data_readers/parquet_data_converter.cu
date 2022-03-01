@@ -257,14 +257,14 @@ void convert_parquet_dense_columns(std::vector<T *> &dense_column_data_ptr,
                                    std::deque<rmm::device_buffer> &rmm_resources,
                                    rmm::mr::device_memory_resource *mr, cudaStream_t task_stream) {
   int samples_to_interleaved = batch_size;
-  // std::cout<<"samples_to_interleaved "<<samples_to_interleaved<<std::endl;
+  // HCTR_LOG_S(INFO, WORLD) << "samples_to_interleaved " << samples_to_interleaved<<std::endl;
   if (!samples_to_interleaved) return;
   size_t size_of_col_ptrs = dense_column_data_ptr.size() * sizeof(T *);
   std::memcpy(dev_ptr_staging, dense_column_data_ptr.data(), size_of_col_ptrs);
 
   rmm_resources.emplace_back(size_of_col_ptrs, task_stream, mr);
   rmm::device_buffer &dev_in_column_ptr = rmm_resources.back();
-  CK_CUDA_THROW_(cudaMemcpyAsync(dev_in_column_ptr.data(), dev_ptr_staging, size_of_col_ptrs,
+  HCTR_LIB_THROW(cudaMemcpyAsync(dev_in_column_ptr.data(), dev_ptr_staging, size_of_col_ptrs,
                                  cudaMemcpyHostToDevice, task_stream));
 
   // TODO no need to use pointer array since there's only one buffer, remove in the future
@@ -276,7 +276,7 @@ void convert_parquet_dense_columns(std::vector<T *> &dense_column_data_ptr,
   // rmm_resources.emplace_back(size_of_out_ptrs, task_stream, mr);
   // rmm::device_buffer &dev_out_data_ptr = rmm_resources.back();
 
-  // CK_CUDA_THROW_(cudaMemcpyAsync(dev_out_data_ptr.data(), pinned_dev_out_buffer,
+  // HCTR_LIB_THROW(cudaMemcpyAsync(dev_out_data_ptr.data(), pinned_dev_out_buffer,
   // size_of_out_ptrs,
   //                                cudaMemcpyHostToDevice, task_stream));
 
@@ -288,12 +288,12 @@ void convert_parquet_dense_columns(std::vector<T *> &dense_column_data_ptr,
   dim3 grid((samples_to_interleaved - 1) / block.x + 1, 1, 1);
 
   // fill empty sample dense features
-  CK_CUDA_THROW_(cudaMemsetAsync(
+  HCTR_LIB_THROW(cudaMemsetAsync(
       dense_data_buffers, 0, sizeof(T) * label_dense_dim * (batch_end - batch_start), task_stream));
   dense_data_converter_kernel__<T>
       <<<grid, block, 0, task_stream>>>((int64_t *)dev_in_column_ptr.data(), label_dense_dim,
                                         samples_to_interleaved, dense_data_buffers);
-  CK_CUDA_THROW_(cudaGetLastError());
+  HCTR_LIB_THROW(cudaGetLastError());
   return;
 }
 
@@ -335,7 +335,7 @@ size_t convert_parquet_cat_columns(
 
   rmm_resources.emplace_back(size_of_col_ptrs, task_stream, mr);
   rmm::device_buffer &dev_in_column_ptr = rmm_resources.back();
-  CK_CUDA_THROW_(cudaMemcpyAsync(dev_in_column_ptr.data(), dev_ptr_staging, size_of_col_ptrs,
+  HCTR_LIB_THROW(cudaMemcpyAsync(dev_in_column_ptr.data(), dev_ptr_staging, size_of_col_ptrs,
                                  cudaMemcpyHostToDevice, task_stream));
 
   int64_t *pinned_csr_offset_in_buffer =
@@ -347,7 +347,7 @@ size_t convert_parquet_cat_columns(
 
   rmm_resources.emplace_back(size_of_col_ptrs, task_stream, mr);
   rmm::device_buffer &dev_csr_offset_in_buffer = rmm_resources.back();
-  CK_CUDA_THROW_(cudaMemcpyAsync(dev_csr_offset_in_buffer.data(), pinned_csr_offset_in_buffer,
+  HCTR_LIB_THROW(cudaMemcpyAsync(dev_csr_offset_in_buffer.data(), pinned_csr_offset_in_buffer,
                                  size_of_col_ptrs, cudaMemcpyHostToDevice, task_stream));
 
   size_t size_of_csr_pointers = num_params * sizeof(int64_t);
@@ -361,7 +361,7 @@ size_t convert_parquet_cat_columns(
 
   rmm_resources.emplace_back(size_of_csr_pointers, task_stream, mr);
   rmm::device_buffer &dev_csr_value_ptr = rmm_resources.back();
-  CK_CUDA_THROW_(cudaMemcpyAsync(dev_csr_value_ptr.data(), pinned_csr_val_out_buffer,
+  HCTR_LIB_THROW(cudaMemcpyAsync(dev_csr_value_ptr.data(), pinned_csr_val_out_buffer,
                                  size_of_csr_pointers, cudaMemcpyHostToDevice, task_stream));
 
   int64_t *pinned_csr_row_offset_buffer = reinterpret_cast<int64_t *>(
@@ -373,7 +373,7 @@ size_t convert_parquet_cat_columns(
 
   rmm_resources.emplace_back(size_of_csr_pointers, task_stream, mr);
   rmm::device_buffer &dev_csr_row_offset_ptr = rmm_resources.back();
-  CK_CUDA_THROW_(cudaMemcpyAsync(dev_csr_row_offset_ptr.data(), pinned_csr_row_offset_buffer,
+  HCTR_LIB_THROW(cudaMemcpyAsync(dev_csr_row_offset_ptr.data(), pinned_csr_row_offset_buffer,
                                  size_of_csr_pointers, cudaMemcpyHostToDevice, task_stream));
   {
     int block_size = (sizeof(T) == 8) ? 128 : 256;
@@ -383,7 +383,7 @@ size_t convert_parquet_cat_columns(
     size_t max_smem_size = 48 * 1024;
 
     if (smem_size > max_smem_size)
-      CK_THROW_(Error_t::OutOfMemory, "Parquet Converter: Not enough shared memory availble");
+      HCTR_OWN_THROW(Error_t::OutOfMemory, "Parquet Converter: Not enough shared memory availble");
 
     offset_kernel__<T><<<grid, block, smem_size, task_stream>>>(
         reinterpret_cast<int64_t *>(dev_csr_offset_in_buffer.data()), view_offset, num_params,
@@ -394,14 +394,14 @@ size_t convert_parquet_cat_columns(
     void *d_temp_storage = NULL;
     size_t temp_storage_bytes = 0;
     int64_t prefix_sum_items = num_slots * batch_size + 1;
-    CK_CUDA_THROW_(cub::DeviceScan::InclusiveSum(
+    HCTR_LIB_THROW(cub::DeviceScan::InclusiveSum(
         d_temp_storage, temp_storage_bytes,
         reinterpret_cast<T *>(pinned_csr_row_offset_buffer[buffer_id]),
         reinterpret_cast<T *>(pinned_csr_row_offset_buffer[buffer_id]), prefix_sum_items,
         task_stream));
     rmm_resources.emplace_back(temp_storage_bytes, task_stream, mr);
     rmm::device_buffer &cub_tmp_storage = rmm_resources.back();
-    CK_CUDA_THROW_(cub::DeviceScan::InclusiveSum(
+    HCTR_LIB_THROW(cub::DeviceScan::InclusiveSum(
         cub_tmp_storage.data(), temp_storage_bytes,
         reinterpret_cast<T *>(pinned_csr_row_offset_buffer[buffer_id]),
         reinterpret_cast<T *>(pinned_csr_row_offset_buffer[buffer_id]), prefix_sum_items,
@@ -418,7 +418,7 @@ size_t convert_parquet_cat_columns(
         num_params, param_id, num_slots, reinterpret_cast<int64_t *>(dev_csr_row_offset_ptr.data()),
         reinterpret_cast<int64_t *>(dev_csr_value_ptr.data()), batch_size);
 
-    CK_CUDA_THROW_(cudaGetLastError());
+    HCTR_LIB_THROW(cudaGetLastError());
   }
 
   return pinned_staging_elements_used;

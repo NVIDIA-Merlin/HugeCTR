@@ -95,7 +95,7 @@ class MatVecOpTest : public ::testing::TestWithParam<MatVecOpInputs<T, IdxType>>
     cudaEventSynchronize(stop);
     float milliseconds = 0;
     cudaEventElapsedTime(&milliseconds, start, stop);
-    // printf("Fused: %f\n", milliseconds);
+    // HCTR_LOG(INFO, WORLD, "Fused: %f\n", milliseconds);
 
     cudaEventRecord(start);
     matrixVectorOpLaunch2(out, in, vec1, D, N, params.rowMajor, params.bcastAlongRows, stream);
@@ -103,7 +103,7 @@ class MatVecOpTest : public ::testing::TestWithParam<MatVecOpInputs<T, IdxType>>
     cudaEventSynchronize(stop);
     milliseconds = 0;
     cudaEventElapsedTime(&milliseconds, start, stop);
-    // printf("Normal: %f\n", milliseconds);
+    // HCTR_LOG(INFO, WORLD, "Normal: %f\n", milliseconds);
 
     CUDA_CHECK(cudaStreamDestroy(stream));
   }

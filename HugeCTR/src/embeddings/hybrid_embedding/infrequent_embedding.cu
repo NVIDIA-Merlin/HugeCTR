@@ -129,7 +129,7 @@ static __global__ void offsets_to_sizes(size_t* sizes, LambdaPtr get_offsets_ptr
 
 template <typename dtype>
 InfrequentEmbeddingBase<dtype>::InfrequentEmbeddingBase() {
-  CK_CUDA_THROW_(cudaMalloc(&indices_view_, sizeof(*indices_view_)));
+  HCTR_LIB_THROW(cudaMalloc(&indices_view_, sizeof(*indices_view_)));
 }
 
 template <typename dtype>
@@ -142,7 +142,7 @@ void InfrequentEmbeddingBase<dtype>::set_current_indices(
     InfrequentEmbeddingSelection<dtype>* indices, cudaStream_t stream) {
   indices_ = indices;
   data_ = indices->get_data();
-  CK_CUDA_THROW_(cudaMemcpyAsync(indices_view_, indices->get_device_view(), sizeof(*indices_view_),
+  HCTR_LIB_THROW(cudaMemcpyAsync(indices_view_, indices->get_device_view(), sizeof(*indices_view_),
                                  cudaMemcpyDeviceToDevice, stream));
 }
 
@@ -169,8 +169,8 @@ InfrequentEmbedding<dtype, emtype>::InfrequentEmbedding(const Model<dtype>& mode
   managed_buf->reserve({model.num_instances + 1, 1}, &network_indices_offsets_);
   managed_buf->allocate();
   int current_device;
-  CK_CUDA_THROW_(cudaGetDevice(&current_device));
-  CK_CUDA_THROW_(cudaMemAdvise(managed_buf->get_ptr(), managed_buf->get_size_in_bytes(),
+  HCTR_LIB_THROW(cudaGetDevice(&current_device));
+  HCTR_LIB_THROW(cudaMemAdvise(managed_buf->get_ptr(), managed_buf->get_size_in_bytes(),
                                cudaMemAdviseSetReadMostly, current_device));
 }
 
@@ -216,7 +216,7 @@ void InfrequentEmbedding<dtype, emtype>::forward_model(emtype* message_buffer,
       });
 
   shuffle(copy_desc, stream, data_->samples.get_num_elements() / model_.num_instances / 8);
-  CK_CUDA_THROW_(cudaPeekAtLastError());
+  HCTR_LIB_THROW(cudaPeekAtLastError());
 }
 
 template <typename dtype, typename emtype>
@@ -259,7 +259,7 @@ void InfrequentEmbedding<dtype, emtype>::fused_intra_forward_model(emtype** mess
       });
 
   shuffle(copy_desc, stream, data_->samples.get_num_elements() / model_.num_instances / 8);
-  CK_CUDA_THROW_(cudaPeekAtLastError());
+  HCTR_LIB_THROW(cudaPeekAtLastError());
 }
 
 template <typename dtype, typename emtype>
@@ -281,7 +281,7 @@ void InfrequentEmbedding<dtype, emtype>::forward_network(const emtype* message_b
       });
 
   shuffle(copy_desc, stream, data_->samples.get_num_elements() / model_.num_instances / 8);
-  CK_CUDA_THROW_(cudaPeekAtLastError());
+  HCTR_LIB_THROW(cudaPeekAtLastError());
 }
 
 template <typename dtype, typename emtype>
@@ -319,7 +319,7 @@ void InfrequentEmbedding<dtype, emtype>::hier_forward_network(const emtype* mess
       });
 
   shuffle(copy_desc, stream, data_->samples.get_num_elements() / model_.num_instances / 8);
-  CK_CUDA_THROW_(cudaPeekAtLastError());
+  HCTR_LIB_THROW(cudaPeekAtLastError());
 }
 
 /** Forward network for single GPU (no communications) */
@@ -363,7 +363,7 @@ void InfrequentEmbedding<dtype, emtype>::forward_network_direct(bool is_train,
 
   PROFILE_RECORD("inf_forward_network_direct.forward_network_direct.start", stream, false);
   shuffle(copy_desc, stream, local_samples_size / 10);
-  CK_CUDA_THROW_(cudaPeekAtLastError());
+  HCTR_LIB_THROW(cudaPeekAtLastError());
   PROFILE_RECORD("inf_forward_network_direct.forward_network_direct.stop", stream, false);
 }
 
@@ -387,7 +387,7 @@ void InfrequentEmbedding<dtype, emtype>::update_network(const emtype* gradients,
       });
 
   shuffle(copy_desc, stream, data_->samples.get_num_elements() / model_.num_instances / 8);
-  CK_CUDA_THROW_(cudaPeekAtLastError());
+  HCTR_LIB_THROW(cudaPeekAtLastError());
 }
 
 template <typename dtype, typename emtype>
@@ -430,7 +430,7 @@ void InfrequentEmbedding<dtype, emtype>::fused_intra_update_network(const emtype
       });
 
   shuffle(copy_desc, stream, data_->samples.get_num_elements() / model_.num_instances / 8);
-  CK_CUDA_THROW_(cudaPeekAtLastError());
+  HCTR_LIB_THROW(cudaPeekAtLastError());
 }
 
 template <typename dtype, typename emtype>
@@ -472,7 +472,7 @@ void InfrequentEmbedding<dtype, emtype>::hier_update_model(const emtype* message
       this->indices_view_, model_.category_location.get_ptr(), message_buffer,
       infrequent_embedding_vectors_.get_ptr(), embedding_vec_size_, model_.num_instances,
       local_samples_size, local_comm_buff_size, dev_lr, scale);
-  CK_CUDA_THROW_(cudaPeekAtLastError());
+  HCTR_LIB_THROW(cudaPeekAtLastError());
 }
 
 /** Update model for single GPU (no communications), lr is a device variable */
@@ -493,7 +493,7 @@ void InfrequentEmbedding<dtype, emtype>::update_model_direct(float* dev_lr, floa
           gradients_pointers_.get_ptr(), infrequent_embedding_vectors_.get_ptr(),
           this->indices_view_, model_.category_location.get_ptr(), model_.num_instances,
           model_.global_instance_id, embedding_vec_size_, local_samples_size, dev_lr, scale);
-  CK_CUDA_THROW_(cudaPeekAtLastError());
+  HCTR_LIB_THROW(cudaPeekAtLastError());
   PROFILE_RECORD("inf_update_model_direct.infrequent_update_model_direct.stop", stream, false);
 }
 

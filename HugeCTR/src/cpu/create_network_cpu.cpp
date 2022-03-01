@@ -70,12 +70,12 @@ static InputOutputInfo get_input_tensor_and_output_name(
   for (auto& bottom_name : bottom_names) {
     for (auto& top_name : top_names) {
       if (bottom_name == top_name) {
-        CK_THROW_(Error_t::WrongInput, "bottom and top include a same layer name");
+        HCTR_OWN_THROW(Error_t::WrongInput, "bottom and top include a same layer name");
       }
     }
     TensorBag2 bag;
     if (!get_tensor_from_entries(tensor_entries, bottom_name, &bag)) {
-      CK_THROW_(Error_t::WrongInput, "No such bottom: " + bottom_name);
+      HCTR_OWN_THROW(Error_t::WrongInput, "No such bottom: " + bottom_name);
     }
     bottom_bags.push_back(bag);
   }
@@ -99,7 +99,7 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
     if (!find_item_in_map(layer_type, layer_type_name, layer_map)) {
       Embedding_t embedding_type;
       if (!find_item_in_map(embedding_type, layer_type_name, EMBEDDING_TYPE_MAP)) {
-        CK_THROW_(Error_t::WrongInput, "No such layer: " + layer_type_name);
+        HCTR_OWN_THROW(Error_t::WrongInput, "No such layer: " + layer_type_name);
       }
       continue;
     }
@@ -108,7 +108,7 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
     auto input_output_info = get_input_tensor_and_output_name(j, tensor_entries);
     if (layer_type == Layer_t::CrossEntropyLoss || layer_type == Layer_t::BinaryCrossEntropyLoss ||
         layer_type == Layer_t::MultiCrossEntropyLoss) {
-      CK_THROW_(Error_t::WrongInput, "Loss layer is not supported for NetworkCPU");
+      HCTR_OWN_THROW(Error_t::WrongInput, "Loss layer is not supported for NetworkCPU");
     }
     switch (layer_type) {
       case Layer_t::BatchNorm: {
@@ -122,7 +122,7 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
           const auto gamma_init_name = get_value_from_json<std::string>(j_bn_hparam, "gamma_init");
           Initializer_t gamma_init_type;
           if (!find_item_in_map(gamma_init_type, gamma_init_name, INITIALIZER_TYPE_MAP)) {
-            CK_THROW_(Error_t::WrongInput, "No such initializer: " + gamma_init_name);
+            HCTR_OWN_THROW(Error_t::WrongInput, "No such initializer: " + gamma_init_name);
           } else {
             initializer_types[0] = gamma_init_type;
           }
@@ -131,7 +131,7 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
           const auto beta_init_name = get_value_from_json<std::string>(j_bn_hparam, "beta_init");
           Initializer_t beta_init_type;
           if (!find_item_in_map(beta_init_type, beta_init_name, INITIALIZER_TYPE_MAP)) {
-            CK_THROW_(Error_t::WrongInput, "No such initializer: " + beta_init_name);
+            HCTR_OWN_THROW(Error_t::WrongInput, "No such initializer: " + beta_init_name);
           } else {
             initializer_types[1] = beta_init_type;
           }
@@ -249,7 +249,7 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
           const auto weight_init_name = get_value_from_json<std::string>(j_fc_param, "weight_init");
           Initializer_t weight_init_type;
           if (!find_item_in_map(weight_init_type, weight_init_name, INITIALIZER_TYPE_MAP)) {
-            CK_THROW_(Error_t::WrongInput, "No such initializer: " + weight_init_name);
+            HCTR_OWN_THROW(Error_t::WrongInput, "No such initializer: " + weight_init_name);
           } else {
             initializer_types[0] = weight_init_type;
           }
@@ -258,7 +258,7 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
           const auto bias_init_name = get_value_from_json<std::string>(j_fc_param, "bias_init");
           Initializer_t bias_init_type;
           if (!find_item_in_map(bias_init_type, bias_init_name, INITIALIZER_TYPE_MAP)) {
-            CK_THROW_(Error_t::WrongInput, "No such initializer: " + bias_init_name);
+            HCTR_OWN_THROW(Error_t::WrongInput, "No such initializer: " + bias_init_name);
           } else {
             initializer_types[1] = bias_init_type;
           }
@@ -277,7 +277,7 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
                                                               wgrad_buff_half, blobs_buff,
                                                               in_tensor, fc_out_tensor));
         } else {
-          CK_THROW_(Error_t::WrongInput, "FusedInnerProduct support half only");
+          HCTR_OWN_THROW(Error_t::WrongInput, "FusedInnerProduct support half only");
         }
         break;
       }
@@ -307,7 +307,7 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
           const auto weight_init_name = get_value_from_json<std::string>(j_fc_param, "weight_init");
           Initializer_t weight_init_type;
           if (!find_item_in_map(weight_init_type, weight_init_name, INITIALIZER_TYPE_MAP)) {
-            CK_THROW_(Error_t::WrongInput, "No such initializer: " + weight_init_name);
+            HCTR_OWN_THROW(Error_t::WrongInput, "No such initializer: " + weight_init_name);
           } else {
             initializer_types[0] = weight_init_type;
           }
@@ -316,7 +316,7 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
           const auto bias_init_name = get_value_from_json<std::string>(j_fc_param, "bias_init");
           Initializer_t bias_init_type;
           if (!find_item_in_map(bias_init_type, bias_init_name, INITIALIZER_TYPE_MAP)) {
-            CK_THROW_(Error_t::WrongInput, "No such initializer: " + bias_init_name);
+            HCTR_OWN_THROW(Error_t::WrongInput, "No such initializer: " + bias_init_name);
           } else {
             initializer_types[1] = bias_init_type;
           }
@@ -383,7 +383,7 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
           const auto weight_init_name = get_value_from_json<std::string>(j_mc_param, "weight_init");
           Initializer_t weight_init_type;
           if (!find_item_in_map(weight_init_type, weight_init_name, INITIALIZER_TYPE_MAP)) {
-            CK_THROW_(Error_t::WrongInput, "No such initializer: " + weight_init_name);
+            HCTR_OWN_THROW(Error_t::WrongInput, "No such initializer: " + weight_init_name);
           } else {
             initializer_types[0] = weight_init_type;
           }
@@ -392,7 +392,7 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
           const auto bias_init_name = get_value_from_json<std::string>(j_mc_param, "bias_init");
           Initializer_t bias_init_type;
           if (!find_item_in_map(bias_init_type, bias_init_name, INITIALIZER_TYPE_MAP)) {
-            CK_THROW_(Error_t::WrongInput, "No such initializer: " + bias_init_name);
+            HCTR_OWN_THROW(Error_t::WrongInput, "No such initializer: " + bias_init_name);
           } else {
             initializer_types[1] = bias_init_type;
           }
@@ -438,7 +438,9 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
           nlohmann::json j_selected = (selected_it.value());
           for (auto slot_obj : j_selected) {
             int slot_id = slot_obj.get<int>();
-            if (slot_id < 0) CK_THROW_(Error_t::WrongInput, "slot_id < 0");
+            if (slot_id < 0) {
+              HCTR_OWN_THROW(Error_t::WrongInput, "slot_id < 0");
+            }
             selected.push_back(slot_id);
           }
 
@@ -554,7 +556,7 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
           const auto weight_init_name = get_value_from_json<std::string>(j, "weight_init");
           Initializer_t weight_init_type;
           if (!find_item_in_map(weight_init_type, weight_init_name, INITIALIZER_TYPE_MAP)) {
-            CK_THROW_(Error_t::WrongInput, "No such initializer: " + weight_init_name);
+            HCTR_OWN_THROW(Error_t::WrongInput, "No such initializer: " + weight_init_name);
           } else {
             initializer_types[0] = weight_init_type;
           }
@@ -644,7 +646,7 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
     }
   }  // for layers
   for (auto entry : tensor_entries) {
-    std::cout << "[HUGECTR][INFO] layer: " << entry.name << std::endl;
+    HCTR_LOG_S(INFO, WORLD) << "layer: " << entry.name << std::endl;
   }
 }
 

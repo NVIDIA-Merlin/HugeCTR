@@ -86,6 +86,7 @@ std::map<Layer_t, std::string> LAYER_TYPE_TO_STRING_MP = {
     {Layer_t::FmOrder2, "FmOrder2"},
     {Layer_t::Add, "Add"},
     {Layer_t::ReduceSum, "ReduceSum"},
+    {Layer_t::Softmax, "Softmax"},
     {Layer_t::ElementwiseMultiply, "ElementwiseMultiply"},
     {Layer_t::FusedInnerProduct, "FusedInnerProduct"},
     {Layer_t::MultiCross, "MultiCross"}};
@@ -181,6 +182,8 @@ struct SparseEmbedding {
                   std::vector<size_t>& slot_size_array,
                   std::shared_ptr<OptParamsPy>& embedding_opt_params,
                   const HybridEmbeddingParam& hybrid_embedding_param);
+  
+  void initialize_max_vocabulary_size_per_gpu();
 };
 
 struct EmbeddingTrainingCacheParams {
@@ -377,7 +380,7 @@ class Model {
   void reset_learning_rate_scheduler(float base_lr, size_t warmup_steps, size_t decay_start,
                                      size_t decay_steps, float decay_power, float end_lr) {
     if (!lr_sch_) {
-      CK_THROW_(Error_t::IllegalCall, "learning rate scheduler should be initialized first");
+      HCTR_OWN_THROW(Error_t::IllegalCall, "learning rate scheduler should be initialized first");
     }
     lr_sch_->reset(base_lr, warmup_steps, decay_start, decay_steps, decay_power, end_lr);
   }
@@ -405,26 +408,26 @@ class Model {
 
   const std::shared_ptr<EmbeddingTrainingCache>& get_embedding_training_cache() const {
     if (!embedding_training_cache_) {
-      CK_THROW_(Error_t::IllegalCall, "embedding training cache should be initialized first");
+      HCTR_OWN_THROW(Error_t::IllegalCall, "embedding training cache should be initialized first");
     }
     return embedding_training_cache_;
   }
 
   const std::shared_ptr<IDataReader>& get_train_data_reader() const {
     if (!train_data_reader_) {
-      CK_THROW_(Error_t::IllegalCall, "train data reader should be initialized first");
+      HCTR_OWN_THROW(Error_t::IllegalCall, "train data reader should be initialized first");
     }
     return train_data_reader_;
   }
   const std::shared_ptr<IDataReader>& get_evaluate_data_reader() const {
     if (!evaluate_data_reader_) {
-      CK_THROW_(Error_t::IllegalCall, "evaluate data reader should be initialized first");
+      HCTR_OWN_THROW(Error_t::IllegalCall, "evaluate data reader should be initialized first");
     }
     return evaluate_data_reader_;
   }
   const std::shared_ptr<LearningRateScheduler>& get_learning_rate_scheduler() const {
     if (!lr_sch_) {
-      CK_THROW_(Error_t::IllegalCall, "learning rate scheduler should be initialized first");
+      HCTR_OWN_THROW(Error_t::IllegalCall, "learning rate scheduler should be initialized first");
     }
     return lr_sch_;
   }
@@ -433,13 +436,18 @@ class Model {
     return !embeddings_[0]->get_learning_rate_schedulers().empty();
   }
 
-  void load_dense_weights(const std::string& dense_model_file);
-  void load_sparse_weights(const std::vector<std::string>& sparse_embedding_files);
-  void load_sparse_weights(const std::map<std::string, std::string>& sparse_embedding_files_map);
-  void load_dense_optimizer_states(const std::string& dense_opt_states_file);
-  void load_sparse_optimizer_states(const std::vector<std::string>& sparse_opt_states_files);
+  void load_dense_weights(const std::string& dense_model_file, DataSourceParams data_source_params);
+  void load_sparse_weights(const std::vector<std::string>& sparse_embedding_files,
+                           DataSourceParams data_source_params);
+  void load_sparse_weights(const std::map<std::string, std::string>& sparse_embedding_files_map,
+                           DataSourceParams data_source_params);
+  void load_dense_optimizer_states(const std::string& dense_opt_states_file,
+                                   DataSourceParams data_source_params);
+  void load_sparse_optimizer_states(const std::vector<std::string>& sparse_opt_states_files,
+                                    DataSourceParams data_source_params);
   void load_sparse_optimizer_states(
-      const std::map<std::string, std::string>& sparse_opt_states_files_map);
+      const std::map<std::string, std::string>& sparse_opt_states_files_map,
+      DataSourceParams data_source_params);
   void freeze_embedding() {
     for (auto& one_embedding : embeddings_) {
       one_embedding->freeze();
@@ -447,7 +455,7 @@ class Model {
   };
   void freeze_embedding(const std::string& embedding_name) {
     if (embeddings_map_.find(embedding_name) == embeddings_map_.end()) {
-      CK_THROW_(Error_t::WrongInput, "No such embedding name: " + embedding_name);
+      HCTR_OWN_THROW(Error_t::WrongInput, "No such embedding name: " + embedding_name);
     }
     auto it = embeddings_map_.find(embedding_name);
     it->second->freeze();
@@ -460,7 +468,7 @@ class Model {
   };
   void unfreeze_embedding(const std::string& embedding_name) {
     if (embeddings_map_.find(embedding_name) == embeddings_map_.end()) {
-      CK_THROW_(Error_t::WrongInput, "No such embedding name: " + embedding_name);
+      HCTR_OWN_THROW(Error_t::WrongInput, "No such embedding name: " + embedding_name);
     }
     auto it = embeddings_map_.find(embedding_name);
     it->second->unfreeze();
@@ -561,10 +569,14 @@ class Model {
                                       const std::vector<std::string>& sparse_embedding_files,
                                       const std::vector<std::string>& local_paths,
                                       const std::vector<HMemCacheConfig>& hmem_cache_configs);
-  Error_t load_params_for_dense_(const std::string& model_file);
-  Error_t load_params_for_sparse_(const std::vector<std::string>& embedding_file);
-  Error_t load_opt_states_for_dense_(const std::string& dense_opt_states_file);
-  Error_t load_opt_states_for_sparse_(const std::vector<std::string>& sparse_opt_states_files);
+  Error_t load_params_for_dense_(const std::string& model_file,
+                                 DataSourceParams data_source_params);
+  Error_t load_params_for_sparse_(const std::vector<std::string>& embedding_file,
+                                  DataSourceParams data_source_params);
+  Error_t load_opt_states_for_dense_(const std::string& dense_opt_states_file,
+                                     DataSourceParams data_source_params);
+  Error_t load_opt_states_for_sparse_(const std::vector<std::string>& sparse_opt_states_files,
+                                      DataSourceParams data_source_params);
   virtual void exchange_wgrad(size_t device_id);
   virtual void train_overlapped();
   virtual void add_dense_layer(DenseLayer& dense_layer);
@@ -590,7 +602,7 @@ class Model {
     GraphScheduler(std::shared_ptr<ResourceManager> resource_manager) : launched_iter(0) {
       // set up trickling launch
       CudaCPUDeviceContext ctx(resource_manager->get_local_gpu(0)->get_device_id());
-      CK_CUDA_THROW_(cudaMallocHost((void**)&executed_iter, sizeof(size_t)));
+      HCTR_LIB_THROW(cudaMallocHost((void**)&executed_iter, sizeof(size_t)));
       *executed_iter = 0;
     }
     ~GraphScheduler() { cudaFreeHost(const_cast<size_t*>(executed_iter)); }

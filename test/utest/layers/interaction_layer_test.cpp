@@ -25,7 +25,6 @@
 #include <utils.hpp>
 #include <vector>
 
-using namespace std;
 using namespace HugeCTR;
 
 namespace {
@@ -109,15 +108,15 @@ void interaction_layer_test(size_t height, size_t n_emb, size_t in_width,
 
   // device fprop
   T* d_in_mlp = in_mlp_tensor.get_ptr();
-  CK_CUDA_THROW_(cudaMemcpy(d_in_mlp, &h_in_mlp.front(), in_mlp_tensor.get_size_in_bytes(),
+  HCTR_LIB_THROW(cudaMemcpy(d_in_mlp, &h_in_mlp.front(), in_mlp_tensor.get_size_in_bytes(),
                             cudaMemcpyHostToDevice));
   T* d_in_emb = in_emb_tensor.get_ptr();
-  CK_CUDA_THROW_(cudaMemcpy(d_in_emb, &h_in_emb.front(), in_emb_tensor.get_size_in_bytes(),
+  HCTR_LIB_THROW(cudaMemcpy(d_in_emb, &h_in_emb.front(), in_emb_tensor.get_size_in_bytes(),
                             cudaMemcpyHostToDevice));
 
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
   interaction_layer.fprop(true);
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
 
   // host fprop
   concat_op(true);
@@ -158,16 +157,16 @@ void interaction_layer_test(size_t height, size_t n_emb, size_t in_width,
 
   std::vector<T> h_out(out_tensor.get_num_elements(), TypeConvert<T, float>::convert(0.0f));
   T* d_out = out_tensor.get_ptr();
-  CK_CUDA_THROW_(
+  HCTR_LIB_THROW(
       cudaMemcpy(&h_out.front(), d_out, out_tensor.get_size_in_bytes(), cudaMemcpyDeviceToHost));
 
   ASSERT_TRUE(test::compare_array_approx<T>(&h_out.front(), &h_ref.front(), h_out.size(),
                                             get_eps<T>(enable_tf32_compute)));
 
   // device bprop
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
   interaction_layer.bprop();
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
 
   // host bprop
   for (size_t p = 0; p < height; p++) {
@@ -206,7 +205,7 @@ void interaction_layer_test(size_t height, size_t n_emb, size_t in_width,
     auto in_tensor = in_tensors[i];
     std::vector<T> h_in(in_tensor.get_num_elements(), TypeConvert<T, float>::convert(0.0f));
     T* d_in = in_tensor.get_ptr();
-    CK_CUDA_THROW_(
+    HCTR_LIB_THROW(
         cudaMemcpy(&h_in.front(), d_in, in_tensor.get_size_in_bytes(), cudaMemcpyDeviceToHost));
     std::vector<T>& h_ref = h_ins[i];
 

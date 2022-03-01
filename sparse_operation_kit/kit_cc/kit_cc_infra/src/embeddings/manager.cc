@@ -270,23 +270,27 @@ void EmbeddingManager::forward(std::shared_ptr<EmbeddingLayer>& embedding,
                                const std::shared_ptr<Tensor> values,
                                const std::shared_ptr<Tensor> indices,
                                const size_t global_replica_id, const bool training,
-                               std::shared_ptr<Tensor> embedding_vector) {
+                               std::shared_ptr<Tensor> embedding_vector,
+                               std::shared_ptr<Tensor> h_replica_nnz) {
   Context_t& replica_context = get_context(embedding, global_replica_id);
 
   replica_context->set_input("replica_values", values, /*overwrite=*/true);
   replica_context->set_input("replica_indices", indices, /*overwrite=*/true);
   replica_context->set_output("replica_output", embedding_vector, /*overwrite=*/true);
+  replica_context->set_output("replica_host_nnz", h_replica_nnz, /*overwrite=*/true);
 
   embedding->forward(replica_context, training);
 }
 
 void EmbeddingManager::forward(std::shared_ptr<EmbeddingLayer>& embedding,
                                const std::shared_ptr<Tensor> values, const size_t global_replica_id,
-                               const bool training, std::shared_ptr<Tensor> embedding_vector) {
+                               const bool training, std::shared_ptr<Tensor> embedding_vector,
+                               std::shared_ptr<Tensor> h_replica_nnz) {
   Context_t& replica_context = get_context(embedding, global_replica_id);
 
   replica_context->set_input("replica_values", values, /*overwrite=*/true);
   replica_context->set_output("replica_output", embedding_vector, /*overwrite=*/true);
+  replica_context->set_output("replica_host_nnz", h_replica_nnz, /*overwrite=*/true);
 
   embedding->forward(replica_context, training);
 }

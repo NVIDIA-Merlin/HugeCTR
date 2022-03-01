@@ -67,20 +67,20 @@ inline void ArgConvertor(std::string arg, float& ret) {
 template <>
 inline void ArgConvertor(std::string arg, std::vector<int>& ret) {
   ret.clear();
-  std::stringstream ss(arg);
-  for (int i; ss >> i;) {
+  std::istringstream is(arg);
+  for (int i; is >> i;) {
     ret.push_back(i);
-    if (ss.peek() == ',') ss.ignore();
+    if (is.peek() == ',') is.ignore();
   }
 }
 
 template <>
 inline void ArgConvertor(std::string arg, std::vector<size_t>& ret) {
   ret.clear();
-  std::stringstream ss(arg);
-  for (size_t i; ss >> i;) {
+  std::istringstream is(arg);
+  for (size_t i; is >> i;) {
     ret.push_back(i);
-    if (ss.peek() == ',') ss.ignore();
+    if (is.peek() == ',') is.ignore();
   }
 }
 
@@ -109,7 +109,7 @@ struct ArgParser {
   static T get_arg(const std::string target, int argc, char** argv) {
     auto arg = get_arg_(target, argc, argv);
     if (arg.empty()) {
-      CK_THROW_(Error_t::WrongInput, "Cannot find target string: " + target);
+      HCTR_OWN_THROW(Error_t::WrongInput, "Cannot find target string: " + target);
     }
     T ret;
     ArgConvertor<T>(arg, ret);
@@ -119,7 +119,8 @@ struct ArgParser {
   static T get_arg(const std::string target, int argc, char** argv, T default_val) {
     auto arg = get_arg_(target, argc, argv);
     if (arg.empty()) {
-      MESSAGE_("Cannot find target string: " + target + " use default value:");
+      HCTR_LOG_S(INFO, ROOT) << "Cannot find target string: " << target
+                             << " use default value:" << std::endl;
       return default_val;
     }
     T ret;
@@ -217,7 +218,7 @@ class CudaDeviceContext {
   int original_device_;
 
  public:
-  CudaDeviceContext() { CK_CUDA_THROW_(cudaGetDevice(&original_device_)); }
+  CudaDeviceContext() { HCTR_LIB_THROW(cudaGetDevice(&original_device_)); }
   CudaDeviceContext(int device) : CudaDeviceContext() {
     if (device != original_device_) {
       set_device(device);
@@ -225,7 +226,7 @@ class CudaDeviceContext {
   }
   ~CudaDeviceContext() noexcept(false) { set_device(original_device_); }
 
-  void set_device(int device) const { CK_CUDA_THROW_(cudaSetDevice(device)); }
+  void set_device(int device) const { HCTR_LIB_THROW(cudaSetDevice(device)); }
 };
 
 /**
@@ -237,7 +238,7 @@ class CudaCPUDeviceContext {
   CudaCPUDeviceContext(int device_id) {
     auto node_it = device_id_to_numa_node_.find(device_id);
     assert(node_it != device_id_to_numa_node_.end());
-    CK_CUDA_THROW_(cudaSetDevice(device_id));
+    HCTR_LIB_THROW(cudaSetDevice(device_id));
 
     int node = node_it->second;
     if (node >= 0) {
@@ -249,9 +250,6 @@ class CudaCPUDeviceContext {
   static void init_cpu_mapping(std::vector<int> device_ids) {
     constexpr int pci_id_len = 16;
     char pci_id[pci_id_len];
-
-    std::stringstream ss;
-    ss << "Device to NUMA mapping:" << std::endl;
 
     device_id_to_numa_node_.clear();
     auto cpu_mask = numa_allocate_cpumask();
@@ -265,19 +263,22 @@ class CudaCPUDeviceContext {
       return -1;
     };
 
-    for (auto device_id : device_ids) {
-      nvmlDevice_t handle;
-      CK_CUDA_THROW_(cudaDeviceGetPCIBusId(pci_id, pci_id_len, device_id));
-      CK_NVML_THROW_(nvmlDeviceGetHandleByPciBusId_v2(pci_id, &handle));
-      CK_NVML_THROW_(nvmlDeviceGetCpuAffinity(handle, cpu_mask->size / (sizeof(unsigned long) * 8),
-                                              cpu_mask->maskp));
-      int node = select_node(cpu_mask);
-      device_id_to_numa_node_[device_id] = node;
-      ss << "  GPU " << device_id << " -> "
-         << " node " << node << std::endl;
-    }
+    {
+      auto log = HCTR_LOG_S(INFO, ROOT);
+      log << "Device to NUMA mapping:" << std::endl;
 
-    MESSAGE_(ss.str());
+      for (auto device_id : device_ids) {
+        nvmlDevice_t handle;
+        HCTR_LIB_THROW(cudaDeviceGetPCIBusId(pci_id, pci_id_len, device_id));
+        HCTR_LIB_THROW(nvmlDeviceGetHandleByPciBusId_v2(pci_id, &handle));
+        HCTR_LIB_THROW(nvmlDeviceGetCpuAffinity(
+            handle, cpu_mask->size / (sizeof(unsigned long) * 8), cpu_mask->maskp));
+        int node = select_node(cpu_mask);
+        device_id_to_numa_node_[device_id] = node;
+        log << "  GPU " << device_id << " -> "
+            << " node " << node << std::endl;
+      }
+    }
 
     numa_bitmask_free(cpu_mask);
   }
@@ -319,7 +320,9 @@ inline void set_affinity(std::thread& t, int core) {
   CPU_SET(core, &cpuset);
   int rc = pthread_setaffinity_np(t.native_handle(), sizeof(cpu_set_t), &cpuset);
   if (rc != 0) {
-    CK_THROW_(Error_t::WrongInput, "Error calling pthread_setaffinity_np: " + std::to_string(rc));
+    std::ostringstream os;
+    os << "Error calling pthread_setaffinity_np: " << rc;
+    HCTR_OWN_THROW(Error_t::WrongInput, os.str());
   }
   return;
 }
@@ -348,7 +351,9 @@ inline void set_affinity(std::thread& t, std::set<int> set, bool excluded) {
   }
   int rc = pthread_setaffinity_np(t.native_handle(), sizeof(cpu_set_t), &cpuset);
   if (rc != 0) {
-    CK_THROW_(Error_t::WrongInput, "Error calling pthread_setaffinity_np: " + std::to_string(rc));
+    std::ostringstream os;
+    os << "Error calling pthread_setaffinity_np: " << rc;
+    HCTR_OWN_THROW(Error_t::WrongInput, os.str());
   }
   return;
 }

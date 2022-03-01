@@ -74,7 +74,7 @@ void sparse_model_file_test(int batch_num_train, bool is_distributed) {
 
   // test load_emb_tbl_to_mem
   {
-    MESSAGE_("[TEST] sparse_model_file::load_emb_tbl_to_mem");
+    HCTR_LOG(INFO, ROOT, "[TEST] sparse_model_file::load_emb_tbl_to_mem\n");
     HugeCTR::SparseModelFile<TypeKey> sparse_model_file(snapshot_dst_file, embedding_type,
                                                         emb_vec_size, resource_manager);
 
@@ -155,7 +155,7 @@ void sparse_model_file_test(int batch_num_train, bool is_distributed) {
   }
 
   {
-    MESSAGE_("[TEST] sparse_model_file::append_new_vec_and_key");
+    HCTR_LOG(INFO, ROOT, "[TEST] sparse_model_file::append_new_vec_and_key\n");
     const char *temp_snapshot_file = "tmp_emb_file";
     if (std::filesystem::exists(temp_snapshot_file)) {
       std::filesystem::remove_all(temp_snapshot_file);
@@ -205,7 +205,7 @@ void sparse_model_file_test(int batch_num_train, bool is_distributed) {
     }
 
     // test load_exist_vec_by_key
-    MESSAGE_("[TEST] sparse_model_file::load_exist_vec_by_key");
+    HCTR_LOG(INFO, ROOT, "[TEST] sparse_model_file::load_exist_vec_by_key\n");
     std::vector<size_t> slot_vec;
     std::vector<float> mem_vec;
     sparse_model_file.load_exist_vec_by_key(key_in_file, slot_vec, mem_vec);
@@ -216,7 +216,7 @@ void sparse_model_file_test(int batch_num_train, bool is_distributed) {
 
   // test dump_exist_vec_by_key
   {
-    MESSAGE_("[TEST] sparse_model_file::dump_exist_vec_by_key");
+    HCTR_LOG(INFO, ROOT, "[TEST] sparse_model_file::dump_exist_vec_by_key\n");
     HugeCTR::SparseModelFile<TypeKey> sparse_model_file(snapshot_dst_file, embedding_type,
                                                         emb_vec_size, resource_manager);
 
@@ -241,7 +241,7 @@ void sparse_model_file_test(int batch_num_train, bool is_distributed) {
     for_each(rand_idx.begin(), rand_idx.end(), gen_rand_op);
     sort(rand_idx.begin(), rand_idx.end());
     rand_idx.erase(std::unique(rand_idx.begin(), rand_idx.end()), rand_idx.end());
-    MESSAGE_(std::to_string(rand_idx.size()) + " keys selected");
+    HCTR_LOG_S(INFO, ROOT) << rand_idx.size() << " keys selected" << std::endl;
 
     std::vector<TypeKey> selt_keys(rand_idx.size());
     auto get_key_op = [&all_keys](size_t idx) { return all_keys[idx]; };

@@ -35,7 +35,12 @@ class FileSource : public Source {
 
  public:
   FileSource(long long offset, long long stride, const std::string& file_list, bool repeat)
-      : file_list_(file_list), offset_(offset), stride_(stride), repeat_(repeat) {}
+      : file_list_(file_list), offset_(offset), stride_(stride), repeat_(repeat) {
+    HCTR_CHECK_HINT(
+        file_list_.get_num_of_files() >= stride_,
+        "The number of data reader workers should be no greater than the number of files in the "
+        "file list. Please re-configure num_workers within DataReaderParams.");
+  }
 
   /**
    * Read "bytes_to_read" byte to the memory associated to ptr.
@@ -56,7 +61,7 @@ class FileSource : public Source {
       }
       return Error_t::Success;
     } catch (const std::runtime_error& rt_err) {
-      std::cerr << rt_err.what() << std::endl;
+      HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
       return Error_t::UnspecificError;
     }
   }
@@ -77,11 +82,13 @@ class FileSource : public Source {
       }
       in_file_stream_.open(file_name, std::ifstream::binary);
       if (!in_file_stream_.is_open()) {
-        CK_RETURN_(Error_t::FileCannotOpen, "in_file_stream_.is_open() failed: " + file_name);
+        HCTR_LOG_S(ERROR, WORLD) << "in_file_stream_.is_open() failed: " << file_name << ' '
+                                 << HCTR_LOCATION() << std::endl;
+        return Error_t::FileCannotOpen;
       }
       return Error_t::Success;
     } catch (const std::runtime_error& rt_err) {
-      std::cerr << rt_err.what() << std::endl;
+      HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
       return Error_t::UnspecificError;
     }
   }

@@ -62,17 +62,17 @@ void ProxyCommand::reset() {
 }
 
 static int oob_bcast(void* comm_context, void* buf, int size, int root) {
-  CK_MPI_THROW_(MPI_Bcast(buf, size, MPI_BYTE, root, MPI_COMM_WORLD));
+  HCTR_MPI_THROW(MPI_Bcast(buf, size, MPI_BYTE, root, MPI_COMM_WORLD));
   return 0;
 }
 
 static int oob_barrier(void* comm_context) {
-  CK_MPI_THROW_(MPI_Barrier(MPI_COMM_WORLD));
+  HCTR_MPI_THROW(MPI_Barrier(MPI_COMM_WORLD));
   return 0;
 }
 
 static int oob_gather(void* comm_context, int root, void* sbuf, void* rbuf, int len) {
-  CK_MPI_THROW_(MPI_Gather(sbuf, len, MPI_BYTE, rbuf, len, MPI_BYTE, root, MPI_COMM_WORLD));
+  HCTR_MPI_THROW(MPI_Gather(sbuf, len, MPI_BYTE, rbuf, len, MPI_BYTE, root, MPI_COMM_WORLD));
   return 0;
 }
 
@@ -99,7 +99,8 @@ void IbvProxy::HierA2AIbvContext::init_ibv(const IbvProxy::InitConfig& cfg) {
   // Allocate PD
   pd_ = ibv_alloc_pd(context_);
   if (!pd_) {
-    ERROR_MESSAGE_("Unable to alloc protection domain for dev " + cfg.ib_dev_);
+    HCTR_LOG_S(ERROR, WORLD) << "Unable to alloc protection domain for dev" << cfg.ib_dev_ << ". "
+                             << HCTR_LOCATION() << std::endl;
   }
   size_t num_gpus = cfg.num_gpus_;
   cq_ = (struct ibv_cq**)malloc(num_procs * sizeof(struct ibv_cq*));
@@ -112,7 +113,8 @@ void IbvProxy::HierA2AIbvContext::init_ibv(const IbvProxy::InitConfig& cfg) {
   for (size_t n = 0; n < num_procs; n++) {
     cq_[n] = ibv_create_cq(context_, 2 * num_gpus /*recv + send*/, NULL, NULL, 0);
     if (!cq_[n]) {
-      ERROR_MESSAGE_("Unable to create completion queue");
+      HCTR_LOG_S(ERROR, WORLD) << "Unable to create completion queue. " << HCTR_LOCATION()
+                               << std::endl;
     }
 
     struct ibv_qp_init_attr qp_init_attr;
@@ -129,7 +131,7 @@ void IbvProxy::HierA2AIbvContext::init_ibv(const IbvProxy::InitConfig& cfg) {
     // Create QP
     qp_[n] = ibv_create_qp(pd_, &qp_init_attr);
     if (qp_[n] == NULL) {
-      ERROR_MESSAGE_("Unable to create qp");
+      HCTR_LOG_S(ERROR, WORLD) << "Unable to create qp. " << HCTR_LOCATION() << std::endl;
     }
 
     // QP state machine
@@ -141,12 +143,13 @@ void IbvProxy::HierA2AIbvContext::init_ibv(const IbvProxy::InitConfig& cfg) {
     qp_attr.qp_access_flags = IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_ATOMIC;
     if (ibv_modify_qp(qp_[n], &qp_attr,
                       IBV_QP_STATE | IBV_QP_PKEY_INDEX | IBV_QP_PORT | IBV_QP_ACCESS_FLAGS) != 0) {
-      ERROR_MESSAGE_("Unable to modify QP access attributes");
+      HCTR_LOG_S(ERROR, WORLD) << "Unable to modify QP access attributes. " << HCTR_LOCATION()
+                               << std::endl;
     }
 
     struct ibv_port_attr port_attr;
     if (ibv_query_port(context_, cfg.ib_port_, &port_attr) != 0) {
-      std::cerr << "Unable to query port for port info" << std::endl;
+      HCTR_LOG_S(ERROR, WORLD) << "Unable to query port for port info" << std::endl;
     }
 
     qp_infos_[n].ib_port = cfg.ib_port_;
@@ -155,8 +158,8 @@ void IbvProxy::HierA2AIbvContext::init_ibv(const IbvProxy::InitConfig& cfg) {
     qp_infos_[n].mtu = port_attr.active_mtu;
   }
 
-  CK_MPI_THROW_(MPI_Alltoall((void*)qp_infos_, sizeof(IbQpInfo), MPI_BYTE, (void*)rem_qp_infos_,
-                             sizeof(IbQpInfo), MPI_BYTE, MPI_COMM_WORLD));
+  HCTR_MPI_THROW(MPI_Alltoall((void*)qp_infos_, sizeof(IbQpInfo), MPI_BYTE, (void*)rem_qp_infos_,
+                              sizeof(IbQpInfo), MPI_BYTE, MPI_COMM_WORLD));
 
   // TODO: Align buffer allocation to 4KB
 
@@ -185,7 +188,7 @@ void IbvProxy::HierA2AIbvContext::init_ibv(const IbvProxy::InitConfig& cfg) {
                         IBV_QP_STATE | IBV_QP_AV | IBV_QP_PATH_MTU | IBV_QP_DEST_QPN |
                             IBV_QP_RQ_PSN | IBV_QP_MAX_DEST_RD_ATOMIC | IBV_QP_MIN_RNR_TIMER) !=
           0) {
-        ERROR_MESSAGE_("Modify QP failed");
+        HCTR_LOG_S(ERROR, WORLD) << "Modify QP failed. " << HCTR_LOCATION() << std::endl;
         exit(1);
       }
     }
@@ -203,7 +206,7 @@ void IbvProxy::HierA2AIbvContext::init_ibv(const IbvProxy::InitConfig& cfg) {
       if (ibv_modify_qp(qp_[n], &qp_attr,
                         IBV_QP_STATE | IBV_QP_TIMEOUT | IBV_QP_RETRY_CNT | IBV_QP_RNR_RETRY |
                             IBV_QP_SQ_PSN | IBV_QP_MAX_QP_RD_ATOMIC) != 0) {
-        ERROR_MESSAGE_("Modify QP failed RTS state");
+        HCTR_LOG_S(ERROR, WORLD) << "Modify QP failed RTS state. " << HCTR_LOCATION() << std::endl;
         exit(1);
       }
     }
@@ -245,7 +248,7 @@ void IbvProxy::HierA2AIbvContext::finalize_ibv() {
 #ifdef SHARP_A2A
 void IbvProxy::HierA2AIbvContext::init_sharp(const IbvProxy::InitConfig& cfg) {
   if (cfg.proxy_id_ == 0) {
-    MESSAGE_("using SHARP for A2A");
+    HCTR_LOG(INFO, ROOT, "using SHARP for A2A\n");
 
     struct sharp_coll_comm_init_spec comm_spec;
     struct sharp_coll_init_spec init_spec = {0};
@@ -254,7 +257,7 @@ void IbvProxy::HierA2AIbvContext::init_sharp(const IbvProxy::InitConfig& cfg) {
 
     init_spec.progress_func = NULL;
     init_spec.job_id = (gethostid() << 32);
-    CK_MPI_THROW_(MPI_Bcast(&(init_spec.job_id), 1, MPI_LONG, 0, MPI_COMM_WORLD));
+    HCTR_MPI_THROW(MPI_Bcast(&(init_spec.job_id), 1, MPI_LONG, 0, MPI_COMM_WORLD));
     init_spec.world_rank = my_proc;
     init_spec.world_size = num_procs;
     init_spec.world_local_rank = 0;
@@ -328,8 +331,8 @@ void IbvProxy::HierA2ACollContext::init_buf(const M2PHierA2ABufInit& in, P2MHier
   send_ptrs_ = (void**)malloc(sizeof(void*) * num_procs);
   recv_ptrs_ = (void**)malloc(sizeof(void*) * num_procs);
 
-  CK_CUDA_THROW_(cudaMallocHost((void**)&send_sizes_, sizeof(size_t) * num_procs));
-  CK_CUDA_THROW_(cudaMallocHost((void**)&recv_sizes_, sizeof(size_t) * num_procs));
+  HCTR_LIB_THROW(cudaMallocHost((void**)&send_sizes_, sizeof(size_t) * num_procs));
+  HCTR_LIB_THROW(cudaMallocHost((void**)&recv_sizes_, sizeof(size_t) * num_procs));
 
   memcpy(send_ptrs_, in.d_send_ptrs_, sizeof(void*) * num_procs);
   memcpy(recv_ptrs_, in.d_recv_ptrs_, sizeof(void*) * num_procs);
@@ -355,7 +358,7 @@ void IbvProxy::HierA2ACollContext::init_buf(const M2PHierA2ABufInit& in, P2MHier
                      IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_READ);
 
       if (!input_mr_[n]) {
-        ERROR_MESSAGE_("Input reg mr failed");
+        HCTR_LOG_S(ERROR, WORLD) << "Input reg mr failed. " << HCTR_LOCATION() << std::endl;
         exit(1);
       }
     }
@@ -366,7 +369,7 @@ void IbvProxy::HierA2ACollContext::init_buf(const M2PHierA2ABufInit& in, P2MHier
                      IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_READ);
 
       if (!output_mr_[n]) {
-        ERROR_MESSAGE_("Output reg mr failed");
+        HCTR_LOG_S(ERROR, WORLD) << "Output reg mr failed. " << HCTR_LOCATION() << std::endl;
         exit(1);
       }
       memcpy(&in_rem_output_mr_[n], output_mr_[n], sizeof(struct ibv_mr));
@@ -374,9 +377,9 @@ void IbvProxy::HierA2ACollContext::init_buf(const M2PHierA2ABufInit& in, P2MHier
   }
 
   // Get remote output MRs for RDMA write
-  CK_MPI_THROW_(MPI_Alltoall((void*)in_rem_output_mr_, sizeof(struct ibv_mr), MPI_BYTE,
-                             (void*)rem_output_mr_, sizeof(struct ibv_mr), MPI_BYTE,
-                             MPI_COMM_WORLD));
+  HCTR_MPI_THROW(MPI_Alltoall((void*)in_rem_output_mr_, sizeof(struct ibv_mr), MPI_BYTE,
+                              (void*)rem_output_mr_, sizeof(struct ibv_mr), MPI_BYTE,
+                              MPI_COMM_WORLD));
 
   // Allocate atomics
   d_ibv_atomic_ = in.d_ibv_atomic_;
@@ -396,9 +399,9 @@ void IbvProxy::HierA2ACollContext::init_buf(const M2PHierA2ABufInit& in, P2MHier
   rem_atomic_mr_ = (struct ibv_mr*)malloc(num_procs * sizeof(struct ibv_mr));
   memcpy(&rem_atomic_mr_[my_proc], my_atomic_mr_, sizeof(struct ibv_mr));
 
-  CK_MPI_THROW_(MPI_Allgather((void*)&rem_atomic_mr_[my_proc], sizeof(struct ibv_mr), MPI_BYTE,
-                              (void*)rem_atomic_mr_, sizeof(struct ibv_mr), MPI_BYTE,
-                              MPI_COMM_WORLD));
+  HCTR_MPI_THROW(MPI_Allgather((void*)&rem_atomic_mr_[my_proc], sizeof(struct ibv_mr), MPI_BYTE,
+                               (void*)rem_atomic_mr_, sizeof(struct ibv_mr), MPI_BYTE,
+                               MPI_COMM_WORLD));
 
   // Set expected completions
   for (size_t n = 0; n < num_procs; n++) {
@@ -424,7 +427,7 @@ void IbvProxy::HierA2ACollContext::process_recv() {
       int ret = sharp_coll_do_barrier(ibv_ctx_->sharp_coll_comm_);
       PROXY_ASSERT(ret == SHARP_COLL_SUCCESS);
 #else
-      CK_MPI_THROW_(MPI_Barrier(MPI_COMM_WORLD));
+      HCTR_MPI_THROW(MPI_Barrier(MPI_COMM_WORLD));
 #endif
     }
     sync_helper_->recv_bcast();
@@ -519,9 +522,9 @@ bool IbvProxy::HierA2ACollContext::wait_send_completion() {
       } else if (wc->opcode == IBV_WC_FETCH_ADD) {
         num_atomic_completions_++;
       } else {
-        std::cerr << proxy_ctx_->cfg_.device_id_ << " " << my_proc_
-                  << " Unknown completion received " << wc->opcode << " status: " << wc->status
-                  << std::endl;
+        HCTR_LOG_S(ERROR, WORLD) << proxy_ctx_->cfg_.device_id_ << " " << my_proc_
+                                 << " Unknown completion received " << wc->opcode
+                                 << " status: " << wc->status << std::endl;
         exit(1);
       }
     }
@@ -539,7 +542,8 @@ bool IbvProxy::HierA2ACollContext::wait_send_completion() {
 void IbvProxy::HierA2ACollContext::stm() {
   switch (state_) {
     case BUF_INIT_PENDING: {
-      ERROR_MESSAGE_("No buffers are registered for the collective");
+      HCTR_LOG_S(ERROR, WORLD) << "No buffers are registered for the collective. "
+                               << HCTR_LOCATION() << std::endl;
       exit(1);
       break;
     }
@@ -592,8 +596,8 @@ void IbvProxy::HierA2AvCollContext::init_buf(const M2PHierA2AvBufInit& in,
     }
   }
 
-  CK_CUDA_THROW_(cudaMallocHost((void**)&send_sizes_, sizeof(size_t) * num_procs_ * num_gpus_));
-  CK_CUDA_THROW_(cudaMallocHost((void**)&recv_sizes_, sizeof(size_t) * num_procs_ * num_gpus_));
+  HCTR_LIB_THROW(cudaMallocHost((void**)&send_sizes_, sizeof(size_t) * num_procs_ * num_gpus_));
+  HCTR_LIB_THROW(cudaMallocHost((void**)&recv_sizes_, sizeof(size_t) * num_procs_ * num_gpus_));
 
   PROXY_ASSERT(in.h_max_send_size_ == in.h_max_recv_size_);
   PROXY_ASSERT(in.h_max_send_size_ % (num_procs_ * num_gpus_) == 0);
@@ -647,9 +651,9 @@ void IbvProxy::HierA2AvCollContext::init_buf(const M2PHierA2AvBufInit& in,
   rem_output_mr_ = (ibv_mr*)malloc(num_procs_ * sizeof(struct ibv_mr));
   memcpy(&rem_output_mr_[my_proc_], output_mr_, sizeof(struct ibv_mr));
 
-  CK_MPI_THROW_(MPI_Allgather((void*)&rem_output_mr_[my_proc_], sizeof(struct ibv_mr), MPI_BYTE,
-                              (void*)rem_output_mr_, sizeof(struct ibv_mr), MPI_BYTE,
-                              MPI_COMM_WORLD));
+  HCTR_MPI_THROW(MPI_Allgather((void*)&rem_output_mr_[my_proc_], sizeof(struct ibv_mr), MPI_BYTE,
+                               (void*)rem_output_mr_, sizeof(struct ibv_mr), MPI_BYTE,
+                               MPI_COMM_WORLD));
 
   // Populate remote MRs
   for (size_t n = 0; n < num_procs_; n++) {
@@ -678,9 +682,9 @@ void IbvProxy::HierA2AvCollContext::init_buf(const M2PHierA2AvBufInit& in,
   rem_atomic_mr_ = (struct ibv_mr*)malloc(num_procs_ * sizeof(struct ibv_mr));
   memcpy(&rem_atomic_mr_[my_proc_], my_atomic_mr_, sizeof(struct ibv_mr));
 
-  CK_MPI_THROW_(MPI_Allgather((void*)&rem_atomic_mr_[my_proc_], sizeof(struct ibv_mr), MPI_BYTE,
-                              (void*)rem_atomic_mr_, sizeof(struct ibv_mr), MPI_BYTE,
-                              MPI_COMM_WORLD));
+  HCTR_MPI_THROW(MPI_Allgather((void*)&rem_atomic_mr_[my_proc_], sizeof(struct ibv_mr), MPI_BYTE,
+                               (void*)rem_atomic_mr_, sizeof(struct ibv_mr), MPI_BYTE,
+                               MPI_COMM_WORLD));
 
   // // Populate atomic write requests
   atomic_wr_ = (ibv_send_wr*)(malloc(num_procs_ * sizeof(struct ibv_send_wr)));
@@ -726,7 +730,7 @@ void IbvProxy::HierA2AvCollContext::process_recv() {
       int ret = sharp_coll_do_barrier(ibv_ctx_->sharp_coll_comm_);
       PROXY_ASSERT(ret == SHARP_COLL_SUCCESS);
 #else
-      CK_MPI_THROW_(MPI_Barrier(MPI_COMM_WORLD));
+      HCTR_MPI_THROW(MPI_Barrier(MPI_COMM_WORLD));
 #endif
     }
     sync_helper_->recv_bcast();
@@ -750,8 +754,8 @@ void IbvProxy::HierA2AvCollContext::process_send() {
     PROXY_ASSERT(ret == 0);
   }
   // auto& cfg = proxy_ctx_->cfg_;
-  // if (cfg.proxy_id_ == 0) { std::cout << "ibv send called " << cfg.my_proc_ << " " <<
-  // last_recv_cmd_ << std::endl; }
+  // if (cfg.proxy_id_ == 0) { HCTR_LOG_S(INFO, WORLD) << "ibv send called " << cfg.my_proc_ << " "
+  // << last_recv_cmd_ << std::endl; }
   PROXY_ASSERT_MSG((*(h_recv_cmd_ptr_)-last_recv_cmd_) <= 2, "Can't have multiple sends inflight");
   last_recv_cmd_++;
 }
@@ -769,9 +773,9 @@ bool IbvProxy::HierA2AvCollContext::wait_send_completion() {
       } else if (wc->opcode == IBV_WC_FETCH_ADD) {
         num_atomic_completions_++;
       } else {
-        std::cerr << proxy_ctx_->cfg_.device_id_ << " " << my_proc_
-                  << " Unknown completion received " << wc->opcode << " status: " << wc->status
-                  << std::endl;
+        HCTR_LOG_S(ERROR, WORLD) << proxy_ctx_->cfg_.device_id_ << " " << my_proc_
+                                 << " Unknown completion received " << wc->opcode
+                                 << " status: " << wc->status << std::endl;
         exit(1);
       }
     }
@@ -789,7 +793,8 @@ bool IbvProxy::HierA2AvCollContext::wait_send_completion() {
 void IbvProxy::HierA2AvCollContext::stm() {
   switch (state_) {
     case BUF_INIT_PENDING: {
-      ERROR_MESSAGE_("No buffers are registered for the collective");
+      HCTR_LOG_S(ERROR, WORLD) << "No buffers are registered for the collective. "
+                               << HCTR_LOCATION() << std::endl;
       exit(1);
       break;
     }
@@ -868,7 +873,8 @@ void IbvProxy::exec_proxy_cmd(const M2PHierA2ACollInit& in, const P2MNull& __unu
   hier_a2a_coll_ctx_.emplace_back(std::make_unique<HierA2ACollContext>(
       this, hier_a2a_ibv_ctx_.get(), in.sync_helper_, in.skip_barrier_));
   if ((hier_a2a_coll_ctx_.size() - 1) != in.coll_handle_) {
-    ERROR_MESSAGE_("CollHandle mismatch between main and proxy threads");
+    HCTR_LOG_S(ERROR, WORLD) << "CollHandle mismatch between main and proxy threads. "
+                             << HCTR_LOCATION() << std::endl;
     exit(1);
   }
 }
@@ -895,7 +901,8 @@ void IbvProxy::exec_proxy_cmd(const M2PHierA2AvCollInit& in, const P2MNull& __un
   hier_a2a_v_coll_ctx_.emplace_back(std::make_unique<HierA2AvCollContext>(
       this, hier_a2a_ibv_ctx_.get(), in.sync_helper_, in.skip_barrier_));
   if ((hier_a2a_v_coll_ctx_.size() - 1) != in.coll_handle_) {
-    ERROR_MESSAGE_("CollHandle mismatch between main and proxy threads");
+    HCTR_LOG_S(ERROR, WORLD) << "CollHandle mismatch between main and proxy threads. "
+                             << HCTR_LOCATION() << std::endl;
     exit(1);
   }
 }
@@ -964,7 +971,7 @@ IbvProxy::SharpContext::SharpContext(const IbvProxy::InitConfig& cfg) {
 
   init_spec.progress_func = NULL;
   init_spec.job_id = (gethostid() << 32 | (cfg.proxy_id_));
-  CK_MPI_THROW_(MPI_Bcast(&(init_spec.job_id), 1, MPI_LONG, 0, MPI_COMM_WORLD));
+  HCTR_MPI_THROW(MPI_Bcast(&(init_spec.job_id), 1, MPI_LONG, 0, MPI_COMM_WORLD));
   init_spec.world_rank = my_proc;
   init_spec.world_size = num_procs;
   init_spec.world_local_rank = 0;
@@ -1182,7 +1189,7 @@ void IbvProxy::ARCollContext::init_buf(const M2PARBufInit& in, P2MARBufInit& out
   PROXY_ASSERT(ret == SHARP_COLL_SUCCESS);
 
   // Allocate host flags
-  CK_CUDA_THROW_(cudaMallocHost(&h_rs_cmd_, sizeof(size_t)));
+  HCTR_LIB_THROW(cudaMallocHost(&h_rs_cmd_, sizeof(size_t)));
   *h_rs_cmd_ = 0;
 
   // Allocate storage for d_ag_cmd_
@@ -1191,9 +1198,9 @@ void IbvProxy::ARCollContext::init_buf(const M2PARBufInit& in, P2MARBufInit& out
   const int gpu_page_offset = (gpu_page_size - 1);
   const int gpu_page_mask = (~gpu_page_offset);
 
-  CK_CUDA_THROW_(cudaSetDevice(proxy_ctx_->cfg_.device_id_));
-  CK_CUDA_THROW_(cudaMalloc(&d_ag_storage_, 2 * gpu_page_size));
-  CK_CUDA_THROW_(cudaMemset(d_ag_storage_, 0, 2 * gpu_page_size));
+  HCTR_LIB_THROW(cudaSetDevice(proxy_ctx_->cfg_.device_id_));
+  HCTR_LIB_THROW(cudaMalloc(&d_ag_storage_, 2 * gpu_page_size));
+  HCTR_LIB_THROW(cudaMemset(d_ag_storage_, 0, 2 * gpu_page_size));
   d_ag_cmd_ = (size_t*)(((CUdeviceptr)d_ag_storage_ + gpu_page_size - 1) & gpu_page_mask);
 
 #ifdef AR_DISABLE_PCIE_FLUSH
@@ -1255,7 +1262,7 @@ void IbvProxy::ARCollContext::process_sharp_completions() {
 #else
       do_pcie_flush();
 #endif
-      // std::cout << "Sharp completion received" << std::endl;
+      // HCTR_LOG_S(INFO, WORLD) << "Sharp completion received" << std::endl;
       sharp_coll_req_free(handle[sharp_cmpl_counter_ % MAX_SHARP_BLOCKS]);
       sharp_cmpl_counter_++;
     }
@@ -1273,7 +1280,7 @@ void IbvProxy::ARCollContext::process_new_command() {
 
     int ret = sharp_coll_do_allreduce_nb(sharp_ctx_->sharp_coll_comm_, &reduce_spec_,
                                          &handle[sharp_req_counter_ % MAX_SHARP_BLOCKS]);
-    // std::cout << "Sharp coll do allreduce called" << std::endl;
+    // HCTR_LOG_S(INFO, WORLD) << "Sharp coll do allreduce called" << std::endl;
     PROXY_ASSERT(ret == SHARP_COLL_SUCCESS);
 
     sharp_req_counter_++;
@@ -1290,7 +1297,8 @@ void IbvProxy::ARCollContext::process_new_command() {
 void IbvProxy::ARCollContext::stm() {
   switch (state_) {
     case BUF_INIT_PENDING: {
-      ERROR_MESSAGE_("No buffers are registered for the collective");
+      HCTR_LOG_S(ERROR, WORLD) << "No buffers are registered for the collective. "
+                               << HCTR_LOCATION() << std::endl;
       exit(1);
       break;
     }

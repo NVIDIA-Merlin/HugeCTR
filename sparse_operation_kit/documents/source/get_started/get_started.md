@@ -30,6 +30,9 @@ The structure of this demo model is depicted in Fig 1.
 <br>
 <br>
 
+#### Via Subclassing ####
+You can create this demo model via subclassing `tf.keras.Model`. See also [TensorFlow's Docs](https://tensorflow.google.cn/guide/keras/custom_layers_and_models).
+
 ```python
 import tensorflow as tf
 
@@ -76,6 +79,43 @@ class DemoModel(tf.keras.models.Model):
 
         logit = self.out_layer(hidden)
         return logit
+```
+
+#### Via Functional API ####
+You can also create this demo model via `TensorFlow Functional API`. See [TensorFlow's Docs](https://tensorflow.google.cn/guide/keras/functional).
+
+```python
+import tensorflow as tf
+
+def create_DemoModel(max_vocabulary_size_per_gpu,
+                     slot_num,
+                     nnz_per_slot,
+                     embedding_vector_size,
+                     num_of_dense_layers):
+    # config the placeholder for embedding layer
+    input_tensor = tf.keras.Input(
+                type_spec=tf.TensorSpec(shape=(None, slot_num, nnz_per_slot), 
+                dtype=tf.int64))
+
+    # create embedding layer and produce embedding vector
+    embedding_layer = sok.All2AllDenseEmbedding(
+                max_vocabulary_size_per_gpu=max_vocabulary_size_per_gpu,
+                embedding_vec_size=embedding_vector_size,
+                slot_num=slot_num,
+                nnz_per_slot=nnz_per_slot)
+    embedding = embedding_layer(input_tensor)
+
+    # create dense layers and produce logit
+    embedding = tf.keras.layers.Reshape(
+                target_shape=(slot_num * nnz_per_slot * embedding_vector_size,))(embedding)
+    
+    hidden = embedding
+    for _ in range(num_of_dense_layers):
+        hidden = tf.keras.layers.Dense(units=1024, activation="relu")(hidden)
+    logit = tf.keras.layers.Dense(units=1, activation=None)
+
+    model = tf.keras.Model(inputs=input_tensor, outputs=logit)
+    return model
 ```
 
 ### Use SparseOperationKit with tf.distribute.Strategy ###
@@ -193,7 +233,7 @@ strategy = tf.distribute.MultiWorkerMirroredStrategy()
 ```
 
 ***Other Steps***<br>
-The steps ***create model instance under MultiWorkerMirroredStrategy.scope***, ***define training step*** and ***start training*** are the same as which are described in [with tf.distribute.MirroredStrategy](#with-tf-distribute-mirroredstrategy). Please check that section.
+The steps ***create model instance under MultiWorkerMirroredStrategy.scope***, ***define training step*** and ***start training*** are the same as which are described in [with tf.distribute.MirroredStrategy](https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/get_started/get_started.html#with-tf-distribute-mirroredstrategy). Please check that section.
 
 ***launch training program***<br>
 Because multiple CPU processes are used in each machine for synchronized training, therefore `MPI` can be used to launch this program. For example:

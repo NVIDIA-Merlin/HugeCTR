@@ -105,7 +105,7 @@ void save_graph_to_json(nlohmann::json& layer_config_array,
     } else if (sparse_embedding_params[i].combiner == 1) {
       sparse_hparam_config["combiner"] = "mean";
     } else {
-      CK_THROW_(Error_t::WrongInput, "combiner error");
+      HCTR_OWN_THROW(Error_t::WrongInput, "combiner error");
     }
     if (sparse_embedding_params[i].slot_size_array.size() > 0) {
       sparse_hparam_config["slot_size_array"] = sparse_embedding_params[i].slot_size_array;
@@ -372,11 +372,11 @@ void save_graph_to_json(nlohmann::json& layer_config_array,
 }
 
 DenseLayer get_dense_layer_from_json(const nlohmann::json& j_dense_layer) {
-  Layer_t layer_type;
+  Layer_t layer_type = Layer_t::Unknown;
   auto layer_type_name = get_value_from_json<std::string>(j_dense_layer, "type");
   if (!find_item_in_map(layer_type, layer_type_name, LAYER_TYPE_MAP) &&
       !find_item_in_map(layer_type, layer_type_name, LAYER_TYPE_MAP_MP)) {
-    CK_THROW_(Error_t::WrongInput, "No such layer: " + layer_type_name);
+    HCTR_OWN_THROW(Error_t::WrongInput, "No such layer: " + layer_type_name);
   }
   auto bottom = get_json(j_dense_layer, "bottom");
   auto top = get_json(j_dense_layer, "top");
@@ -396,7 +396,7 @@ DenseLayer get_dense_layer_from_json(const nlohmann::json& j_dense_layer) {
         if (find_item_in_map(gamma_init_type, gamma_init_name, INITIALIZER_TYPE_MAP)) {
           dense_layer.gamma_init_type = gamma_init_type;
         } else {
-          CK_THROW_(Error_t::WrongInput, "No such initializer: " + gamma_init_name);
+          HCTR_OWN_THROW(Error_t::WrongInput, "No such initializer: " + gamma_init_name);
         }
       }
       if (has_key_(j_bn_hparam, "beta_init")) {
@@ -405,7 +405,7 @@ DenseLayer get_dense_layer_from_json(const nlohmann::json& j_dense_layer) {
         if (find_item_in_map(beta_init_type, beta_init_name, INITIALIZER_TYPE_MAP)) {
           dense_layer.beta_init_type = beta_init_type;
         } else {
-          CK_THROW_(Error_t::WrongInput, "No such initializer: " + beta_init_name);
+          HCTR_OWN_THROW(Error_t::WrongInput, "No such initializer: " + beta_init_name);
         }
       }
       break;
@@ -431,7 +431,7 @@ DenseLayer get_dense_layer_from_json(const nlohmann::json& j_dense_layer) {
         if (find_item_in_map(weight_init_type, weight_init_name, INITIALIZER_TYPE_MAP)) {
           dense_layer.weight_init_type = weight_init_type;
         } else {
-          CK_THROW_(Error_t::WrongInput, "No such initializer: " + weight_init_name);
+          HCTR_OWN_THROW(Error_t::WrongInput, "No such initializer: " + weight_init_name);
         }
       }
       if (has_key_(j_fc_param, "bias_init")) {
@@ -440,7 +440,7 @@ DenseLayer get_dense_layer_from_json(const nlohmann::json& j_dense_layer) {
         if (find_item_in_map(bias_init_type, bias_init_name, INITIALIZER_TYPE_MAP)) {
           dense_layer.bias_init_type = bias_init_type;
         } else {
-          CK_THROW_(Error_t::WrongInput, "No such initializer: " + bias_init_name);
+          HCTR_OWN_THROW(Error_t::WrongInput, "No such initializer: " + bias_init_name);
         }
       }
       if (has_key_(j_dense_layer, "position")) {
@@ -449,7 +449,7 @@ DenseLayer get_dense_layer_from_json(const nlohmann::json& j_dense_layer) {
         if (find_item_in_map(pos_type, position_name, FCPOSITION_TYPE_MAP)) {
           dense_layer.pos_type = pos_type;
         } else {
-          CK_THROW_(Error_t::WrongInput, "No such position: " + position_name);
+          HCTR_OWN_THROW(Error_t::WrongInput, "No such position: " + position_name);
         }
       }
       if (has_key_(j_dense_layer, "activation")) {
@@ -458,7 +458,7 @@ DenseLayer get_dense_layer_from_json(const nlohmann::json& j_dense_layer) {
         if (find_item_in_map(act_type, act_name, ACTIVATION_TYPE_MAP)) {
           dense_layer.act_type = act_type;
         } else {
-          CK_THROW_(Error_t::WrongInput, "No such activation: " + act_name);
+          HCTR_OWN_THROW(Error_t::WrongInput, "No such activation: " + act_name);
         }
       }
       // establish out tensor
@@ -474,7 +474,7 @@ DenseLayer get_dense_layer_from_json(const nlohmann::json& j_dense_layer) {
         if (find_item_in_map(weight_init_type, weight_init_name, INITIALIZER_TYPE_MAP)) {
           dense_layer.weight_init_type = weight_init_type;
         } else {
-          CK_THROW_(Error_t::WrongInput, "No such initializer: " + weight_init_name);
+          HCTR_OWN_THROW(Error_t::WrongInput, "No such initializer: " + weight_init_name);
         }
       }
       if (has_key_(j_fc_param, "bias_init")) {
@@ -483,7 +483,7 @@ DenseLayer get_dense_layer_from_json(const nlohmann::json& j_dense_layer) {
         if (find_item_in_map(bias_init_type, bias_init_name, INITIALIZER_TYPE_MAP)) {
           dense_layer.bias_init_type = bias_init_type;
         } else {
-          CK_THROW_(Error_t::WrongInput, "No such initializer: " + bias_init_name);
+          HCTR_OWN_THROW(Error_t::WrongInput, "No such initializer: " + bias_init_name);
         }
       }
       // establish out tensor
@@ -499,7 +499,7 @@ DenseLayer get_dense_layer_from_json(const nlohmann::json& j_dense_layer) {
         if (find_item_in_map(weight_init_type, weight_init_name, INITIALIZER_TYPE_MAP)) {
           dense_layer.weight_init_type = weight_init_type;
         } else {
-          CK_THROW_(Error_t::WrongInput, "No such initializer: " + weight_init_name);
+          HCTR_OWN_THROW(Error_t::WrongInput, "No such initializer: " + weight_init_name);
         }
       }
       if (has_key_(j_mc_param, "bias_init")) {
@@ -508,7 +508,7 @@ DenseLayer get_dense_layer_from_json(const nlohmann::json& j_dense_layer) {
         if (find_item_in_map(bias_init_type, bias_init_name, INITIALIZER_TYPE_MAP)) {
           dense_layer.bias_init_type = bias_init_type;
         } else {
-          CK_THROW_(Error_t::WrongInput, "No such initializer: " + bias_init_name);
+          HCTR_OWN_THROW(Error_t::WrongInput, "No such initializer: " + bias_init_name);
         }
       }
       auto num_layers = get_value_from_json<int>(j_mc_param, "num_layers");
@@ -522,7 +522,9 @@ DenseLayer get_dense_layer_from_json(const nlohmann::json& j_dense_layer) {
         nlohmann::json j_selected = (selected_it.value());
         for (auto slot_obj : j_selected) {
           int slot_id = slot_obj.get<int>();
-          if (slot_id < 0) CK_THROW_(Error_t::WrongInput, "slot_id < 0");
+          if (slot_id < 0) {
+            HCTR_OWN_THROW(Error_t::WrongInput, "slot_id < 0");
+          }
           selected.push_back(slot_id);
         }
         dense_layer.selected = true;
@@ -574,7 +576,7 @@ DenseLayer get_dense_layer_from_json(const nlohmann::json& j_dense_layer) {
         if (find_item_in_map(weight_init_type, weight_init_name, INITIALIZER_TYPE_MAP)) {
           dense_layer.weight_init_type = weight_init_type;
         } else {
-          CK_THROW_(Error_t::WrongInput, "No such initializer: " + weight_init_name);
+          HCTR_OWN_THROW(Error_t::WrongInput, "No such initializer: " + weight_init_name);
         }
       }
       if (has_key_(j_gru_param, "bias_init")) {
@@ -583,7 +585,7 @@ DenseLayer get_dense_layer_from_json(const nlohmann::json& j_dense_layer) {
         if (find_item_in_map(bias_init_type, bias_init_name, INITIALIZER_TYPE_MAP)) {
           dense_layer.bias_init_type = bias_init_type;
         } else {
-          CK_THROW_(Error_t::WrongInput, "No such initializer: " + bias_init_name);
+          HCTR_OWN_THROW(Error_t::WrongInput, "No such initializer: " + bias_init_name);
         }
       }
       auto num_output = get_value_from_json<int>(j_gru_param, "num_output");
@@ -627,7 +629,7 @@ DenseLayer get_dense_layer_from_json(const nlohmann::json& j_dense_layer) {
         if (find_item_in_map(weight_init_type, weight_init_name, INITIALIZER_TYPE_MAP)) {
           dense_layer.weight_init_type = weight_init_type;
         } else {
-          CK_THROW_(Error_t::WrongInput, "No such initializer: " + weight_init_name);
+          HCTR_OWN_THROW(Error_t::WrongInput, "No such initializer: " + weight_init_name);
         }
       }
       break;
@@ -660,7 +662,7 @@ DenseLayer get_dense_layer_from_json(const nlohmann::json& j_dense_layer) {
           dense_layer.regularizer_type = reg_type;
           dense_layer.lambda = lambda;
         } else {
-          CK_THROW_(Error_t::WrongInput, "No such regularizer: " + reg_name);
+          HCTR_OWN_THROW(Error_t::WrongInput, "No such regularizer: " + reg_name);
         }
       } else {
         dense_layer.use_regularizer = false;
@@ -678,7 +680,7 @@ DenseLayer get_dense_layer_from_json(const nlohmann::json& j_dense_layer) {
           dense_layer.regularizer_type = reg_type;
           dense_layer.lambda = lambda;
         } else {
-          CK_THROW_(Error_t::WrongInput, "No such regularizer: " + reg_name);
+          HCTR_OWN_THROW(Error_t::WrongInput, "No such regularizer: " + reg_name);
         }
       } else {
         dense_layer.use_regularizer = false;
@@ -696,7 +698,7 @@ DenseLayer get_dense_layer_from_json(const nlohmann::json& j_dense_layer) {
           dense_layer.regularizer_type = reg_type;
           dense_layer.lambda = lambda;
         } else {
-          CK_THROW_(Error_t::WrongInput, "No such regularizer: " + reg_name);
+          HCTR_OWN_THROW(Error_t::WrongInput, "No such regularizer: " + reg_name);
         }
       } else {
         dense_layer.use_regularizer = false;
@@ -733,12 +735,12 @@ static InputOutputInfo get_input_tensor_and_output_name(
   for (auto& bottom_name : bottom_names) {
     for (auto& top_name : top_names) {
       if (bottom_name == top_name) {
-        CK_THROW_(Error_t::WrongInput, "bottom and top include a same layer name");
+        HCTR_OWN_THROW(Error_t::WrongInput, "bottom and top include a same layer name");
       }
     }
     TensorBag2 bag;
     if (!get_tensor_from_entries(tensor_entries, bottom_name, &bag)) {
-      CK_THROW_(Error_t::WrongInput, "No such bottom: " + bottom_name);
+      HCTR_OWN_THROW(Error_t::WrongInput, "No such bottom: " + bottom_name);
     }
     bottom_bags.push_back(bag);
   }
@@ -789,10 +791,10 @@ void Model::add_dense_layer_internal(
   if (layer_type_to_string.find(layer_type) == layer_type_to_string.end()) {
     if (use_mixed_precision) {
       auto layer_type_name = LAYER_TYPE_TO_STRING[layer_type];
-      CK_THROW_(Error_t::WrongInput, "Mixed precision not supported for: " + layer_type_name);
+      HCTR_OWN_THROW(Error_t::WrongInput, "Mixed precision not supported for: " + layer_type_name);
     } else {
       auto layer_type_name = LAYER_TYPE_TO_STRING_MP[layer_type];
-      CK_THROW_(Error_t::WrongInput, "Single precision not supported for: " + layer_type_name);
+      HCTR_OWN_THROW(Error_t::WrongInput, "Single precision not supported for: " + layer_type_name);
     }
   }
   std::vector<TensorEntry> output_tensor_entries;
@@ -831,7 +833,7 @@ void Model::add_dense_layer_internal(
     }
     case Layer_t::BinaryCrossEntropyLoss: {
       if (input_output_info.inputs.size() != 2) {
-        CK_THROW_(Error_t::WrongInput, "bottom of BinaryCrossEntropyLoss must be two dim");
+        HCTR_OWN_THROW(Error_t::WrongInput, "bottom of BinaryCrossEntropyLoss must be two dim");
       }
       Tensor2<float> label_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[1]);
       blobs_buff->reserve({1, 1}, &loss_tensor);
@@ -880,7 +882,7 @@ void Model::add_dense_layer_internal(
     }
     case Layer_t::CrossEntropyLoss: {
       if (input_output_info.inputs.size() != 2) {
-        CK_THROW_(Error_t::WrongInput, "bottom of CrossEntropyLoss must be two dim");
+        HCTR_OWN_THROW(Error_t::WrongInput, "bottom of CrossEntropyLoss must be two dim");
       }
       Tensor2<float> label_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[1]);
       blobs_buff->reserve({1, 1}, &loss_tensor);
@@ -963,14 +965,15 @@ void Model::add_dense_layer_internal(
       auto act_type = dense_layer.act_type;
       bool head_mask_in = pos_type == FcPosition_t::Head && input_size == 2;
       if (skip_dgrad && pos_type == FcPosition_t::Head && input_size == 2) {
-        CK_THROW_(Error_t::WrongInput,
-                  "FusedInnerProduct Head Layer should have only one input tensors when it is the "
-                  "first dense layer");
+        HCTR_OWN_THROW(
+            Error_t::WrongInput,
+            "FusedInnerProduct Head Layer should have only one input tensors when it is the "
+            "first dense layer");
       }
       if (async_mlp_wgrad && !skip_dgrad && pos_type == FcPosition_t::Head && input_size == 1) {
-        CK_THROW_(Error_t::WrongInput,
-                  "FusedInnerProduct Head Layer should have two input tensors when turning on "
-                  "async wgrad knob");
+        HCTR_OWN_THROW(Error_t::WrongInput,
+                       "FusedInnerProduct Head Layer should have two input tensors when turning on "
+                       "async wgrad knob");
       }
       if (pos_type == FcPosition_t::Head && input_size == 1 && output_size == 4) {
       } else if (pos_type == FcPosition_t::Head && input_size == 2 && output_size == 4) {
@@ -979,13 +982,13 @@ void Model::add_dense_layer_internal(
       } else if (pos_type == FcPosition_t::Isolated && input_size == 1 && output_size == 1) {
       } else if (pos_type == FcPosition_t::None && input_size == 1 && output_size == 1) {
       } else {
-        CK_THROW_(Error_t::WrongInput,
-                  "The position and dimension of bottom and top layer aren't compatible: " +
-                      LAYER_TYPE_TO_STRING_MP[layer_type]);
+        HCTR_OWN_THROW(Error_t::WrongInput,
+                       "The position and dimension of bottom and top layer aren't compatible: " +
+                           LAYER_TYPE_TO_STRING_MP[layer_type]);
       }
       if (act_type == Activation_t::None && pos_type != FcPosition_t::Tail) {
-        CK_THROW_(Error_t::WrongInput,
-                  "The layer without activation function must be the last layer in MLP.");
+        HCTR_OWN_THROW(Error_t::WrongInput,
+                       "The layer without activation function must be the last layer in MLP.");
       }
       if (use_mixed_precision) {
         Tensor2<__half> train_in_tensor =
@@ -1031,7 +1034,7 @@ void Model::add_dense_layer_internal(
               {input_output_info.output_names[3], db_out_tensor.shrink()});
         }
       } else {
-        CK_THROW_(Error_t::WrongInput, "FusedInnerProduct support half only");
+        HCTR_OWN_THROW(Error_t::WrongInput, "FusedInnerProduct support half only");
       }
       break;
     }
@@ -1078,26 +1081,28 @@ void Model::add_dense_layer_internal(
     }
     case Layer_t::Interaction: {
       if (input_output_info.inputs.size() != 2) {
-        CK_THROW_(Error_t::WrongInput, "InteractionLayer needs two input tensors ");
+        HCTR_OWN_THROW(Error_t::WrongInput, "InteractionLayer needs two input tensors ");
       }
       if (input_output_info.output_names.size() != 2 &&
           input_output_info.output_names.size() != 1) {
-        CK_THROW_(Error_t::WrongInput, "InteractionLayer should have one or two output tensors");
+        HCTR_OWN_THROW(Error_t::WrongInput,
+                       "InteractionLayer should have one or two output tensors");
       }
       if (input_output_info.output_names.size() == 1 && async_mlp_wgrad == true) {
-        CK_THROW_(
+        HCTR_OWN_THROW(
             Error_t::WrongInput,
             "InteractionLayer should have two output tensors when turning on async wgrad knob");
       }
       if (input_output_info.output_names.size() == 2 && !use_mixed_precision) {
-        CK_THROW_(Error_t::WrongInput,
-                  "InteractionLayer<float> should have only one output tensor");
+        HCTR_OWN_THROW(Error_t::WrongInput,
+                       "InteractionLayer<float> should have only one output tensor");
       }
       if (use_mixed_precision) {
         if (gpu_resource->get_cc_major() < 7) {
-          CK_THROW_(Error_t::WrongInput, "InteractionLayer<__half> is not supported in SM " +
-                                             std::to_string(gpu_resource->get_cc_major()) + "." +
-                                             std::to_string(gpu_resource->get_cc_minor()));
+          std::ostringstream os;
+          os << "InteractionLayer<__half> is not supported in SM " << gpu_resource->get_cc_major()
+             << '.' << gpu_resource->get_cc_minor();
+          HCTR_OWN_THROW(Error_t::WrongInput, os.str());
         }
         Tensor2<__half> in_mlp_tensor = Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
         Tensor2<__half> in_emb_tensor = Tensor2<__half>::stretch_from(input_output_info.inputs[1]);
@@ -1151,7 +1156,7 @@ void Model::add_dense_layer_internal(
     }
     case Layer_t::MultiCrossEntropyLoss: {
       if (input_output_info.inputs.size() != 2) {
-        CK_THROW_(Error_t::WrongInput, "bottom of MultiCrossEntropyLoss must be two dim");
+        HCTR_OWN_THROW(Error_t::WrongInput, "bottom of MultiCrossEntropyLoss must be two dim");
       }
       Tensor2<float> label_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[1]);
       blobs_buff->reserve({1, 1}, &loss_tensor);
@@ -1419,11 +1424,21 @@ void Model::add_dense_layer_internal(
       break;
     }
     case Layer_t::Softmax: {
-      Tensor2<float> in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
-      Tensor2<float> out_tensor;
-      blobs_buff->reserve(in_tensor.get_dimensions(), &out_tensor);
-      output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
-      layers.emplace_back(new SoftmaxLayer<float>(in_tensor, out_tensor, blobs_buff, gpu_resource));
+      if (use_mixed_precision) {
+        Tensor2<__half> in_tensor = Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
+        Tensor2<__half> out_tensor;
+        blobs_buff->reserve(in_tensor.get_dimensions(), &out_tensor);
+        output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
+        layers.emplace_back(
+            new SoftmaxLayer<__half>(in_tensor, out_tensor, blobs_buff, gpu_resource));
+      } else {
+        Tensor2<float> in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
+        Tensor2<float> out_tensor;
+        blobs_buff->reserve(in_tensor.get_dimensions(), &out_tensor);
+        output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
+        layers.emplace_back(
+            new SoftmaxLayer<float>(in_tensor, out_tensor, blobs_buff, gpu_resource));
+      }
       break;
     }
     case Layer_t::PReLU_Dice: {

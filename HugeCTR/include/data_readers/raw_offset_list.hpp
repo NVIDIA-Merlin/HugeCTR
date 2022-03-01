@@ -69,14 +69,14 @@ class RawOffsetList {
         unsigned int seed = rd();
 
 #ifdef ENABLE_MPI
-        CK_MPI_THROW_(MPI_Bcast(&seed, 1, MPI_UNSIGNED, 0, MPI_COMM_WORLD));
+        HCTR_MPI_THROW(MPI_Bcast(&seed, 1, MPI_UNSIGNED, 0, MPI_COMM_WORLD));
 #endif
         auto rng = std::default_random_engine{seed};
         std::shuffle(std::begin(offsets_), std::end(offsets_), rng);
       }
 
     } catch (const std::runtime_error& rt_err) {
-      std::cerr << rt_err.what() << std::endl;
+      HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
       throw;
     }
   }
@@ -90,11 +90,11 @@ class RawOffsetList {
     }
     size_t counter = (round * num_workers_ + worker_id) % offsets_.size();
     if (worker_id >= num_workers_) {
-      CK_THROW_(Error_t::WrongInput, "worker_id >= num_workers_");
+      HCTR_OWN_THROW(Error_t::WrongInput, "worker_id >= num_workers_");
     }
     if (counter == offsets_.size() - 1) {
-      // CK_THROW_(Error_t::OutOfBound, "End of File");
-      std::cout << "End of File, worker:  " << worker_id << std::endl;
+      // HCTR_OWN_THROW(Error_t::OutOfBound, "End of File");
+      HCTR_LOG_S(WARNING, WORLD) << "End of File, worker:  " << worker_id << std::endl;
     }
     return offsets_[counter];
   }

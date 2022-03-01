@@ -89,7 +89,7 @@ namespace HugeCTR {
 
 // The maximum length of printed message. It can affect the SM resource usage and performance to set
 // it to a larger value.
-const int KERNEL_PRINTF_MAX_LENGTH = 256;
+const size_t KERNEL_PRINTF_MAX_LENGTH = 256;
 
 /*
  * To directly use the device functions below can lead to an undefined behavior.
@@ -102,28 +102,28 @@ template <typename Type1>
 __device__ void kernel_printf(const char* format, Type1 arg1) {
   char extended_format[KERNEL_PRINTF_MAX_LENGTH] = {};
   kernel_printf_extend_format(extended_format, format);
-  printf((const char*)extended_format, arg1);
+  printf(extended_format, arg1);
 }
 
 template <typename Type1, typename Type2>
 __device__ void kernel_printf(const char* format, Type1 arg1, Type2 arg2) {
   char extended_format[KERNEL_PRINTF_MAX_LENGTH] = {};
   kernel_printf_extend_format(extended_format, format);
-  printf((const char*)extended_format, arg1, arg2);
+  printf(extended_format, arg1, arg2);
 }
 
 template <typename Type1, typename Type2, typename Type3>
 __device__ void kernel_printf(const char* format, Type1 arg1, Type2 arg2, Type3 arg3) {
   char extended_format[KERNEL_PRINTF_MAX_LENGTH] = {};
   kernel_printf_extend_format(extended_format, format);
-  printf((const char*)extended_format, arg1, arg2, arg3);
+  printf(extended_format, arg1, arg2, arg3);
 }
 
 template <typename Type1, typename Type2, typename Type3, typename Type4>
 __device__ void kernel_printf(const char* format, Type1 arg1, Type2 arg2, Type3 arg3, Type4 arg4) {
   char extended_format[KERNEL_PRINTF_MAX_LENGTH] = {};
   kernel_printf_extend_format(extended_format, format);
-  printf((const char*)extended_format, arg1, arg2, arg3, arg4);
+  printf(extended_format, arg1, arg2, arg3, arg4);
 }
 
 template <typename Type1, typename Type2, typename Type3, typename Type4, typename Type5>
@@ -131,7 +131,7 @@ __device__ void kernel_printf(const char* format, Type1 arg1, Type2 arg2, Type3 
                               Type5 arg5) {
   char extended_format[KERNEL_PRINTF_MAX_LENGTH] = {};
   kernel_printf_extend_format(extended_format, format);
-  printf((const char*)extended_format, arg1, arg2, arg3, arg4, arg5);
+  printf(extended_format, arg1, arg2, arg3, arg4, arg5);
 }
 
 template <typename Type1, typename Type2, typename Type3, typename Type4, typename Type5,
@@ -140,7 +140,7 @@ __device__ void kernel_printf(const char* format, Type1 arg1, Type2 arg2, Type3 
                               Type5 arg5, Type6 arg6) {
   char extended_format[KERNEL_PRINTF_MAX_LENGTH] = {};
   kernel_printf_extend_format(extended_format, format);
-  printf((const char*)extended_format, arg1, arg2, arg3, arg4, arg5, arg6);
+  printf(extended_format, arg1, arg2, arg3, arg4, arg5, arg6);
 }
 
 template <typename Type1, typename Type2, typename Type3, typename Type4, typename Type5,
@@ -149,7 +149,7 @@ __device__ void kernel_printf(const char* format, Type1 arg1, Type2 arg2, Type3 
                               Type5 arg5, Type6 arg6, Type7 arg7) {
   char extended_format[KERNEL_PRINTF_MAX_LENGTH] = {};
   kernel_printf_extend_format(extended_format, format);
-  printf((const char*)extended_format, arg1, arg2, arg3, arg4, arg5, arg6, arg7);
+  printf(extended_format, arg1, arg2, arg3, arg4, arg5, arg6, arg7);
 }
 
 /*

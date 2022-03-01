@@ -60,15 +60,15 @@ SubLayer<T>::SubLayer(const Tensors2<T>& in_tensors, const Tensor2<T>& out_tenso
     // error input checking
     auto dims = in_tensors[0].get_dimensions();
     if (num_ != 2) {
-      CK_THROW_(Error_t::WrongInput, "SubLayer needs 2 input tensors");
+      HCTR_OWN_THROW(Error_t::WrongInput, "SubLayer needs 2 input tensors");
     }
     for (size_t i = 1; i < num_; i++) {
       if (in_tensors[i].get_dimensions().size() != dims.size()) {
-        CK_THROW_(Error_t::WrongInput, "All the input tensors must have the same num of dims");
+        HCTR_OWN_THROW(Error_t::WrongInput, "All the input tensors must have the same num of dims");
       }
       for (unsigned int j = 0; j < dims.size(); j++) {
         if (in_tensors[i].get_dimensions()[j] != dims[j]) {
-          CK_THROW_(Error_t::WrongInput, "All the input tensors must have the same dims");
+          HCTR_OWN_THROW(Error_t::WrongInput, "All the input tensors must have the same dims");
         }
       }
     }
@@ -81,7 +81,7 @@ SubLayer<T>::SubLayer(const Tensors2<T>& in_tensors, const Tensor2<T>& out_tenso
     blobs_buff->reserve({num_}, &d_inputs_);
 
   } catch (const std::runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     throw;
   }
 }
@@ -97,7 +97,7 @@ void SubLayer<T>::initialize() {
     h_inputs_.get_ptr()[i] = in_tensors_[i].get_ptr();
   }
 
-  CK_CUDA_THROW_(cudaMemcpyAsync((void*)d_inputs_.get_ptr(), (void*)h_inputs_.get_ptr(),
+  HCTR_LIB_THROW(cudaMemcpyAsync((void*)d_inputs_.get_ptr(), (void*)h_inputs_.get_ptr(),
                                  num_ * sizeof(T*), cudaMemcpyHostToDevice,
                                  get_gpu().get_stream()));
 }
@@ -114,7 +114,7 @@ void SubLayer<T>::fprop(bool is_train) {
                                                                    size_);
 #ifndef NDEBUG
   cudaDeviceSynchronize();
-  CK_CUDA_THROW_(cudaGetLastError());
+  HCTR_LIB_THROW(cudaGetLastError());
 #endif
 }
 
@@ -130,7 +130,7 @@ void SubLayer<T>::bprop() {
                                                                        size_);
 #ifndef NDEBUG
   cudaDeviceSynchronize();
-  CK_CUDA_THROW_(cudaGetLastError());
+  HCTR_LIB_THROW(cudaGetLastError());
 #endif
 }
 

@@ -54,7 +54,7 @@ void IbComm::detect_ib_devs() {
   dev_list = ibv_get_device_list(&num_devices);
 
   if ((!dev_list) || (num_devices == 0)) {
-    std::cerr << "Ibv get device list failed: " << num_devices << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << "Ibv get device list failed: " << num_devices << std::endl;
     exit(-1);
   }
 
@@ -66,7 +66,7 @@ void IbComm::detect_ib_devs() {
 
     const char* dev_name = ibv_get_device_name(dev_list[d]);
     if (!dev_name) {
-      std::cerr << "Unable to get device name" << std::endl;
+      HCTR_LOG_S(ERROR, WORLD) << "Unable to get device name" << std::endl;
       exit(-1);
     }
 
@@ -79,14 +79,15 @@ void IbComm::detect_ib_devs() {
     struct ibv_device_attr dev_attr;
     memset(&dev_attr, 0, sizeof(dev_attr));
     if (ibv_query_device(context, &dev_attr) != 0) {
-      std::cerr << "Unable to query device " << std::string(dev_name) << std::endl;
+      HCTR_LOG_S(ERROR, WORLD) << "Unable to query device " << dev_name << std::endl;
       exit(-1);
     }
 
     for (int port = 1; port <= dev_attr.phys_port_cnt; port++) {
       struct ibv_port_attr port_attr;
       if (ibv_query_port(context, port, &port_attr) != 0) {
-        std::cout << "Unable to query port " << dev_name << ":" << port << std::endl;
+        HCTR_LOG_S(WARNING, WORLD)
+            << "Unable to query port " << dev_name << ":" << port << std::endl;
         continue;
       }
       if (port_attr.state != IBV_PORT_ACTIVE) continue;
@@ -98,7 +99,8 @@ void IbComm::detect_ib_devs() {
       ib_dev_list_.back().dev_port_id = port;
       ib_dev_list_.back().hwloc_obj = hwloc_ibv_get_device_osdev(topo_, dev_list[d]);
       if (!ib_dev_list_.back().hwloc_obj) {
-        std::cerr << "unable to get hwloc obj for ib device " << std::string(dev_name) << std::endl;
+        HCTR_LOG_S(ERROR, WORLD) << "unable to get hwloc obj for ib device " << dev_name
+                                 << std::endl;
         exit(1);
       }
     }
@@ -111,21 +113,22 @@ void IbComm::detect_ib_devs() {
 void IbComm::print_obj(size_t my_rank, std::string obj_name, hwloc_obj_t obj) {
   if (my_rank != 0) return;
   if (!obj) {
-    std::cout << obj_name << ":NULL" << std::endl;
+    HCTR_LOG_S(INFO, WORLD) << obj_name << ":NULL" << std::endl;
     return;
   }
   if (obj->type == HWLOC_OBJ_PCI_DEVICE) {
-    std::cout << obj_name << ":PCIeDevice " << obj->gp_index << " " << obj << " " << obj->depth
-              << " " << obj->attr->pcidev.dev << std::endl;
+    HCTR_LOG_S(INFO, WORLD) << obj_name << ":PCIeDevice " << obj->gp_index << " " << obj << " "
+                            << obj->depth << " " << obj->attr->pcidev.dev << std::endl;
   } else if (obj->type == HWLOC_OBJ_OS_DEVICE) {
-    std::cout << obj_name << ":OSdev " << obj->gp_index << " " << obj << " " << obj->depth << " "
-              << obj->name << " " << obj->attr->osdev.type << std::endl;
+    HCTR_LOG_S(INFO, WORLD) << obj_name << ":OSdev " << obj->gp_index << " " << obj << " "
+                            << obj->depth << " " << obj->name << " " << obj->attr->osdev.type
+                            << std::endl;
   } else if (obj->type == HWLOC_OBJ_BRIDGE) {
-    std::cout << obj_name << ":PCIeBridge " << obj->gp_index << " " << obj << " " << obj->depth
-              << std::endl;
+    HCTR_LOG_S(INFO, WORLD) << obj_name << ":PCIeBridge " << obj->gp_index << " " << obj << " "
+                            << obj->depth << std::endl;
   } else {
-    std::cout << obj_name << ":Unknown " << obj->gp_index << " " << obj << " " << obj->depth
-              << std::endl;
+    HCTR_LOG_S(INFO, WORLD) << obj_name << ":Unknown " << obj->gp_index << " " << obj << " "
+                            << obj->depth << std::endl;
   }
 }
 
@@ -169,15 +172,21 @@ size_t IbComm::calculate_pcie_hier_distance(size_t my_rank, hwloc_obj_t obj1, hw
 void IbComm::print_distance_matrix(size_t my_rank, std::vector<std::vector<size_t>>& gpu_nic_dist) {
   // Print distance matrix
   if (my_rank == 0) {
-    for (size_t n = 0; n < ib_dev_list_.size(); n++) {
-      std::cout << std::setfill(' ') << std::setw(24) << ib_dev_list_[n].dev_name;
-    }
-    std::cout << std::endl;
-    for (size_t g = 0; g < num_gpus_; g++) {
+    {
+      auto log = HCTR_LOG_S(INFO, WORLD);
       for (size_t n = 0; n < ib_dev_list_.size(); n++) {
-        std::cout << std::setfill(' ') << std::setw(24) << gpu_nic_dist[g][n];
+        log << std::setfill(' ') << std::setw(24) << ib_dev_list_[n].dev_name;
       }
-      std::cout << std::endl;
+      log << std::endl;
+    }
+    {
+      auto log = HCTR_LOG_S(INFO, WORLD);
+      for (size_t g = 0; g < num_gpus_; g++) {
+        for (size_t n = 0; n < ib_dev_list_.size(); n++) {
+          log << std::setfill(' ') << std::setw(24) << gpu_nic_dist[g][n];
+        }
+        log << std::endl;
+      }
     }
   }
 }
@@ -188,7 +197,7 @@ void IbComm::calculate_gpu_nic_affinity() {
   for (auto& g : device_list_) {
     auto gpu_obj = hwloc_cudart_get_device_osdev_by_index(topo_, g);
     if (!gpu_obj) {
-      std::cerr << "unable to get hwloc obj for cuda device " << g << std::endl;
+      HCTR_LOG_S(ERROR, WORLD) << "unable to get hwloc obj for cuda device " << g << std::endl;
       exit(1);
     }
     gpu_list.push_back(gpu_obj);
@@ -245,10 +254,9 @@ void IbComm::calculate_gpu_nic_affinity() {
   // Print gpu nic affinities that are picked;
   if (my_proc_ == 0) {
     for (size_t g = 0; g < num_gpus_; g++) {
-      auto& ib_dev = ib_dev_list_[gpu_nic_affinity_[g]];
-      std::ostringstream ost;
-      ost << "GPU-NIC affinity " << g << "-" << ib_dev.dev_name << ":" << ib_dev.dev_port_id;
-      MESSAGE_(ost.str().c_str());
+      const auto& ib_dev = ib_dev_list_[gpu_nic_affinity_[g]];
+      HCTR_LOG_S(INFO, ROOT) << "GPU-NIC affinity " << g << "-" << ib_dev.dev_name << ":"
+                             << ib_dev.dev_port_id << std::endl;
     }
   }
 
@@ -263,16 +271,17 @@ void IbComm::calculate_gpu_nic_affinity() {
   for (size_t g = 0; g < num_gpus_; g++) {
     auto ib_dev = ib_dev_list_[gpu_nic_affinity_[g]];
 
-    std::ostringstream stm;
-    stm << ib_dev.dev_name << ":" << ib_dev.dev_port_id;
-    std::string ib_name = stm.str();
+    std::ostringstream os;
+    os << ib_dev.dev_name << ":" << ib_dev.dev_port_id;
+    std::string ib_name = os.str();
     ib_name = ib_name.substr(0, IBV_SYSFS_NAME_MAX);
     std::strcpy(gpu_nic_affinity_names[my_proc_][g], ib_name.c_str());
   }
 
   for (size_t r = 0; r < num_procs_; r++) {
-    CK_MPI_THROW_(MPI_Bcast(gpu_nic_affinity_names[r], num_gpus_ * sizeof(char[IBV_SYSFS_NAME_MAX]),
-                            MPI_BYTE, r, MPI_COMM_WORLD));
+    HCTR_MPI_THROW(MPI_Bcast(gpu_nic_affinity_names[r],
+                             num_gpus_ * sizeof(char[IBV_SYSFS_NAME_MAX]), MPI_BYTE, r,
+                             MPI_COMM_WORLD));
   }
 
   for (size_t r = 0; r < num_procs_; r++) {
@@ -280,10 +289,11 @@ void IbComm::calculate_gpu_nic_affinity() {
       std::string my_ib_name = std::string(gpu_nic_affinity_names[my_proc_][g]);
       std::string remote_ib_name = std::string(gpu_nic_affinity_names[r][g]);
       if (my_ib_name != remote_ib_name) {
-        std::cout << "WARNING: Mismatch in mellanox dev names. " << g << " " << my_proc_ << ":"
-                  << my_ib_name << " " << r << ":" << remote_ib_name << std::endl;
-        std::cout << "WARNING: Non uniform cluster detected. Performance maybe impacted"
-                  << std::endl;
+        HCTR_LOG_S(WARNING, WORLD)
+            << "Mismatch in mellanox dev names. " << g << " " << my_proc_ << ":" << my_ib_name
+            << " " << r << ":" << remote_ib_name << std::endl;
+        HCTR_LOG_S(WARNING, WORLD)
+            << "Non uniform cluster detected. Performance maybe impacted" << std::endl;
       }
     }
   }
@@ -292,7 +302,7 @@ void IbComm::calculate_gpu_nic_affinity() {
     free(gpu_nic_affinity_names[r]);
   }
   free(gpu_nic_affinity_names);
-  CK_MPI_THROW_(MPI_Barrier(MPI_COMM_WORLD));
+  HCTR_MPI_THROW(MPI_Barrier(MPI_COMM_WORLD));
 }
 
 void IbComm::init_proxy_threads() {
@@ -348,7 +358,7 @@ int IbComm::init(size_t num_procs, size_t num_gpus, size_t my_proc,
 }
 
 IbComm::HierA2ACollContext::HierA2ACollContext(IbComm* comm) {
-  CK_CUDA_THROW_(cudaMallocHost(&cmd_storage_, 2 * sizeof(size_t)));
+  HCTR_LIB_THROW(cudaMallocHost(&cmd_storage_, 2 * sizeof(size_t)));
   h_recv_cmd_ptr_ = &cmd_storage_[0];
   *h_recv_cmd_ptr_ = 1;
 
@@ -360,23 +370,23 @@ IbComm::HierA2ACollContext::HierA2ACollContext(IbComm* comm) {
   d_ibv_atomic_recv_ = new size_t*[num_gpus];
 
   for (size_t g = 0; g < num_gpus; g++) {
-    CK_CUDA_THROW_(cudaSetDevice(comm->device_list_[g]));
-    CK_CUDA_THROW_(cudaEventCreate(&ctx_[g]->event_));
+    HCTR_LIB_THROW(cudaSetDevice(comm->device_list_[g]));
+    HCTR_LIB_THROW(cudaEventCreate(&ctx_[g]->event_));
 
     // TODO: collate all storage
-    CK_CUDA_THROW_(cudaMalloc((void**)&d_send_cmd_[g], sizeof(size_t)));
+    HCTR_LIB_THROW(cudaMalloc((void**)&d_send_cmd_[g], sizeof(size_t)));
     size_t init_value = 2;
-    CK_CUDA_THROW_(cudaMemcpy(d_send_cmd_[g], &init_value, sizeof(size_t), cudaMemcpyHostToDevice));
+    HCTR_LIB_THROW(cudaMemcpy(d_send_cmd_[g], &init_value, sizeof(size_t), cudaMemcpyHostToDevice));
 
-    CK_CUDA_THROW_(cudaMalloc((void**)&d_ibv_atomic_[g], MAX_IBV_DEST * sizeof(size_t)));
+    HCTR_LIB_THROW(cudaMalloc((void**)&d_ibv_atomic_[g], MAX_IBV_DEST * sizeof(size_t)));
     size_t atomic_init_values[MAX_IBV_DEST];
     std::fill_n(atomic_init_values, MAX_IBV_DEST, 1);
-    CK_CUDA_THROW_(cudaMemcpy(d_ibv_atomic_[g], atomic_init_values, MAX_IBV_DEST * sizeof(size_t),
+    HCTR_LIB_THROW(cudaMemcpy(d_ibv_atomic_[g], atomic_init_values, MAX_IBV_DEST * sizeof(size_t),
                               cudaMemcpyHostToDevice));
 
-    CK_CUDA_THROW_(cudaMalloc((void**)&d_ibv_atomic_recv_[g], MAX_IBV_DEST * sizeof(size_t)));
+    HCTR_LIB_THROW(cudaMalloc((void**)&d_ibv_atomic_recv_[g], MAX_IBV_DEST * sizeof(size_t)));
     std::fill_n(atomic_init_values, MAX_IBV_DEST, 0);
-    CK_CUDA_THROW_(cudaMemcpy(d_ibv_atomic_recv_[g], atomic_init_values,
+    HCTR_LIB_THROW(cudaMemcpy(d_ibv_atomic_recv_[g], atomic_init_values,
                               MAX_IBV_DEST * sizeof(size_t), cudaMemcpyHostToDevice));
   }
 
@@ -469,7 +479,8 @@ void IbComm::set_a2a_coll_buf(HierA2ACollHandle coll, void** send_ptrs, const si
                               void** recv_ptrs, const size_t* recv_max_size, size_t device_id) {
   auto& coll_ctx = *hier_a2a_coll_ctx_[coll];
   if (proxy_cmd_->cmd_[device_id].which() != 0) {
-    ERROR_MESSAGE_("Proxy command is already populated. Don't mix up set API");
+    HCTR_LOG_S(ERROR, WORLD) << "Proxy command is already populated. Don't mix up set API. "
+                             << HCTR_LOCATION() << std::endl;
     exit(1);
   }
   proxy_cmd_->cmd_[device_id] = HierA2ABufInitCmd();
@@ -497,7 +508,8 @@ void IbComm::set_a2a_coll_buf(HierA2AvCollHandle coll, void* send_ptrs, const si
                               void* recv_ptrs, const size_t recv_max_size, size_t device_id) {
   auto& coll_ctx = *hier_a2a_v_coll_ctx_[coll];
   if (proxy_cmd_->cmd_[device_id].which() != 0) {
-    ERROR_MESSAGE_("Proxy command is already populated. Don't mix up set API");
+    HCTR_LOG_S(ERROR, WORLD) << "Proxy command is already populated. Don't mix up set API. "
+                             << HCTR_LOCATION() << std::endl;
     exit(1);
   }
   proxy_cmd_->cmd_[device_id] = HierA2AvBufInitCmd();
@@ -511,13 +523,13 @@ void IbComm::set_a2a_coll_buf(HierA2AvCollHandle coll, void* send_ptrs, const si
   gpu_ctx.d_recv_ptrs_[0] = recv_ptrs;
   gpu_ctx.h_max_send_size_ = send_max_size;
 
-  CK_CUDA_THROW_(cudaSetDevice(device_list_[device_id]));
+  HCTR_LIB_THROW(cudaSetDevice(device_list_[device_id]));
 
   // Allocate A2Av send size copy storage
-  CK_CUDA_THROW_(
+  HCTR_LIB_THROW(
       cudaMalloc((void**)(&gpu_ctx.d_send_sizes_copy_), sizeof(size_t) * num_gpus_ * num_procs_));
   std::vector<size_t> send_sizes(num_gpus_ * num_procs_, send_max_size / (num_gpus_ * num_procs_));
-  CK_CUDA_THROW_(cudaMemcpy(gpu_ctx.d_send_sizes_copy_, send_sizes.data(),
+  HCTR_LIB_THROW(cudaMemcpy(gpu_ctx.d_send_sizes_copy_, send_sizes.data(),
                             sizeof(size_t) * num_gpus_ * num_procs_, cudaMemcpyHostToDevice));
 
   buf_init.coll_handle_ = coll;
@@ -580,8 +592,8 @@ void IbComm::update_a2a_coll_sizes(HierA2AvCollHandle coll, const size_t* d_send
                                    size_t device_id) {
   auto& ctx = *hier_a2a_v_coll_ctx_[coll];
   auto& gpu_ctx = *ctx.ctx_[device_id];
-  CK_CUDA_THROW_(cudaEventRecord(gpu_ctx.event_, dep_stream));
-  CK_CUDA_THROW_(cudaStreamWaitEvent(gpu_ctx.stream_, gpu_ctx.event_));
+  HCTR_LIB_THROW(cudaEventRecord(gpu_ctx.event_, dep_stream));
+  HCTR_LIB_THROW(cudaStreamWaitEvent(gpu_ctx.stream_, gpu_ctx.event_));
   constexpr size_t MAX_TPB = 256;
   size_t n_blocks = ceildiv<size_t>(num_procs_ * num_gpus_, MAX_TPB);
   update_sizes<<<n_blocks, MAX_TPB, 0, gpu_ctx.stream_>>>(
@@ -611,8 +623,8 @@ void IbComm::pre_intra_update_a2a_coll_sizes(HierA2AvCollHandle coll,
                                              cudaStream_t dep_stream, size_t device_id) {
   auto& ctx = *hier_a2a_v_coll_ctx_[coll];
   auto& gpu_ctx = *ctx.ctx_[device_id];
-  CK_CUDA_THROW_(cudaEventRecord(gpu_ctx.event_, dep_stream));
-  CK_CUDA_THROW_(cudaStreamWaitEvent(gpu_ctx.stream_, gpu_ctx.event_));
+  HCTR_LIB_THROW(cudaEventRecord(gpu_ctx.event_, dep_stream));
+  HCTR_LIB_THROW(cudaStreamWaitEvent(gpu_ctx.stream_, gpu_ctx.event_));
   ctx.barrier_->sync_all_gpus(gpu_ctx.stream_, device_id);
   update_pre_intra_sizes<<<num_procs_, num_gpus_, 0, gpu_ctx.stream_>>>(
       gpu_ctx.h_send_sizes_, gpu_ctx.d_send_sizes_copy_, d_pre_intra_send_sizes, device_id,
@@ -662,8 +674,8 @@ static __global__ void wait_completion(size_t* d_ibv_cmd, size_t* atomic, int nD
     // clock_t s=clock64();
     while (*((volatile size_t*)&atomic[threadIdx.x]) < (curr_count - 1)) {
       // if (clock64()-s > 2000000000) {
-      //   printf("wait completion expected: %llu %llu, got %llu from_dest %d my_dest %d %d n_dest
-      //   %d\n",
+      //   HCTR_LOG(INFO, WORLD, "wait completion expected: %llu %llu, got %llu from_dest %d my_dest
+      //   %d %d n_dest %d\n",
       //     curr_count, (curr_count - 1), atomic[threadIdx.x], threadIdx.x, myDest, device_id,
       //     nDest);
       //   s = clock64();
@@ -678,8 +690,8 @@ void IbComm::post_send_command_a2a<T>(HierA2ACollHandle coll, cudaStream_t dep_s
                                       size_t device_id) {
   auto& ctx = *hier_a2a_coll_ctx_[coll];
   auto& gpu_ctx = *ctx.ctx_[device_id];
-  CK_CUDA_THROW_(cudaEventRecord(gpu_ctx.event_, dep_stream));
-  CK_CUDA_THROW_(cudaStreamWaitEvent(gpu_ctx.stream_, gpu_ctx.event_));
+  HCTR_LIB_THROW(cudaEventRecord(gpu_ctx.event_, dep_stream));
+  HCTR_LIB_THROW(cudaStreamWaitEvent(gpu_ctx.stream_, gpu_ctx.event_));
   ctx.barrier_->sync_all_gpus_report_host_and_inc(ctx.d_send_cmd_[device_id], ctx.h_recv_cmd_ptr_,
                                                   gpu_ctx.stream_, device_id);
   size_t num_elems = gpu_ctx.h_send_sizes_[my_proc_] / sizeof(T);
@@ -695,8 +707,8 @@ void IbComm::post_send_command_a2a<T>(HierA2AvCollHandle coll, cudaStream_t dep_
                                       size_t device_id) {
   auto& ctx = *hier_a2a_v_coll_ctx_[coll];
   auto& gpu_ctx = *ctx.ctx_[device_id];
-  CK_CUDA_THROW_(cudaEventRecord(gpu_ctx.event_, dep_stream));
-  CK_CUDA_THROW_(cudaStreamWaitEvent(gpu_ctx.stream_, gpu_ctx.event_));
+  HCTR_LIB_THROW(cudaEventRecord(gpu_ctx.event_, dep_stream));
+  HCTR_LIB_THROW(cudaStreamWaitEvent(gpu_ctx.stream_, gpu_ctx.event_));
   ctx.barrier_->sync_all_gpus_report_host_and_inc(ctx.d_send_cmd_[device_id], ctx.h_recv_cmd_ptr_,
                                                   gpu_ctx.stream_, device_id);
   // TODO: Change it to use max SMs
@@ -715,8 +727,8 @@ void IbComm::post_a2a_send_command<T>(HierA2AvCollHandle coll, cudaStream_t dep_
                                       size_t device_id) {
   auto& ctx = *hier_a2a_v_coll_ctx_[coll];
   auto& gpu_ctx = *ctx.ctx_[device_id];
-  CK_CUDA_THROW_(cudaEventRecord(gpu_ctx.event_, dep_stream));
-  CK_CUDA_THROW_(cudaStreamWaitEvent(gpu_ctx.stream_, gpu_ctx.event_));
+  HCTR_LIB_THROW(cudaEventRecord(gpu_ctx.event_, dep_stream));
+  HCTR_LIB_THROW(cudaStreamWaitEvent(gpu_ctx.stream_, gpu_ctx.event_));
   ctx.barrier_->sync_all_gpus_report_host_and_inc(ctx.d_send_cmd_[device_id], ctx.h_recv_cmd_ptr_,
                                                   gpu_ctx.stream_, device_id);
   // TODO: Change it to use max SMs
@@ -731,8 +743,8 @@ void IbComm::post_a2a_send_command<T>(HierA2AvCollHandle coll, cudaStream_t dep_
 void IbComm::blocking_wait(HierA2AvCollHandle coll, cudaStream_t dep_stream, size_t device_id) {
   auto& ctx = *hier_a2a_v_coll_ctx_[coll];
   auto& gpu_ctx = *ctx.ctx_[device_id];
-  CK_CUDA_THROW_(cudaEventRecord(gpu_ctx.event_, dep_stream));
-  CK_CUDA_THROW_(cudaStreamWaitEvent(gpu_ctx.stream_, gpu_ctx.event_));
+  HCTR_LIB_THROW(cudaEventRecord(gpu_ctx.event_, dep_stream));
+  HCTR_LIB_THROW(cudaStreamWaitEvent(gpu_ctx.stream_, gpu_ctx.event_));
 
   wait_completion<<<1, 32, 0, gpu_ctx.stream_>>>(
       ctx.d_send_cmd_[device_id], ctx.d_ibv_atomic_[device_id], num_procs_, my_proc_, device_id);

@@ -36,7 +36,7 @@ If you need to create a new cluster, follow the instructions outlined below.
    * **WORK_DIR**: Parent path where you put the `hugectr` executable and your JSON config file.
    * **TEST_CMD**: how to run python script
    * **DATASET**: Real dataset path.
-   * **VOL_DATASET**: Dataset path shown inside your docker container as a mapping from `DATASET`. HugeCTR only sees this path.
+   * **VOL_DATASET**: Dataset path as shown inside your docker container as a mapping from `DATASET`. HugeCTR only sees this path.
    * **IMAGENAME**: Name of your Docker image.
 
 6. After you set all the variables properly, run `bash run_multinode.sh` to start the multi-node training.

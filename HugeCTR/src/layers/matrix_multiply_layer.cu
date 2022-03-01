@@ -38,14 +38,14 @@ MatrixMultiplyLayer<T>::MatrixMultiplyLayer(
     // error input checking
     dims_ = in_tensors[0].get_dimensions().size();
     if (num_ < 2) {
-      CK_THROW_(Error_t::WrongInput, "MatrixMultiplyLayer needs at least 2 input tensors");
+      HCTR_OWN_THROW(Error_t::WrongInput, "MatrixMultiplyLayer needs at least 2 input tensors");
     }
     if (in_tensors[1].get_dimensions().size() != dims_) {
-      CK_THROW_(Error_t::WrongInput, "All the input tensors must have the same num of dims");
+      HCTR_OWN_THROW(Error_t::WrongInput, "All the input tensors must have the same num of dims");
     }
     if (in_tensors[1].get_dimensions()[dims_ - 2] != in_tensors[0].get_dimensions()[dims_ - 1]) {
-      CK_THROW_(Error_t::WrongInput,
-                "The last two dimension of the input tensors should be m x n, n x k");
+      HCTR_OWN_THROW(Error_t::WrongInput,
+                     "The last two dimension of the input tensors should be m x n, n x k");
     }
 
     for (size_t i = 0; i < num_; i++) {
@@ -60,7 +60,7 @@ MatrixMultiplyLayer<T>::MatrixMultiplyLayer(
       blobs_buff->reserve(out_dim, &out_tensor);
     } else {  // dims_ == 3
       if (in_tensors[0].get_dimensions()[0] != in_tensors[1].get_dimensions()[0]) {
-        CK_THROW_(Error_t::WrongInput, "3D input tensors must have the same batch size");
+        HCTR_OWN_THROW(Error_t::WrongInput, "3D input tensors must have the same batch size");
       }
       size_t b = in_tensors[0].get_dimensions()[0];
       std::vector<size_t> out_dim = {b, m, k};
@@ -72,7 +72,7 @@ MatrixMultiplyLayer<T>::MatrixMultiplyLayer(
     blobs_buff->reserve(in_tensors[0].get_dimensions(), &fprop_inputA_);
 
   } catch (const std::runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     throw;
   }
 }
@@ -101,17 +101,17 @@ void MatrixMultiplyLayer<T>::fprop(bool is_train) {
     T* cur_in1 = in1 + i * m * n;
     T* cur_in2 = in2 + i * n * k;
     T* cur_out = out + i * m * k;
-    CK_CUBLAS_THROW_(cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_N, k, m, n,
-                                  &alpha, cur_in2, CUDA_R_32F, k, cur_in1, CUDA_R_32F, n, &beta,
-                                  cur_out, CUDA_R_32F, k, compute_type, CUBLAS_GEMM_DEFAULT));
+    HCTR_LIB_THROW(cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_N, k, m, n,
+                                &alpha, cur_in2, CUDA_R_32F, k, cur_in1, CUDA_R_32F, n, &beta,
+                                cur_out, CUDA_R_32F, k, compute_type, CUBLAS_GEMM_DEFAULT));
   }
 
-  CK_CUDA_THROW_(cudaMemcpyAsync((void*)fprop_inputA_.get_ptr(), (void*)in1,
+  HCTR_LIB_THROW(cudaMemcpyAsync((void*)fprop_inputA_.get_ptr(), (void*)in1,
                                  in_tensors_[0].get_size_in_bytes(), cudaMemcpyDeviceToDevice,
                                  get_gpu().get_stream()));
 #ifndef NDEBUG
   cudaDeviceSynchronize();
-  CK_CUDA_THROW_(cudaGetLastError());
+  HCTR_LIB_THROW(cudaGetLastError());
 #endif
 }
 
@@ -140,19 +140,19 @@ void MatrixMultiplyLayer<T>::bprop() {
     T* cur_in2 = in2 + i * n * k;
     T* cur_out = out + i * m * k;
     // gradient respect to A
-    CK_CUBLAS_THROW_(cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_T, CUBLAS_OP_N, n, m, k,
-                                  &alpha, cur_in2, CUDA_R_32F, k, cur_out, CUDA_R_32F, k, &beta,
-                                  cur_in1, CUDA_R_32F, n, compute_type, CUBLAS_GEMM_DEFAULT));
+    HCTR_LIB_THROW(cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_T, CUBLAS_OP_N, n, m, k,
+                                &alpha, cur_in2, CUDA_R_32F, k, cur_out, CUDA_R_32F, k, &beta,
+                                cur_in1, CUDA_R_32F, n, compute_type, CUBLAS_GEMM_DEFAULT));
 
     cur_in1 = fprop_inputA_.get_ptr() + i * m * n;
     // gradient respect to B
-    CK_CUBLAS_THROW_(cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_T, k, n, m,
-                                  &alpha, cur_out, CUDA_R_32F, k, cur_in1, CUDA_R_32F, n, &beta,
-                                  cur_in2, CUDA_R_32F, k, compute_type, CUBLAS_GEMM_DEFAULT));
+    HCTR_LIB_THROW(cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_T, k, n, m,
+                                &alpha, cur_out, CUDA_R_32F, k, cur_in1, CUDA_R_32F, n, &beta,
+                                cur_in2, CUDA_R_32F, k, compute_type, CUBLAS_GEMM_DEFAULT));
   }
 #ifndef NDEBUG
   cudaDeviceSynchronize();
-  CK_CUDA_THROW_(cudaGetLastError());
+  HCTR_LIB_THROW(cudaGetLastError());
 #endif
 }
 

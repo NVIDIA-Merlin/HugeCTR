@@ -52,24 +52,18 @@ void create_embedding<TypeKey, TypeFP>::operator()(
   auto j_hparam = get_json(j_layers, "sparse_embedding_hparam");
   if (!has_key_(j_hparam, "workspace_size_per_gpu_in_mb") &&
       !has_key_(j_hparam, "slot_size_array")) {
-    CK_THROW_(Error_t::WrongInput, "need workspace_size_per_gpu_in_mb or slot_size_array");
+    HCTR_OWN_THROW(Error_t::WrongInput, "need workspace_size_per_gpu_in_mb or slot_size_array");
   }
-  size_t workspace_size_per_gpu_in_mb =
-      get_value_from_json_soft<size_t>(j_hparam, "workspace_size_per_gpu_in_mb", 0);
-  auto embedding_vec_size = get_value_from_json<size_t>(j_hparam, "embedding_vec_size");
-
-  size_t max_vocabulary_size_per_gpu =
-      (workspace_size_per_gpu_in_mb * 1024 * 1024) / (sizeof(float) * embedding_vec_size);
 
   auto combiner_str = get_value_from_json<std::string>(j_hparam, "combiner");
 
-  int combiner;
+  int combiner = -1;
   if (combiner_str == "sum") {
     combiner = 0;
   } else if (combiner_str == "mean") {
     combiner = 1;
   } else {
-    CK_THROW_(Error_t::WrongInput, "No such combiner type: " + combiner_str);
+    HCTR_OWN_THROW(Error_t::WrongInput, "No such combiner type: " + combiner_str);
   }
 
   std::vector<size_t> slot_size_array;
@@ -83,7 +77,7 @@ void create_embedding<TypeKey, TypeFP>::operator()(
 
   SparseInput<TypeKey> sparse_input;
   if (!find_item_in_map(sparse_input, bottom_name, sparse_input_map)) {
-    CK_THROW_(Error_t::WrongInput, "Cannot find bottom");
+    HCTR_OWN_THROW(Error_t::WrongInput, "Cannot find bottom");
   }
 
   OptParams embedding_opt_params;
@@ -93,6 +87,35 @@ void create_embedding<TypeKey, TypeFP>::operator()(
     embedding_opt_params = get_optimizer_param(j_optimizer);
   }
   embedding_opt_params.scaler = scaler;
+
+  size_t workspace_size_per_gpu_in_mb =
+      get_value_from_json_soft<size_t>(j_hparam, "workspace_size_per_gpu_in_mb", 0);
+  auto embedding_vec_size = get_value_from_json<size_t>(j_hparam, "embedding_vec_size");
+
+  // should be match with HugeCTR/src/optimizers/sparse_optimizer.cu
+  size_t num_opt_state_copies = 0;
+  switch(embedding_opt_params.optimizer) {
+    case Optimizer_t::Adam: {
+      num_opt_state_copies = 2;
+      if (embedding_opt_params.update_type == Update_t::LazyGlobal) {
+        num_opt_state_copies += 1;
+      }
+      break;
+    }
+    case Optimizer_t::AdaGrad:
+    case Optimizer_t::MomentumSGD:
+    case Optimizer_t::Nesterov: {
+      num_opt_state_copies = 1;
+      break;
+    }
+    case Optimizer_t::SGD:
+      break;
+    default:
+      throw std::runtime_error(
+          std::string("[HCDEBUG][ERROR] Runtime error: Invalid optimizer type\n"));
+  }
+  size_t max_vocabulary_size_per_gpu =
+      (workspace_size_per_gpu_in_mb * 1024 * 1024) / ((1 + num_opt_state_copies) * sizeof(float) * embedding_vec_size);
 
   switch (embedding_type) {
     case Embedding_t::DistributedSlotSparseEmbeddingHash: {
@@ -174,10 +197,11 @@ void create_embedding<TypeKey, TypeFP>::operator()(
       } else {
         communication_type_string = "IB_NVLink";
       }
-      hybrid_embedding::CommunicationType communication_type;
+      CommunicationType communication_type = CommunicationType::Unknown;
       if (!find_item_in_map(communication_type, communication_type_string,
                             COMMUNICATION_TYPE_MAP)) {
-        CK_THROW_(Error_t::WrongInput, "No such communication type: " + communication_type_string);
+        HCTR_OWN_THROW(Error_t::WrongInput,
+                       "No such communication type: " + communication_type_string);
       }
 
       std::string hybrid_embedding_type_string;
@@ -187,11 +211,11 @@ void create_embedding<TypeKey, TypeFP>::operator()(
       } else {
         hybrid_embedding_type_string = "Distributed";
       }
-      hybrid_embedding::HybridEmbeddingType hybrid_embedding_type;
+      HybridEmbeddingType hybrid_embedding_type = HybridEmbeddingType::Unknown;
       if (!find_item_in_map(hybrid_embedding_type, hybrid_embedding_type_string,
                             HYBRID_EMBEDDING_TYPE_MAP)) {
-        CK_THROW_(Error_t::WrongInput,
-                  "No such hybrid embedding type: " + hybrid_embedding_type_string);
+        HCTR_OWN_THROW(Error_t::WrongInput,
+                       "No such hybrid embedding type: " + hybrid_embedding_type_string);
       }
 
       auto& embed_wgrad_buff =
@@ -229,7 +253,8 @@ void create_embedding<TypeKey, TypeFP>::operator()(
       break;
     }
     default:
-      CK_THROW_(Error_t::UnspecificError, "create embedding with no specified embedding type.");
+      HCTR_OWN_THROW(Error_t::UnspecificError,
+                     "create embedding with no specified embedding type.");
   }  // switch
   for (size_t i = 0; i < resource_manager->get_local_gpu_count(); i++) {
     train_tensor_entries_list[i].push_back(

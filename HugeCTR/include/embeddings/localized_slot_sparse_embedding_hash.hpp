@@ -204,24 +204,6 @@ class LocalizedSlotSparseEmbeddingHash : public IEmbedding {
       const std::vector<std::shared_ptr<HashTable<TypeHashKey, size_t>>> &hash_tables) const;
 
  public:
-  /**
-   * The constructor of LocalizedSlotSparseEmbeddingHash.
-   * @param row_offsets_tensors row offsets of the input tensor(refer to row offset vector in sparse
-   * matrix CSR format).
-   * @param hash_key_tensors hash keys of the input tensor(refer to value vector in sparse matrix
-   * CSR format).
-   * @param embedding_params embedding params for initialization.
-   * @param resource_manager the GPU resource group
-   */
-  LocalizedSlotSparseEmbeddingHash(const Tensors2<TypeHashKey> &train_row_offsets_tensors,
-                                   const Tensors2<TypeHashKey> &train_value_tensors,
-                                   const std::vector<std::shared_ptr<size_t>> &train_nnz_array,
-                                   const Tensors2<TypeHashKey> &evaluate_row_offsets_tensors,
-                                   const Tensors2<TypeHashKey> &evaluate_value_tensors,
-                                   const std::vector<std::shared_ptr<size_t>> &evaluate_nnz_array,
-                                   const SparseEmbeddingHashParams &embedding_params,
-                                   const std::shared_ptr<ResourceManager> &resource_manager);
-
   LocalizedSlotSparseEmbeddingHash(const SparseTensors<TypeHashKey> &train_keys,
                                    const SparseTensors<TypeHashKey> &evaluate_keys,
                                    const SparseEmbeddingHashParams &embedding_params,
@@ -261,7 +243,7 @@ class LocalizedSlotSparseEmbeddingHash : public IEmbedding {
                                 embedding_feature_tensors_, all2all_tensors_,
                                 embedding_data_.get_resource_manager());
     } else {
-      CK_CUDA_THROW_(cudaMemcpyAsync(
+      HCTR_LIB_THROW(cudaMemcpyAsync(
           all2all_tensors_[0].get_ptr(), embedding_feature_tensors_[0].get_ptr(),
           embedding_data_.get_batch_size_per_gpu(is_train) * slot_num_per_gpu_[0] *
               embedding_data_.embedding_params_.embedding_vec_size * sizeof(TypeEmbeddingComp),
@@ -275,7 +257,7 @@ class LocalizedSlotSparseEmbeddingHash : public IEmbedding {
                                 embedding_feature_tensors_, all2all_tensors_,
                                 embedding_data_.get_resource_manager());
     } else {
-      CK_CUDA_THROW_(cudaMemcpyAsync(
+      HCTR_LIB_THROW(cudaMemcpyAsync(
           all2all_tensors_[0].get_ptr(), embedding_feature_tensors_[0].get_ptr(),
           (size_t)embedding_data_.get_batch_size_per_gpu(is_train) * slot_num_per_gpu_[0] *
               embedding_data_.embedding_params_.embedding_vec_size * sizeof(TypeEmbeddingComp),
@@ -324,7 +306,7 @@ class LocalizedSlotSparseEmbeddingHash : public IEmbedding {
 
     } else {
       CudaDeviceContext context(embedding_data_.get_local_gpu(0).get_device_id());
-      CK_CUDA_THROW_(cudaMemcpyAsync(
+      HCTR_LIB_THROW(cudaMemcpyAsync(
           embedding_feature_tensors_[0].get_ptr(), all2all_tensors_[0].get_ptr(),
           embedding_data_.get_batch_size_per_gpu(true) * slot_num_per_gpu_[0] *
               embedding_data_.embedding_params_.embedding_vec_size * sizeof(TypeEmbeddingComp),
@@ -339,7 +321,7 @@ class LocalizedSlotSparseEmbeddingHash : public IEmbedding {
 
     } else {
       CudaDeviceContext context(embedding_data_.get_local_gpu(0).get_device_id());
-      CK_CUDA_THROW_(cudaMemcpyAsync(
+      HCTR_LIB_THROW(cudaMemcpyAsync(
           embedding_feature_tensors_[0].get_ptr(), all2all_tensors_[0].get_ptr(),
           embedding_data_.get_batch_size_per_gpu(true) * slot_num_per_gpu_[0] *
               embedding_data_.embedding_params_.embedding_vec_size * sizeof(TypeEmbeddingComp),
@@ -409,7 +391,7 @@ class LocalizedSlotSparseEmbeddingHash : public IEmbedding {
    * upload it onto multi-GPUs global memory.
    * @param sparse_model the folder name of sparse model.
    */
-  void load_parameters(std::string sparse_model) override;
+  void load_parameters(std::string sparse_model, DataSourceParams data_source_params) override;
   void load_parameters(BufferBag &buf_bag, size_t num) override;
   /**
    * Download the hash table from multi-GPUs global memroy to CPU memory
@@ -422,7 +404,8 @@ class LocalizedSlotSparseEmbeddingHash : public IEmbedding {
 
   void dump_opt_states(std::ofstream &stream, std::string sparse_model,
                        DataSourceParams data_source_params) override;
-  void load_opt_states(std::ifstream &stream) override;
+  void load_opt_states(std::ifstream &stream, std::string read_path,
+                       DataSourceParams data_source_params) override;
   void reset_optimizer() override;
 
   /**
@@ -503,7 +486,7 @@ class LocalizedSlotSparseEmbeddingHash : public IEmbedding {
                                 wgrad_tensors_, utest_all2all_tensors_,
                                 embedding_data_.get_resource_manager());
     } else {
-      CK_CUDA_THROW_(cudaMemcpyAsync(
+      HCTR_LIB_THROW(cudaMemcpyAsync(
           utest_all2all_tensors_[0].get_ptr(), wgrad_tensors_[0].get_ptr(),
           embedding_data_.get_batch_size_per_gpu(true) * slot_num_per_gpu_[0] *
               embedding_data_.embedding_params_.embedding_vec_size * sizeof(TypeEmbeddingComp),
@@ -516,7 +499,7 @@ class LocalizedSlotSparseEmbeddingHash : public IEmbedding {
           embedding_data_.embedding_params_.embedding_vec_size, wgrad_tensors_,
           utest_all2all_tensors_, embedding_data_.get_resource_manager());
     } else {
-      CK_CUDA_THROW_(cudaMemcpyAsync(
+      HCTR_LIB_THROW(cudaMemcpyAsync(
           utest_all2all_tensors_[0].get_ptr(), wgrad_tensors_[0].get_ptr(),
           (size_t)embedding_data_.get_batch_size_per_gpu(true) * slot_num_per_gpu_[0] *
               embedding_data_.embedding_params_.embedding_vec_size * sizeof(TypeEmbeddingComp),
@@ -575,14 +558,8 @@ class LocalizedSlotSparseEmbeddingHash : public IEmbedding {
     for (size_t id = 0; id < embedding_data_.get_resource_manager().get_local_gpu_count(); id++) {
       context.set_device(embedding_data_.get_local_gpu(id).get_device_id());
       size_t count = hash_tables_[id]->get_size(embedding_data_.get_local_gpu(id).get_stream());
-      if (count > max_vocabulary_size_per_gpu_) {
-        CK_THROW_(Error_t::OutOfBound,
-                  "Runtime vocabulary size (" + std::to_string(count) +
-                      ") exceeds max_vocabulary_size_per_gpu (" +
-                      std::to_string(max_vocabulary_size_per_gpu_) + ") on GPU " +
-                      std::to_string(embedding_data_.get_local_gpu(id).get_device_id()) +
-                      ", new feature insertion failed.\n");
-      }
+      HCTR_CHECK_HINT(count <= max_vocabulary_size_per_gpu_, "Runtime vocabulary size %lu exceeds max_vocabulary_size_per_gpu %lu on GPU %lu. new feature insertion failed. Please adjust workspace_size_per_gpu according to QAList.md#24. How to set workspace_size_per_gpu_in_mb and slot_size_array", count, max_vocabulary_size_per_gpu_, embedding_data_.get_local_gpu(id).get_device_id());
+
     }
   }
 

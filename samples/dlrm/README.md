@@ -16,11 +16,11 @@ HugeCTR is available as buildable source code, but the easiest way to install an
 
 1. Pull the HugeCTR NGC Docker by running the following command:
    ```bash
-   $ docker pull nvcr.io/nvidia/merlin/merlin-training:22.02
+   $ docker pull nvcr.io/nvidia/merlin/merlin-training:22.03
    ```
 2. Launch the container in interactive mode with the HugeCTR root directory mounted into the container by running the following command:
    ```bash
-   $ docker run --gpus=all --rm -it --cap-add SYS_NICE -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr nvcr.io/nvidia/merlin/merlin-training:22.02
+   $ docker run --gpus=all --rm -it --cap-add SYS_NICE -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr nvcr.io/nvidia/merlin/merlin-training:22.03
    ```
 
 ### Build the HugeCTR Docker Container on Your Own ###
@@ -35,7 +35,7 @@ Ensure that you've met the following requirements:
 - MLPerf v1.0: DGX A100 14 nodes
 
 ### Preprocess the Terabyte Click Logs ##
-The [Terabyte Click Logs](https://labs.criteo.com/2013/12/download-terabyte-click-logs/) provided by CriteoLabs is used in this sample. The row count of each embedding table is limited to 40 million. The data is processed the same way as dlrm. For more information, see [Benchmarking](https://github.com/facebookresearch/dlrm#benchmarking). Each sample has 40 32bits integers in which the first integer is label. The next 13 integers are dense features and the following 26 integers are category features.
+The [Terabyte Click Logs](https://labs.criteo.com/2013/12/download-terabyte-click-logs/) provided by CriteoLabs is used in this sample. The row count of each embedding table is limited to 40 million. The data is processed the same way as dlrm. For more information, see [Benchmarking](https://github.com/facebookresearch/dlrm#benchmarking). Each sample has 40 32-bit integers. The first integer is a label, the next 13 integers are dense features, and the last 26 integers are category features.
 
 1. Download the terabyte datasets from the [Terabyte Click Logs](https://labs.criteo.com/2013/12/download-terabyte-click-logs/) into the `"${project_home}/samples/dlrm/"` folder.
 

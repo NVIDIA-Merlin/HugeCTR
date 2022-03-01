@@ -75,7 +75,7 @@ GPUResource::~GPUResource() {
     HCTR_LIB_THROW(cudaStreamDestroy(computation_stream_2_));
     HCTR_LIB_THROW(cudaStreamDestroy(p2p_stream_));
   } catch (const std::runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
   }
 }
 
@@ -100,12 +100,12 @@ void GPUResource::wait_on_compute2_event(const cudaStream_t& sync_stream) {
 }
 
 void GPUResource::set_wgrad_event_sync(const cudaStream_t& sync_stream) const {
-  CK_CUDA_THROW_(cudaEventRecord(wait_wgrad_event_, sync_stream));
+  HCTR_LIB_THROW(cudaEventRecord(wait_wgrad_event_, sync_stream));
   return;
 }
 
 void GPUResource::wait_on_wgrad_event(const cudaStream_t& sync_stream) const {
-  CK_CUDA_THROW_(cudaStreamWaitEvent(sync_stream, wait_wgrad_event_));
+  HCTR_LIB_THROW(cudaStreamWaitEvent(sync_stream, wait_wgrad_event_));
   return;
 }
 

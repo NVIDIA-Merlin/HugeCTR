@@ -37,7 +37,7 @@ void create_datareader<TypeKey>::operator()(
     const std::shared_ptr<ResourceManager> resource_manager) {
   const auto layer_type_name = get_value_from_json<std::string>(j, "type");
   if (layer_type_name.compare("Data") != 0) {
-    CK_THROW_(Error_t::WrongInput, "the first layer is not Data layer:" + layer_type_name);
+    HCTR_OWN_THROW(Error_t::WrongInput, "the first layer is not Data layer:" + layer_type_name);
   }
 
   const std::map<std::string, DataReaderType_t> DATA_READER_MAP = {
@@ -50,7 +50,7 @@ void create_datareader<TypeKey>::operator()(
   if (has_key_(j, "format")) {
     const auto data_format_name = get_value_from_json<std::string>(j, "format");
     if (!find_item_in_map(format, data_format_name, DATA_READER_MAP)) {
-      CK_THROW_(Error_t::WrongInput, "No such data format: " + data_format_name);
+      HCTR_OWN_THROW(Error_t::WrongInput, "No such data format: " + data_format_name);
     }
   }
 
@@ -67,10 +67,10 @@ void create_datareader<TypeKey>::operator()(
   const std::map<std::string, Check_t> CHECK_TYPE_MAP = {{"Sum", Check_t::Sum},
                                                          {"None", Check_t::None}};
 
-  Check_t check_type;
+  Check_t check_type = Check_t::Unknown;
   const auto check_str = get_value_from_json<std::string>(j, "check");
   if (!find_item_in_map(check_type, check_str, CHECK_TYPE_MAP)) {
-    CK_THROW_(Error_t::WrongInput, "Not supported check type: " + check_str);
+    HCTR_OWN_THROW(Error_t::WrongInput, "Not supported check type: " + check_str);
   }
 
   std::vector<DataReaderSparseParam> data_reader_sparse_param_array;
@@ -88,7 +88,7 @@ void create_datareader<TypeKey>::operator()(
 
     if (nnz_per_slot.is_array()) {
       if (nnz_per_slot.size() != static_cast<size_t>(slot_num)) {
-        CK_THROW_(Error_t::WrongInput, "nnz_per_slot.size() != slot_num");
+        HCTR_OWN_THROW(Error_t::WrongInput, "nnz_per_slot.size() != slot_num");
       }
       for (int slot_id = 0; slot_id < slot_num; ++slot_id) {
         nnz_per_slot_vec.push_back(nnz_per_slot[slot_id].get<int>());
@@ -108,7 +108,7 @@ void create_datareader<TypeKey>::operator()(
     // const auto sparse_name = get_value_from_json<std::string>(js, "top");
     // const auto data_type_name = get_value_from_json<std::string>(js, "type");
     // if (!find_item_in_map(param.type, data_type_name, DATA_TYPE_MAP)) {
-    //   CK_THROW_(Error_t::WrongInput, "Not supported data type: " + data_type_name);
+    //   HCTR_OWN_THROW(Error_t::WrongInput, "Not supported data type: " + data_type_name);
     // }
     // param.max_feature_num = get_value_from_json<int>(js, "max_feature_num_per_sample");
     // param.max_nnz = get_value_from_json_soft<int>(js, "max_nnz", param.max_feature_num);
@@ -128,7 +128,7 @@ void create_datareader<TypeKey>::operator()(
     if (has_key_(j_dense, "aligned")) {
       auto aligned_str = get_value_from_json<std::string>(j_dense, "aligned");
       if (!find_item_in_map(aligned_type, aligned_str, ALIGNED_TYPE_MAP)) {
-        CK_THROW_(Error_t::WrongInput, "Not supported aligned type: " + aligned_str);
+        HCTR_OWN_THROW(Error_t::WrongInput, "Not supported aligned type: " + aligned_str);
       }
     }
 
@@ -141,14 +141,15 @@ void create_datareader<TypeKey>::operator()(
     auto shuffle = get_value_from_json_soft<bool>(ja, "shuffle", false);
     size_t num_iterations_statistics =
         get_value_from_json_soft<size_t>(j, "num_iterations_statistics", 20);
-    MESSAGE_("AsyncReader: num_threads = " + std::to_string(num_threads));
-    MESSAGE_("AsyncReader: num_batches_per_thread = " + std::to_string(num_batches_per_thread));
-    MESSAGE_("AsyncReader: io_block_size = " + std::to_string(io_block_size));
-    MESSAGE_("AsyncReader: io_depth = " + std::to_string(io_depth));
-    MESSAGE_("AsyncReader: io_alignment = " + std::to_string(io_alignment));
-    MESSAGE_("AsyncReader: num_iterations_statistics = " +
-             std::to_string(num_iterations_statistics));
-    MESSAGE_("AsyncReader: shuffle = " + std::string(shuffle ? "ON" : "OFF"));
+    HCTR_LOG_S(INFO, ROOT) << "AsyncReader: num_threads = " << num_threads << std::endl;
+    HCTR_LOG_S(INFO, ROOT) << "AsyncReader: num_batches_per_thread = " << num_batches_per_thread
+                           << std::endl;
+    HCTR_LOG_S(INFO, ROOT) << "AsyncReader: io_block_size = " << io_block_size << std::endl;
+    HCTR_LOG_S(INFO, ROOT) << "AsyncReader: io_depth = " << io_depth << std::endl;
+    HCTR_LOG_S(INFO, ROOT) << "AsyncReader: io_alignment = " << io_alignment << std::endl;
+    HCTR_LOG_S(INFO, ROOT) << "AsyncReader: num_iterations_statistics = "
+                           << num_iterations_statistics << std::endl;
+    HCTR_LOG_S(INFO, ROOT) << "AsyncReader: shuffle = " << (shuffle ? "ON" : "OFF") << std::endl;
 
     train_data_reader.reset(new AsyncReader<TypeKey>(
         source_data, batch_size, label_dim, dense_dim, data_reader_sparse_param_array,
@@ -160,8 +161,9 @@ void create_datareader<TypeKey>::operator()(
     auto cache_eval_data = get_value_from_json_soft<int>(j, "cache_eval_data", 0);
     if (cache_eval_data > num_threads * num_batches_per_thread) {
       eval_num_batches_per_thread = (cache_eval_data + num_threads - 1) / num_threads;
-      MESSAGE_("AsyncReader: eval reader increased batches per thread to " +
-               std::to_string(eval_num_batches_per_thread) + " to accommodate for the caching");
+      HCTR_LOG_S(INFO, ROOT) << "AsyncReader: eval reader increased batches per thread to "
+                             << eval_num_batches_per_thread << " to accommodate for the caching"
+                             << std::endl;
     }
     // Small IO block may lead to too many AIO requests which hang,
     // so use a larger one for eval and init which are typically larger than train
@@ -199,7 +201,7 @@ void create_datareader<TypeKey>::operator()(
     }
 
     if (j_sparse.size() > 1) {
-      CK_THROW_(Error_t::WrongInput, "Only one sparse input is supported.");
+      HCTR_OWN_THROW(Error_t::WrongInput, "Only one sparse input is supported.");
     }
 
     const auto& sparse_input = sparse_input_map.find(sparse_names[0]);
@@ -211,7 +213,7 @@ void create_datareader<TypeKey>::operator()(
     int num_workers_default =
         format == DataReaderType_t::Parquet ? resource_manager->get_local_gpu_count() : 12;
     const int num_workers = get_value_from_json_soft<int>(j, "num_workers", num_workers_default);
-    MESSAGE_("num of DataReader workers: " + std::to_string(num_workers));
+    HCTR_LOG_S(INFO, ROOT) << "num of DataReader workers: " << num_workers << std::endl;
 
     DataReader<TypeKey>* data_reader_tk =
         new DataReader<TypeKey>(batch_size, label_dim, dense_dim, data_reader_sparse_param_array,
@@ -227,7 +229,7 @@ void create_datareader<TypeKey>::operator()(
       if (has_key_(j, "slot_size_array")) {
         auto slot_size_array = get_json(j, "slot_size_array");
         if (!slot_size_array.is_array()) {
-          CK_THROW_(Error_t::WrongInput, "!slot_size_array.is_array()");
+          HCTR_OWN_THROW(Error_t::WrongInput, "!slot_size_array.is_array()");
         }
         long long slot_sum = 0;
         for (auto j_slot_size : slot_size_array) {
@@ -235,7 +237,7 @@ void create_datareader<TypeKey>::operator()(
           long long slot_size = j_slot_size.get<long long>();
           slot_sum += slot_size;
         }
-        MESSAGE_("Vocabulary size: " + std::to_string(slot_sum));
+        HCTR_LOG_S(INFO, ROOT) << "Vocabulary size: " << slot_sum << std::endl;
       }
       return slot_offset;
     };
@@ -261,7 +263,7 @@ void create_datareader<TypeKey>::operator()(
       }
       case DataReaderType_t::Parquet: {
 #ifdef DISABLE_CUDF
-        CK_THROW_(Error_t::WrongInput, "Parquet is not supported under DISABLE_CUDF");
+        HCTR_OWN_THROW(Error_t::WrongInput, "Parquet is not supported under DISABLE_CUDF");
 #else
         // @Future: Should be slot_offset here and data_reader ctor should
         // be TypeKey not long long
@@ -361,10 +363,10 @@ void create_datareader<TypeKey>::operator()(
     }
     case DataReaderType_t::Parquet: {
 #ifdef DISABLE_CUDF
-      CK_THROW_(Error_t::WrongInput, "Parquet is not supported under DISABLE_CUDF");
+      HCTR_OWN_THROW(Error_t::WrongInput, "Parquet is not supported under DISABLE_CUDF");
 #else
       data_reader->create_drwg_parquet(source, slot_offset, true);
-      MESSAGE_("Vocabulary size: " + std::to_string(slot_sum));
+      HCTR_LOG_S(INFO, ROOT) << "Vocabulary size: " << slot_sum << std::endl;
 #endif
       break;
     }
@@ -375,6 +377,94 @@ void create_datareader<TypeKey>::operator()(
 
   label_dense_map.emplace(inference_parser.label_name, data_reader_tk->get_label_tensors()[0]);
   label_dense_map.emplace(inference_parser.dense_name, data_reader_tk->get_dense_tensors()[0]);
+
+  for (unsigned int i = 0; i < inference_parser.sparse_names.size(); i++) {
+    const std::string& sparse_name = inference_parser.sparse_names[i];
+    const auto& sparse_input = sparse_input_map.find(sparse_name);
+
+    auto copy = [](const std::vector<SparseTensorBag>& tensorbags,
+                   SparseTensors<TypeKey>& sparse_tensors) {
+      sparse_tensors.resize(tensorbags.size());
+      for (size_t j = 0; j < tensorbags.size(); ++j) {
+        sparse_tensors[j] = SparseTensor<TypeKey>::stretch_from(tensorbags[j]);
+      }
+    };
+    copy(data_reader_tk->get_sparse_tensors(sparse_name),
+         sparse_input->second.evaluate_sparse_tensors);
+  }
+}
+
+template <typename TypeKey>
+void create_datareader<TypeKey>::operator()(
+    const InferenceParams& inference_params, const InferenceParser& inference_parser,
+    std::shared_ptr<IDataReader>& data_reader,
+    const std::shared_ptr<ResourceManager> resource_manager,
+    std::map<std::string, SparseInput<TypeKey>>& sparse_input_map,
+    std::vector<TensorBag2>& label_tensor_list, std::vector<TensorBag2>& dense_tensor_list,
+    const std::string& source, const DataReaderType_t data_reader_type, const Check_t check_type,
+    const std::vector<long long>& slot_size_array, const bool repeat_dataset) {
+  HCTR_CHECK_HINT(label_tensor_list.size() == 0,
+                  "label tensor list should be empty before creating data reader");
+  HCTR_CHECK_HINT(dense_tensor_list.size() == 0,
+                  "dense tensor list should be empty before creating data reader");
+  HCTR_CHECK_HINT(repeat_dataset, "repeat dataset should be true for inference");
+  HCTR_CHECK_HINT(resource_manager->get_local_gpu_count() == 1,
+                  "inference data reader should be created on a single GPU");
+  // TO DO：support multi-hot
+  long long slot_sum = 0;
+  std::vector<long long> slot_offset;
+  for (auto slot_size : slot_size_array) {
+    slot_offset.push_back(slot_sum);
+    slot_sum += slot_size;
+  }
+
+  std::vector<DataReaderSparseParam> data_reader_sparse_param_array;
+  for (size_t i = 0; i < inference_parser.slot_num_for_tables.size(); i++) {
+    DataReaderSparseParam param;
+    param.top_name = inference_parser.sparse_names[i];
+    param.max_feature_num = inference_parser.max_feature_num_for_tables[i];
+    param.slot_num = inference_parser.slot_num_for_tables[i];
+    param.max_nnz = inference_parser.max_nnz_for_tables[i];
+    data_reader_sparse_param_array.push_back(param);
+  }
+
+  for (unsigned int i = 0; i < inference_parser.sparse_names.size(); i++) {
+    DataReaderSparseParam param = data_reader_sparse_param_array[i];
+    std::string sparse_name = inference_parser.sparse_names[i];
+    SparseInput<TypeKey> sparse_input(param.slot_num, param.max_feature_num);
+    sparse_input_map.emplace(sparse_name, sparse_input);
+  }
+
+  DataReader<TypeKey>* data_reader_tk = new DataReader<TypeKey>(
+      inference_params.max_batchsize, inference_parser.label_dim, inference_parser.dense_dim,
+      data_reader_sparse_param_array, resource_manager, repeat_dataset, 1,
+      false);  // num_threads = 1, use_mixed_precision = false
+  data_reader.reset(data_reader_tk);
+
+  switch (data_reader_type) {
+    case DataReaderType_t::Norm: {
+      bool start_right_now = repeat_dataset;
+      data_reader->create_drwg_norm(source, check_type, start_right_now);
+      break;
+    }
+    case DataReaderType_t::Parquet: {
+#ifdef DISABLE_CUDF
+      HCTR_OWN_THROW(Error_t::WrongInput, "Parquet is not supported under DISABLE_CUDF");
+#else
+      data_reader->create_drwg_parquet(source, slot_offset, true);  // start_reading_from_beginning
+      HCTR_LOG_S(INFO, ROOT) << "Vocabulary size: " << slot_sum << std::endl;
+#endif
+      break;
+    }
+    default: {
+      assert(!"Error: no such option && should never get here!");
+    }
+  }
+
+  for (size_t i = 0; i < resource_manager->get_local_gpu_count(); i++) {
+    label_tensor_list.push_back(data_reader_tk->get_label_tensors()[i]);
+    dense_tensor_list.push_back(data_reader_tk->get_dense_tensors()[i]);
+  }
 
   for (unsigned int i = 0; i < inference_parser.sparse_names.size(); i++) {
     const std::string& sparse_name = inference_parser.sparse_names[i];

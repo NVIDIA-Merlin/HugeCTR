@@ -107,7 +107,7 @@ class Optimizer {
         optimizer_type_(Optimizer_t::DEFAULT),
         skip_lr_update_(false) {
     if (lr_ < 0.) {
-      CK_THROW_(Error_t::WrongInput, "lr < 0");
+      HCTR_OWN_THROW(Error_t::WrongInput, "lr < 0");
     }
   }
 
@@ -127,12 +127,12 @@ class Optimizer {
    */
   void set_learning_rate(float lr) {
     if (gpu_learning_rate_scheduler_ != nullptr) {
-      CK_THROW_(Error_t::WrongInput,
-                "set_learning_rate cannot be used together with set_learing_rate_scheduler");
+      HCTR_OWN_THROW(Error_t::WrongInput,
+                     "set_learning_rate cannot be used together with set_learing_rate_scheduler");
     }
 
     if (lr < 0) {
-      CK_THROW_(Error_t::WrongInput, "lr < 0");
+      HCTR_OWN_THROW(Error_t::WrongInput, "lr < 0");
     }
     lr_ = lr;
   }

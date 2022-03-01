@@ -47,7 +47,9 @@ class CheckSum : public Checker {
       // if user read more data than expected, return `BrokenFile`.
       // User should check this error and call next_source to new a source.
       if (counter_ < 0) {
-        CK_THROW_(Error_t::BrokenFile, "counter_ " + std::to_string(counter_) + "< 0");
+        std::ostringstream os;
+        os << "counter_ " << counter_ << "< 0";
+        HCTR_OWN_THROW(Error_t::BrokenFile, os.str());
       } else {
         Checker::src_.read(ptr, bytes_to_read);
         for (unsigned int i = 0; i < bytes_to_read; i++) {
@@ -70,7 +72,7 @@ class CheckSum : public Checker {
       }
       return Error_t::UnspecificError;
     } catch (const std::runtime_error& rt_err) {
-      std::cerr << rt_err.what() << std::endl;
+      HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
       return Error_t::BrokenFile;
     }
   }
@@ -89,7 +91,8 @@ class CheckSum : public Checker {
         return flag_eof;
       }
     }
-    CK_THROW_(Error_t::FileCannotOpen, "Checker::src_.next_source() == Error_t::Success failed");
+    HCTR_OWN_THROW(Error_t::FileCannotOpen,
+                   "Checker::src_.next_source() == Error_t::Success failed");
     return Error_t::FileCannotOpen;  // to elimate compile error
   }
 };

@@ -71,15 +71,15 @@ AddLayerCPU<T>::AddLayerCPU(const Tensors2<T>& in_tensors, const Tensor2<T>& out
     // error input checking
     auto dims = in_tensors[0].get_dimensions();
     if (num_ < 2) {
-      CK_THROW_(Error_t::WrongInput, "AddLayer needs at least 2 input tensors");
+      HCTR_OWN_THROW(Error_t::WrongInput, "AddLayer needs at least 2 input tensors");
     }
     for (size_t i = 1; i < num_; i++) {
       if (in_tensors[i].get_dimensions().size() != dims.size()) {
-        CK_THROW_(Error_t::WrongInput, "All the input tensors must have the same num of dims");
+        HCTR_OWN_THROW(Error_t::WrongInput, "All the input tensors must have the same num of dims");
       }
       for (unsigned int j = 0; j < dims.size(); j++) {
         if (in_tensors[i].get_dimensions()[j] != dims[j]) {
-          CK_THROW_(Error_t::WrongInput, "All the input tensors must have the same dims");
+          HCTR_OWN_THROW(Error_t::WrongInput, "All the input tensors must have the same dims");
         }
       }
     }
@@ -92,7 +92,7 @@ AddLayerCPU<T>::AddLayerCPU(const Tensors2<T>& in_tensors, const Tensor2<T>& out
     blobs_buff->reserve({num_}, &h_inputs_);
 
   } catch (const std::runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     throw;
   }
 }

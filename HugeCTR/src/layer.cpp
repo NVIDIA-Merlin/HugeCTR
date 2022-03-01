@@ -61,7 +61,7 @@ void Layer::init_params(const curandGenerator_t& generator) {
         break;
       }
       default: {
-        CK_THROW_(Error_t::OutOfBound, "Not supported initializer.");
+        HCTR_OWN_THROW(Error_t::OutOfBound, "Not supported initializer.");
         break;
       }
     }
@@ -69,7 +69,7 @@ void Layer::init_params(const curandGenerator_t& generator) {
 
   for (size_t i = 0; i < weights_.size(); ++i) {
     simulators[i % simulators.size()]->fill(weight_cpu_tensors[i], generator);
-    CK_CUDA_THROW_(cudaMemcpyAsync(weights_[i].get_ptr(), weight_cpu_tensors[i].get_ptr(),
+    HCTR_LIB_THROW(cudaMemcpyAsync(weights_[i].get_ptr(), weight_cpu_tensors[i].get_ptr(),
                                    weights_[i].get_size_in_bytes(), cudaMemcpyHostToDevice,
                                    get_gpu().get_stream()));
   }

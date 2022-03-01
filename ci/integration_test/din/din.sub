@@ -5,6 +5,6 @@ srun --ntasks="${SLURM_JOB_NUM_NODES}" --container-image="${CONT}" --container-m
     python3 /workdir/test/pybind_test/din_fp32_1gpu.py &&
     python3 /workdir/test/pybind_test/din_matmul_fp32_1gpu.py"
 
-srun --ntasks="${SLURM_JOB_NUM_NODES}" --container-image="${CONT}" --container-mounts="${MOUNTS}" bash -cx " \
-    cd /etc/workspace/din && \
-    python3 /workdir/test/pybind_test/din_fp32_2gpu.py"
+# srun --ntasks="${SLURM_JOB_NUM_NODES}" --container-image="${CONT}" --container-mounts="${MOUNTS}" bash -cx " \
+#     cd /etc/workspace/din && \
+#     python3 /workdir/test/pybind_test/din_fp32_2gpu.py"

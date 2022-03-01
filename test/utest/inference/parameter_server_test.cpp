@@ -46,7 +46,7 @@ void validate_lookup_result_per_table(const std::string model_config_path,
     std::ifstream vec_stream(vec_file);
     // Check if file is opened successfully
     if (!key_stream.is_open() || !vec_stream.is_open()) {
-      CK_THROW_(Error_t::WrongInput, "Error: embeddings file not open for reading");
+      HCTR_OWN_THROW(Error_t::WrongInput, "Error: embeddings file not open for reading");
     }
     const size_t key_file_size_in_byte = std::filesystem::file_size(key_file);
     const size_t vec_file_size_in_byte = std::filesystem::file_size(vec_file);
@@ -58,7 +58,7 @@ void validate_lookup_result_per_table(const std::string model_config_path,
     const size_t num_key = key_file_size_in_byte / key_size_in_byte;
     const size_t num_vec = vec_file_size_in_byte / vec_size_in_byte;
     if (num_key != num_vec) {
-      CK_THROW_(Error_t::WrongInput, "Error: num_key != num_vec in embedding file");
+      HCTR_OWN_THROW(Error_t::WrongInput, "Error: num_key != num_vec in embedding file");
     }
     size_t num_float_val_in_vec_file = vec_file_size_in_byte / sizeof(float);
 

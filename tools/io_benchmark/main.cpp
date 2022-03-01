@@ -12,8 +12,8 @@
 using namespace HugeCTR;
 
 std::vector<int> str_to_vec(const std::string& str) {
-  std::istringstream iss(str);
-  std::vector<std::string> tokens{std::istream_iterator<std::string>{iss},
+  std::istringstream is(str);
+  std::vector<std::string> tokens{std::istream_iterator<std::string>{is},
                                   std::istream_iterator<std::string>{}};
   std::vector<int> res;
   for (auto& s : tokens) {
@@ -83,9 +83,9 @@ int main(int argc, char** argv) {
   const int batch_size_bytes = args.get<int>("--batch_size") * sample_dim * sizeof(int);
 
 #ifdef ENABLE_MPI
-  CK_MPI_THROW_(MPI_Init(&argc, &argv));
+  HCTR_MPI_THROW(MPI_Init(&argc, &argv));
 #endif
-  CK_NVML_THROW_(nvmlInit_v2());
+  HCTR_LIB_THROW(nvmlInit_v2());
 
   std::vector<std::vector<int>> vvgpu;
   vvgpu.push_back(str_to_vec(args.get<std::string>("--gpus")));
@@ -96,7 +96,7 @@ int main(int argc, char** argv) {
       args.get<int>("--num_batches_per_thread"), args.get<int>("--io_block_size"),
       args.get<int>("--io_depth"), args.get<int>("--io_alignment"));
 
-  printf("Initialization done, starting to read...\n");
+  HCTR_LOG(INFO, WORLD, "Initialization done, starting to read...\n");
   fflush(stdout);
   auto start = std::chrono::high_resolution_clock::now();
 
@@ -112,11 +112,11 @@ int main(int argc, char** argv) {
 
   auto end = std::chrono::high_resolution_clock::now();
   auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-  printf("Reading took %.3fs, B/W %.2f GB/s\n", elapsed.count() / 1000.0,
-         std::filesystem::file_size(fname) / ((double)elapsed.count() * 1e6));
+  HCTR_LOG(INFO, WORLD, "Reading took %.3fs, B/W %.2f GB/s\n", elapsed.count() / 1000.0,
+           std::filesystem::file_size(fname) / ((double)elapsed.count() * 1e6));
 
 #ifdef ENABLE_MPI
-  CK_MPI_THROW_(MPI_Finalize());
+  HCTR_MPI_THROW(MPI_Finalize());
 #endif
 
   return 0;

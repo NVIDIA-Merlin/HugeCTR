@@ -28,10 +28,10 @@ void end_to_end_impl(std::vector<int> device_list, HybridEmbeddingInputGenerator
 
   int rank = 0, num_procs = 1;
 #ifdef ENABLE_MPI
-  CK_MPI_THROW_(MPI_Comm_rank(MPI_COMM_WORLD, &rank));
-  CK_MPI_THROW_(MPI_Comm_size(MPI_COMM_WORLD, &num_procs));
+  HCTR_MPI_THROW(MPI_Comm_rank(MPI_COMM_WORLD, &rank));
+  HCTR_MPI_THROW(MPI_Comm_size(MPI_COMM_WORLD, &num_procs));
 #endif
-  CK_NVML_THROW_(nvmlInit_v2());
+  HCTR_LIB_THROW(nvmlInit_v2());
 
   std::vector<std::vector<int>> vvgpu;
   size_t num_local_gpus = device_list.size();
@@ -51,7 +51,7 @@ void end_to_end_impl(std::vector<int> device_list, HybridEmbeddingInputGenerator
   auto table_sizes = generator->get_table_sizes();
   size_t num_tables = table_sizes.size();
   size_t total_categories = std::accumulate(table_sizes.begin(), table_sizes.end(), 0);
-  printf("total categories: %lu\n", total_categories);
+  HCTR_LOG(INFO, WORLD, "total categories: %lu\n", total_categories);
 
   size_t num_init_batches = 50;
 
@@ -117,16 +117,16 @@ void end_to_end_impl(std::vector<int> device_list, HybridEmbeddingInputGenerator
 
   if (debug_print) {
     std::map<dtype, int> unique_cat;
-    printf("Generated INIT unique categories:  ");
+    HCTR_LOG(INFO, ROOT, "Generated INIT unique categories:  ");
     for (size_t i = 0; i < num_init_batches * batch_size; i++) {
       for (size_t j = 0; j < num_tables; j++) {
         unique_cat[initial_input[i * num_tables + j] + table_offsets[j]] = 1;
       }
     }
     for (auto c : unique_cat) {
-      printf(" %d", (int)c.first);
+      HCTR_PRINT(INFO, " %d", (int)c.first);
     }
-    printf("\n");
+    HCTR_PRINT(INFO, "\n");
   }
 
   for (size_t lgpu = 0; lgpu < local_gpu_count; ++lgpu) {
@@ -139,13 +139,14 @@ void end_to_end_impl(std::vector<int> device_list, HybridEmbeddingInputGenerator
 
   size_t num_frequent = embedding->model_[0].num_frequent;
   if (rank == 0) {
-    printf("Number of frequent categories: %ld\n", num_frequent);
+    HCTR_LOG(INFO, WORLD, "Number of frequent categories: %ld\n", num_frequent);
   }
   std::vector<size_t> num_infrequent(local_gpu_count);
   for (size_t i = 0; i < local_gpu_count; i++) {
     num_infrequent[i] = embedding->model_[i].h_infrequent_model_table_offsets[num_tables];
     // if (debug_print) {
-    printf("local_gpu = %ld, Number of infrequent categories: %ld\n", i, num_infrequent[i]);
+    HCTR_LOG(INFO, WORLD, "local_gpu = %ld, Number of infrequent categories: %ld\n", i,
+             num_infrequent[i]);
     //}
   }
 
@@ -174,11 +175,11 @@ void end_to_end_impl(std::vector<int> device_list, HybridEmbeddingInputGenerator
     }
 
     if (debug_print && device == 0) {
-      printf("Frequent categories: ");
+      HCTR_LOG(INFO, ROOT, "Frequent categories: ");
       for (size_t i = 0; i < num_frequent; i++) {
-        printf(" %d", h_frequent_categories[i]);
+        HCTR_PRINT(INFO, " %d", h_frequent_categories[i]);
       }
-      printf("\n");
+      HCTR_PRINT(INFO, "\n");
     }
   }
 
@@ -200,10 +201,10 @@ void end_to_end_impl(std::vector<int> device_list, HybridEmbeddingInputGenerator
                total_categories * 2 * sizeof(dtype), cudaMemcpyDeviceToHost);
 
     if (debug_print) {
-      printf("Category location array:\n");
+      HCTR_LOG(INFO, ROOT, "Category location array:\n");
       for (size_t i = 0; i < total_categories; i++) {
-        printf("  (%d, %d)", h_category_location[2 * i], h_category_location[2 * i + 1]);
-        printf("\n");
+        HCTR_PRINT(INFO, "  (%d, %d)\n", h_category_location[2 * i],
+                   h_category_location[2 * i + 1]);
       }
     }
 
@@ -216,7 +217,7 @@ void end_to_end_impl(std::vector<int> device_list, HybridEmbeddingInputGenerator
         /*
         if(device == 0)
         {
-          printf("i = %ld, loc = %d, embed[0]  = %f\n", i, loc,
+          HCTR_LOG(INFO, WORLD, "i = %ld, loc = %d, embed[0]  = %f\n", i, loc,
         *(h_infrequent_embedding_vectors+loc*embedding_vec_size));
         }
         */
@@ -225,22 +226,22 @@ void end_to_end_impl(std::vector<int> device_list, HybridEmbeddingInputGenerator
     cudaMemcpy(embedding->infrequent_embeddings_[device].infrequent_embedding_vectors_.get_ptr(),
                h_infrequent_embedding_vectors, num_infrequent * embedding_vec_size * sizeof(float),
                cudaMemcpyHostToDevice);
-    // printf("gpu = %ld, num_infrequent = %ld, infrequent_embedding_vectors_ = 0x%lx\n", device,
-    // num_infrequent,
+    // HCTR_LOG(INFO, WORLD, "gpu = %ld, num_infrequent = %ld, infrequent_embedding_vectors_ =
+    // 0x%lx\n", device, num_infrequent,
     // (size_t)(embedding->infrequent_embeddings_[device].infrequent_embedding_vectors_.get_ptr()));
     cudaFreeHost(h_infrequent_embedding_vectors);
     cudaFreeHost(h_category_location);
   }
 
   if (debug_print) {
-    printf("Generated full embedding table\n");
+    HCTR_LOG(INFO, ROOT, "Generated full embedding table\n");
     for (size_t i = 0; i < full_emb_table.size(); i++) {
-      printf("%8.5f ", (float)full_emb_table[i]);
+      HCTR_PRINT(INFO, "%8.5f ", (float)full_emb_table[i]);
       if (i % embedding_vec_size == embedding_vec_size - 1) {
-        printf("\n");
+        HCTR_PRINT(INFO, "\n");
       }
     }
-    printf("\n");
+    HCTR_PRINT(INFO, "\n");
   }
 
   auto outputs = embedding->get_train_output_tensors();
@@ -255,19 +256,19 @@ void end_to_end_impl(std::vector<int> device_list, HybridEmbeddingInputGenerator
   }
 
   if (debug_print) {
-    printf("Generated input:\n");
-    printf("  Table sizes: ");
+    HCTR_LOG(INFO, ROOT, "Generated input:\n");
+    HCTR_PRINT(INFO, "  Table sizes: ");
     for (auto sz : generator->get_table_sizes()) {
-      printf("%ld ", sz);
+      HCTR_PRINT(INFO, "%ld ", sz);
     }
-    printf("\n");
-    printf("  Input:\n");
+    HCTR_PRINT(INFO, "\n");
+    HCTR_PRINT(INFO, "  Input:\n");
     for (size_t i = 0; i < batch_size; i++) {
-      printf("   [ ");
+      HCTR_PRINT(INFO, "   [ ");
       for (size_t j = 0; j < num_tables; j++) {
-        printf("%7d ", input[i * num_tables + j]);
+        HCTR_PRINT(INFO, "%7d ", input[i * num_tables + j]);
       }
-      printf(" ]\n");
+      HCTR_PRINT(INFO, " ]\n");
     }
   }
 
@@ -283,50 +284,52 @@ void end_to_end_impl(std::vector<int> device_list, HybridEmbeddingInputGenerator
       std::vector<dtype> tmp;
       download_tensor(tmp, embedding->infrequent_embeddings_[device].indices_->model_indices_, 0);
 
-      printf("Instance %d model indices: ", global_id);
+      HCTR_LOG(INFO, ROOT, "Instance %d model indices: ", global_id);
       for (size_t j = 0; j < tmp.size(); j++) {
-        printf(" %d", (int)tmp[j]);
+        HCTR_PRINT(INFO, " %d", (int)tmp[j]);
       }
-      printf("\n");
+      HCTR_PRINT(INFO, "\n");
 
-      printf("Instance %d model indices OFFSETS: ", global_id);
+      HCTR_LOG(INFO, ROOT, "Instance %d model indices OFFSETS: ", global_id);
       for (int j = 0; j < num_procs + 1; j++) {
-        printf(" %d", (int)embedding->infrequent_embeddings_[device]
-                          .indices_->model_indices_offsets_.get_ptr()[j]);
+        HCTR_PRINT(INFO, " %d",
+                   (int)embedding->infrequent_embeddings_[device]
+                       .indices_->model_indices_offsets_.get_ptr()[j]);
       }
-      printf("\n");
+      HCTR_PRINT(INFO, "\n");
 
       int num_batch_frequent;
-      CK_CUDA_THROW_(cudaMemcpy(&num_batch_frequent,
+      HCTR_LIB_THROW(cudaMemcpy(&num_batch_frequent,
                                 embedding->frequent_embeddings_[device]
                                     .indices_->d_num_frequent_sample_indices_.get_ptr(),
                                 sizeof(uint32_t), cudaMemcpyDeviceToHost));
-      printf("Instance %d found %d frequent categories in positions: ", global_id,
-             num_batch_frequent);
+      HCTR_LOG(INFO, ROOT, "Instance %d found %d frequent categories in positions: ", global_id,
+               num_batch_frequent);
       download_tensor(
           tmp, embedding->frequent_embeddings_[device].indices_->frequent_sample_indices_, 0);
       for (int j = 0; j < num_batch_frequent; j++) {
-        printf(" %d", (int)tmp[j]);
+        HCTR_PRINT(INFO, " %d", (int)tmp[j]);
       }
-      printf("\n");
+      HCTR_PRINT(INFO, "\n");
     }
 
     {
       std::vector<dtype> tmp;
       download_tensor(tmp, embedding->infrequent_embeddings_[device].indices_->network_indices_, 0);
 
-      printf("Instance %d network indices: ", global_id);
+      HCTR_LOG(INFO, ROOT, "Instance %d network indices: ", global_id);
       for (size_t j = 0; j < tmp.size(); j++) {
-        printf(" %d", (int)tmp[j]);
+        HCTR_PRINT(INFO, " %d", (int)tmp[j]);
       }
-      printf("\n");
+      HCTR_PRINT(INFO, "\n");
 
-      printf("Instance %d network indices OFFSETS: ", global_id);
+      HCTR_LOG(INFO, ROOT, "Instance %d network indices OFFSETS: ", global_id);
       for (int j = 0; j < num_procs + 1; j++) {
-        printf(" %d", (int)embedding->infrequent_embeddings_[device]
-                          .indices_->network_indices_offsets_.get_ptr()[j]);
+        HCTR_PRINT(INFO, " %d",
+                   (int)embedding->infrequent_embeddings_[device]
+                       .indices_->network_indices_offsets_.get_ptr()[j]);
       }
-      printf("\n");
+      HCTR_PRINT(INFO, "\n");
     }
   }
 
@@ -351,12 +354,12 @@ void end_to_end_impl(std::vector<int> device_list, HybridEmbeddingInputGenerator
       auto actual_ptr = h_output.data() + i * embedding_vec_size;
 
       if (debug_print) {
-        printf(" Instance %d sample %ld slot %ld comparing category %ld: ", global_id, i, table,
-               cat_id);
+        HCTR_LOG(INFO, ROOT, " Instance %d sample %ld slot %ld comparing category %ld: ", global_id,
+                 i, table, cat_id);
         for (size_t j = 0; j < embedding_vec_size; j++) {
-          printf(" (%8.5f : %8.5f) ", (float)actual_ptr[j], (float)expected_ptr[j]);
+          HCTR_PRINT(INFO, " (%8.5f : %8.5f) ", (float)actual_ptr[j], (float)expected_ptr[j]);
         }
-        printf("\n");
+        HCTR_PRINT(INFO, "\n");
       }
 
       for (size_t j = 0; j < embedding_vec_size; j++) {
@@ -404,14 +407,14 @@ void end_to_end_impl(std::vector<int> device_list, HybridEmbeddingInputGenerator
   }
 
   if (debug_print) {
-    printf("Generated embedding gradients");
+    HCTR_LOG(INFO, ROOT, "Generated embedding gradients");
     for (size_t i = 0; i < gradients.size(); i++) {
       if (i % embedding_vec_size == 0) {
-        printf("\nRank %d cat %ld :: ", rank, i / embedding_vec_size);
+        HCTR_PRINT(INFO, "\nRank %d cat %ld :: ", rank, i / embedding_vec_size);
       }
-      printf("%8.5f ", (float)gradients[i]);
+      HCTR_PRINT(INFO, "%8.5f ", (float)gradients[i]);
     }
-    printf("\n");
+    HCTR_PRINT(INFO, "\n");
   }
 
   embedding->backward();
@@ -501,7 +504,7 @@ void end_to_end(std::vector<int> device_list, size_t num_tables, size_t total_ca
                 size_t seed = 42, size_t num_evals = 1) {
   int num_procs = 1;
 #ifdef ENABLE_MPI
-  CK_MPI_THROW_(MPI_Comm_size(MPI_COMM_WORLD, &num_procs));
+  HCTR_MPI_THROW(MPI_Comm_size(MPI_COMM_WORLD, &num_procs));
 #endif
   size_t num_total_gpus = num_procs * device_list.size();
 
@@ -528,7 +531,7 @@ void end_to_end(std::vector<int> device_list, std::vector<size_t> table_sizes, s
                 size_t num_evals = 1) {
   int num_procs = 1;
 #ifdef ENABLE_MPI
-  CK_MPI_THROW_(MPI_Comm_size(MPI_COMM_WORLD, &num_procs));
+  HCTR_MPI_THROW(MPI_Comm_size(MPI_COMM_WORLD, &num_procs));
 #endif
   size_t num_total_gpus = num_procs * device_list.size();
 

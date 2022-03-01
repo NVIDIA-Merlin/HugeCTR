@@ -21,7 +21,6 @@
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"
 
-using namespace std;
 using namespace HugeCTR;
 
 namespace {
@@ -72,8 +71,8 @@ void downscale_cpu(T* out, T* in, int batchsize, int num_elems, int axis, int fa
 
 template <typename T>
 void scale_test(size_t batchsize, size_t num_elems, int axis, int factor) {
-  shared_ptr<GeneralBuffer2<CudaAllocator>> buf = GeneralBuffer2<CudaAllocator>::create();
-  vector<size_t> dims = {batchsize, num_elems};
+  std::shared_ptr<GeneralBuffer2<CudaAllocator>> buf = GeneralBuffer2<CudaAllocator>::create();
+  std::vector<size_t> dims = {batchsize, num_elems};
 
   Tensor2<T> in_tensor;
   buf->reserve(dims, &in_tensor);
@@ -95,29 +94,29 @@ void scale_test(size_t batchsize, size_t num_elems, int axis, int factor) {
   test::GaussianDataSimulator simulator(0.0f, 1.0f);
   simulator.fill(h_bottom.get(), len);
 
-  CK_CUDA_THROW_(
+  HCTR_LIB_THROW(
       cudaMemcpy(in_tensor.get_ptr(), h_bottom.get(), len * sizeof(T), cudaMemcpyHostToDevice));
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
   scale_layer.fprop(true);
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
-  CK_CUDA_THROW_(
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(
       cudaMemcpy(d2h_top.get(), out_tensor.get_ptr(), top_len * sizeof(T), cudaMemcpyDeviceToHost));
 
   upscale_cpu<T>(h_top.get(), h_bottom.get(), batchsize, num_elems, axis, factor);
   ASSERT_TRUE(test::compare_array_approx<T>(d2h_top.get(), h_top.get(), top_len, eps));
   // T *t=d2h_top.get(), *t1 = h_top.get(), *in=h_bottom.get();
   // for(int i=0;i<100;i++)
-  //  printf("%f %f %f\n", t[i], t1[i], in[i]);
+  //  HCTR_LOG(INFO, WORLD, "%f %f %f\n", t[i], t1[i], in[i]);
   // bprop
   simulator.fill(h_top.get(), len);
   // T *tt = h_top.get();
-  // printf("back cpu %f\n", tt[0]);
-  CK_CUDA_THROW_(
+  // HCTR_LOG(INFO, WORLD, "back cpu %f\n", tt[0]);
+  HCTR_LIB_THROW(
       cudaMemcpy(out_tensor.get_ptr(), h_top.get(), top_len * sizeof(T), cudaMemcpyHostToDevice));
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
   scale_layer.bprop();
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
-  CK_CUDA_THROW_(
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(
       cudaMemcpy(d2h_bottom.get(), in_tensor.get_ptr(), len * sizeof(T), cudaMemcpyDeviceToHost));
   downscale_cpu<T>(h_bottom.get(), h_top.get(), batchsize, num_elems, axis, factor);
   ASSERT_TRUE(test::compare_array_approx<T>(d2h_bottom.get(), h_bottom.get(), len, eps));

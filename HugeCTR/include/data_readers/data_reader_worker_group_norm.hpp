@@ -39,7 +39,7 @@ class DataReaderWorkerGroupNorm : public DataReaderWorkerGroup {
                             bool start_reading_from_beginning = true)
       : DataReaderWorkerGroup(start_reading_from_beginning, DataReaderType_t::Norm) {
     if (file_list.empty()) {
-      CK_THROW_(Error_t::WrongInput, "file_name.empty()");
+      HCTR_OWN_THROW(Error_t::WrongInput, "file_name.empty()");
     }
     int num_threads = output_buffers.size();
     size_t local_gpu_count = resource_manager_->get_local_gpu_count();
@@ -50,7 +50,7 @@ class DataReaderWorkerGroupNorm : public DataReaderWorkerGroup {
       max_feature_num_per_sample += param.max_feature_num;
 
       if (param.max_feature_num <= 0 || param.slot_num <= 0) {
-        CK_THROW_(Error_t::WrongInput, "param.max_feature_num <= 0 || param.slot_num <= 0");
+        HCTR_OWN_THROW(Error_t::WrongInput, "param.max_feature_num <= 0 || param.slot_num <= 0");
       }
     }
 

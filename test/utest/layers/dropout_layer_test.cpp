@@ -25,7 +25,6 @@
 #include <utils.hpp>
 #include <vector>
 
-using namespace std;
 using namespace HugeCTR;
 
 namespace {
@@ -36,7 +35,7 @@ const float thr = 0.95f;
 template <typename T>
 void dropout_test(size_t dim0, size_t dim1, float rate) {
   std::shared_ptr<GeneralBuffer2<CudaAllocator>> buf = GeneralBuffer2<CudaAllocator>::create();
-  vector<size_t> dims = {dim0, dim1};
+  std::vector<size_t> dims = {dim0, dim1};
   Tensor2<T> in_tensor;
   buf->reserve(dims, &in_tensor);
   Tensor2<T> out_tensor;
@@ -54,16 +53,16 @@ void dropout_test(size_t dim0, size_t dim1, float rate) {
   std::unique_ptr<T[]> h_in(new T[len]);
   test::GaussianDataSimulator simulator(0.0f, 1.0f);
   simulator.fill(h_in.get(), len);
-  CK_CUDA_THROW_(cudaMemcpy(d_in, h_in.get(), n_bytes, cudaMemcpyHostToDevice));
+  HCTR_LIB_THROW(cudaMemcpy(d_in, h_in.get(), n_bytes, cudaMemcpyHostToDevice));
 
   std::unique_ptr<T[]> h_out(new T[len]);
 
   // fprop test
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
   dropout_layer.fprop(true);
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
 
-  CK_CUDA_THROW_(cudaMemcpy(h_out.get(), d_out, n_bytes, cudaMemcpyDeviceToHost));
+  HCTR_LIB_THROW(cudaMemcpy(h_out.get(), d_out, n_bytes, cudaMemcpyDeviceToHost));
   int cnt_zero_fprop = 0;
   for (int i = 0; i < len; i++) {
     if (std::abs(h_out[i] - 0.f) < eps) {
@@ -77,11 +76,11 @@ void dropout_test(size_t dim0, size_t dim1, float rate) {
   ASSERT_TRUE(c / p > thr);
 
   // bprop test
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
   dropout_layer.bprop();
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
 
-  CK_CUDA_THROW_(cudaMemcpy(h_in.get(), d_in, n_bytes, cudaMemcpyDeviceToHost));
+  HCTR_LIB_THROW(cudaMemcpy(h_in.get(), d_in, n_bytes, cudaMemcpyDeviceToHost));
   int cnt_zero_bprop = 0;
   for (int i = 0; i < len; i++) {
     if (std::abs(h_out[i] - 0.f) < eps) {

@@ -62,6 +62,7 @@ REGISTER_OP("PluginDenseFprop")
     .Input("values: value_dtype")
     .Input("global_replica_id: int32")
     .Output("emb_vector: dtype")
+    .Output("replica_nnz: uint64")
     .Attr("training: bool")
     .Attr("value_dtype: {uint32, int64}")
     .Attr("dtype: {float32, float16}")
@@ -105,4 +106,6 @@ REGISTER_OP("PluginDenseFprop")
 
         If dynamic_input is true, the input to this op must 1-D tensor, and its output
         tensor will be a 2-D tensor, whose shape is [input.shape, embedding_vec_size].
+
+        'replica_nnz' represents how many keys are processed in this step by this GPU.
     )doc");

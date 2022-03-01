@@ -87,14 +87,14 @@ int InterNodeHierarchicalAlltoAll<TypeEmbeddingComp>::create_nccl_comms() {
     ncclUniqueId inter_id;
     int device_id = resource_manager_->get_local_gpu(g)->get_device_id();
     if (pid_ == 0) {
-      CK_NCCL_THROW_(ncclGetUniqueId(&inter_id));
+      HCTR_LIB_THROW(ncclGetUniqueId(&inter_id));
     }
 
-    CK_MPI_THROW_(MPI_Bcast(&inter_id, sizeof(inter_id), MPI_BYTE, 0, MPI_COMM_WORLD));
-    CK_NCCL_THROW_(ncclGroupStart());
-    CK_CUDA_THROW_(cudaSetDevice(device_id));
-    CK_NCCL_THROW_(ncclCommInitRank(&inter_comms_[g], num_procs_, inter_id, pid_));
-    CK_NCCL_THROW_(ncclGroupEnd());
+    HCTR_MPI_THROW(MPI_Bcast(&inter_id, sizeof(inter_id), MPI_BYTE, 0, MPI_COMM_WORLD));
+    HCTR_LIB_THROW(ncclGroupStart());
+    HCTR_LIB_THROW(cudaSetDevice(device_id));
+    HCTR_LIB_THROW(ncclCommInitRank(&inter_comms_[g], num_procs_, inter_id, pid_));
+    HCTR_LIB_THROW(ncclGroupEnd());
   }
   return 0;
 }
@@ -195,18 +195,18 @@ int InterNodeHierarchicalAlltoAll<TypeEmbeddingComp>::fprop(bool is_train,
   auto& vars = te_vars[te];
   for (size_t g = 0; g < local_gpu_count_; g++) {
     int device_id = resource_manager_->get_local_gpu(g)->get_device_id();
-    CK_CUDA_THROW_(cudaSetDevice(device_id));
-    CK_NCCL_THROW_(ncclGroupStart());
+    HCTR_LIB_THROW(cudaSetDevice(device_id));
+    HCTR_LIB_THROW(ncclGroupStart());
     for (int p = 0; p < num_procs_; p++) {
-      CK_NCCL_THROW_(ncclSend(input[g].get_ptr() + vars.inter_send_offsets_[p],
+      HCTR_LIB_THROW(ncclSend(input[g].get_ptr() + vars.inter_send_offsets_[p],
                               vars.inter_send_counts_[p], nccl_dtype_, p, inter_comms_[g],
                               resource_manager_->get_local_gpu(g)->get_stream()));
 
-      CK_NCCL_THROW_(ncclRecv(output[g].get_ptr() + vars.inter_recv_offsets_[p],
+      HCTR_LIB_THROW(ncclRecv(output[g].get_ptr() + vars.inter_recv_offsets_[p],
                               vars.inter_recv_counts_[p], nccl_dtype_, p, inter_comms_[g],
                               resource_manager_->get_local_gpu(g)->get_stream()));
     }
-    CK_NCCL_THROW_(ncclGroupEnd());
+    HCTR_LIB_THROW(ncclGroupEnd());
   }
   return 0;
 }
@@ -217,19 +217,19 @@ int InterNodeHierarchicalAlltoAll<TypeEmbeddingComp>::bprop(
   auto& vars = te_vars[TRAIN];
   for (size_t g = 0; g < local_gpu_count_; g++) {
     int device_id = resource_manager_->get_local_gpu(g)->get_device_id();
-    CK_CUDA_THROW_(cudaSetDevice(device_id));
-    CK_NCCL_THROW_(ncclGroupStart());
+    HCTR_LIB_THROW(cudaSetDevice(device_id));
+    HCTR_LIB_THROW(ncclGroupStart());
     for (int p = 0; p < num_procs_; p++) {
       // send/recv offsets will be reverse for bprop
-      CK_NCCL_THROW_(ncclSend(bprop_input[g].get_ptr() + vars.inter_recv_offsets_[p],
+      HCTR_LIB_THROW(ncclSend(bprop_input[g].get_ptr() + vars.inter_recv_offsets_[p],
                               vars.inter_recv_counts_[p], nccl_dtype_, p, inter_comms_[g],
                               resource_manager_->get_local_gpu(g)->get_stream()));
 
-      CK_NCCL_THROW_(ncclRecv(bprop_output[g].get_ptr() + vars.inter_send_offsets_[p],
+      HCTR_LIB_THROW(ncclRecv(bprop_output[g].get_ptr() + vars.inter_send_offsets_[p],
                               vars.inter_send_counts_[p], nccl_dtype_, p, inter_comms_[g],
                               resource_manager_->get_local_gpu(g)->get_stream()));
     }
-    CK_NCCL_THROW_(ncclGroupEnd());
+    HCTR_LIB_THROW(ncclGroupEnd());
   }
   return 0;
 }

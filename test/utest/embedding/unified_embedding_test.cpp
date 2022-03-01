@@ -76,12 +76,14 @@ void unified_embedding_forward(const TestParams &test_param, const std::vector<i
   embedding_param.opt_params.hyperparams.sgd.atomic_update = false;
   embedding_param.slot_size_array = slot_size_array;
 
-  std::cout << " train_batch_size:" << embedding_param.train_batch_size << std::endl;
-  std::cout << " evaluate_batch_size:" << embedding_param.evaluate_batch_size << std::endl;
-  std::cout << " max_vocabulary_size_per_gpu:" << embedding_param.max_vocabulary_size_per_gpu
-            << std::endl;
-  std::cout << " embedding_vec_size:" << embedding_param.embedding_vec_size << std::endl;
-  std::cout << " max_feature_num:" << embedding_param.max_feature_num << std::endl;
+  HCTR_LOG_S(INFO, WORLD) << " train_batch_size:" << embedding_param.train_batch_size << std::endl;
+  HCTR_LOG_S(INFO, WORLD) << " evaluate_batch_size:" << embedding_param.evaluate_batch_size
+                          << std::endl;
+  HCTR_LOG_S(INFO, WORLD) << " max_vocabulary_size_per_gpu:"
+                          << embedding_param.max_vocabulary_size_per_gpu << std::endl;
+  HCTR_LOG_S(INFO, WORLD) << " embedding_vec_size:" << embedding_param.embedding_vec_size
+                          << std::endl;
+  HCTR_LOG_S(INFO, WORLD) << " max_feature_num:" << embedding_param.max_feature_num << std::endl;
 
   std::unique_ptr<EmbeddingType<Key, EmbeddingComp>> embedding =
       std::make_unique<EmbeddingType<Key, EmbeddingComp>>(train_keys, evaluate_keys,
@@ -112,7 +114,7 @@ void unified_embedding_forward(const TestParams &test_param, const std::vector<i
     for (size_t id = 0; id < local_gpu_count; id++) {
       const auto &local_gpu = resource_manager.get_local_gpu(id);
       context.set_device(local_gpu->get_device_id());
-      CK_CUDA_THROW_(cudaStreamSynchronize(local_gpu->get_stream()));
+      HCTR_LIB_THROW(cudaStreamSynchronize(local_gpu->get_stream()));
     }
   };
 
@@ -129,7 +131,7 @@ void unified_embedding_forward(const TestParams &test_param, const std::vector<i
     sync_all_gpus(*resource_manager);
   }
   if (test_param.reference_check) {
-    MESSAGE_("start reference check.");
+    HCTR_LOG(INFO, ROOT, "start reference check.\n");
     EmbeddingCpu<Key, EmbeddingComp> embedding_cpu(embedding_param, total_gpu_count);
     std::vector<Tensor2<EmbeddingComp>> forward_result_from_gpu(
         test_param.train_steps);  // buffer to save gpu embedding result
@@ -207,7 +209,7 @@ void unified_embedding_forward(const TestParams &test_param, const std::vector<i
     }
 
     for (size_t i = 0; i < test_param.train_steps; ++i) {
-      MESSAGE_("reference check cpu iter:" + std::to_string(i));
+      HCTR_LOG_S(INFO, ROOT) << "reference check cpu iter:" << i << std::endl;
       embedding_cpu.forward(true, host_input_keys[i], host_input_keys[i]);
 
       ASSERT_TRUE(compare_array(embedding_cpu.embedding_feature_tensors_.get_num_elements(),

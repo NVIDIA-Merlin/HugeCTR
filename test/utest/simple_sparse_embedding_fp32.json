@@ -59,7 +59,7 @@
       "bottom": "data1",
       "top": "sparse_embedding1",
       "sparse_embedding_hparam": {
-        "workspace_size_per_gpu_in_mb": 636,
+        "workspace_size_per_gpu_in_mb": 1908,
         "embedding_vec_size": 64,
         "combiner": "mean"
       }
@@ -70,7 +70,7 @@
       "bottom": "data2",
       "top": "sparse_embedding2",
       "sparse_embedding_hparam": {
-        "workspace_size_per_gpu_in_mb": 318,
+        "workspace_size_per_gpu_in_mb": 954,
         "embedding_vec_size": 64,
         "combiner": "mean"
       }

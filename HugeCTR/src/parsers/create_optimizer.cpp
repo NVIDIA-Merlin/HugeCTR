@@ -31,9 +31,9 @@ namespace HugeCTR {
 OptParams get_optimizer_param(const nlohmann::json& j_optimizer) {
   // create optimizer
   auto optimizer_name = get_value_from_json<std::string>(j_optimizer, "type");
-  Optimizer_t optimizer_type;
+  Optimizer_t optimizer_type = Optimizer_t::DEFAULT;
   if (!find_item_in_map(optimizer_type, optimizer_name, OPTIMIZER_TYPE_MAP)) {
-    CK_THROW_(Error_t::WrongInput, "No such optimizer: " + optimizer_name);
+    HCTR_OWN_THROW(Error_t::WrongInput, "No such optimizer: " + optimizer_name);
   }
 
   OptHyperParams opt_hyper_params;
@@ -43,13 +43,13 @@ OptParams get_optimizer_param(const nlohmann::json& j_optimizer) {
   if (has_key_(j_optimizer, "update_type")) {
     std::string update_name = get_value_from_json<std::string>(j_optimizer, "update_type");
     if (!find_item_in_map(update_type, update_name, UPDATE_TYPE_MAP)) {
-      CK_THROW_(Error_t::WrongInput, "No such update type: " + update_name);
+      HCTR_OWN_THROW(Error_t::WrongInput, "No such update type: " + update_name);
     }
   } else if (has_key_(j_optimizer, "global_update")) {
     bool global_update = get_value_from_json<bool>(j_optimizer, "global_update");
     if (global_update) update_type = Update_t::Global;
   } else {
-    MESSAGE_("update_type is not specified, using default: local");
+    HCTR_LOG(INFO, ROOT, "update_type is not specified, using default: local\n");
   }
 
   switch (optimizer_type) {

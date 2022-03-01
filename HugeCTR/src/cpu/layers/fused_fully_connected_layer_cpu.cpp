@@ -77,7 +77,7 @@ FusedFullyConnectedLayerCPU::FusedFullyConnectedLayerCPU(
   const auto& top_tensor_dim = top_tensor.get_dimensions();
 
   if (bottom_tensor_dim.size() != 2 || top_tensor_dim.size() != 2) {
-    CK_THROW_(Error_t::WrongInput, "input or output tensor doesn't has two dimensions");
+    HCTR_OWN_THROW(Error_t::WrongInput, "input or output tensor doesn't has two dimensions");
   }
 
   size_t m = bottom_tensor_dim[0];
@@ -85,9 +85,10 @@ FusedFullyConnectedLayerCPU::FusedFullyConnectedLayerCPU(
   size_t k = bottom_tensor_dim[1];
 
   if (m % 32 != 0 || n % 64 != 0) {
-    CK_THROW_(Error_t::WrongInput,
-              "The first dimension of bottom tensor must be a multiple of 32, the second dimension "
-              "of top tensor must be a multiple of 64.");
+    HCTR_OWN_THROW(
+        Error_t::WrongInput,
+        "The first dimension of bottom tensor must be a multiple of 32, the second dimension "
+        "of top tensor must be a multiple of 64.");
   }
 
   std::vector<size_t> kernel_dim = {k, n};

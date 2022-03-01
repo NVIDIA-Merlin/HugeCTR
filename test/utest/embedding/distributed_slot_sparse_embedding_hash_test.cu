@@ -82,7 +82,7 @@ auto load_sparse_model_to_map = [](std::vector<T> &key_vec, std::vector<float> &
   const long long num_vec = vec_file_size_in_B / (sizeof(float) * embedding_vec_size);
 
   if (num_key != num_vec || num_key != vocabulary_size) {
-    CK_THROW_(Error_t::BrokenFile, "num_key != num_vec || num_key != vocabulary_size");
+    HCTR_OWN_THROW(Error_t::BrokenFile, "num_key != num_vec || num_key != vocabulary_size");
   }
 
   key_vec.clear();
@@ -112,7 +112,7 @@ void init_sparse_model(const char *sparse_model) {
   std::ofstream fs_key(key_file);
   std::ofstream fs_vec(vec_file);
   if (!fs_key.is_open() || !fs_vec.is_open()) {
-    ERROR_MESSAGE_("Error: file not open for writing");
+    HCTR_LOG_S(ERROR, WORLD) << "File not open for writing. " << HCTR_LOCATION() << std::endl;
   }
 
   test::UniformDataSimulator fdata_sim;
@@ -241,7 +241,7 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
           train_input, test_input, embedding_params, resource_manager));
 
   // upload hash table to device
-  embedding->load_parameters(sparse_model_file);
+  embedding->load_parameters(sparse_model_file, DataSourceParams());
 
   // for SparseEmbeddingCpu
   std::unique_ptr<SparseEmbeddingHashCpu<T, TypeEmbeddingComp>> embedding_cpu(
@@ -280,26 +280,26 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
   } TypeHashValue;
 
   for (int i = 0; i < train_batch_num; i++) {
-    printf("Rank%d: Round %d start training:\n", pid, i);
+    HCTR_LOG(INFO, WORLD, "Rank%d: Round %d start training:\n", pid, i);
 
     // call read a batch
-    printf("Rank%d: data_reader->read_a_batch_to_device()\n", pid);
+    HCTR_LOG(INFO, WORLD, "Rank%d: data_reader->read_a_batch_to_device()\n", pid);
     train_data_reader->read_a_batch_to_device();
 
     // GPU forward
-    printf("Rank%d: embedding->forward()\n", pid);
+    HCTR_LOG(INFO, WORLD, "Rank%d: embedding->forward()\n", pid);
     embedding->forward(true);
 
     // check the result of forward
-    printf("Rank%d: embedding->get_forward_results()\n", pid);
+    HCTR_LOG(INFO, WORLD, "Rank%d: embedding->get_forward_results()\n", pid);
     embedding->get_forward_results(true, embedding_feature_from_gpu);  // memcpy from GPU to CPU
 
     if (pid == 0) {
       // CPU forward
-      printf("Rank0: embedding_cpu->forward()\n");
+      HCTR_LOG(INFO, WORLD, "Rank0: embedding_cpu->forward()\n");
       embedding_cpu->forward();
 
-      printf("Rank0: check forward results\n");
+      HCTR_LOG(INFO, WORLD, "Rank0: check forward results\n");
       ASSERT_TRUE(compare_embedding_feature(train_batchsize * slot_num * embedding_vec_size,
                                             embedding_feature_from_gpu.get_ptr(),
                                             embedding_feature_from_cpu, tolerance));
@@ -310,19 +310,19 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
 #endif
 
     // GPU backward
-    printf("Rank%d: embedding->backward()\n", pid);
+    HCTR_LOG(INFO, WORLD, "Rank%d: embedding->backward()\n", pid);
     embedding->backward();
 
     // check the result of backward
-    printf("Rank%d: embedding->get_backward_results()\n", pid);
+    HCTR_LOG(INFO, WORLD, "Rank%d: embedding->get_backward_results()\n", pid);
     embedding->get_backward_results(wgrad_from_gpu, 0);
 
     if (pid == 0) {
       // CPU backward
-      printf("Rank0: embedding_cpu->backward()\n");
+      HCTR_LOG(INFO, WORLD, "Rank0: embedding_cpu->backward()\n");
       embedding_cpu->backward();
 
-      printf("Rank0: check backward results: GPU and CPU\n");
+      HCTR_LOG(INFO, WORLD, "Rank0: check backward results: GPU and CPU\n");
       ASSERT_TRUE(compare_wgrad(train_batchsize * slot_num * embedding_vec_size,
                                 wgrad_from_gpu.get_ptr(), wgrad_from_cpu, tolerance));
     }
@@ -332,20 +332,20 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
 #endif
 
     // GPU update_params
-    printf("Rank%d: embedding->update_params()\n", pid);
+    HCTR_LOG(INFO, WORLD, "Rank%d: embedding->update_params()\n", pid);
     embedding->update_params();
 
     // check the results of update params
-    printf("Rank%d: embedding->get_update_params_results()\n", pid);
+    HCTR_LOG(INFO, WORLD, "Rank%d: embedding->get_update_params_results()\n", pid);
     embedding->get_update_params_results(hash_table_key_from_gpu,
                                          hash_table_value_from_gpu);  // memcpy from GPU to CPU
 
     if (pid == 0) {
       // CPU update_params
-      printf("Rank0: embedding_cpu->update_params()\n");
+      HCTR_LOG(INFO, WORLD, "Rank0: embedding_cpu->update_params()\n");
       embedding_cpu->update_params();
 
-      printf("Rank0: check update_params results\n");
+      HCTR_LOG(INFO, WORLD, "Rank0: check update_params results\n");
       ASSERT_TRUE(compare_hash_table(
           vocabulary_size, hash_table_key_from_gpu.get_ptr(),
           reinterpret_cast<TypeHashValue *>(hash_table_value_from_gpu.get_ptr()),
@@ -357,7 +357,7 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
     MPI_Barrier(MPI_COMM_WORLD);
 #endif
 
-    printf("Rank%d: Round %d end:\n\n", pid, i);
+    HCTR_LOG(INFO, WORLD, "Rank%d: Round %d end:\n\n", pid, i);
   }
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -365,16 +365,16 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
   embedding->dump_parameters(sparse_model_file, DataSourceParams());
 
   {
-    printf("Rank%d: embedding->dump_opt_states()\n", pid);
+    HCTR_LOG(INFO, WORLD, "Rank%d: embedding->dump_opt_states()\n", pid);
     std::ofstream fs(opt_file_name);
     embedding->dump_opt_states(fs, opt_file_name, DataSourceParams());
     fs.close();
   }
 
   {
-    printf("Rank%d: embedding->load_opt_states()\n", pid);
+    HCTR_LOG(INFO, WORLD, "Rank%d: embedding->load_opt_states()\n", pid);
     std::ifstream fs(opt_file_name);
-    embedding->load_opt_states(fs);
+    embedding->load_opt_states(fs, opt_file_name, DataSourceParams());
     fs.close();
   }
 
@@ -389,27 +389,27 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
 
   {
     // eval
-    printf("\nRank%d: start eval:\n", pid);
+    HCTR_LOG(INFO, WORLD, "\nRank%d: start eval:\n", pid);
 
     // call read a batch
-    printf("Rank%d: data_reader_eval->read_a_batch_to_device()\n", pid);
+    HCTR_LOG(INFO, WORLD, "Rank%d: data_reader_eval->read_a_batch_to_device()\n", pid);
     test_data_reader->read_a_batch_to_device();
 
     // GPU forward
-    printf("Rank%d: embedding_eval->forward()\n", pid);
+    HCTR_LOG(INFO, WORLD, "Rank%d: embedding_eval->forward()\n", pid);
     embedding->forward(false);
 
     // check the result of forward
-    printf("Rank%d: embedding_eval->get_forward_results()\n", pid);
+    HCTR_LOG(INFO, WORLD, "Rank%d: embedding_eval->get_forward_results()\n", pid);
     embedding->get_forward_results(false,
                                    embedding_feature_from_gpu_eval);  // memcpy from GPU to CPU
 
     if (pid == 0) {
       // CPU forward
-      printf("Rank0: embedding_cpu_eval->forward()\n");
+      HCTR_LOG(INFO, WORLD, "Rank0: embedding_cpu_eval->forward()\n");
       test_embedding_cpu->forward();
 
-      printf("Rank0: check forward results\n");
+      HCTR_LOG(INFO, WORLD, "Rank0: check forward results\n");
       ASSERT_TRUE(compare_embedding_feature(test_batchsize * slot_num * embedding_vec_size,
                                             embedding_feature_from_gpu_eval.get_ptr(),
                                             embedding_feature_from_cpu_eval, tolerance));
@@ -505,10 +505,10 @@ void load_and_dump(const std::vector<int> &device_list, const Optimizer_t &optim
           train_input, train_input, embedding_params, resource_manager));
 
   // upload hash table to device
-  embedding->load_parameters(sparse_model_file);
+  embedding->load_parameters(sparse_model_file, DataSourceParams());
 
-  printf("max_vocabulary_size=%zu, vocabulary_size=%zu\n", embedding->get_max_vocabulary_size(),
-         embedding->get_vocabulary_size());
+  HCTR_LOG(INFO, WORLD, "max_vocabulary_size=%zu, vocabulary_size=%zu\n",
+           embedding->get_max_vocabulary_size(), embedding->get_vocabulary_size());
 
   BufferBag buf_bag;
   {
@@ -558,28 +558,28 @@ void load_and_dump(const std::vector<int> &device_list, const Optimizer_t &optim
   size_t dump_size;
   embedding->dump_parameters(buf_bag, &dump_size);
 
-  printf("dump_size=%zu, max_vocabulary_size=%zu, vocabulary_size=%zu\n", dump_size,
-         embedding->get_max_vocabulary_size(), embedding->get_vocabulary_size());
+  HCTR_LOG(INFO, WORLD, "dump_size=%zu, max_vocabulary_size=%zu, vocabulary_size=%zu\n", dump_size,
+           embedding->get_max_vocabulary_size(), embedding->get_vocabulary_size());
 
   embedding->dump_parameters(buf_bag, &dump_size);
 
-  printf("dump_size=%zu, max_vocabulary_size=%zu, vocabulary_size=%zu\n", dump_size,
-         embedding->get_max_vocabulary_size(), embedding->get_vocabulary_size());
+  HCTR_LOG(INFO, WORLD, "dump_size=%zu, max_vocabulary_size=%zu, vocabulary_size=%zu\n", dump_size,
+           embedding->get_max_vocabulary_size(), embedding->get_vocabulary_size());
 
   embedding->reset();
 
-  printf("max_vocabulary_size=%zu, vocabulary_size=%zu\n", embedding->get_max_vocabulary_size(),
-         embedding->get_vocabulary_size());
+  HCTR_LOG(INFO, WORLD, "max_vocabulary_size=%zu, vocabulary_size=%zu\n",
+           embedding->get_max_vocabulary_size(), embedding->get_vocabulary_size());
 
   embedding->load_parameters(buf_bag, dump_size);
 
-  printf("max_vocabulary_size=%zu, vocabulary_size=%zu\n", embedding->get_max_vocabulary_size(),
-         embedding->get_vocabulary_size());
+  HCTR_LOG(INFO, WORLD, "max_vocabulary_size=%zu, vocabulary_size=%zu\n",
+           embedding->get_max_vocabulary_size(), embedding->get_vocabulary_size());
 
   embedding->dump_parameters(buf_bag, &dump_size);
 
-  printf("dump_size=%zu, max_vocabulary_size=%zu, vocabulary_size=%zu\n", dump_size,
-         embedding->get_max_vocabulary_size(), embedding->get_vocabulary_size());
+  HCTR_LOG(INFO, WORLD, "dump_size=%zu, max_vocabulary_size=%zu, vocabulary_size=%zu\n", dump_size,
+           embedding->get_max_vocabulary_size(), embedding->get_vocabulary_size());
 
   std::string tmp_sparse_model_file{"tmp_sparse_model"};
   embedding->dump_parameters(tmp_sparse_model_file, DataSourceParams());
@@ -696,11 +696,11 @@ void load_and_dump_file(const std::vector<int> &device_list, const Optimizer_t &
 #endif
 
   // upload hash table to device
-  embedding->load_parameters(sparse_model_src);
+  embedding->load_parameters(sparse_model_src, DataSourceParams());
 
   if (pid == 0) {
-    printf("max_vocabulary_size=%zu, vocabulary_size=%zu\n", embedding->get_max_vocabulary_size(),
-           embedding->get_vocabulary_size());
+    HCTR_LOG(INFO, WORLD, "max_vocabulary_size=%zu, vocabulary_size=%zu\n",
+             embedding->get_max_vocabulary_size(), embedding->get_vocabulary_size());
   }
 
   // dump sparse model to file

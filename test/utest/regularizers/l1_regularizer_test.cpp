@@ -27,7 +27,6 @@
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"
 
-using namespace std;
 using namespace HugeCTR;
 
 namespace {
@@ -64,7 +63,7 @@ void l1_regularizer_test(size_t batch_size, std::vector<std::pair<size_t, size_t
     const size_t len = weight.get_num_elements();
     const size_t n_bytes = weight.get_size_in_bytes();
 
-    vector<float> h_weight(len);
+    std::vector<float> h_weight(len);
     simulator.fill(h_weight.data(), len);
     cudaMemcpy(weight.get_ptr(), h_weight.data(), n_bytes, cudaMemcpyHostToDevice);
     h_weights.push_back(h_weight);

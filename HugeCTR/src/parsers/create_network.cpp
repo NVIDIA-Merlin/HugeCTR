@@ -87,12 +87,12 @@ static InputOutputInfo get_input_tensor_and_output_name(
   for (auto& bottom_name : bottom_names) {
     for (auto& top_name : top_names) {
       if (bottom_name == top_name) {
-        CK_THROW_(Error_t::WrongInput, "bottom and top include a same layer name");
+        HCTR_OWN_THROW(Error_t::WrongInput, "bottom and top include a same layer name");
       }
     }
     TensorBag2 bag;
     if (!get_tensor_from_entries(tensor_entries, bottom_name, &bag)) {
-      CK_THROW_(Error_t::WrongInput, "No such bottom: " + bottom_name);
+      HCTR_OWN_THROW(Error_t::WrongInput, "No such bottom: " + bottom_name);
     }
     bottom_bags.push_back(bag);
   }
@@ -107,10 +107,10 @@ static std::shared_ptr<Regularizer<T>> create_regularizer(
       new NoRegularizer<T>(weight_buff, wgrad_buff, batch_size, gpu_resource));
   auto reg_it = j.find("regularizer");
   if (reg_it != j.end()) {
-    Regularizer_t reg_type;
+    Regularizer_t reg_type = Regularizer_t::None;
     auto reg_name = reg_it->get<std::string>();
     if (!find_item_in_map(reg_type, reg_name, REGULARIZER_TYPE_MAP)) {
-      CK_THROW_(Error_t::WrongInput, "No such regularizer: " + reg_name);
+      HCTR_OWN_THROW(Error_t::WrongInput, "No such regularizer: " + reg_name);
     }
     switch (reg_type) {
       case Regularizer_t::L1: {
@@ -169,7 +169,7 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
     if (!find_item_in_map(layer_type, layer_type_name, layer_map)) {
       Embedding_t embedding_type;
       if (!find_item_in_map(embedding_type, layer_type_name, EMBEDDING_TYPE_MAP)) {
-        CK_THROW_(Error_t::WrongInput, "No such layer: " + layer_type_name);
+        HCTR_OWN_THROW(Error_t::WrongInput, "No such layer: " + layer_type_name);
       }
       continue;
     }
@@ -198,7 +198,7 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
           const auto gamma_init_name = get_value_from_json<std::string>(j_bn_hparam, "gamma_init");
           Initializer_t gamma_init_type;
           if (!find_item_in_map(gamma_init_type, gamma_init_name, INITIALIZER_TYPE_MAP)) {
-            CK_THROW_(Error_t::WrongInput, "No such initializer: " + gamma_init_name);
+            HCTR_OWN_THROW(Error_t::WrongInput, "No such initializer: " + gamma_init_name);
           } else {
             initializer_types[0] = gamma_init_type;
           }
@@ -207,7 +207,7 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
           const auto beta_init_name = get_value_from_json<std::string>(j_bn_hparam, "beta_init");
           Initializer_t beta_init_type;
           if (!find_item_in_map(beta_init_type, beta_init_name, INITIALIZER_TYPE_MAP)) {
-            CK_THROW_(Error_t::WrongInput, "No such initializer: " + beta_init_name);
+            HCTR_OWN_THROW(Error_t::WrongInput, "No such initializer: " + beta_init_name);
           } else {
             initializer_types[1] = beta_init_type;
           }
@@ -243,10 +243,12 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
       }
       case Layer_t::BinaryCrossEntropyLoss: {
         if (input_output_info.inputs.size() != 2) {
-          CK_THROW_(Error_t::WrongInput, "bottom of BinaryCrossEntropyLoss must be two dim");
+          HCTR_OWN_THROW(Error_t::WrongInput, "bottom of BinaryCrossEntropyLoss must be two dim");
         }
         if (inference_flag) {
-          MESSAGE_("Inference stage skip BinaryCrossEntropyLoss layer, replaced by Sigmoid layer");
+          HCTR_LOG(
+              INFO, ROOT,
+              "Inference stage skip BinaryCrossEntropyLoss layer, replaced by Sigmoid layer\n");
           if (use_mixed_precision) {
             Tensor2<__half> sigmoid_in_tensor =
                 Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
@@ -312,12 +314,19 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
       }
       case Layer_t::CrossEntropyLoss: {
         if (input_output_info.inputs.size() != 2) {
-          CK_THROW_(Error_t::WrongInput, "bottom of CrossEntropyLoss must be two dim");
+          HCTR_OWN_THROW(Error_t::WrongInput, "bottom of CrossEntropyLoss must be two dim");
         }
         if (inference_flag) {
-          MESSAGE_("Inference stage skip CrossEntropyLoss layer, replaced by Softmax layer");
+          HCTR_LOG(INFO, ROOT,
+                   "Inference stage skip CrossEntropyLoss layer, replaced by Softmax layer\n");
           if (use_mixed_precision) {
-            CK_THROW_(Error_t::WrongInput, "Softmax layer does not support fp16");
+            Tensor2<__half> in_tensor = Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
+            Tensor2<__half> out_tensor;
+            blobs_buff->reserve(in_tensor.get_dimensions(), &out_tensor);
+            output_tensor_entries.push_back(
+                {input_output_info.output_names[0], out_tensor.shrink()});
+            emplaceback_layer(
+                new SoftmaxLayer<__half>(in_tensor, out_tensor, blobs_buff, gpu_resource));
           } else {
             Tensor2<float> in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
             Tensor2<float> out_tensor;
@@ -422,7 +431,7 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
           const auto weight_init_name = get_value_from_json<std::string>(j_fc_param, "weight_init");
           Initializer_t weight_init_type;
           if (!find_item_in_map(weight_init_type, weight_init_name, INITIALIZER_TYPE_MAP)) {
-            CK_THROW_(Error_t::WrongInput, "No such initializer: " + weight_init_name);
+            HCTR_OWN_THROW(Error_t::WrongInput, "No such initializer: " + weight_init_name);
           } else {
             initializer_types[0] = weight_init_type;
           }
@@ -431,7 +440,7 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
           const auto bias_init_name = get_value_from_json<std::string>(j_fc_param, "bias_init");
           Initializer_t bias_init_type;
           if (!find_item_in_map(bias_init_type, bias_init_name, INITIALIZER_TYPE_MAP)) {
-            CK_THROW_(Error_t::WrongInput, "No such initializer: " + bias_init_name);
+            HCTR_OWN_THROW(Error_t::WrongInput, "No such initializer: " + bias_init_name);
           } else {
             initializer_types[1] = bias_init_type;
           }
@@ -444,15 +453,17 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
         if (has_key_(j, "position")) {
           auto pos_str = get_value_from_json<std::string>(j, "position");
           if (!find_item_in_map(pos_type, pos_str, FCPOSITION_TYPE_MAP)) {
-            CK_THROW_(Error_t::WrongInput, "No such position: " + pos_str);
+            HCTR_OWN_THROW(Error_t::WrongInput, "No such position: " + pos_str);
           } else if (pos_type == FcPosition_t::Head && input_size == 1 && output_size == 4) {
           } else if (pos_type == FcPosition_t::Body && input_size == 4 && output_size == 4) {
           } else if (pos_type == FcPosition_t::Tail && input_size == 4 && output_size == 1) {
           } else if (pos_type == FcPosition_t::Isolated && input_size == 1 && output_size == 1) {
-          } else
-            CK_THROW_(Error_t::WrongInput,
-                      "The position and dimension of bottom and top layer aren't compatible: " +
-                          layer_type_name);
+          } else {
+            HCTR_OWN_THROW(
+                Error_t::WrongInput,
+                "The position and dimension of bottom and top layer aren't compatible: " +
+                    layer_type_name);
+          }
         }
 
         // check the activation functino of this layer
@@ -460,11 +471,11 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
         if (has_key_(j, "activation")) {
           auto act_name = get_value_from_json<std::string>(j, "activation");
           if (!find_item_in_map(act_type, act_name, ACTIVATION_TYPE_MAP)) {
-            CK_THROW_(Error_t::WrongInput, "No such activation: " + act_name);
+            HCTR_OWN_THROW(Error_t::WrongInput, "No such activation: " + act_name);
           }
           if (act_type == Activation_t::None && pos_type != FcPosition_t::Tail)
-            CK_THROW_(Error_t::WrongInput,
-                      "The layer without activation function must be the last layer in MLP.");
+            HCTR_OWN_THROW(Error_t::WrongInput,
+                           "The layer without activation function must be the last layer in MLP.");
         }
 
         // establish out tensor
@@ -511,7 +522,7 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
                 {input_output_info.output_names[3], db_out_tensor.shrink()});
           }
         } else {
-          CK_THROW_(Error_t::WrongInput, "FusedInnerProduct support half only");
+          HCTR_OWN_THROW(Error_t::WrongInput, "FusedInnerProduct support half only");
         }
         break;
       }
@@ -541,7 +552,7 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
           const auto weight_init_name = get_value_from_json<std::string>(j_fc_param, "weight_init");
           Initializer_t weight_init_type;
           if (!find_item_in_map(weight_init_type, weight_init_name, INITIALIZER_TYPE_MAP)) {
-            CK_THROW_(Error_t::WrongInput, "No such initializer: " + weight_init_name);
+            HCTR_OWN_THROW(Error_t::WrongInput, "No such initializer: " + weight_init_name);
           } else {
             initializer_types[0] = weight_init_type;
           }
@@ -550,7 +561,7 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
           const auto bias_init_name = get_value_from_json<std::string>(j_fc_param, "bias_init");
           Initializer_t bias_init_type;
           if (!find_item_in_map(bias_init_type, bias_init_name, INITIALIZER_TYPE_MAP)) {
-            CK_THROW_(Error_t::WrongInput, "No such initializer: " + bias_init_name);
+            HCTR_OWN_THROW(Error_t::WrongInput, "No such initializer: " + bias_init_name);
           } else {
             initializer_types[1] = bias_init_type;
           }
@@ -588,9 +599,10 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
         // TODO: lambda template could be a better solution here, but there's not support in c++11
         if (use_mixed_precision) {
           if (gpu_resource->get_cc_major() < 7) {
-            CK_THROW_(Error_t::WrongInput, "InteractionLayer<__half> is not supported in SM " +
-                                               std::to_string(gpu_resource->get_cc_major()) + "." +
-                                               std::to_string(gpu_resource->get_cc_minor()));
+            std::ostringstream os;
+            os << "InteractionLayer<__half> is not supported in SM " << gpu_resource->get_cc_major()
+               << '.' << gpu_resource->get_cc_minor();
+            HCTR_OWN_THROW(Error_t::WrongInput, os.str());
           }
 
           Tensor2<__half> in_mlp_tensor =
@@ -625,7 +637,7 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
           const auto weight_init_name = get_value_from_json<std::string>(j_mc_param, "weight_init");
           Initializer_t weight_init_type;
           if (!find_item_in_map(weight_init_type, weight_init_name, INITIALIZER_TYPE_MAP)) {
-            CK_THROW_(Error_t::WrongInput, "No such initializer: " + weight_init_name);
+            HCTR_OWN_THROW(Error_t::WrongInput, "No such initializer: " + weight_init_name);
           } else {
             initializer_types[0] = weight_init_type;
           }
@@ -634,7 +646,7 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
           const auto bias_init_name = get_value_from_json<std::string>(j_mc_param, "bias_init");
           Initializer_t bias_init_type;
           if (!find_item_in_map(bias_init_type, bias_init_name, INITIALIZER_TYPE_MAP)) {
-            CK_THROW_(Error_t::WrongInput, "No such initializer: " + bias_init_name);
+            HCTR_OWN_THROW(Error_t::WrongInput, "No such initializer: " + bias_init_name);
           } else {
             initializer_types[1] = bias_init_type;
           }
@@ -666,10 +678,11 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
 
       case Layer_t::MultiCrossEntropyLoss: {
         if (input_output_info.inputs.size() != 2) {
-          CK_THROW_(Error_t::WrongInput, "bottom of MultiCrossEntropyLoss must be two dim");
+          HCTR_OWN_THROW(Error_t::WrongInput, "bottom of MultiCrossEntropyLoss must be two dim");
         }
         if (inference_flag) {
-          MESSAGE_("Inference stage skip MultiCrossEntropyLoss layer, replaced by Sigmoid layer");
+          HCTR_LOG(INFO, ROOT,
+                   "Inference stage skip MultiCrossEntropyLoss layer, replaced by Sigmoid layer\n");
           if (use_mixed_precision) {
             Tensor2<__half> sigmoid_in_tensor =
                 Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
@@ -786,7 +799,7 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
               get_value_from_json<std::string>(j_gru_param, "weight_init");
           Initializer_t weight_init_type;
           if (!find_item_in_map(weight_init_type, weight_init_name, INITIALIZER_TYPE_MAP)) {
-            CK_THROW_(Error_t::WrongInput, "No such initializer: " + weight_init_name);
+            HCTR_OWN_THROW(Error_t::WrongInput, "No such initializer: " + weight_init_name);
           } else {
             initializer_types[0] = weight_init_type;
           }
@@ -795,7 +808,7 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
           const auto bias_init_name = get_value_from_json<std::string>(j_gru_param, "bias_init");
           Initializer_t bias_init_type;
           if (!find_item_in_map(bias_init_type, bias_init_name, INITIALIZER_TYPE_MAP)) {
-            CK_THROW_(Error_t::WrongInput, "No such initializer: " + bias_init_name);
+            HCTR_OWN_THROW(Error_t::WrongInput, "No such initializer: " + bias_init_name);
           } else {
             initializer_types[1] = bias_init_type;
           }
@@ -833,7 +846,7 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
       }
       case Layer_t::Softmax: {
         if (use_mixed_precision) {
-          CK_THROW_(Error_t::WrongInput, "Softmax layer does not support fp16");
+          HCTR_OWN_THROW(Error_t::WrongInput, "Softmax layer does not support fp16");
         } else {
           Tensor2<float> in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
           Tensor2<float> out_tensor;
@@ -903,7 +916,9 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
           nlohmann::json j_selected = (selected_it.value());
           for (auto slot_obj : j_selected) {
             int slot_id = slot_obj.get<int>();
-            if (slot_id < 0) CK_THROW_(Error_t::WrongInput, "slot_id < 0");
+            if (slot_id < 0) {
+              HCTR_OWN_THROW(Error_t::WrongInput, "slot_id < 0");
+            }
             selected.push_back(slot_id);
           }
 
@@ -1037,7 +1052,7 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
           const auto weight_init_name = get_value_from_json<std::string>(j, "weight_init");
           Initializer_t weight_init_type;
           if (!find_item_in_map(weight_init_type, weight_init_name, INITIALIZER_TYPE_MAP)) {
-            CK_THROW_(Error_t::WrongInput, "No such initializer: " + weight_init_name);
+            HCTR_OWN_THROW(Error_t::WrongInput, "No such initializer: " + weight_init_name);
           } else {
             initializer_types[0] = weight_init_type;
           }
@@ -1274,7 +1289,7 @@ Network* Network::create_network(const nlohmann::json& j_array, const nlohmann::
         network->pred_tensor_ = Tensor2<float>::stretch_from(pred_tensor_entry.bag);
       }
     } catch (const std::runtime_error& rt_err) {
-      std::cerr << rt_err.what() << std::endl;
+      HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
       throw;
     }
   }

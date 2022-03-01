@@ -149,7 +149,7 @@ void Model<dtype>::init_hybrid_model(const CalibrationData &calibration,
                                                       global_instance_id, num_infrequent, stream);
 
   /* A synchronization is necessary to ensure that the host arrays have been copied */
-  CK_CUDA_THROW_(cudaStreamSynchronize(stream));
+  HCTR_LIB_THROW(cudaStreamSynchronize(stream));
 }
 
 template class Model<uint32_t>;

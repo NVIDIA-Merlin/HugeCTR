@@ -49,7 +49,7 @@ template <typename TypeKey>
 void EmbeddingTrainingCacheImpl<TypeKey>::load_(std::vector<std::string>& keyset_file_list) {
   try {
     if (keyset_file_list.size() != embeddings_.size()) {
-      CK_THROW_(Error_t::WrongInput, "num of keyset_file and num of embeddings don't equal");
+      HCTR_OWN_THROW(Error_t::WrongInput, "num of keyset_file and num of embeddings don't equal");
     }
 
     for (size_t i = 0; i < ps_manager_.get_size(); i++) {
@@ -61,10 +61,10 @@ void EmbeddingTrainingCacheImpl<TypeKey>::load_(std::vector<std::string>& keyset
       embeddings_[i]->load_parameters(ps_manager_.get_buffer_bag(), hit_size);
     }
   } catch (const internal_runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     throw rt_err;
   } catch (const std::exception& err) {
-    std::cerr << err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << err.what() << std::endl;
     throw err;
   }
 }
@@ -80,13 +80,13 @@ void EmbeddingTrainingCacheImpl<TypeKey>::dump() {
       ptr_ps->push(ps_manager_.get_buffer_bag(), dump_size);
     }
 #ifdef ENABLE_MPI
-    CK_MPI_THROW_(MPI_Barrier(MPI_COMM_WORLD));
+    HCTR_MPI_THROW(MPI_Barrier(MPI_COMM_WORLD));
 #endif
   } catch (const internal_runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     throw rt_err;
   } catch (const std::exception& err) {
-    std::cerr << err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << err.what() << std::endl;
     throw err;
   }
 }
@@ -95,7 +95,7 @@ template <typename TypeKey>
 void EmbeddingTrainingCacheImpl<TypeKey>::update(std::vector<std::string>& keyset_file_list) {
   try {
 #ifndef KEY_HIT_RATIO
-    MESSAGE_("Preparing embedding table for next pass");
+    HCTR_LOG(INFO, ROOT, "Preparing embedding table for next pass\n");
 #endif
     dump();
     for (auto& embedding : embeddings_) {
@@ -104,13 +104,13 @@ void EmbeddingTrainingCacheImpl<TypeKey>::update(std::vector<std::string>& keyse
     }
     load_(keyset_file_list);
 #ifdef ENABLE_MPI
-    CK_MPI_THROW_(MPI_Barrier(MPI_COMM_WORLD));
+    HCTR_MPI_THROW(MPI_Barrier(MPI_COMM_WORLD));
 #endif
   } catch (const internal_runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     throw rt_err;
   } catch (const std::exception& err) {
-    std::cerr << err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << err.what() << std::endl;
     throw err;
   }
 }
@@ -137,17 +137,16 @@ EmbeddingTrainingCacheImpl<TypeKey>::get_incremental_model(
   }
 
 #ifdef ENABLE_MPI
-  CK_MPI_THROW_(MPI_Barrier(MPI_COMM_WORLD));
-  CK_MPI_THROW_(MPI_Allreduce(&dump_size, &dump_size, 1, MPI_SIZE_T, MPI_SUM, MPI_COMM_WORLD));
+  HCTR_MPI_THROW(MPI_Barrier(MPI_COMM_WORLD));
+  HCTR_MPI_THROW(MPI_Allreduce(&dump_size, &dump_size, 1, MPI_SIZE_T, MPI_SUM, MPI_COMM_WORLD));
 #endif
   if (dump_size != keys_to_load.size()) {
-    // CK_THROW_(Error_t::UnspecificError, "dump_size != key_to_load.size()");
-    std::stringstream ss;
-    ss << "WARNING: keyset file is insistent with dataset! Only " << dump_size << " out of "
-       << keys_to_load.size() << " keys found in parameter server.";
-    MESSAGE_(ss.str());
+    // HCTR_OWN_THROW(Error_t::UnspecificError, "dump_size != key_to_load.size()");
+    HCTR_LOG_S(WARNING, ROOT) << "keyset file is insistent with dataset! Only " << dump_size
+                              << " out of " << keys_to_load.size()
+                              << " keys found in parameter server." << std::endl;
   }
-  MESSAGE_("Get updated portion of embedding table [DONE}");
+  HCTR_LOG(INFO, ROOT, "Get updated portion of embedding table [DONE}\n");
 
   return inc_model;
 }

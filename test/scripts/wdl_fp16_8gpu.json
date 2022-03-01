@@ -67,7 +67,7 @@
       "bottom": "wide_data",
       "top": "sparse_embedding2",
       "sparse_embedding_hparam": {
-        "workspace_size_per_gpu_in_mb": 1135,
+        "workspace_size_per_gpu_in_mb": 3405,
         "embedding_vec_size": 1,
         "combiner": "sum"
       },
@@ -90,7 +90,7 @@
       "sparse_embedding_hparam": {
         "embedding_vec_size": 16,
         "combiner": "sum",
-        "workspace_size_per_gpu_in_mb": 51
+        "workspace_size_per_gpu_in_mb": 153
       },
       "optimizer": {
         "type": "Adam",

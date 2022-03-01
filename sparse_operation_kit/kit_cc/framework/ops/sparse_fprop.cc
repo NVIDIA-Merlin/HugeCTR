@@ -63,6 +63,7 @@ REGISTER_OP("PluginSparseFprop")
     .Input("indices: indice_dtype")
     .Input("global_replica_id: int32")
     .Output("emb_vector: dtype")
+    .Output("replica_nnz: uint64")
     .Attr("slot_num: int")
     .Attr("training: bool")
     .Attr("value_dtype: {uint32, int64}")
@@ -97,4 +98,6 @@ REGISTER_OP("PluginSparseFprop")
             vec1 = plugin_fprop(emb_handle1, values, indices, unique_op_name='2')
 
             where different unique_op_name are set for different embedding layer instance.
+        
+         'replica_nnz' represents how many keys are processed in this step by this GPU.
     )doc");

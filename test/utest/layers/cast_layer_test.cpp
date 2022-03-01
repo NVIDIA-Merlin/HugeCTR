@@ -26,7 +26,6 @@
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"
 
-using namespace std;
 using namespace HugeCTR;
 
 namespace {
@@ -48,7 +47,7 @@ void cast_cpu(float* top, const __half* bottom, int len) {
 template <typename From, typename To>
 void cast_test(size_t dim0, size_t dim1) {
   std::shared_ptr<GeneralBuffer2<CudaAllocator>> buff = GeneralBuffer2<CudaAllocator>::create();
-  vector<size_t> dims = {dim0, dim1};
+  std::vector<size_t> dims = {dim0, dim1};
   Tensor2<From> in_tensor;
   buff->reserve(dims, &in_tensor);
   Tensor2<To> out_tensor;
@@ -69,15 +68,15 @@ void cast_test(size_t dim0, size_t dim1) {
   std::unique_ptr<To[]> h_out(new To[len]);
 
   simulator.fill(h_in.get(), len);
-  CK_CUDA_THROW_(cudaMemcpy(d_in, h_in.get(), len * sizeof(From), cudaMemcpyHostToDevice));
+  HCTR_LIB_THROW(cudaMemcpy(d_in, h_in.get(), len * sizeof(From), cudaMemcpyHostToDevice));
 
   // fprop test
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
   cast_layer.fprop(true);
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
 
   std::unique_ptr<To[]> h_out_gpu(new To[len]);
-  CK_CUDA_THROW_(cudaMemcpy(h_out_gpu.get(), d_out, len * sizeof(To), cudaMemcpyDeviceToHost));
+  HCTR_LIB_THROW(cudaMemcpy(h_out_gpu.get(), d_out, len * sizeof(To), cudaMemcpyDeviceToHost));
 
   cast_cpu(h_out.get(), h_in.get(), len);
   ASSERT_TRUE(test::compare_array_approx<To>(h_out.get(), h_out_gpu.get(), len, eps));

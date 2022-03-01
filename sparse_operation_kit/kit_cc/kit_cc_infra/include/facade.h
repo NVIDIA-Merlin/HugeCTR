@@ -115,10 +115,12 @@ class Facade final {
 
   void forward(const tensorflow::Tensor* emb_handle, const tensorflow::Tensor* values_tensor,
                const tensorflow::Tensor* indices_tensor, const size_t global_replica_id,
-               const bool training, tensorflow::Tensor* emb_vector_tensor);
+               const bool training, tensorflow::Tensor* emb_vector_tensor,
+               tensorflow::Tensor* h_replica_nnz_tensor);
   void forward(const tensorflow::Tensor* emb_handle, const tensorflow::Tensor* values_tensor,
                const size_t global_replica_id, const bool training,
-               tensorflow::Tensor* emb_vector_tensor);
+               tensorflow::Tensor* emb_vector_tensor,
+               tensorflow::Tensor* h_replica_nnz_tensor);
   void backward(const tensorflow::Tensor* emb_handle, const size_t global_replica_id,
                 const tensorflow::Tensor* top_gradient_tensor, tensorflow::Tensor* gradient_tensor,
                 tensorflow::Tensor* value_index_tensor);

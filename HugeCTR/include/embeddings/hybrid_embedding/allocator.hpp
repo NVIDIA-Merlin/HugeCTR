@@ -34,13 +34,13 @@ class CudaPreAllocator {
     size_ += s;
   }
 
-  void pre_allocate() { CK_CUDA_THROW_(cudaMalloc(&ptr_, size_)); }
+  void pre_allocate() { HCTR_LIB_THROW(cudaMalloc(&ptr_, size_)); }
 
   void *allocate(size_t size) const {
     if (size > size_) {
-      CK_THROW_(Error_t::OutOfMemory, "Out of memory");
+      HCTR_OWN_THROW(Error_t::OutOfMemory, "Out of memory");
     }
     return ptr_;
   }
-  void deallocate(void *ptr) const { CK_CUDA_THROW_(cudaFree(ptr)); }
+  void deallocate(void *ptr) const { HCTR_LIB_THROW(cudaFree(ptr)); }
 };

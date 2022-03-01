@@ -23,7 +23,7 @@ namespace HugeCTR {
 Input get_input_from_json(const nlohmann::json& j_input) {
   auto type_name = get_value_from_json<std::string>(j_input, "type");
   if (type_name.compare("Data") != 0) {
-    CK_THROW_(Error_t::WrongInput, "the first layer is not Data layer:" + type_name);
+    HCTR_OWN_THROW(Error_t::WrongInput, "the first layer is not Data layer:" + type_name);
   }
   auto j_label = get_json(j_input, "label");
   auto label_name = get_value_from_json<std::string>(j_label, "top");
@@ -45,7 +45,7 @@ Input get_input_from_json(const nlohmann::json& j_input) {
 
     if (nnz_per_slot.is_array()) {
       if (nnz_per_slot.size() != static_cast<size_t>(slot_num)) {
-        CK_THROW_(Error_t::WrongInput, "nnz_per_slot.size() != slot_num");
+        HCTR_OWN_THROW(Error_t::WrongInput, "nnz_per_slot.size() != slot_num");
       }
       for (int slot_id = 0; slot_id < slot_num; ++slot_id) {
         nnz_per_slot_vec.push_back(nnz_per_slot[slot_id].get<int>());
@@ -109,14 +109,15 @@ void add_input(Input& input, DataReaderParams& reader_params,
     int io_alignment = reader_params.async_param.io_alignment;
     bool shuffle = reader_params.async_param.shuffle;
 
-    MESSAGE_("AsyncReader: num_threads = " + std::to_string(num_threads));
-    MESSAGE_("AsyncReader: num_batches_per_thread = " + std::to_string(num_batches_per_thread));
-    MESSAGE_("AsyncReader: io_block_size = " + std::to_string(io_block_size));
-    MESSAGE_("AsyncReader: io_depth = " + std::to_string(io_depth));
-    MESSAGE_("AsyncReader: io_alignment = " + std::to_string(io_alignment));
-    MESSAGE_("AsyncReader: shuffle = " + std::string(shuffle ? "ON" : "OFF"));
-    MESSAGE_("AsyncReader: num_iterations_statistics = " +
-             std::to_string(num_iterations_statistics));
+    HCTR_LOG_S(INFO, ROOT) << "AsyncReader: num_threads = " << num_threads << std::endl;
+    HCTR_LOG_S(INFO, ROOT) << "AsyncReader: num_batches_per_thread = " << num_batches_per_thread
+                           << std::endl;
+    HCTR_LOG_S(INFO, ROOT) << "AsyncReader: io_block_size = " << io_block_size << std::endl;
+    HCTR_LOG_S(INFO, ROOT) << "AsyncReader: io_depth = " << io_depth << std::endl;
+    HCTR_LOG_S(INFO, ROOT) << "AsyncReader: io_alignment = " << io_alignment << std::endl;
+    HCTR_LOG_S(INFO, ROOT) << "AsyncReader: shuffle = " << (shuffle ? "ON" : "OFF") << std::endl;
+    HCTR_LOG_S(INFO, ROOT) << "AsyncReader: num_iterations_statistics = "
+                           << num_iterations_statistics << std::endl;
 
     train_data_reader.reset(new AsyncReader<TypeKey>(
         source_data, batch_size, label_dim, dense_dim, input.data_reader_sparse_param_array,
@@ -128,8 +129,9 @@ void add_input(Input& input, DataReaderParams& reader_params,
     int cache_eval_data = reader_params.cache_eval_data;
     if (cache_eval_data > num_threads * num_batches_per_thread) {
       eval_num_batches_per_thread = (cache_eval_data + num_threads - 1) / num_threads;
-      MESSAGE_("AsyncReader: eval reader increased batches per thread to " +
-               std::to_string(eval_num_batches_per_thread) + " to accommodate for the caching");
+      HCTR_LOG_S(INFO, ROOT) << "AsyncReader: eval reader increased batches per thread to "
+                             << eval_num_batches_per_thread << " to accommodate for the caching"
+                             << std::endl;
     }
     // Small IO block may lead to too many AIO requests which hang,
     // so use a larger one for eval and init which are typically larger than train
@@ -166,7 +168,7 @@ void add_input(Input& input, DataReaderParams& reader_params,
       }
     }
     if (input.data_reader_sparse_param_array.size() > 1) {
-      CK_THROW_(Error_t::WrongInput, "Only one sparse input is supported.");
+      HCTR_OWN_THROW(Error_t::WrongInput, "Only one sparse input is supported.");
     }
     const auto& sparse_input =
         sparse_input_map.find(input.data_reader_sparse_param_array[0].top_name);
@@ -178,7 +180,7 @@ void add_input(Input& input, DataReaderParams& reader_params,
     const int num_workers = format == DataReaderType_t::Parquet
                                 ? resource_manager->get_local_gpu_count()
                                 : reader_params.num_workers;
-    MESSAGE_("num of DataReader workers: " + std::to_string(num_workers));
+    HCTR_LOG_S(INFO, ROOT) << "num of DataReader workers: " << num_workers << std::endl;
 
     DataReader<TypeKey>* data_reader_tk = new DataReader<TypeKey>(
         batch_size, label_dim, dense_dim, input.data_reader_sparse_param_array, resource_manager,
@@ -211,11 +213,11 @@ void add_input(Input& input, DataReaderParams& reader_params,
       }
       case DataReaderType_t::Parquet: {
 #ifdef DISABLE_CUDF
-        CK_THROW_(Error_t::WrongInput, "Parquet is not supported under DISABLE_CUDF");
+        HCTR_OWN_THROW(Error_t::WrongInput, "Parquet is not supported under DISABLE_CUDF");
 #else
         train_data_reader->create_drwg_parquet(source_data, slot_offset, repeat_dataset);
         evaluate_data_reader->create_drwg_parquet(eval_source, slot_offset, repeat_dataset);
-        MESSAGE_("Vocabulary size: " + std::to_string(slot_sum));
+        HCTR_LOG_S(INFO, ROOT) << "Vocabulary size: " << slot_sum << std::endl;
 #endif
         break;
       }

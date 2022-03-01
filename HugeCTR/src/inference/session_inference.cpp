@@ -33,10 +33,11 @@ InferenceSession::InferenceSession(const std::string& model_config_path,
   try {
     if (inference_params_.use_gpu_embedding_cache &&
         embedding_cache->get_device_id() != inference_params_.device_id) {
-      CK_THROW_(
+      HCTR_OWN_THROW(
           Error_t::WrongInput,
           "The device id of inference_params is not consistent with that of embedding cache.");
     }
+    HCTR_LOG(INFO, ROOT, "Create inference session on device: %d\n", inference_params_.device_id);
     auto b2s = [](const char val) { return val ? "True" : "False"; };
     HCTR_LOG(INFO, ROOT, "Model name: %s\n", inference_params_.model_name.c_str());
     HCTR_LOG(INFO, ROOT, "Use mixed precision: %s\n", b2s(inference_params.use_mixed_precision));
@@ -62,16 +63,16 @@ InferenceSession::InferenceSession(const std::string& model_config_path,
       cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking);
       streams_.push_back(stream);
     }
-    CK_CUDA_THROW_(cudaMalloc((void**)&d_embeddingvectors_,
+    HCTR_LIB_THROW(cudaMalloc((void**)&d_embeddingvectors_,
                               inference_params_.max_batchsize *
                                   inference_parser_.max_embedding_vector_size_per_sample *
                                   sizeof(float)));
   } catch (const std::runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     throw;
   }
   return;
-}  // namespace HugeCTR
+}
 
 InferenceSession::~InferenceSession() {
   CudaDeviceContext context(inference_params_.device_id);
@@ -87,10 +88,10 @@ void InferenceSession::separate_keys_by_table_(int* d_row_ptrs,
   size_t row_ptrs_size_sample = num_samples * slot_num + num_embedding_tables;
   size_t row_ptrs_size_in_bytes_sample = row_ptrs_size_sample * sizeof(int);
   std::unique_ptr<int[]> h_row_ptrs(new int[row_ptrs_size_sample]);
-  CK_CUDA_THROW_(cudaMemcpyAsync(h_row_ptrs.get(), d_row_ptrs, row_ptrs_size_in_bytes_sample,
+  HCTR_LIB_THROW(cudaMemcpyAsync(h_row_ptrs.get(), d_row_ptrs, row_ptrs_size_in_bytes_sample,
                                  cudaMemcpyDeviceToHost,
                                  resource_manager_->get_local_gpu(0)->get_stream()));
-  CK_CUDA_THROW_(cudaStreamSynchronize(resource_manager_->get_local_gpu(0)->get_stream()));
+  HCTR_LIB_THROW(cudaStreamSynchronize(resource_manager_->get_local_gpu(0)->get_stream()));
   h_embedding_offset_.resize(num_samples * num_embedding_tables + 1);
 
   for (int i = 0; i < num_samples; i++) {
@@ -106,13 +107,15 @@ void InferenceSession::separate_keys_by_table_(int* d_row_ptrs,
   }
 }
 
+const InferenceParser& InferenceSession::get_inference_parser() const { return inference_parser_; }
+
 void InferenceSession::predict(float* d_dense, void* h_embeddingcolumns, int* d_row_ptrs,
                                float* d_output, int num_samples) {
   size_t num_embedding_tables = inference_parser_.num_embedding_tables;
   if (num_embedding_tables != row_ptrs_tensors_.size() ||
       num_embedding_tables != embedding_features_tensors_.size() ||
       num_embedding_tables != embedding_feature_combiners_.size()) {
-    CK_THROW_(Error_t::IllegalCall, "embedding feature combiner inconsistent");
+    HCTR_OWN_THROW(Error_t::IllegalCall, "embedding feature combiner inconsistent");
   }
   CudaDeviceContext context(resource_manager_->get_local_gpu(0)->get_device_id());
 
@@ -182,7 +185,7 @@ void InferenceSession::predict(float* d_dense, void* h_embeddingcolumns, int* d_
                             network_->get_pred_tensor().get_num_elements(),
                             resource_manager_->get_local_gpu(0)->get_stream());
   }
-  CK_CUDA_THROW_(cudaStreamSynchronize(resource_manager_->get_local_gpu(0)->get_stream()));
+  HCTR_LIB_THROW(cudaStreamSynchronize(resource_manager_->get_local_gpu(0)->get_stream()));
 }
 
 }  // namespace HugeCTR

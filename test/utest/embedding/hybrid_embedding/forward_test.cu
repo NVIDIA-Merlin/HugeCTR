@@ -106,7 +106,7 @@ class ForwardNetworkTest : public HybridEmbeddingUnitTest<dtype, emtype> {
                                                    single_node, this->stream);
       if (single_node) {
         this->infrequent_embeddings[i].indices_->calculate_model_indices(this->stream);
-        CK_CUDA_THROW_(cudaMemcpyAsync(
+        HCTR_LIB_THROW(cudaMemcpyAsync(
             this->infrequent_embeddings[i].interaction_layer_input_pointers_train_.get_ptr(),
             interaction_layer_input_pointers_.data(), this->num_instances * sizeof(emtype *),
             cudaMemcpyHostToDevice, this->stream));
@@ -190,7 +190,7 @@ class FrequentForwardModelTest : public HybridEmbeddingUnitTest<dtype, emtype> {
       this->frequent_embeddings[i].local_reduce(gradients[i].get_ptr(), this->stream, false);
     }
     for (size_t i = 0; i < this->num_instances; i++) {
-      CK_CUDA_THROW_(cudaMemcpyAsync(
+      HCTR_LIB_THROW(cudaMemcpyAsync(
           this->frequent_embeddings[i].partial_gradients_pointers_.get_ptr(),
           frequent_partial_gradients_pointers.data(), this->num_instances * sizeof(emtype *),
           cudaMemcpyHostToDevice, this->stream));
@@ -200,7 +200,7 @@ class FrequentForwardModelTest : public HybridEmbeddingUnitTest<dtype, emtype> {
     /* Set cache to zero for easy comparison with CPU version */
     if (sizeof(emtype) != sizeof(float)) {
       for (size_t i = 0; i < this->num_instances; i++) {
-        CK_CUDA_THROW_(cudaMemsetAsync(
+        HCTR_LIB_THROW(cudaMemsetAsync(
             this->frequent_embeddings[i].get_embedding_vectors_cache().get_ptr(), 0,
             this->config.num_frequent * this->config.embedding_vec_size * sizeof(emtype),
             this->stream));

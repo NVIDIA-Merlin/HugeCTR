@@ -41,7 +41,7 @@ L1Regularizer<T>::L1Regularizer(const Tensor2<float>& weight_buff, const Tensor2
 
 template <typename T>
 void L1Regularizer<T>::do_compute_rterm(const float* weight, float* h_rterm, int num_elements) {
-  CK_CUBLAS_THROW_(
+  HCTR_LIB_THROW(
       cublasSasum(Regularizer<T>::get_gpu().get_cublas_handle(), num_elements, weight, 1, h_rterm));
   const float alpha = lambda_ / Regularizer<T>::get_batch_size();
   *h_rterm *= alpha;

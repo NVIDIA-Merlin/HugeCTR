@@ -128,7 +128,8 @@ double ModelInitializationFunctors<dtype>::calculate_threshold(
                                  sqrt(2.0 * p_dup_max / (M * (M - 1))));
       break;
     default:
-      CK_THROW_(Error_t::WrongInput, "Unknown communication type, expecting IB_NVLink or NVLink");
+      HCTR_OWN_THROW(Error_t::WrongInput,
+                     "Unknown communication type, expecting IB_NVLink or NVLink");
   }
 
   return count_threshold;
@@ -147,8 +148,8 @@ dtype ModelInitializationFunctors<dtype>::calculate_num_frequent_categories(
 
   if (calibration.all_to_all_times.get_size_in_bytes() > 0) {
     // calibration is given, perform fully optimized hybrid model
-    CK_THROW_(Error_t::WrongInput,
-              "initialization hybrid model from communication calibration not available yet");
+    HCTR_OWN_THROW(Error_t::WrongInput,
+                   "initialization hybrid model from communication calibration not available yet");
   } else {
     size_t num_nodes = calibration.num_nodes;
     size_t batch_size = data.batch_size;
@@ -167,9 +168,9 @@ dtype ModelInitializationFunctors<dtype>::calculate_num_frequent_categories(
         statistics.counts_sorted.get_ptr(), count_threshold, d_num_frequent,
         (dtype)num_top_categories);
 
-    CK_CUDA_THROW_(cudaMemcpyAsync(&num_frequent, d_num_frequent, sizeof(dtype),
+    HCTR_LIB_THROW(cudaMemcpyAsync(&num_frequent, d_num_frequent, sizeof(dtype),
                                    cudaMemcpyDeviceToHost, stream));
-    CK_CUDA_THROW_(cudaStreamSynchronize(stream));
+    HCTR_LIB_THROW(cudaStreamSynchronize(stream));
   }
   if (num_frequent > 0) {
     num_frequent = ((num_frequent - 1) / num_networks + 1) * num_networks;
@@ -189,12 +190,12 @@ double ModelInitializationFunctors<dtype>::calculate_frequent_probability(
     cudaStream_t stream) {
   uint32_t total_frequent_count;
 
-  CK_CUDA_THROW_(cudaMemsetAsync(d_total_frequent_count, 0, sizeof(uint32_t), stream));
+  HCTR_LIB_THROW(cudaMemsetAsync(d_total_frequent_count, 0, sizeof(uint32_t), stream));
   calibration_data_kernels::sum_counts<<<num_frequent / 128 + 1, 128, 0, stream>>>(
       statistics.counts_sorted.get_ptr(), d_total_frequent_count, num_frequent);
-  CK_CUDA_THROW_(cudaMemcpyAsync(&total_frequent_count, d_total_frequent_count, sizeof(dtype),
+  HCTR_LIB_THROW(cudaMemcpyAsync(&total_frequent_count, d_total_frequent_count, sizeof(dtype),
                                  cudaMemcpyDeviceToHost, stream));
-  CK_CUDA_THROW_(cudaStreamSynchronize(stream));
+  HCTR_LIB_THROW(cudaStreamSynchronize(stream));
 
   return (double)total_frequent_count / (double)statistics.num_samples;
 }

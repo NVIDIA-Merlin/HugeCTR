@@ -21,7 +21,6 @@
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"
 
-using namespace std;
 using namespace HugeCTR;
 
 namespace {
@@ -118,8 +117,8 @@ void prelu_dice_bprop_cpu(T* d_bottom, T* d_top, T* bottom, int len, int batchsi
 
 template <typename T>
 void prelu_dice_test(size_t batchsize, size_t hiddensize) {
-  shared_ptr<GeneralBuffer2<CudaAllocator>> buf = GeneralBuffer2<CudaAllocator>::create();
-  vector<size_t> dims = {batchsize, hiddensize};
+  std::shared_ptr<GeneralBuffer2<CudaAllocator>> buf = GeneralBuffer2<CudaAllocator>::create();
+  std::vector<size_t> dims = {batchsize, hiddensize};
 
   Tensor2<T> in_tensor;
   buf->reserve(dims, &in_tensor);
@@ -148,12 +147,12 @@ void prelu_dice_test(size_t batchsize, size_t hiddensize) {
   test::GaussianDataSimulator simulator(0.0f, 1.0f);
   simulator.fill(h_bottom.get(), len);
 
-  CK_CUDA_THROW_(
+  HCTR_LIB_THROW(
       cudaMemcpy(in_tensor.get_ptr(), h_bottom.get(), len * sizeof(T), cudaMemcpyHostToDevice));
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
   prelu_dice_layer.fprop(true);
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
-  CK_CUDA_THROW_(
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(
       cudaMemcpy(d2h_top.get(), out_tensor.get_ptr(), len * sizeof(T), cudaMemcpyDeviceToHost));
 
   transpose(h_bottom_trans.get(), h_bottom.get(), hiddensize, batchsize);
@@ -162,12 +161,12 @@ void prelu_dice_test(size_t batchsize, size_t hiddensize) {
   ASSERT_TRUE(test::compare_array_approx<T>(d2h_top.get(), h_top.get(), len, eps));
   // bprop
   simulator.fill(h_top.get(), len);
-  CK_CUDA_THROW_(
+  HCTR_LIB_THROW(
       cudaMemcpy(out_tensor.get_ptr(), h_top.get(), len * sizeof(T), cudaMemcpyHostToDevice));
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
   prelu_dice_layer.bprop();
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
-  CK_CUDA_THROW_(cudaMemcpy(d2h_bottom_grad.get(), in_tensor.get_ptr(), len * sizeof(T),
+  HCTR_LIB_THROW(cudaDeviceSynchronize());
+  HCTR_LIB_THROW(cudaMemcpy(d2h_bottom_grad.get(), in_tensor.get_ptr(), len * sizeof(T),
                             cudaMemcpyDeviceToHost));
   transpose(h_top_trans.get(), h_top.get(), hiddensize, batchsize);
   prelu_dice_bprop_cpu<T>(h_bottom_grad_trans.get(), h_top_trans.get(), h_bottom_trans.get(), len,

@@ -73,7 +73,7 @@ void sgd_global_update(const emtype *gradients, float *embedding_vectors,
   if (num_embedding_vectors < 1) return;
   sgd_global_update_kernel<<<num_embedding_vectors, embedding_vec_size, 0, stream>>>(
       gradients, embedding_vectors, embedding_vec_size, lr_ptr, scale);
-  CK_CUDA_THROW_(cudaPeekAtLastError());
+  HCTR_LIB_THROW(cudaPeekAtLastError());
 }
 
 template <typename emtype, typename LambdaNum, typename LambdaIdx>
@@ -84,7 +84,7 @@ void sgd_atomic_update(const emtype *gradients, float *embedding_vectors, Lambda
   // some heuristics if we think it's better
   sgd_atomic_update_kernel<<<n_blocks, embedding_vec_size, 0, stream>>>(
       gradients, embedding_vectors, get_num_indices, get_index, embedding_vec_size, lr_ptr, scale);
-  CK_CUDA_THROW_(cudaPeekAtLastError());
+  HCTR_LIB_THROW(cudaPeekAtLastError());
 }
 
 }  // namespace hybrid_embedding

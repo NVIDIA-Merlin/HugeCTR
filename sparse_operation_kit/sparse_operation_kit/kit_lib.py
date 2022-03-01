@@ -104,11 +104,12 @@ def _IndexedSlicesToTensorDisableWarning(indexed_slices):
                                         indexed_slices.dense_shape[0])
 
 @ops.RegisterGradient("PluginSparseFprop")
-def _PluginSparseBackProp(op, top_grad):
+def _PluginSparseBackProp(op, top_grad, nnz_grad):
     top_grad = _IndexedSlicesToTensorDisableWarning(top_grad)
     emb_var_grads_value, value_index = plugin_bprop(emb_handle=op.inputs[1], 
                                                     global_replica_id=op.inputs[4],
                                                     top_gradient=top_grad,
+                                                    replica_nnz=op.outputs[1],
                                                     unique_op_name=op.get_attr("unique_op_name"))
     emb_var_grads_value = array_ops.gen_math_ops.cast(emb_var_grads_value, 
                             DstT=array_ops.dtypes.float32)
@@ -123,11 +124,12 @@ def _PluginSparseBackProp(op, top_grad):
 
 
 @ops.RegisterGradient("PluginDenseFprop")
-def _PluginDenseBackProp(op, top_grad):
+def _PluginDenseBackProp(op, top_grad, nnz_grad):
     top_grad = _IndexedSlicesToTensorDisableWarning(top_grad)
     emb_var_grads_value, value_index = plugin_bprop(emb_handle=op.inputs[1], 
                                                     global_replica_id=op.inputs[3],
                                                     top_gradient=top_grad,
+                                                    replica_nnz=op.outputs[1],
                                                     unique_op_name=op.get_attr("unique_op_name"))
     emb_var_grads_value = array_ops.gen_math_ops.cast(emb_var_grads_value, 
                             DstT=array_ops.dtypes.float32)

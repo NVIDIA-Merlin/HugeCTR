@@ -96,6 +96,11 @@ class ParquetFileSource : public Source {
         mmapped_data_(nullptr),
         fd_(-1) {
     slice_stream_ = NULL;
+    HCTR_CHECK_HINT(
+        file_list_.get_num_of_files() >= stride_,
+        "The number of data reader workers should be no greater than the number of files in the "
+        "file list. There is one worker on each GPU for Parquet dataset, please re-configure vvgpu "
+        "within CreateSolver or guarantee enough files in the file list.");
   }
 
   ~ParquetFileSource() {
@@ -129,8 +134,8 @@ class ParquetFileSource : public Source {
         can_read_file_ = false;
       }
       file_name_ = file_list_.get_a_file_with_id(offset_ + counter_ * stride_, repeat_);
-      std::stringstream ss;
-      // ss<<"worker_id "<<offset<<" counter_ "<<" counter_ "
+      // std::ostringstream os;
+      // os << "worker_id " << offset << " counter_ " << " counter_ "
       counter_++;  // counter_ should be accum for every source.
       // check if file exists
       if (file_name_.empty()) {
@@ -139,7 +144,9 @@ class ParquetFileSource : public Source {
 
       in_file_stream_.open(file_name_, std::ifstream::binary);
       if (!in_file_stream_.is_open()) {
-        CK_RETURN_(Error_t::FileCannotOpen, "in_file_stream_.is_open() failed: " + file_name_);
+        HCTR_LOG_S(ERROR, WORLD) << "in_file_stream_.is_open() failed: " << file_name_ << ' '
+                                 << HCTR_LOCATION() << std::endl;
+        return Error_t::FileCannotOpen;
       }
       in_file_stream_.seekg(0, std::ios::end);
       file_size_ = in_file_stream_.tellg();
@@ -147,14 +154,16 @@ class ParquetFileSource : public Source {
 
       fd_ = open(file_name_.c_str(), O_RDONLY, 0);
       if (fd_ == -1) {
-        CK_RETURN_(Error_t::BrokenFile, "Error open file for read");
+        HCTR_LOG_S(ERROR, WORLD) << "Error open file for read " << HCTR_LOCATION() << std::endl;
+        return Error_t::BrokenFile;
       }
 
       mmapped_data_ = (char*)mmap(0, file_size_, PROT_READ, MAP_PRIVATE, fd_, 0);
       if (mmapped_data_ == MAP_FAILED) {
         close(fd_);
         fd_ = -1;
-        CK_RETURN_(Error_t::BrokenFile, "Error mmapping the file");
+        HCTR_LOG_S(ERROR, WORLD) << "Error mmapping the file " << HCTR_LOCATION() << std::endl;
+        return Error_t::BrokenFile;
       }
 
       parquet_args =
@@ -176,12 +185,14 @@ class ParquetFileSource : public Source {
         file_total_rows_ =
             (long long)(file_metadata_.get_file_stats(get_filename(file_name_)).num_rows);
       } else {
-        CK_RETURN_(Error_t::IllegalCall, "Parquet files not found - check file extensions");
+        HCTR_LOG_S(ERROR, WORLD) << "Parquet files not found - check file extensions "
+                                 << HCTR_LOCATION() << std::endl;
+        return Error_t::IllegalCall;
       }
 
       return Error_t::Success;
     } catch (const std::runtime_error& rt_err) {
-      std::cerr << rt_err.what() << std::endl;
+      HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
       return Error_t::UnspecificError;
     }
   }
@@ -197,11 +208,11 @@ class ParquetFileSource : public Source {
   cudf_io::table_with_metadata read(long long num_rows,
                                     rmm::mr::device_memory_resource* mr) noexcept {
     nvtxRangePushA("load_DF");
-    if (slice_stream_ == NULL) {
+    if (slice_stream_ == nullptr) {
       try {
-        CK_CUDA_THROW_(cudaStreamCreate(&slice_stream_));
+        HCTR_LIB_THROW(cudaStreamCreate(&slice_stream_));
       } catch (const std::runtime_error& rt_err) {
-        std::cerr << rt_err.what() << std::endl;
+        HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
       }
     }
     cudf_io::table_with_metadata x;

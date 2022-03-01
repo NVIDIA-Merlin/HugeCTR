@@ -90,9 +90,7 @@ void EmbeddingLayer::get_output_shape(std::vector<int64_t>& output_shape,
 
 void EmbeddingLayer::get_grad_shape(const Context_t& replica_context,
                                     std::vector<int64_t>& grad_shape) const {
-  const auto replica_host_nnz = replica_context->input("replica_host_nnz");
-
-  grad_shape.push_back(static_cast<int64_t>(replica_host_nnz->GetPtrWithType<size_t>()[0]));
+  // replica_host_nnz is set by TF, therefore only append embedding_vec_size.
   grad_shape.push_back(static_cast<int64_t>(base_context_->get_param()->get_embedding_vec_size()));
 }
 

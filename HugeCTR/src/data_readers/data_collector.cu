@@ -50,7 +50,7 @@ void split(Tensor2<float>& label_tensor, Tensor2<TypeComp>& dense_tensor,
   const int batchsize = label_tensor.get_dimensions()[0];
   const int label_dim = label_tensor.get_dimensions()[1];
   const int dense_dim = dense_tensor.get_dimensions()[1];
-  // printf("%d, %d, %d\n", label_dim, dense_dim, label_dense_dim);
+  // HCTR_LOG(INFO, WORLD, "%d, %d, %d\n", label_dim, dense_dim, label_dense_dim);
 
   const int BLOCK_DIM = 256;
   const int GRID_DIM = (label_dense_buffer.get_num_elements() - 1) / BLOCK_DIM + 1;
@@ -66,7 +66,7 @@ void split(Tensor2<float>& label_tensor, Tensor2<TypeComp>& dense_tensor,
         label_dense_dim);
 
   } else {
-    CK_THROW_(Error_t::WrongInput, "dense_dim < 0");
+    HCTR_OWN_THROW(Error_t::WrongInput, "dense_dim < 0");
   }
 
   return;
@@ -98,7 +98,7 @@ void broadcast(const std::shared_ptr<ThreadBuffer>& thread_buffer,
 
       if (thread_buffer->is_fixed_length[param_id] &&
           last_batch_nnz_[i * param_num + param_id] == src_sparse_tensor.nnz()) {
-        CK_CUDA_THROW_(cudaMemcpyAsync(dst_sparse_tensor.get_value_ptr(),
+        HCTR_LIB_THROW(cudaMemcpyAsync(dst_sparse_tensor.get_value_ptr(),
                                        src_sparse_tensor.get_value_ptr(),
                                        src_sparse_tensor.nnz() * sizeof(T),
                                        cudaMemcpyDeviceToDevice, local_gpu->get_p2p_stream()));
@@ -112,12 +112,12 @@ void broadcast(const std::shared_ptr<ThreadBuffer>& thread_buffer,
 
     auto dst_dense_tensor = Tensor2<float>::stretch_from(broadcast_buffer->dense_tensors[i]);
     auto src_dense_tensor = Tensor2<float>::stretch_from(thread_buffer->device_dense_buffers);
-    CK_CUDA_THROW_(cudaMemcpyAsync(
+    HCTR_LIB_THROW(cudaMemcpyAsync(
         dst_dense_tensor.get_ptr(),
         src_dense_tensor.get_ptr() + i * batch_size_per_gpu * (label_dim + dense_dim),
         batch_size_per_gpu * (label_dim + dense_dim) * sizeof(float), cudaMemcpyDeviceToDevice,
         local_gpu->get_p2p_stream()));
-    CK_CUDA_THROW_(cudaStreamSynchronize(local_gpu->get_p2p_stream()));
+    HCTR_LIB_THROW(cudaStreamSynchronize(local_gpu->get_p2p_stream()));
   }
 }
 

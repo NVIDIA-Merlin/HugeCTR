@@ -33,19 +33,19 @@ void download_tensor(std::vector<dtype>& h_tensor, const Tensor2<dtype> tensor,
                      cudaStream_t stream) {
   size_t tensor_size = tensor.get_size_in_bytes() / sizeof(dtype);
   h_tensor.resize(tensor_size);
-  CK_CUDA_THROW_(cudaStreamSynchronize(stream));
-  CK_CUDA_THROW_(cudaMemcpyAsync(h_tensor.data(), tensor.get_ptr(), tensor.get_size_in_bytes(),
+  HCTR_LIB_THROW(cudaStreamSynchronize(stream));
+  HCTR_LIB_THROW(cudaMemcpyAsync(h_tensor.data(), tensor.get_ptr(), tensor.get_size_in_bytes(),
                                  cudaMemcpyDeviceToHost, stream));
-  CK_CUDA_THROW_(cudaStreamSynchronize(stream));
+  HCTR_LIB_THROW(cudaStreamSynchronize(stream));
 }
 
 template <typename dtype>
 void upload_tensor(const std::vector<dtype>& h_tensor, Tensor2<dtype> tensor, cudaStream_t stream) {
-  CK_CUDA_THROW_(cudaStreamSynchronize(stream));
+  HCTR_LIB_THROW(cudaStreamSynchronize(stream));
   assert(tensor.get_num_elements() >= h_tensor.size());
-  CK_CUDA_THROW_(cudaMemcpyAsync(tensor.get_ptr(), h_tensor.data(), h_tensor.size() * sizeof(dtype),
+  HCTR_LIB_THROW(cudaMemcpyAsync(tensor.get_ptr(), h_tensor.data(), h_tensor.size() * sizeof(dtype),
                                  cudaMemcpyHostToDevice, stream));
-  CK_CUDA_THROW_(cudaStreamSynchronize(stream));
+  HCTR_LIB_THROW(cudaStreamSynchronize(stream));
 }
 
 __global__ void offsets_kernel(const uint32_t* indices, uint32_t* indices_offsets,

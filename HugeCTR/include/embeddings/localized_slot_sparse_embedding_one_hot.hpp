@@ -304,7 +304,7 @@ class LocalizedSlotSparseEmbeddingOneHot : public IEmbedding {
    * upload it onto multi-GPUs global memory.
    * @param sparse_model the folder name of sparse model.
    */
-  void load_parameters(std::string sparse_model) override;
+  void load_parameters(std::string sparse_model, DataSourceParams data_source_params) override;
   void load_parameters(BufferBag &buf_bag, size_t num) override;
   /**
    * Download the hash table from multi-GPUs global memroy to CPU memory
@@ -317,7 +317,8 @@ class LocalizedSlotSparseEmbeddingOneHot : public IEmbedding {
 
   void dump_opt_states(std::ofstream &stream, std::string sparse_model,
                        DataSourceParams data_source_params) override {}
-  void load_opt_states(std::ifstream &stream) override {}
+  void load_opt_states(std::ifstream &stream, std::string read_path,
+                       DataSourceParams data_source_params) override {}
   void reset_optimizer() override {}
 
   /**
@@ -386,7 +387,7 @@ class LocalizedSlotSparseEmbeddingOneHot : public IEmbedding {
                                 wgrad_tensors_, utest_all2all_tensors_,
                                 embedding_data_.get_resource_manager());
     } else {
-      CK_CUDA_THROW_(cudaMemcpyAsync(
+      HCTR_LIB_THROW(cudaMemcpyAsync(
           utest_all2all_tensors_[0].get_ptr(), wgrad_tensors_[0].get_ptr(),
           embedding_data_.get_batch_size_per_gpu(true) * slot_num_per_gpu_[0] *
               embedding_data_.embedding_params_.embedding_vec_size * sizeof(TypeEmbeddingComp),
@@ -399,7 +400,7 @@ class LocalizedSlotSparseEmbeddingOneHot : public IEmbedding {
           embedding_data_.embedding_params_.embedding_vec_size, wgrad_tensors_,
           utest_all2all_tensors_, embedding_data_.get_resource_manager());
     } else {
-      CK_CUDA_THROW_(cudaMemcpyAsync(
+      HCTR_LIB_THROW(cudaMemcpyAsync(
           utest_all2all_tensors_[0].get_ptr(), wgrad_tensors_[0].get_ptr(),
           embedding_data_.get_batch_size_per_gpu(true) * slot_num_per_gpu_[0] *
               embedding_data_.embedding_params_.embedding_vec_size * sizeof(TypeEmbeddingComp),

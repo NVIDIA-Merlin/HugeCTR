@@ -26,7 +26,7 @@ void Metadata::get_parquet_metadata(std::string file_name) {
   nlohmann::json config;
   std::ifstream file_stream(file_name);
   if (!file_stream.is_open()) {
-    CK_THROW_(Error_t::FileCannotOpen, "file_stream.is_open() failed: " + file_name);
+    HCTR_OWN_THROW(Error_t::FileCannotOpen, "file_stream.is_open() failed: " + file_name);
   }
   file_stream >> config;
 
@@ -64,7 +64,7 @@ void Metadata::get_parquet_metadata(std::string file_name) {
     }
     loaded_ = true;
   } catch (const std::runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
   }
 
   file_stream.close();

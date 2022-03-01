@@ -120,7 +120,8 @@ class VarianceScalingSimulator : public DataSimulator {
         break;
       }
       default: {
-        ERROR_MESSAGE_("mode should be one of {Fan_in, Fan_out, Fan_avg}.");
+        HCTR_LOG_S(ERROR, WORLD) << "Mode should be one of {Fan_in, Fan_out, Fan_avg}. "
+                                 << HCTR_LOCATION() << std::endl;
         break;
       }
     }
@@ -142,7 +143,8 @@ class VarianceScalingSimulator : public DataSimulator {
         break;
       }
       default: {
-        ERROR_MESSAGE_("distribution should be one of {Uniform, Norm}.");
+        HCTR_LOG_S(ERROR, WORLD) << "Distribution should be one of {Uniform, Norm}. "
+                                 << HCTR_LOCATION() << std::endl;
         break;
       }
     }

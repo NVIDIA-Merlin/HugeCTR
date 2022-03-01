@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/inference/hugectrmodel.hpp"
-
 #include <fstream>
+#include <inference/hugectrmodel.hpp>
+#include <inference/session_inference.hpp>
 #include <iomanip>
 #include <iostream>
 #include <memory>
@@ -24,9 +24,8 @@
 #include <parser.hpp>
 #include <utils.hpp>
 
-#include "HugeCTR/include/inference/session_inference.hpp"
-
 namespace HugeCTR {
+
 HugeCTRModel::HugeCTRModel() {}
 
 HugeCTRModel::~HugeCTRModel() {}
@@ -41,7 +40,7 @@ HugeCTRModel* HugeCTRModel::load_model(INFER_TYPE Infer_type, const std::string&
       model = new InferenceSession(model_config_path, inference_params, embedding_cache);
       break;
     default:
-      std::cout << "wrong type!" << std::endl;
+      HCTR_LOG_S(ERROR, WORLD) << "wrong type!" << std::endl;
       return NULL;
   }
 

@@ -81,11 +81,17 @@ class PluginSparseFpropOp : public AsyncOpKernel {
       OP_REQUIRES_OK_ASYNC(
           ctx, ctx->allocate_output(0, emb_vector_tensor_shape_, &emb_vector_tensor), done);
 
+      // replica_nnz is a scalar
+      Tensor *replica_nnz_tensor = nullptr;
+      OP_REQUIRES_OK_ASYNC(
+          ctx, ctx->allocate_output(1, {1}, &replica_nnz_tensor), done);
+
       // do forward propagation
       try {
         SparseOperationKit::Facade::instance()->forward(emb_handle_tensor, values_tensor,
                                                         indices_tensor, global_replica_id_value,
-                                                        training_, emb_vector_tensor);
+                                                        training_, emb_vector_tensor,
+                                                        replica_nnz_tensor);
       } catch (std::exception const &error) {
         ctx->SetStatus(errors::Aborted(error.what()));
         done();  // error happens
@@ -166,7 +172,8 @@ REGISTER_KERNEL_BUILDER(Name("PluginSparseFprop")
                             .Device(DEVICE_GPU)
                             .HostMemory("emb_handle")
                             .HostMemory("emb_var_handle")
-                            .HostMemory("global_replica_id"),
+                            .HostMemory("global_replica_id")
+                            .HostMemory("replica_nnz"),
                         PluginSparseFpropOp<GPUDevice>);
 
 }  // namespace tensorflow

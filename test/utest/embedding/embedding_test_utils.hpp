@@ -18,13 +18,13 @@
 
 #include <stdio.h>
 
+#include <base/debug/logger.hpp>
 #include <cmath>
 #include <fstream>
 #include <memory>
 #include <type_traits>
 #include <unordered_set>
 
-#include "HugeCTR/include/common.hpp"
 #include "utest/embedding/sparse_embedding_hash_cpu.hpp"
 
 namespace HugeCTR {
@@ -50,7 +50,7 @@ inline bool compare_element(float a, float b, float epsilon) {
 inline bool compare_array(size_t len, const float *a, const float *b, float epsilon) {
   for (size_t i = 0; i < len; i++) {
     if (!compare_element(a[i], b[i], epsilon)) {
-      printf("Error in compare_array: i=%zu, a=%.8f, b=%.8f\n", i, a[i], b[i]);
+      HCTR_LOG(INFO, WORLD, "Error in compare_array: i=%zu, a=%.8f, b=%.8f\n", i, a[i], b[i]);
       return false;
     }
   }
@@ -64,7 +64,7 @@ inline bool compare_array(size_t len, const __half *a, const __half *b, float ep
     float fa = __half2float(a[i]);
     float fb = __half2float(b[i]);
     if (!compare_element(fa, fb, epsilon)) {
-      printf("Error in compare_array: i=%zu, a=%.8f, b=%.8f\n", i, fa, fb);
+      HCTR_LOG(INFO, WORLD, "Error in compare_array: i=%zu, a=%.8f, b=%.8f\n", i, fa, fb);
       return false;
     }
   }
@@ -78,7 +78,7 @@ bool compare_file(std::string file1, std::string file2, float epsilon) {
   std::ifstream file_stream2(file2);
 
   if (!file_stream1.is_open() || !file_stream2.is_open()) {
-    ERROR_MESSAGE_("Error: file open failed");
+    HCTR_LOG_S(ERROR, WORLD) << "File open failed. " << HCTR_LOCATION() << std::endl;
     return false;
   }
 
@@ -93,7 +93,7 @@ bool compare_file(std::string file1, std::string file2, float epsilon) {
   long long file_size2 = end_pos - start_pos;
 
   if (file_size1 != file_size2) {
-    ERROR_MESSAGE_("Error: files size is not same");
+    HCTR_LOG_S(ERROR, WORLD) << "Files size is not same. " << HCTR_LOCATION() << std::endl;
     file_stream1.close();
     file_stream2.close();
     return false;
@@ -128,7 +128,7 @@ bool compare_distributed_hash_table_files(std::string file1, std::string file2, 
   std::ifstream file_stream2(file2);
 
   if (!file_stream1.is_open() || !file_stream2.is_open()) {
-    ERROR_MESSAGE_("Error: file open failed");
+    HCTR_LOG_S(ERROR, WORLD) << "File open failed. " << HCTR_LOCATION() << std::endl;
     return false;
   }
 
@@ -143,7 +143,7 @@ bool compare_distributed_hash_table_files(std::string file1, std::string file2, 
   long long file_size2 = end_pos - start_pos;
 
   if (file_size1 != file_size2) {
-    ERROR_MESSAGE_("Error: files size is not same");
+    HCTR_LOG_S(ERROR, WORLD) << "Files size is not same. " << HCTR_LOCATION() << std::endl;
     file_stream1.close();
     file_stream2.close();
     return false;
@@ -171,9 +171,10 @@ bool compare_distributed_hash_table_files(std::string file1, std::string file2, 
   file_stream2.close();
 
   if (hash_table->get_size() != pair_num) {
-    ERROR_MESSAGE_(
-        "Error: The number of <key,value> pair inserting into hash table is not equal to hash "
-        "table file size\n");
+    HCTR_LOG_S(ERROR, WORLD)
+        << "Error: The number of <key,value> pair inserting into hash table is "
+           "not equal to hash table file size"
+        << HCTR_LOCATION() << std::endl;
     return false;
   }
 
@@ -209,7 +210,7 @@ bool compare_localized_hash_table_files(std::string file1, std::string file2, fl
   std::ifstream file_stream2(file2);
 
   if (!file_stream1.is_open() || !file_stream2.is_open()) {
-    ERROR_MESSAGE_("Error: file open failed");
+    HCTR_LOG_S(ERROR, WORLD) << "File open failed. " << HCTR_LOCATION() << std::endl;
     return false;
   }
 
@@ -224,8 +225,8 @@ bool compare_localized_hash_table_files(std::string file1, std::string file2, fl
   long long file_size2 = end_pos - start_pos;
 
   if (file_size1 != file_size2) {
-    ERROR_MESSAGE_("Error: files size is not same");
-    std::cout << "file_size1=" << file_size1 << ", file_size2=" << file_size2 << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << "Files size is not same (" << file_size1 << " <> " << file_size1
+                             << ") " << HCTR_LOCATION() << std::endl;
     file_stream1.close();
     file_stream2.close();
     return false;
@@ -260,10 +261,11 @@ bool compare_localized_hash_table_files(std::string file1, std::string file2, fl
 
   size_t hash_table_size = hash_table->get_size();
   if (hash_table_size != pair_num) {
-    ERROR_MESSAGE_(
-        "Error: The number of <key,value> pair inserting into CPU hash table is not equal to hash "
-        "table file size\n");
-    std::cout << "CPU hash_table_size=" << hash_table_size << std::endl;
+    HCTR_LOG_S(ERROR, WORLD)
+        << "The number of <key,value> pair inserting into CPU hash table is not "
+           "equal to hash table file size "
+        << HCTR_LOCATION() << std::endl;
+    HCTR_LOG_S(INFO, WORLD) << "CPU hash_table_size=" << hash_table_size << std::endl;
     return false;
   }
 
@@ -341,7 +343,8 @@ bool compare_hash_table(long long capacity, TypeHashKey *hash_table_key_from_gpu
     hash_table->get(key, value1, 1);
 
     if (!compare_array(value_len, (float *)value1, (float *)value2, epsilon)) {
-      std::cout << "Error in compare_hash_table: <key, value> pair number=" << i << std::endl;
+      HCTR_LOG_S(INFO, WORLD) << "Error in compare_hash_table: <key, value> pair number=" << i
+                              << std::endl;
       rtn = false;
       break;
     }
@@ -374,7 +377,8 @@ bool compare_key_slot(long long capacity, TypeKey *hash_table_key_from_gpu,
     hash_table->get(key, value1, 1);
 
     if (*value1 != *value2) {
-      std::cout << "Error in compare_hash_table: <key, slot_id> pair number=" << i << std::endl;
+      HCTR_LOG_S(INFO, WORLD) << "Error in compare_hash_table: <key, slot_id> pair number=" << i
+                              << std::endl;
       rtn = false;
       break;
     }

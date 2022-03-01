@@ -52,7 +52,7 @@ GRULayer<T>::GRULayer(const std::shared_ptr<BufferBlock2<T>>& weight_buff,
     // seqLength = in_tensor_dim[1];
     // m = out_tensor_dim[1];
     // miniBatch = in_tensor_dim[0];
-    // printf("m %lu n %lu k %lu \n ", m, n,k);
+    // HCTR_LOG(INFO, WORLD, "m %lu n %lu k %lu \n ", m, n,k);
     hiddenSize_ = hiddenSize;
     miniBatch = batch_size;
     seqLength_ = SeqLength;
@@ -64,10 +64,10 @@ GRULayer<T>::GRULayer(const std::shared_ptr<BufferBlock2<T>>& weight_buff,
 
     // weightSpaceSize = m*k + m*m + 1*m; //include W, U weight matrixs and bias vector.
 
-    // CK_CUDNN_THROW_(cudnnSetTensor4dDescriptorEx(hDesc, data_type, n, 1, 1, n,
+    // HCTR_LIB_THROW(cudnnSetTensor4dDescriptorEx(hDesc, data_type, n, 1, 1, n,
     //  n, 1, 1, 1));
 
-    // CK_CUDNN_THROW_(cudnnSetTensor4dDescriptorEx(cDesc, data_type, 1, n, m, n,
+    // HCTR_LIB_THROW(cudnnSetTensor4dDescriptorEx(cDesc, data_type, 1, n, m, n,
     //  n, 1, 1, 1));
     seqLengthArray = (int*)malloc(miniBatch * sizeof(int));
 
@@ -76,16 +76,16 @@ GRULayer<T>::GRULayer(const std::shared_ptr<BufferBlock2<T>>& weight_buff,
     }
 
     // cudnnHandle= get_gpu().get_cudnn_handle();
-    CK_CUDNN_THROW_(cudnnCreate(&cudnnHandle));
+    HCTR_LIB_THROW(cudnnCreate(&cudnnHandle));
     data_type = CudnnDataType<T>::getType();
-    CK_CUDNN_THROW_(cudnnCreateRNNDescriptor(&rnnDesc));
-    CK_CUDNN_THROW_(cudnnCreateRNNDataDescriptor(&in_Desc));
-    CK_CUDNN_THROW_(cudnnCreateRNNDataDescriptor(&out_Desc));
-    CK_CUDNN_THROW_(cudnnCreateTensorDescriptor(&cDesc));
-    CK_CUDNN_THROW_(cudnnCreateTensorDescriptor(&hDesc));
-    CK_CUDNN_THROW_(cudnnCreateDropoutDescriptor(&dropoutDesc));
+    HCTR_LIB_THROW(cudnnCreateRNNDescriptor(&rnnDesc));
+    HCTR_LIB_THROW(cudnnCreateRNNDataDescriptor(&in_Desc));
+    HCTR_LIB_THROW(cudnnCreateRNNDataDescriptor(&out_Desc));
+    HCTR_LIB_THROW(cudnnCreateTensorDescriptor(&cDesc));
+    HCTR_LIB_THROW(cudnnCreateTensorDescriptor(&hDesc));
+    HCTR_LIB_THROW(cudnnCreateDropoutDescriptor(&dropoutDesc));
 
-    CK_CUDNN_THROW_(cudnnSetRNNDataDescriptor(
+    HCTR_LIB_THROW(cudnnSetRNNDataDescriptor(
         in_Desc,                                   // cudnnRNNDataDescriptor_t RNNDataDesc,
         data_type,                                 // cudnnDataType_t dataType,
         CUDNN_RNN_DATA_LAYOUT_SEQ_MAJOR_UNPACKED,  // CUDNN_RNN_DATA_LAYOUT_SEQ_MAJOR_PACKED,
@@ -97,7 +97,7 @@ GRULayer<T>::GRULayer(const std::shared_ptr<BufferBlock2<T>>& weight_buff,
         NULL                                       // void *paddingFill
         ));
 
-    CK_CUDNN_THROW_(cudnnSetRNNDataDescriptor(
+    HCTR_LIB_THROW(cudnnSetRNNDataDescriptor(
         out_Desc,                                  // cudnnRNNDataDescriptor_t RNNDataDesc,
         data_type,                                 // cudnnDataType_t dataType,
         CUDNN_RNN_DATA_LAYOUT_SEQ_MAJOR_UNPACKED,  // CUDNN_RNN_DATA_LAYOUT_SEQ_MAJOR_PACKED,
@@ -114,16 +114,16 @@ GRULayer<T>::GRULayer(const std::shared_ptr<BufferBlock2<T>>& weight_buff,
     strideHidden[0] = dimHidden[1] * dimHidden[2];
     strideHidden[1] = dimHidden[2];
     strideHidden[2] = 1;
-    CK_CUDNN_THROW_(cudnnSetTensorNdDescriptor(hDesc, data_type, 3, dimHidden, strideHidden));
-    CK_CUDNN_THROW_(cudnnSetTensorNdDescriptor(cDesc, data_type, 3, dimHidden, strideHidden));
+    HCTR_LIB_THROW(cudnnSetTensorNdDescriptor(hDesc, data_type, 3, dimHidden, strideHidden));
+    HCTR_LIB_THROW(cudnnSetTensorNdDescriptor(cDesc, data_type, 3, dimHidden, strideHidden));
 
-    CK_CUDNN_THROW_(cudnnDropoutGetStatesSize(cudnnHandle, &stateSize));
+    HCTR_LIB_THROW(cudnnDropoutGetStatesSize(cudnnHandle, &stateSize));
     cudaMalloc(&states, stateSize);
     seed = 0;  // 1337ull;
-    CK_CUDNN_THROW_(
+    HCTR_LIB_THROW(
         cudnnSetDropoutDescriptor(dropoutDesc, cudnnHandle, dropout, states, stateSize, seed));
 
-    CK_CUDNN_THROW_(cudnnSetRNNDescriptor_v8(
+    HCTR_LIB_THROW(cudnnSetRNNDescriptor_v8(
         rnnDesc,
         CUDNN_RNN_ALGO_STANDARD,    // cudnnRNNAlgo_t algo,
         CUDNN_GRU,                  // cudnnRNNMode_t cellMode,
@@ -149,9 +149,9 @@ GRULayer<T>::GRULayer(const std::shared_ptr<BufferBlock2<T>>& weight_buff,
     // for(int i=0; i<in_tensor_dim[1]; i++)
     // = { [0 . . . 3 ] = 3 };
 
-    CK_CUDNN_THROW_(cudnnGetRNNWeightSpaceSize(cudnnHandle, rnnDesc, &weightSpaceSize));
-    CK_CUDNN_THROW_(cudnnGetRNNTempSpaceSizes(cudnnHandle, rnnDesc, CUDNN_FWD_MODE_TRAINING,
-                                              in_Desc, &workSpaceSize, &reserveSpaceSize));
+    HCTR_LIB_THROW(cudnnGetRNNWeightSpaceSize(cudnnHandle, rnnDesc, &weightSpaceSize));
+    HCTR_LIB_THROW(cudnnGetRNNTempSpaceSizes(cudnnHandle, rnnDesc, CUDNN_FWD_MODE_TRAINING, in_Desc,
+                                             &workSpaceSize, &reserveSpaceSize));
     // std::vector<size_t> weight_dim = {weightSpaceSize/sizeof(T), 1};
     // std::vector<size_t> dx_dim =  {inputTensorSize, 1};
     // std::vector<size_t> dy_dim =  {outputTensorSize, 1};
@@ -167,7 +167,7 @@ GRULayer<T>::GRULayer(const std::shared_ptr<BufferBlock2<T>>& weight_buff,
     std::vector<size_t> dhx_dim = {1, hiddenTensorSize};
     std::vector<size_t> dhy_dim = {1, hiddenTensorSize};
     std::vector<size_t> dweigths_dim = {1, weightSpaceSize / sizeof(T)};
-    // printf("weighsize %zu\n", weightSpaceSize/sizeof(T));
+    // HCTR_LOG(INFO, WORLD, "weighsize %zu\n", weightSpaceSize/sizeof(T));
 
     {
       Tensor2<T> tensor;
@@ -207,19 +207,19 @@ GRULayer<T>::GRULayer(const std::shared_ptr<BufferBlock2<T>>& weight_buff,
       wgrad_.push_back(tensor);
     }
 
-    CK_CUDA_THROW_(cudaMalloc((void**)&devSeqLengthArray, miniBatch * sizeof(int)));
-    CK_CUDA_THROW_(cudaMemcpy(devSeqLengthArray, seqLengthArray, miniBatch * sizeof(int),
+    HCTR_LIB_THROW(cudaMalloc((void**)&devSeqLengthArray, miniBatch * sizeof(int)));
+    HCTR_LIB_THROW(cudaMemcpy(devSeqLengthArray, seqLengthArray, miniBatch * sizeof(int),
                               cudaMemcpyHostToDevice));
-    CK_CUDA_THROW_(cudaMalloc((void**)&weightSpace, weightSpaceSize));
-    CK_CUDA_THROW_(cudaMalloc((void**)&workSpace, workSpaceSize));
-    CK_CUDA_THROW_(cudaMalloc((void**)&reserveSpace, reserveSpaceSize));
-    // CK_CUDA_THROW_(cudaMalloc((void **)&dweightSpace, weightSpaceSize));
+    HCTR_LIB_THROW(cudaMalloc((void**)&weightSpace, weightSpaceSize));
+    HCTR_LIB_THROW(cudaMalloc((void**)&workSpace, workSpaceSize));
+    HCTR_LIB_THROW(cudaMalloc((void**)&reserveSpace, reserveSpaceSize));
+    // HCTR_LIB_THROW(cudaMalloc((void **)&dweightSpace, weightSpaceSize));
 
     in_tensors_.push_back(in_tensor);
     out_tensors_.push_back(out_tensor);
     // Where should we create this cuBLAS handle?
   } catch (const std::runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     throw;
   }
 }
@@ -240,17 +240,17 @@ void GRULayer<T>::fprop(bool is_train) {
   T* in = in_tensor.get_ptr();
   T* out = out_tensor.get_ptr();
 // T* hx = weights_[0].get_ptr();
-// printf("datatype %lu\n", sizeof(data_type));
-// CK_CUDA_THROW_(cudaMalloc((void **)&in,  inputTensorSize * sizeof(T)));
+// HCTR_LOG(INFO, WORLD, "datatype %lu\n", sizeof(data_type));
+// HCTR_LIB_THROW(cudaMalloc((void **)&in,  inputTensorSize * sizeof(T)));
 
-// CK_CUBLAS_THROW_(cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_N, n, m, k,
+// HCTR_LIB_THROW(cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_N, n, m, k,
 //                            &alpha, weight, CUDA_R_32F, n, in, CUDA_R_32F, k, &beta, out,
 //                            CUDA_R_32F, n, CUDA_R_32F, falgo_));
 #ifdef KERAS_CHECK
   cudnnTensorDescriptor_t wDesc;
   cudnnTensorDescriptor_t bDesc;
-  CK_CUDNN_THROW_(cudnnCreateTensorDescriptor(&wDesc));
-  CK_CUDNN_THROW_(cudnnCreateTensorDescriptor(&bDesc));
+  HCTR_LIB_THROW(cudnnCreateTensorDescriptor(&wDesc));
+  HCTR_LIB_THROW(cudnnCreateTensorDescriptor(&bDesc));
 
   // Tensor2<T> linLayerMat;
   // Tensor2<T> linLayerBias;
@@ -261,41 +261,41 @@ void GRULayer<T>::fprop(bool is_train) {
     int nbDims = 0;
     int dim[3] = {0, 0, 0}, stride[3];
     int layer = 0;
-    // printf("weightSpaceSize %zu\n", weightSpaceSize);
-    CK_CUDNN_THROW_(cudnnGetRNNWeightParams(cudnnHandle, rnnDesc, layer, weightSpaceSize,
-                                            weights_[0].get_ptr(),  // weightSpace,
-                                            linLayerID, wDesc,
-                                            (void**)&linLayerMat,  //.get_ptr(),
-                                            bDesc,
-                                            (void**)&linLayerBias  //.get_ptr()
-                                            ));
+    // HCTR_LOG(INFO, WORLD, "weightSpaceSize %zu\n", weightSpaceSize);
+    HCTR_LIB_THROW(cudnnGetRNNWeightParams(cudnnHandle, rnnDesc, layer, weightSpaceSize,
+                                           weights_[0].get_ptr(),  // weightSpace,
+                                           linLayerID, wDesc,
+                                           (void**)&linLayerMat,  //.get_ptr(),
+                                           bDesc,
+                                           (void**)&linLayerBias  //.get_ptr()
+                                           ));
 
     if (linLayerMat) {
-      CK_CUDNN_THROW_(cudnnGetTensorNdDescriptor(wDesc, 3, &data_type, &nbDims, dim, stride));
+      HCTR_LIB_THROW(cudnnGetTensorNdDescriptor(wDesc, 3, &data_type, &nbDims, dim, stride));
       size_t w = dim[0] * dim[1] * dim[2];
       T* h_weights = new T[w];
       cudaMemcpy(h_weights, linLayerMat, sizeof(T) * w, cudaMemcpyDeviceToHost);
 
-      printf("W_%d %zu ", linLayerID, w);
+      HCTR_LOG(INFO, ROOT, "W_%d %zu ", linLayerID, w);
       for (unsigned int i = 0; i < w; i++) {
-        printf("%f ", h_weights[i]);
+        HCTR_PRINT(INFO, "%f ", h_weights[i]);
       }
-      printf("\n");
+      HCTR_PRINT(INFO, "\n");
 
       delete (h_weights);
     }
 
     if (linLayerBias) {
-      CK_CUDNN_THROW_(cudnnGetTensorNdDescriptor(bDesc, 3, &data_type, &nbDims, dim, stride));
+      HCTR_LIB_THROW(cudnnGetTensorNdDescriptor(bDesc, 3, &data_type, &nbDims, dim, stride));
       size_t w = dim[0] * dim[1] * dim[2];
       T* h_weights = new T[w];
       cudaMemcpy(h_weights, linLayerBias, sizeof(T) * w, cudaMemcpyDeviceToHost);
 
-      printf("B_%d %zu ", linLayerID, w);
+      HCTR_LOG(INFO, ROOT, "B_%d %zu ", linLayerID, w);
       for (unsigned int i = 0; i < w; i++) {
-        printf("%f ", h_weights[i]);
+        HCTR_PRINT(INFO, "%f ", h_weights[i]);
       }
-      printf("\n");
+      HCTR_PRINT(INFO, "\n");
 
       delete (h_weights);
     }
@@ -306,11 +306,11 @@ void GRULayer<T>::fprop(bool is_train) {
 #endif
   // CUDNN GRU
   // T tmp[hiddenTensorSize];
-  // CK_CUDA_THROW_(cudaMemcpy(tmp, weight + weightSpaceSize/sizeof(T), sizeof(T) *
+  // HCTR_LIB_THROW(cudaMemcpy(tmp, weight + weightSpaceSize/sizeof(T), sizeof(T) *
   // hiddenTensorSize, cudaMemcpyDeviceToHost)); for(size_t i=0;i<hiddenTensorSize;i++)
   //  if(tmp[i] != 0.0)
-  //    printf("tmp[i] %f\n", tmp[i]);
-  CK_CUDNN_THROW_(cudnnRNNForward(
+  //    HCTR_LOG(INFO, WORLD, "tmp[i] %f\n", tmp[i]);
+  HCTR_LIB_THROW(cudnnRNNForward(
       cudnnHandle, rnnDesc, CUDNN_FWD_MODE_TRAINING, devSeqLengthArray,
       in_Desc,   // xDesc,
       in,        // x, input data pointer
@@ -333,7 +333,7 @@ void GRULayer<T>::fprop(bool is_train) {
       reserveSpace  // reserveSpace
       ));
 
-  // printf("forward end\n\n");
+  // HCTR_LOG(INFO, WORLD, "forward end\n\n");
   // cudnnDestroy(cudnnHandle);
 }
 
@@ -352,35 +352,34 @@ void GRULayer<T>::bprop() {
   T* dhy = wgrad_[3].get_ptr();
   T* dweightSpace = wgrad_[4].get_ptr();
 
-  CK_CUDNN_THROW_(cudnnRNNBackwardData_v8(cudnnHandle,        // cudnnHandle_t handle,
-                                          rnnDesc,            // cudnnRNNDescriptor_t rnnDesc,
-                                          devSeqLengthArray,  // const int32_t devSeqLengths[],
-                                          out_Desc,           // cudnnRNNDataDescriptor_t yDesc,
-                                          out,                // const void *y, input
-                                          dy,                 // const void *dy, input
-                                          in_Desc,            // cudnnRNNDataDescriptor_t xDesc,
-                                          dx,                 // void *dx, output
-                                          hDesc,              // cudnnTensorDescriptor_t hDesc,
-                                          NULL,               // hx, //const void *hx, input
-                                          NULL,               // const void *dhy, input
-                                          dhx,                // void *dhx, output
-                                          cDesc,              // cudnnTensorDescriptor_t cDesc,
-                                          NULL,  // cx, //const void *cx, for LSTM only, input
-                                          NULL,  // const void *dcy, for LSTM only, input
-                                          NULL,  // void *dcx, output
-                                          weightSpaceSize,
-                                          weight,  // weightSpace,
-                                          workSpaceSize, workSpace, reserveSpaceSize,
-                                          reserveSpace));
+  HCTR_LIB_THROW(cudnnRNNBackwardData_v8(cudnnHandle,        // cudnnHandle_t handle,
+                                         rnnDesc,            // cudnnRNNDescriptor_t rnnDesc,
+                                         devSeqLengthArray,  // const int32_t devSeqLengths[],
+                                         out_Desc,           // cudnnRNNDataDescriptor_t yDesc,
+                                         out,                // const void *y, input
+                                         dy,                 // const void *dy, input
+                                         in_Desc,            // cudnnRNNDataDescriptor_t xDesc,
+                                         dx,                 // void *dx, output
+                                         hDesc,              // cudnnTensorDescriptor_t hDesc,
+                                         NULL,               // hx, //const void *hx, input
+                                         NULL,               // const void *dhy, input
+                                         dhx,                // void *dhx, output
+                                         cDesc,              // cudnnTensorDescriptor_t cDesc,
+                                         NULL,  // cx, //const void *cx, for LSTM only, input
+                                         NULL,  // const void *dcy, for LSTM only, input
+                                         NULL,  // void *dcx, output
+                                         weightSpaceSize,
+                                         weight,  // weightSpace,
+                                         workSpaceSize, workSpace, reserveSpaceSize, reserveSpace));
 
   // cudnnRNNBackwardWeights adds to the data in dw.
-  CK_CUDA_THROW_(cudaMemset(dweightSpace, 0, weightSpaceSize));
+  HCTR_LIB_THROW(cudaMemset(dweightSpace, 0, weightSpaceSize));
   // T* h_hx=NULL;
   // cudaMemcpy(h_hx,hx,hiddenTensorSize*sizeof(T),cudaMemcpyDeviceToHost );
   // for(unsigned int i=0;i<hiddenTensorSize;i++)
-  //    printf("hx %f \n",h_hx[i]);
+  //    HCTR_LOG(INFO, WORLD, "hx %f \n",h_hx[i]);
 
-  CK_CUDNN_THROW_(cudnnRNNBackwardWeights_v8(
+  HCTR_LIB_THROW(cudnnRNNBackwardWeights_v8(
       cudnnHandle, rnnDesc, CUDNN_WGRAD_MODE_ADD, devSeqLengthArray, in_Desc, in, hDesc,
       NULL,  // hx,
       out_Desc,
@@ -391,7 +390,7 @@ void GRULayer<T>::bprop() {
 
 #ifndef NDEBUG
   cudaDeviceSynchronize();
-  CK_CUDA_THROW_(cudaGetLastError());
+  HCTR_LIB_THROW(cudaGetLastError());
 #endif
 
   cudaFree(workSpace);

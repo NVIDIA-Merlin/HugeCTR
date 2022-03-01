@@ -53,11 +53,11 @@
   } while (0)
 #endif
 
-#define PROFILER_DEBUG_(msg)                                                                    \
-  do {                                                                                          \
-    MESSAGE_(std::string(msg) + " on thread " + std::to_string(omp_get_thread_num()) +          \
-             ", on stream " + stream_str(stream) + ", on device " + std::to_string(device_id) + \
-             ", iter " + std::to_string(current_iteration_));                                   \
+#define PROFILER_DEBUG_(msg)                                                                 \
+  do {                                                                                       \
+    HCTR_LOG_S(INFO, ROOT) << msg << " on thread " << omp_get_thread_num() << ", on stream " \
+                           << stream_str(stream) << ", on device " << device_id << ", iter " \
+                           << current_iteration_ << std::endl;                               \
   } while (0)
 
 namespace HugeCTR {
@@ -173,24 +173,25 @@ class Profiler {
   void unit_test_end();
 
   static std::string stream_str(cudaStream_t stream) {
-    const void* address = static_cast<const void*>(stream);
-    std::stringstream ss;
-    ss << address;
-    return ss.str();
+    std::ostringstream os;
+    os << static_cast<const void*>(stream);
+    return os.str();
   }
 
   static std::string gen_event_key(std::string& event_name, cudaStream_t stream,
                                    int same_name_events_occured_order_in_code) {
-    return event_name + "_" + stream_str(stream) + "_" +
-           std::to_string(same_name_events_occured_order_in_code);
+    std::ostringstream os;
+    os << event_name << "_" << stream_str(stream) << "_" << same_name_events_occured_order_in_code;
+    return os.str();
   }
 
-  std::string gpu_event_strfy(Event* event) {
-    GPUEvent* gpuevent = static_cast<GPUEvent*>(event);
-    return std::string("Event name: ") + gpuevent->event_name +
-           ". Met time: " + std::to_string(gpuevent->met_times_within_this_stream) +
-           ". Device: " + std::to_string(gpuevent->device_id) +
-           " . Stream: " + stream_str(gpuevent->stream);
+  static std::string gpu_event_strfy(const Event* event) {
+    const GPUEvent* gpuevent = static_cast<const GPUEvent*>(event);
+    std::ostringstream os;
+    os << "Event name: " << gpuevent->event_name
+       << ". Met time: " << gpuevent->met_times_within_this_stream
+       << ". Device: " << gpuevent->device_id << " . Stream: " << stream_str(gpuevent->stream);
+    return os.str();
   }
 };
 

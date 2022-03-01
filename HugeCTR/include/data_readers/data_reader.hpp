@@ -90,9 +90,10 @@ class DataReader : public IDataReader {
     // input check
     if (total_gpu_count == 0 || batchsize <= 0 || label_dim <= 0 || dense_dim < 0 ||
         0 != batchsize_ % total_gpu_count) {
-      CK_THROW_(Error_t::WrongInput,
-                "total_gpu_count == 0 || batchsize <= 0 || label_dim <= 0 || dense_dim < 0 || 0 != "
-                "batchsize_ % total_gpu_count");
+      HCTR_OWN_THROW(
+          Error_t::WrongInput,
+          "total_gpu_count == 0 || batchsize <= 0 || label_dim <= 0 || dense_dim < 0 || 0 != "
+          "batchsize_ % total_gpu_count");
     }
     // batchsize_ is a multiple of total_gpu_count
     size_t batch_size_per_gpu = batchsize_ / total_gpu_count;
@@ -175,7 +176,7 @@ class DataReader : public IDataReader {
       buff->reserve({batch_size_per_gpu, label_dim + dense_dim}, &temp_dense_tensor);
       broadcast_buffer_->dense_tensors.push_back(temp_dense_tensor.shrink());
 
-      CK_CUDA_THROW_(cudaEventCreateWithFlags(&broadcast_buffer_->finish_broadcast_events[local_id],
+      HCTR_LIB_THROW(cudaEventCreateWithFlags(&broadcast_buffer_->finish_broadcast_events[local_id],
                                               cudaEventDisableTiming));
 
       for (size_t param_id = 0; param_id < params.size(); ++param_id) {
@@ -216,10 +217,10 @@ class DataReader : public IDataReader {
       worker_group_->end();
       size_t local_gpu_count = resource_manager_->get_local_gpu_count();
       for (size_t i = 0; i < local_gpu_count; ++i) {
-        CK_CUDA_THROW_(cudaEventDestroy(broadcast_buffer_->finish_broadcast_events[i]));
+        HCTR_LIB_THROW(cudaEventDestroy(broadcast_buffer_->finish_broadcast_events[i]));
       }
     } catch (const std::runtime_error &rt_err) {
-      std::cerr << rt_err.what() << std::endl;
+      HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     }
   }
 
@@ -245,8 +246,8 @@ class DataReader : public IDataReader {
 
   long long get_current_batchsize_per_device(size_t local_id) override {
     if (batchsize_ % resource_manager_->get_global_gpu_count() != 0) {
-      CK_THROW_(Error_t::UnspecificError,
-                "batchsize_ % resource_manager_->get_global_gpu_count() != 0");
+      HCTR_OWN_THROW(Error_t::UnspecificError,
+                     "batchsize_ % resource_manager_->get_global_gpu_count() != 0");
     }
     long long batchsize_per_device = batchsize_ / resource_manager_->get_global_gpu_count();
     size_t global_id = resource_manager_->get_gpu_global_id_from_local_id(local_id);
@@ -268,7 +269,7 @@ class DataReader : public IDataReader {
 
   const std::vector<SparseTensorBag> &get_sparse_tensors(const std::string &name) {
     if (output_->sparse_tensors_map.find(name) == output_->sparse_tensors_map.end()) {
-      CK_THROW_(Error_t::IllegalCall, "no such sparse output in data reader:" + name);
+      HCTR_OWN_THROW(Error_t::IllegalCall, "no such sparse output in data reader:" + name);
     }
     return output_->sparse_tensors_map[name];
   }
@@ -297,7 +298,8 @@ class DataReader : public IDataReader {
     }
     expected_file_size *= num_samples;
     if (file_size != expected_file_size) {
-      CK_THROW_(Error_t::UnspecificError, "dataset key type and dataset size is not compatible.");
+      HCTR_OWN_THROW(Error_t::UnspecificError,
+                     "dataset key type and dataset size is not compatible.");
     }
     source_type_ = SourceType_t::Mmap;
     worker_group_.reset(new DataReaderWorkerGroupRaw<TypeKey>(

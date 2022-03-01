@@ -26,27 +26,27 @@ CPUResource::CPUResource(unsigned long long replica_uniform_seed,
   replica_variant_curand_generators_.resize(replica_variant_seeds.size());
 
   for (size_t i = 0; i < replica_variant_seeds.size(); i++) {
-    CK_CURAND_THROW_(curandCreateGeneratorHost(&replica_uniform_curand_generators_[i],
-                                               CURAND_RNG_PSEUDO_DEFAULT));
-    CK_CURAND_THROW_(curandSetPseudoRandomGeneratorSeed(replica_uniform_curand_generators_[i],
-                                                        replica_uniform_seed));
-    CK_CURAND_THROW_(curandCreateGeneratorHost(&replica_variant_curand_generators_[i],
-                                               CURAND_RNG_PSEUDO_DEFAULT));
-    CK_CURAND_THROW_(curandSetPseudoRandomGeneratorSeed(replica_variant_curand_generators_[i],
-                                                        replica_variant_seeds[i]));
+    HCTR_LIB_THROW(curandCreateGeneratorHost(&replica_uniform_curand_generators_[i],
+                                             CURAND_RNG_PSEUDO_DEFAULT));
+    HCTR_LIB_THROW(curandSetPseudoRandomGeneratorSeed(replica_uniform_curand_generators_[i],
+                                                      replica_uniform_seed));
+    HCTR_LIB_THROW(curandCreateGeneratorHost(&replica_variant_curand_generators_[i],
+                                             CURAND_RNG_PSEUDO_DEFAULT));
+    HCTR_LIB_THROW(curandSetPseudoRandomGeneratorSeed(replica_variant_curand_generators_[i],
+                                                      replica_variant_seeds[i]));
   }
 }
 
 CPUResource::~CPUResource() {
   try {
     for (auto generator : replica_uniform_curand_generators_) {
-      CK_CURAND_THROW_(curandDestroyGenerator(generator));
+      HCTR_LIB_THROW(curandDestroyGenerator(generator));
     }
     for (auto generator : replica_variant_curand_generators_) {
-      CK_CURAND_THROW_(curandDestroyGenerator(generator));
+      HCTR_LIB_THROW(curandDestroyGenerator(generator));
     }
   } catch (const std::runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
   }
 }
 }  // namespace HugeCTR

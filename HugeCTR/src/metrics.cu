@@ -51,7 +51,7 @@ void copy_pred(float* y, SrcType* x, int num_elems, int num_sms, cudaStream_t st
 
 template <>
 void copy_pred<float>(float* y, float* x, int num_elems, int num_sms, cudaStream_t stream) {
-  CK_CUDA_THROW_(
+  HCTR_LIB_THROW(
       cudaMemcpyAsync(y, x, num_elems * sizeof(float), cudaMemcpyDeviceToDevice, stream));
 }
 
@@ -63,7 +63,7 @@ template <>
 void copy_all<float>(float* y_pred, float* y_label, float* x_pred, float* x_label, int num_elems,
                      int num_sms, cudaStream_t stream) {
   copy_pred<float>(y_pred, x_pred, num_elems, num_sms, stream);
-  CK_CUDA_THROW_(cudaMemcpyAsync(y_label, x_label, num_elems * sizeof(float),
+  HCTR_LIB_THROW(cudaMemcpyAsync(y_label, x_label, num_elems * sizeof(float),
                                  cudaMemcpyDeviceToDevice, stream));
 }
 
@@ -263,14 +263,14 @@ ncclDataType_t get_nccl_type<__half>() {
 template <typename T>
 void allreduce(T* srcptr, T* dstptr, int count, const GPUResource* gpu_resource) {
   auto& stream = gpu_resource->get_stream();
-  CK_NCCL_THROW_(ncclAllReduce(srcptr, dstptr, count, get_nccl_type<T>(), ncclSum,
+  HCTR_LIB_THROW(ncclAllReduce(srcptr, dstptr, count, get_nccl_type<T>(), ncclSum,
                                gpu_resource->get_nccl(), stream));
 }
 
 template <typename T>
 void allgather(T* srcptr, T* dstptr, int src_count, const GPUResource* gpu_resource) {
   auto& stream = gpu_resource->get_stream();
-  CK_NCCL_THROW_(ncclAllGather(srcptr, dstptr, src_count, get_nccl_type<T>(),
+  HCTR_LIB_THROW(ncclAllGather(srcptr, dstptr, src_count, get_nccl_type<T>(),
                                gpu_resource->get_nccl(), stream));
 }
 
@@ -281,14 +281,14 @@ void all_to_all(T* srcptr, T* dstptr, const CountType* src_offsets, const CountT
   auto& comm = gpu_resource->get_nccl();
   auto type = get_nccl_type<T>();
 
-  CK_NCCL_THROW_(ncclGroupStart());
+  HCTR_LIB_THROW(ncclGroupStart());
   for (int i = 0; i < num_global_gpus; i++) {
-    CK_NCCL_THROW_(ncclSend(srcptr + src_offsets[i], src_offsets[i + 1] - src_offsets[i], type, i,
+    HCTR_LIB_THROW(ncclSend(srcptr + src_offsets[i], src_offsets[i + 1] - src_offsets[i], type, i,
                             comm, stream));
-    CK_NCCL_THROW_(ncclRecv(dstptr + dst_offsets[i], dst_offsets[i + 1] - dst_offsets[i], type, i,
+    HCTR_LIB_THROW(ncclRecv(dstptr + dst_offsets[i], dst_offsets[i + 1] - dst_offsets[i], type, i,
                             comm, stream));
   }
-  CK_NCCL_THROW_(ncclGroupEnd());
+  HCTR_LIB_THROW(ncclGroupEnd());
 }
 
 template <typename T>
@@ -298,14 +298,14 @@ void send_halo_right(T* srcptr, T* dstptr, int count, int left_neighbor, int rig
   auto& comm = gpu_resource->get_nccl();
   auto type = get_nccl_type<T>();
 
-  CK_NCCL_THROW_(ncclGroupStart());
+  HCTR_LIB_THROW(ncclGroupStart());
   if (right_neighbor >= 0) {
-    CK_NCCL_THROW_(ncclSend(srcptr, count, type, right_neighbor, comm, stream));
+    HCTR_LIB_THROW(ncclSend(srcptr, count, type, right_neighbor, comm, stream));
   }
   if (left_neighbor >= 0) {
-    CK_NCCL_THROW_(ncclRecv(dstptr, count, type, left_neighbor, comm, stream));
+    HCTR_LIB_THROW(ncclRecv(dstptr, count, type, left_neighbor, comm, stream));
   }
-  CK_NCCL_THROW_(ncclGroupEnd());
+  HCTR_LIB_THROW(ncclGroupEnd());
 }
 
 }  // namespace metric_comm
@@ -319,9 +319,9 @@ void get_raw_metric_as_host_float_tensor(RawMetricMap metric_map, RawType raw_ty
   if (mixed_precision) {
     Tensor2<__half> raw_metric_tensor = Tensor2<__half>::stretch_from(metric_map[raw_type]);
     if (raw_metric_tensor.get_num_elements() != num) {
-      CK_THROW_(Error_t::WrongInput,
-                "num elements: " + std::to_string(raw_metric_tensor.get_num_elements()) +
-                    " not match with " + std::to_string(num));
+      std::ostringstream os;
+      os << "num elements: " << raw_metric_tensor.get_num_elements() << " not match with " << num;
+      HCTR_OWN_THROW(Error_t::WrongInput, os.str());
     }
     buffer_ptr->reserve(raw_metric_tensor.get_dimensions(), &device_prediction_result);
     buffer_ptr->allocate();
@@ -332,12 +332,13 @@ void get_raw_metric_as_host_float_tensor(RawMetricMap metric_map, RawType raw_ty
   } else {
     device_prediction_result = Tensor2<float>::stretch_from(metric_map[raw_type]);
     if (num != device_prediction_result.get_num_elements()) {
-      CK_THROW_(Error_t::WrongInput,
-                "num elements: " + std::to_string(device_prediction_result.get_num_elements()) +
-                    " not match with " + std::to_string(num));
+      std::ostringstream os;
+      os << "num elements: " << device_prediction_result.get_num_elements() << " not match with "
+         << num;
+      HCTR_OWN_THROW(Error_t::WrongInput, os.str());
     }
   }
-  CK_CUDA_THROW_(cudaMemcpy(rst, device_prediction_result.get_ptr(), num * sizeof(float),
+  HCTR_LIB_THROW(cudaMemcpy(rst, device_prediction_result.get_ptr(), num * sizeof(float),
                             cudaMemcpyDeviceToHost));
 }
 
@@ -383,7 +384,7 @@ void AverageLoss<T>::local_reduce(int local_gpu_id, RawMetricMap raw_metrics) {
   Tensor2<T> loss_tensor = Tensor2<T>::stretch_from(raw_metrics[RawType::Loss]);
   const auto& local_gpu = resource_manager_->get_local_gpu(local_gpu_id);
   CudaDeviceContext context(local_gpu->get_device_id());
-  CK_CUDA_THROW_(cudaMemcpyAsync(&loss_host, loss_tensor.get_ptr(), sizeof(float),
+  HCTR_LIB_THROW(cudaMemcpyAsync(&loss_host, loss_tensor.get_ptr(), sizeof(float),
                                  cudaMemcpyDeviceToHost, local_gpu->get_stream()));
   loss_local_[local_gpu_id] = loss_host;
 }
@@ -398,7 +399,8 @@ void AverageLoss<T>::global_reduce(int n_nets) {
 #ifdef ENABLE_MPI
   if (resource_manager_->get_num_process() > 1) {
     float loss_reduced = 0.0f;
-    CK_MPI_THROW_(MPI_Reduce(&loss_inter, &loss_reduced, 1, MPI_FLOAT, MPI_SUM, 0, MPI_COMM_WORLD));
+    HCTR_MPI_THROW(
+        MPI_Reduce(&loss_inter, &loss_reduced, 1, MPI_FLOAT, MPI_SUM, 0, MPI_COMM_WORLD));
     loss_inter = loss_reduced;
   }
 #endif
@@ -415,8 +417,8 @@ float AverageLoss<T>::finalize_metric() {
     }
   }
 #ifdef ENABLE_MPI
-  CK_MPI_THROW_(MPI_Barrier(MPI_COMM_WORLD));
-  CK_MPI_THROW_(MPI_Bcast(&ret, 1, MPI_FLOAT, 0, MPI_COMM_WORLD));
+  HCTR_MPI_THROW(MPI_Barrier(MPI_COMM_WORLD));
+  HCTR_MPI_THROW(MPI_Bcast(&ret, 1, MPI_FLOAT, 0, MPI_COMM_WORLD));
 #endif
 
   loss_global_ = 0.0f;
@@ -431,39 +433,39 @@ void AUCStorage::alloc_main(size_t num_local_samples, size_t num_bins, size_t nu
                             size_t num_global_gpus) {
   size_t bins_buffer_size = num_bins * sizeof(CountType);
 
-  CK_CUDA_THROW_(cudaMalloc((void**)&(ptr_local_bins_), bins_buffer_size));
-  CK_CUDA_THROW_(cudaMalloc((void**)&(ptr_global_bins_), bins_buffer_size));
-  CK_CUDA_THROW_(cudaMalloc((void**)&(ptr_global_bins_sum_), bins_buffer_size));
-  CK_CUDA_THROW_(cudaMalloc((void**)&(ptr_local_bins_sum_), bins_buffer_size));
-  CK_CUDA_THROW_(cudaMalloc((void**)&(ptr_pivots_), num_partitions * sizeof(int)));
-  CK_CUDA_THROW_(cudaMallocManaged((void**)&(ptr_partition_offsets_),
+  HCTR_LIB_THROW(cudaMalloc((void**)&(ptr_local_bins_), bins_buffer_size));
+  HCTR_LIB_THROW(cudaMalloc((void**)&(ptr_global_bins_), bins_buffer_size));
+  HCTR_LIB_THROW(cudaMalloc((void**)&(ptr_global_bins_sum_), bins_buffer_size));
+  HCTR_LIB_THROW(cudaMalloc((void**)&(ptr_local_bins_sum_), bins_buffer_size));
+  HCTR_LIB_THROW(cudaMalloc((void**)&(ptr_pivots_), num_partitions * sizeof(int)));
+  HCTR_LIB_THROW(cudaMallocManaged((void**)&(ptr_partition_offsets_),
                                    (num_partitions + 1) * sizeof(CountType)));
-  CK_CUDA_THROW_(cudaMallocManaged((void**)&(ptr_all_partition_offsets_),
+  HCTR_LIB_THROW(cudaMallocManaged((void**)&(ptr_all_partition_offsets_),
                                    (num_partitions + 1) * num_global_gpus * sizeof(CountType)));
-  CK_CUDA_THROW_(
+  HCTR_LIB_THROW(
       cudaMallocManaged((void**)&(ptr_recv_offsets_), (num_partitions + 1) * sizeof(CountType)));
-  CK_CUDA_THROW_(
+  HCTR_LIB_THROW(
       cudaMalloc((void**)&(ptr_pos_per_gpu_), (num_global_gpus + 1) * sizeof(CountType)));
-  CK_CUDA_THROW_(
+  HCTR_LIB_THROW(
       cudaMalloc((void**)&(ptr_neg_per_gpu_), (num_global_gpus + 1) * sizeof(CountType)));
-  CK_CUDA_THROW_(cudaMalloc((void**)&(ptr_num_identical_segments_), sizeof(int)));
-  CK_CUDA_THROW_(cudaMalloc((void**)&(ptr_halo_tpr_), sizeof(float)));
-  CK_CUDA_THROW_(cudaMalloc((void**)&(ptr_halo_fpr_), sizeof(float)));
-  CK_CUDA_THROW_(cudaMalloc((void**)&(ptr_tp_offsets_), (num_global_gpus + 1) * sizeof(CountType)));
-  CK_CUDA_THROW_(cudaMalloc((void**)&(ptr_fp_offsets_), (num_global_gpus + 1) * sizeof(CountType)));
-  CK_CUDA_THROW_(cudaMallocManaged((void**)&(ptr_auc_), sizeof(float)));
+  HCTR_LIB_THROW(cudaMalloc((void**)&(ptr_num_identical_segments_), sizeof(int)));
+  HCTR_LIB_THROW(cudaMalloc((void**)&(ptr_halo_tpr_), sizeof(float)));
+  HCTR_LIB_THROW(cudaMalloc((void**)&(ptr_halo_fpr_), sizeof(float)));
+  HCTR_LIB_THROW(cudaMalloc((void**)&(ptr_tp_offsets_), (num_global_gpus + 1) * sizeof(CountType)));
+  HCTR_LIB_THROW(cudaMalloc((void**)&(ptr_fp_offsets_), (num_global_gpus + 1) * sizeof(CountType)));
+  HCTR_LIB_THROW(cudaMallocManaged((void**)&(ptr_auc_), sizeof(float)));
 
-  CK_CUDA_THROW_(cudaMemset(ptr_pos_per_gpu_, 0, (num_global_gpus + 1) * sizeof(CountType)));
-  CK_CUDA_THROW_(cudaMemset(ptr_neg_per_gpu_, 0, (num_global_gpus + 1) * sizeof(CountType)));
+  HCTR_LIB_THROW(cudaMemset(ptr_pos_per_gpu_, 0, (num_global_gpus + 1) * sizeof(CountType)));
+  HCTR_LIB_THROW(cudaMemset(ptr_neg_per_gpu_, 0, (num_global_gpus + 1) * sizeof(CountType)));
 
   realloc_redistributed(num_local_samples, 0);
 }
 
 void AUCStorage::realloc_ptr(void** ptr, size_t old_size, size_t new_size, cudaStream_t stream) {
   void* tmp;
-  CK_CUDA_THROW_(cudaMalloc(&tmp, new_size));
-  CK_CUDA_THROW_(cudaMemcpyAsync(tmp, *ptr, old_size, cudaMemcpyDeviceToDevice, stream));
-  CK_CUDA_THROW_(cudaFree(*ptr));
+  HCTR_LIB_THROW(cudaMalloc(&tmp, new_size));
+  HCTR_LIB_THROW(cudaMemcpyAsync(tmp, *ptr, old_size, cudaMemcpyDeviceToDevice, stream));
+  HCTR_LIB_THROW(cudaFree(*ptr));
   *ptr = tmp;
 }
 
@@ -480,10 +482,10 @@ void AUCStorage::realloc_redistributed(size_t num_redistributed_samples, cudaStr
     realloc_ptr((void**)&(ptr_labels_2_), old_size, redistributed_buffer_size, stream);
 
     // These two buffers do not need to preserve their data
-    CK_CUDA_THROW_(cudaFree(ptr_identical_pred_starts_));
-    CK_CUDA_THROW_(cudaFree(ptr_identical_pred_lengths_));
-    CK_CUDA_THROW_(cudaMalloc((void**)&ptr_identical_pred_starts_, runs_buffer_size));
-    CK_CUDA_THROW_(cudaMalloc((void**)&ptr_identical_pred_lengths_, runs_buffer_size));
+    HCTR_LIB_THROW(cudaFree(ptr_identical_pred_starts_));
+    HCTR_LIB_THROW(cudaFree(ptr_identical_pred_lengths_));
+    HCTR_LIB_THROW(cudaMalloc((void**)&ptr_identical_pred_starts_, runs_buffer_size));
+    HCTR_LIB_THROW(cudaMalloc((void**)&ptr_identical_pred_lengths_, runs_buffer_size));
   }
 }
 
@@ -492,43 +494,43 @@ void AUCStorage::realloc_workspace(size_t temp_storage) {
     allocated_temp_storage_ = reallocate_factor_ * temp_storage;
     // This is temporary storage, no need to preserve the data
     cudaFree(workspace_);
-    CK_CUDA_THROW_(cudaMalloc((void**)&(workspace_), allocated_temp_storage_));
+    HCTR_LIB_THROW(cudaMalloc((void**)&(workspace_), allocated_temp_storage_));
   }
 }
 
 void AUCStorage::free_all() {
-  CK_CUDA_THROW_(cudaFree(ptr_local_bins_));
-  CK_CUDA_THROW_(cudaFree(ptr_global_bins_));
-  CK_CUDA_THROW_(cudaFree(ptr_global_bins_sum_));
-  CK_CUDA_THROW_(cudaFree(ptr_local_bins_sum_));
-  CK_CUDA_THROW_(cudaFree(ptr_pivots_));
-  CK_CUDA_THROW_(cudaFree(ptr_partition_offsets_));
-  CK_CUDA_THROW_(cudaFree(ptr_all_partition_offsets_));
-  CK_CUDA_THROW_(cudaFree(ptr_recv_offsets_));
-  CK_CUDA_THROW_(cudaFree(ptr_pos_per_gpu_));
-  CK_CUDA_THROW_(cudaFree(ptr_neg_per_gpu_));
-  CK_CUDA_THROW_(cudaFree(ptr_num_identical_segments_));
-  CK_CUDA_THROW_(cudaFree(ptr_halo_tpr_));
-  CK_CUDA_THROW_(cudaFree(ptr_halo_fpr_));
-  CK_CUDA_THROW_(cudaFree(ptr_tp_offsets_));
-  CK_CUDA_THROW_(cudaFree(ptr_fp_offsets_));
-  CK_CUDA_THROW_(cudaFree(ptr_auc_));
-  CK_CUDA_THROW_(cudaFree(ptr_preds_1_));
-  CK_CUDA_THROW_(cudaFree(ptr_labels_1_));
-  CK_CUDA_THROW_(cudaFree(ptr_preds_2_));
-  CK_CUDA_THROW_(cudaFree(ptr_labels_2_));
-  CK_CUDA_THROW_(cudaFree(ptr_identical_pred_starts_));
-  CK_CUDA_THROW_(cudaFree(ptr_identical_pred_lengths_));
-  CK_CUDA_THROW_(cudaFree(workspace_));
+  HCTR_LIB_THROW(cudaFree(ptr_local_bins_));
+  HCTR_LIB_THROW(cudaFree(ptr_global_bins_));
+  HCTR_LIB_THROW(cudaFree(ptr_global_bins_sum_));
+  HCTR_LIB_THROW(cudaFree(ptr_local_bins_sum_));
+  HCTR_LIB_THROW(cudaFree(ptr_pivots_));
+  HCTR_LIB_THROW(cudaFree(ptr_partition_offsets_));
+  HCTR_LIB_THROW(cudaFree(ptr_all_partition_offsets_));
+  HCTR_LIB_THROW(cudaFree(ptr_recv_offsets_));
+  HCTR_LIB_THROW(cudaFree(ptr_pos_per_gpu_));
+  HCTR_LIB_THROW(cudaFree(ptr_neg_per_gpu_));
+  HCTR_LIB_THROW(cudaFree(ptr_num_identical_segments_));
+  HCTR_LIB_THROW(cudaFree(ptr_halo_tpr_));
+  HCTR_LIB_THROW(cudaFree(ptr_halo_fpr_));
+  HCTR_LIB_THROW(cudaFree(ptr_tp_offsets_));
+  HCTR_LIB_THROW(cudaFree(ptr_fp_offsets_));
+  HCTR_LIB_THROW(cudaFree(ptr_auc_));
+  HCTR_LIB_THROW(cudaFree(ptr_preds_1_));
+  HCTR_LIB_THROW(cudaFree(ptr_labels_1_));
+  HCTR_LIB_THROW(cudaFree(ptr_preds_2_));
+  HCTR_LIB_THROW(cudaFree(ptr_labels_2_));
+  HCTR_LIB_THROW(cudaFree(ptr_identical_pred_starts_));
+  HCTR_LIB_THROW(cudaFree(ptr_identical_pred_lengths_));
+  HCTR_LIB_THROW(cudaFree(workspace_));
 }
 
 /// Wrapper to call CUB functions with preallocation
 template <typename CUB_Func>
 void CUB_allocate_and_launch(AUCStorage& st, CUB_Func func) {
   size_t requested_size = 0;
-  CK_CUDA_THROW_(func(nullptr, requested_size));
+  HCTR_LIB_THROW(func(nullptr, requested_size));
   st.realloc_workspace(requested_size);
-  CK_CUDA_THROW_(func(st.d_workspace(), st.temp_storage_bytes()));
+  HCTR_LIB_THROW(func(st.d_workspace(), st.temp_storage_bytes()));
 }
 
 template <typename T>
@@ -610,7 +612,7 @@ void AUC<T>::warm_up(size_t num_local_samples) {
   dim3 grid(160, 1, 1);
   dim3 block(1024, 1, 1);
 
-  MESSAGE_("Starting AUC NCCL warm-up");
+  HCTR_LOG(INFO, ROOT, "Starting AUC NCCL warm-up\n");
 #pragma omp parallel for num_threads(num_local_gpus_)
   for (int local_id = 0; local_id < num_local_gpus_; local_id++) {
     auto gpu_resource = resource_manager_->get_local_gpu(local_id).get();
@@ -627,7 +629,7 @@ void AUC<T>::warm_up(size_t num_local_samples) {
   num_total_samples_ = num_local_samples * num_global_gpus_;
 
   [[maybe_unused]] float dummy = finalize_metric();
-  MESSAGE_("Warm-up done");
+  HCTR_LOG(INFO, ROOT, "Warm-up done\n");
 }
 
 template <typename T>
@@ -712,7 +714,7 @@ float AUC<T>::_finalize_metric_per_gpu(int local_id) {
                          num_partitions_ + 1, gpu_resource);
 
   // The following is done on the CPU, need to wait
-  CK_CUDA_THROW_(cudaStreamSynchronize(stream));
+  HCTR_LIB_THROW(cudaStreamSynchronize(stream));
 
   std::vector<size_t> all_num_redistributed_samples(num_global_gpus_);
   for (int dest = 0; dest < num_global_gpus_; dest++) {
@@ -743,7 +745,7 @@ float AUC<T>::_finalize_metric_per_gpu(int local_id) {
   metric_comm::all_to_all(st.d_partitioned_preds(), st.d_presorted_preds(),
                           st.d_partition_offsets(), st.d_recv_offsets(), num_global_gpus_,
                           gpu_resource);
-  CK_CUDA_THROW_(cudaStreamSynchronize(stream));
+  HCTR_LIB_THROW(cudaStreamSynchronize(stream));
 
   if (num_redistributed_samples > 0) {
     // 6. Locally sort (label, pred) by pred
@@ -843,10 +845,11 @@ float AUC<T>::_finalize_metric_per_gpu(int local_id) {
   } else {
     // Here we're on a GPU with no elements, need to communicate zeros where needed
     // Performance is not a concern on such GPUs
-    MESSAGE_("GPU " + std::to_string(global_id) +
-             " has no samples in the AUC computation "
-             "due to strongly uneven distribution of the scores. "
-             "This may indicate a problem in the training or an extremely accurate model.");
+    HCTR_LOG_S(INFO, ROOT)
+        << "GPU " << global_id
+        << " has no samples in the AUC computation due to strongly uneven distribution of the "
+           "scores. This may indicate a problem in the training or an extremely accurate model."
+        << std::endl;
 
     initialize_array<<<grid, block, 0, stream>>>(st.d_halo_tpr(), 1, 0.0f);
     // 7.3 All GPUs need to call allgather
@@ -860,7 +863,7 @@ float AUC<T>::_finalize_metric_per_gpu(int local_id) {
   // 9. Finally allreduce auc
   metric_comm::allreduce(st.d_auc(), st.d_auc(), 1, gpu_resource);
 
-  CK_CUDA_THROW_(cudaStreamSynchronize(stream));
+  HCTR_LIB_THROW(cudaStreamSynchronize(stream));
   return *st.d_auc();
 }
 
@@ -883,8 +886,8 @@ HitRate<T>::HitRate(int batch_size_per_gpu,
     int device_id = resource_manager_->get_local_gpu(i)->get_device_id();
     CudaDeviceContext context(device_id);
 
-    CK_CUDA_THROW_(cudaMalloc((void**)(&(checked_count_[i])), sizeof(int)));
-    CK_CUDA_THROW_(cudaMalloc((void**)(&(hit_count_[i])), sizeof(int)));
+    HCTR_LIB_THROW(cudaMalloc((void**)(&(checked_count_[i])), sizeof(int)));
+    HCTR_LIB_THROW(cudaMalloc((void**)(&(hit_count_[i])), sizeof(int)));
   }
 }
 
@@ -893,8 +896,8 @@ void HitRate<T>::free_all() {
   for (int i = 0; i < num_local_gpus_; i++) {
     int device_id = resource_manager_->get_local_gpu(i)->get_device_id();
     CudaDeviceContext context(device_id);
-    CK_CUDA_THROW_(cudaFree(checked_count_[i]));
-    CK_CUDA_THROW_(cudaFree(hit_count_[i]));
+    HCTR_LIB_THROW(cudaFree(checked_count_[i]));
+    HCTR_LIB_THROW(cudaFree(hit_count_[i]));
   }
 }
 
@@ -939,10 +942,10 @@ void HitRate<T>::local_reduce(int local_gpu_id, RawMetricMap raw_metrics) {
       checked_count_[local_gpu_id], hit_count_[local_gpu_id]);
   int checked_host = 0;
   int hits_host = 0;
-  CK_CUDA_THROW_(cudaMemcpyAsync(&checked_host, checked_count_[local_gpu_id], sizeof(int),
+  HCTR_LIB_THROW(cudaMemcpyAsync(&checked_host, checked_count_[local_gpu_id], sizeof(int),
                                  cudaMemcpyDeviceToHost, local_gpu->get_stream()));
   checked_local_[local_gpu_id] = checked_host;
-  CK_CUDA_THROW_(cudaMemcpyAsync(&hits_host, hit_count_[local_gpu_id], sizeof(int),
+  HCTR_LIB_THROW(cudaMemcpyAsync(&hits_host, hit_count_[local_gpu_id], sizeof(int),
                                  cudaMemcpyDeviceToHost, local_gpu->get_stream()));
   hits_local_[local_gpu_id] = hits_host;
 }
@@ -963,8 +966,8 @@ void HitRate<T>::global_reduce(int n_nets) {
   if (resource_manager_->get_num_process() > 1) {
     int hits_reduced = 0;
     int checked_reduced = 0;
-    CK_MPI_THROW_(MPI_Reduce(&hits_inter, &hits_reduced, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD));
-    CK_MPI_THROW_(
+    HCTR_MPI_THROW(MPI_Reduce(&hits_inter, &hits_reduced, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD));
+    HCTR_MPI_THROW(
         MPI_Reduce(&checked_inter, &checked_reduced, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD));
     hits_inter = hits_reduced;
     checked_inter = checked_reduced;
@@ -986,8 +989,8 @@ float HitRate<T>::finalize_metric() {
     }
   }
 #ifdef ENABLE_MPI
-  CK_MPI_THROW_(MPI_Barrier(MPI_COMM_WORLD));
-  CK_MPI_THROW_(MPI_Bcast(&ret, 1, MPI_FLOAT, 0, MPI_COMM_WORLD));
+  HCTR_MPI_THROW(MPI_Barrier(MPI_COMM_WORLD));
+  HCTR_MPI_THROW(MPI_Bcast(&ret, 1, MPI_FLOAT, 0, MPI_COMM_WORLD));
 #endif
   hits_global_ = 0;
   checked_global_ = 0;

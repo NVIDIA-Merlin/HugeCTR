@@ -73,7 +73,8 @@ class CsrConversionDistribtuedOp : public OpKernel {
 REGISTER_KERNEL_BUILDER(Name("CsrConversionDistributed")
                             .Device(DEVICE_GPU)
                             .HostMemory("global_replica_id")
-                            .HostMemory("total_valid_num"),
+                            .HostMemory("total_valid_num")
+                            .HostMemory("replica_nnz"),
                         CsrConversionDistribtuedOp);
 
 }  // namespace tensorflow

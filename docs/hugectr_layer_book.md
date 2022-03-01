@@ -1,12 +1,17 @@
 # HugeCTR Layer Book
+
 This document introduces different layer classes and corresponding methods in the Python API of HugeCTR. The description of each method includes its functionaliy, arguments, and examples of usage.
-## Table of contents:
+
+## Table of Contents
+
 * [Input Layer](#input-layer)
-* [Sparse Embedding Layers](#sparse-embedding)
+* [Sparse Embedding](#sparse-embedding)
+* [Embedding Types Detail](#embedding-types-detail)
   * [DistributedSlotSparseEmbeddingHash Layer](#distributedslotsparseembeddinghash-layer)
   * [LocalizedSlotSparseEmbeddingHash Layer](#localizedslotsparseembeddinghash-layer)
-  * [LocalizedSlotSparseEmbeddingoneHot Layer](#localizedslotsparseembeddingonehot-layer)
+  * [LocalizedSlotSparseEmbeddingOneHot Layer](#localizedslotsparseembeddingonehot-layer)
 * [Dense Layers](#dense-layers)
+* [Dense Layers Usage](#dense-layers-usage)
   * [FullyConnected Layer](#fullyconnected-layer)
   * [FusedFullyConnected Layer](#fusedfullyconnected-layer)
   * [MultiCross Layer](#multicross-layer)
@@ -24,16 +29,6 @@ This document introduces different layer classes and corresponding methods in th
   * [Interaction Layer](#interaction-layer)
   * [Add Layer](#add-layer)
   * [ReduceSum Layer](#reducesum-layer)
-  * [GRU Layer](#gru-layer)
-  * [FusedReshapeConcat Layer](#fusedreshapeconcat-layer)
-  * [FusedReshapeConcatGeneral Layer](#fusedreshapeconcatgeneral-layer)
-  * [Gather Layer](#gather-layer)
-  * [MatrixMutiply Layer](#matrixmutiply-layer)
-  * [PReLUDice Layer](#preludice-layer)
-  * [ReduceMean Layer](#reducemean-layer)
-  * [Scale Layer](#scale-layer)
-  * [Softmax Layer](#softmax-layer)
-  * [Sub Layer](#sub-layer)
   * [BinaryCrossEntropyLoss](#binarycrossentropyloss)
   * [CrossEntropyLoss](#crossentropyloss)
   * [MultiCrossEntropyLoss](#multicrossentropyloss)
@@ -85,7 +80,7 @@ hugectr.SparseEmbedding()
 **Arguments**
 * `embedding_type`: The embedding type to be used. The supported types include `hugectr.Embedding_t.DistributedSlotSparseEmbeddingHash`, `hugectr.Embedding_t.LocalizedSlotSparseEmbeddingHash` and `hugectr.Embedding_t.LocalizedSlotSparseEmbeddingOneHot`. There is NO default value and it should be specified by users. For detail about different embedding types, please refer to [Embedding Types Detail](./hugectr_layer_book.md#embedding-types-detail).
 
-* `workspace_size_per_gpu_in_mb`: Integer, the workspace memory size in megabyte per GPU. This workspace memory must be big enough to hold all the embedding vocabulary used during the training and evaluation. There is NO default value and it should be specified by users. To understand how to set this value, please refer [QAList.md#24](./QAList.md#How-to-set-workspace_size_per_gpu_in_mb-and-slot_size_array-in-.json-file).
+* `workspace_size_per_gpu_in_mb`: Integer, the workspace memory size in megabyte per GPU. This workspace memory must be big enough to hold all the embedding vocabulary and its corresponding optimizer state used during the training and evaluation. There is NO default value and it should be specified by users. To understand how to set this value, please refer [QAList.md#24](./QAList.md#24.How-to-set-workspace_size_per_gpu_in_mb-and-slot_size_array-in-.json-file).
 
 * `embedding_vec_size`: Integer, the embedding vector size. There is NO default value and it should be specified by users.
 
@@ -95,7 +90,7 @@ hugectr.SparseEmbedding()
 
 * `bottom_name`: String, the number of the bottom tensor to be consumed by this sparse embedding layer. Please note that it should be a predefined sparse input name. There is NO default value and it should be specified by users.
 
-* `slot_size_array`: List[int], the cardinality array of input features. It should be consistent with that of the sparse input. This parameter is used in `LocalizedSlotSparseEmbeddingHash` and `LocalizedSlotSparseEmbeddingOneHot`, which can help avoid wasting memory caused by imbalance vocabulary size. Please refer [How to set workspace_size_per_gpu_in_mb and slot_size_array in .json file](./QAList.md#How-to-set-workspace_size_per_gpu_in_mb-and-slot_size_array-in-.json-file). There is NO default value and it should be specified by users.
+* `slot_size_array`: List[int], the cardinality array of input features. It should be consistent with that of the sparse input. This parameter is used in `LocalizedSlotSparseEmbeddingHash` and `LocalizedSlotSparseEmbeddingOneHot`, which can help avoid wasting memory caused by imbalance vocabulary size. Please refer [How to set workspace_size_per_gpu_in_mb and slot_size_array in .json file](./QAList.md#24.How-to-set-workspace_size_per_gpu_in_mb-and-slot_size_array-in-.json-file). There is NO default value and it should be specified by users.
 
 * `optimizer`: OptParamsPy, the optimizer dedicated to this sparse embedding layer. If the user does not specify the optimizer for the sparse embedding, it will adopt the same optimizer as dense layers. 
 

@@ -29,18 +29,19 @@ ParameterServerManager<TypeKey>::ParameterServerManager(
     std::vector<HMemCacheConfig>& hmem_cache_configs) {
   try {
     if (sparse_embedding_files.size() == 0)
-      CK_THROW_(Error_t::WrongInput,
-                "must provide sparse_model_file. \
-          if train from scratch, please specify a name to store the trained embedding model");
+      HCTR_OWN_THROW(Error_t::WrongInput,
+                     "Must provide sparse_model_file. If train from scratch, please specify a name "
+                     "to store the trained embedding model");
 
-    if (embedding_params.size() != sparse_embedding_files.size())
-      CK_THROW_(Error_t::WrongInput,
-                std::string("embedding_params.size() != sparse_embedding_files.size()") + ": " +
-                    std::to_string(embedding_params.size()) +
-                    " != " + std::to_string(sparse_embedding_files.size()));
+    if (embedding_params.size() != sparse_embedding_files.size()) {
+      std::ostringstream os;
+      os << "embedding_params.size() != sparse_embedding_files.size(): " << embedding_params.size()
+         << " != " << sparse_embedding_files.size();
+      HCTR_OWN_THROW(Error_t::WrongInput, os.str());
+    }
 
     if (embedding_params.size() != ps_types.size()) {
-      CK_THROW_(Error_t::WrongInput, "Must specify the PS type for each embedding table");
+      HCTR_OWN_THROW(Error_t::WrongInput, "Must specify the PS type for each embedding table");
     }
 
     {
@@ -49,16 +50,16 @@ ParameterServerManager<TypeKey>::ParameterServerManager(
       int num_paths(local_paths.size());
       int num_procs(resource_manager->get_num_process());
       if (has_cached && (num_paths != num_procs)) {
-        std::stringstream ss;
-        ss << "Num of local_paths (" << num_paths << ") != Num of MPI ranks (" << num_procs << ")";
-        CK_THROW_(Error_t::WrongInput, ss.str());
+        std::ostringstream os;
+        os << "Num of local_paths (" << num_paths << ") != Num of MPI ranks (" << num_procs << ')';
+        HCTR_OWN_THROW(Error_t::WrongInput, os.str());
       }
     }
 
     for (size_t i{0}; i < ps_types.size(); i++) {
       switch (ps_types[i]) {
         case TrainPSType_t::Staged: {
-          MESSAGE_("Enable HMEM-Based Parameter Server");
+          HCTR_LOG(INFO, ROOT, "Enable HMEM-Based Parameter Server\n");
           ps_.push_back(std::make_shared<ParameterServer<TypeKey>>(
               ps_types[i], sparse_embedding_files[i], embedding_types[i],
               embedding_params[i].opt_params.optimizer, embedding_params[i].embedding_vec_size,
@@ -66,9 +67,9 @@ ParameterServerManager<TypeKey>::ParameterServerManager(
           break;
         }
         case TrainPSType_t::Cached: {
-          MESSAGE_("Enable HMemCache-Based Parameter Server");
+          HCTR_LOG(INFO, ROOT, "Enable HMemCache-Based Parameter Server\n");
           if (ps_types.size() != hmem_cache_configs.size()) {
-            CK_THROW_(Error_t::WrongInput, "ps_types.size() != hmem_cache_configs.size()");
+            HCTR_OWN_THROW(Error_t::WrongInput, "ps_types.size() != hmem_cache_configs.size()");
           }
           for (auto& hmem_cache_config : hmem_cache_configs) {
             hmem_cache_config.block_capacity = buffer_size;
@@ -81,7 +82,7 @@ ParameterServerManager<TypeKey>::ParameterServerManager(
           break;
         }
         default: {
-          CK_THROW_(Error_t::WrongInput, "Unsuppoted PS type");
+          HCTR_OWN_THROW(Error_t::WrongInput, "Unsuppoted PS type");
         }
       }
     }
@@ -161,10 +162,10 @@ ParameterServerManager<TypeKey>::ParameterServerManager(
       }
     }
   } catch (const internal_runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     throw rt_err;
   } catch (const std::exception& err) {
-    std::cerr << err.what() << std::endl;
+    HCTR_LOG_S(ERROR, WORLD) << err.what() << std::endl;
     throw err;
   }
 }

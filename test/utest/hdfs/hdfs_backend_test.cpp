@@ -34,9 +34,9 @@ void hdfs_backend_test(const std::string server, const int port) {
   const char* buffer3 = "Hello, HugeCTR!\n";
 
   HdfsService hs = HdfsService(server, port);
-  hs.write(writepath1, buffer1, strlen(buffer1) + 1, true);
-  hs.write(writepath2, buffer2, strlen(buffer2) + 1, true);
-  hs.write(writepath3, buffer3, strlen(buffer3) + 1, true);
+  hs.write(writepath1, buffer1, strlen(buffer1), true);
+  hs.write(writepath2, buffer2, strlen(buffer2), true);
+  hs.write(writepath3, buffer3, strlen(buffer3), true);
 
   char* buffer_for_read1 = (char*)malloc(hs.getFileSize(writepath1));
   char* buffer_for_read2 = (char*)malloc(hs.getFileSize(writepath2));
@@ -44,6 +44,7 @@ void hdfs_backend_test(const std::string server, const int port) {
   hs.read(writepath1, buffer_for_read1, hs.getFileSize(writepath1), 0);
   hs.read(writepath2, buffer_for_read2, hs.getFileSize(writepath2), 0);
   hs.read(writepath3, buffer_for_read3, hs.getFileSize(writepath3), 0);
+
   EXPECT_EQ(*buffer1, *buffer_for_read1);
   EXPECT_EQ(*buffer2, *buffer_for_read2);
   EXPECT_EQ(*buffer3, *buffer_for_read3);

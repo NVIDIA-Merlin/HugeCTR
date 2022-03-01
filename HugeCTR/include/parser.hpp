@@ -37,7 +37,7 @@ inline nlohmann::json read_json_file(const std::string& filename) {
   nlohmann::json config;
   std::ifstream file_stream(filename);
   if (!file_stream.is_open()) {
-    CK_THROW_(Error_t::FileCannotOpen, "file_stream.is_open() failed: " + filename);
+    HCTR_OWN_THROW(Error_t::FileCannotOpen, "file_stream.is_open() failed: " + filename);
   }
   file_stream >> config;
   file_stream.close();
@@ -247,18 +247,19 @@ std::unique_ptr<LearningRateScheduler> get_learning_rate_scheduler(
 GpuLearningRateSchedulers get_gpu_learning_rate_schedulers(
     const nlohmann::json& config, const std::shared_ptr<ResourceManager>& resource_manager);
 
-#define HAS_KEY_(j_in, key_in)                                          \
-  do {                                                                  \
-    const nlohmann::json& j__ = (j_in);                                 \
-    const std::string& key__ = (key_in);                                \
-    if (j__.find(key__) == j__.end())                                   \
-      CK_THROW_(Error_t::WrongInput, "[Parser] No Such Key: " + key__); \
+#define HAS_KEY_(j_in, key_in)                                               \
+  do {                                                                       \
+    const nlohmann::json& j__ = (j_in);                                      \
+    const std::string& key__ = (key_in);                                     \
+    if (j__.find(key__) == j__.end())                                        \
+      HCTR_OWN_THROW(Error_t::WrongInput, "[Parser] No Such Key: " + key__); \
   } while (0)
 
-#define CK_SIZE_(j_in, j_size)                                                                  \
-  do {                                                                                          \
-    const nlohmann::json& j__ = (j_in);                                                         \
-    if (j__.size() != (j_size)) CK_THROW_(Error_t::WrongInput, "[Parser] Array size is wrong"); \
+#define CK_SIZE_(j_in, j_size)                                             \
+  do {                                                                     \
+    const nlohmann::json& j__ = (j_in);                                    \
+    if (j__.size() != (j_size))                                            \
+      HCTR_OWN_THROW(Error_t::WrongInput, "[Parser] Array size is wrong"); \
   } while (0)
 
 #define FIND_AND_ASSIGN_INT_KEY(out, json)      \
@@ -326,6 +327,7 @@ const std::map<std::string, Layer_t> LAYER_TYPE_MAP_MP = {
     {"MultiCrossEntropyLoss", Layer_t::MultiCrossEntropyLoss},
     {"WeightMultiply", Layer_t::WeightMultiply},
     {"ReduceSum", Layer_t::ReduceSum},
+    {"Softmax", Layer_t::Softmax},
     {"ReLU", Layer_t::ReLU},
     {"Reshape", Layer_t::Reshape},
     {"Sigmoid", Layer_t::Sigmoid},
@@ -406,27 +408,30 @@ inline T get_value_from_json(const nlohmann::json& json, const std::string key) 
 }
 
 template <typename T>
-inline T get_value_from_json_soft(const nlohmann::json& json, const std::string key, T B) {
+inline T get_value_from_json_soft(const nlohmann::json& json, const std::string key,
+                                  T default_value) {
   if (has_key_(json, key)) {
     auto value = json.find(key).value();
     CK_SIZE_(value, 1);
     return value.get<T>();
   } else {
-    MESSAGE_(key + " is not specified using default: " + std::to_string(B));
-    return B;
+    HCTR_LOG_S(INFO, ROOT) << key << " is not specified using default: " << default_value
+                           << std::endl;
+    return default_value;
   }
 }
 
 template <>
 inline std::string get_value_from_json_soft(const nlohmann::json& json, const std::string key,
-                                            const std::string B) {
+                                            const std::string default_value) {
   if (has_key_(json, key)) {
     auto value = json.find(key).value();
     CK_SIZE_(value, 1);
     return value.get<std::string>();
   } else {
-    MESSAGE_(key + " is not specified using default: " + B);
-    return B;
+    HCTR_LOG_S(INFO, ROOT) << key << " is not specified using default: " << default_value
+                           << std::endl;
+    return default_value;
   }
 }
 
@@ -442,17 +447,17 @@ inline void analyze_tensor(std::map<std::string, unsigned int>& tensor_usage,
 
 inline void activate_tensor(std::map<std::string, bool>& tensor_active, std::string top_name) {
   if (tensor_active.find(top_name) != tensor_active.end()) {
-    CK_THROW_(Error_t::WrongInput, top_name + ", top tensor name already exists");
+    HCTR_OWN_THROW(Error_t::WrongInput, top_name + ", top tensor name already exists");
   }
   tensor_active.insert(std::pair<std::string, bool>(top_name, true));
 }
 
 inline void deactivate_tensor(std::map<std::string, bool>& tensor_active, std::string bottom_name) {
   if (tensor_active.find(bottom_name) == tensor_active.end()) {
-    CK_THROW_(Error_t::WrongInput, bottom_name + ", bottom tensor name does not exists");
+    HCTR_OWN_THROW(Error_t::WrongInput, bottom_name + ", bottom tensor name does not exists");
   }
   if (tensor_active[bottom_name] == false) {
-    CK_THROW_(Error_t::WrongInput, bottom_name + ", bottom tensor already consumed");
+    HCTR_OWN_THROW(Error_t::WrongInput, bottom_name + ", bottom tensor already consumed");
   }
   tensor_active[bottom_name] = false;
 }
@@ -540,6 +545,14 @@ struct create_datareader {
                   std::map<std::string, TensorBag2>& label_dense_map, const std::string& source,
                   const DataReaderType_t data_reader_type, const Check_t check_type,
                   const std::vector<long long>& slot_size_array, const bool repeat_dataset);
+  void operator()(const InferenceParams& inference_params, const InferenceParser& inference_parser,
+                  std::shared_ptr<IDataReader>& data_reader,
+                  const std::shared_ptr<ResourceManager> resource_manager,
+                  std::map<std::string, SparseInput<TypeKey>>& sparse_input_map,
+                  std::vector<TensorBag2>& label_tensor_list,
+                  std::vector<TensorBag2>& dense_tensor_list, const std::string& source,
+                  const DataReaderType_t data_reader_type, const Check_t check_type,
+                  const std::vector<long long>& slot_size_array, const bool repeat_dataset);
 };
 
 inline int get_max_feature_num_per_sample_from_nnz_per_slot(const nlohmann::json& j) {
@@ -548,7 +561,7 @@ inline int get_max_feature_num_per_sample_from_nnz_per_slot(const nlohmann::json
   auto nnz_per_slot = get_json(j, "nnz_per_slot");
   if (nnz_per_slot.is_array()) {
     if (nnz_per_slot.size() != static_cast<size_t>(slot_num)) {
-      CK_THROW_(Error_t::WrongInput, "nnz_per_slot.size() != slot_num");
+      HCTR_OWN_THROW(Error_t::WrongInput, "nnz_per_slot.size() != slot_num");
     }
     for (int slot_id = 0; slot_id < slot_num; ++slot_id) {
       max_feature_num_per_sample += nnz_per_slot[slot_id].get<int>();
@@ -566,7 +579,7 @@ inline int get_max_nnz_from_nnz_per_slot(const nlohmann::json& j) {
   auto nnz_per_slot = get_json(j, "nnz_per_slot");
   if (nnz_per_slot.is_array()) {
     if (nnz_per_slot.size() != static_cast<size_t>(slot_num)) {
-      CK_THROW_(Error_t::WrongInput, "nnz_per_slot.size() != slot_num");
+      HCTR_OWN_THROW(Error_t::WrongInput, "nnz_per_slot.size() != slot_num");
     }
     max_nnz = *std::max_element(nnz_per_slot.begin(), nnz_per_slot.end());
   } else {

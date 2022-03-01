@@ -7,12 +7,12 @@ The quickest way to run a notebook here is with a docker container, which provid
 ### Pull the NGC Docker
 To start the [sparse_operation_kit_demo.ipynb](../sparse_operation_kit/notebooks/sparse_operation_kit_demo.ipynb) notebook, pull this docker image:
 ```
-docker pull nvcr.io/nvidia/merlin/merlin-tensorflow-training:22.02
+docker pull nvcr.io/nvidia/merlin/merlin-tensorflow-training:22.03
 ```
 
 To start the other notebooks, pull the docker image using the following command:
 ```
-docker pull nvcr.io/nvidia/merlin/merlin-training:22.02
+docker pull nvcr.io/nvidia/merlin/merlin-training:22.03
 ```
 
 ### Clone the HugeCTR Repository
@@ -25,11 +25,11 @@ git clone https://github.com/NVIDIA/HugeCTR
 
 1. Launch the container in interactive mode (mount the HugeCTR root directory into the container for your convenience) by running this command: 
    ```
-   docker run --runtime=nvidia --rm -it --cap-add SYS_NICE -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr -p 8888:8888 nvcr.io/nvidia/merlin/merlin-training:22.02
+   docker run --runtime=nvidia --rm -it --cap-add SYS_NICE -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr -p 8888:8888 nvcr.io/nvidia/merlin/merlin-training:22.03
    ```  
    Launch the container in interactive mode (mount the HugeCTR root directory into the container for your convenience) by running this command to run [sparse_operation_kit_demo.ipynb](../sparse_operation_kit/notebooks/sparse_operation_kit_demo.ipynb) notebook : 
    ```
-   docker run --runtime=nvidia --rm -it --cap-add SYS_NICE -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr -p 8888:8888 nvcr.io/nvstaging/merlin/merlin-tensorflow-training:22.02
+   docker run --runtime=nvidia --rm -it --cap-add SYS_NICE -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr -p 8888:8888 nvcr.io/nvstaging/merlin/merlin-tensorflow-training:22.03
    ```
 
 2. Start Jupyter using these commands: 
@@ -44,12 +44,13 @@ git clone https://github.com/NVIDIA/HugeCTR
 
    `http://[host machine]:8888/?token=aae96ae9387cd28151868fee318c3b3581a2d794f3b25c6b`
 
-4. Import MPI:
+4. Optional: Import MPI.
 
-   If HugeCTR is built and installed with `MULTINODES=ON` within NGC Merlin docker. To use HugeCTR Python interface correctly, you should add `from mpi4py import MPI` in the scripts that `import hugectr`. Otherwise you will expect error message like
-   ```
-   MPI_Comm_rank function was called before MPI_INIT was invoked
-   ```
+   By default, HugeCTR initializes and finalizes MPI when you run the `import hugectr` statement within the NGC Merlin container.
+   If you build and install HugeCTR yourself, specify the `ENABLE_MULTINODES=ON` argument when you build.
+   See [Build HugeCTR from Source](../docs/hugectr_contributor_guide.md#build-hugectr-from-source).
+
+   If your program uses MPI for a reason other than interacting with HugeCTR, initialize MPI with the `from mpi4py import MPI` statement before you import HugeCTR.
    
 5. Important Note:
 
@@ -71,17 +72,19 @@ Here's a list of notebooks that you can run:
 - [hugectr_wdl_prediction.ipynb](hugectr_wdl_prediction.ipynb): Tutorial how to train a wdl model using HugeCTR High-level python API.
 - [news-example.ipynb](news-example.ipynb): Tutorial to demonstrate NVTabular for ETL the data and HugeCTR for training Deep Neural Network models on MIND dataset.
 - [multi-modal-data](multi-modal-data): This series of notebooks demonstrate the use of multi-modal data (text, image) for the task of movie recommendation, using the Movielens-25M dataset.
+- [multi_gpu_offline_inference.ipynb](multi_gpu_offline_inference.ipynb): Explain how to do multi-GPU offline inference with HugeCTR Python APIs.
 
 ## System Specifications
 The specifications of the system on which each notebook can run successfully are summarized in the table. The notebooks are verified on the system below but it does not mean the minimum requirements.
 
-| Notebook                                                     | CPU                                                          | GPU                                    | #GPUs | Author         |
-| ------------------------------------------------------------ | ------------------------------------------------------------ | -------------------------------------- | ----- | -------------- |
-| [multi-modal-data](multi-modal-data)                         | Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory | Tesla V100-SXM2-32GB<br />32 GB Memory | 1     | Vinh Nguyen    |
-| [continuous_training.ipynb](continuous_training.ipynb)       | Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory | Tesla V100-SXM2-32GB<br />32 GB Memory | 1     | Xiaolei Shi    |
-| [ecommerce-example.ipynb](ecommerce-example.ipynb)           | Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory | Tesla V100-SXM2-16GB<br />16 GB Memory | 8     | Vinh Nguyen    |
-| [hugectr2onnx_demo.ipynb](hugectr2onnx_demo.ipynb)           | Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory | Tesla V100-SXM2-16GB<br />16 GB Memory | 1     | Kingsley Liu   |
-| [hugectr-criteo.ipynb](hugectr_criteo.ipynb)                 | Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory | Tesla V100-SXM2-32GB<br />32 GB Memory | 1     | Kingsley Liu   |
-| [hugectr_wdl_prediction.ipynb](hugectr_wdl_prediction.ipynb) | AMD Ryzen 9 3900X 12-Core <br />32 GB Memory                 | GeForce RTX 2080Ti<br />11 GB Memory   | 1     | Yingcan Wei    |
-| [movie-lens-example.ipynb](movie-lens-example.ipynb)         | Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory | Tesla V100-SXM2-32GB<br />32 GB Memory | 1     | Vinh Nguyen    |
-| [news-example.ipynb](news-example.ipynb)                     | Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory | Tesla V100-SXM2-32GB<br />32 GB Memory | 4     | Ashish Sardana |
+| Notebook                                                               | CPU                                                          | GPU                              | #GPUs | Author         |
+| ---------------------------------------------------------------------- | ------------------------------------------------------------ | -------------------------------- | ----- | -------------- |
+| [multi-modal-data](multi-modal-data)                                   | Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory | Tesla V100-SXM2-32GB<br />32 GB Memory | 1     | Vinh Nguyen    |
+| [continuous_training.ipynb](continuous_training.ipynb)                 | Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory | Tesla V100-SXM2-32GB<br />32 GB Memory | 1     | Xiaolei Shi    |
+| [ecommerce-example.ipynb](ecommerce-example.ipynb)                     | Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory | Tesla V100-SXM2-16GB<br />16 GB Memory | 8     | Vinh Nguyen    |
+| [hugectr2onnx_demo.ipynb](hugectr2onnx_demo.ipynb)                     | Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory | Tesla V100-SXM2-16GB<br />16 GB Memory | 1     | Kingsley Liu   |
+| [hugectr-criteo.ipynb](hugectr_criteo.ipynb)                           | Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory | Tesla V100-SXM2-32GB<br />32 GB Memory | 1     | Kingsley Liu   |
+| [multi_gpu_offline_inference.ipynb](multi_gpu_offline_inference.ipynb) | Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory | Tesla V100-SXM2-32GB<br />32 GB Memory | 4     | Kingsley Liu   |
+| [hugectr_wdl_prediction.ipynb](hugectr_wdl_prediction.ipynb)           | AMD Ryzen 9 3900X 12-Core <br />32 GB Memory                 | GeForce RTX 2080Ti<br />11 GB Memory   | 1       | Yingcan Wei    |
+| [movie-lens-example.ipynb](movie-lens-example.ipynb)                   | Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory | Tesla V100-SXM2-32GB<br />32 GB Memory | 1     | Vinh Nguyen    |
+| [news-example.ipynb](news-example.ipynb)                               | Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory | Tesla V100-SXM2-32GB<br />32 GB Memory | 4     | Ashish Sardana |

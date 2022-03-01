@@ -11,11 +11,11 @@ HugeCTR is available as buildable source code, but the easiest way to install an
 
 1. Pull the HugeCTR NGC Docker by running the following command:
    ```bash
-   $ docker pull nvcr.io/nvidia/merlin/merlin-training:22.02
+   $ docker pull nvcr.io/nvidia/merlin/merlin-training:22.03
    ```
 2. Launch the container in interactive mode with the HugeCTR root directory mounted into the container by running the following command:
    ```bash
-   $ docker run --gpus=all --rm -it --cap-add SYS_NICE -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr nvcr.io/nvidia/merlin/merlin-training:22.02
+   $ docker run --gpus=all --rm -it --cap-add SYS_NICE -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr nvcr.io/nvidia/merlin/merlin-training:22.03
    ```
 
 ### Build the HugeCTR Docker Container on Your Own ###
@@ -57,4 +57,4 @@ Example code for training the NCF model is also available with [Tensorflow](http
 \* NCF in HugeCTR computes the cumulative hit rate, while TensorFlow and Pytorch use top10 hit rate.  These metrics differ, so the accuracy of HugeCTR may differ from TensorFlow and Pytorch.
 
 ## Variatons of NCF ##
-The [NCF model](https://arxiv.org/abs/1708.05031) is described along with 2 additional models designed for this type of data: GMF and NeuMF.  This sample directory also contains the HugeCTR model definitions for these models.  To train the GMF or NeuMF model, simply run `python gmf.py` or `python neumf.py`, respectively.  However, we find that, on this MovieLens 20M dataset, the standard NCF model (`ncf.py`) provides the best Cumulative HitRate using the fewest number of epochs.
+The [NCF model](https://arxiv.org/abs/1708.05031) is described along with two additional models that are designed for this type of data: GMF and NeuMF.  This sample directory also contains the HugeCTR model definitions for these models.  To train the GMF or NeuMF model, run `python gmf.py` or `python neumf.py`, respectively.  However, we find that, on this MovieLens 20M dataset, the standard NCF model (`ncf.py`) provides the best Cumulative HitRate using the fewest number of epochs.
