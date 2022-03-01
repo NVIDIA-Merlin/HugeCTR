@@ -56,7 +56,7 @@
       "sparse_embedding_hparam": {
         "embedding_vec_size": 64,
         "combiner": "sum",
-        "workspace_size_per_gpu_in_mb": 392
+        "workspace_size_per_gpu_in_mb": 1551
       }
     },
     {

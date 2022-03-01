@@ -182,6 +182,8 @@ struct SparseEmbedding {
                   std::vector<size_t>& slot_size_array,
                   std::shared_ptr<OptParamsPy>& embedding_opt_params,
                   const HybridEmbeddingParam& hybrid_embedding_param);
+  
+  void initialize_max_vocabulary_size_per_gpu();
 };
 
 struct EmbeddingTrainingCacheParams {

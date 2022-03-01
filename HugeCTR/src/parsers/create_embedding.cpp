@@ -54,12 +54,6 @@ void create_embedding<TypeKey, TypeFP>::operator()(
       !has_key_(j_hparam, "slot_size_array")) {
     HCTR_OWN_THROW(Error_t::WrongInput, "need workspace_size_per_gpu_in_mb or slot_size_array");
   }
-  size_t workspace_size_per_gpu_in_mb =
-      get_value_from_json_soft<size_t>(j_hparam, "workspace_size_per_gpu_in_mb", 0);
-  auto embedding_vec_size = get_value_from_json<size_t>(j_hparam, "embedding_vec_size");
-
-  size_t max_vocabulary_size_per_gpu =
-      (workspace_size_per_gpu_in_mb * 1024 * 1024) / (sizeof(float) * embedding_vec_size);
 
   auto combiner_str = get_value_from_json<std::string>(j_hparam, "combiner");
 
@@ -93,6 +87,35 @@ void create_embedding<TypeKey, TypeFP>::operator()(
     embedding_opt_params = get_optimizer_param(j_optimizer);
   }
   embedding_opt_params.scaler = scaler;
+
+  size_t workspace_size_per_gpu_in_mb =
+      get_value_from_json_soft<size_t>(j_hparam, "workspace_size_per_gpu_in_mb", 0);
+  auto embedding_vec_size = get_value_from_json<size_t>(j_hparam, "embedding_vec_size");
+
+  // should be match with HugeCTR/src/optimizers/sparse_optimizer.cu
+  size_t num_opt_state_copies = 0;
+  switch(embedding_opt_params.optimizer) {
+    case Optimizer_t::Adam: {
+      num_opt_state_copies = 2;
+      if (embedding_opt_params.update_type == Update_t::LazyGlobal) {
+        num_opt_state_copies += 1;
+      }
+      break;
+    }
+    case Optimizer_t::AdaGrad:
+    case Optimizer_t::MomentumSGD:
+    case Optimizer_t::Nesterov: {
+      num_opt_state_copies = 1;
+      break;
+    }
+    case Optimizer_t::SGD:
+      break;
+    default:
+      throw std::runtime_error(
+          std::string("[HCDEBUG][ERROR] Runtime error: Invalid optimizer type\n"));
+  }
+  size_t max_vocabulary_size_per_gpu =
+      (workspace_size_per_gpu_in_mb * 1024 * 1024) / ((1 + num_opt_state_copies) * sizeof(float) * embedding_vec_size);
 
   switch (embedding_type) {
     case Embedding_t::DistributedSlotSparseEmbeddingHash: {

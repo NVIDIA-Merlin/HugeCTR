@@ -544,7 +544,7 @@ def create_din(solver):
     model.add(
         hugectr.SparseEmbedding(
             embedding_type=hugectr.Embedding_t.DistributedSlotSparseEmbeddingHash,
-            workspace_size_per_gpu_in_mb=28,
+            workspace_size_per_gpu_in_mb=84,
             embedding_vec_size=18,
             combiner="sum",
             sparse_embedding_name="sparse_embedding_user",
@@ -555,7 +555,7 @@ def create_din(solver):
     model.add(
         hugectr.SparseEmbedding(
             embedding_type=hugectr.Embedding_t.DistributedSlotSparseEmbeddingHash,
-            workspace_size_per_gpu_in_mb=24,
+            workspace_size_per_gpu_in_mb=72,
             embedding_vec_size=18,
             combiner="sum",
             sparse_embedding_name="sparse_embedding_good",
@@ -566,7 +566,7 @@ def create_din(solver):
     model.add(
         hugectr.SparseEmbedding(
             embedding_type=hugectr.Embedding_t.DistributedSlotSparseEmbeddingHash,
-            workspace_size_per_gpu_in_mb=10,
+            workspace_size_per_gpu_in_mb=30,
             embedding_vec_size=18,
             combiner="sum",
             sparse_embedding_name="sparse_embedding_cate",

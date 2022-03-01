@@ -69,7 +69,7 @@
       "bottom": "UserID",
       "top": "sparse_embedding_user",
       "sparse_embedding_hparam": {
-        "workspace_size_per_gpu_in_mb": 28,
+        "workspace_size_per_gpu_in_mb": 84,
         "embedding_vec_size": 18,
         "combiner": "sum"
       }
@@ -80,7 +80,7 @@
       "bottom": "GoodID",
       "top": "sparse_embedding_good",
       "sparse_embedding_hparam": {
-        "workspace_size_per_gpu_in_mb": 24,
+        "workspace_size_per_gpu_in_mb": 72,
         "embedding_vec_size": 18,
         "combiner": "sum"
       }
@@ -91,7 +91,7 @@
       "bottom": "CateID",
       "top": "sparse_embedding_cate",
       "sparse_embedding_hparam": {
-        "workspace_size_per_gpu_in_mb": 10,
+        "workspace_size_per_gpu_in_mb": 30,
         "embedding_vec_size": 18,
         "combiner": "sum"
       }

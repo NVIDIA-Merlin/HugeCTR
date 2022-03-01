@@ -200,8 +200,37 @@ SparseEmbedding::SparseEmbedding(Embedding_t embedding_type, size_t workspace_si
   } else {
     HCTR_OWN_THROW(Error_t::WrongInput, "No such combiner type: " + combiner_str);
   }
+  // should be match with HugeCTR/src/optimizers/sparse_optimizer.cu
+  if (embedding_opt_params->initialized) {
+    initialize_max_vocabulary_size_per_gpu();
+  }
+}
+
+void SparseEmbedding::initialize_max_vocabulary_size_per_gpu() {
+  size_t num_opt_state_copies = 0;
+  switch(embedding_opt_params->optimizer) {
+    case Optimizer_t::Adam: {
+      num_opt_state_copies = 2;
+      if (embedding_opt_params->update_type == Update_t::LazyGlobal) {
+        num_opt_state_copies += 1;
+      }
+      break;
+    }
+    case Optimizer_t::AdaGrad:
+    case Optimizer_t::MomentumSGD:
+    case Optimizer_t::Nesterov: {
+      num_opt_state_copies = 1;
+      break;
+    }
+    case Optimizer_t::SGD:
+      break;
+    default:
+      throw std::runtime_error(
+          std::string("[HCDEBUG][ERROR] Runtime error: Invalid optimizer type\n"));
+  }
+
   max_vocabulary_size_per_gpu =
-      (workspace_size_per_gpu_in_mb * 1024 * 1024) / (sizeof(float) * embedding_vec_size);
+      (workspace_size_per_gpu_in_mb * 1024 * 1024) / ((1 + num_opt_state_copies) * sizeof(float) * embedding_vec_size);
 }
 
 DenseLayer::DenseLayer(Layer_t layer_type, std::vector<std::string>& bottom_names,
@@ -542,6 +571,11 @@ void Model::add(SparseEmbedding& sparse_embedding) {
        sparse_embedding.embedding_type == Embedding_t::HybridSparseEmbedding)) {
     HCTR_OWN_THROW(Error_t::WrongInput, "Raw async reader and hybrid embedding must come together");
   }
+  OptParams embedding_opt_params;
+  if (!(sparse_embedding.embedding_opt_params)->initialized) {
+    sparse_embedding.embedding_opt_params = opt_params_py_;
+    sparse_embedding.initialize_max_vocabulary_size_per_gpu();
+  }
   sparse_embedding.max_vocabulary_size_global =
       sparse_embedding.max_vocabulary_size_per_gpu * resource_manager_->get_global_gpu_count();
   sparse_embedding_params_.push_back(sparse_embedding);
@@ -555,10 +589,7 @@ void Model::add(SparseEmbedding& sparse_embedding) {
   input_output_info_.push_back(
       std::make_pair(sparse_embedding.bottom_name, sparse_embedding.sparse_embedding_name));
   layer_info_.push_back(EMBEDDING_TYPE_TO_STRING[sparse_embedding.embedding_type]);
-  OptParams embedding_opt_params;
-  if (!(sparse_embedding.embedding_opt_params)->initialized) {
-    sparse_embedding.embedding_opt_params = opt_params_py_;
-  }
+  
   embedding_opt_params_list_.push_back(sparse_embedding.embedding_opt_params);
   init_optimizer(embedding_opt_params, solver_, sparse_embedding.embedding_opt_params);
   if (solver_.i64_input_key && !solver_.use_mixed_precision) {
@@ -1609,6 +1640,7 @@ bool Model::train(bool is_first_batch) {
       cudaStreamSynchronize(resource_manager_->get_local_gpu(id)->get_stream());
     }
     train_data_reader_->ready_to_collect();
+    this->check_overflow();
 #ifdef ENABLE_PROFILING
     global_profiler.iter_check();
 #endif

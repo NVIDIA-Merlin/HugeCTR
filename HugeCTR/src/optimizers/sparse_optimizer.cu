@@ -27,6 +27,8 @@ EmbeddingOptimizer<TypeHashKey, TypeEmbeddingComp>::EmbeddingOptimizer(
     const std::shared_ptr<GeneralBuffer2<CudaAllocator>> &buf)
     : param(param) {
   // new optimizer params used by update_params
+  // should be match with HugeCTR/src/parsers/create_embedding.cpp
+  // should be match with HugeCTR/src/pybind/model.cpp
   switch (param.opt_params.optimizer) {
     case Optimizer_t::Adam:  // adam
     {
