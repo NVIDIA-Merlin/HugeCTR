@@ -19,7 +19,9 @@
 #include <string>
 #include <vector>
 
+#ifdef ENABLE_HDFS
 #include "hdfs.h"
+#endif
 
 namespace HugeCTR {
 
@@ -90,8 +92,10 @@ class HdfsService {
   int batchCopyToLocal(const std::string& hdfs_dir_path, const std::string& local_path);
 
  private:
+#ifdef ENABLE_HDFS
   hdfsFS fs_;
   hdfsFS local_fs_;
+#endif
   std::string name_node_;
   int hdfs_port_;
 
@@ -100,14 +104,17 @@ class HdfsService {
    *
    * @return hdfsFS The FS handler for HDFS.
    */
+#ifdef ENABLE_HDFS
   hdfsFS connect();
-
+#endif
   /**
    * @brief Connect to local File system.
    *
    * @return hdfsFS
    */
+#ifdef ENABLE_HDFS
   hdfsFS connectToLocal();
+#endif
   /**
    * @brief Disconnect to HDFS server.
    *

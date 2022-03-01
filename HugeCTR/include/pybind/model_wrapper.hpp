@@ -141,25 +141,32 @@ void ModelPybind(pybind11::module &m) {
            pybind11::arg("embedding_name"))
       .def("unfreeze_dense", &HugeCTR::Model::unfreeze_dense)
       .def("load_dense_weights", &HugeCTR::Model::load_dense_weights,
-           pybind11::arg("dense_model_file"))
+           pybind11::arg("dense_model_file"),
+           pybind11::arg("data_source_params") = new DataSourceParams())
       .def("load_sparse_weights",
-           pybind11::overload_cast<const std::vector<std::string> &>(
+           pybind11::overload_cast<const std::vector<std::string> &, HugeCTR::DataSourceParams>(
                &HugeCTR::Model::load_sparse_weights),
-           pybind11::arg("sparse_embedding_files"))
+           pybind11::arg("sparse_embedding_files"),
+           pybind11::arg("data_source_params") = new DataSourceParams())
       .def("load_sparse_weights",
-           pybind11::overload_cast<const std::map<std::string, std::string> &>(
-               &HugeCTR::Model::load_sparse_weights),
-           pybind11::arg("sparse_embedding_files_map"))
+           pybind11::overload_cast<const std::map<std::string, std::string> &,
+                                   HugeCTR::DataSourceParams>(&HugeCTR::Model::load_sparse_weights),
+           pybind11::arg("sparse_embedding_files_map"),
+           pybind11::arg("data_source_params") = new DataSourceParams())
       .def("load_dense_optimizer_states", &HugeCTR::Model::load_dense_optimizer_states,
-           pybind11::arg("dense_opt_states_file"))
+           pybind11::arg("dense_opt_states_file"),
+           pybind11::arg("data_source_params") = new DataSourceParams())
       .def("load_sparse_optimizer_states",
-           pybind11::overload_cast<const std::vector<std::string> &>(
+           pybind11::overload_cast<const std::vector<std::string> &, HugeCTR::DataSourceParams>(
                &HugeCTR::Model::load_sparse_optimizer_states),
-           pybind11::arg("sparse_opt_states_files"))
+           pybind11::arg("sparse_opt_states_files"),
+           pybind11::arg("data_source_params") = new DataSourceParams())
       .def("load_sparse_optimizer_states",
-           pybind11::overload_cast<const std::map<std::string, std::string> &>(
+           pybind11::overload_cast<const std::map<std::string, std::string> &,
+                                   HugeCTR::DataSourceParams>(
                &HugeCTR::Model::load_sparse_optimizer_states),
-           pybind11::arg("sparse_opt_states_files_map"))
+           pybind11::arg("sparse_opt_states_files_map"),
+           pybind11::arg("data_source_params") = new DataSourceParams())
       .def("add", pybind11::overload_cast<Input &>(&HugeCTR::Model::add), pybind11::arg("input"))
       .def("add", pybind11::overload_cast<SparseEmbedding &>(&HugeCTR::Model::add),
            pybind11::arg("sparse_embedding"))

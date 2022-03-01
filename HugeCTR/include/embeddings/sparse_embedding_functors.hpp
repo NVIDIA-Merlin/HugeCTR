@@ -534,8 +534,10 @@ class SparseEmbeddingFunctors {
                        DataSourceParams data_source_params, const ResourceManager &resource_manager,
                        std::vector<Tensors2<TypeEmbeddingComp>> &opt_states);
   template <typename TypeEmbeddingComp>
-  void load_opt_states(std::ifstream &stream, const ResourceManager &resource_manager,
-                       std::vector<Tensors2<TypeEmbeddingComp>> &opt_states);
+  void load_opt_states(std::ifstream &stream, std::string &read_path,
+                       const ResourceManager &resource_manager,
+                       std::vector<Tensors2<TypeEmbeddingComp>> &opt_states,
+                       DataSourceParams data_source_params);
 };
 
 // TODO: consider to move them; they are currently only used for an utest

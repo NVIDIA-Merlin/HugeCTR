@@ -49,11 +49,13 @@ target_link_libraries(
   ${DB_LIB_PATHS}/libhiredis.so librocksdb.so libredis++.so librdkafka.so # from Hugectr 
 )
 
-target_link_libraries(
-  huge_ctr_hdfs_backend
-  PUBLIC
-    ${DB_LIB_PATHS}/libhdfs.so # from Hugectr 
-)
+if(ENABLE_HDFS)
+  target_link_libraries(
+    huge_ctr_hdfs_backend
+    PUBLIC
+      ${DB_LIB_PATHS}/libhdfs.so # from Hugectr 
+  )
+endif()
 
 target_link_libraries(
   huge_ctr_shared PUBLIC huge_ctr_hdfs_backend

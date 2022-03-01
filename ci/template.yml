@@ -28,9 +28,12 @@ stages:
     - if [[ "$TEST_NEW_IMAGE" == "1" ]]; then
         DST_IMAGE=${DST_IMAGE}.new_image;
       fi
+    - export dir_path=$(dirname "${DOCKER_FILE}")
+    - export file_path=$(basename "${DOCKER_FILE}")
+    - cd ${dir_path}
     - docker build --pull
       -t ${DST_IMAGE}
-      -f ./${DOCKER_FILE}
+      -f ./${file_path}
       $BUILD_ARGS
       --no-cache 
       . ;
@@ -79,7 +82,11 @@ stages:
       fi
     - cat ${JOB_DOCKERFILE}
     - docker login -u ${CI_PRIVATE_USER} -p "${CI_PRIVATE_KEY}" "${CI_REGISTRY}"
-    - docker pull ${FROM_IMAGE}
+    - if [[ "$TEST_NEW_IMAGE" == "1" ]]; then
+        docker pull ${FROM_IMAGE}.new_image;
+      else
+        docker pull ${FROM_IMAGE};
+      fi
     - docker build --pull
       -t ${DST_IMAGE}
       -f ${JOB_DOCKERFILE}

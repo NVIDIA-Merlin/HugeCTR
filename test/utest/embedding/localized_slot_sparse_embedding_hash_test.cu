@@ -298,7 +298,7 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
           train_input, test_input, embedding_params, resource_manager));
 
   // upload hash table to device
-  embedding->load_parameters(sparse_model_file);
+  embedding->load_parameters(sparse_model_file, DataSourceParams());
 
   // for SparseEmbeddingCpu
   std::unique_ptr<SparseEmbeddingHashCpu<T, TypeEmbeddingComp>> embedding_cpu(
@@ -437,7 +437,7 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
     HCTR_LOG(INFO, WORLD, "Rank%d: embedding->load_opt_states()\n",
              resource_manager->get_process_id());
     std::ifstream fs(opt_file_name);
-    embedding->load_opt_states(fs);
+    embedding->load_opt_states(fs, opt_file_name, DataSourceParams());
     fs.close();
   }
 
@@ -587,7 +587,7 @@ void load_and_dump(const std::vector<int> &device_list, const Optimizer_t &optim
           train_input, train_input, embedding_params, resource_manager));
 
   // upload hash table to device
-  embedding->load_parameters(sparse_model_file);
+  embedding->load_parameters(sparse_model_file, DataSourceParams());
 
   HCTR_LOG(INFO, WORLD, "max_vocabulary_size=%zu, vocabulary_size=%zu\n",
            embedding->get_max_vocabulary_size(), embedding->get_vocabulary_size());
@@ -798,7 +798,7 @@ void load_and_dump_file(const std::vector<int> &device_list, const Optimizer_t &
 #endif
 
   // upload hash table to device
-  embedding->load_parameters(sparse_model_src);
+  embedding->load_parameters(sparse_model_src, DataSourceParams());
 
   if (pid == 0) {
     HCTR_LOG(INFO, WORLD, "max_vocabulary_size=%zu, vocabulary_size=%zu\n",

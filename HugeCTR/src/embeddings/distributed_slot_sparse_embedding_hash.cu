@@ -327,22 +327,24 @@ DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
 void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::load_parameters(
-    std::string sparse_model) {
-  if (!std::filesystem::exists(sparse_model)) {
-    HCTR_OWN_THROW(Error_t::WrongInput, "Folder " + sparse_model + " doesn't exist");
-  }
+    std::string sparse_model, DataSourceParams data_source_params) {
   const std::string key_file(sparse_model + "/key");
   const std::string vec_file(sparse_model + "/emb_vector");
 
-  std::ifstream key_stream(key_file, std::ifstream::binary);
-  std::ifstream vec_stream(vec_file, std::ifstream::binary);
-  // check if file is opened successfully
-  if (!vec_stream.is_open() || !key_stream.is_open()) {
-    HCTR_OWN_THROW(Error_t::WrongInput, "Error: file not open for reading");
-  }
+  size_t key_file_size_in_byte;
+  size_t vec_file_size_in_byte;
 
-  size_t key_file_size_in_byte = std::filesystem::file_size(key_file);
-  size_t vec_file_size_in_byte = std::filesystem::file_size(vec_file);
+  if (data_source_params.use_hdfs) {
+    HdfsService hs(data_source_params.namenode, data_source_params.port);
+    key_file_size_in_byte = hs.getFileSize(key_file);
+    vec_file_size_in_byte = hs.getFileSize(vec_file);
+  } else {
+    if (!std::filesystem::exists(sparse_model)) {
+      HCTR_OWN_THROW(Error_t::WrongInput, "Folder " + sparse_model + " doesn't exist");
+    }
+    key_file_size_in_byte = std::filesystem::file_size(key_file);
+    vec_file_size_in_byte = std::filesystem::file_size(vec_file);
+  }
 
   size_t key_size = sizeof(long long);
   size_t vec_size = sizeof(float) * embedding_data_.embedding_params_.embedding_vec_size;
@@ -367,20 +369,38 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::load_pa
   TypeHashKey *key_ptr = keys.get_ptr();
   float *embedding_ptr = embeddings.get_ptr();
 
-  if (std::is_same<TypeHashKey, long long>::value) {
-    key_stream.read(reinterpret_cast<char *>(key_ptr), key_file_size_in_byte);
+  if (data_source_params.use_hdfs) {
+    HdfsService hs(data_source_params.namenode, data_source_params.port);
+    if (std::is_same<TypeHashKey, long long>::value) {
+      hs.read(key_file, reinterpret_cast<char *>(key_ptr), key_file_size_in_byte, 0);
+    } else {
+      std::vector<long long> i64_key_vec(key_num, 0);
+      hs.read(key_file, reinterpret_cast<char *>(i64_key_vec.data()), key_file_size_in_byte, 0);
+      std::transform(i64_key_vec.begin(), i64_key_vec.end(), key_ptr,
+                     [](long long key) { return static_cast<unsigned>(key); });
+    }
+    hs.read(vec_file, reinterpret_cast<char *>(embedding_ptr), vec_file_size_in_byte, 0);
   } else {
-    std::vector<long long> i64_key_vec(key_num, 0);
-    key_stream.read(reinterpret_cast<char *>(i64_key_vec.data()), key_file_size_in_byte);
-    std::transform(i64_key_vec.begin(), i64_key_vec.end(), key_ptr,
-                   [](long long key) { return static_cast<unsigned>(key); });
+    std::ifstream key_stream(key_file, std::ifstream::binary);
+    std::ifstream vec_stream(vec_file, std::ifstream::binary);
+    // check if file is opened successfully
+    if (!vec_stream.is_open() || !key_stream.is_open()) {
+      HCTR_OWN_THROW(Error_t::WrongInput, "Error: file not open for reading");
+    }
+    if (std::is_same<TypeHashKey, long long>::value) {
+      key_stream.read(reinterpret_cast<char *>(key_ptr), key_file_size_in_byte);
+    } else {
+      std::vector<long long> i64_key_vec(key_num, 0);
+      key_stream.read(reinterpret_cast<char *>(i64_key_vec.data()), key_file_size_in_byte);
+      std::transform(i64_key_vec.begin(), i64_key_vec.end(), key_ptr,
+                     [](long long key) { return static_cast<unsigned>(key); });
+    }
+    vec_stream.read(reinterpret_cast<char *>(embedding_ptr), vec_file_size_in_byte);
   }
-  vec_stream.read(reinterpret_cast<char *>(embedding_ptr), vec_file_size_in_byte);
 
   load_parameters(keys, embeddings, key_num, max_vocabulary_size_,
                   embedding_data_.embedding_params_.embedding_vec_size,
                   max_vocabulary_size_per_gpu_, hash_table_value_tensors_, hash_tables_);
-
   return;
 }
 
@@ -1078,7 +1098,7 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::dump_op
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
 void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::load_opt_states(
-    std::ifstream &stream) {
+    std::ifstream &stream, std::string read_path, DataSourceParams data_source_params) {
   std::vector<OptimizerTensor<TypeEmbeddingComp>> opt_tensors_;
   for (auto &opt : embedding_optimizers_) {
     opt_tensors_.push_back(opt.opt_tensors_);
@@ -1087,7 +1107,8 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::load_op
       functors_.get_opt_states(opt_tensors_, embedding_data_.embedding_params_.opt_params.optimizer,
                                embedding_data_.get_resource_manager().get_local_gpu_count());
 
-  functors_.load_opt_states(stream, embedding_data_.get_resource_manager(), opt_states);
+  functors_.load_opt_states(stream, read_path, embedding_data_.get_resource_manager(), opt_states,
+                            data_source_params);
 }
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
