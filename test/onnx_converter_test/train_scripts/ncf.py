@@ -26,7 +26,7 @@ model.add(hugectr.Input(label_dim = 1, label_name = "label",
                         [hugectr.DataReaderSparseParam("data", 1, True, 2)]
                         ))
 model.add(hugectr.SparseEmbedding(embedding_type = hugectr.Embedding_t.DistributedSlotSparseEmbeddingHash, 
-                            workspace_size_per_gpu_in_mb = 49, # 3 for 1M dataset
+                            workspace_size_per_gpu_in_mb = 150, # 3 for 1M dataset
                             embedding_vec_size = 64,
                             combiner = "sum",
                             sparse_embedding_name = "mlp_embedding",

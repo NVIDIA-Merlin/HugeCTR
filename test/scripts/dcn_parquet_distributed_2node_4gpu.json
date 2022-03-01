@@ -71,7 +71,7 @@
         "embedding_vec_size": 16,
         "combiner": "sum",
         "slot_size_array": [381808, 22456, 14763, 7118, 19308, 4, 6443, 1259, 54, 341642, 112151, 94957, 11, 2188, 8399, 61, 4, 949, 15, 382633, 246818, 370704, 92823, 9773, 78, 34],
-        "workspace_size_per_gpu_in_mb": 165
+        "workspace_size_per_gpu_in_mb": 495
       }
     },
     {

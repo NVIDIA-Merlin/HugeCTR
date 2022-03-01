@@ -141,24 +141,6 @@ class DistributedSlotSparseEmbeddingHash : public IEmbedding {
       const std::vector<std::shared_ptr<HashTable<TypeHashKey, size_t>>> &hash_tables) const;
 
  public:
-  /**
-   * The constructor of DistributedSlotSparseEmbeddingHash.
-   * @param row_offsets_tensors row offsets of the input tensor(refer to row offset vector in sparse
-   * matrix CSR format).
-   * @param hash_key_tensors hash keys of the input tensor(refer to value vector in sparse matrix
-   * CSR format).
-   * @param embedding_params embedding params for initialization.
-   * @param resource_manager the GPU resource group
-   */
-  DistributedSlotSparseEmbeddingHash(const Tensors2<TypeHashKey> &train_row_offsets_tensors,
-                                     const Tensors2<TypeHashKey> &train_value_tensors,
-                                     const std::vector<std::shared_ptr<size_t>> &train_nnz_array,
-                                     const Tensors2<TypeHashKey> &evaluate_row_offsets_tensors,
-                                     const Tensors2<TypeHashKey> &evaluate_value_tensors,
-                                     const std::vector<std::shared_ptr<size_t>> &evaluate_nnz_array,
-                                     const SparseEmbeddingHashParams &embedding_params,
-                                     const std::shared_ptr<ResourceManager> &resource_manager);
-
   DistributedSlotSparseEmbeddingHash(const SparseTensors<TypeHashKey> &train_keys,
                                      const SparseTensors<TypeHashKey> &evaluate_keys,
                                      const SparseEmbeddingHashParams &embedding_params,
@@ -407,14 +389,8 @@ class DistributedSlotSparseEmbeddingHash : public IEmbedding {
     for (size_t id = 0; id < embedding_data_.get_resource_manager().get_local_gpu_count(); id++) {
       context.set_device(embedding_data_.get_local_gpu(id).get_device_id());
       size_t count = hash_tables_[id]->get_size(embedding_data_.get_local_gpu(id).get_stream());
-      if (count > max_vocabulary_size_per_gpu_) {
-        std::ostringstream os;
-        os << "Runtime vocabulary size (" << count << ") exceeds max_vocabulary_size_per_gpu ("
-           << max_vocabulary_size_per_gpu_ << ") on GPU "
-           << embedding_data_.get_local_gpu(id).get_device_id()
-           << ", new feature insertion failed.\n";
-        HCTR_OWN_THROW(Error_t::OutOfBound, os.str());
-      }
+      HCTR_CHECK_HINT(count <= max_vocabulary_size_per_gpu_, "Runtime vocabulary size %lu exceeds max_vocabulary_size_per_gpu %lu on GPU %lu. new feature insertion failed. Please adjust workspace_size_per_gpu according to QAList.md#24. How to set workspace_size_per_gpu_in_mb and slot_size_array", count, max_vocabulary_size_per_gpu_, embedding_data_.get_local_gpu(id).get_device_id());
+
     }
   }
 
