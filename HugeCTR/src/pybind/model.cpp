@@ -1060,11 +1060,10 @@ void Model::summary() {
   for (auto tensor_entry : train_tensor_entries_list_[0]) {
     tensor_shape_info_.insert(std::make_pair(tensor_entry.name, tensor_entry.bag.get_dimensions()));
   }
-
+  HCTR_PRINT(INFO,
+             "===================================================Model "
+             "Summary===================================================\n");
   auto log = HCTR_LOG_S(INFO, ROOT);
-  log << "===================================================Model "
-         "Summary==================================================="
-      << std::endl;
   log << std::left << std::setw(40) << std::setfill(' ') << "label" << std::left << std::setw(30)
       << std::setfill(' ') << "Dense" << std::left << std::setw(30) << std::setfill(' ') << "Sparse"
       << std::endl;
