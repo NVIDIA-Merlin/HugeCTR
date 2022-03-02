@@ -18,7 +18,7 @@
 
 #include <sw/redis++/redis++.h>
 
-#include <inference/database_backend.hpp>
+#include <hps/database_backend.hpp>
 #include <memory>
 
 namespace HugeCTR {

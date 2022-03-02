@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <inference/unique_op/unique_op.hpp>
+#include <hps/unique_op/unique_op.hpp>
 
 // Overload CUDA atomic for other 64bit unsinged/signed integer type
 __forceinline__ __device__ long atomicAdd(long* address, long val) {

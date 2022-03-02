@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-#include <HugeCTR/include/inference/session_inference.hpp>
-#include <HugeCTR/include/resource_managers/resource_manager_ext.hpp>
-#include <HugeCTR/include/utils.hpp>
+#include <inference/session_inference.hpp>
 #include <iostream>
+#include <resource_managers/resource_manager_ext.hpp>
+#include <utils.hpp>
 #include <vector>
 namespace HugeCTR {
 

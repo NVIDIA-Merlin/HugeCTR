@@ -18,8 +18,8 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
-#include <HugeCTR/include/inference/embedding_cache.hpp>
-#include <HugeCTR/include/inference/parameter_server.hpp>
+#include <HugeCTR/include/hps/embedding_cache.hpp>
+#include <HugeCTR/include/hps/parameter_server.hpp>
 #include <HugeCTR/include/inference/session_inference.hpp>
 #include <HugeCTR/include/pybind/inference_model.hpp>
 #include <HugeCTR/include/utils.hpp>

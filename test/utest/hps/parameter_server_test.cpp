@@ -19,14 +19,13 @@
 #include <fstream>
 #include <vector>
 
+#include "HugeCTR/include/common.hpp"
 #include "HugeCTR/include/data_generator.hpp"
 #include "HugeCTR/include/general_buffer2.hpp"
-#include "HugeCTR/include/inference/embedding_interface.hpp"
-#include "HugeCTR/include/inference/session_inference.hpp"
-#include "HugeCTR/include/utils.hpp"
+#include "HugeCTR/include/hps/embedding_interface.hpp"
+#include "HugeCTR/include/hps/inference_utils.hpp"
 #include "cuda_profiler_api.h"
 #include "gtest/gtest.h"
-#include "inference/embedding_feature_combiner.hpp"
 #include "utest/test_utils.h"
 
 using namespace HugeCTR;

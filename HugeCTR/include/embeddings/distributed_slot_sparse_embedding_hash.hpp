@@ -390,8 +390,12 @@ class DistributedSlotSparseEmbeddingHash : public IEmbedding {
     for (size_t id = 0; id < embedding_data_.get_resource_manager().get_local_gpu_count(); id++) {
       context.set_device(embedding_data_.get_local_gpu(id).get_device_id());
       size_t count = hash_tables_[id]->get_size(embedding_data_.get_local_gpu(id).get_stream());
-      HCTR_CHECK_HINT(count <= max_vocabulary_size_per_gpu_, "Runtime vocabulary size %lu exceeds max_vocabulary_size_per_gpu %lu on GPU %lu. new feature insertion failed. Please adjust workspace_size_per_gpu according to QAList.md#24. How to set workspace_size_per_gpu_in_mb and slot_size_array", count, max_vocabulary_size_per_gpu_, embedding_data_.get_local_gpu(id).get_device_id());
-
+      HCTR_CHECK_HINT(
+          count <= max_vocabulary_size_per_gpu_,
+          "Runtime vocabulary size %lu exceeds max_vocabulary_size_per_gpu %lu on GPU %lu. new "
+          "feature insertion failed. Please adjust workspace_size_per_gpu according to "
+          "QAList.md#24. How to set workspace_size_per_gpu_in_mb and slot_size_array",
+          count, max_vocabulary_size_per_gpu_, embedding_data_.get_local_gpu(id).get_device_id());
     }
   }
 

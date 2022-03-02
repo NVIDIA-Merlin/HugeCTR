@@ -15,7 +15,7 @@
  */
 
 #include <cstring>
-#include <inference/kafka_message.hpp>
+#include <hps/kafka_message.hpp>
 #include <vector>
 
 namespace HugeCTR {

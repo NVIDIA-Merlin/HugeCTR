@@ -19,7 +19,7 @@
 #include <base/debug/logger.hpp>
 #include <cstring>
 #include <execution>
-#include <inference/hash_map_backend.hpp>
+#include <hps/hash_map_backend.hpp>
 #include <random>
 
 // TODO: Remove me!

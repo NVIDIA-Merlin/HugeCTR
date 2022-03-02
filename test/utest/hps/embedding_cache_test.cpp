@@ -24,9 +24,9 @@
 #include <unordered_set>
 #include <vector>
 
-#include "HugeCTR/include/inference/embedding_interface.hpp"
-#include "HugeCTR/include/inference/memory_pool.hpp"
-#include "HugeCTR/include/inference/session_inference.hpp"
+#include "HugeCTR/include/hps/embedding_interface.hpp"
+#include "HugeCTR/include/hps/memory_pool.hpp"
+#include "HugeCTR/include/parser.hpp"
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"
 

@@ -17,7 +17,7 @@
 #pragma once
 #include <cuda_runtime_api.h>
 
-#include <inference/inference_utils.hpp>
+#include <hps/inference_utils.hpp>
 #include <iostream>
 #include <string>
 #include <thread>

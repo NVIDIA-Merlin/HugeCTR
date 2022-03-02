@@ -208,7 +208,7 @@ SparseEmbedding::SparseEmbedding(Embedding_t embedding_type, size_t workspace_si
 
 void SparseEmbedding::initialize_max_vocabulary_size_per_gpu() {
   size_t num_opt_state_copies = 0;
-  switch(embedding_opt_params->optimizer) {
+  switch (embedding_opt_params->optimizer) {
     case Optimizer_t::Adam: {
       num_opt_state_copies = 2;
       if (embedding_opt_params->update_type == Update_t::LazyGlobal) {
@@ -229,8 +229,8 @@ void SparseEmbedding::initialize_max_vocabulary_size_per_gpu() {
           std::string("[HCDEBUG][ERROR] Runtime error: Invalid optimizer type\n"));
   }
 
-  max_vocabulary_size_per_gpu =
-      (workspace_size_per_gpu_in_mb * 1024 * 1024) / ((1 + num_opt_state_copies) * sizeof(float) * embedding_vec_size);
+  max_vocabulary_size_per_gpu = (workspace_size_per_gpu_in_mb * 1024 * 1024) /
+                                ((1 + num_opt_state_copies) * sizeof(float) * embedding_vec_size);
 }
 
 DenseLayer::DenseLayer(Layer_t layer_type, std::vector<std::string>& bottom_names,
@@ -589,7 +589,7 @@ void Model::add(SparseEmbedding& sparse_embedding) {
   input_output_info_.push_back(
       std::make_pair(sparse_embedding.bottom_name, sparse_embedding.sparse_embedding_name));
   layer_info_.push_back(EMBEDDING_TYPE_TO_STRING[sparse_embedding.embedding_type]);
-  
+
   embedding_opt_params_list_.push_back(sparse_embedding.embedding_opt_params);
   init_optimizer(embedding_opt_params, solver_, sparse_embedding.embedding_opt_params);
   if (solver_.i64_input_key && !solver_.use_mixed_precision) {

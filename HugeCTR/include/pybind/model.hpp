@@ -20,9 +20,9 @@
 #include <exchange_wgrad.hpp>
 #include <graph_wrapper.hpp>
 #include <hdfs_backend.hpp>
-#include <inference/kafka_message.hpp>
-#include <inference/message.hpp>
-#include <inference/parameter_server.hpp>
+#include <hps/kafka_message.hpp>
+#include <hps/message.hpp>
+#include <hps/parameter_server.hpp>
 #include <loss.hpp>
 #include <metrics.hpp>
 #include <network.hpp>
@@ -182,7 +182,7 @@ struct SparseEmbedding {
                   std::vector<size_t>& slot_size_array,
                   std::shared_ptr<OptParamsPy>& embedding_opt_params,
                   const HybridEmbeddingParam& hybrid_embedding_param);
-  
+
   void initialize_max_vocabulary_size_per_gpu();
 };
 

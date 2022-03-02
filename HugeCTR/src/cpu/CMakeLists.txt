@@ -46,7 +46,7 @@ target_link_libraries(cpu_inference_shared PUBLIC cudart cublas curand cudnn ncc
 
 target_link_libraries(cpu_inference_shared PRIVATE nlohmann_json::nlohmann_json)
 
-target_link_libraries(cpu_inference_shared PUBLIC hugectr_inference)
+target_link_libraries(cpu_inference_shared PUBLIC huge_ctr_inference)
 
 target_compile_features(cpu_inference_shared PUBLIC cxx_std_17)
 

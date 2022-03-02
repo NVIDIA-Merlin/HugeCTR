@@ -18,8 +18,8 @@
 #include <common.hpp>
 #include <cpu/embedding_feature_combiner_cpu.hpp>
 #include <cpu/network_cpu.hpp>
+#include <hps/inference_utils.hpp>
 #include <inference/hugectrmodel.hpp>
-#include <inference/inference_utils.hpp>
 #include <inference/preallocated_buffer2.hpp>
 #include <parser.hpp>
 #include <string>
