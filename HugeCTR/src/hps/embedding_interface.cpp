@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-#include <inference/embedding_cache.hpp>
-#include <inference/embedding_interface.hpp>
-#include <inference/parameter_server.hpp>
+#include <hps/embedding_cache.hpp>
+#include <hps/embedding_interface.hpp>
+#include <hps/parameter_server.hpp>
 
 namespace HugeCTR {
 

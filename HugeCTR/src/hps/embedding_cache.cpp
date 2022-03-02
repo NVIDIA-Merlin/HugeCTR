@@ -15,7 +15,7 @@
  */
 
 #include <algorithm>
-#include <inference/embedding_cache.hpp>
+#include <hps/embedding_cache.hpp>
 #include <mutex>
 #include <thread>
 

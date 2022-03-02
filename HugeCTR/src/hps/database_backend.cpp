@@ -15,7 +15,7 @@
  */
 
 #include <base/debug/logger.hpp>
-#include <inference/database_backend.hpp>
+#include <hps/database_backend.hpp>
 #include <sstream>
 
 // TODO: Remove me!

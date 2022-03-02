@@ -27,7 +27,7 @@
 #include "HugeCTR/include/network.hpp"
 #include "HugeCTR/include/parser.hpp"
 #include "HugeCTR/include/tensor2.hpp"
-#include "inference/memory_pool.hpp"
+#include "hps/memory_pool.hpp"
 namespace HugeCTR {
 
 class InferenceSession : public HugeCTRModel {

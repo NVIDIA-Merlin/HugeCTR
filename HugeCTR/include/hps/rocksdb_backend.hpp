@@ -18,7 +18,7 @@
 
 #include <rocksdb/db.h>
 
-#include <inference/database_backend.hpp>
+#include <hps/database_backend.hpp>
 #include <unordered_map>
 
 namespace HugeCTR {

@@ -15,8 +15,8 @@
  */
 #pragma once
 #include <common.hpp>
-#include <inference/embedding_cache.hpp>
-#include <inference/parameter_server.hpp>
+#include <hps/embedding_cache.hpp>
+#include <hps/parameter_server.hpp>
 #include <inference/session_inference.hpp>
 #include <utils.hpp>
 

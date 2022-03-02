@@ -19,11 +19,11 @@
 #include <chrono>
 #include <cstdio>
 #include <filesystem>
-#include <inference/hash_map_backend.hpp>
-#include <inference/kafka_message.hpp>
-#include <inference/parameter_server.hpp>
-#include <inference/redis_backend.hpp>
-#include <inference/rocksdb_backend.hpp>
+#include <hps/hash_map_backend.hpp>
+#include <hps/kafka_message.hpp>
+#include <hps/parameter_server.hpp>
+#include <hps/redis_backend.hpp>
+#include <hps/rocksdb_backend.hpp>
 #include <regex>
 
 // TODO: Remove me!

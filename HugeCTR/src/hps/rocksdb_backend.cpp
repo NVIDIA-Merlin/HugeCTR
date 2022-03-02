@@ -15,7 +15,7 @@
  */
 
 #include <base/debug/logger.hpp>
-#include <inference/rocksdb_backend.hpp>
+#include <hps/rocksdb_backend.hpp>
 
 // TODO: Remove me!
 #pragma GCC diagnostic error "-Wconversion"

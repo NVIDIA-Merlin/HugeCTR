@@ -16,16 +16,13 @@
 
 #pragma once
 #include <common.hpp>
-#include <embedding.hpp>
-#include <inference/database_backend.hpp>
-#include <inference/embedding_interface.hpp>
-#include <inference/inference_utils.hpp>
-#include <inference/memory_pool.hpp>
-#include <inference/message.hpp>
+#include <hps/database_backend.hpp>
+#include <hps/embedding_interface.hpp>
+#include <hps/inference_utils.hpp>
+#include <hps/memory_pool.hpp>
+#include <hps/message.hpp>
 #include <iostream>
 #include <memory>
-#include <metrics.hpp>
-#include <network.hpp>
 #include <parser.hpp>
 #include <string>
 #include <thread>

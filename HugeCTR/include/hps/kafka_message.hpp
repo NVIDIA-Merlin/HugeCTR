@@ -17,7 +17,7 @@
 
 #include <librdkafka/rdkafka.h>
 
-#include <inference/message.hpp>
+#include <hps/message.hpp>
 #include <thread>
 
 namespace HugeCTR {

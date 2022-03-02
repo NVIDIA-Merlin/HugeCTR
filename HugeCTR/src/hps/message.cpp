@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <inference/message.hpp>
+#include <hps/message.hpp>
 
 namespace HugeCTR {
 

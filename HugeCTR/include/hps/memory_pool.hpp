@@ -19,7 +19,7 @@
 #include <cuda_runtime_api.h>
 
 #include <base/debug/logger.hpp>
-#include <inference/embedding_interface.hpp>
+#include <hps/embedding_interface.hpp>
 #include <iostream>
 #include <map>
 #include <mutex>

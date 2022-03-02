@@ -15,7 +15,7 @@
  */
 
 #include <base/debug/logger.hpp>
-#include <inference/redis_backend.hpp>
+#include <hps/redis_backend.hpp>
 #include <iostream>
 #include <optional>
 #include <random>

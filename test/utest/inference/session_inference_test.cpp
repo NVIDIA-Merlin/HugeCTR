@@ -24,7 +24,7 @@
 
 #include "HugeCTR/include/data_generator.hpp"
 #include "HugeCTR/include/general_buffer2.hpp"
-#include "HugeCTR/include/inference/embedding_interface.hpp"
+#include "HugeCTR/include/hps/embedding_interface.hpp"
 #include "HugeCTR/include/utils.hpp"
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"

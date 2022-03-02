@@ -14,7 +14,7 @@
 cmake_minimum_required(VERSION 3.8)
 set(DB_LIB_PATHS "/usr/local/lib" CACHE PATH "Paths to Hiredis/rocksdb lib")
 
-file(GLOB huge_ctr_src
+file(GLOB huge_ctr_inference_src
   ../cpu_resource.cpp
   ../gpu_resource.cpp
   ../resource_manager.cpp
@@ -56,29 +56,11 @@ file(GLOB huge_ctr_src
   ../loss.cu
   ../network.cu
   ../network.cpp
-  embedding_feature_combiner.cu
-  hugectrmodel.cpp
-  embedding_cache.cpp
-  session_inference.cpp
-  embedding_cache.cu
-  embedding_interface.cpp
-  parameter_server.cpp
-  inference_utilis.cpp
-  redis_backend.cpp
-  rocksdb_backend.cpp
-  sha1.cpp
-  utils.cpp
-  hash_map_backend.cpp
-  database_backend.cpp
-  unique_op/unique_op.cu
-  message.cpp
-  kafka_message.cpp
   ../data_readers/metadata.cpp
   ../gpu_learning_rate_scheduler.cu
   ../metrics.cu
   ../optimizers/*.cu
   ../optimizer.cpp
-  ../thread_pool.cpp
   ../regularizer.cu
   ../regularizers/l1_regularizer.cu
   ../regularizers/l2_regularizer.cu
@@ -89,43 +71,20 @@ file(GLOB huge_ctr_src
   ../parsers/create_network.cpp
   ../parsers/inference_parser.cpp
   ../diagnose.cu
-  ../utils.cu
-  ../base/debug/logger.cpp
-  ../base/debug/cuda_debugging.cu
+  embedding_feature_combiner.cu
+  hugectrmodel.cpp
+  session_inference.cpp
 )
 
 set(CMAKE_CXX_STANDARD 17)
-add_library(hugectr_inference SHARED ${huge_ctr_src})
+add_library(huge_ctr_inference SHARED ${huge_ctr_inference_src})
 
-file(GLOB hdfs_backend ${CMAKE_CURRENT_SOURCE_DIR}/../hdfs_backend.cpp)
-add_library(huge_ctr_hdfs_backend SHARED ${hdfs_backend})
+target_link_libraries(huge_ctr_inference PUBLIC cudart cublas curand cudnn nccl cudf stdc++fs tbb ${CMAKE_THREAD_LIBS_INIT})
 
-if(ENABLE_HDFS)
-  target_link_libraries(
-    huge_ctr_hdfs_backend
-    PUBLIC
-      ${DB_LIB_PATHS}/libhdfs.so # from Hugectr 
-  )
-endif()
+target_link_libraries(huge_ctr_inference PUBLIC huge_ctr_hps)
 
-target_link_libraries(hugectr_inference PUBLIC cudart cublas curand cudnn nccl cudf stdc++fs tbb ${CMAKE_THREAD_LIBS_INIT})
+target_compile_features(huge_ctr_inference PUBLIC cxx_std_17)
 
-target_link_libraries(hugectr_inference PUBLIC gpu_cache)
+set_target_properties(huge_ctr_inference PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 
-target_link_libraries(hugectr_inference PRIVATE nlohmann_json::nlohmann_json nvToolsExt)
-
-target_link_libraries(
-  hugectr_inference
-  PUBLIC
-    ${DB_LIB_PATHS}/libhiredis.so librocksdb.so libredis++.so librdkafka.so # from Hugectr 
-)
-
-target_link_libraries(
-  hugectr_inference PUBLIC huge_ctr_hdfs_backend
-)
-
-target_compile_features(hugectr_inference PUBLIC cxx_std_17)
-
-set_target_properties(hugectr_inference PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
-
-set_target_properties(hugectr_inference PROPERTIES CUDA_ARCHITECTURES OFF)
+set_target_properties(huge_ctr_inference PROPERTIES CUDA_ARCHITECTURES OFF)

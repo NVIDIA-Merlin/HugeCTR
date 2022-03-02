@@ -20,7 +20,7 @@
 #include <condition_variable>
 #include <deque>
 #include <functional>
-#include <inference/database_backend.hpp>
+#include <hps/database_backend.hpp>
 #include <shared_mutex>
 #include <thread>
 #include <thread_pool.hpp>

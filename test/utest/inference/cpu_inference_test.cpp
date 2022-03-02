@@ -23,7 +23,7 @@
 #include "HugeCTR/include/cpu/session_inference_cpu.hpp"
 #include "HugeCTR/include/data_generator.hpp"
 #include "HugeCTR/include/general_buffer2.hpp"
-#include "HugeCTR/include/inference/inference_utils.hpp"
+#include "HugeCTR/include/hps/inference_utils.hpp"
 #include "HugeCTR/include/utils.hpp"
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"

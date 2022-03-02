@@ -16,7 +16,7 @@
 #pragma once
 
 #include <functional>
-#include <inference/inference_utils.hpp>
+#include <hps/inference_utils.hpp>
 #include <string>
 #include <thread_pool.hpp>
 

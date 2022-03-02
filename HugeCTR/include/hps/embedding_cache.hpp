@@ -15,13 +15,10 @@
  */
 
 #pragma once
-#include <embedding.hpp>
-#include <inference/embedding_interface.hpp>
-#include <inference/memory_pool.hpp>
-#include <inference/unique_op/unique_op.hpp>
+#include <hps/embedding_interface.hpp>
+#include <hps/memory_pool.hpp>
+#include <hps/unique_op/unique_op.hpp>
 #include <iostream>
-#include <metrics.hpp>
-#include <network.hpp>
 #include <nv_gpu_cache.hpp>
 #include <parser.hpp>
 #include <string>
