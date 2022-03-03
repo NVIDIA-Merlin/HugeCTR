@@ -179,6 +179,16 @@ Input::Input(int label_dim, std::string label_name, int dense_dim, std::string d
       dense_name(dense_name),
       data_reader_sparse_param_array(data_reader_sparse_param_array) {}
 
+Input::Input(std::vector<int> label_dims, std::vector<std::string> label_names, int dense_dim,
+             std::string dense_name,
+             std::vector<DataReaderSparseParam>& data_reader_sparse_param_array)
+    : dense_dim(dense_dim),
+      dense_name(dense_name),
+      data_reader_sparse_param_array(data_reader_sparse_param_array) {
+  // Add support for multi-label inputs in next merge request
+  throw std::runtime_error(std::string("Multi-label data not yet supported\n"));
+}
+
 SparseEmbedding::SparseEmbedding(Embedding_t embedding_type, size_t workspace_size_per_gpu_in_mb,
                                  size_t embedding_vec_size, const std::string& combiner_str,
                                  std::string sparse_embedding_name, std::string bottom_name,
@@ -949,6 +959,17 @@ void Model::compile() {
     resource_manager_->set_ready_to_transfer();
   }
 #endif
+}
+
+void Model::compile(std::vector<std::string>& loss_names, std::vector<float>& loss_weights) {
+  update_loss_weights(loss_names, loss_weights);
+  compile();
+}
+
+void Model::update_loss_weights(std::vector<std::string>& los_names,
+                                std::vector<float>& loss_weights) {
+  // Add implementation and support in next merge request
+  throw std::runtime_error(std::string("Weights for multiple loss layers not yet supported.\n"));
 }
 
 void Model::load_dense_optimizer_states(const std::string& dense_opt_states_file,

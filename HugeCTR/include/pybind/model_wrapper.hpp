@@ -53,6 +53,10 @@ void ModelPybind(pybind11::module &m) {
       .def(pybind11::init<int, std::string, int, std::string,
                           std::vector<DataReaderSparseParam> &>(),
            pybind11::arg("label_dim"), pybind11::arg("label_name"), pybind11::arg("dense_dim"),
+           pybind11::arg("dense_name"), pybind11::arg("data_reader_sparse_param_array"))
+      .def(pybind11::init<std::vector<int>, std::vector<std::string>, int, std::string,
+                          std::vector<DataReaderSparseParam> &>(),
+           pybind11::arg("label_dims"), pybind11::arg("label_names"), pybind11::arg("dense_dim"),
            pybind11::arg("dense_name"), pybind11::arg("data_reader_sparse_param_array"));
   pybind11::class_<HugeCTR::SparseEmbedding, std::shared_ptr<HugeCTR::SparseEmbedding>>(
       m, "SparseEmbedding")
@@ -109,7 +113,11 @@ void ModelPybind(pybind11::module &m) {
            pybind11::arg("solver"), pybind11::arg("reader_params"), pybind11::arg("opt_params"),
            pybind11::arg("etc_params") =
                std::shared_ptr<EmbeddingTrainingCacheParams>(new EmbeddingTrainingCacheParams()))
-      .def("compile", &HugeCTR::Model::compile)
+      .def("compile", pybind11::overload_cast<>(&HugeCTR::Model::compile))
+      .def("compile",
+           pybind11::overload_cast<std::vector<std::string> &, std::vector<float> &>(
+               &HugeCTR::Model::compile),
+           pybind11::arg("loss_names"), pybind11::arg("loss_weights"))
       .def("summary", &HugeCTR::Model::summary)
       .def("fit", &HugeCTR::Model::fit, pybind11::arg("num_epochs") = 0,
            pybind11::arg("max_iter") = 2000, pybind11::arg("display") = 200,

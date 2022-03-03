@@ -31,7 +31,11 @@ void ModelPerfExtPybind(pybind11::module &m) {
            pybind11::arg("solver"), pybind11::arg("reader_params"), pybind11::arg("opt_params"),
            pybind11::arg("etc_params") =
                std::shared_ptr<EmbeddingTrainingCacheParams>(new EmbeddingTrainingCacheParams()))
-      .def("compile", &HugeCTR::ModelPerfExt::compile)
+      .def("compile",
+           pybind11::overload_cast<std::vector<std::string> &, std::vector<float> &>(
+               &HugeCTR::ModelPerfExt::compile),
+           pybind11::arg("loss_names"), pybind11::arg("loss_weights"))
+      .def("compile", pybind11::overload_cast<>(&HugeCTR::ModelPerfExt::compile))
       .def("summary", &HugeCTR::ModelPerfExt::summary)
       .def("graph_to_json", &HugeCTR::ModelPerfExt::graph_to_json,
            pybind11::arg("graph_config_file"))
