@@ -542,9 +542,9 @@ hugectr.Input()
 `Input`specifies the parameters related to the data input. An `Input` instance should be added to the Model instance first so that the following `SparseEmbedding` and `DenseLayer` instances can access the inputs with their specified names. Please refer to [Input Detail](./hugectr_layer_book.md#input-layer) if you want to get detailed information about Input.
 
 **Arguments**
-* `label_dim`: Integer, the label dimension. 1 implies it is a binary label. For example, if an item is clicked or not. There is NO default value and it should be specified by users.
+* `label_dim`: Integer, the label dimension. 1 implies it is a binary label. For example, if an item is clicked or not. Optionally a list of Integers for multi-label data. There is NO default value and it should be specified by users.
 
-* `label_name`: String, the name of the label tensor to be referenced by following layers. There is NO default value and it should be specified by users.
+* `label_name`: String, the name of the label tensor to be referenced by following layers. Optionally a list of Strings for multi-label data.  If multiple labels given, the number must match label_dim. There is NO default value and it should be specified by users.
 
 * `dense_dim`: Integer, the number of dense (or continuous) features. If there is no dense feature, set it to 0. There is NO default value and it should be specified by users.
 
@@ -721,7 +721,12 @@ The `add` method of Model adds an instance of Input, SparseEmbedding, DenseLayer
 ```bash
 hugectr.Model.compile()
 ```
-This method takes no extra arguments. It allocates the internal buffer and initializes the model.
+This method requires no extra arguments. It allocates the internal buffer and initializes the model. For multi-task models, can optionally take two arguments.
+
+**Arguments**
+* `loss_names`: List of Strings, the list of loss label names to provide weights for.
+
+* `loss_weights`: List of Floats, the weights to be assigned to each loss label.  Number of elements must match the number of loss_names.
 ***
 
 #### **fit method**

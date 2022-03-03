@@ -162,6 +162,8 @@ struct Input {
   std::vector<DataReaderSparseParam> data_reader_sparse_param_array;
   Input(int label_dim, std::string label_name, int dense_dim, std::string dense_name,
         std::vector<DataReaderSparseParam>& data_reader_sparse_param_array);
+  Input(std::vector<int> label_dim, std::vector<std::string> label_name, int dense_dim,
+        std::string dense_name, std::vector<DataReaderSparseParam>& data_reader_sparse_param_array);
 };
 
 struct SparseEmbedding {
@@ -343,6 +345,10 @@ class Model {
   void graph_analysis();
 
   virtual void compile();
+
+  virtual void compile(std::vector<std::string>& loss_names, std::vector<float>& loss_weights);
+
+  void update_loss_weights(std::vector<std::string>& loss_names, std::vector<float>& loss_weights);
 
   void summary();
 

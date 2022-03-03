@@ -69,6 +69,7 @@ void save_graph_to_json(nlohmann::json& layer_config_array,
   nlohmann::json input_sparse_config_array = nlohmann::json::array();
   assert(input_params.size() == 1);
   Input input_param = input_params[0];
+  // TODO - implement support for multi-label inputs
   input_label_config["top"] = input_param.label_name;
   input_label_config["label_dim"] = input_param.label_dim;
   input_dense_config["top"] = input_param.dense_name;
