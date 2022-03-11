@@ -28,26 +28,12 @@ list(APPEND huge_ctr_hps_src
 set(CMAKE_CXX_STANDARD 17)
 add_library(huge_ctr_hps SHARED ${huge_ctr_hps_src})
 
-file(GLOB huge_ctr_hdfs_backend_src ${CMAKE_CURRENT_SOURCE_DIR}/../hdfs_backend.cpp)
-add_library(huge_ctr_hdfs_backend SHARED ${huge_ctr_hdfs_backend_src})
-
-if(ENABLE_HDFS)
-  target_link_libraries(
-    huge_ctr_hdfs_backend
-    PUBLIC
-      ${DB_LIB_PATHS}/libhdfs.so # from Hugectr
-  )
-endif()
-
 target_link_libraries(huge_ctr_hps PUBLIC gpu_cache)
 
 target_link_libraries(
   huge_ctr_hps
   PUBLIC
-    ${DB_LIB_PATHS}/libhiredis.so librocksdb.so libredis++.so librdkafka.so libhdfs.so # from Hugectr 
-)
-target_link_libraries(
-  huge_ctr_hps PUBLIC huge_ctr_hdfs_backend
+    ${DB_LIB_PATHS}/libhiredis.so librocksdb.so libredis++.so librdkafka.so # from Hugectr 
 )
 
 target_compile_features(huge_ctr_hps PUBLIC cxx_std_17)
