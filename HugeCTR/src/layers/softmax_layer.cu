@@ -165,7 +165,7 @@ void SoftmaxLayer<__half>::fprop(bool is_train) {
                 get_gpu().get_stream());
 #ifndef NDEBUG
   cudaDeviceSynchronize();
-  CK_CUDA_THROW_(cudaGetLastError());
+  HCTR_LIB_THROW(cudaGetLastError());
 #endif
 }
 
@@ -221,7 +221,7 @@ void SoftmaxLayer<__half>::bprop() {
 
 #ifndef NDEBUG
   cudaDeviceSynchronize();
-  CK_CUDA_THROW_(cudaGetLastError());
+  HCTR_LIB_THROW(cudaGetLastError());
 #endif
 }
 
