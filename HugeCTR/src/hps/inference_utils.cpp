@@ -14,7 +14,11 @@
  * limitations under the License.
  */
 
+#include <common.hpp>
 #include <hps/inference_utils.hpp>
+#include <nlohmann/json.hpp>
+#include <parser.hpp>
+#include <utils.hpp>
 
 namespace HugeCTR {
 
@@ -179,5 +183,82 @@ InferenceParams::InferenceParams(
       volatile_db(volatile_db),
       persistent_db(persistent_db),
       update_source(update_source) {}
+
+parameter_server_config::parameter_server_config(
+    const std::vector<std::string>& model_config_path_array,
+    const std::vector<InferenceParams>& inference_params_array) {
+  if (model_config_path_array.size() != inference_params_array.size()) {
+    HCTR_OWN_THROW(Error_t::WrongInput,
+                   "Wrong input: The size of model_config_path_array and inference_params_array "
+                   "are not consistent.");
+  }
+  for (size_t i = 0; i < model_config_path_array.size(); i++) {
+    const auto& model_config_path = model_config_path_array[i];
+    const auto& inference_params = inference_params_array[i];
+    // Initialize <model_name, id> map
+    if (model_name_id_map_.count(inference_params.model_name) == 0) {
+      model_name_id_map_.emplace(inference_params.model_name, (size_t)model_name_id_map_.size());
+    }
+
+    // Initialize for each model
+    // Open model config file and input model json config
+    nlohmann::json model_config(read_json_file(model_config_path));
+
+    // Read inference config
+    std::vector<std::string> emb_file_path;
+    for (size_t j = 0; j < inference_params.sparse_model_files.size(); j++) {
+      emb_file_path.emplace_back(inference_params.sparse_model_files[j]);
+    }
+
+    emb_file_name_[inference_params.model_name] = (emb_file_path);
+
+    // Read embedding layer config
+    std::vector<std::string> emb_table_name;
+    std::vector<size_t> embedding_vec_size;
+    std::vector<size_t> max_feature_num_per_sample_per_emb_table;
+    std::vector<bool> distributed_emb;
+    std::vector<float> default_emb_vec_value;
+
+    // Search for all embedding layers
+    const nlohmann::json& layers = get_json(model_config, "layers");
+    for (size_t j = 0; j < layers.size(); j++) {
+      const nlohmann::json& layer = layers[j];
+      std::string layer_type = get_value_from_json<std::string>(layer, "type");
+      if (layer_type.compare("Data") == 0) {
+        const nlohmann::json& sparse_inputs = get_json(layer, "sparse");
+        for (size_t k = 0; k < sparse_inputs.size(); k++) {
+          max_feature_num_per_sample_per_emb_table.push_back(
+              get_max_feature_num_per_sample_from_nnz_per_slot(sparse_inputs[k]));
+        }
+      } else if (layer_type.compare("DistributedSlotSparseEmbeddingHash") == 0) {
+        distributed_emb.emplace_back(true);
+        // parse embedding table name from network json file
+        emb_table_name.emplace_back(get_value_from_json<std::string>(layer, "top"));
+        const nlohmann::json& embedding_hparam = get_json(layer, "sparse_embedding_hparam");
+        embedding_vec_size.emplace_back(
+            get_value_from_json<size_t>(embedding_hparam, "embedding_vec_size"));
+        default_emb_vec_value.emplace_back(
+            get_value_from_json_soft<float>(embedding_hparam, "default_emb_vec_value", 0.0f));
+      } else if (layer_type.compare("LocalizedSlotSparseEmbeddingHash") == 0 ||
+                 layer_type.compare("LocalizedSlotSparseEmbeddingOneHot") == 0) {
+        distributed_emb.emplace_back(false);
+        emb_table_name.emplace_back(get_value_from_json<std::string>(layer, "top"));
+        const nlohmann::json& embedding_hparam = get_json(layer, "sparse_embedding_hparam");
+        embedding_vec_size.emplace_back(
+            get_value_from_json<size_t>(embedding_hparam, "embedding_vec_size"));
+        default_emb_vec_value.emplace_back(
+            get_value_from_json_soft<float>(embedding_hparam, "default_emb_vec_value", 0.0f));
+      } else {
+        break;
+      }
+    }
+    emb_table_name_[inference_params.model_name] = emb_table_name;
+    embedding_vec_size_[inference_params.model_name] = embedding_vec_size;
+    max_feature_num_per_sample_per_emb_table_[inference_params.model_name] =
+        max_feature_num_per_sample_per_emb_table;
+    distributed_emb_.emplace_back(distributed_emb);
+    default_emb_vec_value_.emplace_back(inference_params.default_value_for_each_table);
+  }  // end for
+}
 
 }  // namespace HugeCTR

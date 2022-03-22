@@ -15,6 +15,7 @@
  */
 
 #pragma once
+#include <cuda_runtime_api.h>
 
 #include <cstdint>
 #include <filesystem>
@@ -250,14 +251,18 @@ struct parameter_server_config {
       emb_file_name_;  // The sparse embedding table file path per embedding table per model
   std::map<std::string, std::vector<std::string>>
       emb_table_name_;  // The table name per embedding table per model
-  std::vector<std::vector<bool>>
-      distributed_emb_;  // The file format flag per embedding table per model
   std::map<std::string, std::vector<size_t>>
       embedding_vec_size_;  // The emb_vec_size per embedding table per model
+  std::map<std::string, std::vector<size_t>>
+      max_feature_num_per_sample_per_emb_table_;  // The max # of keys in each sample per table per
+                                                  // model
+  std::vector<std::vector<bool>>
+      distributed_emb_;  // The file format flag per embedding table per model
   std::vector<std::vector<float>>
       default_emb_vec_value_;  // The defualt emb_vec value when emb_id cannot be found, per
                                // embedding table per model
-
+  parameter_server_config(const std::vector<std::string>& model_config_path_array,
+                          const std::vector<InferenceParams>& inference_params_array);
   std::optional<size_t> find_model_id(const std::string& model_name) const;
 };
 
@@ -265,5 +270,83 @@ struct inference_memory_pool_size_config {
   std::map<std::string, int> num_woker_buffer_size_per_model;
   std::map<std::string, int> num_refresh_buffer_size_per_model;
 };
+
+struct embedding_cache_config {
+  size_t num_emb_table_;  // # of embedding table in this model
+  float cache_size_percentage_;
+  float cache_refresh_percentage_per_iteration = 0.1;
+  size_t num_set_in_refresh_workspace_;
+  std::vector<float> default_value_for_each_table;
+  std::string model_name_;        // Which model this cache belongs to
+  int cuda_dev_id_;               // Which CUDA device this cache belongs to
+  bool use_gpu_embedding_cache_;  // Whether enable GPU embedding cache or not
+  // Each vector will have the size of E(# of embedding tables in the model)
+  std::vector<size_t> embedding_vec_size_;  // # of float in emb_vec
+  std::vector<size_t> num_set_in_cache_;    // # of cache set in the cache
+  std::vector<std::string>
+      embedding_table_name_;  // ## of embedding tables be cached by current embedding cache
+  std::vector<size_t>
+      max_query_len_per_emb_table_;  // The max # of embeddingcolumns each inference instance(batch)
+                                     // will query from a embedding table
+};
+
+struct EmbeddingCacheWorkspace {
+  std::vector<float*> h_missing_emb_vec_;  // The buffer to hold retrieved missing emb_vec from PS
+                                           // on host, same size as d_missing_emb_vec_
+  std::vector<void*> h_embeddingcolumns_;  // The embeeding keys buffer on host
+  std::vector<void*> d_embeddingcolumns_;  // The embeeding keys buffer on device
+  std::vector<uint64_t*>
+      d_unique_output_index_;  // The output index for each emb_id in d_shuffled_embeddingcolumns_
+                               // after unique on device, same size as h_embeddingcolumns
+  std::vector<void*> d_unique_output_embeddingcolumns_;  // The output unique emb_id buffer on
+                                                         // device, same size as h_embeddingcolumns
+  std::vector<float*> d_hit_emb_vec_;  // The buffer to hold hit emb_vec on device, same size as
+                                       // d_shuffled_embeddingoutputvector
+  std::vector<void*>
+      d_missing_embeddingcolumns_;  // The buffer to hold missing emb_id for each emb_table on
+                                    // device, same size as h_embeddingcolumns
+  std::vector<void*>
+      h_missing_embeddingcolumns_;  // The buffer to hold missing emb_id for each emb_table on
+                                    // host, same size as h_embeddingcolumns
+  std::vector<uint64_t*> d_missing_index_;  // The buffer to hold missing index for each emb_table
+                                            // on device, same size as h_embeddingcolumns
+  std::vector<float*> d_missing_emb_vec_;   // The buffer to hold retrieved missing emb_vec on
+                                            // device, same size as d_shuffled_embeddingoutputvector
+  std::vector<void*> unique_op_obj_;  // The unique op object for to de-duplicate queried emb_id to
+                                      // each emb_table, size = # of emb_table
+  size_t* d_missing_length_;  // The buffer to hold missing length for each emb_table on device,
+                              // size = # of emb_table
+  size_t* h_missing_length_;  // The buffer to hold missing length for each emb_table on host, size
+                              // = # of emb_table
+  size_t* d_unique_length_;   // The # of emb_id after the unique operation for each emb_table on
+                              // device, size = # of emb_table
+  size_t* h_unique_length_;   // The # of emb_id after the unique operation for each emb_table on
+                              // host, size = # of emb_table
+  double* h_hit_rate_;        // The hit rate for each emb_table on host, size = # of emb_table
+  bool use_gpu_embedding_cache_;  // whether to use gpu embedding cache
+};
+
+struct EmbeddingCacheRefreshspace {
+  void* d_refresh_embeddingcolumns_;
+  void* h_refresh_embeddingcolumns_;
+  float* d_refresh_emb_vec_;
+  float* h_refresh_emb_vec_;
+  size_t* d_length_;
+  size_t* h_length_;
+};
+
+void merge_emb_vec_async(float* d_vals_merge_dst_ptr, const float* d_vals_retrieved_ptr,
+                         const uint64_t* d_missing_index_ptr, const size_t missing_len,
+                         const size_t emb_vec_size, const size_t BLOCK_SIZE, cudaStream_t stream);
+
+void fill_default_emb_vec_async(float* d_vals_merge_dst_ptr, const float default_emb_vec,
+                                const uint64_t* d_missing_index_ptr, const size_t missing_len,
+                                const size_t emb_vec_size, const size_t BLOCK_SIZE,
+                                cudaStream_t stream);
+
+void decompress_emb_vec_async(const float* d_unique_src_ptr, const uint64_t* d_unique_index_ptr,
+                              float* d_decompress_dst_ptr, const size_t decompress_len,
+                              const size_t emb_vec_size, const size_t BLOCK_SIZE,
+                              cudaStream_t stream);
 
 }  // namespace HugeCTR

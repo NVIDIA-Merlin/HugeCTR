@@ -15,22 +15,22 @@
  */
 
 #pragma once
+#include <common.hpp>
+#include <hps/embedding_cache_base.hpp>
+#include <inference/inference_session_base.hpp>
+#include <inference/preallocated_buffer2.hpp>
+#include <metrics.hpp>
+#include <network.hpp>
+#include <parser.hpp>
 #include <string>
+#include <tensor2.hpp>
 #include <thread>
 #include <utility>
 #include <vector>
 
-#include "HugeCTR/include/common.hpp"
-#include "HugeCTR/include/inference/hugectrmodel.hpp"
-#include "HugeCTR/include/inference/preallocated_buffer2.hpp"
-#include "HugeCTR/include/metrics.hpp"
-#include "HugeCTR/include/network.hpp"
-#include "HugeCTR/include/parser.hpp"
-#include "HugeCTR/include/tensor2.hpp"
-#include "hps/memory_pool.hpp"
 namespace HugeCTR {
 
-class InferenceSession : public HugeCTRModel {
+class InferenceSession : public InferenceSessionBase {
  private:
   nlohmann::json config_;  // should be declared before parser_ and inference_parser_
   std::vector<size_t> embedding_table_slot_size_;
@@ -43,18 +43,11 @@ class InferenceSession : public HugeCTRModel {
 
   std::vector<std::shared_ptr<Layer>> embedding_feature_combiners_;
   std::unique_ptr<Network> network_;
-  std::shared_ptr<embedding_interface> embedding_cache_;
+  std::shared_ptr<EmbeddingCacheBase> embedding_cache_;
 
-  std::vector<size_t> h_embedding_offset_;  // embedding offset to indicate which embeddingcolumns
-                                            // belong to the same embedding table
-  std::vector<int*> d_row_ptrs_vec_;        // row ptrs (on device) for each embedding table
-
-  MemoryBlock* memory_block_;
-  float* d_embeddingvectors_;
-
-  void separate_keys_by_table_(int* d_row_ptrs,
-                               const std::vector<size_t>& embedding_table_slot_size,
-                               int num_samples);
+  int* h_row_ptrs_;
+  void* h_keys_;
+  float* d_embedding_vectors_;
 
  protected:
   InferenceParser inference_parser_;
@@ -63,12 +56,15 @@ class InferenceSession : public HugeCTRModel {
   std::shared_ptr<ResourceManager> resource_manager_;
 
  public:
-  InferenceSession(const std::string& config_file, const InferenceParams& inference_params,
-                   const std::shared_ptr<embedding_interface>& embedding_cache);
   virtual ~InferenceSession();
-  void predict(float* d_dense, void* h_embeddingcolumns, int* d_row_ptrs, float* d_output,
-               int num_samples);
-  const InferenceParser& get_inference_parser() const;
+  InferenceSession(const std::string& model_config_path, const InferenceParams& inference_params,
+                   const std::shared_ptr<EmbeddingCacheBase>& embedding_cache);
+  InferenceSession(InferenceSession const&) = delete;
+  InferenceSession& operator=(InferenceSession const&) = delete;
+
+  virtual void predict(float* d_dense, void* h_embeddingcolumns, int* d_row_ptrs, float* d_output,
+                       int num_samples);
+  const InferenceParser& get_inference_parser() const { return inference_parser_; }
 };
 
 }  // namespace HugeCTR

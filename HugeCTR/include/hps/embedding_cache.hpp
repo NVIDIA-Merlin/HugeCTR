@@ -15,107 +15,73 @@
  */
 
 #pragma once
-#include <hps/embedding_interface.hpp>
-#include <hps/memory_pool.hpp>
+#include <cuda_runtime_api.h>
+
+#include <hps/embedding_cache_base.hpp>
+#include <hps/inference_utils.hpp>
 #include <hps/unique_op/unique_op.hpp>
-#include <iostream>
+#include <memory>
 #include <nv_gpu_cache.hpp>
-#include <parser.hpp>
-#include <string>
-#include <thread>
 #include <thread_pool.hpp>
-#include <utility>
-#include <utils.hpp>
-#include <vector>
 
 namespace HugeCTR {
 
 template <typename TypeHashKey>
-class embedding_cache : public embedding_interface {
+class EmbeddingCache : public EmbeddingCacheBase,
+                       public std::enable_shared_from_this<EmbeddingCache<TypeHashKey>> {
  public:
-  embedding_cache(const std::string& model_config_path, const InferenceParams& inference_params,
-                  HugectrUtility<TypeHashKey>* parameter_server);
+  virtual ~EmbeddingCache();
+  EmbeddingCache(const InferenceParams& inference_params, const parameter_server_config& ps_config,
+                 HierParameterServerBase* const parameter_server);
+  EmbeddingCache(EmbeddingCache const&) = delete;
+  EmbeddingCache& operator=(EmbeddingCache const&) = delete;
 
-  virtual ~embedding_cache();
-
-  // Allocate a copy of workspace memory for a worker, should be called once by a worker
-  virtual embedding_cache_workspace create_workspace();
-
-  // Allocate a copy of refresh space memory for embedding cache versionupdate,
-  virtual embedding_cache_refreshspace create_refreshspace();
-
-  // Free a copy of workspace memory for a worker, should be called once by a worker
-  virtual void destroy_workspace(embedding_cache_workspace& workspace_handler);
-
-  // Free a copy of refresh space for a worker, should be called once by a worker
-  virtual void destroy_refreshspace(embedding_cache_refreshspace& refreshspace_handler);
-
-  virtual embedding_cache_config get_cache_config();
-
-  virtual std::vector<cudaStream_t>& get_refresh_streams();
-
-  virtual void* get_worker_space(const std::string& model_name, int device_id,
-                                 CACHE_SPACE_TYPE space_type = CACHE_SPACE_TYPE::WORKER);
-
-  virtual void free_worker_space(void* p);
-
-  // Query embeddingcolumns
-  virtual bool look_up(
-      const void* h_embeddingcolumns,  // The input emb_id buffer(before shuffle) on host
-      const std::vector<size_t>& h_embedding_offset,  // The input offset on host, size = (# of
-                                                      // samples * # of emb_table) + 1
-      float* d_shuffled_embeddingoutputvector,  // The output buffer for emb_vec result on device
-      MemoryBlock* memory_block,  // The memory block for the handler to the workspace buffers
-      const std::vector<cudaStream_t>&
-          streams,  // The CUDA stream to launch kernel to each emb_cache for each emb_table, size =
-                    // # of emb_table(cache)
-      float hit_rate_threshold = 1.0);
-
-  // Update the embedding cache with missing embeddingcolumns from query API
-  virtual void update(embedding_cache_workspace& workspace_handler,
-                      const std::vector<cudaStream_t>& streams);
-
-  virtual void Dump(int table_id, void* key_buffer, size_t* length, size_t start_index,
+  virtual void lookup(size_t table_id, float* d_vectors, const void* h_keys, size_t num_keys,
+                      float hit_rate_threshold, cudaStream_t stream);
+  virtual void insert(size_t table_id, EmbeddingCacheWorkspace& workspace_handler,
+                      cudaStream_t stream);
+  virtual void dump(size_t table_id, void* d_keys, size_t* d_length, size_t start_index,
                     size_t end_index, cudaStream_t stream);
-
-  virtual void Refresh(int table_id, const void* key_buffer, const float* vec_buffer, size_t length,
+  virtual void refresh(size_t table_id, const void* d_keys, const float* d_vectors, size_t length,
                        cudaStream_t stream);
-
   virtual void finalize();
 
-  virtual int get_device_id() { return cache_config_.cuda_dev_id_; }
+  virtual EmbeddingCacheWorkspace create_workspace();
+  virtual void destroy_workspace(EmbeddingCacheWorkspace&);
+  virtual EmbeddingCacheRefreshspace create_refreshspace();
+  virtual void destroy_refreshspace(EmbeddingCacheRefreshspace&);
 
+  virtual const embedding_cache_config& get_cache_config() { return cache_config_; }
+  virtual const std::vector<cudaStream_t>& get_refresh_streams() { return refresh_streams_; }
+  virtual int get_device_id() { return cache_config_.cuda_dev_id_; }
   virtual bool use_gpu_embedding_cache() { return cache_config_.use_gpu_embedding_cache_; }
 
  private:
   static const size_t BLOCK_SIZE_ = 64;
 
-  // The GPU embedding cache type
-  using cache_ =
-      gpu_cache::gpu_cache<TypeHashKey, uint64_t, std::numeric_limits<TypeHashKey>::max(),
-                           SET_ASSOCIATIVITY, SLAB_SIZE>;
-  // The GPU unique op type
-  using unique_op_ =
+  using Cache = gpu_cache::gpu_cache<TypeHashKey, uint64_t, std::numeric_limits<TypeHashKey>::max(),
+                                     SET_ASSOCIATIVITY, SLAB_SIZE>;
+  using UniqueOp =
       unique_op::unique_op<TypeHashKey, uint64_t, std::numeric_limits<TypeHashKey>::max(),
                            std::numeric_limits<uint64_t>::max()>;
 
-  // The back-end parameter server
-  HugectrUtility<TypeHashKey>* parameter_server_;
-
-  // The shared thread-safe embedding cache
-  std::vector<cache_*> gpu_emb_caches_;
+  // The parameter server that it is bound to
+  HierParameterServerBase* parameter_server_;
 
   // The cache configuration
   embedding_cache_config cache_config_;
 
-  // parameter server insert threads
-  ThreadPool insert_workers_;
+  // The shared thread-safe embedding cache
+  std::vector<std::unique_ptr<Cache>> gpu_emb_caches_;
 
   // streams for asynchronous parameter server insert threads
   std::vector<cudaStream_t> insert_streams_;
 
   // streams for asynchronous parameter server refresh threads
   std::vector<cudaStream_t> refresh_streams_;
+
+  // parameter server insert threads
+  ThreadPool insert_workers_;
 
   // mutex for insert_threads_
   std::mutex mutex_;

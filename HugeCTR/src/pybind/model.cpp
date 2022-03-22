@@ -2297,7 +2297,7 @@ void Model::dump_incremental_model_2kafka() {
   for (unsigned int i = 0; i < sparse_embedding_params_.size(); i++) {
     size_t embedding_size = sparse_embedding_params_[i].embedding_vec_size;
     std::string table_name = sparse_embedding_params_[i].sparse_embedding_name;
-    std::string tag = parameter_server_base::make_tag_name(solver_.model_name, table_name);
+    std::string tag = HierParameterServerBase::make_tag_name(solver_.model_name, table_name);
     const char* vectors_ = reinterpret_cast<const char*>(inc_sparse_model_[i].second.data());
     size_t num_pairs = inc_sparse_model_[i].first.size();
     HCTR_LOG(

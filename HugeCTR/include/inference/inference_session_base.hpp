@@ -14,23 +14,25 @@
  * limitations under the License.
  */
 #pragma once
-#include <string>
-#include <thread>
-#include <utility>
-
-#include "hps/embedding_interface.hpp"
+#include <hps/embedding_cache_base.hpp>
+#include <hps/inference_utils.hpp>
+#include <memory>
 
 namespace HugeCTR {
 
-class HugeCTRModel {
+class InferenceSessionBase {
  public:
-  HugeCTRModel();
-  virtual ~HugeCTRModel();
-  virtual void predict(float* d_dense, void* embeddingcolumns_ptr, int* row_ptr, float* d_output,
+  virtual ~InferenceSessionBase() = 0;
+  InferenceSessionBase() = default;
+  InferenceSessionBase(InferenceSessionBase const&) = delete;
+  InferenceSessionBase& operator=(InferenceSessionBase const&) = delete;
+
+  virtual void predict(float* d_dense, void* h_embeddingcolumns, int* d_row_ptrs, float* d_output,
                        int num_samples) = 0;
-  static HugeCTRModel* load_model(INFER_TYPE Infer_type, const std::string& config_file,
-                                  const InferenceParams& inference_params,
-                                  std::shared_ptr<embedding_interface>& embedding_cache);
+
+  static std::shared_ptr<InferenceSessionBase> create(
+      const std::string& model_config_path, const InferenceParams& inference_params,
+      const std::shared_ptr<EmbeddingCacheBase>& embedding_cache);
 };
 
 }  // namespace HugeCTR
