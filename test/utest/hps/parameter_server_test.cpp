@@ -14,19 +14,20 @@
  * limitations under the License.
  */
 
+#include <cuda_profiler_api.h>
+#include <gtest/gtest.h>
+#include <utest/test_utils.h>
+
 #include <cassert>
+#include <common.hpp>
+#include <data_generator.hpp>
 #include <filesystem>
 #include <fstream>
+#include <general_buffer2.hpp>
+#include <hps/embedding_cache.hpp>
+#include <hps/hier_parameter_server.hpp>
+#include <hps/inference_utils.hpp>
 #include <vector>
-
-#include "HugeCTR/include/common.hpp"
-#include "HugeCTR/include/data_generator.hpp"
-#include "HugeCTR/include/general_buffer2.hpp"
-#include "HugeCTR/include/hps/embedding_interface.hpp"
-#include "HugeCTR/include/hps/inference_utils.hpp"
-#include "cuda_profiler_api.h"
-#include "gtest/gtest.h"
-#include "utest/test_utils.h"
 
 using namespace HugeCTR;
 namespace {
@@ -35,7 +36,7 @@ template <typename TypeHashKey>
 void validate_lookup_result_per_table(const std::string model_config_path,
                                       const InferenceParams inference_params,
                                       const std::vector<size_t> embedding_vec_size,
-                                      HugectrUtility<TypeHashKey>* parameter_server_) {
+                                      std::shared_ptr<HierParameterServerBase> parameter_server) {
   // Create input file stream to read the embedding file
   for (unsigned int j = 0; j < inference_params.sparse_model_files.size(); j++) {
     const std::string emb_file_prefix = inference_params.sparse_model_files[j] + "/";
@@ -79,8 +80,8 @@ void validate_lookup_result_per_table(const std::string model_config_path,
     cudaMallocHost(&h_missing_emb_vec_, embedding_size * sizeof(float));
     for (int i = 0; i < 10; i++) {
       int index = rand() % num_key;
-      parameter_server_->look_up(key_vec.data() + index, 1, h_missing_emb_vec_,
-                                 inference_params.model_name, j);
+      parameter_server->lookup(key_vec.data() + index, 1, h_missing_emb_vec_,
+                               inference_params.model_name, j);
       EXPECT_EQ(vec_vec[index * embedding_size], h_missing_emb_vec_[0]);
       EXPECT_EQ(vec_vec[(index + 1) * embedding_size - 1], h_missing_emb_vec_[embedding_size - 1]);
     }
@@ -117,10 +118,10 @@ void parameter_server_test(const std::string& config_file, const std::string& mo
   infer_param.persistent_db = per_database;
   std::vector<InferenceParams> inference_params{infer_param};
   std::vector<std::string> model_config_path{config_file};
-  HugectrUtility<TypeHashKey>* parameter_server =
-      HugectrUtility<TypeHashKey>::Create_Parameter_Server(INFER_TYPE::TRITON, model_config_path,
-                                                           inference_params);
-  validate_lookup_result_per_table<long long>(model_config_path[0], infer_param, embedding_vec_size,
+  parameter_server_config ps_config{model_config_path, inference_params};
+  std::shared_ptr<HierParameterServerBase> parameter_server =
+      HierParameterServerBase::create(ps_config, inference_params);
+  validate_lookup_result_per_table<long long>(config_file, infer_param, embedding_vec_size,
                                               parameter_server);
 }
 }  // namespace

@@ -18,8 +18,7 @@
 #include <common.hpp>
 #include <cpu/embedding_feature_combiner_cpu.hpp>
 #include <cpu/network_cpu.hpp>
-#include <hps/inference_utils.hpp>
-#include <inference/hugectrmodel.hpp>
+#include <hps/hier_parameter_server.hpp>
 #include <inference/preallocated_buffer2.hpp>
 #include <parser.hpp>
 #include <string>
@@ -31,7 +30,7 @@
 namespace HugeCTR {
 
 template <typename TypeHashKey>
-class InferenceSessionCPU : public HugeCTRModel {
+class InferenceSessionCPU {
  private:
   nlohmann::json config_;
   std::string model_name_;
@@ -43,22 +42,12 @@ class InferenceSessionCPU : public HugeCTRModel {
 
   std::vector<std::shared_ptr<LayerCPU>> embedding_feature_combiners_;
   std::unique_ptr<NetworkCPU> network_;
-  std::shared_ptr<HugectrUtility<TypeHashKey>> parameter_server_;
+  std::shared_ptr<HierParameterServerBase> parameter_server_;
 
-  std::vector<size_t> h_embedding_offset_;
-  std::vector<int*> h_row_ptrs_vec_;
-
-  float* h_embeddingvectors_;
-  void* h_shuffled_embeddingcolumns_;
-  size_t* h_shuffled_embedding_offset_;
+  void* h_keys_;
+  float* h_embedding_vectors_;
 
   std::shared_ptr<CPUResource> cpu_resource_;
-
-  void separate_keys_by_table_(int* h_row_ptrs,
-                               const std::vector<size_t>& embedding_table_slot_size,
-                               int num_samples);
-  void look_up_(const void* h_embeddingcolumns, const std::vector<size_t>& h_embedding_offset,
-                float* h_embeddingvectors);
 
  protected:
   InferenceParser inference_parser_;
@@ -66,7 +55,7 @@ class InferenceSessionCPU : public HugeCTRModel {
 
  public:
   InferenceSessionCPU(const std::string& model_config_path, const InferenceParams& inference_params,
-                      std::shared_ptr<HugectrUtility<TypeHashKey>>& ps);
+                      const std::shared_ptr<HierParameterServerBase>& parameter_server);
   virtual ~InferenceSessionCPU();
   void predict(float* h_dense, void* h_embeddingcolumns, int* h_row_ptrs, float* h_output,
                int num_samples);

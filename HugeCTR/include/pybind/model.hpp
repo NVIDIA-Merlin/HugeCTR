@@ -20,9 +20,9 @@
 #include <exchange_wgrad.hpp>
 #include <graph_wrapper.hpp>
 #include <hdfs_backend.hpp>
+#include <hps/hier_parameter_server.hpp>
 #include <hps/kafka_message.hpp>
 #include <hps/message.hpp>
-#include <hps/parameter_server.hpp>
 #include <loss.hpp>
 #include <metrics.hpp>
 #include <network.hpp>

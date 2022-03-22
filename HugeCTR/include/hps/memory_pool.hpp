@@ -19,7 +19,7 @@
 #include <cuda_runtime_api.h>
 
 #include <base/debug/logger.hpp>
-#include <hps/embedding_interface.hpp>
+#include <hps/embedding_cache.hpp>
 #include <iostream>
 #include <map>
 #include <mutex>
@@ -35,8 +35,8 @@ class MemoryPool;
 class MemoryBlock {
  public:
   MemoryBlock* pNext;  // next mem block
-  embedding_cache_workspace worker_buffer;
-  embedding_cache_refreshspace refresh_buffer;
+  EmbeddingCacheWorkspace worker_buffer;
+  EmbeddingCacheRefreshspace refresh_buffer;
   bool bUsed;        // occupied
   bool bBelong;      // belong to current pool
   MemoryPool* pMem;  // blong to which pool
@@ -49,18 +49,18 @@ class MemoryBlock {
 };
 class MemoryPool {
  public:
-  MemoryPool(size_t nBlock, std::shared_ptr<embedding_interface> embeddinginterface,
+  MemoryPool(size_t nBlock, std::shared_ptr<EmbeddingCacheBase> embedding_cache,
              CACHE_SPACE_TYPE cache_type = CACHE_SPACE_TYPE::WORKER) {
     _nBlock = nBlock;
     _pHeader = nullptr;
     _pBuffer = nullptr;
-    _embeddinginterface = embeddinginterface;
+    _embedding_cache = embedding_cache;
     _cache_type = cache_type;
     InitMemory(cache_type);
   }
-  static MemoryPool* create(size_t nBlock, std::shared_ptr<embedding_interface> embeddinginterface,
+  static MemoryPool* create(size_t nBlock, std::shared_ptr<EmbeddingCacheBase> embedding_cache,
                             CACHE_SPACE_TYPE cache_type = CACHE_SPACE_TYPE::WORKER) {
-    return (new MemoryPool(nBlock, embeddinginterface, cache_type));
+    return (new MemoryPool(nBlock, embedding_cache, cache_type));
   }
   virtual ~MemoryPool() {
     for (size_t i = 0; i < _nBlock; i++) {
@@ -90,11 +90,11 @@ class MemoryPool {
     _pHeader->bUsed = false;
     _pHeader->bBelong = true;
     if (space_type == CACHE_SPACE_TYPE::WORKER) {
-      embedding_cache_workspace worker_buffer = _embeddinginterface->create_workspace();
+      EmbeddingCacheWorkspace worker_buffer = _embedding_cache->create_workspace();
       _pHeader->worker_buffer = (worker_buffer);
     }
     if (space_type == CACHE_SPACE_TYPE::REFRESHER) {
-      embedding_cache_refreshspace refresh_buffer = _embeddinginterface->create_refreshspace();
+      EmbeddingCacheRefreshspace refresh_buffer = _embedding_cache->create_refreshspace();
       _pHeader->refresh_buffer = (refresh_buffer);
     }
     _pHeader->pMem = this;
@@ -104,11 +104,11 @@ class MemoryPool {
       _Alloc[i]->bUsed = false;
       _Alloc[i]->pNext = NULL;
       if (space_type == CACHE_SPACE_TYPE::WORKER) {
-        embedding_cache_workspace worker_buffer = _embeddinginterface->create_workspace();
+        EmbeddingCacheWorkspace worker_buffer = _embedding_cache->create_workspace();
         _Alloc[i]->worker_buffer = (worker_buffer);
       }
       if (space_type == CACHE_SPACE_TYPE::REFRESHER) {
-        embedding_cache_refreshspace refresh_buffer = _embeddinginterface->create_refreshspace();
+        EmbeddingCacheRefreshspace refresh_buffer = _embedding_cache->create_refreshspace();
         _Alloc[i]->refresh_buffer = (refresh_buffer);
       }
       _Alloc[i]->bBelong = true;
@@ -134,10 +134,10 @@ class MemoryPool {
     for (size_t i = 0; i < _nBlock; i++) {
       if (_Alloc[i] != NULL) {
         if (space_type == CACHE_SPACE_TYPE::WORKER) {
-          _embeddinginterface->destroy_workspace(((MemoryBlock*)(_Alloc[i]))->worker_buffer);
+          _embedding_cache->destroy_workspace(((MemoryBlock*)(_Alloc[i]))->worker_buffer);
         }
         if (space_type == CACHE_SPACE_TYPE::REFRESHER) {
-          _embeddinginterface->destroy_refreshspace(((MemoryBlock*)(_Alloc[i]))->refresh_buffer);
+          _embedding_cache->destroy_refreshspace(((MemoryBlock*)(_Alloc[i]))->refresh_buffer);
         }
       }
     }
@@ -146,7 +146,7 @@ class MemoryPool {
  public:
   MemoryBlock* _pBuffer;
   MemoryBlock* _pHeader;
-  std::shared_ptr<embedding_interface> _embeddinginterface;
+  std::shared_ptr<EmbeddingCacheBase> _embedding_cache;
   size_t _nBlock;
   std::mutex _mutex;
   MemoryBlock* _Alloc[MAX_MEMORY_SIZE];
@@ -219,9 +219,9 @@ class ManagerPool {
   }
 
   size_t _ncache = 1;
-  ManagerPool(std::map<std::string, std::map<int64_t, std::shared_ptr<embedding_interface>>>
-                  model_cache_map,
-              inference_memory_pool_size_config memory_pool_config) {
+  ManagerPool(
+      std::map<std::string, std::map<int64_t, std::shared_ptr<EmbeddingCacheBase>>> model_cache_map,
+      inference_memory_pool_size_config memory_pool_config) {
     _model_cache_map = model_cache_map;
     _memory_pool_config = memory_pool_config;
     _create_memory_pool_map(&_model_pool_map, _memory_pool_config.num_woker_buffer_size_per_model,
@@ -240,7 +240,7 @@ class ManagerPool {
 
   void _create_memory_pool_per_model(
       std::string model_name, int pool_size,
-      std::map<int64_t, std::shared_ptr<embedding_interface>> embedding_cache_map,
+      std::map<int64_t, std::shared_ptr<EmbeddingCacheBase>> embedding_cache_map,
       CACHE_SPACE_TYPE space_type) {
     std::map<int64_t, std::shared_ptr<MemoryPool>> device_mempool;
     for (auto& f : embedding_cache_map) {
@@ -258,7 +258,7 @@ class ManagerPool {
   void _create_memory_pool_map(
       std::map<std::string, std::map<int64_t, std::shared_ptr<MemoryPool>>>* model_cache_pool_map,
       std::map<std::string, int> num_cache_per_model, CACHE_SPACE_TYPE space_type) {
-    std::map<std::string, std::map<int64_t, std::shared_ptr<embedding_interface>>>::iterator iter;
+    std::map<std::string, std::map<int64_t, std::shared_ptr<EmbeddingCacheBase>>>::iterator iter;
     for (iter = _model_cache_map.begin(); iter != _model_cache_map.end(); ++iter) {
       std::map<int64_t, std::shared_ptr<MemoryPool>> device_mempool;
       for (auto& f : iter->second) {
@@ -273,7 +273,7 @@ class ManagerPool {
   ~ManagerPool() {}
 
  private:
-  std::map<std::string, std::map<int64_t, std::shared_ptr<embedding_interface>>> _model_cache_map;
+  std::map<std::string, std::map<int64_t, std::shared_ptr<EmbeddingCacheBase>>> _model_cache_map;
   std::map<std::string, std::map<int64_t, std::shared_ptr<MemoryPool>>> _model_pool_map;
   std::map<std::string, std::map<int64_t, std::shared_ptr<MemoryPool>>> _model_refresh_pool_map;
   inference_memory_pool_size_config _memory_pool_config;

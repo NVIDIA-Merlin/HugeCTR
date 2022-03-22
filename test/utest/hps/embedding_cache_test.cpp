@@ -15,20 +15,20 @@
  */
 
 #include <cuda_profiler_api.h>
+#include <gtest/gtest.h>
 #include <omp.h>
+#include <utest/test_utils.h>
 
 #include <algorithm>
 #include <filesystem>
 #include <fstream>
+#include <hps/embedding_cache.hpp>
+#include <hps/hier_parameter_server.hpp>
+#include <hps/memory_pool.hpp>
+#include <parser.hpp>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
-
-#include "HugeCTR/include/hps/embedding_interface.hpp"
-#include "HugeCTR/include/hps/memory_pool.hpp"
-#include "HugeCTR/include/parser.hpp"
-#include "gtest/gtest.h"
-#include "utest/test_utils.h"
 
 #define HIT_RATE_THRESHOLD 0.6
 #define CACHE_SIZE_PERCENTAGE 0.5
@@ -245,10 +245,10 @@ void embedding_cache_test(const std::string& config_file, const std::string& mod
                               0, true, CACHE_SIZE_PERCENTAGE, false);
   infer_param.number_of_worker_buffers_in_pool = num_of_worker * 2;
   std::vector<InferenceParams> inference_params{infer_param};
-  std::shared_ptr<HugectrUtility<TypeHashKey>> parameter_server;
-  parameter_server.reset(HugectrUtility<TypeHashKey>::Create_Parameter_Server(
-      INFER_TYPE::TRITON, model_config_path, inference_params));
-  auto embedding_cache = parameter_server->GetEmbeddingCache(model, 0);
+  parameter_server_config ps_config{model_config_path, inference_params};
+  std::shared_ptr<HierParameterServerBase> parameter_server =
+      HierParameterServerBase::create(ps_config, inference_params);
+  auto embedding_cache = parameter_server->get_embedding_cache(model, 0);
 
   // Each worker start to do inference
 #pragma omp parallel default(none)                                                                \
@@ -271,6 +271,7 @@ void embedding_cache_test(const std::string& config_file, const std::string& mod
     TypeHashKey* h_embeddingcolumns;
     float* h_shuffled_embeddingoutputvector;
     float* h_expected_shuffled_embeddingoutputvector;
+
     HCTR_LIB_THROW(
         cudaHostAlloc((void**)&h_index, feature_per_batch * sizeof(size_t), cudaHostAllocPortable));
     HCTR_LIB_THROW(cudaHostAlloc((void**)&h_embeddingcolumns,
@@ -281,6 +282,7 @@ void embedding_cache_test(const std::string& config_file, const std::string& mod
     HCTR_LIB_THROW(cudaHostAlloc((void**)&h_expected_shuffled_embeddingoutputvector,
                                  feature_per_batch * embedding_vec_size * sizeof(float),
                                  cudaHostAllocPortable));
+
     float* d_shuffled_embeddingoutputvector;
     HCTR_LIB_THROW(cudaMalloc((void**)&d_shuffled_embeddingoutputvector,
                               feature_per_batch * embedding_vec_size * sizeof(float)));
@@ -288,12 +290,6 @@ void embedding_cache_test(const std::string& config_file, const std::string& mod
     std::vector<cudaStream_t> query_streams(num_emb_table);
     for (size_t i = 0; i < num_emb_table; i++) {
       HCTR_LIB_THROW(cudaStreamCreate(&query_streams[i]));
-    }
-    // Apply a memory block for embedding cache look up
-    MemoryBlock* memory_block = NULL;
-    while (memory_block == NULL) {
-      memory_block = reinterpret_cast<MemoryBlock*>(embedding_cache->get_worker_space(
-          infer_param.model_name, infer_param.device_id, CACHE_SPACE_TYPE::WORKER));
     }
     // Random number generator for selecting known embedding ids from embedding table
     IntGenerator<size_t> index_gen(0, row_num - 1);
@@ -347,13 +343,15 @@ void embedding_cache_test(const std::string& config_file, const std::string& mod
           memcpy(dst_emb_vec_pos, src_emb_vec_pos, embedding_vec_size * sizeof(float));
         }
       }
-      // Each worker query the shared embedding cache
-      embedding_cache->look_up((void*)h_embeddingcolumns, h_embedding_offset,
-                               d_shuffled_embeddingoutputvector, memory_block, query_streams);
 
+      // TODO: currently it works for only one table, we do not deal with offset actually
+      for (size_t table_id = 0; table_id < num_emb_table; table_id++) {
+        embedding_cache->lookup(table_id, d_shuffled_embeddingoutputvector, h_embeddingcolumns,
+                                feature_per_batch, 1.0, query_streams[table_id]);
+      }
       // Each worker wait for look_up to complete
-      for (size_t emb_table = 0; emb_table < num_emb_table; emb_table++) {
-        HCTR_LIB_THROW(cudaStreamSynchronize(query_streams[emb_table]));
+      for (size_t table_id = 0; table_id < num_emb_table; table_id++) {
+        HCTR_LIB_THROW(cudaStreamSynchronize(query_streams[table_id]));
       }
       // Each worker copy look_up result back to host
       HCTR_LIB_THROW(cudaMemcpyAsync(h_shuffled_embeddingoutputvector,

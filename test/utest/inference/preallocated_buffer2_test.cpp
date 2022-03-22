@@ -14,15 +14,14 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/inference/preallocated_buffer2.hpp"
+#include <gtest/gtest.h>
+#include <utest/test_utils.h>
 
+#include <data_generator.hpp>
+#include <general_buffer2.hpp>
+#include <gpu_resource.hpp>
+#include <inference/preallocated_buffer2.hpp>
 #include <vector>
-
-#include "HugeCTR/include/data_generator.hpp"
-#include "HugeCTR/include/general_buffer2.hpp"
-#include "HugeCTR/include/gpu_resource.hpp"
-#include "gtest/gtest.h"
-#include "utest/test_utils.h"
 
 using namespace HugeCTR;
 

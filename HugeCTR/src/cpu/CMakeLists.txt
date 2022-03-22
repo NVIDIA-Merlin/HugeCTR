@@ -35,7 +35,7 @@ file(GLOB cpu_inference_src
   create_network_cpu.cpp
   create_embedding_cpu.cpp
   create_pipeline_cpu.cpp
-  session_inference_cpu.cpp
+  inference_session_cpu.cpp
 )
 
 set(CMAKE_CXX_STANDARD 17)

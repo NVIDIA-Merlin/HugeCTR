@@ -72,8 +72,7 @@ file(GLOB huge_ctr_inference_src
   ../parsers/inference_parser.cpp
   ../diagnose.cu
   embedding_feature_combiner.cu
-  hugectrmodel.cpp
-  session_inference.cpp
+  inference_session.cpp
 )
 
 set(CMAKE_CXX_STANDARD 17)

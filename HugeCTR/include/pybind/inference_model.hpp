@@ -16,8 +16,8 @@
 #pragma once
 #include <common.hpp>
 #include <hps/embedding_cache.hpp>
-#include <hps/parameter_server.hpp>
-#include <inference/session_inference.hpp>
+#include <hps/hier_parameter_server.hpp>
+#include <inference/inference_session.hpp>
 #include <utils.hpp>
 
 namespace HugeCTR {
@@ -46,8 +46,7 @@ class InferenceModel {
   std::shared_ptr<ResourceManager> resource_manager_;
 
   std::vector<std::shared_ptr<InferenceSession>> inference_sessions_;
-  std::shared_ptr<HugectrUtility<long long>> ps_64_;
-  std::shared_ptr<HugectrUtility<unsigned int>> ps_32_;
+  std::shared_ptr<HierParameterServerBase> parameter_server_;
   metrics::Metrics metrics_;
 
   std::shared_ptr<IDataReader> data_reader_;

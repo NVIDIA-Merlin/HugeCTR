@@ -14,17 +14,27 @@
  * limitations under the License.
  */
 
-#include <inference/session_inference.hpp>
+#include <inference/inference_session.hpp>
 #include <iostream>
-#include <resource_managers/resource_manager_ext.hpp>
+#include <resource_managers/resource_manager_core.hpp>
 #include <utils.hpp>
 #include <vector>
+
 namespace HugeCTR {
+
+InferenceSessionBase::~InferenceSessionBase() = default;
+
+std::shared_ptr<InferenceSessionBase> InferenceSessionBase::create(
+    const std::string& model_config_path, const InferenceParams& inference_params,
+    const std::shared_ptr<EmbeddingCacheBase>& embedding_cache) {
+  return std::make_shared<InferenceSession>(model_config_path, inference_params, embedding_cache);
+}
 
 InferenceSession::InferenceSession(const std::string& model_config_path,
                                    const InferenceParams& inference_params,
-                                   const std::shared_ptr<embedding_interface>& embedding_cache)
-    : config_(read_json_file(model_config_path)),
+                                   const std::shared_ptr<EmbeddingCacheBase>& embedding_cache)
+    : InferenceSessionBase(),
+      config_(read_json_file(model_config_path)),
       embedding_table_slot_size_({0}),
       embedding_cache_(embedding_cache),
       inference_parser_(config_),
@@ -57,13 +67,18 @@ InferenceSession::InferenceSession(const std::string& model_config_path,
       network_->upload_params_to_device_inference(inference_params_.dense_model_file);
     }
     CudaDeviceContext context(inference_params_.device_id);
-    for (unsigned int idx_embedding_table = 1;
-         idx_embedding_table < embedding_table_slot_size_.size(); ++idx_embedding_table) {
+    for (size_t idx = 0; idx < inference_params_.sparse_model_files.size(); ++idx) {
       cudaStream_t stream;
       cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking);
       streams_.push_back(stream);
     }
-    HCTR_LIB_THROW(cudaMalloc((void**)&d_embeddingvectors_,
+    h_row_ptrs_ = (int*)malloc((inference_params_.max_batchsize * inference_parser_.slot_num +
+                                inference_parser_.num_embedding_tables) *
+                               sizeof(int));
+    // h_keys_ is a void pointer, which serves key types of both long long and unsigned int
+    h_keys_ = malloc(inference_params_.max_batchsize *
+                     inference_parser_.max_feature_num_per_sample * sizeof(long long));
+    HCTR_LIB_THROW(cudaMalloc((void**)&d_embedding_vectors_,
                               inference_params_.max_batchsize *
                                   inference_parser_.max_embedding_vector_size_per_sample *
                                   sizeof(float)));
@@ -76,38 +91,11 @@ InferenceSession::InferenceSession(const std::string& model_config_path,
 
 InferenceSession::~InferenceSession() {
   CudaDeviceContext context(inference_params_.device_id);
-  cudaFree(d_embeddingvectors_);
+  cudaFree(d_embedding_vectors_);
+  free(h_keys_);
+  free(h_row_ptrs_);
   for (auto stream : streams_) cudaStreamDestroy(stream);
 }
-
-void InferenceSession::separate_keys_by_table_(int* d_row_ptrs,
-                                               const std::vector<size_t>& embedding_table_slot_size,
-                                               int num_samples) {
-  size_t slot_num = inference_parser_.slot_num;
-  size_t num_embedding_tables = inference_parser_.num_embedding_tables;
-  size_t row_ptrs_size_sample = num_samples * slot_num + num_embedding_tables;
-  size_t row_ptrs_size_in_bytes_sample = row_ptrs_size_sample * sizeof(int);
-  std::unique_ptr<int[]> h_row_ptrs(new int[row_ptrs_size_sample]);
-  HCTR_LIB_THROW(cudaMemcpyAsync(h_row_ptrs.get(), d_row_ptrs, row_ptrs_size_in_bytes_sample,
-                                 cudaMemcpyDeviceToHost,
-                                 resource_manager_->get_local_gpu(0)->get_stream()));
-  HCTR_LIB_THROW(cudaStreamSynchronize(resource_manager_->get_local_gpu(0)->get_stream()));
-  h_embedding_offset_.resize(num_samples * num_embedding_tables + 1);
-
-  for (int i = 0; i < num_samples; i++) {
-    size_t acc_emb_key_offset = 0;
-    for (int j = 0; j < static_cast<int>(num_embedding_tables); j++) {
-      size_t num_of_feature =
-          h_row_ptrs[(i + 1) * inference_parser_.slot_num_for_tables[j] + acc_emb_key_offset] -
-          h_row_ptrs[i * inference_parser_.slot_num_for_tables[j] + acc_emb_key_offset];
-      h_embedding_offset_[i * num_embedding_tables + j + 1] =
-          h_embedding_offset_[i * num_embedding_tables + j] + num_of_feature;
-      acc_emb_key_offset += num_samples * inference_parser_.slot_num_for_tables[j] + 1;
-    }
-  }
-}
-
-const InferenceParser& InferenceSession::get_inference_parser() const { return inference_parser_; }
 
 void InferenceSession::predict(float* d_dense, void* h_embeddingcolumns, int* d_row_ptrs,
                                float* d_output, int num_samples) {
@@ -117,31 +105,57 @@ void InferenceSession::predict(float* d_dense, void* h_embeddingcolumns, int* d_
       num_embedding_tables != embedding_feature_combiners_.size()) {
     HCTR_OWN_THROW(Error_t::IllegalCall, "embedding feature combiner inconsistent");
   }
+  // Copy row_ptrs to host
+  HCTR_LIB_THROW(cudaMemcpy(
+      h_row_ptrs_, d_row_ptrs,
+      (num_samples * inference_parser_.slot_num + inference_parser_.num_embedding_tables) *
+          sizeof(int),
+      cudaMemcpyDeviceToHost));
+
+  // Redistribute keys ：from sample first to table first
+  if (inference_params_.i64_input_key) {
+    distribute_keys_per_table(static_cast<long long*>(h_keys_),
+                              static_cast<long long*>(h_embeddingcolumns), h_row_ptrs_, num_samples,
+                              inference_parser_.slot_num_for_tables);
+  } else {
+    distribute_keys_per_table(static_cast<unsigned int*>(h_keys_),
+                              static_cast<unsigned int*>(h_embeddingcolumns), h_row_ptrs_,
+                              num_samples, inference_parser_.slot_num_for_tables);
+  }
+
   CudaDeviceContext context(resource_manager_->get_local_gpu(0)->get_device_id());
-
-  // apply the memory block for embedding cache workspace
-  memory_block_ = NULL;
-  while (memory_block_ == NULL) {
-    memory_block_ = reinterpret_cast<struct MemoryBlock*>(embedding_cache_->get_worker_space(
-        inference_params_.model_name, inference_params_.device_id, CACHE_SPACE_TYPE::WORKER));
+  // embedding_cache lookup
+  size_t acc_vectors_offset{0};
+  size_t acc_row_ptrs_offset{0};
+  size_t acc_keys_offset{0};
+  size_t num_keys{0};
+  for (size_t i = 0; i < num_embedding_tables; ++i) {
+    acc_row_ptrs_offset += num_samples * inference_parser_.slot_num_for_tables[i] + 1;
+    num_keys = h_row_ptrs_[acc_row_ptrs_offset - 1];
+    if (inference_params_.i64_input_key) {
+      embedding_cache_->lookup(i, d_embedding_vectors_ + acc_vectors_offset,
+                               static_cast<const long long*>(h_keys_) + acc_keys_offset, num_keys,
+                               inference_params_.hit_rate_threshold, streams_[i]);
+    } else {
+      embedding_cache_->lookup(i, d_embedding_vectors_ + acc_vectors_offset,
+                               static_cast<const unsigned int*>(h_keys_) + acc_keys_offset,
+                               num_keys, inference_params_.hit_rate_threshold, streams_[i]);
+    }
+    acc_keys_offset += num_keys;
+    acc_vectors_offset += inference_params_.max_batchsize *
+                          inference_parser_.max_feature_num_for_tables[i] *
+                          inference_parser_.embed_vec_size_for_tables[i];
   }
-  // embedding cache look up and update
-  separate_keys_by_table_(d_row_ptrs, embedding_table_slot_size_, num_samples);
-  bool sync_flag =
-      embedding_cache_->look_up(h_embeddingcolumns, h_embedding_offset_, d_embeddingvectors_,
-                                memory_block_, streams_, inference_params_.hit_rate_threshold);
-  // free the memory block for the current embedding cache
-  if (sync_flag) {
-    embedding_cache_->free_worker_space(memory_block_);
+  for (size_t i = 0; i < num_embedding_tables; ++i) {
+    HCTR_LIB_THROW(cudaStreamSynchronize(streams_[i]));
   }
 
-  // copy dense input to dense tensor
+  // convert dense input to dense tensor
   auto dense_dims = dense_input_tensorbag_.get_dimensions();
   size_t dense_size = 1;
   for (auto dim : dense_dims) {
     dense_size *= dim;
   }
-
   if (inference_params_.use_mixed_precision) {
     convert_array_on_device(reinterpret_cast<__half*>(dense_input_tensorbag_.get_ptr()), d_dense,
                             dense_size, resource_manager_->get_local_gpu(0)->get_stream());
@@ -150,32 +164,33 @@ void InferenceSession::predict(float* d_dense, void* h_embeddingcolumns, int* d_
                             dense_size, resource_manager_->get_local_gpu(0)->get_stream());
   }
 
-  size_t acc_emb_table_offset = 0;
-  size_t acc_emb_row_offset = 0;
-  for (int j = 0; j < static_cast<int>(num_embedding_tables); j++) {
+  acc_vectors_offset = 0;
+  acc_row_ptrs_offset = 0;
+  for (size_t i = 0; i < num_embedding_tables; ++i) {
     // bind row ptrs input to row ptrs tensor
-    auto row_ptrs_dims = row_ptrs_tensors_[j]->get_dimensions();
+    auto row_ptrs_dims = row_ptrs_tensors_[i]->get_dimensions();
     std::shared_ptr<TensorBuffer2> row_ptrs_buff =
-        PreallocatedBuffer2<int>::create(d_row_ptrs + acc_emb_row_offset, row_ptrs_dims);
-    bind_tensor_to_buffer(row_ptrs_dims, row_ptrs_buff, row_ptrs_tensors_[j]);
-    acc_emb_row_offset += num_samples * inference_parser_.slot_num_for_tables[j] + 1;
+        PreallocatedBuffer2<int>::create(d_row_ptrs + acc_row_ptrs_offset, row_ptrs_dims);
+    bind_tensor_to_buffer(row_ptrs_dims, row_ptrs_buff, row_ptrs_tensors_[i]);
+    acc_row_ptrs_offset += num_samples * inference_parser_.slot_num_for_tables[i] + 1;
 
     // bind embedding vectors from looking up to embedding features tensor
-    auto embedding_features_dims = embedding_features_tensors_[j]->get_dimensions();
+    auto embedding_features_dims = embedding_features_tensors_[i]->get_dimensions();
     std::shared_ptr<TensorBuffer2> embeddding_features_buff = PreallocatedBuffer2<float>::create(
-        d_embeddingvectors_ + acc_emb_table_offset, embedding_features_dims);
+        d_embedding_vectors_ + acc_vectors_offset, embedding_features_dims);
     bind_tensor_to_buffer(embedding_features_dims, embeddding_features_buff,
-                          embedding_features_tensors_[j]);
-    acc_emb_table_offset += inference_params_.max_batchsize *
-                            inference_parser_.max_feature_num_for_tables[j] *
-                            inference_parser_.embed_vec_size_for_tables[j];
-    // feature combiner & dense network feedforward, they are both using
-    // resource_manager_->get_local_gpu(0)->get_stream()
-    embedding_feature_combiners_[j]->fprop(false);
+                          embedding_features_tensors_[i]);
+    acc_vectors_offset += inference_params_.max_batchsize *
+                          inference_parser_.max_feature_num_for_tables[i] *
+                          inference_parser_.embed_vec_size_for_tables[i];
+    // feature combiner feedforward
+    embedding_feature_combiners_[i]->fprop(false);
   }
+
+  // dense network feedforward
   network_->predict();
 
-  // copy the prediction result to output
+  // convert the prediction result to output
   if (inference_params_.use_mixed_precision) {
     convert_array_on_device(d_output, network_->get_pred_tensor_half().get_ptr(),
                             network_->get_pred_tensor_half().get_num_elements(),

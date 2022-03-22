@@ -14,19 +14,20 @@
  * limitations under the License.
  */
 
+#include <cuda_profiler_api.h>
+#include <gtest/gtest.h>
+#include <utest/test_utils.h>
+
 #include <cassert>
+#include <common.hpp>
+#include <data_generator.hpp>
 #include <filesystem>
 #include <fstream>
+#include <general_buffer2.hpp>
+#include <hps/embedding_cache.hpp>
+#include <hps/hier_parameter_server.hpp>
+#include <utils.hpp>
 #include <vector>
-
-#include "HugeCTR/include/common.hpp"
-#include "HugeCTR/include/data_generator.hpp"
-#include "HugeCTR/include/general_buffer2.hpp"
-#include "HugeCTR/include/hps/embedding_interface.hpp"
-#include "HugeCTR/include/utils.hpp"
-#include "cuda_profiler_api.h"
-#include "gtest/gtest.h"
-#include "utest/test_utils.h"
 
 using namespace HugeCTR;
 namespace {
@@ -97,7 +98,8 @@ template <typename TypeHashKey>
 void parameter_server_test(const std::string& config_file, const std::string& model,
                            const std::string& dense_model, std::vector<std::string>& sparse_models,
                            const std::vector<size_t>& embedding_vec_size,
-                           const std::vector<size_t>& embedding_feature_num, size_t max_batch_size,
+                           const std::vector<size_t>& embedding_feature_num,
+                           const std::vector<size_t>& slot_num_per_table, size_t max_batch_size,
                            float hit_rate_threshold, size_t max_iterations,
                            DatabaseType_t database_t = DatabaseType_t::ParallelHashMap) {
   VolatileDatabaseParams dis_database;
@@ -126,10 +128,10 @@ void parameter_server_test(const std::string& config_file, const std::string& mo
   std::vector<std::string> model_config_path{config_file};
 
   // Create parameter server and get embedding cache
-  std::shared_ptr<HugectrUtility<TypeHashKey>> parameter_server;
-  parameter_server.reset(HugectrUtility<TypeHashKey>::Create_Parameter_Server(
-      INFER_TYPE::TRITON, model_config_path, inference_params));
-  auto embedding_cache = parameter_server->GetEmbeddingCache(model, 0);
+  parameter_server_config ps_config{model_config_path, inference_params};
+  std::shared_ptr<HierParameterServerBase> parameter_server =
+      HierParameterServerBase::create(ps_config, inference_params);
+  auto embedding_cache = parameter_server->get_embedding_cache(model, 0);
 
   // Read embedding files as ground truth
   std::vector<std::vector<TypeHashKey>> key_vec_per_table;
@@ -145,18 +147,26 @@ void parameter_server_test(const std::string& config_file, const std::string& mo
   for (size_t i = 0; i < num_emb_table; i++) {
     vec_length_per_batch += max_batch_size * embedding_feature_num[i] * embedding_vec_size[i];
   }
-  std::vector<size_t> h_embedding_offset(max_batch_size * num_emb_table + 1, 0);
-  for (size_t i = 0; i < max_batch_size; i++) {
-    for (size_t j = 0; j < num_emb_table; j++) {
-      h_embedding_offset[i * num_emb_table + j + 1] =
-          h_embedding_offset[i * num_emb_table + j] + embedding_feature_num[j];
-    }
+
+  size_t slot_num = std::accumulate(slot_num_per_table.begin(), slot_num_per_table.end(), 0);
+  std::vector<std::vector<int>> h_row_ptrs_per_table(num_emb_table);
+  for (size_t i = 0; i < num_emb_table; i++) {
+    h_row_ptrs_per_table[i].resize(max_batch_size * slot_num_per_table[i] + 1);
+    // All slots are one-hot
+    std::iota(h_row_ptrs_per_table[i].begin(), h_row_ptrs_per_table[i].end(), 0);
   }
-  TypeHashKey* h_embeddingcolumns;
+  TypeHashKey* h_embeddingcolumns;  // sample first layout
+  TypeHashKey* h_keys;              // table first layout
+  int* h_row_ptrs;
   float* d_embeddingvector;
   float* h_embeddingvector;
   float* h_embeddingvector_gt;
   HCTR_LIB_THROW(cudaHostAlloc((void**)&h_embeddingcolumns, key_per_batch * sizeof(TypeHashKey),
+                               cudaHostAllocPortable));
+  HCTR_LIB_THROW(
+      cudaHostAlloc((void**)&h_keys, key_per_batch * sizeof(TypeHashKey), cudaHostAllocPortable));
+  HCTR_LIB_THROW(cudaHostAlloc((void**)&h_row_ptrs,
+                               (max_batch_size * slot_num + num_emb_table) * sizeof(int),
                                cudaHostAllocPortable));
   HCTR_LIB_THROW(cudaHostAlloc((void**)&h_embeddingvector, vec_length_per_batch * sizeof(float),
                                cudaHostAllocPortable));
@@ -168,28 +178,43 @@ void parameter_server_test(const std::string& config_file, const std::string& mo
     HCTR_LIB_THROW(cudaStreamCreate(&query_streams[i]));
   }
 
+  // Copy from h_row_ptrs_per_table to h_row_ptrs
+  size_t acc_row_ptrs_offset{0};
+  for (size_t i = 0; i < num_emb_table; i++) {
+    memcpy(h_row_ptrs + acc_row_ptrs_offset, h_row_ptrs_per_table[i].data(),
+           h_row_ptrs_per_table[i].size() * sizeof(int));
+    acc_row_ptrs_offset += h_row_ptrs_per_table[i].size();
+  }
+
   // Embedding cache lookup for multiple time
-  MemoryBlock* memory_block;
-  bool sync_flag;
   std::vector<size_t> vector_layout_offset(num_emb_table, 0);
   for (size_t i = 1; i < num_emb_table; i++) {
     vector_layout_offset[i] = vector_layout_offset[i - 1] + max_batch_size *
                                                                 embedding_feature_num[i - 1] *
                                                                 embedding_vec_size[i - 1];
   }
+
   auto embedding_cache_look_up = [&]() {
-    memory_block = NULL;
-    while (memory_block == NULL) {
-      memory_block = reinterpret_cast<MemoryBlock*>(embedding_cache->get_worker_space(
-          infer_param.model_name, infer_param.device_id, CACHE_SPACE_TYPE::WORKER));
+    // Redistribute keys ：from sample first to table first
+    distribute_keys_per_table(h_keys, h_embeddingcolumns, h_row_ptrs, max_batch_size,
+                              slot_num_per_table);
+    size_t acc_vectors_offset{0};
+    size_t acc_keys_offset{0};
+    size_t num_keys{0};
+    for (size_t table_id = 0; table_id < num_emb_table; table_id++) {
+      num_keys = h_row_ptrs_per_table[table_id].back();
+      embedding_cache->lookup(table_id, d_embeddingvector + acc_vectors_offset,
+                              h_keys + acc_keys_offset, num_keys, hit_rate_threshold,
+                              query_streams[table_id]);
+      acc_keys_offset += num_keys;
+      acc_vectors_offset +=
+          max_batch_size * embedding_feature_num[table_id] * embedding_vec_size[table_id];
     }
-    sync_flag =
-        embedding_cache->look_up((void*)h_embeddingcolumns, h_embedding_offset, d_embeddingvector,
-                                 memory_block, query_streams, hit_rate_threshold);
-    if (sync_flag) {
-      embedding_cache->free_worker_space(memory_block);
+    for (size_t table_id = 0; table_id < num_emb_table; table_id++) {
+      HCTR_LIB_THROW(cudaStreamSynchronize(query_streams[table_id]));
     }
   };
+
   for (size_t i = 0; i < max_iterations; i++) {
     size_t key_offset{0};
     size_t vec_offset{0};
@@ -239,6 +264,8 @@ void parameter_server_test(const std::string& config_file, const std::string& mo
     HCTR_LIB_THROW(cudaStreamDestroy(query_streams[i]));
   }
   HCTR_LIB_THROW(cudaFreeHost(h_embeddingcolumns));
+  HCTR_LIB_THROW(cudaFreeHost(h_keys));
+  HCTR_LIB_THROW(cudaFreeHost(h_row_ptrs));
   HCTR_LIB_THROW(cudaFreeHost(h_embeddingvector));
   HCTR_LIB_THROW(cudaFreeHost(h_embeddingvector_gt));
   HCTR_LIB_THROW(cudaFree(d_embeddingvector));
@@ -253,48 +280,55 @@ std::vector<std::string> sparse_models{"/models/wdl/1/wdl0_sparse_20000.model",
                                        "/models/wdl/1/wdl1_sparse_20000.model"};
 std::vector<size_t> embedding_vec_size_wdl{1, 16};
 std::vector<size_t> embedding_featre_num_wdl{2, 26};
+std::vector<size_t> slot_num_per_table_wdl{2, 26};
 TEST(parameter_server, CPU_look_up_1x00x1) {
-  parameter_server_test<long long>(network, model_name, dense_model, sparse_models,
-                                   embedding_vec_size_wdl, embedding_featre_num_wdl, 1, 0.f, 1,
-                                   DatabaseType_t::ParallelHashMap);
+  parameter_server_test<long long>(
+      network, model_name, dense_model, sparse_models, embedding_vec_size_wdl,
+      embedding_featre_num_wdl, slot_num_per_table_wdl, 1, 0.f, 1, DatabaseType_t::ParallelHashMap);
 }
 TEST(parameter_server, CPU_look_up_1x10x1) {
-  parameter_server_test<long long>(network, model_name, dense_model, sparse_models,
-                                   embedding_vec_size_wdl, embedding_featre_num_wdl, 1, 1.f, 1,
-                                   DatabaseType_t::ParallelHashMap);
+  parameter_server_test<long long>(
+      network, model_name, dense_model, sparse_models, embedding_vec_size_wdl,
+      embedding_featre_num_wdl, slot_num_per_table_wdl, 1, 1.f, 1, DatabaseType_t::ParallelHashMap);
 }
 TEST(parameter_server, CPU_look_up_1x00x100) {
   parameter_server_test<long long>(network, model_name, dense_model, sparse_models,
-                                   embedding_vec_size_wdl, embedding_featre_num_wdl, 1, 0.f, 100,
+                                   embedding_vec_size_wdl, embedding_featre_num_wdl,
+                                   slot_num_per_table_wdl, 1, 0.f, 100,
                                    DatabaseType_t::ParallelHashMap);
 }
 TEST(parameter_server, CPU_look_up_1x10x100) {
   parameter_server_test<long long>(network, model_name, dense_model, sparse_models,
-                                   embedding_vec_size_wdl, embedding_featre_num_wdl, 1, 1.f, 100,
+                                   embedding_vec_size_wdl, embedding_featre_num_wdl,
+                                   slot_num_per_table_wdl, 1, 1.f, 100,
                                    DatabaseType_t::ParallelHashMap);
 }
 TEST(parameter_server, CPU_look_up_1024x00x100) {
   parameter_server_test<long long>(network, model_name, dense_model, sparse_models,
-                                   embedding_vec_size_wdl, embedding_featre_num_wdl, 1024, 0.f, 100,
+                                   embedding_vec_size_wdl, embedding_featre_num_wdl,
+                                   slot_num_per_table_wdl, 1024, 0.f, 100,
                                    DatabaseType_t::ParallelHashMap);
 }
 TEST(parameter_server, CPU_look_up_1024x10x100) {
   parameter_server_test<long long>(network, model_name, dense_model, sparse_models,
-                                   embedding_vec_size_wdl, embedding_featre_num_wdl, 1024, 1.f, 100,
+                                   embedding_vec_size_wdl, embedding_featre_num_wdl,
+                                   slot_num_per_table_wdl, 1024, 1.f, 100,
                                    DatabaseType_t::ParallelHashMap);
 }
 TEST(parameter_server, CPU_look_up_1024x05x100) {
   parameter_server_test<long long>(network, model_name, dense_model, sparse_models,
-                                   embedding_vec_size_wdl, embedding_featre_num_wdl, 1024, 0.5f,
-                                   100, DatabaseType_t::ParallelHashMap);
+                                   embedding_vec_size_wdl, embedding_featre_num_wdl,
+                                   slot_num_per_table_wdl, 1024, 0.5f, 100,
+                                   DatabaseType_t::ParallelHashMap);
 }
 TEST(parameter_server, Rocksdb_look_up_1024x00x100) {
   parameter_server_test<long long>(network, model_name, dense_model, sparse_models,
-                                   embedding_vec_size_wdl, embedding_featre_num_wdl, 1024, 0.f, 100,
-                                   DatabaseType_t::RocksDB);
+                                   embedding_vec_size_wdl, embedding_featre_num_wdl,
+                                   slot_num_per_table_wdl, 1024, 0.f, 100, DatabaseType_t::RocksDB);
 }
 TEST(parameter_server, Redis_look_up_1024x00x100) {
   parameter_server_test<long long>(network, model_name, dense_model, sparse_models,
-                                   embedding_vec_size_wdl, embedding_featre_num_wdl, 1024, 0.f, 100,
+                                   embedding_vec_size_wdl, embedding_featre_num_wdl,
+                                   slot_num_per_table_wdl, 1024, 0.f, 100,
                                    DatabaseType_t::RedisCluster);
 }

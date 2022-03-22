@@ -15,18 +15,18 @@
  */
 
 #include <cuda_profiler_api.h>
+#include <gtest/gtest.h>
+#include <utest/test_utils.h>
 
+#include <cpu/embedding_feature_combiner_cpu.hpp>
+#include <cpu/inference_session_cpu.hpp>
+#include <data_generator.hpp>
 #include <fstream>
+#include <general_buffer2.hpp>
+#include <hps/hier_parameter_server.hpp>
+#include <hps/inference_utils.hpp>
+#include <utils.hpp>
 #include <vector>
-
-#include "HugeCTR/include/cpu/embedding_feature_combiner_cpu.hpp"
-#include "HugeCTR/include/cpu/session_inference_cpu.hpp"
-#include "HugeCTR/include/data_generator.hpp"
-#include "HugeCTR/include/general_buffer2.hpp"
-#include "HugeCTR/include/hps/inference_utils.hpp"
-#include "HugeCTR/include/utils.hpp"
-#include "gtest/gtest.h"
-#include "utest/test_utils.h"
 
 using namespace HugeCTR;
 
@@ -224,9 +224,9 @@ void session_inference_criteo_test(const std::string& config_file, const std::st
                               false);
   std::vector<InferenceParams> inference_params{infer_param};
   std::vector<std::string> model_config_path{config_file};
-  std::shared_ptr<HugectrUtility<TypeHashKey>> parameter_server(
-      HugectrUtility<TypeHashKey>::Create_Parameter_Server(INFER_TYPE::TRITON, model_config_path,
-                                                           inference_params));
+  parameter_server_config ps_config{model_config_path, inference_params};
+  std::shared_ptr<HierParameterServerBase> parameter_server =
+      HierParameterServerBase::create(ps_config, inference_params);
   InferenceSessionCPU<TypeHashKey> sess(model_config_path[0], inference_params[0],
                                         parameter_server);
   timer_inference.start();
@@ -310,9 +310,9 @@ void session_inference_generated_test(const std::string& config_file, const std:
                               false);
   std::vector<InferenceParams> inference_params{infer_param};
   std::vector<std::string> model_config_path{config_file};
-  std::shared_ptr<HugectrUtility<TypeHashKey>> parameter_server(
-      HugectrUtility<TypeHashKey>::Create_Parameter_Server(INFER_TYPE::TRITON, model_config_path,
-                                                           inference_params));
+  parameter_server_config ps_config{model_config_path, inference_params};
+  std::shared_ptr<HierParameterServerBase> parameter_server =
+      HierParameterServerBase::create(ps_config, inference_params);
   InferenceSessionCPU<TypeHashKey> sess(model_config_path[0], inference_params[0],
                                         parameter_server);
   timer_inference.start();

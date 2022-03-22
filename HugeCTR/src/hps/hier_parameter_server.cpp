@@ -14,49 +14,54 @@
  * limitations under the License.
  */
 
-#include <limits.h>
-
-#include <chrono>
-#include <cstdio>
 #include <filesystem>
 #include <hps/hash_map_backend.hpp>
+#include <hps/hier_parameter_server.hpp>
 #include <hps/kafka_message.hpp>
-#include <hps/parameter_server.hpp>
 #include <hps/redis_backend.hpp>
 #include <hps/rocksdb_backend.hpp>
 #include <regex>
 
-// TODO: Remove me!
-#pragma GCC diagnostic error "-Wconversion"
-
 namespace HugeCTR {
 
-parameter_server_base::~parameter_server_base() {}
-
-std::string parameter_server_base::make_tag_name(const std::string& model_name,
-                                                 const std::string& embedding_table) {
+std::string HierParameterServerBase::make_tag_name(const std::string& model_name,
+                                                   const std::string& embedding_table_name) {
   static const std::regex syntax{"[a-zA-Z0-9_\\-]{1,120}"};
   HCTR_CHECK_HINT(std::regex_match(model_name, syntax), "The provided 'model_name' is invalid!");
-  HCTR_CHECK_HINT(std::regex_match(embedding_table, syntax),
-                  "The provided 'embedding_table' is invalid!");
+  HCTR_CHECK_HINT(std::regex_match(embedding_table_name, syntax),
+                  "The provided 'embedding_table_name' is invalid!");
 
   std::ostringstream os;
   os << PS_EMBEDDING_TABLE_TAG_PREFIX << '.';
-  os << model_name << '.' << embedding_table;
+  os << model_name << '.' << embedding_table_name;
   return os.str();
 }
 
-template <typename TypeHashKey>
-parameter_server<TypeHashKey>::parameter_server(
-    const std::string& framework_name, const std::vector<std::string>& model_config_path,
-    std::vector<InferenceParams>& inference_params_array)
-    : framework_name_(framework_name) {
-  // Store the configuration
-  if (model_config_path.size() != inference_params_array.size()) {
-    HCTR_OWN_THROW(Error_t::WrongInput, "Wrong input: The size of input args are not consistent.");
+std::shared_ptr<HierParameterServerBase> HierParameterServerBase::create(
+    const parameter_server_config& ps_config,
+    std::vector<InferenceParams>& inference_params_array) {
+  HCTR_CHECK_HINT(inference_params_array.size() > 0, "inference_params_array should not be empty");
+  for (size_t i = 0; i < inference_params_array.size(); i++) {
+    if (inference_params_array[i].i64_input_key != inference_params_array[0].i64_input_key) {
+      HCTR_OWN_THROW(Error_t::WrongInput,
+                     "Inconsistent key types for different models. Parameter server does not "
+                     "support hybrid key types.");
+    }
   }
+  if (inference_params_array[0].i64_input_key) {
+    return std::make_shared<HierParameterServer<long long>>(ps_config, inference_params_array);
+  } else {
+    return std::make_shared<HierParameterServer<unsigned int>>(ps_config, inference_params_array);
+  }
+}
 
-  for (size_t i = 0; i < model_config_path.size(); i++) {
+HierParameterServerBase::~HierParameterServerBase() = default;
+
+template <typename TypeHashKey>
+HierParameterServer<TypeHashKey>::HierParameterServer(
+    const parameter_server_config& ps_config, std::vector<InferenceParams>& inference_params_array)
+    : HierParameterServerBase(), ps_config_(ps_config) {
+  for (size_t i = 0; i < inference_params_array.size(); i++) {
     if (inference_params_array[i].volatile_db != inference_params_array[0].volatile_db ||
         inference_params_array[i].persistent_db != inference_params_array[0].persistent_db) {
       HCTR_OWN_THROW(
@@ -64,12 +69,11 @@ parameter_server<TypeHashKey>::parameter_server(
           "Inconsistent database setup. HugeCTR paramter server does currently not support hybrid "
           "database deployment.");
     }
-    parse_networks_per_model(model_config_path[i], inference_params_array[i]);
   }
 
-  if (ps_config_.distributed_emb_.size() != model_config_path.size() ||
-      ps_config_.embedding_vec_size_.size() != model_config_path.size() ||
-      ps_config_.default_emb_vec_value_.size() != model_config_path.size()) {
+  if (ps_config_.distributed_emb_.size() != inference_params_array.size() ||
+      ps_config_.embedding_vec_size_.size() != inference_params_array.size() ||
+      ps_config_.default_emb_vec_value_.size() != inference_params_array.size()) {
     HCTR_OWN_THROW(Error_t::WrongInput,
                    "Wrong input: The size of parameter server parameters are not correct.");
   }
@@ -174,136 +178,31 @@ parameter_server<TypeHashKey>::parameter_server(
   }
 
   // Load embeddings for each embedding table from each model
-  for (size_t i = 0; i < model_config_path.size(); i++) {
-    update_database_per_model(model_config_path[i], inference_params_array[i]);
+  for (size_t i = 0; i < inference_params_array.size(); i++) {
+    update_database_per_model(inference_params_array[i]);
   }
 
+  std::vector<std::string> model_config_path(inference_params_array.size());
   // Initilize embedding cache for each embedding table of each model
-  for (size_t i = 0; i < model_config_path.size(); i++) {
-    //*********
-    // The operation here is just to keep the logic of device_id in the python api
-    // unchanged
-    //*********
-    create_embedding_cache_per_model(model_config_path[i], inference_params_array[i]);
+  for (size_t i = 0; i < inference_params_array.size(); i++) {
+    create_embedding_cache_per_model(inference_params_array[i]);
   }
-
-  bufferpool.reset(new ManagerPool(model_cache_map, memory_pool_config));
+  buffer_pool_.reset(new ManagerPool(model_cache_map_, memory_pool_config_));
 }
 
 template <typename TypeHashKey>
-void parameter_server<TypeHashKey>::parse_networks_per_model(
-    const std::string& model_config_path, InferenceParams& inference_params_array) {
-  // Initialize <model_name, id> map
-  if (ps_config_.model_name_id_map_.count(inference_params_array.model_name) == 0) {
-    ps_config_.model_name_id_map_.emplace(inference_params_array.model_name,
-                                          (size_t)ps_config_.model_name_id_map_.size());
-  }
-
-  // Initialize for each model
-  // Open model config file and input model json config
-  nlohmann::json model_config(read_json_file(model_config_path));
-
-  // Read inference config
-  std::vector<std::string> emb_file_path;
-  if (inference_params_array.sparse_model_files.size() > 1) {
-    for (size_t j = 0; j < inference_params_array.sparse_model_files.size(); j++) {
-      emb_file_path.emplace_back(inference_params_array.sparse_model_files[j]);
-    }
-  } else {
-    emb_file_path.emplace_back(inference_params_array.sparse_model_files[0]);
-  }
-  ps_config_.emb_file_name_[inference_params_array.model_name] = (emb_file_path);
-
-  // Read embedding layer config
-  std::vector<bool> distributed_emb;
-  std::vector<size_t> embedding_vec_size;
-  std::vector<float> default_emb_vec_value;
-  std::vector<std::string> emb_table_name;
-
-  // Search for all embedding layers
-  const nlohmann::json& layers = get_json(model_config, "layers");
-  for (size_t j = 1; j < layers.size(); j++) {
-    const nlohmann::json& layer = layers[j];
-    std::string embedding_type = get_value_from_json<std::string>(layer, "type");
-    if (embedding_type.compare("DistributedSlotSparseEmbeddingHash") == 0) {
-      distributed_emb.emplace_back(true);
-      // parse embedding table name from network json file
-      emb_table_name.emplace_back(get_value_from_json<std::string>(layer, "top"));
-      const nlohmann::json& embedding_hparam = get_json(layer, "sparse_embedding_hparam");
-      embedding_vec_size.emplace_back(
-          get_value_from_json<size_t>(embedding_hparam, "embedding_vec_size"));
-      default_emb_vec_value.emplace_back(
-          get_value_from_json_soft<float>(embedding_hparam, "default_emb_vec_value", 0.0f));
-    } else if (embedding_type.compare("LocalizedSlotSparseEmbeddingHash") == 0 ||
-               embedding_type.compare("LocalizedSlotSparseEmbeddingOneHot") == 0) {
-      distributed_emb.emplace_back(false);
-      emb_table_name.emplace_back(get_value_from_json<std::string>(layer, "top"));
-      const nlohmann::json& embedding_hparam = get_json(layer, "sparse_embedding_hparam");
-      embedding_vec_size.emplace_back(
-          get_value_from_json<size_t>(embedding_hparam, "embedding_vec_size"));
-      default_emb_vec_value.emplace_back(
-          get_value_from_json_soft<float>(embedding_hparam, "default_emb_vec_value", 0.0f));
-    } else {
-      break;
+HierParameterServer<TypeHashKey>::~HierParameterServer() {
+  for (auto it = model_cache_map_.begin(); it != model_cache_map_.end(); it++) {
+    for (auto& v : it->second) {
+      v.second->finalize();
     }
   }
-  ps_config_.distributed_emb_.emplace_back(distributed_emb);
-  ps_config_.emb_table_name_[inference_params_array.model_name] = emb_table_name;
-  ps_config_.embedding_vec_size_[inference_params_array.model_name] = embedding_vec_size;
-  ps_config_.default_emb_vec_value_.emplace_back(
-      inference_params_array.default_value_for_each_table);
+  buffer_pool_->DestoryManagerPool();
 }
 
 template <typename TypeHashKey>
-void parameter_server<TypeHashKey>::destory_embedding_cache_per_model(
-    const std::string& model_name) {
-  if (model_cache_map.find(model_name) != model_cache_map.end()) {
-    for (auto& f : model_cache_map[model_name]) {
-      f.second->finalize();
-    }
-    model_cache_map.erase(model_name);
-  }
-  bufferpool->DestoryManagerPool(model_name);
-}
-
-template <typename TypeHashKey>
-void parameter_server<TypeHashKey>::create_embedding_cache_per_model(
-    const std::string& model_config_path, InferenceParams& inference_params_array) {
-  if (inference_params_array.deployed_devices.empty()) {
-    HCTR_OWN_THROW(Error_t::WrongInput, "The list of deployed devices is empty.");
-  }
-  if (std::find(inference_params_array.deployed_devices.begin(),
-                inference_params_array.deployed_devices.end(), inference_params_array.device_id) ==
-      inference_params_array.deployed_devices.end()) {
-    HCTR_OWN_THROW(Error_t::WrongInput, "The device id is not in the list of deployed devices.");
-  }
-  std::map<int64_t, std::shared_ptr<embedding_interface>> embedding_cache_map;
-  for (auto device_id : inference_params_array.deployed_devices) {
-    HCTR_LOG(INFO, WORLD, "Create embedding cache in device %d.\n", device_id);
-    inference_params_array.device_id = device_id;
-    embedding_cache_map[device_id] =
-        std::shared_ptr<embedding_interface>(embedding_interface::Create_Embedding_Cache(
-            model_config_path, inference_params_array, this));
-  }
-  model_cache_map[inference_params_array.model_name] = embedding_cache_map;
-  memory_pool_config.num_woker_buffer_size_per_model[inference_params_array.model_name] =
-      inference_params_array.number_of_worker_buffers_in_pool;
-  memory_pool_config.num_refresh_buffer_size_per_model[inference_params_array.model_name] =
-      inference_params_array.number_of_refresh_buffers_in_pool;
-
-  if (bufferpool != nullptr) {
-    bufferpool->_create_memory_pool_per_model(
-        inference_params_array.model_name, inference_params_array.number_of_worker_buffers_in_pool,
-        embedding_cache_map, CACHE_SPACE_TYPE::WORKER);
-    bufferpool->_create_memory_pool_per_model(
-        inference_params_array.model_name, inference_params_array.number_of_refresh_buffers_in_pool,
-        embedding_cache_map, CACHE_SPACE_TYPE::REFRESHER);
-  }
-}
-
-template <typename TypeHashKey>
-void parameter_server<TypeHashKey>::update_database_per_model(
-    const std::string& model_config_path, const InferenceParams& inference_params) {
+void HierParameterServer<TypeHashKey>::update_database_per_model(
+    const InferenceParams& inference_params) {
   // Create input file stream to read the embedding file
   for (size_t j = 0; j < inference_params.sparse_model_files.size(); j++) {
     if (ps_config_.embedding_vec_size_[inference_params.model_name].size() !=
@@ -486,50 +385,79 @@ void parameter_server<TypeHashKey>::update_database_per_model(
 }
 
 template <typename TypeHashKey>
-parameter_server<TypeHashKey>::~parameter_server() {
-  for (auto it = model_cache_map.begin(); it != model_cache_map.end(); it++) {
-    for (auto& v : it->second) {
-      v.second->finalize();
+void HierParameterServer<TypeHashKey>::create_embedding_cache_per_model(
+    InferenceParams& inference_params) {
+  if (inference_params.deployed_devices.empty()) {
+    HCTR_OWN_THROW(Error_t::WrongInput, "The list of deployed devices is empty.");
+  }
+  if (std::find(inference_params.deployed_devices.begin(), inference_params.deployed_devices.end(),
+                inference_params.device_id) == inference_params.deployed_devices.end()) {
+    HCTR_OWN_THROW(Error_t::WrongInput, "The device id is not in the list of deployed devices.");
+  }
+  std::map<int64_t, std::shared_ptr<EmbeddingCacheBase>> embedding_cache_map;
+  for (auto device_id : inference_params.deployed_devices) {
+    HCTR_LOG(INFO, WORLD, "Create embedding cache in device %d.\n", device_id);
+    inference_params.device_id = device_id;
+    embedding_cache_map[device_id] = EmbeddingCacheBase::create(inference_params, ps_config_, this);
+  }
+  model_cache_map_[inference_params.model_name] = embedding_cache_map;
+  memory_pool_config_.num_woker_buffer_size_per_model[inference_params.model_name] =
+      inference_params.number_of_worker_buffers_in_pool;
+  memory_pool_config_.num_refresh_buffer_size_per_model[inference_params.model_name] =
+      inference_params.number_of_refresh_buffers_in_pool;
+  if (buffer_pool_ != nullptr) {
+    buffer_pool_->_create_memory_pool_per_model(inference_params.model_name,
+                                                inference_params.number_of_worker_buffers_in_pool,
+                                                embedding_cache_map, CACHE_SPACE_TYPE::WORKER);
+    buffer_pool_->_create_memory_pool_per_model(inference_params.model_name,
+                                                inference_params.number_of_refresh_buffers_in_pool,
+                                                embedding_cache_map, CACHE_SPACE_TYPE::REFRESHER);
+  }
+}
+
+template <typename TypeHashKey>
+void HierParameterServer<TypeHashKey>::destory_embedding_cache_per_model(
+    const std::string& model_name) {
+  if (model_cache_map_.find(model_name) != model_cache_map_.end()) {
+    for (auto& f : model_cache_map_[model_name]) {
+      f.second->finalize();
     }
+    model_cache_map_.erase(model_name);
   }
-  bufferpool->DestoryManagerPool();
+  buffer_pool_->DestoryManagerPool(model_name);
 }
 
 template <typename TypeHashKey>
-void* parameter_server<TypeHashKey>::ApplyBuffer(const std::string& modelname, int deviceid,
-                                                 CACHE_SPACE_TYPE cache_type) {
-  return bufferpool->AllocBuffer(modelname, deviceid, cache_type);
-}
-
-template <typename TypeHashKey>
-void parameter_server<TypeHashKey>::FreeBuffer(void* p) {
-  bufferpool->FreeBuffer(p);
-  return;
-}
-
-template <typename TypeHashKey>
-std::shared_ptr<embedding_interface> parameter_server<TypeHashKey>::GetEmbeddingCache(
-    const std::string& model_name, int device_id) {
-  const auto it = model_cache_map.find(model_name);
-  if (it == model_cache_map.end()) {
-    return nullptr;
+std::shared_ptr<EmbeddingCacheBase> HierParameterServer<TypeHashKey>::get_embedding_cache(
+    const std::string& model_name, const int device_id) {
+  const auto it = model_cache_map_.find(model_name);
+  if (it == model_cache_map_.end()) {
+    HCTR_OWN_THROW(Error_t::WrongInput, "No embedding cache for model " + model_name);
   }
-
   if (it->second.find(device_id) == it->second.end()) {
     std::ostringstream os;
     os << "No embedding cache on device " << device_id << " for model " << model_name;
     HCTR_OWN_THROW(Error_t::WrongInput, os.str());
   }
-
-  return model_cache_map[model_name][device_id];
+  return model_cache_map_[model_name][device_id];
 }
 
 template <typename TypeHashKey>
-void parameter_server<TypeHashKey>::look_up(const TypeHashKey* h_embeddingcolumns,
-                                            const size_t length,
-                                            float* const h_embeddingoutputvector,
-                                            const std::string& model_name,
-                                            const size_t embedding_table_id) {
+void* HierParameterServer<TypeHashKey>::apply_buffer(const std::string& model_name, int device_id,
+                                                     CACHE_SPACE_TYPE cache_type) {
+  return buffer_pool_->AllocBuffer(model_name, device_id, cache_type);
+}
+
+template <typename TypeHashKey>
+void HierParameterServer<TypeHashKey>::free_buffer(void* p) {
+  buffer_pool_->FreeBuffer(p);
+  return;
+}
+
+template <typename TypeHashKey>
+void HierParameterServer<TypeHashKey>::lookup(const void* const h_keys, const size_t length,
+                                              float* const h_vectors, const std::string& model_name,
+                                              const size_t table_id) {
   if (!length) {
     return;
   }
@@ -539,14 +467,13 @@ void parameter_server<TypeHashKey>::look_up(const TypeHashKey* h_embeddingcolumn
   HCTR_CHECK_HINT(
       static_cast<bool>(model_id),
       "Error: parameter server unknown model name. Note that this error will also come out with "
-      "using Triton LOAD/UNLOAD APIs which haven't been supported in HugeCTR backend.\n");
+      "using Triton LOAD/UNLOAD APIs which haven't been supported in HPS backend.\n");
 
-  const size_t embedding_size = ps_config_.embedding_vec_size_[model_name][embedding_table_id];
+  const size_t embedding_size = ps_config_.embedding_vec_size_[model_name][table_id];
   const size_t expected_value_size = embedding_size * sizeof(float);
-  const std::string& embedding_table_name =
-      ps_config_.emb_table_name_[model_name][embedding_table_id];
+  const std::string& embedding_table_name = ps_config_.emb_table_name_[model_name][table_id];
   const std::string& tag_name = make_tag_name(model_name, embedding_table_name);
-  const float default_vec_value = ps_config_.default_emb_vec_value_[*model_id][embedding_table_id];
+  const float default_vec_value = ps_config_.default_emb_vec_value_[*model_id][table_id];
 #ifdef ENABLE_INFERENCE
   HCTR_LOG_S(INFO, WORLD) << "Looking up " << length << " embeddings (each with " << embedding_size
                           << " values)..." << std::endl;
@@ -558,12 +485,11 @@ void parameter_server<TypeHashKey>::look_up(const TypeHashKey* h_embeddingcolumn
     HCTR_CHECK_HINT(value_size == expected_value_size,
                     "Table: %s; Batch[%d]: Value size mismatch! (%d <> %d)!", tag_name.c_str(),
                     index, value_size, expected_value_size);
-    memcpy(&h_embeddingoutputvector[index * embedding_size], value, value_size);
+    memcpy(&h_vectors[index * embedding_size], value, value_size);
   };
 
   DatabaseMissCallback fill_default = [&](const size_t index) {
-    std::fill_n(&h_embeddingoutputvector[index * embedding_size], embedding_size,
-                default_vec_value);
+    std::fill_n(&h_vectors[index * embedding_size], embedding_size, default_vec_value);
   };
 
   // If have volatile and persistant database.
@@ -577,8 +503,8 @@ void parameter_server<TypeHashKey>::look_up(const TypeHashKey* h_embeddingcolumn
       missing.push_back(index);
     };
 
-    hit_count +=
-        volatile_db_->fetch(tag_name, length, h_embeddingcolumns, check_and_copy, record_missing);
+    hit_count += volatile_db_->fetch(tag_name, length, reinterpret_cast<const TypeHashKey*>(h_keys),
+                                     check_and_copy, record_missing);
 
     HCTR_LOG_S(TRACE, WORLD) << volatile_db_->get_name() << ": " << hit_count << " hits, "
                              << missing.size() << " missing!" << std::endl;
@@ -595,17 +521,18 @@ void parameter_server<TypeHashKey>::look_up(const TypeHashKey* h_embeddingcolumn
         HCTR_CHECK_HINT(value_size == expected_value_size,
                         "Table: %s; Batch[%d]: Value size mismatch! (%d <> %d)!", tag_name.c_str(),
                         index, value_size, expected_value_size);
-        memcpy(&h_embeddingoutputvector[index * embedding_size], value, value_size);
+        memcpy(&h_vectors[index * embedding_size], value, value_size);
 
         std::lock_guard<std::mutex> lock(resource_guard);
-        keys_to_elevate->emplace_back(h_embeddingcolumns[index]);
+        keys_to_elevate->emplace_back(reinterpret_cast<const TypeHashKey*>(h_keys)[index]);
         values_to_elevate->insert(values_to_elevate->end(), value, &value[value_size]);
       };
     }
 
     // Do a sparse lookup in the persisent DB, to fill gaps and set others to default.
-    hit_count += persistent_db_->fetch(tag_name, missing.size(), missing.data(), h_embeddingcolumns,
-                                       check_and_copy, fill_default);
+    hit_count += persistent_db_->fetch(tag_name, missing.size(), missing.data(),
+                                       reinterpret_cast<const TypeHashKey*>(h_keys), check_and_copy,
+                                       fill_default);
 
     HCTR_LOG_S(TRACE, WORLD) << persistent_db_->get_name() << ": " << hit_count << " hits, "
                              << (length - hit_count) << " missing!" << std::endl;
@@ -624,13 +551,14 @@ void parameter_server<TypeHashKey>::look_up(const TypeHashKey* h_embeddingcolumn
                      : static_cast<DatabaseBackend<TypeHashKey>*>(persistent_db_.get());
     if (db) {
       // Do a sequential lookup in the volatile DB, but fill gaps with a default value.
-      hit_count += db->fetch(tag_name, length, h_embeddingcolumns, check_and_copy, fill_default);
+      hit_count += db->fetch(tag_name, length, reinterpret_cast<const TypeHashKey*>(h_keys),
+                             check_and_copy, fill_default);
 
       HCTR_LOG_S(TRACE, WORLD) << db->get_name() << ": " << hit_count << " hits, "
                                << (length - hit_count) << " missing!" << std::endl;
     } else {
       // Without a database, set everything to default.
-      std::fill_n(h_embeddingoutputvector, length * embedding_size, default_vec_value);
+      std::fill_n(h_vectors, length * embedding_size, default_vec_value);
       HCTR_LOG_S(WARNING, WORLD) << "No database. All embeddings set to default." << std::endl;
     }
   }
@@ -645,13 +573,13 @@ void parameter_server<TypeHashKey>::look_up(const TypeHashKey* h_embeddingcolumn
 }
 
 template <typename TypeHashKey>
-void parameter_server<TypeHashKey>::refresh_embedding_cache(const std::string& model_name,
-                                                            int device_id) {
+void HierParameterServer<TypeHashKey>::refresh_embedding_cache(const std::string& model_name,
+                                                               const int device_id) {
   HCTR_LOG(INFO, WORLD, "*****Refresh embedding cache of model %s on device %d*****\n",
            model_name.c_str(), device_id);
   HugeCTR::Timer timer_refresh;
   timer_refresh.start();
-  std::shared_ptr<embedding_interface> embedding_cache = GetEmbeddingCache(model_name, device_id);
+  std::shared_ptr<EmbeddingCacheBase> embedding_cache = get_embedding_cache(model_name, device_id);
   if (!embedding_cache->use_gpu_embedding_cache()) {
     HCTR_LOG(WARNING, WORLD, "GPU embedding cache is not enabled and cannot be refreshed!\n");
     return;
@@ -662,9 +590,9 @@ void parameter_server<TypeHashKey>::refresh_embedding_cache(const std::string& m
   MemoryBlock* memory_block = nullptr;
   while (memory_block == nullptr) {
     memory_block = reinterpret_cast<struct MemoryBlock*>(
-        this->ApplyBuffer(model_name, device_id, CACHE_SPACE_TYPE::REFRESHER));
+        this->apply_buffer(model_name, device_id, CACHE_SPACE_TYPE::REFRESHER));
   }
-  embedding_cache_refreshspace refreshspace_handler = memory_block->refresh_buffer;
+  EmbeddingCacheRefreshspace refreshspace_handler = memory_block->refresh_buffer;
   // Refresh the embedding cache for each table
   const size_t stride_set = cache_config.num_set_in_refresh_workspace_;
   HugeCTR::Timer timer;
@@ -674,7 +602,7 @@ void parameter_server<TypeHashKey>::refresh_embedding_cache(const std::string& m
                                  ? cache_config.num_set_in_cache_[i]
                                  : idx_set + stride_set;
       timer.start();
-      embedding_cache->Dump(static_cast<int>(i), refreshspace_handler.d_refresh_embeddingcolumns_,
+      embedding_cache->dump(i, refreshspace_handler.d_refresh_embeddingcolumns_,
                             refreshspace_handler.d_length_, idx_set, end_idx, streams[i]);
 
       HCTR_LIB_THROW(cudaMemcpyAsync(refreshspace_handler.h_length_, refreshspace_handler.d_length_,
@@ -689,7 +617,7 @@ void parameter_server<TypeHashKey>::refresh_embedding_cache(const std::string& m
       HCTR_LOG_S(INFO, ROOT) << "Embedding Cache dumping the number of " << stride_set
                              << " sets takes: " << timer.elapsedSeconds() << "s" << std::endl;
       timer.start();
-      this->look_up(
+      this->lookup(
           reinterpret_cast<const TypeHashKey*>(refreshspace_handler.h_refresh_embeddingcolumns_),
           *refreshspace_handler.h_length_, refreshspace_handler.h_refresh_emb_vec_, model_name, i);
       HCTR_LIB_THROW(cudaMemcpyAsync(
@@ -702,78 +630,58 @@ void parameter_server<TypeHashKey>::refresh_embedding_cache(const std::string& m
                              << *refreshspace_handler.h_length_
                              << " keys takes: " << timer.elapsedSeconds() << "s" << std::endl;
       timer.start();
-      embedding_cache->Refresh(
+      embedding_cache->refresh(
           static_cast<int>(i), refreshspace_handler.d_refresh_embeddingcolumns_,
           refreshspace_handler.d_refresh_emb_vec_, *refreshspace_handler.h_length_, streams[i]);
       timer.stop();
       HCTR_LOG_S(INFO, ROOT) << "Embedding Cache refreshing the number of "
                              << *refreshspace_handler.h_length_
                              << " keys takes: " << timer.elapsedSeconds() << "s" << std::endl;
+      HCTR_LIB_THROW(cudaStreamSynchronize(streams[i]));
     }
   }
-  for (auto& stream : streams) {
-    HCTR_LIB_THROW(cudaStreamSynchronize(stream));
-  }
   // apply the memory block for embedding cache refresh workspace
-  this->FreeBuffer(memory_block);
+  this->free_buffer(memory_block);
   timer_refresh.stop();
   HCTR_LOG_S(INFO, ROOT) << "The total Time of embedding cache refresh is : "
                          << timer_refresh.elapsedSeconds() << "s" << std::endl;
 }
 
 template <typename TypeHashKey>
-void parameter_server<TypeHashKey>::insert_embedding_cache(
-    embedding_interface* embedding_cache, embedding_cache_config& cache_config,
-    embedding_cache_workspace& workspace_handler, const std::vector<cudaStream_t>& streams) {
+void HierParameterServer<TypeHashKey>::insert_embedding_cache(
+    const size_t table_id, std::shared_ptr<EmbeddingCacheBase> embedding_cache,
+    EmbeddingCacheWorkspace& workspace_handler, cudaStream_t stream) {
+  auto cache_config = embedding_cache->get_cache_config();
 #ifdef ENABLE_INFERENCE
   HCTR_LOG(INFO, WORLD, "*****Insert embedding cache of model %s on device %d*****\n",
            cache_config.model_name_.c_str(), cache_config.cuda_dev_id_);
 #endif
   // Copy the missing embeddingcolumns to host
-  for (size_t i = 0; i < cache_config.num_emb_table_; i++) {
-    const TypeHashKey* d_missing_key_ptr =
-        (TypeHashKey*)(workspace_handler.d_missing_embeddingcolumns_) +
-        workspace_handler.h_shuffled_embedding_offset_[i];
-    TypeHashKey* h_missing_key_ptr = (TypeHashKey*)(workspace_handler.h_missing_embeddingcolumns_) +
-                                     workspace_handler.h_shuffled_embedding_offset_[i];
-    HCTR_LIB_THROW(cudaStreamSynchronize(streams[i]));
-    HCTR_LIB_THROW(cudaMemcpyAsync(h_missing_key_ptr, d_missing_key_ptr,
-                                   workspace_handler.h_missing_length_[i] * sizeof(TypeHashKey),
-                                   cudaMemcpyDeviceToHost, streams[i]));
-  }
+  HCTR_LIB_THROW(cudaStreamSynchronize(stream));
+  HCTR_LIB_THROW(
+      cudaMemcpyAsync(workspace_handler.h_missing_embeddingcolumns_[table_id],
+                      workspace_handler.d_missing_embeddingcolumns_[table_id],
+                      workspace_handler.h_missing_length_[table_id] * sizeof(TypeHashKey),
+                      cudaMemcpyDeviceToHost, stream));
+
   // Query the missing embeddingcolumns from Parameter Server
-  size_t acc_emb_vec_offset = 0;
-  for (size_t i = 0; i < cache_config.num_emb_table_; i++) {
-    const TypeHashKey* h_missing_key_ptr =
-        (TypeHashKey*)(workspace_handler.h_missing_embeddingcolumns_) +
-        workspace_handler.h_shuffled_embedding_offset_[i];
-    const size_t query_length = workspace_handler.h_shuffled_embedding_offset_[i + 1] -
-                                workspace_handler.h_shuffled_embedding_offset_[i];
-    float* h_vals_retrieved_ptr = workspace_handler.h_missing_emb_vec_ + acc_emb_vec_offset;
-    HCTR_LIB_THROW(cudaStreamSynchronize(streams[i]));
-    this->look_up(h_missing_key_ptr, workspace_handler.h_missing_length_[i], h_vals_retrieved_ptr,
-                  cache_config.model_name_, i);
-    acc_emb_vec_offset += query_length * cache_config.embedding_vec_size_[i];
-  }
+  HCTR_LIB_THROW(cudaStreamSynchronize(stream));
+  this->lookup(workspace_handler.h_missing_embeddingcolumns_[table_id],
+               workspace_handler.h_missing_length_[table_id],
+               workspace_handler.h_missing_emb_vec_[table_id], cache_config.model_name_, table_id);
+
   // Copy missing emb_vec to device
-  acc_emb_vec_offset = 0;
-  for (size_t i = 0; i < cache_config.num_emb_table_; i++) {
-    const float* h_vals_retrieved_ptr = workspace_handler.h_missing_emb_vec_ + acc_emb_vec_offset;
-    float* d_vals_retrieved_ptr = workspace_handler.d_missing_emb_vec_ + acc_emb_vec_offset;
-    const size_t missing_len_in_float =
-        workspace_handler.h_missing_length_[i] * cache_config.embedding_vec_size_[i];
-    const size_t missing_len_in_byte = missing_len_in_float * sizeof(float);
-    const size_t query_length = workspace_handler.h_shuffled_embedding_offset_[i + 1] -
-                                workspace_handler.h_shuffled_embedding_offset_[i];
-    acc_emb_vec_offset += query_length * cache_config.embedding_vec_size_[i];
-    HCTR_LIB_THROW(cudaMemcpyAsync(d_vals_retrieved_ptr, h_vals_retrieved_ptr, missing_len_in_byte,
-                                   cudaMemcpyHostToDevice, streams[i]));
-  }
+
+  const size_t missing_len_in_byte = workspace_handler.h_missing_length_[table_id] *
+                                     cache_config.embedding_vec_size_[table_id] * sizeof(float);
+  HCTR_LIB_THROW(cudaMemcpyAsync(workspace_handler.d_missing_emb_vec_[table_id],
+                                 workspace_handler.h_missing_emb_vec_[table_id],
+                                 missing_len_in_byte, cudaMemcpyHostToDevice, stream));
   // Insert the vectors for missing keys into embedding cache
-  embedding_cache->update(workspace_handler, streams);
+  embedding_cache->insert(table_id, workspace_handler, stream);
 }
 
-template class parameter_server<unsigned int>;
-template class parameter_server<long long>;
+template class HierParameterServer<long long>;
+template class HierParameterServer<unsigned int>;
 
 }  // namespace HugeCTR
