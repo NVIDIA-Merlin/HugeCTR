@@ -109,6 +109,9 @@ void Network::prop_layers(const std::vector<LPtr>& layers, GraphWrapper& graph, 
   graph.exec(stream);
 }
 
+// TODO - Update this method to run each regularizer and compute the conditional
+// weighted sum for each layer.  Then similarly compute the weighted sum of losses
+// associated with each layer
 void Network::train(long long current_batchsize) {
   // forward
   if (use_mixed_precision_) {
@@ -116,7 +119,8 @@ void Network::train(long long current_batchsize) {
   }
   prop_layers(train_layers_, train_fprop_graph_, enable_cuda_graph_, true,
               gpu_resource_->get_stream());
-  train_loss_->compute(true, current_batchsize);
+  train_losses_.begin()->second->compute(
+      true, current_batchsize);  // Temporarily until joint loss fully implemented
   prop_layers(train_layers_, train_bprop_graph_, enable_cuda_graph_, false,
               gpu_resource_->get_stream());
   return;
@@ -134,12 +138,12 @@ TrainState Network::train(long long current_batchsize, std::function<void()> exc
       break;
     case TrainState_t::BottomMLPFprop:
       prop_layers(bottom_layers_, bottom_train_fprop_graph_, enable_cuda_graph_, true, stream);
-      train_loss_->initialize_wgrad_async();
+      train_losses_.begin()->second->initialize_wgrad_async();
       break;
     case TrainState_t::TopMLPFprop:
       prop_layers(top_layers_, train_fprop_graph_, enable_cuda_graph_, true, stream);
       if (lr_sched_->get_overlapped()) lr_sched_->update();
-      train_loss_->compute(true, current_batchsize);
+      train_losses_.begin()->second->compute(true, current_batchsize);
       break;
     case TrainState_t::TopMLPBprop:
       prop_layers(top_layers_, train_bprop_graph_, enable_cuda_graph_, false, stream);
@@ -168,7 +172,7 @@ TrainState Network::train(long long current_batchsize, std::function<void()> exc
 void Network::eval(long long current_batchsize) {
   prop_layers(evaluate_layers_, eval_graph_, enable_cuda_graph_, true, gpu_resource_->get_stream(),
               false);
-  evaluate_loss_->compute(false, current_batchsize);
+  evaluate_losses_.begin()->second->compute(false, current_batchsize);
 }
 void Network::predict() {
   prop_layers(evaluate_layers_, predict_graph_, enable_cuda_graph_, true,
@@ -354,8 +358,9 @@ float Network::get_loss() {
   float loss_host = 0.f;
 
   CudaDeviceContext context(get_device_id());
-  HCTR_LIB_THROW(cudaMemcpyAsync(&loss_host, train_loss_tensor_.get_ptr(), sizeof(float),
-                                 cudaMemcpyDeviceToHost, gpu_resource_->get_stream()));
+  HCTR_LIB_THROW(cudaMemcpyAsync(&loss_host, train_loss_tensors_.begin()->second.get_ptr(),
+                                 sizeof(float), cudaMemcpyDeviceToHost,
+                                 gpu_resource_->get_stream()));
   HCTR_LIB_THROW(cudaStreamSynchronize(gpu_resource_->get_stream()));
   return loss_host;
 }

@@ -122,11 +122,13 @@ void ModelPerfExt::add_dense_layer_internal(
     const std::shared_ptr<BufferBlock2<float>>& weight_buff,
     const std::shared_ptr<BufferBlock2<__half>>& weight_buff_half,
     const std::shared_ptr<BufferBlock2<float>>& wgrad_buff,
-    const std::shared_ptr<BufferBlock2<__half>>& wgrad_buff_half, Tensor2<float>& loss_tensor,
-    std::vector<std::unique_ptr<Layer>>& layers, std::unique_ptr<ILoss>& loss,
-    bool enable_cuda_graph, bool async_mlp_wgrad, metrics::RawMetricMap* raw_metrics,
-    int num_networks_in_global, const std::shared_ptr<GPUResource>& gpu_resource,
-    bool use_mixed_precision, bool enable_tf32_compute, float scaler, bool use_algorithm_search,
+    const std::shared_ptr<BufferBlock2<__half>>& wgrad_buff_half,
+    std::map<std::string, Tensor2<float>>& loss_tensors,
+    std::vector<std::unique_ptr<Layer>>& layers,
+    std::map<std::string, std::unique_ptr<ILoss>>& losses, bool enable_cuda_graph,
+    bool async_mlp_wgrad, metrics::RawMetricMap* raw_metrics, int num_networks_in_global,
+    const std::shared_ptr<GPUResource>& gpu_resource, bool use_mixed_precision,
+    bool enable_tf32_compute, float scaler, bool use_algorithm_search,
     std::vector<Layer*>* top_layers, std::vector<Layer*>* bottom_layers, bool dlrm_bottom_mlp) {
   bool skip_dgrad = layers.size() == 0;
   Layer_t layer_type = dense_layer.layer_type;
@@ -180,7 +182,14 @@ void ModelPerfExt::add_dense_layer_internal(
         HCTR_OWN_THROW(Error_t::WrongInput, "bottom of BinaryCrossEntropyLoss must be two dim");
       }
       Tensor2<float> label_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[1]);
-      blobs_buff->reserve({1, 1}, &loss_tensor);
+      // create new loss tensor
+      auto name = input_output_info.output_names[0];
+      Tensor2<float> new_loss_tensor;
+      blobs_buff->reserve({1, 1}, &new_loss_tensor);
+
+      // create new loss item
+      std::unique_ptr<ILoss> new_loss;
+
       if (use_mixed_precision) {
         Tensor2<__half> in_tensor = Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
         auto regularizer = create_regularizer(
@@ -190,9 +199,9 @@ void ModelPerfExt::add_dense_layer_internal(
         if (true == solver_.overlap_init_wgrad) {
           regularizer->set_overlapped();
         }
-        loss.reset(new BinaryCrossEntropyLoss<__half>(
-            label_tensor, in_tensor, loss_tensor, regularizer, gpu_resource, num_networks_in_global,
-            scaler, solver_.gen_loss_summary));
+        new_loss.reset(new BinaryCrossEntropyLoss<__half>(
+            label_tensor, in_tensor, new_loss_tensor, regularizer, gpu_resource,
+            num_networks_in_global, scaler, solver_.gen_loss_summary));
       } else {
         Tensor2<float> in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
         auto regularizer = create_regularizer(dense_layer.use_regularizer,
@@ -202,10 +211,12 @@ void ModelPerfExt::add_dense_layer_internal(
         if (true == solver_.overlap_init_wgrad) {
           regularizer->set_overlapped();
         }
-        loss.reset(new BinaryCrossEntropyLoss<float>(
-            label_tensor, in_tensor, loss_tensor, regularizer, gpu_resource, num_networks_in_global,
-            scaler, solver_.gen_loss_summary));
+        new_loss.reset(new BinaryCrossEntropyLoss<float>(
+            label_tensor, in_tensor, new_loss_tensor, regularizer, gpu_resource,
+            num_networks_in_global, scaler, solver_.gen_loss_summary));
       }
+      loss_tensors.insert(std::pair(name, new_loss_tensor));
+      losses.insert(std::pair(name, std::move(new_loss)));
       break;
     }
     case Layer_t::Concat: {
@@ -235,12 +246,19 @@ void ModelPerfExt::add_dense_layer_internal(
         HCTR_OWN_THROW(Error_t::WrongInput, "bottom of CrossEntropyLoss must be two dim");
       }
       Tensor2<float> label_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[1]);
-      blobs_buff->reserve({1, 1}, &loss_tensor);
+      // create new loss tensor
+      auto name = input_output_info.output_names[0];
+      Tensor2<float> new_loss_tensor;
+      blobs_buff->reserve({1, 1}, &new_loss_tensor);
+
+      // create new loss item
+      std::unique_ptr<ILoss> new_loss;
+
       if (use_mixed_precision) {
         Tensor2<__half> cross_entropy_loss_in_tensor =
             Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
-        loss.reset(new CrossEntropyLoss<__half>(
-            label_tensor, cross_entropy_loss_in_tensor, loss_tensor,
+        new_loss.reset(new CrossEntropyLoss<__half>(
+            label_tensor, cross_entropy_loss_in_tensor, new_loss_tensor,
             create_regularizer(dense_layer.use_regularizer, dense_layer.regularizer_type,
                                dense_layer.lambda, weight_buff->as_tensor(),
                                wgrad_buff_half->as_tensor(),
@@ -249,14 +267,16 @@ void ModelPerfExt::add_dense_layer_internal(
       } else {
         Tensor2<float> cross_entropy_loss_in_tensor =
             Tensor2<float>::stretch_from(input_output_info.inputs[0]);
-        loss.reset(new CrossEntropyLoss<float>(
-            label_tensor, cross_entropy_loss_in_tensor, loss_tensor,
+        new_loss.reset(new CrossEntropyLoss<float>(
+            label_tensor, cross_entropy_loss_in_tensor, new_loss_tensor,
             create_regularizer(dense_layer.use_regularizer, dense_layer.regularizer_type,
                                dense_layer.lambda, weight_buff->as_tensor(),
                                wgrad_buff->as_tensor(),
                                cross_entropy_loss_in_tensor.get_dimensions()[0], gpu_resource),
             gpu_resource, num_networks_in_global, scaler));
       }
+      loss_tensors.insert(std::pair(name, new_loss_tensor));
+      losses.insert(std::pair(name, std::move(new_loss)));
       break;
     }
     case Layer_t::Dropout: {
@@ -490,12 +510,19 @@ void ModelPerfExt::add_dense_layer_internal(
         HCTR_OWN_THROW(Error_t::WrongInput, "bottom of MultiCrossEntropyLoss must be two dim");
       }
       Tensor2<float> label_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[1]);
-      blobs_buff->reserve({1, 1}, &loss_tensor);
+      // create new loss tensor
+      auto name = input_output_info.output_names[0];
+      Tensor2<float> new_loss_tensor;
+      blobs_buff->reserve({1, 1}, &new_loss_tensor);
+
+      // create new loss item
+      std::unique_ptr<ILoss> new_loss;
+
       if (use_mixed_precision) {
         Tensor2<__half> multi_cross_entropy_loss_in_tensor =
             Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
-        loss.reset(new MultiCrossEntropyLoss<__half>(
-            label_tensor, multi_cross_entropy_loss_in_tensor, loss_tensor,
+        new_loss.reset(new MultiCrossEntropyLoss<__half>(
+            label_tensor, multi_cross_entropy_loss_in_tensor, new_loss_tensor,
             create_regularizer(
                 dense_layer.use_regularizer, dense_layer.regularizer_type, dense_layer.lambda,
                 weight_buff->as_tensor(), wgrad_buff_half->as_tensor(),
@@ -504,14 +531,16 @@ void ModelPerfExt::add_dense_layer_internal(
       } else {
         Tensor2<float> multi_cross_entropy_loss_in_tensor =
             Tensor2<float>::stretch_from(input_output_info.inputs[0]);
-        loss.reset(new MultiCrossEntropyLoss<float>(
-            label_tensor, multi_cross_entropy_loss_in_tensor, loss_tensor,
+        new_loss.reset(new MultiCrossEntropyLoss<float>(
+            label_tensor, multi_cross_entropy_loss_in_tensor, new_loss_tensor,
             create_regularizer(
                 dense_layer.use_regularizer, dense_layer.regularizer_type, dense_layer.lambda,
                 weight_buff->as_tensor(), wgrad_buff->as_tensor(),
                 multi_cross_entropy_loss_in_tensor.get_dimensions()[0], gpu_resource),
             dense_layer.target_weight_vec, gpu_resource, num_networks_in_global, scaler));
       }
+      loss_tensors.insert(std::pair(name, new_loss_tensor));
+      losses.insert(std::pair(name, std::move(new_loss)));
       break;
     }
     case Layer_t::ReLU: {
@@ -848,7 +877,7 @@ void ModelPerfExt::add_dense_layer_internal(
       }
     }
   } else if (raw_metrics) {
-    (*raw_metrics)[metrics::RawType::Loss] = loss_tensor.shrink();
+    (*raw_metrics)[metrics::RawType::Loss] = loss_tensors.begin()->second.shrink();
     (*raw_metrics)[metrics::RawType::Pred] = input_output_info.inputs[0];
     (*raw_metrics)[metrics::RawType::Label] = input_output_info.inputs[1];
   }
@@ -860,7 +889,7 @@ void ModelPerfExt::add_dense_layer(DenseLayer& dense_layer) {
     add_dense_layer_internal(
         dense_layer, train_tensor_entries_list_[i], blobs_buff_list_[i], train_weight_buff_list_[i],
         train_weight_buff_half_list_[i], wgrad_buff_list_[i], wgrad_buff_half_list_[i],
-        networks_[i]->train_loss_tensor_, networks_[i]->train_layers_, networks_[i]->train_loss_,
+        networks_[i]->train_loss_tensors_, networks_[i]->train_layers_, networks_[i]->train_losses_,
         networks_[i]->enable_cuda_graph_, solver_.async_mlp_wgrad, nullptr,
         resource_manager_->get_global_gpu_count(), resource_manager_->get_local_gpu(i),
         solver_.use_mixed_precision, solver_.enable_tf32_compute, solver_.scaler,
@@ -870,8 +899,8 @@ void ModelPerfExt::add_dense_layer(DenseLayer& dense_layer) {
     add_dense_layer_internal(dense_layer, evaluate_tensor_entries_list_[i], blobs_buff_list_[i],
                              evaluate_weight_buff_list_[i], evaluate_weight_buff_half_list_[i],
                              wgrad_buff_placeholder_list_[i], wgrad_buff_half_placeholder_list_[i],
-                             networks_[i]->evaluate_loss_tensor_, networks_[i]->evaluate_layers_,
-                             networks_[i]->evaluate_loss_, networks_[i]->enable_cuda_graph_,
+                             networks_[i]->evaluate_loss_tensors_, networks_[i]->evaluate_layers_,
+                             networks_[i]->evaluate_losses_, networks_[i]->enable_cuda_graph_,
                              solver_.async_mlp_wgrad, &(networks_[i]->raw_metrics_),
                              resource_manager_->get_global_gpu_count(),
                              resource_manager_->get_local_gpu(i), solver_.use_mixed_precision,
