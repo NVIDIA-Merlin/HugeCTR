@@ -192,7 +192,7 @@ void Network::download_params_to_host(std::ofstream& weight_stream) {
 }
 
 void Network::download_params_to_hdfs(std::string& write_path,
-                                      DataSourceParams data_source_params) {
+                                      const DataSourceParams& data_source_params) {
   // forward
   CudaDeviceContext context(get_device_id());
 
@@ -220,7 +220,7 @@ void Network::download_opt_states_to_host(std::ofstream& opt_states_stream) {
 }
 
 void Network::download_opt_states_to_hdfs(std::string& write_path,
-                                          DataSourceParams data_source_params) {
+                                          const DataSourceParams& data_source_params) {
   // forward
   CudaDeviceContext context(get_device_id());
 

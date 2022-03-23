@@ -983,17 +983,15 @@ void Model::update_loss_weights(std::vector<std::string>& los_names,
   throw std::runtime_error(std::string("Weights for multiple loss layers not yet supported.\n"));
 }
 
-void Model::load_dense_optimizer_states(const std::string& dense_opt_states_file,
-                                        DataSourceParams data_source_params) {
+void Model::load_dense_optimizer_states(const std::string& dense_opt_states_file) {
   if (!buff_allocated_) {
     HCTR_OWN_THROW(Error_t::IllegalCall,
                    "Cannot load the dense optimizer states before calling Model.compile()");
   }
-  load_opt_states_for_dense_(dense_opt_states_file, data_source_params);
+  load_opt_states_for_dense_(dense_opt_states_file, solver_.data_source_params);
 }
 
-void Model::load_sparse_optimizer_states(const std::vector<std::string>& sparse_opt_states_files,
-                                         DataSourceParams data_source_params) {
+void Model::load_sparse_optimizer_states(const std::vector<std::string>& sparse_opt_states_files) {
   if (!buff_allocated_) {
     HCTR_OWN_THROW(Error_t::IllegalCall,
                    "Cannot load the sparse optimizer states before calling Model.compile()");
@@ -1008,12 +1006,11 @@ void Model::load_sparse_optimizer_states(const std::vector<std::string>& sparse_
         Error_t::WrongInput,
         "The size of sparse opt state files should be equal to the number of embeddings");
   }
-  load_opt_states_for_sparse_(sparse_opt_states_files, data_source_params);
+  load_opt_states_for_sparse_(sparse_opt_states_files, solver_.data_source_params);
 }
 
 void Model::load_sparse_optimizer_states(
-    const std::map<std::string, std::string>& sparse_opt_states_files_map,
-    DataSourceParams data_source_params) {
+    const std::map<std::string, std::string>& sparse_opt_states_files_map) {
   if (!buff_allocated_) {
     HCTR_OWN_THROW(Error_t::IllegalCall,
                    "Cannot load the sparse optimizer states before calling Model.compile()");
@@ -1033,22 +1030,20 @@ void Model::load_sparse_optimizer_states(
       HCTR_OWN_THROW(Error_t::WrongInput, "Cannot open sparse optimizer states file");
     }
     HCTR_LOG_S(INFO, ROOT) << "Loading sparse optimizer states: " << iter->first << std::endl;
-    embedding_target->load_opt_states(sparse_opt_stream, iter->first, data_source_params);
+    embedding_target->load_opt_states(sparse_opt_stream, iter->first, solver_.data_source_params);
     sparse_opt_stream.close();
   }
 }
 
-void Model::load_dense_weights(const std::string& dense_model_file,
-                               DataSourceParams data_source_params) {
+void Model::load_dense_weights(const std::string& dense_model_file) {
   if (!buff_allocated_) {
     HCTR_OWN_THROW(Error_t::IllegalCall,
                    "Cannot load the dense weights before calling Model.compile()");
   }
-  load_params_for_dense_(dense_model_file, data_source_params);
+  load_params_for_dense_(dense_model_file, solver_.data_source_params);
 }
 
-void Model::load_sparse_weights(const std::vector<std::string>& sparse_embedding_files,
-                                DataSourceParams data_source_params) {
+void Model::load_sparse_weights(const std::vector<std::string>& sparse_embedding_files) {
   if (!buff_allocated_) {
     HCTR_OWN_THROW(Error_t::IllegalCall,
                    "Cannot load the sparse weights before calling Model.compile()");
@@ -1062,12 +1057,11 @@ void Model::load_sparse_weights(const std::vector<std::string>& sparse_embedding
         Error_t::WrongInput,
         "The size of sparse embedding files should be equal to the number of embeddings");
   }
-  load_params_for_sparse_(sparse_embedding_files, data_source_params);
+  load_params_for_sparse_(sparse_embedding_files, solver_.data_source_params);
 }
 
 void Model::load_sparse_weights(
-    const std::map<std::string, std::string>& sparse_embedding_files_map,
-    DataSourceParams data_source_params) {
+    const std::map<std::string, std::string>& sparse_embedding_files_map) {
   if (!buff_allocated_) {
     HCTR_OWN_THROW(Error_t::IllegalCall,
                    "Cannot load the sparse weights before calling Model.compile()");
@@ -1083,7 +1077,7 @@ void Model::load_sparse_weights(
     }
     auto embedding_target = embeddings_map_.find(iter->first)->second;
     HCTR_LOG_S(INFO, ROOT) << "Loading sparse model: " << iter->second << std::endl;
-    embedding_target->load_parameters(iter->second, data_source_params);
+    embedding_target->load_parameters(iter->second, solver_.data_source_params);
   }
 }
 
@@ -1185,7 +1179,7 @@ void Model::set_source(std::string source, std::string eval_source) {
 }
 
 void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, int snapshot,
-                std::string snapshot_prefix, DataSourceParams data_source_params) {
+                std::string snapshot_prefix) {
   if (!buff_allocated_) {
     HCTR_OWN_THROW(Error_t::IllegalCall,
                    "Cannot start the training process before calling Model.compile()");
@@ -1336,7 +1330,7 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
                                  << " iters: " << timer_eval.elapsedSeconds() << "s" << std::endl;
         }
         if (snapshot > 0 && iter % snapshot == 0 && iter != 0) {
-          this->download_params_to_files(snapshot_prefix, iter, data_source_params);
+          this->download_params_to_files(snapshot_prefix, iter);
         }
         iter++;
       } while (data_reader_train_status_);
@@ -1499,7 +1493,7 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
                                << " iters: " << timer_eval.elapsedSeconds() << "s" << std::endl;
       }
       if (snapshot > 0 && iter % snapshot == 0 && iter != 0) {
-        this->download_params_to_files(snapshot_prefix, iter, data_source_params);
+        this->download_params_to_files(snapshot_prefix, iter);
       }
     }  // end for iter
 
@@ -1950,24 +1944,15 @@ Error_t Model::get_current_loss(float* loss) {
   return Error_t::Success;
 }
 
-Error_t Model::download_params_to_files(std::string prefix, int iter,
-                                        DataSourceParams data_source_params) {
-  std::string path_prefix;
-  if (data_source_params.use_hdfs) {
-    path_prefix = data_source_params.hdfs_model_home;
-  } else {
-    path_prefix = data_source_params.local_model_home;
-  }
-  std::string snapshot_dense_name =
-      path_prefix + prefix + "_dense_" + std::to_string(iter) + ".model";
-  std::string snapshot_dense_opt_name =
-      path_prefix + prefix + "_opt_dense_" + std::to_string(iter) + ".model";
+Error_t Model::download_params_to_files(std::string prefix, int iter) {
+  std::string snapshot_dense_name = prefix + "_dense_" + std::to_string(iter) + ".model";
+  std::string snapshot_dense_opt_name = prefix + "_opt_dense_" + std::to_string(iter) + ".model";
   std::vector<std::string> snapshot_sparse_names;
   std::vector<std::string> snapshot_sparse_opt_names;
   for (unsigned int i = 0; i < embeddings_.size(); i++) {
-    snapshot_sparse_names.push_back(path_prefix + prefix + std::to_string(i) + "_sparse_" +
-                                    std::to_string(iter) + ".model");
-    snapshot_sparse_opt_names.push_back(path_prefix + prefix + std::to_string(i) + "_opt_sparse_" +
+    snapshot_sparse_names.push_back(prefix + std::to_string(i) + "_sparse_" + std::to_string(iter) +
+                                    ".model");
+    snapshot_sparse_opt_names.push_back(prefix + std::to_string(i) + "_opt_sparse_" +
                                         std::to_string(iter) + ".model");
   }
   if (etc_params_->use_embedding_training_cache) {
@@ -1975,10 +1960,10 @@ Error_t Model::download_params_to_files(std::string prefix, int iter,
     embedding_training_cache_->update_sparse_model_file();
   } else {
     download_sparse_params_to_files_(snapshot_sparse_names, snapshot_sparse_opt_names,
-                                     data_source_params);
+                                     solver_.data_source_params);
   }
   return download_dense_params_to_files_(snapshot_dense_name, snapshot_dense_opt_name,
-                                         data_source_params);
+                                         solver_.data_source_params);
 }
 
 void Model::check_overflow() const {
@@ -1995,7 +1980,7 @@ void Model::copy_weights_for_evaluation() {
 
 Error_t Model::download_dense_params_to_files_(std::string weights_file,
                                                std::string dense_opt_states_file,
-                                               DataSourceParams data_source_params) {
+                                               const DataSourceParams& data_source_params) {
   try {
     if (resource_manager_->is_master_process()) {
       if (data_source_params.use_hdfs) {
@@ -2041,7 +2026,8 @@ Error_t Model::download_dense_params_to_files_(std::string weights_file,
 
 Error_t Model::download_sparse_params_to_files_(
     const std::vector<std::string>& embedding_files,
-    const std::vector<std::string>& sparse_opt_state_files, DataSourceParams data_source_params) {
+    const std::vector<std::string>& sparse_opt_state_files,
+    const DataSourceParams& data_source_params) {
   try {
     {
       int i = 0;
@@ -2091,14 +2077,13 @@ std::shared_ptr<EmbeddingTrainingCache> Model::create_embedding_training_cache_(
 }
 
 Error_t Model::load_opt_states_for_dense_(const std::string& dense_opt_states_file,
-                                          DataSourceParams data_source_params) {
+                                          const DataSourceParams& data_source_params) {
   try {
     size_t opt_states_size_in_byte = networks_[0]->get_opt_states_size_in_byte();
     std::unique_ptr<char[]> opt_states(new char[opt_states_size_in_byte]());
     if (data_source_params.use_hdfs) {
       HdfsService hs(data_source_params.namenode, data_source_params.port);
-      hs.read(data_source_params.hdfs_dense_opt_states, opt_states.get(),
-              hs.getFileSize(data_source_params.hdfs_dense_opt_states), 0);
+      hs.read(dense_opt_states_file, opt_states.get(), hs.getFileSize(dense_opt_states_file), 0);
     } else {
       std::ifstream opt_states_stream(dense_opt_states_file, std::ifstream::binary);
       if (!opt_states_stream.is_open()) {
@@ -2122,17 +2107,16 @@ Error_t Model::load_opt_states_for_dense_(const std::string& dense_opt_states_fi
 }
 
 Error_t Model::load_opt_states_for_sparse_(const std::vector<std::string>& sparse_opt_states_files,
-                                           DataSourceParams data_source_params) {
+                                           const DataSourceParams& data_source_params) {
   try {
     for (size_t i = 0; i < embeddings_.size(); i++) {
       if (data_source_params.use_hdfs) {
-        if (i < data_source_params.hdfs_sparse_opt_states.size()) {
-          std::ifstream sparse_opt_stream(data_source_params.hdfs_sparse_opt_states[i],
-                                          std::ifstream::binary);
+        if (i < sparse_opt_states_files.size()) {
+          std::ifstream sparse_opt_stream(sparse_opt_states_files[i], std::ifstream::binary);
           HCTR_LOG_S(INFO, ROOT) << "Loading sparse optimizer states: "
-                                 << data_source_params.hdfs_sparse_opt_states[i] << std::endl;
-          embeddings_[i]->load_opt_states(
-              sparse_opt_stream, data_source_params.hdfs_sparse_opt_states[i], data_source_params);
+                                 << sparse_opt_states_files[i] << std::endl;
+          embeddings_[i]->load_opt_states(sparse_opt_stream, sparse_opt_states_files[i],
+                                          data_source_params);
           sparse_opt_stream.close();
         }
       } else {
@@ -2160,13 +2144,12 @@ Error_t Model::load_opt_states_for_sparse_(const std::vector<std::string>& spars
 }
 
 Error_t Model::load_params_for_dense_(const std::string& model_file,
-                                      DataSourceParams data_source_params) {
+                                      const DataSourceParams& data_source_params) {
   try {
     std::unique_ptr<float[]> weight(new float[networks_[0]->get_params_num()]());
     if (data_source_params.use_hdfs) {
       HdfsService hs(data_source_params.namenode, data_source_params.port);
-      hs.read(data_source_params.hdfs_dense_model, weight.get(),
-              hs.getFileSize(data_source_params.hdfs_dense_model), 0);
+      hs.read(model_file, weight.get(), hs.getFileSize(model_file), 0);
     } else {
       std::ifstream model_stream(model_file, std::ifstream::binary);
       if (!model_stream.is_open()) {
@@ -2191,15 +2174,14 @@ Error_t Model::load_params_for_dense_(const std::string& model_file,
 }
 
 Error_t Model::load_params_for_sparse_(const std::vector<std::string>& embedding_model_files,
-                                       DataSourceParams data_source_params) {
+                                       const DataSourceParams& data_source_params) {
   try {
     for (size_t i = 0; i < embeddings_.size(); i++) {
       if (data_source_params.use_hdfs) {
-        if (i < data_source_params.hdfs_sparse_model.size()) {
-          HCTR_LOG_S(INFO, ROOT) << "Loading sparse model: "
-                                 << data_source_params.hdfs_sparse_model[i] << std::endl;
-          embeddings_[i]->load_parameters(data_source_params.hdfs_sparse_model[i],
-                                          data_source_params);
+        if (i < embedding_model_files.size()) {
+          HCTR_LOG_S(INFO, ROOT) << "Loading sparse model: " << embedding_model_files[i]
+                                 << std::endl;
+          embeddings_[i]->load_parameters(embedding_model_files[i], data_source_params);
         }
       } else {
         if (i < embedding_model_files.size()) {

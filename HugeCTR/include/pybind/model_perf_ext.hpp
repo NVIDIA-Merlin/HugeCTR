@@ -27,7 +27,7 @@ class ModelPerfExt final : public Model {
   bool train(bool is_first_batch) override;
   bool eval(bool is_first_batch) override;
   void fit(int num_epochs, int max_iter, int display, int eval_interval, int snapshot,
-           std::string snapshot_prefix, DataSourceParams data_source_params) override;
+           std::string snapshot_prefix) override;
   void add(DenseLayer& dense_layer) override;
   void add(Input& input) override { Model::add(input); };
   void add(SparseEmbedding& sparse_embedding) override { Model::add(sparse_embedding); };

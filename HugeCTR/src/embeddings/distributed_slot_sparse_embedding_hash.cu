@@ -327,7 +327,7 @@ DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
 void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::load_parameters(
-    std::string sparse_model, DataSourceParams data_source_params) {
+    std::string sparse_model, const DataSourceParams &data_source_params) {
   const std::string key_file(sparse_model + "/key");
   const std::string vec_file(sparse_model + "/emb_vector");
 
@@ -809,7 +809,7 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::load_pa
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
 void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::dump_parameters(
-    std::string sparse_model, DataSourceParams data_source_params) const {
+    std::string sparse_model, const DataSourceParams &data_source_params) const {
   dump_parameters(sparse_model, data_source_params, max_vocabulary_size_,
                   embedding_data_.embedding_params_.embedding_vec_size, hash_table_value_tensors_,
                   hash_tables_);
@@ -828,8 +828,9 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::dump_pa
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
 void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::dump_parameters(
-    const std::string &sparse_model, DataSourceParams data_source_params, size_t vocabulary_size,
-    size_t embedding_vec_size, const Tensors2<float> &hash_table_value_tensors,
+    const std::string &sparse_model, const DataSourceParams &data_source_params,
+    size_t vocabulary_size, size_t embedding_vec_size,
+    const Tensors2<float> &hash_table_value_tensors,
     const std::vector<std::shared_ptr<HashTable<TypeHashKey, size_t>>> &hash_tables) const {
   CudaDeviceContext context;
   size_t local_gpu_count = embedding_data_.get_resource_manager().get_local_gpu_count();
@@ -1083,7 +1084,7 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::dump_pa
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
 void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::dump_opt_states(
-    std::ofstream &stream, std::string write_path, DataSourceParams data_source_params) {
+    std::ofstream &stream, std::string write_path, const DataSourceParams &data_source_params) {
   std::vector<OptimizerTensor<TypeEmbeddingComp>> opt_tensors_;
   for (auto &opt : embedding_optimizers_) {
     opt_tensors_.push_back(opt.opt_tensors_);
@@ -1098,7 +1099,7 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::dump_op
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
 void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::load_opt_states(
-    std::ifstream &stream, std::string read_path, DataSourceParams data_source_params) {
+    std::ifstream &stream, std::string read_path, const DataSourceParams &data_source_params) {
   std::vector<OptimizerTensor<TypeEmbeddingComp>> opt_tensors_;
   for (auto &opt : embedding_optimizers_) {
     opt_tensors_.push_back(opt.opt_tensors_);

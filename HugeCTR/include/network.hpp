@@ -162,7 +162,7 @@ class Network {
   /**
    * Writting paramters to HDFS.
    */
-  void download_params_to_hdfs(std::string& write_path, DataSourceParams data_source_params);
+  void download_params_to_hdfs(std::string& write_path, const DataSourceParams& data_source_params);
 
   /**
    * Writting opt states to fstream.
@@ -172,7 +172,8 @@ class Network {
   /**
    * Writting opt states to HDFS.
    */
-  void download_opt_states_to_hdfs(std::string& write_path, DataSourceParams data_source_params);
+  void download_opt_states_to_hdfs(std::string& write_path,
+                                   const DataSourceParams& data_source_params);
 
   /**
    * Get no trained parameters (such as parameters in Batch nomalization) to string.

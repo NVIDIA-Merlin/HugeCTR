@@ -6,40 +6,18 @@ data_source_params = DataSourceParams(
     use_hdfs = True, #whether use HDFS to save model files
     namenode = 'localhost', #HDFS namenode IP
     port = 9000, #HDFS port
-    
-    hdfs_train_source = '/data/train/',
-    hdfs_train_filelist = '/data/file_list.txt',
-    hdfs_eval_source = '/data/val/',
-    hdfs_eval_filelist = '/data/file_list_test.txt',
-    hdfs_dense_model = '/model/wdl/_dense_1000.model',
-    hdfs_dense_opt_states = '/model/wdl/_opt_dense_1000.model',
-    hdfs_sparse_model = ['/model/wdl/0_sparse_1000.model', '/model/wdl/1_sparse_1000.model'],
-    hdfs_sparse_opt_states = ['/model/wdl/0_opt_sparse_1000.model', '/model/wdl/1_opt_sparse_1000.model'],         
-                                              
-    local_train_source = './wdl_norm/train/',
-    local_train_filelist = './wdl_norm/file_list.txt',
-    local_eval_source = './wdl_norm/val/',
-    local_eval_filelist = './wdl_norm/file_list_test.txt',
-    local_dense_model = './_dense_1000.model',
-    local_dense_opt_states = './_opt_dense_1000.model',
-    local_sparse_model = ['./0_sparse_1000.model', './1_sparse_1000.model'],
-    local_sparse_opt_states = ['./0_opt_sparse_1000.model', './1_opt_sparse_1000.model'],
-    
-    hdfs_model_home = '/model/wdl/',
-    local_model_home = '/model/wdl/'
 )
-data_source = DataSource(data_source_params)
-#data_source.move_to_local()
 
 solver = hugectr.CreateSolver(max_eval_batches = 1280,
                               batchsize_eval = 1024,
                               batchsize = 1024,
                               lr = 0.001,
                               vvgpu = [[0]],
-                              repeat_dataset = True)
+                              repeat_dataset = True,
+                              data_source_params = data_source_params)
 reader = hugectr.DataReaderParams(data_reader_type = hugectr.DataReaderType_t.Norm,
-                                  source = [data_source_params.local_train_filelist],
-                                  eval_source = data_source_params.local_eval_filelist,
+                                  source = ['./wdl_norm/file_list.txt'],
+                                  eval_source = './wdl_norm/file_list_test.txt',
                                   check_type = hugectr.Check_t.Sum)
 optimizer = hugectr.CreateOptimizer(optimizer_type = hugectr.Optimizer_t.Adam,
                                     update_type = hugectr.Update_t.Global,
@@ -113,14 +91,9 @@ model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.BinaryCrossEntropyLoss
 model.compile()
 model.summary()
 
-# model.load_dense_weights(data_source_params.local_dense_model)
-# model.load_dense_optimizer_states(data_source_params.local_dense_opt_states)
-# model.load_sparse_weights(data_source_params.local_sparse_model)
-# model.load_sparse_optimizer_states(data_source_params.local_sparse_opt_states)
+model.load_dense_weights('/model/wdl/_dense_1000.model')
+model.load_dense_optimizer_states('/model/wdl/_opt_dense_1000.model')
+model.load_sparse_weights(['/model/wdl/0_sparse_1000.model', '/model/wdl/1_sparse_1000.model'])
+model.load_sparse_optimizer_states(['/model/wdl/0_opt_sparse_1000.model', '/model/wdl/1_opt_sparse_1000.model'])
 
-model.load_dense_weights('', data_source_params)
-model.load_dense_optimizer_states('', data_source_params)
-model.load_sparse_weights(['', ''], data_source_params)
-model.load_sparse_optimizer_states(['', ''], data_source_params)
-
-model.fit(max_iter = 1020, display = 200, eval_interval = 500, snapshot = 1100, data_source_params = data_source_params)
+model.fit(max_iter = 1020, display = 200, eval_interval = 500, snapshot = 1000, snapshot_prefix = "/model/wdl/")
