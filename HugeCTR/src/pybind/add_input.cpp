@@ -84,8 +84,8 @@ void add_input(Input& input, DataReaderParams& reader_params,
   long long eval_num_samples = reader_params.eval_num_samples;
   bool float_label_dense = reader_params.float_label_dense;
   // TODO - changes structures to support multiple labels
-  std::string top_strs_label = input.label_name;
-  int label_dim = input.label_dim;
+  std::string top_strs_label = input.labels.begin()->first;
+  int label_dim = input.labels.begin()->second;
   std::string top_strs_dense = input.dense_name;
   int dense_dim = input.dense_dim;
 

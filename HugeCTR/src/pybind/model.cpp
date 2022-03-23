@@ -173,11 +173,11 @@ DataReaderParams::DataReaderParams(DataReaderType_t data_reader_type, std::strin
 
 Input::Input(int label_dim, std::string label_name, int dense_dim, std::string dense_name,
              std::vector<DataReaderSparseParam>& data_reader_sparse_param_array)
-    : label_dim(label_dim),
-      label_name(label_name),
-      dense_dim(dense_dim),
+    : dense_dim(dense_dim),
       dense_name(dense_name),
-      data_reader_sparse_param_array(data_reader_sparse_param_array) {}
+      data_reader_sparse_param_array(data_reader_sparse_param_array) {
+  labels.insert(std::pair<std::string, int>(label_name, label_dim));
+}
 
 Input::Input(std::vector<int> label_dims, std::vector<std::string> label_names, int dense_dim,
              std::string dense_name,
@@ -185,8 +185,14 @@ Input::Input(std::vector<int> label_dims, std::vector<std::string> label_names, 
     : dense_dim(dense_dim),
       dense_name(dense_name),
       data_reader_sparse_param_array(data_reader_sparse_param_array) {
-  // Add support for multi-label inputs in next merge request
-  throw std::runtime_error(std::string("Multi-label data not yet supported\n"));
+  if (label_dims.size() != label_names.size()) {
+    HCTR_OWN_THROW(Error_t::WrongInput,
+                   "Number of label names does not match number of label dimensions.");
+  }
+
+  for (size_t i = 0; i < label_names.size(); ++i) {
+    labels.insert(std::pair<std::string, int>(label_names[i], label_dims[i]));
+  }
 }
 
 SparseEmbedding::SparseEmbedding(Embedding_t embedding_type, size_t workspace_size_per_gpu_in_mb,
@@ -534,13 +540,18 @@ void Model::add(Input& input) {
   if (!solver_.is_dlrm && reader_params_.data_reader_type == DataReaderType_t::RawAsync) {
     HCTR_OWN_THROW(Error_t::WrongInput, "Raw async reader is restricted to DLRM use");
   }
+
+  // TODO - update to support adding multiple labels.
+  std::string label_name = input.labels.begin()->first;
+  int label_dim = input.labels.begin()->second;
+
   input_params_.push_back(input);
-  activate_tensor(tensor_active_, input.label_name);
+  activate_tensor(tensor_active_, label_name);
   activate_tensor(tensor_active_, input.dense_name);
-  data_input_info_.push_back(input.label_name);
+  data_input_info_.push_back(label_name);
   data_input_info_.push_back(input.dense_name);
   tensor_shape_info_raw_.insert(
-      std::make_pair(input.label_name, std::vector<int>{solver_.batchsize, input.label_dim}));
+      std::make_pair(label_name, std::vector<int>{solver_.batchsize, label_dim}));
   tensor_shape_info_raw_.insert(
       std::make_pair(input.dense_name, std::vector<int>{solver_.batchsize, input.dense_dim}));
   std::vector<std::string> sparse_names;
@@ -1823,6 +1834,10 @@ Error_t Model::export_predictions(const std::string& output_prediction_file_name
       HCTR_LOG(INFO, ROOT, "Reach end of eval dataset. Skip export prediction\n");
       return Error_t::Success;
     }
+
+    int label_dim =
+        input_params_[0].labels.begin()->second;  // Temp until multiple labels fully implemented
+
     CudaDeviceContext context;
     const std::vector<int>& local_gpu_device_id_list =
         resource_manager_->get_local_gpu_device_id_list();
@@ -1830,10 +1845,8 @@ Error_t Model::export_predictions(const std::string& output_prediction_file_name
     const size_t local_gpu_count = resource_manager_->get_local_gpu_count();
     size_t batchsize_eval_per_gpu = solver_.batchsize_eval / global_gpu_count;
     size_t total_prediction_count = batchsize_eval_per_gpu * local_gpu_count;
-    std::unique_ptr<float[]> local_prediction_result(
-        new float[total_prediction_count * input_params_[0].label_dim]);
-    std::unique_ptr<float[]> local_label_result(
-        new float[total_prediction_count * input_params_[0].label_dim]);
+    std::unique_ptr<float[]> local_prediction_result(new float[total_prediction_count * label_dim]);
+    std::unique_ptr<float[]> local_label_result(new float[total_prediction_count * label_dim]);
 
     for (unsigned int i = 0; i < networks_.size(); ++i) {
       int gpu_id = local_gpu_device_id_list[i];
@@ -1841,12 +1854,12 @@ Error_t Model::export_predictions(const std::string& output_prediction_file_name
 
       get_raw_metric_as_host_float_tensor(
           networks_[i]->get_raw_metrics(), metrics::RawType::Pred, solver_.use_mixed_precision,
-          local_prediction_result.get() + batchsize_eval_per_gpu * input_params_[0].label_dim * i,
-          batchsize_eval_per_gpu * input_params_[0].label_dim);
+          local_prediction_result.get() + batchsize_eval_per_gpu * label_dim * i,
+          batchsize_eval_per_gpu * label_dim);
       get_raw_metric_as_host_float_tensor(
           networks_[i]->get_raw_metrics(), metrics::RawType::Label, false,
-          local_label_result.get() + batchsize_eval_per_gpu * input_params_[0].label_dim * i,
-          batchsize_eval_per_gpu * input_params_[0].label_dim);
+          local_label_result.get() + batchsize_eval_per_gpu * label_dim * i,
+          batchsize_eval_per_gpu * label_dim);
     }
 
     std::unique_ptr<float[]> global_prediction_result;
@@ -1860,18 +1873,15 @@ Error_t Model::export_predictions(const std::string& output_prediction_file_name
     if (numprocs > 1) {
 #ifdef ENABLE_MPI
       if (pid == 0) {
-        global_prediction_result.reset(
-            new float[solver_.batchsize_eval * input_params_[0].label_dim]);
-        global_label_result.reset(new float[solver_.batchsize_eval * input_params_[0].label_dim]);
+        global_prediction_result.reset(new float[solver_.batchsize_eval * label_dim]);
+        global_label_result.reset(new float[solver_.batchsize_eval * label_dim]);
       }
-      HCTR_MPI_THROW(MPI_Gather(
-          local_prediction_result.get(), total_prediction_count * input_params_[0].label_dim,
-          MPI_FLOAT, global_prediction_result.get(),
-          total_prediction_count * input_params_[0].label_dim, MPI_FLOAT, 0, MPI_COMM_WORLD));
-      HCTR_MPI_THROW(MPI_Gather(
-          local_label_result.get(), total_prediction_count * input_params_[0].label_dim, MPI_FLOAT,
-          global_label_result.get(), total_prediction_count * input_params_[0].label_dim, MPI_FLOAT,
-          0, MPI_COMM_WORLD));
+      HCTR_MPI_THROW(MPI_Gather(local_prediction_result.get(), total_prediction_count * label_dim,
+                                MPI_FLOAT, global_prediction_result.get(),
+                                total_prediction_count * label_dim, MPI_FLOAT, 0, MPI_COMM_WORLD));
+      HCTR_MPI_THROW(MPI_Gather(local_label_result.get(), total_prediction_count * label_dim,
+                                MPI_FLOAT, global_label_result.get(),
+                                total_prediction_count * label_dim, MPI_FLOAT, 0, MPI_COMM_WORLD));
 #endif
     } else {
       global_prediction_result = std::move(local_prediction_result);
@@ -1890,9 +1900,9 @@ Error_t Model::export_predictions(const std::string& output_prediction_file_name
         output_stream.close();
       };
       write_func(output_prediction_file_name, global_prediction_result.get(),
-                 current_eval_batchsize_ * input_params_[0].label_dim);
+                 current_eval_batchsize_ * label_dim);
       write_func(output_label_file_name, global_label_result.get(),
-                 current_eval_batchsize_ * input_params_[0].label_dim);
+                 current_eval_batchsize_ * label_dim);
     }
   } catch (const internal_runtime_error& rt_err) {
     Logger::print_exception(rt_err, 0);

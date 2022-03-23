@@ -137,10 +137,12 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
                    const std::shared_ptr<BufferBlock2<__half>>& weight_buff_half,
                    const std::shared_ptr<BufferBlock2<float>>& wgrad_buff,
                    const std::shared_ptr<BufferBlock2<__half>>& wgrad_buff_half,
-                   Tensor2<float>& loss_tensor, const std::shared_ptr<GPUResource>& gpu_resource,
-                   bool use_mixed_precision, bool enable_tf32_compute, int num_networks_in_global,
-                   float scaler, bool& enable_cuda_graph, bool inference_flag,
-                   std::vector<std::unique_ptr<Layer>>& layers, std::unique_ptr<ILoss>& loss,
+                   std::map<std::string, Tensor2<float>>& loss_tensors,
+                   const std::shared_ptr<GPUResource>& gpu_resource, bool use_mixed_precision,
+                   bool enable_tf32_compute, int num_networks_in_global, float scaler,
+                   bool& enable_cuda_graph, bool inference_flag,
+                   std::vector<std::unique_ptr<Layer>>& layers,
+                   std::map<std::string, std::unique_ptr<ILoss>>& losses,
                    metrics::RawMetricMap* raw_metrics, std::vector<Layer*>* top_layers = nullptr,
                    std::vector<Layer*>* bottom_layers = nullptr) {
   bool skip_dgrad = true;
@@ -270,24 +272,34 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
           break;
         }
         Tensor2<float> label_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[1]);
-        blobs_buff->reserve({1, 1}, &loss_tensor);
+
+        // create new loss tensor
+        auto name = input_output_info.output_names[0];
+        Tensor2<float> new_loss_tensor;
+        blobs_buff->reserve({1, 1}, &new_loss_tensor);
+
+        // create new loss item
+        std::unique_ptr<ILoss> new_loss;
+
         if (use_mixed_precision) {
           Tensor2<__half> in_tensor = Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
 
-          loss.reset(new BinaryCrossEntropyLoss<__half>(
-              label_tensor, in_tensor, loss_tensor,
+          new_loss.reset(new BinaryCrossEntropyLoss<__half>(
+              label_tensor, in_tensor, new_loss_tensor,
               create_regularizer(j, weight_buff->as_tensor(), wgrad_buff_half->as_tensor(),
                                  in_tensor.get_dimensions()[0], gpu_resource),
               gpu_resource, num_networks_in_global, scaler));
         } else {
           Tensor2<float> in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
 
-          loss.reset(new BinaryCrossEntropyLoss<float>(
-              label_tensor, in_tensor, loss_tensor,
+          new_loss.reset(new BinaryCrossEntropyLoss<float>(
+              label_tensor, in_tensor, new_loss_tensor,
               create_regularizer(j, weight_buff->as_tensor(), wgrad_buff->as_tensor(),
                                  in_tensor.get_dimensions()[0], gpu_resource),
               gpu_resource, num_networks_in_global, scaler));
         }
+        loss_tensors.insert(std::pair(name, new_loss_tensor));
+        losses.insert(std::pair(name, std::move(new_loss)));
         break;
       }
       case Layer_t::Concat: {
@@ -339,13 +351,20 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
           break;
         }
         Tensor2<float> label_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[1]);
-        blobs_buff->reserve({1, 1}, &loss_tensor);
+        // create new loss tensor
+        auto name = input_output_info.output_names[0];
+        Tensor2<float> new_loss_tensor;
+        blobs_buff->reserve({1, 1}, &new_loss_tensor);
+
+        // create new loss item
+        std::unique_ptr<ILoss> new_loss;
+
         if (use_mixed_precision) {
           Tensor2<__half> cross_entropy_loss_in_tensor =
               Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
 
-          loss.reset(new CrossEntropyLoss<__half>(
-              label_tensor, cross_entropy_loss_in_tensor, loss_tensor,
+          new_loss.reset(new CrossEntropyLoss<__half>(
+              label_tensor, cross_entropy_loss_in_tensor, new_loss_tensor,
               create_regularizer(j, weight_buff->as_tensor(), wgrad_buff_half->as_tensor(),
                                  cross_entropy_loss_in_tensor.get_dimensions()[0], gpu_resource),
               gpu_resource, num_networks_in_global, scaler));
@@ -353,12 +372,14 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
           Tensor2<float> cross_entropy_loss_in_tensor =
               Tensor2<float>::stretch_from(input_output_info.inputs[0]);
 
-          loss.reset(new CrossEntropyLoss<float>(
-              label_tensor, cross_entropy_loss_in_tensor, loss_tensor,
+          new_loss.reset(new CrossEntropyLoss<float>(
+              label_tensor, cross_entropy_loss_in_tensor, new_loss_tensor,
               create_regularizer(j, weight_buff->as_tensor(), wgrad_buff->as_tensor(),
                                  cross_entropy_loss_in_tensor.get_dimensions()[0], gpu_resource),
               gpu_resource, num_networks_in_global, scaler));
         }
+        loss_tensors.insert(std::pair(name, new_loss_tensor));
+        losses.insert(std::pair(name, std::move(new_loss)));
         break;
       }
       case Layer_t::Dropout: {
@@ -711,13 +732,19 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
         }
 
         Tensor2<float> label_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[1]);
-        blobs_buff->reserve({1, 1}, &loss_tensor);
+        // create new loss tensor
+        auto name = input_output_info.output_names[0];
+        Tensor2<float> new_loss_tensor;
+        blobs_buff->reserve({1, 1}, &new_loss_tensor);
+
+        // create new loss item
+        std::unique_ptr<ILoss> new_loss;
 
         if (use_mixed_precision) {
           Tensor2<__half> multi_cross_entropy_loss_in_tensor =
               Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
-          loss.reset(new MultiCrossEntropyLoss<__half>(
-              label_tensor, multi_cross_entropy_loss_in_tensor, loss_tensor,
+          new_loss.reset(new MultiCrossEntropyLoss<__half>(
+              label_tensor, multi_cross_entropy_loss_in_tensor, new_loss_tensor,
               create_regularizer(j, weight_buff->as_tensor(), wgrad_buff_half->as_tensor(),
                                  multi_cross_entropy_loss_in_tensor.get_dimensions()[0],
                                  gpu_resource),
@@ -725,13 +752,15 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
         } else {
           Tensor2<float> multi_cross_entropy_loss_in_tensor =
               Tensor2<float>::stretch_from(input_output_info.inputs[0]);
-          loss.reset(new MultiCrossEntropyLoss<float>(
-              label_tensor, multi_cross_entropy_loss_in_tensor, loss_tensor,
+          new_loss.reset(new MultiCrossEntropyLoss<float>(
+              label_tensor, multi_cross_entropy_loss_in_tensor, new_loss_tensor,
               create_regularizer(j, weight_buff->as_tensor(), wgrad_buff->as_tensor(),
                                  multi_cross_entropy_loss_in_tensor.get_dimensions()[0],
                                  gpu_resource),
               target_weight_vec, gpu_resource, num_networks_in_global, scaler));
         }
+        loss_tensors.insert(std::pair(name, new_loss_tensor));
+        losses.insert(std::pair(name, std::move(new_loss)));
         break;
       }
       case Layer_t::ReLU: {
@@ -1166,7 +1195,7 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
         (layer_type == Layer_t::CrossEntropyLoss || layer_type == Layer_t::BinaryCrossEntropyLoss ||
          layer_type == Layer_t::MultiCrossEntropyLoss)) {
       if (raw_metrics) {
-        (*raw_metrics)[metrics::RawType::Loss] = loss_tensor.shrink();
+        (*raw_metrics)[metrics::RawType::Loss] = loss_tensors.begin()->second.shrink();
         (*raw_metrics)[metrics::RawType::Pred] = input_output_info.inputs[0];
         (*raw_metrics)[metrics::RawType::Label] = input_output_info.inputs[1];
       }
@@ -1200,10 +1229,10 @@ Network* Network::create_network(const nlohmann::json& j_array, const nlohmann::
   auto* bottom_layers = &network->bottom_layers_;
   auto* top_layers = &network->top_layers_;
   auto& evaluate_layers = network->evaluate_layers_;
-  auto& train_loss_tensor = network->train_loss_tensor_;
-  auto& evaluate_loss_tensor = network->evaluate_loss_tensor_;
-  auto& train_loss = network->train_loss_;
-  auto& evaluate_loss = network->evaluate_loss_;
+  auto& train_loss_tensors = network->train_loss_tensors_;
+  auto& evaluate_loss_tensors = network->evaluate_loss_tensors_;
+  auto& train_losses = network->train_losses_;
+  auto& evaluate_losses = network->evaluate_losses_;
   auto& enable_cuda_graph = network->enable_cuda_graph_;
   auto& raw_metrics = network->raw_metrics_;
 
@@ -1249,21 +1278,22 @@ Network* Network::create_network(const nlohmann::json& j_array, const nlohmann::
   std::shared_ptr<BufferBlock2<float>> opt_buff = blobs_buff->create_block<float>();
   std::shared_ptr<BufferBlock2<__half>> opt_buff_half = blobs_buff->create_block<__half>();
 
+  // TODO: implement multiple loss support in create_layers
   if (!inference_flag) {
     // create train layers
     create_layers(j_array, train_tensor_entries, blobs_buff, train_weight_buff,
-                  train_weight_buff_half, wgrad_buff, wgrad_buff_half, train_loss_tensor,
+                  train_weight_buff_half, wgrad_buff, wgrad_buff_half, train_loss_tensors,
                   gpu_resource, use_mixed_precision, enable_tf32_compute, num_networks_in_global,
-                  scaler, enable_cuda_graph, inference_flag, train_layers, train_loss, nullptr,
+                  scaler, enable_cuda_graph, inference_flag, train_layers, train_losses, nullptr,
                   top_layers, bottom_layers);
   }
 
   // create evaluate layers
   create_layers(j_array, evaluate_tensor_entries, blobs_buff, evaluate_weight_buff,
                 evaluate_weight_buff_half, wgrad_buff_placeholder, wgrad_buff_half_placeholder,
-                evaluate_loss_tensor, gpu_resource, use_mixed_precision, enable_tf32_compute,
+                evaluate_loss_tensors, gpu_resource, use_mixed_precision, enable_tf32_compute,
                 num_networks_in_global, scaler, enable_cuda_graph, inference_flag, evaluate_layers,
-                evaluate_loss, &raw_metrics);
+                evaluate_losses, &raw_metrics);
 
   // create optimizer
   if (!inference_flag) {

@@ -53,9 +53,14 @@ class Network {
  protected:
   std::vector<std::unique_ptr<Layer>> train_layers_;    /**< vector of layers */
   std::vector<std::unique_ptr<Layer>> evaluate_layers_; /**< vector of layers */
-  std::unique_ptr<ILoss> train_loss_;                   /**< loss layer */
-  std::unique_ptr<ILoss> evaluate_loss_;                /**< loss layer */
-  std::unique_ptr<Optimizer> optimizer_;                /**< optimizer */
+
+  std::map<std::string, std::unique_ptr<ILoss>> train_losses_;    /**< map of loss layers */
+  std::map<std::string, std::unique_ptr<ILoss>> evaluate_losses_; /**< map of loss layers */
+  std::map<std::string, float> loss_weights_;                     /** < map of weights for losses */
+
+  std::map<std::string, int> label_dims_; /** < map of dimensions of labels */
+
+  std::unique_ptr<Optimizer> optimizer_; /**< optimizer */
   std::vector<Layer*> top_layers_, bottom_layers_;
 
   Tensor2<float> train_weight_tensor_;
@@ -66,8 +71,10 @@ class Network {
   Tensor2<__half> wgrad_tensor_half_;
   Tensor2<__half> evaluate_weight_tensor_half_;
   Tensor2<__half> opt_tensor_half_;
-  Tensor2<float> train_loss_tensor_;    /**< loss tensor */
-  Tensor2<float> evaluate_loss_tensor_; /**< loss tensor */
+
+  std::map<std::string, Tensor2<float>> train_loss_tensors_;    /**< map of loss tensors */
+  std::map<std::string, Tensor2<float>> evaluate_loss_tensors_; /**< map of loss tensor */
+
   metrics::RawMetricMap raw_metrics_;
 
   Tensor2<float> pred_tensor_;
