@@ -122,8 +122,7 @@ void ModelPybind(pybind11::module &m) {
       .def("fit", &HugeCTR::Model::fit, pybind11::arg("num_epochs") = 0,
            pybind11::arg("max_iter") = 2000, pybind11::arg("display") = 200,
            pybind11::arg("eval_interval") = 1000, pybind11::arg("snapshot") = 10000,
-           pybind11::arg("snapshot_prefix") = "",
-           pybind11::arg("data_source_params") = new DataSourceParams())
+           pybind11::arg("snapshot_prefix") = "")
       .def("set_source",
            pybind11::overload_cast<std::vector<std::string>, std::vector<std::string>, std::string>(
                &HugeCTR::Model::set_source),
@@ -149,32 +148,25 @@ void ModelPybind(pybind11::module &m) {
            pybind11::arg("embedding_name"))
       .def("unfreeze_dense", &HugeCTR::Model::unfreeze_dense)
       .def("load_dense_weights", &HugeCTR::Model::load_dense_weights,
-           pybind11::arg("dense_model_file"),
-           pybind11::arg("data_source_params") = new DataSourceParams())
+           pybind11::arg("dense_model_file"))
       .def("load_sparse_weights",
-           pybind11::overload_cast<const std::vector<std::string> &, HugeCTR::DataSourceParams>(
+           pybind11::overload_cast<const std::vector<std::string> &>(
                &HugeCTR::Model::load_sparse_weights),
-           pybind11::arg("sparse_embedding_files"),
-           pybind11::arg("data_source_params") = new DataSourceParams())
+           pybind11::arg("sparse_embedding_files"))
       .def("load_sparse_weights",
-           pybind11::overload_cast<const std::map<std::string, std::string> &,
-                                   HugeCTR::DataSourceParams>(&HugeCTR::Model::load_sparse_weights),
-           pybind11::arg("sparse_embedding_files_map"),
-           pybind11::arg("data_source_params") = new DataSourceParams())
+           pybind11::overload_cast<const std::map<std::string, std::string> &>(
+               &HugeCTR::Model::load_sparse_weights),
+           pybind11::arg("sparse_embedding_files_map"))
       .def("load_dense_optimizer_states", &HugeCTR::Model::load_dense_optimizer_states,
-           pybind11::arg("dense_opt_states_file"),
-           pybind11::arg("data_source_params") = new DataSourceParams())
+           pybind11::arg("dense_opt_states_file"))
       .def("load_sparse_optimizer_states",
-           pybind11::overload_cast<const std::vector<std::string> &, HugeCTR::DataSourceParams>(
+           pybind11::overload_cast<const std::vector<std::string> &>(
                &HugeCTR::Model::load_sparse_optimizer_states),
-           pybind11::arg("sparse_opt_states_files"),
-           pybind11::arg("data_source_params") = new DataSourceParams())
+           pybind11::arg("sparse_opt_states_files"))
       .def("load_sparse_optimizer_states",
-           pybind11::overload_cast<const std::map<std::string, std::string> &,
-                                   HugeCTR::DataSourceParams>(
+           pybind11::overload_cast<const std::map<std::string, std::string> &>(
                &HugeCTR::Model::load_sparse_optimizer_states),
-           pybind11::arg("sparse_opt_states_files_map"),
-           pybind11::arg("data_source_params") = new DataSourceParams())
+           pybind11::arg("sparse_opt_states_files_map"))
       .def("add", pybind11::overload_cast<Input &>(&HugeCTR::Model::add), pybind11::arg("input"))
       .def("add", pybind11::overload_cast<SparseEmbedding &>(&HugeCTR::Model::add),
            pybind11::arg("sparse_embedding"))
@@ -222,8 +214,7 @@ void ModelPybind(pybind11::module &m) {
            })
       .def("dump_incremental_model_2kafka", &HugeCTR::Model::dump_incremental_model_2kafka)
       .def("save_params_to_files", &HugeCTR::Model::download_params_to_files,
-           pybind11::arg("prefix"), pybind11::arg("iter") = 0,
-           pybind11::arg("data_source_params") = new DataSourceParams())
+           pybind11::arg("prefix"), pybind11::arg("iter") = 0)
       .def("get_embedding_training_cache", &HugeCTR::Model::get_embedding_training_cache)
       .def("get_data_reader_train", &HugeCTR::Model::get_train_data_reader)
       .def("get_data_reader_eval", &HugeCTR::Model::get_evaluate_data_reader)

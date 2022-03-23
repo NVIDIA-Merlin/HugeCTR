@@ -124,42 +124,10 @@ class HdfsService {
 
 struct DataSourceParams {
   bool use_hdfs;
-
   std::string namenode;
   int port;
 
-  std::string hdfs_train_source;
-  std::string hdfs_train_filelist;
-  std::string hdfs_eval_source;
-  std::string hdfs_eval_filelist;
-  std::string hdfs_dense_model;
-  std::string hdfs_dense_opt_states;
-  std::vector<std::string> hdfs_sparse_model;
-  std::vector<std::string> hdfs_sparse_opt_states;
-
-  std::string local_train_source;
-  std::string local_train_filelist;
-  std::string local_eval_source;
-  std::string local_eval_filelist;
-  std::string local_dense_model;
-  std::string local_dense_opt_states;
-  std::vector<std::string> local_sparse_model;
-  std::vector<std::string> local_sparse_opt_states;
-
-  std::string hdfs_model_home;
-  std::string local_model_home;
-  DataSourceParams(const bool use_hdfs, const std::string& namenode, const int port,
-                   const std::string& hdfs_train_source, const std::string& hdfs_train_filelist,
-                   const std::string& hdfs_eval_source, const std::string& hdfs_eval_filelist,
-                   const std::string& hdfs_dense_model, const std::string& hdfs_dense_opt_states,
-                   const std::vector<std::string>& hdfs_sparse_model,
-                   const std::vector<std::string>& hdfs_sparse_opt_states,
-                   const std::string& local_train_source, const std::string& local_train_filelist,
-                   const std::string& local_eval_source, const std::string& local_eval_filelist,
-                   const std::string& local_dense_model, const std::string& local_dense_opt_states,
-                   const std::vector<std::string>& local_sparse_model,
-                   const std::vector<std::string>& local_sparse_opt_states,
-                   const std::string& hdfs_model_home, const std::string& local_model_home);
+  DataSourceParams(const bool use_hdfs, const std::string& namenode, const int port);
   DataSourceParams();
 };
 
@@ -169,7 +137,7 @@ class DataSource {
   DataSource(const DataSourceParams& data_source_params);
   DataSource(const DataSource&) = delete;
   DataSource& operator=(const DataSource&) = delete;
-  void move_to_local();
+  void move_to_local(const std::string& local_path, const std::string& hdfs_path);
 
  private:
   DataSourceParams data_source_params_;

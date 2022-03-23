@@ -76,7 +76,7 @@ std::vector<Tensors2<TypeEmbeddingComp>> SparseEmbeddingFunctors::get_opt_states
 
 template <typename TypeEmbeddingComp>
 void SparseEmbeddingFunctors::dump_opt_states(
-    std::ofstream& stream, std::string& write_path, DataSourceParams data_source_params,
+    std::ofstream& stream, std::string& write_path, const DataSourceParams& data_source_params,
     const ResourceManager& resource_manager, std::vector<Tensors2<TypeEmbeddingComp>>& opt_states) {
   size_t local_gpu_count = resource_manager.get_local_gpu_count();
 
@@ -164,7 +164,7 @@ template <typename TypeEmbeddingComp>
 void SparseEmbeddingFunctors::load_opt_states(std::ifstream& stream, std::string& read_path,
                                               const ResourceManager& resource_manager,
                                               std::vector<Tensors2<TypeEmbeddingComp>>& opt_states,
-                                              DataSourceParams data_source_params) {
+                                              const DataSourceParams& data_source_params) {
   size_t local_gpu_count = resource_manager.get_local_gpu_count();
 
   CudaDeviceContext context;
@@ -279,19 +279,19 @@ template std::vector<Tensors2<__half>> SparseEmbeddingFunctors::get_opt_states(
     size_t local_gpu_count);
 
 template void SparseEmbeddingFunctors::dump_opt_states<float>(
-    std::ofstream& stream, std::string& write_path, DataSourceParams data_source_params,
+    std::ofstream& stream, std::string& write_path, const DataSourceParams& data_source_params,
     const ResourceManager& resource_manager, std::vector<Tensors2<float>>& opt_states);
 
 template void SparseEmbeddingFunctors::dump_opt_states<__half>(
-    std::ofstream& stream, std::string& write_path, DataSourceParams data_source_params,
+    std::ofstream& stream, std::string& write_path, const DataSourceParams& data_source_params,
     const ResourceManager& resource_manager, std::vector<Tensors2<__half>>& opt_states);
 
 template void SparseEmbeddingFunctors::load_opt_states<float>(
     std::ifstream& stream, std::string& read_path, const ResourceManager& resource_manager,
-    std::vector<Tensors2<float>>& opt_states, DataSourceParams data_source_params);
+    std::vector<Tensors2<float>>& opt_states, const DataSourceParams& data_source_params);
 
 template void SparseEmbeddingFunctors::load_opt_states<__half>(
     std::ifstream& stream, std::string& read_path, const ResourceManager& resource_manager,
-    std::vector<Tensors2<__half>>& opt_states, DataSourceParams data_source_params);
+    std::vector<Tensors2<__half>>& opt_states, const DataSourceParams& data_source_params);
 
 }  // namespace HugeCTR

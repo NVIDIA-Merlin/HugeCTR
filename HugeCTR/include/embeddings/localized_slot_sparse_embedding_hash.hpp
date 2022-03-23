@@ -179,8 +179,9 @@ class LocalizedSlotSparseEmbeddingHash : public IEmbedding {
    * @param hash_tables the hash tables on multi GPUs
    */
   void dump_parameters(
-      const std::string &sparse_model, DataSourceParams data_source_params, size_t vocabulary_size,
-      size_t embedding_vec_size, const Tensors2<float> &hash_table_value_tensors,
+      const std::string &sparse_model, const DataSourceParams &data_source_params,
+      size_t vocabulary_size, size_t embedding_vec_size,
+      const Tensors2<float> &hash_table_value_tensors,
       const Tensors2<size_t> &hash_table_slot_id_tensors,
       const std::vector<std::shared_ptr<HashTable<TypeHashKey, size_t>>> &hash_tables) const;
 
@@ -391,7 +392,8 @@ class LocalizedSlotSparseEmbeddingHash : public IEmbedding {
    * upload it onto multi-GPUs global memory.
    * @param sparse_model the folder name of sparse model.
    */
-  void load_parameters(std::string sparse_model, DataSourceParams data_source_params) override;
+  void load_parameters(std::string sparse_model,
+                       const DataSourceParams &data_source_params) override;
   void load_parameters(BufferBag &buf_bag, size_t num) override;
   /**
    * Download the hash table from multi-GPUs global memroy to CPU memory
@@ -399,13 +401,13 @@ class LocalizedSlotSparseEmbeddingHash : public IEmbedding {
    * @param sparse_model the folder name of sparse model.
    */
   void dump_parameters(std::string sparse_model,
-                       DataSourceParams data_source_params) const override;
+                       const DataSourceParams &data_source_params) const override;
   void dump_parameters(BufferBag &buf_bag, size_t *num) const override;
 
   void dump_opt_states(std::ofstream &stream, std::string sparse_model,
-                       DataSourceParams data_source_params) override;
+                       const DataSourceParams &data_source_params) override;
   void load_opt_states(std::ifstream &stream, std::string read_path,
-                       DataSourceParams data_source_params) override;
+                       const DataSourceParams &data_source_params) override;
   void reset_optimizer() override;
 
   /**

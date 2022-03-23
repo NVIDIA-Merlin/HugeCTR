@@ -34,9 +34,10 @@ class IEmbedding {
   virtual void backward() = 0;
   virtual void update_params() = 0;
   virtual void init_params() = 0;
-  virtual void load_parameters(std::string sparse_model, DataSourceParams data_source_params) = 0;
+  virtual void load_parameters(std::string sparse_model,
+                               const DataSourceParams& data_source_params) = 0;
   virtual void dump_parameters(std::string sparse_model,
-                               DataSourceParams data_source_params) const = 0;
+                               const DataSourceParams& data_source_params) const = 0;
   virtual void set_learning_rate(float lr) = 0;
   // TODO: a workaround to enable GPU LR for HE only; need a better way
   virtual GpuLearningRateSchedulers get_learning_rate_schedulers() const {
@@ -53,9 +54,9 @@ class IEmbedding {
   virtual void reset_optimizer() = 0;
 
   virtual void dump_opt_states(std::ofstream& stream, std::string write_path,
-                               DataSourceParams data_source_params) = 0;
+                               const DataSourceParams& data_source_params) = 0;
   virtual void load_opt_states(std::ifstream& stream, std::string read_path,
-                               DataSourceParams data_source_params) = 0;
+                               const DataSourceParams& data_source_params) = 0;
 
   virtual const SparseEmbeddingHashParams& get_embedding_params() const = 0;
   virtual std::vector<TensorBag2> get_train_output_tensors() const = 0;

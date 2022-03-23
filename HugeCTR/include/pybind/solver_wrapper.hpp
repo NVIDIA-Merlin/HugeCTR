@@ -16,6 +16,7 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
+#include <HugeCTR/include/hdfs_backend.hpp>
 #include <HugeCTR/include/parser.hpp>
 
 namespace HugeCTR {
@@ -32,7 +33,7 @@ std::unique_ptr<Solver> CreateSolver(
     bool gen_loss_summary, bool overlap_lr, bool overlap_init_wgrad, bool overlap_ar_a2a,
     DeviceMap::Layout device_layout, bool use_holistic_cuda_graph, bool use_overlapped_pipeline,
     AllReduceAlgo all_reduce_algo, bool grouped_all_reduce, size_t num_iterations_statistics,
-    bool is_dlrm, std::string& kafka_brokers) {
+    bool is_dlrm, std::string& kafka_brokers, const DataSourceParams& data_source_params) {
   if (use_mixed_precision && enable_tf32_compute) {
     HCTR_OWN_THROW(Error_t::WrongInput,
                    "use_mixed_precision and enable_tf32_compute cannot be true at the same time");
@@ -95,6 +96,7 @@ std::unique_ptr<Solver> CreateSolver(
   solver->num_iterations_statistics = num_iterations_statistics;
   solver->is_dlrm = is_dlrm;
   solver->kafka_brokers = kafka_brokers;
+  solver->data_source_params = data_source_params;
   return solver;
 }
 
@@ -155,7 +157,8 @@ void SolverPybind(pybind11::module& m) {
         pybind11::arg("all_reduce_algo") = AllReduceAlgo::NCCL,
         pybind11::arg("grouped_all_reduce") = false,
         pybind11::arg("num_iterations_statistics") = 20, pybind11::arg("is_dlrm") = false,
-        pybind11::arg("kafka_brockers") = "");
+        pybind11::arg("kafka_brockers") = "",
+        pybind11::arg("data_source_params") = new DataSourceParams());
 }
 
 }  // namespace python_lib

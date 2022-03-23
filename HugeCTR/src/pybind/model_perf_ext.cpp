@@ -157,7 +157,7 @@ bool ModelPerfExt::eval(bool is_first_batch) {
 }
 
 void ModelPerfExt::fit(int num_epochs, int max_iter, int display, int eval_interval, int snapshot,
-                       std::string snapshot_prefix, DataSourceParams data_source_params) {
+                       std::string snapshot_prefix) {
   if (!buff_allocated_) {
     HCTR_OWN_THROW(Error_t::IllegalCall,
                    "Cannot start the training process before calling Model.compile()");
@@ -342,7 +342,7 @@ void ModelPerfExt::fit(int num_epochs, int max_iter, int display, int eval_inter
       }
     }
     if (snapshot > 0 && iter % snapshot == 0 && iter != 0) {
-      this->download_params_to_files(snapshot_prefix, iter, data_source_params);
+      this->download_params_to_files(snapshot_prefix, iter);
     }
   }  // end for iter
   if (solver_.is_dlrm) {
