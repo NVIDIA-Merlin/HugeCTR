@@ -1,4 +1,4 @@
-# HugeCTR Embedding Training Cached
+# HugeCTR Embedding Training Cache
 
 ## Table of Contents
 
