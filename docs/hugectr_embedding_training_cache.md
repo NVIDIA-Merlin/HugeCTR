@@ -282,7 +282,7 @@ Fig. 5: Bandwidth and hit rate for reading operations.
 </center>
 
 <center>
-<img src="user_guide_src/hc_read.png" width="450"/>
+<img src="user_guide_src/hc_write.png" width="450"/>
 
 Fig. 6: Bandwidth and hit rate for writing operations.
 </center>
