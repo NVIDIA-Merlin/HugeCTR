@@ -22,6 +22,14 @@
 #include <hps/hash_map_backend.hpp>
 #include <random>
 
+#define HCTR_USE_XXHASH
+#ifdef HCTR_USE_XXHASH
+#include <xxh3.h>
+#define HCTR_HASH_OF_KEY(KEY) (XXH3_64bits((KEY), sizeof(TKey)))
+#else
+#define HCTR_HASH_OF_KEY(KEY) (static_cast<size_t>(*KEY))
+#endif
+
 // TODO: Remove me!
 #pragma GCC diagnostic error "-Wconversion"
 
@@ -372,7 +380,7 @@ size_t ParallelHashMapBackend<TPartition>::contains(const std::string& table_nam
   if (num_keys < num_partitions_) {
     hit_count = 0;
     for (const TKey* k = keys; k != keys_end; k++) {
-      const TPartition& part = parts[*k % num_partitions_];
+      const TPartition& part = parts[HCTR_HASH_OF_KEY(k) % num_partitions_];
       hit_count += part.find(*k) != part.end();
     }
   } else {
@@ -382,7 +390,7 @@ size_t ParallelHashMapBackend<TPartition>::contains(const std::string& table_nam
 
       size_t hit_count = 0;
       for (const TKey* k = keys; k != keys_end; k++) {
-        if (*k % num_partitions_ == part_idx) {
+        if (HCTR_HASH_OF_KEY(k) % num_partitions_ == part_idx) {
           hit_count += part.find(*k) != part.end();
         }
       }
@@ -415,7 +423,7 @@ bool ParallelHashMapBackend<TPartition>::insert(const std::string& table_name,
   if (num_pairs < num_partitions_) {
     num_inserts = 0;
     for (const TKey* k = keys; k != keys_end; k++) {
-      const size_t part_idx = *k % num_partitions_;
+      const size_t part_idx = HCTR_HASH_OF_KEY(k) % num_partitions_;
       TPartition& part = parts[part_idx];
 
       if (parts.size() > this->overflow_margin_) {
@@ -430,7 +438,7 @@ bool ParallelHashMapBackend<TPartition>::insert(const std::string& table_name,
 
       size_t num_inserts = 0;
       for (const TKey* k = keys; k != keys_end; k++) {
-        if (*k % num_partitions_ == part_idx) {
+        if (HCTR_HASH_OF_KEY(k) % num_partitions_ == part_idx) {
           if (part.size() > this->overflow_margin_) {
             this->resolve_overflow_(table_name, part_idx, part, value_size);
           }
@@ -471,7 +479,7 @@ size_t ParallelHashMapBackend<TPartition>::fetch(const std::string& table_name,
   if (num_keys < num_partitions_) {
     hit_count = 0;
     for (const TKey* k = keys; k != keys_end; k++) {
-      const size_t part_idx = *k % num_partitions_;
+      const size_t part_idx = HCTR_HASH_OF_KEY(k) % num_partitions_;
       TPartition& part = parts[part_idx];
       HCTR_HASH_MAP_BACKEND_FETCH_(*k, k - keys);
     }
@@ -482,7 +490,7 @@ size_t ParallelHashMapBackend<TPartition>::fetch(const std::string& table_name,
 
       size_t hit_count = 0;
       for (const TKey* k = keys; k != keys_end; k++) {
-        if (*k % num_partitions_ == part_idx) {
+        if (HCTR_HASH_OF_KEY(k) % num_partitions_ == part_idx) {
           HCTR_HASH_MAP_BACKEND_FETCH_(*k, k - keys);
         }
       }
@@ -523,7 +531,7 @@ size_t ParallelHashMapBackend<TPartition>::fetch(const std::string& table_name,
     hit_count = 0;
     for (const size_t* i = indices; i != indices_end; i++) {
       const TKey& k = keys[*i];
-      TPartition& part = parts[k % num_partitions_];
+      TPartition& part = parts[HCTR_HASH_OF_KEY(&k) % num_partitions_];
       HCTR_HASH_MAP_BACKEND_FETCH_(k, *i);
     }
   } else {
@@ -534,7 +542,7 @@ size_t ParallelHashMapBackend<TPartition>::fetch(const std::string& table_name,
       size_t hit_count = 0;
       for (const size_t* i = indices; i != indices_end; i++) {
         const TKey& k = keys[*i];
-        if (k % num_partitions_ == part_idx) {
+        if (HCTR_HASH_OF_KEY(&k) % num_partitions_ == part_idx) {
           HCTR_HASH_MAP_BACKEND_FETCH_(k, *i);
         }
       }
@@ -594,7 +602,7 @@ size_t ParallelHashMapBackend<TPartition>::evict(const std::string& table_name,
   if (num_keys < num_partitions_) {
     hit_count = 0;
     for (const TKey* k = keys; k != keys_end; k++) {
-      TPartition& part = parts[*k % num_partitions_];
+      TPartition& part = parts[HCTR_HASH_OF_KEY(k) % num_partitions_];
       hit_count += part.erase(*k);
     }
   } else {
@@ -604,7 +612,7 @@ size_t ParallelHashMapBackend<TPartition>::evict(const std::string& table_name,
 
       size_t hit_count = 0;
       for (const TKey* k = keys; k != keys_end; k++) {
-        if (*k % num_partitions_ == part_idx) {
+        if (HCTR_HASH_OF_KEY(k) % num_partitions_ == part_idx) {
           hit_count += part.erase(*k);
         }
       }
