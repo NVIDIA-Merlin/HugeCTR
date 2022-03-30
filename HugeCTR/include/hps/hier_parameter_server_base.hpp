@@ -39,6 +39,8 @@ class HierParameterServerBase {
       const parameter_server_config& ps_config,
       std::vector<InferenceParams>& inference_params_array);
 
+  static std::shared_ptr<HierParameterServerBase> create(const std::string& hps_json_config_file);
+
   virtual void update_database_per_model(const InferenceParams& inference_params) = 0;
   virtual void create_embedding_cache_per_model(InferenceParams& inference_params) = 0;
   virtual void destory_embedding_cache_per_model(const std::string& model_name) = 0;
@@ -55,6 +57,8 @@ class HierParameterServerBase {
                                       std::shared_ptr<EmbeddingCacheBase> embedding_cache,
                                       EmbeddingCacheWorkspace& workspace_handler,
                                       cudaStream_t stream) = 0;
+  virtual void parse_hps_configuraion(const std::string& hps_json_config_file) = 0;
+  virtual std::map<std::string, InferenceParams> get_hps_model_configuration_map() = 0;
 };
 
 }  // namespace HugeCTR

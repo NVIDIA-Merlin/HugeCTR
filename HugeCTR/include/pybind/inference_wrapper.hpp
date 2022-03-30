@@ -491,7 +491,10 @@ void InferencePybind(pybind11::module& m) {
                           // const float,
                           const int, const int, const float, const std::vector<int>&,
                           const std::vector<float>&, const VolatileDatabaseParams&,
-                          const PersistentDatabaseParams&, const UpdateSourceParams&>(),
+                          const PersistentDatabaseParams&, const UpdateSourceParams&, const int,
+                          const float, const float, const std::vector<size_t>&,
+                          const std::vector<size_t>&, const std::vector<std::string>&>(),
+
            pybind11::arg("model_name"), pybind11::arg("max_batchsize"),
            pybind11::arg("hit_rate_threshold"), pybind11::arg("dense_model_file"),
            pybind11::arg("sparse_model_files"), pybind11::arg("device_id") = 0,
@@ -507,7 +510,13 @@ void InferencePybind(pybind11::module& m) {
            // Database backend.
            pybind11::arg("volatile_db") = VolatileDatabaseParams{},
            pybind11::arg("persistent_db") = PersistentDatabaseParams{},
-           pybind11::arg("update_source") = UpdateSourceParams{});
+           pybind11::arg("update_source") = UpdateSourceParams{},
+           // HPS required
+           pybind11::arg("maxnum_des_feature_per_sample") = 20,
+           pybind11::arg("refresh_delay") = 0.0f, pybind11::arg("refresh_interval") = 0.0f,
+           pybind11::arg("maxnum_catfeature_query_per_table_per_sample") = std::vector<int>{26},
+           pybind11::arg("embedding_vecsize_per_table") = std::vector<int>{128},
+           pybind11::arg("embedding_table_names") = std::vector<std::string>{""});
 
   infer.def("CreateInferenceSession", &HugeCTR::python_lib::CreateInferenceSession,
             pybind11::arg("model_config_path"), pybind11::arg("inference_params"));
