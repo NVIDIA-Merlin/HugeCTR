@@ -16,8 +16,8 @@
 
 #include <common.hpp>
 #include <hps/inference_utils.hpp>
-#include <nlohmann/json.hpp>
 #include <parser.hpp>
+#include <unordered_set>
 #include <utils.hpp>
 
 namespace HugeCTR {
@@ -160,7 +160,13 @@ InferenceParams::InferenceParams(
     const std::vector<float>& default_value_for_each_table,
     // Database backend.
     const VolatileDatabaseParams& volatile_db, const PersistentDatabaseParams& persistent_db,
-    const UpdateSourceParams& update_source)
+    const UpdateSourceParams& update_source,
+    // HPS required
+    const int maxnum_des_feature_per_sample, const float refresh_delay,
+    const float refresh_interval,
+    const std::vector<size_t>& maxnum_catfeature_query_per_table_per_sample,
+    const std::vector<size_t>& embedding_vecsize_per_table,
+    const std::vector<std::string>& embedding_table_names)
     : model_name(model_name),
       max_batchsize(max_batchsize),
       hit_rate_threshold(hit_rate_threshold),
@@ -182,7 +188,259 @@ InferenceParams::InferenceParams(
       // Database backend.
       volatile_db(volatile_db),
       persistent_db(persistent_db),
-      update_source(update_source) {}
+      update_source(update_source),
+      // HPS required
+      maxnum_des_feature_per_sample(maxnum_des_feature_per_sample),
+      refresh_delay(refresh_delay),
+      refresh_interval(refresh_interval),
+      maxnum_catfeature_query_per_table_per_sample(maxnum_catfeature_query_per_table_per_sample),
+      embedding_vecsize_per_table(embedding_vecsize_per_table),
+      embedding_table_names(embedding_table_names) {}
+
+parameter_server_config::parameter_server_config(const std::string& hps_json_config_file) {
+  // Initialize for each model
+  // Open model config file and input model json config
+  nlohmann::json hps_config(read_json_file(hps_json_config_file));
+
+  // Parsing HPS Databse backend
+  //****Update source parameters.
+  UpdateSourceParams update_source_params;
+  if (hps_config.find("update_source") != hps_config.end()) {
+    const nlohmann::json& update_source = get_json(hps_config, "update_source");
+    auto& params = update_source_params;
+
+    params.type = get_hps_updatesource_type(update_source, "type");
+
+    // Backend specific.
+    params.brokers =
+        get_value_from_json_soft<std::string>(update_source, "brokers", "127.0.0.1:9092");
+
+    params.poll_timeout_ms =
+        get_value_from_json_soft<size_t>(update_source, "poll_timeout_ms", 500);
+
+    params.max_receive_buffer_size =
+        get_value_from_json_soft<size_t>(update_source, "max_receive_buffer_size", 2000);
+
+    params.max_batch_size = get_value_from_json_soft<size_t>(update_source, "max_batch_size", 1000);
+
+    params.failure_backoff_ms =
+        get_value_from_json_soft<size_t>(update_source, "failure_backoff_ms", 50);
+  }
+  // Persistent database parameters.
+  PersistentDatabaseParams persistent_db_params;
+  if (hps_config.find("persistent_db") != hps_config.end()) {
+    const nlohmann::json& persistent_db = get_json(hps_config, "persistent_db");
+    auto& params = persistent_db_params;
+    params.type = get_hps_database_type(persistent_db, "type");
+
+    // Backend specific.
+    params.path = get_value_from_json_soft<std::string>(
+        persistent_db, "path", std::filesystem::temp_directory_path() / "rocksdb");
+
+    params.num_threads = get_value_from_json_soft<size_t>(persistent_db, "num_threads", 16);
+
+    params.read_only = get_value_from_json_soft<bool>(persistent_db, "read_only", false);
+
+    params.max_get_batch_size =
+        get_value_from_json_soft<size_t>(persistent_db, "max_get_batch_size", 10'000);
+
+    params.max_set_batch_size =
+        get_value_from_json_soft<size_t>(persistent_db, "max_set_batch_size", 10'000);
+
+    if (persistent_db.find("update_filters") != persistent_db.end()) {
+      params.update_filters.clear();
+      auto update_filters = get_json(persistent_db, "update_filters");
+      for (size_t filter_index = 0; filter_index < update_filters.size(); ++filter_index) {
+        params.update_filters.emplace_back(update_filters[filter_index].get<std::string>());
+      }
+    }
+  }
+  // Volatile database parameters.
+  HugeCTR::VolatileDatabaseParams volatile_db_params;
+  if (hps_config.find("volatile_db") != hps_config.end()) {
+    const nlohmann::json& volatile_db = get_json(hps_config, "volatile_db");
+    auto& params = volatile_db_params;
+    params.type = get_hps_database_type(volatile_db, "type");
+
+    // Backend specific.
+    params.address =
+        get_value_from_json_soft<std::string>(volatile_db, "address", "127.0.0.1:7000");
+
+    params.user_name = get_value_from_json_soft<std::string>(volatile_db, "user_name", "default");
+
+    params.password = get_value_from_json_soft<std::string>(volatile_db, "password", "");
+
+    params.algorithm = get_hps_hashmap_algo(volatile_db, "algorithm");
+
+    params.num_partitions = get_value_from_json_soft<size_t>(
+        volatile_db, "num_partitions", std::min(16u, std::thread::hardware_concurrency()));
+
+    params.max_get_batch_size =
+        get_value_from_json_soft<size_t>(volatile_db, "max_get_batch_size", 10'000);
+
+    params.max_set_batch_size =
+        get_value_from_json_soft<size_t>(volatile_db, "max_set_batch_size", 10'000);
+
+    // Overflow handling related.
+    params.refresh_time_after_fetch =
+        get_value_from_json_soft<bool>(volatile_db, "refresh_time_after_fetch", false);
+
+    params.overflow_margin = get_value_from_json_soft<size_t>(volatile_db, "overflow_margin",
+                                                              std::numeric_limits<size_t>::max());
+    params.overflow_policy = get_hps_overflow_policy(volatile_db, "overflow_policy");
+
+    params.overflow_resolution_target =
+        get_value_from_json_soft<double>(volatile_db, "overflow_resolution_target", 0.8);
+
+    // Caching behavior related.
+    params.initial_cache_rate =
+        get_value_from_json_soft<double>(volatile_db, "initial_cache_rate", 1.0);
+
+    params.cache_missed_embeddings =
+        get_value_from_json_soft<bool>(volatile_db, "cache_missed_embeddings", false);
+
+    // Real-time update mechanism related.
+    if (volatile_db.find("update_filters") != volatile_db.end()) {
+      params.update_filters.clear();
+      auto update_filters = get_json(volatile_db, "update_filters");
+      for (size_t filter_index = 0; filter_index < update_filters.size(); ++filter_index) {
+        params.update_filters.emplace_back(update_filters[filter_index].get<std::string>());
+      }
+    }
+  }
+
+  // Search for all model configuration
+  const nlohmann::json& models = get_json(hps_config, "models");
+  HCTR_CHECK_HINT(models.size() > 0,
+                  "No model configurations in JSON. Is the file formatted correctly?");
+  for (size_t j = 0; j < models.size(); j++) {
+    const nlohmann::json& model = models[j];
+    // [0] model_name -> std::string
+    std::string model_name = get_value_from_json_soft<std::string>(model, "model", "");
+    // Initialize <model_name, id> map
+    if (model_name_id_map_.count(model_name) == 0) {
+      model_name_id_map_.emplace(model_name, (size_t)model_name_id_map_.size());
+    }
+    // [1] max_batch_size -> size_t
+    size_t max_batch_size = get_value_from_json_soft<size_t>(model, "max_batch_size", 64);
+    // [2] sparse_model_files -> std::vector<std::string>
+    auto sparse_model_files = get_json(model, "sparse_files");
+    std::vector<std::string> sparse_files;
+    if (sparse_model_files.is_array()) {
+      for (size_t sparse_id = 0; sparse_id < sparse_model_files.size(); ++sparse_id) {
+        sparse_files.emplace_back(sparse_model_files[sparse_id].get<std::string>());
+      }
+    }
+    // [3] use_gpu_embedding_cache -> bool
+    bool use_gpu_embedding_cache = get_value_from_json_soft<bool>(model, "gpucache", true);
+    // [4] hit_rate_threshold -> float
+    float hit_rate_threshold = get_value_from_json_soft<float>(model, "hit_rate_threshold", 0.9);
+    // [5] cache _size_percentage -> float
+    float cache_size_percentage = get_value_from_json_soft<float>(model, "gpucacheper", 0.2);
+
+    // [6] dense_file -> std::string
+    std::string dense_file = get_value_from_json_soft<std::string>(model, "dense_file", "");
+
+    // [7] device_id -> int
+    const int device_id = 0;
+
+    InferenceParams params(model_name, max_batch_size, hit_rate_threshold, dense_file, sparse_files,
+                           device_id, use_gpu_embedding_cache, cache_size_percentage, true);
+    // [8] number_of_worker_buffers_in_pool ->int
+    params.number_of_worker_buffers_in_pool =
+        get_value_from_json_soft<int>(model, "num_of_worker_buffer_in_pool", 1);
+
+    // [9] num_of_refresher_buffer_in_pool
+    params.number_of_refresh_buffers_in_pool =
+        get_value_from_json_soft<int>(model, "num_of_refresher_buffer_in_pool", 1);
+
+    // [10] cache_refresh_percentage_per_iteration
+    params.cache_refresh_percentage_per_iteration =
+        get_value_from_json_soft<float>(model, "cache_refresh_percentage_per_iteration", 0);
+
+    // [11] deployed_device_list -> std::vector<int>
+    auto deployed_device_list = get_json(model, "deployed_device_list");
+    params.deployed_devices.clear();
+    if (deployed_device_list.is_array()) {
+      for (size_t device_index = 0; device_index < deployed_device_list.size(); ++device_index) {
+        params.deployed_devices.emplace_back(deployed_device_list[device_index].get<int>());
+      }
+    }
+    params.device_id = params.deployed_devices.back();
+    // [12] default_value_for_each_table -> std::vector<float>
+    auto default_value_for_each_table = get_json(model, "default_value_for_each_table");
+    params.default_value_for_each_table.clear();
+    if (default_value_for_each_table.is_array()) {
+      for (size_t default_index = 0; default_index < default_value_for_each_table.size();
+           ++default_index) {
+        params.default_value_for_each_table.emplace_back(
+            default_value_for_each_table[default_index].get<float>());
+      }
+    }
+    // [13] maxnum_catfeature_query_per_table_per_sample -> std::vector<int>
+    auto maxnum_catfeature_query_per_table_per_sample =
+        get_json(model, "maxnum_catfeature_query_per_table_per_sample");
+    params.maxnum_catfeature_query_per_table_per_sample.clear();
+    if (maxnum_catfeature_query_per_table_per_sample.is_array()) {
+      for (size_t cat_index = 0; cat_index < maxnum_catfeature_query_per_table_per_sample.size();
+           ++cat_index) {
+        params.maxnum_catfeature_query_per_table_per_sample.emplace_back(
+            maxnum_catfeature_query_per_table_per_sample[cat_index].get<size_t>());
+      }
+    }
+
+    // [14] embedding_vecsize_per_table -> std::vector<size_t>
+    auto embedding_vecsize_per_table = get_json(model, "embedding_vecsize_per_table");
+    params.embedding_vecsize_per_table.clear();
+    if (embedding_vecsize_per_table.is_array()) {
+      for (size_t vecsize_index = 0; vecsize_index < embedding_vecsize_per_table.size();
+           ++vecsize_index) {
+        params.embedding_vecsize_per_table.emplace_back(
+            embedding_vecsize_per_table[vecsize_index].get<size_t>());
+      }
+    }
+
+    // [15] maxnum_des_feature_per_sample -> int
+    params.maxnum_des_feature_per_sample =
+        get_value_from_json_soft<int>(model, "maxnum_des_feature_per_sample", 26);
+
+    // [16] refresh_delay -> float
+    params.refresh_delay = get_value_from_json_soft<float>(model, "refresh_delay", 0.0);
+
+    // [17] refresh_interval -> float
+    params.refresh_interval = get_value_from_json_soft<int>(model, "refresh_interval", 0.0);
+
+    // [18] embedding_table_names ->  std::vector<string>
+    if (model.find("embedding_table_names") != model.end()) {
+      auto embedding_table_names = get_json(model, "embedding_table_names");
+      params.embedding_table_names.clear();
+      if (embedding_table_names.is_array()) {
+        for (size_t name_index = 0; name_index < embedding_table_names.size(); ++name_index) {
+          params.embedding_table_names.emplace_back(
+              embedding_table_names[name_index].get<std::string>());
+        }
+      }
+    } else {
+      for (size_t i = 0; i < sparse_model_files.size(); ++i) {
+        params.embedding_table_names.clear();
+        params.embedding_table_names.emplace_back("Sparse_embedding" + std::to_string(i));
+      }
+    }
+
+    params.volatile_db = volatile_db_params;
+    params.persistent_db = persistent_db_params;
+    params.update_source = update_source_params;
+    inference_params_array.emplace_back(params);
+
+    // Fill the ps required parameters
+    emb_file_name_[params.model_name] = params.sparse_model_files;
+    emb_table_name_[params.model_name] = params.embedding_table_names;
+    embedding_vec_size_[params.model_name] = params.embedding_vecsize_per_table;
+    max_feature_num_per_sample_per_emb_table_[params.model_name] =
+        params.maxnum_catfeature_query_per_table_per_sample;
+    default_emb_vec_value_.emplace_back(params.default_value_for_each_table);
+  }
+}
 
 parameter_server_config::parameter_server_config(
     const std::vector<std::string>& model_config_path_array,
@@ -259,6 +517,126 @@ parameter_server_config::parameter_server_config(
     distributed_emb_.emplace_back(distributed_emb);
     default_emb_vec_value_.emplace_back(inference_params.default_value_for_each_table);
   }  // end for
+}
+
+HugeCTR::DatabaseType_t get_hps_database_type(const nlohmann::json& json, const std::string key) {
+  if (json.find(key) == json.end()) {
+    return HugeCTR::DatabaseType_t::Disabled;
+  }
+  std::string tmp = get_value_from_json<std::string>(json, key);
+  HugeCTR::DatabaseType_t enum_value;
+  std::unordered_set<const char*> names;
+
+  enum_value = HugeCTR::DatabaseType_t::Disabled;
+  names = {hctr_enum_to_c_str(enum_value), "disable", "none"};
+  for (const char* name : names)
+    if (tmp == name) {
+      return enum_value;
+    }
+
+  enum_value = HugeCTR::DatabaseType_t::HashMap;
+  names = {hctr_enum_to_c_str(enum_value), "hashmap", "hash", "map"};
+  for (const char* name : names)
+    if (tmp == name) {
+      return enum_value;
+    }
+
+  enum_value = HugeCTR::DatabaseType_t::ParallelHashMap;
+  names = {hctr_enum_to_c_str(enum_value), "parallel_hashmap", "parallel_hash", "parallel_map"};
+  for (const char* name : names)
+    if (tmp == name) {
+      return enum_value;
+    }
+
+  enum_value = HugeCTR::DatabaseType_t::RedisCluster;
+  names = {hctr_enum_to_c_str(enum_value), "redis"};
+  for (const char* name : names)
+    if (tmp == name) {
+      return enum_value;
+    }
+
+  enum_value = HugeCTR::DatabaseType_t::RocksDB;
+  names = {hctr_enum_to_c_str(enum_value), "rocksdb", "rocks"};
+  for (const char* name : names)
+    if (tmp == name) {
+      return enum_value;
+    }
+  return HugeCTR::DatabaseType_t::Disabled;
+}
+
+UpdateSourceType_t get_hps_updatesource_type(const nlohmann::json& json, const std::string key) {
+  if (json.find(key) == json.end()) {
+    return HugeCTR::UpdateSourceType_t::KafkaMessageQueue;
+  }
+  std::string tmp = get_value_from_json<std::string>(json, key);
+  HugeCTR::UpdateSourceType_t enum_value;
+  std::unordered_set<const char*> names;
+
+  enum_value = HugeCTR::UpdateSourceType_t::Null;
+  names = {hctr_enum_to_c_str(enum_value), "none"};
+  for (const char* name : names)
+    if (tmp == name) {
+      return enum_value;
+    }
+
+  enum_value = HugeCTR::UpdateSourceType_t::KafkaMessageQueue;
+  names = {hctr_enum_to_c_str(enum_value), "kafka_mq", "kafka"};
+  for (const char* name : names)
+    if (tmp == name) {
+      return enum_value;
+    }
+
+  return HugeCTR::UpdateSourceType_t::KafkaMessageQueue;
+}
+
+DatabaseHashMapAlgorithm_t get_hps_hashmap_algo(const nlohmann::json& json, const std::string key) {
+  if (json.find(key) == json.end()) {
+    return DatabaseHashMapAlgorithm_t::PHM;
+  }
+  std::string tmp = get_value_from_json<std::string>(json, key);
+  HugeCTR::DatabaseHashMapAlgorithm_t enum_value;
+  std::unordered_set<const char*> names;
+
+  enum_value = HugeCTR::DatabaseHashMapAlgorithm_t::STL;
+  names = {hctr_enum_to_c_str(enum_value)};
+  for (const char* name : names)
+    if (tmp == name) {
+      return enum_value;
+    }
+
+  enum_value = HugeCTR::DatabaseHashMapAlgorithm_t::PHM;
+  names = {hctr_enum_to_c_str(enum_value)};
+  for (const char* name : names)
+    if (tmp == name) {
+      return enum_value;
+    }
+  return DatabaseHashMapAlgorithm_t::PHM;
+}
+
+DatabaseOverflowPolicy_t get_hps_overflow_policy(const nlohmann::json& json,
+                                                 const std::string key) {
+  if (json.find(key) == json.end()) {
+    return HugeCTR::DatabaseOverflowPolicy_t::EvictOldest;
+  }
+  std::string tmp = get_value_from_json<std::string>(json, key);
+  HugeCTR::DatabaseOverflowPolicy_t enum_value;
+  std::unordered_set<const char*> names;
+
+  enum_value = HugeCTR::DatabaseOverflowPolicy_t::EvictOldest;
+  names = {hctr_enum_to_c_str(enum_value), "oldest"};
+  for (const char* name : names)
+    if (tmp == name) {
+      return enum_value;
+    }
+
+  enum_value = HugeCTR::DatabaseOverflowPolicy_t::EvictRandom;
+  names = {hctr_enum_to_c_str(enum_value), "random"};
+  for (const char* name : names)
+    if (tmp == name) {
+      return enum_value;
+    }
+
+  return HugeCTR::DatabaseOverflowPolicy_t::EvictOldest;
 }
 
 }  // namespace HugeCTR

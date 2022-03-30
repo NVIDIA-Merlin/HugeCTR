@@ -21,6 +21,7 @@
 #include <filesystem>
 #include <iostream>
 #include <map>
+#include <nlohmann/json.hpp>
 #include <optional>
 #include <string>
 #include <thread>
@@ -106,6 +107,10 @@ std::ostream& operator<<(std::ostream& os, DatabaseType_t value);
 std::ostream& operator<<(std::ostream& os, DatabaseHashMapAlgorithm_t value);
 std::ostream& operator<<(std::ostream& os, DatabaseOverflowPolicy_t value);
 std::ostream& operator<<(std::ostream& os, UpdateSourceType_t value);
+DatabaseType_t get_hps_database_type(const nlohmann::json& json, const std::string key);
+UpdateSourceType_t get_hps_updatesource_type(const nlohmann::json& json, const std::string key);
+DatabaseHashMapAlgorithm_t get_hps_hashmap_algo(const nlohmann::json& json, const std::string key);
+DatabaseOverflowPolicy_t get_hps_overflow_policy(const nlohmann::json& json, const std::string key);
 
 struct VolatileDatabaseParams {
   DatabaseType_t type;
@@ -225,6 +230,13 @@ struct InferenceParams {
   VolatileDatabaseParams volatile_db;
   PersistentDatabaseParams persistent_db;
   UpdateSourceParams update_source;
+  // HPS required parameters
+  int maxnum_des_feature_per_sample;
+  float refresh_delay;
+  float refresh_interval;
+  std::vector<size_t> maxnum_catfeature_query_per_table_per_sample;
+  std::vector<size_t> embedding_vecsize_per_table;
+  std::vector<std::string> embedding_table_names;
 
   InferenceParams(const std::string& model_name, size_t max_batchsize, float hit_rate_threshold,
                   const std::string& dense_model_file,
@@ -240,7 +252,13 @@ struct InferenceParams {
                   // Database backend.
                   const VolatileDatabaseParams& volatile_db = {},
                   const PersistentDatabaseParams& persistent_db = {},
-                  const UpdateSourceParams& update_source = {});
+                  const UpdateSourceParams& update_source = {},
+                  // HPS required parameters
+                  int maxnum_des_feature_per_sample = 20, float refresh_delay = 0.0f,
+                  float refresh_interval = 0.0f,
+                  const std::vector<size_t>& maxnum_catfeature_query_per_table_per_sample = {26},
+                  const std::vector<size_t>& embedding_vecsize_per_table = {128},
+                  const std::vector<std::string>& embedding_table_names = {""});
 };
 
 struct parameter_server_config {
@@ -261,8 +279,17 @@ struct parameter_server_config {
   std::vector<std::vector<float>>
       default_emb_vec_value_;  // The defualt emb_vec value when emb_id cannot be found, per
                                // embedding table per model
+  std::vector<InferenceParams>
+      inference_params_array;  //// model configuration of all models deployed on HPS, e.g.,
+                               ///{dcn_inferenceParamesStruct}
+
+  // Database backend.
+  const VolatileDatabaseParams& volatile_db = {};
+  const PersistentDatabaseParams& persistent_db = {};
+  const UpdateSourceParams& update_source = {};
   parameter_server_config(const std::vector<std::string>& model_config_path_array,
                           const std::vector<InferenceParams>& inference_params_array);
+  parameter_server_config(const std::string& hps_json_config_file);
   std::optional<size_t> find_model_id(const std::string& model_name) const;
 };
 

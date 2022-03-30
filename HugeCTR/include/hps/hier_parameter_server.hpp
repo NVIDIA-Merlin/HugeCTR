@@ -57,6 +57,8 @@ class HierParameterServer : public HierParameterServerBase {
                                       std::shared_ptr<EmbeddingCacheBase> embedding_cache,
                                       EmbeddingCacheWorkspace& workspace_handler,
                                       cudaStream_t stream);
+  virtual void parse_hps_configuraion(const std::string& hps_json_config_file);
+  virtual std::map<std::string, InferenceParams> get_hps_model_configuration_map();
 
  private:
   // Parameter server configuration
@@ -76,6 +78,8 @@ class HierParameterServer : public HierParameterServerBase {
   // Embedding caches of all models deployed on all devices, e.g., {"dcn": {0: dcn_embedding_cache0,
   // 1: dcnembedding_cache1}}
   std::map<std::string, std::map<int64_t, std::shared_ptr<EmbeddingCacheBase>>> model_cache_map_;
+  // model configuration of all models deployed on HPS, e.g., {"dcn": dcn_inferenceParamesStruct}
+  std::map<std::string, InferenceParams> inference_params_map_;
 };
 
 }  // namespace HugeCTR

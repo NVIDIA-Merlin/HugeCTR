@@ -55,6 +55,12 @@ std::shared_ptr<HierParameterServerBase> HierParameterServerBase::create(
   }
 }
 
+std::shared_ptr<HierParameterServerBase> HierParameterServerBase::create(
+    const std::string& hps_json_config_file) {
+  parameter_server_config ps_config{hps_json_config_file};
+  return HierParameterServerBase::create(ps_config, ps_config.inference_params_array);
+}
+
 HierParameterServerBase::~HierParameterServerBase() = default;
 
 template <typename TypeHashKey>
@@ -70,9 +76,7 @@ HierParameterServer<TypeHashKey>::HierParameterServer(
           "database deployment.");
     }
   }
-
-  if (ps_config_.distributed_emb_.size() != inference_params_array.size() ||
-      ps_config_.embedding_vec_size_.size() != inference_params_array.size() ||
+  if (ps_config_.embedding_vec_size_.size() != inference_params_array.size() ||
       ps_config_.default_emb_vec_value_.size() != inference_params_array.size()) {
     HCTR_OWN_THROW(Error_t::WrongInput,
                    "Wrong input: The size of parameter server parameters are not correct.");
@@ -186,6 +190,7 @@ HierParameterServer<TypeHashKey>::HierParameterServer(
   // Initilize embedding cache for each embedding table of each model
   for (size_t i = 0; i < inference_params_array.size(); i++) {
     create_embedding_cache_per_model(inference_params_array[i]);
+    inference_params_map_.emplace(inference_params_array[i].model_name, inference_params_array[i]);
   }
   buffer_pool_.reset(new ManagerPool(model_cache_map_, memory_pool_config_));
 }
@@ -440,6 +445,22 @@ std::shared_ptr<EmbeddingCacheBase> HierParameterServer<TypeHashKey>::get_embedd
     HCTR_OWN_THROW(Error_t::WrongInput, os.str());
   }
   return model_cache_map_[model_name][device_id];
+}
+
+template <typename TypeHashKey>
+std::map<std::string, InferenceParams>
+HierParameterServer<TypeHashKey>::get_hps_model_configuration_map() {
+  return inference_params_map_;
+}
+
+template <typename TypeHashKey>
+void HierParameterServer<TypeHashKey>::parse_hps_configuraion(
+    const std::string& hps_json_config_file) {
+  parameter_server_config ps_config{hps_json_config_file};
+
+  for (auto infer_param : ps_config.inference_params_array) {
+    inference_params_map_.emplace(infer_param.model_name, infer_param);
+  }
 }
 
 template <typename TypeHashKey>
