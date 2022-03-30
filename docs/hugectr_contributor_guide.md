@@ -41,7 +41,7 @@ groups: cannot find name for group ID 1007
 I have no name!@56a762eae3f8:/hugectr
 ```
 
-In [Merlin CTR Dockerfile](https://github.com/NVIDIA-Merlin/Merlin/blob/main/docker/dockerfile.ctr), [Merlin Inference Dockerfile](https://github.com/NVIDIA-Merlin/Merlin/blob/main/docker/dockerfile.tri), [Merlin Tensorflow Dockerfile](https://github.com/NVIDIA-Merlin/Merlin/blob/main/docker/dockerfile.tf), we provide a set of arguments to setup your HugeCTR development container:
+In [Merlin CTR Dockerfile](https://github.com/NVIDIA-Merlin/Merlin/blob/main/docker/training/dockerfile.ctr), [Merlin Inference Dockerfile](https://github.com/NVIDIA-Merlin/Merlin/blob/main/docker/inference/dockerfile.ctr), [Merlin Tensorflow Dockerfile](https://github.com/NVIDIA-Merlin/Merlin/blob/main/docker/training/dockerfile.tf), we provide a set of arguments to setup your HugeCTR development container:
 
 The arguments and configurations in this example can be used in all the three containers building:
 
