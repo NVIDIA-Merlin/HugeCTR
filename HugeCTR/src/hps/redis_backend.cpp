@@ -23,6 +23,14 @@
 #include <thread_pool.hpp>
 #include <unordered_set>
 
+#define HCTR_USE_XXHASH
+#ifdef HCTR_USE_XXHASH
+#include <xxh3.h>
+#define HCTR_HASH_OF_KEY(KEY) (XXH3_64bits((KEY), sizeof(TKey)))
+#else
+#define HCTR_HASH_OF_KEY(KEY) (static_cast<size_t>(*KEY))
+#endif
+
 // TODO: Remove me!
 #pragma GCC diagnostic error "-Wconversion"
 
@@ -134,7 +142,7 @@ size_t RedisClusterBackend<TKey>::contains(const std::string& table_name, const 
   if (num_keys <= 0) {
     // Do nothing ;-).
   } else if (num_keys <= 1) {
-    const size_t part = *keys % num_partitions_;
+    const size_t part = HCTR_HASH_OF_KEY(keys) % num_partitions_;
     try {
       const auto& hkey_kv = make_hash_key(table_name, part, REDIS_HKEY_VALUE_SUFFIX);
 
@@ -168,7 +176,7 @@ size_t RedisClusterBackend<TKey>::contains(const std::string& table_name, const 
             // Prepare and launch query.
             batch_size = 0;
             for (; k != keys_end && batch_size < max_set_batch_size_; k++) {
-              if (*k % num_partitions_ == part) {
+              if (HCTR_HASH_OF_KEY(k) % num_partitions_ == part) {
                 pipeline.hexists(hkey_kv, {reinterpret_cast<const char*>(k), sizeof(TKey)});
                 batch_size++;
               }
@@ -221,7 +229,7 @@ bool RedisClusterBackend<TKey>::insert(const std::string& table_name, const size
   if (num_pairs <= 0) {
     // Do nothing ;-).
   } else if (num_pairs <= 1) {
-    const size_t part = *keys % num_partitions_;
+    const size_t part = HCTR_HASH_OF_KEY(keys) % num_partitions_;
     try {
       const std::string& hkey_kv = make_hash_key(table_name, part, REDIS_HKEY_VALUE_SUFFIX);
       const std::string& hkey_kt = make_hash_key(table_name, part, REDIS_HKEY_TIME_SUFFIX);
@@ -269,7 +277,7 @@ bool RedisClusterBackend<TKey>::insert(const std::string& table_name, const size
             kt_views.clear();
             kv_views.clear();
             for (; k != keys_end && kv_views.size() < max_set_batch_size_; k++) {
-              if (*k % num_partitions_ == part) {
+              if (HCTR_HASH_OF_KEY(k) % num_partitions_ == part) {
                 kv_views.emplace_back(
                     std::piecewise_construct,
                     std::forward_as_tuple(reinterpret_cast<const char*>(k), sizeof(TKey)),
@@ -330,7 +338,7 @@ size_t RedisClusterBackend<TKey>::fetch(const std::string& table_name, const siz
   if (num_keys <= 0) {
     // Do nothing ;-).
   } else if (num_keys <= 1) {
-    const size_t part = *keys % num_partitions_;
+    const size_t part = HCTR_HASH_OF_KEY(keys) % num_partitions_;
     try {
       const std::string& hkey_kv = make_hash_key(table_name, part, REDIS_HKEY_VALUE_SUFFIX);
 
@@ -387,7 +395,7 @@ size_t RedisClusterBackend<TKey>::fetch(const std::string& table_name, const siz
               if (k_views.size() >= max_set_batch_size_) {
                 break;
               }
-              if (*k % num_partitions_ == part) {
+              if (HCTR_HASH_OF_KEY(k) % num_partitions_ == part) {
                 indices.push_back(k - keys);
                 k_views.emplace_back(reinterpret_cast<const char*>(k), sizeof(TKey));
               }
@@ -468,7 +476,7 @@ size_t RedisClusterBackend<TKey>::fetch(const std::string& table_name, const siz
     // Do nothing ;-).
   } else if (num_indices <= 1) {
     const TKey& k = keys[*indices];
-    const size_t part = k % num_partitions_;
+    const size_t part = HCTR_HASH_OF_KEY(&k) % num_partitions_;
     try {
       const auto& hkey_kv = make_hash_key(table_name, part, REDIS_HKEY_VALUE_SUFFIX);
 
@@ -522,7 +530,7 @@ size_t RedisClusterBackend<TKey>::fetch(const std::string& table_name, const siz
                 break;
               }
               const TKey& k = keys[*tmp_i];
-              if (k % num_partitions_ == part) {
+              if (HCTR_HASH_OF_KEY(&k) % num_partitions_ == part) {
                 k_views.emplace_back(reinterpret_cast<const char*>(&k), sizeof(TKey));
               }
             }
@@ -644,7 +652,7 @@ size_t RedisClusterBackend<TKey>::evict(const std::string& table_name, const siz
   if (num_keys <= 0) {
     // Do nothing ;-).
   } else if (num_keys <= 1) {
-    const size_t part = *keys % num_partitions_;
+    const size_t part = HCTR_HASH_OF_KEY(keys) % num_partitions_;
     try {
       const auto& hkey_kv = make_hash_key(table_name, part, REDIS_HKEY_VALUE_SUFFIX);
       const auto& hkey_kt = make_hash_key(table_name, part, REDIS_HKEY_TIME_SUFFIX);
@@ -679,7 +687,7 @@ size_t RedisClusterBackend<TKey>::evict(const std::string& table_name, const siz
           for (const TKey* k = keys; k != keys_end; num_queries++) {
             k_views.clear();
             for (; k != keys_end && k_views.size() < max_set_batch_size_; k++) {
-              if (*k % num_partitions_ == part) {
+              if (HCTR_HASH_OF_KEY(k) % num_partitions_ == part) {
                 k_views.emplace_back(reinterpret_cast<const char*>(k), sizeof(TKey));
               }
             }

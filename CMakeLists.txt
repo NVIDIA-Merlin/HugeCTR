@@ -181,6 +181,7 @@ include_directories(
   ${PROJECT_SOURCE_DIR}/third_party/googletest/googlemock/include
   ${PROJECT_SOURCE_DIR}/third_party/json/single_include
   ${PROJECT_SOURCE_DIR}/third_party/parallel-hashmap
+  ${PROJECT_SOURCE_DIR}/third_party/xxhash
   ${PROJECT_SOURCE_DIR}/gpu_cache/include
 
   ${CUDNN_INC_PATHS}
