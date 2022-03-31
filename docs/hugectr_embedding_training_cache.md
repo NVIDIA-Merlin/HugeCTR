@@ -1,4 +1,4 @@
-# HugeCTR Embedding Training Cached
+# HugeCTR Embedding Training Cache
 
 ## Table of Contents
 
@@ -15,7 +15,7 @@
 * [Related Reading](#related-reading)
 
 ## Introduction
-This document introduces the **Embedding Training Cached (ETC)** feature in HugeCTR for incremental training. The ETC allows training models with huge embedding tables that exceed the available GPU memory in size.
+This document introduces the **Embedding Training Cache (ETC)** feature in HugeCTR for incremental training. The ETC allows training models with huge embedding tables that exceed the available GPU memory in size.
 
 Normally, the maximum model size in HugeCTR is limited by the hardware resources. A model with larger embedding tables will of course require more GPU memory. However, the amount of GPU's and, therefore, also the amount of GPU memory that can be fit into a single machine or a cluster is finite. This naturally upper-bounds the size of the models that can be executed in a specific setup. The ETC feature is designed to ease this restriction by prefetching portions of the embedding table to the GPU in the granularity of pass as they are required.
 
