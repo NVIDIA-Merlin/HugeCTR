@@ -24,7 +24,8 @@
 #include <functional>
 #include <gpu_learning_rate_scheduler.hpp>
 #include <gpu_resource.hpp>
-#include <inference/inference_utils.hpp>
+#include <hdfs_backend.hpp>
+#include <hps/inference_utils.hpp>
 #include <learning_rate_scheduler.hpp>
 #include <metrics.hpp>
 #include <network.hpp>
@@ -117,6 +118,7 @@ struct Solver {
   size_t num_iterations_statistics;
   bool is_dlrm;
   std::string kafka_brokers;
+  DataSourceParams data_source_params;
   Solver() {}
 };
 

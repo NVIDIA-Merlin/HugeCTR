@@ -173,11 +173,27 @@ DataReaderParams::DataReaderParams(DataReaderType_t data_reader_type, std::strin
 
 Input::Input(int label_dim, std::string label_name, int dense_dim, std::string dense_name,
              std::vector<DataReaderSparseParam>& data_reader_sparse_param_array)
-    : label_dim(label_dim),
-      label_name(label_name),
-      dense_dim(dense_dim),
+    : dense_dim(dense_dim),
       dense_name(dense_name),
-      data_reader_sparse_param_array(data_reader_sparse_param_array) {}
+      data_reader_sparse_param_array(data_reader_sparse_param_array) {
+  labels.insert(std::pair<std::string, int>(label_name, label_dim));
+}
+
+Input::Input(std::vector<int> label_dims, std::vector<std::string> label_names, int dense_dim,
+             std::string dense_name,
+             std::vector<DataReaderSparseParam>& data_reader_sparse_param_array)
+    : dense_dim(dense_dim),
+      dense_name(dense_name),
+      data_reader_sparse_param_array(data_reader_sparse_param_array) {
+  if (label_dims.size() != label_names.size()) {
+    HCTR_OWN_THROW(Error_t::WrongInput,
+                   "Number of label names does not match number of label dimensions.");
+  }
+
+  for (size_t i = 0; i < label_names.size(); ++i) {
+    labels.insert(std::pair<std::string, int>(label_names[i], label_dims[i]));
+  }
+}
 
 SparseEmbedding::SparseEmbedding(Embedding_t embedding_type, size_t workspace_size_per_gpu_in_mb,
                                  size_t embedding_vec_size, const std::string& combiner_str,
@@ -208,7 +224,7 @@ SparseEmbedding::SparseEmbedding(Embedding_t embedding_type, size_t workspace_si
 
 void SparseEmbedding::initialize_max_vocabulary_size_per_gpu() {
   size_t num_opt_state_copies = 0;
-  switch(embedding_opt_params->optimizer) {
+  switch (embedding_opt_params->optimizer) {
     case Optimizer_t::Adam: {
       num_opt_state_copies = 2;
       if (embedding_opt_params->update_type == Update_t::LazyGlobal) {
@@ -229,8 +245,8 @@ void SparseEmbedding::initialize_max_vocabulary_size_per_gpu() {
           std::string("[HCDEBUG][ERROR] Runtime error: Invalid optimizer type\n"));
   }
 
-  max_vocabulary_size_per_gpu =
-      (workspace_size_per_gpu_in_mb * 1024 * 1024) / ((1 + num_opt_state_copies) * sizeof(float) * embedding_vec_size);
+  max_vocabulary_size_per_gpu = (workspace_size_per_gpu_in_mb * 1024 * 1024) /
+                                ((1 + num_opt_state_copies) * sizeof(float) * embedding_vec_size);
 }
 
 DenseLayer::DenseLayer(Layer_t layer_type, std::vector<std::string>& bottom_names,
@@ -524,13 +540,18 @@ void Model::add(Input& input) {
   if (!solver_.is_dlrm && reader_params_.data_reader_type == DataReaderType_t::RawAsync) {
     HCTR_OWN_THROW(Error_t::WrongInput, "Raw async reader is restricted to DLRM use");
   }
+
+  // TODO - update to support adding multiple labels.
+  std::string label_name = input.labels.begin()->first;
+  int label_dim = input.labels.begin()->second;
+
   input_params_.push_back(input);
-  activate_tensor(tensor_active_, input.label_name);
+  activate_tensor(tensor_active_, label_name);
   activate_tensor(tensor_active_, input.dense_name);
-  data_input_info_.push_back(input.label_name);
+  data_input_info_.push_back(label_name);
   data_input_info_.push_back(input.dense_name);
   tensor_shape_info_raw_.insert(
-      std::make_pair(input.label_name, std::vector<int>{solver_.batchsize, input.label_dim}));
+      std::make_pair(label_name, std::vector<int>{solver_.batchsize, label_dim}));
   tensor_shape_info_raw_.insert(
       std::make_pair(input.dense_name, std::vector<int>{solver_.batchsize, input.dense_dim}));
   std::vector<std::string> sparse_names;
@@ -589,7 +610,7 @@ void Model::add(SparseEmbedding& sparse_embedding) {
   input_output_info_.push_back(
       std::make_pair(sparse_embedding.bottom_name, sparse_embedding.sparse_embedding_name));
   layer_info_.push_back(EMBEDDING_TYPE_TO_STRING[sparse_embedding.embedding_type]);
-  
+
   embedding_opt_params_list_.push_back(sparse_embedding.embedding_opt_params);
   init_optimizer(embedding_opt_params, solver_, sparse_embedding.embedding_opt_params);
   if (solver_.i64_input_key && !solver_.use_mixed_precision) {
@@ -951,17 +972,26 @@ void Model::compile() {
 #endif
 }
 
-void Model::load_dense_optimizer_states(const std::string& dense_opt_states_file,
-                                        DataSourceParams data_source_params) {
+void Model::compile(std::vector<std::string>& loss_names, std::vector<float>& loss_weights) {
+  update_loss_weights(loss_names, loss_weights);
+  compile();
+}
+
+void Model::update_loss_weights(std::vector<std::string>& los_names,
+                                std::vector<float>& loss_weights) {
+  // Add implementation and support in next merge request
+  throw std::runtime_error(std::string("Weights for multiple loss layers not yet supported.\n"));
+}
+
+void Model::load_dense_optimizer_states(const std::string& dense_opt_states_file) {
   if (!buff_allocated_) {
     HCTR_OWN_THROW(Error_t::IllegalCall,
                    "Cannot load the dense optimizer states before calling Model.compile()");
   }
-  load_opt_states_for_dense_(dense_opt_states_file, data_source_params);
+  load_opt_states_for_dense_(dense_opt_states_file, solver_.data_source_params);
 }
 
-void Model::load_sparse_optimizer_states(const std::vector<std::string>& sparse_opt_states_files,
-                                         DataSourceParams data_source_params) {
+void Model::load_sparse_optimizer_states(const std::vector<std::string>& sparse_opt_states_files) {
   if (!buff_allocated_) {
     HCTR_OWN_THROW(Error_t::IllegalCall,
                    "Cannot load the sparse optimizer states before calling Model.compile()");
@@ -976,12 +1006,11 @@ void Model::load_sparse_optimizer_states(const std::vector<std::string>& sparse_
         Error_t::WrongInput,
         "The size of sparse opt state files should be equal to the number of embeddings");
   }
-  load_opt_states_for_sparse_(sparse_opt_states_files, data_source_params);
+  load_opt_states_for_sparse_(sparse_opt_states_files, solver_.data_source_params);
 }
 
 void Model::load_sparse_optimizer_states(
-    const std::map<std::string, std::string>& sparse_opt_states_files_map,
-    DataSourceParams data_source_params) {
+    const std::map<std::string, std::string>& sparse_opt_states_files_map) {
   if (!buff_allocated_) {
     HCTR_OWN_THROW(Error_t::IllegalCall,
                    "Cannot load the sparse optimizer states before calling Model.compile()");
@@ -1001,22 +1030,20 @@ void Model::load_sparse_optimizer_states(
       HCTR_OWN_THROW(Error_t::WrongInput, "Cannot open sparse optimizer states file");
     }
     HCTR_LOG_S(INFO, ROOT) << "Loading sparse optimizer states: " << iter->first << std::endl;
-    embedding_target->load_opt_states(sparse_opt_stream, iter->first, data_source_params);
+    embedding_target->load_opt_states(sparse_opt_stream, iter->first, solver_.data_source_params);
     sparse_opt_stream.close();
   }
 }
 
-void Model::load_dense_weights(const std::string& dense_model_file,
-                               DataSourceParams data_source_params) {
+void Model::load_dense_weights(const std::string& dense_model_file) {
   if (!buff_allocated_) {
     HCTR_OWN_THROW(Error_t::IllegalCall,
                    "Cannot load the dense weights before calling Model.compile()");
   }
-  load_params_for_dense_(dense_model_file, data_source_params);
+  load_params_for_dense_(dense_model_file, solver_.data_source_params);
 }
 
-void Model::load_sparse_weights(const std::vector<std::string>& sparse_embedding_files,
-                                DataSourceParams data_source_params) {
+void Model::load_sparse_weights(const std::vector<std::string>& sparse_embedding_files) {
   if (!buff_allocated_) {
     HCTR_OWN_THROW(Error_t::IllegalCall,
                    "Cannot load the sparse weights before calling Model.compile()");
@@ -1030,12 +1057,11 @@ void Model::load_sparse_weights(const std::vector<std::string>& sparse_embedding
         Error_t::WrongInput,
         "The size of sparse embedding files should be equal to the number of embeddings");
   }
-  load_params_for_sparse_(sparse_embedding_files, data_source_params);
+  load_params_for_sparse_(sparse_embedding_files, solver_.data_source_params);
 }
 
 void Model::load_sparse_weights(
-    const std::map<std::string, std::string>& sparse_embedding_files_map,
-    DataSourceParams data_source_params) {
+    const std::map<std::string, std::string>& sparse_embedding_files_map) {
   if (!buff_allocated_) {
     HCTR_OWN_THROW(Error_t::IllegalCall,
                    "Cannot load the sparse weights before calling Model.compile()");
@@ -1051,7 +1077,7 @@ void Model::load_sparse_weights(
     }
     auto embedding_target = embeddings_map_.find(iter->first)->second;
     HCTR_LOG_S(INFO, ROOT) << "Loading sparse model: " << iter->second << std::endl;
-    embedding_target->load_parameters(iter->second, data_source_params);
+    embedding_target->load_parameters(iter->second, solver_.data_source_params);
   }
 }
 
@@ -1153,7 +1179,7 @@ void Model::set_source(std::string source, std::string eval_source) {
 }
 
 void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, int snapshot,
-                std::string snapshot_prefix, DataSourceParams data_source_params) {
+                std::string snapshot_prefix) {
   if (!buff_allocated_) {
     HCTR_OWN_THROW(Error_t::IllegalCall,
                    "Cannot start the training process before calling Model.compile()");
@@ -1304,7 +1330,7 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
                                  << " iters: " << timer_eval.elapsedSeconds() << "s" << std::endl;
         }
         if (snapshot > 0 && iter % snapshot == 0 && iter != 0) {
-          this->download_params_to_files(snapshot_prefix, iter, data_source_params);
+          this->download_params_to_files(snapshot_prefix, iter);
         }
         iter++;
       } while (data_reader_train_status_);
@@ -1467,7 +1493,7 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
                                << " iters: " << timer_eval.elapsedSeconds() << "s" << std::endl;
       }
       if (snapshot > 0 && iter % snapshot == 0 && iter != 0) {
-        this->download_params_to_files(snapshot_prefix, iter, data_source_params);
+        this->download_params_to_files(snapshot_prefix, iter);
       }
     }  // end for iter
 
@@ -1802,6 +1828,10 @@ Error_t Model::export_predictions(const std::string& output_prediction_file_name
       HCTR_LOG(INFO, ROOT, "Reach end of eval dataset. Skip export prediction\n");
       return Error_t::Success;
     }
+
+    int label_dim =
+        input_params_[0].labels.begin()->second;  // Temp until multiple labels fully implemented
+
     CudaDeviceContext context;
     const std::vector<int>& local_gpu_device_id_list =
         resource_manager_->get_local_gpu_device_id_list();
@@ -1809,10 +1839,8 @@ Error_t Model::export_predictions(const std::string& output_prediction_file_name
     const size_t local_gpu_count = resource_manager_->get_local_gpu_count();
     size_t batchsize_eval_per_gpu = solver_.batchsize_eval / global_gpu_count;
     size_t total_prediction_count = batchsize_eval_per_gpu * local_gpu_count;
-    std::unique_ptr<float[]> local_prediction_result(
-        new float[total_prediction_count * input_params_[0].label_dim]);
-    std::unique_ptr<float[]> local_label_result(
-        new float[total_prediction_count * input_params_[0].label_dim]);
+    std::unique_ptr<float[]> local_prediction_result(new float[total_prediction_count * label_dim]);
+    std::unique_ptr<float[]> local_label_result(new float[total_prediction_count * label_dim]);
 
     for (unsigned int i = 0; i < networks_.size(); ++i) {
       int gpu_id = local_gpu_device_id_list[i];
@@ -1820,12 +1848,12 @@ Error_t Model::export_predictions(const std::string& output_prediction_file_name
 
       get_raw_metric_as_host_float_tensor(
           networks_[i]->get_raw_metrics(), metrics::RawType::Pred, solver_.use_mixed_precision,
-          local_prediction_result.get() + batchsize_eval_per_gpu * input_params_[0].label_dim * i,
-          batchsize_eval_per_gpu * input_params_[0].label_dim);
+          local_prediction_result.get() + batchsize_eval_per_gpu * label_dim * i,
+          batchsize_eval_per_gpu * label_dim);
       get_raw_metric_as_host_float_tensor(
           networks_[i]->get_raw_metrics(), metrics::RawType::Label, false,
-          local_label_result.get() + batchsize_eval_per_gpu * input_params_[0].label_dim * i,
-          batchsize_eval_per_gpu * input_params_[0].label_dim);
+          local_label_result.get() + batchsize_eval_per_gpu * label_dim * i,
+          batchsize_eval_per_gpu * label_dim);
     }
 
     std::unique_ptr<float[]> global_prediction_result;
@@ -1839,18 +1867,15 @@ Error_t Model::export_predictions(const std::string& output_prediction_file_name
     if (numprocs > 1) {
 #ifdef ENABLE_MPI
       if (pid == 0) {
-        global_prediction_result.reset(
-            new float[solver_.batchsize_eval * input_params_[0].label_dim]);
-        global_label_result.reset(new float[solver_.batchsize_eval * input_params_[0].label_dim]);
+        global_prediction_result.reset(new float[solver_.batchsize_eval * label_dim]);
+        global_label_result.reset(new float[solver_.batchsize_eval * label_dim]);
       }
-      HCTR_MPI_THROW(MPI_Gather(
-          local_prediction_result.get(), total_prediction_count * input_params_[0].label_dim,
-          MPI_FLOAT, global_prediction_result.get(),
-          total_prediction_count * input_params_[0].label_dim, MPI_FLOAT, 0, MPI_COMM_WORLD));
-      HCTR_MPI_THROW(MPI_Gather(
-          local_label_result.get(), total_prediction_count * input_params_[0].label_dim, MPI_FLOAT,
-          global_label_result.get(), total_prediction_count * input_params_[0].label_dim, MPI_FLOAT,
-          0, MPI_COMM_WORLD));
+      HCTR_MPI_THROW(MPI_Gather(local_prediction_result.get(), total_prediction_count * label_dim,
+                                MPI_FLOAT, global_prediction_result.get(),
+                                total_prediction_count * label_dim, MPI_FLOAT, 0, MPI_COMM_WORLD));
+      HCTR_MPI_THROW(MPI_Gather(local_label_result.get(), total_prediction_count * label_dim,
+                                MPI_FLOAT, global_label_result.get(),
+                                total_prediction_count * label_dim, MPI_FLOAT, 0, MPI_COMM_WORLD));
 #endif
     } else {
       global_prediction_result = std::move(local_prediction_result);
@@ -1869,9 +1894,9 @@ Error_t Model::export_predictions(const std::string& output_prediction_file_name
         output_stream.close();
       };
       write_func(output_prediction_file_name, global_prediction_result.get(),
-                 current_eval_batchsize_ * input_params_[0].label_dim);
+                 current_eval_batchsize_ * label_dim);
       write_func(output_label_file_name, global_label_result.get(),
-                 current_eval_batchsize_ * input_params_[0].label_dim);
+                 current_eval_batchsize_ * label_dim);
     }
   } catch (const internal_runtime_error& rt_err) {
     Logger::print_exception(rt_err, 0);
@@ -1919,24 +1944,15 @@ Error_t Model::get_current_loss(float* loss) {
   return Error_t::Success;
 }
 
-Error_t Model::download_params_to_files(std::string prefix, int iter,
-                                        DataSourceParams data_source_params) {
-  std::string path_prefix;
-  if (data_source_params.use_hdfs) {
-    path_prefix = data_source_params.hdfs_model_home;
-  } else {
-    path_prefix = data_source_params.local_model_home;
-  }
-  std::string snapshot_dense_name =
-      path_prefix + prefix + "_dense_" + std::to_string(iter) + ".model";
-  std::string snapshot_dense_opt_name =
-      path_prefix + prefix + "_opt_dense_" + std::to_string(iter) + ".model";
+Error_t Model::download_params_to_files(std::string prefix, int iter) {
+  std::string snapshot_dense_name = prefix + "_dense_" + std::to_string(iter) + ".model";
+  std::string snapshot_dense_opt_name = prefix + "_opt_dense_" + std::to_string(iter) + ".model";
   std::vector<std::string> snapshot_sparse_names;
   std::vector<std::string> snapshot_sparse_opt_names;
   for (unsigned int i = 0; i < embeddings_.size(); i++) {
-    snapshot_sparse_names.push_back(path_prefix + prefix + std::to_string(i) + "_sparse_" +
-                                    std::to_string(iter) + ".model");
-    snapshot_sparse_opt_names.push_back(path_prefix + prefix + std::to_string(i) + "_opt_sparse_" +
+    snapshot_sparse_names.push_back(prefix + std::to_string(i) + "_sparse_" + std::to_string(iter) +
+                                    ".model");
+    snapshot_sparse_opt_names.push_back(prefix + std::to_string(i) + "_opt_sparse_" +
                                         std::to_string(iter) + ".model");
   }
   if (etc_params_->use_embedding_training_cache) {
@@ -1944,10 +1960,10 @@ Error_t Model::download_params_to_files(std::string prefix, int iter,
     embedding_training_cache_->update_sparse_model_file();
   } else {
     download_sparse_params_to_files_(snapshot_sparse_names, snapshot_sparse_opt_names,
-                                     data_source_params);
+                                     solver_.data_source_params);
   }
   return download_dense_params_to_files_(snapshot_dense_name, snapshot_dense_opt_name,
-                                         data_source_params);
+                                         solver_.data_source_params);
 }
 
 void Model::check_overflow() const {
@@ -1964,7 +1980,7 @@ void Model::copy_weights_for_evaluation() {
 
 Error_t Model::download_dense_params_to_files_(std::string weights_file,
                                                std::string dense_opt_states_file,
-                                               DataSourceParams data_source_params) {
+                                               const DataSourceParams& data_source_params) {
   try {
     if (resource_manager_->is_master_process()) {
       if (data_source_params.use_hdfs) {
@@ -2010,7 +2026,8 @@ Error_t Model::download_dense_params_to_files_(std::string weights_file,
 
 Error_t Model::download_sparse_params_to_files_(
     const std::vector<std::string>& embedding_files,
-    const std::vector<std::string>& sparse_opt_state_files, DataSourceParams data_source_params) {
+    const std::vector<std::string>& sparse_opt_state_files,
+    const DataSourceParams& data_source_params) {
   try {
     {
       int i = 0;
@@ -2060,14 +2077,13 @@ std::shared_ptr<EmbeddingTrainingCache> Model::create_embedding_training_cache_(
 }
 
 Error_t Model::load_opt_states_for_dense_(const std::string& dense_opt_states_file,
-                                          DataSourceParams data_source_params) {
+                                          const DataSourceParams& data_source_params) {
   try {
     size_t opt_states_size_in_byte = networks_[0]->get_opt_states_size_in_byte();
     std::unique_ptr<char[]> opt_states(new char[opt_states_size_in_byte]());
     if (data_source_params.use_hdfs) {
       HdfsService hs(data_source_params.namenode, data_source_params.port);
-      hs.read(data_source_params.hdfs_dense_opt_states, opt_states.get(),
-              hs.getFileSize(data_source_params.hdfs_dense_opt_states), 0);
+      hs.read(dense_opt_states_file, opt_states.get(), hs.getFileSize(dense_opt_states_file), 0);
     } else {
       std::ifstream opt_states_stream(dense_opt_states_file, std::ifstream::binary);
       if (!opt_states_stream.is_open()) {
@@ -2091,17 +2107,16 @@ Error_t Model::load_opt_states_for_dense_(const std::string& dense_opt_states_fi
 }
 
 Error_t Model::load_opt_states_for_sparse_(const std::vector<std::string>& sparse_opt_states_files,
-                                           DataSourceParams data_source_params) {
+                                           const DataSourceParams& data_source_params) {
   try {
     for (size_t i = 0; i < embeddings_.size(); i++) {
       if (data_source_params.use_hdfs) {
-        if (i < data_source_params.hdfs_sparse_opt_states.size()) {
-          std::ifstream sparse_opt_stream(data_source_params.hdfs_sparse_opt_states[i],
-                                          std::ifstream::binary);
+        if (i < sparse_opt_states_files.size()) {
+          std::ifstream sparse_opt_stream(sparse_opt_states_files[i], std::ifstream::binary);
           HCTR_LOG_S(INFO, ROOT) << "Loading sparse optimizer states: "
-                                 << data_source_params.hdfs_sparse_opt_states[i] << std::endl;
-          embeddings_[i]->load_opt_states(
-              sparse_opt_stream, data_source_params.hdfs_sparse_opt_states[i], data_source_params);
+                                 << sparse_opt_states_files[i] << std::endl;
+          embeddings_[i]->load_opt_states(sparse_opt_stream, sparse_opt_states_files[i],
+                                          data_source_params);
           sparse_opt_stream.close();
         }
       } else {
@@ -2129,13 +2144,12 @@ Error_t Model::load_opt_states_for_sparse_(const std::vector<std::string>& spars
 }
 
 Error_t Model::load_params_for_dense_(const std::string& model_file,
-                                      DataSourceParams data_source_params) {
+                                      const DataSourceParams& data_source_params) {
   try {
     std::unique_ptr<float[]> weight(new float[networks_[0]->get_params_num()]());
     if (data_source_params.use_hdfs) {
       HdfsService hs(data_source_params.namenode, data_source_params.port);
-      hs.read(data_source_params.hdfs_dense_model, weight.get(),
-              hs.getFileSize(data_source_params.hdfs_dense_model), 0);
+      hs.read(model_file, weight.get(), hs.getFileSize(model_file), 0);
     } else {
       std::ifstream model_stream(model_file, std::ifstream::binary);
       if (!model_stream.is_open()) {
@@ -2160,15 +2174,14 @@ Error_t Model::load_params_for_dense_(const std::string& model_file,
 }
 
 Error_t Model::load_params_for_sparse_(const std::vector<std::string>& embedding_model_files,
-                                       DataSourceParams data_source_params) {
+                                       const DataSourceParams& data_source_params) {
   try {
     for (size_t i = 0; i < embeddings_.size(); i++) {
       if (data_source_params.use_hdfs) {
-        if (i < data_source_params.hdfs_sparse_model.size()) {
-          HCTR_LOG_S(INFO, ROOT) << "Loading sparse model: "
-                                 << data_source_params.hdfs_sparse_model[i] << std::endl;
-          embeddings_[i]->load_parameters(data_source_params.hdfs_sparse_model[i],
-                                          data_source_params);
+        if (i < embedding_model_files.size()) {
+          HCTR_LOG_S(INFO, ROOT) << "Loading sparse model: " << embedding_model_files[i]
+                                 << std::endl;
+          embeddings_[i]->load_parameters(embedding_model_files[i], data_source_params);
         }
       } else {
         if (i < embedding_model_files.size()) {
@@ -2276,7 +2289,7 @@ void Model::dump_incremental_model_2kafka() {
   for (unsigned int i = 0; i < sparse_embedding_params_.size(); i++) {
     size_t embedding_size = sparse_embedding_params_[i].embedding_vec_size;
     std::string table_name = sparse_embedding_params_[i].sparse_embedding_name;
-    std::string tag = parameter_server_base::make_tag_name(solver_.model_name, table_name);
+    std::string tag = HierParameterServerBase::make_tag_name(solver_.model_name, table_name);
     const char* vectors_ = reinterpret_cast<const char*>(inc_sparse_model_[i].second.data());
     size_t num_pairs = inc_sparse_model_[i].first.size();
     HCTR_LOG(

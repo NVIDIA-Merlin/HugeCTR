@@ -27,7 +27,7 @@ class ModelPerfExt final : public Model {
   bool train(bool is_first_batch) override;
   bool eval(bool is_first_batch) override;
   void fit(int num_epochs, int max_iter, int display, int eval_interval, int snapshot,
-           std::string snapshot_prefix, DataSourceParams data_source_params) override;
+           std::string snapshot_prefix) override;
   void add(DenseLayer& dense_layer) override;
   void add(Input& input) override { Model::add(input); };
   void add(SparseEmbedding& sparse_embedding) override { Model::add(sparse_embedding); };
@@ -46,11 +46,11 @@ class ModelPerfExt final : public Model {
                                 const std::shared_ptr<BufferBlock2<__half>>& weight_buff_half,
                                 const std::shared_ptr<BufferBlock2<float>>& wgrad_buff,
                                 const std::shared_ptr<BufferBlock2<__half>>& wgrad_buff_half,
-                                Tensor2<float>& loss_tensor,
+                                std::map<std::string, Tensor2<float>>& loss_tensor,
                                 std::vector<std::unique_ptr<Layer>>& layers,
-                                std::unique_ptr<ILoss>& loss, bool enable_cuda_graph,
-                                bool async_mlp_wgrad, metrics::RawMetricMap* raw_metrics,
-                                int num_networks_in_global,
+                                std::map<std::string, std::unique_ptr<ILoss>>& loss,
+                                bool enable_cuda_graph, bool async_mlp_wgrad,
+                                metrics::RawMetricMap* raw_metrics, int num_networks_in_global,
                                 const std::shared_ptr<GPUResource>& gpu_resource,
                                 bool use_mixed_precision, bool enable_tf32_compute, float scaler,
                                 bool use_algorithm_search, std::vector<Layer*>* top_layers,

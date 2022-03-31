@@ -35,7 +35,7 @@ file(GLOB cpu_inference_src
   create_network_cpu.cpp
   create_embedding_cpu.cpp
   create_pipeline_cpu.cpp
-  session_inference_cpu.cpp
+  inference_session_cpu.cpp
 )
 
 set(CMAKE_CXX_STANDARD 17)
@@ -46,7 +46,7 @@ target_link_libraries(cpu_inference_shared PUBLIC cudart cublas curand cudnn ncc
 
 target_link_libraries(cpu_inference_shared PRIVATE nlohmann_json::nlohmann_json)
 
-target_link_libraries(cpu_inference_shared PUBLIC hugectr_inference)
+target_link_libraries(cpu_inference_shared PUBLIC huge_ctr_inference)
 
 target_compile_features(cpu_inference_shared PUBLIC cxx_std_17)
 

@@ -33,23 +33,18 @@ InferenceModel::InferenceModel(const std::string& model_config_path,
       global_max_batch_size_ / resource_manager_->get_local_gpu_count();
   std::vector<std::string> model_config_path_array{model_config_path};
   std::vector<InferenceParams> inference_params_array{inference_params_};
-  if (inference_params_.i64_input_key) {
-    ps_64_.reset(
-        new parameter_server<long long>("Other", model_config_path_array, inference_params_array));
-  } else {
-    ps_32_.reset(new parameter_server<unsigned int>("Other", model_config_path_array,
-                                                    inference_params_array));
-  }
+  parameter_server_config ps_config{model_config_path_array, inference_params_array};
+  parameter_server_ = HierParameterServerBase::create(ps_config, inference_params_array);
+
   for (size_t i = 0; i < resource_manager_->get_local_gpu_count(); i++) {
     inference_params_.device_id = resource_manager_->get_local_gpu(i)->get_device_id();
     CudaDeviceContext context(inference_params_.device_id);
-    auto embedding_cache =
-        inference_params_.i64_input_key
-            ? ps_64_->GetEmbeddingCache(inference_params_.model_name, inference_params_.device_id)
-            : ps_32_->GetEmbeddingCache(inference_params_.model_name, inference_params_.device_id);
+    auto embedding_cache = parameter_server_->get_embedding_cache(inference_params_.model_name,
+                                                                  inference_params_.device_id);
     inference_sessions_.emplace_back(
         new InferenceSession(model_config_path, inference_params_, embedding_cache));
   }
+
   inference_params_.max_batchsize = global_max_batch_size_;
   std::vector<std::shared_ptr<GeneralBuffer2<CudaAllocator>>> buffs;
   std::vector<std::shared_ptr<GeneralBuffer2<CudaHostAllocator>>> host_buffs;

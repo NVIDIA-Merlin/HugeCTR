@@ -667,7 +667,7 @@ LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
 void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::load_parameters(
-    std::string sparse_model, DataSourceParams data_source_params) {
+    std::string sparse_model, const DataSourceParams &data_source_params) {
   const std::string key_file(sparse_model + "/key");
   const std::string slot_file(sparse_model + "/slot_id");
   const std::string vec_file(sparse_model + "/emb_vector");
@@ -1017,7 +1017,7 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::load_pa
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
 void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::dump_parameters(
-    std::string sparse_model, DataSourceParams data_source_params) const {
+    std::string sparse_model, const DataSourceParams &data_source_params) const {
   dump_parameters(sparse_model, data_source_params,
                   embedding_data_.embedding_params_.embedding_vec_size, hash_table_value_tensors_,
                   slot_size_array_);
@@ -1039,8 +1039,9 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::dump_pa
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
 void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::dump_parameters(
-    const std::string &sparse_model, DataSourceParams data_source_params, size_t embedding_vec_size,
-    const Tensors2<float> &hash_table_value_tensors, const std::vector<size_t> &slot_sizes) const {
+    const std::string &sparse_model, const DataSourceParams &data_source_params,
+    size_t embedding_vec_size, const Tensors2<float> &hash_table_value_tensors,
+    const std::vector<size_t> &slot_sizes) const {
   CudaDeviceContext context;
   size_t local_gpu_count = embedding_data_.get_resource_manager().get_local_gpu_count();
 

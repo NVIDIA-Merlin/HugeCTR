@@ -94,7 +94,7 @@ void create_embedding<TypeKey, TypeFP>::operator()(
 
   // should be match with HugeCTR/src/optimizers/sparse_optimizer.cu
   size_t num_opt_state_copies = 0;
-  switch(embedding_opt_params.optimizer) {
+  switch (embedding_opt_params.optimizer) {
     case Optimizer_t::Adam: {
       num_opt_state_copies = 2;
       if (embedding_opt_params.update_type == Update_t::LazyGlobal) {
@@ -115,7 +115,8 @@ void create_embedding<TypeKey, TypeFP>::operator()(
           std::string("[HCDEBUG][ERROR] Runtime error: Invalid optimizer type\n"));
   }
   size_t max_vocabulary_size_per_gpu =
-      (workspace_size_per_gpu_in_mb * 1024 * 1024) / ((1 + num_opt_state_copies) * sizeof(float) * embedding_vec_size);
+      (workspace_size_per_gpu_in_mb * 1024 * 1024) /
+      ((1 + num_opt_state_copies) * sizeof(float) * embedding_vec_size);
 
   switch (embedding_type) {
     case Embedding_t::DistributedSlotSparseEmbeddingHash: {

@@ -20,9 +20,9 @@
 #include <exchange_wgrad.hpp>
 #include <graph_wrapper.hpp>
 #include <hdfs_backend.hpp>
-#include <inference/kafka_message.hpp>
-#include <inference/message.hpp>
-#include <inference/parameter_server.hpp>
+#include <hps/hier_parameter_server.hpp>
+#include <hps/kafka_message.hpp>
+#include <hps/message.hpp>
 #include <loss.hpp>
 #include <metrics.hpp>
 #include <network.hpp>
@@ -155,13 +155,14 @@ struct DataReaderParams {
 };
 
 struct Input {
-  int label_dim;
-  std::string label_name;
+  std::map<std::string, int> labels;
   int dense_dim;
   std::string dense_name;
   std::vector<DataReaderSparseParam> data_reader_sparse_param_array;
   Input(int label_dim, std::string label_name, int dense_dim, std::string dense_name,
         std::vector<DataReaderSparseParam>& data_reader_sparse_param_array);
+  Input(std::vector<int> label_dim, std::vector<std::string> label_name, int dense_dim,
+        std::string dense_name, std::vector<DataReaderSparseParam>& data_reader_sparse_param_array);
 };
 
 struct SparseEmbedding {
@@ -182,7 +183,7 @@ struct SparseEmbedding {
                   std::vector<size_t>& slot_size_array,
                   std::shared_ptr<OptParamsPy>& embedding_opt_params,
                   const HybridEmbeddingParam& hybrid_embedding_param);
-  
+
   void initialize_max_vocabulary_size_per_gpu();
 };
 
@@ -344,10 +345,14 @@ class Model {
 
   virtual void compile();
 
+  virtual void compile(std::vector<std::string>& loss_names, std::vector<float>& loss_weights);
+
+  void update_loss_weights(std::vector<std::string>& loss_names, std::vector<float>& loss_weights);
+
   void summary();
 
   virtual void fit(int num_epochs, int max_iter, int display, int eval_interval, int snapshot,
-                   std::string snapshot_prefix, DataSourceParams data_source_params);
+                   std::string snapshot_prefix);
 
   void set_source(std::vector<std::string> source, std::vector<std::string> keyset,
                   std::string eval_source);
@@ -362,8 +367,7 @@ class Model {
 
   Error_t get_current_loss(float* loss);
 
-  Error_t download_params_to_files(std::string prefix, int iter,
-                                   DataSourceParams data_source_params);
+  Error_t download_params_to_files(std::string prefix, int iter);
 
   Error_t export_predictions(const std::string& output_prediction_file_name,
                              const std::string& output_label_file_name);
@@ -436,18 +440,13 @@ class Model {
     return !embeddings_[0]->get_learning_rate_schedulers().empty();
   }
 
-  void load_dense_weights(const std::string& dense_model_file, DataSourceParams data_source_params);
-  void load_sparse_weights(const std::vector<std::string>& sparse_embedding_files,
-                           DataSourceParams data_source_params);
-  void load_sparse_weights(const std::map<std::string, std::string>& sparse_embedding_files_map,
-                           DataSourceParams data_source_params);
-  void load_dense_optimizer_states(const std::string& dense_opt_states_file,
-                                   DataSourceParams data_source_params);
-  void load_sparse_optimizer_states(const std::vector<std::string>& sparse_opt_states_files,
-                                    DataSourceParams data_source_params);
+  void load_dense_weights(const std::string& dense_model_file);
+  void load_sparse_weights(const std::vector<std::string>& sparse_embedding_files);
+  void load_sparse_weights(const std::map<std::string, std::string>& sparse_embedding_files_maps);
+  void load_dense_optimizer_states(const std::string& dense_opt_states_file);
+  void load_sparse_optimizer_states(const std::vector<std::string>& sparse_opt_states_files);
   void load_sparse_optimizer_states(
-      const std::map<std::string, std::string>& sparse_opt_states_files_map,
-      DataSourceParams data_source_params);
+      const std::map<std::string, std::string>& sparse_opt_states_files_map);
   void freeze_embedding() {
     for (auto& one_embedding : embeddings_) {
       one_embedding->freeze();
@@ -551,11 +550,11 @@ class Model {
 
   Error_t download_dense_params_to_files_(std::string weights_file,
                                           std::string dense_opt_states_file,
-                                          DataSourceParams data_source_params);
+                                          const DataSourceParams& data_source_params);
 
   Error_t download_sparse_params_to_files_(const std::vector<std::string>& embedding_files,
                                            const std::vector<std::string>& sparse_opt_state_files,
-                                           DataSourceParams data_source_params);
+                                           const DataSourceParams& data_source_params);
 
   template <typename TypeEmbeddingComp>
   std::shared_ptr<EmbeddingTrainingCache> create_embedding_training_cache_(
@@ -570,13 +569,13 @@ class Model {
                                       const std::vector<std::string>& local_paths,
                                       const std::vector<HMemCacheConfig>& hmem_cache_configs);
   Error_t load_params_for_dense_(const std::string& model_file,
-                                 DataSourceParams data_source_params);
+                                 const DataSourceParams& data_source_params);
   Error_t load_params_for_sparse_(const std::vector<std::string>& embedding_file,
-                                  DataSourceParams data_source_params);
+                                  const DataSourceParams& data_source_params);
   Error_t load_opt_states_for_dense_(const std::string& dense_opt_states_file,
-                                     DataSourceParams data_source_params);
+                                     const DataSourceParams& data_source_params);
   Error_t load_opt_states_for_sparse_(const std::vector<std::string>& sparse_opt_states_files,
-                                      DataSourceParams data_source_params);
+                                      const DataSourceParams& data_source_params);
   virtual void exchange_wgrad(size_t device_id);
   virtual void train_overlapped();
   virtual void add_dense_layer(DenseLayer& dense_layer);
@@ -586,11 +585,13 @@ class Model {
       const std::shared_ptr<BufferBlock2<float>>& weight_buff,
       const std::shared_ptr<BufferBlock2<__half>>& weight_buff_half,
       const std::shared_ptr<BufferBlock2<float>>& wgrad_buff,
-      const std::shared_ptr<BufferBlock2<__half>>& wgrad_buff_half, Tensor2<float>& loss_tensor,
-      std::vector<std::unique_ptr<Layer>>& layers, std::unique_ptr<ILoss>& loss,
-      bool enable_cuda_graph, bool async_mlp_wgrad, metrics::RawMetricMap* raw_metrics,
-      int num_networks_in_global, const std::shared_ptr<GPUResource>& gpu_resource,
-      bool use_mixed_precision, bool enable_tf32_compute, float scaler, bool use_algorithm_search,
+      const std::shared_ptr<BufferBlock2<__half>>& wgrad_buff_half,
+      std::map<std::string, Tensor2<float>>& loss_tensor,
+      std::vector<std::unique_ptr<Layer>>& layers,
+      std::map<std::string, std::unique_ptr<ILoss>>& loss, bool enable_cuda_graph,
+      bool async_mlp_wgrad, metrics::RawMetricMap* raw_metrics, int num_networks_in_global,
+      const std::shared_ptr<GPUResource>& gpu_resource, bool use_mixed_precision,
+      bool enable_tf32_compute, float scaler, bool use_algorithm_search,
       std::vector<Layer*>* top_layers, std::vector<Layer*>* bottom_layers, bool dlrm_bottom_mlp);
 
   struct GraphScheduler {

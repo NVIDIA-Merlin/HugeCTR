@@ -988,14 +988,14 @@ void HybridSparseEmbedding<dtype, emtype>::init_params() {
 }
 
 template <typename dtype, typename emtype>
-void HybridSparseEmbedding<dtype, emtype>::load_parameters(std::string sparse_model,
-                                                           DataSourceParams data_source_params) {
+void HybridSparseEmbedding<dtype, emtype>::load_parameters(
+    std::string sparse_model, const DataSourceParams &data_source_params) {
   // TODO: create load_parameters()
 }
 
 template <typename dtype, typename emtype>
 void HybridSparseEmbedding<dtype, emtype>::dump_parameters(
-    std::string sparse_model, DataSourceParams data_source_params) const {
+    std::string sparse_model, const DataSourceParams &data_source_params) const {
   // TODO: create dump_parameters()
 }
 

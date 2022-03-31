@@ -14,13 +14,12 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/inference/embedding_feature_combiner.hpp"
+#include <gtest/gtest.h>
+#include <utest/test_utils.h>
 
+#include <data_generator.hpp>
+#include <inference/embedding_feature_combiner.hpp>
 #include <vector>
-
-#include "HugeCTR/include/data_generator.hpp"
-#include "gtest/gtest.h"
-#include "utest/test_utils.h"
 
 using namespace HugeCTR;
 

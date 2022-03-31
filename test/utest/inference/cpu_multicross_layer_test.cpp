@@ -14,15 +14,14 @@
  * limitations under the License.
  */
 
+#include <gtest/gtest.h>
 #include <math.h>
+#include <utest/test_utils.h>
 
+#include <cpu/layers/multi_cross_layer_cpu.hpp>
+#include <layer.hpp>
 #include <memory>
 #include <vector>
-
-#include "HugeCTR/include/cpu/layers/multi_cross_layer_cpu.hpp"
-#include "HugeCTR/include/layer.hpp"
-#include "gtest/gtest.h"
-#include "utest/test_utils.h"
 
 using namespace HugeCTR;
 

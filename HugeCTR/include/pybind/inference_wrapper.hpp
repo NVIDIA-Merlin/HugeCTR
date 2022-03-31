@@ -18,11 +18,11 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
-#include <HugeCTR/include/inference/embedding_cache.hpp>
-#include <HugeCTR/include/inference/parameter_server.hpp>
-#include <HugeCTR/include/inference/session_inference.hpp>
-#include <HugeCTR/include/pybind/inference_model.hpp>
-#include <HugeCTR/include/utils.hpp>
+#include <hps/embedding_cache.hpp>
+#include <hps/hier_parameter_server.hpp>
+#include <inference/inference_session.hpp>
+#include <pybind/inference_model.hpp>
+#include <utils.hpp>
 
 namespace HugeCTR {
 
@@ -31,76 +31,69 @@ namespace python_lib {
 /**
  * @brief Main InferenceSessionPy class
  *
- * This is a class supporting HugeCTR inference in Python, which includes predict32 and predict64.
+ * This is a class supporting HugeCTR inference in Python, which includes predict32 and
+ predict64.
  * To support dynamic batch size during inference, this class need to be modified in the future.
  */
 class InferenceSessionPy : public InferenceSession {
  public:
   InferenceSessionPy(const std::string& model_config_path, const InferenceParams& inference_params,
-                     std::shared_ptr<embedding_interface>& embedding_cache);
-
+                     const std::shared_ptr<EmbeddingCacheBase>& embedding_cache);
   InferenceSessionPy(const std::string& model_config_path, const InferenceParams& inference_params,
-                     std::shared_ptr<embedding_interface>& embedding_cache,
-                     std::shared_ptr<HugectrUtility<long long>> ps_64);
-
-  InferenceSessionPy(const std::string& model_config_path, const InferenceParams& inference_params,
-                     std::shared_ptr<embedding_interface>& embedding_cache,
-                     std::shared_ptr<HugectrUtility<unsigned int>> ps_32);
-
+                     const std::shared_ptr<EmbeddingCacheBase>& embedding_cache,
+                     const std::shared_ptr<HierParameterServerBase>& parameter_server);
   ~InferenceSessionPy();
 
-  float evaluate(const size_t num_batches, const std::string& source,
-                 const DataReaderType_t data_reader_type, const Check_t check_type,
-                 const std::vector<long long>& slot_size_array);
-  pybind11::array_t<float> predict(const size_t num_batches, const std::string& source,
-                                   const DataReaderType_t data_reader_type,
-                                   const Check_t check_type,
+  float evaluate(size_t num_batches, const std::string& source, DataReaderType_t data_reader_type,
+                 Check_t check_type, const std::vector<long long>& slot_size_array);
+  pybind11::array_t<float> predict(size_t num_batches, const std::string& source,
+                                   DataReaderType_t data_reader_type, Check_t check_type,
                                    const std::vector<long long>& slot_size_array);
-  std::vector<float>& predict(std::vector<float>& dense, std::vector<long long>& embeddingcolumns,
-                              std::vector<int>& row_ptrs);
-
+  std::vector<float>& predict(const std::vector<float>& dense,
+                              const std::vector<long long>& embeddingcolumns,
+                              const std::vector<int>& row_ptrs);
   void refresh_embedding_cache();
 
  private:
-  void Initialize(const std::string& model_config_path, const InferenceParams& inference_params,
-                  std::shared_ptr<embedding_interface>& embedding_cache);
+  void initialize();
 
   template <typename TypeKey>
-  void load_data_(const std::string& source, const DataReaderType_t data_reader_type,
-                  const Check_t check_type, const std::vector<long long>& slot_size_array);
+  void load_data(const std::string& source, DataReaderType_t data_reader_type, Check_t check_type,
+                 const std::vector<long long>& slot_size_array);
 
   template <typename TypeKey>
-  float evaluate_(const size_t num_batches, const std::string& source,
-                  const DataReaderType_t data_reader_type, const Check_t check_type,
-                  const std::vector<long long>& slot_size_array);
+  float evaluate_(size_t num_batches, const std::string& source, DataReaderType_t data_reader_type,
+                  Check_t check_type, const std::vector<long long>& slot_size_array);
 
   template <typename TypeKey>
-  pybind11::array_t<float> predict_(const size_t num_batches, const std::string& source,
-                                    const DataReaderType_t data_reader_type,
-                                    const Check_t check_type,
+  pybind11::array_t<float> predict_(size_t num_batches, const std::string& source,
+                                    DataReaderType_t data_reader_type, Check_t check_type,
                                     const std::vector<long long>& slot_size_array);
 
   template <typename TypeKey>
-  void predict_(std::vector<float>& dense, std::vector<TypeKey>& embeddingcolumns,
-                std::vector<int>& row_ptrs);
+  void predict_(const std::vector<float>& dense, const std::vector<TypeKey>& embeddingcolumns,
+                const std::vector<int>& row_ptrs);
 
   std::vector<unsigned int> embeddingcolumns_u32_;
   std::vector<float> output_;
-  float* d_reader_dense_;
+
+  // Allocate in this class
   float* d_dense_;
   void* h_embeddingcolumns_;
   int* d_row_ptrs_;
   float* d_output_;
+
+  // Derived from data reader output tensor
+  float* d_reader_dense_;
   std::vector<void*> d_reader_keys_list_;
   std::vector<void*> d_reader_row_ptrs_list_;
   TensorBag2 label_tensor_;
-  std::shared_ptr<HugectrUtility<long long>> ps_64_;
-  std::shared_ptr<HugectrUtility<unsigned int>> ps_32_;
+
+  // Parameter Server
+  std::shared_ptr<HierParameterServerBase> parameter_server_;
 };
 
-void InferenceSessionPy::Initialize(const std::string& model_config_path,
-                                    const InferenceParams& inference_params,
-                                    std::shared_ptr<embedding_interface>& embedding_cache) {
+void InferenceSessionPy::initialize() {
   CudaDeviceContext context(resource_manager_->get_local_gpu(0)->get_device_id());
   HCTR_LIB_THROW(cudaMalloc((void**)&d_dense_, inference_params_.max_batchsize *
                                                    inference_parser_.dense_dim * sizeof(float)));
@@ -127,25 +120,18 @@ void InferenceSessionPy::Initialize(const std::string& model_config_path,
 
 InferenceSessionPy::InferenceSessionPy(const std::string& model_config_path,
                                        const InferenceParams& inference_params,
-                                       std::shared_ptr<embedding_interface>& embedding_cache)
+                                       const std::shared_ptr<EmbeddingCacheBase>& embedding_cache)
     : InferenceSession(model_config_path, inference_params, embedding_cache) {
-  Initialize(model_config_path, inference_params, embedding_cache);
+  initialize();
 }
 
-InferenceSessionPy::InferenceSessionPy(const std::string& model_config_path,
-                                       const InferenceParams& inference_params,
-                                       std::shared_ptr<embedding_interface>& embedding_cache,
-                                       std::shared_ptr<HugectrUtility<long long>> ps_64)
-    : InferenceSession(model_config_path, inference_params, embedding_cache), ps_64_(ps_64) {
-  Initialize(model_config_path, inference_params, embedding_cache);
-}
-
-InferenceSessionPy::InferenceSessionPy(const std::string& model_config_path,
-                                       const InferenceParams& inference_params,
-                                       std::shared_ptr<embedding_interface>& embedding_cache,
-                                       std::shared_ptr<HugectrUtility<unsigned int>> ps_32)
-    : InferenceSession(model_config_path, inference_params, embedding_cache), ps_32_(ps_32) {
-  Initialize(model_config_path, inference_params, embedding_cache);
+InferenceSessionPy::InferenceSessionPy(
+    const std::string& model_config_path, const InferenceParams& inference_params,
+    const std::shared_ptr<EmbeddingCacheBase>& embedding_cache,
+    const std::shared_ptr<HierParameterServerBase>& parameter_server)
+    : InferenceSession(model_config_path, inference_params, embedding_cache),
+      parameter_server_(parameter_server) {
+  initialize();
 }
 
 InferenceSessionPy::~InferenceSessionPy() {
@@ -157,8 +143,9 @@ InferenceSessionPy::~InferenceSessionPy() {
 }
 
 template <typename TypeKey>
-void InferenceSessionPy::predict_(std::vector<float>& dense, std::vector<TypeKey>& embeddingcolumns,
-                                  std::vector<int>& row_ptrs) {
+void InferenceSessionPy::predict_(const std::vector<float>& dense,
+                                  const std::vector<TypeKey>& embeddingcolumns,
+                                  const std::vector<int>& row_ptrs) {
   if (inference_parser_.slot_num == 0) {
     HCTR_OWN_THROW(Error_t::WrongInput, "The number of slots should not be zero");
   }
@@ -210,26 +197,26 @@ void InferenceSessionPy::predict_(std::vector<float>& dense, std::vector<TypeKey
   HCTR_LIB_THROW(cudaStreamSynchronize(resource_manager_->get_local_gpu(0)->get_stream()));
 }
 
-std::vector<float>& InferenceSessionPy::predict(std::vector<float>& dense,
-                                                std::vector<long long>& embeddingcolumns,
-                                                std::vector<int>& row_ptrs) {
+std::vector<float>& InferenceSessionPy::predict(const std::vector<float>& dense,
+                                                const std::vector<long long>& embeddingcolumns,
+                                                const std::vector<int>& row_ptrs) {
   if (inference_params_.i64_input_key) {
     predict_<long long>(dense, embeddingcolumns, row_ptrs);
   } else {
     std::vector<unsigned int>().swap(embeddingcolumns_u32_);
     std::transform(embeddingcolumns.begin(), embeddingcolumns.end(),
                    std::back_inserter(embeddingcolumns_u32_),
-                   [](long long& v) -> unsigned int { return static_cast<unsigned int>(v); });
+                   [](const long long& v) -> unsigned int { return static_cast<unsigned int>(v); });
     predict_<unsigned int>(dense, embeddingcolumns_u32_, row_ptrs);
   }
   return output_;
 }
 
 template <typename TypeKey>
-void InferenceSessionPy::load_data_(const std::string& source,
-                                    const DataReaderType_t data_reader_type,
-                                    const Check_t check_type,
-                                    const std::vector<long long>& slot_size_array) {
+void InferenceSessionPy::load_data(const std::string& source,
+                                   const DataReaderType_t data_reader_type,
+                                   const Check_t check_type,
+                                   const std::vector<long long>& slot_size_array) {
   CudaDeviceContext context(resource_manager_->get_local_gpu(0)->get_device_id());
   bool repeat_dataset = true;
   std::map<std::string, SparseInput<TypeKey>> sparse_input_map;
@@ -269,7 +256,7 @@ float InferenceSessionPy::evaluate_(const size_t num_batches, const std::string&
                                     const Check_t check_type,
                                     const std::vector<long long>& slot_size_array) {
   CudaDeviceContext context(resource_manager_->get_local_gpu(0)->get_device_id());
-  load_data_<TypeKey>(source, data_reader_type, check_type, slot_size_array);
+  load_data<TypeKey>(source, data_reader_type, check_type, slot_size_array);
   std::vector<size_t> keys_elements_list(inference_parser_.num_embedding_tables);
   std::vector<size_t> row_ptr_elements_list(inference_parser_.num_embedding_tables);
   for (size_t i = 0; i < inference_parser_.num_embedding_tables; i++) {
@@ -328,7 +315,7 @@ pybind11::array_t<float> InferenceSessionPy::predict_(
     const size_t num_batches, const std::string& source, const DataReaderType_t data_reader_type,
     const Check_t check_type, const std::vector<long long>& slot_size_array) {
   CudaDeviceContext context(resource_manager_->get_local_gpu(0)->get_device_id());
-  load_data_<TypeKey>(source, data_reader_type, check_type, slot_size_array);
+  load_data<TypeKey>(source, data_reader_type, check_type, slot_size_array);
   std::vector<size_t> keys_elements_list(inference_parser_.num_embedding_tables);
   std::vector<size_t> row_ptr_elements_list(inference_parser_.num_embedding_tables);
   for (size_t i = 0; i < inference_parser_.num_embedding_tables; i++) {
@@ -414,53 +401,26 @@ pybind11::array_t<float> InferenceSessionPy::predict(
 }
 
 void InferenceSessionPy::refresh_embedding_cache() {
-  if (inference_params_.i64_input_key) {
-    ps_64_->refresh_embedding_cache(inference_params_.model_name, inference_params_.device_id);
-  } else {
-    ps_32_->refresh_embedding_cache(inference_params_.model_name, inference_params_.device_id);
-  }
+  parameter_server_->refresh_embedding_cache(inference_params_.model_name,
+                                             inference_params_.device_id);
 }
 
 std::shared_ptr<InferenceSessionPy> CreateInferenceSession(
     const std::string& model_config_path, const InferenceParams& inference_params) {
-  std::shared_ptr<HugectrUtility<long long>> ps_64;
-  std::shared_ptr<HugectrUtility<unsigned int>> ps_32;
-  std::shared_ptr<embedding_interface> ec;
-  std::shared_ptr<InferenceSessionPy> sess;
   std::vector<std::string> model_config_path_array{model_config_path};
   std::vector<InferenceParams> inference_params_array{inference_params};
-  if (inference_params.i64_input_key) {
-    ps_64.reset(
-        new parameter_server<long long>("Other", model_config_path_array, inference_params_array));
-    ec = ps_64->GetEmbeddingCache(inference_params.model_name, inference_params.device_id);
-    sess.reset(new InferenceSessionPy(model_config_path, inference_params, ec, ps_64));
-  } else {
-    ps_32.reset(new parameter_server<unsigned int>("Other", model_config_path_array,
-                                                   inference_params_array));
-    ec = ps_32->GetEmbeddingCache(inference_params.model_name, inference_params.device_id);
-    sess.reset(new InferenceSessionPy(model_config_path, inference_params, ec, ps_32));
-  }
-  return sess;
+  parameter_server_config ps_config{model_config_path_array, inference_params_array};
+
+  auto parameter_server = HierParameterServerBase::create(ps_config, inference_params_array);
+  auto embedding_cache = parameter_server->get_embedding_cache(inference_params.model_name,
+                                                               inference_params.device_id);
+  std::shared_ptr<InferenceSessionPy> inference_session = std::make_shared<InferenceSessionPy>(
+      model_config_path, inference_params, embedding_cache, parameter_server);
+  return inference_session;
 }
 
 void InferencePybind(pybind11::module& m) {
   pybind11::module infer = m.def_submodule("inference", "inference submodule of hugectr");
-
-  pybind11::class_<HugeCTR::embedding_interface, std::shared_ptr<HugeCTR::embedding_interface>>(
-      infer, "EmbeddingCache");
-
-  pybind11::class_<HugeCTR::parameter_server<unsigned int>,
-                   std::shared_ptr<HugeCTR::parameter_server<unsigned int>>>(infer,
-                                                                             "ParameterServer")
-      .def(pybind11::init<const std::string&, const std::vector<std::string>&,
-                          std::vector<InferenceParams>&>(),
-           pybind11::arg("framework_name"), pybind11::arg("model_config_path"),
-           pybind11::arg("inference_params_array"))
-      .def("get_embedding_cache", &HugeCTR::parameter_server<unsigned int>::GetEmbeddingCache,
-           pybind11::arg("model_name"), pybind11::arg("device_id"))
-      .def("refresh_embedding_cache",
-           &HugeCTR::parameter_server<unsigned int>::refresh_embedding_cache,
-           pybind11::arg("model_name"), pybind11::arg("device_id"));
 
   pybind11::class_<HugeCTR::VolatileDatabaseParams,
                    std::shared_ptr<HugeCTR::VolatileDatabaseParams>>(infer,
@@ -531,7 +491,10 @@ void InferencePybind(pybind11::module& m) {
                           // const float,
                           const int, const int, const float, const std::vector<int>&,
                           const std::vector<float>&, const VolatileDatabaseParams&,
-                          const PersistentDatabaseParams&, const UpdateSourceParams&>(),
+                          const PersistentDatabaseParams&, const UpdateSourceParams&, const int,
+                          const float, const float, const std::vector<size_t>&,
+                          const std::vector<size_t>&, const std::vector<std::string>&>(),
+
            pybind11::arg("model_name"), pybind11::arg("max_batchsize"),
            pybind11::arg("hit_rate_threshold"), pybind11::arg("dense_model_file"),
            pybind11::arg("sparse_model_files"), pybind11::arg("device_id") = 0,
@@ -547,7 +510,13 @@ void InferencePybind(pybind11::module& m) {
            // Database backend.
            pybind11::arg("volatile_db") = VolatileDatabaseParams{},
            pybind11::arg("persistent_db") = PersistentDatabaseParams{},
-           pybind11::arg("update_source") = UpdateSourceParams{});
+           pybind11::arg("update_source") = UpdateSourceParams{},
+           // HPS required
+           pybind11::arg("maxnum_des_feature_per_sample") = 20,
+           pybind11::arg("refresh_delay") = 0.0f, pybind11::arg("refresh_interval") = 0.0f,
+           pybind11::arg("maxnum_catfeature_query_per_table_per_sample") = std::vector<int>{26},
+           pybind11::arg("embedding_vecsize_per_table") = std::vector<int>{128},
+           pybind11::arg("embedding_table_names") = std::vector<std::string>{""});
 
   infer.def("CreateInferenceSession", &HugeCTR::python_lib::CreateInferenceSession,
             pybind11::arg("model_config_path"), pybind11::arg("inference_params"));
@@ -555,21 +524,18 @@ void InferencePybind(pybind11::module& m) {
   pybind11::class_<HugeCTR::python_lib::InferenceSessionPy,
                    std::shared_ptr<HugeCTR::python_lib::InferenceSessionPy>>(infer,
                                                                              "InferenceSession")
-      .def(pybind11::init<const std::string&, const InferenceParams&,
-                          std::shared_ptr<embedding_interface>&>(),
-           pybind11::arg("model_config_path"), pybind11::arg("inference_params"),
-           pybind11::arg("embedding_cache"))
       .def("evaluate", &HugeCTR::python_lib::InferenceSessionPy::evaluate,
            pybind11::arg("num_batches"), pybind11::arg("source"), pybind11::arg("data_reader_type"),
            pybind11::arg("check_type"), pybind11::arg("slot_size_array") = std::vector<long long>())
       .def("predict",
-           pybind11::overload_cast<const size_t, const std::string&, const DataReaderType_t,
-                                   const Check_t, const std::vector<long long>&>(
+           pybind11::overload_cast<size_t, const std::string&, DataReaderType_t, Check_t,
+                                   const std::vector<long long>&>(
                &HugeCTR::python_lib::InferenceSessionPy::predict),
            pybind11::arg("num_batches"), pybind11::arg("source"), pybind11::arg("data_reader_type"),
            pybind11::arg("check_type"), pybind11::arg("slot_size_array") = std::vector<long long>())
       .def("predict",
-           pybind11::overload_cast<std::vector<float>&, std::vector<long long>&, std::vector<int>&>(
+           pybind11::overload_cast<const std::vector<float>&, const std::vector<long long>&,
+                                   const std::vector<int>&>(
                &HugeCTR::python_lib::InferenceSessionPy::predict),
            pybind11::arg("dense_feature"), pybind11::arg("embeddingcolumns"),
            pybind11::arg("row_ptrs"))
