@@ -84,10 +84,17 @@ void add_input(Input& input, DataReaderParams& reader_params,
   long long eval_num_samples = reader_params.eval_num_samples;
   bool float_label_dense = reader_params.float_label_dense;
   // TODO - changes structures to support multiple labels
-  std::string top_strs_label = input.labels.begin()->first;
-  int label_dim = input.labels.begin()->second;
   std::string top_strs_dense = input.dense_name;
   int dense_dim = input.dense_dim;
+
+  std::string top_strs_label = input.labels_.begin()->first;
+  int total_label_dim = std::accumulate(
+      std::begin(input.labels_), std::end(input.labels_), 0,
+      [](const int previous, const std::pair<std::string, int>& p) { return previous + p.second; });
+
+  if (input.labels_.size() > 1) {
+    top_strs_label = "combined_multi_label";
+  }
 
   for (unsigned int i = 0; i < input.data_reader_sparse_param_array.size(); i++) {
     DataReaderSparseParam param = input.data_reader_sparse_param_array[i];
@@ -121,7 +128,7 @@ void add_input(Input& input, DataReaderParams& reader_params,
                            << num_iterations_statistics << std::endl;
 
     train_data_reader.reset(new AsyncReader<TypeKey>(
-        source_data, batch_size, label_dim, dense_dim, input.data_reader_sparse_param_array,
+        source_data, batch_size, total_label_dim, dense_dim, input.data_reader_sparse_param_array,
         use_mixed_precision, resource_manager, num_threads, num_batches_per_thread, io_block_size,
         io_depth, io_alignment, shuffle, enable_overlap, aligned_type));
 
@@ -137,12 +144,13 @@ void add_input(Input& input, DataReaderParams& reader_params,
     // Small IO block may lead to too many AIO requests which hang,
     // so use a larger one for eval and init which are typically larger than train
     evaluate_data_reader.reset(new AsyncReader<TypeKey>(
-        eval_source, batch_size_eval, label_dim, dense_dim, input.data_reader_sparse_param_array,
-        use_mixed_precision, resource_manager, num_threads, eval_num_batches_per_thread,
-        io_block_size * 8, io_depth, io_alignment, false, false, aligned_type));
+        eval_source, batch_size_eval, total_label_dim, dense_dim,
+        input.data_reader_sparse_param_array, use_mixed_precision, resource_manager, num_threads,
+        eval_num_batches_per_thread, io_block_size * 8, io_depth, io_alignment, false, false,
+        aligned_type));
 
     init_data_reader.reset(new AsyncReader<TypeKey>(
-        source_data, num_iterations_statistics * batch_size, label_dim, dense_dim,
+        source_data, num_iterations_statistics * batch_size, total_label_dim, dense_dim,
         input.data_reader_sparse_param_array, use_mixed_precision, resource_manager, 1, 1,
         io_block_size * 8, 4, io_alignment, false, false, aligned_type));
 
@@ -184,11 +192,11 @@ void add_input(Input& input, DataReaderParams& reader_params,
     HCTR_LOG_S(INFO, ROOT) << "num of DataReader workers: " << num_workers << std::endl;
 
     DataReader<TypeKey>* data_reader_tk = new DataReader<TypeKey>(
-        batch_size, label_dim, dense_dim, input.data_reader_sparse_param_array, resource_manager,
-        repeat_dataset, num_workers, use_mixed_precision);
+        batch_size, total_label_dim, dense_dim, input.data_reader_sparse_param_array,
+        resource_manager, repeat_dataset, num_workers, use_mixed_precision);
     train_data_reader.reset(data_reader_tk);
     DataReader<TypeKey>* data_reader_eval_tk = new DataReader<TypeKey>(
-        batch_size_eval, label_dim, dense_dim, input.data_reader_sparse_param_array,
+        batch_size_eval, total_label_dim, dense_dim, input.data_reader_sparse_param_array,
         resource_manager, repeat_dataset, num_workers, use_mixed_precision);
     evaluate_data_reader.reset(data_reader_eval_tk);
 

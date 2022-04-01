@@ -54,6 +54,8 @@ void cross_entropy_loss(size_t batch_size) {
   CrossEntropyLoss<float> cel(label_tensor, input_tensor, loss_tensor, no_regularizer,
                               test::get_default_gpu(), 1);
 
+  cel.set_label_weight(1.0);
+
   buff->allocate();
 
   float *d_input = input_tensor.get_ptr();
@@ -71,7 +73,7 @@ void cross_entropy_loss(size_t batch_size) {
   cudaMemcpy(d_input, h_input.get(), sizeof(float) * batch_size * feature_dim,
              cudaMemcpyHostToDevice);
   cudaMemcpy(d_label, h_label.get(), sizeof(float) * batch_size, cudaMemcpyHostToDevice);
-  cel.compute(true);
+  cel.compute_and_init(true);
 
   // CPU
   float z0_exp, z1_exp;
@@ -127,6 +129,7 @@ void binary_cross_entropy_loss(size_t batch_size) {
 
   BinaryCrossEntropyLoss<float> bce(label_tensor, input_tensor, loss_tensor, no_regularizer,
                                     test::get_default_gpu(), 1);
+  bce.set_label_weight(1.0);
 
   buff->allocate();
 
@@ -143,7 +146,12 @@ void binary_cross_entropy_loss(size_t batch_size) {
   // GPU
   cudaMemcpy(d_input, h_input.get(), sizeof(float) * batch_size, cudaMemcpyHostToDevice);
   cudaMemcpy(d_label, h_label.get(), sizeof(float) * batch_size, cudaMemcpyHostToDevice);
-  bce.compute(true);
+
+  // Test with separate regularizer and compute methods
+  float rterm = bce.regularizer_compute_rterm();
+  const auto &input_dim = input_tensor.get_dimensions();
+  bce.compute(true, input_dim[0], rterm);
+  bce.regularizer_initialize_wgrad(true);
 
   float cpu_loss = 0.0f;
   float x, val, y;

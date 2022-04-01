@@ -155,7 +155,8 @@ struct DataReaderParams {
 };
 
 struct Input {
-  std::map<std::string, int> labels;
+  std::map<std::string, int> labels_;
+  std::map<std::string, float> label_weights_;
   int dense_dim;
   std::string dense_name;
   std::vector<DataReaderSparseParam> data_reader_sparse_param_array;
@@ -163,6 +164,9 @@ struct Input {
         std::vector<DataReaderSparseParam>& data_reader_sparse_param_array);
   Input(std::vector<int> label_dim, std::vector<std::string> label_name, int dense_dim,
         std::string dense_name, std::vector<DataReaderSparseParam>& data_reader_sparse_param_array);
+  Input(std::vector<int> label_dim, std::vector<std::string> label_name,
+        std::vector<float> label_weights, int dense_dim, std::string dense_name,
+        std::vector<DataReaderSparseParam>& data_reader_sparse_param_array);
 };
 
 struct SparseEmbedding {
@@ -345,9 +349,10 @@ class Model {
 
   virtual void compile();
 
-  virtual void compile(std::vector<std::string>& loss_names, std::vector<float>& loss_weights);
+  virtual void compile(std::vector<std::string>& label_names, std::vector<float>& label_weights);
 
-  void update_loss_weights(std::vector<std::string>& loss_names, std::vector<float>& loss_weights);
+  void update_label_weights(std::vector<std::string>& label_names,
+                            std::vector<float>& label_weights);
 
   void summary();
 
@@ -493,6 +498,8 @@ class Model {
   std::vector<std::vector<TensorEntry>> evaluate_tensor_entries_list_;
   std::map<std::string, bool> tensor_active_;
 
+  std::map<std::string, float> label_weights_;
+
   bool data_reader_train_status_;
   bool data_reader_eval_status_;
   bool buff_allocated_;
@@ -589,9 +596,9 @@ class Model {
       std::map<std::string, Tensor2<float>>& loss_tensor,
       std::vector<std::unique_ptr<Layer>>& layers,
       std::map<std::string, std::unique_ptr<ILoss>>& loss, bool enable_cuda_graph,
-      bool async_mlp_wgrad, metrics::RawMetricMap* raw_metrics, int num_networks_in_global,
-      const std::shared_ptr<GPUResource>& gpu_resource, bool use_mixed_precision,
-      bool enable_tf32_compute, float scaler, bool use_algorithm_search,
+      bool async_mlp_wgrad, std::map<std::string, metrics::RawMetricMap>* raw_metrics,
+      int num_networks_in_global, const std::shared_ptr<GPUResource>& gpu_resource,
+      bool use_mixed_precision, bool enable_tf32_compute, float scaler, bool use_algorithm_search,
       std::vector<Layer*>* top_layers, std::vector<Layer*>* bottom_layers, bool dlrm_bottom_mlp);
 
   struct GraphScheduler {
