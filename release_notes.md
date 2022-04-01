@@ -23,7 +23,7 @@
 
 + **Bug Fixing**:
     + Mirror strategy bug in SOK (see in https://github.com/NVIDIA-Merlin/HugeCTR/issues/291)  
-    + Can't import sparse operation kit in nvcr.io/nvidia/merlin/merlin-tensorflow-training:22.03 (see in https://github.com/NVIDIA-Merlin/HugeCTR/issues/296)
+    + Can't import sparse operation kit in nvcr.io/nvidia/merlin/merlin-tensorflow-training:22.04 (see in https://github.com/NVIDIA-Merlin/HugeCTR/issues/296)
     + HPS: Fixed access violation that can occur during initialization when not configuring a volatile DB.
 
 
