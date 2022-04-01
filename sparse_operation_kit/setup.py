@@ -180,7 +180,7 @@ class SOKBuildExtension(build_ext):
                 self.write_stub(package_dir or os.curdir, ext, True)
 
 setup(
-    name="SparseOperationKit",
+    name="merlin-sok",
     version=_GetSOKVersion(),
     author="NVIDIA",
     author_email="hugectr-dev@exchange.nvidia.com",
