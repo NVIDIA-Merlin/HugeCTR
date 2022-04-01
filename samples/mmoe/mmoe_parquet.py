@@ -31,8 +31,12 @@ model.add(hugectr.SparseEmbedding(embedding_type = hugectr.Embedding_t.Distribut
                             bottom_name = "data",
                             optimizer = optimizer))
 # Shared layers before split to respective losses
-model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.InnerProduct,
+model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Reshape,
                             bottom_names = ["embedding"],
+                            top_names = ["reshape_embedding"],
+                            leading_dim=128))
+model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.InnerProduct,
+                            bottom_names = ["reshape_embedding"],
                             top_names = ["shared1"],
                             num_output=256))
 model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.ReLU,
@@ -47,7 +51,7 @@ model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.InnerProduct,
                             top_names = ["shared2"],
                             num_output=256))
 model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.ReLU,
-                            bottom_names = ["fc2"],
+                            bottom_names = ["shared2"],
                             top_names = ["relu2"]))
 model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Dropout,
                             bottom_names = ["relu2"],
@@ -61,8 +65,12 @@ model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Slice,
                             ranges=[(0,127),(128,255)]))
 
 # "A" side and corresponding loss
-model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.InnerProduct,
+model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Reshape,
                             bottom_names = ["sliceA"],
+                            top_names = ["reshapeA"],
+                            leading_dim=10))
+model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.InnerProduct,
+                            bottom_names = ["reshapeA"],
                             top_names = ["A_fc1"],
                             num_output=64))
 model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.ReLU,
@@ -76,13 +84,14 @@ model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.InnerProduct,
                             bottom_names = ["A_dropout1"],
                             top_names = ["A_out"],
                             num_output=1))
-model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.BinaryCrossEntropyLoss,
-                            bottom_names = ["A_out", "labelA"],
-                            top_names = ["lossA"]))
 
 # "B" side and corresponding loss
-model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.InnerProduct,
+model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Reshape,
                             bottom_names = ["sliceB"],
+                            top_names = ["reshapeB"],
+                            leading_dim=10))
+model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.InnerProduct,
+                            bottom_names = ["reshapeB"],
                             top_names = ["B_fc1"],
                             num_output=64))
 model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.ReLU,
@@ -96,10 +105,16 @@ model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.InnerProduct,
                             bottom_names = ["B_dropout1"],
                             top_names = ["B_out"],
                             num_output=1))
+
+# All loss layers must be declared last
+model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.BinaryCrossEntropyLoss,
+                            bottom_names = ["A_out", "labelA"],
+                            top_names = ["lossA"]))
+
 model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.BinaryCrossEntropyLoss,
                             bottom_names = ["B_out", "labelB"],
                             top_names = ["lossB"]))
 
 model.compile(loss_names=["labelA", "labelB"], loss_weights=[0.5,0.5])
 model.summary()
-model.fit(num_epochs = 10, display = 100, eval_interval = 100, snapshot = 1000000, snapshot_prefix = "mmoe") 
+model.fit(num_epochs = 10, display = 50, eval_interval = 50, snapshot = 1000000, snapshot_prefix = "mmoe") 

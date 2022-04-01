@@ -56,7 +56,6 @@ class Network {
 
   std::map<std::string, std::unique_ptr<ILoss>> train_losses_;    /**< map of loss layers */
   std::map<std::string, std::unique_ptr<ILoss>> evaluate_losses_; /**< map of loss layers */
-  std::map<std::string, float> loss_weights_;                     /** < map of weights for losses */
 
   std::map<std::string, int> label_dims_; /** < map of dimensions of labels */
 
@@ -75,7 +74,8 @@ class Network {
   std::map<std::string, Tensor2<float>> train_loss_tensors_;    /**< map of loss tensors */
   std::map<std::string, Tensor2<float>> evaluate_loss_tensors_; /**< map of loss tensor */
 
-  metrics::RawMetricMap raw_metrics_;
+  std::map<std::string, metrics::RawMetricMap>
+      raw_metrics_; /**< map of metric data for each loss */
 
   Tensor2<float> pred_tensor_;
   Tensor2<__half> pred_tensor_half_;
@@ -142,7 +142,9 @@ class Network {
 
   int get_device_id() const { return gpu_resource_->get_device_id(); }
 
-  metrics::RawMetricMap get_raw_metrics() const;
+  std::map<std::string, metrics::RawMetricMap> get_raw_metrics_all() const;
+
+  metrics::RawMetricMap get_raw_metrics(std::string) const;
 
   /**
    * Get number of parameters in this network.

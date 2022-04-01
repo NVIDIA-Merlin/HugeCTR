@@ -141,12 +141,14 @@ void loss_with_regularizer_test(Regularizer_t type, size_t batch_size, size_t nu
           new NoRegularizer<float>(weight_buff_no->as_tensor(), wgrad_buff_no->as_tensor(),
                                    batch_size, test::get_default_gpu())),
       test::get_default_gpu(), 1);
+  loss_no.set_label_weight(1.0);
 
   BinaryCrossEntropyLoss<float> loss_re(
       label_tensor, out_tensor, loss_tensor_re,
       create_regularizer(type, weight_buff_re->as_tensor(), wgrad_buff_re->as_tensor(), batch_size,
                          lambda, test::get_default_gpu()),
       test::get_default_gpu(), 1);
+  loss_re.set_label_weight(1.0);
 
   buff->allocate();
 
@@ -175,7 +177,7 @@ void loss_with_regularizer_test(Regularizer_t type, size_t batch_size, size_t nu
 
   HCTR_LIB_THROW(cudaDeviceSynchronize());
   fc_layer_no.fprop(true);
-  loss_no.compute(true);
+  loss_no.compute_and_init(true);
   HCTR_LIB_THROW(cudaDeviceSynchronize());
 
   std::unique_ptr<float> loss_no_val(new float);
@@ -187,7 +189,7 @@ void loss_with_regularizer_test(Regularizer_t type, size_t batch_size, size_t nu
 
   HCTR_LIB_THROW(cudaDeviceSynchronize());
   fc_layer_re.fprop(true);
-  loss_re.compute(true);
+  loss_re.compute_and_init(true);
   HCTR_LIB_THROW(cudaDeviceSynchronize());
 
   std::unique_ptr<float> loss_re_val(new float);

@@ -57,7 +57,12 @@ void ModelPybind(pybind11::module &m) {
       .def(pybind11::init<std::vector<int>, std::vector<std::string>, int, std::string,
                           std::vector<DataReaderSparseParam> &>(),
            pybind11::arg("label_dims"), pybind11::arg("label_names"), pybind11::arg("dense_dim"),
-           pybind11::arg("dense_name"), pybind11::arg("data_reader_sparse_param_array"));
+           pybind11::arg("dense_name"), pybind11::arg("data_reader_sparse_param_array"))
+      .def(pybind11::init<std::vector<int>, std::vector<std::string>, std::vector<float>, int,
+                          std::string, std::vector<DataReaderSparseParam> &>(),
+           pybind11::arg("label_dims"), pybind11::arg("label_names"),
+           pybind11::arg("label_weights"), pybind11::arg("dense_dim"), pybind11::arg("dense_name"),
+           pybind11::arg("data_reader_sparse_param_array"));
   pybind11::class_<HugeCTR::SparseEmbedding, std::shared_ptr<HugeCTR::SparseEmbedding>>(
       m, "SparseEmbedding")
       .def(pybind11::init<Embedding_t, size_t, size_t, const std::string &, std::string,

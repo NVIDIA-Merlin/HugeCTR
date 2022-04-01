@@ -62,7 +62,7 @@ void multi_cross_entropy_loss(size_t label_dim, size_t batch_size) {
   cudaMemcpy(d_label, h_label.get(), sizeof(float) * batch_size * label_dim,
              cudaMemcpyHostToDevice);
 
-  mel.compute(true);
+  mel.compute_and_init(true);
 
   int scaler = 1;
 #ifdef SCALE_128

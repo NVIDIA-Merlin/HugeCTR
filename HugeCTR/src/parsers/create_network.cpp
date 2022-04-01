@@ -143,7 +143,8 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
                    bool& enable_cuda_graph, bool inference_flag,
                    std::vector<std::unique_ptr<Layer>>& layers,
                    std::map<std::string, std::unique_ptr<ILoss>>& losses,
-                   metrics::RawMetricMap* raw_metrics, std::vector<Layer*>* top_layers = nullptr,
+                   metrics::MultiLossMetricMap* raw_metrics,
+                   std::vector<Layer*>* top_layers = nullptr,
                    std::vector<Layer*>* bottom_layers = nullptr) {
   bool skip_dgrad = true;
   bool is_bottom_mlp = true;
@@ -1195,9 +1196,13 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
         (layer_type == Layer_t::CrossEntropyLoss || layer_type == Layer_t::BinaryCrossEntropyLoss ||
          layer_type == Layer_t::MultiCrossEntropyLoss)) {
       if (raw_metrics) {
-        (*raw_metrics)[metrics::RawType::Loss] = loss_tensors.begin()->second.shrink();
-        (*raw_metrics)[metrics::RawType::Pred] = input_output_info.inputs[0];
-        (*raw_metrics)[metrics::RawType::Label] = input_output_info.inputs[1];
+        std::string name = get_layer_names(bottom)[1];
+        Tensor2<float> lookup_loss_tensor = loss_tensors.find(name)->second;
+
+        metrics::RawMetricMap new_map;
+        new_map.insert(std::make_pair(metrics::RawType::Loss, lookup_loss_tensor.shrink()));
+        new_map.insert(std::make_pair(metrics::RawType::Pred, input_output_info.inputs[0]));
+        new_map.insert(std::make_pair(metrics::RawType::Label, input_output_info.inputs[1]));
       }
     } else {
       for (auto& output_tensor_entry : output_tensor_entries) {

@@ -138,7 +138,7 @@ bool ModelPerfExt::eval(bool is_first_batch) {
           evaluate_data_reader_->get_current_batchsize_per_device(id);
       networks_[id]->eval(current_batchsize_per_device);
       for (auto& metric : metrics_) {
-        metric->local_reduce(id, networks_[id]->get_raw_metrics());
+        metric->local_reduce(id, networks_[id]->get_raw_metrics_all().begin()->second);
       }
     }
 

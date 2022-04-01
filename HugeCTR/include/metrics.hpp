@@ -35,6 +35,7 @@ enum class RawType { Loss, Pred, Label };
 enum class Type { AUC, AverageLoss, HitRate };
 
 using RawMetricMap = std::map<RawType, TensorBag2>;
+using MultiLossMetricMap = std::map<std::string, RawMetricMap>;
 
 void get_raw_metric_as_host_float_tensor(RawMetricMap metric_map, RawType raw_type,
                                          bool mixed_precision, float* rst, size_t num);

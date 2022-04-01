@@ -25,10 +25,16 @@ namespace HugeCTR {
 
 class ILoss {
  public:
-  virtual void compute(bool is_train, long long current_batchsize) = 0;
-  virtual void compute(bool is_train) = 0;
+  virtual void compute(bool is_train, long long current_batchsize, float rterm) = 0;
+  virtual void compute_and_init(bool is_train, long long current_batchsize) = 0;
+  virtual void compute_and_init(bool is_train) = 0;
   virtual int get_device_id() const = 0;
+  virtual float regularizer_compute_rterm() = 0;
+  virtual void regularizer_initialize_wgrad(bool is_train) = 0;
   virtual void initialize_wgrad_async() = 0;
+
+  virtual float get_label_weight() const = 0;
+  virtual void set_label_weight(float new_weight) = 0;
 };
 
 /**
@@ -53,6 +59,9 @@ class Loss : public ILoss {
    * label_tensors_: stores the label information during the training process.
    */
   Tensors2<float> label_tensors_;
+
+  float label_weight;
+
   /**
    * input_tensors_: at beginning, the input_tensors_ stores the result of the last layer for the
    * final loss calculation.
@@ -68,8 +77,8 @@ class Loss : public ILoss {
   Tensors2<float> loss_tensors_;
 
   virtual void do_compute(T* input, const float* label, float* loss, int batch_size,
-                          int feature_dim, float scaler, float rterm, bool is_train,
-                          cudaStream_t stream) = 0;
+                          int feature_dim, float scaler, float rterm, float label_weight,
+                          bool is_train, cudaStream_t stream) = 0;
 
   const Tensors2<float>& get_label_tensors(bool is_train) const { return label_tensors_; }
 
@@ -91,8 +100,9 @@ class Loss : public ILoss {
    * @param is_train whether it is on training or evaluating
    * @param current_batchsize loss we set batchsize - current_batchsize rows of dgrad to 0
    */
-  void compute(bool is_train, long long current_batchsize) override;
-  void compute(bool is_train) override;
+  void compute(bool is_train, long long current_batchsize, float rterm) override;
+  void compute_and_init(bool is_train, long long current_batchsize) override;
+  void compute_and_init(bool is_train) override;
 
   /**
    * @param device_id GPU device executed on
@@ -107,14 +117,21 @@ class Loss : public ILoss {
 
   int get_device_id() const override { return gpu_resource_->get_device_id(); }
 
+  float regularizer_compute_rterm();
+  void regularizer_initialize_wgrad(bool is_train);
+
   void initialize_wgrad_async();
+
+  float get_label_weight() const override { return label_weight; }
+  void set_label_weight(float new_weight) override { label_weight = new_weight; }
 };
 
 template <typename T>
 class CrossEntropyLoss : public Loss<T> {
  public:
   void do_compute(T* input, const float* label, float* loss, int batch_size, int feature_dim,
-                  float scaler, float rterm, bool is_train, cudaStream_t stream) override final;
+                  float scaler, float rterm, float label_weight, bool is_train,
+                  cudaStream_t stream) override final;
   CrossEntropyLoss(const Tensor2<float>& label_tensor, const Tensor2<T>& input_tensor,
                    const Tensor2<float>& loss_tensor,
                    const std::shared_ptr<Regularizer<T>>& regularizer,
@@ -126,7 +143,8 @@ template <typename T>
 class BinaryCrossEntropyLoss : public Loss<T> {
  public:
   void do_compute(T* input, const float* label, float* loss, int batch_size, int feature_dim,
-                  float scaler, float rterm, bool is_train, cudaStream_t stream) override final;
+                  float scaler, float rterm, float label_weight, bool is_train,
+                  cudaStream_t stream) override final;
   BinaryCrossEntropyLoss(const Tensor2<float>& label_tensor, const Tensor2<T>& input_tensor,
                          const Tensor2<float>& loss_tensor,
                          const std::shared_ptr<Regularizer<T>>& regularizer,
@@ -141,7 +159,8 @@ class MultiCrossEntropyLoss : public Loss<T> {
 
  public:
   void do_compute(T* input, const float* label, float* loss, int batch_size, int feature_dim,
-                  float scaler, float rterm, bool is_train, cudaStream_t stream) override final;
+                  float scaler, float rterm, float label_weight, bool is_train,
+                  cudaStream_t stream) override final;
   MultiCrossEntropyLoss(const Tensor2<float>& label_tensor, const Tensor2<T>& input_tensor,
                         const Tensor2<float>& loss_tensor,
                         const std::shared_ptr<Regularizer<T>>& regularizer,
