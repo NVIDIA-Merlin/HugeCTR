@@ -1,0 +1,1893 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HugeCTR Wide and Deep Model with Criteo &mdash; Merlin HugeCTR  documentation</title><link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  <script id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/underscore.js"></script>
+        <script src="../_static/doctools.js"></script>
+        <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+        <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+        <script type="text/x-mathjax-config">MathJax.Hub.Config({"tex2jax": {"inlineMath": [["$", "$"], ["\\(", "\\)"]], "processEscapes": true, "ignoreClass": "tex2jax_ignore|mathjax_ignore|document", "processClass": "tex2jax_process|mathjax_process|math|output_area"}})</script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="HugeCTR to ONNX Converter" href="hugectr2onnx_demo.html" />
+    <link rel="prev" title="HugeCTR Example Notebooks" href="../hugectr_example_notebooks.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../index.html" class="icon icon-home"> Merlin HugeCTR
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption"><span class="caption-text">HugeCTR Library</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../hugectr_user_guide.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../hugectr_core_features.html">Core Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../hugectr_feature_details_intro.html">Features in Detail</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../hugectr_example_notebooks.html">Example Notebooks</a><ul class="current">
+<li class="toctree-l2 current"><a class="current reference internal" href="#">HugeCTR Wide and Deep Model with Criteo</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#1.Overview">1.Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#2.-Dataset-Preprocessing">2. Dataset Preprocessing</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#2.1-Generate-training-and-validation-data-folders">2.1 Generate training and validation data folders</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#2.2-Download-the-Original-Criteo-Dataset">2.2 Download the Original Criteo Dataset</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#2.3-Preprocessing-by-NVTabular">2.3 Preprocessing by NVTabular</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#3.-WDL-Model-Training">3. WDL Model Training</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#4.-Prepare-Inference-Request">4. Prepare Inference Request</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#5-Create-prediction-scripts">5 Create prediction scripts</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#6.-Prediction">6. Prediction</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#6.1-Load-model-embedding-tables-into-local-memory-as-Parameter-Server">6.1 Load model embedding tables into local memory as Parameter Server</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#6.2-Load-model-embedding-tables-into-local-RocksDB-as-Parameter-Server">6.2 Load model embedding tables into local RocksDB as Parameter Server</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="hugectr2onnx_demo.html">HugeCTR to ONNX Converter</a></li>
+<li class="toctree-l2"><a class="reference internal" href="continuous_training.html">HugeCTR Continuous Training</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ecommerce-example.html">Merlin ETL, training and inference demo on the e-Commerce behavior data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="movie-lens-example.html">HugeCTR demo on Movie lens data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="hugectr_criteo.html">HugeCTR Python Interface</a></li>
+<li class="toctree-l2"><a class="reference internal" href="multi_gpu_offline_inference.html">Multi-GPU Offline Inference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="multi-modal-data/00-Intro.html">Training Recommender Systems on Multi-modal Data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="multi-modal-data/01-Download-Convert.html">MovieLens-25M: Download and Convert</a></li>
+<li class="toctree-l2"><a class="reference internal" href="multi-modal-data/03-Feature-Extraction-Poster.html">Movie Poster Feature Extraction with ResNet</a></li>
+<li class="toctree-l2"><a class="reference internal" href="multi-modal-data/04-Feature-Extraction-Text.html">Movie Synopsis Feature Extraction with Bart text summarization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="multi-modal-data/04-Feature-Extraction-Text.html#Download-pretrained-BART-model">Download pretrained BART model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="multi-modal-data/05-Create-Feature-Store.html">Creating Multi-Modal Movie Feature Store</a></li>
+<li class="toctree-l2"><a class="reference internal" href="multi-modal-data/06-ETL-with-NVTabular.html">ETL with NVTabular</a></li>
+<li class="toctree-l2"><a class="reference internal" href="multi-modal-data/07-Training-with-HugeCTR.html">Training HugeCTR Model with Pretrained Embeddings</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../api/index.html">API Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../hugectr_contributor_guide.html">Contributing to HugeCTR</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../additional_resources.html">Additional Resources</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Merlin HugeCTR</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="../hugectr_example_notebooks.html">HugeCTR Example Notebooks</a> &raquo;</li>
+      <li>HugeCTR Wide and Deep Model with Criteo</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  
+<style>
+/* CSS for nbsphinx extension */
+
+/* remove conflicting styling from Sphinx themes */
+div.nbinput.container div.prompt *,
+div.nboutput.container div.prompt *,
+div.nbinput.container div.input_area pre,
+div.nboutput.container div.output_area pre,
+div.nbinput.container div.input_area .highlight,
+div.nboutput.container div.output_area .highlight {
+    border: none;
+    padding: 0;
+    margin: 0;
+    box-shadow: none;
+}
+
+div.nbinput.container > div[class*=highlight],
+div.nboutput.container > div[class*=highlight] {
+    margin: 0;
+}
+
+div.nbinput.container div.prompt *,
+div.nboutput.container div.prompt * {
+    background: none;
+}
+
+div.nboutput.container div.output_area .highlight,
+div.nboutput.container div.output_area pre {
+    background: unset;
+}
+
+div.nboutput.container div.output_area div.highlight {
+    color: unset;  /* override Pygments text color */
+}
+
+/* avoid gaps between output lines */
+div.nboutput.container div[class*=highlight] pre {
+    line-height: normal;
+}
+
+/* input/output containers */
+div.nbinput.container,
+div.nboutput.container {
+    display: -webkit-flex;
+    display: flex;
+    align-items: flex-start;
+    margin: 0;
+    width: 100%;
+}
+@media (max-width: 540px) {
+    div.nbinput.container,
+    div.nboutput.container {
+        flex-direction: column;
+    }
+}
+
+/* input container */
+div.nbinput.container {
+    padding-top: 5px;
+}
+
+/* last container */
+div.nblast.container {
+    padding-bottom: 5px;
+}
+
+/* input prompt */
+div.nbinput.container div.prompt pre {
+    color: #307FC1;
+}
+
+/* output prompt */
+div.nboutput.container div.prompt pre {
+    color: #BF5B3D;
+}
+
+/* all prompts */
+div.nbinput.container div.prompt,
+div.nboutput.container div.prompt {
+    width: 4.5ex;
+    padding-top: 5px;
+    position: relative;
+    user-select: none;
+}
+
+div.nbinput.container div.prompt > div,
+div.nboutput.container div.prompt > div {
+    position: absolute;
+    right: 0;
+    margin-right: 0.3ex;
+}
+
+@media (max-width: 540px) {
+    div.nbinput.container div.prompt,
+    div.nboutput.container div.prompt {
+        width: unset;
+        text-align: left;
+        padding: 0.4em;
+    }
+    div.nboutput.container div.prompt.empty {
+        padding: 0;
+    }
+
+    div.nbinput.container div.prompt > div,
+    div.nboutput.container div.prompt > div {
+        position: unset;
+    }
+}
+
+/* disable scrollbars on prompts */
+div.nbinput.container div.prompt pre,
+div.nboutput.container div.prompt pre {
+    overflow: hidden;
+}
+
+/* input/output area */
+div.nbinput.container div.input_area,
+div.nboutput.container div.output_area {
+    -webkit-flex: 1;
+    flex: 1;
+    overflow: auto;
+}
+@media (max-width: 540px) {
+    div.nbinput.container div.input_area,
+    div.nboutput.container div.output_area {
+        width: 100%;
+    }
+}
+
+/* input area */
+div.nbinput.container div.input_area {
+    border: 1px solid #e0e0e0;
+    border-radius: 2px;
+    /*background: #f5f5f5;*/
+}
+
+/* override MathJax center alignment in output cells */
+div.nboutput.container div[class*=MathJax] {
+    text-align: left !important;
+}
+
+/* override sphinx.ext.imgmath center alignment in output cells */
+div.nboutput.container div.math p {
+    text-align: left;
+}
+
+/* standard error */
+div.nboutput.container div.output_area.stderr {
+    background: #fdd;
+}
+
+/* ANSI colors */
+.ansi-black-fg { color: #3E424D; }
+.ansi-black-bg { background-color: #3E424D; }
+.ansi-black-intense-fg { color: #282C36; }
+.ansi-black-intense-bg { background-color: #282C36; }
+.ansi-red-fg { color: #E75C58; }
+.ansi-red-bg { background-color: #E75C58; }
+.ansi-red-intense-fg { color: #B22B31; }
+.ansi-red-intense-bg { background-color: #B22B31; }
+.ansi-green-fg { color: #00A250; }
+.ansi-green-bg { background-color: #00A250; }
+.ansi-green-intense-fg { color: #007427; }
+.ansi-green-intense-bg { background-color: #007427; }
+.ansi-yellow-fg { color: #DDB62B; }
+.ansi-yellow-bg { background-color: #DDB62B; }
+.ansi-yellow-intense-fg { color: #B27D12; }
+.ansi-yellow-intense-bg { background-color: #B27D12; }
+.ansi-blue-fg { color: #208FFB; }
+.ansi-blue-bg { background-color: #208FFB; }
+.ansi-blue-intense-fg { color: #0065CA; }
+.ansi-blue-intense-bg { background-color: #0065CA; }
+.ansi-magenta-fg { color: #D160C4; }
+.ansi-magenta-bg { background-color: #D160C4; }
+.ansi-magenta-intense-fg { color: #A03196; }
+.ansi-magenta-intense-bg { background-color: #A03196; }
+.ansi-cyan-fg { color: #60C6C8; }
+.ansi-cyan-bg { background-color: #60C6C8; }
+.ansi-cyan-intense-fg { color: #258F8F; }
+.ansi-cyan-intense-bg { background-color: #258F8F; }
+.ansi-white-fg { color: #C5C1B4; }
+.ansi-white-bg { background-color: #C5C1B4; }
+.ansi-white-intense-fg { color: #A1A6B2; }
+.ansi-white-intense-bg { background-color: #A1A6B2; }
+
+.ansi-default-inverse-fg { color: #FFFFFF; }
+.ansi-default-inverse-bg { background-color: #000000; }
+
+.ansi-bold { font-weight: bold; }
+.ansi-underline { text-decoration: underline; }
+
+
+div.nbinput.container div.input_area div[class*=highlight] > pre,
+div.nboutput.container div.output_area div[class*=highlight] > pre,
+div.nboutput.container div.output_area div[class*=highlight].math,
+div.nboutput.container div.output_area.rendered_html,
+div.nboutput.container div.output_area > div.output_javascript,
+div.nboutput.container div.output_area:not(.rendered_html) > img{
+    padding: 5px;
+    margin: 0;
+}
+
+/* fix copybtn overflow problem in chromium (needed for 'sphinx_copybutton') */
+div.nbinput.container div.input_area > div[class^='highlight'],
+div.nboutput.container div.output_area > div[class^='highlight']{
+    overflow-y: hidden;
+}
+
+/* hide copybtn icon on prompts (needed for 'sphinx_copybutton') */
+.prompt .copybtn {
+    display: none;
+}
+
+/* Some additional styling taken form the Jupyter notebook CSS */
+div.rendered_html table {
+  border: none;
+  border-collapse: collapse;
+  border-spacing: 0;
+  color: black;
+  font-size: 12px;
+  table-layout: fixed;
+}
+div.rendered_html thead {
+  border-bottom: 1px solid black;
+  vertical-align: bottom;
+}
+div.rendered_html tr,
+div.rendered_html th,
+div.rendered_html td {
+  text-align: right;
+  vertical-align: middle;
+  padding: 0.5em 0.5em;
+  line-height: normal;
+  white-space: normal;
+  max-width: none;
+  border: none;
+}
+div.rendered_html th {
+  font-weight: bold;
+}
+div.rendered_html tbody tr:nth-child(odd) {
+  background: #f5f5f5;
+}
+div.rendered_html tbody tr:hover {
+  background: rgba(66, 165, 245, 0.2);
+}
+
+/* CSS overrides for sphinx_rtd_theme */
+
+/* 24px margin */
+.nbinput.nblast.container,
+.nboutput.nblast.container {
+    margin-bottom: 19px;  /* padding has already 5px */
+}
+
+/* ... except between code cells! */
+.nblast.container + .nbinput.container {
+    margin-top: -19px;
+}
+
+.admonition > p:before {
+    margin-right: 4px;  /* make room for the exclamation icon */
+}
+
+/* Fix math alignment, see https://github.com/rtfd/sphinx_rtd_theme/pull/686 */
+.math {
+    text-align: unset;
+}
+</style>
+<div class="nbinput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span># Copyright 2021 NVIDIA Corporation. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ==============================================================================
+</pre></div>
+</div>
+</div>
+<div class="section" id="HugeCTR-Wide-and-Deep-Model-with-Criteo">
+<h1>HugeCTR Wide and Deep Model with Criteo<a class="headerlink" href="#HugeCTR-Wide-and-Deep-Model-with-Criteo" title="Permalink to this headline"></a></h1>
+<div class="section" id="1.Overview">
+<h2>1.Overview<a class="headerlink" href="#1.Overview" title="Permalink to this headline"></a></h2>
+<p>In this notebook, we want to provide an tutorial how to train a wdl model using HugeCTR High-level python API with original Criteo dataset as training data. And get prediction result based on different type of local database</p>
+<ol class="arabic simple">
+<li><p>Overview</p></li>
+<li><p>Dataset Preprocessing</p></li>
+<li><p>WDL Model Training</p></li>
+<li><p>Save the Model Files</p></li>
+<li><p>Create prediction scripts</p></li>
+<li><p>Prediction</p></li>
+</ol>
+</div>
+<div class="section" id="2.-Dataset-Preprocessing">
+<h2>2. Dataset Preprocessing<a class="headerlink" href="#2.-Dataset-Preprocessing" title="Permalink to this headline"></a></h2>
+<div class="section" id="2.1-Generate-training-and-validation-data-folders">
+<h3>2.1 Generate training and validation data folders<a class="headerlink" href="#2.1-Generate-training-and-validation-data-folders" title="Permalink to this headline"></a></h3>
+<div class="nbinput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[1]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span># define some data folder to store the original and preprocessed data
+# Standard Libraries
+import os
+from time import time
+import re
+import shutil
+import glob
+import warnings
+BASE_DIR = &quot;/wdl_train&quot;
+train_path  = os.path.join(BASE_DIR, &quot;train&quot;)
+val_path = os.path.join(BASE_DIR, &quot;val&quot;)
+CUDA_VISIBLE_DEVICES = os.environ.get(&quot;CUDA_VISIBLE_DEVICES&quot;, &quot;0&quot;)
+n_workers = len(CUDA_VISIBLE_DEVICES.split(&quot;,&quot;))
+frac_size = 0.15
+allow_multi_gpu = False
+use_rmm_pool = False
+max_day = None  # (Optional) -- Limit the dataset to day 0-max_day for debugging
+
+if os.path.isdir(train_path):
+    shutil.rmtree(train_path)
+os.makedirs(train_path)
+
+if os.path.isdir(val_path):
+    shutil.rmtree(val_path)
+os.makedirs(val_path)
+</pre></div>
+</div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[4]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>ls -l $train_path
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+total 14537948
+-rw-r--r-- 1 root root  3336516608 Jul  5 05:44 0.8870d61b8a1f4deca0f911acfb072999.parquet
+-rw-r--r-- 1 root root          61 Jul  5 05:44 _file_list.txt
+-rw-r--r-- 1 root root      602767 Jul  5 05:44 _metadata
+-rw-r--r-- 1 root root        1538 Jul  5 05:44 _metadata.json
+drwxr-xr-x 2 root root        4096 Jul  5 05:41 <span class="ansi-blue-intense-fg ansi-bold">temp-parquet-after-conversion</span>/
+-rwxrwxr-x 1 1025 1025 11549710546 Jul  5 05:39 <span class="ansi-green-intense-fg ansi-bold">train.txt</span>*
+</pre></div></div>
+</div>
+</div>
+<div class="section" id="2.2-Download-the-Original-Criteo-Dataset">
+<h3>2.2 Download the Original Criteo Dataset<a class="headerlink" href="#2.2-Download-the-Original-Criteo-Dataset" title="Permalink to this headline"></a></h3>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[2]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>!apt-get install wget
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+Reading package lists... Done
+Building dependency tree
+Reading state information... Done
+wget is already the newest version (1.20.3-1ubuntu1).
+0 upgraded, 0 newly installed, 0 to remove and 4 not upgraded.
+</pre></div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[3]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>!wget -P $train_path http://azuremlsampleexperiments.blob.core.windows.net/criteo/day_0.gz
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+--2021-07-05 03:27:50--  http://azuremlsampleexperiments.blob.core.windows.net/criteo/day_0.gz
+Resolving azuremlsampleexperiments.blob.core.windows.net (azuremlsampleexperiments.blob.core.windows.net)... 20.60.140.36
+Connecting to azuremlsampleexperiments.blob.core.windows.net (azuremlsampleexperiments.blob.core.windows.net)|20.60.140.36|:80... connected.
+HTTP request sent, awaiting response... 200 OK
+Length: 16309554343 (15G) [application/octet-stream]
+Saving to: ‘wdl_train/train/day_0.gz’
+
+day_0.gz               100%[===================================================&gt;]   15G  --.-KB/s    in  6m 12s
+2021-07-05 03:34:04 (79.2 MB/s) - &#39;day_0.gz&#39; saved [16309554343/16309554343]
+</pre></div></div>
+</div>
+<div class="nbinput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[2]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>#Download the split data set to training and validation
+!gzip -d -c $train_path/day_0.gz &gt; day_0
+!head -n 45840617 day_0 &gt; $train_path/train.txt
+!tail -n 2000000 day_0 &gt; $val_path/test.txt
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="2.3-Preprocessing-by-NVTabular">
+<h3>2.3 Preprocessing by NVTabular<a class="headerlink" href="#2.3-Preprocessing-by-NVTabular" title="Permalink to this headline"></a></h3>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[5]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>%%writefile /wdl_train/preprocess.py
+import os
+import sys
+import argparse
+import glob
+import time
+from cudf.io.parquet import ParquetWriter
+import numpy as np
+import pandas as pd
+import concurrent.futures as cf
+from concurrent.futures import as_completed
+import shutil
+
+import dask_cudf
+from dask_cuda import LocalCUDACluster
+from dask.distributed import Client
+from dask.utils import parse_bytes
+from dask.delayed import delayed
+
+import cudf
+import rmm
+import nvtabular as nvt
+from nvtabular.io import Shuffle
+from nvtabular.utils import device_mem_size
+from nvtabular.ops import Categorify, Clip, FillMissing, HashBucket, LambdaOp, Normalize, Rename, Operator, get_embedding_sizes
+#%load_ext memory_profiler
+
+import logging
+logging.basicConfig(format=&#39;%(asctime)s %(message)s&#39;)
+logging.root.setLevel(logging.NOTSET)
+logging.getLogger(&#39;numba&#39;).setLevel(logging.WARNING)
+logging.getLogger(&#39;asyncio&#39;).setLevel(logging.WARNING)
+
+# define dataset schema
+CATEGORICAL_COLUMNS=[&quot;C&quot; + str(x) for x in range(1, 27)]
+CONTINUOUS_COLUMNS=[&quot;I&quot; + str(x) for x in range(1, 14)]
+LABEL_COLUMNS = [&#39;label&#39;]
+COLUMNS =  LABEL_COLUMNS + CONTINUOUS_COLUMNS +  CATEGORICAL_COLUMNS
+#/samples/criteo mode doesn&#39;t have dense features
+criteo_COLUMN=LABEL_COLUMNS +  CATEGORICAL_COLUMNS
+#For new feature cross columns
+CROSS_COLUMNS = []
+
+
+NUM_INTEGER_COLUMNS = 13
+NUM_CATEGORICAL_COLUMNS = 26
+NUM_TOTAL_COLUMNS = 1 + NUM_INTEGER_COLUMNS + NUM_CATEGORICAL_COLUMNS
+
+
+# Initialize RMM pool on ALL workers
+def setup_rmm_pool(client, pool_size):
+    client.run(rmm.reinitialize, pool_allocator=True, initial_pool_size=pool_size)
+    return None
+
+#compute the partition size with GB
+def bytesto(bytes, to, bsize=1024):
+    a = {&#39;k&#39; : 1, &#39;m&#39;: 2, &#39;g&#39; : 3, &#39;t&#39; : 4, &#39;p&#39; : 5, &#39;e&#39; : 6 }
+    r = float(bytes)
+    return bytes / (bsize ** a[to])
+
+class FeatureCross(Operator):
+    def __init__(self, dependency):
+        self.dependency = dependency
+
+    def transform(self, columns, gdf):
+        new_df = type(gdf)()
+        for col in columns.names:
+            new_df[col] = gdf[col] + gdf[self.dependency]
+        return new_df
+
+    def dependencies(self):
+        return [self.dependency]
+
+#process the data with NVTabular
+def process_NVT(args):
+
+    if args.feature_cross_list:
+        feature_pairs = [pair.split(&quot;_&quot;) for pair in args.feature_cross_list.split(&quot;,&quot;)]
+        for pair in feature_pairs:
+            CROSS_COLUMNS.append(pair[0]+&#39;_&#39;+pair[1])
+
+
+    logging.info(&#39;NVTabular processing&#39;)
+    train_input = os.path.join(args.data_path, &quot;train/train.txt&quot;)
+    val_input = os.path.join(args.data_path, &quot;val/test.txt&quot;)
+    PREPROCESS_DIR_temp_train = os.path.join(args.out_path, &#39;train/temp-parquet-after-conversion&#39;)
+    PREPROCESS_DIR_temp_val = os.path.join(args.out_path, &#39;val/temp-parquet-after-conversion&#39;)
+    PREPROCESS_DIR_temp = [PREPROCESS_DIR_temp_train, PREPROCESS_DIR_temp_val]
+    train_output = os.path.join(args.out_path, &quot;train&quot;)
+    val_output = os.path.join(args.out_path, &quot;val&quot;)
+
+    # Make sure we have a clean parquet space for cudf conversion
+    for one_path in PREPROCESS_DIR_temp:
+        if os.path.exists(one_path):
+            shutil.rmtree(one_path)
+        os.mkdir(one_path)
+
+
+    ## Get Dask Client
+
+    # Deploy a Single-Machine Multi-GPU Cluster
+    device_size = device_mem_size(kind=&quot;total&quot;)
+    cluster = None
+    if args.protocol == &quot;ucx&quot;:
+        UCX_TLS = os.environ.get(&quot;UCX_TLS&quot;, &quot;tcp,cuda_copy,cuda_ipc,sockcm&quot;)
+        os.environ[&quot;UCX_TLS&quot;] = UCX_TLS
+        cluster = LocalCUDACluster(
+            protocol = args.protocol,
+            CUDA_VISIBLE_DEVICES = args.devices,
+            n_workers = len(args.devices.split(&quot;,&quot;)),
+            enable_nvlink=True,
+            device_memory_limit = int(device_size * args.device_limit_frac),
+            dashboard_address=&quot;:&quot; + args.dashboard_port
+        )
+    else:
+        cluster = LocalCUDACluster(
+            protocol = args.protocol,
+            n_workers = len(args.devices.split(&quot;,&quot;)),
+            CUDA_VISIBLE_DEVICES = args.devices,
+            device_memory_limit = int(device_size * args.device_limit_frac),
+            dashboard_address=&quot;:&quot; + args.dashboard_port
+        )
+
+
+
+    # Create the distributed client
+    client = Client(cluster)
+    if args.device_pool_frac &gt; 0.01:
+        setup_rmm_pool(client, int(args.device_pool_frac*device_size))
+
+
+    #calculate the total processing time
+    runtime = time.time()
+
+    #test dataset without the label feature
+    if args.dataset_type == &#39;test&#39;:
+        global LABEL_COLUMNS
+        LABEL_COLUMNS = []
+
+    ##-----------------------------------##
+    # Dask rapids converts txt to parquet
+    # Dask cudf dataframe = ddf
+
+    ## train/valid txt to parquet
+    train_valid_paths = [(train_input,PREPROCESS_DIR_temp_train),(val_input,PREPROCESS_DIR_temp_val)]
+
+    for input, temp_output in train_valid_paths:
+
+        ddf = dask_cudf.read_csv(input,sep=&#39;\t&#39;,names=LABEL_COLUMNS + CONTINUOUS_COLUMNS + CATEGORICAL_COLUMNS)
+
+        ## Convert label col to FP32
+        if args.parquet_format and args.dataset_type == &#39;train&#39;:
+            ddf[&quot;label&quot;] = ddf[&#39;label&#39;].astype(&#39;float32&#39;)
+
+        # Save it as parquet format for better memory usage
+        ddf.to_parquet(temp_output,header=True)
+        ##-----------------------------------##
+
+    COLUMNS =  LABEL_COLUMNS + CONTINUOUS_COLUMNS + CROSS_COLUMNS + CATEGORICAL_COLUMNS
+    train_paths = glob.glob(os.path.join(PREPROCESS_DIR_temp_train, &quot;*.parquet&quot;))
+    valid_paths = glob.glob(os.path.join(PREPROCESS_DIR_temp_val, &quot;*.parquet&quot;))
+
+    categorify_op = Categorify(freq_threshold=args.freq_limit)
+    cat_features = CATEGORICAL_COLUMNS &gt;&gt; categorify_op
+    cont_features = CONTINUOUS_COLUMNS &gt;&gt; FillMissing() &gt;&gt; Clip(min_value=0) &gt;&gt; Normalize()
+    cross_cat_op = Categorify(freq_threshold=args.freq_limit)
+
+    features = LABEL_COLUMNS
+
+    if args.criteo_mode == 0:
+        features += cont_features
+        if args.feature_cross_list:
+            feature_pairs = [pair.split(&quot;_&quot;) for pair in args.feature_cross_list.split(&quot;,&quot;)]
+            for pair in feature_pairs:
+                col0 = pair[0]
+                col1 = pair[1]
+                features += col0 &gt;&gt; FeatureCross(col1)  &gt;&gt; Rename(postfix=&quot;_&quot;+col1) &gt;&gt; cross_cat_op
+
+    features += cat_features
+
+    workflow = nvt.Workflow(features, client=client)
+
+    logging.info(&quot;Preprocessing&quot;)
+
+    output_format = &#39;hugectr&#39;
+    if args.parquet_format:
+        output_format = &#39;parquet&#39;
+
+    # just for /samples/criteo model
+    train_ds_iterator = nvt.Dataset(train_paths, engine=&#39;parquet&#39;, part_size=int(args.part_mem_frac * device_size))
+    valid_ds_iterator = nvt.Dataset(valid_paths, engine=&#39;parquet&#39;, part_size=int(args.part_mem_frac * device_size))
+
+    shuffle = None
+    if args.shuffle == &quot;PER_WORKER&quot;:
+        shuffle = nvt.io.Shuffle.PER_WORKER
+    elif args.shuffle == &quot;PER_PARTITION&quot;:
+        shuffle = nvt.io.Shuffle.PER_PARTITION
+
+    logging.info(&#39;Train Datasets Preprocessing.....&#39;)
+
+    dict_dtypes = {}
+    for col in CATEGORICAL_COLUMNS:
+        dict_dtypes[col] = np.int64
+    if not args.criteo_mode:
+        for col in CONTINUOUS_COLUMNS:
+            dict_dtypes[col] = np.float32
+    for col in CROSS_COLUMNS:
+        dict_dtypes[col] = np.int64
+    for col in LABEL_COLUMNS:
+        dict_dtypes[col] = np.float32
+
+    conts = CONTINUOUS_COLUMNS if not args.criteo_mode else []
+
+    workflow.fit(train_ds_iterator)
+
+    if output_format == &#39;hugectr&#39;:
+        workflow.transform(train_ds_iterator).to_hugectr(
+                cats=CATEGORICAL_COLUMNS + CROSS_COLUMNS,
+                conts=conts,
+                labels=LABEL_COLUMNS,
+                output_path=train_output,
+                shuffle=shuffle,
+                out_files_per_proc=args.out_files_per_proc,
+                num_threads=args.num_io_threads)
+    else:
+        workflow.transform(train_ds_iterator).to_parquet(
+                output_path=train_output,
+                dtypes=dict_dtypes,
+                cats=CATEGORICAL_COLUMNS + CROSS_COLUMNS,
+                conts=conts,
+                labels=LABEL_COLUMNS,
+                shuffle=shuffle,
+                out_files_per_proc=args.out_files_per_proc,
+                num_threads=args.num_io_threads)
+
+
+
+    ###Getting slot size###
+    #--------------------##
+    embeddings_dict_cat = categorify_op.get_embedding_sizes(CATEGORICAL_COLUMNS)
+    embeddings_dict_cross = cross_cat_op.get_embedding_sizes(CROSS_COLUMNS)
+    embeddings = [embeddings_dict_cat[c][0] for c in CATEGORICAL_COLUMNS] + [embeddings_dict_cross[c][0] for c in CROSS_COLUMNS]
+
+    print(embeddings)
+    ##--------------------##
+
+    logging.info(&#39;Valid Datasets Preprocessing.....&#39;)
+
+    if output_format == &#39;hugectr&#39;:
+        workflow.transform(valid_ds_iterator).to_hugectr(
+                cats=CATEGORICAL_COLUMNS + CROSS_COLUMNS,
+                conts=conts,
+                labels=LABEL_COLUMNS,
+                output_path=val_output,
+                shuffle=shuffle,
+                out_files_per_proc=args.out_files_per_proc,
+                num_threads=args.num_io_threads)
+    else:
+        workflow.transform(valid_ds_iterator).to_parquet(
+                output_path=val_output,
+                dtypes=dict_dtypes,
+                cats=CATEGORICAL_COLUMNS + CROSS_COLUMNS,
+                conts=conts,
+                labels=LABEL_COLUMNS,
+                shuffle=shuffle,
+                out_files_per_proc=args.out_files_per_proc,
+                num_threads=args.num_io_threads)
+
+    embeddings_dict_cat = categorify_op.get_embedding_sizes(CATEGORICAL_COLUMNS)
+    embeddings_dict_cross = cross_cat_op.get_embedding_sizes(CROSS_COLUMNS)
+    embeddings = [embeddings_dict_cat[c][0] for c in CATEGORICAL_COLUMNS] + [embeddings_dict_cross[c][0] for c in CROSS_COLUMNS]
+
+    print(embeddings)
+    ##--------------------##
+
+    ## Shutdown clusters
+    client.close()
+    logging.info(&#39;NVTabular processing done&#39;)
+
+    runtime = time.time() - runtime
+
+    print(&quot;\nDask-NVTabular Criteo Preprocessing&quot;)
+    print(&quot;--------------------------------------&quot;)
+    print(f&quot;data_path          | {args.data_path}&quot;)
+    print(f&quot;output_path        | {args.out_path}&quot;)
+    print(f&quot;partition size     | {&#39;%.2f GB&#39;%bytesto(int(args.part_mem_frac * device_size),&#39;g&#39;)}&quot;)
+    print(f&quot;protocol           | {args.protocol}&quot;)
+    print(f&quot;device(s)          | {args.devices}&quot;)
+    print(f&quot;rmm-pool-frac      | {(args.device_pool_frac)}&quot;)
+    print(f&quot;out-files-per-proc | {args.out_files_per_proc}&quot;)
+    print(f&quot;num_io_threads     | {args.num_io_threads}&quot;)
+    print(f&quot;shuffle            | {args.shuffle}&quot;)
+    print(&quot;======================================&quot;)
+    print(f&quot;Runtime[s]         | {runtime}&quot;)
+    print(&quot;======================================\n&quot;)
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description=(&quot;Multi-GPU Criteo Preprocessing&quot;))
+
+    #
+    # System Options
+    #
+
+    parser.add_argument(&quot;--data_path&quot;, type=str, help=&quot;Input dataset path (Required)&quot;)
+    parser.add_argument(&quot;--out_path&quot;, type=str, help=&quot;Directory path to write output (Required)&quot;)
+    parser.add_argument(
+        &quot;-d&quot;,
+        &quot;--devices&quot;,
+        default=os.environ.get(&quot;CUDA_VISIBLE_DEVICES&quot;, &quot;0&quot;),
+        type=str,
+        help=&#39;Comma-separated list of visible devices (e.g. &quot;0,1,2,3&quot;). &#39;
+    )
+    parser.add_argument(
+        &quot;-p&quot;,
+        &quot;--protocol&quot;,
+        choices=[&quot;tcp&quot;, &quot;ucx&quot;],
+        default=&quot;tcp&quot;,
+        type=str,
+        help=&quot;Communication protocol to use (Default &#39;tcp&#39;)&quot;,
+    )
+    parser.add_argument(
+        &quot;--device_limit_frac&quot;,
+        default=0.5,
+        type=float,
+        help=&quot;Worker device-memory limit as a fraction of GPU capacity (Default 0.8). &quot;
+    )
+    parser.add_argument(
+        &quot;--device_pool_frac&quot;,
+        default=0.9,
+        type=float,
+        help=&quot;RMM pool size for each worker  as a fraction of GPU capacity (Default 0.9). &quot;
+        &quot;The RMM pool frac is the same for all GPUs, make sure each one has enough memory size&quot;,
+    )
+    parser.add_argument(
+        &quot;--num_io_threads&quot;,
+        default=0,
+        type=int,
+        help=&quot;Number of threads to use when writing output data (Default 0). &quot;
+        &quot;If 0 is specified, multi-threading will not be used for IO.&quot;,
+    )
+
+    #
+    # Data-Decomposition Parameters
+    #
+
+    parser.add_argument(
+        &quot;--part_mem_frac&quot;,
+        default=0.125,
+        type=float,
+        help=&quot;Maximum size desired for dataset partitions as a fraction &quot;
+        &quot;of GPU capacity (Default 0.125)&quot;,
+    )
+    parser.add_argument(
+        &quot;--out_files_per_proc&quot;,
+        default=1,
+        type=int,
+        help=&quot;Number of output files to write on each worker (Default 1)&quot;,
+    )
+
+    #
+    # Preprocessing Options
+    #
+
+    parser.add_argument(
+        &quot;-f&quot;,
+        &quot;--freq_limit&quot;,
+        default=0,
+        type=int,
+        help=&quot;Frequency limit for categorical encoding (Default 0)&quot;,
+    )
+    parser.add_argument(
+        &quot;-s&quot;,
+        &quot;--shuffle&quot;,
+        choices=[&quot;PER_WORKER&quot;, &quot;PER_PARTITION&quot;, &quot;NONE&quot;],
+        default=&quot;PER_PARTITION&quot;,
+        help=&quot;Shuffle algorithm to use when writing output data to disk (Default PER_PARTITION)&quot;,
+    )
+
+    parser.add_argument(
+        &quot;--feature_cross_list&quot;, default=None, type=str, help=&quot;List of feature crossing cols (e.g. C1_C2, C3_C4)&quot;
+    )
+
+    #
+    # Diagnostics Options
+    #
+
+    parser.add_argument(
+        &quot;--profile&quot;,
+        metavar=&quot;PATH&quot;,
+        default=None,
+        type=str,
+        help=&quot;Specify a file path to export a Dask profile report (E.g. dask-report.html).&quot;
+        &quot;If this option is excluded from the command, not profile will be exported&quot;,
+    )
+    parser.add_argument(
+        &quot;--dashboard_port&quot;,
+        default=&quot;8787&quot;,
+        type=str,
+        help=&quot;Specify the desired port of Dask&#39;s diagnostics-dashboard (Default `3787`). &quot;
+        &quot;The dashboard will be hosted at http://&lt;IP&gt;:&lt;PORT&gt;/status&quot;,
+    )
+
+    #
+    # Format
+    #
+
+    parser.add_argument(&#39;--criteo_mode&#39;, type=int, default=0)
+    parser.add_argument(&#39;--parquet_format&#39;, type=int, default=1)
+    parser.add_argument(&#39;--dataset_type&#39;, type=str, default=&#39;train&#39;)
+
+    args = parser.parse_args()
+    args.n_workers = len(args.devices.split(&quot;,&quot;))
+    return args
+if __name__ == &#39;__main__&#39;:
+
+    args = parse_args()
+
+    process_NVT(args)
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+Writing /wdl_train/preprocess.py
+</pre></div></div>
+</div>
+<div class="nbinput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[10]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>import pandas as pd
+</pre></div>
+</div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[11]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>!python3 /wdl_train/preprocess.py --data_path wdl_train/ --out_path wdl_train/ --freq_limit 6 --feature_cross_list C1_C2,C3_C4 --device_pool_frac 0.5  --devices &quot;0&quot; --num_io_threads 2
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+2021-07-05 05:41:34,199 NVTabular processing
+2021-07-05 05:42:00,112 Preprocessing
+2021-07-05 05:42:00,469 Train Datasets Preprocessing.....
+[249058, 19561, 14212, 6890, 18592, 4, 6356, 1254, 52, 226170, 80508, 72308, 11, 2169, 7597, 61, 4, 923, 15, 249619, 168974, 243480, 68212, 9169, 75, 34, 278018, 415262]
+2021-07-05 05:44:17,349 Valid Datasets Preprocessing.....
+[249058, 19561, 14212, 6890, 18592, 4, 6356, 1254, 52, 226170, 80508, 72308, 11, 2169, 7597, 61, 4, 923, 15, 249619, 168974, 243480, 68212, 9169, 75, 34, 278018, 415262]
+2021-07-05 05:44:19,138 NVTabular processing done
+
+Dask-NVTabular Criteo Preprocessing
+--------------------------------------
+data_path          | wdl_train/
+output_path        | wdl_train/
+partition size     | 2.77 GB
+protocol           | tcp
+device(s)          | 0
+rmm-pool-frac      | 0.5
+out-files-per-proc | 1
+num_io_threads     | 2
+shuffle            | PER_PARTITION
+======================================
+Runtime[s]         | 159.50506210327148
+======================================
+
+</pre></div></div>
+</div>
+<div class="section" id="2.4-Check-the-preprocessed-training-data">
+<h4>2.4 Check the preprocessed training data<a class="headerlink" href="#2.4-Check-the-preprocessed-training-data" title="Permalink to this headline"></a></h4>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[6]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>!ls -ll /wdl_train/train
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+total 14537948
+-rw-r--r-- 1 root root  3336516608 Jul  5 05:44 0.8870d61b8a1f4deca0f911acfb072999.parquet
+-rw-r--r-- 1 root root          61 Jul  5 05:44 _file_list.txt
+-rw-r--r-- 1 root root      602767 Jul  5 05:44 _metadata
+-rw-r--r-- 1 root root        1538 Jul  5 05:44 _metadata.json
+drwxr-xr-x 2 root root        4096 Jul  5 05:41 temp-parquet-after-conversion
+-rwxrwxr-x 1 1025 1025 11549710546 Jul  5 05:39 train.txt
+</pre></div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[7]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>import pandas as pd
+df = pd.read_parquet(&quot;/wdl_train/train/0.8870d61b8a1f4deca0f911acfb072999.parquet&quot;)
+df.head(2)
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[7]:
+</pre></div>
+</div>
+<div class="output_area rendered_html docutils container">
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>I1</th>
+      <th>I2</th>
+      <th>I3</th>
+      <th>I4</th>
+      <th>I5</th>
+      <th>I6</th>
+      <th>I7</th>
+      <th>I8</th>
+      <th>I9</th>
+      <th>I10</th>
+      <th>...</th>
+      <th>C17</th>
+      <th>C18</th>
+      <th>C19</th>
+      <th>C20</th>
+      <th>C21</th>
+      <th>C22</th>
+      <th>C23</th>
+      <th>C24</th>
+      <th>C25</th>
+      <th>C26</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>-0.048792</td>
+      <td>-0.368150</td>
+      <td>0.478781</td>
+      <td>-0.133437</td>
+      <td>-0.069780</td>
+      <td>0.068484</td>
+      <td>0.743047</td>
+      <td>-0.266159</td>
+      <td>1.481252</td>
+      <td>1.386036</td>
+      <td>...</td>
+      <td>3</td>
+      <td>356</td>
+      <td>10</td>
+      <td>183947</td>
+      <td>140830</td>
+      <td>28449</td>
+      <td>64057</td>
+      <td>6432</td>
+      <td>10</td>
+      <td>22</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>-0.061206</td>
+      <td>0.840877</td>
+      <td>-0.594327</td>
+      <td>0.148456</td>
+      <td>-0.209261</td>
+      <td>-0.206385</td>
+      <td>-0.064249</td>
+      <td>-0.281810</td>
+      <td>-0.760031</td>
+      <td>-0.470383</td>
+      <td>...</td>
+      <td>1</td>
+      <td>781</td>
+      <td>10</td>
+      <td>207893</td>
+      <td>27876</td>
+      <td>112273</td>
+      <td>65971</td>
+      <td>3414</td>
+      <td>10</td>
+      <td>5</td>
+    </tr>
+  </tbody>
+</table>
+<p>2 rows × 42 columns</p>
+</div></div>
+</div>
+</div>
+</div>
+<div class="section" id="3.-WDL-Model-Training">
+<h3>3. WDL Model Training<a class="headerlink" href="#3.-WDL-Model-Training" title="Permalink to this headline"></a></h3>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[3]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>%%writefile &#39;./model.py&#39;
+import hugectr
+#from mpi4py import MPI
+solver = hugectr.CreateSolver(max_eval_batches = 4000,
+                              batchsize_eval = 2720,
+                              batchsize = 2720,
+                              lr = 0.001,
+                              vvgpu = [[2]],
+                              repeat_dataset = True,
+                              i64_input_key = True)
+
+reader = hugectr.DataReaderParams(data_reader_type = hugectr.DataReaderType_t.Parquet,
+                                  source = [&quot;./train/_file_list.txt&quot;],
+                                  eval_source = &quot;./val/_file_list.txt&quot;,
+                                  check_type = hugectr.Check_t.Non,
+                                  slot_size_array = [249058, 19561, 14212, 6890, 18592, 4, 6356, 1254, 52, 226170, 80508, 72308, 11, 2169, 7597, 61, 4, 923, 15, 249619, 168974, 243480, 68212, 9169, 75, 34, 278018, 415262])
+optimizer = hugectr.CreateOptimizer(optimizer_type = hugectr.Optimizer_t.Adam,
+                                    update_type = hugectr.Update_t.Global,
+                                    beta1 = 0.9,
+                                    beta2 = 0.999,
+                                    epsilon = 0.0000001)
+model = hugectr.Model(solver, reader, optimizer)
+
+model.add(hugectr.Input(label_dim = 1, label_name = &quot;label&quot;,
+                        dense_dim = 13, dense_name = &quot;dense&quot;,
+                        data_reader_sparse_param_array =
+                        [hugectr.DataReaderSparseParam(&quot;wide_data&quot;, 1, True, 2),
+                        hugectr.DataReaderSparseParam(&quot;deep_data&quot;, 2, False, 26)]))
+
+model.add(hugectr.SparseEmbedding(embedding_type = hugectr.Embedding_t.DistributedSlotSparseEmbeddingHash,
+                            workspace_size_per_gpu_in_mb = 24,
+                            embedding_vec_size = 1,
+                            combiner = &quot;sum&quot;,
+                            sparse_embedding_name = &quot;sparse_embedding2&quot;,
+                            bottom_name = &quot;wide_data&quot;,
+                            optimizer = optimizer))
+model.add(hugectr.SparseEmbedding(embedding_type = hugectr.Embedding_t.DistributedSlotSparseEmbeddingHash,
+                            workspace_size_per_gpu_in_mb = 405,
+                            embedding_vec_size = 16,
+                            combiner = &quot;sum&quot;,
+                            sparse_embedding_name = &quot;sparse_embedding1&quot;,
+                            bottom_name = &quot;deep_data&quot;,
+                            optimizer = optimizer))
+
+model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Reshape,
+                            bottom_names = [&quot;sparse_embedding1&quot;],
+                            top_names = [&quot;reshape1&quot;],
+                            leading_dim=416))
+model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Reshape,
+                            bottom_names = [&quot;sparse_embedding2&quot;],
+                            top_names = [&quot;reshape2&quot;],
+                            leading_dim=2))
+model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.ReduceSum,
+                            bottom_names = [&quot;reshape2&quot;],
+                            top_names = [&quot;wide_redn&quot;],
+                            axis = 1))
+model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Concat,
+                            bottom_names = [&quot;reshape1&quot;, &quot;dense&quot;],
+                            top_names = [&quot;concat1&quot;]))
+model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.InnerProduct,
+                            bottom_names = [&quot;concat1&quot;],
+                            top_names = [&quot;fc1&quot;],
+                            num_output=1024))
+model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.ReLU,
+                            bottom_names = [&quot;fc1&quot;],
+                            top_names = [&quot;relu1&quot;]))
+model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Dropout,
+                            bottom_names = [&quot;relu1&quot;],
+                            top_names = [&quot;dropout1&quot;],
+                            dropout_rate=0.5))
+model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.InnerProduct,
+                            bottom_names = [&quot;dropout1&quot;],
+                            top_names = [&quot;fc2&quot;],
+                            num_output=1024))
+model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.ReLU,
+                            bottom_names = [&quot;fc2&quot;],
+                            top_names = [&quot;relu2&quot;]))
+model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Dropout,
+                            bottom_names = [&quot;relu2&quot;],
+                            top_names = [&quot;dropout2&quot;],
+                            dropout_rate=0.5))
+model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.InnerProduct,
+                            bottom_names = [&quot;dropout2&quot;],
+                            top_names = [&quot;fc3&quot;],
+                            num_output=1))
+model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Add,
+                            bottom_names = [&quot;fc3&quot;, &quot;wide_redn&quot;],
+                            top_names = [&quot;add1&quot;]))
+model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.BinaryCrossEntropyLoss,
+                            bottom_names = [&quot;add1&quot;, &quot;label&quot;],
+                            top_names = [&quot;loss&quot;]))
+model.compile()
+model.summary()
+model.fit(max_iter = 21000, display = 1000, eval_interval = 4000, snapshot = 20000, snapshot_prefix = &quot;wdl&quot;)
+model.graph_to_json(graph_config_file = &quot;wdl.json&quot;)
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+Overwriting ./model.py
+</pre></div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[1]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>!python ./model.py
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+====================================================Model Init=====================================================
+[13d04h56m26s][HUGECTR][INFO]: Global seed is 3689394843
+[13d04h56m31s][HUGECTR][INFO]: Peer-to-peer access cannot be fully enabled.
+Device 2: A30
+[13d04h56m31s][HUGECTR][INFO]: num of DataReader workers: 1
+[13d04h56m31s][HUGECTR][INFO]: max_vocabulary_size_per_gpu_=2097152
+[13d04h56m31s][HUGECTR][INFO]: max_vocabulary_size_per_gpu_=2211840
+===================================================Model Compile===================================================
+[13d04h56m46s][HUGECTR][INFO]: gpu0 start to init embedding
+[13d04h56m46s][HUGECTR][INFO]: gpu0 init embedding done
+[13d04h56m46s][HUGECTR][INFO]: gpu0 start to init embedding
+[13d04h56m46s][HUGECTR][INFO]: gpu0 init embedding done
+===================================================Model Summary===================================================
+Label                                   Dense                         Sparse
+label                                   dense                          wide_data,deep_data
+(None, 1)                               (None, 13)
+------------------------------------------------------------------------------------------------------------------
+Layer Type                              Input Name                    Output Name                   Output Shape
+------------------------------------------------------------------------------------------------------------------
+DistributedSlotSparseEmbeddingHash      wide_data                     sparse_embedding2             (None, 2, 1)
+DistributedSlotSparseEmbeddingHash      deep_data                     sparse_embedding1             (None, 26, 16)
+Reshape                                 sparse_embedding1             reshape1                      (None, 416)
+Reshape                                 sparse_embedding2             reshape2                      (None, 2)
+ReduceSum                               reshape2                      wide_redn                     (None, 1)
+Concat                                  reshape1,dense                concat1                       (None, 429)
+InnerProduct                            concat1                       fc1                           (None, 1024)
+ReLU                                    fc1                           relu1                         (None, 1024)
+Dropout                                 relu1                         dropout1                      (None, 1024)
+InnerProduct                            dropout1                      fc2                           (None, 1024)
+ReLU                                    fc2                           relu2                         (None, 1024)
+Dropout                                 relu2                         dropout2                      (None, 1024)
+InnerProduct                            dropout2                      fc3                           (None, 1)
+Add                                     fc3,wide_redn                 add1                          (None, 1)
+BinaryCrossEntropyLoss                  add1,label                    loss
+------------------------------------------------------------------------------------------------------------------
+=====================================================Model Fit=====================================================
+[13d40h56m46s][HUGECTR][INFO]: Use non-epoch mode with number of iterations: 21000
+[13d40h56m46s][HUGECTR][INFO]: Training batchsize: 2720, evaluation batchsize: 2720
+[13d40h56m46s][HUGECTR][INFO]: Evaluation interval: 4000, snapshot interval: 20000
+[13d40h56m46s][HUGECTR][INFO]: Sparse embedding trainable: 1, dense network trainable: 1
+[13d40h56m46s][HUGECTR][INFO]: Use mixed precision: 0, scaler: 1.000000, use cuda graph: 1
+[13d40h56m46s][HUGECTR][INFO]: lr: 0.001000, warmup_steps: 1, decay_start: 0, decay_steps: 1, decay_power: 2.000000, end_lr: 0.000000
+[13d40h56m46s][HUGECTR][INFO]: Training source file: ./train/_file_list.txt
+[13d40h56m46s][HUGECTR][INFO]: Evaluation source file: ./val/_file_list.txt
+[13d40h56m53s][HUGECTR][INFO]: Iter: 1000 Time(1000 iters): 6.920620s Loss: 0.083037 lr:0.001000
+[13d40h57m00s][HUGECTR][INFO]: Iter: 2000 Time(1000 iters): 6.706585s Loss: 0.120559 lr:0.001000
+[13d40h57m60s][HUGECTR][INFO]: Iter: 3000 Time(1000 iters): 6.699129s Loss: 0.117169 lr:0.001000
+[13d40h57m13s][HUGECTR][INFO]: Iter: 4000 Time(1000 iters): 6.758591s Loss: 0.083112 lr:0.001000
+[13d40h57m23s][HUGECTR][INFO]: Evaluation, AUC: 0.824140
+[13d40h57m23s][HUGECTR][INFO]: Eval Time for 4000 iters: 9.483117s
+[13d40h57m29s][HUGECTR][INFO]: Iter: 5000 Time(1000 iters): 16.187022s Loss: 0.131896 lr:0.001000
+[13d40h57m36s][HUGECTR][INFO]: Iter: 6000 Time(1000 iters): 6.748882s Loss: 0.082966 lr:0.001000
+[13d40h57m43s][HUGECTR][INFO]: Iter: 7000 Time(1000 iters): 6.761953s Loss: 0.091929 lr:0.001000
+[13d40h57m50s][HUGECTR][INFO]: Iter: 8000 Time(1000 iters): 6.874048s Loss: 0.080763 lr:0.001000
+[13d40h57m59s][HUGECTR][INFO]: Evaluation, AUC: 0.826269
+[13d40h57m59s][HUGECTR][INFO]: Eval Time for 4000 iters: 9.275068s
+[13d40h58m60s][HUGECTR][INFO]: Iter: 9000 Time(1000 iters): 15.969286s Loss: 0.088093 lr:0.001000
+[13d40h58m12s][HUGECTR][INFO]: Iter: 10000 Time(1000 iters): 6.652935s Loss: 0.137476 lr:0.001000
+[13d40h58m19s][HUGECTR][INFO]: Iter: 11000 Time(1000 iters): 6.751184s Loss: 0.116295 lr:0.001000
+[13d40h58m26s][HUGECTR][INFO]: Iter: 12000 Time(1000 iters): 6.659960s Loss: 0.151319 lr:0.001000
+[13d40h58m35s][HUGECTR][INFO]: Evaluation, AUC: 0.827362
+[13d40h58m35s][HUGECTR][INFO]: Eval Time for 4000 iters: 9.378966s
+[13d40h58m42s][HUGECTR][INFO]: Iter: 13000 Time(1000 iters): 16.001544s Loss: 0.094625 lr:0.001000
+[13d40h58m48s][HUGECTR][INFO]: Iter: 14000 Time(1000 iters): 6.678430s Loss: 0.121618 lr:0.001000
+[13d40h58m55s][HUGECTR][INFO]: Iter: 15000 Time(1000 iters): 6.840206s Loss: 0.083302 lr:0.001000
+[13d40h59m20s][HUGECTR][INFO]: Iter: 16000 Time(1000 iters): 6.489092s Loss: 0.102394 lr:0.001000
+[13d40h59m11s][HUGECTR][INFO]: Evaluation, AUC: 0.829899
+[13d40h59m11s][HUGECTR][INFO]: Eval Time for 4000 iters: 9.338721s
+[13d40h59m18s][HUGECTR][INFO]: Iter: 17000 Time(1000 iters): 15.868251s Loss: 0.108997 lr:0.001000
+[13d40h59m24s][HUGECTR][INFO]: Iter: 18000 Time(1000 iters): 5.960831s Loss: 0.098293 lr:0.001000
+[13d40h59m29s][HUGECTR][INFO]: Iter: 19000 Time(1000 iters): 5.980448s Loss: 0.071080 lr:0.001000
+[13d40h59m35s][HUGECTR][INFO]: Iter: 20000 Time(1000 iters): 5.984280s Loss: 0.115342 lr:0.001000
+[13d40h59m45s][HUGECTR][INFO]: Evaluation, AUC: 0.828875
+[13d40h59m45s][HUGECTR][INFO]: Eval Time for 4000 iters: 9.337684s
+[13d40h59m45s][HUGECTR][INFO]: Rank0: Write hash table to file
+[13d40h59m45s][HUGECTR][INFO]: Rank0: Write hash table to file
+[13d40h59m45s][HUGECTR][INFO]: Dumping sparse weights to files, successful
+[13d40h59m45s][HUGECTR][INFO]: Rank0: Write optimzer state to file
+[13d40h59m45s][HUGECTR][INFO]: Done
+[13d40h59m45s][HUGECTR][INFO]: Rank0: Write optimzer state to file
+[13d40h59m45s][HUGECTR][INFO]: Done
+[13d40h59m45s][HUGECTR][INFO]: Rank0: Write optimzer state to file
+[13d40h59m45s][HUGECTR][INFO]: Done
+[13d40h59m45s][HUGECTR][INFO]: Rank0: Write optimzer state to file
+[13d40h59m45s][HUGECTR][INFO]: Done
+[13d40h59m45s][HUGECTR][INFO]: Dumping sparse optimzer states to files, successful
+[13d40h59m45s][HUGECTR][INFO]: Dumping dense weights to file, successful
+[13d40h59m45s][HUGECTR][INFO]: Dumping dense optimizer states to file, successful
+[13d40h59m45s][HUGECTR][INFO]: Dumping untrainable weights to file, successful
+[13d40h59m51s][HUGECTR][INFO]: Save the model graph to wdl.json, successful
+</pre></div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[9]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>!ls -ll
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+total 301620
+-rw-rw-r-- 1 1025 1025     49824 Jul  6 07:00 HugeCTR_WDL_Training.ipynb
+drwxr-xr-x 2 root root      4096 Jul  5 05:43 categories
+drwxr-xr-x 3 root root      4096 Jul  5 05:44 dask-worker-space
+-rw-r--r-- 1 root root      5539 Jul  6 07:00 model.py
+-rw-r--r-- 1 root root     14265 Jul  6 06:59 preprocess.py
+drwxr-xr-x 3 root root      4096 Jul  5 23:34 train
+drwxr-xr-x 3 root root      4096 Jul  5 05:44 val
+-rw-r--r-- 1 root root  17108704 Jul  6 03:28 wdl0_opt_sparse_20000.model
+drwxr-xr-x 2 root root      4096 Jul  5 06:32 wdl0_sparse_20000.model
+-rw-r--r-- 1 root root 273739264 Jul  6 03:28 wdl1_opt_sparse_20000.model
+drwxr-xr-x 2 root root      4096 Jul  5 06:32 wdl1_sparse_20000.model
+-rw-r--r-- 1 root root   5963780 Jul  6 03:28 wdl_dense_20000.model
+-rw-r--r-- 1 root root      3158 Jul  6 03:28 wdl_infer.json
+-rw-r--r-- 1 root root  11927560 Jul  6 03:28 wdl_opt_dense_20000.model
+</pre></div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[1]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>!python /wdl_infer/wdl_python_infer.py &quot;wdl&quot; &quot;/wdl_infer/model/wdl/1/wdl.json&quot; &quot;/wdl_infer/model/wdl/1/wdl_dense_20000.model&quot; &quot;/wdl_infer/model/wdl/1/wdl0_sparse_20000.model/,/wdl_infer/model/wdl/1/wdl1_sparse_20000.model&quot; &quot;/wdl_infer/first_ten.csv&quot;
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+[&#39;/wdl_infer/model/wdl/1/wdl0_sparse_20000.model/&#39;, &#39;/wdl_infer/model/wdl/1/wdl1_sparse_20000.model&#39;]
+[14d04h23m54s][HUGECTR][INFO]: default_emb_vec_value is not specified using default: 0.000000
+[14d04h23m54s][HUGECTR][INFO]: default_emb_vec_value is not specified using default: 0.000000
+Local RocksDB is initializing the embedding table: wdl0
+Last Iteration insert successfully
+Local RocksDB is initializing the embedding table: wdl1
+Last Iteration insert successfully
+[14d04h24m08s][HUGECTR][INFO]: Global seed is 2483322206
+[14d04h24m08s][HUGECTR][INFO]: Device to NUMA mapping:
+  GPU 2 -&gt;  node 1
+
+[14d04h24m13s][HUGECTR][INFO]: Peer-to-peer access cannot be fully enabled.
+[14d04h24m13s][HUGECTR][INFO]: Start all2all warmup
+[14d04h24m13s][HUGECTR][INFO]: End all2all warmup
+[14d04h24m13s][HUGECTR][INFO]: Use mixed precision: 0
+[14d04h24m13s][HUGECTR][INFO]: start create embedding for inference
+[14d04h24m13s][HUGECTR][INFO]: sparse_input name wide_data
+[14d04h24m13s][HUGECTR][INFO]: sparse_input name deep_data
+[14d04h24m13s][HUGECTR][INFO]: create embedding for inference success
+[14d04h24m13s][HUGECTR][INFO]: Inference stage skip BinaryCrossEntropyLoss layer, replaced by Sigmoid layer
+Rocksdb gets missing keys from model: wdl and table: 0
+Rocksdb gets missing keys from model: wdl and table: 1
+WDL multi-embedding table inference result is [0.2726621925830841, 0.16786302626132965, 0.06844793260097504, 0.21687281131744385, 0.28839486837387085, 0.09961184859275818, 0.1451544463634491, 0.1859627217054367, 0.1754387617111206, 0.14994166791439056]
+[HUGECTR][INFO] WDL multi-embedding table inference using GPU cache, prediction error is less  than threshold:0.0001, error is 1.1102230246251565e-16
+</pre></div></div>
+</div>
+</div>
+</div>
+<div class="section" id="4.-Prepare-Inference-Request">
+<h2>4. Prepare Inference Request<a class="headerlink" href="#4.-Prepare-Inference-Request" title="Permalink to this headline"></a></h2>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[3]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>!ls -l /wdl_train/val
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+total 637376
+-rw-r--r-- 1 root root 142856977 Jul  5 05:44 0.110d099942694a5cbf1b71eb73e10f27.parquet
+-rw-r--r-- 1 root root        51 Jul  6 07:02 _file_list.txt
+-rw-r--r-- 1 root root     27701 Jul  5 05:44 _metadata
+-rw-r--r-- 1 root root      1537 Jul  5 05:44 _metadata.json
+drwxr-xr-x 2 root root      4096 Jul  5 05:42 temp-parquet-after-conversion
+-rw-r--r-- 1 1025 1025 509766965 Jul  5 04:45 test.txt
+</pre></div></div>
+</div>
+<div class="nbinput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[4]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>import pandas as pd
+df = pd.read_parquet(&quot;/wdl_train/val/0.110d099942694a5cbf1b71eb73e10f27.parquet&quot;)
+</pre></div>
+</div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[5]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>df.head()
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[5]:
+</pre></div>
+</div>
+<div class="output_area rendered_html docutils container">
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>I1</th>
+      <th>I2</th>
+      <th>I3</th>
+      <th>I4</th>
+      <th>I5</th>
+      <th>I6</th>
+      <th>I7</th>
+      <th>I8</th>
+      <th>I9</th>
+      <th>I10</th>
+      <th>...</th>
+      <th>C17</th>
+      <th>C18</th>
+      <th>C19</th>
+      <th>C20</th>
+      <th>C21</th>
+      <th>C22</th>
+      <th>C23</th>
+      <th>C24</th>
+      <th>C25</th>
+      <th>C26</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>0.061161</td>
+      <td>0.974006</td>
+      <td>-0.594327</td>
+      <td>-0.157301</td>
+      <td>-0.224758</td>
+      <td>0.618222</td>
+      <td>-0.064249</td>
+      <td>-0.281810</td>
+      <td>-0.760031</td>
+      <td>1.386036</td>
+      <td>...</td>
+      <td>2</td>
+      <td>666</td>
+      <td>1</td>
+      <td>33722</td>
+      <td>24373</td>
+      <td>91481</td>
+      <td>62242</td>
+      <td>7673</td>
+      <td>44</td>
+      <td>28</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>-0.061206</td>
+      <td>-0.437431</td>
+      <td>0.156849</td>
+      <td>-0.146861</td>
+      <td>-0.193763</td>
+      <td>0.893091</td>
+      <td>-0.064249</td>
+      <td>0.286841</td>
+      <td>-0.109336</td>
+      <td>3.242455</td>
+      <td>...</td>
+      <td>1</td>
+      <td>666</td>
+      <td>10</td>
+      <td>0</td>
+      <td>97438</td>
+      <td>0</td>
+      <td>21446</td>
+      <td>4472</td>
+      <td>56</td>
+      <td>19</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>0.043427</td>
+      <td>-0.464600</td>
+      <td>-0.379705</td>
+      <td>-0.120014</td>
+      <td>0.054203</td>
+      <td>-0.206385</td>
+      <td>-0.064249</td>
+      <td>-0.093999</td>
+      <td>-0.543133</td>
+      <td>-0.470383</td>
+      <td>...</td>
+      <td>1</td>
+      <td>575</td>
+      <td>10</td>
+      <td>0</td>
+      <td>46601</td>
+      <td>0</td>
+      <td>12090</td>
+      <td>540</td>
+      <td>10</td>
+      <td>17</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>-0.059432</td>
+      <td>-0.273058</td>
+      <td>-0.487016</td>
+      <td>-0.143878</td>
+      <td>-0.193763</td>
+      <td>-0.206385</td>
+      <td>-0.064249</td>
+      <td>-0.279201</td>
+      <td>-0.109336</td>
+      <td>-0.470383</td>
+      <td>...</td>
+      <td>0</td>
+      <td>351</td>
+      <td>10</td>
+      <td>125237</td>
+      <td>4329</td>
+      <td>238309</td>
+      <td>0</td>
+      <td>8488</td>
+      <td>56</td>
+      <td>22</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>-0.048792</td>
+      <td>-0.418412</td>
+      <td>0.693403</td>
+      <td>0.300589</td>
+      <td>-0.193763</td>
+      <td>-0.206385</td>
+      <td>-0.064249</td>
+      <td>-0.281810</td>
+      <td>0.902856</td>
+      <td>-0.470383</td>
+      <td>...</td>
+      <td>0</td>
+      <td>575</td>
+      <td>7</td>
+      <td>69747</td>
+      <td>76381</td>
+      <td>207280</td>
+      <td>0</td>
+      <td>444</td>
+      <td>73</td>
+      <td>22</td>
+    </tr>
+  </tbody>
+</table>
+<p>5 rows × 42 columns</p>
+</div></div>
+</div>
+<div class="nbinput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[6]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>df.head(10).to_csv(&#39;/wdl_train/infer_test.csv&#39;, sep=&#39;,&#39;, index=False,header=True)
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="5-Create-prediction-scripts">
+<h2>5 Create prediction scripts<a class="headerlink" href="#5-Create-prediction-scripts" title="Permalink to this headline"></a></h2>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[7]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>%%writefile &#39;/wdl_train/wdl_predict.py&#39;
+from hugectr.inference import InferenceParams, CreateInferenceSession
+import hugectr
+import pandas as pd
+import numpy as np
+import sys
+from mpi4py import MPI
+def wdl_inference(model_name, network_file, dense_file, embedding_file_list, data_file,enable_cache,dbtype=hugectr.Database_t.Local,rocksdb_path=&quot;&quot;):
+    CATEGORICAL_COLUMNS=[&quot;C&quot; + str(x) for x in range(1, 27)]+[&quot;C1_C2&quot;,&quot;C3_C4&quot;]
+    CONTINUOUS_COLUMNS=[&quot;I&quot; + str(x) for x in range(1, 14)]
+    LABEL_COLUMNS = [&#39;label&#39;]
+    emb_size = [249058, 19561, 14212, 6890, 18592, 4, 6356, 1254, 52, 226170, 80508, 72308, 11, 2169, 7597, 61, 4, 923, 15, 249619, 168974, 243480, 68212, 9169, 75, 34, 278018, 415262]
+    shift = np.insert(np.cumsum(emb_size), 0, 0)[:-1]
+    test_df=pd.read_csv(data_file,sep=&#39;,&#39;)
+    config_file = network_file
+    row_ptrs = list(range(0,21))+list(range(0,261))
+    dense_features =  list(test_df[CONTINUOUS_COLUMNS].values.flatten())
+    test_df[CATEGORICAL_COLUMNS].astype(np.int64)
+    embedding_columns = list((test_df[CATEGORICAL_COLUMNS]+shift).values.flatten())
+
+
+    # create parameter server, embedding cache and inference session
+    inference_params = InferenceParams(model_name = model_name,
+                                max_batchsize = 64,
+                                hit_rate_threshold = 0.5,
+                                dense_model_file = dense_file,
+                                sparse_model_files = embedding_file_list,
+                                device_id = 2,
+                                use_gpu_embedding_cache = enable_cache,
+                                cache_size_percentage = 0.9,
+                                i64_input_key = True,
+                                use_mixed_precision = False,
+                                db_type = dbtype,
+                                rocksdb_path=rocksdb_path,
+                                cache_size_percentage_redis=0.5)
+    inference_session = CreateInferenceSession(config_file, inference_params)
+    output = inference_session.predict(dense_features, embedding_columns, row_ptrs)
+    print(&quot;WDL multi-embedding table inference result is {}&quot;.format(output))
+
+if __name__ == &quot;__main__&quot;:
+    model_name = sys.argv[1]
+    print(&quot;{} multi-embedding table prediction&quot;.format(model_name))
+    network_file = sys.argv[2]
+    print(&quot;{} multi-embedding table prediction network is {}&quot;.format(model_name,network_file))
+    dense_file = sys.argv[3]
+    print(&quot;{} multi-embedding table prediction dense file is {}&quot;.format(model_name,dense_file))
+    embedding_file_list = str(sys.argv[4]).split(&#39;,&#39;)
+    print(&quot;{} multi-embedding table prediction sparse files are {}&quot;.format(model_name,embedding_file_list))
+    data_file = sys.argv[5]
+    print(&quot;{} multi-embedding table prediction input data path is {}&quot;.format(model_name,data_file))
+    input_dbtype = sys.argv[6]
+    print(&quot;{} multi-embedding table prediction input dbtype path is {}&quot;.format(model_name,input_dbtype))
+    if input_dbtype==&quot;local&quot;:
+        wdl_inference(model_name, network_file, dense_file, embedding_file_list, data_file, True, hugectr.Database_t.Local)
+    if input_dbtype==&quot;rocksdb&quot;:
+        rocksdb_path = sys.argv[7]
+        print(&quot;{} multi-embedding table prediction rocksdb_path path is {}&quot;.format(model_name,rocksdb_path))
+        wdl_inference(model_name, network_file, dense_file, embedding_file_list, data_file, True, hugectr.Database_t.RocksDB,rocksdb_path)
+<br/></pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+Overwriting /wdl_train/wdl_predict.py
+</pre></div></div>
+</div>
+</div>
+<div class="section" id="6.-Prediction">
+<h2>6. Prediction<a class="headerlink" href="#6.-Prediction" title="Permalink to this headline"></a></h2>
+<p>Use different types of databases as local Parameter Server to get the wdl model prediction results.</p>
+<div class="section" id="6.1-Load-model-embedding-tables-into-local-memory-as-Parameter-Server">
+<h3>6.1 Load model embedding tables into local memory as Parameter Server<a class="headerlink" href="#6.1-Load-model-embedding-tables-into-local-memory-as-Parameter-Server" title="Permalink to this headline"></a></h3>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[2]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>!python /wdl_train/wdl_predict.py &quot;wdl&quot; &quot;/wdl_infer/model/wdl/1/wdl.json&quot; \
+&quot;/wdl_infer/model/wdl/1/wdl_dense_20000.model&quot; \
+&quot;/wdl_infer/model/wdl/1/wdl0_sparse_20000.model/,/wdl_infer/model/wdl/1/wdl1_sparse_20000.model&quot; \
+&quot;/wdl_train/infer_test.csv&quot; \
+&quot;local&quot;
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+wdl multi-embedding table prediction
+wdl multi-embedding table prediction network is /wdl_infer/model/wdl/1/wdl.json
+wdl multi-embedding table prediction dense file is /wdl_infer/model/wdl/1/wdl_dense_20000.model
+wdl multi-embedding table prediction sparse files are [&#39;/wdl_infer/model/wdl/1/wdl0_sparse_20000.model/&#39;, &#39;/wdl_infer/model/wdl/1/wdl1_sparse_20000.model&#39;]
+wdl multi-embedding table prediction input data path is /wdl_train/infer_test.csv
+wdl multi-embedding table prediction input dbtype path is local
+[15d09h17m26s][HUGECTR][INFO]: default_emb_vec_value is not specified using default: 0.000000
+[15d09h17m26s][HUGECTR][INFO]: default_emb_vec_value is not specified using default: 0.000000
+[15d09h17m32s][HUGECTR][INFO]: Global seed is 1361897547
+[15d09h17m32s][HUGECTR][INFO]: Device to NUMA mapping:
+  GPU 2 -&gt;  node 1
+
+[15d09h17m48s][HUGECTR][INFO]: Peer-to-peer access cannot be fully enabled.
+[15d09h17m48s][HUGECTR][INFO]: Start all2all warmup
+[15d09h17m48s][HUGECTR][INFO]: End all2all warmup
+[15d09h17m48s][HUGECTR][INFO]: Use mixed precision: 0
+[15d09h17m48s][HUGECTR][INFO]: start create embedding for inference
+[15d09h17m48s][HUGECTR][INFO]: sparse_input name wide_data
+[15d09h17m48s][HUGECTR][INFO]: sparse_input name deep_data
+[15d09h17m48s][HUGECTR][INFO]: create embedding for inference success
+[15d09h17m48s][HUGECTR][INFO]: Inference stage skip BinaryCrossEntropyLoss layer, replaced by Sigmoid layer
+WDL multi-embedding table inference result is [0.019959857687354088, 0.025274723768234253, 0.017903145402669907, 0.006932722870260477, 0.02339070290327072, 0.022747302427887917, 0.05989734083414078, 0.015981541946530342, 0.005822415463626385, 0.01423134095966816]
+</pre></div></div>
+</div>
+</div>
+<div class="section" id="6.2-Load-model-embedding-tables-into-local-RocksDB-as-Parameter-Server">
+<h3>6.2 Load model embedding tables into local RocksDB as Parameter Server<a class="headerlink" href="#6.2-Load-model-embedding-tables-into-local-RocksDB-as-Parameter-Server" title="Permalink to this headline"></a></h3>
+<p>Create a RocksDB directory with read and write permissions for storing model embedded tables</p>
+<div class="nbinput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[7]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>!mkdir -p -m 700 /wdl_train/rocksdb
+</pre></div>
+</div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[9]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>!python /wdl_train/wdl_predict.py &quot;wdl&quot; &quot;/wdl_infer/model/wdl/1/wdl.json&quot; \
+&quot;/wdl_infer/model/wdl/1/wdl_dense_20000.model&quot; \
+&quot;/wdl_infer/model/wdl/1/wdl0_sparse_20000.model/,/wdl_infer/model/wdl/1/wdl1_sparse_20000.model&quot; \
+&quot;/wdl_train/infer_test.csv&quot; \
+&quot;rocksdb&quot;  &quot;/wdl_train/rocksdb&quot;
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+wdl multi-embedding table prediction
+wdl multi-embedding table prediction network is /wdl_infer/model/wdl/1/wdl.json
+wdl multi-embedding table prediction dense file is /wdl_infer/model/wdl/1/wdl_dense_20000.model
+wdl multi-embedding table prediction sparse files are [&#39;/wdl_infer/model/wdl/1/wdl0_sparse_20000.model/&#39;, &#39;/wdl_infer/model/wdl/1/wdl1_sparse_20000.model&#39;]
+wdl multi-embedding table prediction input data path is /wdl_train/infer_test.csv
+wdl multi-embedding table prediction input dbtype path is rocksdb
+wdl multi-embedding table prediction rocksdb_path path is /wdl_train/rocksdb
+[15d12h32m00s][HUGECTR][INFO]: default_emb_vec_value is not specified using default: 0.000000
+[15d12h32m00s][HUGECTR][INFO]: default_emb_vec_value is not specified using default: 0.000000
+Local RocksDB is initializing the embedding table: wdl0
+Last Iteration insert successfully
+Local RocksDB is initializing the embedding table: wdl1
+Last Iteration insert successfully
+[15d12h32m07s][HUGECTR][INFO]: Global seed is 1156574989
+[15d12h32m08s][HUGECTR][INFO]: Device to NUMA mapping:
+  GPU 2 -&gt;  node 1
+
+[15d12h32m21s][HUGECTR][INFO]: Peer-to-peer access cannot be fully enabled.
+[15d12h32m21s][HUGECTR][INFO]: Start all2all warmup
+[15d12h32m21s][HUGECTR][INFO]: End all2all warmup
+[15d12h32m21s][HUGECTR][INFO]: Use mixed precision: 0
+[15d12h32m21s][HUGECTR][INFO]: start create embedding for inference
+[15d12h32m21s][HUGECTR][INFO]: sparse_input name wide_data
+[15d12h32m21s][HUGECTR][INFO]: sparse_input name deep_data
+[15d12h32m21s][HUGECTR][INFO]: create embedding for inference success
+[15d12h32m21s][HUGECTR][INFO]: Inference stage skip BinaryCrossEntropyLoss layer, replaced by Sigmoid layer
+Rocksdb gets missing keys from model: wdl and table: 0
+Rocksdb gets missing keys from model: wdl and table: 1
+WDL multi-embedding table inference result is [0.019959857687354088, 0.025274723768234253, 0.017903145402669907, 0.006932722870260477, 0.02339070290327072, 0.022747302427887917, 0.05989734083414078, 0.015981541946530342, 0.005822415463626385, 0.01423134095966816]
+</pre></div></div>
+</div>
+</div>
+</div>
+</div>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="../hugectr_example_notebooks.html" class="btn btn-neutral float-left" title="HugeCTR Example Notebooks" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="hugectr2onnx_demo.html" class="btn btn-neutral float-right" title="HugeCTR to ONNX Converter" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, NVIDIA.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    v: master
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="../../v3.5/index.html">v3.5</a></dd>
+    </dl>
+    <dl>
+      <dt>Branches</dt>
+      <dd><a href="hugectr_wdl_prediction.html">master</a></dd>
+    </dl>
+  </div>
+</div><script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -1,0 +1,994 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HugeCTR Continuous Training &mdash; Merlin HugeCTR  documentation</title><link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  <script id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/underscore.js"></script>
+        <script src="../_static/doctools.js"></script>
+        <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+        <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+        <script type="text/x-mathjax-config">MathJax.Hub.Config({"tex2jax": {"inlineMath": [["$", "$"], ["\\(", "\\)"]], "processEscapes": true, "ignoreClass": "tex2jax_ignore|mathjax_ignore|document", "processClass": "tex2jax_process|mathjax_process|math|output_area"}})</script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Merlin ETL, training and inference demo on the e-Commerce behavior data" href="ecommerce-example.html" />
+    <link rel="prev" title="HugeCTR to ONNX Converter" href="hugectr2onnx_demo.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../index.html" class="icon icon-home"> Merlin HugeCTR
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption"><span class="caption-text">HugeCTR Library</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../hugectr_user_guide.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../hugectr_core_features.html">Core Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../hugectr_feature_details_intro.html">Features in Detail</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../hugectr_example_notebooks.html">Example Notebooks</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="hugectr_wdl_prediction.html">HugeCTR Wide and Deep Model with Criteo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="hugectr2onnx_demo.html">HugeCTR to ONNX Converter</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">HugeCTR Continuous Training</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#Overview">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#Table-of-Contents">Table of Contents</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#1.1-Get-HugeCTR-from-NGC">1.1 Get HugeCTR from NGC</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#1.2-Build-HugeCTR-from-Source-Code">1.2 Build HugeCTR from Source Code</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#2.3-Continuous-Training-with-Low-level-API">2.3 Continuous Training with Low-level API</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="ecommerce-example.html">Merlin ETL, training and inference demo on the e-Commerce behavior data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="movie-lens-example.html">HugeCTR demo on Movie lens data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="hugectr_criteo.html">HugeCTR Python Interface</a></li>
+<li class="toctree-l2"><a class="reference internal" href="multi_gpu_offline_inference.html">Multi-GPU Offline Inference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="multi-modal-data/00-Intro.html">Training Recommender Systems on Multi-modal Data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="multi-modal-data/01-Download-Convert.html">MovieLens-25M: Download and Convert</a></li>
+<li class="toctree-l2"><a class="reference internal" href="multi-modal-data/03-Feature-Extraction-Poster.html">Movie Poster Feature Extraction with ResNet</a></li>
+<li class="toctree-l2"><a class="reference internal" href="multi-modal-data/04-Feature-Extraction-Text.html">Movie Synopsis Feature Extraction with Bart text summarization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="multi-modal-data/04-Feature-Extraction-Text.html#Download-pretrained-BART-model">Download pretrained BART model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="multi-modal-data/05-Create-Feature-Store.html">Creating Multi-Modal Movie Feature Store</a></li>
+<li class="toctree-l2"><a class="reference internal" href="multi-modal-data/06-ETL-with-NVTabular.html">ETL with NVTabular</a></li>
+<li class="toctree-l2"><a class="reference internal" href="multi-modal-data/07-Training-with-HugeCTR.html">Training HugeCTR Model with Pretrained Embeddings</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../api/index.html">API Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../hugectr_contributor_guide.html">Contributing to HugeCTR</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../additional_resources.html">Additional Resources</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Merlin HugeCTR</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="../hugectr_example_notebooks.html">HugeCTR Example Notebooks</a> &raquo;</li>
+      <li>HugeCTR Continuous Training</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  
+<style>
+/* CSS for nbsphinx extension */
+
+/* remove conflicting styling from Sphinx themes */
+div.nbinput.container div.prompt *,
+div.nboutput.container div.prompt *,
+div.nbinput.container div.input_area pre,
+div.nboutput.container div.output_area pre,
+div.nbinput.container div.input_area .highlight,
+div.nboutput.container div.output_area .highlight {
+    border: none;
+    padding: 0;
+    margin: 0;
+    box-shadow: none;
+}
+
+div.nbinput.container > div[class*=highlight],
+div.nboutput.container > div[class*=highlight] {
+    margin: 0;
+}
+
+div.nbinput.container div.prompt *,
+div.nboutput.container div.prompt * {
+    background: none;
+}
+
+div.nboutput.container div.output_area .highlight,
+div.nboutput.container div.output_area pre {
+    background: unset;
+}
+
+div.nboutput.container div.output_area div.highlight {
+    color: unset;  /* override Pygments text color */
+}
+
+/* avoid gaps between output lines */
+div.nboutput.container div[class*=highlight] pre {
+    line-height: normal;
+}
+
+/* input/output containers */
+div.nbinput.container,
+div.nboutput.container {
+    display: -webkit-flex;
+    display: flex;
+    align-items: flex-start;
+    margin: 0;
+    width: 100%;
+}
+@media (max-width: 540px) {
+    div.nbinput.container,
+    div.nboutput.container {
+        flex-direction: column;
+    }
+}
+
+/* input container */
+div.nbinput.container {
+    padding-top: 5px;
+}
+
+/* last container */
+div.nblast.container {
+    padding-bottom: 5px;
+}
+
+/* input prompt */
+div.nbinput.container div.prompt pre {
+    color: #307FC1;
+}
+
+/* output prompt */
+div.nboutput.container div.prompt pre {
+    color: #BF5B3D;
+}
+
+/* all prompts */
+div.nbinput.container div.prompt,
+div.nboutput.container div.prompt {
+    width: 4.5ex;
+    padding-top: 5px;
+    position: relative;
+    user-select: none;
+}
+
+div.nbinput.container div.prompt > div,
+div.nboutput.container div.prompt > div {
+    position: absolute;
+    right: 0;
+    margin-right: 0.3ex;
+}
+
+@media (max-width: 540px) {
+    div.nbinput.container div.prompt,
+    div.nboutput.container div.prompt {
+        width: unset;
+        text-align: left;
+        padding: 0.4em;
+    }
+    div.nboutput.container div.prompt.empty {
+        padding: 0;
+    }
+
+    div.nbinput.container div.prompt > div,
+    div.nboutput.container div.prompt > div {
+        position: unset;
+    }
+}
+
+/* disable scrollbars on prompts */
+div.nbinput.container div.prompt pre,
+div.nboutput.container div.prompt pre {
+    overflow: hidden;
+}
+
+/* input/output area */
+div.nbinput.container div.input_area,
+div.nboutput.container div.output_area {
+    -webkit-flex: 1;
+    flex: 1;
+    overflow: auto;
+}
+@media (max-width: 540px) {
+    div.nbinput.container div.input_area,
+    div.nboutput.container div.output_area {
+        width: 100%;
+    }
+}
+
+/* input area */
+div.nbinput.container div.input_area {
+    border: 1px solid #e0e0e0;
+    border-radius: 2px;
+    /*background: #f5f5f5;*/
+}
+
+/* override MathJax center alignment in output cells */
+div.nboutput.container div[class*=MathJax] {
+    text-align: left !important;
+}
+
+/* override sphinx.ext.imgmath center alignment in output cells */
+div.nboutput.container div.math p {
+    text-align: left;
+}
+
+/* standard error */
+div.nboutput.container div.output_area.stderr {
+    background: #fdd;
+}
+
+/* ANSI colors */
+.ansi-black-fg { color: #3E424D; }
+.ansi-black-bg { background-color: #3E424D; }
+.ansi-black-intense-fg { color: #282C36; }
+.ansi-black-intense-bg { background-color: #282C36; }
+.ansi-red-fg { color: #E75C58; }
+.ansi-red-bg { background-color: #E75C58; }
+.ansi-red-intense-fg { color: #B22B31; }
+.ansi-red-intense-bg { background-color: #B22B31; }
+.ansi-green-fg { color: #00A250; }
+.ansi-green-bg { background-color: #00A250; }
+.ansi-green-intense-fg { color: #007427; }
+.ansi-green-intense-bg { background-color: #007427; }
+.ansi-yellow-fg { color: #DDB62B; }
+.ansi-yellow-bg { background-color: #DDB62B; }
+.ansi-yellow-intense-fg { color: #B27D12; }
+.ansi-yellow-intense-bg { background-color: #B27D12; }
+.ansi-blue-fg { color: #208FFB; }
+.ansi-blue-bg { background-color: #208FFB; }
+.ansi-blue-intense-fg { color: #0065CA; }
+.ansi-blue-intense-bg { background-color: #0065CA; }
+.ansi-magenta-fg { color: #D160C4; }
+.ansi-magenta-bg { background-color: #D160C4; }
+.ansi-magenta-intense-fg { color: #A03196; }
+.ansi-magenta-intense-bg { background-color: #A03196; }
+.ansi-cyan-fg { color: #60C6C8; }
+.ansi-cyan-bg { background-color: #60C6C8; }
+.ansi-cyan-intense-fg { color: #258F8F; }
+.ansi-cyan-intense-bg { background-color: #258F8F; }
+.ansi-white-fg { color: #C5C1B4; }
+.ansi-white-bg { background-color: #C5C1B4; }
+.ansi-white-intense-fg { color: #A1A6B2; }
+.ansi-white-intense-bg { background-color: #A1A6B2; }
+
+.ansi-default-inverse-fg { color: #FFFFFF; }
+.ansi-default-inverse-bg { background-color: #000000; }
+
+.ansi-bold { font-weight: bold; }
+.ansi-underline { text-decoration: underline; }
+
+
+div.nbinput.container div.input_area div[class*=highlight] > pre,
+div.nboutput.container div.output_area div[class*=highlight] > pre,
+div.nboutput.container div.output_area div[class*=highlight].math,
+div.nboutput.container div.output_area.rendered_html,
+div.nboutput.container div.output_area > div.output_javascript,
+div.nboutput.container div.output_area:not(.rendered_html) > img{
+    padding: 5px;
+    margin: 0;
+}
+
+/* fix copybtn overflow problem in chromium (needed for 'sphinx_copybutton') */
+div.nbinput.container div.input_area > div[class^='highlight'],
+div.nboutput.container div.output_area > div[class^='highlight']{
+    overflow-y: hidden;
+}
+
+/* hide copybtn icon on prompts (needed for 'sphinx_copybutton') */
+.prompt .copybtn {
+    display: none;
+}
+
+/* Some additional styling taken form the Jupyter notebook CSS */
+div.rendered_html table {
+  border: none;
+  border-collapse: collapse;
+  border-spacing: 0;
+  color: black;
+  font-size: 12px;
+  table-layout: fixed;
+}
+div.rendered_html thead {
+  border-bottom: 1px solid black;
+  vertical-align: bottom;
+}
+div.rendered_html tr,
+div.rendered_html th,
+div.rendered_html td {
+  text-align: right;
+  vertical-align: middle;
+  padding: 0.5em 0.5em;
+  line-height: normal;
+  white-space: normal;
+  max-width: none;
+  border: none;
+}
+div.rendered_html th {
+  font-weight: bold;
+}
+div.rendered_html tbody tr:nth-child(odd) {
+  background: #f5f5f5;
+}
+div.rendered_html tbody tr:hover {
+  background: rgba(66, 165, 245, 0.2);
+}
+
+/* CSS overrides for sphinx_rtd_theme */
+
+/* 24px margin */
+.nbinput.nblast.container,
+.nboutput.nblast.container {
+    margin-bottom: 19px;  /* padding has already 5px */
+}
+
+/* ... except between code cells! */
+.nblast.container + .nbinput.container {
+    margin-top: -19px;
+}
+
+.admonition > p:before {
+    margin-right: 4px;  /* make room for the exclamation icon */
+}
+
+/* Fix math alignment, see https://github.com/rtfd/sphinx_rtd_theme/pull/686 */
+.math {
+    text-align: unset;
+}
+</style>
+<p><img alt="8cd0bdf45f7947e2acf683886364d56f" src="http://developer.download.nvidia.com/compute/machine-learning/frameworks/nvidia_logo.png" /></p>
+<div class="section" id="HugeCTR-Continuous-Training">
+<h1>HugeCTR Continuous Training<a class="headerlink" href="#HugeCTR-Continuous-Training" title="Permalink to this headline"></a></h1>
+<div class="section" id="Overview">
+<h2>Overview<a class="headerlink" href="#Overview" title="Permalink to this headline"></a></h2>
+<p>The notebook introduces how to use the Embedding Training Cache (ETC) feature in HugeCTR for the continuous training. The ETC feature is designed to handle recommendation models with huge embedding table by the incremental training method, which allows you to train such a model that the model size is much larger than the available GPU memory size.</p>
+<p>To learn more about the ETC, please check the <a class="reference external" href="../docs/hugectr_embedding_training_cache.md">Embedding Training Cache</a>.</p>
+<p>To learn how to use the APIs of ETC, please check the <a class="reference external" href="../docs/python_interface.md">HugeCTR Python Interface</a>.</p>
+</div>
+<div class="section" id="Table-of-Contents">
+<h2>Table of Contents<a class="headerlink" href="#Table-of-Contents" title="Permalink to this headline"></a></h2>
+<ul class="simple">
+<li><p><a class="reference external" href="#1">Installation</a></p>
+<ul>
+<li><p><a class="reference external" href="#11">Get HugeCTR from NGC</a></p></li>
+<li><p><a class="reference external" href="#12">Build HugeCTR from Source Code</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference external" href="#2">Continuous Training</a></p>
+<ul>
+<li><p><a class="reference external" href="#21">Data Preparation</a></p></li>
+<li><p><a class="reference external" href="#22">Continuous Training with High-level API</a></p></li>
+<li><p><a class="reference external" href="#23">Continuous Training with Low-level API</a></p></li>
+</ul>
+</li>
+</ul>
+<p>## Installation</p>
+<div class="section" id="1.1-Get-HugeCTR-from-NGC">
+<h3>1.1 Get HugeCTR from NGC<a class="headerlink" href="#1.1-Get-HugeCTR-from-NGC" title="Permalink to this headline"></a></h3>
+<p>The continuous training module is preinstalled in the <a class="reference external" href="https://ngc.nvidia.com/catalog/containers/nvidia:merlin:merlin-training">Merlin Training Container</a>: <code class="docutils literal notranslate"><span class="pre">nvcr.io/nvidia/merlin/merlin-training:22.04</span></code>.</p>
+<p>You can check the existence of required libraries by running the following Python code after launching this container.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$ python3 -c <span class="s2">&quot;import hugectr&quot;</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="1.2-Build-HugeCTR-from-Source-Code">
+<h3>1.2 Build HugeCTR from Source Code<a class="headerlink" href="#1.2-Build-HugeCTR-from-Source-Code" title="Permalink to this headline"></a></h3>
+<p>If you want to build HugeCTR from the source code instead of using the NGC container, please refer to the <a class="reference external" href="../../docs/hugectr_contributor_guide.md#how-to-start-your-development">How to Start Your Development</a>.</p>
+<p>## Continuous Training</p>
+<p>### 2.1 Data Preparation 1. Download the Kaggle Criteo dataset using the following command: <code class="docutils literal notranslate"><span class="pre">shell</span>&#160;&#160;&#160; <span class="pre">$</span> <span class="pre">cd</span> <span class="pre">${project_root}/tools</span>&#160;&#160;&#160; <span class="pre">$</span> <span class="pre">wget</span> <span class="pre">http://azuremlsampleexperiments.blob.core.windows.net/criteo/day_1.gz</span></code></p>
+<p>To preprocess the downloaded Kaggle Criteo dataset, we’ll make the following operations: * Reduce the amounts of data to speed up the preprocessing * Fill missing values * Remove the feature values whose occurrences are very rare, etc.</p>
+<ol class="arabic" start="2">
+<li><p>Preprocessing by Pandas using the following command:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ bash preprocess.sh <span class="m">1</span> wdl_data pandas <span class="m">1</span> <span class="m">1</span> <span class="m">100</span>
+</pre></div>
+</div>
+<p>Meanings of the command line arguments:</p>
+<ul class="simple">
+<li><p>The 1st argument represents the dataset postfix. It is <code class="docutils literal notranslate"><span class="pre">1</span></code> here since <code class="docutils literal notranslate"><span class="pre">day_1</span></code> is used.</p></li>
+<li><p>The 2nd argument <code class="docutils literal notranslate"><span class="pre">wdl_data</span></code> is where the preprocessed data is stored.</p></li>
+<li><p>The 3rd argument <code class="docutils literal notranslate"><span class="pre">pandas</span></code> is the processing script going to use, here we choose <code class="docutils literal notranslate"><span class="pre">pandas</span></code>.</p></li>
+<li><p>The 4th argument <code class="docutils literal notranslate"><span class="pre">1</span></code> embodies that the normalization is applied to dense features.</p></li>
+<li><p>The 5th argument <code class="docutils literal notranslate"><span class="pre">1</span></code> means that the feature crossing is applied.</p></li>
+<li><p>The 6th argument <code class="docutils literal notranslate"><span class="pre">100</span></code> means the number of data files in each file list.</p></li>
+</ul>
+<p>For more details about the data preprocessing, please refer to <a class="reference external" href="../samples/criteo#preprocess-the-dataset">Preprocess the Criteo Dataset</a>.</p>
+</li>
+<li><p>Create a soft link of the dataset folder to the path of this notebook using the following command:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ ln -s <span class="si">${</span><span class="nv">project_root</span><span class="si">}</span>/tools/wdl_data <span class="si">${</span><span class="nv">project_root</span><span class="si">}</span>/notebooks/wdl_data
+</pre></div>
+</div>
+</li>
+</ol>
+<p>### 2.2 Continuous Training with High-level API This section gives the code sample of continuous training using Keras-like high-level API. The high-level API encapsulates etct of the complexity for users, making it easy to use and able to handle etct of scenarios in a production environment.</p>
+<p>Meanwhile, HugeCTR also provides the low-level APIs besides its high-level counterpart to allow you customize the training logic. A code sample using the low-level APIs is provided in the next section.</p>
+<p>The code sample in this section trains a model from scratch using embedding training cache, gets the incremental model, and saves the trained dense weights and sparse embedding weights. The following steps are required to achieve those logics:</p>
+<ol class="arabic simple">
+<li><p>Create the <code class="docutils literal notranslate"><span class="pre">solver</span></code>, <code class="docutils literal notranslate"><span class="pre">reader</span></code>, <code class="docutils literal notranslate"><span class="pre">optimizer</span></code> and <code class="docutils literal notranslate"><span class="pre">etc</span></code>, then initialize the model.</p></li>
+<li><p>Construct the model graph by adding input, sparse embedding, and dense layers in order.</p></li>
+<li><p>Compile the model and overview the model graph.</p></li>
+<li><p>Dump the model graph to the JSON file.</p></li>
+<li><p>Train the sparse and dense model.</p></li>
+<li><p>Set the new training datasets and their corresponding keysets.</p></li>
+<li><p>Train the sparse and dense model incrementally.</p></li>
+<li><p>Get the incrementally trained embedding table.</p></li>
+<li><p>Save the model weights and optimizer states explicitly.</p></li>
+</ol>
+<p>Note: <code class="docutils literal notranslate"><span class="pre">repeat_dataset</span></code> should be <code class="docutils literal notranslate"><span class="pre">False</span></code> when using the embedding training cache, while the argument <code class="docutils literal notranslate"><span class="pre">num_epochs</span></code> in <code class="docutils literal notranslate"><span class="pre">Model::fit</span></code> specifies the number of training epochs in this mode.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[1]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>%%writefile wdl_train.py
+import hugectr
+from mpi4py import MPI
+solver = hugectr.CreateSolver(max_eval_batches = 5000,
+                              batchsize_eval = 1024,
+                              batchsize = 1024,
+                              lr = 0.001,
+                              vvgpu = [[0]],
+                              i64_input_key = False,
+                              use_mixed_precision = False,
+                              repeat_dataset = False,
+                              use_cuda_graph = True)
+reader = hugectr.DataReaderParams(data_reader_type = hugectr.DataReaderType_t.Norm,
+                          source = [&quot;wdl_data/file_list.&quot;+str(i)+&quot;.txt&quot; for i in range(2)],
+                          keyset = [&quot;wdl_data/file_list.&quot;+str(i)+&quot;.keyset&quot; for i in range(2)],
+                          eval_source = &quot;wdl_data/file_list.2.txt&quot;,
+                          check_type = hugectr.Check_t.Sum)
+optimizer = hugectr.CreateOptimizer(optimizer_type = hugectr.Optimizer_t.Adam)
+hc_cnfg = hugectr.CreateHMemCache(num_blocks = 2, target_hit_rate = 0.5, max_num_evict = 0)
+etc = hugectr.CreateETC(ps_types = [hugectr.TrainPSType_t.Staged, hugectr.TrainPSType_t.Cached],
+                        sparse_models = [&quot;./wdl_0_sparse_model&quot;, &quot;./wdl_1_sparse_model&quot;],
+                        local_paths = [&quot;./&quot;], hmem_cache_configs = [hc_cnfg])
+model = hugectr.Model(solver, reader, optimizer, etc)
+model.add(hugectr.Input(label_dim = 1, label_name = &quot;label&quot;,
+                        dense_dim = 13, dense_name = &quot;dense&quot;,
+                        data_reader_sparse_param_array =
+                        [hugectr.DataReaderSparseParam(&quot;wide_data&quot;, 30, True, 1),
+                        hugectr.DataReaderSparseParam(&quot;deep_data&quot;, 2, False, 26)]))
+model.add(hugectr.SparseEmbedding(embedding_type = hugectr.Embedding_t.DistributedSlotSparseEmbeddingHash,
+                            workspace_size_per_gpu_in_mb = 69,
+                            embedding_vec_size = 1,
+                            combiner = &quot;sum&quot;,
+                            sparse_embedding_name = &quot;sparse_embedding2&quot;,
+                            bottom_name = &quot;wide_data&quot;,
+                            optimizer = optimizer))
+model.add(hugectr.SparseEmbedding(embedding_type = hugectr.Embedding_t.DistributedSlotSparseEmbeddingHash,
+                            workspace_size_per_gpu_in_mb = 1074,
+                            embedding_vec_size = 16,
+                            combiner = &quot;sum&quot;,
+                            sparse_embedding_name = &quot;sparse_embedding1&quot;,
+                            bottom_name = &quot;deep_data&quot;,
+                            optimizer = optimizer))
+model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Reshape,
+                            bottom_names = [&quot;sparse_embedding1&quot;],
+                            top_names = [&quot;reshape1&quot;],
+                            leading_dim=416))
+model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Reshape,
+                            bottom_names = [&quot;sparse_embedding2&quot;],
+                            top_names = [&quot;reshape2&quot;],
+                            leading_dim=1))
+model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Concat,
+                            bottom_names = [&quot;reshape1&quot;, &quot;dense&quot;], top_names = [&quot;concat1&quot;]))
+model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.InnerProduct,
+                            bottom_names = [&quot;concat1&quot;],
+                            top_names = [&quot;fc1&quot;],
+                            num_output=1024))
+model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.ReLU,
+                            bottom_names = [&quot;fc1&quot;],
+                            top_names = [&quot;relu1&quot;]))
+model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Dropout,
+                            bottom_names = [&quot;relu1&quot;],
+                            top_names = [&quot;dropout1&quot;],
+                            dropout_rate=0.5))
+model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.InnerProduct,
+                            bottom_names = [&quot;dropout1&quot;],
+                            top_names = [&quot;fc2&quot;],
+                            num_output=1024))
+model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.ReLU,
+                            bottom_names = [&quot;fc2&quot;],
+                            top_names = [&quot;relu2&quot;]))
+model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Dropout,
+                            bottom_names = [&quot;relu2&quot;],
+                            top_names = [&quot;dropout2&quot;],
+                            dropout_rate=0.5))
+model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.InnerProduct,
+                            bottom_names = [&quot;dropout2&quot;],
+                            top_names = [&quot;fc3&quot;],
+                            num_output=1))
+model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Add,
+                            bottom_names = [&quot;fc3&quot;, &quot;reshape2&quot;],
+                            top_names = [&quot;add1&quot;]))
+model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.BinaryCrossEntropyLoss,
+                            bottom_names = [&quot;add1&quot;, &quot;label&quot;],
+                            top_names = [&quot;loss&quot;]))
+model.compile()
+model.summary()
+model.graph_to_json(graph_config_file = &quot;wdl.json&quot;)
+model.fit(num_epochs = 1, display = 500, eval_interval = 1000)
+# Get the updated embedding features in model.fit()
+# updated_model = model.get_incremental_model()
+model.set_source(source = [&quot;wdl_data/file_list.3.txt&quot;, &quot;wdl_data/file_list.4.txt&quot;], keyset = [&quot;wdl_data/file_list.3.keyset&quot;, &quot;wdl_data/file_list.4.keyset&quot;], eval_source = &quot;wdl_data/file_list.5.txt&quot;)
+model.fit(num_epochs = 1, display = 500, eval_interval = 1000)
+# Get the updated embedding features in model.fit()
+updated_model = model.get_incremental_model()
+model.save_params_to_files(&quot;wdl_etc&quot;)
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+Writing wdl_train.py
+</pre></div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[2]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>!python3 wdl_train.py
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+[HUGECTR][12:36:58][INFO][RANK0]: Empty embedding, trained table will be stored in ./wdl_0_sparse_model
+[HUGECTR][12:36:58][INFO][RANK0]: Empty embedding, trained table will be stored in ./wdl_1_sparse_model
+HugeCTR Version: 3.2
+====================================================Model Init=====================================================
+[HUGECTR][12:36:58][INFO][RANK0]: Global seed is 3664540043
+[HUGECTR][12:36:58][INFO][RANK0]: Device to NUMA mapping:
+  GPU 0 -&gt;  node 0
+
+[HUGECTR][12:36:59][WARNING][RANK0]: Peer-to-peer access cannot be fully enabled.
+[HUGECTR][12:36:59][INFO][RANK0]: Start all2all warmup
+[HUGECTR][12:36:59][INFO][RANK0]: End all2all warmup
+[HUGECTR][12:36:59][INFO][RANK0]: Using All-reduce algorithm: NCCL
+[HUGECTR][12:36:59][INFO][RANK0]: Device 0: Tesla V100-SXM2-32GB
+[HUGECTR][12:36:59][INFO][RANK0]: num of DataReader workers: 12
+[HUGECTR][12:36:59][INFO][RANK0]: max_vocabulary_size_per_gpu_=6029312
+[HUGECTR][12:36:59][INFO][RANK0]: max_vocabulary_size_per_gpu_=5865472
+[HUGECTR][12:36:59][INFO][RANK0]: Graph analysis to resolve tensor dependency
+===================================================Model Compile===================================================
+[HUGECTR][12:37:03][INFO][RANK0]: gpu0 start to init embedding
+[HUGECTR][12:37:03][INFO][RANK0]: gpu0 init embedding done
+[HUGECTR][12:37:03][INFO][RANK0]: gpu0 start to init embedding
+[HUGECTR][12:37:03][INFO][RANK0]: gpu0 init embedding done
+[HUGECTR][12:37:03][INFO][RANK0]: Enable HMEM-Based Parameter Server
+[HUGECTR][12:37:03][INFO][RANK0]: ./wdl_0_sparse_model not exist, create and train from scratch
+[HUGECTR][12:37:03][INFO][RANK0]: Enable HMemCache-Based Parameter Server
+[HUGECTR][12:37:03][INFO][RANK0]: ./wdl_1_sparse_model/key doesn&#39;t exist, created
+[HUGECTR][12:37:03][INFO][RANK0]: ./wdl_1_sparse_model/emb_vector doesn&#39;t exist, created
+[HUGECTR][12:37:03][INFO][RANK0]: ./wdl_1_sparse_model/Adam.m doesn&#39;t exist, created
+[HUGECTR][12:37:03][INFO][RANK0]: ./wdl_1_sparse_model/Adam.v doesn&#39;t exist, created
+[HUGECTR][12:37:04][INFO][RANK0]: Starting AUC NCCL warm-up
+[HUGECTR][12:37:04][INFO][RANK0]: Warm-up done
+===================================================Model Summary===================================================
+label                                   Dense                         Sparse
+label                                   dense                          wide_data,deep_data
+(None, 1)                               (None, 13)
+------------------------------------------------------------------------------------------------------------------
+Layer Type                              Input Name                    Output Name                   Output Shape
+------------------------------------------------------------------------------------------------------------------
+DistributedSlotSparseEmbeddingHash      wide_data                     sparse_embedding2             (None, 1, 1)
+DistributedSlotSparseEmbeddingHash      deep_data                     sparse_embedding1             (None, 26, 16)
+Reshape                                 sparse_embedding1             reshape1                      (None, 416)
+Reshape                                 sparse_embedding2             reshape2                      (None, 1)
+Concat                                  reshape1,dense                concat1                       (None, 429)
+InnerProduct                            concat1                       fc1                           (None, 1024)
+ReLU                                    fc1                           relu1                         (None, 1024)
+Dropout                                 relu1                         dropout1                      (None, 1024)
+InnerProduct                            dropout1                      fc2                           (None, 1024)
+ReLU                                    fc2                           relu2                         (None, 1024)
+Dropout                                 relu2                         dropout2                      (None, 1024)
+InnerProduct                            dropout2                      fc3                           (None, 1)
+Add                                     fc3,reshape2                  add1                          (None, 1)
+BinaryCrossEntropyLoss                  add1,label                    loss
+------------------------------------------------------------------------------------------------------------------
+[HUGECTR][12:37:04][INFO][RANK0]: Save the model graph to wdl.json successfully
+=====================================================Model Fit=====================================================
+[HUGECTR][12:37:04][INFO][RANK0]: Use embedding training cache mode with number of training sources: 2, number of epochs: 1
+[HUGECTR][12:37:04][INFO][RANK0]: Training batchsize: 1024, evaluation batchsize: 1024
+[HUGECTR][12:37:04][INFO][RANK0]: Evaluation interval: 1000, snapshot interval: 10000
+[HUGECTR][12:37:04][INFO][RANK0]: Sparse embedding trainable: True, dense network trainable: True
+[HUGECTR][12:37:04][INFO][RANK0]: Use mixed precision: False, scaler: 1.000000, use cuda graph: True
+[HUGECTR][12:37:04][INFO][RANK0]: lr: 0.001000, warmup_steps: 1, decay_start: 0, decay_steps: 1, decay_power: 2.000000, end_lr: 0.000000
+[HUGECTR][12:37:04][INFO][RANK0]: Evaluation source file: wdl_data/file_list.2.txt
+[HUGECTR][12:37:04][INFO][RANK0]: --------------------Epoch 0, source file: wdl_data/file_list.0.txt--------------------
+[HUGECTR][12:37:04][INFO][RANK0]: Preparing embedding table for next pass
+[HUGECTR][12:37:05][INFO][RANK0]: HMEM-Cache PS: Hit rate [load]: 0 %
+[HUGECTR][12:37:07][INFO][RANK0]: Iter: 500 Time(500 iters): 2.959942s Loss: 0.140601 lr:0.001000
+[HUGECTR][12:37:10][INFO][RANK0]: Iter: 1000 Time(500 iters): 2.687422s Loss: 0.127723 lr:0.001000
+[HUGECTR][12:37:15][INFO][RANK0]: Evaluation, AUC: 0.738460
+[HUGECTR][12:37:15][INFO][RANK0]: Eval Time for 5000 iters: 4.757926s
+[HUGECTR][12:37:17][INFO][RANK0]: Iter: 1500 Time(500 iters): 7.310160s Loss: 0.152160 lr:0.001000
+[HUGECTR][12:37:20][INFO][RANK0]: Iter: 2000 Time(500 iters): 2.613197s Loss: 0.124371 lr:0.001000
+[HUGECTR][12:37:22][INFO][RANK0]: Evaluation, AUC: 0.745345
+[HUGECTR][12:37:22][INFO][RANK0]: Eval Time for 5000 iters: 1.907179s
+[HUGECTR][12:37:24][INFO][RANK0]: Iter: 2500 Time(500 iters): 4.343850s Loss: 0.134511 lr:0.001000
+[HUGECTR][12:37:27][INFO][RANK0]: Iter: 3000 Time(500 iters): 2.505121s Loss: 0.119222 lr:0.001000
+[HUGECTR][12:37:28][INFO][RANK0]: Evaluation, AUC: 0.751256
+[HUGECTR][12:37:28][INFO][RANK0]: Eval Time for 5000 iters: 1.900262s
+[HUGECTR][12:37:31][INFO][RANK0]: Iter: 3500 Time(500 iters): 4.459760s Loss: 0.145278 lr:0.001000
+[HUGECTR][12:37:34][INFO][RANK0]: Iter: 4000 Time(500 iters): 2.544999s Loss: 0.134373 lr:0.001000
+[HUGECTR][12:37:35][INFO][RANK0]: Evaluation, AUC: 0.753270
+[HUGECTR][12:37:35][INFO][RANK0]: Eval Time for 5000 iters: 1.901368s
+[HUGECTR][12:37:35][INFO][RANK0]: --------------------Epoch 0, source file: wdl_data/file_list.1.txt--------------------
+[HUGECTR][12:37:35][INFO][RANK0]: Preparing embedding table for next pass
+[HUGECTR][12:37:37][INFO][RANK0]: HMEM-Cache PS: Hit rate [dump]: 0 %
+[HUGECTR][12:37:37][INFO][RANK0]: HMEM-Cache PS: Hit rate [load]: 0 %
+[HUGECTR][12:37:40][INFO][RANK0]: Iter: 4500 Time(500 iters): 6.212693s Loss: 0.131819 lr:0.001000
+[HUGECTR][12:37:42][INFO][RANK0]: Iter: 5000 Time(500 iters): 2.660587s Loss: 0.117531 lr:0.001000
+[HUGECTR][12:37:44][INFO][RANK0]: Evaluation, AUC: 0.754530
+[HUGECTR][12:37:44][INFO][RANK0]: Eval Time for 5000 iters: 1.897969s
+[HUGECTR][12:37:47][INFO][RANK0]: Iter: 5500 Time(500 iters): 4.340803s Loss: 0.118400 lr:0.001000
+[HUGECTR][12:37:49][INFO][RANK0]: Iter: 6000 Time(500 iters): 2.497391s Loss: 0.143188 lr:0.001000
+[HUGECTR][12:37:51][INFO][RANK0]: Evaluation, AUC: 0.755805
+[HUGECTR][12:37:51][INFO][RANK0]: Eval Time for 5000 iters: 1.904572s
+[HUGECTR][12:37:54][INFO][RANK0]: Iter: 6500 Time(500 iters): 4.332877s Loss: 0.159262 lr:0.001000
+[HUGECTR][12:37:56][INFO][RANK0]: Iter: 7000 Time(500 iters): 2.426105s Loss: 0.119848 lr:0.001000
+[HUGECTR][12:37:58][INFO][RANK0]: Evaluation, AUC: 0.757338
+[HUGECTR][12:37:58][INFO][RANK0]: Eval Time for 5000 iters: 1.900609s
+[HUGECTR][12:38:00][INFO][RANK0]: Iter: 7500 Time(500 iters): 4.348594s Loss: 0.139543 lr:0.001000
+[HUGECTR][12:38:03][INFO][RANK0]: Iter: 8000 Time(500 iters): 2.424926s Loss: 0.109002 lr:0.001000
+[HUGECTR][12:38:05][INFO][RANK0]: Evaluation, AUC: 0.758067
+[HUGECTR][12:38:05][INFO][RANK0]: Eval Time for 5000 iters: 1.900712s
+=====================================================Model Fit=====================================================
+[HUGECTR][12:38:05][INFO][RANK0]: Use embedding training cache mode with number of training sources: 2, number of epochs: 1
+[HUGECTR][12:38:05][INFO][RANK0]: Training batchsize: 1024, evaluation batchsize: 1024
+[HUGECTR][12:38:05][INFO][RANK0]: Evaluation interval: 1000, snapshot interval: 10000
+[HUGECTR][12:38:05][INFO][RANK0]: Sparse embedding trainable: True, dense network trainable: True
+[HUGECTR][12:38:05][INFO][RANK0]: Use mixed precision: False, scaler: 1.000000, use cuda graph: True
+[HUGECTR][12:38:05][INFO][RANK0]: lr: 0.001000, warmup_steps: 1, decay_start: 0, decay_steps: 1, decay_power: 2.000000, end_lr: 0.000000
+[HUGECTR][12:38:05][INFO][RANK0]: Evaluation source file: wdl_data/file_list.5.txt
+[HUGECTR][12:38:05][INFO][RANK0]: --------------------Epoch 0, source file: wdl_data/file_list.3.txt--------------------
+[HUGECTR][12:38:05][INFO][RANK0]: Preparing embedding table for next pass
+[HUGECTR][12:38:06][INFO][RANK0]: HMEM-Cache PS: Hit rate [dump]: 77.89 %
+[HUGECTR][12:38:06][INFO][RANK0]: HMEM-Cache PS: Hit rate [load]: 71.22 %
+[HUGECTR][12:38:08][INFO][RANK0]: Iter: 500 Time(500 iters): 3.652928s Loss: 0.124229 lr:0.001000
+[HUGECTR][12:38:11][INFO][RANK0]: Iter: 1000 Time(500 iters): 2.455519s Loss: 0.142507 lr:0.001000
+[HUGECTR][12:38:13][INFO][RANK0]: Evaluation, AUC: 0.757185
+[HUGECTR][12:38:13][INFO][RANK0]: Eval Time for 5000 iters: 1.909209s
+[HUGECTR][12:38:15][INFO][RANK0]: Iter: 1500 Time(500 iters): 4.353392s Loss: 0.123939 lr:0.001000
+[HUGECTR][12:38:18][INFO][RANK0]: Iter: 2000 Time(500 iters): 2.522630s Loss: 0.130625 lr:0.001000
+[HUGECTR][12:38:21][INFO][RANK0]: Evaluation, AUC: 0.757897
+[HUGECTR][12:38:21][INFO][RANK0]: Eval Time for 5000 iters: 3.763415s
+[HUGECTR][12:38:24][INFO][RANK0]: Iter: 2500 Time(500 iters): 6.238394s Loss: 0.138125 lr:0.001000
+[HUGECTR][12:38:26][INFO][RANK0]: Iter: 3000 Time(500 iters): 2.429449s Loss: 0.126391 lr:0.001000
+[HUGECTR][12:38:28][INFO][RANK0]: Evaluation, AUC: 0.757794
+[HUGECTR][12:38:28][INFO][RANK0]: Eval Time for 5000 iters: 1.902641s
+[HUGECTR][12:38:31][INFO][RANK0]: Iter: 3500 Time(500 iters): 4.398343s Loss: 0.123047 lr:0.001000
+[HUGECTR][12:38:33][INFO][RANK0]: Iter: 4000 Time(500 iters): 2.420357s Loss: 0.142649 lr:0.001000
+[HUGECTR][12:38:35][INFO][RANK0]: Evaluation, AUC: 0.760467
+[HUGECTR][12:38:35][INFO][RANK0]: Eval Time for 5000 iters: 1.899759s
+[HUGECTR][12:38:35][INFO][RANK0]: --------------------Epoch 0, source file: wdl_data/file_list.4.txt--------------------
+[HUGECTR][12:38:35][INFO][RANK0]: Preparing embedding table for next pass
+[HUGECTR][12:38:37][INFO][RANK0]: HMEM-Cache PS: Hit rate [dump]: 64.88 %
+[HUGECTR][12:38:37][INFO][RANK0]: HMEM-Cache PS: Hit rate [load]: 67.35 %
+[HUGECTR][12:38:40][INFO][RANK0]: Iter: 4500 Time(500 iters): 6.318908s Loss: 0.165160 lr:0.001000
+[HUGECTR][12:38:42][INFO][RANK0]: Iter: 5000 Time(500 iters): 2.423369s Loss: 0.112445 lr:0.001000
+[HUGECTR][12:38:44][INFO][RANK0]: Evaluation, AUC: 0.759795
+[HUGECTR][12:38:44][INFO][RANK0]: Eval Time for 5000 iters: 1.902252s
+[HUGECTR][12:38:46][INFO][RANK0]: Iter: 5500 Time(500 iters): 4.329618s Loss: 0.150855 lr:0.001000
+[HUGECTR][12:38:49][INFO][RANK0]: Iter: 6000 Time(500 iters): 2.422831s Loss: 0.121576 lr:0.001000
+[HUGECTR][12:38:51][INFO][RANK0]: Evaluation, AUC: 0.760036
+[HUGECTR][12:38:51][INFO][RANK0]: Eval Time for 5000 iters: 1.896330s
+[HUGECTR][12:38:53][INFO][RANK0]: Iter: 6500 Time(500 iters): 4.352440s Loss: 0.131191 lr:0.001000
+[HUGECTR][12:38:56][INFO][RANK0]: Iter: 7000 Time(500 iters): 2.426486s Loss: 0.130866 lr:0.001000
+[HUGECTR][12:38:57][INFO][RANK0]: Evaluation, AUC: 0.761125
+[HUGECTR][12:38:57][INFO][RANK0]: Eval Time for 5000 iters: 1.910397s
+[HUGECTR][12:39:00][INFO][RANK0]: Iter: 7500 Time(500 iters): 4.364026s Loss: 0.096611 lr:0.001000
+[HUGECTR][12:39:03][INFO][RANK0]: Iter: 8000 Time(500 iters): 2.664058s Loss: 0.142381 lr:0.001000
+[HUGECTR][12:39:05][INFO][RANK0]: Evaluation, AUC: 0.762636
+[HUGECTR][12:39:05][INFO][RANK0]: Eval Time for 5000 iters: 1.975668s
+[HUGECTR][12:39:06][INFO][RANK0]: HMEM-Cache PS: Hit rate [dump]: 64.82 %
+[HUGECTR][12:39:07][INFO][RANK0]: HMEM-Cache PS: Hit rate [load]: 57.86 %
+[HUGECTR][12:39:07][INFO][RANK0]: Get updated portion of embedding table [DONE}
+[HUGECTR][12:39:08][INFO][RANK0]: HMEM-Cache PS: Hit rate [dump]: 64.82 %
+[HUGECTR][12:39:08][INFO][RANK0]: Updating sparse model in SSD [DONE]
+[HUGECTR][12:39:10][INFO][RANK0]: Sync blocks from HMEM-Cache to SSD
+ <span style="color: rgb(89,255,89)"> ████████████████████████████████████████▏ </span><span class="ansi-red-intense-fg ansi-bold">100.0% </span><span class="ansi-blue-intense-fg ansi-bold">[   2/   2 | 66.7 Hz | 0s&lt;0s]  </span>m
+[HUGECTR][12:39:10][INFO][RANK0]: Dumping dense weights to file, successful
+[HUGECTR][12:39:10][INFO][RANK0]: Dumping dense optimizer states to file, successful
+[HUGECTR][12:39:10][INFO][RANK0]: Dumping untrainable weights to file, successful
+</pre></div></div>
+</div>
+</div>
+<div class="section" id="2.3-Continuous-Training-with-Low-level-API">
+<h3>2.3 Continuous Training with Low-level API<a class="headerlink" href="#2.3-Continuous-Training-with-Low-level-API" title="Permalink to this headline"></a></h3>
+<p>This section gives the code sample of continuous training using low-level API, which follows the same logics as the code sample in above section.</p>
+<p>Although the low-level APIs provide fine-grind control to the training logic, we encourage you to use the high-level API if it can satisfy your requirement since the naked data reader and embedding training cache logics are not straightforward and error prone.</p>
+<p>For more about the low-level API, please refer to <a class="reference external" href="../docs/python_interface.md#low-level-training-api">Low-level Training API</a> and samples of <a class="reference internal" href="hugectr_criteo.html"><span class="doc">Low-level Training</span></a>.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[3]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>%%writefile wdl_etc.py
+import hugectr
+from mpi4py import MPI
+solver = hugectr.CreateSolver(max_eval_batches = 5000,
+                              batchsize_eval = 1024,
+                              batchsize = 1024,
+                              vvgpu = [[0]],
+                              i64_input_key = False,
+                              use_mixed_precision = False,
+                              repeat_dataset = False,
+                              use_cuda_graph = True)
+reader = hugectr.DataReaderParams(data_reader_type = hugectr.DataReaderType_t.Norm,
+                          source = [&quot;wdl_data/file_list.&quot;+str(i)+&quot;.txt&quot; for i in range(2)],
+                          keyset = [&quot;wdl_data/file_list.&quot;+str(i)+&quot;.keyset&quot; for i in range(2)],
+                          eval_source = &quot;wdl_data/file_list.2.txt&quot;,
+                          check_type = hugectr.Check_t.Sum)
+optimizer = hugectr.CreateOptimizer(optimizer_type = hugectr.Optimizer_t.Adam)
+hc_cnfg = hugectr.CreateHMemCache(num_blocks = 2, target_hit_rate = 0.5, max_num_evict = 0)
+etc = hugectr.CreateETC(ps_types = [hugectr.TrainPSType_t.Staged, hugectr.TrainPSType_t.Cached],
+                        sparse_models = [&quot;./wdl_0_sparse_model&quot;, &quot;./wdl_1_sparse_model&quot;],
+                        local_paths = [&quot;./&quot;], hmem_cache_configs = [hc_cnfg])
+model = hugectr.Model(solver, reader, optimizer, etc)
+model.construct_from_json(graph_config_file = &quot;wdl.json&quot;, include_dense_network = True)
+model.compile()
+lr_sch = model.get_learning_rate_scheduler()
+data_reader_train = model.get_data_reader_train()
+data_reader_eval = model.get_data_reader_eval()
+etc = model.get_embedding_training_cache()
+dataset = [(&quot;wdl_data/file_list.&quot;+str(i)+&quot;.txt&quot;, &quot;wdl_data/file_list.&quot;+str(i)+&quot;.keyset&quot;) for i in range(2)]
+data_reader_eval.set_source(&quot;wdl_data/file_list.2.txt&quot;)
+data_reader_eval_flag = True
+iteration = 0
+for file_list, keyset_file in dataset:
+  data_reader_train.set_source(file_list)
+  data_reader_train_flag = True
+  etc.update(keyset_file)
+  while True:
+    lr = lr_sch.get_next()
+    model.set_learning_rate(lr)
+    data_reader_train_flag = model.train()
+    if not data_reader_train_flag:
+      break
+    if iteration % 1000 == 0:
+      batches = 0
+      while data_reader_eval_flag:
+        if batches &gt;= solver.max_eval_batches:
+          break
+        data_reader_eval_flag = model.eval()
+        batches += 1
+      if not data_reader_eval_flag:
+        data_reader_eval.set_source()
+        data_reader_eval_flag = True
+      metrics = model.get_eval_metrics()
+      print(&quot;[HUGECTR][INFO] iter: {}, metrics: {}&quot;.format(iteration, metrics))
+    iteration += 1
+  print(&quot;[HUGECTR][INFO] trained with data in {}&quot;.format(file_list))
+
+dataset = [(&quot;wdl_data/file_list.&quot;+str(i)+&quot;.txt&quot;, &quot;wdl_data/file_list.&quot;+str(i)+&quot;.keyset&quot;) for i in range(3, 5)]
+for file_list, keyset_file in dataset:
+  data_reader_train.set_source(file_list)
+  data_reader_train_flag = True
+  etc.update(keyset_file)
+  while True:
+    lr = lr_sch.get_next()
+    model.set_learning_rate(lr)
+    data_reader_train_flag = model.train()
+    if not data_reader_train_flag:
+      break
+    if iteration % 1000 == 0:
+      batches = 0
+      while data_reader_eval_flag:
+        if batches &gt;= solver.max_eval_batches:
+          break
+        data_reader_eval_flag = model.eval()
+        batches += 1
+      if not data_reader_eval_flag:
+        data_reader_eval.set_source()
+        data_reader_eval_flag = True
+      metrics = model.get_eval_metrics()
+      print(&quot;[HUGECTR][INFO] iter: {}, metrics: {}&quot;.format(iteration, metrics))
+    iteration += 1
+  print(&quot;[HUGECTR][INFO] trained with data in {}&quot;.format(file_list))
+incremental_model = model.get_incremental_model()
+model.save_params_to_files(&quot;wdl_etc&quot;)
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+Writing wdl_etc.py
+</pre></div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[4]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>!python3 wdl_etc.py
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+[HUGECTR][12:39:44][INFO][RANK0]: Empty embedding, trained table will be stored in ./wdl_0_sparse_model
+[HUGECTR][12:39:44][INFO][RANK0]: Empty embedding, trained table will be stored in ./wdl_1_sparse_model
+HugeCTR Version: 3.2
+====================================================Model Init=====================================================
+[HUGECTR][12:39:44][INFO][RANK0]: Global seed is 3498697826
+[HUGECTR][12:39:44][INFO][RANK0]: Device to NUMA mapping:
+  GPU 0 -&gt;  node 0
+
+[HUGECTR][12:39:45][WARNING][RANK0]: Peer-to-peer access cannot be fully enabled.
+[HUGECTR][12:39:45][INFO][RANK0]: Start all2all warmup
+[HUGECTR][12:39:45][INFO][RANK0]: End all2all warmup
+[HUGECTR][12:39:45][INFO][RANK0]: Using All-reduce algorithm: NCCL
+[HUGECTR][12:39:45][INFO][RANK0]: Device 0: Tesla V100-SXM2-32GB
+[HUGECTR][12:39:45][INFO][RANK0]: num of DataReader workers: 12
+[HUGECTR][12:39:45][INFO][RANK0]: max_num_frequent_categories is not specified using default: 1
+[HUGECTR][12:39:45][INFO][RANK0]: max_num_infrequent_samples is not specified using default: -1
+[HUGECTR][12:39:45][INFO][RANK0]: p_dup_max is not specified using default: 0.010000
+[HUGECTR][12:39:45][INFO][RANK0]: max_all_reduce_bandwidth is not specified using default: 130000000000.000000
+[HUGECTR][12:39:45][INFO][RANK0]: max_all_to_all_bandwidth is not specified using default: 190000000000.000000
+[HUGECTR][12:39:45][INFO][RANK0]: efficiency_bandwidth_ratio is not specified using default: 1.000000
+[HUGECTR][12:39:45][INFO][RANK0]: communication_type is not specified using default: IB_NVLink
+[HUGECTR][12:39:45][INFO][RANK0]: hybrid_embedding_type is not specified using default: Distributed
+[HUGECTR][12:39:45][INFO][RANK0]: max_vocabulary_size_per_gpu_=6029312
+[HUGECTR][12:39:45][INFO][RANK0]: max_num_frequent_categories is not specified using default: 1
+[HUGECTR][12:39:45][INFO][RANK0]: max_num_infrequent_samples is not specified using default: -1
+[HUGECTR][12:39:45][INFO][RANK0]: p_dup_max is not specified using default: 0.010000
+[HUGECTR][12:39:45][INFO][RANK0]: max_all_reduce_bandwidth is not specified using default: 130000000000.000000
+[HUGECTR][12:39:45][INFO][RANK0]: max_all_to_all_bandwidth is not specified using default: 190000000000.000000
+[HUGECTR][12:39:45][INFO][RANK0]: efficiency_bandwidth_ratio is not specified using default: 1.000000
+[HUGECTR][12:39:45][INFO][RANK0]: communication_type is not specified using default: IB_NVLink
+[HUGECTR][12:39:45][INFO][RANK0]: hybrid_embedding_type is not specified using default: Distributed
+[HUGECTR][12:39:45][INFO][RANK0]: max_vocabulary_size_per_gpu_=5865472
+[HUGECTR][12:39:45][INFO][RANK0]: Load the model graph from wdl.json successfully
+[HUGECTR][12:39:45][INFO][RANK0]: Graph analysis to resolve tensor dependency
+===================================================Model Compile===================================================
+[HUGECTR][12:39:49][INFO][RANK0]: gpu0 start to init embedding
+[HUGECTR][12:39:49][INFO][RANK0]: gpu0 init embedding done
+[HUGECTR][12:39:49][INFO][RANK0]: gpu0 start to init embedding
+[HUGECTR][12:39:49][INFO][RANK0]: gpu0 init embedding done
+[HUGECTR][12:39:49][INFO][RANK0]: Enable HMEM-Based Parameter Server
+[HUGECTR][12:39:49][INFO][RANK0]: ./wdl_0_sparse_model not exist, create and train from scratch
+[HUGECTR][12:39:49][INFO][RANK0]: Enable HMemCache-Based Parameter Server
+[HUGECTR][12:39:49][INFO][RANK0]: ./wdl_1_sparse_model/key doesn&#39;t exist, created
+[HUGECTR][12:39:49][INFO][RANK0]: ./wdl_1_sparse_model/emb_vector doesn&#39;t exist, created
+[HUGECTR][12:39:49][INFO][RANK0]: ./wdl_1_sparse_model/Adam.m doesn&#39;t exist, created
+[HUGECTR][12:39:49][INFO][RANK0]: ./wdl_1_sparse_model/Adam.v doesn&#39;t exist, created
+[HUGECTR][12:39:50][INFO][RANK0]: Starting AUC NCCL warm-up
+[HUGECTR][12:39:50][INFO][RANK0]: Warm-up done
+[HUGECTR][12:39:50][INFO][RANK0]: Preparing embedding table for next pass
+[HUGECTR][12:39:50][INFO][RANK0]: HMEM-Cache PS: Hit rate [load]: 0 %
+[HUGECTR][INFO] iter: 0, metrics: [(&#39;AUC&#39;, 0.4865134358406067)]
+[HUGECTR][INFO] iter: 1000, metrics: [(&#39;AUC&#39;, 0.7405899167060852)]
+[HUGECTR][INFO] iter: 2000, metrics: [(&#39;AUC&#39;, 0.7468112707138062)]
+[HUGECTR][INFO] iter: 3000, metrics: [(&#39;AUC&#39;, 0.7530832290649414)]
+[HUGECTR][INFO] trained with data in wdl_data/file_list.0.txt
+[HUGECTR][12:40:28][INFO][RANK0]: Preparing embedding table for next pass
+[HUGECTR][12:40:30][INFO][RANK0]: HMEM-Cache PS: Hit rate [dump]: 0 %
+[HUGECTR][12:40:30][INFO][RANK0]: HMEM-Cache PS: Hit rate [load]: 0 %
+[HUGECTR][INFO] iter: 4000, metrics: [(&#39;AUC&#39;, 0.7554274201393127)]
+[HUGECTR][INFO] iter: 5000, metrics: [(&#39;AUC&#39;, 0.7563489079475403)]
+[HUGECTR][INFO] iter: 6000, metrics: [(&#39;AUC&#39;, 0.7577884197235107)]
+[HUGECTR][INFO] iter: 7000, metrics: [(&#39;AUC&#39;, 0.7599539160728455)]
+[HUGECTR][INFO] trained with data in wdl_data/file_list.1.txt
+[HUGECTR][12:41:08][INFO][RANK0]: Preparing embedding table for next pass
+[HUGECTR][12:41:09][INFO][RANK0]: HMEM-Cache PS: Hit rate [dump]: 77.89 %
+[HUGECTR][12:41:10][INFO][RANK0]: HMEM-Cache PS: Hit rate [load]: 71.22 %
+[HUGECTR][INFO] iter: 8000, metrics: [(&#39;AUC&#39;, 0.7602559328079224)]
+[HUGECTR][INFO] iter: 9000, metrics: [(&#39;AUC&#39;, 0.7596363425254822)]
+[HUGECTR][INFO] iter: 10000, metrics: [(&#39;AUC&#39;, 0.7619153261184692)]
+[HUGECTR][INFO] iter: 11000, metrics: [(&#39;AUC&#39;, 0.7607191801071167)]
+[HUGECTR][INFO] trained with data in wdl_data/file_list.3.txt
+[HUGECTR][12:41:48][INFO][RANK0]: Preparing embedding table for next pass
+[HUGECTR][12:41:50][INFO][RANK0]: HMEM-Cache PS: Hit rate [dump]: 64.88 %
+[HUGECTR][12:41:50][INFO][RANK0]: HMEM-Cache PS: Hit rate [load]: 67.35 %
+[HUGECTR][INFO] iter: 12000, metrics: [(&#39;AUC&#39;, 0.763184666633606)]
+[HUGECTR][INFO] iter: 13000, metrics: [(&#39;AUC&#39;, 0.7622747421264648)]
+[HUGECTR][INFO] iter: 14000, metrics: [(&#39;AUC&#39;, 0.7623080015182495)]
+[HUGECTR][INFO] iter: 15000, metrics: [(&#39;AUC&#39;, 0.7622851729393005)]
+[HUGECTR][INFO] trained with data in wdl_data/file_list.4.txt
+[HUGECTR][12:42:30][INFO][RANK0]: HMEM-Cache PS: Hit rate [dump]: 64.82 %
+[HUGECTR][12:42:31][INFO][RANK0]: HMEM-Cache PS: Hit rate [load]: 63.85 %
+[HUGECTR][12:42:31][INFO][RANK0]: Get updated portion of embedding table [DONE}
+[HUGECTR][12:42:32][INFO][RANK0]: HMEM-Cache PS: Hit rate [dump]: 64.82 %
+[HUGECTR][12:42:32][INFO][RANK0]: Updating sparse model in SSD [DONE]
+[HUGECTR][12:42:34][INFO][RANK0]: Sync blocks from HMEM-Cache to SSD
+ <span style="color: rgb(89,255,89)"> ████████████████████████████████████████▏ </span><span class="ansi-red-intense-fg ansi-bold">100.0% </span><span class="ansi-blue-intense-fg ansi-bold">[   2/   2 | 64.6 Hz | 0s&lt;0s]  </span>m
+[HUGECTR][12:42:34][INFO][RANK0]: Dumping dense weights to file, successful
+[HUGECTR][12:42:34][INFO][RANK0]: Dumping dense optimizer states to file, successful
+[HUGECTR][12:42:34][INFO][RANK0]: Dumping untrainable weights to file, successful
+</pre></div></div>
+</div>
+</div>
+</div>
+</div>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="hugectr2onnx_demo.html" class="btn btn-neutral float-left" title="HugeCTR to ONNX Converter" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="ecommerce-example.html" class="btn btn-neutral float-right" title="Merlin ETL, training and inference demo on the e-Commerce behavior data" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, NVIDIA.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    v: master
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="../../v3.5/index.html">v3.5</a></dd>
+    </dl>
+    <dl>
+      <dt>Branches</dt>
+      <dd><a href="continuous_training.html">master</a></dd>
+    </dl>
+  </div>
+</div><script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
