@@ -1,0 +1,15 @@
+# packages necessary to run tests and push PRs
+# assumes requirements for nvtabular logic are already installed
+
+# docs
+myst-parser==0.17.0
+markdown-it-py==1.1.0
+Sphinx==3.5.4
+jinja2<3.1
+markupsafe==2.0.1
+natsort==8.1.0
+sphinx_rtd_theme
+sphinx_markdown_tables
+sphinx-multiversion
+recommonmark>=0.6
+nbsphinx>=0.6

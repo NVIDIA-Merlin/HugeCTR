@@ -578,6 +578,8 @@ class GraphBuilder(object):
                                                     inputs=[layer_params.bottom_names[0], starts_name, ends_name, axes_name],
                                                     outputs=[tensor_name]))
         elif layer_type == "Softmax":
+            if len(layer_params.top_names) == 0:
+                layer_params.top_names.append("output")
             self.__nodes.append(helper.make_node(op_type = 'Softmax',
                                                 inputs=layer_params.bottom_names,
                                                 outputs=layer_params.top_names))        
@@ -658,6 +660,6 @@ class GraphBuilder(object):
         model_def.opset_import[0].version = op_version
         model_def.ir_version = ir_version
         onnx.checker.check_model(model_def)
-        print("The model is checked!")
+        print("[HUGECTR2ONNX][INFO]: The model is checked!")
         onnx.save(model_def, model_path)
-        print("The model is saved at {}".format(model_path))
+        print("[HUGECTR2ONNX][INFO]: The model is saved at {}".format(model_path))

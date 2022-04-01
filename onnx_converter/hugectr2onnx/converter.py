@@ -33,6 +33,7 @@ def convert(onnx_model_path, graph_config, dense_model, convert_embedding = Fals
     builder = GraphBuilder(convert_embedding)
     for _ in range(loader.layers):
         layer_params, weights_dict, dimensions = loader.load_layer()
+        print(f"[HUGECTR2ONNX][INFO]: Converting {layer_params.layer_type} layer to ONNX")
         builder.add_layer(layer_params, weights_dict, dimensions)
     builder.create_graph(graph_name)
     builder.save_model(onnx_model_path)

@@ -70,12 +70,19 @@ void save_graph_to_json(nlohmann::json& layer_config_array,
   assert(input_params.size() == 1);
   Input input_param = input_params[0];
 
-  // TODO - implement support for multi-label inputs
-  std::string label_name = input_param.labels.begin()->first;
-  int label_dim = input_param.labels.begin()->second;
+  std::vector<std::string> label_names;
+  std::vector<int> label_dims;
+  for (auto& label : input_param.labels_) {
+    label_names.emplace_back(label.first);
+    label_dims.emplace_back(label.second);
+  }
 
-  input_label_config["top"] = label_name;
-  input_label_config["label_dim"] = label_dim;
+  //  if (input_param.labels_.size() > 1) {
+  //    input_label_config["top"] = label_names[0];
+  //    input_label_config["label_dim"] = label_dims[0];
+  //  } else {
+  input_label_config["top"] = label_names[0];
+  input_label_config["label_dim"] = label_dims[0];
   input_dense_config["top"] = input_param.dense_name;
   input_dense_config["dense_dim"] = input_param.dense_dim;
   for (size_t i = 0; i < input_param.data_reader_sparse_param_array.size(); ++i) {
@@ -787,7 +794,7 @@ void Model::add_dense_layer_internal(
     std::map<std::string, Tensor2<float>>& loss_tensors,
     std::vector<std::unique_ptr<Layer>>& layers,
     std::map<std::string, std::unique_ptr<ILoss>>& losses, bool enable_cuda_graph,
-    bool async_mlp_wgrad, metrics::RawMetricMap* raw_metrics, int num_networks_in_global,
+    bool async_mlp_wgrad, metrics::MultiLossMetricMap* raw_metrics, int num_networks_in_global,
     const std::shared_ptr<GPUResource>& gpu_resource, bool use_mixed_precision,
     bool enable_tf32_compute, float scaler, bool use_algorithm_search,
     std::vector<Layer*>* top_layers, std::vector<Layer*>* bottom_layers, bool dlrm_bottom_mlp) {
@@ -845,7 +852,7 @@ void Model::add_dense_layer_internal(
       }
       Tensor2<float> label_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[1]);
       // create new loss tensor
-      auto name = input_output_info.output_names[0];
+      std::string name = dense_layer.bottom_names[1];
       Tensor2<float> new_loss_tensor;
       blobs_buff->reserve({1, 1}, &new_loss_tensor);
 
@@ -904,7 +911,7 @@ void Model::add_dense_layer_internal(
       }
       Tensor2<float> label_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[1]);
       // create new loss tensor
-      auto name = input_output_info.output_names[0];
+      std::string name = dense_layer.bottom_names[1];
       Tensor2<float> new_loss_tensor;
       blobs_buff->reserve({1, 1}, &new_loss_tensor);
 
@@ -1187,7 +1194,7 @@ void Model::add_dense_layer_internal(
       }
       Tensor2<float> label_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[1]);
       // create new loss tensor
-      auto name = input_output_info.output_names[0];
+      std::string name = dense_layer.bottom_names[1];
       Tensor2<float> new_loss_tensor;
       blobs_buff->reserve({1, 1}, &new_loss_tensor);
 
@@ -1564,9 +1571,16 @@ void Model::add_dense_layer_internal(
       }
     }
   } else if (raw_metrics) {
-    (*raw_metrics)[metrics::RawType::Loss] = loss_tensors.begin()->second.shrink();
-    (*raw_metrics)[metrics::RawType::Pred] = input_output_info.inputs[0];
-    (*raw_metrics)[metrics::RawType::Label] = input_output_info.inputs[1];
+    // Create new set of metrics and add to raw metrics map
+    std::string name = dense_layer.bottom_names[1];
+
+    Tensor2<float> lookup_loss_tensor = loss_tensors.find(name)->second;
+
+    metrics::RawMetricMap new_map;
+    new_map.insert(std::make_pair(metrics::RawType::Loss, lookup_loss_tensor.shrink()));
+    new_map.insert(std::make_pair(metrics::RawType::Pred, input_output_info.inputs[0]));
+    new_map.insert(std::make_pair(metrics::RawType::Label, input_output_info.inputs[1]));
+    (*raw_metrics).insert(std::make_pair(name, new_map));
   }
 }
 

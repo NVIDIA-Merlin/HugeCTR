@@ -1,42 +1,13 @@
-# HugeCTR Layer Book
+# HugeCTR Layer Classes and Methods
 
-This document introduces different layer classes and corresponding methods in the Python API of HugeCTR. The description of each method includes its functionaliy, arguments, and examples of usage.
+This document introduces different layer classes and corresponding methods in the Python API of HugeCTR. The description of each method includes its functionality, arguments, and examples of usage.
 
-## Table of Contents
+## Input Layer
 
-* [Input Layer](#input-layer)
-* [Sparse Embedding](#sparse-embedding)
-* [Embedding Types Detail](#embedding-types-detail)
-  * [DistributedSlotSparseEmbeddingHash Layer](#distributedslotsparseembeddinghash-layer)
-  * [LocalizedSlotSparseEmbeddingHash Layer](#localizedslotsparseembeddinghash-layer)
-  * [LocalizedSlotSparseEmbeddingOneHot Layer](#localizedslotsparseembeddingonehot-layer)
-* [Dense Layers](#dense-layers)
-* [Dense Layers Usage](#dense-layers-usage)
-  * [FullyConnected Layer](#fullyconnected-layer)
-  * [FusedFullyConnected Layer](#fusedfullyconnected-layer)
-  * [MultiCross Layer](#multicross-layer)
-  * [FmOrder2 Layer](#fmorder2-layer)
-  * [WeightMultiply Layer](#weightmultiply-layer)
-  * [ElementwiseMultiply Layer](#elementwisemultiply-layer)
-  * [BatchNorm Layer](#batchnorm-layer)
-  * [Concat Layer](#concat-layer)
-  * [Reshape Layer](#reshape-layer)
-  * [Slice Layer](#slice-layer)
-  * [Dropout Layer](#dropout-layer)
-  * [ELU Layer](#elu-layer)
-  * [ReLU Layer](#relu-layer)
-  * [Sigmoid Layer](#sigmoid-layer)
-  * [Interaction Layer](#interaction-layer)
-  * [Add Layer](#add-layer)
-  * [ReduceSum Layer](#reducesum-layer)
-  * [BinaryCrossEntropyLoss](#binarycrossentropyloss)
-  * [CrossEntropyLoss](#crossentropyloss)
-  * [MultiCrossEntropyLoss](#multicrossentropyloss)
-
-## Input Layer ##
 ```python
 hugectr.Input()
 ```
+
 `Input` layer specifies the parameters related to the data input. `Input` layer should be added to the Model instance first so that the following `SparseEmbedding` and `DenseLayer` instances can access the inputs with their specified names.
 
 **Arguments**
@@ -48,39 +19,42 @@ hugectr.Input()
 
 * `dense_name`: Integer, the name of the dense input tensor to be referenced by following layers. There is NO default value and it should be specified by users.
 
-* `data_reader_sparse_param_array`: List[hugectr.DataReaderSparseParam], the list of the sparse parameters for categorical inputs. Each `DataReaderSparseParam` instance should be constructed with  `sparse_name`, `nnz_per_slot`, `is_fixed_length` and `slot_num`. 
-  * `sparse_name` is the name of the sparse input tensors to be referenced by following layers. There is NO default value and it should be specified by users. 
-  * `nnz_per_slot` is the maximum number of features for each slot for the specified spare input. The `nnz_per_slot` can be an `int` which means average nnz per slot so the maximum number of features per sample should be `nnz_per_slot * slot_num`. Or you can use List[int] to initialize `nnz_per_slot`, then the maximum number of features per sample should be `sum(nnz_per_slot)` and in this case, the length of the array `nnz_per_slot` should be the same with `slot_num`. 
-  * `is_fixed_length` is used to identify whether categorical inputs has the same length for each slot among all samples. If different samples have the same number of features for each slot, then user can set `is_fixed_length = True` and HugeCTR can use this information to reduce data transferring time. 
+* `data_reader_sparse_param_array`: List[hugectr.DataReaderSparseParam], the list of the sparse parameters for categorical inputs. Each `DataReaderSparseParam` instance should be constructed with  `sparse_name`, `nnz_per_slot`, `is_fixed_length` and `slot_num`.
+  * `sparse_name` is the name of the sparse input tensors to be referenced by following layers. There is NO default value and it should be specified by users.
+  * `nnz_per_slot` is the maximum number of features for each slot for the specified spare input. The `nnz_per_slot` can be an `int` which means average nnz per slot so the maximum number of features per sample should be `nnz_per_slot * slot_num`. Or you can use List[int] to initialize `nnz_per_slot`, then the maximum number of features per sample should be `sum(nnz_per_slot)` and in this case, the length of the array `nnz_per_slot` should be the same with `slot_num`.
+  * `is_fixed_length` is used to identify whether categorical inputs has the same length for each slot among all samples. If different samples have the same number of features for each slot, then user can set `is_fixed_length = True` and HugeCTR can use this information to reduce data transferring time.
   * `slot_num` specifies the number of slots used for this sparse input in the dataset.
 
 **Example:**
 ```python
 model.add(hugectr.Input(label_dim = 1, label_name = "label",
                         dense_dim = 13, dense_name = "dense",
-                        data_reader_sparse_param_array = 
+                        data_reader_sparse_param_array =
                             [hugectr.DataReaderSparseParam("data1", 1, True, 26)]))
 ```
 
 ```python
 model.add(hugectr.Input(label_dim = 1, label_name = "label",
                         dense_dim = 13, dense_name = "dense",
-                        data_reader_sparse_param_array = 
+                        data_reader_sparse_param_array =
                             [hugectr.DataReaderSparseParam("wide_data", 2, True, 2),
                             hugectr.DataReaderSparseParam("deep_data", 2, True, 26)]))
 ```
 
-## Sparse Embedding ##
+## Sparse Embedding
+
 **SparseEmbedding class**
-```bash
+
+```python
 hugectr.SparseEmbedding()
 ```
+
 `SparseEmbedding` specifies the parameters related to the sparse embedding layer. One or several `SparseEmbedding` layers should be added to the Model instance after `Input` and before `DenseLayer`.
 
 **Arguments**
 * `embedding_type`: The embedding type to be used. The supported types include `hugectr.Embedding_t.DistributedSlotSparseEmbeddingHash`, `hugectr.Embedding_t.LocalizedSlotSparseEmbeddingHash` and `hugectr.Embedding_t.LocalizedSlotSparseEmbeddingOneHot`. There is NO default value and it should be specified by users. For detail about different embedding types, please refer to [Embedding Types Detail](./hugectr_layer_book.md#embedding-types-detail).
 
-* `workspace_size_per_gpu_in_mb`: Integer, the workspace memory size in megabyte per GPU. This workspace memory must be big enough to hold all the embedding vocabulary and its corresponding optimizer state used during the training and evaluation. There is NO default value and it should be specified by users. To understand how to set this value, please refer [QAList.md#24](./QAList.md#24.How-to-set-workspace_size_per_gpu_in_mb-and-slot_size_array-in-.json-file).
+* `workspace_size_per_gpu_in_mb`: Integer, the workspace memory size in megabyte per GPU. This workspace memory must be big enough to hold all the embedding vocabulary and its corresponding optimizer state used during the training and evaluation. There is NO default value and it should be specified by users. To understand how to set this value, please refer to [How to set workspace_size_per_gpu_in_mb and slot_size_array](/QAList.md#how-to-set-workspace-size-per-gpu-in-mb-and-slot-size-array).
 
 * `embedding_vec_size`: Integer, the embedding vector size. There is NO default value and it should be specified by users.
 
@@ -90,12 +64,13 @@ hugectr.SparseEmbedding()
 
 * `bottom_name`: String, the number of the bottom tensor to be consumed by this sparse embedding layer. Please note that it should be a predefined sparse input name. There is NO default value and it should be specified by users.
 
-* `slot_size_array`: List[int], the cardinality array of input features. It should be consistent with that of the sparse input. This parameter is used in `LocalizedSlotSparseEmbeddingHash` and `LocalizedSlotSparseEmbeddingOneHot`, which can help avoid wasting memory caused by imbalance vocabulary size. Please refer [How to set workspace_size_per_gpu_in_mb and slot_size_array in .json file](./QAList.md#24.How-to-set-workspace_size_per_gpu_in_mb-and-slot_size_array-in-.json-file). There is NO default value and it should be specified by users.
+* `slot_size_array`: List[int], the cardinality array of input features. It should be consistent with that of the sparse input. This parameter is used in `LocalizedSlotSparseEmbeddingHash` and `LocalizedSlotSparseEmbeddingOneHot`, which can help avoid wasting memory caused by imbalance vocabulary size. Please refer [How to set workspace_size_per_gpu_in_mb and slot_size_array](/QAList.md#how-to-set-workspace-size-per-gpu-in-mb-and-slot-size-array). There is NO default value and it should be specified by users.
 
-* `optimizer`: OptParamsPy, the optimizer dedicated to this sparse embedding layer. If the user does not specify the optimizer for the sparse embedding, it will adopt the same optimizer as dense layers. 
+* `optimizer`: OptParamsPy, the optimizer dedicated to this sparse embedding layer. If the user does not specify the optimizer for the sparse embedding, it will adopt the same optimizer as dense layers.
 
-## Embedding Types Detail ##
-### DistributedSlotSparseEmbeddingHash Layer ###
+## Embedding Types Detail
+### DistributedSlotSparseEmbeddingHash Layer
+
 The `DistributedSlotSparseEmbeddingHash` stores embeddings in an embedding table and gets them by using a set of integers or indices. The embedding table can be segmented into multiple slots or feature fields, which spans multiple GPUs and nodes. With `DistributedSlotSparseEmbeddingHash`, each GPU will have a portion of a slot. This type of embedding is useful when there's an existing load imbalance among slots and OOM issues.
 
 **Important Notes**:
@@ -107,7 +82,7 @@ All the embedding vectors in a single embedding layer must have the same size. I
 **Example:**
 ```python
 model.add(hugectr.SparseEmbedding(
-            embedding_type = hugectr.Embedding_t.DistributedSlotSparseEmbeddingHash, 
+            embedding_type = hugectr.Embedding_t.DistributedSlotSparseEmbeddingHash,
             workspace_size_per_gpu_in_mb = 23,
             embedding_vec_size = 1,
             combiner = 'sum',
@@ -117,6 +92,7 @@ model.add(hugectr.SparseEmbedding(
 ```
 
 ### LocalizedSlotSparseEmbeddingHash Layer
+
 The `LocalizedSlotSparseEmbeddingHash` layer to store embeddings in an embedding table and get them by using a set of integers or indices. The embedding table can be segmented into multiple slots or feature fields, which spans multiple GPUs and nodes. Unlike the DistributedSlotSparseEmbeddingHash layer, with this type of embedding layer, each individual slot is located in each GPU and not shared. This type of embedding layer provides the best scalability.
 
 **Important Notes**:
@@ -128,7 +104,7 @@ All the embedding vectors in a single embedding layer must have the same size. I
 Example:
 ```python
 model.add(hugectr.SparseEmbedding(
-            embedding_type = hugectr.Embedding_t.LocalizedSlotSparseEmbeddingHash, 
+            embedding_type = hugectr.Embedding_t.LocalizedSlotSparseEmbeddingHash,
             workspace_size_per_gpu_in_mb = 23,
             embedding_vec_size = 1,
             combiner = 'sum',
@@ -138,15 +114,16 @@ model.add(hugectr.SparseEmbedding(
 ```
 
 ### LocalizedSlotSparseEmbeddingOneHot Layer
+
 The LocalizedSlotSparseEmbeddingOneHot layer stores embeddings in an embedding table and gets them by using a set of integers or indices. The embedding table can be segmented into multiple slots or feature fields, which spans multiple GPUs and nodes. This is a performance-optimized version of LocalizedSlotSparseEmbeddingHash for the case where NVSwitch is available and inputs are one-hot categorical features.
 
-**Note**: LocalizedSlotSparseEmbeddingOneHot can only be used together with the Raw dataset format. Unlike other types of embeddings, LocalizedSlotSparseEmbeddingOneHot only supports single-node training and can be used only in a NVSwitch equipped system such as DGX-2 and DGX A100. 
-The input indices’ data type, `input_key_type`, is specified in the solver. By default, the 32-bit integer (I32) is used, but the 64-bit integer type (I64) is also allowed even if it is constrained by the dataset type. For additional information, see [Solver](#solver). 
+**Note**: LocalizedSlotSparseEmbeddingOneHot can only be used together with the Raw dataset format. Unlike other types of embeddings, LocalizedSlotSparseEmbeddingOneHot only supports single-node training and can be used only in a NVSwitch equipped system such as DGX-2 and DGX A100.
+The input indices’ data type, `input_key_type`, is specified in the solver. By default, the 32-bit integer (I32) is used, but the 64-bit integer type (I64) is also allowed even if it is constrained by the dataset type. For additional information, see [Solver](/api/python_interface.md#solver).
 
 Example:
 ```python
 model.add(hugectr.SparseEmbedding(
-            embedding_type = hugectr.Embedding_t.LocalizedSlotSparseEmbeddingOneHot, 
+            embedding_type = hugectr.Embedding_t.LocalizedSlotSparseEmbeddingOneHot,
             slot_size_array = [1221, 754, 8, 4, 12, 49, 2]
             embedding_vec_size = 128,
             combiner = 'sum',
@@ -155,11 +132,14 @@ model.add(hugectr.SparseEmbedding(
             optimizer = optimizer))
 ```
 
-## Dense Layers ##
+## Dense Layers
+
 **DenseLayer class**
-```bash
+
+```python
 hugectr.DenseLayer()
 ```
+
 `DenseLayer` specifies the parameters related to the dense layer or the loss function. HugeCTR currently supports multiple dense layers and loss functions. Please **NOTE** that the final sigmoid function is fused with the loss function to better utilize memory bandwidth.
 
 **Arguments**
@@ -171,7 +151,7 @@ hugectr.DenseLayer()
 
 * For details about the usage of each layer type and its parameters, please refer to [Dense Layers Usage](#dense-layers-usage).
 
-## Dense Layers Usage ##
+## Dense Layers Usage
 
 ### FullyConnected Layer
 The FullyConnected layer is a densely connected layer (or MLP layer). It is usually made of a `InnerProduct` layer and a `ReLU`.
@@ -199,6 +179,7 @@ model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.ReLU,
 ```
 
 ### FusedFullyConnected Layer
+
 The FusedFullyConnected layer fuses a common case where FullyConnectedLayer and ReLU are used together to save memory bandwidth.
 
 **Note**: This layer can only be used with Mixed Precision mode enabled.
@@ -220,6 +201,7 @@ model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.FusedInnerProduct,
 ```
 
 ### MultiCross Layer
+
 The MultiCross layer is a cross network where explicit feature crossing is applied across cross layers.
 
 **Note**: This layer doesn’t currently support Mixed Precision mode.
@@ -244,6 +226,7 @@ model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.MultiCross,
 ```
 
 ### FmOrder2 Layer
+
 TheFmOrder2 layer is the second-order factorization machine (FM), which models linear and pairwise interactions as dot products of latent vectors.
 
 Parameters:
@@ -264,6 +247,7 @@ model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.FmOrder2,
 ```
 
 ### WeightMultiply Layer
+
 The Multiply Layer maps input elements into a latent vector space by multiplying each feature with a corresponding weight vector.
 
 Parameters:
@@ -286,6 +270,7 @@ model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.WeightMultiply,
 ```
 
 ### ElementwiseMultiply Layer
+
 The ElementwiseMultiply Layer maps two inputs into a single resulting vector by performing an element-wise multiplication of the two inputs.
 
 Parameters: None
@@ -302,7 +287,8 @@ model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.ElementwiseMultiply,
                             top_names = ["eltmultiply1"])
 ```
 
-### BatchNorm Layer 
+### BatchNorm Layer
+
 The BatchNorm layer implements a cuDNN based batch normalization.
 
 Parameters:
@@ -357,6 +343,7 @@ In the JSON file, you can find the batch norm parameters as shown below:
 ```
 
 ### Concat Layer
+
 The Concat layer concatenates a list of inputs.
 
 Parameters: None
@@ -374,6 +361,7 @@ model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Concat,
 ```
 
 ### Reshape Layer
+
 The Reshape layer reshapes a 3D input tensor into 2D shape.
 
 Parameter:
@@ -386,7 +374,7 @@ Parameter:
 Input and Output Shapes:
 
 * input: (batch_size, n_slots, num_elems)
-* output: (tailing_dim, leading_dim) where tailing_dim is batch_size * n_slots * num_elems / leading_dim 
+* output: (tailing_dim, leading_dim) where tailing_dim is batch_size * n_slots * num_elems / leading_dim
 
 Example:
 ```python
@@ -397,6 +385,7 @@ model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Reshape,
 ```
 
 ### Slice Layer
+
 The Slice layer extracts multiple output tensors from a 2D input tensors.
 
 Parameter:
@@ -423,7 +412,7 @@ model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.WeightMultiply,
 model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.WeightMultiply,
                             bottom_names = ["slice22"],
                             top_names = ["weight_multiply2"],
-                            weight_dims= [3,1]))                       
+                            weight_dims= [3,1]))
 ```
 
 The Slice layer can also be employed to create copies of a tensor, which helps to express a branch topology in your model graph.
@@ -439,7 +428,7 @@ model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.WeightMultiply,
 model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.WeightMultiply,
                             bottom_names = ["slice22"],
                             top_names = ["weight_multiply2"],
-                            weight_dims= [13,1]))                       
+                            weight_dims= [13,1]))
 ```
 
 From HugeCTR v.3.3, the aforementioned, Slice layer based branching can be abstracted away. When the same tensor is referenced multiple times in constructing a model in Python, the HugeCTR parser can internally add a Slice layer to handle such a situation. Thus, the example below behaves as the same as the one above whilst simplifying the code.
@@ -451,10 +440,11 @@ model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.WeightMultiply,
 model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.WeightMultiply,
                             bottom_names = ["dense"],
                             top_names = ["weight_multiply2"],
-                            weight_dims= [13,1]))                       
+                            weight_dims= [13,1]))
 ```
 
 ### Dropout Layer
+
 The Dropout layer randomly zeroizes or drops some of the input elements.
 
 Parameter:
@@ -475,6 +465,7 @@ model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Dropout,
 ```
 
 ### ELU Layer
+
 The ELU layer represents the Exponential Linear Unit.
 
 Parameter:
@@ -495,6 +486,7 @@ model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.ELU,
 ```
 
 ### ReLU Layer
+
 The ReLU layer represents the Rectified Linear Unit.
 
 Input and Output Shapes:
@@ -510,6 +502,7 @@ model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.ReLU,
 ```
 
 ### Sigmoid Layer
+
 The Sigmoid layer represents the Sigmoid Unit.
 
 Input and Output Shapes:
@@ -526,6 +519,7 @@ model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Sigmoid,
 **Note**: The final sigmoid function is fused with the loss function to better utilize memory bandwidth, so do NOT add a Sigmoid layer before the loss layer.
 
 ### Interaction Layer
+
 The interaction layer is used to explicitly capture second-order interactions between features.
 
 Parameters: None
@@ -546,6 +540,7 @@ model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Interaction,
 There are optimizations that can be employed on the `Interaction` layer and the following `GroupFusedInnerProduct` layer during fp16 training. In this case, you should specify two output tensor names for the `Interaction` layer, and use them as the input tensors for the following `GroupFusedInnerProduct` layer. Please refer to the example of [GroupDenseLayer](python_interface.md#groupdenselayer) for the detailed usage.
 
 ### Add Layer
+
 The Add layer adds up an arbitrary number of tensors that have the same size in an element-wise manner.
 
 Parameters: None
@@ -563,6 +558,7 @@ model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Add,
 ```
 
 ### ReduceSum Layer
+
 The ReduceSum Layer sums up all the elements across a specified dimension.
 
 Parameter:
@@ -581,7 +577,8 @@ model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.ReduceSum,
                             top_names = ["reducesum1"],
                             axis=1))
 ```
-##### GRU Layer
+#### GRU Layer
+
 The GRU layer is Gated Recurrent Unit.
 
 Parameters:
@@ -609,7 +606,8 @@ model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.GRU,
                             vector_size=20))
 ```
 
-##### PReLUDice Layer
+#### PReLUDice Layer
+
 The PReLUDice layer represents the Parametric Rectified Linear Unit, which adaptively adjusts the rectified point according to distribution of input data.
 
 Parameters:
@@ -630,8 +628,9 @@ model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.PReLU_Dice,
                             elu_alpha=0.2, eps=1e-8))
 ```
 
-##### Scale Layer
-The Scale layer scales the input 2D tensor to specific size on the designate axis. 
+#### Scale Layer
+
+The Scale layer scales the input 2D tensor to specific size on the designate axis.
 
 Parameters:
 
@@ -651,7 +650,8 @@ model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Scale,
                             axis = 1, factor = 10))
 ```
 
-##### FusedReshapeConcat Layer
+#### FusedReshapeConcat Layer
+
 The FusedReshapeConcat layer cross combinate the input tensors and outputs item tensor, AD tensor.
 
 Parameters: None
@@ -668,7 +668,8 @@ model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.FusedReshapeConcat,
                             top_names = ["FusedReshapeConcat_item_his_em", "FusedReshapeConcat_item"]))
 ```
 
-##### FusedReshapeConcatGeneral Layer
+#### FusedReshapeConcatGeneral Layer
+
 The FusedReshapeConcatGeneral layer cross combinate the input tensors and outputs item tensor, AD tensor.
 
 Parameters: None
@@ -685,7 +686,8 @@ model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.FusedReshapeConcatGene
                             top_names = ["FusedReshapeConcat_item_his_em"]))
 ```
 
-##### Softmax Layer
+#### Softmax Layer
+
 The Softmax layer computes softmax activations.
 
 Parameter: None
@@ -702,8 +704,9 @@ model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Softmax,
                             top_names = ["softmax_i"]))
 ```
 
-##### Sub Layer
-Inputs: x tensor, y tensor in same size. 
+#### Sub Layer
+
+Inputs: x tensor, y tensor in same size.
 Produce x - y in element wise manner.
 
 Parameters: None
@@ -720,7 +723,8 @@ model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Sub,
                             top_names = ["sub_ih"]))
 ```
 
-##### ReduceMean Layer
+#### ReduceMean Layer
+
 The ReduceMean Layer computes the mean of elements across a specified dimension.
 
 Parameter:
@@ -740,7 +744,8 @@ model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.ReduceMean,
                             axis=1))
 ```
 
-##### MatrixMutiply Layer
+#### MatrixMutiply Layer
+
 The MatrixMutiply Layer is a binary operation that produces a matrix output from two matrix inputs by performing matrix mutiplication.
 
 Parameters: None
@@ -757,7 +762,8 @@ model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.MatrixMutiply,
                             top_names = ["MatrixMutiply1"])
 ```
 
-##### Gather Layer
+#### Gather Layer
+
 The Gather layer gather multiple output tensor slices from an input tensors on the last dimension.
 
 Parameter:
@@ -778,6 +784,7 @@ model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Gather,
 ```
 
 ### BinaryCrossEntropyLoss
+
 BinaryCrossEntropyLoss calculates loss from labels and predictions where each label is binary. The final sigmoid function is fused with the loss function to better utilize memory bandwidth.
 
 Parameter:
@@ -798,6 +805,7 @@ model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.BinaryCrossEntropyLoss
 ```
 
 ### CrossEntropyLoss
+
 CrossEntropyLoss calculates loss from labels and predictions between the forward propagation phases and backward propagation phases. It assumes that each label is two-dimensional.
 
 Parameter:
@@ -822,6 +830,7 @@ model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.CrossEntropyLoss,
 ```
 
 ### MultiCrossEntropyLoss
+
 MultiCrossEntropyLoss calculates loss from labels and predictions between the forward propagation phases and backward propagation phases. It allows labels in an arbitrary dimension, but all the labels must be in the same shape.
 
 Parameter:

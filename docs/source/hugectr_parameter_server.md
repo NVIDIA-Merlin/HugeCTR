@@ -1,20 +1,5 @@
 # HugeCTR Hierarchical Parameter Server
 
-## Table of Contents
-
-* [Introduction](#introduction)
-* [Background](#background)
-* [Architecture](#architecture)
-* [Training and Iterative Model Updates](#training-and-iterative-model-updates)
-* [Execution](#execution)
-  * [Inference](#inference)
-  * [Training](#training)
-  * [Lookup optimization](#lookup-optimization)
-* [Configuration](#configuration)
-  * [Volatile Database](#volatile-database)
-  * [Persistent Database](#persistent-database)
-  * [Real-time Update Source](#real-time-update-source)
-
 ## Introduction
 
 The hierarchical parameter server allows HugeCTR to use models with huge embedding tables by extending HugeCTRs storage space beyond the constraints of GPU memory through utilizing various memory resources across you cluster. Further, it grants the ability to permanently store embedding tables in a structured manner. For an end-to-end demo on how to use the hierarchical parameter server, please refer to [samples](https://github.com/triton-inference-server/hugectr_backend/tree/main/samples/hierarchical_deployment).
@@ -33,16 +18,16 @@ The parameter server acts as an intermediate layer between your GPU and non-vola
 
 As of version 3.3, the HugeCTR parameter server defines 3 storage layers.
 
-1. 
+1.
    The **CPU Memory Database** layer
    utilizes volatile CPU addressable RAM memory to cache embeddings. This database is created and maintained separately by each machine that runs HugeCTR in your cluster.
 
-2. 
+2.
    The **Distributed Database** layer allows utilizing Redis cluster deployments, to store and retrieve embeddings in/from the RAM memory available in your cluster. The HugeCTR distributed database layer is designed for compatibility with Redis [peristence features](https://redis.io/topics/persistence) such as [RDB](https://redis.io/topics/persistence) and [AOF](https://redis.io/topics/persistence) to allow seamless continued operation across device restart. This kind of databse is shared by all nodes that participate in the training / inference of a HugeCTR model.
-   
+
    *Remark: There exists and abundance of products that claim Redis compatibility. We cannot guarantee or make any statements regarding the suitabablity of these with our distributed database layer. However, we note that Redis alternatives are likely to be compatible with the Redis cluster dstributed database layer, as long as they are compatible with [hiredis](https://github.com/redis/hiredis). We would love to hear about your experiences. Please let us know if you successfully/unsuccessfully deployed such Redis alternatives as storage targets with HugeCTR.*
 
-3. 
+3.
    The **Persistent Database** layer links HugeCTR with a persistent database. Each node that has such a persistent storage layer configured retains a separate copy of all embeddings in its locally available non-volatile memory. This layer is best considered as a compliment to the distributed database to 1) further expand storage capabilities and 2) for high availability. Hence, if your model exceeds even the total RAM capacity of your entire cluster, or if - for whatever reason - the Redis cluster becomes unavailable, all nodes that have been configured with a persistent database will still be able to fully cater to inference requests, albeit likely with increased latency.
 
 In the following table, we provide an overview of the *typical* properties different parameter database layers (and the embedding cache). We emphasize that this table is just intended to provide a rough orientation. Properties of actual deployments may deviate.
@@ -60,7 +45,7 @@ In the following table, we provide an overview of the *typical* properties diffe
 
 ## Training and Iterative Model Updates
 
-Models deployed viat the HugeCTR parameter server allow streaming model parameter updates from external sources via [Apache Kafka](https://kafka.apache.org). This function allows zero-downtime online model re-training - for example using the HugeCTR model training system. 
+Models deployed viat the HugeCTR parameter server allow streaming model parameter updates from external sources via [Apache Kafka](https://kafka.apache.org). This function allows zero-downtime online model re-training - for example using the HugeCTR model training system.
 
 
 ## Execution
@@ -90,7 +75,7 @@ The HugeCTR parameter server and iterative update can be configured using 3 sepa
 
 If you deploy HugeCTR as a backend for [NVIDIA Triton Inference Server](https://developer.nvidia.com/nvidia-triton-inference-server), you can also provide these configuration options by extending your Triton deployment's JSON configuration:
 
-```json
+```text
 {
   // ...
   "volatile_db": {
@@ -129,7 +114,7 @@ params = hugectr.inference.VolatileDatabaseParams()
 params.type = hugectr.DatabaseType_t.<enum_value>
 ```
 **JSON:**
-```json
+```text
 "volatile_db": {
   "type": "<enum_value>"
   // ...
@@ -151,7 +136,7 @@ params.type = hugectr.DatabaseType_t.hash_map
 params.algorithm = hugectr.DatabaseHashMapAlgorithm_t.<enum_value>
 ```
 **JSON:**
-```json
+```text
 "volatile_db": {
   "type": "hash_map",
   "algorithm": "<enum_value>"
@@ -177,7 +162,7 @@ params.algorithm = hugectr.DatabaseHashMapAlgorithm_t.<enum_value>
 params.num_partitions = <integer_value>
 ```
 **JSON:**
-```json
+```text
 "volatile_db": {
   "type": "parallel_hash_map",
   "algorithm": "<enum_value>",
@@ -208,8 +193,8 @@ params.max_get_batch_size = <int_value>
 params.max_set_batch_size = <int_value>
 ```
 **JSON:**
-```json
-"volatile_db": { 
+```text
+"volatile_db": {
   "type": "redis_cluster",
   "address": "<host_name_or_ip_address:port_number>",
   "user_name":  "<login_user_name>",
@@ -239,7 +224,7 @@ params.overflow_policy = hugectr.DatabaseOverflowPolicy_t.<enum_value>
 params.overflow_resolution_target = <double_value>
 ```
 **JSON:**
-```json
+```text
 "volatile_db": {
   "overflow_margin": <integer_value>,
   "overflow_policy": "<overflow_policy>",
@@ -251,7 +236,7 @@ params.overflow_resolution_target = <double_value>
 `overflow_margin` denotes the maximum amount of embeddings that will be stored *per partition*. Inserting more than `overflow_margin` embeddings into the database will trigger the execution of the configured `overflow_policy`. Hence, `overflow_margin` upper-bounds the maximum amount of memory that your CPU memory database may occupy. Thumb rule: Larger `overflow_margin` will result higher hit rates, but also increased memory consumption. By **default**, the value of `overflow_margin` is set to `2^64 - 1` (*i.e.*, de-facto infinite). When using the CPU memory database in conjunction with a Persistent database, the idea value for `overflow_margin` may vary. In practice, a setting value to somewhere between `[1 million, 100 million]` tends deliver reliable performance and throughput.
 
 Currently the following values for `overflow_policy` are supported:
-* `evict_oldest` **(default)**: Prune embeddings starting from the oldest (i.e., least recently used) until the paratition contains at most `overflow_margin * overflow_resolution_target` embeddings. 
+* `evict_oldest` **(default)**: Prune embeddings starting from the oldest (i.e., least recently used) until the paratition contains at most `overflow_margin * overflow_resolution_target` embeddings.
 * `evict_random`: Prune embeddings random embeddings until the paratition contains at most `overflow_margin * overflow_resolution_target` embeddings.
 
 Unlike `evict_oldest`,  `evict_random` requires no comparison of time-stamps, and thus can be faster. However, `evict_oldest` is likely to deliver better performance over time because embeddings are evicted based on the frequency of their usage. For all eviction policies, `overflow_resolution_target` is expected to be in `]0, 1[` (*i.e.*, between `0` and `1`, but not exactly `0` or `1`). The default value of `overflow_resolution_target` is `0.8` (*i.e.*, the partition is shrunk to 80% of its maximum size, or in other words, when the partition size surpasses `overflow_margin` embeddings, 20% of the embeddings are evicted according to the respective `overflow_policy`).
@@ -264,7 +249,7 @@ Unlike `evict_oldest`,  `evict_random` requires no comparison of time-stamps, an
 params.initial_cache_rate = <double_value>
 ```
 **JSON:**
-```json
+```text
 "volatile_db": {
   "initial_cache_rate": <double_value>
   // ...
@@ -282,7 +267,7 @@ params.refresh_time_after_fetch = <True|False>
 ```
 ```
 **JSON:**
-```json
+```text
 "volatile_db": {
   "refresh_time_after_fetch": <true|false>
   // ...
@@ -299,7 +284,7 @@ Some algorithms to organize certain processes, such as the evication of embeddin
 params.cache_missed_embeddings = <True|False>
 ```
 **JSON:**
-```json
+```text
 "volatile_db": {
   "cache_missed_embeddings": <true|false>
   // ...
@@ -318,7 +303,7 @@ This feature will optimize the volatile database in response to the queries expe
 params.update_filters = [ "<filter 0>", "<filter 1>", ... ]
 ```
 **JSON:**
-```json
+```text
 "volatile_db": {
   "update_filters": [ "<filter 0>", "<filter 1>", /* ... */ ]
   // ...
@@ -347,14 +332,14 @@ params = hugectr.inference.PersistentDatabaseParams()
 params.type = hugectr.DatabaseType_t.<enum_value>
 ```
 **JSON:**
-```json
-"persistent_db": { 
+```text
+"persistent_db": {
   "type": "<enum_value>"
 }
 ```
 
 Where `<enum_value>` is either:
-* `disabled`: Do not use this kind of database  **(default)**. 
+* `disabled`: Do not use this kind of database  **(default)**.
 * `rocks_db`: Create or connect to a RocksDB database.
 
 
@@ -370,7 +355,7 @@ params.max_get_batch_size = <int_value>
 params.max_set_batch_size = <int_value>
 ```
 **JSON:**
-```json
+```text
 "persistent_db": {
   "type": "rocks_db",
   "path": "<file_system_path>",
@@ -397,7 +382,7 @@ If the flag `read_only` is set to `true`, the databse will be opened in *Read-On
 params.update_filters = [ "<filter 0>", "<filter 1>", ... ]
 ```
 **JSON:**
-```json
+```text
 "persistent_db": {
   "update_filters": [ "<filter 0>", "<filter 1>", /* ... */ ]
   // ...
@@ -406,8 +391,8 @@ params.update_filters = [ "<filter 0>", "<filter 1>", ... ]
 
 **[Behavior will likely change in future versions]** This setting allows you specify a series of filters, in to permit / deny passing certain model updates from Kafka to the CPU memory database backend. Filters take the form of regular expressions. The **default value** of this setting is `[ ".+" ]` (*i.e.*, process updates for all models, irrespective of their name).
 
-
 ### Real-time Update Source
+
 <a id="markdown-real-time-update-source" name="real-time-update-source"></a>
 
 The real-time update source is the origin for model updates during online retraining. To ensure that all database layers are kept in sync, it is advisable configure all nodes in your HugeCTR deployment identical.
@@ -424,14 +409,14 @@ params = hugectr.inference.UpdateSourceParams()
 params.type = hugectr.UpdateSourceType_t.<enum_value>
 ```
 **JSON:**
-```json
-"update_source": { 
+```text
+"update_source": {
    "type": "<enum_value>"
 }
 ```
 
 Where `<enum_value>` is either:
-* `null`: Do not use this kind of database  **(default)**. 
+* `null`: Do not use this kind of database  **(default)**.
 * `kafka_message_queue`: Connect to an axisting Apache Kafka message queue.
 
 
@@ -447,7 +432,7 @@ params.max_batch_size <int_value>
 params.failure_backoff_ms = <int_value>
 ```
 **JSON:**
-```json
+```text
 "update_source": {
   "type": "kafka_message_queue",
   "brokers": "host_name[:port][;host_name[:port]...]",

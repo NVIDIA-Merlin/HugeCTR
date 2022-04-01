@@ -126,9 +126,9 @@ void ModelPerfExt::add_dense_layer_internal(
     std::map<std::string, Tensor2<float>>& loss_tensors,
     std::vector<std::unique_ptr<Layer>>& layers,
     std::map<std::string, std::unique_ptr<ILoss>>& losses, bool enable_cuda_graph,
-    bool async_mlp_wgrad, metrics::RawMetricMap* raw_metrics, int num_networks_in_global,
-    const std::shared_ptr<GPUResource>& gpu_resource, bool use_mixed_precision,
-    bool enable_tf32_compute, float scaler, bool use_algorithm_search,
+    bool async_mlp_wgrad, std::map<std::string, metrics::RawMetricMap>* raw_metrics,
+    int num_networks_in_global, const std::shared_ptr<GPUResource>& gpu_resource,
+    bool use_mixed_precision, bool enable_tf32_compute, float scaler, bool use_algorithm_search,
     std::vector<Layer*>* top_layers, std::vector<Layer*>* bottom_layers, bool dlrm_bottom_mlp) {
   bool skip_dgrad = layers.size() == 0;
   Layer_t layer_type = dense_layer.layer_type;
@@ -877,9 +877,16 @@ void ModelPerfExt::add_dense_layer_internal(
       }
     }
   } else if (raw_metrics) {
-    (*raw_metrics)[metrics::RawType::Loss] = loss_tensors.begin()->second.shrink();
-    (*raw_metrics)[metrics::RawType::Pred] = input_output_info.inputs[0];
-    (*raw_metrics)[metrics::RawType::Label] = input_output_info.inputs[1];
+    // Create new set of metrics and add to raw metrics map
+    std::string name = dense_layer.bottom_names[1];
+
+    Tensor2<float> lookup_loss_tensor = loss_tensors.find(name)->second;
+
+    metrics::RawMetricMap new_map;
+    new_map.insert(std::make_pair(metrics::RawType::Loss, lookup_loss_tensor.shrink()));
+    new_map.insert(std::make_pair(metrics::RawType::Pred, input_output_info.inputs[0]));
+    new_map.insert(std::make_pair(metrics::RawType::Label, input_output_info.inputs[1]));
+    (*raw_metrics).insert(std::make_pair(name, new_map));
   }
 }
 

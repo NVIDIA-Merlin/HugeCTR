@@ -109,18 +109,27 @@ void Network::prop_layers(const std::vector<LPtr>& layers, GraphWrapper& graph, 
   graph.exec(stream);
 }
 
-// TODO - Update this method to run each regularizer and compute the conditional
-// weighted sum for each layer.  Then similarly compute the weighted sum of losses
+// TODO - Update this method for multi-regularzer to run each regularizer and compute the
+// conditional weighted sum for each layer.  Then similarly compute the weighted sum of losses
 // associated with each layer
 void Network::train(long long current_batchsize) {
   // forward
   if (use_mixed_precision_) {
     conv_weight_(train_weight_tensor_half_, train_weight_tensor_);
   }
+
   prop_layers(train_layers_, train_fprop_graph_, enable_cuda_graph_, true,
               gpu_resource_->get_stream());
-  train_losses_.begin()->second->compute(
-      true, current_batchsize);  // Temporarily until joint loss fully implemented
+
+  float rterm = train_losses_.begin()->second->regularizer_compute_rterm();
+
+  for (std::map<std::string, std::unique_ptr<ILoss>>::iterator iter = train_losses_.begin();
+       iter != train_losses_.end(); ++iter) {
+    iter->second->compute(true, current_batchsize, rterm);
+  }
+
+  train_losses_.begin()->second->regularizer_initialize_wgrad(true);  // Only 1 regularizer for now
+
   prop_layers(train_layers_, train_bprop_graph_, enable_cuda_graph_, false,
               gpu_resource_->get_stream());
   return;
@@ -143,7 +152,7 @@ TrainState Network::train(long long current_batchsize, std::function<void()> exc
     case TrainState_t::TopMLPFprop:
       prop_layers(top_layers_, train_fprop_graph_, enable_cuda_graph_, true, stream);
       if (lr_sched_->get_overlapped()) lr_sched_->update();
-      train_losses_.begin()->second->compute(true, current_batchsize);
+      train_losses_.begin()->second->compute_and_init(true, current_batchsize);
       break;
     case TrainState_t::TopMLPBprop:
       prop_layers(top_layers_, train_bprop_graph_, enable_cuda_graph_, false, stream);
@@ -172,7 +181,16 @@ TrainState Network::train(long long current_batchsize, std::function<void()> exc
 void Network::eval(long long current_batchsize) {
   prop_layers(evaluate_layers_, eval_graph_, enable_cuda_graph_, true, gpu_resource_->get_stream(),
               false);
-  evaluate_losses_.begin()->second->compute(false, current_batchsize);
+
+  float rterm = evaluate_losses_.begin()->second->regularizer_compute_rterm();
+
+  for (std::map<std::string, std::unique_ptr<ILoss>>::iterator iter = evaluate_losses_.begin();
+       iter != evaluate_losses_.end(); ++iter) {
+    iter->second->compute(false, current_batchsize, rterm);
+  }
+
+  evaluate_losses_.begin()->second->regularizer_initialize_wgrad(
+      false);  // Only 1 regularize for now
 }
 void Network::predict() {
   prop_layers(evaluate_layers_, predict_graph_, enable_cuda_graph_, true,
@@ -356,16 +374,30 @@ void Network::search_algorithm() {
 
 float Network::get_loss() {
   float loss_host = 0.f;
+  float* loss_temp = new float[train_loss_tensors_.size()];
+  size_t i = 0;
 
   CudaDeviceContext context(get_device_id());
-  HCTR_LIB_THROW(cudaMemcpyAsync(&loss_host, train_loss_tensors_.begin()->second.get_ptr(),
-                                 sizeof(float), cudaMemcpyDeviceToHost,
-                                 gpu_resource_->get_stream()));
+  for (auto& loss_tensor : train_loss_tensors_) {
+    HCTR_LIB_THROW(cudaMemcpyAsync(&loss_temp[i], loss_tensor.second.get_ptr(), sizeof(float),
+                                   cudaMemcpyDeviceToHost, gpu_resource_->get_stream()));
+    ++i;
+  }
   HCTR_LIB_THROW(cudaStreamSynchronize(gpu_resource_->get_stream()));
+  for (i = 0; i < train_loss_tensors_.size(); ++i) {
+    loss_host += loss_temp[i];
+  }
+  delete loss_temp;
   return loss_host;
 }
 
-metrics::RawMetricMap Network::get_raw_metrics() const { return raw_metrics_; }
+std::map<std::string, metrics::RawMetricMap> Network::get_raw_metrics_all() const {
+  return raw_metrics_;
+}
+
+metrics::RawMetricMap Network::get_raw_metrics(std::string loss_name) const {
+  return raw_metrics_.find(loss_name)->second;
+}
 
 void Network::exchange_wgrad() {
   CudaDeviceContext context(get_device_id());

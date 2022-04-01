@@ -4,24 +4,24 @@ We're grateful for your interest in HugeCTR and value your contributions. You ca
 * submitting a [feature, documentation, or bug request](https://github.com/NVIDIA/HugeCTR/issues/new/choose).
 
   **NOTE**: After we review your request, we'll assign it to a future release. If you think the issue should be prioritized over others, comment on the issue.
-  
+
 * proposing and implementing a new feature.
 
   **NOTE**: Once we agree to the proposed design, you can go ahead and implement the new feature using the steps outlined in the [Contribute New Code section](#contribute-new-code).
-  
+
 * implementing a pending feature or fixing a bug.
 
-  **NOTE**: Use the steps outlined in the [Contribute New Code section](#contribute-new-code). If you need more information about a particular issue, 
+  **NOTE**: Use the steps outlined in the [Contribute New Code section](#contribute-new-code). If you need more information about a particular issue,
   add your comments on the issue.
 
 ## Contribute New Code
 
-1. Build HugeCTR or Sparse Operation Kit (SOK) from source using the steps outlined in the [Set Up the Development Environment section](#set-up-the-development-environment).
+1. Build HugeCTR or Sparse Operation Kit (SOK) from source using the steps outlined in the [Set Up the Development Environment with Merlin Containers](#set-up-the-development-environment-with-merlin-containers).
 2. [File an issue](https://github.com/NVIDIA/HugeCTR/issues/new/choose) and add a comment stating that you'll work on it.
 3. Start coding.
- 
+
    **NOTE**: Don't forget to add or update the unit tests properly.
-   
+
 4. [Create a pull request](https://github.com/nvidia/HugeCTR/compare) for you work.
 5. Wait for a maintainer to review your code.
 
@@ -33,7 +33,7 @@ If you have any questions or need clarification, don't hesitate to add comments 
 
 ### Set Up the Development Environment With Merlin Containers
 
-We provide options to disable the installation of HugeCTR and HugeCTR Triton Backend in [Merlin Dockerfiles](https://github.com/NVIDIA-Merlin/Merlin/tree/main/docker) so that our contributors can build the development enviornment (container) from them. By simply clone the code of HugeCTR into thise environment and build you can start the journey of development. 
+We provide options to disable the installation of HugeCTR and HugeCTR Triton Backend in [Merlin Dockerfiles](https://github.com/NVIDIA-Merlin/Merlin/tree/main/docker) so that our contributors can build the development enviornment (container) from them. By simply clone the code of HugeCTR into thise environment and build you can start the journey of development.
 
 **Note**: the message on terminal below is not errors if you are working in such containers.
 ```
@@ -46,7 +46,7 @@ In [Merlin CTR Dockerfile](https://github.com/NVIDIA-Merlin/Merlin/blob/main/doc
 The arguments and configurations in this example can be used in all the three containers building:
 
 ```
-docker build --pull -t ${DST_IMAGE} -f ${DOCKER_FILE} --build-arg RELEASE=false --build-arg RMM_VER=vnightly --build-arg CUDF_VER=vnightly --build-arg NVTAB_VER=vnightly --build-arg HUGECTR_DEV_MODE=true --no-cache . 
+docker build --pull -t ${DST_IMAGE} -f ${DOCKER_FILE} --build-arg RELEASE=false --build-arg RMM_VER=vnightly --build-arg CUDF_VER=vnightly --build-arg NVTAB_VER=vnightly --build-arg HUGECTR_DEV_MODE=true --no-cache .
 ```
 
 For RMM_VER, CUDF_VER, NVTAB_VER, you can simply specify the release tag e.g. `v1.0` or `vnightly` if you want to build with the head of the `main` branch.  With specifying HUGECTR_DEV_MODE=true, you can disable HugeCTR installation.
@@ -74,7 +74,7 @@ $ docker build [<opts>] <path> | <URL>
 To build HugeCTR from source, do the following:
 
 1. Build the `hugectr:devel` image using the steps outlined [here](#set-up-the-development-environment-with-merlin-containers).
-   
+
 
 2. Download the HugeCTR repository and the third-party modules that it relies on by running the following commands:
    ```shell
@@ -82,17 +82,17 @@ To build HugeCTR from source, do the following:
    $ cd HugeCTR
    $ git submodule update --init --recursive
    ```
-   
+
 3. Build HugeCTR from scratch using one or any combination of the following options:
-   - **SM**: You can use this option to build HugeCTR with a specific compute capability (DSM=80) or multiple compute capabilities (DSM="70;75"). The default compute capability 
+   - **SM**: You can use this option to build HugeCTR with a specific compute capability (DSM=80) or multiple compute capabilities (DSM="70;75"). The default compute capability
      is 70, which uses the NVIDIA V100 GPU. For more information, refer to [Compute Capability](https://github.com/NVIDIA/HugeCTR/blob/master/docs/hugectr_user_guide.md#compute-capability). 60 is not supported for inference deployments. For more information, refer to [Quick Start](https://github.com/triton-inference-server/hugectr_backend#quick-start).
-   - **CMAKE_BUILD_TYPE**: You can use this option to build HugeCTR with Debug or Release. When using Debug to build, HugeCTR will print more verbose logs and execute GPU tasks 
+   - **CMAKE_BUILD_TYPE**: You can use this option to build HugeCTR with Debug or Release. When using Debug to build, HugeCTR will print more verbose logs and execute GPU tasks
      in a synchronous manner.
-     average of eval_batches results. Only one thread and chunk will be used in the data reader. Performance will be lower when in validation mode. This option is set to OFF by 
+     average of eval_batches results. Only one thread and chunk will be used in the data reader. Performance will be lower when in validation mode. This option is set to OFF by
      default.
-   - **ENABLE_MULTINODES**: You can use this option to build HugeCTR with multiple nodes. This option is set to OFF by default. For more information, refer to [samples/dcn2nodes](../samples/dcn).
-   - **ENABLE_INFERENCE**: You can use this option to build HugeCTR in inference mode, which was designed for the inference framework. In this mode, an inference shared library 
-     will be built for the HugeCTR Backend. Only interfaces that support the HugeCTR Backend can be used. Therefore, you can’t train models in this mode. This option is set to 
+   - **ENABLE_MULTINODES**: You can use this option to build HugeCTR with multiple nodes. This option is set to OFF by default. For more information, refer to the [deep and cross network samples](https://github.com/NVIDIA-Merlin/HugeCTR/tree/master/samples/dcn) directory on GitHub.
+   - **ENABLE_INFERENCE**: You can use this option to build HugeCTR in inference mode, which was designed for the inference framework. In this mode, an inference shared library
+     will be built for the HugeCTR Backend. Only interfaces that support the HugeCTR Backend can be used. Therefore, you can’t train models in this mode. This option is set to
      OFF by default.
 
    Here are some examples of how you can build HugeCTR using these build options:
@@ -125,17 +125,17 @@ To build HugeCTR from source, do the following:
 To build the Sparse Operation Kit component in HugeCTR, do the following:
 
 1. Build the `hugectr:tf-plugin` docker image using the steps noted [here](#set-up-the-development-environment-with-merlin-containers).
-   
+
 
 2. Download the HugeCTR repository by running the following command:
    ```shell
    $ git clone https://github.com/NVIDIA/HugeCTR.git hugectr
    ```
-   
+
 3. Build and install libraries to the system paths by running the following commands:
    ```shell
    $ cd hugectr/sparse_operation_kit
    $ python setup.py install
    ```
-   
+
    You can config different environment variables for compiling SOK, please refer to [this section](https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/env_vars/env_vars.html) for more details.
