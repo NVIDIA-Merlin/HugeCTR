@@ -284,9 +284,16 @@ struct parameter_server_config {
                                ///{dcn_inferenceParamesStruct}
 
   // Database backend.
-  const VolatileDatabaseParams& volatile_db = {};
-  const PersistentDatabaseParams& persistent_db = {};
-  const UpdateSourceParams& update_source = {};
+  VolatileDatabaseParams volatile_db;
+  PersistentDatabaseParams persistent_db;
+  UpdateSourceParams update_source;
+  parameter_server_config(
+      std::map<std::string, std::vector<std::string>> emb_table_name,
+      std::map<std::string, std::vector<size_t>> embedding_vec_size,
+      std::map<std::string, std::vector<size_t>> max_feature_num_per_sample_per_emb_table,
+      const std::vector<InferenceParams>& inference_params_array,
+      const VolatileDatabaseParams& volatile_db, const PersistentDatabaseParams& persistent_db,
+      const UpdateSourceParams& update_source);
   parameter_server_config(const std::vector<std::string>& model_config_path_array,
                           const std::vector<InferenceParams>& inference_params_array);
   parameter_server_config(const std::string& hps_json_config_file);
