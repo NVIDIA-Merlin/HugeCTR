@@ -540,22 +540,6 @@ inference_ps_test:
       when: always
     - when: never
 
-inference_embedding_cache_test:
-  extends: .dlcluster_job
-  allow_failure: false
-  stage: test
-  needs:
-    - build_inference
-  script:
-    - export CONT=${INFER_IMAGE_VERSIONED}
-    - srun -N 1 -p dgx1v,dgx1v16g,dgx1v32g bash ./ci/integration_test/inference/embedding_cache_test.sh
-  rules:
-    - if: $CI_PIPELINE_SOURCE =~ /^(web|merge_request_event)$/
-      when: always
-    - if: $TEST_NEW_IMAGE == "1"
-      when: always
-    - when: never
-
 inference_embedding_cache_update_test:
   extends: .dlcluster_job
   allow_failure: false

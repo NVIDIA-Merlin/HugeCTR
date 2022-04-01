@@ -1,0 +1,32 @@
+image: ubuntu:20.04
+
+build:
+  stage: test
+  tags:
+    - os/linux
+  script:
+    - apt update -y
+    - DEBIAN_FRONTEND=noninteractive apt install -y software-properties-common python3 pandoc
+    - apt install -y --no-install-recommends python3-pip make
+    - python3 -m pip install -r docs/requirements-doc.txt
+    - make -C docs html
+  artifacts:
+    paths:
+      - docs/build/html
+    expire_in: 30 minutes
+
+pages:
+  stage: post_test
+  image: gitlab-master.nvidia.com:5005/hwinf-scm/pages-runner
+  tags:
+    - os/linux
+  needs: ["build"]
+  script:
+    - rm -rf "public" || true
+    - mkdir "public" 
+    - (cd docs/build/html; tar cf - .) | (cd "public"; tar xvf -)
+    - ls -asl "public"
+    - echo "Pages should be available at ${CI_PAGES_URL}"
+  artifacts:
+    paths:
+      - public
