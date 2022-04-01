@@ -1,5 +1,8 @@
-# <img src="docs/user_guide_src/merlin_logo.png" alt="logo" width="85"/> Merlin: HugeCTR #
-[![v30](docs/user_guide_src/version.JPG)](release_notes.md)
+# [HugeCTR](README.md)
+
+[![Version](https://img.shields.io/github/v/release/NVIDIA-Merlin/HugeCTR?color=orange)](release_notes.md/)
+[![LICENSE](https://img.shields.io/github/license/NVIDIA-Merlin/HugeCTR)](https://github.com/NVIDIA-Merlin/HugeCTR/blob/master/LICENSE)
+[![Documentation](https://img.shields.io/badge/documentation-blue.svg)](https://nvidia-merlin.github.io/HugeCTR/)
 
 HugeCTR is a GPU-accelerated recommender framework designed to distribute training across multiple GPUs and nodes and estimate Click-Through Rates (CTRs). HugeCTR supports model-parallel embedding tables and data-parallel neural networks and their variants such as [Deep Interest Network (DIN)](https://arxiv.org/pdf/1706.06978.pdf), [NCF](https://arxiv.org/abs/1708.05031), [Wide and Deep Learning (WDL)](https://arxiv.org/abs/1606.07792), [Deep Cross Network (DCN)](https://arxiv.org/abs/1708.05123), [DeepFM](https://arxiv.org/abs/1703.04247), and [Deep Learning Recommendation Model (DLRM)](https://arxiv.org/abs/1906.00091). HugeCTR is a component of [NVIDIA Merlin Open Beta](https://developer.nvidia.com/nvidia-merlin), which is used to build large-scale deep learning recommender systems. For more information, refer to [HugeCTR User Guide](docs/hugectr_user_guide.md).
 
@@ -149,7 +152,7 @@ If you'd like to quickly train a model using the Python interface, do the follow
    **NOTE**: It is presumed that the evaluation AUC value is incorrect since randomly generated datasets are being used. When the training is done, files that contain the 
    dumped graph JSON, saved model weights, and optimizer states will be generated.
 
-For more information, refer to the [HugeCTR User Guide](docs/hugectr_user_guide.md).
+For more information, refer to the [HugeCTR User Guide](https://nvidia-merlin.github.io/HugeCTR/master/hugectr_user_guide.html).
 
 ## HugeCTR SDK ##
 We're able to support external developers who can't use HugeCTR directly by exporting important HugeCTR components using:
@@ -160,7 +163,7 @@ We're able to support external developers who can't use HugeCTR directly by expo
 If you encounter any issues or have questions, go to [https://github.com/NVIDIA/HugeCTR/issues](https://github.com/NVIDIA/HugeCTR/issues) and submit an issue so that we can provide you with the necessary resolutions and answers. To further advance the HugeCTR Roadmap, we encourage you to share all the details regarding your recommender system pipeline using this [survey](https://developer.nvidia.com/merlin-devzone-survey).
 
 ## Contributing to HugeCTR ##
-With HugeCTR being an open source project, we welcome contributions from the general public. With your contributions, we can continue to improve HugeCTR's quality and performance. To learn how to contribute, refer to our [HugeCTR Contributor Guide](docs/hugectr_contributor_guide.md).
+With HugeCTR being an open source project, we welcome contributions from the general public. With your contributions, we can continue to improve HugeCTR's quality and performance. To learn how to contribute, refer to our [HugeCTR Contributor Guide](https://nvidia-merlin.github.io/HugeCTR/master/hugectr_contributor_guide.html).
 
 ## Additional Resources ##
 |Webpages|
