@@ -1,4 +1,25 @@
 # Release Notes
+## What's New in Version 3.5
++ **HPS interface encapsulation and exporting as library**: We encapsulate the Hierarchical Parameter Server(HPS) interfaces and deliver it as a standalone library. Besides, we prodvide HPS Python APIs and demonstrate the usage with a notebook. For more information, please refer to [Hierarchical Parameter Server](https://nvidia-merlin.github.io/HugeCTR/master/hugectr_parameter_server.html) and [HPS Demo](notebooks/hps_demo.ipynb).
+
++ **Hierarchical Parameter Server Triton Backend**: The HPS Backend is a framework for embedding vectors looking up on large-scale embedding tables that was designed to effectively use GPU memory to accelerate the looking up by decoupling the embedding tables and embedding cache from the end-to-end inference pipeline of the deep recommendation model. For more information, please refer to [Hierarchical Parameter Server](https://github.com/triton-inference-server/hugectr_backend/tree/main/samples).
+
++ **SOK pip release**: SOK pip releases on https://pypi.org/project/merlin-sok/. Now users can install SOK via `pip install merlin-sok`.
+
++ **Joint loss and multi-tasks training support:**: We support joint loss in training so that users can train with multiple labels and tasks with different weights. MMoE sample is added to show the usage [here](samples/mmoe/).
+
++ **HugeCTR documentation on web page**: Now users can visit our [web documentation](https://nvidia-merlin.github.io/HugeCTR/master/).
+
++ **ONNX converter enhancement:**: We enable converting `MultiCrossEntropyLoss` and `CrossEntropyLoss` layers to ONNX to support multi-label inference. For more information, please refer to [HugeCTR to ONNX Converter](onnx_converter#hugectr-to-onnx-converter).
+
++ **HDFS python API enhancement**:
+    + Simplified `DataSourceParams` so that users do not need to provide all the paths before they are really necessary. Now users only have to pass `DataSourceParams` once when creating a solver.
+    + Later paths will be automatically regarded as local paths or HDFS paths depending on the `DataSourceParams` setting. See [notebook](notebooks/training_with_hdfs.ipynb) for usage.
+
++ **HPS performance optimization**: We use better method to  determine partition number in database backends in HPS.
+
++ **Bug fixing**: HugeCTR input layer now can take dense_dim greater than 1000.
+
 ## What's New in Version 3.4.1
 + **Support mixed precision inference for dataset with multiple labels**: We enable FP16 for the `Softmax` layer and support mixed precision for multi-label inference. For more information, please refer to [Inference API](docs/python_interface.md#inference-api).
 
@@ -234,3 +255,5 @@ See also [NCCL's known issue](https://docs.nvidia.com/deeplearning/nccl/user-gui
 + KafkaProducers startup will succeed, even if the target Kafka broker is unresponsive. In order to avoid data-loss in conjunction with streaming model updates from Kafka, you have to make sure that a sufficient number of Kafka brokers is up, working properly and reachable from the node where you run HugeCTR.
 
 + The number of data files in the file list should be no less than the number of data reader workers. Otherwise, different workers will be mapped to the same file and data loading does not progress as expected.
+
++ Joint Loss training hasn’t been supported with regularizer.
