@@ -44,16 +44,16 @@ ONNX_LAYER_TYPES = {
     "Softmax",
     "Sub",
     "WeightMultiply",
-    "BinaryCrossEntropyLoss"}
+    "BinaryCrossEntropyLoss",
+    "CrossEntropyLoss",
+    "MultiCrossEntropyLoss"}
 
 EXEMPTION_LAYER_TYPES = {
  "Cast",
- "CrossEntropyLoss",
  "FusedReshapeConcatGeneral",
  "GRU",
  "Gather",
- "MultiCrossEntropyLoss",
- "ReLUHalf",
+ "ReLUHalf"
 }
 
 def get_tensor_names(clause):
@@ -178,11 +178,13 @@ class HugeCTRLoader(object):
             if self.__convert_embeddding:
                 layer_params.combiner = 0 if layer_config["sparse_embedding_hparam"]["combiner"] == "sum" else 1
                 max_vocab_size_global = layer_config["sparse_embedding_hparam"]["max_vocabulary_size_global"]
-                embedding_table = np.zeros(shape=(max_vocab_size_global, embedding_vec_size), dtype=np.float32)
+                # indice 0 is reserved for default values of non-exisiting keys
+                embedding_table = np.zeros(shape=(max_vocab_size_global + 1, embedding_vec_size), dtype=np.float32)
                 with open(self.__sparse_models[self.__embedding_counter]+ "/key", 'rb') as key_file, \
                     open(self.__sparse_models[self.__embedding_counter]+ "/emb_vector", 'rb') as vec_file:
                     try:
-                        indice = 0
+                        # indice 0 is reserved for default values of non-exisiting keys
+                        indice = 1
                         while True:
                             key_buffer = key_file.read(8)
                             vec_buffer = vec_file.read(4 * embedding_vec_size)
@@ -361,6 +363,16 @@ class HugeCTRLoader(object):
             self.__offset += layer_bytes
             layer_weights_dict[layer_config["top"]+"_weight"] = weight
         elif layer_type == "BinaryCrossEntropyLoss":
+            layer_params.layer_type = "Sigmoid"
+            pred_name = layer_params.bottom_names[0]
+            layer_params.bottom_names = [pred_name]
+            layer_params.top_names = []
+        elif layer_type == "CrossEntropyLoss":
+            layer_params.layer_type = "Softmax"
+            pred_name = layer_params.bottom_names[0]
+            layer_params.bottom_names = [pred_name]
+            layer_params.top_names = []
+        elif layer_type == "MultiCrossEntropyLoss":
             layer_params.layer_type = "Sigmoid"
             pred_name = layer_params.bottom_names[0]
             layer_params.bottom_names = [pred_name]

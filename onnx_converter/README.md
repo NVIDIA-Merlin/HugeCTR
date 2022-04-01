@@ -79,6 +79,8 @@ hugectr2onnx.converter.convert(onnx_model_path = "wdl.onnx",
                             sparse_models = ["wdl0_sparse_2000.model", "wdl1_sparse_2000.model"])
 ```
 
+**Note**: When making inference using the converted ONNX model, the categorical keys from the Parquet dataframe should be offsetted with the same `slot_size_array` as HugeCTR training before being fed into the ONNX inference session. For more details, please refer to [Parquet Dataset](../docs/python_interface.md#parquet).
+
 ## Layer Support ##
 
 Most HugeCTR layers are supported in the HugeCTR to ONNX converter, and there are a few unsupported layers because they have not been extended to the general usage of HugeCTR model training.
@@ -109,13 +111,14 @@ Most HugeCTR layers are supported in the HugeCTR to ONNX converter, and there ar
   * [Sub Layer](../docs/hugectr_layer_book.md#sub-layer)
   * [WeightMultiply](../docs/hugectr_layer_book.md#weightmultiply-layer)
   * [BinaryCrossEntropyLoss](../docs/hugectr_layer_book.md#binarycrossentropyloss)
+  * [CrossEntropyLoss](../docs/hugectr_layer_book.md#crossentropyloss)
+  * [MultiCrossEntropyLoss](../docs/hugectr_layer_book.md#multicrossentropyloss)
 * Unsupported Layers
   * Cast
-  * [CrossEntropyLoss](../docs/hugectr_layer_book.md#crossentropyloss)
   * [FusedReshapeConcatGeneral](../docs/hugectr_layer_book.md#fusedreshapeconcatgeneral-layer)
   * [GRU](../docs/hugectr_layer_book.md#gru-layer)
   * [Gather](../docs/hugectr_layer_book.md#gather-layer)
-  * [MultiCrossEntropyLoss](../docs/hugectr_layer_book.md#multicrossentropyloss)
   * ReLUHalf
 
-**Note**: The BinaryCrossEntropyLoss layer will be replaced by a Sigmoid layer when converting the HugeCTR model graph to ONNX.
+**Note**: The BinaryCrossEntropyLoss layer will be replaced by a Sigmoid layer when converting the HugeCTR model graph to ONNX. The CrossEntropyLoss layer will be replaced by a Softmax layer when converting the HugeCTR model graph to ONNX. The MultiCrossEntropyLoss layer will be replaced by a Sigmoid layer when converting the HugeCTR model graph to ONNX.
+
