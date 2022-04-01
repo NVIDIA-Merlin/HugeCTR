@@ -195,7 +195,18 @@ InferenceParams::InferenceParams(
       refresh_interval(refresh_interval),
       maxnum_catfeature_query_per_table_per_sample(maxnum_catfeature_query_per_table_per_sample),
       embedding_vecsize_per_table(embedding_vecsize_per_table),
-      embedding_table_names(embedding_table_names) {}
+      embedding_table_names(embedding_table_names) {
+  if (this->default_value_for_each_table.size() != this->sparse_model_files.size()) {
+    HCTR_LOG(
+        WARNING, ROOT,
+        "default_value_for_each_table.size() is not equal to the number of embedding tables\n");
+    float default_value =
+        this->default_value_for_each_table.size() ? this->default_value_for_each_table[0] : 0.f;
+    this->default_value_for_each_table.resize(this->sparse_model_files.size());
+    fill_n(this->default_value_for_each_table.begin(), this->sparse_model_files.size(),
+           default_value);
+  }
+}
 
 parameter_server_config::parameter_server_config(const std::string& hps_json_config_file) {
   // Initialize for each model
@@ -309,6 +320,9 @@ parameter_server_config::parameter_server_config(const std::string& hps_json_con
     }
   }
 
+  this->volatile_db = volatile_db_params;
+  this->persistent_db = persistent_db_params;
+  this->update_source = update_source_params;
   // Search for all model configuration
   const nlohmann::json& models = get_json(hps_config, "models");
   HCTR_CHECK_HINT(models.size() > 0,
@@ -421,9 +435,9 @@ parameter_server_config::parameter_server_config(const std::string& hps_json_con
         }
       }
     } else {
+      params.embedding_table_names.clear();
       for (size_t i = 0; i < sparse_model_files.size(); ++i) {
-        params.embedding_table_names.clear();
-        params.embedding_table_names.emplace_back("Sparse_embedding" + std::to_string(i));
+        params.embedding_table_names.emplace_back("sparse_embedding" + std::to_string(i));
       }
     }
 
@@ -439,6 +453,67 @@ parameter_server_config::parameter_server_config(const std::string& hps_json_con
     max_feature_num_per_sample_per_emb_table_[params.model_name] =
         params.maxnum_catfeature_query_per_table_per_sample;
     default_emb_vec_value_.emplace_back(params.default_value_for_each_table);
+  }
+}
+
+parameter_server_config::parameter_server_config(
+    std::map<std::string, std::vector<std::string>> emb_table_name,
+    std::map<std::string, std::vector<size_t>> embedding_vec_size,
+    std::map<std::string, std::vector<size_t>> max_feature_num_per_sample_per_emb_table,
+    const std::vector<InferenceParams>& inference_params_array,
+    const VolatileDatabaseParams& volatile_db, const PersistentDatabaseParams& persistent_db,
+    const UpdateSourceParams& update_source) {
+  if (emb_table_name.size() != inference_params_array.size() ||
+      embedding_vec_size.size() != inference_params_array.size() ||
+      max_feature_num_per_sample_per_emb_table.size() != inference_params_array.size()) {
+    HCTR_OWN_THROW(Error_t::WrongInput,
+                   "Wrong input: The number of model names and inference_params_array "
+                   "are not consistent.");
+  }
+  for (size_t i = 0; i < inference_params_array.size(); i++) {
+    const auto& inference_params = inference_params_array[i];
+    if (emb_table_name.find(inference_params.model_name) == emb_table_name.end() ||
+        embedding_vec_size.find(inference_params.model_name) == embedding_vec_size.end() ||
+        max_feature_num_per_sample_per_emb_table.find(inference_params.model_name) ==
+            max_feature_num_per_sample_per_emb_table.end()) {
+      HCTR_OWN_THROW(Error_t::WrongInput, "Wrong input: The model_name does not exist in the map.");
+    }
+    if (emb_table_name[inference_params.model_name].size() !=
+            inference_params.default_value_for_each_table.size() ||
+        embedding_vec_size[inference_params.model_name].size() !=
+            inference_params.default_value_for_each_table.size() ||
+        max_feature_num_per_sample_per_emb_table[inference_params.model_name].size() !=
+            inference_params.default_value_for_each_table.size()) {
+      HCTR_OWN_THROW(Error_t::WrongInput,
+                     "Wrong input: The number of embedding tables are not consistent for model " +
+                         inference_params.model_name);
+    }
+
+    // Initialize <model_name, id> map
+    if (model_name_id_map_.count(inference_params.model_name) == 0) {
+      model_name_id_map_.emplace(inference_params.model_name, (size_t)model_name_id_map_.size());
+    }
+    // Read inference config
+    std::vector<std::string> emb_file_path;
+    for (size_t j = 0; j < inference_params.sparse_model_files.size(); j++) {
+      emb_file_path.emplace_back(inference_params.sparse_model_files[j]);
+    }
+    emb_file_name_[inference_params.model_name] = (emb_file_path);
+    emb_table_name_[inference_params.model_name] = emb_table_name[inference_params.model_name];
+    embedding_vec_size_[inference_params.model_name] =
+        embedding_vec_size[inference_params.model_name];
+    max_feature_num_per_sample_per_emb_table_[inference_params.model_name] =
+        max_feature_num_per_sample_per_emb_table[inference_params.model_name];
+    default_emb_vec_value_.emplace_back(inference_params.default_value_for_each_table);
+  }  // end for
+  this->inference_params_array = inference_params_array;
+  this->volatile_db = volatile_db;
+  this->persistent_db = persistent_db;
+  this->update_source = update_source;
+  for (auto& inference_params : this->inference_params_array) {
+    inference_params.volatile_db = volatile_db;
+    inference_params.persistent_db = persistent_db;
+    inference_params.update_source = update_source;
   }
 }
 
@@ -515,8 +590,9 @@ parameter_server_config::parameter_server_config(
     max_feature_num_per_sample_per_emb_table_[inference_params.model_name] =
         max_feature_num_per_sample_per_emb_table;
     distributed_emb_.emplace_back(distributed_emb);
-    default_emb_vec_value_.emplace_back(inference_params.default_value_for_each_table);
+    default_emb_vec_value_.emplace_back(default_emb_vec_value);
   }  // end for
+  this->inference_params_array = inference_params_array;
 }
 
 HugeCTR::DatabaseType_t get_hps_database_type(const nlohmann::json& json, const std::string key) {
