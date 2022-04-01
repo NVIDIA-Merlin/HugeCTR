@@ -48,7 +48,6 @@
 #endif
 
 namespace HugeCTR {
-
 template <class T>
 class ParquetDataReaderWorker : public IDataReaderWorker {
  private:
@@ -124,14 +123,13 @@ class ParquetDataReaderWorker : public IDataReaderWorker {
 
           tmp_col_index.clear();
 
-          tmp_col_index.clear();
-
           auto cat_col_names = metadata.get_cat_names();
           if (categorical_idx_parquet_col_.size() != cat_col_names.size()) {
             categorical_idx_parquet_col_.clear();
             int i = 0;
             for (auto& c : cat_col_names) {
               tmp_col_index.insert(c.index);
+              categorical_idx_parquet_col_.insert(std::make_pair(i, c.index));
             }
             for (auto it = tmp_col_index.begin(); it != tmp_col_index.end(); it++) {
               categorical_idx_parquet_col_.insert(std::make_pair(i, *it));
@@ -146,7 +144,6 @@ class ParquetDataReaderWorker : public IDataReaderWorker {
         }
         return;
       } else if (err == Error_t::EndOfFile) {
-        // HCTR_INFO(ERROR, WORLD, " catch EOF\n");
         throw internal_runtime_error(Error_t::EndOfFile, "EndOfFile");
       }
     }
@@ -158,7 +155,6 @@ class ParquetDataReaderWorker : public IDataReaderWorker {
    * Ctor
    */
   ParquetDataReaderWorker(unsigned int worker_id, unsigned int worker_num,
-                          // const std::shared_ptr<HeapEx<CSRChunk<T>>>& csr_heap,
                           const std::shared_ptr<GPUResource>& gpu_resource, int* loop_flag,
                           const std::shared_ptr<ThreadBuffer>& buffer, const std::string& file_list,
                           bool repeat, const std::vector<DataReaderSparseParam>& params,
@@ -174,10 +170,9 @@ class ParquetDataReaderWorker : public IDataReaderWorker {
 
     std::shared_ptr<GeneralBuffer2<CudaHostAllocator>> buff =
         GeneralBuffer2<CudaHostAllocator>::create();
-    buff->reserve({1024}, &host_memory_pointer_staging_);
-    buff->reserve({32}, &host_pinned_csr_inc_);
-    buff->allocate();
 
+    // For reading nnz
+    buff->reserve({32}, &host_pinned_csr_inc_);
     memory_resource_ = resource_manager_->get_device_rmm_device_memory_resource(device_id_);
 
     if (worker_id >= worker_num) {
@@ -187,6 +182,13 @@ class ParquetDataReaderWorker : public IDataReaderWorker {
     for (auto& p : params) {
       slots_ += p.slot_num;
     }
+    // TO check the calculation is exactly right
+    size_t num_of_pointer_staging = (2 * (buffer_->label_dim + buffer_->dense_dim + 1) +
+                                     2 * params_.size() * slots_ + 2 * slots_);
+    // pinned buffer for dense feature converter
+    buff->reserve({num_of_pointer_staging}, &host_memory_pointer_staging_);
+    buff->allocate();
+
     source_ = std::make_shared<ParquetFileSource>(worker_id, worker_num, file_list, repeat);
 
     // assert((int)slot_offset_.size() == slots_);
@@ -194,11 +196,10 @@ class ParquetDataReaderWorker : public IDataReaderWorker {
       slot_offset_.resize(slots_, static_cast<long long int>(0));
     }
     for (auto& c : slot_offset_) {
-      if ((c >= std::numeric_limits<T>::min()) && (c <= std::numeric_limits<T>::max())) {
+      if ((c >= std::numeric_limits<T>::min()) && (c <= std::numeric_limits<T>::max()))
         slot_offset_dtype_.push_back((T)c);
-      } else {
+      else
         HCTR_OWN_THROW(Error_t::DataCheckError, "Slot offset value exceed the key type range");
-      }
     }
   }
 
@@ -345,15 +346,11 @@ void ParquetDataReaderWorker<T>::read_a_batch() {
         current_batch_size = batch_size;
       }
       buffer_->current_batch_size = current_batch_size;
-      // potential bugs here ??? it's hard to count how many pointers are used....
-      int64_t num_of_pointer_staging =
-          2 * (buffer_->label_dim + buffer_->label_dim + 1) + 2 * params_.size() + 2 * slots_;
-
       // PinnedBuffer extend on unique_ptr cant realloc properly and safely (cudaContext)
-      if ((int64_t)host_memory_pointer_staging_.get_num_elements() < num_of_pointer_staging) {
-        HCTR_OWN_THROW(Error_t::UnspecificError, "Parquet reader worker: not enough pinned storge");
+      if (!host_memory_pointer_staging_.allocated()) {
+        HCTR_OWN_THROW(Error_t::UnspecificError,
+                       "Parquet reader worker:Please allocate Pinned Buffer first");
       }
-      // calculate rows for each buffer
       size_t device_staging_dense_size = dense_end - dense_start;
       device_staging_dense_size *= ((size_t)label_dense_dim * sizeof(dtype_dense));
       std::vector<cudf::column_view> dense_columns_view_ref;

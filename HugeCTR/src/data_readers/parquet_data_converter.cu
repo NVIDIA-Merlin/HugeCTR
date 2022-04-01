@@ -266,20 +266,6 @@ void convert_parquet_dense_columns(std::vector<T *> &dense_column_data_ptr,
   rmm::device_buffer &dev_in_column_ptr = rmm_resources.back();
   HCTR_LIB_THROW(cudaMemcpyAsync(dev_in_column_ptr.data(), dev_ptr_staging, size_of_col_ptrs,
                                  cudaMemcpyHostToDevice, task_stream));
-
-  // TODO no need to use pointer array since there's only one buffer, remove in the future
-  // int64_t *pinned_dev_out_buffer =
-  //     reinterpret_cast<int64_t *>((size_t)(dev_ptr_staging) + size_of_col_ptrs);
-  // pinned_dev_out_buffer[0] = (int64_t)dense_data_buffers;
-  // size_t size_of_out_ptrs = 1 * sizeof(int64_t);
-
-  // rmm_resources.emplace_back(size_of_out_ptrs, task_stream, mr);
-  // rmm::device_buffer &dev_out_data_ptr = rmm_resources.back();
-
-  // HCTR_LIB_THROW(cudaMemcpyAsync(dev_out_data_ptr.data(), pinned_dev_out_buffer,
-  // size_of_out_ptrs,
-  //                                cudaMemcpyHostToDevice, task_stream));
-
   // assuming 48KB smem/SM
   // 32x32 tile per warp -> 4096 bytes/warp
   // 12 warps -> 384 threads/block
