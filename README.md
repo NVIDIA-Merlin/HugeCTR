@@ -2,9 +2,9 @@
 
 [![Version](https://img.shields.io/github/v/release/NVIDIA-Merlin/HugeCTR?color=orange)](release_notes.md/)
 [![LICENSE](https://img.shields.io/github/license/NVIDIA-Merlin/HugeCTR)](https://github.com/NVIDIA-Merlin/HugeCTR/blob/master/LICENSE)
-[![Documentation](https://img.shields.io/badge/documentation-blue.svg)](https://nvidia-merlin.github.io/HugeCTR/)
+[![Documentation](https://img.shields.io/badge/documentation-blue.svg)](https://nvidia-merlin.github.io/HugeCTR/master/hugectr_user_guide.html)
 
-HugeCTR is a GPU-accelerated recommender framework designed to distribute training across multiple GPUs and nodes and estimate Click-Through Rates (CTRs). HugeCTR supports model-parallel embedding tables and data-parallel neural networks and their variants such as [Deep Interest Network (DIN)](https://arxiv.org/pdf/1706.06978.pdf), [NCF](https://arxiv.org/abs/1708.05031), [Wide and Deep Learning (WDL)](https://arxiv.org/abs/1606.07792), [Deep Cross Network (DCN)](https://arxiv.org/abs/1708.05123), [DeepFM](https://arxiv.org/abs/1703.04247), and [Deep Learning Recommendation Model (DLRM)](https://arxiv.org/abs/1906.00091). HugeCTR is a component of [NVIDIA Merlin Open Beta](https://developer.nvidia.com/nvidia-merlin), which is used to build large-scale deep learning recommender systems. For more information, refer to [HugeCTR User Guide](docs/hugectr_user_guide.md).
+HugeCTR is a GPU-accelerated recommender framework designed to distribute training across multiple GPUs and nodes and estimate Click-Through Rates (CTRs). HugeCTR supports model-parallel embedding tables and data-parallel neural networks and their variants such as [Deep Interest Network (DIN)](https://arxiv.org/pdf/1706.06978.pdf), [NCF](https://arxiv.org/abs/1708.05031), [Wide and Deep Learning (WDL)](https://arxiv.org/abs/1606.07792), [Deep Cross Network (DCN)](https://arxiv.org/abs/1708.05123), [DeepFM](https://arxiv.org/abs/1703.04247), and [Deep Learning Recommendation Model (DLRM)](https://arxiv.org/abs/1906.00091). HugeCTR is a component of [NVIDIA Merlin Open Beta](https://developer.nvidia.com/nvidia-merlin), which is used to build large-scale deep learning recommender systems. For more information, refer to [HugeCTR User Guide](https://nvidia-merlin.github.io/HugeCTR/master/hugectr_user_guide.html).
 
 Design Goals:
 * **Fast**: HugeCTR is a speed-of-light CTR model framework that can [outperform](performance.md) popular recommender systems such as TensorFlow (TF).
@@ -21,16 +21,16 @@ Design Goals:
 
 ## Core Features ##
 HugeCTR supports a variety of features, including the following:
-* [High-Level abstracted Python interface](docs/python_interface.md)
-* [Model parallel training](docs/hugectr_user_guide.md#model-parallel-training)
+* [High-Level abstracted Python interface](https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html)
+* [Model parallel training](https://nvidia-merlin.github.io/HugeCTR/master/hugectr_core_features.html#model-parallel-training)
 * [Optimized GPU workflow](performance.md)
-* [Multi-node training](docs/hugectr_user_guide.md#multi-node-training)
-* [Mixed precision training](docs/hugectr_user_guide.md#mixed-precision-training)
-* [Embedding training cache](docs/hugectr_user_guide.md#embedding-training-cache)
+* [Multi-node training](https://nvidia-merlin.github.io/HugeCTR/master/hugectr_core_features.html#multi-node-training)
+* [Mixed precision training](https://nvidia-merlin.github.io/HugeCTR/master/hugectr_core_features.html#mixed-precision-training)
+* [Embedding training cache](https://nvidia-merlin.github.io/HugeCTR/master/hugectr_core_features.html#embedding-training-cache)
 * [GPU embedding cache](https://github.com/triton-inference-server/hugectr_backend/blob/main/docs/architecture.md#enabling-the-gpu-embedding-cache)
 * [GPU / CPU memory sharing mechanism across various inference instances](https://github.com/triton-inference-server/hugectr_backend/blob/main/docs/architecture.md#hugectr-backend-framework)
-* [HugeCTR to ONNX Converter](docs/hugectr_user_guide.md#onnx-converter)
-* [Hierarchical Parameter Server](docs/hugectr_user_guide.md#hierarchical-parameter-server)
+* [HugeCTR to ONNX Converter](https://nvidia-merlin.github.io/HugeCTR/master/hugectr_core_features.html#hugectr-to-onnx-converter)
+* [Hierarchical Parameter Server](https://nvidia-merlin.github.io/HugeCTR/master/hugectr_core_features.html#hierarchical-parameter-server)
 
 To learn about our latest enhancements, refer to our [release notes](release_notes.md).
 
@@ -43,7 +43,7 @@ If you'd like to quickly train a model using the Python interface, do the follow
    ```
 
    **NOTE**: The **/your/host/dir** directory is just as visible as the **/your/container/dir** directory. The **/your/host/dir** directory is also your starting directory.
-   
+
    **NOTE**: HugeCTR uses NCCL to share data between ranks, and NCCL may requires shared memory for IPC and pinned (page-locked) system memory resources. It is recommended that you increase these resources by issuing the following options in the `docker run` command.
    ```text
    -shm-size=1g -ulimit memlock=-1
@@ -62,7 +62,7 @@ If you'd like to quickly train a model using the Python interface, do the follow
      i64_input_key = False,
      source = "./dcn_norm/file_list.txt",
      eval_source = "./dcn_norm/file_list_test.txt",
-     slot_size_array = [39884, 39043, 17289, 7420, 20263, 3, 7120, 1543, 39884, 39043, 17289, 7420, 20263, 3, 7120, 1543, 63, 63, 39884, 39043, 17289, 7420, 20263, 3, 7120, 
+     slot_size_array = [39884, 39043, 17289, 7420, 20263, 3, 7120, 1543, 39884, 39043, 17289, 7420, 20263, 3, 7120, 1543, 63, 63, 39884, 39043, 17289, 7420, 20263, 3, 7120,
      1543],
      check_type = hugectr.Check_t.Sum,
      dist_type = hugectr.Distribution_t.PowerLaw,
@@ -97,9 +97,9 @@ If you'd like to quickly train a model using the Python interface, do the follow
    model = hugectr.Model(solver, reader, optimizer)
    model.add(hugectr.Input(label_dim = 1, label_name = "label",
                            dense_dim = 13, dense_name = "dense",
-                           data_reader_sparse_param_array = 
+                           data_reader_sparse_param_array =
                            [hugectr.DataReaderSparseParam("data1", 1, True, 26)]))
-   model.add(hugectr.SparseEmbedding(embedding_type = hugectr.Embedding_t.DistributedSlotSparseEmbeddingHash, 
+   model.add(hugectr.SparseEmbedding(embedding_type = hugectr.Embedding_t.DistributedSlotSparseEmbeddingHash,
                               workspace_size_per_gpu_in_mb = 75,
                               embedding_vec_size = 16,
                               combiner = "sum",
@@ -142,21 +142,21 @@ If you'd like to quickly train a model using the Python interface, do the follow
    model.graph_to_json(graph_config_file = "dcn.json")
    model.fit(max_iter = 5120, display = 200, eval_interval = 1000, snapshot = 5000, snapshot_prefix = "dcn")
    ```
-   **NOTE**: Ensure that the paths to the synthetic datasets are correct with respect to this Python script. `data_reader_type`, `check_type`, `label_dim`, `dense_dim`, and 
+   **NOTE**: Ensure that the paths to the synthetic datasets are correct with respect to this Python script. `data_reader_type`, `check_type`, `label_dim`, `dense_dim`, and
    `data_reader_sparse_param_array` should be consistent with the generated dataset.
 
 5. Train the model by running the following command:
    ```
    python dcn_norm_train.py
    ```
-   **NOTE**: It is presumed that the evaluation AUC value is incorrect since randomly generated datasets are being used. When the training is done, files that contain the 
+   **NOTE**: It is presumed that the evaluation AUC value is incorrect since randomly generated datasets are being used. When the training is done, files that contain the
    dumped graph JSON, saved model weights, and optimizer states will be generated.
 
 For more information, refer to the [HugeCTR User Guide](https://nvidia-merlin.github.io/HugeCTR/master/hugectr_user_guide.html).
 
 ## HugeCTR SDK ##
 We're able to support external developers who can't use HugeCTR directly by exporting important HugeCTR components using:
-* [Sparse Operation Kit](sparse_operation_kit): a python package wrapped with GPU accelerated operations dedicated for sparse training/inference cases.
+* Sparse Operation Kit [directory](sparse_operation_kit) | [documentation](https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/): a python package wrapped with GPU accelerated operations dedicated for sparse training/inference cases.
 * [GPU Embedding Cache](gpu_cache): embedding cache available on the GPU memory designed for CTR inference workload.
 
 ## Support and Feedback ##
@@ -185,7 +185,7 @@ With HugeCTR being an open source project, we welcome contributions from the gen
 |GTC Spring 2020|[HugeCTR: High-Performance Click-Through Rate Estimation Training](https://www.nvidia.com/en-us/on-demand/session/gtcsj20-s21455/)|March 2020|Minseok Lee, Joey Wang|English|
 |GTC China 2019|[HUGECTR: GPU 加速的推荐系统训练](https://www.nvidia.cn/on-demand/session/gtcchina2019-cn9794/)|Oct 2019|Joey Wang|中文|
 
-### Blogs ### 
+### Blogs ###
 |Conference / Website|Title|Date|Authors|Language|
 |--------------------|-----|----|-------|--------|
 |NVIDIA Devblog|[Accelerating Embedding with the HugeCTR TensorFlow Embedding Plugin](https://developer.nvidia.com/blog/accelerating-embedding-with-the-hugectr-tensorflow-embedding-plugin/)|Sept 2021|Vinh Nguyen, Ann Spencer, Joey Wang and Jianbing Dong|English|
