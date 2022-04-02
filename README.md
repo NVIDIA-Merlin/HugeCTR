@@ -12,15 +12,16 @@ Design Goals:
 * **Easy**: Regardless of whether you are a data scientist or machine learning practitioner, we've made it easy for anybody to use HugeCTR.
 
 ## Table of Contents
-* [Core Features](#core-features)
-* [Getting Started](#getting-started)
-* [HugeCTR SDK](#hugectr-sdk)
-* [Support and Feedback](#support-and-feedback)
-* [Contributing to HugeCTR](#contributing-to-hugectr)
-* [Additional Resources](#additional-resources)
+* [Core Features](https://nvidia-merlin.github.io/HugeCTR/master/hugectr_core_features.html)
+* [Getting Started](https://nvidia-merlin.github.io/HugeCTR/master/hugectr_user_guide.html#installing-and-building-hugectr)
+* [HugeCTR SDK](https://nvidia-merlin.github.io/HugeCTR/master/hugectr_user_guide.html#tools)
+* [Support and Feedback](https://nvidia-merlin.github.io/HugeCTR/master/hugectr_contributor_guide.html)
+* [Contributing to HugeCTR](https://nvidia-merlin.github.io/HugeCTR/master/hugectr_contributor_guide.html)
+* [Additional Resources](https://nvidia-merlin.github.io/HugeCTR/master/additional_resources.html)
 
 ## Core Features ##
 HugeCTR supports a variety of features, including the following:
+
 * [High-Level abstracted Python interface](https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html)
 * [Model parallel training](https://nvidia-merlin.github.io/HugeCTR/master/hugectr_core_features.html#model-parallel-training)
 * [Optimized GPU workflow](performance.md)
@@ -31,6 +32,8 @@ HugeCTR supports a variety of features, including the following:
 * [GPU / CPU memory sharing mechanism across various inference instances](https://github.com/triton-inference-server/hugectr_backend/blob/main/docs/architecture.md#hugectr-backend-framework)
 * [HugeCTR to ONNX Converter](https://nvidia-merlin.github.io/HugeCTR/master/hugectr_core_features.html#hugectr-to-onnx-converter)
 * [Hierarchical Parameter Server](https://nvidia-merlin.github.io/HugeCTR/master/hugectr_core_features.html#hierarchical-parameter-server)
+* [Sparse Operation Kit](https://github.com/NVIDIA-Merlin/HugeCTR/tree/master/sparse_operation_kit)
+
 
 To learn about our latest enhancements, refer to our [release notes](release_notes.md).
 

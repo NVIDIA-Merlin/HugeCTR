@@ -19,7 +19,7 @@ HugeCTR is available as buildable source code, but the easiest way to install an
    ```
 
 ### Build the HugeCTR Docker Container on Your Own ###
-If you want to build the HugeCTR Docker container on your own, refer to [How to Start Your Development](../../docs/hugectr_contributor_guide.md#how-to-start-your-development).
+If you want to build the HugeCTR Docker container on your own, refer to [How to Start Your Development](https://nvidia-merlin.github.io/HugeCTR/master/hugectr_contributor_guide.html#how-to-start-your-development).
 
 You should make sure that HugeCTR is built and installed in `/usr/local/hugectr` within the Docker container. Remember to set the option `ENABLE_MULTINODES` as `ON` when building HugeCTR if you want to try the multinode training sample. You can launch the container in interactive mode in the same manner as shown above, and then set the `PYTHONPATH` environment variable inside the Docker container using the following command:
 ```shell
