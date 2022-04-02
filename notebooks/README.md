@@ -48,7 +48,7 @@ git clone https://github.com/NVIDIA/HugeCTR
 
    By default, HugeCTR initializes and finalizes MPI when you run the `import hugectr` statement within the NGC Merlin container.
    If you build and install HugeCTR yourself, specify the `ENABLE_MULTINODES=ON` argument when you build.
-   See [Build HugeCTR from Source](../docs/hugectr_contributor_guide.md#build-hugectr-from-source).
+   See [Build HugeCTR from Source](https://nvidia-merlin.github.io/HugeCTR/master/hugectr_user_guide.html#building-hugectr-from-scratch).
 
    If your program uses MPI for a reason other than interacting with HugeCTR, initialize MPI with the `from mpi4py import MPI` statement before you import HugeCTR.
    

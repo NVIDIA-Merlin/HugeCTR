@@ -24,7 +24,7 @@ HugeCTR is available as buildable source code, but the easiest way to install an
    ```
 
 ### Build the HugeCTR Docker Container on Your Own ###
-Please refer to [How to Start Your Development](../../docs/hugectr_contributor_guide.md#how-to-start-your-development) to build on your own and set up the Docker container. Make sure that HugeCTR is built and installed to the system path `/usr/local/hugectr` within the Docker container. Launch the container in interactive mode in the same manner as above, and then set the `PYTHONPATH` environment variable inside the Docker container using the following command:
+Please refer to [How to Start Your Development](https://nvidia-merlin.github.io/HugeCTR/master/hugectr_contributor_guide.html#how-to-start-your-development) to build on your own and set up the Docker container. Make sure that HugeCTR is built and installed to the system path `/usr/local/hugectr` within the Docker container. Launch the container in interactive mode in the same manner as above, and then set the `PYTHONPATH` environment variable inside the Docker container using the following command:
 ```shell
 $ export PYTHONPATH=/usr/local/hugectr/lib:$PYTHONPATH
 ```
@@ -71,7 +71,7 @@ Run the 14-node DGX-100 Python script using the following command:
 
 **IMPORTANT NOTES**: 
 - To run the 14-node DGX-100 training script on Selene, you need to submit the job on the Selene login node properly.
-- In v2.2.1, there is a CUDA Graph error that occurs when running this sample on DGX2. To run it on DGX2, specify `"use_cuda_graph = False` within `CreateSolver` in the Python script. For detailed information about this error, see [Known Issues](docs/hugectr_user_guide.md#known-issues).
+- In v2.2.1, there is a CUDA Graph error that occurs when running this sample on DGX2. To run it on DGX2, specify `"use_cuda_graph = False` within `CreateSolver` in the Python script. For detailed information about this error, see [Known Issues](https://github.com/NVIDIA-Merlin/HugeCTR/blob/master/release_notes.md#known-issues).
 - `cache_eval_data` is only supported on DGX A100. If you're running DGX2, disable it. 
 
 ## Kaggle DLRM

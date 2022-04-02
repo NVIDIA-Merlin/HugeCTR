@@ -1,7 +1,7 @@
 # HugeCTR to ONNX Converter #
 hugectr2onnx is a python package that can convert HugeCTR models to ONNX format. It can improve the compatibility of HugeCTR with other deep learning frameworks given that Open Neural Network Exchange (ONNX) serves as an open-source format for AI models.
 
-To use the ONNX converter, you need to prepare HugeCTR models files and graph configuration files which can be obtained with HugeCTR training APIs. Please refer to [HugeCTR Python Interface](../docs/python_interface.md) to get familiar with how to train and save your models. To learn the workflow of training HugeCTR model, converting to ONNX and making inference with ONNX Runtime, please refer to [HugeCTR to ONNX Demo Notebook](../notebooks/hugectr2onnx_demo.ipynb).
+To use the ONNX converter, you need to prepare HugeCTR models files and graph configuration files which can be obtained with HugeCTR training APIs. Please refer to [HugeCTR Python Interface](https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html#) to get familiar with how to train and save your models. To learn the workflow of training HugeCTR model, converting to ONNX and making inference with ONNX Runtime, please refer to [HugeCTR to ONNX Demo Notebook](../notebooks/hugectr2onnx_demo.ipynb).
 
 ## Overview ##
 **HugeCTR Model Format**
@@ -79,45 +79,45 @@ hugectr2onnx.converter.convert(onnx_model_path = "wdl.onnx",
                             sparse_models = ["wdl0_sparse_2000.model", "wdl1_sparse_2000.model"])
 ```
 
-**Note**: When making inference using the converted ONNX model, the categorical keys from the Parquet dataframe should be offsetted with the same `slot_size_array` as HugeCTR training before being fed into the ONNX inference session. For more details, please refer to [Parquet Dataset](../docs/python_interface.md#parquet).
+**Note**: When making inference using the converted ONNX model, the categorical keys from the Parquet dataframe should be offsetted with the same `slot_size_array` as HugeCTR training before being fed into the ONNX inference session. For more details, please refer to [Parquet Dataset](https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html#dataset-formats).
 
 ## Layer Support ##
 
 Most HugeCTR layers are supported in the HugeCTR to ONNX converter, and there are a few unsupported layers because they have not been extended to the general usage of HugeCTR model training.
 
 * Supported Layers
-  * [Add Layer](../docs/hugectr_layer_book.md#add-layer)
-  * [BatchNorm Layer](../docs/hugectr_layer_book.md#batchnorm-layer)
-  * [Concat Layer](../docs/hugectr_layer_book.md#concat-layer)
-  * [Dropout Layer](../docs/hugectr_layer_book.md#dropout-layer)
-  * [ElementwiseMultiply Layer](../docs/hugectr_layer_book.md#elementwisemultiply-layer)
-  * [ELU Layer](../docs/hugectr_layer_book.md#elu-layer)
-  * [FmOrder2 Layer](../docs/hugectr_layer_book.md#fmorder2-layer)
-  * [FullyConnected Layer](../docs/hugectr_layer_book.md#fullyconnected-layer)
-  * [FusedFullyConnected Layer](../docs/hugectr_layer_book.md#fusedfullyconnected-layer)
-  * [FusedReshapeConcat Layer](../docs/hugectr_layer_book.md#fusedreshapeconcat-layer)
-  * [Interaction Layer](../docs/hugectr_layer_book.md#interaction-layer)
-  * [MatrixMultiply Layer](../docs/hugectr_layer_book.md#matrixmutiply-layer)
-  * [MultiCross Layer](../docs/hugectr_layer_book.md#multicross-layer)
-  * [PReLU_Dice Layer](../docs/hugectr_layer_book.md#preludice-layer)
-  * [ReduceMean Layer](../docs/hugectr_layer_book.md#reducemean-layer)
-  * [ReduceSum Layer](../docs/hugectr_layer_book.md#reducesum-layer)
-  * [ReLU Layer](../docs/hugectr_layer_book.md#relu-layer)
-  * [Reshape Layer](../docs/hugectr_layer_book.md#reshape-layer)
-  * [Scale Layer](../docs/hugectr_layer_book.md#scale-layer)
-  * [Sigmoid Layer](../docs/hugectr_layer_book.md#sigmoid-layer)
-  * [Slice Layer](../docs/hugectr_layer_book.md#slice-layer)
-  * [Softmax Layer](../docs/hugectr_layer_book.md#softmax-layer)
-  * [Sub Layer](../docs/hugectr_layer_book.md#sub-layer)
-  * [WeightMultiply](../docs/hugectr_layer_book.md#weightmultiply-layer)
-  * [BinaryCrossEntropyLoss](../docs/hugectr_layer_book.md#binarycrossentropyloss)
-  * [CrossEntropyLoss](../docs/hugectr_layer_book.md#crossentropyloss)
-  * [MultiCrossEntropyLoss](../docs/hugectr_layer_book.md#multicrossentropyloss)
+  * [Add Layer](https://github.com/NVIDIA-Merlin/HugeCTR/blob/master/docs/source/api/hugectr_layer_book.md#add-layer)
+  * [BatchNorm Layer](https://github.com/NVIDIA-Merlin/HugeCTR/blob/master/docs/source/api/hugectr_layer_book.md#batchnorm-layer)
+  * [Concat Layer](https://github.com/NVIDIA-Merlin/HugeCTR/blob/master/docs/source/api/hugectr_layer_book.md#concat-layer)
+  * [Dropout Layer](https://github.com/NVIDIA-Merlin/HugeCTR/blob/master/docs/source/api/hugectr_layer_book.md#dropout-layer)
+  * [ElementwiseMultiply Layer](https://github.com/NVIDIA-Merlin/HugeCTR/blob/master/docs/source/api/hugectr_layer_book.md#elementwisemultiply-layer)
+  * [ELU Layer](https://github.com/NVIDIA-Merlin/HugeCTR/blob/master/docs/source/api/hugectr_layer_book.md#elu-layer)
+  * [FmOrder2 Layer](https://github.com/NVIDIA-Merlin/HugeCTR/blob/master/docs/source/api/hugectr_layer_book.md#fmorder2-layer)
+  * [FullyConnected Layer](https://github.com/NVIDIA-Merlin/HugeCTR/blob/master/docs/source/api/hugectr_layer_book.md#fullyconnected-layer)
+  * [FusedFullyConnected Layer](https://github.com/NVIDIA-Merlin/HugeCTR/blob/master/docs/source/api/hugectr_layer_book.md#fusedfullyconnected-layer)
+  * [FusedReshapeConcat Layer](https://github.com/NVIDIA-Merlin/HugeCTR/blob/master/docs/source/api/hugectr_layer_book.md#fusedreshapeconcat-layer)
+  * [Interaction Layer](https://github.com/NVIDIA-Merlin/HugeCTR/blob/master/docs/source/api/hugectr_layer_book.md#interaction-layer)
+  * [MatrixMultiply Layer](https://github.com/NVIDIA-Merlin/HugeCTR/blob/master/docs/source/api/hugectr_layer_book.md#matrixmutiply-layer)
+  * [MultiCross Layer](https://github.com/NVIDIA-Merlin/HugeCTR/blob/master/docs/source/api/hugectr_layer_book.md#multicross-layer)
+  * [PReLU_Dice Layer](https://github.com/NVIDIA-Merlin/HugeCTR/blob/master/docs/source/api/hugectr_layer_book.md#preludice-layer)
+  * [ReduceMean Layer](https://github.com/NVIDIA-Merlin/HugeCTR/blob/master/docs/source/api/hugectr_layer_book.md#reducemean-layer)
+  * [ReduceSum Layer](https://github.com/NVIDIA-Merlin/HugeCTR/blob/master/docs/source/api/hugectr_layer_book.md#reducesum-layer)
+  * [ReLU Layer](https://github.com/NVIDIA-Merlin/HugeCTR/blob/master/docs/source/api/hugectr_layer_book.md#relu-layer)
+  * [Reshape Layer](https://github.com/NVIDIA-Merlin/HugeCTR/blob/master/docs/source/api/hugectr_layer_book.md#reshape-layer)
+  * [Scale Layer](https://github.com/NVIDIA-Merlin/HugeCTR/blob/master/docs/source/api/hugectr_layer_book.md#scale-layer)
+  * [Sigmoid Layer](https://github.com/NVIDIA-Merlin/HugeCTR/blob/master/docs/source/api/hugectr_layer_book.md#sigmoid-layer)
+  * [Slice Layer](https://github.com/NVIDIA-Merlin/HugeCTR/blob/master/docs/source/api/hugectr_layer_book.md#slice-layer)
+  * [Softmax Layer](https://github.com/NVIDIA-Merlin/HugeCTR/blob/master/docs/source/api/hugectr_layer_book.md#softmax-layer)
+  * [Sub Layer](https://github.com/NVIDIA-Merlin/HugeCTR/blob/master/docs/source/api/hugectr_layer_book.md#sub-layer)
+  * [WeightMultiply](https://github.com/NVIDIA-Merlin/HugeCTR/blob/master/docs/source/api/hugectr_layer_book.md#weightmultiply-layer)
+  * [BinaryCrossEntropyLoss](https://github.com/NVIDIA-Merlin/HugeCTR/blob/master/docs/source/api/hugectr_layer_book.md#binarycrossentropyloss)
+  * [CrossEntropyLoss](https://github.com/NVIDIA-Merlin/HugeCTR/blob/master/docs/source/api/hugectr_layer_book.md#crossentropyloss)
+  * [MultiCrossEntropyLoss](https://github.com/NVIDIA-Merlin/HugeCTR/blob/master/docs/source/api/hugectr_layer_book.md#multicrossentropyloss)
 * Unsupported Layers
   * Cast
-  * [FusedReshapeConcatGeneral](../docs/hugectr_layer_book.md#fusedreshapeconcatgeneral-layer)
-  * [GRU](../docs/hugectr_layer_book.md#gru-layer)
-  * [Gather](../docs/hugectr_layer_book.md#gather-layer)
+  * [FusedReshapeConcatGeneral](https://github.com/NVIDIA-Merlin/HugeCTR/blob/master/docs/source/api/hugectr_layer_book.md#fusedreshapeconcatgeneral-layer)
+  * [GRU](https://github.com/NVIDIA-Merlin/HugeCTR/blob/master/docs/source/api/hugectr_layer_book.md#gru-layer)
+  * [Gather](https://github.com/NVIDIA-Merlin/HugeCTR/blob/master/docs/source/api/hugectr_layer_book.md#gather-layer)
   * ReLUHalf
 
 **Note**: The BinaryCrossEntropyLoss layer will be replaced by a Sigmoid layer when converting the HugeCTR model graph to ONNX. The CrossEntropyLoss layer will be replaced by a Softmax layer when converting the HugeCTR model graph to ONNX. The MultiCrossEntropyLoss layer will be replaced by a Sigmoid layer when converting the HugeCTR model graph to ONNX.
