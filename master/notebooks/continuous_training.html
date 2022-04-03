@@ -368,14 +368,14 @@ div.rendered_html tbody tr:hover {
     text-align: unset;
 }
 </style>
-<p><img alt="f49830c6212a43629b89d78c1b3a229b" src="http://developer.download.nvidia.com/compute/machine-learning/frameworks/nvidia_logo.png" /></p>
+<p><img alt="f0cf978d275045ddaca72097a16e016a" src="http://developer.download.nvidia.com/compute/machine-learning/frameworks/nvidia_logo.png" /></p>
 <div class="section" id="HugeCTR-Continuous-Training">
 <h1>HugeCTR Continuous Training<a class="headerlink" href="#HugeCTR-Continuous-Training" title="Permalink to this headline"></a></h1>
 <div class="section" id="Overview">
 <h2>Overview<a class="headerlink" href="#Overview" title="Permalink to this headline"></a></h2>
 <p>The notebook introduces how to use the Embedding Training Cache (ETC) feature in HugeCTR for the continuous training. The ETC feature is designed to handle recommendation models with huge embedding table by the incremental training method, which allows you to train such a model that the model size is much larger than the available GPU memory size.</p>
-<p>To learn more about the ETC, please check the <a class="reference external" href="../docs/hugectr_embedding_training_cache.md">Embedding Training Cache</a>.</p>
-<p>To learn how to use the APIs of ETC, please check the <a class="reference external" href="../docs/python_interface.md">HugeCTR Python Interface</a>.</p>
+<p>To learn more about the ETC, please check the <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/hugectr_core_features.html#embedding-training-cache">Embedding Training Cache</a>.</p>
+<p>To learn how to use the APIs of ETC, please check the <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html">HugeCTR Python Interface</a>.</p>
 </div>
 <div class="section" id="Table-of-Contents">
 <h2>Table of Contents<a class="headerlink" href="#Table-of-Contents" title="Permalink to this headline"></a></h2>
@@ -405,7 +405,7 @@ div.rendered_html tbody tr:hover {
 </div>
 <div class="section" id="1.2-Build-HugeCTR-from-Source-Code">
 <h3>1.2 Build HugeCTR from Source Code<a class="headerlink" href="#1.2-Build-HugeCTR-from-Source-Code" title="Permalink to this headline"></a></h3>
-<p>If you want to build HugeCTR from the source code instead of using the NGC container, please refer to the <a class="reference external" href="../../docs/hugectr_contributor_guide.md#how-to-start-your-development">How to Start Your Development</a>.</p>
+<p>If you want to build HugeCTR from the source code instead of using the NGC container, please refer to the <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/hugectr_contributor_guide.html#how-to-start-your-development">How to Start Your Development</a>.</p>
 <p>## Continuous Training</p>
 <p>### 2.1 Data Preparation 1. Download the Kaggle Criteo dataset using the following command: <code class="docutils literal notranslate"><span class="pre">shell</span>&#160;&#160;&#160; <span class="pre">$</span> <span class="pre">cd</span> <span class="pre">${project_root}/tools</span>&#160;&#160;&#160; <span class="pre">$</span> <span class="pre">wget</span> <span class="pre">http://azuremlsampleexperiments.blob.core.windows.net/criteo/day_1.gz</span></code></p>
 <p>To preprocess the downloaded Kaggle Criteo dataset, we’ll make the following operations: * Reduce the amounts of data to speed up the preprocessing * Fill missing values * Remove the feature values whose occurrences are very rare, etc.</p>
@@ -735,7 +735,7 @@ BinaryCrossEntropyLoss                  add1,label                    loss
 <h3>2.3 Continuous Training with Low-level API<a class="headerlink" href="#2.3-Continuous-Training-with-Low-level-API" title="Permalink to this headline"></a></h3>
 <p>This section gives the code sample of continuous training using low-level API, which follows the same logics as the code sample in above section.</p>
 <p>Although the low-level APIs provide fine-grind control to the training logic, we encourage you to use the high-level API if it can satisfy your requirement since the naked data reader and embedding training cache logics are not straightforward and error prone.</p>
-<p>For more about the low-level API, please refer to <a class="reference external" href="../docs/python_interface.md#low-level-training-api">Low-level Training API</a> and samples of <a class="reference internal" href="hugectr_criteo.html"><span class="doc">Low-level Training</span></a>.</p>
+<p>For more about the low-level API, please refer to <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html#low-level-training-api">Low-level Training API</a> and samples of <a class="reference internal" href="hugectr_criteo.html"><span class="doc">Low-level Training</span></a>.</p>
 <div class="nbinput docutils container">
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[3]:
 </pre></div>

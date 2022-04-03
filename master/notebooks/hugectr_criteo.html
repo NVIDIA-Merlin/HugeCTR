@@ -367,14 +367,14 @@ div.rendered_html tbody tr:hover {
     text-align: unset;
 }
 </style>
-<p><img alt="b206981402984f7db5e916f6f3ceb5e5" src="http://developer.download.nvidia.com/compute/machine-learning/frameworks/nvidia_logo.png" /></p>
+<p><img alt="4941ed15935f47b8a12d6aebd1243e5e" src="http://developer.download.nvidia.com/compute/machine-learning/frameworks/nvidia_logo.png" /></p>
 <div class="section" id="HugeCTR-Python-Interface">
 <h1>HugeCTR Python Interface<a class="headerlink" href="#HugeCTR-Python-Interface" title="Permalink to this headline"></a></h1>
 <div class="section" id="Overview">
 <h2>Overview<a class="headerlink" href="#Overview" title="Permalink to this headline"></a></h2>
 <p>In HugeCTR version 3.1, we provide an enhanced Python inferface, which supports continuous training and inference with high-level APIs. There are four main improvements. Firstly, the model graph can be constructed and dumped to the JSON file with Python code and it saves users from writing JSON configuration files. Secondly, we support the feature of embedding training cache with high-level APIs and extend it further for online training cases, a notebook can be found
 <a class="reference internal" href="continuous_training.html"><span class="doc">here</span></a>. Thirdly, the freezing method is provided for both sparse embedding and dense network, which enables transfer learning and fine-tune for CTR tasks. Lastly, the pretrained embeddings in other formats can be converted to HugeCTR sparse models and then loaded to facilitate the training process, which is covered in Section 3.4 of this notebook.</p>
-<p>This notebook explains how to access and use the enhanced HugeCTR Python interface. Please NOTE that the low-level training APIs are still maintained for users who want to have precise control of each training iteration, while migrating to the high-level training APIs is strongly recommended. For more details of the usage of Python API, please refer to <a class="reference external" href="../docs/python_interface.md">HugeCTR Python Interface</a>.</p>
+<p>This notebook explains how to access and use the enhanced HugeCTR Python interface. Please NOTE that the low-level training APIs are still maintained for users who want to have precise control of each training iteration, while migrating to the high-level training APIs is strongly recommended. For more details of the usage of Python API, please refer to <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html">HugeCTR Python Interface</a>.</p>
 </div>
 <div class="section" id="Table-of-Contents">
 <h2>Table of Contents<a class="headerlink" href="#Table-of-Contents" title="Permalink to this headline"></a></h2>
@@ -410,7 +410,7 @@ div.rendered_html tbody tr:hover {
 </pre></div>
 </div>
 <p>### 1.2 Build HugeCTR from Source Code</p>
-<p>If you want to build HugeCTR from the source code instead of using the NGC container, please refer to the <a class="reference external" href="../../docs/hugectr_contributor_guide.md#how-to-start-your-development">How to Start Your Development</a>.</p>
+<p>If you want to build HugeCTR from the source code instead of using the NGC container, please refer to the <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/hugectr_contributor_guide.html#how-to-start-your-development">How to Start Your Development</a>.</p>
 <p>## 2. DCN Demo</p>
 <p>### 2.1 Download and Preprocess Data 1. Download the Kaggle Criteo dataset using the following command: <code class="docutils literal notranslate"><span class="pre">shell</span>&#160;&#160;&#160; <span class="pre">$</span> <span class="pre">cd</span> <span class="pre">${project-root}/tools</span>&#160;&#160;&#160; <span class="pre">$</span> <span class="pre">wget</span> <span class="pre">http://azuremlsampleexperiments.blob.core.windows.net/criteo/day_1.gz</span></code></p>
 <p>In preprocessing, we will further reduce the amounts of data to speedup the preprocessing, fill missing values, remove the feature values whose occurrences are very rare, etc. Here we choose pandas preprocessing method to make the dataset ready for HugeCTR training.</p>

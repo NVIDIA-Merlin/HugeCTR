@@ -363,13 +363,13 @@ div.rendered_html tbody tr:hover {
     text-align: unset;
 }
 </style>
-<p><img alt="2e050db335be409aba4ff22ab0fafe83" src="http://developer.download.nvidia.com/compute/machine-learning/frameworks/nvidia_logo.png" /></p>
+<p><img alt="ea49469537374413a6c874d4125b8782" src="http://developer.download.nvidia.com/compute/machine-learning/frameworks/nvidia_logo.png" /></p>
 <div class="section" id="Multi-GPU-Offline-Inference">
 <h1>Multi-GPU Offline Inference<a class="headerlink" href="#Multi-GPU-Offline-Inference" title="Permalink to this headline"></a></h1>
 <div class="section" id="Overview">
 <h2>Overview<a class="headerlink" href="#Overview" title="Permalink to this headline"></a></h2>
-<p>In HugeCTR version 3.4.1, we provide Python APIs to do multi-GPU offline inference, which leverage <a class="reference external" href="../docs/hugectr_parameter_server.md">HugeCTR Hierarchical Parameter Server</a> and enable concurrent execution on multiple devices. The Norm or Parquet dataset is currently supported by multi-GPU offline inference.</p>
-<p>This notebook explains how to do multi-GPU offline inference with HugeCTR Python APIs. For more details, please refer to <a class="reference external" href="../docs/python_interface.md#inference-api">HugeCTR Python Interface</a>.</p>
+<p>In HugeCTR version 3.4.1, we provide Python APIs to do multi-GPU offline inference, which leverage <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/hugectr_core_features.html#hierarchical-parameter-server">HugeCTR Hierarchical Parameter Server</a> and enable concurrent execution on multiple devices. The Norm or Parquet dataset is currently supported by multi-GPU offline inference.</p>
+<p>This notebook explains how to do multi-GPU offline inference with HugeCTR Python APIs. For more details, please refer to <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html#inference-api">HugeCTR Python Interface</a>.</p>
 </div>
 <div class="section" id="Table-of-Contents">
 <h2>Table of Contents<a class="headerlink" href="#Table-of-Contents" title="Permalink to this headline"></a></h2>
@@ -396,9 +396,9 @@ div.rendered_html tbody tr:hover {
 </div>
 <p><strong>Note</strong>: This Python module contains both training APIs and offline inference APIs. For online inference with Triton, please refer to <a class="reference external" href="https://github.com/triton-inference-server/hugectr_backend">HugeCTR Backend</a>.</p>
 <p>### 1.2 Build HugeCTR from Source Code</p>
-<p>If you want to build HugeCTR from the source code instead of using the NGC container, please refer to the <a class="reference external" href="../docs/hugectr_contributor_guide.md#how-to-start-your-development">How to Start Your Development</a>.</p>
+<p>If you want to build HugeCTR from the source code instead of using the NGC container, please refer to the <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/hugectr_contributor_guide.html#how-to-start-your-development">How to Start Your Development</a>.</p>
 <p>## 2. Demo</p>
-<p>### 2.1 Data Generation HugeCTR provides a tool to generate synthetic datasets. The <a class="reference external" href="../docs/python_interface.md#data-generator-api">Data Generator</a> is capable of generating datasets of different formats and distributions. We will generate multi-hot Parquet datasets with power law distribution for this notebook:</p>
+<p>### 2.1 Data Generation HugeCTR provides a tool to generate synthetic datasets. The <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html#data-generator-api">Data Generator</a> is capable of generating datasets of different formats and distributions. We will generate multi-hot Parquet datasets with power law distribution for this notebook:</p>
 <div class="nbinput docutils container">
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[1]:
 </pre></div>
