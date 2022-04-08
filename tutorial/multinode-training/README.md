@@ -15,13 +15,13 @@ If you need to create a new cluster, follow the instructions outlined below.
 * Docker version 19.03.8
 
 ### To Create a New Cluster:
-1. Prepare a [DCN dataset](../../samples/dcn2nodes/README.md) and cater the dataset in the same directory for all the nodes.
+1. Prepare a [DCN dataset](../../samples/dcn/README.md) and cater the dataset in the same directory for all the nodes.
 
-2. Build a [docker image](../../../README.md#2-build-docker-image-and-hugectr) in each node.
+2. Build a [docker image](https://nvidia-merlin.github.io/HugeCTR/master/hugectr_contributor_guide.html#build-hugectr-from-source) in each node.
 
-   You can also build an image once and use `docker save`/`docker load` to distribute the same image to all the  nodes. A production docker image of HugeCTR is available in the NVIDIA container repository. To pull and launch this container, see [Getting Started with NGC](../../../README.md#getting-started-with-ngc).
+   You can also build an image once and use `docker save`/`docker load` to distribute the same image to all the  nodes. A production docker image of HugeCTR is available in the NVIDIA container repository. To pull and launch this container, see [Getting Started with NGC](https://nvidia-merlin.github.io/HugeCTR/master/hugectr_user_guide.html#installing-hugectr-using-ngc-containers).
   
-3. Build HugeCTR with [multi-nodes training supported](../README.md)) and copy it to the same shared directory in each node.
+3. Build HugeCTR with [multi-nodes training supported](https://nvidia-merlin.github.io/HugeCTR/master/hugectr_core_features.html#multi-node-training) and copy it to the same shared directory in each node.
 
 4. Configure the python script.
 
