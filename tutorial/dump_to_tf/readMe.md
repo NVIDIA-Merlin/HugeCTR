@@ -39,7 +39,7 @@ Dense model's weights will be stored in the order of layers in configuration fil
   Weights in Layer2,
   ...
   ```
-  The [non-training parameters](../../docs/hugectr_user_guide.md#no-trained-parameters) will be saved to a json file, such as ```moving-mean``` and ```moving-var``` in BatchNorm layer. <br>
+  The non-training parameters will be saved to a json file, such as ```moving-mean``` and ```moving-var``` in BatchNorm layer. <br>
 
   So far, the following layers have parameters needed to be saved, and the parameters in each layer are stored in the order in which the variables appear:
   1. BatchNorm <br>

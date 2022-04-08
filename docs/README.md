@@ -1,7 +1,7 @@
 # Documentation
 
 This folder contains the scripts necessary to build the documentation for HugeCTR.
-You can view the generated [HugeCTR documentation here](https://nvidia-merlin.github.io/HugeCTR).
+You can view the generated [HugeCTR documentation here](https://nvidia-merlin.github.io/HugeCTR/master/hugectr_user_guide.html).
 
 # Contributing to Docs
 
