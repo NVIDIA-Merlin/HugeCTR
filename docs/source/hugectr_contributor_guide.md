@@ -85,7 +85,7 @@ To build HugeCTR from source, do the following:
 
 3. Build HugeCTR from scratch using one or any combination of the following options:
    - **SM**: You can use this option to build HugeCTR with a specific compute capability (DSM=80) or multiple compute capabilities (DSM="70;75"). The default compute capability
-     is 70, which uses the NVIDIA V100 GPU. For more information, refer to [Compute Capability](https://github.com/NVIDIA/HugeCTR/blob/master/docs/hugectr_user_guide.md#compute-capability). 60 is not supported for inference deployments. For more information, refer to [Quick Start](https://github.com/triton-inference-server/hugectr_backend#quick-start).
+     is 70, which uses the NVIDIA V100 GPU. For more information, refer to the [Compute Capability](hugectr_user_guide.md#compute-capability) table. 60 is not supported for inference deployments. For more information, refer to the [Quick Start](https://github.com/triton-inference-server/hugectr_backend#quick-start) for the HugeCTR backend of Triton Inference Server.
    - **CMAKE_BUILD_TYPE**: You can use this option to build HugeCTR with Debug or Release. When using Debug to build, HugeCTR will print more verbose logs and execute GPU tasks
      in a synchronous manner.
      average of eval_batches results. Only one thread and chunk will be used in the data reader. Performance will be lower when in validation mode. This option is set to OFF by

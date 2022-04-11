@@ -11,6 +11,7 @@ HugeCTR Example Notebooks
    notebooks/movie-lens-example.ipynb
    notebooks/hugectr_criteo.ipynb
    notebooks/multi_gpu_offline_inference.ipynb
+   notebooks/hps_demo.ipynb
 
 The multi-modal data example uses several notebooks to demonstrate how to use of multi-modal data (text and images)
 to provide movie recommendations based on the MovieLens 25M dataset.
