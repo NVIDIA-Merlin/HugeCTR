@@ -281,10 +281,9 @@ The effective bandwidth (embedding size / reading or writing time) of reading an
 
 <div align="center">Fig. 5: Bandwidth and hit rate for reading operations.</div>
 
-<center>
-<img src="/user_guide_src/hc_write.png" width="450"/>
+<br></br>
 
-<img src="/user_guide_src/hc_read.png" width="450px" align="center"/>
+<img src="/user_guide_src/hc_write.png" width="450px" align="center"/>
 
 <div align="center">Fig. 6: Bandwidth and hit rate for writing operations.</div>
 
