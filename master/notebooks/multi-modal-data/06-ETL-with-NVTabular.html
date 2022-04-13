@@ -50,6 +50,7 @@
 <li class="toctree-l2"><a class="reference internal" href="../movie-lens-example.html">HugeCTR demo on Movie lens data</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../hugectr_criteo.html">HugeCTR Python Interface</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../multi_gpu_offline_inference.html">Multi-GPU Offline Inference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../hps_demo.html">Hierarchical Parameter Server Demo</a></li>
 <li class="toctree-l2"><a class="reference internal" href="00-Intro.html">Training Recommender Systems on Multi-modal Data</a></li>
 <li class="toctree-l2"><a class="reference internal" href="01-Download-Convert.html">MovieLens-25M: Download and Convert</a></li>
 <li class="toctree-l2"><a class="reference internal" href="03-Feature-Extraction-Poster.html">Movie Poster Feature Extraction with ResNet</a></li>
@@ -385,7 +386,7 @@ div.rendered_html tbody tr:hover {
 </pre></div>
 </div>
 </div>
-<p><img alt="0bb64392795e43f59bb2c78e7b7c0bed" src="http://developer.download.nvidia.com/compute/machine-learning/frameworks/nvidia_logo.png" /></p>
+<p><img alt="5fbff2e5d5ce4b1a91e3ccf559c5332e" src="http://developer.download.nvidia.com/compute/machine-learning/frameworks/nvidia_logo.png" /></p>
 <div class="section" id="ETL-with-NVTabular">
 <h1>ETL with NVTabular<a class="headerlink" href="#ETL-with-NVTabular" title="Permalink to this headline"></a></h1>
 <p>NVTabular is a feature engineering and preprocessing library for tabular data designed to quickly and easily manipulate terabyte scale datasets used to train deep learning based recommender systems. It provides a high level abstraction to simplify code and accelerates computation on the GPU using the RAPIDS cuDF library.</p>
@@ -555,7 +556,7 @@ movieId_dup = cat_features[&quot;movieId&quot;] &gt;&gt; nvt.ops.Rename(postfix=
 </pre></div>
 </div>
 </div>
-<p>The ratings are on a scale between 1-5. We want to predict a binary target with 1 for ratings <code class="docutils literal notranslate"><span class="pre">&gt;3</span></code> and 0 for ratings <code class="docutils literal notranslate"><span class="pre">&lt;=3</span></code>. We use the <a class="reference external" href="https://nvidia.github.io/NVTabular/main/api/ops/lambdaop.html">LambdaOp</a> for it.</p>
+<p>The ratings are on a scale between 1-5. We want to predict a binary target with 1 for ratings <code class="docutils literal notranslate"><span class="pre">&gt;3</span></code> and 0 for ratings <code class="docutils literal notranslate"><span class="pre">&lt;=3</span></code>. We use the <a class="reference external" href="https://nvidia-merlin.github.io/NVTabular/main/api/ops/lambdaop.html">LambdaOp</a> for it.</p>
 <div class="nbinput nblast docutils container">
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[51]:
 </pre></div>
@@ -595,7 +596,7 @@ movieId_dup = cat_features[&quot;movieId&quot;] &gt;&gt; nvt.ops.Rename(postfix=
 <h2>Running the pipeline<a class="headerlink" href="#Running-the-pipeline" title="Permalink to this headline"></a></h2>
 <p>In general, the <code class="docutils literal notranslate"><span class="pre">Op</span></code>s in our <code class="docutils literal notranslate"><span class="pre">Workflow</span></code> will require measurements of statistical properties of our data in order to be leveraged. For example, the <code class="docutils literal notranslate"><span class="pre">Normalize</span></code> op requires measurements of the dataset mean and standard deviation, and the <code class="docutils literal notranslate"><span class="pre">Categorify</span></code> op requires an accounting of all the categories a particular feature can manifest. However, we frequently need to measure these properties across datasets which are too large to fit into GPU memory (or CPU memory for that matter) at once.</p>
 <p>NVTabular solves this by providing the <code class="docutils literal notranslate"><span class="pre">Dataset</span></code> class, which breaks a set of parquet or csv files into into a collection of <code class="docutils literal notranslate"><span class="pre">cudf.DataFrame</span></code> chunks that can fit in device memory. The main purpose of this class is to abstract away the raw format of the data, and to allow other NVTabular classes to reliably materialize a dask_cudf.DataFrame collection (and/or collection-based iterator) on demand. Under the hood, the data decomposition corresponds to the construction of a
-<a class="reference external" href="https://docs.rapids.ai/api/cudf/stable/dask-cudf.html">dask_cudf.DataFrame</a> object. By representing our dataset as a lazily-evaluated <a class="reference external" href="https://dask.org/">Dask</a> collection, we can handle the calculation of complex global statistics (and later, can also iterate over the partitions while feeding data into a neural network). <code class="docutils literal notranslate"><span class="pre">part_size</span></code> defines the size read into GPU-memory at once.</p>
+<a class="reference external" href="https://docs.rapids.ai/api/cudf/stable/">dask_cudf.DataFrame</a> object. By representing our dataset as a lazily-evaluated <a class="reference external" href="https://dask.org/">Dask</a> collection, we can handle the calculation of complex global statistics (and later, can also iterate over the partitions while feeding data into a neural network). <code class="docutils literal notranslate"><span class="pre">part_size</span></code> defines the size read into GPU-memory at once.</p>
 <p>Now instantiate dataset iterators to loop through our dataset (which we couldn’t fit into GPU memory). HugeCTR expect the categorical input columns as <code class="docutils literal notranslate"><span class="pre">int64</span></code> and continuous/label columns as <code class="docutils literal notranslate"><span class="pre">float32</span></code> We need to enforce the required HugeCTR data types, so we set them in a dictionary and give as an argument when creating our dataset.</p>
 <div class="nbinput nblast docutils container">
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[54]:
