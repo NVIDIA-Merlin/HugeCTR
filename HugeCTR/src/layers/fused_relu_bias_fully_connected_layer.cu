@@ -187,7 +187,7 @@ void FusedReluBiasFullyConnectedLayer::initialize() {
 
   HCTR_LIB_THROW(cublasLtMatmulPreferenceCreate(&cublas_preference_));
 
-  cublaslt_workspace_size_ = 1024 * 1024 * 16;  // Set it to 8MB for now
+  cublaslt_workspace_size_ = 1024 * 1024 * 16;  // Set it to 16MB for now
   HCTR_LIB_THROW(cudaMalloc(&cublaslt_workspace_, cublaslt_workspace_size_));
   HCTR_LIB_THROW(cublasLtMatmulPreferenceSetAttribute(
       cublas_preference_, CUBLASLT_MATMUL_PREF_MAX_WORKSPACE_BYTES, &cublaslt_workspace_size_,
