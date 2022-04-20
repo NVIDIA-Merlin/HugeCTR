@@ -51,7 +51,7 @@ Refer to the [Dataset formats](./api/python_interface.md#dataset-formats) sectio
 ## 11.	 Does HugeCTR support Python interface?
 
 Yes we introduced our first version of Python interface.
-Check out our [example notebooks](/hugectr_example_notebooks) and Python [API documentation](./api/python_interface.md).
+Check out our [example notebooks](./notebooks/index.md) and Python [API documentation](./api/python_interface.md).
 
 ## 12. Does HugeCTR do synchronous training with multiple GPUs (and nodes)? Otherwise, does it do asynchronous training?
 
@@ -150,7 +150,7 @@ In practice, we usually set it larger than the real size because of the non-unif
 The relation between embedding type, `workspace_size_per_gpu_in_mb` and `slot_size_array` is:
 
 * For `DistributedSlotEmbedding`, `workspace_size_per_gpu_in_mb` is needed and `slot_size_array` is not needed. Each GPU will allocate the same amount of memory for embedding table usage.
-* For `LocalizedSlotSparseEmbeddingHash`, only one of `workspace_size_per_gpu_in_mb` and `slot_size_array` is needed. If users can provide the exact size for each slot, we recommand users to specify `slot_size_array`. It can help avoid wasting memory caused by imbalance vocabulary size. Or you can specify `workspace_size_per_gpu_in_mb` so each GPU will allocate the same amount of memory for embedding table usage. If you specify both `slot_size_array` and `workspace_size_per_gpu_in_mb`, HugeCTR will use `slot_size_array` for `LocalizedSlotSparseEmbeddingHash`.
+* For `LocalizedSlotSparseEmbeddingHash`, only one of `workspace_size_per_gpu_in_mb` and `slot_size_array` is needed. If users can provide the exact size for each slot, we recommend users to specify `slot_size_array`. It can help avoid wasting memory caused by imbalance vocabulary size. Or you can specify `workspace_size_per_gpu_in_mb` so each GPU will allocate the same amount of memory for embedding table usage. If you specify both `slot_size_array` and `workspace_size_per_gpu_in_mb`, HugeCTR will use `slot_size_array` for `LocalizedSlotSparseEmbeddingHash`.
 * For `LocalizedSlotSparseEmbeddingOneHot`, `slot_size_array` is needed. It is used for allocating memory and adding offset for each slot.
 * For `HybridSparseEmbedding`, both `workspace_size_per_gpu_in_mb` and `slot_size_array` is needed. `workspace_size_per_gpu_in_md` is used for allocating memory while `slot_size_array` is used for adding offset
 
@@ -168,13 +168,13 @@ For multi-node training, InfiniBand is recommended but not required. You can use
 
 ## 28. Does HugeCTR support loading pretrained embeddings in other formats?
 
-You can convert the pretrained embeddings to the HugeCTR sparse models and then load them to facilitate the training process. You can refer to [save_params_to_files](/api/python_interface.md#save-params-to-files-method) to get familiar with the HugeCTR sparse model format. We demonstrate the usage in 3.4 Load Pre-trained Embeddings of [hugectr_criteo.ipynb](../notebooks/hugectr_criteo.ipynb).
+You can convert the pretrained embeddings to the HugeCTR sparse models and then load them to facilitate the training process. You can refer to [save_params_to_files](./api/python_interface.md#save_params_to_files-method) to get familiar with the HugeCTR sparse model format. We demonstrate the usage in 3.4 Load Pre-trained Embeddings of [hugectr_criteo.ipynb](../notebooks/hugectr_criteo.ipynb).
 
 ## 29. How to construct the model graph with branch topology in HugeCTR?
 
 The branch topology is inherently supported by HugeCTR model graph, and extra layers are abstracted away in HugeCTR Python Interface.
-Refer to the [Slice Layer](/api/hugectr_layer_book.md#slice-layer) for information about model graphs with branches and sample code.
+Refer to the [Slice Layer](./api/hugectr_layer_book.md#slice-layer) for information about model graphs with branches and sample code.
 
 ## 30. What is the good practice of configuring the embedding vector size?
 
-The embedding vector size is related to the size of Cooperative Thread Array (CTA) for HugeCTR kernal launching, so first and foremost it should not exceed the maximum number of threads per block. It would be better that it is configured to a multiple of the warp size for the sake of occupancy. Still, you can set the embedding vector size freely according to the specific model architecture as long as it complies with the limit.
+The embedding vector size is related to the size of Cooperative Thread Array (CTA) for HugeCTR kernel launching, so first and foremost it should not exceed the maximum number of threads per block. It would be better that it is configured to a multiple of the warp size for the sake of occupancy. Still, you can set the embedding vector size freely according to the specific model architecture as long as it complies with the limit.

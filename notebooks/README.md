@@ -1,39 +1,45 @@
-# HugeCTR Jupyter demo notebooks
-This directory contains a set of Jupyter Notebook demos for HugeCTR.
+# HugeCTR Example Notebooks
+
+This directory contains a set of Jupyter notebook that demonstrate how to use HugeCTR.
 
 ## Quickstart
-The quickest way to run a notebook here is with a docker container, which provides a self-contained, isolated, and reproducible environment for repetitive experiments. HugeCTR is available as buildable source code, but the easiest way to install and run HugeCTR is to use the pre-built Docker image available from the NVIDIA GPU Cloud (NGC). If you want to build the HugeCTR docker image on your own, please refer to [Use Docker Container](../docs/mainpage.md#use-docker-container).
+
+The simplest way to run a one of our notebooks is with a Docker container.
+A container provides a self-contained, isolated, and reproducible environment for repetitive experiments.
+Docker images are available from the NVIDIA GPU Cloud (NGC).
+If you prefer to build the HugeCTR Docker image on your own, refer to [Set Up the Development Environment With Merlin Containers](https://nvidia-merlin.github.io/HugeCTR/master/hugectr_contributor_guide.html#set-up-the-development-environment-with-merlin-containers).
 
 ### Pull the NGC Docker
-To start the [sparse_operation_kit_demo.ipynb](../sparse_operation_kit/notebooks/sparse_operation_kit_demo.ipynb) notebook, pull this docker image:
-```
-docker pull nvcr.io/nvidia/merlin/merlin-tensorflow-training:22.04
-```
 
-To start the other notebooks, pull the docker image using the following command:
-```
+Pull the container using the following command:
+
+```shell
 docker pull nvcr.io/nvidia/merlin/merlin-training:22.04
 ```
 
+> To run the Sparse Operation Kit notebooks, pull the `nvcr.io/nvidia/merlin/merlin-tensorflow-training:22.04` container.
+
 ### Clone the HugeCTR Repository
+
 Use the following command to clone the HugeCTR repository:
-```
+
+```shell
 git clone https://github.com/NVIDIA/HugeCTR
 ```
 
 ### Start the Jupyter Notebook
 
-1. Launch the container in interactive mode (mount the HugeCTR root directory into the container for your convenience) by running this command: 
-   ```
+1. Launch the container in interactive mode (mount the HugeCTR root directory into the container for your convenience) by running this command:
+
+   ```shell
    docker run --runtime=nvidia --rm -it --cap-add SYS_NICE -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr -p 8888:8888 nvcr.io/nvidia/merlin/merlin-training:22.04
    ```  
-   Launch the container in interactive mode (mount the HugeCTR root directory into the container for your convenience) by running this command to run [sparse_operation_kit_demo.ipynb](../sparse_operation_kit/notebooks/sparse_operation_kit_demo.ipynb) notebook : 
-   ```
-   docker run --runtime=nvidia --rm -it --cap-add SYS_NICE -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr -p 8888:8888 nvcr.io/nvstaging/merlin/merlin-tensorflow-training:22.04
-   ```
+
+   > To run the  Sparse Operation Kit notebooks, specify the `nvcr.io/nvidia/merlin/merlin-tensorflow-training:22.04` container.
 
 2. Start Jupyter using these commands: 
-   ```
+
+   ```shell
    cd /hugectr/notebooks
    jupyter-notebook --allow-root --ip 0.0.0.0 --port 8888 --NotebookApp.token='hugectr'
    ```
@@ -48,7 +54,7 @@ git clone https://github.com/NVIDIA/HugeCTR
 
    By default, HugeCTR initializes and finalizes MPI when you run the `import hugectr` statement within the NGC Merlin container.
    If you build and install HugeCTR yourself, specify the `ENABLE_MULTINODES=ON` argument when you build.
-   See [Build HugeCTR from Source](../docs/hugectr_contributor_guide.md#build-hugectr-from-source).
+   See [Build HugeCTR from Source](https://nvidia-merlin.github.io/HugeCTR/master/hugectr_user_guide.html#building-hugectr-from-scratch).
 
    If your program uses MPI for a reason other than interacting with HugeCTR, initialize MPI with the `from mpi4py import MPI` statement before you import HugeCTR.
    
@@ -56,12 +62,9 @@ git clone https://github.com/NVIDIA/HugeCTR
 
    HugeCTR is written in CUDA/C++ and wrapped to Python using Pybind11. The C++ output will not display in Notebook cells unless you run the Python script in a command line manner.
 
-
-
 ## Notebook List
-The notebooks are located within the container and can be found here: `/hugectr/notebooks`.
 
-For notebooks of SparseOperationKit, please refer to [sparse_operation_kit/notebooks/](../sparse_operation_kit/notebooks/ReadMe.md)
+The notebooks are located within the container and can be found in the `/hugectr/notebooks` directory.
 
 Here's a list of notebooks that you can run:
 - [ecommerce-example.ipynb](ecommerce-example.ipynb): Explains how to train and inference with the eCommerce dataset.
@@ -71,11 +74,16 @@ Here's a list of notebooks that you can run:
 - [continuous_training.ipynb](continuous_training.ipynb): Notebook to introduce how to deploy continued training with HugeCTR.
 - [hugectr_wdl_prediction.ipynb](hugectr_wdl_prediction.ipynb): Tutorial how to train a wdl model using HugeCTR High-level python API.
 - [news-example.ipynb](news-example.ipynb): Tutorial to demonstrate NVTabular for ETL the data and HugeCTR for training Deep Neural Network models on MIND dataset.
-- [multi-modal-data](multi-modal-data): This series of notebooks demonstrate the use of multi-modal data (text, image) for the task of movie recommendation, using the Movielens-25M dataset.
 - [multi_gpu_offline_inference.ipynb](multi_gpu_offline_inference.ipynb): Explain how to do multi-GPU offline inference with HugeCTR Python APIs.
 - [hps_demo.ipynb](hps_demo.ipynb): Demonstrate how to utilize HPS Python APIs together with ONNX Runtime APIs to create an ensemble inference model.
+- [training_with_hdfs.ipynb](training_with_hdfs.ipynb): Demonstrates how to train a model with data that is stored in Hadoop HDFS.
 
+The [multi-modal-data](./multi-modal-data/) series of notebooks demonstrate how to use of multi-modal data such as text and images for the task of movie recommendation.
+The notebooks use the Movielens-25M dataset.
+
+For Sparse Operation Kit notebooks, refer to the [sparse_operation_kit/notebooks/](https://github.com/NVIDIA-Merlin/HugeCTR/tree/master/sparse_operation_kit/notebooks) directory of the repository or the [documentation](https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/index.html).
 ## System Specifications
+
 The specifications of the system on which each notebook can run successfully are summarized in the table. The notebooks are verified on the system below but it does not mean the minimum requirements.
 
 | Notebook                                                               | CPU                                                          | GPU                              | #GPUs | Author         |

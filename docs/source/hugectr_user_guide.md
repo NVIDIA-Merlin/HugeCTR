@@ -90,7 +90,7 @@ We currently support the following tools:
 
 ### Generating Synthetic Data and Benchmarks
 
-The [Norm](/api/python_interface.md#norm) (with Header) and [Raw](/api/python_interface.md#raw) (without Header) datasets can be generated with [hugectr.tools.DataGenerator](/api/python_interface.md#datagenerator). For categorical features, you can configure the probability distribution to be uniform or power-law within [hugectr.tools.DataGeneratorParam](/api/python_interface.md#datageneratorparams-class). The default distribution is power law with alpha = 1.2.
+The [Norm](./api/python_interface.md#norm) (with Header) and [Raw](./api/python_interface.md#raw) (without Header) datasets can be generated with [hugectr.tools.DataGenerator](./api/python_interface.md#datagenerator). For categorical features, you can configure the probability distribution to be uniform or power-law within [hugectr.tools.DataGeneratorParam](./api/python_interface.md#datageneratorparams-class). The default distribution is power law with alpha = 1.2.
 
 - Generate the `Norm` dataset for DCN and start training the HugeCTR model: <br>
 ```bash

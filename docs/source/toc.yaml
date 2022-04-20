@@ -1,0 +1,49 @@
+root: index
+subtrees:
+  - caption: Contents
+    entries:
+      - file: hugectr_user_guide.md
+        title: Introduction
+      - file: hugectr_core_features.md
+        title: Core Features
+      - file: hugectr_feature_details_intro.rst
+        title: Features in Detail
+      - file: notebooks/index.md
+        title: Example Notebooks
+        entries:
+          - file: notebooks/ecommerce-example.ipynb
+          - file: notebooks/movie-lens-example.ipynb
+          - file: notebooks/hugectr_criteo.ipynb
+          - file: notebooks/hugectr2onnx_demo.ipynb
+          - file: notebooks/continuous_training.ipynb
+          - file: notebooks/hugectr_wdl_prediction.ipynb
+          - file: notebooks/news-example.ipynb
+          - file: notebooks/multi_gpu_offline_inference.ipynb
+          - file: notebooks/hps_demo.ipynb
+          - file: notebooks/training_with_hdfs.ipynb
+      - file: notebooks/multi-modal-data/index.md
+        entries:
+          - file: notebooks/multi-modal-data/00-Intro
+          - file: notebooks/multi-modal-data/01-Download-Convert
+          - file: notebooks/multi-modal-data/02-Data-Enrichment
+          - file: notebooks/multi-modal-data/03-Feature-Extraction-Poster
+          - file: notebooks/multi-modal-data/04-Feature-Extraction-Text
+          - file: notebooks/multi-modal-data/05-Create-Feature-Store
+          - file: notebooks/multi-modal-data/06-ETL-with-NVTabular
+          - file: notebooks/multi-modal-data/07-Training-with-HugeCTR
+      - file: api/index.rst
+        title: API Documentation
+      - file: additional_resources
+        entries:
+          - file: hugectr_talks_blogs.md
+          - file: QAList.md
+          - file: hugectr_contributor_guide.md
+      - file: release_notes.md
+
+
+# The multi-modal data example uses several notebooks to demonstrate how to use of multi-modal data (text and images)
+# to provide movie recommendations based on the MovieLens 25M dataset.
+
+# .. toctree::
+#    :maxdepth: 1
+
