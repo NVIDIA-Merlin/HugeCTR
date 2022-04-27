@@ -51,15 +51,29 @@ bool ModelPerfExt::train(bool is_first_batch) {
     // When async indices is enabled, we prefetch next batch on internal stream, that stream will
     // block until the schedule event in the graph is executed
     train_data_reader_->read_a_batch_to_device_delay_release();
+    PROFILER_ITER_CHECK(networks_.size());
     train_data_reader_->ready_to_collect();
 
-#ifdef ENABLE_PROFILING
-    global_profiler.iter_check();
-#endif
+    if (solver_.all_reduce_algo == AllReduceAlgo::NCCL and train_data_reader_->current_batch_incomplete()){
+      #pragma omp parallel num_threads(networks_.size())
+      {
+        size_t id = omp_get_thread_num();
+        CudaCPUDeviceContext ctx(resource_manager_->get_local_gpu(id)->get_device_id());
+        cudaStreamSynchronize(resource_manager_->get_local_gpu(id)->get_stream());
+      }
+    }
 
     if (solver_.use_overlapped_pipeline) {
       train_overlapped();
     } else {
+#ifdef ENABLE_PROFILING
+#pragma omp parallel num_threads(networks_.size())
+      {
+        size_t id = omp_get_thread_num();
+        const auto& local_gpu = resource_manager_->get_local_gpu(id);
+        PROFILE_RECORD("iteration.start", local_gpu->get_stream());
+      }
+#endif
       embeddings_[0]->forward(true, is_first_batch);
 
 #pragma omp parallel num_threads(networks_.size())
@@ -94,11 +108,13 @@ bool ModelPerfExt::train(bool is_first_batch) {
           const auto& local_gpu = resource_manager_->get_local_gpu(id);
           local_gpu->set_compute2_event_sync(local_gpu->get_comp_overlap_stream());
           local_gpu->wait_on_compute2_event(local_gpu->get_stream());
+          PROFILE_RECORD("iteration.stop", local_gpu->get_stream());
         }
       } else {
         const auto& local_gpu = resource_manager_->get_local_gpu(0);
         local_gpu->set_compute2_event_sync(local_gpu->get_comp_overlap_stream());
         local_gpu->wait_on_compute2_event(local_gpu->get_stream());
+        PROFILE_RECORD("iteration.stop", local_gpu->get_stream());
       }
     }
     return true;
@@ -121,12 +137,29 @@ bool ModelPerfExt::eval(bool is_first_batch) {
       this->check_overflow();
       this->copy_weights_for_evaluation();
     }
+    if (is_first_batch && solver_.eval_overlap) {
+      auto scheduled_reader = dynamic_cast<IDataReaderWithScheduling*>(evaluate_data_reader_.get());
+#pragma omp parallel num_threads(networks_.size())
+      {
+        size_t id = omp_get_thread_num();
+        scheduled_reader->schedule_precompute_here(resource_manager_->get_local_gpu(id)->get_stream(), id, false);
+      }
+    }
     long long current_batchsize = evaluate_data_reader_->read_a_batch_to_device_delay_release();
     for (auto& metric : metrics_) {
       metric->set_current_batch_size(current_batchsize);
     }
     current_eval_batchsize_ = current_batchsize;
+    PROFILER_ITER_CHECK(networks_.size());
     evaluate_data_reader_->ready_to_collect();
+#ifdef ENABLE_PROFILING
+#pragma omp parallel num_threads(networks_.size())
+    {
+      size_t id = omp_get_thread_num();
+      const auto& local_gpu = resource_manager_->get_local_gpu(id);
+      PROFILE_RECORD("iteration.start", local_gpu->get_stream());
+    }
+#endif
     embeddings_[0]->forward(false, is_first_batch);
 
 #pragma omp parallel num_threads(networks_.size())
@@ -134,7 +167,16 @@ bool ModelPerfExt::eval(bool is_first_batch) {
       size_t id = omp_get_thread_num();
       long long current_batchsize_per_device =
           evaluate_data_reader_->get_current_batchsize_per_device(id);
+
+      // doesn't do anything if eval_overlap disabled
+      auto gpu = resource_manager_->get_local_gpu(id);
+      HCTR_LIB_THROW(cudaStreamWaitEvent(gpu->get_stream(), gpu->get_event("eval_comp_wait")));
+
       networks_[id]->eval(current_batchsize_per_device);
+
+      // doesn't do anything if eval_overlap disabled
+      HCTR_LIB_THROW(cudaEventRecord(gpu->get_event("eval_comm_wait"), gpu->get_stream()));
+
       for (auto& metric : metrics_) {
         metric->local_reduce(id, networks_[id]->get_raw_metrics());
       }
@@ -143,6 +185,15 @@ bool ModelPerfExt::eval(bool is_first_batch) {
     for (auto& metric : metrics_) {
       metric->global_reduce(networks_.size());
     }
+
+#ifdef ENABLE_PROFILING
+#pragma omp parallel num_threads(networks_.size())
+    {
+      size_t id = omp_get_thread_num();
+      const auto& local_gpu = resource_manager_->get_local_gpu(id);
+      PROFILE_RECORD("iteration.stop", local_gpu->get_stream());
+    }
+#endif
 
     return true;
   } catch (const internal_runtime_error& err) {
@@ -211,9 +262,7 @@ void ModelPerfExt::fit(int num_epochs, int max_iter, int display, int eval_inter
   timer.start();
   timer_train.start();
 
-#ifdef ENABLE_PROFILING
-  HugeCTR::global_profiler.initialize(solver_.use_cuda_graph);
-#endif
+  INITIALIZE_PROFILER(solver_.use_cuda_graph || solver_.use_holistic_cuda_graph);
 
   MESSAGE_("Training source file: " + reader_params_.source[0]);
   MESSAGE_("Evaluation source file: " + reader_params_.eval_source);
@@ -229,26 +278,33 @@ void ModelPerfExt::fit(int num_epochs, int max_iter, int display, int eval_inter
   for (int iter = 0; iter < max_iter; iter++) {
     float lr = 0;
     if (!this->use_gpu_learning_rate_scheduling()) {
-#ifdef ENABLE_PROFILING
-      // profiler may run very long, so prevent lr < 0
-      lr = std::numeric_limits<float>::min();
-      this->set_learning_rate(lr);
-#else
       lr = lr_sch_->get_next();
       this->set_learning_rate(lr);
-#endif
     }
-    this->train(is_first_train_batch_after_eval);
-    is_first_train_batch_after_eval = false;
+
 #ifdef ENABLE_PROFILING
+    if (HugeCTR::global_profiler_train_eval_mode == 0) {
+      this->train(is_first_train_batch_after_eval);
+      is_first_train_batch_after_eval = false;
+    } else if (HugeCTR::global_profiler_train_eval_mode == 1) {
+      this->check_overflow();
+      this->copy_weights_for_evaluation();
+      for (int batches = 0; batches < solver_.max_eval_batches; batches++) {
+        this->eval(batches);
+      }
+    }
     iter = 0;
     continue;
 #endif
+
+    this->train(is_first_train_batch_after_eval);
+    is_first_train_batch_after_eval = false;
     if (display > 0 && iter % display == 0 && iter != 0) {
       timer_train.stop();
       float loss = 0.0f;
       if (solver_.gen_loss_summary) {
         this->get_current_loss(&loss);
+
         if (isnan(loss)) {
           throw std::runtime_error(std::string("Train Runtime error: Loss cannot converge") + " " +
                                    __FILE__ + ":" + std::to_string(__LINE__) + " \n");
@@ -266,12 +322,14 @@ void ModelPerfExt::fit(int num_epochs, int max_iter, int display, int eval_inter
       timer_train.start();
     }
     if (eval_interval > 0 && iter % eval_interval == 0 && iter != 0) {
-      // #pragma omp parallel num_threads(networks_.size())
-      // {
-      //   size_t id = omp_get_thread_num();
-      //   CudaCPUDeviceContext ctx(resource_manager_->get_local_gpu(id)->get_device_id());
-      //   cudaStreamSynchronize(resource_manager_->get_local_gpu(id)->get_stream());
-      // }
+      if (solver_.all_reduce_algo == AllReduceAlgo::NCCL){
+        #pragma omp parallel num_threads(networks_.size())
+        {
+          size_t id = omp_get_thread_num();
+          CudaCPUDeviceContext ctx(resource_manager_->get_local_gpu(id)->get_device_id());
+          cudaStreamSynchronize(resource_manager_->get_local_gpu(id)->get_stream());
+        }
+      }
       this->check_overflow();
       this->copy_weights_for_evaluation();
       is_first_train_batch_after_eval = true;
@@ -397,6 +455,8 @@ void ModelPerfExt::train_overlapped() {
   };
 
   auto scheduled_reader = dynamic_cast<IDataReaderWithScheduling*>(train_data_reader_.get());
+  const bool use_graph = solver_.use_holistic_cuda_graph && !scheduled_reader->current_batch_incomplete();
+
 #pragma omp parallel num_threads(resource_manager_->get_local_gpu_count())
   {
     size_t id = omp_get_thread_num();
@@ -416,7 +476,7 @@ void ModelPerfExt::train_overlapped() {
 
     auto schedule_reader = [&, this](TrainState_t expected) {
       if (scheduled_reader && state.state == expected) {
-        if (solver_.use_holistic_cuda_graph) {
+        if (use_graph) {
           scheduled_reader->schedule_here_graph(stream, id);
         } else {
           scheduled_reader->schedule_here(stream, id);
@@ -427,18 +487,18 @@ void ModelPerfExt::train_overlapped() {
 
     auto schedule_split3way = [&, this](TrainState_t state_to_schedule) {
       if (state.state == state_to_schedule) {
-        scheduled_reader->schedule_precompute_here(stream, id, solver_.use_holistic_cuda_graph);
+        scheduled_reader->schedule_precompute_here(stream, id, use_graph);
       }
     };
 
     auto schedule_d2d = [&, this](TrainState_t state_to_schedule) {
       if (state.state == state_to_schedule) {
-        scheduled_reader->schedule_d2d_here(stream, id, solver_.use_holistic_cuda_graph);
+        scheduled_reader->schedule_d2d_here(stream, id, use_graph);
       }
     };
 
     auto do_it = [&, this](cudaStream_t submit_stream) {
-      if (solver_.use_holistic_cuda_graph) {
+      if (use_graph || scheduled_reader->precompute_enabled()) {
         CK_CUDA_THROW_(cudaEventRecord(fork_events_[id], submit_stream));
         state.event = &fork_events_[id];
       }
@@ -447,30 +507,24 @@ void ModelPerfExt::train_overlapped() {
       // Embedding manages events from the networks and waits if necessary
       // Session inserts a wait if it gets a non-null event from the embedding
 
-      PROFILE_RECORD("iteration.start", submit_stream, true);
+      PROFILE_RECORD("iteration.start", submit_stream);
       do {
         state = embeddings_[0]->train(true, id, state);
         sync();
-        if (resource_manager_->get_num_process() == 1) {
-          schedule_reader(TrainState_t::TopMLPFprop);
-          schedule_split3way(TrainState_t::MLPExchangeWgrad);
-          schedule_d2d(TrainState_t::MLPUpdate);
-        }
+        schedule_reader(TrainState_t::TopMLPFprop);
+        schedule_split3way(TrainState_t::MLPExchangeWgrad);
+        schedule_d2d(TrainState_t::MLPUpdate);
         state = networks_[id]->train(
             current_batchsize_per_device, [this, id]() { this->exchange_wgrad(id); }, state);
-        if (resource_manager_->get_num_process() > 1) {
-          schedule_reader(TrainState_t::TopMLPFprop);
-          schedule_split3way(TrainState_t::BottomMLPBprop);
-          schedule_d2d(TrainState_t::MLPExchangeWgrad);
-        }
       } while (change_state(&state));
-      PROFILE_RECORD("iteration.stop", submit_stream, true);
       sync();
+      PROFILE_RECORD("iteration.stop", submit_stream);
     };
 
-    if (solver_.use_holistic_cuda_graph) {
+    if (use_graph) {
 #ifdef ENABLE_PROFILING
       if (!train_graphs_[id].initialized || profiler_init_cuda_graph_this_iter()) {
+        train_graphs_[id].initialized = false;
 #else
       if (!train_graphs_[id].initialized) {
 #endif

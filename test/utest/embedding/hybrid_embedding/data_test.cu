@@ -127,9 +127,55 @@ template void test_raw_data<long long>(long long *d_raw_data, size_t num_samples
                                        const std::vector<size_t> &table_sizes);
 template void test_samples<uint32_t>(uint32_t *d_raw_data, Data<uint32_t> &data);
 template void test_samples<long long>(long long *d_raw_data, Data<long long> &data);
+
+/**
+ * Tests we pad the incomplete batch (e.g last batch in eval) with NULL category
+ */
+template<typename dtype>
+void test_padding()
+{
+  const size_t batch_size = 8;
+  const size_t current_batch_size = 5;
+
+  std::vector<size_t> table_sizes{100, 10, 10, 20};
+  std::vector<dtype> data_in{99, 3, 7, 19, 0,  0, 0, 0,  1, 1, 1, 1, 2, 2, 2, 2,
+                             3,  3, 3, 3};
+  std::vector<dtype> data_to_unique_categories_ref{
+          99, 103, 117, 139, 0,  100, 110, 120, 1, 101, 111, 121, 2, 102, 112, 122,
+          3,  103, 113, 123};
+
+  Tensor2<dtype> d_data_in;
+  std::shared_ptr<GeneralBuffer2<CudaAllocator>> buff = GeneralBuffer2<CudaAllocator>::create();
+  buff->reserve({current_batch_size * table_sizes.size()}, &d_data_in);
+  buff->allocate();
+  upload_tensor(data_in, d_data_in, 0);
+
+
+  d_data_in.reset_shape({current_batch_size, table_sizes.size()});
+
+  Data<dtype> data(table_sizes, batch_size, 1);
+  data.data_to_unique_categories(d_data_in, 0);
+  std::vector<dtype> data_to_unique_categories_ret;
+  download_tensor(data_to_unique_categories_ret, data.samples, 0);
+
+  const auto NULL_category = EmbeddingTableFunctors<dtype>::get_num_categories(table_sizes);
+
+  // Ensure valid samples calculated correctly
+  size_t i;
+  for (i = 0; i < current_batch_size * table_sizes.size(); ++i) {
+    EXPECT_TRUE(data_to_unique_categories_ret[i] == data_to_unique_categories_ref[i]);
+  }
+
+  // Ensure padded correctly
+  for (; i < batch_size * table_sizes.size(); ++i) {
+    EXPECT_TRUE(data_to_unique_categories_ret[i] == NULL_category);
+  }
+}
 }  // namespace hybrid_embedding
 
 }  // namespace HugeCTR
 
 TEST(data_test, uint32) { data_test<uint32_t>(); };
 TEST(data_test, long_long) { data_test<long long>(); };
+TEST(data_test, incomplete_batch_uint32) { test_padding<uint32_t>(); }
+TEST(data_test, incomplete_batch_long_long) { test_padding<long long>(); }

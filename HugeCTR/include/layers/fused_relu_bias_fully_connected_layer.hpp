@@ -121,6 +121,10 @@ class FusedReluBiasFullyConnectedLayer : public Layer {
    * indicates whether overlap dgrad and wgrad
    */
   bool async_mlp_wgrad_;
+  /*
+   * set of switches
+   */
+  DenseLayerSwitchs dense_layer_switches_;
 
   cublasHandle_t cublas_handle_wgrad_;
 
@@ -195,7 +199,7 @@ class FusedReluBiasFullyConnectedLayer : public Layer {
       const std::shared_ptr<GPUResource>& gpu_resource, const FcPosition_t& pos,
       const Activation_t& act, const bool& skip_dgrad,
       std::vector<Initializer_t> initializer_types = std::vector<Initializer_t>(),
-      const bool async_mlp_wgrad = false);
+      const bool async_mlp_wgrad = false, const DenseLayerSwitchs &dense_layer_switches = {false});
   FusedReluBiasFullyConnectedLayer(const FusedReluBiasFullyConnectedLayer&) = delete;
   FusedReluBiasFullyConnectedLayer& operator=(const FusedReluBiasFullyConnectedLayer&);
 

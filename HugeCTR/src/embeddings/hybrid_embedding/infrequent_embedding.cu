@@ -295,22 +295,14 @@ void InfrequentEmbedding<dtype, emtype>::hier_forward_network(const emtype* mess
       ceildiv<uint32_t>(data_->batch_size, model_.num_instances) * data_->table_sizes.size();
   uint32_t local_comm_buff_size =
       ceildiv<uint32_t>(max_num_infrequent_per_batch_, model_.num_instances);
-
+      
   auto copy_desc = CopyDescriptors::make_OneToOne<emtype, emtype, 1>(
       embedding_vec_size,
       [=] __device__() { return indices->network_indices_offsets[num_instances]; },
       [=] __device__(size_t i) -> CopyDescriptors::CopyDetails<emtype, emtype, 1> {
         uint32_t index = indices->network_indices[i];
-
-        // Find model id and offset
-        uint32_t model_id = 0;
-        uint32_t offset = 0;
-        uint32_t next_offset = indices->network_indices_offsets[1];
-        while (next_offset <= i) {
-          offset = next_offset;
-          model_id++;
-          next_offset = indices->network_indices_offsets[model_id + 1];
-        }
+        uint32_t model_id = indices->network_indices_src_model_id[i];
+        uint32_t offset = indices->network_indices_offsets[model_id];
 
         return {
             message_buffer + (model_id * local_comm_buff_size + i - offset) * embedding_vec_size,
@@ -361,10 +353,8 @@ void InfrequentEmbedding<dtype, emtype>::forward_network_direct(bool is_train,
                 {true}};
       });
 
-  PROFILE_RECORD("inf_forward_network_direct.forward_network_direct.start", stream, false);
   shuffle(copy_desc, stream, local_samples_size / 10);
   CK_CUDA_THROW_(cudaPeekAtLastError());
-  PROFILE_RECORD("inf_forward_network_direct.forward_network_direct.stop", stream, false);
 }
 
 template <typename dtype, typename emtype>
@@ -412,11 +402,7 @@ void InfrequentEmbedding<dtype, emtype>::fused_intra_update_network(const emtype
             num_selected;
         uint32_t index = indices->network_indices[vid];
 
-        uint32_t model_id;
-        for (model_id = 0;
-             model_id < num_instances && indices->network_indices_offsets[model_id + 1] <= vid;
-             model_id++)
-          ;
+        uint32_t model_id = indices->network_indices_src_model_id[vid];
 
         uint32_t local_model_id = (model_id % per_node_instances);
         emtype* output_ptr =
@@ -487,14 +473,12 @@ void InfrequentEmbedding<dtype, emtype>::update_model_direct(float* dev_lr, floa
   int n_blocks = 16 * num_sm;  // TODO: better heuristics
 
   /* Each model reads from the gradients of each network */
-  PROFILE_RECORD("inf_update_model_direct.infrequent_update_model_direct.start", stream, false);
   infrequent_embedding_kernels::
       infrequent_update_model_direct<<<n_blocks, embedding_vec_size_, 0, stream>>>(
           gradients_pointers_.get_ptr(), infrequent_embedding_vectors_.get_ptr(),
           this->indices_view_, model_.category_location.get_ptr(), model_.num_instances,
           model_.global_instance_id, embedding_vec_size_, local_samples_size, dev_lr, scale);
   CK_CUDA_THROW_(cudaPeekAtLastError());
-  PROFILE_RECORD("inf_update_model_direct.infrequent_update_model_direct.stop", stream, false);
 }
 
 template <typename dtype, typename emtype>

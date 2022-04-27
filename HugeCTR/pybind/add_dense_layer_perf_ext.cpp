@@ -358,7 +358,7 @@ void ModelPerfExt::add_dense_layer_internal(
               weight_buff, weight_buff_half, wgrad_buff_half, blobs_buff, train_in_tensor,
               mask_in_tensor, dRelu_in_tensor, db_in_tensor, train_out_tensor, mask_out_tensor,
               dRelu_out_tensor, db_out_tensor, gpu_resource, pos_type, act_type, skip_dgrad,
-              initializer_types, async_mlp_wgrad));
+              initializer_types, async_mlp_wgrad, dense_layer.dense_layer_switches));
         }
 
         if (pos_type == FcPosition_t::Tail || pos_type == FcPosition_t::Isolated ||

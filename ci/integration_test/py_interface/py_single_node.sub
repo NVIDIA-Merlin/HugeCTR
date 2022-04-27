@@ -1,7 +1,0 @@
-#!/bin/bash
-
-srun --ntasks=1 --container-image="${CONT}" --container-mounts="${MOUNTS}" bash -cx " \
-    cd /dataset/criteo_kaggle/dcn && \
-    python3 /workdir/test/pybind_test/dcn_1gpu.py && \
-    cd /dataset/criteo_kaggle/wdl && \
-    python3 /workdir/test/pybind_test/wdl_fp16_8gpu.py /workdir/test/scripts/wdl_fp16_8gpu.json"

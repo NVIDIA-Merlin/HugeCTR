@@ -60,17 +60,17 @@ dtype EmbeddingTableFunctors<dtype>::get_num_categories(const std::vector<size_t
 
 template <typename dtype>
 __global__ void data_to_unique_categories_kernel(dtype* data, dtype* embedding_offsets,
-                                                 int num_tables, int num_data, dtype* samples) {
+                                                 int num_tables, int num_data, dtype* samples, int num_valid_data, dtype pad_val) {
   for (int idx = threadIdx.x + blockIdx.x * blockDim.x; idx < num_data;
        idx += blockDim.x * gridDim.x) {
-    samples[idx] = data[idx] + embedding_offsets[idx % num_tables];
+    samples[idx] = idx >= num_valid_data ? pad_val : data[idx] + embedding_offsets[idx % num_tables];
   }
 }
 
 template <typename dtype>
 __global__ void data_to_unique_categories_align4_kernel(dtype* data, dtype* embedding_offsets,
                                                         int num_tables, int num_data,
-                                                        dtype* samples) {
+                                                        dtype* samples, int num_valid_data, dtype pad_val) {
   auto data4 = reinterpret_cast<uint4*>(data);
   auto samples4 = reinterpret_cast<uint4*>(samples);
   for (int idx4 = threadIdx.x + blockIdx.x * blockDim.x; idx4 < num_data / 4;
@@ -83,6 +83,11 @@ __global__ void data_to_unique_categories_align4_kernel(dtype* data, dtype* embe
     load_data.y += embedding_offsets[(idx + 1) % num_tables];
     load_data.z += embedding_offsets[(idx + 2) % num_tables];
     load_data.w += embedding_offsets[(idx + 3) % num_tables];
+
+    load_data.x = idx     >= num_valid_data ? pad_val : load_data.x;
+    load_data.y = idx + 1 >= num_valid_data ? pad_val : load_data.y;
+    load_data.z = idx + 2 >= num_valid_data ? pad_val : load_data.z;
+    load_data.w = idx + 3 >= num_valid_data ? pad_val : load_data.w;
 
     samples4[idx4] = load_data;
   }
@@ -106,19 +111,25 @@ void Data<dtype>::data_to_unique_categories(Tensor2<dtype> data, cudaStream_t st
   //        Doesn't need to be before start of kernel.
   //        Would be nice to have just before calculating indices, since
   //        those would be in L2 cache already.
+  size_t current_batch_size = data.get_dimensions()[0];
   size_t block_size = 256;
   size_t grid_size =
       std::min(static_cast<size_t>(4096),
                (table_sizes.size() * batch_size * num_iterations - 1) / block_size + 1);
   size_t num_samples = table_sizes.size() * batch_size * num_iterations;
+  // Not all samples in a batch may be valid. I.e last iteration of evaluation may be incomplete.
+  size_t num_valid_samples = table_sizes.size() * current_batch_size * num_iterations;
+  assert(num_valid_samples > 0 && "Batch contained 0 valid samples");
+  auto null_category = static_cast<dtype>(num_categories);
+
   if (num_samples % 4 == 0 && sizeof(dtype) == 4) {
     data_to_unique_categories_align4_kernel<<<grid_size, block_size, 0, stream>>>(
         data.get_ptr(), embedding_offsets.get_ptr(), table_sizes.size(), num_samples,
-        samples.get_ptr());
+        samples.get_ptr(), num_valid_samples, null_category);
   } else {
     data_to_unique_categories_kernel<<<grid_size, block_size, 0, stream>>>(
         data.get_ptr(), embedding_offsets.get_ptr(), table_sizes.size(), num_samples,
-        samples.get_ptr());
+        samples.get_ptr(), num_valid_samples, null_category);
   }
   CK_CUDA_THROW_(cudaPeekAtLastError());
 }

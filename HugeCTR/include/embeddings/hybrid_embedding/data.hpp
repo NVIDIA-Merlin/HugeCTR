@@ -43,6 +43,7 @@ struct Data {
   std::vector<size_t> table_sizes;
   size_t batch_size;
   size_t num_iterations;
+  size_t num_categories;
 
   Tensor2<dtype> embedding_offsets;
   Tensor2<dtype> samples;
@@ -56,6 +57,7 @@ struct Data {
 
     std::vector<dtype> h_embedding_offsets;
     EmbeddingTableFunctors<dtype>::get_embedding_offsets(h_embedding_offsets, table_sizes);
+    num_categories = EmbeddingTableFunctors<dtype>::get_num_categories(table_sizes);
     CK_CUDA_THROW_(cudaMemcpy(embedding_offsets.get_ptr(), h_embedding_offsets.data(),
                               sizeof(dtype) * h_embedding_offsets.size(), cudaMemcpyHostToDevice));
   }

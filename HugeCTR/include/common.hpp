@@ -471,6 +471,12 @@ struct DataReaderSparseParam {
   }
 };
 
+struct DenseLayerSwitchs {
+  bool fuse_wb;
+  DenseLayerSwitchs(bool fuse_wb_ = false)
+      : fuse_wb(fuse_wb_) {}
+};
+
 }  // namespace HugeCTR
 
 #include <profiler.hpp>

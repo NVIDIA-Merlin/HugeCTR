@@ -237,10 +237,8 @@ void FrequentEmbedding<dtype, emtype>::forward_model(cudaStream_t stream) {
             src_ptr, {dst_ptr}, {static_cast<const void*>(src_ptr) != static_cast<void*>(dst_ptr)}};
       });
 
-  PROFILE_RECORD("fre_forward_model.forward_model.start", stream, false);
   shuffle(copy_desc, stream, model_.num_frequent / 4);
   CK_CUDA_THROW_(cudaPeekAtLastError());
-  PROFILE_RECORD("fre_forward_model.forward_model.stop", stream, false);
 }
 
 /* Single-node: refresh all vectors in the cache of each network */
@@ -273,10 +271,8 @@ void FrequentEmbedding<dtype, emtype>::forward_model_eval(cudaStream_t stream) {
             src_ptr, {dst_ptr}, {static_cast<const void*>(src_ptr) != static_cast<void*>(dst_ptr)}};
       });
 
-  PROFILE_RECORD("fre_forward_model.forward_model_eval.start", stream, false);
   shuffle(copy_desc, stream, model_.num_frequent);
   CK_CUDA_THROW_(cudaPeekAtLastError());
-  PROFILE_RECORD("fre_forward_model.forward_model_eval.stop", stream, false);
 }
 
 template <typename dtype, typename emtype>
@@ -333,20 +329,16 @@ void FrequentEmbedding<dtype, emtype>::local_reduce(const emtype* gradients, cud
 
   if (reset_all) { /* Set to zero all the gradients */
     if (model_.num_frequent > 0) {
-      PROFILE_RECORD("fre_local_reduce.reset_all_gradients.start", stream, false);
       CK_CUDA_THROW_(cudaMemsetAsync(float_frequent_gradients_.get_ptr(), 0,
                                      model_.num_frequent * embedding_vec_size_ * sizeof(float),
                                      stream));
-      PROFILE_RECORD("fre_local_reduce.reset_all_gradients.stop", stream, false);
     }
   } else { /* Set to zero the gradients of categories that appear in the batch */
-    PROFILE_RECORD("fre_local_reduce.reset_relevant_gradients.start", stream, false);
     frequent_embedding_kernels::
         reset_relevant_gradients<<<n_blocks, embedding_vec_size_, 0, stream>>>(
             float_frequent_gradients_.get_ptr(), embedding_vec_size_, this->indices_view_,
             num_instances);
     CK_CUDA_THROW_(cudaPeekAtLastError());
-    PROFILE_RECORD("fre_local_reduce.reset_relevant_gradients.stop", stream, false);
   }
 
   /* Local reduce */
@@ -383,13 +375,11 @@ void FrequentEmbedding<dtype, emtype>::update_model_direct(float* dev_lr, float 
   int n_blocks = 16 * num_sm;  // TODO: better heuristics
 
   /* Update models */
-  PROFILE_RECORD("fre_update_model_direct.update_model_direct.start", stream, false);
   frequent_embedding_kernels::update_model_direct<<<n_blocks, embedding_vec_size_, 0, stream>>>(
       partial_gradients_pointers_.get_ptr(), frequent_embedding_vectors_.get_ptr(),
       this->indices_view_, num_instances, model_id, num_frequent_per_model, embedding_vec_size_,
       dev_lr, scale);
   CK_CUDA_THROW_(cudaPeekAtLastError());
-  PROFILE_RECORD("fre_update_model_direct.update_model_direct.stop", stream, false);
 }
 
 template class FrequentEmbeddingBase<uint32_t>;

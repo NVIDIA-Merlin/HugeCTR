@@ -127,7 +127,7 @@ template <typename dtype>
 struct InfrequentEmbeddingSelectionView {
   const dtype* samples;
   uint32_t *model_indices, *model_indices_offsets;
-  uint32_t *network_indices, *network_indices_offsets;
+  uint32_t *network_indices, *network_indices_offsets, *network_indices_src_model_id;
 };
 
 template <typename dtype>
@@ -179,6 +179,7 @@ class InfrequentEmbeddingSelection {
   //                              - mlp
   Tensor2<uint32_t> network_indices_;
   Tensor2<uint32_t> network_indices_offsets_;
+  Tensor2<uint32_t> network_indices_src_model_id_;
   // Tensor2<size_t> network_indices_sizes_;
   // Tensor2<size_t *> network_indices_sizes_ptrs_;
 

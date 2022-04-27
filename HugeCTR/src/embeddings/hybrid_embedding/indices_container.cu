@@ -82,7 +82,12 @@ void IndexProcessor<dtype>::calculate_indices(BatchDesc batch, size_t queue_id, 
   auto& container = containers_[queue_id];
   auto& my_data = container.datas[raw_device_id];
 
-  my_data.data_to_unique_categories(my_data.samples, stream);
+  auto current_batch_size = batch.size_bytes / (sample_size_items_ * sizeof(dtype));
+
+  auto samples = my_data.samples;
+  samples.reset_shape({current_batch_size, sparse_dim_});
+
+  my_data.data_to_unique_categories(samples, stream);
 
   compute_indices(container.frequent_compressions[raw_device_id],
                   container.infrequent_selections[raw_device_id], communication_type_, true, stream,
@@ -100,27 +105,41 @@ void IndexProcessor<dtype>::split3way(BatchDesc batch, size_t queue_id, int raw_
 
   // To save memory we're going to use the space in the Data for the unprocessed
   //  sparse features, and then run to_unique_categories essentially in place
+  auto current_batch_size = batch.size_bytes / (sample_size_items_ * sizeof(dtype));
   auto in_place_tensor = my_data.samples;
-  in_place_tensor.reset_shape({batch_size_, sparse_dim_});
+  in_place_tensor.reset_shape({current_batch_size, sparse_dim_});
   if (mixed_precision_) {
     split_3_way<__half, SparseType>(
         Tensor2<LabelType>::stretch_from(container.label_tensors[raw_device_id]),
         Tensor2<__half>::stretch_from(container.dense_tensors[raw_device_id]), in_place_tensor,
-        Tensor2<InputType>({batch_size_, sample_size_items_}, ptr_wrap),
+        Tensor2<InputType>({current_batch_size, sample_size_items_}, ptr_wrap),
         global_dev_id * batch_size_per_dev_, (global_dev_id + 1) * batch_size_per_dev_, stream);
   } else {
     split_3_way<float, SparseType>(
         Tensor2<LabelType>::stretch_from(container.label_tensors[raw_device_id]),
         Tensor2<float>::stretch_from(container.dense_tensors[raw_device_id]), in_place_tensor,
-        Tensor2<InputType>({batch_size_, sample_size_items_}, ptr_wrap),
+        Tensor2<InputType>({current_batch_size, sample_size_items_}, ptr_wrap),
         global_dev_id * batch_size_per_dev_, (global_dev_id + 1) * batch_size_per_dev_, stream);
   }
 }
 
 template <typename dtype>
-void IndexProcessor<dtype>::finalize(TensorBag2& label_tensor, TensorBag2& dense_tensor,
-                                     SparseTensorBag& sparse_tensor, size_t queue_id,
-                                     int raw_device_id, cudaStream_t stream) {
+void IndexProcessor<dtype>::assign_sparse_indices(size_t queue_id, int raw_device_id, cudaStream_t stream) {
+  auto& container = containers_[queue_id];
+  // We don't copy the sparse tensor since all the required data are already in the
+  // Data type and indices
+  frequent_embeddings_[raw_device_id]->set_current_indices(
+      &container.frequent_compressions[raw_device_id], stream);
+  infrequent_embeddings_[raw_device_id]->set_current_indices(
+      &container.infrequent_selections[raw_device_id], stream);
+}
+
+template <typename dtype>
+void IndexProcessor<dtype>::assign_dense_and_label_tensors(TensorBag2& label_tensor,
+                                                           TensorBag2& dense_tensor,
+                                                           size_t queue_id,
+                                                           int raw_device_id,
+                                                           cudaStream_t stream) {
   auto& container = containers_[queue_id];
 
   if ((char*)label_tensor.get_ptr() + label_tensor.get_size_in_bytes() ==
@@ -139,12 +158,6 @@ void IndexProcessor<dtype>::finalize(TensorBag2& label_tensor, TensorBag2& dense
                         dense_tensor.get_size_in_bytes(), cudaMemcpyDeviceToDevice, stream));
   }
 
-  // We don't copy the sparse tensor since all the required data are already in the
-  // Data type and indices
-  frequent_embeddings_[raw_device_id]->set_current_indices(
-      &container.frequent_compressions[raw_device_id], stream);
-  infrequent_embeddings_[raw_device_id]->set_current_indices(
-      &container.infrequent_selections[raw_device_id], stream);
 }
 
 template <typename dtype>

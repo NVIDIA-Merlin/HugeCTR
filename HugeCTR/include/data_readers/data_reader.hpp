@@ -62,7 +62,7 @@ class DataReader : public IDataReader {
   /* Each gpu will have several csr output for different embedding */
   const std::vector<DataReaderSparseParam> params_;
   std::shared_ptr<ResourceManager> resource_manager_; /**< gpu resource used in this data reader*/
-  const size_t batchsize_;                            /**< batch size */
+  const long long batchsize_;                         /**< batch size */
   const size_t label_dim_; /**< dimention of label e.g. 1 for BinaryCrossEntropy */
   const size_t dense_dim_; /**< dimention of dense */
   long long current_batchsize_;
@@ -261,6 +261,8 @@ class DataReader : public IDataReader {
   }
 
   long long get_full_batchsize() const override { return batchsize_; }
+
+  bool current_batch_incomplete() const override { return current_batchsize_ != batchsize_; }
 
   bool is_started() const override { return worker_group_->is_started(); }
 

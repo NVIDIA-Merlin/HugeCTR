@@ -1,8 +1,0 @@
-#!/bin/bash
-
-srun --ntasks="${SLURM_JOB_NUM_NODES}" --container-image="${CONT}" --container-mounts="${MOUNTS}" bash -cx " \
-    cd /dataset/criteo_kaggle/wdl_data_keyset && \
-    rm -rfv /workdir/wdl_0_sparse_model /workdir/wdl_1_sparse_model && \
-    python3 /workdir/test/pybind_test/wdl_etc_low_level.py /workdir/test/scripts/wdl_1gpu.json /workdir && \
-    rm -rfv /workdir/wdl_0_sparse_model /workdir/wdl_1_sparse_model && \
-    python3 /workdir/test/pybind_test/wdl_etc.py /workdir/test/scripts/wdl_1gpu.json /workdir"

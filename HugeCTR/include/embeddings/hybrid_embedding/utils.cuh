@@ -24,6 +24,8 @@ namespace hybrid_embedding {
 __global__ void offsets_kernel(const uint32_t* indices, uint32_t* indices_offsets,
                                uint32_t num_instances, uint32_t multiplier);
 
+__global__ void model_id_kernel(const uint32_t* indices_offsets, uint32_t* src_model_id, const uint32_t* d_num_elements);
+
 template <typename dtype, typename stype>
 __global__ void modulo_kernel(dtype* buffer, const stype* d_num_elements, dtype divisor);
 

@@ -20,6 +20,7 @@ solver = hugectr.CreateSolver(max_eval_batches = 51,
                               overlap_lr = True,
                               overlap_init_wgrad = True,
                               overlap_ar_a2a = True,
+                              eval_overlap = False,
                               use_holistic_cuda_graph = True,
                               use_overlapped_pipeline = True,
                               all_reduce_algo = hugectr.AllReduceAlgo.OneShot,
@@ -42,6 +43,8 @@ optimizer = hugectr.CreateOptimizer(optimizer_type = hugectr.Optimizer_t.SGD,
 # 2. Initialize the Model instance
 model = hugectr.ModelPerfExt(solver, reader, optimizer)
 # 3. Construct the Model graph
+dense_layer_switchs_bottom = hugectr.DenseLayerSwitchs(False)
+dense_layer_switchs_top = hugectr.DenseLayerSwitchs(True)
 model.add(hugectr.Input(label_dim = 1, label_name = "label",
                         dense_dim = 13, dense_name = "dense",
                         data_reader_sparse_param_array =
@@ -61,17 +64,17 @@ model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.FusedInnerProduct,
                             pos_type = hugectr.FcPosition_t.Head,
                             bottom_names = ["dense"],
                             top_names = ["fc11","fc12", "fc13", "fc14"],
-                            num_output=512))
+                            num_output=512, dense_layer_switches = dense_layer_switchs_bottom))
 model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.FusedInnerProduct,
                             pos_type = hugectr.FcPosition_t.Body,
                             bottom_names = ["fc11","fc12", "fc13", "fc14"],
                             top_names = ["fc21","fc22", "fc23", "fc24"],
-                            num_output=256))
+                            num_output=256, dense_layer_switches = dense_layer_switchs_bottom))
 model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.FusedInnerProduct,
                             pos_type = hugectr.FcPosition_t.Tail,
                             bottom_names = ["fc21","fc22", "fc23", "fc24"],
                             top_names = ["fc3"],
-                            num_output=128))
+                            num_output=128, dense_layer_switches = dense_layer_switchs_bottom))
 model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Interaction,
                             bottom_names = ["fc3","sparse_embedding1"],
                             top_names = ["interaction1", "interaction_grad"]))
@@ -79,28 +82,28 @@ model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.FusedInnerProduct,
                             pos_type = hugectr.FcPosition_t.Head,
                             bottom_names = ["interaction1", "interaction_grad"],
                             top_names = ["fc41","fc42", "fc43", "fc44"],
-                            num_output=1024))
+                            num_output=1024, dense_layer_switches = dense_layer_switchs_top))
 model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.FusedInnerProduct,
                             pos_type = hugectr.FcPosition_t.Body,
                             bottom_names = ["fc41","fc42", "fc43", "fc44"],
                             top_names = ["fc51","fc52", "fc53", "fc54"],
-                            num_output=1024))
+                            num_output=1024, dense_layer_switches = dense_layer_switchs_top))
 model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.FusedInnerProduct,
                             pos_type = hugectr.FcPosition_t.Body,
                             bottom_names = ["fc51","fc52", "fc53", "fc54"],
                             top_names = ["fc61","fc62", "fc63", "fc64"],
-                            num_output=512))
+                            num_output=512, dense_layer_switches = dense_layer_switchs_top))
 model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.FusedInnerProduct,
                             pos_type = hugectr.FcPosition_t.Body,
                             bottom_names = ["fc61","fc62", "fc63", "fc64"],
                             top_names = ["fc71","fc72","fc73","fc74"],
-                            num_output=256))
+                            num_output=256, dense_layer_switches = dense_layer_switchs_top))
 model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.FusedInnerProduct,
                             pos_type = hugectr.FcPosition_t.Tail,
                             act_type = hugectr.Activation_t.Non,
                             bottom_names = ["fc71","fc72","fc73","fc74"],
                             top_names = ["fc8"],
-                            num_output=1))
+                            num_output=1, dense_layer_switches = dense_layer_switchs_top))
 model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.BinaryCrossEntropyLoss,
                             bottom_names = ["fc8", "label"],
                             top_names = ["loss"]))

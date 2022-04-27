@@ -110,6 +110,7 @@ struct Solver {
   bool overlap_lr;
   bool overlap_init_wgrad;
   bool overlap_ar_a2a;
+  bool eval_overlap;
   bool use_holistic_cuda_graph;
   bool use_overlapped_pipeline;
   AllReduceAlgo all_reduce_algo;

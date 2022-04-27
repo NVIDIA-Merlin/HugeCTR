@@ -87,21 +87,13 @@ void Network::prop_layers(const std::vector<LPtr>& layers, GraphWrapper& graph, 
   }
 
   bool do_capture;
-#ifdef ENABLE_PROFILING
-  if (global_profiler.init_cuda_graph_this_iter) {
-    do_capture = !graph.initialized_with_profiling;
-    graph.initialized = false;
-    graph.initialized_with_profiling = true;
-  } else {
-    do_capture = !graph.initialized;
-    graph.initialized = true;
-    graph.initialized_with_profiling = false;
-  }
-#else
   do_capture = !graph.initialized;
   graph.initialized = true;
+#ifdef ENABLE_PROFILING
+  if (profiler_init_cuda_graph_this_iter()) {
+    do_capture = true;
+  }
 #endif
-
   if (do_capture) {
     graph.initialized = false;
     graph.capture(execute, stream);
@@ -166,8 +158,7 @@ TrainState Network::train(long long current_batchsize, std::function<void()> exc
 }
 
 void Network::eval(long long current_batchsize) {
-  prop_layers(evaluate_layers_, eval_graph_, enable_cuda_graph_, true, gpu_resource_->get_stream(),
-              false);
+  prop_layers(evaluate_layers_, eval_graph_, enable_cuda_graph_, true, gpu_resource_->get_stream(), false);
   evaluate_loss_->compute(false, current_batchsize);
 }
 void Network::predict() {

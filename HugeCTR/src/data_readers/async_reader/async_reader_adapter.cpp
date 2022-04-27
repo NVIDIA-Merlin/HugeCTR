@@ -119,38 +119,59 @@ long long AsyncReader<SparseType>::read_a_batch_to_device_delay_release() {
     auto global_dev_id = resource_manager_->get_gpu_global_id_from_local_id(i);
 
     if (precomputing_) {
+      auto stream = getPrecomputingStream(local_gpu->get_device_id());
+
       if (index_processor_->get_queue_size() != get_total_queue_size()) {
-        auto& graph = graphs_[queue_id_ * num_local_gpus + i];
-        // ensures we schedule this async processing at the correct location
-        CK_CUDA_THROW_(cudaStreamWaitEvent(split_streams_[i], split_schedule_events_[i]));
-        index_processor_->split3way(batch, queue_id_, i, split_streams_[i]);
-        if (!graph.initialized) {
-          graph.capture(
-              [&, this, i](cudaStream_t graph_stream) {
-                // Index calculation
-                index_processor_->calculate_indices(batch, queue_id_, i, graph_stream);
-                // Copy precomputed tensors for the next iteration, wait until we are safe to
-                // overwrite
-                CK_CUDA_THROW_(cudaStreamWaitEvent(graph_stream, d2d_schedule_events_[i],
-                                                   cudaEventWaitExternal));
-                index_processor_->finalize(label_tensors_[i], dense_tensors_[i], sparse_tensors_[i],
-                                           queue_id_, i, graph_stream);
-                CK_CUDA_THROW_(cudaEventRecordWithFlags(graph_complete_events_[i], graph_stream,
-                                                        cudaEventRecordExternal));
-              },
-              split_streams_[i]);
+
+        bool use_graph = use_cuda_graph_ && !current_batch_incomplete();
+
+        auto precompute_indices = [&, this, i](cudaStream_t s0) {
+            index_processor_->calculate_indices(batch, queue_id_, i, s0);
+
+            // Copy precomputed tensors for the next iteration, wait until we are safe to overwrite
+            HCTR_LIB_THROW(cudaStreamWaitEvent(s0, d2d_schedule_events_[i], use_graph ? cudaEventWaitExternal : 0));
+            index_processor_->assign_sparse_indices(queue_id_, i, s0);
+            index_processor_->assign_dense_and_label_tensors(label_tensors_[i], dense_tensors_[i], queue_id_, i, s0);
+
+            CK_CUDA_THROW_(cudaEventRecordWithFlags(graph_complete_events_[i], s0, use_graph ? cudaEventRecordExternal : 0));
+        };
+
+        // schedule async processing at the correct location
+        CK_CUDA_THROW_(cudaStreamWaitEvent(stream, split_schedule_events_[i]));
+
+        // NOTE: split3way is faster when NOT captured by cuda graph
+        index_processor_->split3way(batch, queue_id_, i, stream);
+
+        if (use_graph) {
+          auto& graph = graphs_[queue_id_ * num_local_gpus + i];
+          if (!graph.initialized) {
+            graph.capture(precompute_indices, stream);
+          }
+          graph.exec(stream);
+        } else {
+          precompute_indices(stream);
         }
-        graph.exec(split_streams_[i]);
+        // join with main stream
         CK_CUDA_THROW_(cudaStreamWaitEvent(local_gpu->get_stream(), graph_complete_events_[i]));
-      } else {
-        // The queue size of extra processor is exactly the same as for the DR
-        // No graphs here
+      } else { // Case for Eval!
+
+        // Wait to ensure we assign new embedding indices at correct location
+        CK_CUDA_THROW_(cudaStreamWaitEvent(stream, split_schedule_events_[i]));
+
+        // The queue size of extra processor is exactly the same as for the DR so we can cache computation.
+        // No graphs here since we only compute once
         if (!batch.cached) {
-          index_processor_->split3way(batch, queue_id_, i, local_gpu->get_stream());
-          index_processor_->calculate_indices(batch, queue_id_, i, local_gpu->get_stream());
+          index_processor_->split3way(batch, queue_id_, i, stream);
+          index_processor_->calculate_indices(batch, queue_id_, i, stream);
         }
-        index_processor_->finalize(label_tensors_[i], dense_tensors_[i], sparse_tensors_[i],
-                                   queue_id_, i, local_gpu->get_stream());
+
+        // Launch on eval comms stream otherwise assigning sparse indices occur after eval compute which will prevent
+        // eval embedding communication from overlapping
+        index_processor_->assign_sparse_indices(queue_id_, i, stream);
+
+        // needs to be on computing stream
+        index_processor_->assign_dense_and_label_tensors(label_tensors_[i], dense_tensors_[i], queue_id_, i,
+                                                         local_gpu->get_stream());
       }
     } else {  // synchronous processing
       auto ptr_wrap =
@@ -190,14 +211,18 @@ long long AsyncReader<SparseType>::get_full_batchsize() const {
 }
 
 template <typename SparseType>
+bool AsyncReader<SparseType>::current_batch_incomplete() const {
+  return current_batch_size_ != batch_size_;
+}
+
+template <typename SparseType>
 void AsyncReader<SparseType>::ready_to_collect() {
   auto raw_device_id = reader_impl_->get_last_batch_device();
   auto local_gpu = resource_manager_->get_local_gpu(raw_device_id);
   CudaDeviceContext ctx(local_gpu->get_device_id());
-  cudaStream_t processing_stream =
-      precomputing_ ? split_streams_[raw_device_id] : local_gpu->get_stream();
-  CK_CUDA_THROW_(cudaEventRecord(completion_events_[raw_device_id], processing_stream));
-
+  auto stream = precomputing_ ? getPrecomputingStream(local_gpu->get_device_id()) : local_gpu->get_stream();
+  // Wait for split-3-way to finish consuming
+  CK_CUDA_THROW_(cudaEventRecord(completion_events_[raw_device_id], stream));
   reader_impl_->finalize_batch(&completion_events_[raw_device_id]);
 }
 
@@ -241,13 +266,15 @@ void AsyncReader<SparseType>::update_schedule_graph(int raw_device_id) {
 
 template <typename SparseType>
 void AsyncReader<SparseType>::register_extra_processing(
-    const std::shared_ptr<hybrid_embedding::IndexProcessor<SparseType>>& proc) {
+    const std::shared_ptr<hybrid_embedding::IndexProcessor<SparseType>>& proc, bool eval_overlap, bool use_cuda_graph) {
   index_processor_ = proc;
   precomputing_ = true;
+  eval_overlap_ = eval_overlap; // TODO: split async readers into eval and train readers?
+  use_cuda_graph_ = use_cuda_graph;
 }
 
 template <typename SparseType>
-size_t AsyncReader<SparseType>::get_total_queue_size() {
+size_t AsyncReader<SparseType>::get_total_queue_size() const {
   return reader_impl_->get_num_buffers();
 }
 
@@ -341,6 +368,22 @@ AsyncReader<SparseType>::~AsyncReader() {
   for (auto& e : schedule_events_) {
     cudaEventDestroy(e);
   }
+}
+
+template <typename SparseType>
+cudaStream_t AsyncReader<SparseType>::getPrecomputingStream(int device_id) const {
+  bool is_train = index_processor_->get_queue_size() != get_total_queue_size();
+  if (is_train) {
+    return split_streams_[device_id];
+  } else {
+    auto gpu = resource_manager_->get_local_gpu(device_id);
+    return eval_overlap_ ? gpu->get_stream("eval_comms", -1) : gpu->get_stream();
+  }
+}
+
+template <typename SparseType>
+bool AsyncReader<SparseType>::precompute_enabled() const {
+  return precomputing_;
 }
 
 template class AsyncReader<uint32_t>;
