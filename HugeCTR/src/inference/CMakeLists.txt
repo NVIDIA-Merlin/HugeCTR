@@ -26,6 +26,7 @@ file(GLOB huge_ctr_inference_src
   ../layers/batch_norm_layer.cu
   ../layers/cast_layer.cu
   ../layers/concat_layer.cu
+  ../layers/concat_3d_layer.cu
   ../layers/dropout_layer.cu
   ../layers/elu_layer.cu
   ../layers/fully_connected_layer.cu

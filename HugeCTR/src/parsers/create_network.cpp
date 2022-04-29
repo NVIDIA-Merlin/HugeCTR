@@ -18,6 +18,7 @@
 #include <layers/add_layer.hpp>
 #include <layers/batch_norm_layer.hpp>
 #include <layers/cast_layer.hpp>
+#include <layers/concat_3d_layer.hpp>
 #include <layers/concat_layer.hpp>
 #include <layers/dropout_layer.hpp>
 #include <layers/elementwise_multiply_layer.hpp>
@@ -304,14 +305,22 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
         break;
       }
       case Layer_t::Concat: {
+        auto axis_it = j.find("axis");
+        auto axis = (axis_it != j.end()) ? axis_it->get<int>() : 1;
         if (use_mixed_precision) {
           Tensors2<__half> in_tensors;
           for (const TensorBag2& bag : input_output_info.inputs) {
             in_tensors.push_back(Tensor2<__half>::stretch_from(bag));
           }
           Tensor2<__half> out_tensor;
-          emplaceback_layer(
-              new ConcatLayer<__half>(in_tensors, out_tensor, blobs_buff, gpu_resource));
+          if (in_tensors[0].get_dimensions().size() == 2) {
+            emplaceback_layer(
+                new ConcatLayer<__half>(in_tensors, out_tensor, blobs_buff, gpu_resource));
+          }
+          if (in_tensors[0].get_dimensions().size() == 3) {
+            emplaceback_layer(
+                new Concat3DLayer<__half>(in_tensors, out_tensor, blobs_buff, axis, gpu_resource));
+          }
           output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
         } else {
           Tensors2<float> in_tensors;
@@ -319,8 +328,14 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
             in_tensors.push_back(Tensor2<float>::stretch_from(bag));
           }
           Tensor2<float> out_tensor;
-          emplaceback_layer(
-              new ConcatLayer<float>(in_tensors, out_tensor, blobs_buff, gpu_resource));
+          if (in_tensors[0].get_dimensions().size() == 2) {
+            emplaceback_layer(
+                new ConcatLayer<float>(in_tensors, out_tensor, blobs_buff, gpu_resource));
+          }
+          if (in_tensors[0].get_dimensions().size() == 3) {
+            emplaceback_layer(
+                new Concat3DLayer<float>(in_tensors, out_tensor, blobs_buff, axis, gpu_resource));
+          }
           output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
         }
         break;

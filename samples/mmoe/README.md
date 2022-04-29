@@ -1,5 +1,5 @@
-# NCF CTR SAMPLE #
-The purpose of this sample is to demonstrate how to build and train an [MMoE model](https://dl.acm.org/doi/pdf/10.1145/3219819.3220007) with HugeCTR.
+# MMoE SAMPLE #
+The purpose of this sample is to demonstrate how to build and train a [Multi-gate Mixture of Experts (MMoE) model](https://dl.acm.org/doi/pdf/10.1145/3219819.3220007) with HugeCTR.
 
 ## Set Up the HugeCTR Docker Environment ##
 You can set up the HugeCTR Docker environment by doing one of the following:
@@ -11,11 +11,11 @@ HugeCTR is available as buildable source code, but the easiest way to install an
 
 1. Pull the HugeCTR NGC Docker by running the following command:
    ```bash
-   $ docker pull nvcr.io/nvidia/merlin/merlin-training:22.02
+   $ docker pull nvcr.io/nvidia/merlin/merlin-training:22.05
    ```
 2. Launch the container in interactive mode with the HugeCTR root directory mounted into the container by running the following command:
    ```bash
-   $ docker run --gpus=all --rm -it --cap-add SYS_NICE -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr nvcr.io/nvidia/merlin/merlin-training:22.02
+   $ docker run --gpus=all --rm -it --cap-add SYS_NICE -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr nvcr.io/nvidia/merlin/merlin-training:22.05
    ```
 
 ### Build the HugeCTR Docker Container on Your Own ###
@@ -23,19 +23,16 @@ Please refer to [How to Start Your Development](https://nvidia-merlin.github.io/
 ```shell
 $ export PYTHONPATH=/usr/local/hugectr/lib:$PYTHONPATH
 ```
-## Download the multi-label synthetic dataset ##
-TODO - How will we let users access this dataset for testing? Or is there some public dataset that we can point them to instead?
+## Preparing your dataset for HugeCTR ##
+If you have a multi-label dataset that you would like to train with this HugeCTR MMoE sample, first preprocess the data to a format that is supported in HugeCTR.  The [preprocessing scripts](tools/criteo_script) for the Criteo 1TB dataset outline how to preprocess a dataset to an accepted format. In a future release we will provide sample datasets that can be used as a template for formatting your multi-task dataset for HugeCTR MMoE training.
 
 ## Train and validate the MMoE model ##
-Once you have either the Norm format dataset in the local directory, train the MMoE model using:
+Once you have your dataset formatted into the Norm format the local directory, update the filename in `mmoe.py` and update other parameters as needed to fit your dataset.  Details on selecting the correct parameters are available in the [HugeCTR User guide](docs/hugectr_user_guide.md).  Once updated, train your MMoE model by running:
 ``` shell
 $ python mmoe.py
 ```
 
-If you are using the Parquet format dataset, you can instead use:
+If you are using the Parquet format dataset, update the `mmoe_parquet.py` file and run it using:
 ``` shell
 $ python mmoe_parquet.py
 ```
-
-## Performance Evaluation ##
-TODO - Fill our remaining of the documentation once the joint-loss feature is fully implemented

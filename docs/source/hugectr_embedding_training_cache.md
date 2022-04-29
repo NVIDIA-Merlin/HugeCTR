@@ -9,13 +9,13 @@ The ETC feature in HugeCTR also provides a satisfactory solution for incremental
 
 * The ETC is suitable and supports most single-node multi-GPU and multi-node multi-GPU configurations.
 
-* It supports all embedding types available in HugeCTR, and the [Norm](/api/python_interface.md#norm), [Raw](/api/python_interface.md#raw) and [Parquet](/api/python_interface.md#parquet) dataset formats.
+* It supports all embedding types available in HugeCTR, and the [Norm](./api/python_interface.md#norm), [Raw](./api/python_interface.md#raw) and [Parquet](./api/python_interface.md#parquet) dataset formats.
 
 * Both, the [staged host memory parameter server](#staged-host-memory-parameter-server) (Staged-PS) and the [cached host memory parameter server](#cached-host-memory-parameter-server) (Cached-PS) are supported by the ETC:
   - **Staged-PS**: Embedding table sizes can scale up to the combined host memory sizes of each node.
   - **Cached-PS**: Embedding table sizes can scale up to the SSD or Network File System (NFS) capacity.
 
-* The ETC supports training models from scratch and incremental training with existing models. The latter is implemented via the [`get_incremental_model()`](/api/python_interface.md#get-incremental-model-method) interface, which allows retrieving updated embedding features during training. For online training these updates are forwarded to the inference parameter server.
+* The ETC supports training models from scratch and incremental training with existing models. The latter is implemented via the [`get_incremental_model()`](./api/python_interface.md#get_incremental_model-method) interface, which allows retrieving updated embedding features during training. For online training these updates are forwarded to the inference parameter server.
 
 Please check the [HugeCTR Continuous Training Notebook](./notebooks/continuous_training.ipynb) to learn how the ETC can be used to accelerate continuous training.
 
@@ -59,7 +59,7 @@ With the ETC feature, we provide two kinds of parameter servers, the **[staged h
 
 ### Staged Host Memory Parameter Server
 
-The Staged-PS loads the entire embedding table into the host memory from a local SSD/HDD or a Network File System (NFS) during initialization. Throughout the lifetime of the ETC, this PS will read from and write to the embedding features *staged* in the host memory without accessing the SSD/HDD or NFS. After training, the [`save_params_to_files`](/api/python_interface.md#save-params-to-files-method) API allows writing the embedding table in host memory back to the SSD/HDD/NFS.
+The Staged-PS loads the entire embedding table into the host memory from a local SSD/HDD or a Network File System (NFS) during initialization. Throughout the lifetime of the ETC, this PS will read from and write to the embedding features *staged* in the host memory without accessing the SSD/HDD or NFS. After training, the [`save_params_to_files`](./api/python_interface.md#save_params_to_files-method) API allows writing the embedding table in host memory back to the SSD/HDD/NFS.
 
 When conducting distributed training with multiple nodes, the Staged-PS utilizes the combined memories across the cluster as a cache. Thereby, it will only load subsets of the embedding table in each node, so that there are no duplicated embedding features on different nodes. Hence, for users of large models who want to use the ETC, but are stuck by the limited host memory size of a single node, increasing the number of nodes and can allow overcoming this limitation.
 
@@ -187,7 +187,7 @@ Each dataset trained by the ETC is supposed to have a keyset file extracted from
 
 ### Configuration
 
-Before moving on, please have a look at the [`CreateETC()`](/api/python_interface.md#createetc-method) section in HugeCTR Python Interface, as it provides a description of the general configuration process of the ETC. Also, please refer to the [HugeCTR Continuous Training Notebook](./notebooks/continuous_training.ipynb) for usage examples of the ETC in actual applications.
+Before moving on, please have a look at the [`CreateETC()`](./api/python_interface.md#createetc-method) section in HugeCTR Python Interface, as it provides a description of the general configuration process of the ETC. Also, please refer to the [HugeCTR Continuous Training Notebook](./notebooks/continuous_training.ipynb) for usage examples of the ETC in actual applications.
 
 #### Staged-PS
 
@@ -277,13 +277,13 @@ To make results comparable, we execute the `sync && sysctl vm.drop_caches=3` com
 
 The effective bandwidth (embedding size / reading or writing time) of reading and writing along with the hit rate are shown in Fig. 5 and Fig. 6, respectively.
 
-<img src="/user_guide_src/hc_read.png" width="450px" align="center"/>
+<img src="user_guide_src/hc_read.png" width="450px" align="center"/>
 
 <div align="center">Fig. 5: Bandwidth and hit rate for reading operations.</div>
 
 <br></br>
 
-<img src="/user_guide_src/hc_write.png" width="450px" align="center"/>
+<img src="user_guide_src/hc_write.png" width="450px" align="center"/>
 
 <div align="center">Fig. 6: Bandwidth and hit rate for writing operations.</div>
 

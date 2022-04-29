@@ -19,11 +19,11 @@
 #include <rmm/device_buffer.hpp>
 #include <rmm/mr/device/device_memory_resource.hpp>
 namespace HugeCTR {
+// label_dense_dim = sum(dense_dim_array_ptr[:])
 template <typename T>
-void convert_parquet_dense_columns(std::vector<T *> &dense_column_data_ptr,
-                                   const int label_dense_dim, int batch_size, int batch_start,
-                                   int batch_end,
-                                   //  std::vector<rmm::device_buffer> &dense_data_buffers,
+void convert_parquet_dense_columns(std::vector<T *> &dense_column_data_ptr, const int num_dense,
+                                   int64_t *dense_dim_array_ptr, const int label_dense_dim,
+                                   int batch_size, int batch_start, int batch_end,
                                    T *dense_data_buffers, int64_t *dev_ptr_staging,
                                    std::deque<rmm::device_buffer> &rmm_resources,
                                    rmm::mr::device_memory_resource *mr, cudaStream_t task_stream);

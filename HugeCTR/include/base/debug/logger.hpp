@@ -441,7 +441,7 @@ class Logger final {
 // TODO: Make fully templated and find better location for this?
 template <typename TTarget>
 inline static TTarget hctr_safe_cast(const size_t value) {
-  HCTR_CHECK(value <= std::numeric_limits<TTarget>::max());
+  HCTR_CHECK(static_cast<TTarget>(value) <= std::numeric_limits<TTarget>::max());
   return static_cast<TTarget>(value);
 }
 

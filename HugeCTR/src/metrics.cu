@@ -46,13 +46,27 @@ __global__ void copy_all_kernel(float* y_pred, float* y_label, const __half* x_p
   }
 }
 
+__global__ void copy_pred_half_kernel(float* y_pred, const __half* x_pred, int num_elems) {
+  int gid_base = blockIdx.x * blockDim.x + threadIdx.x;
+  for (int gid = gid_base; gid < num_elems; gid += blockDim.x * gridDim.x) {
+    float pred_val = __half2float(x_pred[gid]);
+    y_pred[gid] = pred_val;
+  }
+}
+
 template <typename SrcType>
 void copy_pred(float* y, SrcType* x, int num_elems, int num_sms, cudaStream_t stream);
 
 template <>
 void copy_pred<float>(float* y, float* x, int num_elems, int num_sms, cudaStream_t stream) {
-  HCTR_LIB_THROW(
-      cudaMemcpyAsync(y, x, num_elems * sizeof(float), cudaMemcpyDeviceToDevice, stream));
+  HCTR_LIB_THROW(cudaMemcpyAsync(y, x, num_elems * sizeof(float), cudaMemcpyDeviceToDevice, stream));
+}
+
+template <>
+void copy_pred<__half>(float* y, __half* x, int num_elems, int num_sms, cudaStream_t stream) {
+  dim3 grid(num_sms * 2, 1, 1);
+  dim3 block(1024, 1, 1);
+  copy_pred_half_kernel<<<grid, block, 0, stream>>>(y, x, num_elems);
 }
 
 template <typename PredType>
@@ -73,6 +87,19 @@ void copy_all<__half>(float* y_pred, float* y_label, __half* x_pred, float* x_la
   dim3 grid(num_sms * 2, 1, 1);
   dim3 block(1024, 1, 1);
   copy_all_kernel<<<grid, block, 0, stream>>>(y_pred, y_label, x_pred, x_label, num_elems);
+}
+
+__global__ void init_classes_kernel(int* classes, size_t num_valid_samples, size_t num_classes) {
+  size_t tid_base = blockIdx.x * blockDim.x + threadIdx.x;
+  for (size_t tid = tid_base; tid < num_valid_samples * num_classes; tid += blockDim.x * gridDim.x) {
+    classes[tid] = tid % num_classes;
+  }
+}
+
+void init_classes(int* classes, size_t num_valid_samples, size_t num_classes, int num_sms, cudaStream_t stream) {
+  dim3 grid(num_sms * 2, 1, 1);
+  dim3 block(1024, 1, 1);
+  init_classes_kernel<<<grid, block, 0, stream>>>(classes, num_valid_samples, num_classes);
 }
 
 __global__ void mock_kernel(float* predictions, int num_elems) {
@@ -343,15 +370,15 @@ void get_raw_metric_as_host_float_tensor(RawMetricMap metric_map, RawType raw_ty
 }
 
 std::unique_ptr<Metric> Metric::Create(const Type type, bool use_mixed_precision,
-                                       int batch_size_eval, int n_batches,
+                                       int batch_size_eval, int n_batches, int label_dim,
                                        const std::shared_ptr<ResourceManager>& resource_manager) {
   std::unique_ptr<Metric> ret;
   switch (type) {
     case Type::AUC:
       if (use_mixed_precision) {
-        ret.reset(new AUC<__half>(batch_size_eval, n_batches, resource_manager));
+        ret.reset(new AUC<__half>(batch_size_eval, n_batches, label_dim, resource_manager));
       } else {
-        ret.reset(new AUC<float>(batch_size_eval, n_batches, resource_manager));
+        ret.reset(new AUC<float>(batch_size_eval, n_batches, label_dim, resource_manager));
       }
       break;
     case Type::AverageLoss:
@@ -430,7 +457,8 @@ float AverageLoss<T>::finalize_metric() {
 }
 
 void AUCStorage::alloc_main(size_t num_local_samples, size_t num_bins, size_t num_partitions,
-                            size_t num_global_gpus) {
+                            size_t num_global_gpus, size_t label_dim) {
+  num_classes_ = label_dim;
   size_t bins_buffer_size = num_bins * sizeof(CountType);
 
   HCTR_LIB_THROW(cudaMalloc((void**)&(ptr_local_bins_), bins_buffer_size));
@@ -458,34 +486,53 @@ void AUCStorage::alloc_main(size_t num_local_samples, size_t num_bins, size_t nu
   HCTR_LIB_THROW(cudaMemset(ptr_pos_per_gpu_, 0, (num_global_gpus + 1) * sizeof(CountType)));
   HCTR_LIB_THROW(cudaMemset(ptr_neg_per_gpu_, 0, (num_global_gpus + 1) * sizeof(CountType)));
 
+  if (num_classes_ > 1) {
+    ptr_class_preds_ = (float**)malloc(num_classes_ * sizeof(float*));
+    ptr_class_labels_ = (float**)malloc(num_classes_ * sizeof(float*));
+  }
+
   realloc_redistributed(num_local_samples, 0);
 }
 
 void AUCStorage::realloc_ptr(void** ptr, size_t old_size, size_t new_size, cudaStream_t stream) {
   void* tmp;
   HCTR_LIB_THROW(cudaMalloc(&tmp, new_size));
-  HCTR_LIB_THROW(cudaMemcpyAsync(tmp, *ptr, old_size, cudaMemcpyDeviceToDevice, stream));
-  HCTR_LIB_THROW(cudaFree(*ptr));
+  if (old_size) {
+    HCTR_LIB_THROW(cudaMemcpyAsync(tmp, *ptr, old_size, cudaMemcpyDeviceToDevice, stream));
+    HCTR_LIB_THROW(cudaFree(*ptr));
+  }
   *ptr = tmp;
 }
 
 void AUCStorage::realloc_redistributed(size_t num_redistributed_samples, cudaStream_t stream) {
   if (num_redistributed_samples > num_allocated_redistributed_) {
-    size_t old_size = num_allocated_redistributed_ * sizeof(float);
-    num_allocated_redistributed_ = reallocate_factor_ * num_redistributed_samples;
-    size_t redistributed_buffer_size = num_allocated_redistributed_ * sizeof(float);
-    size_t runs_buffer_size = num_allocated_redistributed_ * sizeof(CountType) / 2;
+    // Old allocated sizes
+    size_t old_preds_size = num_allocated_redistributed_ * sizeof(float);
+    size_t old_runs_size = num_allocated_redistributed_ * sizeof(CountType) / 2;
 
-    realloc_ptr((void**)&(ptr_preds_1_), old_size, redistributed_buffer_size, stream);
-    realloc_ptr((void**)&(ptr_labels_1_), old_size, redistributed_buffer_size, stream);
-    realloc_ptr((void**)&(ptr_preds_2_), old_size, redistributed_buffer_size, stream);
-    realloc_ptr((void**)&(ptr_labels_2_), old_size, redistributed_buffer_size, stream);
+    num_allocated_redistributed_ = reallocate_factor_ * num_redistributed_samples;
+
+    // New to-allocate sizes
+    size_t new_preds_size = num_allocated_redistributed_ * sizeof(float);
+    size_t new_runs_size = num_allocated_redistributed_ * sizeof(CountType) / 2;
+
+    realloc_ptr((void**)&(ptr_preds_1_), old_preds_size, new_preds_size, stream);
+    realloc_ptr((void**)&(ptr_labels_1_), old_preds_size, new_preds_size, stream);
+    realloc_ptr((void**)&(ptr_preds_2_), old_preds_size, new_preds_size, stream);
+    realloc_ptr((void**)&(ptr_labels_2_), old_preds_size, new_preds_size, stream);
+
+    if (num_classes_ > 1) {
+      for (size_t class_id = 0; class_id < num_classes_; class_id++) {
+        realloc_ptr((void**)&(ptr_class_preds_[class_id]), old_preds_size, new_preds_size, stream);
+        realloc_ptr((void**)&(ptr_class_labels_[class_id]), old_preds_size, new_preds_size, stream);
+      }
+    }
 
     // These two buffers do not need to preserve their data
     HCTR_LIB_THROW(cudaFree(ptr_identical_pred_starts_));
     HCTR_LIB_THROW(cudaFree(ptr_identical_pred_lengths_));
-    HCTR_LIB_THROW(cudaMalloc((void**)&ptr_identical_pred_starts_, runs_buffer_size));
-    HCTR_LIB_THROW(cudaMalloc((void**)&ptr_identical_pred_lengths_, runs_buffer_size));
+    HCTR_LIB_THROW(cudaMalloc((void**)&ptr_identical_pred_starts_, new_runs_size));
+    HCTR_LIB_THROW(cudaMalloc((void**)&ptr_identical_pred_lengths_, new_runs_size));
   }
 }
 
@@ -495,6 +542,29 @@ void AUCStorage::realloc_workspace(size_t temp_storage) {
     // This is temporary storage, no need to preserve the data
     cudaFree(workspace_);
     HCTR_LIB_THROW(cudaMalloc((void**)&(workspace_), allocated_temp_storage_));
+  }
+}
+
+bool AUCStorage::realloc_local_reduce_workspace(size_t input_size) {
+  if (input_size > allocated_lr_input_size_) {
+    allocated_lr_input_size_ = input_size;
+
+    // This is temporary storage, no need to preserve the data
+    cudaFree(ptr_lr_unsorted_preds_);
+    cudaFree(ptr_lr_sorted_preds_);
+    cudaFree(ptr_lr_sorted_labels_);
+    cudaFree(ptr_lr_class_ids_);
+    cudaFree(ptr_lr_sorted_class_ids_);
+
+    HCTR_LIB_THROW(cudaMalloc((void**)&ptr_lr_unsorted_preds_, sizeof(float) * input_size));
+    HCTR_LIB_THROW(cudaMalloc((void**)&ptr_lr_sorted_preds_, sizeof(float) * input_size));
+    HCTR_LIB_THROW(cudaMalloc((void**)&ptr_lr_sorted_labels_, sizeof(float) * input_size));
+    HCTR_LIB_THROW(cudaMalloc((void**)&ptr_lr_class_ids_, sizeof(int) * input_size));
+    HCTR_LIB_THROW(cudaMalloc((void**)&ptr_lr_sorted_class_ids_, sizeof(int) * input_size));
+
+    return true;
+  } else {
+    return false;
   }
 }
 
@@ -521,6 +591,19 @@ void AUCStorage::free_all() {
   HCTR_LIB_THROW(cudaFree(ptr_labels_2_));
   HCTR_LIB_THROW(cudaFree(ptr_identical_pred_starts_));
   HCTR_LIB_THROW(cudaFree(ptr_identical_pred_lengths_));
+
+  if (num_classes_ > 1) {
+    for (size_t class_id = 0; class_id < num_classes_; class_id++) {
+      HCTR_LIB_THROW(cudaFree(ptr_class_preds_[class_id]));
+      HCTR_LIB_THROW(cudaFree(ptr_class_labels_[class_id]));
+    }
+    HCTR_LIB_THROW(cudaFree(ptr_lr_unsorted_preds_));
+    HCTR_LIB_THROW(cudaFree(ptr_lr_sorted_preds_));
+    HCTR_LIB_THROW(cudaFree(ptr_lr_sorted_labels_));
+    HCTR_LIB_THROW(cudaFree(ptr_lr_class_ids_));
+    HCTR_LIB_THROW(cudaFree(ptr_lr_sorted_class_ids_));
+  }
+
   HCTR_LIB_THROW(cudaFree(workspace_));
 }
 
@@ -534,12 +617,13 @@ void CUB_allocate_and_launch(AUCStorage& st, CUB_Func func) {
 }
 
 template <typename T>
-AUC<T>::AUC(int batch_size_per_gpu, int n_batches,
+AUC<T>::AUC(int batch_size_per_gpu, int n_batches, int label_dim,
             const std::shared_ptr<ResourceManager>& resource_manager)
     : Metric(),
       resource_manager_(resource_manager),
       batch_size_per_gpu_(batch_size_per_gpu),
       n_batches_(n_batches),
+      num_classes_(label_dim),
       num_local_gpus_(resource_manager_->get_local_gpu_count()),
       num_global_gpus_(resource_manager_->get_global_gpu_count()),
       num_bins_(num_global_gpus_ * num_bins_per_gpu_),
@@ -547,6 +631,12 @@ AUC<T>::AUC(int batch_size_per_gpu, int n_batches,
       num_total_samples_(0),
       storage_(num_local_gpus_),
       offsets_(num_local_gpus_, 0) {
+
+  HCTR_LOG(INFO, ROOT, "AUC Init batch_size_per_gpu:%d n_batches:%d num_classes:%lu\nnum_local_gpus:%d num_global_gpus:%d num_bins:%d num_partitions:%d\n",
+          batch_size_per_gpu_, n_batches_, num_classes_, num_local_gpus_,
+          num_global_gpus_, num_bins_, num_partitions_);
+  assert(num_classes_ <= 256); // If increasing this limit, adjust end_bit in local_reduce::SortPairs call
+
   size_t max_num_local_samples = (batch_size_per_gpu_ * n_batches_);
 
   for (int i = 0; i < num_local_gpus_; i++) {
@@ -554,8 +644,13 @@ AUC<T>::AUC(int batch_size_per_gpu, int n_batches,
     CudaDeviceContext context(device_id);
 
     auto& st = storage_[i];
-    st.alloc_main(max_num_local_samples, num_bins_, num_partitions_, num_global_gpus_);
+    st.alloc_main(max_num_local_samples, num_bins_, num_partitions_, num_global_gpus_, num_classes_);
     st.realloc_workspace(num_partitions_ * sizeof(CountType));
+
+    st.realloc_local_reduce_workspace(batch_size_per_gpu * num_classes_);
+    auto stream = resource_manager_->get_local_gpu(i)->get_stream();
+    int num_sms = resource_manager_->get_local_gpu(i)->get_sm_count();
+    init_classes(st.d_lr_class_ids(), batch_size_per_gpu, num_classes_, num_sms, stream);
   }
 
   warm_up(max_num_local_samples);
@@ -582,18 +677,61 @@ void AUC<T>::local_reduce(int local_gpu_id, RawMetricMap raw_metrics) {
   Tensor2<LabelType> label_tensor = Tensor2<LabelType>::stretch_from(raw_metrics[RawType::Label]);
   int device_id = resource_manager_->get_local_gpu(local_gpu_id)->get_device_id();
   int global_device_id = resource_manager_->get_local_gpu(local_gpu_id)->get_global_id();
-  const auto& st = storage_[local_gpu_id];
+  auto& st = storage_[local_gpu_id];
 
   // Copy the labels and predictions to the internal buffer
   size_t& offset = offsets_[local_gpu_id];
   CudaDeviceContext context(device_id);
   int num_valid_samples =
       get_num_valid_samples(global_device_id, current_batch_size_, batch_size_per_gpu_);
+  auto stream = resource_manager_->get_local_gpu(local_gpu_id)->get_stream();
+  int num_sms = resource_manager_->get_local_gpu(local_gpu_id)->get_sm_count();
 
-  copy_all<T>(st.d_preds() + offset, st.d_labels() + offset, pred_tensor.get_ptr(),
-              label_tensor.get_ptr(), num_valid_samples,
-              resource_manager_->get_local_gpu(local_gpu_id)->get_sm_count(),
-              resource_manager_->get_local_gpu(local_gpu_id)->get_stream());
+  if (num_classes_ == 1) {
+    copy_all<T>(st.d_preds() + offset, st.d_labels() + offset, pred_tensor.get_ptr(),
+                label_tensor.get_ptr(), num_valid_samples, num_sms, stream);
+  } else {
+    size_t input_size =  num_valid_samples * num_classes_;
+    if (st.realloc_local_reduce_workspace(input_size)) {
+      init_classes(st.d_lr_class_ids(), num_valid_samples, num_classes_, num_sms, stream);
+    }
+
+    if (std::is_same<T, float>::value) {
+      CUB_allocate_and_launch(st, [&](void* workspace, size_t& size) {
+        return cub::DeviceRadixSort::SortPairs(workspace, size, st.d_lr_class_ids(),
+                                               st.d_lr_sorted_class_ids(), (int*)pred_tensor.get_ptr(),
+                                               (int*)st.d_lr_sorted_preds(), input_size,
+                                               0, 8,  // begin_bit, end_bit
+                                               stream);
+      });
+    } else {
+      copy_pred<T>(st.d_lr_unsorted_preds(), pred_tensor.get_ptr(), input_size, num_sms, stream);
+
+      CUB_allocate_and_launch(st, [&](void* workspace, size_t& size) {
+        return cub::DeviceRadixSort::SortPairs(workspace, size, st.d_lr_class_ids(),
+                                               st.d_lr_sorted_class_ids(), (int*)st.d_lr_unsorted_preds(),
+                                               (int*)st.d_lr_sorted_preds(), input_size,
+                                               0, 8,  // begin_bit, end_bit
+                                               stream);
+      });
+    }
+
+    CUB_allocate_and_launch(st, [&](void* workspace, size_t& size) {
+      return cub::DeviceRadixSort::SortPairs(workspace, size, st.d_lr_class_ids(),
+                                             st.d_lr_sorted_class_ids(), (int*)label_tensor.get_ptr(),
+                                             (int*)st.d_lr_sorted_labels(), input_size,
+                                             0, 8,  // begin_bit, end_bit
+                                             stream);
+    });
+
+    for (size_t class_id = 0; class_id < num_classes_; class_id++) {
+      size_t class_offset = class_id * num_valid_samples;
+      HCTR_LIB_THROW(cudaMemcpyAsync(st.d_class_preds(class_id) + offset, st.d_lr_sorted_preds() + class_offset,
+                     num_valid_samples * sizeof(float), cudaMemcpyDeviceToDevice, stream));
+      HCTR_LIB_THROW(cudaMemcpyAsync(st.d_class_labels(class_id) + offset, st.d_lr_sorted_labels() + class_offset,
+                     num_valid_samples * sizeof(float), cudaMemcpyDeviceToDevice, stream));
+    }
+  }
 
   offset += num_valid_samples;
 
@@ -624,6 +762,12 @@ void AUC<T>::warm_up(size_t num_local_samples) {
 
     mock_kernel<<<grid, block, 0, stream>>>(st.d_preds(), num_local_samples);
     initialize_array<<<grid, block, 0, stream>>>(st.d_labels(), num_local_samples, 0.0f);
+    if (num_classes_ > 1) {
+      for (size_t class_id = 0; class_id < num_classes_; class_id++) {
+        mock_kernel<<<grid, block, 0, stream>>>(st.d_class_preds(class_id), num_local_samples);
+        initialize_array<<<grid, block, 0, stream>>>(st.d_class_labels(class_id), num_local_samples, 0.0f);
+      }
+    }
     offsets_[local_id] = num_local_samples;
   }
   num_total_samples_ = num_local_samples * num_global_gpus_;
@@ -636,7 +780,7 @@ template <typename T>
 float AUC<T>::finalize_metric() {
   float result[num_local_gpus_];
 #pragma omp parallel num_threads(num_local_gpus_)
-  { result[omp_get_thread_num()] = _finalize_metric_per_gpu(omp_get_thread_num()); }
+  { result[omp_get_thread_num()] = finalize_metric_per_gpu(omp_get_thread_num()); }
 
   num_total_samples_ = 0;
   // All threads should have the same result here
@@ -644,7 +788,28 @@ float AUC<T>::finalize_metric() {
 }
 
 template <typename T>
-float AUC<T>::_finalize_metric_per_gpu(int local_id) {
+float AUC<T>::finalize_metric_per_gpu(int local_id) {
+  auto& st = storage_[local_id];
+  size_t num_local_samples = offsets_[local_id];
+  offsets_[local_id] = 0;
+
+  float result = 0.0;
+  if (num_classes_ == 1) {
+    result = finalize_class_metric(st.d_preds(), st.d_labels(), local_id, num_local_samples);
+  } else {
+    for (size_t class_id = 0; class_id < num_classes_; class_id++) {
+      result += finalize_class_metric(
+          st.d_class_preds(class_id), st.d_class_labels(class_id), local_id, num_local_samples);
+    }
+    result /= num_classes_;
+  }
+
+  return result;
+}
+
+template <typename T>
+float AUC<T>::finalize_class_metric(float* d_preds, float* d_labels, int local_id,
+                                    size_t num_local_samples) {
   dim3 grid(160, 1, 1);
   dim3 block(1024, 1, 1);
 
@@ -655,8 +820,6 @@ float AUC<T>::_finalize_metric_per_gpu(int local_id) {
 
   CudaDeviceContext context(device_id);
   auto& st = storage_[local_id];
-  size_t num_local_samples = offsets_[local_id];
-  offsets_[local_id] = 0;
 
   // 1. Create local histograms of predictions
   float eps = 1e-7f;
@@ -665,7 +828,7 @@ float AUC<T>::_finalize_metric_per_gpu(int local_id) {
   auto clamp = [loc_min, loc_max] __device__(const float v) {
     return fmaxf(fminf(v, loc_max), loc_min);
   };
-  cub::TransformInputIterator<float, decltype(clamp), float*> d_clamped_preds(st.d_preds(), clamp);
+  cub::TransformInputIterator<float, decltype(clamp), float*> d_clamped_preds(d_preds, clamp);
 
   // (int) casting is a CUB workaround. Fixed in https://github.com/thrust/cub/pull/38
   CUB_allocate_and_launch(st, [&](void* workspace, size_t& size) {
@@ -702,8 +865,8 @@ float AUC<T>::_finalize_metric_per_gpu(int local_id) {
 
   size_t shmem_size = sizeof(CountType) * num_partitions_ * 2;
   create_partitions_kernel<<<grid, block, shmem_size, stream>>>(
-      st.d_labels(), st.d_preds(), st.d_pivots(), pred_min_, pred_max_, num_local_samples,
-      num_bins_, num_partitions_, st.d_partition_offsets(), (CountType*)st.d_workspace(),
+      d_labels, d_preds, st.d_pivots(), pred_min_, pred_max_, num_local_samples, num_bins_,
+      num_partitions_, st.d_partition_offsets(), (CountType*)st.d_workspace(),
       st.d_partitioned_labels(), st.d_partitioned_preds());
 
   // 5. Exchange the data such that all predicitons on GPU i are smaller than
@@ -864,6 +1027,7 @@ float AUC<T>::_finalize_metric_per_gpu(int local_id) {
   metric_comm::allreduce(st.d_auc(), st.d_auc(), 1, gpu_resource);
 
   HCTR_LIB_THROW(cudaStreamSynchronize(stream));
+
   return *st.d_auc();
 }
 

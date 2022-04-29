@@ -10,7 +10,7 @@ solver = hugectr.CreateSolver(max_eval_batches = 70,
 reader = hugectr.DataReaderParams(data_reader_type = hugectr.DataReaderType_t.Raw,
                                   source = ["./train_data.bin"],
                                   eval_source = "./test_data.bin",
-                                  num_samples = 36634624,
+                                  num_samples = 36672493,
                                   eval_num_samples = 4584062,
                                   check_type = hugectr.Check_t.Non)
 optimizer = hugectr.CreateOptimizer(optimizer_type = hugectr.Optimizer_t.SGD,

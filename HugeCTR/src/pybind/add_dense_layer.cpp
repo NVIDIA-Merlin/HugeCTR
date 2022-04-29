@@ -18,6 +18,7 @@
 #include <layers/add_layer.hpp>
 #include <layers/batch_norm_layer.hpp>
 #include <layers/cast_layer.hpp>
+#include <layers/concat_3d_layer.hpp>
 #include <layers/concat_layer.hpp>
 #include <layers/dropout_layer.hpp>
 #include <layers/elementwise_multiply_layer.hpp>
@@ -289,6 +290,10 @@ void save_graph_to_json(nlohmann::json& layer_config_array,
         }
         break;
       }
+      case Layer_t::Concat: {
+        layer_config["axis"] = dense_layer_params[i].axis;
+        break;
+      }
       case Layer_t::Slice: {
         layer_config["ranges"] = dense_layer_params[i].ranges;
         break;
@@ -501,6 +506,15 @@ DenseLayer get_dense_layer_from_json(const nlohmann::json& j_dense_layer) {
       // establish out tensor
       auto output = get_value_from_json<size_t>(j_fc_param, "num_output");
       dense_layer.num_output = output;
+      break;
+    }
+    case Layer_t::Concat: {
+      auto axis_it = j_dense_layer.find("axis");
+      if (axis_it != j_dense_layer.end()) {
+        dense_layer.axis = axis_it->get<int>();
+      } else {
+        dense_layer.axis = 1;
+      }
       break;
     }
     case Layer_t::MultiCross: {
@@ -884,14 +898,21 @@ void Model::add_dense_layer_internal(
       break;
     }
     case Layer_t::Concat: {
+      auto axis = dense_layer.axis;
       if (use_mixed_precision) {
         Tensors2<__half> in_tensors;
         for (const TensorBag2& bag : input_output_info.inputs) {
           in_tensors.push_back(Tensor2<__half>::stretch_from(bag));
         }
         Tensor2<__half> out_tensor;
-        layers.emplace_back(
-            new ConcatLayer<__half>(in_tensors, out_tensor, blobs_buff, gpu_resource));
+        if (in_tensors[0].get_dimensions().size() == 2) {
+          layers.emplace_back(
+              new ConcatLayer<__half>(in_tensors, out_tensor, blobs_buff, gpu_resource));
+        }
+        if (in_tensors[0].get_dimensions().size() == 3) {
+          layers.emplace_back(
+              new Concat3DLayer<__half>(in_tensors, out_tensor, blobs_buff, axis, gpu_resource));
+        }
         output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
       } else {
         Tensors2<float> in_tensors;
@@ -899,8 +920,14 @@ void Model::add_dense_layer_internal(
           in_tensors.push_back(Tensor2<float>::stretch_from(bag));
         }
         Tensor2<float> out_tensor;
-        layers.emplace_back(
-            new ConcatLayer<float>(in_tensors, out_tensor, blobs_buff, gpu_resource));
+        if (in_tensors[0].get_dimensions().size() == 2) {
+          layers.emplace_back(
+              new ConcatLayer<float>(in_tensors, out_tensor, blobs_buff, gpu_resource));
+        }
+        if (in_tensors[0].get_dimensions().size() == 3) {
+          layers.emplace_back(
+              new Concat3DLayer<float>(in_tensors, out_tensor, blobs_buff, axis, gpu_resource));
+        }
         output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
       }
       break;
@@ -1582,7 +1609,7 @@ void Model::add_dense_layer_internal(
     new_map.insert(std::make_pair(metrics::RawType::Label, input_output_info.inputs[1]));
     (*raw_metrics).insert(std::make_pair(name, new_map));
   }
-}
+}  // namespace HugeCTR
 
 void Model::add_dense_layer(DenseLayer& dense_layer) {
   for (size_t i = 0; i < resource_manager_->get_local_gpu_count(); i++) {
@@ -1625,12 +1652,30 @@ void calculate_tensor_dimensions(std::map<std::string, std::vector<int>>& tensor
     }
     case Layer_t::Concat: {
       int batch_size = tensor_shape_info_raw[dense_layer.bottom_names[0]][0];
-      int out_dim{0};
-      for (auto& bottom_name : dense_layer.bottom_names) {
-        out_dim += tensor_shape_info_raw[bottom_name][1];
+      if (tensor_shape_info_raw[dense_layer.bottom_names[0]].size() == 2) {
+        int out_dim{0};
+        for (auto& bottom_name : dense_layer.bottom_names) {
+          out_dim += tensor_shape_info_raw[bottom_name][1];
+        }
+        tensor_shape_info_raw.insert(
+            std::make_pair(dense_layer.top_names[0], std::vector<int>{batch_size, out_dim}));
       }
-      tensor_shape_info_raw.insert(
-          std::make_pair(dense_layer.top_names[0], std::vector<int>{batch_size, out_dim}));
+      if (tensor_shape_info_raw[dense_layer.bottom_names[0]].size() == 3) {
+        int slot_num{0};
+        int out_width{0};
+        if (dense_layer.axis == 1) {
+          for (auto& bottom_name : dense_layer.bottom_names) {
+            slot_num += tensor_shape_info_raw[bottom_name][1];
+          }
+        }
+        if (dense_layer.axis == 2) {
+          for (auto& bottom_name : dense_layer.bottom_names) {
+            out_width += tensor_shape_info_raw[bottom_name][2];
+          }
+        }
+        tensor_shape_info_raw.insert(std::make_pair(
+            dense_layer.top_names[0], std::vector<int>{batch_size, slot_num, out_width}));
+      }
       break;
     }
     case Layer_t::CrossEntropyLoss: {

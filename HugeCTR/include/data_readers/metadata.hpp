@@ -56,7 +56,17 @@ class Metadata {
   std::vector<Cols> get_cat_names() { return this->cat_names_; }
   std::vector<Cols> get_cont_names() { return this->cont_names_; }
   std::vector<Cols> get_label_names() { return this->label_names_; }
-  FileStats get_file_stats(std::string file_name) { return this->file_stats_[file_name]; }
+  FileStats get_file_stats(std::string file_name) {
+    FileStats fs{0};
+    try {
+      fs = this->file_stats_.at(file_name);
+    } catch (const std::runtime_error& rt_err) {
+      HCTR_LOG_S(ERROR, WORLD) << "getting file" << file_name << " stats error" << std::endl;
+      HCTR_OWN_THROW(Error_t::BrokenFile, "failed to get file stats");
+      throw;
+    }
+    return fs;
+  }
   bool get_metadata_status() { return loaded_; };
 };
 }  // namespace HugeCTR

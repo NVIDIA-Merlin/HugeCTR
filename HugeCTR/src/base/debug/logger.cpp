@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <sys/time.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -238,15 +239,16 @@ std::string Logger::get_log_prefix(int level) const {
   // Base & time
   os << "[HCTR][";
   {
-    const time_t now = std::time(nullptr);
+    struct timeval now;
+    gettimeofday(&now, nullptr);
     std::tm now_local;
-    localtime_r(&now, &now_local);
+    localtime_r(&now.tv_sec, &now_local);
 
     // %H:%M:%S = [00-23]:[00-59]:[00-60] == e.g., 23:59:60 = 8 bytes + 1 zero terminate.
     // (60 = for second-time-shift years)
     char buffer[8 + 1];
     std::strftime(buffer, sizeof(buffer), "%T", &now_local);
-    os << buffer;
+    os << buffer << '.' << std::setfill('0') << std::setw(3) << now.tv_usec / 1000;
   }
 
   // Level

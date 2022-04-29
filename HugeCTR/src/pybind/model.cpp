@@ -930,10 +930,11 @@ void Model::compile() {
                                    etc_params_->local_paths, etc_params_->hmem_cache_configs);
   }
   int num_total_gpus = resource_manager_->get_global_gpu_count();
+  int label_dim = input_params_[0].labels_.begin()->second;
   for (const auto& metric : solver_.metrics_spec) {
     metrics_.emplace_back(std::move(metrics::Metric::Create(
         metric.first, solver_.use_mixed_precision, solver_.batchsize_eval / num_total_gpus,
-        solver_.max_eval_batches, resource_manager_)));
+        solver_.max_eval_batches, label_dim, resource_manager_)));
   }
 
   if (solver_.use_holistic_cuda_graph) {

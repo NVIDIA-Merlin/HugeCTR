@@ -11,14 +11,13 @@ This document will walk you through simple demos to get you familiar with Sparse
 <p>In this document and other examples in SOK, you are assumed to be familiar with TensorFlow and other related tools.</p>
 </div>
 
-## Install SparseOperationKit ##
-Please refer to the [*Installation* section](https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/intro_link.html#installation) to install SparseOperationKit to your system.
+Refer to the [*Installation* section](https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/intro_link.html#installation) to install SparseOperationKit on your system.
 
 ## Import SparseOperationKit ##
 ```python
 import sparse_operation_kit as sok
 ```
-Now, SOK supports TensorFlow 1.15 and 2.x, and it will detect the version of TensorFlow automatically. And SOK API signatures are identical for TensorFlow 2.x and TensorFlow 1.15.
+SOK supports TensorFlow 1.15 and 2.x, and automatically detects the version of TensorFlow from your program. The SOK API signatures for TensorFlow 2.x and TensorFlow 1.15 are identical.
 
 ## TensorFlow 2.x ##
 
@@ -28,10 +27,10 @@ The structure of this demo model is depicted in Fig 1.
 <br><img src=../images/demo_model_structure.png></br>
 <center><b>Fig 1. The structure of demo model</b></center>
 <br>
-<br>
 
-#### Via Subclassing ####
-You can create this demo model via subclassing `tf.keras.Model`. See also [TensorFlow's Docs](https://tensorflow.google.cn/guide/keras/custom_layers_and_models).
+To define the model, you can use either use *subclassing* or the *functional API*.
+
+**Subclassing approach**. The following code sample shows how this demo model can be created by subclassing `tf.keras.Model`. Additional information about `tf.keras.Model` and its customization options is available [here](https://tensorflow.google.cn/guide/keras/custom_layers_and_models).
 
 ```python
 import tensorflow as tf
@@ -81,8 +80,7 @@ class DemoModel(tf.keras.models.Model):
         return logit
 ```
 
-#### Via Functional API ####
-You can also create this demo model via `TensorFlow Functional API`. See [TensorFlow's Docs](https://tensorflow.google.cn/guide/keras/functional).
+**Functional API approach**. The following code sample shows how to create a model with the `TensorFlow functional API`. For information about the API, see the [TensorFlow functional API](https://tensorflow.google.cn/guide/keras/functional).
 
 ```python
 import tensorflow as tf
@@ -122,11 +120,11 @@ def create_DemoModel(max_vocabulary_size_per_gpu,
 SparseOperationKit is compatible with `tf.distribute.Strategy`. More specificly, `tf.distribute.MirroredStrategy` and `tf.distribute.MultiWorkerMirroredStrategy`.
 
 #### with tf.distribute.MirroredStrategy ####
-Documents for [tf.distribute.MirroredStrategy](https://tensorflow.google.cn/api_docs/python/tf/distribute/MirroredStrategy?hl=en). `tf.distribute.MirroredStrategy` is a tool to support data-parallel synchronized training in single machine, where there exists multiple GPUs.
+The `tf.distribute.MirroredStrategy` class enables data-parallel synchronized training on a machine with multiple GPUs. For more information, see the TensorFlow documentation for the [MirroredStrategy](https://tensorflow.google.cn/api_docs/python/tf/distribute/MirroredStrategy) class. 
 
 <div class="admonition Caution">
 <p class="admonition-title">Caution</p>
-<p>The programming model for MirroredStrategy is single-process & multi-threads. But due to the GIL in CPython interpreter, it is hard to fully leverage all available CPU cores, which might impact the end-to-end training / inference performance. Therefore, MirroredStrategy is not recommended for multiple GPUs synchronized training.</p>
+<p>The programming model for MirroredStrategy is single-process & multiple-threads. CPython is prone to Global Interpreter Lock (GIL). GIL makes it hard to fully leverage all available CPU cores, which might impact the end-to-end training / inference performance. Therefore, the MirroredStrategy is not recommended for synchronized training using multiple GPUs.</p>
 </div>
 
 ***create MirroredStrategy***
@@ -135,7 +133,7 @@ strategy = tf.distribute.MirroredStrategy()
 ```
 <div class="admonition Tip">
 <p class="admonition-title">Tip</p>
-<p>By default, MirroredStrategy will use all available GPUs in one machine. If you want to specify how many GPUs are used or which GPUs are used for synchronized training, please set `CUDA_VISIBLE_DEVICES` or `tf.config.set_visible_devices`.</p>
+<p>By default, MirroredStrategy will use all available GPUs in one machine. You can select which GPUs should be used for synchronized training by specifying either `CUDA_VISIBLE_DEVICES` or `tf.config.set_visible_devices`.</p>
 </div>
 
 ***create model instance under MirroredStrategy.scope***
@@ -160,7 +158,7 @@ with strategy.scope():
 
     dense_opt = tf.keras.optimizers.Adam(learning_rate=0.1)
 ```
-For a DNN model built with SOK, `sok.Init` must be used to conduct initilizations. Please see [its API document](https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/api/init.html#module-sparse_operation_kit.core.initialize).
+Prior to using a DNN model that is built with SOK, you must call `sok.Init` to initalize SOK. Please refer to its [API document](https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/api/init.html#module-sparse_operation_kit.core.initialize) for further information.
 
 ***define training step***
 ```python
@@ -187,7 +185,7 @@ def _train_step(inputs, labels):
     return loss
 ```
 
-If you are using native TensorFlow optimizers, such as `tf.keras.optimizers.Adam`, then `sok.OptimizerScope` must be used. Please see [its API document](https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/api/utils/opt_scope.html#sparseoperationkit-optimizer-scope).
+If you are using native TensorFlow optimizers, such as `tf.keras.optimizers.Adam`, then `sok.OptimizerScope` must be used. Please refer to its [API document](https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/api/utils/opt_scope.html#sparseoperationkit-optimizer-scope) for further information.
 
 ***start training***
 ```python
@@ -202,16 +200,16 @@ for i, (inputs, labels) in enumerate(dataset):
 After these steps, the `DemoModel` will be successfully trained.
 
 #### With tf.distribute.MultiWorkerMirroredStrategy ####
-Documents for [tf.distribute.MultiWorkerMirroredStrategy](https://www.tensorflow.org/api_docs/python/tf/distribute/MultiWorkerMirroredStrategy). `tf.distribute.MultiWorkerMirroredStrategy` is a tool to support data-parallel synchronized training in multiple machines, where there exists multiple GPUs in each machine.
+`tf.distribute.MultiWorkerMirroredStrategy` allows data-parallel synchronized training across multiple machines with multiple GPUs in each machine. Its [documentation](https://www.tensorflow.org/api_docs/python/tf/distribute/MultiWorkerMirroredStrategy) can be found [here](https://www.tensorflow.org/api_docs/python/tf/distribute/MultiWorkerMirroredStrategy). 
 
 <div class="admonition Caution">
 <p class="admonition-title">Caution</p>
-<p>The programming model for MultiWorkerMirroredStrategy is multi-processes & multi-threads. Each process owns multi-threads and controls all available GPUs in single machine. Due to the GIL in CPython interpreter, it is hard to fully leverage all available CPU cores in each machine, which might impact the end-to-end training / inference performance. Therefore, it is recommended to use multiple processes in each machine, and each process controls one GPU.</p>
+<p>The programming model for the MultiWorkerMirroredStrategy is multiple processes plus multi-threading. Hence, each process owns multiple threads to control the indidvidual GPUs in each machine. GILs in the CPython interpreter can make it hard to fully leverage all available CPU cores in each machine, which might impact the end-to-end training / inference performance. Therefore, it is recommended to use multiple processes in each machine, and each process controls one GPU.</p>
 </div>
 
 <div class="admonition Important">
 <p class="admonition-title">Important</p>
-<p>By default, MultiWorkerMirroredStrategy will use all available GPUs in each process. Please set `CUDA_VISIBLE_DEVICES` or `tf.config.set_visible_devices` for each process to make each process controls different GPU.</p>
+<p>By default, MultiWorkerMirroredStrategy will use all available GPUs in each process. You can limit GPU access for each process by setting either `CUDA_VISIBLE_DEVICES` or `tf.config.set_visible_devices`.</p>
 </div>
 
 ***create MultiWorkerMirroredStrategy***
@@ -233,16 +231,16 @@ strategy = tf.distribute.MultiWorkerMirroredStrategy()
 ```
 
 ***Other Steps***<br>
-The steps ***create model instance under MultiWorkerMirroredStrategy.scope***, ***define training step*** and ***start training*** are the same as which are described in [with tf.distribute.MirroredStrategy](https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/get_started/get_started.html#with-tf-distribute-mirroredstrategy). Please check that section.
+The steps ***create model instance under MultiWorkerMirroredStrategy.scope***, ***define training step*** and ***start training*** are the same as those described in [with tf.distribute.MirroredStrategy](https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/get_started/get_started.html#with-tf-distribute-mirroredstrategy). Please check that section.
 
 ***launch training program***<br>
-Because multiple CPU processes are used in each machine for synchronized training, therefore `MPI` can be used to launch this program. For example:
+Because multiple CPU processes are used in each machine for synchronized training, MPI can be used to launch this program. For example using:
 ```shell
 $ mpiexec -np 8 [mpi-args] python3 main.py [python-args]
 ```
 
 ### Use SparseOperationKit with Horovod ###
-SparseOperationKit is also compatible with Horovod which is similar to `tf.distribute.MultiWorkerMirroredStrategy`.
+SparseOperationKit is also compatible with [Horovod](https://horovod.ai), which is similar to `tf.distribute.MultiWorkerMirroredStrategy`.
 
 ***initialize horovod for tensorflow***
 ```python
@@ -273,7 +271,7 @@ else:
 
 dense_opt = tf.keras.optimizers.Adam(learning_rate=0.1)
 ```
-For a DNN model built with SOK, `sok.Init()` must be called to conduct initializations. Please see [its API document](https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/api/init.html#module-sparse_operation_kit.core.initialize).
+Prior to using a DNN model built with SOK, `sok.Init` must be called to perform certain initilization steps. Please refer to its [API document](https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/api/init.html#module-sparse_operation_kit.core.initialize) for further information.
 
 ***define training step***
 ```python
@@ -306,7 +304,7 @@ def _train_step(inputs, labels, first_batch):
 
     return loss
 ```
-If you are using native TensorFlow optimizers, such as `tf.keras.optimizers.Adam`, then `sok.OptimizerScope` must be used. Please see [its API document](https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/api/utils/opt_scope.html#sparseoperationkit-optimizer-scope). 
+If you use native TensorFlow optimizers, such as `tf.keras.optimizers.Adam`, then `sok.OptimizerScope` must be used. Please see its [API document](https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/api/utils/opt_scope.html#sparseoperationkit-optimizer-scope) for further information. 
 
 ***start training***
 ```python
@@ -325,7 +323,7 @@ $ horovodrun -np 8 -H localhost:8 python3 main.py [python-args]
 ```
 
 ## TensorFlow 1.15 ##
-SOK is also compatible with TensorFlow 1.15. Due to some restrictions in TF 1.15, only Horovod can be used as the communication tool.
+SOK is compatible with TensorFlow 1.15. But due to some restrictions in TF 1.15, only Horovod can be used as the communication protocol.
 
 ### Using SparseOperationKit with Horovod ###
 ***initialize horovod for tensorflow***
@@ -356,7 +354,7 @@ else:
     emb_opt = tf.keras.optimizers.Adam(learning_rate=0.1)
 dense_opt = tf.keras.optimizers.Adam(learning_rate=0.1)
 ```
-For a DNN model built with SOK, `sok.Init` must be used to conduct initilizations. Please see [its API document](https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/api/init.html#module-sparse_operation_kit.core.initialize).
+Prior to using a DNN model built with SOK, `sok.Init` must be called to perform certain initilization steps. Please refer to its [API document](https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/api/init.html#module-sparse_operation_kit.core.initialize) for further information.
 
 ***define training step***
 ```python
@@ -387,7 +385,7 @@ def train_step(inputs, labels, training):
         
         return total_loss
 ```
-If you are using native TensorFlow optimizers, such as `tf.keras.optimizers.Adam`, then `sok.OptimizerScope` must be used. Please see [its API document](https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/api/utils/opt_scope.html#sparseoperationkit-optimizer-scope).
+If you are using native TensorFlow optimizers, such as `tf.keras.optimizers.Adam`, then `sok.OptimizerScope` must be used. Please see its [API document](https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/api/utils/opt_scope.html#sparseoperationkit-optimizer-scope) for further information.
 
 ***start training***
 ```python

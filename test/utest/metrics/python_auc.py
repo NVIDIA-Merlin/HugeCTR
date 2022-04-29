@@ -8,6 +8,7 @@ parser = argparse.ArgumentParser(description='Compute AUC with sklearn')
 parser.add_argument('count',      help='Number of elements', type=int)
 parser.add_argument('fp_bytes',   help='Bytes per float in the file', type=int)
 parser.add_argument('input_file', help='Input filename')
+parser.add_argument('num_classes', help='Number of classes', type=int)
 args = parser.parse_args()
 
 dtype = [('labels', np.float32, (args.count)), ('scores', np.float32 if args.fp_bytes == 4 else np.float16, (args.count))]
@@ -17,4 +18,7 @@ data = np.fromfile(args.input_file, dtype=dtype)
 # print(data['labels'].flatten().tolist(), file=sys.stderr)
 # print(data['scores'].flatten().tolist(), file=sys.stderr)
 
-print( roc_auc_score(data['labels'].flatten().astype(int), data['scores'].flatten().astype(float)) )
+if args.num_classes == 1:
+    print( roc_auc_score(data['labels'].flatten().astype(int), data['scores'].flatten().astype(float)) )
+else:
+    print( roc_auc_score(data['labels'].flatten().astype(int).reshape((-1, args.num_classes)), data['scores'].flatten().astype(float).reshape((-1, args.num_classes))) )

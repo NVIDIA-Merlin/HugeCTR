@@ -71,6 +71,7 @@ class ParquetFileSource : public Source {
 
   /**
    * Private Helper function to get parquet file name for metadata query
+   * return basename(<parquet_path>)
    */
   std::string get_filename(std::string path) {
     std::size_t found = path.find_last_of("/\\");
@@ -141,13 +142,13 @@ class ParquetFileSource : public Source {
       if (file_name_.empty()) {
         return Error_t::EndOfFile;
       }
-
       in_file_stream_.open(file_name_, std::ifstream::binary);
       if (!in_file_stream_.is_open()) {
         HCTR_LOG_S(ERROR, WORLD) << "in_file_stream_.is_open() failed: " << file_name_ << ' '
                                  << HCTR_LOCATION() << std::endl;
         return Error_t::FileCannotOpen;
       }
+      // evaluate parquet file size
       in_file_stream_.seekg(0, std::ios::end);
       file_size_ = in_file_stream_.tellg();
       in_file_stream_.close();
@@ -184,6 +185,8 @@ class ParquetFileSource : public Source {
           file_metadata_.get_parquet_metadata(metadata_file_name);
         file_total_rows_ =
             (long long)(file_metadata_.get_file_stats(get_filename(file_name_)).num_rows);
+        HCTR_LOG_S(DEBUG, WORLD) << "file_name_ " << file_name_ << " file_total_rows_ "
+                                 << file_total_rows_ << std::endl;
       } else {
         HCTR_LOG_S(ERROR, WORLD) << "Parquet files not found - check file extensions "
                                  << HCTR_LOCATION() << std::endl;
@@ -262,7 +265,6 @@ class ParquetFileSource : public Source {
           parquet_args.set_num_rows(-1);
           parquet_args.set_timestamp_type(cudf::data_type(cudf::type_id::EMPTY));
           curr_row_group_++;
-          // auto tbl_w_metadata = cudf_io::read_parquet(parquet_args, mr);
           cached_row_group_table_ = std::make_unique<cudf_io::table_with_metadata>(
               cudf_io::read_parquet(parquet_args, mr));
           row_group_size_ = cached_row_group_table_.get()->tbl->num_rows();

@@ -22,17 +22,13 @@
 
 # -- Path setup --------------------------------------------------------------
 
-import errno
-
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
 import os
-import shutil
 import subprocess
 import sys
-from re import I
 
 from natsort import natsorted
 
@@ -53,10 +49,10 @@ author = "NVIDIA"
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-    "myst_parser",
+    "myst_nb",
+    "sphinx_external_toc",
     "sphinx_rtd_theme",
     "sphinx_markdown_tables",
-    "nbsphinx",
     "sphinx.ext.autodoc",
     "sphinx.ext.autosummary",
     "sphinx.ext.coverage",
@@ -65,11 +61,32 @@ extensions = [
     "sphinx.ext.viewcode",
     "sphinx.ext.intersphinx",
     "sphinx_multiversion",
+    "sphinxcontrib.copydirs",
 ]
 
-myst_enable_extensions = ["html_image"]
-
+# MyST configuration settings
+external_toc_path = "toc.yaml"
+myst_enable_extensions = [
+    "deflist",
+    "html_image",
+    "linkify",
+    "replacements",
+    "tasklist",
+]
+myst_linkify_fuzzy_links = False
 myst_heading_anchors = 4
+jupyter_execute_notebooks = "off"
+
+# Some documents are RST and include `.. toctree::` directives.
+suppress_warnings = ["etoc.toctree", "myst.header", "misc.highlighting_failure"]
+
+# Stopgap solution for the moment. Ignore warnings about links to directories.
+# In README.md files, the following links make sense while browsing GitHub.
+# In HTML, less so.
+nitpicky = True
+nitpick_ignore = [
+    (r"myst", r"./multi-modal-data/"),
+]
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
@@ -78,11 +95,7 @@ templates_path = ["_templates"]
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = [
-    "notebooks/multi-modal-data/02-Data-Enrichment.ipynb",  # Shuts down the kernel and breaks build
-    "notebooks/news-example.ipynb",  # Triggers NVMLError_Unknown
-    "notebooks/README.md",
     "notebooks/prototype_indices.ipynb",
-    "notebooks/training_with_hdfs.ipynb",
 ]
 
 
@@ -92,6 +105,9 @@ exclude_patterns = [
 # a list of builtin themes.
 #
 html_theme = "sphinx_rtd_theme"
+html_theme_options = {
+    "navigation_depth": 2,
+}
 html_show_sourcelink = False
 
 # Whitelist pattern for tags (set to None to ignore all tags)
@@ -111,6 +127,8 @@ else:
 # Only include main branch for now
 smv_branch_whitelist = "^master$"
 
+smv_refs_override_suffix = "-docs"
+
 html_sidebars = {"**": ["versions.html"]}
 
 # Add any paths that contain custom static files (such as style sheets) here,
@@ -129,29 +147,10 @@ autodoc_default_options = {
 
 autosummary_generate = True
 
-
-def copy_files(src_dir: str):
-    """
-    src_dir: A path, specified as relative to the
-             docs/source directory in the repository.
-             Sphinx considers all directories as relative
-             to the docs/source directory.
-    """
-    src_dir = os.path.abspath(src_dir)
-    if not os.path.isdir(src_dir):
-        raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), src_dir)
-    sys.path.insert(0, src_dir)
-    out_dir_name = os.path.basename(src_dir)
-    out_dir = os.path.abspath("{}/".format(out_dir_name))
-
-    if os.path.isdir(os.path.join(src_dir, out_dir_name)):
-        sys.path.insert(0, os.path.join(src_dir, out_dir_name))
-
-    print(r"Copying source documentation from directory: {}".format(src_dir), file=sys.stderr)
-    print(r"  ...to destination directory: {}".format(out_dir), file=sys.stderr)
-
-    shutil.rmtree(out_dir, ignore_errors=True)
-    shutil.copytree(src_dir, out_dir)
-
-
-copy_files(r"../../notebooks")
+copydirs_additional_dirs = [
+    "../../notebooks",
+    "../../release_notes.md",
+]
+copydirs_file_rename = {
+    "README.md": "index.md",
+}

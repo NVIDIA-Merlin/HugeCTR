@@ -504,11 +504,11 @@ void data_generation_for_parquet(std::string file_list_name, std::string data_pr
   std::ostringstream metadata;
   metadata << "{ \"file_stats\": [";
   for (int i = 0; i < num_files - 1; i++) {
-    std::string filepath = data_prefix + std::to_string(i) + std::string(".parquet");
+    std::string filepath = std::to_string(i) + std::string(".parquet");
     metadata << "{\"file_name\": \"" << filepath << "\", "
              << "\"num_rows\":" << num_records_per_file << "}, ";
   }
-  std::string filepath = data_prefix + std::to_string(num_files - 1) + std::string(".parquet");
+  std::string filepath = std::to_string(num_files - 1) + std::string(".parquet");
   metadata << "{\"file_name\": \"" << filepath << "\", "
            << "\"num_rows\":" << num_records_per_file << "} ";
   metadata << "], ";

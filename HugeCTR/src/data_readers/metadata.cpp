@@ -21,20 +21,29 @@
 #include "nlohmann/json.hpp"
 
 namespace HugeCTR {
-
+// filename
 void Metadata::get_parquet_metadata(std::string file_name) {
   nlohmann::json config;
   std::ifstream file_stream(file_name);
   if (!file_stream.is_open()) {
     HCTR_OWN_THROW(Error_t::FileCannotOpen, "file_stream.is_open() failed: " + file_name);
   }
-  file_stream >> config;
-
+  // TODO add specific exception check?
+  try {
+    file_stream >> config;
+  } catch (const std::runtime_error& rt_err) {
+    HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
+  }
   try {
     auto fstats = config.find("file_stats").value();
     for (unsigned int i = 0; i < fstats.size(); i++) {
       FileStats fs;
+      // may has slash
       std::string fname = (std::string)fstats[i].find("file_name").value();
+      std::size_t found = fname.find_last_of("/\\");
+      if (found != std::string::npos) {
+        fname = fname.substr(found + 1);
+      }
       fs.num_rows = long(fstats[i].find("num_rows").value());
       file_stats_.insert({fname, fs});
     }
