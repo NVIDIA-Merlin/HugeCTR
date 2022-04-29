@@ -4,7 +4,7 @@ This tutorial explains how to perform multi-node training with HugeCTR.
 
 ## For Existing Clusters with a Job Scheduler
 If your cluster is already equipped with a job scheduler, such as SLURM,
-refer to the instructions in [dcn2nodes](../../samples/dcn2nodes/README.md).
+refer to the instructions in [dcn2nodes](../../samples/dcn/README.md).
 
 ## For New Clusters
 If you need to create a new cluster, follow the instructions outlined below.
