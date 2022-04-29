@@ -564,7 +564,7 @@ class LocalizedSlotSparseEmbeddingHash : public IEmbedding {
           count <= max_vocabulary_size_per_gpu_,
           "Runtime vocabulary size %lu exceeds max_vocabulary_size_per_gpu %lu on GPU %lu. new "
           "feature insertion failed. Please adjust workspace_size_per_gpu according to "
-          "QAList.md#24. How to set workspace_size_per_gpu_in_mb and slot_size_array",
+          "https://nvidia-merlin.github.io/HugeCTR/master/QAList.html#how-to-set-workspace-size-per-gpu-in-mb-and-slot-size-array. How to set workspace_size_per_gpu_in_mb and slot_size_array",
           count, max_vocabulary_size_per_gpu_, embedding_data_.get_local_gpu(id).get_device_id());
     }
   }

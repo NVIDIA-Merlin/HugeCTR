@@ -47,8 +47,20 @@ file(GLOB layers_test_src
   sigmoid_layer_test.cpp
   elementwise_multiply_layer_test.cpp
   mlp_test.cpp
+  concat_3d_layer_test.cpp
 )
 
 add_executable(layers_test ${layers_test_src})
 target_compile_features(layers_test PUBLIC cxx_std_17)
 target_link_libraries(layers_test PUBLIC huge_ctr_static gtest gtest_main)
+
+add_custom_command(
+  OUTPUT "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/python_concat.py"
+  COMMAND ${CMAKE_COMMAND} -E copy
+  "${CMAKE_CURRENT_SOURCE_DIR}/python_concat.py"
+  "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}"
+  DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/python_concat.py"
+)
+
+add_custom_target(copy_python_auc DEPENDS "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/python_concat.py")
+add_dependencies(layers_test copy_python_auc)

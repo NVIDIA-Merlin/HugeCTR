@@ -53,10 +53,11 @@ __device__ __forceinline__ T *upper_bound(T *start, T *end, T target) {
 
 __device__ __forceinline__ unsigned int abs(unsigned int x) { return x; }
 
+// reserved in case all dense are scalar
 template <typename T>
-__global__ void dense_data_converter_kernel__(int64_t *dense_data_column_ptrs,
-                                              const int label_dense_dim, int batch_size,
-                                              T *dense_data_out_ptrs) {
+__global__ void dense_data_converter_kernel_scalar_(int64_t *dense_data_column_ptrs,
+                                                    const int label_dense_dim, int batch_size,
+                                                    T *dense_data_out_ptrs) {
   // 8 warps/block
   int tile_w = 32;  // 32x32 tile
   int smem_pitch = 33;
@@ -105,6 +106,28 @@ __global__ void dense_data_converter_kernel__(int64_t *dense_data_column_ptrs,
       }
     }
     __syncthreads();
+  }
+}
+
+template <typename T>
+__global__ void dense_data_converter_kernel__(int64_t *dense_data_column_ptrs, const int num_dense,
+                                              const int64_t *dense_dim_array,
+                                              const int label_dense_dim, int batch_size,
+                                              T *dense_data_out_ptrs) {
+  int start_idx = threadIdx.x + (blockDim.x * blockIdx.x);
+  int thread_strides = gridDim.x * blockDim.x;
+  T *data_out = reinterpret_cast<T *>(dense_data_out_ptrs);
+  unsigned int dense_id_offset = 0;
+  for (int i = 0; i < num_dense; i++) {
+    int64_t addr = dense_data_column_ptrs[i];
+    T *data_in = reinterpret_cast<T *>(addr);
+    for (int row_idx = start_idx; row_idx < batch_size * dense_dim_array[i];
+         row_idx += thread_strides) {
+      int sample_id = row_idx / dense_dim_array[i];
+      int dense_id_sample = row_idx % dense_dim_array[i] + dense_id_offset;
+      data_out[sample_id * label_dense_dim + dense_id_sample] = data_in[row_idx];
+    }
+    dense_id_offset += dense_dim_array[i];
   }
 }
 
@@ -240,7 +263,10 @@ void __global__ value_kernel_without_shared_mem__(int64_t *row_offsets_src, int6
 /**
  * Interleave dense (continuous) data parquet columns and write to linear buffer
  * @param dense_column_data_ptr vector of device pointers to Parquet columns
- * @param label_dense_dim number of dense values
+ * @param num_dense number of dense values (lable_num + dense_num); the dense_num_array size
+ * @param label_dense_dim number of dense values (lable_dim + dense_dim);label_dense_num =
+ * sum(dense_dim_array_ptr)
+ * @param dense_dim_array_device_ptr pointer to GPU memory for dense_dim_array_ptr
  * @param batch_size batch size to load (current_batch_size)
  * @param batch_start sample start to load for local gpus
  * @param batch_end sample end to to load for local gpus
@@ -251,34 +277,44 @@ void __global__ value_kernel_without_shared_mem__(int64_t *row_offsets_src, int6
  * @param task_stream Stream to allocate memory and launch kerenels
  */
 template <typename T>
-void convert_parquet_dense_columns(std::vector<T *> &dense_column_data_ptr,
-                                   const int label_dense_dim, int batch_size, int batch_start,
-                                   int batch_end, T *dense_data_buffers, int64_t *dev_ptr_staging,
+void convert_parquet_dense_columns(std::vector<T *> &dense_column_data_ptr, const int num_dense,
+                                   int64_t *dense_dim_array_device_ptr, const int label_dense_dim,
+                                   int batch_size, int batch_start, int batch_end,
+                                   T *dense_data_buffers, int64_t *dev_ptr_staging,
                                    std::deque<rmm::device_buffer> &rmm_resources,
                                    rmm::mr::device_memory_resource *mr, cudaStream_t task_stream) {
   int samples_to_interleaved = batch_size;
-  // HCTR_LOG_S(INFO, WORLD) << "samples_to_interleaved " << samples_to_interleaved<<std::endl;
+
   if (!samples_to_interleaved) return;
   size_t size_of_col_ptrs = dense_column_data_ptr.size() * sizeof(T *);
   std::memcpy(dev_ptr_staging, dense_column_data_ptr.data(), size_of_col_ptrs);
 
   rmm_resources.emplace_back(size_of_col_ptrs, task_stream, mr);
   rmm::device_buffer &dev_in_column_ptr = rmm_resources.back();
+  // fill empty sample dense features
   HCTR_LIB_THROW(cudaMemcpyAsync(dev_in_column_ptr.data(), dev_ptr_staging, size_of_col_ptrs,
                                  cudaMemcpyHostToDevice, task_stream));
   // assuming 48KB smem/SM
   // 32x32 tile per warp -> 4096 bytes/warp
   // 12 warps -> 384 threads/block
   // size_t smem_size = 48 * 1024 * 1024;
-  dim3 block(256, 1, 1);
-  dim3 grid((samples_to_interleaved - 1) / block.x + 1, 1, 1);
 
-  // fill empty sample dense features
   HCTR_LIB_THROW(cudaMemsetAsync(
       dense_data_buffers, 0, sizeof(T) * label_dense_dim * (batch_end - batch_start), task_stream));
-  dense_data_converter_kernel__<T>
-      <<<grid, block, 0, task_stream>>>((int64_t *)dev_in_column_ptr.data(), label_dense_dim,
-                                        samples_to_interleaved, dense_data_buffers);
+  // all dense columns' type is scalar
+  if (num_dense == label_dense_dim) {
+    dim3 block(256, 1, 1);
+    dim3 grid((samples_to_interleaved - 1) / block.x + 1, 1, 1);
+    dense_data_converter_kernel_scalar_<T>
+        <<<grid, block, 0, task_stream>>>((int64_t *)dev_in_column_ptr.data(), label_dense_dim,
+                                          samples_to_interleaved, dense_data_buffers);
+  } else {
+    dim3 block(256, 1, 1);
+    dim3 grid((samples_to_interleaved - 1) / block.x + 1, 1, 1);
+    dense_data_converter_kernel__<T><<<grid, block, 0, task_stream>>>(
+        (int64_t *)dev_in_column_ptr.data(), num_dense, dense_dim_array_device_ptr, label_dense_dim,
+        samples_to_interleaved, dense_data_buffers);
+  }
   HCTR_LIB_THROW(cudaGetLastError());
   return;
 }
@@ -312,7 +348,6 @@ size_t convert_parquet_cat_columns(
     int64_t *dev_ptr_staging, T *dev_slot_offset_ptr, std::deque<rmm::device_buffer> &rmm_resources,
     rmm::mr::device_memory_resource *mr, cudaStream_t task_stream) {
   size_t pinned_staging_elements_used = 0;
-  // return 0;
   size_t size_of_col_ptrs = cat_column_data_ptr.size() * sizeof(int64_t *);
 
   // prepare for value input
@@ -412,8 +447,9 @@ size_t convert_parquet_cat_columns(
 
 // init function instances here
 template void convert_parquet_dense_columns<float>(
-    std::vector<float *> &dense_column_data_ptr, const int label_dense_dim, int batch_size,
-    int batch_start, int batch_end, float *dense_data_buffers, int64_t *dev_ptr_staging,
+    std::vector<float *> &dense_column_data_ptr, const int num_dense, int64_t *dense_dim_array_ptr,
+    const int label_dense_dim, int batch_size, int batch_start, int batch_end,
+    float *dense_data_buffers, int64_t *dev_ptr_staging,
     std::deque<rmm::device_buffer> &rmm_resources, rmm::mr::device_memory_resource *mr,
     cudaStream_t task_stream);
 

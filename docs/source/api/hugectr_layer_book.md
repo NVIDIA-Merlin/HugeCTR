@@ -54,7 +54,7 @@ hugectr.SparseEmbedding()
 **Arguments**
 * `embedding_type`: The embedding type to be used. The supported types include `hugectr.Embedding_t.DistributedSlotSparseEmbeddingHash`, `hugectr.Embedding_t.LocalizedSlotSparseEmbeddingHash` and `hugectr.Embedding_t.LocalizedSlotSparseEmbeddingOneHot`. There is NO default value and it should be specified by users. For detail about different embedding types, please refer to [Embedding Types Detail](./hugectr_layer_book.md#embedding-types-detail).
 
-* `workspace_size_per_gpu_in_mb`: Integer, the workspace memory size in megabyte per GPU. This workspace memory must be big enough to hold all the embedding vocabulary and its corresponding optimizer state used during the training and evaluation. There is NO default value and it should be specified by users. To understand how to set this value, please refer to [How to set workspace_size_per_gpu_in_mb and slot_size_array](/QAList.md#how-to-set-workspace-size-per-gpu-in-mb-and-slot-size-array).
+* `workspace_size_per_gpu_in_mb`: Integer, the workspace memory size in megabyte per GPU. This workspace memory must be big enough to hold all the embedding vocabulary and its corresponding optimizer state used during the training and evaluation. There is NO default value and it should be specified by users. To understand how to set this value, please refer to [How to set workspace_size_per_gpu_in_mb and slot_size_array](../QAList.md#24-how-to-set-workspace_size_per_gpu_in_mb-and-slot_size_array).
 
 * `embedding_vec_size`: Integer, the embedding vector size. There is NO default value and it should be specified by users.
 
@@ -64,7 +64,7 @@ hugectr.SparseEmbedding()
 
 * `bottom_name`: String, the number of the bottom tensor to be consumed by this sparse embedding layer. Please note that it should be a predefined sparse input name. There is NO default value and it should be specified by users.
 
-* `slot_size_array`: List[int], the cardinality array of input features. It should be consistent with that of the sparse input. This parameter is used in `LocalizedSlotSparseEmbeddingHash` and `LocalizedSlotSparseEmbeddingOneHot`, which can help avoid wasting memory caused by imbalance vocabulary size. Please refer [How to set workspace_size_per_gpu_in_mb and slot_size_array](/QAList.md#how-to-set-workspace-size-per-gpu-in-mb-and-slot-size-array). There is NO default value and it should be specified by users.
+* `slot_size_array`: List[int], the cardinality array of input features. It should be consistent with that of the sparse input. This parameter is used in `LocalizedSlotSparseEmbeddingHash` and `LocalizedSlotSparseEmbeddingOneHot`, which can help avoid wasting memory caused by imbalance vocabulary size. Please refer [How to set workspace_size_per_gpu_in_mb and slot_size_array](../QAList.md#24-how-to-set-workspace_size_per_gpu_in_mb-and-slot_size_array). There is NO default value and it should be specified by users.
 
 * `optimizer`: OptParamsPy, the optimizer dedicated to this sparse embedding layer. If the user does not specify the optimizer for the sparse embedding, it will adopt the same optimizer as dense layers.
 
@@ -118,7 +118,7 @@ model.add(hugectr.SparseEmbedding(
 The LocalizedSlotSparseEmbeddingOneHot layer stores embeddings in an embedding table and gets them by using a set of integers or indices. The embedding table can be segmented into multiple slots or feature fields, which spans multiple GPUs and nodes. This is a performance-optimized version of LocalizedSlotSparseEmbeddingHash for the case where NVSwitch is available and inputs are one-hot categorical features.
 
 **Note**: LocalizedSlotSparseEmbeddingOneHot can only be used together with the Raw dataset format. Unlike other types of embeddings, LocalizedSlotSparseEmbeddingOneHot only supports single-node training and can be used only in a NVSwitch equipped system such as DGX-2 and DGX A100.
-The input indices’ data type, `input_key_type`, is specified in the solver. By default, the 32-bit integer (I32) is used, but the 64-bit integer type (I64) is also allowed even if it is constrained by the dataset type. For additional information, see [Solver](/api/python_interface.md#solver).
+The input indices’ data type, `input_key_type`, is specified in the solver. By default, the 32-bit integer (I32) is used, but the 64-bit integer type (I64) is also allowed even if it is constrained by the dataset type. For additional information, see [Solver](./python_interface.md#solver).
 
 Example:
 ```python
@@ -346,18 +346,20 @@ In the JSON file, you can find the batch norm parameters as shown below:
 
 The Concat layer concatenates a list of inputs.
 
-Parameters: None
+Parameters: 
+* `axis`:  Integer, the dimension to concat for the `Concat` layer. If the input is N-dimensional, 0 <= axis < N. The default value is 1.
 
 Input and Output Shapes:
 
-* input: Nx(batch_size, *) where 2<=N<=4 and * represents any number of elements
-* output: (batch_size, total_num_elems) where total_num_elems is the summation of N input elements
+* input: 3D: {(batch_size, num_feas_0, num_elems_0), (batch_size, num_feas + 1, num_elems_1), ...} or 2D: {(batch_size, num_elems_0), (batch_size, num_elems_1), ...}
+* output: 3D and axis=1: (batch_size, num_feas_0+num_feas_1+..., num_elems). 3D and axis=2: (batch_size, num_feas, num_elems_0+num_elems_1+...). 2D: (batch_size, num_elems_0+num_elems_1+...)
 
 Example:
 ```python
 model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Concat,
                             bottom_names = ["reshape3","weight_multiply2"],
-                            top_names = ["concat2"]))
+                            top_names = ["concat2"],
+                            axis = 2))
 ```
 
 ### Reshape Layer
@@ -399,7 +401,7 @@ Input and Output Shapes:
 
 Example:
 
-You can apply the Slice layer to actually slicing a tensor. In this case, it must be explictly added with Python API.
+You can apply the Slice layer to actually slicing a tensor. In this case, it must be explicitly added with Python API.
 ```python
 model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Slice,
                             bottom_names = ["dense"],
@@ -652,7 +654,7 @@ model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Scale,
 
 #### FusedReshapeConcat Layer
 
-The FusedReshapeConcat layer cross combinate the input tensors and outputs item tensor, AD tensor.
+The FusedReshapeConcat layer cross combines the input tensors and outputs item tensor, AD tensor.
 
 Parameters: None
 
@@ -670,7 +672,7 @@ model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.FusedReshapeConcat,
 
 #### FusedReshapeConcatGeneral Layer
 
-The FusedReshapeConcatGeneral layer cross combinate the input tensors and outputs item tensor, AD tensor.
+The FusedReshapeConcatGeneral layer cross combines the input tensors and outputs item tensor, AD tensor.
 
 Parameters: None
 

@@ -165,7 +165,8 @@ float InferenceModel::evaluate(const size_t num_batches, const std::string& sour
                                const DataReaderType_t data_reader_type, const Check_t check_type,
                                const std::vector<long long>& slot_size_array) {
   size_t batch_size_per_gpu = global_max_batch_size_ / resource_manager_->get_local_gpu_count();
-  metric_.reset(new metrics::AUC<float>(batch_size_per_gpu, num_batches, resource_manager_));
+  metric_.reset(new metrics::AUC<float>(batch_size_per_gpu, num_batches,
+                                        inference_parser_.label_dim, resource_manager_));
   for (size_t i = 0; i < resource_manager_->get_local_gpu_count(); i++) {
     raw_metrics_map_list_.push_back({{metrics::RawType::Pred, pred_tensor_list_[i].shrink()},
                                      {metrics::RawType::Label, label_tensor_list_[i].shrink()}});

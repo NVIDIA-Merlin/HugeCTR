@@ -33,7 +33,7 @@ namespace {
 const float eps = 2.0e-6;
 
 template <typename T>
-float sklearn_auc(size_t num_total_samples, const std::vector<float>& labels,
+float sklearn_auc(size_t num_total_samples, size_t num_classes, const std::vector<float>& labels,
                   const std::vector<T>& scores) {
   int num_procs = 1, rank = 0;
 #ifdef ENABLE_MPI
@@ -94,8 +94,8 @@ float sklearn_auc(size_t num_total_samples, const std::vector<float>& labels,
     py_input.close();
 
     std::ostringstream command;
-    command << "python3 python_auc.py " << num_total_samples << " " << sizeof(T) << " "
-            << temp_name;
+    command << "python3 python_auc.py " << num_total_samples << " " << sizeof(T) << " " << temp_name
+            << " " << num_classes;
     auto py_output = popen(command.str().c_str(), "r");
     int dummy = fscanf(py_output, "%f", &result);
     if (dummy != 1) {
@@ -183,7 +183,7 @@ static int execution_number = 0;
 
 template <typename T, typename Generator>
 void auc_test(std::vector<int> device_list, size_t batch_size, size_t num_total_samples,
-              Generator gen, size_t num_evals = 1) {
+              Generator gen, size_t num_evals = 1, size_t num_classes = 1) {
   int num_procs = 1, rank = 0;
 #ifdef ENABLE_MPI
   HCTR_MPI_THROW(MPI_Comm_rank(MPI_COMM_WORLD, &rank));
@@ -194,6 +194,8 @@ void auc_test(std::vector<int> device_list, size_t batch_size, size_t num_total_
   int num_local_gpus = device_list.size();
   int num_total_gpus = num_procs * num_local_gpus;
 
+  num_total_samples *= num_classes;
+  batch_size *= num_classes;
   size_t batch_size_per_node = batch_size * num_local_gpus;
   size_t batch_size_per_iter = batch_size * num_total_gpus;
   size_t num_batches = (num_total_samples + batch_size_per_iter - 1) / batch_size_per_iter;
@@ -213,10 +215,11 @@ void auc_test(std::vector<int> device_list, size_t batch_size, size_t num_total_
   const auto resource_manager = ResourceManagerExt::create(vvgpu, 424242);
 
   // Create AUC metric
-  auto metric = std::make_unique<metrics::AUC<T>>(batch_size, num_batches, resource_manager);
+  auto metric = std::make_unique<metrics::AUC<T>>(batch_size / num_classes, num_batches,
+                                                  num_classes, resource_manager);
 
   // Setup the containers
-  std::vector<size_t> dims = {1, batch_size};
+  std::vector<size_t> dims = {batch_size / num_classes, num_classes};
 
   std::vector<std::shared_ptr<GeneralBuffer2<CudaAllocator>>> bufs(num_local_gpus);
   std::vector<Tensor2<float>> labels_tensors(num_local_gpus);
@@ -245,8 +248,9 @@ void auc_test(std::vector<int> device_list, size_t batch_size, size_t num_total_
     size_t num_processed = 0;
     for (size_t batch = 0; batch < num_batches; batch++) {
       // Populate device tensors
-      metric->set_current_batch_size(
-          std::min(batch_size_per_iter, num_total_samples - num_processed));
+      auto current_batch_size = std::min(batch_size_per_iter, num_total_samples - num_processed);
+      HCTR_CHECK(current_batch_size % num_classes == 0);
+      metric->set_current_batch_size(current_batch_size / num_classes);
 
       for (int i = 0; i < num_local_gpus; i++) {
         CudaDeviceContext context(resource_manager->get_local_gpu(i)->get_device_id());
@@ -270,7 +274,7 @@ void auc_test(std::vector<int> device_list, size_t batch_size, size_t num_total_
     gpu_result = metric->finalize_metric();
   }
 
-  float ref_result = sklearn_auc(num_total_samples, h_labels, h_scores);
+  float ref_result = sklearn_auc(num_total_samples, num_classes, h_labels, h_scores);
   // HCTR_LOG(INFO, WORLD, "GPU %f, ref %f \n", gpu_result, ref_result);
 
   ASSERT_NEAR(gpu_result, ref_result, eps);
@@ -336,3 +340,27 @@ TEST(auc_test, fp16_8gpu_wrong) {
 }
 // TEST(auc_test, fp16_8gpu_large)      { auc_test<__half>({0,1,2,3,4,5,6,7}, 131072, 89137319,
 // gen_random<__half>, 2); }
+
+// Multi-label correctness tests
+
+TEST(auc_test, fp32_1gpu_multilabel) { auc_test<float>({0}, 10, 200, gen_random<float>, 1, 3); }
+TEST(auc_test, fp32_1gpu_odd_multilabel) { auc_test<float>({0}, 10, 182, gen_random<float>, 1, 2); }
+TEST(auc_test, fp32_2gpu_odd_multilabel) {
+  auc_test<float>({0, 1}, 10, 443, gen_random<float>, 1, 5);
+}
+TEST(auc_test, fp32_2gpu_random_multilabel) {
+  auc_test<float>({3, 5}, 12, 2341, gen_random<float>, 1, 3);
+}
+
+// Multi-label performance tests
+
+#define SINGLE_NODE_CLASS_TEST(batch, num_batches, num_classes, name) \
+  TEST(auc_test, name) { \
+    auc_test<float>({0,1,2,3,4,5,6,7}, batch, num_batches * batch * 8, gen_random<float>, 1, num_classes); \
+  }
+
+// const size_t batch = 100 * 1000;
+// const size_t num_batches = 10;
+// SINGLE_NODE_CLASS_TEST(batch, num_batches, 1, fp32_8gpu_1)
+// SINGLE_NODE_CLASS_TEST(batch, num_batches, 10, fp32_8gpu_10)
+// SINGLE_NODE_CLASS_TEST(batch, num_batches, 100, fp32_8gpu_100)

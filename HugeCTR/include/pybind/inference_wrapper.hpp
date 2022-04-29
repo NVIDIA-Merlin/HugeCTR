@@ -270,7 +270,7 @@ float InferenceSessionPy::evaluate_(const size_t num_batches, const std::string&
       PreallocatedBuffer2<float>::create(d_output_, pred_dims);
   Tensor2<float> pred_tensor(pred_dims, pred_buff);
   std::shared_ptr<metrics::AUC<float>> metric = std::make_shared<metrics::AUC<float>>(
-      inference_params_.max_batchsize, num_batches, resource_manager_);
+      inference_params_.max_batchsize, num_batches, inference_parser_.label_dim, resource_manager_);
   metrics::RawMetricMap metric_maps = {{metrics::RawType::Pred, pred_tensor.shrink()},
                                        {metrics::RawType::Label, label_tensor_}};
   for (size_t batch = 0; batch < num_batches; batch++) {

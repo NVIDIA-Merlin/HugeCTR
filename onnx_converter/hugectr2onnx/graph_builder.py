@@ -123,7 +123,7 @@ class GraphBuilder(object):
             self.__nodes.append(helper.make_node(op_type = 'Concat',
                                                 inputs=layer_params.bottom_names,
                                                 outputs=layer_params.top_names,
-                                                axis = -1))
+                                                axis = layer_params.axis))
         elif layer_type == "ElementwiseMultiply":
             for i in range(len(layer_params.bottom_names)-1):
                 x_name = layer_params.bottom_names[0] if i == 0 else layer_params.top_names[0] + str(i)

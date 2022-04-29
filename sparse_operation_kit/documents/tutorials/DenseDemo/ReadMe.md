@@ -1,5 +1,5 @@
 # Demo model using Dense Embedding Layer #
-This file demonstrates how to build a DNN model with dense embedding layer, where no reduction will be conducted intra each slot (feature-filed), with TensorFlow and SparseOperationKit. 
+This file demonstrates how to build a DNN model with a dense embedding layer, where no intra-slot (feature-field) reduction will be conducted, with TensorFlow and SparseOperationKit. 
 
 You can find the source codes in [`sparse_operation_kit/documents/tutorials/DenseDemo/`](https://github.com/NVIDIA/HugeCTR/tree/master/sparse_operation_kit/documents/tutorials/DenseDemo).
 
@@ -7,12 +7,12 @@ You can find the source codes in [`sparse_operation_kit/documents/tutorials/Dens
 **python modules**: cupy, mpi4py, nvtx
 
 ## model structure ##
-This demo model is constructed with a dense embedding layer and 7 fully connected layers, where the former 6 fully connected layers have 1024 output units, and the last one has 1 output unit.
+This demo model is constructed with a dense embedding layer and 7 fully-connected layers, where the first 6 fully-connected layers have 1024 output units, and the last one has 1 output unit.
 ![avatar](../../source/images/demo_model_structure.png)
 
 ## steps ##
 ### Generate datasets ### 
-This commands will generate a dataset randomly. By default, its filename is `data.file`, you can specify the output filename by adding `--filename=XXX` when running this command.
+This commands will generate a dataset randomly. By default, its filename is `data.file`. You can specify the output filename by adding `--filename=XXX` when running this command.
 ```shell
 $ python3 gen_data.py \
     --global_batch_size=65536 \
@@ -22,9 +22,9 @@ $ python3 gen_data.py \
 ```
 
 ### Split the whole dataset into multiple shards ###
-When MPI is used, we'd like to let each CPU process have its own datareader, and each datareader reads from different data source. Therefore the whole dataset is splited.
+When MPI is used, it is advantageous to let each CPU process have its own datareader, such that each datareader reads from a different data source. Therefore, the whole dataset is split.
 
-The splited files will be saved with name: `save_prefix[split_id].file`, for example, `data_0.file`, `data_1.file`. And the samples in each shard are linearly arranged. For instance, the whole samples is `[s0, s1, s2, s3, s4, s5, s6, s7]`, when they are splited into 4 shards, each shard owns 2 samples, which is `[s0, s1]`, `[s2, s3]`, `[s4, s5]`, `[s6, s7]`, respectively.
+The split files will be saved with name: `save_prefix[split_id].file`, for example, `data_0.file`, `data_1.file`. The samples in each shard are linearly arranged. For instance, assume the whole sample set is `[s0, s1, s2, s3, s4, s5, s6, s7]`. If split into 4 shards, then each shard is a subset consisting of two samples: `[s0, s1]`, `[s2, s3]`, `[s4, s5]`, `[s6, s7]`.
 ```shell
 $ python3 split_data.py \
     --filename="./data.file" \

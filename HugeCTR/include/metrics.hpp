@@ -43,7 +43,7 @@ void get_raw_metric_as_host_float_tensor(RawMetricMap metric_map, RawType raw_ty
 class Metric {
  public:
   static std::unique_ptr<Metric> Create(const Type type, bool use_mixed_precision,
-                                        int batch_size_eval, int n_batches,
+                                        int batch_size_eval, int n_batches, int label_dim,
                                         const std::shared_ptr<ResourceManager>& resource_manager);
   Metric();
   virtual ~Metric();
@@ -110,6 +110,8 @@ class AUCStorage {
  public:
   float* d_preds() const { return ptr_preds_1_; }
   float* d_labels() const { return ptr_labels_1_; }
+  float* d_class_preds(size_t class_id) const { return ptr_class_preds_[class_id]; }
+  float* d_class_labels(size_t class_id) const { return ptr_class_labels_[class_id]; }
   CountType* d_local_bins() const { return ptr_local_bins_; }
   CountType* d_global_bins() const { return ptr_global_bins_; }
   CountType* d_global_bins_sum() const { return ptr_global_bins_sum_; }
@@ -139,14 +141,21 @@ class AUCStorage {
   CountType* d_fp_offsets() const { return ptr_fp_offsets_; }
   float* d_auc() const { return ptr_auc_; }
 
+  float* d_lr_unsorted_preds() const { return ptr_lr_unsorted_preds_; }
+  float* d_lr_sorted_preds() const { return ptr_lr_sorted_preds_; }
+  float* d_lr_sorted_labels() const { return ptr_lr_sorted_labels_; }
+  int* d_lr_class_ids() const { return ptr_lr_class_ids_; }
+  int* d_lr_sorted_class_ids() const { return ptr_lr_sorted_class_ids_; }
+
   void* d_workspace() const { return workspace_; }
 
   size_t& temp_storage_bytes() { return allocated_temp_storage_; }
 
   void alloc_main(size_t num_local_samples, size_t num_bins, size_t num_partitions,
-                  size_t num_global_gpus);
+                  size_t num_global_gpus, size_t label_dim);
   void realloc_redistributed(size_t num_redistributed_samples, cudaStream_t stream);
   void realloc_workspace(size_t temp_storage);
+  bool realloc_local_reduce_workspace(size_t input_size);
   void free_all();
 
   float* ptr_preds_1_ = nullptr;
@@ -158,7 +167,21 @@ class AUCStorage {
   const float reallocate_factor_ = 1.2f;
   size_t allocated_temp_storage_ = 0;
   size_t num_allocated_redistributed_ = 0;
+  size_t allocated_lr_input_size_ = 0;
 
+  // Raw per-class data
+  size_t num_classes_;
+  float** ptr_class_preds_ = nullptr;
+  float** ptr_class_labels_ = nullptr;
+
+  // Local reduce storage
+  float* ptr_lr_unsorted_preds_;
+  float* ptr_lr_sorted_preds_;
+  float* ptr_lr_sorted_labels_;
+  int* ptr_lr_class_ids_;
+  int* ptr_lr_sorted_class_ids_;
+
+  // Intermediate storage needed in finalize metric
   CountType* ptr_local_bins_ = nullptr;
   CountType* ptr_global_bins_ = nullptr;
   CountType* ptr_global_bins_sum_ = nullptr;
@@ -188,7 +211,7 @@ class AUC : public Metric {
  public:
   using PredType = T;
   using LabelType = float;
-  AUC(int batch_size_per_gpu, int n_batches,
+  AUC(int batch_size_per_gpu, int n_batches, int label_dim,
       const std::shared_ptr<ResourceManager>& resource_manager);
   ~AUC() override;
 
@@ -198,14 +221,16 @@ class AUC : public Metric {
   std::string name() const override { return "AUC"; };
 
   // Public in order to use device lambda
-  float _finalize_metric_per_gpu(int device_id);
+  float finalize_class_metric(float* preds, float* labels, int local_id, size_t num_local_samples);
 
  private:
   void warm_up(size_t num_local_samples);
+  float finalize_metric_per_gpu(int device_id);
 
   const float pred_min_ = 0.0f;
   const float pred_max_ = 1.0f;
   const int num_bins_per_gpu_ = 10000;
+  const size_t num_classes_;
 
   std::shared_ptr<ResourceManager> resource_manager_;
 

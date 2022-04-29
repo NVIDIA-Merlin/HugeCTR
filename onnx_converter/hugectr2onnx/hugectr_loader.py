@@ -226,10 +226,21 @@ class HugeCTRLoader(object):
             layer_weights_dict[layer_config["top"]+"_running_mean"] = running_mean
             layer_weights_dict[layer_config["top"]+"_running_variance"] = running_variance
         elif layer_type == "Concat":
+            layer_params.axis = layer_config["axis"]
+            axis_without_batch = layer_config["axis"] - 1
             dim = 0
             for tensor in layer_config["bottom"]:
-                dim += self.__dimensions[tensor]
-            self.__dimensions[layer_config["top"]] = dim            
+                if isinstance(self.__dimensions[tensor], tuple):
+                    dims = self.__dimensions[tensor]
+                    for i in range(len(dims)):
+                        if i == axis_without_batch:
+                            dim = dim + dims[i]                                     
+                else:
+                    dim += self.__dimensions[tensor]
+            if isinstance(dim,tuple):
+                self.__dimensions[layer_config["top"]] = tuple([dims[i] if i != axis_without_batch else dim for i in range(len(self.__dimensions[layer_config["bottom"][0]]))]) 
+            else:
+                self.__dimensions[layer_config["top"]] = dim
         elif layer_type == "Dropout":
             layer_params.dropout_rate = layer_config["rate"]
             self.__dimensions[layer_config["top"]] = self.__dimensions[layer_config["bottom"]]
