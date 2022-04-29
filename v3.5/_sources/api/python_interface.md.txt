@@ -327,7 +327,7 @@ reader = hugectr.DataReaderParams(data_reader_type = hugectr.DataReaderType_t.Ra
 
 #### Parquet
 
-Parquet is a column-oriented, open source, and free data format. It is available to any project in the Apache Hadoop ecosystem. To reduce the file size, it supports compression and encoding. Fig. 1 (c) shows an example Parquet dataset. For additional information, see the [parquet documentation](https://parquet.apache.org/documentation/latest/).
+Parquet is a column-oriented, open source, and free data format. It is available to any project in the Apache Hadoop ecosystem. To reduce the file size, it supports compression and encoding. Fig. 1 (c) shows an example Parquet dataset. For additional information, see the [parquet documentation](https://parquet.apache.org/docs/).
 
 Please note the following:
 
@@ -542,7 +542,7 @@ hugectr.SparseEmbedding()
 **Arguments**
 * `embedding_type`: The embedding type to be used. The supported types include `hugectr.Embedding_t.DistributedSlotSparseEmbeddingHash`, `hugectr.Embedding_t.LocalizedSlotSparseEmbeddingHash`, `hugectr.Embedding_t.LocalizedSlotSparseEmbeddingOneHot` and `hugectr.Embedding_t.HybridSparseEmbedding`. The type `Embedding_t.HybridSparseEmbedding` is valid only if `is_dlrm` is set `True` within `CreateSolver` and `data_reader_type` is specified as `DataReaderType_t.RawAsync` within `DataReaderParams`. There is NO default value and it should be specified by users.
 
-* `workspace_size_per_gpu_in_mb`: Integer, the workspace memory size in megabyte per GPU. This workspace memory must be big enough to hold all the embedding vocabulary and its corresponding optimizer state used during the training and evaluation. There is NO default value and it should be specified by users. To understand how to set this value, please refer [How to set workspace_size_per_gpu_in_mb and slot_size_array](/QAList.md#how-to-set-workspace-size-per-gpu-in-mb-and-slot-size-array).
+* `workspace_size_per_gpu_in_mb`: Integer, the workspace memory size in megabyte per GPU. This workspace memory must be big enough to hold all the embedding vocabulary and its corresponding optimizer state used during the training and evaluation. There is NO default value and it should be specified by users. To understand how to set this value, please refer [How to set workspace_size_per_gpu_in_mb and slot_size_array](../QAList.md#24-how-to-set-workspace_size_per_gpu_in_mb-and-slot_size_array).
 
 * `embedding_vec_size`: Integer, the embedding vector size. There is NO default value and it should be specified by users.
 
@@ -552,7 +552,7 @@ hugectr.SparseEmbedding()
 
 * `bottom_name`: String, the number of the bottom tensor to be consumed by this sparse embedding layer. Please note that it should be a predefined sparse input name. There is NO default value and it should be specified by users.
 
-* `slot_size_array`: List[int], the cardinality array of input features. It should be consistent with that of the sparse input. This parameter can be used in `LocalizedSlotSparseEmbeddingHash`, `LocalizedSlotSparseEmbeddingOneHot` and `HybridSparseEmbedding`. The meaning of `slot_size_array` is varied based on different embedding type. There is NO default value and it should be specified by users. Please refer [How to set workspace_size_per_gpu_in_mb and slot_size_array](/QAList.md#how-to-set-workspace-size-per-gpu-in-mb-and-slot-size-array)
+* `slot_size_array`: List[int], the cardinality array of input features. It should be consistent with that of the sparse input. This parameter can be used in `LocalizedSlotSparseEmbeddingHash`, `LocalizedSlotSparseEmbeddingOneHot` and `HybridSparseEmbedding`. The meaning of `slot_size_array` is varied based on different embedding type. There is NO default value and it should be specified by users. Please refer [How to set workspace_size_per_gpu_in_mb and slot_size_array](../QAList.md#24-how-to-set-workspace_size_per_gpu_in_mb-and-slot_size_array).
 
 * `optimizer`: OptParamsPy, the optimizer dedicated to this sparse embedding layer. If the user does not specify the optimizer for the sparse embedding, it will adopt the same optimizer as dense layers.
 
@@ -1217,9 +1217,9 @@ for i in range(train_steps):
 ```
 
 **Arguments**
-* `output_prediction_file_name`: String, the file to which the evaluation prediction results will be writen. The order of the prediction results are the same as that of the labels, but may be different with the order of the samples in the dataset. There is NO default value and it should be specified by users.
+* `output_prediction_file_name`: String, the file to which the evaluation prediction results will be written. The order of the prediction results are the same as that of the labels, but may be different with the order of the samples in the dataset. There is NO default value and it should be specified by users.
 
-* `output_label_file_name`: String, the file to which the evaluation labels will be writen. The order of the labels are the same as that of the prediction results, but may be different with the order of the samples in the dataset. There is NO default value and it should be specified by users.
+* `output_label_file_name`: String, the file to which the evaluation labels will be written. The order of the labels are the same as that of the prediction results, but may be different with the order of the samples in the dataset. There is NO default value and it should be specified by users.
 
 ## Inference API
 
@@ -1242,7 +1242,7 @@ hugectr.inference.InferenceParams()
 
 * `max_batchsize`: Integer, the maximum batchsize for inference. It is the global batch size and should be divisible by the length of `deployed_devices`. There is NO default value and it should be specified by users.
 
-* `hit_rate_threshold`: Float, the hit rate threshold for updating the GPU embedding cache. If the hit rate of looking up GPU embedding cahce during inference is below this threshold, then the GPU embedding cache will be updated. The threshold should be between 0 and 1. There is NO default value and it should be specified by users.
+* `hit_rate_threshold`: Float, the hit rate threshold for updating the GPU embedding cache. If the hit rate of looking up GPU embedding cache during inference is below this threshold, then the GPU embedding cache will be updated. The threshold should be between 0 and 1. There is NO default value and it should be specified by users.
 
 * `dense_model_file`: String, the dense model file to be loaded for inference. There is NO default value and it should be specified by users.
 
@@ -1344,7 +1344,7 @@ This is the fraction (`[0.0, 1.0]`) of your dataset that we will attempt to cach
 params.refresh_time_after_fetch = <True|False>
 ```
 
-Some algorithms to organize certain processes, such as the evication of embeddings upon overflow, take time into account. To evalute the affected embeddings, HugeCTR records the time when an embeddings is overridden. This is sufficient in training mode where embeddings are frequently replaced. Hence, the **default value** for this setting is is `false`. However, if you deploy HugeCTR only for inference (*e.g.*, with Triton), this might lead to suboptimal eviction patterns. By setting this value to `true`, HugeCTR will replace the time stored alongside an embedding right after this embedding is accessed. This operation may happen asynchronously (*i.e.*, with some delay).
+Some algorithms to organize certain processes, such as the evication of embeddings upon overflow, take time into account. To evaluate the affected embeddings, HugeCTR records the time when an embeddings is overridden. This is sufficient in training mode where embeddings are frequently replaced. Hence, the **default value** for this setting is is `false`. However, if you deploy HugeCTR only for inference (*e.g.*, with Triton), this might lead to suboptimal eviction patterns. By setting this value to `true`, HugeCTR will replace the time stored alongside an embedding right after this embedding is accessed. This operation may happen asynchronously (*i.e.*, with some delay).
 
 **Real-time updating**
 
@@ -1383,11 +1383,11 @@ params.max_get_batch_size = <int_value>
 params.max_set_batch_size = <int_value>
 ```
 
-`path` denotes the directory in your file-system where the RocksDB database can be found. If the directory does not contain a RocksDB databse, HugeCTR will create an database for you. Note that this may override files that are currently stored in this database. Hence, make sure that `path` points either to an actual RocksDB database or an empty directy. The **default** path is `/tmp/rocksdb`.
+`path` denotes the directory in your file-system where the RocksDB database can be found. If the directory does not contain a RocksDB database, HugeCTR will create an database for you. Note that this may override files that are currently stored in this database. Hence, make sure that `path` points either to an actual RocksDB database or an empty directory. The **default** path is `/tmp/rocksdb`.
 
 `num_threads` is an optimization parameter. This denotes the amount of threads that the RocksDB driver may use internally. By **default**, this value is set to `16`
 
-If the flag `read_only` is set to `true`, the databse will be opened in *Read-Only mode*. Naturally, this means that any attempt to update values in this database will fail. Use for inference, if model is static and the database is shared by multiple nodes (for example via NFS). By **default** this flag is set to `false`.
+If the flag `read_only` is set to `true`, the database will be opened in *Read-Only mode*. Naturally, this means that any attempt to update values in this database will fail. Use for inference, if model is static and the database is shared by multiple nodes (for example via NFS). By **default** this flag is set to `false`.
 
 `max_get_batch_size` and `max_set_batch_size` represent optimization parameters. Mass lookup and insert requests to RocksDB are chunked into batches. For maximum performance `max_*_batch_size` should be large. However, if the available memory for buffering requests in your endpoints is limited, lowering this value may help. By **default**, both values are set to `10000`. With high-performance hardware setups it is **recommended** to increase these values to `1 million`.
 

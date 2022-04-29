@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>HugeCTR Python Interface &mdash; Merlin HugeCTR  documentation</title><link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/togglebutton.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/mystnb.css" type="text/css" />
   <!--[if lt IE 9]>
     <script src="../_static/js/html5shiv.min.js"></script>
   <![endif]-->
@@ -12,7 +14,11 @@
         <script src="../_static/jquery.js"></script>
         <script src="../_static/underscore.js"></script>
         <script src="../_static/doctools.js"></script>
-        <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+        <script >let toggleHintShow = 'Click to show';</script>
+        <script >let toggleHintHide = 'Click to hide';</script>
+        <script >let toggleOpenOnPrint = 'true';</script>
+        <script src="../_static/togglebutton.js"></script>
+        <script >var togglebuttonSelector = '.toggle, .admonition.dropdown, .tag_hide_input div.cell_input, .tag_hide-input div.cell_input, .tag_hide_output div.cell_output, .tag_hide-output div.cell_output, .tag_hide_cell.cell, .tag_hide-cell.cell';</script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -35,64 +41,20 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption"><span class="caption-text">HugeCTR Library</span></p>
+              <p class="caption"><span class="caption-text">Contents</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="../hugectr_user_guide.html">Introduction</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../hugectr_core_features.html">Core Features</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../hugectr_feature_details_intro.html">Features in Detail</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../hugectr_example_notebooks.html">Example Notebooks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../notebooks/index.html">Example Notebooks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../notebooks/multi-modal-data/index.html">Multi-modal Example Notebooks</a></li>
 <li class="toctree-l1 current"><a class="reference internal" href="index.html">API Documentation</a><ul class="current">
-<li class="toctree-l2 current"><a class="current reference internal" href="#">Python Interface</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#about-the-hugectr-python-interface">About the HugeCTR Python Interface</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#high-level-training-api">High-level Training API</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#solver">Solver</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#asyncparam">AsyncParam</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#hybridembeddingparam">HybridEmbeddingParam</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#datareaderparams">DataReaderParams</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#dataset-formats">Dataset formats</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#optparamspy">OptParamsPy</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="#layers">Layers</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#input-layer">Input Layer</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#sparseembedding">SparseEmbedding</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#denselayer">DenseLayer</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#groupdenselayer">GroupDenseLayer</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#model">Model</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="#low-level-training-api">Low-level Training API</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#learningratescheduler">LearningRateScheduler</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#datareader">DataReader</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#embeddingtraingcache">EmbeddingTraingCache</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#id2">Model</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="#inference-api">Inference API</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#inferenceparams">InferenceParams</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#volatiledatabaseparams">VolatileDatabaseParams</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#persistentdatabaseparams">PersistentDatabaseParams</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#updatesourceparams">UpdateSourceParams</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#inferencemodel">InferenceModel</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="#data-generator-api">Data Generator API</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#datageneratorparams-class">DataGeneratorParams class</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#datagenerator">DataGenerator</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="#data-source-api">Data Source API</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#datasourceparams-class">DataSourceParams class</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#datasource">DataSource</a></li>
-</ul>
-</li>
-</ul>
-</li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Python Interface</a></li>
 <li class="toctree-l2"><a class="reference internal" href="hugectr_layer_book.html">Layer Classes and Methods</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="../hugectr_contributor_guide.html">Contributing to HugeCTR</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../additional_resources.html">Additional Resources</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../release_notes.html">Release Notes</a></li>
 </ul>
 
         </div>
@@ -119,31 +81,7 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  
-<style>
-/* CSS overrides for sphinx_rtd_theme */
-
-/* 24px margin */
-.nbinput.nblast.container,
-.nboutput.nblast.container {
-    margin-bottom: 19px;  /* padding has already 5px */
-}
-
-/* ... except between code cells! */
-.nblast.container + .nbinput.container {
-    margin-top: -19px;
-}
-
-.admonition > p:before {
-    margin-right: 4px;  /* make room for the exclamation icon */
-}
-
-/* Fix math alignment, see https://github.com/rtfd/sphinx_rtd_theme/pull/686 */
-.math {
-    text-align: unset;
-}
-</style>
-<div class="section" id="hugectr-python-interface">
+  <div class="tex2jax_ignore mathjax_ignore section" id="hugectr-python-interface">
 <h1>HugeCTR Python Interface<a class="headerlink" href="#hugectr-python-interface" title="Permalink to this headline"></a></h1>
 <div class="section" id="about-the-hugectr-python-interface">
 <h2>About the HugeCTR Python Interface<a class="headerlink" href="#about-the-hugectr-python-interface" title="Permalink to this headline"></a></h2>
@@ -409,7 +347,7 @@
 </div>
 <div class="section" id="parquet">
 <h4>Parquet<a class="headerlink" href="#parquet" title="Permalink to this headline"></a></h4>
-<p>Parquet is a column-oriented, open source, and free data format. It is available to any project in the Apache Hadoop ecosystem. To reduce the file size, it supports compression and encoding. Fig. 1 (c) shows an example Parquet dataset. For additional information, see the <a class="reference external" href="https://parquet.apache.org/docs/">parquet documentation</a>.</p>
+<p>Parquet is a column-oriented, open source, and free data format. It is available to any project in the Apache Hadoop ecosystem. To reduce the file size, it supports compression and encoding. Fig. 1 © shows an example Parquet dataset. For additional information, see the <a class="reference external" href="https://parquet.apache.org/docs/">parquet documentation</a>.</p>
 <p>Please note the following:</p>
 <ul class="simple">
 <li><p>Nested column types are not currently supported in the Parquet data loader.</p></li>
@@ -606,12 +544,12 @@
 <p><strong>Arguments</strong></p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">embedding_type</span></code>: The embedding type to be used. The supported types include <code class="docutils literal notranslate"><span class="pre">hugectr.Embedding_t.DistributedSlotSparseEmbeddingHash</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Embedding_t.LocalizedSlotSparseEmbeddingHash</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Embedding_t.LocalizedSlotSparseEmbeddingOneHot</span></code> and <code class="docutils literal notranslate"><span class="pre">hugectr.Embedding_t.HybridSparseEmbedding</span></code>. The type <code class="docutils literal notranslate"><span class="pre">Embedding_t.HybridSparseEmbedding</span></code> is valid only if <code class="docutils literal notranslate"><span class="pre">is_dlrm</span></code> is set <code class="docutils literal notranslate"><span class="pre">True</span></code> within <code class="docutils literal notranslate"><span class="pre">CreateSolver</span></code> and <code class="docutils literal notranslate"><span class="pre">data_reader_type</span></code> is specified as <code class="docutils literal notranslate"><span class="pre">DataReaderType_t.RawAsync</span></code> within <code class="docutils literal notranslate"><span class="pre">DataReaderParams</span></code>. There is NO default value and it should be specified by users.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">workspace_size_per_gpu_in_mb</span></code>: Integer, the workspace memory size in megabyte per GPU. This workspace memory must be big enough to hold all the embedding vocabulary and its corresponding optimizer state used during the training and evaluation. There is NO default value and it should be specified by users. To understand how to set this value, please refer <a class="reference internal" href="../QAList.html#how-to-set-workspace-size-per-gpu-in-mb-and-slot-size-array"><span class="std std-ref">How to set workspace_size_per_gpu_in_mb and slot_size_array</span></a>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">workspace_size_per_gpu_in_mb</span></code>: Integer, the workspace memory size in megabyte per GPU. This workspace memory must be big enough to hold all the embedding vocabulary and its corresponding optimizer state used during the training and evaluation. There is NO default value and it should be specified by users. To understand how to set this value, please refer <a class="reference internal" href="../QAList.html#how-to-set-workspace-size-per-gpu-in-mb-and-slot-size-array"><span class="std std-doc">How to set workspace_size_per_gpu_in_mb and slot_size_array</span></a>.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">embedding_vec_size</span></code>: Integer, the embedding vector size. There is NO default value and it should be specified by users.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">combiner</span></code>: String, the intra-slot reduction operation, currently <code class="docutils literal notranslate"><span class="pre">sum</span></code> or <code class="docutils literal notranslate"><span class="pre">mean</span></code> are supported. There is NO default value and it should be specified by users.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">sparse_embedding_name</span></code>: String, the name of the sparse embedding tensor to be referenced by following layers. There is NO default value and it should be specified by users.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">bottom_name</span></code>: String, the number of the bottom tensor to be consumed by this sparse embedding layer. Please note that it should be a predefined sparse input name. There is NO default value and it should be specified by users.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">slot_size_array</span></code>: List[int], the cardinality array of input features. It should be consistent with that of the sparse input. This parameter can be used in <code class="docutils literal notranslate"><span class="pre">LocalizedSlotSparseEmbeddingHash</span></code>, <code class="docutils literal notranslate"><span class="pre">LocalizedSlotSparseEmbeddingOneHot</span></code> and <code class="docutils literal notranslate"><span class="pre">HybridSparseEmbedding</span></code>. The meaning of <code class="docutils literal notranslate"><span class="pre">slot_size_array</span></code> is varied based on different embedding type. There is NO default value and it should be specified by users. Please refer <a class="reference internal" href="../QAList.html#how-to-set-workspace-size-per-gpu-in-mb-and-slot-size-array"><span class="std std-ref">How to set workspace_size_per_gpu_in_mb and slot_size_array</span></a></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">slot_size_array</span></code>: List[int], the cardinality array of input features. It should be consistent with that of the sparse input. This parameter can be used in <code class="docutils literal notranslate"><span class="pre">LocalizedSlotSparseEmbeddingHash</span></code>, <code class="docutils literal notranslate"><span class="pre">LocalizedSlotSparseEmbeddingOneHot</span></code> and <code class="docutils literal notranslate"><span class="pre">HybridSparseEmbedding</span></code>. The meaning of <code class="docutils literal notranslate"><span class="pre">slot_size_array</span></code> is varied based on different embedding type. There is NO default value and it should be specified by users. Please refer <a class="reference internal" href="../QAList.html#how-to-set-workspace-size-per-gpu-in-mb-and-slot-size-array"><span class="std std-doc">How to set workspace_size_per_gpu_in_mb and slot_size_array</span></a>.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">optimizer</span></code>: OptParamsPy, the optimizer dedicated to this sparse embedding layer. If the user does not specify the optimizer for the sparse embedding, it will adopt the same optimizer as dense layers.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">hybrid_embedding_param</span></code>: HybridEmbeddingParam, the parameters for hybrid embedding. This argument is restricted to MLPerf use.</p></li>
 </ul>
@@ -1164,8 +1102,8 @@ Refer to <a class="reference internal" href="../hugectr_core_features.html#sgd-o
 </div>
 <p><strong>Arguments</strong></p>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">output_prediction_file_name</span></code>: String, the file to which the evaluation prediction results will be writen. The order of the prediction results are the same as that of the labels, but may be different with the order of the samples in the dataset. There is NO default value and it should be specified by users.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">output_label_file_name</span></code>: String, the file to which the evaluation labels will be writen. The order of the labels are the same as that of the prediction results, but may be different with the order of the samples in the dataset. There is NO default value and it should be specified by users.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">output_prediction_file_name</span></code>: String, the file to which the evaluation prediction results will be written. The order of the prediction results are the same as that of the labels, but may be different with the order of the samples in the dataset. There is NO default value and it should be specified by users.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">output_label_file_name</span></code>: String, the file to which the evaluation labels will be written. The order of the labels are the same as that of the prediction results, but may be different with the order of the samples in the dataset. There is NO default value and it should be specified by users.</p></li>
 </ul>
 </div>
 </div>
@@ -1182,158 +1120,7 @@ Refer to <a class="reference internal" href="../hugectr_core_features.html#sgd-o
 </pre></div>
 </div>
 <p><code class="docutils literal notranslate"><span class="pre">InferenceParams</span></code> specifies the parameters related to the inference. An <code class="docutils literal notranslate"><span class="pre">InferenceParams</span></code> instance is required to initialize the <code class="docutils literal notranslate"><span class="pre">InferenceModel</span></code> instance.</p>
-<p><strong>Arguments</strong></p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">model_name</span></code>: String, the name of the model to be used for inference. It should be consistent with <code class="docutils literal notranslate"><span class="pre">model_name</span></code> specified during training. There is NO default value and it should be specified by users.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">max_batchsize</span></code>: Integer, the maximum batchsize for inference. It is the global batch size and should be divisible by the length of <code class="docutils literal notranslate"><span class="pre">deployed_devices</span></code>. There is NO default value and it should be specified by users.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">hit_rate_threshold</span></code>: Float, the hit rate threshold for updating the GPU embedding cache. If the hit rate of looking up GPU embedding cahce during inference is below this threshold, then the GPU embedding cache will be updated. The threshold should be between 0 and 1. There is NO default value and it should be specified by users.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">dense_model_file</span></code>: String, the dense model file to be loaded for inference. There is NO default value and it should be specified by users.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">sparse_model_files</span></code>: List[str], the sparse model files to be loaded for inference. There is NO default value and it should be specified by users.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">use_gpu_embedding_cache</span></code>: Boolean, whether to employ the features of GPU embedding cache. If the value is <code class="docutils literal notranslate"><span class="pre">True</span></code>, the embedding vector look up will go to GPU embedding cache. Otherwise, it will reach out to the CPU parameter server directly. There is NO default value and it should be specified by users.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">cache_size_percentage</span></code>: Float, the percentage of cached embeddings on GPU relative to all the embedding tables on CPU.  There is NO default value and it should be specified by users.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">i64_input_key</span></code>: Boolean, this value should be set to <code class="docutils literal notranslate"><span class="pre">True</span></code> when you need to use I64 input key. There is NO default value and it should be specified by users.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">use_mixed_precision</span></code>: Boolean, whether to enable mixed precision inference. The default value is <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">use_algorithm_search</span></code>: Boolean, whether to use algorithm search for cublasGemmEx within the FullyConnectedLayer. The default value is <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">use_cuda_graph</span></code>: Boolean, whether to enable cuda graph for dense network forward propagation. The default value is <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">deployed_devices</span></code>: List[Integer], the list of device id of GPUs. The offline inference will be executed concurrently on the specified multiple GPUs. The default value is <code class="docutils literal notranslate"><span class="pre">[0]</span></code>.</p></li>
-</ul>
-</div>
-</div>
-<div class="section" id="volatiledatabaseparams">
-<h3>VolatileDatabaseParams<a class="headerlink" href="#volatiledatabaseparams" title="Permalink to this headline"></a></h3>
-<p>We provide various volatile database implementations. Generally speaking, two categories can be distinguished.</p>
-<ul class="simple">
-<li><p><strong>CPU memory databases</strong> are instanced per machine and only use the locally available RAM memory as backing storage. Hence, you may indvidually vary their configuration parameters per machine.</p></li>
-<li><p><strong>Distributed CPU memory databases</strong> are typically shared by all machines in your HugeCTR deployment. They allow you to take advantage of the combined memory capacity of your cluster machines.The configuration parameters for this kind of database should, thus, be identical across all achines in your deployment.</p></li>
-</ul>
-<div class="section" id="volatiledatabaseparams-class">
-<h4>VolatileDatabaseParams class<a class="headerlink" href="#volatiledatabaseparams-class" title="Permalink to this headline"></a></h4>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">params</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">inference</span><span class="o">.</span><span class="n">VolatileDatabaseParams</span><span class="p">()</span>
-<span class="n">params</span><span class="o">.</span><span class="n">type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">DatabaseType_t</span><span class="o">.&lt;</span><span class="n">enum_value</span><span class="o">&gt;</span>
-</pre></div>
-</div>
-<p>Where <code class="docutils literal notranslate"><span class="pre">&lt;enum_value&gt;</span></code> is either:</p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">disabled</span></code>: Do not use this kind of database.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">hash_map</span></code>: Hash-map based CPU memory database implementation.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">parallel_hash_map</span></code>: Hash-map based CPU memory database implementation with multi threading support <strong>(default)</strong>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">redis_cluster</span></code>: Connect to an existing Redis cluster deployment (Distributed CPU memory database implementation).</p></li>
-</ul>
-<p><strong>Configuration of normal hash-map backend</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">params</span><span class="o">.</span><span class="n">type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">DatabaseType_t</span><span class="o">.</span><span class="n">hash_map</span>
-<span class="n">params</span><span class="o">.</span><span class="n">algorithm</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">DatabaseHashMapAlgorithm_t</span><span class="o">.&lt;</span><span class="n">enum_value</span><span class="o">&gt;</span>
-</pre></div>
-</div>
-<p><strong>Configuration of parallelized hash-map backend</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">params</span><span class="o">.</span><span class="n">type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">DatabaseType_t</span><span class="o">.</span><span class="n">parallel_hash_map</span>
-<span class="n">params</span><span class="o">.</span><span class="n">algorithm</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">DatabaseHashMapAlgorithm_t</span><span class="o">.&lt;</span><span class="n">enum_value</span><span class="o">&gt;</span>
-<span class="n">params</span><span class="o">.</span><span class="n">num_partitions</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">integer_value</span><span class="o">&gt;</span>
-</pre></div>
-</div>
-<p><strong>Configuration of Redis cluster backend</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">params</span><span class="o">.</span><span class="n">type</span> <span class="o">=</span> <span class="s2">&quot;redis_cluster&quot;</span>
-<span class="n">params</span><span class="o">.</span><span class="n">address</span> <span class="o">=</span> <span class="s2">&quot;&lt;host_name_or_ip_address:port_number&gt;&quot;</span>
-<span class="n">params</span><span class="o">.</span><span class="n">user_name</span> <span class="o">=</span> <span class="s2">&quot;&lt;login_user_name&gt;&quot;</span>
-<span class="n">params</span><span class="o">.</span><span class="n">password</span> <span class="o">=</span> <span class="s2">&quot;&lt;login_password&gt;&quot;</span>
-<span class="n">params</span><span class="o">.</span><span class="n">num_partitions</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">int_value</span><span class="o">&gt;</span>
-<span class="n">params</span><span class="o">.</span><span class="n">max_get_batch_size</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">int_value</span><span class="o">&gt;</span>
-<span class="n">params</span><span class="o">.</span><span class="n">max_set_batch_size</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">int_value</span><span class="o">&gt;</span>
-</pre></div>
-</div>
-<p><strong>Overflow handling related parameters</strong></p>
-<p>To maximize performance and avoid instabilies caused by sporadic high memory usage (<em>i.e.</em>, out of memory situations), we provide the overflow handling mechanism. It allows limiting the maximum amount of embeddings to be stored per partition, and, thus, upper-bounding the memory consumption of your distributed database.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">params</span><span class="o">.</span><span class="n">overflow_margin</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">integer_value</span><span class="o">&gt;</span>
-<span class="n">params</span><span class="o">.</span><span class="n">overflow_policy</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">DatabaseOverflowPolicy_t</span><span class="o">.&lt;</span><span class="n">enum_value</span><span class="o">&gt;</span>
-<span class="n">params</span><span class="o">.</span><span class="n">overflow_resolution_target</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">double_value</span><span class="o">&gt;</span>
-</pre></div>
-</div>
-<p><code class="docutils literal notranslate"><span class="pre">overflow_margin</span></code> denotes the maximum amount of embeddings that will be stored <em>per partition</em>. Inserting more than <code class="docutils literal notranslate"><span class="pre">overflow_margin</span></code> embeddings into the database will trigger the execution of the configured <code class="docutils literal notranslate"><span class="pre">overflow_policy</span></code>. Hence, <code class="docutils literal notranslate"><span class="pre">overflow_margin</span></code> upper-bounds the maximum amount of memory that your CPU memory database may occupy. Thumb rule: Larger <code class="docutils literal notranslate"><span class="pre">overflow_margin</span></code> will result higher hit rates, but also increased memory consumption. By <strong>default</strong>, the value of <code class="docutils literal notranslate"><span class="pre">overflow_margin</span></code> is set to <code class="docutils literal notranslate"><span class="pre">2^64</span> <span class="pre">-</span> <span class="pre">1</span></code> (<em>i.e.</em>, de-facto infinite). When using the CPU memory database in conjunction with a Persistent database, the idea value for <code class="docutils literal notranslate"><span class="pre">overflow_margin</span></code> may vary. In practice, a setting value to somewhere between <code class="docutils literal notranslate"><span class="pre">[1</span> <span class="pre">million,</span> <span class="pre">100</span> <span class="pre">million]</span></code> tends deliver reliable performance and throughput.</p>
-<p>Currently the following values for <code class="docutils literal notranslate"><span class="pre">overflow_policy</span></code> are supported:</p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">evict_oldest</span></code> <strong>(default)</strong>: Prune embeddings starting from the oldest (i.e., least recently used) until the paratition contains at most <code class="docutils literal notranslate"><span class="pre">overflow_margin</span> <span class="pre">*</span> <span class="pre">overflow_resolution_target</span></code> embeddings.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">evict_random</span></code>: Prune embeddings random embeddings until the paratition contains at most <code class="docutils literal notranslate"><span class="pre">overflow_margin</span> <span class="pre">*</span> <span class="pre">overflow_resolution_target</span></code> embeddings.</p></li>
-</ul>
-<p>Unlike <code class="docutils literal notranslate"><span class="pre">evict_oldest</span></code>,  <code class="docutils literal notranslate"><span class="pre">evict_random</span></code> requires no comparison of time-stamps, and thus can be faster. However, <code class="docutils literal notranslate"><span class="pre">evict_oldest</span></code> is likely to deliver better performance over time because embeddings are evicted based on the frequency of their usage. For all eviction policies, <code class="docutils literal notranslate"><span class="pre">overflow_resolution_target</span></code> is expected to be in <code class="docutils literal notranslate"><span class="pre">]0,</span> <span class="pre">1[</span></code> (<em>i.e.</em>, between <code class="docutils literal notranslate"><span class="pre">0</span></code> and <code class="docutils literal notranslate"><span class="pre">1</span></code>, but not exactly <code class="docutils literal notranslate"><span class="pre">0</span></code> or <code class="docutils literal notranslate"><span class="pre">1</span></code>). The default value of <code class="docutils literal notranslate"><span class="pre">overflow_resolution_target</span></code> is <code class="docutils literal notranslate"><span class="pre">0.8</span></code> (<em>i.e.</em>, the partition is shrunk to 80% of its maximum size, or in other words, when the partition size surpasses <code class="docutils literal notranslate"><span class="pre">overflow_margin</span></code> embeddings, 20% of the embeddings are evicted according to the respective <code class="docutils literal notranslate"><span class="pre">overflow_policy</span></code>).</p>
-<p><strong>Initial caching</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">params</span><span class="o">.</span><span class="n">initial_cache_rate</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">double_value</span><span class="o">&gt;</span>
-</pre></div>
-</div>
-<p>This is the fraction (<code class="docutils literal notranslate"><span class="pre">[0.0,</span> <span class="pre">1.0]</span></code>) of your dataset that we will attempt to cache immediately upon startup of the parameter server. Hence, setting a value of <code class="docutils literal notranslate"><span class="pre">0.5</span></code> causes the HugeCTR parameter server to attempt caching up to 50% of your dataset directly using the respectively configured volatile database after initialization.</p>
-<p><strong>Refreshing timestamps</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">params</span><span class="o">.</span><span class="n">refresh_time_after_fetch</span> <span class="o">=</span> <span class="o">&lt;</span><span class="kc">True</span><span class="o">|</span><span class="kc">False</span><span class="o">&gt;</span>
-</pre></div>
-</div>
-<p>Some algorithms to organize certain processes, such as the evication of embeddings upon overflow, take time into account. To evalute the affected embeddings, HugeCTR records the time when an embeddings is overridden. This is sufficient in training mode where embeddings are frequently replaced. Hence, the <strong>default value</strong> for this setting is is <code class="docutils literal notranslate"><span class="pre">false</span></code>. However, if you deploy HugeCTR only for inference (<em>e.g.</em>, with Triton), this might lead to suboptimal eviction patterns. By setting this value to <code class="docutils literal notranslate"><span class="pre">true</span></code>, HugeCTR will replace the time stored alongside an embedding right after this embedding is accessed. This operation may happen asynchronously (<em>i.e.</em>, with some delay).</p>
-<p><strong>Real-time updating</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">params</span><span class="o">.</span><span class="n">update_filters</span> <span class="o">=</span> <span class="p">[</span> <span class="s2">&quot;&lt;filter 0&gt;&quot;</span><span class="p">,</span> <span class="s2">&quot;&lt;filter 1&gt;&quot;</span><span class="p">,</span> <span class="o">...</span> <span class="p">]</span>
-</pre></div>
-</div>
-<p><strong>[Behavior will likely change in future versions]</strong> This setting allows you specify a series of filters, in to permit / deny passing certain model updates from Kafka to the CPU memory database backend. Filters take the form of regular expressions. The <strong>default</strong> value of this setting is <code class="docutils literal notranslate"><span class="pre">[</span> <span class="pre">&quot;.+&quot;</span> <span class="pre">]</span></code> (<em>i.e.</em>, process updates for all models, irrespective of their name).</p>
-<p>Distributed databases are shared by all your HugeCTR nodes. These nodes will collaborate to inject updates into the underlying database. The assignment of what nodes update what partition may change at runtime.</p>
-</div>
-</div>
-<div class="section" id="persistentdatabaseparams">
-<h3>PersistentDatabaseParams<a class="headerlink" href="#persistentdatabaseparams" title="Permalink to this headline"></a></h3>
-<p>Persistent databases are instanced per machine and use the locally available non-volatile memory as backing storage. Hence, you may indvidually vary their configuration parameters per machine.</p>
-<div class="section" id="persistentdatabaseparams-class">
-<h4>PersistentDatabaseParams class<a class="headerlink" href="#persistentdatabaseparams-class" title="Permalink to this headline"></a></h4>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">params</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">inference</span><span class="o">.</span><span class="n">PersistentDatabaseParams</span><span class="p">()</span>
-<span class="n">params</span><span class="o">.</span><span class="n">type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">DatabaseType_t</span><span class="o">.&lt;</span><span class="n">enum_value</span><span class="o">&gt;</span>
-</pre></div>
-</div>
-<p>Where <code class="docutils literal notranslate"><span class="pre">&lt;enum_value&gt;</span></code> is either:</p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">disabled</span></code>: Do not use this kind of database  <strong>(default)</strong>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">rocks_db</span></code>: Create or connect to a RocksDB database.</p></li>
-</ul>
-<p><strong>Configuration of RocksDB database backend</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">params</span><span class="o">.</span><span class="n">type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">DatabaseType_t</span><span class="o">.</span><span class="n">rocks_db</span>
-<span class="n">params</span><span class="o">.</span><span class="n">path</span> <span class="o">=</span> <span class="s2">&quot;&lt;file_system_path&gt;&quot;</span>
-<span class="n">params</span><span class="o">.</span><span class="n">num_threads</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">int_value</span><span class="o">&gt;</span>
-<span class="n">params</span><span class="o">.</span><span class="n">read_only</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">boolean_value</span><span class="o">&gt;</span>
-<span class="n">params</span><span class="o">.</span><span class="n">max_get_batch_size</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">int_value</span><span class="o">&gt;</span>
-<span class="n">params</span><span class="o">.</span><span class="n">max_set_batch_size</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">int_value</span><span class="o">&gt;</span>
-</pre></div>
-</div>
-<p><code class="docutils literal notranslate"><span class="pre">path</span></code> denotes the directory in your file-system where the RocksDB database can be found. If the directory does not contain a RocksDB databse, HugeCTR will create an database for you. Note that this may override files that are currently stored in this database. Hence, make sure that <code class="docutils literal notranslate"><span class="pre">path</span></code> points either to an actual RocksDB database or an empty directy. The <strong>default</strong> path is <code class="docutils literal notranslate"><span class="pre">/tmp/rocksdb</span></code>.</p>
-<p><code class="docutils literal notranslate"><span class="pre">num_threads</span></code> is an optimization parameter. This denotes the amount of threads that the RocksDB driver may use internally. By <strong>default</strong>, this value is set to <code class="docutils literal notranslate"><span class="pre">16</span></code></p>
-<p>If the flag <code class="docutils literal notranslate"><span class="pre">read_only</span></code> is set to <code class="docutils literal notranslate"><span class="pre">true</span></code>, the databse will be opened in <em>Read-Only mode</em>. Naturally, this means that any attempt to update values in this database will fail. Use for inference, if model is static and the database is shared by multiple nodes (for example via NFS). By <strong>default</strong> this flag is set to <code class="docutils literal notranslate"><span class="pre">false</span></code>.</p>
-<p><code class="docutils literal notranslate"><span class="pre">max_get_batch_size</span></code> and <code class="docutils literal notranslate"><span class="pre">max_set_batch_size</span></code> represent optimization parameters. Mass lookup and insert requests to RocksDB are chunked into batches. For maximum performance <code class="docutils literal notranslate"><span class="pre">max_*_batch_size</span></code> should be large. However, if the available memory for buffering requests in your endpoints is limited, lowering this value may help. By <strong>default</strong>, both values are set to <code class="docutils literal notranslate"><span class="pre">10000</span></code>. With high-performance hardware setups it is <strong>recommended</strong> to increase these values to <code class="docutils literal notranslate"><span class="pre">1</span> <span class="pre">million</span></code>.</p>
-<p><strong>Real-time updating</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">params</span><span class="o">.</span><span class="n">update_filters</span> <span class="o">=</span> <span class="p">[</span> <span class="s2">&quot;&lt;filter 0&gt;&quot;</span><span class="p">,</span> <span class="s2">&quot;&lt;filter 1&gt;&quot;</span><span class="p">,</span> <span class="o">...</span> <span class="p">]</span>
-</pre></div>
-</div>
-<p><strong>[Behavior will likely change in future versions]</strong> This setting allows you specify a series of filters, in to permit / deny passing certain model updates from Kafka to the CPU memory database backend. Filters take the form of regular expressions. The <strong>default value</strong> of this setting is <code class="docutils literal notranslate"><span class="pre">[</span> <span class="pre">&quot;.+&quot;</span> <span class="pre">]</span></code> (<em>i.e.</em>, process updates for all models, irrespective of their name).</p>
-</div>
-</div>
-<div class="section" id="updatesourceparams">
-<h3>UpdateSourceParams<a class="headerlink" href="#updatesourceparams" title="Permalink to this headline"></a></h3>
-<p>The real-time update source is the origin for model updates during online retraining. To ensure that all database layers are kept in sync, it is advisable configure all nodes in your HugeCTR deployment identical.</p>
-<div class="section" id="updatesourceparams-class">
-<h4>UpdateSourceParams class<a class="headerlink" href="#updatesourceparams-class" title="Permalink to this headline"></a></h4>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">params</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">UpdateSourceParams</span><span class="p">()</span>
-<span class="n">params</span><span class="o">.</span><span class="n">type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">UpdateSourceType_t</span><span class="o">.&lt;</span><span class="n">enum_value</span><span class="o">&gt;</span>
-</pre></div>
-</div>
-<p>Where <code class="docutils literal notranslate"><span class="pre">&lt;enum_value&gt;</span></code> is either:</p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">null</span></code>: Do not use this kind of database  <strong>(default)</strong>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">kafka_message_queue</span></code>: Connect to an axisting Apache Kafka message queue.</p></li>
-</ul>
-<p><strong>Configuration parameters for Apache Kafka update sources</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">params</span><span class="o">.</span><span class="n">type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">UpdateSourceType_t</span><span class="o">.</span><span class="n">kafka_message_queue</span>
-<span class="n">params</span><span class="o">.</span><span class="n">brokers</span> <span class="o">=</span> <span class="s2">&quot;host_name[:port][;host_name[:port]...]&quot;</span>
-<span class="n">params</span><span class="o">.</span><span class="n">poll_timeout_ms</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">int_value</span><span class="o">&gt;</span>
-<span class="n">params</span><span class="o">.</span><span class="n">max_receive_buffer_size</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">int_value</span><span class="o">&gt;</span>
-<span class="n">params</span><span class="o">.</span><span class="n">max_batch_size</span> <span class="o">&lt;</span><span class="n">int_value</span><span class="o">&gt;</span>
-<span class="n">params</span><span class="o">.</span><span class="n">failure_backoff_ms</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">int_value</span><span class="o">&gt;</span>
-</pre></div>
-</div>
-<p>In order to connect to a Kafka deployments, you need to fill in at least one host-address (hostname + port number) of a Kafka broker node (<code class="docutils literal notranslate"><span class="pre">brokers</span></code> configuration option in the above listings). The <strong>default</strong> value of <code class="docutils literal notranslate"><span class="pre">brokers</span></code> is <code class="docutils literal notranslate"><span class="pre">127.0.0.1:9092</span></code>.</p>
-<p>The remaining parameters control certain properties within the notification chain. In particular, <code class="docutils literal notranslate"><span class="pre">poll_timeout_ms</span></code> denotes the maximum time we will wait for additional updates before dispatching them to the database layers in milliseconds. The <strong>default</strong> value is <code class="docutils literal notranslate"><span class="pre">500</span></code> ms.</p>
-<p>If, before this limit has run out, more than <code class="docutils literal notranslate"><span class="pre">max_receive_buffer_size</span></code> embedding updates have been received, we will also dispatch these updates immediately. The <strong>default</strong> receive buffer size is <code class="docutils literal notranslate"><span class="pre">2000</span></code>.</p>
-<p>Dispatching of updates is conducted in chunks. The maximum size of these chunks is upper-bounded by <code class="docutils literal notranslate"><span class="pre">max_batch_size</span></code>, which is set to <code class="docutils literal notranslate"><span class="pre">1000</span></code> by default.</p>
-<p>In some situations, there might be issues that prevent the successful dispatch of an update to a database. For example, if a Redis node is temporarily unreachable. <code class="docutils literal notranslate"><span class="pre">failure_backoff_ms</span></code> is the delay in milliseconds after which we retry dispatching a set of updates in such an event. The <strong>default</strong> backoff delay is <code class="docutils literal notranslate"><span class="pre">50</span></code> ms.</p>
+<p>Refer to the <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/hugectr_parameter_server.html#configuration">HPS Configuration</a> documentation for the parameters.</p>
 </div>
 </div>
 <div class="section" id="inferencemodel">
@@ -1452,24 +1239,6 @@ Refer to <a class="reference internal" href="../hugectr_core_features.html#sgd-o
 <li><p><code class="docutils literal notranslate"><span class="pre">use_hdfs</span></code>: Boolean, whether to use HDFS or not for dump models. Default is false (use local file system).</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">namenode</span></code>: String, the IP address of Hadoop Namenode. Will be ignored if use_hdfs is false. Default is ‘localhost’.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">port</span></code>:  Integer, the port of Hadoop Namenode. Will be ignored if use_hdfs is false. Default is 9000.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">hdfs_train_source</span></code>: String, the HDFS path to data used for training.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">hdfs_train_filelist</span></code>: String, the HDFS path to filelist.txt used for training.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">hdfs_eval_source</span></code>: String, the HDFS path to data used to validation.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">hdfs_eval_filelist</span></code>: String, the HDFS path to filelist.txt used for validation.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">hdfs_dense_model</span></code>: String, the HDFS path to load dense model.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">hdfs_dense_opt_states</span></code>: String, the HDFS path to load dense optimizer states.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">hdfs_sparse_model</span></code>: List of strings, the HDFS paths to load sparse models.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">hdfs_sparse_opt_states</span></code>: List of strings, the HDFS paths to load sparse optimizer states.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">hdfs_model_home</span></code>: String, the path to HDFS directory used to store the dumped models and optimizer states.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">local_train_source</span></code>: String, the local path to data used for training.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">local_train_filelist</span></code>: String, the local path to filelist.txt used for training.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">local_eval_source</span></code>: String, the local path to data used to validation.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">local_eval_filelist</span></code>: String, the local path to filelist.txt used for validation.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">local_dense_model</span></code>: String, the local path to load dense model.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">local_dense_opt_states</span></code>: String, the local path to load dense optimizer states.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">local_sparse_model</span></code>: List of strings, the local paths to load sparse models.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">local_sparse_opt_states</span></code>: List of strings, the local paths to load sparse optimizer states.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">local_model_home</span></code>: String, the path to local directory used to store the dumped models and optimizer states.</p></li>
 </ul>
 </div>
 <div class="section" id="datasource">
@@ -1490,7 +1259,12 @@ Refer to <a class="reference internal" href="../hugectr_core_features.html#sgd-o
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hugectr</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">DataSource</span><span class="o">.</span><span class="n">move_to_local</span><span class="p">()</span>
 </pre></div>
 </div>
-<p>This method takes no extra arguments and moves all the data user specified in hdfs path to the corresponding local path.</p>
+<p><strong>Arguments</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">hdfs_path</span></code>: The path of the hdfs file.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">local_path</span></code>:  The local path to move to.</p></li>
+</ul>
+<p>This method moves the file user specified in hdfs path to the corresponding local path.</p>
 </div>
 </div>
 </div>
@@ -1531,6 +1305,7 @@ Refer to <a class="reference internal" href="../hugectr_core_features.html#sgd-o
     <dl>
       <dt>Tags</dt>
       <dd><a href="../../v3.5/api/python_interface.html">v3.5</a></dd>
+      <dd><a href="../../v3.6/api/python_interface.html">v3.6</a></dd>
     </dl>
     <dl>
       <dt>Branches</dt>

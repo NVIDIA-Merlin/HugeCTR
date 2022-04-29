@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>HugeCTR Hierarchical Parameter Server &mdash; Merlin HugeCTR  documentation</title><link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/togglebutton.css" type="text/css" />
+      <link rel="stylesheet" href="_static/mystnb.css" type="text/css" />
   <!--[if lt IE 9]>
     <script src="_static/js/html5shiv.min.js"></script>
   <![endif]-->
@@ -12,11 +14,15 @@
         <script src="_static/jquery.js"></script>
         <script src="_static/underscore.js"></script>
         <script src="_static/doctools.js"></script>
-        <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+        <script >let toggleHintShow = 'Click to show';</script>
+        <script >let toggleHintHide = 'Click to hide';</script>
+        <script >let toggleOpenOnPrint = 'true';</script>
+        <script src="_static/togglebutton.js"></script>
+        <script >var togglebuttonSelector = '.toggle, .admonition.dropdown, .tag_hide_input div.cell_input, .tag_hide-input div.cell_input, .tag_hide_output div.cell_output, .tag_hide-output div.cell_output, .tag_hide_cell.cell, .tag_hide-cell.cell';</script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="HugeCTR Example Notebooks" href="hugectr_example_notebooks.html" />
+    <link rel="next" title="HugeCTR Example Notebooks" href="notebooks/index.html" />
     <link rel="prev" title="HugeCTR Embedding Training Cache" href="hugectr_embedding_training_cache.html" /> 
 </head>
 
@@ -35,37 +41,20 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption"><span class="caption-text">HugeCTR Library</span></p>
+              <p class="caption"><span class="caption-text">Contents</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="hugectr_user_guide.html">Introduction</a></li>
 <li class="toctree-l1"><a class="reference internal" href="hugectr_core_features.html">Core Features</a></li>
 <li class="toctree-l1 current"><a class="reference internal" href="hugectr_feature_details_intro.html">Features in Detail</a><ul class="current">
-<li class="toctree-l2"><a class="reference internal" href="hugectr_embedding_training_cache.html">Embedding Training Cached</a></li>
-<li class="toctree-l2 current"><a class="current reference internal" href="#">Hierarchical Parameter Server</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#introduction">Introduction</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#background">Background</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#architecture">Architecture</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#training-and-iterative-model-updates">Training and Iterative Model Updates</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#execution">Execution</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#inference">Inference</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#training">Training</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#lookup-optimization">Lookup optimization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="hugectr_embedding_training_cache.html">Embedding Training Cache</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Hierarchical Parameter Server</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="#configuration">Configuration</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#volatile-database">Volatile Database</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#persistent-database">Persistent Database</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#real-time-update-source">Real-time Update Source</a></li>
-</ul>
-</li>
-</ul>
-</li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="hugectr_example_notebooks.html">Example Notebooks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="notebooks/index.html">Example Notebooks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="notebooks/multi-modal-data/index.html">Multi-modal Example Notebooks</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api/index.html">API Documentation</a></li>
-<li class="toctree-l1"><a class="reference internal" href="hugectr_contributor_guide.html">Contributing to HugeCTR</a></li>
 <li class="toctree-l1"><a class="reference internal" href="additional_resources.html">Additional Resources</a></li>
+<li class="toctree-l1"><a class="reference internal" href="release_notes.html">Release Notes</a></li>
 </ul>
 
         </div>
@@ -92,31 +81,7 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  
-<style>
-/* CSS overrides for sphinx_rtd_theme */
-
-/* 24px margin */
-.nbinput.nblast.container,
-.nboutput.nblast.container {
-    margin-bottom: 19px;  /* padding has already 5px */
-}
-
-/* ... except between code cells! */
-.nblast.container + .nbinput.container {
-    margin-top: -19px;
-}
-
-.admonition > p:before {
-    margin-right: 4px;  /* make room for the exclamation icon */
-}
-
-/* Fix math alignment, see https://github.com/rtfd/sphinx_rtd_theme/pull/686 */
-.math {
-    text-align: unset;
-}
-</style>
-<div class="section" id="hugectr-hierarchical-parameter-server">
+  <div class="tex2jax_ignore mathjax_ignore section" id="hugectr-hierarchical-parameter-server">
 <h1>HugeCTR Hierarchical Parameter Server<a class="headerlink" href="#hugectr-hierarchical-parameter-server" title="Permalink to this headline"></a></h1>
 <div class="section" id="introduction">
 <h2>Introduction<a class="headerlink" href="#introduction" title="Permalink to this headline"></a></h2>
@@ -131,7 +96,7 @@
 <div class="section" id="architecture">
 <h2>Architecture<a class="headerlink" href="#architecture" title="Permalink to this headline"></a></h2>
 <p>As of version 3.3, the HugeCTR parameter server defines 3 storage layers.</p>
-<ol class="arabic">
+<ol>
 <li><p>The <strong>CPU Memory Database</strong> layer
 utilizes volatile CPU addressable RAM memory to cache embeddings. This database is created and maintained separately by each machine that runs HugeCTR in your cluster.</p></li>
 <li><p>The <strong>Distributed Database</strong> layer allows utilizing Redis cluster deployments, to store and retrieve embeddings in/from the RAM memory available in your cluster. The HugeCTR distributed database layer is designed for compatibility with Redis <a class="reference external" href="https://redis.io/topics/persistence">peristence features</a> such as <a class="reference external" href="https://redis.io/topics/persistence">RDB</a> and <a class="reference external" href="https://redis.io/topics/persistence">AOF</a> to allow seamless continued operation across device restart. This kind of databse is shared by all nodes that participate in the training / inference of a HugeCTR model.</p>
@@ -212,7 +177,7 @@ utilizes volatile CPU addressable RAM memory to cache embeddings. This database 
 <div class="section" id="inference">
 <h3>Inference<a class="headerlink" href="#inference" title="Permalink to this headline"></a></h3>
 <p>With respect to embedding lookups via the HugeCTR embedding cache and parameter server, the following logic applies. Whenever the HugeCTR inference engine receives a batch of model input parameters for inference, it will first determine the associated unique embedding keys and try to resolve these embeddings using the embedding cache. If there are cache misses, it will then turn to the parameter server to determine the embedding representations. The query sequence inside the parameter server queries its configured backends in the following order to fill in the missing embeddings:</p>
-<ol class="arabic simple">
+<ol class="simple">
 <li><p>Local / Remote CPU memory locations</p></li>
 <li><p>Permanent storage</p></li>
 </ol>
@@ -575,7 +540,7 @@ utilizes volatile CPU addressable RAM memory to cache embeddings. This database 
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="hugectr_embedding_training_cache.html" class="btn btn-neutral float-left" title="HugeCTR Embedding Training Cache" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="hugectr_example_notebooks.html" class="btn btn-neutral float-right" title="HugeCTR Example Notebooks" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="notebooks/index.html" class="btn btn-neutral float-right" title="HugeCTR Example Notebooks" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>
@@ -605,6 +570,7 @@ utilizes volatile CPU addressable RAM memory to cache embeddings. This database 
     <dl>
       <dt>Tags</dt>
       <dd><a href="hugectr_parameter_server.html">v3.5</a></dd>
+      <dd><a href="../v3.6/hugectr_parameter_server.html">v3.6</a></dd>
     </dl>
     <dl>
       <dt>Branches</dt>

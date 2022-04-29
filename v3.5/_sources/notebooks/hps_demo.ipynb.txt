@@ -17,19 +17,10 @@
    "source": [
     "## Overview\n",
     "\n",
-    "In HugeCTR version 3.5, we provide Python APIs for embedding table lookup with [HugeCTR Hierarchical Parameter Server (HPS)](../docs/hugectr_parameter_server.md), which supports different database backends and GPU embedding caches.\n",
+    "In HugeCTR version 3.5, we provide Python APIs for embedding table lookup with [HugeCTR Hierarchical Parameter Server (HPS)](https://nvidia-merlin.github.io/HugeCTR/master/hugectr_core_features.html#hierarchical-parameter-server)\n",
+    "HPS supports different database backends and GPU embedding caches.\n",
     "\n",
-    "This notebook demonstrates how to use HPS with HugeCTR Python APIs. Without loss of generality, the HPS APIs are utilized together with the ONNX Runtime APIs to create an ensemble inference model, where HPS is responsible for embedding table lookup while the ONNX model takes charge of feed forward of dense neural networks.\n",
-    "\n",
-    "## Table of Contents\n",
-    "-  [Installation](#1)\n",
-    "   * [Get HugeCTR from NGC](#11)\n",
-    "   * [Build HugeCTR from Source Code](#12)\n",
-    "-  [Demo](#2)\n",
-    "   * [Data Generation](#21)\n",
-    "   * [Train from Scratch](#22)\n",
-    "   * [Convert HugeCTR to ONNX](#23)\n",
-    "   * [Inference with HPS & ONNX](#24)"
+    "This notebook demonstrates how to use HPS with HugeCTR Python APIs. Without loss of generality, the HPS APIs are utilized together with the ONNX Runtime APIs to create an ensemble inference model, where HPS is responsible for embedding table lookup while the ONNX model takes charge of feed forward of dense neural networks."
    ]
   },
   {
@@ -37,30 +28,23 @@
    "id": "c420aed2",
    "metadata": {},
    "source": [
-    "<a id=\"1\"></a>\n",
-    "## 1. Installation\n",
+    "## Installation\n",
     "\n",
-    "<a id=\"11\"></a>\n",
-    "### 1.1 Get HugeCTR from NGC\n",
-    "The HugeCTR Python module is preinstalled in the [Merlin Training Container](https://ngc.nvidia.com/catalog/containers/nvidia:merlin:merlin-training): `nvcr.io/nvidia/merlin/merlin-training:22.04`.\n",
+    "### Get HugeCTR from NGC\n",
+    "\n",
+    "The HugeCTR Python module is preinstalled in the 22.04 and later [Merlin Training Container](https://catalog.ngc.nvidia.com/orgs/nvidia/teams/merlin/containers/merlin-training): `nvcr.io/nvidia/merlin/merlin-training:22.04`.\n",
     "\n",
     "You can check the existence of required libraries by running the following Python code after launching this container.\n",
+    "\n",
     "```bash\n",
     "$ python3 -c \"import hugectr\"\n",
     "```\n",
     "\n",
-    "**Note**: This Python module contains both training APIs and offline inference APIs. For online inference with Triton, please refer to [HugeCTR Backend](https://github.com/triton-inference-server/hugectr_backend)."
-   ]
-  },
-  {
-   "cell_type": "markdown",
-   "id": "0e8c2ed7",
-   "metadata": {},
-   "source": [
-    "<a id=\"12\"></a>\n",
-    "### 1.2 Build HugeCTR from Source Code\n",
+    "**Note**: This Python module contains both training APIs and offline inference APIs. For online inference with Triton, please refer to [HugeCTR Backend](https://github.com/triton-inference-server/hugectr_backend).\n",
     "\n",
-    "If you want to build HugeCTR from the source code instead of using the NGC container, please refer to the [How to Start Your Development](../docs/hugectr_contributor_guide.md#how-to-start-your-development)."
+    "> If you prefer to build HugeCTR from the source code instead of using the NGC container, please refer to the\n",
+    "> [How to Start Your Development](https://nvidia-merlin.github.io/HugeCTR/master/hugectr_contributor_guide.html#how-to-start-your-development)\n",
+    "> documentation."
    ]
   },
   {
@@ -68,12 +52,9 @@
    "id": "d6ca5759",
    "metadata": {},
    "source": [
-    "<a id=\"2\"></a>\n",
-    "## 2. Demo\n",
+    "## Data Generation\n",
     "\n",
-    "<a id=\"21\"></a>\n",
-    "### 2.1 Data Generation\n",
-    "HugeCTR provides a tool to generate synthetic datasets. The [Data Generator](../docs/python_interface.md#data-generator-api) is capable of generating datasets of different formats and distributions. We will generate one-hot Parquet datasets with power law distribution for this notebook:"
+    "HugeCTR provides a tool to generate synthetic datasets. The [Data Generator](https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html#data-generator-api) is capable of generating datasets of different file formats and different distributions. We will generate one-hot Parquet datasets with power-law distribution for this notebook:"
    ]
   },
   {
@@ -146,9 +127,9 @@
    "id": "fc51dd73",
    "metadata": {},
    "source": [
-    "<a id=\"22\"></a>\n",
-    "### 2.2 Train from Scratch\n",
-    "We can train fom scratch by doing the following steps with Python APIs:\n",
+    "## Train from Scratch\n",
+    "\n",
+    "We can train fom scratch by performing the following steps with Python APIs:\n",
     "\n",
     "1. Create the solver, reader and optimizer, then initialize the model.\n",
     "2. Construct the model graph by adding input, sparse embedding and dense layers in order.\n",
@@ -350,10 +331,11 @@
    "id": "07ab2648",
    "metadata": {},
    "source": [
-    "<a id=\"23\"></a>\n",
-    "### 2.3 Convert HugeCTR to ONNX\n",
+    "## Convert HugeCTR to ONNX\n",
     "\n",
-    "We will convert the saved HugeCTR models to ONNX using the [HugeCTR to ONNX_Converter](../onnx_converter/README.md). For the sake of double checking the correctness, we will investigate both cases of conversion depending on whether or not to convert the sparse embedding models."
+    "We will convert the saved HugeCTR models to ONNX using the HugeCTR to ONNX Converter. For more information about the converter, refer to the README in the [onnx_converter](https://github.com/NVIDIA-Merlin/HugeCTR/tree/master/onnx_converter) directory of the repository.\n",
+    "\n",
+    "For the sake of double checking the correctness, we will investigate both cases of conversion depending on whether or not to convert the sparse embedding models."
    ]
   },
   {
@@ -394,10 +376,10 @@
    "id": "604b8923",
    "metadata": {},
    "source": [
-    "<a id=\"24\"></a>\n",
-    "### 2.4 Inference with HPS & ONNX\n",
+    "## Inference with HPS & ONNX\n",
     "\n",
-    "We will make inference by doing the following steps with Python APIs:\n",
+    "We will make inference by performing the following steps with Python APIs:\n",
+    "\n",
     "1. Configure the HPS hyperparameters.\n",
     "2. Initialize the HPS object, which is responsible for embedding table lookup.\n",
     "3. Loading the Parquet data.\n",

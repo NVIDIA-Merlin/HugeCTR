@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Multi-GPU Offline Inference &mdash; Merlin HugeCTR  documentation</title><link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/togglebutton.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/mystnb.css" type="text/css" />
   <!--[if lt IE 9]>
     <script src="../_static/js/html5shiv.min.js"></script>
   <![endif]-->
@@ -12,14 +14,16 @@
         <script src="../_static/jquery.js"></script>
         <script src="../_static/underscore.js"></script>
         <script src="../_static/doctools.js"></script>
-        <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
-        <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
-        <script type="text/x-mathjax-config">MathJax.Hub.Config({"tex2jax": {"inlineMath": [["$", "$"], ["\\(", "\\)"]], "processEscapes": true, "ignoreClass": "tex2jax_ignore|mathjax_ignore|document", "processClass": "tex2jax_process|mathjax_process|math|output_area"}})</script>
+        <script >let toggleHintShow = 'Click to show';</script>
+        <script >let toggleHintHide = 'Click to hide';</script>
+        <script >let toggleOpenOnPrint = 'true';</script>
+        <script src="../_static/togglebutton.js"></script>
+        <script >var togglebuttonSelector = '.toggle, .admonition.dropdown, .tag_hide_input div.cell_input, .tag_hide-input div.cell_input, .tag_hide_output div.cell_output, .tag_hide-output div.cell_output, .tag_hide_cell.cell, .tag_hide-cell.cell';</script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="next" title="Hierarchical Parameter Server Demo" href="hps_demo.html" />
-    <link rel="prev" title="HugeCTR Python Interface" href="hugectr_criteo.html" /> 
+    <link rel="prev" title="NVIDIA Merlin on Microsoft’s News Dataset (MIND)" href="news-example.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -37,37 +41,31 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption"><span class="caption-text">HugeCTR Library</span></p>
+              <p class="caption"><span class="caption-text">Contents</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="../hugectr_user_guide.html">Introduction</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../hugectr_core_features.html">Core Features</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../hugectr_feature_details_intro.html">Features in Detail</a></li>
-<li class="toctree-l1 current"><a class="reference internal" href="../hugectr_example_notebooks.html">Example Notebooks</a><ul class="current">
-<li class="toctree-l2"><a class="reference internal" href="hugectr_wdl_prediction.html">HugeCTR Wide and Deep Model with Criteo</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Example Notebooks</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="index.html#quickstart">Quickstart</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#notebook-list">Notebook List</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#system-specifications">System Specifications</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ecommerce-example.html">Merlin ETL, training, and inference with e-Commerce behavior data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="movie-lens-example.html">HugeCTR demo on Movie lens data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="hugectr_criteo.html">Introduction to the HugeCTR Python Interface</a></li>
 <li class="toctree-l2"><a class="reference internal" href="hugectr2onnx_demo.html">HugeCTR to ONNX Converter</a></li>
 <li class="toctree-l2"><a class="reference internal" href="continuous_training.html">HugeCTR Continuous Training</a></li>
-<li class="toctree-l2"><a class="reference internal" href="ecommerce-example.html">Merlin ETL, training and inference demo on the e-Commerce behavior data</a></li>
-<li class="toctree-l2"><a class="reference internal" href="movie-lens-example.html">HugeCTR demo on Movie lens data</a></li>
-<li class="toctree-l2"><a class="reference internal" href="hugectr_criteo.html">HugeCTR Python Interface</a></li>
-<li class="toctree-l2 current"><a class="current reference internal" href="#">Multi-GPU Offline Inference</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#Overview">Overview</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#Table-of-Contents">Table of Contents</a></li>
-</ul>
-</li>
+<li class="toctree-l2"><a class="reference internal" href="hugectr_wdl_prediction.html">HugeCTR Wide and Deep Model with Criteo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="news-example.html">NVIDIA Merlin on Microsoft’s News Dataset (MIND)</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Multi-GPU Offline Inference</a></li>
 <li class="toctree-l2"><a class="reference internal" href="hps_demo.html">Hierarchical Parameter Server Demo</a></li>
-<li class="toctree-l2"><a class="reference internal" href="multi-modal-data/00-Intro.html">Training Recommender Systems on Multi-modal Data</a></li>
-<li class="toctree-l2"><a class="reference internal" href="multi-modal-data/01-Download-Convert.html">MovieLens-25M: Download and Convert</a></li>
-<li class="toctree-l2"><a class="reference internal" href="multi-modal-data/03-Feature-Extraction-Poster.html">Movie Poster Feature Extraction with ResNet</a></li>
-<li class="toctree-l2"><a class="reference internal" href="multi-modal-data/04-Feature-Extraction-Text.html">Movie Synopsis Feature Extraction with Bart text summarization</a></li>
-<li class="toctree-l2"><a class="reference internal" href="multi-modal-data/04-Feature-Extraction-Text.html#Download-pretrained-BART-model">Download pretrained BART model</a></li>
-<li class="toctree-l2"><a class="reference internal" href="multi-modal-data/05-Create-Feature-Store.html">Creating Multi-Modal Movie Feature Store</a></li>
-<li class="toctree-l2"><a class="reference internal" href="multi-modal-data/06-ETL-with-NVTabular.html">ETL with NVTabular</a></li>
-<li class="toctree-l2"><a class="reference internal" href="multi-modal-data/07-Training-with-HugeCTR.html">Training HugeCTR Model with Pretrained Embeddings</a></li>
+<li class="toctree-l2"><a class="reference internal" href="training_with_hdfs.html">HugeCTR training with HDFS example</a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="multi-modal-data/index.html">Multi-modal Example Notebooks</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../api/index.html">API Documentation</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../hugectr_contributor_guide.html">Contributing to HugeCTR</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../additional_resources.html">Additional Resources</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../release_notes.html">Release Notes</a></li>
 </ul>
 
         </div>
@@ -84,7 +82,7 @@
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
       <li><a href="../index.html" class="icon icon-home"></a> &raquo;</li>
-          <li><a href="../hugectr_example_notebooks.html">HugeCTR Example Notebooks</a> &raquo;</li>
+          <li><a href="index.html">HugeCTR Example Notebooks</a> &raquo;</li>
       <li>Multi-GPU Offline Inference</li>
       <li class="wy-breadcrumbs-aside">
       </li>
@@ -94,345 +92,64 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  
-<style>
-/* CSS for nbsphinx extension */
-
-/* remove conflicting styling from Sphinx themes */
-div.nbinput.container div.prompt *,
-div.nboutput.container div.prompt *,
-div.nbinput.container div.input_area pre,
-div.nboutput.container div.output_area pre,
-div.nbinput.container div.input_area .highlight,
-div.nboutput.container div.output_area .highlight {
-    border: none;
-    padding: 0;
-    margin: 0;
-    box-shadow: none;
-}
-
-div.nbinput.container > div[class*=highlight],
-div.nboutput.container > div[class*=highlight] {
-    margin: 0;
-}
-
-div.nbinput.container div.prompt *,
-div.nboutput.container div.prompt * {
-    background: none;
-}
-
-div.nboutput.container div.output_area .highlight,
-div.nboutput.container div.output_area pre {
-    background: unset;
-}
-
-div.nboutput.container div.output_area div.highlight {
-    color: unset;  /* override Pygments text color */
-}
-
-/* avoid gaps between output lines */
-div.nboutput.container div[class*=highlight] pre {
-    line-height: normal;
-}
-
-/* input/output containers */
-div.nbinput.container,
-div.nboutput.container {
-    display: -webkit-flex;
-    display: flex;
-    align-items: flex-start;
-    margin: 0;
-    width: 100%;
-}
-@media (max-width: 540px) {
-    div.nbinput.container,
-    div.nboutput.container {
-        flex-direction: column;
-    }
-}
-
-/* input container */
-div.nbinput.container {
-    padding-top: 5px;
-}
-
-/* last container */
-div.nblast.container {
-    padding-bottom: 5px;
-}
-
-/* input prompt */
-div.nbinput.container div.prompt pre {
-    color: #307FC1;
-}
-
-/* output prompt */
-div.nboutput.container div.prompt pre {
-    color: #BF5B3D;
-}
-
-/* all prompts */
-div.nbinput.container div.prompt,
-div.nboutput.container div.prompt {
-    width: 4.5ex;
-    padding-top: 5px;
-    position: relative;
-    user-select: none;
-}
-
-div.nbinput.container div.prompt > div,
-div.nboutput.container div.prompt > div {
-    position: absolute;
-    right: 0;
-    margin-right: 0.3ex;
-}
-
-@media (max-width: 540px) {
-    div.nbinput.container div.prompt,
-    div.nboutput.container div.prompt {
-        width: unset;
-        text-align: left;
-        padding: 0.4em;
-    }
-    div.nboutput.container div.prompt.empty {
-        padding: 0;
-    }
-
-    div.nbinput.container div.prompt > div,
-    div.nboutput.container div.prompt > div {
-        position: unset;
-    }
-}
-
-/* disable scrollbars on prompts */
-div.nbinput.container div.prompt pre,
-div.nboutput.container div.prompt pre {
-    overflow: hidden;
-}
-
-/* input/output area */
-div.nbinput.container div.input_area,
-div.nboutput.container div.output_area {
-    -webkit-flex: 1;
-    flex: 1;
-    overflow: auto;
-}
-@media (max-width: 540px) {
-    div.nbinput.container div.input_area,
-    div.nboutput.container div.output_area {
-        width: 100%;
-    }
-}
-
-/* input area */
-div.nbinput.container div.input_area {
-    border: 1px solid #e0e0e0;
-    border-radius: 2px;
-    /*background: #f5f5f5;*/
-}
-
-/* override MathJax center alignment in output cells */
-div.nboutput.container div[class*=MathJax] {
-    text-align: left !important;
-}
-
-/* override sphinx.ext.imgmath center alignment in output cells */
-div.nboutput.container div.math p {
-    text-align: left;
-}
-
-/* standard error */
-div.nboutput.container div.output_area.stderr {
-    background: #fdd;
-}
-
-/* ANSI colors */
-.ansi-black-fg { color: #3E424D; }
-.ansi-black-bg { background-color: #3E424D; }
-.ansi-black-intense-fg { color: #282C36; }
-.ansi-black-intense-bg { background-color: #282C36; }
-.ansi-red-fg { color: #E75C58; }
-.ansi-red-bg { background-color: #E75C58; }
-.ansi-red-intense-fg { color: #B22B31; }
-.ansi-red-intense-bg { background-color: #B22B31; }
-.ansi-green-fg { color: #00A250; }
-.ansi-green-bg { background-color: #00A250; }
-.ansi-green-intense-fg { color: #007427; }
-.ansi-green-intense-bg { background-color: #007427; }
-.ansi-yellow-fg { color: #DDB62B; }
-.ansi-yellow-bg { background-color: #DDB62B; }
-.ansi-yellow-intense-fg { color: #B27D12; }
-.ansi-yellow-intense-bg { background-color: #B27D12; }
-.ansi-blue-fg { color: #208FFB; }
-.ansi-blue-bg { background-color: #208FFB; }
-.ansi-blue-intense-fg { color: #0065CA; }
-.ansi-blue-intense-bg { background-color: #0065CA; }
-.ansi-magenta-fg { color: #D160C4; }
-.ansi-magenta-bg { background-color: #D160C4; }
-.ansi-magenta-intense-fg { color: #A03196; }
-.ansi-magenta-intense-bg { background-color: #A03196; }
-.ansi-cyan-fg { color: #60C6C8; }
-.ansi-cyan-bg { background-color: #60C6C8; }
-.ansi-cyan-intense-fg { color: #258F8F; }
-.ansi-cyan-intense-bg { background-color: #258F8F; }
-.ansi-white-fg { color: #C5C1B4; }
-.ansi-white-bg { background-color: #C5C1B4; }
-.ansi-white-intense-fg { color: #A1A6B2; }
-.ansi-white-intense-bg { background-color: #A1A6B2; }
-
-.ansi-default-inverse-fg { color: #FFFFFF; }
-.ansi-default-inverse-bg { background-color: #000000; }
-
-.ansi-bold { font-weight: bold; }
-.ansi-underline { text-decoration: underline; }
-
-
-div.nbinput.container div.input_area div[class*=highlight] > pre,
-div.nboutput.container div.output_area div[class*=highlight] > pre,
-div.nboutput.container div.output_area div[class*=highlight].math,
-div.nboutput.container div.output_area.rendered_html,
-div.nboutput.container div.output_area > div.output_javascript,
-div.nboutput.container div.output_area:not(.rendered_html) > img{
-    padding: 5px;
-    margin: 0;
-}
-
-/* fix copybtn overflow problem in chromium (needed for 'sphinx_copybutton') */
-div.nbinput.container div.input_area > div[class^='highlight'],
-div.nboutput.container div.output_area > div[class^='highlight']{
-    overflow-y: hidden;
-}
-
-/* hide copybtn icon on prompts (needed for 'sphinx_copybutton') */
-.prompt .copybtn {
-    display: none;
-}
-
-/* Some additional styling taken form the Jupyter notebook CSS */
-div.rendered_html table {
-  border: none;
-  border-collapse: collapse;
-  border-spacing: 0;
-  color: black;
-  font-size: 12px;
-  table-layout: fixed;
-}
-div.rendered_html thead {
-  border-bottom: 1px solid black;
-  vertical-align: bottom;
-}
-div.rendered_html tr,
-div.rendered_html th,
-div.rendered_html td {
-  text-align: right;
-  vertical-align: middle;
-  padding: 0.5em 0.5em;
-  line-height: normal;
-  white-space: normal;
-  max-width: none;
-  border: none;
-}
-div.rendered_html th {
-  font-weight: bold;
-}
-div.rendered_html tbody tr:nth-child(odd) {
-  background: #f5f5f5;
-}
-div.rendered_html tbody tr:hover {
-  background: rgba(66, 165, 245, 0.2);
-}
-
-/* CSS overrides for sphinx_rtd_theme */
-
-/* 24px margin */
-.nbinput.nblast.container,
-.nboutput.nblast.container {
-    margin-bottom: 19px;  /* padding has already 5px */
-}
-
-/* ... except between code cells! */
-.nblast.container + .nbinput.container {
-    margin-top: -19px;
-}
-
-.admonition > p:before {
-    margin-right: 4px;  /* make room for the exclamation icon */
-}
-
-/* Fix math alignment, see https://github.com/rtfd/sphinx_rtd_theme/pull/686 */
-.math {
-    text-align: unset;
-}
-</style>
-<p><img alt="1316844cee4a496a84e43a9a7ac2886f" src="http://developer.download.nvidia.com/compute/machine-learning/frameworks/nvidia_logo.png" /></p>
-<div class="section" id="Multi-GPU-Offline-Inference">
-<h1>Multi-GPU Offline Inference<a class="headerlink" href="#Multi-GPU-Offline-Inference" title="Permalink to this headline"></a></h1>
-<div class="section" id="Overview">
-<h2>Overview<a class="headerlink" href="#Overview" title="Permalink to this headline"></a></h2>
-<p>In HugeCTR version 3.4.1, we provide Python APIs to do multi-GPU offline inference, which leverage <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/hugectr_core_features.html#hierarchical-parameter-server">HugeCTR Hierarchical Parameter Server</a> and enable concurrent execution on multiple devices. The Norm or Parquet dataset is currently supported by multi-GPU offline inference.</p>
-<p>This notebook explains how to do multi-GPU offline inference with HugeCTR Python APIs. For more details, please refer to <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html#inference-api">HugeCTR Python Interface</a>.</p>
+  <img alt="http://developer.download.nvidia.com/compute/machine-learning/frameworks/nvidia_logo.png" src="http://developer.download.nvidia.com/compute/machine-learning/frameworks/nvidia_logo.png" />
+<div class="tex2jax_ignore mathjax_ignore section" id="multi-gpu-offline-inference">
+<h1>Multi-GPU Offline Inference<a class="headerlink" href="#multi-gpu-offline-inference" title="Permalink to this headline"></a></h1>
+<div class="section" id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Permalink to this headline"></a></h2>
+<p>In HugeCTR version 3.4.1, we provide Python APIs to perform multi-GPU offline inference.
+This work leverages the <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/hugectr_core_features.html#hierarchical-parameter-server">HugeCTR Hierarchical Parameter Server</a> and enables concurrent execution on multiple devices.
+The <code class="docutils literal notranslate"><span class="pre">Norm</span></code> or <code class="docutils literal notranslate"><span class="pre">Parquet</span></code> dataset format is currently supported by multi-GPU offline inference.</p>
+<p>This notebook explains how to perform multi-GPU offline inference with the HugeCTR Python APIs.
+For more details about the API, see the <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html#inference-api">HugeCTR Python Interface</a> documentation.</p>
 </div>
-<div class="section" id="Table-of-Contents">
-<h2>Table of Contents<a class="headerlink" href="#Table-of-Contents" title="Permalink to this headline"></a></h2>
-<ul class="simple">
-<li><p><a class="reference external" href="#1">Installation</a></p>
-<ul>
-<li><p><a class="reference external" href="#11">Get HugeCTR from NGC</a></p></li>
-<li><p><a class="reference external" href="#12">Build HugeCTR from Source Code</a></p></li>
-</ul>
-</li>
-<li><p><a class="reference external" href="#2">Demo</a></p>
-<ul>
-<li><p><a class="reference external" href="#21">Data Generation</a></p></li>
-<li><p><a class="reference external" href="#22">Train from Scratch</a></p></li>
-<li><p><a class="reference external" href="#23">Multi-GPU Offline Inference</a></p></li>
-</ul>
-</li>
-</ul>
-<p>## 1. Installation</p>
-<p>### 1.1 Get HugeCTR from NGC The HugeCTR Python module is preinstalled in the <a class="reference external" href="https://catalog.ngc.nvidia.com/orgs/nvidia/teams/merlin/containers/merlin-training">Merlin Training Container</a>: <code class="docutils literal notranslate"><span class="pre">nvcr.io/nvidia/merlin/merlin-training:22.04</span></code>.</p>
+<div class="section" id="installation">
+<h2>Installation<a class="headerlink" href="#installation" title="Permalink to this headline"></a></h2>
+<div class="section" id="get-hugectr-from-ngc">
+<h3>Get HugeCTR from NGC<a class="headerlink" href="#get-hugectr-from-ngc" title="Permalink to this headline"></a></h3>
+<p>The HugeCTR Python module is preinstalled in the 22.05 and later <a class="reference external" href="https://catalog.ngc.nvidia.com/orgs/nvidia/teams/merlin/containers/merlin-training">Merlin Training Container</a>: <code class="docutils literal notranslate"><span class="pre">nvcr.io/nvidia/merlin/merlin-training:22.05</span></code>.</p>
 <p>You can check the existence of required libraries by running the following Python code after launching this container.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$ python3 -c <span class="s2">&quot;import hugectr&quot;</span>
 </pre></div>
 </div>
-<p><strong>Note</strong>: This Python module contains both training APIs and offline inference APIs. For online inference with Triton, please refer to <a class="reference external" href="https://github.com/triton-inference-server/hugectr_backend">HugeCTR Backend</a>.</p>
-<p>### 1.2 Build HugeCTR from Source Code</p>
-<p>If you want to build HugeCTR from the source code instead of using the NGC container, please refer to the <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/hugectr_contributor_guide.html#how-to-start-your-development">How to Start Your Development</a>.</p>
-<p>## 2. Demo</p>
-<p>### 2.1 Data Generation HugeCTR provides a tool to generate synthetic datasets. The <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html#data-generator-api">Data Generator</a> is capable of generating datasets of different formats and distributions. We will generate multi-hot Parquet datasets with power law distribution for this notebook:</p>
-<div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[1]:
-</pre></div>
+<p><strong>Note</strong>: This Python module contains both training APIs and offline inference APIs. For online inference with Triton Inference Server, refer to the <a class="reference external" href="https://github.com/triton-inference-server/hugectr_backend">HugeCTR Backend</a> documentation.</p>
+<blockquote>
+<div><p>If you prefer to build HugeCTR from the source code instead of using the NGC container, refer to the <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/hugectr_contributor_guide.html#how-to-start-your-development">How to Start Your Development</a> documentation.</p>
+</div></blockquote>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>import hugectr
-from hugectr.tools import DataGeneratorParams, DataGenerator
+</div>
+<div class="section" id="data-generation">
+<h2>Data Generation<a class="headerlink" href="#data-generation" title="Permalink to this headline"></a></h2>
+<p>HugeCTR provides a tool to generate synthetic datasets.
+The <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html#data-generator-api">Data Generator</a> class is capable of generating datasets in different formats and with different distributions.
+We will generate multi-hot Parquet datasets with a power-law distribution for this notebook:</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">hugectr</span>
+<span class="kn">from</span> <span class="nn">hugectr.tools</span> <span class="kn">import</span> <span class="n">DataGeneratorParams</span><span class="p">,</span> <span class="n">DataGenerator</span>
 
-data_generator_params = DataGeneratorParams(
-  format = hugectr.DataReaderType_t.Parquet,
-  label_dim = 2,
-  dense_dim = 2,
-  num_slot = 3,
-  i64_input_key = True,
-  nnz_array = [2, 1, 3],
-  source = &quot;./multi_hot_parquet/file_list.txt&quot;,
-  eval_source = &quot;./multi_hot_parquet/file_list_test.txt&quot;,
-  slot_size_array = [10000, 10000, 10000],
-  check_type = hugectr.Check_t.Non,
-  dist_type = hugectr.Distribution_t.PowerLaw,
-  power_law_type = hugectr.PowerLaw_t.Short,
-  num_files = 16,
-  eval_num_files = 4)
-data_generator = DataGenerator(data_generator_params)
-data_generator.generate()
+<span class="n">data_generator_params</span> <span class="o">=</span> <span class="n">DataGeneratorParams</span><span class="p">(</span>
+  <span class="nb">format</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">DataReaderType_t</span><span class="o">.</span><span class="n">Parquet</span><span class="p">,</span>
+  <span class="n">label_dim</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
+  <span class="n">dense_dim</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
+  <span class="n">num_slot</span> <span class="o">=</span> <span class="mi">3</span><span class="p">,</span>
+  <span class="n">i64_input_key</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+  <span class="n">nnz_array</span> <span class="o">=</span> <span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span>
+  <span class="n">source</span> <span class="o">=</span> <span class="s2">&quot;./multi_hot_parquet/file_list.txt&quot;</span><span class="p">,</span>
+  <span class="n">eval_source</span> <span class="o">=</span> <span class="s2">&quot;./multi_hot_parquet/file_list_test.txt&quot;</span><span class="p">,</span>
+  <span class="n">slot_size_array</span> <span class="o">=</span> <span class="p">[</span><span class="mi">10000</span><span class="p">,</span> <span class="mi">10000</span><span class="p">,</span> <span class="mi">10000</span><span class="p">],</span>
+  <span class="n">check_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Check_t</span><span class="o">.</span><span class="n">Non</span><span class="p">,</span>
+  <span class="n">dist_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Distribution_t</span><span class="o">.</span><span class="n">PowerLaw</span><span class="p">,</span>
+  <span class="n">power_law_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">PowerLaw_t</span><span class="o">.</span><span class="n">Short</span><span class="p">,</span>
+  <span class="n">num_files</span> <span class="o">=</span> <span class="mi">16</span><span class="p">,</span>
+  <span class="n">eval_num_files</span> <span class="o">=</span> <span class="mi">4</span><span class="p">)</span>
+<span class="n">data_generator</span> <span class="o">=</span> <span class="n">DataGenerator</span><span class="p">(</span><span class="n">data_generator_params</span><span class="p">)</span>
+<span class="n">data_generator</span><span class="o">.</span><span class="n">generate</span><span class="p">()</span>
 </pre></div>
 </div>
 </div>
-<div class="nboutput nblast docutils container">
-<div class="prompt empty docutils container">
-</div>
-<div class="output_area docutils container">
-<div class="highlight"><pre>
-[HCTR][15:01:03][INFO][RK0][main]: Generate Parquet dataset
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>[HCTR][15:01:03][INFO][RK0][main]: Generate Parquet dataset
 [HCTR][15:01:03][INFO][RK0][main]: train data folder: ./multi_hot_parquet, eval data folder: ./multi_hot_parquet, slot_size_array: 10000, 10000, 10000, nnz array: 2, 1, 3, #files for train: 16, #files for eval: 4, #samples per file: 40960, Use power law distribution: 1, alpha of power law: 1.3
 [HCTR][15:01:03][INFO][RK0][main]: ./multi_hot_parquet exist
 [HCTR][15:01:03][INFO][RK0][main]: ./multi_hot_parquet/train/gen_0.parquet
@@ -457,114 +174,109 @@ data_generator.generate()
 [HCTR][15:01:08][INFO][RK0][main]: ./multi_hot_parquet/val/gen_2.parquet
 [HCTR][15:01:08][INFO][RK0][main]: ./multi_hot_parquet/val/gen_3.parquet
 [HCTR][15:01:08][INFO][RK0][main]: ./multi_hot_parquet/file_list_test.txt done!
-</pre></div></div>
+</pre></div>
 </div>
-<p>### 2.2 Train from Scratch We can train fom scratch by doing the following steps with Python APIs:</p>
-<ol class="arabic simple">
+</div>
+</div>
+</div>
+<div class="section" id="train-from-scratch">
+<h2>Train from Scratch<a class="headerlink" href="#train-from-scratch" title="Permalink to this headline"></a></h2>
+<p>We can train fom scratch by performing the following steps with Python APIs:</p>
+<ol class="simple">
 <li><p>Create the solver, reader and optimizer, then initialize the model.</p></li>
 <li><p>Construct the model graph by adding input, sparse embedding and dense layers in order.</p></li>
 <li><p>Compile the model and have an overview of the model graph.</p></li>
-<li><p>Dump the model graph to the JSON file.</p></li>
+<li><p>Dump the model graph to a JSON file.</p></li>
 <li><p>Fit the model, save the model weights and optimizer states implicitly.</p></li>
 <li><p>Dump one batch of evaluation results to files.</p></li>
 </ol>
-<div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[2]:
-</pre></div>
-</div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>%%writefile multi_hot_train.py
-import hugectr
-from mpi4py import MPI
-solver = hugectr.CreateSolver(model_name = &quot;multi_hot&quot;,
-                              max_eval_batches = 1,
-                              batchsize_eval = 16384,
-                              batchsize = 16384,
-                              lr = 0.001,
-                              vvgpu = [[0]],
-                              i64_input_key = True,
-                              repeat_dataset = True,
-                              use_cuda_graph = True)
-reader = hugectr.DataReaderParams(data_reader_type = hugectr.DataReaderType_t.Parquet,
-                                  source = [&quot;./multi_hot_parquet/file_list.txt&quot;],
-                                  eval_source = &quot;./multi_hot_parquet/file_list_test.txt&quot;,
-                                  check_type = hugectr.Check_t.Non,
-                                  slot_size_array = [10000, 10000, 10000])
-optimizer = hugectr.CreateOptimizer(optimizer_type = hugectr.Optimizer_t.Adam)
-model = hugectr.Model(solver, reader, optimizer)
-model.add(hugectr.Input(label_dim = 2, label_name = &quot;label&quot;,
-                        dense_dim = 2, dense_name = &quot;dense&quot;,
-                        data_reader_sparse_param_array =
-                        [hugectr.DataReaderSparseParam(&quot;data1&quot;, [2, 1], False, 2),
-                        hugectr.DataReaderSparseParam(&quot;data2&quot;, 3, False, 1),]))
-model.add(hugectr.SparseEmbedding(embedding_type = hugectr.Embedding_t.DistributedSlotSparseEmbeddingHash,
-                            workspace_size_per_gpu_in_mb = 4,
-                            embedding_vec_size = 16,
-                            combiner = &quot;sum&quot;,
-                            sparse_embedding_name = &quot;sparse_embedding1&quot;,
-                            bottom_name = &quot;data1&quot;,
-                            optimizer = optimizer))
-model.add(hugectr.SparseEmbedding(embedding_type = hugectr.Embedding_t.DistributedSlotSparseEmbeddingHash,
-                            workspace_size_per_gpu_in_mb = 2,
-                            embedding_vec_size = 16,
-                            combiner = &quot;sum&quot;,
-                            sparse_embedding_name = &quot;sparse_embedding2&quot;,
-                            bottom_name = &quot;data2&quot;,
-                            optimizer = optimizer))
-model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Reshape,
-                            bottom_names = [&quot;sparse_embedding1&quot;],
-                            top_names = [&quot;reshape1&quot;],
-                            leading_dim=32))
-model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Reshape,
-                            bottom_names = [&quot;sparse_embedding2&quot;],
-                            top_names = [&quot;reshape2&quot;],
-                            leading_dim=16))
-model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Concat,
-                            bottom_names = [&quot;reshape1&quot;, &quot;reshape2&quot;, &quot;dense&quot;], top_names = [&quot;concat1&quot;]))
-model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.InnerProduct,
-                            bottom_names = [&quot;concat1&quot;],
-                            top_names = [&quot;fc1&quot;],
-                            num_output=1024))
-model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.ReLU,
-                            bottom_names = [&quot;fc1&quot;],
-                            top_names = [&quot;relu1&quot;]))
-model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.InnerProduct,
-                            bottom_names = [&quot;relu1&quot;],
-                            top_names = [&quot;fc2&quot;],
-                            num_output=2))
-model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.MultiCrossEntropyLoss,
-                            bottom_names = [&quot;fc2&quot;, &quot;label&quot;],
-                            top_names = [&quot;loss&quot;],
-                            target_weight_vec = [0.5, 0.5]))
-model.compile()
-model.summary()
-model.graph_to_json(&quot;multi_hot.json&quot;)
-model.fit(max_iter = 1100, display = 200, eval_interval = 1000, snapshot = 1000, snapshot_prefix = &quot;multi_hot&quot;)
-model.export_predictions(&quot;multi_hot_pred_&quot; + str(1000), &quot;multi_hot_label_&quot; + str(1000))
-</pre></div>
-</div>
-</div>
-<div class="nboutput nblast docutils container">
-<div class="prompt empty docutils container">
-</div>
-<div class="output_area docutils container">
-<div class="highlight"><pre>
-Overwriting multi_hot_train.py
-</pre></div></div>
-</div>
-<div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[3]:
-</pre></div>
-</div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>!python3 multi_hot_train.py
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">%%writefile</span> multi_hot_train.py
+<span class="kn">import</span> <span class="nn">hugectr</span>
+<span class="kn">from</span> <span class="nn">mpi4py</span> <span class="kn">import</span> <span class="n">MPI</span>
+<span class="n">solver</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">CreateSolver</span><span class="p">(</span><span class="n">model_name</span> <span class="o">=</span> <span class="s2">&quot;multi_hot&quot;</span><span class="p">,</span>
+                              <span class="n">max_eval_batches</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+                              <span class="n">batchsize_eval</span> <span class="o">=</span> <span class="mi">16384</span><span class="p">,</span>
+                              <span class="n">batchsize</span> <span class="o">=</span> <span class="mi">16384</span><span class="p">,</span>
+                              <span class="n">lr</span> <span class="o">=</span> <span class="mf">0.001</span><span class="p">,</span>
+                              <span class="n">vvgpu</span> <span class="o">=</span> <span class="p">[[</span><span class="mi">0</span><span class="p">]],</span>
+                              <span class="n">i64_input_key</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+                              <span class="n">repeat_dataset</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+                              <span class="n">use_cuda_graph</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span>
+<span class="n">reader</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">DataReaderParams</span><span class="p">(</span><span class="n">data_reader_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">DataReaderType_t</span><span class="o">.</span><span class="n">Parquet</span><span class="p">,</span>
+                                  <span class="n">source</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;./multi_hot_parquet/file_list.txt&quot;</span><span class="p">],</span>
+                                  <span class="n">eval_source</span> <span class="o">=</span> <span class="s2">&quot;./multi_hot_parquet/file_list_test.txt&quot;</span><span class="p">,</span>
+                                  <span class="n">check_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Check_t</span><span class="o">.</span><span class="n">Non</span><span class="p">,</span>
+                                  <span class="n">slot_size_array</span> <span class="o">=</span> <span class="p">[</span><span class="mi">10000</span><span class="p">,</span> <span class="mi">10000</span><span class="p">,</span> <span class="mi">10000</span><span class="p">])</span>
+<span class="n">optimizer</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">CreateOptimizer</span><span class="p">(</span><span class="n">optimizer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Optimizer_t</span><span class="o">.</span><span class="n">Adam</span><span class="p">)</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Model</span><span class="p">(</span><span class="n">solver</span><span class="p">,</span> <span class="n">reader</span><span class="p">,</span> <span class="n">optimizer</span><span class="p">)</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">Input</span><span class="p">(</span><span class="n">label_dim</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span> <span class="n">label_name</span> <span class="o">=</span> <span class="s2">&quot;label&quot;</span><span class="p">,</span>
+                        <span class="n">dense_dim</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span> <span class="n">dense_name</span> <span class="o">=</span> <span class="s2">&quot;dense&quot;</span><span class="p">,</span>
+                        <span class="n">data_reader_sparse_param_array</span> <span class="o">=</span> 
+                        <span class="p">[</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DataReaderSparseParam</span><span class="p">(</span><span class="s2">&quot;data1&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="kc">False</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span>
+                        <span class="n">hugectr</span><span class="o">.</span><span class="n">DataReaderSparseParam</span><span class="p">(</span><span class="s2">&quot;data2&quot;</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="mi">1</span><span class="p">),]))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">SparseEmbedding</span><span class="p">(</span><span class="n">embedding_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Embedding_t</span><span class="o">.</span><span class="n">DistributedSlotSparseEmbeddingHash</span><span class="p">,</span> 
+                            <span class="n">workspace_size_per_gpu_in_mb</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>
+                            <span class="n">embedding_vec_size</span> <span class="o">=</span> <span class="mi">16</span><span class="p">,</span>
+                            <span class="n">combiner</span> <span class="o">=</span> <span class="s2">&quot;sum&quot;</span><span class="p">,</span>
+                            <span class="n">sparse_embedding_name</span> <span class="o">=</span> <span class="s2">&quot;sparse_embedding1&quot;</span><span class="p">,</span>
+                            <span class="n">bottom_name</span> <span class="o">=</span> <span class="s2">&quot;data1&quot;</span><span class="p">,</span>
+                            <span class="n">optimizer</span> <span class="o">=</span> <span class="n">optimizer</span><span class="p">))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">SparseEmbedding</span><span class="p">(</span><span class="n">embedding_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Embedding_t</span><span class="o">.</span><span class="n">DistributedSlotSparseEmbeddingHash</span><span class="p">,</span> 
+                            <span class="n">workspace_size_per_gpu_in_mb</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
+                            <span class="n">embedding_vec_size</span> <span class="o">=</span> <span class="mi">16</span><span class="p">,</span>
+                            <span class="n">combiner</span> <span class="o">=</span> <span class="s2">&quot;sum&quot;</span><span class="p">,</span>
+                            <span class="n">sparse_embedding_name</span> <span class="o">=</span> <span class="s2">&quot;sparse_embedding2&quot;</span><span class="p">,</span>
+                            <span class="n">bottom_name</span> <span class="o">=</span> <span class="s2">&quot;data2&quot;</span><span class="p">,</span>
+                            <span class="n">optimizer</span> <span class="o">=</span> <span class="n">optimizer</span><span class="p">))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">Reshape</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;sparse_embedding1&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;reshape1&quot;</span><span class="p">],</span>
+                            <span class="n">leading_dim</span><span class="o">=</span><span class="mi">32</span><span class="p">))</span>                            
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">Reshape</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;sparse_embedding2&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;reshape2&quot;</span><span class="p">],</span>
+                            <span class="n">leading_dim</span><span class="o">=</span><span class="mi">16</span><span class="p">))</span>                            
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">Concat</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;reshape1&quot;</span><span class="p">,</span> <span class="s2">&quot;reshape2&quot;</span><span class="p">,</span> <span class="s2">&quot;dense&quot;</span><span class="p">],</span> <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;concat1&quot;</span><span class="p">]))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">InnerProduct</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;concat1&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;fc1&quot;</span><span class="p">],</span>
+                            <span class="n">num_output</span><span class="o">=</span><span class="mi">1024</span><span class="p">))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">ReLU</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;fc1&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;relu1&quot;</span><span class="p">]))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">InnerProduct</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;relu1&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;fc2&quot;</span><span class="p">],</span>
+                            <span class="n">num_output</span><span class="o">=</span><span class="mi">2</span><span class="p">))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">MultiCrossEntropyLoss</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;fc2&quot;</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;loss&quot;</span><span class="p">],</span>
+                            <span class="n">target_weight_vec</span> <span class="o">=</span> <span class="p">[</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">]))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">compile</span><span class="p">()</span>
+<span class="n">model</span><span class="o">.</span><span class="n">summary</span><span class="p">()</span>
+<span class="n">model</span><span class="o">.</span><span class="n">graph_to_json</span><span class="p">(</span><span class="s2">&quot;multi_hot.json&quot;</span><span class="p">)</span>
+<span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">max_iter</span> <span class="o">=</span> <span class="mi">1100</span><span class="p">,</span> <span class="n">display</span> <span class="o">=</span> <span class="mi">200</span><span class="p">,</span> <span class="n">eval_interval</span> <span class="o">=</span> <span class="mi">1000</span><span class="p">,</span> <span class="n">snapshot</span> <span class="o">=</span> <span class="mi">1000</span><span class="p">,</span> <span class="n">snapshot_prefix</span> <span class="o">=</span> <span class="s2">&quot;multi_hot&quot;</span><span class="p">)</span>
+<span class="n">model</span><span class="o">.</span><span class="n">export_predictions</span><span class="p">(</span><span class="s2">&quot;multi_hot_pred_&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="mi">1000</span><span class="p">),</span> <span class="s2">&quot;multi_hot_label_&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="mi">1000</span><span class="p">))</span>
 </pre></div>
 </div>
 </div>
-<div class="nboutput nblast docutils container">
-<div class="prompt empty docutils container">
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Overwriting multi_hot_train.py
+</pre></div>
 </div>
-<div class="output_area docutils container">
-<div class="highlight"><pre>
-HugeCTR Version: 3.4
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python3 multi_hot_train.py
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>HugeCTR Version: 3.4
 ====================================================Model Init=====================================================
 [HCTR][15:04:04][INFO][RK0][main]: Initialize model: multi_hot
 [HCTR][15:04:04][INFO][RK0][main]: Global seed is 2258929170
@@ -588,32 +300,32 @@ HugeCTR Version: 3.4
 [HCTR][15:04:14][INFO][RK0][main]: Starting AUC NCCL warm-up
 [HCTR][15:04:14][INFO][RK0][main]: Warm-up done
 [HCTR][15:04:14][INFO][RK0][main]: ===================================================Model Summary===================================================
-label                                   Dense                         Sparse
-label                                   dense                          data1,data2
-(None, 2)                               (None, 2)
+label                                   Dense                         Sparse                        
+label                                   dense                          data1,data2                   
+(None, 2)                               (None, 2)                               
 ——————————————————————————————————————————————————————————————————————————————————————————————————————————————————
-Layer Type                              Input Name                    Output Name                   Output Shape
+Layer Type                              Input Name                    Output Name                   Output Shape                  
 ——————————————————————————————————————————————————————————————————————————————————————————————————————————————————
-DistributedSlotSparseEmbeddingHash      data1                         sparse_embedding1             (None, 2, 16)
+DistributedSlotSparseEmbeddingHash      data1                         sparse_embedding1             (None, 2, 16)                 
 ------------------------------------------------------------------------------------------------------------------
-DistributedSlotSparseEmbeddingHash      data2                         sparse_embedding2             (None, 1, 16)
+DistributedSlotSparseEmbeddingHash      data2                         sparse_embedding2             (None, 1, 16)                 
 ------------------------------------------------------------------------------------------------------------------
-Reshape                                 sparse_embedding1             reshape1                      (None, 32)
+Reshape                                 sparse_embedding1             reshape1                      (None, 32)                    
 ------------------------------------------------------------------------------------------------------------------
-Reshape                                 sparse_embedding2             reshape2                      (None, 16)
+Reshape                                 sparse_embedding2             reshape2                      (None, 16)                    
 ------------------------------------------------------------------------------------------------------------------
-Concat                                  reshape1                      concat1                       (None, 50)
-                                        reshape2
-                                        dense
+Concat                                  reshape1                      concat1                       (None, 50)                    
+                                        reshape2                                                                                  
+                                        dense                                                                                     
 ------------------------------------------------------------------------------------------------------------------
-InnerProduct                            concat1                       fc1                           (None, 1024)
+InnerProduct                            concat1                       fc1                           (None, 1024)                  
 ------------------------------------------------------------------------------------------------------------------
-ReLU                                    fc1                           relu1                         (None, 1024)
+ReLU                                    fc1                           relu1                         (None, 1024)                  
 ------------------------------------------------------------------------------------------------------------------
-InnerProduct                            relu1                         fc2                           (None, 2)
+InnerProduct                            relu1                         fc2                           (None, 2)                     
 ------------------------------------------------------------------------------------------------------------------
-MultiCrossEntropyLoss                   fc2                           loss
-                                        label
+MultiCrossEntropyLoss                   fc2                           loss                                                        
+                                        label                                                                                     
 ------------------------------------------------------------------------------------------------------------------
 [HCTR][15:04:14][INFO][RK0][main]: Save the model graph to multi_hot.json successfully
 =====================================================Model Fit=====================================================
@@ -650,55 +362,60 @@ MultiCrossEntropyLoss                   fc2                           loss
 [HCTR][15:04:28][INFO][RK0][main]: Dumping dense weights to file, successful
 [HCTR][15:04:28][INFO][RK0][main]: Dumping dense optimizer states to file, successful
 [HCTR][15:04:29][INFO][RK0][main]: Finish 1100 iterations with batchsize: 16384 in 14.54s.
-</pre></div></div>
-</div>
-<p>### 2.3 Multi-GPU Offline Inference</p>
-<p>We will demonstrate multi-GPU offline inference by doing the following steps with Python APIs: 1. Configure the inference hyperparameters. 2. Initialize the inference model, which is a collection of inference sessions deployed on multiple devices. 3. Make inference from the evaluation dataset. 4. Check the correctness by comparing with dumped evaluation results.</p>
-<p><strong>Note</strong>: The <code class="docutils literal notranslate"><span class="pre">max_batchsize</span></code> configured within <code class="docutils literal notranslate"><span class="pre">InferenceParams</span></code> is the global batch size, and it should be divisible by the number of deployed devices. The numpy array returned by <code class="docutils literal notranslate"><span class="pre">InferenceModel.predict</span></code> is of the shape <code class="docutils literal notranslate"><span class="pre">(max_batchsize</span> <span class="pre">*</span> <span class="pre">num_batches,</span> <span class="pre">label_dim)</span></code>.</p>
-<div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[4]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>import hugectr
-from hugectr.inference import InferenceModel, InferenceParams
-import numpy as np
-from mpi4py import MPI
+</div>
+</div>
+<div class="section" id="id1">
+<h3>Multi-GPU Offline Inference<a class="headerlink" href="#id1" title="Permalink to this headline"></a></h3>
+<p>We can demonstrate multi-GPU offline inference by performing the following steps with Python APIs:</p>
+<ol class="simple">
+<li><p>Configure the inference hyperparameters.</p></li>
+<li><p>Initialize the inference model. The model is a collection of inference sessions deployed on multiple devices.</p></li>
+<li><p>Make an inference from the evaluation dataset.</p></li>
+<li><p>Check the correctness of the inference by comparing it with the dumped evaluation results.</p></li>
+</ol>
+<p><strong>Note</strong>: The <code class="docutils literal notranslate"><span class="pre">max_batchsize</span></code> configured within <code class="docutils literal notranslate"><span class="pre">InferenceParams</span></code> is the global batch size.
+The value for <code class="docutils literal notranslate"><span class="pre">max_batchsize</span></code> should be divisible by the number of deployed devices.
+The numpy array returned by <code class="docutils literal notranslate"><span class="pre">InferenceModel.predict</span></code> is of the shape <code class="docutils literal notranslate"><span class="pre">(max_batchsize</span> <span class="pre">*</span> <span class="pre">num_batches,</span> <span class="pre">label_dim)</span></code>.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">hugectr</span>
+<span class="kn">from</span> <span class="nn">hugectr.inference</span> <span class="kn">import</span> <span class="n">InferenceModel</span><span class="p">,</span> <span class="n">InferenceParams</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">mpi4py</span> <span class="kn">import</span> <span class="n">MPI</span>
 
-model_config = &quot;multi_hot.json&quot;
-inference_params = InferenceParams(
-    model_name = &quot;multi_hot&quot;,
-    max_batchsize = 1024,
-    hit_rate_threshold = 1.0,
-    dense_model_file = &quot;multi_hot_dense_1000.model&quot;,
-    sparse_model_files = [&quot;multi_hot0_sparse_1000.model&quot;, &quot;multi_hot1_sparse_1000.model&quot;],
-    deployed_devices = [0, 1, 2, 3],
-    use_gpu_embedding_cache = True,
-    cache_size_percentage = 0.5,
-    i64_input_key = True
-)
-inference_model = InferenceModel(model_config, inference_params)
-pred = inference_model.predict(
-    16,
-    &quot;./multi_hot_parquet/file_list_test.txt&quot;,
-    hugectr.DataReaderType_t.Parquet,
-    hugectr.Check_t.Non,
-    [10000, 10000, 10000]
-)
-grount_truth = np.loadtxt(&quot;multi_hot_pred_1000&quot;)
-print(&quot;pred: &quot;, pred)
-print(&quot;grount_truth: &quot;, grount_truth)
-diff = pred.flatten()-grount_truth
-mse = np.mean(diff*diff)
-print(&quot;mse: &quot;, mse)
+<span class="n">model_config</span> <span class="o">=</span> <span class="s2">&quot;multi_hot.json&quot;</span>
+<span class="n">inference_params</span> <span class="o">=</span> <span class="n">InferenceParams</span><span class="p">(</span>
+    <span class="n">model_name</span> <span class="o">=</span> <span class="s2">&quot;multi_hot&quot;</span><span class="p">,</span>
+    <span class="n">max_batchsize</span> <span class="o">=</span> <span class="mi">1024</span><span class="p">,</span>
+    <span class="n">hit_rate_threshold</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
+    <span class="n">dense_model_file</span> <span class="o">=</span> <span class="s2">&quot;multi_hot_dense_1000.model&quot;</span><span class="p">,</span>
+    <span class="n">sparse_model_files</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;multi_hot0_sparse_1000.model&quot;</span><span class="p">,</span> <span class="s2">&quot;multi_hot1_sparse_1000.model&quot;</span><span class="p">],</span>
+    <span class="n">deployed_devices</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span>
+    <span class="n">use_gpu_embedding_cache</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">cache_size_percentage</span> <span class="o">=</span> <span class="mf">0.5</span><span class="p">,</span>
+    <span class="n">i64_input_key</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="p">)</span>
+<span class="n">inference_model</span> <span class="o">=</span> <span class="n">InferenceModel</span><span class="p">(</span><span class="n">model_config</span><span class="p">,</span> <span class="n">inference_params</span><span class="p">)</span>
+<span class="n">pred</span> <span class="o">=</span> <span class="n">inference_model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span>
+    <span class="mi">16</span><span class="p">,</span>
+    <span class="s2">&quot;./multi_hot_parquet/file_list_test.txt&quot;</span><span class="p">,</span>
+    <span class="n">hugectr</span><span class="o">.</span><span class="n">DataReaderType_t</span><span class="o">.</span><span class="n">Parquet</span><span class="p">,</span>
+    <span class="n">hugectr</span><span class="o">.</span><span class="n">Check_t</span><span class="o">.</span><span class="n">Non</span><span class="p">,</span>
+    <span class="p">[</span><span class="mi">10000</span><span class="p">,</span> <span class="mi">10000</span><span class="p">,</span> <span class="mi">10000</span><span class="p">]</span>
+<span class="p">)</span>
+<span class="n">grount_truth</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">loadtxt</span><span class="p">(</span><span class="s2">&quot;multi_hot_pred_1000&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;pred: &quot;</span><span class="p">,</span> <span class="n">pred</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;grount_truth: &quot;</span><span class="p">,</span> <span class="n">grount_truth</span><span class="p">)</span>
+<span class="n">diff</span> <span class="o">=</span> <span class="n">pred</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span><span class="o">-</span><span class="n">grount_truth</span>
+<span class="n">mse</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">diff</span><span class="o">*</span><span class="n">diff</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;mse: &quot;</span><span class="p">,</span> <span class="n">mse</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
-<div class="nboutput nblast docutils container">
-<div class="prompt empty docutils container">
-</div>
-<div class="output_area docutils container">
-<div class="highlight"><pre>
-[HCTR][15:04:58][INFO][RK0][main]: Global seed is 3101700364
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>[HCTR][15:04:58][INFO][RK0][main]: Global seed is 3101700364
 [HCTR][15:04:58][INFO][RK0][main]: Device to NUMA mapping:
   GPU 0 -&gt;  node 0
   GPU 1 -&gt;  node 0
@@ -812,7 +529,10 @@ pred:  [[0.6733939  0.43605337]
  [0.58435297 0.45384815]]
 grount_truth:  [0.673394 0.436053 0.518908 ... 0.440985 0.584353 0.453848]
 mse:  0.0012302037921078574
-</pre></div></div>
+</pre></div>
+</div>
+</div>
+</div>
 </div>
 </div>
 </div>
@@ -821,7 +541,7 @@ mse:  0.0012302037921078574
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="hugectr_criteo.html" class="btn btn-neutral float-left" title="HugeCTR Python Interface" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="news-example.html" class="btn btn-neutral float-left" title="NVIDIA Merlin on Microsoft’s News Dataset (MIND)" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
         <a href="hps_demo.html" class="btn btn-neutral float-right" title="Hierarchical Parameter Server Demo" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
@@ -852,6 +572,7 @@ mse:  0.0012302037921078574
     <dl>
       <dt>Tags</dt>
       <dd><a href="../../v3.5/index.html">v3.5</a></dd>
+      <dd><a href="../../v3.6/index.html">v3.6</a></dd>
     </dl>
     <dl>
       <dt>Branches</dt>
