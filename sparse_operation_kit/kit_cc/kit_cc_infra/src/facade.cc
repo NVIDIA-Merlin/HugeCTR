@@ -355,8 +355,10 @@ void Facade::forward(const tensorflow::Tensor* emb_handle, const tensorflow::Ten
   // delegate embedding forward to embedding manager
   embedding_mgr_->forward(embedding, values, indices, global_replica_id, training, emb_vector, h_replica_nnz);
 
-  size_t local_gpu_id = resources_mgr_->cal_local_id_from_global_id(global_replica_id);
-  resources_mgr_->sync_gpu(local_gpu_id);
+  if (resources_mgr_->get_local_gpu_count() > 1) {
+    size_t local_gpu_id = resources_mgr_->cal_local_id_from_global_id(global_replica_id);
+    resources_mgr_->sync_gpu(local_gpu_id);
+  }
 
 #ifdef SOK_ASYNC
   resources_mgr_->event_record(global_replica_id, EventRecordType::RMyself,
@@ -401,9 +403,11 @@ void Facade::forward(const tensorflow::Tensor* emb_handle, const tensorflow::Ten
 
   // delegate embedding forward to embedding manager
   embedding_mgr_->forward(embedding, values, global_replica_id, training, emb_vector, h_replica_nnz);
-  
-  size_t local_gpu_id = resources_mgr_->cal_local_id_from_global_id(global_replica_id);
-  resources_mgr_->sync_gpu(local_gpu_id);
+
+  if (resources_mgr_->get_local_gpu_count() > 1) {
+    size_t local_gpu_id = resources_mgr_->cal_local_id_from_global_id(global_replica_id);
+    resources_mgr_->sync_gpu(local_gpu_id);
+  }
 
 #ifdef SOK_ASYNC
   resources_mgr_->event_record(global_replica_id, EventRecordType::RMyself,
@@ -447,8 +451,10 @@ void Facade::backward(const tensorflow::Tensor* emb_handle, const size_t global_
   // delegate embedding backward to embedding manager
   embedding_mgr_->backward(embedding, top_gradient, global_replica_id, gradient, value_index);
 
-  size_t local_gpu_id = resources_mgr_->cal_local_id_from_global_id(global_replica_id);
-  resources_mgr_->sync_gpu(local_gpu_id);
+  if (resources_mgr_->get_local_gpu_count() > 1) {
+    size_t local_gpu_id = resources_mgr_->cal_local_id_from_global_id(global_replica_id);
+    resources_mgr_->sync_gpu(local_gpu_id);
+  }
 
 #ifdef SOK_ASYNC
   resources_mgr_->event_record(global_replica_id, EventRecordType::RMyself,
