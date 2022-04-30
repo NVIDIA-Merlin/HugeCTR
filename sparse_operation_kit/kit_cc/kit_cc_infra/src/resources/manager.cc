@@ -154,7 +154,7 @@ void ResourcesManager::init(const size_t global_replica_id, const size_t num_rep
     std::this_thread::yield();
   }
   // FIXME: should use sync_all_workers_via_cpu??
-  sync_cpu_threads();
+  // sync_cpu_threads();
 
   create_gpu_resource(global_replica_id, num_replicas_in_sync, tf_stream);
 

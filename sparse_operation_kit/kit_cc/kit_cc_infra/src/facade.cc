@@ -344,7 +344,7 @@ void Facade::forward(const tensorflow::Tensor* emb_handle, const tensorflow::Ten
                                /*event_name=*/embedding->get_var_name() + "_forward_begin");
 #endif
   // sync processes to avoid NCCL waiting
-  resources_mgr_->sync_all_workers_via_cpu();
+  // resources_mgr_->sync_all_workers_via_cpu();
 
   // check inputs dtype as early as possible
   REQUIRES_TRUE(embedding->key_dtype() == values->dtype(),
@@ -354,6 +354,10 @@ void Facade::forward(const tensorflow::Tensor* emb_handle, const tensorflow::Ten
 
   // delegate embedding forward to embedding manager
   embedding_mgr_->forward(embedding, values, indices, global_replica_id, training, emb_vector, h_replica_nnz);
+
+  size_t local_gpu_id = resources_mgr_->cal_local_id_from_global_id(global_replica_id);
+  resources_mgr_->sync_gpu(local_gpu_id);
+
 #ifdef SOK_ASYNC
   resources_mgr_->event_record(global_replica_id, EventRecordType::RMyself,
                                /*event_name=*/embedding->get_var_name() + "_forward_end");
@@ -387,7 +391,7 @@ void Facade::forward(const tensorflow::Tensor* emb_handle, const tensorflow::Ten
                                /*event_name=*/embedding->get_var_name() + "_forward_begin");
 #endif
   // sync processes to avoid NCCL waiting
-  resources_mgr_->sync_all_workers_via_cpu();
+  // resources_mgr_->sync_all_workers_via_cpu();
 
   // check inputs dtype as early as possible
   REQUIRES_TRUE(embedding->key_dtype() == values->dtype(),
@@ -397,6 +401,10 @@ void Facade::forward(const tensorflow::Tensor* emb_handle, const tensorflow::Ten
 
   // delegate embedding forward to embedding manager
   embedding_mgr_->forward(embedding, values, global_replica_id, training, emb_vector, h_replica_nnz);
+  
+  size_t local_gpu_id = resources_mgr_->cal_local_id_from_global_id(global_replica_id);
+  resources_mgr_->sync_gpu(local_gpu_id);
+
 #ifdef SOK_ASYNC
   resources_mgr_->event_record(global_replica_id, EventRecordType::RMyself,
                                /*event_name=*/embedding->get_var_name() + "_forward_end");
@@ -428,7 +436,7 @@ void Facade::backward(const tensorflow::Tensor* emb_handle, const size_t global_
                                /*event_name=*/embedding->get_var_name() + "_backward_begin");
 #endif
   // sync processes to avoid NCCL waiting
-  resources_mgr_->sync_all_workers_via_cpu();
+  // resources_mgr_->sync_all_workers_via_cpu();
 
   // check inputs dtype as early as possible
   REQUIRES_TRUE(embedding->compute_dtype() == top_gradient->dtype(), 
@@ -438,6 +446,10 @@ void Facade::backward(const tensorflow::Tensor* emb_handle, const size_t global_
 
   // delegate embedding backward to embedding manager
   embedding_mgr_->backward(embedding, top_gradient, global_replica_id, gradient, value_index);
+
+  size_t local_gpu_id = resources_mgr_->cal_local_id_from_global_id(global_replica_id);
+  resources_mgr_->sync_gpu(local_gpu_id);
+
 #ifdef SOK_ASYNC
   resources_mgr_->event_record(global_replica_id, EventRecordType::RMyself,
                                /*event_name=*/embedding->get_var_name() + "_backward_end");
