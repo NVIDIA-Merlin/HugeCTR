@@ -42,6 +42,9 @@ class PluginInitOp : public AsyncOpKernel {
     OP_REQUIRES(ctx, global_batch_size_ > 0,
                 errors::Aborted(__FILE__, ":", __LINE__, " ", "global_batch_size must be > 0."));
   }
+
+  bool IsExpensive() override { return true; }
+
   void ComputeAsync(OpKernelContext* ctx, DoneCallback done) override {
     const Tensor* global_replica_id_tensor = nullptr;
     OP_REQUIRES_OK_ASYNC(ctx, ctx->input("global_replica_id", &global_replica_id_tensor), done);

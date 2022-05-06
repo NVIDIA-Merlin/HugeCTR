@@ -37,6 +37,9 @@ class PluginSparseFpropOp : public AsyncOpKernel {
   explicit PluginSparseFpropOp(OpKernelConstruction *ctx) : AsyncOpKernel(ctx) {
     OP_REQUIRES_OK(ctx, ctx->GetAttr("training", &training_));
   }
+
+  bool IsExpensive() override { return true; }
+
   void ComputeAsync(OpKernelContext *ctx, DoneCallback done) override {
     Tensor const *global_replica_id_tensor = nullptr;
     OP_REQUIRES_OK_ASYNC(ctx, ctx->input("global_replica_id", &global_replica_id_tensor), done);
