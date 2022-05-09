@@ -59,7 +59,8 @@ void copy_pred(float* y, SrcType* x, int num_elems, int num_sms, cudaStream_t st
 
 template <>
 void copy_pred<float>(float* y, float* x, int num_elems, int num_sms, cudaStream_t stream) {
-  HCTR_LIB_THROW(cudaMemcpyAsync(y, x, num_elems * sizeof(float), cudaMemcpyDeviceToDevice, stream));
+  HCTR_LIB_THROW(
+      cudaMemcpyAsync(y, x, num_elems * sizeof(float), cudaMemcpyDeviceToDevice, stream));
 }
 
 template <>
@@ -91,12 +92,14 @@ void copy_all<__half>(float* y_pred, float* y_label, __half* x_pred, float* x_la
 
 __global__ void init_classes_kernel(int* classes, size_t num_valid_samples, size_t num_classes) {
   size_t tid_base = blockIdx.x * blockDim.x + threadIdx.x;
-  for (size_t tid = tid_base; tid < num_valid_samples * num_classes; tid += blockDim.x * gridDim.x) {
+  for (size_t tid = tid_base; tid < num_valid_samples * num_classes;
+       tid += blockDim.x * gridDim.x) {
     classes[tid] = tid % num_classes;
   }
 }
 
-void init_classes(int* classes, size_t num_valid_samples, size_t num_classes, int num_sms, cudaStream_t stream) {
+void init_classes(int* classes, size_t num_valid_samples, size_t num_classes, int num_sms,
+                  cudaStream_t stream) {
   dim3 grid(num_sms * 2, 1, 1);
   dim3 block(1024, 1, 1);
   init_classes_kernel<<<grid, block, 0, stream>>>(classes, num_valid_samples, num_classes);
@@ -631,11 +634,13 @@ AUC<T>::AUC(int batch_size_per_gpu, int n_batches, int label_dim,
       num_total_samples_(0),
       storage_(num_local_gpus_),
       offsets_(num_local_gpus_, 0) {
-
-  HCTR_LOG(INFO, ROOT, "AUC Init batch_size_per_gpu:%d n_batches:%d num_classes:%lu\nnum_local_gpus:%d num_global_gpus:%d num_bins:%d num_partitions:%d\n",
-          batch_size_per_gpu_, n_batches_, num_classes_, num_local_gpus_,
-          num_global_gpus_, num_bins_, num_partitions_);
-  assert(num_classes_ <= 256); // If increasing this limit, adjust end_bit in local_reduce::SortPairs call
+  HCTR_LOG(INFO, ROOT,
+           "AUC Init batch_size_per_gpu:%d n_batches:%d num_classes:%lu\nnum_local_gpus:%d "
+           "num_global_gpus:%d num_bins:%d num_partitions:%d\n",
+           batch_size_per_gpu_, n_batches_, num_classes_, num_local_gpus_, num_global_gpus_,
+           num_bins_, num_partitions_);
+  assert(num_classes_ <=
+         256);  // If increasing this limit, adjust end_bit in local_reduce::SortPairs call
 
   size_t max_num_local_samples = (batch_size_per_gpu_ * n_batches_);
 
@@ -644,7 +649,8 @@ AUC<T>::AUC(int batch_size_per_gpu, int n_batches, int label_dim,
     CudaDeviceContext context(device_id);
 
     auto& st = storage_[i];
-    st.alloc_main(max_num_local_samples, num_bins_, num_partitions_, num_global_gpus_, num_classes_);
+    st.alloc_main(max_num_local_samples, num_bins_, num_partitions_, num_global_gpus_,
+                  num_classes_);
     st.realloc_workspace(num_partitions_ * sizeof(CountType));
 
     st.realloc_local_reduce_workspace(batch_size_per_gpu * num_classes_);
@@ -691,45 +697,47 @@ void AUC<T>::local_reduce(int local_gpu_id, RawMetricMap raw_metrics) {
     copy_all<T>(st.d_preds() + offset, st.d_labels() + offset, pred_tensor.get_ptr(),
                 label_tensor.get_ptr(), num_valid_samples, num_sms, stream);
   } else {
-    size_t input_size =  num_valid_samples * num_classes_;
+    size_t input_size = num_valid_samples * num_classes_;
     if (st.realloc_local_reduce_workspace(input_size)) {
       init_classes(st.d_lr_class_ids(), num_valid_samples, num_classes_, num_sms, stream);
     }
 
     if (std::is_same<T, float>::value) {
       CUB_allocate_and_launch(st, [&](void* workspace, size_t& size) {
-        return cub::DeviceRadixSort::SortPairs(workspace, size, st.d_lr_class_ids(),
-                                               st.d_lr_sorted_class_ids(), (int*)pred_tensor.get_ptr(),
-                                               (int*)st.d_lr_sorted_preds(), input_size,
-                                               0, 8,  // begin_bit, end_bit
-                                               stream);
+        return cub::DeviceRadixSort::SortPairs(
+            workspace, size, st.d_lr_class_ids(), st.d_lr_sorted_class_ids(),
+            (int*)pred_tensor.get_ptr(), (int*)st.d_lr_sorted_preds(), input_size, 0,
+            8,  // begin_bit, end_bit
+            stream);
       });
     } else {
       copy_pred<T>(st.d_lr_unsorted_preds(), pred_tensor.get_ptr(), input_size, num_sms, stream);
 
       CUB_allocate_and_launch(st, [&](void* workspace, size_t& size) {
-        return cub::DeviceRadixSort::SortPairs(workspace, size, st.d_lr_class_ids(),
-                                               st.d_lr_sorted_class_ids(), (int*)st.d_lr_unsorted_preds(),
-                                               (int*)st.d_lr_sorted_preds(), input_size,
-                                               0, 8,  // begin_bit, end_bit
-                                               stream);
+        return cub::DeviceRadixSort::SortPairs(
+            workspace, size, st.d_lr_class_ids(), st.d_lr_sorted_class_ids(),
+            (int*)st.d_lr_unsorted_preds(), (int*)st.d_lr_sorted_preds(), input_size, 0,
+            8,  // begin_bit, end_bit
+            stream);
       });
     }
 
     CUB_allocate_and_launch(st, [&](void* workspace, size_t& size) {
-      return cub::DeviceRadixSort::SortPairs(workspace, size, st.d_lr_class_ids(),
-                                             st.d_lr_sorted_class_ids(), (int*)label_tensor.get_ptr(),
-                                             (int*)st.d_lr_sorted_labels(), input_size,
-                                             0, 8,  // begin_bit, end_bit
-                                             stream);
+      return cub::DeviceRadixSort::SortPairs(
+          workspace, size, st.d_lr_class_ids(), st.d_lr_sorted_class_ids(),
+          (int*)label_tensor.get_ptr(), (int*)st.d_lr_sorted_labels(), input_size, 0,
+          8,  // begin_bit, end_bit
+          stream);
     });
 
     for (size_t class_id = 0; class_id < num_classes_; class_id++) {
       size_t class_offset = class_id * num_valid_samples;
-      HCTR_LIB_THROW(cudaMemcpyAsync(st.d_class_preds(class_id) + offset, st.d_lr_sorted_preds() + class_offset,
-                     num_valid_samples * sizeof(float), cudaMemcpyDeviceToDevice, stream));
-      HCTR_LIB_THROW(cudaMemcpyAsync(st.d_class_labels(class_id) + offset, st.d_lr_sorted_labels() + class_offset,
-                     num_valid_samples * sizeof(float), cudaMemcpyDeviceToDevice, stream));
+      HCTR_LIB_THROW(cudaMemcpyAsync(
+          st.d_class_preds(class_id) + offset, st.d_lr_sorted_preds() + class_offset,
+          num_valid_samples * sizeof(float), cudaMemcpyDeviceToDevice, stream));
+      HCTR_LIB_THROW(cudaMemcpyAsync(
+          st.d_class_labels(class_id) + offset, st.d_lr_sorted_labels() + class_offset,
+          num_valid_samples * sizeof(float), cudaMemcpyDeviceToDevice, stream));
     }
   }
 
@@ -765,7 +773,8 @@ void AUC<T>::warm_up(size_t num_local_samples) {
     if (num_classes_ > 1) {
       for (size_t class_id = 0; class_id < num_classes_; class_id++) {
         mock_kernel<<<grid, block, 0, stream>>>(st.d_class_preds(class_id), num_local_samples);
-        initialize_array<<<grid, block, 0, stream>>>(st.d_class_labels(class_id), num_local_samples, 0.0f);
+        initialize_array<<<grid, block, 0, stream>>>(st.d_class_labels(class_id), num_local_samples,
+                                                     0.0f);
       }
     }
     offsets_[local_id] = num_local_samples;
@@ -798,8 +807,8 @@ float AUC<T>::finalize_metric_per_gpu(int local_id) {
     result = finalize_class_metric(st.d_preds(), st.d_labels(), local_id, num_local_samples);
   } else {
     for (size_t class_id = 0; class_id < num_classes_; class_id++) {
-      result += finalize_class_metric(
-          st.d_class_preds(class_id), st.d_class_labels(class_id), local_id, num_local_samples);
+      result += finalize_class_metric(st.d_class_preds(class_id), st.d_class_labels(class_id),
+                                      local_id, num_local_samples);
     }
     result /= num_classes_;
   }

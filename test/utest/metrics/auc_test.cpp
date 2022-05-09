@@ -354,9 +354,10 @@ TEST(auc_test, fp32_2gpu_random_multilabel) {
 
 // Multi-label performance tests
 
-#define SINGLE_NODE_CLASS_TEST(batch, num_batches, num_classes, name) \
-  TEST(auc_test, name) { \
-    auc_test<float>({0,1,2,3,4,5,6,7}, batch, num_batches * batch * 8, gen_random<float>, 1, num_classes); \
+#define SINGLE_NODE_CLASS_TEST(batch, num_batches, num_classes, name)                            \
+  TEST(auc_test, name) {                                                                         \
+    auc_test<float>({0, 1, 2, 3, 4, 5, 6, 7}, batch, num_batches * batch * 8, gen_random<float>, \
+                    1, num_classes);                                                             \
   }
 
 // const size_t batch = 100 * 1000;
