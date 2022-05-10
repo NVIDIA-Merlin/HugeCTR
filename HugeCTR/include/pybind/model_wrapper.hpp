@@ -68,7 +68,7 @@ void ModelPybind(pybind11::module &m) {
       .def(pybind11::init<Embedding_t, size_t, size_t, const std::string &, std::string,
                           std::string, std::vector<size_t> &, std::shared_ptr<OptParamsPy> &,
                           const HybridEmbeddingParam &>(),
-           pybind11::arg("embedding_type"), pybind11::arg("workspace_size_per_gpu_in_mb"),
+           pybind11::arg("embedding_type"), pybind11::arg("workspace_size_per_gpu_in_mb") = 0,
            pybind11::arg("embedding_vec_size"), pybind11::arg("combiner"),
            pybind11::arg("sparse_embedding_name"), pybind11::arg("bottom_name"),
            pybind11::arg("slot_size_array") = std::vector<size_t>(),
