@@ -1,6 +1,7 @@
 import os
 import argparse
 import time
+import json
 
 
 if __name__ == '__main__':
@@ -8,9 +9,23 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('input', type=str)
     parser.add_argument('output', type=str)
+    parser.add_argument('--slot_size_array', type=str)
+    parser.add_argument('--dense_type', type=str, default='int32')
+    parser.add_argument('--label_type', type=str, default='int32')
+    parser.add_argument('--category_type', type=str, default='int32')
+    parser.add_argument('--dense_log', type=str, default='True')
     args = parser.parse_args()
 
-    os.makedirs(args.output)
+    args.slot_size_array = eval(args.slot_size_array)
+    assert(isinstance(args.slot_size_array, list))
+
+    if args.dense_log == "False":
+        args.dense_log = False
+    else:
+        args.dense_log = True
+
+    if not os.path.exists(args.output):
+        os.makedirs(args.output)
     size = os.path.getsize(args.input)
     assert(size % 160 == 0)
     num_samples = size // 160
@@ -53,3 +68,12 @@ if __name__ == '__main__':
     dense_f.close()
     category_f.close()
 
+    metadata = {
+        'vocab_sizes': args.slot_size_array,
+        'label_raw_type': args.label_type,
+        'dense_raw_type': args.dense_type,
+        'category_raw_type': args.category_type,
+        'dense_log': args.dense_log
+    }
+    with open(os.path.join(args.output, 'metadata.json'), 'w') as f:
+        json.dump(metadata, f)
