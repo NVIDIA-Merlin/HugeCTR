@@ -69,11 +69,11 @@ $ docker build [<opts>] <path> | <URL>
   --rm         Remove intermediate containers after a successful build
 ```
 
-### Build HugeCTR from Source
+### Build HugeCTR Training Container from Source
 
-To build HugeCTR from source, do the following:
+To build HugeCTR Training Container from source, do the following:
 
-1. Build the `hugectr:devel` image using the steps outlined [here](#set-up-the-development-environment-with-merlin-containers).
+1. Build the `hugectr:devel` image using the steps outlined [here](#set-up-the-development-environment-with-merlin-containers). Remember that this instruction is only for the [Merlin CTR Dockerfile](https://github.com/NVIDIA-Merlin/Merlin/blob/main/docker/training/dockerfile.ctr).
 
 
 2. Download the HugeCTR repository and the third-party modules that it relies on by running the following commands:
@@ -93,7 +93,7 @@ To build HugeCTR from source, do the following:
    - **ENABLE_MULTINODES**: You can use this option to build HugeCTR with multiple nodes. This option is set to OFF by default. For more information, refer to the [deep and cross network samples](https://github.com/NVIDIA-Merlin/HugeCTR/tree/master/samples/dcn) directory on GitHub.
    - **ENABLE_INFERENCE**: You can use this option to build HugeCTR in inference mode, which was designed for the inference framework. In this mode, an inference shared library
      will be built for the HugeCTR Backend. Only interfaces that support the HugeCTR Backend can be used. Therefore, you can’t train models in this mode. This option is set to
-     OFF by default.
+     OFF by default. For building inference container, please refer to [Build HugeCTR Inference Container from Source](#build-hugectr-inference-contianer-from-source)
    - **ENABLE_HDFS**: You can use this option to build HugeCTR together with HDFS to enable HDFS related functions. Make sure you are using the `hugectr:devel_train.with_hdfs` 
      container or make sure you have correctly built Hadoop in your system before setting this    option to ON. This option is set to OFF by default
 
@@ -116,9 +116,24 @@ To build HugeCTR from source, do the following:
    $ make -j && make install
    ```
 
+### Build HugeCTR Inference Container from Source
+To build HugeCTR Training Container from source, do the following:
+
+1. Build the `hugectr:devel_inference` image using the steps outlined [here](#set-up-the-development-environment-with-merlin-containers). Remember that this instruction is only for the [Merlin Inference Dockerfile](https://github.com/NVIDIA-Merlin/Merlin/blob/main/docker/inference/dockerfile.ctr).
+
+
+2. Download the HugeCTR repository and the third-party modules that it relies on by running the following commands:
+   ```shell
+   $ git clone https://github.com/NVIDIA/HugeCTR.git
+   $ cd HugeCTR
+   $ git submodule update --init --recursive
+   ```
+
+3. Here is an example of how you can build HugeCTR inference container using the build options:
+   
    ```shell
    $ mkdir -p build && cd build
-   $ cmake -DCMAKE_BUILD_TYPE=Release -DSM="70;80" -DENABLE_INFERENCE=ON .. # Target is NVIDIA V100 / A100 with Validation mode on.
+   $ cmake -DCMAKE_BUILD_TYPE=Release -DSM="70;80" -DENABLE_INFERENCE=ON .. # Target is NVIDIA V100 / A100 with Inference mode ON.
    $ make -j && make install
    ```
 
@@ -126,7 +141,7 @@ To build HugeCTR from source, do the following:
 
 To build the Sparse Operation Kit component in HugeCTR, do the following:
 
-1. Build the `hugectr:tf-plugin` docker image using the steps noted [here](#set-up-the-development-environment-with-merlin-containers).
+1. Build the `hugectr:tf-plugin` docker image using the steps noted [here](#set-up-the-development-environment-with-merlin-containers). Remember that this instruction is only for the [Merlin Tensorflow Dockerfile](https://github.com/NVIDIA-Merlin/Merlin/blob/main/docker/training/dockerfile.tf). 
 
 
 2. Download the HugeCTR repository by running the following command:
