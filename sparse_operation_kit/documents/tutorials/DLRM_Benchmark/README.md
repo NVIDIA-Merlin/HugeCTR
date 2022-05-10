@@ -63,7 +63,7 @@ python3 HugeCTR/sparse_operation_kit/documents/tutorials/DLRM_Benchmark/preproce
 ## Environment
 
 ```bash
-docker run --privileged=true --gpus=all -it --rm nvcr.io/nvidia/tensorflow:22.04-tf2-py3
+docker run --privileged=true --gpus=all -it --rm -v $YourDataDir:/home/workspace nvcr.io/nvidia/tensorflow:22.04-tf2-py3
 
 # Install the latest SOK
 git clone https://github.com/NVIDIA-Merlin/HugeCTR.git
