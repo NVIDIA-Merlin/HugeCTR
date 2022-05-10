@@ -189,12 +189,16 @@ class Trainer:
         total_time = time.time()
         throughputs = []
         for epoch in range(epochs):
+            early_stop_flag = False
             for i, (samples, labels) in enumerate(self._dataset):
                 idx = epoch * len(self._dataset) + i
 
                 # rng = nvtx.start_range(message='Iteration_'+str(idx), color='blue')
                 loss = self._step(samples, labels, idx == 0)
                 # nvtx.end_range(rng)
+
+                if idx == 0:
+                    print("Iteration 0 finished. The following log will be printed every %d iterations."%interval)
 
                 if (idx % interval == 0) and (idx > 0):
                     t = time.time() - iter_time
@@ -214,8 +218,11 @@ class Trainer:
                         break
 
                 if early_stop > 0 and (idx + 1) >= early_stop:
-                    epoch = epochs + 1
+                    early_stop_flag = True
                     break
+            
+            if early_stop_flag:
+                break
 
         if eval_in_last:
             t = time.time()

@@ -24,7 +24,7 @@ docker run --privileged=true --gpus=all -it --rm -v $YourDataDir:/home/workspace
 cd /home/workspace
 ```
 
-* Step2, run the following script to generate a synthetic dataset
+* Step2, run the following script to generate a synthetic dataset, you can modify `num_samples` and `eval_num_samples` as you want.
 
 ```python
 # python
@@ -55,28 +55,29 @@ Note: the `--slot_size_array` should be the same as the slot_size_array in step 
 ```bash
 git clone https://github.com/NVIDIA-Merlin/HugeCTR.git
 
-python3 HugeCTR/sparse_operation_kit/documents/tutorials/DLRM_Benchmark/preprocess/split.py dlrm_raw/train_data.bin ./splited_dataset/train/ --slot_size_array="[203931,18598,14092,7012,18977,4,6385,1245,49,186213,71328,67288,11,2168,7338,61,4,932,15,204515,141526,199433,60919,9137,71,34]"
+python3 HugeCTR/sparse_operation_kit/documents/tutorials/DLRM_Benchmark/preprocess/split_bin.py dlrm_raw/train_data.bin ./splited_dataset/train/ --slot_size_array="[203931,18598,14092,7012,18977,4,6385,1245,49,186213,71328,67288,11,2168,7338,61,4,932,15,204515,141526,199433,60919,9137,71,34]"
 
-python3 HugeCTR/sparse_operation_kit/documents/tutorials/DLRM_Benchmark/preprocess/split.py dlrm_raw/test_data.bin ./splited_dataset/test/ --slot_size_array="[203931,18598,14092,7012,18977,4,6385,1245,49,186213,71328,67288,11,2168,7338,61,4,932,15,204515,141526,199433,60919,9137,71,34]"
+python3 HugeCTR/sparse_operation_kit/documents/tutorials/DLRM_Benchmark/preprocess/split_bin.py dlrm_raw/test_data.bin ./splited_dataset/test/ --slot_size_array="[203931,18598,14092,7012,18977,4,6385,1245,49,186213,71328,67288,11,2168,7338,61,4,932,15,204515,141526,199433,60919,9137,71,34]"
 ```
 
 ## Environment
 
-If you are using merlin docker image or have installed sok, you can skip this part.
-
 ```bash
-docker run --privileged=true --gpus=all -it --rm nvcr.io/nvidia/merlin/merlin-tensorflow-training:22.04
+docker run --privileged=true --gpus=all -it --rm nvcr.io/nvidia/tensorflow:22.04-tf2-py3
+
+# Install the latest SOK
 git clone https://github.com/NVIDIA-Merlin/HugeCTR.git
 cd HugeCTR/
 cd sparse_operation_kit/
-mkdir build
-cd build
-# use "-DSM=70" in V100
-cmake -DSM=80 ..
-make -j
-make install
-cd ..
-cp -r sparse_operation_kit /usr/local/lib/
+python3 setup.py build
+cp -r build/lib.linux-x86_64-3.8/sparse_operation_kit/ /usr/local/lib/python3.8/dist-packages/
+
+# Install custom interact op, you can skip this part if you don't want to use it
+git clone https://github.com/NVIDIA/DeepLearningExamples.git
+cd DeepLearningExamples/TensorFlow2/Recommendation/DLRM/tensorflow-dot-based-interact/
+make
+./build_pip_pkg.sh
+pip install artifacts/tensorflow_dot_based_interact-0.0.1-cp38-cp38-linux_x86_64.whl
 ```
 
 ## Run Benchmark
@@ -84,16 +85,20 @@ cp -r sparse_operation_kit /usr/local/lib/
 Note: The custom interact op can be seen in [here](https://github.com/NVIDIA/DeepLearningExamples/tree/master/TensorFlow2/Recommendation/DLRM/tensorflow-dot-based-interact). If you don't install custom interact op, the `--custom_interact` should be removed from the instructions below.
 
 ```bash
-docker run --privileged=true --gpus=all -v $YourDataDir:/home/workspace -it --rm nvcr.io/nvidia/merlin/merlin-tensorflow-training:22.04
-
-git clone https://github.com/NVIDIA-Merlin/HugeCTR.git
 cd HugeCTR/sparse_operation_kit/documents/tutorials/DLRM_Benchmark/
 
-# FP32 Result
-horovodrun -np 8 ./hvd_wrapper.sh python3 main.py --data_dir=($DATA) --global_batch_size=65536 --xla --compress --custom_interact --eval_in_last --epochs=1000
+# FP32 Result with global batch size = 65536
+# Note that --lr=24 is tested on real criteo dataset. This learning rate is too large for a synthetic dataset and it is likely to cause the loss to become nan
+horovodrun -np 8 ./hvd_wrapper.sh python3 main.py --data_dir=/home/workspace/splited_dataset/ --global_batch_size=65536 --xla --compress --custom_interact --eval_in_last --epochs=1000 --lr=24
 
-# AMP result
-horovodrun -np 8 ./hvd_wrapper.sh python3 main.py --data_dir=($DATA) --global_batch_size=65536 --xla --amp --custom_interact --eval_in_last --epochs=1000
+# AMP result with global batch size = 65536
+horovodrun -np 8 ./hvd_wrapper.sh python3 main.py --data_dir=/home/workspace/splited_dataset/ --global_batch_size=65536 --xla --amp --custom_interact --eval_in_last --epochs=1000 --lr=24
+
+# FP32 Result with global batch size = 55296
+horovodrun -np 8 ./hvd_wrapper.sh python3 main.py --data_dir=/home/workspace/splited_dataset/ --global_batch_size=55296 --xla --compress --custom_interact --epochs=1000 --lr=24
+
+# AMP result with global batch size = 55296
+horovodrun -np 8 ./hvd_wrapper.sh python3 main.py --data_dir=/home/workspace/splited_dataset/ --global_batch_size=55296 --xla --amp --custom_interact --epochs=1000 --lr=24
 ```
 
 ## Performance

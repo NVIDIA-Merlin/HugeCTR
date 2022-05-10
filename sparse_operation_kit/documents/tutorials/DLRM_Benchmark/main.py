@@ -11,6 +11,7 @@ parser.add_argument('--use_synthetic_dataset', action='store_true', help='use sy
 parser.add_argument('--use_splited_dataset', action='store_true', help='categories features were splited into different binary files')
 parser.add_argument('--early_stop', type=int, default=-1)
 parser.add_argument('--epochs', type=int, default=1)
+parser.add_argument('--lr', type=float, default=24.0)
 args = parser.parse_args()
 args.lr_schedule_steps = [
     int(2750 * 55296 / args.global_batch_size),
@@ -155,7 +156,7 @@ if __name__ == '__main__':
         dataset,
         test_dataset,
         auc_thresholds=8000,
-        base_lr=24.0,
+        base_lr=args.lr,
         warmup_steps=args.lr_schedule_steps[0],
         decay_start_step=args.lr_schedule_steps[1],
         decay_steps=args.lr_schedule_steps[2],
