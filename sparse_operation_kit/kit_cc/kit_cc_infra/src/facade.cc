@@ -323,7 +323,6 @@ void Facade::forward(const tensorflow::Tensor* emb_handle, const tensorflow::Ten
                      const tensorflow::Tensor* indices_tensor, const size_t global_replica_id,
                      const bool training, tensorflow::Tensor* emb_vector_tensor,
                      tensorflow::Tensor* h_replica_nnz_tensor) {
-  std::cout << "forward: " << global_replica_id << std::endl;
 #ifdef USE_NVTX
   nvtxRangeId_t forward_marker = nvtxRangeStartA("forward");
 #endif
@@ -356,11 +355,6 @@ void Facade::forward(const tensorflow::Tensor* emb_handle, const tensorflow::Ten
   // delegate embedding forward to embedding manager
   embedding_mgr_->forward(embedding, values, indices, global_replica_id, training, emb_vector, h_replica_nnz);
 
-  if (resources_mgr_->get_local_gpu_count() > 1) {
-    size_t local_gpu_id = resources_mgr_->cal_local_id_from_global_id(global_replica_id);
-    resources_mgr_->sync_gpu(local_gpu_id);
-  }
-
 #ifdef SOK_ASYNC
   resources_mgr_->event_record(global_replica_id, EventRecordType::RMyself,
                                /*event_name=*/embedding->get_var_name() + "_forward_end");
@@ -375,7 +369,6 @@ void Facade::forward(const tensorflow::Tensor* emb_handle, const tensorflow::Ten
                      const size_t global_replica_id, const bool training,
                      tensorflow::Tensor* emb_vector_tensor,
                      tensorflow::Tensor* h_replica_nnz_tensor) {
-  std::cout << "forward: " << global_replica_id << std::endl;
 #ifdef USE_NVTX
   nvtxRangeId_t forward_marker = nvtxRangeStartA("forward");
 #endif
@@ -406,11 +399,6 @@ void Facade::forward(const tensorflow::Tensor* emb_handle, const tensorflow::Ten
   // delegate embedding forward to embedding manager
   embedding_mgr_->forward(embedding, values, global_replica_id, training, emb_vector, h_replica_nnz);
 
-  if (resources_mgr_->get_local_gpu_count() > 1) {
-    size_t local_gpu_id = resources_mgr_->cal_local_id_from_global_id(global_replica_id);
-    resources_mgr_->sync_gpu(local_gpu_id);
-  }
-
 #ifdef SOK_ASYNC
   resources_mgr_->event_record(global_replica_id, EventRecordType::RMyself,
                                /*event_name=*/embedding->get_var_name() + "_forward_end");
@@ -424,7 +412,6 @@ void Facade::forward(const tensorflow::Tensor* emb_handle, const tensorflow::Ten
 void Facade::backward(const tensorflow::Tensor* emb_handle, const size_t global_replica_id,
                       const tensorflow::Tensor* top_gradient_tensor,
                       tensorflow::Tensor* gradient_tensor, tensorflow::Tensor* value_index_tensor) {
-  std::cout << "backward: " << global_replica_id << std::endl;
 #ifdef USE_NVTX
   nvtxRangeId_t backward_marker = nvtxRangeStartA("backward");
 #endif
@@ -453,11 +440,6 @@ void Facade::backward(const tensorflow::Tensor* emb_handle, const size_t global_
 
   // delegate embedding backward to embedding manager
   embedding_mgr_->backward(embedding, top_gradient, global_replica_id, gradient, value_index);
-
-  if (resources_mgr_->get_local_gpu_count() > 1) {
-    size_t local_gpu_id = resources_mgr_->cal_local_id_from_global_id(global_replica_id);
-    resources_mgr_->sync_gpu(local_gpu_id);
-  }
 
 #ifdef SOK_ASYNC
   resources_mgr_->event_record(global_replica_id, EventRecordType::RMyself,

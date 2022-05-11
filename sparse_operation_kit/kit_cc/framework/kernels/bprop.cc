@@ -36,8 +36,6 @@ class PluginBpropOp : public AsyncOpKernel {
  public:
   explicit PluginBpropOp(OpKernelConstruction* ctx) : AsyncOpKernel(ctx) {}
 
-  bool IsExpensive() override { return true; }
-
   void ComputeAsync(OpKernelContext* ctx, DoneCallback done) override {
     Tensor const* global_replica_id_tensor = nullptr;
     OP_REQUIRES_OK_ASYNC(ctx, ctx->input("global_replica_id", &global_replica_id_tensor), done);
