@@ -38,6 +38,7 @@ class PluginDenseFpropOp : public AsyncOpKernel {
     OP_REQUIRES_OK(ctx, ctx->GetAttr("training", &training_));
     OP_REQUIRES_OK(ctx, ctx->GetAttr("dynamic_input", &dynamic_input_));
   }
+
   void ComputeAsync(OpKernelContext *ctx, DoneCallback done) override {
     Tensor const *global_replica_id_tensor = nullptr;
     OP_REQUIRES_OK_ASYNC(ctx, ctx->input("global_replica_id", &global_replica_id_tensor), done);

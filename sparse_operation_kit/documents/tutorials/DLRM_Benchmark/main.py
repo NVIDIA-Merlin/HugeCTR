@@ -10,6 +10,8 @@ parser.add_argument('--eval_in_last', action='store_true', help='evaluate only a
 parser.add_argument('--use_synthetic_dataset', action='store_true', help='use synthetic dataset for profiling')
 parser.add_argument('--use_splited_dataset', action='store_true', help='categories features were splited into different binary files')
 parser.add_argument('--early_stop', type=int, default=-1)
+parser.add_argument('--epochs', type=int, default=1)
+parser.add_argument('--lr', type=float, default=24.0)
 args = parser.parse_args()
 args.lr_schedule_steps = [
     int(2750 * 55296 / args.global_batch_size),
@@ -154,7 +156,7 @@ if __name__ == '__main__':
         dataset,
         test_dataset,
         auc_thresholds=8000,
-        base_lr=24.0,
+        base_lr=args.lr,
         warmup_steps=args.lr_schedule_steps[0],
         decay_start_step=args.lr_schedule_steps[1],
         decay_steps=args.lr_schedule_steps[2],
@@ -162,8 +164,8 @@ if __name__ == '__main__':
     )
 
     if args.eval_in_last:
-        trainer.train(eval_interval=None, eval_in_last=True, early_stop=args.early_stop)
+        trainer.train(eval_interval=None, eval_in_last=True, early_stop=args.early_stop, epochs=args.epochs)
     else:
-        trainer.train(eval_in_last=False, early_stop=args.early_stop)
+        trainer.train(eval_in_last=False, early_stop=args.early_stop, epochs=args.epochs)
 
     print('main time: %.2fs'%(time.time() - start_time))

@@ -183,34 +183,45 @@ class Trainer:
 
         return loss
 
-    def train(self, interval=1000, eval_interval=3793, eval_in_last=False, early_stop=-1):
+    def train(self, interval=1000, eval_interval=3793, eval_in_last=False, early_stop=-1, epochs=1):
         eval_time = 0
         iter_time = time.time()
         total_time = time.time()
         throughputs = []
-        for idx, (samples, labels) in enumerate(self._dataset):
-            # rng = nvtx.start_range(message='Iteration_'+str(idx), color='blue')
-            loss = self._step(samples, labels, idx == 0)
-            # nvtx.end_range(rng)
+        for epoch in range(epochs):
+            early_stop_flag = False
+            for i, (samples, labels) in enumerate(self._dataset):
+                idx = epoch * len(self._dataset) + i
 
-            if (idx % interval == 0) and (idx > 0):
-                t = time.time() - iter_time
-                throughput = interval * self._dataset._batch_size * hvd.size() / t
-                print('Iteration:%d\tloss:%.6f\ttime:%.2fs\tthroughput:%.2fM'%(idx, loss, t, throughput / 1000000))
-                throughputs.append(throughput)
-                iter_time = time.time()
+                # rng = nvtx.start_range(message='Iteration_'+str(idx), color='blue')
+                loss = self._step(samples, labels, idx == 0)
+                # nvtx.end_range(rng)
 
-            if (eval_interval is not None) and (idx % eval_interval == 0) and (idx > 0):
-                t = time.time()
-                auc = evaluate(self._model, self._test_dataset, self._auc_thresholds)
-                t = time.time() - t
-                eval_time += t
-                iter_time += t
-                print('Evaluate in %dth iteration, test time: %.2fs, AUC: %.6f.'%(idx, t, auc))
-                if auc > 0.8025:
+                if idx == 0:
+                    print("Iteration 0 finished. The following log will be printed every %d iterations."%interval)
+
+                if (idx % interval == 0) and (idx > 0):
+                    t = time.time() - iter_time
+                    throughput = interval * self._dataset._batch_size * hvd.size() / t
+                    print('Iteration:%d\tloss:%.6f\ttime:%.2fs\tthroughput:%.2fM'%(idx, loss, t, throughput / 1000000))
+                    throughputs.append(throughput)
+                    iter_time = time.time()
+
+                if (eval_interval is not None) and (idx % eval_interval == 0) and (idx > 0):
+                    t = time.time()
+                    auc = evaluate(self._model, self._test_dataset, self._auc_thresholds)
+                    t = time.time() - t
+                    eval_time += t
+                    iter_time += t
+                    print('Evaluate in %dth iteration, test time: %.2fs, AUC: %.6f.'%(idx, t, auc))
+                    if auc > 0.8025:
+                        break
+
+                if early_stop > 0 and (idx + 1) >= early_stop:
+                    early_stop_flag = True
                     break
-
-            if early_stop > 0 and (idx + 1) >= early_stop:
+            
+            if early_stop_flag:
                 break
 
         if eval_in_last:
@@ -224,9 +235,14 @@ class Trainer:
         training_time = total_time - eval_time
         avg_training_time = training_time / (idx + 1)
         print('total time: %.2fs, in %d iterations'%(total_time, (idx + 1)))
-        average_throughput = sum(throughputs[1:]) / len(throughputs[1:])
+        if len(throughputs[1:]) == 0:
+            average_throughput = 0
+            average_time_per_iter = 0
+        else:
+            average_throughput = sum(throughputs[1:]) / len(throughputs[1:])
+            average_time_per_iter = self._dataset._batch_size * hvd.size() / average_throughput * 1000
         print('only training time: %.2fs, average: %.2fms/iter, average throughput: %.2fM(%.2fms/iter)'%(
             training_time, avg_training_time * 1000, average_throughput / 1000000,
-            self._dataset._batch_size * hvd.size() / average_throughput * 1000))
+            average_time_per_iter))
         print('only evaluate time: %.2fs'%(eval_time))
 
