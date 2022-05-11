@@ -42,7 +42,7 @@ void CpuResource::Barrier::wait() {
     count_ = thread_count_;
     cond_.notify_all();
   } else {
-    cond_.wait_for(lock, time_threshold_, [this, local_gen]() { return local_gen != generation_; });
+    cond_.wait(lock, [this, local_gen]() { return local_gen != generation_; });
     if (local_gen == generation_)
       throw std::runtime_error(ErrorBase + "Intra-process barrier blocking threads time out.");
   }

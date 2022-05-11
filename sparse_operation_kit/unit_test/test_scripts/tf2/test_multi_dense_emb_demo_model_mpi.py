@@ -135,8 +135,9 @@ def test_sok_multi_dense_emb(args):
 
             # manually all-reduce loss, it is ok, because replica_loss has already been used to 
             # update local variables.
-            loss = replica_context.all_reduce(tf.distribute.ReduceOp.SUM, loss,
-                                              options=comm_options)
+            with tf.control_dependencies(grads):
+                loss = replica_context.all_reduce(tf.distribute.ReduceOp.SUM, loss,
+                                                options=comm_options)
         return loss, all_vectors, logit
 
     # save its results
