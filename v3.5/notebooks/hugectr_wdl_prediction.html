@@ -1,0 +1,1523 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HugeCTR Wide and Deep Model with Criteo &mdash; Merlin HugeCTR  documentation</title><link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/togglebutton.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/mystnb.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  <script id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/underscore.js"></script>
+        <script src="../_static/doctools.js"></script>
+        <script >let toggleHintShow = 'Click to show';</script>
+        <script >let toggleHintHide = 'Click to hide';</script>
+        <script >let toggleOpenOnPrint = 'true';</script>
+        <script src="../_static/togglebutton.js"></script>
+        <script >var togglebuttonSelector = '.toggle, .admonition.dropdown, .tag_hide_input div.cell_input, .tag_hide-input div.cell_input, .tag_hide_output div.cell_output, .tag_hide-output div.cell_output, .tag_hide_cell.cell, .tag_hide-cell.cell';</script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="NVIDIA Merlin on Microsoft’s News Dataset (MIND)" href="news-example.html" />
+    <link rel="prev" title="HugeCTR Continuous Training" href="continuous_training.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../index.html" class="icon icon-home"> Merlin HugeCTR
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../hugectr_user_guide.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../hugectr_core_features.html">Core Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../hugectr_feature_details_intro.html">Features in Detail</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Example Notebooks</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="index.html#quickstart">Quickstart</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#notebook-list">Notebook List</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#system-specifications">System Specifications</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ecommerce-example.html">Merlin ETL, training, and inference with e-Commerce behavior data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="movie-lens-example.html">HugeCTR demo on Movie lens data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="hugectr_criteo.html">Introduction to the HugeCTR Python Interface</a></li>
+<li class="toctree-l2"><a class="reference internal" href="hugectr2onnx_demo.html">HugeCTR to ONNX Converter</a></li>
+<li class="toctree-l2"><a class="reference internal" href="continuous_training.html">HugeCTR Continuous Training</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">HugeCTR Wide and Deep Model with Criteo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="news-example.html">NVIDIA Merlin on Microsoft’s News Dataset (MIND)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="multi_gpu_offline_inference.html">Multi-GPU Offline Inference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="hps_demo.html">Hierarchical Parameter Server Demo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="training_with_hdfs.html">HugeCTR training with HDFS example</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="multi-modal-data/index.html">Multi-modal Example Notebooks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/index.html">API Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../additional_resources.html">Additional Resources</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../release_notes.html">Release Notes</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Merlin HugeCTR</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="index.html">HugeCTR Example Notebooks</a> &raquo;</li>
+      <li>HugeCTR Wide and Deep Model with Criteo</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Copyright 2021 NVIDIA Corporation. All Rights Reserved.</span>
+<span class="c1">#</span>
+<span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+<span class="c1"># you may not use this file except in compliance with the License.</span>
+<span class="c1"># You may obtain a copy of the License at</span>
+<span class="c1">#</span>
+<span class="c1">#     http://www.apache.org/licenses/LICENSE-2.0</span>
+<span class="c1">#</span>
+<span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
+<span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+<span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
+<span class="c1"># See the License for the specific language governing permissions and</span>
+<span class="c1"># limitations under the License.</span>
+<span class="c1"># ==============================================================================</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="tex2jax_ignore mathjax_ignore section" id="hugectr-wide-and-deep-model-with-criteo">
+<h1>HugeCTR Wide and Deep Model with Criteo<a class="headerlink" href="#hugectr-wide-and-deep-model-with-criteo" title="Permalink to this headline"></a></h1>
+<div class="section" id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Permalink to this headline"></a></h2>
+<p>In this notebook, we provide a tutorial that shows how to train a wide and deep model using the high-level Python API from HugeCTR on the original Criteo dataset as training data.
+We show how to produce prediction results based on different types of local database.</p>
+</div>
+<div class="section" id="dataset-preprocessing">
+<h2>Dataset Preprocessing<a class="headerlink" href="#dataset-preprocessing" title="Permalink to this headline"></a></h2>
+<div class="section" id="generate-training-and-validation-data-folders">
+<h3>Generate training and validation data folders<a class="headerlink" href="#generate-training-and-validation-data-folders" title="Permalink to this headline"></a></h3>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># define some data folder to store the original and preprocessed data</span>
+<span class="c1"># Standard Libraries</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">from</span> <span class="nn">time</span> <span class="kn">import</span> <span class="n">time</span>
+<span class="kn">import</span> <span class="nn">re</span>
+<span class="kn">import</span> <span class="nn">shutil</span>
+<span class="kn">import</span> <span class="nn">glob</span>
+<span class="kn">import</span> <span class="nn">warnings</span>
+<span class="n">BASE_DIR</span> <span class="o">=</span> <span class="s2">&quot;/wdl_train&quot;</span>
+<span class="n">train_path</span>  <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">BASE_DIR</span><span class="p">,</span> <span class="s2">&quot;train&quot;</span><span class="p">)</span>
+<span class="n">val_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">BASE_DIR</span><span class="p">,</span> <span class="s2">&quot;val&quot;</span><span class="p">)</span>
+<span class="n">CUDA_VISIBLE_DEVICES</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;CUDA_VISIBLE_DEVICES&quot;</span><span class="p">,</span> <span class="s2">&quot;0&quot;</span><span class="p">)</span>
+<span class="n">n_workers</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">CUDA_VISIBLE_DEVICES</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;,&quot;</span><span class="p">))</span>
+<span class="n">frac_size</span> <span class="o">=</span> <span class="mf">0.15</span>
+<span class="n">allow_multi_gpu</span> <span class="o">=</span> <span class="kc">False</span>
+<span class="n">use_rmm_pool</span> <span class="o">=</span> <span class="kc">False</span>
+<span class="n">max_day</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># (Optional) -- Limit the dataset to day 0-max_day for debugging</span>
+
+<span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">train_path</span><span class="p">):</span>
+    <span class="n">shutil</span><span class="o">.</span><span class="n">rmtree</span><span class="p">(</span><span class="n">train_path</span><span class="p">)</span>
+<span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">train_path</span><span class="p">)</span>
+
+<span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">val_path</span><span class="p">):</span>
+    <span class="n">shutil</span><span class="o">.</span><span class="n">rmtree</span><span class="p">(</span><span class="n">val_path</span><span class="p">)</span>
+<span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">val_path</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>ls -l <span class="nv">$train_path</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>total 14537948
+-rw-r--r-- 1 root root  3336516608 Jul  5 05:44 0.8870d61b8a1f4deca0f911acfb072999.parquet
+-rw-r--r-- 1 root root          61 Jul  5 05:44 _file_list.txt
+-rw-r--r-- 1 root root      602767 Jul  5 05:44 _metadata
+-rw-r--r-- 1 root root        1538 Jul  5 05:44 _metadata.json
+drwxr-xr-x 2 root root        4096 Jul  5 05:41 <span class=" -Color -Color-Bold -Color-Bold-Blue">temp-parquet-after-conversion</span>/
+-rwxrwxr-x 1 1025 1025 11549710546 Jul  5 05:39 <span class=" -Color -Color-Bold -Color-Bold-Green">train.txt</span>*
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="download-the-original-criteo-dataset">
+<h3>Download the original Criteo dataset<a class="headerlink" href="#download-the-original-criteo-dataset" title="Permalink to this headline"></a></h3>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>apt-get install wget
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Reading package lists... Done
+Building dependency tree       
+Reading state information... Done
+wget is already the newest version (1.20.3-1ubuntu1).
+0 upgraded, 0 newly installed, 0 to remove and 4 not upgraded.
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>wget -P <span class="nv">$train_path</span> http://azuremlsampleexperiments.blob.core.windows.net/criteo/day_0.gz
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>--2021-07-05 03:27:50--  http://azuremlsampleexperiments.blob.core.windows.net/criteo/day_0.gz
+Resolving azuremlsampleexperiments.blob.core.windows.net (azuremlsampleexperiments.blob.core.windows.net)... 20.60.140.36
+Connecting to azuremlsampleexperiments.blob.core.windows.net (azuremlsampleexperiments.blob.core.windows.net)|20.60.140.36|:80... connected.
+HTTP request sent, awaiting response... 200 OK
+Length: 16309554343 (15G) [application/octet-stream]
+Saving to: ‘wdl_train/train/day_0.gz’
+
+day_0.gz               100%[===================================================&gt;]   15G  --.-KB/s    in  6m 12s 
+2021-07-05 03:34:04 (79.2 MB/s) - &#39;day_0.gz&#39; saved [16309554343/16309554343]
+</pre></div>
+</div>
+</div>
+</div>
+<p>Split the dataset into training and validation.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>gzip -d -c <span class="nv">$train_path</span>/day_0.gz &gt; day_0
+<span class="o">!</span>head -n <span class="m">45840617</span> day_0 &gt; <span class="nv">$train_path</span>/train.txt
+<span class="o">!</span>tail -n <span class="m">2000000</span> day_0 &gt; <span class="nv">$val_path</span>/test.txt 
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="preprocessing-with-nvtabular">
+<h3>Preprocessing with NVTabular<a class="headerlink" href="#preprocessing-with-nvtabular" title="Permalink to this headline"></a></h3>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">%%writefile</span> /wdl_train/preprocess.py
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">sys</span>
+<span class="kn">import</span> <span class="nn">argparse</span>
+<span class="kn">import</span> <span class="nn">glob</span>
+<span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">from</span> <span class="nn">cudf.io.parquet</span> <span class="kn">import</span> <span class="n">ParquetWriter</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">import</span> <span class="nn">concurrent.futures</span> <span class="k">as</span> <span class="nn">cf</span>
+<span class="kn">from</span> <span class="nn">concurrent.futures</span> <span class="kn">import</span> <span class="n">as_completed</span>
+<span class="kn">import</span> <span class="nn">shutil</span>
+
+<span class="kn">import</span> <span class="nn">dask_cudf</span>
+<span class="kn">from</span> <span class="nn">dask_cuda</span> <span class="kn">import</span> <span class="n">LocalCUDACluster</span>
+<span class="kn">from</span> <span class="nn">dask.distributed</span> <span class="kn">import</span> <span class="n">Client</span>
+<span class="kn">from</span> <span class="nn">dask.utils</span> <span class="kn">import</span> <span class="n">parse_bytes</span>
+<span class="kn">from</span> <span class="nn">dask.delayed</span> <span class="kn">import</span> <span class="n">delayed</span>
+
+<span class="kn">import</span> <span class="nn">cudf</span>
+<span class="kn">import</span> <span class="nn">rmm</span>
+<span class="kn">import</span> <span class="nn">nvtabular</span> <span class="k">as</span> <span class="nn">nvt</span>
+<span class="kn">from</span> <span class="nn">nvtabular.io</span> <span class="kn">import</span> <span class="n">Shuffle</span>
+<span class="kn">from</span> <span class="nn">nvtabular.utils</span> <span class="kn">import</span> <span class="n">device_mem_size</span>
+<span class="kn">from</span> <span class="nn">nvtabular.ops</span> <span class="kn">import</span> <span class="n">Categorify</span><span class="p">,</span> <span class="n">Clip</span><span class="p">,</span> <span class="n">FillMissing</span><span class="p">,</span> <span class="n">HashBucket</span><span class="p">,</span> <span class="n">LambdaOp</span><span class="p">,</span> <span class="n">Normalize</span><span class="p">,</span> <span class="n">Rename</span><span class="p">,</span> <span class="n">Operator</span><span class="p">,</span> <span class="n">get_embedding_sizes</span>
+<span class="c1">#%load_ext memory_profiler</span>
+
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="n">logging</span><span class="o">.</span><span class="n">basicConfig</span><span class="p">(</span><span class="nb">format</span><span class="o">=</span><span class="s1">&#39;</span><span class="si">%(asctime)s</span><span class="s1"> </span><span class="si">%(message)s</span><span class="s1">&#39;</span><span class="p">)</span>
+<span class="n">logging</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">NOTSET</span><span class="p">)</span>
+<span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s1">&#39;numba&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">WARNING</span><span class="p">)</span>
+<span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s1">&#39;asyncio&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">WARNING</span><span class="p">)</span>
+
+<span class="c1"># define dataset schema</span>
+<span class="n">CATEGORICAL_COLUMNS</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;C&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">27</span><span class="p">)]</span>
+<span class="n">CONTINUOUS_COLUMNS</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;I&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">14</span><span class="p">)]</span>
+<span class="n">LABEL_COLUMNS</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;label&#39;</span><span class="p">]</span>
+<span class="n">COLUMNS</span> <span class="o">=</span>  <span class="n">LABEL_COLUMNS</span> <span class="o">+</span> <span class="n">CONTINUOUS_COLUMNS</span> <span class="o">+</span>  <span class="n">CATEGORICAL_COLUMNS</span>
+<span class="c1">#/samples/criteo mode doesn&#39;t have dense features</span>
+<span class="n">criteo_COLUMN</span><span class="o">=</span><span class="n">LABEL_COLUMNS</span> <span class="o">+</span>  <span class="n">CATEGORICAL_COLUMNS</span>
+<span class="c1">#For new feature cross columns</span>
+<span class="n">CROSS_COLUMNS</span> <span class="o">=</span> <span class="p">[]</span>
+
+
+<span class="n">NUM_INTEGER_COLUMNS</span> <span class="o">=</span> <span class="mi">13</span>
+<span class="n">NUM_CATEGORICAL_COLUMNS</span> <span class="o">=</span> <span class="mi">26</span>
+<span class="n">NUM_TOTAL_COLUMNS</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">+</span> <span class="n">NUM_INTEGER_COLUMNS</span> <span class="o">+</span> <span class="n">NUM_CATEGORICAL_COLUMNS</span>
+
+
+<span class="c1"># Initialize RMM pool on ALL workers</span>
+<span class="k">def</span> <span class="nf">setup_rmm_pool</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="n">pool_size</span><span class="p">):</span>
+    <span class="n">client</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">rmm</span><span class="o">.</span><span class="n">reinitialize</span><span class="p">,</span> <span class="n">pool_allocator</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">initial_pool_size</span><span class="o">=</span><span class="n">pool_size</span><span class="p">)</span>
+    <span class="k">return</span> <span class="kc">None</span>
+
+<span class="c1">#compute the partition size with GB</span>
+<span class="k">def</span> <span class="nf">bytesto</span><span class="p">(</span><span class="nb">bytes</span><span class="p">,</span> <span class="n">to</span><span class="p">,</span> <span class="n">bsize</span><span class="o">=</span><span class="mi">1024</span><span class="p">):</span>
+    <span class="n">a</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;k&#39;</span> <span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s1">&#39;m&#39;</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="s1">&#39;g&#39;</span> <span class="p">:</span> <span class="mi">3</span><span class="p">,</span> <span class="s1">&#39;t&#39;</span> <span class="p">:</span> <span class="mi">4</span><span class="p">,</span> <span class="s1">&#39;p&#39;</span> <span class="p">:</span> <span class="mi">5</span><span class="p">,</span> <span class="s1">&#39;e&#39;</span> <span class="p">:</span> <span class="mi">6</span> <span class="p">}</span>
+    <span class="n">r</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="nb">bytes</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nb">bytes</span> <span class="o">/</span> <span class="p">(</span><span class="n">bsize</span> <span class="o">**</span> <span class="n">a</span><span class="p">[</span><span class="n">to</span><span class="p">])</span>
+
+<span class="k">class</span> <span class="nc">FeatureCross</span><span class="p">(</span><span class="n">Operator</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dependency</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dependency</span> <span class="o">=</span> <span class="n">dependency</span>
+
+    <span class="k">def</span> <span class="nf">transform</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">columns</span><span class="p">,</span> <span class="n">gdf</span><span class="p">):</span>
+        <span class="n">new_df</span> <span class="o">=</span> <span class="nb">type</span><span class="p">(</span><span class="n">gdf</span><span class="p">)()</span>
+        <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">columns</span><span class="o">.</span><span class="n">names</span><span class="p">:</span>
+            <span class="n">new_df</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="n">gdf</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">+</span> <span class="n">gdf</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">dependency</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">new_df</span>
+
+    <span class="k">def</span> <span class="nf">dependencies</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">dependency</span><span class="p">]</span>
+
+<span class="c1">#process the data with NVTabular</span>
+<span class="k">def</span> <span class="nf">process_NVT</span><span class="p">(</span><span class="n">args</span><span class="p">):</span>
+
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">feature_cross_list</span><span class="p">:</span>
+        <span class="n">feature_pairs</span> <span class="o">=</span> <span class="p">[</span><span class="n">pair</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">)</span> <span class="k">for</span> <span class="n">pair</span> <span class="ow">in</span> <span class="n">args</span><span class="o">.</span><span class="n">feature_cross_list</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;,&quot;</span><span class="p">)]</span>
+        <span class="k">for</span> <span class="n">pair</span> <span class="ow">in</span> <span class="n">feature_pairs</span><span class="p">:</span>
+            <span class="n">CROSS_COLUMNS</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pair</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">+</span><span class="s1">&#39;_&#39;</span><span class="o">+</span><span class="n">pair</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+
+
+    <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;NVTabular processing&#39;</span><span class="p">)</span>
+    <span class="n">train_input</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">data_path</span><span class="p">,</span> <span class="s2">&quot;train/train.txt&quot;</span><span class="p">)</span>
+    <span class="n">val_input</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">data_path</span><span class="p">,</span> <span class="s2">&quot;val/test.txt&quot;</span><span class="p">)</span>
+    <span class="n">PREPROCESS_DIR_temp_train</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">out_path</span><span class="p">,</span> <span class="s1">&#39;train/temp-parquet-after-conversion&#39;</span><span class="p">)</span>
+    <span class="n">PREPROCESS_DIR_temp_val</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">out_path</span><span class="p">,</span> <span class="s1">&#39;val/temp-parquet-after-conversion&#39;</span><span class="p">)</span>
+    <span class="n">PREPROCESS_DIR_temp</span> <span class="o">=</span> <span class="p">[</span><span class="n">PREPROCESS_DIR_temp_train</span><span class="p">,</span> <span class="n">PREPROCESS_DIR_temp_val</span><span class="p">]</span>
+    <span class="n">train_output</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">out_path</span><span class="p">,</span> <span class="s2">&quot;train&quot;</span><span class="p">)</span>
+    <span class="n">val_output</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">out_path</span><span class="p">,</span> <span class="s2">&quot;val&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Make sure we have a clean parquet space for cudf conversion</span>
+    <span class="k">for</span> <span class="n">one_path</span> <span class="ow">in</span> <span class="n">PREPROCESS_DIR_temp</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">one_path</span><span class="p">):</span>
+            <span class="n">shutil</span><span class="o">.</span><span class="n">rmtree</span><span class="p">(</span><span class="n">one_path</span><span class="p">)</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">one_path</span><span class="p">)</span>
+
+
+    <span class="c1">## Get Dask Client</span>
+
+    <span class="c1"># Deploy a Single-Machine Multi-GPU Cluster</span>
+    <span class="n">device_size</span> <span class="o">=</span> <span class="n">device_mem_size</span><span class="p">(</span><span class="n">kind</span><span class="o">=</span><span class="s2">&quot;total&quot;</span><span class="p">)</span>
+    <span class="n">cluster</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">protocol</span> <span class="o">==</span> <span class="s2">&quot;ucx&quot;</span><span class="p">:</span>
+        <span class="n">UCX_TLS</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;UCX_TLS&quot;</span><span class="p">,</span> <span class="s2">&quot;tcp,cuda_copy,cuda_ipc,sockcm&quot;</span><span class="p">)</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">&quot;UCX_TLS&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">UCX_TLS</span>
+        <span class="n">cluster</span> <span class="o">=</span> <span class="n">LocalCUDACluster</span><span class="p">(</span>
+            <span class="n">protocol</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">protocol</span><span class="p">,</span>
+            <span class="n">CUDA_VISIBLE_DEVICES</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">devices</span><span class="p">,</span>
+            <span class="n">n_workers</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">devices</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;,&quot;</span><span class="p">)),</span>
+            <span class="n">enable_nvlink</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">device_memory_limit</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">device_size</span> <span class="o">*</span> <span class="n">args</span><span class="o">.</span><span class="n">device_limit_frac</span><span class="p">),</span>
+            <span class="n">dashboard_address</span><span class="o">=</span><span class="s2">&quot;:&quot;</span> <span class="o">+</span> <span class="n">args</span><span class="o">.</span><span class="n">dashboard_port</span>
+        <span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">cluster</span> <span class="o">=</span> <span class="n">LocalCUDACluster</span><span class="p">(</span>
+            <span class="n">protocol</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">protocol</span><span class="p">,</span>
+            <span class="n">n_workers</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">devices</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;,&quot;</span><span class="p">)),</span>
+            <span class="n">CUDA_VISIBLE_DEVICES</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">devices</span><span class="p">,</span>
+            <span class="n">device_memory_limit</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">device_size</span> <span class="o">*</span> <span class="n">args</span><span class="o">.</span><span class="n">device_limit_frac</span><span class="p">),</span>
+            <span class="n">dashboard_address</span><span class="o">=</span><span class="s2">&quot;:&quot;</span> <span class="o">+</span> <span class="n">args</span><span class="o">.</span><span class="n">dashboard_port</span>
+        <span class="p">)</span>
+
+
+
+    <span class="c1"># Create the distributed client</span>
+    <span class="n">client</span> <span class="o">=</span> <span class="n">Client</span><span class="p">(</span><span class="n">cluster</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">device_pool_frac</span> <span class="o">&gt;</span> <span class="mf">0.01</span><span class="p">:</span>
+        <span class="n">setup_rmm_pool</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">device_pool_frac</span><span class="o">*</span><span class="n">device_size</span><span class="p">))</span>
+
+
+    <span class="c1">#calculate the total processing time</span>
+    <span class="n">runtime</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+
+    <span class="c1">#test dataset without the label feature</span>
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">dataset_type</span> <span class="o">==</span> <span class="s1">&#39;test&#39;</span><span class="p">:</span>
+        <span class="k">global</span> <span class="n">LABEL_COLUMNS</span>
+        <span class="n">LABEL_COLUMNS</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="c1">##-----------------------------------##</span>
+    <span class="c1"># Dask rapids converts txt to parquet</span>
+    <span class="c1"># Dask cudf dataframe = ddf</span>
+
+    <span class="c1">## train/valid txt to parquet</span>
+    <span class="n">train_valid_paths</span> <span class="o">=</span> <span class="p">[(</span><span class="n">train_input</span><span class="p">,</span><span class="n">PREPROCESS_DIR_temp_train</span><span class="p">),(</span><span class="n">val_input</span><span class="p">,</span><span class="n">PREPROCESS_DIR_temp_val</span><span class="p">)]</span>
+
+    <span class="k">for</span> <span class="nb">input</span><span class="p">,</span> <span class="n">temp_output</span> <span class="ow">in</span> <span class="n">train_valid_paths</span><span class="p">:</span>
+
+        <span class="n">ddf</span> <span class="o">=</span> <span class="n">dask_cudf</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="nb">input</span><span class="p">,</span><span class="n">sep</span><span class="o">=</span><span class="s1">&#39;</span><span class="se">\t</span><span class="s1">&#39;</span><span class="p">,</span><span class="n">names</span><span class="o">=</span><span class="n">LABEL_COLUMNS</span> <span class="o">+</span> <span class="n">CONTINUOUS_COLUMNS</span> <span class="o">+</span> <span class="n">CATEGORICAL_COLUMNS</span><span class="p">)</span>
+
+        <span class="c1">## Convert label col to FP32</span>
+        <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">parquet_format</span> <span class="ow">and</span> <span class="n">args</span><span class="o">.</span><span class="n">dataset_type</span> <span class="o">==</span> <span class="s1">&#39;train&#39;</span><span class="p">:</span>
+            <span class="n">ddf</span><span class="p">[</span><span class="s2">&quot;label&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">ddf</span><span class="p">[</span><span class="s1">&#39;label&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s1">&#39;float32&#39;</span><span class="p">)</span>
+
+        <span class="c1"># Save it as parquet format for better memory usage</span>
+        <span class="n">ddf</span><span class="o">.</span><span class="n">to_parquet</span><span class="p">(</span><span class="n">temp_output</span><span class="p">,</span><span class="n">header</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="c1">##-----------------------------------##</span>
+
+    <span class="n">COLUMNS</span> <span class="o">=</span>  <span class="n">LABEL_COLUMNS</span> <span class="o">+</span> <span class="n">CONTINUOUS_COLUMNS</span> <span class="o">+</span> <span class="n">CROSS_COLUMNS</span> <span class="o">+</span> <span class="n">CATEGORICAL_COLUMNS</span>
+    <span class="n">train_paths</span> <span class="o">=</span> <span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">PREPROCESS_DIR_temp_train</span><span class="p">,</span> <span class="s2">&quot;*.parquet&quot;</span><span class="p">))</span>
+    <span class="n">valid_paths</span> <span class="o">=</span> <span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">PREPROCESS_DIR_temp_val</span><span class="p">,</span> <span class="s2">&quot;*.parquet&quot;</span><span class="p">))</span>
+
+    <span class="n">categorify_op</span> <span class="o">=</span> <span class="n">Categorify</span><span class="p">(</span><span class="n">freq_threshold</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">freq_limit</span><span class="p">)</span>
+    <span class="n">cat_features</span> <span class="o">=</span> <span class="n">CATEGORICAL_COLUMNS</span> <span class="o">&gt;&gt;</span> <span class="n">categorify_op</span>
+    <span class="n">cont_features</span> <span class="o">=</span> <span class="n">CONTINUOUS_COLUMNS</span> <span class="o">&gt;&gt;</span> <span class="n">FillMissing</span><span class="p">()</span> <span class="o">&gt;&gt;</span> <span class="n">Clip</span><span class="p">(</span><span class="n">min_value</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">&gt;&gt;</span> <span class="n">Normalize</span><span class="p">()</span>
+    <span class="n">cross_cat_op</span> <span class="o">=</span> <span class="n">Categorify</span><span class="p">(</span><span class="n">freq_threshold</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">freq_limit</span><span class="p">)</span>
+
+    <span class="n">features</span> <span class="o">=</span> <span class="n">LABEL_COLUMNS</span>
+    
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">criteo_mode</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">features</span> <span class="o">+=</span> <span class="n">cont_features</span>
+        <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">feature_cross_list</span><span class="p">:</span>
+            <span class="n">feature_pairs</span> <span class="o">=</span> <span class="p">[</span><span class="n">pair</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">)</span> <span class="k">for</span> <span class="n">pair</span> <span class="ow">in</span> <span class="n">args</span><span class="o">.</span><span class="n">feature_cross_list</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;,&quot;</span><span class="p">)]</span>
+            <span class="k">for</span> <span class="n">pair</span> <span class="ow">in</span> <span class="n">feature_pairs</span><span class="p">:</span>
+                <span class="n">col0</span> <span class="o">=</span> <span class="n">pair</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="n">col1</span> <span class="o">=</span> <span class="n">pair</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+                <span class="n">features</span> <span class="o">+=</span> <span class="n">col0</span> <span class="o">&gt;&gt;</span> <span class="n">FeatureCross</span><span class="p">(</span><span class="n">col1</span><span class="p">)</span>  <span class="o">&gt;&gt;</span> <span class="n">Rename</span><span class="p">(</span><span class="n">postfix</span><span class="o">=</span><span class="s2">&quot;_&quot;</span><span class="o">+</span><span class="n">col1</span><span class="p">)</span> <span class="o">&gt;&gt;</span> <span class="n">cross_cat_op</span>
+            
+    <span class="n">features</span> <span class="o">+=</span> <span class="n">cat_features</span>
+
+    <span class="n">workflow</span> <span class="o">=</span> <span class="n">nvt</span><span class="o">.</span><span class="n">Workflow</span><span class="p">(</span><span class="n">features</span><span class="p">,</span> <span class="n">client</span><span class="o">=</span><span class="n">client</span><span class="p">)</span>
+
+    <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Preprocessing&quot;</span><span class="p">)</span>
+
+    <span class="n">output_format</span> <span class="o">=</span> <span class="s1">&#39;hugectr&#39;</span>
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">parquet_format</span><span class="p">:</span>
+        <span class="n">output_format</span> <span class="o">=</span> <span class="s1">&#39;parquet&#39;</span>
+
+    <span class="c1"># just for /samples/criteo model</span>
+    <span class="n">train_ds_iterator</span> <span class="o">=</span> <span class="n">nvt</span><span class="o">.</span><span class="n">Dataset</span><span class="p">(</span><span class="n">train_paths</span><span class="p">,</span> <span class="n">engine</span><span class="o">=</span><span class="s1">&#39;parquet&#39;</span><span class="p">,</span> <span class="n">part_size</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">part_mem_frac</span> <span class="o">*</span> <span class="n">device_size</span><span class="p">))</span>
+    <span class="n">valid_ds_iterator</span> <span class="o">=</span> <span class="n">nvt</span><span class="o">.</span><span class="n">Dataset</span><span class="p">(</span><span class="n">valid_paths</span><span class="p">,</span> <span class="n">engine</span><span class="o">=</span><span class="s1">&#39;parquet&#39;</span><span class="p">,</span> <span class="n">part_size</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">part_mem_frac</span> <span class="o">*</span> <span class="n">device_size</span><span class="p">))</span>
+
+    <span class="n">shuffle</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">shuffle</span> <span class="o">==</span> <span class="s2">&quot;PER_WORKER&quot;</span><span class="p">:</span>
+        <span class="n">shuffle</span> <span class="o">=</span> <span class="n">nvt</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">Shuffle</span><span class="o">.</span><span class="n">PER_WORKER</span>
+    <span class="k">elif</span> <span class="n">args</span><span class="o">.</span><span class="n">shuffle</span> <span class="o">==</span> <span class="s2">&quot;PER_PARTITION&quot;</span><span class="p">:</span>
+        <span class="n">shuffle</span> <span class="o">=</span> <span class="n">nvt</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">Shuffle</span><span class="o">.</span><span class="n">PER_PARTITION</span>
+
+    <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Train Datasets Preprocessing.....&#39;</span><span class="p">)</span>
+
+    <span class="n">dict_dtypes</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">CATEGORICAL_COLUMNS</span><span class="p">:</span>
+        <span class="n">dict_dtypes</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">int64</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">args</span><span class="o">.</span><span class="n">criteo_mode</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">CONTINUOUS_COLUMNS</span><span class="p">:</span>
+            <span class="n">dict_dtypes</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">float32</span>
+    <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">CROSS_COLUMNS</span><span class="p">:</span>
+        <span class="n">dict_dtypes</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">int64</span>
+    <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">LABEL_COLUMNS</span><span class="p">:</span>
+        <span class="n">dict_dtypes</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">float32</span>
+    
+    <span class="n">conts</span> <span class="o">=</span> <span class="n">CONTINUOUS_COLUMNS</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">args</span><span class="o">.</span><span class="n">criteo_mode</span> <span class="k">else</span> <span class="p">[]</span>
+    
+    <span class="n">workflow</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">train_ds_iterator</span><span class="p">)</span>
+    
+    <span class="k">if</span> <span class="n">output_format</span> <span class="o">==</span> <span class="s1">&#39;hugectr&#39;</span><span class="p">:</span>
+        <span class="n">workflow</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">train_ds_iterator</span><span class="p">)</span><span class="o">.</span><span class="n">to_hugectr</span><span class="p">(</span>
+                <span class="n">cats</span><span class="o">=</span><span class="n">CATEGORICAL_COLUMNS</span> <span class="o">+</span> <span class="n">CROSS_COLUMNS</span><span class="p">,</span>
+                <span class="n">conts</span><span class="o">=</span><span class="n">conts</span><span class="p">,</span>
+                <span class="n">labels</span><span class="o">=</span><span class="n">LABEL_COLUMNS</span><span class="p">,</span>
+                <span class="n">output_path</span><span class="o">=</span><span class="n">train_output</span><span class="p">,</span>
+                <span class="n">shuffle</span><span class="o">=</span><span class="n">shuffle</span><span class="p">,</span>
+                <span class="n">out_files_per_proc</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">out_files_per_proc</span><span class="p">,</span>
+                <span class="n">num_threads</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">num_io_threads</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">workflow</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">train_ds_iterator</span><span class="p">)</span><span class="o">.</span><span class="n">to_parquet</span><span class="p">(</span>
+                <span class="n">output_path</span><span class="o">=</span><span class="n">train_output</span><span class="p">,</span>
+                <span class="n">dtypes</span><span class="o">=</span><span class="n">dict_dtypes</span><span class="p">,</span>
+                <span class="n">cats</span><span class="o">=</span><span class="n">CATEGORICAL_COLUMNS</span> <span class="o">+</span> <span class="n">CROSS_COLUMNS</span><span class="p">,</span>
+                <span class="n">conts</span><span class="o">=</span><span class="n">conts</span><span class="p">,</span>
+                <span class="n">labels</span><span class="o">=</span><span class="n">LABEL_COLUMNS</span><span class="p">,</span>
+                <span class="n">shuffle</span><span class="o">=</span><span class="n">shuffle</span><span class="p">,</span>
+                <span class="n">out_files_per_proc</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">out_files_per_proc</span><span class="p">,</span>
+                <span class="n">num_threads</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">num_io_threads</span><span class="p">)</span>
+        
+        
+        
+    <span class="c1">###Getting slot size###    </span>
+    <span class="c1">#--------------------##</span>
+    <span class="n">embeddings_dict_cat</span> <span class="o">=</span> <span class="n">categorify_op</span><span class="o">.</span><span class="n">get_embedding_sizes</span><span class="p">(</span><span class="n">CATEGORICAL_COLUMNS</span><span class="p">)</span>
+    <span class="n">embeddings_dict_cross</span> <span class="o">=</span> <span class="n">cross_cat_op</span><span class="o">.</span><span class="n">get_embedding_sizes</span><span class="p">(</span><span class="n">CROSS_COLUMNS</span><span class="p">)</span>
+    <span class="n">embeddings</span> <span class="o">=</span> <span class="p">[</span><span class="n">embeddings_dict_cat</span><span class="p">[</span><span class="n">c</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">CATEGORICAL_COLUMNS</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span><span class="n">embeddings_dict_cross</span><span class="p">[</span><span class="n">c</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">CROSS_COLUMNS</span><span class="p">]</span>
+    
+    <span class="nb">print</span><span class="p">(</span><span class="n">embeddings</span><span class="p">)</span>
+    <span class="c1">##--------------------##</span>
+
+    <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Valid Datasets Preprocessing.....&#39;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">output_format</span> <span class="o">==</span> <span class="s1">&#39;hugectr&#39;</span><span class="p">:</span>
+        <span class="n">workflow</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">valid_ds_iterator</span><span class="p">)</span><span class="o">.</span><span class="n">to_hugectr</span><span class="p">(</span>
+                <span class="n">cats</span><span class="o">=</span><span class="n">CATEGORICAL_COLUMNS</span> <span class="o">+</span> <span class="n">CROSS_COLUMNS</span><span class="p">,</span>
+                <span class="n">conts</span><span class="o">=</span><span class="n">conts</span><span class="p">,</span>
+                <span class="n">labels</span><span class="o">=</span><span class="n">LABEL_COLUMNS</span><span class="p">,</span>
+                <span class="n">output_path</span><span class="o">=</span><span class="n">val_output</span><span class="p">,</span>
+                <span class="n">shuffle</span><span class="o">=</span><span class="n">shuffle</span><span class="p">,</span>
+                <span class="n">out_files_per_proc</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">out_files_per_proc</span><span class="p">,</span>
+                <span class="n">num_threads</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">num_io_threads</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">workflow</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">valid_ds_iterator</span><span class="p">)</span><span class="o">.</span><span class="n">to_parquet</span><span class="p">(</span>
+                <span class="n">output_path</span><span class="o">=</span><span class="n">val_output</span><span class="p">,</span>
+                <span class="n">dtypes</span><span class="o">=</span><span class="n">dict_dtypes</span><span class="p">,</span>
+                <span class="n">cats</span><span class="o">=</span><span class="n">CATEGORICAL_COLUMNS</span> <span class="o">+</span> <span class="n">CROSS_COLUMNS</span><span class="p">,</span>
+                <span class="n">conts</span><span class="o">=</span><span class="n">conts</span><span class="p">,</span>
+                <span class="n">labels</span><span class="o">=</span><span class="n">LABEL_COLUMNS</span><span class="p">,</span>
+                <span class="n">shuffle</span><span class="o">=</span><span class="n">shuffle</span><span class="p">,</span>
+                <span class="n">out_files_per_proc</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">out_files_per_proc</span><span class="p">,</span>
+                <span class="n">num_threads</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">num_io_threads</span><span class="p">)</span>
+
+    <span class="n">embeddings_dict_cat</span> <span class="o">=</span> <span class="n">categorify_op</span><span class="o">.</span><span class="n">get_embedding_sizes</span><span class="p">(</span><span class="n">CATEGORICAL_COLUMNS</span><span class="p">)</span>
+    <span class="n">embeddings_dict_cross</span> <span class="o">=</span> <span class="n">cross_cat_op</span><span class="o">.</span><span class="n">get_embedding_sizes</span><span class="p">(</span><span class="n">CROSS_COLUMNS</span><span class="p">)</span>
+    <span class="n">embeddings</span> <span class="o">=</span> <span class="p">[</span><span class="n">embeddings_dict_cat</span><span class="p">[</span><span class="n">c</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">CATEGORICAL_COLUMNS</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span><span class="n">embeddings_dict_cross</span><span class="p">[</span><span class="n">c</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">CROSS_COLUMNS</span><span class="p">]</span>
+    
+    <span class="nb">print</span><span class="p">(</span><span class="n">embeddings</span><span class="p">)</span>
+    <span class="c1">##--------------------##</span>
+
+    <span class="c1">## Shutdown clusters</span>
+    <span class="n">client</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+    <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;NVTabular processing done&#39;</span><span class="p">)</span>
+
+    <span class="n">runtime</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">runtime</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Dask-NVTabular Criteo Preprocessing&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;--------------------------------------&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;data_path          | </span><span class="si">{</span><span class="n">args</span><span class="o">.</span><span class="n">data_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;output_path        | </span><span class="si">{</span><span class="n">args</span><span class="o">.</span><span class="n">out_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;partition size     | </span><span class="si">{</span><span class="s1">&#39;</span><span class="si">%.2f</span><span class="s1"> GB&#39;</span><span class="o">%</span><span class="n">bytesto</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">part_mem_frac</span> <span class="o">*</span> <span class="n">device_size</span><span class="p">),</span><span class="s1">&#39;g&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;protocol           | </span><span class="si">{</span><span class="n">args</span><span class="o">.</span><span class="n">protocol</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;device(s)          | </span><span class="si">{</span><span class="n">args</span><span class="o">.</span><span class="n">devices</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;rmm-pool-frac      | </span><span class="si">{</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">device_pool_frac</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;out-files-per-proc | </span><span class="si">{</span><span class="n">args</span><span class="o">.</span><span class="n">out_files_per_proc</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;num_io_threads     | </span><span class="si">{</span><span class="n">args</span><span class="o">.</span><span class="n">num_io_threads</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;shuffle            | </span><span class="si">{</span><span class="n">args</span><span class="o">.</span><span class="n">shuffle</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;======================================&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Runtime[s]         | </span><span class="si">{</span><span class="n">runtime</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;======================================</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">parse_args</span><span class="p">():</span>
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">(</span><span class="n">description</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;Multi-GPU Criteo Preprocessing&quot;</span><span class="p">))</span>
+
+    <span class="c1">#</span>
+    <span class="c1"># System Options</span>
+    <span class="c1">#</span>
+
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--data_path&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Input dataset path (Required)&quot;</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--out_path&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Directory path to write output (Required)&quot;</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;-d&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;--devices&quot;</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;CUDA_VISIBLE_DEVICES&quot;</span><span class="p">,</span> <span class="s2">&quot;0&quot;</span><span class="p">),</span>
+        <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s1">&#39;Comma-separated list of visible devices (e.g. &quot;0,1,2,3&quot;). &#39;</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;-p&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;--protocol&quot;</span><span class="p">,</span>
+        <span class="n">choices</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;tcp&quot;</span><span class="p">,</span> <span class="s2">&quot;ucx&quot;</span><span class="p">],</span>
+        <span class="n">default</span><span class="o">=</span><span class="s2">&quot;tcp&quot;</span><span class="p">,</span>
+        <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Communication protocol to use (Default &#39;tcp&#39;)&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;--device_limit_frac&quot;</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
+        <span class="nb">type</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Worker device-memory limit as a fraction of GPU capacity (Default 0.8). &quot;</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;--device_pool_frac&quot;</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="mf">0.9</span><span class="p">,</span>
+        <span class="nb">type</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;RMM pool size for each worker  as a fraction of GPU capacity (Default 0.9). &quot;</span>
+        <span class="s2">&quot;The RMM pool frac is the same for all GPUs, make sure each one has enough memory size&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;--num_io_threads&quot;</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+        <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Number of threads to use when writing output data (Default 0). &quot;</span>
+        <span class="s2">&quot;If 0 is specified, multi-threading will not be used for IO.&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="c1">#</span>
+    <span class="c1"># Data-Decomposition Parameters</span>
+    <span class="c1">#</span>
+
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;--part_mem_frac&quot;</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="mf">0.125</span><span class="p">,</span>
+        <span class="nb">type</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Maximum size desired for dataset partitions as a fraction &quot;</span>
+        <span class="s2">&quot;of GPU capacity (Default 0.125)&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;--out_files_per_proc&quot;</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+        <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Number of output files to write on each worker (Default 1)&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="c1">#</span>
+    <span class="c1"># Preprocessing Options</span>
+    <span class="c1">#</span>
+
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;-f&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;--freq_limit&quot;</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+        <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Frequency limit for categorical encoding (Default 0)&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;-s&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;--shuffle&quot;</span><span class="p">,</span>
+        <span class="n">choices</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;PER_WORKER&quot;</span><span class="p">,</span> <span class="s2">&quot;PER_PARTITION&quot;</span><span class="p">,</span> <span class="s2">&quot;NONE&quot;</span><span class="p">],</span>
+        <span class="n">default</span><span class="o">=</span><span class="s2">&quot;PER_PARTITION&quot;</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Shuffle algorithm to use when writing output data to disk (Default PER_PARTITION)&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;--feature_cross_list&quot;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">&quot;List of feature crossing cols (e.g. C1_C2, C3_C4)&quot;</span>
+    <span class="p">)</span>
+
+    <span class="c1">#</span>
+    <span class="c1"># Diagnostics Options</span>
+    <span class="c1">#</span>
+
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;--profile&quot;</span><span class="p">,</span>
+        <span class="n">metavar</span><span class="o">=</span><span class="s2">&quot;PATH&quot;</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Specify a file path to export a Dask profile report (E.g. dask-report.html).&quot;</span>
+        <span class="s2">&quot;If this option is excluded from the command, not profile will be exported&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;--dashboard_port&quot;</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="s2">&quot;8787&quot;</span><span class="p">,</span>
+        <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Specify the desired port of Dask&#39;s diagnostics-dashboard (Default `3787`). &quot;</span>
+        <span class="s2">&quot;The dashboard will be hosted at http://&lt;IP&gt;:&lt;PORT&gt;/status&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="c1">#</span>
+    <span class="c1"># Format</span>
+    <span class="c1">#</span>
+
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;--criteo_mode&#39;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;--parquet_format&#39;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;--dataset_type&#39;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s1">&#39;train&#39;</span><span class="p">)</span>
+
+    <span class="n">args</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse_args</span><span class="p">()</span>
+    <span class="n">args</span><span class="o">.</span><span class="n">n_workers</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">devices</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;,&quot;</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">args</span>
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">&#39;__main__&#39;</span><span class="p">:</span>
+
+    <span class="n">args</span> <span class="o">=</span> <span class="n">parse_args</span><span class="p">()</span>
+
+    <span class="n">process_NVT</span><span class="p">(</span><span class="n">args</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Writing /wdl_train/preprocess.py
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>!python3 /wdl_train/preprocess.py --data_path wdl_train/ \
+--out_path wdl_train/ --freq_limit 6 --feature_cross_list C1_C2,C3_C4 \
+--device_pool_frac 0.5  --devices &#39;0&#39; --num_io_threads 2
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2021-07-05 05:41:34,199 NVTabular processing
+2021-07-05 05:42:00,112 Preprocessing
+2021-07-05 05:42:00,469 Train Datasets Preprocessing.....
+[249058, 19561, 14212, 6890, 18592, 4, 6356, 1254, 52, 226170, 80508, 72308, 11, 2169, 7597, 61, 4, 923, 15, 249619, 168974, 243480, 68212, 9169, 75, 34, 278018, 415262]
+2021-07-05 05:44:17,349 Valid Datasets Preprocessing.....
+[249058, 19561, 14212, 6890, 18592, 4, 6356, 1254, 52, 226170, 80508, 72308, 11, 2169, 7597, 61, 4, 923, 15, 249619, 168974, 243480, 68212, 9169, 75, 34, 278018, 415262]
+2021-07-05 05:44:19,138 NVTabular processing done
+
+Dask-NVTabular Criteo Preprocessing
+--------------------------------------
+data_path          | wdl_train/
+output_path        | wdl_train/
+partition size     | 2.77 GB
+protocol           | tcp
+device(s)          | 0
+rmm-pool-frac      | 0.5
+out-files-per-proc | 1
+num_io_threads     | 2
+shuffle            | PER_PARTITION
+======================================
+Runtime[s]         | 159.50506210327148
+======================================
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="check-the-preprocessed-training-data">
+<h4>Check the preprocessed training data<a class="headerlink" href="#check-the-preprocessed-training-data" title="Permalink to this headline"></a></h4>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>ls -ll /wdl_train/train
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>total 14537948
+-rw-r--r-- 1 root root  3336516608 Jul  5 05:44 0.8870d61b8a1f4deca0f911acfb072999.parquet
+-rw-r--r-- 1 root root          61 Jul  5 05:44 _file_list.txt
+-rw-r--r-- 1 root root      602767 Jul  5 05:44 _metadata
+-rw-r--r-- 1 root root        1538 Jul  5 05:44 _metadata.json
+drwxr-xr-x 2 root root        4096 Jul  5 05:41 temp-parquet-after-conversion
+-rwxrwxr-x 1 1025 1025 11549710546 Jul  5 05:39 train.txt
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_parquet</span><span class="p">(</span><span class="s2">&quot;/wdl_train/train/0.8870d61b8a1f4deca0f911acfb072999.parquet&quot;</span><span class="p">)</span>
+<span class="n">df</span><span class="o">.</span><span class="n">head</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_html"><div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>I1</th>
+      <th>I2</th>
+      <th>I3</th>
+      <th>I4</th>
+      <th>I5</th>
+      <th>I6</th>
+      <th>I7</th>
+      <th>I8</th>
+      <th>I9</th>
+      <th>I10</th>
+      <th>...</th>
+      <th>C17</th>
+      <th>C18</th>
+      <th>C19</th>
+      <th>C20</th>
+      <th>C21</th>
+      <th>C22</th>
+      <th>C23</th>
+      <th>C24</th>
+      <th>C25</th>
+      <th>C26</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>-0.048792</td>
+      <td>-0.368150</td>
+      <td>0.478781</td>
+      <td>-0.133437</td>
+      <td>-0.069780</td>
+      <td>0.068484</td>
+      <td>0.743047</td>
+      <td>-0.266159</td>
+      <td>1.481252</td>
+      <td>1.386036</td>
+      <td>...</td>
+      <td>3</td>
+      <td>356</td>
+      <td>10</td>
+      <td>183947</td>
+      <td>140830</td>
+      <td>28449</td>
+      <td>64057</td>
+      <td>6432</td>
+      <td>10</td>
+      <td>22</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>-0.061206</td>
+      <td>0.840877</td>
+      <td>-0.594327</td>
+      <td>0.148456</td>
+      <td>-0.209261</td>
+      <td>-0.206385</td>
+      <td>-0.064249</td>
+      <td>-0.281810</td>
+      <td>-0.760031</td>
+      <td>-0.470383</td>
+      <td>...</td>
+      <td>1</td>
+      <td>781</td>
+      <td>10</td>
+      <td>207893</td>
+      <td>27876</td>
+      <td>112273</td>
+      <td>65971</td>
+      <td>3414</td>
+      <td>10</td>
+      <td>5</td>
+    </tr>
+  </tbody>
+</table>
+<p>2 rows × 42 columns</p>
+</div></div></div>
+</div>
+</div>
+</div>
+<div class="section" id="wdl-model-training">
+<h3>WDL Model Training<a class="headerlink" href="#wdl-model-training" title="Permalink to this headline"></a></h3>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">%%writefile</span> &#39;./model.py&#39;
+<span class="kn">import</span> <span class="nn">hugectr</span>
+<span class="c1">#from mpi4py import MPI</span>
+<span class="n">solver</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">CreateSolver</span><span class="p">(</span><span class="n">max_eval_batches</span> <span class="o">=</span> <span class="mi">4000</span><span class="p">,</span>
+                              <span class="n">batchsize_eval</span> <span class="o">=</span> <span class="mi">2720</span><span class="p">,</span>
+                              <span class="n">batchsize</span> <span class="o">=</span> <span class="mi">2720</span><span class="p">,</span>
+                              <span class="n">lr</span> <span class="o">=</span> <span class="mf">0.001</span><span class="p">,</span>
+                              <span class="n">vvgpu</span> <span class="o">=</span> <span class="p">[[</span><span class="mi">2</span><span class="p">]],</span>
+                              <span class="n">repeat_dataset</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+                              <span class="n">i64_input_key</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span>
+
+<span class="n">reader</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">DataReaderParams</span><span class="p">(</span><span class="n">data_reader_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">DataReaderType_t</span><span class="o">.</span><span class="n">Parquet</span><span class="p">,</span>
+                                  <span class="n">source</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;./train/_file_list.txt&quot;</span><span class="p">],</span>
+                                  <span class="n">eval_source</span> <span class="o">=</span> <span class="s2">&quot;./val/_file_list.txt&quot;</span><span class="p">,</span>
+                                  <span class="n">check_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Check_t</span><span class="o">.</span><span class="n">Non</span><span class="p">,</span>
+                                  <span class="n">slot_size_array</span> <span class="o">=</span> <span class="p">[</span><span class="mi">249058</span><span class="p">,</span> <span class="mi">19561</span><span class="p">,</span> <span class="mi">14212</span><span class="p">,</span> <span class="mi">6890</span><span class="p">,</span> <span class="mi">18592</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">6356</span><span class="p">,</span> <span class="mi">1254</span><span class="p">,</span> <span class="mi">52</span><span class="p">,</span> <span class="mi">226170</span><span class="p">,</span> <span class="mi">80508</span><span class="p">,</span> <span class="mi">72308</span><span class="p">,</span> <span class="mi">11</span><span class="p">,</span> <span class="mi">2169</span><span class="p">,</span> <span class="mi">7597</span><span class="p">,</span> <span class="mi">61</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">923</span><span class="p">,</span> <span class="mi">15</span><span class="p">,</span> <span class="mi">249619</span><span class="p">,</span> <span class="mi">168974</span><span class="p">,</span> <span class="mi">243480</span><span class="p">,</span> <span class="mi">68212</span><span class="p">,</span> <span class="mi">9169</span><span class="p">,</span> <span class="mi">75</span><span class="p">,</span> <span class="mi">34</span><span class="p">,</span> <span class="mi">278018</span><span class="p">,</span> <span class="mi">415262</span><span class="p">])</span>
+<span class="n">optimizer</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">CreateOptimizer</span><span class="p">(</span><span class="n">optimizer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Optimizer_t</span><span class="o">.</span><span class="n">Adam</span><span class="p">,</span>
+                                    <span class="n">update_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Update_t</span><span class="o">.</span><span class="n">Global</span><span class="p">,</span>
+                                    <span class="n">beta1</span> <span class="o">=</span> <span class="mf">0.9</span><span class="p">,</span>
+                                    <span class="n">beta2</span> <span class="o">=</span> <span class="mf">0.999</span><span class="p">,</span>
+                                    <span class="n">epsilon</span> <span class="o">=</span> <span class="mf">0.0000001</span><span class="p">)</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Model</span><span class="p">(</span><span class="n">solver</span><span class="p">,</span> <span class="n">reader</span><span class="p">,</span> <span class="n">optimizer</span><span class="p">)</span>
+
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">Input</span><span class="p">(</span><span class="n">label_dim</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">label_name</span> <span class="o">=</span> <span class="s2">&quot;label&quot;</span><span class="p">,</span>
+                        <span class="n">dense_dim</span> <span class="o">=</span> <span class="mi">13</span><span class="p">,</span> <span class="n">dense_name</span> <span class="o">=</span> <span class="s2">&quot;dense&quot;</span><span class="p">,</span>
+                        <span class="n">data_reader_sparse_param_array</span> <span class="o">=</span> 
+                        <span class="p">[</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DataReaderSparseParam</span><span class="p">(</span><span class="s2">&quot;wide_data&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span>
+                        <span class="n">hugectr</span><span class="o">.</span><span class="n">DataReaderSparseParam</span><span class="p">(</span><span class="s2">&quot;deep_data&quot;</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="mi">26</span><span class="p">)]))</span>
+
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">SparseEmbedding</span><span class="p">(</span><span class="n">embedding_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Embedding_t</span><span class="o">.</span><span class="n">DistributedSlotSparseEmbeddingHash</span><span class="p">,</span> 
+                            <span class="n">workspace_size_per_gpu_in_mb</span> <span class="o">=</span> <span class="mi">24</span><span class="p">,</span>
+                            <span class="n">embedding_vec_size</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+                            <span class="n">combiner</span> <span class="o">=</span> <span class="s2">&quot;sum&quot;</span><span class="p">,</span>
+                            <span class="n">sparse_embedding_name</span> <span class="o">=</span> <span class="s2">&quot;sparse_embedding2&quot;</span><span class="p">,</span>
+                            <span class="n">bottom_name</span> <span class="o">=</span> <span class="s2">&quot;wide_data&quot;</span><span class="p">,</span>
+                            <span class="n">optimizer</span> <span class="o">=</span> <span class="n">optimizer</span><span class="p">))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">SparseEmbedding</span><span class="p">(</span><span class="n">embedding_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Embedding_t</span><span class="o">.</span><span class="n">DistributedSlotSparseEmbeddingHash</span><span class="p">,</span> 
+                            <span class="n">workspace_size_per_gpu_in_mb</span> <span class="o">=</span> <span class="mi">405</span><span class="p">,</span>
+                            <span class="n">embedding_vec_size</span> <span class="o">=</span> <span class="mi">16</span><span class="p">,</span>
+                            <span class="n">combiner</span> <span class="o">=</span> <span class="s2">&quot;sum&quot;</span><span class="p">,</span>
+                            <span class="n">sparse_embedding_name</span> <span class="o">=</span> <span class="s2">&quot;sparse_embedding1&quot;</span><span class="p">,</span>
+                            <span class="n">bottom_name</span> <span class="o">=</span> <span class="s2">&quot;deep_data&quot;</span><span class="p">,</span>
+                            <span class="n">optimizer</span> <span class="o">=</span> <span class="n">optimizer</span><span class="p">))</span>
+
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">Reshape</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;sparse_embedding1&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;reshape1&quot;</span><span class="p">],</span>
+                            <span class="n">leading_dim</span><span class="o">=</span><span class="mi">416</span><span class="p">))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">Reshape</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;sparse_embedding2&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;reshape2&quot;</span><span class="p">],</span>
+                            <span class="n">leading_dim</span><span class="o">=</span><span class="mi">2</span><span class="p">))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">ReduceSum</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;reshape2&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;wide_redn&quot;</span><span class="p">],</span>
+                            <span class="n">axis</span> <span class="o">=</span> <span class="mi">1</span><span class="p">))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">Concat</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;reshape1&quot;</span><span class="p">,</span> <span class="s2">&quot;dense&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;concat1&quot;</span><span class="p">]))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">InnerProduct</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;concat1&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;fc1&quot;</span><span class="p">],</span>
+                            <span class="n">num_output</span><span class="o">=</span><span class="mi">1024</span><span class="p">))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">ReLU</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;fc1&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;relu1&quot;</span><span class="p">]))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">Dropout</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;relu1&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;dropout1&quot;</span><span class="p">],</span>
+                            <span class="n">dropout_rate</span><span class="o">=</span><span class="mf">0.5</span><span class="p">))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">InnerProduct</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;dropout1&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;fc2&quot;</span><span class="p">],</span>
+                            <span class="n">num_output</span><span class="o">=</span><span class="mi">1024</span><span class="p">))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">ReLU</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;fc2&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;relu2&quot;</span><span class="p">]))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">Dropout</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;relu2&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;dropout2&quot;</span><span class="p">],</span>
+                            <span class="n">dropout_rate</span><span class="o">=</span><span class="mf">0.5</span><span class="p">))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">InnerProduct</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;dropout2&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;fc3&quot;</span><span class="p">],</span>
+                            <span class="n">num_output</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">Add</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;fc3&quot;</span><span class="p">,</span> <span class="s2">&quot;wide_redn&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;add1&quot;</span><span class="p">]))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">BinaryCrossEntropyLoss</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;add1&quot;</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;loss&quot;</span><span class="p">]))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">compile</span><span class="p">()</span>
+<span class="n">model</span><span class="o">.</span><span class="n">summary</span><span class="p">()</span>
+<span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">max_iter</span> <span class="o">=</span> <span class="mi">21000</span><span class="p">,</span> <span class="n">display</span> <span class="o">=</span> <span class="mi">1000</span><span class="p">,</span> <span class="n">eval_interval</span> <span class="o">=</span> <span class="mi">4000</span><span class="p">,</span> <span class="n">snapshot</span> <span class="o">=</span> <span class="mi">20000</span><span class="p">,</span> <span class="n">snapshot_prefix</span> <span class="o">=</span> <span class="s2">&quot;wdl&quot;</span><span class="p">)</span>
+<span class="n">model</span><span class="o">.</span><span class="n">graph_to_json</span><span class="p">(</span><span class="n">graph_config_file</span> <span class="o">=</span> <span class="s2">&quot;wdl.json&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Overwriting ./model.py
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python ./model.py
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>====================================================Model Init=====================================================
+[13d04h56m26s][HUGECTR][INFO]: Global seed is 3689394843
+[13d04h56m31s][HUGECTR][INFO]: Peer-to-peer access cannot be fully enabled.
+Device 2: A30
+[13d04h56m31s][HUGECTR][INFO]: num of DataReader workers: 1
+[13d04h56m31s][HUGECTR][INFO]: max_vocabulary_size_per_gpu_=2097152
+[13d04h56m31s][HUGECTR][INFO]: max_vocabulary_size_per_gpu_=2211840
+===================================================Model Compile===================================================
+[13d04h56m46s][HUGECTR][INFO]: gpu0 start to init embedding
+[13d04h56m46s][HUGECTR][INFO]: gpu0 init embedding done
+[13d04h56m46s][HUGECTR][INFO]: gpu0 start to init embedding
+[13d04h56m46s][HUGECTR][INFO]: gpu0 init embedding done
+===================================================Model Summary===================================================
+Label                                   Dense                         Sparse                        
+label                                   dense                          wide_data,deep_data           
+(None, 1)                               (None, 13)                              
+------------------------------------------------------------------------------------------------------------------
+Layer Type                              Input Name                    Output Name                   Output Shape                  
+------------------------------------------------------------------------------------------------------------------
+DistributedSlotSparseEmbeddingHash      wide_data                     sparse_embedding2             (None, 2, 1)                  
+DistributedSlotSparseEmbeddingHash      deep_data                     sparse_embedding1             (None, 26, 16)                
+Reshape                                 sparse_embedding1             reshape1                      (None, 416)                   
+Reshape                                 sparse_embedding2             reshape2                      (None, 2)                     
+ReduceSum                               reshape2                      wide_redn                     (None, 1)                     
+Concat                                  reshape1,dense                concat1                       (None, 429)                   
+InnerProduct                            concat1                       fc1                           (None, 1024)                  
+ReLU                                    fc1                           relu1                         (None, 1024)                  
+Dropout                                 relu1                         dropout1                      (None, 1024)                  
+InnerProduct                            dropout1                      fc2                           (None, 1024)                  
+ReLU                                    fc2                           relu2                         (None, 1024)                  
+Dropout                                 relu2                         dropout2                      (None, 1024)                  
+InnerProduct                            dropout2                      fc3                           (None, 1)                     
+Add                                     fc3,wide_redn                 add1                          (None, 1)                     
+BinaryCrossEntropyLoss                  add1,label                    loss                                                        
+------------------------------------------------------------------------------------------------------------------
+=====================================================Model Fit=====================================================
+[13d40h56m46s][HUGECTR][INFO]: Use non-epoch mode with number of iterations: 21000
+[13d40h56m46s][HUGECTR][INFO]: Training batchsize: 2720, evaluation batchsize: 2720
+[13d40h56m46s][HUGECTR][INFO]: Evaluation interval: 4000, snapshot interval: 20000
+[13d40h56m46s][HUGECTR][INFO]: Sparse embedding trainable: 1, dense network trainable: 1
+[13d40h56m46s][HUGECTR][INFO]: Use mixed precision: 0, scaler: 1.000000, use cuda graph: 1
+[13d40h56m46s][HUGECTR][INFO]: lr: 0.001000, warmup_steps: 1, decay_start: 0, decay_steps: 1, decay_power: 2.000000, end_lr: 0.000000
+[13d40h56m46s][HUGECTR][INFO]: Training source file: ./train/_file_list.txt
+[13d40h56m46s][HUGECTR][INFO]: Evaluation source file: ./val/_file_list.txt
+[13d40h56m53s][HUGECTR][INFO]: Iter: 1000 Time(1000 iters): 6.920620s Loss: 0.083037 lr:0.001000
+[13d40h57m00s][HUGECTR][INFO]: Iter: 2000 Time(1000 iters): 6.706585s Loss: 0.120559 lr:0.001000
+[13d40h57m60s][HUGECTR][INFO]: Iter: 3000 Time(1000 iters): 6.699129s Loss: 0.117169 lr:0.001000
+[13d40h57m13s][HUGECTR][INFO]: Iter: 4000 Time(1000 iters): 6.758591s Loss: 0.083112 lr:0.001000
+[13d40h57m23s][HUGECTR][INFO]: Evaluation, AUC: 0.824140
+[13d40h57m23s][HUGECTR][INFO]: Eval Time for 4000 iters: 9.483117s
+[13d40h57m29s][HUGECTR][INFO]: Iter: 5000 Time(1000 iters): 16.187022s Loss: 0.131896 lr:0.001000
+[13d40h57m36s][HUGECTR][INFO]: Iter: 6000 Time(1000 iters): 6.748882s Loss: 0.082966 lr:0.001000
+[13d40h57m43s][HUGECTR][INFO]: Iter: 7000 Time(1000 iters): 6.761953s Loss: 0.091929 lr:0.001000
+[13d40h57m50s][HUGECTR][INFO]: Iter: 8000 Time(1000 iters): 6.874048s Loss: 0.080763 lr:0.001000
+[13d40h57m59s][HUGECTR][INFO]: Evaluation, AUC: 0.826269
+[13d40h57m59s][HUGECTR][INFO]: Eval Time for 4000 iters: 9.275068s
+[13d40h58m60s][HUGECTR][INFO]: Iter: 9000 Time(1000 iters): 15.969286s Loss: 0.088093 lr:0.001000
+[13d40h58m12s][HUGECTR][INFO]: Iter: 10000 Time(1000 iters): 6.652935s Loss: 0.137476 lr:0.001000
+[13d40h58m19s][HUGECTR][INFO]: Iter: 11000 Time(1000 iters): 6.751184s Loss: 0.116295 lr:0.001000
+[13d40h58m26s][HUGECTR][INFO]: Iter: 12000 Time(1000 iters): 6.659960s Loss: 0.151319 lr:0.001000
+[13d40h58m35s][HUGECTR][INFO]: Evaluation, AUC: 0.827362
+[13d40h58m35s][HUGECTR][INFO]: Eval Time for 4000 iters: 9.378966s
+[13d40h58m42s][HUGECTR][INFO]: Iter: 13000 Time(1000 iters): 16.001544s Loss: 0.094625 lr:0.001000
+[13d40h58m48s][HUGECTR][INFO]: Iter: 14000 Time(1000 iters): 6.678430s Loss: 0.121618 lr:0.001000
+[13d40h58m55s][HUGECTR][INFO]: Iter: 15000 Time(1000 iters): 6.840206s Loss: 0.083302 lr:0.001000
+[13d40h59m20s][HUGECTR][INFO]: Iter: 16000 Time(1000 iters): 6.489092s Loss: 0.102394 lr:0.001000
+[13d40h59m11s][HUGECTR][INFO]: Evaluation, AUC: 0.829899
+[13d40h59m11s][HUGECTR][INFO]: Eval Time for 4000 iters: 9.338721s
+[13d40h59m18s][HUGECTR][INFO]: Iter: 17000 Time(1000 iters): 15.868251s Loss: 0.108997 lr:0.001000
+[13d40h59m24s][HUGECTR][INFO]: Iter: 18000 Time(1000 iters): 5.960831s Loss: 0.098293 lr:0.001000
+[13d40h59m29s][HUGECTR][INFO]: Iter: 19000 Time(1000 iters): 5.980448s Loss: 0.071080 lr:0.001000
+[13d40h59m35s][HUGECTR][INFO]: Iter: 20000 Time(1000 iters): 5.984280s Loss: 0.115342 lr:0.001000
+[13d40h59m45s][HUGECTR][INFO]: Evaluation, AUC: 0.828875
+[13d40h59m45s][HUGECTR][INFO]: Eval Time for 4000 iters: 9.337684s
+[13d40h59m45s][HUGECTR][INFO]: Rank0: Write hash table to file
+[13d40h59m45s][HUGECTR][INFO]: Rank0: Write hash table to file
+[13d40h59m45s][HUGECTR][INFO]: Dumping sparse weights to files, successful
+[13d40h59m45s][HUGECTR][INFO]: Rank0: Write optimzer state to file
+[13d40h59m45s][HUGECTR][INFO]: Done
+[13d40h59m45s][HUGECTR][INFO]: Rank0: Write optimzer state to file
+[13d40h59m45s][HUGECTR][INFO]: Done
+[13d40h59m45s][HUGECTR][INFO]: Rank0: Write optimzer state to file
+[13d40h59m45s][HUGECTR][INFO]: Done
+[13d40h59m45s][HUGECTR][INFO]: Rank0: Write optimzer state to file
+[13d40h59m45s][HUGECTR][INFO]: Done
+[13d40h59m45s][HUGECTR][INFO]: Dumping sparse optimzer states to files, successful
+[13d40h59m45s][HUGECTR][INFO]: Dumping dense weights to file, successful
+[13d40h59m45s][HUGECTR][INFO]: Dumping dense optimizer states to file, successful
+[13d40h59m45s][HUGECTR][INFO]: Dumping untrainable weights to file, successful
+[13d40h59m51s][HUGECTR][INFO]: Save the model graph to wdl.json, successful
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>ls -ll
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>total 301620
+-rw-rw-r-- 1 1025 1025     49824 Jul  6 07:00 HugeCTR_WDL_Training.ipynb
+drwxr-xr-x 2 root root      4096 Jul  5 05:43 categories
+drwxr-xr-x 3 root root      4096 Jul  5 05:44 dask-worker-space
+-rw-r--r-- 1 root root      5539 Jul  6 07:00 model.py
+-rw-r--r-- 1 root root     14265 Jul  6 06:59 preprocess.py
+drwxr-xr-x 3 root root      4096 Jul  5 23:34 train
+drwxr-xr-x 3 root root      4096 Jul  5 05:44 val
+-rw-r--r-- 1 root root  17108704 Jul  6 03:28 wdl0_opt_sparse_20000.model
+drwxr-xr-x 2 root root      4096 Jul  5 06:32 wdl0_sparse_20000.model
+-rw-r--r-- 1 root root 273739264 Jul  6 03:28 wdl1_opt_sparse_20000.model
+drwxr-xr-x 2 root root      4096 Jul  5 06:32 wdl1_sparse_20000.model
+-rw-r--r-- 1 root root   5963780 Jul  6 03:28 wdl_dense_20000.model
+-rw-r--r-- 1 root root      3158 Jul  6 03:28 wdl_infer.json
+-rw-r--r-- 1 root root  11927560 Jul  6 03:28 wdl_opt_dense_20000.model
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>!python /wdl_infer/wdl_python_infer.py &quot;wdl&quot; &quot;/wdl_infer/model/wdl/1/wdl.json&quot; \
+&quot;/wdl_infer/model/wdl/1/wdl_dense_20000.model&quot; \
+&quot;/wdl_infer/model/wdl/1/wdl0_sparse_20000.model/,/wdl_infer/model/wdl/1/wdl1_sparse_20000.model&quot; \
+&quot;/wdl_infer/first_ten.csv&quot;
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>[&#39;/wdl_infer/model/wdl/1/wdl0_sparse_20000.model/&#39;, &#39;/wdl_infer/model/wdl/1/wdl1_sparse_20000.model&#39;]
+[14d04h23m54s][HUGECTR][INFO]: default_emb_vec_value is not specified using default: 0.000000
+[14d04h23m54s][HUGECTR][INFO]: default_emb_vec_value is not specified using default: 0.000000
+Local RocksDB is initializing the embedding table: wdl0
+Last Iteration insert successfully
+Local RocksDB is initializing the embedding table: wdl1
+Last Iteration insert successfully
+[14d04h24m08s][HUGECTR][INFO]: Global seed is 2483322206
+[14d04h24m08s][HUGECTR][INFO]: Device to NUMA mapping:
+  GPU 2 -&gt;  node 1
+
+[14d04h24m13s][HUGECTR][INFO]: Peer-to-peer access cannot be fully enabled.
+[14d04h24m13s][HUGECTR][INFO]: Start all2all warmup
+[14d04h24m13s][HUGECTR][INFO]: End all2all warmup
+[14d04h24m13s][HUGECTR][INFO]: Use mixed precision: 0
+[14d04h24m13s][HUGECTR][INFO]: start create embedding for inference
+[14d04h24m13s][HUGECTR][INFO]: sparse_input name wide_data
+[14d04h24m13s][HUGECTR][INFO]: sparse_input name deep_data
+[14d04h24m13s][HUGECTR][INFO]: create embedding for inference success
+[14d04h24m13s][HUGECTR][INFO]: Inference stage skip BinaryCrossEntropyLoss layer, replaced by Sigmoid layer
+Rocksdb gets missing keys from model: wdl and table: 0
+Rocksdb gets missing keys from model: wdl and table: 1
+WDL multi-embedding table inference result is [0.2726621925830841, 0.16786302626132965, 0.06844793260097504, 0.21687281131744385, 0.28839486837387085, 0.09961184859275818, 0.1451544463634491, 0.1859627217054367, 0.1754387617111206, 0.14994166791439056]
+[HUGECTR][INFO] WDL multi-embedding table inference using GPU cache, prediction error is less  than threshold:0.0001, error is 1.1102230246251565e-16
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="prepare-inference-request">
+<h2>Prepare Inference Request<a class="headerlink" href="#prepare-inference-request" title="Permalink to this headline"></a></h2>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>ls -l /wdl_train/val
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>total 637376
+-rw-r--r-- 1 root root 142856977 Jul  5 05:44 0.110d099942694a5cbf1b71eb73e10f27.parquet
+-rw-r--r-- 1 root root        51 Jul  6 07:02 _file_list.txt
+-rw-r--r-- 1 root root     27701 Jul  5 05:44 _metadata
+-rw-r--r-- 1 root root      1537 Jul  5 05:44 _metadata.json
+drwxr-xr-x 2 root root      4096 Jul  5 05:42 temp-parquet-after-conversion
+-rw-r--r-- 1 1025 1025 509766965 Jul  5 04:45 test.txt
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_parquet</span><span class="p">(</span><span class="s2">&quot;/wdl_train/val/0.110d099942694a5cbf1b71eb73e10f27.parquet&quot;</span><span class="p">)</span>
+
+<span class="n">df</span><span class="o">.</span><span class="n">head</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_html"><div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>I1</th>
+      <th>I2</th>
+      <th>I3</th>
+      <th>I4</th>
+      <th>I5</th>
+      <th>I6</th>
+      <th>I7</th>
+      <th>I8</th>
+      <th>I9</th>
+      <th>I10</th>
+      <th>...</th>
+      <th>C17</th>
+      <th>C18</th>
+      <th>C19</th>
+      <th>C20</th>
+      <th>C21</th>
+      <th>C22</th>
+      <th>C23</th>
+      <th>C24</th>
+      <th>C25</th>
+      <th>C26</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>0.061161</td>
+      <td>0.974006</td>
+      <td>-0.594327</td>
+      <td>-0.157301</td>
+      <td>-0.224758</td>
+      <td>0.618222</td>
+      <td>-0.064249</td>
+      <td>-0.281810</td>
+      <td>-0.760031</td>
+      <td>1.386036</td>
+      <td>...</td>
+      <td>2</td>
+      <td>666</td>
+      <td>1</td>
+      <td>33722</td>
+      <td>24373</td>
+      <td>91481</td>
+      <td>62242</td>
+      <td>7673</td>
+      <td>44</td>
+      <td>28</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>-0.061206</td>
+      <td>-0.437431</td>
+      <td>0.156849</td>
+      <td>-0.146861</td>
+      <td>-0.193763</td>
+      <td>0.893091</td>
+      <td>-0.064249</td>
+      <td>0.286841</td>
+      <td>-0.109336</td>
+      <td>3.242455</td>
+      <td>...</td>
+      <td>1</td>
+      <td>666</td>
+      <td>10</td>
+      <td>0</td>
+      <td>97438</td>
+      <td>0</td>
+      <td>21446</td>
+      <td>4472</td>
+      <td>56</td>
+      <td>19</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>0.043427</td>
+      <td>-0.464600</td>
+      <td>-0.379705</td>
+      <td>-0.120014</td>
+      <td>0.054203</td>
+      <td>-0.206385</td>
+      <td>-0.064249</td>
+      <td>-0.093999</td>
+      <td>-0.543133</td>
+      <td>-0.470383</td>
+      <td>...</td>
+      <td>1</td>
+      <td>575</td>
+      <td>10</td>
+      <td>0</td>
+      <td>46601</td>
+      <td>0</td>
+      <td>12090</td>
+      <td>540</td>
+      <td>10</td>
+      <td>17</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>-0.059432</td>
+      <td>-0.273058</td>
+      <td>-0.487016</td>
+      <td>-0.143878</td>
+      <td>-0.193763</td>
+      <td>-0.206385</td>
+      <td>-0.064249</td>
+      <td>-0.279201</td>
+      <td>-0.109336</td>
+      <td>-0.470383</td>
+      <td>...</td>
+      <td>0</td>
+      <td>351</td>
+      <td>10</td>
+      <td>125237</td>
+      <td>4329</td>
+      <td>238309</td>
+      <td>0</td>
+      <td>8488</td>
+      <td>56</td>
+      <td>22</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>-0.048792</td>
+      <td>-0.418412</td>
+      <td>0.693403</td>
+      <td>0.300589</td>
+      <td>-0.193763</td>
+      <td>-0.206385</td>
+      <td>-0.064249</td>
+      <td>-0.281810</td>
+      <td>0.902856</td>
+      <td>-0.470383</td>
+      <td>...</td>
+      <td>0</td>
+      <td>575</td>
+      <td>7</td>
+      <td>69747</td>
+      <td>76381</td>
+      <td>207280</td>
+      <td>0</td>
+      <td>444</td>
+      <td>73</td>
+      <td>22</td>
+    </tr>
+  </tbody>
+</table>
+<p>5 rows × 42 columns</p>
+</div></div></div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">df</span><span class="o">.</span><span class="n">head</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="s1">&#39;/wdl_train/infer_test.csv&#39;</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="s1">&#39;,&#39;</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span><span class="n">header</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="create-prediction-scripts">
+<h2>Create prediction scripts<a class="headerlink" href="#create-prediction-scripts" title="Permalink to this headline"></a></h2>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">%%writefile</span> &#39;/wdl_train/wdl_predict.py&#39;
+<span class="kn">from</span> <span class="nn">hugectr.inference</span> <span class="kn">import</span> <span class="n">InferenceParams</span><span class="p">,</span> <span class="n">CreateInferenceSession</span>
+<span class="kn">import</span> <span class="nn">hugectr</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">sys</span>
+<span class="kn">from</span> <span class="nn">mpi4py</span> <span class="kn">import</span> <span class="n">MPI</span>
+<span class="k">def</span> <span class="nf">wdl_inference</span><span class="p">(</span><span class="n">model_name</span><span class="p">,</span> <span class="n">network_file</span><span class="p">,</span> <span class="n">dense_file</span><span class="p">,</span> <span class="n">embedding_file_list</span><span class="p">,</span> <span class="n">data_file</span><span class="p">,</span><span class="n">enable_cache</span><span class="p">,</span><span class="n">dbtype</span><span class="o">=</span><span class="n">hugectr</span><span class="o">.</span><span class="n">Database_t</span><span class="o">.</span><span class="n">Local</span><span class="p">,</span><span class="n">rocksdb_path</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">):</span>
+    <span class="n">CATEGORICAL_COLUMNS</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;C&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">27</span><span class="p">)]</span><span class="o">+</span><span class="p">[</span><span class="s2">&quot;C1_C2&quot;</span><span class="p">,</span><span class="s2">&quot;C3_C4&quot;</span><span class="p">]</span>
+    <span class="n">CONTINUOUS_COLUMNS</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;I&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">14</span><span class="p">)]</span>
+    <span class="n">LABEL_COLUMNS</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;label&#39;</span><span class="p">]</span>
+    <span class="n">emb_size</span> <span class="o">=</span> <span class="p">[</span><span class="mi">249058</span><span class="p">,</span> <span class="mi">19561</span><span class="p">,</span> <span class="mi">14212</span><span class="p">,</span> <span class="mi">6890</span><span class="p">,</span> <span class="mi">18592</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">6356</span><span class="p">,</span> <span class="mi">1254</span><span class="p">,</span> <span class="mi">52</span><span class="p">,</span> <span class="mi">226170</span><span class="p">,</span> <span class="mi">80508</span><span class="p">,</span> <span class="mi">72308</span><span class="p">,</span> <span class="mi">11</span><span class="p">,</span> <span class="mi">2169</span><span class="p">,</span> <span class="mi">7597</span><span class="p">,</span> <span class="mi">61</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">923</span><span class="p">,</span> <span class="mi">15</span><span class="p">,</span> <span class="mi">249619</span><span class="p">,</span> <span class="mi">168974</span><span class="p">,</span> <span class="mi">243480</span><span class="p">,</span> <span class="mi">68212</span><span class="p">,</span> <span class="mi">9169</span><span class="p">,</span> <span class="mi">75</span><span class="p">,</span> <span class="mi">34</span><span class="p">,</span> <span class="mi">278018</span><span class="p">,</span> <span class="mi">415262</span><span class="p">]</span>
+    <span class="n">shift</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">emb_size</span><span class="p">),</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">test_df</span><span class="o">=</span><span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">data_file</span><span class="p">,</span><span class="n">sep</span><span class="o">=</span><span class="s1">&#39;,&#39;</span><span class="p">)</span>
+    <span class="n">config_file</span> <span class="o">=</span> <span class="n">network_file</span>
+    <span class="n">row_ptrs</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">21</span><span class="p">))</span><span class="o">+</span><span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">261</span><span class="p">))</span>
+    <span class="n">dense_features</span> <span class="o">=</span>  <span class="nb">list</span><span class="p">(</span><span class="n">test_df</span><span class="p">[</span><span class="n">CONTINUOUS_COLUMNS</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">flatten</span><span class="p">())</span>
+    <span class="n">test_df</span><span class="p">[</span><span class="n">CATEGORICAL_COLUMNS</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+    <span class="n">embedding_columns</span> <span class="o">=</span> <span class="nb">list</span><span class="p">((</span><span class="n">test_df</span><span class="p">[</span><span class="n">CATEGORICAL_COLUMNS</span><span class="p">]</span><span class="o">+</span><span class="n">shift</span><span class="p">)</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">flatten</span><span class="p">())</span>
+    
+
+    <span class="c1"># create parameter server, embedding cache and inference session</span>
+    <span class="n">inference_params</span> <span class="o">=</span> <span class="n">InferenceParams</span><span class="p">(</span><span class="n">model_name</span> <span class="o">=</span> <span class="n">model_name</span><span class="p">,</span>
+                                <span class="n">max_batchsize</span> <span class="o">=</span> <span class="mi">64</span><span class="p">,</span>
+                                <span class="n">hit_rate_threshold</span> <span class="o">=</span> <span class="mf">0.5</span><span class="p">,</span>
+                                <span class="n">dense_model_file</span> <span class="o">=</span> <span class="n">dense_file</span><span class="p">,</span>
+                                <span class="n">sparse_model_files</span> <span class="o">=</span> <span class="n">embedding_file_list</span><span class="p">,</span>
+                                <span class="n">device_id</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
+                                <span class="n">use_gpu_embedding_cache</span> <span class="o">=</span> <span class="n">enable_cache</span><span class="p">,</span>
+                                <span class="n">cache_size_percentage</span> <span class="o">=</span> <span class="mf">0.9</span><span class="p">,</span>
+                                <span class="n">i64_input_key</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+                                <span class="n">use_mixed_precision</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+                                <span class="n">db_type</span> <span class="o">=</span> <span class="n">dbtype</span><span class="p">,</span>
+                                <span class="n">rocksdb_path</span><span class="o">=</span><span class="n">rocksdb_path</span><span class="p">,</span>
+                                <span class="n">cache_size_percentage_redis</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
+    <span class="n">inference_session</span> <span class="o">=</span> <span class="n">CreateInferenceSession</span><span class="p">(</span><span class="n">config_file</span><span class="p">,</span> <span class="n">inference_params</span><span class="p">)</span>
+    <span class="n">output</span> <span class="o">=</span> <span class="n">inference_session</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">dense_features</span><span class="p">,</span> <span class="n">embedding_columns</span><span class="p">,</span> <span class="n">row_ptrs</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;WDL multi-embedding table inference result is </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">output</span><span class="p">))</span>
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="n">model_name</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">{}</span><span class="s2"> multi-embedding table prediction&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">model_name</span><span class="p">))</span>
+    <span class="n">network_file</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">{}</span><span class="s2"> multi-embedding table prediction network is </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">model_name</span><span class="p">,</span><span class="n">network_file</span><span class="p">))</span>
+    <span class="n">dense_file</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">{}</span><span class="s2"> multi-embedding table prediction dense file is </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">model_name</span><span class="p">,</span><span class="n">dense_file</span><span class="p">))</span>
+    <span class="n">embedding_file_list</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">[</span><span class="mi">4</span><span class="p">])</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;,&#39;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">{}</span><span class="s2"> multi-embedding table prediction sparse files are </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">model_name</span><span class="p">,</span><span class="n">embedding_file_list</span><span class="p">))</span>
+    <span class="n">data_file</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">[</span><span class="mi">5</span><span class="p">]</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">{}</span><span class="s2"> multi-embedding table prediction input data path is </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">model_name</span><span class="p">,</span><span class="n">data_file</span><span class="p">))</span>
+    <span class="n">input_dbtype</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">[</span><span class="mi">6</span><span class="p">]</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">{}</span><span class="s2"> multi-embedding table prediction input dbtype path is </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">model_name</span><span class="p">,</span><span class="n">input_dbtype</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">input_dbtype</span><span class="o">==</span><span class="s2">&quot;local&quot;</span><span class="p">:</span>
+        <span class="n">wdl_inference</span><span class="p">(</span><span class="n">model_name</span><span class="p">,</span> <span class="n">network_file</span><span class="p">,</span> <span class="n">dense_file</span><span class="p">,</span> <span class="n">embedding_file_list</span><span class="p">,</span> <span class="n">data_file</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Database_t</span><span class="o">.</span><span class="n">Local</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">input_dbtype</span><span class="o">==</span><span class="s2">&quot;rocksdb&quot;</span><span class="p">:</span>
+        <span class="n">rocksdb_path</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">[</span><span class="mi">7</span><span class="p">]</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">{}</span><span class="s2"> multi-embedding table prediction rocksdb_path path is </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">model_name</span><span class="p">,</span><span class="n">rocksdb_path</span><span class="p">))</span>
+        <span class="n">wdl_inference</span><span class="p">(</span><span class="n">model_name</span><span class="p">,</span> <span class="n">network_file</span><span class="p">,</span> <span class="n">dense_file</span><span class="p">,</span> <span class="n">embedding_file_list</span><span class="p">,</span> <span class="n">data_file</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Database_t</span><span class="o">.</span><span class="n">RocksDB</span><span class="p">,</span><span class="n">rocksdb_path</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Overwriting /wdl_train/wdl_predict.py
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="prediction">
+<h2>Prediction<a class="headerlink" href="#prediction" title="Permalink to this headline"></a></h2>
+<p>Use different types of databases as a local parameter server to get the wide and deep model prediction results.</p>
+<div class="section" id="load-model-embedding-tables-into-local-memory-as-parameter-server">
+<h3>Load model embedding tables into local memory as parameter server<a class="headerlink" href="#load-model-embedding-tables-into-local-memory-as-parameter-server" title="Permalink to this headline"></a></h3>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python /wdl_train/wdl_predict.py <span class="s2">&quot;wdl&quot;</span> <span class="s2">&quot;/wdl_infer/model/wdl/1/wdl.json&quot;</span> <span class="s2">&quot;/wdl_infer/model/wdl/1/wdl_dense_20000.model&quot;</span> <span class="s2">&quot;/wdl_infer/model/wdl/1/wdl0_sparse_20000.model/,/wdl_infer/model/wdl/1/wdl1_sparse_20000.model&quot;</span> <span class="s2">&quot;/wdl_train/infer_test.csv&quot;</span> <span class="s2">&quot;local&quot;</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>wdl multi-embedding table prediction
+wdl multi-embedding table prediction network is /wdl_infer/model/wdl/1/wdl.json
+wdl multi-embedding table prediction dense file is /wdl_infer/model/wdl/1/wdl_dense_20000.model
+wdl multi-embedding table prediction sparse files are [&#39;/wdl_infer/model/wdl/1/wdl0_sparse_20000.model/&#39;, &#39;/wdl_infer/model/wdl/1/wdl1_sparse_20000.model&#39;]
+wdl multi-embedding table prediction input data path is /wdl_train/infer_test.csv
+wdl multi-embedding table prediction input dbtype path is local
+[15d09h17m26s][HUGECTR][INFO]: default_emb_vec_value is not specified using default: 0.000000
+[15d09h17m26s][HUGECTR][INFO]: default_emb_vec_value is not specified using default: 0.000000
+[15d09h17m32s][HUGECTR][INFO]: Global seed is 1361897547
+[15d09h17m32s][HUGECTR][INFO]: Device to NUMA mapping:
+  GPU 2 -&gt;  node 1
+
+[15d09h17m48s][HUGECTR][INFO]: Peer-to-peer access cannot be fully enabled.
+[15d09h17m48s][HUGECTR][INFO]: Start all2all warmup
+[15d09h17m48s][HUGECTR][INFO]: End all2all warmup
+[15d09h17m48s][HUGECTR][INFO]: Use mixed precision: 0
+[15d09h17m48s][HUGECTR][INFO]: start create embedding for inference
+[15d09h17m48s][HUGECTR][INFO]: sparse_input name wide_data
+[15d09h17m48s][HUGECTR][INFO]: sparse_input name deep_data
+[15d09h17m48s][HUGECTR][INFO]: create embedding for inference success
+[15d09h17m48s][HUGECTR][INFO]: Inference stage skip BinaryCrossEntropyLoss layer, replaced by Sigmoid layer
+WDL multi-embedding table inference result is [0.019959857687354088, 0.025274723768234253, 0.017903145402669907, 0.006932722870260477, 0.02339070290327072, 0.022747302427887917, 0.05989734083414078, 0.015981541946530342, 0.005822415463626385, 0.01423134095966816]
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="load-model-embedding-tables-into-local-rocksdb-as-a-parameter-server">
+<h3>Load model embedding tables into local RocksDB as a parameter Server<a class="headerlink" href="#load-model-embedding-tables-into-local-rocksdb-as-a-parameter-server" title="Permalink to this headline"></a></h3>
+<p>Create a RocksDB directory with read and write permissions for storing model embedded tables.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>mkdir -p -m <span class="m">700</span> /wdl_train/rocksdb
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>!python /wdl_train/wdl_predict.py &quot;wdl&quot; &quot;/wdl_infer/model/wdl/1/wdl.json&quot; \
+&quot;/wdl_infer/model/wdl/1/wdl_dense_20000.model&quot; \
+&quot;/wdl_infer/model/wdl/1/wdl0_sparse_20000.model/,/wdl_infer/model/wdl/1/wdl1_sparse_20000.model&quot; \
+&quot;/wdl_train/infer_test.csv&quot; \
+&quot;rocksdb&quot;  &quot;/wdl_train/rocksdb&quot;
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>wdl multi-embedding table prediction
+wdl multi-embedding table prediction network is /wdl_infer/model/wdl/1/wdl.json
+wdl multi-embedding table prediction dense file is /wdl_infer/model/wdl/1/wdl_dense_20000.model
+wdl multi-embedding table prediction sparse files are [&#39;/wdl_infer/model/wdl/1/wdl0_sparse_20000.model/&#39;, &#39;/wdl_infer/model/wdl/1/wdl1_sparse_20000.model&#39;]
+wdl multi-embedding table prediction input data path is /wdl_train/infer_test.csv
+wdl multi-embedding table prediction input dbtype path is rocksdb
+wdl multi-embedding table prediction rocksdb_path path is /wdl_train/rocksdb
+[15d12h32m00s][HUGECTR][INFO]: default_emb_vec_value is not specified using default: 0.000000
+[15d12h32m00s][HUGECTR][INFO]: default_emb_vec_value is not specified using default: 0.000000
+Local RocksDB is initializing the embedding table: wdl0
+Last Iteration insert successfully
+Local RocksDB is initializing the embedding table: wdl1
+Last Iteration insert successfully
+[15d12h32m07s][HUGECTR][INFO]: Global seed is 1156574989
+[15d12h32m08s][HUGECTR][INFO]: Device to NUMA mapping:
+  GPU 2 -&gt;  node 1
+
+[15d12h32m21s][HUGECTR][INFO]: Peer-to-peer access cannot be fully enabled.
+[15d12h32m21s][HUGECTR][INFO]: Start all2all warmup
+[15d12h32m21s][HUGECTR][INFO]: End all2all warmup
+[15d12h32m21s][HUGECTR][INFO]: Use mixed precision: 0
+[15d12h32m21s][HUGECTR][INFO]: start create embedding for inference
+[15d12h32m21s][HUGECTR][INFO]: sparse_input name wide_data
+[15d12h32m21s][HUGECTR][INFO]: sparse_input name deep_data
+[15d12h32m21s][HUGECTR][INFO]: create embedding for inference success
+[15d12h32m21s][HUGECTR][INFO]: Inference stage skip BinaryCrossEntropyLoss layer, replaced by Sigmoid layer
+Rocksdb gets missing keys from model: wdl and table: 0
+Rocksdb gets missing keys from model: wdl and table: 1
+WDL multi-embedding table inference result is [0.019959857687354088, 0.025274723768234253, 0.017903145402669907, 0.006932722870260477, 0.02339070290327072, 0.022747302427887917, 0.05989734083414078, 0.015981541946530342, 0.005822415463626385, 0.01423134095966816]
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="continuous_training.html" class="btn btn-neutral float-left" title="HugeCTR Continuous Training" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="news-example.html" class="btn btn-neutral float-right" title="NVIDIA Merlin on Microsoft’s News Dataset (MIND)" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, NVIDIA.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    v: v3.5
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="hugectr_wdl_prediction.html">v3.5</a></dd>
+      <dd><a href="../../v3.6/index.html">v3.6</a></dd>
+    </dl>
+    <dl>
+      <dt>Branches</dt>
+      <dd><a href="../../master/index.html">master</a></dd>
+    </dl>
+  </div>
+</div><script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

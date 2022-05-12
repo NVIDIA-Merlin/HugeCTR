@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Contributing to HugeCTR &mdash; Merlin HugeCTR  documentation</title><link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/togglebutton.css" type="text/css" />
+      <link rel="stylesheet" href="_static/mystnb.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  <script id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+        <script >let toggleHintShow = 'Click to show';</script>
+        <script >let toggleHintHide = 'Click to hide';</script>
+        <script >let toggleOpenOnPrint = 'true';</script>
+        <script src="_static/togglebutton.js"></script>
+        <script >var togglebuttonSelector = '.toggle, .admonition.dropdown, .tag_hide_input div.cell_input, .tag_hide-input div.cell_input, .tag_hide_output div.cell_output, .tag_hide-output div.cell_output, .tag_hide_cell.cell, .tag_hide-cell.cell';</script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Release Notes" href="release_notes.html" />
+    <link rel="prev" title="Questions and Answers" href="QAList.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="index.html" class="icon icon-home"> Merlin HugeCTR
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="hugectr_user_guide.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="hugectr_core_features.html">Core Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="hugectr_feature_details_intro.html">Features in Detail</a></li>
+<li class="toctree-l1"><a class="reference internal" href="notebooks/index.html">Example Notebooks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="notebooks/multi-modal-data/index.html">Multi-modal Example Notebooks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/index.html">API Documentation</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="additional_resources.html">Additional Resources</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="hugectr_talks_blogs.html">HugeCTR Talks and Blogs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="QAList.html">Questions and Answers</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Contributing to HugeCTR</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="release_notes.html">Release Notes</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">Merlin HugeCTR</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="additional_resources.html">Additional Resources</a> &raquo;</li>
+      <li>Contributing to HugeCTR</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <div class="tex2jax_ignore mathjax_ignore section" id="contributing-to-hugectr">
+<h1>Contributing to HugeCTR<a class="headerlink" href="#contributing-to-hugectr" title="Permalink to this headline"></a></h1>
+<p>We’re grateful for your interest in HugeCTR and value your contributions. You can contribute to HugeCTR by:</p>
+<ul>
+<li><p>submitting a <a class="reference external" href="https://github.com/NVIDIA/HugeCTR/issues/new/choose">feature, documentation, or bug request</a>.</p>
+<p><strong>NOTE</strong>: After we review your request, we’ll assign it to a future release. If you think the issue should be prioritized over others, comment on the issue.</p>
+</li>
+<li><p>proposing and implementing a new feature.</p>
+<p><strong>NOTE</strong>: Once we agree to the proposed design, you can go ahead and implement the new feature using the steps outlined in the <a class="reference internal" href="#contribute-new-code"><span class="std std-doc">Contribute New Code section</span></a>.</p>
+</li>
+<li><p>implementing a pending feature or fixing a bug.</p>
+<p><strong>NOTE</strong>: Use the steps outlined in the <a class="reference internal" href="#contribute-new-code"><span class="std std-doc">Contribute New Code section</span></a>. If you need more information about a particular issue,
+add your comments on the issue.</p>
+</li>
+</ul>
+<div class="section" id="contribute-new-code">
+<h2>Contribute New Code<a class="headerlink" href="#contribute-new-code" title="Permalink to this headline"></a></h2>
+<ol>
+<li><p>Build HugeCTR or Sparse Operation Kit (SOK) from source using the steps outlined in the <a class="reference internal" href="#set-up-the-development-environment-with-merlin-containers"><span class="std std-doc">Set Up the Development Environment with Merlin Containers</span></a>.</p></li>
+<li><p><a class="reference external" href="https://github.com/NVIDIA/HugeCTR/issues/new/choose">File an issue</a> and add a comment stating that you’ll work on it.</p></li>
+<li><p>Start coding.</p>
+<p><strong>NOTE</strong>: Don’t forget to add or update the unit tests properly.</p>
+</li>
+<li><p><a class="reference external" href="https://github.com/nvidia/HugeCTR/compare">Create a pull request</a> for you work.</p></li>
+<li><p>Wait for a maintainer to review your code.</p>
+<p>You may be asked to make additional edits to your code if necessary. Once approved, a maintainer will merge your pull request.</p>
+</li>
+</ol>
+<p>If you have any questions or need clarification, don’t hesitate to add comments to your issue and we’ll respond promptly.</p>
+</div>
+<div class="section" id="how-to-start-your-development">
+<h2>How to Start your Development<a class="headerlink" href="#how-to-start-your-development" title="Permalink to this headline"></a></h2>
+<div class="section" id="set-up-the-development-environment-with-merlin-containers">
+<h3>Set Up the Development Environment With Merlin Containers<a class="headerlink" href="#set-up-the-development-environment-with-merlin-containers" title="Permalink to this headline"></a></h3>
+<p>We provide options to disable the installation of HugeCTR and HugeCTR Triton Backend in <a class="reference external" href="https://github.com/NVIDIA-Merlin/Merlin/tree/main/docker">Merlin Dockerfiles</a> so that our contributors can build the development enviornment (container) from them. By simply clone the code of HugeCTR into thise environment and build you can start the journey of development.</p>
+<p><strong>Note</strong>: the message on terminal below is not errors if you are working in such containers.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>groups: cannot find name for group ID 1007
+I have no name!@56a762eae3f8:/hugectr
+</pre></div>
+</div>
+<p>In <a class="reference external" href="https://github.com/NVIDIA-Merlin/Merlin/blob/main/docker/training/dockerfile.ctr">Merlin CTR Dockerfile</a>, <a class="reference external" href="https://github.com/NVIDIA-Merlin/Merlin/blob/main/docker/inference/dockerfile.ctr">Merlin Inference Dockerfile</a>, <a class="reference external" href="https://github.com/NVIDIA-Merlin/Merlin/blob/main/docker/training/dockerfile.tf">Merlin Tensorflow Dockerfile</a>, we provide a set of arguments to setup your HugeCTR development container:</p>
+<p>The arguments and configurations in this example can be used in all the three containers building:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>docker build --pull -t ${DST_IMAGE} -f ${DOCKER_FILE} --build-arg RELEASE=false --build-arg RMM_VER=vnightly --build-arg CUDF_VER=vnightly --build-arg NVTAB_VER=vnightly --build-arg HUGECTR_DEV_MODE=true --no-cache .
+</pre></div>
+</div>
+<p>For RMM_VER, CUDF_VER, NVTAB_VER, you can simply specify the release tag e.g. <code class="docutils literal notranslate"><span class="pre">v1.0</span></code> or <code class="docutils literal notranslate"><span class="pre">vnightly</span></code> if you want to build with the head of the <code class="docutils literal notranslate"><span class="pre">main</span></code> branch.  With specifying HUGECTR_DEV_MODE=true, you can disable HugeCTR installation.</p>
+<p><strong>Docker CLI Quick Reference</strong></p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ docker build [&lt;opts&gt;] &lt;path&gt; | &lt;URL&gt;
+               Build a new image from the source code at PATH
+  -f, --file path/to/Dockerfile
+               Path to the Dockerfile to use. Default: Dockerfile.
+  --build-arg &lt;varname&gt;=&lt;value&gt;
+               Name and value of a build argument defined with ARG
+               Dockerfile instruction
+  -t &quot;&lt;name&gt;[:&lt;tag&gt;]&quot;
+               Repository names (and optionally with tags) to be applied
+               to the resulting image
+  --label =&lt;label&gt;
+               Set metadata for an image
+  -q, --quiet  Suppress the output generated by containers
+  --rm         Remove intermediate containers after a successful build
+</pre></div>
+</div>
+</div>
+<div class="section" id="build-hugectr-from-source">
+<h3>Build HugeCTR from Source<a class="headerlink" href="#build-hugectr-from-source" title="Permalink to this headline"></a></h3>
+<p>To build HugeCTR from source, do the following:</p>
+<ol>
+<li><p>Build the <code class="docutils literal notranslate"><span class="pre">hugectr:devel</span></code> image using the steps outlined <a class="reference internal" href="#set-up-the-development-environment-with-merlin-containers"><span class="std std-doc">here</span></a>.</p></li>
+<li><p>Download the HugeCTR repository and the third-party modules that it relies on by running the following commands:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ git clone https://github.com/NVIDIA/HugeCTR.git
+$ <span class="nb">cd</span> HugeCTR
+$ git submodule update --init --recursive
+</pre></div>
+</div>
+</li>
+<li><p>Build HugeCTR from scratch using one or any combination of the following options:</p>
+<ul class="simple">
+<li><p><strong>SM</strong>: You can use this option to build HugeCTR with a specific compute capability (DSM=80) or multiple compute capabilities (DSM=”70;75”). The default compute capability
+is 70, which uses the NVIDIA V100 GPU. For more information, refer to the <a class="reference internal" href="hugectr_user_guide.html#compute-capability"><span class="std std-doc">Compute Capability</span></a> table. 60 is not supported for inference deployments. For more information, refer to the <a class="reference external" href="https://github.com/triton-inference-server/hugectr_backend#quick-start">Quick Start</a> for the HugeCTR backend of Triton Inference Server.</p></li>
+<li><p><strong>CMAKE_BUILD_TYPE</strong>: You can use this option to build HugeCTR with Debug or Release. When using Debug to build, HugeCTR will print more verbose logs and execute GPU tasks
+in a synchronous manner.
+average of eval_batches results. Only one thread and chunk will be used in the data reader. Performance will be lower when in validation mode. This option is set to OFF by
+default.</p></li>
+<li><p><strong>ENABLE_MULTINODES</strong>: You can use this option to build HugeCTR with multiple nodes. This option is set to OFF by default. For more information, refer to the <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/tree/master/samples/dcn">deep and cross network samples</a> directory on GitHub.</p></li>
+<li><p><strong>ENABLE_INFERENCE</strong>: You can use this option to build HugeCTR in inference mode, which was designed for the inference framework. In this mode, an inference shared library
+will be built for the HugeCTR Backend. Only interfaces that support the HugeCTR Backend can be used. Therefore, you can’t train models in this mode. This option is set to
+OFF by default.</p></li>
+</ul>
+<p>Here are some examples of how you can build HugeCTR using these build options:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ mkdir -p build <span class="o">&amp;&amp;</span> <span class="nb">cd</span> build
+$ cmake -DCMAKE_BUILD_TYPE<span class="o">=</span>Release -DSM<span class="o">=</span><span class="m">70</span> .. <span class="c1"># Target is NVIDIA V100 with all others by default</span>
+$ make -j <span class="o">&amp;&amp;</span> make install
+</pre></div>
+</div>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ mkdir -p build <span class="o">&amp;&amp;</span> <span class="nb">cd</span> build
+$ cmake -DCMAKE_BUILD_TYPE<span class="o">=</span>Release -DSM<span class="o">=</span><span class="s2">&quot;70;80&quot;</span> -DENABLE_MULTINODES<span class="o">=</span>ON .. <span class="c1"># Target is NVIDIA V100 / A100 with the multi-node mode on.</span>
+$ make -j <span class="o">&amp;&amp;</span> make install
+</pre></div>
+</div>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ mkdir -p build <span class="o">&amp;&amp;</span> <span class="nb">cd</span> build
+$ cmake -DCMAKE_BUILD_TYPE<span class="o">=</span>Debug -DSM<span class="o">=</span><span class="s2">&quot;70;80&quot;</span> .. <span class="c1"># Target is NVIDIA V100 / A100 with Debug mode.</span>
+$ make -j <span class="o">&amp;&amp;</span> make install
+</pre></div>
+</div>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ mkdir -p build <span class="o">&amp;&amp;</span> <span class="nb">cd</span> build
+$ cmake -DCMAKE_BUILD_TYPE<span class="o">=</span>Release -DSM<span class="o">=</span><span class="s2">&quot;70;80&quot;</span> -DENABLE_INFERENCE<span class="o">=</span>ON .. <span class="c1"># Target is NVIDIA V100 / A100 with Validation mode on.</span>
+$ make -j <span class="o">&amp;&amp;</span> make install
+</pre></div>
+</div>
+</li>
+</ol>
+</div>
+<div class="section" id="build-sparse-operation-kit-sok-from-source">
+<h3>Build Sparse Operation Kit (SOK) from Source<a class="headerlink" href="#build-sparse-operation-kit-sok-from-source" title="Permalink to this headline"></a></h3>
+<p>To build the Sparse Operation Kit component in HugeCTR, do the following:</p>
+<ol>
+<li><p>Build the <code class="docutils literal notranslate"><span class="pre">hugectr:tf-plugin</span></code> docker image using the steps noted <a class="reference internal" href="#set-up-the-development-environment-with-merlin-containers"><span class="std std-doc">here</span></a>.</p></li>
+<li><p>Download the HugeCTR repository by running the following command:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ git clone https://github.com/NVIDIA/HugeCTR.git hugectr
+</pre></div>
+</div>
+</li>
+<li><p>Build and install libraries to the system paths by running the following commands:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ <span class="nb">cd</span> hugectr/sparse_operation_kit
+$ python setup.py install
+</pre></div>
+</div>
+<p>You can config different environment variables for compiling SOK, please refer to <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/env_vars/env_vars.html">this section</a> for more details.</p>
+</li>
+</ol>
+</div>
+</div>
+</div>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="QAList.html" class="btn btn-neutral float-left" title="Questions and Answers" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="release_notes.html" class="btn btn-neutral float-right" title="Release Notes" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, NVIDIA.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    v: v3.5
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="hugectr_contributor_guide.html">v3.5</a></dd>
+      <dd><a href="../v3.6/hugectr_contributor_guide.html">v3.6</a></dd>
+    </dl>
+    <dl>
+      <dt>Branches</dt>
+      <dd><a href="../master/hugectr_contributor_guide.html">master</a></dd>
+    </dl>
+  </div>
+</div><script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
