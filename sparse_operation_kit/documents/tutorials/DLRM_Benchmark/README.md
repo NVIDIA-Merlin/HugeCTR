@@ -1,10 +1,11 @@
 # SOK DLRM Benchmark
 
-This is the SOK DLRM benchmark on Criteo Terabyte dataset.
+This document demonstrates how to prepare the dataset and run SOK DLRM benchmark.
 
-## Prepare Dataset
+## How to Prepare Dataset
+We provide two approaches to prepare data: using Criteo Terabyte dataset directly or generate synthetic dataset with HugeCTR data generator below.
 
-### Use Criteo Terabyte Preprocessed by HugeCTR
+### How to Prepare Criteo Terabyte Dataset
 
 ```bash
 git clone https://github.com/NVIDIA-Merlin/HugeCTR.git
@@ -17,7 +18,7 @@ python3 split_bin.py train_data.bin $DATA/train --slot_size_array="[39884406,390
 python3 split_bin.py test_data.bin $DATA/test --slot_size_array="[39884406,39043,17289,7420,20263,3,7120,1543,63,38532951,2953546,403346,10,2208,11938,155,4,976,14,39979771,25641295,39664984,585935,12972,108,36]"
 ```
 
-### Use Synthetic Dataset
+### How to Prepare Synthetic Dataset
 
 * Step 1, start the hugectr container
 ```bash
@@ -70,9 +71,7 @@ python3 HugeCTR/sparse_operation_kit/documents/tutorials/DLRM_Benchmark/preproce
 docker run --privileged=true --gpus=all -it --rm -v $YourDataDir:/home/workspace nvcr.io/nvidia/merlin/merlin-tensorflow-training:22.05
 ```
 
-## Run Benchmark
-
-Note: You can use a custom interact op provided by [here](https://github.com/NVIDIA/DeepLearningExamples/tree/master/TensorFlow2/Recommendation/DLRM/tensorflow-dot-based-interact). After installing the custom interact op, you can add `--custom_interact` to the instructions below (This is optional).
+## How to Run Benchmark
 
 ```bash
 git clone https://github.com/NVIDIA-Merlin/HugeCTR.git
@@ -91,6 +90,8 @@ horovodrun -np 8 ./hvd_wrapper.sh python3 main.py --data_dir=/home/workspace/spl
 # AMP result with global batch size = 55296
 horovodrun -np 8 ./hvd_wrapper.sh python3 main.py --data_dir=/home/workspace/splited_dataset/ --global_batch_size=55296 --xla --amp --epochs=1000 --lr=24
 ```
+
+Note: For better performance, you can use a custom interact op provided by [here](https://github.com/NVIDIA/DeepLearningExamples/tree/master/TensorFlow2/Recommendation/DLRM/tensorflow-dot-based-interact). After installing the custom interact op, you can add `--custom_interact` to the instructions below (This is optional). Detailed performance can be found on the tables below.
 
 ## Performance
 
@@ -113,8 +114,6 @@ horovodrun -np 8 ./hvd_wrapper.sh python3 main.py --data_dir=/home/workspace/spl
 | 55296 | AUC > 0.8025 | every 3793 steps | yes   | yes   | yes   | no    | 12.11  | 3.18  | 15.29  | 10.65  | 5.36M |
 
 ### Performance with custom interact op
-
-You can use a custom interact op provided by [here](https://github.com/NVIDIA/DeepLearningExamples/tree/master/TensorFlow2/Recommendation/DLRM/tensorflow-dot-based-interact). After installing the custom interact op, you can run benchmark with `--custom_interact` to test it.
 
 * 8 x A100 (82GB embedding table) with custom interact op:
 
