@@ -20,7 +20,12 @@ python3 split_bin.py test_data.bin $DATA/test --slot_size_array="[39884406,39043
 
 ### How to Prepare Synthetic Dataset
 
-* Step 1, start the hugectr container
+* Step 1, start a container with native HugeCTR
+
+Merlin NGC container with native HugeCTR can be used directly: nvcr.io/nvidia/merlin/merlin-training:22.05 
+
+To start the container, you can refer to the related instructions [here](https://gitlab-master.nvidia.com/dl/hugectr/hugectr#getting-started)
+
 ```bash
 # $YourDataDir is the target directory to save the synthetic dataset
 docker run --privileged=true --gpus=all -it --rm -v $YourDataDir:/home/workspace nvcr.io/nvidia/merlin/merlin-training:22.05
