@@ -215,6 +215,7 @@ class Trainer:
                     iter_time += t
                     print('Evaluate in %dth iteration, test time: %.2fs, AUC: %.6f.'%(idx, t, auc))
                     if auc > 0.8025:
+                        early_stop_flag = True
                         break
 
                 if early_stop > 0 and (idx + 1) >= early_stop:
