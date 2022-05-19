@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include <parallel_hashmap/phmap.h>
+
 #include <cstring>
 #include <hps/kafka_message.hpp>
 #include <vector>
@@ -195,6 +197,7 @@ KafkaMessageSource<TKey>::KafkaMessageSource(const std::string& brokers,
   HCTR_KAFKA_CONF_SET(conf, "enable.auto.commit", "false");
   HCTR_KAFKA_CONF_SET(conf, "enable.partition.eof", "false");
   HCTR_KAFKA_CONF_SET(conf, "topic.metadata.refresh.interval.ms", "60000");
+  HCTR_KAFKA_CONF_SET(conf, "auto.offset.reset", "beginning");
 
   // Create actual consumer context.
   char error[512];
@@ -293,12 +296,15 @@ struct KafkaPartitionOffsetHash {
 
 template <typename TKey>
 void KafkaMessageSource<TKey>::run(std::function<HCTR_MESSAGE_SOURCE_CALLBACK> callback) {
+  // Set thread name.
+  hctr_set_thread_name("Kafka listen");
+
   // Attempt to subscribe to topics.
   subscribe();
 
   // Allocate buffer for the messages.
-  std::unordered_map<std::string, KafkaReceiveBuffer<TKey>> receive_buffers;
-  std::unordered_map<std::pair<std::string, int32_t>, size_t, KafkaPartitionOffsetHash> offsets;
+  phmap::flat_hash_map<std::string, KafkaReceiveBuffer<TKey>> receive_buffers;
+  phmap::flat_hash_map<std::pair<std::string, int32_t>, size_t, KafkaPartitionOffsetHash> offsets;
 
   while (!terminate_) {
     // Append messages to the receive buffer until is is full, or we reached the end of the message
@@ -330,11 +336,18 @@ void KafkaMessageSource<TKey>::run(std::function<HCTR_MESSAGE_SOURCE_CALLBACK> c
       const std::string topic = rd_kafka_topic_name(msg->rkt);
 
       if (msg->key_len != sizeof(TKey)) {
-        HCTR_LOG(
-            WARNING, WORLD,
-            "Data corruption? Key-size of message retrieved via Kafka does not match expecation "
-            "(%d != %d). Discarding!\n",
-            msg->key_len, sizeof(TKey));
+        auto log = HCTR_LOG_S(WARNING, WORLD);
+        log << "Data corruption? Key-size of message retrieved via Kafka does not match expecation "
+               "("
+            << msg->key_len << " <> " << sizeof(TKey) << "). Discarding! (key=";
+        const char* key = reinterpret_cast<const char*>(msg->key);
+        for (size_t j = 0; j < msg->key_len; j++) {
+          if (j > 0) {
+            log << ' ';
+          }
+          log << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(key[j]);
+        }
+        log << ", msg_len=" << std::dec << msg->len << ')' << std::endl;
         break;
       }
       const TKey& key = *static_cast<TKey*>(msg->key);
