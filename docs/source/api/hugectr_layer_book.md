@@ -52,21 +52,51 @@ hugectr.SparseEmbedding()
 `SparseEmbedding` specifies the parameters related to the sparse embedding layer. One or several `SparseEmbedding` layers should be added to the Model instance after `Input` and before `DenseLayer`.
 
 **Arguments**
-* `embedding_type`: The embedding type to be used. The supported types include `hugectr.Embedding_t.DistributedSlotSparseEmbeddingHash`, `hugectr.Embedding_t.LocalizedSlotSparseEmbeddingHash` and `hugectr.Embedding_t.LocalizedSlotSparseEmbeddingOneHot`. There is NO default value and it should be specified by users. For detail about different embedding types, please refer to [Embedding Types Detail](./hugectr_layer_book.md#embedding-types-detail).
+* `embedding_type`: The embedding type.
+Specify one of the following values:
+  * `hugectr.Embedding_t.DistributedSlotSparseEmbeddingHash`
+  * `hugectr.Embedding_t.LocalizedSlotSparseEmbeddingHash`
+  * `hugectr.Embedding_t.LocalizedSlotSparseEmbeddingOneHot`
 
-* `workspace_size_per_gpu_in_mb`: Integer, the workspace memory size in megabyte per GPU. This workspace memory must be big enough to hold all the embedding vocabulary and its corresponding optimizer state used during the training and evaluation. There is NO default value and it should be specified by users. To understand how to set this value, please refer to [How to set workspace_size_per_gpu_in_mb and slot_size_array](../QAList.md#24-how-to-set-workspace_size_per_gpu_in_mb-and-slot_size_array).
+  For information about the different embedding types, see [Embedding Types Detail](./hugectr_layer_book.md#embedding-types-detail).
+  This argument does not have a default value.
+  You must specify a value.
 
-* `embedding_vec_size`: Integer, the embedding vector size. There is NO default value and it should be specified by users.
+* `workspace_size_per_gpu_in_mb`: Integer, the workspace memory size in megabyte per GPU.
+This workspace memory must be big enough to hold all the embedding vocabulary and its corresponding optimizer state that is used during the training and evaluation.
+To understand how to set this value, see [How to set workspace_size_per_gpu_in_mb and slot_size_array](../QAList.md#24-how-to-set-workspace_size_per_gpu_in_mb-and-slot_size_array).
+This argument does not have a default value.
+You must specify a value.
 
-* `combiner`: String, the intra-slot reduction operation, currently `sum` or `mean` are supported. There is NO default value and it should be specified by users.
+* `embedding_vec_size`: Integer, the embedding vector size.
+This argument does not have a default value.
+You must specify a value.
 
-* `sparse_embedding_name`: String, the name of the sparse embedding tensor to be referenced by following layers. There is NO default value and it should be specified by users.
+* `combiner`: String, the intra-slot reduction operation.
+Specify `sum` or `mean`.
+This argument does not have a default value.
+You must specify a value.
 
-* `bottom_name`: String, the number of the bottom tensor to be consumed by this sparse embedding layer. Please note that it should be a predefined sparse input name. There is NO default value and it should be specified by users.
+* `sparse_embedding_name`: String, the name of the sparse embedding tensor.
+This name is referenced by the following layers.
+This argument does not have a default value.
+You must specify a value.
 
-* `slot_size_array`: List[int], the cardinality array of input features. It should be consistent with that of the sparse input. This parameter is used in `LocalizedSlotSparseEmbeddingHash` and `LocalizedSlotSparseEmbeddingOneHot`, which can help avoid wasting memory caused by imbalance vocabulary size. Please refer [How to set workspace_size_per_gpu_in_mb and slot_size_array](../QAList.md#24-how-to-set-workspace_size_per_gpu_in_mb-and-slot_size_array). There is NO default value and it should be specified by users.
+* `bottom_name`: String, the number of the bottom tensor to consume with this sparse embedding layer.
+Please note that the value should be a predefined sparse input name.
+This argument does not have a default value.
+You must specify a value.
 
-* `optimizer`: OptParamsPy, the optimizer dedicated to this sparse embedding layer. If the user does not specify the optimizer for the sparse embedding, it will adopt the same optimizer as dense layers.
+* `slot_size_array`: List[int], specify the maximum key value from each slot.
+It should be consistent with that of the sparse input.
+This parameter is used in `LocalizedSlotSparseEmbeddingHash` and `LocalizedSlotSparseEmbeddingOneHot`.
+The value you specify can help avoid wasting memory that is caused by an imbalanced vocabulary size.
+For more informtion, see [How to set workspace_size_per_gpu_in_mb and slot_size_array](../QAList.md#24-how-to-set-workspace_size_per_gpu_in_mb-and-slot_size_array).
+This argument does not have a default value.
+You must specify a value.
+
+* `optimizer`: OptParamsPy, the optimizer that is dedicated to this sparse embedding layer.
+If you do not specify the optimizer for the sparse embedding, the sparse embedding layer adopts the same optimizer as dense layers.
 
 ## Embedding Types Detail
 ### DistributedSlotSparseEmbeddingHash Layer
