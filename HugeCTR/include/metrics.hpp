@@ -72,7 +72,7 @@ class AverageLoss : public Metric {
 
  private:
   std::shared_ptr<ResourceManager> resource_manager_;
-  std::vector<float> loss_local_;
+  std::vector<float*> loss_local_;
   float loss_global_;
   int n_batches_;
 };

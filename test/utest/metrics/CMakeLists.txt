@@ -30,5 +30,24 @@ add_custom_command(
   DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/python_auc.py"
 )
 
-add_custom_target(copy_python DEPENDS "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/python_auc.py")
-add_dependencies(auc_test copy_python)
+add_custom_target(copy_auc DEPENDS "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/python_auc.py")
+add_dependencies(auc_test copy_auc)
+
+file(GLOB averageloss_test_src
+  averageloss_test.cpp
+)
+
+add_executable(averageloss_test ${averageloss_test_src})
+target_compile_features(averageloss_test PUBLIC cxx_std_17)
+target_link_libraries(averageloss_test PUBLIC huge_ctr_static gtest gtest_main)
+
+add_custom_command(
+  OUTPUT "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/python_averageloss.py"
+  COMMAND ${CMAKE_COMMAND} -E copy
+  "${CMAKE_CURRENT_SOURCE_DIR}/python_averageloss.py"
+  "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}"
+  DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/python_averageloss.py"
+)
+
+add_custom_target(copy_averageloss DEPENDS "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/python_averageloss.py")
+add_dependencies(averageloss_test copy_averageloss)

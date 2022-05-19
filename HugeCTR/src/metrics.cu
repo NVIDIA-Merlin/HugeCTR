@@ -401,61 +401,62 @@ template <typename T>
 AverageLoss<T>::AverageLoss(const std::shared_ptr<ResourceManager>& resource_manager)
     : Metric(),
       resource_manager_(resource_manager),
-      loss_local_(std::vector<float>(resource_manager->get_local_gpu_count(), 0.0f)),
+      loss_local_(std::vector<float*>(resource_manager->get_local_gpu_count(), nullptr)),
       loss_global_(0.0f),
-      n_batches_(0) {}
+      n_batches_(0) {
+  for (size_t local_gpu_id = 0; local_gpu_id < resource_manager_->get_local_gpu_count();
+       ++local_gpu_id) {
+    HCTR_LIB_THROW(cudaMallocHost((void**)&loss_local_[local_gpu_id], sizeof(float)));
+  }
+}
 
 template <typename T>
-AverageLoss<T>::~AverageLoss() {}
+AverageLoss<T>::~AverageLoss() {
+  for (size_t local_gpu_id = 0; local_gpu_id < resource_manager_->get_local_gpu_count();
+       ++local_gpu_id) {
+    HCTR_LIB_THROW(cudaFreeHost(loss_local_[local_gpu_id]));
+  }
+}
 
 template <typename T>
 void AverageLoss<T>::local_reduce(int local_gpu_id, RawMetricMap raw_metrics) {
-  float loss_host = 0.0f;
-  Tensor2<T> loss_tensor = Tensor2<T>::stretch_from(raw_metrics[RawType::Loss]);
+  // std::cout << "Called local reduce" << std::endl;
+  Tensor2<float> loss_tensor = Tensor2<float>::stretch_from(raw_metrics[RawType::Loss]);
   const auto& local_gpu = resource_manager_->get_local_gpu(local_gpu_id);
+  auto& stream = local_gpu->get_stream();
   CudaDeviceContext context(local_gpu->get_device_id());
-  HCTR_LIB_THROW(cudaMemcpyAsync(&loss_host, loss_tensor.get_ptr(), sizeof(float),
-                                 cudaMemcpyDeviceToHost, local_gpu->get_stream()));
-  loss_local_[local_gpu_id] = loss_host;
+  HCTR_LIB_THROW(cudaMemcpy(loss_local_[local_gpu_id], loss_tensor.get_ptr(), sizeof(float),
+                            cudaMemcpyDeviceToHost));
 }
 
 template <typename T>
 void AverageLoss<T>::global_reduce(int n_nets) {
   float loss_inter = 0.0f;
-  for (auto& loss_local : loss_local_) {
-    loss_inter += loss_local;
+  for (auto& ptr_loss_local : loss_local_) {
+    loss_inter += *ptr_loss_local;
   }
-
-#ifdef ENABLE_MPI
-  if (resource_manager_->get_num_process() > 1) {
-    float loss_reduced = 0.0f;
-    HCTR_MPI_THROW(
-        MPI_Reduce(&loss_inter, &loss_reduced, 1, MPI_FLOAT, MPI_SUM, 0, MPI_COMM_WORLD));
-    loss_inter = loss_reduced;
-  }
-#endif
   loss_global_ += loss_inter / n_nets / resource_manager_->get_num_process();
   n_batches_++;
 }
 
 template <typename T>
 float AverageLoss<T>::finalize_metric() {
-  float ret = 0.0f;
+  float ret = loss_global_;
+#ifdef ENABLE_MPI
+  if (resource_manager_->get_num_process() > 1) {
+    float loss_reduced = 0.0f;
+    HCTR_MPI_THROW(MPI_Reduce(&ret, &loss_reduced, 1, MPI_FLOAT, MPI_SUM, 0, MPI_COMM_WORLD));
+    ret = loss_reduced;
+  }
+#endif
   if (resource_manager_->is_master_process()) {
     if (n_batches_) {
-      ret = loss_global_ / n_batches_;
+      ret = ret / n_batches_;
     }
   }
-#ifdef ENABLE_MPI
-  HCTR_MPI_THROW(MPI_Barrier(MPI_COMM_WORLD));
-  HCTR_MPI_THROW(MPI_Bcast(&ret, 1, MPI_FLOAT, 0, MPI_COMM_WORLD));
-#endif
-
   loss_global_ = 0.0f;
-  for (auto& loss_local : loss_local_) {
-    loss_local = 0.0f;
-  }
   n_batches_ = 0;
+
   return ret;
 }
 
