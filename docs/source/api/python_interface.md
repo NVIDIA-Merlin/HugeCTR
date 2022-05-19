@@ -200,29 +200,70 @@ hugectr.DataReaderParams()
 `DataReaderParams` specifies the parameters related to the data reader. HugeCTR currently supports three dataset formats, i.e., [Norm](#norm), [Raw](#raw) and [Parquet](#parquet). An `DataReaderParams` instance is required to initialize the `Model` instance.
 
 **Arguments**
-* `data_reader_type`: The type of the data reader which should be consistent with the dataset format. The supported types include `hugectr.DataReaderType_t.Norm`, `hugectr.DataReaderType_t.Raw` and `hugectr.DataReaderType_t.Parquet` and `DataReaderType_t.RawAsync`. The type `DataReaderType_t.RawAsync` is valid only if `is_dlrm` is set `True` within `CreateSolver`. There is NO default value and it should be specified by users.
+* `data_reader_type`: The type of the data reader which should be consistent with the dataset format.
+Specify one of the following types:
+  * `hugectr.DataReaderType_t.Norm`
+  * `hugectr.DataReaderType_t.Raw`
+  * `hugectr.DataReaderType_t.Parquet`
+  * `DataReaderType_t.RawAsync`
 
-* `source`: List[str] or String, the training dataset source. For Norm or Parquet dataset, it should be the file list of training data, e.g., `source = "file_list.txt"`. For Raw dataset, it should be a single training file, e.g., `source = "train_data.bin"`. When using embedding training cache, it can be specified with several file lists, e.g., `source = ["file_list.1.txt", "file_list.2.txt"]`. There is NO default value and it should be specified by users.
+  The type `DataReaderType_t.RawAsync` is valid only if `is_dlrm` is set `True` within `CreateSolver`.
+  This argument has no default value and you must specify a value.
 
-* `keyset`: List[str] or String, the keyset files. This argument will ONLY be valid when using embedding training cache and it should be corresponding to the `source`. For example, we can specify `source = ["file_list.1.txt", "file_list.2.txt"]` and `source = ["file_list.1.keyset", "file_list.2.keyset"]`, which have a one-to-one correspondence.
+* `source`: List[str] or String, the training dataset source.
+For Norm or Parquet dataset, specify the file list of training data, such as `source = "file_list.txt"`.
+For Raw dataset, specify a single training file, such as `source = "train_data.bin"`.
+When using the embedding training cache, you can specify several file lists, such as `source = ["file_list.1.txt", "file_list.2.txt"]`.
+This argument has no default value and you must specify a value.
 
-* `eval_source`: String, the evaluation dataset source. For Norm or Parquet dataset, it should be the file list of evaluation data. For Raw dataset, it should be a single evaluation file. There is NO default value and it should be specified by users.
+* `keyset`: List[str] or String, the keyset files.
+This argument is only valid when you use the embedding training cache.
+The value should correspond to the value for the `source` argument.
+For example, you can specify `source = ["file_list.1.txt", "file_list.2.txt"]` and `keyset = ["file_list.1.keyset", "file_list.2.keyset"]`
+The example shows the one-to-one correspondence between the `source` and `keyset` values.
 
-* `check_type`: The data error detection mechanism. The supported types include `hugectr.Check_t.Sum` (CheckSum) and `hugectr.Check_t.Non` (no detection). There is NO default value and it should be specified by users.
+* `eval_source`: String, the evaluation dataset source.
+For Norm or Parquet dataset, specify the file list of the evaluation data.
+For Raw dataset, specify a single evaluation file.
+This argument has no default value and you must specify a value.
 
-* `cache_eval_data`: Integer, the cache size of evaluation data on device, set this parameter greater than zero to restrict the memory that will be used. The default value is 0.
+* `check_type`: The data error detection mechanism.
+Specify `hugectr.Check_t.Sum` (CheckSum) or `hugectr.Check_t.Non` (no detection).
+This argument has no default value and you must specify a value.
 
-* `num_samples`: Integer, the number of samples in the traning dataset. This is ONLY valid for Raw dataset. The default value is 0.
+* `cache_eval_data`: Integer, the cache size of evaluation data on device.
+Specify a value that is greater than zero to restrict the memory use.
+The default value is 0.
 
-* `eval_num_samples`: Integer, the number of samples in the evaluation dataset. This is ONLY valid for Raw dataset. The default value is 0.
+* `num_samples`: Integer, the number of samples in the training dataset.
+This argument is valid for the Raw dataset format only.
+The default value is 0.
 
-* `float_label_dense`: Boolean, this is valid only for the Raw dataset format. If its value is set to `True`, the label and dense features for each sample are interpreted as float values. Otherwise, they are read as integer values while the dense features are preprocessed with log(dense[i] + 1.f). The default value is `True`.
+* `eval_num_samples`: Integer, the number of samples in the evaluation dataset.
+This argument is valid for the Raw dataset format only.
+The default value is 0.
 
-* `num_workers`: Integer, the number of data reader workers that concurrently load data. You can empirically decide the best one based on your dataset, training environment. The default value is 12.
+* `float_label_dense`: Boolean, this argument is valid for the Raw dataset format only.
+When set to `True`, the label and dense features for each sample are interpreted as float values.
+Otherwise, they are read as integer values while the dense features are preprocessed with $log(dense[i] + \text{1.f})$.
+The default value is `True`.
 
-* `slot_size_array`: List[int], the cardinality array of input features. It should be consistent with that of the sparse input. We requires this argument for Parquet format data and RawAsync format when you want to add offset to input key. The default value is an empty list.
+* `num_workers`: Integer, the number of data reader workers to load data concurrently.
+You can empirically decide the best value based on your dataset and training environment.
+The default value is 12.
 
-* `async_param`: AsyncParam, the parameters for async raw data reader. This argument is restricted to MLPerf use.
+* `slot_size_array`: List[int], specify the maximum key value for each slot.
+Refer to the following equation.
+The array should be consistent with that of the sparse input.
+HugeCTR requires this argument for Parquet format data and RawAsync format when you want to add an offset to the input key.
+The default value is an empty list.
+
+  The following equation shows how to determine the values to specify:
+
+  $slot\_size\_array[k] = \max\limits_i slot^k_i + 1$
+
+* `async_param`: AsyncParam, the parameters for async raw data reader.
+This argument is restricted to MLPerf use.
 
 ### Dataset formats
 
