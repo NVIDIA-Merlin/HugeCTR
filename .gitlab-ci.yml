@@ -44,7 +44,7 @@ nightly_build_sok_tf1:
     REMOTE_REPO: https://github.com/NVIDIA-Merlin/Merlin.git
     DST_IMAGE: ${IMAGE_SOK_TF1}
     DOCKER_FILE: ./training/dockerfile.tf
-    BUILD_ARGS: --build-arg HUGECTR_DEV_MODE=true --build-arg IMAGE=nvcr.io/nvidia/tensorflow:21.11-tf1-py3 --build-arg INSTALL_NVT=false
+    BUILD_ARGS: --build-arg HUGECTR_DEV_MODE=true --build-arg IMAGE=nvcr.io/nvidia/tensorflow:21.11-tf1-py3 --build-arg INSTALL_NVT=false --build-arg INSTALL_DISTRIBUTED_EMBEDDINGS=false
   
 nightly_build_unified_container.ctr:
   extends: .build_nightly
@@ -52,7 +52,7 @@ nightly_build_unified_container.ctr:
     REMOTE_REPO: https://github.com/NVIDIA-Merlin/Merlin.git
     DST_IMAGE: ${CI_REGISTRY}/dl/hugectr/hugectr:unified.ctr.latest
     DOCKER_FILE: ./training/dockerfile.ctr
-    BUILD_ARGS: --build-arg _CI_JOB_TOKEN=${RD_CI_JOB_TOKEN} --build-arg _HUGECTR_REPO=gitlab-master.nvidia.com/dl/hugectr/hugectr.git --build-arg HUGECTR_VER=${CI_COMMIT_SHA}
+    BUILD_ARGS: --build-arg _CI_JOB_TOKEN=${RD_CI_JOB_TOKEN} --build-arg _HUGECTR_REPO=gitlab-master.nvidia.com/dl/hugectr/hugectr.git --build-arg HUGECTR_VER=${CI_COMMIT_BRANCH}
   
 nightly_build_unified_container.tf:
   extends: .build_nightly
@@ -68,7 +68,7 @@ nightly_build_unified_container.tri:
     REMOTE_REPO: https://github.com/NVIDIA-Merlin/Merlin.git
     DST_IMAGE: ${CI_REGISTRY}/dl/hugectr/hugectr:unified.tri.latest
     DOCKER_FILE: ./inference/dockerfile.ctr
-    BUILD_ARGS: --build-arg _CI_JOB_TOKEN=${RD_CI_JOB_TOKEN} --build-arg _HUGECTR_REPO=gitlab-master.nvidia.com/dl/hugectr/hugectr.git --build-arg HUGECTR_VER=${CI_COMMIT_SHA} --build-arg _HUGECTR_BACKEND_REPO=gitlab-master.nvidia.com/dl/hugectr/hugectr_inference_backend.git --build-arg HUGECTR_BACKEND_VER=hugectr_performance_test
+    BUILD_ARGS: --build-arg _CI_JOB_TOKEN=${RD_CI_JOB_TOKEN} --build-arg _HUGECTR_REPO=gitlab-master.nvidia.com/dl/hugectr/hugectr.git --build-arg HUGECTR_VER=${CI_COMMIT_BRANCH} --build-arg _HUGECTR_BACKEND_REPO=gitlab-master.nvidia.com/dl/hugectr/hugectr_inference_backend.git --build-arg HUGECTR_BACKEND_VER=hugectr_performance_test
 
 ### Stage: build
 build_train_single_node:
@@ -489,7 +489,7 @@ sparse_operation_kit-TF2:
     CONT: $SOK_IMAGE_VERSIONED_TF2
     MOUNTS: ${DATASET}:${DATASET_MOUNT}
     SLURM_ACCOUNT: devtech
-    WALLTIME: "00:45:00"
+    WALLTIME: "01:30:00"
     DGXNNODES: 1
     TEST_CMD: ./ci/integration_test/sok/sok.sub
 
