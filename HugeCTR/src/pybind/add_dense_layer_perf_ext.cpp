@@ -127,9 +127,9 @@ void ModelPerfExt::add_dense_layer_internal(
     std::map<std::string, Tensor2<float>>& loss_tensors,
     std::vector<std::unique_ptr<Layer>>& layers,
     std::map<std::string, std::unique_ptr<ILoss>>& losses, bool enable_cuda_graph,
-    bool async_mlp_wgrad, std::map<std::string, metrics::RawMetricMap>* raw_metrics,
-    int num_networks_in_global, const std::shared_ptr<GPUResource>& gpu_resource,
-    bool use_mixed_precision, bool enable_tf32_compute, float scaler, bool use_algorithm_search,
+    bool async_mlp_wgrad, metrics::MultiLossMetricMap* raw_metrics, int num_networks_in_global,
+    const std::shared_ptr<GPUResource>& gpu_resource, bool use_mixed_precision,
+    bool enable_tf32_compute, float scaler, bool use_algorithm_search,
     std::vector<Layer*>* top_layers, std::vector<Layer*>* bottom_layers, bool dlrm_bottom_mlp) {
   bool skip_dgrad = layers.size() == 0;
   Layer_t layer_type = dense_layer.layer_type;
@@ -147,6 +147,7 @@ void ModelPerfExt::add_dense_layer_internal(
   std::vector<TensorEntry> output_tensor_entries;
   auto input_output_info = get_input_tensor_and_output_name(dense_layer.bottom_names,
                                                             dense_layer.top_names, tensor_entries);
+
   switch (layer_type) {
     case Layer_t::BatchNorm: {
       if (use_mixed_precision) {
@@ -184,7 +185,7 @@ void ModelPerfExt::add_dense_layer_internal(
       }
       Tensor2<float> label_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[1]);
       // create new loss tensor
-      auto name = input_output_info.output_names[0];
+      std::string name = dense_layer.bottom_names[1];
       Tensor2<float> new_loss_tensor;
       blobs_buff->reserve({1, 1}, &new_loss_tensor);
 
@@ -261,7 +262,7 @@ void ModelPerfExt::add_dense_layer_internal(
       }
       Tensor2<float> label_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[1]);
       // create new loss tensor
-      auto name = input_output_info.output_names[0];
+      std::string name = dense_layer.bottom_names[1];
       Tensor2<float> new_loss_tensor;
       blobs_buff->reserve({1, 1}, &new_loss_tensor);
 
@@ -403,7 +404,7 @@ void ModelPerfExt::add_dense_layer_internal(
               weight_buff, weight_buff_half, wgrad_buff_half, blobs_buff, train_in_tensor,
               mask_in_tensor, dRelu_in_tensor, db_in_tensor, train_out_tensor, mask_out_tensor,
               dRelu_out_tensor, db_out_tensor, gpu_resource, pos_type, act_type, skip_dgrad,
-              initializer_types, async_mlp_wgrad, head_mask_in));
+              initializer_types, async_mlp_wgrad, head_mask_in, dense_layer.dense_layer_switches));
         }
 
         if (pos_type == FcPosition_t::Tail || pos_type == FcPosition_t::Isolated ||
@@ -525,7 +526,7 @@ void ModelPerfExt::add_dense_layer_internal(
       }
       Tensor2<float> label_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[1]);
       // create new loss tensor
-      auto name = input_output_info.output_names[0];
+      std::string name = dense_layer.bottom_names[1];
       Tensor2<float> new_loss_tensor;
       blobs_buff->reserve({1, 1}, &new_loss_tensor);
 

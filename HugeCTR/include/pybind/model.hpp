@@ -237,6 +237,7 @@ struct DenseLayer {
   float lambda;
   FcPosition_t pos_type;
   Activation_t act_type;
+  DenseLayerSwitchs dense_layer_switches;
   DenseLayer(Layer_t layer_type, std::vector<std::string>& bottom_names,
              std::vector<std::string>& top_names, float factor = 1.0, float eps = 0.00001,
              Initializer_t gamma_init_type = Initializer_t::Default,
@@ -253,7 +254,8 @@ struct DenseLayer {
              int axis = 1, std::vector<float> target_weight_vec = std::vector<float>(),
              bool use_regularizer = false, Regularizer_t regularizer_type = Regularizer_t::L1,
              float lambda = 0, FcPosition_t pos_type = FcPosition_t::None,
-             Activation_t act_type = Activation_t::Relu);
+             Activation_t act_type = Activation_t::Relu,
+             DenseLayerSwitchs dense_layer_switches = {false});
 };
 
 struct GroupDenseLayer {
@@ -291,7 +293,7 @@ void add_sparse_embedding(SparseEmbedding& sparse_embedding,
                           std::shared_ptr<ExchangeWgrad>& exchange_wgrad, bool use_cuda_graph,
                           bool grouped_all_reduce, bool use_holistic_cuda_graph,
                           size_t num_iterations_statistics, GpuLearningRateSchedulers& gpu_lr_sches,
-                          bool overlap_ar_a2a);
+                          bool overlap_ar_a2a, bool eval_overlap);
 
 Input get_input_from_json(const nlohmann::json& j_input);
 

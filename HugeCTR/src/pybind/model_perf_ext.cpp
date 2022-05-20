@@ -57,6 +57,15 @@ bool ModelPerfExt::train(bool is_first_batch) {
 #ifdef ENABLE_PROFILING
     global_profiler.iter_check();
 #endif
+    if (solver_.all_reduce_algo == AllReduceAlgo::NCCL and
+        train_data_reader_->current_batch_incomplete()) {
+#pragma omp parallel num_threads(networks_.size())
+      {
+        size_t id = omp_get_thread_num();
+        CudaCPUDeviceContext ctx(resource_manager_->get_local_gpu(id)->get_device_id());
+        cudaStreamSynchronize(resource_manager_->get_local_gpu(id)->get_stream());
+      }
+    }
 
     if (solver_.use_overlapped_pipeline) {
       train_overlapped();
@@ -123,6 +132,15 @@ bool ModelPerfExt::eval(bool is_first_batch) {
       this->check_overflow();
       this->copy_weights_for_evaluation();
     }
+    if (is_first_batch && solver_.eval_overlap) {
+      auto scheduled_reader = dynamic_cast<IDataReaderWithScheduling*>(evaluate_data_reader_.get());
+#pragma omp parallel num_threads(networks_.size())
+      {
+        size_t id = omp_get_thread_num();
+        scheduled_reader->schedule_precompute_here(
+            resource_manager_->get_local_gpu(id)->get_stream(), id, false);
+      }
+    }
     long long current_batchsize = evaluate_data_reader_->read_a_batch_to_device_delay_release();
     for (auto& metric : metrics_) {
       metric->set_current_batch_size(current_batchsize);
@@ -136,7 +154,16 @@ bool ModelPerfExt::eval(bool is_first_batch) {
       size_t id = omp_get_thread_num();
       long long current_batchsize_per_device =
           evaluate_data_reader_->get_current_batchsize_per_device(id);
+
+      // doesn't do anything if eval_overlap disabled
+      auto gpu = resource_manager_->get_local_gpu(id);
+      HCTR_LIB_THROW(cudaStreamWaitEvent(gpu->get_stream(), gpu->get_event("eval_comp_wait")));
+
       networks_[id]->eval(current_batchsize_per_device);
+
+      // doesn't do anything if eval_overlap disabled
+      HCTR_LIB_THROW(cudaEventRecord(gpu->get_event("eval_comm_wait"), gpu->get_stream()));
+
       for (auto& metric : metrics_) {
         metric->local_reduce(id, networks_[id]->get_raw_metrics_all().begin()->second);
       }
@@ -268,12 +295,14 @@ void ModelPerfExt::fit(int num_epochs, int max_iter, int display, int eval_inter
       timer_train.start();
     }
     if (eval_interval > 0 && iter % eval_interval == 0 && iter != 0) {
-      // #pragma omp parallel num_threads(networks_.size())
-      // {
-      //   size_t id = omp_get_thread_num();
-      //   CudaCPUDeviceContext ctx(resource_manager_->get_local_gpu(id)->get_device_id());
-      //   cudaStreamSynchronize(resource_manager_->get_local_gpu(id)->get_stream());
-      // }
+      if (solver_.all_reduce_algo == AllReduceAlgo::NCCL) {
+#pragma omp parallel num_threads(networks_.size())
+        {
+          size_t id = omp_get_thread_num();
+          CudaCPUDeviceContext ctx(resource_manager_->get_local_gpu(id)->get_device_id());
+          cudaStreamSynchronize(resource_manager_->get_local_gpu(id)->get_stream());
+        }
+      }
       this->check_overflow();
       this->copy_weights_for_evaluation();
       is_first_train_batch_after_eval = true;
@@ -400,6 +429,9 @@ void ModelPerfExt::train_overlapped() {
   };
 
   auto scheduled_reader = dynamic_cast<IDataReaderWithScheduling*>(train_data_reader_.get());
+  const bool use_graph =
+      solver_.use_holistic_cuda_graph && !scheduled_reader->current_batch_incomplete();
+
 #pragma omp parallel num_threads(resource_manager_->get_local_gpu_count())
   {
     size_t id = omp_get_thread_num();
@@ -419,7 +451,7 @@ void ModelPerfExt::train_overlapped() {
 
     auto schedule_reader = [&, this](TrainState_t expected) {
       if (scheduled_reader && state.state == expected) {
-        if (solver_.use_holistic_cuda_graph) {
+        if (use_graph) {
           scheduled_reader->schedule_here_graph(stream, id);
         } else {
           scheduled_reader->schedule_here(stream, id);
@@ -430,18 +462,18 @@ void ModelPerfExt::train_overlapped() {
 
     auto schedule_split3way = [&, this](TrainState_t state_to_schedule) {
       if (state.state == state_to_schedule) {
-        scheduled_reader->schedule_precompute_here(stream, id, solver_.use_holistic_cuda_graph);
+        scheduled_reader->schedule_precompute_here(stream, id, use_graph);
       }
     };
 
     auto schedule_d2d = [&, this](TrainState_t state_to_schedule) {
       if (state.state == state_to_schedule) {
-        scheduled_reader->schedule_d2d_here(stream, id, solver_.use_holistic_cuda_graph);
+        scheduled_reader->schedule_d2d_here(stream, id, use_graph);
       }
     };
 
     auto do_it = [&, this](cudaStream_t submit_stream) {
-      if (solver_.use_holistic_cuda_graph) {
+      if (use_graph || scheduled_reader->precompute_enabled()) {
         HCTR_LIB_THROW(cudaEventRecord(fork_events_[id], submit_stream));
         state.event = &fork_events_[id];
       }
@@ -454,24 +486,17 @@ void ModelPerfExt::train_overlapped() {
       do {
         state = embeddings_[0]->train(true, id, state);
         sync();
-        if (resource_manager_->get_num_process() == 1) {
-          schedule_reader(TrainState_t::TopMLPFprop);
-          schedule_split3way(TrainState_t::MLPExchangeWgrad);
-          schedule_d2d(TrainState_t::MLPUpdate);
-        }
+        schedule_reader(TrainState_t::TopMLPFprop);
+        schedule_split3way(TrainState_t::MLPExchangeWgrad);
+        schedule_d2d(TrainState_t::MLPUpdate);
         state = networks_[id]->train(
             current_batchsize_per_device, [this, id]() { this->exchange_wgrad(id); }, state);
-        if (resource_manager_->get_num_process() > 1) {
-          schedule_reader(TrainState_t::TopMLPFprop);
-          schedule_split3way(TrainState_t::BottomMLPBprop);
-          schedule_d2d(TrainState_t::MLPExchangeWgrad);
-        }
       } while (change_state(&state));
       PROFILE_RECORD("iteration.stop", submit_stream, true);
       sync();
     };
 
-    if (solver_.use_holistic_cuda_graph) {
+    if (use_graph) {
 #ifdef ENABLE_PROFILING
       if (!train_graphs_[id].initialized || profiler_init_cuda_graph_this_iter()) {
 #else

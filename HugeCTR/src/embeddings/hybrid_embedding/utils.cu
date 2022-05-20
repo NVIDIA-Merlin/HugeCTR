@@ -82,6 +82,22 @@ __global__ void modulo_kernel(dtype* buffer, const stype* d_num_elements, dtype 
     buffer[i] %= divisor;
 }
 
+__global__ void model_id_kernel(const uint32_t* indices_offsets, uint32_t* src_model_id,
+                                const uint32_t* d_num_elements) {
+  // Find model id
+  uint32_t num_elements = __ldg(d_num_elements);
+  for (uint32_t i = blockIdx.x * blockDim.x + threadIdx.x; i < num_elements;
+       i += blockDim.x * gridDim.x) {
+    uint32_t model_id = 0;
+    uint32_t next_offset = indices_offsets[1];
+    while (next_offset <= i) {
+      model_id++;
+      next_offset = indices_offsets[model_id + 1];
+    }
+    src_model_id[i] = model_id;
+  }
+}
+
 template void download_tensor<uint32_t>(std::vector<uint32_t>& h_tensor,
                                         const Tensor2<uint32_t> tensor, cudaStream_t stream);
 template void download_tensor<unsigned long>(std::vector<size_t>& h_tensor,

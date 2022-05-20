@@ -694,6 +694,7 @@ void AUC<T>::local_reduce(int local_gpu_id, RawMetricMap raw_metrics) {
   auto stream = resource_manager_->get_local_gpu(local_gpu_id)->get_stream();
   int num_sms = resource_manager_->get_local_gpu(local_gpu_id)->get_sm_count();
 
+
   if (num_classes_ == 1) {
     copy_all<T>(st.d_preds() + offset, st.d_labels() + offset, pred_tensor.get_ptr(),
                 label_tensor.get_ptr(), num_valid_samples, num_sms, stream);

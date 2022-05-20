@@ -316,9 +316,10 @@ void Statistics<dtype>::calculate_frequent_categories(dtype *frequent_categories
 
   /* Step 3: construct category_frequent_index */
   constexpr size_t TPB_fill = 256;
-  const size_t n_blocks_fill = ceildiv<size_t>(num_categories, TPB_fill);
+  const size_t total_num_categories = num_categories + 1;  // Add NULL category
+  const size_t n_blocks_fill = ceildiv<size_t>(total_num_categories, TPB_fill);
   statistics_kernels::fill<<<n_blocks_fill, TPB_fill, 0, stream>>>(
-      category_frequent_index, (dtype)num_categories, num_categories);
+      category_frequent_index, (dtype)num_categories, total_num_categories);
   HCTR_LIB_THROW(cudaPeekAtLastError());
 
   if (num_frequent > 0) {
@@ -345,9 +346,10 @@ void Statistics<dtype>::calculate_infrequent_categories(dtype *infrequent_catego
 
   /* Fill with default value */
   constexpr size_t TPB_fill = 256;
-  const size_t n_blocks_fill = ceildiv<size_t>(2 * num_categories, TPB_fill);
+  const size_t total_num_categories = num_categories + 1;  // Add NULL category
+  const size_t n_blocks_fill = ceildiv<size_t>(2 * total_num_categories, TPB_fill);
   statistics_kernels::fill<<<n_blocks_fill, TPB_fill, 0, stream>>>(
-      category_location, (dtype)num_categories, 2 * num_categories);
+      category_location, (dtype)num_categories, 2 * total_num_categories);
   HCTR_LIB_THROW(cudaPeekAtLastError());
 
   /// TODO: combine select and writing to category_location with a custom output iterator

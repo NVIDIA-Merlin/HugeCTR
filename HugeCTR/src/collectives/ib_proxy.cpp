@@ -66,6 +66,12 @@ static int oob_bcast(void* comm_context, void* buf, int size, int root) {
   return 0;
 }
 
+int oob_progress() {
+  int flag;
+  MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &flag, MPI_STATUS_IGNORE);
+  return 0;
+}
+
 static int oob_barrier(void* comm_context) {
   HCTR_MPI_THROW(MPI_Barrier(MPI_COMM_WORLD));
   return 0;
@@ -255,7 +261,7 @@ void IbvProxy::HierA2AIbvContext::init_sharp(const IbvProxy::InitConfig& cfg) {
     size_t num_procs = cfg.num_procs_;
     size_t my_proc = cfg.my_proc_;
 
-    init_spec.progress_func = NULL;
+    init_spec.progress_func = oob_progress;
     init_spec.job_id = (gethostid() << 32);
     HCTR_MPI_THROW(MPI_Bcast(&(init_spec.job_id), 1, MPI_LONG, 0, MPI_COMM_WORLD));
     init_spec.world_rank = my_proc;
@@ -969,7 +975,7 @@ IbvProxy::SharpContext::SharpContext(const IbvProxy::InitConfig& cfg) {
   ;
   size_t my_proc = cfg.my_proc_;
 
-  init_spec.progress_func = NULL;
+  init_spec.progress_func = oob_progress;
   init_spec.job_id = (gethostid() << 32 | (cfg.proxy_id_));
   HCTR_MPI_THROW(MPI_Bcast(&(init_spec.job_id), 1, MPI_LONG, 0, MPI_COMM_WORLD));
   init_spec.world_rank = my_proc;

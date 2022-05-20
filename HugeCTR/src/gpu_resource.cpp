@@ -109,4 +109,12 @@ void GPUResource::wait_on_wgrad_event(const cudaStream_t& sync_stream) const {
   return;
 }
 
+const cudaStream_t& GPUResource::get_stream(const std::string& name, int priority) {
+  return stream_event_manager_.get_stream(name, cudaStreamNonBlocking, priority);
+}
+
+const cudaEvent_t& GPUResource::get_event(const std::string& name) {
+  return stream_event_manager_.get_event(name, cudaEventDisableTiming);
+}
+
 }  // namespace HugeCTR
