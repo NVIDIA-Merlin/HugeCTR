@@ -185,6 +185,7 @@ Each dataset trained by the ETC is supposed to have a keyset file extracted from
 
 * There are no requirements with respect to the sequential ordering. Hence, keys may be stored in any order.
 
+If your dataset is in Parquet format, you can use this [keyset generator](https://github.com/NVIDIA-Merlin/HugeCTR/blob/master/tools/keyset_scripts) we provided to get the keyset file.
 ### Configuration
 
 Before moving on, please have a look at the [`CreateETC()`](./api/python_interface.md#createetc-method) section in HugeCTR Python Interface, as it provides a description of the general configuration process of the ETC. Also, please refer to the [HugeCTR Continuous Training Notebook](./notebooks/continuous_training.ipynb) for usage examples of the ETC in actual applications.
