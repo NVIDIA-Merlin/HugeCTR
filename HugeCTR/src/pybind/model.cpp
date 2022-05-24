@@ -2446,6 +2446,7 @@ void Model::dump_incremental_model_2kafka() {
     message_sink_->post(tag, num_pairs, inc_sparse_model_[i].first.data(), vectors_,
                         embedding_size * sizeof(float));
   }
+  message_sink_->flush();
 }
 
 }  // namespace HugeCTR

@@ -10,7 +10,7 @@
         "overflow_resolution_target": 0.95,
         "initial_cache_rate": 1.0,
         "cache_missed_embeddings": false,
-        "update_filters": [ ".+" ]
+        "update_filters": [ "^hps_.+$" ]
     },
     "persistent_db": {
         "type": "disabled",

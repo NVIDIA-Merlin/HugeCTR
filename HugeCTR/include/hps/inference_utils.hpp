@@ -153,7 +153,7 @@ struct VolatileDatabaseParams {
       // Caching behavior related.
       double initial_cache_rate = 1.0, bool cache_missed_embeddings = false,
       // Real-time update mechanism related.
-      const std::vector<std::string>& update_filters = {".+"});
+      const std::vector<std::string>& update_filters = {"^hps_.+$"});
 
   bool operator==(const VolatileDatabaseParams& p) const;
   bool operator!=(const VolatileDatabaseParams& p) const;
@@ -179,7 +179,7 @@ struct PersistentDatabaseParams {
                            size_t num_threads = 16, bool read_only = false,
                            size_t max_get_batch_size = 10'000, size_t max_set_batch_size = 10'000,
                            // Real-time update mechanism related.
-                           const std::vector<std::string>& update_filters = {".+"});
+                           const std::vector<std::string>& update_filters = {"^hps_.+$"});
 
   bool operator==(const PersistentDatabaseParams& p) const;
   bool operator!=(const PersistentDatabaseParams& p) const;
@@ -190,16 +190,20 @@ struct UpdateSourceParams {
 
   // Backend specific.
   std::string brokers;  // Kafka: The IP[:Port][[;IP[:Port]]...] of the brokers.
+  size_t metadata_refresh_interval_ms;
+  size_t receive_buffer_size;
   size_t poll_timeout_ms;
-  size_t max_receive_buffer_size;
   size_t max_batch_size;
   size_t failure_backoff_ms;
+  size_t max_commit_interval;
 
   UpdateSourceParams(UpdateSourceType_t type = UpdateSourceType_t::Null,
                      // Backend specific.
-                     const std::string& brokers = "127.0.0.1:9092", size_t poll_timeout_ms = 500,
-                     size_t max_receive_buffer_size = 2000, size_t max_batch_size = 1000,
-                     size_t failure_backoff_ms = 50);
+                     const std::string& brokers = "127.0.0.1:9092",
+                     size_t metadata_refresh_interval_ms = 30'000,
+                     size_t receive_buffer_size = 256 * 1024, size_t poll_timeout_ms = 500,
+                     size_t max_batch_size = 8 * 1024, size_t failure_backoff_ms = 50,
+                     size_t max_commit_interval = 32);
 
   bool operator==(const UpdateSourceParams& p) const;
   bool operator!=(const UpdateSourceParams& p) const;

@@ -452,7 +452,7 @@ void InferencePybind(pybind11::module& m) {
            pybind11::arg("initial_cache_rate") = 1.0,
            pybind11::arg("cache_missed_embeddings") = false,
            // Real-time update mechanism related.
-           pybind11::arg("update_filters") = std::vector<std::string>{".+"});
+           pybind11::arg("update_filters") = std::vector<std::string>{"^hps_.+$"});
 
   pybind11::class_<HugeCTR::PersistentDatabaseParams,
                    std::shared_ptr<HugeCTR::PersistentDatabaseParams>>(infer,
@@ -469,18 +469,20 @@ void InferencePybind(pybind11::module& m) {
            pybind11::arg("max_get_batch_size") = 10'000,
            pybind11::arg("max_set_batch_size") = 10'000,
            // Real-time update mechanism related.
-           pybind11::arg("update_filters") = std::vector<std::string>{".+"});
+           pybind11::arg("update_filters") = std::vector<std::string>{"^hps_.+$"});
 
   pybind11::class_<HugeCTR::UpdateSourceParams, std::shared_ptr<HugeCTR::UpdateSourceParams>>(
       infer, "UpdateSourceParams")
       .def(pybind11::init<UpdateSourceType_t,
                           // Backend specific.
-                          const std::string&, size_t, size_t, size_t, size_t>(),
+                          const std::string&, size_t, size_t, size_t, size_t, size_t, size_t>(),
            pybind11::arg("type") = UpdateSourceType_t::Null,
            // Backend specific.
-           pybind11::arg("brokers") = "127.0.0.1:9092", pybind11::arg("poll_timeout_ms") = 500,
-           pybind11::arg("max_receive_buffer_size") = 2000, pybind11::arg("max_batch_size") = 1000,
-           pybind11::arg("failure_backoff_ms") = 50);
+           pybind11::arg("brokers") = "127.0.0.1:9092",
+           pybind11::arg("metadata_refresh_interval_ms") = 30'000,
+           pybind11::arg("receive_buffer_size") = 256 * 1024,
+           pybind11::arg("poll_timeout_ms") = 500, pybind11::arg("max_batch_size") = 8 * 1024,
+           pybind11::arg("failure_backoff_ms") = 50, pybind11::arg("max_commit_interval") = 32);
 
   pybind11::class_<HugeCTR::InferenceParams, std::shared_ptr<HugeCTR::InferenceParams>>(
       infer, "InferenceParams")

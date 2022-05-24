@@ -1,5 +1,6 @@
 # HugeCTR Hierarchical Parameter Server Database Backend
 
+
 ## Introduction
 
 The hierarchical parameter server database backend (HPS database backend) allows HugeCTR to use models with huge embedding tables by extending HugeCTRs storage space beyond the constraints of GPU memory through utilizing various memory resources across you cluster. Further, it grants the ability to permanently store embedding tables in a structured manner. For an end-to-end demo on how to use the HPS database backend, please refer to [samples](https://github.com/triton-inference-server/hugectr_backend/tree/main/samples/hierarchical_deployment).
@@ -11,23 +12,23 @@ GPU clusters offer superior compute power, compared to their CPU-only counterpar
 
 This is achieved through utilizing other memory resources, available within your clsuter, such as CPU accessible RAM and non-volatile memory. Aside from general advantages of non-volatile memory with respect to retaining stored information, storage devices such as HDDs and SDDs offer orders of magnitude more storage space than DDR memory and HBM (High Bandwidth Memory), at significantly lower cost. However, their throughout is lower and latency is higher than that of DRR and HBM.
 
-The HPS database backend acts as an intermediate layer between your GPU and non-volatile memory to store all embeddings of your model. Thereby, available local RAM and/or RAM resources across the cluster could be used as a cache to improve response times.
+The HPS database backend acts as an intermediate layer between your GPU and non-volatile memory to store all embeddings of your model. Thereby, available local RAM and/or RAM resources available across the cluster can be used as a cache to improve response times.
 
 
 ## Architecture
 
 As of version 3.3, the HugeCTR hierarchical parameter server database backend defines 3 storage layers.
 
-1.
+1. 
    The **CPU Memory Database** layer
    utilizes volatile CPU addressable RAM memory to cache embeddings. This database is created and maintained separately by each machine that runs HugeCTR in your cluster.
 
-2.
+2. 
    The **Distributed Database** layer allows utilizing Redis cluster deployments, to store and retrieve embeddings in/from the RAM memory available in your cluster. The HugeCTR distributed database layer is designed for compatibility with Redis [peristence features](https://redis.io/topics/persistence) such as [RDB](https://redis.io/topics/persistence) and [AOF](https://redis.io/topics/persistence) to allow seamless continued operation across device restart. This kind of databse is shared by all nodes that participate in the training / inference of a HugeCTR model.
-
+   
    *Remark: There exists and abundance of products that claim Redis compatibility. We cannot guarantee or make any statements regarding the suitabablity of these with our distributed database layer. However, we note that Redis alternatives are likely to be compatible with the Redis cluster dstributed database layer, as long as they are compatible with [hiredis](https://github.com/redis/hiredis). We would love to hear about your experiences. Please let us know if you successfully/unsuccessfully deployed such Redis alternatives as storage targets with HugeCTR.*
 
-3.
+3. 
    The **Persistent Database** layer links HugeCTR with a persistent database. Each node that has such a persistent storage layer configured retains a separate copy of all embeddings in its locally available non-volatile memory. This layer is best considered as a compliment to the distributed database to 1) further expand storage capabilities and 2) for high availability. Hence, if your model exceeds even the total RAM capacity of your entire cluster, or if - for whatever reason - the Redis cluster becomes unavailable, all nodes that have been configured with a persistent database will still be able to fully cater to inference requests, albeit likely with increased latency.
 
 In the following table, we provide an overview of the *typical* properties different parameter database layers (and the embedding cache). We emphasize that this table is just intended to provide a rough orientation. Properties of actual deployments may deviate.
@@ -45,14 +46,14 @@ In the following table, we provide an overview of the *typical* properties diffe
 
 ## Training and Iterative Model Updates
 
-Models deployed viat the HugeCTR HPS database backend allow streaming model parameter updates from external sources via [Apache Kafka](https://kafka.apache.org). This function allows zero-downtime online model re-training - for example using the HugeCTR model training system.
+Models deployed via the HugeCTR HPS database backend allow streaming model parameter updates from external sources via [Apache Kafka](https://kafka.apache.org). This function allows zero-downtime online model re-training - for example using the HugeCTR model training system.
 
 
 ## Execution
 
 ### Inference
 
-With respect to embedding lookups via the HugeCTR GPU embedding cache and HPS database backend, the following logic applies. Whenever the HugeCTR inference engine receives a batch of model input parameters for inference, it will first determine the associated unique embedding keys and try to resolve these embeddings using the embedding cache. If there are cache misses, it will then turn to the HPS database backend to determine the embedding representations. The query sequence inside the HPS database backend based on the following order to query its configured backends such that fill in the missing embeddings:
+With respect to embedding lookups via the HugeCTR GPU embedding cache and HPS database backend, the following logic applies. Whenever the HugeCTR inference engine receives a batch of model input parameters for inference, it will first determine the associated unique embedding keys and try to resolve these embeddings using the embedding cache. If there are cache misses, it will then turn to the HPS database backend to determine the embedding representations. The HPS database backend queries its configured backends in the following order to fill in the missing embeddings:
 
 1. Local / Remote CPU memory locations
 2. Permanent storage
@@ -287,7 +288,7 @@ This feature will optimize the volatile database in response to the queries expe
 **The following is a real-time updating related parameter:**
 
 
-* `update_filters`: this setting allows you specify a series of filters, in to permit / deny passing certain model updates from Kafka to the CPU memory database backend. Filters take the form of regular expressions. The **default** value of this setting is `[ ".+" ]` (*i.e.*, process updates for all models, irrespective of their name). **[Behavior will likely change in future versions]**
+* `update_filters`: this setting allows you specify a series of filters, in to permit / deny passing certain model updates from Kafka to the CPU memory database backend. Filters take the form of regular expressions. The **default** value of this setting is `[ "^hps_.+$" ]` (*i.e.*, process updates for all HPS models, irrespective of their name). **[Behavior will likely change in future versions]**
 
 Distributed databases are shared by all your HugeCTR nodes. These nodes will collaborate to inject updates into the underlying database. The assignment of what nodes update what partition may change at runtime.
 
@@ -297,13 +298,13 @@ Persistent databases are instanced per machine and use the locally available non
 **Python**
 ```python
 params = hugectr.inference.PersistentDatabaseParams(
-type = hugectr.DatabaseType_t.<enum_value>,
-path = "<file_system_path>",
-num_threads = <int_value>,
-read_only = <boolean_value>,
-max_get_batch_size = <int_value>,
-max_set_batch_size = <int_value>,
-update_filters = [ "<filter 0>", "<filter 1>", ... ]
+  type = hugectr.DatabaseType_t.<enum_value>,
+  path = "<file_system_path>",
+  num_threads = <int_value>,
+  read_only = <boolean_value>,
+  max_get_batch_size = <int_value>,
+  max_set_batch_size = <int_value>,
+  update_filters = [ "<filter 0>", "<filter 1>", ... ]
 )
 ```
 
@@ -332,7 +333,7 @@ update_filters = [ "<filter 0>", "<filter 1>", ... ]
 
 * `max_get_batch_size` and `max_set_batch_size`, integer, represent optimization parameters. Mass lookup and insert requests to RocksDB are chunked into batches. For maximum performance `max_*_batch_size` should be large. However, if the available memory for buffering requests in your endpoints is limited, lowering this value may help. By **default**, both values are set to `10000`. With high-performance hardware setups it is **recommended** to increase these values to `1 million`.
 
-* `update_filters`: this setting allows you specify a series of filters, in to permit / deny passing certain model updates from Kafka to the CPU memory database backend. Filters take the form of regular expressions. The **default** value of this setting is `[ ".+" ]` (*i.e.*, process updates for all models, irrespective of their name). **[Behavior will likely change in future versions]**
+* `update_filters`: this setting allows you specify a series of filters, in to permit / deny passing certain model updates from Kafka to the CPU memory database backend. Filters take the form of regular expressions. The **default** value of this setting is `[ "^hps_.+$" ]` (*i.e.*, process updates for all HPS models, irrespective of their name). **[Behavior will likely change in future versions]**
 
 ### **Update Source Configurations**
 The real-time update source is the origin for model updates during online retraining. To ensure that all database layers are kept in sync, it is advisable configure all nodes in your HugeCTR deployment identical.
@@ -340,24 +341,28 @@ The real-time update source is the origin for model updates during online retrai
 **Python**
 ```python
 params = hugectr.UpdateSourceParams(
-type = hugectr.UpdateSourceType_t.<enum_value>,
-brokers = "host_name[:port][;host_name[:port]...]",
-poll_timeout_ms = <int_value>,
-max_receive_buffer_size = <int_value>,
-max_batch_size = <int_value>,
-failure_backoff_ms = <int_value>
+  type = hugectr.UpdateSourceType_t.<enum_value>,
+  brokers = "host_name[:port][;host_name[:port]...]",
+  metadata_refresh_interval_ms = <int_value>,
+  receive_buffer_size = <int_value>,
+  poll_timeout_ms = <int_value>,
+  max_batch_size = <int_value>,
+  failure_backoff_ms = <int_value>,
+  max_commit_interval = <int_value>
 )
 ```
 
 **JSON**
 ```text
 "update_source": {
-   "type": "<enum_value>"
-   "brokers": "host_name[:port][;host_name[:port]...]",
-   "poll_timeout_ms": <int_value>,
-   "max_receive_buffer_size": <int_value>,
-   "max_batch_size": <int_value>,
-   "failure_backoff_ms": <int_value>
+  "type": "<enum_value>"
+  "brokers": "host_name[:port][;host_name[:port]...]",
+  "metadata_refresh_interval_ms": <int_value>,
+  "receive_buffer_size": <int_value>,
+  "poll_timeout_ms": <int_value>,
+  "max_batch_size": <int_value>,
+  "failure_backoff_ms": <int_value>,
+  "max_commit_interval": <int_value>
 }
 ```
 **Arguments:**
@@ -366,12 +371,16 @@ failure_backoff_ms = <int_value>
     * `kafka_message_queue`: Connect to an axisting Apache Kafka message queue.
 
 
-* `brokers`: In order to connect to a Kafka deployments, you need to fill in at least one host-address (hostname + port number) of a Kafka broker node (`brokers` configuration option in the above listings). The **default** value of `brokers` is `127.0.0.1:9092`.
+* `brokers` *(string)*: In order to connect to a Kafka deployments, you need to fill in at least one host-address (hostname + port number) of a Kafka broker node (`brokers` configuration option in the above listings). The **default** value of `brokers` is `127.0.0.1:9092`.
 
-* `poll_timeout_ms`:, integer,  denotes the maximum time we will wait for additional updates before dispatching them to the database layers in milliseconds. The **default** value is `500` ms.
+* `metadata_refresh_interval_ms` *(integer)*: Frequency at which the topic metadata should be re-downloaded from the Kafka broker.
 
-* `max_receive_buffer_size`:, integer. If, before this limit has run out, more than `max_receive_buffer_size` embedding updates have been received, we will also dispatch these updates immediately. The **default** receive buffer size is `2000`.
+* `receive_buffer_size` *(integer)*: We allocate a buffer to temporarily store the data to be received from a Kafka. `receive_buffer_size` denotes the size of this buffer. This value should best match the `send_buffer_size` of the KafkaMessageSink that was used to push updates to Kafka. The **default** receive buffer size is `262144` bytes. *Note that the `message.max.bytes` setting of the Kafka broker must be at least `receive_buffer_size + 1024` bytes.*
 
-* `max_batch_size`: integer. Dispatching of updates is conducted in chunks. The maximum size of these chunks is upper-bounded by `max_batch_size`, which is set to `1000` by default.
+* `poll_timeout_ms` *(integer)* denotes the maximum time we will wait for additional updates before dispatching them to the database layers in milliseconds. The **default** value is `500` ms.
 
-* `failure_backoff_ms`: integer. In some situations, there might be issues that prevent the successful dispatch of an update to a database. For example, if a Redis node is temporarily unreachable. `failure_backoff_ms` is the delay in milliseconds after which we retry dispatching a set of updates in such an event. The **default** backoff delay is `50` ms.
+* `max_batch_size` *(integer)*: Dispatching of updates is conducted in chunks. The maximum size of these chunks is upper-bounded by `max_batch_size`, which is set to `8192` by **default**.
+
+* `failure_backoff_ms` *(integer)*: In some situations, there might be issues that prevent the successful dispatch of an update to a database. For example, if a Redis node is temporarily unreachable. `failure_backoff_ms` is the delay in milliseconds after which we retry dispatching a set of updates in such an event. The **default** backoff delay is `50` ms.
+  
+* `max_commit_interval` *(integer)*: Regardless of any other conditions, any received data will be forwarded and committed if at most `max_commit_interval` were processed since the previous commit. The **default** interval is `32`.

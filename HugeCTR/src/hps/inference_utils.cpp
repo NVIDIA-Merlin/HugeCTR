@@ -79,9 +79,10 @@ bool PersistentDatabaseParams::operator!=(const PersistentDatabaseParams& p) con
 bool UpdateSourceParams::operator==(const UpdateSourceParams& p) const {
   return type == p.type &&
          // Backend specific.
-         brokers == p.brokers && poll_timeout_ms == p.poll_timeout_ms &&
-         max_receive_buffer_size == p.max_receive_buffer_size &&
-         max_batch_size == p.max_batch_size && failure_backoff_ms == p.failure_backoff_ms;
+         brokers == p.brokers && metadata_refresh_interval_ms == p.metadata_refresh_interval_ms &&
+         receive_buffer_size == p.receive_buffer_size && poll_timeout_ms == p.poll_timeout_ms &&
+         max_batch_size == p.max_batch_size && failure_backoff_ms == p.failure_backoff_ms &&
+         max_commit_interval == p.max_commit_interval;
 }
 bool UpdateSourceParams::operator!=(const UpdateSourceParams& p) const { return !operator==(p); }
 
@@ -138,16 +139,21 @@ PersistentDatabaseParams::PersistentDatabaseParams(const DatabaseType_t type,
 
 UpdateSourceParams::UpdateSourceParams(const UpdateSourceType_t type,
                                        // Backend specific.
-                                       const std::string& brokers, const size_t poll_timeout_ms,
-                                       const size_t max_receive_buffer_size,
-                                       const size_t max_batch_size, const size_t failure_backoff_ms)
+                                       const std::string& brokers,
+                                       const size_t metadata_refresh_interval_ms,
+                                       const size_t receive_buffer_size,
+                                       const size_t poll_timeout_ms, const size_t max_batch_size,
+                                       const size_t failure_backoff_ms,
+                                       const size_t max_commit_interval)
     : type(type),
       // Backend specific.
       brokers(brokers),
+      metadata_refresh_interval_ms(metadata_refresh_interval_ms),
+      receive_buffer_size(receive_buffer_size),
       poll_timeout_ms(poll_timeout_ms),
-      max_receive_buffer_size(max_receive_buffer_size),
       max_batch_size(max_batch_size),
-      failure_backoff_ms(failure_backoff_ms) {}
+      failure_backoff_ms(failure_backoff_ms),
+      max_commit_interval(max_commit_interval) {}
 
 InferenceParams::InferenceParams(
     const std::string& model_name, const size_t max_batchsize, const float hit_rate_threshold,
@@ -226,16 +232,23 @@ parameter_server_config::parameter_server_config(const std::string& hps_json_con
     params.brokers =
         get_value_from_json_soft<std::string>(update_source, "brokers", "127.0.0.1:9092");
 
+    params.metadata_refresh_interval_ms =
+        get_value_from_json_soft<size_t>(update_source, "metadata_refresh_interval_ms", 30'000);
+
+    params.receive_buffer_size =
+        get_value_from_json_soft<size_t>(update_source, "receive_buffer_size", 256 * 1024);
+
     params.poll_timeout_ms =
         get_value_from_json_soft<size_t>(update_source, "poll_timeout_ms", 500);
 
-    params.max_receive_buffer_size =
-        get_value_from_json_soft<size_t>(update_source, "max_receive_buffer_size", 2000);
-
-    params.max_batch_size = get_value_from_json_soft<size_t>(update_source, "max_batch_size", 1000);
+    params.max_batch_size =
+        get_value_from_json_soft<size_t>(update_source, "max_batch_size", 8 * 1024);
 
     params.failure_backoff_ms =
         get_value_from_json_soft<size_t>(update_source, "failure_backoff_ms", 50);
+
+    params.max_commit_interval =
+        get_value_from_json_soft<size_t>(update_source, "max_commit_interval", 32);
   }
   // Persistent database parameters.
   PersistentDatabaseParams persistent_db_params;
