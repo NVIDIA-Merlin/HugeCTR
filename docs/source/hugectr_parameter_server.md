@@ -1,10 +1,8 @@
 # HugeCTR Hierarchical Parameter Server Database Backend
 
-
 ## Introduction
 
 The hierarchical parameter server database backend (HPS database backend) allows HugeCTR to use models with huge embedding tables by extending HugeCTRs storage space beyond the constraints of GPU memory through utilizing various memory resources across you cluster. Further, it grants the ability to permanently store embedding tables in a structured manner. For an end-to-end demo on how to use the HPS database backend, please refer to [samples](https://github.com/triton-inference-server/hugectr_backend/tree/main/samples/hierarchical_deployment).
-
 
 ## Background
 
@@ -14,25 +12,31 @@ This is achieved through utilizing other memory resources, available within your
 
 The HPS database backend acts as an intermediate layer between your GPU and non-volatile memory to store all embeddings of your model. Thereby, available local RAM and/or RAM resources available across the cluster can be used as a cache to improve response times.
 
-
 ## Architecture
 
 As of version 3.3, the HugeCTR hierarchical parameter server database backend defines 3 storage layers.
 
-1. 
-   The **CPU Memory Database** layer
-   utilizes volatile CPU addressable RAM memory to cache embeddings. This database is created and maintained separately by each machine that runs HugeCTR in your cluster.
+1. The **CPU Memory Database** layer utilizes volatile CPU addressable RAM memory to cache embeddings.
+This database is created and maintained separately by each machine that runs HugeCTR in your cluster.
 
-2. 
-   The **Distributed Database** layer allows utilizing Redis cluster deployments, to store and retrieve embeddings in/from the RAM memory available in your cluster. The HugeCTR distributed database layer is designed for compatibility with Redis [peristence features](https://redis.io/topics/persistence) such as [RDB](https://redis.io/topics/persistence) and [AOF](https://redis.io/topics/persistence) to allow seamless continued operation across device restart. This kind of databse is shared by all nodes that participate in the training / inference of a HugeCTR model.
-   
-   *Remark: There exists and abundance of products that claim Redis compatibility. We cannot guarantee or make any statements regarding the suitabablity of these with our distributed database layer. However, we note that Redis alternatives are likely to be compatible with the Redis cluster dstributed database layer, as long as they are compatible with [hiredis](https://github.com/redis/hiredis). We would love to hear about your experiences. Please let us know if you successfully/unsuccessfully deployed such Redis alternatives as storage targets with HugeCTR.*
+2. The **Distributed Database** layer allows utilizing Redis cluster deployments to store and retrieve embeddings in and from the RAM memory that is available in your cluster.
+The HugeCTR distributed database layer is designed for compatibility with Redis [persistence features](https://redis.io/topics/persistence) such as RDB and AOF to allow seamless continued operation across device restart.
+This kind of database is shared by all nodes that participate in the training or inference of a HugeCTR model.
 
-3. 
-   The **Persistent Database** layer links HugeCTR with a persistent database. Each node that has such a persistent storage layer configured retains a separate copy of all embeddings in its locally available non-volatile memory. This layer is best considered as a compliment to the distributed database to 1) further expand storage capabilities and 2) for high availability. Hence, if your model exceeds even the total RAM capacity of your entire cluster, or if - for whatever reason - the Redis cluster becomes unavailable, all nodes that have been configured with a persistent database will still be able to fully cater to inference requests, albeit likely with increased latency.
+   **Note**: Many products claim Redis compatibility.
+   We cannot guarantee or make any statements regarding the suitability of these with our distributed database layer.
+   However, we note that Redis alternatives are likely to be compatible with the Redis cluster distributed database layer as long as they are compatible with [hiredis](https://github.com/redis/hiredis).
+   We would love to hear about your experiences.
+   Please let us know if you successfully or unsuccessfully deployed such Redis alternatives as storage targets with HugeCTR.
 
-In the following table, we provide an overview of the *typical* properties different parameter database layers (and the embedding cache). We emphasize that this table is just intended to provide a rough orientation. Properties of actual deployments may deviate.
+3. The **Persistent Database** layer links HugeCTR with a persistent database.
+Each node that has such a persistent storage layer configured retains a separate copy of all embeddings in its locally available non-volatile memory.
+This layer is best considered as a compliment to the distributed database to further expand storage capabilities and to provide high availability.
+As a result, if your model exceeds even the total RAM capacity of your entire cluster or if&mdash;for whatever reason&mdash;the Redis cluster becomes unavailable, all nodes that are configured with a persistent database are still able to respond to inference requests, though likely with increased latency.
 
+The following table provides an overview of the typical properties for the different parameter database layers and the embedding cache.
+We emphasize that this table provides rough guidelines.
+Properties for production deployments are often different.
 
 |  | GPU Embedding Cache | CPU Memory Database | Distributed Database (InfiniBand) | Distributed Database (Ethernet) | Persistent Database |
 |--|--|--|--|--|--|
@@ -43,40 +47,47 @@ In the following table, we provide an overview of the *typical* properties diffe
 | Volatile | yes | yes | configuration dependent | configuration dependent | no |
 | Configuration / maintenance complexity | low | low | high | high | low |
 
-
 ## Training and Iterative Model Updates
 
-Models deployed via the HugeCTR HPS database backend allow streaming model parameter updates from external sources via [Apache Kafka](https://kafka.apache.org). This function allows zero-downtime online model re-training - for example using the HugeCTR model training system.
-
+Models that are deployed with the HugeCTR HPS database backend allow streaming model parameter updates from external sources through [Apache Kafka](https://kafka.apache.org).
+This ability provides zero-downtime online model retraining.
 
 ## Execution
 
 ### Inference
 
-With respect to embedding lookups via the HugeCTR GPU embedding cache and HPS database backend, the following logic applies. Whenever the HugeCTR inference engine receives a batch of model input parameters for inference, it will first determine the associated unique embedding keys and try to resolve these embeddings using the embedding cache. If there are cache misses, it will then turn to the HPS database backend to determine the embedding representations. The HPS database backend queries its configured backends in the following order to fill in the missing embeddings:
+With respect to embedding lookups from the HugeCTR GPU embedding cache and HPS database backend, the following logic applies:
 
-1. Local / Remote CPU memory locations
-2. Permanent storage
+* Whenever the HugeCTR inference engine receives a batch of model input parameters for inference, the inference engine first determines the associated unique embedding keys and tries to resolve these embeddings using the embedding cache.
+* When there is a cache miss, the inference engine then turns to the HPS database backend to determine the embedding representations.
+* The HPS database backend queries its configured backends in the following order to fill in the missing embeddings:
 
-Hence, if configured, HugeCTR will first try to lookup missing embeddings in either a *CPU Memory Database* or *Distributed Database*. If and only if, there are still missing embedding representations after that, HugeCTR will turn to non-volatile memory (via the *Persistent Database*, which contains a copy of all existing embeddings) to find the corresponding embedding representations.
+  1. Local and remote CPU memory locations.
+  2. Persistent storage.
+
+HugeCTR first tries to look up missing embeddings in either the CPU memory database or the distributed database.
+If, and only if, there are still missing embedding representations after that, HugeCTR tries the non-volatile memory from the persistent database.
+The persistent database contains a copy of all existing embeddings to find the corresponding embedding representations.
 
 ### Training
 
-After a training iteration, model updates for updated embeddings are published via Kafka by the HugeCTR training process. The HPS database backend can be configured to automatically listen to change requests for certain models and will ingest these updates in its various database stages.
+After a training iteration, model updates for updated embeddings are published through Kafka by the HugeCTR training process.
+The HPS database backend can be configured to listen automatically to change requests for certain models and then ingest these updates in its various database stages.
 
+### Lookup Optimization
 
-### Lookup optimization
-
-If volatile memory resources, i.e. the *CPU Memory Database* and/or *Distributed Database*, are not sufficient to retain the entire model, the HugeCTR will attempt to minimize the avarage latency for lookup through managing these resources like cache using an LRU paradigm.
-
+If volatile memory resources, the CPU memory database and distributed database, are not sufficient to retain the entire model, HugeCTR attempts to minimize the average latency for lookup through managing these resources like a cache by using a least recently used (LRU) algorithm.
 
 ## Configuration
 
-The HugeCTR HPS database backend and iterative update can be configured using 3 separate configuration objects. Namely, the `VolatileDatabaseParams` and `PersistentDatabaseParams` are used to configure the database backends of each HPS database backend instance. If you desire iterative or online model updating, you must also provide the `UpdateSourceParams` configuration object to link the HPS database backend instance with your Kafka reployment. These objects are part of the Python package [hugectr.inference](https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html#inference-api).
+The HugeCTR HPS database backend and iterative update can be configured using three separate configuration objects.
+The `VolatileDatabaseParams` and `PersistentDatabaseParams` objects are used to configure the database backends of each HPS database backend instance.
+If you want iterative or online model updating, you must also provide the `UpdateSourceParams` object to link the HPS database backend instance with your Kafka deployment.
+These objects are part of the [hugectr.inference](./api/python_interface.md#inference-api) Python package.
 
-If you deploy HugeCTR as a backend for [NVIDIA Triton Inference Server](https://developer.nvidia.com/nvidia-triton-inference-server), you can also provide these configuration options by extending your Triton deployment's JSON configuration:
+If you deploy HugeCTR as a backend for NVIDIA [Triton Inference Server](https://developer.nvidia.com/nvidia-triton-inference-server), you can also provide these configuration options by extending your Triton deployment's JSON configuration:
 
-```text
+```json
 {
   // ...
   "volatile_db": {
@@ -92,295 +103,489 @@ If you deploy HugeCTR as a backend for [NVIDIA Triton Inference Server](https://
 }
 ```
 
-Next we will describe all available configuration options. Generally speaking, each node in your HugeCTR cluster should deploy the same configuration. However, it may make sense to vary some arguments in some situations, especially in heterogeneous cluster setups.
+The following sections describe the configuration parameters.
+Generally speaking, each node in your HugeCTR cluster should deploy the same configuration.
+In rare cases, it might make sense to vary some parameters.
+The most common reason to vary the configuration by node is for heterogeneous clusters.
 
-### **Inference Parameters and Embedding Cache Configurations**
+### Inference Parameters and Embedding Cache Configuration
 
-**Python**
+#### Inference Params Syntax
+
 ```python
-hugectr.inference.InferenceParams()
-```
-`InferenceParams` specifies the parameters related to the inference. An `InferenceParams` instance is required to initialize the `InferenceModel` instance.
-
-**Arguments**
-* `model_name`: String, the name of the model to be used for inference. It should be consistent with `model_name` specified during training. There is NO default value and it should be specified by users.
-
-* `max_batchsize`: Integer, the maximum batchsize for inference. It is the global batch size and should be divisible by the length of `deployed_devices`. There is NO default value and it should be specified by users.
-
-* `hit_rate_threshold`: Float, If the real hit rate of GPU embedding cahce during inference If the real hit rate of GPU embedding cache is lower than this threshold, the GPU cache will perform synchronous insertion of missing embedding keys, otherwise asynchronous insertion. The threshold should be between 0 and 1. The default value is `0.9`
-
-* `dense_model_file`: String, the dense model file to be loaded for inference. There is NO default value and it should be specified by users.
-
-* `sparse_model_files`: List[str], the sparse model files to be loaded for inference. There is NO default value and it should be specified by users.
-
-* `device_id`: Int, is about to be deprecated and replaced by `devicelist`.
-
-* `use_gpu_embedding_cache`: Boolean, whether to employ the features of GPU embedding cache. If the value is `True`, the embedding vector look up will go to GPU embedding cache. Otherwise, it will reach out to the CPU HPS database backend directly. The default value is `true`.
-
-* `cache_size_percentage`: Float, the percentage of cached embeddings on GPU relative to all the embedding tables on CPU.  The default value is `0.2`.
-
-* `i64_input_key`: Boolean, this value should be set to `True` when you need to use I64 input key. There is NO default value and it should be specified by users.
-
-* `use_mixed_precision`: Boolean, whether to enable mixed precision inference. The default value is `False`.
-
-* `scaler`: Float, the scaler to be used when mixed precision training is enabled. Only 128, 256, 512, and 1024 scalers are supported for mixed precision training. The default value is 1.0, which corresponds to no mixed precision training. 
-
-* `use_algorithm_search`: Boolean, whether to use algorithm search for cublasGemmEx within the FullyConnectedLayer. The default value is `True`.
-
-* `use_cuda_graph`: Boolean, whether to enable cuda graph for dense network forward propagation. The default value is `True`.
-
-* `number_of_worker_buffers_in_pool`: Int, since HPS supports asynchronous or synchronous insertion of missing keys by worker memory pool. The size of the worker memory pool is determined by **num_of_worker_buffer_in_pool**. It is recommended to increase the size of the memory pool (such as 2 times the number of model instance) in order to avoid resource exhaustion or disable asynchronous updates (set the `hit_rate_threshold` to greater than 1). The default value is `1`.
-
-* `number_of_refresh_buffers_in_pool`: Int, HPS supports online updates of incremental models by refresh memory pool. The size of the refresh memory pool is determined by **number_of_refresh_buffers_in_pool**. It is recommended to increase the size of the memory pool for high-frequency and large size of incremental model update. The default value is `1`.
-
-* `cache_refresh_percentage_per_iteration`: Float, in order not to affect the performance of the gpu cache during online updating, the user can configure the update percentage of GPU embedding cache. For example, if cache_refresh_percentage_per_iteration=0.2, it means that the entire GPU embedding cache will be refreshed through 5 iterations. It is recommended to use a smaller refresh percentage for high-frequency and large size of incremental model update. The default value is `0.1`.
-
-* `deployed_devices`: List[Integer], the list of device id of GPUs. The offline inference will be executed concurrently on the specified multiple GPUs. The default value is `[0]`.
-
-* `default_value_for_each_table`:List[Float], for the embedding key that cannot be queried in the gpu cache and volatile/persistent database, the default value will be returned directly. For models with multiple embedding tables, each embedding table has a default value.
-
-* `volatile_db`: see the [`Volatile Database Configurations`](#volatile-database-configurations) part below.
-
-* `persistent_db`: see the [`Persistent Database Configurations`](#persistent-database-configurations) part below.
-
-* `update_source`: see the [`Update Source Configurations*`](#update-source-configurations) part below.
-
-**The followings are embedding cache related parameters**:
-
-* `maxnum_des_feature_per_sample`: Int, each sample may contain a varying number of numeric (dense) features. This item so the user needs to configure the value of Maximum(the number of dense feature in each sample) in this item, which determines the pre-allocated memory size on the host and device. The default value is `26`.
-
-* `refresh_delay`: Float, the embedding keys in the GPU embedding cache are once refreshed from a volatile/persistent database after the "refresh_delay" seconds (start timing after the service launches) configured by the user. The default value is `0.0`.
-
-* `refresh_interval`: Float, the embedding keys in the GPU embedding cache are periodically refreshed from volatile/persistent database based on the "refresh_interval" seconds (start timing after the service launches) configured by user. The default value is `0.0`.
-
-* `maxnum_catfeature_query_per_table_per_sample`: List[Int], this item determines the pre-allocated memory size on the host and device. We assume that for each input sample, there is a maximum number of embedding keys per sample in each embedding table that need to be looked up, so the user needs to configure the [ Maximum(the number of embedding keys that need to be queried from embedding table 1 in each sample), Maximum(the number of embedding keys that need to be queried from embedding table 2 in each sample), ...] in this item. This is a mandatory configuration item.
-
-* `embedding_vecsize_per_table`:List[Int], this item determines the pre-allocated memory size on the host and device.  For the case of multiple embedding tables, we assume that the size of the embedding vector in each embedding table is different, then this configuration item requires the user to fill in each embedding table with maximum vector size. This is a mandatory configuration item.
-
-* `embedding_table_names`: List[String], this configuration item needs to be filled with the name of each embedded table, which will be used to name the data partition and data table in the hierarchical database backend. The default value is `["sparse_embedding1", "sparse_embedding2", ...]`
-
-**JSON(ps.json) Example:**
-```text
-"models":[
-        {
-            "model":"wdl",
-            "sparse_files":["/wdl_infer/model/wdl/1/wdl0_sparse_20000.model", "/wdl_infer/model/wdl/1/wdl1_sparse_20000.model"],
-            "dense_file":"/wdl_infer/model/wdl/1/wdl_dense_20000.model",
-            "network_file":"/wdl_infer/model/wdl/1/wdl.json",
-            "num_of_worker_buffer_in_pool": 4,
-            "num_of_refresher_buffer_in_pool": 1,
-            "deployed_device_list":[0],
-            "max_batch_size":64,
-            "default_value_for_each_table":[0.0,0.0],
-            "hit_rate_threshold":0.9,
-            "gpucacheper":0.1,
-            "gpucache":true,
-            "cache_refresh_percentage_per_iteration": 0.2
-        }
-    ] 
-```
-
-
-### **Volatile Database Configurations**
-We provide various volatile database implementations. Generally speaking, two categories can be distinguished.
-
-* **CPU memory databases** are instanced per machine and only use the locally available RAM memory as backing storage. Hence, you may indvidually vary their configuration parameters per machine.
-
-* **Distributed CPU memory databases** are typically shared by all machines in your HugeCTR deployment. They allow you to take advantage of the combined memory capacity of your cluster machines.The configuration parameters for this kind of database should, thus, be identical across all achines in your deployment.
-
-**Python**
-```python
-params = hugectr.inference.VolatileDatabaseParams(
-type = "redis_cluster",
-algorithm = hugectr.DatabaseHashMapAlgorithm_t.<enum_value>,
-num_partitions = <integer_value>,
-address = "<host_name_or_ip_address:port_number>",
-user_name = "<login_user_name>",
-password = "<login_password>",
-num_partitions = <int_value>,
-max_get_batch_size = <int_value>,
-max_set_batch_size = <int_value>,
-overflow_margin = <integer_value>,
-overflow_policy = hugectr.DatabaseOverflowPolicy_t.<enum_value>,
-overflow_resolution_target = <double_value>,
-initial_cache_rate = <double_value>,
-refresh_time_after_fetch = <True|False>,
-cache_missed_embeddings = <True|False>,
-update_filters = [ "<filter 0>", "<filter 1>", ... ]
+params = hugectr.inference.InferenceParams(
+  model_name = "string",
+  max_batchsize = int,
+  hit_rate_threshold = 0.9,
+  dense_model_file = "string", 
+  sparse_model_files = ["string-1", "string-2", ...],
+  use_gpu_embedding_cache = True,
+  cache_size_percentage = 0.2,
+  i64_input_key = <True|False>,
+  use_mixed_precision = False,
+  scaler = 1.0,
+  use_algorithm_search = True,
+  use_cuda_graph = True,
+  number_of_worker_buffers_in_pool = 2,
+  number_of_refresh_buffers_in_pool = 1,
+  cache_refresh_percentage_per_iteration = 0.1,
+  deployed_devices = [int-1, int-2, ...],
+  default_value_for_each_table = [float-1, float-2, ...],
+  volatile_db = <volatile-database-configuration>,
+  persistent_db = <persistent-database-configuration>,
+  update_source = <update-source-parameters>,
+  maxnum_des_feature_per_sample = 26,
+  refresh_delay = 0.0,
+  refresh_interval = 0.0,
+  maxnum_catfeature_query_per_table_per_sample = [int-1, int-2, ...],
+  embedding_vecsize_per_table = [int-1, int-2, ...],
+  embedding_table_names = ["string-1", "string-2", ...]
 )
 ```
 
-**JSON**
-```text
+The `InferenceParams` object specifies the parameters related to the inference.
+An `InferenceParams` object is required to initialize the `InferenceModel` instance.
+
+#### Inference Parameters
+
+* `model_name`: String, specifies the name of the model to use for inference.
+It should be consistent with the `model_name` that you specified during training.
+This parameter has no default value and you must specify a value.
+
+* `max_batchsize`: Integer, the maximum batch size for inference.
+The specific value is the global batch size and should be divisible by the length of `deployed_devices`.
+This parameter has no default value and you must specify a value.
+
+* `hit_rate_threshold`: Float, the real hit rate of GPU embedding cache during inference.
+When the real hit rate of the GPU embedding cache is higher than the specified threshold, the GPU embedding cache performs an asynchronous insertion of missing embedding keys.
+Otherwise, the GPU embedding cache inserts the keys synchronously.
+Specify a value between 0 and 1.
+The default value is `0.9`
+
+* `dense_model_file`: String, the dense model file to load for inference.
+This parameter has no default value and you must specify a value.
+
+* `sparse_model_files`: List[str], the sparse model files to load for inference.
+This parameter has no default value and you must specify a value.
+
+* `device_id`: Integer, is scheduled to be deprecated and replaced by `devicelist`.
+
+* `use_gpu_embedding_cache`: Boolean, whether to employ the features of GPU embedding cache.
+When set to `True`, the embedding vector look up goes to the GPU embedding cache.
+Otherwise, the look up attempts to use the CPU HPS database backend directly.
+The default value is `True`.
+
+* `cache_size_percentage`: Float, the percentage of cached embeddings on the GPU, relative to all the embedding tables on the CPU.
+The default value is `0.2`.
+
+* `i64_input_key`: Boolean, this value should be set to `True` when you need to use an Int64 input key.
+This parameter has no default value and you must specify a value.
+
+* `use_mixed_precision`: Boolean, whether to enable mixed precision inference.
+The default value is `False`.
+
+* `scaler`: Float, the scaler to use when mixed precision training is enabled.
+The function supports `128`, `256`, `512`, and `1024` scalers only for mixed precision training.
+The default value is `1.0` and corresponds to no mixed precision training.
+
+* `use_algorithm_search`: Boolean, whether to use algorithm search for `cublasGemmEx` within the fully connected layer.
+The default value is `True`.
+
+* `use_cuda_graph`: Boolean, whether to enable CUDA graph for dense-network forward propagation.
+The default value is `True`.
+
+* `number_of_worker_buffers_in_pool`: Integer, specifies the number of worker buffers to allocate in the embedded cache memory pool.
+Specify a value such as two times the number of model instances to avoid resource exhaustion.
+An alternative to specifying a larger value while still avoiding resource exhaustion is to disable asynchronous updates by setting the `hit_rate_threshold` parameter to greater than `1`.
+The default value is `2`.
+
+* `number_of_refresh_buffers_in_pool`: Integer, specifies the number of refresh buffers to allocate in the embedded cache memory pool.
+HPS uses the refresh memory pool to support online updates of incremental models.
+Specify larger values if model updates occur at a high-frequency or you have a large volume of incremental model updates.
+The default value is `1`.
+
+* `cache_refresh_percentage_per_iteration`: Float, specifies the percentage of the embedding cache to refresh during each iteration.
+To avoid reducing the performance of the GPU cache during online updating, you can configure the update percentage of GPU embedding cache.
+For example, if you specify `cache_refresh_percentage_per_iteration = 0.2`, the entire GPU embedding cache is refreshed during 5 iterations.
+Specify a smaller value if model updates occur at a high-frequency or you have a large volume of incremental model updates.
+The default value is `0.1`.
+
+* `deployed_devices`: List[Integer], specifies a list of the device IDs of your GPUs.
+The offline inference is executed concurrently on the specified GPUs.
+The default value is `[0]`.
+
+* `default_value_for_each_table`:List[Float], specifies a default value when an embedding key cannot be returned.
+When an embedding key can not be queried in the GPU cache or volatile and persistent databases, the default value is returned.
+For models with multiple embedding tables, each embedding table has a default value.
+
+* `volatile_db`: See the [Volatile Database Configuration](#volatile-database-configuration) section.
+
+* `persistent_db`: See the [Persistent Database Configuration](#persistent-database-configuration) section.
+
+* `update_source`: See the [Update Source Configuration](#update-source-configuration) section.
+
+* `maxnum_des_feature_per_sample`: Integer, specifies the maximum number of dense features in each sample.
+Because each sample can contain a varying number of numeric (dense) features, use this parameter to specify the maximum number of dense feature in each sample.
+The specified value determines the pre-allocated memory size on the host and device.
+The default value is `26`.
+
+* `refresh_delay`: Float, specifies an initial delay, in seconds, to wait before beginning to refresh the embedding cache.
+The timer begins when the service launches.
+The default value is `0.0`.
+
+* `refresh_interval`: Float, specifies the interval, in seconds, for the periodic refresh of the embedding keys in the GPU embedding cache.
+The embedding keys are refreshed from volatile and persistent data sources based on the specified number of seconds.
+The default value is `0.0`.
+
+* `maxnum_catfeature_query_per_table_per_sample`: List[Int], this parameter determines the pre-allocated memory size on the host and device.
+We assume that for each input sample, there is a maximum number of embedding keys per sample in each embedding table that need to be looked up.
+Specify this parameter as [max(the number of embedding keys that need to be queried from embedding table 1 in each sample), max(the number of embedding keys that need to be queried from embedding table 2 in each sample), ...]
+This parameter has no default value and you must specify a value.
+
+* `embedding_vecsize_per_table`:List[Int], this parameter determines the pre-allocated memory size on the host and device.
+For the case of multiple embedding tables, we assume that the size of the embedding vector in each embedding table is different.
+Specify the maximum vector size for each embedding table.
+This parameter has no default value and you must specify a value.
+
+* `embedding_table_names`: List[String], specifies the name of each embedding table.
+The names are used to name the data partition and data table in the hierarchical database backend.
+The default value is `["sparse_embedding1", "sparse_embedding2", ...]`
+
+#### Parameter Server Configuration: Models
+
+The following JSON shows a sample configuration for the `models` key in a parameter server configuration file.
+
+```json
+"models":[
+  {
+    "model":"wdl",
+    "sparse_files":["/wdl_infer/model/wdl/1/wdl0_sparse_20000.model", "/wdl_infer/model/wdl/1/wdl1_sparse_20000.model"],
+    "dense_file":"/wdl_infer/model/wdl/1/wdl_dense_20000.model",
+    "network_file":"/wdl_infer/model/wdl/1/wdl.json",
+    "num_of_worker_buffer_in_pool": 4,
+    "num_of_refresher_buffer_in_pool": 1,
+    "deployed_device_list":[0],
+    "max_batch_size":64,
+    "default_value_for_each_table":[0.0,0.0],
+    "hit_rate_threshold":0.9,
+    "gpucacheper":0.1,
+    "gpucache":true,
+    "cache_refresh_percentage_per_iteration": 0.2
+  }
+] 
+```
+
+
+### Volatile Database Configuration
+
+For HugeCTR, the volatile database implementations are grouped into two categories:
+
+* **CPU memory databases** have an instance on each machine and only use the locally available RAM memory as backing storage.
+As a result, you can indvidually vary their configuration parameters for each machine.
+
+* **Distributed CPU memory databases** are typically shared by all machines in your HugeCTR deployment.
+They enable you to use the combined memory capacity of your cluster machines.
+The configuration parameters for this kind of database should be identical across all machines in your deployment.
+
+  Distributed databases are shared by all your HugeCTR nodes.
+  These nodes collaborate to inject updates into the underlying database.
+  The assignment of which nodes update specific partition can change at runtime.
+
+#### Volatile Database Params Syntax
+
+```python
+params = hugectr.inference.VolatileDatabaseParams(
+  type = "redis_cluster",
+  algorithm = hugectr.DatabaseHashMapAlgorithm_t.<enum_value>,
+  num_partitions = int,
+  address = "127.0.0.1:7000",
+  user_name = "default",
+  password = "",
+  max_get_batch_size = 10000,
+  max_set_batch_size = 10000,
+  overflow_margin = int,
+  overflow_policy = hugectr.DatabaseOverflowPolicy_t.<enum_value>,
+  overflow_resolution_target = 0.8,
+  initial_cache_rate = 1.0,
+  refresh_time_after_fetch = False,
+  cache_missed_embeddings = False,
+  update_filters = ["filter-0", "filter-1", ...]
+)
+```
+
+#### Parameter Server Configuration: Volatile Database
+
+The following JSON shows a sample configuration for the `volatile_db` key in a parameter server configuration file.
+
+```json
 "volatile_db": {
   "type": "redis_cluster",
   "algorithm": "<enum_value>",
-  "num_partitions": <integer_value>,
-  "address": "<host_name_or_ip_address:port_number>",
-  "user_name":  "<login_user_name>",
-  "password": "<login_password>",
-  "num_partitions": <integer_value>,
-  "max_get_batch_size": <integer_value>,
-  "max_set_batch_size": <integer_value>,
-  "overflow_margin": <integer_value>,
-  "overflow_policy": "<overflow_policy>",
-  "overflow_resolution_target": <overflow_resolution_target>, 
-  "initial_cache_rate": <double_value>, 
-  "refresh_time_after_fetch": <true|false>, 
-  "cache_missed_embeddings": <true|false>, 
-  "update_filters": [ "<filter 0>", "<filter 1>", /* ... */ ]
-  // ...
+  "address": "127.0.0.1:7003,127.0.0.1:7004,127.0.0.1:7005",
+  "user_name":  "default",
+  "password": "",
+  "num_partitions": 8,
+  "max_get_batch_size": 10000,
+  "max_set_batch_size": 10000,
+  "overflow_margin": 10000000,
+  "overflow_policy": "evict_oldest",
+  "overflow_resolution_target": 0.8, 
+  "initial_cache_rate": 1.0, 
+  "cache_missed_embeddings": false, 
+  "update_filters": [".+"]
 }
 ```
-**Arguments:**
-* `type`: use to specify which volatile database implementation to use. The `<enum_value>` is either:
-    * `disabled`: Do not use this kind of database.
-    * `hash_map`: Hash-map based CPU memory database implementation.
-    * `parallel_hash_map`: Hash-map based CPU memory database implementation with multi threading support **(default)**.
-    * `redis_cluster`: Connect to an existing Redis cluster deployment (Distributed CPU memory database implementation).
 
-**The followings are Hashmap/Parallel Hashmap related parameters:**
-* `algorithm`: use to specify the hashmap algorithm. Only for `hash_map` and `parallel_hash_map`. The `<enum_value>` is either:
-    * `stl`: Use C++ standard template library-based hash-maps. This is a fallback implementation, that is generally less memory efficient and slower than `phm`. Use this, if you experience stability issues or problems with `phm`.
-    * `phm`: Use use an [performance optimized hash-map implementation](https://greg7mdp.github.io/parallel-hashmap) **(default)**.
+#### Volatile Database Parameters
 
-* `num_partitions`: integer. Only for `hash_map` and `parallel_hash_map`. Use to control the degree of parallelism. Parallel hash-map implementations split your embedding tables into roughly evenly sized partitions and parallelizes look-up and insert operations accordingly.
-The **default value** is the equivalent to `min(number_of_cpu_cores, 16)` of the system that you used to build the HugeCTR binaries.
+* `type`: specifies the volatile database implementation.
+Specify one of the following:
 
-**The followings are Redis related parameters:**
-* `address`: string, only for `redis_cluster`, the address of one of servers of the Redis cluster. format `"host_name[:port_number]"`, **default**: `"127.0.0.1:7000"`
+  * `hash_map`: Hash-map based CPU memory database implementation.
+  * `parallel_hash_map`: Hash-map based CPU memory database implementation with multi threading support. This is the default value.
+  * `redis_cluster`: Connect to an existing Redis cluster deployment (Distributed CPU memory database implementation).
 
-* `user_name`: string, only for `redis_cluster`, the user name of our Redis cluster. **default**: `"default"` 
+The following parameters apply when you set `type="hash_map"` or `type="parallel_hash_map"`:
 
-* `password`: string, only for `redis_cluster`, the password of your acount. **default**: `""`, *i.e.*, blank / no password.
+* `algorithm`: specifies the hashmap algorithm.
+Specify one of the following:
+  * `stl`: Use C++ standard template library-based hashmaps.
+  This is a fallback implementation that is generally less memory efficient and slower than `phm`.
+  Use `stl` if you experience stability issues or problems with `phm`.
+  * `phm`: Use a [performance optimized hash-map implementation](https://greg7mdp.github.io/parallel-hashmap).
+  This is the default value for the `algorithm` parameter.
 
-* `num_partitions`: integer, only for `redis_cluster`. Our Redis cluster implementation breaks each embedding table into `num_partitions` approximately equal sized partitions. Each partition is assigned a storage location in your Redis cluster. We do not provide guarantees regarding the placement of partitions. Hence, multiple partitions might end up in the same node for some models and setups. Gernally speaking, to take advantage of your cluster resources, `num_partitions` need to be at least equal to the number of Redis nodes. For optimal performance `num_parititions` should be strictly larger than the amount of machines. However, each partition incurs a small processing overhead. So, the value should also not be too large. To retain a high performance and good cluster utilization, we **suggest** to adjust this value to 2-5x the number ofmachines in your Redis cluster. The **default value** is `8`.
+* `num_partitions`: Integer, specifies the number of partitions for embedding tables and controls the degree of parallelism.
+Parallel hashmap implementations split your embedding tables into approximately evenly-sized partitions and parallelizes look up and insert operations.
+The default value is calculated as `min(number_of_cpu_cores, 16)` of the system that you used to build the HugeCTR binaries.
 
-* `max_get_batch_size` and `max_set_batch_size`: integer, only for `redis_cluster`, represent optimization parameters. Mass lookup and insert requests to distributed endpoints are chunked into batches. For maximum performance, these two parameters should be large. However, if the available memory for buffering requests in your endpoints is limited, or if you experience transmission stability issues, lowering this value may help. By **default**, both values are set to `10000`. With high-performance networking and endpoint hardware, it is **recommended** to increase these values to `1 million`.
+The following parameters apply when you set `type="redis_cluster"`:
 
-**The followings are overflow handling related parameters:** 
+* `address`: String, specifies the address of one of servers of the Redis cluster.
+Use the pattern `"host-1[:port],host-2[:port],..."`.
+The default value is `"127.0.0.1:7000"`.
 
-To maximize performance and avoid instabilies caused by sporadic high memory usage (*i.e.*, out of memory situations), we provide the overflow handling mechanism. It allows limiting the maximum amount of embeddings to be stored per partition, and, thus, upper-bounding the memory consumption of your distributed database.
+* `user_name`: String, specifies the user name of the Redis cluster.
+The default value is `"default"`.
 
-* `overflow_margin`: integer, denotes the maximum amount of embeddings that will be stored *per partition*. Inserting more than `overflow_margin` embeddings into the database will trigger the execution of the configured `overflow_policy`. Hence, `overflow_margin` upper-bounds the maximum amount of memory that your CPU memory database may occupy. Thumb rule: Larger `overflow_margin` will result higher hit rates, but also increased memory consumption. By **default**, the value of `overflow_margin` is set to `2^64 - 1` (*i.e.*, de-facto infinite). When using the CPU memory database in conjunction with a Persistent database, the idea value for `overflow_margin` may vary. In practice, a setting value to somewhere between `[1 million, 100 million]` tends deliver reliable performance and throughput.
+* `password`: String, specifies the password of your account.
+The default value is `""` and corresponds to no password.
 
-* `overflow_policy`: can be either:
-    * `evict_oldest` **(default)**: Prune embeddings starting from the oldest (i.e., least recently used) until the paratition contains at most `overflow_margin * overflow_resolution_target` embeddings.
-    * `evict_random`: Prune embeddings random embeddings until the paratition contains at most `overflow_margin * overflow_resolution_target` embeddings.
-    
-    Unlike `evict_oldest`,  `evict_random` requires no comparison of time-stamps, and thus can be faster. However, `evict_oldest` is likely to deliver better performance over time because embeddings are evicted based on the frequency of their usage. 
-    
-* `overflow_resolution_target`: double, is expected to be in `]0, 1[` (*i.e.*, between `0` and `1`, but not exactly `0` or `1`). The default value of `overflow_resolution_target` is `0.8` (*i.e.*, the partition is shrunk to 80% of its maximum size, or in other words, when the partition size surpasses `overflow_margin` embeddings, 20% of the embeddings are evicted according to the respective `overflow_policy`).
+* `num_partitions`: Integer, specifies the number of partitions for embedding tables.
+Each embedding table is divided into `num_partitions` of approximately evenly-sized partitions.
+Each partition is assigned a storage location in your Redis cluster.
+HugeCTR does not provide any guarantees regarding the placement of partitions.
+As a result, multiple partitions can be stored the same node for some models and deployments.
+In most cases, to take advantage of your cluster resources, set `num_partitions` to at least equal to the number of Redis nodes.
+For optimal performance, set `num_parititions` to be strictly larger than the number of machines.
+However, each partition incurs a small processing overhead so do not specify a value that is too large.
+A typical value that retains high performance and provides good cluster utilization is 2-5x the number of machines in your Redis cluster.
+The default value is `8`.
+
+* `max_get_batch_size` and `max_set_batch_size`: Integer, specifies optimization parameters.
+Mass lookup and insert requests to distributed endpoints are chunked into batches.
+For maximum performance, these two parameters should be large.
+However, if the available memory for buffering requests in your endpoints is limited or you experience transmission stability issues, specifying smaller values can help.
+By default, both parameters are set to `10000`.
+With high-performance networking and endpoint hardware, try setting the values to `1000000`.
+
+#### Overflow Parameters
+
+To maximize performance and avoid instabilities that can be caused by sporadic high memory usage, such as an out of memory situations, HugeCTR provides an overflow handling mechanism.
+This mechanism enables you to limit the maximum amount of embeddings to store for each partition.
+The limit acts as an upper bound for the memory consumption of your distributed database.
+
+* `overflow_margin`: Integer, specifies the maximum amount of embeddings to store for each partition.
+Inserting more than `overflow_margin` embeddings into the database triggers the  configured `overflow_policy`.
+This parameter sets the upper bound for the maximum amount of memory that your CPU memory database can occupy.
+Larger values for this parameter result in higher hit rates but also consume more memory.
+The default value is `2^64 - 1` and indicates no limit.
+
+  When you use a CPU memory database in conjunction with a persistent database, the ideal value for `overflow_margin` can vary.
+  In practice, a value in the range `[1000000, 100000000]` provides reliable performance and throughput.
+
+* `overflow_policy`: specifies how to respond to an overflow condition.
+Specify one of the following:
+  * `evict_oldest`: Prune embeddings starting from the oldest embedding
+  until the partition contains at most `overflow_margin * overflow_resolution_target` embeddings. This policy implements the least-recently used (LRU) algorithm.
+  * `evict_random`: Prune embeddings at random until the partition contains at most `overflow_margin * overflow_resolution_target` embeddings.
+
+  Unlike `evict_oldest`, the `evict_random` policy does not require a comparison of timestamps and can be faster.
+  However, `evict_oldest` is likely to deliver better performance over time because the policy evicts embeddings based on the frequency of their use.
+
+* `overflow_resolution_target`: Double, specifies the fraction of the embeddings to keep when embeddings must be evicted.
+Specify a value between `0` and `1`, but not exactly `0` or `1`.
+The default value is `0.8` and indicates to evict embeddings from a partition until it is shrunk to 80% of its maximum size. 
+In other words, when the partition size surpasses `overflow_margin` embeddings, 20% of the embeddings are evicted according to the specified `overflow_policy`.
+
+* `initial_cache_rate`: Double, specifies the fraction of the embeddings to initially attempt to cache.
+Specify a value in the range `[0.0, 1.0]`.
+HugeCTR attempts to cache the specified fraction of the dataset immediately upon startup of the HPS database backend.
+For example, a value of `0.5` causes the HugeCTR HPS database backend to attempt to cache up to 50% of your dataset using the volatile database after initialization.
+The default value is `1.0`.
+
+* `refresh_time_after_fetch`: Bool, when set to `True`, the timestamp for an embedding is updated after the embedding is accessed.
+The timestamp update can be performed asynchronously and experience some delay.
+Some algorithms for overflow and eviction take time into account.
+To evaluate the affected embeddings, HugeCTR records the time when an embedding is overwritten.
+The default value is `False` and this setting is sufficient when you train a model and embeddings are frequently replaced.
+However, when you deploy HugeCTR only for inference, such as with Triton Inference Server, the default setting might lead to suboptimal eviction patterns.
+
+#### Common Volatile Database Parameters
+
+The following parameters are common to all volatile database types.
+
+* `cache_missed_embeddings`: Bool, when set to `True` and an embedding could not be retrieved from the volatile database, but could be retrieved from the persistent database, the embedding is inserted into the volatile database.
+The insert operation could replace another value.
+The default value is `False` and disables this functionality.
+
+  This setting optimizes the volatile database in response to the queries that are received in inference mode.
+  In training mode, updated embeddings are automatically written back to the database after each training step.
+  As a result, setting the value to `True` during training is likely to increase the number of writes to the database and degrade performance without providing significant improvements.
+
+* `update_filters`: List[str], specifies regular expressions that are used to control sending model updates from Kafka to the CPU memory database backend.
+The default value is `["^hps_.+$"]` and processes updates for all HPS models because the filter matches all HPS model names.
+
+  The functionality of this parameter might change in future versions.
 
 
-* `initial_cache_rate`: double, should be the fraction (`[0.0, 1.0]`) of your dataset that we will attempt to cache immediately upon startup of the HPS database backend. Hence, setting a value of `0.5` causes the HugeCTR HPS database backend to attempt caching up to 50% of your dataset directly using the respectively configured volatile database after initialization.
+### Persistent Database Configuration
 
+Persistent databases have an instance on each machine and use the locally available non-volatile memory as backing storage.
+As a result, some configuration parameters can vary according to the specifications of the machine.
 
-**The following is a refreshing timestamps related parameter:**
-* `refresh_time_after_fetch`: bool. Some algorithms to organize certain processes, such as the evication of embeddings upon overflow, take time into account. To evalute the affected embeddings, HugeCTR records the time when an embeddings is overridden. This is sufficient in training mode where embeddings are frequently replaced. Hence, the **default value** for this setting is is `false`. However, if you deploy HugeCTR only for inference (*e.g.*, with Triton), this might lead to suboptimal eviction patterns. By setting this value to `true`, HugeCTR will replace the time stored alongside an embedding right after this embedding is accessed. This operation may happen asynchronously (*i.e.*, with some delay).
+#### Persistent Database Params Syntax
 
-**The following is related to caching of Missed Keys:**
-
-* `cache_missed_embeddings`: bool, a value denoting whether or not to migrate embeddings into the volatile database if they were missed during lookup. Hence, if this value is set to `true`, an embedding that could not be retrieved from the volatile database, but could be retrieved from the persistent database, will be inserted into the volatile database - potentially replacing another value. The **default value** is `false`, which disables this functionality.
-
-This feature will optimize the volatile database in response to the queries experienced in inference mode. In training mode, updated embeddings will be automatically written back to the databse after each training step. Thus, if you apply training, setting this setting to `true` will likely increase the number of writes to the database and degrade performance, without providing significant improvements, which is undesirable.
-
-**The following is a real-time updating related parameter:**
-
-
-* `update_filters`: this setting allows you specify a series of filters, in to permit / deny passing certain model updates from Kafka to the CPU memory database backend. Filters take the form of regular expressions. The **default** value of this setting is `[ "^hps_.+$" ]` (*i.e.*, process updates for all HPS models, irrespective of their name). **[Behavior will likely change in future versions]**
-
-Distributed databases are shared by all your HugeCTR nodes. These nodes will collaborate to inject updates into the underlying database. The assignment of what nodes update what partition may change at runtime.
-
-### **Persistent Database Configurations**
-Persistent databases are instanced per machine and use the locally available non-volatile memory as backing storage. Hence, you may indvidually vary their configuration parameters per machine.
-
-**Python**
 ```python
 params = hugectr.inference.PersistentDatabaseParams(
   type = hugectr.DatabaseType_t.<enum_value>,
-  path = "<file_system_path>",
-  num_threads = <int_value>,
-  read_only = <boolean_value>,
-  max_get_batch_size = <int_value>,
-  max_set_batch_size = <int_value>,
-  update_filters = [ "<filter 0>", "<filter 1>", ... ]
+  path = "/tmp/rocksdb",
+  num_threads = 16,
+  read_only = False,
+  max_get_batch_size = 10000,
+  max_set_batch_size = 10000,
+  update_filters = ["filter-0", "filter-1", ... ]
 )
 ```
 
-**JSON**
-```text
+#### Parameter Server Configuration: Persistent Database
+
+The following JSON shows a sample configuration for the `persistent_db` key in a parameter server configuration file.
+
+```json
 "persistent_db": {
-  "type": "<enum_value>",
-  "path": "<file_system_path>",
-  "num_threads": <int_value>,
-  "read_only": <boolean_value>,
-  "max_get_batch_size": <int_value>,
-  "max_set_batch_size": <int_value>,
-  "update_filters": [ "<filter 0>", "<filter 1>", /* ... */ ]
+  "type": "rocks_db",
+  "path": "/tmp/rocksdb",
+  "num_threads": 16,
+  "read_only": false,
+  "max_get_batch_size": 10000,
+  "max_set_batch_size": 10000,
+  "update_filters": [".+"]
 }
 ```
 
-* `type`:  is either:
-    * `disabled`: Do not use this kind of database  **(default)**.
-    * `rocks_db`: Create or connect to a RocksDB database.
+#### Persistent Database Parameters
 
-* `path` denotes the directory in your file-system where the RocksDB database can be found. If the directory does not contain a RocksDB databse, HugeCTR will create an database for you. Note that this may override files that are currently stored in this database. Hence, make sure that `path` points either to an actual RocksDB database or an empty directy. The **default** path is `/tmp/rocksdb`.
+* `type`: specifies the persistent datatabase implementation.
+Specify one of the following:
+  * `disabled`: Prevents the use of a persistent database.
+  This is the default value.
+  * `rocks_db`: Create or connect to a RocksDB database.
 
-* `num_threads` is an optimization parameter. This denotes the amount of threads that the RocksDB driver may use internally. By **default**, this value is set to `16`
+* `path` String, specifies the directory on each machine where the RocksDB database can be found.
+If the directory does not contain a RocksDB database, HugeCTR creates a database for you.
+Be aware that this behavior can overwrite files that are stored in the directory.
+For best results, make sure that `path` specifies an existing RocksDB database or an empty directory.
+The default value is `/tmp/rocksdb`.
 
-* `read_only`, bool. If the flag `read_only` is set to `true`, the databse will be opened in *Read-Only mode*. Naturally, this means that any attempt to update values in this database will fail. Use for inference, if model is static and the database is shared by multiple nodes (for example via NFS). By **default** this flag is set to `false`.
+* `num_threads` Int, specifies the number of threads for the RocksDB driver.
+The default value is `16`.
 
-* `max_get_batch_size` and `max_set_batch_size`, integer, represent optimization parameters. Mass lookup and insert requests to RocksDB are chunked into batches. For maximum performance `max_*_batch_size` should be large. However, if the available memory for buffering requests in your endpoints is limited, lowering this value may help. By **default**, both values are set to `10000`. With high-performance hardware setups it is **recommended** to increase these values to `1 million`.
+* `read_only`, Bool, when set to `True`, the database is opened in read-only mode.
+Read-only mode is suitable for use with inference if the model is static and the database is shared by multiple machines, such as with NFS.
+The default value is `False`.
 
-* `update_filters`: this setting allows you specify a series of filters, in to permit / deny passing certain model updates from Kafka to the CPU memory database backend. Filters take the form of regular expressions. The **default** value of this setting is `[ "^hps_.+$" ]` (*i.e.*, process updates for all HPS models, irrespective of their name). **[Behavior will likely change in future versions]**
+* `max_get_batch_size` and `max_set_batch_size`, Int, specifies the batch size for lookup and insert requests.
+Mass lookup and insert requests to RocksDB are chunked into batches.
+For maximum performance these parameters should be large.
+However, if the available memory for buffering requests in your endpoints is limited, lowering this value might improve performance.
+The default value for both parameters is `10000`.
+With high-performance hardware, you can attempt to set these parameters to `1000000`.
 
-### **Update Source Configurations**
-The real-time update source is the origin for model updates during online retraining. To ensure that all database layers are kept in sync, it is advisable configure all nodes in your HugeCTR deployment identical.
+* `update_filters`: List[str], specifies regular expressions that are used to control sending model updates from Kafka to the CPU memory database backend.
+The default value is `["^hps_.+$"]` and processes updates for all HPS models because the filter matches all HPS model names.
 
-**Python**
+  The functionality of this parameter might change in future versions.
+
+### Update Source Configuration
+
+The real-time update source is the origin for model updates during online retraining.
+To ensure that all database layers are kept in sync, configure all the nodes in your HugeCTR deployment identically.
+
+#### Update Source Params Syntax
+
 ```python
 params = hugectr.UpdateSourceParams(
-  type = hugectr.UpdateSourceType_t.<enum_value>,
-  brokers = "host_name[:port][;host_name[:port]...]",
-  metadata_refresh_interval_ms = <int_value>,
-  receive_buffer_size = <int_value>,
-  poll_timeout_ms = <int_value>,
-  max_batch_size = <int_value>,
-  failure_backoff_ms = <int_value>,
-  max_commit_interval = <int_value>
+  type = "kafka_message_queue",
+  brokers = "host-1[:port][;host-2[:port]...]",
+  metadata_refresh_interval_ms = 30000,
+  poll_timeout_ms = 500,
+  receive_buffer_size = 262144,
+  max_batch_size = 8192,
+  failure_backoff_ms = 50
+  max_commit_interval = 32
 )
 ```
 
-**JSON**
-```text
+#### Parameter Server Configuration: Update Source
+
+The following JSON shows a sample configuration for the `update_source` key in a parameter server configuration file.
+
+```json
 "update_source": {
-  "type": "<enum_value>"
-  "brokers": "host_name[:port][;host_name[:port]...]",
-  "metadata_refresh_interval_ms": <int_value>,
-  "receive_buffer_size": <int_value>,
-  "poll_timeout_ms": <int_value>,
-  "max_batch_size": <int_value>,
-  "failure_backoff_ms": <int_value>,
-  "max_commit_interval": <int_value>
+  "type": "kafka_message_queue",
+  "brokers": "127.0.0.1:9092",
+  "metadata_refresh_interval_ms": 30000,
+  "poll_timeout_ms": 500,
+  "receive_buffer_size": 262144,
+  "max_batch_size": 8192,
+  "failure_backoff_ms": 50,
+  "max_commit_interval": 32
 }
 ```
-**Arguments:**
-* `type`: the update source implementation, is either:
-    * `null`: Do not use this kind of database  **(default)**.
-    * `kafka_message_queue`: Connect to an axisting Apache Kafka message queue.
 
+#### Update Source Parameters
 
-* `brokers` *(string)*: In order to connect to a Kafka deployments, you need to fill in at least one host-address (hostname + port number) of a Kafka broker node (`brokers` configuration option in the above listings). The **default** value of `brokers` is `127.0.0.1:9092`.
+* `type`: String, specifies the update source implementation.
+Specify one of the following:
+  * `null`: Prevents the use of an update source. This is the default value.
+  * `kafka_message_queue`: Connect to an existing Apache Kafka message queue.
 
-* `metadata_refresh_interval_ms` *(integer)*: Frequency at which the topic metadata should be re-downloaded from the Kafka broker.
+* `brokers`: String, specifies a semicolon-delimited list of host name or IP address and port pairs.
+You must specify  at least one host name and port of a Kafka broker node.
+The default value is `127.0.0.1:9092`.
 
-* `receive_buffer_size` *(integer)*: We allocate a buffer to temporarily store the data to be received from a Kafka. `receive_buffer_size` denotes the size of this buffer. This value should best match the `send_buffer_size` of the KafkaMessageSink that was used to push updates to Kafka. The **default** receive buffer size is `262144` bytes. *Note that the `message.max.bytes` setting of the Kafka broker must be at least `receive_buffer_size + 1024` bytes.*
+* `metadata_refresh_interval_ms`: Int, specifies the frequency at which the topic metadata downloaded from the Kafka broker.
 
-* `poll_timeout_ms` *(integer)* denotes the maximum time we will wait for additional updates before dispatching them to the database layers in milliseconds. The **default** value is `500` ms.
+* `receive_buffer_size` Int, specifies the size of the buffer, in bytes, that stores data that is received from Kafka.
+The best value to specify is equal to `send_buffer_size` of the KafkaMessageSink that is used to push updates to Kafka.
+The `message.max.bytes` setting of the Kafka broker must be at least `receive_buffer_size + 1024` bytes.
+The default value is `262144` bytes.
 
-* `max_batch_size` *(integer)*: Dispatching of updates is conducted in chunks. The maximum size of these chunks is upper-bounded by `max_batch_size`, which is set to `8192` by **default**.
+* `poll_timeout_ms`: Int, specifies the maximum time to wait, in milliseconds, for additional updates before dispatching updates to the database layers.
+The default value is `500` ms.
 
-* `failure_backoff_ms` *(integer)*: In some situations, there might be issues that prevent the successful dispatch of an update to a database. For example, if a Redis node is temporarily unreachable. `failure_backoff_ms` is the delay in milliseconds after which we retry dispatching a set of updates in such an event. The **default** backoff delay is `50` ms.
-  
-* `max_commit_interval` *(integer)*: Regardless of any other conditions, any received data will be forwarded and committed if at most `max_commit_interval` were processed since the previous commit. The **default** interval is `32`.
+* `max_batch_size`: Int, specifies the maximum number of keys and values from messages to consume before dispatching updates to the database.
+HugeCTR dispatches the updates in chunks.
+The maximum size of these chunks is set with this parameter.
+The default value is `8192`.
+
+* `failure_backoff_ms`: Int, specifies a delay, in milliseconds, to wait after failing to dispatch updates to the database successfully.
+In some situations, there can be issues that prevent the successful dispatch such as if a Redis node is temporarily unreachable.
+After the delay, HugeCTR retries dispatching a set of updates.
+The default value is `50` ms.
+
+* `max_commit_interval`: Int, specifies the maximum number of messages to hold before delivering and committing the messages to Kafka.
+This parameter is evaluated independent of any other conditions or parameters.
+Any received data is forwarded and committed if at most `max_commit_interval` were processed since the previous commit.
+The default value is `32`.

@@ -33,7 +33,7 @@ If you have any questions or need clarification, don't hesitate to add comments 
 
 ### Set Up the Development Environment With Merlin Containers
 
-We provide options to disable the installation of HugeCTR and HugeCTR Triton Backend in [Merlin Dockerfiles](https://github.com/NVIDIA-Merlin/Merlin/tree/main/docker) so that our contributors can build the development enviornment (container) from them. By simply clone the code of HugeCTR into thise environment and build you can start the journey of development.
+We provide options to disable the installation of HugeCTR and HugeCTR Triton Backend in [Merlin Dockerfiles](https://github.com/NVIDIA-Merlin/Merlin/tree/main/docker) so that our contributors can build the development environment (container) from them. By simply clone the code of HugeCTR into this environment and build you can start the journey of development.
 
 **Note**: the message on terminal below is not errors if you are working in such containers.
 ```
@@ -93,7 +93,7 @@ To build HugeCTR Training Container from source, do the following:
    - **ENABLE_MULTINODES**: You can use this option to build HugeCTR with multiple nodes. This option is set to OFF by default. For more information, refer to the [deep and cross network samples](https://github.com/NVIDIA-Merlin/HugeCTR/tree/master/samples/dcn) directory on GitHub.
    - **ENABLE_INFERENCE**: You can use this option to build HugeCTR in inference mode, which was designed for the inference framework. In this mode, an inference shared library
      will be built for the HugeCTR Backend. Only interfaces that support the HugeCTR Backend can be used. Therefore, you can’t train models in this mode. This option is set to
-     OFF by default. For building inference container, please refer to [Build HugeCTR Inference Container from Source](#build-hugectr-inference-contianer-from-source)
+     OFF by default. For building inference container, please refer to [Build HugeCTR Inference Container from Source](#build-hugectr-inference-container-from-source)
    - **ENABLE_HDFS**: You can use this option to build HugeCTR together with HDFS to enable HDFS related functions. Make sure you are using the `hugectr:devel_train.with_hdfs` 
      container or make sure you have correctly built Hadoop in your system before setting this    option to ON. This option is set to OFF by default
 
