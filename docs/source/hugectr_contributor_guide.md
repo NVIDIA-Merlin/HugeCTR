@@ -115,6 +115,10 @@ To build HugeCTR Training Container from source, do the following:
    $ cmake -DCMAKE_BUILD_TYPE=Debug -DSM="70;80" .. # Target is NVIDIA V100 / A100 with Debug mode.
    $ make -j && make install
    ```
+   By default, HugeCTR is installed at /usr/local. However, you can use CMAKE_INSTALL_PREFIX to install HugeCTR to non-default location:
+   ```shell
+   $ cmake -DCMAKE_INSTALL_PREFIX=/opt/HugeCTR -DSM=70 .. 
+   ```
 
 ### Build HugeCTR Inference Container from Source
 To build HugeCTR Training Container from source, do the following:
