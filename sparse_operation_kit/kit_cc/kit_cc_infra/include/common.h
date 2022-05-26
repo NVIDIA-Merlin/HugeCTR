@@ -91,16 +91,18 @@ namespace SparseOperationKit {
 
 namespace {
 inline std::string filter_path(const std::string& path) {
-  auto find_str = [](const std::string input, const char* pattern) {
-    std::regex reg(pattern);
-    std::smatch result;
-    if (std::regex_search(input, result, reg))
-      return std::string(result.str());
-    else
-      throw std::runtime_error(ErrorBase + "Filtering path faild.");
-  };
+
+  const static std::string skbuild_file_prefix = "../../../";
+  if (path.rfind(skbuild_file_prefix, 0) == 0) {
+    return "sparse_operation_kit/" + path.substr(skbuild_file_prefix.size());
+  }
   constexpr char pattern[] = "sparse_operation_kit.*$";
-  return find_str(path, pattern);
+  const static std::regex reg(pattern);
+  std::smatch result;
+  if (std::regex_search(path, result, reg))
+    return std::string(result.str());
+  else
+    return path;
 }
 }  // anonymous namespace
 
