@@ -106,7 +106,13 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 # setting install folder
-install(DIRECTORY ${CMAKE_BINARY_DIR}/lib DESTINATION /usr/local)
+if(SKBUILD)
+    # if we're building with skbuild, then we shouldn't be installing to /usr/local/lib
+    # install the libraries alongside the python source in sparse_operation_kit/lib instead
+    install(DIRECTORY ${CMAKE_BINARY_DIR}/lib DESTINATION sparse_operation_kit)
+else()
+    install(DIRECTORY ${CMAKE_BINARY_DIR}/lib DESTINATION /usr/local)
+endif()
 
 # headers
 include_directories(
