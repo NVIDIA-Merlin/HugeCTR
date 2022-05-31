@@ -24,7 +24,7 @@ docker run nvcr.io/nvidia/merlin/merlin-tensorflow-training:22.04
 ```
 Sparse Opeation Kit is already installed, and can be imported directly via:
 ```python
-import sparse_opeation_kit as sok
+import sparse_operation_kit as sok
 ```
 
 ### Installing SOK via pip ###
