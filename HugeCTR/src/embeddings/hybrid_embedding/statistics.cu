@@ -68,9 +68,8 @@ static __global__ void fill(T *__restrict__ array, T val, IdxT n_elem) {
 }
 
 template <typename dtype>
-static __global__ void calculate_category_location_frequent(const dtype *__restrict__ frequent_categories,
-                                                   dtype *category_location,
-                                                   size_t num_frequent) {
+static __global__ void calculate_category_location_frequent(
+    const dtype *__restrict__ frequent_categories, dtype *category_location, size_t num_frequent) {
   dtype tid = blockIdx.x * blockDim.x + threadIdx.x;
   if (tid < num_frequent) {
     dtype category = frequent_categories[tid];
@@ -80,10 +79,8 @@ static __global__ void calculate_category_location_frequent(const dtype *__restr
 
 template <typename dtype>
 static __global__ void calculate_category_location_infrequent(
-                                                   const dtype *__restrict__ infrequent_categories,
-                                                   dtype *category_location,
-                                                   size_t num_infrequent,
-                                                   size_t num_models) {
+    const dtype *__restrict__ infrequent_categories, dtype *category_location,
+    size_t num_infrequent, size_t num_models) {
   dtype tid = blockIdx.x * blockDim.x + threadIdx.x;
   if (tid < num_infrequent) {
     dtype category = infrequent_categories[tid];
@@ -288,32 +285,26 @@ void Statistics<dtype>::sort_categories_by_count(const dtype *samples, size_t nu
 }
 
 template <typename dtype>
-void Statistics<dtype>::calculate_frequent_and_infrequent_categories(dtype *frequent_categories,
-                                                      dtype *infrequent_categories,
-                                                      dtype *category_location,
-                                                      const size_t num_frequent,
-                                                      const size_t num_infrequent,
-                                                      cudaStream_t stream) {
-
+void Statistics<dtype>::calculate_frequent_and_infrequent_categories(
+    dtype *frequent_categories, dtype *infrequent_categories, dtype *category_location,
+    const size_t num_frequent, const size_t num_infrequent, cudaStream_t stream) {
   // Fill with default value
   constexpr size_t TPB_fill = 256;
-  const size_t total_num_categories = num_categories + 1; // Add NULL category
+  const size_t total_num_categories = num_categories + 1;  // Add NULL category
   const size_t n_blocks_fill = ceildiv<size_t>(2 * total_num_categories, TPB_fill);
   statistics_kernels::fill<<<n_blocks_fill, TPB_fill, 0, stream>>>(
       category_location, (dtype)num_categories, 2 * total_num_categories);
   CK_CUDA_THROW_(cudaPeekAtLastError());
 
-  HCTR_LOG(INFO, ROOT, "Freq %lu InFreq %lu Total %lu\n", num_frequent, num_infrequent, num_categories);
-
   // Frequent category generation
   if (num_frequent > 0) {
-  uint32_t *p_keys_in = reinterpret_cast<uint32_t *>(
-      calculate_frequent_categories_temp_storages_[0].get_ptr());  // uint32_t*
-  uint32_t *p_keys_out = reinterpret_cast<uint32_t *>(
-      calculate_frequent_categories_temp_storages_[1].get_ptr());  // uint32_t*
-  void *p_sort_temp =
-      reinterpret_cast<void *>(calculate_frequent_categories_temp_storages_[2].get_ptr());  // void*
-  size_t sort_temp_size = calculate_frequent_categories_temp_storages_[2].get_size_in_bytes();
+    uint32_t *p_keys_in = reinterpret_cast<uint32_t *>(
+        calculate_frequent_categories_temp_storages_[0].get_ptr());  // uint32_t*
+    uint32_t *p_keys_out = reinterpret_cast<uint32_t *>(
+        calculate_frequent_categories_temp_storages_[1].get_ptr());  // uint32_t*
+    void *p_sort_temp = reinterpret_cast<void *>(
+        calculate_frequent_categories_temp_storages_[2].get_ptr());  // void*
+    size_t sort_temp_size = calculate_frequent_categories_temp_storages_[2].get_size_in_bytes();
 
     // Generate keys
     constexpr size_t TPB_keys = 256;
@@ -332,29 +323,31 @@ void Statistics<dtype>::calculate_frequent_and_infrequent_categories(dtype *freq
 
     constexpr size_t TPB_loc = 256;
     const size_t n_blocks_loc_freq = (size_t)ceildiv<dtype>(num_frequent, TPB_loc);
-    statistics_kernels::calculate_category_location_frequent<<<n_blocks_loc_freq, TPB_loc, 0, stream>>>(
-      frequent_categories, category_location, num_frequent);
+    statistics_kernels::
+        calculate_category_location_frequent<<<n_blocks_loc_freq, TPB_loc, 0, stream>>>(
+            frequent_categories, category_location, num_frequent);
   }
 
   // Infrequent category generation
   if (num_infrequent > 0) {
-  // TODO: combine select and writing to category_location with a custom output iterator
-  void *p_select_temp = reinterpret_cast<void *>(
-      calculate_infrequent_categories_temp_storages_[0].get_ptr());  // void*
-  dtype *p_num_selected = reinterpret_cast<dtype *>(
-      calculate_infrequent_categories_temp_storages_[1].get_ptr());  // dtype*
-  size_t select_temp_size = calculate_infrequent_categories_temp_storages_[0].get_size_in_bytes();
+    // TODO: combine select and writing to category_location with a custom output iterator
+    void *p_select_temp = reinterpret_cast<void *>(
+        calculate_infrequent_categories_temp_storages_[0].get_ptr());  // void*
+    dtype *p_num_selected = reinterpret_cast<dtype *>(
+        calculate_infrequent_categories_temp_storages_[1].get_ptr());  // dtype*
+    size_t select_temp_size = calculate_infrequent_categories_temp_storages_[0].get_size_in_bytes();
 
-  cub::CountingInputIterator<dtype> counting(0);
-  InfrequentSelectOp<dtype> select_op(category_location, num_categories);
-  CK_CUDA_THROW_(cub::DeviceSelect::If(p_select_temp, select_temp_size, counting,
-                                       infrequent_categories, p_num_selected, num_categories,
-                                       select_op, stream));
+    cub::CountingInputIterator<dtype> counting(0);
+    InfrequentSelectOp<dtype> select_op(category_location, num_categories);
+    CK_CUDA_THROW_(cub::DeviceSelect::If(p_select_temp, select_temp_size, counting,
+                                         infrequent_categories, p_num_selected, num_categories,
+                                         select_op, stream));
 
     constexpr size_t TPB_loc = 256;
     const size_t n_blocks_loc_infreq = (size_t)ceildiv<dtype>(num_infrequent, TPB_loc);
-    statistics_kernels::calculate_category_location_infrequent<<<n_blocks_loc_infreq, TPB_loc, 0, stream>>>(
-      infrequent_categories, category_location, num_infrequent, num_instances);
+    statistics_kernels::
+        calculate_category_location_infrequent<<<n_blocks_loc_infreq, TPB_loc, 0, stream>>>(
+            infrequent_categories, category_location, num_infrequent, num_instances);
     HCTR_LIB_THROW(cudaPeekAtLastError());
   }
 }

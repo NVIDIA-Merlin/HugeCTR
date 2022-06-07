@@ -132,10 +132,9 @@ void Model<dtype>::init_hybrid_model(const CalibrationData &calibration,
    *  - then per slot
    *  - and finally in decreasing order of frequency
    */
-  statistics.calculate_frequent_and_infrequent_categories(frequent_categories.get_ptr(),
-                                                          infrequent_categories.get_ptr(),
-                                                          category_location.get_ptr(),
-                                                          num_frequent, num_infrequent, stream);
+  statistics.calculate_frequent_and_infrequent_categories(
+      frequent_categories.get_ptr(), infrequent_categories.get_ptr(), category_location.get_ptr(),
+      num_frequent, num_infrequent, stream);
   /* Calculate frequent and infrequent table offsets */
   statistics.calculate_frequent_model_table_offsets(h_frequent_model_table_offsets,
                                                     frequent_categories, num_frequent, stream);
