@@ -43,8 +43,7 @@ class ForwardNetworkTest : public HybridEmbeddingUnitTest<dtype, emtype> {
 
     /* Compute expected results on host */
     HybridEmbeddingCpu<dtype, emtype> cpu_embedding(this->config, this->batch_size,
-                                                    this->category_location,
-                                                    this->category_frequent_index, this->samples);
+                                                    this->category_location, this->samples);
     cpu_embedding.generate_embedding_vectors();
     cpu_embedding.forward_network();
     if (!single_node) {
@@ -155,7 +154,7 @@ class FrequentForwardModelTest : public HybridEmbeddingUnitTest<dtype, emtype> {
 
     HybridEmbeddingCpu<dtype, emtype> cpu_embedding(this->config, this->batch_size,
                                                     this->category_location,
-                                                    this->category_frequent_index, this->samples);
+                                                    this->samples);
     cpu_embedding.calculate_frequent_network_cache_indices();
     cpu_embedding.generate_embedding_vectors();
     cpu_embedding.generate_gradients();

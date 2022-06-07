@@ -35,7 +35,6 @@ class HybridEmbeddingUnitTest {
   const uint32_t embedding_vec_size;
 
   const std::vector<dtype> category_location;
-  const std::vector<dtype> category_frequent_index;
   const std::vector<dtype> samples;
   const std::vector<size_t> table_sizes;
 
@@ -64,7 +63,6 @@ class HybridEmbeddingUnitTest {
     }
 
     for (size_t i = 0; i < num_instances; i++) {
-      upload_tensor(category_frequent_index, model_list[i].category_frequent_index, stream);
       upload_tensor(category_location, model_list[i].category_location, stream);
     }
   }
@@ -135,7 +133,6 @@ class HybridEmbeddingUnitTest {
         embedding_vec_size(config.embedding_vec_size),
         category_location((input_generator.generate_category_location(),
                            input_generator.get_category_location())),
-        category_frequent_index(input_generator.get_category_frequent_index()),
         samples(input_generator.generate_flattened_categorical_input(batch_size)),
         table_sizes(input_generator.get_table_sizes()),
         fake_resource(0, 0, 0, seed, seed, get_fake_comm()) {

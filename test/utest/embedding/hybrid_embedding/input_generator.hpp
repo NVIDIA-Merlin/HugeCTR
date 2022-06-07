@@ -69,7 +69,6 @@ class HybridEmbeddingInputGenerator {
 
   // Multiple calls return the same data
   std::vector<dtype> &get_category_location();
-  std::vector<dtype> &get_category_frequent_index();
   std::vector<size_t> &get_table_sizes();
 
  private:
@@ -79,7 +78,7 @@ class HybridEmbeddingInputGenerator {
   size_t seed_;
   std::mt19937 gen_;
 
-  std::vector<dtype> category_location_, category_frequent_index_;
+  std::vector<dtype> category_location_;
   std::vector<std::vector<size_t>> embedding_shuffle_args;
 
   void generate_uniform_rand_table_sizes(size_t num_categories = 0, size_t num_tables = 0);

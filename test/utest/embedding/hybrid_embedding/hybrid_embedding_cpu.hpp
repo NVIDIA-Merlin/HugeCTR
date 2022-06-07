@@ -44,7 +44,6 @@ class HybridEmbeddingCpu {
   uint32_t num_frequent;
   uint32_t embedding_vec_size;
   const std::vector<dtype>& category_location;
-  const std::vector<dtype>& category_frequent_index;
   const std::vector<dtype>& samples;
 
   uint32_t local_batch_size;
@@ -78,7 +77,6 @@ class HybridEmbeddingCpu {
 
   HybridEmbeddingCpu(const HybridEmbeddingConfig<dtype>& config, size_t batch_size,
                      const std::vector<dtype>& category_location,
-                     const std::vector<dtype>& category_frequent_index,
                      const std::vector<dtype>& samples)
       : num_instances(config.num_instances),
         num_nodes(config.num_nodes),
@@ -89,7 +87,6 @@ class HybridEmbeddingCpu {
         num_frequent(config.num_frequent),
         embedding_vec_size(config.embedding_vec_size),
         category_location(category_location),
-        category_frequent_index(category_frequent_index),
         samples(samples),
         local_batch_size(utils::ceildiv<uint32_t>(batch_size, num_instances)),
         local_samples_size(local_batch_size * num_tables) {}
