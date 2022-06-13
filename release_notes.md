@@ -9,13 +9,17 @@
 
 + **SOK TF 1.15 Support**: In this version, SOK can be used along with TensorFlow 1.15. See [README](https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/get_started/get_started.html#tensorflow-1-15). Dedicated CUDA stream is used for SOK’s Ops, and kernel interleaving might be eliminated. Users can now install SOK via pip install SparseOperationKit, which no longer requires root access to compile SOK and no need to copy python scripts. There was a hanging issue in `tf.distribute.MirroredStrategy` when TensorFlow version greater than 2.4. In this version, this issue in TensorFlow 2.5+ is fixed.
 
-+ **MLPerf v1.1 integration**：
-    + **Hybrid-embedding indices pre-computing**：The indices needed for hybrid embedding are pre-computed ahead of time and are overlapped with previous iterations.
-    + **Cached evaluation indices:**：The hybrid-embedding indices for eval are cached when applicable, hence eliminating the re-computing of the indices at every eval iteration.
-    + **MLP weight/data gradients calculation overlap:**：The weight gradients of MLP are calculated asynchronously with respect to the data gradients, enabling overlap between these two computations.
-    + **Better compute-communication overlap:**：Better overlap between compute and communication has been enabled to improve training throughput.
-    + **Fused weight conversion:**：The FP32-to-FP16 conversion of the weights are now fused into the SGD optimizer, saving trips to memory.
-    + **GraphScheduler:**：GrapScheduler was added to control the timing of cudaGraph launching. With GraphScheduler, the gap between adjacent cudaGraphs is eliminated.
++ **Hybrid-embedding indices pre-computing**：The indices needed for hybrid embedding are pre-computed ahead of time and are overlapped with previous iterations.
+
++ **Cached evaluation indices:**：The hybrid-embedding indices for eval are cached when applicable, hence eliminating the re-computing of the indices at every eval iteration.
+
++ **MLP weight/data gradients calculation overlap:**：The weight gradients of MLP are calculated asynchronously with respect to the data gradients, enabling overlap between these two computations.
+
++ **Better compute-communication overlap:**：Better overlap between compute and communication has been enabled to improve training throughput.
+
++ **Fused weight conversion:**：The FP32-to-FP16 conversion of the weights are now fused into the SGD optimizer, saving trips to memory.
+
++ **GraphScheduler:**：GrapScheduler was added to control the timing of cudaGraph launching. With GraphScheduler, the gap between adjacent cudaGraphs is eliminated.
 
 + **Multi-node training support on the cluster without RDMA**：We support multi-node training without RDMA now. You can specify allreduce algorithm as `AllReduceAlgo.NCCL` and it can support non-RDMA hardware. For more information, please refer to `all_reduce_algo` in [CreateSolver API](docs/python_interface.md#createsolver-method).
 
@@ -63,7 +67,13 @@
 
 ## What's New in Version 3.1
 
-+ **MLPerf v1.0 Integration**: We've integrated MLPerf optimizations for DLRM training and enabled them as configurable options in Python interface. Specifically, we have incorporated AsyncRaw data reader, HybridEmbedding, FusedReluBiasFullyConnectedLayer, overlapped pipeline, holistic CUDA Graph and so on. The performance of 14-node DGX-A100 DLRM training with Python APIs is comparable to CLI usage. For more information, refer to [HugeCTR Python Interface](docs/python_interface.md) and [DLRM Sample](samples/dlrm).
++ **HybridEmbedding**: The hybrid embedding is designed to overcome the bandwidth constraint imposed by the embedding part of the embedding train workload by algorithmically reducing the traffic over netwoek. Limitations: it’s a research feature which only support one-hot embedding and SGD optimizer now.
+
++ **FusedReluBiasFullyConnectedLayer**: FusedReluBiasFullyConnectedLayer is one of the major optimization applied in dense layer which fuse relu Bias and FullyConnected layers to reduce the memory access on HBM. Limitations: this is a research feature which requires a layer with separate data / gradient tensors as the bottom layer. 
+
++ **Overlapped Pipeline**: The computation in the dense input data path will be overlapped with the hybrid embedding computation. Limitations: this is a research feature and depends on the AsyncReader, hybrid embedding and interaction layer.
+
++ **Holistic CUDA Graph**: Packing everything inside a training iteration into a CUDA Graph. Limitations: this option works only if use_cuda_graph is turned off and use_overlapped_pipeline is turned on. 
 
 + **Enhancements to the Python Interface**: We’ve enhanced the Python interface for HugeCTR so that you no longer have to manually create a JSON configuration file. Our Python APIs can now be used to create the computation graph. They can also be used to dump the model graph as a JSON object and save the model weights as binary files so that continuous training and inference can take place. We've added an Inference API that takes Norm or Parquet datasets as input to facilitate the inference process. For more information, refer to [HugeCTR Python Interface](docs/python_interface.md) and [HugeCTR Criteo Notebook](notebooks/hugectr_criteo.ipynb).
 

@@ -120,19 +120,19 @@ hugectr.CreateSolver()
 
 * `use_cuda_graph`: Whether to enable cuda graph for dense network forward and backward propagation. The default value is `True`.
 
-* `device_layout`: The layout of the device map for the resource manager. The supported options include `DeviceLayout.LocalFirst` and `DeviceLayout.NODE_FIRST`. If `DeviceLayout.NODE_FIRST` is employed, all nodes should have same number of devices. This argument is restricted to MLPerf use and the default value is `DeviceLayout.LocalFirst`.
+* `device_layout`: this option is deprecated and no longer used.
 
-* `use_holistic_cuda_graph`: If this option is enabled, everything inside a training iteration is packed into a CUDA Graph. This option works only if `use_cuda_graph` is turned off and `use_overlapped_pipeline` is turned on. This argument is restricted to MLPerf use and the default value is `False`.
+* `use_holistic_cuda_graph`: If this option is enabled, everything inside a training iteration is packed into a CUDA Graph. Limitations: this option works only if use_cuda_graph is turned off and use_overlapped_pipeline is turned on.
 
-* `use_overlapped_pipeline`: If this option is turned on, the bottom MLP computation will be overlapped with the hybrid embedding computation. This argument is restricted to MLPerf use and the default value is `False`.  
+* `use_overlapped_pipeline`: If this option is turned on, the computation in the dense input data path will be overlapped with the hybrid embedding computation. The default value is `False`. Limitations: this is a research feature and depends on the AsyncReader, hybrid embedding and interaction layer. 
 
-* `all_reduce_algo`: The algorithm to be used for all reduce. The supported options include `AllReduceAlgo.OneShot` and `AllReduceAlgo.NCCL`. This argument is restricted to MLPerf use and the default value is `AllReduceAlgo.NCCL`. When you are doing multi-node training, `AllReduceAlgo.OneShot` will require RDMA support while `AllReduceAlgo.NCCL` can run on both RDMA and non-RDMA hardware.
+* `all_reduce_algo`: The algorithm to be used for all reduce. The supported options include `AllReduceAlgo.OneShot` and `AllReduceAlgo.NCCL`. The default value is `AllReduceAlgo.NCCL`. When you are doing multi-node training, `AllReduceAlgo.OneShot` will require RDMA support while `AllReduceAlgo.NCCL` can run on both RDMA and non-RDMA hardware.
 
-* `grouped_all_reduce`: Whether to use grouped all reduce. This argument is restricted to MLPerf use and the default value is `False`.
+* `grouped_all_reduce`: Whether to use grouped all reduce. An optimization that the gradients for the dense network as well as the gradients data-parallel embedding are grouped and allreduced in one kernel, effectively combining two small allreduce into one bigger and more efficient allreduce. Limitation: this is a research feature and depends on hybrid embedding. The default value is `False`.
 
-* `num_iterations_statistics`: The number of batches that are used in performing the statistics. This argument is restricted to MLPerf use and the default value is 20.
+* `num_iterations_statistics`: The number of batches that are used in performing the statistics for Hybrid Embedding. The default value is 20. Limitation: this is a research feature and depends on the AsyncReade.
 
-* `is_dlrm`: A global flag to specify whether to apply all the MLPerf optimizations for DLRM sample. The MLPerf specific options will be valid only if this flag is set `True`. The default value is `False`.
+* `is_dlrm`: A global flag to specify whether to apply all the research optimizations for the sake of preventing misuse, given that some optimizations are coupled with each other. Those options will be valid only if this flag is set True. The default value is False. When is_dlrm is turned off, use_holistic_cuda_graph, use_overlapped_pipeline and grouped_all_reduce must be turned off, and neither RawAsync reader nor hybrid embedding can be applied.
 
 Example:
 ```python
@@ -185,22 +185,23 @@ For the usage of the ETC feature in real cases, please check the [HugeCTR Contin
 ```bash
 hugectr.AsyncParam()
 ```
-`AsyncParam` specifies the parameters related to async raw data reader, which can be used to initialize `DataReaderParams` instance. It is restricted to MLPerf use.
+`AsyncParam` specifies the parameters related to async raw data reader, which can be used to initialize `DataReaderParams` instance. RawAsync data reader is a fully asynchronous data reader using the Linux asynchronous I/O library (AIO) to achieve peak I/O throughput. Only one-hot feature input in raw format is supported now. 
+
 
 **Arguments**
-* `num_threads`: Integer, the number of the data reading threads, should be at least 1 per GPU。 This argument is restricted to MLPerf use and there is NO default value.
+* `num_threads`: Integer, the number of the data reading threads, should be at least 1 per GPU.  There is NO default value.
 
-* `num_batches_per_thread`: Integer,  the number of the batches each data reader thread works on simultaneously, typically 2-4. This argument is restricted to MLPerf use and there is NO default value.
+* `num_batches_per_thread`: Integer,  the number of the batches each data reader thread works on simultaneously, typically 2-4. There is NO default value.
 
-* `io_block_size`: Integer, the size of individual IO requests, the value 512000 should work in most cases. This argument is restricted to MLPerf use and there is NO default value.
+* `io_block_size`: Integer, the size of individual IO requests, the value 512000 should work in most cases. There is NO default value.
 
-* `io_depth`: Integer, the size of the asynchronous IO queue, the value 4 should work in most cases. This argument is restricted to MLPerf use and there is NO default value.
+* `io_depth`: Integer, the size of the asynchronous IO queue, the value 4 should work in most cases. There is NO default value.
 
-* `io_alignment`: Integer, the byte alignment of IO requests, the value 512 should work in most cases. This argument is restricted to MLPerf use and there is NO default value.
+* `io_alignment`: Integer, the byte alignment of IO requests, the value 512 should work in most cases. There is NO default value.
 
-* `shuffle`: Boolean, if this option is enabled, the order in which the batches are fed into training will be randomized. This argument is restricted to MLPerf use and there is NO default value.
+* `shuffle`: Boolean, if this option is enabled, the order in which the batches are fed into training will be randomized. There is NO default value.
 
-* `aligned_type`: The supported types include `hugectr.Alignment_t.Auto` and `hugectr.Alignment_t.Non`. If `hugectr.Alignment_t.Auto` is chosen,  the dimension of dense input will be padded to an 8-aligned value. This argument is restricted to MLPerf use and there is NO default value.
+* `aligned_type`: The supported types include `hugectr.Alignment_t.Auto` and `hugectr.Alignment_t.Non`. If `hugectr.Alignment_t.Auto` is chosen,  the dimension of dense input will be padded to an 8-aligned value. There is NO default value.
 
 Example:
 ```python
@@ -212,24 +213,25 @@ async_param = hugectr.AsyncParam(32, 4, 716800, 2, 512, True, hugectr.Alignment_
 ```bash
 hugectr.HybridEmbeddingParam()
 ```
-`HybridEmbeddingParam` specifies the parameters related to hybrid embedding, which can be used to initialize `SparseEmbedding` instance. It is restricted to MLPerf use.
+
+`HybridEmbeddingParam` specifies the parameters related to hybrid embedding, which can be used to initialize `SparseEmbedding` instances. The hybrid embedding is designed to overcome the bandwidth constraint imposed by the embedding part of the embedding train workload by algorithmically reducing the traffic over network. Limitations: it’s a research feature which only support one-hot embedding and SGD optimizer now.
 
 **Arguments**
-* `max_num_frequent_categories`: Integer, the maximum number of frequent categories in unit of batch size. This argument is restricted to MLPerf use and there is NO default value.
+* `max_num_frequent_categories`: Integer, the maximum number of frequent categories in unit of batch size. There is NO default value.
 
-* `max_num_infrequent_samples`: Integer, the maximum number of infrequent samples in unit of batch size. This argument is restricted to MLPerf use and there is NO default value.
+* `max_num_infrequent_samples`: Integer, the maximum number of infrequent samples in unit of batch size. There is NO default value.
 
-* `p_dup_max`: Float, the maximum probability that the category appears more than once within the gpu-batch. This way of determining the number of frequent categories is used in single-node or NVLink connected systems only. This argument is restricted to MLPerf use and there is NO default value.
+* `p_dup_max`: Float, the maximum probability that the category appears more than once within the gpu-batch. This way of determining the number of frequent categories is used in single-node or NVLink connected systems only. There is NO default value.
 
-* `max_all_reduce_bandwidth`: Float, the bandwidth of the all reduce. This argument is restricted to MLPerf use and there is NO default value.
+* `max_all_reduce_bandwidth`: Float, the bandwidth of the all reduce. There is NO default value.
 
-* `max_all_to_all_bandwidth`: Float, the bandwidth of the all-to-all. This argument is restricted to MLPerf use and there is NO default value.
+* `max_all_to_all_bandwidth`: Float, the bandwidth of the all-to-all. There is NO default value.
 
-* `efficiency_bandwidth_ratio`: Float, this argument is used in combination with `max_all_reduce_bandwidth` and `max_all_to_all_bandwidth` to determine the optimal threshold for number of frequent categories. This way of determining the frequent categories is used for multi node only. This argument is restricted to MLPerf use and there is NO default value.
+* `efficiency_bandwidth_ratio`: Float, this argument is used in combination with `max_all_reduce_bandwidth` and `max_all_to_all_bandwidth` to determine the optimal threshold for number of frequent categories. This way of determining the frequent categories is used for multi node only. There is NO default value.
 
-* `communication_type`: The type of communication that is being used. The supported types include `CommunicationType.IB_NVLink`, `CommunicationType.IB_NVLink_Hier` and `CommunicationType.NVLink_SingleNode`. This argument is restricted to MLPerf use and there is NO default value.
+* `communication_type`: The type of communication that is being used. The supported types include `CommunicationType.IB_NVLink`, `CommunicationType.IB_NVLink_Hier` and `CommunicationType.NVLink_SingleNode`. There is NO default value.
 
-* `hybrid_embedding_type`: The type of hybrid embedding, which supports only `HybridEmbeddingType.Distributed` for now. This argument is restricted to MLPerf use and there is NO default value.
+* `hybrid_embedding_type`: The type of hybrid embedding, which supports only `HybridEmbeddingType.Distributed` for now. There is NO default value.
 
 Example:
 ```python
@@ -268,7 +270,7 @@ hugectr.DataReaderParams()
 
 * `slot_size_array`: List[int], the cardinality array of input features. It should be consistent with that of the sparse input. We requires this argument for Parquet format data and RawAsync format when you want to add offset to input key. The default value is an empty list.
 
-* `async_param`: AsyncParam, the parameters for async raw data reader. This argument is restricted to MLPerf use.
+* `async_param`: AsyncParam, the parameters for async raw data reader. Please find more information in the `AsyncParam` section in this document.
 
 ### Dataset formats
 We support the following dataset formats within our `DataReaderParams`.
@@ -480,7 +482,8 @@ hugectr.SparseEmbedding()
 
 * `optimizer`: OptParamsPy, the optimizer dedicated to this sparse embedding layer. If the user does not specify the optimizer for the sparse embedding, it will adopt the same optimizer as dense layers. 
 
-* `hybrid_embedding_param`: HybridEmbeddingParam, the parameters for hybrid embedding. This argument is restricted to MLPerf use.
+* `hybrid_embedding_param`: HybridEmbeddingParam, the parameters for hybrid embedding. Optimized embedding which uses both data parallelism and model parallelism to reduce the inter-GPU/inter-node traffic. Please find more details in HybridEmbeddingParam section in this document.
+
 
 
 ### DenseLayer ###
@@ -548,7 +551,7 @@ hugectr.DenseLayer()
 
 * `lambda`: Float, the lambda value of the regularization term for the `BinaryCrossEntropyLoss`, `CrossEntropyLoss` or `MultiCrossEntropyLoss` layer. It will be ignored if `use_regularizer` is False. The default value is 0.
 
-* `pos_type`: The position type of `FusedInnerProduct` layer. The supported types include `FcPosition_t.Head`, `FcPosition_t.Body`, `FcPosition_t.Tail`, `FcPosition_t.Isolated` and `FcPosition_t.Non`. If the type `FcPosition_t.Non` is specified, the general `FusedFullyConnectedLayer` will be used internally. Otherwise, the MLPerf specific `FusedReluBiasFullyConnectedLayer` will be employed and it requires `is_dlrm` to be `True` within `CreateSolver`. The default value is `FcPosition_t.Non`.
+* `pos_type`: The position type of `FusedInnerProduct` layer. The supported types include `FcPosition_t.Head`, `FcPosition_t.Body`, `FcPosition_t.Tail`, `FcPosition_t.Isolated` and `FcPosition_t.Non`. If the type `FcPosition_t.Non` is specified, the general `FusedFullyConnectedLayer` will be used internally. Otherwise, `FusedReluBiasFullyConnectedLayer` will be employed and it requires `is_dlrm` to be `True` within `CreateSolver`. The default value is `FcPosition_t.Non`. Limitations: this is a research feature which requires a layer with separate data / gradient tensors as the bottom layer. 
 
 * `act_type`: The activation type of `FusedInnerProduct` layer. The supported types include `Activation_t.Relu` and `Activation_t.Non`. This argument is valid only if `is_dlrm` is set `True` within `CreateSolver` and `layer_type` is specified as `hugectr.Layer_t.FusedInnerProduct`. Besides, `Activation_t.Non` can only be used together with `FcPosition_t.Tail`. The default value is `Activation_t.Relu`.
 
