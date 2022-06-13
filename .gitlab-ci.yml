@@ -6,36 +6,36 @@ include:
   - /ci/template.yml
   - /ci/benchmark.yml
 
-nightly_build_train:
+nightly_build_all:
   extends: .build_nightly
   variables:
     REMOTE_REPO: https://github.com/NVIDIA-Merlin/Merlin.git
-    DST_IMAGE: ${IMAGE_TRAIN}
-    DOCKER_FILE: ./training/dockerfile.ctr
+    DST_IMAGE: ${IMAGE_ALL}
+    DOCKER_FILE: dockerfile.ctr
     BUILD_ARGS: --build-arg HUGECTR_DEV_MODE=true
 
-nightly_build_train_with_hdfs:
+nightly_build_all_with_hdfs:
   extends: .build_nightly
   variables:
     REMOTE_REPO: https://github.com/NVIDIA-Merlin/Merlin.git
-    DST_IMAGE: ${IMAGE_TRAIN_WITH_HDFS}
-    DOCKER_FILE: ./training/dockerfile.ctr
+    DST_IMAGE: ${IMAGE_ALL_WITH_HDFS}
+    DOCKER_FILE: dockerfile.ctr
     BUILD_ARGS: --build-arg HUGECTR_DEV_MODE=true --build-arg INSTALL_HDFS=true
   
-nightly_build_inference:
-  extends: .build_nightly
-  variables:
-    REMOTE_REPO: https://github.com/NVIDIA-Merlin/Merlin.git
-    DST_IMAGE: ${IMAGE_INFER}
-    DOCKER_FILE: ./inference/dockerfile.ctr
-    BUILD_ARGS: --build-arg HUGECTR_DEV_MODE=true
+#nightly_build_inference:
+#  extends: .build_nightly
+#  variables:
+#    REMOTE_REPO: https://github.com/NVIDIA-Merlin/Merlin.git
+#    DST_IMAGE: ${IMAGE_INFER}
+#    DOCKER_FILE: ./inference/dockerfile.ctr
+#    BUILD_ARGS: --build-arg HUGECTR_DEV_MODE=true
 
 nightly_build_sok_tf2:
   extends: .build_nightly
   variables:
     REMOTE_REPO: https://github.com/NVIDIA-Merlin/Merlin.git
     DST_IMAGE: ${IMAGE_SOK_TF2}
-    DOCKER_FILE: ./training/dockerfile.tf
+    DOCKER_FILE: dockerfile.tf
     BUILD_ARGS: --build-arg HUGECTR_DEV_MODE=true
   
 nightly_build_sok_tf1:
@@ -43,23 +43,23 @@ nightly_build_sok_tf1:
   variables:
     REMOTE_REPO: https://github.com/NVIDIA-Merlin/Merlin.git
     DST_IMAGE: ${IMAGE_SOK_TF1}
-    DOCKER_FILE: ./training/dockerfile.tf
-    BUILD_ARGS: --build-arg HUGECTR_DEV_MODE=true --build-arg IMAGE=nvcr.io/nvidia/tensorflow:21.11-tf1-py3 --build-arg INSTALL_NVT=false
+    DOCKER_FILE: dockerfile.tf
+    BUILD_ARGS: --build-arg HUGECTR_DEV_MODE=true --build-arg IMAGE=nvcr.io/nvidia/tensorflow:21.11-tf1-py3 --build-arg INSTALL_NVT=false --build-arg INSTALL_DISTRIBUTED_EMBEDDINGS=false
   
-nightly_build_unified_container.ctr:
-  extends: .build_nightly
-  variables:
-    REMOTE_REPO: https://github.com/NVIDIA-Merlin/Merlin.git
-    DST_IMAGE: ${CI_REGISTRY}/dl/hugectr/hugectr:unified.ctr.latest
-    DOCKER_FILE: ./training/dockerfile.ctr
-    BUILD_ARGS: --build-arg _CI_JOB_TOKEN=${RD_CI_JOB_TOKEN} --build-arg _HUGECTR_REPO=gitlab-master.nvidia.com/dl/hugectr/hugectr.git --build-arg HUGECTR_VER=${CI_COMMIT_SHA}
+#nightly_build_unified_container.ctr:
+#  extends: .build_nightly
+#  variables:
+#    REMOTE_REPO: https://github.com/NVIDIA-Merlin/Merlin.git
+#    DST_IMAGE: ${CI_REGISTRY}/dl/hugectr/hugectr:unified.ctr.latest.new
+#    DOCKER_FILE: dockerfile.ctr
+#    BUILD_ARGS: --build-arg _CI_JOB_TOKEN=${RD_CI_JOB_TOKEN} --build-arg _HUGECTR_REPO=gitlab-master.nvidia.com/dl/hugectr/hugectr.git --build-arg HUGECTR_VER=${CI_COMMIT_BRANCH}
   
 nightly_build_unified_container.tf:
   extends: .build_nightly
   variables:
     REMOTE_REPO: https://github.com/NVIDIA-Merlin/Merlin.git
     DST_IMAGE: ${CI_REGISTRY}/dl/hugectr/hugectr:unified.tf.latest
-    DOCKER_FILE: ./training/dockerfile.tf
+    DOCKER_FILE: dockerfile.tf
     BUILD_ARGS: --build-arg _CI_JOB_TOKEN=${RD_CI_JOB_TOKEN} --build-arg _HUGECTR_REPO=gitlab-master.nvidia.com/dl/hugectr/hugectr.git --build-arg HUGECTR_VER=${CI_COMMIT_SHA}
 
 nightly_build_unified_container.tri:
@@ -67,14 +67,14 @@ nightly_build_unified_container.tri:
   variables:
     REMOTE_REPO: https://github.com/NVIDIA-Merlin/Merlin.git
     DST_IMAGE: ${CI_REGISTRY}/dl/hugectr/hugectr:unified.tri.latest
-    DOCKER_FILE: ./inference/dockerfile.ctr
-    BUILD_ARGS: --build-arg _CI_JOB_TOKEN=${RD_CI_JOB_TOKEN} --build-arg _HUGECTR_REPO=gitlab-master.nvidia.com/dl/hugectr/hugectr.git --build-arg HUGECTR_VER=${CI_COMMIT_SHA} --build-arg _HUGECTR_BACKEND_REPO=gitlab-master.nvidia.com/dl/hugectr/hugectr_inference_backend.git --build-arg HUGECTR_BACKEND_VER=hugectr_performance_test
+    DOCKER_FILE: dockerfile.ctr
+    BUILD_ARGS: --build-arg _CI_JOB_TOKEN=${RD_CI_JOB_TOKEN} --build-arg _HUGECTR_REPO=gitlab-master.nvidia.com/dl/hugectr/hugectr.git --build-arg HUGECTR_VER=${CI_COMMIT_BRANCH} --build-arg _HUGECTR_BACKEND_REPO=gitlab-master.nvidia.com/dl/hugectr/hugectr_inference_backend.git --build-arg HUGECTR_BACKEND_VER=hugectr_performance_test
 
 ### Stage: build
 build_train_single_node:
   extends: .build
   variables:
-    FROM_IMAGE: ${IMAGE_TRAIN}
+    FROM_IMAGE: ${IMAGE_ALL}
     DST_IMAGE: $TRAIN_IMAGE_VERSIONED
     CMAKE_OPTION: "-DCMAKE_BUILD_TYPE=Release -DKEY_HIT_RATIO=ON -DSM=\"60;61;70;75;80\" -DCLANGFORMAT=OFF"
     BUILD_HUGECTR: 1
@@ -83,7 +83,7 @@ build_train_single_node:
 build_train_single_node_with_hdfs:
   extends: .build
   variables:
-    FROM_IMAGE: ${IMAGE_TRAIN_WITH_HDFS}
+    FROM_IMAGE: ${IMAGE_ALL_WITH_HDFS}
     DST_IMAGE: $TRAIN_IMAGE_VERSIONED_WITH_HDFS
     CMAKE_OPTION: "-DCMAKE_BUILD_TYPE=Release -DKEY_HIT_RATIO=ON -DSM=\"60;61;70;75;80\" -DCLANGFORMAT=OFF -DENABLE_HDFS=ON"
     BUILD_HUGECTR: 1
@@ -93,7 +93,7 @@ build_train_single_node_with_hdfs:
 build_train_multi_node:
   extends: .build
   variables:
-    FROM_IMAGE: ${IMAGE_TRAIN}
+    FROM_IMAGE: ${IMAGE_ALL}
     DST_IMAGE: $TRAIN_IMAGE_MULTINODE_VERSIONED
     CMAKE_OPTION: "-DCMAKE_BUILD_TYPE=Release -DKEY_HIT_RATIO=ON -DENABLE_MULTINODES=ON -DSM=\"60;61;70;75;80\" -DCLANGFORMAT=OFF"
     BUILD_HUGECTR: 1
@@ -101,7 +101,7 @@ build_train_multi_node:
 build_train_inference:
   extends: .build
   variables:
-    FROM_IMAGE: ${IMAGE_TRAIN}
+    FROM_IMAGE: ${IMAGE_ALL}
     DST_IMAGE: $TRAIN_INFER_IMAGE_VERSIONED
     CMAKE_OPTION: "-DENABLE_INFERENCE=ON -DCMAKE_BUILD_TYPE=Release -DSM=\"60;61;70;75;80\" -DCLANGFORMAT=OFF"
     BUILD_HUGECTR: 1
@@ -110,7 +110,7 @@ build_train_inference:
 build_inference:
   extends: .build
   variables:
-    FROM_IMAGE: ${IMAGE_INFER}
+    FROM_IMAGE: ${IMAGE_ALL}
     DST_IMAGE: $INFER_IMAGE_VERSIONED
     CMAKE_OPTION: "-DENABLE_INFERENCE=ON -DCMAKE_BUILD_TYPE=Release -DSM=\"70;75;80\" -DCLANGFORMAT=OFF"
     BUILD_HUGECTR: 1
@@ -405,6 +405,34 @@ etc_multi_node:
     DGXNNODES: 2
     TEST_CMD: ./ci/integration_test/etc/etc_multi_node.sub
 
+ebc_single_node:
+  extends: .cluster_test_job
+  needs:
+    - build_train_single_node
+  variables:
+    GPFSFOLDER: $LOGDIR/ebc_single_node 
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $TRAIN_IMAGE_VERSIONED
+    MOUNTS: ${DATASET_NEW_CRITEO_SELENE}:${DATASET_MOUNT}
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "00:45:00"
+    DGXNNODES: 1
+    TEST_CMD: ./ci/integration_test/ebc/ebc_single_node.sub
+
+ebc_multi_node:
+  extends: .cluster_test_job
+  needs:
+    - build_train_multi_node
+  variables:
+    GPFSFOLDER: $LOGDIR/ebc_multi_node 
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $TRAIN_IMAGE_MULTINODE_VERSIONED
+    MOUNTS: ${DATASET_NEW_CRITEO_SELENE}:${DATASET_MOUNT}
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "00:45:00"
+    DGXNNODES: 2
+    TEST_CMD: ./ci/integration_test/ebc/ebc_multi_node.sub
+
 # data generator single node
 data_generator_single_node:
   extends: .cluster_test_job
@@ -489,7 +517,7 @@ sparse_operation_kit-TF2:
     CONT: $SOK_IMAGE_VERSIONED_TF2
     MOUNTS: ${DATASET}:${DATASET_MOUNT}
     SLURM_ACCOUNT: devtech
-    WALLTIME: "00:45:00"
+    WALLTIME: "01:30:00"
     DGXNNODES: 1
     TEST_CMD: ./ci/integration_test/sok/sok.sub
 

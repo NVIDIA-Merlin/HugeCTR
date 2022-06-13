@@ -537,4 +537,11 @@ void distribute_keys_per_table(TypeHashKey* h_out, const TypeHashKey* h_in, cons
 template <typename T>
 void inc_var(volatile T* x, cudaStream_t stream);
 
+inline int64_t divup(int64_t x, int64_t y) { return (x + y - 1) / y; }
+
+template <class T>
+inline void hash_combine(std::size_t& s, const T& v) {
+  std::hash<T> h;
+  s ^= h(v) + 0x9e3779b9 + (s << 6) + (s >> 2);
+}
 }  // namespace HugeCTR

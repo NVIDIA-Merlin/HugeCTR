@@ -19,5 +19,6 @@ file(GLOB_RECURSE embedding_training_cache_test_src RELATIVE ${CMAKE_CURRENT_SOU
 add_executable(embedding_training_cache_test ${embedding_training_cache_test_src})
 target_compile_features(embedding_training_cache_test PUBLIC cxx_std_17)
 target_link_libraries(embedding_training_cache_test PUBLIC huge_ctr_static gtest gtest_main stdc++fs)
+target_link_libraries(embedding_training_cache_test PUBLIC /usr/local/cuda/lib64/stubs/libcuda.so)
 set_target_properties(embedding_training_cache_test PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 set_target_properties(embedding_training_cache_test PROPERTIES CUDA_ARCHITECTURES OFF)

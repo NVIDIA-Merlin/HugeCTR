@@ -46,6 +46,12 @@ SparseEmbedding get_sparse_embedding_from_json(const nlohmann::json& j_sparse_em
       get_value_from_json_soft<size_t>(j_hparam, "workspace_size_per_gpu_in_mb", 0);
 
   size_t embedding_vec_size = get_value_from_json<size_t>(j_hparam, "embedding_vec_size");
+  if (embedding_vec_size == 0 || embedding_vec_size > 1024) {
+    HCTR_OWN_THROW(Error_t::WrongInput, "Embedding vector size(" + std::to_string(embedding_vec_size) +  ") is invalid. It cannot be zero nor exceed 1024.");
+  }
+  if (embedding_vec_size % 32 != 0) {
+    HCTR_LOG(WARNING, WORLD, "Embedding vector size(%zu) is not a multiple of 32, which may affect the GPU resource utilization.\n", embedding_vec_size);
+  }
 
   auto combiner_str = get_value_from_json<std::string>(j_hparam, "combiner");
 
@@ -168,7 +174,7 @@ void add_sparse_embedding(SparseEmbedding& sparse_embedding,
                           std::shared_ptr<ExchangeWgrad>& exchange_wgrad, bool use_cuda_graph,
                           bool grouped_all_reduce, bool use_holistic_cuda_graph,
                           size_t num_iterations_statistics, GpuLearningRateSchedulers& gpu_lr_sches,
-                          bool overlap_ar_a2a) {
+                          bool overlap_ar_a2a, bool eval_overlap) {
 #ifdef ENABLE_MPI
   int num_procs = 1, pid = 0;
   MPI_Comm_rank(MPI_COMM_WORLD, &pid);
@@ -262,8 +268,8 @@ void add_sparse_embedding(SparseEmbedding& sparse_embedding,
           embedding_opt_params};
       embeddings.emplace_back(new HybridSparseEmbedding<TypeKey, TypeFP>(
           sparse_input.train_sparse_tensors, sparse_input.evaluate_sparse_tensors, embedding_params,
-          embed_wgrad_buff, gpu_lr_sches, use_holistic_cuda_graph, resource_manager,
-          overlap_ar_a2a));
+          embed_wgrad_buff, gpu_lr_sches, use_holistic_cuda_graph, resource_manager, overlap_ar_a2a,
+          eval_overlap));
       break;
     }
     default:
@@ -284,23 +290,23 @@ template void add_sparse_embedding<long long, float>(
     std::vector<std::vector<TensorEntry>>&, std::vector<std::vector<TensorEntry>>&,
     std::vector<std::shared_ptr<IEmbedding>>&, const std::shared_ptr<ResourceManager>&, size_t,
     size_t, OptParams&, std::shared_ptr<ExchangeWgrad>&, bool, bool, bool, size_t,
-    GpuLearningRateSchedulers&, bool);
+    GpuLearningRateSchedulers&, bool, bool);
 template void add_sparse_embedding<long long, __half>(
     SparseEmbedding&, std::map<std::string, SparseInput<long long>>&,
     std::vector<std::vector<TensorEntry>>&, std::vector<std::vector<TensorEntry>>&,
     std::vector<std::shared_ptr<IEmbedding>>&, const std::shared_ptr<ResourceManager>&, size_t,
     size_t, OptParams&, std::shared_ptr<ExchangeWgrad>&, bool, bool, bool, size_t,
-    GpuLearningRateSchedulers&, bool);
+    GpuLearningRateSchedulers&, bool, bool);
 template void add_sparse_embedding<unsigned int, float>(
     SparseEmbedding&, std::map<std::string, SparseInput<unsigned int>>&,
     std::vector<std::vector<TensorEntry>>&, std::vector<std::vector<TensorEntry>>&,
     std::vector<std::shared_ptr<IEmbedding>>&, const std::shared_ptr<ResourceManager>&, size_t,
     size_t, OptParams&, std::shared_ptr<ExchangeWgrad>&, bool, bool, bool, size_t,
-    GpuLearningRateSchedulers&, bool);
+    GpuLearningRateSchedulers&, bool, bool);
 template void add_sparse_embedding<unsigned int, __half>(
     SparseEmbedding&, std::map<std::string, SparseInput<unsigned int>>&,
     std::vector<std::vector<TensorEntry>>&, std::vector<std::vector<TensorEntry>>&,
     std::vector<std::shared_ptr<IEmbedding>>&, const std::shared_ptr<ResourceManager>&, size_t,
     size_t, OptParams&, std::shared_ptr<ExchangeWgrad>&, bool, bool, bool, size_t,
-    GpuLearningRateSchedulers&, bool);
+    GpuLearningRateSchedulers&, bool, bool);
 }  // namespace HugeCTR

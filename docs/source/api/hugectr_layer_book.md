@@ -371,6 +371,30 @@ In the JSON file, you can find the batch norm parameters as shown below:
       ]
     }
 ```
+### LayerNorm Layer
+
+The LayerNorm layer implements a layer normalization.
+
+Parameters:
+
+* `eps`: Float, epsilon value used in the batch normalization formula for the `LayerNorm` layer. The default value is 1e-5.
+* `gamma_init_type`: Specifies how to initialize the gamma (or scale) array for the `LayerNorm` layer. The supported types include `hugectr.Initializer_t.Default`, `hugectr.Initializer_t.Uniform`, `hugectr.Initializer_t.XavierNorm`, `hugectr.Initializer_t.XavierUniform` and `hugectr.Initializer_t.Zero`. The default value is `hugectr.Initializer_t.Default`.
+* `beta_init_type`: Specifies how to initialize the beta (or offset) array for the `LayerNorm` layer. The supported types include `hugectr.Initializer_t.Default`, `hugectr.Initializer_t.Uniform`, `hugectr.Initializer_t.XavierNorm`, `hugectr.Initializer_t.XavierUniform` and `hugectr.Initializer_t.Zero`. The default value is `hugectr.Initializer_t.Default`.
+
+Input and Output Shapes:
+
+* input: 2D: (batch_size, num_elem), 3D: (batch_size, seq_len, num_elem), 4D: (head_num, batch_size, seq_len, num_elem)
+* output: same as input
+
+Example:
+```python
+model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.LayerNorm,
+                            bottom_names = ["slice32"],
+                            top_names = ["fmorder2"],
+                            eps = 0.00001,
+                            gamma_init_type = hugectr.Initializer_t.XavierUniform,
+                            beta_init_type = hugectr.Initializer_t.XavierUniform)
+```
 
 ### Concat Layer
 
@@ -792,6 +816,23 @@ Example:
 model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.MatrixMutiply,
                             bottom_names = ["slice1","slice2"],
                             top_names = ["MatrixMutiply1"])
+```
+#### MultiHeadAttention Layer
+
+The MultiHeadAttention Layer is a binary operation that produces a matrix output from two matrix inputs by performing matrix mutiplication.
+
+Parameters: None
+
+Input and Output Shapes:
+
+* input: 4D: (head_num, batch_size, m, n), (head_num, batch_size, k, n)
+* output: 4D: (head_num, batch_size, m, k)
+
+Example:
+```python
+model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.MultiHeadAttention,
+                            bottom_names = ["query","key"],
+                            top_names = ["AttentionOut1"])
 ```
 
 #### Gather Layer

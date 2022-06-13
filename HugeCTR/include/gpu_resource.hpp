@@ -21,6 +21,7 @@
 #include <curand.h>
 #include <nccl.h>
 
+#include "stream_event_manager.hpp"
 #include "utils.hpp"
 
 namespace HugeCTR {
@@ -53,6 +54,8 @@ class GPUResource {
 
   cudaEvent_t wait_wgrad_event_;
 
+  StreamEventManager stream_event_manager_;
+
  public:
   GPUResource(int device_id, size_t local_id, size_t global_id,
               unsigned long long replica_uniform_seed, unsigned int long long replica_variant_seed,
@@ -60,6 +63,9 @@ class GPUResource {
   GPUResource(const GPUResource&) = delete;
   GPUResource& operator=(const GPUResource&) = delete;
   ~GPUResource();
+
+  const cudaStream_t& get_stream(const std::string& name, int priority = 0);
+  const cudaEvent_t& get_event(const std::string& name);
 
   int get_device_id() const { return device_id_; }
   int get_local_id() const { return local_id_; }

@@ -29,6 +29,7 @@ class AsyncReader : public IDataReaderWithScheduling {
 
   long long read_a_batch_to_device_delay_release() override;
   long long get_full_batchsize() const override;
+  bool current_batch_incomplete() const override;
   void ready_to_collect() override;
   long long read_a_batch_to_device() override;
   void schedule_precompute_here(cudaStream_t stream, int raw_device_id, bool from_graph) override;
@@ -36,10 +37,12 @@ class AsyncReader : public IDataReaderWithScheduling {
   void schedule_here(cudaStream_t stream, int raw_device_id) override;
   void schedule_here_graph(cudaStream_t stream, int raw_device_id) override;
   void update_schedule_graph(int raw_device_id) override;
+  bool precompute_enabled() const override;
 
   void register_extra_processing(
-      const std::shared_ptr<hybrid_embedding::IndexProcessor<SparseType>>& proc);
-  size_t get_total_queue_size();
+      const std::shared_ptr<hybrid_embedding::IndexProcessor<SparseType>>& proc, bool eval_overlap,
+      bool use_cuda_graph);
+  size_t get_total_queue_size() const;
   bool is_mixed_precision();
   // TODO: need to get rid of this, pass the dims directly from Model to the HybridEmbedding
   void get_dimensions(size_t& label_dim, size_t& dense_dim, size_t& sparse_dim,
@@ -67,6 +70,8 @@ class AsyncReader : public IDataReaderWithScheduling {
   ~AsyncReader();
 
  private:
+  cudaStream_t getPrecomputingStream(int device_id) const;
+
   const std::shared_ptr<ResourceManager> resource_manager_;
   std::unique_ptr<AsyncReaderImpl> reader_impl_;
   size_t sample_size_items_, current_batch_size_;
@@ -75,6 +80,8 @@ class AsyncReader : public IDataReaderWithScheduling {
   size_t label_dim_, dense_dim_, sparse_dim_;
   std::shared_ptr<hybrid_embedding::IndexProcessor<SparseType>> index_processor_ = nullptr;
   bool precomputing_ = false;
+  bool eval_overlap_ = false;
+  bool use_cuda_graph_ = false;
   size_t queue_id_ = 0;
 
   std::vector<TensorBag2> label_tensors_;

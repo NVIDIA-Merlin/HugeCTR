@@ -60,7 +60,8 @@ FusedReluBiasFullyConnectedLayer::FusedReluBiasFullyConnectedLayer(
     const Tensor2<__half>& dRelu_out_tensor, Tensor2<__half>& db_out_tensor,
     const std::shared_ptr<GPUResource>& gpu_resource, const FcPosition_t& pos,
     const Activation_t& act, const bool& skip_dgrad, std::vector<Initializer_t> initializer_types,
-    const bool async_mlp_wgrad, const bool head_mask_in)
+    const bool async_mlp_wgrad, const bool head_mask_in,
+    const DenseLayerSwitchs& dense_layer_switches)
     : Layer(gpu_resource, initializer_types),
       balgo_k_(CUBLAS_GEMM_DEFAULT_TENSOR_OP),
       balgo_x_(CUBLAS_GEMM_DEFAULT_TENSOR_OP),
@@ -70,6 +71,7 @@ FusedReluBiasFullyConnectedLayer::FusedReluBiasFullyConnectedLayer(
       skip_dgrad_(skip_dgrad),
       async_mlp_wgrad_(async_mlp_wgrad),
       head_mask_in_(head_mask_in),
+      dense_layer_switches_(dense_layer_switches),
       event_overlap_created_(false) {
   const auto& bottom_tensor_dim = train_in_tensor.get_dimensions();
   const auto& top_tensor_dim = train_out_tensor.get_dimensions();
@@ -237,12 +239,15 @@ void FusedReluBiasFullyConnectedLayer::initialize_dgrad() {
     HCTR_LIB_THROW(cublasLtMatmulDescSetAttribute(
         cublas_op_desc_bprop_, CUBLASLT_MATMUL_DESC_EPILOGUE, &epi, sizeof(epi)));
   } else if (pos_ == FcPosition_t::Body || pos_ == FcPosition_t::Tail) {
-    cublasLtEpilogue_t epi = CUBLASLT_EPILOGUE_DRELU_BGRAD;
+    cublasLtEpilogue_t epi =
+        dense_layer_switches_.fuse_wb ? CUBLASLT_EPILOGUE_DRELU : CUBLASLT_EPILOGUE_DRELU_BGRAD;
     cublasLtMatmulDescSetAttribute(cublas_op_desc_bprop_, CUBLASLT_MATMUL_DESC_EPILOGUE, &epi,
                                    sizeof(epi));
-    __half* bgrad = db_in_tensor_.get_ptr();
-    cublasLtMatmulDescSetAttribute(cublas_op_desc_bprop_, CUBLASLT_MATMUL_DESC_BIAS_POINTER, &bgrad,
-                                   sizeof(bgrad));
+    if (!dense_layer_switches_.fuse_wb) {
+      __half* bgrad = db_in_tensor_.get_ptr();
+      cublasLtMatmulDescSetAttribute(cublas_op_desc_bprop_, CUBLASLT_MATMUL_DESC_BIAS_POINTER,
+                                     &bgrad, sizeof(bgrad));
+    }
     __half* reluMask = mask_in_tensor_.get_ptr();
     cublasLtMatmulDescSetAttribute(cublas_op_desc_bprop_, CUBLASLT_MATMUL_DESC_EPILOGUE_AUX_POINTER,
                                    &reluMask, sizeof(reluMask));
@@ -286,7 +291,6 @@ void FusedReluBiasFullyConnectedLayer::initialize_wgrad() {
   // TODO: We need different bottom desc based on is_train or not
   const auto& bottom_tensor_dim = get_bottom_tensor_fprop(true).get_dimensions();
   const auto& top_tensor_dim = train_out_tensor_.get_dimensions();
-
   size_t m = bottom_tensor_dim[0];
   size_t n = top_tensor_dim[1];
   size_t k = bottom_tensor_dim[1];
@@ -300,7 +304,8 @@ void FusedReluBiasFullyConnectedLayer::initialize_wgrad() {
   HCTR_LIB_THROW(cublasLtMatmulDescSetAttribute(cublas_op_desc_wgrad_, CUBLASLT_MATMUL_DESC_TRANSB,
                                                 &transB, sizeof(transB)));
   cublasLtEpilogue_t epi;
-  if (pos_ == FcPosition_t::Tail || pos_ == FcPosition_t::Isolated) {
+  if (dense_layer_switches_.fuse_wb || pos_ == FcPosition_t::Tail ||
+      pos_ == FcPosition_t::Isolated) {
     epi = CUBLASLT_EPILOGUE_BGRADA;
     __half* bgrad = db_out_tensor_.get_ptr();
     cublasLtMatmulDescSetAttribute(cublas_op_desc_wgrad_, CUBLASLT_MATMUL_DESC_BIAS_POINTER, &bgrad,
@@ -319,7 +324,6 @@ void FusedReluBiasFullyConnectedLayer::initialize_wgrad() {
   HCTR_LIB_THROW(cublasLtMatmulPreferenceSetAttribute(
       cublas_preference_wgrad_, CUBLASLT_MATMUL_PREF_MAX_WORKSPACE_BYTES, &cublaslt_workspace_size_,
       sizeof(cublaslt_workspace_size_)));
-
   uint32_t pointer_mode = CUBLASLT_POINTER_MODE_MASK_HOST;
   HCTR_LIB_THROW(cublasLtMatmulPreferenceSetAttribute(cublas_preference_wgrad_,
                                                       CUBLASLT_MATMUL_PREF_POINTER_MODE_MASK,
@@ -332,9 +336,8 @@ void FusedReluBiasFullyConnectedLayer::initialize_wgrad() {
       get_gpu().get_cublaslt_handle(), cublas_op_desc_wgrad_, cublas_dRelu_top_desc_,
       cublas_dRelu_bottom_desc_, cublas_kernel_desc_, cublas_kernel_desc_, cublas_preference_wgrad_,
       1, &heuristic_result, &returned_res));
-
   memcpy(&balgo_wgrad_, &heuristic_result.algo, sizeof(balgo_wgrad_));
-
+  // returned_res is 0 indicates that there is no feasible algorithm.
   if (returned_res == 0) {
     HCTR_LIB_THROW(CUBLAS_STATUS_NOT_SUPPORTED);
   }
@@ -451,20 +454,12 @@ void FusedReluBiasFullyConnectedLayer::bprop() {
   }
 
   // bgrad+wgrad
-  if (n == 1) {
-    HCTR_LIB_THROW(cublasGemmEx(cublas_handle_wgrad_, CUBLAS_OP_N, CUBLAS_OP_N, n, 1, m, &alpha,
-                                dRelu_top, CUDA_R_16F, n, identity, CUDA_R_16F, m, &beta_b,
-                                bias_grad, CUDA_R_16F, n, CUDA_R_32F, balgo_b_));
-    HCTR_LIB_THROW(cublasGemmEx(cublas_handle_wgrad_, CUBLAS_OP_N, CUBLAS_OP_T, n, k, m, &alpha,
-                                dRelu_top, CUDA_R_16F, n, bottom, CUDA_R_16F, k, &beta_k,
-                                kernel_grad, CUDA_R_16F, n, CUDA_R_32F, balgo_k_));
-  } else {
-    HCTR_LIB_THROW(cublasLtMatmul(
-        get_gpu().get_cublaslt_handle(), cublas_op_desc_wgrad_, &alpha, dRelu_top,
-        cublas_dRelu_top_desc_, bottom, cublas_dRelu_bottom_desc_, &beta_k, kernel_grad,
-        cublas_kernel_desc_, kernel_grad, cublas_kernel_desc_, &balgo_wgrad_,
-        cublaslt_workspace_wgrad_, cublaslt_workspace_size_, get_gpu().get_comp_overlap_stream()));
-  }
+  HCTR_LIB_THROW(cublasLtMatmul(
+      get_gpu().get_cublaslt_handle(), cublas_op_desc_wgrad_, &alpha, dRelu_top,
+      cublas_dRelu_top_desc_, bottom, cublas_dRelu_bottom_desc_, &beta_k, kernel_grad,
+      cublas_kernel_desc_, kernel_grad, cublas_kernel_desc_, &balgo_wgrad_,
+      cublaslt_workspace_wgrad_, cublaslt_workspace_size_,
+      async_mlp_wgrad_ ? get_gpu().get_comp_overlap_stream() : get_gpu().get_stream()));
 
   if (async_mlp_wgrad_ && pos_ == FcPosition_t::Head) {
     get_gpu().set_wgrad_event_sync(get_gpu().get_comp_overlap_stream());

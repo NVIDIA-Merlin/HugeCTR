@@ -32,6 +32,7 @@ class IDataReaderWithScheduling : public IDataReader {
   virtual void schedule_here(cudaStream_t stream, int raw_device_id) = 0;
   virtual void schedule_here_graph(cudaStream_t stream, int raw_device_id) = 0;
   virtual void update_schedule_graph(int raw_device_id) = 0;
+  virtual bool precompute_enabled() const = 0;
 };
 
 }  // namespace HugeCTR

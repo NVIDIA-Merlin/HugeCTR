@@ -314,6 +314,8 @@ InfrequentEmbeddingSelection<dtype>::InfrequentEmbeddingSelection(const Data<dty
   buf->reserve({data_.batch_size, num_tables}, &model_indices_);
   buf->reserve({ceildiv<size_t>(data_.batch_size, model.num_instances), num_tables},
                &network_indices_);
+  buf->reserve({ceildiv<size_t>(data_.batch_size, model.num_instances), num_tables},
+               &network_indices_src_model_id_);
 
   // buf->reserve({model.num_instances}, &model_indices_sizes_);
   // buf->reserve({model.num_instances}, &model_indices_sizes_ptrs_);
@@ -337,9 +339,12 @@ InfrequentEmbeddingSelection<dtype>::InfrequentEmbeddingSelection(const Data<dty
   HCTR_LIB_THROW(cudaMemAdvise(managed_buf->get_ptr(), managed_buf->get_size_in_bytes(),
                                cudaMemAdviseSetReadMostly, current_device));
 
-  InfrequentEmbeddingSelectionView<dtype> view = {
-      data_.samples.get_ptr(), model_indices_.get_ptr(), model_indices_offsets_.get_ptr(),
-      network_indices_.get_ptr(), network_indices_offsets_.get_ptr()};
+  InfrequentEmbeddingSelectionView<dtype> view = {data_.samples.get_ptr(),
+                                                  model_indices_.get_ptr(),
+                                                  model_indices_offsets_.get_ptr(),
+                                                  network_indices_.get_ptr(),
+                                                  network_indices_offsets_.get_ptr(),
+                                                  network_indices_src_model_id_.get_ptr()};
 
   HCTR_LIB_THROW(cudaMalloc(&device_indices_view_, sizeof(view)));
   HCTR_LIB_THROW(cudaMemcpy(device_indices_view_, &view, sizeof(view), cudaMemcpyHostToDevice));
@@ -470,6 +475,12 @@ void InfrequentEmbeddingSelection<dtype>::calculate_network_indices(size_t sm_co
       local_samples_size);
   HCTR_LIB_THROW(cudaPeekAtLastError());
   // // PROFILE_RECORD("inf_calculate_network_indices.modulo_kernel.stop", stream);
+
+  // Figure out the model id for each indices
+  model_id_kernel<<<n_blocks_remap, TPB_remap, 0, stream>>>(
+      network_indices_offsets_.get_ptr(), network_indices_src_model_id_.get_ptr(),
+      network_indices_offsets_.get_ptr() + num_instances);
+  HCTR_LIB_THROW(cudaPeekAtLastError());
 }
 
 // template <typename dtype>

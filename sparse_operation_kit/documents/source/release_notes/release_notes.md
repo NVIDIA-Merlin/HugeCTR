@@ -1,6 +1,9 @@
 # SparseOperationKit Release Notes #
 The release notes for SparseOperationKit.
 
+## What's new in Version 1.1.3 ##
++ Update pip install instruction and fix some bugs.
+
 ## What's new in Version 1.1.2 ##
 + Add TensorFlow Functional API support
 

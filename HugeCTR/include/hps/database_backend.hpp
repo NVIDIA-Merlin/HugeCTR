@@ -202,8 +202,8 @@ class VolatileBackend : public DatabaseBackend<TKey> {
  public:
   using TBase = DatabaseBackend<TKey>;
 
-  VolatileBackend(bool refresh_time_after_fetch, size_t overflow_margin,
-                  DatabaseOverflowPolicy_t overflow_policy, double overflow_resolution_target);
+  VolatileBackend(size_t overflow_margin, DatabaseOverflowPolicy_t overflow_policy,
+                  double overflow_resolution_target);
 
   VolatileBackend(const VolatileBackend&) = delete;
 
@@ -231,7 +231,6 @@ class VolatileBackend : public DatabaseBackend<TKey> {
 
  protected:
   // Overflow-handling / pruning related parameters.
-  const bool refresh_time_after_fetch_;
   const size_t overflow_margin_;
   const DatabaseOverflowPolicy_t overflow_policy_;
   const size_t overflow_resolution_target_;

@@ -1,0 +1,62 @@
+[
+    [
+        {
+            "local_embedding_list": [
+                0,
+                1,
+                2,
+                3,
+                4
+            ],
+            "global_embedding_list": [
+                [
+                    0,
+                    1,
+                    2,
+                    3,
+                    4
+                ],
+                [
+                    0,
+                    1,
+                    2,
+                    3,
+                    4
+                ]
+            ],
+            "sharding_id": 0,
+            "num_sharding": 2,
+            "table_placement_strategy": "localized"
+        }
+    ],
+    [
+        {
+            "local_embedding_list": [
+                0,
+                1,
+                2,
+                3,
+                4
+            ],
+            "global_embedding_list": [
+                [
+                    0,
+                    1,
+                    2,
+                    3,
+                    4
+                ],
+                [
+                    0,
+                    1,
+                    2,
+                    3,
+                    4
+                ]
+            ],
+            "sharding_id": 1,
+            "num_sharding": 2,
+            "table_placement_strategy": "localized"
+        }
+    ]
+]

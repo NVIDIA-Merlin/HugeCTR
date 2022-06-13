@@ -33,8 +33,10 @@
 #include <layers/gather_layer.hpp>
 #include <layers/gru_layer.hpp>
 #include <layers/interaction_layer.hpp>
+#include <layers/layer_norm_layer.hpp>
 #include <layers/matrix_multiply_layer.hpp>
 #include <layers/multi_cross_layer.hpp>
+#include <layers/multi_head_attention_layer.hpp>
 #include <layers/prelu_dice_layer.hpp>
 #include <layers/reduce_mean_layer.hpp>
 #include <layers/reduce_sum_layer.hpp>
@@ -240,6 +242,59 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
           BatchNormLayer<float>::Params params = {factor, eps};
           emplaceback_layer(new BatchNormLayer<float>(weight_buff, wgrad_buff, blobs_buff,
                                                       bn_in_tensor, bn_out_tensor, params,
+                                                      gpu_resource, initializer_types));
+        }
+
+        break;
+      }
+      case Layer_t::LayerNorm: {
+        // get LN params
+        auto j_ln_hparam = get_json(j, "ln_param");
+        auto eps = get_value_from_json<float>(j_ln_hparam, "eps");
+        // establish initializer
+        std::vector<Initializer_t> initializer_types(2, Initializer_t::Default);
+        if (has_key_(j_ln_hparam, "gamma_init")) {
+          const auto gamma_init_name = get_value_from_json<std::string>(j_ln_hparam, "gamma_init");
+          Initializer_t gamma_init_type;
+          if (!find_item_in_map(gamma_init_type, gamma_init_name, INITIALIZER_TYPE_MAP)) {
+            HCTR_OWN_THROW(Error_t::WrongInput, "No such initializer: " + gamma_init_name);
+          } else {
+            initializer_types[0] = gamma_init_type;
+          }
+        }
+        if (has_key_(j_ln_hparam, "beta_init")) {
+          const auto beta_init_name = get_value_from_json<std::string>(j_ln_hparam, "beta_init");
+          Initializer_t beta_init_type;
+          if (!find_item_in_map(beta_init_type, beta_init_name, INITIALIZER_TYPE_MAP)) {
+            HCTR_OWN_THROW(Error_t::WrongInput, "No such initializer: " + beta_init_name);
+          } else {
+            initializer_types[1] = beta_init_type;
+          }
+        }
+
+        if (use_mixed_precision) {
+          Tensor2<__half> ln_in_tensor = Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
+          // establish out tensor
+          Tensor2<__half> ln_out_tensor;
+          blobs_buff->reserve(ln_in_tensor.get_dimensions(), &ln_out_tensor);
+          output_tensor_entries.push_back(
+              {input_output_info.output_names[0], ln_out_tensor.shrink()});
+
+          LayerNormLayer<__half>::Params params = {eps};
+          emplaceback_layer(new LayerNormLayer<__half>(weight_buff_half, wgrad_buff_half,
+                                                       blobs_buff, ln_in_tensor, ln_out_tensor,
+                                                       params, gpu_resource, initializer_types));
+        } else {
+          Tensor2<float> ln_in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
+          // establish out tensor
+          Tensor2<float> ln_out_tensor;
+          blobs_buff->reserve(ln_in_tensor.get_dimensions(), &ln_out_tensor);
+          output_tensor_entries.push_back(
+              {input_output_info.output_names[0], ln_out_tensor.shrink()});
+
+          LayerNormLayer<float>::Params params = {eps};
+          emplaceback_layer(new LayerNormLayer<float>(weight_buff, wgrad_buff, blobs_buff,
+                                                      ln_in_tensor, ln_out_tensor, params,
                                                       gpu_resource, initializer_types));
         }
 
@@ -631,7 +686,33 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
         }
         break;
       }
-
+      case Layer_t::MultiHeadAttention: {
+        if (input_output_info.inputs.size() != 2) {
+          HCTR_OWN_THROW(Error_t::WrongInput, "MultiHeadAttentionLayer needs two input tensors ");
+        }
+        if (use_mixed_precision) {
+          Tensors2<__half> in_tensors;
+          for (const TensorBag2& bag : input_output_info.inputs) {
+            in_tensors.push_back(Tensor2<__half>::stretch_from(bag));
+          }
+          Tensor2<__half> out_tensor;
+          layers.emplace_back(
+              new MultiHeadAttentionLayer<__half>(in_tensors, out_tensor, blobs_buff, gpu_resource,
+                                                  use_mixed_precision, enable_tf32_compute));
+          output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
+        } else {
+          Tensors2<float> in_tensors;
+          for (const auto& bag : input_output_info.inputs) {
+            in_tensors.push_back(Tensor2<float>::stretch_from(bag));
+          }
+          Tensor2<float> out_tensor;
+          layers.emplace_back(new MultiHeadAttentionLayer<float>(in_tensors, out_tensor, blobs_buff,
+                                                                 gpu_resource, use_mixed_precision,
+                                                                 enable_tf32_compute));
+          output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
+        }
+        break;
+      }
       case Layer_t::Interaction: {
         // TODO: lambda template could be a better solution here, but there's not support in c++11
         if (use_mixed_precision) {

@@ -1,0 +1,65 @@
+[
+    [
+        {
+            "local_embedding_list": [],
+            "global_embedding_list": [
+                [],
+                [
+                    0,
+                    1,
+                    2,
+                    3
+                ]
+            ],
+            "table_placement_strategy": "localized"
+        },
+        {
+            "local_embedding_list": [
+                4
+            ],
+            "global_embedding_list": [
+                [
+                    4
+                ],
+                [
+                    4
+                ]
+            ],
+            "table_placement_strategy": "dp"
+        }
+    ],
+    [
+        {
+            "local_embedding_list": [
+                0,
+                1,
+                2,
+                3
+            ],
+            "global_embedding_list": [
+                [],
+                [
+                    0,
+                    1,
+                    2,
+                    3
+                ]
+            ],
+            "table_placement_strategy": "localized"
+        },
+        {
+            "local_embedding_list": [
+                4
+            ],
+            "global_embedding_list": [
+                [
+                    4
+                ],
+                [
+                    4
+                ]
+            ],
+            "table_placement_strategy": "dp"
+        }
+    ]
+]

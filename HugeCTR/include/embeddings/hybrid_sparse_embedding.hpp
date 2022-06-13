@@ -174,6 +174,7 @@ class HybridSparseEmbedding : public IEmbedding {
   GpuLearningRateSchedulers lr_scheds_;
   bool graph_mode_;
   bool overlap_ar_a2a_;
+  bool eval_overlap_;
 
   std::shared_ptr<IndexProcessor<dtype>> train_async_indices_, eval_async_indices_;
 
@@ -215,7 +216,7 @@ class HybridSparseEmbedding : public IEmbedding {
     return;
   }
 
-  const GPUResource& get_local_gpu(int i) const { return *resource_manager_->get_local_gpu(i); }
+  GPUResource& get_local_gpu(int i) const { return *resource_manager_->get_local_gpu(i); }
 
   size_t get_categories_num() {
     size_t num_categories = 0;
@@ -232,13 +233,13 @@ class HybridSparseEmbedding : public IEmbedding {
                         const std::vector<BuffPtr<emtype>>& grouped_wgrad_buff,
                         const GpuLearningRateSchedulers lr_scheds, bool graph_mode,
                         const std::shared_ptr<ResourceManager>& resource_manager,
-                        bool overlap_ar_a2a);
+                        bool overlap_ar_a2a, bool eval_overlap);
   ~HybridSparseEmbedding() = default;
 
   // TODO: consider to merge it with init_params
   void init_model(const SparseTensors<dtype>& data, size_t& wgrad_offset);
-  void setup_async_mode(AsyncReader<dtype>* train_data_reader,
-                        AsyncReader<dtype>* eval_data_reader);
+  void setup_async_mode(AsyncReader<dtype>* train_data_reader, AsyncReader<dtype>* eval_data_reader,
+                        bool eval_overlap, bool use_cuda_graph);
 
   TrainState train(bool is_train, int i, TrainState state) override;
   void forward(bool is_train, bool is_first_batch = true) override;

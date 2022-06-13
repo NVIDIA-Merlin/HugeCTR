@@ -108,7 +108,7 @@ class internal_runtime_error : public std::runtime_error {
 
 enum class LrPolicy_t { fixed };
 
-enum class Optimizer_t { Adam, AdaGrad, MomentumSGD, Nesterov, SGD, DEFAULT };
+enum class Optimizer_t { Adam, AdaGrad, MomentumSGD, Nesterov, SGD, DEFAULT, NOT_INITIALIZED };
 
 enum class Update_t { Local, Global, LazyGlobal };
 
@@ -125,6 +125,7 @@ enum class GroupLayer_t { GroupFusedInnerProduct };
 
 enum class Layer_t {
   BatchNorm,
+  LayerNorm,
   BinaryCrossEntropyLoss,
   Reshape,
   Concat,
@@ -139,6 +140,7 @@ enum class Layer_t {
   ReLUHalf,
   GRU,
   MatrixMultiply,
+  MultiHeadAttention,
   Scale,
   FusedReshapeConcat,
   FusedReshapeConcatGeneral,
@@ -250,24 +252,25 @@ typedef struct DataSetHeader_ {
 #endif
 
 template <typename T>
-inline void print_func(T const& t) {
-  std::cout << t << ", ";
+inline void hctr_print_func(DeferredLogEntry& log, T const& t) {
+  log << t << ", ";
 }
 
 // Set precision for double type
 template <>
-inline void print_func<double>(double const& t) {
+inline void hctr_print_func<double>(DeferredLogEntry& log, double const& t) {
   std::ostringstream os;
   os << std::fixed << std::setprecision(2) << t << ", ";
-  std::cout << os.str();
+  log << os.str();
 }
 
 template <typename... Args>
-inline void LOG(const Args&... args) {
+inline void HCTR_LOG_ARGS(const Args&... args) {
   if (Logger::get().get_rank() == 0) {
-    std::cout << '[';
-    std::initializer_list<char>{(print_func(args), 'a')...};
-    std::cout << ']' << std::endl;
+    auto log = HCTR_LOG_S(DEBUG, ROOT);
+    log << '[';
+    (hctr_print_func(log, args), ...);
+    log << ']' << std::endl;
   }
 }
 
@@ -306,6 +309,11 @@ struct DataReaderSparseParam {
     max_feature_num = std::accumulate(nnz_per_slot.begin(), nnz_per_slot.end(), 0);
     max_nnz = *std::max_element(nnz_per_slot.begin(), nnz_per_slot.end());
   }
+};
+
+struct DenseLayerSwitchs {
+  bool fuse_wb;
+  DenseLayerSwitchs(bool fuse_wb_ = false) : fuse_wb(fuse_wb_) {}
 };
 
 }  // namespace HugeCTR

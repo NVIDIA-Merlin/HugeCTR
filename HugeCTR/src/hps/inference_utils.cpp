@@ -25,9 +25,6 @@ namespace HugeCTR {
 std::ostream& operator<<(std::ostream& os, const DatabaseType_t value) {
   return os << hctr_enum_to_c_str(value);
 }
-std::ostream& operator<<(std::ostream& os, const DatabaseHashMapAlgorithm_t value) {
-  return os << hctr_enum_to_c_str(value);
-}
 std::ostream& operator<<(std::ostream& os, const DatabaseOverflowPolicy_t value) {
   return os << hctr_enum_to_c_str(value);
 }
@@ -48,7 +45,7 @@ bool VolatileDatabaseParams::operator==(const VolatileDatabaseParams& p) const {
   return type == p.type &&
          // Backend specific.
          address == p.address && user_name == p.user_name && password == p.password &&
-         algorithm == p.algorithm && num_partitions == p.num_partitions &&
+         num_partitions == p.num_partitions && allocation_rate == p.allocation_rate &&
          max_get_batch_size == p.max_get_batch_size && max_set_batch_size == p.max_set_batch_size &&
          // Overflow handling related.
          refresh_time_after_fetch == p.refresh_time_after_fetch &&
@@ -79,9 +76,10 @@ bool PersistentDatabaseParams::operator!=(const PersistentDatabaseParams& p) con
 bool UpdateSourceParams::operator==(const UpdateSourceParams& p) const {
   return type == p.type &&
          // Backend specific.
-         brokers == p.brokers && poll_timeout_ms == p.poll_timeout_ms &&
-         max_receive_buffer_size == p.max_receive_buffer_size &&
-         max_batch_size == p.max_batch_size && failure_backoff_ms == p.failure_backoff_ms;
+         brokers == p.brokers && metadata_refresh_interval_ms == p.metadata_refresh_interval_ms &&
+         receive_buffer_size == p.receive_buffer_size && poll_timeout_ms == p.poll_timeout_ms &&
+         max_batch_size == p.max_batch_size && failure_backoff_ms == p.failure_backoff_ms &&
+         max_commit_interval == p.max_commit_interval;
 }
 bool UpdateSourceParams::operator!=(const UpdateSourceParams& p) const { return !operator==(p); }
 
@@ -89,8 +87,8 @@ VolatileDatabaseParams::VolatileDatabaseParams(
     const DatabaseType_t type,
     // Backend specific.
     const std::string& address, const std::string& user_name, const std::string& password,
-    const DatabaseHashMapAlgorithm_t algorithm, const size_t num_partitions,
-    const size_t max_get_batch_size, const size_t max_set_batch_size,
+    const size_t num_partitions, const size_t allocation_rate, const size_t max_get_batch_size,
+    const size_t max_set_batch_size,
     // Overflow handling related.
     const bool refresh_time_after_fetch, const size_t overflow_margin,
     const DatabaseOverflowPolicy_t overflow_policy, const double overflow_resolution_target,
@@ -103,8 +101,8 @@ VolatileDatabaseParams::VolatileDatabaseParams(
       address(address),
       user_name(user_name),
       password(password),
-      algorithm(algorithm),
       num_partitions(num_partitions),
+      allocation_rate(allocation_rate),
       max_get_batch_size(max_get_batch_size),
       max_set_batch_size(max_set_batch_size),
       // Overflow handling related.
@@ -138,16 +136,21 @@ PersistentDatabaseParams::PersistentDatabaseParams(const DatabaseType_t type,
 
 UpdateSourceParams::UpdateSourceParams(const UpdateSourceType_t type,
                                        // Backend specific.
-                                       const std::string& brokers, const size_t poll_timeout_ms,
-                                       const size_t max_receive_buffer_size,
-                                       const size_t max_batch_size, const size_t failure_backoff_ms)
+                                       const std::string& brokers,
+                                       const size_t metadata_refresh_interval_ms,
+                                       const size_t receive_buffer_size,
+                                       const size_t poll_timeout_ms, const size_t max_batch_size,
+                                       const size_t failure_backoff_ms,
+                                       const size_t max_commit_interval)
     : type(type),
       // Backend specific.
       brokers(brokers),
+      metadata_refresh_interval_ms(metadata_refresh_interval_ms),
+      receive_buffer_size(receive_buffer_size),
       poll_timeout_ms(poll_timeout_ms),
-      max_receive_buffer_size(max_receive_buffer_size),
       max_batch_size(max_batch_size),
-      failure_backoff_ms(failure_backoff_ms) {}
+      failure_backoff_ms(failure_backoff_ms),
+      max_commit_interval(max_commit_interval) {}
 
 InferenceParams::InferenceParams(
     const std::string& model_name, const size_t max_batchsize, const float hit_rate_threshold,
@@ -156,7 +159,8 @@ InferenceParams::InferenceParams(
     const bool i64_input_key, const bool use_mixed_precision, const float scaler,
     const bool use_algorithm_search, const bool use_cuda_graph,
     const int number_of_worker_buffers_in_pool, const int number_of_refresh_buffers_in_pool,
-    const float cache_refresh_percentage_per_iteration, const std::vector<int>& deployed_devices,
+    const int thread_pool_size, const float cache_refresh_percentage_per_iteration,
+    const std::vector<int>& deployed_devices,
     const std::vector<float>& default_value_for_each_table,
     // Database backend.
     const VolatileDatabaseParams& volatile_db, const PersistentDatabaseParams& persistent_db,
@@ -166,7 +170,8 @@ InferenceParams::InferenceParams(
     const float refresh_interval,
     const std::vector<size_t>& maxnum_catfeature_query_per_table_per_sample,
     const std::vector<size_t>& embedding_vecsize_per_table,
-    const std::vector<std::string>& embedding_table_names)
+    const std::vector<std::string>& embedding_table_names, const std::string& network_file,
+    const size_t label_dim, const size_t slot_num)
     : model_name(model_name),
       max_batchsize(max_batchsize),
       hit_rate_threshold(hit_rate_threshold),
@@ -182,6 +187,7 @@ InferenceParams::InferenceParams(
       use_cuda_graph(use_cuda_graph),
       number_of_worker_buffers_in_pool(number_of_worker_buffers_in_pool),
       number_of_refresh_buffers_in_pool(number_of_refresh_buffers_in_pool),
+      thread_pool_size(thread_pool_size),
       cache_refresh_percentage_per_iteration(cache_refresh_percentage_per_iteration),
       deployed_devices(deployed_devices),
       default_value_for_each_table(default_value_for_each_table),
@@ -195,7 +201,10 @@ InferenceParams::InferenceParams(
       refresh_interval(refresh_interval),
       maxnum_catfeature_query_per_table_per_sample(maxnum_catfeature_query_per_table_per_sample),
       embedding_vecsize_per_table(embedding_vecsize_per_table),
-      embedding_table_names(embedding_table_names) {
+      embedding_table_names(embedding_table_names),
+      network_file(network_file),
+      label_dim(label_dim),
+      slot_num(slot_num) {
   if (this->default_value_for_each_table.size() != this->sparse_model_files.size()) {
     HCTR_LOG(
         WARNING, ROOT,
@@ -226,16 +235,23 @@ parameter_server_config::parameter_server_config(const std::string& hps_json_con
     params.brokers =
         get_value_from_json_soft<std::string>(update_source, "brokers", "127.0.0.1:9092");
 
+    params.metadata_refresh_interval_ms =
+        get_value_from_json_soft<size_t>(update_source, "metadata_refresh_interval_ms", 30'000);
+
+    params.receive_buffer_size =
+        get_value_from_json_soft<size_t>(update_source, "receive_buffer_size", 256 * 1024);
+
     params.poll_timeout_ms =
         get_value_from_json_soft<size_t>(update_source, "poll_timeout_ms", 500);
 
-    params.max_receive_buffer_size =
-        get_value_from_json_soft<size_t>(update_source, "max_receive_buffer_size", 2000);
-
-    params.max_batch_size = get_value_from_json_soft<size_t>(update_source, "max_batch_size", 1000);
+    params.max_batch_size =
+        get_value_from_json_soft<size_t>(update_source, "max_batch_size", 8 * 1024);
 
     params.failure_backoff_ms =
         get_value_from_json_soft<size_t>(update_source, "failure_backoff_ms", 50);
+
+    params.max_commit_interval =
+        get_value_from_json_soft<size_t>(update_source, "max_commit_interval", 32);
   }
   // Persistent database parameters.
   PersistentDatabaseParams persistent_db_params;
@@ -281,10 +297,11 @@ parameter_server_config::parameter_server_config(const std::string& hps_json_con
 
     params.password = get_value_from_json_soft<std::string>(volatile_db, "password", "");
 
-    params.algorithm = get_hps_hashmap_algo(volatile_db, "algorithm");
-
     params.num_partitions = get_value_from_json_soft<size_t>(
         volatile_db, "num_partitions", std::min(16u, std::thread::hardware_concurrency()));
+
+    params.allocation_rate =
+        get_value_from_json_soft<size_t>(volatile_db, "allocation_rate", 256 * 1024 * 1024);
 
     params.max_get_batch_size =
         get_value_from_json_soft<size_t>(volatile_db, "max_get_batch_size", 10'000);
@@ -663,30 +680,6 @@ UpdateSourceType_t get_hps_updatesource_type(const nlohmann::json& json, const s
     }
 
   return HugeCTR::UpdateSourceType_t::KafkaMessageQueue;
-}
-
-DatabaseHashMapAlgorithm_t get_hps_hashmap_algo(const nlohmann::json& json, const std::string key) {
-  if (json.find(key) == json.end()) {
-    return DatabaseHashMapAlgorithm_t::PHM;
-  }
-  std::string tmp = get_value_from_json<std::string>(json, key);
-  HugeCTR::DatabaseHashMapAlgorithm_t enum_value;
-  std::unordered_set<const char*> names;
-
-  enum_value = HugeCTR::DatabaseHashMapAlgorithm_t::STL;
-  names = {hctr_enum_to_c_str(enum_value)};
-  for (const char* name : names)
-    if (tmp == name) {
-      return enum_value;
-    }
-
-  enum_value = HugeCTR::DatabaseHashMapAlgorithm_t::PHM;
-  names = {hctr_enum_to_c_str(enum_value)};
-  for (const char* name : names)
-    if (tmp == name) {
-      return enum_value;
-    }
-  return DatabaseHashMapAlgorithm_t::PHM;
 }
 
 DatabaseOverflowPolicy_t get_hps_overflow_policy(const nlohmann::json& json,

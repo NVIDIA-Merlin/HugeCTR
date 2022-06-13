@@ -20,5 +20,6 @@ file(GLOB_RECURSE ib_comms_test_src RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} *.cpp *
 add_executable(ib_comms_test ${ib_comms_test_src})
 target_compile_features(ib_comms_test PUBLIC cxx_std_17)
 target_link_libraries(ib_comms_test PUBLIC huge_ctr_static gtest gtest_main)
+target_link_libraries(ib_comms_test PUBLIC /usr/local/cuda/lib64/stubs/libcuda.so)
 set_target_properties(ib_comms_test PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 set_target_properties(ib_comms_test PROPERTIES CUDA_ARCHITECTURES OFF)

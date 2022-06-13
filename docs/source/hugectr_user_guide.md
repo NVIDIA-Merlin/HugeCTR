@@ -80,7 +80,7 @@ $ docker run --gpus=all --rm -it --cap-add SYS_NICE nvcr.io/nvidia/merlin/merlin
 
 ### Building HugeCTR from Scratch
 
-To build HugeCTR from scratch, refer to [Build HugeCTR from source code](./hugectr_contributor_guide.md#build-hugectr-from-source).
+To build HugeCTR from scratch, refer to the [contributor guide](./hugectr_contributor_guide.md) information.
 
 ## Tools
 
@@ -92,31 +92,36 @@ We currently support the following tools:
 
 The [Norm](./api/python_interface.md#norm) (with Header) and [Raw](./api/python_interface.md#raw) (without Header) datasets can be generated with [hugectr.tools.DataGenerator](./api/python_interface.md#datagenerator). For categorical features, you can configure the probability distribution to be uniform or power-law within [hugectr.tools.DataGeneratorParam](./api/python_interface.md#datageneratorparams-class). The default distribution is power law with alpha = 1.2.
 
-- Generate the `Norm` dataset for DCN and start training the HugeCTR model: <br>
-```bash
-python3 ../tools/data_generator/dcn_norm_generate_train.py
-```
+* Generate the `Norm` dataset for DCN and start training the HugeCTR model: <br>
 
-- Generate the `Norm` dataset for WDL and start training the HugeCTR model: <br>
-```bash
-python3 ../tools/data_generator/wdl_norm_generate_train.py
-```
+  ```bash
+  python3 ../tools/data_generator/dcn_norm_generate_train.py
+  ```
 
-- Generate the `Raw` dataset for DLRM and start training the HugeCTR model: <br>
-```bash
-python3 ../tools/data_generator/dlrm_raw_generate_train.py
-```
+* Generate the `Norm` dataset for WDL and start training the HugeCTR model: <br>
 
-- Generate the `Parquet` dataset for DCN and start training the HugeCTR model: <br>
-```bash
-python3 ../tools/data_generator/dcn_parquet_generate_train.py
-```
+  ```bash
+  python3 ../tools/data_generator/wdl_norm_generate_train.py
+  ```
+
+* Generate the `Raw` dataset for DLRM and start training the HugeCTR model: <br>
+
+  ```bash
+  python3 ../tools/data_generator/dlrm_raw_generate_train.py
+  ```
+
+* Generate the `Parquet` dataset for DCN and start training the HugeCTR model: <br>
+
+  ```bash
+  python3 ../tools/data_generator/dcn_parquet_generate_train.py
+  ```
 
 ### Downloading and Preprocessing Datasets
 
 Download the Criteo 1TB Click Logs dataset using `HugeCTR/tools/preprocess.sh` and preprocess it to train the DCN. The `file_list.txt`, `file_list_test.txt`, and preprocessed data files are available within the `criteo_data` directory. For more information, refer to the [samples](https://github.com/NVIDIA-Merlin/HugeCTR/tree/master/samples) directory on GitHub.
 
 For example:
+
 ```bash
 $ cd tools # assume that the downloaded dataset is here
 $ bash preprocess.sh 1 criteo_data pandas 1 0

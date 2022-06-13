@@ -119,6 +119,28 @@ class GraphBuilder(object):
                                                 outputs=layer_params.top_names,
                                                 epsilon = layer_params.eps,
                                                 momentum = layer_params.factor))
+        elif layer_type == "LayerNorm":
+            gamma_name = layer_params.top_names[0] + "_gamma"
+            beta_name = layer_params.top_names[0] + "_beta"
+            #running_mean_name = layer_params.top_names[0] + "_running_mean"
+            #running_variance_name = layer_params.top_names[0] + "_running_variance"
+            gamma = weights_dict[gamma_name]
+            beta = weights_dict[beta_name]
+            #running_mean = weights_dict[running_mean_name]
+            #running_variance = weights_dict[running_variance_name]
+            self.__initializers.append(helper.make_tensor(name=gamma_name,
+                                                        data_type=onnx.mapping.NP_TYPE_TO_TENSOR_TYPE[gamma.dtype],
+                                                        dims=gamma.shape,
+                                                        vals=gamma.flatten()))
+            self.__initializers.append(helper.make_tensor(name=beta_name,
+                                                        data_type=onnx.mapping.NP_TYPE_TO_TENSOR_TYPE[beta.dtype],
+                                                        dims=beta.shape,
+                                                        vals=beta.flatten()))
+            self.__nodes.append(helper.make_node(op_type = 'LayerNormalization',
+                                                inputs=[layer_params.bottom_names[0], gamma_name, beta_name],
+                                                outputs=layer_params.top_names,
+                                                epsilon = layer_params.eps))
+
         elif layer_type == "Concat":
             self.__nodes.append(helper.make_node(op_type = 'Concat',
                                                 inputs=layer_params.bottom_names,
@@ -296,6 +318,17 @@ class GraphBuilder(object):
             self.__nodes.append(helper.make_node(op_type = 'Reshape',
                                                 inputs=[last_ad_tensor_name, shape_name],
                                                 outputs=[layer_params.top_names[1]]))
+        elif layer_type == "MultiHeadAttention":
+            query_name = layer_params.bottom_names[0]
+            key_name = layer_params.bottom_names[1]
+            transpose_name = key_name + "_transpose"
+            self.__nodes.append(helper.make_node(op_type = 'Transpose',
+                                                inputs=[query_name],
+                                                outputs=[transpose_name],
+                                                perm=[0,1,3,2]))
+            self.__nodes.append(helper.make_node(op_type = 'MatMul',
+                                                inputs=[query_name, transpose_name],
+                                                outputs=layer_params.top_names))
         elif layer_type == "Interaction":
             slot_num = dimensions[layer_params.bottom_names[1]][0]
             vec_size = dimensions[layer_params.bottom_names[1]][1]
