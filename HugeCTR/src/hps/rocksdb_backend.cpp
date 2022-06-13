@@ -154,7 +154,7 @@ size_t RocksDBBackend<TKey>::contains(const std::string& table_name, const size_
     }
   }
 
-  HCTR_LOG(DEBUG, WORLD, "%s backend. Table: %s. Found %d / %d keys.\n", get_name(),
+  HCTR_LOG(TRACE, WORLD, "%s backend. Table: %s. Found %d / %d keys.\n", get_name(),
            table_name.c_str(), hit_count, num_keys);
   return hit_count;
 }
@@ -196,7 +196,7 @@ bool RocksDBBackend<TKey>::insert(const std::string& table_name, const size_t nu
   }
   HCTR_ROCKSDB_CHECK(db_->FlushWAL(true));
 
-  HCTR_LOG(DEBUG, WORLD, "%s backend. Table: %s. Inserted %d / %d pairs.\n", get_name(),
+  HCTR_LOG(TRACE, WORLD, "%s backend. Table: %s. Inserted %d / %d pairs.\n", get_name(),
            table_name.c_str(), num_inserts, num_pairs);
   return true;
 }
@@ -253,7 +253,7 @@ size_t RocksDBBackend<TKey>::fetch(const std::string& table_name, const size_t n
              get_name(), table_name.c_str(), num_queries, batch_values.size(), hit_count);
   }
 
-  HCTR_LOG(DEBUG, WORLD, "%s backend; Table: %s, Fetched %d / %d values.\n", get_name(),
+  HCTR_LOG(TRACE, WORLD, "%s backend; Table: %s, Fetched %d / %d values.\n", get_name(),
            table_name.c_str(), hit_count, num_keys);
   return hit_count;
 }
@@ -310,7 +310,7 @@ size_t RocksDBBackend<TKey>::fetch(const std::string& table_name, const size_t n
              get_name(), table_name.c_str(), num_queries, batch_values.size(), hit_count);
   }
 
-  HCTR_LOG(DEBUG, WORLD, "%s backend. Table: %s. Fetched %d / %d values.\n", get_name(),
+  HCTR_LOG(TRACE, WORLD, "%s backend. Table: %s. Fetched %d / %d values.\n", get_name(),
            table_name.c_str(), hit_count, num_indices);
   return hit_count;
 }
@@ -329,7 +329,7 @@ size_t RocksDBBackend<TKey>::evict(const std::string& table_name) {
   HCTR_ROCKSDB_CHECK(db_->DestroyColumnFamilyHandle(column_handles_it->second));
   column_handles_.erase(table_name);
 
-  HCTR_LOG(DEBUG, WORLD, "%s backend. Table %s erased (approximately %d pairs).\n", get_name(),
+  HCTR_LOG(TRACE, WORLD, "%s backend. Table %s erased (approximately %d pairs).\n", get_name(),
            table_name, hit_count);
   return hit_count;
 }
@@ -365,7 +365,7 @@ size_t RocksDBBackend<TKey>::evict(const std::string& table_name, const size_t n
   }
   HCTR_ROCKSDB_CHECK(db_->FlushWAL(true));
 
-  HCTR_LOG(DEBUG, WORLD, "%s backend. Table %s. %d / %d pairs erased.\n", get_name(),
+  HCTR_LOG(TRACE, WORLD, "%s backend. Table %s. %d / %d pairs erased.\n", get_name(),
            table_name.c_str(), hit_count, num_keys);
   return hit_count;
 }

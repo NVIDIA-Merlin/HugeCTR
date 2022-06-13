@@ -169,13 +169,16 @@ enum class Error_t {
 #define LEVEL_MAP(MAP, NAME) MAP[LOG_LEVEL(NAME)] = #NAME
 
 #define HCTR_LOG(NAME, TYPE, ...) \
-  Logger::get().log(LOG_LEVEL(NAME), LOG_RANK(TYPE), true, __VA_ARGS__)
-#define HCTR_LOG_AT(LEVEL, TYPE, ...) Logger::get().log(LEVEL, LOG_RANK(TYPE), true, __VA_ARGS__)
+  HugeCTR::Logger::get().log(LOG_LEVEL(NAME), LOG_RANK(TYPE), true, __VA_ARGS__)
+#define HCTR_LOG_AT(LEVEL, TYPE, ...) \
+  HugeCTR::Logger::get().log(LEVEL, LOG_RANK(TYPE), true, __VA_ARGS__)
 
-#define HCTR_LOG_S(NAME, TYPE) Logger::get().log(LOG_LEVEL(NAME), LOG_RANK(TYPE), true)
+#define HCTR_LOG_S(NAME, TYPE) HugeCTR::Logger::get().log(LOG_LEVEL(NAME), LOG_RANK(TYPE), true)
 
-#define HCTR_PRINT(NAME, ...) Logger::get().log(LOG_LEVEL(NAME), LOG_RANK_ROOT, false, __VA_ARGS__)
-#define HCTR_PRINT_AT(LEVEL, ...) Logger::get().log(LEVEL, LOG_RANK_ROOT, false, __VA_ARGS__)
+#define HCTR_PRINT(NAME, ...) \
+  HugeCTR::Logger::get().log(LOG_LEVEL(NAME), LOG_RANK_ROOT, false, __VA_ARGS__)
+#define HCTR_PRINT_AT(LEVEL, ...) \
+  HugeCTR::Logger::get().log(LEVEL, LOG_RANK_ROOT, false, __VA_ARGS__)
 
 // #define HCTR_PRINT_S(NAME) Logger::get().log(LOG_LEVEL(NAME), LOG_RANK_ROOT, false)
 
@@ -187,7 +190,7 @@ struct SrcLoc {
 };
 
 #define CUR_SRC_LOC(EXPR) \
-  SrcLoc { __FILE__, __LINE__, __func__, #EXPR }
+  HugeCTR::SrcLoc { __FILE__, __LINE__, __func__, #EXPR }
 
 #define HCTR_LOCATION() '(' << __FILE__ << ':' << __LINE__ << ')'
 
@@ -299,13 +302,13 @@ inline std::string getErrorString(curandStatus_t err) {
 }
 
 // For HugeCTR own error types, it is up to users to define the msesage.
-#define HCTR_OWN_THROW(EXPR, MSG)                            \
-  do {                                                       \
-    const Error_t err = (EXPR);                              \
-    if (err != Error_t::Success) {                           \
-      Logger::get().do_throw(err, CUR_SRC_LOC(EXPR), (MSG)); \
-    }                                                        \
-  } while (0)
+#define HCTR_OWN_THROW(EXPR, MSG)                                                    \
+  do {                                                                               \
+    HugeCTR::Error_t err_thr = (EXPR);                                               \
+    if (err_thr != HugeCTR::Error_t::Success) {                                      \
+      HugeCTR::Logger::get().do_throw(err_thr, CUR_SRC_LOC(EXPR), std::string(MSG)); \
+    }                                                                                \
+  } while (0);
 
 #ifdef ENABLE_MPI
 // Because MPI error code is in int, it is safe to have a separate macro for MPI,
@@ -324,14 +327,22 @@ inline std::string getErrorString(curandStatus_t err) {
 #endif
 
 // For other library calls such as CUDA, cuBLAS and NCCL, use this macro
-#define HCTR_LIB_THROW(EXPR)                               \
-  do {                                                     \
-    const auto lib_err = (EXPR);                           \
-    const Error_t err = getErrorType(lib_err);             \
-    if (err != Error_t::Success) {                         \
-      const std::string msg = getErrorString(lib_err);     \
-      Logger::get().do_throw(err, CUR_SRC_LOC(EXPR), msg); \
-    }                                                      \
+#define HCTR_LIB_THROW(EXPR)                                                 \
+  do {                                                                       \
+    auto ret_thr = (EXPR);                                                   \
+    HugeCTR::Error_t err_type = HugeCTR::getErrorType(ret_thr);                       \
+    if (err_type != HugeCTR::Error_t::Success) {                             \
+      std::string err_msg = HugeCTR::getErrorString(ret_thr);                         \
+      HugeCTR::Logger::get().do_throw(err_type, CUR_SRC_LOC(EXPR), err_msg); \
+    }                                                                        \
+  } while (0);
+
+#define HCTR_THROW_IF(EXPR, ERROR, MSG)                                              \
+  do {                                                                               \
+    const auto& expr = (EXPR);                                                       \
+    if (expr) {                                                                      \
+      HugeCTR::Logger::get().do_throw((ERROR), CUR_SRC_LOC(EXPR), std::string(MSG)); \
+    }                                                                                \
   } while (0)
 
 #define CHECK_CALL(MODE) CHECK_##MODE##_CALL
@@ -339,32 +350,32 @@ inline std::string getErrorString(curandStatus_t err) {
 #define CHECK_BLOCKING_CALL true
 #define CHECK_ASYNC_CALL false
 
-#define HCTR_CHECK(EXPR)                          \
-  do {                                            \
-    Logger::get().check(EXPR, CUR_SRC_LOC(EXPR)); \
+#define HCTR_CHECK(EXPR)                                   \
+  do {                                                     \
+    HugeCTR::Logger::get().check(EXPR, CUR_SRC_LOC(EXPR)); \
   } while (0)
 
-#define HCTR_CHECK_HINT(EXPR, HINT, ...)                               \
-  do {                                                                 \
-    Logger::get().check(EXPR, CUR_SRC_LOC(EXPR), HINT, ##__VA_ARGS__); \
+#define HCTR_CHECK_HINT(EXPR, HINT, ...)                                        \
+  do {                                                                          \
+    HugeCTR::Logger::get().check(EXPR, CUR_SRC_LOC(EXPR), HINT, ##__VA_ARGS__); \
   } while (0)
 
 #define HCTR_DIE(HINT, ...) HCTR_CHECK_HINT(false, HINT, ##__VA_ARGS__)
 
 // TODO: print the cuda error string
-#define HCTR_CUDA_CHECK(SYNC_MODE, FUNC)                            \
-  do {                                                              \
-    auto ret_err = (FUNC);                                          \
-    if (CHECK_CALL(SYNC_MODE)) {                                    \
-      ret_err = cudaDeviceSynchronize();                            \
-    }                                                               \
-    Logger::get().check(ret_err == cudaSuccess, CUR_SRC_LOC(EXPR)); \
+#define HCTR_CUDA_CHECK(SYNC_MODE, FUNC)                                     \
+  do {                                                                       \
+    auto ret_err = (FUNC);                                                   \
+    if (CHECK_CALL(SYNC_MODE)) {                                             \
+      ret_err = cudaDeviceSynchronize();                                     \
+    }                                                                        \
+    HugeCTR::Logger::get().check(ret_err == cudaSuccess, CUR_SRC_LOC(EXPR)); \
   } while (0);
 
 #ifndef NDEBUG
-#define HCTR_ASSERT(EXPR)                                              \
-  do {                                                                 \
-    Logger::get().check_lazy([&] { return EXPR; }, CUR_SRC_LOC(EXPR)); \
+#define HCTR_ASSERT(EXPR)                                                       \
+  do {                                                                          \
+    HugeCTR::Logger::get().check_lazy([&] { return EXPR; }, CUR_SRC_LOC(EXPR)); \
   } while (0);
 #else
 #define HCTR_ASSERT(EXPR)

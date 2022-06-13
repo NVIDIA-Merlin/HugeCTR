@@ -250,7 +250,7 @@ void create_embedding<TypeKey, TypeFP>::operator()(
       embeddings.emplace_back(new HybridSparseEmbedding<TypeKey, TypeFP>(
           sparse_input.train_sparse_tensors, sparse_input.evaluate_sparse_tensors, embedding_params,
           embed_wgrad_buff, get_gpu_learning_rate_schedulers(config, resource_manager), graph_mode,
-          resource_manager, false));
+          resource_manager, false, false));
       break;
     }
     default:

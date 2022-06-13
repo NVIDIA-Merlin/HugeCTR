@@ -103,7 +103,7 @@ void end_to_end_impl(std::vector<int> device_list, HybridEmbeddingInputGenerator
   std::vector<std::shared_ptr<BufferBlock2<emtype>>> placeholder(
       resource_manager->get_local_gpu_count(), NULL);
   auto embedding = std::make_unique<HybridSparseEmbedding<dtype, emtype>>(
-      inputs, inputs, params, placeholder, lr_scheds, false, resource_manager, false);
+      inputs, inputs, params, placeholder, lr_scheds, false, resource_manager, false, false);
 
   // Table offsets
   std::vector<size_t> table_offsets(num_tables);

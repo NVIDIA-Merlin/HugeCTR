@@ -95,6 +95,7 @@ void CommonPybind(pybind11::module& m) {
       .export_values();
   pybind11::enum_<HugeCTR::Layer_t>(m, "Layer_t")
       .value("BatchNorm", HugeCTR::Layer_t::BatchNorm)
+      .value("LayerNorm", HugeCTR::Layer_t::LayerNorm)
       .value("BinaryCrossEntropyLoss", HugeCTR::Layer_t::BinaryCrossEntropyLoss)
       .value("Reshape", HugeCTR::Layer_t::Reshape)
       .value("Concat", HugeCTR::Layer_t::Concat)
@@ -119,6 +120,7 @@ void CommonPybind(pybind11::module& m) {
       .value("PReLU_Dice", HugeCTR::Layer_t::PReLU_Dice)
       .value("GRU", HugeCTR::Layer_t::GRU)
       .value("MatrixMultiply", HugeCTR::Layer_t::MatrixMultiply)
+      .value("MultiHeadAttention", HugeCTR::Layer_t::MultiHeadAttention)
       .value("Scale", HugeCTR::Layer_t::Scale)
       .value("FusedReshapeConcat", HugeCTR::Layer_t::FusedReshapeConcat)
       .value("FusedReshapeConcatGeneral", HugeCTR::Layer_t::FusedReshapeConcatGeneral)
@@ -150,6 +152,8 @@ void CommonPybind(pybind11::module& m) {
            pybind11::arg("use_train_precompute_indices"),
            pybind11::arg("use_eval_precompute_indices"), pybind11::arg("communication_type"),
            pybind11::arg("hybrid_embedding_type"));
+  pybind11::class_<HugeCTR::DenseLayerSwitchs>(m, "DenseLayerSwitchs")
+      .def(pybind11::init<bool>(), pybind11::arg("fuse_wb"));
   pybind11::enum_<HugeCTR::LrPolicy_t>(m, "LrPolicy_t")
       .value("fixed", HugeCTR::LrPolicy_t::fixed)
       .export_values();
@@ -193,6 +197,8 @@ void CommonPybind(pybind11::module& m) {
       .value("AUC", HugeCTR::metrics::Type::AUC)
       .value("AverageLoss", HugeCTR::metrics::Type::AverageLoss)
       .value("HitRate", HugeCTR::metrics::Type::HitRate)
+      .value("NDCG", HugeCTR::metrics::Type::NDCG)
+      .value("SMAPE", HugeCTR::metrics::Type::SMAPE)
       .export_values();
   pybind11::enum_<HugeCTR::DeviceMap::Layout>(m, "DeviceLayout")
       .value("LocalFirst", HugeCTR::DeviceMap::Layout::LOCAL_FIRST)
@@ -233,12 +239,6 @@ void CommonPybind(pybind11::module& m) {
              HugeCTR::DatabaseType_t::RedisCluster)
       .value(HugeCTR::hctr_enum_to_c_str(HugeCTR::DatabaseType_t::RocksDB),
              HugeCTR::DatabaseType_t::RocksDB)
-      .export_values();
-  pybind11::enum_<HugeCTR::DatabaseHashMapAlgorithm_t>(m, "DatabaseHashMapAlgorithm_t")
-      .value(HugeCTR::hctr_enum_to_c_str(HugeCTR::DatabaseHashMapAlgorithm_t::STL),
-             HugeCTR::DatabaseHashMapAlgorithm_t::STL)
-      .value(HugeCTR::hctr_enum_to_c_str(HugeCTR::DatabaseHashMapAlgorithm_t::PHM),
-             HugeCTR::DatabaseHashMapAlgorithm_t::PHM)
       .export_values();
   pybind11::enum_<HugeCTR::DatabaseOverflowPolicy_t>(m, "DatabaseOverflowPolicy_t")
       .value(HugeCTR::hctr_enum_to_c_str(HugeCTR::DatabaseOverflowPolicy_t::EvictOldest),

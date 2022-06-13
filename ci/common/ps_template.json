@@ -10,7 +10,7 @@
         "overflow_resolution_target": 0.95,
         "initial_cache_rate": 1.0,
         "cache_missed_embeddings": false,
-        "update_filters": [ ".+" ]
+        "update_filters": [ "^hps_.+$" ]
     },
     "persistent_db": {
         "type": "disabled",
@@ -31,6 +31,8 @@
             "cache_refresh_percentage_per_iteration":"0.2",
             "hit_rate_threshold":"1.1",
             "gpucacheper":"0.5",
+            "maxnum_catfeature_query_per_table_per_sample":[26],
+            "embedding_vecsize_per_table":[128],
             "gpucache":"true"
         }
     ]

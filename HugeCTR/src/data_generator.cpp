@@ -33,15 +33,13 @@
 using namespace HugeCTR;
 using HugeCTR::Logger;
 
-DataGeneratorParams::DataGeneratorParams(DataReaderType_t format, int label_dim, int dense_dim,
-                                         int num_slot, bool i64_input_key,
-                                         const std::string& source, const std::string& eval_source,
-                                         const std::vector<size_t>& slot_size_array,
-                                         const std::vector<int>& nnz_array, Check_t check_type,
-                                         Distribution_t dist_type, PowerLaw_t power_law_type,
-                                         float alpha, int num_files, int eval_num_files,
-                                         int num_samples_per_file, int num_samples,
-                                         int eval_num_samples, bool float_label_dense)
+DataGeneratorParams::DataGeneratorParams(
+    DataReaderType_t format, int label_dim, int dense_dim, int num_slot, bool i64_input_key,
+    const std::string& source, const std::string& eval_source,
+    const std::vector<size_t>& slot_size_array, const std::vector<int>& nnz_array,
+    Check_t check_type, Distribution_t dist_type, PowerLaw_t power_law_type, float alpha,
+    int num_files, int eval_num_files, int num_samples_per_file, int num_samples,
+    int eval_num_samples, bool float_label_dense, int num_threads)
     : format(format),
       label_dim(label_dim),
       dense_dim(dense_dim),
@@ -60,7 +58,8 @@ DataGeneratorParams::DataGeneratorParams(DataReaderType_t format, int label_dim,
       num_samples_per_file(num_samples_per_file),
       num_samples(num_samples),
       eval_num_samples(eval_num_samples),
-      float_label_dense(float_label_dense) {
+      float_label_dense(float_label_dense),
+      num_threads(num_threads) {
   if (this->nnz_array.size() == 0) {
     this->nnz_array.assign(num_slot, 1);
   }
@@ -75,6 +74,9 @@ DataGeneratorParams::DataGeneratorParams(DataReaderType_t format, int label_dim,
     HCTR_OWN_THROW(
         Error_t::WrongInput,
         "alpha should be greater than zero and should not equal to 1.0 for power law distribution");
+  }
+  if (this->num_threads < 1) {
+    HCTR_OWN_THROW(Error_t::WrongInput, "must have num_threads at least 1");
   }
 }
 
@@ -125,6 +127,7 @@ void DataGenerator::generate() {
                               << ", nnz array: " << vec_to_string(data_generator_params_.nnz_array)
                               << ", #files for train: " << data_generator_params_.num_files
                               << ", #files for eval: " << data_generator_params_.eval_num_files
+                              << ", #threads: " << data_generator_params_.num_threads
                               << ", #samples per file: "
                               << data_generator_params_.num_samples_per_file
                               << ", Use power law distribution: " << use_long_tail
@@ -138,26 +141,30 @@ void DataGenerator::generate() {
               data_generator_params_.num_files, data_generator_params_.num_samples_per_file,
               data_generator_params_.num_slot, data_generator_params_.slot_size_array,
               data_generator_params_.label_dim, data_generator_params_.dense_dim,
-              data_generator_params_.nnz_array, use_long_tail, alpha);
+              data_generator_params_.nnz_array, data_generator_params_.num_threads, use_long_tail,
+              alpha);
           data_generation_for_test2<long long, Check_t::Sum>(
               data_generator_params_.eval_source, eval_data_folder + "/val/gen_",
               data_generator_params_.eval_num_files, data_generator_params_.num_samples_per_file,
               data_generator_params_.num_slot, data_generator_params_.slot_size_array,
               data_generator_params_.label_dim, data_generator_params_.dense_dim,
-              data_generator_params_.nnz_array, use_long_tail, alpha);
+              data_generator_params_.nnz_array, data_generator_params_.num_threads, use_long_tail,
+              alpha);
         } else {
           data_generation_for_test2<unsigned int, Check_t::Sum>(
               data_generator_params_.source, train_data_folder + "/train/gen_",
               data_generator_params_.num_files, data_generator_params_.num_samples_per_file,
               data_generator_params_.num_slot, data_generator_params_.slot_size_array,
               data_generator_params_.label_dim, data_generator_params_.dense_dim,
-              data_generator_params_.nnz_array, use_long_tail, alpha);
+              data_generator_params_.nnz_array, data_generator_params_.num_threads, use_long_tail,
+              alpha);
           data_generation_for_test2<unsigned int, Check_t::Sum>(
               data_generator_params_.eval_source, eval_data_folder + "/val/gen_",
               data_generator_params_.eval_num_files, data_generator_params_.num_samples_per_file,
               data_generator_params_.num_slot, data_generator_params_.slot_size_array,
               data_generator_params_.label_dim, data_generator_params_.dense_dim,
-              data_generator_params_.nnz_array, use_long_tail, alpha);
+              data_generator_params_.nnz_array, data_generator_params_.num_threads, use_long_tail,
+              alpha);
         }
       } else {
         if (data_generator_params_.i64_input_key) {
@@ -166,26 +173,30 @@ void DataGenerator::generate() {
               data_generator_params_.num_files, data_generator_params_.num_samples_per_file,
               data_generator_params_.num_slot, data_generator_params_.slot_size_array,
               data_generator_params_.label_dim, data_generator_params_.dense_dim,
-              data_generator_params_.nnz_array, use_long_tail, alpha);
+              data_generator_params_.nnz_array, data_generator_params_.num_threads, use_long_tail,
+              alpha);
           data_generation_for_test2<long long, Check_t::None>(
               data_generator_params_.eval_source, eval_data_folder + "/val/gen_",
               data_generator_params_.eval_num_files, data_generator_params_.num_samples_per_file,
               data_generator_params_.num_slot, data_generator_params_.slot_size_array,
               data_generator_params_.label_dim, data_generator_params_.dense_dim,
-              data_generator_params_.nnz_array, use_long_tail, alpha);
+              data_generator_params_.nnz_array, data_generator_params_.num_threads, use_long_tail,
+              alpha);
         } else {
           data_generation_for_test2<unsigned int, Check_t::None>(
               data_generator_params_.source, train_data_folder + "/train/gen_",
               data_generator_params_.num_files, data_generator_params_.num_samples_per_file,
               data_generator_params_.num_slot, data_generator_params_.slot_size_array,
               data_generator_params_.label_dim, data_generator_params_.dense_dim,
-              data_generator_params_.nnz_array, use_long_tail, alpha);
+              data_generator_params_.nnz_array, data_generator_params_.num_threads, use_long_tail,
+              alpha);
           data_generation_for_test2<unsigned int, Check_t::None>(
               data_generator_params_.eval_source, eval_data_folder + "/val/gen_",
               data_generator_params_.eval_num_files, data_generator_params_.num_samples_per_file,
               data_generator_params_.num_slot, data_generator_params_.slot_size_array,
               data_generator_params_.label_dim, data_generator_params_.dense_dim,
-              data_generator_params_.nnz_array, use_long_tail, alpha);
+              data_generator_params_.nnz_array, data_generator_params_.num_threads, use_long_tail,
+              alpha);
         }
       }
       break;

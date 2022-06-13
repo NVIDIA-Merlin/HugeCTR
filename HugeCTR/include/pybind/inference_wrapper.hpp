@@ -45,10 +45,12 @@ class InferenceSessionPy : public InferenceSession {
   ~InferenceSessionPy();
 
   float evaluate(size_t num_batches, const std::string& source, DataReaderType_t data_reader_type,
-                 Check_t check_type, const std::vector<long long>& slot_size_array);
+                 Check_t check_type, const std::vector<long long>& slot_size_array,
+                 long long num_samples);
   pybind11::array_t<float> predict(size_t num_batches, const std::string& source,
                                    DataReaderType_t data_reader_type, Check_t check_type,
-                                   const std::vector<long long>& slot_size_array);
+                                   const std::vector<long long>& slot_size_array,
+                                   long long num_samples);
   std::vector<float>& predict(const std::vector<float>& dense,
                               const std::vector<long long>& embeddingcolumns,
                               const std::vector<int>& row_ptrs);
@@ -59,16 +61,18 @@ class InferenceSessionPy : public InferenceSession {
 
   template <typename TypeKey>
   void load_data(const std::string& source, DataReaderType_t data_reader_type, Check_t check_type,
-                 const std::vector<long long>& slot_size_array);
+                 const std::vector<long long>& slot_size_array, long long num_samples);
 
   template <typename TypeKey>
   float evaluate_(size_t num_batches, const std::string& source, DataReaderType_t data_reader_type,
-                  Check_t check_type, const std::vector<long long>& slot_size_array);
+                  Check_t check_type, const std::vector<long long>& slot_size_array,
+                  long long num_samples);
 
   template <typename TypeKey>
   pybind11::array_t<float> predict_(size_t num_batches, const std::string& source,
                                     DataReaderType_t data_reader_type, Check_t check_type,
-                                    const std::vector<long long>& slot_size_array);
+                                    const std::vector<long long>& slot_size_array,
+                                    long long num_samples);
 
   template <typename TypeKey>
   void predict_(const std::vector<float>& dense, const std::vector<TypeKey>& embeddingcolumns,
@@ -216,7 +220,8 @@ template <typename TypeKey>
 void InferenceSessionPy::load_data(const std::string& source,
                                    const DataReaderType_t data_reader_type,
                                    const Check_t check_type,
-                                   const std::vector<long long>& slot_size_array) {
+                                   const std::vector<long long>& slot_size_array,
+                                   const long long num_samples) {
   CudaDeviceContext context(resource_manager_->get_local_gpu(0)->get_device_id());
   bool repeat_dataset = true;
   std::map<std::string, SparseInput<TypeKey>> sparse_input_map;
@@ -224,7 +229,8 @@ void InferenceSessionPy::load_data(const std::string& source,
   // force the data reader to not use mixed precision
   create_datareader<TypeKey>()(inference_params_, inference_parser_, data_reader_,
                                resource_manager_, sparse_input_map, label_dense_map, source,
-                               data_reader_type, check_type, slot_size_array, repeat_dataset);
+                               data_reader_type, check_type, slot_size_array, repeat_dataset,
+                               num_samples);
   if (data_reader_->is_started() == false) {
     HCTR_OWN_THROW(Error_t::IllegalCall, "Start the data reader first before evaluation");
   }
@@ -254,9 +260,10 @@ template <typename TypeKey>
 float InferenceSessionPy::evaluate_(const size_t num_batches, const std::string& source,
                                     const DataReaderType_t data_reader_type,
                                     const Check_t check_type,
-                                    const std::vector<long long>& slot_size_array) {
+                                    const std::vector<long long>& slot_size_array,
+                                    const long long num_samples) {
   CudaDeviceContext context(resource_manager_->get_local_gpu(0)->get_device_id());
-  load_data<TypeKey>(source, data_reader_type, check_type, slot_size_array);
+  load_data<TypeKey>(source, data_reader_type, check_type, slot_size_array, num_samples);
   std::vector<size_t> keys_elements_list(inference_parser_.num_embedding_tables);
   std::vector<size_t> row_ptr_elements_list(inference_parser_.num_embedding_tables);
   for (size_t i = 0; i < inference_parser_.num_embedding_tables; i++) {
@@ -311,11 +318,14 @@ float InferenceSessionPy::evaluate_(const size_t num_batches, const std::string&
 }
 
 template <typename TypeKey>
-pybind11::array_t<float> InferenceSessionPy::predict_(
-    const size_t num_batches, const std::string& source, const DataReaderType_t data_reader_type,
-    const Check_t check_type, const std::vector<long long>& slot_size_array) {
+pybind11::array_t<float> InferenceSessionPy::predict_(const size_t num_batches,
+                                                      const std::string& source,
+                                                      const DataReaderType_t data_reader_type,
+                                                      const Check_t check_type,
+                                                      const std::vector<long long>& slot_size_array,
+                                                      const long long num_samples) {
   CudaDeviceContext context(resource_manager_->get_local_gpu(0)->get_device_id());
-  load_data<TypeKey>(source, data_reader_type, check_type, slot_size_array);
+  load_data<TypeKey>(source, data_reader_type, check_type, slot_size_array, num_samples);
   std::vector<size_t> keys_elements_list(inference_parser_.num_embedding_tables);
   std::vector<size_t> row_ptr_elements_list(inference_parser_.num_embedding_tables);
   for (size_t i = 0; i < inference_parser_.num_embedding_tables; i++) {
@@ -377,26 +387,31 @@ pybind11::array_t<float> InferenceSessionPy::predict_(
 float InferenceSessionPy::evaluate(const size_t num_batches, const std::string& source,
                                    const DataReaderType_t data_reader_type,
                                    const Check_t check_type,
-                                   const std::vector<long long>& slot_size_array) {
+                                   const std::vector<long long>& slot_size_array,
+                                   const long long num_samples) {
   float auc_value;
   if (inference_params_.i64_input_key) {
-    auc_value =
-        evaluate_<long long>(num_batches, source, data_reader_type, check_type, slot_size_array);
+    auc_value = evaluate_<long long>(num_batches, source, data_reader_type, check_type,
+                                     slot_size_array, num_samples);
   } else {
-    auc_value =
-        evaluate_<unsigned int>(num_batches, source, data_reader_type, check_type, slot_size_array);
+    auc_value = evaluate_<unsigned int>(num_batches, source, data_reader_type, check_type,
+                                        slot_size_array, num_samples);
   }
   return auc_value;
 }
 
-pybind11::array_t<float> InferenceSessionPy::predict(
-    const size_t num_batches, const std::string& source, const DataReaderType_t data_reader_type,
-    const Check_t check_type, const std::vector<long long>& slot_size_array) {
+pybind11::array_t<float> InferenceSessionPy::predict(const size_t num_batches,
+                                                     const std::string& source,
+                                                     const DataReaderType_t data_reader_type,
+                                                     const Check_t check_type,
+                                                     const std::vector<long long>& slot_size_array,
+                                                     const long long num_samples) {
   if (inference_params_.i64_input_key) {
-    return predict_<long long>(num_batches, source, data_reader_type, check_type, slot_size_array);
+    return predict_<long long>(num_batches, source, data_reader_type, check_type, slot_size_array,
+                               num_samples);
   } else {
     return predict_<unsigned int>(num_batches, source, data_reader_type, check_type,
-                                  slot_size_array);
+                                  slot_size_array, num_samples);
   }
 }
 
@@ -427,8 +442,8 @@ void InferencePybind(pybind11::module& m) {
                                                                      "VolatileDatabaseParams")
       .def(pybind11::init<DatabaseType_t,
                           // Backend specific.
-                          const std::string&, const std::string&, const std::string&,
-                          DatabaseHashMapAlgorithm_t, size_t, size_t, size_t,
+                          const std::string&, const std::string&, const std::string&, size_t,
+                          size_t, size_t, size_t,
                           // Overflow handling related.
                           bool, size_t, DatabaseOverflowPolicy_t, double,
                           // Caching behavior related.
@@ -439,8 +454,8 @@ void InferencePybind(pybind11::module& m) {
            // Backend specific.
            pybind11::arg("address") = "127.0.0.1:7000", pybind11::arg("user_name") = "default",
            pybind11::arg("password") = "",
-           pybind11::arg("algorithm") = DatabaseHashMapAlgorithm_t::PHM,
            pybind11::arg("num_partitions") = std::min(16u, std::thread::hardware_concurrency()),
+           pybind11::arg("allocation_rate") = 256 * 1024 * 1024,
            pybind11::arg("max_get_batch_size") = 10'000,
            pybind11::arg("max_set_batch_size") = 10'000,
            // Overflow handling related.
@@ -452,7 +467,7 @@ void InferencePybind(pybind11::module& m) {
            pybind11::arg("initial_cache_rate") = 1.0,
            pybind11::arg("cache_missed_embeddings") = false,
            // Real-time update mechanism related.
-           pybind11::arg("update_filters") = std::vector<std::string>{".+"});
+           pybind11::arg("update_filters") = std::vector<std::string>{"^hps_.+$"});
 
   pybind11::class_<HugeCTR::PersistentDatabaseParams,
                    std::shared_ptr<HugeCTR::PersistentDatabaseParams>>(infer,
@@ -469,18 +484,20 @@ void InferencePybind(pybind11::module& m) {
            pybind11::arg("max_get_batch_size") = 10'000,
            pybind11::arg("max_set_batch_size") = 10'000,
            // Real-time update mechanism related.
-           pybind11::arg("update_filters") = std::vector<std::string>{".+"});
+           pybind11::arg("update_filters") = std::vector<std::string>{"^hps_.+$"});
 
   pybind11::class_<HugeCTR::UpdateSourceParams, std::shared_ptr<HugeCTR::UpdateSourceParams>>(
       infer, "UpdateSourceParams")
       .def(pybind11::init<UpdateSourceType_t,
                           // Backend specific.
-                          const std::string&, size_t, size_t, size_t, size_t>(),
+                          const std::string&, size_t, size_t, size_t, size_t, size_t, size_t>(),
            pybind11::arg("type") = UpdateSourceType_t::Null,
            // Backend specific.
-           pybind11::arg("brokers") = "127.0.0.1:9092", pybind11::arg("poll_timeout_ms") = 500,
-           pybind11::arg("max_receive_buffer_size") = 2000, pybind11::arg("max_batch_size") = 1000,
-           pybind11::arg("failure_backoff_ms") = 50);
+           pybind11::arg("brokers") = "127.0.0.1:9092",
+           pybind11::arg("metadata_refresh_interval_ms") = 30'000,
+           pybind11::arg("receive_buffer_size") = 256 * 1024,
+           pybind11::arg("poll_timeout_ms") = 500, pybind11::arg("max_batch_size") = 8 * 1024,
+           pybind11::arg("failure_backoff_ms") = 50, pybind11::arg("max_commit_interval") = 32);
 
   pybind11::class_<HugeCTR::InferenceParams, std::shared_ptr<HugeCTR::InferenceParams>>(
       infer, "InferenceParams")
@@ -489,11 +506,12 @@ void InferencePybind(pybind11::module& m) {
                           const bool, const bool, const float, const bool, const bool,
                           // HugeCTR::DATABASE_TYPE, const std::string&, const std::string&,
                           // const float,
-                          const int, const int, const float, const std::vector<int>&,
+                          const int, const int, const int, const float, const std::vector<int>&,
                           const std::vector<float>&, const VolatileDatabaseParams&,
                           const PersistentDatabaseParams&, const UpdateSourceParams&, const int,
                           const float, const float, const std::vector<size_t>&,
-                          const std::vector<size_t>&, const std::vector<std::string>&>(),
+                          const std::vector<size_t>&, const std::vector<std::string>&,
+                          const std::string&, const size_t, const size_t>(),
 
            pybind11::arg("model_name"), pybind11::arg("max_batchsize"),
            pybind11::arg("hit_rate_threshold"), pybind11::arg("dense_model_file"),
@@ -504,6 +522,7 @@ void InferencePybind(pybind11::module& m) {
            pybind11::arg("use_cuda_graph") = true,
            pybind11::arg("number_of_worker_buffers_in_pool") = 2,
            pybind11::arg("number_of_refresh_buffers_in_pool") = 1,
+           pybind11::arg("thread_pool_size") = 16,
            pybind11::arg("cache_refresh_percentage_per_iteration") = 0.1,
            pybind11::arg("deployed_devices") = std::vector<int>{0},
            pybind11::arg("default_value_for_each_table") = std::vector<float>{0.0f},
@@ -512,11 +531,13 @@ void InferencePybind(pybind11::module& m) {
            pybind11::arg("persistent_db") = PersistentDatabaseParams{},
            pybind11::arg("update_source") = UpdateSourceParams{},
            // HPS required
-           pybind11::arg("maxnum_des_feature_per_sample") = 20,
+           pybind11::arg("maxnum_des_feature_per_sample") = 26,
            pybind11::arg("refresh_delay") = 0.0f, pybind11::arg("refresh_interval") = 0.0f,
            pybind11::arg("maxnum_catfeature_query_per_table_per_sample") = std::vector<int>{26},
            pybind11::arg("embedding_vecsize_per_table") = std::vector<int>{128},
-           pybind11::arg("embedding_table_names") = std::vector<std::string>{""});
+           pybind11::arg("embedding_table_names") = std::vector<std::string>{""},
+           pybind11::arg("network_file") = "", pybind11::arg("label_dim") = 1,
+           pybind11::arg("slot_num") = 10);
 
   infer.def("CreateInferenceSession", &HugeCTR::python_lib::CreateInferenceSession,
             pybind11::arg("model_config_path"), pybind11::arg("inference_params"));
@@ -526,13 +547,15 @@ void InferencePybind(pybind11::module& m) {
                                                                              "InferenceSession")
       .def("evaluate", &HugeCTR::python_lib::InferenceSessionPy::evaluate,
            pybind11::arg("num_batches"), pybind11::arg("source"), pybind11::arg("data_reader_type"),
-           pybind11::arg("check_type"), pybind11::arg("slot_size_array") = std::vector<long long>())
+           pybind11::arg("check_type"), pybind11::arg("slot_size_array") = std::vector<long long>(),
+           pybind11::arg("num_samples") = 0)
       .def("predict",
            pybind11::overload_cast<size_t, const std::string&, DataReaderType_t, Check_t,
-                                   const std::vector<long long>&>(
+                                   const std::vector<long long>&, long long>(
                &HugeCTR::python_lib::InferenceSessionPy::predict),
            pybind11::arg("num_batches"), pybind11::arg("source"), pybind11::arg("data_reader_type"),
-           pybind11::arg("check_type"), pybind11::arg("slot_size_array") = std::vector<long long>())
+           pybind11::arg("check_type"), pybind11::arg("slot_size_array") = std::vector<long long>(),
+           pybind11::arg("num_samples") = 0)
       .def("predict",
            pybind11::overload_cast<const std::vector<float>&, const std::vector<long long>&,
                                    const std::vector<int>&>(

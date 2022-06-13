@@ -15,6 +15,9 @@
  */
 
 #pragma once
+#include <cuda_fp16.h>
+#include <cuda_runtime.h>
+
 #include <common.hpp>
 
 namespace HugeCTR {

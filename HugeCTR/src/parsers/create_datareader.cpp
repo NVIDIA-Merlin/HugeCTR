@@ -324,7 +324,8 @@ void create_datareader<TypeKey>::operator()(
     std::map<std::string, SparseInput<TypeKey>>& sparse_input_map,
     std::map<std::string, TensorBag2>& label_dense_map, const std::string& source,
     const DataReaderType_t data_reader_type, const Check_t check_type,
-    const std::vector<long long>& slot_size_array, const bool repeat_dataset) {
+    const std::vector<long long>& slot_size_array, const bool repeat_dataset,
+    const long long num_samples) {
   // TO DO：support multi-hot
   long long slot_sum = 0;
   std::vector<long long> slot_offset;
@@ -359,6 +360,10 @@ void create_datareader<TypeKey>::operator()(
     case DataReaderType_t::Norm: {
       bool start_right_now = repeat_dataset;
       data_reader->create_drwg_norm(source, check_type, start_right_now);
+      break;
+    }
+    case DataReaderType_t::Raw: {
+      data_reader->create_drwg_raw(source, num_samples, false, false, true);
       break;
     }
     case DataReaderType_t::Parquet: {

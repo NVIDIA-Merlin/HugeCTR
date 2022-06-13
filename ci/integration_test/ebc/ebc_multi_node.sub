@@ -1,0 +1,6 @@
+#!/bin/bash
+
+srun --ntasks=2 --container-image="${CONT}" --container-mounts="${MOUNTS}" --network sharp bash -cx " \
+    cd /dataset/criteo_kaggle/ && \
+    sed -i 's/criteo_data/deepfm_data_nvt/g' /workdir/test/embedding_collection_test/dlrm_train_2node_4gpu.py && \
+    python3 /workdir/test/embedding_collection_test/dlrm_train_2node_4gpu.py"

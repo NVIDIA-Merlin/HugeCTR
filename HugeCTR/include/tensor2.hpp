@@ -21,9 +21,19 @@
 #include <vector>
 namespace HugeCTR {
 
-enum class TensorScalarType { None, Void, Float32, Float16, Int64, UInt64, Int32, UInt32, Size_t };
-
-namespace {
+enum class TensorScalarType : uint8_t {
+  None = 0,
+  Void,
+  Float32,
+  Float16,
+  Int64,
+  UInt64,
+  Int32,
+  UInt32,
+  Size_t,
+  Char,
+  MAX_DATATYPE_META
+};
 
 inline size_t get_num_elements_from_dimensions(const std::vector<size_t> &dimensions) {
   size_t elements = 1;
@@ -74,6 +84,21 @@ template <typename T>
 struct TensorScalarTypeFunc {};
 
 template <>
+struct TensorScalarTypeFunc<int32_t> {
+  static TensorScalarType get_type() { return TensorScalarType::Int32; }
+};
+
+template <>
+struct TensorScalarTypeFunc<int64_t> {
+  static TensorScalarType get_type() { return TensorScalarType::Int64; }
+};
+
+template <>
+struct TensorScalarTypeFunc<long long> {
+  static TensorScalarType get_type() { return TensorScalarType::Int64; }
+};
+
+template <>
 struct TensorScalarTypeFunc<float> {
   static TensorScalarType get_type() { return TensorScalarType::Float32; }
 };
@@ -89,16 +114,10 @@ struct TensorScalarTypeFunc<size_t> {
 };
 
 template <>
-struct TensorScalarTypeFunc<long long> {
-  static TensorScalarType get_type() { return TensorScalarType::Int64; }
-};
-
-template <>
 struct TensorScalarTypeFunc<unsigned int> {
   static TensorScalarType get_type() { return TensorScalarType::UInt32; }
 };
 
-}  // namespace
 
 class TensorBuffer2 {
  public:

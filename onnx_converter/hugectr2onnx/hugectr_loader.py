@@ -22,6 +22,7 @@ import json
 ONNX_LAYER_TYPES = {
     "Add",
     "BatchNorm",
+    "LayerNorm",
     "Concat",
     "Dropout",
     "ElementwiseMultiply",
@@ -32,6 +33,7 @@ ONNX_LAYER_TYPES = {
     "FusedReshapeConcat",
     "Interaction",
     "MatrixMultiply",
+    "MultiHeadAttention",
     "MultiCross",
     "PReLU_Dice",
     "ReduceMean",
@@ -225,6 +227,28 @@ class HugeCTRLoader(object):
             layer_weights_dict[layer_config["top"]+"_beta"] = beta
             layer_weights_dict[layer_config["top"]+"_running_mean"] = running_mean
             layer_weights_dict[layer_config["top"]+"_running_variance"] = running_variance
+        elif layer_type == "LayerNorm":
+            layer_params.eps = layer_config["ln_param"]["eps"]
+            self.__dimensions[layer_config["top"]] = self.__dimensions[layer_config["bottom"]]
+            in_feature =  self.__dimensions[layer_config["bottom"]]
+            layer_bytes = in_feature * 4 * 2
+            with open(self.__dense_model, 'rb') as file:
+                file.seek(self.__offset, 0)
+                buffer = file.read(layer_bytes)
+                gamma = struct.unpack(str(in_feature) + "f", buffer[ : in_feature * 4])
+                beta = struct.unpack(str(in_feature) + "f", buffer[in_feature * 4 : ])
+                gamma = np.reshape(np.float32(gamma), newshape=(in_feature, ))
+                beta = np.reshape(np.float32(beta), newshape=(in_feature, ))
+            self.__offset += layer_bytes
+            #ntp_config = self.__ntp_config[self.__ntp_counter]
+            #running_mean = np.array(ntp_config["mean"], dtype = np.float32)
+            #running_variance = np.array(ntp_config["var"], dtype = np.float32)
+            #self.__ntp_counter += 1
+            layer_weights_dict[layer_config["top"]+"_gamma"] = gamma
+            layer_weights_dict[layer_config["top"]+"_beta"] = beta
+            #layer_weights_dict[layer_config["top"]+"_running_mean"] = running_mean
+            #layer_weights_dict[layer_config["top"]+"_running_variance"] = running_variance
+
         elif layer_type == "Concat":
             layer_params.axis = layer_config["axis"]
             axis_without_batch = layer_config["axis"] - 1
@@ -277,7 +301,12 @@ class HugeCTRLoader(object):
         elif layer_type == "Interaction":
             slot_num = self.__dimensions[layer_params.bottom_names[1]][0]
             vec_size = self.__dimensions[layer_params.bottom_names[1]][1]
-            self.__dimensions[layer_config["top"]] = vec_size + (slot_num + 1) * (slot_num + 2 ) // 2 - (slot_num + 1) + 1        
+            self.__dimensions[layer_config["top"]] = vec_size + (slot_num + 1) * (slot_num + 2 ) // 2 - (slot_num + 1) + 1 
+        elif layer_type == "MultiHeadAttention":
+            dim1 = self.__dimensions[layer_params.bottom_names[0]]
+            dim2 = self.__dimensions[layer_params.bottom_names[1]]
+            if len(dim1) == 3:
+                self.__dimensions[layer_config["top"]] = (dim1[0], dim1[1], dim2[1])
         elif layer_type == "MatrixMultiply":
             dim1 = self.__dimensions[layer_params.bottom_names[0]]
             dim2 = self.__dimensions[layer_params.bottom_names[1]]

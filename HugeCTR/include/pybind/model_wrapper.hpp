@@ -68,7 +68,7 @@ void ModelPybind(pybind11::module &m) {
       .def(pybind11::init<Embedding_t, size_t, size_t, const std::string &, std::string,
                           std::string, std::vector<size_t> &, std::shared_ptr<OptParamsPy> &,
                           const HybridEmbeddingParam &>(),
-           pybind11::arg("embedding_type"), pybind11::arg("workspace_size_per_gpu_in_mb"),
+           pybind11::arg("embedding_type"), pybind11::arg("workspace_size_per_gpu_in_mb") = 0,
            pybind11::arg("embedding_vec_size"), pybind11::arg("combiner"),
            pybind11::arg("sparse_embedding_name"), pybind11::arg("bottom_name"),
            pybind11::arg("slot_size_array") = std::vector<size_t>(),
@@ -84,7 +84,7 @@ void ModelPybind(pybind11::module &m) {
                          Initializer_t, int, size_t, size_t, size_t, size_t, size_t, bool,
                          std::vector<int> &, std::vector<std::pair<int, int>> &, std::vector<int> &,
                          std::vector<size_t> &, size_t, int, std::vector<float> &, bool,
-                         Regularizer_t, float, FcPosition_t, Activation_t>(),
+                         Regularizer_t, float, FcPosition_t, Activation_t, DenseLayerSwitchs>(),
           pybind11::arg("layer_type"), pybind11::arg("bottom_names"), pybind11::arg("top_names"),
           pybind11::arg("factor") = 1.0, pybind11::arg("eps") = 0.00001,
           pybind11::arg("gamma_init_type") = Initializer_t::Default,
@@ -104,7 +104,8 @@ void ModelPybind(pybind11::module &m) {
           pybind11::arg("use_regularizer") = false,
           pybind11::arg("regularizer_type") = Regularizer_t::L1, pybind11::arg("lambda") = 0,
           pybind11::arg("pos_type") = FcPosition_t::None,
-          pybind11::arg("act_type") = Activation_t::Relu);
+          pybind11::arg("act_type") = Activation_t::Relu,
+          pybind11::arg("dense_layer_switches") = DenseLayerSwitchs(false));
   pybind11::class_<HugeCTR::GroupDenseLayer, std::shared_ptr<HugeCTR::GroupDenseLayer>>(
       m, "GroupDenseLayer")
       .def(pybind11::init<GroupLayer_t, std::vector<std::string> &, std::vector<std::string> &,
@@ -179,6 +180,8 @@ void ModelPybind(pybind11::module &m) {
            pybind11::arg("dense_layer"))
       .def("add", pybind11::overload_cast<GroupDenseLayer &>(&HugeCTR::Model::add),
            pybind11::arg("group_dense_layer"))
+      .def("add", pybind11::overload_cast<const EmbeddingCollectionPlaceHolder &>(&HugeCTR::Model::add),
+           pybind11::arg("embedding_collection_place_holder"))
       .def("set_learning_rate", &HugeCTR::Model::set_learning_rate, pybind11::arg("lr"))
       .def("train", &HugeCTR::Model::train, pybind11::arg("is_first_batch") = true)
       .def("eval", &HugeCTR::Model::eval, pybind11::arg("is_first_batch") = true)

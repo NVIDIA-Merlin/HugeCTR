@@ -21,3 +21,4 @@ file(GLOB parser_test_src
 add_executable(parser_test ${parser_test_src})
 target_compile_features(parser_test PUBLIC cxx_std_17)
 target_link_libraries(parser_test PUBLIC huge_ctr_static gtest gtest_main)
+target_link_libraries(parser_test PUBLIC /usr/local/cuda/lib64/stubs/libcuda.so)

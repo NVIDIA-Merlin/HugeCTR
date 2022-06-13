@@ -240,11 +240,11 @@ TEST(concat_3d_layer, fp32_4x10x11) {
   concat_3d_layer_general_test<float>(batch_size, slot_num, items, 2);
 }
 
-TEST(concat_3d_layer, fp32_2048x600x768) {
+TEST(concat_3d_layer, fp32_2048x300x768) {
   std::vector<int> items;
   std::vector<int> slot_num;
   int batch_size = 2048;
-  int slot_shot_his = 200, slot_long_his = 400, slot_target = 1;
+  int slot_shot_his = 100, slot_long_his = 200, slot_target = 1;
   items.push_back(768);
   slot_num.push_back(slot_shot_his);
   items.push_back(768);
@@ -257,7 +257,7 @@ TEST(concat_3d_layer, fp32_2048x600x768) {
 TEST(concat_3d_layer, fp32_1024x1000x512) {
   std::vector<int> items;
   std::vector<int> slot_num;
-  int batch_size = 8192;
+  int batch_size = 1024;
   int goodID_size = 128, shopID_size = 128, cateID_size = 128;
   items.push_back(goodID_size);
   slot_num.push_back(200);

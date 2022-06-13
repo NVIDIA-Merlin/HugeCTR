@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <omp.h>
 #include <sys/stat.h>
 
 #include <base/debug/logger.hpp>
@@ -279,8 +280,8 @@ template <typename T, Check_t CK_T>
 void data_generation_for_test2(std::string file_list_name, std::string data_prefix, int num_files,
                                int num_records_per_file, int slot_num,
                                std::vector<size_t> voc_size_array, int label_dim, int dense_dim,
-                               std::vector<int> nnz_array, bool long_tail = false,
-                               float alpha = 0.0) {
+                               std::vector<int> nnz_array, int num_threads = 1,
+                               bool long_tail = false, float alpha = 0.0) {
   // check if slot_num == voc_size_array.size == nnz_array.size
   if (slot_num != (int)voc_size_array.size() || slot_num != (int)nnz_array.size()) {
     HCTR_LOG(ERROR, WORLD, "slot_num != voc_size_array.size() || slot_num != nnz_array.size()\n");
@@ -302,6 +303,15 @@ void data_generation_for_test2(std::string file_list_name, std::string data_pref
 
   std::ofstream file_list_stream(file_list_name, std::ofstream::out);
   file_list_stream << (std::to_string(num_files) + "\n");
+
+  // First write file names sequentially
+  for (int k = 0; k < num_files; k++) {
+    std::string tmp_file_name(data_prefix + std::to_string(k) + ".data");
+    file_list_stream << (tmp_file_name + "\n");
+  }
+
+// Then create files in parallel
+#pragma omp parallel for num_threads(num_threads)
   for (int k = 0; k < num_files; k++) {
     std::string tmp_file_name(data_prefix + std::to_string(k) + ".data");
     file_list_stream << (tmp_file_name + "\n");
@@ -791,12 +801,14 @@ struct DataGeneratorParams {
   int num_samples;
   int eval_num_samples;
   bool float_label_dense;
+  int num_threads;
   DataGeneratorParams(DataReaderType_t format, int label_dim, int dense_dim, int num_slot,
                       bool i64_input_key, const std::string& source, const std::string& eval_source,
                       const std::vector<size_t>& slot_size_array, const std::vector<int>& nnz_array,
                       Check_t check_type, Distribution_t dist_type, PowerLaw_t power_law_type,
                       float alpha, int num_files, int eval_num_files, int num_samples_per_file,
-                      int num_samples, int eval_num_samples, bool float_label_dense);
+                      int num_samples, int eval_num_samples, bool float_label_dense,
+                      int num_threads);
 };
 
 class DataGenerator {

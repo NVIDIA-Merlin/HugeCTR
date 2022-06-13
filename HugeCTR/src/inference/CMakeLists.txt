@@ -24,6 +24,7 @@ file(GLOB huge_ctr_inference_src
   ../graph_wrapper.cpp
   ../layer.cpp
   ../layers/batch_norm_layer.cu
+  ../layers/layer_norm_layer.cu
   ../layers/cast_layer.cu
   ../layers/concat_layer.cu
   ../layers/concat_3d_layer.cu
@@ -46,6 +47,7 @@ file(GLOB huge_ctr_inference_src
   ../layers/elementwise_multiply_layer.cu
   ../layers/gru_layer.cu
   ../layers/matrix_multiply_layer.cu
+  ../layers/multi_head_attention_layer.cu
   ../layers/prelu_dice_layer.cu
   ../layers/softmax_layer.cu
   ../layers/scale_layer.cu
@@ -92,6 +94,8 @@ endif()
 target_link_libraries(huge_ctr_inference PUBLIC cudart cublas curand cudnn nccl cudf stdc++fs tbb huge_ctr_hdfs_backend ${CMAKE_THREAD_LIBS_INIT})
 
 target_link_libraries(huge_ctr_inference PUBLIC huge_ctr_hps)
+
+target_link_libraries(huge_ctr_inference PUBLIC /usr/local/cuda/lib64/stubs/libcuda.so)
 
 target_compile_features(huge_ctr_inference PUBLIC cxx_std_17)
 

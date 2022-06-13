@@ -100,6 +100,7 @@ if (KEY_HIT_RATIO)
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DKEY_HIT_RATIO")
 endif()
 
+
 # setting compiler flags
 foreach(arch_name ${SM})
     if (arch_name STREQUAL 80 OR
@@ -211,12 +212,12 @@ link_directories(
   $ENV{CONDA_PREFIX}/lib)
 
 #setting python interface file install path
-install(DIRECTORY ${CMAKE_BINARY_DIR}/lib DESTINATION /usr/local/hugectr)
+install(DIRECTORY ${CMAKE_BINARY_DIR}/lib DESTINATION hugectr)
 #install inference header files
-install(DIRECTORY ${PROJECT_SOURCE_DIR}/HugeCTR/include/inference DESTINATION /usr/local/hugectr/include)
-install(DIRECTORY ${PROJECT_SOURCE_DIR}/HugeCTR/include/hps DESTINATION /usr/local/hugectr/include)
+install(DIRECTORY ${PROJECT_SOURCE_DIR}/HugeCTR/include/inference DESTINATION hugectr/include)
+install(DIRECTORY ${PROJECT_SOURCE_DIR}/HugeCTR/include/hps DESTINATION hugectr/include)
 add_subdirectory(third_party/json)
-install(DIRECTORY ${CMAKE_BINARY_DIR}/bin DESTINATION /usr/local/hugectr)
+install(DIRECTORY ${CMAKE_BINARY_DIR}/bin DESTINATION hugectr)
 
 add_subdirectory(gpu_cache/src)
 add_subdirectory(gpu_cache/test)
@@ -241,6 +242,9 @@ add_subdirectory(test/utest/inference)
 else()
 #setting binary files install path
 add_subdirectory(HugeCTR/src)
+option(ENABLE_HCTR "Build core HCTR backend" ON)
+add_subdirectory(HugeCTR/core)
+add_subdirectory(HugeCTR/embedding)
 add_subdirectory(third_party/googletest)
 add_subdirectory(test/utest)
 add_subdirectory(tools)

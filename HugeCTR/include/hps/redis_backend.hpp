@@ -122,6 +122,8 @@ class RedisClusterBackend final : public VolatileBackend<TKey> {
               const std::shared_ptr<std::vector<TKey>>& keys, time_t time);
 
  protected:
+  const bool refresh_time_after_fetch_;
+
   // Do not change this vector, after inserting data for the first time!
   const size_t num_partitions_;
   const size_t max_get_batch_size_;

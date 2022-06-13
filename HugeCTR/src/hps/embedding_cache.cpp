@@ -70,12 +70,21 @@ EmbeddingCache<TypeHashKey>::EmbeddingCache(const InferenceParams& inference_par
                                             HierParameterServerBase* const parameter_server)
     : EmbeddingCacheBase(),
       parameter_server_(parameter_server),
-      insert_workers_("EC insert", std::min(16u, std::thread::hardware_concurrency())) {
+      insert_workers_("EC insert",
+                      std::max(static_cast<unsigned int>(inference_params.thread_pool_size),
+                               std::thread::hardware_concurrency())) {
   HCTR_LOG(INFO, ROOT, "Use GPU embedding cache: %s, cache size percentage: %f\n",
            inference_params.use_gpu_embedding_cache ? "True" : "False",
            inference_params.cache_size_percentage);
   HCTR_LOG(INFO, ROOT, "Configured cache hit rate threshold: %f\n",
            inference_params.hit_rate_threshold);
+  HCTR_LOG(INFO, ROOT, "The size of thread pool: %u\n",
+           std::max(static_cast<unsigned int>(inference_params.thread_pool_size),
+                    std::thread::hardware_concurrency()));
+  HCTR_LOG(INFO, ROOT, "The size of worker memory pool: %u\n",
+           inference_params.number_of_worker_buffers_in_pool);
+  HCTR_LOG(INFO, ROOT, "The size of refresh memory pool: %u\n",
+           inference_params.number_of_refresh_buffers_in_pool);
 
   // Store the configuration
   cache_config_.num_emb_table_ = inference_params.sparse_model_files.size();

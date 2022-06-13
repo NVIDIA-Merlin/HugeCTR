@@ -37,8 +37,9 @@ subtrees:
         entries:
           - file: hugectr_talks_blogs.md
           - file: QAList.md
-          - file: hugectr_contributor_guide.md
       - file: release_notes.md
+      - file: hugectr_contributor_guide.md
+        title: Contributing to HugeCTR
 
 
 # The multi-modal data example uses several notebooks to demonstrate how to use of multi-modal data (text and images)

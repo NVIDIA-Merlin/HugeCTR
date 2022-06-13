@@ -90,57 +90,11 @@ HierParameterServer<TypeHashKey>::HierParameterServer(
         break;  // No volatile database.
 
       case DatabaseType_t::HashMap:
-        HCTR_LOG_S(INFO, WORLD) << "Creating HashMap CPU database backend..." << std::endl;
-        if (conf.num_partitions > 1) {
-          HCTR_LOG(WARNING, WORLD,
-                   "Setting 'num_partitions' = %d is not supported by the non-parallelized "
-                   "HashTable backend and will be ignored.\n",
-                   conf.num_partitions);
-        }
-        switch (conf.algorithm) {
-          case DatabaseHashMapAlgorithm_t::STL:
-            volatile_db_ = std::make_unique<HCTR_DB_HASH_MAP_STL_(HashMapBackend, TypeHashKey)>(
-                conf.refresh_time_after_fetch, conf.overflow_margin, conf.overflow_policy,
-                conf.overflow_resolution_target);
-            break;
-          case DatabaseHashMapAlgorithm_t::PHM:
-            volatile_db_ = std::make_unique<HCTR_DB_HASH_MAP_PHM_(HashMapBackend, TypeHashKey)>(
-                conf.refresh_time_after_fetch, conf.overflow_margin, conf.overflow_policy,
-                conf.overflow_resolution_target);
-            break;
-          default:
-            HCTR_DIE("Selected algorithm (volatile_db.algorithm = %d) is not supported!",
-                     conf.type);
-            break;
-        }
-        break;
-
       case DatabaseType_t::ParallelHashMap:
-        HCTR_LOG_S(INFO, WORLD) << "Creating ParallelHashMap CPU database backend..." << std::endl;
-        if (conf.num_partitions < 2) {
-          HCTR_LOG(WARNING, WORLD,
-                   "ParallelHashMap configured with 'num_partitions' = %d, which will likely "
-                   "result in poor performance. Consider using 'HashMap' backend.\n",
-                   conf.num_partitions);
-        }
-        switch (conf.algorithm) {
-          case DatabaseHashMapAlgorithm_t::STL:
-            volatile_db_ =
-                std::make_unique<HCTR_DB_HASH_MAP_STL_(ParallelHashMapBackend, TypeHashKey)>(
-                    conf.num_partitions, conf.refresh_time_after_fetch, conf.overflow_margin,
-                    conf.overflow_policy, conf.overflow_resolution_target);
-            break;
-          case DatabaseHashMapAlgorithm_t::PHM:
-            volatile_db_ =
-                std::make_unique<HCTR_DB_HASH_MAP_PHM_(ParallelHashMapBackend, TypeHashKey)>(
-                    conf.num_partitions, conf.refresh_time_after_fetch, conf.overflow_margin,
-                    conf.overflow_policy, conf.overflow_resolution_target);
-            break;
-          default:
-            HCTR_DIE("Selected algorithm (volatile_db.algorithm = %d) is not supported!",
-                     conf.type);
-            break;
-        }
+        HCTR_LOG_S(INFO, WORLD) << "Creating HashMap CPU database backend..." << std::endl;
+        volatile_db_ = std::make_unique<HashMapBackend<TypeHashKey>>(
+            conf.num_partitions, conf.allocation_rate, conf.overflow_margin, conf.overflow_policy,
+            conf.overflow_resolution_target);
         break;
 
       case DatabaseType_t::RedisCluster:
@@ -293,7 +247,7 @@ void HierParameterServer<TypeHashKey>::update_database_per_model(
 
   // Connect to online update service (if configured).
   // TODO: Maybe need to change the location where this is initialized.
-  const char kafka_group_prefix[] = "hctr_ps.";
+  const char kafka_group_prefix[] = "hps.";
 
   auto kafka_prepare_filter = [](const std::string& s) -> std::string {
     std::ostringstream os;
@@ -324,10 +278,12 @@ void HierParameterServer<TypeHashKey>::update_database_per_model(
 
         volatile_db_source_ = std::make_unique<KafkaMessageSource<TypeHashKey>>(
             inference_params.update_source.brokers, consumer_group.str(), tag_filters,
+            inference_params.update_source.metadata_refresh_interval_ms,
+            inference_params.update_source.receive_buffer_size,
             inference_params.update_source.poll_timeout_ms,
-            inference_params.update_source.max_receive_buffer_size,
             inference_params.update_source.max_batch_size,
-            inference_params.update_source.failure_backoff_ms);
+            inference_params.update_source.failure_backoff_ms,
+            inference_params.update_source.max_commit_interval);
       }
       // Persistent database updates.
       if (persistent_db_ && !inference_params.persistent_db.update_filters.empty()) {
@@ -344,10 +300,12 @@ void HierParameterServer<TypeHashKey>::update_database_per_model(
 
         persistent_db_source_ = std::make_unique<KafkaMessageSource<TypeHashKey>>(
             inference_params.update_source.brokers, consumer_group.str(), tag_filters,
+            inference_params.update_source.metadata_refresh_interval_ms,
+            inference_params.update_source.receive_buffer_size,
             inference_params.update_source.poll_timeout_ms,
-            inference_params.update_source.max_receive_buffer_size,
             inference_params.update_source.max_batch_size,
-            inference_params.update_source.failure_backoff_ms);
+            inference_params.update_source.failure_backoff_ms,
+            inference_params.update_source.max_commit_interval);
       }
       break;
 
@@ -371,7 +329,7 @@ void HierParameterServer<TypeHashKey>::update_database_per_model(
 
   // Turn on background updates.
   if (volatile_db_source_) {
-    volatile_db_source_->enable([&](const std::string& tag, const size_t num_pairs,
+    volatile_db_source_->engage([&](const std::string& tag, const size_t num_pairs,
                                     const TypeHashKey* keys, const char* values,
                                     const size_t value_size) -> bool {
       // Try a search. If we can find the value, override it. If not, do nothing.
@@ -380,7 +338,7 @@ void HierParameterServer<TypeHashKey>::update_database_per_model(
   }
 
   if (persistent_db_source_) {
-    persistent_db_source_->enable([&](const std::string& tag, const size_t num_pairs,
+    persistent_db_source_->engage([&](const std::string& tag, const size_t num_pairs,
                                       const TypeHashKey* keys, const char* values,
                                       const size_t value_size) -> bool {
       // For persistent, we always insert.
@@ -496,8 +454,8 @@ void HierParameterServer<TypeHashKey>::lookup(const void* const h_keys, const si
   const std::string& tag_name = make_tag_name(model_name, embedding_table_name);
   const float default_vec_value = ps_config_.default_emb_vec_value_[*model_id][table_id];
 #ifdef ENABLE_INFERENCE
-  HCTR_LOG_S(INFO, WORLD) << "Looking up " << length << " embeddings (each with " << embedding_size
-                          << " values)..." << std::endl;
+  HCTR_LOG_S(TRACE, WORLD) << "Looking up " << length << " embeddings (each with " << embedding_size
+                           << " values)..." << std::endl;
 #endif
   size_t hit_count = 0;
 
@@ -588,8 +546,8 @@ void HierParameterServer<TypeHashKey>::lookup(const void* const h_keys, const si
   const auto duration =
       std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
 #ifdef ENABLE_INFERENCE
-  HCTR_LOG_S(INFO, WORLD) << "Parameter server lookup of " << hit_count << " / " << length
-                          << " embeddings took " << duration.count() << " us." << std::endl;
+  HCTR_LOG_S(TRACE, WORLD) << "Parameter server lookup of " << hit_count << " / " << length
+                           << " embeddings took " << duration.count() << " us." << std::endl;
 #endif
 }
 
@@ -674,7 +632,7 @@ void HierParameterServer<TypeHashKey>::insert_embedding_cache(
     EmbeddingCacheWorkspace& workspace_handler, cudaStream_t stream) {
   auto cache_config = embedding_cache->get_cache_config();
 #ifdef ENABLE_INFERENCE
-  HCTR_LOG(INFO, WORLD, "*****Insert embedding cache of model %s on device %d*****\n",
+  HCTR_LOG(TRACE, WORLD, "*****Insert embedding cache of model %s on device %d*****\n",
            cache_config.model_name_.c_str(), cache_config.cuda_dev_id_);
 #endif
   // Copy the missing embeddingcolumns to host
