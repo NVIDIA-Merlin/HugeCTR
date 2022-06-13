@@ -122,17 +122,17 @@ hugectr.CreateSolver()
 
 * `device_layout`: this option is deprecated and no longer used.
 
-* `use_holistic_cuda_graph`: If this option is enabled, everything inside a training iteration is packed into a CUDA Graph. Limitations: this option works only if use_cuda_graph is turned off and use_overlapped_pipeline is turned on.
+* `use_holistic_cuda_graph`: The default value is `False`. If `True`, everything inside a training iteration is packed into a CUDA Graph. Requirement: use_cuda_graph is False, use_overlapped_pipeline is True, and is_dlrm is True.
 
-* `use_overlapped_pipeline`: If this option is turned on, the computation in the dense input data path will be overlapped with the hybrid embedding computation. The default value is `False`. Limitations: this is a research feature and depends on the AsyncReader, hybrid embedding and interaction layer. 
+* `use_overlapped_pipeline`: The default value is `False`. If `True`, the computation in the dense input data path will be overlapped with the hybrid embedding computation. Requirements: The data reader is asynchronous (see AsyncParam), hybrid embedding is used (see HybridEmbeddingParam), the model has a feature interaction layer (see InteractionLayer), and is_dlrm is True.
 
-* `all_reduce_algo`: The algorithm to be used for all reduce. The supported options include `AllReduceAlgo.OneShot` and `AllReduceAlgo.NCCL`. The default value is `AllReduceAlgo.NCCL`. When you are doing multi-node training, `AllReduceAlgo.OneShot` will require RDMA support while `AllReduceAlgo.NCCL` can run on both RDMA and non-RDMA hardware.
+* `all_reduce_algo`: The algorithm to be used for all reduce. The supported options are `AllReduceAlgo.OneShot` and `AllReduceAlgo.NCCL`. The default value is `AllReduceAlgo.NCCL`. When you are doing multi-node training, `AllReduceAlgo.OneShot` will require RDMA support while `AllReduceAlgo.NCCL` can run on both RDMA and non-RDMA hardware.
 
-* `grouped_all_reduce`: Whether to use grouped all reduce. An optimization that the gradients for the dense network as well as the gradients data-parallel embedding are grouped and allreduced in one kernel, effectively combining two small allreduce into one bigger and more efficient allreduce. Limitation: this is a research feature and depends on hybrid embedding. The default value is `False`.
+* `grouped_all_reduce`: The default value is `False`. If `True`, the gradients for the dense network and the gradients for data-parallel embedding are grouped and all reduced in one kernel, effectively combining two small all-reduce operations into a single larger one for higher efficiency. Requirements: Hybrid embedding is used (see HybridEmbeddingParam) and is_dlrm is `True`.
 
-* `num_iterations_statistics`: The number of batches that are used in performing the statistics for Hybrid Embedding. The default value is 20. Limitation: this is a research feature and depends on the AsyncReade.
+* `num_iterations_statistics`: The number of batches used to perform statistics for hybrid embedding. The default value is `20`. Requirement: The data reader is asynchronous (see AsyncParam).
 
-* `is_dlrm`: A global flag to specify whether to apply all the research optimizations for the sake of preventing misuse, given that some optimizations are coupled with each other. Those options will be valid only if this flag is set True. The default value is False. When is_dlrm is turned off, use_holistic_cuda_graph, use_overlapped_pipeline and grouped_all_reduce must be turned off, and neither RawAsync reader nor hybrid embedding can be applied.
+* `is_dlrm`: Must be set to True when hybrid embedding is used (see `HybridEmbeddingParam`), `use_holistic_cuda_graph` is `True`, `use_overlapped_pipeline` is `True`, or `grouped_all_reduce` is `True`. The default value is `False`. When is_dlrm is `False`, `use_holistic_cuda_graph`, `use_overlapped_pipeline` and `grouped_all_reduce` must be `False`, the data reader cannot be asynchronous (see `AsyncParam`), and hybrid embedding (see `HybridEmbeddingParam`) cannot be used.
 
 Example:
 ```python
@@ -185,8 +185,7 @@ For the usage of the ETC feature in real cases, please check the [HugeCTR Contin
 ```bash
 hugectr.AsyncParam()
 ```
-`AsyncParam` specifies the parameters related to async raw data reader, which can be used to initialize `DataReaderParams` instance. RawAsync data reader is a fully asynchronous data reader using the Linux asynchronous I/O library (AIO) to achieve peak I/O throughput. Only one-hot feature input in raw format is supported now. 
-
+A data reader can be optimized using asynchronous reading. This is done by creating the data reader with a async_param argument (see `DataReaderParams`), which is of type AsyncParam. `AsyncParam` specifies the parameters related to asynchronous raw data reader, An asynchronous data reader uses the Linux asynchronous I/O library (AIO) to achieve peak I/O throughput. Requirements: The input dataset has only one-hot feature items and is in raw format.
 
 **Arguments**
 * `num_threads`: Integer, the number of the data reading threads, should be at least 1 per GPU.  There is NO default value.
@@ -214,7 +213,7 @@ async_param = hugectr.AsyncParam(32, 4, 716800, 2, 512, True, hugectr.Alignment_
 hugectr.HybridEmbeddingParam()
 ```
 
-`HybridEmbeddingParam` specifies the parameters related to hybrid embedding, which can be used to initialize `SparseEmbedding` instances. The hybrid embedding is designed to overcome the bandwidth constraint imposed by the embedding part of the embedding train workload by algorithmically reducing the traffic over network. Limitations: it’s a research feature which only support one-hot embedding and SGD optimizer now.
+A sparse embedding layer can be optimized using hybrid embedding. This is done by creating the sparse embedding layer with a hybrid_embedding_param argument (see SparseEmbedding), which is of type HybridEmbeddingParam. `HybridEmbeddingParam` specifies the parameters related to hybrid embedding. Hybrid embedding is designed to overcome the bandwidth constraint imposed by the embedding part of the embedding train workload by algorithmically reducing the traffic over network. Requirements: The input dataset has only one-hot feature items and the model uses the SGD optimizer.
 
 **Arguments**
 * `max_num_frequent_categories`: Integer, the maximum number of frequent categories in unit of batch size. There is NO default value.
@@ -551,7 +550,7 @@ hugectr.DenseLayer()
 
 * `lambda`: Float, the lambda value of the regularization term for the `BinaryCrossEntropyLoss`, `CrossEntropyLoss` or `MultiCrossEntropyLoss` layer. It will be ignored if `use_regularizer` is False. The default value is 0.
 
-* `pos_type`: The position type of `FusedInnerProduct` layer. The supported types include `FcPosition_t.Head`, `FcPosition_t.Body`, `FcPosition_t.Tail`, `FcPosition_t.Isolated` and `FcPosition_t.Non`. If the type `FcPosition_t.Non` is specified, the general `FusedFullyConnectedLayer` will be used internally. Otherwise, `FusedReluBiasFullyConnectedLayer` will be employed and it requires `is_dlrm` to be `True` within `CreateSolver`. The default value is `FcPosition_t.Non`. Limitations: this is a research feature which requires a layer with separate data / gradient tensors as the bottom layer. 
+* `pos_type`: The position type of `FusedInnerProduct` layer. The supported types include `FcPosition_t.Head`, `FcPosition_t.Body`, `FcPosition_t.Tail`, `FcPosition_t.Isolated` and `FcPosition_t.Non`.The default value is `FcPosition_t.Non`. If the value is `FcPosition_t.Non`, the general `FusedFullyConnectedLayer` will be used internally. Otherwise, `FusedReluBiasFullyConnectedLayer` will be used. Requirements: The model uses a layer with separate data / gradient tensors as the bottom layer, and is_dlrm is `True`.
 
 * `act_type`: The activation type of `FusedInnerProduct` layer. The supported types include `Activation_t.Relu` and `Activation_t.Non`. This argument is valid only if `is_dlrm` is set `True` within `CreateSolver` and `layer_type` is specified as `hugectr.Layer_t.FusedInnerProduct`. Besides, `Activation_t.Non` can only be used together with `FcPosition_t.Tail`. The default value is `Activation_t.Relu`.
 

@@ -67,11 +67,11 @@
 
 ## What's New in Version 3.1
 
-+ **HybridEmbedding**: The hybrid embedding is designed to overcome the bandwidth constraint imposed by the embedding part of the embedding train workload by algorithmically reducing the traffic over netwoek. Limitations: it’s a research feature which only support one-hot embedding and SGD optimizer now.
++ **Hybrid Embedding**: Hybrid embedding is designed to overcome the bandwidth constraint imposed by the embedding part of the embedding train workload by algorithmically reducing the traffic over netwoek. Requirements: The input dataset has only one-hot feature items and the model uses the SGD optimizer.
 
-+ **FusedReluBiasFullyConnectedLayer**: FusedReluBiasFullyConnectedLayer is one of the major optimization applied in dense layer which fuse relu Bias and FullyConnected layers to reduce the memory access on HBM. Limitations: this is a research feature which requires a layer with separate data / gradient tensors as the bottom layer. 
++ **FusedReluBiasFullyConnectedLayer**: FusedReluBiasFullyConnectedLayer is one of the major optimizations applied to dense layers. It fuses relu Bias and FullyConnected layers to reduce the memory access on HBM. Requirements: The model uses a layer with separate data / gradient tensors as the bottom layer.
 
-+ **Overlapped Pipeline**: The computation in the dense input data path will be overlapped with the hybrid embedding computation. Limitations: this is a research feature and depends on the AsyncReader, hybrid embedding and interaction layer.
++ **Overlapped Pipeline**: The computation in the dense input data path is overlapped with the hybrid embedding computation. Requirements: The data reader is asynchronous, hybrid embedding is used, and the model has a feature interaction layer.
 
 + **Holistic CUDA Graph**: Packing everything inside a training iteration into a CUDA Graph. Limitations: this option works only if use_cuda_graph is turned off and use_overlapped_pipeline is turned on. 
 
