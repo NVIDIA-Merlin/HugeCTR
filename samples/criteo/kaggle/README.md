@@ -1,9 +1,5 @@
-# RESEARCH SAMPLE #
-The purpose of this sample is to demonstrate how to build and train a sample for the sake of research purpose.
-
-## Table of Contents
-* [Set Up the HugeCTR Docker Environment](#set-up-the-hugectr-docker-environment)
-* [Performance Research](#performance-research)
+# CRITEO KAGGLE SAMPLE #
+The purpose of this sample is to demonstrate how to build and train with Criteo Kaggle dataset.  
 
 ## Set Up the HugeCTR Docker Environment ##
 You can set up the HugeCTR Docker environment by doing one of the following:
@@ -28,7 +24,9 @@ Please refer to [How to Start Your Development](https://nvidia-merlin.github.io/
 $ export PYTHONPATH=/usr/local/hugectr/lib:$PYTHONPATH
 ```
 
-## Performance Research
+## Train with HugeCTR
+model_1.py to model_4.py demostrate how to train a sample that leverages the asynchronous data reading, hybrid embedding, and overlapped pipeline optimizations.
+
 We will show that multiple performance optmizations can be applied to different network structures.
 |                               | Mode           | Network structure highlight                   | async_mlp_wgrad | gen_loss_summary | overlap_lr | overlap_init_wgrad | overlap_ar_a2a | use_cuda_graph | use_holistic_cuda_graph | use_overlapped_pipeline | grouped_all_reduce | all_reduce_algo | data_reader_type | embedding_type  | 
 | ---                           | ---            | ---                                          | ---             | ---              | ---        | ---                | ---            | ---            | ---                     | ---                     | ---                | ---             | ---              | ---             | 
@@ -44,11 +42,11 @@ Ensure that you've met the following requirements:
 ### Preprocess the Kaggle Display Advertising Dataset ##
 The Kaggle Display Advertising dataset is provided by CriteoLabs. For more information, see https://ailab.criteo.com/ressources/. The original training set contains 45,840,617 examples. Each sample consists of a label (0 if the ad wasn't clicked and 1 if the ad was clicked) and 39 features (13 integer features and 26 categorical features). The dataset is also missing numerous values across the feature columns, which should be preprocessed accordingly. The original test set doesn't contain labels, so it's not used.
 
-1. Go ([here](https://ailab.criteo.com/ressources/)) and download the Kaggle Display Advertising Dataset into the `"${project_home}/samples/research/"` folder.
+1. Go ([here](https://ailab.criteo.com/ressources/)) and download the Kaggle Display Advertising Dataset into the `"${project_home}/samples/criteo/kaggle/"` folder.
    As an alternative, you can run the following commands: 
    ```bash
    # download and preprocess
-   $ cd ./samples/research/
+   $ cd ./samples/criteo/kaggle/
    $ tar zxvf dac.tar.gz
    ```
    The `dlrm_raw` tool converts the original data to HugeCTR's raw format and fills the missing values. Only `train.txt` will be used to generate raw data.

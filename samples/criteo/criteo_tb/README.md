@@ -1,5 +1,5 @@
 # CRITEO CTR SAMPLE #
-The purpose of this sample is to demonstrate the basic usage of HugeCTR Python interface.
+The purpose of this sample is to demonstrate the basic usage of HugeCTR Python interface with Criteo 1TB dataset.
 
 ## Set Up the HugeCTR Docker Environment ##
 You can set up the HugeCTR Docker environment by doing one of the following:
@@ -75,19 +75,19 @@ HugeCTR supports data processing through NVTabular. Make sure that the NVTabular
 ## Train with HugeCTR ##
 Run the following command after preprocessing the dataset through Perl:
 ```shell
-$ python3 ../samples/criteo/criteo.py
+$ python3 ../samples/criteo/criteo_tb/criteo.py
 ```
 
 Run one of the following commands after preprocessing the dataset through NVTabular using either the Parquet or Binary output:
 
 **Parquet Output**
 ```shell
-$ python3 ../samples/criteo/criteo_parquet.py
+$ python3 ../samples/criteo/criteo_tb/criteo_parquet.py
 ```
 
 **Binary Output**
 ```shell
-$ python3 ../samples/criteo/criteo_bin.py
+$ python3 ../samples/criteo/criteo_tb/criteo_bin.py
 ```
 
 **NOTE**: If you want to generate binary data using the `Norm` data format instead of the `Parquet` data format, set the fourth argument (the one after `nvt`) to `0`. Generating binary data using the `Norm` data format can take much longer than it does when using the `Parquet` data format because of the additional conversion process. Use the NVTabular binary mode if you encounter an issue with Pandas mode.
