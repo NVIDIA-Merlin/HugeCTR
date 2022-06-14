@@ -1,5 +1,70 @@
 # Release Notes
 
+## What's New in Version 3.7
+
++ **3G Embedding Developer Preview**:
+The 3.7 version introduces next-generation of embedding as a developer preview feature. We call it 3G embedding because it is the new update to the HugeCTR embedding interface and implementation since the unified embedding in v3.1 version, which was the second one.
+Compared with the previous embedding, there are three main changes in the embedding collection.
+  + First, it allows users to fuse embedding tables with different embedding vector sizes. The previous embedding can only fuse embedding tables with the same embedding vector size.
+  The enhancement boosts both flexibility and performance.
+  + Second, it extends the functionality of embedding by supporting the `concat` combiner and supporting different slot lookup on the same embedding table.
+  + Finally, the embedding collection is powerful enough to support arbitrary embedding table placement which includes data parallel and model parallel.
+  By providing a plan JSON file, you can configure the table placement strategy as you specify.
+  See the `dlrm_train.py` file in the  [embedding_collection_test](https://github.com/NVIDIA-Merlin/HugeCTR/tree/v3.7/test/embedding_collection_test) directory of the repository for a more detailed usage example.
+
++ **HPS Performance Improvements**:
+  + **Kafka**: Model parameters are now stored in Kafka in a bandwidth-saving multiplexed data format.
+  This data format vastly increases throughput. In our lab, we measured transfer speeds up to 1.1 Gbps for each Kafka broker.
+  + **HashMap backend**: Parallel and single-threaded hashmap implementations have been replaced by a new unified implementation.
+  This new implementation uses a new memory-pool based allocation method that vastly increases upsert performance without diminishing recall performance.
+  Compared with the previous implementation, you can expect a 4x speed improvement for large-batch insertion operations.
+  + **Suppressed and simplified log**: Most log messages related to HPS have the log level changed to `TRACE` rather than `INFO` or `DEBUG` to reduce logging verbosity.
+
++ **Offline Inference Usability Enhancements**:
+Thread pool size is configurable.
+Raw data format is available for the offline inference.
+
++ **DataGenerator Performance Improvements**:
+You can specify the `num_threads` parameter to parallelize a `Norm` dataset generation.
+
++ **Evaluation Metric Improvements**:
+  + Average loss performance improvement in multi-node environments.
+  + AUC performance optimization and safer memory management.
+  + Addition of NDCG and SMAPE.
+
++ **Embedding Training Cache Parquet Demo**:
+Created a keyset extractor script to generate keyset files for Parquet datasets.
+Provided users with an end-to-end demo of how to train a Parquet dataset using the embedding cache mode.
+See the [Embedding Training Cache Example](https://nvidia-merlin.github.io/HugeCTR/v3.7/notebooks/embedding_training_cache_example.html) notebook.
+
++ **Documentation Enhancements**:
+The documentation details for [HugeCTR Hierarchical Parameter Server Database Backend](https://nvidia-merlin.github.io/HugeCTR/v3.7/hugectr_parameter_server.html) are updated for consistency and clarity.
+
++ **Issues Fixed**:
+  + If `slot_size_array` is specified, `workspace_size_per_gpu_in_mb` is no longer required.
+  + If you build and install HugeCTR from scratch, you can specify the `CMAKE_INSTALL_PREFIX` CMake variable to identify the installation directory for HugeCTR.
+  + Fixed SOK hang issue when calling `sok.Init()` with a large number of GPUs. See the GitHub issue [261](https://github.com/NVIDIA-Merlin/HugeCTR/issues/261) and [302](https://github.com/NVIDIA-Merlin/HugeCTR/issues/302) for more details.
+
+
++ **Known Issues**:
+  + HugeCTR uses NCCL to share data between ranks and NCCL can require shared system memory for IPC and pinned (page-locked) system memory resources.
+    If you use NCCL inside a container, increase these resources by specifying the following arguments when you start the container:
+
+    ```shell
+      -shm-size=1g -ulimit memlock=-1
+    ```
+
+    See also the NCCL [known issue](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/troubleshooting.html#sharing-data) and the GitHub [issue](https://github.com/NVIDIA-Merlin/HugeCTR/issues/243).
+  + `KafkaProducers` startup succeeds even if the target Kafka broker is unresponsive.
+    To avoid data loss in conjunction with streaming-model updates from Kafka, you have to make sure that a sufficient number of Kafka brokers are running, operating properly, and are reachable from the node where you run HugeCTR.
+  + The number of data files in the file list should be greater than or equal to the number of data reader workers.
+    Otherwise, different workers are mapped to the same file and data loading does not progress as expected.
+  + Joint loss training with a regularizer is not supported.
+  + The Criteo 1 TB click logs dataset that is used with many HugeCTR sample programs and notebooks is currently unavailable.
+    Until the dataset becomes downloadable again, you can run those samples based on our synthetic dataset generator.
+    For more information, see the [Getting Started](https://github.com/NVIDIA-Merlin/HugeCTR#getting-started) section of the repository README file.
+  + Data generator of parquet type produces inconsistent file names between _metadata.json and actual dataset files, which will result in core dump fault when using the synthetic dataset. For more details, see the GitHub [issue](https://github.com/NVIDIA-Merlin/HugeCTR/issues/298).
+
 ## What's New in Version 3.6
 
 + **Concat 3D Layer**:
