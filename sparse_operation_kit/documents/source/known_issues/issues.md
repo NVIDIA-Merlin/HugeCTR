@@ -1,5 +1,5 @@
 # Known Issues #
-There are several issues in SparseOperationKit, and we are trying to fix shose issues in the near future.
+There are several issues in SparseOperationKit, and we are trying to fix those issues in the near future.
 
 ## NCCL conflicts ##
 In SparseOperationKit's embedding layers, NCCL is used to transfer data among GPUs. When there exists multiple embedding layers and there is not data dependencies among those layers, the execution order must be deterministic otherwise program might be hanging.

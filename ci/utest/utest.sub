@@ -11,4 +11,6 @@ srun --ntasks="${SLURM_JOB_NUM_NODES}" --container-image="${CONT}" --container-m
       ./regularizers_test && \
       ./embedding_training_cache_test && \
       ./parser_test && \
-      ./auc_test"
+      ./auc_test && \
+      ./embedding_collection_test && \
+      ./averageloss_test"

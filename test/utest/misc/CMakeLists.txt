@@ -19,5 +19,6 @@ file(GLOB_RECURSE shuffle_test_src RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} *.cpp *.
 
 add_executable(shuffle_test ${shuffle_test_src})
 target_link_libraries(shuffle_test PUBLIC huge_ctr_static gtest gtest_main)
+target_link_libraries(shuffle_test PUBLIC /usr/local/cuda/lib64/stubs/libcuda.so)
 set_target_properties(shuffle_test PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 set_target_properties(shuffle_test PROPERTIES CUDA_ARCHITECTURES OFF)

@@ -39,10 +39,6 @@ enum class DatabaseType_t {
   RedisCluster,
   RocksDB,
 };
-enum class DatabaseHashMapAlgorithm_t {
-  STL,
-  PHM,
-};
 enum class DatabaseOverflowPolicy_t {
   EvictOldest,
   EvictRandom,
@@ -69,17 +65,6 @@ constexpr const char* hctr_enum_to_c_str(const DatabaseType_t value) {
       return "<unknown DatabaseType_t value>";
   }
 }
-constexpr const char* hctr_enum_to_c_str(const DatabaseHashMapAlgorithm_t value) {
-  // Remark: Dependent functions assume lower-case, and underscore separated.
-  switch (value) {
-    case DatabaseHashMapAlgorithm_t::STL:
-      return "stl";
-    case DatabaseHashMapAlgorithm_t::PHM:
-      return "phm";
-    default:
-      return "<unknown DatabaseHashMapAlgorithm_t value>";
-  }
-}
 constexpr const char* hctr_enum_to_c_str(const DatabaseOverflowPolicy_t value) {
   // Remark: Dependent functions assume lower-case, and underscore separated.
   switch (value) {
@@ -104,12 +89,10 @@ constexpr const char* hctr_enum_to_c_str(const UpdateSourceType_t value) {
 }
 
 std::ostream& operator<<(std::ostream& os, DatabaseType_t value);
-std::ostream& operator<<(std::ostream& os, DatabaseHashMapAlgorithm_t value);
 std::ostream& operator<<(std::ostream& os, DatabaseOverflowPolicy_t value);
 std::ostream& operator<<(std::ostream& os, UpdateSourceType_t value);
 DatabaseType_t get_hps_database_type(const nlohmann::json& json, const std::string key);
 UpdateSourceType_t get_hps_updatesource_type(const nlohmann::json& json, const std::string key);
-DatabaseHashMapAlgorithm_t get_hps_hashmap_algo(const nlohmann::json& json, const std::string key);
 DatabaseOverflowPolicy_t get_hps_overflow_policy(const nlohmann::json& json, const std::string key);
 
 struct VolatileDatabaseParams {
@@ -119,8 +102,8 @@ struct VolatileDatabaseParams {
   std::string address;    // hostname[:port][[;hostname[:port]]...]
   std::string user_name;  // "default" = Standard user for Redis!
   std::string password;
-  DatabaseHashMapAlgorithm_t algorithm;  // Only used with HashMap type backends.
   size_t num_partitions;
+  size_t allocation_rate;  // Only used with HashMap type backends.
   size_t max_get_batch_size;
   size_t max_set_batch_size;
 
@@ -142,9 +125,9 @@ struct VolatileDatabaseParams {
       // Backend specific.
       const std::string& address = "127.0.0.1:7000", const std::string& user_name = "default",
       const std::string& password = "",
-      DatabaseHashMapAlgorithm_t algorithm = DatabaseHashMapAlgorithm_t::PHM,
       size_t num_partitions = std::min(16u, std::thread::hardware_concurrency()),
-      size_t max_get_batch_size = 10'000, size_t max_set_batch_size = 10'000,
+      size_t allocation_rate = 256 * 1024 * 1024, size_t max_get_batch_size = 10'000,
+      size_t max_set_batch_size = 10'000,
       // Overflow handling related.
       bool refresh_time_after_fetch = false,
       size_t overflow_margin = std::numeric_limits<size_t>::max(),
@@ -153,7 +136,7 @@ struct VolatileDatabaseParams {
       // Caching behavior related.
       double initial_cache_rate = 1.0, bool cache_missed_embeddings = false,
       // Real-time update mechanism related.
-      const std::vector<std::string>& update_filters = {".+"});
+      const std::vector<std::string>& update_filters = {"^hps_.+$"});
 
   bool operator==(const VolatileDatabaseParams& p) const;
   bool operator!=(const VolatileDatabaseParams& p) const;
@@ -179,7 +162,7 @@ struct PersistentDatabaseParams {
                            size_t num_threads = 16, bool read_only = false,
                            size_t max_get_batch_size = 10'000, size_t max_set_batch_size = 10'000,
                            // Real-time update mechanism related.
-                           const std::vector<std::string>& update_filters = {".+"});
+                           const std::vector<std::string>& update_filters = {"^hps_.+$"});
 
   bool operator==(const PersistentDatabaseParams& p) const;
   bool operator!=(const PersistentDatabaseParams& p) const;
@@ -190,16 +173,20 @@ struct UpdateSourceParams {
 
   // Backend specific.
   std::string brokers;  // Kafka: The IP[:Port][[;IP[:Port]]...] of the brokers.
+  size_t metadata_refresh_interval_ms;
+  size_t receive_buffer_size;
   size_t poll_timeout_ms;
-  size_t max_receive_buffer_size;
   size_t max_batch_size;
   size_t failure_backoff_ms;
+  size_t max_commit_interval;
 
   UpdateSourceParams(UpdateSourceType_t type = UpdateSourceType_t::Null,
                      // Backend specific.
-                     const std::string& brokers = "127.0.0.1:9092", size_t poll_timeout_ms = 500,
-                     size_t max_receive_buffer_size = 2000, size_t max_batch_size = 1000,
-                     size_t failure_backoff_ms = 50);
+                     const std::string& brokers = "127.0.0.1:9092",
+                     size_t metadata_refresh_interval_ms = 30'000,
+                     size_t receive_buffer_size = 256 * 1024, size_t poll_timeout_ms = 500,
+                     size_t max_batch_size = 8 * 1024, size_t failure_backoff_ms = 50,
+                     size_t max_commit_interval = 32);
 
   bool operator==(const UpdateSourceParams& p) const;
   bool operator!=(const UpdateSourceParams& p) const;
@@ -223,6 +210,7 @@ struct InferenceParams {
   bool use_cuda_graph;
   int number_of_worker_buffers_in_pool;
   int number_of_refresh_buffers_in_pool;
+  int thread_pool_size;
   float cache_refresh_percentage_per_iteration;
   std::vector<int> deployed_devices;
   std::vector<float> default_value_for_each_table;
@@ -237,6 +225,9 @@ struct InferenceParams {
   std::vector<size_t> maxnum_catfeature_query_per_table_per_sample;
   std::vector<size_t> embedding_vecsize_per_table;
   std::vector<std::string> embedding_table_names;
+  std::string network_file;
+  size_t label_dim;
+  size_t slot_num;
 
   InferenceParams(const std::string& model_name, size_t max_batchsize, float hit_rate_threshold,
                   const std::string& dense_model_file,
@@ -244,8 +235,8 @@ struct InferenceParams {
                   bool use_gpu_embedding_cache, float cache_size_percentage, bool i64_input_key,
                   bool use_mixed_precision = false, float scaler = 1.0,
                   bool use_algorithm_search = true, bool use_cuda_graph = true,
-                  int number_of_worker_buffers_in_pool = 2,
-                  int number_of_refresh_buffers_in_pool = 1,
+                  int number_of_worker_buffers_in_pool = 1,
+                  int number_of_refresh_buffers_in_pool = 1, int thread_pool_size = 16,
                   float cache_refresh_percentage_per_iteration = 0.1,
                   const std::vector<int>& deployed_devices = {0},
                   const std::vector<float>& default_value_for_each_table = {0.0f},
@@ -254,11 +245,12 @@ struct InferenceParams {
                   const PersistentDatabaseParams& persistent_db = {},
                   const UpdateSourceParams& update_source = {},
                   // HPS required parameters
-                  int maxnum_des_feature_per_sample = 20, float refresh_delay = 0.0f,
+                  int maxnum_des_feature_per_sample = 26, float refresh_delay = 0.0f,
                   float refresh_interval = 0.0f,
                   const std::vector<size_t>& maxnum_catfeature_query_per_table_per_sample = {26},
                   const std::vector<size_t>& embedding_vecsize_per_table = {128},
-                  const std::vector<std::string>& embedding_table_names = {""});
+                  const std::vector<std::string>& embedding_table_names = {""},
+                  const std::string& network_file = "", size_t label_dim = 1, size_t slot_num = 10);
 };
 
 struct parameter_server_config {

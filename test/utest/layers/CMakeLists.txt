@@ -48,11 +48,14 @@ file(GLOB layers_test_src
   elementwise_multiply_layer_test.cpp
   mlp_test.cpp
   concat_3d_layer_test.cpp
+  multi_head_attention_layer_test.cpp
+  layer_norm_layer_test.cpp
 )
 
 add_executable(layers_test ${layers_test_src})
 target_compile_features(layers_test PUBLIC cxx_std_17)
 target_link_libraries(layers_test PUBLIC huge_ctr_static gtest gtest_main)
+target_link_libraries(layers_test PUBLIC /usr/local/cuda/lib64/stubs/libcuda.so)
 
 add_custom_command(
   OUTPUT "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/python_concat.py"

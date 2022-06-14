@@ -111,8 +111,10 @@ struct Solver {
   bool overlap_lr;
   bool overlap_init_wgrad;
   bool overlap_ar_a2a;
+  bool eval_overlap;
   bool use_holistic_cuda_graph;
   bool use_overlapped_pipeline;
+  bool use_embedding_collection;
   AllReduceAlgo all_reduce_algo;
   bool grouped_all_reduce;
   size_t num_iterations_statistics;
@@ -283,6 +285,7 @@ GpuLearningRateSchedulers get_gpu_learning_rate_schedulers(
 const std::map<std::string, Layer_t> LAYER_TYPE_MAP = {
     {"Add", Layer_t::Add},
     {"BatchNorm", Layer_t::BatchNorm},
+    {"LayerNorm", Layer_t::LayerNorm},
     {"BinaryCrossEntropyLoss", Layer_t::BinaryCrossEntropyLoss},
     {"Cast", Layer_t::Cast},
     {"Concat", Layer_t::Concat},
@@ -302,6 +305,7 @@ const std::map<std::string, Layer_t> LAYER_TYPE_MAP = {
     {"PReLU_Dice", Layer_t::PReLU_Dice},
     {"GRU", Layer_t::GRU},
     {"MatrixMultiply", Layer_t::MatrixMultiply},
+    {"MultiHeadAttention", Layer_t::MultiHeadAttention},
     {"Scale", Layer_t::Scale},
     {"FusedReshapeConcat", Layer_t::FusedReshapeConcat},
     {"FusedReshapeConcatGeneral", Layer_t::FusedReshapeConcatGeneral},
@@ -539,14 +543,16 @@ struct create_datareader {
                   std::shared_ptr<IDataReader>& data_reader_eval, size_t batch_size,
                   size_t batch_size_eval, bool use_mixed_precision, bool repeat_dataset,
                   bool enable_overlap, const std::shared_ptr<ResourceManager> resource_manager);
-
+  // Used by InferenceSession
   void operator()(const InferenceParams& inference_params, const InferenceParser& inference_parser,
                   std::shared_ptr<IDataReader>& data_reader,
                   const std::shared_ptr<ResourceManager> resource_manager,
                   std::map<std::string, SparseInput<TypeKey>>& sparse_input_map,
                   std::map<std::string, TensorBag2>& label_dense_map, const std::string& source,
                   const DataReaderType_t data_reader_type, const Check_t check_type,
-                  const std::vector<long long>& slot_size_array, const bool repeat_dataset);
+                  const std::vector<long long>& slot_size_array, const bool repeat_dataset,
+                  long long num_samples);
+  // Used by InferenceModel
   void operator()(const InferenceParams& inference_params, const InferenceParser& inference_parser,
                   std::shared_ptr<IDataReader>& data_reader,
                   const std::shared_ptr<ResourceManager> resource_manager,

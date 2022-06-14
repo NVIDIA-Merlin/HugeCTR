@@ -21,6 +21,7 @@ subtrees:
           - file: notebooks/multi_gpu_offline_inference.ipynb
           - file: notebooks/hps_demo.ipynb
           - file: notebooks/training_with_hdfs.ipynb
+          - file: notebooks/embedding_training_cache_example.ipynb
       - file: notebooks/multi-modal-data/index.md
         entries:
           - file: notebooks/multi-modal-data/00-Intro
@@ -37,8 +38,9 @@ subtrees:
         entries:
           - file: hugectr_talks_blogs.md
           - file: QAList.md
-          - file: hugectr_contributor_guide.md
       - file: release_notes.md
+      - file: hugectr_contributor_guide.md
+        title: Contributing to HugeCTR
 
 
 # The multi-modal data example uses several notebooks to demonstrate how to use of multi-modal data (text and images)

@@ -15,6 +15,7 @@ stages:
   tags:
     - nvidia.com/cuda.driver.major=470
   script:
+    - docker login -u "\$oauthtoken" -p "${NVSTAGE_KEY}" "${NVSTAGE_REGISTRY}"
     - docker login -u ${CI_PRIVATE_USER} -p "${CI_PRIVATE_KEY}" "${CI_REGISTRY}"
     - if [[ "$MERLIN_REMOTE_REPO" == "" ]]; then
         git clone $REMOTE_REPO;
@@ -28,17 +29,14 @@ stages:
     - if [[ "$TEST_NEW_IMAGE" == "1" ]]; then
         DST_IMAGE=${DST_IMAGE}.new_image;
       fi
-    - export dir_path=$(dirname "${DOCKER_FILE}")
-    - export file_path=$(basename "${DOCKER_FILE}")
-    - cd ${dir_path}
     - docker build --pull
       -t ${DST_IMAGE}
-      -f ./${file_path}
+      -f ${DOCKER_FILE}
       $BUILD_ARGS
       --no-cache 
       . ;
     - docker push ${DST_IMAGE}
-  allow_failure: true
+  allow_failure: false
   rules:
     - if: $NIGHTLY == "1"
       when: always

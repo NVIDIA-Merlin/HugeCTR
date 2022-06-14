@@ -36,5 +36,6 @@ add_executable(data_reader_test ${data_reader_test_src})
 add_executable(async_reader ${async_reader_src})
 target_compile_features(data_reader_test PUBLIC cxx_std_17)
 target_link_libraries(async_reader PUBLIC huge_ctr_static gtest gtest_main)
+target_link_libraries(async_reader PUBLIC /usr/local/cuda/lib64/stubs/libcuda.so)
 target_link_libraries(data_reader_test PUBLIC huge_ctr_static gtest gtest_main)
- 
+target_link_libraries(data_reader_test PUBLIC /usr/local/cuda/lib64/stubs/libcuda.so)

@@ -33,8 +33,10 @@
 #include <layers/gather_layer.hpp>
 #include <layers/gru_layer.hpp>
 #include <layers/interaction_layer.hpp>
+#include <layers/layer_norm_layer.hpp>
 #include <layers/matrix_multiply_layer.hpp>
 #include <layers/multi_cross_layer.hpp>
+#include <layers/multi_head_attention_layer.hpp>
 #include <layers/prelu_dice_layer.hpp>
 #include <layers/reduce_mean_layer.hpp>
 #include <layers/reduce_sum_layer.hpp>
@@ -225,6 +227,20 @@ void save_graph_to_json(nlohmann::json& layer_config_array,
               INITIALIZER_TYPE_TO_STRING[dense_layer_params[i].beta_init_type];
         }
         layer_config["bn_param"] = bn_param_config;
+        break;
+      }
+      case Layer_t::LayerNorm: {
+        nlohmann::json ln_param_config;
+        ln_param_config["eps"] = dense_layer_params[i].eps;
+        if (dense_layer_params[i].gamma_init_type != Initializer_t::Default) {
+          ln_param_config["gamma_init"] =
+              INITIALIZER_TYPE_TO_STRING[dense_layer_params[i].gamma_init_type];
+        }
+        if (dense_layer_params[i].beta_init_type != Initializer_t::Default) {
+          ln_param_config["beta_init"] =
+              INITIALIZER_TYPE_TO_STRING[dense_layer_params[i].beta_init_type];
+        }
+        layer_config["ln_param"] = ln_param_config;
         break;
       }
       case Layer_t::Dropout: {
@@ -860,6 +876,36 @@ void Model::add_dense_layer_internal(
       }
       break;
     }
+    case Layer_t::LayerNorm: {
+      if (use_mixed_precision) {
+        Tensor2<__half> ln_in_tensor = Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
+        // establish out tensor
+        Tensor2<__half> ln_out_tensor;
+        blobs_buff->reserve(ln_in_tensor.get_dimensions(), &ln_out_tensor);
+        output_tensor_entries.push_back(
+            {input_output_info.output_names[0], ln_out_tensor.shrink()});
+        std::vector<Initializer_t> initializer_types{dense_layer.gamma_init_type,
+                                                     dense_layer.beta_init_type};
+        LayerNormLayer<__half>::Params params = {dense_layer.eps};
+        layers.emplace_back(new LayerNormLayer<__half>(weight_buff_half, wgrad_buff_half,
+                                                       blobs_buff, ln_in_tensor, ln_out_tensor,
+                                                       params, gpu_resource, initializer_types));
+      } else {
+        Tensor2<float> ln_in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
+        // establish out tensor
+        Tensor2<float> ln_out_tensor;
+        blobs_buff->reserve(ln_in_tensor.get_dimensions(), &ln_out_tensor);
+        output_tensor_entries.push_back(
+            {input_output_info.output_names[0], ln_out_tensor.shrink()});
+        std::vector<Initializer_t> initializer_types{dense_layer.gamma_init_type,
+                                                     dense_layer.beta_init_type};
+        LayerNormLayer<float>::Params params = {dense_layer.eps};
+        layers.emplace_back(new LayerNormLayer<float>(weight_buff, wgrad_buff, blobs_buff,
+                                                      ln_in_tensor, ln_out_tensor, params,
+                                                      gpu_resource, initializer_types));
+      }
+      break;
+    }
     case Layer_t::BinaryCrossEntropyLoss: {
       if (input_output_info.inputs.size() != 2) {
         HCTR_OWN_THROW(Error_t::WrongInput, "bottom of BinaryCrossEntropyLoss must be two dim");
@@ -1137,6 +1183,43 @@ void Model::add_dense_layer_internal(
             enable_tf32_compute, initializer_types));
         output_tensor_entries.push_back(
             {input_output_info.output_names[0], fc_out_tensor.shrink()});
+      }
+      break;
+    }
+    case Layer_t::MultiHeadAttention: {
+      if (input_output_info.inputs.size() != 2) {
+        HCTR_OWN_THROW(Error_t::WrongInput, "MultiHeadAttentionLayer needs two input tensors ");
+      }
+      if (use_mixed_precision) {
+        Tensors2<__half> in_tensors;
+        for (const TensorBag2& bag : input_output_info.inputs) {
+          in_tensors.push_back(Tensor2<__half>::stretch_from(bag));
+        }
+        if (in_tensors[0].get_dimensions().size() != 4 ||
+            in_tensors[1].get_dimensions().size() != 4) {
+          HCTR_OWN_THROW(Error_t::WrongInput,
+                         "MultiHeadAttentionLayer needs two 4D input tensors ");
+        }
+        Tensor2<__half> out_tensor;
+        layers.emplace_back(new MultiHeadAttentionLayer<__half>(in_tensors, out_tensor, blobs_buff,
+                                                                gpu_resource, use_mixed_precision,
+                                                                enable_tf32_compute));
+        output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
+      } else {
+        Tensors2<float> in_tensors;
+        for (const auto& bag : input_output_info.inputs) {
+          in_tensors.push_back(Tensor2<float>::stretch_from(bag));
+        }
+        if (in_tensors[0].get_dimensions().size() != 4 ||
+            in_tensors[1].get_dimensions().size() != 4) {
+          HCTR_OWN_THROW(Error_t::WrongInput,
+                         "MultiHeadAttentionLayer needs two 4D input tensors ");
+        }
+        Tensor2<float> out_tensor;
+        layers.emplace_back(new MultiHeadAttentionLayer<float>(in_tensors, out_tensor, blobs_buff,
+                                                               gpu_resource, use_mixed_precision,
+                                                               enable_tf32_compute));
+        output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
       }
       break;
     }
@@ -1582,7 +1665,7 @@ void Model::add_dense_layer_internal(
     default: {
       assert(!"Error: no such layer && should never get here!");
     }
-  }  // end of switch
+  }  // namespace HugeCTR
   if (!(layer_type == Layer_t::CrossEntropyLoss || layer_type == Layer_t::BinaryCrossEntropyLoss ||
         layer_type == Layer_t::MultiCrossEntropyLoss)) {
     for (auto& output_tensor_entry : output_tensor_entries) {
@@ -1723,6 +1806,17 @@ void calculate_tensor_dimensions(std::map<std::string, std::vector<int>>& tensor
       int num_output = dense_layer.num_output;
       tensor_shape_info_raw.insert(
           std::make_pair(dense_layer.top_names[0], std::vector<int>{batch_size, num_output}));
+      break;
+    }
+    case Layer_t::MultiHeadAttention: {
+      auto& dim1 = tensor_shape_info_raw[dense_layer.bottom_names[0]];
+      auto& dim2 = tensor_shape_info_raw[dense_layer.bottom_names[1]];
+      if (dim1.size() == 4) {
+        tensor_shape_info_raw.insert(std::make_pair(
+            dense_layer.top_names[0], std::vector<int>{dim1[0], dim1[1], dim1[2], dim2[2]}));
+      } else {
+        HCTR_OWN_THROW(Error_t::WrongInput, "MultiHeadAttentionLayer needs two 4D input tensors ");
+      }
       break;
     }
     case Layer_t::Interaction: {

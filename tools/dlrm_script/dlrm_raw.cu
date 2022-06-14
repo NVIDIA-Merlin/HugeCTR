@@ -279,7 +279,7 @@ void process_kaggle_dataset(const std::string &input_dir_path, const std::string
             host_out_buffer, binary_writer, dev_slot_size_array, rows_begin_train, rows_end_train,
             3);
 
-        HCTR_LOG_S(INFO, ROOT) << "Porcessed file: " << input_file_path << " for /train_data.bin"
+        HCTR_LOG_S(INFO, ROOT) << "Processed file: " << input_file_path << " for /train_data.bin"
                                << std::endl;
         HCTR_LOG_S(INFO, ROOT) << "Size of train_data.bin: " << sz_total_output_binary << " Bytes."
                                << std::endl;

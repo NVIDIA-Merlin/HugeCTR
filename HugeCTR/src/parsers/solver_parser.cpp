@@ -189,7 +189,9 @@ SolverParser::SolverParser(const std::string& file) {
     const std::map<std::string, metrics::Type> metrics_map = {
         {"AverageLoss", metrics::Type::AverageLoss},
         {"AUC", metrics::Type::AUC},
-        {"HitRate", metrics::Type::HitRate}};
+        {"HitRate", metrics::Type::HitRate},
+        {"NDCG", metrics::Type::NDCG},
+        {"SMAPE", metrics::Type::SMAPE}};
 
     if (has_key_(j, "eval_metrics")) {
       auto eval_metrics = get_json(j, "eval_metrics");
@@ -223,6 +225,22 @@ SolverParser::SolverParser(const std::string& file) {
                   HCTR_OWN_THROW(Error_t::WrongInput, "0 <= HitRate threshold <= 1 is not true");
                 }
                 metrics_spec[metrics::Type::HitRate] = val;
+                break;
+              }
+              case metrics::Type::NDCG: {
+                float val = (metric_strs.size() == 1) ? 1.f : std::stof(metric_strs[1]);
+                if (val < 0.0 || val > 1.0) {
+                  HCTR_OWN_THROW(Error_t::WrongInput, "0 <= NDCG threshold <= 1 is not true");
+                }
+                metrics_spec[metrics::Type::NDCG] = val;
+                break;
+              }
+              case metrics::Type::SMAPE: {
+                float val = (metric_strs.size() == 1) ? 1.f : std::stof(metric_strs[1]);
+                if (val < 0.0 || val > 1.0) {
+                  HCTR_OWN_THROW(Error_t::WrongInput, "0 <= SMAPE threshold <= 1 is not true");
+                }
+                metrics_spec[metrics::Type::SMAPE] = val;
                 break;
               }
               default: {

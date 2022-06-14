@@ -1,7 +1,9 @@
 variables:
-  IMAGE_TRAIN: gitlab-master.nvidia.com:5005/dl/hugectr/hugectr:devel_train
-  IMAGE_TRAIN_WITH_HDFS: gitlab-master.nvidia.com:5005/dl/hugectr/hugectr:devel_train.with_hdfs
-  IMAGE_INFER: gitlab-master.nvidia.com:5005/dl/hugectr/hugectr:devel_inference
+#  IMAGE_TRAIN: gitlab-master.nvidia.com:5005/dl/hugectr/hugectr:devel_train
+  IMAGE_ALL: gitlab-master.nvidia.com:5005/dl/hugectr/hugectr:devel_all
+#  IMAGE_TRAIN_WITH_HDFS: gitlab-master.nvidia.com:5005/dl/hugectr/hugectr:devel_train.with_hdfs
+  IMAGE_ALL_WITH_HDFS: gitlab-master.nvidia.com:5005/dl/hugectr/hugectr:devel_all.with_hdfs
+#  IMAGE_INFER: gitlab-master.nvidia.com:5005/dl/hugectr/hugectr:devel_inference
   IMAGE_SOK_TF2: gitlab-master.nvidia.com:5005/dl/hugectr/hugectr:devel_embedding_tf2
   IMAGE_SOK_TF1: gitlab-master.nvidia.com:5005/dl/hugectr/hugectr:devel_embedding_tf1
   DATASET: /lustre/fsw/devtech/hpc-hugectr/criteo_kaggle

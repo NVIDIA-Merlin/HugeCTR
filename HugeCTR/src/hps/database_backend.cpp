@@ -65,12 +65,10 @@ std::string DatabaseBackendError::to_string() const {
 }
 
 template <typename TKey>
-VolatileBackend<TKey>::VolatileBackend(const bool refresh_time_after_fetch,
-                                       const size_t overflow_margin,
+VolatileBackend<TKey>::VolatileBackend(const size_t overflow_margin,
                                        const DatabaseOverflowPolicy_t overflow_policy,
                                        const double overflow_resolution_target)
-    : refresh_time_after_fetch_(refresh_time_after_fetch),
-      overflow_margin_(overflow_margin),
+    : overflow_margin_(overflow_margin),
       overflow_policy_(overflow_policy),
       overflow_resolution_target_(hctr_safe_cast<size_t>(
           static_cast<double>(overflow_margin) * overflow_resolution_target + 0.5)) {

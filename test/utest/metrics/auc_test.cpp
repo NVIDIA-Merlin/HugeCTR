@@ -33,8 +33,8 @@ namespace {
 const float eps = 2.0e-6;
 
 template <typename T>
-float sklearn_auc(size_t num_total_samples, size_t num_classes, const std::vector<float>& labels,
-                  const std::vector<T>& scores) {
+float sklearn_ref(size_t num_total_samples, size_t num_classes, const std::vector<float>& labels,
+                  const std::vector<T>& scores, bool auc) {
   int num_procs = 1, rank = 0;
 #ifdef ENABLE_MPI
   HCTR_MPI_THROW(MPI_Comm_rank(MPI_COMM_WORLD, &rank));
@@ -94,8 +94,13 @@ float sklearn_auc(size_t num_total_samples, size_t num_classes, const std::vecto
     py_input.close();
 
     std::ostringstream command;
-    command << "python3 python_auc.py " << num_total_samples << " " << sizeof(T) << " " << temp_name
-            << " " << num_classes;
+    command << "python3 python_sklearn.py " << num_total_samples << " " << sizeof(T) << " "
+            << temp_name << " " << num_classes;
+    if (auc) {
+      command << " AUC";
+    } else {
+      command << " NDCG";
+    }
     auto py_output = popen(command.str().c_str(), "r");
     int dummy = fscanf(py_output, "%f", &result);
     if (dummy != 1) {
@@ -182,8 +187,8 @@ void gen_multilobe(std::vector<T>& h_labels, std::vector<T>& h_scores, int offse
 static int execution_number = 0;
 
 template <typename T, typename Generator>
-void auc_test(std::vector<int> device_list, size_t batch_size, size_t num_total_samples,
-              Generator gen, size_t num_evals = 1, size_t num_classes = 1) {
+void metric_test(std::vector<int> device_list, size_t batch_size, size_t num_total_samples,
+                 Generator gen, bool auc, size_t num_evals = 1, size_t num_classes = 1) {
   int num_procs = 1, rank = 0;
 #ifdef ENABLE_MPI
   HCTR_MPI_THROW(MPI_Comm_rank(MPI_COMM_WORLD, &rank));
@@ -214,10 +219,6 @@ void auc_test(std::vector<int> device_list, size_t batch_size, size_t num_total_
   }
   const auto resource_manager = ResourceManagerExt::create(vvgpu, 424242);
 
-  // Create AUC metric
-  auto metric = std::make_unique<metrics::AUC<T>>(batch_size / num_classes, num_batches,
-                                                  num_classes, resource_manager);
-
   // Setup the containers
   std::vector<size_t> dims = {batch_size / num_classes, num_classes};
 
@@ -236,6 +237,15 @@ void auc_test(std::vector<int> device_list, size_t batch_size, size_t num_total_
 
     metric_maps[i] = {{metrics::RawType::Pred, scores_tensors[i].shrink()},
                       {metrics::RawType::Label, labels_tensors[i].shrink()}};
+  }
+
+  // Create metric
+  metrics::Metric* metric;
+  if (auc) {
+    metric =
+        new metrics::AUC<T>(batch_size / num_classes, num_batches, num_classes, resource_manager);
+  } else {
+    metric = new metrics::NDCG<T>(batch_size, num_batches, resource_manager);
   }
 
   std::vector<float> h_labels(num_node_samples);
@@ -274,10 +284,11 @@ void auc_test(std::vector<int> device_list, size_t batch_size, size_t num_total_
     gpu_result = metric->finalize_metric();
   }
 
-  float ref_result = sklearn_auc(num_total_samples, num_classes, h_labels, h_scores);
+  float ref_result = sklearn_ref(num_total_samples, num_classes, h_labels, h_scores, auc);
   // HCTR_LOG(INFO, WORLD, "GPU %f, ref %f \n", gpu_result, ref_result);
 
-  ASSERT_NEAR(gpu_result, ref_result, eps);
+  float error_margin = auc ? eps : 10 * eps;  // Use a larger margin of error for NDCG
+  ASSERT_NEAR(gpu_result, ref_result, error_margin);
 }
 
 class MPIEnvironment : public ::testing::Environment {
@@ -290,77 +301,109 @@ class MPIEnvironment : public ::testing::Environment {
 }  // namespace
 
 ::testing::Environment* const mpi_env = ::testing::AddGlobalTestEnvironment(new MPIEnvironment);
-
-TEST(auc_test, fp32_1gpu) { auc_test<float>({0}, 10, 200, gen_random<float>); }
-TEST(auc_test, fp32_1gpu_odd) { auc_test<float>({0}, 10, 182, gen_random<float>); }
-TEST(auc_test, fp32_2gpu) { auc_test<float>({0, 1}, 10, 440, gen_random<float>); }
-TEST(auc_test, fp32_2gpu_odd) { auc_test<float>({0, 1}, 10, 443, gen_random<float>); }
-TEST(auc_test, fp32_2_random_gpu) { auc_test<float>({3, 5}, 12, 2341, gen_random<float>); }
+TEST(auc_test, fp32_1gpu) { metric_test<float>({0}, 10, 200, gen_random<float>, 1); }
+TEST(auc_test, fp32_1gpu_odd) { metric_test<float>({0}, 10, 182, gen_random<float>, 1); }
+TEST(auc_test, fp32_2gpu) { metric_test<float>({0, 1}, 10, 440, gen_random<float>, 1); }
+TEST(auc_test, fp32_2gpu_odd) { metric_test<float>({0, 1}, 10, 443, gen_random<float>, 1); }
+TEST(auc_test, fp32_2_random_gpu) { metric_test<float>({3, 5}, 12, 2341, gen_random<float>, 1); }
 TEST(auc_test, fp32_4gpu) {
-  auc_test<float>({0, 1, 2, 3}, 5000, 22 * 5000 + 42, gen_random<float>);
+  metric_test<float>({0, 1, 2, 3}, 5000, 22 * 5000 + 42, gen_random<float>, 1);
 }
-TEST(auc_test, fp32_4gpu_same) { auc_test<float>({0, 1, 2, 3}, 12, 154, gen_same<float>); }
+TEST(auc_test, fp32_4gpu_same) { metric_test<float>({0, 1, 2, 3}, 12, 154, gen_same<float>, 1); }
+
 TEST(auc_test, fp32_4gpu_same_large) {
-  auc_test<float>({0, 1, 2, 3}, 1312, 45155, gen_same<float>);
+  metric_test<float>({0, 1, 2, 3}, 1312, 45155, gen_same<float>, 1);
 }
 TEST(auc_test, fp32_4gpu_multi) {
-  auc_test<float>({0, 1, 2, 3}, 4143, 94622, gen_multilobe<float>);
+  metric_test<float>({0, 1, 2, 3}, 4143, 94622, gen_multilobe<float>, 1);
 }
 TEST(auc_test, fp32_8gpu) {
-  auc_test<float>({0, 1, 2, 3, 4, 5, 6, 7}, 4231, 891373, gen_random<float>, 2);
+  metric_test<float>({0, 1, 2, 3, 4, 5, 6, 7}, 4231, 891373, gen_random<float>, 1, 2);
 }
 TEST(auc_test, fp32_8gpu_correct) {
-  auc_test<float>({0, 1, 2, 3, 4, 5, 6, 7}, 5423, 874345, gen_correct<float>);
+  metric_test<float>({0, 1, 2, 3, 4, 5, 6, 7}, 5423, 874345, gen_correct<float>, 1);
 }
 TEST(auc_test, fp32_8gpu_wrong) {
-  auc_test<float>({0, 1, 2, 3, 4, 5, 6, 7}, 5423, 874345, gen_wrong<float>);
+  metric_test<float>({0, 1, 2, 3, 4, 5, 6, 7}, 5423, 874345, gen_wrong<float>, 1);
 }
-// TEST(auc_test, fp32_8gpu_large)      { auc_test<float>({0,1,2,3,4,5,6,7}, 131072, 89137319,
-// gen_random<float>, 2); }
+// TEST(auc_test, fp32_8gpu_large)      { metric_test<float>({0,1,2,3,4,5,6,7}, 131072, 89137319,
+// gen_random<float>, 1, 2); }
 
-TEST(auc_test, fp16_1gpu) { auc_test<__half>({0}, 15, 200, gen_random<__half>); }
-TEST(auc_test, fp16_1gpu_odd) { auc_test<__half>({0}, 11, 182, gen_random<__half>); }
-TEST(auc_test, fp16_2gpu) { auc_test<__half>({0, 1}, 10, 540, gen_random<__half>); }
-TEST(auc_test, fp16_2gpu_odd) { auc_test<__half>({0, 1}, 11, 443, gen_random<__half>); }
-TEST(auc_test, fp16_2_random_gpu) { auc_test<__half>({4, 6}, 13, 2351, gen_random<__half>); }
+TEST(auc_test, fp16_1gpu) { metric_test<__half>({0}, 15, 200, gen_random<__half>, 1); }
+TEST(auc_test, fp16_1gpu_odd) { metric_test<__half>({0}, 11, 182, gen_random<__half>, 1); }
+TEST(auc_test, fp16_2gpu) { metric_test<__half>({0, 1}, 10, 540, gen_random<__half>, 1); }
+TEST(auc_test, fp16_2gpu_odd) { metric_test<__half>({0, 1}, 11, 443, gen_random<__half>, 1); }
+TEST(auc_test, fp16_2_random_gpu) { metric_test<__half>({4, 6}, 13, 2351, gen_random<__half>, 1); }
 TEST(auc_test, fp16_4gpu) {
-  auc_test<__half>({0, 1, 2, 3}, 5500, 22 * 5500 + 424, gen_random<__half>);
+  metric_test<__half>({0, 1, 2, 3}, 5500, 22 * 5500 + 424, gen_random<__half>, 1);
 }
 TEST(auc_test, fp16_4gpu_multi) {
-  auc_test<__half>({0, 1, 2, 3}, 7320, 81 * 7320 + 322, gen_random<__half>);
+  metric_test<__half>({0, 1, 2, 3}, 7320, 81 * 7320 + 322, gen_random<__half>, 1);
 }
 TEST(auc_test, fp16_8gpu) {
-  auc_test<__half>({0, 1, 2, 3, 4, 5, 6, 7}, 4321, 891573, gen_random<__half>, 2);
+  metric_test<__half>({0, 1, 2, 3, 4, 5, 6, 7}, 4321, 891573, gen_random<__half>, 1, 2);
 }
 TEST(auc_test, fp16_8gpu_correct) {
-  auc_test<__half>({0, 1, 2, 3, 4, 5, 6, 7}, 5423, 874345, gen_correct<__half>);
+  metric_test<__half>({0, 1, 2, 3, 4, 5, 6, 7}, 5423, 874345, gen_correct<__half>, 1);
 }
 TEST(auc_test, fp16_8gpu_wrong) {
-  auc_test<__half>({0, 1, 2, 3, 4, 5, 6, 7}, 5423, 874345, gen_wrong<__half>);
+  metric_test<__half>({0, 1, 2, 3, 4, 5, 6, 7}, 5423, 874345, gen_wrong<__half>, 1);
 }
-// TEST(auc_test, fp16_8gpu_large)      { auc_test<__half>({0,1,2,3,4,5,6,7}, 131072, 89137319,
-// gen_random<__half>, 2); }
+// TEST(auc_test, fp16_8gpu_large)      { metric_test<__half>({0,1,2,3,4,5,6,7}, 131072, 89137319,
+// gen_random<__half>, 1, 2); }
 
-// Multi-label correctness tests
+// Multi-label AUC correctness tests
 
-TEST(auc_test, fp32_1gpu_multilabel) { auc_test<float>({0}, 10, 200, gen_random<float>, 1, 3); }
-TEST(auc_test, fp32_1gpu_odd_multilabel) { auc_test<float>({0}, 10, 182, gen_random<float>, 1, 2); }
+TEST(auc_test, fp32_1gpu_multilabel) {
+  metric_test<float>({0}, 10, 200, gen_random<float>, 1, 1, 3);
+}
+TEST(auc_test, fp32_1gpu_odd_multilabel) {
+  metric_test<float>({0}, 10, 182, gen_random<float>, 1, 1, 2);
+}
 TEST(auc_test, fp32_2gpu_odd_multilabel) {
-  auc_test<float>({0, 1}, 10, 443, gen_random<float>, 1, 5);
+  metric_test<float>({0, 1}, 10, 443, gen_random<float>, 1, 1, 5);
 }
 TEST(auc_test, fp32_2gpu_random_multilabel) {
-  auc_test<float>({3, 5}, 12, 2341, gen_random<float>, 1, 3);
+  metric_test<float>({3, 5}, 12, 2341, gen_random<float>, 1, 1, 3);
 }
 
-// Multi-label performance tests
+// Multi-label AUC performance tests
+const std::vector<int> one_gpu{0};
+const std::vector<int> two_gpu{0, 1};
+const std::vector<int> four_gpu{0, 1, 2, 3};
+const std::vector<int> eight_gpu{0, 1, 2, 3, 4, 5, 6, 7};
 
-#define SINGLE_NODE_CLASS_TEST(batch, num_batches, num_classes, name) \
-  TEST(auc_test, name) { \
-    auc_test<float>({0,1,2,3,4,5,6,7}, batch, num_batches * batch * 8, gen_random<float>, 1, num_classes); \
+const size_t batch_size = 100 * 1000;
+const size_t num_batches = 10;
+const size_t num_gpus = 8;
+
+#define EIGHT_GPU_AUC_CLASS_TEST(num_classes, name)                                \
+  TEST(auc_test, name) {                                                           \
+    metric_test<float>(eight_gpu, batch_size, num_batches * batch_size * num_gpus, \
+                       gen_random<float>, 1, 1, num_classes);                      \
   }
 
-// const size_t batch = 100 * 1000;
-// const size_t num_batches = 10;
-// SINGLE_NODE_CLASS_TEST(batch, num_batches, 1, fp32_8gpu_1)
-// SINGLE_NODE_CLASS_TEST(batch, num_batches, 10, fp32_8gpu_10)
-// SINGLE_NODE_CLASS_TEST(batch, num_batches, 100, fp32_8gpu_100)
+// EIGHT_GPU_AUC_CLASS_TEST(1, fp32_8gpu_1)
+// EIGHT_GPU_AUC_CLASS_TEST(10, fp32_8gpu_10)
+// EIGHT_GPU_AUC_CLASS_TEST(100, fp32_8gpu_100)
+
+// NDCG Tests
+
+// TEST(ndcg_test, fp32_1gpu_small) { metric_test<float>({0}, 10, 200, gen_random<float>, 0); }
+// TEST(ndcg_test, fp16_1gpu_small) { metric_test<__half>({0}, 10, 200, gen_random<__half>, 0); }
+
+#define NDCG_TEST(device_list, num_gpus, pred_type, name)                                          \
+  TEST(ndcg_test, name) {                                                                          \
+    metric_test<pred_type>(device_list, 100000lu, 100000lu * 10 * num_gpus, gen_random<pred_type>, \
+                           0);                                                                     \
+  }
+
+NDCG_TEST(one_gpu, 1, float, fp32_1gpu)
+NDCG_TEST(two_gpu, 2, float, fp32_2gpu)
+NDCG_TEST(four_gpu, 4, float, fp32_4gpu)
+NDCG_TEST(eight_gpu, 8, float, fp32_8gpu)
+
+// NDCG_TEST(one_gpu, 1, __half, fp16_1gpu)
+// NDCG_TEST(two_gpu, 2, __half, fp16_2gpu)
+// NDCG_TEST(four_gpu, 4, __half, fp16_4gpu)
+// NDCG_TEST(eight_gpu, 8, __half, fp16_8gpu)

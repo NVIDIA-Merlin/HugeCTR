@@ -32,6 +32,9 @@
 #include <thread>
 #include <utility>
 #include <utils.hpp>
+#include "embedding_collection.hpp"
+#include "HugeCTR/embedding/embedding.hpp"
+#include "HugeCTR/embedding_storage/embedding_table.hpp"
 
 namespace HugeCTR {
 
@@ -39,6 +42,7 @@ namespace {
 
 std::map<Layer_t, std::string> LAYER_TYPE_TO_STRING = {
     {Layer_t::BatchNorm, "BatchNorm"},
+    {Layer_t::LayerNorm, "LayerNorm"},
     {Layer_t::BinaryCrossEntropyLoss, "BinaryCrossEntropyLoss"},
     {Layer_t::Cast, "Cast"},
     {Layer_t::Concat, "Concat"},
@@ -59,6 +63,7 @@ std::map<Layer_t, std::string> LAYER_TYPE_TO_STRING = {
     {Layer_t::PReLU_Dice, "PReLU_Dice"},
     {Layer_t::GRU, "GRU"},
     {Layer_t::MatrixMultiply, "MatrixMultiply"},
+    {Layer_t::MultiHeadAttention, "MultiHeadAttention"},
     {Layer_t::Scale, "Scale"},
     {Layer_t::FusedReshapeConcat, "FusedReshapeConcat"},
     {Layer_t::FusedReshapeConcatGeneral, "FusedReshapeConcatGeneral"},
@@ -71,6 +76,7 @@ std::map<Layer_t, std::string> LAYER_TYPE_TO_STRING = {
 
 std::map<Layer_t, std::string> LAYER_TYPE_TO_STRING_MP = {
     {Layer_t::BatchNorm, "BatchNorm"},
+    {Layer_t::LayerNorm, "LayerNorm"},
     {Layer_t::BinaryCrossEntropyLoss, "BinaryCrossEntropyLoss"},
     {Layer_t::Cast, "Cast"},
     {Layer_t::Concat, "Concat"},
@@ -83,6 +89,7 @@ std::map<Layer_t, std::string> LAYER_TYPE_TO_STRING_MP = {
     {Layer_t::Sigmoid, "Sigmoid"},
     {Layer_t::Slice, "Slice"},
     {Layer_t::WeightMultiply, "WeightMultiply"},
+    {Layer_t::MultiHeadAttention, "MultiHeadAttention"},
     {Layer_t::FmOrder2, "FmOrder2"},
     {Layer_t::Add, "Add"},
     {Layer_t::ReduceSum, "ReduceSum"},
@@ -237,6 +244,7 @@ struct DenseLayer {
   float lambda;
   FcPosition_t pos_type;
   Activation_t act_type;
+  DenseLayerSwitchs dense_layer_switches;
   DenseLayer(Layer_t layer_type, std::vector<std::string>& bottom_names,
              std::vector<std::string>& top_names, float factor = 1.0, float eps = 0.00001,
              Initializer_t gamma_init_type = Initializer_t::Default,
@@ -253,7 +261,8 @@ struct DenseLayer {
              int axis = 1, std::vector<float> target_weight_vec = std::vector<float>(),
              bool use_regularizer = false, Regularizer_t regularizer_type = Regularizer_t::L1,
              float lambda = 0, FcPosition_t pos_type = FcPosition_t::None,
-             Activation_t act_type = Activation_t::Relu);
+             Activation_t act_type = Activation_t::Relu,
+             DenseLayerSwitchs dense_layer_switches = {false});
 };
 
 struct GroupDenseLayer {
@@ -291,7 +300,7 @@ void add_sparse_embedding(SparseEmbedding& sparse_embedding,
                           std::shared_ptr<ExchangeWgrad>& exchange_wgrad, bool use_cuda_graph,
                           bool grouped_all_reduce, bool use_holistic_cuda_graph,
                           size_t num_iterations_statistics, GpuLearningRateSchedulers& gpu_lr_sches,
-                          bool overlap_ar_a2a);
+                          bool overlap_ar_a2a, bool eval_overlap);
 
 Input get_input_from_json(const nlohmann::json& j_input);
 
@@ -341,6 +350,8 @@ class Model {
 
   virtual void add(DenseLayer& dense_layer);
 
+  virtual void add(const EmbeddingCollectionPlaceHolder &embedding_collection);
+  
   virtual void add_internal(DenseLayer& dense_layer);
 
   void add(GroupDenseLayer& group_dense_layer);
@@ -403,6 +414,13 @@ class Model {
     }
     for (auto& network : networks_) {
       network->set_learning_rate(lr_dense);
+    }
+    if (solver_.use_embedding_collection) {
+      for (auto &table_list : table_major_ebc_table_list_) {
+        for (auto &t: table_list) {
+          t->set_learning_rate(lr);
+        }
+      }
     }
     return Error_t::Success;
   }
@@ -534,6 +552,33 @@ class Model {
   std::vector<std::string> layer_info_;                 /**< type of each layer. */
   std::vector<std::shared_ptr<Network>> networks_;      /**< networks (dense) used in training. */
   std::vector<std::shared_ptr<IEmbedding>> embeddings_; /**< embedding */
+  
+  std::map<std::string, int> hotness_map_;
+  std::vector<std::unique_ptr<embedding::IEmbeddingCollectionForward>> ebc_forward_list_;
+  std::vector<std::unique_ptr<embedding::IEmbeddingCollectionForward>> eval_ebc_forward_list_;
+  std::vector<std::unique_ptr<embedding::IEmbeddingCollectionBackward>> ebc_backward_list_;
+  std::vector<std::vector<std::unique_ptr<embedding::IEmbeddingTable>>> table_major_ebc_table_list_;
+
+  std::vector<std::vector<core::Tensor>> ebc_grad_key_list_;
+  std::vector<std::vector<size_t>> ebc_num_grad_key_list_;
+  std::vector<std::vector<core::Tensor>> ebc_grad_id_space_offset_list_;
+  std::vector<std::vector<size_t>> ebc_num_grad_key_id_space_offset_list_;
+  std::vector<std::vector<core::Tensor>> ebc_grad_ev_list_;
+  std::vector<std::vector<core::Tensor>> ebc_grad_ev_offset_list_;
+  std::vector<std::vector<core::Tensor>> ebc_grad_id_space_list_;
+
+  std::vector<core::Tensor> train_ebc_key_list_;
+  std::vector<core::Tensor> train_ebc_bucket_range_list_;
+  std::vector<size_t*> train_ebc_num_keys_list_;
+  std::vector<core::Tensor> train_ebc_sparse_weight_list_;
+  std::vector<core::Tensor> evaluate_ebc_key_list_;
+  std::vector<core::Tensor> evaluate_ebc_bucket_range_list_;
+  std::vector<size_t*> evaluate_ebc_num_keys_list_;
+  std::vector<core::Tensor> evaluate_ebc_sparse_weight_list_;
+
+  std::vector<core::Tensor> train_ebc_outptut_;
+  std::vector<core::Tensor> evaluate_ebc_outptut_;
+
   std::shared_ptr<EmbeddingTrainingCache>
       embedding_training_cache_; /**< embedding training cache for model oversubscribing. */
 

@@ -301,16 +301,8 @@ void InfrequentEmbedding<dtype, emtype>::hier_forward_network(const emtype* mess
       [=] __device__() { return indices->network_indices_offsets[num_instances]; },
       [=] __device__(size_t i) -> CopyDescriptors::CopyDetails<emtype, emtype, 1> {
         uint32_t index = indices->network_indices[i];
-
-        // Find model id and offset
-        uint32_t model_id = 0;
-        uint32_t offset = 0;
-        uint32_t next_offset = indices->network_indices_offsets[1];
-        while (next_offset <= i) {
-          offset = next_offset;
-          model_id++;
-          next_offset = indices->network_indices_offsets[model_id + 1];
-        }
+        uint32_t model_id = indices->network_indices_src_model_id[i];
+        uint32_t offset = indices->network_indices_offsets[model_id];
 
         return {
             message_buffer + (model_id * local_comm_buff_size + i - offset) * embedding_vec_size,
@@ -412,11 +404,7 @@ void InfrequentEmbedding<dtype, emtype>::fused_intra_update_network(const emtype
             num_selected;
         uint32_t index = indices->network_indices[vid];
 
-        uint32_t model_id;
-        for (model_id = 0;
-             model_id < num_instances && indices->network_indices_offsets[model_id + 1] <= vid;
-             model_id++)
-          ;
+        uint32_t model_id = indices->network_indices_src_model_id[vid];
 
         uint32_t local_model_id = (model_id % per_node_instances);
         emtype* output_ptr =

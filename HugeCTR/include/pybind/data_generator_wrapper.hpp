@@ -30,7 +30,7 @@ void DataGeneratorPybind(pybind11::module &m) {
       .def(pybind11::init<DataReaderType_t, int, int, int, bool, const std::string &,
                           const std::string &, const std::vector<size_t> &,
                           const std::vector<int> &, Check_t, Distribution_t, PowerLaw_t, float, int,
-                          int, int, int, int, bool>(),
+                          int, int, int, int, bool, int>(),
            pybind11::arg("format"), pybind11::arg("label_dim"), pybind11::arg("dense_dim"),
            pybind11::arg("num_slot"), pybind11::arg("i64_input_key"), pybind11::arg("source"),
            pybind11::arg("eval_source"), pybind11::arg("slot_size_array"),
@@ -40,7 +40,8 @@ void DataGeneratorPybind(pybind11::module &m) {
            pybind11::arg("power_law_type") = PowerLaw_t::Specific, pybind11::arg("alpha") = 1.2,
            pybind11::arg("num_files") = 128, pybind11::arg("eval_num_files") = 32,
            pybind11::arg("num_samples_per_file") = 40960, pybind11::arg("num_samples") = 5242880,
-           pybind11::arg("eval_num_samples") = 1310720, pybind11::arg("float_label_dense") = false)
+           pybind11::arg("eval_num_samples") = 1310720, pybind11::arg("float_label_dense") = false,
+           pybind11::arg("num_threads") = 1)
       .def_readwrite("format", &HugeCTR::DataGeneratorParams::format)
       .def_readwrite("label_dim", &HugeCTR::DataGeneratorParams::label_dim)
       .def_readwrite("dense_dim", &HugeCTR::DataGeneratorParams::dense_dim)
@@ -59,7 +60,8 @@ void DataGeneratorPybind(pybind11::module &m) {
       .def_readwrite("num_samples_per_file", &HugeCTR::DataGeneratorParams::num_samples_per_file)
       .def_readwrite("num_samples", &HugeCTR::DataGeneratorParams::num_samples)
       .def_readwrite("eval_num_samples", &HugeCTR::DataGeneratorParams::eval_num_samples)
-      .def_readwrite("float_label_dense", &HugeCTR::DataGeneratorParams::float_label_dense);
+      .def_readwrite("float_label_dense", &HugeCTR::DataGeneratorParams::float_label_dense)
+      .def_readwrite("num_threads", &HugeCTR::DataGeneratorParams::num_threads);
   pybind11::class_<HugeCTR::DataGenerator, std::shared_ptr<HugeCTR::DataGenerator>>(tools,
                                                                                     "DataGenerator")
       .def(pybind11::init<const DataGeneratorParams &>(), pybind11::arg("data_generator_params"))

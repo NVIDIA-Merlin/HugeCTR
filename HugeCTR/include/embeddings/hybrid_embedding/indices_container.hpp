@@ -47,8 +47,9 @@ class IndexProcessor {
                  size_t sparse_dim, size_t sample_size_items);
   void calculate_indices(BatchDesc batch, size_t queue_id, int raw_device_id, cudaStream_t stream);
   void split3way(BatchDesc batch, size_t queue_id, int raw_device_id, cudaStream_t stream);
-  void finalize(TensorBag2& label_tensor, TensorBag2& dense_tensor, SparseTensorBag& sparse_tensor,
-                size_t queue_id, int raw_device_id, cudaStream_t stream);
+  void assign_sparse_indices(size_t queue_id, int raw_device_id, cudaStream_t stream);
+  void assign_dense_and_label_tensors(TensorBag2& label_tensor, TensorBag2& dense_tensor,
+                                      size_t queue_id, int raw_device_id, cudaStream_t stream);
   size_t get_queue_size();
 
  private:

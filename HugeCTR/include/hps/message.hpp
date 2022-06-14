@@ -34,19 +34,12 @@ class MessageSink {
 
   virtual ~MessageSink() = default;
 
-  /**
-   * Emit a message to append a key/value pair to the queue.
-   *
-   * @param tag A tag under which the key/value pair should be filed.
-   * @param key The value of the key.
-   * @param value Pointer to the value.
-   * @param value_size The size of the value in bytes.
-   */
-  virtual void post(const std::string& tag, const TKey& key, const char* value,
-                    size_t value_size) = 0;
+  size_t num_posts() const { return num_posts_; }
+  size_t num_pairs_posted() const { return num_pairs_posted_; }
+  size_t num_flushes() const { return num_flushes_; }
 
   /**
-   * Emit multiple key/value pairs to the queue.
+   * Emit one or more key/value pairs to the queue.
    *
    * @param tag A tag under which the key/value pairs should be filed.
    * @param num_pairs The number of \p keys and \p values .
@@ -55,7 +48,17 @@ class MessageSink {
    * @param value_size The size of each value in bytes.
    */
   virtual void post(const std::string& tag, size_t num_pairs, const TKey* keys, const char* values,
-                    size_t value_size);
+                    uint32_t value_size);
+
+  /**
+   * Blocks the caller until all previously posted messages have been sent.
+   */
+  virtual void flush();
+
+ private:
+  size_t num_posts_ = 0;
+  size_t num_pairs_posted_ = 0;
+  size_t num_flushes_ = 0;
 };
 
 #define HCTR_MESSAGE_SOURCE_CALLBACK \
@@ -80,7 +83,7 @@ class MessageSource {
    *
    * @param callback Callback function be invoked for each received message.
    */
-  virtual void enable(std::function<HCTR_MESSAGE_SOURCE_CALLBACK> callback) = 0;
+  virtual void engage(std::function<HCTR_MESSAGE_SOURCE_CALLBACK> callback) = 0;
 };
 
 }  // namespace HugeCTR

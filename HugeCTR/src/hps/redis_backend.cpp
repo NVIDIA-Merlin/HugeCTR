@@ -53,7 +53,8 @@ RedisClusterBackend<TKey>::RedisClusterBackend(
     const size_t num_partitions, const size_t max_get_batch_size, const size_t max_set_batch_size,
     const bool refresh_time_after_fetch, const size_t overflow_margin,
     const DatabaseOverflowPolicy_t overflow_policy, const double overflow_resolution_target)
-    : TBase(refresh_time_after_fetch, overflow_margin, overflow_policy, overflow_resolution_target),
+    : TBase(overflow_margin, overflow_policy, overflow_resolution_target),
+      refresh_time_after_fetch_(refresh_time_after_fetch),
       // Can switch to std::range in C++20.
       num_partitions_(num_partitions),
       max_get_batch_size_(max_get_batch_size),
@@ -215,7 +216,7 @@ size_t RedisClusterBackend<TKey>::contains(const std::string& table_name, const 
     }
   }
 
-  HCTR_LOG(DEBUG, WORLD, "%s backend. Table: %s. Found %d / %d keys.\n", get_name(),
+  HCTR_LOG(TRACE, WORLD, "%s backend. Table: %s. Found %d / %d keys.\n", get_name(),
            table_name.c_str(), hit_count, num_keys);
   return hit_count;
 }
@@ -324,7 +325,7 @@ bool RedisClusterBackend<TKey>::insert(const std::string& table_name, const size
     }
   }
 
-  HCTR_LOG(DEBUG, WORLD, "%s backend. Table: %s. Inserted %d / %d pairs.\n", get_name(),
+  HCTR_LOG(TRACE, WORLD, "%s backend. Table: %s. Inserted %d / %d pairs.\n", get_name(),
            table_name.c_str(), num_inserts, num_pairs);
   return true;
 }
@@ -460,7 +461,7 @@ size_t RedisClusterBackend<TKey>::fetch(const std::string& table_name, const siz
     }
   }
 
-  HCTR_LOG(DEBUG, WORLD, "%s backend. Table: %s. Fetched %d / %d values.\n", get_name(),
+  HCTR_LOG(TRACE, WORLD, "%s backend. Table: %s. Fetched %d / %d values.\n", get_name(),
            table_name.c_str(), hit_count, num_keys);
   return hit_count;
 }
@@ -592,7 +593,7 @@ size_t RedisClusterBackend<TKey>::fetch(const std::string& table_name, const siz
     }
   }
 
-  HCTR_LOG(DEBUG, WORLD, "%s backend. Table: %s. Fetched %d / %d values.\n", get_name(),
+  HCTR_LOG(TRACE, WORLD, "%s backend. Table: %s. Fetched %d / %d values.\n", get_name(),
            table_name.c_str(), hit_count, num_indices);
   return hit_count;
 }
@@ -639,7 +640,7 @@ size_t RedisClusterBackend<TKey>::evict(const std::string& table_name) {
   }
   ThreadPool::await(tasks.begin(), tasks.end());
   const size_t hit_count = static_cast<size_t>(joint_hit_count);
-  HCTR_LOG(DEBUG, WORLD, "%s backend. Table %s erased (%d pairs).\n", get_name(),
+  HCTR_LOG(TRACE, WORLD, "%s backend. Table %s erased (%d pairs).\n", get_name(),
            table_name.c_str(), hit_count);
   return hit_count;
 }
@@ -721,7 +722,7 @@ size_t RedisClusterBackend<TKey>::evict(const std::string& table_name, const siz
     }
   }
 
-  HCTR_LOG(DEBUG, WORLD, "%s backend. Table %s. %d / %d pairs erased.\n", get_name(),
+  HCTR_LOG(TRACE, WORLD, "%s backend. Table %s. %d / %d pairs erased.\n", get_name(),
            table_name.c_str(), hit_count, num_keys);
   return hit_count;
 }
@@ -828,7 +829,7 @@ void RedisClusterBackend<TKey>::resolve_overflow_(const std::string& hkey_kv,
     return;
   }
 
-  HCTR_LOG_S(DEBUG, WORLD) << get_name() << " partition " << hkey_kv
+  HCTR_LOG_S(TRACE, WORLD) << get_name() << " partition " << hkey_kv
                            << " overflow resolution concluded!" << std::endl;
 }
 

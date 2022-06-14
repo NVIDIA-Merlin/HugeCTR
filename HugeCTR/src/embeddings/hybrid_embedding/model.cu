@@ -89,8 +89,10 @@ void Model<dtype>::init_params_and_reserve(CommunicationType communication_type_
   buf->reserve({1, 1}, &d_num_frequent);
   buf->reserve({1, 1}, &d_total_frequent_count);
   buf->reserve({h_num_instances_per_node.size(), 1}, &num_instances_per_node);
-  buf->reserve({(size_t)num_categories, 1}, &category_frequent_index);
-  buf->reserve({(size_t)(2 * num_categories), 1}, &category_location);
+  buf->reserve({(size_t)(num_categories + 1), 1},
+               &category_frequent_index);  // +1 for NULL category
+  buf->reserve({(size_t)(2 * (num_categories + 1)), 1},
+               &category_location);  // +1 for NULL category
   buf->reserve({(size_t)num_categories, 1}, &frequent_categories);
   buf->reserve({(size_t)num_categories, 1}, &infrequent_categories);
 }
