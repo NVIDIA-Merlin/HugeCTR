@@ -35,6 +35,11 @@ if [ "$container" == "merlin-training" ]; then
 	 parser_test && \
 	 auc_test
     fi
+### TensorFlow Training container
+elif [ "$container" == "merlin-tensorflow-training" ]; then
+    pushd /hugectr/sparse_operation_kit/unit_test/test_scripts/tf2 && \
+    bash sok_test_unit.sh && \
+    popd
 ### Inference container
 # elif [ "$container" == "merlin-inference" ]; then
     # HugeCTR - Deactivated until it is self-contained and it runs
