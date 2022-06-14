@@ -43,6 +43,7 @@ dlrm.json
 dgx_a100*
 logs*
 archives/
+sparse_operation_kit/_skbuild
 
 docs/source/sparse_operation_kit/
 docs/source/notebooks
