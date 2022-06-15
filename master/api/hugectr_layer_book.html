@@ -55,6 +55,7 @@
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../additional_resources.html">Additional Resources</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../release_notes.html">Release Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../hugectr_contributor_guide.html">Contributing to HugeCTR</a></li>
 </ul>
 
         </div>
@@ -128,15 +129,47 @@
 </div>
 <p><code class="docutils literal notranslate"><span class="pre">SparseEmbedding</span></code> specifies the parameters related to the sparse embedding layer. One or several <code class="docutils literal notranslate"><span class="pre">SparseEmbedding</span></code> layers should be added to the Model instance after <code class="docutils literal notranslate"><span class="pre">Input</span></code> and before <code class="docutils literal notranslate"><span class="pre">DenseLayer</span></code>.</p>
 <p><strong>Arguments</strong></p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">embedding_type</span></code>: The embedding type.
+Specify one of the following values:</p>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">embedding_type</span></code>: The embedding type to be used. The supported types include <code class="docutils literal notranslate"><span class="pre">hugectr.Embedding_t.DistributedSlotSparseEmbeddingHash</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Embedding_t.LocalizedSlotSparseEmbeddingHash</span></code> and <code class="docutils literal notranslate"><span class="pre">hugectr.Embedding_t.LocalizedSlotSparseEmbeddingOneHot</span></code>. There is NO default value and it should be specified by users. For detail about different embedding types, please refer to <a class="reference internal" href="#embedding-types-detail"><span class="std std-doc">Embedding Types Detail</span></a>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">workspace_size_per_gpu_in_mb</span></code>: Integer, the workspace memory size in megabyte per GPU. This workspace memory must be big enough to hold all the embedding vocabulary and its corresponding optimizer state used during the training and evaluation. There is NO default value and it should be specified by users. To understand how to set this value, please refer to <a class="reference internal" href="../QAList.html#how-to-set-workspace-size-per-gpu-in-mb-and-slot-size-array"><span class="std std-doc">How to set workspace_size_per_gpu_in_mb and slot_size_array</span></a>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">embedding_vec_size</span></code>: Integer, the embedding vector size. There is NO default value and it should be specified by users.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">combiner</span></code>: String, the intra-slot reduction operation, currently <code class="docutils literal notranslate"><span class="pre">sum</span></code> or <code class="docutils literal notranslate"><span class="pre">mean</span></code> are supported. There is NO default value and it should be specified by users.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">sparse_embedding_name</span></code>: String, the name of the sparse embedding tensor to be referenced by following layers. There is NO default value and it should be specified by users.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">bottom_name</span></code>: String, the number of the bottom tensor to be consumed by this sparse embedding layer. Please note that it should be a predefined sparse input name. There is NO default value and it should be specified by users.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">slot_size_array</span></code>: List[int], the cardinality array of input features. It should be consistent with that of the sparse input. This parameter is used in <code class="docutils literal notranslate"><span class="pre">LocalizedSlotSparseEmbeddingHash</span></code> and <code class="docutils literal notranslate"><span class="pre">LocalizedSlotSparseEmbeddingOneHot</span></code>, which can help avoid wasting memory caused by imbalance vocabulary size. Please refer <a class="reference internal" href="../QAList.html#how-to-set-workspace-size-per-gpu-in-mb-and-slot-size-array"><span class="std std-doc">How to set workspace_size_per_gpu_in_mb and slot_size_array</span></a>. There is NO default value and it should be specified by users.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">optimizer</span></code>: OptParamsPy, the optimizer dedicated to this sparse embedding layer. If the user does not specify the optimizer for the sparse embedding, it will adopt the same optimizer as dense layers.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">hugectr.Embedding_t.DistributedSlotSparseEmbeddingHash</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">hugectr.Embedding_t.LocalizedSlotSparseEmbeddingHash</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">hugectr.Embedding_t.LocalizedSlotSparseEmbeddingOneHot</span></code></p></li>
+</ul>
+<p>For information about the different embedding types, see <a class="reference internal" href="#embedding-types-detail"><span class="std std-doc">Embedding Types Detail</span></a>.
+This argument does not have a default value.
+You must specify a value.</p>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">workspace_size_per_gpu_in_mb</span></code>: Integer, the workspace memory size in megabyte per GPU.
+This workspace memory must be big enough to hold all the embedding vocabulary and its corresponding optimizer state that is used during the training and evaluation.
+To understand how to set this value, see <a class="reference internal" href="../QAList.html#how-to-set-workspace-size-per-gpu-in-mb-and-slot-size-array"><span class="std std-doc">How to set workspace_size_per_gpu_in_mb and slot_size_array</span></a>.
+This argument does not have a default value.
+You must specify a value.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">embedding_vec_size</span></code>: Integer, the embedding vector size.
+This argument does not have a default value.
+You must specify a value.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">combiner</span></code>: String, the intra-slot reduction operation.
+Specify <code class="docutils literal notranslate"><span class="pre">sum</span></code> or <code class="docutils literal notranslate"><span class="pre">mean</span></code>.
+This argument does not have a default value.
+You must specify a value.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">sparse_embedding_name</span></code>: String, the name of the sparse embedding tensor.
+This name is referenced by the following layers.
+This argument does not have a default value.
+You must specify a value.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">bottom_name</span></code>: String, the number of the bottom tensor to consume with this sparse embedding layer.
+Please note that the value should be a predefined sparse input name.
+This argument does not have a default value.
+You must specify a value.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">slot_size_array</span></code>: List[int], specify the maximum key value from each slot.
+It should be consistent with that of the sparse input.
+This parameter is used in <code class="docutils literal notranslate"><span class="pre">LocalizedSlotSparseEmbeddingHash</span></code> and <code class="docutils literal notranslate"><span class="pre">LocalizedSlotSparseEmbeddingOneHot</span></code>.
+The value you specify can help avoid wasting memory that is caused by an imbalanced vocabulary size.
+For more informtion, see <a class="reference internal" href="../QAList.html#how-to-set-workspace-size-per-gpu-in-mb-and-slot-size-array"><span class="std std-doc">How to set workspace_size_per_gpu_in_mb and slot_size_array</span></a>.
+This argument does not have a default value.
+You must specify a value.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">optimizer</span></code>: OptParamsPy, the optimizer that is dedicated to this sparse embedding layer.
+If you do not specify the optimizer for the sparse embedding, the sparse embedding layer adopts the same optimizer as dense layers.</p></li>
 </ul>
 </div>
 <div class="section" id="embedding-types-detail">
@@ -392,6 +425,30 @@ Input and Output Shapes:</p></li>
 <span class="w">        </span><span class="p">}</span><span class="w"></span>
 <span class="w">      </span><span class="p">]</span><span class="w"></span>
 <span class="w">    </span><span class="p">}</span><span class="w"></span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="layernorm-layer">
+<h3>LayerNorm Layer<a class="headerlink" href="#layernorm-layer" title="Permalink to this headline"></a></h3>
+<p>The LayerNorm layer implements a layer normalization.</p>
+<p>Parameters:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">eps</span></code>: Float, epsilon value used in the batch normalization formula for the <code class="docutils literal notranslate"><span class="pre">LayerNorm</span></code> layer. The default value is 1e-5.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">gamma_init_type</span></code>: Specifies how to initialize the gamma (or scale) array for the <code class="docutils literal notranslate"><span class="pre">LayerNorm</span></code> layer. The supported types include <code class="docutils literal notranslate"><span class="pre">hugectr.Initializer_t.Default</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Initializer_t.Uniform</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Initializer_t.XavierNorm</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Initializer_t.XavierUniform</span></code> and <code class="docutils literal notranslate"><span class="pre">hugectr.Initializer_t.Zero</span></code>. The default value is <code class="docutils literal notranslate"><span class="pre">hugectr.Initializer_t.Default</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">beta_init_type</span></code>: Specifies how to initialize the beta (or offset) array for the <code class="docutils literal notranslate"><span class="pre">LayerNorm</span></code> layer. The supported types include <code class="docutils literal notranslate"><span class="pre">hugectr.Initializer_t.Default</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Initializer_t.Uniform</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Initializer_t.XavierNorm</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.Initializer_t.XavierUniform</span></code> and <code class="docutils literal notranslate"><span class="pre">hugectr.Initializer_t.Zero</span></code>. The default value is <code class="docutils literal notranslate"><span class="pre">hugectr.Initializer_t.Default</span></code>.</p></li>
+</ul>
+<p>Input and Output Shapes:</p>
+<ul class="simple">
+<li><p>input: 2D: (batch_size, num_elem), 3D: (batch_size, seq_len, num_elem), 4D: (head_num, batch_size, seq_len, num_elem)</p></li>
+<li><p>output: same as input</p></li>
+</ul>
+<p>Example:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">LayerNorm</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;slice32&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;fmorder2&quot;</span><span class="p">],</span>
+                            <span class="n">eps</span> <span class="o">=</span> <span class="mf">0.00001</span><span class="p">,</span>
+                            <span class="n">gamma_init_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Initializer_t</span><span class="o">.</span><span class="n">XavierUniform</span><span class="p">,</span>
+                            <span class="n">beta_init_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Initializer_t</span><span class="o">.</span><span class="n">XavierUniform</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -788,6 +845,22 @@ Produce x - y in element wise manner.</p>
 </pre></div>
 </div>
 </div>
+<div class="section" id="multiheadattention-layer">
+<h4>MultiHeadAttention Layer<a class="headerlink" href="#multiheadattention-layer" title="Permalink to this headline"></a></h4>
+<p>The MultiHeadAttention Layer is a binary operation that produces a matrix output from two matrix inputs by performing matrix mutiplication.</p>
+<p>Parameters: None</p>
+<p>Input and Output Shapes:</p>
+<ul class="simple">
+<li><p>input: 4D: (head_num, batch_size, m, n), (head_num, batch_size, k, n)</p></li>
+<li><p>output: 4D: (head_num, batch_size, m, k)</p></li>
+</ul>
+<p>Example:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">MultiHeadAttention</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;query&quot;</span><span class="p">,</span><span class="s2">&quot;key&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;AttentionOut1&quot;</span><span class="p">])</span>
+</pre></div>
+</div>
+</div>
 <div class="section" id="gather-layer">
 <h4>Gather Layer<a class="headerlink" href="#gather-layer" title="Permalink to this headline"></a></h4>
 <p>The Gather layer gather multiple output tensor slices from an input tensors on the last dimension.</p>
@@ -918,6 +991,7 @@ Produce x - y in element wise manner.</p>
       <dt>Tags</dt>
       <dd><a href="../../v3.5/api/hugectr_layer_book.html">v3.5</a></dd>
       <dd><a href="../../v3.6/api/hugectr_layer_book.html">v3.6</a></dd>
+      <dd><a href="../../v3.7/api/hugectr_layer_book.html">v3.7</a></dd>
     </dl>
     <dl>
       <dt>Branches</dt>

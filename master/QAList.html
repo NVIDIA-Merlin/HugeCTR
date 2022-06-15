@@ -19,10 +19,12 @@
         <script >let toggleOpenOnPrint = 'true';</script>
         <script src="_static/togglebutton.js"></script>
         <script >var togglebuttonSelector = '.toggle, .admonition.dropdown, .tag_hide_input div.cell_input, .tag_hide-input div.cell_input, .tag_hide_output div.cell_output, .tag_hide-output div.cell_output, .tag_hide_cell.cell, .tag_hide-cell.cell';</script>
+        <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+        <script type="text/x-mathjax-config">MathJax.Hub.Config({"tex2jax": {"processClass": "tex2jax_process|mathjax_process|math|output_area"}})</script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="Contributing to HugeCTR" href="hugectr_contributor_guide.html" />
+    <link rel="next" title="Release Notes" href="release_notes.html" />
     <link rel="prev" title="HugeCTR Talks and Blogs" href="hugectr_talks_blogs.html" /> 
 </head>
 
@@ -52,10 +54,10 @@
 <li class="toctree-l1 current"><a class="reference internal" href="additional_resources.html">Additional Resources</a><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="hugectr_talks_blogs.html">HugeCTR Talks and Blogs</a></li>
 <li class="toctree-l2 current"><a class="current reference internal" href="#">Questions and Answers</a></li>
-<li class="toctree-l2"><a class="reference internal" href="hugectr_contributor_guide.html">Contributing to HugeCTR</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="release_notes.html">Release Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="hugectr_contributor_guide.html">Contributing to HugeCTR</a></li>
 </ul>
 
         </div>
@@ -221,18 +223,32 @@ Thirdly, run with <code class="docutils literal notranslate"><span class="pre">.
 </div>
 <div class="section" id="how-to-set-workspace-size-per-gpu-in-mb-and-slot-size-array">
 <h2>24. How to set workspace_size_per_gpu_in_mb and slot_size_array?<a class="headerlink" href="#how-to-set-workspace-size-per-gpu-in-mb-and-slot-size-array" title="Permalink to this headline"></a></h2>
-<p>As embeddings are model parallel in HugeCTR,
-<code class="docutils literal notranslate"><span class="pre">workspace_size_per_gpu_in_mb</span></code> is a reference number for HugeCTR to allocate GPU memory accordingly and not necessarily the exact number of features in your dataset. It is depending on vocabulary size per gpu, embedding vector size and optimizer type.
+<p>As embeddings are model-parallel in HugeCTR,
+<code class="docutils literal notranslate"><span class="pre">workspace_size_per_gpu_in_mb</span></code> is a reference number for HugeCTR to allocate GPU memory accordingly and not necessarily the exact number of features in your dataset.
+The value to set depends on the vocabulary size per GPU, the embedding vector size, and the optimizer type.
 Refer to the embedding workspace calculator in the <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/tree/master/tools">tools</a> directory of the HugeCTR repository on GitHub.
-Use the calculator to calculate the vocabulary size per GPU and workspace_size per GPU for different embedding types, embedding vector size and optimizer type.</p>
-<p>In practice, we usually set it larger than the real size because of the non-uniform distribution of the keys.</p>
-<p><code class="docutils literal notranslate"><span class="pre">slot_size_array</span></code> has 2 usages. It can be used as a replacement for <code class="docutils literal notranslate"><span class="pre">workspace_size_per_gpu_in_mb</span></code> to avoid wasting memory caused by imbalance vocabulary size. And it can also be used as a reference to add offset for keys in different slot.</p>
-<p>The relation between embedding type, <code class="docutils literal notranslate"><span class="pre">workspace_size_per_gpu_in_mb</span></code> and <code class="docutils literal notranslate"><span class="pre">slot_size_array</span></code> is:</p>
+Use the calculator to calculate the vocabulary size per GPU and workspace_size per GPU for different embedding types, embedding vector size, and optimizer type.</p>
+<p>In practice, we usually set the values larger than the real size because of the non-uniform distribution of the keys.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">slot_size_array</span></code> argument has 2 usages.
+You can use it as a replacement for <code class="docutils literal notranslate"><span class="pre">workspace_size_per_gpu_in_mb</span></code> to avoid wasting memory that is caused by imbalanced vocabulary size.
+You can also use it as a reference to add an offset for keys in a different slot.</p>
+<p>When you specify <code class="docutils literal notranslate"><span class="pre">slot_size_array</span></code> to avoid wasting memory, set each value in the array to the maximum key value in each slot.
+Refer to the following equation:</p>
+<p><span class="math notranslate nohighlight">\(slot\_size\_array[k] = \max\limits_i slot^k_i + 1\)</span></p>
+<p>Refer to the following list for information about the relation between embedding type, the <code class="docutils literal notranslate"><span class="pre">workspace_size_per_gpu_in_mb</span></code> value, and the <code class="docutils literal notranslate"><span class="pre">slot_size_array</span></code> value:</p>
 <ul class="simple">
-<li><p>For <code class="docutils literal notranslate"><span class="pre">DistributedSlotEmbedding</span></code>, <code class="docutils literal notranslate"><span class="pre">workspace_size_per_gpu_in_mb</span></code> is needed and <code class="docutils literal notranslate"><span class="pre">slot_size_array</span></code> is not needed. Each GPU will allocate the same amount of memory for embedding table usage.</p></li>
-<li><p>For <code class="docutils literal notranslate"><span class="pre">LocalizedSlotSparseEmbeddingHash</span></code>, only one of <code class="docutils literal notranslate"><span class="pre">workspace_size_per_gpu_in_mb</span></code> and <code class="docutils literal notranslate"><span class="pre">slot_size_array</span></code> is needed. If users can provide the exact size for each slot, we recommend users to specify <code class="docutils literal notranslate"><span class="pre">slot_size_array</span></code>. It can help avoid wasting memory caused by imbalance vocabulary size. Or you can specify <code class="docutils literal notranslate"><span class="pre">workspace_size_per_gpu_in_mb</span></code> so each GPU will allocate the same amount of memory for embedding table usage. If you specify both <code class="docutils literal notranslate"><span class="pre">slot_size_array</span></code> and <code class="docutils literal notranslate"><span class="pre">workspace_size_per_gpu_in_mb</span></code>, HugeCTR will use <code class="docutils literal notranslate"><span class="pre">slot_size_array</span></code> for <code class="docutils literal notranslate"><span class="pre">LocalizedSlotSparseEmbeddingHash</span></code>.</p></li>
-<li><p>For <code class="docutils literal notranslate"><span class="pre">LocalizedSlotSparseEmbeddingOneHot</span></code>, <code class="docutils literal notranslate"><span class="pre">slot_size_array</span></code> is needed. It is used for allocating memory and adding offset for each slot.</p></li>
-<li><p>For <code class="docutils literal notranslate"><span class="pre">HybridSparseEmbedding</span></code>, both <code class="docutils literal notranslate"><span class="pre">workspace_size_per_gpu_in_mb</span></code> and <code class="docutils literal notranslate"><span class="pre">slot_size_array</span></code> is needed. <code class="docutils literal notranslate"><span class="pre">workspace_size_per_gpu_in_md</span></code> is used for allocating memory while <code class="docutils literal notranslate"><span class="pre">slot_size_array</span></code> is used for adding offset</p></li>
+<li><p>For <code class="docutils literal notranslate"><span class="pre">DistributedSlotEmbedding</span></code>, specify a value for <code class="docutils literal notranslate"><span class="pre">workspace_size_per_gpu_in_mb</span></code>.
+The <code class="docutils literal notranslate"><span class="pre">slot_size_array</span></code> argument is not needed.
+Each GPU allocates the same amount of memory for the embedding table usage.</p></li>
+<li><p>For <code class="docutils literal notranslate"><span class="pre">LocalizedSlotSparseEmbeddingHash</span></code>, specify only one of <code class="docutils literal notranslate"><span class="pre">workspace_size_per_gpu_in_mb</span></code> or <code class="docutils literal notranslate"><span class="pre">slot_size_array</span></code>.
+If you can provide the exact size for each slot, we recommend that you specify <code class="docutils literal notranslate"><span class="pre">slot_size_array</span></code>.
+The <code class="docutils literal notranslate"><span class="pre">slot_size_array</span></code> argument can help avoid wasting memory that is caused by an imbalanced vocabulary size.
+As an alternative, you can specify <code class="docutils literal notranslate"><span class="pre">workspace_size_per_gpu_in_mb</span></code> so that each GPU allocates the same amount of memory for the embedding table usage.
+If you specify both <code class="docutils literal notranslate"><span class="pre">slot_size_array</span></code> and <code class="docutils literal notranslate"><span class="pre">workspace_size_per_gpu_in_mb</span></code>, HugeCTR uses <code class="docutils literal notranslate"><span class="pre">slot_size_array</span></code> for <code class="docutils literal notranslate"><span class="pre">LocalizedSlotSparseEmbeddingHash</span></code>.</p></li>
+<li><p>For <code class="docutils literal notranslate"><span class="pre">LocalizedSlotSparseEmbeddingOneHot</span></code>, you must specify <code class="docutils literal notranslate"><span class="pre">slot_size_array</span></code>.
+The <code class="docutils literal notranslate"><span class="pre">slot_size_array</span></code> argument is used for allocating memory and adding an offset for each slot.</p></li>
+<li><p>For <code class="docutils literal notranslate"><span class="pre">HybridSparseEmbedding</span></code>, specify both <code class="docutils literal notranslate"><span class="pre">workspace_size_per_gpu_in_mb</span></code> and <code class="docutils literal notranslate"><span class="pre">slot_size_array</span></code>.
+The <code class="docutils literal notranslate"><span class="pre">workspace_size_per_gpu_in_md</span></code> argument is used for allocating memory while <code class="docutils literal notranslate"><span class="pre">slot_size_array</span></code> is used for adding an offset for the embedding table usage.</p></li>
 </ul>
 </div>
 <div class="section" id="is-nvlink-required-in-hugectr">
@@ -267,7 +283,7 @@ Refer to the <a class="reference internal" href="api/hugectr_layer_book.html#sli
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="hugectr_talks_blogs.html" class="btn btn-neutral float-left" title="HugeCTR Talks and Blogs" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="hugectr_contributor_guide.html" class="btn btn-neutral float-right" title="Contributing to HugeCTR" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="release_notes.html" class="btn btn-neutral float-right" title="Release Notes" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>
@@ -298,6 +314,7 @@ Refer to the <a class="reference internal" href="api/hugectr_layer_book.html#sli
       <dt>Tags</dt>
       <dd><a href="../v3.5/QAList.html">v3.5</a></dd>
       <dd><a href="../v3.6/QAList.html">v3.6</a></dd>
+      <dd><a href="../v3.7/QAList.html">v3.7</a></dd>
     </dl>
     <dl>
       <dt>Branches</dt>

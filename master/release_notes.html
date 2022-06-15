@@ -22,7 +22,8 @@
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="prev" title="Contributing to HugeCTR" href="hugectr_contributor_guide.html" /> 
+    <link rel="next" title="Contributing to HugeCTR" href="hugectr_contributor_guide.html" />
+    <link rel="prev" title="Questions and Answers" href="QAList.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -50,6 +51,7 @@
 <li class="toctree-l1"><a class="reference internal" href="api/index.html">API Documentation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="additional_resources.html">Additional Resources</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Release Notes</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#what-s-new-in-version-3-7">What’s New in Version 3.7</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#what-s-new-in-version-3-6">What’s New in Version 3.6</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#what-s-new-in-version-3-5">What’s New in Version 3.5</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#what-s-new-in-version-3-4-1">What’s New in Version 3.4.1</a></li>
@@ -65,6 +67,7 @@
 <li class="toctree-l2"><a class="reference internal" href="#known-issues">Known Issues</a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="hugectr_contributor_guide.html">Contributing to HugeCTR</a></li>
 </ul>
 
         </div>
@@ -92,6 +95,80 @@
              
   <div class="tex2jax_ignore mathjax_ignore section" id="release-notes">
 <h1>Release Notes<a class="headerlink" href="#release-notes" title="Permalink to this headline"></a></h1>
+<div class="section" id="what-s-new-in-version-3-7">
+<h2>What’s New in Version 3.7<a class="headerlink" href="#what-s-new-in-version-3-7" title="Permalink to this headline"></a></h2>
+<ul>
+<li><p><strong>3G Embedding Developer Preview</strong>:
+The 3.7 version introduces next-generation of embedding as a developer preview feature. We call it 3G embedding because it is the new update to the HugeCTR embedding interface and implementation since the unified embedding in v3.1 version, which was the second one.
+Compared with the previous embedding, there are three main changes in the embedding collection.</p>
+<ul class="simple">
+<li><p>First, it allows users to fuse embedding tables with different embedding vector sizes. The previous embedding can only fuse embedding tables with the same embedding vector size.
+The enhancement boosts both flexibility and performance.</p></li>
+<li><p>Second, it extends the functionality of embedding by supporting the <code class="docutils literal notranslate"><span class="pre">concat</span></code> combiner and supporting different slot lookup on the same embedding table.</p></li>
+<li><p>Finally, the embedding collection is powerful enough to support arbitrary embedding table placement which includes data parallel and model parallel.
+By providing a plan JSON file, you can configure the table placement strategy as you specify.
+See the <code class="docutils literal notranslate"><span class="pre">dlrm_train.py</span></code> file in the  <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/tree/v3.7/test/embedding_collection_test">embedding_collection_test</a> directory of the repository for a more detailed usage example.</p></li>
+</ul>
+</li>
+<li><p><strong>HPS Performance Improvements</strong>:</p>
+<ul class="simple">
+<li><p><strong>Kafka</strong>: Model parameters are now stored in Kafka in a bandwidth-saving multiplexed data format.
+This data format vastly increases throughput. In our lab, we measured transfer speeds up to 1.1 Gbps for each Kafka broker.</p></li>
+<li><p><strong>HashMap backend</strong>: Parallel and single-threaded hashmap implementations have been replaced by a new unified implementation.
+This new implementation uses a new memory-pool based allocation method that vastly increases upsert performance without diminishing recall performance.
+Compared with the previous implementation, you can expect a 4x speed improvement for large-batch insertion operations.</p></li>
+<li><p><strong>Suppressed and simplified log</strong>: Most log messages related to HPS have the log level changed to <code class="docutils literal notranslate"><span class="pre">TRACE</span></code> rather than <code class="docutils literal notranslate"><span class="pre">INFO</span></code> or <code class="docutils literal notranslate"><span class="pre">DEBUG</span></code> to reduce logging verbosity.</p></li>
+</ul>
+</li>
+<li><p><strong>Offline Inference Usability Enhancements</strong>:</p>
+<ul class="simple">
+<li><p>The thread pool size is configurable in the Python interface, which is useful for studying the embedding cache performance in scenarios of asynchronous update. Previously it was set as the minimum value of 16 and <code class="docutils literal notranslate"><span class="pre">std::thread::hardware_concurrency()</span></code>. For more information, please refer to <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/hugectr_parameter_server.html#configuration">Hierarchical Parameter Server Configuration</a>.</p></li>
+</ul>
+</li>
+<li><p><strong>DataGenerator Performance Improvements</strong>:
+You can specify the <code class="docutils literal notranslate"><span class="pre">num_threads</span></code> parameter to parallelize a <code class="docutils literal notranslate"><span class="pre">Norm</span></code> dataset generation.</p></li>
+<li><p><strong>Evaluation Metric Improvements</strong>:</p>
+<ul class="simple">
+<li><p>Average loss performance improvement in multi-node environments.</p></li>
+<li><p>AUC performance optimization and safer memory management.</p></li>
+<li><p>Addition of NDCG and SMAPE.</p></li>
+</ul>
+</li>
+<li><p><strong>Embedding Training Cache Parquet Demo</strong>:
+Created a keyset extractor script to generate keyset files for Parquet datasets.
+Provided users with an end-to-end demo of how to train a Parquet dataset using the embedding cache mode.
+See the <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/v3.7/notebooks/embedding_training_cache_example.html">Embedding Training Cache Example</a> notebook.</p></li>
+<li><p><strong>Documentation Enhancements</strong>:
+The documentation details for <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/v3.7/hugectr_parameter_server.html">HugeCTR Hierarchical Parameter Server Database Backend</a> are updated for consistency and clarity.</p></li>
+<li><p><strong>Issues Fixed</strong>:</p>
+<ul class="simple">
+<li><p>If <code class="docutils literal notranslate"><span class="pre">slot_size_array</span></code> is specified, <code class="docutils literal notranslate"><span class="pre">workspace_size_per_gpu_in_mb</span></code> is no longer required.</p></li>
+<li><p>If you build and install HugeCTR from scratch, you can specify the <code class="docutils literal notranslate"><span class="pre">CMAKE_INSTALL_PREFIX</span></code> CMake variable to identify the installation directory for HugeCTR.</p></li>
+<li><p>Fixed SOK hang issue when calling <code class="docutils literal notranslate"><span class="pre">sok.Init()</span></code> with a large number of GPUs. See the GitHub issue <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/issues/261">261</a> and <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/issues/302">302</a> for more details.</p></li>
+</ul>
+</li>
+<li><p><strong>Known Issues</strong>:</p>
+<ul>
+<li><p>HugeCTR uses NCCL to share data between ranks and NCCL can require shared system memory for IPC and pinned (page-locked) system memory resources.
+If you use NCCL inside a container, increase these resources by specifying the following arguments when you start the container:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>  -shm-size<span class="o">=</span>1g -ulimit <span class="nv">memlock</span><span class="o">=</span>-1
+</pre></div>
+</div>
+<p>See also the NCCL <a class="reference external" href="https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/troubleshooting.html#sharing-data">known issue</a> and the GitHub <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/issues/243">issue</a>.</p>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">KafkaProducers</span></code> startup succeeds even if the target Kafka broker is unresponsive.
+To avoid data loss in conjunction with streaming-model updates from Kafka, you have to make sure that a sufficient number of Kafka brokers are running, operating properly, and are reachable from the node where you run HugeCTR.</p></li>
+<li><p>The number of data files in the file list should be greater than or equal to the number of data reader workers.
+Otherwise, different workers are mapped to the same file and data loading does not progress as expected.</p></li>
+<li><p>Joint loss training with a regularizer is not supported.</p></li>
+<li><p>The Criteo 1 TB click logs dataset that is used with many HugeCTR sample programs and notebooks is currently unavailable.
+Until the dataset becomes downloadable again, you can run those samples based on our synthetic dataset generator.
+For more information, see the <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR#getting-started">Getting Started</a> section of the repository README file.</p></li>
+<li><p>Data generator of parquet type produces inconsistent file names between _metadata.json and actual dataset files, which will result in core dump fault when using the synthetic dataset.</p></li>
+</ul>
+</li>
+</ul>
+</div>
 <div class="section" id="what-s-new-in-version-3-6">
 <h2>What’s New in Version 3.6<a class="headerlink" href="#what-s-new-in-version-3-6" title="Permalink to this headline"></a></h2>
 <ul>
@@ -402,7 +479,8 @@ See also <a class="reference external" href="https://docs.nvidia.com/deeplearnin
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="hugectr_contributor_guide.html" class="btn btn-neutral float-left" title="Contributing to HugeCTR" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="QAList.html" class="btn btn-neutral float-left" title="Questions and Answers" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="hugectr_contributor_guide.html" class="btn btn-neutral float-right" title="Contributing to HugeCTR" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>
@@ -433,6 +511,7 @@ See also <a class="reference external" href="https://docs.nvidia.com/deeplearnin
       <dt>Tags</dt>
       <dd><a href="../v3.5/index.html">v3.5</a></dd>
       <dd><a href="../v3.6/index.html">v3.6</a></dd>
+      <dd><a href="../v3.7/index.html">v3.7</a></dd>
     </dl>
     <dl>
       <dt>Branches</dt>

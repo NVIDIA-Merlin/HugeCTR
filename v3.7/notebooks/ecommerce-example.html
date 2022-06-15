@@ -1,0 +1,2934 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Merlin ETL, training, and inference with e-Commerce behavior data &mdash; Merlin HugeCTR  documentation</title><link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/togglebutton.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/mystnb.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  <script id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/underscore.js"></script>
+        <script src="../_static/doctools.js"></script>
+        <script >let toggleHintShow = 'Click to show';</script>
+        <script >let toggleHintHide = 'Click to hide';</script>
+        <script >let toggleOpenOnPrint = 'true';</script>
+        <script src="../_static/togglebutton.js"></script>
+        <script >var togglebuttonSelector = '.toggle, .admonition.dropdown, .tag_hide_input div.cell_input, .tag_hide-input div.cell_input, .tag_hide_output div.cell_output, .tag_hide-output div.cell_output, .tag_hide_cell.cell, .tag_hide-cell.cell';</script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="HugeCTR demo on Movie lens data" href="movie-lens-example.html" />
+    <link rel="prev" title="HugeCTR Example Notebooks" href="index.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../index.html" class="icon icon-home"> Merlin HugeCTR
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../hugectr_user_guide.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../hugectr_core_features.html">Core Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../hugectr_feature_details_intro.html">Features in Detail</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Example Notebooks</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="index.html#quickstart">Quickstart</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#notebook-list">Notebook List</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#system-specifications">System Specifications</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Merlin ETL, training, and inference with e-Commerce behavior data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="movie-lens-example.html">HugeCTR demo on Movie lens data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="hugectr_criteo.html">Introduction to the HugeCTR Python Interface</a></li>
+<li class="toctree-l2"><a class="reference internal" href="hugectr2onnx_demo.html">HugeCTR to ONNX Converter</a></li>
+<li class="toctree-l2"><a class="reference internal" href="continuous_training.html">HugeCTR Continuous Training</a></li>
+<li class="toctree-l2"><a class="reference internal" href="hugectr_wdl_prediction.html">HugeCTR Wide and Deep Model with Criteo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="news-example.html">NVIDIA Merlin on Microsoft’s News Dataset (MIND)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="multi_gpu_offline_inference.html">Multi-GPU Offline Inference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="hps_demo.html">Hierarchical Parameter Server Demo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="training_with_hdfs.html">HugeCTR training with HDFS example</a></li>
+<li class="toctree-l2"><a class="reference internal" href="embedding_training_cache_example.html">Embedding Training Cache Example</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="multi-modal-data/index.html">Multi-modal Example Notebooks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/index.html">API Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../additional_resources.html">Additional Resources</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../release_notes.html">Release Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../hugectr_contributor_guide.html">Contributing to HugeCTR</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Merlin HugeCTR</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="index.html">HugeCTR Example Notebooks</a> &raquo;</li>
+      <li>Merlin ETL, training, and inference with e-Commerce behavior data</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <img alt="http://developer.download.nvidia.com/compute/machine-learning/frameworks/nvidia_logo.png" src="http://developer.download.nvidia.com/compute/machine-learning/frameworks/nvidia_logo.png" />
+<div class="tex2jax_ignore mathjax_ignore section" id="merlin-etl-training-and-inference-with-e-commerce-behavior-data">
+<h1>Merlin ETL, training, and inference with e-Commerce behavior data<a class="headerlink" href="#merlin-etl-training-and-inference-with-e-commerce-behavior-data" title="Permalink to this headline"></a></h1>
+<div class="section" id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Permalink to this headline"></a></h2>
+<p>In this tutorial, we use the <a class="reference external" href="https://www.kaggle.com/mkechinov/ecommerce-behavior-data-from-multi-category-store">eCommerce behavior data from multi category store</a> from <a class="reference external" href="https://rees46.com/">REES46 Marketing Platform</a> as our dataset. This tutorial is built upon the NVIDIA RecSys 2020 <a class="reference external" href="https://recsys.acm.org/recsys20/tutorials/">tutorial</a>.</p>
+<p>This notebook provides the code to preprocess the dataset and generate the training, validation, and test sets for the remainder of the tutorial. We define our own goal and filter the dataset accordingly.</p>
+<p>For our tutorial, we decided that our goal is to predict if a user purchased an item:</p>
+<ul class="simple">
+<li><p>Positive: User purchased an item.</p></li>
+<li><p>Negative: User added an item to the cart, but did not purchase it (in the same session).</p></li>
+</ul>
+<p>We split the dataset into training, validation, and test set by the timestamp:</p>
+<ul class="simple">
+<li><p>Training: October 2019 - February 2020</p></li>
+<li><p>Validation: March 2020</p></li>
+<li><p>Test: April 2020</p></li>
+</ul>
+<p>We remove AddToCart Events from a session, if in the same session the same item was purchased.</p>
+</div>
+<div class="section" id="data">
+<h2>Data<a class="headerlink" href="#data" title="Permalink to this headline"></a></h2>
+<p>First, we download and unzip the raw data.</p>
+<p>Note: the dataset is approximately 11 GB and can require several minutes to download.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">%%</span><span class="k">bash</span>
+export HOME=$PWD
+pip install gdown --user
+~/.local/bin/gdown  https://drive.google.com/uc?id=1-Rov9fFtGJqb7_ePc6qH-Rhzxn0cIcKB
+~/.local/bin/gdown  https://drive.google.com/uc?id=1-Rov9fFtGJqb7_ePc6qH-Rhzxn0cIcKB
+~/.local/bin/gdown  https://drive.google.com/uc?id=1zr_RXpGvOWN2PrWI6itWL8HnRsCpyqz8
+~/.local/bin/gdown  https://drive.google.com/uc?id=1g5WoIgLe05UMdREbxAjh0bEFgVCjA1UL
+~/.local/bin/gdown  https://drive.google.com/uc?id=1qZIwMbMgMmgDC5EoMdJ8aI9lQPsWA3-P
+~/.local/bin/gdown  https://drive.google.com/uc?id=1x5ohrrZNhWQN4Q-zww0RmXOwctKHH9PT
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">glob</span>  
+
+<span class="n">list_files</span> <span class="o">=</span> <span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="s1">&#39;*.csv.gz&#39;</span><span class="p">)</span>
+<span class="n">list_files</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>[&#39;2019-Dec.csv.gz&#39;,
+ &#39;2020-Apr.csv.gz&#39;,
+ &#39;2020-Mar.csv.gz&#39;,
+ &#39;2020-Feb.csv.gz&#39;,
+ &#39;2020-Jan.csv.gz&#39;]
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="data-extraction-and-initial-preprocessing">
+<h3>Data extraction and initial preprocessing<a class="headerlink" href="#data-extraction-and-initial-preprocessing" title="Permalink to this headline"></a></h3>
+<p>We extract a few relevant columns from the raw datasets and parse date columns into several atomic columns (day, month…).</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">tqdm</span> <span class="kn">import</span> <span class="n">tqdm</span>
+
+<span class="k">def</span> <span class="nf">process_files</span><span class="p">(</span><span class="n">file</span><span class="p">):</span>
+    <span class="n">df_tmp</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">file</span><span class="p">,</span> <span class="n">compression</span><span class="o">=</span><span class="s1">&#39;gzip&#39;</span><span class="p">)</span>
+    <span class="n">df_tmp</span><span class="p">[</span><span class="s1">&#39;session_purchase&#39;</span><span class="p">]</span> <span class="o">=</span>  <span class="n">df_tmp</span><span class="p">[</span><span class="s1">&#39;user_session&#39;</span><span class="p">]</span> <span class="o">+</span> <span class="s1">&#39;_&#39;</span> <span class="o">+</span> <span class="n">df_tmp</span><span class="p">[</span><span class="s1">&#39;product_id&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span>
+    <span class="n">df_purchase</span> <span class="o">=</span> <span class="n">df_tmp</span><span class="p">[</span><span class="n">df_tmp</span><span class="p">[</span><span class="s1">&#39;event_type&#39;</span><span class="p">]</span><span class="o">==</span><span class="s1">&#39;purchase&#39;</span><span class="p">]</span>
+    <span class="n">df_cart</span> <span class="o">=</span> <span class="n">df_tmp</span><span class="p">[</span><span class="n">df_tmp</span><span class="p">[</span><span class="s1">&#39;event_type&#39;</span><span class="p">]</span><span class="o">==</span><span class="s1">&#39;cart&#39;</span><span class="p">]</span>
+    <span class="n">df_purchase</span> <span class="o">=</span> <span class="n">df_purchase</span><span class="p">[</span><span class="n">df_purchase</span><span class="p">[</span><span class="s1">&#39;session_purchase&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">df_cart</span><span class="p">[</span><span class="s1">&#39;session_purchase&#39;</span><span class="p">])]</span>
+    <span class="n">df_cart</span> <span class="o">=</span> <span class="n">df_cart</span><span class="p">[</span><span class="o">~</span><span class="p">(</span><span class="n">df_cart</span><span class="p">[</span><span class="s1">&#39;session_purchase&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">df_purchase</span><span class="p">[</span><span class="s1">&#39;session_purchase&#39;</span><span class="p">]))]</span>
+    <span class="n">df_cart</span><span class="p">[</span><span class="s1">&#39;target&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">df_purchase</span><span class="p">[</span><span class="s1">&#39;target&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">df_cart</span><span class="p">,</span> <span class="n">df_purchase</span><span class="p">])</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="s1">&#39;category_id&#39;</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="s1">&#39;session_purchase&#39;</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">df</span><span class="p">[[</span><span class="s1">&#39;cat_0&#39;</span><span class="p">,</span> <span class="s1">&#39;cat_1&#39;</span><span class="p">,</span> <span class="s1">&#39;cat_2&#39;</span><span class="p">,</span> <span class="s1">&#39;cat_3&#39;</span><span class="p">]]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s1">&#39;category_code&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">str</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;\.&quot;</span><span class="p">,</span> <span class="n">n</span> <span class="o">=</span> <span class="mi">3</span><span class="p">,</span> <span class="n">expand</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="s1">&#39;NA&#39;</span><span class="p">)</span>
+    <span class="n">df</span><span class="p">[</span><span class="s1">&#39;brand&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s1">&#39;brand&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="s1">&#39;NA&#39;</span><span class="p">)</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="s1">&#39;category_code&#39;</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">df</span><span class="p">[</span><span class="s1">&#39;timestamp&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_datetime</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s1">&#39;event_time&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">str</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39; UTC&#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">))</span>
+    <span class="n">df</span><span class="p">[</span><span class="s1">&#39;ts_hour&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s1">&#39;timestamp&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">dt</span><span class="o">.</span><span class="n">hour</span>
+    <span class="n">df</span><span class="p">[</span><span class="s1">&#39;ts_minute&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s1">&#39;timestamp&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">dt</span><span class="o">.</span><span class="n">minute</span>
+    <span class="n">df</span><span class="p">[</span><span class="s1">&#39;ts_weekday&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s1">&#39;timestamp&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">dt</span><span class="o">.</span><span class="n">weekday</span>
+    <span class="n">df</span><span class="p">[</span><span class="s1">&#39;ts_day&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s1">&#39;timestamp&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">dt</span><span class="o">.</span><span class="n">day</span>
+    <span class="n">df</span><span class="p">[</span><span class="s1">&#39;ts_month&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s1">&#39;timestamp&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">dt</span><span class="o">.</span><span class="n">month</span>
+    <span class="n">df</span><span class="p">[</span><span class="s1">&#39;ts_year&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s1">&#39;timestamp&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">dt</span><span class="o">.</span><span class="n">year</span>
+    <span class="n">df</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="s1">&#39;./dataset/&#39;</span> <span class="o">+</span> <span class="n">file</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;.gz&#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    
+<span class="o">!</span>mkdir ./dataset
+<span class="k">for</span> <span class="n">file</span> <span class="ow">in</span> <span class="n">tqdm</span><span class="p">(</span><span class="n">list_files</span><span class="p">):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">file</span><span class="p">)</span>
+    <span class="n">process_files</span><span class="p">(</span><span class="n">file</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>  0%|                                                                                   | 0/5 [00:00&lt;?, ?it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2019-Dec.csv.gz
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 20%|██████████████▊                                                           | 1/5 [04:16&lt;17:05, 256.45s/it]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2020-Apr.csv.gz
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 40%|█████████████████████████████▌                                            | 2/5 [08:34&lt;12:51, 257.29s/it]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2020-Mar.csv.gz
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 60%|████████████████████████████████████████████▍                             | 3/5 [12:02&lt;07:49, 234.67s/it]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2020-Feb.csv.gz
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> 80%|███████████████████████████████████████████████████████████▏              | 4/5 [15:30&lt;03:44, 224.22s/it]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2020-Jan.csv.gz
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|██████████████████████████████████████████████████████████████████████████| 5/5 [19:05&lt;00:00, 229.04s/it]
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="prepare-the-training-validation-and-test-datasets">
+<h3>Prepare the training, validation, and test datasets<a class="headerlink" href="#prepare-the-training-validation-and-test-datasets" title="Permalink to this headline"></a></h3>
+<p>Next, we split the data into training, validation, and test sets. We use 3 months for training, 1 month for validation, and 1 month for testing.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">lp</span> <span class="o">=</span> <span class="p">[]</span>
+<span class="n">list_files</span> <span class="o">=</span> <span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="s1">&#39;./dataset/*.csv&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>ls -l ./dataset/*.csv
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>-rw-r--r-- 1 root dip 479323170 Nov 16 22:47 ./dataset/2019-Dec.csv
+-rw-r--r-- 1 root dip 455992639 Nov 16 22:51 ./dataset/2020-Apr.csv
+-rw-r--r-- 1 root dip 453967664 Nov 16 22:58 ./dataset/2020-Feb.csv
+-rw-r--r-- 1 root dip 375205173 Nov 16 23:02 ./dataset/2020-Jan.csv
+-rw-r--r-- 1 root dip 403896607 Nov 16 22:55 ./dataset/2020-Mar.csv
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="k">for</span> <span class="n">file</span> <span class="ow">in</span> <span class="n">list_files</span><span class="p">:</span>
+    <span class="n">lp</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">file</span><span class="p">))</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">lp</span><span class="p">)</span>
+<span class="n">df</span><span class="o">.</span><span class="n">shape</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>(13184044, 19)
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">df_test</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="s1">&#39;ts_month&#39;</span><span class="p">]</span><span class="o">==</span><span class="mi">4</span><span class="p">]</span>
+<span class="n">df_valid</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="s1">&#39;ts_month&#39;</span><span class="p">]</span><span class="o">==</span><span class="mi">3</span><span class="p">]</span>
+<span class="n">df_train</span> <span class="o">=</span> <span class="n">df</span><span class="p">[(</span><span class="n">df</span><span class="p">[</span><span class="s1">&#39;ts_month&#39;</span><span class="p">]</span><span class="o">!=</span><span class="mi">3</span><span class="p">)</span><span class="o">&amp;</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s1">&#39;ts_month&#39;</span><span class="p">]</span><span class="o">!=</span><span class="mi">4</span><span class="p">)]</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">df_train</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">df_valid</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">df_test</span><span class="o">.</span><span class="n">shape</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>((7949839, 19), (2461719, 19), (2772486, 19))
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>mkdir -p ./data
+<span class="n">df_train</span><span class="o">.</span><span class="n">to_parquet</span><span class="p">(</span><span class="s1">&#39;./data/train.parquet&#39;</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="n">df_valid</span><span class="o">.</span><span class="n">to_parquet</span><span class="p">(</span><span class="s1">&#39;./data/valid.parquet&#39;</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="n">df_test</span><span class="o">.</span><span class="n">to_parquet</span><span class="p">(</span><span class="s1">&#39;./data/test.parquet&#39;</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">df_train</span><span class="o">.</span><span class="n">head</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_html"><div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>event_time</th>
+      <th>event_type</th>
+      <th>product_id</th>
+      <th>brand</th>
+      <th>price</th>
+      <th>user_id</th>
+      <th>user_session</th>
+      <th>target</th>
+      <th>cat_0</th>
+      <th>cat_1</th>
+      <th>cat_2</th>
+      <th>cat_3</th>
+      <th>timestamp</th>
+      <th>ts_hour</th>
+      <th>ts_minute</th>
+      <th>ts_weekday</th>
+      <th>ts_day</th>
+      <th>ts_month</th>
+      <th>ts_year</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>2020-02-01 00:00:18 UTC</td>
+      <td>cart</td>
+      <td>100065078</td>
+      <td>xiaomi</td>
+      <td>568.61</td>
+      <td>526615078</td>
+      <td>5f0aab9f-f92e-4eff-b0d2-fcec5f553f01</td>
+      <td>0</td>
+      <td>construction</td>
+      <td>tools</td>
+      <td>light</td>
+      <td>NaN</td>
+      <td>2020-02-01 00:00:18</td>
+      <td>0</td>
+      <td>0</td>
+      <td>5</td>
+      <td>1</td>
+      <td>2</td>
+      <td>2020</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>2020-02-01 00:00:18 UTC</td>
+      <td>cart</td>
+      <td>5701246</td>
+      <td>NaN</td>
+      <td>24.43</td>
+      <td>563902689</td>
+      <td>76cc9152-8a9f-43e9-b98a-ee484510f379</td>
+      <td>0</td>
+      <td>electronics</td>
+      <td>video</td>
+      <td>tv</td>
+      <td>NaN</td>
+      <td>2020-02-01 00:00:18</td>
+      <td>0</td>
+      <td>0</td>
+      <td>5</td>
+      <td>1</td>
+      <td>2</td>
+      <td>2020</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>2020-02-01 00:00:31 UTC</td>
+      <td>cart</td>
+      <td>14701533</td>
+      <td>NaN</td>
+      <td>154.42</td>
+      <td>520953435</td>
+      <td>5f1c7752-cf92-41fc-9a16-e8897a90eee8</td>
+      <td>0</td>
+      <td>electronics</td>
+      <td>video</td>
+      <td>projector</td>
+      <td>NaN</td>
+      <td>2020-02-01 00:00:31</td>
+      <td>0</td>
+      <td>0</td>
+      <td>5</td>
+      <td>1</td>
+      <td>2</td>
+      <td>2020</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>2020-02-01 00:00:40 UTC</td>
+      <td>cart</td>
+      <td>1004855</td>
+      <td>xiaomi</td>
+      <td>123.30</td>
+      <td>519236281</td>
+      <td>e512f514-dc7f-4fc9-9042-e3955989d395</td>
+      <td>0</td>
+      <td>construction</td>
+      <td>tools</td>
+      <td>light</td>
+      <td>NaN</td>
+      <td>2020-02-01 00:00:40</td>
+      <td>0</td>
+      <td>0</td>
+      <td>5</td>
+      <td>1</td>
+      <td>2</td>
+      <td>2020</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>2020-02-01 00:00:47 UTC</td>
+      <td>cart</td>
+      <td>1005100</td>
+      <td>samsung</td>
+      <td>140.28</td>
+      <td>550305600</td>
+      <td>bd7a37b6-420d-4575-8852-ac825aff39b5</td>
+      <td>0</td>
+      <td>construction</td>
+      <td>tools</td>
+      <td>light</td>
+      <td>NaN</td>
+      <td>2020-02-01 00:00:47</td>
+      <td>0</td>
+      <td>0</td>
+      <td>5</td>
+      <td>1</td>
+      <td>2</td>
+      <td>2020</td>
+    </tr>
+  </tbody>
+</table>
+</div></div></div>
+</div>
+</div>
+</div>
+<div class="section" id="preprocessing-with-nvtabular">
+<h2>Preprocessing with NVTabular<a class="headerlink" href="#preprocessing-with-nvtabular" title="Permalink to this headline"></a></h2>
+<p>Next, we will use NVTabular for preprocessing and engineering more features.</p>
+<p>But first, we need to import the necessary libraries and initialize a Dask GPU cluster for computation.</p>
+<div class="section" id="initialize-dask-gpu-cluster">
+<h3>Initialize Dask GPU cluster<a class="headerlink" href="#initialize-dask-gpu-cluster" title="Permalink to this headline"></a></h3>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Standard Libraries</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">from</span> <span class="nn">time</span> <span class="kn">import</span> <span class="n">time</span>
+<span class="kn">import</span> <span class="nn">re</span>
+<span class="kn">import</span> <span class="nn">shutil</span>
+<span class="kn">import</span> <span class="nn">glob</span>
+<span class="kn">import</span> <span class="nn">warnings</span>
+
+<span class="c1"># External Dependencies</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">import</span> <span class="nn">cupy</span> <span class="k">as</span> <span class="nn">cp</span>
+<span class="kn">import</span> <span class="nn">cudf</span>
+<span class="kn">import</span> <span class="nn">dask_cudf</span>
+<span class="kn">from</span> <span class="nn">dask_cuda</span> <span class="kn">import</span> <span class="n">LocalCUDACluster</span>
+<span class="kn">from</span> <span class="nn">dask.distributed</span> <span class="kn">import</span> <span class="n">Client</span>
+<span class="kn">from</span> <span class="nn">dask.utils</span> <span class="kn">import</span> <span class="n">parse_bytes</span>
+<span class="kn">from</span> <span class="nn">dask.delayed</span> <span class="kn">import</span> <span class="n">delayed</span>
+<span class="kn">import</span> <span class="nn">rmm</span>
+
+<span class="c1"># NVTabular</span>
+<span class="kn">import</span> <span class="nn">nvtabular</span> <span class="k">as</span> <span class="nn">nvt</span>
+<span class="kn">import</span> <span class="nn">nvtabular.ops</span> <span class="k">as</span> <span class="nn">ops</span>
+<span class="kn">from</span> <span class="nn">nvtabular.io</span> <span class="kn">import</span> <span class="n">Shuffle</span>
+<span class="kn">from</span> <span class="nn">nvtabular.utils</span> <span class="kn">import</span> <span class="n">_pynvml_mem_size</span><span class="p">,</span> <span class="n">device_mem_size</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="n">nvt</span><span class="o">.</span><span class="n">__version__</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>0.7.1
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># define some information about where to get our data</span>
+<span class="n">BASE_DIR</span> <span class="o">=</span> <span class="s2">&quot;./nvtabular_temp&quot;</span>
+<span class="o">!</span>rm -r <span class="nv">$BASE_DIR</span> <span class="o">&amp;&amp;</span> mkdir <span class="nv">$BASE_DIR</span>
+<span class="n">input_path</span> <span class="o">=</span> <span class="s1">&#39;./dataset&#39;</span>
+<span class="n">dask_workdir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">BASE_DIR</span><span class="p">,</span> <span class="s2">&quot;workdir&quot;</span><span class="p">)</span>
+<span class="n">output_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">BASE_DIR</span><span class="p">,</span> <span class="s2">&quot;output&quot;</span><span class="p">)</span>
+<span class="n">stats_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">BASE_DIR</span><span class="p">,</span> <span class="s2">&quot;stats&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>rm: cannot remove &#39;./nvtabular_temp&#39;: No such file or directory
+</pre></div>
+</div>
+</div>
+</div>
+<p>This example was tested on a DGX server with 8 GPUs. If you have less GPUs, modify the <code class="docutils literal notranslate"><span class="pre">NUM_GPUS</span></code> variable accordingly.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">NUM_GPUS</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">4</span><span class="p">,</span><span class="mi">5</span><span class="p">,</span><span class="mi">6</span><span class="p">,</span><span class="mi">7</span><span class="p">]</span>
+<span class="c1">#NUM_GPUS = [0]</span>
+
+<span class="c1"># Dask dashboard</span>
+<span class="n">dashboard_port</span> <span class="o">=</span> <span class="s2">&quot;8787&quot;</span>
+
+<span class="c1"># Deploy a Single-Machine Multi-GPU Cluster</span>
+<span class="n">protocol</span> <span class="o">=</span> <span class="s2">&quot;tcp&quot;</span>             <span class="c1"># &quot;tcp&quot; or &quot;ucx&quot;</span>
+<span class="n">visible_devices</span> <span class="o">=</span> <span class="s2">&quot;,&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="nb">str</span><span class="p">(</span><span class="n">n</span><span class="p">)</span> <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">NUM_GPUS</span><span class="p">])</span>  <span class="c1"># Delect devices to place workers</span>
+<span class="n">device_limit_frac</span> <span class="o">=</span> <span class="mf">0.5</span>      <span class="c1"># Spill GPU-Worker memory to host at this limit.</span>
+<span class="n">device_pool_frac</span> <span class="o">=</span> <span class="mf">0.6</span>
+<span class="n">part_mem_frac</span> <span class="o">=</span> <span class="mf">0.05</span>
+
+<span class="c1"># Use total device size to calculate args.device_limit_frac</span>
+<span class="n">device_size</span> <span class="o">=</span> <span class="n">device_mem_size</span><span class="p">(</span><span class="n">kind</span><span class="o">=</span><span class="s2">&quot;total&quot;</span><span class="p">)</span>
+<span class="n">device_limit</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">device_limit_frac</span> <span class="o">*</span> <span class="n">device_size</span><span class="p">)</span>
+<span class="n">device_pool_size</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">device_pool_frac</span> <span class="o">*</span> <span class="n">device_size</span><span class="p">)</span>
+<span class="n">part_size</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">part_mem_frac</span> <span class="o">*</span> <span class="n">device_size</span><span class="p">)</span>
+
+<span class="c1"># Check if any device memory is already occupied</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">for dev in visible_devices.split(&quot;,&quot;):</span>
+<span class="sd">    fmem = _pynvml_mem_size(kind=&quot;free&quot;, index=int(dev))</span>
+<span class="sd">    used = (device_size - fmem) / 1e9</span>
+<span class="sd">    if used &gt; 1.0:</span>
+<span class="sd">        warnings.warn(f&quot;BEWARE - {used} GB is already occupied on device {int(dev)}!&quot;)</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="n">cluster</span> <span class="o">=</span> <span class="kc">None</span>               <span class="c1"># (Optional) Specify existing scheduler port</span>
+<span class="k">if</span> <span class="n">cluster</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="n">cluster</span> <span class="o">=</span> <span class="n">LocalCUDACluster</span><span class="p">(</span>
+        <span class="n">protocol</span> <span class="o">=</span> <span class="n">protocol</span><span class="p">,</span>
+        <span class="n">n_workers</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">visible_devices</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;,&quot;</span><span class="p">)),</span>
+        <span class="n">CUDA_VISIBLE_DEVICES</span> <span class="o">=</span> <span class="n">visible_devices</span><span class="p">,</span>
+        <span class="n">device_memory_limit</span> <span class="o">=</span> <span class="n">device_limit</span><span class="p">,</span>
+        <span class="n">local_directory</span><span class="o">=</span><span class="n">dask_workdir</span><span class="p">,</span>
+        <span class="n">dashboard_address</span><span class="o">=</span><span class="s2">&quot;:&quot;</span> <span class="o">+</span> <span class="n">dashboard_port</span><span class="p">,</span>
+    <span class="p">)</span>
+
+<span class="c1"># Create the distributed client</span>
+<span class="n">client</span> <span class="o">=</span> <span class="n">Client</span><span class="p">(</span><span class="n">cluster</span><span class="p">)</span>
+<span class="n">client</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>distributed.preloading - INFO - Import preload module: dask_cuda.initialize
+distributed.preloading - INFO - Import preload module: dask_cuda.initialize
+distributed.preloading - INFO - Import preload module: dask_cuda.initialize
+distributed.preloading - INFO - Import preload module: dask_cuda.initialize
+distributed.preloading - INFO - Import preload module: dask_cuda.initialize
+distributed.preloading - INFO - Import preload module: dask_cuda.initialize
+distributed.preloading - INFO - Import preload module: dask_cuda.initialize
+distributed.preloading - INFO - Import preload module: dask_cuda.initialize
+</pre></div>
+</div>
+<div class="output text_html">
+    <div>
+        <div style="
+            width: 24px;
+            height: 24px;
+            background-color: #e1e1e1;
+            border: 3px solid #9D9D9D;
+            border-radius: 5px;
+            position: absolute;"> </div>
+        <div style="margin-left: 48px;">
+            <h3 style="margin-bottom: 0px;">Client</h3>
+            <p style="color: #9D9D9D; margin-bottom: 0px;">Client-5fa9de34-4731-11ec-81a0-0242c0a88002</p>
+            <table style="width: 100%; text-align: left;">
+
+        <tr>
+            <td style="text-align: left;"><strong>Connection method:</strong> Cluster object</td>
+            <td style="text-align: left;"><strong>Cluster type:</strong> LocalCUDACluster</td>
+        </tr>
+
+        <tr>
+            <td style="text-align: left;">
+                <strong>Dashboard: </strong>
+                <a href="http://127.0.0.1:8787/status">http://127.0.0.1:8787/status</a>
+            </td>
+            <td style="text-align: left;"></td>
+        </tr>
+
+            </table>
+
+        <details>
+        <summary style="margin-bottom: 20px;"><h3 style="display: inline;">Cluster Info</h3></summary>
+
+    <div class="jp-RenderedHTMLCommon jp-RenderedHTML jp-mod-trusted jp-OutputArea-output">
+        <div style="
+            width: 24px;
+            height: 24px;
+            background-color: #e1e1e1;
+            border: 3px solid #9D9D9D;
+            border-radius: 5px;
+            position: absolute;"> </div>
+        <div style="margin-left: 48px;">
+            <h3 style="margin-bottom: 0px; margin-top: 0px;">LocalCUDACluster</h3>
+            <p style="color: #9D9D9D; margin-bottom: 0px;">280d3dd0</p>
+            <table style="width: 100%; text-align: left;">
+
+    <tr>
+        <td style="text-align: left;"><strong>Status:</strong> running</td>
+        <td style="text-align: left;"><strong>Using processes:</strong> True</td>
+    </tr>
+
+    <tr>
+        <td style="text-align: left;">
+            <strong>Dashboard:</strong> <a href="http://127.0.0.1:8787/status">http://127.0.0.1:8787/status</a>
+        </td>
+        <td style="text-align: left;"><strong>Workers:</strong> 8</td>
+    </tr>
+    <tr>
+        <td style="text-align: left;">
+            <strong>Total threads:</strong>
+            8
+        </td>
+        <td style="text-align: left;">
+            <strong>Total memory:</strong>
+            503.81 GiB
+        </td>
+    </tr>
+
+            </table>
+            <details>
+            <summary style="margin-bottom: 20px;"><h3 style="display: inline;">Scheduler Info</h3></summary>
+
+<div style="">
+
+    <div>
+        <div style="
+            width: 24px;
+            height: 24px;
+            background-color: #FFF7E5;
+            border: 3px solid #FF6132;
+            border-radius: 5px;
+            position: absolute;"> </div>
+        <div style="margin-left: 48px;">
+            <h3 style="margin-bottom: 0px;">Scheduler</h3>
+            <p style="color: #9D9D9D; margin-bottom: 0px;">Scheduler-e2967024-5ba6-46fa-889b-ce05595cfe32</p>
+            <table style="width: 100%; text-align: left;">
+                <tr>
+                    <td style="text-align: left;"><strong>Comm:</strong> tcp://127.0.0.1:42281</td>
+                    <td style="text-align: left;"><strong>Workers:</strong> 8</td>
+                </tr>
+                <tr>
+                    <td style="text-align: left;">
+                        <strong>Dashboard:</strong> <a href="http://127.0.0.1:8787/status">http://127.0.0.1:8787/status</a>
+                    </td>
+                    <td style="text-align: left;">
+                        <strong>Total threads:</strong>
+                        8
+                    </td>
+                </tr>
+                <tr>
+                    <td style="text-align: left;">
+                        <strong>Started:</strong>
+                        Just now
+                    </td>
+                    <td style="text-align: left;">
+                        <strong>Total memory:</strong>
+                        503.81 GiB
+                    </td>
+                </tr>
+            </table>
+        </div>
+    </div>
+
+    <details style="margin-left: 48px;">
+    <summary style="margin-bottom: 20px;"><h3 style="display: inline;">Workers</h3></summary>
+
+    <div style="margin-bottom: 20px;">
+        <div style="width: 24px;
+                    height: 24px;
+                    background-color: #DBF5FF;
+                    border: 3px solid #4CC9FF;
+                    border-radius: 5px;
+                    position: absolute;"> </div>
+        <div style="margin-left: 48px;">
+        <details>
+            <summary>
+                <h4 style="margin-bottom: 0px; display: inline;">Worker: 0</h4>
+            </summary>
+            <table style="width: 100%; text-align: left;">
+                <tr>
+                    <td style="text-align: left;"><strong>Comm: </strong> tcp://127.0.0.1:45134</td>
+                    <td style="text-align: left;"><strong>Total threads: </strong> 1</td>
+                </tr>
+                <tr>
+                    <td style="text-align: left;">
+                        <strong>Dashboard: </strong>
+                        <a href="http://127.0.0.1:45519/status">http://127.0.0.1:45519/status</a>
+                    </td>
+                    <td style="text-align: left;">
+                        <strong>Memory: </strong>
+                        62.98 GiB
+                    </td>
+                </tr>
+                <tr>
+                    <td style="text-align: left;"><strong>Nanny: </strong> tcp://127.0.0.1:40585</td>
+                    <td style="text-align: left;"></td>
+                </tr>
+                <tr>
+                    <td colspan="2" style="text-align: left;">
+                        <strong>Local directory: </strong>
+                        /hugectr/notebooks/nvtabular_temp/workdir/dask-worker-space/worker-m2ipvyh1
+                    </td>
+                </tr>
+
+        <tr>
+            <td style="text-align: left;">
+                <strong>GPU: </strong>Tesla P100-SXM2-16GB
+            </td>
+            <td style="text-align: left;">
+                <strong>GPU memory: </strong>
+                15.90 GiB
+            </td>
+        </tr>
+
+
+            </table>
+        </details>
+        </div>
+    </div>
+
+    <div style="margin-bottom: 20px;">
+        <div style="width: 24px;
+                    height: 24px;
+                    background-color: #DBF5FF;
+                    border: 3px solid #4CC9FF;
+                    border-radius: 5px;
+                    position: absolute;"> </div>
+        <div style="margin-left: 48px;">
+        <details>
+            <summary>
+                <h4 style="margin-bottom: 0px; display: inline;">Worker: 1</h4>
+            </summary>
+            <table style="width: 100%; text-align: left;">
+                <tr>
+                    <td style="text-align: left;"><strong>Comm: </strong> tcp://127.0.0.1:45442</td>
+                    <td style="text-align: left;"><strong>Total threads: </strong> 1</td>
+                </tr>
+                <tr>
+                    <td style="text-align: left;">
+                        <strong>Dashboard: </strong>
+                        <a href="http://127.0.0.1:36563/status">http://127.0.0.1:36563/status</a>
+                    </td>
+                    <td style="text-align: left;">
+                        <strong>Memory: </strong>
+                        62.98 GiB
+                    </td>
+                </tr>
+                <tr>
+                    <td style="text-align: left;"><strong>Nanny: </strong> tcp://127.0.0.1:33615</td>
+                    <td style="text-align: left;"></td>
+                </tr>
+                <tr>
+                    <td colspan="2" style="text-align: left;">
+                        <strong>Local directory: </strong>
+                        /hugectr/notebooks/nvtabular_temp/workdir/dask-worker-space/worker-hhdw5hgq
+                    </td>
+                </tr>
+
+        <tr>
+            <td style="text-align: left;">
+                <strong>GPU: </strong>Tesla P100-SXM2-16GB
+            </td>
+            <td style="text-align: left;">
+                <strong>GPU memory: </strong>
+                15.90 GiB
+            </td>
+        </tr>
+
+
+            </table>
+        </details>
+        </div>
+    </div>
+
+    <div style="margin-bottom: 20px;">
+        <div style="width: 24px;
+                    height: 24px;
+                    background-color: #DBF5FF;
+                    border: 3px solid #4CC9FF;
+                    border-radius: 5px;
+                    position: absolute;"> </div>
+        <div style="margin-left: 48px;">
+        <details>
+            <summary>
+                <h4 style="margin-bottom: 0px; display: inline;">Worker: 2</h4>
+            </summary>
+            <table style="width: 100%; text-align: left;">
+                <tr>
+                    <td style="text-align: left;"><strong>Comm: </strong> tcp://127.0.0.1:38832</td>
+                    <td style="text-align: left;"><strong>Total threads: </strong> 1</td>
+                </tr>
+                <tr>
+                    <td style="text-align: left;">
+                        <strong>Dashboard: </strong>
+                        <a href="http://127.0.0.1:45537/status">http://127.0.0.1:45537/status</a>
+                    </td>
+                    <td style="text-align: left;">
+                        <strong>Memory: </strong>
+                        62.98 GiB
+                    </td>
+                </tr>
+                <tr>
+                    <td style="text-align: left;"><strong>Nanny: </strong> tcp://127.0.0.1:34857</td>
+                    <td style="text-align: left;"></td>
+                </tr>
+                <tr>
+                    <td colspan="2" style="text-align: left;">
+                        <strong>Local directory: </strong>
+                        /hugectr/notebooks/nvtabular_temp/workdir/dask-worker-space/worker-3xv1lvg4
+                    </td>
+                </tr>
+
+        <tr>
+            <td style="text-align: left;">
+                <strong>GPU: </strong>Tesla P100-SXM2-16GB
+            </td>
+            <td style="text-align: left;">
+                <strong>GPU memory: </strong>
+                15.90 GiB
+            </td>
+        </tr>
+
+
+            </table>
+        </details>
+        </div>
+    </div>
+
+    <div style="margin-bottom: 20px;">
+        <div style="width: 24px;
+                    height: 24px;
+                    background-color: #DBF5FF;
+                    border: 3px solid #4CC9FF;
+                    border-radius: 5px;
+                    position: absolute;"> </div>
+        <div style="margin-left: 48px;">
+        <details>
+            <summary>
+                <h4 style="margin-bottom: 0px; display: inline;">Worker: 3</h4>
+            </summary>
+            <table style="width: 100%; text-align: left;">
+                <tr>
+                    <td style="text-align: left;"><strong>Comm: </strong> tcp://127.0.0.1:33468</td>
+                    <td style="text-align: left;"><strong>Total threads: </strong> 1</td>
+                </tr>
+                <tr>
+                    <td style="text-align: left;">
+                        <strong>Dashboard: </strong>
+                        <a href="http://127.0.0.1:34645/status">http://127.0.0.1:34645/status</a>
+                    </td>
+                    <td style="text-align: left;">
+                        <strong>Memory: </strong>
+                        62.98 GiB
+                    </td>
+                </tr>
+                <tr>
+                    <td style="text-align: left;"><strong>Nanny: </strong> tcp://127.0.0.1:33516</td>
+                    <td style="text-align: left;"></td>
+                </tr>
+                <tr>
+                    <td colspan="2" style="text-align: left;">
+                        <strong>Local directory: </strong>
+                        /hugectr/notebooks/nvtabular_temp/workdir/dask-worker-space/worker-_v4e6b68
+                    </td>
+                </tr>
+
+        <tr>
+            <td style="text-align: left;">
+                <strong>GPU: </strong>Tesla P100-SXM2-16GB
+            </td>
+            <td style="text-align: left;">
+                <strong>GPU memory: </strong>
+                15.90 GiB
+            </td>
+        </tr>
+
+
+            </table>
+        </details>
+        </div>
+    </div>
+
+    <div style="margin-bottom: 20px;">
+        <div style="width: 24px;
+                    height: 24px;
+                    background-color: #DBF5FF;
+                    border: 3px solid #4CC9FF;
+                    border-radius: 5px;
+                    position: absolute;"> </div>
+        <div style="margin-left: 48px;">
+        <details>
+            <summary>
+                <h4 style="margin-bottom: 0px; display: inline;">Worker: 4</h4>
+            </summary>
+            <table style="width: 100%; text-align: left;">
+                <tr>
+                    <td style="text-align: left;"><strong>Comm: </strong> tcp://127.0.0.1:38052</td>
+                    <td style="text-align: left;"><strong>Total threads: </strong> 1</td>
+                </tr>
+                <tr>
+                    <td style="text-align: left;">
+                        <strong>Dashboard: </strong>
+                        <a href="http://127.0.0.1:33234/status">http://127.0.0.1:33234/status</a>
+                    </td>
+                    <td style="text-align: left;">
+                        <strong>Memory: </strong>
+                        62.98 GiB
+                    </td>
+                </tr>
+                <tr>
+                    <td style="text-align: left;"><strong>Nanny: </strong> tcp://127.0.0.1:42282</td>
+                    <td style="text-align: left;"></td>
+                </tr>
+                <tr>
+                    <td colspan="2" style="text-align: left;">
+                        <strong>Local directory: </strong>
+                        /hugectr/notebooks/nvtabular_temp/workdir/dask-worker-space/worker-lbkl0_sc
+                    </td>
+                </tr>
+
+        <tr>
+            <td style="text-align: left;">
+                <strong>GPU: </strong>Tesla P100-SXM2-16GB
+            </td>
+            <td style="text-align: left;">
+                <strong>GPU memory: </strong>
+                15.90 GiB
+            </td>
+        </tr>
+
+
+            </table>
+        </details>
+        </div>
+    </div>
+
+    <div style="margin-bottom: 20px;">
+        <div style="width: 24px;
+                    height: 24px;
+                    background-color: #DBF5FF;
+                    border: 3px solid #4CC9FF;
+                    border-radius: 5px;
+                    position: absolute;"> </div>
+        <div style="margin-left: 48px;">
+        <details>
+            <summary>
+                <h4 style="margin-bottom: 0px; display: inline;">Worker: 5</h4>
+            </summary>
+            <table style="width: 100%; text-align: left;">
+                <tr>
+                    <td style="text-align: left;"><strong>Comm: </strong> tcp://127.0.0.1:46068</td>
+                    <td style="text-align: left;"><strong>Total threads: </strong> 1</td>
+                </tr>
+                <tr>
+                    <td style="text-align: left;">
+                        <strong>Dashboard: </strong>
+                        <a href="http://127.0.0.1:34702/status">http://127.0.0.1:34702/status</a>
+                    </td>
+                    <td style="text-align: left;">
+                        <strong>Memory: </strong>
+                        62.98 GiB
+                    </td>
+                </tr>
+                <tr>
+                    <td style="text-align: left;"><strong>Nanny: </strong> tcp://127.0.0.1:39148</td>
+                    <td style="text-align: left;"></td>
+                </tr>
+                <tr>
+                    <td colspan="2" style="text-align: left;">
+                        <strong>Local directory: </strong>
+                        /hugectr/notebooks/nvtabular_temp/workdir/dask-worker-space/worker-47f2dcfj
+                    </td>
+                </tr>
+
+        <tr>
+            <td style="text-align: left;">
+                <strong>GPU: </strong>Tesla P100-SXM2-16GB
+            </td>
+            <td style="text-align: left;">
+                <strong>GPU memory: </strong>
+                15.90 GiB
+            </td>
+        </tr>
+
+
+            </table>
+        </details>
+        </div>
+    </div>
+
+    <div style="margin-bottom: 20px;">
+        <div style="width: 24px;
+                    height: 24px;
+                    background-color: #DBF5FF;
+                    border: 3px solid #4CC9FF;
+                    border-radius: 5px;
+                    position: absolute;"> </div>
+        <div style="margin-left: 48px;">
+        <details>
+            <summary>
+                <h4 style="margin-bottom: 0px; display: inline;">Worker: 6</h4>
+            </summary>
+            <table style="width: 100%; text-align: left;">
+                <tr>
+                    <td style="text-align: left;"><strong>Comm: </strong> tcp://127.0.0.1:41440</td>
+                    <td style="text-align: left;"><strong>Total threads: </strong> 1</td>
+                </tr>
+                <tr>
+                    <td style="text-align: left;">
+                        <strong>Dashboard: </strong>
+                        <a href="http://127.0.0.1:33288/status">http://127.0.0.1:33288/status</a>
+                    </td>
+                    <td style="text-align: left;">
+                        <strong>Memory: </strong>
+                        62.98 GiB
+                    </td>
+                </tr>
+                <tr>
+                    <td style="text-align: left;"><strong>Nanny: </strong> tcp://127.0.0.1:36099</td>
+                    <td style="text-align: left;"></td>
+                </tr>
+                <tr>
+                    <td colspan="2" style="text-align: left;">
+                        <strong>Local directory: </strong>
+                        /hugectr/notebooks/nvtabular_temp/workdir/dask-worker-space/worker-qq2t20ws
+                    </td>
+                </tr>
+
+        <tr>
+            <td style="text-align: left;">
+                <strong>GPU: </strong>Tesla P100-SXM2-16GB
+            </td>
+            <td style="text-align: left;">
+                <strong>GPU memory: </strong>
+                15.90 GiB
+            </td>
+        </tr>
+
+
+            </table>
+        </details>
+        </div>
+    </div>
+
+    <div style="margin-bottom: 20px;">
+        <div style="width: 24px;
+                    height: 24px;
+                    background-color: #DBF5FF;
+                    border: 3px solid #4CC9FF;
+                    border-radius: 5px;
+                    position: absolute;"> </div>
+        <div style="margin-left: 48px;">
+        <details>
+            <summary>
+                <h4 style="margin-bottom: 0px; display: inline;">Worker: 7</h4>
+            </summary>
+            <table style="width: 100%; text-align: left;">
+                <tr>
+                    <td style="text-align: left;"><strong>Comm: </strong> tcp://127.0.0.1:43583</td>
+                    <td style="text-align: left;"><strong>Total threads: </strong> 1</td>
+                </tr>
+                <tr>
+                    <td style="text-align: left;">
+                        <strong>Dashboard: </strong>
+                        <a href="http://127.0.0.1:45175/status">http://127.0.0.1:45175/status</a>
+                    </td>
+                    <td style="text-align: left;">
+                        <strong>Memory: </strong>
+                        62.98 GiB
+                    </td>
+                </tr>
+                <tr>
+                    <td style="text-align: left;"><strong>Nanny: </strong> tcp://127.0.0.1:35315</td>
+                    <td style="text-align: left;"></td>
+                </tr>
+                <tr>
+                    <td colspan="2" style="text-align: left;">
+                        <strong>Local directory: </strong>
+                        /hugectr/notebooks/nvtabular_temp/workdir/dask-worker-space/worker-1v3qmqn5
+                    </td>
+                </tr>
+
+        <tr>
+            <td style="text-align: left;">
+                <strong>GPU: </strong>Tesla P100-SXM2-16GB
+            </td>
+            <td style="text-align: left;">
+                <strong>GPU memory: </strong>
+                15.90 GiB
+            </td>
+        </tr>
+
+
+            </table>
+        </details>
+        </div>
+    </div>
+
+    </details>
+</div>
+
+            </details>
+        </div>
+    </div>
+
+        </details>
+
+        </div>
+    </div>
+</div></div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>nvidia-smi
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Tue Nov 16 23:03:13 2021       
++-----------------------------------------------------------------------------+
+| NVIDIA-SMI 450.51.06    Driver Version: 450.51.06    CUDA Version: 11.4     |
+|-------------------------------+----------------------+----------------------+
+| GPU  Name        Persistence-M| Bus-Id        Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp  Perf  Pwr:Usage/Cap|         Memory-Usage | GPU-Util  Compute M. |
+|                               |                      |               MIG M. |
+|===============================+======================+======================|
+|   0  Tesla P100-SXM2...  On   | 00000000:06:00.0 Off |                    0 |
+| N/A   41C    P0    44W / 300W |    508MiB / 16280MiB |      0%      Default |
+|                               |                      |                  N/A |
++-------------------------------+----------------------+----------------------+
+|   1  Tesla P100-SXM2...  On   | 00000000:07:00.0 Off |                    0 |
+| N/A   38C    P0    41W / 300W |    255MiB / 16280MiB |      0%      Default |
+|                               |                      |                  N/A |
++-------------------------------+----------------------+----------------------+
+|   2  Tesla P100-SXM2...  On   | 00000000:0A:00.0 Off |                    0 |
+| N/A   38C    P0    44W / 300W |    255MiB / 16280MiB |      0%      Default |
+|                               |                      |                  N/A |
++-------------------------------+----------------------+----------------------+
+|   3  Tesla P100-SXM2...  On   | 00000000:0B:00.0 Off |                    0 |
+| N/A   39C    P0    45W / 300W |    255MiB / 16280MiB |      0%      Default |
+|                               |                      |                  N/A |
++-------------------------------+----------------------+----------------------+
+|   4  Tesla P100-SXM2...  On   | 00000000:85:00.0 Off |                    0 |
+| N/A   43C    P0    43W / 300W |    255MiB / 16280MiB |      0%      Default |
+|                               |                      |                  N/A |
++-------------------------------+----------------------+----------------------+
+|   5  Tesla P100-SXM2...  On   | 00000000:86:00.0 Off |                    0 |
+| N/A   44C    P0    44W / 300W |    255MiB / 16280MiB |      0%      Default |
+|                               |                      |                  N/A |
++-------------------------------+----------------------+----------------------+
+|   6  Tesla P100-SXM2...  On   | 00000000:89:00.0 Off |                    0 |
+| N/A   39C    P0    44W / 300W |    255MiB / 16280MiB |      0%      Default |
+|                               |                      |                  N/A |
++-------------------------------+----------------------+----------------------+
+|   7  Tesla P100-SXM2...  On   | 00000000:8A:00.0 Off |                    0 |
+| N/A   38C    P0    42W / 300W |    255MiB / 16280MiB |      0%      Default |
+|                               |                      |                  N/A |
++-------------------------------+----------------------+----------------------+
+                                                                               
++-----------------------------------------------------------------------------+
+| Processes:                                                                  |
+|  GPU   GI   CI        PID   Type   Process name                  GPU Memory |
+|        ID   ID                                                   Usage      |
+|=============================================================================|
++-----------------------------------------------------------------------------+
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Initialize RMM pool on ALL workers</span>
+<span class="k">def</span> <span class="nf">_rmm_pool</span><span class="p">():</span>
+    <span class="n">rmm</span><span class="o">.</span><span class="n">reinitialize</span><span class="p">(</span>
+        <span class="c1"># RMM may require the pool size to be a multiple of 256.</span>
+        <span class="n">pool_allocator</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">initial_pool_size</span><span class="o">=</span><span class="p">(</span><span class="n">device_pool_size</span> <span class="o">//</span> <span class="mi">256</span><span class="p">)</span> <span class="o">*</span> <span class="mi">256</span><span class="p">,</span> <span class="c1"># Use default size</span>
+    <span class="p">)</span>
+    
+<span class="n">client</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">_rmm_pool</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>{&#39;tcp://127.0.0.1:33468&#39;: None,
+ &#39;tcp://127.0.0.1:38052&#39;: None,
+ &#39;tcp://127.0.0.1:38832&#39;: None,
+ &#39;tcp://127.0.0.1:41440&#39;: None,
+ &#39;tcp://127.0.0.1:43583&#39;: None,
+ &#39;tcp://127.0.0.1:45134&#39;: None,
+ &#39;tcp://127.0.0.1:45442&#39;: None,
+ &#39;tcp://127.0.0.1:46068&#39;: None}
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="define-nvtabular-dataset">
+<h3>Define NVTabular dataset<a class="headerlink" href="#define-nvtabular-dataset" title="Permalink to this headline"></a></h3>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">train_paths</span> <span class="o">=</span> <span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="s1">&#39;./data/train.parquet&#39;</span><span class="p">)</span>
+<span class="n">valid_paths</span> <span class="o">=</span> <span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="s1">&#39;./data/valid.parquet&#39;</span><span class="p">)</span>
+<span class="n">test_paths</span> <span class="o">=</span> <span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="s1">&#39;./data/test.parquet&#39;</span><span class="p">)</span>
+
+<span class="n">train_dataset</span> <span class="o">=</span> <span class="n">nvt</span><span class="o">.</span><span class="n">Dataset</span><span class="p">(</span><span class="n">train_paths</span><span class="p">,</span> <span class="n">engine</span><span class="o">=</span><span class="s1">&#39;parquet&#39;</span><span class="p">,</span> <span class="n">part_mem_fraction</span><span class="o">=</span><span class="mf">0.15</span><span class="p">)</span>
+<span class="n">valid_dataset</span> <span class="o">=</span> <span class="n">nvt</span><span class="o">.</span><span class="n">Dataset</span><span class="p">(</span><span class="n">valid_paths</span><span class="p">,</span> <span class="n">engine</span><span class="o">=</span><span class="s1">&#39;parquet&#39;</span><span class="p">,</span> <span class="n">part_mem_fraction</span><span class="o">=</span><span class="mf">0.15</span><span class="p">)</span>
+<span class="n">test_dataset</span> <span class="o">=</span> <span class="n">nvt</span><span class="o">.</span><span class="n">Dataset</span><span class="p">(</span><span class="n">test_paths</span><span class="p">,</span> <span class="n">engine</span><span class="o">=</span><span class="s1">&#39;parquet&#39;</span><span class="p">,</span> <span class="n">part_mem_fraction</span><span class="o">=</span><span class="mf">0.15</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">train_dataset</span><span class="o">.</span><span class="n">to_ddf</span><span class="p">()</span><span class="o">.</span><span class="n">head</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_html"><div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>event_time</th>
+      <th>event_type</th>
+      <th>product_id</th>
+      <th>brand</th>
+      <th>price</th>
+      <th>user_id</th>
+      <th>user_session</th>
+      <th>target</th>
+      <th>cat_0</th>
+      <th>cat_1</th>
+      <th>cat_2</th>
+      <th>cat_3</th>
+      <th>timestamp</th>
+      <th>ts_hour</th>
+      <th>ts_minute</th>
+      <th>ts_weekday</th>
+      <th>ts_day</th>
+      <th>ts_month</th>
+      <th>ts_year</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>2020-02-01 00:00:18 UTC</td>
+      <td>cart</td>
+      <td>100065078</td>
+      <td>xiaomi</td>
+      <td>568.61</td>
+      <td>526615078</td>
+      <td>5f0aab9f-f92e-4eff-b0d2-fcec5f553f01</td>
+      <td>0</td>
+      <td>construction</td>
+      <td>tools</td>
+      <td>light</td>
+      <td>&lt;NA&gt;</td>
+      <td>2020-02-01 00:00:18</td>
+      <td>0</td>
+      <td>0</td>
+      <td>5</td>
+      <td>1</td>
+      <td>2</td>
+      <td>2020</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>2020-02-01 00:00:18 UTC</td>
+      <td>cart</td>
+      <td>5701246</td>
+      <td>&lt;NA&gt;</td>
+      <td>24.43</td>
+      <td>563902689</td>
+      <td>76cc9152-8a9f-43e9-b98a-ee484510f379</td>
+      <td>0</td>
+      <td>electronics</td>
+      <td>video</td>
+      <td>tv</td>
+      <td>&lt;NA&gt;</td>
+      <td>2020-02-01 00:00:18</td>
+      <td>0</td>
+      <td>0</td>
+      <td>5</td>
+      <td>1</td>
+      <td>2</td>
+      <td>2020</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>2020-02-01 00:00:31 UTC</td>
+      <td>cart</td>
+      <td>14701533</td>
+      <td>&lt;NA&gt;</td>
+      <td>154.42</td>
+      <td>520953435</td>
+      <td>5f1c7752-cf92-41fc-9a16-e8897a90eee8</td>
+      <td>0</td>
+      <td>electronics</td>
+      <td>video</td>
+      <td>projector</td>
+      <td>&lt;NA&gt;</td>
+      <td>2020-02-01 00:00:31</td>
+      <td>0</td>
+      <td>0</td>
+      <td>5</td>
+      <td>1</td>
+      <td>2</td>
+      <td>2020</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>2020-02-01 00:00:40 UTC</td>
+      <td>cart</td>
+      <td>1004855</td>
+      <td>xiaomi</td>
+      <td>123.30</td>
+      <td>519236281</td>
+      <td>e512f514-dc7f-4fc9-9042-e3955989d395</td>
+      <td>0</td>
+      <td>construction</td>
+      <td>tools</td>
+      <td>light</td>
+      <td>&lt;NA&gt;</td>
+      <td>2020-02-01 00:00:40</td>
+      <td>0</td>
+      <td>0</td>
+      <td>5</td>
+      <td>1</td>
+      <td>2</td>
+      <td>2020</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>2020-02-01 00:00:47 UTC</td>
+      <td>cart</td>
+      <td>1005100</td>
+      <td>samsung</td>
+      <td>140.28</td>
+      <td>550305600</td>
+      <td>bd7a37b6-420d-4575-8852-ac825aff39b5</td>
+      <td>0</td>
+      <td>construction</td>
+      <td>tools</td>
+      <td>light</td>
+      <td>&lt;NA&gt;</td>
+      <td>2020-02-01 00:00:47</td>
+      <td>0</td>
+      <td>0</td>
+      <td>5</td>
+      <td>1</td>
+      <td>2</td>
+      <td>2020</td>
+    </tr>
+  </tbody>
+</table>
+</div></div></div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="nb">len</span><span class="p">(</span><span class="n">train_dataset</span><span class="o">.</span><span class="n">to_ddf</span><span class="p">()</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>19
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">train_dataset</span><span class="o">.</span><span class="n">to_ddf</span><span class="p">()</span><span class="o">.</span><span class="n">columns</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Index([&#39;event_time&#39;, &#39;event_type&#39;, &#39;product_id&#39;, &#39;brand&#39;, &#39;price&#39;, &#39;user_id&#39;,
+       &#39;user_session&#39;, &#39;target&#39;, &#39;cat_0&#39;, &#39;cat_1&#39;, &#39;cat_2&#39;, &#39;cat_3&#39;,
+       &#39;timestamp&#39;, &#39;ts_hour&#39;, &#39;ts_minute&#39;, &#39;ts_weekday&#39;, &#39;ts_day&#39;, &#39;ts_month&#39;,
+       &#39;ts_year&#39;],
+      dtype=&#39;object&#39;)
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="nb">len</span><span class="p">(</span><span class="n">train_dataset</span><span class="o">.</span><span class="n">to_ddf</span><span class="p">())</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>7949839
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="preprocessing-and-feature-engineering">
+<h3>Preprocessing and feature engineering<a class="headerlink" href="#preprocessing-and-feature-engineering" title="Permalink to this headline"></a></h3>
+<p>In this notebook we will explore a few feature engineering technique with NVTabular:</p>
+<ul class="simple">
+<li><p>Creating cross features, e.g. <code class="docutils literal notranslate"><span class="pre">user_id</span></code> and <code class="docutils literal notranslate"><span class="pre">'brand</span></code></p></li>
+<li><p>Target encoding</p></li>
+</ul>
+<p>The engineered features will then be preprocessed into a form suitable for machine learning model:</p>
+<ul class="simple">
+<li><p>Fill missing values</p></li>
+<li><p>Encoding categorical features into integer values</p></li>
+<li><p>Normalization of numeric features</p></li>
+</ul>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">nvtabular.ops</span> <span class="kn">import</span> <span class="n">LambdaOp</span>
+
+<span class="c1"># cross features</span>
+<span class="k">def</span> <span class="nf">user_id_cross_maker</span><span class="p">(</span><span class="n">col</span><span class="p">,</span> <span class="n">gdf</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">col</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span> <span class="o">+</span> <span class="s1">&#39;_&#39;</span> <span class="o">+</span> <span class="n">gdf</span><span class="p">[</span><span class="s1">&#39;user_id&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span>
+
+<span class="n">user_id_cross_features</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="n">nvt</span><span class="o">.</span><span class="n">ColumnGroup</span><span class="p">([</span><span class="s1">&#39;product_id&#39;</span><span class="p">,</span> <span class="s1">&#39;brand&#39;</span><span class="p">,</span> <span class="s1">&#39;ts_hour&#39;</span><span class="p">,</span> <span class="s1">&#39;ts_minute&#39;</span><span class="p">])</span> <span class="o">&gt;&gt;</span>
+    <span class="n">LambdaOp</span><span class="p">(</span><span class="n">user_id_cross_maker</span><span class="p">,</span> <span class="n">dependency</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;user_id&#39;</span><span class="p">])</span> <span class="o">&gt;&gt;</span> 
+    <span class="n">nvt</span><span class="o">.</span><span class="n">ops</span><span class="o">.</span><span class="n">Rename</span><span class="p">(</span><span class="n">postfix</span> <span class="o">=</span> <span class="s1">&#39;_user_id_cross&#39;</span><span class="p">)</span>
+<span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">user_id_brand_cross_maker</span><span class="p">(</span><span class="n">col</span><span class="p">,</span> <span class="n">gdf</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">col</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span> <span class="o">+</span> <span class="s1">&#39;_&#39;</span> <span class="o">+</span> <span class="n">gdf</span><span class="p">[</span><span class="s1">&#39;user_id&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span> <span class="o">+</span> <span class="s1">&#39;_&#39;</span> <span class="o">+</span> <span class="n">gdf</span><span class="p">[</span><span class="s1">&#39;brand&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span>
+
+<span class="n">user_id_brand_cross_features</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="n">nvt</span><span class="o">.</span><span class="n">ColumnGroup</span><span class="p">([</span><span class="s1">&#39;ts_hour&#39;</span><span class="p">,</span> <span class="s1">&#39;ts_weekday&#39;</span><span class="p">,</span> <span class="s1">&#39;cat_0&#39;</span><span class="p">,</span> <span class="s1">&#39;cat_1&#39;</span><span class="p">,</span> <span class="s1">&#39;cat_2&#39;</span><span class="p">])</span> <span class="o">&gt;&gt;</span>
+    <span class="n">LambdaOp</span><span class="p">(</span><span class="n">user_id_brand_cross_maker</span><span class="p">,</span> <span class="n">dependency</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;user_id&#39;</span><span class="p">,</span> <span class="s1">&#39;brand&#39;</span><span class="p">])</span> <span class="o">&gt;&gt;</span> 
+    <span class="n">nvt</span><span class="o">.</span><span class="n">ops</span><span class="o">.</span><span class="n">Rename</span><span class="p">(</span><span class="n">postfix</span> <span class="o">=</span> <span class="s1">&#39;_user_id_brand_cross&#39;</span><span class="p">)</span>
+<span class="p">)</span>
+
+<span class="n">target_encode</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="p">[</span><span class="s1">&#39;brand&#39;</span><span class="p">,</span> <span class="s1">&#39;user_id&#39;</span><span class="p">,</span> <span class="s1">&#39;product_id&#39;</span><span class="p">,</span> <span class="s1">&#39;cat_2&#39;</span><span class="p">,</span> <span class="p">[</span><span class="s1">&#39;ts_weekday&#39;</span><span class="p">,</span> <span class="s1">&#39;ts_day&#39;</span><span class="p">]]</span> <span class="o">&gt;&gt;</span>
+    <span class="n">nvt</span><span class="o">.</span><span class="n">ops</span><span class="o">.</span><span class="n">TargetEncoding</span><span class="p">(</span>
+        <span class="n">nvt</span><span class="o">.</span><span class="n">ColumnGroup</span><span class="p">(</span><span class="s1">&#39;target&#39;</span><span class="p">),</span>
+        <span class="n">kfold</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
+        <span class="n">p_smooth</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>
+        <span class="n">out_dtype</span><span class="o">=</span><span class="s2">&quot;float32&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+<span class="p">)</span>
+
+<span class="n">cat_feats</span> <span class="o">=</span> <span class="p">(</span><span class="n">user_id_brand_cross_features</span> <span class="o">+</span> <span class="n">user_id_cross_features</span><span class="p">)</span> <span class="o">&gt;&gt;</span> <span class="n">nvt</span><span class="o">.</span><span class="n">ops</span><span class="o">.</span><span class="n">Categorify</span><span class="p">()</span>
+<span class="n">cont_feats</span> <span class="o">=</span>  <span class="p">[</span><span class="s1">&#39;price&#39;</span><span class="p">,</span> <span class="s1">&#39;ts_weekday&#39;</span><span class="p">,</span> <span class="s1">&#39;ts_day&#39;</span><span class="p">,</span> <span class="s1">&#39;ts_month&#39;</span><span class="p">]</span> <span class="o">&gt;&gt;</span> <span class="n">nvt</span><span class="o">.</span><span class="n">ops</span><span class="o">.</span><span class="n">FillMissing</span><span class="p">()</span> <span class="o">&gt;&gt;</span>  <span class="n">nvt</span><span class="o">.</span><span class="n">ops</span><span class="o">.</span><span class="n">Normalize</span><span class="p">()</span>
+<span class="n">cont_feats</span> <span class="o">+=</span> <span class="n">target_encode</span> <span class="o">&gt;&gt;</span> <span class="n">nvt</span><span class="o">.</span><span class="n">ops</span><span class="o">.</span><span class="n">Rename</span><span class="p">(</span><span class="n">postfix</span> <span class="o">=</span> <span class="s1">&#39;_TE&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">output</span> <span class="o">=</span> <span class="n">cat_feats</span> <span class="o">+</span> <span class="n">cont_feats</span> <span class="o">+</span> <span class="s1">&#39;target&#39;</span>
+<span class="n">proc</span> <span class="o">=</span> <span class="n">nvt</span><span class="o">.</span><span class="n">Workflow</span><span class="p">(</span><span class="n">output</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>/nvtabular/nvtabular/workflow/workflow.py:89: UserWarning: A global dask.distributed client has been detected, but the single-threaded scheduler will be used for execution. Please use the `client` argument to initialize a `Workflow` object with distributed-execution enabled.
+  warnings.warn(
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="visualize-workflow-as-a-dag">
+<h3>Visualize workflow as a DAG<a class="headerlink" href="#visualize-workflow-as-a-dag" title="Permalink to this headline"></a></h3>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>apt install -y graphviz
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">output</span><span class="o">.</span><span class="n">graph</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<img alt="../_images/ecommerce-example_34_0.svg" src="../_images/ecommerce-example_34_0.svg" /></div>
+</div>
+</div>
+<div class="section" id="executing-the-workflow">
+<h3>Executing the workflow<a class="headerlink" href="#executing-the-workflow" title="Permalink to this headline"></a></h3>
+<p>After having defined the workflow, calling the <code class="docutils literal notranslate"><span class="pre">fit()</span></code> method will start the actual computation to record the required statistics from the training data.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">%%time</span>
+<span class="n">time_preproc_start</span> <span class="o">=</span> <span class="n">time</span><span class="p">()</span>
+<span class="n">proc</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">train_dataset</span><span class="p">)</span>
+<span class="n">time_preproc</span> <span class="o">=</span> <span class="n">time</span><span class="p">()</span><span class="o">-</span><span class="n">time_preproc_start</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>/usr/local/lib/python3.8/dist-packages/numba/cuda/compiler.py:865: NumbaPerformanceWarning: Grid size (1) &lt; 2 * SM count (112) will likely result in GPU under utilization due to low occupancy.
+  warn(NumbaPerformanceWarning(msg))
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>CPU times: user 13.3 s, sys: 10.1 s, total: 23.4 s
+Wall time: 26.8 s
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">cat_feats</span><span class="o">.</span><span class="n">output_columns</span><span class="o">.</span><span class="n">names</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>[&#39;ts_hour_user_id_brand_cross&#39;,
+ &#39;ts_weekday_user_id_brand_cross&#39;,
+ &#39;cat_0_user_id_brand_cross&#39;,
+ &#39;cat_1_user_id_brand_cross&#39;,
+ &#39;cat_2_user_id_brand_cross&#39;,
+ &#39;product_id_user_id_cross&#39;,
+ &#39;brand_user_id_cross&#39;,
+ &#39;ts_hour_user_id_cross&#39;,
+ &#39;ts_minute_user_id_cross&#39;]
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">output</span><span class="o">.</span><span class="n">output_columns</span><span class="o">.</span><span class="n">names</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>[&#39;ts_hour_user_id_brand_cross&#39;,
+ &#39;ts_weekday_user_id_brand_cross&#39;,
+ &#39;cat_0_user_id_brand_cross&#39;,
+ &#39;cat_1_user_id_brand_cross&#39;,
+ &#39;cat_2_user_id_brand_cross&#39;,
+ &#39;product_id_user_id_cross&#39;,
+ &#39;brand_user_id_cross&#39;,
+ &#39;ts_hour_user_id_cross&#39;,
+ &#39;ts_minute_user_id_cross&#39;,
+ &#39;price&#39;,
+ &#39;ts_weekday&#39;,
+ &#39;ts_day&#39;,
+ &#39;ts_month&#39;,
+ &#39;TE_brand_target_TE&#39;,
+ &#39;TE_user_id_target_TE&#39;,
+ &#39;TE_product_id_target_TE&#39;,
+ &#39;TE_cat_2_target_TE&#39;,
+ &#39;TE_ts_weekday_ts_day_target_TE&#39;,
+ &#39;target&#39;]
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">CAT_FEATS</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;ts_hour_user_id_brand_cross&#39;</span><span class="p">,</span>
+ <span class="s1">&#39;ts_weekday_user_id_brand_cross&#39;</span><span class="p">,</span>
+ <span class="s1">&#39;cat_0_user_id_brand_cross&#39;</span><span class="p">,</span>
+ <span class="s1">&#39;cat_1_user_id_brand_cross&#39;</span><span class="p">,</span>
+ <span class="s1">&#39;cat_2_user_id_brand_cross&#39;</span><span class="p">,</span>
+ <span class="s1">&#39;product_id_user_id_cross&#39;</span><span class="p">,</span>
+ <span class="s1">&#39;brand_user_id_cross&#39;</span><span class="p">,</span>
+ <span class="s1">&#39;ts_hour_user_id_cross&#39;</span><span class="p">,</span>
+ <span class="s1">&#39;ts_minute_user_id_cross&#39;</span><span class="p">,]</span>
+
+<span class="n">CON_FEATS</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;price&#39;</span><span class="p">,</span>
+ <span class="s1">&#39;ts_weekday&#39;</span><span class="p">,</span>
+ <span class="s1">&#39;ts_day&#39;</span><span class="p">,</span>
+ <span class="s1">&#39;ts_month&#39;</span><span class="p">,</span>
+ <span class="s1">&#39;TE_brand_target_TE&#39;</span><span class="p">,</span>
+ <span class="s1">&#39;TE_user_id_target_TE&#39;</span><span class="p">,</span>
+ <span class="s1">&#39;TE_product_id_target_TE&#39;</span><span class="p">,</span>
+ <span class="s1">&#39;TE_cat_2_target_TE&#39;</span><span class="p">,</span>
+ <span class="s1">&#39;TE_ts_weekday_ts_day_target_TE&#39;</span><span class="p">]</span>
+
+<span class="n">dict_dtypes</span> <span class="o">=</span> <span class="p">{}</span>
+<span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">CAT_FEATS</span><span class="p">:</span>
+    <span class="n">dict_dtypes</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">int64</span>
+<span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">CON_FEATS</span><span class="p">:</span>
+    <span class="n">dict_dtypes</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">float32</span>
+
+<span class="n">dict_dtypes</span><span class="p">[</span><span class="s1">&#39;target&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">float32</span>
+</pre></div>
+</div>
+</div>
+</div>
+<p>Next, we call the <code class="docutils literal notranslate"><span class="pre">transform()</span></code> method to transform the datasets.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">output_train_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">output_path</span><span class="p">,</span> <span class="s1">&#39;train/&#39;</span><span class="p">)</span>
+<span class="n">output_valid_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">output_path</span><span class="p">,</span> <span class="s1">&#39;valid/&#39;</span><span class="p">)</span>
+<span class="n">output_test_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">output_path</span><span class="p">,</span> <span class="s1">&#39;test/&#39;</span><span class="p">)</span>
+<span class="o">!</span> rm -rf <span class="nv">$output_train_dir</span> <span class="o">&amp;&amp;</span> mkdir -p <span class="nv">$output_train_dir</span>
+<span class="o">!</span> rm -rf <span class="nv">$output_valid_dir</span> <span class="o">&amp;&amp;</span> mkdir -p <span class="nv">$output_valid_dir</span>
+<span class="o">!</span> rm -rf <span class="nv">$output_test_dir</span> <span class="o">&amp;&amp;</span> mkdir -p <span class="nv">$output_test_dir</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">%%time</span>
+
+<span class="n">time_preproc_start</span> <span class="o">=</span> <span class="n">time</span><span class="p">()</span>
+<span class="n">proc</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">train_dataset</span><span class="p">)</span><span class="o">.</span><span class="n">to_parquet</span><span class="p">(</span><span class="n">output_path</span><span class="o">=</span><span class="n">output_train_dir</span><span class="p">,</span> <span class="n">dtypes</span><span class="o">=</span><span class="n">dict_dtypes</span><span class="p">,</span>
+                                         <span class="n">shuffle</span><span class="o">=</span><span class="n">nvt</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">Shuffle</span><span class="o">.</span><span class="n">PER_PARTITION</span><span class="p">,</span>
+                                         <span class="n">cats</span><span class="o">=</span><span class="n">CAT_FEATS</span><span class="p">,</span>
+                                         <span class="n">conts</span><span class="o">=</span><span class="n">CON_FEATS</span><span class="p">,</span>
+                                         <span class="n">labels</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;target&#39;</span><span class="p">])</span>
+<span class="n">time_preproc</span> <span class="o">+=</span> <span class="n">time</span><span class="p">()</span><span class="o">-</span><span class="n">time_preproc_start</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>/nvtabular/nvtabular/io/dask.py:375: UserWarning: A global dask.distributed client has been detected, but the single-threaded scheduler will be used for this write operation. Please use the `client` argument to initialize a `Dataset` and/or `Workflow` object with distributed-execution enabled.
+  warnings.warn(
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>CPU times: user 1.6 s, sys: 3.29 s, total: 4.89 s
+Wall time: 5.79 s
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>ls -l <span class="nv">$output_train_dir</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>total 366131
+-rw-r--r-- 1 root dip        47 Nov 16 23:04 _file_list.txt
+-rw-r--r-- 1 root dip     18283 Nov 16 23:04 _metadata
+-rw-r--r-- 1 root dip      1045 Nov 16 23:04 _metadata.json
+-rw-r--r-- 1 root dip 706364298 Nov 16 23:04 part_0.parquet
+-rw-r--r-- 1 root dip      7975 Nov 16 23:04 schema.pbtxt
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">%%time</span>
+
+<span class="n">time_preproc_start</span> <span class="o">=</span> <span class="n">time</span><span class="p">()</span>
+<span class="n">proc</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">valid_dataset</span><span class="p">)</span><span class="o">.</span><span class="n">to_parquet</span><span class="p">(</span><span class="n">output_path</span><span class="o">=</span><span class="n">output_valid_dir</span><span class="p">,</span> <span class="n">dtypes</span><span class="o">=</span><span class="n">dict_dtypes</span><span class="p">,</span>
+                                         <span class="n">shuffle</span><span class="o">=</span><span class="n">nvt</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">Shuffle</span><span class="o">.</span><span class="n">PER_PARTITION</span><span class="p">,</span>
+                                         <span class="n">cats</span><span class="o">=</span><span class="n">CAT_FEATS</span><span class="p">,</span>
+                                         <span class="n">conts</span><span class="o">=</span><span class="n">CON_FEATS</span><span class="p">,</span>
+                                         <span class="n">labels</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;target&#39;</span><span class="p">])</span>
+<span class="n">time_preproc</span> <span class="o">+=</span> <span class="n">time</span><span class="p">()</span><span class="o">-</span><span class="n">time_preproc_start</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>CPU times: user 1.06 s, sys: 1.57 s, total: 2.63 s
+Wall time: 2.83 s
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>ls -l <span class="nv">$output_valid_dir</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>total 100979
+-rw-r--r-- 1 root dip       47 Nov 16 23:04 _file_list.txt
+-rw-r--r-- 1 root dip     8983 Nov 16 23:04 _metadata
+-rw-r--r-- 1 root dip     1045 Nov 16 23:04 _metadata.json
+-rw-r--r-- 1 root dip 92826604 Nov 16 23:04 part_0.parquet
+-rw-r--r-- 1 root dip     7975 Nov 16 23:04 schema.pbtxt
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">%%time</span>
+
+<span class="n">time_preproc_start</span> <span class="o">=</span> <span class="n">time</span><span class="p">()</span>
+<span class="n">proc</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">test_dataset</span><span class="p">)</span><span class="o">.</span><span class="n">to_parquet</span><span class="p">(</span><span class="n">output_path</span><span class="o">=</span><span class="n">output_test_dir</span><span class="p">,</span> <span class="n">dtypes</span><span class="o">=</span><span class="n">dict_dtypes</span><span class="p">,</span>
+                                         <span class="n">shuffle</span><span class="o">=</span><span class="n">nvt</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">Shuffle</span><span class="o">.</span><span class="n">PER_PARTITION</span><span class="p">,</span>
+                                         <span class="n">cats</span><span class="o">=</span><span class="n">CAT_FEATS</span><span class="p">,</span>
+                                         <span class="n">conts</span><span class="o">=</span><span class="n">CON_FEATS</span><span class="p">,</span>
+                                         <span class="n">labels</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;target&#39;</span><span class="p">])</span>
+<span class="n">time_preproc</span> <span class="o">+=</span> <span class="n">time</span><span class="p">()</span><span class="o">-</span><span class="n">time_preproc_start</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>CPU times: user 1.05 s, sys: 1.64 s, total: 2.69 s
+Wall time: 2.75 s
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">time_preproc</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>38.198790550231934
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="verify-the-preprocessed-data">
+<h3>Verify the preprocessed data<a class="headerlink" href="#verify-the-preprocessed-data" title="Permalink to this headline"></a></h3>
+<p>Let’s quickly read the data back and verify that all fields have the expected format.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>ls <span class="nv">$output_train_dir</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>_file_list.txt	_metadata  _metadata.json  part_0.parquet  schema.pbtxt
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">nvtdata</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_parquet</span><span class="p">(</span><span class="n">output_train_dir</span><span class="o">+</span><span class="s1">&#39;/part_0.parquet&#39;</span><span class="p">)</span>
+<span class="n">nvtdata</span><span class="o">.</span><span class="n">head</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_html"><div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>ts_hour_user_id_brand_cross</th>
+      <th>ts_weekday_user_id_brand_cross</th>
+      <th>cat_0_user_id_brand_cross</th>
+      <th>cat_1_user_id_brand_cross</th>
+      <th>cat_2_user_id_brand_cross</th>
+      <th>product_id_user_id_cross</th>
+      <th>brand_user_id_cross</th>
+      <th>ts_hour_user_id_cross</th>
+      <th>ts_minute_user_id_cross</th>
+      <th>price</th>
+      <th>ts_weekday</th>
+      <th>ts_day</th>
+      <th>ts_month</th>
+      <th>TE_brand_target_TE</th>
+      <th>TE_user_id_target_TE</th>
+      <th>TE_product_id_target_TE</th>
+      <th>TE_cat_2_target_TE</th>
+      <th>TE_ts_weekday_ts_day_target_TE</th>
+      <th>target</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>817883</td>
+      <td>908980</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>1085846</td>
+      <td>855303</td>
+      <td>144463</td>
+      <td>5417827</td>
+      <td>-0.725652</td>
+      <td>-0.502085</td>
+      <td>0.235441</td>
+      <td>1.314784</td>
+      <td>0.199788</td>
+      <td>0.325234</td>
+      <td>0.227236</td>
+      <td>-1.284867</td>
+      <td>0.387063</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>4152058</td>
+      <td>2732403</td>
+      <td>1210052</td>
+      <td>712779</td>
+      <td>0</td>
+      <td>1360101</td>
+      <td>954962</td>
+      <td>731363</td>
+      <td>2230166</td>
+      <td>-0.836849</td>
+      <td>-0.007929</td>
+      <td>-0.802043</td>
+      <td>-0.864342</td>
+      <td>0.355313</td>
+      <td>0.266837</td>
+      <td>0.255486</td>
+      <td>-1.285741</td>
+      <td>0.420646</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>3204608</td>
+      <td>274365</td>
+      <td>30730</td>
+      <td>31144</td>
+      <td>25505</td>
+      <td>29457</td>
+      <td>32720</td>
+      <td>3039842</td>
+      <td>3062261</td>
+      <td>-0.184922</td>
+      <td>-0.007929</td>
+      <td>1.618752</td>
+      <td>-0.864342</td>
+      <td>0.466206</td>
+      <td>0.237990</td>
+      <td>0.414308</td>
+      <td>0.459563</td>
+      <td>0.239809</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>3464677</td>
+      <td>0</td>
+      <td>2467278</td>
+      <td>2493129</td>
+      <td>-0.841169</td>
+      <td>-0.007929</td>
+      <td>0.465993</td>
+      <td>-0.666240</td>
+      <td>-1.285569</td>
+      <td>0.390281</td>
+      <td>0.318047</td>
+      <td>-1.288352</td>
+      <td>0.376334</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>2665639</td>
+      <td>66327</td>
+      <td>19261</td>
+      <td>19397</td>
+      <td>16204</td>
+      <td>2497109</td>
+      <td>16447</td>
+      <td>2620458</td>
+      <td>2349810</td>
+      <td>3.510283</td>
+      <td>0.486228</td>
+      <td>0.581269</td>
+      <td>-0.666240</td>
+      <td>0.446405</td>
+      <td>0.533477</td>
+      <td>0.492186</td>
+      <td>0.459563</td>
+      <td>0.388496</td>
+      <td>0.0</td>
+    </tr>
+  </tbody>
+</table>
+</div></div></div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>ls <span class="nv">$output_valid_dir</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>_file_list.txt	_metadata  _metadata.json  part_0.parquet  schema.pbtxt
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">nvtdata_valid</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_parquet</span><span class="p">(</span><span class="n">output_valid_dir</span><span class="o">+</span><span class="s1">&#39;/part_0.parquet&#39;</span><span class="p">)</span>
+<span class="n">nvtdata_valid</span><span class="o">.</span><span class="n">head</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_html"><div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>ts_hour_user_id_brand_cross</th>
+      <th>ts_weekday_user_id_brand_cross</th>
+      <th>cat_0_user_id_brand_cross</th>
+      <th>cat_1_user_id_brand_cross</th>
+      <th>cat_2_user_id_brand_cross</th>
+      <th>product_id_user_id_cross</th>
+      <th>brand_user_id_cross</th>
+      <th>ts_hour_user_id_cross</th>
+      <th>ts_minute_user_id_cross</th>
+      <th>price</th>
+      <th>ts_weekday</th>
+      <th>ts_day</th>
+      <th>ts_month</th>
+      <th>TE_brand_target_TE</th>
+      <th>TE_user_id_target_TE</th>
+      <th>TE_product_id_target_TE</th>
+      <th>TE_cat_2_target_TE</th>
+      <th>TE_ts_weekday_ts_day_target_TE</th>
+      <th>target</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>1.107537</td>
+      <td>0.980384</td>
+      <td>-0.225663</td>
+      <td>-0.468138</td>
+      <td>0.372078</td>
+      <td>0.390281</td>
+      <td>0.427259</td>
+      <td>0.390176</td>
+      <td>0.353950</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>-0.840005</td>
+      <td>0.980384</td>
+      <td>-0.225663</td>
+      <td>-0.468138</td>
+      <td>0.364968</td>
+      <td>0.390281</td>
+      <td>0.320797</td>
+      <td>-1.284867</td>
+      <td>0.352739</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>-0.327548</td>
+      <td>-1.490397</td>
+      <td>-0.802043</td>
+      <td>-0.468138</td>
+      <td>0.466705</td>
+      <td>0.390281</td>
+      <td>0.498779</td>
+      <td>0.459734</td>
+      <td>0.380590</td>
+      <td>1.0</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>2.291189</td>
+      <td>-1.490397</td>
+      <td>-1.608975</td>
+      <td>-0.468138</td>
+      <td>0.446405</td>
+      <td>0.390281</td>
+      <td>0.303992</td>
+      <td>0.459563</td>
+      <td>0.408594</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>0</td>
+      <td>0</td>
+      <td>2677742</td>
+      <td>1812225</td>
+      <td>1033276</td>
+      <td>3759307</td>
+      <td>2828489</td>
+      <td>0</td>
+      <td>0</td>
+      <td>-0.738273</td>
+      <td>-0.007929</td>
+      <td>1.157649</td>
+      <td>-0.468138</td>
+      <td>0.277334</td>
+      <td>0.390281</td>
+      <td>0.326134</td>
+      <td>0.257637</td>
+      <td>0.409076</td>
+      <td>0.0</td>
+    </tr>
+  </tbody>
+</table>
+</div></div></div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="nb">sum</span><span class="p">(</span><span class="n">nvtdata_valid</span><span class="p">[</span><span class="s1">&#39;ts_hour_user_id_brand_cross&#39;</span><span class="p">]</span><span class="o">==</span><span class="mi">0</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2359020
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="nb">len</span><span class="p">(</span><span class="n">nvtdata_valid</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2461719
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="getting-the-embedding-size">
+<h3>Getting the embedding size<a class="headerlink" href="#getting-the-embedding-size" title="Permalink to this headline"></a></h3>
+<p>Next, we need to get the embedding size for the categorical variables. This is an important input for defining the embedding table size to be used by HugeCTR.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">embeddings</span> <span class="o">=</span> <span class="n">ops</span><span class="o">.</span><span class="n">get_embedding_sizes</span><span class="p">(</span><span class="n">proc</span><span class="p">)</span>
+<span class="n">embeddings</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>{&#39;ts_hour_user_id_brand_cross&#39;: (4427037, 512),
+ &#39;ts_weekday_user_id_brand_cross&#39;: (3961156, 512),
+ &#39;cat_0_user_id_brand_cross&#39;: (2877223, 512),
+ &#39;cat_1_user_id_brand_cross&#39;: (2890639, 512),
+ &#39;cat_2_user_id_brand_cross&#39;: (2159304, 512),
+ &#39;product_id_user_id_cross&#39;: (4398425, 512),
+ &#39;brand_user_id_cross&#39;: (3009092, 512),
+ &#39;ts_hour_user_id_cross&#39;: (3999369, 512),
+ &#39;ts_minute_user_id_cross&#39;: (5931061, 512)}
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="nb">print</span><span class="p">([</span><span class="n">embeddings</span><span class="p">[</span><span class="n">x</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">cat_feats</span><span class="o">.</span><span class="n">output_columns</span><span class="o">.</span><span class="n">names</span><span class="p">])</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>[4427037, 3961156, 2877223, 2890639, 2159304, 4398425, 3009092, 3999369, 5931061]
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">cat_feats</span><span class="o">.</span><span class="n">output_columns</span><span class="o">.</span><span class="n">names</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>[&#39;ts_hour_user_id_brand_cross&#39;,
+ &#39;ts_weekday_user_id_brand_cross&#39;,
+ &#39;cat_0_user_id_brand_cross&#39;,
+ &#39;cat_1_user_id_brand_cross&#39;,
+ &#39;cat_2_user_id_brand_cross&#39;,
+ &#39;product_id_user_id_cross&#39;,
+ &#39;brand_user_id_cross&#39;,
+ &#39;ts_hour_user_id_cross&#39;,
+ &#39;ts_minute_user_id_cross&#39;]
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">embedding_size_str</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">([</span><span class="n">embeddings</span><span class="p">[</span><span class="n">x</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">cat_feats</span><span class="o">.</span><span class="n">output_columns</span><span class="o">.</span><span class="n">names</span><span class="p">])</span>
+<span class="n">embedding_size_str</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>&#39;[4427037, 3961156, 2877223, 2890639, 2159304, 4398425, 3009092, 3999369, 5931061]&#39;
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">num_con_feates</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">CON_FEATS</span><span class="p">)</span>
+<span class="n">num_con_feates</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>9
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="nb">print</span><span class="p">([</span><span class="n">embeddings</span><span class="p">[</span><span class="n">x</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">cat_feats</span><span class="o">.</span><span class="n">output_columns</span><span class="o">.</span><span class="n">names</span><span class="p">])</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>[4427037, 3961156, 2877223, 2890639, 2159304, 4398425, 3009092, 3999369, 5931061]
+</pre></div>
+</div>
+</div>
+</div>
+<p>Next, we’ll shutdown our Dask client from earlier to free up some memory so that we can share it with HugeCTR.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">client</span><span class="o">.</span><span class="n">shutdown</span><span class="p">()</span>
+<span class="n">cluster</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="preparing-the-training-python-script-for-hugectr">
+<h3>Preparing the training Python script for HugeCTR<a class="headerlink" href="#preparing-the-training-python-script-for-hugectr" title="Permalink to this headline"></a></h3>
+<p>The HugeCTR model can be defined by Python API. The following Python script defines a DLRM model and specifies the training resources.</p>
+<p>Several parameters that need to be edited to match this dataset are:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">slot_size_array</span></code>: cardinalities for the categorical variables</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">dense_dim</span></code>: number of dense features</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">slot_num</span></code>: number of categorical variables</p></li>
+</ul>
+<p>The model graph can be saved into a JSON file by calling <code class="docutils literal notranslate"><span class="pre">model.graph_to_json</span></code>, which will be used for inference afterwards.</p>
+<p>In the following code, we train the network using 8 GPUs and a workspace of 4000 MB per GPU. Note that the total embedding size is <code class="docutils literal notranslate"><span class="pre">33653306*128*4/(1024**3)</span></code> = 16.432 GB.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">%%writefile</span> hugectr_dlrm_ecommerce.py
+<span class="kn">import</span> <span class="nn">hugectr</span>
+<span class="kn">from</span> <span class="nn">mpi4py</span> <span class="kn">import</span> <span class="n">MPI</span>
+<span class="n">solver</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">CreateSolver</span><span class="p">(</span><span class="n">max_eval_batches</span> <span class="o">=</span> <span class="mi">2720</span><span class="p">,</span>
+                              <span class="n">batchsize_eval</span> <span class="o">=</span> <span class="mi">16384</span><span class="p">,</span>
+                              <span class="n">batchsize</span> <span class="o">=</span> <span class="mi">16384</span><span class="p">,</span>
+                              <span class="n">lr</span> <span class="o">=</span> <span class="mf">0.1</span><span class="p">,</span>
+                              <span class="n">warmup_steps</span> <span class="o">=</span> <span class="mi">8000</span><span class="p">,</span>
+                              <span class="n">decay_start</span> <span class="o">=</span> <span class="mi">48000</span><span class="p">,</span>
+                              <span class="n">decay_steps</span> <span class="o">=</span> <span class="mi">24000</span><span class="p">,</span>
+                              <span class="n">vvgpu</span> <span class="o">=</span> <span class="p">[[</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">4</span><span class="p">,</span><span class="mi">5</span><span class="p">,</span><span class="mi">6</span><span class="p">,</span><span class="mi">7</span><span class="p">]],</span>
+                              <span class="n">repeat_dataset</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+                              <span class="n">i64_input_key</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span>
+<span class="n">reader</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">DataReaderParams</span><span class="p">(</span><span class="n">data_reader_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">DataReaderType_t</span><span class="o">.</span><span class="n">Parquet</span><span class="p">,</span>
+                                  <span class="n">source</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;./nvtabular_temp/output/train/_file_list.txt&quot;</span><span class="p">],</span>
+                                  <span class="n">eval_source</span> <span class="o">=</span> <span class="s2">&quot;./nvtabular_temp/output/valid/_file_list.txt&quot;</span><span class="p">,</span>
+                                  <span class="n">check_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Check_t</span><span class="o">.</span><span class="n">Non</span><span class="p">,</span>
+                                  <span class="n">slot_size_array</span> <span class="o">=</span> <span class="p">[</span><span class="mi">4427037</span><span class="p">,</span> <span class="mi">3961156</span><span class="p">,</span> <span class="mi">2877223</span><span class="p">,</span> <span class="mi">2890639</span><span class="p">,</span> <span class="mi">2159304</span><span class="p">,</span> <span class="mi">4398425</span><span class="p">,</span> <span class="mi">3009092</span><span class="p">,</span> <span class="mi">3999369</span><span class="p">,</span> <span class="mi">5931061</span><span class="p">])</span>
+<span class="n">optimizer</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">CreateOptimizer</span><span class="p">(</span><span class="n">optimizer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Optimizer_t</span><span class="o">.</span><span class="n">SGD</span><span class="p">,</span>
+                                    <span class="n">update_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Update_t</span><span class="o">.</span><span class="n">Local</span><span class="p">,</span>
+                                    <span class="n">atomic_update</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Model</span><span class="p">(</span><span class="n">solver</span><span class="p">,</span> <span class="n">reader</span><span class="p">,</span> <span class="n">optimizer</span><span class="p">)</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">Input</span><span class="p">(</span><span class="n">label_dim</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">label_name</span> <span class="o">=</span> <span class="s2">&quot;label&quot;</span><span class="p">,</span>
+                        <span class="n">dense_dim</span> <span class="o">=</span> <span class="mi">9</span><span class="p">,</span> <span class="n">dense_name</span> <span class="o">=</span> <span class="s2">&quot;dense&quot;</span><span class="p">,</span>
+                        <span class="n">data_reader_sparse_param_array</span> <span class="o">=</span> 
+                        <span class="p">[</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DataReaderSparseParam</span><span class="p">(</span><span class="s2">&quot;data1&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="mi">9</span><span class="p">)]))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">SparseEmbedding</span><span class="p">(</span><span class="n">embedding_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Embedding_t</span><span class="o">.</span><span class="n">DistributedSlotSparseEmbeddingHash</span><span class="p">,</span>
+                            <span class="n">workspace_size_per_gpu_in_mb</span> <span class="o">=</span> <span class="mi">4000</span><span class="p">,</span>
+                            <span class="n">embedding_vec_size</span> <span class="o">=</span> <span class="mi">128</span><span class="p">,</span>
+                            <span class="n">combiner</span> <span class="o">=</span> <span class="s1">&#39;sum&#39;</span><span class="p">,</span>
+                            <span class="n">sparse_embedding_name</span> <span class="o">=</span> <span class="s2">&quot;sparse_embedding1&quot;</span><span class="p">,</span>
+                            <span class="n">bottom_name</span> <span class="o">=</span> <span class="s2">&quot;data1&quot;</span><span class="p">,</span>
+                            <span class="n">optimizer</span> <span class="o">=</span> <span class="n">optimizer</span><span class="p">))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">InnerProduct</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;dense&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;fc1&quot;</span><span class="p">],</span>
+                            <span class="n">num_output</span><span class="o">=</span><span class="mi">512</span><span class="p">))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">ReLU</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;fc1&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;relu1&quot;</span><span class="p">]))</span>                           
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">InnerProduct</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;relu1&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;fc2&quot;</span><span class="p">],</span>
+                            <span class="n">num_output</span><span class="o">=</span><span class="mi">256</span><span class="p">))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">ReLU</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;fc2&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;relu2&quot;</span><span class="p">]))</span>                            
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">InnerProduct</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;relu2&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;fc3&quot;</span><span class="p">],</span>
+                            <span class="n">num_output</span><span class="o">=</span><span class="mi">128</span><span class="p">))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">ReLU</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;fc3&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;relu3&quot;</span><span class="p">]))</span>                              
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">Interaction</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;relu3&quot;</span><span class="p">,</span><span class="s2">&quot;sparse_embedding1&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;interaction1&quot;</span><span class="p">]))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">InnerProduct</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;interaction1&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;fc4&quot;</span><span class="p">],</span>
+                            <span class="n">num_output</span><span class="o">=</span><span class="mi">1024</span><span class="p">))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">ReLU</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;fc4&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;relu4&quot;</span><span class="p">]))</span>                              
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">InnerProduct</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;relu4&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;fc5&quot;</span><span class="p">],</span>
+                            <span class="n">num_output</span><span class="o">=</span><span class="mi">1024</span><span class="p">))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">ReLU</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;fc5&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;relu5&quot;</span><span class="p">]))</span>                              
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">InnerProduct</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;relu5&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;fc6&quot;</span><span class="p">],</span>
+                            <span class="n">num_output</span><span class="o">=</span><span class="mi">512</span><span class="p">))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">ReLU</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;fc6&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;relu6&quot;</span><span class="p">]))</span>                               
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">InnerProduct</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;relu6&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;fc7&quot;</span><span class="p">],</span>
+                            <span class="n">num_output</span><span class="o">=</span><span class="mi">256</span><span class="p">))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">ReLU</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;fc7&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;relu7&quot;</span><span class="p">]))</span>                                                                              
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">InnerProduct</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;relu7&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;fc8&quot;</span><span class="p">],</span>
+                            <span class="n">num_output</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span>                                                                                           
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">BinaryCrossEntropyLoss</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;fc8&quot;</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;loss&quot;</span><span class="p">]))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">compile</span><span class="p">()</span>
+<span class="n">model</span><span class="o">.</span><span class="n">summary</span><span class="p">()</span>
+<span class="n">model</span><span class="o">.</span><span class="n">graph_to_json</span><span class="p">(</span><span class="n">graph_config_file</span> <span class="o">=</span> <span class="s2">&quot;dlrm_ecommerce.json&quot;</span><span class="p">)</span>
+<span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">max_iter</span> <span class="o">=</span> <span class="mi">12000</span><span class="p">,</span> <span class="n">display</span> <span class="o">=</span> <span class="mi">1000</span><span class="p">,</span> <span class="n">eval_interval</span> <span class="o">=</span> <span class="mi">3000</span><span class="p">,</span> <span class="n">snapshot</span> <span class="o">=</span> <span class="mi">10000</span><span class="p">,</span> <span class="n">snapshot_prefix</span> <span class="o">=</span> <span class="s2">&quot;./&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Overwriting hugectr_dlrm_ecommerce.py
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="hugectr-training">
+<h2>HugeCTR training<a class="headerlink" href="#hugectr-training" title="Permalink to this headline"></a></h2>
+<p>Now we are ready to train a DLRM model with HugeCTR.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python3 hugectr_dlrm_ecommerce.py
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>HugeCTR Version: 3.2
+====================================================Model Init=====================================================
+[HUGECTR][23:17:45][INFO][RANK0]: Global seed is 1985961998
+[HUGECTR][23:17:45][INFO][RANK0]: Device to NUMA mapping:
+  GPU 0 -&gt;  node 0
+  GPU 1 -&gt;  node 0
+  GPU 2 -&gt;  node 0
+  GPU 3 -&gt;  node 0
+  GPU 4 -&gt;  node 1
+  GPU 5 -&gt;  node 1
+  GPU 6 -&gt;  node 1
+  GPU 7 -&gt;  node 1
+
+[HUGECTR][23:17:54][WARNING][RANK0]: Peer-to-peer access cannot be fully enabled.
+[HUGECTR][23:17:54][INFO][RANK0]: Start all2all warmup
+[HUGECTR][23:17:54][INFO][RANK0]: End all2all warmup
+[HUGECTR][23:17:54][INFO][RANK0]: Using All-reduce algorithm: NCCL
+[HUGECTR][23:17:54][INFO][RANK0]: Device 0: Tesla P100-SXM2-16GB
+[HUGECTR][23:17:54][INFO][RANK0]: Device 1: Tesla P100-SXM2-16GB
+[HUGECTR][23:17:54][INFO][RANK0]: Device 2: Tesla P100-SXM2-16GB
+[HUGECTR][23:17:54][INFO][RANK0]: Device 3: Tesla P100-SXM2-16GB
+[HUGECTR][23:17:54][INFO][RANK0]: Device 4: Tesla P100-SXM2-16GB
+[HUGECTR][23:17:54][INFO][RANK0]: Device 5: Tesla P100-SXM2-16GB
+[HUGECTR][23:17:54][INFO][RANK0]: Device 6: Tesla P100-SXM2-16GB
+[HUGECTR][23:17:54][INFO][RANK0]: Device 7: Tesla P100-SXM2-16GB
+[HUGECTR][23:17:54][INFO][RANK0]: num of DataReader workers: 8
+[HUGECTR][23:17:55][INFO][RANK0]: Vocabulary size: 33653306
+[HUGECTR][23:17:55][INFO][RANK0]: max_vocabulary_size_per_gpu_=8192000
+[HUGECTR][23:17:58][INFO][RANK0]: Graph analysis to resolve tensor dependency
+===================================================Model Compile===================================================
+[HUGECTR][23:18:12][INFO][RANK0]: gpu0 start to init embedding
+[HUGECTR][23:18:12][INFO][RANK0]: gpu1 start to init embedding
+[HUGECTR][23:18:12][INFO][RANK0]: gpu6 start to init embedding
+[HUGECTR][23:18:12][INFO][RANK0]: gpu2 start to init embedding
+[HUGECTR][23:18:12][INFO][RANK0]: gpu7 start to init embedding
+[HUGECTR][23:18:12][INFO][RANK0]: gpu5 start to init embedding
+[HUGECTR][23:18:12][INFO][RANK0]: gpu3 start to init embedding
+[HUGECTR][23:18:12][INFO][RANK0]: gpu4 start to init embedding
+[HUGECTR][23:18:12][INFO][RANK0]: gpu0 init embedding done
+[HUGECTR][23:18:12][INFO][RANK0]: gpu1 init embedding done
+[HUGECTR][23:18:12][INFO][RANK0]: gpu2 init embedding done
+[HUGECTR][23:18:12][INFO][RANK0]: gpu7 init embedding done
+[HUGECTR][23:18:12][INFO][RANK0]: gpu6 init embedding done
+[HUGECTR][23:18:12][INFO][RANK0]: gpu5 init embedding done
+[HUGECTR][23:18:12][INFO][RANK0]: gpu4 init embedding done
+[HUGECTR][23:18:12][INFO][RANK0]: gpu3 init embedding done
+[HUGECTR][23:18:12][INFO][RANK0]: Starting AUC NCCL warm-up
+[HUGECTR][23:18:12][INFO][RANK0]: Warm-up done
+===================================================Model Summary===================================================
+label                                   Dense                         Sparse                        
+label                                   dense                          data1                         
+(None, 1)                               (None, 9)                               
+------------------------------------------------------------------------------------------------------------------
+Layer Type                              Input Name                    Output Name                   Output Shape                  
+------------------------------------------------------------------------------------------------------------------
+DistributedSlotSparseEmbeddingHash      data1                         sparse_embedding1             (None, 9, 128)                
+InnerProduct                            dense                         fc1                           (None, 512)                   
+ReLU                                    fc1                           relu1                         (None, 512)                   
+InnerProduct                            relu1                         fc2                           (None, 256)                   
+ReLU                                    fc2                           relu2                         (None, 256)                   
+InnerProduct                            relu2                         fc3                           (None, 128)                   
+ReLU                                    fc3                           relu3                         (None, 128)                   
+Interaction                             relu3,sparse_embedding1       interaction1                  (None, 174)                   
+InnerProduct                            interaction1                  fc4                           (None, 1024)                  
+ReLU                                    fc4                           relu4                         (None, 1024)                  
+InnerProduct                            relu4                         fc5                           (None, 1024)                  
+ReLU                                    fc5                           relu5                         (None, 1024)                  
+InnerProduct                            relu5                         fc6                           (None, 512)                   
+ReLU                                    fc6                           relu6                         (None, 512)                   
+InnerProduct                            relu6                         fc7                           (None, 256)                   
+ReLU                                    fc7                           relu7                         (None, 256)                   
+InnerProduct                            relu7                         fc8                           (None, 1)                     
+BinaryCrossEntropyLoss                  fc8,label                     loss                                                        
+------------------------------------------------------------------------------------------------------------------
+[HUGECTR][23:18:12][INFO][RANK0]: Save the model graph to dlrm_ecommerce.json successfully
+=====================================================Model Fit=====================================================
+[HUGECTR][23:18:12][INFO][RANK0]: Use non-epoch mode with number of iterations: 12000
+[HUGECTR][23:18:12][INFO][RANK0]: Training batchsize: 16384, evaluation batchsize: 16384
+[HUGECTR][23:18:12][INFO][RANK0]: Evaluation interval: 3000, snapshot interval: 10000
+[HUGECTR][23:18:12][INFO][RANK0]: Sparse embedding trainable: 1, dense network trainable: 1
+[HUGECTR][23:18:12][INFO][RANK0]: Use mixed precision: 0, scaler: 1, use cuda graph: -875196854
+[HUGECTR][23:18:12][INFO][RANK0]: lr: 0.100000, warmup_steps: 8000, decay_start: 48000, decay_steps: 24000, decay_power: 2.000000, end_lr: 0.000000
+[HUGECTR][23:18:12][INFO][RANK0]: Training source file: ./nvtabular_temp/output/train/_file_list.txt
+[HUGECTR][23:18:12][INFO][RANK0]: Evaluation source file: ./nvtabular_temp/output/valid/_file_list.txt
+[HUGECTR][23:18:20][INFO][RANK0]: Iter: 1000 Time(1000 iters): 8.477706s Loss: 0.654302 lr:0.012512
+[HUGECTR][23:18:29][INFO][RANK0]: Iter: 2000 Time(1000 iters): 8.461642s Loss: 0.537260 lr:0.025013
+[HUGECTR][23:18:37][INFO][RANK0]: Iter: 3000 Time(1000 iters): 8.473848s Loss: 0.523659 lr:0.037512
+[HUGECTR][23:18:47][INFO][RANK0]: Evaluation, AUC: 0.652278
+[HUGECTR][23:18:47][INFO][RANK0]: Eval Time for 2720 iters: 9.794543s
+[HUGECTR][23:18:56][INFO][RANK0]: Iter: 4000 Time(1000 iters): 18.361339s Loss: 0.521578 lr:0.050012
+[HUGECTR][23:19:04][INFO][RANK0]: Iter: 5000 Time(1000 iters): 8.492043s Loss: 0.515692 lr:0.062513
+[HUGECTR][23:19:13][INFO][RANK0]: Iter: 6000 Time(1000 iters): 8.491605s Loss: 0.518826 lr:0.075013
+[HUGECTR][23:19:22][INFO][RANK0]: Evaluation, AUC: 0.650539
+[HUGECTR][23:19:22][INFO][RANK0]: Eval Time for 2720 iters: 9.814989s
+[HUGECTR][23:19:31][INFO][RANK0]: Iter: 7000 Time(1000 iters): 18.332924s Loss: 0.511855 lr:0.087513
+[HUGECTR][23:19:39][INFO][RANK0]: Iter: 8000 Time(1000 iters): 8.488666s Loss: 0.515189 lr:0.100000
+[HUGECTR][23:19:48][INFO][RANK0]: Iter: 9000 Time(1000 iters): 8.455840s Loss: 0.513654 lr:0.100000
+[HUGECTR][23:19:58][INFO][RANK0]: Evaluation, AUC: 0.645823
+[HUGECTR][23:19:58][INFO][RANK0]: Eval Time for 2720 iters: 9.750920s
+[HUGECTR][23:20:06][INFO][RANK0]: Iter: 10000 Time(1000 iters): 18.285750s Loss: 0.518827 lr:0.100000
+[HUGECTR][23:20:15][INFO][RANK0]: Rank0: Write hash table to file
+[HUGECTR][23:21:26][INFO][RANK0]: Dumping sparse weights to files, successful
+[HUGECTR][23:21:26][INFO][RANK0]: Dumping sparse optimzer states to files, successful
+[HUGECTR][23:21:26][INFO][RANK0]: Dumping dense weights to file, successful
+[HUGECTR][23:21:26][INFO][RANK0]: Dumping dense optimizer states to file, successful
+[HUGECTR][23:21:26][INFO][RANK0]: Dumping untrainable weights to file, successful
+[HUGECTR][23:21:35][INFO][RANK0]: Iter: 11000 Time(1000 iters): 88.781702s Loss: 0.511783 lr:0.100000
+[HUGECTR][23:21:43][INFO][RANK0]: Finish 12000 iterations with batchsize: 16384 in 211.67s.
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="hugectr-inference">
+<h2>HugeCTR inference<a class="headerlink" href="#hugectr-inference" title="Permalink to this headline"></a></h2>
+<p>In this section, we read the test dataset and compute the AUC value.</p>
+<p>We will utilize the saved model graph in JSON format for inference.</p>
+<div class="section" id="prepare-the-inference-session">
+<h3>Prepare the inference session<a class="headerlink" href="#prepare-the-inference-session" title="Permalink to this headline"></a></h3>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">sys</span>
+<span class="kn">from</span> <span class="nn">hugectr.inference</span> <span class="kn">import</span> <span class="n">InferenceParams</span><span class="p">,</span> <span class="n">CreateInferenceSession</span>
+<span class="kn">from</span> <span class="nn">mpi4py</span> <span class="kn">import</span> <span class="n">MPI</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># create inference session</span>
+<span class="n">inference_params</span> <span class="o">=</span> <span class="n">InferenceParams</span><span class="p">(</span><span class="n">model_name</span> <span class="o">=</span> <span class="s2">&quot;dlrm&quot;</span><span class="p">,</span>
+                              <span class="n">max_batchsize</span> <span class="o">=</span> <span class="mi">4096</span><span class="p">,</span>
+                              <span class="n">hit_rate_threshold</span> <span class="o">=</span> <span class="mf">0.6</span><span class="p">,</span>
+                              <span class="n">dense_model_file</span> <span class="o">=</span> <span class="s2">&quot;./_dense_10000.model&quot;</span><span class="p">,</span>
+                              <span class="n">sparse_model_files</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;./0_sparse_10000.model&quot;</span><span class="p">],</span>
+                              <span class="n">device_id</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+                              <span class="n">use_gpu_embedding_cache</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+                              <span class="n">cache_size_percentage</span> <span class="o">=</span> <span class="mf">0.2</span><span class="p">,</span>
+                              <span class="n">i64_input_key</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span>
+<span class="n">inference_session</span> <span class="o">=</span> <span class="n">CreateInferenceSession</span><span class="p">(</span><span class="s2">&quot;dlrm_ecommerce.json&quot;</span><span class="p">,</span> <span class="n">inference_params</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>[HUGECTR][23:21:46][INFO][RANK0]: default_emb_vec_value is not specified using default: 0.000000
+[HUGECTR][23:21:46][INFO][RANK0]: Created parallel (16 partitions) blank database backend in local memory!
+[HUGECTR][23:22:51][INFO][RANK0]: ParallelLocalMemory backend. Table: dlrm#0. Inserted 33653303 / 33653303 pairs.
+[HUGECTR][23:22:51][INFO][RANK0]: Cached 0.000000 * 33653303 embeddings in CPU memory database!
+[HUGECTR][23:22:52][INFO][RANK0]: Create embedding cache in device 0.
+[HUGECTR][23:22:53][INFO][RANK0]: create_refreshspace2
+[HUGECTR][23:22:53][INFO][RANK0]: Global seed is 813179416
+[HUGECTR][23:22:53][INFO][RANK0]: Device to NUMA mapping:
+  GPU 0 -&gt;  node 0
+
+[HUGECTR][23:22:54][WARNING][RANK0]: Peer-to-peer access cannot be fully enabled.
+[HUGECTR][23:22:54][INFO][RANK0]: Start all2all warmup
+[HUGECTR][23:22:54][INFO][RANK0]: End all2all warmup
+[HUGECTR][23:22:54][INFO][RANK0]: Use mixed precision: 0
+[HUGECTR][23:22:54][INFO][RANK0]: start create embedding for inference
+[HUGECTR][23:22:54][INFO][RANK0]: sparse_input name data1
+[HUGECTR][23:22:54][INFO][RANK0]: create embedding for inference success
+[HUGECTR][23:22:54][INFO][RANK0]: Inference stage skip BinaryCrossEntropyLoss layer, replaced by Sigmoid layer
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="reading-and-preparing-the-data">
+<h3>Reading and preparing the data<a class="headerlink" href="#reading-and-preparing-the-data" title="Permalink to this headline"></a></h3>
+<p>First, we read the NVTabular processed data.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+
+<span class="n">nvtdata_test</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_parquet</span><span class="p">(</span><span class="s1">&#39;./nvtabular_temp/output/test/part_0.parquet&#39;</span><span class="p">)</span>
+<span class="n">nvtdata_test</span><span class="o">.</span><span class="n">head</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_html"><div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>ts_hour_user_id_brand_cross</th>
+      <th>ts_weekday_user_id_brand_cross</th>
+      <th>cat_0_user_id_brand_cross</th>
+      <th>cat_1_user_id_brand_cross</th>
+      <th>cat_2_user_id_brand_cross</th>
+      <th>product_id_user_id_cross</th>
+      <th>brand_user_id_cross</th>
+      <th>ts_hour_user_id_cross</th>
+      <th>ts_minute_user_id_cross</th>
+      <th>price</th>
+      <th>ts_weekday</th>
+      <th>ts_day</th>
+      <th>ts_month</th>
+      <th>TE_brand_target_TE</th>
+      <th>TE_user_id_target_TE</th>
+      <th>TE_product_id_target_TE</th>
+      <th>TE_cat_2_target_TE</th>
+      <th>TE_ts_weekday_ts_day_target_TE</th>
+      <th>target</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>-0.823432</td>
+      <td>-1.490397</td>
+      <td>1.272925</td>
+      <td>-0.270035</td>
+      <td>-1.287369</td>
+      <td>0.390281</td>
+      <td>0.390281</td>
+      <td>-1.285848</td>
+      <td>0.445558</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>-0.627107</td>
+      <td>-0.996241</td>
+      <td>0.581269</td>
+      <td>-0.270035</td>
+      <td>0.306095</td>
+      <td>0.390281</td>
+      <td>0.339375</td>
+      <td>0.352659</td>
+      <td>0.396743</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>-0.299060</td>
+      <td>-0.996241</td>
+      <td>1.388201</td>
+      <td>-0.270035</td>
+      <td>0.364552</td>
+      <td>0.390281</td>
+      <td>0.443069</td>
+      <td>0.459563</td>
+      <td>0.433425</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>-0.037364</td>
+      <td>1.474540</td>
+      <td>-0.456215</td>
+      <td>-0.270035</td>
+      <td>0.466595</td>
+      <td>0.390281</td>
+      <td>0.431157</td>
+      <td>0.460040</td>
+      <td>0.407608</td>
+      <td>1.0</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>-0.704362</td>
+      <td>-0.502085</td>
+      <td>-0.917319</td>
+      <td>-0.270035</td>
+      <td>0.218853</td>
+      <td>0.390281</td>
+      <td>0.274339</td>
+      <td>-1.285741</td>
+      <td>0.428683</td>
+      <td>0.0</td>
+    </tr>
+  </tbody>
+</table>
+</div></div></div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">con_feats</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;price&#39;</span><span class="p">,</span>
+ <span class="s1">&#39;ts_weekday&#39;</span><span class="p">,</span>
+ <span class="s1">&#39;ts_day&#39;</span><span class="p">,</span>
+ <span class="s1">&#39;ts_month&#39;</span><span class="p">,</span>
+ <span class="s1">&#39;TE_brand_target_TE&#39;</span><span class="p">,</span>
+ <span class="s1">&#39;TE_user_id_target_TE&#39;</span><span class="p">,</span>
+ <span class="s1">&#39;TE_product_id_target_TE&#39;</span><span class="p">,</span>
+ <span class="s1">&#39;TE_cat_2_target_TE&#39;</span><span class="p">,</span>
+ <span class="s1">&#39;TE_ts_weekday_ts_day_target_TE&#39;</span><span class="p">]</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">cat_feats</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;ts_hour_user_id_brand_cross&#39;</span><span class="p">,</span>
+ <span class="s1">&#39;ts_weekday_user_id_brand_cross&#39;</span><span class="p">,</span>
+ <span class="s1">&#39;cat_0_user_id_brand_cross&#39;</span><span class="p">,</span>
+ <span class="s1">&#39;cat_1_user_id_brand_cross&#39;</span><span class="p">,</span>
+ <span class="s1">&#39;cat_2_user_id_brand_cross&#39;</span><span class="p">,</span>
+ <span class="s1">&#39;product_id_user_id_cross&#39;</span><span class="p">,</span>
+ <span class="s1">&#39;brand_user_id_cross&#39;</span><span class="p">,</span>
+ <span class="s1">&#39;ts_hour_user_id_cross&#39;</span><span class="p">,</span>
+ <span class="s1">&#39;ts_minute_user_id_cross&#39;</span><span class="p">]</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">emb_size</span> <span class="o">=</span> <span class="p">[</span><span class="mi">4427037</span><span class="p">,</span> <span class="mi">3961156</span><span class="p">,</span> <span class="mi">2877223</span><span class="p">,</span> <span class="mi">2890639</span><span class="p">,</span> <span class="mi">2159304</span><span class="p">,</span> <span class="mi">4398425</span><span class="p">,</span> <span class="mi">3009092</span><span class="p">,</span> <span class="mi">3999369</span><span class="p">,</span> <span class="mi">5931061</span><span class="p">]</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="converting-data-to-csr-format">
+<h3>Converting data to CSR format<a class="headerlink" href="#converting-data-to-csr-format" title="Permalink to this headline"></a></h3>
+<p>HugeCTR expects data in CSR format for inference. One important thing to note is that NVTabular requires categorical variables to occupy different integer ranges. For example, if there are 10 users and 10 items, then the users should be encoded in the 0-9 range, while items should be in the 10-19 range. NVTabular encodes both users and items in the 0-9 ranges.</p>
+<p>For this reason, we need to shift the keys of the categorical variable produced by NVTabular to comply with HugeCTR.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="n">shift</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">emb_size</span><span class="p">),</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">cat_data</span> <span class="o">=</span> <span class="n">nvtdata_test</span><span class="p">[</span><span class="n">cat_feats</span><span class="p">]</span><span class="o">.</span><span class="n">values</span> <span class="o">+</span> <span class="n">shift</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">dense_data</span> <span class="o">=</span> <span class="n">nvtdata_test</span><span class="p">[</span><span class="n">con_feats</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">infer_batch</span><span class="p">(</span><span class="n">inference_session</span><span class="p">,</span> <span class="n">dense_data_batch</span><span class="p">,</span> <span class="n">cat_data_batch</span><span class="p">):</span>
+    <span class="n">dense_features</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">dense_data_batch</span><span class="o">.</span><span class="n">flatten</span><span class="p">())</span>
+    <span class="n">embedding_columns</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">cat_data_batch</span><span class="o">.</span><span class="n">flatten</span><span class="p">())</span>
+    <span class="n">row_ptrs</span><span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="nb">len</span><span class="p">(</span><span class="n">embedding_columns</span><span class="p">)</span><span class="o">+</span><span class="mi">1</span><span class="p">))</span>
+    <span class="n">output</span> <span class="o">=</span> <span class="n">inference_session</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">dense_features</span><span class="p">,</span> <span class="n">embedding_columns</span><span class="p">,</span> <span class="n">row_ptrs</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">output</span>
+</pre></div>
+</div>
+</div>
+</div>
+<p>Now we are ready to carry out inference on the test set.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">batch_size</span> <span class="o">=</span> <span class="mi">4096</span>
+<span class="n">num_batches</span> <span class="o">=</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">dense_data</span><span class="p">)</span> <span class="o">//</span> <span class="n">batch_size</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span>
+<span class="n">batch_idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array_split</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">dense_data</span><span class="p">)),</span> <span class="n">num_batches</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>pip install tqdm
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Looking in indexes: https://pypi.org/simple, https://pypi.ngc.nvidia.com
+Requirement already satisfied: tqdm in /usr/local/lib/python3.8/dist-packages (4.62.3)
+<span class=" -Color -Color-Yellow">WARNING: Running pip as the &#39;root&#39; user can result in broken permissions and conflicting behaviour with the system package manager. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv</span>
+<span class=" -Color -Color-Yellow">WARNING: You are using pip version 21.2.4; however, version 21.3.1 is available.</span>
+<span class=" -Color -Color-Yellow">You should consider upgrading via the &#39;/usr/bin/python -m pip install --upgrade pip&#39; command.</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">tqdm</span> <span class="kn">import</span> <span class="n">tqdm</span>
+
+<span class="n">labels</span> <span class="o">=</span> <span class="p">[]</span>
+<span class="k">for</span> <span class="n">batch_id</span> <span class="ow">in</span> <span class="n">tqdm</span><span class="p">(</span><span class="n">batch_idx</span><span class="p">):</span>
+    <span class="n">dense_data_batch</span> <span class="o">=</span> <span class="n">dense_data</span><span class="p">[</span><span class="n">batch_id</span><span class="p">]</span>
+    <span class="n">cat_data_batch</span> <span class="o">=</span> <span class="n">cat_data</span><span class="p">[</span><span class="n">batch_id</span><span class="p">]</span>
+    <span class="n">results</span> <span class="o">=</span> <span class="n">infer_batch</span><span class="p">(</span><span class="n">inference_session</span><span class="p">,</span> <span class="n">dense_data_batch</span><span class="p">,</span> <span class="n">cat_data_batch</span><span class="p">)</span>
+    <span class="n">labels</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">results</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="nb">len</span><span class="p">(</span><span class="n">labels</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2772486
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="computing-the-test-auc-value">
+<h3>Computing the test AUC value<a class="headerlink" href="#computing-the-test-auc-value" title="Permalink to this headline"></a></h3>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">ground_truth</span> <span class="o">=</span> <span class="n">nvtdata_test</span><span class="p">[</span><span class="s1">&#39;target&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">sklearn.metrics</span> <span class="kn">import</span> <span class="n">roc_auc_score</span>
+
+<span class="n">roc_auc_score</span><span class="p">(</span><span class="n">ground_truth</span><span class="p">,</span> <span class="n">labels</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>0.5565971533171648
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="conclusion">
+<h2>Conclusion<a class="headerlink" href="#conclusion" title="Permalink to this headline"></a></h2>
+<p>In this notebook, we have walked you through the process of preprocessing the data, train a DLRM model with HugeCTR, then carrying out inference with the HugeCTR Python interface. Try this workflow on your data and let us know your feedback.</p>
+</div>
+</div>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="index.html" class="btn btn-neutral float-left" title="HugeCTR Example Notebooks" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="movie-lens-example.html" class="btn btn-neutral float-right" title="HugeCTR demo on Movie lens data" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, NVIDIA.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    v: v3.7
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="../../v3.5/index.html">v3.5</a></dd>
+      <dd><a href="../../v3.6/index.html">v3.6</a></dd>
+      <dd><a href="ecommerce-example.html">v3.7</a></dd>
+    </dl>
+    <dl>
+      <dt>Branches</dt>
+      <dd><a href="../../master/index.html">master</a></dd>
+    </dl>
+  </div>
+</div><script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

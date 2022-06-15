@@ -56,6 +56,7 @@
 <li class="toctree-l1"><a class="reference internal" href="api/index.html">API Documentation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="additional_resources.html">Additional Resources</a></li>
 <li class="toctree-l1"><a class="reference internal" href="release_notes.html">Release Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="hugectr_contributor_guide.html">Contributing to HugeCTR</a></li>
 </ul>
 
         </div>
@@ -190,7 +191,7 @@ $ docker run --gpus<span class="o">=</span>all --rm -it --cap-add SYS_NICE nvcr.
 </div>
 <div class="section" id="building-hugectr-from-scratch">
 <h3>Building HugeCTR from Scratch<a class="headerlink" href="#building-hugectr-from-scratch" title="Permalink to this headline"></a></h3>
-<p>To build HugeCTR from scratch, refer to <a class="reference internal" href="hugectr_contributor_guide.html#build-hugectr-from-source"><span class="std std-doc">Build HugeCTR from source code</span></a>.</p>
+<p>To build HugeCTR from scratch, refer to the <a class="reference internal" href="hugectr_contributor_guide.html"><span class="doc std std-doc">contributor guide</span></a> information.</p>
 </div>
 </div>
 <div class="section" id="tools">
@@ -203,30 +204,28 @@ $ docker run --gpus<span class="o">=</span>all --rm -it --cap-add SYS_NICE nvcr.
 <div class="section" id="generating-synthetic-data-and-benchmarks">
 <h3>Generating Synthetic Data and Benchmarks<a class="headerlink" href="#generating-synthetic-data-and-benchmarks" title="Permalink to this headline"></a></h3>
 <p>The <a class="reference internal" href="api/python_interface.html#norm"><span class="std std-doc">Norm</span></a> (with Header) and <a class="reference internal" href="api/python_interface.html#raw"><span class="std std-doc">Raw</span></a> (without Header) datasets can be generated with <a class="reference internal" href="api/python_interface.html#datagenerator"><span class="std std-doc">hugectr.tools.DataGenerator</span></a>. For categorical features, you can configure the probability distribution to be uniform or power-law within <a class="reference internal" href="api/python_interface.html#datageneratorparams-class"><span class="std std-doc">hugectr.tools.DataGeneratorParam</span></a>. The default distribution is power law with alpha = 1.2.</p>
-<ul class="simple">
-<li><p>Generate the <code class="docutils literal notranslate"><span class="pre">Norm</span></code> dataset for DCN and start training the HugeCTR model: <br></p></li>
-</ul>
+<ul>
+<li><p>Generate the <code class="docutils literal notranslate"><span class="pre">Norm</span></code> dataset for DCN and start training the HugeCTR model: <br></p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python3 ../tools/data_generator/dcn_norm_generate_train.py
 </pre></div>
 </div>
-<ul class="simple">
-<li><p>Generate the <code class="docutils literal notranslate"><span class="pre">Norm</span></code> dataset for WDL and start training the HugeCTR model: <br></p></li>
-</ul>
+</li>
+<li><p>Generate the <code class="docutils literal notranslate"><span class="pre">Norm</span></code> dataset for WDL and start training the HugeCTR model: <br></p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python3 ../tools/data_generator/wdl_norm_generate_train.py
 </pre></div>
 </div>
-<ul class="simple">
-<li><p>Generate the <code class="docutils literal notranslate"><span class="pre">Raw</span></code> dataset for DLRM and start training the HugeCTR model: <br></p></li>
-</ul>
+</li>
+<li><p>Generate the <code class="docutils literal notranslate"><span class="pre">Raw</span></code> dataset for DLRM and start training the HugeCTR model: <br></p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python3 ../tools/data_generator/dlrm_raw_generate_train.py
 </pre></div>
 </div>
-<ul class="simple">
-<li><p>Generate the <code class="docutils literal notranslate"><span class="pre">Parquet</span></code> dataset for DCN and start training the HugeCTR model: <br></p></li>
-</ul>
+</li>
+<li><p>Generate the <code class="docutils literal notranslate"><span class="pre">Parquet</span></code> dataset for DCN and start training the HugeCTR model: <br></p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python3 ../tools/data_generator/dcn_parquet_generate_train.py
 </pre></div>
 </div>
+</li>
+</ul>
 </div>
 <div class="section" id="downloading-and-preprocessing-datasets">
 <h3>Downloading and Preprocessing Datasets<a class="headerlink" href="#downloading-and-preprocessing-datasets" title="Permalink to this headline"></a></h3>
@@ -276,6 +275,7 @@ $ bash preprocess.sh <span class="m">1</span> criteo_data pandas <span class="m"
       <dt>Tags</dt>
       <dd><a href="../v3.5/hugectr_user_guide.html">v3.5</a></dd>
       <dd><a href="../v3.6/hugectr_user_guide.html">v3.6</a></dd>
+      <dd><a href="../v3.7/hugectr_user_guide.html">v3.7</a></dd>
     </dl>
     <dl>
       <dt>Branches</dt>

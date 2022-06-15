@@ -19,6 +19,8 @@
         <script >let toggleOpenOnPrint = 'true';</script>
         <script src="../_static/togglebutton.js"></script>
         <script >var togglebuttonSelector = '.toggle, .admonition.dropdown, .tag_hide_input div.cell_input, .tag_hide-input div.cell_input, .tag_hide_output div.cell_output, .tag_hide-output div.cell_output, .tag_hide_cell.cell, .tag_hide-cell.cell';</script>
+        <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+        <script type="text/x-mathjax-config">MathJax.Hub.Config({"tex2jax": {"processClass": "tex2jax_process|mathjax_process|math|output_area"}})</script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -55,6 +57,7 @@
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../additional_resources.html">Additional Resources</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../release_notes.html">Release Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../hugectr_contributor_guide.html">Contributing to HugeCTR</a></li>
 </ul>
 
         </div>
@@ -244,19 +247,61 @@
 </div>
 <p><code class="docutils literal notranslate"><span class="pre">DataReaderParams</span></code> specifies the parameters related to the data reader. HugeCTR currently supports three dataset formats, i.e., <a class="reference internal" href="#norm"><span class="std std-doc">Norm</span></a>, <a class="reference internal" href="#raw"><span class="std std-doc">Raw</span></a> and <a class="reference internal" href="#parquet"><span class="std std-doc">Parquet</span></a>. An <code class="docutils literal notranslate"><span class="pre">DataReaderParams</span></code> instance is required to initialize the <code class="docutils literal notranslate"><span class="pre">Model</span></code> instance.</p>
 <p><strong>Arguments</strong></p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">data_reader_type</span></code>: The type of the data reader which should be consistent with the dataset format.
+Specify one of the following types:</p>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">data_reader_type</span></code>: The type of the data reader which should be consistent with the dataset format. The supported types include <code class="docutils literal notranslate"><span class="pre">hugectr.DataReaderType_t.Norm</span></code>, <code class="docutils literal notranslate"><span class="pre">hugectr.DataReaderType_t.Raw</span></code> and <code class="docutils literal notranslate"><span class="pre">hugectr.DataReaderType_t.Parquet</span></code> and <code class="docutils literal notranslate"><span class="pre">DataReaderType_t.RawAsync</span></code>. The type <code class="docutils literal notranslate"><span class="pre">DataReaderType_t.RawAsync</span></code> is valid only if <code class="docutils literal notranslate"><span class="pre">is_dlrm</span></code> is set <code class="docutils literal notranslate"><span class="pre">True</span></code> within <code class="docutils literal notranslate"><span class="pre">CreateSolver</span></code>. There is NO default value and it should be specified by users.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">source</span></code>: List[str] or String, the training dataset source. For Norm or Parquet dataset, it should be the file list of training data, e.g., <code class="docutils literal notranslate"><span class="pre">source</span> <span class="pre">=</span> <span class="pre">&quot;file_list.txt&quot;</span></code>. For Raw dataset, it should be a single training file, e.g., <code class="docutils literal notranslate"><span class="pre">source</span> <span class="pre">=</span> <span class="pre">&quot;train_data.bin&quot;</span></code>. When using embedding training cache, it can be specified with several file lists, e.g., <code class="docutils literal notranslate"><span class="pre">source</span> <span class="pre">=</span> <span class="pre">[&quot;file_list.1.txt&quot;,</span> <span class="pre">&quot;file_list.2.txt&quot;]</span></code>. There is NO default value and it should be specified by users.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">keyset</span></code>: List[str] or String, the keyset files. This argument will ONLY be valid when using embedding training cache and it should be corresponding to the <code class="docutils literal notranslate"><span class="pre">source</span></code>. For example, we can specify <code class="docutils literal notranslate"><span class="pre">source</span> <span class="pre">=</span> <span class="pre">[&quot;file_list.1.txt&quot;,</span> <span class="pre">&quot;file_list.2.txt&quot;]</span></code> and <code class="docutils literal notranslate"><span class="pre">source</span> <span class="pre">=</span> <span class="pre">[&quot;file_list.1.keyset&quot;,</span> <span class="pre">&quot;file_list.2.keyset&quot;]</span></code>, which have a one-to-one correspondence.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">eval_source</span></code>: String, the evaluation dataset source. For Norm or Parquet dataset, it should be the file list of evaluation data. For Raw dataset, it should be a single evaluation file. There is NO default value and it should be specified by users.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">check_type</span></code>: The data error detection mechanism. The supported types include <code class="docutils literal notranslate"><span class="pre">hugectr.Check_t.Sum</span></code> (CheckSum) and <code class="docutils literal notranslate"><span class="pre">hugectr.Check_t.Non</span></code> (no detection). There is NO default value and it should be specified by users.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">cache_eval_data</span></code>: Integer, the cache size of evaluation data on device, set this parameter greater than zero to restrict the memory that will be used. The default value is 0.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">num_samples</span></code>: Integer, the number of samples in the traning dataset. This is ONLY valid for Raw dataset. The default value is 0.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">eval_num_samples</span></code>: Integer, the number of samples in the evaluation dataset. This is ONLY valid for Raw dataset. The default value is 0.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">float_label_dense</span></code>: Boolean, this is valid only for the Raw dataset format. If its value is set to <code class="docutils literal notranslate"><span class="pre">True</span></code>, the label and dense features for each sample are interpreted as float values. Otherwise, they are read as integer values while the dense features are preprocessed with log(dense[i] + 1.f). The default value is <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">num_workers</span></code>: Integer, the number of data reader workers that concurrently load data. You can empirically decide the best one based on your dataset, training environment. The default value is 12.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">slot_size_array</span></code>: List[int], the cardinality array of input features. It should be consistent with that of the sparse input. We requires this argument for Parquet format data and RawAsync format when you want to add offset to input key. The default value is an empty list.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">async_param</span></code>: AsyncParam, the parameters for async raw data reader. This argument is restricted to MLPerf use.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">hugectr.DataReaderType_t.Norm</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">hugectr.DataReaderType_t.Raw</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">hugectr.DataReaderType_t.Parquet</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">DataReaderType_t.RawAsync</span></code></p></li>
+</ul>
+<p>The type <code class="docutils literal notranslate"><span class="pre">DataReaderType_t.RawAsync</span></code> is valid only if <code class="docutils literal notranslate"><span class="pre">is_dlrm</span></code> is set <code class="docutils literal notranslate"><span class="pre">True</span></code> within <code class="docutils literal notranslate"><span class="pre">CreateSolver</span></code>.
+This argument has no default value and you must specify a value.</p>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">source</span></code>: List[str] or String, the training dataset source.
+For Norm or Parquet dataset, specify the file list of training data, such as <code class="docutils literal notranslate"><span class="pre">source</span> <span class="pre">=</span> <span class="pre">&quot;file_list.txt&quot;</span></code>.
+For Raw dataset, specify a single training file, such as <code class="docutils literal notranslate"><span class="pre">source</span> <span class="pre">=</span> <span class="pre">&quot;train_data.bin&quot;</span></code>.
+When using the embedding training cache, you can specify several file lists, such as <code class="docutils literal notranslate"><span class="pre">source</span> <span class="pre">=</span> <span class="pre">[&quot;file_list.1.txt&quot;,</span> <span class="pre">&quot;file_list.2.txt&quot;]</span></code>.
+This argument has no default value and you must specify a value.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">keyset</span></code>: List[str] or String, the keyset files.
+This argument is only valid when you use the embedding training cache.
+The value should correspond to the value for the <code class="docutils literal notranslate"><span class="pre">source</span></code> argument.
+For example, you can specify <code class="docutils literal notranslate"><span class="pre">source</span> <span class="pre">=</span> <span class="pre">[&quot;file_list.1.txt&quot;,</span> <span class="pre">&quot;file_list.2.txt&quot;]</span></code> and <code class="docutils literal notranslate"><span class="pre">keyset</span> <span class="pre">=</span> <span class="pre">[&quot;file_list.1.keyset&quot;,</span> <span class="pre">&quot;file_list.2.keyset&quot;]</span></code>
+The example shows the one-to-one correspondence between the <code class="docutils literal notranslate"><span class="pre">source</span></code> and <code class="docutils literal notranslate"><span class="pre">keyset</span></code> values.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">eval_source</span></code>: String, the evaluation dataset source.
+For Norm or Parquet dataset, specify the file list of the evaluation data.
+For Raw dataset, specify a single evaluation file.
+This argument has no default value and you must specify a value.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">check_type</span></code>: The data error detection mechanism.
+Specify <code class="docutils literal notranslate"><span class="pre">hugectr.Check_t.Sum</span></code> (CheckSum) or <code class="docutils literal notranslate"><span class="pre">hugectr.Check_t.Non</span></code> (no detection).
+This argument has no default value and you must specify a value.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cache_eval_data</span></code>: Integer, the cache size of evaluation data on device.
+Specify a value that is greater than zero to restrict the memory use.
+The default value is 0.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">num_samples</span></code>: Integer, the number of samples in the training dataset.
+This argument is valid for the Raw dataset format only.
+The default value is 0.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">eval_num_samples</span></code>: Integer, the number of samples in the evaluation dataset.
+This argument is valid for the Raw dataset format only.
+The default value is 0.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">float_label_dense</span></code>: Boolean, this argument is valid for the Raw dataset format only.
+When set to <code class="docutils literal notranslate"><span class="pre">True</span></code>, the label and dense features for each sample are interpreted as float values.
+Otherwise, they are read as integer values while the dense features are preprocessed with <span class="math notranslate nohighlight">\(log(dense[i] + \text{1.f})\)</span>.
+The default value is <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">num_workers</span></code>: Integer, the number of data reader workers to load data concurrently.
+You can empirically decide the best value based on your dataset and training environment.
+The default value is 12.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">slot_size_array</span></code>: List[int], specify the maximum key value for each slot.
+Refer to the following equation.
+The array should be consistent with that of the sparse input.
+HugeCTR requires this argument for Parquet format data and RawAsync format when you want to add an offset to the input key.
+The default value is an empty list.</p>
+<p>The following equation shows how to determine the values to specify:</p>
+<p><span class="math notranslate nohighlight">\(slot\_size\_array[k] = \max\limits_i slot^k_i + 1\)</span></p>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">async_param</span></code>: AsyncParam, the parameters for async raw data reader.
+This argument is restricted to MLPerf use.</p></li>
 </ul>
 </div>
 </div>
@@ -1306,6 +1351,7 @@ Refer to <a class="reference internal" href="../hugectr_core_features.html#sgd-o
       <dt>Tags</dt>
       <dd><a href="../../v3.5/api/python_interface.html">v3.5</a></dd>
       <dd><a href="../../v3.6/api/python_interface.html">v3.6</a></dd>
+      <dd><a href="../../v3.7/api/python_interface.html">v3.7</a></dd>
     </dl>
     <dl>
       <dt>Branches</dt>

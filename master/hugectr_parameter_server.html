@@ -55,6 +55,7 @@
 <li class="toctree-l1"><a class="reference internal" href="api/index.html">API Documentation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="additional_resources.html">Additional Resources</a></li>
 <li class="toctree-l1"><a class="reference internal" href="release_notes.html">Release Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="hugectr_contributor_guide.html">Contributing to HugeCTR</a></li>
 </ul>
 
         </div>
@@ -91,20 +92,31 @@
 <h2>Background<a class="headerlink" href="#background" title="Permalink to this headline"></a></h2>
 <p>GPU clusters offer superior compute power, compared to their CPU-only counterparts. However, although modern data-center GPUs by NVIDIA are equipped with increasing amounts of memory, new and more powerful AI algorithms come into existence that require more memory. Recommendation models with their huge embedding tables are spearheading these developments. The HPS database backend allows you to efficiently perform inference with models that rely on embedding tables that vastly exceed the available GPU device storage space.</p>
 <p>This is achieved through utilizing other memory resources, available within your clsuter, such as CPU accessible RAM and non-volatile memory. Aside from general advantages of non-volatile memory with respect to retaining stored information, storage devices such as HDDs and SDDs offer orders of magnitude more storage space than DDR memory and HBM (High Bandwidth Memory), at significantly lower cost. However, their throughout is lower and latency is higher than that of DRR and HBM.</p>
-<p>The HPS database backend acts as an intermediate layer between your GPU and non-volatile memory to store all embeddings of your model. Thereby, available local RAM and/or RAM resources across the cluster could be used as a cache to improve response times.</p>
+<p>The HPS database backend acts as an intermediate layer between your GPU and non-volatile memory to store all embeddings of your model. Thereby, available local RAM and/or RAM resources available across the cluster can be used as a cache to improve response times.</p>
 </div>
 <div class="section" id="architecture">
 <h2>Architecture<a class="headerlink" href="#architecture" title="Permalink to this headline"></a></h2>
 <p>As of version 3.3, the HugeCTR hierarchical parameter server database backend defines 3 storage layers.</p>
 <ol>
-<li><p>The <strong>CPU Memory Database</strong> layer
-utilizes volatile CPU addressable RAM memory to cache embeddings. This database is created and maintained separately by each machine that runs HugeCTR in your cluster.</p></li>
-<li><p>The <strong>Distributed Database</strong> layer allows utilizing Redis cluster deployments, to store and retrieve embeddings in/from the RAM memory available in your cluster. The HugeCTR distributed database layer is designed for compatibility with Redis <a class="reference external" href="https://redis.io/topics/persistence">peristence features</a> such as <a class="reference external" href="https://redis.io/topics/persistence">RDB</a> and <a class="reference external" href="https://redis.io/topics/persistence">AOF</a> to allow seamless continued operation across device restart. This kind of databse is shared by all nodes that participate in the training / inference of a HugeCTR model.</p>
-<p><em>Remark: There exists and abundance of products that claim Redis compatibility. We cannot guarantee or make any statements regarding the suitabablity of these with our distributed database layer. However, we note that Redis alternatives are likely to be compatible with the Redis cluster dstributed database layer, as long as they are compatible with <a class="reference external" href="https://github.com/redis/hiredis">hiredis</a>. We would love to hear about your experiences. Please let us know if you successfully/unsuccessfully deployed such Redis alternatives as storage targets with HugeCTR.</em></p>
+<li><p>The <strong>CPU Memory Database</strong> layer utilizes volatile CPU addressable RAM memory to cache embeddings.
+This database is created and maintained separately by each machine that runs HugeCTR in your cluster.</p></li>
+<li><p>The <strong>Distributed Database</strong> layer allows utilizing Redis cluster deployments to store and retrieve embeddings in and from the RAM memory that is available in your cluster.
+The HugeCTR distributed database layer is designed for compatibility with Redis <a class="reference external" href="https://redis.io/topics/persistence">persistence features</a> such as RDB and AOF to allow seamless continued operation across device restart.
+This kind of database is shared by all nodes that participate in the training or inference of a HugeCTR model.</p>
+<p><strong>Note</strong>: Many products claim Redis compatibility.
+We cannot guarantee or make any statements regarding the suitability of these with our distributed database layer.
+However, we note that Redis alternatives are likely to be compatible with the Redis cluster distributed database layer as long as they are compatible with <a class="reference external" href="https://github.com/redis/hiredis">hiredis</a>.
+We would love to hear about your experiences.
+Please let us know if you successfully or unsuccessfully deployed such Redis alternatives as storage targets with HugeCTR.</p>
 </li>
-<li><p>The <strong>Persistent Database</strong> layer links HugeCTR with a persistent database. Each node that has such a persistent storage layer configured retains a separate copy of all embeddings in its locally available non-volatile memory. This layer is best considered as a compliment to the distributed database to 1) further expand storage capabilities and 2) for high availability. Hence, if your model exceeds even the total RAM capacity of your entire cluster, or if - for whatever reason - the Redis cluster becomes unavailable, all nodes that have been configured with a persistent database will still be able to fully cater to inference requests, albeit likely with increased latency.</p></li>
+<li><p>The <strong>Persistent Database</strong> layer links HugeCTR with a persistent database.
+Each node that has such a persistent storage layer configured retains a separate copy of all embeddings in its locally available non-volatile memory.
+This layer is best considered as a compliment to the distributed database to further expand storage capabilities and to provide high availability.
+As a result, if your model exceeds even the total RAM capacity of your entire cluster or if—for whatever reason—the Redis cluster becomes unavailable, all nodes that are configured with a persistent database are still able to respond to inference requests, though likely with increased latency.</p></li>
 </ol>
-<p>In the following table, we provide an overview of the <em>typical</em> properties different parameter database layers (and the embedding cache). We emphasize that this table is just intended to provide a rough orientation. Properties of actual deployments may deviate.</p>
+<p>The following table provides an overview of the typical properties for the different parameter database layers and the embedding cache.
+We emphasize that this table provides rough guidelines.
+Properties for production deployments are often different.</p>
 <table border="1" class="docutils">
 <thead>
 <tr>
@@ -170,298 +182,532 @@ utilizes volatile CPU addressable RAM memory to cache embeddings. This database 
 </div>
 <div class="section" id="training-and-iterative-model-updates">
 <h2>Training and Iterative Model Updates<a class="headerlink" href="#training-and-iterative-model-updates" title="Permalink to this headline"></a></h2>
-<p>Models deployed viat the HugeCTR HPS database backend allow streaming model parameter updates from external sources via <a class="reference external" href="https://kafka.apache.org">Apache Kafka</a>. This function allows zero-downtime online model re-training - for example using the HugeCTR model training system.</p>
+<p>Models that are deployed with the HugeCTR HPS database backend allow streaming model parameter updates from external sources through <a class="reference external" href="https://kafka.apache.org">Apache Kafka</a>.
+This ability provides zero-downtime online model retraining.</p>
 </div>
 <div class="section" id="execution">
 <h2>Execution<a class="headerlink" href="#execution" title="Permalink to this headline"></a></h2>
 <div class="section" id="inference">
 <h3>Inference<a class="headerlink" href="#inference" title="Permalink to this headline"></a></h3>
-<p>With respect to embedding lookups via the HugeCTR GPU embedding cache and HPS database backend, the following logic applies. Whenever the HugeCTR inference engine receives a batch of model input parameters for inference, it will first determine the associated unique embedding keys and try to resolve these embeddings using the embedding cache. If there are cache misses, it will then turn to the HPS database backend to determine the embedding representations. The query sequence inside the HPS database backend based on the following order to query its configured backends such that fill in the missing embeddings:</p>
+<p>With respect to embedding lookups from the HugeCTR GPU embedding cache and HPS database backend, the following logic applies:</p>
+<ul class="simple">
+<li><p>Whenever the HugeCTR inference engine receives a batch of model input parameters for inference, the inference engine first determines the associated unique embedding keys and tries to resolve these embeddings using the embedding cache.</p></li>
+<li><p>When there is a cache miss, the inference engine then turns to the HPS database backend to determine the embedding representations.</p></li>
+<li><p>The HPS database backend queries its configured backends in the following order to fill in the missing embeddings:</p>
 <ol class="simple">
-<li><p>Local / Remote CPU memory locations</p></li>
-<li><p>Permanent storage</p></li>
+<li><p>Local and remote CPU memory locations.</p></li>
+<li><p>Persistent storage.</p></li>
 </ol>
-<p>Hence, if configured, HugeCTR will first try to lookup missing embeddings in either a <em>CPU Memory Database</em> or <em>Distributed Database</em>. If and only if, there are still missing embedding representations after that, HugeCTR will turn to non-volatile memory (via the <em>Persistent Database</em>, which contains a copy of all existing embeddings) to find the corresponding embedding representations.</p>
+</li>
+</ul>
+<p>HugeCTR first tries to look up missing embeddings in either the CPU memory database or the distributed database.
+If, and only if, there are still missing embedding representations after that, HugeCTR tries the non-volatile memory from the persistent database to find the corresponding embedding representations.
+The persistent database contains a copy of all existing embeddings.</p>
 </div>
 <div class="section" id="training">
 <h3>Training<a class="headerlink" href="#training" title="Permalink to this headline"></a></h3>
-<p>After a training iteration, model updates for updated embeddings are published via Kafka by the HugeCTR training process. The HPS database backend can be configured to automatically listen to change requests for certain models and will ingest these updates in its various database stages.</p>
+<p>After a training iteration, model updates for updated embeddings are published through Kafka by the HugeCTR training process.
+The HPS database backend can be configured to listen automatically to change requests for certain models and then ingest these updates in its various database stages.</p>
 </div>
 <div class="section" id="lookup-optimization">
-<h3>Lookup optimization<a class="headerlink" href="#lookup-optimization" title="Permalink to this headline"></a></h3>
-<p>If volatile memory resources, i.e. the <em>CPU Memory Database</em> and/or <em>Distributed Database</em>, are not sufficient to retain the entire model, the HugeCTR will attempt to minimize the avarage latency for lookup through managing these resources like cache using an LRU paradigm.</p>
+<h3>Lookup Optimization<a class="headerlink" href="#lookup-optimization" title="Permalink to this headline"></a></h3>
+<p>If the volatile memory resources—the CPU memory database and distributed database—are not sufficient to retain the entire model, HugeCTR attempts to minimize the average latency for lookup through managing these resources like a cache by using a least recently used (LRU) algorithm.</p>
 </div>
 </div>
 <div class="section" id="configuration">
 <h2>Configuration<a class="headerlink" href="#configuration" title="Permalink to this headline"></a></h2>
-<p>The HugeCTR HPS database backend and iterative update can be configured using 3 separate configuration objects. Namely, the <code class="docutils literal notranslate"><span class="pre">VolatileDatabaseParams</span></code> and <code class="docutils literal notranslate"><span class="pre">PersistentDatabaseParams</span></code> are used to configure the database backends of each HPS database backend instance. If you desire iterative or online model updating, you must also provide the <code class="docutils literal notranslate"><span class="pre">UpdateSourceParams</span></code> configuration object to link the HPS database backend instance with your Kafka reployment. These objects are part of the Python package <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html#inference-api">hugectr.inference</a>.</p>
-<p>If you deploy HugeCTR as a backend for <a class="reference external" href="https://developer.nvidia.com/nvidia-triton-inference-server">NVIDIA Triton Inference Server</a>, you can also provide these configuration options by extending your Triton deployment’s JSON configuration:</p>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>{
-  // ...
-  &quot;volatile_db&quot;: {
-    // ...
-  },
-  &quot;persistent_db&quot;: {
-    // ...
-  },
-  &quot;update_source&quot;: {
-    // ...
-  },
-  // ...
-}
+<p>The HugeCTR HPS database backend and iterative update can be configured using three separate configuration objects.
+The <code class="docutils literal notranslate"><span class="pre">VolatileDatabaseParams</span></code> and <code class="docutils literal notranslate"><span class="pre">PersistentDatabaseParams</span></code> objects are used to configure the database backends of each HPS database backend instance.
+If you want iterative or online model updating, you must also provide the <code class="docutils literal notranslate"><span class="pre">UpdateSourceParams</span></code> object to link the HPS database backend instance with your Kafka deployment.
+These objects are part of the <a class="reference internal" href="api/python_interface.html#inference-api"><span class="std std-doc">hugectr.inference</span></a> Python package.</p>
+<p>If you deploy HugeCTR as a backend for NVIDIA <a class="reference external" href="https://developer.nvidia.com/nvidia-triton-inference-server">Triton Inference Server</a>, you can also provide these configuration options by extending your Triton deployment’s JSON configuration:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;supportlonglong&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"></span>
+
+<span class="w">  </span><span class="c1">// ...</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;volatile_db&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">    </span><span class="c1">// ...</span><span class="w"></span>
+<span class="w">  </span><span class="p">},</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;persistent_db&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">    </span><span class="c1">// ...</span><span class="w"></span>
+<span class="w">  </span><span class="p">},</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;update_source&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">    </span><span class="c1">// ...</span><span class="w"></span>
+<span class="w">  </span><span class="p">},</span><span class="w"></span>
+<span class="w">  </span><span class="c1">// ...</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
 </pre></div>
 </div>
-<p>Next we will describe all available configuration options. Generally speaking, each node in your HugeCTR cluster should deploy the same configuration. However, it may make sense to vary some arguments in some situations, especially in heterogeneous cluster setups.</p>
-<div class="section" id="inference-parameters-and-embedding-cache-configurations">
-<h3><strong>Inference Parameters and Embedding Cache Configurations</strong><a class="headerlink" href="#inference-parameters-and-embedding-cache-configurations" title="Permalink to this headline"></a></h3>
-<p><strong>Python</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hugectr</span><span class="o">.</span><span class="n">inference</span><span class="o">.</span><span class="n">InferenceParams</span><span class="p">()</span>
-</pre></div>
-</div>
-<p><code class="docutils literal notranslate"><span class="pre">InferenceParams</span></code> specifies the parameters related to the inference. An <code class="docutils literal notranslate"><span class="pre">InferenceParams</span></code> instance is required to initialize the <code class="docutils literal notranslate"><span class="pre">InferenceModel</span></code> instance.</p>
-<p><strong>Arguments</strong></p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">model_name</span></code>: String, the name of the model to be used for inference. It should be consistent with <code class="docutils literal notranslate"><span class="pre">model_name</span></code> specified during training. There is NO default value and it should be specified by users.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">max_batchsize</span></code>: Integer, the maximum batchsize for inference. It is the global batch size and should be divisible by the length of <code class="docutils literal notranslate"><span class="pre">deployed_devices</span></code>. There is NO default value and it should be specified by users.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">hit_rate_threshold</span></code>: Float, If the real hit rate of GPU embedding cahce during inference If the real hit rate of GPU embedding cache is lower than this threshold, the GPU cache will perform synchronous insertion of missing embedding keys, otherwise asynchronous insertion. The threshold should be between 0 and 1. The default value is <code class="docutils literal notranslate"><span class="pre">0.9</span></code></p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">dense_model_file</span></code>: String, the dense model file to be loaded for inference. There is NO default value and it should be specified by users.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">sparse_model_files</span></code>: List[str], the sparse model files to be loaded for inference. There is NO default value and it should be specified by users.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">device_id</span></code>: Int, is about to be deprecated and replaced by <code class="docutils literal notranslate"><span class="pre">devicelist</span></code>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">use_gpu_embedding_cache</span></code>: Boolean, whether to employ the features of GPU embedding cache. If the value is <code class="docutils literal notranslate"><span class="pre">True</span></code>, the embedding vector look up will go to GPU embedding cache. Otherwise, it will reach out to the CPU HPS database backend directly. The default value is <code class="docutils literal notranslate"><span class="pre">true</span></code>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">cache_size_percentage</span></code>: Float, the percentage of cached embeddings on GPU relative to all the embedding tables on CPU.  The default value is <code class="docutils literal notranslate"><span class="pre">0.2</span></code>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">i64_input_key</span></code>: Boolean, this value should be set to <code class="docutils literal notranslate"><span class="pre">True</span></code> when you need to use I64 input key. There is NO default value and it should be specified by users.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">use_mixed_precision</span></code>: Boolean, whether to enable mixed precision inference. The default value is <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">scaler</span></code>: Float, the scaler to be used when mixed precision training is enabled. Only 128, 256, 512, and 1024 scalers are supported for mixed precision training. The default value is 1.0, which corresponds to no mixed precision training.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">use_algorithm_search</span></code>: Boolean, whether to use algorithm search for cublasGemmEx within the FullyConnectedLayer. The default value is <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">use_cuda_graph</span></code>: Boolean, whether to enable cuda graph for dense network forward propagation. The default value is <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">number_of_worker_buffers_in_pool</span></code>: Int, since HPS supports asynchronous or synchronous insertion of missing keys by worker memory pool. The size of the worker memory pool is determined by <strong>num_of_worker_buffer_in_pool</strong>. It is recommended to increase the size of the memory pool (such as 2 times the number of model instance) in order to avoid resource exhaustion or disable asynchronous updates (set the <code class="docutils literal notranslate"><span class="pre">hit_rate_threshold</span></code> to greater than 1). The default value is <code class="docutils literal notranslate"><span class="pre">1</span></code>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">number_of_refresh_buffers_in_pool</span></code>: Int, HPS supports online updates of incremental models by refresh memory pool. The size of the refresh memory pool is determined by <strong>number_of_refresh_buffers_in_pool</strong>. It is recommended to increase the size of the memory pool for high-frequency and large size of incremental model update. The default value is <code class="docutils literal notranslate"><span class="pre">1</span></code>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">cache_refresh_percentage_per_iteration</span></code>: Float, in order not to affect the performance of the gpu cache during online updating, the user can configure the update percentage of GPU embedding cache. For example, if cache_refresh_percentage_per_iteration=0.2, it means that the entire GPU embedding cache will be refreshed through 5 iterations. It is recommended to use a smaller refresh percentage for high-frequency and large size of incremental model update. The default value is <code class="docutils literal notranslate"><span class="pre">0.1</span></code>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">deployed_devices</span></code>: List[Integer], the list of device id of GPUs. The offline inference will be executed concurrently on the specified multiple GPUs. The default value is <code class="docutils literal notranslate"><span class="pre">[0]</span></code>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">default_value_for_each_table</span></code>:List[Float], for the embedding key that cannot be queried in the gpu cache and volatile/persistent database, the default value will be returned directly. For models with multiple embedding tables, each embedding table has a default value.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">volatile_db</span></code>: see the <a class="reference internal" href="#volatile-database-configurations"><span class="std std-doc"><code class="docutils literal notranslate"><span class="pre">Volatile</span> <span class="pre">Database</span> <span class="pre">Configurations</span></code></span></a> part below.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">persistent_db</span></code>: see the <a class="reference internal" href="#persistent-database-configurations"><span class="std std-doc"><code class="docutils literal notranslate"><span class="pre">Persistent</span> <span class="pre">Database</span> <span class="pre">Configurations</span></code></span></a> part below.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">update_source</span></code>: see the <a class="reference internal" href="#update-source-configurations"><span class="std std-doc"><code class="docutils literal notranslate"><span class="pre">Update</span> <span class="pre">Source</span> <span class="pre">Configurations*</span></code></span></a> part below.</p></li>
-</ul>
-<p><strong>The followings are embedding cache related parameters</strong>:</p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">maxnum_des_feature_per_sample</span></code>: Int, each sample may contain a varying number of numeric (dense) features. This item so the user needs to configure the value of Maximum(the number of dense feature in each sample) in this item, which determines the pre-allocated memory size on the host and device. The default value is <code class="docutils literal notranslate"><span class="pre">26</span></code>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">refresh_delay</span></code>: Float, the embedding keys in the GPU embedding cache are once refreshed from a volatile/persistent database after the “refresh_delay” seconds (start timing after the service launches) configured by the user. The default value is <code class="docutils literal notranslate"><span class="pre">0.0</span></code>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">refresh_interval</span></code>: Float, the embedding keys in the GPU embedding cache are periodically refreshed from volatile/persistent database based on the “refresh_interval” seconds (start timing after the service launches) configured by user. The default value is <code class="docutils literal notranslate"><span class="pre">0.0</span></code>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">maxnum_catfeature_query_per_table_per_sample</span></code>: List[Int], this item determines the pre-allocated memory size on the host and device. We assume that for each input sample, there is a maximum number of embedding keys per sample in each embedding table that need to be looked up, so the user needs to configure the [ Maximum(the number of embedding keys that need to be queried from embedding table 1 in each sample), Maximum(the number of embedding keys that need to be queried from embedding table 2 in each sample), …] in this item. This is a mandatory configuration item.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">embedding_vecsize_per_table</span></code>:List[Int], this item determines the pre-allocated memory size on the host and device.  For the case of multiple embedding tables, we assume that the size of the embedding vector in each embedding table is different, then this configuration item requires the user to fill in each embedding table with maximum vector size. This is a mandatory configuration item.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">embedding_table_names</span></code>: List[String], this configuration item needs to be filled with the name of each embedded table, which will be used to name the data partition and data table in the hierarchical database backend. The default value is <code class="docutils literal notranslate"><span class="pre">[&quot;sparse_embedding1&quot;,</span> <span class="pre">&quot;sparse_embedding2&quot;,</span> <span class="pre">...]</span></code></p></li>
-</ul>
-<p><strong>JSON(ps.json) Example:</strong></p>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>&quot;models&quot;:[
-        {
-            &quot;model&quot;:&quot;wdl&quot;,
-            &quot;sparse_files&quot;:[&quot;/wdl_infer/model/wdl/1/wdl0_sparse_20000.model&quot;, &quot;/wdl_infer/model/wdl/1/wdl1_sparse_20000.model&quot;],
-            &quot;dense_file&quot;:&quot;/wdl_infer/model/wdl/1/wdl_dense_20000.model&quot;,
-            &quot;network_file&quot;:&quot;/wdl_infer/model/wdl/1/wdl.json&quot;,
-            &quot;num_of_worker_buffer_in_pool&quot;: 4,
-            &quot;num_of_refresher_buffer_in_pool&quot;: 1,
-            &quot;deployed_device_list&quot;:[0],
-            &quot;max_batch_size&quot;:64,
-            &quot;default_value_for_each_table&quot;:[0.0,0.0],
-            &quot;hit_rate_threshold&quot;:0.9,
-            &quot;gpucacheper&quot;:0.1,
-            &quot;gpucache&quot;:true,
-            &quot;cache_refresh_percentage_per_iteration&quot;: 0.2
-        }
-    ] 
-</pre></div>
-</div>
-</div>
-<div class="section" id="volatile-database-configurations">
-<h3><strong>Volatile Database Configurations</strong><a class="headerlink" href="#volatile-database-configurations" title="Permalink to this headline"></a></h3>
-<p>We provide various volatile database implementations. Generally speaking, two categories can be distinguished.</p>
-<ul class="simple">
-<li><p><strong>CPU memory databases</strong> are instanced per machine and only use the locally available RAM memory as backing storage. Hence, you may indvidually vary their configuration parameters per machine.</p></li>
-<li><p><strong>Distributed CPU memory databases</strong> are typically shared by all machines in your HugeCTR deployment. They allow you to take advantage of the combined memory capacity of your cluster machines.The configuration parameters for this kind of database should, thus, be identical across all achines in your deployment.</p></li>
-</ul>
-<p><strong>Python</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">params</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">inference</span><span class="o">.</span><span class="n">VolatileDatabaseParams</span><span class="p">(</span>
-<span class="nb">type</span> <span class="o">=</span> <span class="s2">&quot;redis_cluster&quot;</span><span class="p">,</span>
-<span class="n">algorithm</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">DatabaseHashMapAlgorithm_t</span><span class="o">.&lt;</span><span class="n">enum_value</span><span class="o">&gt;</span><span class="p">,</span>
-<span class="n">num_partitions</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">integer_value</span><span class="o">&gt;</span><span class="p">,</span>
-<span class="n">address</span> <span class="o">=</span> <span class="s2">&quot;&lt;host_name_or_ip_address:port_number&gt;&quot;</span><span class="p">,</span>
-<span class="n">user_name</span> <span class="o">=</span> <span class="s2">&quot;&lt;login_user_name&gt;&quot;</span><span class="p">,</span>
-<span class="n">password</span> <span class="o">=</span> <span class="s2">&quot;&lt;login_password&gt;&quot;</span><span class="p">,</span>
-<span class="n">num_partitions</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">int_value</span><span class="o">&gt;</span><span class="p">,</span>
-<span class="n">max_get_batch_size</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">int_value</span><span class="o">&gt;</span><span class="p">,</span>
-<span class="n">max_set_batch_size</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">int_value</span><span class="o">&gt;</span><span class="p">,</span>
-<span class="n">overflow_margin</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">integer_value</span><span class="o">&gt;</span><span class="p">,</span>
-<span class="n">overflow_policy</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">DatabaseOverflowPolicy_t</span><span class="o">.&lt;</span><span class="n">enum_value</span><span class="o">&gt;</span><span class="p">,</span>
-<span class="n">overflow_resolution_target</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">double_value</span><span class="o">&gt;</span><span class="p">,</span>
-<span class="n">initial_cache_rate</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">double_value</span><span class="o">&gt;</span><span class="p">,</span>
-<span class="n">refresh_time_after_fetch</span> <span class="o">=</span> <span class="o">&lt;</span><span class="kc">True</span><span class="o">|</span><span class="kc">False</span><span class="o">&gt;</span><span class="p">,</span>
-<span class="n">cache_missed_embeddings</span> <span class="o">=</span> <span class="o">&lt;</span><span class="kc">True</span><span class="o">|</span><span class="kc">False</span><span class="o">&gt;</span><span class="p">,</span>
-<span class="n">update_filters</span> <span class="o">=</span> <span class="p">[</span> <span class="s2">&quot;&lt;filter 0&gt;&quot;</span><span class="p">,</span> <span class="s2">&quot;&lt;filter 1&gt;&quot;</span><span class="p">,</span> <span class="o">...</span> <span class="p">]</span>
+<p>Set the <code class="docutils literal notranslate"><span class="pre">supportlonglong</span></code> field to <code class="docutils literal notranslate"><span class="pre">True</span></code> when you need to use a 64-bit integer input key.
+You must set this field to <code class="docutils literal notranslate"><span class="pre">true</span></code> if you specify <code class="docutils literal notranslate"><span class="pre">True</span></code> for the <code class="docutils literal notranslate"><span class="pre">i64_input_key</span></code> parameter.
+The default value is <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p>
+<p>The following sections describe the configuration parameters.
+Generally speaking, each node in your HugeCTR cluster should deploy the same configuration.
+In rare cases, it might make sense to vary some parameters.
+The most common reason to vary the configuration by node is for heterogeneous clusters.</p>
+<div class="section" id="inference-parameters-and-embedding-cache-configuration">
+<h3>Inference Parameters and Embedding Cache Configuration<a class="headerlink" href="#inference-parameters-and-embedding-cache-configuration" title="Permalink to this headline"></a></h3>
+<div class="section" id="inference-params-syntax">
+<h4>Inference Params Syntax<a class="headerlink" href="#inference-params-syntax" title="Permalink to this headline"></a></h4>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">params</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">inference</span><span class="o">.</span><span class="n">InferenceParams</span><span class="p">(</span>
+  <span class="n">model_name</span> <span class="o">=</span> <span class="s2">&quot;string&quot;</span><span class="p">,</span>
+  <span class="n">max_batchsize</span> <span class="o">=</span> <span class="nb">int</span><span class="p">,</span>
+  <span class="n">hit_rate_threshold</span> <span class="o">=</span> <span class="mf">0.9</span><span class="p">,</span>
+  <span class="n">dense_model_file</span> <span class="o">=</span> <span class="s2">&quot;string&quot;</span><span class="p">,</span>
+  <span class="n">network_file</span> <span class="o">=</span> <span class="s2">&quot;string&quot;</span><span class="p">,</span>
+  <span class="n">sparse_model_files</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;string-1&quot;</span><span class="p">,</span> <span class="s2">&quot;string-2&quot;</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span>
+  <span class="n">use_gpu_embedding_cache</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+  <span class="n">cache_size_percentage</span> <span class="o">=</span> <span class="mf">0.2</span><span class="p">,</span>
+  <span class="n">i64_input_key</span> <span class="o">=</span> <span class="o">&lt;</span><span class="kc">True</span><span class="o">|</span><span class="kc">False</span><span class="o">&gt;</span><span class="p">,</span>
+  <span class="n">use_mixed_precision</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+  <span class="n">scaler</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
+  <span class="n">use_algorithm_search</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+  <span class="n">use_cuda_graph</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+  <span class="n">number_of_worker_buffers_in_pool</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
+  <span class="n">number_of_refresh_buffers_in_pool</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+  <span class="n">cache_refresh_percentage_per_iteration</span> <span class="o">=</span> <span class="mf">0.1</span><span class="p">,</span>
+  <span class="n">deployed_devices</span> <span class="o">=</span> <span class="p">[</span><span class="nb">int</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="nb">int</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span>
+  <span class="n">default_value_for_each_table</span> <span class="o">=</span> <span class="p">[</span><span class="nb">float</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="nb">float</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span>
+  <span class="n">volatile_db</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">volatile</span><span class="o">-</span><span class="n">database</span><span class="o">-</span><span class="n">configuration</span><span class="o">&gt;</span><span class="p">,</span>
+  <span class="n">persistent_db</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">persistent</span><span class="o">-</span><span class="n">database</span><span class="o">-</span><span class="n">configuration</span><span class="o">&gt;</span><span class="p">,</span>
+  <span class="n">update_source</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">update</span><span class="o">-</span><span class="n">source</span><span class="o">-</span><span class="n">parameters</span><span class="o">&gt;</span><span class="p">,</span>
+  <span class="n">maxnum_des_feature_per_sample</span> <span class="o">=</span> <span class="mi">26</span><span class="p">,</span>
+  <span class="n">refresh_delay</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
+  <span class="n">refresh_interval</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
+  <span class="n">maxnum_catfeature_query_per_table_per_sample</span> <span class="o">=</span> <span class="p">[</span><span class="nb">int</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="nb">int</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span>
+  <span class="n">embedding_vecsize_per_table</span> <span class="o">=</span> <span class="p">[</span><span class="nb">int</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="nb">int</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span>
+  <span class="n">embedding_table_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;string-1&quot;</span><span class="p">,</span> <span class="s2">&quot;string-2&quot;</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
 <span class="p">)</span>
 </pre></div>
 </div>
-<p><strong>JSON</strong></p>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>&quot;volatile_db&quot;: {
-  &quot;type&quot;: &quot;redis_cluster&quot;,
-  &quot;algorithm&quot;: &quot;&lt;enum_value&gt;&quot;,
-  &quot;num_partitions&quot;: &lt;integer_value&gt;,
-  &quot;address&quot;: &quot;&lt;host_name_or_ip_address:port_number&gt;&quot;,
-  &quot;user_name&quot;:  &quot;&lt;login_user_name&gt;&quot;,
-  &quot;password&quot;: &quot;&lt;login_password&gt;&quot;,
-  &quot;num_partitions&quot;: &lt;integer_value&gt;,
-  &quot;max_get_batch_size&quot;: &lt;integer_value&gt;,
-  &quot;max_set_batch_size&quot;: &lt;integer_value&gt;,
-  &quot;overflow_margin&quot;: &lt;integer_value&gt;,
-  &quot;overflow_policy&quot;: &quot;&lt;overflow_policy&gt;&quot;,
-  &quot;overflow_resolution_target&quot;: &lt;overflow_resolution_target&gt;, 
-  &quot;initial_cache_rate&quot;: &lt;double_value&gt;, 
-  &quot;refresh_time_after_fetch&quot;: &lt;true|false&gt;, 
-  &quot;cache_missed_embeddings&quot;: &lt;true|false&gt;, 
-  &quot;update_filters&quot;: [ &quot;&lt;filter 0&gt;&quot;, &quot;&lt;filter 1&gt;&quot;, /* ... */ ]
-  // ...
-}
+<p>The <code class="docutils literal notranslate"><span class="pre">InferenceParams</span></code> object specifies the parameters related to the inference.
+An <code class="docutils literal notranslate"><span class="pre">InferenceParams</span></code> object is required to initialize the <code class="docutils literal notranslate"><span class="pre">InferenceModel</span></code> instance.</p>
+</div>
+<div class="section" id="inference-parameters">
+<h4>Inference Parameters<a class="headerlink" href="#inference-parameters" title="Permalink to this headline"></a></h4>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">model_name</span></code>: String, specifies the name of the model to use for inference.
+It should be consistent with the <code class="docutils literal notranslate"><span class="pre">model_name</span></code> that you specified during training.
+This parameter has no default value and you must specify a value.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">max_batchsize</span></code>: Integer, the maximum batch size for inference.
+The specific value is the global batch size and should be divisible by the length of <code class="docutils literal notranslate"><span class="pre">deployed_devices</span></code>.
+This parameter has no default value and you must specify a value.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">hit_rate_threshold</span></code>: Float, the real hit rate of GPU embedding cache during inference.
+When the real hit rate of the GPU embedding cache is higher than the specified threshold, the GPU embedding cache performs an asynchronous insertion of missing embedding keys.
+Otherwise, the GPU embedding cache inserts the keys synchronously.
+Specify a value between 0 and 1.
+The default value is <code class="docutils literal notranslate"><span class="pre">0.9</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">dense_model_file</span></code>: String, the dense model file to load for inference.
+This parameter has no default value and you must specify a value.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">network_file</span></code>: String, specifies a file that includes the model network structure in JSON format.
+This file is exported after model training and is used for the initialization of the network structure of the dense part of the model.
+This parameter has no default value and you must specify a value.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">sparse_model_files</span></code>: List[str], the sparse model files to load for inference.
+This parameter has no default value and you must specify a value.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">device_id</span></code>: Integer, is scheduled to be deprecated and replaced by <code class="docutils literal notranslate"><span class="pre">devicelist</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">use_gpu_embedding_cache</span></code>: Boolean, whether to employ the features of GPU embedding cache.
+When set to <code class="docutils literal notranslate"><span class="pre">True</span></code>, the embedding vector look up goes to the GPU embedding cache.
+Otherwise, the look up attempts to use the CPU HPS database backend directly.
+The default value is <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cache_size_percentage</span></code>: Float, the percentage of cached embeddings on the GPU, relative to all the embedding tables on the CPU.
+The default value is <code class="docutils literal notranslate"><span class="pre">0.2</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">i64_input_key</span></code>: Boolean, this value should be set to <code class="docutils literal notranslate"><span class="pre">True</span></code> when you need to use an Int64 input key.
+This parameter has no default value and you must specify a value.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">use_mixed_precision</span></code>: Boolean, whether to enable mixed precision inference.
+The default value is <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">scaler</span></code>: Float, the scaler to use when mixed precision training is enabled.
+The function supports <code class="docutils literal notranslate"><span class="pre">128</span></code>, <code class="docutils literal notranslate"><span class="pre">256</span></code>, <code class="docutils literal notranslate"><span class="pre">512</span></code>, and <code class="docutils literal notranslate"><span class="pre">1024</span></code> scalers only for mixed precision training.
+The default value is <code class="docutils literal notranslate"><span class="pre">1.0</span></code> and corresponds to no mixed precision training.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">use_algorithm_search</span></code>: Boolean, whether to use algorithm search for <code class="docutils literal notranslate"><span class="pre">cublasGemmEx</span></code> within the fully connected layer.
+The default value is <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">use_cuda_graph</span></code>: Boolean, whether to enable CUDA graph for dense-network forward propagation.
+The default value is <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">number_of_worker_buffers_in_pool</span></code>: Integer, specifies the number of worker buffers to allocate in the embedded cache memory pool.
+Specify a value such as two times the number of model instances to avoid resource exhaustion.
+An alternative to specifying a larger value while still avoiding resource exhaustion is to disable asynchronous updates by setting the <code class="docutils literal notranslate"><span class="pre">hit_rate_threshold</span></code> parameter to greater than <code class="docutils literal notranslate"><span class="pre">1</span></code>.
+The default value is <code class="docutils literal notranslate"><span class="pre">2</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">number_of_refresh_buffers_in_pool</span></code>: Integer, specifies the number of refresh buffers to allocate in the embedded cache memory pool.
+HPS uses the refresh memory pool to support online updates of incremental models.
+Specify larger values if model updates occur at a high-frequency or you have a large volume of incremental model updates.
+The default value is <code class="docutils literal notranslate"><span class="pre">1</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cache_refresh_percentage_per_iteration</span></code>: Float, specifies the percentage of the embedding cache to refresh during each iteration.
+To avoid reducing the performance of the GPU cache during online updating, you can configure the update percentage of GPU embedding cache.
+For example, if you specify <code class="docutils literal notranslate"><span class="pre">cache_refresh_percentage_per_iteration</span> <span class="pre">=</span> <span class="pre">0.2</span></code>, the entire GPU embedding cache is refreshed during 5 iterations.
+Specify a smaller value if model updates occur at a high-frequency or you have a large volume of incremental model updates.
+The default value is <code class="docutils literal notranslate"><span class="pre">0.1</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">deployed_devices</span></code>: List[Integer], specifies a list of the device IDs of your GPUs.
+The offline inference is executed concurrently on the specified GPUs.
+The default value is <code class="docutils literal notranslate"><span class="pre">[0]</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">default_value_for_each_table</span></code>:List[Float], specifies a default value when an embedding key cannot be returned.
+When an embedding key can not be queried in the GPU cache or volatile and persistent databases, the default value is returned.
+For models with multiple embedding tables, each embedding table has a default value.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">volatile_db</span></code>: See the <a class="reference internal" href="#volatile-database-configuration"><span class="std std-doc">Volatile Database Configuration</span></a> section.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">persistent_db</span></code>: See the <a class="reference internal" href="#persistent-database-configuration"><span class="std std-doc">Persistent Database Configuration</span></a> section.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">update_source</span></code>: See the <a class="reference internal" href="#update-source-configuration"><span class="std std-doc">Update Source Configuration</span></a> section.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">maxnum_des_feature_per_sample</span></code>: Integer, specifies the maximum number of dense features in each sample.
+Because each sample can contain a varying number of numeric (dense) features, use this parameter to specify the maximum number of dense feature in each sample.
+The specified value determines the pre-allocated memory size on the host and device.
+The default value is <code class="docutils literal notranslate"><span class="pre">26</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">refresh_delay</span></code>: Float, specifies an initial delay, in seconds, to wait before beginning to refresh the embedding cache.
+The timer begins when the service launches.
+The default value is <code class="docutils literal notranslate"><span class="pre">0.0</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">refresh_interval</span></code>: Float, specifies the interval, in seconds, for the periodic refresh of the embedding keys in the GPU embedding cache.
+The embedding keys are refreshed from volatile and persistent data sources based on the specified number of seconds.
+The default value is <code class="docutils literal notranslate"><span class="pre">0.0</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">maxnum_catfeature_query_per_table_per_sample</span></code>: List[Int], this parameter determines the pre-allocated memory size on the host and device.
+We assume that for each input sample, there is a maximum number of embedding keys per sample in each embedding table that need to be looked up.
+Specify this parameter as [max(the number of embedding keys that need to be queried from embedding table 1 in each sample), max(the number of embedding keys that need to be queried from embedding table 2 in each sample), …]
+This parameter has no default value and you must specify a value.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">embedding_vecsize_per_table</span></code>:List[Int], this parameter determines the pre-allocated memory size on the host and device.
+For the case of multiple embedding tables, we assume that the size of the embedding vector in each embedding table is different.
+Specify the maximum vector size for each embedding table.
+This parameter has no default value and you must specify a value.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">embedding_table_names</span></code>: List[String], specifies the name of each embedding table.
+The names are used to name the data partition and data table in the hierarchical database backend.
+The default value is <code class="docutils literal notranslate"><span class="pre">[&quot;sparse_embedding1&quot;,</span> <span class="pre">&quot;sparse_embedding2&quot;,</span> <span class="pre">...]</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">label_dim</span></code>: Int, each model can contain a varying size of prediction result, such as a multi-task model.
+Specify the maximum size of prediction result in each sample.
+The specified value determines the pre-allocated memory size on the host and device.
+The default value is <code class="docutils literal notranslate"><span class="pre">1</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">slot_num</span></code>: Int, each model can contain a fixed size of feature fields.
+Specify the number of feature fields (the number of slots).
+The specified value determines the pre-allocated memory size on the host and device.
+The default value is <code class="docutils literal notranslate"><span class="pre">10</span></code>.</p></li>
+</ul>
+</div>
+<div class="section" id="parameter-server-configuration-models">
+<h4>Parameter Server Configuration: Models<a class="headerlink" href="#parameter-server-configuration-models" title="Permalink to this headline"></a></h4>
+<p>The following JSON shows a sample configuration for the <code class="docutils literal notranslate"><span class="pre">models</span></code> key in a parameter server configuration file.</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;supportlonglong&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"></span>
+<span class="nt">&quot;models&quot;</span><span class="p">:[</span><span class="w"></span>
+<span class="w">  </span><span class="p">{</span><span class="w"></span>
+<span class="w">    </span><span class="nt">&quot;model&quot;</span><span class="p">:</span><span class="s2">&quot;wdl&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">    </span><span class="nt">&quot;sparse_files&quot;</span><span class="p">:[</span><span class="s2">&quot;/wdl_infer/model/wdl/1/wdl0_sparse_20000.model&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;/wdl_infer/model/wdl/1/wdl1_sparse_20000.model&quot;</span><span class="p">],</span><span class="w"></span>
+<span class="w">    </span><span class="nt">&quot;dense_file&quot;</span><span class="p">:</span><span class="s2">&quot;/wdl_infer/model/wdl/1/wdl_dense_20000.model&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">    </span><span class="nt">&quot;network_file&quot;</span><span class="p">:</span><span class="s2">&quot;/wdl_infer/model/wdl/1/wdl.json&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">    </span><span class="nt">&quot;num_of_worker_buffer_in_pool&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span><span class="w"></span>
+<span class="w">    </span><span class="nt">&quot;num_of_refresher_buffer_in_pool&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"></span>
+<span class="w">    </span><span class="nt">&quot;deployed_device_list&quot;</span><span class="p">:[</span><span class="mi">0</span><span class="p">],</span><span class="w"></span>
+<span class="w">    </span><span class="nt">&quot;max_batch_size&quot;</span><span class="p">:</span><span class="mi">64</span><span class="p">,</span><span class="w"></span>
+<span class="w">    </span><span class="nt">&quot;default_value_for_each_table&quot;</span><span class="p">:[</span><span class="mf">0.0</span><span class="p">,</span><span class="mf">0.0</span><span class="p">],</span><span class="w"></span>
+<span class="w">    </span><span class="nt">&quot;maxnum_des_feature_per_sample&quot;</span><span class="p">:</span><span class="mi">26</span><span class="p">,</span><span class="w"></span>
+<span class="w">    </span><span class="nt">&quot;maxnum_catfeature_query_per_table_per_sample&quot;</span><span class="p">:[</span><span class="mi">2</span><span class="p">,</span><span class="mi">26</span><span class="p">],</span><span class="w"></span>
+<span class="w">    </span><span class="nt">&quot;embedding_vecsize_per_table&quot;</span><span class="p">:[</span><span class="mi">1</span><span class="p">,</span><span class="mi">15</span><span class="p">],</span><span class="w"></span>
+<span class="w">    </span><span class="nt">&quot;embedding_table_names&quot;</span><span class="p">:[</span><span class="s2">&quot;table1&quot;</span><span class="p">,</span><span class="s2">&quot;table2&quot;</span><span class="p">],</span><span class="w"></span>
+<span class="w">    </span><span class="nt">&quot;refresh_delay&quot;</span><span class="p">:</span><span class="mi">0</span><span class="p">,</span><span class="w"></span>
+<span class="w">    </span><span class="nt">&quot;refresh_interval&quot;</span><span class="p">:</span><span class="mi">0</span><span class="p">,</span><span class="w"></span>
+<span class="w">    </span><span class="nt">&quot;hit_rate_threshold&quot;</span><span class="p">:</span><span class="mf">0.9</span><span class="p">,</span><span class="w"></span>
+<span class="w">    </span><span class="nt">&quot;gpucacheper&quot;</span><span class="p">:</span><span class="mf">0.1</span><span class="p">,</span><span class="w"></span>
+<span class="w">    </span><span class="nt">&quot;gpucache&quot;</span><span class="p">:</span><span class="kc">true</span><span class="p">,</span><span class="w"></span>
+<span class="w">    </span><span class="nt">&quot;cache_refresh_percentage_per_iteration&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.2</span><span class="p">,</span><span class="w"></span>
+<span class="w">    </span><span class="nt">&quot;label_dim&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"></span>
+<span class="w">    </span><span class="nt">&quot;slot_num&quot;</span><span class="p">:</span><span class="mi">10</span><span class="w"></span>
+<span class="w">  </span><span class="p">}</span><span class="w"></span>
+<span class="p">]</span><span class="w"></span>
 </pre></div>
 </div>
-<p><strong>Arguments:</strong></p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">type</span></code>: use to specify which volatile database implementation to use. The <code class="docutils literal notranslate"><span class="pre">&lt;enum_value&gt;</span></code> is either:</p>
+</div>
+</div>
+<div class="section" id="volatile-database-configuration">
+<h3>Volatile Database Configuration<a class="headerlink" href="#volatile-database-configuration" title="Permalink to this headline"></a></h3>
+<p>For HugeCTR, the volatile database implementations are grouped into two categories:</p>
 <ul>
-<li><p><code class="docutils literal notranslate"><span class="pre">disabled</span></code>: Do not use this kind of database.</p></li>
+<li><p><strong>CPU memory databases</strong> have an instance on each machine and only use the locally available RAM memory as backing storage.
+As a result, you can indvidually vary their configuration parameters for each machine.</p></li>
+<li><p><strong>Distributed CPU memory databases</strong> are typically shared by all machines in your HugeCTR deployment.
+They enable you to use the combined memory capacity of your cluster machines.
+The configuration parameters for this kind of database should be identical across all machines in your deployment.</p>
+<p>Distributed databases are shared by all your HugeCTR nodes.
+These nodes collaborate to inject updates into the underlying database.
+The assignment of which nodes update specific partition can change at runtime.</p>
+</li>
+</ul>
+<div class="section" id="volatile-database-params-syntax">
+<h4>Volatile Database Params Syntax<a class="headerlink" href="#volatile-database-params-syntax" title="Permalink to this headline"></a></h4>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">params</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">inference</span><span class="o">.</span><span class="n">VolatileDatabaseParams</span><span class="p">(</span>
+  <span class="nb">type</span> <span class="o">=</span> <span class="s2">&quot;redis_cluster&quot;</span><span class="p">,</span>
+  <span class="n">address</span> <span class="o">=</span> <span class="s2">&quot;127.0.0.1:7000&quot;</span><span class="p">,</span>
+  <span class="n">user_name</span> <span class="o">=</span> <span class="s2">&quot;default&quot;</span><span class="p">,</span>
+  <span class="n">password</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+  <span class="n">num_partitions</span> <span class="o">=</span> <span class="nb">int</span><span class="p">,</span>
+  <span class="n">allocation_rate</span> <span class="o">=</span> <span class="mi">268435456</span><span class="p">,</span>
+  <span class="n">max_get_batch_size</span> <span class="o">=</span> <span class="mi">10000</span><span class="p">,</span>
+  <span class="n">max_set_batch_size</span> <span class="o">=</span> <span class="mi">10000</span><span class="p">,</span>
+  <span class="n">overflow_margin</span> <span class="o">=</span> <span class="nb">int</span><span class="p">,</span>
+  <span class="n">overflow_policy</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">DatabaseOverflowPolicy_t</span><span class="o">.&lt;</span><span class="n">enum_value</span><span class="o">&gt;</span><span class="p">,</span>
+  <span class="n">overflow_resolution_target</span> <span class="o">=</span> <span class="mf">0.8</span><span class="p">,</span>
+  <span class="n">initial_cache_rate</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
+  <span class="n">refresh_time_after_fetch</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+  <span class="n">cache_missed_embeddings</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+  <span class="n">update_filters</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;filter-0&quot;</span><span class="p">,</span> <span class="s2">&quot;filter-1&quot;</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="parameter-server-configuration-volatile-database">
+<h4>Parameter Server Configuration: Volatile Database<a class="headerlink" href="#parameter-server-configuration-volatile-database" title="Permalink to this headline"></a></h4>
+<p>The following JSON shows a sample configuration for the <code class="docutils literal notranslate"><span class="pre">volatile_db</span></code> key in a parameter server configuration file.</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;volatile_db&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;redis_cluster&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;address&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;127.0.0.1:7003,127.0.0.1:7004,127.0.0.1:7005&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;user_name&quot;</span><span class="p">:</span><span class="w">  </span><span class="s2">&quot;default&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;password&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;num_partitions&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">8</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;allocation_rate&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">268435456</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;max_get_batch_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">10000</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;max_set_batch_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">10000</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;overflow_margin&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">10000000</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;overflow_policy&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;evict_oldest&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;overflow_resolution_target&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.8</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;initial_cache_rate&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">1.0</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;cache_missed_embeddings&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;update_filters&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;.+&quot;</span><span class="p">]</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="volatile-database-parameters">
+<h4>Volatile Database Parameters<a class="headerlink" href="#volatile-database-parameters" title="Permalink to this headline"></a></h4>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">type</span></code>: specifies the volatile database implementation.
+Specify one of the following:</p>
+<ul>
 <li><p><code class="docutils literal notranslate"><span class="pre">hash_map</span></code>: Hash-map based CPU memory database implementation.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">parallel_hash_map</span></code>: Hash-map based CPU memory database implementation with multi threading support <strong>(default)</strong>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">parallel_hash_map</span></code>: Hash-map based CPU memory database implementation with multi threading support. This is the default value.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">redis_cluster</span></code>: Connect to an existing Redis cluster deployment (Distributed CPU memory database implementation).</p></li>
 </ul>
 </li>
 </ul>
-<p><strong>The followings are Hashmap/Parallel Hashmap related parameters:</strong></p>
+<p>The following parameters apply when you set <code class="docutils literal notranslate"><span class="pre">type=&quot;hash_map&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">type=&quot;parallel_hash_map&quot;</span></code>:</p>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">algorithm</span></code>: use to specify the hashmap algorithm. Only for <code class="docutils literal notranslate"><span class="pre">hash_map</span></code> and <code class="docutils literal notranslate"><span class="pre">parallel_hash_map</span></code>. The <code class="docutils literal notranslate"><span class="pre">&lt;enum_value&gt;</span></code> is either:</p>
-<ul>
-<li><p><code class="docutils literal notranslate"><span class="pre">stl</span></code>: Use C++ standard template library-based hash-maps. This is a fallback implementation, that is generally less memory efficient and slower than <code class="docutils literal notranslate"><span class="pre">phm</span></code>. Use this, if you experience stability issues or problems with <code class="docutils literal notranslate"><span class="pre">phm</span></code>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">phm</span></code>: Use use an <a class="reference external" href="https://greg7mdp.github.io/parallel-hashmap">performance optimized hash-map implementation</a> <strong>(default)</strong>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">num_partitions</span></code>: Integer, specifies the number of partitions for embedding tables and controls the degree of parallelism.
+Parallel hashmap implementations split your embedding tables into approximately evenly-sized partitions and parallelizes look up and insert operations.
+The default value is calculated as <code class="docutils literal notranslate"><span class="pre">min(number_of_cpu_cores,</span> <span class="pre">16)</span></code> of the system that you used to build the HugeCTR binaries.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">allocation_rate</span></code>: Integer, specifies the maximum number of bytes to allocate for each memory allocation request.
+The default value is <code class="docutils literal notranslate"><span class="pre">268435456</span></code> bytes, 256 MiB.</p></li>
 </ul>
-</li>
-<li><p><code class="docutils literal notranslate"><span class="pre">num_partitions</span></code>: integer. Only for <code class="docutils literal notranslate"><span class="pre">hash_map</span></code> and <code class="docutils literal notranslate"><span class="pre">parallel_hash_map</span></code>. Use to control the degree of parallelism. Parallel hash-map implementations split your embedding tables into roughly evenly sized partitions and parallelizes look-up and insert operations accordingly.
-The <strong>default value</strong> is the equivalent to <code class="docutils literal notranslate"><span class="pre">min(number_of_cpu_cores,</span> <span class="pre">16)</span></code> of the system that you used to build the HugeCTR binaries.</p></li>
-</ul>
-<p><strong>The followings are Redis related parameters:</strong></p>
+<p>The following parameters apply when you set <code class="docutils literal notranslate"><span class="pre">type=&quot;redis_cluster&quot;</span></code>:</p>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">address</span></code>: string, only for <code class="docutils literal notranslate"><span class="pre">redis_cluster</span></code>, the address of one of servers of the Redis cluster. format <code class="docutils literal notranslate"><span class="pre">&quot;host_name[:port_number]&quot;</span></code>, <strong>default</strong>: <code class="docutils literal notranslate"><span class="pre">&quot;127.0.0.1:7000&quot;</span></code></p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">user_name</span></code>: string, only for <code class="docutils literal notranslate"><span class="pre">redis_cluster</span></code>, the user name of our Redis cluster. <strong>default</strong>: <code class="docutils literal notranslate"><span class="pre">&quot;default&quot;</span></code></p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">password</span></code>: string, only for <code class="docutils literal notranslate"><span class="pre">redis_cluster</span></code>, the password of your acount. <strong>default</strong>: <code class="docutils literal notranslate"><span class="pre">&quot;&quot;</span></code>, <em>i.e.</em>, blank / no password.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">num_partitions</span></code>: integer, only for <code class="docutils literal notranslate"><span class="pre">redis_cluster</span></code>. Our Redis cluster implementation breaks each embedding table into <code class="docutils literal notranslate"><span class="pre">num_partitions</span></code> approximately equal sized partitions. Each partition is assigned a storage location in your Redis cluster. We do not provide guarantees regarding the placement of partitions. Hence, multiple partitions might end up in the same node for some models and setups. Gernally speaking, to take advantage of your cluster resources, <code class="docutils literal notranslate"><span class="pre">num_partitions</span></code> need to be at least equal to the number of Redis nodes. For optimal performance <code class="docutils literal notranslate"><span class="pre">num_parititions</span></code> should be strictly larger than the amount of machines. However, each partition incurs a small processing overhead. So, the value should also not be too large. To retain a high performance and good cluster utilization, we <strong>suggest</strong> to adjust this value to 2-5x the number ofmachines in your Redis cluster. The <strong>default value</strong> is <code class="docutils literal notranslate"><span class="pre">8</span></code>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">max_get_batch_size</span></code> and <code class="docutils literal notranslate"><span class="pre">max_set_batch_size</span></code>: integer, only for <code class="docutils literal notranslate"><span class="pre">redis_cluster</span></code>, represent optimization parameters. Mass lookup and insert requests to distributed endpoints are chunked into batches. For maximum performance, these two parameters should be large. However, if the available memory for buffering requests in your endpoints is limited, or if you experience transmission stability issues, lowering this value may help. By <strong>default</strong>, both values are set to <code class="docutils literal notranslate"><span class="pre">10000</span></code>. With high-performance networking and endpoint hardware, it is <strong>recommended</strong> to increase these values to <code class="docutils literal notranslate"><span class="pre">1</span> <span class="pre">million</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">address</span></code>: String, specifies the address of one of servers of the Redis cluster.
+Use the pattern <code class="docutils literal notranslate"><span class="pre">&quot;host-1[:port],host-2[:port],...&quot;</span></code>.
+The default value is <code class="docutils literal notranslate"><span class="pre">&quot;127.0.0.1:7000&quot;</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">user_name</span></code>: String, specifies the user name of the Redis cluster.
+The default value is <code class="docutils literal notranslate"><span class="pre">&quot;default&quot;</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">password</span></code>: String, specifies the password of your account.
+The default value is <code class="docutils literal notranslate"><span class="pre">&quot;&quot;</span></code> and corresponds to no password.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">num_partitions</span></code>: Integer, specifies the number of partitions for embedding tables.
+Each embedding table is divided into <code class="docutils literal notranslate"><span class="pre">num_partitions</span></code> of approximately evenly-sized partitions.
+Each partition is assigned a storage location in your Redis cluster.
+HugeCTR does not provide any guarantees regarding the placement of partitions.
+As a result, multiple partitions can be stored the same node for some models and deployments.
+In most cases, to take advantage of your cluster resources, set <code class="docutils literal notranslate"><span class="pre">num_partitions</span></code> to at least equal to the number of Redis nodes.
+For optimal performance, set <code class="docutils literal notranslate"><span class="pre">num_parititions</span></code> to be strictly larger than the number of machines.
+However, each partition incurs a small processing overhead so do not specify a value that is too large.
+A typical value that retains high performance and provides good cluster utilization is 2-5x the number of machines in your Redis cluster.
+The default value is <code class="docutils literal notranslate"><span class="pre">8</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">max_get_batch_size</span></code> and <code class="docutils literal notranslate"><span class="pre">max_set_batch_size</span></code>: Integer, specifies optimization parameters.
+Mass lookup and insert requests to distributed endpoints are chunked into batches.
+For maximum performance, these two parameters should be large.
+However, if the available memory for buffering requests in your endpoints is limited or you experience transmission stability issues, specifying smaller values can help.
+By default, both parameters are set to <code class="docutils literal notranslate"><span class="pre">10000</span></code>.
+With high-performance networking and endpoint hardware, try setting the values to <code class="docutils literal notranslate"><span class="pre">1000000</span></code>.</p></li>
 </ul>
-<p><strong>The followings are overflow handling related parameters:</strong></p>
-<p>To maximize performance and avoid instabilies caused by sporadic high memory usage (<em>i.e.</em>, out of memory situations), we provide the overflow handling mechanism. It allows limiting the maximum amount of embeddings to be stored per partition, and, thus, upper-bounding the memory consumption of your distributed database.</p>
-<ul>
-<li><p><code class="docutils literal notranslate"><span class="pre">overflow_margin</span></code>: integer, denotes the maximum amount of embeddings that will be stored <em>per partition</em>. Inserting more than <code class="docutils literal notranslate"><span class="pre">overflow_margin</span></code> embeddings into the database will trigger the execution of the configured <code class="docutils literal notranslate"><span class="pre">overflow_policy</span></code>. Hence, <code class="docutils literal notranslate"><span class="pre">overflow_margin</span></code> upper-bounds the maximum amount of memory that your CPU memory database may occupy. Thumb rule: Larger <code class="docutils literal notranslate"><span class="pre">overflow_margin</span></code> will result higher hit rates, but also increased memory consumption. By <strong>default</strong>, the value of <code class="docutils literal notranslate"><span class="pre">overflow_margin</span></code> is set to <code class="docutils literal notranslate"><span class="pre">2^64</span> <span class="pre">-</span> <span class="pre">1</span></code> (<em>i.e.</em>, de-facto infinite). When using the CPU memory database in conjunction with a Persistent database, the idea value for <code class="docutils literal notranslate"><span class="pre">overflow_margin</span></code> may vary. In practice, a setting value to somewhere between <code class="docutils literal notranslate"><span class="pre">[1</span> <span class="pre">million,</span> <span class="pre">100</span> <span class="pre">million]</span></code> tends deliver reliable performance and throughput.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">overflow_policy</span></code>: can be either:</p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">evict_oldest</span></code> <strong>(default)</strong>: Prune embeddings starting from the oldest (i.e., least recently used) until the paratition contains at most <code class="docutils literal notranslate"><span class="pre">overflow_margin</span> <span class="pre">*</span> <span class="pre">overflow_resolution_target</span></code> embeddings.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">evict_random</span></code>: Prune embeddings random embeddings until the paratition contains at most <code class="docutils literal notranslate"><span class="pre">overflow_margin</span> <span class="pre">*</span> <span class="pre">overflow_resolution_target</span></code> embeddings.</p></li>
-</ul>
-<p>Unlike <code class="docutils literal notranslate"><span class="pre">evict_oldest</span></code>,  <code class="docutils literal notranslate"><span class="pre">evict_random</span></code> requires no comparison of time-stamps, and thus can be faster. However, <code class="docutils literal notranslate"><span class="pre">evict_oldest</span></code> is likely to deliver better performance over time because embeddings are evicted based on the frequency of their usage.</p>
-</li>
-<li><p><code class="docutils literal notranslate"><span class="pre">overflow_resolution_target</span></code>: double, is expected to be in <code class="docutils literal notranslate"><span class="pre">]0,</span> <span class="pre">1[</span></code> (<em>i.e.</em>, between <code class="docutils literal notranslate"><span class="pre">0</span></code> and <code class="docutils literal notranslate"><span class="pre">1</span></code>, but not exactly <code class="docutils literal notranslate"><span class="pre">0</span></code> or <code class="docutils literal notranslate"><span class="pre">1</span></code>). The default value of <code class="docutils literal notranslate"><span class="pre">overflow_resolution_target</span></code> is <code class="docutils literal notranslate"><span class="pre">0.8</span></code> (<em>i.e.</em>, the partition is shrunk to 80% of its maximum size, or in other words, when the partition size surpasses <code class="docutils literal notranslate"><span class="pre">overflow_margin</span></code> embeddings, 20% of the embeddings are evicted according to the respective <code class="docutils literal notranslate"><span class="pre">overflow_policy</span></code>).</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">initial_cache_rate</span></code>: double, should be the fraction (<code class="docutils literal notranslate"><span class="pre">[0.0,</span> <span class="pre">1.0]</span></code>) of your dataset that we will attempt to cache immediately upon startup of the HPS database backend. Hence, setting a value of <code class="docutils literal notranslate"><span class="pre">0.5</span></code> causes the HugeCTR HPS database backend to attempt caching up to 50% of your dataset directly using the respectively configured volatile database after initialization.</p></li>
-</ul>
-<p><strong>The following is a refreshing timestamps related parameter:</strong></p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">refresh_time_after_fetch</span></code>: bool. Some algorithms to organize certain processes, such as the evication of embeddings upon overflow, take time into account. To evalute the affected embeddings, HugeCTR records the time when an embeddings is overridden. This is sufficient in training mode where embeddings are frequently replaced. Hence, the <strong>default value</strong> for this setting is is <code class="docutils literal notranslate"><span class="pre">false</span></code>. However, if you deploy HugeCTR only for inference (<em>e.g.</em>, with Triton), this might lead to suboptimal eviction patterns. By setting this value to <code class="docutils literal notranslate"><span class="pre">true</span></code>, HugeCTR will replace the time stored alongside an embedding right after this embedding is accessed. This operation may happen asynchronously (<em>i.e.</em>, with some delay).</p></li>
-</ul>
-<p><strong>The following is related to caching of Missed Keys:</strong></p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">cache_missed_embeddings</span></code>: bool, a value denoting whether or not to migrate embeddings into the volatile database if they were missed during lookup. Hence, if this value is set to <code class="docutils literal notranslate"><span class="pre">true</span></code>, an embedding that could not be retrieved from the volatile database, but could be retrieved from the persistent database, will be inserted into the volatile database - potentially replacing another value. The <strong>default value</strong> is <code class="docutils literal notranslate"><span class="pre">false</span></code>, which disables this functionality.</p></li>
-</ul>
-<p>This feature will optimize the volatile database in response to the queries experienced in inference mode. In training mode, updated embeddings will be automatically written back to the databse after each training step. Thus, if you apply training, setting this setting to <code class="docutils literal notranslate"><span class="pre">true</span></code> will likely increase the number of writes to the database and degrade performance, without providing significant improvements, which is undesirable.</p>
-<p><strong>The following is a real-time updating related parameter:</strong></p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">update_filters</span></code>: this setting allows you specify a series of filters, in to permit / deny passing certain model updates from Kafka to the CPU memory database backend. Filters take the form of regular expressions. The <strong>default</strong> value of this setting is <code class="docutils literal notranslate"><span class="pre">[</span> <span class="pre">&quot;.+&quot;</span> <span class="pre">]</span></code> (<em>i.e.</em>, process updates for all models, irrespective of their name). <strong>[Behavior will likely change in future versions]</strong></p></li>
-</ul>
-<p>Distributed databases are shared by all your HugeCTR nodes. These nodes will collaborate to inject updates into the underlying database. The assignment of what nodes update what partition may change at runtime.</p>
 </div>
-<div class="section" id="persistent-database-configurations">
-<h3><strong>Persistent Database Configurations</strong><a class="headerlink" href="#persistent-database-configurations" title="Permalink to this headline"></a></h3>
-<p>Persistent databases are instanced per machine and use the locally available non-volatile memory as backing storage. Hence, you may indvidually vary their configuration parameters per machine.</p>
-<p><strong>Python</strong></p>
+<div class="section" id="overflow-parameters">
+<h4>Overflow Parameters<a class="headerlink" href="#overflow-parameters" title="Permalink to this headline"></a></h4>
+<p>To maximize performance and avoid instabilities that can be caused by sporadic high memory usage, such as an out of memory situations, HugeCTR provides an overflow handling mechanism.
+This mechanism enables you to limit the maximum amount of embeddings to store for each partition.
+The limit acts as an upper bound for the memory consumption of your distributed database.</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">overflow_margin</span></code>: Integer, specifies the maximum amount of embeddings to store for each partition.
+Inserting more than <code class="docutils literal notranslate"><span class="pre">overflow_margin</span></code> embeddings into the database triggers the  configured <code class="docutils literal notranslate"><span class="pre">overflow_policy</span></code>.
+This parameter sets the upper bound for the maximum amount of memory that your CPU memory database can occupy.
+Larger values for this parameter result in higher hit rates but also consume more memory.
+The default value is <code class="docutils literal notranslate"><span class="pre">2^64</span> <span class="pre">-</span> <span class="pre">1</span></code> and indicates no limit.</p>
+<p>When you use a CPU memory database in conjunction with a persistent database, the ideal value for <code class="docutils literal notranslate"><span class="pre">overflow_margin</span></code> can vary.
+In practice, a value in the range <code class="docutils literal notranslate"><span class="pre">[1000000,</span> <span class="pre">100000000]</span></code> provides reliable performance and throughput.</p>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">overflow_policy</span></code>: specifies how to respond to an overflow condition.
+Specify one of the following:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">evict_oldest</span></code>: Prune embeddings starting from the oldest embedding
+until the partition contains at most <code class="docutils literal notranslate"><span class="pre">overflow_margin</span> <span class="pre">*</span> <span class="pre">overflow_resolution_target</span></code> embeddings. This policy implements the least-recently used (LRU) algorithm.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">evict_random</span></code>: Prune embeddings at random until the partition contains at most <code class="docutils literal notranslate"><span class="pre">overflow_margin</span> <span class="pre">*</span> <span class="pre">overflow_resolution_target</span></code> embeddings.</p></li>
+</ul>
+<p>Unlike <code class="docutils literal notranslate"><span class="pre">evict_oldest</span></code>, the <code class="docutils literal notranslate"><span class="pre">evict_random</span></code> policy does not require a comparison of timestamps and can be faster.
+However, <code class="docutils literal notranslate"><span class="pre">evict_oldest</span></code> is likely to deliver better performance over time because the policy evicts embeddings based on the frequency of their use.</p>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">overflow_resolution_target</span></code>: Double, specifies the fraction of the embeddings to keep when embeddings must be evicted.
+Specify a value between <code class="docutils literal notranslate"><span class="pre">0</span></code> and <code class="docutils literal notranslate"><span class="pre">1</span></code>, but not exactly <code class="docutils literal notranslate"><span class="pre">0</span></code> or <code class="docutils literal notranslate"><span class="pre">1</span></code>.
+The default value is <code class="docutils literal notranslate"><span class="pre">0.8</span></code> and indicates to evict embeddings from a partition until it is shrunk to 80% of its maximum size.
+In other words, when the partition size surpasses <code class="docutils literal notranslate"><span class="pre">overflow_margin</span></code> embeddings, 20% of the embeddings are evicted according to the specified <code class="docutils literal notranslate"><span class="pre">overflow_policy</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">initial_cache_rate</span></code>: Double, specifies the fraction of the embeddings to initially attempt to cache.
+Specify a value in the range <code class="docutils literal notranslate"><span class="pre">[0.0,</span> <span class="pre">1.0]</span></code>.
+HugeCTR attempts to cache the specified fraction of the dataset immediately upon startup of the HPS database backend.
+For example, a value of <code class="docutils literal notranslate"><span class="pre">0.5</span></code> causes the HugeCTR HPS database backend to attempt to cache up to 50% of your dataset using the volatile database after initialization.
+The default value is <code class="docutils literal notranslate"><span class="pre">1.0</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">refresh_time_after_fetch</span></code>: Bool, when set to <code class="docutils literal notranslate"><span class="pre">True</span></code>, the timestamp for an embedding is updated after the embedding is accessed.
+The timestamp update can be performed asynchronously and experience some delay.
+Some algorithms for overflow and eviction take time into account.
+To evaluate the affected embeddings, HugeCTR records the time when an embedding is overwritten.
+The default value is <code class="docutils literal notranslate"><span class="pre">False</span></code> and this setting is sufficient when you train a model and embeddings are frequently replaced.
+However, when you deploy HugeCTR only for inference, such as with Triton Inference Server, the default setting might lead to suboptimal eviction patterns.</p></li>
+</ul>
+</div>
+<div class="section" id="common-volatile-database-parameters">
+<h4>Common Volatile Database Parameters<a class="headerlink" href="#common-volatile-database-parameters" title="Permalink to this headline"></a></h4>
+<p>The following parameters are common to all volatile database types.</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">cache_missed_embeddings</span></code>: Bool, when set to <code class="docutils literal notranslate"><span class="pre">True</span></code> and an embedding could not be retrieved from the volatile database, but could be retrieved from the persistent database, the embedding is inserted into the volatile database.
+The insert operation could replace another value.
+The default value is <code class="docutils literal notranslate"><span class="pre">False</span></code> and disables this functionality.</p>
+<p>This setting optimizes the volatile database in response to the queries that are received in inference mode.
+In training mode, updated embeddings are automatically written back to the database after each training step.
+As a result, setting the value to <code class="docutils literal notranslate"><span class="pre">True</span></code> during training is likely to increase the number of writes to the database and degrade performance without providing significant improvements.</p>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">update_filters</span></code>: List[str], specifies regular expressions that are used to control sending model updates from Kafka to the CPU memory database backend.
+The default value is <code class="docutils literal notranslate"><span class="pre">[&quot;^hps_.+$&quot;]</span></code> and processes updates for all HPS models because the filter matches all HPS model names.</p>
+<p>The functionality of this parameter might change in future versions.</p>
+</li>
+</ul>
+</div>
+</div>
+<div class="section" id="persistent-database-configuration">
+<h3>Persistent Database Configuration<a class="headerlink" href="#persistent-database-configuration" title="Permalink to this headline"></a></h3>
+<p>Persistent databases have an instance on each machine and use the locally available non-volatile memory as backing storage.
+As a result, some configuration parameters can vary according to the specifications of the machine.</p>
+<div class="section" id="persistent-database-params-syntax">
+<h4>Persistent Database Params Syntax<a class="headerlink" href="#persistent-database-params-syntax" title="Permalink to this headline"></a></h4>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">params</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">inference</span><span class="o">.</span><span class="n">PersistentDatabaseParams</span><span class="p">(</span>
-<span class="nb">type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">DatabaseType_t</span><span class="o">.&lt;</span><span class="n">enum_value</span><span class="o">&gt;</span><span class="p">,</span>
-<span class="n">path</span> <span class="o">=</span> <span class="s2">&quot;&lt;file_system_path&gt;&quot;</span><span class="p">,</span>
-<span class="n">num_threads</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">int_value</span><span class="o">&gt;</span><span class="p">,</span>
-<span class="n">read_only</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">boolean_value</span><span class="o">&gt;</span><span class="p">,</span>
-<span class="n">max_get_batch_size</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">int_value</span><span class="o">&gt;</span><span class="p">,</span>
-<span class="n">max_set_batch_size</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">int_value</span><span class="o">&gt;</span><span class="p">,</span>
-<span class="n">update_filters</span> <span class="o">=</span> <span class="p">[</span> <span class="s2">&quot;&lt;filter 0&gt;&quot;</span><span class="p">,</span> <span class="s2">&quot;&lt;filter 1&gt;&quot;</span><span class="p">,</span> <span class="o">...</span> <span class="p">]</span>
+  <span class="nb">type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">DatabaseType_t</span><span class="o">.&lt;</span><span class="n">enum_value</span><span class="o">&gt;</span><span class="p">,</span>
+  <span class="n">path</span> <span class="o">=</span> <span class="s2">&quot;/tmp/rocksdb&quot;</span><span class="p">,</span>
+  <span class="n">num_threads</span> <span class="o">=</span> <span class="mi">16</span><span class="p">,</span>
+  <span class="n">read_only</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+  <span class="n">max_get_batch_size</span> <span class="o">=</span> <span class="mi">10000</span><span class="p">,</span>
+  <span class="n">max_set_batch_size</span> <span class="o">=</span> <span class="mi">10000</span><span class="p">,</span>
+  <span class="n">update_filters</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;filter-0&quot;</span><span class="p">,</span> <span class="s2">&quot;filter-1&quot;</span><span class="p">,</span> <span class="o">...</span> <span class="p">]</span>
 <span class="p">)</span>
 </pre></div>
 </div>
-<p><strong>JSON</strong></p>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>&quot;persistent_db&quot;: {
-  &quot;type&quot;: &quot;&lt;enum_value&gt;&quot;,
-  &quot;path&quot;: &quot;&lt;file_system_path&gt;&quot;,
-  &quot;num_threads&quot;: &lt;int_value&gt;,
-  &quot;read_only&quot;: &lt;boolean_value&gt;,
-  &quot;max_get_batch_size&quot;: &lt;int_value&gt;,
-  &quot;max_set_batch_size&quot;: &lt;int_value&gt;,
-  &quot;update_filters&quot;: [ &quot;&lt;filter 0&gt;&quot;, &quot;&lt;filter 1&gt;&quot;, /* ... */ ]
-}
+</div>
+<div class="section" id="parameter-server-configuration-persistent-database">
+<h4>Parameter Server Configuration: Persistent Database<a class="headerlink" href="#parameter-server-configuration-persistent-database" title="Permalink to this headline"></a></h4>
+<p>The following JSON shows a sample configuration for the <code class="docutils literal notranslate"><span class="pre">persistent_db</span></code> key in a parameter server configuration file.</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;persistent_db&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;rocks_db&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;/tmp/rocksdb&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;num_threads&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">16</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;read_only&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;max_get_batch_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">10000</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;max_set_batch_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">10000</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;update_filters&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;.+&quot;</span><span class="p">]</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
 </pre></div>
 </div>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">type</span></code>:  is either:</p>
+</div>
+<div class="section" id="persistent-database-parameters">
+<h4>Persistent Database Parameters<a class="headerlink" href="#persistent-database-parameters" title="Permalink to this headline"></a></h4>
 <ul>
-<li><p><code class="docutils literal notranslate"><span class="pre">disabled</span></code>: Do not use this kind of database  <strong>(default)</strong>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">type</span></code>: specifies the persistent datatabase implementation.
+Specify one of the following:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">disabled</span></code>: Prevents the use of a persistent database.
+This is the default value.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">rocks_db</span></code>: Create or connect to a RocksDB database.</p></li>
 </ul>
 </li>
-<li><p><code class="docutils literal notranslate"><span class="pre">path</span></code> denotes the directory in your file-system where the RocksDB database can be found. If the directory does not contain a RocksDB databse, HugeCTR will create an database for you. Note that this may override files that are currently stored in this database. Hence, make sure that <code class="docutils literal notranslate"><span class="pre">path</span></code> points either to an actual RocksDB database or an empty directy. The <strong>default</strong> path is <code class="docutils literal notranslate"><span class="pre">/tmp/rocksdb</span></code>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">num_threads</span></code> is an optimization parameter. This denotes the amount of threads that the RocksDB driver may use internally. By <strong>default</strong>, this value is set to <code class="docutils literal notranslate"><span class="pre">16</span></code></p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">read_only</span></code>, bool. If the flag <code class="docutils literal notranslate"><span class="pre">read_only</span></code> is set to <code class="docutils literal notranslate"><span class="pre">true</span></code>, the databse will be opened in <em>Read-Only mode</em>. Naturally, this means that any attempt to update values in this database will fail. Use for inference, if model is static and the database is shared by multiple nodes (for example via NFS). By <strong>default</strong> this flag is set to <code class="docutils literal notranslate"><span class="pre">false</span></code>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">max_get_batch_size</span></code> and <code class="docutils literal notranslate"><span class="pre">max_set_batch_size</span></code>, integer, represent optimization parameters. Mass lookup and insert requests to RocksDB are chunked into batches. For maximum performance <code class="docutils literal notranslate"><span class="pre">max_*_batch_size</span></code> should be large. However, if the available memory for buffering requests in your endpoints is limited, lowering this value may help. By <strong>default</strong>, both values are set to <code class="docutils literal notranslate"><span class="pre">10000</span></code>. With high-performance hardware setups it is <strong>recommended</strong> to increase these values to <code class="docutils literal notranslate"><span class="pre">1</span> <span class="pre">million</span></code>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">update_filters</span></code>: this setting allows you specify a series of filters, in to permit / deny passing certain model updates from Kafka to the CPU memory database backend. Filters take the form of regular expressions. The <strong>default</strong> value of this setting is <code class="docutils literal notranslate"><span class="pre">[</span> <span class="pre">&quot;.+&quot;</span> <span class="pre">]</span></code> (<em>i.e.</em>, process updates for all models, irrespective of their name). <strong>[Behavior will likely change in future versions]</strong></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">path</span></code> String, specifies the directory on each machine where the RocksDB database can be found.
+If the directory does not contain a RocksDB database, HugeCTR creates a database for you.
+Be aware that this behavior can overwrite files that are stored in the directory.
+For best results, make sure that <code class="docutils literal notranslate"><span class="pre">path</span></code> specifies an existing RocksDB database or an empty directory.
+The default value is <code class="docutils literal notranslate"><span class="pre">/tmp/rocksdb</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">num_threads</span></code> Int, specifies the number of threads for the RocksDB driver.
+The default value is <code class="docutils literal notranslate"><span class="pre">16</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">read_only</span></code>, Bool, when set to <code class="docutils literal notranslate"><span class="pre">True</span></code>, the database is opened in read-only mode.
+Read-only mode is suitable for use with inference if the model is static and the database is shared by multiple machines, such as with NFS.
+The default value is <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">max_get_batch_size</span></code> and <code class="docutils literal notranslate"><span class="pre">max_set_batch_size</span></code>, Int, specifies the batch size for lookup and insert requests.
+Mass lookup and insert requests to RocksDB are chunked into batches.
+For maximum performance these parameters should be large.
+However, if the available memory for buffering requests in your endpoints is limited, lowering this value might improve performance.
+The default value for both parameters is <code class="docutils literal notranslate"><span class="pre">10000</span></code>.
+With high-performance hardware, you can attempt to set these parameters to <code class="docutils literal notranslate"><span class="pre">1000000</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">update_filters</span></code>: List[str], specifies regular expressions that are used to control sending model updates from Kafka to the CPU memory database backend.
+The default value is <code class="docutils literal notranslate"><span class="pre">[&quot;^hps_.+$&quot;]</span></code> and processes updates for all HPS models because the filter matches all HPS model names.</p>
+<p>The functionality of this parameter might change in future versions.</p>
+</li>
 </ul>
 </div>
-<div class="section" id="update-source-configurations">
-<h3><strong>Update Source Configurations</strong><a class="headerlink" href="#update-source-configurations" title="Permalink to this headline"></a></h3>
-<p>The real-time update source is the origin for model updates during online retraining. To ensure that all database layers are kept in sync, it is advisable configure all nodes in your HugeCTR deployment identical.</p>
-<p><strong>Python</strong></p>
+</div>
+<div class="section" id="update-source-configuration">
+<h3>Update Source Configuration<a class="headerlink" href="#update-source-configuration" title="Permalink to this headline"></a></h3>
+<p>The real-time update source is the origin for model updates during online retraining.
+To ensure that all database layers are kept in sync, configure all the nodes in your HugeCTR deployment identically.</p>
+<div class="section" id="update-source-params-syntax">
+<h4>Update Source Params Syntax<a class="headerlink" href="#update-source-params-syntax" title="Permalink to this headline"></a></h4>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">params</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">UpdateSourceParams</span><span class="p">(</span>
-<span class="nb">type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">UpdateSourceType_t</span><span class="o">.&lt;</span><span class="n">enum_value</span><span class="o">&gt;</span><span class="p">,</span>
-<span class="n">brokers</span> <span class="o">=</span> <span class="s2">&quot;host_name[:port][;host_name[:port]...]&quot;</span><span class="p">,</span>
-<span class="n">poll_timeout_ms</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">int_value</span><span class="o">&gt;</span><span class="p">,</span>
-<span class="n">max_receive_buffer_size</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">int_value</span><span class="o">&gt;</span><span class="p">,</span>
-<span class="n">max_batch_size</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">int_value</span><span class="o">&gt;</span><span class="p">,</span>
-<span class="n">failure_backoff_ms</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">int_value</span><span class="o">&gt;</span>
+  <span class="nb">type</span> <span class="o">=</span> <span class="s2">&quot;kafka_message_queue&quot;</span><span class="p">,</span>
+  <span class="n">brokers</span> <span class="o">=</span> <span class="s2">&quot;host-1[:port][;host-2[:port]...]&quot;</span><span class="p">,</span>
+  <span class="n">metadata_refresh_interval_ms</span> <span class="o">=</span> <span class="mi">30000</span><span class="p">,</span>
+  <span class="n">poll_timeout_ms</span> <span class="o">=</span> <span class="mi">500</span><span class="p">,</span>
+  <span class="n">receive_buffer_size</span> <span class="o">=</span> <span class="mi">262144</span><span class="p">,</span>
+  <span class="n">max_batch_size</span> <span class="o">=</span> <span class="mi">8192</span><span class="p">,</span>
+  <span class="n">failure_backoff_ms</span> <span class="o">=</span> <span class="mi">50</span>
+  <span class="n">max_commit_interval</span> <span class="o">=</span> <span class="mi">32</span>
 <span class="p">)</span>
 </pre></div>
 </div>
-<p><strong>JSON</strong></p>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>&quot;update_source&quot;: {
-   &quot;type&quot;: &quot;&lt;enum_value&gt;&quot;
-   &quot;brokers&quot;: &quot;host_name[:port][;host_name[:port]...]&quot;,
-   &quot;poll_timeout_ms&quot;: &lt;int_value&gt;,
-   &quot;max_receive_buffer_size&quot;: &lt;int_value&gt;,
-   &quot;max_batch_size&quot;: &lt;int_value&gt;,
-   &quot;failure_backoff_ms&quot;: &lt;int_value&gt;
-}
+</div>
+<div class="section" id="parameter-server-configuration-update-source">
+<h4>Parameter Server Configuration: Update Source<a class="headerlink" href="#parameter-server-configuration-update-source" title="Permalink to this headline"></a></h4>
+<p>The following JSON shows a sample configuration for the <code class="docutils literal notranslate"><span class="pre">update_source</span></code> key in a parameter server configuration file.</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;update_source&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;kafka_message_queue&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;brokers&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;127.0.0.1:9092&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;metadata_refresh_interval_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">30000</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;poll_timeout_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">500</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;receive_buffer_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">262144</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;max_batch_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">8192</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;failure_backoff_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">50</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;max_commit_interval&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">32</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
 </pre></div>
 </div>
-<p><strong>Arguments:</strong></p>
+</div>
+<div class="section" id="update-source-parameters">
+<h4>Update Source Parameters<a class="headerlink" href="#update-source-parameters" title="Permalink to this headline"></a></h4>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">type</span></code>: the update source implementation, is either:</p>
+<li><p><code class="docutils literal notranslate"><span class="pre">type</span></code>: String, specifies the update source implementation.
+Specify one of the following:</p>
 <ul>
-<li><p><code class="docutils literal notranslate"><span class="pre">null</span></code>: Do not use this kind of database  <strong>(default)</strong>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">kafka_message_queue</span></code>: Connect to an axisting Apache Kafka message queue.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">null</span></code>: Prevents the use of an update source. This is the default value.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">kafka_message_queue</span></code>: Connect to an existing Apache Kafka message queue.</p></li>
 </ul>
 </li>
-<li><p><code class="docutils literal notranslate"><span class="pre">brokers</span></code>: In order to connect to a Kafka deployments, you need to fill in at least one host-address (hostname + port number) of a Kafka broker node (<code class="docutils literal notranslate"><span class="pre">brokers</span></code> configuration option in the above listings). The <strong>default</strong> value of <code class="docutils literal notranslate"><span class="pre">brokers</span></code> is <code class="docutils literal notranslate"><span class="pre">127.0.0.1:9092</span></code>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">poll_timeout_ms</span></code>:, integer,  denotes the maximum time we will wait for additional updates before dispatching them to the database layers in milliseconds. The <strong>default</strong> value is <code class="docutils literal notranslate"><span class="pre">500</span></code> ms.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">max_receive_buffer_size</span></code>:, integer. If, before this limit has run out, more than <code class="docutils literal notranslate"><span class="pre">max_receive_buffer_size</span></code> embedding updates have been received, we will also dispatch these updates immediately. The <strong>default</strong> receive buffer size is <code class="docutils literal notranslate"><span class="pre">2000</span></code>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">max_batch_size</span></code>: integer. Dispatching of updates is conducted in chunks. The maximum size of these chunks is upper-bounded by <code class="docutils literal notranslate"><span class="pre">max_batch_size</span></code>, which is set to <code class="docutils literal notranslate"><span class="pre">1000</span></code> by default.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">failure_backoff_ms</span></code>: integer. In some situations, there might be issues that prevent the successful dispatch of an update to a database. For example, if a Redis node is temporarily unreachable. <code class="docutils literal notranslate"><span class="pre">failure_backoff_ms</span></code> is the delay in milliseconds after which we retry dispatching a set of updates in such an event. The <strong>default</strong> backoff delay is <code class="docutils literal notranslate"><span class="pre">50</span></code> ms.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">brokers</span></code>: String, specifies a semicolon-delimited list of host name or IP address and port pairs.
+You must specify  at least one host name and port of a Kafka broker node.
+The default value is <code class="docutils literal notranslate"><span class="pre">127.0.0.1:9092</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">metadata_refresh_interval_ms</span></code>: Int, specifies the frequency at which the topic metadata downloaded from the Kafka broker.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">receive_buffer_size</span></code> Int, specifies the size of the buffer, in bytes, that stores data that is received from Kafka.
+The best value to specify is equal to <code class="docutils literal notranslate"><span class="pre">send_buffer_size</span></code> of the KafkaMessageSink that is used to push updates to Kafka.
+The <code class="docutils literal notranslate"><span class="pre">message.max.bytes</span></code> setting of the Kafka broker must be at least <code class="docutils literal notranslate"><span class="pre">receive_buffer_size</span> <span class="pre">+</span> <span class="pre">1024</span></code> bytes.
+The default value is <code class="docutils literal notranslate"><span class="pre">262144</span></code> bytes.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">poll_timeout_ms</span></code>: Int, specifies the maximum time to wait, in milliseconds, for additional updates before dispatching updates to the database layers.
+The default value is <code class="docutils literal notranslate"><span class="pre">500</span></code> ms.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">max_batch_size</span></code>: Int, specifies the maximum number of keys and values from messages to consume before dispatching updates to the database.
+HugeCTR dispatches the updates in chunks.
+The maximum size of these chunks is set with this parameter.
+The default value is <code class="docutils literal notranslate"><span class="pre">8192</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">failure_backoff_ms</span></code>: Int, specifies a delay, in milliseconds, to wait after failing to dispatch updates to the database successfully.
+In some situations, there can be issues that prevent the successful dispatch such as if a Redis node is temporarily unreachable.
+After the delay, HugeCTR retries dispatching a set of updates.
+The default value is <code class="docutils literal notranslate"><span class="pre">50</span></code> ms.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">max_commit_interval</span></code>: Int, specifies the maximum number of messages to hold before delivering and committing the messages to Kafka.
+This parameter is evaluated independent of any other conditions or parameters.
+Any received data is forwarded and committed if at most <code class="docutils literal notranslate"><span class="pre">max_commit_interval</span></code> were processed since the previous commit.
+The default value is <code class="docutils literal notranslate"><span class="pre">32</span></code>.</p></li>
 </ul>
+</div>
 </div>
 </div>
 </div>
@@ -502,6 +748,7 @@ The <strong>default value</strong> is the equivalent to <code class="docutils li
       <dt>Tags</dt>
       <dd><a href="../v3.5/hugectr_parameter_server.html">v3.5</a></dd>
       <dd><a href="../v3.6/hugectr_parameter_server.html">v3.6</a></dd>
+      <dd><a href="../v3.7/hugectr_parameter_server.html">v3.7</a></dd>
     </dl>
     <dl>
       <dt>Branches</dt>
