@@ -25,7 +25,7 @@ GROUPED_ALL_REDUCE = True
 DATA_READER_TYPE = hugectr.DataReaderType_t.RawAsync
 ASYNC_PARAM = hugectr.AsyncParam(32, 4, 552960, 2, 512, True, hugectr.Alignment_t.Auto)
 EMBEDDING_TYPE = hugectr.Embedding_t.HybridSparseEmbedding
-HYBRID_EMBEDDING_PARAM =  hugectr.HybridEmbeddingParam(2, -1, 0.02, 1.3e11, 1.9e11, 1.0, True, True,
+HYBRID_EMBEDDING_PARAM =  hugectr.HybridEmbeddingParam(2, -1, 0.02, 1.3e11, 1.9e11, 1.0, False, False,
                                                        hugectr.CommunicationType.IB_NVLink_Hier,
                                                        hugectr.HybridEmbeddingType.Distributed)
 # 1. Create Solver, DataReaderParams and Optimizer
