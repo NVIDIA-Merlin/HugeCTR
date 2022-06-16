@@ -32,7 +32,7 @@ Go [here](https://ailab.criteo.com/download-criteo-1tb-click-logs-dataset/) and 
 As an alternative, you can run the following command:
 ```
 $ cd ${project_root}/tools
-$ wget http://azuremlsampleexperiments.blob.core.windows.net/criteo/day_1.gz
+$ wget https://storage.googleapis.com/criteo-cail-datasets/day_1.gz
 ```
 
 **NOTE**: Replace `1` with a value from [0, 23] to use a different day.
