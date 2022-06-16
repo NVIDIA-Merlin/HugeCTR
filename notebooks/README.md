@@ -14,10 +14,10 @@ If you prefer to build the HugeCTR Docker image on your own, refer to [Set Up th
 Pull the container using the following command:
 
 ```shell
-docker pull nvcr.io/nvidia/merlin/merlin-training:22.05
+docker pull nvcr.io/nvidia/merlin/merlin-training:22.06
 ```
 
-> To run the Sparse Operation Kit notebooks, pull the `nvcr.io/nvidia/merlin/merlin-tensorflow-training:22.05` container.
+> To run the Sparse Operation Kit notebooks, pull the `nvcr.io/nvidia/merlin/merlin-tensorflow-training:22.06` container.
 
 ### Clone the HugeCTR Repository
 
@@ -32,10 +32,10 @@ git clone https://github.com/NVIDIA/HugeCTR
 1. Launch the container in interactive mode (mount the HugeCTR root directory into the container for your convenience) by running this command:
 
    ```shell
-   docker run --runtime=nvidia --rm -it --cap-add SYS_NICE -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr -p 8888:8888 nvcr.io/nvidia/merlin/merlin-training:22.05
+   docker run --runtime=nvidia --rm -it --cap-add SYS_NICE -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr -p 8888:8888 nvcr.io/nvidia/merlin/merlin-training:22.06
    ```  
 
-   > To run the  Sparse Operation Kit notebooks, specify the `nvcr.io/nvidia/merlin/merlin-tensorflow-training:22.05` container.
+   > To run the  Sparse Operation Kit notebooks, specify the `nvcr.io/nvidia/merlin/merlin-tensorflow-training:22.06` container.
 
 2. Start Jupyter using these commands: 
 
