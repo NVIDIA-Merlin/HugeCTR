@@ -37,7 +37,7 @@ class GlobalEmbeddingData {
   Tensor d_combiner_list_;
 
   GlobalEmbeddingData() = default;
-  
+
   GlobalEmbeddingData(std::shared_ptr<CoreResourceManager> core,
                       const EmbeddingCollectionParam &params)
       : core_(core), num_embedding_(params.num_embedding), h_ev_size_offset_{0} {
@@ -98,8 +98,9 @@ class LocalEmbeddingData {
   Tensor d_local_ev_size_offset_;
   Tensor d_local_combiner_list_;
 
-  LocalEmbeddingData(std::shared_ptr<CoreResourceManager> core, const EmbeddingCollectionParam &params,
-                const EmbeddingShardingParam &sharding_param)
+  LocalEmbeddingData(std::shared_ptr<CoreResourceManager> core,
+                     const EmbeddingCollectionParam &params,
+                     const EmbeddingShardingParam &sharding_param)
       : core_(core),
         num_local_embedding_(sharding_param.local_embedding_list.size()),
         sharding_id_(sharding_param.sharding_id),

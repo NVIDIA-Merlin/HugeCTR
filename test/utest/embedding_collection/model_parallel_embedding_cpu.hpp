@@ -153,7 +153,7 @@ class ModelParallelEmbeddingCPU {
 
  public:
   ModelParallelEmbeddingCPU(int num_gpus, int num_table, const EmbeddingCollectionParam &ebc_param,
-                         const std::vector<EmbeddingShardingParam> &sharding_param_list)
+                            const std::vector<EmbeddingShardingParam> &sharding_param_list)
       : num_gpus_(num_gpus),
         num_embedding_(ebc_param.num_embedding),
         num_table_(num_table),
@@ -195,7 +195,8 @@ class ModelParallelEmbeddingCPU {
     mp_model_offset_list_.resize(num_gpus);
     mp_model_dst_list_.resize(num_gpus);
     for (int gpu_id = 0; gpu_id < num_gpus_; ++gpu_id) {
-      model_buffer_list_.emplace_back(num_gpus, ebc_param.universal_batch_size, local_ev_size_list_[gpu_id]);
+      model_buffer_list_.emplace_back(num_gpus, ebc_param.universal_batch_size,
+                                      local_ev_size_list_[gpu_id]);
     }
 
     network_idx_list_.resize(num_gpus);
@@ -206,13 +207,13 @@ class ModelParallelEmbeddingCPU {
                                         ev_size_list_);
     }
 
-    unique_key_list_.resize(num_gpus);   
-    sorted_bucket_id_list_.resize(num_gpus);   
-    sorted_bucket_id_offset_list_.resize(num_gpus);   
+    unique_key_list_.resize(num_gpus);
+    sorted_bucket_id_list_.resize(num_gpus);
+    sorted_bucket_id_offset_list_.resize(num_gpus);
     num_unique_key_scan_list_.resize(num_gpus);
     for (int gpu_id = 0; gpu_id < num_gpus; ++gpu_id) {
       grad_.emplace_back(ebc_param.universal_batch_size, local_id_space_list_[gpu_id],
-                                        local_ev_size_list_[gpu_id], local_hotness_list_[gpu_id]);
+                         local_ev_size_list_[gpu_id], local_hotness_list_[gpu_id]);
     }
   }
 
@@ -263,16 +264,15 @@ class ModelParallelEmbeddingCPU {
                         mp_model_offset_list_[gpu_id].begin());
   }
 
-  void cpu_mp_model_forward_per_gpu(int gpu_id, const EmbeddingTableCPU<key_t, index_t> &emb_table_cpu, int batch_size) {
+  void cpu_mp_model_forward_per_gpu(int gpu_id,
+                                    const EmbeddingTableCPU<key_t, index_t> &emb_table_cpu,
+                                    int batch_size) {
     auto local_id_space_list = local_id_space_list_[gpu_id];
     auto local_embedding_list = local_embedding_list_[gpu_id];
-    
-    RaggedModelBufferViewCPU<emb_t> model_view{
-      &model_buffer_list_[gpu_id].data_,
-      &model_buffer_list_[gpu_id].local_ev_offset_list_,
-      num_gpus_,
-      batch_size
-    };
+
+    RaggedModelBufferViewCPU<emb_t> model_view{&model_buffer_list_[gpu_id].data_,
+                                               &model_buffer_list_[gpu_id].local_ev_offset_list_,
+                                               num_gpus_, batch_size};
     assert(num_gpus_ == model_buffer_list_[gpu_id].num_gpus_);
     assert(batch_size == model_buffer_list_[gpu_id].batch_size_);
 
@@ -286,13 +286,14 @@ class ModelParallelEmbeddingCPU {
       ArrayView<emb_t> dst_ev = model_view[dst_bucket_id];
       std::vector<float> accumulate_vec;
       accumulate_vec.assign(dst_ev.size(), 0.f);
-      
+
       uint32_t start = mp_model_offset_list_[gpu_id][bucket_id];
       uint32_t end = mp_model_offset_list_[gpu_id][bucket_id + 1];
 
       for (uint32_t r = 0; r < (end - start); ++r) {
         key_t k = mp_model_key_list_[gpu_id][start + r];
-        ASSERT_TRUE(emb_table_cpu.emb_table_list_[id_space].find(k) != emb_table_cpu.emb_table_list_[id_space].end());
+        ASSERT_TRUE(emb_table_cpu.emb_table_list_[id_space].find(k) !=
+                    emb_table_cpu.emb_table_list_[id_space].end());
         auto ev = emb_table_cpu.emb_table_list_[id_space].at(k);
         assert(ev.size() == accumulate_vec.size());
 
@@ -386,12 +387,10 @@ class ModelParallelEmbeddingCPU {
     assert(batch_size_per_gpu == network_buffer_list_[gpu_id].batch_size_per_gpu_);
 
     RaggedNetworkBufferViewCPU<emb_t> network_view{
-        &network_buffer_list_[gpu_id].data_,
-        &network_buffer_list_[gpu_id].gpu_idx_offset_,
-        &network_buffer_list_[gpu_id].global_ev_offset_,
-        network_buffer_list_[gpu_id].num_gpus_,
+        &network_buffer_list_[gpu_id].data_, &network_buffer_list_[gpu_id].gpu_idx_offset_,
+        &network_buffer_list_[gpu_id].global_ev_offset_, network_buffer_list_[gpu_id].num_gpus_,
         network_buffer_list_[gpu_id].batch_size_};
-    
+
     RaggedEmbForwardResultViewCPU<emb_t> result_view{&embedding_vec[gpu_id], &ev_size_list_,
                                                      &ev_offset_list_, batch_size_per_gpu};
 
@@ -399,7 +398,7 @@ class ModelParallelEmbeddingCPU {
       int start = network_offset_list_[gpu_id][idx];
       int end = network_offset_list_[gpu_id][idx + 1];
       int dst_idx = network_dst_list_[gpu_id][idx];
-      int dst_embeding_id= dst_idx / batch_size_per_gpu;
+      int dst_embeding_id = dst_idx / batch_size_per_gpu;
       int dst_batch_id = dst_idx % batch_size_per_gpu;
       int combiner = combiner_list_[dst_embeding_id];
       ArrayView<emb_t> dst_tensor = result_view[dst_idx];
@@ -417,10 +416,10 @@ class ModelParallelEmbeddingCPU {
       }
 
       int dst_bucket_id = batch_size * dst_embeding_id + batch_size_per_gpu * gpu_id + dst_batch_id;
-      int num_key_in_bucket = bucket_range[dst_bucket_id + 1] -  bucket_range[dst_bucket_id];
+      int num_key_in_bucket = bucket_range[dst_bucket_id + 1] - bucket_range[dst_bucket_id];
       if (combiner == static_cast<char>(Combiner::Average) && num_key_in_bucket > 0) {
         for (int i = 0; i < dst_tensor.size(); ++i) {
-         accumulate_vec[i] /= num_key_in_bucket;
+          accumulate_vec[i] /= num_key_in_bucket;
         }
       }
 
@@ -442,10 +441,8 @@ class ModelParallelEmbeddingCPU {
         batch_size_per_gpu};
 
     RaggedNetworkBufferViewCPU<emb_t> network_view{
-        &network_buffer_list_[gpu_id].data_,
-        &network_buffer_list_[gpu_id].gpu_idx_offset_,
-        &network_buffer_list_[gpu_id].global_ev_offset_,
-        network_buffer_list_[gpu_id].num_gpus_,
+        &network_buffer_list_[gpu_id].data_, &network_buffer_list_[gpu_id].gpu_idx_offset_,
+        &network_buffer_list_[gpu_id].global_ev_offset_, network_buffer_list_[gpu_id].num_gpus_,
         network_buffer_list_[gpu_id].batch_size_};
 
     for (int idx = 0; idx < static_cast<int>(network_offset_list_[gpu_id].size()) - 1; ++idx) {
@@ -480,10 +477,12 @@ class ModelParallelEmbeddingCPU {
     std::vector<std::unordered_map<key_t, std::vector<uint32_t>>> tmp_backward_info;
     tmp_backward_info.resize(unique_id_space_list.size());
     // std::cout << "collecting backward:\n";
-    for (size_t local_embedding_id = 0; local_embedding_id < local_embedding_list_[gpu_id].size(); ++local_embedding_id) {
+    for (size_t local_embedding_id = 0; local_embedding_id < local_embedding_list_[gpu_id].size();
+         ++local_embedding_id) {
       int id_space = local_id_space_list[local_embedding_id];
-      auto find_unique_id_space = std::find(unique_id_space_list.begin(), unique_id_space_list.end(), id_space);
-      ASSERT_TRUE(find_unique_id_space !=  unique_id_space_list.end());
+      auto find_unique_id_space =
+          std::find(unique_id_space_list.begin(), unique_id_space_list.end(), id_space);
+      ASSERT_TRUE(find_unique_id_space != unique_id_space_list.end());
       int unique_id_space_idx = find_unique_id_space - unique_id_space_list.begin();
 
       // std::cout << "id_space:" << id_space << "\n";
@@ -510,30 +509,32 @@ class ModelParallelEmbeddingCPU {
     //   std::cout << "\n";
     // }
 
-    for (auto &backward_info_in_one_id_space: tmp_backward_info) {
+    for (auto &backward_info_in_one_id_space : tmp_backward_info) {
       for (auto &p : backward_info_in_one_id_space) {
         unique_key_list_[gpu_id].push_back(p.first);
-        sorted_bucket_id_list_[gpu_id].insert(sorted_bucket_id_list_[gpu_id].end(), p.second.begin(), p.second.end());
+        sorted_bucket_id_list_[gpu_id].insert(sorted_bucket_id_list_[gpu_id].end(),
+                                              p.second.begin(), p.second.end());
         sorted_bucket_id_offset_list_[gpu_id].push_back(p.second.size());
       }
       num_unique_key_scan_list_[gpu_id].push_back(backward_info_in_one_id_space.size());
     }
-    std::partial_sum(num_unique_key_scan_list_[gpu_id].begin(), num_unique_key_scan_list_[gpu_id].end(), num_unique_key_scan_list_[gpu_id].begin());
-    std::partial_sum(sorted_bucket_id_offset_list_[gpu_id].begin(), sorted_bucket_id_offset_list_[gpu_id].end(), sorted_bucket_id_offset_list_[gpu_id].begin());
+    std::partial_sum(num_unique_key_scan_list_[gpu_id].begin(),
+                     num_unique_key_scan_list_[gpu_id].end(),
+                     num_unique_key_scan_list_[gpu_id].begin());
+    std::partial_sum(sorted_bucket_id_offset_list_[gpu_id].begin(),
+                     sorted_bucket_id_offset_list_[gpu_id].end(),
+                     sorted_bucket_id_offset_list_[gpu_id].begin());
   }
 
   void cpu_mp_model_backward_per_gpu(
       int gpu_id, int batch_size,
       std::vector<std::unordered_map<key_t, std::vector<float>>> &grad_info) {
-    RaggedModelBufferViewCPU<emb_t> model_view{
-      &model_buffer_list_[gpu_id].data_,
-      &model_buffer_list_[gpu_id].local_ev_offset_list_,
-      num_gpus_,
-      batch_size
-    };
+    RaggedModelBufferViewCPU<emb_t> model_view{&model_buffer_list_[gpu_id].data_,
+                                               &model_buffer_list_[gpu_id].local_ev_offset_list_,
+                                               num_gpus_, batch_size};
     assert(num_gpus_ == model_buffer_list_[gpu_id].num_gpus_);
     assert(batch_size == model_buffer_list_[gpu_id].batch_size_);
-    
+
     // std::cout << "gpu_id:" << gpu_id << ",cpu_mp_model_backward_per_gpu model_view:\n";
     // for (auto &j : model_buffer_list_[gpu_id].data_) {
     //   for(emb_t i: j) {
@@ -553,11 +554,7 @@ class ModelParallelEmbeddingCPU {
     std::partial_sum(ev_size_scan_list.begin(), ev_size_scan_list.end(), ev_size_scan_list.begin());
     assert(grad_[gpu_id].grad_.size() >= ev_size_scan_list.back());
 
-    RaggedGradBufferViewCPU<float> grad_view{
-      &ev_size_scan_list,
-      &grad_[gpu_id].grad_
-    };
-
+    RaggedGradBufferViewCPU<float> grad_view{&ev_size_scan_list, &grad_[gpu_id].grad_};
 
     for (int idx = 0; idx < num_unique_key_scan_list_[gpu_id].back(); ++idx) {
       int start = sorted_bucket_id_offset_list_[gpu_id][idx];
@@ -622,7 +619,8 @@ class ModelParallelEmbeddingCPU {
     }
     all2all(model_buffer_ptr, network_buffer_ptr);
     for (int gpu_id = 0; gpu_id < num_gpus_; ++gpu_id) {
-      cpu_mp_network_forward_per_gpu(gpu_id, batch_size, flatten_concat_bucket_range, embedding_vec);
+      cpu_mp_network_forward_per_gpu(gpu_id, batch_size, flatten_concat_bucket_range,
+                                     embedding_vec);
     }
   }
 

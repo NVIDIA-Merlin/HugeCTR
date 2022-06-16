@@ -92,7 +92,6 @@ class ArrayView {
   HOST_DEVICE_INLINE size_type &size() { return len_; }
 };
 
-
 template <typename T, typename index_t, typename Lambda>
 class LambdaIterator {
  public:
@@ -128,7 +127,8 @@ class RaggedLookupResultView {
 
  public:
   HOST_DEVICE_INLINE
-  RaggedLookupResultView(void *data, const uint32_t *offset, int num_offset, const int *local_ev_size_list, int batch_size_per_gpu)
+  RaggedLookupResultView(void *data, const uint32_t *offset, int num_offset,
+                         const int *local_ev_size_list, int batch_size_per_gpu)
       : data_(static_cast<pointer>(data)),
         offset_(offset),
         num_offset_(num_offset),
@@ -174,7 +174,6 @@ class RaggedEmbForwardResultView {
   }
 };
 
-
 template <typename emb_t, template <typename U> class PtrTraits = DefaultPtrTraits,
           typename index_t = int64_t>
 class RaggedModelBufferView {
@@ -186,7 +185,7 @@ class RaggedModelBufferView {
   using pointer = typename PtrTraits<emb_t *>::pointer;
   pointer data_;
   const int *local_ev_offset_list_;
-  
+
   int num_gpus_;
   int batch_size_;
   int batch_size_per_gpu_;
@@ -205,8 +204,7 @@ class RaggedModelBufferView {
     int batch_id = idx % batch_size_;
     int gpu_id = batch_id / batch_size_per_gpu_;
     int local_batch_id = batch_id % batch_size_per_gpu_;
-    int ev_size =
-        local_ev_offset_list_[embedding_id + 1] - local_ev_offset_list_[embedding_id];
+    int ev_size = local_ev_offset_list_[embedding_id + 1] - local_ev_offset_list_[embedding_id];
     int start =
         batch_size_per_gpu_ * local_ev_offset_list_[embedding_id] + local_batch_id * ev_size;
 
@@ -226,14 +224,15 @@ class RaggedNetworkBufferView {
   pointer data_;
   const int *gpu_idx_offset_;
   const int **global_ev_offset_;
-  
+
   int num_gpus_;
   int batch_size_;
   int batch_size_per_gpu_;
 
  public:
   HOST_DEVICE_INLINE
-  RaggedNetworkBufferView(void *data, const int *gpu_idx_offset, const int **global_ev_offset, int num_gpus, int batch_size)
+  RaggedNetworkBufferView(void *data, const int *gpu_idx_offset, const int **global_ev_offset,
+                          int num_gpus, int batch_size)
       : data_(static_cast<pointer>(data)),
         gpu_idx_offset_(gpu_idx_offset),
         global_ev_offset_(global_ev_offset),
@@ -242,14 +241,15 @@ class RaggedNetworkBufferView {
         batch_size_per_gpu_(batch_size / num_gpus) {}
 
   DEVICE_INLINE value_type operator[](size_type idx) {
-    int gpu_id = 
+    int gpu_id =
         binary_search_index_lower_bound(gpu_idx_offset_, num_gpus_ + 1, static_cast<int>(idx));
     int local_bucket_id = idx - gpu_idx_offset_[gpu_id];
     int local_embedding_id = local_bucket_id / batch_size_per_gpu_;
     int local_batch_id = local_bucket_id % batch_size_per_gpu_;
     int ev_size = global_ev_offset_[gpu_id][local_embedding_id + 1] -
                   global_ev_offset_[gpu_id][local_embedding_id];
-    int start = global_ev_offset_[gpu_id][local_embedding_id] * batch_size_per_gpu_ + local_batch_id * ev_size;
+    int start = global_ev_offset_[gpu_id][local_embedding_id] * batch_size_per_gpu_ +
+                local_batch_id * ev_size;
     return ArrayView<emb_t, PtrTraits, index_t>{data_[gpu_id] + start, ev_size};
   }
 };
@@ -268,8 +268,7 @@ class RaggedGradBufferView {
 
  public:
   HOST_DEVICE_INLINE RaggedGradBufferView(void *data, const uint32_t *ev_size_scan_list)
-      : data_(static_cast<pointer>(data)),
-        ev_size_scan_list_(ev_size_scan_list) {}
+      : data_(static_cast<pointer>(data)), ev_size_scan_list_(ev_size_scan_list) {}
 
   DEVICE_INLINE value_type operator[](size_type idx) {
     int ev_size = ev_size_scan_list_[idx + 1] - ev_size_scan_list_[idx];

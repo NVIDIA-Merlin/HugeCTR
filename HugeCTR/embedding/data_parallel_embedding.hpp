@@ -58,7 +58,7 @@ class UniformDPEmbeddingBackward : public IEmbeddingBackward {
  public:
   UniformDPEmbeddingBackward(std::shared_ptr<CoreResourceManager> core,
                              const EmbeddingCollectionParam &params,
-                            const GlobalEmbeddingData &global_embedding_data,
+                             const GlobalEmbeddingData &global_embedding_data,
                              const EmbeddingShardingParam &embedding_sharding_param);
 
   void backward_per_gpu(ContextContainer *context_container, const Tensor &top_grad,

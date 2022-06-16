@@ -32,9 +32,10 @@
 #include <thread>
 #include <utility>
 #include <utils.hpp>
-#include "embedding_collection.hpp"
+
 #include "HugeCTR/embedding/embedding.hpp"
 #include "HugeCTR/embedding_storage/embedding_table.hpp"
+#include "embedding_collection.hpp"
 
 namespace HugeCTR {
 
@@ -350,8 +351,8 @@ class Model {
 
   virtual void add(DenseLayer& dense_layer);
 
-  virtual void add(const EmbeddingCollectionPlaceHolder &embedding_collection);
-  
+  virtual void add(const EmbeddingCollectionPlaceHolder& embedding_collection);
+
   virtual void add_internal(DenseLayer& dense_layer);
 
   void add(GroupDenseLayer& group_dense_layer);
@@ -416,8 +417,8 @@ class Model {
       network->set_learning_rate(lr_dense);
     }
     if (solver_.use_embedding_collection) {
-      for (auto &table_list : table_major_ebc_table_list_) {
-        for (auto &t: table_list) {
+      for (auto& table_list : table_major_ebc_table_list_) {
+        for (auto& t : table_list) {
           t->set_learning_rate(lr);
         }
       }
@@ -552,7 +553,7 @@ class Model {
   std::vector<std::string> layer_info_;                 /**< type of each layer. */
   std::vector<std::shared_ptr<Network>> networks_;      /**< networks (dense) used in training. */
   std::vector<std::shared_ptr<IEmbedding>> embeddings_; /**< embedding */
-  
+
   std::map<std::string, int> hotness_map_;
   std::vector<std::unique_ptr<embedding::IEmbeddingCollectionForward>> ebc_forward_list_;
   std::vector<std::unique_ptr<embedding::IEmbeddingCollectionForward>> eval_ebc_forward_list_;

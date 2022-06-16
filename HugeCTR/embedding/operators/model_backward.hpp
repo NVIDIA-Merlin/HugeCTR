@@ -25,7 +25,7 @@ class ModelBackward {
   int num_local_embedding_;
 
   Tensor grad_ev_;
-  
+
  public:
   ModelBackward() = default;
 
@@ -34,8 +34,9 @@ class ModelBackward {
                 const std::vector<int> &h_local_ev_size_list, int universal_batch_size);
 
   void compute(const TensorList &model_comm_buffer, const Tensor &unique_key_ev_size_offset,
-                 const Tensor &unique_key_bucket_idx, const Tensor &unique_key_bucket_idx_offset,
-                 size_t num_unique_key, const Tensor &d_local_ev_size_offset, int batch_size, Tensor *grad_ev);
+               const Tensor &unique_key_bucket_idx, const Tensor &unique_key_bucket_idx_offset,
+               size_t num_unique_key, const Tensor &d_local_ev_size_offset, int batch_size,
+               Tensor *grad_ev);
 };
 
 class DPLocalReduce {
@@ -43,7 +44,7 @@ class DPLocalReduce {
   int num_gpus_;
   int num_local_embedding_;
   int max_ev_size_;
-  
+
   Tensor grad_ev_;
 
  public:
@@ -54,8 +55,9 @@ class DPLocalReduce {
                 const std::vector<int> &h_local_ev_size_list, int universal_batch_size);
 
   void compute(const Tensor &top_grad, const Tensor &unique_dst_idx,
-                 const Tensor &sorted_bucket_id_list, const Tensor &sorted_bucket_id_offset,
-                 size_t num_unique_key, const Tensor &d_ev_size_offset, int batch_size, Tensor *grad_ev);
+               const Tensor &sorted_bucket_id_list, const Tensor &sorted_bucket_id_offset,
+               size_t num_unique_key, const Tensor &d_ev_size_offset, int batch_size,
+               Tensor *grad_ev);
 };
 
 }  // namespace embedding

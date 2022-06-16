@@ -166,7 +166,8 @@ __global__ void extract_unique_key_and_dst_offset_kernel(
 
 template <typename key_t, int kWarpPerBlock, int kWarpSize = 32>
 __global__ void scan_id_space_offset(const key_t* hash_keys, const uint32_t* hash_offset,
-                                     int num_unique_id_space, uint32_t* unique_id_space_offset, uint32_t *temp_id_space_value) {
+                                     int num_unique_id_space, uint32_t* unique_id_space_offset,
+                                     uint32_t* temp_id_space_value) {
   int warp_id = threadIdx.y;
   int lane_id = threadIdx.x;
 
@@ -196,7 +197,7 @@ __global__ void scan_id_space_offset(const key_t* hash_keys, const uint32_t* has
     }
     for (int i = 0; i < num_unique_id_space + 1; ++i) {
       unique_id_space_offset[i] = prefix_sum;
-      
+
       prefix_sum += static_cast<uint32_t>(s_id_space_offset[i]);
     }
   }
@@ -375,7 +376,7 @@ ModelBackwardIndexCalculation::ModelBackwardIndexCalculation(
     d_temp_scan_encode_storage_ = buffer_ptr->reserve({temp_bytes}, device, TensorScalarType::Void);
   }
   d_temp_id_space_count_ = buffer_ptr->reserve({h_unique_id_space_ev_size_list.size()},
-                                                      DeviceType::GPU, TensorScalarType::UInt32);
+                                               DeviceType::GPU, TensorScalarType::UInt32);
   buffer_ptr->allocate();
   unique_id_space_list_.copy_from(h_unique_id_space_list);
   unique_id_space_ev_size_list_.copy_from(h_unique_id_space_ev_size_list);
@@ -480,7 +481,6 @@ void ModelBackwardIndexCalculation::compute(
             hash_keys_.get<key_t>(), hash_offset_.get<uint32_t>(), num_unique_id_space,
             unique_id_space_offset_.get<uint32_t>(), d_temp_id_space_count_.get<uint32_t>());
 
-        
         HCTR_LIB_THROW(cudaPeekAtLastError());
       }
       {

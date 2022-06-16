@@ -27,7 +27,6 @@
 #include "data_parallel_embedding_cpu.hpp"
 using namespace embedding;
 
-
 template <typename key_t, typename offset_t, typename index_t, typename emb_t>
 class EmbeddingReferenceCPU {
  public:
@@ -181,7 +180,5 @@ class EmbeddingReferenceCPU {
     }
   }
 
-  void embedding_update_cpu() {
-    emb_table_cpu_.update(accumulate_grad_map_);
-  }
+  void embedding_update_cpu() { emb_table_cpu_.update(accumulate_grad_map_); }
 };

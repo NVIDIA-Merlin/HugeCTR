@@ -17,16 +17,15 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "HugeCTR/core/hctr_impl/hctr_backend.hpp"
 #include "HugeCTR/embedding_storage/ragged_static_embedding.hpp"
 #include "HugeCTR/include/resource_managers/resource_manager_ext.hpp"
-#include "HugeCTR/core/hctr_impl/hctr_backend.hpp"
 
 using namespace embedding;
 using HugeCTR::TensorScalarTypeFunc;
 
 template <typename key_t, typename index_t>
 void test_ragged_static_embedding_table(int device_id) {
-
   std::vector<int> device_list{device_id};
   auto resource_manager = HugeCTR::ResourceManagerExt::create({device_list}, 0);
   auto core = std::make_shared<hctr_internal::HCTRCoreResourceManager>(resource_manager, 0);
@@ -70,8 +69,10 @@ void test_ragged_static_embedding_table(int device_id) {
   ebc_param.key_type = key_type;
   ebc_param.index_type = index_type;
 
-  auto ragged_static_embedding_table = std::make_shared<RaggedStaticEmbeddingTable>(*resource_manager->get_local_gpu(0), core, param_list, ebc_param, sharding_param, param_list[0].opt_param);
-  
+  auto ragged_static_embedding_table = std::make_shared<RaggedStaticEmbeddingTable>(
+      *resource_manager->get_local_gpu(0), core, param_list, ebc_param, sharding_param,
+      param_list[0].opt_param);
+
   Device device{DeviceType::GPU, core->get_device_id()};
   std::vector<key_t> cpu_searched_key{504663, 2, 0, 2, 0, 2, 10, 12};
   std::vector<uint32_t> cpu_searched_id_space_offset{0, 2, 4, 6, 8};
@@ -80,30 +81,35 @@ void test_ragged_static_embedding_table(int device_id) {
 
   auto buffer_ptr = GetBuffer(core);
   auto searched_keys = buffer_ptr->reserve(cpu_searched_key.size(), device, key_type);
-  auto searched_id_space_offset = buffer_ptr->reserve(cpu_searched_id_space_offset.size(), device, TensorScalarType::UInt32);
-  auto searched_id_space_list = buffer_ptr->reserve(cpu_searched_id_space_list.size(), device, TensorScalarType::Int32);
+  auto searched_id_space_offset =
+      buffer_ptr->reserve(cpu_searched_id_space_offset.size(), device, TensorScalarType::UInt32);
+  auto searched_id_space_list =
+      buffer_ptr->reserve(cpu_searched_id_space_list.size(), device, TensorScalarType::Int32);
   buffer_ptr->allocate();
 
   searched_keys.copy_from(cpu_searched_key);
   searched_id_space_offset.copy_from(cpu_searched_id_space_offset);
   searched_id_space_list.copy_from(cpu_searched_id_space_list);
 
-  ragged_static_embedding_table->lookup(searched_keys, searched_keys.get_num_elements(), searched_id_space_offset, searched_id_space_offset.get_num_elements(), searched_id_space_list, emb_vec);
+  ragged_static_embedding_table->lookup(
+      searched_keys, searched_keys.get_num_elements(), searched_id_space_offset,
+      searched_id_space_offset.get_num_elements(), searched_id_space_list, emb_vec);
   {
     HCTR_LIB_THROW(cudaStreamSynchronize(core->get_local_gpu()->get_stream()));
 
     float** cpu_emb_vec = new float*[cpu_searched_key.size()];
 
-    HCTR_LIB_THROW(cudaMemcpy(cpu_emb_vec, emb_vec.get<float>(), cpu_searched_key.size() * sizeof(void*), cudaMemcpyDeviceToHost));
+    HCTR_LIB_THROW(cudaMemcpy(cpu_emb_vec, emb_vec.get<float>(),
+                              cpu_searched_key.size() * sizeof(void*), cudaMemcpyDeviceToHost));
 
-    for(size_t idx = 0; idx < cpu_searched_id_space_offset.size() - 1; ++idx) {
+    for (size_t idx = 0; idx < cpu_searched_id_space_offset.size() - 1; ++idx) {
       uint32_t start = cpu_searched_id_space_offset[idx];
       uint32_t end = cpu_searched_id_space_offset[idx + 1];
       int id_space = cpu_searched_id_space_list[idx];
       int ev_size = ev_size_list[id_space];
 
       for (uint32_t i = start; i < end; ++i) {
-        float *ev = new float[ev_size];
+        float* ev = new float[ev_size];
         cudaMemcpy(ev, cpu_emb_vec[i], ev_size * sizeof(float), cudaMemcpyDeviceToHost);
         std::cout << "key:" << cpu_searched_key[i] << ", ev:";
         for (int t = 0; t < ev_size; ++t) {
@@ -113,9 +119,8 @@ void test_ragged_static_embedding_table(int device_id) {
       }
     }
   }
-  
 }
 
 TEST(ragged_static_embedding_table, ragged_static_embedding_table) {
-  test_ragged_static_embedding_table<int32_t, uint32_t>(0);  
+  test_ragged_static_embedding_table<int32_t, uint32_t>(0);
 }

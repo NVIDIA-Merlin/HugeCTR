@@ -14,12 +14,13 @@
  * limitations under the License.
  */
 
+#include "HugeCTR/core/tensor.hpp"
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include "HugeCTR/include/resource_managers/resource_manager_ext.hpp"
-#include "HugeCTR/core/tensor.hpp"
 #include "HugeCTR/core/hctr_impl/hctr_backend.hpp"
+#include "HugeCTR/include/resource_managers/resource_manager_ext.hpp"
 namespace {
 using namespace core;
 
@@ -51,7 +52,7 @@ TEST(test_core, tensor) {
 TEST(test_core, cpu_copy) {
   auto resource_manager = HugeCTR::ResourceManagerExt::create({{0}}, 0);
   auto core = std::make_shared<hctr_internal::HCTRCoreResourceManager>(resource_manager, 0);
- 
+
   Tensor cpu_t_1;
   {
     BufferPtr buffer_ptr = GetBuffer(core);
@@ -67,7 +68,7 @@ TEST(test_core, cpu_copy) {
 TEST(test_core, gpu_copy) {
   auto resource_manager = HugeCTR::ResourceManagerExt::create({{0}}, 0);
   auto core = std::make_shared<hctr_internal::HCTRCoreResourceManager>(resource_manager, 0);
- 
+
   Tensor cpu_t_1;
   {
     BufferPtr buffer_ptr = GetBuffer(core);
@@ -83,7 +84,7 @@ TEST(test_core, gpu_copy) {
 TEST(test_core, buffer_block) {
   auto resource_manager = HugeCTR::ResourceManagerExt::create({{0}}, 0);
   auto core = std::make_shared<hctr_internal::HCTRCoreResourceManager>(resource_manager, 0);
- 
+
   BufferBlockPtr buffer_block_ptr = GetBufferBlock(core, DeviceType::CPU);
   Tensor char_t = buffer_block_ptr->reserve({1}, TensorScalarType::Char);
   Tensor float_t = buffer_block_ptr->reserve({1}, TensorScalarType::Float32);
@@ -112,7 +113,7 @@ TEST(test_core, buffer_block) {
 TEST(test_core, tensor_list) {
   auto resource_manager = HugeCTR::ResourceManagerExt::create({{0}}, 0);
   auto core = std::make_shared<hctr_internal::HCTRCoreResourceManager>(resource_manager, 0);
- 
+
   std::vector<std::vector<Tensor>> tensors;
 
   auto buffer_ptr = GetBuffer(core);
@@ -126,7 +127,6 @@ TEST(test_core, tensor_list) {
   }
   buffer_ptr->allocate();
 
-  
   std::vector<TensorList> tensor_list;
   for (int i = 0; i < 2; ++i) {
     Device device{DeviceType::GPU, i};
@@ -137,14 +137,17 @@ TEST(test_core, tensor_list) {
 TEST(test_core, native_hugectr_tensor) {
   auto resource_manager = HugeCTR::ResourceManagerExt::create({{0}}, 0);
   auto core = std::make_shared<hctr_internal::HCTRCoreResourceManager>(resource_manager, 0);
- 
+
   auto native_hctr_buffer = HugeCTR::GeneralBuffer2<HugeCTR::CudaAllocator>::create();
   HugeCTR::Tensor2<float> native_t;
   native_hctr_buffer->reserve({10}, &native_t);
   native_hctr_buffer->allocate();
 
-  Storage storage = std::make_shared<hctr_internal::NativeHCTRStorageWrapper>(native_t.get_ptr(), native_t.get_size_in_bytes());
-  std::shared_ptr<TensorImpl> t_impl = std::make_shared<TensorImpl>(storage, 0, native_t.get_dimensions(), DeviceType::GPU, HugeCTR::TensorScalarTypeFunc<float>::get_type());
+  Storage storage = std::make_shared<hctr_internal::NativeHCTRStorageWrapper>(
+      native_t.get_ptr(), native_t.get_size_in_bytes());
+  std::shared_ptr<TensorImpl> t_impl =
+      std::make_shared<TensorImpl>(storage, 0, native_t.get_dimensions(), DeviceType::GPU,
+                                   HugeCTR::TensorScalarTypeFunc<float>::get_type());
   Tensor t{t_impl};
 }
 }  // namespace

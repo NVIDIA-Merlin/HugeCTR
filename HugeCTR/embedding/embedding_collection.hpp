@@ -60,7 +60,8 @@ class ProcessOutput {
   ProcessOutput(std::shared_ptr<CoreResourceManager> core,
                 const EmbeddingCollectionParam &ebc_param);
 
-  void compute(const Tensor &flatten_combiner_list, const Tensor &flatten_ev_size_list, const Tensor &flatten_ev_offset_list, Tensor &output_buffer, int batch_size);
+  void compute(const Tensor &flatten_combiner_list, const Tensor &flatten_ev_size_list,
+               const Tensor &flatten_ev_offset_list, Tensor &output_buffer, int batch_size);
 };
 
 class ProcessOutputBackward {
@@ -78,9 +79,11 @@ class ProcessOutputBackward {
   ProcessOutputBackward() = default;
 
   ProcessOutputBackward(std::shared_ptr<CoreResourceManager> core,
-                const EmbeddingCollectionParam &ebc_param);
+                        const EmbeddingCollectionParam &ebc_param);
 
-  void compute(const Tensor &flatten_combiner_list, const Tensor &flatten_ev_size_list, const Tensor &flatten_ev_offset_list, Tensor &output_buffer, int batch_size_per_gpu, Tensor *t_output_buffer);
+  void compute(const Tensor &flatten_combiner_list, const Tensor &flatten_ev_size_list,
+               const Tensor &flatten_ev_offset_list, Tensor &output_buffer, int batch_size_per_gpu,
+               Tensor *t_output_buffer);
 };
 
 class EmbeddingCollectionForward : public IEmbeddingCollectionForward {
@@ -106,14 +109,14 @@ class EmbeddingCollectionBackward : public IEmbeddingCollectionBackward {
   std::vector<std::unique_ptr<IEmbeddingBackward>> embeddings_;
   ProcessOutputBackward process_output_;
   bool is_utest_;
-  
+
  public:
   EmbeddingCollectionBackward(std::shared_ptr<CoreResourceManager> core,
                               const EmbeddingCollectionParam &embedding_collection_param,
                               const std::vector<EmbeddingShardingParam> &embedding_sharding_params);
 
-  void backward_per_gpu(std::vector<ContextContainer *> &context_container_list,
-                        Tensor &top_grad, std::vector<Tensor> *unique_key_list,
+  void backward_per_gpu(std::vector<ContextContainer *> &context_container_list, Tensor &top_grad,
+                        std::vector<Tensor> *unique_key_list,
                         std::vector<size_t> *num_unique_key_list,
                         std::vector<Tensor> *unique_id_space_offset_list,
                         std::vector<size_t> *num_unique_id_space_offset_list,

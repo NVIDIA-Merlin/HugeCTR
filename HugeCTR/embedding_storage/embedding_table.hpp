@@ -15,9 +15,9 @@
  */
 #pragma once
 
-#include "common.hpp"
 #include "HugeCTR/embedding/embedding_table.hpp"
 #include "HugeCTR/include/resource_manager.hpp"
+#include "common.hpp"
 namespace embedding {
 
 // per gpu object
@@ -42,7 +42,7 @@ class IEmbeddingTable : public ILookup {
   virtual void clear() = 0;
 
   virtual void set_learning_rate(float lr) = 0;
-  
+
   // virtual void scatter_update(const Tensor &indices, const Tensor &grad_ev,
   //                             const Tensor &grad_ev_offset, const Tensor &src_idx,
   //                             HugeCTR::OptParams opt_params, bool has_duplicate_indices) {}
@@ -54,10 +54,9 @@ class IDynamicEmbeddingTable : public IEmbeddingTable {
 };
 
 std::vector<std::unique_ptr<IEmbeddingTable>> create_embedding_table(
-  std::shared_ptr<HugeCTR::ResourceManager> resource_manager,
-  std::vector<std::shared_ptr<CoreResourceManager>> core_list,
-  const EmbeddingCollectionParam &embedding_collection_param,
-  const std::vector<EmbeddingTableParam> &emb_table_param_list,
-  const std::vector<EmbeddingShardingParam> &emb_sharding_param_list
-);
+    std::shared_ptr<HugeCTR::ResourceManager> resource_manager,
+    std::vector<std::shared_ptr<CoreResourceManager>> core_list,
+    const EmbeddingCollectionParam &embedding_collection_param,
+    const std::vector<EmbeddingTableParam> &emb_table_param_list,
+    const std::vector<EmbeddingShardingParam> &emb_sharding_param_list);
 }  // namespace embedding

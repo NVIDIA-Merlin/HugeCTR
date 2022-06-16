@@ -88,6 +88,7 @@ class ModelBackwardIndexCalculation {
   Tensor d_temp_scan_encode_storage_;
 
   Tensor d_temp_id_space_count_;
+
  public:
   ModelBackwardIndexCalculation() = default;
 

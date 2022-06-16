@@ -260,7 +260,7 @@ void UniformLocalizedEmbeddingForward::forward_per_gpu(
   all2all_comm_.communicate(model_comm_buffer_list_, model_comm_buffer_size,
                             ragged_network_buffer_.network_comm_buffer_list_,
                             ragged_network_buffer_.network_comm_buffer_size_);
-  
+
   network_forward_.compute(
       bucket_range, global_embedding_data_.d_combiner_list_,
       ragged_network_buffer_.network_comm_buffer_, ragged_network_buffer_.gpu_idx_offset_,

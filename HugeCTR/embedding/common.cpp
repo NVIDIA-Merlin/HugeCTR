@@ -81,7 +81,6 @@ void flatten_concat_embedding(EmbeddingCollectionParam *_ebc_param,
   flatten_concat_embedding_offset.push_back(num_embedding_);
   if (num_embedding_ == ebc_param.num_embedding) return;
 
-
   for (size_t gpu_id = 0; gpu_id < ebs_param.size(); ++gpu_id) {
     for (size_t sharding_param_id = 0; sharding_param_id < ebs_param[gpu_id].size();
          ++sharding_param_id) {

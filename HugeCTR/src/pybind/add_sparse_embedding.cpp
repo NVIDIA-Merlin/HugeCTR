@@ -47,10 +47,15 @@ SparseEmbedding get_sparse_embedding_from_json(const nlohmann::json& j_sparse_em
 
   size_t embedding_vec_size = get_value_from_json<size_t>(j_hparam, "embedding_vec_size");
   if (embedding_vec_size == 0 || embedding_vec_size > 1024) {
-    HCTR_OWN_THROW(Error_t::WrongInput, "Embedding vector size(" + std::to_string(embedding_vec_size) +  ") is invalid. It cannot be zero nor exceed 1024.");
+    HCTR_OWN_THROW(Error_t::WrongInput, "Embedding vector size(" +
+                                            std::to_string(embedding_vec_size) +
+                                            ") is invalid. It cannot be zero nor exceed 1024.");
   }
   if (embedding_vec_size % 32 != 0) {
-    HCTR_LOG(WARNING, WORLD, "Embedding vector size(%zu) is not a multiple of 32, which may affect the GPU resource utilization.\n", embedding_vec_size);
+    HCTR_LOG(WARNING, WORLD,
+             "Embedding vector size(%zu) is not a multiple of 32, which may affect the GPU "
+             "resource utilization.\n",
+             embedding_vec_size);
   }
 
   auto combiner_str = get_value_from_json<std::string>(j_hparam, "combiner");

@@ -24,9 +24,10 @@
 #include <iterator>
 #include <pybind/model.hpp>
 #include <sstream>
-#include "HugeCTR/embedding/embedding_planner.hpp"
-#include "HugeCTR/embedding/embedding_collection.hpp"
+
 #include "HugeCTR/core/hctr_impl/hctr_backend.hpp"
+#include "HugeCTR/embedding/embedding_collection.hpp"
+#include "HugeCTR/embedding/embedding_planner.hpp"
 
 namespace HugeCTR {
 
@@ -591,10 +592,11 @@ void Model::add(Input& input) {
     bool is_fixed_length = true;
     int num_slot = 0;
     for (size_t i = 0; i < input.data_reader_sparse_param_array.size(); ++i) {
-      auto &p = input.data_reader_sparse_param_array[i];
+      auto& p = input.data_reader_sparse_param_array[i];
       top_name_list.push_back(p.top_name);
       if (p.slot_num != 1) {
-        HCTR_OWN_THROW(Error_t::WrongInput, "Use embedding collection: each sparse param should containe only 1 slot.");
+        HCTR_OWN_THROW(Error_t::WrongInput,
+                       "Use embedding collection: each sparse param should containe only 1 slot.");
       }
       nnz_per_slot.push_back(p.nnz_per_slot[0]);
       if (!p.is_fixed_length) is_fixed_length = false;
@@ -602,7 +604,8 @@ void Model::add(Input& input) {
       hotness_map_.insert({p.top_name, p.max_feature_num});
     }
     std::string concat_top_name = join(top_name_list, ",");
-    DataReaderSparseParam concat_data_reader_sparse_param{concat_top_name, nnz_per_slot, is_fixed_length, num_slot};
+    DataReaderSparseParam concat_data_reader_sparse_param{concat_top_name, nnz_per_slot,
+                                                          is_fixed_length, num_slot};
     input.data_reader_sparse_param_array = {concat_data_reader_sparse_param};
   }
   std::vector<std::string> sparse_names;
@@ -744,20 +747,23 @@ void Model::add(DenseLayer& dense_layer) {
   dense_layer_params_raw_.push_back(dense_layer);
 }
 
-
 namespace core_helper {
 
 template <typename T>
-core::Tensor convert_native_tensor_to_core_tensor(HugeCTR::Tensor2<T> native_tensor, core::Device device) {
-  core::Storage storage = std::make_shared<hctr_internal::NativeHCTRStorageWrapper>(native_tensor.get_ptr(), native_tensor.get_size_in_bytes());
+core::Tensor convert_native_tensor_to_core_tensor(HugeCTR::Tensor2<T> native_tensor,
+                                                  core::Device device) {
+  core::Storage storage = std::make_shared<hctr_internal::NativeHCTRStorageWrapper>(
+      native_tensor.get_ptr(), native_tensor.get_size_in_bytes());
 
-  auto t_impl = std::make_shared<core::TensorImpl>(storage, 0, native_tensor.get_dimensions(), device, HugeCTR::TensorScalarTypeFunc<T>::get_type());
+  auto t_impl =
+      std::make_shared<core::TensorImpl>(storage, 0, native_tensor.get_dimensions(), device,
+                                         HugeCTR::TensorScalarTypeFunc<T>::get_type());
   return core::Tensor(t_impl);
 }
 
-}
+}  // namespace core_helper
 
-void Model::add(const EmbeddingCollectionPlaceHolder &embedding_collection_place_holder) {
+void Model::add(const EmbeddingCollectionPlaceHolder& embedding_collection_place_holder) {
   int num_total_gpus = resource_manager_->get_global_gpu_count();
   int num_local_gpus = resource_manager_->get_local_gpu_count();
 
@@ -780,7 +786,7 @@ void Model::add(const EmbeddingCollectionPlaceHolder &embedding_collection_place
   }
 
   std::vector<std::string> bottom_name_list;
-  for(int embedding_id = 0; embedding_id < param.num_embedding; ++embedding_id) {
+  for (int embedding_id = 0; embedding_id < param.num_embedding; ++embedding_id) {
     auto embedding_param = embedding_collection_place_holder.param_[embedding_id];
     auto input_name = embedding_collection_place_holder.input_names_[embedding_id];
     auto output_name = embedding_collection_place_holder.output_names_[embedding_id];
@@ -792,32 +798,37 @@ void Model::add(const EmbeddingCollectionPlaceHolder &embedding_collection_place
 
   std::string bottom_name = join(bottom_name_list, ",");
   deactivate_tensor(tensor_active_, bottom_name);
-  
 
   embedding::EmbeddingPlanner embedding_planner(param);
-  embedding_planner.generate_embedding_plan_from_json_file(embedding_collection_place_holder.plan_file_);
-  
+  embedding_planner.generate_embedding_plan_from_json_file(
+      embedding_collection_place_holder.plan_file_);
+
   // TODO: make embedding collection support dynamic input size.
   embedding::EmbeddingCollectionParam eval_param = param;
   eval_param.universal_batch_size = solver_.batchsize_eval;
   embedding::EmbeddingPlanner eval_embedding_planner(eval_param);
-  eval_embedding_planner.generate_embedding_plan_from_json_file(embedding_collection_place_holder.plan_file_);
+  eval_embedding_planner.generate_embedding_plan_from_json_file(
+      embedding_collection_place_holder.plan_file_);
 
   std::vector<std::shared_ptr<core::CoreResourceManager>> core_list;
 
   for (int local_gpu_id = 0; local_gpu_id < num_local_gpus; ++local_gpu_id) {
-    auto core_resource_manager = std::make_shared<hctr_internal::HCTRCoreResourceManager>(resource_manager_, local_gpu_id);
+    auto core_resource_manager =
+        std::make_shared<hctr_internal::HCTRCoreResourceManager>(resource_manager_, local_gpu_id);
     core_list.push_back(core_resource_manager);
-    
-    ebc_forward_list_.push_back(std::move(embedding_planner.create_embedding_collection_forward(core_resource_manager)));
 
-    ebc_backward_list_.push_back(std::move(embedding_planner.create_embedding_collection_backward(core_resource_manager)));
+    ebc_forward_list_.push_back(
+        std::move(embedding_planner.create_embedding_collection_forward(core_resource_manager)));
 
-    eval_ebc_forward_list_.push_back(std::move(eval_embedding_planner.create_embedding_collection_forward(core_resource_manager)));
+    ebc_backward_list_.push_back(
+        std::move(embedding_planner.create_embedding_collection_backward(core_resource_manager)));
+
+    eval_ebc_forward_list_.push_back(std::move(
+        eval_embedding_planner.create_embedding_collection_forward(core_resource_manager)));
   }
 
   std::vector<embedding::EmbeddingTableParam> emb_table_params;
-  for (auto &p : embedding_collection_place_holder.emb_table_place_holder_) {
+  for (auto& p : embedding_collection_place_holder.emb_table_place_holder_) {
     embedding::EmbeddingTableParam et_param;
     et_param.id_space = p.param_.id_space;
     et_param.max_vocabulary_size = p.param_.max_vocabulary_size;
@@ -832,36 +843,43 @@ void Model::add(const EmbeddingCollectionPlaceHolder &embedding_collection_place
     emb_table_params.push_back(et_param);
   }
 
-
-  auto table_major_global_embedding_sharding_param_list = embedding_planner.get_table_major_global_embedding_sharding_param_list();
-  for (size_t table_id = 0; table_id < table_major_global_embedding_sharding_param_list.size(); ++table_id) {
-    table_major_ebc_table_list_.push_back(embedding::create_embedding_table(resource_manager_, core_list, param, emb_table_params, table_major_global_embedding_sharding_param_list[table_id]));
+  auto table_major_global_embedding_sharding_param_list =
+      embedding_planner.get_table_major_global_embedding_sharding_param_list();
+  for (size_t table_id = 0; table_id < table_major_global_embedding_sharding_param_list.size();
+       ++table_id) {
+    table_major_ebc_table_list_.push_back(embedding::create_embedding_table(
+        resource_manager_, core_list, param, emb_table_params,
+        table_major_global_embedding_sharding_param_list[table_id]));
   }
 
-
-  auto prepare_ebc_input = [&] (auto &sparse_input_map){
+  auto prepare_ebc_input = [&](auto& sparse_input_map) {
     auto train_sparse_tensors = sparse_input_map[bottom_name].train_sparse_tensors;
     auto evaluate_sparse_tensors = sparse_input_map[bottom_name].evaluate_sparse_tensors;
 
     for (int local_gpu_id = 0; local_gpu_id < num_local_gpus; ++local_gpu_id) {
       CudaDeviceContext context(resource_manager_->get_local_gpu(local_gpu_id)->get_device_id());
 
-      auto train_key_tensor = core_helper::convert_native_tensor_to_core_tensor(train_sparse_tensors[local_gpu_id].get_value_tensor(), core::DeviceType::GPU); 
+      auto train_key_tensor = core_helper::convert_native_tensor_to_core_tensor(
+          train_sparse_tensors[local_gpu_id].get_value_tensor(), core::DeviceType::GPU);
       train_ebc_key_list_.push_back(train_key_tensor);
 
-      auto train_bucket_range_tensor = core_helper::convert_native_tensor_to_core_tensor(train_sparse_tensors[local_gpu_id].get_rowoffset_tensor(), core::DeviceType::GPU);
+      auto train_bucket_range_tensor = core_helper::convert_native_tensor_to_core_tensor(
+          train_sparse_tensors[local_gpu_id].get_rowoffset_tensor(), core::DeviceType::GPU);
       train_ebc_bucket_range_list_.push_back(train_bucket_range_tensor);
 
       train_ebc_num_keys_list_.push_back(train_sparse_tensors[local_gpu_id].get_nnz_ptr().get());
 
-      auto evaluate_key_tensor = core_helper::convert_native_tensor_to_core_tensor(evaluate_sparse_tensors[local_gpu_id].get_value_tensor(), core::DeviceType::GPU); 
+      auto evaluate_key_tensor = core_helper::convert_native_tensor_to_core_tensor(
+          evaluate_sparse_tensors[local_gpu_id].get_value_tensor(), core::DeviceType::GPU);
       evaluate_ebc_key_list_.push_back(evaluate_key_tensor);
 
-      auto evaluate_bucket_range_tensor = core_helper::convert_native_tensor_to_core_tensor(evaluate_sparse_tensors[local_gpu_id].get_rowoffset_tensor(), core::DeviceType::GPU);
-      evaluate_ebc_bucket_range_list_.push_back(evaluate_bucket_range_tensor); 
+      auto evaluate_bucket_range_tensor = core_helper::convert_native_tensor_to_core_tensor(
+          evaluate_sparse_tensors[local_gpu_id].get_rowoffset_tensor(), core::DeviceType::GPU);
+      evaluate_ebc_bucket_range_list_.push_back(evaluate_bucket_range_tensor);
 
-      evaluate_ebc_num_keys_list_.push_back(evaluate_sparse_tensors[local_gpu_id].get_nnz_ptr().get());
-    }  
+      evaluate_ebc_num_keys_list_.push_back(
+          evaluate_sparse_tensors[local_gpu_id].get_nnz_ptr().get());
+    }
   };
   if (solver_.i64_input_key) {
     prepare_ebc_input(sparse_input_map_64_);
@@ -881,25 +899,31 @@ void Model::add(const EmbeddingCollectionPlaceHolder &embedding_collection_place
       auto train_block_buffer = buff->create_block<emb_t>();
       auto evaluate_block_buffer = buff->create_block<emb_t>();
       for (int embedding_id = 0; embedding_id < param.num_embedding; ++embedding_id) {
-        embedding::EmbeddingParam &emb_param = param.embedding_params[embedding_id];
+        embedding::EmbeddingParam& emb_param = param.embedding_params[embedding_id];
         std::string top_name = embedding_collection_place_holder.output_names_[embedding_id];
 
-        size_t emb_out_dims = (emb_param.combiner == embedding::Combiner::Concat) ? emb_param.hotness * emb_param.ev_size : emb_param.ev_size;
-        
+        size_t emb_out_dims = (emb_param.combiner == embedding::Combiner::Concat)
+                                  ? emb_param.hotness * emb_param.ev_size
+                                  : emb_param.ev_size;
+
         Tensor2<emb_t> train_emb_output;
         train_block_buffer->reserve({batch_size_per_gpu, emb_out_dims}, &train_emb_output);
         train_tensor_entries_list_[local_gpu_id].push_back({top_name, train_emb_output.shrink()});
-        
+
         Tensor2<emb_t> evaluate_emb_output;
-        evaluate_block_buffer->reserve({eval_batch_size_per_gpu, emb_out_dims}, &evaluate_emb_output);
-        evaluate_tensor_entries_list_[local_gpu_id].push_back({top_name, evaluate_emb_output.shrink()});
+        evaluate_block_buffer->reserve({eval_batch_size_per_gpu, emb_out_dims},
+                                       &evaluate_emb_output);
+        evaluate_tensor_entries_list_[local_gpu_id].push_back(
+            {top_name, evaluate_emb_output.shrink()});
       }
       buff->allocate();
       auto continous_train_emb_output = train_block_buffer->as_tensor();
-      train_ebc_outptut_.push_back(core_helper::convert_native_tensor_to_core_tensor(continous_train_emb_output, core::DeviceType::GPU)); 
+      train_ebc_outptut_.push_back(core_helper::convert_native_tensor_to_core_tensor(
+          continous_train_emb_output, core::DeviceType::GPU));
 
       auto continous_evaluate_emb_output = evaluate_block_buffer->as_tensor();
-      evaluate_ebc_outptut_.push_back(core_helper::convert_native_tensor_to_core_tensor(continous_evaluate_emb_output, core::DeviceType::GPU)); 
+      evaluate_ebc_outptut_.push_back(core_helper::convert_native_tensor_to_core_tensor(
+          continous_evaluate_emb_output, core::DeviceType::GPU));
     }
   } else {
     using emb_t = float;
@@ -910,25 +934,31 @@ void Model::add(const EmbeddingCollectionPlaceHolder &embedding_collection_place
       auto train_block_buffer = buff->create_block<emb_t>();
       auto evaluate_block_buffer = buff->create_block<emb_t>();
       for (int embedding_id = 0; embedding_id < param.num_embedding; ++embedding_id) {
-        embedding::EmbeddingParam &emb_param = param.embedding_params[embedding_id];
+        embedding::EmbeddingParam& emb_param = param.embedding_params[embedding_id];
         std::string top_name = embedding_collection_place_holder.output_names_[embedding_id];
 
-        size_t emb_out_dims = (emb_param.combiner == embedding::Combiner::Concat) ? emb_param.hotness * emb_param.ev_size : emb_param.ev_size;
-        
+        size_t emb_out_dims = (emb_param.combiner == embedding::Combiner::Concat)
+                                  ? emb_param.hotness * emb_param.ev_size
+                                  : emb_param.ev_size;
+
         Tensor2<emb_t> train_emb_output;
         train_block_buffer->reserve({batch_size_per_gpu, emb_out_dims}, &train_emb_output);
         train_tensor_entries_list_[local_gpu_id].push_back({top_name, train_emb_output.shrink()});
-        
+
         Tensor2<emb_t> evaluate_emb_output;
-        evaluate_block_buffer->reserve({eval_batch_size_per_gpu, emb_out_dims}, &evaluate_emb_output);
-        evaluate_tensor_entries_list_[local_gpu_id].push_back({top_name, evaluate_emb_output.shrink()});
+        evaluate_block_buffer->reserve({eval_batch_size_per_gpu, emb_out_dims},
+                                       &evaluate_emb_output);
+        evaluate_tensor_entries_list_[local_gpu_id].push_back(
+            {top_name, evaluate_emb_output.shrink()});
       }
       buff->allocate();
       auto continous_train_emb_output = train_block_buffer->as_tensor();
-      train_ebc_outptut_.push_back(core_helper::convert_native_tensor_to_core_tensor(continous_train_emb_output, core::DeviceType::GPU)); 
+      train_ebc_outptut_.push_back(core_helper::convert_native_tensor_to_core_tensor(
+          continous_train_emb_output, core::DeviceType::GPU));
 
       auto continous_evaluate_emb_output = evaluate_block_buffer->as_tensor();
-      evaluate_ebc_outptut_.push_back(core_helper::convert_native_tensor_to_core_tensor(continous_evaluate_emb_output, core::DeviceType::GPU)); 
+      evaluate_ebc_outptut_.push_back(core_helper::convert_native_tensor_to_core_tensor(
+          continous_evaluate_emb_output, core::DeviceType::GPU));
     }
   }
 
@@ -941,10 +971,12 @@ void Model::add(const EmbeddingCollectionPlaceHolder &embedding_collection_place
   ebc_grad_id_space_list_.resize(resource_manager_->get_local_gpu_count());
 
   for (int embedding_id = 0; embedding_id < param.num_embedding; ++embedding_id) {
-    embedding::EmbeddingParam &emb_param = param.embedding_params[embedding_id];
+    embedding::EmbeddingParam& emb_param = param.embedding_params[embedding_id];
     std::string top_name = embedding_collection_place_holder.output_names_[embedding_id];
-    int emb_out_dims = (emb_param.combiner == embedding::Combiner::Concat) ? emb_param.hotness * emb_param.ev_size : emb_param.ev_size;
-    
+    int emb_out_dims = (emb_param.combiner == embedding::Combiner::Concat)
+                           ? emb_param.hotness * emb_param.ev_size
+                           : emb_param.ev_size;
+
     activate_tensor(tensor_active_, top_name);
     tensor_shape_info_raw_.insert({top_name, {solver_.batchsize, emb_out_dims}});
   }
@@ -2060,25 +2092,38 @@ bool Model::train(bool is_first_batch) {
         gpu_major_ebc_lookup_list.resize(num_gpus);
         for (size_t gpu_id = 0; gpu_id < num_gpus; ++gpu_id) {
           for (size_t i = 0; i < table_major_ebc_table_list_.size(); ++i) {
-            gpu_major_ebc_lookup_list[gpu_id].push_back(dynamic_cast<embedding::ILookup*>(table_major_ebc_table_list_[i][gpu_id].get()));
+            gpu_major_ebc_lookup_list[gpu_id].push_back(
+                dynamic_cast<embedding::ILookup*>(table_major_ebc_table_list_[i][gpu_id].get()));
           }
         }
       }
 
-      auto ebc_forward = [&] (int id) {
+      auto ebc_forward = [&](int id) {
         if (solver_.use_embedding_collection) {
-          ebc_forward_list_[id]->forward_per_gpu(train_ebc_key_list_[id], train_ebc_bucket_range_list_[id], *train_ebc_num_keys_list_[id], train_ebc_sparse_weight_list_[id], gpu_major_ebc_lookup_list[id], train_ebc_outptut_[id], &ebc_context_container_list_list[id]);
+          ebc_forward_list_[id]->forward_per_gpu(
+              train_ebc_key_list_[id], train_ebc_bucket_range_list_[id],
+              *train_ebc_num_keys_list_[id], train_ebc_sparse_weight_list_[id],
+              gpu_major_ebc_lookup_list[id], train_ebc_outptut_[id],
+              &ebc_context_container_list_list[id]);
         }
       };
-      auto ebc_backward = [&] (int id) {
+      auto ebc_backward = [&](int id) {
         if (solver_.use_embedding_collection) {
-          ebc_backward_list_[id]->backward_per_gpu(ebc_context_container_list_list[id], train_ebc_outptut_[id], &ebc_grad_key_list_[id], &ebc_num_grad_key_list_[id], &ebc_grad_id_space_offset_list_[id], &ebc_num_grad_key_id_space_offset_list_[id], &ebc_grad_ev_list_[id], &ebc_grad_ev_offset_list_[id], &ebc_grad_id_space_list_[id], true);
+          ebc_backward_list_[id]->backward_per_gpu(
+              ebc_context_container_list_list[id], train_ebc_outptut_[id], &ebc_grad_key_list_[id],
+              &ebc_num_grad_key_list_[id], &ebc_grad_id_space_offset_list_[id],
+              &ebc_num_grad_key_id_space_offset_list_[id], &ebc_grad_ev_list_[id],
+              &ebc_grad_ev_offset_list_[id], &ebc_grad_id_space_list_[id], true);
         }
       };
-      auto ebc_update = [&] (int id) {
+      auto ebc_update = [&](int id) {
         if (solver_.use_embedding_collection) {
-          for (size_t i = 0; i < table_major_ebc_table_list_.size(); ++i){
-            table_major_ebc_table_list_[i][id]->update(ebc_grad_key_list_[id][i], ebc_num_grad_key_list_[id][i], ebc_grad_id_space_offset_list_[id][i],ebc_num_grad_key_id_space_offset_list_[id][i], ebc_grad_id_space_list_[id][i], ebc_grad_ev_list_[id][i], ebc_grad_ev_offset_list_[id][i]);
+          for (size_t i = 0; i < table_major_ebc_table_list_.size(); ++i) {
+            table_major_ebc_table_list_[i][id]->update(
+                ebc_grad_key_list_[id][i], ebc_num_grad_key_list_[id][i],
+                ebc_grad_id_space_offset_list_[id][i],
+                ebc_num_grad_key_id_space_offset_list_[id][i], ebc_grad_id_space_list_[id][i],
+                ebc_grad_ev_list_[id][i], ebc_grad_ev_offset_list_[id][i]);
           }
         }
       };
@@ -2192,7 +2237,7 @@ bool Model::eval(bool is_first_batch) {
       return false;
     }
     evaluate_data_reader_->ready_to_collect();
-    
+
 #ifndef DATA_READING_TEST
     for (auto& one_embedding : embeddings_) {
       one_embedding->forward(false, is_first_batch);
@@ -2205,14 +2250,19 @@ bool Model::eval(bool is_first_batch) {
       gpu_major_ebc_lookup_list.resize(num_gpus);
       for (size_t gpu_id = 0; gpu_id < num_gpus; ++gpu_id) {
         for (size_t i = 0; i < table_major_ebc_table_list_.size(); ++i) {
-          gpu_major_ebc_lookup_list[gpu_id].push_back(dynamic_cast<embedding::ILookup*>(table_major_ebc_table_list_[i][gpu_id].get()));
+          gpu_major_ebc_lookup_list[gpu_id].push_back(
+              dynamic_cast<embedding::ILookup*>(table_major_ebc_table_list_[i][gpu_id].get()));
         }
       }
     }
 
-    auto eval_ebc_forward = [&] (int id) {
+    auto eval_ebc_forward = [&](int id) {
       if (solver_.use_embedding_collection) {
-        eval_ebc_forward_list_[id]->forward_per_gpu(evaluate_ebc_key_list_[id], evaluate_ebc_bucket_range_list_[id], *evaluate_ebc_num_keys_list_[id], evaluate_ebc_sparse_weight_list_[id], gpu_major_ebc_lookup_list[id], evaluate_ebc_outptut_[id], &ebc_context_container_list_list[id]);
+        eval_ebc_forward_list_[id]->forward_per_gpu(
+            evaluate_ebc_key_list_[id], evaluate_ebc_bucket_range_list_[id],
+            *evaluate_ebc_num_keys_list_[id], evaluate_ebc_sparse_weight_list_[id],
+            gpu_major_ebc_lookup_list[id], evaluate_ebc_outptut_[id],
+            &ebc_context_container_list_list[id]);
       }
     };
 

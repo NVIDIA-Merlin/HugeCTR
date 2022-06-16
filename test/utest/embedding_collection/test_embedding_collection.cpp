@@ -1336,6 +1336,7 @@ const std::vector<int> table_max_key_list = {
 TEST(test_embedding_collection, plan) {
   embedding_collection_e2e<int64_t, int64_t, uint64_t, float>(
       gpus8, batch_size, num_table, table_ev_size_list, num_embedding, id_space_list, hotness_list,
-      combiner_list, table_min_key_list, table_max_key_list, "/workdir/test/utest/embedding_collection/plan_criteo_8gpu.json");
+      combiner_list, table_min_key_list, table_max_key_list,
+      "/workdir/test/utest/embedding_collection/plan_criteo_8gpu.json");
 }
 }  // namespace criteo

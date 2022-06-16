@@ -40,4 +40,4 @@ class CompressOffset {
 
   void compute(const Tensor &offset, int batch_size, Tensor *compressed_offset);
 };
-}
+}  // namespace embedding

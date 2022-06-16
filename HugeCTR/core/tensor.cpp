@@ -17,10 +17,10 @@
 
 #include <iostream>
 
+#include "buffer.hpp"
 #include "core.hpp"
 #include "macro.hpp"
 #include "resource_manager.hpp"
-#include "buffer.hpp"
 
 namespace core {
 
@@ -132,7 +132,8 @@ void Tensor::copy_to(Tensor &other, std::optional<cudaStream_t> stream) const {
   copy_bytes(nbytes(), get(), device(), other.get(), other.device(), stream);
 }
 
-Tensor Tensor::to(std::shared_ptr<CoreResourceManager> core, Device device, std::optional<cudaStream_t> stream) const {
+Tensor Tensor::to(std::shared_ptr<CoreResourceManager> core, Device device,
+                  std::optional<cudaStream_t> stream) const {
   BufferPtr buffer_ptr = GetBuffer(core);
   Tensor t = buffer_ptr->reserve(get_dimensions(), device, dtype());
   buffer_ptr->allocate();

@@ -118,7 +118,6 @@ struct TensorScalarTypeFunc<unsigned int> {
   static TensorScalarType get_type() { return TensorScalarType::UInt32; }
 };
 
-
 class TensorBuffer2 {
  public:
   virtual ~TensorBuffer2() {}

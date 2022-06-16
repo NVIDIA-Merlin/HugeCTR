@@ -180,7 +180,8 @@ void ModelPybind(pybind11::module &m) {
            pybind11::arg("dense_layer"))
       .def("add", pybind11::overload_cast<GroupDenseLayer &>(&HugeCTR::Model::add),
            pybind11::arg("group_dense_layer"))
-      .def("add", pybind11::overload_cast<const EmbeddingCollectionPlaceHolder &>(&HugeCTR::Model::add),
+      .def("add",
+           pybind11::overload_cast<const EmbeddingCollectionPlaceHolder &>(&HugeCTR::Model::add),
            pybind11::arg("embedding_collection_place_holder"))
       .def("set_learning_rate", &HugeCTR::Model::set_learning_rate, pybind11::arg("lr"))
       .def("train", &HugeCTR::Model::train, pybind11::arg("is_first_batch") = true)

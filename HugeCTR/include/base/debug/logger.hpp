@@ -330,9 +330,9 @@ inline std::string getErrorString(curandStatus_t err) {
 #define HCTR_LIB_THROW(EXPR)                                                 \
   do {                                                                       \
     auto ret_thr = (EXPR);                                                   \
-    HugeCTR::Error_t err_type = HugeCTR::getErrorType(ret_thr);                       \
+    HugeCTR::Error_t err_type = HugeCTR::getErrorType(ret_thr);              \
     if (err_type != HugeCTR::Error_t::Success) {                             \
-      std::string err_msg = HugeCTR::getErrorString(ret_thr);                         \
+      std::string err_msg = HugeCTR::getErrorString(ret_thr);                \
       HugeCTR::Logger::get().do_throw(err_type, CUR_SRC_LOC(EXPR), err_msg); \
     }                                                                        \
   } while (0);

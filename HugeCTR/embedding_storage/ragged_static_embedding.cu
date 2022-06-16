@@ -182,8 +182,7 @@ RaggedStaticEmbeddingTable::RaggedStaticEmbeddingTable(
           size_t num_elements =
               cpu_emb_table_ev_offset[embedding + 1] - cpu_emb_table_ev_offset[embedding];
 
-          HugeCTR::UniformGenerator::fill(emb_table_.get<float>() + offset, num_elements,
-          -up_bound,
+          HugeCTR::UniformGenerator::fill(emb_table_.get<float>() + offset, num_elements, -up_bound,
                                           up_bound, gpu_resource.get_sm_count(), generator,
                                           gpu_resource.get_stream());
         }
