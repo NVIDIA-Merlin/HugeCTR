@@ -41,7 +41,7 @@ groups: cannot find name for group ID 1007
 I have no name!@56a762eae3f8:/hugectr
 ```
 
-In [Merlin CTR Dockerfile](https://github.com/NVIDIA-Merlin/Merlin/blob/main/docker/training/dockerfile.ctr), [Merlin Inference Dockerfile](https://github.com/NVIDIA-Merlin/Merlin/blob/main/docker/inference/dockerfile.ctr), [Merlin Tensorflow Dockerfile](https://github.com/NVIDIA-Merlin/Merlin/blob/main/docker/training/dockerfile.tf), we provide a set of arguments to setup your HugeCTR development container:
+In [Merlin CTR Dockerfile](https://github.com/NVIDIA-Merlin/Merlin/blob/main/docker/dockerfile.ctr), [Merlin Tensorflow Dockerfile](https://github.com/NVIDIA-Merlin/Merlin/blob/main/docker/dockerfile.tf), we provide a set of arguments to setup your HugeCTR development container:
 
 The arguments and configurations in this example can be used in all the three containers building:
 
@@ -73,7 +73,7 @@ $ docker build [<opts>] <path> | <URL>
 
 To build HugeCTR Training Container from source, do the following:
 
-1. Build the `hugectr:devel` image using the steps outlined [here](#set-up-the-development-environment-with-merlin-containers). Remember that this instruction is only for the [Merlin CTR Dockerfile](https://github.com/NVIDIA-Merlin/Merlin/blob/main/docker/training/dockerfile.ctr).
+1. Build the `hugectr:devel` image using the steps outlined [here](#set-up-the-development-environment-with-merlin-containers). Remember that this instruction is only for the [Merlin CTR Dockerfile](https://github.com/NVIDIA-Merlin/Merlin/blob/main/docker/dockerfile.ctr).
 
 
 2. Download the HugeCTR repository and the third-party modules that it relies on by running the following commands:
@@ -123,7 +123,7 @@ To build HugeCTR Training Container from source, do the following:
 ### Build HugeCTR Inference Container from Source
 To build HugeCTR inference container from source, do the following:
 
-1. Build the `hugectr:devel_inference` image using the steps outlined [here](#set-up-the-development-environment-with-merlin-containers). Remember that this instruction is only for the [Merlin Inference Dockerfile](https://github.com/NVIDIA-Merlin/Merlin/blob/main/docker/inference/dockerfile.ctr).
+1. Build the `hugectr:devel_inference` image using the steps outlined [here](#set-up-the-development-environment-with-merlin-containers). Remember that this instruction is only for the [Merlin CTR Dockerfile](https://github.com/NVIDIA-Merlin/Merlin/blob/main/docker/dockerfile.ctr).
 
 
 2. Download the HugeCTR repository and the third-party modules that it relies on by running the following commands:
@@ -145,7 +145,7 @@ To build HugeCTR inference container from source, do the following:
 
 To build the Sparse Operation Kit component in HugeCTR, do the following:
 
-1. Build the `hugectr:tf-plugin` docker image using the steps noted [here](#set-up-the-development-environment-with-merlin-containers). Remember that this instruction is only for the [Merlin Tensorflow Dockerfile](https://github.com/NVIDIA-Merlin/Merlin/blob/main/docker/training/dockerfile.tf).
+1. Build the `hugectr:tf-plugin` docker image using the steps noted [here](#set-up-the-development-environment-with-merlin-containers). Remember that this instruction is only for the [Merlin Tensorflow Dockerfile](https://github.com/NVIDIA-Merlin/Merlin/blob/main/docker/dockerfile.tf).
 
 
 2. Download the HugeCTR repository by running the following command:
