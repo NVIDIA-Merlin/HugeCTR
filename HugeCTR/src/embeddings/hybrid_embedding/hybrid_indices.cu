@@ -258,7 +258,7 @@ void FrequentEmbeddingCompression<dtype>::calculate_cache_masks(cudaStream_t str
   indices_kernels::fused_cache_masks<<<n_blocks, TPB_mask, 0, stream>>>(
       data_.samples.get_ptr(), model_.category_location.get_ptr(), d_model_cache_mask,
       d_network_cache_mask, model_.global_instance_id * local_samples_size, samples_size,
-      local_samples_size, num_frequent, num_frequent_per_model, model_.global_instance_id);
+      local_samples_size, num_frequent, num_frequent_per_model, model_.global_instance_id,
       model_.num_categories);
   HCTR_LIB_THROW(cudaPeekAtLastError());
   // // PROFILE_RECORD("fre_calculate_cache_masks.stop", stream);

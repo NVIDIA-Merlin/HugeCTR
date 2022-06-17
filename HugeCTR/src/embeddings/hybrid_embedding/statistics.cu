@@ -294,7 +294,7 @@ void Statistics<dtype>::calculate_frequent_and_infrequent_categories(
   const size_t n_blocks_fill = ceildiv<size_t>(2 * total_num_categories, TPB_fill);
   statistics_kernels::fill<<<n_blocks_fill, TPB_fill, 0, stream>>>(
       category_location, (dtype)num_categories, 2 * total_num_categories);
-  CK_CUDA_THROW_(cudaPeekAtLastError());
+  HCTR_LIB_THROW(cudaPeekAtLastError());
 
   // Frequent category generation
   if (num_frequent > 0) {
@@ -339,7 +339,7 @@ void Statistics<dtype>::calculate_frequent_and_infrequent_categories(
 
     cub::CountingInputIterator<dtype> counting(0);
     InfrequentSelectOp<dtype> select_op(category_location, num_categories);
-    CK_CUDA_THROW_(cub::DeviceSelect::If(p_select_temp, select_temp_size, counting,
+    HCTR_LIB_THROW(cub::DeviceSelect::If(p_select_temp, select_temp_size, counting,
                                          infrequent_categories, p_num_selected, num_categories,
                                          select_op, stream));
 
