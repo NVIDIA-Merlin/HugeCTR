@@ -21,8 +21,8 @@ Compared with the previous embedding, there are three main changes in the embedd
   + **Suppressed and simplified log**: Most log messages related to HPS have the log level changed to `TRACE` rather than `INFO` or `DEBUG` to reduce logging verbosity.
 
 + **Offline Inference Usability Enhancements**:
-Thread pool size is configurable.
-Raw data format is available for the offline inference.
+  + The thread pool size is configurable in the Python interface, which is useful for studying the embedding cache performance in scenarios of asynchronous update. Previously it was set as the minimum value of 16 and `std::thread::hardware_concurrency()`. For more information, please refer to [Hierarchical Parameter Server Configuration](https://nvidia-merlin.github.io/HugeCTR/master/hugectr_parameter_server.html#configuration).
+
 
 + **DataGenerator Performance Improvements**:
 You can specify the `num_threads` parameter to parallelize a `Norm` dataset generation.
@@ -63,7 +63,7 @@ The documentation details for [HugeCTR Hierarchical Parameter Server Database Ba
   + The Criteo 1 TB click logs dataset that is used with many HugeCTR sample programs and notebooks is currently unavailable.
     Until the dataset becomes downloadable again, you can run those samples based on our synthetic dataset generator.
     For more information, see the [Getting Started](https://github.com/NVIDIA-Merlin/HugeCTR#getting-started) section of the repository README file.
-  + Data generator of parquet type produces inconsistent file names between _metadata.json and actual dataset files, which will result in core dump fault when using the synthetic dataset. For more details, see the GitHub [issue](https://github.com/NVIDIA-Merlin/HugeCTR/issues/298).
+  + Data generator of parquet type produces inconsistent file names between _metadata.json and actual dataset files, which will result in core dump fault when using the synthetic dataset.
 
 ## What's New in Version 3.6
 

@@ -40,7 +40,7 @@
 # 
 # ### Docker containers
 # 
-# Start the notebook inside a running 22.05 or later NGC Docker container: `nvcr.io/nvidia/merlin/merlin-training:22.05`.
+# Start the notebook inside a running 22.06 or later NGC Docker container: `nvcr.io/nvidia/merlin/merlin-training:22.06`.
 # The HugeCTR Python interface is installed to the path `/usr/local/hugectr/lib/` and the path is added to the environment variable `PYTHONPATH`.
 # You can use the HugeCTR Python interface within the Docker container without any additional configuration.
 # 

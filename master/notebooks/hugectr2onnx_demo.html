@@ -109,7 +109,7 @@ For more details of the usage of this converter, refer to the HugeCTR to ONNX Co
 </div>
 <div class="section" id="access-the-hugectr-to-onnx-converter">
 <h2>Access the HugeCTR to ONNX Converter<a class="headerlink" href="#access-the-hugectr-to-onnx-converter" title="Permalink to this headline"></a></h2>
-<p>Make sure that you start the notebook inside a running 22.05 or later NGC docker container: <code class="docutils literal notranslate"><span class="pre">nvcr.io/nvidia/merlin/merlin-training:22.05</span></code>.
+<p>Make sure that you start the notebook inside a running 22.06 or later NGC docker container: <code class="docutils literal notranslate"><span class="pre">nvcr.io/nvidia/merlin/merlin-training:22.06</span></code>.
 The module of the ONNX converter is installed to the path <code class="docutils literal notranslate"><span class="pre">/usr/local/lib/python3.8/dist-packages</span></code>.
 As for HugeCTR Python interface, a dynamic link to the <code class="docutils literal notranslate"><span class="pre">hugectr.so</span></code> library is installed to the path <code class="docutils literal notranslate"><span class="pre">/usr/local/hugectr/lib/</span></code>.
 You can access the ONNX converter as well as HugeCTR Python interface anywhere within the container.</p>
@@ -137,7 +137,7 @@ You can access the ONNX converter as well as HugeCTR Python interface anywhere w
 <ol>
 <li><p>Download the Criteo dataset using the following command:</p>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ <span class="nb">cd</span> <span class="si">${</span><span class="nv">project_root</span><span class="si">}</span>/tools
-$ wget http://azuremlsampleexperiments.blob.core.windows.net/criteo/day_1.gz
+$ wget https://storage.googleapis.com/criteo-cail-datasets/day_1.gz
 </pre></div>
 </div>
 <p>In preprocessing, we will further reduce the amounts of data to speedup the preprocessing, fill missing values, remove the feature values whose occurrences are very rare, etc. Here we choose pandas preprocessing method to make the dataset ready for HugeCTR training.</p>

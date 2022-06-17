@@ -26,7 +26,7 @@
 # 
 # ### Get HugeCTR from NGC
 # 
-# The HugeCTR Python module is preinstalled in the 22.05 and later [Merlin Training Container](https://catalog.ngc.nvidia.com/orgs/nvidia/teams/merlin/containers/merlin-training): `nvcr.io/nvidia/merlin/merlin-training:22.05`.
+# The HugeCTR Python module is preinstalled in the 22.06 and later [Merlin Training Container](https://catalog.ngc.nvidia.com/orgs/nvidia/teams/merlin/containers/merlin-training): `nvcr.io/nvidia/merlin/merlin-training:22.06`.
 # 
 # You can check the existence of the required libraries by running the following Python code after launching this container.
 # 
@@ -47,7 +47,7 @@
 # 
 #    ```shell
 #    $ cd ${project-root}/tools
-#    $ wget http://azuremlsampleexperiments.blob.core.windows.net/criteo/day_1.gz
+#    $ wget https://storage.googleapis.com/criteo-cail-datasets/day_1.gz
 #    ```
 #    
 #    In preprocessing, we will further reduce the amounts of data to speedup the preprocessing, fill missing values, remove the feature values whose occurrences are very rare, etc. Here we choose pandas preprocessing method to make the dataset ready for HugeCTR training.
@@ -168,7 +168,7 @@ get_ipython().system('python3 dcn_inference.py')
 # 
 #    ```shell
 #    $ cd ${project_root}/tools
-#    $ wget http://azuremlsampleexperiments.blob.core.windows.net/criteo/day_1.gz
+#    $ wget https://storage.googleapis.com/criteo-cail-datasets/day_1.gz
 #    ```
 #    
 #    In preprocessing, we will further reduce the amounts of data to speedup the preprocessing, fill missing values, remove the feature values whose occurrences are very rare, etc. Here we choose pandas preprocessing method to make the dataset ready for HugeCTR training.

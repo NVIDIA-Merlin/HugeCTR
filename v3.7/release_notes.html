@@ -120,9 +120,11 @@ Compared with the previous implementation, you can expect a 4x speed improvement
 <li><p><strong>Suppressed and simplified log</strong>: Most log messages related to HPS have the log level changed to <code class="docutils literal notranslate"><span class="pre">TRACE</span></code> rather than <code class="docutils literal notranslate"><span class="pre">INFO</span></code> or <code class="docutils literal notranslate"><span class="pre">DEBUG</span></code> to reduce logging verbosity.</p></li>
 </ul>
 </li>
-<li><p><strong>Offline Inference Usability Enhancements</strong>:
-Thread pool size is configurable.
-Raw data format is available for the offline inference.</p></li>
+<li><p><strong>Offline Inference Usability Enhancements</strong>:</p>
+<ul class="simple">
+<li><p>The thread pool size is configurable in the Python interface, which is useful for studying the embedding cache performance in scenarios of asynchronous update. Previously it was set as the minimum value of 16 and <code class="docutils literal notranslate"><span class="pre">std::thread::hardware_concurrency()</span></code>. For more information, please refer to <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/hugectr_parameter_server.html#configuration">Hierarchical Parameter Server Configuration</a>.</p></li>
+</ul>
+</li>
 <li><p><strong>DataGenerator Performance Improvements</strong>:
 You can specify the <code class="docutils literal notranslate"><span class="pre">num_threads</span></code> parameter to parallelize a <code class="docutils literal notranslate"><span class="pre">Norm</span></code> dataset generation.</p></li>
 <li><p><strong>Evaluation Metric Improvements</strong>:</p>
@@ -162,7 +164,7 @@ Otherwise, different workers are mapped to the same file and data loading does n
 <li><p>The Criteo 1 TB click logs dataset that is used with many HugeCTR sample programs and notebooks is currently unavailable.
 Until the dataset becomes downloadable again, you can run those samples based on our synthetic dataset generator.
 For more information, see the <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR#getting-started">Getting Started</a> section of the repository README file.</p></li>
-<li><p>Data generator of parquet type produces inconsistent file names between _metadata.json and actual dataset files, which will result in core dump fault when using the synthetic dataset. For more details, see the GitHub <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/issues/298">issue</a>.</p></li>
+<li><p>Data generator of parquet type produces inconsistent file names between _metadata.json and actual dataset files, which will result in core dump fault when using the synthetic dataset.</p></li>
 </ul>
 </li>
 </ul>

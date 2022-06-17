@@ -16,7 +16,7 @@
 # 
 # ### Get HugeCTR from NGC
 # 
-# The continuous training module is preinstalled in the 22.05 and later [Merlin Training Container](https://catalog.ngc.nvidia.com/orgs/nvidia/teams/merlin/containers/merlin-training): `nvcr.io/nvidia/merlin/merlin-training:22.05`.
+# The continuous training module is preinstalled in the 22.06 and later [Merlin Training Container](https://catalog.ngc.nvidia.com/orgs/nvidia/teams/merlin/containers/merlin-training): `nvcr.io/nvidia/merlin/merlin-training:22.06`.
 # 
 # You can check the existence of required libraries by running the following Python code after launching this container.
 # 
@@ -36,7 +36,7 @@
 # 
 #    ```shell
 #    $ cd ${project_root}/tools
-#    $ wget http://azuremlsampleexperiments.blob.core.windows.net/criteo/day_1.gz
+#    $ wget https://storage.googleapis.com/criteo-cail-datasets/day_1.gz
 #    ```
 #    
 #    To preprocess the downloaded Kaggle Criteo dataset, we'll make the following operations: 

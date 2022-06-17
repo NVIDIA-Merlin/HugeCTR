@@ -16,7 +16,7 @@
 # 
 # ### Get HugeCTR from NGC
 # 
-# The HugeCTR Python module is preinstalled in the 22.05 and later [Merlin Training Container](https://catalog.ngc.nvidia.com/orgs/nvidia/teams/merlin/containers/merlin-training): `nvcr.io/nvidia/merlin/merlin-training:22.05`.
+# The HugeCTR Python module is preinstalled in the 22.06 and later [Merlin Training Container](https://catalog.ngc.nvidia.com/orgs/nvidia/teams/merlin/containers/merlin-training): `nvcr.io/nvidia/merlin/merlin-training:22.06`.
 # 
 # You can check the existence of required libraries by running the following Python code after launching this container.
 # 

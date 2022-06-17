@@ -195,14 +195,14 @@ wget is already the newest version (1.20.3-1ubuntu1).
 </div>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>wget -P <span class="nv">$train_path</span> http://azuremlsampleexperiments.blob.core.windows.net/criteo/day_0.gz
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>wget -P <span class="nv">$train_path</span> https://storage.googleapis.com/criteo-cail-datasets/day_0.gz
 </pre></div>
 </div>
 </div>
 <div class="cell_output docutils container">
-<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>--2021-07-05 03:27:50--  http://azuremlsampleexperiments.blob.core.windows.net/criteo/day_0.gz
-Resolving azuremlsampleexperiments.blob.core.windows.net (azuremlsampleexperiments.blob.core.windows.net)... 20.60.140.36
-Connecting to azuremlsampleexperiments.blob.core.windows.net (azuremlsampleexperiments.blob.core.windows.net)|20.60.140.36|:80... connected.
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>--2022-06-16 03:27:50--  https://storage.googleapis.com/criteo-cail-datasets/day_0.gz
+Resolving storage.googleapis.com (storage.googleapis.com)... 142.250.191.80, 172.217.5.112, 142.250.189.208, ...
+Connecting to storage.googleapis.com (storage.googleapis.com)|142.250.191.80|:443... connected.
 HTTP request sent, awaiting response... 200 OK
 Length: 16309554343 (15G) [application/octet-stream]
 Saving to: ‘wdl_train/train/day_0.gz’

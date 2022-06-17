@@ -118,7 +118,7 @@ For more details of the usage of the Python API, refer to the <a class="referenc
 <h2>Installation<a class="headerlink" href="#installation" title="Permalink to this headline"></a></h2>
 <div class="section" id="get-hugectr-from-ngc">
 <h3>Get HugeCTR from NGC<a class="headerlink" href="#get-hugectr-from-ngc" title="Permalink to this headline"></a></h3>
-<p>The HugeCTR Python module is preinstalled in the 22.05 and later <a class="reference external" href="https://catalog.ngc.nvidia.com/orgs/nvidia/teams/merlin/containers/merlin-training">Merlin Training Container</a>: <code class="docutils literal notranslate"><span class="pre">nvcr.io/nvidia/merlin/merlin-training:22.05</span></code>.</p>
+<p>The HugeCTR Python module is preinstalled in the 22.06 and later <a class="reference external" href="https://catalog.ngc.nvidia.com/orgs/nvidia/teams/merlin/containers/merlin-training">Merlin Training Container</a>: <code class="docutils literal notranslate"><span class="pre">nvcr.io/nvidia/merlin/merlin-training:22.06</span></code>.</p>
 <p>You can check the existence of the required libraries by running the following Python code after launching this container.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$ python3 -c <span class="s2">&quot;import hugectr&quot;</span>
 </pre></div>
@@ -138,7 +138,7 @@ documentation.</p>
 <ol>
 <li><p>Download the Criteo dataset using the following command:</p>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ <span class="nb">cd</span> <span class="si">${</span><span class="nv">project</span><span class="p">-root</span><span class="si">}</span>/tools
-$ wget http://azuremlsampleexperiments.blob.core.windows.net/criteo/day_1.gz
+$ wget https://storage.googleapis.com/criteo-cail-datasets/day_1.gz
 </pre></div>
 </div>
 <p>In preprocessing, we will further reduce the amounts of data to speedup the preprocessing, fill missing values, remove the feature values whose occurrences are very rare, etc. Here we choose pandas preprocessing method to make the dataset ready for HugeCTR training.</p>
@@ -613,7 +613,7 @@ We need to convert the Criteo data to inference format first.</p>
 <ol>
 <li><p>Download the Criteo dataset using the following command:</p>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ <span class="nb">cd</span> <span class="si">${</span><span class="nv">project_root</span><span class="si">}</span>/tools
-$ wget http://azuremlsampleexperiments.blob.core.windows.net/criteo/day_1.gz
+$ wget https://storage.googleapis.com/criteo-cail-datasets/day_1.gz
 </pre></div>
 </div>
 <p>In preprocessing, we will further reduce the amounts of data to speedup the preprocessing, fill missing values, remove the feature values whose occurrences are very rare, etc. Here we choose pandas preprocessing method to make the dataset ready for HugeCTR training.</p>

@@ -18,7 +18,7 @@
 
 # ## Access the HugeCTR to ONNX Converter
 # 
-# Make sure that you start the notebook inside a running 22.05 or later NGC docker container: `nvcr.io/nvidia/merlin/merlin-training:22.05`.
+# Make sure that you start the notebook inside a running 22.06 or later NGC docker container: `nvcr.io/nvidia/merlin/merlin-training:22.06`.
 # The module of the ONNX converter is installed to the path `/usr/local/lib/python3.8/dist-packages`.
 # As for HugeCTR Python interface, a dynamic link to the `hugectr.so` library is installed to the path `/usr/local/hugectr/lib/`.
 # You can access the ONNX converter as well as HugeCTR Python interface anywhere within the container.
@@ -47,7 +47,7 @@ import hugectr2onnx
 # 
 #    ```shell
 #    $ cd ${project_root}/tools
-#    $ wget http://azuremlsampleexperiments.blob.core.windows.net/criteo/day_1.gz
+#    $ wget https://storage.googleapis.com/criteo-cail-datasets/day_1.gz
 #    ```
 #    
 #    In preprocessing, we will further reduce the amounts of data to speedup the preprocessing, fill missing values, remove the feature values whose occurrences are very rare, etc. Here we choose pandas preprocessing method to make the dataset ready for HugeCTR training.

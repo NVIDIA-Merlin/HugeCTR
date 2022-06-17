@@ -78,7 +78,7 @@ get_ipython().system('apt-get install wget')
 # In[3]:
 
 
-get_ipython().system('wget -P $train_path http://azuremlsampleexperiments.blob.core.windows.net/criteo/day_0.gz')
+get_ipython().system('wget -P $train_path https://storage.googleapis.com/criteo-cail-datasets/day_0.gz')
 
 
 # 

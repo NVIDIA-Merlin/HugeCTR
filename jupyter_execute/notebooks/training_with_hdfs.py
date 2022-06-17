@@ -10,7 +10,7 @@
 # In version v3.4, we introduced the support for HDFS. Users can now move their data and model files from HDFS to local filesystem through our API to do HugeCTR training. And after training, users can choose to dump the trained parameters and optimizer states into HDFS. In this example notebook, we are going to demonstrate the end to end procedure of training with HDFS.
 
 # ## Get HugeCTR from NGC
-# The HugeCTR Python module is preinstalled in the 22.05 and later [Merlin Training Container](https://ngc.nvidia.com/catalog/containers/nvidia:merlin:merlin-training): `nvcr.io/nvidia/merlin/merlin-training:22.05`.
+# The HugeCTR Python module is preinstalled in the 22.06 and later [Merlin Training Container](https://ngc.nvidia.com/catalog/containers/nvidia:merlin:merlin-training): `nvcr.io/nvidia/merlin/merlin-training:22.06`.
 # 
 # You can check the existence of required libraries by running the following Python code after launching the container.
 # 
@@ -158,7 +158,7 @@
 
 # ## Wide and Deep Model
 # 
-# In the Docker container, `nvcr.io/nvidia/merlin/merlin-training:22.05`, 
+# In the Docker container, `nvcr.io/nvidia/merlin/merlin-training:22.06`, 
 # make sure that you installed Hadoop and set the proper environment variables as instructed in the preceding sections.
 # 
 # If you chose to compile HugeCTR, make sure you that you set `DENABLE_HDFS` to `ON`.
