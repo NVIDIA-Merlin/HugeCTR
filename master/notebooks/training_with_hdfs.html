@@ -103,7 +103,7 @@
 </div>
 <div class="section" id="get-hugectr-from-ngc">
 <h2>Get HugeCTR from NGC<a class="headerlink" href="#get-hugectr-from-ngc" title="Permalink to this headline"></a></h2>
-<p>The HugeCTR Python module is preinstalled in the 22.06 and later <a class="reference external" href="https://ngc.nvidia.com/catalog/containers/nvidia:merlin:merlin-training">Merlin Training Container</a>: <code class="docutils literal notranslate"><span class="pre">nvcr.io/nvidia/merlin/merlin-training:22.06</span></code>.</p>
+<p>The HugeCTR Python module is preinstalled in the 22.06 and later <a class="reference external" href="https://ngc.nvidia.com/catalog/containers/nvidia:merlin:merlin-hugectr">Merlin Training Container</a>: <code class="docutils literal notranslate"><span class="pre">nvcr.io/nvidia/merlin/merlin-hugectr:22.06</span></code>.</p>
 <p>You can check the existence of required libraries by running the following Python code after launching the container.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$ python3 -c <span class="s2">&quot;import hugectr&quot;</span>
 </pre></div>
@@ -241,7 +241,7 @@ cat ~/.ssh/id_rsa.pub &gt;&gt; ~/.ssh/authorized_keys
 </div>
 <div class="section" id="wide-and-deep-model">
 <h2>Wide and Deep Model<a class="headerlink" href="#wide-and-deep-model" title="Permalink to this headline"></a></h2>
-<p>In the Docker container, <code class="docutils literal notranslate"><span class="pre">nvcr.io/nvidia/merlin/merlin-training:22.06</span></code>,
+<p>In the Docker container, <code class="docutils literal notranslate"><span class="pre">nvcr.io/nvidia/merlin/merlin-hugectr:22.06</span></code>,
 make sure that you installed Hadoop and set the proper environment variables as instructed in the preceding sections.</p>
 <p>If you chose to compile HugeCTR, make sure you that you set <code class="docutils literal notranslate"><span class="pre">DENABLE_HDFS</span></code> to <code class="docutils literal notranslate"><span class="pre">ON</span></code>.</p>
 <ul class="simple">

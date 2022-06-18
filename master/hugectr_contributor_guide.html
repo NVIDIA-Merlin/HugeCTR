@@ -120,7 +120,7 @@ add your comments on the issue.</p>
 I have no name!@56a762eae3f8:/hugectr
 </pre></div>
 </div>
-<p>In <a class="reference external" href="https://github.com/NVIDIA-Merlin/Merlin/blob/main/docker/training/dockerfile.ctr">Merlin CTR Dockerfile</a>, <a class="reference external" href="https://github.com/NVIDIA-Merlin/Merlin/blob/main/docker/inference/dockerfile.ctr">Merlin Inference Dockerfile</a>, <a class="reference external" href="https://github.com/NVIDIA-Merlin/Merlin/blob/main/docker/training/dockerfile.tf">Merlin Tensorflow Dockerfile</a>, we provide a set of arguments to setup your HugeCTR development container:</p>
+<p>In <a class="reference external" href="https://github.com/NVIDIA-Merlin/Merlin/blob/main/docker/dockerfile.ctr">Merlin CTR Dockerfile</a>, <a class="reference external" href="https://github.com/NVIDIA-Merlin/Merlin/blob/main/docker/dockerfile.tf">Merlin Tensorflow Dockerfile</a>, we provide a set of arguments to setup your HugeCTR development container:</p>
 <p>The arguments and configurations in this example can be used in all the three containers building:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>docker build --pull -t ${DST_IMAGE} -f ${DOCKER_FILE} --build-arg RELEASE=false --build-arg RMM_VER=vnightly --build-arg CUDF_VER=vnightly --build-arg NVTAB_VER=vnightly --build-arg HUGECTR_DEV_MODE=true --no-cache .
 </pre></div>
@@ -148,7 +148,7 @@ I have no name!@56a762eae3f8:/hugectr
 <h3>Build HugeCTR Training Container from Source<a class="headerlink" href="#build-hugectr-training-container-from-source" title="Permalink to this headline"></a></h3>
 <p>To build HugeCTR Training Container from source, do the following:</p>
 <ol>
-<li><p>Build the <code class="docutils literal notranslate"><span class="pre">hugectr:devel</span></code> image using the steps outlined <a class="reference internal" href="#set-up-the-development-environment-with-merlin-containers"><span class="std std-doc">here</span></a>. Remember that this instruction is only for the <a class="reference external" href="https://github.com/NVIDIA-Merlin/Merlin/blob/main/docker/training/dockerfile.ctr">Merlin CTR Dockerfile</a>.</p></li>
+<li><p>Build the <code class="docutils literal notranslate"><span class="pre">hugectr:devel</span></code> image using the steps outlined <a class="reference internal" href="#set-up-the-development-environment-with-merlin-containers"><span class="std std-doc">here</span></a>. Remember that this instruction is only for the <a class="reference external" href="https://github.com/NVIDIA-Merlin/Merlin/blob/main/docker/dockerfile.ctr">Merlin CTR Dockerfile</a>.</p></li>
 <li><p>Download the HugeCTR repository and the third-party modules that it relies on by running the following commands:</p>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ git clone https://github.com/NVIDIA/HugeCTR.git
 $ <span class="nb">cd</span> HugeCTR
@@ -198,7 +198,7 @@ $ make -j <span class="o">&amp;&amp;</span> make install
 <h3>Build HugeCTR Inference Container from Source<a class="headerlink" href="#build-hugectr-inference-container-from-source" title="Permalink to this headline"></a></h3>
 <p>To build HugeCTR inference container from source, do the following:</p>
 <ol>
-<li><p>Build the <code class="docutils literal notranslate"><span class="pre">hugectr:devel_inference</span></code> image using the steps outlined <a class="reference internal" href="#set-up-the-development-environment-with-merlin-containers"><span class="std std-doc">here</span></a>. Remember that this instruction is only for the <a class="reference external" href="https://github.com/NVIDIA-Merlin/Merlin/blob/main/docker/inference/dockerfile.ctr">Merlin Inference Dockerfile</a>.</p></li>
+<li><p>Build the <code class="docutils literal notranslate"><span class="pre">hugectr:devel_inference</span></code> image using the steps outlined <a class="reference internal" href="#set-up-the-development-environment-with-merlin-containers"><span class="std std-doc">here</span></a>. Remember that this instruction is only for the <a class="reference external" href="https://github.com/NVIDIA-Merlin/Merlin/blob/main/docker/dockerfile.ctr">Merlin CTR Dockerfile</a>.</p></li>
 <li><p>Download the HugeCTR repository and the third-party modules that it relies on by running the following commands:</p>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ git clone https://github.com/NVIDIA/HugeCTR.git
 $ <span class="nb">cd</span> HugeCTR
@@ -219,7 +219,7 @@ $ make -j <span class="o">&amp;&amp;</span> make install
 <h3>Build Sparse Operation Kit (SOK) from Source<a class="headerlink" href="#build-sparse-operation-kit-sok-from-source" title="Permalink to this headline"></a></h3>
 <p>To build the Sparse Operation Kit component in HugeCTR, do the following:</p>
 <ol>
-<li><p>Build the <code class="docutils literal notranslate"><span class="pre">hugectr:tf-plugin</span></code> docker image using the steps noted <a class="reference internal" href="#set-up-the-development-environment-with-merlin-containers"><span class="std std-doc">here</span></a>. Remember that this instruction is only for the <a class="reference external" href="https://github.com/NVIDIA-Merlin/Merlin/blob/main/docker/training/dockerfile.tf">Merlin Tensorflow Dockerfile</a>.</p></li>
+<li><p>Build the <code class="docutils literal notranslate"><span class="pre">hugectr:tf-plugin</span></code> docker image using the steps noted <a class="reference internal" href="#set-up-the-development-environment-with-merlin-containers"><span class="std std-doc">here</span></a>. Remember that this instruction is only for the <a class="reference external" href="https://github.com/NVIDIA-Merlin/Merlin/blob/main/docker/dockerfile.tf">Merlin Tensorflow Dockerfile</a>.</p></li>
 <li><p>Download the HugeCTR repository by running the following command:</p>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ git clone https://github.com/NVIDIA/HugeCTR.git hugectr
 </pre></div>
