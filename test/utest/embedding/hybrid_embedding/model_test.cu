@@ -115,7 +115,7 @@ void model_test() {
       2,   23,  3,   23,  4,   10,  4,    0,  4,    1,  0, 24, 1,   24,  2, 24, 3, 24, 0, 25, 1, 25,
       2,   25,  4,    5,  4,    8,  3,   25,  0,   26,  1, 26, 2,   26,  3, 26, 0, 27, 1, 27, 2, 27,
       4,   11,  4,    2,  3,   27,  0,   28,  1,   28,  2, 28, 3,   28,  0, 29, 1, 29, 2, 29, 3, 29,
-      0,   30,  1,   30,  2,   30,  3,   30,  0,   31,  1, 31, 2,   31,  3, 31, 4, 4};
+      0,   30,  1,   30,  2,   30,  3,   30,  0,   31,  1, 31, 2,   31,  3, 31, 140, 140};
   EXPECT_THAT(category_location_ret, ::testing::ElementsAreArray(category_location_ref));
 
   std::vector<dtype> h_frequent_model_table_offsets_ref{0, 0, 2, 2, 3, 3, 5,  5,  6,  6,
@@ -217,7 +217,7 @@ void model_init_test(const size_t num_instances, const size_t num_tables, const 
 
     size_t indx_infrequent = 0;
     for (size_t category = 0; category < num_categories; ++category) {
-      if (category_location[2 * category] != num_categories) {
+      if (category_location[2 * category] < num_instances) {
         size_t instance_location = category_location[2 * category];
         size_t buffer_index = category_location[2 * category + 1];
 
@@ -237,8 +237,7 @@ void model_init_test(const size_t num_instances, const size_t num_tables, const 
       size_t next_offset = model.h_infrequent_model_table_offsets[embedding + 1];
       size_t indx_infrequent_instance = 0;
       for (size_t category = 0; category < num_categories; ++category) {
-        if (category_location[2 * category] < num_categories &&
-            category_location[2 * category] == instance) {
+        if (category_location[2 * category] == instance) {
           if (indx_infrequent_instance >= cur_offset && indx_infrequent_instance < next_offset) {
             size_t embedding_category =
                 EmbeddingTableFunctors<dtype>::get_embedding_table_index(table_sizes, category);
