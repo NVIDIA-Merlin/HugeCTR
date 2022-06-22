@@ -69,10 +69,12 @@ static __global__ void fill(T *__restrict__ array, T val, IdxT n_elem) {
 
 template <typename dtype>
 static __global__ void calculate_category_location_frequent(
-    const dtype *__restrict__ frequent_categories, dtype *category_location, size_t num_frequent) {
+    const dtype *__restrict__ frequent_categories, dtype *category_location, size_t num_frequent,
+    size_t num_instances) {
   dtype tid = blockIdx.x * blockDim.x + threadIdx.x;
   if (tid < num_frequent) {
     dtype category = frequent_categories[tid];
+    category_location[2 * category] = num_instances;
     category_location[2 * category + 1] = tid;
   }
 }
@@ -325,7 +327,7 @@ void Statistics<dtype>::calculate_frequent_and_infrequent_categories(
     const size_t n_blocks_loc_freq = (size_t)ceildiv<dtype>(num_frequent, TPB_loc);
     statistics_kernels::
         calculate_category_location_frequent<<<n_blocks_loc_freq, TPB_loc, 0, stream>>>(
-            frequent_categories, category_location, num_frequent);
+            frequent_categories, category_location, num_frequent, num_instances);
   }
 
   // Infrequent category generation
