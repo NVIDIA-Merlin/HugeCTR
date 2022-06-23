@@ -99,7 +99,7 @@ class EmbeddingCollectionCPU {
         dp_embedding_list_.emplace_back(num_gpus_, num_table_, ebc_param_,
                                         one_embedding_sharding_param);
       } else if (one_embedding_sharding_param[0].table_placement_strategy ==
-                 TablePlacementStrategy::Localized) {
+                 TablePlacementStrategy::ModelParallel) {
         mp_embedding_list_.emplace_back(num_gpus_, num_table_, ebc_param_,
                                         one_embedding_sharding_param);
       }

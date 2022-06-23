@@ -161,7 +161,7 @@ void EmbeddingPlanner::generate_embedding_plan_from_json_file(const std::string 
       std::set<std::vector<int>> embedding_set;
       for (int gpu_id = 0; gpu_id < num_global_gpus; ++gpu_id) {
         if (global_embedding_sharding_param_list_[gpu_id][sharding_param_id]
-                .table_placement_strategy == TablePlacementStrategy::Localized) {
+                .table_placement_strategy == TablePlacementStrategy::ModelParallel) {
           continue;
         }
         if (gpu_id == 0) {

@@ -907,11 +907,11 @@ void Model::add(const EmbeddingCollectionPlaceHolder& embedding_collection_place
                                   : emb_param.ev_size;
 
         Tensor2<emb_t> train_emb_output;
-        train_block_buffer->reserve({batch_size_per_gpu, emb_out_dims}, &train_emb_output);
+        train_block_buffer->reserve({batch_size_per_gpu, 1, emb_out_dims}, &train_emb_output);
         train_tensor_entries_list_[local_gpu_id].push_back({top_name, train_emb_output.shrink()});
 
         Tensor2<emb_t> evaluate_emb_output;
-        evaluate_block_buffer->reserve({eval_batch_size_per_gpu, emb_out_dims},
+        evaluate_block_buffer->reserve({eval_batch_size_per_gpu, 1, emb_out_dims},
                                        &evaluate_emb_output);
         evaluate_tensor_entries_list_[local_gpu_id].push_back(
             {top_name, evaluate_emb_output.shrink()});
@@ -942,11 +942,11 @@ void Model::add(const EmbeddingCollectionPlaceHolder& embedding_collection_place
                                   : emb_param.ev_size;
 
         Tensor2<emb_t> train_emb_output;
-        train_block_buffer->reserve({batch_size_per_gpu, emb_out_dims}, &train_emb_output);
+        train_block_buffer->reserve({batch_size_per_gpu, 1, emb_out_dims}, &train_emb_output);
         train_tensor_entries_list_[local_gpu_id].push_back({top_name, train_emb_output.shrink()});
 
         Tensor2<emb_t> evaluate_emb_output;
-        evaluate_block_buffer->reserve({eval_batch_size_per_gpu, emb_out_dims},
+        evaluate_block_buffer->reserve({eval_batch_size_per_gpu, 1, emb_out_dims},
                                        &evaluate_emb_output);
         evaluate_tensor_entries_list_[local_gpu_id].push_back(
             {top_name, evaluate_emb_output.shrink()});
@@ -978,7 +978,7 @@ void Model::add(const EmbeddingCollectionPlaceHolder& embedding_collection_place
                            : emb_param.ev_size;
 
     activate_tensor(tensor_active_, top_name);
-    tensor_shape_info_raw_.insert({top_name, {solver_.batchsize, emb_out_dims}});
+    tensor_shape_info_raw_.insert({top_name, {solver_.batchsize, 1, emb_out_dims}});
   }
 }
 

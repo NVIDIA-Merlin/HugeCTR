@@ -164,6 +164,34 @@ __global__ void extract_unique_key_and_dst_offset_kernel(
   }
 }
 
+template <typename key_t, int kWarpPerBlock = 1, int kWarpSize = 32>
+__global__ void count_unique_key_kernel(const key_t *hash_keys, const uint32_t *hash_offset, 
+                                        int num_unique_id_space, uint32_t *unique_key_count) {
+  int warp_id = 0;
+  int lane_id = threadIdx.x;
+  int bid = blockIdx.x;
+
+  int count = 0;
+  if (bid < num_unique_id_space) {
+    int start = hash_offset[bid];
+    int end = hash_offset[bid + 1];
+    for (int i = 0; i * kWarpSize + lane_id < (end - start); ++i) {
+      count += (hash_keys[start + i * kWarpSize + lane_id] == empty_key<key_t>) ? 0 : 1;
+    }
+  }
+
+  typedef cub::WarpReduce<int> WarpReduce;
+  __shared__ typename WarpReduce::TempStorage temp_storage[kWarpPerBlock];
+  int aggregate = WarpReduce(temp_storage[warp_id]).Sum(count);
+
+  if (lane_id == 0) {
+    unique_key_count[bid + 1] = aggregate;
+    if (bid == 0) {
+      unique_key_count[0] = 0;
+    }
+  }
+}
+
 template <typename key_t, int kWarpPerBlock, int kWarpSize = 32>
 __global__ void scan_id_space_offset(const key_t* hash_keys, const uint32_t* hash_offset,
                                      int num_unique_id_space, uint32_t* unique_id_space_offset,
@@ -192,9 +220,6 @@ __global__ void scan_id_space_offset(const key_t* hash_keys, const uint32_t* has
 
   if (threadIdx.x + threadIdx.y * blockDim.x == 0) {
     uint32_t prefix_sum = 0;
-    for (int i = 0; i < num_unique_id_space; ++i) {
-      temp_id_space_value[i] = s_id_space_offset[i];
-    }
     for (int i = 0; i < num_unique_id_space + 1; ++i) {
       unique_id_space_offset[i] = prefix_sum;
 
@@ -372,11 +397,9 @@ ModelBackwardIndexCalculation::ModelBackwardIndexCalculation(
   {
     size_t temp_bytes = 0;
     cub::DeviceScan::InclusiveSum(nullptr, temp_bytes, (uint32_t*)nullptr, (uint32_t*)nullptr,
-                                  universal_batch_size * local_hotness_sum);
+                                  std::max(static_cast<int64_t>(universal_batch_size * local_hotness_sum), unique_id_space_offset_.get_num_elements()));
     d_temp_scan_encode_storage_ = buffer_ptr->reserve({temp_bytes}, device, TensorScalarType::Void);
   }
-  d_temp_id_space_count_ = buffer_ptr->reserve({h_unique_id_space_ev_size_list.size()},
-                                               DeviceType::GPU, TensorScalarType::UInt32);
   buffer_ptr->allocate();
   unique_id_space_list_.copy_from(h_unique_id_space_list);
   unique_id_space_ev_size_list_.copy_from(h_unique_id_space_ev_size_list);
@@ -471,20 +494,17 @@ void ModelBackwardIndexCalculation::compute(
       }
       {
         int num_unique_id_space = static_cast<int>(unique_id_space_list_.get_num_elements());
-        // set to 16 to avoid too much resources usage in one sm
-        if (num_unique_id_space > 16) {
-          HCTR_OWN_THROW(HugeCTR::Error_t::WrongInput,
-                         "ModelBackwardIndexCalculation does not support unique id space > 16");
-        }
-        dim3 block_size{32, 16};
-        scan_id_space_offset<key_t, 16><<<1, block_size, 0, stream>>>(
+        count_unique_key_kernel<<<num_unique_id_space, 32, 0, stream>>>(
             hash_keys_.get<key_t>(), hash_offset_.get<uint32_t>(), num_unique_id_space,
-            unique_id_space_offset_.get<uint32_t>(), d_temp_id_space_count_.get<uint32_t>());
+            unique_id_space_offset_.get<uint32_t>());
 
         HCTR_LIB_THROW(cudaPeekAtLastError());
       }
       {
         size_t nbytes = d_temp_scan_encode_storage_.nbytes();
+        cub::DeviceScan::InclusiveSum(
+            d_temp_scan_encode_storage_.get(), nbytes, unique_id_space_offset_.get<uint32_t>(),
+            unique_id_space_offset_.get<uint32_t>(), unique_id_space_offset_.get_num_elements(), stream);
         cub::DeviceScan::InclusiveSum(
             d_temp_scan_encode_storage_.get(), nbytes, unique_dst_idx_.get<uint32_t>(),
             unique_dst_idx_.get<uint32_t>(), unique_dst_idx_.get_num_elements(), stream);

@@ -38,7 +38,7 @@ EmbeddingCollectionForward::EmbeddingCollectionForward(
         embeddings_.push_back(std::make_unique<UniformDPEmbeddingForward>(
             core, flatten_ebc_param, global_embedding_data_, embedding_sharding_param));
         break;
-      case TablePlacementStrategy::Localized:
+      case TablePlacementStrategy::ModelParallel:
         embeddings_.push_back(std::make_unique<UniformLocalizedEmbeddingForward>(
             core, flatten_ebc_param, global_embedding_data_, embedding_sharding_param));
         break;
@@ -89,7 +89,7 @@ EmbeddingCollectionBackward::EmbeddingCollectionBackward(
         embeddings_.push_back(std::make_unique<UniformDPEmbeddingBackward>(
             core, flatten_ebc_param, global_embedding_data_, embedding_sharding_param));
         break;
-      case TablePlacementStrategy::Localized:
+      case TablePlacementStrategy::ModelParallel:
         embeddings_.push_back(std::make_unique<UniformLocalizedEmbeddingBackward>(
             core, flatten_ebc_param, global_embedding_data_, embedding_sharding_param));
         break;

@@ -17,7 +17,7 @@
                     3
                 ]
             ],
-            "table_placement_strategy": "localized"
+            "table_placement_strategy": "mp"
         }
     ],
     [
@@ -37,7 +37,7 @@
                     3
                 ]
             ],
-            "table_placement_strategy": "localized"
+            "table_placement_strategy": "mp"
         }
     ]
 ]
