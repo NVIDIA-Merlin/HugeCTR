@@ -37,7 +37,7 @@ class CalculateModelIndicesTest : public HybridEmbeddingUnitTest<dtype, emtype> 
     /* Compute expected results on host */
     HybridEmbeddingCpu<dtype, emtype> cpu_embedding(this->config, this->batch_size,
                                                     this->category_location,
-                                                    this->category_frequent_index, this->samples);
+                                                    this->samples);
     cpu_embedding.calculate_infrequent_model_indices();
 
     /* Compute indices */
@@ -78,7 +78,7 @@ class CalculateNetworkIndicesTest : public HybridEmbeddingUnitTest<dtype, emtype
     /* Compute expected results on host */
     HybridEmbeddingCpu<dtype, emtype> cpu_embedding(this->config, this->batch_size,
                                                     this->category_location,
-                                                    this->category_frequent_index, this->samples);
+                                                    this->samples);
     cpu_embedding.calculate_infrequent_network_indices();
 
     /* Compute indices */
@@ -120,7 +120,7 @@ class CalculateFrequentSampleIndicesTest : public HybridEmbeddingUnitTest<dtype,
     /* Compute expected results on host */
     HybridEmbeddingCpu<dtype, emtype> cpu_embedding(this->config, this->batch_size,
                                                     this->category_location,
-                                                    this->category_frequent_index, this->samples);
+                                                    this->samples);
     cpu_embedding.calculate_frequent_sample_indices();
     /* Compute indices */
     this->build_frequent();
@@ -162,7 +162,7 @@ class CalculateModelCacheIndicesTest : public HybridEmbeddingUnitTest<dtype, emt
     /* Compute expected results on host */
     HybridEmbeddingCpu<dtype, emtype> cpu_embedding(this->config, this->batch_size,
                                                     this->category_location,
-                                                    this->category_frequent_index, this->samples);
+                                                    this->samples);
     cpu_embedding.calculate_frequent_model_cache_indices();
 
     /* Compute indices */
@@ -205,7 +205,7 @@ class CalculateNetworkCacheIndicesTest : public HybridEmbeddingUnitTest<dtype, e
     /* Compute expected results on host */
     HybridEmbeddingCpu<dtype, emtype> cpu_embedding(this->config, this->batch_size,
                                                     this->category_location,
-                                                    this->category_frequent_index, this->samples);
+                                                    this->samples);
     cpu_embedding.calculate_frequent_network_cache_mask();
     cpu_embedding.calculate_frequent_network_cache_indices();
 

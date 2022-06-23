@@ -41,7 +41,7 @@ class ForwardSentMessageTest : public HybridEmbeddingUnitTest<dtype, emtype> {
     /* Compute expected results on host */
     HybridEmbeddingCpu<dtype, emtype> cpu_embedding(this->config, this->batch_size,
                                                     this->category_location,
-                                                    this->category_frequent_index, this->samples);
+                                                    this->samples);
     cpu_embedding.calculate_infrequent_model_indices();
     cpu_embedding.generate_embedding_vectors();
     if (this->config.comm_type == CommunicationType::IB_NVLink_Hier) {
@@ -144,7 +144,7 @@ class BackwardSentMessageTest : public HybridEmbeddingUnitTest<dtype, emtype> {
     /* Compute expected results on host */
     HybridEmbeddingCpu<dtype, emtype> cpu_embedding(this->config, this->batch_size,
                                                     this->category_location,
-                                                    this->category_frequent_index, this->samples);
+                                                    this->samples);
     cpu_embedding.calculate_infrequent_model_indices();
     cpu_embedding.calculate_infrequent_network_indices();
     cpu_embedding.generate_gradients();

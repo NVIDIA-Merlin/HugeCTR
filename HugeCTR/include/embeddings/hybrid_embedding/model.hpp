@@ -66,8 +66,7 @@ struct Model {
   Tensor2<uint32_t>
       num_instances_per_node;  // number of gpus for each node, .size() == number of nodes
 
-  Tensor2<dtype> category_frequent_index;  // indicator frequent category => location in cache
-  Tensor2<dtype> category_location;  // indicator infrequent category => location embedding vector
+  Tensor2<dtype> category_location;  // indicator category => location in embedding vector
 
   Tensor2<dtype> frequent_categories;
   Tensor2<dtype> infrequent_categories;

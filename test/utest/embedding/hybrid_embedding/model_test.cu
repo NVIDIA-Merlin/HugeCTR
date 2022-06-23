@@ -99,38 +99,23 @@ void model_test() {
   /*5. Model<dtype>::init_hybrid_model*/
   model.init_hybrid_model(calibration_data, statistics, data, 0);
   EXPECT_EQ(model.num_frequent, 12);
-  std::vector<dtype> category_frequent_index_ret;
   std::vector<dtype> category_location_ret;
-  download_tensor(category_frequent_index_ret, model.category_frequent_index, 0);
   download_tensor(category_location_ret, model.category_location, 0);
 
-  std::vector<dtype> category_frequent_index_ref{
-      4,   3,   6,   7,   140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140,
-      140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140,
-      140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 9,   140, 140, 140,
-      140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140,
-      140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140,
-      140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 10,  0,   1,   140, 140, 140, 140,
-      140, 140, 140, 5,   8,   140, 140, 140, 140, 140, 140, 140, 140, 11,  2,   140, 140, 140,
-      140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140, 140};
   std::vector<dtype> category_location_ref{
-      140, 140, 140, 140, 140, 140, 140, 140, 0,  0,  1,  0,  2,   0,   3,   0,   0,   1,   1,
-      1,   2,   1,   3,   1,   0,   2,   1,   2,  2,  2,  3,  2,   0,   3,   1,   3,   2,   3,
-      3,   3,   0,   4,   1,   4,   2,   4,   3,  4,  0,  5,  1,   5,   2,   5,   3,   5,   0,
-      6,   1,   6,   2,   6,   3,   6,   0,   7,  1,  7,  2,  7,   3,   7,   0,   8,   1,   8,
-      2,   8,   3,   8,   0,   9,   1,   9,   2,  9,  3,  9,  0,   10,  1,   10,  2,   10,  3,
-      10,  0,   11,  1,   11,  140, 140, 2,   11, 3,  11, 0,  12,  1,   12,  2,   12,  3,   12,
-      0,   13,  1,   13,  2,   13,  3,   13,  0,  14, 1,  14, 2,   14,  3,   14,  0,   15,  1,
-      15,  2,   15,  3,   15,  0,   16,  1,   16, 2,  16, 3,  16,  0,   17,  1,   17,  2,   17,
-      3,   17,  0,   18,  1,   18,  2,   18,  3,  18, 0,  19, 1,   19,  2,   19,  3,   19,  0,
-      20,  1,   20,  2,   20,  3,   20,  0,   21, 1,  21, 2,  21,  3,   21,  0,   22,  1,   22,
-      2,   22,  3,   22,  0,   23,  1,   23,  2,  23, 3,  23, 140, 140, 140, 140, 140, 140, 0,
-      24,  1,   24,  2,   24,  3,   24,  0,   25, 1,  25, 2,  25,  140, 140, 140, 140, 3,   25,
-      0,   26,  1,   26,  2,   26,  3,   26,  0,  27, 1,  27, 2,   27,  140, 140, 140, 140, 3,
-      27,  0,   28,  1,   28,  2,   28,  3,   28, 0,  29, 1,  29,  2,   29,  3,   29,  0,   30,
-      1,   30,  2,   30,  3,   30,  0,   31,  1,  31, 2,  31, 3,   31,  140, 140};
-  EXPECT_THAT(category_frequent_index_ret,
-              ::testing::ElementsAreArray(category_frequent_index_ref));
+      4,   4,   4,   3,   4,   6,   4,   7,   0,   0,   1, 0,  2,   0,   3, 0,  0, 1,  1, 1,  2, 1,
+      3,   1,   0,   2,   1,   2,   2,   2,   3,   2,   0, 3,  1,   3,   2, 3,  3, 3,  0, 4,  1, 4,
+      2,   4,   3,   4,   0,   5,   1,   5,   2,   5,   3, 5,  0,   6,   1, 6,  2, 6,  3, 6,  0, 7,
+      1,   7,   2,   7,   3,   7,   0,   8,   1,   8,   2, 8,  3,   8,   0, 9,  1, 9,  2, 9,  3, 9,
+      0,   10,  1,   10,  2,   10,  3,   10,  0,   11,  1, 11, 4,   9,   2, 11, 3, 11, 0, 12, 1, 12,
+      2,   12,  3,   12,  0,   13,  1,   13,  2,   13,  3, 13, 0,   14,  1, 14, 2, 14, 3, 14, 0, 15,
+      1,   15,  2,   15,  3,   15,  0,   16,  1,   16,  2, 16, 3,   16,  0, 17, 1, 17, 2, 17, 3, 17,
+      0,   18,  1,   18,  2,   18,  3,   18,  0,   19,  1, 19, 2,   19,  3, 19, 0, 20, 1, 20, 2, 20,
+      3,   20,  0,   21,  1,   21,  2,   21,  3,   21,  0, 22, 1,   22,  2, 22, 3, 22, 0, 23, 1, 23,
+      2,   23,  3,   23,  4,   10,  4,    0,  4,    1,  0, 24, 1,   24,  2, 24, 3, 24, 0, 25, 1, 25,
+      2,   25,  4,    5,  4,    8,  3,   25,  0,   26,  1, 26, 2,   26,  3, 26, 0, 27, 1, 27, 2, 27,
+      4,   11,  4,    2,  3,   27,  0,   28,  1,   28,  2, 28, 3,   28,  0, 29, 1, 29, 2, 29, 3, 29,
+      0,   30,  1,   30,  2,   30,  3,   30,  0,   31,  1, 31, 2,   31,  3, 31, 140, 140};
   EXPECT_THAT(category_location_ret, ::testing::ElementsAreArray(category_location_ref));
 
   std::vector<dtype> h_frequent_model_table_offsets_ref{0, 0, 2, 2, 3, 3, 5,  5,  6,  6,
@@ -219,42 +204,6 @@ void model_init_test(const size_t num_instances, const size_t num_tables, const 
 
   // Check defining properties
 
-  // check that all categories represented by the model appear exactly once
-  for (size_t instance = 0; instance < num_instances; ++instance) {
-    std::cout << "Testing category representation for instance " << instance << std::endl;
-    Model<dtype> &model = models[instance];
-
-    EXPECT_EQ(num_categories, model.num_categories);
-
-    std::vector<dtype> category_frequent_index;
-    std::vector<dtype> category_location;
-    download_tensor(category_frequent_index, model.category_frequent_index, stream);
-    download_tensor(category_location, model.category_location, stream);
-
-    // each category needs to belong to precisely one embedding type
-    // infrequent model is consistent
-    bool all_categories_repr_once = true;
-    bool consistent_infrequent_location = true;
-    for (size_t category = 0; category < num_categories; ++category) {
-      bool c_present = (category_frequent_index[category] < num_categories ||
-                        category_location[2 * category] < num_categories);
-      // absent in either the frequent embedding or the infrequent embedding
-      bool c_absent_once = (category_frequent_index[category] == num_categories ||
-                            category_location[2 * category] == num_categories);
-
-      all_categories_repr_once = all_categories_repr_once && (c_present && c_absent_once);
-
-      consistent_infrequent_location =
-          consistent_infrequent_location &&
-          (((category_location[2 * category] == num_categories) &&
-            (int)(category_location[2 * category + 1] == num_categories)) ||
-           ((category_location[2 * category] < num_categories) &&
-            (int)(category_location[2 * category + 1] < num_categories)));
-    }
-    EXPECT_TRUE(all_categories_repr_once);
-    EXPECT_TRUE(consistent_infrequent_location);
-  }
-
   std::cout << "Checking consistency and completeness of infrequent embedding..." << std::endl;
   // check order of categories for infrequent
   // - assuming default distributed embedding
@@ -268,7 +217,7 @@ void model_init_test(const size_t num_instances, const size_t num_tables, const 
 
     size_t indx_infrequent = 0;
     for (size_t category = 0; category < num_categories; ++category) {
-      if (category_location[2 * category] != num_categories) {
+      if (category_location[2 * category] < num_instances) {
         size_t instance_location = category_location[2 * category];
         size_t buffer_index = category_location[2 * category + 1];
 
@@ -288,8 +237,7 @@ void model_init_test(const size_t num_instances, const size_t num_tables, const 
       size_t next_offset = model.h_infrequent_model_table_offsets[embedding + 1];
       size_t indx_infrequent_instance = 0;
       for (size_t category = 0; category < num_categories; ++category) {
-        if (category_location[2 * category] < num_categories &&
-            category_location[2 * category] == instance) {
+        if (category_location[2 * category] == instance) {
           if (indx_infrequent_instance >= cur_offset && indx_infrequent_instance < next_offset) {
             size_t embedding_category =
                 EmbeddingTableFunctors<dtype>::get_embedding_table_index(table_sizes, category);
@@ -329,22 +277,22 @@ void model_init_test(const size_t num_instances, const size_t num_tables, const 
     const size_t num_categories = model.num_categories;
 
     std::vector<dtype> &frequent_table_offsets = model.h_frequent_model_table_offsets;
+    std::vector<dtype> category_location;
+    download_tensor(category_location, model.category_location, stream);
     std::vector<dtype> frequent_categories;
     download_tensor(frequent_categories, model.frequent_categories, stream);
-    std::vector<dtype> category_frequent_index;
-    download_tensor(category_frequent_index, model.category_frequent_index, stream);
 
-    // check that number of frequent categories in category_frequent_index == model.num_frequent
+    // check that number of frequent categories in category_location == model.num_frequent
     size_t num_frequent_model = 0;
-    for (size_t i = 0; i < category_frequent_index.size(); ++i) {
-      num_frequent_model += (size_t)(category_frequent_index[i] < num_categories ? 1 : 0);
+    for (size_t i = 0; i < num_categories; ++i) {
+      num_frequent_model += (size_t)(category_location[2 * i] == num_instances ? 1 : 0);
     }
     EXPECT_EQ(num_frequent_model, model.num_frequent);
 
     // check that category in frequent_categories has corresponding index in category_frequent_index
     for (size_t i = 0; i < frequent_categories.size(); ++i) {
       size_t category = frequent_categories[i];
-      EXPECT_EQ(category_frequent_index[category], i);
+      EXPECT_EQ(category_location[2 * category + 1], i);
     }
 
     std::map<dtype, size_t> category_to_stats_map;
@@ -387,10 +335,9 @@ void model_init_test(const size_t num_instances, const size_t num_tables, const 
     //   - check that the table offsets cover all frequent categories
     EXPECT_TRUE(set_categories_from_table_offsets == set_categories_frequent_categories_array);
 
-    // check that for categories category_cache_index == num_categories are not present
-    // in frequent_categories array
-    for (size_t category = 0; category < category_frequent_index.size(); ++category) {
-      if (category_frequent_index[category] == num_categories) {
+    // check that infrequent categories as per category_location are not present in frequent_categories array
+    for (size_t category = 0; category < num_categories; ++category) {
+      if (category_location[2 * category] < num_instances) {
         EXPECT_TRUE(set_categories_frequent_categories_array.find(category) ==
                     set_categories_frequent_categories_array.end());
       }

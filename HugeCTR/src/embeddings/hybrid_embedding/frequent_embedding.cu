@@ -53,7 +53,7 @@ template <typename dtype, typename emtype>
 __global__ void frequent_local_reduce(const emtype* __restrict__ gradients_in,
                                       float* __restrict__ gradients_out,
                                       size_t local_samples_offset,
-                                      const dtype* __restrict__ category_frequent_index,
+                                      const dtype* __restrict__ category_location,
                                       uint32_t embedding_vec_size,
                                       FrequentEmbeddingCompressionView<dtype>* indices) {
   const uint32_t num_frequent_sample_indices = *indices->d_num_frequent_sample_indices;
@@ -61,7 +61,7 @@ __global__ void frequent_local_reduce(const emtype* __restrict__ gradients_in,
   for (uint32_t i = blockIdx.x; i < num_frequent_sample_indices; i += gridDim.x) {
     uint32_t local_sample_index = indices->frequent_sample_indices[i];
     dtype category = indices->samples[local_samples_offset + local_sample_index];
-    dtype frequent_index = category_frequent_index[category];
+    dtype frequent_index = category_location[2 * category + 1];
 
     atomicAdd(gradients_out + frequent_index * embedding_vec_size + threadIdx.x,
               TypeConvertFunc<float, emtype>::convert(
@@ -287,7 +287,7 @@ void FrequentEmbedding<dtype, emtype>::forward_network_aux<vectype>(
   uint32_t global_sample_index_base = model_.global_instance_id * samples_per_instance;
 
   auto indices = this->indices_view_;
-  auto category_frequent_index = model_.category_frequent_index.get_ptr();
+  auto category_location = model_.category_location.get_ptr();
   auto embedding_vec_size = embedding_vec_size_;
 
   auto copy_desc = CopyDescriptors::make_OneToOne<vectype, emtype, 1>(
@@ -296,7 +296,7 @@ void FrequentEmbedding<dtype, emtype>::forward_network_aux<vectype>(
       [=] __device__(size_t i) -> CopyDescriptors::CopyDetails<vectype, emtype, 1> {
         auto index = indices->frequent_sample_indices[i];
         auto category = indices->samples[index + global_sample_index_base];
-        auto frequent_index = category_frequent_index[category];
+        auto frequent_index = category_location[2 * category + 1];
 
         return {
             embedding_vectors + frequent_index * embedding_vec_size,
@@ -352,7 +352,7 @@ void FrequentEmbedding<dtype, emtype>::local_reduce(const emtype* gradients, cud
   /* Local reduce */
   frequent_embedding_kernels::frequent_local_reduce<<<n_blocks, embedding_vec_size_, 0, stream>>>(
       gradients, float_frequent_gradients_.get_ptr(), network_id * local_samples_size,
-      model_.category_frequent_index.get_ptr(), embedding_vec_size_, this->indices_view_);
+      model_.category_location.get_ptr(), embedding_vec_size_, this->indices_view_);
   HCTR_LIB_THROW(cudaPeekAtLastError());
 
   if (sizeof(emtype) != sizeof(float)) {

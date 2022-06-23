@@ -43,7 +43,7 @@ class InfrequentUpdateTest : public HybridEmbeddingUnitTest<dtype, emtype> {
 
     HybridEmbeddingCpu<dtype, emtype> cpu_embedding(this->config, this->batch_size,
                                                     this->category_location,
-                                                    this->category_frequent_index, this->samples);
+                                                    this->samples);
     cpu_embedding.calculate_infrequent_model_indices();
     cpu_embedding.calculate_infrequent_network_indices();
     cpu_embedding.generate_embedding_vectors();
@@ -145,7 +145,7 @@ class FrequentUpdateTest : public HybridEmbeddingUnitTest<dtype, emtype> {
 
     HybridEmbeddingCpu<dtype, emtype> cpu_embedding(this->config, this->batch_size,
                                                     this->category_location,
-                                                    this->category_frequent_index, this->samples);
+                                                    this->samples);
     cpu_embedding.calculate_frequent_network_cache_indices();
     cpu_embedding.generate_embedding_vectors();
     cpu_embedding.generate_gradients();

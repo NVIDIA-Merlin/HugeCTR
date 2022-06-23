@@ -185,13 +185,10 @@ void HybridEmbeddingInputGenerator<dtype>::generate_category_location() {
   });
 
   // First num_frequent categories are frequent
-  category_location_.resize(2 * config_.num_categories);
-  category_frequent_index_.resize(config_.num_categories, config_.num_frequent);
+  category_location_.resize(2 * config_.num_categories, config_.num_instances);
   for (dtype i = 0; i < config_.num_frequent; i++) {
     dtype cat = original_index[i];
-    category_location_[2 * cat + 0] = config_.num_categories;
-    category_location_[2 * cat + 1] = config_.num_categories;
-    category_frequent_index_[cat] = i;
+    category_location_[2 * cat + 1] = i;
   }
 
   dtype max_size_per_instance =
@@ -284,11 +281,6 @@ void HybridEmbeddingInputGenerator<dtype>::generate_flattened_categorical_input(
 template <typename dtype>
 std::vector<dtype>& HybridEmbeddingInputGenerator<dtype>::get_category_location() {
   return category_location_;
-}
-
-template <typename dtype>
-std::vector<dtype>& HybridEmbeddingInputGenerator<dtype>::get_category_frequent_index() {
-  return category_frequent_index_;
 }
 
 template <typename dtype>

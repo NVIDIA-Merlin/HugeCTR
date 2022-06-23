@@ -50,7 +50,6 @@ Model<dtype>::Model(const Model &model) {
     }
   }
   num_instances_per_node = model.num_instances_per_node;
-  category_frequent_index = model.category_frequent_index;
   category_location = model.category_location;
   frequent_categories = model.frequent_categories;
   infrequent_categories = model.infrequent_categories;
@@ -89,10 +88,7 @@ void Model<dtype>::init_params_and_reserve(CommunicationType communication_type_
   buf->reserve({1, 1}, &d_num_frequent);
   buf->reserve({1, 1}, &d_total_frequent_count);
   buf->reserve({h_num_instances_per_node.size(), 1}, &num_instances_per_node);
-  buf->reserve({(size_t)(num_categories + 1), 1},
-               &category_frequent_index);  // +1 for NULL category
-  buf->reserve({(size_t)(2 * (num_categories + 1)), 1},
-               &category_location);  // +1 for NULL category
+  buf->reserve({(size_t)(2 * (num_categories+1)), 1}, &category_location); // +1 for NULL category
   buf->reserve({(size_t)num_categories, 1}, &frequent_categories);
   buf->reserve({(size_t)num_categories, 1}, &infrequent_categories);
 }
@@ -136,13 +132,9 @@ void Model<dtype>::init_hybrid_model(const CalibrationData &calibration,
    *  - then per slot
    *  - and finally in decreasing order of frequency
    */
-  statistics.calculate_frequent_categories(frequent_categories.get_ptr(),
-                                           category_frequent_index.get_ptr(), num_frequent, stream);
-
-  statistics.calculate_infrequent_categories(infrequent_categories.get_ptr(),
-                                             category_frequent_index.get_ptr(),
-                                             category_location.get_ptr(), num_infrequent, stream);
-
+  statistics.calculate_frequent_and_infrequent_categories(
+      frequent_categories.get_ptr(), infrequent_categories.get_ptr(), category_location.get_ptr(),
+      num_frequent, num_infrequent, stream);
   /* Calculate frequent and infrequent table offsets */
   statistics.calculate_frequent_model_table_offsets(h_frequent_model_table_offsets,
                                                     frequent_categories, num_frequent, stream);

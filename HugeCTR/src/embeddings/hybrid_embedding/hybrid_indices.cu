@@ -8,28 +8,30 @@ namespace indices_kernels {
 
 template <typename dtype>
 __global__ void fused_cache_masks(const dtype* __restrict__ samples,
-                                  const dtype* __restrict__ category_frequent_index,
+                                  const dtype* __restrict__ category_location,
                                   bool* __restrict__ model_cache_mask,
                                   bool* __restrict__ network_cache_mask, uint32_t offset,
                                   uint32_t samples_size, uint32_t local_samples_size,
                                   uint32_t num_frequent, uint32_t num_frequent_per_model,
-                                  uint32_t model_id) {
+                                  uint32_t model_id, uint32_t num_instances) {
   uint32_t tid = blockDim.x * blockIdx.x + threadIdx.x;
 
   if (tid < samples_size) {
     dtype category = __ldg(samples + tid);
-    dtype frequent_index = __ldg(category_frequent_index + category);
+    dtype frequent_loc = __ldg(category_location + 2 * category);
+    dtype frequent_index = __ldg(category_location + (2 * category + 1));
 
-    if (frequent_index < num_frequent && frequent_index / num_frequent_per_model == model_id)
+    if (frequent_loc == num_instances && frequent_index / num_frequent_per_model == model_id)
       model_cache_mask[(tid / local_samples_size) * num_frequent_per_model +
                        frequent_index % num_frequent_per_model] = true;
   }
 
   if (tid < local_samples_size) {
     dtype category = __ldg(samples + offset + tid);
-    dtype frequent_index = __ldg(category_frequent_index + category);
+    dtype frequent_loc = __ldg(category_location + 2 * category);
+    dtype frequent_index = __ldg(category_location + (2 * category + 1));
 
-    if (frequent_index < num_frequent) network_cache_mask[frequent_index] = true;
+    if (frequent_loc == num_instances) network_cache_mask[frequent_index] = true;
   }
 }
 
@@ -113,20 +115,20 @@ FrequentEmbeddingCompression<dtype>::FrequentEmbeddingCompression(
 template <typename dtype>
 struct FrequentSampleIndicesSelectOp {
   const dtype* samples;
-  const dtype* category_frequent_index;
+  const dtype* category_location;
   uint32_t offset;
-  dtype num_frequent;
+  dtype num_instances;
   __host__ __device__ __forceinline__
-  FrequentSampleIndicesSelectOp(const dtype* samples, const dtype* category_frequent_index,
-                                uint32_t offset, dtype num_frequent)
+  FrequentSampleIndicesSelectOp(const dtype* samples, const dtype* category_location,
+                                uint32_t offset, dtype num_instances)
       : samples(samples),
-        category_frequent_index(category_frequent_index),
+        category_location(category_location),
         offset(offset),
-        num_frequent(num_frequent) {}
+        num_instances(num_instances) {}
   __device__ __forceinline__ bool operator()(const uint32_t& idx) const {
     dtype category = __ldg(samples + offset + idx);
-    dtype frequent_index = __ldg(category_frequent_index + category);
-    return frequent_index < num_frequent;
+    dtype frequent_location = __ldg(category_location + 2 * category);
+    return frequent_location == num_instances;
   }
 };
 
@@ -170,8 +172,8 @@ void FrequentEmbeddingCompression<dtype>::calculate_frequent_sample_indices(cuda
   // Select indices of frequent categories appearing in the local MLP batch
   cub::CountingInputIterator<uint32_t> counting(0);
   FrequentSampleIndicesSelectOp<dtype> select_op(
-      data_.samples.get_ptr(), model_.category_frequent_index.get_ptr(),
-      model_.global_instance_id * local_samples_size, model_.num_frequent);
+      data_.samples.get_ptr(), model_.category_location.get_ptr(),
+      model_.global_instance_id * local_samples_size, model_.num_instances);
   cub::DeviceSelect::If(
       reinterpret_cast<void*>(frequent_sample_indices_temp_storage_.get_ptr()),
       frequent_sample_indices_temp_storage_bytes_, counting, frequent_sample_indices_.get_ptr(),
@@ -254,9 +256,10 @@ void FrequentEmbeddingCompression<dtype>::calculate_cache_masks(cudaStream_t str
   size_t n_blocks = ceildiv<size_t>(samples_size, TPB_mask);
   // // PROFILE_RECORD("fre_calculate_cache_masks.start", stream);
   indices_kernels::fused_cache_masks<<<n_blocks, TPB_mask, 0, stream>>>(
-      data_.samples.get_ptr(), model_.category_frequent_index.get_ptr(), d_model_cache_mask,
+      data_.samples.get_ptr(), model_.category_location.get_ptr(), d_model_cache_mask,
       d_network_cache_mask, model_.global_instance_id * local_samples_size, samples_size,
-      local_samples_size, num_frequent, num_frequent_per_model, model_.global_instance_id);
+      local_samples_size, num_frequent, num_frequent_per_model, model_.global_instance_id,
+      model_.num_instances);
   HCTR_LIB_THROW(cudaPeekAtLastError());
   // // PROFILE_RECORD("fre_calculate_cache_masks.stop", stream);
 }
