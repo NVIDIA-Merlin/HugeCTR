@@ -67,12 +67,15 @@ model.add(hugectr.Input(label_dim = 1, label_name = "label",
 # create embedding table
 embedding_table_list = []
 for i in range(num_embedding):
-  embedding_table_list.append(hugectr.EmbeddingTableConfig(id_space=i, max_vocabulary_size=slot_size_array[i], ev_size=128, min_key=0, max_key=slot_size_array[i]))
+  embedding_table_list.append(hugectr.EmbeddingTableConfig(table_id=i, max_vocabulary_size=slot_size_array[i], ev_size=128, min_key=0, max_key=slot_size_array[i]))
 # create embedding planner and embedding collection
 embedding_planner = hugectr.EmbeddingPlanner()
 emb_vec_list = []
 for i in range(num_embedding):
-  embedding_planner.embedding_lookup(embedding_table_list[i], "data{}".format(i), "emb_vec{}".format(i), "sum")
+  embedding_planner.embedding_lookup(table_config=embedding_table_list[i], 
+                                    bottom_name="data{}".format(i), 
+                                    top_name="emb_vec{}".format(i), 
+                                    combiner="sum")
 comm = MPI.COMM_WORLD
 if comm.Get_rank() == 0:
   generate_plan(slot_size_array, 8, "./plan.json")
