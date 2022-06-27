@@ -42,7 +42,7 @@ void EmbeddingCollectionPybind(pybind11::module &m) {
       m, "EmbeddingPlanner")
       .def(pybind11::init())
       .def("embedding_lookup", &HugeCTR::EmbeddingPlanner::embedding_lookup,
-           pybind11::arg("emb_table"), pybind11::arg("bottom_name"), pybind11::arg("top_name"),
+           pybind11::arg("table_config"), pybind11::arg("bottom_name"), pybind11::arg("top_name"),
            pybind11::arg("combiner"))
       .def("create_embedding_collection", &HugeCTR::EmbeddingPlanner::create_embedding_collection,
            pybind11::arg("plan_file"));
