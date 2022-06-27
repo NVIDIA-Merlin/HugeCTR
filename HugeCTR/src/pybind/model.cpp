@@ -763,12 +763,12 @@ core::Tensor convert_native_tensor_to_core_tensor(HugeCTR::Tensor2<T> native_ten
 
 }  // namespace core_helper
 
-void Model::add(const EmbeddingCollectionPlaceHolder& embedding_collection_place_holder) {
+void Model::add(const EmbeddingCollectionPlaceholder& embedding_collection_placeholder) {
   int num_total_gpus = resource_manager_->get_global_gpu_count();
   int num_local_gpus = resource_manager_->get_local_gpu_count();
 
   embedding::EmbeddingCollectionParam param;
-  param.num_embedding = embedding_collection_place_holder.param_.size();
+  param.num_embedding = embedding_collection_placeholder.param_.size();
   param.universal_batch_size = solver_.batchsize;
   if (solver_.i64_input_key) {
     param.key_type = TensorScalarType::Int64;
@@ -788,14 +788,14 @@ void Model::add(const EmbeddingCollectionPlaceHolder& embedding_collection_place
   std::vector<std::string> bottom_name_list;
   std::vector<std::string> top_name_list;
   for (int embedding_id = 0; embedding_id < param.num_embedding; ++embedding_id) {
-    auto embedding_param = embedding_collection_place_holder.param_[embedding_id];
-    auto input_name = embedding_collection_place_holder.input_names_[embedding_id];
-    auto output_name = embedding_collection_place_holder.output_names_[embedding_id];
-    embedding_param.hotness = hotness_map_[input_name];
+    auto embedding_param = embedding_collection_placeholder.param_[embedding_id];
+    auto bottom_name = embedding_collection_placeholder.bottom_names_[embedding_id];
+    auto top_name = embedding_collection_placeholder.top_names_[embedding_id];
+    embedding_param.hotness = hotness_map_[bottom_name];
     param.embedding_params.push_back(std::move(embedding_param));
 
-    bottom_name_list.push_back(input_name);
-    top_name_list.push_back(output_name);
+    bottom_name_list.push_back(bottom_name);
+    top_name_list.push_back(top_name);
   }
 
   std::string bottom_name = join(bottom_name_list, ",");
@@ -807,14 +807,14 @@ void Model::add(const EmbeddingCollectionPlaceHolder& embedding_collection_place
 
   embedding::EmbeddingPlanner embedding_planner(param);
   embedding_planner.generate_embedding_plan_from_json_file(
-      embedding_collection_place_holder.plan_file_);
+      embedding_collection_placeholder.plan_file_);
 
   // TODO: make embedding collection support dynamic input size.
   embedding::EmbeddingCollectionParam eval_param = param;
   eval_param.universal_batch_size = solver_.batchsize_eval;
   embedding::EmbeddingPlanner eval_embedding_planner(eval_param);
   eval_embedding_planner.generate_embedding_plan_from_json_file(
-      embedding_collection_place_holder.plan_file_);
+      embedding_collection_placeholder.plan_file_);
 
   std::vector<std::shared_ptr<core::CoreResourceManager>> core_list;
 
@@ -834,7 +834,7 @@ void Model::add(const EmbeddingCollectionPlaceHolder& embedding_collection_place
   }
 
   std::vector<embedding::EmbeddingTableParam> emb_table_params;
-  for (auto& p : embedding_collection_place_holder.emb_table_place_holder_) {
+  for (auto& p : embedding_collection_placeholder.emb_table_placeholder_) {
     embedding::EmbeddingTableParam et_param;
     et_param.id_space = p.param_.id_space;
     et_param.max_vocabulary_size = p.param_.max_vocabulary_size;
@@ -906,7 +906,7 @@ void Model::add(const EmbeddingCollectionPlaceHolder& embedding_collection_place
       auto evaluate_block_buffer = buff->create_block<emb_t>();
       for (int embedding_id = 0; embedding_id < param.num_embedding; ++embedding_id) {
         embedding::EmbeddingParam& emb_param = param.embedding_params[embedding_id];
-        std::string top_name = embedding_collection_place_holder.output_names_[embedding_id];
+        std::string top_name = embedding_collection_placeholder.top_names_[embedding_id];
 
         size_t emb_out_dims = (emb_param.combiner == embedding::Combiner::Concat)
                                   ? emb_param.hotness * emb_param.ev_size
@@ -941,7 +941,7 @@ void Model::add(const EmbeddingCollectionPlaceHolder& embedding_collection_place
       auto evaluate_block_buffer = buff->create_block<emb_t>();
       for (int embedding_id = 0; embedding_id < param.num_embedding; ++embedding_id) {
         embedding::EmbeddingParam& emb_param = param.embedding_params[embedding_id];
-        std::string top_name = embedding_collection_place_holder.output_names_[embedding_id];
+        std::string top_name = embedding_collection_placeholder.top_names_[embedding_id];
 
         size_t emb_out_dims = (emb_param.combiner == embedding::Combiner::Concat)
                                   ? emb_param.hotness * emb_param.ev_size
@@ -978,7 +978,7 @@ void Model::add(const EmbeddingCollectionPlaceHolder& embedding_collection_place
 
   for (int embedding_id = 0; embedding_id < param.num_embedding; ++embedding_id) {
     embedding::EmbeddingParam& emb_param = param.embedding_params[embedding_id];
-    std::string top_name = embedding_collection_place_holder.output_names_[embedding_id];
+    std::string top_name = embedding_collection_placeholder.top_names_[embedding_id];
     int emb_out_dims = (emb_param.combiner == embedding::Combiner::Concat)
                            ? emb_param.hotness * emb_param.ev_size
                            : emb_param.ev_size;

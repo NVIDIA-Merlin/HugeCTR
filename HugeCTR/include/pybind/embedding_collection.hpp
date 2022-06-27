@@ -99,7 +99,7 @@ class EmbeddingPlanner {
   EmbeddingCollectionPlaceholder create_embedding_collection(const std::string &plan_file) {
     std::sort(emb_table_placeholder_.begin(), emb_table_placeholder_.end(),
               [](const EmbeddingTablePlaceholder &lhs, const EmbeddingTablePlaceholder &rhs) {
-                return lhs.param_.table_id < rhs.param_.table_id;
+                return lhs.param_.id_space < rhs.param_.id_space;
               });
     return EmbeddingCollectionPlaceholder(plan_file, param_, bottom_names_, top_names_,
                                           emb_table_placeholder_);

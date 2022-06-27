@@ -351,7 +351,7 @@ class Model {
 
   virtual void add(DenseLayer& dense_layer);
 
-  virtual void add(const EmbeddingCollectionPlaceHolder& embedding_collection);
+  virtual void add(const EmbeddingCollectionPlaceholder& embedding_collection);
 
   virtual void add_internal(DenseLayer& dense_layer);
 
