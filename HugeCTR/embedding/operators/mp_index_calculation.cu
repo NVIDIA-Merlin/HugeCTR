@@ -169,12 +169,12 @@ __global__ void count_unique_key_kernel(const key_t *hash_keys, const uint32_t *
                                         int num_unique_id_space, uint32_t *unique_key_count) {
   int warp_id = 0;
   int lane_id = threadIdx.x;
-  int bid = blockIdx.x;
+  int block_id = blockIdx.x;
 
   int count = 0;
-  if (bid < num_unique_id_space) {
-    int start = hash_offset[bid];
-    int end = hash_offset[bid + 1];
+  if (block_id < num_unique_id_space) {
+    int start = hash_offset[block_id];
+    int end = hash_offset[block_id + 1];
     for (int i = 0; i * kWarpSize + lane_id < (end - start); ++i) {
       count += (hash_keys[start + i * kWarpSize + lane_id] == empty_key<key_t>) ? 0 : 1;
     }
@@ -185,8 +185,8 @@ __global__ void count_unique_key_kernel(const key_t *hash_keys, const uint32_t *
   int aggregate = WarpReduce(temp_storage[warp_id]).Sum(count);
 
   if (lane_id == 0) {
-    unique_key_count[bid + 1] = aggregate;
-    if (bid == 0) {
+    unique_key_count[block_id + 1] = aggregate;
+    if (block_id == 0) {
       unique_key_count[0] = 0;
     }
   }

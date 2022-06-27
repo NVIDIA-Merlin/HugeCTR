@@ -26,17 +26,17 @@ namespace HugeCTR {
 namespace python_lib {
 
 void EmbeddingCollectionPybind(pybind11::module &m) {
-  pybind11::class_<HugeCTR::EmbeddingTablePlaceHolder,
-                   std::shared_ptr<HugeCTR::EmbeddingTablePlaceHolder>>(m,
-                                                                        "EmbeddingTablePlaceHolder")
+  pybind11::class_<HugeCTR::EmbeddingTablePlaceholder,
+                   std::shared_ptr<HugeCTR::EmbeddingTablePlaceholder>>(m,
+                                                                        "EmbeddingTable")
       .def(pybind11::init<int, int, int, int64_t, int64_t, std::optional<OptParams>>(),
-           pybind11::arg("id_space"), pybind11::arg("max_vocabulary_size"),
+           pybind11::arg("table_id"), pybind11::arg("max_vocabulary_size"),
            pybind11::arg("ev_size"), pybind11::arg("min_key"), pybind11::arg("max_key"),
            pybind11::arg("opt_params_py") = std::nullopt);
 
-  pybind11::class_<HugeCTR::EmbeddingCollectionPlaceHolder,
-                   std::shared_ptr<HugeCTR::EmbeddingCollectionPlaceHolder>>(
-      m, "EmbeddingCollectionPlaceHolder");
+  pybind11::class_<HugeCTR::EmbeddingCollectionPlaceholder,
+                   std::shared_ptr<HugeCTR::EmbeddingCollectionPlaceholder>>(
+      m, "EmbeddingCollection");
 
   pybind11::class_<HugeCTR::EmbeddingPlanner, std::shared_ptr<HugeCTR::EmbeddingPlanner>>(
       m, "EmbeddingPlanner")

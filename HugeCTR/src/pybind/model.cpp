@@ -786,6 +786,7 @@ void Model::add(const EmbeddingCollectionPlaceHolder& embedding_collection_place
   }
 
   std::vector<std::string> bottom_name_list;
+  std::vector<std::string> top_name_list;
   for (int embedding_id = 0; embedding_id < param.num_embedding; ++embedding_id) {
     auto embedding_param = embedding_collection_place_holder.param_[embedding_id];
     auto input_name = embedding_collection_place_holder.input_names_[embedding_id];
@@ -794,10 +795,15 @@ void Model::add(const EmbeddingCollectionPlaceHolder& embedding_collection_place
     param.embedding_params.push_back(std::move(embedding_param));
 
     bottom_name_list.push_back(input_name);
+    top_name_list.push_back(output_name);
   }
 
   std::string bottom_name = join(bottom_name_list, ",");
   deactivate_tensor(tensor_active_, bottom_name);
+
+  layer_info_.push_back("EmbeddingCollection");
+  input_output_info_.push_back(
+          std::make_pair(bottom_name, join(top_name_list, ",")));
 
   embedding::EmbeddingPlanner embedding_planner(param);
   embedding_planner.generate_embedding_plan_from_json_file(
