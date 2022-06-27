@@ -236,18 +236,18 @@ typedef struct DataSetHeader_ {
   DISALLOW_MOVE(ClassName)
 
 #ifdef ENABLE_MPI
-#define PRINT_FUNC_NAME_()                                                            \
-  do {                                                                                \
-    int __PID(-1), __NUM_PROCS(-1);                                                   \
-    MPI_Comm_rank(MPI_COMM_WORLD, &__PID);                                            \
-    MPI_Comm_size(MPI_COMM_WORLD, &__NUM_PROCS);                                      \
-    std::cout << "[HCDEBUG][CALL] " << __FUNCTION__ << " in pid: " << __PID << " of " \
-              << __NUM_PROCS << " processes." << std::endl;                           \
+#define HCTR_PRINT_FUNC_NAME_()                                                             \
+  do {                                                                                      \
+    int __PID{-1}, __NUM_PROCS{-1};                                                         \
+    HCTR_MPI_THROW(MPI_Comm_rank(MPI_COMM_WORLD, &__PID));                                  \
+    HCTR_MPI_THROW(MPI_Comm_size(MPI_COMM_WORLD, &__NUM_PROCS));                            \
+    HCTR_LOG_S(DEBUG, WORLD) << "[CALL] " << __FUNCTION__ << " in pid: " << __PID << " of " \
+                             << __NUM_PROCS << " processes." << std::endl;                  \
   } while (0)
 #else
-#define PRINT_FUNC_NAME_()                                               \
-  do {                                                                   \
-    std::cout << "[HCDEBUG][CALL] " << __FUNCTION__ << " " << std::endl; \
+#define HCTR_PRINT_FUNC_NAME_()                                         \
+  do {                                                                  \
+    HCTR_LOG_S(DEBUG, WORLD) << "[CALL] " << __FUNCTION__ << std::endl; \
   } while (0)
 #endif
 

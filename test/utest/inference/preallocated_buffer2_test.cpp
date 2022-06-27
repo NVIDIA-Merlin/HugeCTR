@@ -42,8 +42,8 @@ void preallocated_buffer2_test(int batch_size, int slot_num, int embedding_vec_s
   std::shared_ptr<IDataSimulator<int>> ldata_sim;
   ldata_sim.reset(new IntUniformDataSimulator<int>(0, max_nnz));
   h_row_ptrs[0] = 0;
-  for (int i = 1; i < (int)row_ptrs_size; i++) {
-    h_row_ptrs[i] = (h_row_ptrs[i - 1] + ldata_sim->get_num());
+  for (size_t i = 1; i < row_ptrs_size; i++) {
+    h_row_ptrs[i] = h_row_ptrs[i - 1] + ldata_sim->get_num();
   }
 
   size_t row_ptrs_size_in_bytes = row_ptrs_size * TensorScalarSizeFunc<int>::get_element_size();

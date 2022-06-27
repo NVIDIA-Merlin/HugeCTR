@@ -95,42 +95,41 @@ InferenceParser::InferenceParser(const nlohmann::json& config) : config_(config)
   dense_name = get_value_from_json<std::string>(j_dense_data, "top");
   label_dim = get_value_from_json<size_t>(j_label_data, "label_dim");
   dense_dim = get_value_from_json<size_t>(j_dense_data, "dense_dim");
-  num_embedding_tables = static_cast<size_t>(j_sparse_data.size());
+
+  num_embedding_tables = j_sparse_data.size();
   slot_num = 0;
-  {
-    for (int i = 0; i < (int)num_embedding_tables; i++) {
-      const nlohmann::json& j = j_sparse_data[i];
-      size_t max_feature_num_per_sample_per_table =
-          get_max_feature_num_per_sample_from_nnz_per_slot(j);
-      auto current_slot_num = get_value_from_json<size_t>(j, "slot_num");
-      int current_max_nnz = get_max_nnz_from_nnz_per_slot(j);
-      auto sparse_name = get_value_from_json<std::string>(j, "top");
-      max_feature_num_for_tables.push_back(max_feature_num_per_sample_per_table);
-      slot_num_for_tables.push_back(current_slot_num);
-      max_nnz_for_tables.push_back(current_max_nnz);
-      sparse_names.push_back(sparse_name);
-      slot_num += current_slot_num;
-    }
+  for (size_t i = 0; i < num_embedding_tables; i++) {
+    const nlohmann::json& j = j_sparse_data[i];
+    const size_t max_feature_num_per_sample_per_table =
+        get_max_feature_num_per_sample_from_nnz_per_slot(j);
+    auto current_slot_num = get_value_from_json<size_t>(j, "slot_num");
+    int current_max_nnz = get_max_nnz_from_nnz_per_slot(j);
+    auto sparse_name = get_value_from_json<std::string>(j, "top");
+    max_feature_num_for_tables.push_back(max_feature_num_per_sample_per_table);
+    slot_num_for_tables.push_back(current_slot_num);
+    max_nnz_for_tables.push_back(current_max_nnz);
+    sparse_names.push_back(sparse_name);
+    slot_num += current_slot_num;
   }
-  {
-    for (int i = 1; i < (int)j_layers_array.size(); i++) {
-      // if not embedding then break
-      const nlohmann::json& j = j_layers_array[i];
-      auto embedding_name = get_value_from_json<std::string>(j, "type");
-      if (embedding_name.compare("DistributedSlotSparseEmbeddingHash") != 0 &&
-          embedding_name.compare("LocalizedSlotSparseEmbeddingHash") != 0 &&
-          embedding_name.compare("LocalizedSlotSparseEmbeddingOneHot") != 0) {
-        break;
-      }
-      auto j_embed_params = get_json(j, "sparse_embedding_hparam");
-      auto embedding_vec_size = get_value_from_json<int>(j_embed_params, "embedding_vec_size");
-      embed_vec_size_for_tables.push_back(embedding_vec_size);
-    }  // for ()
-  }    // get embedding params
+
+  // get embedding params
+  for (size_t i = 1; i < j_layers_array.size(); i++) {
+    // if not embedding then break
+    const nlohmann::json& j = j_layers_array[i];
+    auto embedding_name = get_value_from_json<std::string>(j, "type");
+    if (embedding_name.compare("DistributedSlotSparseEmbeddingHash") != 0 &&
+        embedding_name.compare("LocalizedSlotSparseEmbeddingHash") != 0 &&
+        embedding_name.compare("LocalizedSlotSparseEmbeddingOneHot") != 0) {
+      break;
+    }
+    auto j_embed_params = get_json(j, "sparse_embedding_hparam");
+    auto embedding_vec_size = get_value_from_json<int>(j_embed_params, "embedding_vec_size");
+    embed_vec_size_for_tables.push_back(embedding_vec_size);
+  }
 
   max_embedding_vector_size_per_sample = 0;
   max_feature_num_per_sample = 0;
-  for (int i = 0; i < (int)num_embedding_tables; i++) {
+  for (size_t i = 0; i < num_embedding_tables; i++) {
     max_embedding_vector_size_per_sample +=
         (max_feature_num_for_tables[i] * embed_vec_size_for_tables[i]);
     max_feature_num_per_sample += max_feature_num_for_tables[i];

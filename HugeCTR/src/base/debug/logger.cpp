@@ -178,14 +178,23 @@ void Logger::do_throw(HugeCTR::Error_t error_type, const SrcLoc& loc,
 
 int Logger::get_rank() { return rank_; }
 
+#ifdef HCTR_LEVEL_MAP_
+#error HCTR_LEVEL_MAP_ already defined!
+#else
+#define HCTR_LEVEL_MAP_(MAP, NAME) MAP[LOG_LEVEL(NAME)] = #NAME
+#endif
+
 Logger::Logger() : rank_(0), max_level_(DEFAULT_LOG_LEVEL), log_to_std_(true), log_to_file_(false) {
   hctr_set_thread_name("main");
 
 #ifdef ENABLE_MPI
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank_);
+  if (MPI_Comm_rank(MPI_COMM_WORLD, &rank_) != MPI_SUCCESS) {
+    std::cerr << "MPI rank initialization failed!" << std::endl;
+    std::abort();
+  }
 #endif
 
-  const char* max_level_str = std::getenv("HUGECTR_LOG_LEVEL");
+  const char* const max_level_str = std::getenv("HUGECTR_LOG_LEVEL");
   if (max_level_str != nullptr && max_level_str[0] != '\0') {
     int max_level;
     if (sscanf(max_level_str, "%d", &max_level) == 1) {
@@ -193,7 +202,7 @@ Logger::Logger() : rank_(0), max_level_(DEFAULT_LOG_LEVEL), log_to_std_(true), l
     }
   }
 
-  const char* log_to_file_str = std::getenv("HUGECTR_LOG_TO_FILE");
+  const char* const log_to_file_str = std::getenv("HUGECTR_LOG_TO_FILE");
   if (log_to_file_str != nullptr && log_to_file_str[0] != '\0') {
     int log_to_file_val = 0;
     if (sscanf(log_to_file_str, "%d", &log_to_file_val) == 1) {
@@ -202,12 +211,12 @@ Logger::Logger() : rank_(0), max_level_(DEFAULT_LOG_LEVEL), log_to_std_(true), l
     }
   }
 
-  LEVEL_MAP(level_name_, ERROR);
-  LEVEL_MAP(level_name_, SILENCE);
-  LEVEL_MAP(level_name_, INFO);
-  LEVEL_MAP(level_name_, WARNING);
-  LEVEL_MAP(level_name_, DEBUG);
-  LEVEL_MAP(level_name_, TRACE);
+  HCTR_LEVEL_MAP_(level_name_, ERROR);
+  HCTR_LEVEL_MAP_(level_name_, SILENCE);
+  HCTR_LEVEL_MAP_(level_name_, INFO);
+  HCTR_LEVEL_MAP_(level_name_, WARNING);
+  HCTR_LEVEL_MAP_(level_name_, DEBUG);
+  HCTR_LEVEL_MAP_(level_name_, TRACE);
 
   if (log_to_file_) {
     for (int level = LOG_ERROR_LEVEL; level <= max_level_; level++) {

@@ -134,7 +134,6 @@ To build HugeCTR inference container from source, do the following:
    ```
 
 3. Here is an example of how you can build HugeCTR inference container using the build options:
-
    ```shell
    $ mkdir -p build && cd build
    $ cmake -DCMAKE_BUILD_TYPE=Release -DSM="70;80" -DENABLE_INFERENCE=ON .. # Target is NVIDIA V100 / A100 with Inference mode ON.

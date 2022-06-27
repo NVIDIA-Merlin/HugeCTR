@@ -285,7 +285,9 @@ void BinaryCrossEntropyLoss<T>::do_compute(T *input, const float *label, float *
   int block_size = 512;
   int grid_size = (batch_size + block_size - 1) / block_size;
   if (grid_size > 0) {
-    if (true == Loss<T>::gen_loss_summary_) cudaMemsetAsync(loss, 0, sizeof(float), stream);
+    if (true == Loss<T>::gen_loss_summary_) {
+      HCTR_LIB_THROW(cudaMemsetAsync(loss, 0, sizeof(float), stream));
+    }
     BinaryCrossEntropy_Kernel<<<grid_size, block_size, 0, stream>>>(
         input, label, loss, scaler, batch_size, Loss<T>::get_total_gpu_count(), rterm, label_weight,
         is_train, Loss<T>::gen_loss_summary_);

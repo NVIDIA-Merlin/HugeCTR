@@ -85,7 +85,7 @@ InferenceModel::InferenceModel(const std::string& model_config_path,
 InferenceModel::~InferenceModel() {
   for (auto device : resource_manager_->get_local_gpu_device_id_list()) {
     CudaDeviceContext context(device);
-    cudaDeviceSynchronize();
+    HCTR_LIB_THROW(cudaDeviceSynchronize());
   }
 }
 

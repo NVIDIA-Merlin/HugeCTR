@@ -234,13 +234,13 @@ class ParquetDataReaderWorker : public IDataReaderWorker {
     // dont have a good place to destroy resource - before worker threads exits
     if (thread_resource_allocated_) {
       CudaDeviceContext context(device_id_);
-      cudaStreamSynchronize(task_stream_);
-      cudaStreamSynchronize(dense_stream_);
+      HCTR_LIB_THROW(cudaStreamSynchronize(task_stream_));
+      HCTR_LIB_THROW(cudaStreamSynchronize(dense_stream_));
       cached_df_.reset();
       slot_offset_device_buf_.reset();
       source_.reset();
-      cudaStreamDestroy(task_stream_);
-      cudaStreamDestroy(dense_stream_);
+      HCTR_LIB_THROW(cudaStreamDestroy(task_stream_));
+      HCTR_LIB_THROW(cudaStreamDestroy(dense_stream_));
     }
   }
 

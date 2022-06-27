@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #pragma once
+
 #include "HugeCTR/core/buffer.hpp"
 #include "HugeCTR/core/registry.hpp"
 

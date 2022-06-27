@@ -2022,7 +2022,7 @@ void Model::train_overlapped() {
         train_graphs_[id].capture(do_it, stream);
 #ifdef ENABLE_MPI
 #pragma omp master
-        MPI_Barrier(MPI_COMM_WORLD);
+        HCTR_MPI_THROW(MPI_Barrier(MPI_COMM_WORLD));
 #endif
 #pragma omp barrier
       }

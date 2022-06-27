@@ -14,8 +14,10 @@
  * limitations under the License.
  */
 #pragma once
+
 #include "../embedding_table.hpp"
 #include "HugeCTR/core/registry.hpp"
+
 namespace embedding {
 using HugeCTR::CudaDeviceContext;
 

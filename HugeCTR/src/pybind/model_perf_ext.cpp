@@ -206,7 +206,7 @@ void ModelPerfExt::fit(int num_epochs, int max_iter, int display, int eval_inter
   high_level_eval_ = true;
   int __PID(0);
 #ifdef ENABLE_MPI
-  MPI_Comm_rank(MPI_COMM_WORLD, &__PID);
+  HCTR_MPI_THROW(MPI_Comm_rank(MPI_COMM_WORLD, &__PID));
 #endif
 
   HugeCTR::Timer timer;
