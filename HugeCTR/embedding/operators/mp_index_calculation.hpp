@@ -54,7 +54,7 @@ class ModelIndexCalculation {
                         DataType key_type);
 
   void compute(const Tensor& key, const Tensor& bucket_range, size_t num_key,
-               const Tensor& d_local_embedding_list, int sharding_id, int num_sharding,
+               const Tensor& d_local_embedding_list, int shard_id, int shards_count,
                int batch_size, Tensor* model_key, Tensor* model_idx_offsets, size_t* num_model_key);
 };
 

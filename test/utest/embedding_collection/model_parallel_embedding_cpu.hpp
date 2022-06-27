@@ -131,8 +131,8 @@ class ModelParallelEmbeddingCPU {
   std::vector<std::vector<int>> local_ev_size_list_;
   std::vector<std::vector<int>> local_ev_offset_list_;
   std::vector<std::vector<int>> global_embedding_list_;
-  std::vector<int> sharding_id_list_;
-  std::vector<int> num_sharding_list_;
+  std::vector<int> shard_id_list_;
+  std::vector<int> shards_count_list_;
 
   std::vector<std::vector<key_t>> mp_model_key_list_;
   std::vector<std::vector<uint32_t>> mp_model_offset_list_;
@@ -187,8 +187,8 @@ class ModelParallelEmbeddingCPU {
                           local_ev_offset_list_[gpu_id].end(),
                           local_ev_offset_list_[gpu_id].begin());
       global_embedding_list_.push_back(sharding_param_list[gpu_id].local_embedding_list);
-      sharding_id_list_.push_back(sharding_param_list[gpu_id].sharding_id);
-      num_sharding_list_.push_back(sharding_param_list[gpu_id].num_sharding);
+      shard_id_list_.push_back(sharding_param_list[gpu_id].shard_id);
+      shards_count_list_.push_back(sharding_param_list[gpu_id].shards_count);
     }
 
     mp_model_key_list_.resize(num_gpus);
@@ -232,8 +232,8 @@ class ModelParallelEmbeddingCPU {
                                               const std::vector<offset_t> &bucket_range,
                                               int batch_size) {
     auto local_embedding_list = local_embedding_list_[gpu_id];
-    int sharding_id = sharding_id_list_[gpu_id];
-    int num_sharding = num_sharding_list_[gpu_id];
+    int shard_id = shard_id_list_[gpu_id];
+    int shards_count = shards_count_list_[gpu_id];
 
     mp_model_key_list_[gpu_id].clear();
     mp_model_offset_list_[gpu_id].clear();
@@ -251,7 +251,7 @@ class ModelParallelEmbeddingCPU {
       uint32_t num_key_in_bucket = 0;
       for (offset_t i = 0; i < (end - start); ++i) {
         key_t k = keys[start + i];
-        if (static_cast<int>(k) % num_sharding == sharding_id) {
+        if (static_cast<int>(k) % shards_count == shard_id) {
           mp_model_key_list_[gpu_id].push_back(keys[start + i]);
           ++num_key_in_bucket;
         }

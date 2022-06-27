@@ -25,8 +25,8 @@ namespace {
 
 template <typename key_t, typename offset_t>
 __global__ void index_calculation_kernel(const key_t* key, const offset_t* bucket_range,
-                                         const int* local_embedding_list, int sharding_id,
-                                         int num_sharding, int batch_size, int num_local_embedding,
+                                         const int* local_embedding_list, int shard_id,
+                                         int shards_count, int batch_size, int num_local_embedding,
                                          uint32_t* model_idx_offsets, char* flag) {
   int tid = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -41,7 +41,7 @@ __global__ void index_calculation_kernel(const key_t* key, const offset_t* bucke
     uint32_t flag_cnt = 0;
     for (uint32_t idx = 0; idx < (bucket_end - bucket_start); ++idx) {
       key_t k = key[idx + bucket_start];
-      if (k % num_sharding == sharding_id) {
+      if (k % shards_count == shard_id) {
         flag[idx + bucket_start] = 1;
         flag_cnt += 1;
       }
@@ -276,8 +276,8 @@ ModelIndexCalculation::ModelIndexCalculation(std::shared_ptr<CoreResourceManager
 }
 
 void ModelIndexCalculation::compute(const Tensor& key, const Tensor& bucket_range, size_t num_key,
-                                    const Tensor& d_local_embedding_list, int sharding_id,
-                                    int num_sharding, int batch_size, Tensor* model_key,
+                                    const Tensor& d_local_embedding_list, int shard_id,
+                                    int shards_count, int batch_size, Tensor* model_key,
                                     Tensor* model_idx_offsets, size_t* num_model_key) {
   CudaDeviceContext ctx(core_->get_device_id());
 
@@ -304,7 +304,7 @@ void ModelIndexCalculation::compute(const Tensor& key, const Tensor& bucket_rang
         int thread_cnt = 128;
         int block_cnt = (batch_size * num_local_embedding_ - 1) / thread_cnt + 1;
         index_calculation_kernel<<<block_cnt, thread_cnt, 0, stream>>>(
-            key_ptr, bucket_range_ptr, local_embedding_list_ptr, sharding_id, num_sharding,
+            key_ptr, bucket_range_ptr, local_embedding_list_ptr, shard_id, shards_count,
             batch_size, num_local_embedding_, model_idx_offsets_ptr, flag_ptr);
 
         size_t d_temp_scan_storage_nbytes = d_temp_scan_storage_.nbytes();
