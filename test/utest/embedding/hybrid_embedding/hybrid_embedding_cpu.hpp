@@ -76,8 +76,7 @@ class HybridEmbeddingCpu {
   std::vector<std::vector<emtype>> interaction_layer_input;
 
   HybridEmbeddingCpu(const HybridEmbeddingConfig<dtype>& config, size_t batch_size,
-                     const std::vector<dtype>& category_location,
-                     const std::vector<dtype>& samples)
+                     const std::vector<dtype>& category_location, const std::vector<dtype>& samples)
       : num_instances(config.num_instances),
         num_nodes(config.num_nodes),
         num_tables(config.num_tables),

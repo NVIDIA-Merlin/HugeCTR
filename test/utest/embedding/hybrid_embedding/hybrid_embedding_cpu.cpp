@@ -180,7 +180,8 @@ void HybridEmbeddingCpu<dtype, emtype>::calculate_frequent_model_cache_indices()
         dtype category = samples[global_j];
         dtype frequent_index = category_location[2 * category + 1];
 
-        if (category_location[2 * category] == num_instances && frequent_index / num_frequent_per_model == model_id) {
+        if (category_location[2 * category] == num_instances &&
+            frequent_index / num_frequent_per_model == model_id) {
           network_frequent_mask[i * num_frequent_per_model +
                                 frequent_index % num_frequent_per_model] = true;
         }

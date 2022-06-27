@@ -118,9 +118,10 @@ struct FrequentSampleIndicesSelectOp {
   const dtype* category_location;
   uint32_t offset;
   dtype num_instances;
-  __host__ __device__ __forceinline__
-  FrequentSampleIndicesSelectOp(const dtype* samples, const dtype* category_location,
-                                uint32_t offset, dtype num_instances)
+  __host__ __device__ __forceinline__ FrequentSampleIndicesSelectOp(const dtype* samples,
+                                                                    const dtype* category_location,
+                                                                    uint32_t offset,
+                                                                    dtype num_instances)
       : samples(samples),
         category_location(category_location),
         offset(offset),
