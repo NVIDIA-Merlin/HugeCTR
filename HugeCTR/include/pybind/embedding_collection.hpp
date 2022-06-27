@@ -22,11 +22,11 @@
 
 namespace HugeCTR {
 
-class EmbeddingTablePlaceholder {
+class EmbeddingTableConfig {
  public:
   embedding::EmbeddingTableParam param_;
 
-  EmbeddingTablePlaceholder(int table_id, int max_vocabulary_size, int ev_size, int64_t min_key,
+  EmbeddingTableConfig(int table_id, int max_vocabulary_size, int ev_size, int64_t min_key,
                             int64_t max_key, std::optional<OptParams> opt_params) {
     param_.id_space = table_id; // TODO: make them consistent
     param_.max_vocabulary_size = max_vocabulary_size;
@@ -48,17 +48,17 @@ class EmbeddingCollectionPlaceholder {
   std::vector<embedding::EmbeddingParam> param_;
   std::vector<std::string> bottom_names_;
   std::vector<std::string> top_names_;
-  std::vector<EmbeddingTablePlaceholder> emb_table_placeholder_;
+  std::vector<EmbeddingTableConfig> emb_table_config_list_;
 
   EmbeddingCollectionPlaceholder(
       const std::string &plan_file, const std::vector<embedding::EmbeddingParam> &param,
       const std::vector<std::string> &bottom_names, const std::vector<std::string> &top_names,
-      const std::vector<EmbeddingTablePlaceholder> &emb_table_placeholder)
+      const std::vector<EmbeddingTableConfig> &emb_table_config_list)
       : plan_file_(plan_file),
         param_(param),
         bottom_names_(bottom_names),
         top_names_(top_names),
-        emb_table_placeholder_(emb_table_placeholder) {}
+        emb_table_config_list_(emb_table_config_list) {}
 };
 
 class EmbeddingPlanner {
@@ -66,16 +66,16 @@ class EmbeddingPlanner {
   std::vector<std::string> bottom_names_;
   std::vector<std::string> top_names_;
   std::set<int> emb_table_id_set_;
-  std::vector<EmbeddingTablePlaceholder> emb_table_placeholder_;
+  std::vector<EmbeddingTableConfig> emb_table_config_list_;
 
  public:
   EmbeddingPlanner() {}
 
-  void embedding_lookup(const EmbeddingTablePlaceholder &emb_table, const std::string &bottom_name,
+  void embedding_lookup(const EmbeddingTableConfig &emb_table_config, const std::string &bottom_name,
                         const std::string &top_name, const std::string &combiner) {
     embedding::EmbeddingParam emb_param;
     emb_param.embedding_id = param_.size();
-    emb_param.id_space = emb_table.param_.id_space; // TODO: change to table_id
+    emb_param.id_space = emb_table_config.param_.id_space; // TODO: change to table_id
     if (combiner == "concat") {
       emb_param.combiner = embedding::Combiner::Concat;
     } else if (combiner == "sum") {
@@ -85,24 +85,24 @@ class EmbeddingPlanner {
     } else {
       HCTR_OWN_THROW(Error_t::WrongInput, combiner + " is not supported.");
     }
-    emb_param.ev_size = emb_table.param_.ev_size;
+    emb_param.ev_size = emb_table_config.param_.ev_size;
     emb_param.hotness = -1;  // placeholder
     param_.push_back(std::move(emb_param));
     bottom_names_.push_back(bottom_name);
     top_names_.push_back(top_name);
-    if (emb_table_id_set_.find(emb_table.param_.id_space) == emb_table_id_set_.end()) {
-      emb_table_id_set_.insert(emb_table.param_.id_space);
-      emb_table_placeholder_.push_back(emb_table);
+    if (emb_table_id_set_.find(emb_table_config.param_.id_space) == emb_table_id_set_.end()) {
+      emb_table_id_set_.insert(emb_table_config.param_.id_space);
+      emb_table_config_list_.push_back(emb_table_config);
     }
   }
 
   EmbeddingCollectionPlaceholder create_embedding_collection(const std::string &plan_file) {
-    std::sort(emb_table_placeholder_.begin(), emb_table_placeholder_.end(),
-              [](const EmbeddingTablePlaceholder &lhs, const EmbeddingTablePlaceholder &rhs) {
+    std::sort(emb_table_config_list_.begin(), emb_table_config_list_.end(),
+              [](const EmbeddingTableConfig &lhs, const EmbeddingTableConfig &rhs) {
                 return lhs.param_.id_space < rhs.param_.id_space;
               });
     return EmbeddingCollectionPlaceholder(plan_file, param_, bottom_names_, top_names_,
-                                          emb_table_placeholder_);
+                                          emb_table_config_list_);
   }
 };
 
