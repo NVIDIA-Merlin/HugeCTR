@@ -139,7 +139,7 @@ void FullyConnectedLayer<float>::fprop(bool is_train) {
 
   float alpha = 1.0f, beta = 0.0f;
 
-  cublasComputeType_t compute_type =
+  const cublasComputeType_t compute_type =
       enable_tf32_compute_ ? CUBLAS_COMPUTE_32F_FAST_TF32 : CUBLAS_COMPUTE_32F;
 
   HCTR_LIB_THROW(cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_N, n, m, k,
@@ -174,7 +174,7 @@ void FullyConnectedLayer<float>::bprop() {
   float alpha = 1.0f, beta_w = 1.0f, beta_x = 0.0f;
 
   // PROFILE_RECORD("TopMLP.bprop.start", get_gpu().get_stream());
-  cublasComputeType_t compute_type =
+  const cublasComputeType_t compute_type =
       enable_tf32_compute_ ? CUBLAS_COMPUTE_32F_FAST_TF32 : CUBLAS_COMPUTE_32F;
 
   // gradient respect to W
@@ -225,14 +225,14 @@ void FullyConnectedLayer<float>::search_algorithm() {
   // Start, end for search
   int startAlgo, endAlgo;
   if (use_mixed_precision_) {
-    startAlgo = (int)CUBLAS_GEMM_DEFAULT_TENSOR_OP;
-    endAlgo = (int)CUBLAS_GEMM_ALGO15_TENSOR_OP;
+    startAlgo = CUBLAS_GEMM_DEFAULT_TENSOR_OP;
+    endAlgo = CUBLAS_GEMM_ALGO15_TENSOR_OP;
   } else {
-    startAlgo = (int)CUBLAS_GEMM_DEFAULT;
-    endAlgo = (int)CUBLAS_GEMM_ALGO23;
+    startAlgo = CUBLAS_GEMM_DEFAULT;
+    endAlgo = CUBLAS_GEMM_ALGO23;
   }
 
-  cublasComputeType_t compute_type =
+  const cublasComputeType_t compute_type =
       enable_tf32_compute_ ? CUBLAS_COMPUTE_32F_FAST_TF32 : CUBLAS_COMPUTE_32F;
 
   // Search all the algorithm for fprop

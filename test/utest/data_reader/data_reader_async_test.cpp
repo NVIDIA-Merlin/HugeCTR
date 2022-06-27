@@ -90,7 +90,7 @@ void reader_test(std::vector<int> device_list, size_t file_size, size_t batch_si
 
   ASSERT_EQ(total_sz, file_size);
   for (size_t i = 0; i < std::min(file_size, total_sz); i++) {
-    // std::cout << "Symbols differ at index " << i << " : expected "
+    // HCTR_LOG_S(DEBUG, WORLD) << "Symbols differ at index " << i << " : expected "
     //           << ref_data[i] << " got " << read_data[i] << std::endl;
     ASSERT_EQ(ref_data[i], read_data[i]) << "Symbols differ at index " << i << " : expected "
                                          << ref_data[i] << " got " << read_data[i];

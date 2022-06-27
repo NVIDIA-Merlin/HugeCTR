@@ -38,8 +38,7 @@ HdfsService::HdfsService(const std::string& name_node, const int port) {
 #ifdef ENABLE_HDFS
   fs_ = connect();
   local_fs_ = connectToLocal();
-#endif
-#ifndef ENABLE_HDFS
+#else
   std::cout << "[HDFS][WARN]: Please install Hadoop and compile HugeCTR with ENABLE_HDFS to use "
                "HDFS functionalities."
             << std::endl;

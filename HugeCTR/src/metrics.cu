@@ -478,7 +478,7 @@ AverageLoss<T>::~AverageLoss() {
 
 template <typename T>
 void AverageLoss<T>::local_reduce(int local_gpu_id, RawMetricMap raw_metrics) {
-  // std::cout << "Called local reduce" << std::endl;
+  // HCTR_LOG_S(DEBUG, WORLD) << "Called local reduce" << std::endl;
   Tensor2<float> loss_tensor = Tensor2<float>::stretch_from(raw_metrics[RawType::Loss]);
   const auto& local_gpu = resource_manager_->get_local_gpu(local_gpu_id);
   auto& stream = local_gpu->get_stream();
@@ -660,7 +660,7 @@ AUC<T>::AUC(int batch_size_per_gpu, int n_batches, int label_dim,
 
     streams_[i].resize(num_streams);
     for (auto& stream : streams_[i]) {
-      cudaStreamCreate(&stream);
+      HCTR_LIB_THROW(cudaStreamCreate(&stream));
     }
 
     auto& st = storage_[i];
@@ -1584,8 +1584,10 @@ void HitRate<T>::local_reduce(int local_gpu_id, RawMetricMap raw_metrics) {
   dim3 grid(160, 1, 1);
   dim3 block(1024, 1, 1);
 
-  cudaMemsetAsync(checked_count_[local_gpu_id], 0, sizeof(int), local_gpu->get_stream());
-  cudaMemsetAsync(hit_count_[local_gpu_id], 0, sizeof(int), local_gpu->get_stream());
+  HCTR_LIB_THROW(
+      cudaMemsetAsync(checked_count_[local_gpu_id], 0, sizeof(int), local_gpu->get_stream()));
+  HCTR_LIB_THROW(
+      cudaMemsetAsync(hit_count_[local_gpu_id], 0, sizeof(int), local_gpu->get_stream()));
 
   collect_hits<T><<<grid, block, 0, local_gpu->get_stream()>>>(
       pred_tensor.get_ptr(), label_tensor.get_ptr(), num_valid_samples,
@@ -1780,7 +1782,7 @@ float SMAPE<T>::finalize_metric() {
 template <typename T, ReallocType_t U>
 ReallocBuffer<T, U>::ReallocBuffer() : num_elements_(0), ptr_(nullptr) {
   CUdevice device;
-  cudaGetDevice(&device);
+  HCTR_LIB_THROW(cudaGetDevice(&device));
 
   prop_.type = CU_MEM_ALLOCATION_TYPE_PINNED;
   prop_.location.type = CU_MEM_LOCATION_TYPE_DEVICE;
@@ -1790,8 +1792,8 @@ ReallocBuffer<T, U>::ReallocBuffer() : num_elements_(0), ptr_(nullptr) {
   accessDesc_.location.type = CU_MEM_LOCATION_TYPE_DEVICE;
   accessDesc_.location.id = device;
 
-  auto st = cuMemGetAllocationGranularity(&chunk_size_, &prop_, CU_MEM_ALLOC_GRANULARITY_MINIMUM);
-  HCTR_CHECK(st == CUDA_SUCCESS);
+  HCTR_LIB_THROW(
+      cuMemGetAllocationGranularity(&chunk_size_, &prop_, CU_MEM_ALLOC_GRANULARITY_MINIMUM));
 }
 
 template <typename T, ReallocType_t U>
@@ -1827,7 +1829,7 @@ void ReallocBuffer<T, U>::realloc(size_t new_num_elements, cudaStream_t stream) 
 
     if (new_size > old_size) {
       CUdevice device;
-      cudaGetDevice(&device);
+      HCTR_LIB_THROW(cudaGetDevice(&device));
       prop_.location.id = device;
       accessDesc_.location.id = device;
 
@@ -1847,7 +1849,6 @@ void ReallocBuffer<T, U>::realloc_ptr_mmap(void** ptr, size_t old_size, size_t n
   CUmemGenericAllocationHandle allocHandle;
 
   CUdeviceptr new_ptr = 0;
-  CUresult status;
 
   size_t reserve_size = new_size - old_size;
   MMAP_DEBUG("Old %lu New %lu Reserve %lu bytes\n", old_size, new_size, reserve_size);
@@ -1859,14 +1860,13 @@ void ReallocBuffer<T, U>::realloc_ptr_mmap(void** ptr, size_t old_size, size_t n
 
   if (old_size == 0) {
     // Reserve a virtual address range
-    status = cuMemAddressReserve(&new_ptr, reserve_size, 0, 0, 0);
-    HCTR_CHECK(status == CUDA_SUCCESS);
+    HCTR_LIB_THROW(cuMemAddressReserve(&new_ptr, reserve_size, 0, 0, 0));
     vm_ranges_.push_back({new_ptr, reserve_size});
 
     *ptr = (void*)new_ptr;
   } else {
     // Try to reserve virtual memory at the end of old ptr
-    status =
+    const CUresult status =
         cuMemAddressReserve(&new_ptr, reserve_size, 0, (CUdeviceptr)((uint64_t)*ptr + old_size), 0);
 
     if ((status != CUDA_SUCCESS) || ((void*)new_ptr != (void*)((uint64_t)*ptr + old_size))) {
@@ -1875,13 +1875,11 @@ void ReallocBuffer<T, U>::realloc_ptr_mmap(void** ptr, size_t old_size, size_t n
 
       // Don’t leak new_ptr if you got one
       if (new_ptr) {
-        status = cuMemAddressFree(new_ptr, reserve_size);
-        HCTR_CHECK(status == CUDA_SUCCESS);
+        HCTR_LIB_THROW(cuMemAddressFree(new_ptr, reserve_size));
       }
 
       // Now reserve the new, bigger VA range
-      status = cuMemAddressReserve(&new_ptr, new_size, 0, 0, 0);
-      HCTR_CHECK(status == CUDA_SUCCESS);
+      HCTR_LIB_THROW(cuMemAddressReserve(&new_ptr, new_size, 0, 0, 0));
 
       // Map first part of new VA range to existing physical memory chunks, enabling their access
       std::vector<std::pair<CUdeviceptr, size_t>> new_mmap_ranges;
@@ -1889,20 +1887,17 @@ void ReallocBuffer<T, U>::realloc_ptr_mmap(void** ptr, size_t old_size, size_t n
       MMAP_DEBUG("Remapping VM -> PM\n");
       for (auto handle : pm_handles_) {
         auto size = handle.second;
-        status = cuMemMap(tmp, size, 0, handle.first, 0);
+        HCTR_LIB_THROW(cuMemMap(tmp, size, 0, handle.first, 0));
         new_mmap_ranges.push_back({tmp, size});
-        HCTR_CHECK(status == CUDA_SUCCESS);
         tmp += size;
       }
 
       // Set access permissions
-      status = cuMemSetAccess(new_ptr, old_size, &accessDesc_, 1);
-      HCTR_CHECK(status == CUDA_SUCCESS);
+      HCTR_LIB_THROW(cuMemSetAccess(new_ptr, old_size, &accessDesc_, 1));
 
       // Unmap old mappings
       for (auto range : mmap_ranges_) {
-        status = cuMemUnmap(range.first, range.second);
-        HCTR_CHECK(status == CUDA_SUCCESS);
+        HCTR_LIB_THROW(cuMemUnmap(range.first, range.second));
       }
       // Clear old mappings, save new mappings
       mmap_ranges_ = new_mmap_ranges;
@@ -1910,8 +1905,7 @@ void ReallocBuffer<T, U>::realloc_ptr_mmap(void** ptr, size_t old_size, size_t n
       // Free up previous VA allocations
       MMAP_DEBUG("Freeing %lu old VM allocations\n", vm_ranges_.size());
       for (auto range : vm_ranges_) {
-        status = cuMemAddressFree(range.first, range.second);
-        HCTR_CHECK(status == CUDA_SUCCESS);
+        HCTR_LIB_THROW(cuMemAddressFree(range.first, range.second));
       }
 
       // Save new VA allocation information
@@ -1926,18 +1920,15 @@ void ReallocBuffer<T, U>::realloc_ptr_mmap(void** ptr, size_t old_size, size_t n
   }
 
   // Finally, create new physical memory chunk
-  status = cuMemCreate(&allocHandle, reserve_size, &prop_, 0);
-  HCTR_CHECK(status == CUDA_SUCCESS);
+  HCTR_LIB_THROW(cuMemCreate(&allocHandle, reserve_size, &prop_, 0));
   pm_handles_.push_back({allocHandle, reserve_size});
 
   // Map new_ptr to physical memory
-  status = cuMemMap(new_ptr, reserve_size, 0, allocHandle, 0);
-  HCTR_CHECK(status == CUDA_SUCCESS);
+  HCTR_LIB_THROW(cuMemMap(new_ptr, reserve_size, 0, allocHandle, 0));
   mmap_ranges_.push_back({new_ptr, reserve_size});
 
   // Set access permissions
-  status = cuMemSetAccess(new_ptr, reserve_size, &accessDesc_, 1);
-  HCTR_CHECK(status == CUDA_SUCCESS);
+  HCTR_LIB_THROW(cuMemSetAccess(new_ptr, reserve_size, &accessDesc_, 1));
 }
 
 template <typename T, ReallocType_t U>
@@ -1948,22 +1939,19 @@ void ReallocBuffer<T, U>::release_mmap_memory() {
   CUresult status;
   // Unmap virtual memory
   for (auto range : mmap_ranges_) {
-    status = cuMemUnmap(range.first, range.second);
-    HCTR_CHECK(status == CUDA_SUCCESS);
+    HCTR_LIB_THROW(cuMemUnmap(range.first, range.second));
   }
   mmap_ranges_.clear();
 
   // Release virtual memory
   for (auto range : vm_ranges_) {
-    status = cuMemAddressFree(range.first, range.second);
-    HCTR_CHECK(status == CUDA_SUCCESS);
+    HCTR_LIB_THROW(cuMemAddressFree(range.first, range.second));
   }
   vm_ranges_.clear();
 
   // Release physical memory
   for (auto handle : pm_handles_) {
-    status = cuMemRelease(handle.first);
-    HCTR_CHECK(status == CUDA_SUCCESS);
+    HCTR_LIB_THROW(cuMemRelease(handle.first));
   }
   pm_handles_.clear();
 }

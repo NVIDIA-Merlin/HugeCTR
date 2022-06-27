@@ -41,6 +41,7 @@ std::vector<size_t> HybridEmbeddingInputGenerator<dtype>::generate_rand_table_si
 
   for (size_t embedding = 0; embedding < num_tables; ++embedding) {
     double r = rand() / (double)RAND_MAX;
+    // MATTHIAS. Remark: @alex & fan: There is a potiential underflow here.
     table_sizes[embedding] = std::max((size_t)2, (size_t)floor(pow(10., 1. + r * (max_exp - 1))));
   }
 
@@ -92,6 +93,7 @@ void HybridEmbeddingInputGenerator<dtype>::create_probability_distribution() {
       for (size_t c_e = 0; c_e < table_sizes_[embedding]; ++c_e)
         embedding_prob_distribution_[embedding][c_e] = 1. / (double)embedding_size;
     } else {
+      // MATTHIAS. Remark: @alex & fan: There is a potiential underflow here.
       size_t size_first = std::max((size_t)1, size_t(4. * log10((double)embedding_size)));
       size_first = std::min((size_t)embedding_size, (size_t)size_first);
       double acc_prob_first = distr(gen_);

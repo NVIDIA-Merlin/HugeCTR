@@ -105,7 +105,7 @@ double ModelInitializationFunctors<dtype>::calculate_threshold(
     const CommunicationType communication_type, double p_dup_max, double all_to_all_bandwidth,
     double all_reduce_bandwidth, double efficiency_bandwidth_ratio, size_t num_nodes,
     size_t batch_size, size_t num_networks, size_t num_iterations, size_t num_tables) {
-  float count_threshold = 1.f;
+  double count_threshold = 1.;
 
   // for NVLink capture effectively all duplications with number of categories
   double M = (double)batch_size / (double)num_networks;
@@ -124,8 +124,8 @@ double ModelInitializationFunctors<dtype>::calculate_threshold(
       //
       // p_duplication(category) \approx 1/2 M (M-1) \left( \frac{count}{batch_size x
       // num_iterations} \right)^2
-      count_threshold = (double)((double)batch_size * (double)num_iterations *
-                                 sqrt(2.0 * p_dup_max / (M * (M - 1))));
+      count_threshold =
+          (double)batch_size * (double)num_iterations * sqrt(2.0 * p_dup_max / (M * (M - 1)));
       break;
     default:
       HCTR_OWN_THROW(Error_t::WrongInput,

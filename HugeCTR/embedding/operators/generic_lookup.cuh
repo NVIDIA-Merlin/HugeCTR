@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #pragma once
+
 #include "../view.hpp"
 #include "HugeCTR/include/utils.cuh"
 

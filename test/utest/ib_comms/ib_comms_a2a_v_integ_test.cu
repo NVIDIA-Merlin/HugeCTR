@@ -101,7 +101,7 @@ struct IbCommsTest {
  public:
   IbCommsTest(const std::vector<int>& device_list, size_t max_size, bool use_cuda_graph = false)
       : num_gpus_(device_list.size()), max_size_(max_size), use_cuda_graph_(use_cuda_graph) {
-    MPI_Comm_size(MPI_COMM_WORLD, &num_procs_);
+    HCTR_MPI_THROW(MPI_Comm_size(MPI_COMM_WORLD, &num_procs_));
 
     // Align max_size
     max_elems_per_dest_ = max_size_ / (num_procs_ * num_gpus_) / sizeof(TypeEmbeddingComp);
@@ -415,9 +415,10 @@ struct IbCommsTest {
       for (size_t e = 0; e < max_elems_; e++) {
         if (*(h_recv_buffs_[g].get_ptr() + e) != *(h_recv_buffs_out_[g].get_ptr() + e)) {
           size_t my_proc = resource_manager_->get_process_id();
-          std::cout << my_proc << ": Data mismatch at gpu " << g << " element: " << e
-                    << " expected: " << *(h_recv_buffs_[g].get_ptr() + e)
-                    << " got: " << *(h_recv_buffs_out_[g].get_ptr() + e) << std::endl;
+          HCTR_LOG_S(DEBUG, WORLD)
+              << my_proc << ": Data mismatch at gpu " << g << " element: " << e
+              << " expected: " << *(h_recv_buffs_[g].get_ptr() + e)
+              << " got: " << *(h_recv_buffs_out_[g].get_ptr() + e) << std::endl;
           exit(1);
         }
       }
@@ -428,9 +429,8 @@ struct IbCommsTest {
     size_t my_proc = resource_manager_->get_process_id();
 
     if (my_proc == 0) {
-      std::cout << "intra A2A bench:" << std::endl;
-      ;
-      std::cout << "size(in B)  time(in us)" << std::endl;
+      HCTR_LOG_S(DEBUG, WORLD) << "intra A2A bench:" << std::endl;
+      HCTR_LOG_S(DEBUG, WORLD) << "size(in B)  time(in us)" << std::endl;
     }
     for (size_t size = 1024; size < max_size_; size *= 2) {
       double bench_time;
@@ -438,13 +438,13 @@ struct IbCommsTest {
       fill_buffers();
       TIMEIT(do_intra_a2a(), bench_time);
       if (my_proc == 0) {
-        std::cout << size << " " << bench_time << std::endl;
+        HCTR_LOG_S(DEBUG, WORLD) << size << " " << bench_time << std::endl;
       }
     }
 
     if (my_proc == 0) {
-      std::cout << "inter A2A bench:" << std::endl;
-      std::cout << "size(in B)  time(in us)" << std::endl;
+      HCTR_LOG_S(DEBUG, WORLD) << "inter A2A bench:" << std::endl;
+      HCTR_LOG_S(DEBUG, WORLD) << "size(in B)  time(in us)" << std::endl;
     }
     for (size_t size = 1024; size < max_size_; size *= 2) {
       double bench_time;
@@ -452,13 +452,13 @@ struct IbCommsTest {
       fill_buffers();
       TIMEIT(do_inter_a2a(), bench_time);
       if (my_proc == 0) {
-        std::cout << size << " " << bench_time << std::endl;
+        HCTR_LOG_S(DEBUG, WORLD) << size << " " << bench_time << std::endl;
       }
     }
 
     if (my_proc == 0) {
-      std::cout << "intra+inter A2A bench:" << std::endl;
-      std::cout << "size(in B)  time(in us)" << std::endl;
+      HCTR_LOG_S(DEBUG, WORLD) << "intra+inter A2A bench:" << std::endl;
+      HCTR_LOG_S(DEBUG, WORLD) << "size(in B)  time(in us)" << std::endl;
     }
     for (size_t size = 1024; size < max_size_; size *= 2) {
       double bench_time;
@@ -466,7 +466,7 @@ struct IbCommsTest {
       fill_buffers();
       TIMEIT(do_device_a2a(), bench_time);
       if (my_proc == 0) {
-        std::cout << size << " " << bench_time << std::endl;
+        HCTR_LOG_S(DEBUG, WORLD) << size << " " << bench_time << std::endl;
       }
     }
   }
@@ -594,7 +594,7 @@ struct IbCommsTest {
 template <typename TypeEmbeddingComp>
 void test_ib_comm(const std::vector<int>& device_list, bool use_cuda_graph = false) {
   int num_procs = 0;
-  MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
+  HCTR_MPI_THROW(MPI_Comm_size(MPI_COMM_WORLD, &num_procs));
   if (num_procs == 1) return;
 
   const size_t MAX_SIZE = 16 * 1024 * 1024;
@@ -624,7 +624,7 @@ void test_ib_comm(const std::vector<int>& device_list, bool use_cuda_graph = fal
 template <typename TypeEmbeddingComp>
 void test_ib_comm_perf(const std::vector<int>& device_list, bool use_cuda_graph = false) {
   int num_procs = 0;
-  MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
+  HCTR_MPI_THROW(MPI_Comm_size(MPI_COMM_WORLD, &num_procs));
   if (num_procs == 1) return;
 
   const size_t MAX_SIZE = 16 * 1024 * 1024;

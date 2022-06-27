@@ -121,7 +121,7 @@ auto load_sparse_model_to_map = [](std::vector<T> &key_vec, std::vector<size_t> 
 };
 
 void init_sparse_model(const char *sparse_model) {
-  std::cout << "Init hash table";
+  HCTR_LOG_S(DEBUG, WORLD) << "Init hash table" << std::endl;
   // init hash table file: <key, solt_id, value>
   if (!std::filesystem::exists(sparse_model)) {
     std::filesystem::create_directories(sparse_model);
@@ -165,7 +165,7 @@ void init_sparse_model(const char *sparse_model) {
     fdata_sim.fill(buf.get(), embedding_vec_size, -0.1f, 0.1f);
     fs_vec.write(reinterpret_cast<const char *>(buf.get()), embedding_vec_size * sizeof(float));
   }
-  std::cout << " Done" << std::endl;
+  HCTR_LOG_S(DEBUG, WORLD) << " Done" << std::endl;
 }
 
 template <typename TypeEmbeddingComp>
@@ -195,7 +195,7 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
   test::mpi_init();
   int numprocs = 1;
 #ifdef ENABLE_MPI
-  MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
+  HCTR_MPI_THROW(MPI_Comm_size(MPI_COMM_WORLD, &numprocs));
 #endif
 
   // if there are multi-node, we assume each node has the same gpu device_list
@@ -205,8 +205,8 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
   }
   const auto &resource_manager = ResourceManagerExt::create(vvgpu, 0);
   if (resource_manager->is_master_process()) {
-    std::cout << "rank " << resource_manager->get_process_id() << " is generating data"
-              << std::endl;
+    HCTR_LOG_S(DEBUG, WORLD) << "rank " << resource_manager->get_process_id()
+                             << " is generating data" << std::endl;
     // re-generate the dataset files
     {
       std::ifstream file(train_file_list_name);
@@ -239,8 +239,8 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
   }
 
 #ifdef ENABLE_MPI
-  MPI_Barrier(MPI_COMM_WORLD);
-  std::cout << "This is rank: " << resource_manager->get_process_id() << std::endl;
+  HCTR_MPI_THROW(MPI_Barrier(MPI_COMM_WORLD));
+  HCTR_LOG_S(DEBUG, WORLD) << "This is rank: " << resource_manager->get_process_id() << std::endl;
 #endif
 
   // setup a data reader
@@ -267,7 +267,7 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
   }
 
 #ifdef ENABLE_MPI
-  MPI_Barrier(MPI_COMM_WORLD);
+  HCTR_MPI_THROW(MPI_Barrier(MPI_COMM_WORLD));
 #endif
 
   const SparseEmbeddingHashParams embedding_params = {train_batchsize,
@@ -366,7 +366,7 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
     }
 
 #ifdef ENABLE_MPI
-    MPI_Barrier(MPI_COMM_WORLD);
+    HCTR_MPI_THROW(MPI_Barrier(MPI_COMM_WORLD));
 #endif
 
     // GPU backward
@@ -389,7 +389,7 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
     }
 
 #ifdef ENABLE_MPI
-    MPI_Barrier(MPI_COMM_WORLD);
+    HCTR_MPI_THROW(MPI_Barrier(MPI_COMM_WORLD));
 #endif
 
     // GPU update_params
@@ -417,7 +417,7 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
     }
 
 #ifdef ENABLE_MPI
-    MPI_Barrier(MPI_COMM_WORLD);
+    HCTR_MPI_THROW(MPI_Barrier(MPI_COMM_WORLD));
 #endif
   }
 
@@ -483,7 +483,7 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
     }
 
 #ifdef ENABLE_MPI
-    MPI_Barrier(MPI_COMM_WORLD);
+    HCTR_MPI_THROW(MPI_Barrier(MPI_COMM_WORLD));
 #endif
 
     HCTR_LOG(INFO, WORLD, "Rank%d: Round end:\n", resource_manager->get_process_id());
@@ -747,7 +747,7 @@ void load_and_dump_file(const std::vector<int> &device_list, const Optimizer_t &
   }
 
 #ifdef ENABLE_MPI
-  MPI_Barrier(MPI_COMM_WORLD);
+  HCTR_MPI_THROW(MPI_Barrier(MPI_COMM_WORLD));
 #endif
 
   // setup a data reader
@@ -794,7 +794,7 @@ void load_and_dump_file(const std::vector<int> &device_list, const Optimizer_t &
   }
 
 #ifdef ENABLE_MPI
-  MPI_Barrier(MPI_COMM_WORLD);
+  HCTR_MPI_THROW(MPI_Barrier(MPI_COMM_WORLD));
 #endif
 
   // upload hash table to device
@@ -809,7 +809,7 @@ void load_and_dump_file(const std::vector<int> &device_list, const Optimizer_t &
   embedding->dump_parameters(sparse_model_dst, DataSourceParams());
 
 #ifdef ENABLE_MPI
-  MPI_Barrier(MPI_COMM_WORLD);
+  HCTR_MPI_THROW(MPI_Barrier(MPI_COMM_WORLD));
 #endif
 
   std::vector<T> hash_table_key_from_cpu;

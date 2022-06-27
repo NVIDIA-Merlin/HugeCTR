@@ -56,42 +56,42 @@ class ReduceTest : public ::testing::TestWithParam<ReduceInputs<T>> {
 
   void reduceTest() {
     cudaEvent_t start, stop;
-    cudaEventCreate(&start);
-    cudaEventCreate(&stop);
+    CUDA_CHECK(cudaEventCreate(&start));
+    CUDA_CHECK(cudaEventCreate(&stop));
 
     Random::Rng r(params.seed);
     int rows = params.rows, cols = params.cols;
     outlen2d = rows;
 
-    cudaMallocHost((void **)(&h_data_2d), rows * sizeof(T *));
+    CUDA_CHECK(cudaMallocHost((void **)(&h_data_2d), rows * sizeof(T *)));
     for (int i = 0; i < rows; i++) {
       allocate(h_data_2d[i], cols);
       r.uniform(h_data_2d[i], cols, T(-1.0), T(1.0), stream);
     }
 
-    cudaMalloc((void **)(&d_data_2d), rows * sizeof(T *));
-    cudaMemcpy(d_data_2d, h_data_2d, rows * sizeof(T *), cudaMemcpyHostToDevice);
+    CUDA_CHECK(cudaMalloc((void **)(&d_data_2d), rows * sizeof(T *)));
+    CUDA_CHECK(cudaMemcpy(d_data_2d, h_data_2d, rows * sizeof(T *), cudaMemcpyHostToDevice));
 
     allocate(output_act, rows);
     allocate(output_ext, rows);
 
-    cudaEventRecord(start);
+    CUDA_CHECK(cudaEventRecord(start));
     reduceLaunch(output_act, d_data_2d, cols, rows, params.rowMajor, params.alongRows, false,
                  stream);
-    cudaEventRecord(stop);
-    cudaEventSynchronize(stop);
+    CUDA_CHECK(cudaEventRecord(stop));
+    CUDA_CHECK(cudaEventSynchronize(stop));
     float milliseconds = 0;
-    cudaEventElapsedTime(&milliseconds, start, stop);
-    // std::cout << "Coalesced: " << milliseconds << " miliseconds" << std::endl;
+    CUDA_CHECK(cudaEventElapsedTime(&milliseconds, start, stop));
+    // HCTR_LOG_S(DEBUG, WORLD) << "Coalesced: " << milliseconds << " miliseconds" << std::endl;
 
-    cudaEventRecord(start);
+    CUDA_CHECK(cudaEventRecord(start));
     naiveReduction2d(output_ext, d_data_2d, cols, rows, params.rowMajor, params.alongRows, stream);
-    cudaEventRecord(stop);
-    cudaEventSynchronize(stop);
+    CUDA_CHECK(cudaEventRecord(stop));
+    CUDA_CHECK(cudaEventSynchronize(stop));
     milliseconds = 0;
-    cudaEventElapsedTime(&milliseconds, start, stop);
+    CUDA_CHECK(cudaEventElapsedTime(&milliseconds, start, stop));
 
-    // std::cout << "Naive: " << milliseconds << " miliseconds" << std::endl;
+    // HCTR_LOG_S(DEBUG, WORLD) << "Naive: " << milliseconds << " miliseconds" << std::endl;
   }
 
   void TearDown() override {

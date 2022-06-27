@@ -182,8 +182,8 @@ void add_sparse_embedding(SparseEmbedding& sparse_embedding,
                           bool overlap_ar_a2a, bool eval_overlap) {
 #ifdef ENABLE_MPI
   int num_procs = 1, pid = 0;
-  MPI_Comm_rank(MPI_COMM_WORLD, &pid);
-  MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
+  HCTR_MPI_THROW(MPI_Comm_rank(MPI_COMM_WORLD, &pid));
+  HCTR_MPI_THROW(MPI_Comm_size(MPI_COMM_WORLD, &num_procs));
 #endif
 
   Embedding_t embedding_type = sparse_embedding.embedding_type;

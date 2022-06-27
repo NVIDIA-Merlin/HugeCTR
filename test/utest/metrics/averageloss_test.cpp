@@ -192,10 +192,10 @@ void averageloss_test(std::vector<int> device_list, size_t batch_size, size_t nu
           h_loss = h_loss / num_local_gpus;
         }
 
-        cudaMemcpyAsync(loss_tensors[i].get_ptr(), &h_loss, sizeof(float), cudaMemcpyHostToDevice,
-                        stream);
+        HCTR_LIB_THROW(cudaMemcpyAsync(loss_tensors[i].get_ptr(), &h_loss, sizeof(float),
+                                       cudaMemcpyHostToDevice, stream));
         int n_nets = 1;
-        ref_result += h_loss / n_nets / num_procs;
+        ref_result += h_loss / n_nets / num_procs;                               
 
         metric->local_reduce(i, metric_maps[i]);
       }

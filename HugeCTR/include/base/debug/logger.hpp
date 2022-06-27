@@ -104,6 +104,7 @@
 #pragma once
 
 #include <cublas_v2.h>
+#include <cuda.h>
 #include <cudnn.h>
 #include <curand.h>
 #include <nccl.h>
@@ -137,7 +138,8 @@ enum class Error_t {
   UnspecificError,
   EndOfFile,
   MpiError,
-  CudaError,
+  CudaDriverError,
+  CudaRuntimeError,
   CublasError,
   CudnnError,
   CurandError,
@@ -165,8 +167,6 @@ enum class Error_t {
 #else
 #define DEFAULT_LOG_LEVEL LOG_LEVEL(DEBUG)
 #endif
-
-#define LEVEL_MAP(MAP, NAME) MAP[LOG_LEVEL(NAME)] = #NAME
 
 #define HCTR_LOG(NAME, TYPE, ...) \
   HugeCTR::Logger::get().log(LOG_LEVEL(NAME), LOG_RANK(TYPE), true, __VA_ARGS__)
@@ -197,8 +197,12 @@ struct SrcLoc {
 template <typename SrcType>
 Error_t getErrorType(SrcType err);
 template <>
+inline Error_t getErrorType(CUresult err) {
+  return (err == CUDA_SUCCESS) ? Error_t::Success : Error_t::CudaDriverError;
+}
+template <>
 inline Error_t getErrorType(cudaError_t err) {
-  return (err == cudaSuccess) ? Error_t::Success : Error_t::CudaError;
+  return (err == cudaSuccess) ? Error_t::Success : Error_t::CudaRuntimeError;
 }
 template <>
 inline Error_t getErrorType(nvmlReturn_t err) {
@@ -223,6 +227,14 @@ inline Error_t getErrorType(curandStatus_t err) {
 
 template <typename SrcType>
 std::string getErrorString(SrcType err);
+template <>
+inline std::string getErrorString(CUresult err) {
+  const char* ptr;
+  if (cuGetErrorString(err, &ptr) != CUDA_SUCCESS) {
+    ptr = "CUDA driver: Unknown error.";
+  }
+  return ptr;
+}
 template <>
 inline std::string getErrorString(cudaError_t err) {
   return cudaGetErrorString(err);
