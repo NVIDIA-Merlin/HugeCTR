@@ -311,12 +311,12 @@ class DataReader : public IDataReader {
   }
 
 #ifndef DISABLE_CUDF
-  void create_drwg_parquet(std::string file_name, const std::vector<long long> slot_offset,
+  void create_drwg_parquet(std::string file_name,bool strict_order_of_batches, const std::vector<long long> slot_offset,
                            bool start_reading_from_beginning = true) override {
     source_type_ = SourceType_t::Parquet;
     // worker_group_.empty
     worker_group_.reset(new DataReaderWorkerGroupParquet<TypeKey>(
-        thread_buffers_, file_name, repeat_, params_, slot_offset, resource_manager_,
+        thread_buffers_, file_name, strict_order_of_batches,repeat_, params_, slot_offset, resource_manager_,
         start_reading_from_beginning));
   }
 #endif

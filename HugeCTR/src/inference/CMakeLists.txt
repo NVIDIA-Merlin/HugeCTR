@@ -93,6 +93,10 @@ endif()
 
 target_link_libraries(huge_ctr_inference PUBLIC cudart cublas curand cudnn nccl cudf stdc++fs tbb huge_ctr_hdfs_backend ${CMAKE_THREAD_LIBS_INIT})
 
+if(Parquet_FOUND)
+target_link_libraries(huge_ctr_inference PUBLIC parquet)
+endif()
+
 target_link_libraries(huge_ctr_inference PUBLIC huge_ctr_hps)
 
 target_link_libraries(huge_ctr_inference PUBLIC /usr/local/cuda/lib64/stubs/libcuda.so)

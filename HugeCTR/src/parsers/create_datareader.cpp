@@ -268,8 +268,8 @@ void create_datareader<TypeKey>::operator()(
         // @Future: Should be slot_offset here and data_reader ctor should
         // be TypeKey not long long
         std::vector<long long> slot_offset = f();
-        train_data_reader->create_drwg_parquet(source_data, slot_offset, true);
-        evaluate_data_reader->create_drwg_parquet(eval_source, slot_offset, true);
+        train_data_reader->create_drwg_parquet(source_data, false, slot_offset, true);
+        evaluate_data_reader->create_drwg_parquet(eval_source,false,  slot_offset, true);
 #endif
         break;
       }
@@ -370,7 +370,7 @@ void create_datareader<TypeKey>::operator()(
 #ifdef DISABLE_CUDF
       HCTR_OWN_THROW(Error_t::WrongInput, "Parquet is not supported under DISABLE_CUDF");
 #else
-      data_reader->create_drwg_parquet(source, slot_offset, true);
+      data_reader->create_drwg_parquet(source,  false, slot_offset, true);
       HCTR_LOG_S(INFO, ROOT) << "Vocabulary size: " << slot_sum << std::endl;
 #endif
       break;
@@ -456,7 +456,7 @@ void create_datareader<TypeKey>::operator()(
 #ifdef DISABLE_CUDF
       HCTR_OWN_THROW(Error_t::WrongInput, "Parquet is not supported under DISABLE_CUDF");
 #else
-      data_reader->create_drwg_parquet(source, slot_offset, true);  // start_reading_from_beginning
+      data_reader->create_drwg_parquet(source, false,  slot_offset, true);  // start_reading_from_beginning
       HCTR_LOG_S(INFO, ROOT) << "Vocabulary size: " << slot_sum << std::endl;
 #endif
       break;
