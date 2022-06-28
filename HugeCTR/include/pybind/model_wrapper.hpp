@@ -28,24 +28,27 @@ void ModelPybind(pybind11::module &m) {
   pybind11::class_<HugeCTR::DataReaderParams, std::shared_ptr<HugeCTR::DataReaderParams>>(
       m, "DataReaderParams")
       .def(pybind11::init<DataReaderType_t, std::string, std::string, std::string, Check_t, int,
-                          long long, long long, bool, int, std::vector<long long> &,
+                          long long, long long, bool, bool, int, std::vector<long long> &,
                           const AsyncParam &>(),
            pybind11::arg("data_reader_type"), pybind11::arg("source"), pybind11::arg("keyset") = "",
            pybind11::arg("eval_source"), pybind11::arg("check_type"),
            pybind11::arg("cache_eval_data") = 0, pybind11::arg("num_samples") = 0,
            pybind11::arg("eval_num_samples") = 0, pybind11::arg("float_label_dense") = false,
+           pybind11::arg("read_file_sequentially") = false,
            pybind11::arg("num_workers") = 12,
            pybind11::arg("slot_size_array") = std::vector<long long>(),
            pybind11::arg("async_param") =
                AsyncParam{16, 4, 512000, 4, 512, false, Alignment_t::None})
       .def(pybind11::init<DataReaderType_t, std::vector<std::string>, std::vector<std::string>,
-                          std::string, Check_t, int, long long, long long, bool, int,
+                          std::string, Check_t, int, long long, long long, bool,bool, int,
                           std::vector<long long> &, const AsyncParam &>(),
            pybind11::arg("data_reader_type"), pybind11::arg("source"),
            pybind11::arg("keyset") = std::vector<std::string>(), pybind11::arg("eval_source"),
            pybind11::arg("check_type"), pybind11::arg("cache_eval_data") = 0,
            pybind11::arg("num_samples") = 0, pybind11::arg("eval_num_samples") = 0,
-           pybind11::arg("float_label_dense") = false, pybind11::arg("num_workers") = 12,
+           pybind11::arg("float_label_dense") = false,
+           pybind11::arg("read_file_sequentially") = false,
+           pybind11::arg("num_workers") = 12,
            pybind11::arg("slot_size_array") = std::vector<long long>(),
            pybind11::arg("async_param") =
                AsyncParam{16, 4, 512000, 4, 512, false, Alignment_t::None});

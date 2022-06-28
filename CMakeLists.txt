@@ -57,6 +57,14 @@ if (DISABLE_CUDF)
   set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}    -DDISABLE_CUDF")
   set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}  -DDISABLE_CUDF")
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DDISABLE_CUDF")
+else()
+  find_package(Parquet PATHS /usr/lib/cmake/arrow/ NO_DEFAULT_PATH)
+  if(Parquet_FOUND)
+  message (STATUS "Arrow Parquet is found")
+  set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}    -DENABLE_ARROW_PARQUET")
+  set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}  -DENABLE_ARROW_PARQUET")
+  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DENABLE_ARROW_PARQUET")
+  endif()
 endif()
 
 option(SHARP_A2A "Enable SHARP All2All" OFF)
@@ -206,6 +214,7 @@ endif()
 
 link_directories(
   ${CUDNN_LIB_PATHS}
+  ${PARQUET_LIB_PATHS}
   ${NCCL_LIB_PATHS}
   ${HWLOC_LIB_PATHS}
   ${UCX_LIB_PATHS}

@@ -186,18 +186,55 @@ void add_input(Input& input, DataReaderParams& reader_params,
     return;
 
   } else {
-    const int num_workers = format == DataReaderType_t::Parquet
-                                ? resource_manager->get_local_gpu_count()
-                                : reader_params.num_workers;
-    HCTR_LOG_S(INFO, ROOT) << "num of DataReader workers: " << num_workers << std::endl;
+    int num_workers_train = reader_params.num_workers;
+    int num_workers_eval = reader_params.num_workers;
+    int local_gpu_count = resource_manager->get_local_gpu_count();
+
+    if (format == DataReaderType_t::Parquet) {
+      // if parallelism granularity is file, num_files should be greater than num of workers
+      if (!reader_params.read_file_sequentially) {
+        {
+          std::ifstream read_stream(eval_source, std::ifstream::in);
+          if (!read_stream.is_open()) {
+            HCTR_OWN_THROW(Error_t::FileCannotOpen, "file list open failed: " + eval_source);
+          }
+          std::string buff;
+          std::getline(read_stream, buff);
+          int num_of_files = std::stoi(buff);
+          read_stream.close();
+          num_workers_eval = std::min(num_workers_eval, num_of_files);
+        }
+        std::vector<std::string> train_sources = reader_params.source;
+        int min_num_files = 0;
+        // there may exist multiple training sources 
+        for (const auto &file_list_name : train_sources) {
+          std::ifstream read_stream(file_list_name, std::ifstream::in);
+          if (!read_stream.is_open()) {
+            HCTR_OWN_THROW(Error_t::FileCannotOpen, "file list open failed: " + file_list_name);
+          }
+
+          std::string buff;
+          std::getline(read_stream, buff);
+          int num_of_files = std::stoi(buff);
+          if (!min_num_files || num_of_files < min_num_files) min_num_files = num_of_files;
+          read_stream.close();
+        }
+        num_workers_train = std::min(num_workers_train, min_num_files);
+      }
+      num_workers_train = std::min(local_gpu_count, num_workers_train);
+      num_workers_eval = std::min(local_gpu_count, num_workers_eval);
+    }
+
+    HCTR_LOG_S(INFO, ROOT) << "num of DataReader workers for train: " << num_workers_train << std::endl;
+    HCTR_LOG_S(INFO, ROOT) << "num of DataReader workers for eval: " << num_workers_eval << std::endl;
 
     DataReader<TypeKey>* data_reader_tk = new DataReader<TypeKey>(
         batch_size, total_label_dim, dense_dim, input.data_reader_sparse_param_array,
-        resource_manager, repeat_dataset, num_workers, use_mixed_precision);
+        resource_manager, repeat_dataset, num_workers_train, use_mixed_precision);
     train_data_reader.reset(data_reader_tk);
     DataReader<TypeKey>* data_reader_eval_tk = new DataReader<TypeKey>(
         batch_size_eval, total_label_dim, dense_dim, input.data_reader_sparse_param_array,
-        resource_manager, repeat_dataset, num_workers, use_mixed_precision);
+        resource_manager, repeat_dataset, num_workers_eval, use_mixed_precision);
     evaluate_data_reader.reset(data_reader_eval_tk);
 
     long long slot_sum = 0;
@@ -224,8 +261,8 @@ void add_input(Input& input, DataReaderParams& reader_params,
 #ifdef DISABLE_CUDF
         HCTR_OWN_THROW(Error_t::WrongInput, "Parquet is not supported under DISABLE_CUDF");
 #else
-        train_data_reader->create_drwg_parquet(source_data, slot_offset, repeat_dataset);
-        evaluate_data_reader->create_drwg_parquet(eval_source, slot_offset, repeat_dataset);
+        train_data_reader->create_drwg_parquet(source_data, reader_params.read_file_sequentially, slot_offset, repeat_dataset);
+        evaluate_data_reader->create_drwg_parquet(eval_source, reader_params.read_file_sequentially, slot_offset, repeat_dataset);
         HCTR_LOG_S(INFO, ROOT) << "Vocabulary size: " << slot_sum << std::endl;
 #endif
         break;
