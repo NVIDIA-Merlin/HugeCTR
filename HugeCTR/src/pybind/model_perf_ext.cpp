@@ -248,8 +248,7 @@ void ModelPerfExt::fit(int num_epochs, int max_iter, int display, int eval_inter
   HCTR_LOG_S(INFO, ROOT) << "Evaluation source file: " << reader_params_.eval_source << std::endl;
 
   if (solver_.is_dlrm) {
-    HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "train_epoch_start",
-                  0);  // just 1 epoch. dlrm logger
+    HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "epoch_start", 0);
   }
 
   this->start_data_reading();
@@ -331,8 +330,6 @@ void ModelPerfExt::fit(int num_epochs, int max_iter, int display, int eval_inter
               size_t train_samples =
                   static_cast<size_t>(iter + 1) * static_cast<size_t>(solver_.batchsize);
 
-              std::string epoch_num_str = std::to_string(float(iter) / max_iter);
-
               HCTR_LOG_S(INFO, WORLD)
                   << "Hit target accuracy AUC " << auc_threshold << " at " << iter << "/"
                   << max_iter << " iterations with batchsize " << solver_.batchsize << " in "
@@ -341,9 +338,9 @@ void ModelPerfExt::fit(int num_epochs, int max_iter, int display, int eval_inter
                   << (float(iter) * solver_.batchsize / timer.elapsedSeconds()) << " records/s."
                   << std::endl;
 
-              HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "eval_stop" + epoch_num_str);
+              HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "eval_stop", float(iter) / max_iter);
 
-              HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "train_epoch_end", 1);
+              HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "epoch_stop", 1);
 
               if (__PID == 0) {
                 HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "run_stop");
@@ -376,7 +373,7 @@ void ModelPerfExt::fit(int num_epochs, int max_iter, int display, int eval_inter
     }
   }  // end for iter
   if (solver_.is_dlrm) {
-    HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "train_epoch_end", 1);
+    HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "epoch_stop", 1);
 
     if (__PID == 0) {
       HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "run_stop");

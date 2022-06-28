@@ -1270,7 +1270,7 @@ void Model::compile() {
 
   // start to touch dataset, so we can record run_start
   if (solver_.is_dlrm) {
-    HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "init_end");
+    HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "init_stop");
     HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "run_start");
   }
 
