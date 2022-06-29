@@ -22,6 +22,7 @@ subtrees:
           - file: notebooks/hps_demo.ipynb
           - file: notebooks/training_with_hdfs.ipynb
           - file: notebooks/embedding_training_cache_example.ipynb
+          - file: notebooks/embedding_collection.ipynb
       - file: notebooks/multi-modal-data/index.md
         entries:
           - file: notebooks/multi-modal-data/00-Intro
