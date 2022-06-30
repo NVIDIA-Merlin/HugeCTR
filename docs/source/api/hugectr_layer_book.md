@@ -927,3 +927,46 @@ model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.MultiCrossEntropyLoss,
                             lambda = 0.1
                             ))
 ```
+
+## GroupDenseLayer
+
+**DenseLayer class**
+```python
+hugectr.GroupDenseLayer()
+```
+
+`GroupDenseLayer` specifies the parameters related to a group of dense layers. HugeCTR currently supports only `GroupFusedInnerProduct`, which is comprised of multiple `FusedInnerProduct` layers. Please **NOTE** that the `FusedInnerProduct` layer only supports fp16.
+
+**Arguments**
+* `group_layer_type`: The layer type to be used. There is only one supported type, i.e., `hugectr.GroupLayer_t.GroupFusedInnerProduct`. There is NO default value and it should be specified by users.
+
+* `bottom_name_list`: List[str], the list of bottom tensor names for the first dense layer in this group. Currently, the `FusedInnerProduct` layer at the head position can take one or two input tensors. There is NO default value and it should be specified by users.
+
+* `top_name_list`: List[str], the list of top tensor names of each dense layer in the group. There should be only one name for each layer. There is NO default value and it should be specified by users.
+
+* `num_outputs`: List[Integer], the number of output elements for each `FusedInnerProduct` layer in the group. There is NO default value and it should be specified by users.
+
+* `last_act_type`: The activation type of the last `FusedInnerProduct` layer in the group. The supported types include `Activation_t.Relu` and `Activation_t.Non`. Except the last layer, the activation type of the other `FusedInnerProduct` layers in the group must be and will be automatically set as `Activation_t.Relu`, which do not allow any configurations. The default value is `Activation_t.Relu`.
+
+**NOTE**: There should be at least two layers in the group, and the size of `top_name_list` and `num_outputs` should both be equal to the number of layers.
+
+Example:
+
+```python
+model.add(hugectr.GroupDenseLayer(group_layer_type = hugectr.GroupLayer_t.GroupFusedInnerProduct,
+                                  bottom_name = ["dense"],
+                                  top_name_list = ["fc1", "fc2", "fc3"],
+                                  num_outputs = [1024, 512, 256],
+                                  last_act_type = hugectr.Activation_t.Relu))
+model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Interaction,
+                            bottom_names = ["fc3","sparse_embedding1"],
+                            top_names = ["interaction1", "interaction1_grad"]))
+model.add(hugectr.GroupDenseLayer(group_layer_type = hugectr.GroupLayer_t.GroupFusedInnerProduct,
+                            bottom_name_list = ["interaction1", "interaction1_grad"],
+                            top_name_list = ["fc4", "fc5", "fc6", "fc7", "fc8"],
+                            num_outputs = [1024, 1024, 512, 256, 1],
+                            last_act_type = hugectr.Activation_t.Non))
+model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.BinaryCrossEntropyLoss,
+                            bottom_names = ["fc8", "label"],
+                            top_names = ["loss"]))
+```
