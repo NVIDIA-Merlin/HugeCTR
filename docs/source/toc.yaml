@@ -34,6 +34,8 @@ subtrees:
           - file: notebooks/multi-modal-data/07-Training-with-HugeCTR
       - file: api/index.rst
         title: API Documentation
+      - file: performance.md
+        title: HugeCTR Performance
       - file: additional_resources
         entries:
           - file: hugectr_talks_blogs.md
