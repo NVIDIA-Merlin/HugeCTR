@@ -153,14 +153,14 @@ struct DataReaderParams {
   AsyncParam async_param;
   DataReaderParams(DataReaderType_t data_reader_type, std::string source, std::string keyset,
                    std::string eval_source, Check_t check_type, int cache_eval_data,
-                   long long num_samples, long long eval_num_samples, bool float_label_dense,bool read_file_sequentially,
-                   int num_workers, std::vector<long long>& slot_size_array,
-                   const AsyncParam& async_param);
+                   long long num_samples, long long eval_num_samples, bool float_label_dense,
+                   bool read_file_sequentially, int num_workers,
+                   std::vector<long long>& slot_size_array, const AsyncParam& async_param);
   DataReaderParams(DataReaderType_t data_reader_type, std::vector<std::string> source,
                    std::vector<std::string> keyset, std::string eval_source, Check_t check_type,
                    int cache_eval_data, long long num_samples, long long eval_num_samples,
-                   bool float_label_dense,bool read_file_sequentially, int num_workers, std::vector<long long>& slot_size_array,
-                   const AsyncParam& async_param);
+                   bool float_label_dense, bool read_file_sequentially, int num_workers,
+                   std::vector<long long>& slot_size_array, const AsyncParam& async_param);
 };
 
 struct Input {

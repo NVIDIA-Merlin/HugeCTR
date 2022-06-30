@@ -206,8 +206,8 @@ void add_input(Input& input, DataReaderParams& reader_params,
         }
         std::vector<std::string> train_sources = reader_params.source;
         int min_num_files = 0;
-        // there may exist multiple training sources 
-        for (const auto &file_list_name : train_sources) {
+        // there may exist multiple training sources
+        for (const auto& file_list_name : train_sources) {
           std::ifstream read_stream(file_list_name, std::ifstream::in);
           if (!read_stream.is_open()) {
             HCTR_OWN_THROW(Error_t::FileCannotOpen, "file list open failed: " + file_list_name);
@@ -225,8 +225,10 @@ void add_input(Input& input, DataReaderParams& reader_params,
       num_workers_eval = std::min(local_gpu_count, num_workers_eval);
     }
 
-    HCTR_LOG_S(INFO, ROOT) << "num of DataReader workers for train: " << num_workers_train << std::endl;
-    HCTR_LOG_S(INFO, ROOT) << "num of DataReader workers for eval: " << num_workers_eval << std::endl;
+    HCTR_LOG_S(INFO, ROOT) << "num of DataReader workers for train: " << num_workers_train
+                           << std::endl;
+    HCTR_LOG_S(INFO, ROOT) << "num of DataReader workers for eval: " << num_workers_eval
+                           << std::endl;
 
     DataReader<TypeKey>* data_reader_tk = new DataReader<TypeKey>(
         batch_size, total_label_dim, dense_dim, input.data_reader_sparse_param_array,
@@ -261,8 +263,10 @@ void add_input(Input& input, DataReaderParams& reader_params,
 #ifdef DISABLE_CUDF
         HCTR_OWN_THROW(Error_t::WrongInput, "Parquet is not supported under DISABLE_CUDF");
 #else
-        train_data_reader->create_drwg_parquet(source_data, reader_params.read_file_sequentially, slot_offset, repeat_dataset);
-        evaluate_data_reader->create_drwg_parquet(eval_source, reader_params.read_file_sequentially, slot_offset, repeat_dataset);
+        train_data_reader->create_drwg_parquet(source_data, reader_params.read_file_sequentially,
+                                               slot_offset, repeat_dataset);
+        evaluate_data_reader->create_drwg_parquet(eval_source, reader_params.read_file_sequentially,
+                                                  slot_offset, repeat_dataset);
         HCTR_LOG_S(INFO, ROOT) << "Vocabulary size: " << slot_sum << std::endl;
 #endif
         break;

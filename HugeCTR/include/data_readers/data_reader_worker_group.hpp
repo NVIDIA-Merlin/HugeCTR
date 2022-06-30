@@ -114,7 +114,8 @@ class DataReaderWorkerGroup {
     }
   }
 
-  void set_source(SourceType_t source_type, const std::string& file_name, bool repeat, bool strict_order_of_batches=false) {
+  void set_source(SourceType_t source_type, const std::string& file_name, bool repeat,
+                  bool strict_order_of_batches = false) {
     if (!((source_type == SourceType_t::FileList && data_reader_type_ == DataReaderType_t::Norm) ||
           (source_type == SourceType_t::Mmap && data_reader_type_ == DataReaderType_t::Raw) ||
           (source_type == SourceType_t::Parquet &&
@@ -126,7 +127,7 @@ class DataReaderWorkerGroup {
     size_t num_workers = data_readers_.size();
     for (size_t worker_id = 0; worker_id < num_workers; worker_id++) {
       data_readers_[worker_id]->set_source(
-          create_source(worker_id, num_workers, file_name,strict_order_of_batches, repeat));
+          create_source(worker_id, num_workers, file_name, strict_order_of_batches, repeat));
     }
     if (data_reader_loop_flag_ == 0) {
       start();
@@ -135,6 +136,7 @@ class DataReaderWorkerGroup {
 
  private:
   virtual std::shared_ptr<Source> create_source(size_t worker_id, size_t num_worker,
-                                                const std::string& file_name,bool strict_order_of_batches,bool repeat) = 0;
+                                                const std::string& file_name,
+                                                bool strict_order_of_batches, bool repeat) = 0;
 };
 }  // namespace HugeCTR

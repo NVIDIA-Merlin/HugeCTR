@@ -19,7 +19,7 @@
 #ifdef ENABLE_ARROW_PARQUET
 #include <parquet/file_reader.h>
 #include <parquet/metadata.h>
-#endif 
+#endif
 
 #include <iostream>
 
@@ -28,8 +28,8 @@
 namespace HugeCTR {
 // filename is xxxx/_metadata.json
 void Metadata::get_parquet_metadata(std::string file_name) {
-  if(this->loaded_){
-    return ;
+  if (this->loaded_) {
+    return;
   }
   std::size_t found_json_dir = file_name.find_last_of("/\\");
   std::string dirname = file_name.substr(0, found_json_dir + 1);
@@ -69,14 +69,14 @@ void Metadata::get_parquet_metadata(std::string file_name) {
       for (long long r = 0; r < num_row_groups; r++) {
         std::unique_ptr<parquet::RowGroupMetaData> group_metadata = file_metadata->RowGroup(r);
         // HCTR_LOG_S(INFO,ROOT)<<"  "<< group_metadata->num_rows() <<std::endl;
-        group_offset += group_metadata->num_rows() ;
+        group_offset += group_metadata->num_rows();
         row_groups_offset.push_back(group_offset);
       }
 
       HCTR_CHECK_HINT(num_rows_file == long(fstats[i].find("num_rows").value()),
                       "Parquet file number of rows mismatch with _metadata.json\n");
       FileStats fs(num_rows_file, num_row_groups, row_groups_offset);
-#else 
+#else
       long long num_rows_file = long(fstats[i].find("num_rows").value());
       FileStats fs(num_rows_file);
 #endif

@@ -112,9 +112,9 @@ class ParquetFileSource : public Source {
     }
 
     if (file_list_.get_num_of_files() < stride_ && !sequtial_file_consumption) {
-      HCTR_LOG(
-          WARNING, ROOT,
-          "The number of data reader workers should be no greater than the number of files in concurrent mode \n");
+      HCTR_LOG(WARNING, ROOT,
+               "The number of data reader workers should be no greater than the number of files in "
+               "concurrent mode \n");
     }
     // HCTR_CHECK_HINT(
     //     file_list_.get_num_of_files() >= stride_,
@@ -333,7 +333,6 @@ class ParquetFileSource : public Source {
     return x;
   }
 
-
   /*
     jump to specific parquet file caclulated through global_record_id;
     if dst == cur, dont need to load again
@@ -466,20 +465,19 @@ class ParquetFileSource : public Source {
     }
     return Error_t::Success;
 
-    #else 
+#else
     return Error_t::InvalidEnv;
-    #endif 
+#endif
   }
   const Metadata& get_file_metadata() { return file_metadata_; }
   int get_cur_file_id() {
-   // counter_ always points to the next file to be read 
+    // counter_ always points to the next file to be read
     int num_files = file_list_.get_num_of_files();
     if (sequential_file_consumption_) {
-      return (counter_ - 1) % num_files ;
+      return (counter_ - 1) % num_files;
     } else {
       return offset_ + (counter_ - 1) * stride_ % num_files;
     }
-
   }
   long long get_num_rows() { return file_total_rows_; }
   long long get_offset_to_read_within_file() { return curr_row_idx_; }

@@ -230,8 +230,7 @@ void generate_parquet_input_files(int num_files, int sample_per_file,
     cudf::io::parquet_writer_options writer_args =
         cudf_io::parquet_writer_options::builder(cudf::io::sink_info{filepath}, input_table.view());
     long max_row_group_size = 5000;
-    if(sample_per_file / 2l >=max_row_group_size )
-      max_row_group_size = sample_per_file / 2 ;
+    if (sample_per_file / 2l >= max_row_group_size) max_row_group_size = sample_per_file / 2;
     writer_args.set_row_group_size_rows(max_row_group_size);
     cudf::io::write_parquet(writer_args);
   }
@@ -292,7 +291,7 @@ void generate_parquet_input_files(int num_files, int sample_per_file,
 
 TEST(data_reader_parquet_worker, data_reader_parquet_worker_single_worker_iter) {
   auto p_mr = rmm::mr::get_current_device_resource();
-  std::vector<bool> is_mhot(26,false);
+  std::vector<bool> is_mhot(26, false);
   // following dense_dim has excluded label
   std::vector<size_t> dense_dim_array(9, 1);
   dense_dim_array[0] = 2;
@@ -457,7 +456,7 @@ TEST(data_reader_parquet_worker, data_reader_parquet_worker_single_worker_iter) 
 TEST(data_reader_parquet_worker, data_reader_parquet_worker_single_worker_iter_large_dense) {
   auto p_mr = rmm::mr::get_current_device_resource();
   // following dense_dim has excluded label
-  std::vector<bool> is_mhot(26,false);
+  std::vector<bool> is_mhot(26, false);
   std::vector<size_t> dense_dim_array(1025, 1);
   dense_dim_array[0] = 1;
   dense_dim_array[1] = 3;
@@ -633,10 +632,11 @@ TEST(data_reader_parquet_worker, data_reader_parquet_worker_single_worker_iter_l
 // batch 6 -> file 2 (worker 0)
 // batch 7 -> file 0 (worker 1,repeated)
 
-void data_reader_group_iter_strided_batch_test_impl(int num_files, long long sample_per_file,const int batchsize,
+void data_reader_group_iter_strided_batch_test_impl(int num_files, long long sample_per_file,
+                                                    const int batchsize,
                                                     std::vector<int> device_list, int iter) {
   auto p_mr = rmm::mr::get_current_device_resource();
-  std::vector<bool> is_mhot(26,false);
+  std::vector<bool> is_mhot(26, false);
   // following dense_dim has excluded label
   std::vector<size_t> dense_dim_array(13, 1);
   // dense_dim_array[0] = 2;
@@ -806,10 +806,11 @@ void data_reader_group_iter_strided_batch_test_impl(int num_files, long long sam
   }
   rmm::mr::set_current_device_resource(p_mr);
 }
-void data_reader_group_iter_squential_batch_test_impl(int num_files, long long sample_per_file, const int batchsize,
+void data_reader_group_iter_squential_batch_test_impl(int num_files, long long sample_per_file,
+                                                      const int batchsize,
                                                       std::vector<int> device_list, int iter) {
   auto p_mr = rmm::mr::get_current_device_resource();
-  std::vector<bool> is_mhot(26,false);
+  std::vector<bool> is_mhot(26, false);
   // following dense_dim has excluded label
   std::vector<size_t> dense_dim_array(13, 1);
   const int dense_dim =
@@ -856,7 +857,8 @@ void data_reader_group_iter_squential_batch_test_impl(int num_files, long long s
   long long global_batch_offset = 0;
   long long reference_nnz_offset = 0;
   for (int i = 0; i < iter; i++) {
-    // HCTR_LOG(INFO,ROOT,"at iter %d, global_batch_offset is %d total_samples %d\n",i,global_batch_offset,total_samples);
+    // HCTR_LOG(INFO,ROOT,"at iter %d, global_batch_offset is %d total_samples
+    // %d\n",i,global_batch_offset,total_samples);
     long long current_batchsize = data_reader.read_a_batch_to_device();
     ASSERT_TRUE(current_batchsize == batchsize);
     for (size_t gpu = 0; gpu < local_gpu_count; ++gpu) {
@@ -878,7 +880,8 @@ void data_reader_group_iter_squential_batch_test_impl(int num_files, long long s
 
       for (size_t sample = 0; sample < batchsize_per_gpu; sample++) {
         for (int l = 0; l < label_dim; l++) {
-          size_t label_idx = (((sample + batch_starting + global_batch_offset) % total_samples) * label_dim + l);
+          size_t label_idx =
+              (((sample + batch_starting + global_batch_offset) % total_samples) * label_dim + l);
           ASSERT_TRUE(labels[label_idx] == label_read[sample * label_dim + l])
               << " iter " << i << " sample " << sample << " label " << l << std::endl;
 
@@ -886,7 +889,8 @@ void data_reader_group_iter_squential_batch_test_impl(int num_files, long long s
         }
 
         for (int d = 0; d < dense_dim; d++) {
-          size_t dense_idx = ((sample + batch_starting + global_batch_offset) % total_samples) * dense_dim + d;
+          size_t dense_idx =
+              ((sample + batch_starting + global_batch_offset) % total_samples) * dense_dim + d;
           ASSERT_TRUE(denses[dense_idx] == dense_read[sample * dense_dim + d])
               << " iter " << i << " sample " << sample << " dense dim " << d << std::endl;
           ;
@@ -903,11 +907,13 @@ void data_reader_group_iter_squential_batch_test_impl(int num_files, long long s
                                 (1 + batchsize * slot_num) * sizeof(T), cudaMemcpyDeviceToHost));
       // check batchsize * slot_num slots
       for (int nnz_id = 0; nnz_id < batchsize * slot_num; ++nnz_id) {
-        long long  sample = nnz_id / slot_num;
+        long long sample = nnz_id / slot_num;
         int slot_id = nnz_id % slot_num;
-        T expected = row_offsets[(((global_batch_offset + sample) % total_samples) * slot_num) + slot_id];
+        T expected =
+            row_offsets[(((global_batch_offset + sample) % total_samples) * slot_num) + slot_id];
         T value = rowoffsets[nnz_id + 1] - rowoffsets[nnz_id];
-        // HCTR_LOG(INFO,WORLD,"global_batch_offset is %d, sample %d,slot %d\n ",global_batch_offset,nnz_id / slot_num ,slot_id);
+        // HCTR_LOG(INFO,WORLD,"global_batch_offset is %d, sample %d,slot %d\n
+        // ",global_batch_offset,nnz_id / slot_num ,slot_id);
         ASSERT_TRUE(value == expected)
             << " iter: " << i << " sample " << nnz_id / slot_num << " slot_id : " << slot_id
             << " (nnz)value: " << value << " expected: " << expected << std::endl;
@@ -917,12 +923,12 @@ void data_reader_group_iter_squential_batch_test_impl(int num_files, long long s
               << " iter: " << i << " sample " << nnz_id / slot_num << " slot_id : " << slot_id
               << " slot_off_id : " << start - rowoffsets[nnz_id]
               << " (nz)value: " << keys[start] - slot_offset[slot_id]
-              << " expected: " << sparse_values[(reference_nnz_offset + start) % total_nnz_files] << std::endl;
+              << " expected: " << sparse_values[(reference_nnz_offset + start) % total_nnz_files]
+              << std::endl;
         }
       }
       T generated_nnz = rowoffsets[batchsize * slot_num];
-      if (gpu == local_gpu_count - 1)
-        reference_nnz_offset = (reference_nnz_offset + nnz);
+      if (gpu == local_gpu_count - 1) reference_nnz_offset = (reference_nnz_offset + nnz);
       ASSERT_TRUE(nnz == static_cast<size_t>(generated_nnz))
           << "nnz is " << generated_nnz << " expected " << nnz;
     }
@@ -930,10 +936,10 @@ void data_reader_group_iter_squential_batch_test_impl(int num_files, long long s
   }
   rmm::mr::set_current_device_resource(p_mr);
 }
-void data_reader_epoch_test_impl(int num_files,long long sample_per_file, const int batchsize, std::vector<int> device_list,
-                                 int epochs) {
+void data_reader_epoch_test_impl(int num_files, long long sample_per_file, const int batchsize,
+                                 std::vector<int> device_list, int epochs) {
   auto p_mr = rmm::mr::get_current_device_resource();
-  std::vector<bool> is_mhot(26,false);
+  std::vector<bool> is_mhot(26, false);
   // following dense_dim has excluded label
   std::vector<size_t> dense_dim_array(13, 1);
   const int dense_dim =
@@ -1127,49 +1133,49 @@ void data_reader_epoch_test_impl(int num_files,long long sample_per_file, const 
 }
 
 TEST(data_reader_test, data_reader_parquet_group_test_3files_1worker_epoch) {
-  data_reader_epoch_test_impl(3,1026, 1026, {0}, 2);
-  data_reader_epoch_test_impl(3,1025, 1026, {0}, 2);
-  data_reader_epoch_test_impl(3,1027, 1026, {0}, 2);
+  data_reader_epoch_test_impl(3, 1026, 1026, {0}, 2);
+  data_reader_epoch_test_impl(3, 1025, 1026, {0}, 2);
+  data_reader_epoch_test_impl(3, 1027, 1026, {0}, 2);
 }
 
 TEST(data_reader_test, data_reader_parquet_group_test_9files_3worker_epoch) {
-  data_reader_epoch_test_impl(9,2048, 6000, {0, 1, 2}, 20);
+  data_reader_epoch_test_impl(9, 2048, 6000, {0, 1, 2}, 20);
 }
 TEST(data_reader_test, data_reader_parquet_group_test_4files_2workers_iter) {
-  data_reader_group_iter_strided_batch_test_impl(4,2048, 1026, {0, 1}, 20);
+  data_reader_group_iter_strided_batch_test_impl(4, 2048, 1026, {0, 1}, 20);
 }
 TEST(data_reader_test, data_reader_parquet_group_test_3files_1workers_iter_strided) {
   // data_reader_group_iter_strided_batch_test_impl(3,2048,  1026, {0}, 20);
-  data_reader_group_iter_strided_batch_test_impl(5,163840,  51210, {0}, 120);
+  data_reader_group_iter_strided_batch_test_impl(5, 163840, 51210, {0}, 120);
   // data_reader_group_iter_strided_batch_test_impl(3,2048, 1008,{0},100);
   // data_reader_group_iter_strided_batch_test_impl(3,2048, 1008,{1},100);
   // data_reader_group_iter_strided_batch_test_impl(10,2048, 2049,{1},100);
 }
 TEST(data_reader_test, data_reader_parquet_group_test_3files_3workers_iter) {
-  data_reader_group_iter_strided_batch_test_impl(3,2048,  1026, {0, 1, 2}, 20);
+  data_reader_group_iter_strided_batch_test_impl(3, 2048, 1026, {0, 1, 2}, 20);
 }
 TEST(data_reader_test, data_reader_parquet_group_test_6files_3workers_iter) {
-  data_reader_group_iter_strided_batch_test_impl(6,2048,  1026, {0, 1, 2}, 20);
+  data_reader_group_iter_strided_batch_test_impl(6, 2048, 1026, {0, 1, 2}, 20);
 }
 
 TEST(data_reader_test, data_reader_parquet_group_test_6files_2workers_iter) {
-  data_reader_group_iter_strided_batch_test_impl(6,40960,  1048, {0, 1}, 120);
+  data_reader_group_iter_strided_batch_test_impl(6, 40960, 1048, {0, 1}, 120);
 }
 TEST(data_reader_test, data_reader_parquet_group_test_3files_1workers_iter_sequential_batch) {
-  data_reader_group_iter_squential_batch_test_impl(3,2048,  1026, {0}, 20);
+  data_reader_group_iter_squential_batch_test_impl(3, 2048, 1026, {0}, 20);
   // data_reader_group_iter_squential_batch_test_impl(3,2048,  4 * 131, {1}, 20);
 }
 TEST(data_reader_test, data_reader_parquet_group_test_4files_2workers_iter_sequential_batch) {
-  data_reader_group_iter_squential_batch_test_impl(4,2048,  1026, {0,2}, 20);
+  data_reader_group_iter_squential_batch_test_impl(4, 2048, 1026, {0, 2}, 20);
   // data_reader_group_iter_squential_batch_test_impl(3,2048,  4 * 131, {1}, 20);
 }
 TEST(data_reader_test, data_reader_parquet_group_test_3files_3workers_iter_sequential_batch) {
   // data_reader_group_iter_squential_batch_test_impl(3, 1023, {0,1}, 50);
-  data_reader_group_iter_squential_batch_test_impl(3,2048,  1026, {0,1,2}, 20);
+  data_reader_group_iter_squential_batch_test_impl(3, 2048, 1026, {0, 1, 2}, 20);
   // data_reader_group_iter_squential_batch_test_impl(3,2048,  3 * 1310, {0,1,2}, 20);
 }
 
 TEST(data_reader_test, data_reader_parquet_group_test_3files_4workers_iter_sequential_batch) {
-  data_reader_group_iter_squential_batch_test_impl(4,100,  1026 * 4, {0,1,2,3}, 20);
-  data_reader_group_iter_squential_batch_test_impl(4,2048,  4 * 1310, {0,1,2,3}, 20);
+  data_reader_group_iter_squential_batch_test_impl(4, 100, 1026 * 4, {0, 1, 2, 3}, 20);
+  data_reader_group_iter_squential_batch_test_impl(4, 2048, 4 * 1310, {0, 1, 2, 3}, 20);
 }

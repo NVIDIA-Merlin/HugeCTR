@@ -82,9 +82,9 @@ class ParquetDataReaderWorker : public IDataReaderWorker {
   Tensor2<T> host_pinned_csr_inc_; /**< Pinned memory to copy csr push_back values */
   long long
       cached_df_rows_;  // total rows of current df, can be either smaller or greater than batchsize
-      
-  long long row_group_id_pre_;    // previous row group id
-  long long row_group_index_pre_; // previous row offset within current row_group
+
+  long long row_group_id_pre_;     // previous row group id
+  long long row_group_index_pre_;  // previous row offset within current row_group
 
   long long cached_df_index_;    // how many records of current df have been consumed ?
   long long row_carry_forward_;  // records carried forward to next parquet file
@@ -100,11 +100,11 @@ class ParquetDataReaderWorker : public IDataReaderWorker {
     buffer_->state.store(BufferState::ReadyForWrite);
   }
   /* seek current record starts to reading from;
-   will modify 
+   will modify
     row_group_id_pre_
-    row_group_index_pre_  
-    records_num_file_  
-    record_offset_file_  
+    row_group_index_pre_
+    records_num_file_
+    record_offset_file_
   return:
     true if dst row_group is exactly current row_group, false otherwise
   */
@@ -167,7 +167,7 @@ class ParquetDataReaderWorker : public IDataReaderWorker {
             }
           }
           // hasnt been read yet
-          row_group_index_pre_ = source->get_offset_to_read_within_group() ;
+          row_group_index_pre_ = source->get_offset_to_read_within_group();
           row_group_id_pre_ = source->get_row_group_to_read();
           records_num_file_ = source->get_num_rows();
           record_offset_file_ = source->get_offset_to_read_within_file();
@@ -175,9 +175,11 @@ class ParquetDataReaderWorker : public IDataReaderWorker {
           // raise exception
           HCTR_OWN_THROW(Error_t::BrokenFile, "failed to read a file");
         }
-        // HCTR_LOG(ERROR, ROOT, "file_id_pre %d, source->get_cur_file_id() %d,row_group_id_pre_ %d \n",file_id_pre,source->get_cur_file_id(),row_group_id_pre_);
-        if(file_id_pre != -1 && source->get_cur_file_id() == file_id_pre && tmp_group != -1 && row_group_id_pre_ == tmp_group){
-          return true; 
+        // HCTR_LOG(ERROR, ROOT, "file_id_pre %d, source->get_cur_file_id() %d,row_group_id_pre_ %d
+        // \n",file_id_pre,source->get_cur_file_id(),row_group_id_pre_);
+        if (file_id_pre != -1 && source->get_cur_file_id() == file_id_pre && tmp_group != -1 &&
+            row_group_id_pre_ == tmp_group) {
+          return true;
         }
         return false;
       } else if (err == Error_t::WrongInput || err == Error_t::InvalidEnv) {
@@ -364,15 +366,13 @@ class ParquetDataReaderWorker : public IDataReaderWorker {
   void skip_read() { skip_read_ = true; }
 };
 
-
-
-/* 
+/*
 could modify :
     cached_df_rows_,
     cached_df_index_,
     row_carry_forward_,
     record_offset_file_,
-  return 
+  return
     current_batch_size
 */
 // TODO: Not used till now, DELETE OR NOT?
@@ -404,14 +404,12 @@ int ParquetDataReaderWorker<T>::prepare_df() {
     // style 2:read with skip_rows + num_rows concat happens across files only
     // seek_file_by_global_id will reset records_num_file_, record_offset_file_
     try {
-     hit_row_group =  seek_file_by_global_id(global_batches_offset, batch_size);
-     if(hit_row_group){
-       HCTR_LOG(INFO,ROOT,"row group hit\n");
-     }
-     else{
-       HCTR_LOG(INFO,ROOT,"row group miss\n");
-
-     }
+      hit_row_group = seek_file_by_global_id(global_batches_offset, batch_size);
+      if (hit_row_group) {
+        HCTR_LOG(INFO, ROOT, "row group hit\n");
+      } else {
+        HCTR_LOG(INFO, ROOT, "row group miss\n");
+      }
     } catch (const internal_runtime_error& rt_err) {
       Error_t err = rt_err.get_error();
       // last file
@@ -424,8 +422,8 @@ int ParquetDataReaderWorker<T>::prepare_df() {
         throw;
       }
     }
-    if(hit_row_group){
-      cached_df_index_ = row_group_index_pre_; 
+    if (hit_row_group) {
+      cached_df_index_ = row_group_index_pre_;
     }
     cached_df_rows_ = 0;
     row_carry_forward_ = 0;
@@ -511,7 +509,7 @@ int ParquetDataReaderWorker<T>::prepare_df() {
       }
     }
   } else {
-    // TODO 
+    // TODO
     // style 1: read by group
     while (elements_to_read > 0) {
       // have enough row inc cached_df_index_ else slice and concat to next DF
@@ -633,13 +631,13 @@ void ParquetDataReaderWorker<T>::read_a_batch() {
       auto dst_dense_tensor = Tensor2<dtype_dense>::stretch_from(buffer_->device_dense_buffers);
       long long elements_to_read = batch_size;
       // if read file sequentially, read worker_num_ batches and discard extraneous samples
-      if(strict_order_of_batches_){
+      if (strict_order_of_batches_) {
         elements_to_read *= worker_num_;
       }
       std::vector<cudf::table_view> table_view_for_concat;
       // have enough row inc row_group_index_ else slice and concat to next DF
       while (elements_to_read > 0) {
-      // have enough row inc cached_df_index_ else slice and concat to next DF
+        // have enough row inc cached_df_index_ else slice and concat to next DF
         if (!cached_df_ || (cached_df_rows_ == cached_df_index_)) {
           auto tbl_w_metadata = source->read(-1, memory_resource_.get());
           // get column name from read_parquet()
@@ -648,7 +646,7 @@ void ParquetDataReaderWorker<T>::read_a_batch() {
           }
           if (row_carry_forward_ > 0 && table_view_for_concat.size() > 0) {
             std::vector<cudf::table_view> table_views_for_concat{table_view_for_concat[0],
-                                                                tbl_w_metadata.tbl->view()};
+                                                                 tbl_w_metadata.tbl->view()};
             // swap here will automatically release previous cached DF
             (cudf::concatenate(table_views_for_concat, memory_resource_.get())).swap(cached_df_);
             // roll back if concat happens between group
@@ -676,7 +674,8 @@ void ParquetDataReaderWorker<T>::read_a_batch() {
           if (avail_rows < cached_df_rows_) {  // if cached_df_index_ > 0
             // slice and add to concat queue
             std::vector<cudf::size_type> slice_indices{
-                (cudf::size_type)cached_df_index_, (cudf::size_type)(cached_df_index_ + avail_rows)};
+                (cudf::size_type)cached_df_index_,
+                (cudf::size_type)(cached_df_index_ + avail_rows)};
 
             table_view_for_concat = cudf::slice(cached_df_->view(), slice_indices);
           } else {
@@ -685,10 +684,10 @@ void ParquetDataReaderWorker<T>::read_a_batch() {
           cached_df_index_ += avail_rows;
           record_offset_file_ += avail_rows;
           row_carry_forward_ = avail_rows;
-          if(strict_order_of_batches_){
+          if (strict_order_of_batches_) {
             long long avail_worker = avail_rows - worker_id_ * batch_size;
-            current_batch_size = std::max(0ll,avail_worker);
-          } else{
+            current_batch_size = std::max(0ll, avail_worker);
+          } else {
             current_batch_size = avail_rows;
           }
         }
@@ -718,7 +717,6 @@ void ParquetDataReaderWorker<T>::read_a_batch() {
             }
           }
         }
-
       }
 
       cudf::table_view data_view = cached_df_->view();
@@ -804,7 +802,7 @@ void ParquetDataReaderWorker<T>::read_a_batch() {
       std::vector<dtype_dense*> dense_column_data_ptr;
       long long view_offset_worker = view_offset_;
       // if strict_order_of_batches_==true, we need to discard extraneous batch
-      if(strict_order_of_batches_){
+      if (strict_order_of_batches_) {
         view_offset_worker += worker_id_ * batch_size;
       }
       for (int k = 0; k < num_label_dense; k++) {
@@ -812,10 +810,10 @@ void ParquetDataReaderWorker<T>::read_a_batch() {
             const_cast<dtype_dense*>(dense_columns_view_ref[k].data<dtype_dense>());
         column_ptr =
             // only proceed dense for local gpu
-            reinterpret_cast<dtype_dense*>((size_t)column_ptr + sizeof(dtype_dense) *
-                                                                    (offset_start + view_offset_worker) *
-                                                                    dense_width_dim[k]);
-       
+            reinterpret_cast<dtype_dense*>(
+                (size_t)column_ptr +
+                sizeof(dtype_dense) * (offset_start + view_offset_worker) * dense_width_dim[k]);
+
         dense_column_data_ptr.push_back(column_ptr);
       }
 
@@ -915,11 +913,11 @@ void ParquetDataReaderWorker<T>::read_a_batch() {
             // optimize converter in the future when slots nnz for current
             // param_id is fixed
             pinned_buffer_offset_count += convert_parquet_cat_columns(
-                cat_column_data_ptr, cat_column_row_offset_ptr, view_offset_worker, param_num, param_id,
-                param.max_nnz, slot_count, current_batch_size, resource_manager_->get_process_id(),
-                resource_manager_, device_csr_value_buffers, device_csr_row_offset_buffers,
-                pinned_staging_buffer_param, dev_slot_offset_ptr, rmm_resources,
-                memory_resource_.get(), task_stream_);
+                cat_column_data_ptr, cat_column_row_offset_ptr, view_offset_worker, param_num,
+                param_id, param.max_nnz, slot_count, current_batch_size,
+                resource_manager_->get_process_id(), resource_manager_, device_csr_value_buffers,
+                device_csr_row_offset_buffers, pinned_staging_buffer_param, dev_slot_offset_ptr,
+                rmm_resources, memory_resource_.get(), task_stream_);
           }
           df_column_id += param.slot_num;
           param_id++;
