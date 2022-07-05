@@ -45,6 +45,28 @@ stages:
     - when: never
   timeout: 5 hours
 
+# nightly build for sok tf1
+.build_nightly_tf1:
+  stage: build_from_scratch
+  tags:
+    - nvidia.com/cuda.driver.major=470
+  script:
+    - docker login -u ${CI_PRIVATE_USER} -p "${CI_PRIVATE_KEY}" "${CI_REGISTRY}"
+    - cd tools/dockerfiles
+    - docker build --pull
+      -t ${DST_IMAGE}
+      -f ${DOCKER_FILE}
+      $BUILD_ARGS
+      --no-cache
+      . ;
+    - docker push ${DST_IMAGE}
+  allow_failure: false
+  rules:
+    - if: $NIGHTLY == "1"
+      when: always
+    - when: never
+  timeout: 2 hours
+
 .build:
   stage: build
   tags:
