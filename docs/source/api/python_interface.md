@@ -577,10 +577,15 @@ hugectr.Model()
 hugectr.Model.add()
 ```
 
-The `add` method of Model adds an instance of Input, SparseEmbedding, DenseLayer or GroupDenseLayer to the created Model object. Typically, a Model object is comprised of one Input, several SparseEmbedding and a series of DenseLayer instances. Please note that the loss function for HugeCTR model training is taken as a DenseLayer instance.
+The `add` method of Model adds an instance of Input, SparseEmbedding, DenseLayer, GroupDenseLayer, or EmbeddingCollection to the created Model object.
+Typically, a Model object is comprised of one Input, several SparseEmbedding and a series of DenseLayer instances.
+Please note that the loss function for HugeCTR model training is taken as a DenseLayer instance.
 
 **Arguments**
-* `input` or `sparse_embedding` or `dense_layer`: This method is an overloaded method that can accept `hugectr.Input`, `hugectr.SparseEmbedding`, `hugectr.DenseLayer` or `hugectr.GroupDenseLayer` as an argument. It allows the users to construct their model flexibly without the JSON configuration file.
+* `input` or `sparse_embedding` or `dense_layer`: This method is an overloaded method that can accept `hugectr.Input`, `hugectr.SparseEmbedding`, `hugectr.DenseLayer`, `hugectr.GroupDenseLayer`, or `hugectr.EmbeddingCollection` as an argument.
+It allows the users to construct their model flexibly without the JSON configuration file.
+
+Refer to the [HugeCTR Layer Classes and Methods](./hugectr_layer_book.md) for information about the layers and embedding collection.
 
 ***
 

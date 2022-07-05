@@ -52,9 +52,9 @@ void test_ragged_static_embedding_table(int device_id) {
   EmbeddingShardingParam sharding_param;
   sharding_param.local_embedding_list = {0, 1, 2};
   sharding_param.global_embedding_list = {{0, 1, 2}};
-  sharding_param.sharding_id = 0;
-  sharding_param.num_sharding = 1;
-  sharding_param.table_placement_strategy = TablePlacementStrategy::Localized;
+  sharding_param.shard_id = 0;
+  sharding_param.shards_count = 1;
+  sharding_param.table_placement_strategy = TablePlacementStrategy::ModelParallel;
 
   EmbeddingCollectionParam ebc_param;
   ebc_param.num_embedding = num_embedding_table;
