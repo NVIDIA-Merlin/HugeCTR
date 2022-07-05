@@ -79,8 +79,8 @@ class LocalEmbeddingData {
 
   int num_local_embedding_;
   int num_local_hotness_;
-  int sharding_id_;
-  int num_sharding_;
+  int shard_id_;
+  int shards_count_;
 
   std::vector<int> h_local_embedding_list_;
   std::vector<std::vector<int>> h_global_embedding_list_;
@@ -103,8 +103,8 @@ class LocalEmbeddingData {
                      const EmbeddingShardingParam &sharding_param)
       : core_(core),
         num_local_embedding_(sharding_param.local_embedding_list.size()),
-        sharding_id_(sharding_param.sharding_id),
-        num_sharding_(sharding_param.num_sharding),
+        shard_id_(sharding_param.shard_id),
+        shards_count_(sharding_param.shards_count),
         h_local_ev_size_offset_{0} {
     CudaDeviceContext context(core_->get_device_id());
     auto &embedding_params = params.embedding_params;

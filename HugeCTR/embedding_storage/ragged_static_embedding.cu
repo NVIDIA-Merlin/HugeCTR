@@ -133,7 +133,7 @@ RaggedStaticEmbeddingTable::RaggedStaticEmbeddingTable(
         if (id_space_set.find(id_space) == id_space_set.end()) {
           uint64_t id_space_count = 0;
           for (int64_t k = emb_table_param.min_key; k < emb_table_param.max_key; ++k) {
-            if (k % sharding_param.num_sharding == sharding_param.sharding_id) {
+            if (k % sharding_param.shards_count == sharding_param.shard_id) {
               cpu_key_list.push_back(k);
               id_space_count += 1;
             }
