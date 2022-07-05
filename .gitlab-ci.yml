@@ -39,12 +39,11 @@ nightly_build_sok_tf2:
     BUILD_ARGS: --build-arg HUGECTR_DEV_MODE=true
   
 nightly_build_sok_tf1:
-  extends: .build_nightly
+  extends: .build_nightly_tf1
   variables:
-    REMOTE_REPO: https://github.com/NVIDIA-Merlin/Merlin.git
     DST_IMAGE: ${IMAGE_SOK_TF1}
-    DOCKER_FILE: dockerfile.tf
-    BUILD_ARGS: --build-arg HUGECTR_DEV_MODE=true --build-arg IMAGE=nvcr.io/nvidia/tensorflow:21.11-tf1-py3 --build-arg INSTALL_NVT=false --build-arg INSTALL_DISTRIBUTED_EMBEDDINGS=false
+    DOCKER_FILE: Dockerfile.sok1
+    BUILD_ARGS: --build-arg HUGECTR_DEV_MODE=true
   
 #nightly_build_unified_container.ctr:
 #  extends: .build_nightly
