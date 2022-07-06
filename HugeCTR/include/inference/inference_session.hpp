@@ -58,12 +58,13 @@ class InferenceSession : public InferenceSessionBase {
  public:
   virtual ~InferenceSession();
   InferenceSession(const std::string& model_config_path, const InferenceParams& inference_params,
-                   const std::shared_ptr<EmbeddingCacheBase>& embedding_cache);
+                   const std::shared_ptr<EmbeddingCacheBase>& embedding_cache,
+                   std::shared_ptr<ResourceManager> resource_manager = nullptr);
   InferenceSession(InferenceSession const&) = delete;
   InferenceSession& operator=(InferenceSession const&) = delete;
 
   virtual void predict(float* d_dense, void* h_embeddingcolumns, int* d_row_ptrs, float* d_output,
-                       int num_samples);
+                       int num_samples, bool table_major_key_layout = false);
   const InferenceParser& get_inference_parser() const { return inference_parser_; }
 };
 
