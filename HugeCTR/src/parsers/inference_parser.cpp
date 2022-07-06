@@ -52,16 +52,19 @@ void InferenceParser::create_pipeline_inference(
 
   create_embedding<unsigned int, TypeEmbeddingComp>()(
       inference_params, j_layers_array, rows, embeddingvecs, embedding_table_slot_size,
-      &inference_tensor_entries, embeddings, resource_manager->get_local_gpu(0), input_buffer);
+      &inference_tensor_entries, embeddings,
+      resource_manager->get_local_gpu_from_device_id(inference_params.device_id), input_buffer);
 
-  CudaDeviceContext context(resource_manager->get_local_gpu(0)->get_device_id());
+  CudaDeviceContext context(
+      resource_manager->get_local_gpu_from_device_id(inference_params.device_id)->get_device_id());
   input_buffer->allocate();
   // TODO: perhaps it is better to make a wrapper of this function for the inference
   // rather than passing unused parameters here.
   std::shared_ptr<ExchangeWgrad> exchange_wgrad_dummy;
   *network = Network::create_network(
       j_layers_array, "", train_tensor_entries, inference_tensor_entries, 1, exchange_wgrad_dummy,
-      resource_manager->get_local_cpu(), resource_manager->get_local_gpu(0),
+      resource_manager->get_local_cpu(),
+      resource_manager->get_local_gpu_from_device_id(inference_params.device_id),
       inference_params.use_mixed_precision, false, inference_params.scaler, false,
       inference_params.use_cuda_graph, true, false);
 }
