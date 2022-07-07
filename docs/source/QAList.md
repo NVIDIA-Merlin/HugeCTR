@@ -197,3 +197,10 @@ Refer to the [Slice Layer](./api/hugectr_layer_book.md#slice-layer) for informat
 ## 30. What is the good practice of configuring the embedding vector size?
 
 The embedding vector size is related to the size of Cooperative Thread Array (CTA) for HugeCTR kernel launching, so first and foremost it should not exceed the maximum number of threads per block. It would be better that it is configured to a multiple of the warp size for the sake of occupancy. Still, you can set the embedding vector size freely according to the specific model architecture as long as it complies with the limit.
+
+## 31. How to resolve the bus error when running HugeCTR samples and notebooks?
+
+HugeCTR uses NCCL to share data between ranks, and NCCL may requires shared memory for IPC and pinned (page-locked) system memory resources. The bus error is related to the limited resources and can be resolved by issuing the following options in the docker run command.
+```bash
+--ipc=host --ulimit memlock=-1 --ulimit stack=67108864
+```
