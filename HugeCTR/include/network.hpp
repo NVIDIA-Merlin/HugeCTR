@@ -263,7 +263,6 @@ class Network {
    * add layer to network, python interface use only
    */
   friend class Model;
-  friend class ModelPerfExt;
   /**
    * copy weights from train layers to evaluate layers
    */

@@ -402,9 +402,9 @@ Model::Model(const Solver& solver, const DataReaderParams& reader_params,
       etc_created_(false),
       is_dense_trainable_(true),
       current_eval_batchsize_(0),
-      dlrm_bottom_mlp_(true),
+      embedding_dependent_(true),
       high_level_eval_(false) {
-  if (solver_.is_dlrm) {
+  if (solver_.perf_logging) {
     timer_log.start();
     HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "init_start");
   }
@@ -564,10 +564,6 @@ void Model::construct_from_json(const std::string& graph_config_file, bool inclu
 }
 
 void Model::add(Input& input) {
-  if (!solver_.is_dlrm && reader_params_.data_reader_type == DataReaderType_t::RawAsync) {
-    HCTR_OWN_THROW(Error_t::WrongInput, "Raw async reader is restricted to DLRM use");
-  }
-
   std::string label_name = input.labels_.begin()->first;
   int label_dim = input.labels_.begin()->second;
 
@@ -668,9 +664,6 @@ void Model::add(Input& input) {
 }
 
 void Model::add(SparseEmbedding& sparse_embedding) {
-  if (!solver_.is_dlrm && sparse_embedding.embedding_type == Embedding_t::HybridSparseEmbedding) {
-    HCTR_OWN_THROW(Error_t::WrongInput, "Hybrid embedding is restricted to DLRM use");
-  }
   if ((reader_params_.data_reader_type == DataReaderType_t::RawAsync &&
        sparse_embedding.embedding_type != Embedding_t::HybridSparseEmbedding) ||
       (reader_params_.data_reader_type != DataReaderType_t::RawAsync &&
@@ -733,6 +726,7 @@ void Model::add(SparseEmbedding& sparse_embedding) {
   }
   embeddings_map_.insert(
       std::make_pair(sparse_embedding.sparse_embedding_name, embeddings_.back()));
+  embedding_dependent_tensors_.insert(sparse_embedding.sparse_embedding_name);
 }
 
 void Model::add(DenseLayer& dense_layer) {
@@ -992,11 +986,18 @@ void Model::add(const EmbeddingCollectionPlaceholder& embedding_collection_place
 }
 
 void Model::add_internal(DenseLayer& dense_layer) {
+  embedding_dependent_ = false;
   for (auto& bottom_name : dense_layer.bottom_names) {
     deactivate_tensor(tensor_active_, bottom_name);
+    if (embedding_dependent_tensors_.find(bottom_name) != embedding_dependent_tensors_.end()) {
+      embedding_dependent_ = true;
+    }
   }
   for (auto& top_name : dense_layer.top_names) {
     activate_tensor(tensor_active_, top_name);
+    if (embedding_dependent_) {
+      embedding_dependent_tensors_.insert(top_name);
+    }
   }
   std::string input_names = join(dense_layer.bottom_names, ",");
   std::string output_names = join(dense_layer.top_names, ",");
@@ -1005,9 +1006,6 @@ void Model::add_internal(DenseLayer& dense_layer) {
     layer_info_.push_back(LAYER_TYPE_TO_STRING_MP[dense_layer.layer_type]);
   } else {
     layer_info_.push_back(LAYER_TYPE_TO_STRING[dense_layer.layer_type]);
-  }
-  if (dense_layer.layer_type == Layer_t::Interaction) {
-    dlrm_bottom_mlp_ = false;
   }
   add_dense_layer(dense_layer);
 }
@@ -1276,7 +1274,7 @@ void Model::compile() {
   }
 
   // start to touch dataset, so we can record run_start
-  if (solver_.is_dlrm) {
+  if (solver_.perf_logging) {
     HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "init_stop");
     HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "run_start");
   }
@@ -1632,10 +1630,6 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
   timer.start();
   timer_train.start();
 
-#ifdef ENABLE_PROFILING
-  HugeCTR::global_profiler.initialize(solver_.use_cuda_graph);
-#endif
-
   bool is_first_train_batch_after_eval = true;
   if (epoch_mode && !etc_mode) {
     int iter = 0;
@@ -1656,14 +1650,8 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
       do {
         float lr = 0;
         if (embeddings_.empty() || !this->use_gpu_learning_rate_scheduling()) {
-#ifdef ENABLE_PROFILING
-          // profiler may run very long, so prevent lr < 0
-          lr = std::numeric_limits<float>::min();
-          this->set_learning_rate(lr);
-#else
           lr = lr_sch_->get_next();
           this->set_learning_rate(lr);
-#endif
         }
         data_reader_train_status_ = this->train(is_first_train_batch_after_eval);
         is_first_train_batch_after_eval = false;
@@ -1763,15 +1751,8 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
         do {
           float lr = 0;
           if (embeddings_.empty() || !this->use_gpu_learning_rate_scheduling()) {
-#ifdef ENABLE_PROFILING
-            // profiler may run very long, so prevent lr <
-            // 0
-            lr = std::numeric_limits<float>::min();
-            this->set_learning_rate(lr);
-#else
             lr = lr_sch_->get_next();
             this->set_learning_rate(lr);
-#endif
           }
           data_reader_train_status_ = this->train(is_first_train_batch_after_eval);
           is_first_train_batch_after_eval = false;
@@ -1828,34 +1809,33 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
   } else {
     HCTR_LOG_S(INFO, ROOT) << "Training source file: " << reader_params_.source[0] << std::endl;
     HCTR_LOG_S(INFO, ROOT) << "Evaluation source file: " << reader_params_.eval_source << std::endl;
+
+    if (solver_.perf_logging) {
+      HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "train_epoch_start",
+                    0);  // just 1 epoch. perf logger
+    }
+
     this->start_data_reading();
+    this->init_data_reader_.reset();
     bool is_first_train_batch_after_eval = true;
     for (int iter = 0; iter < max_iter; iter++) {
       float lr = 0;
       if (embeddings_.empty() || !this->use_gpu_learning_rate_scheduling()) {
-#ifdef ENABLE_PROFILING
-        // profiler may run very long, so prevent lr < 0
-        lr = std::numeric_limits<float>::min();
-        this->set_learning_rate(lr);
-#else
         lr = lr_sch_->get_next();
         this->set_learning_rate(lr);
-#endif
       }
       this->train(is_first_train_batch_after_eval);
       is_first_train_batch_after_eval = false;
-#ifdef ENABLE_PROFILING
-      iter = 0;
-      continue;
-#endif
       if (display > 0 && iter % display == 0 && iter != 0) {
         timer_train.stop();
-        float loss = 0;
-        this->get_current_loss(&loss);
-        if (isnan(loss)) {
-          throw std::runtime_error(std::string("Train Runtime error: Loss "
-                                               "cannot converge") +
-                                   " " + __FILE__ + ":" + std::to_string(__LINE__) + " \n");
+        float loss = 0.0f;
+        if (solver_.gen_loss_summary) {
+          this->get_current_loss(&loss);
+          if (isnan(loss)) {
+            throw std::runtime_error(std::string("Train Runtime error: Loss "
+                                                 "cannot converge") +
+                                     " " + __FILE__ + ":" + std::to_string(__LINE__) + " \n");
+          }
         }
         if (!solver_.use_holistic_cuda_graph) {
           HCTR_LOG_S(INFO, ROOT) << "Iter: " << iter << " Time(" << display
@@ -1869,22 +1849,58 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
         timer_train.start();
       }
       if (eval_interval > 0 && iter % eval_interval == 0 && iter != 0) {
+        if (solver_.all_reduce_algo == AllReduceAlgo::NCCL) {
+#pragma omp parallel num_threads(networks_.size())
+          {
+            size_t id = omp_get_thread_num();
+            CudaCPUDeviceContext ctx(resource_manager_->get_local_gpu(id)->get_device_id());
+            cudaStreamSynchronize(resource_manager_->get_local_gpu(id)->get_stream());
+          }
+        }
         this->check_overflow();
         this->copy_weights_for_evaluation();
         is_first_train_batch_after_eval = true;
         timer_eval.start();
+        if (solver_.perf_logging) {
+          HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "eval_start", float(iter) / max_iter);
+        }
         for (int batches = 0; batches < solver_.max_eval_batches; batches++) {
           this->eval(batches == 0);
         }
-        timer_eval.stop();
         auto eval_metrics = this->get_eval_metrics();
         for (auto& eval_metric : eval_metrics) {
           HCTR_LOG_S(INFO, ROOT) << "Evaluation, " << eval_metric.first << ": "
                                  << eval_metric.second << std::endl;
+          if (solver_.perf_logging) {
+            HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "eval_accuracy", eval_metric.second,
+                          float(iter) / max_iter, iter);
+          }
           if (!eval_metric.first.compare("AUC")) {
             const auto auc_threshold = solver_.metrics_spec[HugeCTR::metrics::Type::AUC];
             if (eval_metric.second > auc_threshold) {
               timer.stop();
+              if (solver_.perf_logging) {
+                size_t train_samples =
+                    static_cast<size_t>(iter + 1) * static_cast<size_t>(solver_.batchsize);
+
+                std::string epoch_num_str = std::to_string(float(iter) / max_iter);
+
+                HCTR_LOG_S(INFO, WORLD)
+                    << "Hit target accuracy AUC " << auc_threshold << " at " << iter << "/"
+                    << max_iter << " iterations with batchsize " << solver_.batchsize << " in "
+                    << std::setiosflags(std::ios::fixed) << std::setprecision(2)
+                    << timer.elapsedSeconds() << " s. Average speed "
+                    << (float(iter) * solver_.batchsize / timer.elapsedSeconds()) << " records/s."
+                    << std::endl;
+
+                HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "eval_stop" + epoch_num_str);
+
+                HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "train_epoch_end", 1);
+
+                HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "run_stop");
+                HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "train_samples", train_samples);
+                timer_log.stop();
+              }
               HCTR_LOG(INFO, ROOT,
                        "Hit target accuracy AUC %f at %d "
                        "/ %d iterations with batchsize %d"
@@ -1896,19 +1912,33 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
             }
           }
         }
+        timer_eval.stop();
         HCTR_LOG_S(INFO, ROOT) << "Eval Time for " << solver_.max_eval_batches
                                << " iters: " << timer_eval.elapsedSeconds() << "s" << std::endl;
+        if (solver_.perf_logging) {
+          HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "eval_stop",
+                        float(iter) / max_iter);  // use iteration to calculate it's in which epoch
+        }
       }
       if (snapshot > 0 && iter % snapshot == 0 && iter != 0) {
         this->download_params_to_files(snapshot_prefix, iter);
       }
     }  // end for iter
+    if (solver_.perf_logging) {
+      HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "train_epoch_end", 1);
+
+      HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "run_stop");
+      size_t train_samples = static_cast<size_t>(max_iter) * static_cast<size_t>(solver_.batchsize);
+      HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "train_samples", train_samples);
+      timer_log.stop();
+    }
 
     timer.stop();
     HCTR_LOG(INFO, ROOT,
              "Finish %d iterations with batchsize: %d in "
              "%.2fs.\n",
              max_iter, solver_.batchsize, timer.elapsedSeconds());
+
   }  // end if else
   high_level_eval_ = false;
 }
@@ -1916,10 +1946,8 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
 void Model::exchange_wgrad(size_t device_id) {
   auto& gpu_resource = resource_manager_->get_local_gpu(device_id);
   CudaCPUDeviceContext context(gpu_resource->get_device_id());
-  PROFILE_RECORD("exchange_wgrad.start", gpu_resource->get_stream(), false);
   if (solver_.async_mlp_wgrad) gpu_resource->wait_on_wgrad_event(gpu_resource->get_stream());
   exchange_wgrad_->allreduce(device_id, gpu_resource->get_stream());
-  PROFILE_RECORD("exchange_wgrad.stop", gpu_resource->get_stream(), false);
 }
 
 void Model::train_overlapped() {
@@ -1955,6 +1983,9 @@ void Model::train_overlapped() {
   };
 
   auto scheduled_reader = dynamic_cast<IDataReaderWithScheduling*>(train_data_reader_.get());
+  const bool use_graph =
+      solver_.use_holistic_cuda_graph && !scheduled_reader->current_batch_incomplete();
+
 #pragma omp parallel num_threads(resource_manager_->get_local_gpu_count())
   {
     size_t id = omp_get_thread_num();
@@ -1975,7 +2006,7 @@ void Model::train_overlapped() {
 
     auto schedule_reader = [&, this](TrainState_t expected) {
       if (scheduled_reader && state.state == expected) {
-        if (solver_.use_holistic_cuda_graph) {
+        if (use_graph) {
           scheduled_reader->schedule_here_graph(stream, id);
         } else {
           scheduled_reader->schedule_here(stream, id);
@@ -1986,18 +2017,18 @@ void Model::train_overlapped() {
 
     auto schedule_split3way = [&, this](TrainState_t state_to_schedule) {
       if (state.state == state_to_schedule) {
-        scheduled_reader->schedule_precompute_here(stream, id, solver_.use_holistic_cuda_graph);
+        scheduled_reader->schedule_precompute_here(stream, id, use_graph);
       }
     };
 
     auto schedule_d2d = [&, this](TrainState_t state_to_schedule) {
       if (state.state == state_to_schedule) {
-        scheduled_reader->schedule_d2d_here(stream, id, solver_.use_holistic_cuda_graph);
+        scheduled_reader->schedule_d2d_here(stream, id, use_graph);
       }
     };
 
     auto do_it = [&, this](cudaStream_t submit_stream) {
-      if (solver_.use_holistic_cuda_graph) {
+      if (use_graph || scheduled_reader->precompute_enabled()) {
         HCTR_LIB_THROW(cudaEventRecord(fork_events_[id], submit_stream));
         state.event = &fork_events_[id];
       }
@@ -2010,30 +2041,18 @@ void Model::train_overlapped() {
       do {
         state = embeddings_[0]->train(true, id, state);
         sync();
-        if (resource_manager_->get_num_process() == 1) {
-          schedule_reader(TrainState_t::TopMLPFprop);
-          schedule_split3way(TrainState_t::MLPExchangeWgrad);
-          schedule_d2d(TrainState_t::MLPUpdate);
-        }
+        schedule_reader(TrainState_t::TopMLPFprop);
+        schedule_split3way(TrainState_t::MLPExchangeWgrad);
+        schedule_d2d(TrainState_t::MLPUpdate);
         state = networks_[id]->train(
             current_batchsize_per_device, [this, id]() { this->exchange_wgrad(id); }, state);
-        if (resource_manager_->get_num_process() > 1) {
-          schedule_reader(TrainState_t::TopMLPFprop);
-          schedule_split3way(TrainState_t::BottomMLPBprop);
-          schedule_d2d(TrainState_t::MLPExchangeWgrad);
-        }
       } while (change_state(&state));
       sync();
     };
 
-    if (solver_.use_holistic_cuda_graph) {
+    if (use_graph) {
       if (!train_graphs_[id].initialized) {
         train_graphs_[id].capture(do_it, stream);
-#ifdef ENABLE_MPI
-#pragma omp master
-        HCTR_MPI_THROW(MPI_Barrier(MPI_COMM_WORLD));
-#endif
-#pragma omp barrier
       }
       train_graphs_[id].exec(stream);
       if (scheduled_reader) {
@@ -2062,12 +2081,13 @@ bool Model::train(bool is_first_batch) {
     // a file list source, set "num_workers" to a dvisior
     // of the number of data files in the file list. We
     // will look into some alternatives in the long term.
-    if (solver_.is_dlrm) {
+    if (solver_.use_overlapped_pipeline) {
       graph_scheduler_->trickling();
     }
     long long current_batchsize = 0;
     while ((current_batchsize = train_data_reader_->read_a_batch_to_device_delay_release()) &&
-           (current_batchsize < train_data_reader_->get_full_batchsize()) && !solver_.is_dlrm) {
+           (current_batchsize < train_data_reader_->get_full_batchsize()) &&
+           solver_.drop_incomplete_batch) {
       HCTR_LOG_S(INFO, ROOT) << "train drop incomplete batch. batchsize:" << current_batchsize
                              << std::endl;
       train_data_reader_->ready_to_collect();
@@ -2075,17 +2095,17 @@ bool Model::train(bool is_first_batch) {
     if (!current_batchsize) {
       return false;
     }
+    if (solver_.all_reduce_algo == AllReduceAlgo::NCCL and
+        train_data_reader_->current_batch_incomplete()) {
 #pragma omp parallel num_threads(networks_.size())
-    {
-      size_t id = omp_get_thread_num();
-      CudaCPUDeviceContext ctx(resource_manager_->get_local_gpu(id)->get_device_id());
-      cudaStreamSynchronize(resource_manager_->get_local_gpu(id)->get_stream());
+      {
+        size_t id = omp_get_thread_num();
+        CudaCPUDeviceContext ctx(resource_manager_->get_local_gpu(id)->get_device_id());
+        cudaStreamSynchronize(resource_manager_->get_local_gpu(id)->get_stream());
+      }
     }
     train_data_reader_->ready_to_collect();
     this->check_overflow();
-#ifdef ENABLE_PROFILING
-    global_profiler.iter_check();
-#endif
 
     if (solver_.use_overlapped_pipeline) {
       train_overlapped();
@@ -2215,7 +2235,7 @@ bool Model::train(bool is_first_batch) {
     train_data_reader_->read_a_batch_to_device();
 #endif
   } catch (const std::exception& err) {
-    Logger::print_exception(err, 0);
+    HCTR_LOG_S(ERROR, WORLD) << err.what() << std::endl;
     throw err;
   }
 }
@@ -2231,9 +2251,19 @@ bool Model::eval(bool is_first_batch) {
       this->check_overflow();
       this->copy_weights_for_evaluation();
     }
+    if (is_first_batch && solver_.eval_overlap) {
+      auto scheduled_reader = dynamic_cast<IDataReaderWithScheduling*>(evaluate_data_reader_.get());
+#pragma omp parallel num_threads(networks_.size())
+      {
+        size_t id = omp_get_thread_num();
+        scheduled_reader->schedule_precompute_here(
+            resource_manager_->get_local_gpu(id)->get_stream(), id, false);
+      }
+    }
     long long current_batchsize = 0;
     while ((current_batchsize = evaluate_data_reader_->read_a_batch_to_device_delay_release()) &&
-           (current_batchsize < evaluate_data_reader_->get_full_batchsize()) && !solver_.is_dlrm) {
+           (current_batchsize < evaluate_data_reader_->get_full_batchsize()) &&
+           solver_.drop_incomplete_batch) {
       HCTR_LOG_S(INFO, ROOT) << "eval drop incomplete batch. batchsize:" << current_batchsize
                              << std::endl;
       evaluate_data_reader_->ready_to_collect();
@@ -2281,8 +2311,17 @@ bool Model::eval(bool is_first_batch) {
         size_t id = omp_get_thread_num();
         long long current_batchsize_per_device =
             evaluate_data_reader_->get_current_batchsize_per_device(id);
+
+        // doesn't do anything if eval_overlap disabled
+        auto gpu = resource_manager_->get_local_gpu(id);
+        HCTR_LIB_THROW(cudaStreamWaitEvent(gpu->get_stream(), gpu->get_event("eval_comp_wait")));
+
         eval_ebc_forward(id);
         networks_[id]->eval(current_batchsize_per_device);
+
+        // doesn't do anything if eval_overlap disabled
+        HCTR_LIB_THROW(cudaEventRecord(gpu->get_event("eval_comm_wait"), gpu->get_stream()));
+
         for (auto& metric : metrics_) {
           for (auto& loss_metrics : networks_[id]->get_raw_metrics_all()) {
             metric->local_reduce(id, loss_metrics.second);
@@ -2292,8 +2331,17 @@ bool Model::eval(bool is_first_batch) {
     } else if (networks_.size() == 1) {
       long long current_batchsize_per_device =
           evaluate_data_reader_->get_current_batchsize_per_device(0);
+
+      // doesn't do anything if eval_overlap disabled
+      auto gpu = resource_manager_->get_local_gpu(0);
+      HCTR_LIB_THROW(cudaStreamWaitEvent(gpu->get_stream(), gpu->get_event("eval_comp_wait")));
+
       networks_[0]->eval(current_batchsize_per_device);
       eval_ebc_forward(0);
+
+      // doesn't do anything if eval_overlap disabled
+      HCTR_LIB_THROW(cudaEventRecord(gpu->get_event("eval_comm_wait"), gpu->get_stream()));
+
       for (auto& metric : metrics_) {
         for (auto& loss_metrics : networks_[0]->get_raw_metrics_all()) {
           metric->local_reduce(0, loss_metrics.second);
@@ -2308,12 +2356,11 @@ bool Model::eval(bool is_first_batch) {
       metric->global_reduce(networks_.size());
     }
     return true;
-  }  // namespace HugeCTR
-  catch (const std::exception& err) {
-    Logger::print_exception(err, 0);
+  } catch (const std::exception& err) {
+    HCTR_LOG_S(ERROR, WORLD) << err.what() << std::endl;
     throw err;
   }
-}  // namespace HugeCTR
+}
 
 Error_t Model::export_predictions(const std::string& output_prediction_file_name,
                                   const std::string& output_label_file_name) {

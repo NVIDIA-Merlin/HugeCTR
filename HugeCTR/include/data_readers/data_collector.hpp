@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <omp.h>
 #include <unistd.h>
 
 #include <atomic>
@@ -230,10 +231,16 @@ class DataCollector {
   }
 
   void finalize_batch() {
-    for (size_t i = 0; i < resource_manager_->get_local_gpu_count(); i++) {
+    /*for (size_t i = 0; i < resource_manager_->get_local_gpu_count(); i++) {
       const auto &local_gpu = resource_manager_->get_local_gpu(i);
       CudaDeviceContext context(local_gpu->get_device_id());
       HCTR_LIB_THROW(cudaStreamSynchronize(local_gpu->get_stream()));
+    }*/
+#pragma omp parallel num_threads(resource_manager_->get_local_gpu_count())
+    {
+      size_t id = omp_get_thread_num();
+      CudaCPUDeviceContext ctx(resource_manager_->get_local_gpu(id)->get_device_id());
+      HCTR_LIB_THROW(cudaStreamSynchronize(resource_manager_->get_local_gpu(id)->get_stream()));
     }
 
     broadcast_buffer_->state.store(BufferState::ReadyForWrite);

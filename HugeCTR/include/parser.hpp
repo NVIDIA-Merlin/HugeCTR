@@ -118,7 +118,8 @@ struct Solver {
   AllReduceAlgo all_reduce_algo;
   bool grouped_all_reduce;
   size_t num_iterations_statistics;
-  bool is_dlrm;
+  bool perf_logging;
+  bool drop_incomplete_batch;
   std::string kafka_brokers;
   DataSourceParams data_source_params;
   Solver() {}

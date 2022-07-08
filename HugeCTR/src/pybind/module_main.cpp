@@ -25,7 +25,6 @@
 #include <pybind/hps_wrapper.hpp>
 #include <pybind/inference_wrapper.hpp>
 #include <pybind/learning_rate_scheduler_wrapper.hpp>
-#include <pybind/model_perf_ext_wrapper.hpp>
 #include <pybind/model_wrapper.hpp>
 #include <pybind/optimizer_wrapper.hpp>
 #include <pybind/solver_wrapper.hpp>
@@ -43,7 +42,6 @@ PYBIND11_MODULE(hugectr, m) {
   OptimizerPybind(m);
   ModelPybind(m);
   InferencePybind(m);
-  ModelPerfExtPybind(m);
   EmbeddingCollectionPybind(m);
   HPSPybind(m);
 }

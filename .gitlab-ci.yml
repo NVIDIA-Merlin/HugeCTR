@@ -333,6 +333,20 @@ group_fc:
     DGXNNODES: 1
     TEST_CMD: ./ci/integration_test/group_fc/group_fc.sub
 
+mlperf_generalization:
+  extends: .cluster_test_job
+  needs:
+    - build_train_single_node
+  variables:
+    GPFSFOLDER: $LOGDIR/mlperf_generalization
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $TRAIN_IMAGE_VERSIONED
+    MOUNTS: ${DATASET_NEW_CRITEO_SELENE}:${NEW_CRITEO_MOUNT}
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "00:15:00"
+    DGXNNODES: 1
+    TEST_CMD: ./ci/integration_test/mlperf_generalization/overlapped_pipeline.sub
+
 # python interface inference
 py_inference:
   extends: .cluster_test_job

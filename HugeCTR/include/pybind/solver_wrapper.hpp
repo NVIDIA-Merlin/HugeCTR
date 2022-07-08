@@ -33,8 +33,9 @@ std::unique_ptr<Solver> CreateSolver(
     bool gen_loss_summary, bool overlap_lr, bool overlap_init_wgrad, bool overlap_ar_a2a,
     bool eval_overlap, DeviceMap::Layout device_layout, bool use_holistic_cuda_graph,
     bool use_overlapped_pipeline, bool use_embedding_collection, AllReduceAlgo all_reduce_algo,
-    bool grouped_all_reduce, size_t num_iterations_statistics, bool is_dlrm,
-    std::string& kafka_brokers, const DataSourceParams& data_source_params) {
+    bool grouped_all_reduce, size_t num_iterations_statistics, bool perf_logging,
+    bool drop_incomplete_batch, std::string& kafka_brokers,
+    const DataSourceParams& data_source_params) {
   if (use_mixed_precision && enable_tf32_compute) {
     HCTR_OWN_THROW(Error_t::WrongInput,
                    "use_mixed_precision and enable_tf32_compute cannot be true at the same time");
@@ -42,15 +43,6 @@ std::unique_ptr<Solver> CreateSolver(
   if (use_mixed_precision && scaler != 128 && scaler != 256 && scaler != 512 && scaler != 1024) {
     HCTR_OWN_THROW(Error_t::WrongInput,
                    "Scaler of mixed precision training should be either 128/256/512/1024");
-  }
-  if (!is_dlrm && use_holistic_cuda_graph) {
-    HCTR_OWN_THROW(Error_t::WrongInput, "Holistic cuda graph is restricted to DLRM use");
-  }
-  if (!is_dlrm && use_overlapped_pipeline) {
-    HCTR_OWN_THROW(Error_t::WrongInput, "Overlapped pipeline is restricted to DLRM use");
-  }
-  if (!is_dlrm && grouped_all_reduce) {
-    HCTR_OWN_THROW(Error_t::WrongInput, "Grouped all reduce is restricted to DLRM use");
   }
   if (use_holistic_cuda_graph && use_cuda_graph) {
     HCTR_OWN_THROW(Error_t::WrongInput,
@@ -97,7 +89,8 @@ std::unique_ptr<Solver> CreateSolver(
   solver->all_reduce_algo = all_reduce_algo;
   solver->grouped_all_reduce = grouped_all_reduce;
   solver->num_iterations_statistics = num_iterations_statistics;
-  solver->is_dlrm = is_dlrm;
+  solver->perf_logging = perf_logging;
+  solver->drop_incomplete_batch = drop_incomplete_batch;
   solver->kafka_brokers = kafka_brokers;
   solver->data_source_params = data_source_params;
   return solver;
@@ -139,7 +132,8 @@ void SolverPybind(pybind11::module& m) {
       .def_readonly("all_reduce_algo", &HugeCTR::Solver::all_reduce_algo)
       .def_readonly("grouped_all_reduce", &HugeCTR::Solver::grouped_all_reduce)
       .def_readonly("num_iterations_statistics", &HugeCTR::Solver::num_iterations_statistics)
-      .def_readonly("is_dlrm", &HugeCTR::Solver::is_dlrm);
+      .def_readonly("perf_logging", &HugeCTR::Solver::perf_logging)
+      .def_readonly("drop_incomplete_batch", &HugeCTR::Solver::drop_incomplete_batch);
   m.def("CreateSolver", &HugeCTR::python_lib::CreateSolver, pybind11::arg("model_name") = "",
         pybind11::arg("seed") = 0, pybind11::arg("lr_policy") = LrPolicy_t::fixed,
         pybind11::arg("lr") = 0.001, pybind11::arg("warmup_steps") = 1,
@@ -162,8 +156,8 @@ void SolverPybind(pybind11::module& m) {
         pybind11::arg("use_embedding_collection") = false,
         pybind11::arg("all_reduce_algo") = AllReduceAlgo::NCCL,
         pybind11::arg("grouped_all_reduce") = false,
-        pybind11::arg("num_iterations_statistics") = 20, pybind11::arg("is_dlrm") = false,
-        pybind11::arg("kafka_brockers") = "",
+        pybind11::arg("num_iterations_statistics") = 20, pybind11::arg("perf_logging") = false,
+        pybind11::arg("drop_incomplete_batch") = true, pybind11::arg("kafka_brockers") = "",
         pybind11::arg("data_source_params") = new DataSourceParams());
 }
 
