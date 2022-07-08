@@ -119,9 +119,6 @@ void FullyConnectedLayer<__half>::fprop(bool is_train) {
 
   PROFILE_RECORD("fully_connected_layer_half.fprop.stop", get_gpu().get_stream());
 
-  // only apply to dlrm model. Other model will yield error
-  // PROFILE_RECORD("TopMLP.fprop.stop", get_gpu().get_stream());
-
 #ifndef NDEBUG
   cudaDeviceSynchronize();
   HCTR_LIB_THROW(cudaGetLastError());

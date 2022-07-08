@@ -827,7 +827,8 @@ void Model::add_dense_layer_internal(
     bool async_mlp_wgrad, metrics::MultiLossMetricMap* raw_metrics, int num_networks_in_global,
     const std::shared_ptr<GPUResource>& gpu_resource, bool use_mixed_precision,
     bool enable_tf32_compute, float scaler, bool use_algorithm_search,
-    std::vector<Layer*>* top_layers, std::vector<Layer*>* bottom_layers, bool dlrm_bottom_mlp) {
+    std::vector<Layer*>* embedding_dependent_layers,
+    std::vector<Layer*>* embedding_independent_layers, bool embedding_dependent) {
   bool skip_dgrad = layers.size() == 0;
   Layer_t layer_type = dense_layer.layer_type;
   const auto& layer_type_to_string =
@@ -921,22 +922,28 @@ void Model::add_dense_layer_internal(
 
       if (use_mixed_precision) {
         Tensor2<__half> in_tensor = Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
+        auto regularizer = create_regularizer(
+            dense_layer.use_regularizer, dense_layer.regularizer_type, dense_layer.lambda,
+            weight_buff->as_tensor(), wgrad_buff_half->as_tensor(), in_tensor.get_dimensions()[0],
+            gpu_resource);
+        if (true == solver_.overlap_init_wgrad) {
+          regularizer->set_overlapped();
+        }
         new_loss.reset(new BinaryCrossEntropyLoss<__half>(
-            label_tensor, in_tensor, new_loss_tensor,
-            create_regularizer(dense_layer.use_regularizer, dense_layer.regularizer_type,
-                               dense_layer.lambda, weight_buff->as_tensor(),
-                               wgrad_buff_half->as_tensor(), in_tensor.get_dimensions()[0],
-                               gpu_resource),
-            gpu_resource, num_networks_in_global, scaler));
+            label_tensor, in_tensor, new_loss_tensor, regularizer, gpu_resource,
+            num_networks_in_global, scaler, solver_.gen_loss_summary));
       } else {
         Tensor2<float> in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
+        auto regularizer = create_regularizer(dense_layer.use_regularizer,
+                                              dense_layer.regularizer_type, dense_layer.lambda,
+                                              weight_buff->as_tensor(), wgrad_buff->as_tensor(),
+                                              in_tensor.get_dimensions()[0], gpu_resource);
+        if (true == solver_.overlap_init_wgrad) {
+          regularizer->set_overlapped();
+        }
         new_loss.reset(new BinaryCrossEntropyLoss<float>(
-            label_tensor, in_tensor, new_loss_tensor,
-            create_regularizer(dense_layer.use_regularizer, dense_layer.regularizer_type,
-                               dense_layer.lambda, weight_buff->as_tensor(),
-                               wgrad_buff->as_tensor(), in_tensor.get_dimensions()[0],
-                               gpu_resource),
-            gpu_resource, num_networks_in_global, scaler));
+            label_tensor, in_tensor, new_loss_tensor, regularizer, gpu_resource,
+            num_networks_in_global, scaler, solver_.gen_loss_summary));
       }
 
       loss_tensors.insert(std::pair(name, new_loss_tensor));
@@ -1082,8 +1089,11 @@ void Model::add_dense_layer_internal(
                        "FusedInnerProduct Head Layer should have two input tensors when turning on "
                        "async wgrad knob");
       }
-      if (pos_type == FcPosition_t::Head && input_size == 1 && output_size == 4) {
-      } else if (pos_type == FcPosition_t::Head && input_size == 2 && output_size == 4) {
+      if (pos_type == FcPosition_t::Head && skip_dgrad && input_size == 1 && output_size == 4) {
+      } else if (pos_type == FcPosition_t::Head && !skip_dgrad && input_size == 2 &&
+                 output_size == 4) {
+      } else if (!async_mlp_wgrad && pos_type == FcPosition_t::Head && !skip_dgrad &&
+                 input_size == 1 && output_size == 4) {
       } else if (pos_type == FcPosition_t::Body && input_size == 4 && output_size == 4) {
       } else if (pos_type == FcPosition_t::Tail && input_size == 4 && output_size == 1) {
       } else if (pos_type == FcPosition_t::Isolated && input_size == 1 && output_size == 1) {
@@ -1123,7 +1133,7 @@ void Model::add_dense_layer_internal(
               weight_buff, weight_buff_half, wgrad_buff_half, blobs_buff, train_in_tensor,
               mask_in_tensor, dRelu_in_tensor, db_in_tensor, train_out_tensor, mask_out_tensor,
               dRelu_out_tensor, db_out_tensor, gpu_resource, pos_type, act_type, skip_dgrad,
-              initializer_types, async_mlp_wgrad, head_mask_in));
+              initializer_types, async_mlp_wgrad, head_mask_in, dense_layer.dense_layer_switches));
         }
 
         if (pos_type == FcPosition_t::Tail || pos_type == FcPosition_t::Isolated ||
@@ -1665,19 +1675,19 @@ void Model::add_dense_layer_internal(
     default: {
       assert(!"Error: no such layer && should never get here!");
     }
-  }  // namespace HugeCTR
+  }  // end of switch
   if (!(layer_type == Layer_t::CrossEntropyLoss || layer_type == Layer_t::BinaryCrossEntropyLoss ||
         layer_type == Layer_t::MultiCrossEntropyLoss)) {
     for (auto& output_tensor_entry : output_tensor_entries) {
       tensor_entries.push_back(output_tensor_entry);
     }
-    if (dlrm_bottom_mlp) {
-      if (bottom_layers) {
-        bottom_layers->emplace_back(layers.back().get());
+    if (!embedding_dependent) {
+      if (embedding_independent_layers) {
+        embedding_independent_layers->emplace_back(layers.back().get());
       }
     } else {
-      if (top_layers) {
-        top_layers->emplace_back(layers.back().get());
+      if (embedding_dependent_layers) {
+        embedding_dependent_layers->emplace_back(layers.back().get());
       }
     }
   } else if (raw_metrics) {
@@ -1692,7 +1702,7 @@ void Model::add_dense_layer_internal(
     new_map.insert(std::make_pair(metrics::RawType::Label, input_output_info.inputs[1]));
     (*raw_metrics).insert(std::make_pair(name, new_map));
   }
-}  // namespace HugeCTR
+}
 
 void Model::add_dense_layer(DenseLayer& dense_layer) {
   for (size_t i = 0; i < resource_manager_->get_local_gpu_count(); i++) {
@@ -1705,7 +1715,7 @@ void Model::add_dense_layer(DenseLayer& dense_layer) {
         resource_manager_->get_global_gpu_count(), resource_manager_->get_local_gpu(i),
         solver_.use_mixed_precision, solver_.enable_tf32_compute, solver_.scaler,
         solver_.use_algorithm_search, &networks_[i]->top_layers_, &networks_[i]->bottom_layers_,
-        dlrm_bottom_mlp_);
+        embedding_dependent_);
     // add dense layer for evaluation
     add_dense_layer_internal(dense_layer, evaluate_tensor_entries_list_[i], blobs_buff_list_[i],
                              evaluate_weight_buff_list_[i], evaluate_weight_buff_half_list_[i],

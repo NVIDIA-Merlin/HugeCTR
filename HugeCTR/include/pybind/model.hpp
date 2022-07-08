@@ -597,10 +597,11 @@ class Model {
   std::shared_ptr<ExchangeWgrad> exchange_wgrad_;
   std::vector<GraphWrapper> train_graphs_;
   std::vector<cudaEvent_t> fork_events_;
-  bool dlrm_bottom_mlp_;
+  bool embedding_dependent_;
   bool high_level_eval_;
   HugeCTR::Timer timer_log;
   std::map<std::string, std::shared_ptr<IEmbedding>> embeddings_map_;
+  std::set<std::string> embedding_dependent_tensors_;
 
   Error_t download_dense_params_to_files_(std::string weights_file,
                                           std::string dense_opt_states_file,
@@ -646,7 +647,8 @@ class Model {
       bool async_mlp_wgrad, std::map<std::string, metrics::RawMetricMap>* raw_metrics,
       int num_networks_in_global, const std::shared_ptr<GPUResource>& gpu_resource,
       bool use_mixed_precision, bool enable_tf32_compute, float scaler, bool use_algorithm_search,
-      std::vector<Layer*>* top_layers, std::vector<Layer*>* bottom_layers, bool dlrm_bottom_mlp);
+      std::vector<Layer*>* top_layers, std::vector<Layer*>* bottom_layers,
+      bool embedding_dependent);
 
   struct GraphScheduler {
    private:
