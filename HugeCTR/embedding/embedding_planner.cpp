@@ -63,8 +63,8 @@ void EmbeddingPlanner::generate_embedding_plan_from_json_file(const std::string 
         shards_count = (*embedding_plan.find("shards_count")).get<int>();
       }
       HCTR_CHECK_HINT(shard_id < shards_count,
-                      "EmbeddingPlanner: illegal input. shard_id %d >= shards_count %d",
-                      shard_id, shards_count);
+                      "EmbeddingPlanner: illegal input. shard_id %d >= shards_count %d", shard_id,
+                      shards_count);
 
       std::string table_placement_strategy =
           check_and_find_in_json(embedding_plan, "table_placement_strategy").get<std::string>();

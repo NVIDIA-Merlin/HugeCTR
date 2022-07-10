@@ -799,8 +799,7 @@ void Model::add(const EmbeddingCollectionPlaceholder& embedding_collection_place
   deactivate_tensor(tensor_active_, bottom_name);
 
   layer_info_.push_back("EmbeddingCollection");
-  input_output_info_.push_back(
-          std::make_pair(bottom_name, join(top_name_list, ",")));
+  input_output_info_.push_back(std::make_pair(bottom_name, join(top_name_list, ",")));
 
   embedding::EmbeddingPlanner embedding_planner(param);
   embedding_planner.generate_embedding_plan_from_json_file(

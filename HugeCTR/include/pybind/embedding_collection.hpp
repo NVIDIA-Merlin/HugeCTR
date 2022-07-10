@@ -27,8 +27,8 @@ class EmbeddingTableConfig {
   embedding::EmbeddingTableParam param_;
 
   EmbeddingTableConfig(int table_id, int max_vocabulary_size, int ev_size, int64_t min_key,
-                            int64_t max_key, std::optional<OptParams> opt_params) {
-    param_.id_space = table_id; // TODO: make them consistent
+                       int64_t max_key, std::optional<OptParams> opt_params) {
+    param_.id_space = table_id;  // TODO: make them consistent
     param_.max_vocabulary_size = max_vocabulary_size;
     param_.ev_size = ev_size;
     param_.min_key = min_key;
@@ -50,10 +50,11 @@ class EmbeddingCollectionPlaceholder {
   std::vector<std::string> top_names_;
   std::vector<EmbeddingTableConfig> emb_table_config_list_;
 
-  EmbeddingCollectionPlaceholder(
-      const std::string &plan_file, const std::vector<embedding::EmbeddingParam> &param,
-      const std::vector<std::string> &bottom_names, const std::vector<std::string> &top_names,
-      const std::vector<EmbeddingTableConfig> &emb_table_config_list)
+  EmbeddingCollectionPlaceholder(const std::string &plan_file,
+                                 const std::vector<embedding::EmbeddingParam> &param,
+                                 const std::vector<std::string> &bottom_names,
+                                 const std::vector<std::string> &top_names,
+                                 const std::vector<EmbeddingTableConfig> &emb_table_config_list)
       : plan_file_(plan_file),
         param_(param),
         bottom_names_(bottom_names),
@@ -71,11 +72,12 @@ class EmbeddingPlanner {
  public:
   EmbeddingPlanner() {}
 
-  void embedding_lookup(const EmbeddingTableConfig &emb_table_config, const std::string &bottom_name,
-                        const std::string &top_name, const std::string &combiner) {
+  void embedding_lookup(const EmbeddingTableConfig &emb_table_config,
+                        const std::string &bottom_name, const std::string &top_name,
+                        const std::string &combiner) {
     embedding::EmbeddingParam emb_param;
     emb_param.embedding_id = param_.size();
-    emb_param.id_space = emb_table_config.param_.id_space; // TODO: change to table_id
+    emb_param.id_space = emb_table_config.param_.id_space;  // TODO: change to table_id
     if (combiner == "concat") {
       emb_param.combiner = embedding::Combiner::Concat;
     } else if (combiner == "sum") {

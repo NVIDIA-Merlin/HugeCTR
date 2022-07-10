@@ -234,8 +234,8 @@ void UniformLocalizedEmbeddingForward::forward_per_gpu(
   size_t num_model_key;
   model_index_calculation_.compute(
       keys, bucket_range, num_keys, local_embedding_data_.d_local_embedding_list_,
-      local_embedding_data_.shard_id_, local_embedding_data_.shards_count_, batch_size,
-      &model_key, &model_offsets, &num_model_key);
+      local_embedding_data_.shard_id_, local_embedding_data_.shards_count_, batch_size, &model_key,
+      &model_offsets, &num_model_key);
   Tensor id_space_offset;
   compress_offset_.compute(model_offsets, batch_size, &id_space_offset);
 

@@ -338,9 +338,9 @@ InfrequentEmbeddingSelection<dtype>::InfrequentEmbeddingSelection(const Data<dty
   managed_buf->reserve({model.num_instances + 1, 1}, &model_indices_offsets_);
   managed_buf->reserve({model.num_instances + 1, 1}, &network_indices_offsets_);
   managed_buf->allocate();
-  //int current_device;
-  //HCTR_LIB_THROW(cudaGetDevice(&current_device));
-  //HCTR_LIB_THROW(cudaMemAdvise(managed_buf->get_ptr(), managed_buf->get_size_in_bytes(),
+  // int current_device;
+  // HCTR_LIB_THROW(cudaGetDevice(&current_device));
+  // HCTR_LIB_THROW(cudaMemAdvise(managed_buf->get_ptr(), managed_buf->get_size_in_bytes(),
   //                             cudaMemAdviseSetReadMostly, current_device));
 
   InfrequentEmbeddingSelectionView<dtype> view = {data_.samples.get_ptr(),
