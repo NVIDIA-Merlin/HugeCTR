@@ -1,6 +1,14 @@
 # HugeCTR Hierarchical Parameter Server Database Backend
 
-## Introduction
+```{contents}
+---
+depth: 2
+local: true
+backlinks: none
+---
+```
+
+## Introduction to the Hierarchical Parameter Server
 
 The hierarchical parameter server database backend (HPS database backend) allows HugeCTR to use models with huge embedding tables by extending HugeCTRs storage space beyond the constraints of GPU memory through utilizing various memory resources across you cluster. Further, it grants the ability to permanently store embedding tables in a structured manner. For an end-to-end demo on how to use the HPS database backend, please refer to [samples](https://github.com/triton-inference-server/hugectr_backend/tree/main/samples/hierarchical_deployment).
 

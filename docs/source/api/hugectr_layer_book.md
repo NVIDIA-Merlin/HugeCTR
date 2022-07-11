@@ -1,5 +1,13 @@
 # HugeCTR Layer Classes and Methods
 
+```{contents}
+---
+depth: 2
+local: true
+backlinks: none
+---
+```
+
 This document introduces different layer classes and corresponding methods in the Python API of HugeCTR. The description of each method includes its functionality, arguments, and examples of usage.
 
 ## Input Layer
@@ -593,7 +601,7 @@ model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Interaction,
 ```
 
 **Important Notes**:
-There are optimizations that can be employed on the `Interaction` layer and the following `GroupFusedInnerProduct` layer during fp16 training. In this case, you should specify two output tensor names for the `Interaction` layer, and use them as the input tensors for the following `GroupFusedInnerProduct` layer. Please refer to the example of [GroupDenseLayer](python_interface.md#groupdenselayer) for the detailed usage.
+There are optimizations that can be employed on the `Interaction` layer and the following `GroupFusedInnerProduct` layer during fp16 training. In this case, you should specify two output tensor names for the `Interaction` layer, and use them as the input tensors for the following `GroupFusedInnerProduct` layer. Please refer to the example of [GroupDenseLayer](#groupdenselayer) for the detailed usage.
 
 ### Add Layer
 
