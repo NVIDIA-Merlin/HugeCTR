@@ -168,7 +168,8 @@ void end_to_end_impl(std::vector<int> device_list, HybridEmbeddingInputGenerator
 
     for (size_t i = 0; i < num_frequent; ++i) {
       dtype cat = h_frequent_categories[i];
-      cudaMemcpy(embedding->frequent_embeddings_[device].frequent_embedding_vectors_.get_ptr() +
+      cudaMemcpy(embedding->frequent_embeddings_single_node_[device]
+                         .frequent_data_.frequent_embedding_vectors_.get_ptr() +
                      i * embedding_vec_size,
                  full_emb_table.data() + cat * embedding_vec_size,
                  sizeof(float) * embedding_vec_size, cudaMemcpyHostToDevice);
@@ -303,13 +304,15 @@ void end_to_end_impl(std::vector<int> device_list, HybridEmbeddingInputGenerator
 
       int num_batch_frequent;
       HCTR_LIB_THROW(cudaMemcpy(&num_batch_frequent,
-                                embedding->frequent_embeddings_[device]
+                                embedding->frequent_embeddings_single_node_[device]
                                     .indices_->d_num_frequent_sample_indices_.get_ptr(),
                                 sizeof(uint32_t), cudaMemcpyDeviceToHost));
       HCTR_LOG(INFO, ROOT, "Instance %d found %d frequent categories in positions: ", global_id,
                num_batch_frequent);
       download_tensor(
-          tmp, embedding->frequent_embeddings_[device].indices_->frequent_sample_indices_, 0);
+          tmp,
+          embedding->frequent_embeddings_single_node_[device].indices_->frequent_sample_indices_,
+          0);
       for (int j = 0; j < num_batch_frequent; j++) {
         HCTR_PRINT(INFO, " %d", (int)tmp[j]);
       }
@@ -445,12 +448,11 @@ void end_to_end_impl(std::vector<int> device_list, HybridEmbeddingInputGenerator
     size_t end = (device + 1) * chunk;
     for (size_t i = start; i < end; ++i) {
       dtype cat_id = h_frequent_categories[i];
-      HCTR_LIB_THROW(
-          cudaMemcpy(h_frequent_embedding_vectors,
-                     embedding->frequent_embeddings_[device].frequent_embedding_vectors_.get_ptr() +
-                         i * embedding_vec_size,
-                     sizeof(float) * embedding_vec_size, cudaMemcpyDeviceToHost));
-
+      HCTR_LIB_THROW(cudaMemcpy(h_frequent_embedding_vectors,
+                                embedding->frequent_embeddings_single_node_[device]
+                                .frequent_data_.frequent_embedding_vectors_.get_ptr() +
+                                i * embedding_vec_size,
+                                sizeof(float) * embedding_vec_size, cudaMemcpyDeviceToHost));
       for (size_t j = 0; j < embedding_vec_size; j++) {
         ASSERT_NEAR((double)h_frequent_embedding_vectors[j],
                     (double)full_emb_table.data()[cat_id * embedding_vec_size + j] -

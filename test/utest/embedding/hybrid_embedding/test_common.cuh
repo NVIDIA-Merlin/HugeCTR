@@ -43,13 +43,30 @@ class HybridEmbeddingUnitTest {
   GPUResource fake_resource;
   std::vector<Model<dtype>> model_list;
   std::vector<Data<dtype>> data_list;
-  std::vector<FrequentEmbedding<dtype, emtype>> frequent_embeddings;
+  std::vector<FrequentEmbeddingSingleNode<dtype, emtype>> frequent_embeddings_single_node;
+  std::vector<FrequentEmbeddingMultiNode<dtype, emtype>> frequent_embeddings_multi_node;
   std::vector<InfrequentEmbedding<dtype, emtype>> infrequent_embeddings;
 
   std::vector<FrequentEmbeddingCompression<dtype>> frequent_embedding_indices;
   std::vector<InfrequentEmbeddingSelection<dtype>> infrequent_embedding_indices;
 
   float *dev_lr;
+
+  FrequentEmbeddingData<dtype, emtype> &get_frequent_embedding_data(size_t i) {
+    if (frequent_embeddings_single_node.size()) {
+      return frequent_embeddings_single_node[i].frequent_data_;
+    } else {
+      return frequent_embeddings_multi_node[i].frequent_data_;
+    }
+  }
+
+  FrequentEmbeddingBase<dtype> &get_frequent_embedding(size_t i) {
+    if (frequent_embeddings_single_node.size()) {
+      return frequent_embeddings_single_node[i];
+    } else {
+      return frequent_embeddings_multi_node[i];
+    }
+  }
 
  public:
   void build_model() {
@@ -83,11 +100,20 @@ class HybridEmbeddingUnitTest {
   }
 
   void build_frequent() {
-    frequent_embeddings.reserve(num_instances);
+    if (config.comm_type == CommunicationType::NVLink_SingleNode) {
+      frequent_embeddings_single_node.reserve(num_instances);
+    } else {
+      frequent_embeddings_multi_node.reserve(num_instances);
+    }
     for (size_t i = 0; i < num_instances; i++) {
       std::shared_ptr<BufferBlock2<emtype>> placeholder = NULL;
-      frequent_embeddings.emplace_back(model_list[i], fake_resource, placeholder,
-                                       embedding_vec_size, config.num_frequent);
+      if (config.comm_type == CommunicationType::NVLink_SingleNode) {
+        frequent_embeddings_single_node.emplace_back(model_list[i], fake_resource, placeholder,
+                                                     embedding_vec_size, config.num_frequent);
+      } else {
+        frequent_embeddings_multi_node.emplace_back(model_list[i], fake_resource, placeholder,
+                                                    embedding_vec_size, config.num_frequent);
+      }
       frequent_embedding_indices.emplace_back(config.num_frequent, data_list[i], model_list[i]);
     }
 
@@ -95,13 +121,13 @@ class HybridEmbeddingUnitTest {
       std::vector<emtype *> h_vectors_cache_pointers(num_instances);
       for (uint32_t i = 0; i < num_instances; i++) {
         h_vectors_cache_pointers[i] =
-            frequent_embeddings[i].get_embedding_vectors_cache().get_ptr();
+            frequent_embeddings_single_node[i].get_embedding_vectors_cache().get_ptr();
       }
       for (uint32_t i = 0; i < num_instances; i++) {
-        HCTR_LIB_THROW(
-            cudaMemcpyAsync(frequent_embeddings[i].embedding_vectors_cache_pointers_.get_ptr(),
-                            h_vectors_cache_pointers.data(), num_instances * sizeof(emtype *),
-                            cudaMemcpyHostToDevice, stream));
+        HCTR_LIB_THROW(cudaMemcpyAsync(
+            frequent_embeddings_single_node[i].embedding_vectors_cache_pointers_.get_ptr(),
+            h_vectors_cache_pointers.data(), num_instances * sizeof(emtype *),
+            cudaMemcpyHostToDevice, stream));
       }
     }
   }

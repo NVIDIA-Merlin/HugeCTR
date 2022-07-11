@@ -165,39 +165,40 @@ class FrequentUpdateTest : public HybridEmbeddingUnitTest<dtype, emtype> {
     std::vector<std::vector<float>> updated_vectors(this->num_instances);
     std::vector<const emtype *> frequent_partial_gradients_pointers(this->num_instances);
     for (size_t i = 0; i < this->num_instances; i++) {
-      this->frequent_embeddings[i].set_current_indices(&this->frequent_embedding_indices[i],
-                                                       this->stream);
+      this->get_frequent_embedding(i).set_current_indices(&this->frequent_embedding_indices[i],
+                                                          this->stream);
       upload_tensor(cpu_embedding.frequent_embedding_vectors[i],
-                    this->frequent_embeddings[i].frequent_embedding_vectors_, this->stream);
+                    this->get_frequent_embedding_data(i).frequent_embedding_vectors_, this->stream);
       if (single_node) {
         upload_tensor(cpu_embedding.gradients[i], gradients[i], this->stream);
         frequent_partial_gradients_pointers[i] =
-            this->frequent_embeddings[i].get_gradients().get_ptr();
+            this->get_frequent_embedding_data(i).get_gradients().get_ptr();
       } else
-        upload_tensor(cpu_embedding.reduced_gradients, this->frequent_embeddings[i].get_gradients(),
-                      this->stream);
+        upload_tensor(cpu_embedding.reduced_gradients,
+                      this->get_frequent_embedding_data(i).get_gradients(), this->stream);
     }
     for (size_t i = 0; i < this->num_instances; i++) {
       if (single_node) {
-        this->frequent_embeddings[i].indices_->calculate_cache_masks(this->stream);
-        this->frequent_embeddings[i].indices_->calculate_network_cache_indices(this->stream);
-        this->frequent_embeddings[i].indices_->calculate_model_cache_indices(80, this->stream);
-        this->frequent_embeddings[i].indices_->calculate_frequent_sample_indices(this->stream);
-        this->frequent_embeddings[i].local_reduce(gradients[i].get_ptr(), this->stream,
-                                                  !single_node);
+        this->get_frequent_embedding(i).indices_->calculate_cache_masks(this->stream);
+        this->get_frequent_embedding(i).indices_->calculate_network_cache_indices(this->stream);
+        this->get_frequent_embedding(i).indices_->calculate_model_cache_indices(80, this->stream);
+        this->get_frequent_embedding(i).indices_->calculate_frequent_sample_indices(this->stream);
+        this->frequent_embeddings_single_node[i].local_reduce(gradients[i].get_ptr(), this->stream);
       } else {
-        this->frequent_embeddings[i].update_model(this->dev_lr, 1.f, this->stream);
+        this->frequent_embeddings_multi_node[i].update_model(this->dev_lr, 1.f, this->stream);
       }
     }
     for (size_t i = 0; i < this->num_instances; i++) {
       if (single_node) {
         HCTR_LIB_THROW(cudaMemcpyAsync(
-            this->frequent_embeddings[i].partial_gradients_pointers_.get_ptr(),
+            this->frequent_embeddings_single_node[i].partial_gradients_pointers_.get_ptr(),
             frequent_partial_gradients_pointers.data(), this->num_instances * sizeof(emtype *),
             cudaMemcpyHostToDevice, this->stream));
-        this->frequent_embeddings[i].update_model_direct(this->dev_lr, 1.f, this->stream);
+        this->frequent_embeddings_single_node[i].update_model_direct(this->dev_lr, 1.f,
+                                                                     this->stream);
       }
-      download_tensor(updated_vectors[i], this->frequent_embeddings[i].frequent_embedding_vectors_,
+      download_tensor(updated_vectors[i],
+                      this->get_frequent_embedding_data(i).frequent_embedding_vectors_,
                       this->stream);
     }
 
