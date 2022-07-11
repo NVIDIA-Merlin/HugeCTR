@@ -1,5 +1,15 @@
 # Contributing to HugeCTR
 
+```{contents}
+---
+depth: 2
+local: true
+backlinks: none
+---
+```
+
+## Overview of Contributing to HugeCTR
+
 We're grateful for your interest in HugeCTR and value your contributions. You can contribute to HugeCTR by:
 * submitting a [feature, documentation, or bug request](https://github.com/NVIDIA/HugeCTR/issues/new/choose).
 

@@ -8,6 +8,8 @@ subtrees:
         title: Core Features
       - file: hugectr_feature_details_intro.rst
         title: Features in Detail
+      - file: performance.md
+        title: Performance
       - file: notebooks/index.md
         title: Example Notebooks
         entries:
@@ -35,8 +37,6 @@ subtrees:
           - file: notebooks/multi-modal-data/07-Training-with-HugeCTR
       - file: api/index.rst
         title: API Documentation
-      - file: performance.md
-        title: HugeCTR Performance
       - file: additional_resources
         entries:
           - file: hugectr_talks_blogs.md

@@ -1,5 +1,13 @@
 # HugeCTR Core Features
 
+```{contents}
+---
+depth: 2
+local: true
+backlinks: none
+---
+```
+
 <!-- markdownlint-ignore no-duplicate-heading -->
 
 ## Summary of Core Features
