@@ -31,6 +31,7 @@ class LookupSessionBase {
   virtual void lookup(const std::vector<const void*>& h_keys_per_table,
                       const std::vector<float*>& d_vectors_per_table,
                       const std::vector<size_t>& num_keys_per_table) = 0;
+  virtual const InferenceParams get_inference_params() const = 0;
 
   static std::shared_ptr<LookupSessionBase> create(
       const InferenceParams& inference_params,

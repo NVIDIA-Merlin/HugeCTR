@@ -132,6 +132,13 @@ build_sok_tf1:
     CMAKE_OPTION: "-DSM=\"60;61;70;75;80\""
     BUILD_SOK: 1
 
+build_hps_tf_plugin:
+  extends: .build
+  variables:
+    FROM_IMAGE: ${IMAGE_ALL}
+    DST_IMAGE: $TF_PLUGIN_IMAGE_VERSIONED
+    BUILD_TF_PLUGIN: 1
+
 ## Stage: test
 # unit test
 utests:
@@ -518,6 +525,22 @@ hugectr2onnx:
     WALLTIME: "00:30:00"
     DGXNNODES: 1
     TEST_CMD: ./ci/integration_test/hugectr2onnx/hugectr2onnx.sub
+
+# hps_tf_plugin
+hierarchical_parameter_server:
+  extends: .cluster_test_job
+  needs:
+    - build_hps_tf_plugin
+  variables:
+    GPFSFOLDER: $LOGDIR/hierarchical_parameter_server
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $TF_PLUGIN_IMAGE_VERSIONED
+    MOUNTS: ${DATASET}:${DATASET_MOUNT}
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "01:30:00"
+    DGXNNODES: 1
+    TEST_CMD: ./ci/integration_test/hps/hps.sub
+
 
 # embedding_plugin
 sparse_operation_kit-TF2:

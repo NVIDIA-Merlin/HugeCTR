@@ -87,9 +87,10 @@ HPS::HPS(parameter_server_config& ps_config) : ps_config_(ps_config) { initializ
 void HPS::initialize() {
   parameter_server_ =
       HierParameterServerBase::create(ps_config_, ps_config_.inference_params_array);
-  for (const auto& inference_params : ps_config_.inference_params_array) {
+  for (auto& inference_params : ps_config_.inference_params_array) {
     std::map<int64_t, std::shared_ptr<LookupSessionBase>> lookup_sessions;
     for (const auto& device_id : inference_params.deployed_devices) {
+      inference_params.device_id = device_id;
       auto embedding_cache =
           parameter_server_->get_embedding_cache(inference_params.model_name, device_id);
       auto lookup_session = LookupSessionBase::create(inference_params, embedding_cache);

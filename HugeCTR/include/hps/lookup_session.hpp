@@ -30,6 +30,7 @@ class LookupSession : public LookupSessionBase {
   virtual void lookup(const std::vector<const void*>& h_keys_per_table,
                       const std::vector<float*>& d_vectors_per_table,
                       const std::vector<size_t>& num_keys_per_table);
+  virtual const InferenceParams get_inference_params() const override { return inference_params_; }
 
  private:
   std::vector<cudaStream_t> lookup_streams_;
