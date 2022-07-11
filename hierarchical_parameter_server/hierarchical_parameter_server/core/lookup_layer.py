@@ -64,7 +64,7 @@ class LookupLayer(tf.keras.layers.Layer):
         self.emb_vec_size = emb_vec_size
         self.emb_vec_dtype = emb_vec_dtype
 
-    def call(self, inputs, training=False):
+    def call(self, inputs):
         """
         The forward logic of this wrapper class.
 
@@ -72,9 +72,6 @@ class LookupLayer(tf.keras.layers.Layer):
         ----------
         inputs: tf.Tensor
                 keys are stored in Tensor. The data type must be tf.int64.
-
-        training: boolean
-                whether training or not. Only False is valid.
 
         Returns
         -------
