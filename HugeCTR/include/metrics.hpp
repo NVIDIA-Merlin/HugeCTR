@@ -153,7 +153,7 @@ class ReallocBuffer {
 
   // Explicit virtual memory management
   CUmemAllocationProp prop_;
-  const std::vector<CUmemAccessDesc>* access_desc_; // Virtual memory access descriptor
+  const std::vector<CUmemAccessDesc>* access_desc_;  // Virtual memory access descriptor
   std::vector<std::pair<CUmemGenericAllocationHandle, size_t>> pm_handles_;
   std::vector<std::pair<CUdeviceptr, size_t>> vm_ranges_;    // Virtual allocation info
   std::vector<std::pair<CUdeviceptr, size_t>> mmap_ranges_;  // Memmap VA->PA info
@@ -193,7 +193,7 @@ class AUCStorage {
   const float reallocate_factor_ = 1.2f;
   std::vector<size_t> allocated_temp_storage_;
   std::vector<size_t> num_allocated_redistributed_;
-  std::vector<CUmemAccessDesc> access_desc_; // Access descriptors used by ReallocBuffers
+  std::vector<CUmemAccessDesc> access_desc_;  // Access descriptors used by ReallocBuffers
 
   // Raw per-class data
   size_t num_classes_ = 1;
@@ -337,7 +337,7 @@ class NDCGStorage {
   const float reallocate_factor_ = 1.2f;
   size_t allocated_temp_storage_;
   size_t num_allocated_redistributed_;
-  std::vector<CUmemAccessDesc> access_desc_; // Access descriptors used by ReallocBuffers
+  std::vector<CUmemAccessDesc> access_desc_;  // Access descriptors used by ReallocBuffers
 
   // Workspace for CUB functions
   ReallocBuffer<int8_t, ReallocType_t::NO_COPY> workspace_;

@@ -467,8 +467,8 @@ void HybridSparseEmbedding<dtype, emtype>::init_model(const SparseTensors<dtype>
 
   if ((embedding_params_.communication_type == CommunicationType::IB_NVLink_Hier) ||
       (embedding_params_.communication_type == CommunicationType::IB_NVLink)) {
-      size_t wgrad_size =
-      model_[0].num_frequent * embedding_params_.embedding_vec_size * sizeof(emtype);
+    size_t wgrad_size =
+        model_[0].num_frequent * embedding_params_.embedding_vec_size * sizeof(emtype);
 
     if (!grouped_all_reduce_) {
       // Manage your own all-reduce

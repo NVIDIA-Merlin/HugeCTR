@@ -1936,7 +1936,8 @@ void ReallocBuffer<T, U>::realloc_ptr_mmap(void** ptr, size_t old_size, size_t n
       }
 
       // Set access permissions
-      HCTR_LIB_THROW(cuMemSetAccess(new_ptr, old_size, &(access_desc_->at(0)), access_desc_->size()));
+      HCTR_LIB_THROW(
+          cuMemSetAccess(new_ptr, old_size, &(access_desc_->at(0)), access_desc_->size()));
 
       // Unmap old mappings
       for (auto range : mmap_ranges_) {
@@ -1971,7 +1972,8 @@ void ReallocBuffer<T, U>::realloc_ptr_mmap(void** ptr, size_t old_size, size_t n
   mmap_ranges_.push_back({new_ptr, reserve_size});
 
   // Set access permissions
-  HCTR_LIB_THROW(cuMemSetAccess(new_ptr, reserve_size, &(access_desc_->at(0)), access_desc_->size()));
+  HCTR_LIB_THROW(
+      cuMemSetAccess(new_ptr, reserve_size, &(access_desc_->at(0)), access_desc_->size()));
 }
 
 template <typename T, ReallocType_t U>

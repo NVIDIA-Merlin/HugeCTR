@@ -171,11 +171,13 @@ FrequentEmbeddingSingleNode<dtype, emtype>::FrequentEmbeddingSingleNode(
 }
 
 template <typename dtype, typename emtype>
-void FrequentEmbeddingMultiNode<dtype, emtype>::init_ar_comm(AllReduceInPlaceComm* ar_comm, AllReduceInPlaceComm::Handle& handle, int local_id) {
+void FrequentEmbeddingMultiNode<dtype, emtype>::init_ar_comm(AllReduceInPlaceComm* ar_comm,
+                                                             AllReduceInPlaceComm::Handle& handle,
+                                                             int local_id) {
   auto& local_gpu = frequent_data_.gpu_resource_;
   CudaDeviceContext context(local_gpu.get_device_id());
 
-  auto &gradients = frequent_data_.get_gradients();
+  auto& gradients = frequent_data_.get_gradients();
   ar_comm->set_coll_buf(handle, gradients.get_ptr(), gradients.get_size_in_bytes(), local_id);
   ar_comm_ = std::make_unique<AllReduceComm<emtype>>(ar_comm, handle, &local_gpu);
 }

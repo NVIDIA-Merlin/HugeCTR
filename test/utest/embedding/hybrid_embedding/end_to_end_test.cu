@@ -450,8 +450,8 @@ void end_to_end_impl(std::vector<int> device_list, HybridEmbeddingInputGenerator
       dtype cat_id = h_frequent_categories[i];
       HCTR_LIB_THROW(cudaMemcpy(h_frequent_embedding_vectors,
                                 embedding->frequent_embeddings_single_node_[device]
-                                .frequent_data_.frequent_embedding_vectors_.get_ptr() +
-                                i * embedding_vec_size,
+                                        .frequent_data_.frequent_embedding_vectors_.get_ptr() +
+                                    i * embedding_vec_size,
                                 sizeof(float) * embedding_vec_size, cudaMemcpyDeviceToHost));
       for (size_t j = 0; j < embedding_vec_size; j++) {
         ASSERT_NEAR((double)h_frequent_embedding_vectors[j],

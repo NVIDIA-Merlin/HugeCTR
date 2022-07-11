@@ -126,8 +126,7 @@ class HybridSparseEmbedding : public IEmbedding {
   std::vector<InfrequentEmbeddingSelection<dtype>> infrequent_embedding_train_indices_,
       infrequent_embedding_evaluate_indices_;
   // performs the communication scheme
-  std::vector<std::unique_ptr<Communication>> infrequent_forward_comms_,
-      infrequent_backward_comms_;
+  std::vector<std::unique_ptr<Communication>> infrequent_forward_comms_, infrequent_backward_comms_;
   std::vector<AllToAllStorage<emtype>> infrequent_forward_comm_buffers_,
       infrequent_backward_comm_buffers_;
 

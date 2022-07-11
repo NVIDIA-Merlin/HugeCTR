@@ -156,7 +156,8 @@ class FrequentEmbeddingMultiNode : public FrequentEmbeddingBase<dtype> {
                        max_num_frequent_categories) {}
 
   void init();
-  void init_ar_comm(AllReduceInPlaceComm* ar_comm, AllReduceInPlaceComm::Handle& handle, int local_id);
+  void init_ar_comm(AllReduceInPlaceComm *ar_comm, AllReduceInPlaceComm::Handle &handle,
+                    int local_id);
   void communicate(cudaStream_t stream);
   void forward_network(emtype *interaction_layer_input, cudaStream_t stream);
   void local_reduce(const emtype *gradients, cudaStream_t stream);
