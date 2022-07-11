@@ -135,6 +135,7 @@ params = hugectr.inference.InferenceParams(
   use_cuda_graph = True,
   number_of_worker_buffers_in_pool = 2,
   number_of_refresh_buffers_in_pool = 1,
+  thread_pool_size = 16,
   cache_refresh_percentage_per_iteration = 0.1,
   deployed_devices = [int-1, int-2, ...],
   default_value_for_each_table = [float-1, float-2, ...],
@@ -214,6 +215,13 @@ The default value is `2`.
 HPS uses the refresh memory pool to support online updates of incremental models.
 Specify larger values if model updates occur at a high-frequency or you have a large volume of incremental model updates.
 The default value is `1`.
+
+* `thread_pool_size`: Integer, specifies the size of the thread pool. The thread pool is used by the GPU embedding cache to perform asynchronous insertion of missing keys.
+The actual thread pool size is set to the maximum of the value that you specify and the value returned by `std::thread::hardware_concurrency()`.
+The default value is `16`.
+
+The actual thread pool size will be set as the maximum value of this configured one and `std::thread::hardware_concurrency()`.
+The default value is `16`.
 
 * `cache_refresh_percentage_per_iteration`: Float, specifies the percentage of the embedding cache to refresh during each iteration.
 To avoid reducing the performance of the GPU cache during online updating, you can configure the update percentage of GPU embedding cache.
