@@ -23,6 +23,7 @@ class Saver(object):
     """
     Abbreviated as ``sok.Saver()``.
     """
+
     def __init__(self):
         # TODO: how to get all emb_var from Model???
         pass
@@ -32,10 +33,10 @@ class Saver(object):
 
     def dump_to_file(self, embedding_variable, filepath):
         """
-        This function is used to save the specified embedding variables 
+        This function is used to save the specified embedding variables
         to host file.
 
-        When multiple CPU processes is used, this function must be called 
+        When multiple CPU processes is used, this function must be called
         within each CPU processes.
 
         Parameters
@@ -45,7 +46,7 @@ class Saver(object):
                 to file.
         filepath: string
                 The directory where the parameters will be dumped to.
-        
+
         Returns
         -------
         status: tf.Tensor
@@ -62,8 +63,8 @@ class Saver(object):
     def restore_from_file(self, embedding_variable, filepath):
         """
         This function is used to restore dumped parameters to the specified embedding variable.
-        
-        When multiple CPU processes is used, this function must be called 
+
+        When multiple CPU processes is used, this function must be called
         within each CPU processes.
 
         Parameters
@@ -138,4 +139,6 @@ class Saver(object):
                 return kit_lib.load_embedding_values(embedding_variable.emb_handle, tensors)
             else:
                 # strategy branch
-                return kit_lib.load_embedding_values(embedding_variable.values[0].emb_handle, tensors)
+                return kit_lib.load_embedding_values(
+                    embedding_variable.values[0].emb_handle, tensors
+                )
