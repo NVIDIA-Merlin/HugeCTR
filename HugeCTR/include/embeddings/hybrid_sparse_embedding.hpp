@@ -117,7 +117,8 @@ class HybridSparseEmbedding : public IEmbedding {
   //
 
   // data-parallel embedding model
-  std::vector<FrequentEmbedding<dtype, emtype>> frequent_embeddings_;
+  std::vector<FrequentEmbeddingSingleNode<dtype, emtype>> frequent_embeddings_single_node_;
+  std::vector<FrequentEmbeddingMultiNode<dtype, emtype>> frequent_embeddings_multi_node_;
   std::vector<FrequentEmbeddingCompression<dtype>> frequent_embedding_train_indices_,
       frequent_embedding_evaluate_indices_;
   // model-parallel embedding model
@@ -125,7 +126,7 @@ class HybridSparseEmbedding : public IEmbedding {
   std::vector<InfrequentEmbeddingSelection<dtype>> infrequent_embedding_train_indices_,
       infrequent_embedding_evaluate_indices_;
   // performs the communication scheme
-  std::vector<std::unique_ptr<Communication>> frequent_comms_, infrequent_forward_comms_,
+  std::vector<std::unique_ptr<Communication>> infrequent_forward_comms_,
       infrequent_backward_comms_;
   std::vector<AllToAllStorage<emtype>> infrequent_forward_comm_buffers_,
       infrequent_backward_comm_buffers_;
@@ -190,6 +191,21 @@ class HybridSparseEmbedding : public IEmbedding {
   void backward_communications(int i, cudaStream_t stream);
   void frequent_update(int i, cudaStream_t stream);
   void backward_post_communication(int i, cudaStream_t stream);
+
+  FrequentEmbeddingBase<dtype>& get_frequent_embedding(size_t i) {
+    if (frequent_embeddings_single_node_.size()) {
+      return frequent_embeddings_single_node_[i];
+    } else {
+      return frequent_embeddings_multi_node_[i];
+    }
+  }
+  FrequentEmbeddingData<dtype, emtype>& get_frequent_embedding_data(size_t i) {
+    if (frequent_embeddings_single_node_.size()) {
+      return frequent_embeddings_single_node_[i].frequent_data_;
+    } else {
+      return frequent_embeddings_multi_node_[i].frequent_data_;
+    }
+  }
 
  protected:
   size_t get_batch_size(bool is_train) const {
