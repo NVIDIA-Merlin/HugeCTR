@@ -16,7 +16,9 @@
 cmake_minimum_required(VERSION 3.8)
 set(CMAKE_CXX_STANDARD 17)
 
-file(GLOB_RECURSE data_reader_bench_src RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} *.cpp *.cu)
+file(GLOB data_reader_bench_src
+  main.cpp
+)
 
 add_executable(io_bench ${data_reader_bench_src})
 target_link_libraries(io_bench PUBLIC huge_ctr_static)
