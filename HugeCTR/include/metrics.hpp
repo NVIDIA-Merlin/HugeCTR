@@ -145,6 +145,7 @@ class ReallocBuffer {
 
   void realloc(size_t new_num_elements, cudaStream_t stream = 0);
   T* get_ptr() { return ptr_; }
+  void init_access_desc(const std::vector<CUmemAccessDesc>* access_desc);
 
  private:
   size_t num_elements_;
@@ -152,7 +153,7 @@ class ReallocBuffer {
 
   // Explicit virtual memory management
   CUmemAllocationProp prop_;
-  CUmemAccessDesc accessDesc_ = {};  // Virtual memory access descriptor
+  const std::vector<CUmemAccessDesc>* access_desc_; // Virtual memory access descriptor
   std::vector<std::pair<CUmemGenericAllocationHandle, size_t>> pm_handles_;
   std::vector<std::pair<CUdeviceptr, size_t>> vm_ranges_;    // Virtual allocation info
   std::vector<std::pair<CUdeviceptr, size_t>> mmap_ranges_;  // Memmap VA->PA info
@@ -180,7 +181,8 @@ class AUCStorage {
   size_t& temp_storage_bytes(size_t stream_id) { return allocated_temp_storage_[stream_id]; }
 
   void alloc_main(size_t num_local_samples, size_t num_bins, size_t num_partitions,
-                  size_t num_global_gpus, size_t label_dim, size_t num_streams);
+                  size_t num_global_gpus, size_t label_dim, size_t num_streams,
+                  const std::vector<int>& peers, cudaStream_t stream);
   void realloc_redistributed(size_t num_redistributed_samples, cudaStream_t stream,
                              size_t stream_id);
   void realloc_workspace(size_t temp_storage, size_t stream_id);
@@ -191,6 +193,7 @@ class AUCStorage {
   const float reallocate_factor_ = 1.2f;
   std::vector<size_t> allocated_temp_storage_;
   std::vector<size_t> num_allocated_redistributed_;
+  std::vector<CUmemAccessDesc> access_desc_; // Access descriptors used by ReallocBuffers
 
   // Raw per-class data
   size_t num_classes_ = 1;
@@ -324,7 +327,7 @@ class AUC : public Metric {
 class NDCGStorage {
  public:
   void alloc_main(size_t num_local_samples, size_t num_bins, size_t num_partitions,
-                  size_t num_global_gpus);
+                  size_t num_global_gpus, const std::vector<int>& peers);
   void realloc_redistributed(size_t num_redistributed_samples, cudaStream_t stream);
   void realloc_workspace(size_t temp_storage);
   void* d_workspace() { return workspace_.get_ptr(); }
@@ -334,6 +337,7 @@ class NDCGStorage {
   const float reallocate_factor_ = 1.2f;
   size_t allocated_temp_storage_;
   size_t num_allocated_redistributed_;
+  std::vector<CUmemAccessDesc> access_desc_; // Access descriptors used by ReallocBuffers
 
   // Workspace for CUB functions
   ReallocBuffer<int8_t, ReallocType_t::NO_COPY> workspace_;

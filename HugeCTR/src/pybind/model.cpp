@@ -1204,9 +1204,6 @@ void Model::compile() {
   int num_total_gpus = resource_manager_->get_global_gpu_count();
   int label_dim = input_params_[0].labels_.begin()->second;
   for (const auto& metric : solver_.metrics_spec) {
-    if (solver_.use_embedding_collection && metric.first == metrics::Type::AUC) {
-      HCTR_OWN_THROW(Error_t::WrongInput, "Currently AUC is not allowed in embedding collection.");
-    }
     metrics_.emplace_back(std::move(metrics::Metric::Create(
         metric.first, solver_.use_mixed_precision, solver_.batchsize_eval / num_total_gpus,
         solver_.max_eval_batches, label_dim, resource_manager_)));
