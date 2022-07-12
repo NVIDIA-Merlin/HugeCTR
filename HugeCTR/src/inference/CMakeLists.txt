@@ -93,6 +93,8 @@ endif()
 
 target_link_libraries(huge_ctr_inference PUBLIC cudart cublas curand cudnn nccl cudf stdc++fs tbb huge_ctr_hdfs_backend ${CMAKE_THREAD_LIBS_INIT})
 
+target_link_libraries(huge_ctr_inference PUBLIC  numa )
+
 if(Parquet_FOUND)
 target_link_libraries(huge_ctr_inference PUBLIC parquet)
 endif()

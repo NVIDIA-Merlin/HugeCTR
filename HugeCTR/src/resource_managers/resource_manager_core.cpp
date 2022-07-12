@@ -28,7 +28,6 @@
 #pragma GCC diagnostic pop
 
 namespace HugeCTR {
-std::unordered_map<int, int> CudaCPUDeviceContext::device_id_to_numa_node_;
 
 void ResourceManagerCore::all2all_warmup() {
   auto num_global_gpus = get_global_gpu_count();
