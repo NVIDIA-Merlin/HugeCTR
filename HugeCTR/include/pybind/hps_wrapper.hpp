@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #pragma once
+#include <hps/dlpack.h>
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
@@ -21,6 +22,7 @@
 #include <hps/embedding_cache.hpp>
 #include <hps/hier_parameter_server.hpp>
 #include <hps/lookup_session.hpp>
+#include <pybind/hpsconversion.hpp>
 
 namespace HugeCTR {
 
@@ -45,6 +47,8 @@ class HPS {
 
   pybind11::array_t<float> lookup(pybind11::array_t<size_t>& h_keys, const std::string& model_name,
                                   size_t table_id);
+  void lookup_fromdlpack(pybind11::capsule& h_keys, pybind11::capsule& out_tensor,
+                         const std::string& model_name, size_t table_id);
 
  private:
   void initialize();
@@ -127,6 +131,65 @@ void HPS::initialize() {
   }
 }
 
+void HPS::lookup_fromdlpack(pybind11::capsule& h_keys, pybind11::capsule& vectors,
+                            const std::string& model_name, size_t table_id) {
+  HPSTensor hps_key = fromDLPack(h_keys);
+  size_t num_keys = *(reinterpret_cast<size_t*>(hps_key.shape));
+  HCTR_THROW_IF(hps_key.device != DeviceType::CPU, HugeCTR::Error_t::DataCheckError,
+                "from_dlpack received an invalid embedding key device type. "
+                "The device type of embedding key should be kDLCPU");
+  HPSTensor hps_vet = fromDLPack(vectors);
+  size_t num_vectors = *(reinterpret_cast<size_t*>(hps_vet.strides));
+
+  if (lookup_session_map_.find(model_name) == lookup_session_map_.end()) {
+    HCTR_OWN_THROW(Error_t::WrongInput, "The model name does not exist in HPS.");
+  }
+  const auto& max_keys_per_sample_per_table =
+      ps_config_.max_feature_num_per_sample_per_emb_table_.at(model_name);
+  const auto& embedding_size_per_table = ps_config_.embedding_vec_size_.at(model_name);
+  const auto& inference_params =
+      parameter_server_->get_hps_model_configuration_map().at(model_name);
+
+  HCTR_THROW_IF(num_keys > max_keys_per_sample_per_table[table_id] * inference_params.max_batchsize,
+                HugeCTR::Error_t::DataCheckError,
+                "The number of keys to be queried should be no large than "
+                "max_keys_per_sample_per_table[table_id] * inference_params.max_batchsize.");
+
+  HCTR_THROW_IF(num_vectors < num_keys * embedding_size_per_table[table_id],
+                HugeCTR::Error_t::DataCheckError,
+                "The number of vectors to be queried should be equal to or larger than "
+                "embedding vector size * number of embedding keys");
+
+  // Handle both keys of both long long and unsigned int
+  void* key_ptr;
+  if (inference_params.i64_input_key) {
+    key_ptr = static_cast<void*>(hps_key.data);
+  } else {
+    unsigned int* h_keys = h_keys_per_table_map_.find(model_name)->second[table_id];
+    auto transform = [](unsigned int* out, long long* in, size_t count) {
+      for (size_t i{0}; i < count; ++i) {
+        out[i] = static_cast<unsigned int>(in[i]);
+      }
+    };
+    transform(h_keys, static_cast<long long*>(hps_key.data), num_keys);
+    key_ptr = static_cast<void*>(h_keys);
+  }
+
+  // TODO: batching or scheduling for lookup sessions on multiple GPUs
+  const auto& lookup_session = lookup_session_map_.find(model_name)->second.begin()->second;
+  auto& d_vectors_per_table = d_vectors_per_table_map_.find(model_name)->second.begin()->second;
+  lookup_session->lookup(key_ptr, d_vectors_per_table[table_id], num_keys, table_id);
+  float* vec_ptr = static_cast<float*>(hps_vet.data);
+  if (hps_vet.device == DeviceType::CPU) {
+    HCTR_LIB_THROW(cudaMemcpy(vec_ptr, d_vectors_per_table[table_id],
+                              num_keys * embedding_size_per_table[table_id] * sizeof(float),
+                              cudaMemcpyDeviceToHost));
+  } else {
+    HCTR_LIB_THROW(cudaMemcpy(vec_ptr, d_vectors_per_table[table_id],
+                              num_keys * embedding_size_per_table[table_id] * sizeof(float),
+                              cudaMemcpyDeviceToDevice));
+  }
+}
 pybind11::array_t<float> HPS::lookup(pybind11::array_t<size_t>& h_keys,
                                      const std::string& model_name, size_t table_id) {
   if (lookup_session_map_.find(model_name) == lookup_session_map_.end()) {
@@ -164,7 +227,6 @@ pybind11::array_t<float> HPS::lookup(pybind11::array_t<size_t>& h_keys,
   const auto& lookup_session = lookup_session_map_.find(model_name)->second.begin()->second;
   auto& d_vectors_per_table = d_vectors_per_table_map_.find(model_name)->second.begin()->second;
   lookup_session->lookup(key_ptr, d_vectors_per_table[table_id], num_keys, table_id);
-
   std::vector<size_t> vector_shape{static_cast<size_t>(key_buf.shape[0]),
                                    embedding_size_per_table[table_id]};
   pybind11::array_t<float> h_vectors(vector_shape);
@@ -199,7 +261,10 @@ void HPSPybind(pybind11::module& m) {
       .def(pybind11::init<parameter_server_config&>(), pybind11::arg("ps_config"))
       .def(pybind11::init<const std::string&>(), pybind11::arg("hps_json_config_file"))
       .def("lookup", &HugeCTR::python_lib::HPS::lookup, pybind11::arg("h_keys"),
-           pybind11::arg("model_name"), pybind11::arg("table_id"));
+           pybind11::arg("model_name"), pybind11::arg("table_id"))
+      .def("lookup_fromdlpack", &HugeCTR::python_lib::HPS::lookup_fromdlpack,
+           pybind11::arg("h_keys"), pybind11::arg("out_tensor"), pybind11::arg("model_name"),
+           pybind11::arg("table_id"));
 }
 
 }  // namespace python_lib
