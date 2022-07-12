@@ -32,7 +32,8 @@ class DataReaderWorkerGroupRaw : public DataReaderWorkerGroup {
 
   std::shared_ptr<Source> create_source(size_t worker_id, size_t num_worker,
                                         const std::string& file_name, bool strict_order_of_batches,
-                                        bool repeat) override {
+                                        bool repeat,
+                                        const DataSourceParams& data_source_params) override {
     HCTR_CHECK_HINT(!strict_order_of_batches,
                     "Raw datareader: cant impose norm data loading order\n");
     std::shared_ptr<MmapOffsetList> file_offset_list;

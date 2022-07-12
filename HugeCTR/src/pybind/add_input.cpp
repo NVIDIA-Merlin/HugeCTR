@@ -232,11 +232,13 @@ void add_input(Input& input, DataReaderParams& reader_params,
 
     DataReader<TypeKey>* data_reader_tk = new DataReader<TypeKey>(
         batch_size, total_label_dim, dense_dim, input.data_reader_sparse_param_array,
-        resource_manager, repeat_dataset, num_workers_train, use_mixed_precision);
+        resource_manager, repeat_dataset, num_workers_train, use_mixed_precision,
+        reader_params.data_source_params);
     train_data_reader.reset(data_reader_tk);
     DataReader<TypeKey>* data_reader_eval_tk = new DataReader<TypeKey>(
         batch_size_eval, total_label_dim, dense_dim, input.data_reader_sparse_param_array,
-        resource_manager, repeat_dataset, num_workers_eval, use_mixed_precision);
+        resource_manager, repeat_dataset, num_workers_eval, use_mixed_precision,
+        reader_params.data_source_params);
     evaluate_data_reader.reset(data_reader_eval_tk);
 
     long long slot_sum = 0;

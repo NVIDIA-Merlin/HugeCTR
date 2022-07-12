@@ -32,14 +32,14 @@
 #include "data_readers/file_list.hpp"
 #include "data_readers/metadata.hpp"
 #include "data_readers/source.hpp"
+#include "file_loader.hpp"
 
 namespace HugeCTR {
 using namespace cudf;
 namespace cudf_io = cudf::io;
 class ParquetFileSource : public Source {
  private:
-  FileList file_list_;           /**< file list of data set */
-  std::ifstream in_file_stream_; /**< file stream of data set file */
+  FileList file_list_; /**< file list of data set */
   const long long offset_;
   const unsigned int worker_id_;
   const long long stride_;  // num_workers
@@ -53,13 +53,11 @@ class ParquetFileSource : public Source {
   bool can_read_file_;     /**< Flag if parquet file is readable/reachable */
   Metadata file_metadata_; /**< Metadata object for the file */
   std::unique_ptr<cudf_io::table_with_metadata> cached_row_group_table_;
-  int curr_row_group_;        // current row_group
-  int row_group_index_;       // current row offset within current row_group
-  int row_group_size_;        // size of current row_group
-  cudaStream_t slice_stream_; /**< worker stream for slicing row_group */
-  size_t file_size_;          /**< Size of parquet file in bytes */
-  char* mmapped_data_;        /**< Memory mapped file pointer */
-  int fd_;                    /**< File descriptor for mapped file */
+  int curr_row_group_;                      // current row_group
+  int row_group_index_;                     // current row offset within current row_group
+  int row_group_size_;                      // size of current row_group
+  cudaStream_t slice_stream_;               /**< worker stream for slicing row_group */
+  std::unique_ptr<FileLoader> file_loader_; /**< loader to load data from file system to memory */
 
   const bool repeat_;
   const bool sequential_file_consumption_;
@@ -88,7 +86,8 @@ class ParquetFileSource : public Source {
    * Ctor
    */
   ParquetFileSource(unsigned int worker_id, unsigned int stride, const std::string& file_list,
-                    bool sequtial_file_consumption, bool repeat)
+                    bool sequtial_file_consumption, bool repeat,
+                    const DataSourceParams& data_source_params)
       : file_list_(file_list),
         repeat_(repeat),
         sequential_file_consumption_(sequtial_file_consumption),
@@ -99,11 +98,9 @@ class ParquetFileSource : public Source {
         cached_row_group_table_(),
         curr_row_group_(0),
         row_group_offset_(0),
-        file_size_(0),
-        mmapped_data_(nullptr),
-        fd_(-1),
         offset_(worker_id * !(sequtial_file_consumption)) {
     slice_stream_ = NULL;
+    file_loader_ = std::make_unique<FileLoader>(data_source_params);
     // load _metadata.json
     std::string metadata_file_name = get_metada_filename(file_list_.get_a_file_with_id(0, true));
     if (!(file_metadata_.get_metadata_status())) {
@@ -126,11 +123,7 @@ class ParquetFileSource : public Source {
   ~ParquetFileSource() {
     cudaStreamDestroy(slice_stream_);
     slice_stream_ = NULL;
-    if (fd_ != -1) {
-      munmap(mmapped_data_, file_size_);
-      close(fd_);
-      fd_ = -1;
-    }
+    file_loader_->clean();
   }
 
   /**
@@ -148,12 +141,8 @@ class ParquetFileSource : public Source {
   // counter_ always points to next file name
   Error_t next_source() noexcept {
     try {
-      if (fd_ != -1) {
-        munmap(mmapped_data_, file_size_);
-        close(fd_);
-        fd_ = -1;
-        can_read_file_ = false;
-      }
+      file_loader_->clean();
+      can_read_file_ = false;
       if (sequential_file_consumption_) {
         // counter_ % num_files = file_id
         file_name_ = file_list_.get_a_file_with_id(counter_, repeat_);
@@ -166,31 +155,14 @@ class ParquetFileSource : public Source {
       if (file_name_.empty()) {
         return Error_t::EndOfFile;
       }
-      in_file_stream_.open(file_name_, std::ifstream::binary);
-      if (!in_file_stream_.is_open()) {
-        HCTR_LOG_S(ERROR, WORLD) << "in_file_stream_.is_open() failed: " << file_name_ << ' '
-                                 << HCTR_LOCATION() << std::endl;
-        return Error_t::FileCannotOpen;
-      }
-      // evaluate parquet file size
-      in_file_stream_.seekg(0, std::ios::end);
-      file_size_ = in_file_stream_.tellg();
-      in_file_stream_.close();
 
-      fd_ = open(file_name_.c_str(), O_RDONLY, 0);
-      if (fd_ == -1) {
-        HCTR_LOG_S(ERROR, WORLD) << "Error open file for read " << HCTR_LOCATION() << std::endl;
-        return Error_t::BrokenFile;
+      Error_t err = file_loader_->load(file_name_);
+      if (err != Error_t::Success) {
+        return err;
       }
 
-      mmapped_data_ = (char*)mmap(0, file_size_, PROT_READ, MAP_PRIVATE, fd_, 0);
-      if (mmapped_data_ == MAP_FAILED) {
-        close(fd_);
-        fd_ = -1;
-        return Error_t::BrokenFile;
-      }
-      parquet_args_ =
-          cudf_io::parquet_reader_options::builder(cudf_io::source_info{mmapped_data_, file_size_});
+      parquet_args_ = cudf_io::parquet_reader_options::builder(cudf_io::source_info{
+          file_loader_->get_loaded_data(), file_loader_->get_current_file_size()});
       curr_row_idx_ = 0;  // set row to zero id
       file_total_rows_ = 0;
       curr_row_group_ = 0;

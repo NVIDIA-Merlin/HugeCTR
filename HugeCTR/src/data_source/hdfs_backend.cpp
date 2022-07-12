@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "hdfs_backend.hpp"
+#include "data_source/hdfs_backend.hpp"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -53,14 +53,12 @@ void HdfsService::disconnect() {
     int result = hdfsDisconnect(fs_);
     if (result != 0) {
       std::cout << "[HDFS][ERROR]: Unable to disconnect HDFS" << std::endl;
-      exit(1);
     }
   }
   if (local_fs_) {
     int result_local = hdfsDisconnect(local_fs_);
     if (result_local != 0) {
       std::cout << "[HDFS][ERROR]: Unable to disconnect local FS" << std::endl;
-      exit(1);
     }
   }
 #endif
@@ -70,7 +68,7 @@ hdfsFS HdfsService::connect() {
   struct hdfsBuilder* bld = hdfsNewBuilder();
   if (!bld) {
     std::cout << "[HDFS][ERROR]: Unable to create HDFS builder" << std::endl;
-    exit(1);
+    return NULL;
   }
   hdfsBuilderSetNameNode(bld, name_node_.c_str());
   hdfsBuilderSetNameNodePort(bld, hdfs_port_);
@@ -78,7 +76,7 @@ hdfsFS HdfsService::connect() {
   hdfsFS fs = hdfsBuilderConnect(bld);
   if (!fs) {
     std::cout << "[HDFS][ERROR]: Unable to connect to HDFS" << std::endl;
-    exit(1);
+    return NULL;
   }
   return fs;
 }
@@ -89,7 +87,7 @@ hdfsFS HdfsService::connectToLocal() {
   struct hdfsBuilder* bld = hdfsNewBuilder();
   if (!bld) {
     std::cout << "[HDFS][ERROR]: Unable to create HDFS builder" << std::endl;
-    exit(1);
+    return NULL;
   }
   hdfsBuilderSetNameNode(bld, NULL);
   hdfsBuilderSetNameNodePort(bld, 0);
@@ -97,18 +95,22 @@ hdfsFS HdfsService::connectToLocal() {
   hdfsFS fs = hdfsBuilderConnect(bld);
   if (!fs) {
     std::cout << "[HDFS][ERROR]: Unable to connect to Local FS" << std::endl;
-    exit(1);
+    return NULL;
   }
   return fs;
 }
 #endif
 
-size_t HdfsService::getFileSize(const std::string& path) {
+size_t HdfsService::getFileSize(const std::string& path) const {
 #ifdef ENABLE_HDFS
+  if (!fs_) {
+    std::cout << "[HDFS][ERROR]: Not connected to HDFS" << std::endl;
+    return 0;
+  }
   hdfsFileInfo* info = hdfsGetPathInfo(fs_, path.c_str());
   if (info == NULL) {
     std::cout << "[HDFS][ERROR]: File does not exist" << std::endl;
-    exit(1);
+    return 0;
   }
   size_t file_size = (info->mSize);
   return file_size;
@@ -121,7 +123,7 @@ int HdfsService::write(const std::string& writepath, const void* data, size_t da
 #ifdef ENABLE_HDFS
   if (!fs_) {
     std::cout << "[HDFS][ERROR]: Not connected to HDFS" << std::endl;
-    exit(1);
+    return -1;
   }
   int a = hdfsExists(fs_, writepath.c_str());
   hdfsFile writeFile;
@@ -136,12 +138,12 @@ int HdfsService::write(const std::string& writepath, const void* data, size_t da
   }
   if (!writeFile) {
     std::cout << "[HDFS][ERROR]: Failed to open the file" << std::endl;
-    exit(1);
+    return -1;
   }
   tSize result = hdfsWrite(fs_, writeFile, (void*)data, dataSize);
   if (hdfsFlush(fs_, writeFile)) {
     std::cout << "[HDFS][ERROR]: Failed to flush" << std::endl;
-    exit(1);
+    return -1;
   }
   std::cout << "[HDFS][INFO]: Write to HDFS " << writepath << " successfully!" << std::endl;
   hdfsCloseFile(fs_, writeFile);
@@ -153,27 +155,29 @@ int HdfsService::write(const std::string& writepath, const void* data, size_t da
 int HdfsService::read(const std::string& readpath, const void* buffer, size_t data_size,
                       size_t offset) {
 #ifdef ENABLE_HDFS
+  if (!fs_) {
+    std::cout << "[HDFS][ERROR]: Not connected to HDFS" << std::endl;
+    return -1;
+  }
   if (buffer == NULL) {
     std::cout << "[HDFS][ERROR]: Buffer error" << std::endl;
-    exit(1);
+    return -1;
   } else {
     hdfsFile handle_hdfsFile_w = hdfsOpenFile(fs_, readpath.c_str(), O_RDONLY, 0, 0, 0);
     if (handle_hdfsFile_w == NULL) {
       std::cout << "[HDFS][ERROR]: Failed to open file!" << std::endl;
-      exit(1);
+      return -1;
     } else {
       hdfsFileInfo* info = hdfsGetPathInfo(fs_, readpath.c_str());
       size_t file_size = (info->mSize);
       if (file_size - offset < data_size) {
         std::cout << "[HDFS][ERROR]: No enough bytes to read!" << std::endl;
-        exit(1);
+        return -1;
       }
       tSize num_read_bytes = hdfsPread(fs_, handle_hdfsFile_w, offset, (void*)buffer, data_size);
-      if ((int)data_size == num_read_bytes) {
-        std::cout << "[HDFS][INFO]: Read file " << readpath << " successfully!" << std::endl;
-      } else {
+      if ((int)data_size != num_read_bytes) {
         std::cout << "[HDFS][ERROR]: Failed to read file!" << std::endl;
-        exit(1);
+        return -1;
       }
       hdfsCloseFile(fs_, handle_hdfsFile_w);
       return num_read_bytes;
@@ -185,16 +189,20 @@ int HdfsService::read(const std::string& readpath, const void* buffer, size_t da
 
 int HdfsService::copyToLocal(const std::string& hdfs_path, const std::string& local_path) {
 #ifdef ENABLE_HDFS
+  if (!fs_) {
+    std::cout << "[HDFS][ERROR]: Not connected to HDFS" << std::endl;
+    return -1;
+  }
   if (!local_fs_) {
     std::cout << "[HDFS][ERROR]: Not connected to local FS" << std::endl;
-    exit(1);
+    return -1;
   }
   int result = hdfsCopy(fs_, hdfs_path.c_str(), local_fs_, local_path.c_str());
   if (result == 0) {
     std::cout << "[HDFS][INFO]: Copied " << hdfs_path << " to local successfully!" << std::endl;
   } else {
     std::cout << "[HDFS][ERROR]: Unable to copy to local" << std::endl;
-    exit(1);
+    return -1;
   }
   return result;
 #endif
@@ -203,11 +211,19 @@ int HdfsService::copyToLocal(const std::string& hdfs_path, const std::string& lo
 
 int HdfsService::batchCopyToLocal(const std::string& hdfs_path, const std::string& local_path) {
 #ifdef ENABLE_HDFS
+  if (!fs_) {
+    std::cout << "[HDFS][ERROR]: Not connected to HDFS" << std::endl;
+    return -1;
+  }
+  if (!local_fs_) {
+    std::cout << "[HDFS][ERROR]: Not connected to local FS" << std::endl;
+    return -1;
+  }
   int hdfs_exist = hdfsExists(fs_, hdfs_path.c_str());
   int local_exist = hdfsExists(local_fs_, local_path.c_str());
   if (hdfs_exist != 0) {
     std::cout << "[HDFS][ERROR]: hdfs_path does not exist" << std::endl;
-    exit(1);
+    return -1;
   }
   if (local_exist != 0) {
     hdfsCreateDirectory(local_fs_, local_path.c_str());
@@ -215,13 +231,13 @@ int HdfsService::batchCopyToLocal(const std::string& hdfs_path, const std::strin
   }
   if (!local_fs_) {
     std::cout << "[HDFS][ERROR]: Not connected to local FS" << std::endl;
-    exit(1);
+    return -1;
   }
 
   hdfsFileInfo* file_info = hdfsGetPathInfo(fs_, hdfs_path.c_str());
   if (file_info->mKind == tObjectKind::kObjectKindFile) {
     std::cout << "[HDFS][ERROR]: not a directory" << std::endl;
-    exit(1);
+    return -1;
   } else {
     int count = -1;
     hdfsFileInfo* info_ptr_list = hdfsListDirectory(fs_, hdfs_path.c_str(), &count);
@@ -252,7 +268,7 @@ DataSource::DataSource(const DataSourceParams& data_source_params)
     : data_source_params_(data_source_params) {}
 
 void DataSource::move_to_local(const std::string& local_path, const std::string& hdfs_path) {
-  HdfsService hs = HdfsService(data_source_params_.namenode, data_source_params_.port);
+  HdfsService hs(data_source_params_.namenode, data_source_params_.port);
 
   hs.copyToLocal(local_path, hdfs_path);
 }

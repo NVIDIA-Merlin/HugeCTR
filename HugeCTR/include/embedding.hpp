@@ -15,8 +15,8 @@
  */
 
 #pragma once
+#include <data_source/hdfs_backend.hpp>
 #include <gpu_learning_rate_scheduler.hpp>
-#include <hdfs_backend.hpp>
 #include <optimizer.hpp>
 #include <tensor2.hpp>
 #include <vector>

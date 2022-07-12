@@ -141,6 +141,7 @@ DataReaderParams::DataReaderParams(DataReaderType_t data_reader_type,
                                    long long num_samples, long long eval_num_samples,
                                    bool float_label_dense, bool read_file_sequentially,
                                    int num_workers, std::vector<long long>& slot_size_array,
+                                   const DataSourceParams& data_source_params,
                                    const AsyncParam& async_param)
     : data_reader_type(data_reader_type),
       source(source),
@@ -154,6 +155,7 @@ DataReaderParams::DataReaderParams(DataReaderType_t data_reader_type,
       read_file_sequentially(read_file_sequentially),
       num_workers(num_workers),
       slot_size_array(slot_size_array),
+      data_source_params(data_source_params),
       async_param(async_param) {}
 
 DataReaderParams::DataReaderParams(DataReaderType_t data_reader_type, std::string source,
@@ -162,6 +164,7 @@ DataReaderParams::DataReaderParams(DataReaderType_t data_reader_type, std::strin
                                    long long eval_num_samples, bool float_label_dense,
                                    bool read_file_sequentially, int num_workers,
                                    std::vector<long long>& slot_size_array,
+                                   const DataSourceParams& data_source_params,
                                    const AsyncParam& async_param)
     : data_reader_type(data_reader_type),
       eval_source(eval_source),
@@ -173,6 +176,7 @@ DataReaderParams::DataReaderParams(DataReaderType_t data_reader_type, std::strin
       read_file_sequentially(read_file_sequentially),
       num_workers(num_workers),
       slot_size_array(slot_size_array),
+      data_source_params(data_source_params),
       async_param(async_param) {
   this->source.push_back(source);
   this->keyset.push_back(keyset);

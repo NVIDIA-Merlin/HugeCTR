@@ -143,4 +143,3 @@ model.graph_to_json(graph_config_file = "dlrm.json")
 model.compile()
 model.summary()
 model.fit(max_iter = 58527, display = 1000, eval_interval = 2926, snapshot = 2000000, snapshot_prefix = "dlrm")
-
