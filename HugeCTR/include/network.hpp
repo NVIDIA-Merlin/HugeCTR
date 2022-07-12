@@ -20,12 +20,12 @@
 #include <nccl.h>
 
 #include <common.hpp>
+#include <data_source/hdfs_backend.hpp>
 #include <exchange_wgrad.hpp>
 #include <fstream>
 #include <functional>
 #include <gpu_resource.hpp>
 #include <graph_wrapper.hpp>
-#include <hdfs_backend.hpp>
 #include <layer.hpp>
 #include <loss.hpp>
 #include <metrics.hpp>

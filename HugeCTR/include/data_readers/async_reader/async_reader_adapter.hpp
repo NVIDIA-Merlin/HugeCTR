@@ -7,6 +7,7 @@
 #include <data_readers/async_reader/split_label_dense_sparse.hpp>
 #include <tensor2.hpp>
 
+#include "HugeCTR/include/data_source/hdfs_backend.hpp"
 #include "HugeCTR/include/embeddings/hybrid_embedding/indices_container.hpp"
 #include "HugeCTR/include/graph_wrapper.hpp"
 

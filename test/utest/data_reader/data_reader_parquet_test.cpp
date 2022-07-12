@@ -364,7 +364,7 @@ TEST(data_reader_parquet_worker, data_reader_parquet_worker_single_worker_iter) 
   // setup a data reader
   ParquetDataReaderWorker<T> data_reader(0, 1, gpu_resource_group->get_local_gpu(0), &loop_flag,
                                          thread_buffer, file_list_name, strict_order, true, params,
-                                         slot_offset, 0, gpu_resource_group);
+                                         DataSourceParams(), slot_offset, 0, gpu_resource_group);
   int iter = 7;
   size_t sample_offset = 0;
   size_t nnz_offset = 0;
@@ -530,7 +530,7 @@ TEST(data_reader_parquet_worker, data_reader_parquet_worker_single_worker_iter_l
   bool strict_order = false;
   ParquetDataReaderWorker<T> data_reader(0, 1, gpu_resource_group->get_local_gpu(0), &loop_flag,
                                          thread_buffer, file_list_name, strict_order, true, params,
-                                         slot_offset, 0, gpu_resource_group);
+                                         DataSourceParams(), slot_offset, 0, gpu_resource_group);
   int iter = 100;
   size_t sample_offset = 0;
   size_t nnz_offset = 0;

@@ -15,11 +15,11 @@
  */
 #pragma once
 #include <common.hpp>
+#include <data_source/hdfs_backend.hpp>
 #include <embedding.hpp>
 #include <embedding_training_cache/embedding_training_cache.hpp>
 #include <exchange_wgrad.hpp>
 #include <graph_wrapper.hpp>
-#include <hdfs_backend.hpp>
 #include <hps/hier_parameter_server.hpp>
 #include <hps/kafka_message.hpp>
 #include <hps/message.hpp>
@@ -150,17 +150,20 @@ struct DataReaderParams {
   bool read_file_sequentially;
   int num_workers;
   std::vector<long long int> slot_size_array;
+  DataSourceParams data_source_params;
   AsyncParam async_param;
   DataReaderParams(DataReaderType_t data_reader_type, std::string source, std::string keyset,
                    std::string eval_source, Check_t check_type, int cache_eval_data,
                    long long num_samples, long long eval_num_samples, bool float_label_dense,
                    bool read_file_sequentially, int num_workers,
-                   std::vector<long long>& slot_size_array, const AsyncParam& async_param);
+                   std::vector<long long>& slot_size_array,
+                   const DataSourceParams& data_source_params, const AsyncParam& async_param);
   DataReaderParams(DataReaderType_t data_reader_type, std::vector<std::string> source,
                    std::vector<std::string> keyset, std::string eval_source, Check_t check_type,
                    int cache_eval_data, long long num_samples, long long eval_num_samples,
                    bool float_label_dense, bool read_file_sequentially, int num_workers,
-                   std::vector<long long>& slot_size_array, const AsyncParam& async_param);
+                   std::vector<long long>& slot_size_array,
+                   const DataSourceParams& data_source_params, const AsyncParam& async_param);
 };
 
 struct Input {

@@ -270,6 +270,7 @@ The default value is an empty list.
 
   $slot\_size\_array[k] = \max\limits_i slot^k_i + 1$
 
+* `data_source_params`: [DataSourceParams()](https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html#datasourceparams-class), specify the configurations of the data sources(Local, HDFS, or others).
 * `async_param`: AsyncParam, the parameters for async raw data reader.
 This argument is restricted to MLPerf use.
 

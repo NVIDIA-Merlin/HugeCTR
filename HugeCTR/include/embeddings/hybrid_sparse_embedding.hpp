@@ -38,7 +38,6 @@
 #include "HugeCTR/include/embeddings/hybrid_embedding/model.hpp"
 #include "HugeCTR/include/embeddings/hybrid_embedding/statistics.hpp"
 #include "HugeCTR/include/embeddings/hybrid_embedding/utils.hpp"
-#include "HugeCTR/include/hdfs_backend.hpp"
 #include "HugeCTR/include/tensor2.hpp"
 
 using namespace HugeCTR::hybrid_embedding;

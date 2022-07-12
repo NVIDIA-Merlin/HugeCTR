@@ -280,6 +280,7 @@ class ParquetDataReaderWorker : public IDataReaderWorker {
                           const std::shared_ptr<ThreadBuffer>& buffer, const std::string& file_list,
                           bool strict_order_of_batches, bool repeat,
                           const std::vector<DataReaderSparseParam>& params,
+                          const DataSourceParams& data_source_params,
                           const std::vector<long long>& slot_offset, int device_id,
                           const std::shared_ptr<ResourceManager>& resource_manager)
       : IDataReaderWorker(worker_id, worker_num, gpu_resource, !repeat, loop_flag, buffer),
@@ -324,8 +325,8 @@ class ParquetDataReaderWorker : public IDataReaderWorker {
     buff_gpu->reserve({static_cast<size_t>(buffer_->label_dim + buffer_->dense_dim)},
                       &device_memory_dense_dim_array_);
     buff_gpu->allocate();
-    source_ = std::make_shared<ParquetFileSource>(worker_id, worker_num, file_list,
-                                                  strict_order_of_batches, repeat);
+    source_ = std::make_shared<ParquetFileSource>(
+        worker_id, worker_num, file_list, strict_order_of_batches, repeat, data_source_params);
 
     // assert((int)slot_offset_.size() == slots_);
     if ((int)slot_offset_.size() < slots_) {

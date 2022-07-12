@@ -25,9 +25,10 @@ template <typename TypeKey>
 class DataReaderWorkerGroupParquet : public DataReaderWorkerGroup {
   std::shared_ptr<Source> create_source(size_t worker_id, size_t num_worker,
                                         const std::string& file_name, bool strict_order_of_batches,
-                                        bool repeat) override {
+                                        bool repeat,
+                                        const DataSourceParams& data_source_params) override {
     return std::make_shared<ParquetFileSource>(worker_id, num_worker, file_name,
-                                               strict_order_of_batches, repeat);
+                                               strict_order_of_batches, repeat, data_source_params);
   }
 
  public:
@@ -35,6 +36,7 @@ class DataReaderWorkerGroupParquet : public DataReaderWorkerGroup {
                                std::string file_list, bool strict_order_of_batches, bool repeat,
                                const std::vector<DataReaderSparseParam> params,
                                const std::vector<long long> slot_offset,
+                               const DataSourceParams data_source_params,
                                const std::shared_ptr<ResourceManager>& resource_manager_,
                                bool start_reading_from_beginning = true)
       : DataReaderWorkerGroup(start_reading_from_beginning, DataReaderType_t::Parquet) {
@@ -62,7 +64,7 @@ class DataReaderWorkerGroupParquet : public DataReaderWorkerGroup {
       std::shared_ptr<IDataReaderWorker> data_reader(new ParquetDataReaderWorker<TypeKey>(
           i, num_workers, resource_manager_->get_local_gpu(i % local_gpu_count),
           &data_reader_loop_flag_, output_buffers[i], file_list, strict_order_of_batches, repeat,
-          params, slot_offset, local_device_list[i], resource_manager_));
+          params, data_source_params, slot_offset, local_device_list[i], resource_manager_));
       data_readers_.push_back(data_reader);
     }
     create_data_reader_threads();

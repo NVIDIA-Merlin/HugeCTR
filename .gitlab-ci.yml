@@ -629,7 +629,7 @@ hdfs_backend_test:
     - build_train_single_node_with_hdfs
   script:
     - export CONT=${TRAIN_IMAGE_VERSIONED_WITH_HDFS}
-    - srun -N 1 -p dgx1v32g,v100pcie32g bash ./ci/integration_test/hdfs/hdfs_backend_test.sh
+    - srun -N 1 -p dgx1v32g bash ./ci/integration_test/hdfs/hdfs_backend_test.sh
   rules:
     - if: $CI_PIPELINE_SOURCE =~ /^(web|merge_request_event)$/
       when: always
