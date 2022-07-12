@@ -1937,12 +1937,18 @@ void calculate_tensor_dimensions(std::map<std::string, std::vector<int>>& tensor
     case Layer_t::MatrixMultiply: {
       auto& dim1 = tensor_shape_info_raw[dense_layer.bottom_names[0]];
       auto& dim2 = tensor_shape_info_raw[dense_layer.bottom_names[1]];
-      if (dim1.size() == 3) {
+      if (dim1.size() == 4) {
+        tensor_shape_info_raw.insert(std::make_pair(
+            dense_layer.top_names[0], std::vector<int>{dim1[0], dim1[1], dim1[2], dim2[3]}));
+      } else if (dim1.size() == 3) {
         tensor_shape_info_raw.insert(
             std::make_pair(dense_layer.top_names[0], std::vector<int>{dim1[0], dim1[1], dim2[2]}));
-      } else {
+      } else if (dim1.size() == 2) {
         tensor_shape_info_raw.insert(
             std::make_pair(dense_layer.top_names[0], std::vector<int>{dim1[0], dim2[1]}));
+      } else {
+        HCTR_OWN_THROW(Error_t::WrongInput,
+                       "MatrixMultiplyLayer needs two 2D, 3D or 4D input tensors ");
       }
       break;
     }
