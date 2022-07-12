@@ -310,7 +310,9 @@ class HugeCTRLoader(object):
         elif layer_type == "MatrixMultiply":
             dim1 = self.__dimensions[layer_params.bottom_names[0]]
             dim2 = self.__dimensions[layer_params.bottom_names[1]]
-            if len(dim1) == 2:
+            if len(dim1) == 3:
+                self.__dimensions[layer_config["top"]] = (dim1[0], dim1[1], dim2[2])
+            elif len(dim1) == 2:
                 self.__dimensions[layer_config["top"]] = (dim1[0], dim2[1])
             else:
                 self.__dimensions[layer_config["top"]] = dim2[1]
