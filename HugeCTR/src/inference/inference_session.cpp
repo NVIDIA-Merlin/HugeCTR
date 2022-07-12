@@ -50,7 +50,7 @@ InferenceSession::InferenceSession(const std::string& model_config_path,
     resource_manager_ = resource_manager != nullptr
                             ? resource_manager
                             : ResourceManagerCore::create({{inference_params.device_id}}, 0);
-    HCTR_LOG(INFO, ROOT, "Create inference session on device: %d\n", inference_params_.device_id);
+    HCTR_LOG(TRACE, ROOT, "Create inference session on device: %d\n", inference_params_.device_id);
     auto b2s = [](const char val) { return val ? "True" : "False"; };
     HCTR_LOG(INFO, ROOT, "Model name: %s\n", inference_params_.model_name.c_str());
     HCTR_LOG(INFO, ROOT, "Use mixed precision: %s\n", b2s(inference_params.use_mixed_precision));
