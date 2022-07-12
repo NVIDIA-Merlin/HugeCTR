@@ -4,7 +4,8 @@ srun --ntasks=1 --container-image="${CONT}" --container-mounts="${MOUNTS}" bash 
     cd /workdir/hierarchical_parameter_server/test/unit && \
     pytest && \
     cd /workdir/hierarchical_parameter_server/test/integration && \
-    pytest"
+    pytest test_naive_dnn_hps.py && \
+    pytest test_multi_table_sparse_input_hps.py"
 
 # Add workaround due to the known issue of tensorflow
 sleep 10
@@ -17,7 +18,8 @@ if [ ${EXITCODE} -eq 6 ]&&[ ${CI_JOB_NAME}=="hierarchical_parameter_server" ]; t
                 cd /workdir/hierarchical_parameter_server/test/unit && \
                 pytest && \
                 cd /workdir/hierarchical_parameter_server/test/integration && \
-                pytest"
+                pytest test_naive_dnn_hps.py && \
+                pytest test_multi_table_sparse_input_hps.py"
        # Get the last job step exit code as job exit code.
        sed -i 's/sort -r -u | head -1/tail -1/g' ${JOBSCRIPTSDIR}/mlperf-ci/jobexitcode.sh
        echo "Rerun job finished!";
