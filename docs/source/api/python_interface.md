@@ -270,7 +270,7 @@ The default value is an empty list.
 
   $slot\_size\_array[k] = \max\limits_i slot^k_i + 1$
 
-* `data_source_params`: [DataSourceParams()](https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html#datasourceparams-class), specify the configurations of the data sources(Local, HDFS, or others).
+* `data_source_params`: [DataSourceParams()](#datasourceparams-class), specify the configuration of the data source such as Local, HDFS, or others.
 * `async_param`: AsyncParam, the parameters for async raw data reader.
 This argument is restricted to MLPerf use.
 
@@ -1070,7 +1070,7 @@ hugectr.Model.dump_incremental_model_2kafka()
 
 This method is only supported in [Embedding Training Cache](../hugectr_embedding_training_cache.md). It with post the updated embedding table to Kafka as user specified.
 
-Please NOTE that is method can not be used together with the `get_incremental_model` method. Only one of these two methods could be used for dumping the incremental model. 
+Please NOTE that is method can not be used together with the `get_incremental_model` method. Only one of these two methods could be used for dumping the incremental model.
 
 ***
 
@@ -1281,7 +1281,7 @@ The data source API is used to specify which file system to use in the following
 hugectr.data.DataSourceParams()
 ```
 
-`DataSourceParams` specifies the file system information and the paths to data and model used for training. An `DataSourceParams` instance is required to initialize the `DataSource` instance.
+`DataSourceParams` specifies the file system information and the paths to data and model used for training. A `DataSourceParams` instance is required to initialize the `DataSource` instance.
 
 **Arguments**
 * `use_hdfs`: Boolean, whether to use HDFS or not for dump models. Default is false (use local file system).
@@ -1295,7 +1295,7 @@ hugectr.data.DataSourceParams()
 #### DataSource class
 
 ```python
-hugectr.data.DataSource())
+hugectr.data.DataSource()
 ```
 
 `DataSource` provides an API to help user specify the paths to their data and model file. It can also help user transfer data from HDFS to local filesystem. The construction of `DataSource` requires a `DataSourceParams` instance.
