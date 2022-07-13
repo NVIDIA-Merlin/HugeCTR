@@ -1178,7 +1178,13 @@ void Model::add_dense_layer_internal(
       if (use_mixed_precision) {
         Tensor2<__half> in_tensor = Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
         Tensor2<__half> fc_out_tensor;
-        blobs_buff->reserve({in_tensor.get_dimensions()[0], output}, &fc_out_tensor);
+        if (in_tensor.get_dimensions().size() == 2) {
+          blobs_buff->reserve({in_tensor.get_dimensions()[0], output}, &fc_out_tensor);
+        } else if (in_tensor.get_dimensions().size() == 3) {
+          blobs_buff->reserve(
+              {in_tensor.get_dimensions()[0], in_tensor.get_dimensions()[1], output},
+              &fc_out_tensor);
+        }
         layers.emplace_back(new FullyConnectedLayer<__half>(
             weight_buff, weight_buff_half, wgrad_buff_half, blobs_buff, in_tensor, fc_out_tensor,
             gpu_resource, initializer_types));
@@ -1188,6 +1194,13 @@ void Model::add_dense_layer_internal(
         Tensor2<float> in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
         Tensor2<float> fc_out_tensor;
         blobs_buff->reserve({in_tensor.get_dimensions()[0], output}, &fc_out_tensor);
+        if (in_tensor.get_dimensions().size() == 2) {
+          blobs_buff->reserve({in_tensor.get_dimensions()[0], output}, &fc_out_tensor);
+        } else if (in_tensor.get_dimensions().size() == 3) {
+          blobs_buff->reserve(
+              {in_tensor.get_dimensions()[0], in_tensor.get_dimensions()[1], output},
+              &fc_out_tensor);
+        }
         layers.emplace_back(new FullyConnectedLayer<float>(
             weight_buff, wgrad_buff, in_tensor, fc_out_tensor, gpu_resource, use_mixed_precision,
             enable_tf32_compute, initializer_types));
@@ -1813,9 +1826,21 @@ void calculate_tensor_dimensions(std::map<std::string, std::vector<int>>& tensor
     }
     case Layer_t::InnerProduct: {
       int batch_size = tensor_shape_info_raw[dense_layer.bottom_names[0]][0];
+      auto& dim1 = tensor_shape_info_raw[dense_layer.bottom_names[0]];
       int num_output = dense_layer.num_output;
       tensor_shape_info_raw.insert(
           std::make_pair(dense_layer.top_names[0], std::vector<int>{batch_size, num_output}));
+      if (dim1.size() == 3) {
+        tensor_shape_info_raw.insert(std::make_pair(
+            dense_layer.top_names[0],
+            std::vector<int>{batch_size, tensor_shape_info_raw[dense_layer.bottom_names[0]][1],
+                             num_output}));
+      } else if (dim1.size() == 2) {
+        tensor_shape_info_raw.insert(
+            std::make_pair(dense_layer.top_names[0], std::vector<int>{batch_size, num_output}));
+      } else {
+        HCTR_OWN_THROW(Error_t::WrongInput, "InnerProductLayer needs 2D or 3D input tensor");
+      }
       break;
     }
     case Layer_t::MultiHeadAttention: {
