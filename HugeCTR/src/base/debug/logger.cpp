@@ -20,6 +20,7 @@
 
 #include <algorithm>
 #include <base/debug/logger.hpp>
+#include <resource_managers/resource_manager_ext.hpp>
 #include <chrono>
 #include <common.hpp>
 #include <cstdarg>
@@ -186,6 +187,7 @@ Logger::Logger() : rank_(0), max_level_(DEFAULT_LOG_LEVEL), log_to_std_(true), l
   hctr_set_thread_name("main");
 
 #ifdef ENABLE_MPI
+  MPILifetimeService::init();
   if (MPI_Comm_rank(MPI_COMM_WORLD, &rank_) != MPI_SUCCESS) {
     std::cerr << "MPI rank initialization failed!" << std::endl;
     std::abort();
