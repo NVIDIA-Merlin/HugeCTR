@@ -23,7 +23,7 @@ multigpu="$3"
 
 ## Test HugeCTR
 ### Training container
-if [ "$container" == "merlin-training" ]; then
+if [ "$container" == "merlin-hugectr" ]; then
     # layers_test && \ Running oom in blossom
     checker_test && \
     device_map_test && \
@@ -35,13 +35,11 @@ if [ "$container" == "merlin-training" ]; then
 	 parser_test && \
 	 auc_test
     fi
+    # Deactivated until it is self-contained and it runs
+    # inference_test
 ### TensorFlow Training container
-elif [ "$container" == "merlin-tensorflow-training" ]; then
+elif [ "$container" == "merlin-tensorflow" ]; then
     pushd /hugectr/sparse_operation_kit/unit_test/test_scripts/tf2 && \
     bash sok_test_unit.sh && \
     popd
-### Inference container
-# elif [ "$container" == "merlin-inference" ]; then
-    # HugeCTR - Deactivated until it is self-contained and it runs
-    # inference_test
 fi
