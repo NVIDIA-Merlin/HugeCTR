@@ -252,13 +252,13 @@ typedef struct DataSetHeader_ {
 #endif
 
 template <typename T>
-inline void hctr_print_func(DeferredLogEntry& log, T const& t) {
+inline void hctr_print_func(Logger::DeferredEntry& log, T const& t) {
   log << t << ", ";
 }
 
 // Set precision for double type
 template <>
-inline void hctr_print_func<double>(DeferredLogEntry& log, double const& t) {
+inline void hctr_print_func<double>(Logger::DeferredEntry& log, double const& t) {
   std::ostringstream os;
   os << std::fixed << std::setprecision(2) << t << ", ";
   log << os.str();

@@ -80,15 +80,17 @@ void Logger::log(const int level, bool per_rank, bool with_prefix, const char* f
   }
 
   if (rank_ == 0 || per_rank) {
-    std::string new_format(format);
+    std::ostringstream os;
     if (with_prefix) {
-      new_format.insert(0, get_log_prefix(level));
+      write_log_prefix(os, level);
     }
+    os << format;
+    const std::string& new_format = os.str();
 
     if (log_to_std_) {
       va_list args;
       va_start(args, format);
-      auto& file = log_std_.at(level);
+      FILE* const file = log_std_.at(level);
       vfprintf(file, new_format.c_str(), args);
       va_end(args);
       fflush(file);
@@ -97,7 +99,7 @@ void Logger::log(const int level, bool per_rank, bool with_prefix, const char* f
     if (log_to_file_) {
       va_list args;
       va_start(args, format);
-      auto& file = log_file_.at(level);
+      FILE* const file = log_file_.at(level);
       vfprintf(file, new_format.c_str(), args);
       va_end(args);
       fflush(file);
@@ -105,67 +107,63 @@ void Logger::log(const int level, bool per_rank, bool with_prefix, const char* f
   }
 }
 
-DeferredLogEntry Logger::log(const int level, bool per_rank, bool with_prefix) const {
-  if (level == LOG_SILENCE_LEVEL || level > max_level_) {
-    return {true, [](std::ostringstream&) {}};
-  } else if (rank_ == 0 || per_rank) {
-    return {false, [level, with_prefix, this](std::ostringstream& os) {
-              if (log_to_std_) {
-                auto& file = log_std_.at(level);
-                if (with_prefix) {
-                  fputs(get_log_prefix(level).c_str(), file);
-                }
-                fputs(os.str().c_str(), file);
-                fflush(file);
-              }
+Logger::DeferredEntry::~DeferredEntry() {
+  if (logger_) {
+    if (logger_->log_to_std_) {
+      FILE* const file = logger_->log_std_.at(level_);
+      fputs(os_.str().c_str(), file);
+      fflush(file);
+    }
 
-              if (log_to_file_) {
-                auto& file = log_file_.at(level);
-                if (with_prefix) {
-                  fputs(get_log_prefix(level).c_str(), file);
-                }
-                fputs(os.str().c_str(), file);
-                fflush(file);
-              }
-            }};
-  } else {
-    return {true, [](std::ostringstream&) {}};
+    if (logger_->log_to_file_) {
+      FILE* const file = logger_->log_file_.at(level_);
+      fputs(os_.str().c_str(), file);
+      fflush(file);
+    }
   }
 }
 
-void Logger::check(bool condition, const SrcLoc& loc, const char* format, ...) const {
-  if (condition == false) {
-    if (format) {
-      std::string hint;
-      {
-        va_list args;
-        va_start(args, format);
-        hint.resize(vsnprintf(nullptr, 0, format, args) + 1);
-        va_end(args);
-      }
-      {
-        va_list args;
-        va_start(args, format);
-        vsprintf(hint.data(), format, args);
-        va_end(args);
-      }
-      log(-1, true, true,
-          "Check Failed!\n"
-          "\tFile: %s:%u\n"
-          "\tFunction: %s\n"
-          "\tExpression: %s\n"
-          "\tHint: %s\n",
-          loc.file, loc.line, loc.func, loc.expr, hint.c_str());
-    } else {
-      log(-1, true, true,
-          "Check Failed!\n"
-          "\tFile: %s:%u\n"
-          "\tFunction: %s\n"
-          "\tExpression: %s\n",
-          loc.file, loc.line, loc.func, loc.expr);
-    }
-    std::abort();
+Logger::DeferredEntry Logger::log(const int level, bool per_rank, bool with_prefix) const {
+  if (level == LOG_SILENCE_LEVEL || level > max_level_) {
+    return {nullptr, level, per_rank, false};
+  } else if (rank_ == 0 || per_rank) {
+    return {this, level, per_rank, with_prefix};
+  } else {
+    return {nullptr, level, per_rank, false};
   }
+}
+
+void Logger::abort(const SrcLoc& loc, const char* const format, ...) const {
+  if (format) {
+    std::string hint;
+    {
+      va_list args;
+      va_start(args, format);
+      hint.resize(vsnprintf(nullptr, 0, format, args) + 1);
+      va_end(args);
+    }
+    {
+      va_list args;
+      va_start(args, format);
+      vsprintf(hint.data(), format, args);
+      va_end(args);
+    }
+    log(-1, true, true,
+        "Check Failed!\n"
+        "\tFile: %s:%u\n"
+        "\tFunction: %s\n"
+        "\tExpression: %s\n"
+        "\tHint: %s\n",
+        loc.file, loc.line, loc.func, loc.expr, hint.c_str());
+  } else {
+    log(-1, true, true,
+        "Check Failed!\n"
+        "\tFile: %s:%u\n"
+        "\tFunction: %s\n"
+        "\tExpression: %s\n",
+        loc.file, loc.line, loc.func, loc.expr);
+  }
+  std::abort();
 }
 
 void Logger::do_throw(HugeCTR::Error_t error_type, const SrcLoc& loc,
@@ -242,9 +240,7 @@ Logger::Logger() : rank_(0), max_level_(DEFAULT_LOG_LEVEL), log_to_std_(true), l
   }
 }
 
-std::string Logger::get_log_prefix(int level) const {
-  std::ostringstream os;
-
+void Logger::write_log_prefix(std::ostringstream& os, const int level) const {
   // Base & time
   os << "[HCTR][";
   {
@@ -263,7 +259,7 @@ std::string Logger::get_log_prefix(int level) const {
   // Level
   os << "][";
   {
-    const auto level_it = level_name_.find(level);
+    const auto& level_it = level_name_.find(level);
     if (level_it != level_name_.end()) {
       os << level_it->second;
     } else {
@@ -285,7 +281,6 @@ std::string Logger::get_log_prefix(int level) const {
 
   // Prompt & return.
   os << "]: ";
-  return os.str();
 }
 
 }  // namespace HugeCTR

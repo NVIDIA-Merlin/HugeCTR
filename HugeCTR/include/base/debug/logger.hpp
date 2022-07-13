@@ -362,79 +362,93 @@ inline std::string getErrorString(curandStatus_t err) {
 #define CHECK_BLOCKING_CALL true
 #define CHECK_ASYNC_CALL false
 
-#define HCTR_CHECK(EXPR)                                   \
-  do {                                                     \
-    HugeCTR::Logger::get().check(EXPR, CUR_SRC_LOC(EXPR)); \
+#define HCTR_CHECK(EXPR)                               \
+  do {                                                 \
+    const auto& expr = (EXPR);                         \
+    if (!expr) {                                       \
+      HugeCTR::Logger::get().abort(CUR_SRC_LOC(EXPR)); \
+    }                                                  \
   } while (0)
 
-#define HCTR_CHECK_HINT(EXPR, HINT, ...)                                        \
-  do {                                                                          \
-    HugeCTR::Logger::get().check(EXPR, CUR_SRC_LOC(EXPR), HINT, ##__VA_ARGS__); \
+#define HCTR_CHECK_HINT(EXPR, HINT, ...)                                      \
+  do {                                                                        \
+    const auto& expr = (EXPR);                                                \
+    if (!expr) {                                                              \
+      HugeCTR::Logger::get().abort(CUR_SRC_LOC(EXPR), (HINT), ##__VA_ARGS__); \
+    }                                                                         \
   } while (0)
 
 #define HCTR_DIE(HINT, ...) HCTR_CHECK_HINT(false, HINT, ##__VA_ARGS__)
 
 // TODO: print the cuda error string
-#define HCTR_CUDA_CHECK(SYNC_MODE, FUNC)                                     \
-  do {                                                                       \
-    auto ret_err = (FUNC);                                                   \
-    if (CHECK_CALL(SYNC_MODE)) {                                             \
-      ret_err = cudaDeviceSynchronize();                                     \
-    }                                                                        \
-    HugeCTR::Logger::get().check(ret_err == cudaSuccess, CUR_SRC_LOC(EXPR)); \
-  } while (0);
+#define HCTR_CUDA_CHECK(SYNC_MODE, FUNC)                                       \
+  do {                                                                         \
+    auto ret_err = (FUNC);                                                     \
+    if (CHECK_CALL(SYNC_MODE)) {                                               \
+      ret_err = cudaDeviceSynchronize();                                       \
+    }                                                                          \
+    if (ret_err != cudaSuccess) {                                              \
+      HugeCTR::Logger::get().check(ret_err == cudaSuccess, CUR_SRC_LOC(EXPR)); \
+    }                                                                          \
+  } while (0)
 
 #ifndef NDEBUG
 #define HCTR_ASSERT(EXPR)                                                       \
   do {                                                                          \
     HugeCTR::Logger::get().check_lazy([&] { return EXPR; }, CUR_SRC_LOC(EXPR)); \
-  } while (0);
+  } while (0)
 #else
 #define HCTR_ASSERT(EXPR)
 #endif
 
-class DeferredLogEntry {
- public:
-  inline DeferredLogEntry(const bool bypass,
-                          std::function<void(std::ostringstream&)> make_log_entry)
-      : bypass_{bypass}, make_log_entry_{make_log_entry} {}
-
-  inline ~DeferredLogEntry() { make_log_entry_(os_); }
-
-  DeferredLogEntry(const DeferredLogEntry&) = delete;
-  DeferredLogEntry(const DeferredLogEntry&&) = delete;
-  DeferredLogEntry& operator=(const DeferredLogEntry&) = delete;
-  DeferredLogEntry&& operator=(const DeferredLogEntry&&) = delete;
-
-  template <typename T>
-  inline DeferredLogEntry& operator<<(const T& value) {
-    if (!bypass_) {
-      os_ << value;
-    }
-    return *this;
-  }
-
-  inline DeferredLogEntry& operator<<(std::ostream& (*fn)(std::ostream&)) {
-    if (!bypass_) {
-      fn(os_);
-    }
-    return *this;
-  }
-
- private:
-  bool bypass_;
-  std::ostringstream os_;
-  std::function<void(std::ostringstream&)> make_log_entry_;
-};
-
 class Logger final {
  public:
+  class DeferredEntry final {
+   public:
+    inline DeferredEntry(const Logger* logger, const int level, const bool per_rank,
+                         const bool with_prefix)
+        : logger_{logger}, level_{level}, per_rank_{per_rank}, with_prefix_{with_prefix} {
+      if (with_prefix) {
+        logger_->write_log_prefix(os_, level_);
+      }
+    }
+
+    ~DeferredEntry();
+
+    DeferredEntry(const DeferredEntry&) = delete;
+    DeferredEntry(const DeferredEntry&&) = delete;
+    DeferredEntry& operator=(const DeferredEntry&) = delete;
+    DeferredEntry&& operator=(const DeferredEntry&&) = delete;
+
+    template <typename T>
+    inline DeferredEntry& operator<<(const T& value) {
+      if (logger_) {
+        os_ << value;
+      }
+      return *this;
+    }
+
+    inline DeferredEntry& operator<<(std::ostream& (*fn)(std::ostream&)) {
+      if (logger_) {
+        fn(os_);
+      }
+      return *this;
+    }
+
+   private:
+    const Logger* logger_;
+    int level_;
+    bool per_rank_;
+    bool with_prefix_;
+    std::ostringstream os_;
+  };
+
   static void print_exception(const std::exception& e, int depth);
   static Logger& get();
   ~Logger();
-  void log(const int level, bool per_rank, bool with_prefix, const char* format, ...) const;
-  DeferredLogEntry log(const int level, bool per_rank, bool with_prefix) const;
-  void check(bool condition, const SrcLoc& loc, const char* format = nullptr, ...) const;
+  void log(int level, bool per_rank, bool with_prefix, const char* format, ...) const;
+  DeferredEntry log(int level, bool per_rank, bool with_prefix) const;
+  void abort(const SrcLoc& loc, const char* format = nullptr, ...) const;
   template <typename Condition>
   void check_lazy(const Condition& condition, const SrcLoc& loc) {
     check(condition(), loc);
@@ -450,7 +464,7 @@ class Logger final {
   Logger& operator=(const Logger&&) = delete;
 
   FILE* get_file_stream(int level);
-  std::string get_log_prefix(int level) const;
+  void write_log_prefix(std::ostringstream& os, int level) const;
 
   int rank_;
   int max_level_;
