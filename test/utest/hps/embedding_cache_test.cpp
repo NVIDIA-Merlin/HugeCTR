@@ -14,12 +14,11 @@
  * limitations under the License.
  */
 
-#include <cuda_profiler_api.h>
 #include <gtest/gtest.h>
 #include <omp.h>
-#include <utest/test_utils.h>
 
 #include <algorithm>
+#include <common.hpp>
 #include <filesystem>
 #include <fstream>
 #include <hps/embedding_cache.hpp>

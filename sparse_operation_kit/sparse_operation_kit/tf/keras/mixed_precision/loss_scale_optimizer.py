@@ -18,21 +18,23 @@ from tensorflow.python.ops import math_ops
 from tensorflow.python.framework import ops
 from tensorflow.keras.mixed_precision import experimental as mixed_precision
 
+
 def _multiply_gradient(gradient, scale):
-  """Multiply a (possibly sparse) gradient by the given scale factor."""
-  scale = math_ops.cast(scale, gradient.dtype)
-  if isinstance(gradient, ops.IndexedSlices):
-    return ops.IndexedSlices(
-        gradient.values * scale,
-        gradient.indices,
-        dense_shape=gradient.dense_shape)
-  else:
-    return gradient * scale
+    """Multiply a (possibly sparse) gradient by the given scale factor."""
+    scale = math_ops.cast(scale, gradient.dtype)
+    if isinstance(gradient, ops.IndexedSlices):
+        return ops.IndexedSlices(
+            gradient.values * scale, gradient.indices, dense_shape=gradient.dense_shape
+        )
+    else:
+        return gradient * scale
+
 
 class LossScaleOptimizer(mixed_precision.LossScaleOptimizer):
     """
     Abbreviated as `sok.tf.keras.mixed_precision.LossScaleOptimizer`
     """
+
     def __init__(self, *args, **kwargs):
         super(LossScaleOptimizer, self).__init__(*args, **kwargs)
 
@@ -65,8 +67,7 @@ class LossScaleOptimizer(mixed_precision.LossScaleOptimizer):
         is divided by `LossScaleOptimizer.loss_scale()`.
         """
         loss_scale = self._loss_scale()
-        loss_scale_reciprocal = 1. / loss_scale
+        loss_scale_reciprocal = 1.0 / loss_scale
         return [
-            _multiply_gradient(g, loss_scale_reciprocal) if g is not None else None
-            for g in grads
+            _multiply_gradient(g, loss_scale_reciprocal) if g is not None else None for g in grads
         ]

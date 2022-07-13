@@ -1,6 +1,15 @@
 # HugeCTR Embedding Training Cache
 
-## Introduction
+```{contents}
+---
+depth: 2
+local: true
+backlinks: none
+---
+```
+
+## Introduction to the HugeCTR Embedded Training Cache
+
 This document introduces the **Embedding Training Cache (ETC)** feature in HugeCTR for incremental training. The ETC allows training models with huge embedding tables that exceed the available GPU memory in size.
 
 Normally, the maximum model size in HugeCTR is limited by the hardware resources. A model with larger embedding tables will of course require more GPU memory. However, the amount of GPU's and, therefore, also the amount of GPU memory that can be fit into a single machine or a cluster is finite. This naturally upper-bounds the size of the models that can be executed in a specific setup. The ETC feature is designed to ease this restriction by prefetching portions of the embedding table to the GPU in the granularity of pass as they are required.
@@ -17,7 +26,9 @@ The ETC feature in HugeCTR also provides a satisfactory solution for incremental
 
 * The ETC supports training models from scratch and incremental training with existing models. The latter is implemented via the [`get_incremental_model()`](./api/python_interface.md#get_incremental_model-method) interface, which allows retrieving updated embedding features during training. For online training these updates are forwarded to the inference parameter server.
 
-Please check the [HugeCTR Continuous Training Notebook](./notebooks/continuous_training.ipynb) to learn how the ETC can be used to accelerate continuous training.
+* We revised our `criteo2hugectr` tool to support the key set extraction for the Criteo dataset. And we also provided a [Parquet key set extraction script](https://github.com/NVIDIA-Merlin/HugeCTR/tree/master/tools/keyset_scripts) to help you get key set from NVT processed / Synthetic Parquet datasets. 
+
+Please check the [HugeCTR Continuous Training Notebook](./notebooks/continuous_training.ipynb) to learn how the ETC can be used to accelerate continuous training. And please check the [HugeCTR Embedding Training Cache Notebook](./notebooks/embedding_training_cache_example.ipynb) for an end-to-end demo of using ETC to train a synthetic Parquet dataset.
 
 ## Feature Description
 

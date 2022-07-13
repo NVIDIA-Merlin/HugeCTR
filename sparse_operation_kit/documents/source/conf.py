@@ -28,23 +28,26 @@
 #
 import os
 import sys
+
 sys.path.append(os.path.abspath(os.path.join(os.getcwd(), "../..")))
 
 # -- Project information -----------------------------------------------------
 
-project = 'SparseOperationKit'
-copyright = '2022, NVIDIA'
-author = 'NVIDIA'
+project = "SparseOperationKit"
+copyright = "2022, NVIDIA"
+author = "NVIDIA"
 
 # version
 def _GetSOKVersion():
     _version_path = os.path.join(os.getcwd(), "../../sparse_operation_kit/core/")
     sys.path.append(_version_path)
     from _version import __version__
+
     version = __version__
     del __version__
     sys.path.pop(-1)
     return version
+
 
 version = _GetSOKVersion()
 
@@ -64,7 +67,7 @@ extensions = [
     "sphinx.ext.intersphinx",
     "sphinx.ext.mathjax",
     "sphinx.ext.autosummary",
-    "sphinx_multiversion"
+    "sphinx_multiversion",
 ]
 
 myst_enable_extensions = [
@@ -83,17 +86,17 @@ myst_enable_extensions = [
 
 # multiversion settings ---------------------
 # Whitelist pattern for tags (set to None to ignore all tags)
-smv_tag_whitelist = r'^sok_v.*$'
+smv_tag_whitelist = r"^sok_v.*$"
 
 # Whitelist pattern for branches (set to None to ignore all branches)
 # smv_branch_whitelist = r'^sok_docs|master$'
-smv_branch_whitelist = r'^None$'
+smv_branch_whitelist = r"^None$"
 
 # Whitelist pattern for remotes (set to None to use local branches only)
-smv_remote_whitelist = r'^master$'
+smv_remote_whitelist = r"^master$"
 
 # Pattern for released versions
-smv_released_pattern = r'^.*$'
+smv_released_pattern = r"^.*$"
 
 # Format for versioned output directories inside the build directory
 # smv_outputdir_format = 'versions/{config.version}'
@@ -106,9 +109,7 @@ autodoc_typehints = "signature"
 autoclass_content = "both"
 autodoc_class_signature = "mixed"
 
-autodoc_default_options = {
-    "exclude-members": "__new__"
-}
+autodoc_default_options = {"exclude-members": "__new__"}
 autodoc_inherit_docstrings = False
 autodoc_member_order = "bysource"
 
@@ -129,7 +130,7 @@ napoleon_type_aliases = None
 napoleon_attr_annotations = True
 
 # Add any paths that contain templates here, relative to this directory.
-templates_path = ['_templates']
+templates_path = ["_templates"]
 html_sidebars = {"**": ["versions.html"]}
 
 # List of patterns, relative to source directory, that match files and
@@ -143,11 +144,11 @@ exclude_patterns = []
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = 'sphinx_rtd_theme'
+html_theme = "sphinx_rtd_theme"
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ['_static']
+html_static_path = ["_static"]
 
 source_suffix = [".rst", ".md", ".txt"]

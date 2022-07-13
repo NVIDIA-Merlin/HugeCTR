@@ -14,11 +14,12 @@
  * limitations under the License.
  */
 #pragma once
+
 #include <cuda_runtime.h>
+#include <nccl.h>
 
 #include <memory>
 
-#include <nccl.h>
 #include "HugeCTR/include/tensor2.hpp"
 
 namespace core {
@@ -50,13 +51,12 @@ class RawPtrStorageImpl : public IStorageImpl {
   size_t total_size_in_bytes_;
 
  public:
-  RawPtrStorageImpl(void *ptr, size_t total_size_in_bytes) : ptr_(ptr), total_size_in_bytes_(total_size_in_bytes) {}
+  RawPtrStorageImpl(void *ptr, size_t total_size_in_bytes)
+      : ptr_(ptr), total_size_in_bytes_(total_size_in_bytes) {}
 
   DISALLOW_COPY_AND_MOVE(RawPtrStorageImpl)
 
-  void *get_ptr() override {
-    return ptr_;
-  }
+  void *get_ptr() override { return ptr_; }
 
   size_t nbytes() const override { return total_size_in_bytes_; }
 
@@ -101,9 +101,9 @@ class CoreResourceManager {
   virtual Storage CreateStorage(Device device) = 0;
 
   virtual int get_local_gpu_id() const = 0;
-  
+
   virtual int get_global_gpu_id() const = 0;
-  
+
   virtual int get_device_id() const = 0;
 
   virtual size_t get_local_gpu_count() const = 0;

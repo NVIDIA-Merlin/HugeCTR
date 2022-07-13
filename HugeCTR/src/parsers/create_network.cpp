@@ -665,7 +665,13 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
         if (use_mixed_precision) {
           Tensor2<__half> in_tensor = Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
           Tensor2<__half> fc_out_tensor;
-          blobs_buff->reserve({in_tensor.get_dimensions()[0], output}, &fc_out_tensor);
+          if (in_tensor.get_dimensions().size() == 2) {
+            blobs_buff->reserve({in_tensor.get_dimensions()[0], output}, &fc_out_tensor);
+          } else if (in_tensor.get_dimensions().size() == 3) {
+            blobs_buff->reserve(
+                {in_tensor.get_dimensions()[0], in_tensor.get_dimensions()[1], output},
+                &fc_out_tensor);
+          }
 
           // establish layer
           emplaceback_layer(new FullyConnectedLayer<__half>(
@@ -676,7 +682,14 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
         } else {
           Tensor2<float> in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
           Tensor2<float> fc_out_tensor;
-          blobs_buff->reserve({in_tensor.get_dimensions()[0], output}, &fc_out_tensor);
+
+          if (in_tensor.get_dimensions().size() == 2) {
+            blobs_buff->reserve({in_tensor.get_dimensions()[0], output}, &fc_out_tensor);
+          } else if (in_tensor.get_dimensions().size() == 3) {
+            blobs_buff->reserve(
+                {in_tensor.get_dimensions()[0], in_tensor.get_dimensions()[1], output},
+                &fc_out_tensor);
+          }
           // establish layer
           emplaceback_layer(new FullyConnectedLayer<float>(
               weight_buff, wgrad_buff, in_tensor, fc_out_tensor, gpu_resource, use_mixed_precision,

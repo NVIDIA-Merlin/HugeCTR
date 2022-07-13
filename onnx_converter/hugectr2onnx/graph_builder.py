@@ -214,6 +214,32 @@ class GraphBuilder(object):
             bias_name =  layer_params.top_names[0]+"_bias"
             weight = weights_dict[weight_name]
             bias = weights_dict[bias_name]
+            if isinstance(dimensions[layer_params.bottom_names[0]], tuple):
+                dim = dimensions[layer_params.bottom_names[0]]
+                shape_name1 = layer_params.top_names[0] + "_shape1"
+                shape1 = np.array([-1, dim[0]*dim[1] ], dtype=np.int64)
+
+                shape_name2 = layer_params.top_names[0] + "_shape2"
+                shape2 = np.array([-1, dim[0], layer_params.num_output], dtype=np.int64)
+            else:
+                shape_name1 = layer_params.top_names[0] + "_shape1"
+                shape1 = np.array([-1, dimensions[layer_params.bottom_names[0]]], dtype=np.int64)
+
+                shape_name2 = layer_params.top_names[0] + "_shape2"
+                shape2 = np.array([-1, layer_params.num_output], dtype=np.int64)
+
+            reshape_name1 = layer_params.bottom_names[0] + "_reshape_fc1"
+            reshape_name2 = layer_params.top_names[0] + "_reshape_fc2"
+
+            self.__initializers.append(helper.make_tensor(name=shape_name1,
+                                                        data_type=onnx.mapping.NP_TYPE_TO_TENSOR_TYPE[shape1.dtype],
+                                                        dims=shape1.shape,
+                                                        vals=shape1.flatten()))
+            self.__initializers.append(helper.make_tensor(name=shape_name2,
+                                                        data_type=onnx.mapping.NP_TYPE_TO_TENSOR_TYPE[shape2.dtype],
+                                                        dims=shape2.shape,
+                                                        vals=shape2.flatten()))
+
             self.__initializers.append(helper.make_tensor(name=weight_name,
                                                         data_type=onnx.mapping.NP_TYPE_TO_TENSOR_TYPE[weight.dtype],
                                                         dims=weight.shape,
@@ -222,8 +248,14 @@ class GraphBuilder(object):
                                                         data_type=onnx.mapping.NP_TYPE_TO_TENSOR_TYPE[bias.dtype],
                                                         dims=bias.shape,
                                                         vals=bias.flatten()))
+            self.__nodes.append(helper.make_node(op_type = 'Reshape',
+                                                inputs=[layer_params.bottom_names[0], shape_name1],
+                                                outputs=[reshape_name1]))
             self.__nodes.append(helper.make_node(op_type = 'Gemm',
-                                                inputs=[layer_params.bottom_names[0], weight_name, bias_name],
+                                                inputs=[reshape_name1, weight_name, bias_name],
+                                                outputs=[reshape_name2]))
+            self.__nodes.append(helper.make_node(op_type = 'Reshape',
+                                                inputs=[reshape_name2, shape_name2],
                                                 outputs=layer_params.top_names))
         elif layer_type == "FusedInnerProduct":
             weight_name = layer_params.top_names[0]+"_weight"

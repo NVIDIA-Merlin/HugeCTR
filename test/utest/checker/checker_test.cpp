@@ -54,13 +54,13 @@ TEST(checker, CheckSum) {
   check_sum.next_source();
   EXPECT_EQ(check_sum.read(tmp1, NUM_CHAR), Error_t::Success);
   // for(int i=0; i< NUM_CHAR; i++){
-  //   std::cout << tmp1[i];
+  //   HCTR_LOG_S(DEBUG, WORLD) << tmp1[i];
   // }
   EXPECT_EQ(strncmp(tmp1, str, NUM_CHAR), 0);
 
   EXPECT_EQ(check_sum.read(tmp2, NUM_CHAR), Error_t::Success);
   // for(int i=0; i< NUM_CHAR; i++){
-  //   std::cout << tmp2[i];
+  //   HCTR_LOG_S(DEBUG, WORLD) << tmp2[i];
   // }
   EXPECT_EQ(strncmp(tmp1, str, NUM_CHAR), 0);
 }

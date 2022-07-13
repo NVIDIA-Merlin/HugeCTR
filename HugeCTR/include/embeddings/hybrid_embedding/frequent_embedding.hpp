@@ -37,40 +37,31 @@ namespace hybrid_embedding {
 // In order to use it easier in the IndicesContainer
 template <typename dtype>
 class FrequentEmbeddingBase {
- protected:
+ public:
   const Data<dtype> *data_ = nullptr;
   FrequentEmbeddingCompressionView<dtype> *indices_view_ = nullptr;
 
- public:
   // Frequent indices and device pointer!
   FrequentEmbeddingCompression<dtype> *indices_;
 
   void set_current_indices(FrequentEmbeddingCompression<dtype> *indices, cudaStream_t stream);
   FrequentEmbeddingBase();
-  ~FrequentEmbeddingBase();
+  virtual ~FrequentEmbeddingBase();
 };
 
-// One FrequentEmbedding instance per gpu
 template <typename dtype, typename emtype>
-class FrequentEmbedding : public FrequentEmbeddingBase<dtype> {
+class FrequentEmbeddingData {
  public:
-  using FrequentEmbeddingBase<dtype>::data_;
-
   // copy of the model parameters and the input data
   const Model<dtype> &model_;
-  const GPUResource &gpu_resource;
+  const GPUResource &gpu_resource_;
 
   // locally stored embedding vectors for the data-parallel part of the embedding for each table
   Tensor2<float> frequent_embedding_vectors_;
-  Tensor2<emtype> frequent_embedding_vectors_cache_;
-
-  Tensor2<emtype *> embedding_vectors_cache_pointers_;
-  Tensor2<const emtype *> partial_gradients_pointers_;
 
   // locally stored reduced gradients into fp32 type
   Tensor2<float> float_frequent_gradients_;
-  // buffer for communication can have fp16 type instead of fp32:
-  // input for all-reduce
+  // buffer for communication can have fp16 type instead of fp32: input for all-reduce
   Tensor2<emtype> frequent_gradients_;
 
   template <typename T>
@@ -79,24 +70,19 @@ class FrequentEmbedding : public FrequentEmbeddingBase<dtype> {
 
   uint32_t embedding_vec_size_;
   size_t max_num_frequent_categories_;
-  void init();
 
-  FrequentEmbedding(const Model<dtype> &model, const GPUResource &gpu_resource,
-                    BuffPtr<emtype> &grouped_wgrad_buff, uint32_t embedding_vec_size,
-                    size_t max_num_frequent_categories);
-  ~FrequentEmbedding() {}
+  FrequentEmbeddingData(const Model<dtype> &model, const GPUResource &gpu_resource,
+                        BuffPtr<emtype> &grouped_wgrad_buff, uint32_t embedding_vec_size,
+                        size_t max_num_frequent_categories);
+  ~FrequentEmbeddingData() {}
 
   void initialize_embedding_vectors(const std::vector<size_t> &table_sizes,
                                     size_t grouped_wgrad_offset);
-  void forward_model(cudaStream_t stream);
-  void forward_model_eval(cudaStream_t stream);
   template <typename vectype>
-  void forward_network_aux(const vectype *embedding_vectors, emtype *interaction_layer_input,
-                           cudaStream_t stream);
-  void forward_network(emtype *interaction_layer_input, bool from_cache, cudaStream_t stream);
-  void update_model(float *dev_lr, float scale, cudaStream_t stream);
-  void local_reduce(const emtype *gradients, cudaStream_t stream, bool reset_all = true);
-  void update_model_direct(float *dev_lr, float scale, cudaStream_t stream);
+  void forward_network(const vectype *embedding_vectors, emtype *interaction_layer_input,
+                       FrequentEmbeddingBase<dtype> *base, cudaStream_t stream);
+  void local_reduce(const emtype *gradients, FrequentEmbeddingBase<dtype> *base,
+                    cudaStream_t stream);
 
   template <typename T = emtype>
   typename std::enable_if<std::is_same<emtype, float>::value, Tensor2<T>>::type &get_gradients() {
@@ -108,18 +94,6 @@ class FrequentEmbedding : public FrequentEmbeddingBase<dtype> {
     return frequent_gradients_;
   }
 
-  template <typename T = emtype>
-  typename std::enable_if<std::is_same<T, float>::value, Tensor2<T>>::type
-  get_embedding_vectors_cache() {
-    return frequent_embedding_vectors_;
-  }
-
-  template <typename T = emtype>
-  typename std::enable_if<!std::is_same<T, float>::value, Tensor2<T>>::type
-  get_embedding_vectors_cache() {
-    return frequent_embedding_vectors_cache_;
-  }
-
   class ExternalManagedBuffer : public HugeCTR::TensorBuffer2 {
    public:
     ExternalManagedBuffer(void *ptr) : ptr_(ptr) {}
@@ -129,6 +103,65 @@ class FrequentEmbedding : public FrequentEmbeddingBase<dtype> {
    private:
     void *ptr_;
   };
+};
+
+template <typename dtype, typename emtype>
+class FrequentEmbeddingSingleNode : public FrequentEmbeddingBase<dtype> {
+ public:
+  using FrequentEmbeddingBase<dtype>::data_;
+  FrequentEmbeddingData<dtype, emtype> frequent_data_;
+  Tensor2<emtype> frequent_embedding_vectors_cache_;
+  Tensor2<emtype *> embedding_vectors_cache_pointers_;
+  Tensor2<const emtype *> partial_gradients_pointers_;
+  template <typename T>
+  using BuffPtr = std::shared_ptr<BufferBlock2<T>>;
+
+  FrequentEmbeddingSingleNode(const Model<dtype> &model, const GPUResource &gpu_resource,
+                              BuffPtr<emtype> &grouped_wgrad_buff, uint32_t embedding_vec_size,
+                              size_t max_num_frequent_categories);
+
+  void init();
+  void forward_model(cudaStream_t stream);
+  void forward_model_eval(cudaStream_t stream);
+  void forward_network(emtype *interaction_layer_input, cudaStream_t stream);
+  void local_reduce(const emtype *gradients, cudaStream_t stream);
+  void update_model_direct(float *dev_lr, float scale, cudaStream_t stream);
+
+  template <typename T = emtype>
+  typename std::enable_if<std::is_same<T, float>::value, Tensor2<T>>::type
+  get_embedding_vectors_cache() {
+    return frequent_data_.frequent_embedding_vectors_;
+  }
+
+  template <typename T = emtype>
+  typename std::enable_if<!std::is_same<T, float>::value, Tensor2<T>>::type
+  get_embedding_vectors_cache() {
+    return frequent_embedding_vectors_cache_;
+  }
+};
+
+template <typename dtype, typename emtype>
+class FrequentEmbeddingMultiNode : public FrequentEmbeddingBase<dtype> {
+ public:
+  using FrequentEmbeddingBase<dtype>::data_;
+  FrequentEmbeddingData<dtype, emtype> frequent_data_;
+  template <typename T>
+  using BuffPtr = std::shared_ptr<BufferBlock2<T>>;
+  std::unique_ptr<Communication> ar_comm_;
+
+  FrequentEmbeddingMultiNode(const Model<dtype> &model, const GPUResource &gpu_resource,
+                             BuffPtr<emtype> &grouped_wgrad_buff, uint32_t embedding_vec_size,
+                             size_t max_num_frequent_categories)
+      : frequent_data_(model, gpu_resource, grouped_wgrad_buff, embedding_vec_size,
+                       max_num_frequent_categories) {}
+
+  void init();
+  void init_ar_comm(AllReduceInPlaceComm *ar_comm, AllReduceInPlaceComm::Handle &handle,
+                    int local_id);
+  void communicate(cudaStream_t stream);
+  void forward_network(emtype *interaction_layer_input, cudaStream_t stream);
+  void local_reduce(const emtype *gradients, cudaStream_t stream);
+  void update_model(float *dev_lr, float scale, cudaStream_t stream);
 };
 
 }  // namespace hybrid_embedding

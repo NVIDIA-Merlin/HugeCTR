@@ -38,7 +38,7 @@ EmbeddingCollectionForward::EmbeddingCollectionForward(
         embeddings_.push_back(std::make_unique<UniformDPEmbeddingForward>(
             core, flatten_ebc_param, global_embedding_data_, embedding_sharding_param));
         break;
-      case TablePlacementStrategy::Localized:
+      case TablePlacementStrategy::ModelParallel:
         embeddings_.push_back(std::make_unique<UniformLocalizedEmbeddingForward>(
             core, flatten_ebc_param, global_embedding_data_, embedding_sharding_param));
         break;
@@ -74,7 +74,9 @@ void EmbeddingCollectionForward::forward_per_gpu(
 EmbeddingCollectionBackward::EmbeddingCollectionBackward(
     std::shared_ptr<CoreResourceManager> core,
     const EmbeddingCollectionParam &embedding_collection_param,
-    const std::vector<EmbeddingShardingParam> &embedding_sharding_params): process_output_(core, embedding_collection_param), is_utest_(embedding_collection_param.is_utest) {
+    const std::vector<EmbeddingShardingParam> &embedding_sharding_params)
+    : process_output_(core, embedding_collection_param),
+      is_utest_(embedding_collection_param.is_utest) {
   EmbeddingCollectionParam flatten_ebc_param = embedding_collection_param;
   std::vector<std::vector<EmbeddingShardingParam>> flatten_ebs_param{embedding_sharding_params};
 
@@ -87,7 +89,7 @@ EmbeddingCollectionBackward::EmbeddingCollectionBackward(
         embeddings_.push_back(std::make_unique<UniformDPEmbeddingBackward>(
             core, flatten_ebc_param, global_embedding_data_, embedding_sharding_param));
         break;
-      case TablePlacementStrategy::Localized:
+      case TablePlacementStrategy::ModelParallel:
         embeddings_.push_back(std::make_unique<UniformLocalizedEmbeddingBackward>(
             core, flatten_ebc_param, global_embedding_data_, embedding_sharding_param));
         break;
@@ -112,11 +114,12 @@ void EmbeddingCollectionBackward::backward_per_gpu(
   unique_dst_idx_list->clear();
   unique_id_space_list_list->clear();
 
-  int batch_size_per_gpu = top_grad.get_num_elements() / global_embedding_data_.h_ev_size_offset_.back();
+  int batch_size_per_gpu =
+      top_grad.get_num_elements() / global_embedding_data_.h_ev_size_offset_.back();
   Tensor t_top_grad;
-  process_output_.compute(global_embedding_data_.d_combiner_list_,
-                        global_embedding_data_.d_ev_size_list_,
-                        global_embedding_data_.d_ev_size_offset_, top_grad, batch_size_per_gpu, &t_top_grad);
+  process_output_.compute(
+      global_embedding_data_.d_combiner_list_, global_embedding_data_.d_ev_size_list_,
+      global_embedding_data_.d_ev_size_offset_, top_grad, batch_size_per_gpu, &t_top_grad);
 
   for (size_t embedding_id = 0; embedding_id < context_container_list.size(); ++embedding_id) {
     ContextContainer *context_container = context_container_list[embedding_id];

@@ -271,10 +271,10 @@ void metric_test(std::vector<int> device_list, size_t batch_size, size_t num_tot
             start;
         auto stream = resource_manager->get_local_gpu(i)->get_stream();
 
-        cudaMemcpyAsync(labels_tensors[i].get_ptr(), h_labels.data() + start, count * sizeof(float),
-                        cudaMemcpyHostToDevice, stream);
-        cudaMemcpyAsync(scores_tensors[i].get_ptr(), h_scores.data() + start, count * sizeof(T),
-                        cudaMemcpyHostToDevice, stream);
+        HCTR_LIB_THROW(cudaMemcpyAsync(labels_tensors[i].get_ptr(), h_labels.data() + start,
+                                       count * sizeof(float), cudaMemcpyHostToDevice, stream));
+        HCTR_LIB_THROW(cudaMemcpyAsync(scores_tensors[i].get_ptr(), h_scores.data() + start,
+                                       count * sizeof(T), cudaMemcpyHostToDevice, stream));
 
         metric->local_reduce(i, metric_maps[i]);
       }

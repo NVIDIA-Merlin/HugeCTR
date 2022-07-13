@@ -16,10 +16,10 @@
 #include "tf_impl_ops_test.hpp"
 
 #include "../buffer.hpp"
-#include "tf_backend.hpp"
 #include "tensorflow/core/framework/allocator.h"
 #include "tensorflow/core/framework/op.h"
 #include "tensorflow/core/framework/op_kernel.h"
+#include "tf_backend.hpp"
 
 using tensorflow::Allocator;
 using tensorflow::DEVICE_CPU;
@@ -40,8 +40,7 @@ namespace tf_internal {
 template <typename Device>
 class StorageImplTestOp : public OpKernel {
  public:
-  explicit StorageImplTestOp(OpKernelConstruction* context)
-      : OpKernel(context) {
+  explicit StorageImplTestOp(OpKernelConstruction* context) : OpKernel(context) {
     OP_REQUIRES_OK(context, context->GetAttr("initial_size", &initial_size_));
     OP_REQUIRES_OK(context, context->GetAttr("extend_size", &extend_size_));
     OP_REQUIRES_OK(context, context->GetAttr("gpu_id", &gpu_id_));
@@ -50,11 +49,12 @@ class StorageImplTestOp : public OpKernel {
   }
 
   void Compute(OpKernelContext* context) override {
-    std::shared_ptr<core::CoreResourceManager> tf_backend = std::make_shared<TFCoreResourceManager>(context, 0, 1, 1);
+    std::shared_ptr<core::CoreResourceManager> tf_backend =
+        std::make_shared<TFCoreResourceManager>(context, 0, 1, 1);
     DeviceType dev_type = (on_gpu_ ? DeviceType::GPU : DeviceType::CPU);
     core::Device device(dev_type, gpu_id_);
-    TFStorageImpl* tf_storge = dynamic_cast<tf_internal::TFStorageImpl*>(
-        tf_backend->CreateStorage(device).get());
+    TFStorageImpl* tf_storge =
+        dynamic_cast<tf_internal::TFStorageImpl*>(tf_backend->CreateStorage(device).get());
     const Tensor* tensor;
 
     tf_storge->extend((size_t)initial_size_);
@@ -64,11 +64,9 @@ class StorageImplTestOp : public OpKernel {
     int64_t tensor_size = tensor->NumElements();
     Allocator* allocator = tf_storge->allocator();
 
-    LOG(WARNING) << " allocated pointer="
-                 << static_cast<const void*>(tf_storge->get_ptr())
+    LOG(WARNING) << " allocated pointer=" << static_cast<const void*>(tf_storge->get_ptr())
                  << ", total size=" << tensor_size << ", gpu_id=" << gpu_id_
-                 << ", cpu_id=" << cpu_id_
-                 << ", on_gpu=" << (on_gpu_ ? "True" : "False")
+                 << ", cpu_id=" << cpu_id_ << ", on_gpu=" << (on_gpu_ ? "True" : "False")
                  << ", allocator=" << allocator->Name();
   }
 
@@ -83,8 +81,7 @@ class StorageImplTestOp : public OpKernel {
 template <typename Device>
 class GpuResourceImplTestOp : public OpKernel {
  public:
-  explicit GpuResourceImplTestOp(OpKernelConstruction* context)
-      : OpKernel(context) {}
+  explicit GpuResourceImplTestOp(OpKernelConstruction* context) : OpKernel(context) {}
 
   void Compute(OpKernelContext* context) override {
     tf_internal::GPUResource gpu_resource(context);
@@ -99,11 +96,11 @@ class GpuResourceImplTestOp : public OpKernel {
 template <typename Device>
 class TfBackendTestOpTest : public OpKernel {
  public:
-  explicit TfBackendTestOpTest(OpKernelConstruction* context)
-      : OpKernel(context) {}
+  explicit TfBackendTestOpTest(OpKernelConstruction* context) : OpKernel(context) {}
 
   void Compute(OpKernelContext* context) override {
-    std::shared_ptr<core::CoreResourceManager> tf_backend = std::make_shared<TFCoreResourceManager>(context, 0, 1, 1);
+    std::shared_ptr<core::CoreResourceManager> tf_backend =
+        std::make_shared<TFCoreResourceManager>(context, 0, 1, 1);
     auto buffer_ptr = core::GetBuffer(tf_backend);
     auto t = buffer_ptr->reserve({0}, DeviceType::CPU, core::TensorScalarType::Int32);
     buffer_ptr->allocate();
@@ -127,17 +124,15 @@ REGISTER_OP("GpuResourceImplTest");
 REGISTER_OP("TfBackendTestOpTest")
 
 // Register the CPU kernels.
-#define REGISTER_CPU()                                                \
-  REGISTER_KERNEL_BUILDER(Name("StorageImplTest").Device(DEVICE_CPU), \
-                          StorageImplTestOp<CPUDevice>);
+#define REGISTER_CPU() \
+  REGISTER_KERNEL_BUILDER(Name("StorageImplTest").Device(DEVICE_CPU), StorageImplTestOp<CPUDevice>);
 REGISTER_CPU();
 #undef REGISTER_CPU
 
 // Register the GPU kernels.
 #ifdef GOOGLE_CUDA
-#define REGISTER_GPU()                                                \
-  REGISTER_KERNEL_BUILDER(Name("StorageImplTest").Device(DEVICE_GPU), \
-                          StorageImplTestOp<GPUDevice>);
+#define REGISTER_GPU() \
+  REGISTER_KERNEL_BUILDER(Name("StorageImplTest").Device(DEVICE_GPU), StorageImplTestOp<GPUDevice>);
 REGISTER_GPU();
 #undef REGISTER_GPU
 #endif  // GOOGLE_CUDA

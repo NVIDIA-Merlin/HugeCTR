@@ -51,9 +51,9 @@ struct InternalBatchBuffer {
 
   ~InternalBatchBuffer() {
     for (auto ptr : dev_data) {
-      cudaFree(ptr);
+      HCTR_LIB_THROW(cudaFree(ptr));
     }
-    cudaFreeHost(raw_host_ptr);
+    HCTR_LIB_THROW(cudaFreeHost(raw_host_ptr));
   }
 };
 

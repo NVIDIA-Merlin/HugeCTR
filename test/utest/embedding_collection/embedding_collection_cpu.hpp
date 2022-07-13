@@ -24,8 +24,8 @@
 
 #include "HugeCTR/embedding/embedding.hpp"
 #include "HugeCTR/embedding/embedding_planner.hpp"
-#include "model_parallel_embedding_cpu.hpp"
 #include "data_parallel_embedding_cpu.hpp"
+#include "model_parallel_embedding_cpu.hpp"
 #include "reference_embedding.hpp"
 using namespace embedding;
 
@@ -48,9 +48,9 @@ class EmbeddingCollectionCPU {
 
   std::vector<ModelParallelEmbeddingCPU<key_t, offset_t, index_t, emb_t>> mp_embedding_list_;
   std::vector<DataParallelEmbeddingCPU<key_t, offset_t, index_t, emb_t>> dp_embedding_list_;
-  
+
   EmbeddingTableCPU<key_t, index_t> emb_table_cpu_;
-  
+
   EmbeddingCollectionCPU(
       int num_gpus, int num_table, const EmbeddingCollectionParam &ebc_param,
       const std::vector<std::vector<EmbeddingShardingParam>> &global_sharding_param_list,
@@ -87,15 +87,21 @@ class EmbeddingCollectionCPU {
       assert(global_sharding_param_list_[0].size() == global_sharding_param_list_[gpu_id].size());
     }
 
-    for (size_t idx_sharding_param = 0; idx_sharding_param < global_sharding_param_list_[0].size(); ++idx_sharding_param) {
+    for (size_t idx_sharding_param = 0; idx_sharding_param < global_sharding_param_list_[0].size();
+         ++idx_sharding_param) {
       std::vector<EmbeddingShardingParam> one_embedding_sharding_param;
       for (int gpu_id = 0; gpu_id < num_gpus; ++gpu_id) {
-        one_embedding_sharding_param.push_back(global_sharding_param_list_[gpu_id][idx_sharding_param]);
+        one_embedding_sharding_param.push_back(
+            global_sharding_param_list_[gpu_id][idx_sharding_param]);
       }
-      if (one_embedding_sharding_param[0].table_placement_strategy == TablePlacementStrategy::DataParallel) {
-        dp_embedding_list_.emplace_back(num_gpus_, num_table_, ebc_param_, one_embedding_sharding_param);
-      } else if (one_embedding_sharding_param[0].table_placement_strategy == TablePlacementStrategy::Localized) {
-        mp_embedding_list_.emplace_back(num_gpus_, num_table_, ebc_param_, one_embedding_sharding_param);
+      if (one_embedding_sharding_param[0].table_placement_strategy ==
+          TablePlacementStrategy::DataParallel) {
+        dp_embedding_list_.emplace_back(num_gpus_, num_table_, ebc_param_,
+                                        one_embedding_sharding_param);
+      } else if (one_embedding_sharding_param[0].table_placement_strategy ==
+                 TablePlacementStrategy::ModelParallel) {
+        mp_embedding_list_.emplace_back(num_gpus_, num_table_, ebc_param_,
+                                        one_embedding_sharding_param);
       }
     }
   }
@@ -162,7 +168,7 @@ class EmbeddingCollectionCPU {
     // std::cout << "cpu transpose key:\n";
     // for (key_t k: t_keys) {
     //   std::cout << k << " ";
-    // } 
+    // }
     // std::cout << "\n";
     return t_keys;
   }
@@ -241,11 +247,13 @@ class EmbeddingCollectionCPU {
     auto flatten_concat_bucket_range = flatten_bucket_range(bucket_range, batch_size);
     auto t_keys = transpose_keys(keys, bucket_range, flatten_concat_bucket_range, batch_size);
 
-    for (auto &embedding: mp_embedding_list_) {
-      embedding.embedding_forward_cpu(t_keys, flatten_concat_bucket_range, emb_table_cpu_, embedding_vec_, batch_size);
+    for (auto &embedding : mp_embedding_list_) {
+      embedding.embedding_forward_cpu(t_keys, flatten_concat_bucket_range, emb_table_cpu_,
+                                      embedding_vec_, batch_size);
     }
-    for (auto &embedding: dp_embedding_list_) {
-      embedding.embedding_forward_cpu(t_keys, flatten_concat_bucket_range, emb_table_cpu_, embedding_vec_, batch_size);
+    for (auto &embedding : dp_embedding_list_) {
+      embedding.embedding_forward_cpu(t_keys, flatten_concat_bucket_range, emb_table_cpu_,
+                                      embedding_vec_, batch_size);
     }
     transpose_forward_output(batch_size);
   }
@@ -317,15 +325,13 @@ class EmbeddingCollectionCPU {
     grad_info_.clear();
     grad_info_.resize(unique_id_space_list_.size());
 
-    for (auto &embedding: mp_embedding_list_) {
+    for (auto &embedding : mp_embedding_list_) {
       embedding.embedding_backward_cpu(t_top_grads, grad_info_, batch_size);
     }
-    for (auto &embedding: dp_embedding_list_) {
+    for (auto &embedding : dp_embedding_list_) {
       embedding.embedding_backward_cpu(t_top_grads, grad_info_, batch_size);
     }
   }
 
-  void embedding_update_cpu() {
-    emb_table_cpu_.update(grad_info_);
-  }
+  void embedding_update_cpu() { emb_table_cpu_.update(grad_info_); }
 };

@@ -15,8 +15,10 @@
 """
 
 import sys, os
-sys.path.append(os.path.abspath(os.path.join(
-        os.path.dirname(os.path.abspath(__file__)), "../../../")))
+
+sys.path.append(
+    os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../../"))
+)
 import sparse_operation_kit as sok
 
 import tensorflow as tf
@@ -27,13 +29,17 @@ from multiprocessing import Process
 
 local_ips = ("localhost", "127.0.0.1", "0.0.0.0")
 
+
 def get_local_ip(hostname=None):
     import socket
+
     _hostname = socket.gethostname()
     return socket.gethostbyname(hostname or socket.gethostname())
 
+
 def is_local_ip(ip_address):
     return True if ip_address in local_ips else False
+
 
 def all_ips_in_local(ips):
     for ip in ips:
@@ -41,25 +47,27 @@ def all_ips_in_local(ips):
             return False
     return True
 
+
 def get_local_gpu_count():
     import os
+
     text = os.popen("nvidia-smi --list-gpus").read()
     text = text.strip().split("\n")
     return len(text)
-    
+
+
 def get_cuda_version():
     import os, re
+
     text = os.popen("nvcc --version").read()
     version = text.strip().split("\n")[-1]
     version = re.search("cuda_\d+.\d+.", version).group(0)
     version = re.search("\d+.\d+", version).group(0)
     return version
 
+
 class TestProcess(object):
-    def __init__(self,
-                 func,
-                 task_id,
-                 arguments):
+    def __init__(self, func, task_id, arguments):
         self.func = func
         self.task_id = task_id
         self.arguments = arguments
@@ -76,14 +84,15 @@ class TestProcess(object):
 
 
 def save_to_file(filename, *args):
-    with open(filename, 'wb') as file:
+    with open(filename, "wb") as file:
         num_of_items = len(args)
-        if (num_of_items == 0):
+        if num_of_items == 0:
             raise ValueError("Nothing needed to be saved.")
         pickle.dump(num_of_items, file, pickle.HIGHEST_PROTOCOL)
         for item in args:
             pickle.dump(item, file, pickle.HIGHEST_PROTOCOL)
-    print("[INFO]: dumpped items to file %s" %filename)
+    print("[INFO]: dumpped items to file %s" % filename)
+
 
 def restore_from_file(filename):
     results = list()
@@ -92,53 +101,50 @@ def restore_from_file(filename):
         for _ in range(num_of_items):
             item = pickle.load(file)
             results.append(item)
-    print("[INFO] loadded from file %s" %filename)
+    print("[INFO] loadded from file %s" % filename)
     return tuple(results)
-    
+
+
 def get_embedding_optimizer(optimizer_type):
     if not isinstance(optimizer_type, str):
         raise ValueError("optimizer_type must be str type, but got ", type(optimizer_type))
     if optimizer_type == "plugin_adam":
         return sok.optimizers.Adam
-    elif optimizer_type == 'adam':
+    elif optimizer_type == "adam":
         return tf.keras.optimizers.Adam
-    elif optimizer_type == 'sgd':
+    elif optimizer_type == "sgd":
         return tf.keras.optimizers.SGD
     elif optimizer_type == "compat_adam":
         return sok.tf.keras.optimizers.Adam
     else:
-        raise ValueError("Not supported optimizer_type: %s" %optimizer_type)
+        raise ValueError("Not supported optimizer_type: %s" % optimizer_type)
+
 
 def get_dense_optimizer(optimizer_type):
     if not isinstance(optimizer_type, str):
         raise ValueError("optimizer_type must be str type, but got ", type(optimizer_type))
     if optimizer_type == "plugin_adam":
         return tf.keras.optimizers.Adam
-    elif optimizer_type == 'adam':
+    elif optimizer_type == "adam":
         return tf.keras.optimizers.Adam
-    elif optimizer_type == 'sgd':
+    elif optimizer_type == "sgd":
         return tf.keras.optimizers.SGD
     elif optimizer_type == "compat_adam":
         return tf.keras.optimizers.Adam
     else:
-        raise ValueError("Not supported optimizer_type: %s" %optimizer_type)
+        raise ValueError("Not supported optimizer_type: %s" % optimizer_type)
 
-def get_ones_tensor(max_vocab_size_per_gpu,
-                    embedding_vec_size,
-                    num,
-                    task_id=None):
+
+def get_ones_tensor(max_vocab_size_per_gpu, embedding_vec_size, num, task_id=None):
     tensor = np.ones(shape=[max_vocab_size_per_gpu, embedding_vec_size], dtype=np.float32)
     all_tensors = [tensor for _ in range(num)]
 
     return all_tensors
 
 
-def generate_random_samples(num_of_samples,
-                            vocabulary_size,
-                            slot_num, 
-                            max_nnz,
-                            dtype=np.int64,
-                            use_sparse_mask=True):
+def generate_random_samples(
+    num_of_samples, vocabulary_size, slot_num, max_nnz, dtype=np.int64, use_sparse_mask=True
+):
     """
     This function is used to generate random samples used for training.
     #args:
@@ -147,25 +153,29 @@ def generate_random_samples(num_of_samples,
         slot_num: integer,
         max_nnz: integer
         use_sparse_mask: boolean, whether to use sparse mask to generate sparse datas
-    #returns: 
+    #returns:
         all_keys: dense tensor, whose shape is [num_of_samples, slot_num, max_nnz]
         all_labels: dense tensor, whose shape is [num_of_samples, 1]
     """
     print("[INFO]: begin to generate random samples")
-    
+
     from tensorflow.python.distribute.values import PerReplica
+
     cuda_version = get_cuda_version()
     cuda_version = "".join(cuda_version.split("."))
     try:
         import cupy as cp
     except:
         import os
-        os.system("pip install cupy-cuda"+cuda_version)
+
+        os.system("pip install cupy-cuda" + cuda_version)
         import cupy as cp
 
-    if (vocabulary_size // slot_num <= 2 * max_nnz):
-        raise ValueError("Too small vocabulary_size. vocabulary_size: %d // slot_num: %d = %d <= 2 * max_nnz: %d"
-                        %(vocabulary_size, slot_num, vocabulary_size // slot_num, 2 * max_nnz))
+    if vocabulary_size // slot_num <= 2 * max_nnz:
+        raise ValueError(
+            "Too small vocabulary_size. vocabulary_size: %d // slot_num: %d = %d <= 2 * max_nnz: %d"
+            % (vocabulary_size, slot_num, vocabulary_size // slot_num, 2 * max_nnz)
+        )
 
     if use_sparse_mask:
         mask = np.random.choice([-1, 1], size=(num_of_samples, slot_num, max_nnz))
@@ -177,8 +187,9 @@ def generate_random_samples(num_of_samples,
 
     with cp.cuda.Device(0):
         all_keys = cp.zeros(shape=(num_of_samples, slot_num, max_nnz), dtype=cp.int64)
-        
-        random_kernel = cp.RawKernel(r'''
+
+        random_kernel = cp.RawKernel(
+            r"""
             __device__ size_t randInt(size_t gid, const size_t range) {
                 return (((gid * clock() * 214013L + 2531011L) >> 16) & 0x7fff) % range;
             }
@@ -195,30 +206,38 @@ def generate_random_samples(num_of_samples,
                     nums[i] = vocab_per_slot * slot_id + randInt(gid, vocab_per_slot);
                 }
             }
-        ''', 'my_kernel')
+        """,
+            "my_kernel",
+        )
 
-        random_kernel((num_of_samples,), (1024,), 
-                    (all_keys, num_of_samples * slot_num * max_nnz,
-                    slot_num, max_nnz, vocabulary_size // slot_num))
+        random_kernel(
+            (num_of_samples,),
+            (1024,),
+            (
+                all_keys,
+                num_of_samples * slot_num * max_nnz,
+                slot_num,
+                max_nnz,
+                vocabulary_size // slot_num,
+            ),
+        )
         all_keys = all_keys.get()
 
     if use_sparse_mask:
         all_keys[mask == -1] = -1
 
-    all_keys = np.sort(all_keys, axis=-1)[:,:,::-1]    
-    
+    all_keys = np.sort(all_keys, axis=-1)[:, :, ::-1]
+
     all_labels = np.random.randint(low=0, high=2, size=(num_of_samples, 1))
 
     print("[INFO]: generated random samples")
     return all_keys, all_labels
 
-def tf_dataset(keys, labels,
-               batchsize,
-               to_sparse_tensor=False,
-               repeat=None,
-               args=None):
+
+def tf_dataset(keys, labels, batchsize, to_sparse_tensor=False, repeat=None, args=None):
 
     num_of_samples, slot_num, max_nnz = keys.shape
+
     def _convert_to_sparse(keys, labels):
         if tf.rank(keys) != 2:
             keys = tf.reshape(keys, shape=[-1, max_nnz])
@@ -235,9 +254,13 @@ def tf_dataset(keys, labels,
                 values = tf.cast(values, dtype=tf.uint32)
             else:
                 raise ValueError("Not supported key dtype")
-        return tf.sparse.SparseTensor(indices=indices, 
-                                      values=values, 
-                                      dense_shape=[batchsize * slot_num, max_nnz]), labels
+        return (
+            tf.sparse.SparseTensor(
+                indices=indices, values=values, dense_shape=[batchsize * slot_num, max_nnz]
+            ),
+            labels,
+        )
+
     def _cast_values(keys, labels):
         if args is not None and hasattr(args, "key_dtype"):
             if args.key_dtype == "int64":
@@ -252,21 +275,24 @@ def tf_dataset(keys, labels,
     dataset = dataset.repeat(repeat)
     dataset = dataset.batch(batchsize, drop_remainder=True)
     if to_sparse_tensor:
-        dataset = dataset.map(lambda keys, labels: 
-                                _convert_to_sparse(keys, labels),
-                            num_parallel_calls=1)
+        dataset = dataset.map(
+            lambda keys, labels: _convert_to_sparse(keys, labels), num_parallel_calls=1
+        )
     else:
-        dataset = dataset.map(lambda keys, labels:
-                                _cast_values(keys, labels),
-                            num_parallel_calls=1)
+        dataset = dataset.map(lambda keys, labels: _cast_values(keys, labels), num_parallel_calls=1)
     return dataset
+
 
 def try_make_dirs(directory, chief=True):
     import os
+
     if not os.path.exists(directory) and chief:
         os.makedirs(directory)
 
-def sort_embedding_variables_by_key(keys, embedding_values, embedding_vec_size, use_hashtable=True, gpu_num=None):
+
+def sort_embedding_variables_by_key(
+    keys, embedding_values, embedding_vec_size, use_hashtable=True, gpu_num=None
+):
     """
     This function is used to sort the embedding values by its relavent keys.
     For example, keys: [5, 3, 6, 1], embedding values: [[0, 0, 0, 0],
@@ -284,7 +310,8 @@ def sort_embedding_variables_by_key(keys, embedding_values, embedding_vec_size, 
         import cupy as cp
     except:
         import os
-        os.system("pip install cupy-cuda"+cuda_version)
+
+        os.system("pip install cupy-cuda" + cuda_version)
         import cupy as cp
 
     if not isinstance(keys, np.ndarray):
@@ -310,13 +337,14 @@ def sort_embedding_variables_by_key(keys, embedding_values, embedding_vec_size, 
 
     sorted_indexes = np.argsort(keys)
     sorted_keys = keys[sorted_indexes]
-    
+
     with cp.cuda.Device(0):
         d_sorted_values = cp.zeros(shape=embedding_values.shape, dtype=cp.float32)
         d_sorted_indexes = cp.asarray(sorted_indexes)
         d_embedding_values = cp.asarray(embedding_values)
 
-        sort_values_kernel = cp.RawKernel(r'''
+        sort_values_kernel = cp.RawKernel(
+            r"""
             extern "C" __global__
             void my_kernel(const size_t *sorted_indexes, 
                            const float *values,
@@ -329,35 +357,40 @@ def sort_embedding_variables_by_key(keys, embedding_values, embedding_vec_size, 
                             values[sorted_indexes[row_id] * values_step + col_id];
                 }
             } 
-        ''', 'my_kernel')
+        """,
+            "my_kernel",
+        )
 
-        sort_values_kernel((keys.size,), (embedding_vec_size,),
-                            (d_sorted_indexes, d_embedding_values, d_sorted_values, 
-                            embedding_vec_size, keys.size))
+        sort_values_kernel(
+            (keys.size,),
+            (embedding_vec_size,),
+            (d_sorted_indexes, d_embedding_values, d_sorted_values, embedding_vec_size, keys.size),
+        )
         sorted_values = d_sorted_values.get()
 
     return sorted_keys, sorted_values
 
-def read_binary_file(filename,
-                     element_type,
-                     chunk_num_elements=65536):
+
+def read_binary_file(filename, element_type, chunk_num_elements=65536):
     import struct, os
 
-    element_type_map = {"float": ["f", 4],
-                        "int32": ["i", 4],
-                        "long long": ["q", 8],
-                        "unsigned long long": ["Q", 8],
-                        "size_t": ["N", 8],
-                        "unsigned int": ["I", 4]}
+    element_type_map = {
+        "float": ["f", 4],
+        "int32": ["i", 4],
+        "long long": ["q", 8],
+        "unsigned long long": ["Q", 8],
+        "size_t": ["N", 8],
+        "unsigned int": ["I", 4],
+    }
 
     elem_size_in_bytes = element_type_map[element_type][1]
 
     file_size_in_bytes = os.path.getsize(filename)
-    if (file_size_in_bytes % elem_size_in_bytes != 0):
-        raise ValueError("Invalid element size for file: %s." %filename)
+    if file_size_in_bytes % elem_size_in_bytes != 0:
+        raise ValueError("Invalid element size for file: %s." % filename)
 
     chunk_size_in_bytes = chunk_num_elements * elem_size_in_bytes
-    if (file_size_in_bytes <= chunk_size_in_bytes):
+    if file_size_in_bytes <= chunk_size_in_bytes:
         chunk_size_in_bytes = file_size_in_bytes
         chunk_count = 1
     else:
@@ -367,21 +400,24 @@ def read_binary_file(filename,
     with open(filename, "rb") as file:
         for _ in range(chunk_count):
             buffer = file.read(chunk_size_in_bytes)
-            if (0 == len(buffer)):
+            if 0 == len(buffer):
                 raise RuntimeError("Error in reading file.")
-            elements = struct.unpack(str(chunk_size_in_bytes // elem_size_in_bytes) + 
-                                     element_type_map[element_type][0],
-                                     buffer)        
+            elements = struct.unpack(
+                str(chunk_size_in_bytes // elem_size_in_bytes) + element_type_map[element_type][0],
+                buffer,
+            )
             results += elements
-        
-        if (file_size_in_bytes - chunk_count * chunk_size_in_bytes > 0):
+
+        if file_size_in_bytes - chunk_count * chunk_size_in_bytes > 0:
             buffer_size_in_bytes = file_size_in_bytes - chunk_count * chunk_size_in_bytes
             buffer = file.read(buffer_size_in_bytes)
-            elements = struct.unpack(str(buffer_size_in_bytes // elem_size_in_bytes) + 
-                                     element_type_map[element_type][0],
-                                     buffer)
+            elements = struct.unpack(
+                str(buffer_size_in_bytes // elem_size_in_bytes) + element_type_map[element_type][0],
+                buffer,
+            )
             results += elements
     return results
+
 
 def get_valid_tf_values(keys, values):
     if not isinstance(keys, np.ndarray):
@@ -399,25 +435,26 @@ def get_valid_tf_values(keys, values):
         with tf.Session(graph=graph) as sess:
             return sess.run(valid_values)
 
+
 if __name__ == "__main__":
-    all_keys, all_labels = generate_random_samples(num_of_samples=65536 * 100,
-                                                   vocabulary_size=8 * 1024 * 1,
-                                                   slot_num=10,
-                                                   max_nnz=4,
-                                                   use_sparse_mask=False)
+    all_keys, all_labels = generate_random_samples(
+        num_of_samples=65536 * 100,
+        vocabulary_size=8 * 1024 * 1,
+        slot_num=10,
+        max_nnz=4,
+        use_sparse_mask=False,
+    )
 
     # print("all_keys:\n", all_keys)
     # print("all_labels:\n", all_labels)
 
-    dataset = tf_dataset(keys=all_keys, labels=all_labels,
-                         batchsize=65536, 
-                         to_sparse_tensor=False,
-                         repeat=1)
+    dataset = tf_dataset(
+        keys=all_keys, labels=all_labels, batchsize=65536, to_sparse_tensor=False, repeat=1
+    )
     for i, (input_tensors, labels) in enumerate(dataset):
-        print("-"*30, "Iteration ", str(i), "-"*30)
+        print("-" * 30, "Iteration ", str(i), "-" * 30)
         print(input_tensors)
         print(labels)
-
 
     # a = [1, 2, 3]
     # b = [4, 5]
@@ -447,9 +484,7 @@ if __name__ == "__main__":
     #           [1, 1],
     #           [2, 2],
     #           [3, 3],
-    #           [4, 4], 
+    #           [4, 4],
     #           [5, 5],
     #           [6, 6]]
     # print(get_valid_tf_values(keys, values))
-
-

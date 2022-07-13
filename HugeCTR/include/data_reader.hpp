@@ -25,6 +25,8 @@
 #include <utils.hpp>
 #include <vector>
 
+#include "HugeCTR/include/data_source/hdfs_backend.hpp"
+
 namespace HugeCTR {
 
 /**
@@ -58,7 +60,8 @@ class IDataReader {
                                bool data_shuffle, bool start_reading_from_beginning = true) = 0;
 
 #ifndef DISABLE_CUDF
-  virtual void create_drwg_parquet(std::string file_list, const std::vector<long long> slot_offset,
+  virtual void create_drwg_parquet(std::string file_list, bool strict_order_of_batches,
+                                   const std::vector<long long> slot_offset,
                                    bool start_reading_from_beginning = true) = 0;
 #endif
 

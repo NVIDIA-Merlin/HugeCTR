@@ -49,7 +49,7 @@ struct IbCommsTest {
  public:
   IbCommsTest(const std::vector<int>& device_list, size_t max_size)
       : num_gpus_(device_list.size()), max_size_(max_size) {
-    MPI_Comm_size(MPI_COMM_WORLD, &num_procs_);
+    HCTR_MPI_THROW(MPI_Comm_size(MPI_COMM_WORLD, &num_procs_));
 
     // Align max_size
     max_elems_per_dest_ = max_size_ / (num_procs_ * num_gpus_) / sizeof(TypeEmbeddingComp);
@@ -232,9 +232,10 @@ struct IbCommsTest {
       for (size_t e = 0; e < max_elems_; e++) {
         if (*(h_recv_buffs_[g].get_ptr() + e) != *(h_recv_buffs_out_[g].get_ptr() + e)) {
           size_t my_proc = resource_manager_->get_process_id();
-          std::cout << my_proc << ": Data mismatch at gpu " << g << " element: " << e
-                    << " expected: " << *(h_recv_buffs_[g].get_ptr() + e)
-                    << " got: " << *(h_recv_buffs_out_[g].get_ptr() + e) << std::endl;
+          HCTR_LOG_S(DEBUG, WORLD)
+              << my_proc << ": Data mismatch at gpu " << g << " element: " << e
+              << " expected: " << *(h_recv_buffs_[g].get_ptr() + e)
+              << " got: " << *(h_recv_buffs_out_[g].get_ptr() + e) << std::endl;
           exit(1);
         }
       }
@@ -320,7 +321,7 @@ struct IbCommsTest {
 template <typename TypeEmbeddingComp>
 void test_ib_comm(const std::vector<int>& device_list) {
   int num_procs = 0;
-  MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
+  HCTR_MPI_THROW(MPI_Comm_size(MPI_COMM_WORLD, &num_procs));
   if (num_procs == 1) return;
 
   const size_t MAX_SIZE = 16 * 1024 * 1024;

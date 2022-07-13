@@ -16,11 +16,14 @@
 
 import tensorflow as tf
 import sys
+
 sys.path.append("../")
 import utility
+
 sys.path.append("../DenseDemo")
 import sparse_operation_kit as sok
 import horovod.tensorflow as hvd
+
 
 def main():
     global_batch_size = 1024
@@ -28,25 +31,31 @@ def main():
     nnz_per_slot = 5
 
     from tensorflow.python.keras.engine import base_layer_utils
+
     base_layer_utils.enable_v2_dtype_behavior()
 
     policy = tf.keras.mixed_precision.experimental.Policy("mixed_float16")
     tf.keras.mixed_precision.experimental.set_policy(policy)
 
-    dataset = utility.get_dataset(global_batch_size//hvd.size(), read_batchsize=global_batch_size//hvd.size())
+    dataset = utility.get_dataset(
+        global_batch_size // hvd.size(), read_batchsize=global_batch_size // hvd.size()
+    )
 
     sok_init_op = sok.Init(global_batch_size=global_batch_size)
 
-    model = utility.SOKDenseDemo(max_vocabulary_size_per_gpu=1024,
-                                embedding_vec_size=8,
-                                slot_num=slot_num,
-                                nnz_per_slot=nnz_per_slot,
-                                num_dense_layers=0)
+    model = utility.SOKDenseDemo(
+        max_vocabulary_size_per_gpu=1024,
+        embedding_vec_size=8,
+        slot_num=slot_num,
+        nnz_per_slot=nnz_per_slot,
+        num_dense_layers=0,
+    )
 
     optimizer = tf.keras.optimizers.Adam(learning_rate=0.1)
     optimizer = sok.tf.keras.mixed_precision.LossScaleOptimizer(optimizer, 1024)
 
-    loss_fn = tf.keras.losses.BinaryCrossentropy(from_logits=True, reduction='none')
+    loss_fn = tf.keras.losses.BinaryCrossentropy(from_logits=True, reduction="none")
+
     def _replica_loss(labels, logits):
         loss = loss_fn(labels, logits)
         dtype = loss.dtype
@@ -59,10 +68,11 @@ def main():
         loss = _replica_loss(labels, logit)
         scaled_loss = optimizer.get_scaled_loss(loss)
         scaled_gradients = tf.gradients(scaled_loss, model.trainable_variables)
-        emb_vars, other_vars =\
-            sok.split_embedding_variable_from_others(model.trainable_variables)
-        scaled_emb_grads, scaled_other_grads =\
-            scaled_gradients[:len(emb_vars)], scaled_gradients[len(emb_vars):]
+        emb_vars, other_vars = sok.split_embedding_variable_from_others(model.trainable_variables)
+        scaled_emb_grads, scaled_other_grads = (
+            scaled_gradients[: len(emb_vars)],
+            scaled_gradients[len(emb_vars) :],
+        )
         emb_grads = optimizer.get_unscaled_gradients(scaled_emb_grads)
         other_grads = optimizer.get_unscaled_gradients(scaled_other_grads)
         other_grads = [hvd.allreduce(grad) for grad in other_grads]
@@ -79,18 +89,18 @@ def main():
 
     loss = train_step(inputs, labels)
 
-    init_op = tf.group(tf.global_variables_initializer(), 
-                       tf.local_variables_initializer())
+    init_op = tf.group(tf.global_variables_initializer(), tf.local_variables_initializer())
 
     with tf.Session() as sess:
         sess.run(sok_init_op)
         sess.run([init_op, iterator_init])
-        
+
         for step in range(10):
             loss_v = sess.run(loss)
             if hvd.local_rank() == 0:
                 print("[INFO]: step {}, loss {}".format(step, loss_v))
-    
+
+
 if __name__ == "__main__":
     hvd.init()
     gpus = tf.config.experimental.list_physical_devices("GPU")
