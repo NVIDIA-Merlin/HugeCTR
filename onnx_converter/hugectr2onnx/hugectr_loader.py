@@ -278,8 +278,15 @@ class HugeCTRLoader(object):
             self.__dimensions[layer_config["top"]] = layer_params.out_dim        
         elif layer_type == "InnerProduct" or layer_type == "FusedInnerProduct":
             layer_params.num_output = layer_config["fc_param"]["num_output"]
-            self.__dimensions[layer_config["top"]] = layer_params.num_output
-            in_feature = self.__dimensions[layer_config["bottom"]]
+            dim = self.__dimensions[layer_config["bottom"]]
+            if isinstance(dim,tuple):
+                seq_len = dim[0]
+                hidden_in = dim[1]
+                self.__dimensions[layer_config["top"]] = (seq_len, layer_params.num_output)
+                in_feature = hidden_in 
+            else:
+                self.__dimensions[layer_config["top"]] = layer_params.num_output
+                in_feature = self.__dimensions[layer_config["bottom"]]
             out_feature = layer_params.num_output
             layer_bytes = (in_feature * out_feature + 1 * out_feature) * 4
             with open(self.__dense_model, 'rb') as file:
