@@ -1023,7 +1023,7 @@ Parameter:
 
 * `table_config` : `hugectr.EmbeddingTableConfig`, the embedding table for the lookup operation.
 * `bottom_name`: str, the bottom tensor name.
-Specify a tensor that is compatible with the `data_reader_sparse_param_array` parameter of [`hugectr.Input`](./python_interface.md#input-layer) in `hugectr.Model`.
+Specify a tensor that is compatible with the `data_reader_sparse_param_array` parameter of [`hugectr.Input`](#input-layer) in `hugectr.Model`.
 * `top_name`: str, the output tensor name.
 The shape of output tensor is (`<batch size>`, `1`, `<embedding vector size>`).
 * `combiner`: str, specifies the combiner operation.

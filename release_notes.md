@@ -1,5 +1,72 @@
 # Release Notes
 
+## What's New in Version 3.8
+
++ **Sample Notebook to Demonstrate 3G Embedding**:
+This release includes a sample notebook that introduces the Python API of the
+embedding collection and the key concepts for using 3G embedding.
+You can view [HugeCTR Embedding Collection](https://nvidia-merlin.github.io/HugeCTR/v3.8/notebooks/embedding_collection.html)
+from the documentation or access the `embedding_collection.ipynb` file from the
+[`notebooks`](https://github.com/NVIDIA-Merlin/HugeCTR/tree/v3.8/notebooks/)
+directory of the repository.
+
++ **DLPack Python API for Hierarchical Parameter Server Lookup**:
+This release introduces support for embedding lookup from the Hierarchical
+Parameter Server (HPS) using the DLPack Python API.  The new method is
+`lookup_fromdlpack()`.  For sample usage, see the
+[Lookup the Embedding Vector from DLPack](https://nvidia-merlin.github.io/HugeCTR/v3.8/notebooks/hps_demo.html#lookup-the-embedding-vector-from-dlpack)
+heading in the "Hierarchical Parameter Server Demo" notebook.
+
++ **Read Parquet Datasets from HDFS with the Python API**:
+This release enhances the [`DataReaderParams`](https://nvidia-merlin.github.io/HugeCTR/v3.8/api/python_interface.html#datareaderparams)
+class with a `data_source_params` argument. You can use the argument to specify
+the data source configuration such as the host name of the Hadoop NameNode and the NameNode port number to read from HDFS.
+
++ **Logging Performance Improvements**:
+This release includes a performance enhancement that reduces the performance impact of logging.
+
++ **Enhancements to Layer Classes**:
+  + The `FullyConnected` layer now supports 3D inputs
+  + The `MatrixMultiply` layer now supports 4D inputs.
+
++ **Documentation Enhancements**:
+  + An automatically generated table of contents is added to the top of most
+    pages in the web documentation. The goal is to provide a better experience
+    for navigating long pages such as the
+    [HugeCTR Layer Classes and Methods](https://nvidia-merlin.github.io/HugeCTR/v3.8/api/hugectr_layer_book.html)
+    page.
+  + URLs to the Criteo 1TB click logs dataset are updated. For an example, see the
+    [HugeCTR Wide and Deep Model with Criteo](https://nvidia-merlin.github.io/HugeCTR/v3.8/notebooks/hugectr_wdl_prediction.html)
+    notebook.
+
++ **Issues Fixed**:
+  + The data generator for the Parquet file type is fixed and produces consistent file names between the `_metadata.json` file and the actual dataset files.
+    Previously, running the data generator to create synthetic data resulted in a core dump.
+    This issue was first reported in the GitHub issue [321](https://github.com/NVIDIA-Merlin/HugeCTR/issues/321).
+  + Fixed the memory crash in running a large model on multiple GPUs that occurred during AUC warm up.
+  + Fixed the issue of keyset generation in the ETC notebook.
+    Refer to the GitHub issue [332](https://github.com/NVIDIA-Merlin/HugeCTR/issues/332) for more details.
+  + Fixed the inference build error that occurred when building with debug mode.
+  + Fixed the issue that multi-node training prints duplicate messages.
+
++ **Known Issues**:
+  + Hybrid embedding with `IB_NVLINK` as the `communication_type` of the
+    [`HybridEmbeddingParam`](https://nvidia-merlin.github.io/HugeCTR/v3.8/api/python_interface.html#hybridembeddingparam-class)
+    class does not work currently. We are working on fixing it. The other communication types have no issues.
+  + HugeCTR uses NCCL to share data between ranks and NCCL can require shared system memory for IPC and pinned (page-locked) system memory resources.
+    If you use NCCL inside a container, increase these resources by specifying the following arguments when you start the container:
+
+    ```shell
+      -shm-size=1g -ulimit memlock=-1
+    ```
+
+    See also the NCCL [known issue](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/troubleshooting.html#sharing-data) and the GitHub [issue](https://github.com/NVIDIA-Merlin/HugeCTR/issues/243).
+  + `KafkaProducers` startup succeeds even if the target Kafka broker is unresponsive.
+    To avoid data loss in conjunction with streaming-model updates from Kafka, you have to make sure that a sufficient number of Kafka brokers are running, operating properly, and are reachable from the node where you run HugeCTR.
+  + The number of data files in the file list should be greater than or equal to the number of data reader workers.
+    Otherwise, different workers are mapped to the same file and data loading does not progress as expected.
+  + Joint loss training with a regularizer is not supported.
+
 ## What's New in Version 3.7
 
 + **3G Embedding Developer Preview**:
@@ -157,7 +224,7 @@ The default log format now includes milliseconds.
 
 + **Improved Debugging Capability**: The old logging system, which was flagged as deprecated for some time has been removed. All remaining log messages and outputs have been revised and migrated to the new logging system (base/debug/logging.hpp/cpp). During this revision, we also adjusted log levels for log messages throughout the entire codebase to improve visibility of relevant information.
 
-+ **Support HDFS Parameter Server in Training**: 
++ **Support HDFS Parameter Server in Training**:
     + Decoupled HDFS in Merlin containers to make the HDFS support more flexible. Users can now compile HDFS related functionalities optionally.
     + Now supports loading and dumping models and optimizer states from HDFS.
     + Added a [notebook](notebooks/training_with_hdfs.ipynb) to show how to use HugeCTR with HDFS.
@@ -169,7 +236,7 @@ The default log format now includes milliseconds.
 + **Python Script and documentation demonstrating how to analyze model files**: In this release, we provide a script to retrieve vocabulary information from model file. Please find more details on the README in the [tools/model_analyzer](https://github.com/NVIDIA-Merlin/HugeCTR/tree/v3.4.1/tools/model_analyzer) directory of the repository.
 
 + **Issues fixed**:
-    + Mirror strategy bug in SOK (see in https://github.com/NVIDIA-Merlin/HugeCTR/issues/291)  
+    + Mirror strategy bug in SOK (see in https://github.com/NVIDIA-Merlin/HugeCTR/issues/291)
     + Can't import sparse operation kit in nvcr.io/nvidia/merlin/merlin-tensorflow-training:22.04 (see in https://github.com/NVIDIA-Merlin/HugeCTR/issues/296)
     + HPS: Fixed access violation that can occur during initialization when not configuring a volatile DB.
 
@@ -186,7 +253,7 @@ The default log format now includes milliseconds.
         + We're introducing a new DataSourceParams API, which is a python API that can be used to specify the file system and paths to data and model files.
         + We've added support for loading data from HDFS to the local file system for HugeCTR training.
         + We've added support for dumping trained model and optimizer states into HDFS.
-    + **New Load API Capabilities**: In addition to being able to deploy new models, the HugeCTR Backend's [Load API](https://github.com/triton-inference-server/server/blob/main/docs/protocol/extension_model_repository.md#load) can now be used to update the dense parameters for models and corresponding embedding inference cache online. 
+    + **New Load API Capabilities**: In addition to being able to deploy new models, the HugeCTR Backend's [Load API](https://github.com/triton-inference-server/server/blob/main/docs/protocol/extension_model_repository.md#load) can now be used to update the dense parameters for models and corresponding embedding inference cache online.
 
 + **Sparse Operation Kit (SOK) Enhancements**:
     + **Mixed Precision Training**: Enabling mixed precision training using TensorFlow’s pattern to enhance the training performance and lessen memory usage is now possible.
@@ -214,23 +281,23 @@ The default log format now includes milliseconds.
         + You'll no longer encounter the access violation issue when updating Apache Kafka online.
     	+ The parquet data reader no longer incorrectly parses the index of categorical features when multiple embedded tables are being used.
     	+ The HPS Redis Backend overflow is now invoked during single insertions.
-    
+
 + **New GroupDenseLayer**: We're introducing a new GroupDenseLayer. It can be used to group fused fully connected layers when constructing the model graph. A simplified Python interface is provided for adjusting the number of layers and specifying the output dimensions in each layer, which makes it easy to leverage the highly-optimized fused fully connected layers in HugeCTR. For more information, refer to [GroupDenseLayer](https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html#groupdenselayer).
 
-+ **Global Fixes**: 
++ **Global Fixes**:
    + A warning message now appears when attempting to launch a multi-process job before importing the mpi.
    + When running with embedding training cache, a massive log is no longer generated.
    + Legacy conda information has been removed from the HugeCTR documentation.
 
 ## What's New in Version 3.3
 
-+ **Hierarchical Parameter Server (HPS) Enhancements**: 
++ **Hierarchical Parameter Server (HPS) Enhancements**:
     + **Support for Incremental Model Updates**: HPS now supports incremental model updates via Apache Kafka (a distributed event streaming platform) message queues. With this enhancement, HugeCTR can now be connected with Apache Kafka deployments to update models in real time during training and inference. For more information, refer to the [Demo Notebok](https://github.com/triton-inference-server/hugectr_backend/tree/main/samples/hierarchical_deployment/hps_e2e_demo).
     + **Improvements to the Memory Management**: The Redis cluster and CPU memory database backends are now the primary sources for memory management. When performing incremental model updates, these memory database backends will automatically evict infrequently used embeddings as training progresses. The performance of the Redis cluster and CPU memory database backends have also been improved.
     + **New Asynchronous Refresh Mechanism**: Support for asynchronous refreshing of incremental embedding keys into the embedding cache has been added. The Refresh operation will be triggered when completing the model version iteration or outputting incremental parameters from online training. The Distributed Database and Persistent Database will be updated by Apache Kafka. The GPU embedding cache will then refresh the values of the existing embedding keys and replace them with the latest incremental embedding vectors. For more information, refer to the [HPS README](https://github.com/triton-inference-server/hugectr_backend#hugectr-hierarchical-parameter-server).
-    + **Configurable Backend Implementations for Databases**: Backend implementations for databases are now fully configurable. 
+    + **Configurable Backend Implementations for Databases**: Backend implementations for databases are now fully configurable.
     + **Improvements to the JSON Interface Parser**: The JSON interface parser can now handle inaccurate parameterization.
-    + **More Meaningful Jabber**: As requested, we've revised the log levels throughout the entire API database backend of the HPS. Selected configuration options are now printed entirely and uniformly to the log. Errors provide more verbose information about pending issues. 
+    + **More Meaningful Jabber**: As requested, we've revised the log levels throughout the entire API database backend of the HPS. Selected configuration options are now printed entirely and uniformly to the log. Errors provide more verbose information about pending issues.
 
 + **Sparse Operation Kit (SOK) Enhancements**:
     + **TensorFlow (TF) 1.15 Support**: SOK can now be used with TensorFlow 1.15. For more information, refer to [README](https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/get_started/get_started.html#tensorflow-1-15).
@@ -298,7 +365,7 @@ The default log format now includes milliseconds.
 + **Multi-Node Support for Embedding Training Cache (ETC)**: We’ve enabled multi-node support for the embedding training cache. You can now train a model with a terabyte-size embedding table using one node or multiple nodes even if the entire embedding table can't fit into the GPU memory. We're also introducing the host memory (HMEM) based parameter server (PS) along with its SSD-based counterpart. If the sparse model can fit into the host memory of each training node, the optimized HMEM-based PS can provide better model loading and dumping performance with a more effective bandwidth. For more information, refer to [HugeCTR Python Interface](https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html).
 
 + **Enhancements to the Multi-Nodes TensorFlow Plugin**: The Multi-Nodes TensorFlow Plugin now supports multi-node synchronized training via tf.distribute.MultiWorkerMirroredStrategy. With minimal code changes, you can now easily scale your single GPU training to multi-node multi GPU training. The Multi-Nodes TensorFlow Plugin also supports multi-node synchronized training via Horovod. The inputs for embedding plugins are now data parallel, so the datareader no longer needs to preprocess data for different GPUs based on concrete embedding algorithms. For more information, see the `sparse_operation_kit_demo.ipynb` notebook in the [sparse_operation_kit/notebooks](https://github.com/NVIDIA-Merlin/HugeCTR/tree/v3.2/sparse_operation_kit/notebooks) directory of the repository.
-	
+
 + **NCF Model Support**: We've added support for the NCF model, as well as the GMF and NeuMF variant models. With this enhancement, we're introducing a new element-wise multiplication layer and HitRate evaluation metric. Sample code was added that demonstrates how to preprocess user-item interaction data and train a NCF model with it. New examples have also been added that demonstrate how to train NCF models using MovieLens datasets.
 
 + **DIN and DIEN Model Support**: All of our layers support the DIN model. The following layers support the DIEN model: FusedReshapeConcat, FusedReshapeConcatGeneral, Gather, GRU, PReLUDice, ReduceMean, Scale, Softmax, and Sub. We also added sample code to demonstrate how to use the Amazon dataset to train the DIN model. See our sample programs in the [samples/din](https://github.com/NVIDIA-Merlin/HugeCTR/tree/v3.1/samples/din) directory of the repository.
