@@ -73,9 +73,8 @@ The following table also identifies the containers:
 
 | Container Name             | Container Location | Functionality |
 | -------------------------- | ------------------ | ------------- |
-| merlin-inference           | https://catalog.ngc.nvidia.com/orgs/nvidia/teams/merlin/containers/merlin-inference | NVTabular, HugeCTR, and Triton Inference |
-| merlin-training            | https://catalog.ngc.nvidia.com/orgs/nvidia/teams/merlin/containers/merlin-training | NVTabular and HugeCTR                    |
-| merlin-tensorflow-training | https://catalog.ngc.nvidia.com/orgs/nvidia/teams/merlin/containers/merlin-tensorflow-training | NVTabular, TensorFlow, and HugeCTR Tensorflow Embedding plugin |
+| merlin-hugectr             | https://catalog.ngc.nvidia.com/orgs/nvidia/teams/merlin/containers/merlin-hugectr | NVTabular, HugeCTR, and Triton Inference |
+| merlin-tensorflow          | https://catalog.ngc.nvidia.com/orgs/nvidia/teams/merlin/containers/merlin-tensorflow | NVTabular, TensorFlow, and HugeCTR Tensorflow Embedding plugin |
 
 To use these Docker containers, you'll first need to install the [NVIDIA Container Toolkit](https://github.com/NVIDIA/nvidia-docker) to provide GPU support for Docker. You can use the NGC links referenced in the table above to obtain more information about how to launch and run these containers.
 
@@ -83,7 +82,7 @@ The following sample command pulls and starts the Merlin Training container:
 
 ```shell
 # Run the container in interactive mode
-$ docker run --gpus=all --rm -it --cap-add SYS_NICE nvcr.io/nvidia/merlin/merlin-training:22.06
+$ docker run --gpus=all --rm -it --cap-add SYS_NICE nvcr.io/nvidia/merlin/merlin-hugectr:22.07
 ```
 
 ### Building HugeCTR from Scratch
