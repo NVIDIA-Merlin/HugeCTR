@@ -81,7 +81,7 @@ file(GLOB huge_ctr_inference_src
 set(CMAKE_CXX_STANDARD 17)
 add_library(huge_ctr_inference SHARED ${huge_ctr_inference_src})
 
-file(GLOB huge_ctr_hdfs_backend_src ${CMAKE_CURRENT_SOURCE_DIR}/../hdfs_backend.cpp)
+file(GLOB huge_ctr_hdfs_backend_src ${CMAKE_CURRENT_SOURCE_DIR}/../data_source/hdfs_backend.cpp)
 add_library(huge_ctr_hdfs_backend SHARED ${huge_ctr_hdfs_backend_src})
 if(ENABLE_HDFS)
   target_link_libraries(
@@ -92,6 +92,12 @@ if(ENABLE_HDFS)
 endif()
 
 target_link_libraries(huge_ctr_inference PUBLIC cudart cublas curand cudnn nccl cudf stdc++fs tbb huge_ctr_hdfs_backend ${CMAKE_THREAD_LIBS_INIT})
+
+target_link_libraries(huge_ctr_inference PUBLIC  numa )
+
+if(Parquet_FOUND)
+target_link_libraries(huge_ctr_inference PUBLIC parquet)
+endif()
 
 target_link_libraries(huge_ctr_inference PUBLIC huge_ctr_hps)
 

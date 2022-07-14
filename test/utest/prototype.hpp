@@ -6,8 +6,6 @@
 #include "embedding_table.hpp"
 #include "operators/operator.hpp"
 
-
-
 // struct State {
 //   enum class ScheduleHint {
 //     H2D,
@@ -34,7 +32,7 @@
 
 // // Per Device. Workable for datareader/embedding/layer/optimizer
 // class Pipeline {
-  
+
 //   struct GraphWrapper {
 //     bool initialized = false;
 //     cudaGraph_t graph;
@@ -47,7 +45,7 @@
 //   using DataOperatorPair = std::pair<DataBag, Pipelineable*>;
 //   std::vector<DataOperatorPair> pipelineable_list_;
 //   std::unordered_map<Pipelineable*, Pipelineable*> dependency_;
-  
+
 //   Device device_;
 //  public:
 //   void construct_pipeline(Session &session);

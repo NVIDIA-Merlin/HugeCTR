@@ -1,0 +1,19 @@
+{
+    "supportlonglong": false,
+    "models": [{
+        "model": "naive_dnn",
+        "sparse_files": ["naive_dnn_sparse.model"],
+        "num_of_worker_buffer_in_pool": 3,
+        "embedding_table_names":["sparse_embedding1"],
+        "embedding_vecsize_per_table": [16],
+        "maxnum_catfeature_query_per_table_per_sample": [3],
+        "default_value_for_each_table": [1.0],
+        "deployed_device_list": [0],
+        "max_batch_size": 16384,
+        "cache_refresh_percentage_per_iteration": 0.2,
+        "hit_rate_threshold": 1.0,
+        "gpucacheper": 1.0,
+        "gpucache": true
+        }
+    ]
+}

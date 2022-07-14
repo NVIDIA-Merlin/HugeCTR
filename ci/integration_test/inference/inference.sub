@@ -4,4 +4,7 @@ srun --ntasks="${SLURM_JOB_NUM_NODES}" --container-image="${CONT}" --container-m
       cd /dataset/criteo_kaggle/dcn && \
       python3 /workdir/test/pybind_test/dcn_inference.py /workdir/test/scripts/dcn_inference.json DCN /hugectr/test/utest/dcn_csr.txt && \
       python3 /workdir/test/pybind_test/wdl_multitable_test.py wdl  /hugectr/test/utest/wdl_test_files/wdl_infer.new.json /hugectr/test/utest/wdl_test_files/wdl_dense_2000.model /hugectr/test/utest/wdl_test_files/wdl0_sparse_2000.model,/hugectr/test/utest/wdl_test_files/wdl1_sparse_2000.model  /hugectr/test/utest/wdl_test_files/first_ten.csv && \
-      python3 /workdir/test/pybind_test/movielens_nodense_test.py movielens_hugectr  /hugectr/test/utest/movie_test_files/movielens.json /hugectr/test/utest/movie_test_files/_dense_1900.model /hugectr/test/utest/movie_test_files/0_sparse_1900.model  /hugectr/test/utest/movie_test_files/test.parquet"
+      python3 /workdir/test/pybind_test/movielens_nodense_test.py movielens_hugectr  /hugectr/test/utest/movie_test_files/movielens.json /hugectr/test/utest/movie_test_files/_dense_1900.model /hugectr/test/utest/movie_test_files/0_sparse_1900.model  /hugectr/test/utest/movie_test_files/test.parquet && \
+      pip3 install torch==1.9.0+cu111 torchvision==0.10.0+cu111 torchaudio==0.9.0 -f https://download.pytorch.org/whl/torch_stable.html && \
+      pip install tensorflow && \
+      python3 /workdir/test/inference_correctness/hpsdlpack.py hpsdlpack /hugectr/test/utest/wdl_test_files/wdl0_sparse_2000.model,/hugectr/test/utest/wdl_test_files/wdl1_sparse_2000.model  /hugectr/test/utest/wdl_test_files/first_ten.csv"

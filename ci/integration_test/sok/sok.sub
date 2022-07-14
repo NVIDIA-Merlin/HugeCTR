@@ -9,7 +9,7 @@ sleep 10
 EXITCODE=`sacct -j "${SLURM_JOBID}" -n --format=exitcode | sort -r -u | head -1 | cut -f 1 -d":" | sed 's/ //g'`
 echo "Job exit code: ${EXITCODE}"
 
-if [ ${EXITCODE} -eq 6 ]&&[ ${CI_JOB_NAME}=="sparse_operation_kit-TF2" ]; then
+if [[ ${EXITCODE} -eq 6 && ${CI_JOB_NAME} == "sparse_operation_kit-TF2" ]]; then
        echo "Rerun the job, if job exit code is 6 and job name is sparse_operation_kit-TF2."
        srun --ntasks=1 --container-image="${CONT}" --container-mounts="${MOUNTS}" bash -cx " \
                cd /workdir/sparse_operation_kit/unit_test/test_scripts && \

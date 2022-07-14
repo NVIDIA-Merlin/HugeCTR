@@ -15,6 +15,7 @@
 """
 
 from tensorflow import __version__ as tf_version
+
 if tf_version.startswith("1"):
     # only TF 1.15 needs this wrapper
     from .loss_scale_optimizer import LossScaleOptimizer

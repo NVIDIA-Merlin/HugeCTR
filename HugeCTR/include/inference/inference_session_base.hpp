@@ -28,7 +28,7 @@ class InferenceSessionBase {
   InferenceSessionBase& operator=(InferenceSessionBase const&) = delete;
 
   virtual void predict(float* d_dense, void* h_embeddingcolumns, int* d_row_ptrs, float* d_output,
-                       int num_samples) = 0;
+                       int num_samples, bool table_major_key_layout = false) = 0;
 
   static std::shared_ptr<InferenceSessionBase> create(
       const std::string& model_config_path, const InferenceParams& inference_params,

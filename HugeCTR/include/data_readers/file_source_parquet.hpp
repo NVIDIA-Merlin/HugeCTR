@@ -32,33 +32,35 @@
 #include "data_readers/file_list.hpp"
 #include "data_readers/metadata.hpp"
 #include "data_readers/source.hpp"
+#include "file_loader.hpp"
 
 namespace HugeCTR {
 using namespace cudf;
 namespace cudf_io = cudf::io;
 class ParquetFileSource : public Source {
  private:
-  FileList file_list_;           /**< file list of data set */
-  std::ifstream in_file_stream_; /**< file stream of data set file */
+  FileList file_list_; /**< file list of data set */
   const long long offset_;
-  const long long stride_;
+  const unsigned int worker_id_;
+  const long long stride_;  // num_workers
   unsigned int counter_{0};
-  long long curr_row_idx_;
-  long long file_total_rows_; /**< Total rows in current file, read from Metadata */
-  std::string file_name_;     /**< file name of current file */
-  cudf_io::parquet_reader_options parquet_args;
+  long long curr_row_idx_;                  // current row offset within current file
+  long long row_group_offset_;              // first row offset of current group
+  long long file_total_rows_;               /**< Total rows in current file, read from Metadata */
+  std::vector<long long> rows_file_offset_; /**< Total rows in all files, read from Metadata */
+  std::string file_name_;                   /**< file name of current file */
+  cudf_io::parquet_reader_options parquet_args_;
   bool can_read_file_;     /**< Flag if parquet file is readable/reachable */
   Metadata file_metadata_; /**< Metadata object for the file */
   std::unique_ptr<cudf_io::table_with_metadata> cached_row_group_table_;
-  int curr_row_group_;
-  int row_group_index_;
-  int row_group_size_;
-  cudaStream_t slice_stream_; /**< worker stream for slicing row_group */
-  size_t file_size_;          /**< Size of parquet file in bytes */
-  char* mmapped_data_;        /**< Memory mapped file pointer */
-  int fd_;                    /**< File descriptor for mapped file */
+  int curr_row_group_;                      // current row_group
+  int row_group_index_;                     // current row offset within current row_group
+  int row_group_size_;                      // size of current row_group
+  cudaStream_t slice_stream_;               /**< worker stream for slicing row_group */
+  std::unique_ptr<FileLoader> file_loader_; /**< loader to load data from file system to memory */
 
-  bool repeat_;
+  const bool repeat_;
+  const bool sequential_file_consumption_;
   /**
    * Private Helper function to get metdata file address
    */
@@ -83,35 +85,45 @@ class ParquetFileSource : public Source {
   /**
    * Ctor
    */
-  ParquetFileSource(unsigned int offset, unsigned int stride, const std::string& file_list,
-                    bool repeat)
+  ParquetFileSource(unsigned int worker_id, unsigned int stride, const std::string& file_list,
+                    bool sequtial_file_consumption, bool repeat,
+                    const DataSourceParams& data_source_params)
       : file_list_(file_list),
         repeat_(repeat),
-        offset_(offset),
+        sequential_file_consumption_(sequtial_file_consumption),
+        worker_id_(worker_id),
         stride_(stride),
         can_read_file_(false),
         file_metadata_(),
         cached_row_group_table_(),
         curr_row_group_(0),
-        file_size_(0),
-        mmapped_data_(nullptr),
-        fd_(-1) {
+        row_group_offset_(0),
+        offset_(worker_id * !(sequtial_file_consumption)) {
     slice_stream_ = NULL;
-    HCTR_CHECK_HINT(
-        file_list_.get_num_of_files() >= stride_,
-        "The number of data reader workers should be no greater than the number of files in the "
-        "file list. There is one worker on each GPU for Parquet dataset, please re-configure vvgpu "
-        "within CreateSolver or guarantee enough files in the file list.");
+    file_loader_ = std::make_unique<FileLoader>(data_source_params);
+    // load _metadata.json
+    std::string metadata_file_name = get_metada_filename(file_list_.get_a_file_with_id(0, true));
+    if (!(file_metadata_.get_metadata_status())) {
+      file_metadata_.get_parquet_metadata(metadata_file_name);
+      rows_file_offset_ = std::move(file_metadata_.get_rows_file_offset());
+    }
+
+    if (file_list_.get_num_of_files() < stride_ && !sequtial_file_consumption) {
+      HCTR_LOG(WARNING, ROOT,
+               "The number of data reader workers should be no greater than the number of files in "
+               "concurrent mode \n");
+    }
+    // HCTR_CHECK_HINT(
+    //     file_list_.get_num_of_files() >= stride_,
+    //     "The number of data reader workers should be no greater than the number of files in the "
+    //     "file list. There is one worker on each GPU for Parquet dataset, please re-configure
+    //     vvgpu " "within CreateSolver or guarantee enough files in the file list.");
   }
 
   ~ParquetFileSource() {
     cudaStreamDestroy(slice_stream_);
     slice_stream_ = NULL;
-    if (fd_ != -1) {
-      munmap(mmapped_data_, file_size_);
-      close(fd_);
-      fd_ = -1;
-    }
+    file_loader_->clean();
   }
 
   /**
@@ -123,70 +135,48 @@ class ParquetFileSource : public Source {
   Error_t read(char* ptr, size_t bytes_to_read) noexcept { return Error_t::IllegalCall; }
 
   /**
-   * Start a new file to read.
+   * Start a new file to read. mmap() parquet to memory
    * @return `Success`, `FileCannotOpen` or `UnspecificError`
    */
+  // counter_ always points to next file name
   Error_t next_source() noexcept {
     try {
-      if (fd_ != -1) {
-        munmap(mmapped_data_, file_size_);
-        close(fd_);
-        fd_ = -1;
-        can_read_file_ = false;
+      file_loader_->clean();
+      can_read_file_ = false;
+      if (sequential_file_consumption_) {
+        // counter_ % num_files = file_id
+        file_name_ = file_list_.get_a_file_with_id(counter_, repeat_);
+      } else {
+        // (offset_ + counter_ * stride_) % num_files = file_id
+        file_name_ = file_list_.get_a_file_with_id(offset_ + counter_ * stride_, repeat_);
       }
-      file_name_ = file_list_.get_a_file_with_id(offset_ + counter_ * stride_, repeat_);
-      // std::ostringstream os;
-      // os << "worker_id " << offset << " counter_ " << " counter_ "
       counter_++;  // counter_ should be accum for every source.
       // check if file exists
       if (file_name_.empty()) {
         return Error_t::EndOfFile;
       }
-      in_file_stream_.open(file_name_, std::ifstream::binary);
-      if (!in_file_stream_.is_open()) {
-        HCTR_LOG_S(ERROR, WORLD) << "in_file_stream_.is_open() failed: " << file_name_ << ' '
-                                 << HCTR_LOCATION() << std::endl;
-        return Error_t::FileCannotOpen;
-      }
-      // evaluate parquet file size
-      in_file_stream_.seekg(0, std::ios::end);
-      file_size_ = in_file_stream_.tellg();
-      in_file_stream_.close();
 
-      fd_ = open(file_name_.c_str(), O_RDONLY, 0);
-      if (fd_ == -1) {
-        HCTR_LOG_S(ERROR, WORLD) << "Error open file for read " << HCTR_LOCATION() << std::endl;
-        return Error_t::BrokenFile;
+      Error_t err = file_loader_->load(file_name_);
+      if (err != Error_t::Success) {
+        return err;
       }
 
-      mmapped_data_ = (char*)mmap(0, file_size_, PROT_READ, MAP_PRIVATE, fd_, 0);
-      if (mmapped_data_ == MAP_FAILED) {
-        close(fd_);
-        fd_ = -1;
-        HCTR_LOG_S(ERROR, WORLD) << "Error mmapping the file " << HCTR_LOCATION() << std::endl;
-        return Error_t::BrokenFile;
-      }
-
-      parquet_args =
-          cudf_io::parquet_reader_options::builder(cudf_io::source_info{mmapped_data_, file_size_});
+      parquet_args_ = cudf_io::parquet_reader_options::builder(cudf_io::source_info{
+          file_loader_->get_loaded_data(), file_loader_->get_current_file_size()});
       curr_row_idx_ = 0;  // set row to zero id
       file_total_rows_ = 0;
       curr_row_group_ = 0;
       row_group_index_ = 0;
       row_group_size_ = 0;
-
+      row_group_offset_ = 0;
       can_read_file_ = true;
 
       if (file_list_.get_file_type().compare("parquet") == 0) {
-        std::string metadata_file_name = get_metada_filename(file_name_);
-        // single metadata json file, dont need to read again if init'd
-        // if required - realloc Metadata obj then read
-        if (!(file_metadata_.get_metadata_status()))
-          file_metadata_.get_parquet_metadata(metadata_file_name);
+        HCTR_CHECK_HINT(file_metadata_.get_metadata_status(), "Please load _metadata.json first\n");
         file_total_rows_ =
             (long long)(file_metadata_.get_file_stats(get_filename(file_name_)).num_rows);
-        HCTR_LOG_S(DEBUG, WORLD) << "file_name_ " << file_name_ << " file_total_rows_ "
-                                 << file_total_rows_ << std::endl;
+        // HCTR_LOG_S(INFO, WORLD) << "file_name_ " << file_name_ << " file_total_rows_ "
+        //                          << file_total_rows_ << std::endl;
       } else {
         HCTR_LOG_S(ERROR, WORLD) << "Parquet files not found - check file extensions "
                                  << HCTR_LOCATION() << std::endl;
@@ -199,9 +189,8 @@ class ParquetFileSource : public Source {
       return Error_t::UnspecificError;
     }
   }
-
   bool is_open() noexcept { return can_read_file_; }
-
+  void set_row_idx(long long idx) { curr_row_idx_ = idx; }
   /**
    * Read "num_rows" from the memory-mapped parquet file
    * @param num_rows number of rows to read from Parquet file, -1 is single row_group
@@ -225,23 +214,24 @@ class ParquetFileSource : public Source {
         // read and inc row_group and send back
         std::vector<cudf::size_type> row_list = {curr_row_group_};
         std::vector<std::vector<cudf::size_type>> rgrps = {row_list};
-        parquet_args.set_row_groups(rgrps);
-        parquet_args.set_skip_rows(0);
-        parquet_args.set_num_rows(-1);
-        parquet_args.set_timestamp_type(cudf::data_type(cudf::type_id::EMPTY));
-        auto tbl_w_metadata = cudf_io::read_parquet(parquet_args, mr);
+        parquet_args_.set_row_groups(rgrps);
+        parquet_args_.set_skip_rows(0);
+        parquet_args_.set_num_rows(-1);
+        parquet_args_.set_timestamp_type(cudf::data_type(cudf::type_id::EMPTY));
+        auto tbl_w_metadata = cudf_io::read_parquet(parquet_args_, mr);
         curr_row_group_++;
         curr_row_idx_ += tbl_w_metadata.tbl->num_rows();
+        row_group_offset_ += tbl_w_metadata.tbl->num_rows();
         nvtxRangePop();
         return tbl_w_metadata;
       } else {
-        // parquet_args.row_group = -1; // set zero to use num_rows and skip_rows param
+        // parquet_args_.row_group = -1; // set zero to use num_rows and skip_rows param
         std::vector<std::vector<cudf::size_type>> rgrps;
-        parquet_args.set_row_groups(rgrps);
-        parquet_args.set_skip_rows(curr_row_idx_);
-        parquet_args.set_num_rows(num_rows);
-        parquet_args.set_timestamp_type(cudf::data_type(cudf::type_id::EMPTY));
-        auto tbl_w_metadata = cudf_io::read_parquet(parquet_args, mr);
+        parquet_args_.set_row_groups(rgrps);
+        parquet_args_.set_skip_rows(curr_row_idx_);
+        parquet_args_.set_num_rows(num_rows);
+        parquet_args_.set_timestamp_type(cudf::data_type(cudf::type_id::EMPTY));
+        auto tbl_w_metadata = cudf_io::read_parquet(parquet_args_, mr);
 
         curr_row_idx_ += num_rows;
         nvtxRangePop();
@@ -259,14 +249,14 @@ class ParquetFileSource : public Source {
         if (cached_row_group_table_.get() == nullptr) {
           std::vector<cudf::size_type> row_list = {curr_row_group_};
           std::vector<std::vector<cudf::size_type>> rgrps = {row_list};
-          parquet_args.set_row_groups(rgrps);  // set zero to use num_rows and skip_rows param
-          // parquet_args.row_group_count = 1; // set zero to use num_rows and skip_rows param
-          parquet_args.set_skip_rows(0);
-          parquet_args.set_num_rows(-1);
-          parquet_args.set_timestamp_type(cudf::data_type(cudf::type_id::EMPTY));
+          parquet_args_.set_row_groups(rgrps);  // set zero to use num_rows and skip_rows param
+          // parquet_args_.row_group_count = 1; // set zero to use num_rows and skip_rows param
+          parquet_args_.set_skip_rows(0);
+          parquet_args_.set_num_rows(-1);
+          parquet_args_.set_timestamp_type(cudf::data_type(cudf::type_id::EMPTY));
           curr_row_group_++;
           cached_row_group_table_ = std::make_unique<cudf_io::table_with_metadata>(
-              cudf_io::read_parquet(parquet_args, mr));
+              cudf_io::read_parquet(parquet_args_, mr));
           row_group_size_ = cached_row_group_table_.get()->tbl->num_rows();
           row_group_index_ = 0;
         }
@@ -315,8 +305,157 @@ class ParquetFileSource : public Source {
     return x;
   }
 
+  /*
+    jump to specific parquet file caclulated through global_record_id;
+    if dst == cur, dont need to load again
+  */
+  Error_t seek_by_records(long long global_record_id, long long batchsize) {
+#ifdef ENABLE_ARROW_PARQUET
+
+    HCTR_CHECK_HINT(global_record_id >= 0,
+                    "Parquet file source: seek_by_records() requires global_record_id > 0");
+
+    std::string file_name("");
+    int num_files = file_list_.get_num_of_files();
+    long long num_rows_total_files = file_metadata_.get_num_rows_total_files();
+    if (!repeat_ && global_record_id >= num_rows_total_files) {
+      return Error_t::EndOfFile;
+    }
+    if (sequential_file_consumption_) {
+      long long round = global_record_id / num_rows_total_files;
+      long long file_offset_round = global_record_id % num_rows_total_files;
+      // which file input record lies in ?
+      auto upper =
+          std::upper_bound(rows_file_offset_.begin(), rows_file_offset_.end(), file_offset_round);
+
+      if (upper == rows_file_offset_.end()) {
+        HCTR_OWN_THROW(Error_t::UnspecificError, "Parquet file source: global_record_id overflow");
+      }
+      upper = upper - 1;
+      long long calculated_file_id = std::distance(rows_file_offset_.begin(), upper);
+
+      std::string calculated_file_name = file_list_.get_a_file_with_id(calculated_file_id, repeat_);
+      // get row_group_size of cur file
+      std::vector<long long> row_groups_offset =
+          file_metadata_.get_file_stats(get_filename(calculated_file_name)).row_groups_offset;
+      // binary search... find which row_group lies in
+      auto upper_row_group =
+          std::upper_bound(row_groups_offset.begin(), row_groups_offset.end(), curr_row_idx_);
+      upper_row_group -= 1;
+
+      // get file where current record lies in
+      // in case current file is dst file to seek
+      // if ((calculated_file_id + 1) % num_files != (counter_ % num_files)) {
+      if (calculated_file_id % num_files != (counter_ - 1) % num_files) {
+        // HCTR_LOG(INFO, ROOT,
+        //        "calculated_file_id reset !cal:act %d: %d\n",calculated_file_id,counter_ %
+        //        num_files - 1);
+        // next_soure will read file[counter_]
+        counter_ = static_cast<unsigned int>(round * num_files + calculated_file_id);
+        // will reset current row_group
+        this->next_source();
+      } else {
+        counter_ = static_cast<unsigned int>(round * num_files + calculated_file_id + 1);
+      }
+      curr_row_idx_ = file_offset_round - *(upper);
+      curr_row_group_ = std::distance(row_groups_offset.begin(), (upper_row_group));
+      row_group_index_ = curr_row_idx_ - *upper_row_group;
+      row_group_offset_ = *upper_row_group;
+      // HCTR_LOG(INFO, ROOT,"file_offset_round is %d,upper is %d\n",file_offset_round,*(upper));
+
+      HCTR_LOG(INFO, ROOT,
+               "workerid %d global_record_id %d round is %ld reset calculated_file_id is %ld, "
+               "counter_ is "
+               "%d, curr_row_idx_ is %ld, row_group_id is %ld, row_group_index_ is %ld\n",
+               worker_id_, global_record_id, round, calculated_file_id, counter_, curr_row_idx_,
+               curr_row_group_, row_group_index_);
+
+    } else {
+      long long global_batch_id = global_record_id / batchsize;
+      long long batchmod = global_record_id % batchsize;
+
+      long long dst_worker_id = global_batch_id % stride_;
+      long long local_batch_id = global_batch_id / stride_;
+      long long local_rows = local_batch_id * batchsize;
+      HCTR_CHECK_HINT(batchmod == 0,
+                      "Parquet file source: seek_by_records() requires global_record_id aligned "
+                      "with batchsize");
+
+      HCTR_CHECK_HINT(dst_worker_id == worker_id_,
+                      "Parquet file source: cannot seek parquet rows to other workers' files");
+      long long cnt = offset_;
+      long long record_iter = 0;
+      long long file_id_iter = cnt % num_files;
+      // linear lookup... find which file record lies in
+      while (record_iter <= local_rows) {
+        file_id_iter = cnt % num_files;
+        cnt += stride_;
+        record_iter += rows_file_offset_[file_id_iter + 1] - rows_file_offset_[file_id_iter];
+      }
+      record_iter -= rows_file_offset_[file_id_iter + 1] - rows_file_offset_[file_id_iter];
+      cnt -= stride_;
+      long long calculated_file_id = cnt % num_files;
+      std::string calculated_file_name = file_list_.get_a_file_with_id(calculated_file_id, repeat_);
+      // get row_group_size of cur file
+      std::vector<long long> row_groups_offset =
+          file_metadata_.get_file_stats(get_filename(calculated_file_name)).row_groups_offset;
+      // binary search... find which row_group lies in
+
+      auto upper = std::upper_bound(row_groups_offset.begin(), row_groups_offset.end(),
+                                    local_rows - record_iter);
+      upper -= 1;
+      // if(local_rows - record_iter != *upper){
+      //   HCTR_LOG(ERROR, ROOT,
+      //          "Parquet file source:In concurrent file loading mode, seek_by_records must align
+      //          with row_group\n");
+      //   return Error_t::WrongInput;
+      // }
+      curr_row_idx_ = local_rows - record_iter;
+      curr_row_group_ = std::distance(row_groups_offset.begin(), (upper));
+      row_group_index_ = curr_row_idx_ - *upper;
+      row_group_offset_ = *upper;
+      // HCTR_LOG(INFO, ROOT,
+      //          "calculated_file_id %ld cur_row_group_ %ld row_group_index_ %ld row_group_offset_
+      //          %ld\n",calculated_file_id,curr_row_group_,row_group_index_,row_group_offset_);
+      // in case current file is dst file to seek
+      if (calculated_file_id != (offset_ + (counter_ - 1) * stride_) % num_files) {
+        counter_ = cnt;
+        // HCTR_LOG(INFO, ROOT,
+        //        "calculated_file_id cal:act %d: %d \n",calculated_file_id,(offset_ + (counter_ -
+        //        1)* stride_) % num_files);
+        // next_soure will inc counter_;
+        this->next_source();
+      } else {
+        counter_ = cnt + 1;
+      }
+
+      HCTR_LOG(INFO, ROOT,
+               "workerid %d global_record_id %d reset calculated_file_id is %ld, counter_ is "
+               "%d, curr_row_idx_ is %ld, row_group_id is %ld, row_group_index_ is %ld\n",
+               worker_id_, global_record_id, calculated_file_id, counter_, curr_row_idx_,
+               curr_row_group_, row_group_index_);
+    }
+    return Error_t::Success;
+
+#else
+    return Error_t::InvalidEnv;
+#endif
+  }
   const Metadata& get_file_metadata() { return file_metadata_; }
+  int get_cur_file_id() {
+    // counter_ always points to the next file to be read
+    int num_files = file_list_.get_num_of_files();
+    if (sequential_file_consumption_) {
+      return (counter_ - 1) % num_files;
+    } else {
+      return offset_ + (counter_ - 1) * stride_ % num_files;
+    }
+  }
   long long get_num_rows() { return file_total_rows_; }
+  long long get_offset_to_read_within_file() { return curr_row_idx_; }
+  long long get_row_group_to_read() { return curr_row_group_; }
+  long long get_offset_to_read_within_group() { return row_group_index_; }
+  long long get_group_offset_to_read_within_file() { return row_group_offset_; }
 };
 
 }  // namespace HugeCTR

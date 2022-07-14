@@ -51,8 +51,6 @@ class InferenceModel {
 
   std::shared_ptr<IDataReader> data_reader_;
   std::vector<Tensor2<float>> pred_tensor_list_;           // the length equals local_gpu_count
-  std::vector<Tensor2<float>> label_tensor_list_;          // the length equals local_gpu_count
-  std::vector<Tensor2<float>> dense_tensor_list_;          // the length equals local_gpu_count
   std::vector<Tensor2<long long>> key_tensor_list_64_;     // the length equals local_gpu_count
   std::vector<Tensor2<unsigned int>> key_tensor_list_32_;  // the length equals local_gpu_count
   std::vector<Tensor2<int>> rowoffset_tensor_list_;        // the length equals local_gpu_count
@@ -67,6 +65,10 @@ class InferenceModel {
 
   const long long global_max_batch_size_;
   long long current_batch_size_{0};
+
+  Timer timer_infer;
+  Timer timer_reader;
+  Timer timer_forward;
 
   void reset_reader_tensor_list();
 

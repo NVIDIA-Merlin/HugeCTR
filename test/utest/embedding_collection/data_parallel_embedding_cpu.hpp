@@ -71,8 +71,6 @@ struct DPForwardIndicesCPU {
   }
 };
 
-
-
 template <typename key_t, typename offset_t, typename index_t, typename emb_t>
 class DataParallelEmbeddingCPU {
  public:
@@ -145,13 +143,13 @@ class DataParallelEmbeddingCPU {
       forward_indices_.emplace_back(local_embedding_list_[gpu_id], gpu_id, num_gpus_);
     }
 
-    unique_key_list_.resize(num_gpus);   
-    sorted_bucket_id_list_.resize(num_gpus);   
-    sorted_bucket_id_offset_list_.resize(num_gpus);   
+    unique_key_list_.resize(num_gpus);
+    sorted_bucket_id_list_.resize(num_gpus);
+    sorted_bucket_id_offset_list_.resize(num_gpus);
     num_unique_key_scan_list_.resize(num_gpus);
     for (int gpu_id = 0; gpu_id < num_gpus; ++gpu_id) {
       grad_.emplace_back(ebc_param.universal_batch_size, local_id_space_list_[gpu_id],
-                                        local_ev_size_list_[gpu_id], local_hotness_list_[gpu_id]);
+                         local_ev_size_list_[gpu_id], local_hotness_list_[gpu_id]);
     }
   }
 
@@ -159,7 +157,8 @@ class DataParallelEmbeddingCPU {
                                     const EmbeddingTableCPU<key_t, index_t> &emb_table_cpu,
                                     std::vector<std::vector<emb_t>> &embedding_vec) {
     int batch_size_per_gpu = batch_size / num_gpus_;
-    RaggedEmbForwardResultViewCPU<emb_t> forward_result_view{&embedding_vec[gpu_id], &ev_size_list_, &ev_offset_list_, batch_size_per_gpu};
+    RaggedEmbForwardResultViewCPU<emb_t> forward_result_view{&embedding_vec[gpu_id], &ev_size_list_,
+                                                             &ev_offset_list_, batch_size_per_gpu};
 
     auto &indices = forward_indices_[gpu_id];
     for (int bucket_id = 0; bucket_id < static_cast<int>(indices.dp_offset_list_.size()) - 1;
@@ -178,7 +177,8 @@ class DataParallelEmbeddingCPU {
       uint32_t end = indices.dp_offset_list_[bucket_id + 1];
       for (uint32_t r = 0; r < (end - start); ++r) {
         key_t k = indices.dp_key_list_[start + r];
-        ASSERT_TRUE(emb_table_cpu.emb_table_list_[id_space].find(k) != emb_table_cpu.emb_table_list_[id_space].end());
+        ASSERT_TRUE(emb_table_cpu.emb_table_list_[id_space].find(k) !=
+                    emb_table_cpu.emb_table_list_[id_space].end());
         auto ev = emb_table_cpu.emb_table_list_[id_space].at(k);
         assert(ev.size() == accumulate_vec.size());
 
@@ -189,7 +189,7 @@ class DataParallelEmbeddingCPU {
 
       if (combiner == static_cast<char>(Combiner::Average) && (end - start) > 0) {
         for (int i = 0; i < dst_ev.size(); ++i) {
-         accumulate_vec[i] /= (end - start);
+          accumulate_vec[i] /= (end - start);
         }
       }
 
@@ -230,7 +230,6 @@ class DataParallelEmbeddingCPU {
 
     std::vector<std::unordered_map<key_t, std::vector<float>>> local_reduce_grad_info;
     local_reduce_grad_info.resize(grad_info.size());
-    
 
     for (size_t idx = 0; idx < local_id_space_list_[gpu_id].size(); ++idx) {
       int id_space = local_id_space_list_[gpu_id][idx];
@@ -270,7 +269,7 @@ class DataParallelEmbeddingCPU {
 
       auto &local_grad_in_current_id_space = local_reduce_grad_info[id_space];
       auto &grad_info_in_current_id_space = grad_info[id_space];
-      for (auto &[k, ev]: local_grad_in_current_id_space) {
+      for (auto &[k, ev] : local_grad_in_current_id_space) {
         if (grad_info_in_current_id_space.find(k) == grad_info_in_current_id_space.end()) {
           grad_info_in_current_id_space[k].assign(ev_size, 0.f);
         }

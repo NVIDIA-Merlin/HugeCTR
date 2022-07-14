@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #pragma once
+
 #include "HugeCTR/core/buffer.hpp"
 #include "HugeCTR/core/registry.hpp"
 
@@ -53,8 +54,8 @@ class ModelIndexCalculation {
                         DataType key_type);
 
   void compute(const Tensor& key, const Tensor& bucket_range, size_t num_key,
-               const Tensor& d_local_embedding_list, int sharding_id, int num_sharding,
-               int batch_size, Tensor* model_key, Tensor* model_idx_offsets, size_t* num_model_key);
+               const Tensor& d_local_embedding_list, int shard_id, int shards_count, int batch_size,
+               Tensor* model_key, Tensor* model_idx_offsets, size_t* num_model_key);
 };
 
 class ModelBackwardIndexCalculation {
@@ -87,7 +88,6 @@ class ModelBackwardIndexCalculation {
   Tensor d_temp_run_length_encode_storage_;
   Tensor d_temp_scan_encode_storage_;
 
-  Tensor d_temp_id_space_count_;
  public:
   ModelBackwardIndexCalculation() = default;
 

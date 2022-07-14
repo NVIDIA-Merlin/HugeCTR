@@ -36,14 +36,16 @@ class RaggedEmbForwardResultViewCPU
   using value_type = typename base::value_type;
   using difference_type = typename base::difference_type;
 
-  RaggedEmbForwardResultViewCPU(std::vector<emb_t>* forward_result, const std::vector<int> *ev_size_list,
+  RaggedEmbForwardResultViewCPU(std::vector<emb_t> *forward_result,
+                                const std::vector<int> *ev_size_list,
                                 const std::vector<int> *ev_offset_list, int batch_size_per_gpu)
       : forward_result_(forward_result),
         ev_size_list_(ev_size_list),
         ev_offset_list_(ev_offset_list),
         batch_size_per_gpu_(batch_size_per_gpu) {}
 
-  // RaggedEmbForwardResultViewCPU(std::vector<emb_t> *forward_result, const std::vector<int> *ev_size_list,
+  // RaggedEmbForwardResultViewCPU(std::vector<emb_t> *forward_result, const std::vector<int>
+  // *ev_size_list,
   //                               const std::vector<int> *ev_offset_list, int batch_size_per_gpu)
   //     : forward_result_(forward_result),
   //       ev_size_list_(ev_size_list),
@@ -85,8 +87,7 @@ class RaggedModelBufferViewCPU
         local_ev_offset_list_(local_ev_offset_list),
         num_gpus_(num_gpus),
         batch_size_(batch_size),
-        batch_size_per_gpu_(batch_size / num_gpus) {
-  }
+        batch_size_per_gpu_(batch_size / num_gpus) {}
 
   value_type operator[](difference_type idx) {
     int embedding_id = idx / batch_size_;
@@ -149,9 +150,9 @@ class RaggedNetworkBufferViewCPU
 };
 
 template <typename emb_t>
-class RaggedGradBufferViewCPU :
-  public std::iterator<std::random_access_iterator_tag, ArrayView<emb_t>>{
-private:
+class RaggedGradBufferViewCPU
+    : public std::iterator<std::random_access_iterator_tag, ArrayView<emb_t>> {
+ private:
   const std::vector<int> *ev_size_scan_list_;
   std::vector<emb_t> *grad_;
 
@@ -160,13 +161,8 @@ private:
   using value_type = typename base::value_type;
   using difference_type = typename base::difference_type;
 
-  RaggedGradBufferViewCPU(
-    const std::vector<int> *ev_size_scan_list,
-    std::vector<emb_t> *grad
-  )
-      : ev_size_scan_list_(ev_size_scan_list),
-        grad_(grad) {
-  }
+  RaggedGradBufferViewCPU(const std::vector<int> *ev_size_scan_list, std::vector<emb_t> *grad)
+      : ev_size_scan_list_(ev_size_scan_list), grad_(grad) {}
 
   value_type operator[](difference_type idx) {
     int ev_size = ev_size_scan_list_->at(idx + 1) - ev_size_scan_list_->at(idx);
@@ -183,7 +179,9 @@ struct RaggedGradBufferCPU {
   std::vector<int> unique_ev_size_list_;
   std::vector<emb_t> grad_;
 
-  RaggedGradBufferCPU(int batch_size, const std::vector<int> &local_id_space_list, const std::vector<int> &local_ev_size_list, const std::vector<int> &local_hotness_list) {
+  RaggedGradBufferCPU(int batch_size, const std::vector<int> &local_id_space_list,
+                      const std::vector<int> &local_ev_size_list,
+                      const std::vector<int> &local_hotness_list) {
     for (size_t i = 0; i < local_id_space_list.size(); ++i) {
       int id_space = local_id_space_list[i];
       if ((i == 0) || (id_space > unique_id_space_list_.back())) {
@@ -199,4 +197,3 @@ struct RaggedGradBufferCPU {
     grad_.resize(max_num_elems);
   }
 };
-

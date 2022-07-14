@@ -323,7 +323,7 @@ LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::
 #ifdef ENABLE_MPI
     {
       int num_processor;
-      MPI_Comm_size(MPI_COMM_WORLD, &num_processor);
+      HCTR_MPI_THROW(MPI_Comm_size(MPI_COMM_WORLD, &num_processor));
       if (num_processor > 1) {
         throw std::runtime_error(
             std::string("[HCDEBUG][ERROR] Runtime error: Localized_slot_sparse_embedding_one_hot "
@@ -627,17 +627,17 @@ LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::
     if (embedding_data_.get_resource_manager().get_local_gpu_count() > 1 &&
         !embedding_data_.get_resource_manager().all_p2p_enabled()) {
       throw std::runtime_error(
-          std::string("[HCDEBUG][ERROR] Runtime error: Localized_slot_sparse_embedding_one_hot "
-                      "cannot be used on machine without GPU peer2peer access support. \n"));
+          "[HCDEBUG][ERROR] Runtime error: Localized_slot_sparse_embedding_one_hot cannot be used "
+          "on machine without GPU peer2peer access support.\n");
     }
 #ifdef ENABLE_MPI
     {
       int num_processor;
-      MPI_Comm_size(MPI_COMM_WORLD, &num_processor);
+      HCTR_MPI_THROW(MPI_Comm_size(MPI_COMM_WORLD, &num_processor));
       if (num_processor > 1) {
         throw std::runtime_error(
-            std::string("[HCDEBUG][ERROR] Runtime error: Localized_slot_sparse_embedding_one_hot "
-                        "cannot support multi-node currently. \n"));
+            "[HCDEBUG][ERROR] Runtime error: Localized_slot_sparse_embedding_one_hot cannot "
+            "support multi-node currently.\n");
       }
     }
 #endif

@@ -221,7 +221,8 @@ void data_reader_norm_test_impl(const std::vector<int> &device_list, int num_thr
   for (int iter = 0; iter < 50; ++iter) {
     long long current_batch_size = data_reader.read_a_batch_to_device();
     if (current_batch_size == 0) break;
-    std::cout << "iter:" << iter << ",current_batch_size:" << current_batch_size << std::endl;
+    HCTR_LOG_S(DEBUG, WORLD) << "iter:" << iter << ", current_batch_size:" << current_batch_size
+                             << std::endl;
     if (repeat) {
       ASSERT_TRUE(current_batch_size == batchsize);
     }
@@ -263,7 +264,7 @@ TEST(data_reader_test, data_reader_test_epoch_3) {
 //   test::mpi_init();
 //   int numprocs = 1;
 // #ifdef ENABLE_MPI
-//   MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
+//   HCTR_MPI_THROW(MPI_Comm_size(MPI_COMM_WORLD, &numprocs));
 // #endif
 
 //   std::vector<std::vector<int>> vvgpu;
@@ -308,16 +309,16 @@ TEST(data_reader_test, data_reader_test_epoch_3) {
 //                                             max_nnz);
 
 //   test::mpi_init();
-//   MPI_Comm_rank(MPI_COMM_WORLD, &pid);
-//   MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
+//   HCTR_MPI_THROW(MPI_Comm_rank(MPI_COMM_WORLD, &pid));
+//   HCTR_MPI_THROW(MPI_Comm_size(MPI_COMM_WORLD, &numprocs));
 
 //   if (numprocs != 2) {
-//     std::cout << "numprocs != 2" << std::endl;
+//     HCTR_LOG_S(DEBUG, WORLD) << "numprocs != 2" << std::endl;
 //     ASSERT_TRUE(false);
 //   }
 
 //   {
-//     std::cout << "two Nodes 4 GPUs first batch\n" << std::endl;
+//     HCTR_LOG_S(DEBUG, WORLD) << "two Nodes 4 GPUs first batch\n" << std::endl;
 //     // vvgpu suppose you have at least 4 gpus for each node
 //     std::vector<std::vector<int>> vvgpu;
 //     std::vector<int> device_list_0 = {0, 1};
@@ -341,14 +342,14 @@ TEST(data_reader_test, data_reader_test_epoch_3) {
 //         print_tensor(*data_reader.get_value_tensors()[1], 0, 10);
 //         print_tensor(*data_reader.get_row_offsets_tensors()[1], 0, 10); */
 
-//     std::cout << "two Nodes 4 GPUs second batch\n" << std::endl;
+//     HCTR_LOG_S(DEBUG, WORLD) << "two Nodes 4 GPUs second batch\n" << std::endl;
 //     data_reader.read_a_batch_to_device();
 //     /*     print_tensor(*data_reader.get_label_tensors()[1], -10, -1);
 //         print_tensor(*dynamic_tensor_cast<float>(data_reader.get_dense_tensors()[1]), -10, -1);
 //         print_tensor(*data_reader.get_value_tensors()[1], 0, 10);
 //         print_tensor(*data_reader.get_row_offsets_tensors()[1], 0, 10); */
 //   }
-//   std::cout << "Single Node 4 GPUs\n" << std::endl;
+//   HCTR_LOG_S(DEBUG, WORLD) << "Single Node 4 GPUs\n" << std::endl;
 //   if (pid == 0) {
 //     std::vector<std::vector<int>> vvgpu;
 //     std::vector<int> device_list_0 = {0, 1, 2, 3};

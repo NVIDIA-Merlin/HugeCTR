@@ -979,10 +979,10 @@ void InteractionLayer<T>::fprop(bool is_train) {
   cudaDataType_t b_type = CUDA_R_32F;
   cudaDataType_t c_type = CUDA_R_32F;
 
-  cublasComputeType_t compute_type =
+  const cublasComputeType_t compute_type =
       enable_tf32_compute_ ? CUBLAS_COMPUTE_32F_FAST_TF32 : CUBLAS_COMPUTE_32F;
 
-  cublasGemmAlgo_t algo =
+  const cublasGemmAlgo_t algo =
       use_mixed_precision_ ? CUBLAS_GEMM_DEFAULT_TENSOR_OP : CUBLAS_GEMM_DEFAULT;
 
   HCTR_LIB_THROW(cublasGemmStridedBatchedEx(get_gpu().get_cublas_handle(), CUBLAS_OP_T, CUBLAS_OP_N,
@@ -1062,10 +1062,10 @@ void InteractionLayer<T>::bprop() {
   cudaDataType_t b_type = CUDA_R_32F;
   cudaDataType_t c_type = CUDA_R_32F;
 
-  cublasComputeType_t compute_type =
+  const cublasComputeType_t compute_type =
       enable_tf32_compute_ ? CUBLAS_COMPUTE_32F_FAST_TF32 : CUBLAS_COMPUTE_32F;
 
-  cublasGemmAlgo_t algo =
+  const cublasGemmAlgo_t algo =
       use_mixed_precision_ ? CUBLAS_GEMM_DEFAULT_TENSOR_OP : CUBLAS_GEMM_DEFAULT;
 
   // mat = mat + T(mat)

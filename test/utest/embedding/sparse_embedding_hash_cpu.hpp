@@ -243,7 +243,7 @@ SparseEmbeddingHashCpu<TypeHashKey, TypeEmbeddingComp>::SparseEmbeddingHashCpu(
       combiner_(combiner),
       opt_params_(opt_params) {
 #ifndef NDEBUG
-  PRINT_FUNC_NAME_();
+  HCTR_PRINT_FUNC_NAME_();
 #endif
 
   // malloc memory
@@ -342,7 +342,7 @@ SparseEmbeddingHashCpu<TypeHashKey, TypeEmbeddingComp>::SparseEmbeddingHashCpu(
 template <typename TypeHashKey, typename TypeEmbeddingComp>
 SparseEmbeddingHashCpu<TypeHashKey, TypeEmbeddingComp>::~SparseEmbeddingHashCpu() {
 #ifndef NDEBUG
-  PRINT_FUNC_NAME_();
+  HCTR_PRINT_FUNC_NAME_();
 #endif
 }
 
@@ -449,7 +449,7 @@ void SparseEmbeddingHashCpu<TypeHashKey, TypeEmbeddingComp>::cpu_forward_mean(
 template <typename TypeHashKey, typename TypeEmbeddingComp>
 void SparseEmbeddingHashCpu<TypeHashKey, TypeEmbeddingComp>::forward() {
 #ifndef NDEBUG
-  PRINT_FUNC_NAME_();
+  HCTR_PRINT_FUNC_NAME_();
 #endif
 
   read_a_batch();
@@ -513,7 +513,7 @@ void SparseEmbeddingHashCpu<TypeHashKey, TypeEmbeddingComp>::cpu_backward_mean(
 template <typename TypeHashKey, typename TypeEmbeddingComp>
 void SparseEmbeddingHashCpu<TypeHashKey, TypeEmbeddingComp>::backward() {
 #ifndef NDEBUG
-  PRINT_FUNC_NAME_();
+  HCTR_PRINT_FUNC_NAME_();
 #endif
 
   if (combiner_ == 0) {
@@ -845,7 +845,7 @@ void SparseEmbeddingHashCpu<TypeHashKey, TypeEmbeddingComp>::cpu_optimizer_sgd(
 template <typename TypeHashKey, typename TypeEmbeddingComp>
 void SparseEmbeddingHashCpu<TypeHashKey, TypeEmbeddingComp>::update_params() {
 #ifndef NDEBUG
-  PRINT_FUNC_NAME_();
+  HCTR_PRINT_FUNC_NAME_();
 #endif
 
   // step1: extend sample IDs

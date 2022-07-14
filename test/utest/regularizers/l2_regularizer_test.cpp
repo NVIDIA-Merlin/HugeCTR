@@ -64,7 +64,7 @@ void l2_regularizer_test(size_t batch_size, std::vector<std::pair<size_t, size_t
 
     std::vector<float> h_weight(len);
     simulator.fill(h_weight.data(), len);
-    cudaMemcpy(weight.get_ptr(), h_weight.data(), n_bytes, cudaMemcpyHostToDevice);
+    HCTR_LIB_THROW(cudaMemcpy(weight.get_ptr(), h_weight.data(), n_bytes, cudaMemcpyHostToDevice));
     h_weights.push_back(h_weight);
   }
 
@@ -95,7 +95,8 @@ void l2_regularizer_test(size_t batch_size, std::vector<std::pair<size_t, size_t
 
     std::vector<float> out_wgrad;
     out_wgrad.resize(len);
-    cudaMemcpy(&out_wgrad.front(), wgrad.get_ptr(), n_bytes, cudaMemcpyDeviceToHost);
+    HCTR_LIB_THROW(
+        cudaMemcpy(&out_wgrad.front(), wgrad.get_ptr(), n_bytes, cudaMemcpyDeviceToHost));
 
     std::vector<float> ref_wgrad;
     for (size_t j = 0; j < len; j++) {

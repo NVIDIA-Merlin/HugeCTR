@@ -68,9 +68,9 @@ GpuLearningRateScheduler::GpuLearningRateScheduler(float base_lr, size_t warmup_
   }
 
   CudaDeviceContext context(gpu_resource_->get_device_id());
-  cudaStreamCreate(&lr_stream_);
-  cudaEventCreate(&fork_event_);
-  cudaEventCreate(&join_event_);
+  HCTR_LIB_THROW(cudaStreamCreate(&lr_stream_));
+  HCTR_LIB_THROW(cudaEventCreate(&fork_event_));
+  HCTR_LIB_THROW(cudaEventCreate(&join_event_));
   HCTR_LIB_THROW(cudaMalloc(&step_, sizeof(size_t)));
   HCTR_LIB_THROW(cudaMalloc(&current_lr_, sizeof(float)));
   HCTR_LIB_THROW(cudaMalloc(&last_lr_, sizeof(float)));
@@ -81,12 +81,12 @@ GpuLearningRateScheduler::GpuLearningRateScheduler(float base_lr, size_t warmup_
 }
 
 GpuLearningRateScheduler::~GpuLearningRateScheduler() {
-  cudaFree(step_);
-  cudaFree(current_lr_);
-  cudaFree(last_lr_);
-  cudaStreamDestroy(lr_stream_);
-  cudaEventDestroy(fork_event_);
-  cudaEventDestroy(join_event_);
+  HCTR_LIB_THROW(cudaFree(step_));
+  HCTR_LIB_THROW(cudaFree(current_lr_));
+  HCTR_LIB_THROW(cudaFree(last_lr_));
+  HCTR_LIB_THROW(cudaStreamDestroy(lr_stream_));
+  HCTR_LIB_THROW(cudaEventDestroy(fork_event_));
+  HCTR_LIB_THROW(cudaEventDestroy(join_event_));
 }
 
 void GpuLearningRateScheduler::update() {

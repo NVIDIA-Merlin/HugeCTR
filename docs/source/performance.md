@@ -3,9 +3,9 @@
 Finding ways to enhance HugeCTR's performance is one of our top priorities. Unlike other frameworks, we apply all the optimizations in the mlperf submission for each release. 
 
 We've tested HugeCTR's performance on the following systems:
-* [MLPerf on DGX-2 and DGX A100](evaluating-hugectrs-performance-on-the-dgx-2-and-dgx-a100)
-* [DGX-1](evaluating-hugectrs-performance-on-the-dgx-1)
-* [TensorFlow (TF)](evaluating-hugectrs-performance-on-tensorflow)
+* [MLPerf on DGX-2 and DGX A100](#mlperf-on-dgx-2-and-dgx-a100)
+* [Evaluating HugeCTR's Performance on the DGX-1](#evaluating-hugectrs-performance-on-the-dgx-1)
+* [Evaluating HugeCTR's Performance on TensorFlow](#evaluating-hugectrs-performance-on-tensorflow)
 
 ## MLPerf on DGX-2 and DGX A100
 The DLRM benchmark was submitted to [MLPerf Training v0.7](https://mlperf.org/training-results-0-7) with the release of HugeCTR version 2.2 and [MLPerf Training v1.0](https://mlcommons.org/en/news/mlperf-training-v10) with the release of HugeCTR version 3.1. We used the [Criteo 1TB Click Logs dataset](https://labs.criteo.com/2013/12/download-terabyte-click-logs/), which contains 4 billion user and item interactions over 24 days. The DGX-2 with 16 V100 GPUs and DGX A100 with eight A100 GPUs were the target machines. For more information, see [this blog post](https://developer.nvidia.com/blog/optimizing-ai-performance-for-mlperf-v0-7-training/).
@@ -29,7 +29,7 @@ Dataset:
 The data is provided by [CriteoLabs](http://labs.criteo.com/2014/02/kaggle-display-advertising-challenge-dataset/). The original training set contains 45,840,617 examples. Each example contains a label (0 by default OR 1 if the ad was clicked) and 39 features in which 13 are integer and 26 are categorical.
 
 Preprocessing:
-* Common: Preprocessed by using the scripts available in [tools/criteo_script](..tools/criteo_script).
+* Common: Preprocessed by using the scripts available in the [tools/criteo_script](https://github.com/NVIDIA-Merlin/HugeCTR/tree/master/tools/criteo_script) directory of the GitHub repository.
 * HugeCTR: Converted to the HugeCTR data format with criteo2hugectr.
 * TF: Converted to the TFRecord format for efficient training on Tensorflow.
 

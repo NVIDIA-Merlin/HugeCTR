@@ -20,7 +20,6 @@
 #include "HugeCTR/include/common.hpp"
 #include "HugeCTR/include/embeddings/embedding_data.hpp"
 #include "HugeCTR/include/embeddings/sparse_embedding_functors.hpp"
-#include "HugeCTR/include/hdfs_backend.hpp"
 #include "HugeCTR/include/utils.hpp"
 
 namespace HugeCTR {

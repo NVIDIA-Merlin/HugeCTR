@@ -19,6 +19,11 @@
 
 namespace HugeCTR {
 
+#ifndef NUMA_NODE_MAP
+#define NUMA_NODE_MAP
+std::unordered_map<int, int> CudaCPUDeviceContext::device_id_to_numa_node_;
+#endif
+
 template <typename TIN, typename TOUT>
 void convert_array_on_device(TOUT *out, const TIN *in, size_t num_elements,
                              const cudaStream_t &stream) {
