@@ -27,10 +27,12 @@ std::vector<std::unique_ptr<IEmbeddingTable>> create_embedding_table(
     const std::vector<EmbeddingTableParam> &emb_table_param_list,
     const std::vector<EmbeddingShardingParam> &emb_sharding_param_list) {
   int num_local_gpu = core_list.size();
-  auto check_id_space = [&]{
+  auto check_id_space = [&] {
     for (size_t i = 0; i < emb_table_param_list.size(); ++i) {
-      const EmbeddingTableParam & emb_table_param = emb_table_param_list[i];
-      HCTR_CHECK_HINT(emb_table_param.id_space == static_cast<int>(i), "create_embedding_table failed! embedding table id space should be sorted and continous.");
+      const EmbeddingTableParam &emb_table_param = emb_table_param_list[i];
+      HCTR_CHECK_HINT(emb_table_param.id_space == static_cast<int>(i),
+                      "create_embedding_table failed! embedding table id space should be sorted "
+                      "and continous.");
     }
     int max_id_space = emb_table_param_list.size();
 
@@ -40,14 +42,16 @@ std::vector<std::unique_ptr<IEmbeddingTable>> create_embedding_table(
       const EmbeddingShardingParam &local_sharding_param = emb_sharding_param_list[global_gpu_id];
       for (int embedding_id : local_sharding_param.local_embedding_list) {
         int id_space = emb_collection_param.embedding_params[embedding_id].id_space;
-        HCTR_CHECK_HINT(id_space < max_id_space, "create_embedding_table failed! embedding id_space is not match with embedding table id_space.");
+        HCTR_CHECK_HINT(id_space < max_id_space,
+                        "create_embedding_table failed! embedding id_space is not match with "
+                        "embedding table id_space.");
       }
     }
   };
 
   check_id_space();
 
-  auto check_optimizer = [&]{
+  auto check_optimizer = [&] {
     for (int local_gpu_id = 0; local_gpu_id < num_local_gpu; ++local_gpu_id) {
       auto core = core_list[local_gpu_id];
       int global_gpu_id = core->get_global_gpu_id();
@@ -59,7 +63,9 @@ std::vector<std::unique_ptr<IEmbeddingTable>> create_embedding_table(
         int first_id_space = emb_collection_param.embedding_params[0].id_space;
         const auto &first_opt_param = emb_table_param_list[first_id_space].opt_param;
 
-        HCTR_CHECK_HINT(opt_param == first_opt_param, "create_embedding_table failed! only support sharding table with same optimizer.");
+        HCTR_CHECK_HINT(
+            opt_param == first_opt_param,
+            "create_embedding_table failed! only support sharding table with same optimizer.");
       }
     }
   };
@@ -81,8 +87,8 @@ std::vector<std::unique_ptr<IEmbeddingTable>> create_embedding_table(
     const EmbeddingShardingParam &local_sharding_param = emb_sharding_param_list[global_gpu_id];
 
     embedding_table_list.push_back(std::make_unique<RaggedStaticEmbeddingTable>(
-        *resource_manager->get_local_gpu(local_gpu_id), core, emb_table_param_list, emb_collection_param,
-        local_sharding_param, get_opt_params(local_sharding_param)));
+        *resource_manager->get_local_gpu(local_gpu_id), core, emb_table_param_list,
+        emb_collection_param, local_sharding_param, get_opt_params(local_sharding_param)));
     // TODO: add support for dynamic embedding table
   }
   return embedding_table_list;

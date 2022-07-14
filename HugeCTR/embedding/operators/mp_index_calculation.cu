@@ -25,8 +25,8 @@ namespace {
 
 template <typename key_t, typename offset_t>
 __global__ void index_calculation_kernel(const key_t* key, const offset_t* bucket_range,
-                                         const int* local_embedding_list, int sharding_id,
-                                         int num_sharding, int batch_size, int num_local_embedding,
+                                         const int* local_embedding_list, int shard_id,
+                                         int shards_count, int batch_size, int num_local_embedding,
                                          uint32_t* model_idx_offsets, char* flag) {
   int tid = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -41,7 +41,7 @@ __global__ void index_calculation_kernel(const key_t* key, const offset_t* bucke
     uint32_t flag_cnt = 0;
     for (uint32_t idx = 0; idx < (bucket_end - bucket_start); ++idx) {
       key_t k = key[idx + bucket_start];
-      if (k % num_sharding == sharding_id) {
+      if (k % shards_count == shard_id) {
         flag[idx + bucket_start] = 1;
         flag_cnt += 1;
       }
@@ -164,9 +164,38 @@ __global__ void extract_unique_key_and_dst_offset_kernel(
   }
 }
 
+template <typename key_t, int kWarpPerBlock = 1, int kWarpSize = 32>
+__global__ void count_unique_key_kernel(const key_t* hash_keys, const uint32_t* hash_offset,
+                                        int num_unique_id_space, uint32_t* unique_key_count) {
+  int warp_id = 0;
+  int lane_id = threadIdx.x;
+  int block_id = blockIdx.x;
+
+  int count = 0;
+  if (block_id < num_unique_id_space) {
+    int start = hash_offset[block_id];
+    int end = hash_offset[block_id + 1];
+    for (int i = 0; i * kWarpSize + lane_id < (end - start); ++i) {
+      count += (hash_keys[start + i * kWarpSize + lane_id] == empty_key<key_t>) ? 0 : 1;
+    }
+  }
+
+  typedef cub::WarpReduce<int> WarpReduce;
+  __shared__ typename WarpReduce::TempStorage temp_storage[kWarpPerBlock];
+  int aggregate = WarpReduce(temp_storage[warp_id]).Sum(count);
+
+  if (lane_id == 0) {
+    unique_key_count[block_id + 1] = aggregate;
+    if (block_id == 0) {
+      unique_key_count[0] = 0;
+    }
+  }
+}
+
 template <typename key_t, int kWarpPerBlock, int kWarpSize = 32>
 __global__ void scan_id_space_offset(const key_t* hash_keys, const uint32_t* hash_offset,
-                                     int num_unique_id_space, uint32_t* unique_id_space_offset, uint32_t *temp_id_space_value) {
+                                     int num_unique_id_space, uint32_t* unique_id_space_offset,
+                                     uint32_t* temp_id_space_value) {
   int warp_id = threadIdx.y;
   int lane_id = threadIdx.x;
 
@@ -191,12 +220,9 @@ __global__ void scan_id_space_offset(const key_t* hash_keys, const uint32_t* has
 
   if (threadIdx.x + threadIdx.y * blockDim.x == 0) {
     uint32_t prefix_sum = 0;
-    for (int i = 0; i < num_unique_id_space; ++i) {
-      temp_id_space_value[i] = s_id_space_offset[i];
-    }
     for (int i = 0; i < num_unique_id_space + 1; ++i) {
       unique_id_space_offset[i] = prefix_sum;
-      
+
       prefix_sum += static_cast<uint32_t>(s_id_space_offset[i]);
     }
   }
@@ -250,8 +276,8 @@ ModelIndexCalculation::ModelIndexCalculation(std::shared_ptr<CoreResourceManager
 }
 
 void ModelIndexCalculation::compute(const Tensor& key, const Tensor& bucket_range, size_t num_key,
-                                    const Tensor& d_local_embedding_list, int sharding_id,
-                                    int num_sharding, int batch_size, Tensor* model_key,
+                                    const Tensor& d_local_embedding_list, int shard_id,
+                                    int shards_count, int batch_size, Tensor* model_key,
                                     Tensor* model_idx_offsets, size_t* num_model_key) {
   CudaDeviceContext ctx(core_->get_device_id());
 
@@ -278,8 +304,8 @@ void ModelIndexCalculation::compute(const Tensor& key, const Tensor& bucket_rang
         int thread_cnt = 128;
         int block_cnt = (batch_size * num_local_embedding_ - 1) / thread_cnt + 1;
         index_calculation_kernel<<<block_cnt, thread_cnt, 0, stream>>>(
-            key_ptr, bucket_range_ptr, local_embedding_list_ptr, sharding_id, num_sharding,
-            batch_size, num_local_embedding_, model_idx_offsets_ptr, flag_ptr);
+            key_ptr, bucket_range_ptr, local_embedding_list_ptr, shard_id, shards_count, batch_size,
+            num_local_embedding_, model_idx_offsets_ptr, flag_ptr);
 
         size_t d_temp_scan_storage_nbytes = d_temp_scan_storage_.nbytes();
         cub::DeviceScan::InclusiveSum(d_temp_scan_storage_.get(), d_temp_scan_storage_nbytes,
@@ -370,12 +396,12 @@ ModelBackwardIndexCalculation::ModelBackwardIndexCalculation(
   }
   {
     size_t temp_bytes = 0;
-    cub::DeviceScan::InclusiveSum(nullptr, temp_bytes, (uint32_t*)nullptr, (uint32_t*)nullptr,
-                                  universal_batch_size * local_hotness_sum);
+    cub::DeviceScan::InclusiveSum(
+        nullptr, temp_bytes, (uint32_t*)nullptr, (uint32_t*)nullptr,
+        std::max(static_cast<int64_t>(universal_batch_size * local_hotness_sum),
+                 unique_id_space_offset_.get_num_elements()));
     d_temp_scan_encode_storage_ = buffer_ptr->reserve({temp_bytes}, device, TensorScalarType::Void);
   }
-  d_temp_id_space_count_ = buffer_ptr->reserve({h_unique_id_space_ev_size_list.size()},
-                                                      DeviceType::GPU, TensorScalarType::UInt32);
   buffer_ptr->allocate();
   unique_id_space_list_.copy_from(h_unique_id_space_list);
   unique_id_space_ev_size_list_.copy_from(h_unique_id_space_ev_size_list);
@@ -470,21 +496,18 @@ void ModelBackwardIndexCalculation::compute(
       }
       {
         int num_unique_id_space = static_cast<int>(unique_id_space_list_.get_num_elements());
-        // set to 16 to avoid too much resources usage in one sm
-        if (num_unique_id_space > 16) {
-          HCTR_OWN_THROW(HugeCTR::Error_t::WrongInput,
-                         "ModelBackwardIndexCalculation does not support unique id space > 16");
-        }
-        dim3 block_size{32, 16};
-        scan_id_space_offset<key_t, 16><<<1, block_size, 0, stream>>>(
+        count_unique_key_kernel<<<num_unique_id_space, 32, 0, stream>>>(
             hash_keys_.get<key_t>(), hash_offset_.get<uint32_t>(), num_unique_id_space,
-            unique_id_space_offset_.get<uint32_t>(), d_temp_id_space_count_.get<uint32_t>());
+            unique_id_space_offset_.get<uint32_t>());
 
-        
         HCTR_LIB_THROW(cudaPeekAtLastError());
       }
       {
         size_t nbytes = d_temp_scan_encode_storage_.nbytes();
+        cub::DeviceScan::InclusiveSum(d_temp_scan_encode_storage_.get(), nbytes,
+                                      unique_id_space_offset_.get<uint32_t>(),
+                                      unique_id_space_offset_.get<uint32_t>(),
+                                      unique_id_space_offset_.get_num_elements(), stream);
         cub::DeviceScan::InclusiveSum(
             d_temp_scan_encode_storage_.get(), nbytes, unique_dst_idx_.get<uint32_t>(),
             unique_dst_idx_.get<uint32_t>(), unique_dst_idx_.get_num_elements(), stream);

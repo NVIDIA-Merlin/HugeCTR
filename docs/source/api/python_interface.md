@@ -1,5 +1,13 @@
 # HugeCTR Python Interface
 
+```{contents}
+---
+depth: 2
+local: true
+backlinks: none
+---
+```
+
 ## About the HugeCTR Python Interface
 
 As a recommendation system domain specific framework, HugeCTR has a set of high level abstracted Python Interface which includes training API and inference API. Users only need to focus on algorithm design, the training and inference jobs can be automatically deployed on the specific hardware topology in the optimized manner. From version 3.1, users can complete the process of training and inference without manually writing JSON configuration files. All supported functionalities have been wrapped into high-level Python APIs. Meanwhile, the low-level training API is maintained for users who want to have precise control of each training iteration and each evaluation step. Still, the high-level training API is friendly to users who are already familiar with other deep learning frameworks like Keras and it is worthwhile to switch to it from low-level training API. Please refer to [HugeCTR Python Interface Notebook](../notebooks/hugectr_criteo.ipynb) to get familiar with the workflow of HugeCTR training and inference. Meanwhile we have a lot of samples for demonstration in the [`samples`](https://github.com/NVIDIA-Merlin/HugeCTR/tree/master/samples) directory of the HugeCTR repository.
@@ -61,19 +69,19 @@ hugectr.CreateSolver()
 
 * `use_cuda_graph`: Whether to enable cuda graph for dense network forward and backward propagation. The default value is `True`.
 
-* `device_layout`: The layout of the device map for the resource manager. The supported options include `DeviceLayout.LocalFirst` and `DeviceLayout.NODE_FIRST`. If `DeviceLayout.NODE_FIRST` is employed, all nodes should have same number of devices. This argument is restricted to MLPerf use and the default value is `DeviceLayout.LocalFirst`.
+* `device_layout`: this option is deprecated and no longer used.
 
-* `use_holistic_cuda_graph`: If this option is enabled, everything inside a training iteration is packed into a CUDA Graph. This option works only if `use_cuda_graph` is turned off and `use_overlapped_pipeline` is turned on. This argument is restricted to MLPerf use and the default value is `False`.
+* `use_holistic_cuda_graph`: The default value is `False`. If `True`, everything inside a training iteration is packed into a CUDA Graph. Requirement: use_cuda_graph is False, use_overlapped_pipeline is True.
 
-* `use_overlapped_pipeline`: If this option is turned on, the bottom MLP computation will be overlapped with the hybrid embedding computation. This argument is restricted to MLPerf use and the default value is `False`.
+* `use_overlapped_pipeline`: The default value is `False`. If `True`, the computation in the dense input data path will be overlapped with the hybrid embedding computation. Requirements: The data reader is asynchronous (see AsyncParam), hybrid embedding is used (see HybridEmbeddingParam), the model has a feature interaction layer (see InteractionLayer).
 
-* `all_reduce_algo`: The algorithm to be used for all reduce. The supported options include `AllReduceAlgo.OneShot` and `AllReduceAlgo.NCCL`. This argument is restricted to MLPerf use and the default value is `AllReduceAlgo.NCCL`. When you are doing multi-node training, `AllReduceAlgo.OneShot` will require RDMA support while `AllReduceAlgo.NCCL` can run on both RDMA and non-RDMA hardware.
 
-* `grouped_all_reduce`: Whether to use grouped all reduce. This argument is restricted to MLPerf use and the default value is `False`.
+* `all_reduce_algo`: The algorithm to be used for all reduce. The supported options are `AllReduceAlgo.OneShot` and `AllReduceAlgo.NCCL`. The default value is `AllReduceAlgo.NCCL`. When you are doing multi-node training, `AllReduceAlgo.OneShot` will require RDMA support while `AllReduceAlgo.NCCL` can run on both RDMA and non-RDMA hardware.
 
-* `num_iterations_statistics`: The number of batches that are used in performing the statistics. This argument is restricted to MLPerf use and the default value is 20.
+* `grouped_all_reduce`: The default value is `False`. If `True`, the gradients for the dense network and the gradients for data-parallel embedding are grouped and all reduced in one kernel, effectively combining two small all-reduce operations into a single larger one for higher efficiency. Requirements: Hybrid embedding is used (see HybridEmbeddingParam).
 
-* `is_dlrm`: A global flag to specify whether to apply all the MLPerf optimizations for DLRM sample. The MLPerf specific options will be valid only if this flag is set `True`. The default value is `False`.
+* `num_iterations_statistics`: The number of batches used to perform statistics for hybrid embedding. The default value is `20`. Requirement: The data reader is asynchronous (see AsyncParam).
+
 
 Example:
 ```python
@@ -133,22 +141,22 @@ For the usage of the ETC feature in real cases, please check the [HugeCTR Contin
 hugectr.AsyncParam()
 ```
 
-`AsyncParam` specifies the parameters related to async raw data reader, which can be used to initialize `DataReaderParams` instance. It is restricted to MLPerf use.
+A data reader can be optimized using asynchronous reading. This is done by creating the data reader with a async_param argument (see `DataReaderParams`), which is of type AsyncParam. `AsyncParam` specifies the parameters related to asynchronous raw data reader, An asynchronous data reader uses the Linux asynchronous I/O library (AIO) to achieve peak I/O throughput. Requirements: The input dataset has only one-hot feature items and is in raw format.
 
 **Arguments**
-* `num_threads`: Integer, the number of the data reading threads, should be at least 1 per GPU。 This argument is restricted to MLPerf use and there is NO default value.
+* `num_threads`: Integer, the number of the data reading threads, should be at least 1 per GPU。 There is NO default value.
 
-* `num_batches_per_thread`: Integer,  the number of the batches each data reader thread works on simultaneously, typically 2-4. This argument is restricted to MLPerf use and there is NO default value.
+* `num_batches_per_thread`: Integer,  the number of the batches each data reader thread works on simultaneously, typically 2-4. There is NO default value.
 
-* `io_block_size`: Integer, the size of individual IO requests, the value 512000 should work in most cases. This argument is restricted to MLPerf use and there is NO default value.
+* `io_block_size`: Integer, the size of individual IO requests, the value 512000 should work in most cases. There is NO default value.
 
-* `io_depth`: Integer, the size of the asynchronous IO queue, the value 4 should work in most cases. This argument is restricted to MLPerf use and there is NO default value.
+* `io_depth`: Integer, the size of the asynchronous IO queue, the value 4 should work in most cases. There is NO default value.
 
-* `io_alignment`: Integer, the byte alignment of IO requests, the value 512 should work in most cases. This argument is restricted to MLPerf use and there is NO default value.
+* `io_alignment`: Integer, the byte alignment of IO requests, the value 512 should work in most cases. There is NO default value.
 
-* `shuffle`: Boolean, if this option is enabled, the order in which the batches are fed into training will be randomized. This argument is restricted to MLPerf use and there is NO default value.
+* `shuffle`: Boolean, if this option is enabled, the order in which the batches are fed into training will be randomized. There is NO default value.
 
-* `aligned_type`: The supported types include `hugectr.Alignment_t.Auto` and `hugectr.Alignment_t.Non`. If `hugectr.Alignment_t.Auto` is chosen,  the dimension of dense input will be padded to an 8-aligned value. This argument is restricted to MLPerf use and there is NO default value.
+* `aligned_type`: The supported types include `hugectr.Alignment_t.Auto` and `hugectr.Alignment_t.Non`. If `hugectr.Alignment_t.Auto` is chosen,  the dimension of dense input will be padded to an 8-aligned value. There is NO default value.
 
 Example:
 ```python
@@ -163,24 +171,24 @@ async_param = hugectr.AsyncParam(32, 4, 716800, 2, 512, True, hugectr.Alignment_
 hugectr.HybridEmbeddingParam()
 ```
 
-`HybridEmbeddingParam` specifies the parameters related to hybrid embedding, which can be used to initialize `SparseEmbedding` instance. It is restricted to MLPerf use.
+A sparse embedding layer can be optimized using hybrid embedding. This is done by creating the sparse embedding layer with a hybrid_embedding_param argument (see SparseEmbedding), which is of type HybridEmbeddingParam. `HybridEmbeddingParam` specifies the parameters related to hybrid embedding. Hybrid embedding is designed to overcome the bandwidth constraint imposed by the embedding part of the embedding train workload by algorithmically reducing the traffic over network. Requirements: The input dataset has only one-hot feature items and the model uses the SGD optimizer.
 
 **Arguments**
-* `max_num_frequent_categories`: Integer, the maximum number of frequent categories in unit of batch size. This argument is restricted to MLPerf use and there is NO default value.
+* `max_num_frequent_categories`: Integer, the maximum number of frequent categories in unit of batch size. There is NO default value.
 
-* `max_num_infrequent_samples`: Integer, the maximum number of infrequent samples in unit of batch size. This argument is restricted to MLPerf use and there is NO default value.
+* `max_num_infrequent_samples`: Integer, the maximum number of infrequent samples in unit of batch size. There is NO default value.
 
-* `p_dup_max`: Float, the maximum probability that the category appears more than once within the gpu-batch. This way of determining the number of frequent categories is used in single-node or NVLink connected systems only. This argument is restricted to MLPerf use and there is NO default value.
+* `p_dup_max`: Float, the maximum probability that the category appears more than once within the gpu-batch. This way of determining the number of frequent categories is used in single-node or NVLink connected systems only. There is NO default value.
 
-* `max_all_reduce_bandwidth`: Float, the bandwidth of the all reduce. This argument is restricted to MLPerf use and there is NO default value.
+* `max_all_reduce_bandwidth`: Float, the bandwidth of the all reduce. There is NO default value.
 
-* `max_all_to_all_bandwidth`: Float, the bandwidth of the all-to-all. This argument is restricted to MLPerf use and there is NO default value.
+* `max_all_to_all_bandwidth`: Float, the bandwidth of the all-to-all. There is NO default value.
 
-* `efficiency_bandwidth_ratio`: Float, this argument is used in combination with `max_all_reduce_bandwidth` and `max_all_to_all_bandwidth` to determine the optimal threshold for number of frequent categories. This way of determining the frequent categories is used for multi node only. This argument is restricted to MLPerf use and there is NO default value.
+* `efficiency_bandwidth_ratio`: Float, this argument is used in combination with `max_all_reduce_bandwidth` and `max_all_to_all_bandwidth` to determine the optimal threshold for number of frequent categories. This way of determining the frequent categories is used for multi node only. There is NO default value.
 
-* `communication_type`: The type of communication that is being used. The supported types include `CommunicationType.IB_NVLink`, `CommunicationType.IB_NVLink_Hier` and `CommunicationType.NVLink_SingleNode`. This argument is restricted to MLPerf use and there is NO default value.
+* `communication_type`: The type of communication that is being used. The supported types include `CommunicationType.IB_NVLink`, `CommunicationType.IB_NVLink_Hier` and `CommunicationType.NVLink_SingleNode`. There is NO default value.
 
-* `hybrid_embedding_type`: The type of hybrid embedding, which supports only `HybridEmbeddingType.Distributed` for now. This argument is restricted to MLPerf use and there is NO default value.
+* `hybrid_embedding_type`: The type of hybrid embedding, which supports only `HybridEmbeddingType.Distributed` for now. There is NO default value.
 
 Example:
 ```python
@@ -206,9 +214,6 @@ Specify one of the following types:
   * `hugectr.DataReaderType_t.Raw`
   * `hugectr.DataReaderType_t.Parquet`
   * `DataReaderType_t.RawAsync`
-
-  The type `DataReaderType_t.RawAsync` is valid only if `is_dlrm` is set `True` within `CreateSolver`.
-  This argument has no default value and you must specify a value.
 
 * `source`: List[str] or String, the training dataset source.
 For Norm or Parquet dataset, specify the file list of training data, such as `source = "file_list.txt"`.
@@ -262,8 +267,8 @@ The default value is an empty list.
 
   $slot\_size\_array[k] = \max\limits_i slot^k_i + 1$
 
-* `async_param`: AsyncParam, the parameters for async raw data reader.
-This argument is restricted to MLPerf use.
+* `data_source_params`: [DataSourceParams()](https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html#datasourceparams-class), specify the configurations of the data sources(Local, HDFS, or others).
+* `async_param`: AsyncParam, the parameters for async raw data reader. Please find more information in the `AsyncParam` section in this document.
 
 ### Dataset formats
 
@@ -543,174 +548,12 @@ optimizer = hugectr.CreateOptimizer(optimizer_type = hugectr.Optimizer_t.Adam,
 
 There are three major kinds of `layer` in HugeCTR:
 
-* [Input](#input-layer)
-* [Sparse Embedding](#sparseembedding)
-* [Dense](#denselayer)
+* [Input](./hugectr_layer_book.md#input-layer)
+* [Sparse Embedding](./hugectr_layer_book.md#sparse-embedding)
+* [Dense](./hugectr_layer_book.md#dense-layers-usage)
+* [GroupDense](./hugectr_layer_book.md#groupdenselayer)
 
 Please refer to [hugectr_layer_book](./hugectr_layer_book.md) for detail guides on how to use different layer types.
-
-### Input Layer
-
-```python
-hugectr.Input()
-```
-
-`Input`specifies the parameters related to the data input. An `Input` instance should be added to the Model instance first so that the following `SparseEmbedding` and `DenseLayer` instances can access the inputs with their specified names. Please refer to [Input Detail](./hugectr_layer_book.md#input-layer) if you want to get detailed information about Input.
-
-**Arguments**
-* `label_dim`: Integer, the label dimension. 1 implies it is a binary label. For example, if an item is clicked or not. Optionally a list of Integers for multi-label data. There is NO default value and it should be specified by users.
-
-* `label_name`: String, the name of the label tensor to be referenced by following layers. Optionally a list of Strings for multi-label data.  If multiple labels given, the number must match label_dim. There is NO default value and it should be specified by users.
-
-* `dense_dim`: Integer, the number of dense (or continuous) features. If there is no dense feature, set it to 0. There is NO default value and it should be specified by users.
-
-* `dense_name`: Integer, the name of the dense input tensor to be referenced by following layers. There is NO default value and it should be specified by users.
-
-* `data_reader_sparse_param_array`: List[hugectr.DataReaderSparseParam], the list of the sparse parameters for categorical inputs. Each `DataReaderSparseParam` instance should be constructed with  `sparse_name`, `nnz_per_slot`, `is_fixed_length` and `slot_num`.
-  * `sparse_name` is the name of the sparse input tensors to be referenced by following layers. There is NO default value and it should be specified by users.
-  * `nnz_per_slot` is the maximum number of features for each slot for the specified spare input. The `nnz_per_slot` can be an `int` which means average nnz per slot so the maximum number of features per sample should be `nnz_per_slot * slot_num`. Or you can use List[int] to initialize `nnz_per_slot`, then the maximum number of features per sample should be `sum(nnz_per_slot)` and in this case, the length of the array `nnz_per_slot` should be the same with `slot_num`.
-  * `is_fixed_length` is used to identify whether categorical inputs has the same length for each slot among all samples. If different samples have the same number of features for each slot, then user can set `is_fixed_length = True` and HugeCTR can use this information to reduce data transferring time.
-  * `slot_num` specifies the number of slots used for this sparse input in the dataset. **Note:** if multiple `DataReaderSparseParam` are specified there's no overlap between any pair of `DataReaderSparseParam`. e.g. in our [wdl sample](https://github.com/NVIDIA-Merlin/HugeCTR/blob/master/samples/wdl/wdl.py), we have 27 slots in total; we specified the first slot as "wide_data" and the next 26 slots as "deep_data".
-
-### SparseEmbedding
-
-```python
-hugectr.SparseEmbedding()
-```
-
-`SparseEmbedding` specifies the parameters related to the sparse embedding layer. One or several `SparseEmbedding` layers should be added to the Model instance after `Input` and before `DenseLayer`. Please refer to [SparseEmbedding Detail](./hugectr_layer_book.md#sparse-embedding) if you want to get detailed information about SparseEmbedding.
-
-**Arguments**
-* `embedding_type`: The embedding type to be used. The supported types include `hugectr.Embedding_t.DistributedSlotSparseEmbeddingHash`, `hugectr.Embedding_t.LocalizedSlotSparseEmbeddingHash`, `hugectr.Embedding_t.LocalizedSlotSparseEmbeddingOneHot` and `hugectr.Embedding_t.HybridSparseEmbedding`. The type `Embedding_t.HybridSparseEmbedding` is valid only if `is_dlrm` is set `True` within `CreateSolver` and `data_reader_type` is specified as `DataReaderType_t.RawAsync` within `DataReaderParams`. There is NO default value and it should be specified by users.
-
-* `workspace_size_per_gpu_in_mb`: Integer, the workspace memory size in megabyte per GPU. This workspace memory must be big enough to hold all the embedding vocabulary and its corresponding optimizer state used during the training and evaluation. There is NO default value and it should be specified by users. To understand how to set this value, please refer [How to set workspace_size_per_gpu_in_mb and slot_size_array](../QAList.md#24-how-to-set-workspace_size_per_gpu_in_mb-and-slot_size_array).
-
-* `embedding_vec_size`: Integer, the embedding vector size. There is NO default value and it should be specified by users.
-
-* `combiner`: String, the intra-slot reduction operation, currently `sum` or `mean` are supported. There is NO default value and it should be specified by users.
-
-* `sparse_embedding_name`: String, the name of the sparse embedding tensor to be referenced by following layers. There is NO default value and it should be specified by users.
-
-* `bottom_name`: String, the number of the bottom tensor to be consumed by this sparse embedding layer. Please note that it should be a predefined sparse input name. There is NO default value and it should be specified by users.
-
-* `slot_size_array`: List[int], the cardinality array of input features. It should be consistent with that of the sparse input. This parameter can be used in `LocalizedSlotSparseEmbeddingHash`, `LocalizedSlotSparseEmbeddingOneHot` and `HybridSparseEmbedding`. The meaning of `slot_size_array` is varied based on different embedding type. There is NO default value and it should be specified by users. Please refer [How to set workspace_size_per_gpu_in_mb and slot_size_array](../QAList.md#24-how-to-set-workspace_size_per_gpu_in_mb-and-slot_size_array).
-
-* `optimizer`: OptParamsPy, the optimizer dedicated to this sparse embedding layer. If the user does not specify the optimizer for the sparse embedding, it will adopt the same optimizer as dense layers.
-
-* `hybrid_embedding_param`: HybridEmbeddingParam, the parameters for hybrid embedding. This argument is restricted to MLPerf use.
-
-### DenseLayer
-
-```python
-hugectr.DenseLayer()
-```
-
-`DenseLayer` specifies the parameters related to the dense layer or the loss function. HugeCTR currently supports multiple dense layers and loss functions, Please refer to [DenseLayer Detail](./hugectr_layer_book.md#dense-layers) if you want to get detailed information about dense layers. Please **NOTE** that the final sigmoid function is fused with the loss function to better utilize memory bandwidth.
-
-**Arguments**
-* `layer_type`: The layer type to be used. The supported types include `hugectr.Layer_t.Add`, `hugectr.Layer_t.BatchNorm`, `hugectr.Layer_t.Cast`, `hugectr.Layer_t.Concat`, `hugectr.Layer_t.Dropout`, `hugectr.Layer_t.ELU`, `hugectr.Layer_t.FmOrder2`, `hugectr.Layer_t.FusedInnerProduct`, `hugectr.Layer_t.InnerProduct`, `hugectr.Layer_t.Interaction`, `hugectr.Layer_t.MultiCross`, `hugectr.Layer_t.ReLU`, `hugectr.Layer_t.ReduceSum`, `hugectr.Layer_t.Reshape`, `hugectr.Layer_t.Sigmoid`, `hugectr.Layer_t.Slice`, `hugectr.Layer_t.WeightMultiply`, `hugectr.ElementWiseMultiply`, `hugectr.Layer_t.GRU`, `hugectr.Layer_t.Scale`, `hugectr.Layer_t.FusedReshapeConcat`, `hugectr.Layer_t.FusedReshapeConcatGeneral`, `hugectr.Layer_t.Softmax`, `hugectr.Layer_t.PReLU_Dice`, `hugectr.Layer_t.ReduceMean`, `hugectr.Layer_t.Sub`, `hugectr.Layer_t.Gather`, `hugectr.Layer_t.BinaryCrossEntropyLoss`, `hugectr.Layer_t.CrossEntropyLoss` and `hugectr.Layer_t.MultiCrossEntropyLoss`. There is NO default value and it should be specified by users.
-
-* `bottom_names`: List[str], the list of bottom tensor names to be consumed by this dense layer. Each name in the list should be the predefined tensor name. There is NO default value and it should be specified by users.
-
-* `top_names`: List[str], the list of top tensor names, which specify the output tensors of this dense layer. There is NO default value and it should be specified by users.
-
-* `factor`: Float, exponential average factor such as runningMean = runningMean*(1-factor) + newMean*factor for the `BatchNorm` layer. The default value is 1.
-
-* `eps`: Float, epsilon value used in the batch normalization formula for the `BatchNorm` layer. The default value is 1e-5.
-
-* `gamma_init_type`: Specifies how to initialize the gamma (or scale) array for the `BatchNorm` layer. The supported types include `hugectr.Initializer_t.Default`, `hugectr.Initializer_t.Uniform`, `hugectr.Initializer_t.XavierNorm`, `hugectr.Initializer_t.XavierUniform` and `hugectr.Initializer_t.Zero`. The default value is `hugectr.Initializer_t.Default`.
-
-* `beta_init_type`: Specifies how to initialize the beta (or offset) array for the `BatchNorm` layer. The supported types include `hugectr.Initializer_t.Default`, `hugectr.Initializer_t.Uniform`, `hugectr.Initializer_t.XavierNorm`, `hugectr.Initializer_t.XavierUniform` and `hugectr.Initializer_t.Zero`. The default value is `hugectr.Initializer_t.Default`.
-
-* `dropout_rate`: Float, The dropout rate to be used for the `Dropout` layer. It should be between 0 and 1. Setting it to 1 indicates that there is no dropped element at all. The default value is 0.5.
-
-* `elu_alpha`: Float, the scalar that decides the value where this `ELU` function saturates for negative values. The default value is 1.
-
-* `num_output`: Integer, the number of output elements for the `InnerProduct` or `FusedInnerProduct` layer. The default value is 1.
-
-* `weight_init_type`: Specifies how to initialize the weight array for the `InnerProduct`, `FusedInnerProduct`, `MultiCross` or `WeightMultiply` layer. The supported types include `hugectr.Initializer_t.Default`, `hugectr.Initializer_t.Uniform`, `hugectr.Initializer_t.XavierNorm`, `hugectr.Initializer_t.XavierUniform` and `hugectr.Initializer_t.Zero`. The default value is `hugectr.Initializer_t.Default`.
-
-* `bias_init_type`: Specifies how to initialize the bias array for the `InnerProduct`, `FusedInnerProduct` or `MultiCross` layer. The supported types include `hugectr.Initializer_t.Default`, `hugectr.Initializer_t.Uniform`, `hugectr.Initializer_t.XavierNorm`, `hugectr.Initializer_t.XavierUniform` and `hugectr.Initializer_t.Zero`. The default value is `hugectr.Initializer_t.Default`.
-
-* `num_layers`: Integer, the Number of cross layers for the `MultiCross` layer. It should be set as a positive number if you want to use the cross network. The default value is 0.
-
-* `leading_dim`: Integer, the innermost dimension of the output tensor for the `Reshape` layer. It must be the multiple of the total number of input elements. The default value is 1.
-
-* `selected`: Boolean, whether to use the selected mode for the `Reshape` layer. The default value is False.
-
-* `selected_slots`: List[int], the selected slots for the `Reshape` layer. It will be ignored if `selected` is False. The default value is [].
-
-* `ranges`: List[Tuple[int, int]], used for the `Slice` layer. A list of tuples in which each one represents a range in the input tensor to generate the corresponding output tensor. For example, (2, 8) indicates that 8 elements starting from the second element in the input tensor are used to create an output tensor. The number of tuples corresponds to the number of output tensors. Ranges are allowed to overlap unless it is a reverse or negative range. The default value is [].
-
-* `weight_dims`: List[int], the shape of the weight matrix (slot_dim, vec_dim) where vec_dim corresponds to the latent vector length for the `WeightMultiply` layer. It should be set correctly if you want to employ the weight multiplication. The default value is [].
-
-* `out_dim`: Integer, the output vector size for the `FmOrder2` layer. It should be set as a positive number if your want to use factorization machine. The default value is 0.
-
-* `axis`: Integer, the dimension to reduce for the `ReduceSum` layer. If the input is N-dimensional, 0 <= axis < N. The default value is 1.
-
-* `time_step`: Integer, the secondary dimension of the output tensor of the `Reshape` layer. It has to be used with `leading_dim` to define 3D output tensor for `Reshape` layer. The default value is 0.
-
-* `batchsize`: Integer, the require information of the `GRU` layer. The default value is 1.
-
-* `SeqLength`: Integer, the require information of the `GRU` layer. The default value is 1.
-
-* `vector_size`: Integer, the require information of the `GRU` layer. The default value is 1.
-
-* `indices`: List[int], a list of indices of the `Gather` layer to specific the extract slice of the input tensor. The default value is [].
-
-* `target_weight_vec`: List[float], the target weight vector for the `MultiCrossEntropyLoss` layer. The default value is [].
-
-* `use_regularizer`: Boolean, whether to use the regularizer for the `BinaryCrossEntropyLoss`, `CrossEntropyLoss` or `MultiCrossEntropyLoss` layer. The default value is False.
-
-* `regularizer_type`: The regularizer type for the `BinaryCrossEntropyLoss`, `CrossEntropyLoss` or `MultiCrossEntropyLoss` layer. The supported types include `hugectr.Regularizer_t.L1` and `hugectr.Regularizer_t.L2`. It will be ignored if `use_regularizer` is False. The default value is `hugectr.Regularizer_t.L1`.
-
-* `lambda`: Float, the lambda value of the regularization term for the `BinaryCrossEntropyLoss`, `CrossEntropyLoss` or `MultiCrossEntropyLoss` layer. It will be ignored if `use_regularizer` is False. The default value is 0.
-
-* `pos_type`: The position type of `FusedInnerProduct` layer. The supported types include `FcPosition_t.Head`, `FcPosition_t.Body`, `FcPosition_t.Tail`, `FcPosition_t.Isolated` and `FcPosition_t.Non`. If the type `FcPosition_t.Non` is specified, the general `FusedFullyConnectedLayer` will be used internally. Otherwise, the MLPerf specific `FusedReluBiasFullyConnectedLayer` will be employed and it requires `is_dlrm` to be `True` within `CreateSolver`. The default value is `FcPosition_t.Non`.
-
-* `act_type`: The activation type of `FusedInnerProduct` layer. The supported types include `Activation_t.Relu` and `Activation_t.Non`. This argument is valid only if `is_dlrm` is set `True` within `CreateSolver` and `layer_type` is specified as `hugectr.Layer_t.FusedInnerProduct`. Besides, `Activation_t.Non` can only be used together with `FcPosition_t.Tail`. The default value is `Activation_t.Relu`.
-
-### GroupDenseLayer
-
-```python
-hugectr.GroupDenseLayer()
-```
-
-`GroupDenseLayer` specifies the parameters related to a group of dense layers. HugeCTR currently supports only `GroupFusedInnerProduct`, which is comprised of multiple `FusedInnerProduct` layers. Please **NOTE** that the `FusedInnerProduct` layer only supports fp16.
-
-**Arguments**
-* `group_layer_type`: The layer type to be used. There is only one supported type, i.e., `hugectr.GroupLayer_t.GroupFusedInnerProduct`. There is NO default value and it should be specified by users.
-
-* `bottom_name_list`: List[str], the list of bottom tensor names for the first dense layer in this group. Currently, the `FusedInnerProduct` layer at the head position can take one or two input tensors. There is NO default value and it should be specified by users.
-
-* `top_name_list`: List[str], the list of top tensor names of each dense layer in the group. There should be only one name for each layer. There is NO default value and it should be specified by users.
-
-* `num_outputs`: List[Integer], the number of output elements for each `FusedInnerProduct` layer in the group. There is NO default value and it should be specified by users.
-
-* `last_act_type`: The activation type of the last `FusedInnerProduct` layer in the group. The supported types include `Activation_t.Relu` and `Activation_t.Non`. Except the last layer, the activation type of the other `FusedInnerProduct` layers in the group must be and will be automatically set as `Activation_t.Relu`, which do not allow any configurations. The default value is `Activation_t.Relu`.
-
-**NOTE**: There should be at least two layers in the group, and the size of `top_name_list` and `num_outputs` should both be equal to the number of layers.
-
-Example:
-
-```python
-model.add(hugectr.GroupDenseLayer(group_layer_type = hugectr.GroupLayer_t.GroupFusedInnerProduct,
-                                  bottom_name = ["dense"],
-                                  top_name_list = ["fc1", "fc2", "fc3"],
-                                  num_outputs = [1024, 512, 256],
-                                  last_act_type = hugectr.Activation_t.Relu))
-model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Interaction,
-                            bottom_names = ["fc3","sparse_embedding1"],
-                            top_names = ["interaction1", "interaction1_grad"]))
-model.add(hugectr.GroupDenseLayer(group_layer_type = hugectr.GroupLayer_t.GroupFusedInnerProduct,
-                            bottom_name_list = ["interaction1", "interaction1_grad"],
-                            top_name_list = ["fc4", "fc5", "fc6", "fc7", "fc8"],
-                            num_outputs = [1024, 1024, 512, 256, 1],
-                            last_act_type = hugectr.Activation_t.Non))
-model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.BinaryCrossEntropyLoss,
-                            bottom_names = ["fc8", "label"],
-                            top_names = ["loss"]))
-```
 
 ### Model
 
@@ -739,10 +582,15 @@ hugectr.Model()
 hugectr.Model.add()
 ```
 
-The `add` method of Model adds an instance of Input, SparseEmbedding, DenseLayer or GroupDenseLayer to the created Model object. Typically, a Model object is comprised of one Input, several SparseEmbedding and a series of DenseLayer instances. Please note that the loss function for HugeCTR model training is taken as a DenseLayer instance.
+The `add` method of Model adds an instance of Input, SparseEmbedding, DenseLayer, GroupDenseLayer, or EmbeddingCollection to the created Model object.
+Typically, a Model object is comprised of one Input, several SparseEmbedding and a series of DenseLayer instances.
+Please note that the loss function for HugeCTR model training is taken as a DenseLayer instance.
 
 **Arguments**
-* `input` or `sparse_embedding` or `dense_layer`: This method is an overloaded method that can accept `hugectr.Input`, `hugectr.SparseEmbedding`, `hugectr.DenseLayer` or `hugectr.GroupDenseLayer` as an argument. It allows the users to construct their model flexibly without the JSON configuration file.
+* `input` or `sparse_embedding` or `dense_layer`: This method is an overloaded method that can accept `hugectr.Input`, `hugectr.SparseEmbedding`, `hugectr.DenseLayer`, `hugectr.GroupDenseLayer`, or `hugectr.EmbeddingCollection` as an argument.
+It allows the users to construct their model flexibly without the JSON configuration file.
+
+Refer to the [HugeCTR Layer Classes and Methods](./hugectr_layer_book.md) for information about the layers and embedding collection.
 
 ***
 
@@ -1210,6 +1058,18 @@ The length of `updated_model` is equal to the number of embedding tables in your
 
 ***
 
+#### dump_incremental_model_2kafka method
+
+```python
+hugectr.Model.dump_incremental_model_2kafka()
+```
+
+This method is only supported in [Embedding Training Cache](../hugectr_embedding_training_cache.md). It with post the updated embedding table to Kafka as user specified.
+
+Please NOTE that is method can not be used together with the `get_incremental_model` method. Only one of these two methods could be used for dumping the incremental model.
+
+***
+
 #### save_params_to_files method
 
 ```python
@@ -1309,13 +1169,11 @@ The `predict` method of InferenceModel makes predictions based on the dataset of
 
 * `source`: String, the source of prediction dataset. It should be the file list for Norm or Parquet format data.
 
-* `data_reader_type`: `hugectr.DataReaderType_t`, the data reader type. We support `hugectr.DataReaderType_t.Norm` and `hugectr.DataReaderType_t.Parquet` currently.
+* `data_reader_type`: `hugectr.DataReaderType_t`, the data reader type. We support `hugectr.DataReaderType_t.Norm` and `hugectr.DataReaderType_t.Parquet`.
 
-* `check_type`: `hugectr.Check_t`, the check type for the data source. We support `hugectr.Check_t.Sum` and `hugectr.Check_t.Non` currently.
+* `check_type`: `hugectr.Check_t`, the check type for the data source. We currently support `hugectr.Check_t.Sum` and `hugectr.Check_t.Non`.
 
 * `slot_size_array`: List[int], the cardinality array of input features. It should be consistent with that of the sparse input. We requires this argument for Parquet format data. The default value is an empty list, which is suitable for Norm format data.
-
-***
 
 #### evaluate method
 
@@ -1330,11 +1188,12 @@ The `evaluate` method of InferenceModel does evaluations based on the dataset of
 
 * `source`: String, the source of evaluation dataset. It should be the file list for Norm or Parquet format data.
 
-* `data_reader_type`: `hugectr.DataReaderType_t`, the data reader type. We support `hugectr.DataReaderType_t.Norm` and `hugectr.DataReaderType_t.Parquet` currently.
+* `data_reader_type`: `hugectr.DataReaderType_t`, the data reader type. We support `hugectr.DataReaderType_t.Norm` and `hugectr.DataReaderType_t.Parquet`.
 
 * `check_type`: `hugectr.Check_t`, the check type for the data source. We support `hugectr.Check_t.Sum` and `hugectr.Check_t.Non` currently.
 
 * `slot_size_array`: List[int], the cardinality array of input features. It should be consistent with that of the sparse input. We requires this argument for Parquet format data. The default value is an empty list, which is suitable for Norm format data.
+
 
 ## Data Generator API
 
@@ -1418,7 +1277,7 @@ The data source API is used to specify which file system to use in the following
 hugectr.data.DataSourceParams()
 ```
 
-`DataSourceParams` specifies the file system information and the paths to data and model used for training. An `DataSourceParams` instance is required to initialize the `DataSource` instance.
+`DataSourceParams` specifies the file system information and the paths to data and model used for training. A `DataSourceParams` instance is required to initialize the `DataSource` instance.
 
 **Arguments**
 * `use_hdfs`: Boolean, whether to use HDFS or not for dump models. Default is false (use local file system).
@@ -1432,7 +1291,7 @@ hugectr.data.DataSourceParams()
 #### DataSource class
 
 ```python
-hugectr.data.DataSource())
+hugectr.data.DataSource()
 ```
 
 `DataSource` provides an API to help user specify the paths to their data and model file. It can also help user transfer data from HDFS to local filesystem. The construction of `DataSource` requires a `DataSourceParams` instance.

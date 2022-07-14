@@ -13,8 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 #include "buffer.hpp"
+
 #include "core.hpp"
+
 namespace core {
 
 BufferBlockImpl::BufferBlockImpl(CoreResourceManager *backend, Device device)

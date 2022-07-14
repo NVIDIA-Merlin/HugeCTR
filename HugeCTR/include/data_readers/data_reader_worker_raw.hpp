@@ -173,8 +173,8 @@ class DataReaderWorkerRaw : public IDataReaderWorker {
             ptr[j] = float_label_dense_ ? reinterpret_cast<float*>(sample_cur)[j]
                                         : reinterpret_cast<int*>(sample_cur)[j];
           } else {
-            // if the underlying value is int, do DLRM-style preprocessing
-            // otherwise, the value is just directly used.
+            // if the underlying value is int, do preprocessing, otherwise, the value is just
+            // directly used.
             float val = float_label_dense_ ? reinterpret_cast<float*>(sample_cur)[j]
                                            : log(reinterpret_cast<int*>(sample_cur)[j] + 1.f);
             ptr[j] = val;

@@ -16,10 +16,13 @@
 
 import tensorflow as tf
 import sys
+
 sys.path.append("../")
 import utility
+
 sys.path.append("../DenseDemo")
 import sparse_operation_kit as sok
+
 
 def main():
     global_batch_size = 1024
@@ -37,16 +40,21 @@ def main():
     with strategy.scope():
         sok.Init(global_batch_size=global_batch_size)
 
-        model = utility.SOKDenseDemo(max_vocabulary_size_per_gpu=1024,
-                                     embedding_vec_size=8,
-                                     slot_num=slot_num,
-                                     nnz_per_slot=nnz_per_slot,
-                                     num_dense_layers=0)
-        
+        model = utility.SOKDenseDemo(
+            max_vocabulary_size_per_gpu=1024,
+            embedding_vec_size=8,
+            slot_num=slot_num,
+            nnz_per_slot=nnz_per_slot,
+            num_dense_layers=0,
+        )
+
         optimizer = tf.keras.optimizers.Adam(learning_rate=0.1)
         optimizer = tf.keras.mixed_precision.LossScaleOptimizer(optimizer)
 
-    loss_fn = tf.keras.losses.BinaryCrossentropy(from_logits=True, reduction=tf.keras.losses.Reduction.NONE)
+    loss_fn = tf.keras.losses.BinaryCrossentropy(
+        from_logits=True, reduction=tf.keras.losses.Reduction.NONE
+    )
+
     def _replica_loss(labels, logits):
         labels = tf.cast(labels, logits.dtype)
         loss = loss_fn(labels, logits)
@@ -61,15 +69,14 @@ def main():
             logit = model(inputs, training=True)
             loss = _replica_loss(labels, logit)
             scaled_loss = optimizer.get_scaled_loss(loss)
-        emb_vars, other_vars =\
-            sok.split_embedding_variable_from_others(model.trainable_variables)
-        scaled_emb_grads, scaled_other_grads = tape.gradient(
-                            scaled_loss, [emb_vars, other_vars])
+        emb_vars, other_vars = sok.split_embedding_variable_from_others(model.trainable_variables)
+        scaled_emb_grads, scaled_other_grads = tape.gradient(scaled_loss, [emb_vars, other_vars])
         emb_grads = optimizer.get_unscaled_gradients(scaled_emb_grads)
         other_grads = optimizer.get_unscaled_gradients(scaled_other_grads)
         with sok.OptimizerScope(emb_vars):
-            optimizer.apply_gradients(zip(emb_grads, emb_vars),
-                        experimental_aggregate_gradients=False)
+            optimizer.apply_gradients(
+                zip(emb_grads, emb_vars), experimental_aggregate_gradients=False
+            )
         optimizer.apply_gradients(zip(other_grads, other_vars))
         return loss
 
@@ -77,6 +84,7 @@ def main():
         replica_loss = strategy.run(train_step, args=(inputs, labels))
         total_loss = strategy.reduce("sum", replica_loss, axis=None)
         print("[INFO]: step {}, loss {}".format(step, total_loss))
+
 
 if __name__ == "__main__":
     main()

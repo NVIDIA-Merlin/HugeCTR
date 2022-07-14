@@ -118,7 +118,7 @@ GRULayer<T>::GRULayer(const std::shared_ptr<BufferBlock2<T>>& weight_buff,
     HCTR_LIB_THROW(cudnnSetTensorNdDescriptor(cDesc, data_type, 3, dimHidden, strideHidden));
 
     HCTR_LIB_THROW(cudnnDropoutGetStatesSize(cudnnHandle, &stateSize));
-    cudaMalloc(&states, stateSize);
+    HCTR_LIB_THROW(cudaMalloc(&states, stateSize));
     seed = 0;  // 1337ull;
     HCTR_LIB_THROW(
         cudnnSetDropoutDescriptor(dropoutDesc, cudnnHandle, dropout, states, stateSize, seed));
@@ -301,8 +301,8 @@ void GRULayer<T>::fprop(bool is_train) {
     }
   }
 
-  cudnnDestroyTensorDescriptor(wDesc);
-  cudnnDestroyTensorDescriptor(bDesc);
+  HCTR_LIB_THROW(cudnnDestroyTensorDescriptor(wDesc));
+  HCTR_LIB_THROW(cudnnDestroyTensorDescriptor(bDesc));
 #endif
   // CUDNN GRU
   // T tmp[hiddenTensorSize];
@@ -393,19 +393,19 @@ void GRULayer<T>::bprop() {
   HCTR_LIB_THROW(cudaGetLastError());
 #endif
 
-  cudaFree(workSpace);
-  cudaFree(reserveSpace);
-  cudaFree(weightSpace);  // cudaFree(dweightSpace);
+  HCTR_LIB_THROW(cudaFree(workSpace));
+  HCTR_LIB_THROW(cudaFree(reserveSpace));
+  HCTR_LIB_THROW(cudaFree(weightSpace));  // cudaFree(dweightSpace);
   // cudaFree(x); cudaFree(y); cudaFree(hx);
-  cudaFree(states);
-  cudnnDestroyRNNDataDescriptor(in_Desc);
-  cudnnDestroyRNNDataDescriptor(out_Desc);
+  HCTR_LIB_THROW(cudaFree(states));
+  HCTR_LIB_THROW(cudnnDestroyRNNDataDescriptor(in_Desc));
+  HCTR_LIB_THROW(cudnnDestroyRNNDataDescriptor(out_Desc));
 
-  cudnnDestroyTensorDescriptor(hDesc);
-  cudnnDestroyTensorDescriptor(cDesc);
+  HCTR_LIB_THROW(cudnnDestroyTensorDescriptor(hDesc));
+  HCTR_LIB_THROW(cudnnDestroyTensorDescriptor(cDesc));
 
-  cudnnDestroyDropoutDescriptor(dropoutDesc);
-  cudnnDestroyRNNDescriptor(rnnDesc);
+  HCTR_LIB_THROW(cudnnDestroyDropoutDescriptor(dropoutDesc));
+  HCTR_LIB_THROW(cudnnDestroyRNNDescriptor(rnnDesc));
 }
 
 template class GRULayer<float>;

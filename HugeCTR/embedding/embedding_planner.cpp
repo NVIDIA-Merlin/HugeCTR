@@ -17,6 +17,7 @@
 
 #include <nlohmann/json.hpp>
 #include <unordered_set>
+
 #include "embedding_collection.hpp"
 
 namespace embedding {
@@ -52,20 +53,22 @@ void EmbeddingPlanner::generate_embedding_plan_from_json_file(const std::string 
       auto global_embedding_list = check_and_find_in_json(embedding_plan, "global_embedding_list")
                                        .get<std::vector<std::vector<int>>>();
 
-      int sharding_id = 0;
-      if (embedding_plan.find("sharding_id") != embedding_plan.end()) {
-        sharding_id = (*embedding_plan.find("sharding_id")).get<int>();
+      int shard_id = 0;
+      if (embedding_plan.find("shard_id") != embedding_plan.end()) {
+        shard_id = (*embedding_plan.find("shard_id")).get<int>();
       }
 
-      int num_sharding = 1;
-      if (embedding_plan.find("num_sharding") != embedding_plan.end()) {
-        num_sharding = (*embedding_plan.find("num_sharding")).get<int>();
+      int shards_count = 1;
+      if (embedding_plan.find("shards_count") != embedding_plan.end()) {
+        shards_count = (*embedding_plan.find("shards_count")).get<int>();
       }
-      HCTR_CHECK_HINT(sharding_id < num_sharding, "EmbeddingPlanner: illegal input. sharding_id %d >= num_sharding %d", sharding_id , num_sharding);
+      HCTR_CHECK_HINT(shard_id < shards_count,
+                      "EmbeddingPlanner: illegal input. shard_id %d >= shards_count %d", shard_id,
+                      shards_count);
 
       std::string table_placement_strategy =
           check_and_find_in_json(embedding_plan, "table_placement_strategy").get<std::string>();
-      if (table_placement_strategy == "dp" && num_sharding > 1) {
+      if (table_placement_strategy == "dp" && shards_count > 1) {
         HCTR_OWN_THROW(HugeCTR::Error_t::IllegalCall, "dp embedding can not be sharded");
       }
       if (_table_placement_type_map.find(table_placement_strategy) ==
@@ -76,26 +79,36 @@ void EmbeddingPlanner::generate_embedding_plan_from_json_file(const std::string 
       EmbeddingShardingParam sharding_param;
       sharding_param.local_embedding_list = local_embedding_list;
       sharding_param.global_embedding_list = global_embedding_list;
-      sharding_param.sharding_id = sharding_id;
-      sharding_param.num_sharding = num_sharding;
+      sharding_param.shard_id = shard_id;
+      sharding_param.shards_count = shards_count;
       sharding_param.table_placement_strategy =
           _table_placement_type_map.at(table_placement_strategy);
-      
+
       global_embedding_sharding_param_list_[global_id].push_back(std::move(sharding_param));
     }
   }
 
-  auto check_num_sharding_param_eqal_in_all_gpu = [this](const std::vector<EmbeddingShardingParam> &sharding_param_list) {
-    return sharding_param_list.size() == global_embedding_sharding_param_list_[0].size();
-  };
-  HCTR_CHECK_HINT(std::all_of(global_embedding_sharding_param_list_.begin(), global_embedding_sharding_param_list_.end(), check_num_sharding_param_eqal_in_all_gpu), "EmbeddingPlanner: illegal input. The num of embedding sharding param should be the same on all gpu.");
+  auto check_shards_count_param_eqal_in_all_gpu =
+      [this](const std::vector<EmbeddingShardingParam> &sharding_param_list) {
+        return sharding_param_list.size() == global_embedding_sharding_param_list_[0].size();
+      };
+  HCTR_CHECK_HINT(std::all_of(global_embedding_sharding_param_list_.begin(),
+                              global_embedding_sharding_param_list_.end(),
+                              check_shards_count_param_eqal_in_all_gpu),
+                  "EmbeddingPlanner: illegal input. The num of embedding sharding param should be "
+                  "the same on all gpu.");
 
   auto check_table_placement_strategy_eqal_in_all_gpu = [this, num_global_gpus] {
-    int num_sharding_param = global_embedding_sharding_param_list_[0].size();
-    for (int sharding_param_id = 0; sharding_param_id < num_sharding_param; ++sharding_param_id) {
-      TablePlacementStrategy table_placement_strategy = global_embedding_sharding_param_list_[0][sharding_param_id].table_placement_strategy;
+    int shards_count_param = global_embedding_sharding_param_list_[0].size();
+    for (int sharding_param_id = 0; sharding_param_id < shards_count_param; ++sharding_param_id) {
+      TablePlacementStrategy table_placement_strategy =
+          global_embedding_sharding_param_list_[0][sharding_param_id].table_placement_strategy;
       for (int gpu_id = 0; gpu_id < num_global_gpus; ++gpu_id) {
-        HCTR_CHECK_HINT(table_placement_strategy == global_embedding_sharding_param_list_[gpu_id][sharding_param_id].table_placement_strategy, "EmbeddingPlanner: illegal input. The table placement strategy is not consistent between all gpus.");
+        HCTR_CHECK_HINT(table_placement_strategy ==
+                            global_embedding_sharding_param_list_[gpu_id][sharding_param_id]
+                                .table_placement_strategy,
+                        "EmbeddingPlanner: illegal input. The table placement strategy is not "
+                        "consistent between all gpus.");
       }
     }
   };
@@ -103,79 +116,113 @@ void EmbeddingPlanner::generate_embedding_plan_from_json_file(const std::string 
 
   auto check_local_global_embedding_list = [this, num_global_gpus] {
     for (int gpu_id = 0; gpu_id < num_global_gpus; ++gpu_id) {
-      int num_sharding_param = global_embedding_sharding_param_list_[gpu_id].size();
-      for (int sharding_param_id = 0; sharding_param_id < num_sharding_param; ++sharding_param_id) {
-        HCTR_CHECK_HINT(global_embedding_sharding_param_list_[gpu_id][sharding_param_id].local_embedding_list == global_embedding_sharding_param_list_[gpu_id][sharding_param_id].global_embedding_list[gpu_id], "EmbeddingPlanner: illegal input. The local_embedding_list is not compatible with global_embedding_list");
+      int shards_count_param = global_embedding_sharding_param_list_[gpu_id].size();
+      for (int sharding_param_id = 0; sharding_param_id < shards_count_param; ++sharding_param_id) {
+        HCTR_CHECK_HINT(
+            global_embedding_sharding_param_list_[gpu_id][sharding_param_id].local_embedding_list ==
+                global_embedding_sharding_param_list_[gpu_id][sharding_param_id]
+                    .global_embedding_list[gpu_id],
+            "EmbeddingPlanner: illegal input. The local_embedding_list is not compatible with "
+            "global_embedding_list");
 
-        size_t num_embedding = global_embedding_sharding_param_list_[gpu_id][sharding_param_id].local_embedding_list.size();
-        std::vector<int> unique_local_embedding_list = global_embedding_sharding_param_list_[gpu_id][sharding_param_id].local_embedding_list;
+        size_t num_embedding = global_embedding_sharding_param_list_[gpu_id][sharding_param_id]
+                                   .local_embedding_list.size();
+        std::vector<int> unique_local_embedding_list =
+            global_embedding_sharding_param_list_[gpu_id][sharding_param_id].local_embedding_list;
 
         std::sort(unique_local_embedding_list.begin(), unique_local_embedding_list.end());
-        auto last = std::unique(unique_local_embedding_list.begin(), unique_local_embedding_list.end());
+        auto last =
+            std::unique(unique_local_embedding_list.begin(), unique_local_embedding_list.end());
         unique_local_embedding_list.erase(last, unique_local_embedding_list.end());
 
-        HCTR_CHECK_HINT(num_embedding == unique_local_embedding_list.size(), "EmbeddingPlanner: illegal input. The local_embedding_list should not have duplicate embedding");
+        HCTR_CHECK_HINT(num_embedding == unique_local_embedding_list.size(),
+                        "EmbeddingPlanner: illegal input. The local_embedding_list should not have "
+                        "duplicate embedding");
       }
     }
 
-    int num_sharding_param = global_embedding_sharding_param_list_[0].size();
-    for (int sharding_param_id = 0; sharding_param_id < num_sharding_param; ++sharding_param_id) {
+    int shards_count_param = global_embedding_sharding_param_list_[0].size();
+    for (int sharding_param_id = 0; sharding_param_id < shards_count_param; ++sharding_param_id) {
       for (int gpu_id = 0; gpu_id < num_global_gpus; ++gpu_id) {
-        HCTR_CHECK_HINT(global_embedding_sharding_param_list_[0][sharding_param_id].global_embedding_list == global_embedding_sharding_param_list_[gpu_id][sharding_param_id].global_embedding_list, "EmbeddingPlanner: illegal input. The global_embedding_list is not consistent between all gpu on same embedding");
+        HCTR_CHECK_HINT(
+            global_embedding_sharding_param_list_[0][sharding_param_id].global_embedding_list ==
+                global_embedding_sharding_param_list_[gpu_id][sharding_param_id]
+                    .global_embedding_list,
+            "EmbeddingPlanner: illegal input. The global_embedding_list is not consistent between "
+            "all gpu on same embedding");
       }
     }
   };
   check_local_global_embedding_list();
 
   auto check_dp_embedding = [this, num_global_gpus] {
-    int num_sharding_param = global_embedding_sharding_param_list_[0].size();
-    for (int sharding_param_id = 0; sharding_param_id < num_sharding_param; ++sharding_param_id) {
+    int shards_count_param = global_embedding_sharding_param_list_[0].size();
+    for (int sharding_param_id = 0; sharding_param_id < shards_count_param; ++sharding_param_id) {
       std::set<std::vector<int>> embedding_set;
       for (int gpu_id = 0; gpu_id < num_global_gpus; ++gpu_id) {
-        if (global_embedding_sharding_param_list_[gpu_id][sharding_param_id].table_placement_strategy == TablePlacementStrategy::Localized) {
+        if (global_embedding_sharding_param_list_[gpu_id][sharding_param_id]
+                .table_placement_strategy == TablePlacementStrategy::ModelParallel) {
           continue;
         }
         if (gpu_id == 0) {
-          embedding_set.insert(global_embedding_sharding_param_list_[gpu_id][sharding_param_id].local_embedding_list);
+          embedding_set.insert(global_embedding_sharding_param_list_[gpu_id][sharding_param_id]
+                                   .local_embedding_list);
         }
-        HCTR_CHECK_HINT(embedding_set.find(global_embedding_sharding_param_list_[gpu_id][sharding_param_id].local_embedding_list) != embedding_set.end(), "EmbeddingPlanner: illegal input. DataParallel embedding should have same local_embedding_list.");
-
+        HCTR_CHECK_HINT(
+            embedding_set.find(global_embedding_sharding_param_list_[gpu_id][sharding_param_id]
+                                   .local_embedding_list) != embedding_set.end(),
+            "EmbeddingPlanner: illegal input. DataParallel embedding should have same "
+            "local_embedding_list.");
       }
     }
   };
   check_dp_embedding();
 
   auto check_mp_embeddding_sharding = [this, num_global_gpus] {
-    int num_sharding_param = global_embedding_sharding_param_list_[0].size();
-    for (int sharding_param_id = 0; sharding_param_id < num_sharding_param; ++sharding_param_id) {
-      std::map<std::vector<int>, std::vector<int>> embedding_and_sharding_id_dict;
-      std::map<std::vector<int>, int> embedding_and_num_sharding_dict;
+    int shards_count_param = global_embedding_sharding_param_list_[0].size();
+    for (int sharding_param_id = 0; sharding_param_id < shards_count_param; ++sharding_param_id) {
+      std::map<std::vector<int>, std::vector<int>> embedding_and_shard_id_dict;
+      std::map<std::vector<int>, int> embedding_and_shards_count_dict;
       for (int gpu_id = 0; gpu_id < num_global_gpus; ++gpu_id) {
-        auto &embedding = global_embedding_sharding_param_list_[gpu_id][sharding_param_id].local_embedding_list;
-        if (global_embedding_sharding_param_list_[gpu_id][sharding_param_id].table_placement_strategy == TablePlacementStrategy::DataParallel) {
+        auto &embedding =
+            global_embedding_sharding_param_list_[gpu_id][sharding_param_id].local_embedding_list;
+        if (global_embedding_sharding_param_list_[gpu_id][sharding_param_id]
+                .table_placement_strategy == TablePlacementStrategy::DataParallel) {
           continue;
         }
-        embedding_and_sharding_id_dict[embedding].push_back(global_embedding_sharding_param_list_[gpu_id][sharding_param_id].sharding_id);
-        if (embedding_and_num_sharding_dict.find(embedding) == embedding_and_num_sharding_dict.end()) {
-          embedding_and_num_sharding_dict[embedding] = global_embedding_sharding_param_list_[gpu_id][sharding_param_id].num_sharding;
+        embedding_and_shard_id_dict[embedding].push_back(
+            global_embedding_sharding_param_list_[gpu_id][sharding_param_id].shard_id);
+        if (embedding_and_shards_count_dict.find(embedding) ==
+            embedding_and_shards_count_dict.end()) {
+          embedding_and_shards_count_dict[embedding] =
+              global_embedding_sharding_param_list_[gpu_id][sharding_param_id].shards_count;
         }
-        HCTR_CHECK_HINT(embedding_and_num_sharding_dict[embedding] == global_embedding_sharding_param_list_[gpu_id][sharding_param_id].num_sharding, "EmbeddingPlanner: illegal input. The num_sharding is not consistent between all sharding item.");
+        HCTR_CHECK_HINT(
+            embedding_and_shards_count_dict[embedding] ==
+                global_embedding_sharding_param_list_[gpu_id][sharding_param_id].shards_count,
+            "EmbeddingPlanner: illegal input. The shards_count is not consistent between all "
+            "sharding item.");
       }
       std::unordered_set<int> unique_embedding;
-      for (const auto &[embedding_list, num_sharding] : embedding_and_num_sharding_dict) {
+      for (const auto &[embedding_list, shards_count] : embedding_and_shards_count_dict) {
         for (int embedding : embedding_list) {
-          HCTR_CHECK_HINT(unique_embedding.find(embedding) == unique_embedding.end(), "EmbeddingPlanner: illegal input. Different sharding embedding list have same embedding.");
+          HCTR_CHECK_HINT(unique_embedding.find(embedding) == unique_embedding.end(),
+                          "EmbeddingPlanner: illegal input. Different sharding embedding list have "
+                          "same embedding.");
           unique_embedding.insert(embedding);
         }
       }
-      for (const auto &[embedding_list, num_sharding] : embedding_and_num_sharding_dict) {
-        auto sharding_id_list = embedding_and_sharding_id_dict[embedding_list];
-        
-        HCTR_CHECK_HINT(sharding_id_list.size() == static_cast<size_t>(num_sharding), "EmbeddingPlanner: illegal input. size of sharding id list is not consistent with num_sharding.");
-        
-        std::sort(sharding_id_list.begin(), sharding_id_list.end());
-        for (size_t i = 0; i < sharding_id_list.size(); ++i) {
-          HCTR_CHECK_HINT(i == static_cast<size_t>(sharding_id_list[i]), "EmbeddingPlanner: illegal input. Miss sharding id.");
+      for (const auto &[embedding_list, shards_count] : embedding_and_shards_count_dict) {
+        auto shard_id_list = embedding_and_shard_id_dict[embedding_list];
+
+        HCTR_CHECK_HINT(shard_id_list.size() == static_cast<size_t>(shards_count),
+                        "EmbeddingPlanner: illegal input. size of sharding id list is not "
+                        "consistent with shards_count.");
+
+        std::sort(shard_id_list.begin(), shard_id_list.end());
+        for (size_t i = 0; i < shard_id_list.size(); ++i) {
+          HCTR_CHECK_HINT(i == static_cast<size_t>(shard_id_list[i]),
+                          "EmbeddingPlanner: illegal input. Miss sharding id.");
         }
       }
     }

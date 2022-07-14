@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #pragma once
+
 #include "HugeCTR/core/buffer.hpp"
 #include "HugeCTR/core/registry.hpp"
 
@@ -40,7 +41,7 @@ class DPIndexCalculation {
 
   void compute(const Tensor& key, const Tensor& bucket_range, size_t num_keys,
                const Tensor& d_local_embedding_list, int batch_size, Tensor* ret_dp_key,
-               Tensor* ret_dp_offset, size_t* num_dp_key, Tensor *dp_dst);
+               Tensor* ret_dp_offset, size_t* num_dp_key, Tensor* dp_dst);
 
  private:
   int num_gpus_;

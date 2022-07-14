@@ -14,6 +14,7 @@
  limitations under the License.
 """
 
+
 class InPlaceInitializer(object):
     def __init__(self, **kwargs):
         for key, value in kwargs.items():
@@ -28,7 +29,3 @@ class InPlaceInitializer(object):
         for key, value in args[0].items():
             setattr(_init, key, value)
         return _init
-
-
-
-    

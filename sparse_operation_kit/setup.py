@@ -21,8 +21,9 @@ from skbuild import setup
 
 
 def _GetSOKVersion():
-    _version_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                 "sparse_operation_kit/core/")
+    _version_path = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "sparse_operation_kit/core/"
+    )
     sys.path.append(_version_path)
     from _version import __version__
 
@@ -44,7 +45,9 @@ def get_cmake_args():
 
     dedicated_cuda_stream = "ON"
     if os.getenv("SOK_COMPILE_ASYNC"):
-        dedicated_cuda_stream = "OFF" if os.getenv("SOK_COMPILE_ASYNC") in ["0", "OFF", "Off", "off"] else "ON"
+        dedicated_cuda_stream = (
+            "OFF" if os.getenv("SOK_COMPILE_ASYNC") in ["0", "OFF", "Off", "off"] else "ON"
+        )
 
     unit_test = "OFF"
     if os.getenv("SOK_COMPILE_UNIT_TEST"):
@@ -52,13 +55,19 @@ def get_cmake_args():
 
     cmake_build_type = "Release"
     if os.getenv("SOK_COMPILE_BUILD_TYPE"):
-        cmake_build_type = "Debug" if os.getenv("SOK_COMPILE_BUILD_TYPE") in ["DEBUG", "debug", "Debug"] else "Release"
+        cmake_build_type = (
+            "Debug"
+            if os.getenv("SOK_COMPILE_BUILD_TYPE") in ["DEBUG", "debug", "Debug"]
+            else "Release"
+        )
 
-    cmake_args = ["-DSM='{}'".format(";".join(gpu_capabilities)),
-                  "-DUSE_NVTX={}".format(use_nvtx),
-                  "-DSOK_ASYNC={}".format(dedicated_cuda_stream),
-                  "-DSOK_UNIT_TEST={}".format(unit_test),
-                  "-DCMAKE_BUILD_TYPE={}".format(cmake_build_type)]
+    cmake_args = [
+        "-DSM='{}'".format(";".join(gpu_capabilities)),
+        "-DUSE_NVTX={}".format(use_nvtx),
+        "-DSOK_ASYNC={}".format(dedicated_cuda_stream),
+        "-DSOK_UNIT_TEST={}".format(unit_test),
+        "-DCMAKE_BUILD_TYPE={}".format(cmake_build_type),
+    ]
     return cmake_args
 
 
@@ -69,19 +78,19 @@ setup(
     author_email="hugectr-dev@exchange.nvidia.com",
     url="https://github.com/NVIDIA-Merlin/HugeCTR/tree/master/sparse_operation_kit",
     description="SparseOperationKit (SOK) is a python package wrapped GPU accelerated"
-                 " operations dedicated for sparse training / inference cases.",
+    " operations dedicated for sparse training / inference cases.",
     long_description="SparseOperationKit (SOK) is a python package wrapped GPU accelerated "
-                     "operations dedicated for sparse training / inference cases. "
-                     "It is designed to be compatible with common DeepLearning (DL) frameworks, "
-                     "for instance, TensorFlow. "
-                     "Most of the algorithm implementations in SOK are extracted from HugeCTR, "
-                     "which is a GPU-accelerated recommender framework designed to distribute "
-                     "training across multiple GPUs and nodes and estimate Click-Through Rates (CTRs). "
-                     "If you are looking for a very efficient solution for CTRs, please check HugeCTR.",
+    "operations dedicated for sparse training / inference cases. "
+    "It is designed to be compatible with common DeepLearning (DL) frameworks, "
+    "for instance, TensorFlow. "
+    "Most of the algorithm implementations in SOK are extracted from HugeCTR, "
+    "which is a GPU-accelerated recommender framework designed to distribute "
+    "training across multiple GPUs and nodes and estimate Click-Through Rates (CTRs). "
+    "If you are looking for a very efficient solution for CTRs, please check HugeCTR.",
     extras_require={"tensorflow": "tensorflow>=1.15"},
     license="Apache 2.0",
     platforms=["Linux"],
-    python_requires='>=3', # TODO: make it compatible with python2.7
+    python_requires=">=3",  # TODO: make it compatible with python2.7
     packages=find_packages(),
     cmake_args=get_cmake_args(),
 )

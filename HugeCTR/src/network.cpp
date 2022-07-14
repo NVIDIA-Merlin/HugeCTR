@@ -416,9 +416,9 @@ void Network::exchange_wgrad() {
 
 void Network::copy_weights_from_train_layers_to_evaluate_layers() {
   CudaDeviceContext context(get_device_id());
-  cudaMemcpyAsync(evaluate_weight_tensor_.get_ptr(), train_weight_tensor_.get_ptr(),
-                  train_weight_tensor_.get_size_in_bytes(), cudaMemcpyDeviceToDevice,
-                  gpu_resource_->get_stream());
+  HCTR_LIB_THROW(cudaMemcpyAsync(evaluate_weight_tensor_.get_ptr(), train_weight_tensor_.get_ptr(),
+                                 train_weight_tensor_.get_size_in_bytes(), cudaMemcpyDeviceToDevice,
+                                 gpu_resource_->get_stream()));
 
   if (use_mixed_precision_) {
     conv_weight_(evaluate_weight_tensor_half_, evaluate_weight_tensor_);

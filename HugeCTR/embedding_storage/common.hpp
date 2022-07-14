@@ -19,8 +19,8 @@
 #include <vector>
 
 #include "HugeCTR/core/buffer.hpp"
-#include "HugeCTR/include/optimizer.hpp"
 #include "HugeCTR/embedding/common.hpp"
+#include "HugeCTR/include/optimizer.hpp"
 
 namespace embedding {
 using core::CoreResourceManager;

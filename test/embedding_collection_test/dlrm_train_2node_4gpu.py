@@ -11,7 +11,7 @@ def generate_plan(slot_size_array, num_gpus, plan_file):
     single_gpu_plan = []
     mp_plan = {
       'local_embedding_list': [table_id for i, table_id in enumerate(mp_table) if i % num_gpus == gpu_id],
-      'table_placement_strategy': 'localized'
+      'table_placement_strategy': 'mp'
     }
     dp_plan = {
       'local_embedding_list': dp_table,
@@ -67,12 +67,15 @@ model.add(hugectr.Input(label_dim = 1, label_name = "label",
 # create embedding table
 embedding_table_list = []
 for i in range(num_embedding):
-  embedding_table_list.append(hugectr.EmbeddingTablePlaceHolder(id_space=i, max_vocabulary_size=slot_size_array[i], ev_size=128, min_key=0, max_key=slot_size_array[i]))
+  embedding_table_list.append(hugectr.EmbeddingTableConfig(table_id=i, max_vocabulary_size=slot_size_array[i], ev_size=128, min_key=0, max_key=slot_size_array[i]))
 # create embedding planner and embedding collection
 embedding_planner = hugectr.EmbeddingPlanner()
 emb_vec_list = []
 for i in range(num_embedding):
-  embedding_planner.embedding_lookup(embedding_table_list[i], "data{}".format(i), "emb_vec{}".format(i), "sum")
+  embedding_planner.embedding_lookup(table_config=embedding_table_list[i], 
+                                    bottom_name="data{}".format(i), 
+                                    top_name="emb_vec{}".format(i), 
+                                    combiner="sum")
 comm = MPI.COMM_WORLD
 if comm.Get_rank() == 0:
   generate_plan(slot_size_array, 8, "./plan.json")
@@ -107,7 +110,7 @@ model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.InnerProduct,
 model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.ReLU,
                             bottom_names = ["fc3"],
                             top_names = ["relu3"]))                              
-model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Concat, # interaction only support 3-D input
+model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Interaction, # interaction only support 3-D input
                             bottom_names = ["relu3","sparse_embedding1"],
                             top_names = ["interaction1"]))
 model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.InnerProduct,

@@ -95,7 +95,7 @@ class GpuData {
 template <typename TypeEmbeddingComp>
 void update_test(const std::vector<size_t>& value_index, size_t max_vocabulary_size,
                  size_t embedding_vec_size, const std::vector<TypeEmbeddingComp>& wgrad) {
-  std::cout << "Starting embedding update test..." << std::endl;
+  HCTR_LOG_S(DEBUG, WORLD) << "Starting embedding update test..." << std::endl;
   cudaStream_t stream = 0;
 
   // get number of sms
@@ -136,13 +136,13 @@ void update_test(const std::vector<size_t>& value_index, size_t max_vocabulary_s
   // init wgrad and weights on gpu:
   gpu_data.init_weights(num_samples, max_vocabulary_size, embedding_vec_size, wgrad);
 
-  std::cout << "performing atomic cached kernel..." << std::endl;
+  HCTR_LOG_S(DEBUG, WORLD) << "performing atomic cached kernel..." << std::endl;
   SparseEmbeddingFunctors::opt_sgd_atomic_cached<TypeEmbeddingComp>(
       num_samples, embedding_vec_size, gpu_data.value_index.get_ptr(), 1.0f, 1.0f,
       gpu_data.wgrad.get_ptr(), gpu_data.weights.get_ptr(), gpu_data.top_categories.get_ptr(),
       gpu_data.size_top_categories, stream, true);
 
-  std::cout << "done performing kernel, testing results.." << std::endl;
+  HCTR_LOG_S(DEBUG, WORLD) << "done performing kernel, testing results.." << std::endl;
   HCTR_LIB_THROW(cudaMemcpy(weights_test.data(), gpu_data.weights.get_ptr(),
                             sizeof(float) * embedding_vec_size * max_vocabulary_size,
                             cudaMemcpyDeviceToHost));
@@ -168,30 +168,37 @@ void update_test(const std::vector<size_t>& value_index, size_t max_vocabulary_s
       count_all++;
     }
     if (!category_equal) {
-      std::cout << "Fail : the weights of category " << category << " are wrongly computed."
-                << std::endl;
-      std::cout << "Weight expected : " << weights_ref[category * embedding_vec_size]
-                << "\t weight calculated : " << weights_test[category * embedding_vec_size]
-                << std::endl;
+      HCTR_LOG_S(DEBUG, WORLD) << "Fail : the weights of category " << category
+                               << " are wrongly computed." << std::endl;
+      HCTR_LOG_S(DEBUG, WORLD) << "Weight expected : " << weights_ref[category * embedding_vec_size]
+                               << "\t weight calculated : "
+                               << weights_test[category * embedding_vec_size] << std::endl;
     }
   }
 
-  diff_ave /= (double)count_all;
-  std::cout << "number of correct elements : " << count_all - count_neq << " out of  " << count_all
-            << " = " << (double)(count_all - count_neq) / (double)count_all * 100.0 << " % "
-            << std::endl;
+  diff_ave /= static_cast<double>(count_all);
+  HCTR_LOG_S(DEBUG, WORLD) << "number of correct elements : " << count_all - count_neq
+                           << " out of  " << count_all << " = "
+                           << (double)(count_all - count_neq) / (double)count_all * 100.0 << " % "
+                           << std::endl;
   if (!all_el_equal) {
-    std::cout << "average diff : " << diff_ave << std::endl;
-    std::cout << "CPU : ";
-    for (size_t i = 0; i < 10; ++i) {
-      std::cout << '\t' << weights_ref[128 + i];
+    HCTR_LOG_S(DEBUG, WORLD) << "average diff : " << diff_ave << std::endl;
+    {
+      auto log = HCTR_LOG_S(DEBUG, WORLD);
+      log << "CPU : ";
+      for (size_t i = 0; i < 10; ++i) {
+        log << '\t' << weights_ref[128 + i];
+      }
+      log << std::endl;
     }
-    std::cout << std::endl;
-    std::cout << "GPU : ";
-    for (size_t i = 0; i < 10; ++i) {
-      std::cout << '\t' << weights_test[128 + i];
+    {
+      auto log = HCTR_LOG_S(DEBUG, WORLD);
+      log << "GPU : ";
+      for (size_t i = 0; i < 10; ++i) {
+        log << '\t' << weights_test[128 + i];
+      }
+      log << std::endl;
     }
-    std::cout << std::endl;
   }
   ASSERT_TRUE(all_el_equal && "not all embedding vector weights are updated correctly!");
 
@@ -205,7 +212,7 @@ void update_test(const std::vector<size_t>& value_index, size_t max_vocabulary_s
   }
   ASSERT_TRUE(all_el_zero && "some embedding vectors that shouldn't be updated were modified!");
 
-  std::cout << "Finished embedding update test SUCCESSFULLY!" << std::endl;
+  HCTR_LOG_S(DEBUG, WORLD) << "Finished embedding update test SUCCESSFULLY!" << std::endl;
 }
 
 template <typename etype>

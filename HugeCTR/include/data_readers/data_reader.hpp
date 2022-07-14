@@ -70,12 +70,14 @@ class DataReader : public IDataReader {
   bool repeat_;
   std::string file_name_;
   SourceType_t source_type_;
+  const DataSourceParams data_source_params_;
 
  public:
   DataReader(int batchsize, size_t label_dim, int dense_dim,
              std::vector<DataReaderSparseParam> &params,
              const std::shared_ptr<ResourceManager> &resource_manager, bool repeat, int num_threads,
-             bool use_mixed_precision)
+             bool use_mixed_precision,
+             const DataSourceParams &data_source_params = DataSourceParams())
       : broadcast_buffer_(new BroadcastBuffer()),
         output_(new DataReaderOutput()),
         params_(params),
@@ -83,7 +85,8 @@ class DataReader : public IDataReader {
         batchsize_(batchsize),
         label_dim_(label_dim),
         dense_dim_(dense_dim),
-        repeat_(repeat) {
+        repeat_(repeat),
+        data_source_params_(data_source_params) {
     size_t local_gpu_count = resource_manager_->get_local_gpu_count();
     size_t total_gpu_count = resource_manager_->get_global_gpu_count();
 
@@ -311,13 +314,14 @@ class DataReader : public IDataReader {
   }
 
 #ifndef DISABLE_CUDF
-  void create_drwg_parquet(std::string file_name, const std::vector<long long> slot_offset,
+  void create_drwg_parquet(std::string file_name, bool strict_order_of_batches,
+                           const std::vector<long long> slot_offset,
                            bool start_reading_from_beginning = true) override {
     source_type_ = SourceType_t::Parquet;
     // worker_group_.empty
     worker_group_.reset(new DataReaderWorkerGroupParquet<TypeKey>(
-        thread_buffers_, file_name, repeat_, params_, slot_offset, resource_manager_,
-        start_reading_from_beginning));
+        thread_buffers_, file_name, strict_order_of_batches, repeat_, params_, slot_offset,
+        data_source_params_, resource_manager_, start_reading_from_beginning));
   }
 #endif
 
@@ -330,7 +334,7 @@ class DataReader : public IDataReader {
           file_name = file_name_;
         }
       }
-      worker_group_->set_source(source_type_, file_name, repeat_);
+      worker_group_->set_source(source_type_, file_name, repeat_, data_source_params_);
     } else {
       throw internal_runtime_error(Error_t::NotInitialized, "worker_group_ == nullptr");
     }

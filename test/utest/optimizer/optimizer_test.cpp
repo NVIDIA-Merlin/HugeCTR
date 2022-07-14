@@ -81,18 +81,18 @@ void optimizer_test(size_t len, int num_update, float threshold, ARGS... args) {
   for (size_t i = 0; i < len; ++i) {
     h_weight_expected[i] = h_weight[i];
   }
-  cudaMemcpy(d_weight, h_weight.get(), len * sizeof(float), cudaMemcpyHostToDevice);
+  HCTR_LIB_THROW(cudaMemcpy(d_weight, h_weight.get(), len * sizeof(float), cudaMemcpyHostToDevice));
 
   OptimizerCPU<T> optimizerCPU(len, h_weight_expected.get(), h_wgrad.get(), args...);
   for (int i = 0; i < num_update; ++i) {
     simulator.fill(h_wgrad.get(), len);
-    cudaMemcpy(d_wgrad, h_wgrad.get(), len * sizeof(T), cudaMemcpyHostToDevice);
+    HCTR_LIB_THROW(cudaMemcpy(d_wgrad, h_wgrad.get(), len * sizeof(T), cudaMemcpyHostToDevice));
 
     optimizerGPU->update();
     optimizerCPU.update();
   }
 
-  cudaMemcpy(h_weight.get(), d_weight, len * sizeof(float), cudaMemcpyDeviceToHost);
+  HCTR_LIB_THROW(cudaMemcpy(h_weight.get(), d_weight, len * sizeof(float), cudaMemcpyDeviceToHost));
   compare_array(h_weight.get(), h_weight_expected.get(), len, threshold);
 }
 
