@@ -33,11 +33,13 @@ class EmbeddingTableCPU {
   std::vector<std::unordered_map<key_t, std::vector<float>>> emb_table_list_;
   std::vector<EmbeddingTableParam> table_param_list_;
 
-  EmbeddingTableCPU(int num_table, std::vector<std::vector<IEmbeddingTable *>> emb_table_list, const std::vector<EmbeddingTableParam> &table_param_list) : table_param_list_(table_param_list) {
+  EmbeddingTableCPU(int num_table, std::vector<std::vector<IEmbeddingTable *>> emb_table_list,
+                    const std::vector<EmbeddingTableParam> &table_param_list)
+      : table_param_list_(table_param_list) {
     emb_table_list_.resize(num_table);
-    
+
     for (int table_id = 0; table_id < static_cast<int>(emb_table_list.size()); ++table_id) {
-      for (int gpu_id = 0; gpu_id <  static_cast<int>(emb_table_list[table_id].size()); ++gpu_id) {
+      for (int gpu_id = 0; gpu_id < static_cast<int>(emb_table_list[table_id].size()); ++gpu_id) {
         core::Tensor keys;
         core::Tensor id_space_offset;
         core::Tensor emb_table;
@@ -69,7 +71,7 @@ class EmbeddingTableCPU {
         }
         std::partial_sum(cpu_emb_table_ev_offset_list.begin(), cpu_emb_table_ev_offset_list.end(),
                          cpu_emb_table_ev_offset_list.begin());
-      
+
         for (int idx = 0; idx < static_cast<int>(cpu_emb_table_id_space_list.size()); ++idx) {
           int id_space = cpu_emb_table_id_space_list[idx];
           int ev_size = cpu_emb_table_ev_size_list[idx];
@@ -97,10 +99,10 @@ class EmbeddingTableCPU {
       float scaler = table_param_list_[id_space].opt_param.scaler;
 
       if (table_param_list_[id_space].opt_param.optimizer == HugeCTR::Optimizer_t::SGD) {
-        for (auto &[key, ev]: grad_info[id_space]) {
+        for (auto &[key, ev] : grad_info[id_space]) {
           ASSERT_TRUE(emb_table_list_[id_space].find(key) != emb_table_list_[id_space].end());
           ASSERT_EQ(emb_table_list_[id_space][key].size(), ev.size());
-          
+
           for (size_t i = 0; i < ev.size(); ++i) {
             float gi = (-lr * ev[i] / scaler);
             emb_table_list_[id_space][key][i] += gi;

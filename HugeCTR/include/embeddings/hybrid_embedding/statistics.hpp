@@ -111,12 +111,9 @@ struct Statistics {
                                 uint32_t *counts_sorted, uint32_t &num_unique_categories,
                                 cudaStream_t stream);
   void sort_categories_by_count(const Tensor2<dtype> &samples, cudaStream_t stream);
-  void calculate_frequent_categories(dtype *frequent_categories, dtype *category_frequent_index,
-                                     const size_t num_frequent, cudaStream_t stream);
-  void calculate_infrequent_categories(dtype *infrequent_categories,
-                                       const dtype *category_frequent_index,
-                                       dtype *category_location, const dtype num_infrequent,
-                                       cudaStream_t stream);
+  void calculate_frequent_and_infrequent_categories(
+      dtype *frequent_categories, dtype *infrequent_categories, dtype *category_location,
+      const size_t num_frequent, const size_t num_infrequent, cudaStream_t stream);
   void calculate_infrequent_model_table_offsets(
       std::vector<dtype> &h_infrequent_model_table_offsets,
       const Tensor2<dtype> &infrequent_categories, const Tensor2<dtype> &category_location,

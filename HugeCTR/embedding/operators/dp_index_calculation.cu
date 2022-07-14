@@ -16,8 +16,8 @@
 #include <cub/cub.cuh>
 
 #include "HugeCTR/include/utils.cuh"
-#include "generic_lookup.cuh"
 #include "dp_index_calculation.hpp"
+#include "generic_lookup.cuh"
 namespace embedding {
 
 namespace {
@@ -25,7 +25,8 @@ namespace {
 template <typename offset_t>
 __global__ void mask_flag_kernel(int num_local_embedding, int batch_size_per_gpu,
                                  int const* d_local_embedding_list, int batch_size, int gpu_id,
-                                 offset_t const* bucket_range, char* flag, uint32_t* dp_offset, uint32_t *dp_dst) {
+                                 offset_t const* bucket_range, char* flag, uint32_t* dp_offset,
+                                 uint32_t* dp_dst) {
   int tid = blockIdx.x * blockDim.x + threadIdx.x;
 
   if (tid < num_local_embedding * batch_size_per_gpu) {
@@ -164,10 +165,8 @@ __global__ void memset_kernel(uint32_t* arr, int num, uint32_t val) {
 }  // namespace
 
 DPIndexCalculation::DPIndexCalculation(std::shared_ptr<CoreResourceManager> core, int num_gpus,
-                                       int num_local_embedding,
-                                       int local_hotness_sum,
-                                       int hotness_sum,
-                                       int universal_batch_size, DataType key_type,
+                                       int num_local_embedding, int local_hotness_sum,
+                                       int hotness_sum, int universal_batch_size, DataType key_type,
                                        DataType offset_type)
     : core_(core),
       num_gpus_(num_gpus),
@@ -190,10 +189,10 @@ DPIndexCalculation::DPIndexCalculation(std::shared_ptr<CoreResourceManager> core
 
   size_t temp_storage_bytes_category = 0;
   DISPATCH_INTEGRAL_FUNCTION(key_type_.type(), key_t, ([&] {
-                               cub::DeviceSelect::Flagged(
-                                   nullptr, temp_storage_bytes_category, (key_t*)nullptr,
-                                   (char*)nullptr, (key_t*)nullptr, (size_t*)nullptr,
-                                   universal_batch_size_ * hotness_sum_);
+                               cub::DeviceSelect::Flagged(nullptr, temp_storage_bytes_category,
+                                                          (key_t*)nullptr, (char*)nullptr,
+                                                          (key_t*)nullptr, (size_t*)nullptr,
+                                                          universal_batch_size_ * hotness_sum_);
                              }));
   d_temp_storage_category_ =
       buffer_ptr->reserve({temp_storage_bytes_category}, device, TensorScalarType::Void);
@@ -210,14 +209,15 @@ DPIndexCalculation::DPIndexCalculation(std::shared_ptr<CoreResourceManager> core
       buffer_ptr->reserve({universal_batch_size_per_gpu_ * local_hotness_sum_}, device, key_type_);
   dp_offset_ = buffer_ptr->reserve({universal_batch_size_per_gpu_ * num_local_embedding_ + 1},
                                    device, TensorScalarType::UInt32);
-  dp_dst_ = buffer_ptr->reserve({universal_batch_size_per_gpu_ * num_local_embedding_},
-                                   device, TensorScalarType::UInt32);
+  dp_dst_ = buffer_ptr->reserve({universal_batch_size_per_gpu_ * num_local_embedding_}, device,
+                                TensorScalarType::UInt32);
   buffer_ptr->allocate();
 }
 
 void DPIndexCalculation::compute(const Tensor& key, const Tensor& bucket_range, size_t num_keys,
                                  const Tensor& d_local_embedding_list, int batch_size,
-                                 Tensor* dp_key, Tensor* dp_offset, size_t* num_dp_key, Tensor *dp_dst) {
+                                 Tensor* dp_key, Tensor* dp_offset, size_t* num_dp_key,
+                                 Tensor* dp_dst) {
   CudaDeviceContext ctx(core_->get_device_id());
 
   int batch_size_per_gpu = batch_size / num_gpus_;
@@ -238,7 +238,8 @@ void DPIndexCalculation::compute(const Tensor& key, const Tensor& bucket_range, 
       int gridDim = (num_local_embedding_ * batch_size_per_gpu - 1) / blockDim + 1;
       mask_flag_kernel<<<gridDim, blockDim, 0, stream>>>(
           num_local_embedding_, batch_size_per_gpu, d_local_embedding_list.get<int>(), batch_size,
-          gpu_id, bucket_range.get<offset_t>(), flag_.get<char>(), dp_offset_.get<uint32_t>(), dp_dst_.get<uint32_t>());
+          gpu_id, bucket_range.get<offset_t>(), flag_.get<char>(), dp_offset_.get<uint32_t>(),
+          dp_dst_.get<uint32_t>());
 
       // select key
       size_t temp_storage_category_bytes = d_temp_storage_category_.nbytes();
@@ -366,16 +367,17 @@ void DPLocalReduceIndexCalculation::compute(
       int gpu_id = core_->get_global_gpu_id();
       int num_gpus = core_->get_global_gpu_count();
 
-      HCTR_LIB_THROW(
-          cudaMemsetAsync(segment_end_offsets_.get<int>(), 0, segment_end_offsets_.nbytes(), stream));
-      HCTR_LIB_THROW(
-          cudaMemsetAsync(dp_keys_.get<key_t>(), 0, dp_keys_.nbytes(), stream));
+      HCTR_LIB_THROW(cudaMemsetAsync(segment_end_offsets_.get<int>(), 0,
+                                     segment_end_offsets_.nbytes(), stream));
+      HCTR_LIB_THROW(cudaMemsetAsync(dp_keys_.get<key_t>(), 0, dp_keys_.nbytes(), stream));
       HCTR_LIB_THROW(
           cudaMemsetAsync(dp_bucket_id_.get<uint32_t>(), 0, dp_bucket_id_.nbytes(), stream));
       HCTR_LIB_THROW(
           cudaMemsetAsync(sorted_dp_keys_.get<key_t>(), 0, sorted_dp_keys_.nbytes(), stream));
-      HCTR_LIB_THROW(cudaMemsetAsync(unique_dp_keys_.get<key_t>(), 0, unique_dp_keys_.nbytes(), stream));
-      HCTR_LIB_THROW(cudaMemsetAsync(unique_dp_keys_indices_.get<uint32_t>(), 0, unique_dp_keys_indices_.nbytes(), stream));
+      HCTR_LIB_THROW(
+          cudaMemsetAsync(unique_dp_keys_.get<key_t>(), 0, unique_dp_keys_.nbytes(), stream));
+      HCTR_LIB_THROW(cudaMemsetAsync(unique_dp_keys_indices_.get<uint32_t>(), 0,
+                                     unique_dp_keys_indices_.nbytes(), stream));
 
       HCTR_LIB_THROW(cudaMemsetAsync(sorted_bucket_id_list_.get<uint32_t>(), 0,
                                      sorted_bucket_id_list_.nbytes(), stream));
@@ -383,7 +385,7 @@ void DPLocalReduceIndexCalculation::compute(
           cudaMemsetAsync(unique_dst_idx_.get<uint32_t>(), 0, unique_dst_idx_.nbytes(), stream));
       HCTR_LIB_THROW(cudaMemsetAsync(sorted_bucket_id_offset_.get<uint32_t>(), 0,
                                      sorted_bucket_id_offset_.nbytes(), stream));
-      
+
       {
         fused_select_dp_key_and_bucket_id_kernel<<<num_local_embedding_, 256, 0, stream>>>(
             key.get<key_t>(), bucket_range.get<offset_t>(), num_key, batch_size,

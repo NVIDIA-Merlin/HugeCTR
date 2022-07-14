@@ -60,7 +60,7 @@ int main(int argc, char *argv[]) {
     if (txt_file.eof()) {
       txt_file.close();
       out_file.close();
-      std::cout << "#samples: " << num_samples << std::endl;
+      HCTR_LOG_S(DEBUG, WORLD) << "#samples: " << num_samples << std::endl;
       break;
     }
     std::vector<std::string> vec_string;

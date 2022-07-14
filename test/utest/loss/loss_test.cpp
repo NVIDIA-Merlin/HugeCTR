@@ -70,9 +70,10 @@ void cross_entropy_loss(size_t batch_size) {
   for (size_t i = 0; i < batch_size; ++i) h_label[i] = rand() % 2;
 
   // GPU
-  cudaMemcpy(d_input, h_input.get(), sizeof(float) * batch_size * feature_dim,
-             cudaMemcpyHostToDevice);
-  cudaMemcpy(d_label, h_label.get(), sizeof(float) * batch_size, cudaMemcpyHostToDevice);
+  HCTR_LIB_THROW(cudaMemcpy(d_input, h_input.get(), sizeof(float) * batch_size * feature_dim,
+                            cudaMemcpyHostToDevice));
+  HCTR_LIB_THROW(
+      cudaMemcpy(d_label, h_label.get(), sizeof(float) * batch_size, cudaMemcpyHostToDevice));
   cel.compute_and_init(true);
 
   // CPU
@@ -144,8 +145,10 @@ void binary_cross_entropy_loss(size_t batch_size) {
   for (size_t i = 0; i < batch_size; ++i) h_input[i] = rand() % 100 * 0.01f;
   for (size_t i = 0; i < batch_size; ++i) h_label[i] = rand() % 2;
   // GPU
-  cudaMemcpy(d_input, h_input.get(), sizeof(float) * batch_size, cudaMemcpyHostToDevice);
-  cudaMemcpy(d_label, h_label.get(), sizeof(float) * batch_size, cudaMemcpyHostToDevice);
+  HCTR_LIB_THROW(
+      cudaMemcpy(d_input, h_input.get(), sizeof(float) * batch_size, cudaMemcpyHostToDevice));
+  HCTR_LIB_THROW(
+      cudaMemcpy(d_label, h_label.get(), sizeof(float) * batch_size, cudaMemcpyHostToDevice));
 
   // Test with separate regularizer and compute methods
   float rterm = bce.regularizer_compute_rterm();

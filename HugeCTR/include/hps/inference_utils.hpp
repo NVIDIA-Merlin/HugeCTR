@@ -289,6 +289,8 @@ struct parameter_server_config {
   parameter_server_config(const std::vector<std::string>& model_config_path_array,
                           const std::vector<InferenceParams>& inference_params_array);
   parameter_server_config(const std::string& hps_json_config_file);
+  parameter_server_config(const char* hps_json_config_file);
+  void init(const std::string& hps_json_config_file);
   std::optional<size_t> find_model_id(const std::string& model_name) const;
 };
 

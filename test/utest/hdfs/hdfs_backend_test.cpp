@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/hdfs_backend.hpp"
+#include "HugeCTR/include/data_source/hdfs_backend.hpp"
 
 #include "fstream"
 #include "gtest/gtest.h"

@@ -36,13 +36,25 @@ FullyConnectedLayer<__half>::FullyConnectedLayer(
   const auto& bottom_tensor_dim = bottom_tensor.get_dimensions();
   const auto& top_tensor_dim = top_tensor.get_dimensions();
 
-  if (bottom_tensor_dim.size() != 2 || top_tensor_dim.size() != 2) {
-    HCTR_OWN_THROW(Error_t::WrongInput, "input or output tensor doesn't has two dimensions");
+  if (bottom_tensor_dim.size() != top_tensor_dim.size()) {
+    HCTR_OWN_THROW(Error_t::WrongInput, "input or output tensor don't have same dimensions");
+  }
+  size_t in_batch = 1;
+  size_t out_batch = 1;
+  size_t in_hidden_dim = bottom_tensor_dim[bottom_tensor_dim.size() - 1];
+  size_t out_hidden_dim = top_tensor_dim[top_tensor_dim.size() - 1];
+
+  for (size_t idx = 0; idx < bottom_tensor_dim.size() - 1; idx++) {
+    in_batch = in_batch * bottom_tensor_dim[idx];
+    out_batch = out_batch * top_tensor_dim[idx];
   }
 
-  size_t m = bottom_tensor_dim[0];
-  size_t n = top_tensor_dim[1];
-  size_t k = bottom_tensor_dim[1];
+  size_t m = in_batch;
+  size_t n = out_hidden_dim;
+  size_t k = in_hidden_dim;
+  if (in_batch != out_batch) {
+    HCTR_OWN_THROW(Error_t::WrongInput, "size of input / output tensor doesn't match");
+  }
 
   std::vector<size_t> kernel_dim = {k, n};
   std::vector<size_t> bias_dim = {1, n};
@@ -97,30 +109,28 @@ void FullyConnectedLayer<__half>::fprop(bool is_train) {
   const auto& bottom_tensor_dim = get_bottom_tensor(is_train).get_dimensions();
   const auto& top_tensor_dim = top_tensor_.get_dimensions();
 
-  size_t m = bottom_tensor_dim[0];
-  size_t n = top_tensor_dim[1];
-  size_t k = bottom_tensor_dim[1];
+  size_t in_batch = 1;
+  size_t in_hidden_dim = bottom_tensor_dim[bottom_tensor_dim.size() - 1];
+  size_t out_hidden_dim = top_tensor_dim[top_tensor_dim.size() - 1];
+
+  for (size_t idx = 0; idx < bottom_tensor_dim.size() - 1; idx++) {
+    in_batch = in_batch * bottom_tensor_dim[idx];
+  }
+  size_t m = in_batch;
+  size_t n = out_hidden_dim;
+  size_t k = in_hidden_dim;
 
   const float alpha = 1.0f;
   const float beta_b = 0.0f;
   const float beta_k = 1.0f;
 
-  PROFILE_RECORD("fully_connected_layer_half.fprop.cublasGemmEx_1.start", get_gpu().get_stream());
   HCTR_LIB_THROW(cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_N, n, m, 1,
                               &alpha, bias, CUDA_R_16F, n, identity, CUDA_R_16F, 1, &beta_b, top,
                               CUDA_R_16F, n, CUDA_R_32F, falgo_b_));
-  PROFILE_RECORD("fully_connected_layer_half.fprop.cublasGemmEx_1.stop", get_gpu().get_stream());
 
-  PROFILE_RECORD("fully_connected_layer_half.fprop.cublasGemmEx_2.start", get_gpu().get_stream());
   HCTR_LIB_THROW(cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_N, n, m, k,
                               &alpha, kernel, CUDA_R_16F, n, bottom, CUDA_R_16F, k, &beta_k, top,
                               CUDA_R_16F, n, CUDA_R_32F, falgo_k_));
-  PROFILE_RECORD("fully_connected_layer_half.fprop.cublasGemmEx_2.stop", get_gpu().get_stream());
-
-  PROFILE_RECORD("fully_connected_layer_half.fprop.stop", get_gpu().get_stream());
-
-  // only apply to dlrm model. Other model will yield error
-  // PROFILE_RECORD("TopMLP.fprop.stop", get_gpu().get_stream());
 
 #ifndef NDEBUG
   cudaDeviceSynchronize();
@@ -141,37 +151,34 @@ void FullyConnectedLayer<__half>::bprop() {
   const auto& bottom_tensor_dim = get_bottom_tensor(true).get_dimensions();
   const auto& top_tensor_dim = top_tensor_.get_dimensions();
 
-  int m = bottom_tensor_dim[0];
-  int n = top_tensor_dim[1];
-  int k = bottom_tensor_dim[1];
+  size_t in_batch = 1;
+  size_t in_hidden_dim = bottom_tensor_dim[bottom_tensor_dim.size() - 1];
+  size_t out_hidden_dim = top_tensor_dim[top_tensor_dim.size() - 1];
+
+  for (size_t idx = 0; idx < bottom_tensor_dim.size() - 1; idx++) {
+    in_batch = in_batch * bottom_tensor_dim[idx];
+  }
+
+  size_t m = in_batch;
+  size_t n = out_hidden_dim;
+  size_t k = in_hidden_dim;
 
   const float alpha = 1.0f;
   const float beta_b = 0.0f;
   const float beta_k = 1.0f;
   const float beta_x = 0.0f;
 
-  // PROFILE_RECORD("TopMLP.bprop.start", get_gpu().get_stream());
-  PROFILE_RECORD("fully_connected_layer_half.bprop.start", get_gpu().get_stream());
-
-  PROFILE_RECORD("fully_connected_layer_half.bprop.cublasGemmEx_1.start", get_gpu().get_stream());
   HCTR_LIB_THROW(cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_N, n, 1, m,
                               &alpha, top, CUDA_R_16F, n, identity, CUDA_R_16F, m, &beta_b,
                               bias_grad, CUDA_R_16F, n, CUDA_R_32F, balgo_b_));
-  PROFILE_RECORD("fully_connected_layer_half.bprop.cublasGemmEx_1.stop", get_gpu().get_stream());
 
-  PROFILE_RECORD("fully_connected_layer_half.bprop.cublasGemmEx_2.start", get_gpu().get_stream());
   HCTR_LIB_THROW(cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_T, n, k, m,
                               &alpha, top, CUDA_R_16F, n, bottom, CUDA_R_16F, k, &beta_k,
                               kernel_grad, CUDA_R_16F, n, CUDA_R_32F, balgo_k_));
-  PROFILE_RECORD("fully_connected_layer_half.bprop.cublasGemmEx_2.stop", get_gpu().get_stream());
 
-  PROFILE_RECORD("fully_connected_layer_half.bprop.cublasGemmEx_3.start", get_gpu().get_stream());
   HCTR_LIB_THROW(cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_T, CUBLAS_OP_N, k, m, n,
                               &alpha, kernel, CUDA_R_16F, n, top, CUDA_R_16F, n, &beta_x, bottom,
                               CUDA_R_16F, k, CUDA_R_32F, balgo_x_));
-  PROFILE_RECORD("fully_connected_layer_half.bprop.cublasGemmEx_3.stop", get_gpu().get_stream());
-
-  PROFILE_RECORD("fully_connected_layer_half.bprop.stop", get_gpu().get_stream());
 
 #ifndef NDEBUG
   cudaDeviceSynchronize();
@@ -184,8 +191,10 @@ void FullyConnectedLayer<__half>::initialize() {
 
   __half* identity = identity_tensor_.get_ptr();
   const auto& bottom_tensor_dim = get_bottom_tensor(true).get_dimensions();
-  size_t m = bottom_tensor_dim[0];
-
+  size_t m = 1;
+  for (size_t idx = 0; idx < bottom_tensor_dim.size() - 1; idx++) {
+    m = m * bottom_tensor_dim[idx];
+  }
   // Initialize identity vector
   initialize_array<<<(m - 1) / 1024 + 1, 1024, 0, get_gpu().get_stream()>>>(identity, m,
                                                                             __float2half(1.0f));
@@ -210,9 +219,17 @@ void FullyConnectedLayer<__half>::search_algorithm() {
   const auto& bottom_tensor_dim = get_bottom_tensor(true).get_dimensions();
   const auto& top_tensor_dim = top_tensor_.get_dimensions();
 
-  size_t m = bottom_tensor_dim[0];
-  size_t n = top_tensor_dim[1];
-  size_t k = bottom_tensor_dim[1];
+  size_t in_batch = 1;
+  size_t in_hidden_dim = bottom_tensor_dim[bottom_tensor_dim.size() - 1];
+  size_t out_hidden_dim = top_tensor_dim[top_tensor_dim.size() - 1];
+
+  for (size_t idx = 0; idx < bottom_tensor_dim.size() - 1; idx++) {
+    in_batch = in_batch * bottom_tensor_dim[idx];
+  }
+
+  size_t m = in_batch;
+  size_t n = out_hidden_dim;
+  size_t k = in_hidden_dim;
 
   // Record time for each algorithm
   float shortestTime = std::numeric_limits<float>::max();
@@ -416,8 +433,9 @@ void FullyConnectedLayer<__half>::search_algorithm() {
 
 std::unique_ptr<DataSimulator> FullyConnectedLayer<__half>::get_uniform_initializer(
     const int index) {
-  size_t bottom_dim = get_bottom_tensor(true).get_dimensions()[1];
-  size_t top_dim = top_tensor_.get_dimensions()[1];
+  size_t bottom_dim =
+      get_bottom_tensor(true).get_dimensions()[get_bottom_tensor(true).get_dimensions().size() - 1];
+  size_t top_dim = top_tensor_.get_dimensions()[top_tensor_.get_dimensions().size() - 1];
 
   float limit = 1.0f / ((0 == index ? bottom_dim : 0) + top_dim);
   return std::make_unique<UniformDataSimulator>(-1 * limit, limit);
@@ -425,8 +443,9 @@ std::unique_ptr<DataSimulator> FullyConnectedLayer<__half>::get_uniform_initiali
 
 std::unique_ptr<DataSimulator> FullyConnectedLayer<__half>::get_xavier_uniform_initializer(
     const int index) {
-  size_t bottom_dim = get_bottom_tensor(true).get_dimensions()[1];
-  size_t top_dim = top_tensor_.get_dimensions()[1];
+  size_t bottom_dim =
+      get_bottom_tensor(true).get_dimensions()[get_bottom_tensor(true).get_dimensions().size() - 1];
+  size_t top_dim = top_tensor_.get_dimensions()[top_tensor_.get_dimensions().size() - 1];
 
   return std::make_unique<VarianceScalingSimulator>(1.f, data_simu::Mode_t::Fan_avg,
                                                     data_simu::Distribution_t::Uniform,
@@ -435,8 +454,9 @@ std::unique_ptr<DataSimulator> FullyConnectedLayer<__half>::get_xavier_uniform_i
 
 std::unique_ptr<DataSimulator> FullyConnectedLayer<__half>::get_xavier_norm_initializer(
     const int index) {
-  size_t bottom_dim = get_bottom_tensor(true).get_dimensions()[1];
-  size_t top_dim = top_tensor_.get_dimensions()[1];
+  size_t bottom_dim =
+      get_bottom_tensor(true).get_dimensions()[get_bottom_tensor(true).get_dimensions().size() - 1];
+  size_t top_dim = top_tensor_.get_dimensions()[top_tensor_.get_dimensions().size() - 1];
 
   return std::make_unique<VarianceScalingSimulator>(1.f, data_simu::Mode_t::Fan_avg,
                                                     data_simu::Distribution_t::Norm,
@@ -445,8 +465,9 @@ std::unique_ptr<DataSimulator> FullyConnectedLayer<__half>::get_xavier_norm_init
 
 std::unique_ptr<DataSimulator> FullyConnectedLayer<__half>::get_default_initializer(
     const int index) {
-  size_t bottom_dim = get_bottom_tensor(true).get_dimensions()[1];
-  size_t top_dim = top_tensor_.get_dimensions()[1];
+  size_t bottom_dim =
+      get_bottom_tensor(true).get_dimensions()[get_bottom_tensor(true).get_dimensions().size() - 1];
+  size_t top_dim = top_tensor_.get_dimensions()[top_tensor_.get_dimensions().size() - 1];
 
   std::unique_ptr<DataSimulator> simu(nullptr);
   if (0 == index) {
