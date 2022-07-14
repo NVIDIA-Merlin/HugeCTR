@@ -764,8 +764,7 @@ void SparseModelFileTS<TypeKey>::update_global_model() {
     EmbeddingTableFile global_model(global_model_path_, opt_type_);
     size_t local_num_keys{key_idx_map_.size()};
     size_t global_num_keys;
-    HCTR_MPI_THROW(
-        MPI_Allreduce(&local_num_keys, &global_num_keys, 1, MPI_SIZE_T, MPI_SUM, MPI_COMM_WORLD));
+    MPI_Allreduce(&local_num_keys, &global_num_keys, 1, MPI_SIZE_T, MPI_SUM, MPI_COMM_WORLD);
     if (resource_manager_->is_master_process()) {
       std::filesystem::remove_all(global_model_path_);
       std::filesystem::create_directories(global_model_path_);

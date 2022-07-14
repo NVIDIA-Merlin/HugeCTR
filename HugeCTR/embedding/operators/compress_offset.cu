@@ -17,14 +17,16 @@
 
 namespace embedding {
 
+
 __global__ void compress_offset_kernel(const uint32_t* offset, int num, int stride,
                                        uint32_t* compressed_offset) {
   int thread_cnt = blockDim.x * blockDim.y;
-
+  
   for (int tid = threadIdx.x + threadIdx.y * blockDim.x; tid < num; tid += thread_cnt) {
     compressed_offset[tid] = offset[tid * stride];
   }
 }
+
 
 CompressOffset::CompressOffset(std::shared_ptr<CoreResourceManager> core, int num_compressed_offset)
     : core_(core), num_compressed_offset_(num_compressed_offset) {
@@ -42,10 +44,11 @@ void CompressOffset::compute(const Tensor& offset, int stride, Tensor* compresse
 
   dim3 block_size(32, 8);
 
-  compress_offset_kernel<<<1, block_size, 0, stream>>>(
-      offset.get<uint32_t>(), num_compressed_offset_, stride, compressed_offset_.get<uint32_t>());
+  compress_offset_kernel<<<1, block_size, 0, stream>>>(offset.get<uint32_t>(),
+                                                       num_compressed_offset_, stride,
+                                                       compressed_offset_.get<uint32_t>());
 
   *compressed_offset = compressed_offset_;
 }
 
-}  // namespace embedding
+}

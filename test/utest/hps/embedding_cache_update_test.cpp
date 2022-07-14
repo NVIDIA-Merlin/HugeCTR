@@ -16,11 +16,14 @@
 
 #include <cuda_profiler_api.h>
 #include <gtest/gtest.h>
+#include <utest/test_utils.h>
 
 #include <cassert>
 #include <common.hpp>
+#include <data_generator.hpp>
 #include <filesystem>
 #include <fstream>
+#include <general_buffer2.hpp>
 #include <hps/embedding_cache.hpp>
 #include <hps/hier_parameter_server.hpp>
 #include <utils.hpp>

@@ -39,7 +39,7 @@ std::ostream &operator<<(std::ostream &os, const Combiner &p);
 
 enum class TablePlacementStrategy : int8_t {
   DataParallel,
-  ModelParallel
+  Localized
   // ColumnwiseDistributed,
   // RowwiseDistributed,
   // RowwiseDistributedWithPacking,
@@ -47,13 +47,13 @@ enum class TablePlacementStrategy : int8_t {
 };
 
 const std::map<std::string, TablePlacementStrategy> _table_placement_type_map = {
-    {"dp", TablePlacementStrategy::DataParallel}, {"mp", TablePlacementStrategy::ModelParallel}};
+    {"dp", TablePlacementStrategy::DataParallel}, {"localized", TablePlacementStrategy::Localized}};
 
 struct EmbeddingShardingParam {
   std::vector<int> local_embedding_list;
   std::vector<std::vector<int>> global_embedding_list;
-  int shard_id;
-  int shards_count;
+  int sharding_id;
+  int num_sharding;
   TablePlacementStrategy table_placement_strategy;
   // there will be more. for example, FrequentEmbedding may need num_frequent_categories.
 };

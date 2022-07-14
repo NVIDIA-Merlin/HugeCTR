@@ -5,7 +5,7 @@
               0,
               14
           ],
-          "table_placement_strategy": "mp",
+          "table_placement_strategy": "localized",
           "global_embedding_list": [
               [
                   0,
@@ -177,7 +177,7 @@
               1,
               19
           ],
-          "table_placement_strategy": "mp",
+          "table_placement_strategy": "localized",
           "global_embedding_list": [
               [
                   0,
@@ -349,7 +349,7 @@
               2,
               20
           ],
-          "table_placement_strategy": "mp",
+          "table_placement_strategy": "localized",
           "global_embedding_list": [
               [
                   0,
@@ -521,7 +521,7 @@
               3,
               21
           ],
-          "table_placement_strategy": "mp",
+          "table_placement_strategy": "localized",
           "global_embedding_list": [
               [
                   0,
@@ -693,7 +693,7 @@
               4,
               22
           ],
-          "table_placement_strategy": "mp",
+          "table_placement_strategy": "localized",
           "global_embedding_list": [
               [
                   0,
@@ -865,7 +865,7 @@
               9,
               23
           ],
-          "table_placement_strategy": "mp",
+          "table_placement_strategy": "localized",
           "global_embedding_list": [
               [
                   0,
@@ -1036,7 +1036,7 @@
           "local_embedding_list": [
               10
           ],
-          "table_placement_strategy": "mp",
+          "table_placement_strategy": "localized",
           "global_embedding_list": [
               [
                   0,
@@ -1207,7 +1207,7 @@
           "local_embedding_list": [
               11
           ],
-          "table_placement_strategy": "mp",
+          "table_placement_strategy": "localized",
           "global_embedding_list": [
               [
                   0,

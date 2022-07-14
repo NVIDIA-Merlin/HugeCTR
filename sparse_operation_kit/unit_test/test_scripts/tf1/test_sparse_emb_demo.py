@@ -16,10 +16,8 @@
 
 import argparse
 import sys, os
-
-sys.path.append(
-    os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../../"))
-)
+sys.path.append(os.path.abspath(os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "../../../")))
 # os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 import sparse_operation_kit as sok
 import tensorflow as tf
@@ -35,7 +33,6 @@ def get_sok_results(args, init_tensors, *random_samples):
         strategy = strategy_wrapper.OneDeviceStrategy()
     elif args.distributed_tool == "horovod":
         import horovod.tensorflow as hvd
-
         hvd.init()
         strategy = strategy_wrapper.HorovodStrategy()
     else:
@@ -47,27 +44,23 @@ def get_sok_results(args, init_tensors, *random_samples):
         embedding_initializer = tf.keras.initializers.Ones() if args.use_tf_initializer else None
 
         if not args.functional_api:
-            sok_sparse_demo = SOKDemo(
-                max_vocabulary_size_per_gpu=args.max_vocabulary_size_per_gpu,
-                embedding_vec_size=args.embedding_vec_size,
-                combiner=args.combiner,
-                slot_num=args.slot_num,
-                max_nnz=args.max_nnz,
-                use_hashtable=args.use_hashtable,
-                num_of_dense_layers=0,
-                key_dtype=args.key_dtype,
-                embedding_initializer=embedding_initializer,
-            )
+            sok_sparse_demo = SOKDemo(max_vocabulary_size_per_gpu=args.max_vocabulary_size_per_gpu,
+                                    embedding_vec_size=args.embedding_vec_size,
+                                    combiner=args.combiner,
+                                    slot_num=args.slot_num,
+                                    max_nnz=args.max_nnz,
+                                    use_hashtable=args.use_hashtable,
+                                    num_of_dense_layers=0,
+                                    key_dtype=args.key_dtype,
+                                    embedding_initializer=embedding_initializer)
         else:
-            sok_sparse_demo = create_SOKDemo(
-                combiner=args.combiner,
-                max_vocabulary_size_per_gpu=args.max_vocabulary_size_per_gpu,
-                embedding_vec_size=args.embedding_vec_size[0],
-                slot_num=args.slot_num[0],
-                max_nnz=args.max_nnz,
-                use_hashtable=args.use_hashtable,
-            )
-
+            sok_sparse_demo = create_SOKDemo(combiner=args.combiner,
+                                             max_vocabulary_size_per_gpu=args.max_vocabulary_size_per_gpu,
+                                             embedding_vec_size=args.embedding_vec_size[0],
+                                             slot_num=args.slot_num[0],
+                                             max_nnz=args.max_nnz,
+                                             use_hashtable=args.use_hashtable)
+        
         emb_opt = utils.get_embedding_optimizer(args.optimizer)(learning_rate=0.1)
         dense_opt = utils.get_dense_optimizer(args.optimizer)(learning_rate=0.1)
         if args.mixed_precision:
@@ -83,15 +76,12 @@ def get_sok_results(args, init_tensors, *random_samples):
                 op = sok_saver.restore_from_file(embedding_layer.embedding_variable, filepath)
             else:
                 if not args.use_tf_initializer:
-                    op = sok_saver.load_embedding_values(
-                        embedding_layer.embedding_variable, init_tensors[i]
-                    )
+                    op = sok_saver.load_embedding_values(embedding_layer.embedding_variable, init_tensors[i])
                 else:
                     op = tf.constant(1.0)
             restore_op.append(op)
 
     loss_fn = tf.keras.losses.BinaryCrossentropy(from_logits=True, reduction="none")
-
     def _replica_loss(labels, logits):
         loss = loss_fn(labels, logits)
         _dtype = loss.dtype
@@ -107,16 +97,10 @@ def get_sok_results(args, init_tensors, *random_samples):
                 _loss = emb_opt.get_scaled_loss(loss)
             else:
                 _loss = loss
-            emb_var, other_var = sok.split_embedding_variable_from_others(
-                sok_sparse_demo.trainable_variables
-            )
-            grads = tf.gradients(
-                _loss,
-                emb_var + other_var,
-                colocate_gradients_with_ops=True,
-                unconnected_gradients=tf.UnconnectedGradients.NONE,
-            )
-            emb_grads, other_grads = grads[: len(emb_var)], grads[len(emb_var) :]
+            emb_var, other_var = sok.split_embedding_variable_from_others(sok_sparse_demo.trainable_variables)
+            grads = tf.gradients(_loss, emb_var + other_var, colocate_gradients_with_ops=True,
+                                 unconnected_gradients=tf.UnconnectedGradients.NONE)
+            emb_grads, other_grads = grads[:len(emb_var)], grads[len(emb_var):]
             if args.mixed_precision:
                 other_grads = emb_opt.get_unscaled_gradients(other_grads)
                 emb_grads = emb_opt.get_unscaled_gradients(emb_grads)
@@ -134,19 +118,17 @@ def get_sok_results(args, init_tensors, *random_samples):
                 total_loss = strategy.reduce("sum", loss)
                 total_loss = tf.identity(total_loss)
                 return total_loss, embedding_vector
-
         return strategy.run(_step_fn, inputs, labels)
 
     replica_batch_size = args.global_batch_size // args.gpu_num
-    dataset = utils.tf_dataset(
-        *random_samples, batchsize=replica_batch_size, to_sparse_tensor=True, repeat=1, args=args
-    )
+    dataset = utils.tf_dataset(*random_samples, batchsize=replica_batch_size,
+                               to_sparse_tensor=True, repeat=1, args=args)
     train_iterator = dataset.make_initializable_iterator()
     iterator_init = train_iterator.initializer
 
     inputs, labels = train_iterator.get_next()
     graph_results = _train_step(inputs, labels, training=True)
-
+    
     init_op = tf.group(tf.global_variables_initializer(), tf.local_variables_initializer())
     if "plugin" in args.optimizer:
         init_op = tf.group(init_op, emb_opt.initializer)
@@ -174,7 +156,7 @@ def get_sok_results(args, init_tensors, *random_samples):
         for step in range(args.iter_num):
             loss_v, emb_vector_v = sess.run([*graph_results])
             print("*" * 80)
-            print(f"Step: {step}, loss: {loss_v}")  # ", embedding_vector:\n{emb_vector_v}")
+            print(f"Step: {step}, loss: {loss_v}")#", embedding_vector:\n{emb_vector_v}")
             sok_results.append(emb_vector_v)
 
         sess.run(save_op)
@@ -182,29 +164,25 @@ def get_sok_results(args, init_tensors, *random_samples):
     name = list()
     for embedding_layer in sok_sparse_demo.embedding_layers:
         name.append(embedding_layer.embedding_variable.m_var_name)
-
+    
     return sok_results, name
-
 
 def get_tf_results(args, init_tensors, *random_samples):
     graph = tf.Graph()
     with graph.as_default():
-        tf_sparse_demo = TFDemo(
-            vocabulary_size=args.max_vocabulary_size_per_gpu * args.gpu_num,
-            embedding_vec_size=args.embedding_vec_size,
-            combiner=args.combiner,
-            slot_num=args.slot_num,
-            max_nnz=args.max_nnz,
-            use_hashtable=args.use_hashtable,
-            num_of_dense_layers=0,
-        )
-
+        tf_sparse_demo = TFDemo(vocabulary_size=args.max_vocabulary_size_per_gpu * args.gpu_num,
+                                embedding_vec_size=args.embedding_vec_size,
+                                combiner=args.combiner,
+                                slot_num=args.slot_num,
+                                max_nnz=args.max_nnz,
+                                use_hashtable=args.use_hashtable,
+                                num_of_dense_layers=0)
+        
         optimizer = utils.get_dense_optimizer(args.optimizer)(learning_rate=0.1)
         if args.mixed_precision:
             optimizer = sok.tf.keras.mixed_precision.LossScaleOptimizer(optimizer, 1024)
 
         loss_fn = tf.keras.losses.BinaryCrossentropy(from_logits=True)
-
         def _train_step(inputs, labels, training):
             logit, embedding_vector = tf_sparse_demo(inputs, training=training)
             loss = loss_fn(labels, logit)
@@ -212,12 +190,9 @@ def get_tf_results(args, init_tensors, *random_samples):
                 _loss = optimizer.get_scaled_loss(loss)
             else:
                 _loss = loss
-            grads = tf.gradients(
-                _loss,
-                tf_sparse_demo.trainable_variables,
-                colocate_gradients_with_ops=True,
-                unconnected_gradients=tf.UnconnectedGradients.NONE,
-            )
+            grads = tf.gradients(_loss, tf_sparse_demo.trainable_variables,
+                                 colocate_gradients_with_ops=True,
+                                 unconnected_gradients=tf.UnconnectedGradients.NONE)
             if args.mixed_precision:
                 grads = optimizer.get_unscaled_gradients(grads)
             train_op = optimizer.apply_gradients(zip(grads, tf_sparse_demo.trainable_variables))
@@ -225,9 +200,9 @@ def get_tf_results(args, init_tensors, *random_samples):
                 loss = tf.identity(loss)
                 return loss, embedding_vector
 
-        dataset = utils.tf_dataset(
-            *random_samples, batchsize=args.global_batch_size, to_sparse_tensor=True, repeat=1
-        )
+
+        dataset = utils.tf_dataset(*random_samples, batchsize=args.global_batch_size,
+                                   to_sparse_tensor=True, repeat=1)
         train_iterator = dataset.make_initializable_iterator()
         iterator_init = train_iterator.initializer
 
@@ -258,29 +233,25 @@ def get_tf_results(args, init_tensors, *random_samples):
         for step in range(args.iter_num):
             loss_v, emb_vector_v = sess.run([*graph_results])
             print("*" * 80)
-            print(f"step: {step}, loss: {loss_v}")  # ", embedding_vector:\n{emb_vector_v}")
+            print(f"step: {step}, loss: {loss_v}")#", embedding_vector:\n{emb_vector_v}")
             tf_results.append(emb_vector_v)
 
         emb_values_v = sess.run(emb_values)
         if args.save_params:
             for i, value in enumerate(emb_values_v):
-                utils.save_to_file(
-                    os.path.join(filepath, r"tf_variable_" + str(i) + r".file"), value
-                )
-
+                utils.save_to_file(os.path.join(filepath, r"tf_variable_" + str(i) + r".file"),
+                                    value)
+        
     name = list()
     for embedding_weight in tf_sparse_demo.embedding_weights:
         name.append(embedding_weight.name)
 
     return tf_results, name
 
-
 def compare_sparse_emb_sok_with_tf(args):
     if args.global_batch_size % args.gpu_num != 0:
-        raise ValueError(
-            f"global_batch_size: {args.global_batch_size} is not divisible "
-            f"by gpu_num: {args.gpu_num}"
-        )
+        raise ValueError(f"global_batch_size: {args.global_batch_size} is not divisible "
+                         f"by gpu_num: {args.gpu_num}")
 
     if args.use_hashtable:
         vocabulary_size = args.max_vocabulary_size_per_gpu * args.gpu_num
@@ -289,18 +260,14 @@ def compare_sparse_emb_sok_with_tf(args):
 
     if args.generate_new_datas:
         replica_batch_size = args.global_batch_size // args.gpu_num
-        random_samples = utils.generate_random_samples(
-            num_of_samples=replica_batch_size * args.iter_num,
-            vocabulary_size=vocabulary_size,
-            slot_num=sum(args.slot_num),
-            max_nnz=args.max_nnz,
-            use_sparse_mask=True,
-        )
+        random_samples = utils.generate_random_samples(num_of_samples=replica_batch_size * args.iter_num,
+                                                       vocabulary_size=vocabulary_size,
+                                                       slot_num=sum(args.slot_num),
+                                                       max_nnz=args.max_nnz,
+                                                       use_sparse_mask=True)
         utils.save_to_file(r"./random_samples_" + str(args.rank_idx) + r".file", *random_samples)
     else:
-        random_samples = utils.restore_from_file(
-            r"./random_samples_" + str(args.rank_idx) + r".file"
-        )
+        random_samples = utils.restore_from_file(r"./random_samples_" + str(args.rank_idx) + r".file")
 
     if args.restore_params:
         filepath = r"./embedding_variables"
@@ -314,13 +281,9 @@ def compare_sparse_emb_sok_with_tf(args):
     else:
         init_tensors = list()
         for i in range(len(args.slot_num)):
-            init_tensors.append(
-                utils.get_ones_tensor(
-                    max_vocab_size_per_gpu=args.max_vocabulary_size_per_gpu,
-                    embedding_vec_size=args.embedding_vec_size[i],
-                    num=args.gpu_num,
-                )
-            )
+            init_tensors.append(utils.get_ones_tensor(max_vocab_size_per_gpu=args.max_vocabulary_size_per_gpu,
+                                                      embedding_vec_size=args.embedding_vec_size[i],
+                                                      num=args.gpu_num))
     sok_results, variable_names = get_sok_results(args, init_tensors, *random_samples)
     utils.save_to_file(r"./sok_embedding_vectors_" + str(args.rank_idx) + r".file", *sok_results)
 
@@ -328,18 +291,15 @@ def compare_sparse_emb_sok_with_tf(args):
         return
 
     # aggregate dataset from different worker
-    dataset_filenames = [
-        r"./random_samples_" + str(rank_idx) + r".file" for rank_idx in range(args.rank_size)
-    ]
+    dataset_filenames = [r"./random_samples_" + str(rank_idx) + r".file"
+                         for rank_idx in range(args.rank_size)]
     random_samples_total = [list() for _ in range(args.iter_num)]
     random_labels_total = [list() for _ in range(args.iter_num)]
     local_batch_size = args.global_batch_size // args.gpu_num
     for rank_idx in range(args.rank_size):
         samples, labels = utils.restore_from_file(dataset_filenames[rank_idx])
         for i in range(args.iter_num):
-            random_samples_total[i].extend(
-                samples[i * local_batch_size : (i + 1) * local_batch_size]
-            )
+            random_samples_total[i].extend(samples[i * local_batch_size : (i + 1) * local_batch_size])
             random_labels_total[i].extend(labels[i * local_batch_size : (i + 1) * local_batch_size])
     random_samples_total = np.concatenate(random_samples_total, axis=0)
     random_labels_total = np.concatenate(random_labels_total, axis=0)
@@ -347,9 +307,8 @@ def compare_sparse_emb_sok_with_tf(args):
     tf_results, _ = get_tf_results(args, init_tensors, random_samples_total, random_labels_total)
 
     # aggregate sok forward results from different worker
-    sok_results_filenames = [
-        r"./sok_embedding_vectors_" + str(rank_idx) + r".file" for rank_idx in range(args.rank_size)
-    ]
+    sok_results_filenames = [r"./sok_embedding_vectors_" + str(rank_idx) + r".file"
+                             for rank_idx in range(args.rank_size)]
     sok_results_total = list()
     for filename in sok_results_filenames:
         sok_results = utils.restore_from_file(filename)
@@ -358,10 +317,8 @@ def compare_sparse_emb_sok_with_tf(args):
     if len(sok_results_total[0]) != len(tf_results):
         raise ValueError("The length of sok results is not equal to that of tensorflow.")
     if len(sok_results) != args.iter_num:
-        raise ValueError(
-            "The length of embedding vectors: %d is not equal to iteration number: %d."
-            % (len(sok_results), args.iter_num)
-        )
+        raise ValueError("The length of embedding vectors: %d is not equal to iteration number: %d."
+                        %(len(sok_results), args.iter_num))
 
     rtol, atol = 1e-3, 1e-3
     if args.restore_params:
@@ -372,75 +329,57 @@ def compare_sparse_emb_sok_with_tf(args):
         rtol, atol = 1e-2, 1e-2
 
     for i in range(args.iter_num):
-        sok_vector = np.concatenate(
-            [sok_results_total[rank_idx][i] for rank_idx in range(args.rank_size)], axis=0
-        )
+        sok_vector = np.concatenate([sok_results_total[rank_idx][i]
+                                     for rank_idx in range(args.rank_size)], axis=0)
         allclose = np.allclose(sok_vector, tf_results[i], rtol=rtol, atol=atol)
         if not allclose:
-            raise ValueError(
-                f"\n{sok_vector} \nis not near to \n{tf_results[i]} \nat rtol={rtol}, atol={atol}"
-            )
+            raise ValueError(f"\n{sok_vector} \nis not near to \n{tf_results[i]} \nat rtol={rtol}, atol={atol}")
 
-    print(
-        f"\n[INFO]: For {len(args.slot_num)} Sparse Embedding layer, using {args.gpu_num} GPUs + {args.optimizer} optimizer, "
-        f"using hashtable? {args.use_hashtable}, combiner = {args.combiner}, the embedding vectors"
-        f" obtained from sok and tf are consistent for {args.iter_num} iterations, "
-        f"with mixed_precision = {args.mixed_precision}, key_dtype = {args.key_dtype}"
-        f" use_tf_initializer = {args.use_tf_initializer}"
-    )
+    print(f"\n[INFO]: For {len(args.slot_num)} Sparse Embedding layer, using {args.gpu_num} GPUs + {args.optimizer} optimizer, "
+          f"using hashtable? {args.use_hashtable}, combiner = {args.combiner}, the embedding vectors"
+          f" obtained from sok and tf are consistent for {args.iter_num} iterations, "
+          f"with mixed_precision = {args.mixed_precision}, key_dtype = {args.key_dtype}"
+          f" use_tf_initializer = {args.use_tf_initializer}")
 
     if args.save_params:
-        check_saved_embedding_variables(
-            args,
-            variable_names,
-            use_hashtable=args.use_hashtable,
-            gpu_num=args.gpu_num,
-            atol=atol,
-            rtol=rtol,
-        )
-
+        check_saved_embedding_variables(args, variable_names,
+                                        use_hashtable=args.use_hashtable, 
+                                        gpu_num=args.gpu_num,
+                                        atol=atol, rtol=rtol)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     parser.add_argument("--gpu_num", type=int, required=False, default=1)
-    parser.add_argument(
-        "--distributed_tool",
-        type=str,
-        required=False,
-        choices=["horovod", "onedevice"],
-        default="onedevice",
-    )
+    parser.add_argument("--distributed_tool", type=str, required=False, 
+                        choices=["horovod", "onedevice"], default="onedevice")
     parser.add_argument("--iter_num", type=int, required=False, default=50)
-    parser.add_argument("--max_vocabulary_size_per_gpu", type=int, required=False, default=1024)
-    parser.add_argument(
-        "--combiner", type=str, required=False, default="sum", choices=["sum", "mean"]
-    )
-    parser.add_argument(
-        "--slot_num",
-        type=int,
-        nargs="+",
-        help="the number of feature fileds",
-        required=False,
-        default=1,
-    )
-    parser.add_argument(
-        "--max_nnz", type=int, help="the maximum of valid inputs", required=False, default=1
-    )
-    parser.add_argument("--embedding_vec_size", type=int, nargs="+", required=False, default=1)
-    parser.add_argument("--global_batch_size", type=int, required=False, default=16)
-    parser.add_argument(
-        "--optimizer",
-        type=str,
-        required=False,
-        default="adam",
-        choices=["plugin_adam", "adam", "sgd", "compat_adam"],
-    )
-    parser.add_argument("--generate_new_datas", type=int, choices=[0, 1], required=False, default=1)
-    parser.add_argument("--save_params", type=int, choices=[0, 1], required=False, default=1)
-    parser.add_argument("--restore_params", type=int, choices=[0, 1], required=False, default=0)
-    parser.add_argument("--use_hashtable", type=int, choices=[0, 1], required=False, default=1)
-    parser.add_argument("--mixed_precision", type=int, choices=[0, 1], required=False, default=0)
+    parser.add_argument("--max_vocabulary_size_per_gpu", type=int,
+                        required=False, default=1024)
+    parser.add_argument("--combiner", type=str, required=False, default="sum",
+                        choices=["sum", "mean"])
+    parser.add_argument("--slot_num", type=int, nargs="+",
+                        help="the number of feature fileds",
+                        required=False, default=1)
+    parser.add_argument("--max_nnz", type=int,
+                        help="the maximum of valid inputs",
+                        required=False, default=1)
+    parser.add_argument("--embedding_vec_size", type=int, nargs="+",
+                        required=False, default=1)
+    parser.add_argument("--global_batch_size", type=int, required=False,
+                        default=16)
+    parser.add_argument("--optimizer", type=str, required=False, 
+                        default="adam", choices=["plugin_adam", "adam", "sgd", "compat_adam"])
+    parser.add_argument("--generate_new_datas", type=int, choices=[0, 1],
+                        required=False, default=1)
+    parser.add_argument("--save_params", type=int, choices=[0, 1],
+                        required=False, default=1)
+    parser.add_argument("--restore_params", type=int, choices=[0, 1],
+                        required=False, default=0)
+    parser.add_argument("--use_hashtable", type=int, choices=[0, 1],
+                        required=False, default=1)
+    parser.add_argument("--mixed_precision", type=int, choices=[0, 1],
+                        required=False, default=0)
     parser.add_argument("--key_dtype", type=str, choices=["int64", "uint32"], default="int64")
     parser.add_argument("--use_tf_initializer", type=int, choices=[0, 1], default=0)
     parser.add_argument("--functional_api", type=int, choices=[0, 1], default=0)
@@ -455,11 +394,9 @@ if __name__ == "__main__":
     args.use_tf_initializer = True if args.use_tf_initializer == 1 else False
     args.functional_api = True if args.functional_api == 1 else False
 
-    if args.distributed_tool == "onedevice" and args.gpu_num != 1:
-        raise ValueError(
-            f"When 'onedevice' is used as the distributed_tool, "
-            f"gpu_num must be 1, which is {args.gpu_num}"
-        )
+    if (args.distributed_tool == "onedevice" and args.gpu_num != 1):
+        raise ValueError(f"When 'onedevice' is used as the distributed_tool, "
+                         f"gpu_num must be 1, which is {args.gpu_num}")
 
     if args.distributed_tool == "onedevice":
         available_gpus = ",".join(map(str, range(args.gpu_num)))
@@ -469,10 +406,8 @@ if __name__ == "__main__":
         # gpu_num will be ignored.
         rank_size = os.getenv("OMPI_COMM_WORLD_SIZE")
         if rank_size is None:
-            raise ValueError(
-                f"When distributed_tool is set to {args.distributed_tool}, "
-                "mpiexec / mpirun must be used to launch this program."
-            )
+            raise ValueError(f"When distributed_tool is set to {args.distributed_tool}, "
+                             "mpiexec / mpirun must be used to launch this program.")
         rank_size = int(rank_size)
         rank_idx = int(os.getenv("OMPI_COMM_WORLD_RANK"))
 
@@ -486,7 +421,6 @@ if __name__ == "__main__":
 
     if args.mixed_precision:
         from tensorflow.python.keras.engine import base_layer_utils
-
         base_layer_utils.enable_v2_dtype_behavior()
         policy = tf.keras.mixed_precision.experimental.Policy("mixed_float16")
         tf.keras.mixed_precision.experimental.set_policy(policy)

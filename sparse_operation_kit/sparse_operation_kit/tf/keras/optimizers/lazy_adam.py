@@ -18,18 +18,16 @@ from .common import _deduplicate_indexed_slices
 from tensorflow.contrib import opt
 from tensorflow.python.framework import ops
 
-
 class LazyAdamOptimizer(opt.LazyAdamOptimizer):
     """
     Abbreviated as ``sok.tf.keras.optimizers.LazyAdamOptimizer``.
 
     The ``unique`` and ``unsorted_segment_sum`` are replaced with GPU
-    implementations.
+    implementations. 
 
     It is only available in TensorFlow 1.15. Although the name is `LazyAdam`,
     it actually updates variables locally.
     """
-
     def __init__(self, *args, **kwargs):
         super(LazyAdamOptimizer, self).__init__(*args, **kwargs)
 
@@ -54,7 +52,8 @@ class LazyAdamOptimizer(opt.LazyAdamOptimizer):
         Returns:
             An `Operation` which updates the value of the variable.
         """
-        summed_grad, unique_indices = _deduplicate_indexed_slices(values=grad, indices=indices)
+        summed_grad, unique_indices = _deduplicate_indexed_slices(
+            values=grad, indices=indices)
         return self._resource_apply_sparse(summed_grad, handle, unique_indices)
 
     def _apply_sparse_duplicate_indices(self, grad, var):
@@ -86,9 +85,9 @@ class LazyAdamOptimizer(opt.LazyAdamOptimizer):
             An `Operation`.
         """
         summed_values, unique_indices = _deduplicate_indexed_slices(
-            values=grad.values, indices=grad.indices
-        )
+            values=grad.values, indices=grad.indices)
         gradient_no_duplicate_indices = ops.IndexedSlices(
-            indices=unique_indices, values=summed_values, dense_shape=grad.dense_shape
-        )
+            indices=unique_indices,
+            values=summed_values,
+            dense_shape=grad.dense_shape)
         return self._apply_sparse(gradient_no_duplicate_indices, var)

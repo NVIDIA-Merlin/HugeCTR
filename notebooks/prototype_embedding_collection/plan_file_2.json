@@ -21,8 +21,8 @@
                     3
                 ]
             ],
-            "shard_id": 0,
-            "shards_count": 2,
+            "sharding_id": 0,
+            "num_sharding": 2,
             "table_placement_strategy": "localized"
         },
         {
@@ -62,8 +62,8 @@
                     3
                 ]
             ],
-            "shard_id": 1,
-            "shards_count": 2,
+            "sharding_id": 1,
+            "num_sharding": 2,
             "table_placement_strategy": "localized"
         },
         {

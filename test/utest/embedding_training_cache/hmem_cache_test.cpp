@@ -201,7 +201,7 @@ void read_api_test(double table_size, size_t num_pass, size_t num_cached_pass,
   }
   for (size_t iter{0}; iter < 2; iter++) {
     for (size_t pass_id{0}; pass_id < num_pass; pass_id++) {
-      HCTR_LOG_S(DEBUG, WORLD) << "Load pass " << pass_id << ": ";
+      std::cout << "Load pass " << std::to_string(pass_id) << ": ";
       size_t len{key_vecs[pass_id].size()};
       hmem_cache.read(key_vecs[pass_id].data(), len, slot_ids.data(), data_ptrs);
 

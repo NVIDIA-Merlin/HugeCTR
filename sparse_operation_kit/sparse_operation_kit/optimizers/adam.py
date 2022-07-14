@@ -27,28 +27,25 @@ from tensorflow.python.ops import array_ops
 from tensorflow.python.ops import control_flow_ops
 from tensorflow.python.keras import backend_config
 
-
 class Adam(optimizer.Optimizer):
-    def __init__(
-        self,
-        learning_rate=0.001,
-        beta_1=0.9,
-        beta_2=0.999,
-        epsilon=1e-7,
-        name="Plugin_Adam",
-        **kwargs
-    ):
+    def __init__(self,
+                learning_rate=0.001,
+                beta_1=0.9,
+                beta_2=0.999,
+                epsilon=1e-7,
+                name='Plugin_Adam',
+                **kwargs):
         super(Adam, self).__init__(name, **kwargs)
-        self._set_hyper("learning_rate", kwargs.get("lr", learning_rate))
+        self._set_hyper('learning_rate', kwargs.get('lr', learning_rate))
         self._set_hyper("beta_1", beta_1)
         self._set_hyper("beta_2", beta_2)
         self.epsilon = epsilon or backend_config.epsilon()
         self._beta1 = beta_1
         self._beta2 = beta_2
 
-        self._optimizer_handler = kit_lib.create_global_adam_optimizer(
-            beta1=self._beta1, beta2=self._beta2, epsilon=self.epsilon
-        )
+        self._optimizer_handler = kit_lib.create_global_adam_optimizer(beta1=self._beta1,
+                                                               beta2=self._beta2,
+                                                               epsilon=self.epsilon)
 
         if not kit_lib.in_tensorflow2():
             collections = [sok_GraphKeys.SparseOperationKitOptimizer]
@@ -57,7 +54,8 @@ class Adam(optimizer.Optimizer):
             _initializer_op = kit_lib.optimizer_init(self._optimizer_handler)
             self._initializer_op = control_flow_ops.group(_initializer_op)
 
-    def _resource_apply_sparse_duplicate_indices(self, grad, var, indices, **kwargs):
+    def _resource_apply_sparse_duplicate_indices(self, grad, var, indices,
+                                               **kwargs):
         """Add ops to apply sparse gradients to `handle`, with repeated indices.
 
         Optimizers which override this method must deal with repeated indices. See
@@ -75,7 +73,7 @@ class Adam(optimizer.Optimizer):
         indices: a `Tensor` of integral type representing the indices for which
             the gradient is nonzero. Indices may be repeated.
         **kwargs: May optionally contain `apply_state`
-            `apply_state` is a dict, which contains the map from (var_device, var_type) to
+            `apply_state` is a dict, which contains the map from (var_device, var_type) to 
                 a dict and that dict contains "lr_t" which is learning_rate. In other words,
                 apply_state might looks like: {(var_device, var_type): {"lr_t": learning_rate_tensor}}
 
@@ -90,14 +88,13 @@ class Adam(optimizer.Optimizer):
 
         current_iteration = array_ops.identity(self.iterations)
 
-        update_op = kit_lib.custom_optimizer_apply_gradients(
-            emb_var_handle=var.m_handle,
-            grad=grad,
-            local_indices=indices,
-            learning_rate=learning_rate,
-            current_step=current_iteration,
-        )
+        update_op = kit_lib.custom_optimizer_apply_gradients(emb_var_handle=var.m_handle, 
+                                                    grad=grad,
+                                                    local_indices=indices, 
+                                                    learning_rate=learning_rate,
+                                                    current_step=current_iteration)
         return control_flow_ops.group((update_op))
+
 
     def get_config(self):
         """
@@ -114,3 +111,4 @@ class Adam(optimizer.Optimizer):
         config = super(Adam, self).get_config()
         config.update()
         raise NotImplementedError("get_config not implemented")
+

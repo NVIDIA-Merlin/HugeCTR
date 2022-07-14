@@ -24,7 +24,6 @@ import threading
 
 _SparseOperationKitEmbeddingLayerStoreKey = "SparseOperationKitEmbeddingLayerStore"
 
-
 class _EmbeddingLayerStore(threading.local):
     def __init__(self):
         super(_EmbeddingLayerStore, self).__init__()
@@ -32,18 +31,17 @@ class _EmbeddingLayerStore(threading.local):
 
     def _create_embedding(self, name, constructor, **kwargs):
         if constructor is None:
-            raise ValueError(
-                "embedding_layer: '{}' does not exist and "
-                "cannot create it with constructor: "
-                "{}".format(name, constructor)
-            )
+            raise ValueError("embedding_layer: '{}' does not exist and "
+                             "cannot create it with constructor: "
+                             "{}".format(name, constructor))
         embedding_layer = constructor(**kwargs)
         self._embedding_layer_container[name] = embedding_layer
         return embedding_layer
 
     def get_embedding(self, name, constructor=None, **kwargs):
         emb = self._embedding_layer_container.get(name, None)
-        return emb or self._create_embedding(name, constructor=constructor, **kwargs)
+        return emb or self._create_embedding(name, 
+                        constructor=constructor, **kwargs)
 
 
 def _get_embedding_store():
@@ -60,7 +58,7 @@ def _get_embedding_store():
 def get_embedding(name, constructor=None, **kwargs):
     """
     This method is used to get or create a embedding layer.
-
+    
     Parameters
     ----------
     name: string
@@ -93,4 +91,5 @@ def get_embedding(name, constructor=None, **kwargs):
         outputs_1 = emb_layer(inputs)
         ...
     """
-    return _get_embedding_store().get_embedding(name=name, constructor=constructor, **kwargs)
+    return _get_embedding_store().get_embedding(name=name, 
+                constructor=constructor, **kwargs)

@@ -1,6 +1,6 @@
 #
 # Copyright (c) 2021, NVIDIA CORPORATION.
-#
+# 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -22,21 +22,20 @@ import tensorflow as tf
 from tensorflow.python.ops import collective_ops
 from tensorflow.python.framework import ops
 
-
 class TFDistributedEmbedding(tf.keras.layers.Layer):
     """
     This Embedding layer will distribute embedding parameters
     to multiple GPUs. It leverages tf.distribute.Strategy to
-    do the communication, so that tf.distribute.Strategy must be
-    used.
+    do the communication, so that tf.distribute.Strategy must be 
+    used. 
 
     Parameters
     ----------
     vocabulary_size: integer
-            the first dimension of variable whose shape is
+            the first dimension of variable whose shape is 
             [vocabulary_size, embedding_vec_size].
     embedding_vec_size: integer
-            the second dimension of variable whose shape is
+            the second dimension of variable whose shape is 
             [vocabulary_size, embedding_vec_size].
     initializer: string, numpy.array = 'GlorotNormal'
             When it's string, it specifies the initializer used to generate initial values.
@@ -67,15 +66,12 @@ class TFDistributedEmbedding(tf.keras.layers.Layer):
     -----
     Currently, the variables created by this class can not be correctly saved to files.
     """
-
-    def __init__(
-        self,
-        vocabulary_size,
-        embedding_vec_size,
-        initializer="GlorotNormal",
-        comm_options=None,
-        **kwargs,
-    ):
+    def __init__(self, 
+                 vocabulary_size,
+                 embedding_vec_size,
+                 initializer="GlorotNormal",
+                 comm_options=None,
+                 **kwargs):
         super(TFDistributedEmbedding, self).__init__(**kwargs)
 
         self._vocabulary_size = vocabulary_size
@@ -84,20 +80,18 @@ class TFDistributedEmbedding(tf.keras.layers.Layer):
 
         if isinstance(initializer, str):
             self._initial_value = tf.keras.initializers.get(initializer)(
-                shape=(self._vocabulary_size, self._embedding_vec_size)
-            )
+                    shape=(self._vocabulary_size, self._embedding_vec_size))
         else:
             if initializer.shape != (self._vocabulary_size, self._embedding_vec_size):
-                raise ValueError(
-                    "The shape of initializer must be [vocabulary_size, embedding_vec_size.]"
-                )
+                raise ValueError("The shape of initializer must be [vocabulary_size, embedding_vec_size.]")
             self._initial_value = initializer
 
         self._comm_options = comm_options
 
         self._embedding_weights = tf.Variable(
-            initial_value=self._initial_value, dtype=tf.float32, name="EmbeddingWeights"
-        )
+                initial_value=self._initial_value,
+                dtype=tf.float32,
+                name="EmbeddingWeights")
 
         if not tf.distribute.has_strategy():
             raise RuntimeError("This layer must be created under tf.distribute.Strategy.Scope().")
@@ -107,7 +101,7 @@ class TFDistributedEmbedding(tf.keras.layers.Layer):
     @property
     def embedding_weights(self):
         return self._embedding_weights
-
+                
     @tf.function
     def broadcast_variables(self):
         replica_ctx = tf.distribute.get_replica_context()
@@ -117,24 +111,20 @@ class TFDistributedEmbedding(tf.keras.layers.Layer):
 
         variable = tf.identity(self._embedding_weights)
         if 0 == g_replica_id:
-            values = collective_ops.broadcast_send(
-                variable,
-                variable.shape,
-                variable.dtype,
-                group_size=replica_ctx.num_replicas_in_sync,
-                group_key=2,
-                instance_key=2 + self._uid,
-                timeout=5,
-            )
+            values = collective_ops.broadcast_send(variable,
+                                                   variable.shape,
+                                                   variable.dtype,
+                                                   group_size=replica_ctx.num_replicas_in_sync,
+                                                   group_key=2,
+                                                   instance_key=2 + self._uid,
+                                                   timeout=5)
         else:
-            values = collective_ops.broadcast_recv(
-                variable.shape,
-                variable.dtype,
-                group_size=replica_ctx.num_replicas_in_sync,
-                group_key=2,
-                instance_key=2 + self._uid,
-                timeout=5,
-            )
+            values = collective_ops.broadcast_recv(variable.shape,
+                                                   variable.dtype,
+                                                   group_size=replica_ctx.num_replicas_in_sync,
+                                                   group_key=2,
+                                                   instance_key=2 + self._uid,
+                                                   timeout=5)
         self._embedding_weights.assign(values)
 
     def _condition(self, gathered_inputs, replica_ctx):
@@ -142,7 +132,7 @@ class TFDistributedEmbedding(tf.keras.layers.Layer):
         global_replica_id = tf.cast(global_replica_id, gathered_inputs.dtype)
         num_devices = replica_ctx.num_replicas_in_sync
 
-        condition = gathered_inputs % num_devices == global_replica_id
+        condition = (gathered_inputs % num_devices == global_replica_id)
         return condition
 
     def call(self, inputs):
@@ -160,10 +150,8 @@ class TFDistributedEmbedding(tf.keras.layers.Layer):
                 embedding vectors on each replica, with dtype tf.float32
         """
         if tf.distribute.in_cross_replica_context():
-            raise RuntimeError(
-                "The forward propagation of TFDistributedEmbedding "
-                "cannot be called in cross_replica_context."
-            )
+            raise RuntimeError("The forward propagation of TFDistributedEmbedding "
+                               "cannot be called in cross_replica_context.")
         replica_ctx = tf.distribute.get_replica_context()
         global_replica_id = replica_ctx.replica_id_in_sync_group
 
@@ -172,46 +160,39 @@ class TFDistributedEmbedding(tf.keras.layers.Layer):
         replica_inputs = tf.reshape(inputs, [replica_size])
         replica_inputs = tf.identity(replica_inputs)
         # all-gather for each replica along batch dim
-        gathered_inputs = replica_ctx.all_gather(
-            value=replica_inputs, axis=0, options=self._comm_options
-        )
+        gathered_inputs = replica_ctx.all_gather(value=replica_inputs, axis=0,
+                                                 options=self._comm_options)
 
         # select inputs for each replica
         condition = self._condition(gathered_inputs, replica_ctx)
         replica_indices = tf.where(condition)
         replica_selected_inputs = tf.gather_nd(gathered_inputs, replica_indices)
 
-        # embedding lookup
-        replica_vectors = tf.nn.embedding_lookup(
-            params=self._embedding_weights, ids=replica_selected_inputs
-        )
+        # embedding lookup 
+        replica_vectors = tf.nn.embedding_lookup(params=self._embedding_weights, 
+                                                 ids=replica_selected_inputs)
 
         # all-gather embedding vectors for each replica
-        gathered_vectors = replica_ctx.all_gather(
-            value=replica_vectors, axis=0, options=self._comm_options
-        )
-        gathered_indices = replica_ctx.all_gather(
-            value=replica_indices, axis=0, options=self._comm_options
-        )
+        gathered_vectors = replica_ctx.all_gather(value=replica_vectors, axis=0,
+                                                  options=self._comm_options)
+        gathered_indices = replica_ctx.all_gather(value=replica_indices, axis=0,
+                                                  options=self._comm_options)
         gathered_indices = tf.squeeze(gathered_indices)
 
         # reorder embedding vectors
         sorted_gathered_indices = tf.argsort(gathered_indices)
-        gathered_inputs_size = replica_ctx.all_gather(
-            value=tf.expand_dims(replica_size, axis=0), axis=0, options=self._comm_options
-        )
-        if tf.rank(gathered_inputs_size) == 0:
+        gathered_inputs_size = replica_ctx.all_gather(value=tf.expand_dims(replica_size, axis=0), 
+                                                      axis=0, options=self._comm_options)
+        if tf.rank(gathered_inputs_size) == 0: 
             gathered_inputs_size = tf.expand_dims(gathered_inputs_size, axis=0)
-        begin = (
-            tf.math.reduce_sum(gathered_inputs_size[:global_replica_id])
-            if global_replica_id > 0
-            else 0
-        )
+        begin = tf.math.reduce_sum(gathered_inputs_size[:global_replica_id]) if global_replica_id > 0 else 0
         begin = tf.expand_dims(begin, axis=0)
         size = tf.slice(gathered_inputs_size, begin=[global_replica_id], size=[1])
-        replica_output_indices = tf.slice(sorted_gathered_indices, begin=begin, size=size)
+        replica_output_indices = tf.slice(sorted_gathered_indices, 
+                                          begin=begin,
+                                          size=size)
 
-        # select replica's vectors
+        # select replica's vectors 
         replica_output = tf.gather(gathered_vectors, replica_output_indices)
         output_shape = inputs.get_shape().concatenate(self._embedding_vec_size)
         replica_output = tf.reshape(replica_output, output_shape)
@@ -220,7 +201,6 @@ class TFDistributedEmbedding(tf.keras.layers.Layer):
 
 if __name__ == "__main__":
     import os
-
     os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
 
     input_data = tf.constant([i for i in range(40)])
@@ -239,16 +219,16 @@ if __name__ == "__main__":
         dataset = tf.data.Dataset.from_tensor_slices(input_data)
         dataset = dataset.batch(replica_bs)
         dataset = dataset.repeat(2)
-        dataset = dataset.shard(input_context.num_input_pipelines, input_context.input_pipeline_id)
+        dataset = dataset.shard(input_context.num_input_pipelines, 
+                                input_context.input_pipeline_id)
         return dataset
 
     dataset = strategy.distribute_datasets_from_function(_dataset_fn)
 
     with strategy.scope():
-        embedding_layer = TFDistributedEmbedding(
-            vocabulary_size=40, embedding_vec_size=4, initializer=initial_value
-        )
-
+        embedding_layer = TFDistributedEmbedding(vocabulary_size=40,
+                                                 embedding_vec_size=4,
+                                                 initializer=initial_value)
     @tf.function
     def _step(inputs):
         with tf.GradientTape() as tape:

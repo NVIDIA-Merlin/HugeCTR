@@ -109,16 +109,15 @@ inline std::string filter_path(const std::string& path) {
 #define MESSAGE(msg)                                                                               \
   do {                                                                                             \
     std::cout.setf(std::ios::right, std::ios::adjustfield);                                        \
-    std::time_t time_instance = std::time(nullptr);                                                \
+    std::time_t time_instance = std::time(0);                                                      \
     const std::string time_instance_str = std::to_string(time_instance);                           \
-    std::tm time_now;                                                                              \
-    localtime_r(&time_instance, &time_now);                                                   \
-    std::cout << time_now.tm_year + 1900 << "-" << std::setfill('0') << std::setw(2)              \
-              << std::to_string(1 + time_now.tm_mon) << "-" << std::setfill('0') << std::setw(2)  \
-              << std::to_string(time_now.tm_mday) << " " << std::setfill('0') << std::setw(2)     \
-              << std::to_string(time_now.tm_hour) << ":" << std::setfill('0') << std::setw(2)     \
-              << std::to_string(time_now.tm_min) << ":" << std::setfill('0') << std::setw(2)      \
-              << std::to_string(time_now.tm_sec) << "."                                           \
+    std::tm* time_now = std::localtime(&time_instance);                                            \
+    std::cout << time_now->tm_year + 1900 << "-" << std::setfill('0') << std::setw(2)              \
+              << std::to_string(1 + time_now->tm_mon) << "-" << std::setfill('0') << std::setw(2)  \
+              << std::to_string(time_now->tm_mday) << " " << std::setfill('0') << std::setw(2)     \
+              << std::to_string(time_now->tm_hour) << ":" << std::setfill('0') << std::setw(2)     \
+              << std::to_string(time_now->tm_min) << ":" << std::setfill('0') << std::setw(2)      \
+              << std::to_string(time_now->tm_sec) << "."                                           \
               << time_instance_str.substr(time_instance_str.size() - 6, time_instance_str.size())  \
               << ": I " << filter_path(__FILE__) << ":" << __LINE__ << "] " << (msg) << std::endl; \
   } while (0)

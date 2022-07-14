@@ -34,9 +34,9 @@ endif()
 
 file(GLOB_RECURSE huge_ctr_src RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} *.cpp *.cu ../embedding_storage/*.cpp ../embedding_storage/*.cu)
 
-file(GLOB hdfs_backend ${CMAKE_CURRENT_SOURCE_DIR}/data_source/hdfs_backend.cpp)
+file(GLOB hdfs_backend ${CMAKE_CURRENT_SOURCE_DIR}/hdfs_backend.cpp)
 
-list(REMOVE_ITEM huge_ctr_src "pybind/module_main.cpp" "data_source/hdfs_backend.cpp")
+list(REMOVE_ITEM huge_ctr_src "pybind/module_main.cpp" "hdfs_backend.cpp")
 add_library(huge_ctr_static STATIC ${huge_ctr_src})
 add_library(huge_ctr_shared SHARED ${huge_ctr_src})
 add_library(huge_ctr_hdfs_backend SHARED ${hdfs_backend})
@@ -77,10 +77,6 @@ endif()
 if(NOT DISABLE_CUDF)
   target_link_libraries(huge_ctr_static PUBLIC cudf)
   target_link_libraries(huge_ctr_shared PUBLIC cudf)
-  if(Parquet_FOUND)
-    target_link_libraries(huge_ctr_static PUBLIC parquet)
-    target_link_libraries(huge_ctr_shared PUBLIC parquet)
-  endif()
 endif()
 
 if (ENABLE_MULTINODES)

@@ -50,10 +50,6 @@ class ResourceManagerExt : public ResourceManager {
   const std::shared_ptr<GPUResource>& get_local_gpu(size_t local_gpu_id) const override {
     return core_->get_local_gpu(local_gpu_id);
   }
-  const std::shared_ptr<GPUResource>& get_local_gpu_from_device_id(
-      size_t device_id) const override {
-    return core_->get_local_gpu_from_device_id(device_id);
-  }
   size_t get_local_gpu_count() const override { return core_->get_local_gpu_count(); }
   size_t get_global_gpu_count() const override { return core_->get_global_gpu_count(); }
 

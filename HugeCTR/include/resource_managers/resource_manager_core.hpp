@@ -59,18 +59,6 @@ class ResourceManagerCore : public ResourceManager {
   const std::shared_ptr<GPUResource>& get_local_gpu(size_t local_gpu_id) const override {
     return gpu_resources_[local_gpu_id];
   }
-  const std::shared_ptr<GPUResource>& get_local_gpu_from_device_id(
-      size_t device_id) const override {
-    const auto& local_gpu_device_id_list = get_local_gpu_device_id_list();
-    const auto& iter =
-        std::find(local_gpu_device_id_list.begin(), local_gpu_device_id_list.end(), device_id);
-    if (iter == local_gpu_device_id_list.end()) {
-      HCTR_OWN_THROW(Error_t::WrongInput,
-                     "Error: device_id does not exist in the local_gpu_device_id_list");
-    }
-    const auto local_gpu_id = iter - local_gpu_device_id_list.begin();
-    return get_local_gpu(local_gpu_id);
-  }
   size_t get_local_gpu_count() const override { return device_map_.get_device_list().size(); }
   size_t get_global_gpu_count() const override { return device_map_.size(); }
 

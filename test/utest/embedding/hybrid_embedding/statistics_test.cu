@@ -97,9 +97,8 @@ void generate_reference_stats(const std::vector<dtype> &data, std::vector<dtype>
     counts_stats[indx] = counts[arg[indx]];
 
     // check order counts
-    if (indx > 0 && counts_stats[indx] > counts_stats[indx - 1]) {
-      HCTR_LOG_S(DEBUG, WORLD) << "incorrect counts order!" << std::endl;
-    }
+    if (indx > 0 && counts_stats[indx] > counts_stats[indx - 1])
+      std::cout << "incorrect counts order!" << std::endl;
   }
 }
 
@@ -119,15 +118,11 @@ void statistics_test(const size_t batch_size, const size_t num_tables) {
   std::vector<dtype> raw_data = input_generator.generate_categorical_input(batch_size, num_tables);
   std::vector<size_t> table_sizes = input_generator.get_table_sizes();
   size_t num_categories = EmbeddingTableFunctors<dtype>::get_num_categories(table_sizes);
-  HCTR_LOG_S(DEBUG, WORLD) << "Number of tables : " << num_tables << std::endl;
-  {
-    auto log = HCTR_LOG_S(DEBUG, WORLD);
-    log << "Table sizes : ";
-    for (size_t embedding = 0; embedding < table_sizes.size(); ++embedding) {
-      log << '\t' << table_sizes[embedding];
-    }
-    log << std::endl;
-  }
+  std::cout << "Number of tables : " << num_tables << std::endl;
+  std::cout << "Table sizes : ";
+  for (size_t embedding = 0; embedding < table_sizes.size(); ++embedding)
+    std::cout << '\t' << table_sizes[embedding];
+  std::cout << std::endl;
 
   std::vector<dtype> samples_ref;
   HugeCTR::hybrid_embedding::generate_reference_stats<dtype>(raw_data, samples_ref, categories,
@@ -140,12 +135,12 @@ void statistics_test(const size_t batch_size, const size_t num_tables) {
   EXPECT_EQ(tot_count, raw_data.size());
 
   // create the gpu tensor for the raw data
-  HCTR_LOG_S(DEBUG, WORLD) << "placing raw data on gpu..." << std::endl;
+  std::cout << "placing raw data on gpu..." << std::endl;
   Tensor2<dtype> d_raw_data;
   std::shared_ptr<GeneralBuffer2<CudaAllocator>> buf = GeneralBuffer2<CudaAllocator>::create();
   EXPECT_EQ(raw_data.size(), batch_size * num_tables);
-  HCTR_LOG_S(DEBUG, WORLD) << "number of samples  : " << raw_data.size() << std::endl;
-  HCTR_LOG_S(DEBUG, WORLD) << "number of unique categories : " << categories.size() << std::endl;
+  std::cout << "number of samples  : " << raw_data.size() << std::endl;
+  std::cout << "number of unique categories : " << categories.size() << std::endl;
   buf->reserve({raw_data.size(), 1}, &d_raw_data);
   buf->allocate();
   upload_tensor(raw_data, d_raw_data, stream);
@@ -187,33 +182,27 @@ void statistics_test(const size_t batch_size, const size_t num_tables) {
 
   const size_t num_categories_sorted_test = statistics.num_unique_categories;
   if (num_categories_sorted_test != categories.size()) {
-    HCTR_LOG_S(DEBUG, WORLD) << "Number of categories_sorted is NOT the same as the reference!"
-                             << std::endl;
+    std::cout << "Number of categories_sorted is NOT the same as the reference!" << std::endl;
   } else {
-    HCTR_LOG_S(DEBUG, WORLD) << "Number of categories_sorted is the same as the reference!"
-                             << std::endl;
+    std::cout << "Number of categories_sorted is the same as the reference!" << std::endl;
   }
   EXPECT_EQ(num_categories_sorted_test, categories.size());
   std::unordered_set<dtype> category_set_test(
       h_categories_sorted.begin(), h_categories_sorted.begin() + num_categories_sorted_test);
   std::unordered_set<dtype> category_set_samples_test(h_samples.begin(), h_samples.end());
   if (category_set_test == category_set_samples_test) {
-    HCTR_LOG_S(DEBUG, WORLD)
-        << "The sorted categories are the same as in the samples and cover all samples!"
-        << std::endl;
+    std::cout << "The sorted categories are the same as in the samples and cover all samples!"
+              << std::endl;
   } else {
-    HCTR_LOG_S(DEBUG, WORLD)
-        << "The sorted categories are NOT the same as in the samples and cover all samples!"
-        << std::endl;
+    std::cout << "The sorted categories are NOT the same as in the samples and cover all samples!"
+              << std::endl;
   }
   EXPECT_TRUE(category_set_test == category_set_samples_test);
   std::unordered_set<dtype> category_set_ref(categories.begin(), categories.end());
   if (category_set_test == category_set_ref) {
-    HCTR_LOG_S(DEBUG, WORLD) << "The sorted categories are the same as the reference sorted!"
-                             << std::endl;
+    std::cout << "The sorted categories are the same as the reference sorted!" << std::endl;
   } else {
-    HCTR_LOG_S(DEBUG, WORLD) << "The sorted categories are NOT the same as the reference sorted!"
-                             << std::endl;
+    std::cout << "The sorted categories are NOT the same as the reference sorted!" << std::endl;
   }
   EXPECT_TRUE(category_set_test == category_set_ref);
   size_t count_ne = (size_t)0;
@@ -221,10 +210,8 @@ void statistics_test(const size_t batch_size, const size_t num_tables) {
     count_ne += ((size_t)h_categories_sorted[c] != (size_t)categories[c] ? 1 : 0);
   }
   if (count_ne > 0)
-    HCTR_LOG_S(DEBUG, WORLD) << "Number of different categories : "
-                             << static_cast<double>(count_ne) /
-                                    static_cast<double>(categories.size()) * 100.
-                             << " %" << std::endl;
+    std::cout << "Number of different categories : "
+              << (double)count_ne / (double)categories.size() * 100. << " %" << std::endl;
   EXPECT_EQ(count_ne, 0);
 }
 

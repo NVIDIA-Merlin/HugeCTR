@@ -47,14 +47,11 @@ class ReadEmbeddingVariableOp : public OpKernel {
 
 #ifdef DEBUG
     TensorShape tensor_shape = variable->tensor()->shape();
-    {
-      auto log = HCTR_LOG_S(DEBUG, WORLD);
-      log << "tensor shape is: [";
-      for (auto iter = tensor_shape.begin(); iter != tensor_shape.end(); ++iter) {
-        log << (*iter).size << ",";
-      }
-      log << "\b]" << std::endl;
+    std::cout << "tensor shape is: [";
+    for (auto iter = tensor_shape.begin(); iter != tensor_shape.end(); ++iter) {
+      std::cout << (*iter).size << ",";
     }
+    std::cout << "\b]" << std::endl;
 #endif
     mutex_lock ml(*variable->mu());
     Tensor* t = variable->tensor();

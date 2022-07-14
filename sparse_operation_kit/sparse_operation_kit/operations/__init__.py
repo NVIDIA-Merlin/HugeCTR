@@ -17,7 +17,7 @@
 """
 This module contains those customized operations.
 """
-from .compat_ops_lib import unique_op as unique
+from .compat_ops_lib import unique_op as unique 
 from .compat_ops_lib import unsorted_segment_sum_op as unsorted_segment_sum
 
 __all__ = [item for item in dir() if not item.startswith("__")]

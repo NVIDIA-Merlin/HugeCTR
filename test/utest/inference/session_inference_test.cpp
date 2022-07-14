@@ -61,7 +61,7 @@ InferenceInfo::InferenceInfo(const nlohmann::json& config) {
   dense_dim = get_value_from_json<int>(j_dense, "dense_dim");
   auto j_sparse_inputs = get_json(j_data, "sparse");
 
-  for (size_t i = 0; i < j_sparse_inputs.size(); i++) {
+  for (int i = 0; i < (int)j_sparse_inputs.size(); i++) {
     const nlohmann::json& j_sparse = j_sparse_inputs[0];
     slot_num.push_back(get_value_from_json<int>(j_sparse, "slot_num"));
 
@@ -72,7 +72,7 @@ InferenceInfo::InferenceInfo(const nlohmann::json& config) {
   }
   // get embedding params: embedding_vec_size, combiner_type
   {
-    for (size_t i = 1; i < j_layers_array.size(); i++) {
+    for (int i = 1; i < (int)j_layers_array.size(); i++) {
       // if not embedding then break
       const nlohmann::json& j = j_layers_array[i];
       auto embedding_name = get_value_from_json<std::string>(j, "type");
@@ -285,35 +285,33 @@ void session_inference_generated_test(const std::string& config_file, const std:
   for (auto dim : row_ptrs_dims) {
     row_ptrs_size *= dim;
   }
-  const size_t row_ptrs_size_samples = num_samples * slot_num + 1;
+  size_t row_ptrs_size_samples = num_samples * slot_num + 1;
   std::unique_ptr<int[]> h_row_ptrs(new int[row_ptrs_size_samples]);
   std::shared_ptr<IDataSimulator<int>> ldata_sim;
   ldata_sim.reset(new IntUniformDataSimulator<int>(1, max_nnz));
   h_row_ptrs[0] = 0;
-  for (size_t i = 1; i < row_ptrs_size_samples; i++) {
+  for (int i = 1; i < (int)row_ptrs_size_samples; i++) {
     h_row_ptrs[i] = (h_row_ptrs[i - 1] + ldata_sim->get_num());
   }
-  const size_t row_ptrs_size_in_bytes = row_ptrs_size * sizeof(int);
-  const size_t row_ptrs_size_in_bytes_samples = row_ptrs_size_samples * sizeof(int);
-  int* const d_row_ptrs = reinterpret_cast<int*>(allocator.allocate(row_ptrs_size_in_bytes));
+  size_t row_ptrs_size_in_bytes = row_ptrs_size * sizeof(int);
+  size_t row_ptrs_size_in_bytes_samples = row_ptrs_size_samples * sizeof(int);
+  int* d_row_ptrs = reinterpret_cast<int*>(allocator.allocate(row_ptrs_size_in_bytes));
 
   // d_dense_features
-  const size_t dense_size = batch_size * dense_dim;
-  const size_t dense_size_samples = num_samples * dense_dim;
+  size_t dense_size = batch_size * dense_dim;
+  size_t dense_size_samples = num_samples * dense_dim;
   std::unique_ptr<float[]> h_dense(new float[dense_size_samples]);
   FloatUniformDataSimulator<float> fdata_sim(0, 1);
-  for (size_t i = 0; i < dense_size_samples; i++) {
-    h_dense[i] = fdata_sim.get_num();
-  }
-  const size_t dense_size_in_bytes = dense_size * sizeof(float);
-  const size_t dense_size_in_bytes_samples = dense_size_samples * sizeof(float);
-  float* const d_dense_features = reinterpret_cast<float*>(allocator.allocate(dense_size_in_bytes));
+  for (int i = 0; i < (int)dense_size_samples; i++) h_dense[i] = fdata_sim.get_num();
+  size_t dense_size_in_bytes = dense_size * sizeof(float);
+  size_t dense_size_in_bytes_samples = dense_size_samples * sizeof(float);
+  float* d_dense_features = reinterpret_cast<float*>(allocator.allocate(dense_size_in_bytes));
 
   // h_embeddingcolumns
-  const size_t embeddingcolumns_size = batch_size * max_feature_num_per_sample;
-  const size_t embeddingcolumns_size_in_bytes = embeddingcolumns_size * sizeof(TypeHashKey);
-  void* const h_embeddingcolumns = host_allocator.allocate(embeddingcolumns_size_in_bytes);
-  TypeHashKey* const h_keys = reinterpret_cast<TypeHashKey*>(h_embeddingcolumns);
+  size_t embeddingcolumns_size = batch_size * max_feature_num_per_sample;
+  size_t embeddingcolumns_size_in_bytes = embeddingcolumns_size * sizeof(TypeHashKey);
+  void* h_embeddingcolumns = host_allocator.allocate(embeddingcolumns_size_in_bytes);
+  TypeHashKey* h_keys = reinterpret_cast<TypeHashKey*>(h_embeddingcolumns);
   for (int i = 0; i < num_samples; i++) {
     for (int j = 0; j < slot_num; j++) {
       ldata_sim.reset(new IntUniformDataSimulator<int>(RANGE[j], RANGE[j + 1] - 1));
@@ -328,7 +326,7 @@ void session_inference_generated_test(const std::string& config_file, const std:
                             cudaMemcpyHostToDevice));
 
   // d_output
-  float* const d_output = reinterpret_cast<float*>(allocator.allocate(batch_size * sizeof(float)));
+  float* d_output = reinterpret_cast<float*>(allocator.allocate(batch_size * sizeof(float)));
   std::unique_ptr<float[]> h_out(new float[num_samples]);
 
   // inference session

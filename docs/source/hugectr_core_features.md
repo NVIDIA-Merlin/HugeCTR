@@ -1,13 +1,5 @@
 # HugeCTR Core Features
 
-```{contents}
----
-depth: 2
-local: true
-backlinks: none
----
-```
-
 <!-- markdownlint-ignore no-duplicate-heading -->
 
 ## Summary of Core Features
@@ -72,6 +64,11 @@ For more information, refer to [Python Interface](./api/python_interface.md).
 
 Embedding Training Cache (ETC) gives you the ability to train a large model up to terabytes. It's implemented by loading a subset of an embedding table, which exceeds the aggregated capacity of GPU memory, into the GPU in a coarse-grained, on-demand manner during the training stage.
 
+This feature currently supports both single-node and multi-node training. It supports all embedding types and can be used with [Norm](./api/python_interface.md#norm), [Raw](./api/python_interface.md#raw), and [Parquet](./api/python_interface.md#parquet) dataset formats. We revised our `criteo2hugectr` tool to support the key set extraction for the Criteo dataset.
+
+You can view the [HugeCTR Continuous Training](./notebooks/continuous_training.ipynb) example notebook to learn how to use this feature with the Criteo dataset.
+The Criteo dataset is a common use case, but embedding training cache is not limited to this dataset.
+
 For more information, see the details for [HugeCTR Embedding Training Cache](hugectr_embedding_training_cache).
 
 ## HugeCTR to ONNX Converter
@@ -89,6 +86,8 @@ If you use the [Merlin NGC container](https://catalog.ngc.nvidia.com/containers)
 If you want to build [HugeCTR from scratch](https://nvidia-merlin.github.io/HugeCTR/master/hugectr_user_guide.html#building-hugectr-from-scratch), you should make sure that Hadoop is correctly built in your system and specify `-DENABLE_HDFS=ON` when you build HugeCTR with `cmake`.
 
 After HDFS is successfully enabled, you are able to use our [Python API](https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html#data-source-api) to train with HDFS. An end-to-end demo notebook can be found at [here](https://github.com/NVIDIA-Merlin/HugeCTR/blob/master/notebooks/training_with_hdfs.ipynb).
+
+
 
 ## Hierarchical Parameter Server
 

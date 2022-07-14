@@ -208,7 +208,7 @@ void data_reader_raw_test_impl(const std::vector<int> &device_list, int num_thre
 
   for (int iter = 0; iter < 12; ++iter) {
     long long current_batch_size = data_reader.read_a_batch_to_device();
-    HCTR_LOG_S(DEBUG, WORLD) << "current_batch_size:" << current_batch_size << std::endl;
+    std::cout << "current_batch_size:" << current_batch_size << std::endl;
     if (current_batch_size == 0) return;
     if (iter % round == round - 1) {
       ASSERT_TRUE(current_batch_size == num_samples % batchsize);
@@ -224,7 +224,7 @@ void data_reader_raw_test_impl(const std::vector<int> &device_list, int num_thre
       std::unique_ptr<T[]> keys(new T[current_batch_size * slot_num]);
       HCTR_LIB_THROW(cudaMemcpy(keys.get(), sparse_tensor.get_value_ptr(),
                                 current_batch_size * slot_num * sizeof(T), cudaMemcpyDeviceToHost));
-      // HCTR_LOG_S(DEBUG, WORLD) << "iter:" << iter << " keys:" << keys[0] << std::endl;
+      // std::cout << "iter:" << iter << " keys:" << keys[0];
       for (int i = 0; i < current_batch_size * slot_num; ++i) {
         ASSERT_TRUE(keys[i] == generated_sparse_data[batchsize * slot_num * (iter % round) + i])
             << "idx:" << i << ",a:" << keys[i]

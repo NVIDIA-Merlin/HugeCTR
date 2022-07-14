@@ -299,6 +299,7 @@ void KafkaMessageSink<TKey>::post(const std::string& tag, size_t num_pairs, cons
     }
   }
 
+
   // Update metrics.
   TBase::post(tag, num_pairs, keys, values, value_size);
 }
@@ -325,6 +326,7 @@ rd_kafka_topic_t* KafkaMessageSink<TKey>::resolve_topic(const std::string& tag) 
   if (topics_it != topics_.end()) {
     return topics_it->second;
   }
+
 
   // Configure topic.
   rd_kafka_topic_conf_t* const conf = rd_kafka_topic_conf_new();
@@ -633,6 +635,7 @@ void KafkaMessageSource<TKey>::run(std::function<HCTR_MESSAGE_SOURCE_CALLBACK> c
       log << std::endl;
     }
     HCTR_KAFKA_CHECK(rd_kafka_commit(rk_, buf.next_offsets.get(), false));
+
 
     // Clear partition list.
     while (buf.next_offsets->cnt) {

@@ -43,7 +43,8 @@ class ForwardNetworkTest : public HybridEmbeddingUnitTest<dtype, emtype> {
 
     /* Compute expected results on host */
     HybridEmbeddingCpu<dtype, emtype> cpu_embedding(this->config, this->batch_size,
-                                                    this->category_location, this->samples);
+                                                    this->category_location,
+                                                    this->category_frequent_index, this->samples);
     cpu_embedding.generate_embedding_vectors();
     cpu_embedding.forward_network();
     if (!single_node) {
@@ -83,32 +84,26 @@ class ForwardNetworkTest : public HybridEmbeddingUnitTest<dtype, emtype> {
     this->build_frequent();
     for (size_t i = 0; i < this->num_instances; i++) {
       upload_tensor(cpu_embedding.frequent_embedding_vectors[i],
-                    this->get_frequent_embedding_data(i).frequent_embedding_vectors_, this->stream);
+                    this->frequent_embeddings[i].frequent_embedding_vectors_, this->stream);
       upload_tensor(cpu_embedding.infrequent_embedding_vectors[i],
                     this->infrequent_embeddings[i].infrequent_embedding_vectors_, this->stream);
     }
     for (size_t i = 0; i < this->num_instances; i++) {
-      this->get_frequent_embedding(i).set_current_indices(&this->frequent_embedding_indices[i],
-                                                          this->stream);
+      this->frequent_embeddings[i].set_current_indices(&this->frequent_embedding_indices[i],
+                                                       this->stream);
       this->infrequent_embeddings[i].set_current_indices(&this->infrequent_embedding_indices[i],
                                                          this->stream);
 
       if (single_node) {
-        this->frequent_embeddings_single_node[i].indices_->calculate_cache_masks(this->stream);
-        this->frequent_embeddings_single_node[i].indices_->calculate_model_cache_indices(
-            80, this->stream);
-        this->frequent_embeddings_single_node[i].forward_model(this->stream);
+        this->frequent_embeddings[i].indices_->calculate_cache_masks(this->stream);
+        this->frequent_embeddings[i].indices_->calculate_model_cache_indices(80, this->stream);
+        this->frequent_embeddings[i].forward_model(this->stream);
       }
     }
     for (size_t i = 0; i < this->num_instances; i++) {
-      this->get_frequent_embedding(i).indices_->calculate_frequent_sample_indices(this->stream);
-      if (single_node) {
-        this->frequent_embeddings_single_node[i].forward_network(
-            interaction_layer_input[i].get_ptr(), this->stream);
-      } else {
-        this->frequent_embeddings_multi_node[i].forward_network(
-            interaction_layer_input[i].get_ptr(), this->stream);
-      }
+      this->frequent_embeddings[i].indices_->calculate_frequent_sample_indices(this->stream);
+      this->frequent_embeddings[i].forward_network(interaction_layer_input[i].get_ptr(),
+                                                   single_node, this->stream);
       if (single_node) {
         this->infrequent_embeddings[i].indices_->calculate_model_indices(this->stream);
         HCTR_LIB_THROW(cudaMemcpyAsync(
@@ -149,6 +144,7 @@ class ForwardNetworkTest : public HybridEmbeddingUnitTest<dtype, emtype> {
 
 template <typename dtype, typename emtype>
 class FrequentForwardModelTest : public HybridEmbeddingUnitTest<dtype, emtype> {
+ protected:
  public:
   FrequentForwardModelTest(const HybridEmbeddingConfig<dtype> config, size_t batch_size,
                            size_t seed = 1234ll)
@@ -158,7 +154,8 @@ class FrequentForwardModelTest : public HybridEmbeddingUnitTest<dtype, emtype> {
     uint32_t local_batch_size = ceildiv<uint32_t>(this->batch_size, this->num_instances);
 
     HybridEmbeddingCpu<dtype, emtype> cpu_embedding(this->config, this->batch_size,
-                                                    this->category_location, this->samples);
+                                                    this->category_location,
+                                                    this->category_frequent_index, this->samples);
     cpu_embedding.calculate_frequent_network_cache_indices();
     cpu_embedding.generate_embedding_vectors();
     cpu_embedding.generate_gradients();
@@ -177,39 +174,34 @@ class FrequentForwardModelTest : public HybridEmbeddingUnitTest<dtype, emtype> {
     this->build_frequent();
     std::vector<const emtype *> frequent_partial_gradients_pointers(this->num_instances);
     for (size_t i = 0; i < this->num_instances; i++) {
-      upload_tensor(
-          cpu_embedding.frequent_embedding_vectors[i],
-          this->frequent_embeddings_single_node[i].frequent_data_.frequent_embedding_vectors_,
-          this->stream);
+      upload_tensor(cpu_embedding.frequent_embedding_vectors[i],
+                    this->frequent_embeddings[i].frequent_embedding_vectors_, this->stream);
       upload_tensor(cpu_embedding.gradients[i], gradients[i], this->stream);
       frequent_partial_gradients_pointers[i] =
-          this->frequent_embeddings_single_node[i].frequent_data_.get_gradients().get_ptr();
-      this->frequent_embeddings_single_node[i].set_current_indices(
-          &this->frequent_embedding_indices[i], this->stream);
+          this->frequent_embeddings[i].get_gradients().get_ptr();
+      this->frequent_embeddings[i].set_current_indices(&this->frequent_embedding_indices[i],
+                                                       this->stream);
     }
     for (size_t i = 0; i < this->num_instances; i++) {
-      this->frequent_embeddings_single_node[i].indices_->calculate_cache_masks(this->stream);
-      this->frequent_embeddings_single_node[i].indices_->calculate_network_cache_indices(
-          this->stream);
-      this->frequent_embeddings_single_node[i].indices_->calculate_model_cache_indices(
-          80, this->stream);
-      this->frequent_embeddings_single_node[i].indices_->calculate_frequent_sample_indices(
-          this->stream);
-      this->frequent_embeddings_single_node[i].local_reduce(gradients[i].get_ptr(), this->stream);
+      this->frequent_embeddings[i].indices_->calculate_cache_masks(this->stream);
+      this->frequent_embeddings[i].indices_->calculate_network_cache_indices(this->stream);
+      this->frequent_embeddings[i].indices_->calculate_model_cache_indices(80, this->stream);
+      this->frequent_embeddings[i].indices_->calculate_frequent_sample_indices(this->stream);
+      this->frequent_embeddings[i].local_reduce(gradients[i].get_ptr(), this->stream, false);
     }
     for (size_t i = 0; i < this->num_instances; i++) {
       HCTR_LIB_THROW(cudaMemcpyAsync(
-          this->frequent_embeddings_single_node[i].partial_gradients_pointers_.get_ptr(),
+          this->frequent_embeddings[i].partial_gradients_pointers_.get_ptr(),
           frequent_partial_gradients_pointers.data(), this->num_instances * sizeof(emtype *),
           cudaMemcpyHostToDevice, this->stream));
-      this->frequent_embeddings_single_node[i].update_model_direct(this->dev_lr, 1.f, this->stream);
+      this->frequent_embeddings[i].update_model_direct(this->dev_lr, 1.f, this->stream);
     }
 
     /* Set cache to zero for easy comparison with CPU version */
     if (sizeof(emtype) != sizeof(float)) {
       for (size_t i = 0; i < this->num_instances; i++) {
         HCTR_LIB_THROW(cudaMemsetAsync(
-            this->frequent_embeddings_single_node[i].get_embedding_vectors_cache().get_ptr(), 0,
+            this->frequent_embeddings[i].get_embedding_vectors_cache().get_ptr(), 0,
             this->config.num_frequent * this->config.embedding_vec_size * sizeof(emtype),
             this->stream));
       }
@@ -217,14 +209,13 @@ class FrequentForwardModelTest : public HybridEmbeddingUnitTest<dtype, emtype> {
 
     /* Frequent forward_model */
     for (size_t i = 0; i < this->num_instances; i++) {
-      this->frequent_embeddings_single_node[i].forward_model(this->stream);
+      this->frequent_embeddings[i].forward_model(this->stream);
     }
 
     std::vector<std::vector<emtype>> updated_vectors_cache(this->num_instances);
     for (size_t i = 0; i < this->num_instances; i++) {
       download_tensor(updated_vectors_cache[i],
-                      this->frequent_embeddings_single_node[i].get_embedding_vectors_cache(),
-                      this->stream);
+                      this->frequent_embeddings[i].get_embedding_vectors_cache(), this->stream);
     }
 
     /* Reference update_model */

@@ -17,7 +17,6 @@
 #pragma once
 
 #include <nccl.h>
-
 #include "../core.hpp"
 #include "gpu_resource_impl.hpp"
 #include "storage_impl.hpp"
@@ -37,7 +36,7 @@ class TFCoreResourceManager : public core::CoreResourceManager {
 
   std::shared_ptr<core::GPUResourceBase> get_local_gpu() override { return gpu_resource_; }
 
-  const ncclComm_t &get_nccl() const override { return comm_; }  // TODO
+  const ncclComm_t &get_nccl() const override { return comm_; } // TODO
 
   core::Storage CreateStorage(Device device) { return std::make_shared<TFStorageImpl>(device); }
 

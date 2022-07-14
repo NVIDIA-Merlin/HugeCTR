@@ -28,15 +28,7 @@
 namespace HugeCTR {
 
 struct FileStats {
-  long long num_rows;
-  FileStats(long long num_rows) : num_rows(num_rows) {}
-#ifdef ENABLE_ARROW_PARQUET
-  long long num_groups;
-  std::vector<long long> row_groups_offset;  //
-  FileStats(long long num_rows, long long num_groups, std::vector<long long> row_groups_offset)
-      : num_rows(num_rows), num_groups(num_groups), row_groups_offset(row_groups_offset) {}
-
-#endif
+  long num_rows;
 };
 
 struct Cols {
@@ -54,29 +46,18 @@ class Metadata {
   std::vector<Cols> label_names_;
   std::unordered_map<std::string, FileStats> file_stats_;
   bool loaded_;
-  long long num_rows_total_files_;
-  std::vector<long long> rows_file_offset_;
 
  public:
   // ctor
-  Metadata()
-      : cat_names_(),
-        cont_names_(),
-        label_names_(),
-        file_stats_(),
-        loaded_(false),
-        num_rows_total_files_(0),
-        rows_file_offset_(){};
+  Metadata() : cat_names_(), cont_names_(), label_names_(), file_stats_(), loaded_(false){};
 
-  // initialize everything
   void get_parquet_metadata(std::string file_name);
 
   std::vector<Cols> get_cat_names() { return this->cat_names_; }
   std::vector<Cols> get_cont_names() { return this->cont_names_; }
   std::vector<Cols> get_label_names() { return this->label_names_; }
-  std::vector<long long> get_rows_file_offset() { return this->rows_file_offset_; }
   FileStats get_file_stats(std::string file_name) {
-    FileStats fs(0);
+    FileStats fs{0};
     try {
       fs = this->file_stats_.at(file_name);
     } catch (const std::runtime_error& rt_err) {
@@ -87,6 +68,5 @@ class Metadata {
     return fs;
   }
   bool get_metadata_status() { return loaded_; };
-  long long get_num_rows_total_files() { return num_rows_total_files_; }
 };
 }  // namespace HugeCTR

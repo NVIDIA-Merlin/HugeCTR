@@ -32,14 +32,14 @@ std::shared_ptr<InferenceSessionBase> InferenceSessionBase::create(
 
 InferenceSession::InferenceSession(const std::string& model_config_path,
                                    const InferenceParams& inference_params,
-                                   const std::shared_ptr<EmbeddingCacheBase>& embedding_cache,
-                                   std::shared_ptr<ResourceManager> resource_manager)
+                                   const std::shared_ptr<EmbeddingCacheBase>& embedding_cache)
     : InferenceSessionBase(),
       config_(read_json_file(model_config_path)),
       embedding_table_slot_size_({0}),
       embedding_cache_(embedding_cache),
       inference_parser_(config_),
-      inference_params_(inference_params) {
+      inference_params_(inference_params),
+      resource_manager_(ResourceManagerCore::create({{inference_params.device_id}}, 0)) {
   try {
     if (inference_params_.use_gpu_embedding_cache &&
         embedding_cache->get_device_id() != inference_params_.device_id) {
@@ -47,10 +47,7 @@ InferenceSession::InferenceSession(const std::string& model_config_path,
           Error_t::WrongInput,
           "The device id of inference_params is not consistent with that of embedding cache.");
     }
-    resource_manager_ = resource_manager != nullptr
-                            ? resource_manager
-                            : ResourceManagerCore::create({{inference_params.device_id}}, 0);
-    HCTR_LOG(TRACE, ROOT, "Create inference session on device: %d\n", inference_params_.device_id);
+    HCTR_LOG(INFO, ROOT, "Create inference session on device: %d\n", inference_params_.device_id);
     auto b2s = [](const char val) { return val ? "True" : "False"; };
     HCTR_LOG(INFO, ROOT, "Model name: %s\n", inference_params_.model_name.c_str());
     HCTR_LOG(INFO, ROOT, "Use mixed precision: %s\n", b2s(inference_params.use_mixed_precision));
@@ -101,7 +98,7 @@ InferenceSession::~InferenceSession() {
 }
 
 void InferenceSession::predict(float* d_dense, void* h_embeddingcolumns, int* d_row_ptrs,
-                               float* d_output, int num_samples, bool table_major_key_layout) {
+                               float* d_output, int num_samples) {
   size_t num_embedding_tables = inference_parser_.num_embedding_tables;
   if (num_embedding_tables != row_ptrs_tensors_.size() ||
       num_embedding_tables != embedding_features_tensors_.size() ||
@@ -116,23 +113,17 @@ void InferenceSession::predict(float* d_dense, void* h_embeddingcolumns, int* d_
       cudaMemcpyDeviceToHost));
 
   // Redistribute keys ：from sample first to table first
-  if (!table_major_key_layout) {
-    HCTR_LOG_S(INFO, ROOT) << "Redistribute keys from sample first to table first" << std::endl;
-    if (inference_params_.i64_input_key) {
-      distribute_keys_per_table(static_cast<long long*>(h_keys_),
-                                static_cast<long long*>(h_embeddingcolumns), h_row_ptrs_,
-                                num_samples, inference_parser_.slot_num_for_tables);
-    } else {
-      distribute_keys_per_table(static_cast<unsigned int*>(h_keys_),
-                                static_cast<unsigned int*>(h_embeddingcolumns), h_row_ptrs_,
-                                num_samples, inference_parser_.slot_num_for_tables);
-    }
+  if (inference_params_.i64_input_key) {
+    distribute_keys_per_table(static_cast<long long*>(h_keys_),
+                              static_cast<long long*>(h_embeddingcolumns), h_row_ptrs_, num_samples,
+                              inference_parser_.slot_num_for_tables);
+  } else {
+    distribute_keys_per_table(static_cast<unsigned int*>(h_keys_),
+                              static_cast<unsigned int*>(h_embeddingcolumns), h_row_ptrs_,
+                              num_samples, inference_parser_.slot_num_for_tables);
   }
-  void* h_keys_for_ec = table_major_key_layout ? h_embeddingcolumns : h_keys_;
 
-  CudaDeviceContext context(
-      resource_manager_->get_local_gpu_from_device_id(inference_params_.device_id)
-          ->get_device_id());
+  CudaDeviceContext context(resource_manager_->get_local_gpu(0)->get_device_id());
   // embedding_cache lookup
   size_t acc_vectors_offset{0};
   size_t acc_row_ptrs_offset{0};
@@ -143,11 +134,11 @@ void InferenceSession::predict(float* d_dense, void* h_embeddingcolumns, int* d_
     num_keys = h_row_ptrs_[acc_row_ptrs_offset - 1];
     if (inference_params_.i64_input_key) {
       embedding_cache_->lookup(i, d_embedding_vectors_ + acc_vectors_offset,
-                               static_cast<const long long*>(h_keys_for_ec) + acc_keys_offset,
-                               num_keys, inference_params_.hit_rate_threshold, streams_[i]);
+                               static_cast<const long long*>(h_keys_) + acc_keys_offset, num_keys,
+                               inference_params_.hit_rate_threshold, streams_[i]);
     } else {
       embedding_cache_->lookup(i, d_embedding_vectors_ + acc_vectors_offset,
-                               static_cast<const unsigned int*>(h_keys_for_ec) + acc_keys_offset,
+                               static_cast<const unsigned int*>(h_keys_) + acc_keys_offset,
                                num_keys, inference_params_.hit_rate_threshold, streams_[i]);
     }
     acc_keys_offset += num_keys;
@@ -166,14 +157,11 @@ void InferenceSession::predict(float* d_dense, void* h_embeddingcolumns, int* d_
     dense_size *= dim;
   }
   if (inference_params_.use_mixed_precision) {
-    convert_array_on_device(
-        reinterpret_cast<__half*>(dense_input_tensorbag_.get_ptr()), d_dense, dense_size,
-        resource_manager_->get_local_gpu_from_device_id(inference_params_.device_id)->get_stream());
-
+    convert_array_on_device(reinterpret_cast<__half*>(dense_input_tensorbag_.get_ptr()), d_dense,
+                            dense_size, resource_manager_->get_local_gpu(0)->get_stream());
   } else {
-    convert_array_on_device(
-        reinterpret_cast<float*>(dense_input_tensorbag_.get_ptr()), d_dense, dense_size,
-        resource_manager_->get_local_gpu_from_device_id(inference_params_.device_id)->get_stream());
+    convert_array_on_device(reinterpret_cast<float*>(dense_input_tensorbag_.get_ptr()), d_dense,
+                            dense_size, resource_manager_->get_local_gpu(0)->get_stream());
   }
 
   acc_vectors_offset = 0;
@@ -204,18 +192,15 @@ void InferenceSession::predict(float* d_dense, void* h_embeddingcolumns, int* d_
 
   // convert the prediction result to output
   if (inference_params_.use_mixed_precision) {
-    convert_array_on_device(
-        d_output, network_->get_pred_tensor_half().get_ptr(),
-        network_->get_pred_tensor_half().get_num_elements(),
-        resource_manager_->get_local_gpu_from_device_id(inference_params_.device_id)->get_stream());
+    convert_array_on_device(d_output, network_->get_pred_tensor_half().get_ptr(),
+                            network_->get_pred_tensor_half().get_num_elements(),
+                            resource_manager_->get_local_gpu(0)->get_stream());
   } else {
-    convert_array_on_device(
-        d_output, network_->get_pred_tensor().get_ptr(),
-        network_->get_pred_tensor().get_num_elements(),
-        resource_manager_->get_local_gpu_from_device_id(inference_params_.device_id)->get_stream());
+    convert_array_on_device(d_output, network_->get_pred_tensor().get_ptr(),
+                            network_->get_pred_tensor().get_num_elements(),
+                            resource_manager_->get_local_gpu(0)->get_stream());
   }
-  HCTR_LIB_THROW(cudaStreamSynchronize(
-      resource_manager_->get_local_gpu_from_device_id(inference_params_.device_id)->get_stream()));
+  HCTR_LIB_THROW(cudaStreamSynchronize(resource_manager_->get_local_gpu(0)->get_stream()));
 }
 
 }  // namespace HugeCTR

@@ -16,13 +16,10 @@
 
 from tensorflow.python.framework import ops
 
-
 class HorovodStrategy(object):
     def __init__(self):
         import horovod.tensorflow as hvd
-
         self._hvd = hvd
-
     def scope(self):
         return ops.NullContextmanager()
 
@@ -35,11 +32,10 @@ class HorovodStrategy(object):
         else:
             return self._hvd.allreduce(tensors)
 
-
 class OneDeviceStrategy(object):
     def scope(self):
         return ops.NullContextmanager()
-
+    
     def run(self, fn, *args, **kwargs):
         return fn(*args, **kwargs)
 

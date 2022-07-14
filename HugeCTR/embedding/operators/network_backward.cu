@@ -40,7 +40,7 @@ void NetworkBackward::compute(const Tensor &top_grad, const Tensor &d_ev_size_of
         };
     LambdaIterator<int, int32_t, decltype(get_decompress_network_dst)> index_iter(
         get_decompress_network_dst, static_cast<int>(network_idx.get_num_elements()));
-
+    
     auto get_offset = [] __device__(int32_t index) { return index; };
     LambdaIterator<int, int32_t, decltype(get_offset)> offset_iter(
         get_offset, static_cast<int>(network_idx.get_num_elements() + 1));

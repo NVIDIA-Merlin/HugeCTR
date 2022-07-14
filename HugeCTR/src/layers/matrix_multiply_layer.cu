@@ -58,23 +58,12 @@ MatrixMultiplyLayer<T>::MatrixMultiplyLayer(
     if (dims_ == 2) {
       std::vector<size_t> out_dim = {m, k};
       blobs_buff->reserve(out_dim, &out_tensor);
-    } else if (dims_ == 3) {  // dims_ == 3
+    } else {  // dims_ == 3
       if (in_tensors[0].get_dimensions()[0] != in_tensors[1].get_dimensions()[0]) {
         HCTR_OWN_THROW(Error_t::WrongInput, "3D input tensors must have the same batch size");
       }
       size_t b = in_tensors[0].get_dimensions()[0];
       std::vector<size_t> out_dim = {b, m, k};
-      blobs_buff->reserve(out_dim, &out_tensor);
-    } else if (dims_ == 4) {
-      if (in_tensors[0].get_dimensions()[0] != in_tensors[1].get_dimensions()[0]) {
-        HCTR_OWN_THROW(Error_t::WrongInput, "4D input tensors must have the same batch size");
-      }
-      if (in_tensors[0].get_dimensions()[1] != in_tensors[1].get_dimensions()[1]) {
-        HCTR_OWN_THROW(Error_t::WrongInput, "4D input tensors must have the same second dim");
-      }
-      size_t b = in_tensors[0].get_dimensions()[0];
-      size_t num_head = in_tensors[0].get_dimensions()[1];
-      std::vector<size_t> out_dim = {b, num_head, m, k};
       blobs_buff->reserve(out_dim, &out_tensor);
     }
 
@@ -102,7 +91,6 @@ void MatrixMultiplyLayer<T>::fprop(bool is_train) {
   size_t m, n, k, b = 1;
 
   b = dims_ == 3 ? in_tensor_dim[0] : 1;
-  b = dims_ == 4 ? in_tensor_dim[0] * in_tensor_dim[1] : b;
   m = in_tensor_dim[dims_ - 2];
   n = in_tensor_dim[dims_ - 1];
   k = out_tensor_dim[dims_ - 1];
@@ -141,7 +129,6 @@ void MatrixMultiplyLayer<T>::bprop() {
   size_t m, n, k, b = 1;
 
   b = dims_ == 3 ? in_tensor_dim[0] : 1;
-  b = dims_ == 4 ? in_tensor_dim[0] * in_tensor_dim[1] : b;
   m = in_tensor_dim[dims_ - 2];
   n = in_tensor_dim[dims_ - 1];
   k = out_tensor_dim[dims_ - 1];

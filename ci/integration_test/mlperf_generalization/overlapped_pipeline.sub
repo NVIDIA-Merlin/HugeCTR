@@ -1,5 +1,0 @@
-#!/bin/bash
-
-srun --ntasks="${SLURM_JOB_NUM_NODES}" --container-image="${CONT}" --container-mounts="${MOUNTS}" bash -cx " \
-      cd /etc/workspace/new_criteo_kaggle &&
-      python3 /workdir/test/pybind_test/overlapped_pipeline_test.py"

@@ -186,7 +186,7 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
   }
 
 #ifdef ENABLE_MPI
-  HCTR_MPI_THROW(MPI_Barrier(MPI_COMM_WORLD));
+  MPI_Barrier(MPI_COMM_WORLD);
 #endif
 
   // setup a data reader
@@ -210,7 +210,7 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
   }
 
 #ifdef ENABLE_MPI
-  HCTR_MPI_THROW(MPI_Barrier(MPI_COMM_WORLD));
+  MPI_Barrier(MPI_COMM_WORLD);
 #endif
 
   const SparseEmbeddingHashParams embedding_params = {train_batchsize,
@@ -306,7 +306,7 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
     }
 
 #ifdef ENABLE_MPI
-    HCTR_MPI_THROW(MPI_Barrier(MPI_COMM_WORLD));
+    MPI_Barrier(MPI_COMM_WORLD);
 #endif
 
     // GPU backward
@@ -328,7 +328,7 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
     }
 
 #ifdef ENABLE_MPI
-    HCTR_MPI_THROW(MPI_Barrier(MPI_COMM_WORLD));
+    MPI_Barrier(MPI_COMM_WORLD);
 #endif
 
     // GPU update_params
@@ -354,7 +354,7 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
     }
 
 #ifdef ENABLE_MPI
-    HCTR_MPI_THROW(MPI_Barrier(MPI_COMM_WORLD));
+    MPI_Barrier(MPI_COMM_WORLD);
 #endif
 
     HCTR_LOG(INFO, WORLD, "Rank%d: Round %d end:\n\n", pid, i);
@@ -648,7 +648,7 @@ void load_and_dump_file(const std::vector<int> &device_list, const Optimizer_t &
   }
 
 #ifdef ENABLE_MPI
-  HCTR_MPI_THROW(MPI_Barrier(MPI_COMM_WORLD));
+  MPI_Barrier(MPI_COMM_WORLD);
 #endif
 
   // setup a data reader
@@ -692,7 +692,7 @@ void load_and_dump_file(const std::vector<int> &device_list, const Optimizer_t &
   }
 
 #ifdef ENABLE_MPI
-  HCTR_MPI_THROW(MPI_Barrier(MPI_COMM_WORLD));
+  MPI_Barrier(MPI_COMM_WORLD);
 #endif
 
   // upload hash table to device
@@ -707,7 +707,7 @@ void load_and_dump_file(const std::vector<int> &device_list, const Optimizer_t &
   embedding->dump_parameters(sparse_model_dst, DataSourceParams());
 
 #ifdef ENABLE_MPI
-  HCTR_MPI_THROW(MPI_Barrier(MPI_COMM_WORLD));
+  MPI_Barrier(MPI_COMM_WORLD);
 #endif
 
   std::vector<T> hash_table_key_from_cpu;

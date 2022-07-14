@@ -37,7 +37,7 @@ class GlobalEmbeddingData {
   Tensor d_combiner_list_;
 
   GlobalEmbeddingData() = default;
-
+  
   GlobalEmbeddingData(std::shared_ptr<CoreResourceManager> core,
                       const EmbeddingCollectionParam &params)
       : core_(core), num_embedding_(params.num_embedding), h_ev_size_offset_{0} {
@@ -79,8 +79,8 @@ class LocalEmbeddingData {
 
   int num_local_embedding_;
   int num_local_hotness_;
-  int shard_id_;
-  int shards_count_;
+  int sharding_id_;
+  int num_sharding_;
 
   std::vector<int> h_local_embedding_list_;
   std::vector<std::vector<int>> h_global_embedding_list_;
@@ -98,13 +98,12 @@ class LocalEmbeddingData {
   Tensor d_local_ev_size_offset_;
   Tensor d_local_combiner_list_;
 
-  LocalEmbeddingData(std::shared_ptr<CoreResourceManager> core,
-                     const EmbeddingCollectionParam &params,
-                     const EmbeddingShardingParam &sharding_param)
+  LocalEmbeddingData(std::shared_ptr<CoreResourceManager> core, const EmbeddingCollectionParam &params,
+                const EmbeddingShardingParam &sharding_param)
       : core_(core),
         num_local_embedding_(sharding_param.local_embedding_list.size()),
-        shard_id_(sharding_param.shard_id),
-        shards_count_(sharding_param.shards_count),
+        sharding_id_(sharding_param.sharding_id),
+        num_sharding_(sharding_param.num_sharding),
         h_local_ev_size_offset_{0} {
     CudaDeviceContext context(core_->get_device_id());
     auto &embedding_params = params.embedding_params;

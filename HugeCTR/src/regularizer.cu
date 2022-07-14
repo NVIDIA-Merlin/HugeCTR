@@ -32,16 +32,16 @@ Regularizer<T>::Regularizer(const Tensor2<float>& weight_buff, const Tensor2<T>&
       batch_size_(batch_size),
       gpu_resource_(gpu_resource) {
   CudaDeviceContext context(get_device_id());
-  HCTR_LIB_THROW(cudaEventCreateWithFlags(&fork_event_, cudaEventDisableTiming));
-  HCTR_LIB_THROW(cudaEventCreateWithFlags(&join_event_, cudaEventDisableTiming));
-  HCTR_LIB_THROW(cudaStreamCreateWithFlags(&reg_stream_, cudaStreamNonBlocking));
+  cudaEventCreateWithFlags(&fork_event_, cudaEventDisableTiming);
+  cudaEventCreateWithFlags(&join_event_, cudaEventDisableTiming);
+  cudaStreamCreateWithFlags(&reg_stream_, cudaStreamNonBlocking);
 }
 
 template <typename T>
 Regularizer<T>::~Regularizer() {
-  HCTR_LIB_THROW(cudaEventDestroy(fork_event_));
-  HCTR_LIB_THROW(cudaEventDestroy(join_event_));
-  HCTR_LIB_THROW(cudaStreamDestroy(reg_stream_));
+  cudaEventDestroy(fork_event_);
+  cudaEventDestroy(join_event_);
+  cudaStreamDestroy(reg_stream_);
 }
 
 template <typename T>

@@ -36,7 +36,8 @@ class CalculateModelIndicesTest : public HybridEmbeddingUnitTest<dtype, emtype> 
   void run() {
     /* Compute expected results on host */
     HybridEmbeddingCpu<dtype, emtype> cpu_embedding(this->config, this->batch_size,
-                                                    this->category_location, this->samples);
+                                                    this->category_location,
+                                                    this->category_frequent_index, this->samples);
     cpu_embedding.calculate_infrequent_model_indices();
 
     /* Compute indices */
@@ -76,7 +77,8 @@ class CalculateNetworkIndicesTest : public HybridEmbeddingUnitTest<dtype, emtype
   void run() {
     /* Compute expected results on host */
     HybridEmbeddingCpu<dtype, emtype> cpu_embedding(this->config, this->batch_size,
-                                                    this->category_location, this->samples);
+                                                    this->category_location,
+                                                    this->category_frequent_index, this->samples);
     cpu_embedding.calculate_infrequent_network_indices();
 
     /* Compute indices */
@@ -117,17 +119,18 @@ class CalculateFrequentSampleIndicesTest : public HybridEmbeddingUnitTest<dtype,
   void run() {
     /* Compute expected results on host */
     HybridEmbeddingCpu<dtype, emtype> cpu_embedding(this->config, this->batch_size,
-                                                    this->category_location, this->samples);
+                                                    this->category_location,
+                                                    this->category_frequent_index, this->samples);
     cpu_embedding.calculate_frequent_sample_indices();
     /* Compute indices */
     this->build_frequent();
     std::vector<std::vector<uint32_t>> h_frequent_sample_indices(this->num_instances);
     for (size_t i = 0; i < this->num_instances; i++) {
-      this->get_frequent_embedding(i).set_current_indices(&this->frequent_embedding_indices[i],
-                                                          this->stream);
-      this->get_frequent_embedding(i).indices_->calculate_frequent_sample_indices(this->stream);
+      this->frequent_embeddings[i].set_current_indices(&this->frequent_embedding_indices[i],
+                                                       this->stream);
+      this->frequent_embeddings[i].indices_->calculate_frequent_sample_indices(this->stream);
       download_tensor(h_frequent_sample_indices[i],
-                      this->get_frequent_embedding(i).indices_->frequent_sample_indices_,
+                      this->frequent_embeddings[i].indices_->frequent_sample_indices_,
                       this->stream);
     }
 
@@ -136,7 +139,7 @@ class CalculateFrequentSampleIndicesTest : public HybridEmbeddingUnitTest<dtype,
       uint32_t num_frequent_sample_indices;
       HCTR_LIB_THROW(cudaMemcpyAsync(
           &num_frequent_sample_indices,
-          this->get_frequent_embedding(i).indices_->d_num_frequent_sample_indices_.get_ptr(),
+          this->frequent_embeddings[i].indices_->d_num_frequent_sample_indices_.get_ptr(),
           sizeof(uint32_t), cudaMemcpyDeviceToHost, this->stream));
       HCTR_LIB_THROW(cudaStreamSynchronize(this->stream));
       h_frequent_sample_indices[i].resize(num_frequent_sample_indices);
@@ -158,7 +161,8 @@ class CalculateModelCacheIndicesTest : public HybridEmbeddingUnitTest<dtype, emt
   void run() {
     /* Compute expected results on host */
     HybridEmbeddingCpu<dtype, emtype> cpu_embedding(this->config, this->batch_size,
-                                                    this->category_location, this->samples);
+                                                    this->category_location,
+                                                    this->category_frequent_index, this->samples);
     cpu_embedding.calculate_frequent_model_cache_indices();
 
     /* Compute indices */
@@ -166,14 +170,14 @@ class CalculateModelCacheIndicesTest : public HybridEmbeddingUnitTest<dtype, emt
     std::vector<std::vector<uint32_t>> h_model_cache_indices(this->num_instances);
     std::vector<std::vector<uint32_t>> h_model_cache_indices_offsets(this->num_instances);
     for (size_t i = 0; i < this->num_instances; i++) {
-      this->get_frequent_embedding(i).set_current_indices(&this->frequent_embedding_indices[i],
-                                                          this->stream);
-      this->get_frequent_embedding(i).indices_->calculate_cache_masks(this->stream);
-      this->get_frequent_embedding(i).indices_->calculate_model_cache_indices(80, this->stream);
+      this->frequent_embeddings[i].set_current_indices(&this->frequent_embedding_indices[i],
+                                                       this->stream);
+      this->frequent_embeddings[i].indices_->calculate_cache_masks(this->stream);
+      this->frequent_embeddings[i].indices_->calculate_model_cache_indices(80, this->stream);
       download_tensor(h_model_cache_indices[i],
-                      this->get_frequent_embedding(i).indices_->model_cache_indices_, this->stream);
+                      this->frequent_embeddings[i].indices_->model_cache_indices_, this->stream);
       download_tensor(h_model_cache_indices_offsets[i],
-                      this->get_frequent_embedding(i).indices_->model_cache_indices_offsets_,
+                      this->frequent_embeddings[i].indices_->model_cache_indices_offsets_,
                       this->stream);
     }
 
@@ -200,7 +204,8 @@ class CalculateNetworkCacheIndicesTest : public HybridEmbeddingUnitTest<dtype, e
   void run() {
     /* Compute expected results on host */
     HybridEmbeddingCpu<dtype, emtype> cpu_embedding(this->config, this->batch_size,
-                                                    this->category_location, this->samples);
+                                                    this->category_location,
+                                                    this->category_frequent_index, this->samples);
     cpu_embedding.calculate_frequent_network_cache_mask();
     cpu_embedding.calculate_frequent_network_cache_indices();
 
@@ -210,22 +215,20 @@ class CalculateNetworkCacheIndicesTest : public HybridEmbeddingUnitTest<dtype, e
     std::vector<std::vector<uint32_t>> h_network_cache_indices(this->num_instances);
     std::vector<std::vector<uint32_t>> h_network_cache_indices_offsets(this->num_instances);
     for (size_t i = 0; i < this->num_instances; i++) {
-      this->get_frequent_embedding(i).set_current_indices(&this->frequent_embedding_indices[i],
-                                                          this->stream);
-      this->get_frequent_embedding(i).indices_->calculate_cache_masks(this->stream);
-      this->get_frequent_embedding(i).indices_->calculate_network_cache_indices(this->stream);
+      this->frequent_embeddings[i].set_current_indices(&this->frequent_embedding_indices[i],
+                                                       this->stream);
+      this->frequent_embeddings[i].indices_->calculate_cache_masks(this->stream);
+      this->frequent_embeddings[i].indices_->calculate_network_cache_indices(this->stream);
       download_tensor(h_network_cache_indices[i],
-                      this->get_frequent_embedding(i).indices_->network_cache_indices_,
-                      this->stream);
+                      this->frequent_embeddings[i].indices_->network_cache_indices_, this->stream);
       download_tensor(h_network_cache_indices_offsets[i],
-                      this->get_frequent_embedding(i).indices_->network_cache_indices_offsets_,
+                      this->frequent_embeddings[i].indices_->network_cache_indices_offsets_,
                       this->stream);
       h_network_cache_mask[i].resize(this->config.num_frequent);
-      HCTR_LIB_THROW(
-          cudaMemcpyAsync(h_network_cache_mask[i].data(),
-                          reinterpret_cast<uint8_t*>(
-                              this->get_frequent_embedding(i).indices_->cache_masks_.get_ptr()),
-                          this->config.num_frequent, cudaMemcpyDeviceToHost, this->stream));
+      HCTR_LIB_THROW(cudaMemcpyAsync(
+          h_network_cache_mask[i].data(),
+          reinterpret_cast<uint8_t*>(this->frequent_embeddings[i].indices_->cache_masks_.get_ptr()),
+          this->config.num_frequent, cudaMemcpyDeviceToHost, this->stream));
       HCTR_LIB_THROW(cudaStreamSynchronize(this->stream));
     }
 

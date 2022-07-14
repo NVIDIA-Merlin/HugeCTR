@@ -40,13 +40,13 @@ public:
         size_t sz = 0;
         while (sz < keys_per_set * num_of_set) {
             T x = distribution_(gen_);
-            if(x == empty_value) {
+            if(x == empty_value){
                 continue;
             }
             auto res = set.insert(x);
-            if(res.second) {
+            if(res.second){
                 size_t src_set = set_hasher::hash(x) % num_of_set;
-                if(set_sz[src_set] < keys_per_set) {
+                if(set_sz[src_set] < keys_per_set){
                     data[src_set * keys_per_set + set_sz[src_set]] = x;
                     set_sz[src_set]++;
                     sz++;
@@ -54,7 +54,7 @@ public:
             }
         }
         assert(sz == keys_per_set * num_of_set);
-        for(size_t i = 0; i < num_of_set; i++) {
+        for(size_t i = 0; i < num_of_set; i++){
             assert(set_sz[i] == keys_per_set);
         }
     }
@@ -81,7 +81,7 @@ public:
         size_t sz = 0;
         while (sz < len) {
             T x = distribution_(gen_);
-            if(x == empty_value) {
+            if(x == empty_value){
                 continue;
             }
             auto res = set.insert(x);
@@ -114,7 +114,7 @@ public:
         size_t sz = 0;
         while (sz < len) {
             T x = (T)(abs( distribution_(gen_) ));
-            if(x < min || x > max) {
+            if(x < min || x > max){
                 continue;
             }
             auto res = set.insert(x);
@@ -165,7 +165,7 @@ void check_result(const KeyType* keys, const float* vals, size_t embedding_vec_s
 
 // Compare two sequence of keys and check whether they are the same(but with different order)
 template<typename KeyType>
-void compare_key(const KeyType* sequence_a, const KeyType* sequence_b, size_t len) {
+void compare_key(const KeyType* sequence_a, const KeyType* sequence_b, size_t len){
     // Temp buffers for sorting
     KeyType* sequence_a_copy = (KeyType*)malloc(len * sizeof(KeyType));
     KeyType* sequence_b_copy = (KeyType*)malloc(len * sizeof(KeyType));
@@ -177,7 +177,7 @@ void compare_key(const KeyType* sequence_a, const KeyType* sequence_b, size_t le
     std::sort(sequence_b_copy, sequence_b_copy + len);
  
     // Linearly compare elements
-    for(size_t i = 0; i < len; i++) {
+    for(size_t i = 0; i < len; i++){
         assert(sequence_a_copy[i] == sequence_b_copy[i]);
     }
     // Free temp buffers
@@ -186,7 +186,7 @@ void compare_key(const KeyType* sequence_a, const KeyType* sequence_b, size_t le
 }
 
 /* Timing funtion */
-double W_time() {
+double W_time(){
     timeval marker;
     gettimeofday(&marker, NULL);
     return ((double)(marker.tv_sec) * 1e6 + (double)(marker.tv_usec)) * 1e-6;
@@ -259,9 +259,9 @@ int main(int argc, char **argv) {
 
     std::cout << "Filling embedding table" << std::endl;
     std::unordered_map<key_type, std::vector<float>> h_emb_table;
-    for(size_t i = 0; i < emb_size; i++) {
+    for(size_t i = 0; i < emb_size; i++){
         std::vector<float> emb_vec(embedding_vec_size);
-        for(size_t j = 0; j < embedding_vec_size; j++) {
+        for(size_t j = 0; j < embedding_vec_size; j++){
             emb_vec[j] = h_vals[i * embedding_vec_size + j];
         }
         h_emb_table.emplace(h_keys[i], emb_vec);
@@ -341,12 +341,12 @@ int main(int argc, char **argv) {
 
     // Start normal distribution cache test
     printf("Worker %d : normal distribution test start.\n", thread_id);
-    for(size_t i = 0; i < iter_round; i++) {
+    for(size_t i = 0; i < iter_round; i++){
 
         // Generate random index with normal-distribution
         normal_gen.fill_unique(h_query_keys_index, query_length, 0, foot_print);
         // Select keys from total keys buffer with the index
-        for(size_t j = 0; j < query_length; j++) {
+        for(size_t j = 0; j < query_length; j++){
             h_query_keys[j] = h_keys[h_query_keys_index[j]];
         }
 
@@ -376,9 +376,9 @@ int main(int argc, char **argv) {
         // Insert missing values into the retrieved value buffer
         // Record time
         time_1 = W_time();
-        for(size_t missing_idx = 0; missing_idx < h_missing_len; missing_idx++) {
+        for(size_t missing_idx = 0; missing_idx < h_missing_len; missing_idx++){
             auto result = h_emb_table.find(h_missing_keys[missing_idx]);
-            for(size_t emb_vec_idx = 0; emb_vec_idx < embedding_vec_size; emb_vec_idx++) {
+            for(size_t emb_vec_idx = 0; emb_vec_idx < embedding_vec_size; emb_vec_idx++){
                 h_missing_vals[missing_idx * embedding_vec_size + emb_vec_idx] = (result->second)[emb_vec_idx];
                 h_vals_retrieved[h_missing_index[missing_idx] * embedding_vec_size + emb_vec_idx] = (result->second)[emb_vec_idx];
             }
@@ -508,9 +508,9 @@ int main(int argc, char **argv) {
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
     // Each time insert 1 slab per slabset into the cache and check result
-    for(size_t i = 0; i < SET_ASSOCIATIVITY; i++) {
+    for(size_t i = 0; i < SET_ASSOCIATIVITY; i++){
         // Prepare the keys and values to be inserted
-        for(size_t j = 0; j < cache_capacity_in_set; j++) {
+        for(size_t j = 0; j < cache_capacity_in_set; j++){
             memcpy(h_insert_keys + j * SLAB_SIZE, h_keys + j * SLAB_SIZE * SET_ASSOCIATIVITY + i * SLAB_SIZE, SLAB_SIZE * sizeof(key_type));
             memcpy(h_insert_vals + j * SLAB_SIZE * embedding_vec_size, h_vals + (j * SLAB_SIZE * SET_ASSOCIATIVITY + i * SLAB_SIZE) * embedding_vec_size, SLAB_SIZE * embedding_vec_size * sizeof(float));
         }

@@ -45,10 +45,9 @@ ThreadAsyncReader::ThreadAsyncReader(std::string fname, const ResourceManager* r
 
   max_num_blocks_per_batch_ = batch_size_bytes_ / params_.io_block_size + 2;
   for (auto buf : dest_buffers_) {
+    assert((size_t)buf->raw_host_ptr % params_.io_alignment == 0);
     HCTR_LIB_THROW(
         cudaMallocHost(&buf->raw_host_ptr, max_num_blocks_per_batch_ * params_.io_block_size));
-    assert((size_t)buf->raw_host_ptr % params_.io_alignment == 0);
-
     HCTR_LIB_THROW(cudaEventCreateWithFlags(&buf->event, cudaEventDisableTiming));
 
     buf->io_reqs.resize(max_num_blocks_per_batch_);

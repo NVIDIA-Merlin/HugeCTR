@@ -108,7 +108,7 @@ struct IbCommsTest {
       : num_gpus_(device_list.size()), max_size_(max_size) {
     max_elems_ = max_size_ / sizeof(TypeEmbeddingComp);
 
-    HCTR_MPI_THROW(MPI_Comm_size(MPI_COMM_WORLD, &num_procs_));
+    MPI_Comm_size(MPI_COMM_WORLD, &num_procs_);
 
     std::vector<std::vector<int>> vvgpu;
     for (int i = 0; i < num_procs_; i++) {
@@ -283,9 +283,9 @@ struct IbCommsTest {
                                     *(h_ar_buff_out_ref_[g].get_ptr() + e));
         if (!match) {
           size_t my_proc = resource_manager_->get_process_id();
-          HCTR_LOG_S(DEBUG, WORLD) << my_proc << ": Data mismatch at gpu " << g << " element: " << e
-                                   << " expected: " << *(h_ar_buff_out_ref_[g].get_ptr() + e)
-                                   << " got: " << *(h_ar_buff_out_[g].get_ptr() + e) << std::endl;
+          std::cout << my_proc << ": Data mismatch at gpu " << g << " element: " << e
+                    << " expected: " << *(h_ar_buff_out_ref_[g].get_ptr() + e)
+                    << " got: " << *(h_ar_buff_out_[g].get_ptr() + e) << std::endl;
         }
       }
     }
@@ -318,7 +318,7 @@ struct IbCommsTest {
       auto size = ar_sizes_[s];
       TIMEIT(do_custom_ar(s), bench_time);
       if (my_proc == 0) {
-        HCTR_LOG_S(DEBUG, WORLD) << size << " " << bench_time << std::endl;
+        std::cout << size << " " << bench_time << std::endl;
       }
     }
   }
@@ -327,7 +327,7 @@ struct IbCommsTest {
 template <typename TypeEmbeddingComp>
 void test_ib_comm(const std::vector<int>& device_list) {
   int num_procs = 0;
-  HCTR_MPI_THROW(MPI_Comm_size(MPI_COMM_WORLD, &num_procs));
+  MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
   if (num_procs == 1) return;
 
   const size_t MAX_SIZE = 64 * 1024 * 1024;
@@ -338,7 +338,7 @@ void test_ib_comm(const std::vector<int>& device_list) {
 template <typename TypeEmbeddingComp>
 void test_ib_comm_perf(const std::vector<int>& device_list) {
   int num_procs = 0;
-  HCTR_MPI_THROW(MPI_Comm_size(MPI_COMM_WORLD, &num_procs));
+  MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
   if (num_procs == 1) return;
 
   const size_t MAX_SIZE = 64 * 1024 * 1024;

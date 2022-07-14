@@ -62,7 +62,7 @@ InferenceInfo::InferenceInfo(const nlohmann::json& config) {
   dense_dim = get_value_from_json<int>(j_dense, "dense_dim");
   auto j_sparse_inputs = get_json(j_data, "sparse");
 
-  for (size_t i = 0; i < j_sparse_inputs.size(); i++) {
+  for (int i = 0; i < (int)j_sparse_inputs.size(); i++) {
     const nlohmann::json& j_sparse = j_sparse_inputs[0];
     slot_num.push_back(get_value_from_json<int>(j_sparse, "slot_num"));
 
@@ -71,27 +71,28 @@ InferenceInfo::InferenceInfo(const nlohmann::json& config) {
 
     max_feature_num_per_sample.push_back(max_feature_num_per_sample_);
   }
-
   // get embedding params: embedding_vec_size, combiner_type
-  for (size_t i = 1; i < j_layers_array.size(); i++) {
-    // if not embedding then break
-    const nlohmann::json& j = j_layers_array[i];
-    auto embedding_name = get_value_from_json<std::string>(j, "type");
-    if (embedding_name.compare("DistributedSlotSparseEmbeddingHash") != 0 &&
-        embedding_name.compare("LocalizedSlotSparseEmbeddingHash") != 0 &&
-        embedding_name.compare("LocalizedSlotSparseEmbeddingOneHot") != 0) {
-      break;
-    }
-    auto j_embed_params = get_json(j, "sparse_embedding_hparam");
-    auto vec_size = get_value_from_json<int>(j_embed_params, "embedding_vec_size");
-    auto combiner = get_value_from_json<std::string>(j_embed_params, "combiner");
-    embedding_vec_size.push_back(vec_size);
-    if (combiner == "mean") {
-      combiner_type.push_back(HugeCTR::EmbeddingFeatureCombiner_t::Mean);
-    } else {
-      combiner_type.push_back(HugeCTR::EmbeddingFeatureCombiner_t::Sum);
-    }
-  }
+  {
+    for (int i = 1; i < (int)j_layers_array.size(); i++) {
+      // if not embedding then break
+      const nlohmann::json& j = j_layers_array[i];
+      auto embedding_name = get_value_from_json<std::string>(j, "type");
+      if (embedding_name.compare("DistributedSlotSparseEmbeddingHash") != 0 &&
+          embedding_name.compare("LocalizedSlotSparseEmbeddingHash") != 0 &&
+          embedding_name.compare("LocalizedSlotSparseEmbeddingOneHot") != 0) {
+        break;
+      }
+      auto j_embed_params = get_json(j, "sparse_embedding_hparam");
+      auto vec_size = get_value_from_json<int>(j_embed_params, "embedding_vec_size");
+      auto combiner = get_value_from_json<std::string>(j_embed_params, "combiner");
+      embedding_vec_size.push_back(vec_size);
+      if (combiner == "mean") {
+        combiner_type.push_back(HugeCTR::EmbeddingFeatureCombiner_t::Mean);
+      } else {
+        combiner_type.push_back(HugeCTR::EmbeddingFeatureCombiner_t::Sum);
+      }
+    }  // for ()
+  }    // get embedding params
 }
 
 template <typename TypeHashKey>
@@ -278,17 +279,15 @@ void session_inference_generated_test(const std::string& config_file, const std:
   std::shared_ptr<IDataSimulator<int>> ldata_sim;
   ldata_sim.reset(new IntUniformDataSimulator<int>(1, max_nnz));
   h_row_ptrs[0] = 0;
-  for (size_t i = 1; i < row_ptrs_size; i++) {
+  for (int i = 1; i < (int)row_ptrs_size; i++) {
     h_row_ptrs[i] = (h_row_ptrs[i - 1] + ldata_sim->get_num());
   }
 
   // h_dense_features
-  const size_t dense_size = batch_size * dense_dim;
+  size_t dense_size = batch_size * dense_dim;
   std::unique_ptr<float[]> h_dense(new float[dense_size]);
   FloatUniformDataSimulator<float> fdata_sim(0, 1);
-  for (size_t i = 0; i < dense_size; i++) {
-    h_dense[i] = fdata_sim.get_num();
-  }
+  for (int i = 0; i < (int)dense_size; i++) h_dense[i] = fdata_sim.get_num();
 
   // h_embeddingcolumns
   size_t embeddingcolumns_size = batch_size * max_feature_num_per_sample;

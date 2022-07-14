@@ -628,16 +628,16 @@ void embedding_collection_e2e(const std::vector<int> device_list, const int &bat
     //                                 auto compare_func) {
     //   std::cout << "compare " << compare_info << ".\n";
     //   for (int gpu_id = 0; gpu_id < num_gpus; ++gpu_id) {
-    //     int shard_idx = ebc_cpu.get_shard_idx(gpu_id, tps);
-    //     if (shard_idx < 0) continue;
-    //     compare_func(shard_idx, gpu_id);
+    //     int sharding_idx = ebc_cpu.get_sharding_idx(gpu_id, tps);
+    //     if (sharding_idx < 0) continue;
+    //     compare_func(sharding_idx, gpu_id);
     //   }
     //   std::cout << "pass compare " << compare_info << ".\n";
     // };
     // {
     //   compare_for_all_gpus(
-    //       "model idx", TablePlacementStrategy::Localized, [&](int shard_idx, int gpu_id) {
-    //         ContextContainer *context = context_container_list[gpu_id][shard_idx];
+    //       "model idx", TablePlacementStrategy::Localized, [&](int sharding_idx, int gpu_id) {
+    //         ContextContainer *context = context_container_list[gpu_id][sharding_idx];
     //         Tensor model_key = context->unpack<core::Tensor>("model_key");
     //         size_t num_model_key = context->unpack<size_t>("num_model_key");
 
@@ -664,9 +664,9 @@ void embedding_collection_e2e(const std::vector<int> device_list, const int &bat
     //       });
 
     //   compare_for_all_gpus("model offsets", TablePlacementStrategy::Localized,
-    //                        [&](int shard_idx, int gpu_id) {
+    //                        [&](int sharding_idx, int gpu_id) {
     //                          ContextContainer *context =
-    //                          context_container_list[gpu_id][shard_idx]; Tensor model_offsets =
+    //                          context_container_list[gpu_id][sharding_idx]; Tensor model_offsets =
     //                          context->unpack<core::Tensor>("model_offsets");
     //                          std::vector<uint32_t> cpu_model_offsets;
     //                          model_offsets.to(&cpu_model_offsets);
@@ -675,9 +675,9 @@ void embedding_collection_e2e(const std::vector<int> device_list, const int &bat
     //                        });
 
     //   compare_for_all_gpus("num key in bucket", TablePlacementStrategy::Localized,
-    //                        [&](int shard_idx, int gpu_id) {
+    //                        [&](int sharding_idx, int gpu_id) {
     //                          ContextContainer *context =
-    //                          context_container_list[gpu_id][shard_idx]; Tensor
+    //                          context_container_list[gpu_id][sharding_idx]; Tensor
     //                          num_key_in_bucket_for_combiner =
     //                              context->unpack<core::Tensor>("num_key_in_bucket_for_combiner");
 
@@ -688,9 +688,9 @@ void embedding_collection_e2e(const std::vector<int> device_list, const int &bat
     //                        });
 
     //   compare_for_all_gpus("model comm buffer", TablePlacementStrategy::Localized,
-    //                        [&](int shard_idx, int gpu_id) {
+    //                        [&](int sharding_idx, int gpu_id) {
     //                          ContextContainer *context =
-    //                          context_container_list[gpu_id][shard_idx]; auto
+    //                          context_container_list[gpu_id][sharding_idx]; auto
     //                          model_comm_buffer_list =
     //                              context->unpack<std::vector<core::Tensor>>("model_comm_buffer_list");
     //                          auto model_comm_buffer_size =
@@ -727,9 +727,9 @@ void embedding_collection_e2e(const std::vector<int> device_list, const int &bat
     //                        });
 
     //   compare_for_all_gpus(
-    //       "mp backward idx", TablePlacementStrategy::Localized, [&](int shard_idx, int gpu_id)
+    //       "mp backward idx", TablePlacementStrategy::Localized, [&](int sharding_idx, int gpu_id)
     //       {
-    //         ContextContainer *context = context_container_list[gpu_id][shard_idx];
+    //         ContextContainer *context = context_container_list[gpu_id][sharding_idx];
     //         auto unique_key = context->unpack<core::Tensor>("unique_key");
     //         auto unique_dst_idx = context->unpack<core::Tensor>("unique_dst_idx");
     //         auto sorted_bucket_id_list = context->unpack<core::Tensor>("sorted_bucket_id_list");
@@ -801,8 +801,8 @@ void embedding_collection_e2e(const std::vector<int> device_list, const int &bat
 
     //   compare_for_all_gpus(
     //       "network comm buffer", TablePlacementStrategy::Localized,
-    //       [&](int shard_idx, int gpu_id) {
-    //         ContextContainer *context = context_container_list[gpu_id][shard_idx];
+    //       [&](int sharding_idx, int gpu_id) {
+    //         ContextContainer *context = context_container_list[gpu_id][sharding_idx];
     //         auto network_comm_buffer_list =
     //             context->unpack<std::vector<core::Tensor>>("network_comm_buffer_list");
     //         auto network_comm_buffer_size =
@@ -838,8 +838,8 @@ void embedding_collection_e2e(const std::vector<int> device_list, const int &bat
     //       });
 
     //   compare_for_all_gpus(
-    //       "network idx", TablePlacementStrategy::Localized, [&](int shard_idx, int gpu_id) {
-    //         ContextContainer *context = context_container_list[gpu_id][shard_idx];
+    //       "network idx", TablePlacementStrategy::Localized, [&](int sharding_idx, int gpu_id) {
+    //         ContextContainer *context = context_container_list[gpu_id][sharding_idx];
     //         auto dst_embedding_id_list = context->unpack<core::Tensor>("dst_embedding_id_list");
     //         auto num_dst_embedding_id = context->unpack<size_t>("num_dst_embedding_id");
     //         auto network_idx = context->unpack<core::Tensor>("network_idx");
@@ -872,8 +872,8 @@ void embedding_collection_e2e(const std::vector<int> device_list, const int &bat
     //       });
 
     //   compare_for_all_gpus(
-    //       "dp idx", TablePlacementStrategy::DataParallel, [&](int shard_idx, int gpu_id) {
-    //         ContextContainer *context = context_container_list[gpu_id][shard_idx];
+    //       "dp idx", TablePlacementStrategy::DataParallel, [&](int sharding_idx, int gpu_id) {
+    //         ContextContainer *context = context_container_list[gpu_id][sharding_idx];
     //         auto dp_key = context->unpack<core::Tensor>("dp_key");
     //         auto num_dp_key = context->unpack<size_t>("num_dp_key");
     //         auto dp_offset = context->unpack<core::Tensor>("dp_offset");
@@ -891,9 +891,9 @@ void embedding_collection_e2e(const std::vector<int> device_list, const int &bat
     //       });
 
     //   compare_for_all_gpus(
-    //       "dp backward idx", TablePlacementStrategy::DataParallel, [&](int shard_idx, int
+    //       "dp backward idx", TablePlacementStrategy::DataParallel, [&](int sharding_idx, int
     //       gpu_id) {
-    //         ContextContainer *context = context_container_list[gpu_id][shard_idx];
+    //         ContextContainer *context = context_container_list[gpu_id][sharding_idx];
     //         auto unique_key = context->unpack<core::Tensor>("unique_key");
     //         auto num_unique_key = context->unpack<size_t>("num_unique_key");
     //         auto unique_dst_idx = context->unpack<core::Tensor>("unique_dst_idx");
@@ -921,7 +921,7 @@ void embedding_collection_e2e(const std::vector<int> device_list, const int &bat
     //         std::vector<uint32_t> gpu_sorted_bucket_id_offset;
     //         sorted_bucket_id_offset.to(&gpu_sorted_bucket_id_offset);
 
-    //         auto local_embedding_list = ebc_cpu.get_local_embedding_list(shard_idx, gpu_id);
+    //         auto local_embedding_list = ebc_cpu.get_local_embedding_list(sharding_idx, gpu_id);
     //         int dst_idx = 0;
     //         ASSERT_EQ(gpu_unique_id_space_offset.back(), num_unique_key);
     //         for (int idx = 0; idx < static_cast<int>(gpu_unique_id_space_offset.size()) - 1;
@@ -932,7 +932,7 @@ void embedding_collection_e2e(const std::vector<int> device_list, const int &bat
     //           int id_space = gpu_unique_id_space_list[idx];
     //           int embedding_id = local_embedding_list[idx];
     //           int ev_size = ebc_cpu.ev_size_list_[embedding_id];
-    //           ASSERT_EQ(id_space, ebc_cpu.get_local_id_space_list(shard_idx, gpu_id)[idx]);
+    //           ASSERT_EQ(id_space, ebc_cpu.get_local_id_space_list(sharding_idx, gpu_id)[idx]);
 
     //           auto &dp_backward_info_in_current_id_space = ebc_cpu.dp_backward_info_[idx];
 
@@ -993,9 +993,9 @@ void embedding_collection_e2e(const std::vector<int> device_list, const int &bat
     //       });
     // }
     //   compare_for_all_gpus("backward model comm buffer", TablePlacementStrategy::Localized,
-    //                        [&](int shard_idx, int gpu_id) {
+    //                        [&](int sharding_idx, int gpu_id) {
     //                          ContextContainer *context =
-    //                          context_container_list[gpu_id][shard_idx]; auto
+    //                          context_container_list[gpu_id][sharding_idx]; auto
     //                          model_comm_buffer_list =
     //                              context->unpack<std::vector<core::Tensor>>("model_comm_buffer_list");
     //                          auto model_comm_buffer_size =
@@ -1033,8 +1033,8 @@ void embedding_collection_e2e(const std::vector<int> device_list, const int &bat
 
     //   compare_for_all_gpus(
     //       "backward network comm buffer", TablePlacementStrategy::Localized,
-    //       [&](int shard_idx, int gpu_id) {
-    //         ContextContainer *context = context_container_list[gpu_id][shard_idx];
+    //       [&](int sharding_idx, int gpu_id) {
+    //         ContextContainer *context = context_container_list[gpu_id][sharding_idx];
     //         auto network_comm_buffer_list =
     //             context->unpack<std::vector<core::Tensor>>("network_comm_buffer_list");
     //         auto network_comm_buffer_size =
@@ -1336,7 +1336,6 @@ const std::vector<int> table_max_key_list = {
 TEST(test_embedding_collection, plan) {
   embedding_collection_e2e<int64_t, int64_t, uint64_t, float>(
       gpus8, batch_size, num_table, table_ev_size_list, num_embedding, id_space_list, hotness_list,
-      combiner_list, table_min_key_list, table_max_key_list,
-      "/workdir/test/utest/embedding_collection/plan_criteo_8gpu.json");
+      combiner_list, table_min_key_list, table_max_key_list, "/workdir/test/utest/embedding_collection/plan_criteo_8gpu.json");
 }
 }  // namespace criteo

@@ -155,27 +155,25 @@ void loss_with_regularizer_test(Regularizer_t type, size_t batch_size, size_t nu
   test::GaussianDataSimulator input_simulator(0.0f, 1.0f);
   std::vector<float> h_input(in_tensor.get_num_elements());
   input_simulator.fill(h_input.data(), h_input.size());
-  HCTR_LIB_THROW(cudaMemcpy(in_tensor.get_ptr(), &h_input.front(), in_tensor.get_size_in_bytes(),
-                            cudaMemcpyHostToDevice));
+  cudaMemcpy(in_tensor.get_ptr(), &h_input.front(), in_tensor.get_size_in_bytes(),
+             cudaMemcpyHostToDevice);
 
-  const float sigma = 1.f / sqrt(num_features);
+  float sigma = 1.f / sqrt(num_features);
   test::GaussianDataSimulator weight_simulator(0.0f, sigma);
   std::vector<float> h_weight(weight_buff_re->as_tensor().get_num_elements());
   weight_simulator.fill(h_weight.data(),
                         h_weight.size() % 2 != 0 ? h_weight.size() + 1 : h_weight.size());
-  HCTR_LIB_THROW(cudaMemcpy(weight_buff_no->as_tensor().get_ptr(), &h_weight.front(),
-                            weight_buff_no->as_tensor().get_size_in_bytes(),
-                            cudaMemcpyHostToDevice));
-  HCTR_LIB_THROW(cudaMemcpy(weight_buff_re->as_tensor().get_ptr(), &h_weight.front(),
-                            weight_buff_re->as_tensor().get_size_in_bytes(),
-                            cudaMemcpyHostToDevice));
+  cudaMemcpy(weight_buff_no->as_tensor().get_ptr(), &h_weight.front(),
+             weight_buff_no->as_tensor().get_size_in_bytes(), cudaMemcpyHostToDevice);
+  cudaMemcpy(weight_buff_re->as_tensor().get_ptr(), &h_weight.front(),
+             weight_buff_re->as_tensor().get_size_in_bytes(), cudaMemcpyHostToDevice);
 
   test::UniformDataSimulator label_simulator;
   std::vector<float> h_label(label_tensor.get_num_elements());
 
   label_simulator.fill(h_label.data(), h_label.size(), 0.0f, 1.0f);
-  HCTR_LIB_THROW(cudaMemcpy(label_tensor.get_ptr(), &h_label.front(),
-                            label_tensor.get_size_in_bytes(), cudaMemcpyHostToDevice));
+  cudaMemcpy(label_tensor.get_ptr(), &h_label.front(), label_tensor.get_size_in_bytes(),
+             cudaMemcpyHostToDevice);
 
   HCTR_LIB_THROW(cudaDeviceSynchronize());
   fc_layer_no.fprop(true);
@@ -183,10 +181,10 @@ void loss_with_regularizer_test(Regularizer_t type, size_t batch_size, size_t nu
   HCTR_LIB_THROW(cudaDeviceSynchronize());
 
   std::unique_ptr<float> loss_no_val(new float);
-  HCTR_LIB_THROW(cudaMemcpy(loss_no_val.get(), loss_tensor_no.get_ptr(),
-                            loss_tensor_no.get_size_in_bytes(), cudaMemcpyDeviceToHost));
+  cudaMemcpy(loss_no_val.get(), loss_tensor_no.get_ptr(), loss_tensor_no.get_size_in_bytes(),
+             cudaMemcpyDeviceToHost);
 
-  const float ref_term = get_ref_term(type, h_weight, lambda, batch_size);
+  float ref_term = get_ref_term(type, h_weight, lambda, batch_size);
   *loss_no_val += ref_term;
 
   HCTR_LIB_THROW(cudaDeviceSynchronize());
@@ -195,8 +193,8 @@ void loss_with_regularizer_test(Regularizer_t type, size_t batch_size, size_t nu
   HCTR_LIB_THROW(cudaDeviceSynchronize());
 
   std::unique_ptr<float> loss_re_val(new float);
-  HCTR_LIB_THROW(cudaMemcpy(loss_re_val.get(), loss_tensor_re.get_ptr(),
-                            loss_tensor_re.get_size_in_bytes(), cudaMemcpyDeviceToHost));
+  cudaMemcpy(loss_re_val.get(), loss_tensor_re.get_ptr(), loss_tensor_re.get_size_in_bytes(),
+             cudaMemcpyDeviceToHost);
 
   ASSERT_TRUE(test::compare_array_approx<float>(loss_re_val.get(), loss_no_val.get(), 1, eps));
 
@@ -205,21 +203,19 @@ void loss_with_regularizer_test(Regularizer_t type, size_t batch_size, size_t nu
   HCTR_LIB_THROW(cudaDeviceSynchronize());
 
   std::vector<float> h_wgrad_prev(wgrad_buff_no->as_tensor().get_num_elements());
-  HCTR_LIB_THROW(cudaMemcpy(&h_wgrad_prev.front(), wgrad_buff_no->as_tensor().get_ptr(),
-                            wgrad_buff_no->as_tensor().get_size_in_bytes(),
-                            cudaMemcpyDeviceToHost));
+  cudaMemcpy(&h_wgrad_prev.front(), wgrad_buff_no->as_tensor().get_ptr(),
+             wgrad_buff_no->as_tensor().get_size_in_bytes(), cudaMemcpyDeviceToHost);
 
-  HCTR_LIB_THROW(cudaMemcpy(in_tensor.get_ptr(), &h_input.front(), in_tensor.get_size_in_bytes(),
-                            cudaMemcpyHostToDevice));
+  cudaMemcpy(in_tensor.get_ptr(), &h_input.front(), in_tensor.get_size_in_bytes(),
+             cudaMemcpyHostToDevice);
 
   HCTR_LIB_THROW(cudaDeviceSynchronize());
   fc_layer_re.bprop();
   HCTR_LIB_THROW(cudaDeviceSynchronize());
 
   std::vector<float> h_wgrad_next(wgrad_buff_re->as_tensor().get_num_elements());
-  HCTR_LIB_THROW(cudaMemcpy(&h_wgrad_next.front(), wgrad_buff_re->as_tensor().get_ptr(),
-                            wgrad_buff_re->as_tensor().get_size_in_bytes(),
-                            cudaMemcpyDeviceToHost));
+  cudaMemcpy(&h_wgrad_next.front(), wgrad_buff_re->as_tensor().get_ptr(),
+             wgrad_buff_re->as_tensor().get_size_in_bytes(), cudaMemcpyDeviceToHost);
 
   get_ref_grad(type, h_weight, h_wgrad_prev, lambda, batch_size);
   ASSERT_TRUE(test::compare_array_approx<float>(&h_wgrad_next.front(), &h_wgrad_prev.front(),

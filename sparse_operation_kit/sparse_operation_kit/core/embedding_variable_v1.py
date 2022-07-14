@@ -21,11 +21,7 @@ from __future__ import print_function
 from sparse_operation_kit import kit_lib
 from sparse_operation_kit.core.inplace_initializer import InPlaceInitializer
 from tensorflow.python.keras import initializers as tf_initializers
-from tensorflow.python.ops.resource_variable_ops import (
-    BaseResourceVariable,
-    variable_accessed,
-    _maybe_set_handle_data,
-)
+from tensorflow.python.ops.resource_variable_ops import BaseResourceVariable, variable_accessed, _maybe_set_handle_data
 from tensorflow.python.ops.resource_variable_ops import _handle_graph
 from tensorflow.python.framework.tensor_shape import TensorShape
 from tensorflow.python.framework import dtypes
@@ -39,12 +35,10 @@ from tensorflow.python.ops import resource_variable_ops
 from tensorflow.python.ops import control_flow_ops
 import functools
 
-
 class EmbeddingVariable(BaseResourceVariable):
     """
     EmbeddingVariable used in TF1.x
     """
-
     @classmethod
     def CreateInstances(cls, *args, **kwargs):
         if not has_strategy():
@@ -53,7 +47,7 @@ class EmbeddingVariable(BaseResourceVariable):
         strategy = get_strategy()
         strategy_extended = strategy.extended
         devices = strategy_extended._devices
-
+        
         value_list = []
         for i, d in enumerate(devices):
             with ops.device(d):
@@ -64,33 +58,26 @@ class EmbeddingVariable(BaseResourceVariable):
                     with tape.stop_recording():
                         v = EmbeddingVariable(local_replica_id=i, *args, **kwargs)
                 value_list.append(v)
-
+        
         # TODO: check whether it will impact the performance due to the aggregation or synchronization setting.
-        return DistributedVariable(
-            strategy=strategy,
-            values=value_list,
-            aggregation=VariableAggregation.ONLY_FIRST_REPLICA,
-            var_policy=VariableSynchronization.NONE,
-        )
+        return DistributedVariable(strategy=strategy, values=value_list,
+                                    aggregation=VariableAggregation.ONLY_FIRST_REPLICA,
+                                    var_policy=VariableSynchronization.NONE)
 
-    def __init__(
-        self,
-        shape,
-        local_replica_id,
-        initializer=None,
-        trainable=True,
-        use_hashtable=True,
-        name="EmbeddingVariable",
-        dtype=None,
-        key_dtype=None,
-        *args,
-        **kwargs
-    ):
+    def __init__(self,
+                 shape,
+                 local_replica_id,
+                 initializer=None,
+                 trainable=True,
+                 use_hashtable=True,
+                 name="EmbeddingVariable",
+                 dtype=None,
+                 key_dtype=None,
+                 *args,
+                 **kwargs):
         if (not isinstance(shape, list)) or (len(shape) != 2):
-            raise ValueError(
-                "shape_per_gpu must be a list which represents: "
-                + "[vocabulary_size_per_gpu, embedding_vector_size]."
-            )
+            raise ValueError("shape_per_gpu must be a list which represents: "+\
+                             "[vocabulary_size_per_gpu, embedding_vector_size].")
         self.m_shape_per_gpu = TensorShape(shape)
         self.m_local_replica_id = local_replica_id
         self.m_initializer = initializer or InPlaceInitializer(name="random_uniform")
@@ -106,9 +93,7 @@ class EmbeddingVariable(BaseResourceVariable):
             # TODO: serialize it
             self.m_initial_value = self.m_initializer.name
         else:
-            self.m_initial_value = self.m_initializer(
-                shape=self.m_shape_per_gpu, dtype=self.m_dtype
-            )
+            self.m_initial_value = self.m_initializer(shape=self.m_shape_per_gpu, dtype=self.m_dtype)
 
         collections = [ops.GraphKeys.GLOBAL_VARIABLES]
         if trainable and ops.GraphKeys.TRAINABLE_VARIABLES not in collections:
@@ -117,12 +102,12 @@ class EmbeddingVariable(BaseResourceVariable):
         with ops.init_scope():
             self._in_graph_mode = not context.executing_eagerly()
             with ops.name_scope(name) as var_name_scope:
-                # TODO: use regulare expression
+                # TODO: use regulare expression 
                 while var_name_scope[-1] == r"/":
                     var_name_scope = var_name_scope[:-1]
                 var_name = var_name_scope
                 self.m_var_name = var_name
-                self.m_unique_id = "%s_%d" % (var_name, ops.uid())
+                self.m_unique_id = "%s_%d" %(var_name, ops.uid())
 
                 # attr = resource_variable_ops.attr_value_pb2.AttrValue(
                 #     list=resource_variable_ops.attr_value_pb2.AttrValue.ListValue(
@@ -131,82 +116,58 @@ class EmbeddingVariable(BaseResourceVariable):
                 # with ops.get_default_graph()._attr_scope({"_class": attr}):
                 with ops.NullContextmanager():
                     # m_handle is the handle to EmbeddingVariable, tf_handle is the handle to TF Var.
-                    self.m_handle, self.tf_handle = kit_lib.create_var(
-                        var_name=var_name, dtype=self.m_dtype, shape=self.m_shape_per_gpu
-                    )
+                    self.m_handle, self.tf_handle = kit_lib.create_var(var_name=var_name,
+                                                               dtype=self.m_dtype,
+                                                               shape=self.m_shape_per_gpu)
 
                     if self._in_graph_mode:
                         with ops.name_scope("IsInitialized"):
-                            self._is_initialized_op = ops.convert_to_tensor(
-                                True
-                            )  # TODO: should not hard-writing???
+                            self._is_initialized_op = ops.convert_to_tensor(True) # TODO: should not hard-writing???
 
-                            if isinstance(
-                                self.m_initial_value, ops.Tensor
-                            ) and not self.m_initial_value.shape.is_compatible_with(
-                                self.m_shape_per_gpu
-                            ):
-                                raise ValueError(
-                                    "The initial value's shape (%s) is not compatible with "
-                                    "the explicitly supplied `shape` argument (%s)."
-                                    % (initial_value.shape, self.m_shape_per_gpu)
-                                )
+                            if (isinstance(self.m_initial_value, ops.Tensor) and 
+                                not self.m_initial_value.shape.is_compatible_with(self.m_shape_per_gpu)):
+                                raise ValueError("The initial value's shape (%s) is not compatible with "
+                                                 "the explicitly supplied `shape` argument (%s)." %
+                                                 (initial_value.shape, self.m_shape_per_gpu))
 
-                            _init_op = kit_lib.assign_embedding_variable(
-                                emb_var_handle=self.m_handle,
-                                tf_var_handle=self.tf_handle,
-                                var_name=var_name,
-                                initial_value=self.m_initial_value,
-                                local_replica_id=self.m_local_replica_id,
-                                trainable=self.m_trainable,
-                                shape=self.m_shape_per_gpu,
-                                use_hashtable=self.m_use_hashtable,
-                                dtype=self.m_dtype,
-                                key_dtype=self.m_key_dtype,
-                            )
+                            _init_op = kit_lib.assign_embedding_variable(emb_var_handle=self.m_handle,
+                                                                 tf_var_handle=self.tf_handle,
+                                                                 var_name=var_name,
+                                                                 initial_value=self.m_initial_value,
+                                                                 local_replica_id=self.m_local_replica_id,
+                                                                 trainable=self.m_trainable,
+                                                                 shape=self.m_shape_per_gpu,
+                                                                 use_hashtable=self.m_use_hashtable,
+                                                                 dtype=self.m_dtype,
+                                                                 key_dtype=self.m_key_dtype)
                             self._initializer_op = control_flow_ops.group((_init_op))
                     else:
-                        raise RuntimeError(
-                            "Currently, EmbeddingVariable does not support Eager mode."
-                        )
+                        raise RuntimeError("Currently, EmbeddingVariable does not support Eager mode.")
 
                     if not context.executing_eagerly():
                         ops.add_to_collections(collections, self)
 
-            super(EmbeddingVariable, self).__init__(
-                trainable=self.m_trainable,
-                shape=self.m_shape_per_gpu,
-                dtype=self.m_dtype,
-                handle=self.m_handle,
-                handle_name=var_name,
-                distribute_strategy=get_strategy() if has_strategy() else None,
-                synchronization=VariableSynchronization.NONE,
-                aggregation=VariableAggregation.ONLY_FIRST_REPLICA,
-                unique_id=self.m_unique_id,
-                initializer_op=self._initializer_op,
-                is_initialized_op=self._is_initialized_op,
-                *args,
-                **kwargs
-            )
-            handle_data = (
-                resource_variable_ops.cpp_shape_inference_pb2.CppShapeInferenceResult.HandleData()
-            )
+            super(EmbeddingVariable, self).__init__(trainable=self.m_trainable,
+                                                    shape=self.m_shape_per_gpu,
+                                                    dtype=self.m_dtype,
+                                                    handle=self.m_handle,
+                                                    handle_name=var_name,
+                                                    distribute_strategy=get_strategy() if has_strategy() else None,
+                                                    synchronization=VariableSynchronization.NONE,
+                                                    aggregation=VariableAggregation.ONLY_FIRST_REPLICA,
+                                                    unique_id=self.m_unique_id,
+                                                    initializer_op=self._initializer_op,
+                                                    is_initialized_op=self._is_initialized_op,
+                                                    *args, **kwargs)
+            handle_data = resource_variable_ops.cpp_shape_inference_pb2.CppShapeInferenceResult.HandleData()
             handle_data.is_set = True
             handle_data.shape_and_type.append(
                 resource_variable_ops.cpp_shape_inference_pb2.CppShapeInferenceResult.HandleShapeAndType(
-                    shape=self.shape.as_proto(), dtype=self.dtype.as_datatype_enum
-                )
-            )
-            resource_variable_ops._set_handle_shapes_and_types(
-                self.m_handle,
-                handle_data,
-                graph_mode=False if context.executing_eagerly() else True,
-            )
-            resource_variable_ops._set_handle_shapes_and_types(
-                self.tf_handle,
-                handle_data,
-                graph_mode=False if context.executing_eagerly() else True,
-            )
+                    shape=self.shape.as_proto(), dtype=self.dtype.as_datatype_enum))
+            resource_variable_ops._set_handle_shapes_and_types(self.m_handle, handle_data, 
+                graph_mode=False if context.executing_eagerly() else True)
+            resource_variable_ops._set_handle_shapes_and_types(self.tf_handle, handle_data, 
+                graph_mode=False if context.executing_eagerly() else True)
 
     @property
     def emb_handle(self):
@@ -214,36 +175,29 @@ class EmbeddingVariable(BaseResourceVariable):
 
     def set_embedding_layer(self, embedding_layer):
         if self.m_embedding_layer is not None:
-            raise ValueError("EmbeddingLayer for %s is already set." % (self.name))
+            raise ValueError("EmbeddingLayer for %s is already set." %(self.name))
         self.m_embedding_layer = embedding_layer
-
+    
     @property
     def embedding_layer(self):
         if self.m_embedding_layer is None:
-            raise ValueError("EmbeddingLayer for %s is not set." % (self.name))
+            raise ValueError("EmbeddingLayer for %s is not set." %(self.name))
         return self.m_embedding_layer
 
     def _read_variable_op(self):
         variable_accessed(self)
-        result = kit_lib.read_embedding_variable(
-            self._handle, self.tf_handle, self._dtype, self.name
-        )
+        result = kit_lib.read_embedding_variable(self._handle, self.tf_handle, self._dtype, self.name)
         _maybe_set_handle_data(self._dtype, self._handle, result)
 
         if not context.executing_eagerly():
-            tape.record_operation(
-                "ReadEmbeddingVariableOp",
-                [result],
-                [self._handle, self.tf_handle],
-                lambda x: [x, None],
-            )
+            tape.record_operation("ReadEmbeddingVariableOp", [result], [self._handle, self.tf_handle],
+                                  lambda x: [x, None])
         return result
 
     def __deepcopy__(self, memo):
         if not context.executing_eagerly():
             raise NotImplementedError(
-                "__deepcopy__() is only available when eager execution is enabled."
-            )
+                "__deepcopy__() is only available when eager execution is enabled.")
         copied_variable = EmbeddingVariable(
             shape=self.shape,
             local_replica_id=self.m_local_replica_id,
@@ -252,25 +206,20 @@ class EmbeddingVariable(BaseResourceVariable):
             constraint=self._constraint,
             dtype=self._dtype,
             name=self._shared_name,
-            distribute_strategy=self._distribute_strategy,
-        )
+            distribute_strategy=self._distribute_strategy)
         memo[self._unique_id] = copied_variable
         return copied_variable
 
     def __reduce__(self):
         # The implementation mirrors that of __deepcopy__.
-        return (
-            functools.partial(
-                EmbeddingVariable,
-                initial_value=self.m_initial_value,
-                trainable=self.trainable,
-                name=self._shared_name,
-                dtype=self.dtype,
-                constraint=self.constraint,
-                distribute_strategy=self._distribute_strategy,
-            ),
-            (),
-        )
+        return functools.partial(
+            EmbeddingVariable,
+            initial_value=self.m_initial_value,
+            trainable=self.trainable,
+            name=self._shared_name,
+            dtype=self.dtype,
+            constraint=self.constraint,
+            distribute_strategy=self._distribute_strategy), ()
 
     def count_up_to(self, limit):
         raise NotImplementedError("EmbeddingVariable.count_up_to is not implemented.")
@@ -288,8 +237,7 @@ class EmbeddingVariable(BaseResourceVariable):
         if dtype is not None and not dtype.is_compatible_with(self.dtype):
             raise ValueError(
                 "Incompatible type conversion requested to type {!r} for variable "
-                "of type {!r}".format(dtype.name, self.dtype.name)
-            )
+                "of type {!r}".format(dtype.name, self.dtype.name))
         if as_ref:
             return self.read_value().op.inputs[0]
         else:
@@ -339,7 +287,7 @@ class EmbeddingVariable(BaseResourceVariable):
 
     # TODO: if TF optimizer need to be used, then leave it for TF implementations.
     # def _lazy_read(self, op):
-    # raise NotImplementedError("EmbeddingVariable._lazy_read is not implemented.")
+        # raise NotImplementedError("EmbeddingVariable._lazy_read is not implemented.")
 
     def assign(self, value, use_locking=None, name=None, read_value=True):
         raise NotImplementedError("EmbeddingVariable.assign is not implemented.")
@@ -377,19 +325,9 @@ class EmbeddingVariable(BaseResourceVariable):
     def scatter_nd_update(self, indices, updates, name=None):
         raise NotImplementedError("EmbeddingVariable.scatter_nd_update is not implemented.")
 
-    def _strided_slice_assign(
-        self,
-        begin,
-        end,
-        strides,
-        value,
-        name,
-        begin_mask,
-        end_mask,
-        ellipsis_mask,
-        new_axis_mask,
-        shrink_axis_mask,
-    ):
+    def _strided_slice_assign(self, begin, end, strides, value, name, begin_mask,
+                            end_mask, ellipsis_mask, new_axis_mask,
+                            shrink_axis_mask):
         raise NotImplementedError("EmbeddingVariable._strided_slice_assign is not implemented.")
 
     def __int__(self):
@@ -415,3 +353,6 @@ class EmbeddingVariable(BaseResourceVariable):
 
     def __ipow__(self, unused_other):
         raise NotImplementedError("EmbeddingVariable.__ipow__ is not implemented.")
+
+
+    

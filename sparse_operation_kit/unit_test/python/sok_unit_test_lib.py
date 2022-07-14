@@ -32,12 +32,12 @@ for path in paths:
         continue
 
 if lib_file is None:
-    raise FileNotFoundError("Could not find %s" % lib_name)
+    raise FileNotFoundError("Could not find %s" %lib_name)
 
 plugin_unit_test_ops = load_library.load_op_library(lib_file)
 
 # for op in dir(plugin_unit_test_ops):
-# print(op)
+    # print(op)
 
 all_gather_dispatcher = plugin_unit_test_ops.all_gather_dispatcher
 csr_conversion_distributed = plugin_unit_test_ops.csr_conversion_distributed

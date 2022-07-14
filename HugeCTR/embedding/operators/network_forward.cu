@@ -39,7 +39,8 @@ void NetworkForward::compute(const Tensor &bucket_range, const Tensor &d_combine
       auto get_counter = [network_dst_ptr = network_dst.get<int>(),
                           bucket_range_ptr = bucket_range.get<offset_t>(),
                           combiner_ptr = d_combiner_list.get<char>(),
-                          gpu_id = core_->get_global_gpu_id(), batch_size_per_gpu,
+                          gpu_id = core_->get_global_gpu_id(),
+                          batch_size_per_gpu,
                           batch_size] __device__(int32_t index) {
         int dst = network_dst_ptr[index];
         int embedding_id = dst / batch_size_per_gpu;

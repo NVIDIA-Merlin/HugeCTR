@@ -22,10 +22,9 @@ from sparse_operation_kit.core import EmbeddingVariable
 from sparse_operation_kit.optimizers.utils import split_embedding_variable_from_others
 from tensorflow.python.distribute.values import DistributedVariable, MirroredVariable
 
-
 class OptimizerScope(object):
     """
-    The context manager used along with TensorFlow optimizers.
+    The context manager used along with TensorFlow optimizers. 
     It is only needed when TensorFlow native optimizers is used.
 
     Abbreviated as ``sok.OptimizerScope(variables)``.
@@ -69,19 +68,16 @@ class OptimizerScope(object):
     -----
     This context manager may not be used in next release.
     """
-
     def __init__(self, trainable_variables):
         if not (isinstance(trainable_variables, list) or isinstance(trainable_variables, tuple)):
             raise RuntimeError("trainable_variables must be a list or tuple.")
         self._trainable_variables = trainable_variables
 
-        self._embedding_variables, _ = split_embedding_variable_from_others(
-            self._trainable_variables
-        )
+        self._embedding_variables, _ = split_embedding_variable_from_others(self._trainable_variables)
 
     def __enter__(self):
         self.touched_variables = list()
-
+        
         for variable in self._embedding_variables:
             if isinstance(variable, EmbeddingVariable):
                 # When using horovod, type(variable) is EmbeddingVariable

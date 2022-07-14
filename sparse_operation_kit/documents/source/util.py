@@ -18,17 +18,17 @@
 import argparse
 import base64
 
-
 def convert_pic_to_base64(picname):
     with open(picname, "rb") as pic:
         ls_f = base64.b64encode(pic.read())
         print(ls_f)
 
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("--picname", "-p", type=str, help="the picture name", required=True)
+    parser.add_argument("--picname", "-p", type=str,
+                        help="the picture name",
+                        required=True)
 
     args = parser.parse_args()
 

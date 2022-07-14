@@ -97,11 +97,7 @@ HybridSparseEmbedding<dtype, emtype>::HybridSparseEmbedding(
     statistics_.reserve(local_gpu_count);
     train_output_tensors_.reserve(local_gpu_count);
     evaluate_output_tensors_.reserve(local_gpu_count);
-    if (embedding_params_.communication_type == CommunicationType::NVLink_SingleNode) {
-      frequent_embeddings_single_node_.reserve(local_gpu_count);
-    } else {
-      frequent_embeddings_multi_node_.reserve(local_gpu_count);
-    }
+    frequent_embeddings_.reserve(local_gpu_count);
     infrequent_embeddings_.reserve(local_gpu_count);
     infrequent_forward_comm_buffers_.reserve(local_gpu_count);
     infrequent_backward_comm_buffers_.reserve(local_gpu_count);
@@ -170,16 +166,9 @@ HybridSparseEmbedding<dtype, emtype>::HybridSparseEmbedding(
       evaluate_output_tensors_.emplace_back(tensor);
 
       // 2.6 construct frequent embedding
-      if (embedding_params_.communication_type == CommunicationType::NVLink_SingleNode) {
-        frequent_embeddings_single_node_.emplace_back(
-            model_[i], get_local_gpu(i), grouped_wgrad_buff_[i], get_embedding_vec_size(),
-            embedding_params_.max_num_frequent_categories);
-      } else {
-        frequent_embeddings_multi_node_.emplace_back(
-            model_[i], get_local_gpu(i), grouped_wgrad_buff_[i], get_embedding_vec_size(),
-            embedding_params_.max_num_frequent_categories);
-      }
-
+      frequent_embeddings_.emplace_back(model_[i], get_local_gpu(i), grouped_wgrad_buff_[i],
+                                        get_embedding_vec_size(),
+                                        embedding_params_.max_num_frequent_categories);
       if (!embedding_params_.use_train_precompute_indices) {
         frequent_embedding_train_indices_.emplace_back(
             embedding_params_.max_num_frequent_categories, data_train_[i], model_[i]);
@@ -271,9 +260,16 @@ HybridSparseEmbedding<dtype, emtype>::HybridSparseEmbedding(
         // Do your own all-reduce
         auto ar_comm = resource_manager_->get_ar_comm();
         frequent_embedding_handle_ = ar_comm->register_coll();
+
         // Frequent all reduce comm
         for (uint32_t i = 0; i < local_gpu_count; i++) {
-          frequent_embeddings_multi_node_[i].init_ar_comm(ar_comm, frequent_embedding_handle_, i);
+          int cur_device = get_local_gpu(i).get_device_id();
+          CudaDeviceContext context(cur_device);
+          ar_comm->set_coll_buf(frequent_embedding_handle_,
+                                frequent_embeddings_[i].get_gradients().get_ptr(),
+                                frequent_embeddings_[i].get_gradients().get_size_in_bytes(), i);
+          frequent_comms_.emplace_back(std::make_unique<AllReduceComm<emtype>>(
+              ar_comm, frequent_embedding_handle_, &get_local_gpu(i)));
         }
         ar_comm->register_coll_buf(frequent_embedding_handle_);
       }
@@ -303,6 +299,7 @@ HybridSparseEmbedding<dtype, emtype>::HybridSparseEmbedding(
 
       // Forward coll init
       auto infrequent_forward_coll_handle = ib_comm_->register_hier_a2a_v_coll(true);
+      auto ar_comm = resource_manager_->get_ar_comm();
       for (uint32_t i = 0; i < local_gpu_count; i++) {
         int cur_device = get_local_gpu(i).get_device_id();
         context.set_device(cur_device);
@@ -388,12 +385,11 @@ HybridSparseEmbedding<dtype, emtype>::HybridSparseEmbedding(
 
       for (uint32_t i = 0; i < local_gpu_count; i++) {
         frequent_vectors_cache_pointers[i] =
-            frequent_embeddings_single_node_[i].get_embedding_vectors_cache().get_ptr();
+            frequent_embeddings_[i].get_embedding_vectors_cache().get_ptr();
         interaction_layer_input_pointers_train[i] = train_output_tensors_[i].get_ptr();
         gradients_pointers[i] = train_output_tensors_[i].get_ptr();
         interaction_layer_input_pointers_eval[i] = evaluate_output_tensors_[i].get_ptr();
-        frequent_partial_gradients_pointers[i] =
-            frequent_embeddings_single_node_[i].frequent_data_.get_gradients().get_ptr();
+        frequent_partial_gradients_pointers[i] = frequent_embeddings_[i].get_gradients().get_ptr();
       }
 
       for (uint32_t i = 0; i < local_gpu_count; i++) {
@@ -401,7 +397,7 @@ HybridSparseEmbedding<dtype, emtype>::HybridSparseEmbedding(
         context.set_device(cur_device);
 
         HCTR_LIB_THROW(cudaMemcpyAsync(
-            frequent_embeddings_single_node_[i].embedding_vectors_cache_pointers_.get_ptr(),
+            frequent_embeddings_[i].embedding_vectors_cache_pointers_.get_ptr(),
             frequent_vectors_cache_pointers.data(), local_gpu_count * sizeof(float *),
             cudaMemcpyHostToDevice, get_local_gpu(i).get_stream()));
         HCTR_LIB_THROW(cudaMemcpyAsync(
@@ -417,7 +413,7 @@ HybridSparseEmbedding<dtype, emtype>::HybridSparseEmbedding(
                                        local_gpu_count * sizeof(emtype *), cudaMemcpyHostToDevice,
                                        get_local_gpu(i).get_stream()));
         HCTR_LIB_THROW(cudaMemcpyAsync(
-            frequent_embeddings_single_node_[i].partial_gradients_pointers_.get_ptr(),
+            frequent_embeddings_[i].partial_gradients_pointers_.get_ptr(),
             frequent_partial_gradients_pointers.data(), local_gpu_count * sizeof(emtype *),
             cudaMemcpyHostToDevice, get_local_gpu(i).get_stream()));
       }
@@ -440,9 +436,8 @@ void HybridSparseEmbedding<dtype, emtype>::init_model(const SparseTensors<dtype>
     auto stream = get_local_gpu(id).get_stream();
     data_statistics_[id].data_to_unique_categories(data[id].get_value_tensor(), stream);
     model_[id].init_hybrid_model(calibration_[id], statistics_[id], data_statistics_[id], stream);
-
-    get_frequent_embedding_data(id).initialize_embedding_vectors(data_statistics_[id].table_sizes,
-                                                                 wgrad_offset_in_bytes);
+    frequent_embeddings_[id].initialize_embedding_vectors(data_statistics_[id].table_sizes,
+                                                          wgrad_offset_in_bytes);
     infrequent_embeddings_[id].initialize_embedding_vectors(data_statistics_[id].table_sizes);
 
     if (embedding_params_.max_num_frequent_categories < (size_t)model_[id].num_frequent) {
@@ -465,11 +460,10 @@ void HybridSparseEmbedding<dtype, emtype>::init_model(const SparseTensors<dtype>
                          << avg_train_infrequent << ", eval batch: " << avg_evaluate_infrequent
                          << std::endl;
 
+  size_t wgrad_size =
+      model_[0].num_frequent * embedding_params_.embedding_vec_size * sizeof(emtype);
   if ((embedding_params_.communication_type == CommunicationType::IB_NVLink_Hier) ||
       (embedding_params_.communication_type == CommunicationType::IB_NVLink)) {
-    size_t wgrad_size =
-        model_[0].num_frequent * embedding_params_.embedding_vec_size * sizeof(emtype);
-
     if (!grouped_all_reduce_) {
       // Manage your own all-reduce
       auto ar_comm = resource_manager_->get_ar_comm();
@@ -491,10 +485,7 @@ void HybridSparseEmbedding<dtype, emtype>::setup_async_mode(AsyncReader<dtype> *
     data_reader->get_dimensions(label_dim, dense_dim, sparse_dim, sample_size_items);
 
     std::vector<FrequentEmbeddingBase<dtype> *> frequent_base_ptrs;
-    for (auto &freq : frequent_embeddings_single_node_) {
-      frequent_base_ptrs.push_back(dynamic_cast<FrequentEmbeddingBase<dtype> *>(&freq));
-    }
-    for (auto &freq : frequent_embeddings_multi_node_) {
+    for (auto &freq : frequent_embeddings_) {
       frequent_base_ptrs.push_back(dynamic_cast<FrequentEmbeddingBase<dtype> *>(&freq));
     }
 
@@ -563,7 +554,7 @@ void HybridSparseEmbedding<dtype, emtype>::index_calculation(bool is_train, bool
       auto &set_idx_stream = stream_manager_.get_stream(i, "set_idx_stream");
       auto &set_idx_event = stream_manager_.get_event(i, "set_idx");
 
-      get_frequent_embedding(i).set_current_indices(frequent_indices, stream);
+      frequent_embeddings_[i].set_current_indices(frequent_indices, stream);
       infrequent_embeddings_[i].set_current_indices(infrequent_indices, stream);
 
       HCTR_LIB_THROW(cudaEventRecord(set_idx_event, set_idx_stream));
@@ -597,7 +588,9 @@ void HybridSparseEmbedding<dtype, emtype>::forward(bool is_train, bool is_first_
                         cudaMemcpyDeviceToDevice, stream));
 
     HCTR_LIB_THROW(cudaStreamSynchronize(stream));
-    frequent_embeddings_multi_node_[i].forward_network(output.get_ptr(), stream);
+    PROFILE_RECORD("multi_node_fre_forward_network.start", stream, false);
+    frequent_embeddings_[i].forward_network(output.get_ptr(), false, stream);
+    PROFILE_RECORD("multi_node_fre_forward_network.stop", stream, false);
 
     PROFILE_RECORD("multi_node_inf_forward_model.start", stream, false);
     infrequent_embeddings_[i].forward_model(
@@ -659,7 +652,9 @@ void HybridSparseEmbedding<dtype, emtype>::forward(bool is_train, bool is_first_
       HCTR_LIB_THROW(cudaStreamWaitEvent(stream_side, ready_freq_fwd_net));
     }
 
-    frequent_embeddings_multi_node_[i].forward_network(output.get_ptr(), stream_side);
+    PROFILE_RECORD("multi_node_fre_forward_network.start", stream_side);
+    frequent_embeddings_[i].forward_network(output.get_ptr(), false, stream_side);
+    PROFILE_RECORD("multi_node_fre_forward_network.stop", stream_side);
 
     PROFILE_RECORD("multi_node_inf_hier_forward_network.start", stream);
     infrequent_embeddings_[i].hier_forward_network(
@@ -687,21 +682,25 @@ void HybridSparseEmbedding<dtype, emtype>::forward(bool is_train, bool is_first_
     infrequent_embeddings_[i].forward_network_direct(is_train, stream);
     PROFILE_RECORD("single_node_inf_forward_network_direct.stop", stream, false);
 
+    PROFILE_RECORD("single_node_fre_forward_model.start", stream, false);
     // we just need to update frequent cache once in eval
     if (is_train) {
-      frequent_embeddings_single_node_[i].forward_model(stream);
+      frequent_embeddings_[i].forward_model(stream);
     } else {
       if (is_first_batch) {
-        frequent_embeddings_single_node_[i].forward_model_eval(stream);
+        frequent_embeddings_[i].forward_model_eval(stream);
       }
     }
+    PROFILE_RECORD("single_node_fre_forward_model.stop", stream, false);
 
     // This barrier is needed for two reasons:
     // - Ensure all infrequent vectors have been pushed before mlp
     // - Ensure all frequent vectors have been pushed before forward_network
     gpu_barrier_->sync_all_gpus(stream, i);
 
-    frequent_embeddings_single_node_[i].forward_network(output.get_ptr(), stream);
+    PROFILE_RECORD("single_node_fre_forward_network.start", stream, false);
+    frequent_embeddings_[i].forward_network(output.get_ptr(), true, stream);
+    PROFILE_RECORD("single_node_fre_forward_network.stop", stream);
     evt_ptr = nullptr;
   }
   PROFILE_RECORD("hybrid_embedding.forward.stop", stream, false);
@@ -727,11 +726,11 @@ void HybridSparseEmbedding<dtype, emtype>::frequent_local_reduce(int i, cudaStre
   int cur_device = get_local_gpu(i).get_device_id();
   CudaDeviceContext context(cur_device);
 
-  if (frequent_embeddings_single_node_.size()) {
-    frequent_embeddings_single_node_[i].local_reduce(train_output_tensors_[i].get_ptr(), stream);
-  } else {
-    frequent_embeddings_multi_node_[i].local_reduce(train_output_tensors_[i].get_ptr(), stream);
-  }
+  PROFILE_RECORD("fre_local_reduce.start", stream);
+  bool reset_all = ((embedding_params_.communication_type == CommunicationType::IB_NVLink) ||
+                    (embedding_params_.communication_type == CommunicationType::IB_NVLink_Hier));
+  frequent_embeddings_[i].local_reduce(train_output_tensors_[i].get_ptr(), stream, reset_all);
+  PROFILE_RECORD("fre_local_reduce.stop", stream);
 }
 
 template <typename dtype, typename emtype>
@@ -767,15 +766,19 @@ void HybridSparseEmbedding<dtype, emtype>::backward_communications(int i, cudaSt
 
     float *dev_lr = lr_scheds_[i]->get_learning_rate();
     float scale = opt_params_[i].scaler;
-    frequent_embeddings_single_node_[i].update_model_direct(dev_lr, scale, stream);
+    PROFILE_RECORD("single_node_fre_update_model_direct.start", stream, false);
+    frequent_embeddings_[i].update_model_direct(dev_lr, scale, stream);
+    PROFILE_RECORD("single_node_fre_update_model_direct.stop", stream, false);
 
     PROFILE_RECORD("single_node_inf_update_model_direct.start", stream, false);
     infrequent_embeddings_[i].update_model_direct(dev_lr, scale, stream);
     PROFILE_RECORD("single_node_inf_update_model_direct.stop", stream, false);
   } else {
+    PROFILE_RECORD("multi_node_fre_backward_allreduce.start", stream, false);
     if (!grouped_all_reduce_) {
-      frequent_embeddings_multi_node_[i].communicate(stream);
+      frequent_comms_[i]->communicate(stream);
     }
+    PROFILE_RECORD("multi_node_fre_backward_allreduce.stop", stream, false);
 
     PROFILE_RECORD("multi_node_inf_backward_a2a.start", stream, false);
     infrequent_backward_comms_[i]->communicate(stream);
@@ -791,7 +794,9 @@ void HybridSparseEmbedding<dtype, emtype>::frequent_update(int i, cudaStream_t s
   float scale = opt_params_[i].scaler;
 
   if (embedding_params_.communication_type != CommunicationType::NVLink_SingleNode) {
-    frequent_embeddings_multi_node_[i].update_model(dev_lr, scale, stream);
+    PROFILE_RECORD("multi_node_fre_update_model.start", stream, false);
+    frequent_embeddings_[i].update_model(dev_lr, scale, stream);
+    PROFILE_RECORD("multi_node_fre_update_model.stop", stream, false);
   }
 }
 
@@ -843,10 +848,7 @@ void HybridSparseEmbedding<dtype, emtype>::backward_post_communication(int i, cu
         std::string(",") + std::string("\"embedding_vec_size\":") +
         std::to_string(embedding_params_.embedding_vec_size) + std::string(",");
     std::vector<uint32_t> num_frequent_categories;
-    FrequentEmbedding &frequent_embedding = frequent_embeddings_single_node_.size()
-                                                ? frequent_embeddings_single_node_[i]
-                                                : frequent_embeddings_multi_node_[i];
-    download_tensor(num_frequent_categories, frequent_embedding.d_num_frequent_samples_indices_,
+    download_tensor(num_frequent_categories, frequent_embeddings_[i].d_num_frequent_sample_indices_,
                     stream);
     std::vector<uint32_t> infrequent_model_indices_offset;
     download_tensor(infrequent_model_indices_offset,
@@ -856,7 +858,7 @@ void HybridSparseEmbedding<dtype, emtype>::backward_post_communication(int i, cu
                     infrequent_embeddings_[i].network_indices_offsets_, stream);
     std::vector<uint32_t> network_cache_indices_offsets_;
     download_tensor(network_cache_indices_offsets_,
-                    frequent_embedding.network_cache_indices_offsets_, stream);
+                    frequent_embeddings_[i].network_cache_indices_offsets_, stream);
     std::string device_info = std::string("\"num_frequent\":") +
                               std::to_string(model_[i].num_frequent) + std::string(",");
     device_info =

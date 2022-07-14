@@ -17,13 +17,10 @@
 import tensorflow as tf
 
 import sys, os
-
-sys.path.append(
-    os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../../"))
-)
+sys.path.append(os.path.abspath(os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "../../../")))
 
 import sparse_operation_kit as sok
-
 
 class SingleWorkerbase(object):
     def __init__(self, **kwargs):
@@ -37,9 +34,8 @@ class SingleWorkerbase(object):
 
     def __call__(self, *args, **kwargs):
         re = self.call()
-        print("[INFO] %s passed." % self.__class__.__name__)
+        print("[INFO] %s passed." %self.__class__.__name__)
         return re
-
 
 if __name__ == "__main__":
     obj = SingleWorkerbase()

@@ -8,8 +8,6 @@ subtrees:
         title: Core Features
       - file: hugectr_feature_details_intro.rst
         title: Features in Detail
-      - file: performance.md
-        title: Performance
       - file: notebooks/index.md
         title: Example Notebooks
         entries:
@@ -24,7 +22,6 @@ subtrees:
           - file: notebooks/hps_demo.ipynb
           - file: notebooks/training_with_hdfs.ipynb
           - file: notebooks/embedding_training_cache_example.ipynb
-          - file: notebooks/embedding_collection.ipynb
       - file: notebooks/multi-modal-data/index.md
         entries:
           - file: notebooks/multi-modal-data/00-Intro

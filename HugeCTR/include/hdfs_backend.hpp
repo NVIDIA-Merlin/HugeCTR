@@ -16,16 +16,16 @@
 
 #pragma once
 
-#include <data_source/data_source_backend.hpp>
 #include <string>
 #include <vector>
+
 #ifdef ENABLE_HDFS
 #include "hdfs.h"
 #endif
 
 namespace HugeCTR {
 
-class HdfsService final : public DataSourceBackend {
+class HdfsService {
  public:
   HdfsService();
   /**
@@ -49,7 +49,7 @@ class HdfsService final : public DataSourceBackend {
    * @param path Path to the file
    * @return size_t
    */
-  size_t getFileSize(const std::string& path) const override;
+  size_t getFileSize(const std::string& path);
   /**
    * @brief Write to HDFS
    *
@@ -60,8 +60,7 @@ class HdfsService final : public DataSourceBackend {
    * @return int
    */
 
-  int write(const std::string& writepath, const void* data, size_t dataSize,
-            bool overwrite) override;
+  int write(const std::string& writepath, const void* data, size_t dataSize, bool overwrite);
   /**
    * @brief Read from HDFS
    *
@@ -72,8 +71,7 @@ class HdfsService final : public DataSourceBackend {
    * @return int
    */
 
-  int read(const std::string& readpath, const void* buffer, size_t data_size,
-           size_t offset) override;
+  int read(const std::string& readpath, const void* buffer, size_t data_size, size_t offset);
 
   /**
    * @brief copy the single file from HDFS to Local
@@ -82,7 +80,7 @@ class HdfsService final : public DataSourceBackend {
    * @param local_path The local path to copy to.
    * @return int
    */
-  int copyToLocal(const std::string& hdfs_path, const std::string& local_path) override;
+  int copyToLocal(const std::string& hdfs_path, const std::string& local_path);
 
   /**
    * @brief Copy ALL files of the given HDFS path to Local
