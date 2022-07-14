@@ -72,24 +72,16 @@ FullyConnectedLayer<float>::FullyConnectedLayer(
     // check the in_tensor and out_tensor
     const auto& in_tensor_dim = in_tensor.get_dimensions();
     const auto& out_tensor_dim = out_tensor.get_dimensions();
-    // 1. input and output have the same dim
-    if (in_tensor_dim.size() != out_tensor_dim.size()) {
-      HCTR_OWN_THROW(Error_t::WrongInput, "input and output tensor don't have same dimensions");
+    // 1. two dim?
+    if (in_tensor_dim.size() != 2 || out_tensor_dim.size() != 2) {
+      HCTR_OWN_THROW(Error_t::WrongInput, "input or output tensor doesn't has two dimensions");
     }
     // 2. dim match?
-    size_t in_batch = 1;
-    size_t out_batch = 1;
-    size_t in_hidden_dim = in_tensor_dim[in_tensor_dim.size() - 1];
-    size_t out_hidden_dim = out_tensor_dim[out_tensor_dim.size() - 1];
-
-    for (size_t idx = 0; idx < in_tensor_dim.size() - 1; idx++) {
-      in_batch = in_batch * in_tensor_dim[idx];
-      out_batch = out_batch * out_tensor_dim[idx];
-    }
-    size_t m = in_batch;
-    size_t n = out_hidden_dim;
-    size_t k = in_hidden_dim;
-    if (in_batch != out_batch) {
+    size_t m = in_tensor_dim[0];
+    size_t n = out_tensor_dim[1];
+    size_t k = in_tensor_dim[1];
+    size_t m_ck = out_tensor_dim[0];
+    if (m != m_ck) {
       HCTR_OWN_THROW(Error_t::WrongInput, "size of input / output tensor doesn't match");
     }
 
@@ -139,29 +131,23 @@ void FullyConnectedLayer<float>::fprop(bool is_train) {
   const auto& in_tensor_dim = in_tensor.get_dimensions();
   const auto& out_tensor_dim = out_tensor.get_dimensions();
 
-  size_t in_batch = 1;
-  size_t in_hidden_dim = in_tensor_dim[in_tensor_dim.size() - 1];
-  size_t out_hidden_dim = out_tensor_dim[out_tensor_dim.size() - 1];
-
-  for (size_t idx = 0; idx < in_tensor_dim.size() - 1; idx++) {
-    in_batch = in_batch * in_tensor_dim[idx];
-  }
-
   int m, n, k;
 
-  m = in_batch;
-  n = out_hidden_dim;
-  k = in_hidden_dim;
+  m = in_tensor_dim[0];
+  n = out_tensor_dim[1];
+  k = in_tensor_dim[1];
 
   float alpha = 1.0f, beta = 0.0f;
 
-  const cublasComputeType_t compute_type =
+  cublasComputeType_t compute_type =
       enable_tf32_compute_ ? CUBLAS_COMPUTE_32F_FAST_TF32 : CUBLAS_COMPUTE_32F;
 
   HCTR_LIB_THROW(cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_N, n, m, k,
                               &alpha, weight, CUDA_R_32F, n, in, CUDA_R_32F, k, &beta, out,
                               CUDA_R_32F, n, compute_type, falgo_));
   add_bias(out, bias, m, n, true, get_gpu().get_stream());
+
+  // PROFILE_RECORD("TopMLP.fprop.stop", get_gpu().get_stream());
 }
 
 void FullyConnectedLayer<float>::bprop() {
@@ -179,23 +165,16 @@ void FullyConnectedLayer<float>::bprop() {
   const auto& in_tensor_dim = in_tensor.get_dimensions();
   const auto& out_tensor_dim = out_tensor.get_dimensions();
 
-  size_t in_batch = 1;
-  size_t in_hidden_dim = in_tensor_dim[in_tensor_dim.size() - 1];
-  size_t out_hidden_dim = out_tensor_dim[out_tensor_dim.size() - 1];
-
-  for (size_t idx = 0; idx < in_tensor_dim.size() - 1; idx++) {
-    in_batch = in_batch * in_tensor_dim[idx];
-  }
-
   int m, n, k;
 
-  m = in_batch;
-  n = out_hidden_dim;
-  k = in_hidden_dim;
+  m = in_tensor_dim[0];
+  n = out_tensor_dim[1];
+  k = in_tensor_dim[1];
 
   float alpha = 1.0f, beta_w = 1.0f, beta_x = 0.0f;
 
-  const cublasComputeType_t compute_type =
+  // PROFILE_RECORD("TopMLP.bprop.start", get_gpu().get_stream());
+  cublasComputeType_t compute_type =
       enable_tf32_compute_ ? CUBLAS_COMPUTE_32F_FAST_TF32 : CUBLAS_COMPUTE_32F;
 
   // gradient respect to W
@@ -228,19 +207,10 @@ void FullyConnectedLayer<float>::search_algorithm() {
   const auto& in_tensor_dim = in_tensor.get_dimensions();
   const auto& out_tensor_dim = out_tensor.get_dimensions();
 
-  size_t in_batch = 1;
-  size_t out_batch = 1;
-  size_t in_hidden_dim = in_tensor_dim[in_tensor_dim.size() - 1];
-  size_t out_hidden_dim = out_tensor_dim[out_tensor_dim.size() - 1];
-
-  for (size_t idx = 0; idx < in_tensor_dim.size() - 1; idx++) {
-    in_batch = in_batch * in_tensor_dim[idx];
-    out_batch = out_batch * out_tensor_dim[idx];
-  }
   int m, n, k;
-  m = in_batch;
-  n = out_hidden_dim;
-  k = in_hidden_dim;
+  m = in_tensor_dim[0];
+  n = out_tensor_dim[1];
+  k = in_tensor_dim[1];
 
   // Record time for each algorithm
   float shortestTime = 100000000.0;
@@ -255,14 +225,14 @@ void FullyConnectedLayer<float>::search_algorithm() {
   // Start, end for search
   int startAlgo, endAlgo;
   if (use_mixed_precision_) {
-    startAlgo = CUBLAS_GEMM_DEFAULT_TENSOR_OP;
-    endAlgo = CUBLAS_GEMM_ALGO15_TENSOR_OP;
+    startAlgo = (int)CUBLAS_GEMM_DEFAULT_TENSOR_OP;
+    endAlgo = (int)CUBLAS_GEMM_ALGO15_TENSOR_OP;
   } else {
-    startAlgo = CUBLAS_GEMM_DEFAULT;
-    endAlgo = CUBLAS_GEMM_ALGO23;
+    startAlgo = (int)CUBLAS_GEMM_DEFAULT;
+    endAlgo = (int)CUBLAS_GEMM_ALGO23;
   }
 
-  const cublasComputeType_t compute_type =
+  cublasComputeType_t compute_type =
       enable_tf32_compute_ ? CUBLAS_COMPUTE_32F_FAST_TF32 : CUBLAS_COMPUTE_32F;
 
   // Search all the algorithm for fprop
@@ -374,8 +344,8 @@ std::unique_ptr<DataSimulator> FullyConnectedLayer<float>::get_uniform_initializ
     const int index) {
   const Tensor2<float>& in_tensor = get_in_tensors(true)[0];
   const Tensor2<float>& out_tensor = out_tensors_[0];
-  float bottom_dim = in_tensor.get_dimensions()[in_tensor.get_dimensions().size() - 1];
-  float top_dim = out_tensor.get_dimensions()[out_tensor.get_dimensions().size() - 1];
+  float bottom_dim = in_tensor.get_dimensions()[1];
+  float top_dim = out_tensor.get_dimensions()[1];
 
   float limit = 1.0f / ((0 == index ? bottom_dim : 0) + top_dim);
   return std::make_unique<UniformDataSimulator>(-1 * limit, limit);
@@ -385,8 +355,8 @@ std::unique_ptr<DataSimulator> FullyConnectedLayer<float>::get_xavier_uniform_in
     const int index) {
   const Tensor2<float>& in_tensor = get_in_tensors(true)[0];
   const Tensor2<float>& out_tensor = out_tensors_[0];
-  float bottom_dim = in_tensor.get_dimensions()[in_tensor.get_dimensions().size() - 1];
-  float top_dim = out_tensor.get_dimensions()[out_tensor.get_dimensions().size() - 1];
+  float bottom_dim = in_tensor.get_dimensions()[1];
+  float top_dim = out_tensor.get_dimensions()[1];
 
   return std::make_unique<VarianceScalingSimulator>(1.f, data_simu::Mode_t::Fan_avg,
                                                     data_simu::Distribution_t::Uniform,
@@ -397,8 +367,8 @@ std::unique_ptr<DataSimulator> FullyConnectedLayer<float>::get_xavier_norm_initi
     const int index) {
   const Tensor2<float>& in_tensor = get_in_tensors(true)[0];
   const Tensor2<float>& out_tensor = out_tensors_[0];
-  float bottom_dim = in_tensor.get_dimensions()[in_tensor.get_dimensions().size() - 1];
-  float top_dim = out_tensor.get_dimensions()[out_tensor.get_dimensions().size() - 1];
+  float bottom_dim = in_tensor.get_dimensions()[1];
+  float top_dim = out_tensor.get_dimensions()[1];
 
   return std::make_unique<VarianceScalingSimulator>(1.f, data_simu::Mode_t::Fan_avg,
                                                     data_simu::Distribution_t::Norm,
@@ -409,8 +379,8 @@ std::unique_ptr<DataSimulator> FullyConnectedLayer<float>::get_default_initializ
     const int index) {
   const Tensor2<float>& in_tensor = get_in_tensors(true)[0];
   const Tensor2<float>& out_tensor = out_tensors_[0];
-  float bottom_dim = in_tensor.get_dimensions()[in_tensor.get_dimensions().size() - 1];
-  float top_dim = out_tensor.get_dimensions()[out_tensor.get_dimensions().size() - 1];
+  float bottom_dim = in_tensor.get_dimensions()[1];
+  float top_dim = out_tensor.get_dimensions()[1];
 
   std::unique_ptr<DataSimulator> simu(nullptr);
   if (0 == index) {

@@ -54,7 +54,8 @@ void ModelBackward::compute(const TensorList &model_comm_buffer, const Tensor &u
     ArrayView<uint32_t, RestrictPtrTraits, int32_t> sorted_bucket_id_offset_ref{
         sorted_bucket_id_offset.get(), static_cast<int32_t>(num_unique_key) + 1};
 
-    auto get_counter = [] __device__(int32_t index) -> uint32_t { return 1; };
+    auto get_counter = [] __device__(
+                           int32_t index) -> uint32_t { return 1; };
     LambdaIterator<uint32_t, int32_t, decltype(get_counter)> counter_iter{
         get_counter, static_cast<int32_t>(num_unique_key)};
 
@@ -63,13 +64,16 @@ void ModelBackward::compute(const TensorList &model_comm_buffer, const Tensor &u
         get_output_idx, static_cast<int32_t>(num_unique_key)};
 
     RaggedModelBufferView<emb_t, RestrictPtrTraits, int32_t> model_comm_buffer_iterator{
-        model_comm_buffer.get(), d_local_ev_size_offset.get<int>(), num_gpus_, batch_size};
+          model_comm_buffer.get(), d_local_ev_size_offset.get<int>(), num_gpus_, batch_size};
 
     RaggedGradBufferView<float, RestrictPtrTraits, int32_t> grad_ev_iterator{
-        grad_ev_.get(), unique_dst_idx.get<uint32_t>()};
+        grad_ev_.get(),
+        unique_dst_idx.get<uint32_t>()
+    };
 
     generic_lookup(sorted_bucket_id_ref, sorted_bucket_id_offset_ref, counter_iter,
                    output_counting_iter, model_comm_buffer_iterator, grad_ev_iterator, stream);
+    
   });
 
   *grad_ev = grad_ev_;
@@ -92,8 +96,8 @@ DPLocalReduce::DPLocalReduce(std::shared_ptr<CoreResourceManager> core, int num_
       std::accumulate(num_unique_key_list.begin(), num_unique_key_list.end(), 0);
 
   auto buffer_ptr = GetBuffer(core);
-  grad_ev_ = buffer_ptr->reserve({universal_batch_size, max_unique_key_ev_buffer_size}, device,
-                                 HugeCTR::TensorScalarType::Float32);
+  grad_ev_ =
+      buffer_ptr->reserve({universal_batch_size, max_unique_key_ev_buffer_size}, device, HugeCTR::TensorScalarType::Float32);
   buffer_ptr->allocate();
 }
 
@@ -113,7 +117,8 @@ void DPLocalReduce::compute(const Tensor &top_grad, const Tensor &unique_dst_idx
     ArrayView<uint32_t, RestrictPtrTraits, int32_t> sorted_bucket_id_offset_ref{
         sorted_bucket_id_offset.get(), static_cast<int32_t>(num_unique_key) + 1};
 
-    auto get_counter = [] __device__(int32_t index) -> uint32_t { return 1; };
+    auto get_counter = [] __device__(
+                           int32_t index) -> uint32_t { return 1; };
     LambdaIterator<uint32_t, int32_t, decltype(get_counter)> counter_iter{
         get_counter, static_cast<int32_t>(num_unique_key)};
 
@@ -125,7 +130,9 @@ void DPLocalReduce::compute(const Tensor &top_grad, const Tensor &unique_dst_idx
         top_grad.get(), d_ev_size_offset.get<int>(), batch_size_per_gpu};
 
     RaggedGradBufferView<float, RestrictPtrTraits, int32_t> grad_ev_iterator{
-        grad_ev_.get(), unique_dst_idx.get<uint32_t>()};
+        grad_ev_.get(),
+        unique_dst_idx.get<uint32_t>()
+    };
 
     generic_lookup(sorted_bucket_id_ref, sorted_bucket_id_offset_ref, counter_iter,
                    output_counting_iter, top_grad_iterator, grad_ev_iterator, stream);

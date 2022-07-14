@@ -458,13 +458,13 @@ template <typename TypeKey>
 void distribute_keys_for_inference(TypeKey* out, const TypeKey* in, size_t batchsize,
                                    const std::vector<std::vector<TypeKey>>& h_reader_row_ptrs_list,
                                    const std::vector<size_t>& slot_num_for_tables) {
-  const size_t num_tables = h_reader_row_ptrs_list.size();
+  size_t num_tables = h_reader_row_ptrs_list.size();
   std::vector<size_t> h_embedding_offset_sample_first(batchsize * num_tables + 1, 0);
   std::vector<size_t> h_embedding_offset_table_first(batchsize * num_tables + 1, 0);
   for (size_t i = 0; i < batchsize; i++) {
     for (size_t j = 0; j < num_tables; j++) {
-      const size_t num_of_feature = h_reader_row_ptrs_list[j][(i + 1) * slot_num_for_tables[j]] -
-                                    h_reader_row_ptrs_list[j][i * slot_num_for_tables[j]];
+      size_t num_of_feature = h_reader_row_ptrs_list[j][(i + 1) * slot_num_for_tables[j]] -
+                              h_reader_row_ptrs_list[j][i * slot_num_for_tables[j]];
       h_embedding_offset_sample_first[i * num_tables + j + 1] =
           h_embedding_offset_sample_first[i * num_tables + j] + num_of_feature;
     }
@@ -472,8 +472,8 @@ void distribute_keys_for_inference(TypeKey* out, const TypeKey* in, size_t batch
 
   for (size_t j = 0; j < num_tables; j++) {
     for (size_t i = 0; i < batchsize; i++) {
-      const size_t num_of_feature = h_reader_row_ptrs_list[j][(i + 1) * slot_num_for_tables[j]] -
-                                    h_reader_row_ptrs_list[j][i * slot_num_for_tables[j]];
+      size_t num_of_feature = h_reader_row_ptrs_list[j][(i + 1) * slot_num_for_tables[j]] -
+                              h_reader_row_ptrs_list[j][i * slot_num_for_tables[j]];
       h_embedding_offset_table_first[j * batchsize + i + 1] =
           h_embedding_offset_table_first[j * batchsize + i] + num_of_feature;
     }
@@ -481,8 +481,8 @@ void distribute_keys_for_inference(TypeKey* out, const TypeKey* in, size_t batch
 
   for (size_t i = 0; i < batchsize; i++) {
     for (size_t j = 0; j < num_tables; j++) {
-      const size_t num_keys = h_embedding_offset_sample_first[i * num_tables + j + 1] -
-                              h_embedding_offset_sample_first[i * num_tables + j];
+      size_t num_keys = h_embedding_offset_sample_first[i * num_tables + j + 1] -
+                        h_embedding_offset_sample_first[i * num_tables + j];
       for (size_t k = 0; k < num_keys; k++) {
         out[h_embedding_offset_sample_first[i * num_tables + j] + k] =
             in[h_embedding_offset_table_first[j * batchsize + i] + k];
@@ -495,7 +495,7 @@ void distribute_keys_for_inference(TypeKey* out, const TypeKey* in, size_t batch
 template <typename TypeHashKey>
 void distribute_keys_per_table(TypeHashKey* h_out, const TypeHashKey* h_in, const int* h_row_ptrs,
                                size_t batchsize, const std::vector<size_t>& slot_num_for_tables) {
-  const size_t num_tables = slot_num_for_tables.size();
+  size_t num_tables = slot_num_for_tables.size();
   std::vector<size_t> row_ptrs_offset(num_tables + 1, 0);
   for (size_t i = 0; i < num_tables; i++) {
     row_ptrs_offset[i + 1] = row_ptrs_offset[i] + batchsize * slot_num_for_tables[i] + 1;
@@ -504,9 +504,9 @@ void distribute_keys_per_table(TypeHashKey* h_out, const TypeHashKey* h_in, cons
   std::vector<size_t> h_embedding_offset_table_first(batchsize * num_tables + 1, 0);
   for (size_t i = 0; i < batchsize; i++) {
     for (size_t j = 0; j < num_tables; j++) {
-      const int* const h_row_ptrs_per_table = h_row_ptrs + row_ptrs_offset[j];
-      const size_t num_of_feature = h_row_ptrs_per_table[(i + 1) * slot_num_for_tables[j]] -
-                                    h_row_ptrs_per_table[i * slot_num_for_tables[j]];
+      const int* h_row_ptrs_per_table = h_row_ptrs + row_ptrs_offset[j];
+      size_t num_of_feature = h_row_ptrs_per_table[(i + 1) * slot_num_for_tables[j]] -
+                              h_row_ptrs_per_table[i * slot_num_for_tables[j]];
       h_embedding_offset_sample_first[i * num_tables + j + 1] =
           h_embedding_offset_sample_first[i * num_tables + j] + num_of_feature;
     }
@@ -514,9 +514,9 @@ void distribute_keys_per_table(TypeHashKey* h_out, const TypeHashKey* h_in, cons
 
   for (size_t j = 0; j < num_tables; j++) {
     for (size_t i = 0; i < batchsize; i++) {
-      const int* const h_row_ptrs_per_table = h_row_ptrs + row_ptrs_offset[j];
-      const size_t num_of_feature = h_row_ptrs_per_table[(i + 1) * slot_num_for_tables[j]] -
-                                    h_row_ptrs_per_table[i * slot_num_for_tables[j]];
+      const int* h_row_ptrs_per_table = h_row_ptrs + row_ptrs_offset[j];
+      size_t num_of_feature = h_row_ptrs_per_table[(i + 1) * slot_num_for_tables[j]] -
+                              h_row_ptrs_per_table[i * slot_num_for_tables[j]];
       h_embedding_offset_table_first[j * batchsize + i + 1] =
           h_embedding_offset_table_first[j * batchsize + i] + num_of_feature;
     }
@@ -524,8 +524,8 @@ void distribute_keys_per_table(TypeHashKey* h_out, const TypeHashKey* h_in, cons
 
   for (size_t i = 0; i < batchsize; ++i) {
     for (size_t j = 0; j < num_tables; ++j) {
-      const size_t num_keys = h_embedding_offset_sample_first[i * num_tables + j + 1] -
-                              h_embedding_offset_sample_first[i * num_tables + j];
+      size_t num_keys = h_embedding_offset_sample_first[i * num_tables + j + 1] -
+                        h_embedding_offset_sample_first[i * num_tables + j];
       for (size_t k = 0; k < num_keys; k++) {
         h_out[h_embedding_offset_table_first[j * batchsize + i] + k] =
             h_in[h_embedding_offset_sample_first[i * num_tables + j] + k];

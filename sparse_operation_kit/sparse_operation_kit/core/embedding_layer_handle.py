@@ -24,13 +24,14 @@ from tensorflow.python.training.tracking import base as trackable
 from tensorflow.python.framework import ops
 from tensorflow.python.ops import control_flow_ops
 
-
 class EmbeddingLayerHandle(trackable.Trackable):
     """
     This is the base class used to track embedding layer handle.
     """
-
-    def __init__(self, embedding_variable, compute_dtype, **unused):
+    def __init__(self,
+                 embedding_variable,
+                 compute_dtype,
+                 **unused):
         super(EmbeddingLayerHandle, self).__init__()
 
         self._embedding_variable = embedding_variable
@@ -41,7 +42,6 @@ class EmbeddingLayerHandle(trackable.Trackable):
                 variable.set_embedding_layer(self)
         else:
             self._embedding_variable.set_embedding_layer(self)
-
     @property
     def initializer(self):
         return self._initializer_op
@@ -55,31 +55,25 @@ class EmbeddingLayerHandle(trackable.Trackable):
         return self._compute_dtype
 
     def __repr__(self):
-        return (
-            f"<sok.EmbeddingLayerHandle '{type(self).__name__}' "
-            f"pointed to {self._embedding_variable.name}>"
-        )
-
+        return (f"<sok.EmbeddingLayerHandle '{type(self).__name__}' "
+                f"pointed to {self._embedding_variable.name}>")
 
 class DenseEmbeddingLayerHandle(EmbeddingLayerHandle):
     """
     This is the handle for dense embedding layer,
     which means no reduction conducted intra slots.
     """
-
-    def __init__(
-        self,
-        embedding_variable,
-        input_dispatcher,
-        embedding_lookuper,
-        output_dispatcher,
-        input_dispatcher_subsequent_ops=[],
-        output_dispatcher_subsequent_ops=[],
-        slot_num=1,
-        nnz_per_slot=1,
-        compute_dtype=None,
-        **unused,
-    ):
+    def __init__(self,
+                 embedding_variable,
+                 input_dispatcher,
+                 embedding_lookuper,
+                 output_dispatcher,
+                 input_dispatcher_subsequent_ops = [],
+                 output_dispatcher_subsequent_ops = [],
+                 slot_num = 1,
+                 nnz_per_slot = 1,
+                 compute_dtype=None,
+                 **unused):
         super(DenseEmbeddingLayerHandle, self).__init__(embedding_variable, compute_dtype)
 
         self._embedding_variable = embedding_variable
@@ -100,45 +94,39 @@ class DenseEmbeddingLayerHandle(EmbeddingLayerHandle):
                 emb_var_handle = self._embedding_variable.emb_handle
                 emb_var_name = self._embedding_variable.m_var_name
 
-            self._handle = kit_lib.create_embedding_dense(
-                emb_var_handle,
-                input_dispatcher=self._input_dispatcher,
-                input_dispatcher_subsequent_ops=self._input_dispatcher_subsequent_ops,
-                embedding_lookuper=self._embedding_lookuper,
-                output_dispatcher=self._output_dispatcher,
-                output_dispatcher_subsequent_ops=self._output_dispatcher_subsequent_ops,
-                slot_num=self._slot_num,
-                nnz_per_slot=self._nnz_per_slot,
-                layer_handle_name=emb_var_name,
-                compute_dtype=self.compute_dtype,
-            )
+            self._handle = kit_lib.create_embedding_dense(emb_var_handle,
+                                            input_dispatcher=self._input_dispatcher,
+                                            input_dispatcher_subsequent_ops=self._input_dispatcher_subsequent_ops,
+                                            embedding_lookuper=self._embedding_lookuper,
+                                            output_dispatcher=self._output_dispatcher,
+                                            output_dispatcher_subsequent_ops=self._output_dispatcher_subsequent_ops,
+                                            slot_num=self._slot_num,
+                                            nnz_per_slot=self._nnz_per_slot,
+                                            layer_handle_name=emb_var_name,
+                                            compute_dtype=self.compute_dtype)
 
             self._initializer_op = control_flow_ops.group((self._handle))
 
             collections = [GraphKeys.SparseOperationKitEmbeddingLayers]
             ops.add_to_collections(collections, self)
 
-
 class SparseEmbeddingLayerHandle(EmbeddingLayerHandle):
     """
     This is the handle for sparse embedding layer.
     which means reduction will be conducted intra slots.
     """
-
-    def __init__(
-        self,
-        embedding_variable,
-        input_dispatcher,
-        embedding_executor,
-        output_dispatcher,
-        input_dispatcher_subsequent_ops=[],
-        output_dispatcher_subsequent_ops=[],
-        slot_num=1,
-        max_nnz=1,
-        max_feature_num=1,
-        combiner="sum",
-        compute_dtype=None,
-    ):
+    def __init__(self,
+                 embedding_variable,
+                 input_dispatcher,
+                 embedding_executor,
+                 output_dispatcher,
+                 input_dispatcher_subsequent_ops = [],
+                 output_dispatcher_subsequent_ops = [],
+                 slot_num = 1,
+                 max_nnz = 1,
+                 max_feature_num = 1,
+                 combiner="sum",
+                 compute_dtype=None):
         super(SparseEmbeddingLayerHandle, self).__init__(embedding_variable, compute_dtype)
 
         self._embedding_variable = embedding_variable
@@ -160,20 +148,18 @@ class SparseEmbeddingLayerHandle(EmbeddingLayerHandle):
                 emb_var_handle = self._embedding_variable.emb_handle
                 emb_var_name = self._embedding_variable.m_var_name
 
-            self._handle = kit_lib.create_embedding_sparse(
-                emb_var_handle,
-                input_dispatcher=self._input_dispatcher,
-                input_dispatcher_subsequent_ops=self._input_dispatcher_subsequent_ops,
-                embedding_executor=self._embedding_executor,
-                output_dispatcher=self._output_dispatcher,
-                output_dispatcher_subsequent_ops=self._output_dispatcher_subsequent_ops,
-                slot_num=self._slot_num,
-                max_nnz=self._max_nnz,
-                max_feature_num=self._max_feature_num,
-                combiner=self._combiner,
-                layer_handle_name=emb_var_name,
-                compute_dtype=self.compute_dtype,
-            )
+            self._handle = kit_lib.create_embedding_sparse(emb_var_handle,
+                                                input_dispatcher=self._input_dispatcher,
+                                                input_dispatcher_subsequent_ops=self._input_dispatcher_subsequent_ops,
+                                                embedding_executor=self._embedding_executor,
+                                                output_dispatcher=self._output_dispatcher,
+                                                output_dispatcher_subsequent_ops=self._output_dispatcher_subsequent_ops,
+                                                slot_num=self._slot_num,
+                                                max_nnz=self._max_nnz,
+                                                max_feature_num=self._max_feature_num,
+                                                combiner=self._combiner,
+                                                layer_handle_name=emb_var_name,
+                                                compute_dtype=self.compute_dtype)
 
             self._initializer_op = control_flow_ops.group((self._handle))
 

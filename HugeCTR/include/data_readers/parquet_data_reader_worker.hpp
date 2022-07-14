@@ -52,12 +52,10 @@ template <class T>
 class ParquetDataReaderWorker : public IDataReaderWorker {
  private:
   std::vector<DataReaderSparseParam> params_; /**< configuration of data reader sparse input */
-  bool skip_read_{false};               /**< set to true when you want to stop the data reading */
-  bool strict_order_of_batches_{false}; /**< set to true when you want to sequentially read file*/
+  bool skip_read_{false}; /**< set to true when you want to stop the data reading */
   const int MAX_TRY = 10;
-  long long records_num_file_;
-  long long record_offset_file_{0};
-  long long global_batches_offset{0};
+  long long records_in_file_;
+  long long current_record_index_{0};
   int slots_{0};
   std::vector<long long> slot_offset_;
   std::vector<T> slot_offset_dtype_;
@@ -80,127 +78,28 @@ class ParquetDataReaderWorker : public IDataReaderWorker {
   Tensor2<int64_t> device_memory_dense_dim_array_;
   /**< Pinned memory for async column dev ptr copy */
   Tensor2<T> host_pinned_csr_inc_; /**< Pinned memory to copy csr push_back values */
-  long long
-      cached_df_rows_;  // total rows of current df, can be either smaller or greater than batchsize
-
-  long long row_group_id_pre_;     // previous row group id
-  long long row_group_index_pre_;  // previous row offset within current row_group
-
-  long long cached_df_index_;    // how many records of current df have been consumed ?
-  long long row_carry_forward_;  // records carried forward to next parquet file
-  long long view_offset_;        // set this to discard row slices in current cached_df_ you want
+  long long row_group_size_;
+  long long row_group_index_;
+  long long row_group_carry_forward_;
+  long long view_offset_;
   std::shared_ptr<ResourceManager> resource_manager_;
 
   ParquetFileSource* parquet_file_source() const {
     return static_cast<ParquetFileSource*>(source_.get());
   }
-  void set_df_view_offset(long long of) { view_offset_ = of; };
+
   void post_set_source() override {
     is_eof_ = false;
     buffer_->state.store(BufferState::ReadyForWrite);
   }
-  /* seek current record starts to reading from;
-   will modify
-    row_group_id_pre_
-    row_group_index_pre_
-    records_num_file_
-    record_offset_file_
-  return:
-    true if dst row_group is exactly current row_group, false otherwise
-  */
-  bool seek_file_by_global_id(long long global_batch, long long batchsize) {
-    std::set<int> tmp_col_index;
-    auto source = parquet_file_source();
-    const long long tmp_group = row_group_id_pre_;
-    int file_id_pre = source->get_cur_file_id();
 
-    for (int t = 0; t < MAX_TRY; t++) {
-      // file source counter_ ++
-      Error_t err = source->seek_by_records(global_batch, batchsize);
-      if (err == Error_t::Success) {
-        auto metadata = source->get_file_metadata();
-
-        if (metadata.get_metadata_status()) {
-          auto label_col_names = metadata.get_label_names();
-          auto dense_col_names = metadata.get_cont_names();
-          if (dense_idx_to_parquet_col_.size() !=
-              (label_col_names.size() + dense_col_names.size())) {
-            int i = 0;
-            dense_idx_to_parquet_col_.clear();
-            tmp_col_index.clear();
-            for (auto& c : label_col_names) {
-              // HCTR_LOG_S(INFO, WORLD)
-              //     << "label " << c.col_name << " index " << c.index <<
-              //     std::endl;
-              tmp_col_index.insert(c.index);
-            }
-            for (auto it = tmp_col_index.begin(); it != tmp_col_index.end(); it++) {
-              dense_idx_to_parquet_col_.insert(std::make_pair(i, *it));
-              i++;
-            }
-            tmp_col_index.clear();
-            for (auto& c : dense_col_names) {
-              // HCTR_LOG_S(INFO, WORLD)
-              //     << "dense " << c.col_name << " index " << c.index <<
-              //     std::endl;
-              tmp_col_index.insert(c.index);
-            }
-            for (auto it = tmp_col_index.begin(); it != tmp_col_index.end(); it++) {
-              dense_idx_to_parquet_col_.insert(std::make_pair(i, *it));
-              i++;
-            }
-          }
-          tmp_col_index.clear();
-
-          auto cat_col_names = metadata.get_cat_names();
-          if (categorical_idx_parquet_col_.size() != cat_col_names.size()) {
-            categorical_idx_parquet_col_.clear();
-            int i = 0;
-            for (auto& c : cat_col_names) {
-              // HCTR_LOG_S(INFO, WORLD) << "cat " << c.col_name << " index " <<
-              // c.index << std::endl;
-              tmp_col_index.insert(c.index);
-            }
-            for (auto it = tmp_col_index.begin(); it != tmp_col_index.end(); it++) {
-              categorical_idx_parquet_col_.insert(std::make_pair(i, *it));
-              i++;
-            }
-          }
-          // hasnt been read yet
-          row_group_index_pre_ = source->get_offset_to_read_within_group();
-          row_group_id_pre_ = source->get_row_group_to_read();
-          records_num_file_ = source->get_num_rows();
-          record_offset_file_ = source->get_offset_to_read_within_file();
-        } else {
-          // raise exception
-          HCTR_OWN_THROW(Error_t::BrokenFile, "failed to read a file");
-        }
-        // HCTR_LOG(ERROR, ROOT, "file_id_pre %d, source->get_cur_file_id() %d,row_group_id_pre_ %d
-        // \n",file_id_pre,source->get_cur_file_id(),row_group_id_pre_);
-        if (file_id_pre != -1 && source->get_cur_file_id() == file_id_pre && tmp_group != -1 &&
-            row_group_id_pre_ == tmp_group) {
-          return true;
-        }
-        return false;
-      } else if (err == Error_t::WrongInput || err == Error_t::InvalidEnv) {
-        HCTR_LOG(ERROR, ROOT, "Parquet reader: reset records fails\n");
-        return false;
-        // throw internal_runtime_error(Error_t::WrongInput, "WrongInput");
-      } else if (err == Error_t::EndOfFile) {
-        throw internal_runtime_error(Error_t::EndOfFile, "EndOfFile");
-      } else {
-        HCTR_OWN_THROW(Error_t::BrokenFile, "failed to read a file");
-      }
-    }
-    HCTR_OWN_THROW(Error_t::BrokenFile, "failed to read a file");
-    return false;
-  }
   void read_new_file() {
+    // HCTR_LOG_S(DEBUG, ROOT) << "start read_new_file" << std::endl;
     std::set<int> tmp_col_index;
     auto source = parquet_file_source();
     for (int t = 0; t < MAX_TRY; t++) {
-      // file source counter_ ++
       Error_t err = source->next_source();
+
       if (err == Error_t::Success) {
         auto metadata = source->get_file_metadata();
 
@@ -250,12 +149,8 @@ class ParquetDataReaderWorker : public IDataReaderWorker {
               i++;
             }
           }
-          records_num_file_ = source->get_num_rows();
-          record_offset_file_ = 0;
-          // the first row group hasnt been read yet
-          row_group_id_pre_ = -1;
-          row_group_index_pre_ = -1;
-
+          records_in_file_ = source->get_num_rows();
+          current_record_index_ = 0;
         } else {
           // raise exception
           HCTR_OWN_THROW(Error_t::BrokenFile, "failed to read a file");
@@ -270,7 +165,6 @@ class ParquetDataReaderWorker : public IDataReaderWorker {
     HCTR_OWN_THROW(Error_t::BrokenFile, "failed to read a file");
   }
 
-  int prepare_df();  // load data to cached_df
  public:
   /**
    * Ctor
@@ -278,19 +172,14 @@ class ParquetDataReaderWorker : public IDataReaderWorker {
   ParquetDataReaderWorker(unsigned int worker_id, unsigned int worker_num,
                           const std::shared_ptr<GPUResource>& gpu_resource, int* loop_flag,
                           const std::shared_ptr<ThreadBuffer>& buffer, const std::string& file_list,
-                          bool strict_order_of_batches, bool repeat,
-                          const std::vector<DataReaderSparseParam>& params,
-                          const DataSourceParams& data_source_params,
+                          bool repeat, const std::vector<DataReaderSparseParam>& params,
                           const std::vector<long long>& slot_offset, int device_id,
                           const std::shared_ptr<ResourceManager>& resource_manager)
       : IDataReaderWorker(worker_id, worker_num, gpu_resource, !repeat, loop_flag, buffer),
         params_(params),
-        strict_order_of_batches_(strict_order_of_batches),
         slot_offset_(slot_offset),
         device_id_(device_id),
-        row_group_id_pre_(-1),
-        row_group_index_pre_(-1),
-        row_carry_forward_(0),
+        row_group_carry_forward_(0),
         resource_manager_(resource_manager) {
     CudaCPUDeviceContext ctx(gpu_resource->get_device_id());
 
@@ -313,7 +202,7 @@ class ParquetDataReaderWorker : public IDataReaderWorker {
                                      2 * params_.size() * slots_ + 2 * slots_);
     // pinned buffer for dense feature converter
     buff->reserve({num_of_pointer_staging}, &host_memory_pointer_staging_);
-    global_batches_offset = worker_id * buffer->batch_size;
+
     // pinned dense dim , can't know dense_dim_array in advance
     // label_dim + dense_dim > label_num + dense_num
     buff->reserve({static_cast<size_t>(buffer_->label_dim + buffer_->dense_dim)},
@@ -325,8 +214,7 @@ class ParquetDataReaderWorker : public IDataReaderWorker {
     buff_gpu->reserve({static_cast<size_t>(buffer_->label_dim + buffer_->dense_dim)},
                       &device_memory_dense_dim_array_);
     buff_gpu->allocate();
-    source_ = std::make_shared<ParquetFileSource>(
-        worker_id, worker_num, file_list, strict_order_of_batches, repeat, data_source_params);
+    source_ = std::make_shared<ParquetFileSource>(worker_id, worker_num, file_list, repeat);
 
     // assert((int)slot_offset_.size() == slots_);
     if ((int)slot_offset_.size() < slots_) {
@@ -346,13 +234,13 @@ class ParquetDataReaderWorker : public IDataReaderWorker {
     // dont have a good place to destroy resource - before worker threads exits
     if (thread_resource_allocated_) {
       CudaDeviceContext context(device_id_);
-      HCTR_LIB_THROW(cudaStreamSynchronize(task_stream_));
-      HCTR_LIB_THROW(cudaStreamSynchronize(dense_stream_));
+      cudaStreamSynchronize(task_stream_);
+      cudaStreamSynchronize(dense_stream_);
       cached_df_.reset();
       slot_offset_device_buf_.reset();
       source_.reset();
-      HCTR_LIB_THROW(cudaStreamDestroy(task_stream_));
-      HCTR_LIB_THROW(cudaStreamDestroy(dense_stream_));
+      cudaStreamDestroy(task_stream_);
+      cudaStreamDestroy(dense_stream_);
     }
   }
 
@@ -367,231 +255,6 @@ class ParquetDataReaderWorker : public IDataReaderWorker {
   void skip_read() { skip_read_ = true; }
 };
 
-/*
-could modify :
-    cached_df_rows_,
-    cached_df_index_,
-    row_carry_forward_,
-    record_offset_file_,
-  return
-    current_batch_size
-*/
-// TODO: Not used till now, DELETE OR NOT?
-template <class T>
-int ParquetDataReaderWorker<T>::prepare_df() {
-  /*
-    there're two styles of reading parquet, should stick to either one throughout the worker's
-    lifetime.
-
-      1. read by group: read_parquet one group at one time and consume the data.
-         A group may contain many batches or less than one batch of records.
-
-      2. read with skip_rows + num_rows, ignoring the row_group nature of parquet. num_rows
-         could always be identical to batchsize for simplification. The fatal drawback is we
-         need to touch parquet file for at every iteration which can hit the performance heavily.
-         Additionally, skip_rows + num_rows doesnt support nested column type.
-
-    Currently, with strict_order_of_batches_ set true, the second is adopted. Otherwise, first style
-    is adopted.
-  */
-  const auto batch_size = buffer_->batch_size;
-  auto source = parquet_file_source();
-  long long elements_to_read = batch_size;
-  int current_batch_size = batch_size;
-  // long long records_num_file_ = source->get_num_rows();
-  std::vector<cudf::table_view> table_view_for_concat;
-  bool hit_row_group = false;
-  if (strict_order_of_batches_) {
-    // style 2:read with skip_rows + num_rows concat happens across files only
-    // seek_file_by_global_id will reset records_num_file_, record_offset_file_
-    try {
-      hit_row_group = seek_file_by_global_id(global_batches_offset, batch_size);
-      if (hit_row_group) {
-        HCTR_LOG(INFO, ROOT, "row group hit\n");
-      } else {
-        HCTR_LOG(INFO, ROOT, "row group miss\n");
-      }
-    } catch (const internal_runtime_error& rt_err) {
-      Error_t err = rt_err.get_error();
-      // last file
-      if (err == Error_t::EndOfFile) {
-        current_batch_size = 0;
-        elements_to_read = 0;
-        global_batches_offset = batch_size * worker_id_;
-      } else {
-        HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
-        throw;
-      }
-    }
-    if (hit_row_group) {
-      cached_df_index_ = row_group_index_pre_;
-    }
-    cached_df_rows_ = 0;
-    row_carry_forward_ = 0;
-    cached_df_index_ = 0;
-    cached_df_.reset();
-    set_df_view_offset(0);
-    global_batches_offset += batch_size * worker_num_;
-    while (elements_to_read > 0) {
-      // have enough row inc cached_df_index_ else slice and concat to next DF
-      if (!cached_df_ || (cached_df_rows_ == cached_df_index_)) {
-        // read a new row_group and increment
-        auto tbl_w_metadata = source->read(-1, memory_resource_.get());
-        // get column name from read_parquet()
-        if (column_names_.empty()) {
-          column_names_.swap(tbl_w_metadata.metadata.column_names);
-        }
-        if (row_carry_forward_ > 0 && table_view_for_concat.size() > 0) {
-          std::vector<cudf::table_view> table_views_for_concat{table_view_for_concat[0],
-                                                               tbl_w_metadata.tbl->view()};
-          // swap here will automatically release previous cached DF
-          (cudf::concatenate(table_views_for_concat, memory_resource_.get())).swap(cached_df_);
-          // roll back if concat happens between group
-          record_offset_file_ -= row_carry_forward_;
-          cached_df_rows_ = cached_df_->num_rows();
-          row_carry_forward_ = 0;
-          table_view_for_concat.clear();
-        } else {
-          cached_df_.reset();
-          tbl_w_metadata.tbl.swap(cached_df_);
-          cached_df_rows_ = cached_df_->num_rows();
-        }
-        cached_df_index_ = 0;
-        view_offset_ = 0;
-      }
-
-      if ((cached_df_rows_ - cached_df_index_) >= elements_to_read) {
-        cached_df_index_ += elements_to_read;
-        record_offset_file_ += elements_to_read;
-        current_batch_size = elements_to_read;
-        elements_to_read = 0;
-      } else if (cached_df_index_ < cached_df_rows_) {
-        long long avail_rows = (cached_df_rows_ - cached_df_index_);
-
-        if (avail_rows < cached_df_rows_) {  // if cached_df_index_ > 0
-          // slice and add to concat queue
-          std::vector<cudf::size_type> slice_indices{
-              (cudf::size_type)cached_df_index_, (cudf::size_type)(cached_df_index_ + avail_rows)};
-
-          table_view_for_concat = cudf::slice(cached_df_->view(), slice_indices);
-        } else {
-          table_view_for_concat.emplace_back(std::move(cached_df_->view()));
-        }
-        cached_df_index_ += avail_rows;
-        record_offset_file_ += avail_rows;
-        row_carry_forward_ = avail_rows;
-        current_batch_size = avail_rows;
-      }
-
-      // read_next_file if needed
-      if (record_offset_file_ >= records_num_file_) {
-        try {
-          // set record_offset_file_ to zero; can throw EOF
-          read_new_file();
-
-          // we merge last slice to next file, so need to move
-          // record_offset_file_ forward
-          record_offset_file_ += row_carry_forward_;
-          if (row_carry_forward_ > 0)
-            records_num_file_ += row_carry_forward_;
-          else if ((cached_df_rows_ - cached_df_index_) > 0)
-            records_num_file_ += (cached_df_rows_ - cached_df_index_);
-        } catch (const internal_runtime_error& rt_err) {
-          Error_t err = rt_err.get_error();
-          // last file
-          if (err == Error_t::EndOfFile) {
-            elements_to_read = 0;
-            global_batches_offset = batch_size * worker_id_;
-          } else {
-            HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
-            throw;
-          }
-        }
-      }
-    }
-  } else {
-    // TODO
-    // style 1: read by group
-    while (elements_to_read > 0) {
-      // have enough row inc cached_df_index_ else slice and concat to next DF
-      if (!cached_df_ || (cached_df_rows_ == cached_df_index_)) {
-        // read a new row_group and increment
-        auto tbl_w_metadata = source->read(-1, memory_resource_.get());
-        // get column name from read_parquet()
-        if (column_names_.empty()) {
-          column_names_.swap(tbl_w_metadata.metadata.column_names);
-        }
-        if (row_carry_forward_ > 0 && table_view_for_concat.size() > 0) {
-          std::vector<cudf::table_view> table_views_for_concat{table_view_for_concat[0],
-                                                               tbl_w_metadata.tbl->view()};
-          // swap here will automatically release previous cached DF
-          (cudf::concatenate(table_views_for_concat, memory_resource_.get())).swap(cached_df_);
-          // roll back if concat happens between group
-          record_offset_file_ -= row_carry_forward_;
-          cached_df_rows_ = cached_df_->num_rows();
-          row_carry_forward_ = 0;
-          table_view_for_concat.clear();
-        } else {
-          cached_df_.reset();
-          tbl_w_metadata.tbl.swap(cached_df_);
-          cached_df_rows_ = cached_df_->num_rows();
-        }
-        cached_df_index_ = 0;
-        view_offset_ = 0;
-      }
-
-      if ((cached_df_rows_ - cached_df_index_) >= elements_to_read) {
-        cached_df_index_ += elements_to_read;
-        record_offset_file_ += elements_to_read;
-        current_batch_size = elements_to_read;
-        elements_to_read = 0;
-      } else if (cached_df_index_ < cached_df_rows_) {
-        long long avail_rows = (cached_df_rows_ - cached_df_index_);
-
-        if (avail_rows < cached_df_rows_) {  // if cached_df_index_ > 0
-          // slice and add to concat queue
-          std::vector<cudf::size_type> slice_indices{
-              (cudf::size_type)cached_df_index_, (cudf::size_type)(cached_df_index_ + avail_rows)};
-
-          table_view_for_concat = cudf::slice(cached_df_->view(), slice_indices);
-        } else {
-          table_view_for_concat.emplace_back(std::move(cached_df_->view()));
-        }
-        cached_df_index_ += avail_rows;
-        record_offset_file_ += avail_rows;
-        row_carry_forward_ = avail_rows;
-        current_batch_size = avail_rows;
-      }
-
-      // read_next_file if needed
-      if (record_offset_file_ >= records_num_file_) {
-        try {
-          // set record_offset_file_ to zero; can throw EOF
-          read_new_file();
-
-          // we merge last slice to next file, so need to move
-          // record_offset_file_ forward
-          record_offset_file_ += row_carry_forward_;
-          if (row_carry_forward_ > 0)
-            records_num_file_ += row_carry_forward_;
-          else if ((cached_df_rows_ - cached_df_index_) > 0)
-            records_num_file_ += (cached_df_rows_ - cached_df_index_);
-        } catch (const internal_runtime_error& rt_err) {
-          Error_t err = rt_err.get_error();
-          // last file
-          if (err == Error_t::EndOfFile) {
-            elements_to_read = 0;
-            global_batches_offset = batch_size * worker_id_;
-          } else {
-            HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
-            throw;
-          }
-        }
-      }
-    }
-  }
-  return current_batch_size;
-}
 //! Caution. For parquet worker in epoch mode, there's no filling empty samples
 //! logic
 // for sparse data. The length of output row_offset is (current_batch_size + 1)
@@ -600,7 +263,7 @@ template <class T>
 void ParquetDataReaderWorker<T>::read_a_batch() {
   // dense feature type must be float or a list of float
   using dtype_dense = float;
-  int current_batch_size = -1;
+  int current_batch_size = 0;
 
   if (!thread_resource_allocated_) {
     // cant allocate and set resources in constructor
@@ -631,87 +294,81 @@ void ParquetDataReaderWorker<T>::read_a_batch() {
       if (!wait_until_h2d_ready()) return;
       auto dst_dense_tensor = Tensor2<dtype_dense>::stretch_from(buffer_->device_dense_buffers);
       long long elements_to_read = batch_size;
-      // if read file sequentially, read worker_num_ batches and discard extraneous samples
-      if (strict_order_of_batches_) {
-        elements_to_read *= worker_num_;
-      }
       std::vector<cudf::table_view> table_view_for_concat;
       // have enough row inc row_group_index_ else slice and concat to next DF
       while (elements_to_read > 0) {
-        // have enough row inc cached_df_index_ else slice and concat to next DF
-        if (!cached_df_ || (cached_df_rows_ == cached_df_index_)) {
+        if (!cached_df_ || (row_group_size_ == row_group_index_)) {
           auto tbl_w_metadata = source->read(-1, memory_resource_.get());
           // get column name from read_parquet()
           if (column_names_.empty()) {
             column_names_.swap(tbl_w_metadata.metadata.column_names);
+            // HCTR_LOG_S(DEBUG, ROOT)
+            //     << "parquet data column names:() " << column_names_.size() << std::endl;
+            // for (const auto name : column_names_) {
+            //   HCTR_LOG_S(DEBUG, ROOT) << name << std::endl;
+            // }
           }
-          if (row_carry_forward_ > 0 && table_view_for_concat.size() > 0) {
+          if (row_group_carry_forward_ > 0 && table_view_for_concat.size() > 0) {
             std::vector<cudf::table_view> table_views_for_concat{table_view_for_concat[0],
                                                                  tbl_w_metadata.tbl->view()};
             // swap here will automatically release previous cached DF
             (cudf::concatenate(table_views_for_concat, memory_resource_.get())).swap(cached_df_);
             // roll back if concat happens between group
-            record_offset_file_ -= row_carry_forward_;
-            cached_df_rows_ = cached_df_->num_rows();
-            row_carry_forward_ = 0;
+            current_record_index_ -= row_group_carry_forward_;
+            row_group_size_ = cached_df_->num_rows();
+            row_group_carry_forward_ = 0;
             table_view_for_concat.clear();
           } else {
             cached_df_.reset();
             tbl_w_metadata.tbl.swap(cached_df_);
-            cached_df_rows_ = cached_df_->num_rows();
+            row_group_size_ = cached_df_->num_rows();
           }
-          cached_df_index_ = 0;
+          row_group_index_ = 0;
           view_offset_ = 0;
         }
 
-        if ((cached_df_rows_ - cached_df_index_) >= elements_to_read) {
-          cached_df_index_ += elements_to_read;
-          record_offset_file_ += elements_to_read;
-          current_batch_size = batch_size;
+        if ((row_group_size_ - row_group_index_) >= elements_to_read) {
+          row_group_index_ += elements_to_read;
+          current_record_index_ += elements_to_read;
           elements_to_read = 0;
-        } else if (cached_df_index_ < cached_df_rows_) {
-          long long avail_rows = (cached_df_rows_ - cached_df_index_);
+          current_batch_size = 0;
+        } else if (row_group_index_ < row_group_size_) {
+          long long avail_rows = (row_group_size_ - row_group_index_);
 
-          if (avail_rows < cached_df_rows_) {  // if cached_df_index_ > 0
+          if (avail_rows < row_group_size_) {
             // slice and add to concat queue
             std::vector<cudf::size_type> slice_indices{
-                (cudf::size_type)cached_df_index_,
-                (cudf::size_type)(cached_df_index_ + avail_rows)};
+                (cudf::size_type)row_group_index_,
+                (cudf::size_type)(row_group_index_ + avail_rows)};
 
             table_view_for_concat = cudf::slice(cached_df_->view(), slice_indices);
           } else {
             table_view_for_concat.emplace_back(std::move(cached_df_->view()));
           }
-          cached_df_index_ += avail_rows;
-          record_offset_file_ += avail_rows;
-          row_carry_forward_ = avail_rows;
-          if (strict_order_of_batches_) {
-            long long avail_worker = avail_rows - worker_id_ * batch_size;
-            current_batch_size = std::max(0ll, avail_worker);
-          } else {
-            current_batch_size = avail_rows;
-          }
+          row_group_index_ += avail_rows;
+          current_record_index_ += avail_rows;
+          row_group_carry_forward_ = avail_rows;
+          current_batch_size = avail_rows;
         }
 
         // read_next_file if needed
-        if (record_offset_file_ >= records_num_file_) {
+        if (current_record_index_ >= records_in_file_) {
           try {
-            // set record_offset_file_ to zero; can throw EOF
+            // set current_record_index_ to zero; can throw EOF
             read_new_file();
 
             // we merge last slice to next file, so need to move
-            // record_offset_file_ forward
-            record_offset_file_ += row_carry_forward_;
-            if (row_carry_forward_ > 0)
-              records_num_file_ += row_carry_forward_;
-            else if ((cached_df_rows_ - cached_df_index_) > 0)
-              records_num_file_ += (cached_df_rows_ - cached_df_index_);
+            // current_record_index_ forward
+            current_record_index_ += row_group_carry_forward_;
+            if (row_group_carry_forward_ > 0)
+              records_in_file_ += row_group_carry_forward_;
+            else if ((row_group_size_ - row_group_index_) > 0)
+              records_in_file_ += (row_group_size_ - row_group_index_);
           } catch (const internal_runtime_error& rt_err) {
             Error_t err = rt_err.get_error();
             // last file
             if (err == Error_t::EndOfFile) {
               elements_to_read = 0;
-              global_batches_offset = batch_size * worker_id_;
             } else {
               HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
               throw;
@@ -723,9 +380,9 @@ void ParquetDataReaderWorker<T>::read_a_batch() {
       cudf::table_view data_view = cached_df_->view();
       std::deque<rmm::device_buffer> rmm_resources;
 
-      // if (current_batch_size == 0) {
-      //   current_batch_size = batch_size;
-      // }
+      if (current_batch_size == 0) {
+        current_batch_size = batch_size;
+      }
       buffer_->current_batch_size = current_batch_size;
       // PinnedBuffer extend on unique_ptr cant realloc properly and safely
       // (cudaContext)
@@ -801,20 +458,14 @@ void ParquetDataReaderWorker<T>::read_a_batch() {
       int offset_end = std::min(dense_end, current_batch_size);
       int samples_to_be_transposed = offset_end - offset_start;
       std::vector<dtype_dense*> dense_column_data_ptr;
-      long long view_offset_worker = view_offset_;
-      // if strict_order_of_batches_==true, we need to discard extraneous batch
-      if (strict_order_of_batches_) {
-        view_offset_worker += worker_id_ * batch_size;
-      }
       for (int k = 0; k < num_label_dense; k++) {
         dtype_dense* column_ptr =
             const_cast<dtype_dense*>(dense_columns_view_ref[k].data<dtype_dense>());
         column_ptr =
             // only proceed dense for local gpu
-            reinterpret_cast<dtype_dense*>(
-                (size_t)column_ptr +
-                sizeof(dtype_dense) * (offset_start + view_offset_worker) * dense_width_dim[k]);
-
+            reinterpret_cast<dtype_dense*>((size_t)column_ptr + sizeof(dtype_dense) *
+                                                                    (view_offset_ + offset_start) *
+                                                                    dense_width_dim[k]);
         dense_column_data_ptr.push_back(column_ptr);
       }
 
@@ -914,11 +565,11 @@ void ParquetDataReaderWorker<T>::read_a_batch() {
             // optimize converter in the future when slots nnz for current
             // param_id is fixed
             pinned_buffer_offset_count += convert_parquet_cat_columns(
-                cat_column_data_ptr, cat_column_row_offset_ptr, view_offset_worker, param_num,
-                param_id, param.max_nnz, slot_count, current_batch_size,
-                resource_manager_->get_process_id(), resource_manager_, device_csr_value_buffers,
-                device_csr_row_offset_buffers, pinned_staging_buffer_param, dev_slot_offset_ptr,
-                rmm_resources, memory_resource_.get(), task_stream_);
+                cat_column_data_ptr, cat_column_row_offset_ptr, view_offset_, param_num, param_id,
+                param.max_nnz, slot_count, current_batch_size, resource_manager_->get_process_id(),
+                resource_manager_, device_csr_value_buffers, device_csr_row_offset_buffers,
+                pinned_staging_buffer_param, dev_slot_offset_ptr, rmm_resources,
+                memory_resource_.get(), task_stream_);
           }
           df_column_id += param.slot_num;
           param_id++;
@@ -947,7 +598,7 @@ void ParquetDataReaderWorker<T>::read_a_batch() {
       HCTR_LIB_THROW(cudaStreamSynchronize(task_stream_));
       HCTR_LIB_THROW(cudaStreamSynchronize(dense_stream_));
 
-      view_offset_ = cached_df_index_;
+      view_offset_ = row_group_index_;
     }
     buffer_->state.store(BufferState::ReadyForRead);
   } catch (const internal_runtime_error& rt_err) {

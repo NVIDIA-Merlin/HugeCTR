@@ -1,6 +1,6 @@
 #
 # Copyright (c) 2021, NVIDIA CORPORATION.
-#
+# 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -22,16 +22,15 @@ from sparse_operation_kit.core import EmbeddingVariable
 from tensorflow.python.distribute.values import MirroredVariable
 from tensorflow.python.distribute.values import DistributedVariable
 
-
 def split_embedding_variable_from_others(variables):
     """
     This function is used to split embedding variables from other variables.
 
     Abbreviated as ``sok.split_embedding_variable_from_others(variables)``.
 
-    Embedding variables are automatically created along with embedding layers.
-    Since the aggregation for embedding variables is different from other variables,
-    we need to split embedding variable and other variables so that optimizer can
+    Embedding variables are automatically created along with embedding layers. 
+    Since the aggregation for embedding variables is different from other variables, 
+    we need to split embedding variable and other variables so that optimizer can 
     process those variables in different way.
 
     Parameters
@@ -66,7 +65,7 @@ def split_embedding_variable_from_others(variables):
             model = Model()
 
         loss_fn = ...
-
+            
         @tf.function
         def _train_step(inputs, labels):
             with tf.GradientTape() as tape:
@@ -86,7 +85,8 @@ def split_embedding_variable_from_others(variables):
     other_variables = list()
 
     for variable in variables:
-        if isinstance(variable, DistributedVariable) and not isinstance(variable, MirroredVariable):
+        if (isinstance(variable, DistributedVariable) and 
+            not isinstance(variable, MirroredVariable)):
             if isinstance(variable.values[0], EmbeddingVariable):
                 embedding_variables.append(variable)
             else:

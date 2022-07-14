@@ -14,24 +14,24 @@
  * limitations under the License.
  */
 #pragma once
-
 #include "HugeCTR/core/buffer.hpp"
 
 namespace embedding {
-using core::CoreResourceManager;
 using core::Device;
 using core::Tensor;
+using core::CoreResourceManager;
 
 class NcclAll2AllComm {
   std::shared_ptr<CoreResourceManager> core_;
-
+  
  public:
   NcclAll2AllComm() = default;
 
   NcclAll2AllComm(std::shared_ptr<CoreResourceManager> core);
-
+  
   void communicate(const std::vector<Tensor> &send_tensors, const std::vector<size_t> &send_offsets,
-                   std::vector<Tensor> &recv_tensors, const std::vector<size_t> &recv_offsets);
+                   std::vector<Tensor> &recv_tensors,
+                   const std::vector<size_t> &recv_offsets);
 };
 
 class NcclAllReduceInplaceComm {

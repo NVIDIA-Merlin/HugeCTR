@@ -1,15 +1,5 @@
 # Contributing to HugeCTR
 
-```{contents}
----
-depth: 2
-local: true
-backlinks: none
----
-```
-
-## Overview of Contributing to HugeCTR
-
 We're grateful for your interest in HugeCTR and value your contributions. You can contribute to HugeCTR by:
 * submitting a [feature, documentation, or bug request](https://github.com/NVIDIA/HugeCTR/issues/new/choose).
 
@@ -144,6 +134,7 @@ To build HugeCTR inference container from source, do the following:
    ```
 
 3. Here is an example of how you can build HugeCTR inference container using the build options:
+
    ```shell
    $ mkdir -p build && cd build
    $ cmake -DCMAKE_BUILD_TYPE=Release -DSM="70;80" -DENABLE_INFERENCE=ON .. # Target is NVIDIA V100 / A100 with Inference mode ON.

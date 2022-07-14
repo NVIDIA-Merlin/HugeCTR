@@ -28,49 +28,62 @@ struct AdamOptHyperParams {
   float beta2 = 0.999f;
   float epsilon = 1e-7f;
 
-  bool operator==(const AdamOptHyperParams& other) const {
-    return (times == other.times) && (beta1 == other.beta1) && (beta2 == other.beta2) &&
-           (epsilon == other.epsilon);
+  bool operator == (const AdamOptHyperParams &other) const {
+    return (times == other.times) && (beta1 == other.beta1)&& (beta2 == other.beta2)&& (epsilon == other.epsilon);
   }
 
-  bool operator!=(const AdamOptHyperParams& other) const { return !(*this == other); }
+  bool operator != (const AdamOptHyperParams &other) const {
+    return !(*this == other);
+  }
 };
 
 struct AdaGradParams {
   float initial_accu_value = 0.f;
   float epsilon = 1e-7f;
 
-  bool operator==(const AdaGradParams& other) const {
+  bool operator == (const AdaGradParams &other) const {
     return (initial_accu_value == other.initial_accu_value) && (epsilon == other.epsilon);
   }
 
-  bool operator!=(const AdaGradParams& other) const { return !(*this == other); }
+  bool operator != (const AdaGradParams &other) const {
+    return !(*this == other);
+  }
 };
 
 struct MomentumSGDOptHyperParams {
   float factor = 0.1f;
 
-  bool operator==(const MomentumSGDOptHyperParams& other) const { return (factor == other.factor); }
+  bool operator == (const MomentumSGDOptHyperParams &other) const {
+    return (factor == other.factor);
+  }
 
-  bool operator!=(const MomentumSGDOptHyperParams& other) const { return !(*this == other); }
+  bool operator != (const MomentumSGDOptHyperParams &other) const {
+    return !(*this == other);
+  }
 };
 
 struct NesterovOptHyperParams {
   float mu = 0.9f;
 
-  bool operator==(const NesterovOptHyperParams& other) const { return (mu == other.mu); }
+  bool operator == (const NesterovOptHyperParams &other) const {
+    return (mu == other.mu);
+  }
 
-  bool operator!=(const NesterovOptHyperParams& other) const { return !(*this == other); }
+  bool operator != (const NesterovOptHyperParams &other) const {
+    return !(*this == other);
+  }
 };
 
 struct SGDOptHyperParams {
   bool atomic_update = false;
 
-  bool operator==(const SGDOptHyperParams& other) const {
+  bool operator == (const SGDOptHyperParams &other) const {
     return (atomic_update == other.atomic_update);
   }
 
-  bool operator!=(const SGDOptHyperParams& other) const { return !(*this == other); }
+  bool operator != (const SGDOptHyperParams &other) const {
+    return !(*this == other);
+  }
 };
 
 // TODO: use union type should be better ???
@@ -81,12 +94,13 @@ struct OptHyperParams {
   SGDOptHyperParams sgd;
   AdaGradParams adagrad;
 
-  bool operator==(const OptHyperParams& other) const {
-    return (adam == other.adam) && (momentum == other.momentum) && (nesterov == other.nesterov) &&
-           (sgd == other.sgd) && (adagrad == other.adagrad);
+  bool operator == (const OptHyperParams &other) const {
+    return (adam == other.adam) && (momentum == other.momentum)&& (nesterov == other.nesterov)&& (sgd == other.sgd)&& (adagrad == other.adagrad);
   }
 
-  bool operator!=(const OptHyperParams& other) const { return !(*this == other); }
+  bool operator != (const OptHyperParams &other) const {
+    return !(*this == other);
+  }
 };
 
 struct OptParams {
@@ -96,13 +110,13 @@ struct OptParams {
   Update_t update_type;
   float scaler;
 
-  bool operator==(const OptParams& other) const {
-    return (optimizer == other.optimizer) && (lr == other.lr) &&
-           (hyperparams == other.hyperparams) && (update_type == other.update_type) &&
-           (scaler == other.scaler);
+  bool operator == (const OptParams &other) const {
+    return (optimizer == other.optimizer) && (lr == other.lr)&& (hyperparams == other.hyperparams)&& (update_type == other.update_type)&& (scaler == other.scaler);
   }
 
-  bool operator!=(const OptParams& other) const { return !(*this == other); }
+  bool operator != (const OptParams &other) const {
+    return !(*this == other);
+  }
 };
 
 //

@@ -478,7 +478,7 @@ AverageLoss<T>::~AverageLoss() {
 
 template <typename T>
 void AverageLoss<T>::local_reduce(int local_gpu_id, RawMetricMap raw_metrics) {
-  // HCTR_LOG_S(DEBUG, WORLD) << "Called local reduce" << std::endl;
+  // std::cout << "Called local reduce" << std::endl;
   Tensor2<float> loss_tensor = Tensor2<float>::stretch_from(raw_metrics[RawType::Loss]);
   const auto& local_gpu = resource_manager_->get_local_gpu(local_gpu_id);
   auto& stream = local_gpu->get_stream();
@@ -518,20 +518,9 @@ float AverageLoss<T>::finalize_metric() {
   return ret;
 }
 
-void gen_access_desc(std::vector<CUmemAccessDesc>& access_desc, const std::vector<int>& peers) {
-  access_desc.resize(peers.size());
-  for (size_t i = 0; i < peers.size(); i++) {
-    access_desc[i].flags = CU_MEM_ACCESS_FLAGS_PROT_READWRITE;
-    access_desc[i].location.type = CU_MEM_LOCATION_TYPE_DEVICE;
-    access_desc[i].location.id = peers[i];
-  }
-}
-
 void AUCStorage::alloc_main(size_t num_local_samples, size_t num_bins, size_t num_partitions,
-                            size_t num_global_gpus, size_t label_dim, size_t num_streams,
-                            const std::vector<int>& peers, cudaStream_t stream) {
+                            size_t num_global_gpus, size_t label_dim, size_t num_streams) {
   num_classes_ = label_dim;
-  gen_access_desc(access_desc_, peers);
 
   num_allocated_redistributed_.resize(num_streams, 0);
   allocated_temp_storage_.resize(num_streams, 0);
@@ -567,13 +556,6 @@ void AUCStorage::alloc_main(size_t num_local_samples, size_t num_bins, size_t nu
 
     HCTR_LIB_THROW(cudaMemset(st.d_pos_per_gpu(), 0, (num_global_gpus + 1) * sizeof(CountType)));
     HCTR_LIB_THROW(cudaMemset(st.d_neg_per_gpu(), 0, (num_global_gpus + 1) * sizeof(CountType)));
-
-    st.preds_1_.init_access_desc(&this->access_desc_);
-    st.labels_1_.init_access_desc(&this->access_desc_);
-    st.preds_2_.init_access_desc(&this->access_desc_);
-    st.labels_2_.init_access_desc(&this->access_desc_);
-    st.identical_pred_starts_.init_access_desc(&this->access_desc_);
-    st.identical_pred_lengths_.init_access_desc(&this->access_desc_);
   }
 
   if (num_classes_ > 1) {
@@ -589,7 +571,7 @@ void AUCStorage::alloc_main(size_t num_local_samples, size_t num_bins, size_t nu
   }
 
   for (size_t stream_id = 0; stream_id < num_streams; stream_id++) {
-    realloc_redistributed(num_local_samples, stream, stream_id);
+    realloc_redistributed(num_local_samples, 0, stream_id);
   }
 }
 
@@ -606,8 +588,8 @@ void AUCStorage::realloc_redistributed(size_t num_redistributed_samples, cudaStr
     st.preds_2_.realloc(num_elements, stream);
     st.labels_2_.realloc(num_elements, stream);
 
-    st.identical_pred_starts_.realloc(num_elements, stream);
-    st.identical_pred_lengths_.realloc(num_elements, stream);
+    st.identical_pred_starts_.realloc(num_elements);
+    st.identical_pred_lengths_.realloc(num_elements);
   }
 }
 
@@ -669,39 +651,30 @@ AUC<T>::AUC(int batch_size_per_gpu, int n_batches, int label_dim,
 
   streams_.resize(num_local_gpus_);
   const size_t num_streams = std::min(4lu, num_classes_);
-  auto& all_device_list = resource_manager_->get_local_gpu_device_id_list();
 
   size_t max_num_local_samples = (batch_size_per_gpu_ * n_batches_);
+
   for (int i = 0; i < num_local_gpus_; i++) {
     int device_id = resource_manager_->get_local_gpu(i)->get_device_id();
     CudaDeviceContext context(device_id);
 
     streams_[i].resize(num_streams);
     for (auto& stream : streams_[i]) {
-      HCTR_LIB_THROW(cudaStreamCreate(&stream));
-    }
-
-    std::vector<int> peers;
-    for (int j = 0; j < (int)all_device_list.size(); j++) {
-      if (i == j or resource_manager->p2p_enabled(i, j)) {
-        peers.push_back(all_device_list[j]);
-      }
+      cudaStreamCreate(&stream);
     }
 
     auto& st = storage_[i];
-    auto stream = resource_manager_->get_local_gpu(i)->get_stream();
     st.alloc_main(max_num_local_samples, num_bins_, num_partitions_, num_global_gpus_, num_classes_,
-                  num_streams, peers, stream);
+                  num_streams);
     for (size_t stream_id = 0; stream_id < num_streams; stream_id++) {
       st.realloc_workspace(num_partitions_ * sizeof(CountType), stream_id);
     }
+    st.realloc_local_reduce_storage(batch_size_per_gpu * num_classes_);
 
     if (num_classes_ > 1) {
-      st.realloc_local_reduce_storage(batch_size_per_gpu * num_classes_);
-
       auto local_gpu = resource_manager_->get_local_gpu(i);
       init_classes(st.d_lr_class_ids(), batch_size_per_gpu, num_classes_, local_gpu->get_sm_count(),
-                   stream);
+                   streams_[i][0]);
     }
   }
 
@@ -812,7 +785,6 @@ void AUC<T>::warm_up(size_t num_local_samples) {
 
     mock_kernel<<<grid, block, 0, stream>>>(st.fst(0).d_preds(), num_local_samples);
     initialize_array<<<grid, block, 0, stream>>>(st.fst(0).d_labels(), num_local_samples, 0.0f);
-
     if (num_classes_ > 1) {
       for (size_t class_id = 0; class_id < num_classes_; class_id++) {
         mock_kernel<<<grid, block, 0, stream>>>(st.d_class_preds(class_id), num_local_samples);
@@ -854,7 +826,7 @@ float AUC<T>::finalize_metric_per_gpu(int local_id) {
     result = finalize_class_metric(st.fst(0).d_preds(), st.fst(0).d_labels(), local_id,
                                    num_local_samples);
   } else {
-    if (streams_[local_id].size() == 1) {
+    if (streams_.size() == 1) {
       for (size_t class_id = 0; class_id < num_classes_; class_id++) {
         result += finalize_class_metric(st.d_class_preds(class_id), st.d_class_labels(class_id),
                                         local_id, num_local_samples);
@@ -944,7 +916,6 @@ void AUC<T>::run_finalize_step(float* d_preds, float* d_labels, int local_id,
     // 2. Allreduce histograms
     metric_comm::allreduce(fst.d_local_bins(), fst.d_global_bins(), num_bins_, gpu_resource,
                            stream);
-    HCTR_LIB_THROW(cudaStreamSynchronize(stream));
 
     // 3. Find num_global_gpus_-1 pivot points
     CUB_allocate_and_launch(st, stream_id, [&](void* workspace, size_t& size) {
@@ -1161,7 +1132,7 @@ void CUB_allocate_and_launch(NDCGStorage& st, CUB_Func func) {
 }
 
 void NDCGStorage::alloc_main(size_t num_local_samples, size_t num_bins, size_t num_partitions,
-                             size_t num_global_gpus, const std::vector<int>& peers) {
+                             size_t num_global_gpus) {
   num_allocated_redistributed_ = 0;
   allocated_temp_storage_ = 0;
 
@@ -1185,13 +1156,6 @@ void NDCGStorage::alloc_main(size_t num_local_samples, size_t num_bins, size_t n
   buf_managed->reserve({1}, &ideal_dcg_);
 
   buf_managed->allocate();
-
-  gen_access_desc(access_desc_, peers);
-  preds_1_.init_access_desc(&access_desc_);
-  labels_1_.init_access_desc(&access_desc_);
-  preds_2_.init_access_desc(&access_desc_);
-  labels_2_.init_access_desc(&access_desc_);
-  scaled_labels_.init_access_desc(&access_desc_);
 
   realloc_redistributed(num_local_samples, 0);
 }
@@ -1245,21 +1209,13 @@ NDCG<T>::NDCG(int batch_size_per_gpu, int n_batches,
       storage_(num_local_gpus_),
       offsets_(num_local_gpus_, 0) {
   size_t max_num_local_samples = (batch_size_per_gpu_ * n_batches_);
-  auto& all_device_list = resource_manager_->get_local_gpu_device_id_list();
 
   for (int i = 0; i < num_local_gpus_; i++) {
     int device_id = resource_manager_->get_local_gpu(i)->get_device_id();
     CudaDeviceContext context(device_id);
 
-    std::vector<int> peers;
-    for (int j = 0; j < (int)all_device_list.size(); j++) {
-      if (i == j or resource_manager->p2p_enabled(i, j)) {
-        peers.push_back(all_device_list[j]);
-      }
-    }
-
     auto& st = storage_[i];
-    st.alloc_main(max_num_local_samples, num_bins_, num_partitions_, num_global_gpus_, peers);
+    st.alloc_main(max_num_local_samples, num_bins_, num_partitions_, num_global_gpus_);
   }
 
   warm_up(max_num_local_samples);
@@ -1628,10 +1584,8 @@ void HitRate<T>::local_reduce(int local_gpu_id, RawMetricMap raw_metrics) {
   dim3 grid(160, 1, 1);
   dim3 block(1024, 1, 1);
 
-  HCTR_LIB_THROW(
-      cudaMemsetAsync(checked_count_[local_gpu_id], 0, sizeof(int), local_gpu->get_stream()));
-  HCTR_LIB_THROW(
-      cudaMemsetAsync(hit_count_[local_gpu_id], 0, sizeof(int), local_gpu->get_stream()));
+  cudaMemsetAsync(checked_count_[local_gpu_id], 0, sizeof(int), local_gpu->get_stream());
+  cudaMemsetAsync(hit_count_[local_gpu_id], 0, sizeof(int), local_gpu->get_stream());
 
   collect_hits<T><<<grid, block, 0, local_gpu->get_stream()>>>(
       pred_tensor.get_ptr(), label_tensor.get_ptr(), num_valid_samples,
@@ -1826,19 +1780,18 @@ float SMAPE<T>::finalize_metric() {
 template <typename T, ReallocType_t U>
 ReallocBuffer<T, U>::ReallocBuffer() : num_elements_(0), ptr_(nullptr) {
   CUdevice device;
-  HCTR_LIB_THROW(cudaGetDevice(&device));
+  cudaGetDevice(&device);
 
   prop_.type = CU_MEM_ALLOCATION_TYPE_PINNED;
   prop_.location.type = CU_MEM_LOCATION_TYPE_DEVICE;
   prop_.location.id = device;
-  HCTR_LIB_THROW(
-      cuMemGetAllocationGranularity(&chunk_size_, &prop_, CU_MEM_ALLOC_GRANULARITY_MINIMUM));
-  access_desc_ = nullptr;
-}
 
-template <typename T, ReallocType_t U>
-void ReallocBuffer<T, U>::init_access_desc(const std::vector<CUmemAccessDesc>* access_desc) {
-  access_desc_ = access_desc;
+  accessDesc_.flags = CU_MEM_ACCESS_FLAGS_PROT_READWRITE;
+  accessDesc_.location.type = CU_MEM_LOCATION_TYPE_DEVICE;
+  accessDesc_.location.id = device;
+
+  auto st = cuMemGetAllocationGranularity(&chunk_size_, &prop_, CU_MEM_ALLOC_GRANULARITY_MINIMUM);
+  HCTR_CHECK(st == CUDA_SUCCESS);
 }
 
 template <typename T, ReallocType_t U>
@@ -1846,9 +1799,7 @@ ReallocBuffer<T, U>::~ReallocBuffer() {
   if (num_elements_ > 0 and U != ReallocType_t::MMAP) {
     HCTR_LIB_THROW(cudaFree(ptr_));
   }
-  if (U == ReallocType_t::MMAP) {
-    release_mmap_memory();
-  }
+  release_mmap_memory();
 }
 
 template <typename T, ReallocType_t U>
@@ -1876,8 +1827,10 @@ void ReallocBuffer<T, U>::realloc(size_t new_num_elements, cudaStream_t stream) 
 
     if (new_size > old_size) {
       CUdevice device;
-      HCTR_LIB_THROW(cudaGetDevice(&device));
+      cudaGetDevice(&device);
       prop_.location.id = device;
+      accessDesc_.location.id = device;
+
       realloc_ptr_mmap((void**)&ptr_, old_size, new_size);
     }
   }
@@ -1890,7 +1843,12 @@ void ReallocBuffer<T, U>::realloc_ptr_mmap(void** ptr, size_t old_size, size_t n
   // Implementation based on
   // https://developer.nvidia.com/blog/introducing-low-level-gpu-virtual-memory-management/
 
-  HCTR_CHECK(access_desc_->size());
+  // Physical memory handle
+  CUmemGenericAllocationHandle allocHandle;
+
+  CUdeviceptr new_ptr = 0;
+  CUresult status;
+
   size_t reserve_size = new_size - old_size;
   MMAP_DEBUG("Old %lu New %lu Reserve %lu bytes\n", old_size, new_size, reserve_size);
 
@@ -1899,17 +1857,16 @@ void ReallocBuffer<T, U>::realloc_ptr_mmap(void** ptr, size_t old_size, size_t n
   // Most of the complexity is in first step when old_size != 0
   // Second step is common across different scenarios in first step
 
-  // Physical memory handle
-  CUmemGenericAllocationHandle allocHandle;
-  CUdeviceptr new_ptr = 0;
   if (old_size == 0) {
     // Reserve a virtual address range
-    HCTR_LIB_THROW(cuMemAddressReserve(&new_ptr, reserve_size, 0, 0, 0));
+    status = cuMemAddressReserve(&new_ptr, reserve_size, 0, 0, 0);
+    HCTR_CHECK(status == CUDA_SUCCESS);
     vm_ranges_.push_back({new_ptr, reserve_size});
+
     *ptr = (void*)new_ptr;
   } else {
     // Try to reserve virtual memory at the end of old ptr
-    const CUresult status =
+    status =
         cuMemAddressReserve(&new_ptr, reserve_size, 0, (CUdeviceptr)((uint64_t)*ptr + old_size), 0);
 
     if ((status != CUDA_SUCCESS) || ((void*)new_ptr != (void*)((uint64_t)*ptr + old_size))) {
@@ -1918,11 +1875,13 @@ void ReallocBuffer<T, U>::realloc_ptr_mmap(void** ptr, size_t old_size, size_t n
 
       // Don’t leak new_ptr if you got one
       if (new_ptr) {
-        HCTR_LIB_THROW(cuMemAddressFree(new_ptr, reserve_size));
+        status = cuMemAddressFree(new_ptr, reserve_size);
+        HCTR_CHECK(status == CUDA_SUCCESS);
       }
 
       // Now reserve the new, bigger VA range
-      HCTR_LIB_THROW(cuMemAddressReserve(&new_ptr, new_size, 0, 0, 0));
+      status = cuMemAddressReserve(&new_ptr, new_size, 0, 0, 0);
+      HCTR_CHECK(status == CUDA_SUCCESS);
 
       // Map first part of new VA range to existing physical memory chunks, enabling their access
       std::vector<std::pair<CUdeviceptr, size_t>> new_mmap_ranges;
@@ -1930,18 +1889,20 @@ void ReallocBuffer<T, U>::realloc_ptr_mmap(void** ptr, size_t old_size, size_t n
       MMAP_DEBUG("Remapping VM -> PM\n");
       for (auto handle : pm_handles_) {
         auto size = handle.second;
-        HCTR_LIB_THROW(cuMemMap(tmp, size, 0, handle.first, 0));
+        status = cuMemMap(tmp, size, 0, handle.first, 0);
         new_mmap_ranges.push_back({tmp, size});
+        HCTR_CHECK(status == CUDA_SUCCESS);
         tmp += size;
       }
 
       // Set access permissions
-      HCTR_LIB_THROW(
-          cuMemSetAccess(new_ptr, old_size, &(access_desc_->at(0)), access_desc_->size()));
+      status = cuMemSetAccess(new_ptr, old_size, &accessDesc_, 1);
+      HCTR_CHECK(status == CUDA_SUCCESS);
 
       // Unmap old mappings
       for (auto range : mmap_ranges_) {
-        HCTR_LIB_THROW(cuMemUnmap(range.first, range.second));
+        status = cuMemUnmap(range.first, range.second);
+        HCTR_CHECK(status == CUDA_SUCCESS);
       }
       // Clear old mappings, save new mappings
       mmap_ranges_ = new_mmap_ranges;
@@ -1949,7 +1910,8 @@ void ReallocBuffer<T, U>::realloc_ptr_mmap(void** ptr, size_t old_size, size_t n
       // Free up previous VA allocations
       MMAP_DEBUG("Freeing %lu old VM allocations\n", vm_ranges_.size());
       for (auto range : vm_ranges_) {
-        HCTR_LIB_THROW(cuMemAddressFree(range.first, range.second));
+        status = cuMemAddressFree(range.first, range.second);
+        HCTR_CHECK(status == CUDA_SUCCESS);
       }
 
       // Save new VA allocation information
@@ -1964,16 +1926,18 @@ void ReallocBuffer<T, U>::realloc_ptr_mmap(void** ptr, size_t old_size, size_t n
   }
 
   // Finally, create new physical memory chunk
-  HCTR_LIB_THROW(cuMemCreate(&allocHandle, reserve_size, &prop_, 0));
+  status = cuMemCreate(&allocHandle, reserve_size, &prop_, 0);
+  HCTR_CHECK(status == CUDA_SUCCESS);
   pm_handles_.push_back({allocHandle, reserve_size});
 
   // Map new_ptr to physical memory
-  HCTR_LIB_THROW(cuMemMap(new_ptr, reserve_size, 0, allocHandle, 0));
+  status = cuMemMap(new_ptr, reserve_size, 0, allocHandle, 0);
+  HCTR_CHECK(status == CUDA_SUCCESS);
   mmap_ranges_.push_back({new_ptr, reserve_size});
 
   // Set access permissions
-  HCTR_LIB_THROW(
-      cuMemSetAccess(new_ptr, reserve_size, &(access_desc_->at(0)), access_desc_->size()));
+  status = cuMemSetAccess(new_ptr, reserve_size, &accessDesc_, 1);
+  HCTR_CHECK(status == CUDA_SUCCESS);
 }
 
 template <typename T, ReallocType_t U>
@@ -1984,19 +1948,22 @@ void ReallocBuffer<T, U>::release_mmap_memory() {
   CUresult status;
   // Unmap virtual memory
   for (auto range : mmap_ranges_) {
-    HCTR_LIB_THROW(cuMemUnmap(range.first, range.second));
+    status = cuMemUnmap(range.first, range.second);
+    HCTR_CHECK(status == CUDA_SUCCESS);
   }
   mmap_ranges_.clear();
 
   // Release virtual memory
   for (auto range : vm_ranges_) {
-    HCTR_LIB_THROW(cuMemAddressFree(range.first, range.second));
+    status = cuMemAddressFree(range.first, range.second);
+    HCTR_CHECK(status == CUDA_SUCCESS);
   }
   vm_ranges_.clear();
 
   // Release physical memory
   for (auto handle : pm_handles_) {
-    HCTR_LIB_THROW(cuMemRelease(handle.first));
+    status = cuMemRelease(handle.first);
+    HCTR_CHECK(status == CUDA_SUCCESS);
   }
   pm_handles_.clear();
 }

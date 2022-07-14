@@ -39,8 +39,8 @@ void create_embedding<TypeKey, TypeFP>::operator()(
     bool grouped_all_reduce) {
 #ifdef ENABLE_MPI
   int num_procs = 1, pid = 0;
-  HCTR_MPI_THROW(MPI_Comm_rank(MPI_COMM_WORLD, &pid));
-  HCTR_MPI_THROW(MPI_Comm_size(MPI_COMM_WORLD, &num_procs));
+  MPI_Comm_rank(MPI_COMM_WORLD, &pid);
+  MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
 #endif
 
   auto j_optimizer = get_json(config, "optimizer");

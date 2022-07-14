@@ -45,18 +45,18 @@ ENV PATH=.:${JAVA_HOME}/bin:$PATH
 
 #install zookeeper
 RUN cd /usr/local && \
-    wget --no-check-certificate https://dlcdn.apache.org/zookeeper/zookeeper-3.8.0/apache-zookeeper-3.8.0-bin.tar.gz && \
-    tar -zxvf apache-zookeeper-3.8.0-bin.tar.gz && \
-    rm apache-zookeeper-3.8.0-bin.tar.gz && \
-    mv apache-zookeeper-3.8.0-bin zookeeper && \
+    wget --no-check-certificate https://dlcdn.apache.org/zookeeper/zookeeper-3.7.0/apache-zookeeper-3.7.0-bin.tar.gz && \
+    tar -zxvf apache-zookeeper-3.7.0-bin.tar.gz && \
+    rm apache-zookeeper-3.7.0-bin.tar.gz && \
+    mv apache-zookeeper-3.7.0-bin zookeeper && \
     cp zookeeper/conf/zoo_sample.cfg zookeeper/conf/zoo.cfg
 
 #install kafka
 RUN cd /usr/local && \
-    wget --no-check-certificate https://dlcdn.apache.org/kafka/3.2.0/kafka_2.13-3.2.0.tgz && \
-    tar -zxvf kafka_2.13-3.2.0.tgz && \
-    rm kafka_2.13-3.2.0.tgz && \
-    mv kafka_2.13-3.2.0 kafka
+    wget --no-check-certificate https://dlcdn.apache.org/kafka/3.0.0/kafka_2.13-3.0.0.tgz && \
+    tar -zxvf kafka_2.13-3.0.0.tgz && \
+    rm kafka_2.13-3.0.0.tgz && \
+    mv kafka_2.13-3.0.0 kafka
 
 #install hadoop
 RUN cd /usr/local && \

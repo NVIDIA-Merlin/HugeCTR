@@ -7,6 +7,7 @@ import tensorflow as tf
 
 
 class BinaryDataset:
+
     def __init__(
         self,
         label_bin,
@@ -44,21 +45,15 @@ class BinaryDataset:
 
         if not self._drop_last:
             if (self._samples_in_all_ranks % (batch_size * global_size)) < global_size:
-                print(
-                    "The number of samples in last batch is less than global_size, so the drop_last=False will be ignored."
-                )
+                print("The number of samples in last batch is less than global_size, so the drop_last=False will be ignored.")
                 self._drop_last = True
             else:
                 # assign the samples in the last batch to different local ranks
-                samples_in_last_batch = [
-                    (self._samples_in_all_ranks % (batch_size * global_size)) // global_size
-                ] * global_size
+                samples_in_last_batch = [(self._samples_in_all_ranks % (batch_size * global_size)) // global_size] * global_size
                 for i in range(global_size):
                     if i < (self._samples_in_all_ranks % (batch_size * global_size)) % global_size:
                         samples_in_last_batch[i] += 1
-                assert sum(samples_in_last_batch) == (
-                    self._samples_in_all_ranks % (batch_size * global_size)
-                )
+                assert(sum(samples_in_last_batch) == (self._samples_in_all_ranks % (batch_size * global_size)))
                 self._samples_in_last_batch = samples_in_last_batch[global_rank]
 
                 # the offset of last batch
@@ -70,9 +65,7 @@ class BinaryDataset:
 
                 # correct the values when drop_last=Fasle
                 self._num_entries += 1
-                self._num_samples = (
-                    self._num_entries - 1
-                ) * batch_size + self._samples_in_last_batch
+                self._num_samples = (self._num_entries - 1) * batch_size + self._samples_in_last_batch
 
         self._prefetch = min(prefetch, self._num_entries)
         self._prefetch_queue = queue.Queue()
@@ -92,20 +85,15 @@ class BinaryDataset:
         # num_samples represents the actual number of samples in the dataset
         num_samples = os.path.getsize(label_bin) // 4
         if num_samples <= 0:
-            raise RuntimeError("There must be at least one sample in %s" % label_bin)
+            raise RuntimeError("There must be at least one sample in %s"%label_bin)
 
         # check file size
         for file, bytes_per_sample in [[label_bin, 4], [dense_bin, 52], [category_bin, 104]]:
             file_size = os.path.getsize(file)
             if file_size % bytes_per_sample != 0:
-                raise RuntimeError(
-                    "The file size of %s should be an integer multiple of %d."
-                    % (file, bytes_per_sample)
-                )
+                raise RuntimeError("The file size of %s should be an integer multiple of %d."%(file, bytes_per_sample))
             if (file_size // bytes_per_sample) != num_samples:
-                raise RuntimeError(
-                    "The number of samples in %s is not equeal to %s" % (dense_bin, label_bin)
-                )
+                raise RuntimeError("The number of samples in %s is not equeal to %s"%(dense_bin, label_bin))
 
     def __del__(self):
         for file in [self._label_file, self._dense_file, self._category_file]:
@@ -134,15 +122,10 @@ class BinaryDataset:
     def _get(self, idx):
         # calculate the offset & number of the samples to be read
         if not self._drop_last and idx == self._num_entries - 1:
-            sample_offset = (
-                idx * (self._batch_size * self._global_size)
-                + self._last_batch_offset[self._global_rank]
-            )
+            sample_offset = idx * (self._batch_size * self._global_size) + self._last_batch_offset[self._global_rank]
             batch = self._samples_in_last_batch
         else:
-            sample_offset = idx * (self._batch_size * self._global_size) + (
-                self._batch_size * self._global_rank
-            )
+            sample_offset = idx * (self._batch_size * self._global_size) + (self._batch_size * self._global_rank)
             batch = self._batch_size
 
         # read the data from binary file
@@ -153,15 +136,10 @@ class BinaryDataset:
         dense = np.frombuffer(dense_raw_data, dtype=self._dense_raw_type).reshape([batch, 13])
 
         category_raw_data = os.pread(self._category_file, 104 * batch, 104 * sample_offset)
-        category = np.frombuffer(category_raw_data, dtype=self._category_raw_type).reshape(
-            [batch, 26]
-        )
+        category = np.frombuffer(category_raw_data, dtype=self._category_raw_type).reshape([batch, 26])
 
         # convert numpy data to tensorflow data
-        if (
-            self._label_raw_type == self._dense_raw_type
-            and self._label_raw_type == self._category_raw_type
-        ):
+        if self._label_raw_type == self._dense_raw_type and self._label_raw_type == self._category_raw_type:
             data = np.concatenate([label, dense, category], axis=1)
             data = tf.convert_to_tensor(data)
             label = tf.cast(data[:, 0:1], dtype=tf.float32)
@@ -180,6 +158,7 @@ class BinaryDataset:
 
 
 class SplitedBinaryDataset:
+
     def __init__(
         self,
         label_bin,
@@ -223,21 +202,15 @@ class SplitedBinaryDataset:
 
         if not self._drop_last:
             if (self._samples_in_all_ranks % (batch_size * global_size)) < global_size:
-                print(
-                    "The number of samples in last batch is less than global_size, so the drop_last=False will be ignored."
-                )
+                print("The number of samples in last batch is less than global_size, so the drop_last=False will be ignored.")
                 self._drop_last = True
             else:
                 # assign the samples in the last batch to different local ranks
-                samples_in_last_batch = [
-                    (self._samples_in_all_ranks % (batch_size * global_size)) // global_size
-                ] * global_size
+                samples_in_last_batch = [(self._samples_in_all_ranks % (batch_size * global_size)) // global_size] * global_size
                 for i in range(global_size):
                     if i < (self._samples_in_all_ranks % (batch_size * global_size)) % global_size:
                         samples_in_last_batch[i] += 1
-                assert sum(samples_in_last_batch) == (
-                    self._samples_in_all_ranks % (batch_size * global_size)
-                )
+                assert(sum(samples_in_last_batch) == (self._samples_in_all_ranks % (batch_size * global_size)))
                 self._samples_in_last_batch = samples_in_last_batch[global_rank]
 
                 # the offset of last batch
@@ -249,9 +222,7 @@ class SplitedBinaryDataset:
 
                 # correct the values when drop_last=Fasle
                 self._num_entries += 1
-                self._num_samples = (
-                    self._num_entries - 1
-                ) * batch_size + self._samples_in_last_batch
+                self._num_samples = (self._num_entries - 1) * batch_size + self._samples_in_last_batch
 
         self._prefetch = min(prefetch, self._num_entries)
         self._prefetch_queue = queue.Queue()
@@ -261,7 +232,7 @@ class SplitedBinaryDataset:
         self._dense_file = os.open(dense_bin, os.O_RDONLY)
 
         self._vocab_sizes = vocab_sizes
-        self._category_file = [os.open(file, os.O_RDONLY) for file in category_bin]
+        self._category_file = [os.open(file, os.O_RDONLY) for file in category_bin]        
         self._category_type = [self._get_categorical_feature_type(size) for size in vocab_sizes]
         self._category_bytes = [np.dtype(dtype).itemsize for dtype in self._category_type]
 
@@ -270,13 +241,13 @@ class SplitedBinaryDataset:
         for numpy_type in types:
             if size < np.iinfo(numpy_type).max:
                 return numpy_type
-        raise RuntimeError(f"Categorical feature of size {size} is too big for defined types")
+        raise RuntimeError(f'Categorical feature of size {size} is too big for defined types')
 
     def _check_file(self, label_bin, dense_bin, category_bin, vocab_sizes):
         # num_samples represents the actual number of samples in the dataset
         num_samples = os.path.getsize(label_bin)
         if num_samples <= 0:
-            raise RuntimeError("There must be at least one sample in %s" % label_bin)
+            raise RuntimeError("There must be at least one sample in %s"%label_bin)
 
         # check file size
         all_files = [(dense_bin, 13 * 2)]
@@ -288,14 +259,9 @@ class SplitedBinaryDataset:
         for file, bytes_per_sample in all_files:
             file_size = os.path.getsize(file)
             if file_size % bytes_per_sample != 0:
-                raise RuntimeError(
-                    "The file size of %s should be an integer multiple of %d."
-                    % (file, bytes_per_sample)
-                )
+                raise RuntimeError("The file size of %s should be an integer multiple of %d."%(file, bytes_per_sample))
             if (file_size // bytes_per_sample) != num_samples:
-                raise RuntimeError(
-                    "The number of samples in %s is not equeal to %s" % (dense_bin, label_bin)
-                )
+                raise RuntimeError("The number of samples in %s is not equeal to %s"%(dense_bin, label_bin))
 
     def __del__(self):
         for file in [self._label_file] + [self._dense_file] + self._category_file:
@@ -324,15 +290,10 @@ class SplitedBinaryDataset:
     def _get(self, idx):
         # calculate the offset & number of the samples to be read
         if not self._drop_last and idx == self._num_entries - 1:
-            sample_offset = (
-                idx * (self._batch_size * self._global_size)
-                + self._last_batch_offset[self._global_rank]
-            )
+            sample_offset = idx * (self._batch_size * self._global_size) + self._last_batch_offset[self._global_rank]
             batch = self._samples_in_last_batch
         else:
-            sample_offset = idx * (self._batch_size * self._global_size) + (
-                self._batch_size * self._global_rank
-            )
+            sample_offset = idx * (self._batch_size * self._global_size) + (self._batch_size * self._global_rank)
             batch = self._batch_size
 
         # read the data from binary file
@@ -344,16 +305,8 @@ class SplitedBinaryDataset:
 
         category = []
         for i in range(26):
-            category_raw_data = os.pread(
-                self._category_file[i],
-                self._category_bytes[i] * batch,
-                self._category_bytes[i] * sample_offset,
-            )
-            category.append(
-                np.frombuffer(category_raw_data, dtype=self._category_type[i])
-                .reshape([batch, 1])
-                .astype(np.int32)
-            )
+            category_raw_data = os.pread(self._category_file[i], self._category_bytes[i] * batch, self._category_bytes[i] * sample_offset)
+            category.append(np.frombuffer(category_raw_data, dtype=self._category_type[i]).reshape([batch, 1]).astype(np.int32))
         category = np.concatenate(category, axis=1)
 
         # convert numpy data to tensorflow data
@@ -365,6 +318,7 @@ class SplitedBinaryDataset:
 
 
 class SyntheticDataset:
+
     def __init__(self, batch_size, num_iterations, vocab_sizes, prefetch=1):
         self._batch_size = batch_size
         self._num_entries = num_iterations
@@ -395,7 +349,7 @@ class SyntheticDataset:
 
     def _get(self, idx):
         label = np.random.randint(0, 2, self._batch_size).reshape([-1, 1])
-        dense = np.random.randint(0, 1024, self._batch_size * 13).reshape([-1, 13])
+        dense = np.random.randint(0, 1024, self._batch_size*13).reshape([-1, 13])
         category = []
         for size in self._vocab_sizes:
             category.append(np.random.randint(0, size, self._batch_size).reshape([-1, 1]))
@@ -410,3 +364,4 @@ class SyntheticDataset:
         dense = tf.math.log(dense + 3.0)
 
         return (dense, category), label
+

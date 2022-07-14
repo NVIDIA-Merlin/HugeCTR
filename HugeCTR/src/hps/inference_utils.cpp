@@ -217,15 +217,7 @@ InferenceParams::InferenceParams(
   }
 }
 
-parameter_server_config::parameter_server_config(const char* hps_json_config_file) {
-  init(std::string(hps_json_config_file));
-}
-
 parameter_server_config::parameter_server_config(const std::string& hps_json_config_file) {
-  init(hps_json_config_file);
-}
-
-void parameter_server_config::init(const std::string& hps_json_config_file) {
   // Initialize for each model
   // Open model config file and input model json config
   nlohmann::json hps_config(read_json_file(hps_json_config_file));

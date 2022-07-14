@@ -21,10 +21,9 @@ This script do cross-checking with TF using multiple dense embedding layers.
 import argparse
 
 import sys, os
-
-sys.path.append(
-    os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../../"))
-)  # where to find SOK
+sys.path.append(os.path.abspath(os.path.join(
+                    os.path.dirname(os.path.abspath(__file__)),
+                    "../../../"))) # where to find SOK
 import sparse_operation_kit as sok
 import tensorflow as tf
 
@@ -33,52 +32,41 @@ import json
 import pickle
 import utils
 
-sys.path.append(
-    os.path.abspath(
-        os.path.join(
-            os.path.dirname(os.path.abspath(__file__)), "../../../documents/tutorials/DenseDemo"
-        )
-    )
-)
+sys.path.append(os.path.abspath(os.path.join(
+                    os.path.dirname(os.path.abspath(__file__)),
+                    "../../../documents/tutorials/DenseDemo")))
 from models import SOKDenseModel, TFDenseModel
 
-sys.path.append(
-    os.path.abspath(
-        os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../../documents/tutorials")
-    )
-)
+sys.path.append(os.path.abspath(os.path.join(
+                    os.path.dirname(os.path.abspath(__file__)),
+                    "../../../documents/tutorials")))
 import utility
-
 
 def test_sok_multi_dense_emb(args):
     comm_options = tf.distribute.experimental.CommunicationOptions(
         bytes_per_pack=0,
         timeout_seconds=None,
-        implementation=tf.distribute.experimental.CommunicationImplementation.NCCL,
+        implementation=tf.distribute.experimental.CommunicationImplementation.NCCL
     )
 
     if args.worker_num == 1:
         strategy = tf.distribute.MirroredStrategy()
     else:
         port = 12345
-        os.environ["TF_CONFIG"] = json.dumps(
-            {
-                "cluster": {
-                    "worker": ["localhost" + ":" + str(port + i) for i in range(args.worker_num)]
-                },
-                "task": {"type": "worker", "index": args.task_id},
-            }
-        )
-        strategy = tf.distribute.MultiWorkerMirroredStrategy(communication_options=comm_options)
+        os.environ["TF_CONFIG"] = json.dumps({
+            "cluster": {"worker": ["localhost" + ":" + str(port + i) 
+                                    for i in range(args.worker_num)]},
+            "task": {"type": "worker", "index": args.task_id}
+        })
+        strategy = tf.distribute.MultiWorkerMirroredStrategy(
+                    communication_options=comm_options)
 
     replica_batch_size = args.global_batch_size // (args.worker_num * 1)
 
-    dataset = utility.TFDataset(
-        filename=args.file_prefix + str(args.task_id) + ".file",
-        batchsize=replica_batch_size,
-        as_sparse_tensor=False,
-        repeat=1,
-    )
+    dataset = utility.TFDataset(filename=args.file_prefix + str(args.task_id) + ".file",
+                                batchsize=replica_batch_size,
+                                as_sparse_tensor=False,
+                                repeat=1)
     dataset = dataset.prefetch(tf.data.AUTOTUNE)
 
     dynamic_input = True if args.dynamic_input == 1 else False
@@ -86,14 +74,12 @@ def test_sok_multi_dense_emb(args):
     with strategy.scope():
         sok.Init(global_batch_size=args.global_batch_size)
 
-        model = SOKDenseModel(
-            max_vocabulary_size_per_gpu=args.max_vocabulary_size_per_gpu,
-            embedding_vec_size_list=args.embedding_vec_size_list,
-            slot_num_list=args.slot_num_list,
-            nnz_per_slot_list=[args.nnz_per_slot for _ in range(len(args.slot_num_list))],
-            num_dense_layers=args.num_dense_layers,
-            dynamic_input=dynamic_input,
-        )
+        model = SOKDenseModel(max_vocabulary_size_per_gpu=args.max_vocabulary_size_per_gpu,
+                              embedding_vec_size_list=args.embedding_vec_size_list,
+                              slot_num_list=args.slot_num_list,
+                              nnz_per_slot_list=[args.nnz_per_slot for _ in range(len(args.slot_num_list))],
+                              num_dense_layers=args.num_dense_layers,
+                              dynamic_input=dynamic_input)
 
         emb_opt = utils.get_embedding_optimizer(args.optimizer)(learning_rate=0.1)
         dense_opt = utils.get_dense_optimizer(args.optimizer)(learning_rate=0.1)
@@ -103,17 +89,12 @@ def test_sok_multi_dense_emb(args):
     # set initial value to embedding variables.
     sok_saver = sok.Saver()
     for i, layer in enumerate(model.embedding_layers):
-        init_tensors = utils.get_ones_tensor(
-            max_vocab_size_per_gpu=args.max_vocabulary_size_per_gpu,
-            embedding_vec_size=args.embedding_vec_size_list[i],
-            num=args.worker_num,
-        )
+        init_tensors = utils.get_ones_tensor(max_vocab_size_per_gpu=args.max_vocabulary_size_per_gpu,
+                                             embedding_vec_size=args.embedding_vec_size_list[i],
+                                             num=args.worker_num)
         sok_saver.load_embedding_values(layer.embedding_variable, init_tensors)
 
-    loss_fn = tf.keras.losses.BinaryCrossentropy(
-        from_logits=True, reduction=tf.keras.losses.Reduction.NONE
-    )
-
+    loss_fn = tf.keras.losses.BinaryCrossentropy(from_logits=True, reduction=tf.keras.losses.Reduction.NONE)
     def _replica_loss(labels, logits):
         loss = loss_fn(labels, logits)
         _dtype = loss.dtype
@@ -130,38 +111,33 @@ def test_sok_multi_dense_emb(args):
                 _loss = emb_opt.get_scaled_loss(loss)
             else:
                 _loss = loss
-        emb_variable, other_variable = sok.split_embedding_variable_from_others(
-            model.trainable_variables
-        )
+        emb_variable, other_variable = sok.split_embedding_variable_from_others(model.trainable_variables)
         grads, emb_grads = tape.gradient(_loss, [other_variable, emb_variable])
         if args.mixed_precision:
             grads = emb_opt.get_unscaled_gradients(grads)
             emb_grads = emb_opt.get_unscaled_gradients(emb_grads)
-
+        
         if "plugin" not in args.optimizer:
             with sok.OptimizerScope(emb_variable):
-                emb_opt.apply_gradients(
-                    zip(emb_grads, emb_variable), experimental_aggregate_gradients=False
-                )
+                emb_opt.apply_gradients(zip(emb_grads, emb_variable),
+                                                    experimental_aggregate_gradients=False)
         else:
-            emb_opt.apply_gradients(
-                zip(emb_grads, emb_variable), experimental_aggregate_gradients=False
-            )
-
+            emb_opt.apply_gradients(zip(emb_grads, emb_variable),
+                                                experimental_aggregate_gradients=False)
+       
         with tf.control_dependencies(emb_grads):
             # mannually all-reduce dense gradients
             replica_context = tf.distribute.get_replica_context()
-            grads = replica_context.all_reduce("sum", grads, options=comm_options)
-            dense_opt.apply_gradients(
-                zip(grads, other_variable), experimental_aggregate_gradients=False
-            )
+            grads = replica_context.all_reduce("sum", grads, 
+                                                options=comm_options)
+            dense_opt.apply_gradients(zip(grads, other_variable),
+                                            experimental_aggregate_gradients=False)
 
-            # manually all-reduce loss, it is ok, because replica_loss has already been used to
+            # manually all-reduce loss, it is ok, because replica_loss has already been used to 
             # update local variables.
             with tf.control_dependencies(grads):
-                loss = replica_context.all_reduce(
-                    tf.distribute.ReduceOp.SUM, loss, options=comm_options
-                )
+                loss = replica_context.all_reduce(tf.distribute.ReduceOp.SUM, loss,
+                                                options=comm_options)
         return loss, all_vectors
 
     # save its results
@@ -180,9 +156,8 @@ def test_sok_multi_dense_emb(args):
 
 
 def test_tf_multi_dense_emb(args):
-    dataset_filenames = [
-        args.file_prefix + str(task_id) + ".file" for task_id in range(args.worker_num)
-    ]
+    dataset_filenames = [args.file_prefix + str(task_id) + ".file"
+                         for task_id in range(args.worker_num)]
 
     samples_total = [list() for _ in range(args.dataset_iter_num)]
     labels_total = [list() for _ in range(args.dataset_iter_num)]
@@ -195,22 +170,17 @@ def test_tf_multi_dense_emb(args):
     samples_total = np.concatenate(samples_total, axis=0)
     labels_total = np.concatenate(labels_total, axis=0)
 
-    dataset = utils.tf_dataset(
-        samples_total,
-        labels_total,
-        batchsize=args.global_batch_size,
-        to_sparse_tensor=False,
-        repeat=1,
-    )
+    dataset = utils.tf_dataset(samples_total, labels_total,
+                               batchsize=args.global_batch_size,
+                               to_sparse_tensor=False,
+                               repeat=1)
     dataset = dataset.prefetch(tf.data.AUTOTUNE)
 
-    model = TFDenseModel(
-        vocabulary_size=args.max_vocabulary_size_per_gpu * args.worker_num,
-        embedding_vec_size_list=args.embedding_vec_size_list,
-        slot_num_list=args.slot_num_list,
-        nnz_per_slot_list=[args.nnz_per_slot for _ in range(len(args.slot_num_list))],
-        num_dense_layers=args.num_dense_layers,
-    )
+    model = TFDenseModel(vocabulary_size=args.max_vocabulary_size_per_gpu * args.worker_num,
+                         embedding_vec_size_list=args.embedding_vec_size_list,
+                         slot_num_list=args.slot_num_list,
+                         nnz_per_slot_list=[args.nnz_per_slot for _ in range(len(args.slot_num_list))],
+                         num_dense_layers=args.num_dense_layers)
 
     optimizer = tf.keras.optimizers.Adam(learning_rate=0.1)
     if args.mixed_precision:
@@ -218,11 +188,9 @@ def test_tf_multi_dense_emb(args):
 
     # set initial value to embedding variables
     for i, param in enumerate(model.embedding_params):
-        init_tensors = utils.get_ones_tensor(
-            max_vocab_size_per_gpu=args.max_vocabulary_size_per_gpu * args.worker_num,
-            embedding_vec_size=args.embedding_vec_size_list[i],
-            num=1,
-        )
+        init_tensors = utils.get_ones_tensor(max_vocab_size_per_gpu=args.max_vocabulary_size_per_gpu * args.worker_num,
+                                            embedding_vec_size=args.embedding_vec_size_list[i],
+                                            num=1)
         param.assign(init_tensors[0])
 
     loss_fn = tf.keras.losses.BinaryCrossentropy(from_logits=True)
@@ -255,14 +223,12 @@ def test_tf_multi_dense_emb(args):
             tf_results.append(all_vectors)
     return tf_results
 
-
 def compare_sok_and_tf(args):
     sok_results = test_sok_multi_dense_emb(args)
     utils.save_to_file("./sok_results_" + str(args.task_id) + ".file", sok_results)
 
     # use these as a barrier
     from mpi4py import MPI
-
     MPI.COMM_WORLD.Barrier()
 
     # only process-0 to do the cross-checking.
@@ -274,12 +240,10 @@ def compare_sok_and_tf(args):
     all_sok_results_list = list()
     for i in range(args.worker_num):
         sok_results = utils.restore_from_file("./sok_results_" + str(i) + ".file")
-        sok_results = tf.concat(sok_results, axis=0)  # [iter-num, replica-bs, vectors]
+        sok_results = tf.concat(sok_results, axis=0) # [iter-num, replica-bs, vectors]
         all_sok_results_list.append(sok_results)
     all_sok_results_list = tf.concat(all_sok_results_list, axis=1)
-    all_sok_results_list = tf.split(
-        all_sok_results_list, num_or_size_splits=len(tf_results), axis=0
-    )
+    all_sok_results_list = tf.split(all_sok_results_list, num_or_size_splits=len(tf_results), axis=0)
     all_sok_results_list = [tf.squeeze(item) for item in all_sok_results_list]
 
     if len(all_sok_results_list) != len(tf_results):
@@ -292,71 +256,46 @@ def compare_sok_and_tf(args):
         atol = 1e-4
         rtol = 1e-4
     for i, sok_vector in enumerate(all_sok_results_list):
-        tf.debugging.assert_near(
-            tf.reshape(sok_vector, shape=[-1, tf.shape(sok_vector)[-1]]),
-            tf_results[i],
-            atol=atol,
-            rtol=rtol,
-            message=("the values is not consistent on Iteration: %d" % i),
-        )
+        tf.debugging.assert_near(tf.reshape(sok_vector, 
+                                            shape=[-1, tf.shape(sok_vector)[-1]]),
+                                tf_results[i],
+                                atol=atol,
+                                rtol=rtol,
+                                message=("the values is not consistent on Iteration: %d" %i))
 
-    print(
-        "\n[INFO]: For multiple dense embedding layer: with MPI + MultiWorkerMirroredStrategy, the embedding"
-        + " vectors obtained from SOK and TF are consistent for %d iterations."
-        " With mixed_precision = %s" % (len(sok_results), args.mixed_precision)
-    )
-
+    print("\n[INFO]: For multiple dense embedding layer: with MPI + MultiWorkerMirroredStrategy, the embedding"+\
+          " vectors obtained from SOK and TF are consistent for %d iterations." 
+          " With mixed_precision = %s"
+          %(len(sok_results), args.mixed_precision))
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="run DNN model with SparseOperationKit")
 
-    parser.add_argument(
-        "--file_prefix", type=str, help="the file_prefix for each GPU.", required=True
-    )
-    parser.add_argument("--global_batch_size", type=int, required=True)
-    parser.add_argument("--max_vocabulary_size_per_gpu", type=int, required=True)
-    parser.add_argument(
-        "--slot_num_list", type=int, nargs="+", required=True, help="the number of feature fields"
-    )
-    parser.add_argument(
-        "--nnz_per_slot", type=int, required=True, help="the number of keys in each slot"
-    )
-    parser.add_argument(
-        "--num_dense_layers",
-        type=int,
-        required=True,
-        help="the number of fully connected layers in this DNN model",
-    )
-    parser.add_argument(
-        "--embedding_vec_size_list",
-        type=int,
-        nargs="+",
-        required=True,
-        help="the dimension of embedding vectors",
-    )
-    parser.add_argument(
-        "--optimizer",
-        type=str,
-        help="use what optimizer",
-        required=False,
-        default="plugin_adam",
-        choices=["plugin_adam", "adam", "sgd"],
-    )
-    parser.add_argument(
-        "--dataset_iter_num", type=int, required=True, help="the iter num for MPI + SOK"
-    )
-    parser.add_argument(
-        "--stop_iter", type=int, required=False, default=-1, help="early stop at which iteration."
-    )
-    parser.add_argument(
-        "--dynamic_input",
-        type=int,
-        required=False,
-        default=0,
-        choices=[0, 1],
-        help="whether to use unique before dense_fprop. 1 means dynamic_input,"
-        + "0 means static_input.",
-    )
+    parser.add_argument("--file_prefix", type=str,
+                        help="the file_prefix for each GPU.", required=True)
+    parser.add_argument("--global_batch_size", type=int,
+                        required=True)
+    parser.add_argument("--max_vocabulary_size_per_gpu", type=int,
+                        required=True)
+    parser.add_argument("--slot_num_list", type=int, nargs="+", required=True,
+                        help="the number of feature fields")
+    parser.add_argument("--nnz_per_slot", type=int, required=True,
+                        help="the number of keys in each slot")
+    parser.add_argument("--num_dense_layers", type=int, required=True,
+                        help="the number of fully connected layers in this DNN model")
+    parser.add_argument("--embedding_vec_size_list", type=int, nargs="+", required=True,
+                        help="the dimension of embedding vectors")
+    parser.add_argument('--optimizer', type=str,
+                        help="use what optimizer",
+                        required=False, default='plugin_adam',
+                        choices=['plugin_adam', 'adam', 'sgd'])
+    parser.add_argument("--dataset_iter_num", type=int, required=True,
+                        help="the iter num for MPI + SOK")
+    parser.add_argument("--stop_iter", type=int, required=False, default=-1,
+                        help="early stop at which iteration.")
+    parser.add_argument("--dynamic_input", type=int, required=False, default=0, choices=[0, 1],
+                        help="whether to use unique before dense_fprop. 1 means dynamic_input,"+\
+                            "0 means static_input.")
     parser.add_argument("--mixed_precision", type=int, choices=[0, 1], default=0)
 
     args = parser.parse_args()
@@ -383,5 +322,4 @@ if __name__ == "__main__":
 
     # use these as a barrier
     from mpi4py import MPI
-
     MPI.COMM_WORLD.Barrier()

@@ -26,6 +26,7 @@
 #include "HugeCTR/include/data_readers/data_reader.hpp"
 #include "HugeCTR/include/embeddings/distributed_slot_sparse_embedding_hash.hpp"
 #include "HugeCTR/include/embeddings/localized_slot_sparse_embedding_hash.hpp"
+#include "HugeCTR/include/hdfs_backend.hpp"
 #include "HugeCTR/include/utils.hpp"
 #include "gtest/gtest.h"
 #include "utest/embedding/embedding_test_utils.hpp"

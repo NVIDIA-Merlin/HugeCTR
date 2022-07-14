@@ -20,12 +20,10 @@ from __future__ import print_function
 
 from .base_optimizer import optimizer_v2
 
-
 class Optimizer(optimizer_v2.OptimizerV2):
     """
     The base class for sok's optimizer
     """
-
     # Subclasses should set this to True unless they override `apply_gradients`
     # with a version that does not have the `experimental_aggregate_gradients`
     # argument.  Older versions of Keras did not have this argument so custom
@@ -53,11 +51,9 @@ class Optimizer(optimizer_v2.OptimizerV2):
         Returns:
             An `Operation` which updates the value of the variable.
         """
-        raise NotImplementedError(
-            "_resource_apply_dense not implemented. "
-            + "please use other optimizers, such as "
-            + "tf.keras.optimiers.SGD, tf.keras.optimizers.Adam, etc."
-        )
+        raise NotImplementedError("_resource_apply_dense not implemented. "+\
+                                  "please use other optimizers, such as "+\
+                                  "tf.keras.optimiers.SGD, tf.keras.optimizers.Adam, etc.")
 
     def _resource_apply_sparse(self, grad, var, indices, apply_state):
         """
@@ -82,7 +78,8 @@ class Optimizer(optimizer_v2.OptimizerV2):
         """
         raise NotImplementedError("_resource_apply_sparse not implemented")
 
-    def _resource_apply_sparse_duplicate_indices(self, grad, var, indices, **kwargs):
+    def _resource_apply_sparse_duplicate_indices(self, grad, var, indices,
+                                               **kwargs):
         """Add ops to apply sparse gradients to `handle`, with repeated indices.
 
         Optimizers which override this method must deal with repeated indices. See
@@ -100,7 +97,7 @@ class Optimizer(optimizer_v2.OptimizerV2):
         indices: a `Tensor` of integral type representing the indices for which
             the gradient is nonzero. Indices may be repeated.
         **kwargs: May optionally contain `apply_state`
-            `apply_state` is a dict, which contains the map from (var_device, var_type) to
+            `apply_state` is a dict, which contains the map from (var_device, var_type) to 
                 a dict and that dict contains "lr_t" which is learning_rate. In other words,
                 apply_state might looks like: {(var_device, var_type): {"lr_t": learning_rate_tensor}}
 

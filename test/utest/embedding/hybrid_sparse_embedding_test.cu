@@ -150,7 +150,7 @@ void hybrid_sparse_embedding_construct(const std::vector<int> &device_list, size
                                                  resource_manager));
   HCTR_LOG_S(INFO, WORLD) << "init_model" << std::endl;
   embedding->init_model(inits);
-  // HCTR_LOG_S(DEBUG, WORLD) << "forward" << std::endl;
+  // std::cout << "forward" << std::endl;
   HCTR_LOG_S(INFO, WORLD) << "batch size = " << train_batch_size << std::endl;
   HCTR_LOG_S(INFO, WORLD) << "total_categories = " << total_categories
                           << ", num_frequent = " << embedding->model_[0].num_frequent << std::endl;
@@ -195,14 +195,14 @@ void hybrid_sparse_embedding_construct(const std::vector<int> &device_list, size
 
 #endif
     embedding->forward(true);
-    // HCTR_LOG_S(DEBUG, WORLD) << i << ": fwd" << std::endl;
+    // std::cout << i << ": fwd" << std::endl;
     embedding->backward();
-    // HCTR_LOG_S(DEBUG, WORLD) << i << ": bwd" << std::endl;
+    // std::cout << i << ": bwd" << std::endl;
     embedding->update_params();
-    // HCTR_LOG_S(DEBUG, WORLD) << i << ": update" << std::endl;
-    // HCTR_LOG_S(DEBUG, WORLD) << "forward, i = " << i << std::endl;
+    // std::cout << i << ": update" << std::endl;
+    // std::cout << "forward, i = " << i << std::endl;
   }
-  // HCTR_LOG_S(DEBUG, WORLD) << "backward" << std::endl;
+  // std::cout << "backward" << std::endl;
 }
 
 }  // namespace

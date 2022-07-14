@@ -18,14 +18,12 @@ import tensorflow as tf
 from models import SOKDenseDemo
 import argparse
 import sys
-
 sys.path.append("../")
 import utility
 from utility import sparse_operation_kit as sok
 import nvtx
 import horovod.tensorflow as hvd
 import os
-
 
 def main(args):
     # Initialize horovod
@@ -39,33 +37,29 @@ def main(args):
     local_file = args.data_filename_prefix + str(hvd.local_rank()) + ".file"
 
     # generate local batch size
-    assert args.global_batch_size % hvd.size() == 0
+    assert(args.global_batch_size % hvd.size() == 0)
     local_batch_size = args.global_batch_size // hvd.size()
 
-    dataset = utility.TFDataset(
-        filename=local_file, batchsize=local_batch_size, as_sparse_tensor=False, repeat=1
-    )
+    dataset = utility.TFDataset(filename=local_file,
+                                batchsize=local_batch_size,
+                                as_sparse_tensor=False,
+                                repeat=1)
     dataset = dataset.prefetch(tf.data.AUTOTUNE)
 
     # Because there is no tensorflow distribute strategy, sok.Init() will call horovod to
     # broadcast nccl id and random seed, so it must be called after hvd.init()
     sok.Init(global_batch_size=args.global_batch_size)
 
-    model = SOKDenseDemo(
-        max_vocabulary_size_per_gpu=args.max_vocabulary_size_per_gpu,
-        embedding_vec_size=args.embedding_vec_size,
-        slot_num=args.slot_num,
-        nnz_per_slot=args.nnz_per_slot,
-        num_dense_layers=args.num_dense_layers,
-    )
+    model = SOKDenseDemo(max_vocabulary_size_per_gpu=args.max_vocabulary_size_per_gpu,
+                         embedding_vec_size=args.embedding_vec_size,
+                         slot_num=args.slot_num,
+                         nnz_per_slot=args.nnz_per_slot,
+                         num_dense_layers=args.num_dense_layers)
 
     embedding_optimizer = utility.get_embedding_optimizer(args.optimizer)(learning_rate=0.1)
     dense_optimizer = utility.get_dense_optimizer(args.optimizer)(learning_rate=0.1)
 
-    loss_fn = tf.keras.losses.BinaryCrossentropy(
-        from_logits=True, reduction=tf.keras.losses.Reduction.NONE
-    )
-
+    loss_fn = tf.keras.losses.BinaryCrossentropy(from_logits=True, reduction=tf.keras.losses.Reduction.NONE)
     def _replica_loss(labels, logits):
         loss = loss_fn(labels, logits)
         return tf.nn.compute_average_loss(loss, global_batch_size=args.global_batch_size)
@@ -82,9 +76,7 @@ def main(args):
         # There is no need to wrap the emb_tape because the communication is done by sok
         # emb_tape = hvd.DistributedGradientTape(emb_tape)
 
-        emb_variable, other_variable = sok.split_embedding_variable_from_others(
-            model.trainable_variables
-        )
+        emb_variable, other_variable = sok.split_embedding_variable_from_others(model.trainable_variables)
 
         # type(emb_tape) here is hvd.DistributedGradientTape
         # type(tape) here is tf.GradientTape
@@ -93,17 +85,15 @@ def main(args):
 
         if "plugin" not in args.optimizer:
             with sok.OptimizerScope(emb_variable):
-                embedding_optimizer.apply_gradients(
-                    zip(emb_grads, emb_variable), experimental_aggregate_gradients=False
-                )
+                embedding_optimizer.apply_gradients(zip(emb_grads, emb_variable),
+                                                    experimental_aggregate_gradients=False)
         else:
-            embedding_optimizer.apply_gradients(
-                zip(emb_grads, emb_variable), experimental_aggregate_gradients=False
-            )
+            embedding_optimizer.apply_gradients(zip(emb_grads, emb_variable),
+                                                experimental_aggregate_gradients=False)
         dense_optimizer.apply_gradients(zip(grads, other_variable))
 
         # Note: broadcast should be done after the first gradient step to ensure optimizer has been initialized.
-        # There is no need to broadcast emb_variable and embedding_optimizer, because the parallel mode inside
+        # There is no need to broadcast emb_variable and embedding_optimizer, because the parallel mode inside 
         # sok is model parallel and the communication is down by sok itself.
         if first_batch:
             hvd.broadcast_variables(other_variable, root_rank=0)
@@ -122,47 +112,32 @@ def main(args):
         nvtx.end_range(rng)
         print("[INFO]: Iteration: {}, loss={}".format(i, total_loss))
 
-
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="run DNN model with SparseOperationKit")
 
-    parser.add_argument(
-        "--data_filename_prefix",
-        type=str,
-        help="the filename prefix of training data",
-        required=True,
-    )
-    parser.add_argument("--global_batch_size", type=int, required=True)
-    parser.add_argument("--max_vocabulary_size_per_gpu", type=int, required=True)
-    parser.add_argument("--slot_num", type=int, required=True, help="the number of feature fields")
-    parser.add_argument(
-        "--nnz_per_slot", type=int, required=True, help="the number of keys in each slot"
-    )
-    parser.add_argument(
-        "--num_dense_layers",
-        type=int,
-        required=True,
-        help="the number of fully connected layers in this DNN model",
-    )
-    parser.add_argument(
-        "--embedding_vec_size", type=int, required=True, help="the dimension of embedding vectors"
-    )
-    parser.add_argument(
-        "--optimizer",
-        type=str,
-        help="use what optimizer",
-        required=False,
-        default="plugin_adam",
-        choices=["plugin_adam", "adam", "sgd"],
-    )
-    parser.add_argument(
-        "--stop_at_iter",
-        type=int,
-        required=False,
-        help="early stop the process if iteration reachs this setting.",
-        default=-1,
-    )
+    parser.add_argument("--data_filename_prefix", type=str,
+                        help="the filename prefix of training data",
+                        required=True)
+    parser.add_argument("--global_batch_size", type=int,
+                        required=True)
+    parser.add_argument("--max_vocabulary_size_per_gpu", type=int,
+                        required=True)
+    parser.add_argument("--slot_num", type=int, required=True,
+                        help="the number of feature fields")
+    parser.add_argument("--nnz_per_slot", type=int, required=True,
+                        help="the number of keys in each slot")
+    parser.add_argument("--num_dense_layers", type=int, required=True,
+                        help="the number of fully connected layers in this DNN model")
+    parser.add_argument("--embedding_vec_size", type=int, required=True,
+                        help="the dimension of embedding vectors")
+    parser.add_argument('--optimizer', type=str,
+                        help="use what optimizer",
+                        required=False, default='plugin_adam',
+                        choices=['plugin_adam', 'adam', 'sgd'])
+    parser.add_argument("--stop_at_iter", type=int, required=False,
+                        help="early stop the process if iteration reachs this setting.",
+                        default=-1)
 
     args = parser.parse_args()
 

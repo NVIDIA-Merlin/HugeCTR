@@ -145,8 +145,8 @@ void HybridEmbeddingCpu<dtype, emtype>::calculate_frequent_sample_indices() {
         uint32_t idx = j * num_tables + i;
 
         dtype category = samples[idx];
-        dtype model_id = category_location[2 * category];
-        bool mask = model_id == num_instances;
+        dtype frequent_index = category_frequent_index[category];
+        bool mask = frequent_index < num_frequent;
 
         sum += static_cast<uint32_t>(mask);
 
@@ -178,10 +178,9 @@ void HybridEmbeddingCpu<dtype, emtype>::calculate_frequent_model_cache_indices()
         uint32_t global_j = local_batch_size * num_tables * i + j;
 
         dtype category = samples[global_j];
-        dtype frequent_index = category_location[2 * category + 1];
+        dtype frequent_index = category_frequent_index[category];
 
-        if (category_location[2 * category] == num_instances &&
-            frequent_index / num_frequent_per_model == model_id) {
+        if (frequent_index < num_frequent && frequent_index / num_frequent_per_model == model_id) {
           network_frequent_mask[i * num_frequent_per_model +
                                 frequent_index % num_frequent_per_model] = true;
         }
@@ -264,8 +263,8 @@ void HybridEmbeddingCpu<dtype, emtype>::calculate_frequent_network_cache_mask() 
       for (uint32_t i = 0; i < num_tables; i++) {
         uint32_t idx = j * num_tables + i;
         dtype category = samples[idx];
-        if (category_location[2 * category] == num_instances) {
-          dtype frequent_index = category_location[2 * category + 1];
+        dtype frequent_index = category_frequent_index[category];
+        if (frequent_index < num_frequent) {
           network_cache_mask[network_id][frequent_index] = 1;
         }
       }
@@ -288,11 +287,10 @@ void HybridEmbeddingCpu<dtype, emtype>::generate_embedding_vectors() {
         utils::ceildiv<dtype>(num_categories - num_frequent, num_instances) * embedding_vec_size);
   }
   for (dtype category = 0; category < num_categories; category++) {
+    dtype freq_index = category_frequent_index[category];
     dtype model_id = category_location[2 * category];
     dtype location = category_location[2 * category + 1];
-    if (model_id == num_instances) {
-      dtype freq_index = location;
-      HCTR_CHECK(freq_index < num_frequent);
+    if (freq_index < num_frequent) {
       for (uint32_t k = 0; k < embedding_vec_size; k++) {
         float value = distribution(generator);
         for (uint32_t i = 0; i < num_instances; i++)
@@ -472,10 +470,8 @@ void HybridEmbeddingCpu<dtype, emtype>::frequent_reduce_gradients() {
   for (size_t network_id = 0; network_id < num_instances; network_id++) {
     for (size_t j = 0; j < local_samples_size; j++) {
       dtype category = samples[network_id * local_samples_size + j];
-      dtype model_id = category_location[2 * category];
-      if (model_id == num_instances) {
-        dtype freq_index = category_location[2 * category + 1];
-        HCTR_CHECK(freq_index < num_frequent);
+      dtype freq_index = category_frequent_index[category];
+      if (freq_index < num_frequent) {
         for (uint32_t k = 0; k < embedding_vec_size; k++) {
           reduced_gradients_f32[freq_index * embedding_vec_size + k] +=
               utils::TypeConvertFunc<float, emtype>::convert(
@@ -508,10 +504,8 @@ void HybridEmbeddingCpu<dtype, emtype>::frequent_update_single_node() {
   for (size_t network_id = 0; network_id < num_instances; network_id++) {
     for (size_t j = 0; j < local_samples_size; j++) {
       dtype category = samples[network_id * local_samples_size + j];
-      dtype model_id = category_location[2 * category];
-      if (model_id == num_instances) {
-        dtype freq_index = category_location[2 * category + 1];
-        HCTR_CHECK(freq_index < num_frequent);
+      dtype freq_index = category_frequent_index[category];
+      if (freq_index < num_frequent) {
         uint32_t frequent_model_id = freq_index / num_frequent_per_model;
         for (uint32_t k = 0; k < embedding_vec_size; k++)
           frequent_embedding_vectors[frequent_model_id][freq_index * embedding_vec_size + k] -=
@@ -531,11 +525,10 @@ void HybridEmbeddingCpu<dtype, emtype>::forward_network() {
 
     for (uint32_t i = 0; i < local_samples_size; i++) {
       dtype category = samples[local_samples_size * network_id + i];
+      dtype freq_index = category_frequent_index[category];
       dtype model_id = category_location[2 * category];
       dtype location = category_location[2 * category + 1];
-      if (model_id == num_instances) {
-        dtype freq_index = location;
-        HCTR_CHECK(freq_index < num_frequent);
+      if (freq_index < num_frequent) {
         for (uint32_t k = 0; k < embedding_vec_size; k++) {
           interaction_layer_input[network_id][embedding_vec_size * i + k] =
               frequent_embedding_vectors[network_id][embedding_vec_size * freq_index + k];

@@ -45,28 +45,6 @@ stages:
     - when: never
   timeout: 5 hours
 
-# nightly build for sok tf1
-.build_nightly_tf1:
-  stage: build_from_scratch
-  tags:
-    - nvidia.com/cuda.driver.major=470
-  script:
-    - docker login -u ${CI_PRIVATE_USER} -p "${CI_PRIVATE_KEY}" "${CI_REGISTRY}"
-    - cd tools/dockerfiles
-    - docker build --pull
-      -t ${DST_IMAGE}
-      -f ${DOCKER_FILE}
-      $BUILD_ARGS
-      --no-cache
-      . ;
-    - docker push ${DST_IMAGE}
-  allow_failure: false
-  rules:
-    - if: $NIGHTLY == "1"
-      when: always
-    - when: never
-  timeout: 2 hours
-
 .build:
   stage: build
   tags:
@@ -76,7 +54,6 @@ stages:
     - echo "BUILD_HUGECTR=${BUILD_HUGECTR}"
     - echo "BUILD_HUGECTR2ONNX=${BUILD_HUGECTR2ONNX}"
     - echo "BUILD_SOK=${BUILD_SOK}"
-    - echo "BUILD_TF_PLUGIN=${BUILD_TF_PLUGIN}"
     - git submodule update --init --recursive
     - if [[ "$TEST_NEW_IMAGE" == "1" ]]; then
         echo "FROM ${FROM_IMAGE}.new_image" > ${JOB_DOCKERFILE};
@@ -100,10 +77,6 @@ stages:
       fi
     - if [[ "$BUILD_HUGECTR_BACKEND" == 1 ]]; then
         echo "RUN git clone https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab-master.nvidia.com/dl/hugectr/hugectr_inference_backend.git hugectr_inference_backend && cd hugectr_inference_backend && git checkout hugectr_performance_test && mkdir build && cd build && cmake -DCMAKE_INSTALL_PREFIX:PATH=/usr/local/hugectr -DTRITON_COMMON_REPO_TAG=$TRITON_BRANCH  -DTRITON_CORE_REPO_TAG=$TRITON_BRANCH -DTRITON_BACKEND_REPO_TAG=$TRITON_BRANCH .. && make -j\$(nproc) && make install && cd ../.. && rm -rfv hugectr_inference_backend" >> ${JOB_DOCKERFILE};
-      fi
-    - if [[ "$BUILD_TF_PLUGIN" == 1 ]]; then
-        echo "RUN pip install tensorflow==2.8.0 ninja" >> ${JOB_DOCKERFILE};
-        echo "RUN cd /workdir/hierarchical_parameter_server/ && python3 setup.py install" >> ${JOB_DOCKERFILE};
       fi
     - cat ${JOB_DOCKERFILE}
     - docker login -u ${CI_PRIVATE_USER} -p "${CI_PRIVATE_KEY}" "${CI_REGISTRY}"

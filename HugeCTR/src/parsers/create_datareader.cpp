@@ -268,8 +268,8 @@ void create_datareader<TypeKey>::operator()(
         // @Future: Should be slot_offset here and data_reader ctor should
         // be TypeKey not long long
         std::vector<long long> slot_offset = f();
-        train_data_reader->create_drwg_parquet(source_data, false, slot_offset, true);
-        evaluate_data_reader->create_drwg_parquet(eval_source, false, slot_offset, true);
+        train_data_reader->create_drwg_parquet(source_data, slot_offset, true);
+        evaluate_data_reader->create_drwg_parquet(eval_source, slot_offset, true);
 #endif
         break;
       }
@@ -316,7 +316,6 @@ void create_datareader<TypeKey>::operator()(
   }
 }
 
-// Create data reader for InferenceSession (internal use)
 template <typename TypeKey>
 void create_datareader<TypeKey>::operator()(
     const InferenceParams& inference_params, const InferenceParser& inference_parser,
@@ -371,7 +370,7 @@ void create_datareader<TypeKey>::operator()(
 #ifdef DISABLE_CUDF
       HCTR_OWN_THROW(Error_t::WrongInput, "Parquet is not supported under DISABLE_CUDF");
 #else
-      data_reader->create_drwg_parquet(source, false, slot_offset, true);
+      data_reader->create_drwg_parquet(source, slot_offset, true);
       HCTR_LOG_S(INFO, ROOT) << "Vocabulary size: " << slot_sum << std::endl;
 #endif
       break;
@@ -400,7 +399,6 @@ void create_datareader<TypeKey>::operator()(
   }
 }
 
-// Create data reader for InferenceModel (multi-GPU offline inference use)
 template <typename TypeKey>
 void create_datareader<TypeKey>::operator()(
     const InferenceParams& inference_params, const InferenceParser& inference_parser,
@@ -415,8 +413,9 @@ void create_datareader<TypeKey>::operator()(
   HCTR_CHECK_HINT(dense_tensor_list.size() == 0,
                   "dense tensor list should be empty before creating data reader");
   HCTR_CHECK_HINT(repeat_dataset, "repeat dataset should be true for inference");
-  HCTR_LOG_S(INFO, ROOT) << "Create inference data reader on "
-                         << resource_manager->get_local_gpu_count() << " GPU(s)" << std::endl;
+  HCTR_CHECK_HINT(resource_manager->get_local_gpu_count() == 1,
+                  "inference data reader should be created on a single GPU");
+  // TO DO：support multi-hot
   long long slot_sum = 0;
   std::vector<long long> slot_offset;
   for (auto slot_size : slot_size_array) {
@@ -441,14 +440,10 @@ void create_datareader<TypeKey>::operator()(
     sparse_input_map.emplace(sparse_name, sparse_input);
   }
 
-  const int num_workers =
-      data_reader_type == DataReaderType_t::Parquet ? resource_manager->get_local_gpu_count() : 12;
-  HCTR_LOG_S(INFO, ROOT) << "num of DataReader workers: " << num_workers << std::endl;
-
   DataReader<TypeKey>* data_reader_tk = new DataReader<TypeKey>(
       inference_params.max_batchsize, inference_parser.label_dim, inference_parser.dense_dim,
-      data_reader_sparse_param_array, resource_manager, repeat_dataset, num_workers,
-      false);  // use_mixed_precision = false
+      data_reader_sparse_param_array, resource_manager, repeat_dataset, 1,
+      false);  // num_threads = 1, use_mixed_precision = false
   data_reader.reset(data_reader_tk);
 
   switch (data_reader_type) {
@@ -461,8 +456,7 @@ void create_datareader<TypeKey>::operator()(
 #ifdef DISABLE_CUDF
       HCTR_OWN_THROW(Error_t::WrongInput, "Parquet is not supported under DISABLE_CUDF");
 #else
-      // read_file_sequentially = True, start_reading_from_beginning = True
-      data_reader->create_drwg_parquet(source, true, slot_offset, true);
+      data_reader->create_drwg_parquet(source, slot_offset, true);  // start_reading_from_beginning
       HCTR_LOG_S(INFO, ROOT) << "Vocabulary size: " << slot_sum << std::endl;
 #endif
       break;

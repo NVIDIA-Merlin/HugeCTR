@@ -39,11 +39,12 @@ nightly_build_sok_tf2:
     BUILD_ARGS: --build-arg HUGECTR_DEV_MODE=true
   
 nightly_build_sok_tf1:
-  extends: .build_nightly_tf1
+  extends: .build_nightly
   variables:
+    REMOTE_REPO: https://github.com/NVIDIA-Merlin/Merlin.git
     DST_IMAGE: ${IMAGE_SOK_TF1}
-    DOCKER_FILE: Dockerfile.sok1
-    BUILD_ARGS: --build-arg HUGECTR_DEV_MODE=true
+    DOCKER_FILE: dockerfile.tf
+    BUILD_ARGS: --build-arg HUGECTR_DEV_MODE=true --build-arg IMAGE=nvcr.io/nvidia/tensorflow:21.11-tf1-py3 --build-arg INSTALL_NVT=false --build-arg INSTALL_DISTRIBUTED_EMBEDDINGS=false
   
 #nightly_build_unified_container.ctr:
 #  extends: .build_nightly
@@ -131,13 +132,6 @@ build_sok_tf1:
     DST_IMAGE: $SOK_IMAGE_VERSIONED_TF1
     CMAKE_OPTION: "-DSM=\"60;61;70;75;80\""
     BUILD_SOK: 1
-
-build_hps_tf_plugin:
-  extends: .build
-  variables:
-    FROM_IMAGE: ${IMAGE_ALL}
-    DST_IMAGE: $TF_PLUGIN_IMAGE_VERSIONED
-    BUILD_TF_PLUGIN: 1
 
 ## Stage: test
 # unit test
@@ -340,20 +334,6 @@ group_fc:
     DGXNNODES: 1
     TEST_CMD: ./ci/integration_test/group_fc/group_fc.sub
 
-mlperf_generalization:
-  extends: .cluster_test_job
-  needs:
-    - build_train_single_node
-  variables:
-    GPFSFOLDER: $LOGDIR/mlperf_generalization
-    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
-    CONT: $TRAIN_IMAGE_VERSIONED
-    MOUNTS: ${DATASET_NEW_CRITEO_SELENE}:${NEW_CRITEO_MOUNT}
-    SLURM_ACCOUNT: devtech
-    WALLTIME: "00:15:00"
-    DGXNNODES: 1
-    TEST_CMD: ./ci/integration_test/mlperf_generalization/overlapped_pipeline.sub
-
 # python interface inference
 py_inference:
   extends: .cluster_test_job
@@ -526,22 +506,6 @@ hugectr2onnx:
     DGXNNODES: 1
     TEST_CMD: ./ci/integration_test/hugectr2onnx/hugectr2onnx.sub
 
-# hps_tf_plugin
-hierarchical_parameter_server:
-  extends: .cluster_test_job
-  needs:
-    - build_hps_tf_plugin
-  variables:
-    GPFSFOLDER: $LOGDIR/hierarchical_parameter_server
-    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
-    CONT: $TF_PLUGIN_IMAGE_VERSIONED
-    MOUNTS: ${DATASET}:${DATASET_MOUNT}
-    SLURM_ACCOUNT: devtech
-    WALLTIME: "01:30:00"
-    DGXNNODES: 1
-    TEST_CMD: ./ci/integration_test/hps/hps.sub
-
-
 # embedding_plugin
 sparse_operation_kit-TF2:
   extends: .cluster_test_job
@@ -629,7 +593,7 @@ hdfs_backend_test:
     - build_train_single_node_with_hdfs
   script:
     - export CONT=${TRAIN_IMAGE_VERSIONED_WITH_HDFS}
-    - srun -N 1 -p dgx1v32g bash ./ci/integration_test/hdfs/hdfs_backend_test.sh
+    - srun -N 1 -p dgx1v32g,v100pcie32g bash ./ci/integration_test/hdfs/hdfs_backend_test.sh
   rules:
     - if: $CI_PIPELINE_SOURCE =~ /^(web|merge_request_event)$/
       when: always

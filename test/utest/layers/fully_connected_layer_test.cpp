@@ -149,96 +149,6 @@ static void fully_connected_layer_test(size_t m, size_t n, size_t k, float tol =
       << " bprop cross_check bias_grad fail" << std::endl;
 }
 
-static void fully_connected_layer_test_3d(size_t batch_size, size_t seq_len, size_t n, size_t k,
-                                          float tol = 1e-3, bool enable_tf32_compute = false) {
-  std::shared_ptr<GeneralBuffer2<CudaAllocator>> blobs_buff =
-      GeneralBuffer2<CudaAllocator>::create();
-  std::shared_ptr<BufferBlock2<float>> weight_buff = blobs_buff->create_block<float>();
-  std::shared_ptr<BufferBlock2<float>> wgrad_buff = blobs_buff->create_block<float>();
-
-  Tensor2<float> in_tensor;
-  blobs_buff->reserve({batch_size, seq_len, k}, &in_tensor);
-  Tensor2<float> out_tensor;
-  blobs_buff->reserve({batch_size, seq_len, n}, &out_tensor);
-
-  FullyConnectedLayer<float> fully_connected_layer(weight_buff, wgrad_buff, in_tensor, out_tensor,
-                                                   test::get_default_gpu(), false,
-                                                   enable_tf32_compute);
-  // Initialize tensors to 0 and choose cublas algorithms
-  blobs_buff->allocate();
-  fully_connected_layer.initialize();
-  // Reset tensors to 0 to ensure all the data are the same as original utest(clear the side effect
-  // of optimize)
-  Tensor2<float> weight = weight_buff->as_tensor();
-  Tensor2<float> wgrad = wgrad_buff->as_tensor();
-
-  HCTR_LIB_THROW(cudaMemset(weight.get_ptr(), 0, weight.get_size_in_bytes()));
-  HCTR_LIB_THROW(cudaMemset(wgrad.get_ptr(), 0, wgrad.get_size_in_bytes()));
-
-  // TODO: result check
-  float *d_weight = weight.get_ptr();
-  float *d_weight_grad = wgrad.get_ptr();
-  float *d_in = in_tensor.get_ptr();
-  float *d_out = out_tensor.get_ptr();
-
-  std::unique_ptr<float[]> h_weight(new float[test::align_to_even(n * k)]);
-  std::unique_ptr<float[]> h_weight_grad(new float[n * k]);
-  std::unique_ptr<float[]> h_bias_grad(new float[n]);
-  std::unique_ptr<float[]> h_in(new float[test::align_to_even(batch_size * seq_len * k)]);
-  std::unique_ptr<float[]> h_out(new float[test::align_to_even(batch_size * seq_len * n)]);
-  std::unique_ptr<float[]> h_bias(new float[test::align_to_even(n)]);
-
-  test::GaussianDataSimulator simulator(0.0f, 1.0f);
-
-  simulator.fill(h_weight.get(), test::align_to_even(k * n));
-  simulator.fill(h_in.get(), test::align_to_even(batch_size * seq_len * k));
-  simulator.fill(h_bias.get(), test::align_to_even(n));
-
-  // cpu fprop
-  cpu_mm(h_in.get(), h_weight.get(), h_out.get(), batch_size * seq_len, k, n);
-  cpu_add_bias(h_out.get(), h_bias.get(), batch_size * seq_len, n);
-
-  HCTR_LIB_THROW(
-      cudaMemcpy(d_weight, h_weight.get(), sizeof(float) * k * n, cudaMemcpyHostToDevice));
-  HCTR_LIB_THROW(
-      cudaMemcpy(d_weight + k * n, h_bias.get(), sizeof(float) * n, cudaMemcpyHostToDevice));
-  HCTR_LIB_THROW(cudaMemcpy(d_in, h_in.get(), sizeof(float) * batch_size * seq_len * k,
-                            cudaMemcpyHostToDevice));
-
-  HCTR_LIB_THROW(cudaDeviceSynchronize());
-  fully_connected_layer.fprop(true);
-  HCTR_LIB_THROW(cudaDeviceSynchronize());
-
-  ASSERT_EQ(true, check_cpu_gpu(h_out.get(), d_out, batch_size * seq_len * n, tol))
-      << "fprop cross_check result fail" << std::endl;
-
-  simulator.fill(h_out.get(), test::align_to_even(batch_size * seq_len * n));
-
-  for (size_t i = 0; i < n; ++i) h_bias_grad[i] = 0.0f;
-  for (size_t i = 0; i < batch_size * seq_len; ++i) {
-    for (size_t j = 0; j < n; ++j) h_bias_grad[j] += h_out[i * n + j];
-  }
-  // CPU bprop
-  transpose(h_weight.get(), k, n);
-  transpose(h_in.get(), batch_size * seq_len, k);
-  cpu_mm(h_in.get(), h_out.get(), h_weight_grad.get(), k, batch_size * seq_len, n);
-  cpu_mm(h_out.get(), h_weight.get(), h_in.get(), batch_size * seq_len, n, k);
-
-  HCTR_LIB_THROW(cudaMemcpy(d_out, h_out.get(), sizeof(float) * batch_size * seq_len * n,
-                            cudaMemcpyHostToDevice));
-
-  HCTR_LIB_THROW(cudaDeviceSynchronize());
-  fully_connected_layer.bprop();
-  HCTR_LIB_THROW(cudaDeviceSynchronize());
-
-  ASSERT_EQ(true, check_cpu_gpu(h_in.get(), d_in, batch_size * seq_len * k, tol))
-      << " bprop cross_check input_grad fail" << std::endl;
-  ASSERT_EQ(true, check_cpu_gpu(h_weight_grad.get(), d_weight_grad, k * n, tol))
-      << " bprop cross_check weight_grad fail" << std::endl;
-  ASSERT_EQ(true, check_cpu_gpu(h_bias_grad.get(), d_weight_grad + k * n, n, tol))
-      << " bprop cross_check bias_grad fail" << std::endl;
-}
-
 TEST(fully_connected_layer, fp32_1024x1024x1024) { fully_connected_layer_test(1024, 1024, 1024); }
 TEST(fully_connected_layer, fp32_2048x2048x2048) { fully_connected_layer_test(2048, 2048, 2048); }
 TEST(fully_connected_layer, fp32_1x1024x1024) { fully_connected_layer_test(1, 1024, 1024); }
@@ -247,10 +157,6 @@ TEST(fully_connected_layer, fp32_1024x1024x1) { fully_connected_layer_test(1024,
 TEST(fully_connected_layer, fp32_1x1x1) { fully_connected_layer_test(1, 1, 1); }
 TEST(fully_connected_layer, fp32_256x512x1024) { fully_connected_layer_test(256, 512, 1024); }
 TEST(fully_connected_layer, fp32_251x511x1023) { fully_connected_layer_test(251, 511, 1023); }
-TEST(fully_connected_layer, fp32_512x4x512x256) { fully_connected_layer_test_3d(512, 4, 512, 256); }
-TEST(fully_connected_layer, fp32_512x10x512x512) {
-  fully_connected_layer_test_3d(512, 10, 512, 512);
-}
 TEST(fully_connected_layer, tf32_256x512x1024) {
   fully_connected_layer_test(256, 512, 1024, 5e-0, true);
 }

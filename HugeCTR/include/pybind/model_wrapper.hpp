@@ -28,28 +28,25 @@ void ModelPybind(pybind11::module &m) {
   pybind11::class_<HugeCTR::DataReaderParams, std::shared_ptr<HugeCTR::DataReaderParams>>(
       m, "DataReaderParams")
       .def(pybind11::init<DataReaderType_t, std::string, std::string, std::string, Check_t, int,
-                          long long, long long, bool, bool, int, std::vector<long long> &,
-                          const DataSourceParams &, const AsyncParam &>(),
+                          long long, long long, bool, int, std::vector<long long> &,
+                          const AsyncParam &>(),
            pybind11::arg("data_reader_type"), pybind11::arg("source"), pybind11::arg("keyset") = "",
            pybind11::arg("eval_source"), pybind11::arg("check_type"),
            pybind11::arg("cache_eval_data") = 0, pybind11::arg("num_samples") = 0,
            pybind11::arg("eval_num_samples") = 0, pybind11::arg("float_label_dense") = false,
-           pybind11::arg("read_file_sequentially") = false, pybind11::arg("num_workers") = 12,
+           pybind11::arg("num_workers") = 12,
            pybind11::arg("slot_size_array") = std::vector<long long>(),
-           pybind11::arg("data_source_params") = new DataSourceParams(),
            pybind11::arg("async_param") =
                AsyncParam{16, 4, 512000, 4, 512, false, Alignment_t::None})
       .def(pybind11::init<DataReaderType_t, std::vector<std::string>, std::vector<std::string>,
-                          std::string, Check_t, int, long long, long long, bool, bool, int,
-                          std::vector<long long> &, const DataSourceParams &, const AsyncParam &>(),
+                          std::string, Check_t, int, long long, long long, bool, int,
+                          std::vector<long long> &, const AsyncParam &>(),
            pybind11::arg("data_reader_type"), pybind11::arg("source"),
            pybind11::arg("keyset") = std::vector<std::string>(), pybind11::arg("eval_source"),
            pybind11::arg("check_type"), pybind11::arg("cache_eval_data") = 0,
            pybind11::arg("num_samples") = 0, pybind11::arg("eval_num_samples") = 0,
-           pybind11::arg("float_label_dense") = false,
-           pybind11::arg("read_file_sequentially") = false, pybind11::arg("num_workers") = 12,
+           pybind11::arg("float_label_dense") = false, pybind11::arg("num_workers") = 12,
            pybind11::arg("slot_size_array") = std::vector<long long>(),
-           pybind11::arg("data_source_params") = new DataSourceParams(),
            pybind11::arg("async_param") =
                AsyncParam{16, 4, 512000, 4, 512, false, Alignment_t::None});
   pybind11::class_<HugeCTR::Input, std::shared_ptr<HugeCTR::Input>>(m, "Input")
@@ -183,9 +180,8 @@ void ModelPybind(pybind11::module &m) {
            pybind11::arg("dense_layer"))
       .def("add", pybind11::overload_cast<GroupDenseLayer &>(&HugeCTR::Model::add),
            pybind11::arg("group_dense_layer"))
-      .def("add",
-           pybind11::overload_cast<const EmbeddingCollectionPlaceholder &>(&HugeCTR::Model::add),
-           pybind11::arg("embedding_collection"))
+      .def("add", pybind11::overload_cast<const EmbeddingCollectionPlaceHolder &>(&HugeCTR::Model::add),
+           pybind11::arg("embedding_collection_place_holder"))
       .def("set_learning_rate", &HugeCTR::Model::set_learning_rate, pybind11::arg("lr"))
       .def("train", &HugeCTR::Model::train, pybind11::arg("is_first_batch") = true)
       .def("eval", &HugeCTR::Model::eval, pybind11::arg("is_first_batch") = true)

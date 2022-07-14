@@ -39,12 +39,12 @@ void shuffle_one2one(int num_elems, int num_dimensions) {
   size_t total_size = src_size + dst_size;
   size_t memcpy_size = (total_size / (2 * sizeof(int))) * sizeof(int);
 
-  HCTR_LIB_THROW(cudaMallocManaged((void **)&src, src_size));
-  HCTR_LIB_THROW(cudaMallocManaged((void **)&dst, dst_size));
-  HCTR_LIB_THROW(cudaMallocManaged((void **)&src_ids, num_elems * sizeof(int)));
-  HCTR_LIB_THROW(cudaMallocManaged((void **)&dst_ids, num_elems * sizeof(int)));
-  HCTR_LIB_THROW(cudaMalloc((void **)&src_memcpy, memcpy_size));
-  HCTR_LIB_THROW(cudaMalloc((void **)&dst_memcpy, memcpy_size));
+  cudaMallocManaged((void **)&src, src_size);
+  cudaMallocManaged((void **)&dst, dst_size);
+  cudaMallocManaged((void **)&src_ids, num_elems * sizeof(int));
+  cudaMallocManaged((void **)&dst_ids, num_elems * sizeof(int));
+  cudaMalloc((void **)&src_memcpy, memcpy_size);
+  cudaMalloc((void **)&dst_memcpy, memcpy_size);
 
   std::mt19937 gen(4242);
   std::uniform_real_distribution<float> dist(0, 1);
@@ -63,7 +63,7 @@ void shuffle_one2one(int num_elems, int num_dimensions) {
       });
 
   shuffle(copy_info, (cudaStream_t)0, num_elems);
-  HCTR_LIB_THROW(cudaDeviceSynchronize());
+  cudaDeviceSynchronize();
 
   for (int i = 0; i < num_elems; i++) {
     for (int j = 0; j < num_dimensions; j++) {
@@ -74,35 +74,34 @@ void shuffle_one2one(int num_elems, int num_dimensions) {
 
   // Touch on the GPU
   shuffle(copy_info, (cudaStream_t)0, num_elems);
-  HCTR_LIB_THROW(cudaDeviceSynchronize());
+  cudaDeviceSynchronize();
 
   // Speed test
   float copy_time, kernel_time;
   int niters = round(std::min(200.0, 1e10 / (total_size)));
   cudaStream_t stream;
   cudaEvent_t start, stop;
-  HCTR_LIB_THROW(cudaEventCreate(&start));
-  HCTR_LIB_THROW(cudaEventCreate(&stop));
-  HCTR_LIB_THROW(cudaStreamCreate(&stream));
+  cudaEventCreate(&start);
+  cudaEventCreate(&stop);
+  cudaStreamCreate(&stream);
 
   // Simple copy
-  HCTR_LIB_THROW(cudaEventRecord(start, stream));
+  cudaEventRecord(start, stream);
   for (int i = 0; i < niters; i++) {
-    HCTR_LIB_THROW(
-        cudaMemcpyAsync(dst_memcpy, src_memcpy, memcpy_size, cudaMemcpyDeviceToDevice, stream));
+    cudaMemcpyAsync(dst_memcpy, src_memcpy, memcpy_size, cudaMemcpyDeviceToDevice, stream);
   }
-  HCTR_LIB_THROW(cudaEventRecord(stop, stream));
-  HCTR_LIB_THROW(cudaEventSynchronize(stop));
-  HCTR_LIB_THROW(cudaEventElapsedTime(&copy_time, start, stop));
+  cudaEventRecord(stop, stream);
+  cudaEventSynchronize(stop);
+  cudaEventElapsedTime(&copy_time, start, stop);
 
   // Kernel copy
-  HCTR_LIB_THROW(cudaEventRecord(start, stream));
+  cudaEventRecord(start, stream);
   for (int i = 0; i < niters; i++) {
     shuffle(copy_info, stream, num_elems);
   }
-  HCTR_LIB_THROW(cudaEventRecord(stop, stream));
-  HCTR_LIB_THROW(cudaEventSynchronize(stop));
-  HCTR_LIB_THROW(cudaEventElapsedTime(&kernel_time, start, stop));
+  cudaEventRecord(stop, stream);
+  cudaEventSynchronize(stop);
+  cudaEventElapsedTime(&kernel_time, start, stop);
 
   HCTR_LOG(
       INFO, WORLD,
@@ -111,12 +110,12 @@ void shuffle_one2one(int num_elems, int num_dimensions) {
       1e3 * kernel_time / niters, total_size / (kernel_time / niters) * 1e-6,
       copy_time / kernel_time * 100.0);
 
-  HCTR_LIB_THROW(cudaFree(src));
-  HCTR_LIB_THROW(cudaFree(dst));
-  HCTR_LIB_THROW(cudaFree(src_ids));
-  HCTR_LIB_THROW(cudaFree(dst_ids));
-  HCTR_LIB_THROW(cudaFree(src_memcpy));
-  HCTR_LIB_THROW(cudaFree(dst_memcpy));
+  cudaFree(src);
+  cudaFree(dst);
+  cudaFree(src_ids);
+  cudaFree(dst_ids);
+  cudaFree(src_memcpy);
+  cudaFree(dst_memcpy);
 }
 
 //

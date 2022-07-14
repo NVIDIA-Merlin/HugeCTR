@@ -17,7 +17,7 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
-#include <data_source/hdfs_backend.hpp>
+#include <hdfs_backend.hpp>
 
 namespace HugeCTR {
 

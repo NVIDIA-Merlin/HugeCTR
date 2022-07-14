@@ -5,7 +5,7 @@ solver = hugectr.CreateSolver(model_name = "multi_hot",
                               batchsize_eval = 16384,
                               batchsize = 16384,
                               lr = 0.001,
-                              vvgpu = [[0,1,2,3]],
+                              vvgpu = [[0]],
                               i64_input_key = True,
                               repeat_dataset = True,
                               use_cuda_graph = True)

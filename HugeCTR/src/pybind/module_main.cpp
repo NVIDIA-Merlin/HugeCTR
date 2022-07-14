@@ -20,14 +20,15 @@
 #include <pybind/data_generator_wrapper.hpp>
 #include <pybind/data_reader_wrapper.hpp>
 #include <pybind/data_source_wrapper.hpp>
-#include <pybind/embedding_collection_wrapper.hpp>
 #include <pybind/embedding_training_cache_wrapper.hpp>
 #include <pybind/hps_wrapper.hpp>
 #include <pybind/inference_wrapper.hpp>
 #include <pybind/learning_rate_scheduler_wrapper.hpp>
+#include <pybind/model_perf_ext_wrapper.hpp>
 #include <pybind/model_wrapper.hpp>
 #include <pybind/optimizer_wrapper.hpp>
 #include <pybind/solver_wrapper.hpp>
+#include <pybind/embedding_collection_wrapper.hpp>
 using namespace HugeCTR::python_lib;
 
 PYBIND11_MODULE(hugectr, m) {
@@ -42,6 +43,7 @@ PYBIND11_MODULE(hugectr, m) {
   OptimizerPybind(m);
   ModelPybind(m);
   InferencePybind(m);
+  ModelPerfExtPybind(m);
   EmbeddingCollectionPybind(m);
   HPSPybind(m);
 }

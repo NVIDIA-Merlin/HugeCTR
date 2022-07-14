@@ -29,7 +29,7 @@ void unified_embedding_forward(const TestParams &test_param, const std::vector<i
   test::mpi_init();
   int numprocs = 1;
 #ifdef ENABLE_MPI
-  HCTR_MPI_THROW(MPI_Comm_size(MPI_COMM_WORLD, &numprocs));
+  MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
 #endif
   std::vector<std::vector<int>> vvgpu;
   for (int i = 0; i < numprocs; ++i) {

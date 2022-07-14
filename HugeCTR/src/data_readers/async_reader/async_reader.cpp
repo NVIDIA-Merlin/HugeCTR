@@ -37,7 +37,7 @@ AsyncReaderImpl::AsyncReaderImpl(std::string fname, size_t batch_size_bytes,
       wait_for_gpu_idle_(wait_for_gpu_idle),
       queue_id_(0),
       thread_batch_ids_(num_threads_),
-      thread_buffer_ids_(num_threads_),
+      thread_buffer_ids_(num_threads),
       gpu_thread_ids_(num_devices_),
       local_readers_(num_threads_) {
   total_file_size_ = std::filesystem::file_size(fname);
@@ -79,33 +79,26 @@ void AsyncReaderImpl::create_workers() {
   for (size_t i = 0; i < num_batches_; i++) {
     int thid = i % num_threads_;
     thread_batch_ids_[thid].push_back(batch_ids_[i]);
+    // HCTR_LOG(INFO, WORLD, "thread %d got buffer %lu\n", thid, i);
   }
 
-  for (auto& id : gpu_thread_ids_) {
-    id.clear();
-  }
-  for (auto& id : thread_buffer_ids_) {
-    id.clear();
-  }
-  threads_.reserve(num_threads_);
-
+  gpu_thread_ids_.clear();
   for (int thid = 0; thid < num_threads_; thid++) {
-    int raw_id = thid % num_devices_;
-    int device_id = resource_manager_->get_local_gpu(raw_id)->get_device_id();
-    gpu_thread_ids_.at(raw_id).push_back(thid);
-
-    std::vector<InternalBatchBuffer*> thread_buffer_ptrs;
-    for (int i = 0; i < num_batches_per_thread_; i++) {
-      size_t buf_id = i * num_threads_ + thid;
-      if (buf_id < buffers_.size()) {
-        buffers_[buf_id]->raw_device_id = raw_id;
-        thread_buffer_ptrs.push_back(buffers_[buf_id].get());
-        thread_buffer_ids_.at(thid).push_back(buf_id);
-      }
-    }
-
-    threads_.emplace_back(std::thread([thid, raw_id, device_id, thread_buffer_ptrs, this]() {
+    threads_.emplace_back(std::thread([thid, this]() {
+      int raw_id = thid % num_devices_;
+      int device_id = resource_manager_->get_local_gpu(raw_id)->get_device_id();
       CudaCPUDeviceContext ctx(device_id);
+      gpu_thread_ids_[raw_id].push_back(thid);
+
+      std::vector<InternalBatchBuffer*> thread_buffer_ptrs;
+      for (int i = 0; i < num_batches_per_thread_; i++) {
+        size_t buf_id = i * num_threads_ + thid;
+        if (buf_id < buffers_.size()) {
+          buffers_[buf_id]->raw_device_id = raw_id;
+          thread_buffer_ptrs.push_back(buffers_[buf_id].get());
+          thread_buffer_ids_[thid].push_back(buf_id);
+        }
+      }
 
       local_readers_[thid] = std::make_unique<ThreadAsyncReader>(
           fname_, resource_manager_, batch_size_bytes_, raw_id, streams_[raw_id],
@@ -187,10 +180,12 @@ void AsyncReaderImpl::wait_for_gpu_event(cudaEvent_t* event, int raw_device_id) 
     return;
   }
 
-  for (auto thid : gpu_thread_ids_.at(raw_device_id)) {
-    for (auto bufid : thread_buffer_ids_.at(thid)) {
+  for (auto thid : gpu_thread_ids_[raw_device_id]) {
+    for (auto bufid : thread_buffer_ids_[thid]) {
       if (buffers_[bufid]->status == BufferStatus::UploadInProcess) {
         buffers_[bufid]->ready_to_upload_event.store(event);
+        // HCTR_LOG(INFO, WORLD, "storing %p to thread %d gpu %d\n", (void*)event, (int)thid,
+        // (int)raw_id);
       }
     }
   }

@@ -73,11 +73,10 @@ void SparseEmbeddingFunctors::get_update_params_results(
 
     context.set_device(resource_manager.get_local_gpu(id)->get_device_id());
 
-    HCTR_LIB_THROW(cudaMalloc(&d_hash_table_key[id], count[id] * sizeof(TypeHashKey)));
-    HCTR_LIB_THROW(cudaMalloc(&d_hash_table_value_index[id], count[id] * sizeof(size_t)));
-    HCTR_LIB_THROW(
-        cudaMalloc(&d_hash_table_value[id], count[id] * embedding_vec_size * sizeof(float)));
-    HCTR_LIB_THROW(cudaMalloc(&d_dump_counter[id], count[id] * sizeof(size_t)));
+    cudaMalloc(&d_hash_table_key[id], count[id] * sizeof(TypeHashKey));
+    cudaMalloc(&d_hash_table_value_index[id], count[id] * sizeof(size_t));
+    cudaMalloc(&d_hash_table_value[id], count[id] * embedding_vec_size * sizeof(float));
+    cudaMalloc(&d_dump_counter[id], count[id] * sizeof(size_t));
   }
 
   // dump hash table on GPU
@@ -138,8 +137,7 @@ void SparseEmbeddingFunctors::get_update_params_results(
   if (resource_manager.get_num_process() > 1) {
     std::unique_ptr<int> displs(new int(resource_manager.get_num_process()));
     std::unique_ptr<int> recv_count(new int(resource_manager.get_num_process()));
-    HCTR_MPI_THROW(
-        MPI_Gather(&total_count, 1, MPI_INT, recv_count.get(), 1, MPI_INT, 0, MPI_COMM_WORLD));
+    MPI_Gather(&total_count, 1, MPI_INT, recv_count.get(), 1, MPI_INT, 0, MPI_COMM_WORLD);
 
     if (resource_manager.is_master_process()) {
       displs.get()[0] = 0;
@@ -157,9 +155,9 @@ void SparseEmbeddingFunctors::get_update_params_results(
       }
     }
 
-    HCTR_MPI_THROW(MPI_Gatherv(hash_table_key.get_ptr(), total_count * sizeof(TypeHashKey),
-                               MPI_CHAR, hash_table_key.get_ptr(), recv_count_key.get(),
-                               displs_key.get(), MPI_CHAR, 0, MPI_COMM_WORLD));
+    MPI_Gatherv(hash_table_key.get_ptr(), total_count * sizeof(TypeHashKey), MPI_CHAR,
+                hash_table_key.get_ptr(), recv_count_key.get(), displs_key.get(), MPI_CHAR, 0,
+                MPI_COMM_WORLD);
 
     std::unique_ptr<int> displs_value(new int(resource_manager.get_num_process()));
     std::unique_ptr<int> recv_count_value(new int(resource_manager.get_num_process()));
@@ -170,10 +168,9 @@ void SparseEmbeddingFunctors::get_update_params_results(
       }
     }
 
-    HCTR_MPI_THROW(MPI_Gatherv(hash_table_value.get_ptr(),
-                               total_count * embedding_vec_size * sizeof(float), MPI_CHAR,
-                               hash_table_value.get_ptr(), recv_count_value.get(),
-                               displs_value.get(), MPI_CHAR, 0, MPI_COMM_WORLD));
+    MPI_Gatherv(hash_table_value.get_ptr(), total_count * embedding_vec_size * sizeof(float),
+                MPI_CHAR, hash_table_value.get_ptr(), recv_count_value.get(), displs_value.get(),
+                MPI_CHAR, 0, MPI_COMM_WORLD);
   }
 #endif
 

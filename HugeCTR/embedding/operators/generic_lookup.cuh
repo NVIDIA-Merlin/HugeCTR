@@ -14,16 +14,14 @@
  * limitations under the License.
  */
 #pragma once
-
-#include "../view.hpp"
 #include "HugeCTR/include/utils.cuh"
+#include "../view.hpp"
 
 namespace embedding {
 
 template <typename IndexArray, typename OffsetArray, typename CountArray, typename DstArray,
           typename SrcTensor, typename DstTensor, int kMaxElemPerThread, int kThreadPerBucket,
-          int TPB, bool debug = false,
-          typename = typename std::enable_if_t<(kThreadPerBucket == TPB)>>
+          int TPB, bool debug = false, typename = typename std::enable_if_t<(kThreadPerBucket == TPB)>>
 __global__ void generic_lookup_per_cta_kernel(IndexArray idx, OffsetArray offset_idx,
                                               CountArray count, DstArray dst_idx,
                                               SrcTensor src_tensor, DstTensor dst_tensor) {
@@ -40,21 +38,20 @@ __global__ void generic_lookup_per_cta_kernel(IndexArray idx, OffsetArray offset
   if (bucket_index < offset_idx.size() - 1) {
     offset_t start = offset_idx[bucket_index];
     offset_t end = offset_idx[bucket_index + 1];
-
+    
     float accum[kMaxElemPerThread] = {0.f};
     for (int r = 0; r < static_cast<int>(end) - static_cast<int>(start); ++r) {
       index_t in_bucket_id = idx[start + r];
       src_t ev = src_tensor[in_bucket_id];
       // if (debug) {
-      //   printf("bucket_index:%d,start:%d,end:%d,in_bucket_id:%d\n", bucket_index, start, end,
-      //   in_bucket_id);
+      //   printf("bucket_index:%d,start:%d,end:%d,in_bucket_id:%d\n", bucket_index, start, end, in_bucket_id);
       // }
 #pragma unroll kMaxElemPerThread
       for (int i = 0; i < kMaxElemPerThread && kThreadPerBucket * i + threadIdx.x < ev.size();
            ++i) {
         if (debug) {
           printf("before accum:%f\n", HugeCTR::TypeConvertFunc<float, src_scalar_t>::convert(
-                                          ev[kThreadPerBucket * i + threadIdx.x]));
+            ev[kThreadPerBucket * i + threadIdx.x]));
         }
         accum[i] += HugeCTR::TypeConvertFunc<float, src_scalar_t>::convert(
             ev[kThreadPerBucket * i + threadIdx.x]);
@@ -90,17 +87,19 @@ template <typename IndexArray, typename OffsetArray, typename CountArray, typena
 void generic_lookup(IndexArray idx, OffsetArray offset_idx, CountArray count, DstArray dst_idx,
                     SrcTensor src_tensor, DstTensor dst_tensor,
                     // int max_elem_per_thread, int thread_per_bucket,
-                    cudaStream_t stream, bool debug = false) {
+                    cudaStream_t stream,
+                    bool debug = false) {
   int num_bucket = offset_idx.size() - 1;
   if (debug) {
-    generic_lookup_per_cta_kernel<IndexArray, OffsetArray, CountArray, DstArray, SrcTensor,
-                                  DstTensor, 4, 512, 512, true>
-        <<<num_bucket, 512, 0, stream>>>(idx, offset_idx, count, dst_idx, src_tensor, dst_tensor);
+    generic_lookup_per_cta_kernel<IndexArray, OffsetArray, CountArray, DstArray, SrcTensor, DstTensor,
+                                4, 512, 512, true>
+      <<<num_bucket, 512, 0, stream>>>(idx, offset_idx, count, dst_idx, src_tensor, dst_tensor);
   } else {
-    generic_lookup_per_cta_kernel<IndexArray, OffsetArray, CountArray, DstArray, SrcTensor,
-                                  DstTensor, 4, 512, 512>
-        <<<num_bucket, 512, 0, stream>>>(idx, offset_idx, count, dst_idx, src_tensor, dst_tensor);
+    generic_lookup_per_cta_kernel<IndexArray, OffsetArray, CountArray, DstArray, SrcTensor, DstTensor,
+                                4, 512, 512>
+      <<<num_bucket, 512, 0, stream>>>(idx, offset_idx, count, dst_idx, src_tensor, dst_tensor);
   }
+  
 }
 
 }  // namespace embedding

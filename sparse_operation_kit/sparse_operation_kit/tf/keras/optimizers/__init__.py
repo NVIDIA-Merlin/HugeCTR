@@ -20,7 +20,6 @@ optimizers from TensorFlow
 
 from .adam import Adam
 from tensorflow import __version__ as tf_version
-
 if tf_version.startswith("1"):
     from .lazy_adam import LazyAdamOptimizer
 __all__ = [item for item in dir() if not item.startswith("__")]

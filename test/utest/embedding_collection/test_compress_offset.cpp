@@ -17,9 +17,9 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include "HugeCTR/core/hctr_impl/hctr_backend.hpp"
 #include "HugeCTR/embedding/operators/compress_offset.hpp"
 #include "HugeCTR/include/resource_managers/resource_manager_ext.hpp"
+#include "HugeCTR/core/hctr_impl/hctr_backend.hpp"
 using namespace embedding;
 
 TEST(test_compress_offset, test_compress_offset) {
@@ -43,14 +43,14 @@ TEST(test_compress_offset, test_compress_offset) {
   }
   std::partial_sum(cpu_offset.begin(), cpu_offset.end(), cpu_offset.begin());
   offset.copy_from(cpu_offset);
-
+  
   CompressOffset compress_offset{core, num_compressed_offset};
   Tensor compressed_offset;
   compress_offset.compute(offset, batch_size, &compressed_offset);
 
   std::vector<uint32_t> gpu_compressed_offset;
   compressed_offset.to(&gpu_compressed_offset);
-
+  
   ASSERT_EQ(gpu_compressed_offset.size(), num_compressed_offset);
   for (int i = 0; i < num_compressed_offset; ++i) {
     ASSERT_EQ(gpu_compressed_offset[i], cpu_offset[i * batch_size]);

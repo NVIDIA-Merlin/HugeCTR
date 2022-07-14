@@ -15,11 +15,11 @@
  */
 #pragma once
 #include <common.hpp>
-#include <data_source/hdfs_backend.hpp>
 #include <embedding.hpp>
 #include <embedding_training_cache/embedding_training_cache.hpp>
 #include <exchange_wgrad.hpp>
 #include <graph_wrapper.hpp>
+#include <hdfs_backend.hpp>
 #include <hps/hier_parameter_server.hpp>
 #include <hps/kafka_message.hpp>
 #include <hps/message.hpp>
@@ -32,10 +32,9 @@
 #include <thread>
 #include <utility>
 #include <utils.hpp>
-
+#include "embedding_collection.hpp"
 #include "HugeCTR/embedding/embedding.hpp"
 #include "HugeCTR/embedding_storage/embedding_table.hpp"
-#include "embedding_collection.hpp"
 
 namespace HugeCTR {
 
@@ -147,23 +146,19 @@ struct DataReaderParams {
   long long num_samples;
   long long eval_num_samples;
   bool float_label_dense;
-  bool read_file_sequentially;
   int num_workers;
   std::vector<long long int> slot_size_array;
-  DataSourceParams data_source_params;
   AsyncParam async_param;
   DataReaderParams(DataReaderType_t data_reader_type, std::string source, std::string keyset,
                    std::string eval_source, Check_t check_type, int cache_eval_data,
                    long long num_samples, long long eval_num_samples, bool float_label_dense,
-                   bool read_file_sequentially, int num_workers,
-                   std::vector<long long>& slot_size_array,
-                   const DataSourceParams& data_source_params, const AsyncParam& async_param);
+                   int num_workers, std::vector<long long>& slot_size_array,
+                   const AsyncParam& async_param);
   DataReaderParams(DataReaderType_t data_reader_type, std::vector<std::string> source,
                    std::vector<std::string> keyset, std::string eval_source, Check_t check_type,
                    int cache_eval_data, long long num_samples, long long eval_num_samples,
-                   bool float_label_dense, bool read_file_sequentially, int num_workers,
-                   std::vector<long long>& slot_size_array,
-                   const DataSourceParams& data_source_params, const AsyncParam& async_param);
+                   bool float_label_dense, int num_workers, std::vector<long long>& slot_size_array,
+                   const AsyncParam& async_param);
 };
 
 struct Input {
@@ -355,8 +350,8 @@ class Model {
 
   virtual void add(DenseLayer& dense_layer);
 
-  virtual void add(const EmbeddingCollectionPlaceholder& embedding_collection);
-
+  virtual void add(const EmbeddingCollectionPlaceHolder &embedding_collection);
+  
   virtual void add_internal(DenseLayer& dense_layer);
 
   void add(GroupDenseLayer& group_dense_layer);
@@ -421,8 +416,8 @@ class Model {
       network->set_learning_rate(lr_dense);
     }
     if (solver_.use_embedding_collection) {
-      for (auto& table_list : table_major_ebc_table_list_) {
-        for (auto& t : table_list) {
+      for (auto &table_list : table_major_ebc_table_list_) {
+        for (auto &t: table_list) {
           t->set_learning_rate(lr);
         }
       }
@@ -557,7 +552,7 @@ class Model {
   std::vector<std::string> layer_info_;                 /**< type of each layer. */
   std::vector<std::shared_ptr<Network>> networks_;      /**< networks (dense) used in training. */
   std::vector<std::shared_ptr<IEmbedding>> embeddings_; /**< embedding */
-
+  
   std::map<std::string, int> hotness_map_;
   std::vector<std::unique_ptr<embedding::IEmbeddingCollectionForward>> ebc_forward_list_;
   std::vector<std::unique_ptr<embedding::IEmbeddingCollectionForward>> eval_ebc_forward_list_;
@@ -600,11 +595,10 @@ class Model {
   std::shared_ptr<ExchangeWgrad> exchange_wgrad_;
   std::vector<GraphWrapper> train_graphs_;
   std::vector<cudaEvent_t> fork_events_;
-  bool embedding_dependent_;
+  bool dlrm_bottom_mlp_;
   bool high_level_eval_;
   HugeCTR::Timer timer_log;
   std::map<std::string, std::shared_ptr<IEmbedding>> embeddings_map_;
-  std::set<std::string> embedding_dependent_tensors_;
 
   Error_t download_dense_params_to_files_(std::string weights_file,
                                           std::string dense_opt_states_file,
@@ -650,8 +644,7 @@ class Model {
       bool async_mlp_wgrad, std::map<std::string, metrics::RawMetricMap>* raw_metrics,
       int num_networks_in_global, const std::shared_ptr<GPUResource>& gpu_resource,
       bool use_mixed_precision, bool enable_tf32_compute, float scaler, bool use_algorithm_search,
-      std::vector<Layer*>* top_layers, std::vector<Layer*>* bottom_layers,
-      bool embedding_dependent);
+      std::vector<Layer*>* top_layers, std::vector<Layer*>* bottom_layers, bool dlrm_bottom_mlp);
 
   struct GraphScheduler {
    private:

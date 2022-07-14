@@ -168,8 +168,7 @@ void end_to_end_impl(std::vector<int> device_list, HybridEmbeddingInputGenerator
 
     for (size_t i = 0; i < num_frequent; ++i) {
       dtype cat = h_frequent_categories[i];
-      cudaMemcpy(embedding->frequent_embeddings_single_node_[device]
-                         .frequent_data_.frequent_embedding_vectors_.get_ptr() +
+      cudaMemcpy(embedding->frequent_embeddings_[device].frequent_embedding_vectors_.get_ptr() +
                      i * embedding_vec_size,
                  full_emb_table.data() + cat * embedding_vec_size,
                  sizeof(float) * embedding_vec_size, cudaMemcpyHostToDevice);
@@ -188,20 +187,18 @@ void end_to_end_impl(std::vector<int> device_list, HybridEmbeddingInputGenerator
   for (size_t device = 0; device < local_gpu_count; device++) {
     CudaDeviceContext context(resource_manager->get_local_gpu(device)->get_device_id());
     int global_id = resource_manager->get_local_gpu(device)->get_global_id();
-    HCTR_LIB_THROW(cudaDeviceSynchronize());
+    cudaDeviceSynchronize();
 
     size_t num_infrequent = embedding->model_[device].h_infrequent_model_table_offsets[num_tables];
 
     float *h_infrequent_embedding_vectors;
     dtype *h_category_location;
-    HCTR_LIB_THROW(cudaMallocHost((void **)&h_infrequent_embedding_vectors,
-                                  (num_infrequent + 1) * embedding_vec_size * sizeof(float)));
-    HCTR_LIB_THROW(
-        cudaMallocHost((void **)&h_category_location, total_categories * 2 * sizeof(dtype)));
+    cudaMallocHost((void **)&h_infrequent_embedding_vectors,
+                   (num_infrequent + 1) * embedding_vec_size * sizeof(float));
+    cudaMallocHost((void **)&h_category_location, total_categories * 2 * sizeof(dtype));
 
-    HCTR_LIB_THROW(cudaMemcpy(h_category_location,
-                              embedding->model_[device].category_location.get_ptr(),
-                              total_categories * 2 * sizeof(dtype), cudaMemcpyDeviceToHost));
+    cudaMemcpy(h_category_location, embedding->model_[device].category_location.get_ptr(),
+               total_categories * 2 * sizeof(dtype), cudaMemcpyDeviceToHost);
 
     if (debug_print) {
       HCTR_LOG(INFO, ROOT, "Category location array:\n");
@@ -226,15 +223,14 @@ void end_to_end_impl(std::vector<int> device_list, HybridEmbeddingInputGenerator
         */
       }
     }
-    HCTR_LIB_THROW(cudaMemcpy(
-        embedding->infrequent_embeddings_[device].infrequent_embedding_vectors_.get_ptr(),
-        h_infrequent_embedding_vectors, num_infrequent * embedding_vec_size * sizeof(float),
-        cudaMemcpyHostToDevice));
+    cudaMemcpy(embedding->infrequent_embeddings_[device].infrequent_embedding_vectors_.get_ptr(),
+               h_infrequent_embedding_vectors, num_infrequent * embedding_vec_size * sizeof(float),
+               cudaMemcpyHostToDevice);
     // HCTR_LOG(INFO, WORLD, "gpu = %ld, num_infrequent = %ld, infrequent_embedding_vectors_ =
     // 0x%lx\n", device, num_infrequent,
     // (size_t)(embedding->infrequent_embeddings_[device].infrequent_embedding_vectors_.get_ptr()));
-    HCTR_LIB_THROW(cudaFreeHost(h_infrequent_embedding_vectors));
-    HCTR_LIB_THROW(cudaFreeHost(h_category_location));
+    cudaFreeHost(h_infrequent_embedding_vectors);
+    cudaFreeHost(h_category_location);
   }
 
   if (debug_print) {
@@ -282,7 +278,7 @@ void end_to_end_impl(std::vector<int> device_list, HybridEmbeddingInputGenerator
     const int device = 0;
     CudaDeviceContext context(resource_manager->get_local_gpu(device)->get_device_id());
     int global_id = resource_manager->get_local_gpu(device)->get_global_id();
-    HCTR_LIB_THROW(cudaDeviceSynchronize());
+    cudaDeviceSynchronize();
 
     {
       std::vector<dtype> tmp;
@@ -304,15 +300,13 @@ void end_to_end_impl(std::vector<int> device_list, HybridEmbeddingInputGenerator
 
       int num_batch_frequent;
       HCTR_LIB_THROW(cudaMemcpy(&num_batch_frequent,
-                                embedding->frequent_embeddings_single_node_[device]
+                                embedding->frequent_embeddings_[device]
                                     .indices_->d_num_frequent_sample_indices_.get_ptr(),
                                 sizeof(uint32_t), cudaMemcpyDeviceToHost));
       HCTR_LOG(INFO, ROOT, "Instance %d found %d frequent categories in positions: ", global_id,
                num_batch_frequent);
       download_tensor(
-          tmp,
-          embedding->frequent_embeddings_single_node_[device].indices_->frequent_sample_indices_,
-          0);
+          tmp, embedding->frequent_embeddings_[device].indices_->frequent_sample_indices_, 0);
       for (int j = 0; j < num_batch_frequent; j++) {
         HCTR_PRINT(INFO, " %d", (int)tmp[j]);
       }
@@ -343,7 +337,7 @@ void end_to_end_impl(std::vector<int> device_list, HybridEmbeddingInputGenerator
   for (size_t device = 0; device < local_gpu_count; device++) {
     CudaDeviceContext context(resource_manager->get_local_gpu(device)->get_device_id());
     int global_id = resource_manager->get_local_gpu(device)->get_global_id();
-    HCTR_LIB_THROW(cudaDeviceSynchronize());
+    cudaDeviceSynchronize();
 
     std::vector<emtype> h_output;
     std::vector<emtype> expected(embedding_vec_size);
@@ -431,14 +425,13 @@ void end_to_end_impl(std::vector<int> device_list, HybridEmbeddingInputGenerator
   for (size_t device = 0; device < local_gpu_count; device++) {
     CudaDeviceContext context(resource_manager->get_local_gpu(device)->get_device_id());
     int global_id = resource_manager->get_local_gpu(device)->get_global_id();
-    HCTR_LIB_THROW(cudaDeviceSynchronize());
+    cudaDeviceSynchronize();
 
     std::vector<dtype> h_frequent_categories;
     download_tensor(h_frequent_categories, embedding->model_[device].frequent_categories, 0);
 
     float *h_frequent_embedding_vectors;
-    HCTR_LIB_THROW(
-        cudaMallocHost((void **)&h_frequent_embedding_vectors, embedding_vec_size * sizeof(float)));
+    cudaMallocHost((void **)&h_frequent_embedding_vectors, embedding_vec_size * sizeof(float));
 
     // Only checking the categories that the instance owns
     size_t chunk = num_frequent / resource_manager->get_global_gpu_count();
@@ -448,11 +441,11 @@ void end_to_end_impl(std::vector<int> device_list, HybridEmbeddingInputGenerator
     size_t end = (device + 1) * chunk;
     for (size_t i = start; i < end; ++i) {
       dtype cat_id = h_frequent_categories[i];
-      HCTR_LIB_THROW(cudaMemcpy(h_frequent_embedding_vectors,
-                                embedding->frequent_embeddings_single_node_[device]
-                                        .frequent_data_.frequent_embedding_vectors_.get_ptr() +
-                                    i * embedding_vec_size,
-                                sizeof(float) * embedding_vec_size, cudaMemcpyDeviceToHost));
+      cudaMemcpy(h_frequent_embedding_vectors,
+                 embedding->frequent_embeddings_[device].frequent_embedding_vectors_.get_ptr() +
+                     i * embedding_vec_size,
+                 sizeof(float) * embedding_vec_size, cudaMemcpyDeviceToHost);
+
       for (size_t j = 0; j < embedding_vec_size; j++) {
         ASSERT_NEAR((double)h_frequent_embedding_vectors[j],
                     (double)full_emb_table.data()[cat_id * embedding_vec_size + j] -
@@ -462,7 +455,7 @@ void end_to_end_impl(std::vector<int> device_list, HybridEmbeddingInputGenerator
             << " dimension " << j << "/" << embedding_vec_size << std::endl;
       }
     }
-    HCTR_LIB_THROW(cudaFreeHost(h_frequent_embedding_vectors));
+    cudaFreeHost(h_frequent_embedding_vectors);
   }
 
   // Check infrequent embeddings
@@ -474,19 +467,16 @@ void end_to_end_impl(std::vector<int> device_list, HybridEmbeddingInputGenerator
 
     float *h_infrequent_embedding_vectors;
     dtype *h_category_location;
-    HCTR_LIB_THROW(cudaMallocHost((void **)&h_infrequent_embedding_vectors,
-                                  num_infrequent * embedding_vec_size * sizeof(float)));
-    HCTR_LIB_THROW(
-        cudaMallocHost((void **)&h_category_location, total_categories * 2 * sizeof(dtype)));
+    cudaMallocHost((void **)&h_infrequent_embedding_vectors,
+                   num_infrequent * embedding_vec_size * sizeof(float));
+    cudaMallocHost((void **)&h_category_location, total_categories * 2 * sizeof(dtype));
 
-    HCTR_LIB_THROW(cudaMemcpy(h_category_location,
-                              embedding->model_[device].category_location.get_ptr(),
-                              total_categories * 2 * sizeof(dtype), cudaMemcpyDeviceToHost));
+    cudaMemcpy(h_category_location, embedding->model_[device].category_location.get_ptr(),
+               total_categories * 2 * sizeof(dtype), cudaMemcpyDeviceToHost);
 
-    HCTR_LIB_THROW(cudaMemcpy(
-        h_infrequent_embedding_vectors,
-        embedding->infrequent_embeddings_[device].infrequent_embedding_vectors_.get_ptr(),
-        num_infrequent * embedding_vec_size * sizeof(float), cudaMemcpyDeviceToHost));
+    cudaMemcpy(h_infrequent_embedding_vectors,
+               embedding->infrequent_embeddings_[device].infrequent_embedding_vectors_.get_ptr(),
+               num_infrequent * embedding_vec_size * sizeof(float), cudaMemcpyDeviceToHost);
 
     for (size_t cat_id = 0; cat_id < total_categories; ++cat_id) {
       if ((int)h_category_location[2 * cat_id] == global_id) {
@@ -503,8 +493,8 @@ void end_to_end_impl(std::vector<int> device_list, HybridEmbeddingInputGenerator
       }
     }
 
-    HCTR_LIB_THROW(cudaFreeHost(h_infrequent_embedding_vectors));
-    HCTR_LIB_THROW(cudaFreeHost(h_category_location));
+    cudaFreeHost(h_infrequent_embedding_vectors);
+    cudaFreeHost(h_category_location);
   }
 }
 

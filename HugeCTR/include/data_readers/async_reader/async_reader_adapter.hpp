@@ -7,7 +7,6 @@
 #include <data_readers/async_reader/split_label_dense_sparse.hpp>
 #include <tensor2.hpp>
 
-#include "HugeCTR/include/data_source/hdfs_backend.hpp"
 #include "HugeCTR/include/embeddings/hybrid_embedding/indices_container.hpp"
 #include "HugeCTR/include/graph_wrapper.hpp"
 
@@ -63,8 +62,7 @@ class AsyncReader : public IDataReaderWithScheduling {
   void create_drwg_raw(std::string file_name, long long num_samples, bool float_label_dense,
                        bool data_shuffle, bool start_reading_from_beginning = true) override;
 #ifndef DISABLE_CUDF
-  void create_drwg_parquet(std::string file_list, bool strict_order_of_batches,
-                           const std::vector<long long> slot_offset,
+  void create_drwg_parquet(std::string file_list, const std::vector<long long> slot_offset,
                            bool start_reading_from_beginning = true) override;
 #endif
   void set_source(std::string file_list = std::string()) override;

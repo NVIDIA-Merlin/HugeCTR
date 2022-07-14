@@ -54,8 +54,7 @@ solver = hugectr.CreateSolver(max_eval_batches = 50,
                               grouped_all_reduce = True,
                               num_iterations_statistics = 20,
                               metrics_spec = {hugectr.MetricsType.AUC: 0.8025},
-                              perf_logging = True,
-                              drop_incomplete_batch = False)
+                              is_dlrm = True)
 reader = hugectr.DataReaderParams(data_reader_type = hugectr.DataReaderType_t.RawAsync,
                                   source = ["/raid/datasets/criteo/mlperf/40m.limit_preshuffled/train_data.bin"],
                                   eval_source = "/raid/datasets/criteo/mlperf/40m.limit_preshuffled/test_data.bin",
@@ -69,7 +68,7 @@ optimizer = hugectr.CreateOptimizer(optimizer_type = hugectr.Optimizer_t.SGD,
                                     update_type = hugectr.Update_t.Local,
                                     atomic_update = True)
 # 2. Initialize the Model instance
-model = hugectr.Model(solver, reader, optimizer)
+model = hugectr.ModelPerfExt(solver, reader, optimizer)
 # 3. Construct the Model graph
 model.add(hugectr.Input(label_dim = 1, label_name = "label",
                         dense_dim = 13, dense_name = "dense",
@@ -143,3 +142,4 @@ model.graph_to_json(graph_config_file = "dlrm.json")
 model.compile()
 model.summary()
 model.fit(max_iter = 58527, display = 1000, eval_interval = 2926, snapshot = 2000000, snapshot_prefix = "dlrm")
+

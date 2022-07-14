@@ -17,6 +17,7 @@
 #pragma once
 #include "HugeCTR/include/embedding.hpp"
 #include "HugeCTR/include/hashtable/nv_hashtable.hpp"
+#include "HugeCTR/include/hdfs_backend.hpp"
 #include "HugeCTR/include/resource_manager.hpp"
 #include "HugeCTR/include/tensor2.hpp"
 namespace HugeCTR {

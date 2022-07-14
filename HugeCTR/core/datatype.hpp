@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 #pragma once
-
 #include <ostream>
 #include <string>
 
@@ -45,7 +44,7 @@ class DataType final {
   DataType() : type_(TensorScalarType::None) {}
 
   DataType(TensorScalarType type) : type_(type) {}
-
+  
   template <typename T>
   bool match() const {
     return (std::is_same<float, T>::value && type_ == TensorScalarType::Float32) ||
@@ -55,7 +54,7 @@ class DataType final {
            (std::is_same<int32_t, T>::value && type_ == TensorScalarType::Int32) ||
            (std::is_same<uint32_t, T>::value && type_ == TensorScalarType::UInt32) ||
            (std::is_same<size_t, T>::value && type_ == TensorScalarType::Size_t) ||
-           (std::is_same<char, T>::value && type_ == TensorScalarType::Char) ||
+           (std::is_same<char, T>::value && type_ == TensorScalarType::Char) || 
            type_ == TensorScalarType::Void;
   }
 

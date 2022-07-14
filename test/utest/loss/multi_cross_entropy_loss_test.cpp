@@ -57,10 +57,10 @@ void multi_cross_entropy_loss(size_t label_dim, size_t batch_size) {
 
   for (size_t i = 0; i < batch_size * label_dim; ++i) h_input[i] = rand() % 100 * 0.01f;
   for (size_t i = 0; i < batch_size * label_dim; ++i) h_label[i] = rand() % 3 - 1;
-  HCTR_LIB_THROW(cudaMemcpy(d_input, h_input.get(), sizeof(float) * batch_size * label_dim,
-                            cudaMemcpyHostToDevice));
-  HCTR_LIB_THROW(cudaMemcpy(d_label, h_label.get(), sizeof(float) * batch_size * label_dim,
-                            cudaMemcpyHostToDevice));
+  cudaMemcpy(d_input, h_input.get(), sizeof(float) * batch_size * label_dim,
+             cudaMemcpyHostToDevice);
+  cudaMemcpy(d_label, h_label.get(), sizeof(float) * batch_size * label_dim,
+             cudaMemcpyHostToDevice);
 
   mel.compute_and_init(true);
 

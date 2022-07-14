@@ -86,23 +86,23 @@ class MatVecOpTest : public ::testing::TestWithParam<MatVecOpInputs<T, IdxType>>
     r.uniform(vec2, vecLen, (T)-1.0, (T)1.0, stream);
 
     cudaEvent_t start, stop;
-    CUDA_CHECK(cudaEventCreate(&start));
-    CUDA_CHECK(cudaEventCreate(&stop));
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
 
-    CUDA_CHECK(cudaEventRecord(start));
+    cudaEventRecord(start);
     matrixVectorOpLaunch1(out_ref, in, vec1, D, N, params.rowMajor, params.bcastAlongRows, stream);
-    CUDA_CHECK(cudaEventRecord(stop));
-    CUDA_CHECK(cudaEventSynchronize(stop));
+    cudaEventRecord(stop);
+    cudaEventSynchronize(stop);
     float milliseconds = 0;
-    CUDA_CHECK(cudaEventElapsedTime(&milliseconds, start, stop));
+    cudaEventElapsedTime(&milliseconds, start, stop);
     // HCTR_LOG(INFO, WORLD, "Fused: %f\n", milliseconds);
 
-    CUDA_CHECK(cudaEventRecord(start));
+    cudaEventRecord(start);
     matrixVectorOpLaunch2(out, in, vec1, D, N, params.rowMajor, params.bcastAlongRows, stream);
-    CUDA_CHECK(cudaEventRecord(stop));
-    CUDA_CHECK(cudaEventSynchronize(stop));
+    cudaEventRecord(stop);
+    cudaEventSynchronize(stop);
     milliseconds = 0;
-    CUDA_CHECK(cudaEventElapsedTime(&milliseconds, start, stop));
+    cudaEventElapsedTime(&milliseconds, start, stop);
     // HCTR_LOG(INFO, WORLD, "Normal: %f\n", milliseconds);
 
     CUDA_CHECK(cudaStreamDestroy(stream));

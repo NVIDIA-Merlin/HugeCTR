@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 #pragma once
-
 #include "HugeCTR/core/buffer.hpp"
 #include "HugeCTR/core/registry.hpp"
 
@@ -41,4 +40,4 @@ class CompressOffset {
 
   void compute(const Tensor &offset, int batch_size, Tensor *compressed_offset);
 };
-}  // namespace embedding
+}

@@ -36,9 +36,9 @@ Profiler::GPUTimer::GPUTimer() {
 }
 
 Profiler::GPUTimer::~GPUTimer() {
-  HCTR_LIB_THROW(cudaEventDestroy(iter_start_));
-  HCTR_LIB_THROW(cudaEventDestroy(start_));
-  HCTR_LIB_THROW(cudaEventDestroy(stop_));
+  cudaEventDestroy(iter_start_);
+  cudaEventDestroy(start_);
+  cudaEventDestroy(stop_);
 }
 
 void Profiler::GPUTimer::iter_start(cudaStream_t stream) {
@@ -578,7 +578,7 @@ void Profiler::unit_test_end() {
     if (std::find(devices.begin(), devices.end(), unit_test_devices_[i]) == devices.end()) {
       devices.push_back(unit_test_devices_[i]);
       HCTR_LIB_THROW(cudaSetDevice(unit_test_devices_[i]));
-      HCTR_LIB_THROW(cudaDeviceSynchronize());
+      cudaDeviceSynchronize();
     }
   }
 

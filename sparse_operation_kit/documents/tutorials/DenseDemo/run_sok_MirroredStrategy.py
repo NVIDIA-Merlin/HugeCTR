@@ -18,22 +18,18 @@ import tensorflow as tf
 from models import SOKDenseDemo
 import argparse
 import sys
-
 sys.path.append("../")
 import utility
 from utility import sparse_operation_kit as sok
 import nvtx
 
-
 def main(args):
     strategy = tf.distribute.MirroredStrategy()
 
-    dataset = utility.TFDataset(
-        filename=args.data_filename,
-        batchsize=args.global_batch_size,
-        as_sparse_tensor=False,
-        repeat=1,
-    )
+    dataset = utility.TFDataset(filename=args.data_filename, 
+                                batchsize=args.global_batch_size,
+                                as_sparse_tensor=False, 
+                                repeat=1)
     dataset = dataset.prefetch(tf.data.AUTOTUNE)
 
     dataset = strategy.experimental_distribute_dataset(dataset)
@@ -41,21 +37,16 @@ def main(args):
     with strategy.scope():
         sok.Init(global_batch_size=args.global_batch_size)
 
-        model = SOKDenseDemo(
-            max_vocabulary_size_per_gpu=args.max_vocabulary_size_per_gpu,
-            embedding_vec_size=args.embedding_vec_size,
-            slot_num=args.slot_num,
-            nnz_per_slot=args.nnz_per_slot,
-            num_dense_layers=args.num_dense_layers,
-        )
+        model = SOKDenseDemo(max_vocabulary_size_per_gpu=args.max_vocabulary_size_per_gpu,
+                             embedding_vec_size=args.embedding_vec_size,
+                             slot_num=args.slot_num,
+                             nnz_per_slot=args.nnz_per_slot,
+                             num_dense_layers=args.num_dense_layers)
 
         embedding_optimizer = utility.get_embedding_optimizer(args.optimizer)(learning_rate=0.1)
         dense_optimizer = utility.get_dense_optimizer(args.optimizer)(learning_rate=0.1)
 
-    loss_fn = tf.keras.losses.BinaryCrossentropy(
-        from_logits=True, reduction=tf.keras.losses.Reduction.NONE
-    )
-
+    loss_fn = tf.keras.losses.BinaryCrossentropy(from_logits=True, reduction=tf.keras.losses.Reduction.NONE)
     def _replica_loss(labels, logits):
         loss = loss_fn(labels, logits)
         return tf.nn.compute_average_loss(loss, global_batch_size=args.global_batch_size)
@@ -65,19 +56,15 @@ def main(args):
         with tf.GradientTape() as tape:
             logit = model(inputs, training=True)
             loss = _replica_loss(labels, logit)
-        emb_variable, other_variable = sok.split_embedding_variable_from_others(
-            model.trainable_variables
-        )
+        emb_variable, other_variable = sok.split_embedding_variable_from_others(model.trainable_variables)
         grads, emb_grads = tape.gradient(loss, [other_variable, emb_variable])
         if "plugin" not in args.optimizer:
             with sok.OptimizerScope(emb_variable):
-                embedding_optimizer.apply_gradients(
-                    zip(emb_grads, emb_variable), experimental_aggregate_gradients=False
-                )
+                embedding_optimizer.apply_gradients(zip(emb_grads, emb_variable),
+                                                    experimental_aggregate_gradients=False)
         else:
-            embedding_optimizer.apply_gradients(
-                zip(emb_grads, emb_variable), experimental_aggregate_gradients=False
-            )
+            embedding_optimizer.apply_gradients(zip(emb_grads, emb_variable),
+                                                experimental_aggregate_gradients=False)
         dense_optimizer.apply_gradients(zip(grads, other_variable))
         return loss
 
@@ -93,43 +80,31 @@ def main(args):
         nvtx.end_range(rng)
         print("[INFO]: Iteration: {}, loss={}".format(i, loss))
 
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="run DNN model with SparseOperationKit")
 
-    parser.add_argument(
-        "--data_filename", type=str, help="the filename of training datas", required=True
-    )
-    parser.add_argument("--global_batch_size", type=int, required=True)
-    parser.add_argument("--max_vocabulary_size_per_gpu", type=int, required=True)
-    parser.add_argument("--slot_num", type=int, required=True, help="the number of feature fields")
-    parser.add_argument(
-        "--nnz_per_slot", type=int, required=True, help="the number of keys in each slot"
-    )
-    parser.add_argument(
-        "--num_dense_layers",
-        type=int,
-        required=True,
-        help="the number of fully connected layers in this DNN model",
-    )
-    parser.add_argument(
-        "--embedding_vec_size", type=int, required=True, help="the dimension of embedding vectors"
-    )
-    parser.add_argument(
-        "--optimizer",
-        type=str,
-        help="use what optimizer",
-        required=False,
-        default="plugin_adam",
-        choices=["plugin_adam", "adam", "sgd"],
-    )
-    parser.add_argument(
-        "--stop_at_iter",
-        type=int,
-        required=False,
-        help="early stop the process if iteration reachs this setting.",
-        default=-1,
-    )
+    parser.add_argument("--data_filename", type=str,
+                        help="the filename of training datas",
+                        required=True)
+    parser.add_argument("--global_batch_size", type=int,
+                        required=True)
+    parser.add_argument("--max_vocabulary_size_per_gpu", type=int,
+                        required=True)
+    parser.add_argument("--slot_num", type=int, required=True,
+                        help="the number of feature fields")
+    parser.add_argument("--nnz_per_slot", type=int, required=True,
+                        help="the number of keys in each slot")
+    parser.add_argument("--num_dense_layers", type=int, required=True,
+                        help="the number of fully connected layers in this DNN model")
+    parser.add_argument("--embedding_vec_size", type=int, required=True,
+                        help="the dimension of embedding vectors")
+    parser.add_argument('--optimizer', type=str,
+                        help="use what optimizer",
+                        required=False, default='plugin_adam',
+                        choices=['plugin_adam', 'adam', 'sgd'])
+    parser.add_argument("--stop_at_iter", type=int, required=False,
+                        help="early stop the process if iteration reachs this setting.",
+                        default=-1)
 
     args = parser.parse_args()
 

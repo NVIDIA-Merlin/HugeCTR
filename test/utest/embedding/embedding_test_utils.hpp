@@ -239,8 +239,8 @@ bool compare_localized_hash_table_files(std::string file1, std::string file2, fl
   size_t pair_num = file_size1 / pair_size_in_B;
 
 #ifndef NDEBUG
-  HCTR_LOG_S(DEBUG, WORLD) << "pair_size_in_B=" << pair_size_in_B << std::endl;
-  HCTR_LOG_S(DEBUG, WORLD) << "pair_num=" << pair_num << std::endl;
+  std::cout << "pair_size_in_B=" << pair_size_in_B << std::endl;
+  std::cout << "pair_num=" << pair_num << std::endl;
 #endif
 
   // CAUSION: file_stream1 is ordered, while file_stream2 is unordered

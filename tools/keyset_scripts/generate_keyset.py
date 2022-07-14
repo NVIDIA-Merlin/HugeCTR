@@ -36,7 +36,7 @@ def generate_keyset(src_dir_path, dst_dir_path, cat_features_pos, slot_size_arra
         int_size = 4 if int32_keyset else 8
         for all_keys in all_keysets:
             for k in all_keys:
-                f.write(int(k).to_bytes(int_size, "little", signed=True))
+                f.write(int(k).to_bytes(int_size, "big"))
     logging.info('Extracted keyset from {}'.format(src_dir_path))
         
 if __name__ == '__main__':

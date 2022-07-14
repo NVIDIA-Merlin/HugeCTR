@@ -17,16 +17,13 @@
 import tensorflow as tf
 
 import sys, os
-
-sys.path.append(
-    os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../../"))
-)
+sys.path.append(os.path.abspath(os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "../../../")))
 
 import sparse_operation_kit as sok
 
 import os, json
 from multiprocessing import Process
-
 
 class MultiWorkerbase(object):
     def __init__(self):
@@ -43,12 +40,10 @@ class MultiWorkerbase(object):
         else:
             raise RuntimeError("task_id can only be one of [0, 1].")
 
-        os.environ["TF_CONFIG"] = json.dumps(
-            {
-                "cluster": {"worker": [ip + ":" + port, ip + ":" + port1]},
-                "task": {"type": "worker", "index": task_id},
-            }
-        )
+        os.environ['TF_CONFIG'] = json.dumps({
+            "cluster": {"worker": [ip + ":" + port, ip + ":" + port1]},
+            "task": {"type": "worker", "index": task_id}
+        })
 
         resolver = tf.distribute.cluster_resolver.TFConfigClusterResolver()
 
@@ -75,7 +70,7 @@ class MultiWorkerbase(object):
 
         if p0.is_alive():
             p0.join()
-
+        
         if p1.is_alive():
             p1.join()
 
