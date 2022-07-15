@@ -16,7 +16,7 @@
 # 
 # ### Get HugeCTR from NGC
 # 
-# The HugeCTR Python module is preinstalled in the 22.06 and later [Merlin Training Container](https://catalog.ngc.nvidia.com/orgs/nvidia/teams/merlin/containers/merlin-training): `nvcr.io/nvidia/merlin/merlin-training:22.06`.
+# The HugeCTR Python module is preinstalled in the 22.07 and later [Merlin Training Container](https://catalog.ngc.nvidia.com/orgs/nvidia/teams/merlin/containers/merlin-hugectr): `nvcr.io/nvidia/merlin/merlin-hugectr:22.07`.
 # 
 # You can check the existence of required libraries by running the following Python code after launching this container.
 # 
@@ -189,4 +189,112 @@ diff_ref = pred_ref.flatten()-ground_truth
 mse_ref = np.mean(diff_ref*diff_ref)
 print("pred_ref: ", pred_ref)
 print("mse between pred_ref and ground_truth: ", mse_ref)
+
+
+# ## Lookup the Embedding Vector from DLPack
+# 
+# We also provide a `lookup_fromdlpack` interface that could query embedding keys on the `CPU` and return the embedding vectors on the `GPU/CPU`.
+# 
+# 1. Suppose you have created a Pytorch/Tensorflow tensor that stores the embedded keys.
+# 2. Convert the embedding key tensor to DLPack capsule through the corresponding platform's `to_dlpack` function.
+# 3. Creates an empty tensor as a buffer to store embedding vectors.
+# 4. Convert a buffer tensor  to DLPack capsule.
+# 5. Lookup the embedding vector of the corresponding embedding key directly through `lookup_fromdlpack` interface, and output it to the embedding vector buffer tensor
+# 
+# Note: Please make sure that tensorflow or pytorch have been installed correctly in the container
+
+# In[68]:
+
+
+embedding1 = hps.lookup(cat_input1.flatten(), "hps_demo", 0).reshape(batch_size, 2, 16)
+embedding2 = hps.lookup(cat_input2.flatten(), "hps_demo", 1).reshape(batch_size, 2, 32)
+
+# 1. Look up from dlpack for Pytorch tensor on CPU
+print(" Look up from dlpack for Pytorch tensor")
+import torch.utils.dlpack
+import os
+print("************Look up from pytorch dlpack on CPU")
+device = torch.device("cpu")
+key = torch.tensor(cat_input1.flatten(),dtype=torch.int64, device=device)
+out = torch.empty((1,cat_input1.flatten().shape[0]*16), dtype=torch.float32, device=device)
+key_capsule = torch.utils.dlpack.to_dlpack(key)
+print("The device type of embedding keys that lookup dlpack from hps interface for embedding table 0 of hps_demo: {}, the keys: {}".format(key.device, key))
+out_capsule = torch.utils.dlpack.to_dlpack(out)
+# Lookup the embedding vectors from dlpack
+hps.lookup_fromdlpack(key_capsule, out_capsule,"hps_demo", 0)
+out_put = torch.utils.dlpack.from_dlpack(out_capsule)
+print("[The device type of embedding vectors that lookup dlpack from hps interface for embedding table 0 of hps_demo: {}, the vectors: {}\n".format(out_put.device, out_put))
+diff = out_put-embedding1.reshape(1,cat_input1.flatten().shape[0]*16)
+if diff.mean() > 1e-4:
+    raise RuntimeError("Too large mse between pytorch dlpack on cpu and native HPS lookup api: {}".format(diff.mean()))
+    sys.exit(1)
+else:
+    print("Pytorch dlpack on cpu  results are consistent with native HPS lookup api, mse: {}".format(diff.mean()))
+    
+
+# 2. Look up from dlpack for Pytorch tensor on GPU
+print("************Look up from pytorch dlpack on GPU")
+cuda_device = torch.device("cuda:0" if torch.cuda.is_available else "cpu")
+out = torch.empty((1,cat_input1.flatten().shape[0]*16), dtype=torch.float32, device=cuda_device)
+out_capsule = torch.utils.dlpack.to_dlpack(out)
+hps.lookup_fromdlpack(key_capsule, out_capsule,"hps_demo", 0)
+out_put = torch.utils.dlpack.from_dlpack(out_capsule)
+print("The device type of embedding vectors that lookup dlpack from hps interface for embedding table 0 of hps_demo: {}, the vectors: {}\n\n".format(out_put.device, out_put))
+diff = out_put.cpu()-embedding1.reshape(1,cat_input1.flatten().shape[0]*16)
+if diff.mean() > 1e-3:
+    raise RuntimeError("Too large mse between pytorch dlpack on cpu and native HPS lookup api: {}".format(diff.mean()))
+    sys.exit(1)
+else:
+    print("Pytorch dlpack on GPU results are consistent with native HPS lookup api, mse: {}".format(diff.mean()))
+
+
+# In[69]:
+
+
+# 3. Look up from dlpack for tensorflow tensor on CPU
+print("Look up from dlpack for Tensorflow tensor")
+from tensorflow.python.dlpack import dlpack  
+import tensorflow as tf
+from tensorflow.python.eager import context
+from tensorflow.python.framework import dtypes
+print("***************Look up from tensorflow dlpack on CPU**********")
+with tf.device('/CPU:0'):
+    key_tensor = tf.constant(cat_input2.flatten(),dtype=tf.int64)
+    out_tensor = tf.zeros([1, cat_input2.flatten().shape[0]*32],dtype=tf.float32)
+    print("The device type of embedding keys that lookup dlpack from hps interface for embedding table 1 of hps_demo: {}, the keys: {}".format(key_tensor.device, key_tensor))
+    key_capsule = tf.experimental.dlpack.to_dlpack(key_tensor)
+    out_dlcapsule = tf.experimental.dlpack.to_dlpack(out_tensor)
+hps.lookup_fromdlpack(key_capsule,out_dlcapsule, "hps_demo", 1)
+out= tf.experimental.dlpack.from_dlpack(out_dlcapsule)
+print("The device type of embedding vectors that lookup dlpack from hps interface for embedding table 1 of hps_demo: {}, the vectors: {}\n".format(out.device, out))
+diff = out-embedding2.reshape(1,cat_input2.flatten().shape[0]*32)
+mse = tf.reduce_mean(diff)
+if mse> 1e-3:
+    raise RuntimeError("Too large mse between tensorflow dlpack on cpu and native HPS lookup api: {}".format(mse))
+    sys.exit(1)
+else:
+    print("tensorflow dlpack on CPU results are consistent with native HPS lookup api, mse: {}".format(mse))
+    
+# 4. Look up from dlpack for tensorflow tensor on GPU
+print("***************Look up from tensorflow dlpack on GPU**********")
+with tf.device('/GPU:0'):
+    out_tensor = tf.zeros([1, cat_input2.flatten().shape[0]*32],dtype=tf.float32)
+    key_capsule = tf.experimental.dlpack.to_dlpack(key_tensor)
+    out_dlcapsule = tf.experimental.dlpack.to_dlpack(out_tensor)
+hps.lookup_fromdlpack(key_capsule,out_dlcapsule, "hps_demo", 1)
+out= tf.experimental.dlpack.from_dlpack(out_dlcapsule)
+print("[HUGECTR][INFO] The device type of embedding vectors that lookup dlpack from hps interface for embedding table 1 of wdl: {}, the vectors: {}\n".format(out.device, out))
+diff = out-embedding2.reshape(1,cat_input2.flatten().shape[0]*32)
+mse = tf.reduce_mean(diff)
+if mse> 1e-3:
+    raise RuntimeError("Too large mse between tensorflow dlpack on cpu and native HPS lookup api: {}".format(mse))
+    sys.exit(1)
+else:
+    print("tensorflow dlpack on GPU results are consistent with native HPS lookup api, mse: {}".format(mse))
+
+
+# In[ ]:
+
+
+
 

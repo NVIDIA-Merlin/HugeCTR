@@ -46,11 +46,13 @@
 <li class="toctree-l1"><a class="reference internal" href="hugectr_user_guide.html">Introduction</a></li>
 <li class="toctree-l1"><a class="reference internal" href="hugectr_core_features.html">Core Features</a></li>
 <li class="toctree-l1"><a class="reference internal" href="hugectr_feature_details_intro.html">Features in Detail</a></li>
+<li class="toctree-l1"><a class="reference internal" href="performance.html">Performance</a></li>
 <li class="toctree-l1"><a class="reference internal" href="notebooks/index.html">Example Notebooks</a></li>
 <li class="toctree-l1"><a class="reference internal" href="notebooks/multi-modal-data/index.html">Multi-modal Example Notebooks</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api/index.html">API Documentation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="additional_resources.html">Additional Resources</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Release Notes</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#what-s-new-in-version-3-8">What’s New in Version 3.8</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#what-s-new-in-version-3-7">What’s New in Version 3.7</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#what-s-new-in-version-3-6">What’s New in Version 3.6</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#what-s-new-in-version-3-5">What’s New in Version 3.5</a></li>
@@ -95,6 +97,79 @@
              
   <div class="tex2jax_ignore mathjax_ignore section" id="release-notes">
 <h1>Release Notes<a class="headerlink" href="#release-notes" title="Permalink to this headline"></a></h1>
+<div class="section" id="what-s-new-in-version-3-8">
+<h2>What’s New in Version 3.8<a class="headerlink" href="#what-s-new-in-version-3-8" title="Permalink to this headline"></a></h2>
+<ul>
+<li><p><strong>Sample Notebook to Demonstrate 3G Embedding</strong>:
+This release includes a sample notebook that introduces the Python API of the
+embedding collection and the key concepts for using 3G embedding.
+You can view <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/v3.8/notebooks/embedding_collection.html">HugeCTR Embedding Collection</a>
+from the documentation or access the <code class="docutils literal notranslate"><span class="pre">embedding_collection.ipynb</span></code> file from the
+<a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/tree/v3.8/notebooks/"><code class="docutils literal notranslate"><span class="pre">notebooks</span></code></a>
+directory of the repository.</p></li>
+<li><p><strong>DLPack Python API for Hierarchical Parameter Server Lookup</strong>:
+This release introduces support for embedding lookup from the Hierarchical
+Parameter Server (HPS) using the DLPack Python API.  The new method is
+<code class="docutils literal notranslate"><span class="pre">lookup_fromdlpack()</span></code>.  For sample usage, see the
+<a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/v3.8/notebooks/hps_demo.html#lookup-the-embedding-vector-from-dlpack">Lookup the Embedding Vector from DLPack</a>
+heading in the “Hierarchical Parameter Server Demo” notebook.</p></li>
+<li><p><strong>Read Parquet Datasets from HDFS with the Python API</strong>:
+This release enhances the <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/v3.8/api/python_interface.html#datareaderparams"><code class="docutils literal notranslate"><span class="pre">DataReaderParams</span></code></a>
+class with a <code class="docutils literal notranslate"><span class="pre">data_source_params</span></code> argument. You can use the argument to specify
+the data source configuration such as the host name of the Hadoop NameNode and the NameNode port number to read from HDFS.</p></li>
+<li><p><strong>Logging Performance Improvements</strong>:
+This release includes a performance enhancement that reduces the performance impact of logging.</p></li>
+<li><p><strong>Enhancements to Layer Classes</strong>:</p>
+<ul class="simple">
+<li><p>The <code class="docutils literal notranslate"><span class="pre">FullyConnected</span></code> layer now supports 3D inputs</p></li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">MatrixMultiply</span></code> layer now supports 4D inputs.</p></li>
+</ul>
+</li>
+<li><p><strong>Documentation Enhancements</strong>:</p>
+<ul class="simple">
+<li><p>An automatically generated table of contents is added to the top of most
+pages in the web documentation. The goal is to provide a better experience
+for navigating long pages such as the
+<a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/v3.8/api/hugectr_layer_book.html">HugeCTR Layer Classes and Methods</a>
+page.</p></li>
+<li><p>URLs to the Criteo 1TB click logs dataset are updated. For an example, see the
+<a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/v3.8/notebooks/hugectr_wdl_prediction.html">HugeCTR Wide and Deep Model with Criteo</a>
+notebook.</p></li>
+</ul>
+</li>
+<li><p><strong>Issues Fixed</strong>:</p>
+<ul class="simple">
+<li><p>The data generator for the Parquet file type is fixed and produces consistent file names between the <code class="docutils literal notranslate"><span class="pre">_metadata.json</span></code> file and the actual dataset files.
+Previously, running the data generator to create synthetic data resulted in a core dump.
+This issue was first reported in the GitHub issue <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/issues/321">321</a>.</p></li>
+<li><p>Fixed the memory crash in running a large model on multiple GPUs that occurred during AUC warm up.</p></li>
+<li><p>Fixed the issue of keyset generation in the ETC notebook.
+Refer to the GitHub issue <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/issues/332">332</a> for more details.</p></li>
+<li><p>Fixed the inference build error that occurred when building with debug mode.</p></li>
+<li><p>Fixed the issue that multi-node training prints duplicate messages.</p></li>
+</ul>
+</li>
+<li><p><strong>Known Issues</strong>:</p>
+<ul>
+<li><p>Hybrid embedding with <code class="docutils literal notranslate"><span class="pre">IB_NVLINK</span></code> as the <code class="docutils literal notranslate"><span class="pre">communication_type</span></code> of the
+<a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/v3.8/api/python_interface.html#hybridembeddingparam-class"><code class="docutils literal notranslate"><span class="pre">HybridEmbeddingParam</span></code></a>
+class does not work currently. We are working on fixing it. The other communication types have no issues.</p></li>
+<li><p>HugeCTR uses NCCL to share data between ranks and NCCL can require shared system memory for IPC and pinned (page-locked) system memory resources.
+If you use NCCL inside a container, increase these resources by specifying the following arguments when you start the container:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>  -shm-size<span class="o">=</span>1g -ulimit <span class="nv">memlock</span><span class="o">=</span>-1
+</pre></div>
+</div>
+<p>See also the NCCL <a class="reference external" href="https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/troubleshooting.html#sharing-data">known issue</a> and the GitHub <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/issues/243">issue</a>.</p>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">KafkaProducers</span></code> startup succeeds even if the target Kafka broker is unresponsive.
+To avoid data loss in conjunction with streaming-model updates from Kafka, you have to make sure that a sufficient number of Kafka brokers are running, operating properly, and are reachable from the node where you run HugeCTR.</p></li>
+<li><p>The number of data files in the file list should be greater than or equal to the number of data reader workers.
+Otherwise, different workers are mapped to the same file and data loading does not progress as expected.</p></li>
+<li><p>Joint loss training with a regularizer is not supported.</p></li>
+</ul>
+</li>
+</ul>
+</div>
 <div class="section" id="what-s-new-in-version-3-7">
 <h2>What’s New in Version 3.7<a class="headerlink" href="#what-s-new-in-version-3-7" title="Permalink to this headline"></a></h2>
 <ul>
@@ -361,19 +436,14 @@ For more information, see the <a class="reference external" href="https://github
 <li><p><strong>Dedicated CUDA Stream</strong>: A dedicated CUDA stream is now used for SOK’s Ops, so this may help to eliminate kernel interleaving.</p></li>
 <li><p><strong>New pip Installation Option</strong>: SOK can now be installed using the <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">SparseOperationKit</span></code> command. See more in our <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/intro_link.html#installation">instructions</a>). With this install option, root access to compile SOK is no longer required and python scripts don’t need to be copied.</p></li>
 <li><p><strong>Visible Device Configuration Support</strong>：<code class="docutils literal notranslate"><span class="pre">tf.config.set_visible_device</span></code> can now be used to set visible GPUs for each process. <code class="docutils literal notranslate"><span class="pre">CUDA_VISIBLE_DEVICES</span></code> can also be used. When <code class="docutils literal notranslate"><span class="pre">tf.distribute.Strategy</span></code> is used, the <code class="docutils literal notranslate"><span class="pre">tf.config.set_visible_device</span></code> argument shouldn’t be set.</p></li>
-<li><p><strong>Hanging Issue Fix</strong>: There was a hanging issue in <code class="docutils literal notranslate"><span class="pre">tf.distribute.MirroredStrategy</span></code> when using TensorFlow version 2.4 and higher. However, this is no longer an issue when using TensorFlow version 2.5 and higher.</p></li>
 </ul>
 </li>
-<li><p><strong>MLPerf v1.1 Integration Enhancements</strong>：</p>
-<ul>
-<li><p><strong>Precomputed Hybrid Embedding Indices</strong>：The necessary indices for hybrid embedding are now precomputed ahead of time and overlapped with previous iterations.</p></li>
-<li><p><strong>Cached Eval Indices:</strong>：The hybrid embedding indices for eval are cached when applicable. Index re-computing is no longer needed at every eval iteration.</p></li>
-<li><p><strong>MLP Weight/Data Gradients Calculation Overlap:</strong>：The weight gradients of MLP are calculated asynchronously with respect to the data gradients, enabling overlap between these two computations.</p></li>
-<li><p><strong>Improved Compute/Communication Overlap:</strong>：Enhancements to the overlap between the compute and communication has been implemented to improve training throughput.</p></li>
-<li><p><strong>Fused Weight Conversion:</strong>：The FP32-to-FP16 conversion of the weights are now fused into the SGD optimizer, saving trips to memory.</p></li>
-<li><p><strong>GraphScheduler Support:</strong>：GrapScheduler was added to control the cudaGraph launch timing. With GraphScheduler, the gap between adjacent cudaGraphs has been eliminated.</p></li>
-</ul>
-</li>
+<li><p><strong>Hybrid-embedding indices pre-computing</strong>：The indices needed for hybrid embedding are pre-computed ahead of time and are overlapped with previous iterations.</p></li>
+<li><p><strong>Cached evaluation indices:</strong>：The hybrid-embedding indices for eval are cached when applicable, hence eliminating the re-computing of the indices at every eval iteration.</p></li>
+<li><p><strong>MLP weight/data gradients calculation overlap:</strong>：The weight gradients of MLP are calculated asynchronously with respect to the data gradients, enabling overlap between these two computations.</p></li>
+<li><p><strong>Better compute-communication overlap:</strong>：Better overlap between compute and communication has been enabled to improve training throughput.</p></li>
+<li><p><strong>Fused weight conversion:</strong>：The FP32-to-FP16 conversion of the weights are now fused into the SGD optimizer, saving trips to memory.</p></li>
+<li><p><strong>GraphScheduler:</strong>：GrapScheduler was added to control the timing of cudaGraph launching. With GraphScheduler, the gap between adjacent cudaGraphs is eliminated.</p></li>
 <li><p><strong>Multi-Node Training Support Enhancements</strong>：You can now perform multi-node training on the cluster with non-RDMA hardware by setting the <code class="docutils literal notranslate"><span class="pre">AllReduceAlgo.NCCL</span></code> value for the <code class="docutils literal notranslate"><span class="pre">all_reduce_algo</span></code> argument. For more information, refer to the details for the <code class="docutils literal notranslate"><span class="pre">all_reduce_algo</span></code> argument in the <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html#solver">CreateSolver API</a>.</p></li>
 <li><p><strong>Support for Model Naming During Model Dumping</strong>: You can now specify names for models with the <code class="docutils literal notranslate"><span class="pre">CreateSolver</span></code>training API, which will be dumped to the JSON configuration file with the <code class="docutils literal notranslate"><span class="pre">Model.graph_to_json</span></code> API. This will facilitate the Triton deployment of saved HugeCTR models, as well as help to distinguish between models when Apache Kafka sends parameters from training to inference.</p></li>
 <li><p><strong>Fine-Grained Control Accessibility Enhancements for Embedding Layers</strong>: We’ve added fine-grained control accessibility to embedding layers. Using the <code class="docutils literal notranslate"><span class="pre">Model.freeze_embedding</span></code> and <code class="docutils literal notranslate"><span class="pre">Model.unfreeze_embedding</span></code> APIs, embedding layer weights can be frozen and unfrozen. Additionally, weights for multiple embedding layers can be loaded independently, making it possible to load pre-trained embeddings for a particular layer. For more information, refer to <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html#model">Model API</a> and <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/blob/v3.3/notebooks/hugectr_criteo.ipynb">Section 3.4 of the HugeCTR Criteo Notebook</a>.</p></li>
@@ -407,7 +477,10 @@ For more information, see the <a class="reference external" href="https://github
 <div class="section" id="what-s-new-in-version-3-1">
 <h2>What’s New in Version 3.1<a class="headerlink" href="#what-s-new-in-version-3-1" title="Permalink to this headline"></a></h2>
 <ul class="simple">
-<li><p><strong>MLPerf v1.0 Integration</strong>: We’ve integrated MLPerf optimizations for DLRM training and enabled them as configurable options in Python interface. Specifically, we have incorporated AsyncRaw data reader, HybridEmbedding, FusedReluBiasFullyConnectedLayer, overlapped pipeline, holistic CUDA Graph and so on. The performance of 14-node DGX-A100 DLRM training with Python APIs is comparable to CLI usage. For more information, refer to <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html">HugeCTR Python Interface</a> and the sample DLRM program in the <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/tree/v3.1/samples/dlrm">samples/dlrm</a> directory of the repository.</p></li>
+<li><p><strong>Hybrid Embedding</strong>: Hybrid embedding is designed to overcome the bandwidth constraint imposed by the embedding part of the embedding train workload by algorithmically reducing the traffic over netwoek. Requirements: The input dataset has only one-hot feature items and the model uses the SGD optimizer.</p></li>
+<li><p><strong>FusedReluBiasFullyConnectedLayer</strong>: FusedReluBiasFullyConnectedLayer is one of the major optimizations applied to dense layers. It fuses relu Bias and FullyConnected layers to reduce the memory access on HBM. Requirements: The model uses a layer with separate data / gradient tensors as the bottom layer.</p></li>
+<li><p><strong>Overlapped Pipeline</strong>: The computation in the dense input data path is overlapped with the hybrid embedding computation. Requirements: The data reader is asynchronous, hybrid embedding is used, and the model has a feature interaction layer.</p></li>
+<li><p><strong>Holistic CUDA Graph</strong>: Packing everything inside a training iteration into a CUDA Graph. Limitations: this option works only if use_cuda_graph is turned off and use_overlapped_pipeline is turned on.</p></li>
 <li><p><strong>Python Interface Enhancements</strong>: We’ve enhanced the Python interface for HugeCTR so that you no longer have to manually create a JSON configuration file. Our Python APIs can now be used to create the computation graph. They can also be used to dump the model graph as a JSON object and save the model weights as binary files so that continuous training and inference can take place. We’ve added an Inference API that takes Norm or Parquet datasets as input to facilitate the inference process. For more information, refer to <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html">HugeCTR Python Interface</a> and <a class="reference internal" href="notebooks/hugectr_criteo.html"><span class="doc std std-doc">HugeCTR Criteo Notebook</span></a>.</p></li>
 <li><p><strong>New Interface for Unified Embedding</strong>: We’re introducing a new interface to simplify the use of embeddings and datareaders. To help you specify the number of keys in each slot, we added <code class="docutils literal notranslate"><span class="pre">nnz_per_slot</span></code> and <code class="docutils literal notranslate"><span class="pre">is_fixed_length</span></code>. You can now directly configure how much memory usage you need by specifying <code class="docutils literal notranslate"><span class="pre">workspace_size_per_gpu_in_mb</span></code> instead of <code class="docutils literal notranslate"><span class="pre">max_vocabulary_size_per_gpu</span></code>. For convenience, <code class="docutils literal notranslate"><span class="pre">mean/sum</span></code> is used in combinators instead of 0 and 1. In cases where you don’t know which embedding type you should use, you can specify <code class="docutils literal notranslate"><span class="pre">use_hash_table</span></code> and let HugeCTR automatically select the embedding type based on your configuration. For more information, refer to <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html">HugeCTR Python Interface</a>.</p></li>
 <li><p><strong>Multi-Node Support for Embedding Training Cache (ETC)</strong>: We’ve enabled multi-node support for the embedding training cache. You can now train a model with a terabyte-size embedding table using one node or multiple nodes even if the entire embedding table can’t fit into the GPU memory. We’re also introducing the host memory (HMEM) based parameter server (PS) along with its SSD-based counterpart. If the sparse model can fit into the host memory of each training node, the optimized HMEM-based PS can provide better model loading and dumping performance with a more effective bandwidth. For more information, refer to <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html">HugeCTR Python Interface</a>.</p></li>
@@ -512,6 +585,7 @@ See also <a class="reference external" href="https://docs.nvidia.com/deeplearnin
       <dd><a href="../v3.5/index.html">v3.5</a></dd>
       <dd><a href="../v3.6/index.html">v3.6</a></dd>
       <dd><a href="../v3.7/index.html">v3.7</a></dd>
+      <dd><a href="../v3.8/index.html">v3.8</a></dd>
     </dl>
     <dl>
       <dt>Branches</dt>

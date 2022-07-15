@@ -48,6 +48,7 @@
 <li class="toctree-l1"><a class="reference internal" href="hugectr_user_guide.html">Introduction</a></li>
 <li class="toctree-l1"><a class="reference internal" href="hugectr_core_features.html">Core Features</a></li>
 <li class="toctree-l1"><a class="reference internal" href="hugectr_feature_details_intro.html">Features in Detail</a></li>
+<li class="toctree-l1"><a class="reference internal" href="performance.html">Performance</a></li>
 <li class="toctree-l1"><a class="reference internal" href="notebooks/index.html">Example Notebooks</a></li>
 <li class="toctree-l1"><a class="reference internal" href="notebooks/multi-modal-data/index.html">Multi-modal Example Notebooks</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api/index.html">API Documentation</a></li>
@@ -276,6 +277,13 @@ Refer to the <a class="reference internal" href="api/hugectr_layer_book.html#sli
 <h2>30. What is the good practice of configuring the embedding vector size?<a class="headerlink" href="#what-is-the-good-practice-of-configuring-the-embedding-vector-size" title="Permalink to this headline"></a></h2>
 <p>The embedding vector size is related to the size of Cooperative Thread Array (CTA) for HugeCTR kernel launching, so first and foremost it should not exceed the maximum number of threads per block. It would be better that it is configured to a multiple of the warp size for the sake of occupancy. Still, you can set the embedding vector size freely according to the specific model architecture as long as it complies with the limit.</p>
 </div>
+<div class="section" id="how-to-resolve-the-bus-error-when-running-hugectr-samples-and-notebooks">
+<h2>31. How to resolve the bus error when running HugeCTR samples and notebooks?<a class="headerlink" href="#how-to-resolve-the-bus-error-when-running-hugectr-samples-and-notebooks" title="Permalink to this headline"></a></h2>
+<p>HugeCTR uses NCCL to share data between ranks, and NCCL may requires shared memory for IPC and pinned (page-locked) system memory resources. The bus error is related to the limited resources and can be resolved by issuing the following options in the docker run command.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>--ipc<span class="o">=</span>host --ulimit <span class="nv">memlock</span><span class="o">=</span>-1 --ulimit <span class="nv">stack</span><span class="o">=</span><span class="m">67108864</span>
+</pre></div>
+</div>
+</div>
 </div>
 
 
@@ -315,6 +323,7 @@ Refer to the <a class="reference internal" href="api/hugectr_layer_book.html#sli
       <dd><a href="../v3.5/QAList.html">v3.5</a></dd>
       <dd><a href="../v3.6/QAList.html">v3.6</a></dd>
       <dd><a href="../v3.7/QAList.html">v3.7</a></dd>
+      <dd><a href="../v3.8/QAList.html">v3.8</a></dd>
     </dl>
     <dl>
       <dt>Branches</dt>

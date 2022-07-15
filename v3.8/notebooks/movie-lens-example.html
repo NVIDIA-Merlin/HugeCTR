@@ -1,0 +1,1394 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HugeCTR demo on Movie lens data &mdash; Merlin HugeCTR  documentation</title><link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/togglebutton.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/mystnb.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  <script id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/underscore.js"></script>
+        <script src="../_static/doctools.js"></script>
+        <script >let toggleHintShow = 'Click to show';</script>
+        <script >let toggleHintHide = 'Click to hide';</script>
+        <script >let toggleOpenOnPrint = 'true';</script>
+        <script src="../_static/togglebutton.js"></script>
+        <script >var togglebuttonSelector = '.toggle, .admonition.dropdown, .tag_hide_input div.cell_input, .tag_hide-input div.cell_input, .tag_hide_output div.cell_output, .tag_hide-output div.cell_output, .tag_hide_cell.cell, .tag_hide-cell.cell';</script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Introduction to the HugeCTR Python Interface" href="hugectr_criteo.html" />
+    <link rel="prev" title="Merlin ETL, training, and inference with e-Commerce behavior data" href="ecommerce-example.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../index.html" class="icon icon-home"> Merlin HugeCTR
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../hugectr_user_guide.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../hugectr_core_features.html">Core Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../hugectr_feature_details_intro.html">Features in Detail</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../performance.html">Performance</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Example Notebooks</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="index.html#quickstart">Quickstart</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#notebook-list">Notebook List</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#system-specifications">System Specifications</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ecommerce-example.html">Merlin ETL, training, and inference with e-Commerce behavior data</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">HugeCTR demo on Movie lens data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="hugectr_criteo.html">Introduction to the HugeCTR Python Interface</a></li>
+<li class="toctree-l2"><a class="reference internal" href="hugectr2onnx_demo.html">HugeCTR to ONNX Converter</a></li>
+<li class="toctree-l2"><a class="reference internal" href="continuous_training.html">HugeCTR Continuous Training</a></li>
+<li class="toctree-l2"><a class="reference internal" href="hugectr_wdl_prediction.html">HugeCTR Wide and Deep Model with Criteo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="news-example.html">NVIDIA Merlin on Microsoft’s News Dataset (MIND)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="multi_gpu_offline_inference.html">Multi-GPU Offline Inference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="hps_demo.html">Hierarchical Parameter Server Demo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="embedding_training_cache_example.html">Embedding Training Cache Example</a></li>
+<li class="toctree-l2"><a class="reference internal" href="embedding_collection.html">HugeCTR Embedding Collection</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="multi-modal-data/index.html">Multi-modal Example Notebooks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/index.html">API Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../additional_resources.html">Additional Resources</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../release_notes.html">Release Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../hugectr_contributor_guide.html">Contributing to HugeCTR</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Merlin HugeCTR</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="index.html">HugeCTR Example Notebooks</a> &raquo;</li>
+      <li>HugeCTR demo on Movie lens data</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Copyright 2020 NVIDIA Corporation. All Rights Reserved.</span>
+<span class="c1">#</span>
+<span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+<span class="c1"># you may not use this file except in compliance with the License.</span>
+<span class="c1"># You may obtain a copy of the License at</span>
+<span class="c1">#</span>
+<span class="c1">#     http://www.apache.org/licenses/LICENSE-2.0</span>
+<span class="c1">#</span>
+<span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
+<span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+<span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
+<span class="c1"># See the License for the specific language governing permissions and</span>
+<span class="c1"># limitations under the License.</span>
+<span class="c1"># ==============================================================================</span>
+</pre></div>
+</div>
+</div>
+</div>
+<img alt="http://developer.download.nvidia.com/compute/machine-learning/frameworks/nvidia_logo.png" src="http://developer.download.nvidia.com/compute/machine-learning/frameworks/nvidia_logo.png" />
+<div class="tex2jax_ignore mathjax_ignore section" id="hugectr-demo-on-movie-lens-data">
+<h1>HugeCTR demo on Movie lens data<a class="headerlink" href="#hugectr-demo-on-movie-lens-data" title="Permalink to this headline"></a></h1>
+<div class="section" id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Permalink to this headline"></a></h2>
+<p>HugeCTR is a recommender-specific framework that is capable of distributed training across multiple GPUs and nodes for click-through-rate (CTR) estimation.
+HugeCTR is a component of NVIDIA Merlin (<a class="reference external" href="https://nvidia-merlin.github.io/Merlin/main/README.html">documentation</a> | <a class="reference external" href="https://github.com/NVIDIA-Merlin/Merlin">GitHub</a>).
+Merlin which is a framework that accelerates the entire pipeline from data ingestion and training to deploying GPU-accelerated recommender systems.</p>
+<div class="section" id="learning-objectives">
+<h3>Learning objectives<a class="headerlink" href="#learning-objectives" title="Permalink to this headline"></a></h3>
+<ul class="simple">
+<li><p>Training a deep-learning recommender model (DLRM) on the MovieLens 20M <a class="reference external" href="https://grouplens.org/datasets/movielens/20m/">dataset</a>.</p></li>
+<li><p>Walk through data preprocessing, training a DLRM model with HugeCTR, and then using the movie embedding to answer item similarity queries.</p></li>
+</ul>
+</div>
+</div>
+<div class="section" id="prerequisites">
+<h2>Prerequisites<a class="headerlink" href="#prerequisites" title="Permalink to this headline"></a></h2>
+<div class="section" id="docker-containers">
+<h3>Docker containers<a class="headerlink" href="#docker-containers" title="Permalink to this headline"></a></h3>
+<p>Start the notebook inside a running 22.07 or later NGC Docker container: <code class="docutils literal notranslate"><span class="pre">nvcr.io/nvidia/merlin/merlin-hugectr:22.07</span></code>.
+The HugeCTR Python interface is installed to the path <code class="docutils literal notranslate"><span class="pre">/usr/local/hugectr/lib/</span></code> and the path is added to the environment variable <code class="docutils literal notranslate"><span class="pre">PYTHONPATH</span></code>.
+You can use the HugeCTR Python interface within the Docker container without any additional configuration.</p>
+</div>
+<div class="section" id="hardware">
+<h3>Hardware<a class="headerlink" href="#hardware" title="Permalink to this headline"></a></h3>
+<p>This notebook requires a Pascal, Volta, Turing, Ampere or newer GPUs, such as P100, V100, T4 or A100.
+You can view the GPU information with the <code class="docutils literal notranslate"><span class="pre">nvidia-smi</span></code> command:</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>nvidia-smi
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Mon Jul 12 06:54:46 2021       
++-----------------------------------------------------------------------------+
+| NVIDIA-SMI 450.51.06    Driver Version: 450.51.06    CUDA Version: 11.3     |
+|-------------------------------+----------------------+----------------------+
+| GPU  Name        Persistence-M| Bus-Id        Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp  Perf  Pwr:Usage/Cap|         Memory-Usage | GPU-Util  Compute M. |
+|                               |                      |               MIG M. |
+|===============================+======================+======================|
+|   0  Tesla V100-PCIE...  On   | 00000000:1A:00.0 Off |                    0 |
+| N/A   29C    P0    23W / 250W |      0MiB / 32510MiB |      0%      Default |
+|                               |                      |                  N/A |
++-------------------------------+----------------------+----------------------+
+|   1  Tesla V100-PCIE...  On   | 00000000:1B:00.0 Off |                    0 |
+| N/A   27C    P0    22W / 250W |      0MiB / 32510MiB |      0%      Default |
+|                               |                      |                  N/A |
++-------------------------------+----------------------+----------------------+
+|   2  Tesla V100-PCIE...  On   | 00000000:3D:00.0 Off |                    0 |
+| N/A   26C    P0    23W / 250W |      0MiB / 32510MiB |      0%      Default |
+|                               |                      |                  N/A |
++-------------------------------+----------------------+----------------------+
+|   3  Tesla V100-PCIE...  On   | 00000000:3E:00.0 Off |                    0 |
+| N/A   28C    P0    23W / 250W |      0MiB / 32510MiB |      0%      Default |
+|                               |                      |                  N/A |
++-------------------------------+----------------------+----------------------+
+|   4  Tesla V100-PCIE...  On   | 00000000:88:00.0 Off |                    0 |
+| N/A   25C    P0    24W / 250W |      0MiB / 32510MiB |      0%      Default |
+|                               |                      |                  N/A |
++-------------------------------+----------------------+----------------------+
+|   5  Tesla V100-PCIE...  On   | 00000000:89:00.0 Off |                    0 |
+| N/A   25C    P0    22W / 250W |      0MiB / 32510MiB |      0%      Default |
+|                               |                      |                  N/A |
++-------------------------------+----------------------+----------------------+
+|   6  Tesla V100-PCIE...  On   | 00000000:B1:00.0 Off |                    0 |
+| N/A   26C    P0    23W / 250W |      0MiB / 32510MiB |      0%      Default |
+|                               |                      |                  N/A |
++-------------------------------+----------------------+----------------------+
+|   7  Tesla V100-PCIE...  On   | 00000000:B2:00.0 Off |                    0 |
+| N/A   25C    P0    24W / 250W |      0MiB / 32510MiB |      0%      Default |
+|                               |                      |                  N/A |
++-------------------------------+----------------------+----------------------+
+                                                                               
++-----------------------------------------------------------------------------+
+| Processes:                                                                  |
+|  GPU   GI   CI        PID   Type   Process name                  GPU Memory |
+|        ID   ID                                                   Usage      |
+|=============================================================================|
+|  No running processes found                                                 |
++-----------------------------------------------------------------------------+
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="data-download-and-preprocessing">
+<h2>Data download and preprocessing<a class="headerlink" href="#data-download-and-preprocessing" title="Permalink to this headline"></a></h2>
+<p>We first install a few extra utilities for data preprocessing.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Downloading and installing &#39;tqdm&#39; package.&quot;</span><span class="p">)</span>
+<span class="o">!</span>pip3 -q install torch tqdm
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Downloading and installing &#39;unzip&#39; command&quot;</span><span class="p">)</span>
+<span class="o">!</span>conda install -y -q -c conda-forge unzip
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Downloading and installing &#39;tqdm&#39; package.
+<span class=" -Color -Color-Yellow">WARNING: Running pip as the &#39;root&#39; user can result in broken permissions and conflicting behaviour with the system package manager. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv</span>
+Downloading and installing &#39;unzip&#39; command
+Collecting package metadata (current_repodata.json): ...working... done
+Solving environment: ...working... done
+
+## Package Plan ##
+
+  environment location: /opt/conda
+
+  added / updated specs:
+    - unzip
+
+
+The following packages will be downloaded:
+
+    package                    |            build
+    ---------------------------|-----------------
+    unzip-6.0                  |       h7f98852_2         143 KB  conda-forge
+    ------------------------------------------------------------
+                                           Total:         143 KB
+
+The following NEW packages will be INSTALLED:
+
+  unzip              conda-forge/linux-64::unzip-6.0-h7f98852_2
+
+
+Preparing transaction: ...working... done
+Verifying transaction: ...working... done
+Executing transaction: ...working... done
+</pre></div>
+</div>
+</div>
+</div>
+<p>Next, we download and unzip the MovieLens 20M <a class="reference external" href="https://grouplens.org/datasets/movielens/20m/">dataset</a>.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Downloading and extracting &#39;Movie Lens 20M&#39; dataset.&quot;</span><span class="p">)</span>
+<span class="o">!</span>wget -nc http://files.grouplens.org/datasets/movielens/ml-20m.zip -P data -q --show-progress
+<span class="o">!</span>unzip -n data/ml-20m.zip -d data
+<span class="o">!</span>ls ./data
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Downloading and extracting &#39;Movie Lens 20M&#39; dataset.
+ml-20m.zip          100%[===================&gt;] 189.50M  46.1MB/s    in 4.5s    
+Archive:  data/ml-20m.zip
+   creating: data/ml-20m/
+  inflating: data/ml-20m/genome-scores.csv  
+  inflating: data/ml-20m/genome-tags.csv  
+  inflating: data/ml-20m/links.csv   
+  inflating: data/ml-20m/movies.csv  
+  inflating: data/ml-20m/ratings.csv  
+  inflating: data/ml-20m/README.txt  
+  inflating: data/ml-20m/tags.csv    
+ml-20m	ml-20m.zip
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="movielens-data-preprocessing">
+<h3>MovieLens data preprocessing<a class="headerlink" href="#movielens-data-preprocessing" title="Permalink to this headline"></a></h3>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">import</span> <span class="nn">tqdm</span>
+
+<span class="n">MIN_RATINGS</span> <span class="o">=</span> <span class="mi">20</span>
+<span class="n">USER_COLUMN</span> <span class="o">=</span> <span class="s1">&#39;userId&#39;</span>
+<span class="n">ITEM_COLUMN</span> <span class="o">=</span> <span class="s1">&#39;movieId&#39;</span>
+</pre></div>
+</div>
+</div>
+</div>
+<p>Next, we read the data into a Pandas dataframe and encode <code class="docutils literal notranslate"><span class="pre">userID</span></code> and <code class="docutils literal notranslate"><span class="pre">itemID</span></code> with integers.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s1">&#39;./data/ml-20m/ratings.csv&#39;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Filtering out users with less than </span><span class="si">{}</span><span class="s2"> ratings&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">MIN_RATINGS</span><span class="p">))</span>
+<span class="n">grouped</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="n">USER_COLUMN</span><span class="p">)</span>
+<span class="n">df</span> <span class="o">=</span> <span class="n">grouped</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">MIN_RATINGS</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Mapping original user and item IDs to new sequential IDs&quot;</span><span class="p">)</span>
+<span class="n">df</span><span class="p">[</span><span class="n">USER_COLUMN</span><span class="p">],</span> <span class="n">unique_users</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">factorize</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="n">USER_COLUMN</span><span class="p">])</span>
+<span class="n">df</span><span class="p">[</span><span class="n">ITEM_COLUMN</span><span class="p">],</span> <span class="n">unique_items</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">factorize</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="n">ITEM_COLUMN</span><span class="p">])</span>
+
+<span class="n">nb_users</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">unique_users</span><span class="p">)</span>
+<span class="n">nb_items</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">unique_items</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Number of users: </span><span class="si">%d</span><span class="se">\n</span><span class="s2">Number of items: </span><span class="si">%d</span><span class="s2">&quot;</span><span class="o">%</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">unique_users</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">unique_items</span><span class="p">)))</span>
+
+<span class="c1"># Save the mapping to do the inference later on</span>
+<span class="kn">import</span> <span class="nn">pickle</span>
+<span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s1">&#39;./mappings.pickle&#39;</span><span class="p">,</span> <span class="s1">&#39;wb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">handle</span><span class="p">:</span>
+    <span class="n">pickle</span><span class="o">.</span><span class="n">dump</span><span class="p">({</span><span class="s2">&quot;users&quot;</span><span class="p">:</span> <span class="n">unique_users</span><span class="p">,</span> <span class="s2">&quot;items&quot;</span><span class="p">:</span> <span class="n">unique_items</span><span class="p">},</span> <span class="n">handle</span><span class="p">,</span> <span class="n">protocol</span><span class="o">=</span><span class="n">pickle</span><span class="o">.</span><span class="n">HIGHEST_PROTOCOL</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Filtering out users with less than 20 ratings
+Mapping original user and item IDs to new sequential IDs
+Number of users: 138493
+Number of items: 26744
+</pre></div>
+</div>
+</div>
+</div>
+<p>Next, we split the data into a train and test set.
+The last movie each user has recently rated is used for the test set.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Need to sort before popping to get the last item</span>
+<span class="n">df</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="n">by</span><span class="o">=</span><span class="s1">&#39;timestamp&#39;</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    
+<span class="c1"># clean up data</span>
+<span class="k">del</span> <span class="n">df</span><span class="p">[</span><span class="s1">&#39;rating&#39;</span><span class="p">],</span> <span class="n">df</span><span class="p">[</span><span class="s1">&#39;timestamp&#39;</span><span class="p">]</span>
+<span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">drop_duplicates</span><span class="p">()</span> <span class="c1"># assuming it keeps order</span>
+
+<span class="c1"># now we have filtered and sorted by time data, we can split test data out</span>
+<span class="n">grouped_sorted</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="n">USER_COLUMN</span><span class="p">,</span> <span class="n">group_keys</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="n">test_data</span> <span class="o">=</span> <span class="n">grouped_sorted</span><span class="o">.</span><span class="n">tail</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="n">by</span><span class="o">=</span><span class="n">USER_COLUMN</span><span class="p">)</span>
+
+<span class="c1"># need to pop for each group</span>
+<span class="n">train_data</span> <span class="o">=</span> <span class="n">grouped_sorted</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">iloc</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">train_data</span><span class="p">[</span><span class="s1">&#39;target&#39;</span><span class="p">]</span><span class="o">=</span><span class="mi">1</span>
+<span class="n">test_data</span><span class="p">[</span><span class="s1">&#39;target&#39;</span><span class="p">]</span><span class="o">=</span><span class="mi">1</span>
+<span class="n">train_data</span><span class="o">.</span><span class="n">head</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_html"><div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>userId</th>
+      <th>movieId</th>
+      <th>target</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>20</th>
+      <td>0</td>
+      <td>20</td>
+      <td>1</td>
+    </tr>
+    <tr>
+      <th>19</th>
+      <td>0</td>
+      <td>19</td>
+      <td>1</td>
+    </tr>
+    <tr>
+      <th>86</th>
+      <td>0</td>
+      <td>86</td>
+      <td>1</td>
+    </tr>
+    <tr>
+      <th>61</th>
+      <td>0</td>
+      <td>61</td>
+      <td>1</td>
+    </tr>
+    <tr>
+      <th>23</th>
+      <td>0</td>
+      <td>23</td>
+      <td>1</td>
+    </tr>
+  </tbody>
+</table>
+</div></div></div>
+</div>
+<p>Because the MovieLens data contains only positive examples, first we define a utility function to generate negative samples.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">_TestNegSampler</span><span class="p">:</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">train_ratings</span><span class="p">,</span> <span class="n">nb_users</span><span class="p">,</span> <span class="n">nb_items</span><span class="p">,</span> <span class="n">nb_neg</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">nb_neg</span> <span class="o">=</span> <span class="n">nb_neg</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">nb_users</span> <span class="o">=</span> <span class="n">nb_users</span> 
+        <span class="bp">self</span><span class="o">.</span><span class="n">nb_items</span> <span class="o">=</span> <span class="n">nb_items</span> 
+
+        <span class="c1"># compute unique ids for quickly created hash set and fast lookup</span>
+        <span class="n">ids</span> <span class="o">=</span> <span class="p">(</span><span class="n">train_ratings</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">nb_items</span><span class="p">)</span> <span class="o">+</span> <span class="n">train_ratings</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">set</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">ids</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">generate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="mi">128</span><span class="o">*</span><span class="mi">1024</span><span class="p">):</span>
+        <span class="n">users</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">nb_users</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">])</span><span class="o">.</span><span class="n">repeat</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">nb_neg</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+
+        <span class="n">items</span> <span class="o">=</span> <span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">users</span><span class="p">)</span>
+
+        <span class="n">random_items</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">LongTensor</span><span class="p">(</span><span class="n">batch_size</span><span class="p">)</span><span class="o">.</span><span class="n">random_</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">nb_items</span><span class="p">)</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Generating validation negatives...&#39;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">u</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">tqdm</span><span class="o">.</span><span class="n">tqdm</span><span class="p">(</span><span class="n">users</span><span class="o">.</span><span class="n">tolist</span><span class="p">())):</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">random_items</span><span class="p">:</span>
+                <span class="n">random_items</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">LongTensor</span><span class="p">(</span><span class="n">batch_size</span><span class="p">)</span><span class="o">.</span><span class="n">random_</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">nb_items</span><span class="p">)</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+            <span class="n">j</span> <span class="o">=</span> <span class="n">random_items</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>
+            <span class="k">while</span> <span class="n">u</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">nb_items</span> <span class="o">+</span> <span class="n">j</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">set</span><span class="p">:</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">random_items</span><span class="p">:</span>
+                    <span class="n">random_items</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">LongTensor</span><span class="p">(</span><span class="n">batch_size</span><span class="p">)</span><span class="o">.</span><span class="n">random_</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">nb_items</span><span class="p">)</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+                <span class="n">j</span> <span class="o">=</span> <span class="n">random_items</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>
+
+            <span class="n">items</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">j</span>
+        <span class="n">items</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">LongTensor</span><span class="p">(</span><span class="n">items</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">items</span>
+</pre></div>
+</div>
+</div>
+</div>
+<p>Next, we generate the negative samples for training.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">sampler</span> <span class="o">=</span> <span class="n">_TestNegSampler</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="n">nb_users</span><span class="p">,</span> <span class="n">nb_items</span><span class="p">,</span> <span class="mi">500</span><span class="p">)</span>  <span class="c1"># using 500 negative samples</span>
+<span class="n">train_negs</span> <span class="o">=</span> <span class="n">sampler</span><span class="o">.</span><span class="n">generate</span><span class="p">()</span>
+<span class="n">train_negs</span> <span class="o">=</span> <span class="n">train_negs</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">500</span><span class="p">)</span>
+
+<span class="n">sampler</span> <span class="o">=</span> <span class="n">_TestNegSampler</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="n">nb_users</span><span class="p">,</span> <span class="n">nb_items</span><span class="p">,</span> <span class="mi">100</span><span class="p">)</span>  <span class="c1"># using 100 negative samples</span>
+<span class="n">test_negs</span> <span class="o">=</span> <span class="n">sampler</span><span class="o">.</span><span class="n">generate</span><span class="p">()</span>
+<span class="n">test_negs</span> <span class="o">=</span> <span class="n">test_negs</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">100</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Generating validation negatives...
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 69246500/69246500 [00:44&lt;00:00, 1566380.37it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Generating validation negatives...
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 13849300/13849300 [00:08&lt;00:00, 1594800.54it/s]
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="c1"># generating negative samples for training</span>
+<span class="n">train_data_neg</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">train_negs</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">*</span><span class="n">train_negs</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span><span class="mi">3</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+<span class="n">idx</span> <span class="o">=</span> <span class="mi">0</span>
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">tqdm</span><span class="o">.</span><span class="n">tqdm</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">train_negs</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])):</span>
+    <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">train_negs</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]):</span>
+        <span class="n">train_data_neg</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">i</span> <span class="c1"># user ID</span>
+        <span class="n">train_data_neg</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">train_negs</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="c1"># negative item ID</span>
+        <span class="n">idx</span> <span class="o">+=</span> <span class="mi">1</span>
+    
+<span class="c1"># generating negative samples for testing</span>
+<span class="n">test_data_neg</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">test_negs</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">*</span><span class="n">test_negs</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span><span class="mi">3</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+<span class="n">idx</span> <span class="o">=</span> <span class="mi">0</span>
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">tqdm</span><span class="o">.</span><span class="n">tqdm</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">test_negs</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])):</span>
+    <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">test_negs</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]):</span>
+        <span class="n">test_data_neg</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">i</span>
+        <span class="n">test_data_neg</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">test_negs</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span>
+        <span class="n">idx</span> <span class="o">+=</span> <span class="mi">1</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 138493/138493 [04:07&lt;00:00, 558.71it/s]
+100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 138493/138493 [00:49&lt;00:00, 2819.57it/s]
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">train_data_np</span><span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">train_data_neg</span><span class="p">,</span> <span class="n">train_data</span><span class="o">.</span><span class="n">values</span><span class="p">])</span>
+<span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">shuffle</span><span class="p">(</span><span class="n">train_data_np</span><span class="p">)</span>
+
+<span class="n">test_data_np</span><span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">test_data_neg</span><span class="p">,</span> <span class="n">test_data</span><span class="o">.</span><span class="n">values</span><span class="p">])</span>
+<span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">shuffle</span><span class="p">(</span><span class="n">test_data_np</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># HugeCTR expect user ID and item ID to be different, so we use 0 -&gt; nb_users for user IDs and</span>
+<span class="c1"># nb_users -&gt; nb_users+nb_items for item IDs.</span>
+<span class="n">train_data_np</span><span class="p">[:,</span><span class="mi">1</span><span class="p">]</span> <span class="o">+=</span> <span class="n">nb_users</span> 
+<span class="n">test_data_np</span><span class="p">[:,</span><span class="mi">1</span><span class="p">]</span> <span class="o">+=</span> <span class="n">nb_users</span> 
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">train_data_np</span><span class="p">[:,</span><span class="mi">1</span><span class="p">])</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>165236
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="write-hugectr-data-files">
+<h3>Write HugeCTR data files<a class="headerlink" href="#write-hugectr-data-files" title="Permalink to this headline"></a></h3>
+<p>After pre-processing, we write the data to disk using HugeCTR the <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html#norm">Norm</a> dataset format.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">ctypes</span> <span class="kn">import</span> <span class="n">c_longlong</span> <span class="k">as</span> <span class="n">ll</span>
+<span class="kn">from</span> <span class="nn">ctypes</span> <span class="kn">import</span> <span class="n">c_uint</span>
+<span class="kn">from</span> <span class="nn">ctypes</span> <span class="kn">import</span> <span class="n">c_float</span>
+<span class="kn">from</span> <span class="nn">ctypes</span> <span class="kn">import</span> <span class="n">c_int</span>
+
+<span class="k">def</span> <span class="nf">write_hugeCTR_data</span><span class="p">(</span><span class="n">huge_ctr_data</span><span class="p">,</span> <span class="n">filename</span><span class="o">=</span><span class="s1">&#39;huge_ctr_data.dat&#39;</span><span class="p">):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Writing </span><span class="si">%d</span><span class="s2"> samples&quot;</span><span class="o">%</span><span class="k">huge_ctr_data</span>.shape[0])
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="s1">&#39;wb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="c1">#write header</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">ll</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span> <span class="c1"># 0: no error check; 1: check_num</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">ll</span><span class="p">(</span><span class="n">huge_ctr_data</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span> <span class="c1"># the number of samples in this data file</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">ll</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span> <span class="c1"># dimension of label</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">ll</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span> <span class="c1"># dimension of dense feature</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">ll</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span> <span class="c1"># long long slot_num</span>
+        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">):</span> <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">ll</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span> <span class="c1"># reserved for future use</span>
+
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">tqdm</span><span class="o">.</span><span class="n">tqdm</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">huge_ctr_data</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])):</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">c_float</span><span class="p">(</span><span class="n">huge_ctr_data</span><span class="p">[</span><span class="n">i</span><span class="p">,</span><span class="mi">2</span><span class="p">]))</span> <span class="c1"># float label[label_dim];</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">c_float</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span> <span class="c1"># dummy dense feature</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">c_int</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span> <span class="c1"># slot 1 nnz: user ID</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">c_uint</span><span class="p">(</span><span class="n">huge_ctr_data</span><span class="p">[</span><span class="n">i</span><span class="p">,</span><span class="mi">0</span><span class="p">]))</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">c_int</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span> <span class="c1"># slot 2 nnz: item ID</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">c_uint</span><span class="p">(</span><span class="n">huge_ctr_data</span><span class="p">[</span><span class="n">i</span><span class="p">,</span><span class="mi">1</span><span class="p">]))</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="train-data">
+<h4>Train data<a class="headerlink" href="#train-data" title="Permalink to this headline"></a></h4>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">generate_filelist</span><span class="p">(</span><span class="n">filelist_name</span><span class="p">,</span> <span class="n">num_files</span><span class="p">,</span> <span class="n">filename_prefix</span><span class="p">):</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filelist_name</span><span class="p">,</span> <span class="s1">&#39;wt&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">{0}</span><span class="se">\n</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">num_files</span><span class="p">));</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_files</span><span class="p">):</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">{0}</span><span class="s1">_</span><span class="si">{1}</span><span class="s1">.dat</span><span class="se">\n</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">filename_prefix</span><span class="p">,</span> <span class="n">i</span><span class="p">))</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>rm -rf ./data/hugeCTR
+<span class="o">!</span>mkdir ./data/hugeCTR
+
+<span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">data_arr</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array_split</span><span class="p">(</span><span class="n">train_data_np</span><span class="p">,</span><span class="mi">10</span><span class="p">)):</span>
+    <span class="n">write_hugeCTR_data</span><span class="p">(</span><span class="n">data_arr</span><span class="p">,</span> <span class="n">filename</span><span class="o">=</span><span class="s1">&#39;./data/hugeCTR/train_huge_ctr_data_</span><span class="si">%d</span><span class="s1">.dat&#39;</span><span class="o">%</span><span class="k">i</span>)
+
+<span class="n">generate_filelist</span><span class="p">(</span><span class="s1">&#39;./data/hugeCTR/train_filelist.txt&#39;</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="s1">&#39;./data/hugeCTR/train_huge_ctr_data&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Writing 8910827 samples
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 8910827/8910827 [00:17&lt;00:00, 513695.42it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Writing 8910827 samples
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 8910827/8910827 [00:16&lt;00:00, 526049.22it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Writing 8910827 samples
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 8910827/8910827 [00:16&lt;00:00, 525218.45it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Writing 8910827 samples
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 8910827/8910827 [00:16&lt;00:00, 528084.97it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Writing 8910827 samples
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 8910827/8910827 [00:16&lt;00:00, 525638.15it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Writing 8910827 samples
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 8910827/8910827 [00:16&lt;00:00, 528931.43it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Writing 8910827 samples
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 8910827/8910827 [00:16&lt;00:00, 531191.33it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Writing 8910827 samples
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 8910827/8910827 [00:16&lt;00:00, 532537.58it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Writing 8910827 samples
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 8910827/8910827 [00:16&lt;00:00, 528103.37it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Writing 8910827 samples
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 8910827/8910827 [00:17&lt;00:00, 522249.44it/s]
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="test-data">
+<h4>Test data<a class="headerlink" href="#test-data" title="Permalink to this headline"></a></h4>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">data_arr</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array_split</span><span class="p">(</span><span class="n">test_data_np</span><span class="p">,</span><span class="mi">10</span><span class="p">)):</span>
+    <span class="n">write_hugeCTR_data</span><span class="p">(</span><span class="n">data_arr</span><span class="p">,</span> <span class="n">filename</span><span class="o">=</span><span class="s1">&#39;./data/hugeCTR/test_huge_ctr_data_</span><span class="si">%d</span><span class="s1">.dat&#39;</span><span class="o">%</span><span class="k">i</span>)
+    
+<span class="n">generate_filelist</span><span class="p">(</span><span class="s1">&#39;./data/hugeCTR/test_filelist.txt&#39;</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="s1">&#39;./data/hugeCTR/test_huge_ctr_data&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Writing 1398780 samples
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 1398780/1398780 [00:02&lt;00:00, 510667.93it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Writing 1398780 samples
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 1398780/1398780 [00:02&lt;00:00, 523734.65it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Writing 1398780 samples
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 1398780/1398780 [00:02&lt;00:00, 512399.13it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Writing 1398779 samples
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 1398779/1398779 [00:02&lt;00:00, 519540.59it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Writing 1398779 samples
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 1398779/1398779 [00:02&lt;00:00, 522322.45it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Writing 1398779 samples
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 1398779/1398779 [00:02&lt;00:00, 525051.49it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Writing 1398779 samples
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 1398779/1398779 [00:02&lt;00:00, 527603.11it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Writing 1398779 samples
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 1398779/1398779 [00:02&lt;00:00, 521668.76it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Writing 1398779 samples
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 1398779/1398779 [00:02&lt;00:00, 517335.28it/s]
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Writing 1398779 samples
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 1398779/1398779 [00:02&lt;00:00, 522761.79it/s]
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="hugectr-dlrm-training">
+<h2>HugeCTR DLRM training<a class="headerlink" href="#hugectr-dlrm-training" title="Permalink to this headline"></a></h2>
+<p>In this section, we will train a DLRM network on the augmented movie lens data. First, we write the training Python script.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">%%writefile</span> hugectr_dlrm_movielens.py
+<span class="kn">import</span> <span class="nn">hugectr</span>
+<span class="kn">from</span> <span class="nn">mpi4py</span> <span class="kn">import</span> <span class="n">MPI</span>
+<span class="n">solver</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">CreateSolver</span><span class="p">(</span><span class="n">max_eval_batches</span> <span class="o">=</span> <span class="mi">1000</span><span class="p">,</span>
+                              <span class="n">batchsize_eval</span> <span class="o">=</span> <span class="mi">65536</span><span class="p">,</span>
+                              <span class="n">batchsize</span> <span class="o">=</span> <span class="mi">65536</span><span class="p">,</span>
+                              <span class="n">lr</span> <span class="o">=</span> <span class="mf">0.1</span><span class="p">,</span>
+                              <span class="n">warmup_steps</span> <span class="o">=</span> <span class="mi">1000</span><span class="p">,</span>
+                              <span class="n">decay_start</span> <span class="o">=</span> <span class="mi">10000</span><span class="p">,</span>
+                              <span class="n">decay_steps</span> <span class="o">=</span> <span class="mi">40000</span><span class="p">,</span>
+                              <span class="n">decay_power</span> <span class="o">=</span> <span class="mf">2.0</span><span class="p">,</span>
+                              <span class="n">end_lr</span> <span class="o">=</span> <span class="mf">1e-5</span><span class="p">,</span>
+                              <span class="n">vvgpu</span> <span class="o">=</span> <span class="p">[[</span><span class="mi">0</span><span class="p">]],</span>
+                              <span class="n">repeat_dataset</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+                              <span class="n">use_mixed_precision</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+                              <span class="n">scaler</span> <span class="o">=</span> <span class="mi">1024</span><span class="p">)</span>
+<span class="n">reader</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">DataReaderParams</span><span class="p">(</span><span class="n">data_reader_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">DataReaderType_t</span><span class="o">.</span><span class="n">Norm</span><span class="p">,</span>
+                                  <span class="n">source</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;./data/hugeCTR/train_filelist.txt&quot;</span><span class="p">],</span>
+                                  <span class="n">eval_source</span> <span class="o">=</span> <span class="s2">&quot;./data/hugeCTR/test_filelist.txt&quot;</span><span class="p">,</span>
+                                  <span class="n">check_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Check_t</span><span class="o">.</span><span class="n">Non</span><span class="p">)</span>
+<span class="n">optimizer</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">CreateOptimizer</span><span class="p">(</span><span class="n">optimizer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Optimizer_t</span><span class="o">.</span><span class="n">SGD</span><span class="p">,</span>
+                                    <span class="n">update_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Update_t</span><span class="o">.</span><span class="n">Local</span><span class="p">,</span>
+                                    <span class="n">atomic_update</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Model</span><span class="p">(</span><span class="n">solver</span><span class="p">,</span> <span class="n">reader</span><span class="p">,</span> <span class="n">optimizer</span><span class="p">)</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">Input</span><span class="p">(</span><span class="n">label_dim</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">label_name</span> <span class="o">=</span> <span class="s2">&quot;label&quot;</span><span class="p">,</span>
+                        <span class="n">dense_dim</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">dense_name</span> <span class="o">=</span> <span class="s2">&quot;dense&quot;</span><span class="p">,</span>
+                        <span class="n">data_reader_sparse_param_array</span> <span class="o">=</span> 
+                        <span class="p">[</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DataReaderSparseParam</span><span class="p">(</span><span class="s2">&quot;data1&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="mi">2</span><span class="p">)]))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">SparseEmbedding</span><span class="p">(</span><span class="n">embedding_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Embedding_t</span><span class="o">.</span><span class="n">LocalizedSlotSparseEmbeddingHash</span><span class="p">,</span> 
+                            <span class="n">workspace_size_per_gpu_in_mb</span> <span class="o">=</span> <span class="mi">41</span><span class="p">,</span>
+                            <span class="n">embedding_vec_size</span> <span class="o">=</span> <span class="mi">64</span><span class="p">,</span>
+                            <span class="n">combiner</span> <span class="o">=</span> <span class="s2">&quot;sum&quot;</span><span class="p">,</span>
+                            <span class="n">sparse_embedding_name</span> <span class="o">=</span> <span class="s2">&quot;sparse_embedding1&quot;</span><span class="p">,</span>
+                            <span class="n">bottom_name</span> <span class="o">=</span> <span class="s2">&quot;data1&quot;</span><span class="p">,</span>
+                            <span class="n">optimizer</span> <span class="o">=</span> <span class="n">optimizer</span><span class="p">))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">FusedInnerProduct</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;dense&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;fc1&quot;</span><span class="p">],</span>
+                            <span class="n">num_output</span><span class="o">=</span><span class="mi">64</span><span class="p">))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">FusedInnerProduct</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;fc1&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;fc2&quot;</span><span class="p">],</span>
+                            <span class="n">num_output</span><span class="o">=</span><span class="mi">128</span><span class="p">))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">FusedInnerProduct</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;fc2&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;fc3&quot;</span><span class="p">],</span>
+                            <span class="n">num_output</span><span class="o">=</span><span class="mi">64</span><span class="p">))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">Interaction</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;fc3&quot;</span><span class="p">,</span><span class="s2">&quot;sparse_embedding1&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;interaction1&quot;</span><span class="p">]))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">FusedInnerProduct</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;interaction1&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;fc4&quot;</span><span class="p">],</span>
+                            <span class="n">num_output</span><span class="o">=</span><span class="mi">1024</span><span class="p">))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">FusedInnerProduct</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;fc4&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;fc5&quot;</span><span class="p">],</span>
+                            <span class="n">num_output</span><span class="o">=</span><span class="mi">1024</span><span class="p">))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">FusedInnerProduct</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;fc5&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;fc6&quot;</span><span class="p">],</span>
+                            <span class="n">num_output</span><span class="o">=</span><span class="mi">512</span><span class="p">))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">FusedInnerProduct</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;fc6&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;fc7&quot;</span><span class="p">],</span>
+                            <span class="n">num_output</span><span class="o">=</span><span class="mi">256</span><span class="p">))</span>                                                  
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">InnerProduct</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;fc7&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;fc8&quot;</span><span class="p">],</span>
+                            <span class="n">num_output</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span>                                                                                           
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">BinaryCrossEntropyLoss</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;fc8&quot;</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;loss&quot;</span><span class="p">]))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">compile</span><span class="p">()</span>
+<span class="n">model</span><span class="o">.</span><span class="n">summary</span><span class="p">()</span>
+<span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">max_iter</span> <span class="o">=</span> <span class="mi">50000</span><span class="p">,</span> <span class="n">display</span> <span class="o">=</span> <span class="mi">1000</span><span class="p">,</span> <span class="n">eval_interval</span> <span class="o">=</span> <span class="mi">3000</span><span class="p">,</span> <span class="n">snapshot</span> <span class="o">=</span> <span class="mi">3000</span><span class="p">,</span> <span class="n">snapshot_prefix</span> <span class="o">=</span> <span class="s2">&quot;./hugeCTR_saved_model_DLRM/&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Overwriting hugectr_dlrm_movielens.py
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>rm -rf ./hugeCTR_saved_model_DLRM/
+<span class="o">!</span>mkdir ./hugeCTR_saved_model_DLRM/
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span><span class="nv">CUDA_VISIBLE_DEVICES</span><span class="o">=</span><span class="m">0</span> python3 hugectr_dlrm_movielens.py
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>====================================================Model Init=====================================================
+[12d06h55m13s][HUGECTR][INFO]: Global seed is 2552343530
+[12d06h55m15s][HUGECTR][INFO]: Peer-to-peer access cannot be fully enabled.
+Device 0: Tesla V100-PCIE-32GB
+[12d06h55m15s][HUGECTR][INFO]: num of DataReader workers: 12
+[12d06h55m15s][HUGECTR][INFO]: max_vocabulary_size_per_gpu_=167936
+[12d06h55m15s][HUGECTR][INFO]: All2All Warmup Start
+[12d06h55m15s][HUGECTR][INFO]: All2All Warmup End
+===================================================Model Compile===================================================
+[12d06h56m10s][HUGECTR][INFO]: gpu0 start to init embedding
+[12d06h56m10s][HUGECTR][INFO]: gpu0 init embedding done
+===================================================Model Summary===================================================
+Label                                   Dense                         Sparse                        
+label                                   dense                          data1                         
+(None, 1)                               (None, 1)                               
+------------------------------------------------------------------------------------------------------------------
+Layer Type                              Input Name                    Output Name                   Output Shape                  
+------------------------------------------------------------------------------------------------------------------
+LocalizedSlotSparseEmbeddingHash        data1                         sparse_embedding1             (None, 2, 64)                 
+FusedInnerProduct                       dense                         fc1                           (None, 64)                    
+FusedInnerProduct                       fc1                           fc2                           (None, 128)                   
+FusedInnerProduct                       fc2                           fc3                           (None, 64)                    
+Interaction                             fc3,sparse_embedding1         interaction1                  (None, 68)                    
+FusedInnerProduct                       interaction1                  fc4                           (None, 1024)                  
+FusedInnerProduct                       fc4                           fc5                           (None, 1024)                  
+FusedInnerProduct                       fc5                           fc6                           (None, 512)                   
+FusedInnerProduct                       fc6                           fc7                           (None, 256)                   
+InnerProduct                            fc7                           fc8                           (None, 1)                     
+BinaryCrossEntropyLoss                  fc8,label                     loss                                                        
+------------------------------------------------------------------------------------------------------------------
+=====================================================Model Fit=====================================================
+[12d60h56m10s][HUGECTR][INFO]: Use non-epoch mode with number of iterations: 50000
+[12d60h56m10s][HUGECTR][INFO]: Training batchsize: 65536, evaluation batchsize: 65536
+[12d60h56m10s][HUGECTR][INFO]: Evaluation interval: 3000, snapshot interval: 3000
+[12d60h56m10s][HUGECTR][INFO]: Sparse embedding trainable: 1, dense network trainable: 1
+[12d60h56m10s][HUGECTR][INFO]: Use mixed precision: 1, scaler: 1024.000000, use cuda graph: 1
+[12d60h56m10s][HUGECTR][INFO]: lr: 0.100000, warmup_steps: 1000, decay_start: 10000, decay_steps: 40000, decay_power: 2.000000, end_lr: 0.000010
+[12d60h56m10s][HUGECTR][INFO]: Training source file: ./data/hugeCTR/train_filelist.txt
+[12d60h56m10s][HUGECTR][INFO]: Evaluation source file: ./data/hugeCTR/test_filelist.txt
+[12d60h56m25s][HUGECTR][INFO]: Iter: 1000 Time(1000 iters): 14.895018s Loss: 0.534868 lr:0.100000
+[12d60h56m40s][HUGECTR][INFO]: Iter: 2000 Time(1000 iters): 14.917098s Loss: 0.526272 lr:0.100000
+[12d60h56m55s][HUGECTR][INFO]: Iter: 3000 Time(1000 iters): 14.945527s Loss: 0.504054 lr:0.100000
+[12d60h57m10s][HUGECTR][INFO]: Evaluation, AUC: 0.698215
+[12d60h57m10s][HUGECTR][INFO]: Eval Time for 1000 iters: 5.962128s
+[12d60h57m10s][HUGECTR][INFO]: Rank0: Dump hash table from GPU0
+[12d60h57m10s][HUGECTR][INFO]: Rank0: Write hash table &lt;key,value&gt; pairs to file
+[12d60h57m10s][HUGECTR][INFO]: Done
+[12d60h57m10s][HUGECTR][INFO]: Dumping sparse weights to files, successful
+[12d60h57m10s][HUGECTR][INFO]: Dumping sparse optimzer states to files, successful
+[12d60h57m10s][HUGECTR][INFO]: Dumping dense weights to file, successful
+[12d60h57m10s][HUGECTR][INFO]: Dumping dense optimizer states to file, successful
+[12d60h57m10s][HUGECTR][INFO]: Dumping untrainable weights to file, successful
+[12d60h57m16s][HUGECTR][INFO]: Iter: 4000 Time(1000 iters): 21.357401s Loss: 0.286658 lr:0.100000
+[12d60h57m31s][HUGECTR][INFO]: Iter: 5000 Time(1000 iters): 15.037847s Loss: 0.249509 lr:0.100000
+[12d60h57m46s][HUGECTR][INFO]: Iter: 6000 Time(1000 iters): 15.048834s Loss: 0.239949 lr:0.100000
+[12d60h57m52s][HUGECTR][INFO]: Evaluation, AUC: 0.928999
+[12d60h57m52s][HUGECTR][INFO]: Eval Time for 1000 iters: 5.993647s
+[12d60h57m52s][HUGECTR][INFO]: Rank0: Dump hash table from GPU0
+[12d60h57m52s][HUGECTR][INFO]: Rank0: Write hash table &lt;key,value&gt; pairs to file
+[12d60h57m52s][HUGECTR][INFO]: Done
+[12d60h57m52s][HUGECTR][INFO]: Dumping sparse weights to files, successful
+[12d60h57m52s][HUGECTR][INFO]: Dumping sparse optimzer states to files, successful
+[12d60h57m52s][HUGECTR][INFO]: Dumping dense weights to file, successful
+[12d60h57m52s][HUGECTR][INFO]: Dumping dense optimizer states to file, successful
+[12d60h57m52s][HUGECTR][INFO]: Dumping untrainable weights to file, successful
+[12d60h58m80s][HUGECTR][INFO]: Iter: 7000 Time(1000 iters): 21.364920s Loss: 0.242271 lr:0.100000
+[12d60h58m23s][HUGECTR][INFO]: Iter: 8000 Time(1000 iters): 15.036863s Loss: 0.236050 lr:0.100000
+[12d60h58m38s][HUGECTR][INFO]: Iter: 9000 Time(1000 iters): 15.042685s Loss: 0.235748 lr:0.100000
+[12d60h58m44s][HUGECTR][INFO]: Evaluation, AUC: 0.937590
+[12d60h58m44s][HUGECTR][INFO]: Eval Time for 1000 iters: 5.990306s
+[12d60h58m44s][HUGECTR][INFO]: Rank0: Dump hash table from GPU0
+[12d60h58m44s][HUGECTR][INFO]: Rank0: Write hash table &lt;key,value&gt; pairs to file
+[12d60h58m44s][HUGECTR][INFO]: Done
+[12d60h58m44s][HUGECTR][INFO]: Dumping sparse weights to files, successful
+[12d60h58m44s][HUGECTR][INFO]: Dumping sparse optimzer states to files, successful
+[12d60h58m44s][HUGECTR][INFO]: Dumping dense weights to file, successful
+[12d60h58m44s][HUGECTR][INFO]: Dumping dense optimizer states to file, successful
+[12d60h58m44s][HUGECTR][INFO]: Dumping untrainable weights to file, successful
+[12d60h58m59s][HUGECTR][INFO]: Iter: 10000 Time(1000 iters): 21.408894s Loss: 0.233947 lr:0.099995
+[12d60h59m14s][HUGECTR][INFO]: Iter: 11000 Time(1000 iters): 15.050379s Loss: 0.231177 lr:0.095058
+[12d60h59m29s][HUGECTR][INFO]: Iter: 12000 Time(1000 iters): 15.047381s Loss: 0.230662 lr:0.090245
+[12d60h59m35s][HUGECTR][INFO]: Evaluation, AUC: 0.940782
+[12d60h59m35s][HUGECTR][INFO]: Eval Time for 1000 iters: 5.990065s
+[12d60h59m35s][HUGECTR][INFO]: Rank0: Dump hash table from GPU0
+[12d60h59m35s][HUGECTR][INFO]: Rank0: Write hash table &lt;key,value&gt; pairs to file
+[12d60h59m35s][HUGECTR][INFO]: Done
+[12d60h59m36s][HUGECTR][INFO]: Dumping sparse weights to files, successful
+[12d60h59m36s][HUGECTR][INFO]: Dumping sparse optimzer states to files, successful
+[12d60h59m36s][HUGECTR][INFO]: Dumping dense weights to file, successful
+[12d60h59m36s][HUGECTR][INFO]: Dumping dense optimizer states to file, successful
+[12d60h59m36s][HUGECTR][INFO]: Dumping untrainable weights to file, successful
+[12d60h59m51s][HUGECTR][INFO]: Iter: 13000 Time(1000 iters): 21.492720s Loss: 0.229246 lr:0.085558
+[12d70h00m60s][HUGECTR][INFO]: Iter: 14000 Time(1000 iters): 15.051535s Loss: 0.227302 lr:0.080996
+[12d70h00m21s][HUGECTR][INFO]: Iter: 15000 Time(1000 iters): 15.062830s Loss: 0.22.067 lr:0.076558
+[12d70h00m27s][HUGECTR][INFO]: Evaluation, AUC: 0.941291
+[12d70h00m27s][HUGECTR][INFO]: Eval Time for 1000 iters: 6.004500s
+[12d70h00m27s][HUGECTR][INFO]: Rank0: Dump hash table from GPU0
+[12d70h00m27s][HUGECTR][INFO]: Rank0: Write hash table &lt;key,value&gt; pairs to file
+[12d70h00m27s][HUGECTR][INFO]: Done
+[12d70h00m27s][HUGECTR][INFO]: Dumping sparse weights to files, successful
+[12d70h00m27s][HUGECTR][INFO]: Dumping sparse optimzer states to files, successful
+[12d70h00m27s][HUGECTR][INFO]: Dumping dense weights to file, successful
+[12d70h00m27s][HUGECTR][INFO]: Dumping dense optimizer states to file, successful
+[12d70h00m27s][HUGECTR][INFO]: Dumping untrainable weights to file, successful
+[12d70h00m42s][HUGECTR][INFO]: Iter: 16000 Time(1000 iters): 21.480675s Loss: 0.220782 lr:0.072246
+[12d70h00m57s][HUGECTR][INFO]: Iter: 17000 Time(1000 iters): 15.057642s Loss: 0.214406 lr:0.068058
+[12d70h10m12s][HUGECTR][INFO]: Iter: 18000 Time(1000 iters): 15.068874s Loss: 0.211810 lr:0.063996
+[12d70h10m18s][HUGECTR][INFO]: Evaluation, AUC: 0.943403
+[12d70h10m18s][HUGECTR][INFO]: Eval Time for 1000 iters: 5.994943s
+[12d70h10m18s][HUGECTR][INFO]: Rank0: Dump hash table from GPU0
+[12d70h10m18s][HUGECTR][INFO]: Rank0: Write hash table &lt;key,value&gt; pairs to file
+[12d70h10m18s][HUGECTR][INFO]: Done
+[12d70h10m19s][HUGECTR][INFO]: Dumping sparse weights to files, successful
+[12d70h10m19s][HUGECTR][INFO]: Dumping sparse optimzer states to files, successful
+[12d70h10m19s][HUGECTR][INFO]: Dumping dense weights to file, successful
+[12d70h10m19s][HUGECTR][INFO]: Dumping dense optimizer states to file, successful
+[12d70h10m19s][HUGECTR][INFO]: Dumping untrainable weights to file, successful
+[12d70h10m34s][HUGECTR][INFO]: Iter: 19000 Time(1000 iters): 21.541020s Loss: 0.208731 lr:0.060059
+[12d70h10m49s][HUGECTR][INFO]: Iter: 20000 Time(1000 iters): 15.051771s Loss: 0.206068 lr:0.056246
+[12d70h20m40s][HUGECTR][INFO]: Iter: 21000 Time(1000 iters): 15.067925s Loss: 0.205040 lr:0.052559
+[12d70h20m10s][HUGECTR][INFO]: Evaluation, AUC: 0.945471
+[12d70h20m10s][HUGECTR][INFO]: Eval Time for 1000 iters: 6.037830s
+[12d70h20m10s][HUGECTR][INFO]: Rank0: Dump hash table from GPU0
+[12d70h20m10s][HUGECTR][INFO]: Rank0: Write hash table &lt;key,value&gt; pairs to file
+[12d70h20m10s][HUGECTR][INFO]: Done
+[12d70h20m11s][HUGECTR][INFO]: Dumping sparse weights to files, successful
+[12d70h20m11s][HUGECTR][INFO]: Dumping sparse optimzer states to files, successful
+[12d70h20m11s][HUGECTR][INFO]: Dumping dense weights to file, successful
+[12d70h20m11s][HUGECTR][INFO]: Dumping dense optimizer states to file, successful
+[12d70h20m11s][HUGECTR][INFO]: Dumping untrainable weights to file, successful
+[12d70h20m26s][HUGECTR][INFO]: Iter: 22000 Time(1000 iters): 22.271977s Loss: 0.199577 lr:0.048997
+[12d70h20m41s][HUGECTR][INFO]: Iter: 23000 Time(1000 iters): 15.047657s Loss: 0.194625 lr:0.045559
+[12d70h20m56s][HUGECTR][INFO]: Iter: 24000 Time(1000 iters): 15.054897s Loss: 0.197816 lr:0.042247
+[12d70h30m20s][HUGECTR][INFO]: Evaluation, AUC: 0.946273
+[12d70h30m20s][HUGECTR][INFO]: Eval Time for 1000 iters: 6.023635s
+[12d70h30m20s][HUGECTR][INFO]: Rank0: Dump hash table from GPU0
+[12d70h30m20s][HUGECTR][INFO]: Rank0: Write hash table &lt;key,value&gt; pairs to file
+[12d70h30m20s][HUGECTR][INFO]: Done
+[12d70h30m40s][HUGECTR][INFO]: Dumping sparse weights to files, successful
+[12d70h30m40s][HUGECTR][INFO]: Dumping sparse optimzer states to files, successful
+[12d70h30m40s][HUGECTR][INFO]: Dumping dense weights to file, successful
+[12d70h30m40s][HUGECTR][INFO]: Dumping dense optimizer states to file, successful
+[12d70h30m40s][HUGECTR][INFO]: Dumping untrainable weights to file, successful
+[12d70h30m19s][HUGECTR][INFO]: Iter: 25000 Time(1000 iters): 22.792095s Loss: 0.195353 lr:0.039059
+[12d70h30m34s][HUGECTR][INFO]: Iter: 26000 Time(1000 iters): 15.069135s Loss: 0.194946 lr:0.035997
+[12d70h30m49s][HUGECTR][INFO]: Iter: 27000 Time(1000 iters): 15.044690s Loss: 0.196138 lr:0.033060
+[12d70h30m55s][HUGECTR][INFO]: Evaluation, AUC: 0.946479
+[12d70h30m55s][HUGECTR][INFO]: Eval Time for 1000 iters: 6.036560s
+[12d70h30m55s][HUGECTR][INFO]: Rank0: Dump hash table from GPU0
+[12d70h30m55s][HUGECTR][INFO]: Rank0: Write hash table &lt;key,value&gt; pairs to file
+[12d70h30m55s][HUGECTR][INFO]: Done
+[12d70h30m56s][HUGECTR][INFO]: Dumping sparse weights to files, successful
+[12d70h30m56s][HUGECTR][INFO]: Dumping sparse optimzer states to files, successful
+[12d70h30m56s][HUGECTR][INFO]: Dumping dense weights to file, successful
+[12d70h30m56s][HUGECTR][INFO]: Dumping dense optimizer states to file, successful
+[12d70h30m56s][HUGECTR][INFO]: Dumping untrainable weights to file, successful
+[12d70h40m11s][HUGECTR][INFO]: Iter: 28000 Time(1000 iters): 21.477826s Loss: 0.196544 lr:0.030247
+[12d70h40m26s][HUGECTR][INFO]: Iter: 29000 Time(1000 iters): 15.047754s Loss: 0.192916 lr:0.027560
+[12d70h40m41s][HUGECTR][INFO]: Iter: 30000 Time(1000 iters): 15.076476s Loss: 0.193249 lr:0.024998
+[12d70h40m47s][HUGECTR][INFO]: Evaluation, AUC: 0.946866
+[12d70h40m47s][HUGECTR][INFO]: Eval Time for 1000 iters: 6.019900s
+[12d70h40m47s][HUGECTR][INFO]: Rank0: Dump hash table from GPU0
+[12d70h40m47s][HUGECTR][INFO]: Rank0: Write hash table &lt;key,value&gt; pairs to file
+[12d70h40m47s][HUGECTR][INFO]: Done
+[12d70h40m47s][HUGECTR][INFO]: Dumping sparse weights to files, successful
+[12d70h40m47s][HUGECTR][INFO]: Dumping sparse optimzer states to files, successful
+[12d70h40m47s][HUGECTR][INFO]: Dumping dense weights to file, successful
+[12d70h40m47s][HUGECTR][INFO]: Dumping dense optimizer states to file, successful
+[12d70h40m47s][HUGECTR][INFO]: Dumping untrainable weights to file, successful
+[12d70h50m20s][HUGECTR][INFO]: Iter: 31000 Time(1000 iters): 21.420334s Loss: 0.191549 lr:0.022560
+[12d70h50m17s][HUGECTR][INFO]: Iter: 32000 Time(1000 iters): 15.056377s Loss: 0.192337 lr:0.020248
+[12d70h50m32s][HUGECTR][INFO]: Iter: 33000 Time(1000 iters): 15.049432s Loss: 0.190889 lr:0.018060
+[12d70h50m38s][HUGECTR][INFO]: Evaluation, AUC: 0.947067
+[12d70h50m38s][HUGECTR][INFO]: Eval Time for 1000 iters: 6.038870s
+[12d70h50m39s][HUGECTR][INFO]: Rank0: Dump hash table from GPU0
+[12d70h50m39s][HUGECTR][INFO]: Rank0: Write hash table &lt;key,value&gt; pairs to file
+[12d70h50m39s][HUGECTR][INFO]: Done
+[12d70h50m39s][HUGECTR][INFO]: Dumping sparse weights to files, successful
+[12d70h50m39s][HUGECTR][INFO]: Dumping sparse optimzer states to files, successful
+[12d70h50m39s][HUGECTR][INFO]: Dumping dense weights to file, successful
+[12d70h50m39s][HUGECTR][INFO]: Dumping dense optimizer states to file, successful
+[12d70h50m39s][HUGECTR][INFO]: Dumping untrainable weights to file, successful
+[12d70h50m54s][HUGECTR][INFO]: Iter: 34000 Time(1000 iters): 21.957504s Loss: 0.190454 lr:0.015998
+[12d70h60m90s][HUGECTR][INFO]: Iter: 35000 Time(1000 iters): 15.051283s Loss: 0.188163 lr:0.014061
+[12d70h60m24s][HUGECTR][INFO]: Iter: 36000 Time(1000 iters): 15.057633s Loss: 0.192510 lr:0.012248
+[12d70h60m31s][HUGECTR][INFO]: Evaluation, AUC: 0.947169
+[12d70h60m31s][HUGECTR][INFO]: Eval Time for 1000 iters: 6.039515s
+[12d70h60m31s][HUGECTR][INFO]: Rank0: Dump hash table from GPU0
+[12d70h60m31s][HUGECTR][INFO]: Rank0: Write hash table &lt;key,value&gt; pairs to file
+[12d70h60m31s][HUGECTR][INFO]: Done
+[12d70h60m31s][HUGECTR][INFO]: Dumping sparse weights to files, successful
+[12d70h60m31s][HUGECTR][INFO]: Dumping sparse optimzer states to files, successful
+[12d70h60m31s][HUGECTR][INFO]: Dumping dense weights to file, successful
+[12d70h60m31s][HUGECTR][INFO]: Dumping dense optimizer states to file, successful
+[12d70h60m31s][HUGECTR][INFO]: Dumping untrainable weights to file, successful
+[12d70h60m46s][HUGECTR][INFO]: Iter: 37000 Time(1000 iters): 21.491865s Loss: 0.190069 lr:0.010561
+[12d70h70m10s][HUGECTR][INFO]: Iter: 38000 Time(1000 iters): 15.070367s Loss: 0.192338 lr:0.008999
+[12d70h70m16s][HUGECTR][INFO]: Iter: 39000 Time(1000 iters): 15.056408s Loss: 0.189535 lr:0.007561
+[12d70h70m22s][HUGECTR][INFO]: Evaluation, AUC: 0.947164
+[12d70h70m22s][HUGECTR][INFO]: Eval Time for 1000 iters: 5.993091s
+[12d70h70m22s][HUGECTR][INFO]: Rank0: Dump hash table from GPU0
+[12d70h70m22s][HUGECTR][INFO]: Rank0: Write hash table &lt;key,value&gt; pairs to file
+[12d70h70m22s][HUGECTR][INFO]: Done
+[12d70h70m22s][HUGECTR][INFO]: Dumping sparse weights to files, successful
+[12d70h70m22s][HUGECTR][INFO]: Dumping sparse optimzer states to files, successful
+[12d70h70m22s][HUGECTR][INFO]: Dumping dense weights to file, successful
+[12d70h70m22s][HUGECTR][INFO]: Dumping dense optimizer states to file, successful
+[12d70h70m22s][HUGECTR][INFO]: Dumping untrainable weights to file, successful
+[12d70h70m38s][HUGECTR][INFO]: Iter: 40000 Time(1000 iters): 21.440558s Loss: 0.188189 lr:0.006249
+[12d70h70m53s][HUGECTR][INFO]: Iter: 41000 Time(1000 iters): 15.057426s Loss: 0.187295 lr:0.005061
+[12d70h80m80s][HUGECTR][INFO]: Iter: 42000 Time(1000 iters): 15.075448s Loss: 0.188529 lr:0.003999
+[12d70h80m14s][HUGECTR][INFO]: Evaluation, AUC: 0.947195
+[12d70h80m14s][HUGECTR][INFO]: Eval Time for 1000 iters: 6.011289s
+[12d70h80m14s][HUGECTR][INFO]: Rank0: Dump hash table from GPU0
+[12d70h80m14s][HUGECTR][INFO]: Rank0: Write hash table &lt;key,value&gt; pairs to file
+[12d70h80m14s][HUGECTR][INFO]: Done
+[12d70h80m14s][HUGECTR][INFO]: Dumping sparse weights to files, successful
+[12d70h80m14s][HUGECTR][INFO]: Dumping sparse optimzer states to files, successful
+[12d70h80m14s][HUGECTR][INFO]: Dumping dense weights to file, successful
+[12d70h80m14s][HUGECTR][INFO]: Dumping dense optimizer states to file, successful
+[12d70h80m14s][HUGECTR][INFO]: Dumping untrainable weights to file, successful
+[12d70h80m29s][HUGECTR][INFO]: Iter: 43000 Time(1000 iters): 21.454947s Loss: 0.188799 lr:0.003062
+[12d70h80m44s][HUGECTR][INFO]: Iter: 44000 Time(1000 iters): 15.055168s Loss: 0.190610 lr:0.002249
+[12d70h80m59s][HUGECTR][INFO]: Iter: 45000 Time(1000 iters): 15.067865s Loss: 0.191055 lr:0.001562
+[12d70h90m50s][HUGECTR][INFO]: Evaluation, AUC: 0.947241
+[12d70h90m50s][HUGECTR][INFO]: Eval Time for 1000 iters: 6.046591s
+[12d70h90m50s][HUGECTR][INFO]: Rank0: Dump hash table from GPU0
+[12d70h90m50s][HUGECTR][INFO]: Rank0: Write hash table &lt;key,value&gt; pairs to file
+[12d70h90m50s][HUGECTR][INFO]: Done
+[12d70h90m60s][HUGECTR][INFO]: Dumping sparse weights to files, successful
+[12d70h90m60s][HUGECTR][INFO]: Dumping sparse optimzer states to files, successful
+[12d70h90m60s][HUGECTR][INFO]: Dumping dense weights to file, successful
+[12d70h90m60s][HUGECTR][INFO]: Dumping dense optimizer states to file, successful
+[12d70h90m60s][HUGECTR][INFO]: Dumping untrainable weights to file, successful
+[12d70h90m21s][HUGECTR][INFO]: Iter: 46000 Time(1000 iters): 21.669764s Loss: 0.187626 lr:0.001000
+[12d70h90m36s][HUGECTR][INFO]: Iter: 47000 Time(1000 iters): 15.044369s Loss: 0.188257 lr:0.000562
+[12d70h90m51s][HUGECTR][INFO]: Iter: 48000 Time(1000 iters): 15.050518s Loss: 0.190723 lr:0.000250
+[12d70h90m57s][HUGECTR][INFO]: Evaluation, AUC: 0.947264
+[12d70h90m57s][HUGECTR][INFO]: Eval Time for 1000 iters: 6.008485s
+[12d70h90m57s][HUGECTR][INFO]: Rank0: Dump hash table from GPU0
+[12d70h90m57s][HUGECTR][INFO]: Rank0: Write hash table &lt;key,value&gt; pairs to file
+[12d70h90m57s][HUGECTR][INFO]: Done
+[12d70h90m58s][HUGECTR][INFO]: Dumping sparse weights to files, successful
+[12d70h90m58s][HUGECTR][INFO]: Dumping sparse optimzer states to files, successful
+[12d70h90m58s][HUGECTR][INFO]: Dumping dense weights to file, successful
+[12d70h90m58s][HUGECTR][INFO]: Dumping dense optimizer states to file, successful
+[12d70h90m58s][HUGECTR][INFO]: Dumping untrainable weights to file, successful
+[12d70h10m13s][HUGECTR][INFO]: Iter: 49000 Time(1000 iters): 21.945730s Loss: 0.188774 lr:0.000062
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="answer-item-similarity-with-dlrm-embedding">
+<h2>Answer item similarity with DLRM embedding<a class="headerlink" href="#answer-item-similarity-with-dlrm-embedding" title="Permalink to this headline"></a></h2>
+<p>In this section, we demonstrate how the output of HugeCTR training can be used to carry out simple inference tasks. Specifically, we will show that the movie embeddings can be used for simple item-to-item similarity queries. Such a simple inference can be used as an efficient candidate generator to generate a small set of candidates prior to deep learning model re-ranking.</p>
+<p>First, we read the embedding tables and extract the movie embeddings.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">struct</span> 
+<span class="kn">import</span> <span class="nn">pickle</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="n">key_type</span> <span class="o">=</span> <span class="s1">&#39;I64&#39;</span>
+<span class="n">key_type_map</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;I32&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;I&quot;</span><span class="p">,</span> <span class="mi">4</span><span class="p">],</span> <span class="s2">&quot;I64&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;q&quot;</span><span class="p">,</span> <span class="mi">8</span><span class="p">]}</span>
+
+<span class="n">embedding_vec_size</span> <span class="o">=</span> <span class="mi">64</span>
+
+<span class="n">HUGE_CTR_VERSION</span> <span class="o">=</span> <span class="mf">2.21</span> <span class="c1"># set HugeCTR version here, 2.2 for v2.2, 2.21 for v2.21</span>
+
+<span class="k">if</span> <span class="n">HUGE_CTR_VERSION</span> <span class="o">&lt;=</span> <span class="mf">2.2</span><span class="p">:</span>
+    <span class="n">each_key_size</span> <span class="o">=</span> <span class="n">key_type_map</span><span class="p">[</span><span class="n">key_type</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">key_type_map</span><span class="p">[</span><span class="n">key_type</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="mi">4</span> <span class="o">*</span> <span class="n">embedding_vec_size</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="n">each_key_size</span> <span class="o">=</span> <span class="n">key_type_map</span><span class="p">[</span><span class="n">key_type</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="mi">8</span> <span class="o">+</span> <span class="mi">4</span> <span class="o">*</span> <span class="n">embedding_vec_size</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">embedding_table</span> <span class="o">=</span> <span class="p">{}</span>
+        
+<span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s2">&quot;./hugeCTR_saved_model_DLRM/0_sparse_9000.model&quot;</span> <span class="o">+</span> <span class="s2">&quot;/key&quot;</span><span class="p">,</span> <span class="s1">&#39;rb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">key_file</span><span class="p">,</span> \
+     <span class="nb">open</span><span class="p">(</span><span class="s2">&quot;./hugeCTR_saved_model_DLRM/0_sparse_9000.model&quot;</span> <span class="o">+</span> <span class="s2">&quot;/emb_vector&quot;</span><span class="p">,</span> <span class="s1">&#39;rb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">vec_file</span><span class="p">:</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+            <span class="n">key_buffer</span> <span class="o">=</span> <span class="n">key_file</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">key_type_map</span><span class="p">[</span><span class="n">key_type</span><span class="p">][</span><span class="mi">1</span><span class="p">])</span>
+            <span class="n">vec_buffer</span> <span class="o">=</span> <span class="n">vec_file</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="mi">4</span> <span class="o">*</span> <span class="n">embedding_vec_size</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">key_buffer</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">vec_buffer</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">break</span>
+            <span class="n">key</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">unpack</span><span class="p">(</span><span class="n">key_type_map</span><span class="p">[</span><span class="n">key_type</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="n">key_buffer</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">values</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">unpack</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">embedding_vec_size</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;f&quot;</span><span class="p">,</span> <span class="n">vec_buffer</span><span class="p">)</span>
+
+            <span class="n">embedding_table</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">values</span>
+
+    <span class="k">except</span> <span class="ne">BaseException</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="n">error</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">item_embedding</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">26744</span><span class="p">,</span> <span class="n">embedding_vec_size</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="s1">&#39;float&#39;</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">embedding_table</span><span class="p">[</span><span class="mi">1</span><span class="p">])):</span>
+    <span class="n">item_embedding</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">embedding_table</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="n">i</span><span class="p">]</span>
+    
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="answer-nearest-neighbor-queries">
+<h3>Answer nearest neighbor queries<a class="headerlink" href="#answer-nearest-neighbor-queries" title="Permalink to this headline"></a></h3>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">scipy.spatial.distance</span> <span class="kn">import</span> <span class="n">cdist</span>
+
+<span class="k">def</span> <span class="nf">find_similar_movies</span><span class="p">(</span><span class="n">nn_movie_id</span><span class="p">,</span> <span class="n">item_embedding</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">metric</span><span class="o">=</span><span class="s2">&quot;euclidean&quot;</span><span class="p">):</span>
+    <span class="c1">#find the top K similar items according to one of the distance metric: cosine or euclidean</span>
+    <span class="n">sim</span> <span class="o">=</span> <span class="mi">1</span><span class="o">-</span><span class="n">cdist</span><span class="p">(</span><span class="n">item_embedding</span><span class="p">,</span> <span class="n">item_embedding</span><span class="p">[</span><span class="n">nn_movie_id</span><span class="p">]</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">),</span> <span class="n">metric</span><span class="o">=</span><span class="n">metric</span><span class="p">)</span>
+   
+    <span class="k">return</span> <span class="n">sim</span><span class="o">.</span><span class="n">squeeze</span><span class="p">()</span><span class="o">.</span><span class="n">argsort</span><span class="p">()[</span><span class="o">-</span><span class="n">k</span><span class="p">:][::</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s1">&#39;./mappings.pickle&#39;</span><span class="p">,</span> <span class="s1">&#39;rb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">handle</span><span class="p">:</span>
+    <span class="n">movies_mapping</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">handle</span><span class="p">)[</span><span class="s2">&quot;items&quot;</span><span class="p">]</span>
+
+<span class="n">nn_to_movies</span> <span class="o">=</span> <span class="n">movies_mapping</span>
+<span class="n">movies_to_nn</span> <span class="o">=</span> <span class="p">{}</span>
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">movies_mapping</span><span class="p">)):</span>
+    <span class="n">movies_to_nn</span><span class="p">[</span><span class="n">movies_mapping</span><span class="p">[</span><span class="n">i</span><span class="p">]]</span> <span class="o">=</span> <span class="n">i</span>
+
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="n">movies</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s2">&quot;./data/ml-20m/movies.csv&quot;</span><span class="p">,</span> <span class="n">index_col</span><span class="o">=</span><span class="s2">&quot;movieId&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="k">for</span> <span class="n">movie_ID</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">10</span><span class="p">):</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Query: &quot;</span><span class="p">,</span> <span class="n">movies</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">movie_ID</span><span class="p">][</span><span class="s2">&quot;title&quot;</span><span class="p">],</span> <span class="n">movies</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">movie_ID</span><span class="p">][</span><span class="s2">&quot;genres&quot;</span><span class="p">])</span>
+
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Similar movies: &quot;</span><span class="p">)</span>
+        <span class="n">similar_movies</span> <span class="o">=</span> <span class="n">find_similar_movies</span><span class="p">(</span><span class="n">movies_to_nn</span><span class="p">[</span><span class="n">movie_ID</span><span class="p">],</span> <span class="n">item_embedding</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">similar_movies</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="n">nn_to_movies</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">movies</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">nn_to_movies</span><span class="p">[</span><span class="n">i</span><span class="p">]][</span><span class="s2">&quot;title&quot;</span><span class="p">],</span> <span class="n">movies</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">nn_to_movies</span><span class="p">[</span><span class="n">i</span><span class="p">]][</span><span class="s2">&quot;genres&quot;</span><span class="p">])</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;=================================</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">pass</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Query:  Toy Story (1995) Adventure|Animation|Children|Comedy|Fantasy
+Similar movies: 
+110510 Série noire (1979) Film-Noir
+32361 Come and Get It (1936) Drama
+67999 Global Metal (2008) Documentary
+69356 Zulu Dawn (1979) Action|Drama|Thriller|War
+69381 Hitman, The (1991) Action|Crime|Thriller
+69442 Pekka ja Pätkä neekereinä (1960) Comedy
+69818 Franklyn (2008) Drama|Fantasy|Romance|Thriller
+70344 Cold Souls (2009) Comedy|Drama
+70495 Kill Buljo: The Movie (2007) Action|Comedy
+70864 Botched (2007) Comedy|Crime|Horror|Thriller
+=================================
+
+Query:  Jumanji (1995) Adventure|Children|Fantasy
+Similar movies: 
+2 Jumanji (1995) Adventure|Children|Fantasy
+1333 Birds, The (1963) Horror|Thriller
+1240 Terminator, The (1984) Action|Sci-Fi|Thriller
+1089 Reservoir Dogs (1992) Crime|Mystery|Thriller
+593 Silence of the Lambs, The (1991) Crime|Horror|Thriller
+1387 Jaws (1975) Action|Horror
+112 Rumble in the Bronx (Hont faan kui) (1995) Action|Adventure|Comedy|Crime
+1198 Raiders of the Lost Ark (Indiana Jones and the Raiders of the Lost Ark) (1981) Action|Adventure
+1036 Die Hard (1988) Action|Crime|Thriller
+1246 Dead Poets Society (1989) Drama
+=================================
+
+Query:  Grumpier Old Men (1995) Comedy|Romance
+Similar movies: 
+110510 Série noire (1979) Film-Noir
+32361 Come and Get It (1936) Drama
+67999 Global Metal (2008) Documentary
+69356 Zulu Dawn (1979) Action|Drama|Thriller|War
+69381 Hitman, The (1991) Action|Crime|Thriller
+69442 Pekka ja Pätkä neekereinä (1960) Comedy
+69818 Franklyn (2008) Drama|Fantasy|Romance|Thriller
+70344 Cold Souls (2009) Comedy|Drama
+70495 Kill Buljo: The Movie (2007) Action|Comedy
+70864 Botched (2007) Comedy|Crime|Horror|Thriller
+=================================
+
+Query:  Waiting to Exhale (1995) Comedy|Drama|Romance
+Similar movies: 
+110510 Série noire (1979) Film-Noir
+32361 Come and Get It (1936) Drama
+67999 Global Metal (2008) Documentary
+69356 Zulu Dawn (1979) Action|Drama|Thriller|War
+69381 Hitman, The (1991) Action|Crime|Thriller
+69442 Pekka ja Pätkä neekereinä (1960) Comedy
+69818 Franklyn (2008) Drama|Fantasy|Romance|Thriller
+70344 Cold Souls (2009) Comedy|Drama
+70495 Kill Buljo: The Movie (2007) Action|Comedy
+70864 Botched (2007) Comedy|Crime|Horror|Thriller
+=================================
+
+Query:  Father of the Bride Part II (1995) Comedy
+Similar movies: 
+110510 Série noire (1979) Film-Noir
+32361 Come and Get It (1936) Drama
+67999 Global Metal (2008) Documentary
+69356 Zulu Dawn (1979) Action|Drama|Thriller|War
+69381 Hitman, The (1991) Action|Crime|Thriller
+69442 Pekka ja Pätkä neekereinä (1960) Comedy
+69818 Franklyn (2008) Drama|Fantasy|Romance|Thriller
+70344 Cold Souls (2009) Comedy|Drama
+70495 Kill Buljo: The Movie (2007) Action|Comedy
+70864 Botched (2007) Comedy|Crime|Horror|Thriller
+=================================
+
+Query:  Heat (1995) Action|Crime|Thriller
+Similar movies: 
+110510 Série noire (1979) Film-Noir
+32361 Come and Get It (1936) Drama
+67999 Global Metal (2008) Documentary
+69356 Zulu Dawn (1979) Action|Drama|Thriller|War
+69381 Hitman, The (1991) Action|Crime|Thriller
+69442 Pekka ja Pätkä neekereinä (1960) Comedy
+69818 Franklyn (2008) Drama|Fantasy|Romance|Thriller
+70344 Cold Souls (2009) Comedy|Drama
+70495 Kill Buljo: The Movie (2007) Action|Comedy
+70864 Botched (2007) Comedy|Crime|Horror|Thriller
+=================================
+
+Query:  Sabrina (1995) Comedy|Romance
+Similar movies: 
+110510 Série noire (1979) Film-Noir
+32361 Come and Get It (1936) Drama
+67999 Global Metal (2008) Documentary
+69356 Zulu Dawn (1979) Action|Drama|Thriller|War
+69381 Hitman, The (1991) Action|Crime|Thriller
+69442 Pekka ja Pätkä neekereinä (1960) Comedy
+69818 Franklyn (2008) Drama|Fantasy|Romance|Thriller
+70344 Cold Souls (2009) Comedy|Drama
+70495 Kill Buljo: The Movie (2007) Action|Comedy
+70864 Botched (2007) Comedy|Crime|Horror|Thriller
+=================================
+
+Query:  Tom and Huck (1995) Adventure|Children
+Similar movies: 
+110510 Série noire (1979) Film-Noir
+32361 Come and Get It (1936) Drama
+67999 Global Metal (2008) Documentary
+69356 Zulu Dawn (1979) Action|Drama|Thriller|War
+69381 Hitman, The (1991) Action|Crime|Thriller
+69442 Pekka ja Pätkä neekereinä (1960) Comedy
+69818 Franklyn (2008) Drama|Fantasy|Romance|Thriller
+70344 Cold Souls (2009) Comedy|Drama
+70495 Kill Buljo: The Movie (2007) Action|Comedy
+70864 Botched (2007) Comedy|Crime|Horror|Thriller
+=================================
+
+Query:  Sudden Death (1995) Action
+Similar movies: 
+110510 Série noire (1979) Film-Noir
+32361 Come and Get It (1936) Drama
+67999 Global Metal (2008) Documentary
+69356 Zulu Dawn (1979) Action|Drama|Thriller|War
+69381 Hitman, The (1991) Action|Crime|Thriller
+69442 Pekka ja Pätkä neekereinä (1960) Comedy
+69818 Franklyn (2008) Drama|Fantasy|Romance|Thriller
+70344 Cold Souls (2009) Comedy|Drama
+70495 Kill Buljo: The Movie (2007) Action|Comedy
+70864 Botched (2007) Comedy|Crime|Horror|Thriller
+=================================
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="ecommerce-example.html" class="btn btn-neutral float-left" title="Merlin ETL, training, and inference with e-Commerce behavior data" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="hugectr_criteo.html" class="btn btn-neutral float-right" title="Introduction to the HugeCTR Python Interface" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, NVIDIA.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    v: v3.8
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="../../v3.5/index.html">v3.5</a></dd>
+      <dd><a href="../../v3.6/index.html">v3.6</a></dd>
+      <dd><a href="../../v3.7/index.html">v3.7</a></dd>
+      <dd><a href="movie-lens-example.html">v3.8</a></dd>
+    </dl>
+    <dl>
+      <dt>Branches</dt>
+      <dd><a href="../../master/index.html">master</a></dd>
+    </dl>
+  </div>
+</div><script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

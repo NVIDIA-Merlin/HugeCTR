@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HugeCTR Example Notebooks &mdash; Merlin HugeCTR  documentation</title><link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/togglebutton.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/mystnb.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  <script id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/underscore.js"></script>
+        <script src="../_static/doctools.js"></script>
+        <script >let toggleHintShow = 'Click to show';</script>
+        <script >let toggleHintHide = 'Click to hide';</script>
+        <script >let toggleOpenOnPrint = 'true';</script>
+        <script src="../_static/togglebutton.js"></script>
+        <script >var togglebuttonSelector = '.toggle, .admonition.dropdown, .tag_hide_input div.cell_input, .tag_hide-input div.cell_input, .tag_hide_output div.cell_output, .tag_hide-output div.cell_output, .tag_hide_cell.cell, .tag_hide-cell.cell';</script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Merlin ETL, training, and inference with e-Commerce behavior data" href="ecommerce-example.html" />
+    <link rel="prev" title="Performance" href="../performance.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../index.html" class="icon icon-home"> Merlin HugeCTR
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../hugectr_user_guide.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../hugectr_core_features.html">Core Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../hugectr_feature_details_intro.html">Features in Detail</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../performance.html">Performance</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Example Notebooks</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#quickstart">Quickstart</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#notebook-list">Notebook List</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#system-specifications">System Specifications</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ecommerce-example.html">Merlin ETL, training, and inference with e-Commerce behavior data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="movie-lens-example.html">HugeCTR demo on Movie lens data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="hugectr_criteo.html">Introduction to the HugeCTR Python Interface</a></li>
+<li class="toctree-l2"><a class="reference internal" href="hugectr2onnx_demo.html">HugeCTR to ONNX Converter</a></li>
+<li class="toctree-l2"><a class="reference internal" href="continuous_training.html">HugeCTR Continuous Training</a></li>
+<li class="toctree-l2"><a class="reference internal" href="hugectr_wdl_prediction.html">HugeCTR Wide and Deep Model with Criteo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="news-example.html">NVIDIA Merlin on Microsoft’s News Dataset (MIND)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="multi_gpu_offline_inference.html">Multi-GPU Offline Inference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="hps_demo.html">Hierarchical Parameter Server Demo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="embedding_training_cache_example.html">Embedding Training Cache Example</a></li>
+<li class="toctree-l2"><a class="reference internal" href="embedding_collection.html">HugeCTR Embedding Collection</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="multi-modal-data/index.html">Multi-modal Example Notebooks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/index.html">API Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../additional_resources.html">Additional Resources</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../release_notes.html">Release Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../hugectr_contributor_guide.html">Contributing to HugeCTR</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Merlin HugeCTR</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home"></a> &raquo;</li>
+      <li>HugeCTR Example Notebooks</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <div class="tex2jax_ignore mathjax_ignore section" id="hugectr-example-notebooks">
+<h1>HugeCTR Example Notebooks<a class="headerlink" href="#hugectr-example-notebooks" title="Permalink to this headline"></a></h1>
+<p>This directory contains a set of Jupyter notebook that demonstrate how to use HugeCTR.</p>
+<div class="section" id="quickstart">
+<h2>Quickstart<a class="headerlink" href="#quickstart" title="Permalink to this headline"></a></h2>
+<p>The simplest way to run a one of our notebooks is with a Docker container.
+A container provides a self-contained, isolated, and reproducible environment for repetitive experiments.
+Docker images are available from the NVIDIA GPU Cloud (NGC).
+If you prefer to build the HugeCTR Docker image on your own, refer to <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/hugectr_contributor_guide.html#set-up-the-development-environment-with-merlin-containers">Set Up the Development Environment With Merlin Containers</a>.</p>
+<div class="section" id="pull-the-ngc-docker">
+<h3>Pull the NGC Docker<a class="headerlink" href="#pull-the-ngc-docker" title="Permalink to this headline"></a></h3>
+<p>Pull the container using the following command:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>docker pull nvcr.io/nvidia/merlin/merlin-hugectr:22.07
+</pre></div>
+</div>
+<blockquote>
+<div><p>To run the Sparse Operation Kit notebooks, pull the <code class="docutils literal notranslate"><span class="pre">nvcr.io/nvidia/merlin/merlin-tensorflow:22.07</span></code> container.</p>
+</div></blockquote>
+</div>
+<div class="section" id="clone-the-hugectr-repository">
+<h3>Clone the HugeCTR Repository<a class="headerlink" href="#clone-the-hugectr-repository" title="Permalink to this headline"></a></h3>
+<p>Use the following command to clone the HugeCTR repository:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>git clone https://github.com/NVIDIA/HugeCTR
+</pre></div>
+</div>
+</div>
+<div class="section" id="start-the-jupyter-notebook">
+<h3>Start the Jupyter Notebook<a class="headerlink" href="#start-the-jupyter-notebook" title="Permalink to this headline"></a></h3>
+<ol>
+<li><p>Launch the container in interactive mode (mount the HugeCTR root directory into the container for your convenience) by running this command:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>docker run --runtime<span class="o">=</span>nvidia --rm -it --cap-add SYS_NICE --ipc<span class="o">=</span>host --ulimit <span class="nv">memlock</span><span class="o">=</span>-1 --ulimit <span class="nv">stack</span><span class="o">=</span><span class="m">67108864</span> -u <span class="k">$(</span>id -u<span class="k">)</span>:<span class="k">$(</span>id -g<span class="k">)</span> -v <span class="k">$(</span><span class="nb">pwd</span><span class="k">)</span>:/hugectr -w /hugectr -p <span class="m">8888</span>:8888 nvcr.io/nvidia/merlin/merlin-hugectr:22.07
+</pre></div>
+</div>
+<blockquote>
+<div><p>To run the  Sparse Operation Kit notebooks, specify the <code class="docutils literal notranslate"><span class="pre">nvcr.io/nvidia/merlin/merlin-tensorflow:22.07</span></code> container.</p>
+</div></blockquote>
+</li>
+<li><p>Start Jupyter using these commands:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span> /hugectr/notebooks
+jupyter-notebook --allow-root --ip <span class="m">0</span>.0.0.0 --port <span class="m">8888</span> --NotebookApp.token<span class="o">=</span><span class="s1">&#39;hugectr&#39;</span>
+</pre></div>
+</div>
+</li>
+<li><p>Connect to your host machine using the 8888 port by accessing its IP address or name from your web browser: <code class="docutils literal notranslate"><span class="pre">http://[host</span> <span class="pre">machine]:8888</span></code></p>
+<p>Use the token available from the output by running the command above to log in. For example:</p>
+<p><code class="docutils literal notranslate"><span class="pre">http://[host</span> <span class="pre">machine]:8888/?token=aae96ae9387cd28151868fee318c3b3581a2d794f3b25c6b</span></code></p>
+</li>
+<li><p>Optional: Import MPI.</p>
+<p>By default, HugeCTR initializes and finalizes MPI when you run the <code class="docutils literal notranslate"><span class="pre">import</span> <span class="pre">hugectr</span></code> statement within the NGC Merlin container.
+If you build and install HugeCTR yourself, specify the <code class="docutils literal notranslate"><span class="pre">ENABLE_MULTINODES=ON</span></code> argument when you build.
+See <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/hugectr_user_guide.html#building-hugectr-from-scratch">Build HugeCTR from Source</a>.</p>
+<p>If your program uses MPI for a reason other than interacting with HugeCTR, initialize MPI with the <code class="docutils literal notranslate"><span class="pre">from</span> <span class="pre">mpi4py</span> <span class="pre">import</span> <span class="pre">MPI</span></code> statement before you import HugeCTR.</p>
+</li>
+<li><p>Important Note:</p>
+<p>HugeCTR is written in CUDA/C++ and wrapped to Python using Pybind11. The C++ output will not display in Notebook cells unless you run the Python script in a command line manner.</p>
+</li>
+</ol>
+</div>
+</div>
+<div class="section" id="notebook-list">
+<h2>Notebook List<a class="headerlink" href="#notebook-list" title="Permalink to this headline"></a></h2>
+<p>The notebooks are located within the container and can be found in the <code class="docutils literal notranslate"><span class="pre">/hugectr/notebooks</span></code> directory.</p>
+<p>Here’s a list of notebooks that you can run:</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="ecommerce-example.html"><span class="doc std std-doc">ecommerce-example.ipynb</span></a>: Explains how to train and inference with the eCommerce dataset.</p></li>
+<li><p><a class="reference internal" href="movie-lens-example.html"><span class="doc std std-doc">movie-lens-example.ipynb</span></a>: Explains how to train and inference with the MoveLense dataset.</p></li>
+<li><p><a class="reference internal" href="hugectr_criteo.html"><span class="doc std std-doc">hugectr-criteo.ipynb</span></a>: Explains the usage of HugeCTR Python interface with the Criteo dataset.</p></li>
+<li><p><a class="reference internal" href="hugectr2onnx_demo.html"><span class="doc std std-doc">hugectr2onnx_demo.ipynb</span></a>: Explains how to convert the trained HugeCTR model to ONNX.</p></li>
+<li><p><a class="reference internal" href="continuous_training.html"><span class="doc std std-doc">continuous_training.ipynb</span></a>: Notebook to introduce how to deploy continued training with HugeCTR.</p></li>
+<li><p><a class="reference internal" href="hugectr_wdl_prediction.html"><span class="doc std std-doc">hugectr_wdl_prediction.ipynb</span></a>: Tutorial how to train a wdl model using HugeCTR High-level python API.</p></li>
+<li><p><a class="reference internal" href="news-example.html"><span class="doc std std-doc">news-example.ipynb</span></a>: Tutorial to demonstrate NVTabular for ETL the data and HugeCTR for training Deep Neural Network models on MIND dataset.</p></li>
+<li><p><a class="reference internal" href="multi_gpu_offline_inference.html"><span class="doc std std-doc">multi_gpu_offline_inference.ipynb</span></a>: Explain how to do multi-GPU offline inference with HugeCTR Python APIs.</p></li>
+<li><p><a class="reference internal" href="hps_demo.html"><span class="doc std std-doc">hps_demo.ipynb</span></a>: Demonstrate how to utilize HPS Python APIs together with ONNX Runtime APIs to create an ensemble inference model.</p></li>
+<li><p><a class="reference internal" href="training_with_hdfs.html"><span class="doc std std-doc">training_with_hdfs.ipynb</span></a>: Demonstrates how to train a model with data that is stored in Hadoop HDFS.</p></li>
+</ul>
+<p>The <a class="reference internal" href="multi-modal-data/index.html"><span class="xref myst">multi-modal-data</span></a> series of notebooks demonstrate how to use of multi-modal data such as text and images for the task of movie recommendation.
+The notebooks use the Movielens-25M dataset.</p>
+<p>For Sparse Operation Kit notebooks, refer to the <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/tree/master/sparse_operation_kit/notebooks">sparse_operation_kit/notebooks/</a> directory of the repository or the <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/index.html">documentation</a>.</p>
+</div>
+<div class="section" id="system-specifications">
+<h2>System Specifications<a class="headerlink" href="#system-specifications" title="Permalink to this headline"></a></h2>
+<p>The specifications of the system on which each notebook can run successfully are summarized in the table. The notebooks are verified on the system below but it does not mean the minimum requirements.</p>
+<table border="1" class="docutils">
+<thead>
+<tr>
+<th>Notebook</th>
+<th>CPU</th>
+<th>GPU</th>
+<th>#GPUs</th>
+<th>Author</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="multi-modal-data">multi-modal-data</a></td>
+<td>Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory</td>
+<td>Tesla V100-SXM2-32GB<br />32 GB Memory</td>
+<td>1</td>
+<td>Vinh Nguyen</td>
+</tr>
+<tr>
+<td><a href="continuous_training.ipynb">continuous_training.ipynb</a></td>
+<td>Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory</td>
+<td>Tesla V100-SXM2-32GB<br />32 GB Memory</td>
+<td>1</td>
+<td>Xiaolei Shi</td>
+</tr>
+<tr>
+<td><a href="ecommerce-example.ipynb">ecommerce-example.ipynb</a></td>
+<td>Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory</td>
+<td>Tesla V100-SXM2-16GB<br />16 GB Memory</td>
+<td>8</td>
+<td>Vinh Nguyen</td>
+</tr>
+<tr>
+<td><a href="hugectr2onnx_demo.ipynb">hugectr2onnx_demo.ipynb</a></td>
+<td>Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory</td>
+<td>Tesla V100-SXM2-16GB<br />16 GB Memory</td>
+<td>1</td>
+<td>Kingsley Liu</td>
+</tr>
+<tr>
+<td><a href="hugectr_criteo.ipynb">hugectr-criteo.ipynb</a></td>
+<td>Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory</td>
+<td>Tesla V100-SXM2-32GB<br />32 GB Memory</td>
+<td>1</td>
+<td>Kingsley Liu</td>
+</tr>
+<tr>
+<td><a href="multi_gpu_offline_inference.ipynb">multi_gpu_offline_inference.ipynb</a></td>
+<td>Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory</td>
+<td>Tesla V100-SXM2-32GB<br />32 GB Memory</td>
+<td>4</td>
+<td>Kingsley Liu</td>
+</tr>
+<tr>
+<td><a href="hps_demo.ipynb">hps_demo.ipynb</a></td>
+<td>Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory</td>
+<td>Tesla V100-SXM2-32GB<br />32 GB Memory</td>
+<td>1</td>
+<td>Kingsley Liu</td>
+</tr>
+<tr>
+<td><a href="hugectr_wdl_prediction.ipynb">hugectr_wdl_prediction.ipynb</a></td>
+<td>AMD Ryzen 9 3900X 12-Core <br />32 GB Memory</td>
+<td>GeForce RTX 2080Ti<br />11 GB Memory</td>
+<td>1</td>
+<td>Yingcan Wei</td>
+</tr>
+<tr>
+<td><a href="movie-lens-example.ipynb">movie-lens-example.ipynb</a></td>
+<td>Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory</td>
+<td>Tesla V100-SXM2-32GB<br />32 GB Memory</td>
+<td>1</td>
+<td>Vinh Nguyen</td>
+</tr>
+<tr>
+<td><a href="news-example.ipynb">news-example.ipynb</a></td>
+<td>Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory</td>
+<td>Tesla V100-SXM2-32GB<br />32 GB Memory</td>
+<td>4</td>
+<td>Ashish Sardana</td>
+</tr>
+</tbody>
+</table></div>
+<div class="toctree-wrapper compound">
+</div>
+</div>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="../performance.html" class="btn btn-neutral float-left" title="Performance" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="ecommerce-example.html" class="btn btn-neutral float-right" title="Merlin ETL, training, and inference with e-Commerce behavior data" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, NVIDIA.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    v: v3.8
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="../../v3.5/index.html">v3.5</a></dd>
+      <dd><a href="../../v3.6/index.html">v3.6</a></dd>
+      <dd><a href="../../v3.7/index.html">v3.7</a></dd>
+      <dd><a href="index.html">v3.8</a></dd>
+    </dl>
+    <dl>
+      <dt>Branches</dt>
+      <dd><a href="../../master/index.html">master</a></dd>
+    </dl>
+  </div>
+</div><script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

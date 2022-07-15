@@ -51,6 +51,7 @@
 </li>
 <li class="toctree-l1"><a class="reference internal" href="hugectr_core_features.html">Core Features</a></li>
 <li class="toctree-l1"><a class="reference internal" href="hugectr_feature_details_intro.html">Features in Detail</a></li>
+<li class="toctree-l1"><a class="reference internal" href="performance.html">Performance</a></li>
 <li class="toctree-l1"><a class="reference internal" href="notebooks/index.html">Example Notebooks</a></li>
 <li class="toctree-l1"><a class="reference internal" href="notebooks/multi-modal-data/index.html">Multi-modal Example Notebooks</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api/index.html">API Documentation</a></li>
@@ -84,6 +85,24 @@
              
   <div class="tex2jax_ignore mathjax_ignore section" id="introduction-to-hugectr">
 <h1>Introduction to HugeCTR<a class="headerlink" href="#introduction-to-hugectr" title="Permalink to this headline"></a></h1>
+<div class="contents local topic" id="contents">
+<ul class="simple">
+<li><p><a class="reference internal" href="#about-hugectr" id="id1">About HugeCTR</a></p></li>
+<li><p><a class="reference internal" href="#installing-and-building-hugectr" id="id2">Installing and Building HugeCTR</a></p>
+<ul>
+<li><p><a class="reference internal" href="#compute-capability" id="id3">Compute Capability</a></p></li>
+<li><p><a class="reference internal" href="#installing-hugectr-using-ngc-containers" id="id4">Installing HugeCTR Using NGC Containers</a></p></li>
+<li><p><a class="reference internal" href="#building-hugectr-from-scratch" id="id5">Building HugeCTR from Scratch</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#tools" id="id6">Tools</a></p>
+<ul>
+<li><p><a class="reference internal" href="#generating-synthetic-data-and-benchmarks" id="id7">Generating Synthetic Data and Benchmarks</a></p></li>
+<li><p><a class="reference internal" href="#downloading-and-preprocessing-datasets" id="id8">Downloading and Preprocessing Datasets</a></p></li>
+</ul>
+</li>
+</ul>
+</div>
 <div class="section" id="about-hugectr">
 <h2>About HugeCTR<a class="headerlink" href="#about-hugectr" title="Permalink to this headline"></a></h2>
 <p>HugeCTR is a GPU-accelerated framework designed to distribute training across multiple GPUs and nodes and estimate click-through rates (CTRs). HugeCTR supports model-parallel embedding tables and data-parallel neural networks and their variants such as <a class="reference external" href="https://arxiv.org/abs/1606.07792">Wide and Deep Learning (WDL)</a>, <a class="reference external" href="https://arxiv.org/abs/1708.05123">Deep Cross Network (DCN)</a>, <a class="reference external" href="https://arxiv.org/abs/1703.04247">DeepFM</a>, and <a class="reference external" href="https://ai.facebook.com/blog/dlrm-an-advanced-open-source-deep-learning-recommendation-model/">Deep Learning Recommendation Model (DLRM)</a>. HugeCTR is a component of <a class="reference external" href="https://developer.nvidia.com/nvidia-merlin#getstarted">NVIDIA Merlin Open Beta</a>. NVIDIA Merlin is used for building large-scale recommender systems, which require massive datasets to train, particularly for deep learning based solutions.</p>
@@ -180,7 +199,7 @@ The following table also identifies the containers:</p>
 <p>To use these Docker containers, you’ll first need to install the <a class="reference external" href="https://github.com/NVIDIA/nvidia-docker">NVIDIA Container Toolkit</a> to provide GPU support for Docker. You can use the NGC links referenced in the table above to obtain more information about how to launch and run these containers.</p>
 <p>The following sample command pulls and starts the Merlin Training container:</p>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="c1"># Run the container in interactive mode</span>
-$ docker run --gpus<span class="o">=</span>all --rm -it --cap-add SYS_NICE nvcr.io/nvidia/merlin/merlin-hugectr:22.06
+$ docker run --gpus<span class="o">=</span>all --rm -it --cap-add SYS_NICE nvcr.io/nvidia/merlin/merlin-hugectr:22.07
 </pre></div>
 </div>
 </div>
@@ -271,6 +290,7 @@ $ bash preprocess.sh <span class="m">1</span> criteo_data pandas <span class="m"
       <dd><a href="../v3.5/hugectr_user_guide.html">v3.5</a></dd>
       <dd><a href="../v3.6/hugectr_user_guide.html">v3.6</a></dd>
       <dd><a href="../v3.7/hugectr_user_guide.html">v3.7</a></dd>
+      <dd><a href="../v3.8/hugectr_user_guide.html">v3.8</a></dd>
     </dl>
     <dl>
       <dt>Branches</dt>

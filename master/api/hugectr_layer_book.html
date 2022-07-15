@@ -46,6 +46,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../hugectr_user_guide.html">Introduction</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../hugectr_core_features.html">Core Features</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../hugectr_feature_details_intro.html">Features in Detail</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../performance.html">Performance</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../notebooks/index.html">Example Notebooks</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../notebooks/multi-modal-data/index.html">Multi-modal Example Notebooks</a></li>
 <li class="toctree-l1 current"><a class="reference internal" href="index.html">API Documentation</a><ul class="current">
@@ -84,6 +85,58 @@
              
   <div class="tex2jax_ignore mathjax_ignore section" id="hugectr-layer-classes-and-methods">
 <h1>HugeCTR Layer Classes and Methods<a class="headerlink" href="#hugectr-layer-classes-and-methods" title="Permalink to this headline"></a></h1>
+<div class="contents local topic" id="contents">
+<ul class="simple">
+<li><p><a class="reference internal" href="#input-layer" id="id1">Input Layer</a></p></li>
+<li><p><a class="reference internal" href="#sparse-embedding" id="id2">Sparse Embedding</a></p></li>
+<li><p><a class="reference internal" href="#embedding-types-detail" id="id3">Embedding Types Detail</a></p>
+<ul>
+<li><p><a class="reference internal" href="#distributedslotsparseembeddinghash-layer" id="id4">DistributedSlotSparseEmbeddingHash Layer</a></p></li>
+<li><p><a class="reference internal" href="#localizedslotsparseembeddinghash-layer" id="id5">LocalizedSlotSparseEmbeddingHash Layer</a></p></li>
+<li><p><a class="reference internal" href="#localizedslotsparseembeddingonehot-layer" id="id6">LocalizedSlotSparseEmbeddingOneHot Layer</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#dense-layers" id="id7">Dense Layers</a></p></li>
+<li><p><a class="reference internal" href="#dense-layers-usage" id="id8">Dense Layers Usage</a></p>
+<ul>
+<li><p><a class="reference internal" href="#fullyconnected-layer" id="id9">FullyConnected Layer</a></p></li>
+<li><p><a class="reference internal" href="#fusedfullyconnected-layer" id="id10">FusedFullyConnected Layer</a></p></li>
+<li><p><a class="reference internal" href="#multicross-layer" id="id11">MultiCross Layer</a></p></li>
+<li><p><a class="reference internal" href="#fmorder2-layer" id="id12">FmOrder2 Layer</a></p></li>
+<li><p><a class="reference internal" href="#weightmultiply-layer" id="id13">WeightMultiply Layer</a></p></li>
+<li><p><a class="reference internal" href="#elementwisemultiply-layer" id="id14">ElementwiseMultiply Layer</a></p></li>
+<li><p><a class="reference internal" href="#batchnorm-layer" id="id15">BatchNorm Layer</a></p></li>
+<li><p><a class="reference internal" href="#layernorm-layer" id="id16">LayerNorm Layer</a></p></li>
+<li><p><a class="reference internal" href="#concat-layer" id="id17">Concat Layer</a></p></li>
+<li><p><a class="reference internal" href="#reshape-layer" id="id18">Reshape Layer</a></p></li>
+<li><p><a class="reference internal" href="#slice-layer" id="id19">Slice Layer</a></p></li>
+<li><p><a class="reference internal" href="#dropout-layer" id="id20">Dropout Layer</a></p></li>
+<li><p><a class="reference internal" href="#elu-layer" id="id21">ELU Layer</a></p></li>
+<li><p><a class="reference internal" href="#relu-layer" id="id22">ReLU Layer</a></p></li>
+<li><p><a class="reference internal" href="#sigmoid-layer" id="id23">Sigmoid Layer</a></p></li>
+<li><p><a class="reference internal" href="#interaction-layer" id="id24">Interaction Layer</a></p></li>
+<li><p><a class="reference internal" href="#add-layer" id="id25">Add Layer</a></p></li>
+<li><p><a class="reference internal" href="#reducesum-layer" id="id26">ReduceSum Layer</a></p></li>
+<li><p><a class="reference internal" href="#binarycrossentropyloss" id="id27">BinaryCrossEntropyLoss</a></p></li>
+<li><p><a class="reference internal" href="#crossentropyloss" id="id28">CrossEntropyLoss</a></p></li>
+<li><p><a class="reference internal" href="#multicrossentropyloss" id="id29">MultiCrossEntropyLoss</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#embedding-collection" id="id30">Embedding Collection</a></p>
+<ul>
+<li><p><a class="reference internal" href="#about-the-hugectr-embedding-collection" id="id31">About the HugeCTR embedding collection</a></p></li>
+<li><p><a class="reference internal" href="#sample-notebook" id="id32">Sample Notebook</a></p></li>
+<li><p><a class="reference internal" href="#overview-of-using-the-hugectr-embedding-collection" id="id33">Overview of using the HugeCTR embedding collection</a></p></li>
+<li><p><a class="reference internal" href="#embeddingtableconfig" id="id34">EmbeddingTableConfig</a></p></li>
+<li><p><a class="reference internal" href="#embeddingplanner" id="id35">EmbeddingPlanner</a></p></li>
+<li><p><a class="reference internal" href="#plan-file-and-embedding-table-placement-strategy-etps" id="id36">Plan File and Embedding Table Placement Strategy (ETPS)</a></p></li>
+<li><p><a class="reference internal" href="#about-etps-and-benefits" id="id37">About ETPS and Benefits</a></p></li>
+<li><p><a class="reference internal" href="#configuring-etps-and-the-embedding-collection" id="id38">Configuring ETPS and the Embedding Collection</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#groupdenselayer" id="id39">GroupDenseLayer</a></p></li>
+</ul>
+</div>
 <p>This document introduces different layer classes and corresponding methods in the Python API of HugeCTR. The description of each method includes its functionality, arguments, and examples of usage.</p>
 <div class="section" id="input-layer">
 <h2>Input Layer<a class="headerlink" href="#input-layer" title="Permalink to this headline"></a></h2>
@@ -165,7 +218,7 @@ You must specify a value.</p></li>
 It should be consistent with that of the sparse input.
 This parameter is used in <code class="docutils literal notranslate"><span class="pre">LocalizedSlotSparseEmbeddingHash</span></code> and <code class="docutils literal notranslate"><span class="pre">LocalizedSlotSparseEmbeddingOneHot</span></code>.
 The value you specify can help avoid wasting memory that is caused by an imbalanced vocabulary size.
-For more informtion, see <a class="reference internal" href="../QAList.html#how-to-set-workspace-size-per-gpu-in-mb-and-slot-size-array"><span class="std std-doc">How to set workspace_size_per_gpu_in_mb and slot_size_array</span></a>.
+For more information, see <a class="reference internal" href="../QAList.html#how-to-set-workspace-size-per-gpu-in-mb-and-slot-size-array"><span class="std std-doc">How to set workspace_size_per_gpu_in_mb and slot_size_array</span></a>.
 This argument does not have a default value.
 You must specify a value.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">optimizer</span></code>: OptParamsPy, the optimizer that is dedicated to this sparse embedding layer.
@@ -637,7 +690,7 @@ Input and Output Shapes:</p></li>
 </pre></div>
 </div>
 <p><strong>Important Notes</strong>:
-There are optimizations that can be employed on the <code class="docutils literal notranslate"><span class="pre">Interaction</span></code> layer and the following <code class="docutils literal notranslate"><span class="pre">GroupFusedInnerProduct</span></code> layer during fp16 training. In this case, you should specify two output tensor names for the <code class="docutils literal notranslate"><span class="pre">Interaction</span></code> layer, and use them as the input tensors for the following <code class="docutils literal notranslate"><span class="pre">GroupFusedInnerProduct</span></code> layer. Please refer to the example of <a class="reference internal" href="python_interface.html#groupdenselayer"><span class="std std-doc">GroupDenseLayer</span></a> for the detailed usage.</p>
+There are optimizations that can be employed on the <code class="docutils literal notranslate"><span class="pre">Interaction</span></code> layer and the following <code class="docutils literal notranslate"><span class="pre">GroupFusedInnerProduct</span></code> layer during fp16 training. In this case, you should specify two output tensor names for the <code class="docutils literal notranslate"><span class="pre">Interaction</span></code> layer, and use them as the input tensors for the following <code class="docutils literal notranslate"><span class="pre">GroupFusedInnerProduct</span></code> layer. Please refer to the example of <a class="reference internal" href="#groupdenselayer"><span class="std std-doc">GroupDenseLayer</span></a> for the detailed usage.</p>
 </div>
 <div class="section" id="add-layer">
 <h3>Add Layer<a class="headerlink" href="#add-layer" title="Permalink to this headline"></a></h3>
@@ -953,6 +1006,331 @@ Produce x - y in element wise manner.</p>
 </div>
 </div>
 </div>
+<div class="section" id="embedding-collection">
+<h2>Embedding Collection<a class="headerlink" href="#embedding-collection" title="Permalink to this headline"></a></h2>
+<div class="section" id="about-the-hugectr-embedding-collection">
+<h3>About the HugeCTR embedding collection<a class="headerlink" href="#about-the-hugectr-embedding-collection" title="Permalink to this headline"></a></h3>
+<p>Embedding collection is introduced in the v3.7 release.
+The embedding collection enables you to use embeddings with different vector sizes, optimizers, and arbitrary table placement strategy.
+Compared with the <code class="docutils literal notranslate"><span class="pre">hugectr.SparseEmbedding</span></code> class, the embedding collection has three key advantages:</p>
+<ol class="simple">
+<li><p>The embedding collection can fuse embedding tables with different embedding vector sizes.
+The previous embedding can only fuse embedding tables with the same embedding vector size.
+The enhancement boosts both flexibility and performance.</p></li>
+<li><p>The embedding collection extends the functionality of embedding by supporting the <code class="docutils literal notranslate"><span class="pre">concat</span></code> combiner and supporting different slot lookups on the same embedding table.</p></li>
+<li><p>The embedding collection supports arbitrary embedding table placement, such as data parallel and model parallel.
+You provide a plan JSON file and specify the table placement strategy that you want.</p></li>
+</ol>
+</div>
+<div class="section" id="sample-notebook">
+<h3>Sample Notebook<a class="headerlink" href="#sample-notebook" title="Permalink to this headline"></a></h3>
+<p>The <a class="reference internal" href="../notebooks/embedding_collection.html"><span class="doc std std-doc">HugeCTR Embedding Collection</span></a> sample notebook demonstrates the following:</p>
+<ul class="simple">
+<li><p>Introduces the API of the embedding collection.</p></li>
+<li><p>Introduces the embedding table placement strategy (ETPS) and how to configure ETPS in embedding collection.</p></li>
+<li><p>Shows how to use an embedding collection in a DLRM model with the Criteo dataset for training and evaluation.
+The notebook shows two different ETPS as reference.</p></li>
+</ul>
+</div>
+<div class="section" id="overview-of-using-the-hugectr-embedding-collection">
+<h3>Overview of using the HugeCTR embedding collection<a class="headerlink" href="#overview-of-using-the-hugectr-embedding-collection" title="Permalink to this headline"></a></h3>
+<p>To use an embedding collection, you need the following items:</p>
+<ul class="simple">
+<li><p>A list of <code class="docutils literal notranslate"><span class="pre">hugectr.EmbeddingTableConfig</span></code> objects that represent the embedding tables such as the size, maximum key, and an optional optimizer.</p></li>
+<li><p>A <code class="docutils literal notranslate"><span class="pre">hugectr.EmbeddingPlanner</span></code> object that uses the embedding table config objects to organize the lookup operations between the input data and the embedding tables.
+The embedding planner also accepts a JSON-formatted plan file that describes the embedding table placement strategy.</p></li>
+</ul>
+<p>After those items are in place, you run the <code class="docutils literal notranslate"><span class="pre">create_embedding_collection()</span></code> method on the embedding planner and you receive a
+<code class="docutils literal notranslate"><span class="pre">hugectr.EmbeddingCollection</span></code>.
+Specify the embedding collection as an argument to <code class="docutils literal notranslate"><span class="pre">Model.add()</span></code> to use the embedding collection.</p>
+</div>
+<div class="section" id="embeddingtableconfig">
+<h3>EmbeddingTableConfig<a class="headerlink" href="#embeddingtableconfig" title="Permalink to this headline"></a></h3>
+<p>The <code class="docutils literal notranslate"><span class="pre">hugectr.EmbeddingTableConfig</span></code> class enables you to specify the attributes of an embedding table.</p>
+<p>Parameter:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">table_id</span></code>: Integer, typically it is the index from the corresponding <code class="docutils literal notranslate"><span class="pre">slot_size_array</span></code> variable when you create a new embedding table.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">max_vocabulary_size</span></code>: Integer, specifies the vocabulary size of this table.
+If positive, then the value indicates the number of embedding vectors that this table contains.
+If you specify the value incorrectly and exceed the value during training or evaluation, you will cause an overflow and receive an error.
+If you do not know the exact size of the embedding table, you can specify <code class="docutils literal notranslate"><span class="pre">-1</span></code> to use a dynamic embedding table with a size that can be extended dynamically during training or evaluation.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ev_size</span></code>: Integer, specifies the embedding vector size that this embedding consists of.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">min_key</span></code>: Integer, the minimum value of the input key.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">max_key</span></code>: Integer, the maximum value of the input key.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">opt_params</span></code>: Optional, <code class="docutils literal notranslate"><span class="pre">hugectr.Optimizer</span></code>, the optimizer you want to use for this embedding table.
+If not specified, the embedding table uses the optimizer specified in <code class="docutils literal notranslate"><span class="pre">hugectr.Model</span></code>.</p></li>
+</ul>
+<p>Example:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Create the embedding table.</span>
+<span class="n">slot_size_array</span> <span class="o">=</span> <span class="p">[</span><span class="mi">203931</span><span class="p">,</span> <span class="mi">18598</span><span class="p">,</span> <span class="mi">14092</span><span class="p">,</span> <span class="mi">7012</span><span class="p">,</span> <span class="mi">18977</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">6385</span><span class="p">,</span> <span class="mi">1245</span><span class="p">,</span> <span class="mi">49</span><span class="p">,</span>
+                   <span class="mi">186213</span><span class="p">,</span> <span class="mi">71328</span><span class="p">,</span> <span class="mi">67288</span><span class="p">,</span> <span class="mi">11</span><span class="p">,</span> <span class="mi">2168</span><span class="p">,</span> <span class="mi">7338</span><span class="p">,</span> <span class="mi">61</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">932</span><span class="p">,</span> <span class="mi">15</span><span class="p">,</span>
+                   <span class="mi">204515</span><span class="p">,</span> <span class="mi">141526</span><span class="p">,</span> <span class="mi">199433</span><span class="p">,</span> <span class="mi">60919</span><span class="p">,</span> <span class="mi">9137</span><span class="p">,</span> <span class="mi">71</span><span class="p">,</span> <span class="mi">34</span><span class="p">]</span>
+<span class="n">embedding_table_list</span> <span class="o">=</span> <span class="p">[]</span>
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">slot_size_array</span><span class="p">):</span>
+    <span class="n">embedding_table_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+        <span class="n">hugectr</span><span class="o">.</span><span class="n">EmbeddingTableConfig</span><span class="p">(</span>
+            <span class="n">table_id</span><span class="o">=</span><span class="n">i</span><span class="p">,</span>
+            <span class="n">max_vocabulary_size</span><span class="o">=</span><span class="n">slot_size_array</span><span class="p">[</span><span class="n">i</span><span class="p">],</span>
+            <span class="n">ev_size</span><span class="o">=</span><span class="mi">128</span><span class="p">,</span>
+            <span class="n">min_key</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+            <span class="n">max_key</span><span class="o">=</span><span class="n">slot_size_array</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+        <span class="p">)</span>
+    <span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="embeddingplanner">
+<h3>EmbeddingPlanner<a class="headerlink" href="#embeddingplanner" title="Permalink to this headline"></a></h3>
+<p>Create a <code class="docutils literal notranslate"><span class="pre">hugectr.EmbeddingPlanner</span></code> instance to construct the lookup operation and create a <code class="docutils literal notranslate"><span class="pre">hugectr.EmbeddingCollection</span></code>.
+The constructor for the embedding planner class does not accept any parameters.</p>
+<div class="section" id="embedding-lookup-method">
+<h4>embedding_lookup method<a class="headerlink" href="#embedding-lookup-method" title="Permalink to this headline"></a></h4>
+<p>The <code class="docutils literal notranslate"><span class="pre">embedding_lookup</span></code> method enables you to specify the lookup operations between the input data and an embedding table.</p>
+<p>Parameter:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">table_config</span></code> : <code class="docutils literal notranslate"><span class="pre">hugectr.EmbeddingTableConfig</span></code>, the embedding table for the lookup operation.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">bottom_name</span></code>: str, the bottom tensor name.
+Specify a tensor that is compatible with the <code class="docutils literal notranslate"><span class="pre">data_reader_sparse_param_array</span></code> parameter of <a class="reference internal" href="#input-layer"><span class="std std-doc"><code class="docutils literal notranslate"><span class="pre">hugectr.Input</span></code></span></a> in <code class="docutils literal notranslate"><span class="pre">hugectr.Model</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">top_name</span></code>: str, the output tensor name.
+The shape of output tensor is (<code class="docutils literal notranslate"><span class="pre">&lt;batch</span> <span class="pre">size&gt;</span></code>, <code class="docutils literal notranslate"><span class="pre">1</span></code>, <code class="docutils literal notranslate"><span class="pre">&lt;embedding</span> <span class="pre">vector</span> <span class="pre">size&gt;</span></code>).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">combiner</span></code>: str, specifies the combiner operation.
+Specify <code class="docutils literal notranslate"><span class="pre">mean</span></code>, <code class="docutils literal notranslate"><span class="pre">sum</span></code>, or <code class="docutils literal notranslate"><span class="pre">concat</span></code>.</p></li>
+</ul>
+</div>
+<div class="section" id="create-embedding-collection-method">
+<h4>create_embedding_collection method<a class="headerlink" href="#create-embedding-collection-method" title="Permalink to this headline"></a></h4>
+<p>After configuring the embedding planner with the embedding table information by running <code class="docutils literal notranslate"><span class="pre">embedding_lookup()</span></code> for each embedding table, you can run the <code class="docutils literal notranslate"><span class="pre">create_embedding_collection()</span></code> method to create a <code class="docutils literal notranslate"><span class="pre">hugectr.EmbeddingCollection</span></code> instance.
+You can use the <code class="docutils literal notranslate"><span class="pre">add()</span></code> method from <code class="docutils literal notranslate"><span class="pre">hugectr.Model</span></code> to use the embedding collection for training and evaluation.</p>
+<p>Parameter:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">plan_file</span></code>: str, specifies the path to a JSON file that describes the embedding table placement strategy.
+Example:</p></li>
+</ul>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">embedding_planner</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">EmbeddingPlanner</span><span class="p">()</span>
+<span class="n">emb_vec_list</span> <span class="o">=</span> <span class="p">[]</span>
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">slot_size_array</span><span class="p">)):</span>
+     <span class="n">embedding_planner</span><span class="o">.</span><span class="n">embedding_lookup</span><span class="p">(</span>
+        <span class="n">table_config</span><span class="o">=</span><span class="n">embedding_table_list</span><span class="p">[</span><span class="n">i</span><span class="p">],</span>
+        <span class="n">bottom_name</span><span class="o">=</span><span class="s2">&quot;data</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">i</span><span class="p">),</span>
+        <span class="n">top_name</span><span class="o">=</span><span class="s2">&quot;emb_vec</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">i</span><span class="p">),</span>
+        <span class="n">combiner</span><span class="o">=</span><span class="s2">&quot;sum&quot;</span>
+    <span class="p">)</span>
+<span class="n">embedding_collection</span> <span class="o">=</span> <span class="n">embedding_planner</span><span class="o">.</span><span class="n">create_embedding_collection</span><span class="p">(</span><span class="s2">&quot;./plan.json&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="plan-file-and-embedding-table-placement-strategy-etps">
+<h3>Plan File and Embedding Table Placement Strategy (ETPS)<a class="headerlink" href="#plan-file-and-embedding-table-placement-strategy-etps" title="Permalink to this headline"></a></h3>
+</div>
+<div class="section" id="about-etps-and-benefits">
+<h3>About ETPS and Benefits<a class="headerlink" href="#about-etps-and-benefits" title="Permalink to this headline"></a></h3>
+<p>In the recommendation system, the embedding table is usually so large that a single GPU is not able to hold all embedding tables.
+One strategy for addressing the challenge is to use sharding to distribute the embedding tables across multiple GPUs.
+We call this sharding strategy the embedding table placement strategy (ETPS).</p>
+<p>ETPS can significantly boost the performance of embedding because different sharding strategies influence the communication between GPUs.
+The optimal strategy is highly dependent on your dataset and your lookup operation.
+If optimal performance is a concern, then configure an ETPS for the specific use case.</p>
+</div>
+<div class="section" id="configuring-etps-and-the-embedding-collection">
+<h3>Configuring ETPS and the Embedding Collection<a class="headerlink" href="#configuring-etps-and-the-embedding-collection" title="Permalink to this headline"></a></h3>
+<p>HugeCTR provides a configurable ETPS interface so that you can adjust the embedding table placement strategy according your own use case.
+You create a JSON file that describes the ETPS in all GPUs.
+This file is called a <em>plan file</em>.</p>
+<p>For example, consider the following scenario that has four embedding tables and five lookup operations:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">slot_size_array</span> <span class="o">=</span> <span class="p">[</span><span class="o">...</span><span class="p">]</span>
+<span class="n">embedding_table_list</span> <span class="o">=</span> <span class="p">[]</span>
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">slot_size_array</span><span class="p">)):</span>
+    <span class="n">embedding_table_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+        <span class="n">hugectr</span><span class="o">.</span><span class="n">EmbeddingTableConfig</span><span class="p">(</span>
+            <span class="n">table_id</span><span class="o">=</span><span class="n">i</span><span class="p">,</span>
+            <span class="n">max_vocabulary_size</span><span class="o">=</span><span class="n">slot_size_array</span><span class="p">[</span><span class="n">i</span><span class="p">],</span>
+            <span class="n">ev_size</span><span class="o">=</span><span class="mi">128</span><span class="p">,</span>
+            <span class="n">min_key</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+            <span class="n">max_key</span><span class="o">=</span><span class="n">slot_size_array</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+        <span class="p">)</span>
+    <span class="p">)</span>
+
+<span class="n">embedding_planner</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">EmbeddingPlanner</span><span class="p">()</span>
+<span class="n">embedding_planner</span><span class="o">.</span><span class="n">embedding_lookup</span><span class="p">(</span><span class="n">embedding_table_list</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="s2">&quot;data0&quot;</span><span class="p">,</span> <span class="s2">&quot;emb_vec0&quot;</span><span class="p">,</span> <span class="s2">&quot;sum&quot;</span><span class="p">)</span> <span class="c1"># lookup 0, table 0</span>
+<span class="n">embedding_planner</span><span class="o">.</span><span class="n">embedding_lookup</span><span class="p">(</span><span class="n">embedding_table_list</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="s2">&quot;data1&quot;</span><span class="p">,</span> <span class="s2">&quot;emb_vec1&quot;</span><span class="p">,</span> <span class="s2">&quot;sum&quot;</span><span class="p">)</span> <span class="c1"># lookup 1, table 1</span>
+<span class="n">embedding_planner</span><span class="o">.</span><span class="n">embedding_lookup</span><span class="p">(</span><span class="n">embedding_table_list</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="s2">&quot;data2&quot;</span><span class="p">,</span> <span class="s2">&quot;emb_vec2&quot;</span><span class="p">,</span> <span class="s2">&quot;sum&quot;</span><span class="p">)</span> <span class="c1"># lookup 2, table 2</span>
+<span class="n">embedding_planner</span><span class="o">.</span><span class="n">embedding_lookup</span><span class="p">(</span><span class="n">embedding_table_list</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="s2">&quot;data3&quot;</span><span class="p">,</span> <span class="s2">&quot;emb_vec3&quot;</span><span class="p">,</span> <span class="s2">&quot;sum&quot;</span><span class="p">)</span> <span class="c1"># lookup 3, table 1</span>
+<span class="n">embedding_planner</span><span class="o">.</span><span class="n">embedding_lookup</span><span class="p">(</span><span class="n">embedding_table_list</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span> <span class="s2">&quot;data4&quot;</span><span class="p">,</span> <span class="s2">&quot;emb_vec4&quot;</span><span class="p">,</span> <span class="s2">&quot;sum&quot;</span><span class="p">)</span> <span class="c1"># lookup 4, table 3</span>
+</pre></div>
+</div>
+<p>The next step is to configure the ETPS through a plan file.
+In the plan file, you can group several lookup operations together and to perform sharding.
+You can specify the configuration in fine detail, down to the lookup operation, the GPU, and a portion of the embedding table.</p>
+<p>The basic principle is one embedding table can only be sharded in a single way.
+For example, if lookup <code class="docutils literal notranslate"><span class="pre">0</span></code> and lookup <code class="docutils literal notranslate"><span class="pre">3</span></code> take place on the same embedding table, then lookup <code class="docutils literal notranslate"><span class="pre">0</span></code> and lookup <code class="docutils literal notranslate"><span class="pre">3</span></code> should be grouped together and sharded in the same way.</p>
+<div class="section" id="sample-etps-plan-file-data-parallel">
+<h4>Sample ETPS Plan File: Data Parallel<a class="headerlink" href="#sample-etps-plan-file-data-parallel" title="Permalink to this headline"></a></h4>
+<p>The following sample plan file shows how to use two GPUs and a data parallel ETPS in four embedding tables:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">[</span><span class="w"></span>
+<span class="w">  </span><span class="p">[</span><span class="w"></span>
+<span class="w">      </span><span class="p">{</span><span class="w"></span>
+<span class="w">          </span><span class="nt">&quot;local_embedding_list&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
+<span class="w">              </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">4</span><span class="w"></span>
+<span class="w">          </span><span class="p">],</span><span class="w"></span>
+<span class="w">          </span><span class="nt">&quot;global_embedding_list&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
+<span class="w">              </span><span class="p">[</span><span class="w"></span>
+<span class="w">                  </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">4</span><span class="w"></span>
+<span class="w">              </span><span class="p">],</span><span class="w"></span>
+<span class="w">              </span><span class="p">[</span><span class="w"></span>
+<span class="w">                  </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">4</span><span class="w"></span>
+<span class="w">              </span><span class="p">]</span><span class="w"></span>
+<span class="w">          </span><span class="p">],</span><span class="w"></span>
+<span class="w">          </span><span class="nt">&quot;shards_count&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"></span>
+<span class="w">          </span><span class="nt">&quot;shard_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"></span>
+<span class="w">          </span><span class="nt">&quot;table_placement_strategy&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;dp&quot;</span><span class="w"></span>
+<span class="w">      </span><span class="p">}</span><span class="w"></span>
+<span class="w">  </span><span class="p">],</span><span class="w"></span>
+<span class="w">  </span><span class="p">[</span><span class="w"></span>
+<span class="w">      </span><span class="p">{</span><span class="w"></span>
+<span class="w">          </span><span class="nt">&quot;local_embedding_list&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
+<span class="w">              </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">4</span><span class="w"></span>
+<span class="w">          </span><span class="p">],</span><span class="w"></span>
+<span class="w">          </span><span class="nt">&quot;global_embedding_list&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
+<span class="w">              </span><span class="p">[</span><span class="w"></span>
+<span class="w">                  </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">4</span><span class="w"></span>
+<span class="w">              </span><span class="p">],</span><span class="w"></span>
+<span class="w">              </span><span class="p">[</span><span class="w"></span>
+<span class="w">                  </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">4</span><span class="w"></span>
+<span class="w">              </span><span class="p">]</span><span class="w"></span>
+<span class="w">          </span><span class="p">],</span><span class="w"></span>
+<span class="w">          </span><span class="nt">&quot;shards_count&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"></span>
+<span class="w">          </span><span class="nt">&quot;shard_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"></span>
+<span class="w">          </span><span class="nt">&quot;table_placement_strategy&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;dp&quot;</span><span class="w"></span>
+<span class="w">      </span><span class="p">}</span><span class="w"></span>
+<span class="w">  </span><span class="p">]</span><span class="w"></span>
+<span class="p">]</span><span class="w"></span>
+</pre></div>
+</div>
+<p>The plan file consists of a list that describes the table placement strategy in each GPU, in order.
+For each GPU, a list describes the multiple groups of sharded lookup operations.
+Each group of sharded lookup operation is a dictionary with the following fields:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">local_embedding_list</span></code>: a list of integers, specifies the lookup operations for the current GPU.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">global_embedding_list</span></code>: a list of lists of integers, specifies the current group lookup operations in all GPUs.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">shards_count</span></code>: an integer, specifies the total number of shards for the current group lookup operations.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">shard_id</span></code>: an integer, the index of the current group lookup operations.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">table_placement_strategy</span></code>: str, can be <code class="docutils literal notranslate"><span class="pre">mp</span></code> or <code class="docutils literal notranslate"><span class="pre">dp</span></code>. <code class="docutils literal notranslate"><span class="pre">mp</span></code> indicates model parallel and <code class="docutils literal notranslate"><span class="pre">dp</span></code> indicates data parallel.</p></li>
+</ul>
+</div>
+<div class="section" id="sample-etps-plan-file-model-parallel-and-data-parallel-combined">
+<h4>Sample ETPS Plan File: Model Parallel and Data Parallel Combined<a class="headerlink" href="#sample-etps-plan-file-model-parallel-and-data-parallel-combined" title="Permalink to this headline"></a></h4>
+<p>You can apply more complex strategies for ETPS.
+The following sample plan file demonstrates how to shared lookups <code class="docutils literal notranslate"><span class="pre">0</span></code>, <code class="docutils literal notranslate"><span class="pre">1</span></code>, <code class="docutils literal notranslate"><span class="pre">2</span></code>, and <code class="docutils literal notranslate"><span class="pre">3</span></code> across two GPUs and lookup <code class="docutils literal notranslate"><span class="pre">4</span></code> is data parallel:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">[</span><span class="w"></span>
+<span class="w">  </span><span class="p">[</span><span class="w"></span>
+<span class="w">      </span><span class="p">{</span><span class="w"></span>
+<span class="w">          </span><span class="nt">&quot;local_embedding_list&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
+<span class="w">              </span><span class="mi">0</span><span class="p">,</span><span class="w"></span>
+<span class="w">              </span><span class="mi">2</span><span class="w"></span>
+<span class="w">          </span><span class="p">],</span><span class="w"></span>
+<span class="w">          </span><span class="nt">&quot;global_embedding_list&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
+<span class="w">              </span><span class="p">[</span><span class="w"></span>
+<span class="w">                  </span><span class="mi">0</span><span class="p">,</span><span class="w"></span>
+<span class="w">                  </span><span class="mi">2</span><span class="w"></span>
+<span class="w">              </span><span class="p">],</span><span class="w"></span>
+<span class="w">              </span><span class="p">[</span><span class="w"></span>
+<span class="w">                  </span><span class="mi">1</span><span class="p">,</span><span class="w"></span>
+<span class="w">                  </span><span class="mi">3</span><span class="w"></span>
+<span class="w">              </span><span class="p">]</span><span class="w"></span>
+<span class="w">          </span><span class="p">],</span><span class="w"></span>
+<span class="w">          </span><span class="nt">&quot;table_placement_strategy&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;mp&quot;</span><span class="w"></span>
+<span class="w">      </span><span class="p">},</span><span class="w"></span>
+<span class="w">      </span><span class="p">{</span><span class="w"></span>
+<span class="w">          </span><span class="nt">&quot;local_embedding_list&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
+<span class="w">              </span><span class="mi">4</span><span class="w"></span>
+<span class="w">          </span><span class="p">],</span><span class="w"></span>
+<span class="w">          </span><span class="nt">&quot;global_embedding_list&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
+<span class="w">              </span><span class="p">[</span><span class="w"></span>
+<span class="w">                  </span><span class="mi">4</span><span class="w"></span>
+<span class="w">              </span><span class="p">],</span><span class="w"></span>
+<span class="w">              </span><span class="p">[</span><span class="w"></span>
+<span class="w">                  </span><span class="mi">4</span><span class="w"></span>
+<span class="w">              </span><span class="p">]</span><span class="w"></span>
+<span class="w">          </span><span class="p">],</span><span class="w"></span>
+<span class="w">          </span><span class="nt">&quot;table_placement_strategy&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;dp&quot;</span><span class="w"></span>
+<span class="w">      </span><span class="p">}</span><span class="w"></span>
+<span class="w">  </span><span class="p">],</span><span class="w"></span>
+<span class="w">  </span><span class="p">[</span><span class="w"></span>
+<span class="w">      </span><span class="p">{</span><span class="w"></span>
+<span class="w">          </span><span class="nt">&quot;local_embedding_list&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
+<span class="w">              </span><span class="mi">1</span><span class="p">,</span><span class="w"></span>
+<span class="w">              </span><span class="mi">3</span><span class="w"></span>
+<span class="w">          </span><span class="p">],</span><span class="w"></span>
+<span class="w">          </span><span class="nt">&quot;global_embedding_list&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
+<span class="w">              </span><span class="p">[</span><span class="w"></span>
+<span class="w">                  </span><span class="mi">0</span><span class="p">,</span><span class="w"></span>
+<span class="w">                  </span><span class="mi">2</span><span class="w"></span>
+<span class="w">              </span><span class="p">],</span><span class="w"></span>
+<span class="w">              </span><span class="p">[</span><span class="w"></span>
+<span class="w">                  </span><span class="mi">1</span><span class="p">,</span><span class="w"></span>
+<span class="w">                  </span><span class="mi">3</span><span class="w"></span>
+<span class="w">              </span><span class="p">]</span><span class="w"></span>
+<span class="w">          </span><span class="p">],</span><span class="w"></span>
+<span class="w">          </span><span class="nt">&quot;table_placement_strategy&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;mp&quot;</span><span class="w"></span>
+<span class="w">      </span><span class="p">},</span><span class="w"></span>
+<span class="w">      </span><span class="p">{</span><span class="w"></span>
+<span class="w">          </span><span class="nt">&quot;local_embedding_list&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
+<span class="w">              </span><span class="mi">4</span><span class="w"></span>
+<span class="w">          </span><span class="p">],</span><span class="w"></span>
+<span class="w">          </span><span class="nt">&quot;global_embedding_list&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
+<span class="w">              </span><span class="p">[</span><span class="w"></span>
+<span class="w">                  </span><span class="mi">4</span><span class="w"></span>
+<span class="w">              </span><span class="p">],</span><span class="w"></span>
+<span class="w">              </span><span class="p">[</span><span class="w"></span>
+<span class="w">                  </span><span class="mi">4</span><span class="w"></span>
+<span class="w">              </span><span class="p">]</span><span class="w"></span>
+<span class="w">          </span><span class="p">],</span><span class="w"></span>
+<span class="w">          </span><span class="nt">&quot;table_placement_strategy&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;dp&quot;</span><span class="w"></span>
+<span class="w">      </span><span class="p">}</span><span class="w"></span>
+<span class="w">  </span><span class="p">]</span><span class="w"></span>
+<span class="p">]</span><span class="w"></span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="groupdenselayer">
+<h2>GroupDenseLayer<a class="headerlink" href="#groupdenselayer" title="Permalink to this headline"></a></h2>
+<p><strong>DenseLayer class</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hugectr</span><span class="o">.</span><span class="n">GroupDenseLayer</span><span class="p">()</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">GroupDenseLayer</span></code> specifies the parameters related to a group of dense layers. HugeCTR currently supports only <code class="docutils literal notranslate"><span class="pre">GroupFusedInnerProduct</span></code>, which is comprised of multiple <code class="docutils literal notranslate"><span class="pre">FusedInnerProduct</span></code> layers. Please <strong>NOTE</strong> that the <code class="docutils literal notranslate"><span class="pre">FusedInnerProduct</span></code> layer only supports fp16.</p>
+<p><strong>Arguments</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">group_layer_type</span></code>: The layer type to be used. There is only one supported type, i.e., <code class="docutils literal notranslate"><span class="pre">hugectr.GroupLayer_t.GroupFusedInnerProduct</span></code>. There is NO default value and it should be specified by users.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">bottom_name_list</span></code>: List[str], the list of bottom tensor names for the first dense layer in this group. Currently, the <code class="docutils literal notranslate"><span class="pre">FusedInnerProduct</span></code> layer at the head position can take one or two input tensors. There is NO default value and it should be specified by users.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">top_name_list</span></code>: List[str], the list of top tensor names of each dense layer in the group. There should be only one name for each layer. There is NO default value and it should be specified by users.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">num_outputs</span></code>: List[Integer], the number of output elements for each <code class="docutils literal notranslate"><span class="pre">FusedInnerProduct</span></code> layer in the group. There is NO default value and it should be specified by users.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">last_act_type</span></code>: The activation type of the last <code class="docutils literal notranslate"><span class="pre">FusedInnerProduct</span></code> layer in the group. The supported types include <code class="docutils literal notranslate"><span class="pre">Activation_t.Relu</span></code> and <code class="docutils literal notranslate"><span class="pre">Activation_t.Non</span></code>. Except the last layer, the activation type of the other <code class="docutils literal notranslate"><span class="pre">FusedInnerProduct</span></code> layers in the group must be and will be automatically set as <code class="docutils literal notranslate"><span class="pre">Activation_t.Relu</span></code>, which do not allow any configurations. The default value is <code class="docutils literal notranslate"><span class="pre">Activation_t.Relu</span></code>.</p></li>
+</ul>
+<p><strong>NOTE</strong>: There should be at least two layers in the group, and the size of <code class="docutils literal notranslate"><span class="pre">top_name_list</span></code> and <code class="docutils literal notranslate"><span class="pre">num_outputs</span></code> should both be equal to the number of layers.</p>
+<p>Example:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">GroupDenseLayer</span><span class="p">(</span><span class="n">group_layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">GroupLayer_t</span><span class="o">.</span><span class="n">GroupFusedInnerProduct</span><span class="p">,</span>
+                                  <span class="n">bottom_name</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;dense&quot;</span><span class="p">],</span>
+                                  <span class="n">top_name_list</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;fc1&quot;</span><span class="p">,</span> <span class="s2">&quot;fc2&quot;</span><span class="p">,</span> <span class="s2">&quot;fc3&quot;</span><span class="p">],</span>
+                                  <span class="n">num_outputs</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1024</span><span class="p">,</span> <span class="mi">512</span><span class="p">,</span> <span class="mi">256</span><span class="p">],</span>
+                                  <span class="n">last_act_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Activation_t</span><span class="o">.</span><span class="n">Relu</span><span class="p">))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">Interaction</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;fc3&quot;</span><span class="p">,</span><span class="s2">&quot;sparse_embedding1&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;interaction1&quot;</span><span class="p">,</span> <span class="s2">&quot;interaction1_grad&quot;</span><span class="p">]))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">GroupDenseLayer</span><span class="p">(</span><span class="n">group_layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">GroupLayer_t</span><span class="o">.</span><span class="n">GroupFusedInnerProduct</span><span class="p">,</span>
+                            <span class="n">bottom_name_list</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;interaction1&quot;</span><span class="p">,</span> <span class="s2">&quot;interaction1_grad&quot;</span><span class="p">],</span>
+                            <span class="n">top_name_list</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;fc4&quot;</span><span class="p">,</span> <span class="s2">&quot;fc5&quot;</span><span class="p">,</span> <span class="s2">&quot;fc6&quot;</span><span class="p">,</span> <span class="s2">&quot;fc7&quot;</span><span class="p">,</span> <span class="s2">&quot;fc8&quot;</span><span class="p">],</span>
+                            <span class="n">num_outputs</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1024</span><span class="p">,</span> <span class="mi">1024</span><span class="p">,</span> <span class="mi">512</span><span class="p">,</span> <span class="mi">256</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span>
+                            <span class="n">last_act_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Activation_t</span><span class="o">.</span><span class="n">Non</span><span class="p">))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">BinaryCrossEntropyLoss</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;fc8&quot;</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;loss&quot;</span><span class="p">]))</span>
+</pre></div>
+</div>
+</div>
 </div>
 
 
@@ -992,6 +1370,7 @@ Produce x - y in element wise manner.</p>
       <dd><a href="../../v3.5/api/hugectr_layer_book.html">v3.5</a></dd>
       <dd><a href="../../v3.6/api/hugectr_layer_book.html">v3.6</a></dd>
       <dd><a href="../../v3.7/api/hugectr_layer_book.html">v3.7</a></dd>
+      <dd><a href="../../v3.8/api/hugectr_layer_book.html">v3.8</a></dd>
     </dl>
     <dl>
       <dt>Branches</dt>

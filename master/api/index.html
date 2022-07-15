@@ -46,6 +46,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../hugectr_user_guide.html">Introduction</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../hugectr_core_features.html">Core Features</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../hugectr_feature_details_intro.html">Features in Detail</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../performance.html">Performance</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../notebooks/index.html">Example Notebooks</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../notebooks/multi-modal-data/index.html">Multi-modal Example Notebooks</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">API Documentation</a><ul>
@@ -118,10 +119,6 @@
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="python_interface.html#layers">Layers</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="python_interface.html#input-layer">Input Layer</a></li>
-<li class="toctree-l3"><a class="reference internal" href="python_interface.html#sparseembedding">SparseEmbedding</a></li>
-<li class="toctree-l3"><a class="reference internal" href="python_interface.html#denselayer">DenseLayer</a></li>
-<li class="toctree-l3"><a class="reference internal" href="python_interface.html#groupdenselayer">GroupDenseLayer</a></li>
 <li class="toctree-l3"><a class="reference internal" href="python_interface.html#model">Model</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="python_interface.html#model-class">Model class</a></li>
 <li class="toctree-l4"><a class="reference internal" href="python_interface.html#add-method">add method</a></li>
@@ -170,6 +167,7 @@
 <li class="toctree-l4"><a class="reference internal" href="python_interface.html#eval-method">eval method</a></li>
 <li class="toctree-l4"><a class="reference internal" href="python_interface.html#get-eval-metrics-method">get_eval_metrics method</a></li>
 <li class="toctree-l4"><a class="reference internal" href="python_interface.html#get-incremental-model-method">get_incremental_model method</a></li>
+<li class="toctree-l4"><a class="reference internal" href="python_interface.html#dump-incremental-model-2kafka-method">dump_incremental_model_2kafka method</a></li>
 <li class="toctree-l4"><a class="reference internal" href="python_interface.html#save-params-to-files-method">save_params_to_files method</a></li>
 <li class="toctree-l4"><a class="reference internal" href="python_interface.html#export-predictions-method">export_predictions method</a></li>
 </ul>
@@ -256,6 +254,26 @@
 <li class="toctree-l3"><a class="reference internal" href="hugectr_layer_book.html#multicrossentropyloss">MultiCrossEntropyLoss</a></li>
 </ul>
 </li>
+<li class="toctree-l2"><a class="reference internal" href="hugectr_layer_book.html#embedding-collection">Embedding Collection</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="hugectr_layer_book.html#about-the-hugectr-embedding-collection">About the HugeCTR embedding collection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="hugectr_layer_book.html#sample-notebook">Sample Notebook</a></li>
+<li class="toctree-l3"><a class="reference internal" href="hugectr_layer_book.html#overview-of-using-the-hugectr-embedding-collection">Overview of using the HugeCTR embedding collection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="hugectr_layer_book.html#embeddingtableconfig">EmbeddingTableConfig</a></li>
+<li class="toctree-l3"><a class="reference internal" href="hugectr_layer_book.html#embeddingplanner">EmbeddingPlanner</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="hugectr_layer_book.html#embedding-lookup-method">embedding_lookup method</a></li>
+<li class="toctree-l4"><a class="reference internal" href="hugectr_layer_book.html#create-embedding-collection-method">create_embedding_collection method</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="hugectr_layer_book.html#plan-file-and-embedding-table-placement-strategy-etps">Plan File and Embedding Table Placement Strategy (ETPS)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="hugectr_layer_book.html#about-etps-and-benefits">About ETPS and Benefits</a></li>
+<li class="toctree-l3"><a class="reference internal" href="hugectr_layer_book.html#configuring-etps-and-the-embedding-collection">Configuring ETPS and the Embedding Collection</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="hugectr_layer_book.html#sample-etps-plan-file-data-parallel">Sample ETPS Plan File: Data Parallel</a></li>
+<li class="toctree-l4"><a class="reference internal" href="hugectr_layer_book.html#sample-etps-plan-file-model-parallel-and-data-parallel-combined">Sample ETPS Plan File: Model Parallel and Data Parallel Combined</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="hugectr_layer_book.html#groupdenselayer">GroupDenseLayer</a></li>
 </ul>
 </li>
 </ul>
@@ -299,6 +317,7 @@
       <dd><a href="../../v3.5/api/index.html">v3.5</a></dd>
       <dd><a href="../../v3.6/api/index.html">v3.6</a></dd>
       <dd><a href="../../v3.7/api/index.html">v3.7</a></dd>
+      <dd><a href="../../v3.8/api/index.html">v3.8</a></dd>
     </dl>
     <dl>
       <dt>Branches</dt>

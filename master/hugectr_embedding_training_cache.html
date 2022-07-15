@@ -50,6 +50,7 @@
 <li class="toctree-l2"><a class="reference internal" href="hugectr_parameter_server.html">Hierarchical Parameter Server</a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="performance.html">Performance</a></li>
 <li class="toctree-l1"><a class="reference internal" href="notebooks/index.html">Example Notebooks</a></li>
 <li class="toctree-l1"><a class="reference internal" href="notebooks/multi-modal-data/index.html">Multi-modal Example Notebooks</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api/index.html">API Documentation</a></li>
@@ -84,8 +85,29 @@
              
   <div class="tex2jax_ignore mathjax_ignore section" id="hugectr-embedding-training-cache">
 <h1>HugeCTR Embedding Training Cache<a class="headerlink" href="#hugectr-embedding-training-cache" title="Permalink to this headline"></a></h1>
-<div class="section" id="introduction">
-<h2>Introduction<a class="headerlink" href="#introduction" title="Permalink to this headline"></a></h2>
+<div class="contents local topic" id="contents">
+<ul class="simple">
+<li><p><a class="reference internal" href="#introduction-to-the-hugectr-embedded-training-cache" id="id1">Introduction to the HugeCTR Embedded Training Cache</a></p></li>
+<li><p><a class="reference internal" href="#feature-description" id="id2">Feature Description</a></p></li>
+<li><p><a class="reference internal" href="#parameter-server-in-etc" id="id3">Parameter Server in ETC</a></p>
+<ul>
+<li><p><a class="reference internal" href="#staged-host-memory-parameter-server" id="id4">Staged Host Memory Parameter Server</a></p></li>
+<li><p><a class="reference internal" href="#cached-host-memory-parameter-server" id="id5">Cached Host Memory Parameter Server</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#user-guide" id="id6">User Guide</a></p>
+<ul>
+<li><p><a class="reference internal" href="#check-your-dataset" id="id7">Check Your Dataset</a></p></li>
+<li><p><a class="reference internal" href="#preprocessing" id="id8">Preprocessing</a></p></li>
+<li><p><a class="reference internal" href="#configuration" id="id9">Configuration</a></p></li>
+<li><p><a class="reference internal" href="#parameter-server-performance" id="id10">Parameter Server Performance</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#related-reading" id="id11">Related Reading</a></p></li>
+</ul>
+</div>
+<div class="section" id="introduction-to-the-hugectr-embedded-training-cache">
+<h2>Introduction to the HugeCTR Embedded Training Cache<a class="headerlink" href="#introduction-to-the-hugectr-embedded-training-cache" title="Permalink to this headline"></a></h2>
 <p>This document introduces the <strong>Embedding Training Cache (ETC)</strong> feature in HugeCTR for incremental training. The ETC allows training models with huge embedding tables that exceed the available GPU memory in size.</p>
 <p>Normally, the maximum model size in HugeCTR is limited by the hardware resources. A model with larger embedding tables will of course require more GPU memory. However, the amount of GPU’s and, therefore, also the amount of GPU memory that can be fit into a single machine or a cluster is finite. This naturally upper-bounds the size of the models that can be executed in a specific setup. The ETC feature is designed to ease this restriction by prefetching portions of the embedding table to the GPU in the granularity of pass as they are required.</p>
 <p>The ETC feature in HugeCTR also provides a satisfactory solution for incremental training in terms of accuracy and performance. It currently supports the following features:</p>
@@ -99,8 +121,9 @@
 </ul>
 </li>
 <li><p>The ETC supports training models from scratch and incremental training with existing models. The latter is implemented via the <a class="reference internal" href="api/python_interface.html#get-incremental-model-method"><span class="std std-doc"><code class="docutils literal notranslate"><span class="pre">get_incremental_model()</span></code></span></a> interface, which allows retrieving updated embedding features during training. For online training these updates are forwarded to the inference parameter server.</p></li>
+<li><p>We revised our <code class="docutils literal notranslate"><span class="pre">criteo2hugectr</span></code> tool to support the key set extraction for the Criteo dataset. And we also provided a <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/tree/master/tools/keyset_scripts">Parquet key set extraction script</a> to help you get key set from NVT processed / Synthetic Parquet datasets.</p></li>
 </ul>
-<p>Please check the <a class="reference internal" href="notebooks/continuous_training.html"><span class="doc std std-doc">HugeCTR Continuous Training Notebook</span></a> to learn how the ETC can be used to accelerate continuous training.</p>
+<p>Please check the <a class="reference internal" href="notebooks/continuous_training.html"><span class="doc std std-doc">HugeCTR Continuous Training Notebook</span></a> to learn how the ETC can be used to accelerate continuous training. And please check the <a class="reference internal" href="notebooks/embedding_training_cache_example.html"><span class="doc std std-doc">HugeCTR Embedding Training Cache Notebook</span></a> for an end-to-end demo of using ETC to train a synthetic Parquet dataset.</p>
 </div>
 <div class="section" id="feature-description">
 <h2>Feature Description<a class="headerlink" href="#feature-description" title="Permalink to this headline"></a></h2>
@@ -441,6 +464,7 @@ If all blocks are occupied (<code class="docutils literal notranslate"><span cla
       <dd><a href="../v3.5/hugectr_embedding_training_cache.html">v3.5</a></dd>
       <dd><a href="../v3.6/hugectr_embedding_training_cache.html">v3.6</a></dd>
       <dd><a href="../v3.7/hugectr_embedding_training_cache.html">v3.7</a></dd>
+      <dd><a href="../v3.8/hugectr_embedding_training_cache.html">v3.8</a></dd>
     </dl>
     <dl>
       <dt>Branches</dt>

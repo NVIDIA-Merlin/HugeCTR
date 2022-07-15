@@ -18,7 +18,7 @@
 
 # ## Access the HugeCTR to ONNX Converter
 # 
-# Make sure that you start the notebook inside a running 22.06 or later NGC docker container: `nvcr.io/nvidia/merlin/merlin-training:22.06`.
+# Make sure that you start the notebook inside a running 22.07 or later NGC docker container: `nvcr.io/nvidia/merlin/merlin-hugectr:22.07`.
 # The module of the ONNX converter is installed to the path `/usr/local/lib/python3.8/dist-packages`.
 # As for HugeCTR Python interface, a dynamic link to the `hugectr.so` library is installed to the path `/usr/local/hugectr/lib/`.
 # You can access the ONNX converter as well as HugeCTR Python interface anywhere within the container.

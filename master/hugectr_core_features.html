@@ -58,6 +58,7 @@
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="hugectr_feature_details_intro.html">Features in Detail</a></li>
+<li class="toctree-l1"><a class="reference internal" href="performance.html">Performance</a></li>
 <li class="toctree-l1"><a class="reference internal" href="notebooks/index.html">Example Notebooks</a></li>
 <li class="toctree-l1"><a class="reference internal" href="notebooks/multi-modal-data/index.html">Multi-modal Example Notebooks</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api/index.html">API Documentation</a></li>
@@ -91,6 +92,20 @@
              
   <div class="tex2jax_ignore mathjax_ignore section" id="hugectr-core-features">
 <h1>HugeCTR Core Features<a class="headerlink" href="#hugectr-core-features" title="Permalink to this headline"></a></h1>
+<div class="contents local topic" id="contents">
+<ul class="simple">
+<li><p><a class="reference internal" href="#summary-of-core-features" id="id1">Summary of Core Features</a></p></li>
+<li><p><a class="reference internal" href="#model-parallel-training" id="id2">Model Parallel Training</a></p></li>
+<li><p><a class="reference internal" href="#multi-node-training" id="id3">Multi-Node Training</a></p></li>
+<li><p><a class="reference internal" href="#mixed-precision-training" id="id4">Mixed Precision Training</a></p></li>
+<li><p><a class="reference internal" href="#sgd-optimizer-and-learning-rate-scheduling" id="id5">SGD Optimizer and Learning Rate Scheduling</a></p></li>
+<li><p><a class="reference internal" href="#embedding-training-cache" id="id6">Embedding Training Cache</a></p></li>
+<li><p><a class="reference internal" href="#hugectr-to-onnx-converter" id="id7">HugeCTR to ONNX Converter</a></p></li>
+<li><p><a class="reference internal" href="#hdfs-support" id="id8">HDFS Support</a></p></li>
+<li><p><a class="reference internal" href="#hierarchical-parameter-server" id="id9">Hierarchical Parameter Server</a></p></li>
+<li><p><a class="reference internal" href="#sparse-operation-kit" id="id10">Sparse Operation Kit</a></p></li>
+</ul>
+</div>
 <!-- markdownlint-ignore no-duplicate-heading -->
 <div class="section" id="summary-of-core-features">
 <h2>Summary of Core Features<a class="headerlink" href="#summary-of-core-features" title="Permalink to this headline"></a></h2>
@@ -142,9 +157,6 @@ are described in the following topics.</p>
 <div class="section" id="embedding-training-cache">
 <h2>Embedding Training Cache<a class="headerlink" href="#embedding-training-cache" title="Permalink to this headline"></a></h2>
 <p>Embedding Training Cache (ETC) gives you the ability to train a large model up to terabytes. It’s implemented by loading a subset of an embedding table, which exceeds the aggregated capacity of GPU memory, into the GPU in a coarse-grained, on-demand manner during the training stage.</p>
-<p>This feature currently supports both single-node and multi-node training. It supports all embedding types and can be used with <a class="reference internal" href="api/python_interface.html#norm"><span class="std std-doc">Norm</span></a>, <a class="reference internal" href="api/python_interface.html#raw"><span class="std std-doc">Raw</span></a>, and <a class="reference internal" href="api/python_interface.html#parquet"><span class="std std-doc">Parquet</span></a> dataset formats. We revised our <code class="docutils literal notranslate"><span class="pre">criteo2hugectr</span></code> tool to support the key set extraction for the Criteo dataset.</p>
-<p>You can view the <a class="reference internal" href="notebooks/continuous_training.html"><span class="doc std std-doc">HugeCTR Continuous Training</span></a> example notebook to learn how to use this feature with the Criteo dataset.
-The Criteo dataset is a common use case, but embedding training cache is not limited to this dataset.</p>
 <p>For more information, see the details for <a class="reference internal" href="hugectr_embedding_training_cache.html"><span class="doc std std-doc">HugeCTR Embedding Training Cache</span></a>.</p>
 </div>
 <div class="section" id="hugectr-to-onnx-converter">
@@ -221,6 +233,7 @@ a cluster to accelerate the whole training process.</p>
       <dd><a href="../v3.5/hugectr_core_features.html">v3.5</a></dd>
       <dd><a href="../v3.6/hugectr_core_features.html">v3.6</a></dd>
       <dd><a href="../v3.7/hugectr_core_features.html">v3.7</a></dd>
+      <dd><a href="../v3.8/hugectr_core_features.html">v3.8</a></dd>
     </dl>
     <dl>
       <dt>Branches</dt>

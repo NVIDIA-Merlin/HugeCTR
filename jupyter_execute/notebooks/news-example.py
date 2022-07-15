@@ -11,7 +11,7 @@
 # 
 # In order to build a Recommender System, we would be first cleaning and pre-processing the data, then developing simple time based and complex target & count encoded features to finally train and evaluate Deep Learning Recommendation Model (DLRM).
 
-# Please remember to run this jupyter notebook in the [merlin-training:22.06](https://ngc.nvidia.com/catalog/containers/nvidia:merlin:merlin-training) docker container.
+# Please remember to run this jupyter notebook in the [merlin-hugectr:22.07](https://ngc.nvidia.com/catalog/containers/nvidia:merlin:merlin-hugectr) docker container.
 
 # ## Step 1: Import libraries and create directories
 

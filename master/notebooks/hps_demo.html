@@ -22,7 +22,7 @@
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="HugeCTR training with HDFS example" href="training_with_hdfs.html" />
+    <link rel="next" title="&lt;no title&gt;" href="training_with_hdfs.html" />
     <link rel="prev" title="Multi-GPU Offline Inference" href="multi_gpu_offline_inference.html" /> 
 </head>
 
@@ -46,6 +46,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../hugectr_user_guide.html">Introduction</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../hugectr_core_features.html">Core Features</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../hugectr_feature_details_intro.html">Features in Detail</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../performance.html">Performance</a></li>
 <li class="toctree-l1 current"><a class="reference internal" href="index.html">Example Notebooks</a><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="index.html#quickstart">Quickstart</a></li>
 <li class="toctree-l2"><a class="reference internal" href="index.html#notebook-list">Notebook List</a></li>
@@ -59,8 +60,8 @@
 <li class="toctree-l2"><a class="reference internal" href="news-example.html">NVIDIA Merlin on Microsoft’s News Dataset (MIND)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="multi_gpu_offline_inference.html">Multi-GPU Offline Inference</a></li>
 <li class="toctree-l2 current"><a class="current reference internal" href="#">Hierarchical Parameter Server Demo</a></li>
-<li class="toctree-l2"><a class="reference internal" href="training_with_hdfs.html">HugeCTR training with HDFS example</a></li>
 <li class="toctree-l2"><a class="reference internal" href="embedding_training_cache_example.html">Embedding Training Cache Example</a></li>
+<li class="toctree-l2"><a class="reference internal" href="embedding_collection.html">HugeCTR Embedding Collection</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="multi-modal-data/index.html">Multi-modal Example Notebooks</a></li>
@@ -107,7 +108,7 @@ HPS supports different database backends and GPU embedding caches.</p>
 <h2>Installation<a class="headerlink" href="#installation" title="Permalink to this headline"></a></h2>
 <div class="section" id="get-hugectr-from-ngc">
 <h3>Get HugeCTR from NGC<a class="headerlink" href="#get-hugectr-from-ngc" title="Permalink to this headline"></a></h3>
-<p>The HugeCTR Python module is preinstalled in the 22.06 and later <a class="reference external" href="https://catalog.ngc.nvidia.com/orgs/nvidia/teams/merlin/containers/merlin-hugectr">Merlin Training Container</a>: <code class="docutils literal notranslate"><span class="pre">nvcr.io/nvidia/merlin/merlin-hugectr:22.06</span></code>.</p>
+<p>The HugeCTR Python module is preinstalled in the 22.07 and later <a class="reference external" href="https://catalog.ngc.nvidia.com/orgs/nvidia/teams/merlin/containers/merlin-hugectr">Merlin Training Container</a>: <code class="docutils literal notranslate"><span class="pre">nvcr.io/nvidia/merlin/merlin-hugectr:22.07</span></code>.</p>
 <p>You can check the existence of required libraries by running the following Python code after launching this container.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$ python3 -c <span class="s2">&quot;import hugectr&quot;</span>
 </pre></div>
@@ -529,6 +530,142 @@ mse between pred_ref and ground_truth:  7.573986338301264e-05
 </div>
 </div>
 </div>
+<div class="section" id="lookup-the-embedding-vector-from-dlpack">
+<h2>Lookup the Embedding Vector from DLPack<a class="headerlink" href="#lookup-the-embedding-vector-from-dlpack" title="Permalink to this headline"></a></h2>
+<p>We also provide a <code class="docutils literal notranslate"><span class="pre">lookup_fromdlpack</span></code> interface that could query embedding keys on the <code class="docutils literal notranslate"><span class="pre">CPU</span></code> and return the embedding vectors on the <code class="docutils literal notranslate"><span class="pre">GPU/CPU</span></code>.</p>
+<ol class="simple">
+<li><p>Suppose you have created a Pytorch/Tensorflow tensor that stores the embedded keys.</p></li>
+<li><p>Convert the embedding key tensor to DLPack capsule through the corresponding platform’s <code class="docutils literal notranslate"><span class="pre">to_dlpack</span></code> function.</p></li>
+<li><p>Creates an empty tensor as a buffer to store embedding vectors.</p></li>
+<li><p>Convert a buffer tensor  to DLPack capsule.</p></li>
+<li><p>Lookup the embedding vector of the corresponding embedding key directly through <code class="docutils literal notranslate"><span class="pre">lookup_fromdlpack</span></code> interface, and output it to the embedding vector buffer tensor</p></li>
+</ol>
+<p>Note: Please make sure that tensorflow or pytorch have been installed correctly in the container</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">embedding1</span> <span class="o">=</span> <span class="n">hps</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span><span class="n">cat_input1</span><span class="o">.</span><span class="n">flatten</span><span class="p">(),</span> <span class="s2">&quot;hps_demo&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">batch_size</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">16</span><span class="p">)</span>
+<span class="n">embedding2</span> <span class="o">=</span> <span class="n">hps</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span><span class="n">cat_input2</span><span class="o">.</span><span class="n">flatten</span><span class="p">(),</span> <span class="s2">&quot;hps_demo&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">batch_size</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">32</span><span class="p">)</span>
+
+<span class="c1"># 1. Look up from dlpack for Pytorch tensor on CPU</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot; Look up from dlpack for Pytorch tensor&quot;</span><span class="p">)</span>
+<span class="kn">import</span> <span class="nn">torch.utils.dlpack</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;************Look up from pytorch dlpack on CPU&quot;</span><span class="p">)</span>
+<span class="n">device</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="s2">&quot;cpu&quot;</span><span class="p">)</span>
+<span class="n">key</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">cat_input1</span><span class="o">.</span><span class="n">flatten</span><span class="p">(),</span><span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">int64</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+<span class="n">out</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span><span class="n">cat_input1</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">*</span><span class="mi">16</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+<span class="n">key_capsule</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">dlpack</span><span class="o">.</span><span class="n">to_dlpack</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;The device type of embedding keys that lookup dlpack from hps interface for embedding table 0 of hps_demo: </span><span class="si">{}</span><span class="s2">, the keys: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">key</span><span class="o">.</span><span class="n">device</span><span class="p">,</span> <span class="n">key</span><span class="p">))</span>
+<span class="n">out_capsule</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">dlpack</span><span class="o">.</span><span class="n">to_dlpack</span><span class="p">(</span><span class="n">out</span><span class="p">)</span>
+<span class="c1"># Lookup the embedding vectors from dlpack</span>
+<span class="n">hps</span><span class="o">.</span><span class="n">lookup_fromdlpack</span><span class="p">(</span><span class="n">key_capsule</span><span class="p">,</span> <span class="n">out_capsule</span><span class="p">,</span><span class="s2">&quot;hps_demo&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+<span class="n">out_put</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">dlpack</span><span class="o">.</span><span class="n">from_dlpack</span><span class="p">(</span><span class="n">out_capsule</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;[The device type of embedding vectors that lookup dlpack from hps interface for embedding table 0 of hps_demo: </span><span class="si">{}</span><span class="s2">, the vectors: </span><span class="si">{}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">out_put</span><span class="o">.</span><span class="n">device</span><span class="p">,</span> <span class="n">out_put</span><span class="p">))</span>
+<span class="n">diff</span> <span class="o">=</span> <span class="n">out_put</span><span class="o">-</span><span class="n">embedding1</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="n">cat_input1</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">*</span><span class="mi">16</span><span class="p">)</span>
+<span class="k">if</span> <span class="n">diff</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mf">1e-4</span><span class="p">:</span>
+    <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Too large mse between pytorch dlpack on cpu and native HPS lookup api: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">diff</span><span class="o">.</span><span class="n">mean</span><span class="p">()))</span>
+    <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Pytorch dlpack on cpu  results are consistent with native HPS lookup api, mse: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">diff</span><span class="o">.</span><span class="n">mean</span><span class="p">()))</span>
+    
+
+<span class="c1"># 2. Look up from dlpack for Pytorch tensor on GPU</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;************Look up from pytorch dlpack on GPU&quot;</span><span class="p">)</span>
+<span class="n">cuda_device</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="s2">&quot;cuda:0&quot;</span> <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span> <span class="k">else</span> <span class="s2">&quot;cpu&quot;</span><span class="p">)</span>
+<span class="n">out</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span><span class="n">cat_input1</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">*</span><span class="mi">16</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">cuda_device</span><span class="p">)</span>
+<span class="n">out_capsule</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">dlpack</span><span class="o">.</span><span class="n">to_dlpack</span><span class="p">(</span><span class="n">out</span><span class="p">)</span>
+<span class="n">hps</span><span class="o">.</span><span class="n">lookup_fromdlpack</span><span class="p">(</span><span class="n">key_capsule</span><span class="p">,</span> <span class="n">out_capsule</span><span class="p">,</span><span class="s2">&quot;hps_demo&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+<span class="n">out_put</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">dlpack</span><span class="o">.</span><span class="n">from_dlpack</span><span class="p">(</span><span class="n">out_capsule</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;The device type of embedding vectors that lookup dlpack from hps interface for embedding table 0 of hps_demo: </span><span class="si">{}</span><span class="s2">, the vectors: </span><span class="si">{}</span><span class="se">\n\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">out_put</span><span class="o">.</span><span class="n">device</span><span class="p">,</span> <span class="n">out_put</span><span class="p">))</span>
+<span class="n">diff</span> <span class="o">=</span> <span class="n">out_put</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">-</span><span class="n">embedding1</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="n">cat_input1</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">*</span><span class="mi">16</span><span class="p">)</span>
+<span class="k">if</span> <span class="n">diff</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mf">1e-3</span><span class="p">:</span>
+    <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Too large mse between pytorch dlpack on cpu and native HPS lookup api: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">diff</span><span class="o">.</span><span class="n">mean</span><span class="p">()))</span>
+    <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Pytorch dlpack on GPU results are consistent with native HPS lookup api, mse: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">diff</span><span class="o">.</span><span class="n">mean</span><span class="p">()))</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span> Look up from dlpack for Pytorch tensor
+************Look up from pytorch dlpack on CPU
+The device type of embedding keys that lookup dlpack from hps interface for embedding table 0 of hps_demo: cpu, the keys: tensor([    0, 10000,     0,  ..., 10037,    57, 10057])
+[The device type of embedding vectors that lookup dlpack from hps interface for embedding table 0 of hps_demo: cpu, the vectors: tensor([[-0.0843,  0.0634,  0.0409,  ..., -0.0584,  0.0030, -0.0187]])
+
+Pytorch dlpack on cpu  results are consistent with native HPS lookup api, mse: 0.0
+************Look up from pytorch dlpack on GPU
+The device type of embedding vectors that lookup dlpack from hps interface for embedding table 0 of hps_demo: cuda:0, the vectors: tensor([[-0.0843,  0.0634,  0.0409,  ..., -0.0584,  0.0030, -0.0187]],
+       device=&#39;cuda:0&#39;)
+
+
+Pytorch dlpack on GPU results are consistent with native HPS lookup api, mse: 0.0
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># 3. Look up from dlpack for tensorflow tensor on CPU</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Look up from dlpack for Tensorflow tensor&quot;</span><span class="p">)</span>
+<span class="kn">from</span> <span class="nn">tensorflow.python.dlpack</span> <span class="kn">import</span> <span class="n">dlpack</span>  
+<span class="kn">import</span> <span class="nn">tensorflow</span> <span class="k">as</span> <span class="nn">tf</span>
+<span class="kn">from</span> <span class="nn">tensorflow.python.eager</span> <span class="kn">import</span> <span class="n">context</span>
+<span class="kn">from</span> <span class="nn">tensorflow.python.framework</span> <span class="kn">import</span> <span class="n">dtypes</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;***************Look up from tensorflow dlpack on CPU**********&quot;</span><span class="p">)</span>
+<span class="k">with</span> <span class="n">tf</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="s1">&#39;/CPU:0&#39;</span><span class="p">):</span>
+    <span class="n">key_tensor</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">constant</span><span class="p">(</span><span class="n">cat_input2</span><span class="o">.</span><span class="n">flatten</span><span class="p">(),</span><span class="n">dtype</span><span class="o">=</span><span class="n">tf</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+    <span class="n">out_tensor</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">zeros</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="n">cat_input2</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">*</span><span class="mi">32</span><span class="p">],</span><span class="n">dtype</span><span class="o">=</span><span class="n">tf</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;The device type of embedding keys that lookup dlpack from hps interface for embedding table 1 of hps_demo: </span><span class="si">{}</span><span class="s2">, the keys: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">key_tensor</span><span class="o">.</span><span class="n">device</span><span class="p">,</span> <span class="n">key_tensor</span><span class="p">))</span>
+    <span class="n">key_capsule</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">experimental</span><span class="o">.</span><span class="n">dlpack</span><span class="o">.</span><span class="n">to_dlpack</span><span class="p">(</span><span class="n">key_tensor</span><span class="p">)</span>
+    <span class="n">out_dlcapsule</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">experimental</span><span class="o">.</span><span class="n">dlpack</span><span class="o">.</span><span class="n">to_dlpack</span><span class="p">(</span><span class="n">out_tensor</span><span class="p">)</span>
+<span class="n">hps</span><span class="o">.</span><span class="n">lookup_fromdlpack</span><span class="p">(</span><span class="n">key_capsule</span><span class="p">,</span><span class="n">out_dlcapsule</span><span class="p">,</span> <span class="s2">&quot;hps_demo&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+<span class="n">out</span><span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">experimental</span><span class="o">.</span><span class="n">dlpack</span><span class="o">.</span><span class="n">from_dlpack</span><span class="p">(</span><span class="n">out_dlcapsule</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;The device type of embedding vectors that lookup dlpack from hps interface for embedding table 1 of hps_demo: </span><span class="si">{}</span><span class="s2">, the vectors: </span><span class="si">{}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">out</span><span class="o">.</span><span class="n">device</span><span class="p">,</span> <span class="n">out</span><span class="p">))</span>
+<span class="n">diff</span> <span class="o">=</span> <span class="n">out</span><span class="o">-</span><span class="n">embedding2</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="n">cat_input2</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">*</span><span class="mi">32</span><span class="p">)</span>
+<span class="n">mse</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">reduce_mean</span><span class="p">(</span><span class="n">diff</span><span class="p">)</span>
+<span class="k">if</span> <span class="n">mse</span><span class="o">&gt;</span> <span class="mf">1e-3</span><span class="p">:</span>
+    <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Too large mse between tensorflow dlpack on cpu and native HPS lookup api: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">mse</span><span class="p">))</span>
+    <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;tensorflow dlpack on CPU results are consistent with native HPS lookup api, mse: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">mse</span><span class="p">))</span>
+    
+<span class="c1"># 4. Look up from dlpack for tensorflow tensor on GPU</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;***************Look up from tensorflow dlpack on GPU**********&quot;</span><span class="p">)</span>
+<span class="k">with</span> <span class="n">tf</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="s1">&#39;/GPU:0&#39;</span><span class="p">):</span>
+    <span class="n">out_tensor</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">zeros</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="n">cat_input2</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">*</span><span class="mi">32</span><span class="p">],</span><span class="n">dtype</span><span class="o">=</span><span class="n">tf</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+    <span class="n">key_capsule</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">experimental</span><span class="o">.</span><span class="n">dlpack</span><span class="o">.</span><span class="n">to_dlpack</span><span class="p">(</span><span class="n">key_tensor</span><span class="p">)</span>
+    <span class="n">out_dlcapsule</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">experimental</span><span class="o">.</span><span class="n">dlpack</span><span class="o">.</span><span class="n">to_dlpack</span><span class="p">(</span><span class="n">out_tensor</span><span class="p">)</span>
+<span class="n">hps</span><span class="o">.</span><span class="n">lookup_fromdlpack</span><span class="p">(</span><span class="n">key_capsule</span><span class="p">,</span><span class="n">out_dlcapsule</span><span class="p">,</span> <span class="s2">&quot;hps_demo&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+<span class="n">out</span><span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">experimental</span><span class="o">.</span><span class="n">dlpack</span><span class="o">.</span><span class="n">from_dlpack</span><span class="p">(</span><span class="n">out_dlcapsule</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;[HUGECTR][INFO] The device type of embedding vectors that lookup dlpack from hps interface for embedding table 1 of wdl: </span><span class="si">{}</span><span class="s2">, the vectors: </span><span class="si">{}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">out</span><span class="o">.</span><span class="n">device</span><span class="p">,</span> <span class="n">out</span><span class="p">))</span>
+<span class="n">diff</span> <span class="o">=</span> <span class="n">out</span><span class="o">-</span><span class="n">embedding2</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="n">cat_input2</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">*</span><span class="mi">32</span><span class="p">)</span>
+<span class="n">mse</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">reduce_mean</span><span class="p">(</span><span class="n">diff</span><span class="p">)</span>
+<span class="k">if</span> <span class="n">mse</span><span class="o">&gt;</span> <span class="mf">1e-3</span><span class="p">:</span>
+    <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Too large mse between tensorflow dlpack on cpu and native HPS lookup api: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">mse</span><span class="p">))</span>
+    <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;tensorflow dlpack on GPU results are consistent with native HPS lookup api, mse: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">mse</span><span class="p">))</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Look up from dlpack for Tensorflow tensor
+***************Look up from tensorflow dlpack on CPU**********
+The device type of embedding keys that lookup dlpack from hps interface for embedding table 1 of hps_demo: /job:localhost/replica:0/task:0/device:CPU:0, the keys: [20000 30000 20000 ... 30037 20057 30057]
+The device type of embedding vectors that lookup dlpack from hps interface for embedding table 1 of hps_demo: /job:localhost/replica:0/task:0/device:CPU:0, the vectors: [[ 0.04648086  0.06154778 -0.04931969 ...  0.00693844  0.04137739
+  -0.06696524]]
+
+tensorflow dlpack on CPU results are consistent with native HPS lookup api, mse: 0.0
+***************Look up from tensorflow dlpack on GPU**********
+[HUGECTR][INFO] The device type of embedding vectors that lookup dlpack from hps interface for embedding table 1 of wdl: /job:localhost/replica:0/task:0/device:GPU:0, the vectors: [[ 0.04648086  0.06154778 -0.04931969 ...  0.00693844  0.04137739
+  -0.06696524]]
+
+tensorflow dlpack on GPU results are consistent with native HPS lookup api, mse: 0.0
+</pre></div>
+</div>
+</div>
+</div>
+</div>
 </div>
 
 
@@ -536,7 +673,7 @@ mse between pred_ref and ground_truth:  7.573986338301264e-05
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="multi_gpu_offline_inference.html" class="btn btn-neutral float-left" title="Multi-GPU Offline Inference" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="training_with_hdfs.html" class="btn btn-neutral float-right" title="HugeCTR training with HDFS example" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="training_with_hdfs.html" class="btn btn-neutral float-right" title="&lt;no title&gt;" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>
@@ -568,6 +705,7 @@ mse between pred_ref and ground_truth:  7.573986338301264e-05
       <dd><a href="../../v3.5/index.html">v3.5</a></dd>
       <dd><a href="../../v3.6/index.html">v3.6</a></dd>
       <dd><a href="../../v3.7/index.html">v3.7</a></dd>
+      <dd><a href="../../v3.8/index.html">v3.8</a></dd>
     </dl>
     <dl>
       <dt>Branches</dt>

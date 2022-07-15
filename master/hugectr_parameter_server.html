@@ -22,7 +22,7 @@
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="HugeCTR Example Notebooks" href="notebooks/index.html" />
+    <link rel="next" title="Performance" href="performance.html" />
     <link rel="prev" title="HugeCTR Embedding Training Cache" href="hugectr_embedding_training_cache.html" /> 
 </head>
 
@@ -50,6 +50,7 @@
 <li class="toctree-l2 current"><a class="current reference internal" href="#">Hierarchical Parameter Server</a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="performance.html">Performance</a></li>
 <li class="toctree-l1"><a class="reference internal" href="notebooks/index.html">Example Notebooks</a></li>
 <li class="toctree-l1"><a class="reference internal" href="notebooks/multi-modal-data/index.html">Multi-modal Example Notebooks</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api/index.html">API Documentation</a></li>
@@ -84,8 +85,31 @@
              
   <div class="tex2jax_ignore mathjax_ignore section" id="hugectr-hierarchical-parameter-server-database-backend">
 <h1>HugeCTR Hierarchical Parameter Server Database Backend<a class="headerlink" href="#hugectr-hierarchical-parameter-server-database-backend" title="Permalink to this headline"></a></h1>
-<div class="section" id="introduction">
-<h2>Introduction<a class="headerlink" href="#introduction" title="Permalink to this headline"></a></h2>
+<div class="contents local topic" id="contents">
+<ul class="simple">
+<li><p><a class="reference internal" href="#introduction-to-the-hierarchical-parameter-server" id="id1">Introduction to the Hierarchical Parameter Server</a></p></li>
+<li><p><a class="reference internal" href="#background" id="id2">Background</a></p></li>
+<li><p><a class="reference internal" href="#architecture" id="id3">Architecture</a></p></li>
+<li><p><a class="reference internal" href="#training-and-iterative-model-updates" id="id4">Training and Iterative Model Updates</a></p></li>
+<li><p><a class="reference internal" href="#execution" id="id5">Execution</a></p>
+<ul>
+<li><p><a class="reference internal" href="#inference" id="id6">Inference</a></p></li>
+<li><p><a class="reference internal" href="#training" id="id7">Training</a></p></li>
+<li><p><a class="reference internal" href="#lookup-optimization" id="id8">Lookup Optimization</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#configuration" id="id9">Configuration</a></p>
+<ul>
+<li><p><a class="reference internal" href="#inference-parameters-and-embedding-cache-configuration" id="id10">Inference Parameters and Embedding Cache Configuration</a></p></li>
+<li><p><a class="reference internal" href="#volatile-database-configuration" id="id11">Volatile Database Configuration</a></p></li>
+<li><p><a class="reference internal" href="#persistent-database-configuration" id="id12">Persistent Database Configuration</a></p></li>
+<li><p><a class="reference internal" href="#update-source-configuration" id="id13">Update Source Configuration</a></p></li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="section" id="introduction-to-the-hierarchical-parameter-server">
+<h2>Introduction to the Hierarchical Parameter Server<a class="headerlink" href="#introduction-to-the-hierarchical-parameter-server" title="Permalink to this headline"></a></h2>
 <p>The hierarchical parameter server database backend (HPS database backend) allows HugeCTR to use models with huge embedding tables by extending HugeCTRs storage space beyond the constraints of GPU memory through utilizing various memory resources across you cluster. Further, it grants the ability to permanently store embedding tables in a structured manner. For an end-to-end demo on how to use the HPS database backend, please refer to <a class="reference external" href="https://github.com/triton-inference-server/hugectr_backend/tree/main/samples/hierarchical_deployment">samples</a>.</p>
 </div>
 <div class="section" id="background">
@@ -265,6 +289,7 @@ The most common reason to vary the configuration by node is for heterogeneous cl
   <span class="n">use_cuda_graph</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
   <span class="n">number_of_worker_buffers_in_pool</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
   <span class="n">number_of_refresh_buffers_in_pool</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+  <span class="n">thread_pool_size</span> <span class="o">=</span> <span class="mi">16</span><span class="p">,</span>
   <span class="n">cache_refresh_percentage_per_iteration</span> <span class="o">=</span> <span class="mf">0.1</span><span class="p">,</span>
   <span class="n">deployed_devices</span> <span class="o">=</span> <span class="p">[</span><span class="nb">int</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="nb">int</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span>
   <span class="n">default_value_for_each_table</span> <span class="o">=</span> <span class="p">[</span><span class="nb">float</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="nb">float</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span>
@@ -330,6 +355,13 @@ The default value is <code class="docutils literal notranslate"><span class="pre
 HPS uses the refresh memory pool to support online updates of incremental models.
 Specify larger values if model updates occur at a high-frequency or you have a large volume of incremental model updates.
 The default value is <code class="docutils literal notranslate"><span class="pre">1</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">thread_pool_size</span></code>: Integer, specifies the size of the thread pool. The thread pool is used by the GPU embedding cache to perform asynchronous insertion of missing keys.
+The actual thread pool size is set to the maximum of the value that you specify and the value returned by <code class="docutils literal notranslate"><span class="pre">std::thread::hardware_concurrency()</span></code>.
+The default value is <code class="docutils literal notranslate"><span class="pre">16</span></code>.</p></li>
+</ul>
+<p>The actual thread pool size will be set as the maximum value of this configured one and <code class="docutils literal notranslate"><span class="pre">std::thread::hardware_concurrency()</span></code>.
+The default value is <code class="docutils literal notranslate"><span class="pre">16</span></code>.</p>
+<ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">cache_refresh_percentage_per_iteration</span></code>: Float, specifies the percentage of the embedding cache to refresh during each iteration.
 To avoid reducing the performance of the GPU cache during online updating, you can configure the update percentage of GPU embedding cache.
 For example, if you specify <code class="docutils literal notranslate"><span class="pre">cache_refresh_percentage_per_iteration</span> <span class="pre">=</span> <span class="pre">0.2</span></code>, the entire GPU embedding cache is refreshed during 5 iterations.
@@ -717,7 +749,7 @@ The default value is <code class="docutils literal notranslate"><span class="pre
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="hugectr_embedding_training_cache.html" class="btn btn-neutral float-left" title="HugeCTR Embedding Training Cache" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="notebooks/index.html" class="btn btn-neutral float-right" title="HugeCTR Example Notebooks" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="performance.html" class="btn btn-neutral float-right" title="Performance" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>
@@ -749,6 +781,7 @@ The default value is <code class="docutils literal notranslate"><span class="pre
       <dd><a href="../v3.5/hugectr_parameter_server.html">v3.5</a></dd>
       <dd><a href="../v3.6/hugectr_parameter_server.html">v3.6</a></dd>
       <dd><a href="../v3.7/hugectr_parameter_server.html">v3.7</a></dd>
+      <dd><a href="../v3.8/hugectr_parameter_server.html">v3.8</a></dd>
     </dl>
     <dl>
       <dt>Branches</dt>

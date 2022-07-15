@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Questions and Answers &mdash; Merlin HugeCTR  documentation</title><link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/togglebutton.css" type="text/css" />
+      <link rel="stylesheet" href="_static/mystnb.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  <script id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+        <script >let toggleHintShow = 'Click to show';</script>
+        <script >let toggleHintHide = 'Click to hide';</script>
+        <script >let toggleOpenOnPrint = 'true';</script>
+        <script src="_static/togglebutton.js"></script>
+        <script >var togglebuttonSelector = '.toggle, .admonition.dropdown, .tag_hide_input div.cell_input, .tag_hide-input div.cell_input, .tag_hide_output div.cell_output, .tag_hide-output div.cell_output, .tag_hide_cell.cell, .tag_hide-cell.cell';</script>
+        <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+        <script type="text/x-mathjax-config">MathJax.Hub.Config({"tex2jax": {"processClass": "tex2jax_process|mathjax_process|math|output_area"}})</script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Release Notes" href="release_notes.html" />
+    <link rel="prev" title="HugeCTR Talks and Blogs" href="hugectr_talks_blogs.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="index.html" class="icon icon-home"> Merlin HugeCTR
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="hugectr_user_guide.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="hugectr_core_features.html">Core Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="hugectr_feature_details_intro.html">Features in Detail</a></li>
+<li class="toctree-l1"><a class="reference internal" href="performance.html">Performance</a></li>
+<li class="toctree-l1"><a class="reference internal" href="notebooks/index.html">Example Notebooks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="notebooks/multi-modal-data/index.html">Multi-modal Example Notebooks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/index.html">API Documentation</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="additional_resources.html">Additional Resources</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="hugectr_talks_blogs.html">HugeCTR Talks and Blogs</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Questions and Answers</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="release_notes.html">Release Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="hugectr_contributor_guide.html">Contributing to HugeCTR</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">Merlin HugeCTR</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="additional_resources.html">Additional Resources</a> &raquo;</li>
+      <li>Questions and Answers</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <div class="tex2jax_ignore mathjax_ignore section" id="questions-and-answers">
+<h1>Questions and Answers<a class="headerlink" href="#questions-and-answers" title="Permalink to this headline"></a></h1>
+<div class="section" id="who-are-the-target-users-of-hugectr">
+<h2>1. Who are the target users of HugeCTR?<a class="headerlink" href="#who-are-the-target-users-of-hugectr" title="Permalink to this headline"></a></h2>
+<p>We are trying to provide a recommender specific framework to users from various industries, who need high-efficient solutions for their online/offline CTR training.
+HugeCTR is also a reference design for framework developers who want to port their CPU solutions to GPU or optimize their current GPU solutions.</p>
+</div>
+<div class="section" id="which-models-can-be-supported-in-hugectr">
+<h2>2. Which models can be supported in HugeCTR?<a class="headerlink" href="#which-models-can-be-supported-in-hugectr" title="Permalink to this headline"></a></h2>
+<p>HugeCTR v2.2 supports DNN, WDL, DCN, DeepFM, DLRM and their variants, which are widely used in industrial recommender systems.
+Refer to the <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/tree/master/samples">samples</a> directory in the HugeCTR repository on GitHub to try them with HugeCTR.
+HugeCTR’s expressiveness is not confined to the aforementioned models.
+You can construct your own models by combining the layers supported by HugeCTR.</p>
+</div>
+<div class="section" id="does-hugectr-support-tensorflow">
+<h2>3. Does HugeCTR support TensorFlow?<a class="headerlink" href="#does-hugectr-support-tensorflow" title="Permalink to this headline"></a></h2>
+<p>HugeCTR v2.2 has no TF interface yet, but a HugeCTR Trained model is compatible with TensorFlow.
+We recommend that you export a trained model to TensorFlow for inference by following the instructions in dump_to_tf tutorial that is in the <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/tree/master/tutorial">tutorial</a> directory of the HugeCTR repository on GitHub.</p>
+</div>
+<div class="section" id="does-hugectr-support-multiple-nodes-ctr-training">
+<h2>4. Does HugeCTR support multiple nodes CTR training?<a class="headerlink" href="#does-hugectr-support-multiple-nodes-ctr-training" title="Permalink to this headline"></a></h2>
+<p>Yes. HugeCTR supports single-GPU, multi-GPU and multi-node training. Check out samples/dcn2node for more details.</p>
+</div>
+<div class="section" id="how-to-deal-with-the-huge-embedding-table-that-cannot-be-stored-in-a-single-gpu-memory">
+<h2>5. How to deal with the huge embedding table that cannot be stored in a single GPU memory?<a class="headerlink" href="#how-to-deal-with-the-huge-embedding-table-that-cannot-be-stored-in-a-single-gpu-memory" title="Permalink to this headline"></a></h2>
+<p>Embedding table in HugeCTR is model-parallel stored across GPUs and nodes.  So if you have a very large embedding table, just use as many GPUs as you need to store it. That’s why we have the name “HugeCTR”. Suppose you have 1TB embedding table and 16xV100-32GB in a GPU server node, you can take 2 nodes for such a case.</p>
+</div>
+<div class="section" id="which-gpus-are-supported-in-hugectr">
+<h2>6. Which GPUs are supported in HugeCTR?<a class="headerlink" href="#which-gpus-are-supported-in-hugectr" title="Permalink to this headline"></a></h2>
+<p>HugeCTR supports GPUs with Compute Compatibility &gt; 7.0 such as V100, T4 and A100.</p>
+</div>
+<div class="section" id="must-we-use-the-dgx-family-such-as-dgx-a100-to-run-hugectr">
+<h2>7. Must we use the DGX family such as DGX A100 to run HugeCTR?<a class="headerlink" href="#must-we-use-the-dgx-family-such-as-dgx-a100-to-run-hugectr" title="Permalink to this headline"></a></h2>
+<p>A DGX machine is not mandatory but recommended to achieve the best performance by exploiting NVSwitch’s high inter-GPU bandwidth.</p>
+</div>
+<div class="section" id="can-hugectr-run-without-infiniband">
+<h2>8. Can HugeCTR run without InfiniBand?<a class="headerlink" href="#can-hugectr-run-without-infiniband" title="Permalink to this headline"></a></h2>
+<p>For multi-node training, InfiniBand is recommended but not required. You can use any solution with UCX support.
+However, InfiniBand with GPU RDMA support will maximize performance of inter-node transactions.</p>
+</div>
+<div class="section" id="is-there-any-requirement-of-cpu-configuration-for-hugectr-execution">
+<h2>9. Is there any requirement of CPU configuration for HugeCTR execution?<a class="headerlink" href="#is-there-any-requirement-of-cpu-configuration-for-hugectr-execution" title="Permalink to this headline"></a></h2>
+<p>HugeCTR’s approach is to offload the computational workloads to GPUs with the memory operations overlapped with them.
+So HugeCTR performance is mainly decided by what kinds of GPUs and I/O devices are used.</p>
+</div>
+<div class="section" id="what-is-the-specific-format-of-files-as-input-in-hugectr">
+<h2>10. What is the specific format of files as input in HugeCTR?<a class="headerlink" href="#what-is-the-specific-format-of-files-as-input-in-hugectr" title="Permalink to this headline"></a></h2>
+<p>We have specific file format support.
+Refer to the <a class="reference internal" href="api/python_interface.html#dataset-formats"><span class="std std-doc">Dataset formats</span></a> section of the Python API documentation.</p>
+</div>
+<div class="section" id="does-hugectr-support-python-interface">
+<h2>11.	 Does HugeCTR support Python interface?<a class="headerlink" href="#does-hugectr-support-python-interface" title="Permalink to this headline"></a></h2>
+<p>Yes we introduced our first version of Python interface.
+Check out our <a class="reference internal" href="notebooks/index.html"><span class="doc std std-doc">example notebooks</span></a> and Python <a class="reference internal" href="api/python_interface.html"><span class="doc std std-doc">API documentation</span></a>.</p>
+</div>
+<div class="section" id="does-hugectr-do-synchronous-training-with-multiple-gpus-and-nodes-otherwise-does-it-do-asynchronous-training">
+<h2>12. Does HugeCTR do synchronous training with multiple GPUs (and nodes)? Otherwise, does it do asynchronous training?<a class="headerlink" href="#does-hugectr-do-synchronous-training-with-multiple-gpus-and-nodes-otherwise-does-it-do-asynchronous-training" title="Permalink to this headline"></a></h2>
+<p>HugeCTR only supports synchronous training.</p>
+</div>
+<div class="section" id="does-hugectr-support-stream-training">
+<h2>13. Does HugeCTR support stream training?<a class="headerlink" href="#does-hugectr-support-stream-training" title="Permalink to this headline"></a></h2>
+<p>Yes, hashtable based embedding in HugeCTR supports dynamic insertion, which is designed for stream training. New features can be added into embedding in runtime.
+HugeCTR also supports data check. Error data will be skipped in training.</p>
+</div>
+<div class="section" id="what-is-a-slot-in-hugectr">
+<h2>14. What is a “slot” in HugeCTR?<a class="headerlink" href="#what-is-a-slot-in-hugectr" title="Permalink to this headline"></a></h2>
+<p>In HugeCTR, a slot is a feature field or table.
+The features in a slot can be one-hot or multi-hot.
+The number of features in different slots can be various.
+You can specify the number of slots (<code class="docutils literal notranslate"><span class="pre">slot_num</span></code>) in the data layer of your configuration file.</p>
+</div>
+<div class="section" id="what-are-the-differences-between-localizedslotembedding-and-distributedslotembedding">
+<h2>15. What are the differences between LocalizedSlotEmbedding and DistributedSlotEmbedding?<a class="headerlink" href="#what-are-the-differences-between-localizedslotembedding-and-distributedslotembedding" title="Permalink to this headline"></a></h2>
+<p>There are two sub-classes of Embedding layer, LocalizedSlotEmbedding and DistributedSlotEmbedding.
+They are distinguished by different methods of distributing embedding tables on multiple GPUs as model parallelism.
+For LocalizedSlotEmbedding, the features in the same slot will be stored in one GPU (that is why we call it “localized slot”), and different slots may be stored in different GPUs according to the index number of the slot.
+For DistributedSlotEmbedding, all the features are distributed to different GPUs according to the index number of the feature, regardless of the index number of the slot.
+That means the features in the same slot may be stored in different GPUs (that is why we call it “distributed slot”).</p>
+<p>Thus LocalizedSlotEmbedding is optimized for the case each embedding is smaller than the memory size of GPU. As local reduction per slot is used in LocalizedSlotEmbedding and no global reduce between GPUs, the overall data transaction in Embedding is much less than DistributedSlotEmbedding. DistributedSlotEmbedding is made for the case some of the embeddings are larger than the memory size of GPU. As global reduction is required. DistributedSlotEmbedding has much more memory trasactions between GPUs.</p>
+</div>
+<div class="section" id="for-multi-node-is-datareader-required-to-read-the-same-batch-of-data-on-each-node-for-each-step">
+<h2>16. For multi-node，is DataReader required to read the same batch of data on each node for each step?<a class="headerlink" href="#for-multi-node-is-datareader-required-to-read-the-same-batch-of-data-on-each-node-for-each-step" title="Permalink to this headline"></a></h2>
+<p>Yes, each node in training will read the same data in each iteration.</p>
+</div>
+<div class="section" id="as-model-parallelism-in-embedding-layers-how-does-it-get-all-the-embedding-lookup-features-from-multi-node-multi-gpu">
+<h2>17. As model parallelism in embedding layers, how does it get all the embedding lookup features from multi-node / multi-gpu?<a class="headerlink" href="#as-model-parallelism-in-embedding-layers-how-does-it-get-all-the-embedding-lookup-features-from-multi-node-multi-gpu" title="Permalink to this headline"></a></h2>
+<p>After embedding lookup, the embedding features in one slot need to be combined (or reduced) into one embedding vector.
+There are 2 steps:</p>
+<ol class="simple">
+<li><p>local reduction in single GPU in forward kernel function;</p></li>
+<li><p>global reduction across multi-node / multi-gpu by collective communications libraries such as NCCL.</p></li>
+</ol>
+</div>
+<div class="section" id="how-to-set-data-clauses-if-there-are-two-embeddings-needed">
+<h2>18. How to set data clauses, if there are two embeddings needed?<a class="headerlink" href="#how-to-set-data-clauses-if-there-are-two-embeddings-needed" title="Permalink to this headline"></a></h2>
+<p>There should only be one source where the “sparse” is an array. Suppose there are 26 features (slots), first 13 features belong to the first embedding and the last 13 features belong to the second embedding, you can have two elements in “sparse” array as below:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;sparse&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
+<span class="p">{</span><span class="w"></span>
+<span class="w"> </span><span class="nt">&quot;top&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;data1&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w"> </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;DistributedSlot&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w"> </span><span class="nt">&quot;max_feature_num_per_sample&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">30</span><span class="p">,</span><span class="w"></span>
+<span class="w"> </span><span class="nt">&quot;slot_num&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">13</span><span class="w"></span>
+<span class="p">},</span><span class="w"></span>
+<span class="p">{</span><span class="w"></span>
+<span class="w"> </span><span class="nt">&quot;top&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;data2&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w"> </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;DistributedSlot&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w"> </span><span class="nt">&quot;max_feature_num_per_sample&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">30</span><span class="p">,</span><span class="w"></span>
+<span class="w"> </span><span class="nt">&quot;slot_num&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">13</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+<span class="p">]</span><span class="w"></span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="how-to-save-and-load-models-in-hugectr">
+<h2>19. How to save and load models in HugeCTR?<a class="headerlink" href="#how-to-save-and-load-models-in-hugectr" title="Permalink to this headline"></a></h2>
+<p>In HugeCTR, the model is saved in binary raw format. For model saving, you can set the “snapshot” in .json file to set the intervals of saving a checkpoint in file with the prefix of “snapshot_prefix”; For model loading, you can just modify the “dense_model_file”, “sparse_model_file” in .json file (in solver clause) according to the name of the snapshot.</p>
+</div>
+<div class="section" id="could-the-post-training-model-from-hugectr-be-imported-into-other-frameworks-such-as-tensorflow-for-inference-deployment">
+<h2>20. Could the post training model from HugeCTR be imported into other frameworks such as TensorFlow for inference deployment?<a class="headerlink" href="#could-the-post-training-model-from-hugectr-be-imported-into-other-frameworks-such-as-tensorflow-for-inference-deployment" title="Permalink to this headline"></a></h2>
+<p>Yes. The training model in HugeCTR is saved in raw format, and you can import it to other frameworks by writing some scripts.
+We provide a tutorial to demonstrate how to import the HugeCTR trained model to TensorFlow.
+Refer to the dump_to_tf tutorial in the <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/tree/master/tutorial">tutorial</a> directory of the HugeCTR repository on GitHub.</p>
+</div>
+<div class="section" id="does-hugectr-support-overlap-between-different-slots">
+<h2>21. Does HugeCTR support overlap between different slots?<a class="headerlink" href="#does-hugectr-support-overlap-between-different-slots" title="Permalink to this headline"></a></h2>
+<p>Features in different slots must be unique (no overlap). You may want to preprocess the data if you have overlaps e.g. offset or use hash function.</p>
+</div>
+<div class="section" id="what-if-there-s-no-value-in-a-slot">
+<h2>22. What if there’s no value in a slot?<a class="headerlink" href="#what-if-there-s-no-value-in-a-slot" title="Permalink to this headline"></a></h2>
+<p>nnz=0 is supported in HugeCTR input. That means no features will be looked up.</p>
+</div>
+<div class="section" id="how-can-i-benchmark-my-network">
+<h2>23. How can I benchmark my network?<a class="headerlink" href="#how-can-i-benchmark-my-network" title="Permalink to this headline"></a></h2>
+<p>Firstly, you should construct your own configure file. You can refer to our <a class="reference internal" href="hugectr_user_guide.html"><span class="doc std std-doc">User Guide</span></a> and samples.
+Secondly, using our <code class="docutils literal notranslate"><span class="pre">data_generator</span></code> to generate a random dataset. See the <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR#getting-started">Getting Started</a> section of the HugeCTR repository README for an example.
+Thirdly, run with <code class="docutils literal notranslate"><span class="pre">./huge_ctr</span> <span class="pre">--train</span> <span class="pre">./your_config.json</span></code></p>
+</div>
+<div class="section" id="how-to-set-workspace-size-per-gpu-in-mb-and-slot-size-array">
+<h2>24. How to set workspace_size_per_gpu_in_mb and slot_size_array?<a class="headerlink" href="#how-to-set-workspace-size-per-gpu-in-mb-and-slot-size-array" title="Permalink to this headline"></a></h2>
+<p>As embeddings are model-parallel in HugeCTR,
+<code class="docutils literal notranslate"><span class="pre">workspace_size_per_gpu_in_mb</span></code> is a reference number for HugeCTR to allocate GPU memory accordingly and not necessarily the exact number of features in your dataset.
+The value to set depends on the vocabulary size per GPU, the embedding vector size, and the optimizer type.
+Refer to the embedding workspace calculator in the <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/tree/master/tools">tools</a> directory of the HugeCTR repository on GitHub.
+Use the calculator to calculate the vocabulary size per GPU and workspace_size per GPU for different embedding types, embedding vector size, and optimizer type.</p>
+<p>In practice, we usually set the values larger than the real size because of the non-uniform distribution of the keys.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">slot_size_array</span></code> argument has 2 usages.
+You can use it as a replacement for <code class="docutils literal notranslate"><span class="pre">workspace_size_per_gpu_in_mb</span></code> to avoid wasting memory that is caused by imbalanced vocabulary size.
+You can also use it as a reference to add an offset for keys in a different slot.</p>
+<p>When you specify <code class="docutils literal notranslate"><span class="pre">slot_size_array</span></code> to avoid wasting memory, set each value in the array to the maximum key value in each slot.
+Refer to the following equation:</p>
+<p><span class="math notranslate nohighlight">\(slot\_size\_array[k] = \max\limits_i slot^k_i + 1\)</span></p>
+<p>Refer to the following list for information about the relation between embedding type, the <code class="docutils literal notranslate"><span class="pre">workspace_size_per_gpu_in_mb</span></code> value, and the <code class="docutils literal notranslate"><span class="pre">slot_size_array</span></code> value:</p>
+<ul class="simple">
+<li><p>For <code class="docutils literal notranslate"><span class="pre">DistributedSlotEmbedding</span></code>, specify a value for <code class="docutils literal notranslate"><span class="pre">workspace_size_per_gpu_in_mb</span></code>.
+The <code class="docutils literal notranslate"><span class="pre">slot_size_array</span></code> argument is not needed.
+Each GPU allocates the same amount of memory for the embedding table usage.</p></li>
+<li><p>For <code class="docutils literal notranslate"><span class="pre">LocalizedSlotSparseEmbeddingHash</span></code>, specify only one of <code class="docutils literal notranslate"><span class="pre">workspace_size_per_gpu_in_mb</span></code> or <code class="docutils literal notranslate"><span class="pre">slot_size_array</span></code>.
+If you can provide the exact size for each slot, we recommend that you specify <code class="docutils literal notranslate"><span class="pre">slot_size_array</span></code>.
+The <code class="docutils literal notranslate"><span class="pre">slot_size_array</span></code> argument can help avoid wasting memory that is caused by an imbalanced vocabulary size.
+As an alternative, you can specify <code class="docutils literal notranslate"><span class="pre">workspace_size_per_gpu_in_mb</span></code> so that each GPU allocates the same amount of memory for the embedding table usage.
+If you specify both <code class="docutils literal notranslate"><span class="pre">slot_size_array</span></code> and <code class="docutils literal notranslate"><span class="pre">workspace_size_per_gpu_in_mb</span></code>, HugeCTR uses <code class="docutils literal notranslate"><span class="pre">slot_size_array</span></code> for <code class="docutils literal notranslate"><span class="pre">LocalizedSlotSparseEmbeddingHash</span></code>.</p></li>
+<li><p>For <code class="docutils literal notranslate"><span class="pre">LocalizedSlotSparseEmbeddingOneHot</span></code>, you must specify <code class="docutils literal notranslate"><span class="pre">slot_size_array</span></code>.
+The <code class="docutils literal notranslate"><span class="pre">slot_size_array</span></code> argument is used for allocating memory and adding an offset for each slot.</p></li>
+<li><p>For <code class="docutils literal notranslate"><span class="pre">HybridSparseEmbedding</span></code>, specify both <code class="docutils literal notranslate"><span class="pre">workspace_size_per_gpu_in_mb</span></code> and <code class="docutils literal notranslate"><span class="pre">slot_size_array</span></code>.
+The <code class="docutils literal notranslate"><span class="pre">workspace_size_per_gpu_in_md</span></code> argument is used for allocating memory while <code class="docutils literal notranslate"><span class="pre">slot_size_array</span></code> is used for adding an offset for the embedding table usage.</p></li>
+</ul>
+</div>
+<div class="section" id="is-nvlink-required-in-hugectr">
+<h2>25. Is nvlink required in HugeCTR?<a class="headerlink" href="#is-nvlink-required-in-hugectr" title="Permalink to this headline"></a></h2>
+<p>GPU with nvlink is not required, but recommended because the performance of CTR training highly relies on the performance of inter-GPUs communication. GPU servers with PCIE connections are also supported.</p>
+</div>
+<div class="section" id="is-dgx-the-only-gpu-server-that-is-required-in-hugectr">
+<h2>26. Is DGX the only GPU server that is required in HugeCTR?<a class="headerlink" href="#is-dgx-the-only-gpu-server-that-is-required-in-hugectr" title="Permalink to this headline"></a></h2>
+<p>DGX is not required, but recommended, because the performance of CTR training highly relies on the performance of inter-GPUs transactions. DGX has NVLink and NVSwitch inside, so that you can expect 150GB/s per direction per GPU. It’s 9.3x to PCI-E 3.0.</p>
+</div>
+<div class="section" id="id1">
+<h2>27. Can HugeCTR run without InfiniBand?<a class="headerlink" href="#id1" title="Permalink to this headline"></a></h2>
+<p>For multi-node training, InfiniBand is recommended but not required. You can use any solution with UCX support. InfiniBand with GPU RDMA support will maximize performance of inter-node transactions.</p>
+</div>
+<div class="section" id="does-hugectr-support-loading-pretrained-embeddings-in-other-formats">
+<h2>28. Does HugeCTR support loading pretrained embeddings in other formats?<a class="headerlink" href="#does-hugectr-support-loading-pretrained-embeddings-in-other-formats" title="Permalink to this headline"></a></h2>
+<p>You can convert the pretrained embeddings to the HugeCTR sparse models and then load them to facilitate the training process. You can refer to <a class="reference internal" href="api/python_interface.html#save-params-to-files-method"><span class="std std-doc">save_params_to_files</span></a> to get familiar with the HugeCTR sparse model format. We demonstrate the usage in 3.4 Load Pre-trained Embeddings of <a class="reference internal" href="notebooks/hugectr_criteo.html"><span class="doc std std-doc">hugectr_criteo.ipynb</span></a>.</p>
+</div>
+<div class="section" id="how-to-construct-the-model-graph-with-branch-topology-in-hugectr">
+<h2>29. How to construct the model graph with branch topology in HugeCTR?<a class="headerlink" href="#how-to-construct-the-model-graph-with-branch-topology-in-hugectr" title="Permalink to this headline"></a></h2>
+<p>The branch topology is inherently supported by HugeCTR model graph, and extra layers are abstracted away in HugeCTR Python Interface.
+Refer to the <a class="reference internal" href="api/hugectr_layer_book.html#slice-layer"><span class="std std-doc">Slice Layer</span></a> for information about model graphs with branches and sample code.</p>
+</div>
+<div class="section" id="what-is-the-good-practice-of-configuring-the-embedding-vector-size">
+<h2>30. What is the good practice of configuring the embedding vector size?<a class="headerlink" href="#what-is-the-good-practice-of-configuring-the-embedding-vector-size" title="Permalink to this headline"></a></h2>
+<p>The embedding vector size is related to the size of Cooperative Thread Array (CTA) for HugeCTR kernel launching, so first and foremost it should not exceed the maximum number of threads per block. It would be better that it is configured to a multiple of the warp size for the sake of occupancy. Still, you can set the embedding vector size freely according to the specific model architecture as long as it complies with the limit.</p>
+</div>
+<div class="section" id="how-to-resolve-the-bus-error-when-running-hugectr-samples-and-notebooks">
+<h2>31. How to resolve the bus error when running HugeCTR samples and notebooks?<a class="headerlink" href="#how-to-resolve-the-bus-error-when-running-hugectr-samples-and-notebooks" title="Permalink to this headline"></a></h2>
+<p>HugeCTR uses NCCL to share data between ranks, and NCCL may requires shared memory for IPC and pinned (page-locked) system memory resources. The bus error is related to the limited resources and can be resolved by issuing the following options in the docker run command.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>--ipc<span class="o">=</span>host --ulimit <span class="nv">memlock</span><span class="o">=</span>-1 --ulimit <span class="nv">stack</span><span class="o">=</span><span class="m">67108864</span>
+</pre></div>
+</div>
+</div>
+</div>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="hugectr_talks_blogs.html" class="btn btn-neutral float-left" title="HugeCTR Talks and Blogs" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="release_notes.html" class="btn btn-neutral float-right" title="Release Notes" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, NVIDIA.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    v: v3.8
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="../v3.5/QAList.html">v3.5</a></dd>
+      <dd><a href="../v3.6/QAList.html">v3.6</a></dd>
+      <dd><a href="../v3.7/QAList.html">v3.7</a></dd>
+      <dd><a href="QAList.html">v3.8</a></dd>
+    </dl>
+    <dl>
+      <dt>Branches</dt>
+      <dd><a href="../master/QAList.html">master</a></dd>
+    </dl>
+  </div>
+</div><script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
