@@ -84,14 +84,41 @@ class ForwardNetworkTest : public HybridEmbeddingUnitTest<dtype, emtype> {
     for (size_t i = 0; i < this->num_instances; i++) {
       upload_tensor(cpu_embedding.frequent_embedding_vectors[i],
                     this->get_frequent_embedding_data(i).frequent_embedding_vectors_, this->stream);
-      upload_tensor(cpu_embedding.infrequent_embedding_vectors[i],
-                    this->infrequent_embeddings[i].infrequent_embedding_vectors_, this->stream);
+
+      if (single_node) {
+        upload_tensor(cpu_embedding.infrequent_embedding_vectors[i],
+                      this->infrequent_embeddings_single_node[i].infrequent_embedding_vectors_,
+                      this->stream);
+      }
+      if (this->config.comm_type == CommunicationType::IB_NVLink_Hier) {
+        upload_tensor(cpu_embedding.infrequent_embedding_vectors[i],
+                      this->infrequent_embeddings_ib_nvlink_hier[i].infrequent_embedding_vectors_,
+                      this->stream);
+      }
+      if (this->config.comm_type == CommunicationType::IB_NVLink) {
+        upload_tensor(cpu_embedding.infrequent_embedding_vectors[i],
+                      this->infrequent_embeddings_ib_nvlink[i].infrequent_embedding_vectors_,
+                      this->stream);
+      }
     }
+
     for (size_t i = 0; i < this->num_instances; i++) {
+      // this->frequent_embeddings[i].set_current_indices(&this->frequent_embedding_indices[i],
+      // this->stream);
       this->get_frequent_embedding(i).set_current_indices(&this->frequent_embedding_indices[i],
                                                           this->stream);
-      this->infrequent_embeddings[i].set_current_indices(&this->infrequent_embedding_indices[i],
-                                                         this->stream);
+      if (single_node) {
+        this->infrequent_embeddings_single_node[i].set_current_indices(
+            &this->infrequent_embedding_indices[i], this->stream);
+      }
+      if (this->config.comm_type == CommunicationType::IB_NVLink_Hier) {
+        this->infrequent_embeddings_ib_nvlink_hier[i].set_current_indices(
+            &this->infrequent_embedding_indices[i], this->stream);
+      }
+      if (this->config.comm_type == CommunicationType::IB_NVLink) {
+        this->infrequent_embeddings_ib_nvlink[i].set_current_indices(
+            &this->infrequent_embedding_indices[i], this->stream);
+      }
 
       if (single_node) {
         this->frequent_embeddings_single_node[i].indices_->calculate_cache_masks(this->stream);
@@ -110,21 +137,29 @@ class ForwardNetworkTest : public HybridEmbeddingUnitTest<dtype, emtype> {
             interaction_layer_input[i].get_ptr(), this->stream);
       }
       if (single_node) {
-        this->infrequent_embeddings[i].indices_->calculate_model_indices(this->stream);
-        HCTR_LIB_THROW(cudaMemcpyAsync(
-            this->infrequent_embeddings[i].interaction_layer_input_pointers_train_.get_ptr(),
-            interaction_layer_input_pointers_.data(), this->num_instances * sizeof(emtype *),
-            cudaMemcpyHostToDevice, this->stream));
-        this->infrequent_embeddings[i].forward_network_direct(true, this->stream);
+        this->infrequent_embeddings_single_node[i].indices_->calculate_model_indices(this->stream);
+        HCTR_LIB_THROW(cudaMemcpyAsync(this->infrequent_embeddings_single_node[i]
+                                           .interaction_layer_input_pointers_train_.get_ptr(),
+                                       interaction_layer_input_pointers_.data(),
+                                       this->num_instances * sizeof(emtype *),
+                                       cudaMemcpyHostToDevice, this->stream));
+        this->infrequent_embeddings_single_node[i].forward_network_direct(true, this->stream);
       } else {
-        this->infrequent_embeddings[i].indices_->calculate_network_indices(80, this->stream);
+        if (this->config.comm_type == CommunicationType::IB_NVLink_Hier) {
+          this->infrequent_embeddings_ib_nvlink_hier[i].indices_->calculate_network_indices(
+              80, this->stream);
+        } else {
+          this->infrequent_embeddings_ib_nvlink[i].indices_->calculate_network_indices(
+              80, this->stream);
+        }
+        // this->infrequent_embeddings[i].indices_->calculate_network_indices(80, this->stream);
         upload_tensor(cpu_embedding.forward_received_messages[i], received_messages[i],
                       this->stream);
         if (this->config.comm_type == CommunicationType::IB_NVLink_Hier) {
-          this->infrequent_embeddings[i].hier_forward_network(
+          this->infrequent_embeddings_ib_nvlink_hier[i].hier_forward_network(
               received_messages[i].get_ptr(), interaction_layer_input[i].get_ptr(), this->stream);
-        } else {
-          this->infrequent_embeddings[i].forward_network(
+        } else {  // ib_nvlink
+          this->infrequent_embeddings_ib_nvlink[i].forward_network(
               received_messages[i].get_ptr(), interaction_layer_input[i].get_ptr(), this->stream);
         }
       }

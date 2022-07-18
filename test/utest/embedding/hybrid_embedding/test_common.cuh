@@ -45,7 +45,13 @@ class HybridEmbeddingUnitTest {
   std::vector<Data<dtype>> data_list;
   std::vector<FrequentEmbeddingSingleNode<dtype, emtype>> frequent_embeddings_single_node;
   std::vector<FrequentEmbeddingMultiNode<dtype, emtype>> frequent_embeddings_multi_node;
-  std::vector<InfrequentEmbedding<dtype, emtype>> infrequent_embeddings;
+
+  // std::vector<InfrequentEmbedding<dtype, emtype>> infrequent_embeddings;
+  std::vector<InfrequentEmbedding_NVLink_SingleNode<dtype, emtype>>
+      infrequent_embeddings_single_node;
+  std::vector<InfrequentEmbedding_IB_NVLINK<dtype, emtype>> infrequent_embeddings_ib_nvlink;
+  std::vector<InfrequentEmbedding_IB_NVLink_Hier<dtype, emtype>>
+      infrequent_embeddings_ib_nvlink_hier;
 
   std::vector<FrequentEmbeddingCompression<dtype>> frequent_embedding_indices;
   std::vector<InfrequentEmbeddingSelection<dtype>> infrequent_embedding_indices;
@@ -105,6 +111,7 @@ class HybridEmbeddingUnitTest {
     } else {
       frequent_embeddings_multi_node.reserve(num_instances);
     }
+
     for (size_t i = 0; i < num_instances; i++) {
       std::shared_ptr<BufferBlock2<emtype>> placeholder = NULL;
       if (config.comm_type == CommunicationType::NVLink_SingleNode) {
@@ -133,14 +140,36 @@ class HybridEmbeddingUnitTest {
   }
 
   void build_infrequent() {
-    infrequent_embeddings.reserve(num_instances);
-    for (size_t i = 0; i < num_instances; i++) {
-      infrequent_embeddings.emplace_back(model_list[i], fake_resource, embedding_vec_size);
-      infrequent_embedding_indices.emplace_back(data_list[i], model_list[i]);
-      uint32_t samples_size = data_list[i].batch_size * data_list[i].table_sizes.size();
-      infrequent_embeddings[i].max_num_infrequent_per_batch_ = samples_size;
-      infrequent_embeddings[i].max_num_infrequent_per_train_batch_ = samples_size;
+    if (config.comm_type == CommunicationType::NVLink_SingleNode) {
+      infrequent_embeddings_single_node.reserve(num_instances);
+      for (size_t i = 0; i < num_instances; i++) {
+        infrequent_embeddings_single_node.emplace_back(model_list[i], fake_resource,
+                                                       embedding_vec_size);
+        infrequent_embedding_indices.emplace_back(data_list[i], model_list[i]);
+      }
     }
+
+    if (config.comm_type == CommunicationType::IB_NVLink) {
+      infrequent_embeddings_ib_nvlink.reserve(num_instances);
+      for (size_t i = 0; i < num_instances; i++) {
+        infrequent_embeddings_ib_nvlink.emplace_back(model_list[i], fake_resource,
+                                                     embedding_vec_size);
+        infrequent_embedding_indices.emplace_back(data_list[i], model_list[i]);
+      }
+    }
+
+    if (config.comm_type == CommunicationType::IB_NVLink_Hier) {
+      infrequent_embeddings_ib_nvlink_hier.reserve(num_instances);
+      for (size_t i = 0; i < num_instances; i++) {
+        infrequent_embeddings_ib_nvlink_hier.emplace_back(model_list[i], fake_resource,
+                                                          embedding_vec_size);
+        infrequent_embedding_indices.emplace_back(data_list[i], model_list[i]);
+        uint32_t samples_size = data_list[i].batch_size * data_list[i].table_sizes.size();
+        infrequent_embeddings_ib_nvlink_hier[i].max_num_infrequent_per_batch_ = samples_size;
+        infrequent_embeddings_ib_nvlink_hier[i].max_num_infrequent_per_train_batch_ = samples_size;
+      }
+    }
+
   }
 
   ncclComm_t get_fake_comm() {
