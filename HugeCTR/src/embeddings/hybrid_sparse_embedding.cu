@@ -102,9 +102,10 @@ HybridSparseEmbedding<dtype, emtype>::HybridSparseEmbedding(
     } else {
       frequent_embeddings_multi_node_.reserve(local_gpu_count);
     }
-    infrequent_embeddings_.reserve(local_gpu_count);
-    infrequent_forward_comm_buffers_.reserve(local_gpu_count);
-    infrequent_backward_comm_buffers_.reserve(local_gpu_count);
+
+    infrequent_embeddings_single_node_.reserve(local_gpu_count);
+    infrequent_embeddings_ib_nvlink_.reserve(local_gpu_count);
+    infrequent_embeddings_ib_nvlink_hier_.reserve(local_gpu_count);
 
     assert(bufs_.empty());
     CudaDeviceContext context;
@@ -190,7 +191,19 @@ HybridSparseEmbedding<dtype, emtype>::HybridSparseEmbedding(
       }
 
       // 2.7 construct infrequent embedding
-      infrequent_embeddings_.emplace_back(model_[i], get_local_gpu(i), get_embedding_vec_size());
+      if (embedding_params_.communication_type == CommunicationType::NVLink_SingleNode) {
+        infrequent_embeddings_single_node_.emplace_back(model_[i], get_local_gpu(i),
+                                                        get_embedding_vec_size());
+      }
+      if (embedding_params_.communication_type == CommunicationType::IB_NVLink) {
+        infrequent_embeddings_ib_nvlink_.emplace_back(model_[i], get_local_gpu(i),
+                                                      get_embedding_vec_size());
+      }
+      if (embedding_params_.communication_type == CommunicationType::IB_NVLink_Hier) {
+        infrequent_embeddings_ib_nvlink_hier_.emplace_back(model_[i], get_local_gpu(i),
+                                                           get_embedding_vec_size());
+      }
+
       if (!embedding_params_.use_train_precompute_indices) {
         infrequent_embedding_train_indices_.emplace_back(data_train_[i], model_[i]);
       }
@@ -203,56 +216,16 @@ HybridSparseEmbedding<dtype, emtype>::HybridSparseEmbedding(
         size_t max_buf_size = embedding_params_.embedding_vec_size *
                               std::max(get_batch_size(true), get_batch_size(false)) *
                               embedding_params_.slot_num;
-        infrequent_forward_comm_buffers_.emplace_back(buf.get(), max_buf_size);
-        infrequent_backward_comm_buffers_.emplace_back(buf.get(), max_buf_size);
-        infrequent_forward_comms_.emplace_back(std::make_unique<AllToAll_Multi_NCCL<emtype>>(
-            infrequent_forward_comm_buffers_.back().send_buffer,
-            infrequent_forward_comm_buffers_.back().recv_buffer,
-            infrequent_embeddings_.back().get_model_indices_offsets_ptr(),
-            infrequent_embeddings_.back().get_network_indices_offsets_ptr(), &get_local_gpu(i),
-            embedding_params_.embedding_vec_size));
-        infrequent_backward_comms_.emplace_back(std::make_unique<AllToAll_Multi_NCCL<emtype>>(
-            infrequent_backward_comm_buffers_.back().send_buffer,
-            infrequent_backward_comm_buffers_.back().recv_buffer,
-            infrequent_embeddings_.back().get_network_indices_offsets_ptr(),
-            infrequent_embeddings_.back().get_model_indices_offsets_ptr(), &get_local_gpu(i),
-            embedding_params_.embedding_vec_size));
+        infrequent_embeddings_ib_nvlink_.back().init_comms(
+            embedding_params_.embedding_vec_size, &get_local_gpu(i), buf.get(), max_buf_size);
       }
 
       // Construct comm buffers
       if (embedding_params_.communication_type == CommunicationType::IB_NVLink_Hier) {
-        double p_infrequent_samples = 1.0;
-        if (embedding_params_.max_num_infrequent_samples >= 0) {
-          p_infrequent_samples = (double)embedding_params_.max_num_infrequent_samples /
-                                 ((double)get_batch_size(true) * embedding_params_.slot_num);
-        }
-        auto align = [this, i](size_t val) {
-          auto alignment = model_[i].num_instances;
-          return ((val + alignment - 1) / alignment) * alignment;
-        };
-
-        infrequent_embeddings_[i].max_num_infrequent_per_batch_ =
-            align(std::max(get_batch_size(true), get_batch_size(false)) *
-                  embedding_params_.slot_num * p_infrequent_samples);
-
-        infrequent_embeddings_[i].max_num_infrequent_per_train_batch_ =
-            align(get_batch_size(true) * embedding_params_.slot_num * p_infrequent_samples);
-
-        size_t max_buf_size = embedding_params_.embedding_vec_size *
-                              infrequent_embeddings_[i].max_num_infrequent_per_batch_;
-        size_t max_back_buf_size = embedding_params_.embedding_vec_size *
-                                   infrequent_embeddings_[i].max_num_infrequent_per_train_batch_;
-
-        HCTR_LOG_S(INFO, ROOT) << "Allocating A2A buffers for infrequent categories. For training: "
-                               << infrequent_embeddings_[i].max_num_infrequent_per_train_batch_
-                               << ", for evaluation:  "
-                               << infrequent_embeddings_[i].max_num_infrequent_per_batch_
-                               << std::endl;
-
-        infrequent_backward_comm_buffers_.emplace_back(buf.get(), max_back_buf_size);
-        infrequent_forward_comm_buffers_.emplace_back(buf.get(), max_buf_size);
-        buf->reserve({local_gpu_count}, &infrequent_forward_comm_buffers_.back().send_buffer_ptrs);
-        buf->reserve({local_gpu_count}, &infrequent_backward_comm_buffers_.back().send_buffer_ptrs);
+        infrequent_embeddings_ib_nvlink_hier_[i].init_comms(
+            embedding_params_.max_num_infrequent_samples, embedding_params_.slot_num,
+            embedding_params_.embedding_vec_size, buf.get(), get_batch_size(true),
+            get_batch_size(false), local_gpu_count);
       }
 
       // For global barrier in eval
@@ -294,11 +267,14 @@ HybridSparseEmbedding<dtype, emtype>::HybridSparseEmbedding(
       std::vector<emtype *> h_fwd_send_buffer_ptrs(local_gpu_count);
       std::vector<emtype *> h_bwd_send_buffer_ptrs(local_gpu_count);
       for (uint32_t i = 0; i < local_gpu_count; i++) {
-        h_model_indices_sizes_ptrs[i] = infrequent_embeddings_[i].model_indices_sizes_.get_ptr();
+        h_model_indices_sizes_ptrs[i] =
+            infrequent_embeddings_ib_nvlink_hier_[i].model_indices_sizes_.get_ptr();
         h_network_indices_sizes_ptrs[i] =
-            infrequent_embeddings_[i].network_indices_sizes_.get_ptr();
-        h_fwd_send_buffer_ptrs[i] = infrequent_forward_comm_buffers_[i].send_buffer.get_ptr();
-        h_bwd_send_buffer_ptrs[i] = infrequent_backward_comm_buffers_[i].send_buffer.get_ptr();
+            infrequent_embeddings_ib_nvlink_hier_[i].network_indices_sizes_.get_ptr();
+        h_fwd_send_buffer_ptrs[i] = infrequent_embeddings_ib_nvlink_hier_[i]
+                                        .infrequent_forward_comm_buffers_->send_buffer.get_ptr();
+        h_bwd_send_buffer_ptrs[i] = infrequent_embeddings_ib_nvlink_hier_[i]
+                                        .infrequent_backward_comm_buffers_->send_buffer.get_ptr();
       }
 
       // Forward coll init
@@ -308,23 +284,25 @@ HybridSparseEmbedding<dtype, emtype>::HybridSparseEmbedding(
         context.set_device(cur_device);
 
         // download pointers
-        HCTR_LIB_THROW(
-            cudaMemcpyAsync(infrequent_embeddings_[i].model_indices_sizes_ptrs_.get_ptr(),
-                            h_model_indices_sizes_ptrs.data(), sizeof(size_t *) * local_gpu_count,
-                            cudaMemcpyHostToDevice, get_local_gpu(i).get_stream()));
+        HCTR_LIB_THROW(cudaMemcpyAsync(
+            infrequent_embeddings_ib_nvlink_hier_[i].model_indices_sizes_ptrs_.get_ptr(),
+            h_model_indices_sizes_ptrs.data(), sizeof(size_t *) * local_gpu_count,
+            cudaMemcpyHostToDevice, get_local_gpu(i).get_stream()));
+
+        HCTR_LIB_THROW(cudaMemcpyAsync(
+            infrequent_embeddings_ib_nvlink_hier_[i].network_indices_sizes_ptrs_.get_ptr(),
+            h_network_indices_sizes_ptrs.data(), sizeof(size_t *) * local_gpu_count,
+            cudaMemcpyHostToDevice, get_local_gpu(i).get_stream()));
 
         HCTR_LIB_THROW(
-            cudaMemcpyAsync(infrequent_embeddings_[i].network_indices_sizes_ptrs_.get_ptr(),
-                            h_network_indices_sizes_ptrs.data(), sizeof(size_t *) * local_gpu_count,
-                            cudaMemcpyHostToDevice, get_local_gpu(i).get_stream()));
-
-        HCTR_LIB_THROW(
-            cudaMemcpyAsync(infrequent_forward_comm_buffers_[i].send_buffer_ptrs.get_ptr(),
+            cudaMemcpyAsync(infrequent_embeddings_ib_nvlink_hier_[i]
+                                .infrequent_forward_comm_buffers_->send_buffer_ptrs.get_ptr(),
                             h_fwd_send_buffer_ptrs.data(), sizeof(emtype *) * local_gpu_count,
                             cudaMemcpyHostToDevice, get_local_gpu(i).get_stream()));
 
         HCTR_LIB_THROW(
-            cudaMemcpyAsync(infrequent_backward_comm_buffers_[i].send_buffer_ptrs.get_ptr(),
+            cudaMemcpyAsync(infrequent_embeddings_ib_nvlink_hier_[i]
+                                .infrequent_backward_comm_buffers_->send_buffer_ptrs.get_ptr(),
                             h_bwd_send_buffer_ptrs.data(), sizeof(emtype *) * local_gpu_count,
                             cudaMemcpyHostToDevice, get_local_gpu(i).get_stream()));
 
@@ -336,15 +314,21 @@ HybridSparseEmbedding<dtype, emtype>::HybridSparseEmbedding(
 
         ib_comm_->set_a2a_coll_buf(
             infrequent_forward_coll_handle,
-            infrequent_forward_comm_buffers_[i].send_buffer.get_ptr(),
-            infrequent_forward_comm_buffers_[i].send_buffer.get_size_in_bytes(),
-            infrequent_forward_comm_buffers_[i].recv_buffer.get_ptr(),
-            infrequent_forward_comm_buffers_[i].recv_buffer.get_size_in_bytes(), i);
+            infrequent_embeddings_ib_nvlink_hier_[i]
+                .infrequent_forward_comm_buffers_->send_buffer.get_ptr(),
+            infrequent_embeddings_ib_nvlink_hier_[i]
+                .infrequent_forward_comm_buffers_->send_buffer.get_size_in_bytes(),
+            infrequent_embeddings_ib_nvlink_hier_[i]
+                .infrequent_forward_comm_buffers_->recv_buffer.get_ptr(),
+            infrequent_embeddings_ib_nvlink_hier_[i]
+                .infrequent_forward_comm_buffers_->recv_buffer.get_size_in_bytes(),
+            i);
 
-        infrequent_forward_comms_.emplace_back(std::make_unique<HierAll2Allv_Multi_IB<emtype>>(
-            i, infrequent_forward_coll_handle,
-            infrequent_embeddings_[i].model_indices_sizes_ptrs_.get_ptr(), &get_local_gpu(i),
-            ib_comm_, comm_stream_[i]));
+        infrequent_embeddings_ib_nvlink_hier_[i].infrequent_forward_comms_ =
+            std::make_unique<HierAll2Allv_Multi_IB<emtype>>(
+                i, infrequent_forward_coll_handle,
+                infrequent_embeddings_ib_nvlink_hier_[i].model_indices_sizes_ptrs_.get_ptr(),
+                &get_local_gpu(i), ib_comm_, comm_stream_[i]);
       }
       ib_comm_->register_a2a_coll_buf(infrequent_forward_coll_handle);
 
@@ -357,15 +341,21 @@ HybridSparseEmbedding<dtype, emtype>::HybridSparseEmbedding(
         ib_comm_->set_a2a_coll_stream(infrequent_backward_coll_handle, comm_stream_[i], i);
         ib_comm_->set_a2a_coll_buf(
             infrequent_backward_coll_handle,
-            infrequent_backward_comm_buffers_[i].send_buffer.get_ptr(),
-            infrequent_backward_comm_buffers_[i].send_buffer.get_size_in_bytes(),
-            infrequent_backward_comm_buffers_[i].recv_buffer.get_ptr(),
-            infrequent_backward_comm_buffers_[i].recv_buffer.get_size_in_bytes(), i);
+            infrequent_embeddings_ib_nvlink_hier_[i]
+                .infrequent_backward_comm_buffers_->send_buffer.get_ptr(),
+            infrequent_embeddings_ib_nvlink_hier_[i]
+                .infrequent_backward_comm_buffers_->send_buffer.get_size_in_bytes(),
+            infrequent_embeddings_ib_nvlink_hier_[i]
+                .infrequent_backward_comm_buffers_->recv_buffer.get_ptr(),
+            infrequent_embeddings_ib_nvlink_hier_[i]
+                .infrequent_backward_comm_buffers_->recv_buffer.get_size_in_bytes(),
+            i);
 
-        infrequent_backward_comms_.emplace_back(std::make_unique<HierAll2Allv_Multi_IB<emtype>>(
-            i, infrequent_backward_coll_handle,
-            infrequent_embeddings_[i].network_indices_sizes_ptrs_.get_ptr(), &get_local_gpu(i),
-            ib_comm_, comm_stream_[i]));
+        infrequent_embeddings_ib_nvlink_hier_[i].infrequent_backward_comms_ =
+            std::make_unique<HierAll2Allv_Multi_IB<emtype>>(
+                i, infrequent_backward_coll_handle,
+                infrequent_embeddings_ib_nvlink_hier_[i].network_indices_sizes_ptrs_.get_ptr(),
+                &get_local_gpu(i), ib_comm_, comm_stream_[i]);
       }
       ib_comm_->register_a2a_coll_buf(infrequent_backward_coll_handle);
 #else
@@ -404,18 +394,10 @@ HybridSparseEmbedding<dtype, emtype>::HybridSparseEmbedding(
             frequent_embeddings_single_node_[i].embedding_vectors_cache_pointers_.get_ptr(),
             frequent_vectors_cache_pointers.data(), local_gpu_count * sizeof(float *),
             cudaMemcpyHostToDevice, get_local_gpu(i).get_stream()));
-        HCTR_LIB_THROW(cudaMemcpyAsync(
-            infrequent_embeddings_[i].interaction_layer_input_pointers_train_.get_ptr(),
-            interaction_layer_input_pointers_train.data(), local_gpu_count * sizeof(emtype *),
-            cudaMemcpyHostToDevice, get_local_gpu(i).get_stream()));
-        HCTR_LIB_THROW(cudaMemcpyAsync(
-            infrequent_embeddings_[i].interaction_layer_input_pointers_eval_.get_ptr(),
-            interaction_layer_input_pointers_eval.data(), local_gpu_count * sizeof(emtype *),
-            cudaMemcpyHostToDevice, get_local_gpu(i).get_stream()));
-        HCTR_LIB_THROW(cudaMemcpyAsync(infrequent_embeddings_[i].gradients_pointers_.get_ptr(),
-                                       gradients_pointers.data(),
-                                       local_gpu_count * sizeof(emtype *), cudaMemcpyHostToDevice,
-                                       get_local_gpu(i).get_stream()));
+
+        infrequent_embeddings_single_node_[i].init_pointers(
+            local_gpu_count, get_local_gpu(i).get_stream(), interaction_layer_input_pointers_train,
+            interaction_layer_input_pointers_eval, gradients_pointers);
         HCTR_LIB_THROW(cudaMemcpyAsync(
             frequent_embeddings_single_node_[i].partial_gradients_pointers_.get_ptr(),
             frequent_partial_gradients_pointers.data(), local_gpu_count * sizeof(emtype *),
@@ -443,7 +425,19 @@ void HybridSparseEmbedding<dtype, emtype>::init_model(const SparseTensors<dtype>
 
     get_frequent_embedding_data(id).initialize_embedding_vectors(data_statistics_[id].table_sizes,
                                                                  wgrad_offset_in_bytes);
-    infrequent_embeddings_[id].initialize_embedding_vectors(data_statistics_[id].table_sizes);
+
+    if (embedding_params_.communication_type == CommunicationType::NVLink_SingleNode) {
+      infrequent_embeddings_single_node_[id].initialize_embedding_vectors(
+          data_statistics_[id].table_sizes);
+    }
+    if (embedding_params_.communication_type == CommunicationType::IB_NVLink) {
+      infrequent_embeddings_ib_nvlink_[id].initialize_embedding_vectors(
+          data_statistics_[id].table_sizes);
+    }
+    if (embedding_params_.communication_type == CommunicationType::IB_NVLink_Hier) {
+      infrequent_embeddings_ib_nvlink_hier_[id].initialize_embedding_vectors(
+          data_statistics_[id].table_sizes);
+    }
 
     if (embedding_params_.max_num_frequent_categories < (size_t)model_[id].num_frequent) {
       HCTR_OWN_THROW(
@@ -499,8 +493,21 @@ void HybridSparseEmbedding<dtype, emtype>::setup_async_mode(AsyncReader<dtype> *
     }
 
     std::vector<InfrequentEmbeddingBase<dtype> *> infrequent_base_ptrs;
-    for (auto &infreq : infrequent_embeddings_) {
-      infrequent_base_ptrs.push_back(dynamic_cast<InfrequentEmbeddingBase<dtype> *>(&infreq));
+
+    if (embedding_params_.communication_type == CommunicationType::NVLink_SingleNode) {
+      for (auto &infreq : infrequent_embeddings_single_node_) {
+        infrequent_base_ptrs.push_back(dynamic_cast<InfrequentEmbeddingBase<dtype> *>(&infreq));
+      }
+    }
+    if (embedding_params_.communication_type == CommunicationType::IB_NVLink) {
+      for (auto &infreq : infrequent_embeddings_ib_nvlink_) {
+        infrequent_base_ptrs.push_back(dynamic_cast<InfrequentEmbeddingBase<dtype> *>(&infreq));
+      }
+    }
+    if (embedding_params_.communication_type == CommunicationType::IB_NVLink_Hier) {
+      for (auto &infreq : infrequent_embeddings_ib_nvlink_hier_) {
+        infrequent_base_ptrs.push_back(dynamic_cast<InfrequentEmbeddingBase<dtype> *>(&infreq));
+      }
     }
 
     return std::make_shared<IndexProcessor<dtype>>(
@@ -564,7 +571,16 @@ void HybridSparseEmbedding<dtype, emtype>::index_calculation(bool is_train, bool
       auto &set_idx_event = stream_manager_.get_event(i, "set_idx");
 
       get_frequent_embedding(i).set_current_indices(frequent_indices, stream);
-      infrequent_embeddings_[i].set_current_indices(infrequent_indices, stream);
+
+      if (embedding_params_.communication_type == CommunicationType::NVLink_SingleNode) {
+        infrequent_embeddings_single_node_[i].set_current_indices(infrequent_indices, stream);
+      }
+      if (embedding_params_.communication_type == CommunicationType::IB_NVLink) {
+        infrequent_embeddings_ib_nvlink_[i].set_current_indices(infrequent_indices, stream);
+      }
+      if (embedding_params_.communication_type == CommunicationType::IB_NVLink_Hier) {
+        infrequent_embeddings_ib_nvlink_hier_[i].set_current_indices(infrequent_indices, stream);
+      }
 
       HCTR_LIB_THROW(cudaEventRecord(set_idx_event, set_idx_stream));
       HCTR_LIB_THROW(cudaStreamWaitEvent(stream, set_idx_event));
@@ -583,56 +599,18 @@ void HybridSparseEmbedding<dtype, emtype>::forward(bool is_train, bool is_first_
 
   PROFILE_RECORD("hybrid_embedding.forward.start", stream, false);
   if (embedding_params_.communication_type == CommunicationType::IB_NVLink) {
-    // TODO: These copies need to be moved to the index computation
-    HCTR_LIB_THROW(
-        cudaMemcpyAsync(infrequent_embeddings_[i].model_indices_offsets_.get_ptr(),
-                        infrequent_embeddings_[i].indices_->model_indices_offsets_.get_ptr(),
-                        infrequent_embeddings_[i].model_indices_offsets_.get_size_in_bytes(),
-                        cudaMemcpyDeviceToDevice, stream));
+    //// TODO: These copies need to be moved to the index computation
+    // TODO, need to split into two parts? before and after frequent_emebedding
+    infrequent_embeddings_ib_nvlink_[i].forward(output.get_ptr(), stream);
 
-    HCTR_LIB_THROW(
-        cudaMemcpyAsync(infrequent_embeddings_[i].network_indices_offsets_.get_ptr(),
-                        infrequent_embeddings_[i].indices_->network_indices_offsets_.get_ptr(),
-                        infrequent_embeddings_[i].network_indices_offsets_.get_size_in_bytes(),
-                        cudaMemcpyDeviceToDevice, stream));
-
-    HCTR_LIB_THROW(cudaStreamSynchronize(stream));
     frequent_embeddings_multi_node_[i].forward_network(output.get_ptr(), stream);
 
-    PROFILE_RECORD("multi_node_inf_forward_model.start", stream, false);
-    infrequent_embeddings_[i].forward_model(
-        infrequent_forward_comm_buffers_[i].send_buffer.get_ptr(), stream);
-    PROFILE_RECORD("multi_node_inf_forward_model.stop", stream, false);
-
-    PROFILE_RECORD("multi_node_inf_forward_a2a.start", stream, false);
-    infrequent_forward_comms_[i]->communicate(stream);
-    PROFILE_RECORD("multi_node_inf_forward_a2a.stop", stream, false);
-
-    PROFILE_RECORD("multi_node_inf_forward_network.start", stream, false);
-    infrequent_embeddings_[i].forward_network(
-        infrequent_forward_comm_buffers_[i].recv_buffer.get_ptr(), output.get_ptr(), stream);
-    PROFILE_RECORD("multi_node_inf_forward_network.stop", stream);
     evt_ptr = nullptr;
 
   } else if (embedding_params_.communication_type == CommunicationType::IB_NVLink_Hier) {
-    PROFILE_RECORD("multi_node_inf_calculate_model_indices_sizes_from_offsets.start", stream);
-    infrequent_embeddings_[i].calculate_model_indices_sizes_from_offsets(stream);
-    PROFILE_RECORD("multi_node_inf_calculate_model_indices_sizes_from_offsets.stop", stream);
-    PROFILE_RECORD("multi_node_inf_calculate_network_indices_sizes_from_offsets.start", stream);
-    infrequent_embeddings_[i].calculate_network_indices_sizes_from_offsets(stream);
-    PROFILE_RECORD("multi_node_inf_calculate_network_indices_sizes_from_offsets.stop", stream);
-    infrequent_forward_comms_[i]->update_sizes(stream);
-
-    PROFILE_RECORD("multi_node_inf_fused_intra_forward_model.start", stream);
-    infrequent_embeddings_[i].fused_intra_forward_model(
-        infrequent_forward_comm_buffers_[i].send_buffer_ptrs.get_ptr(), stream);
-    PROFILE_RECORD("multi_node_inf_fused_intra_forward_model.stop", stream);
-
-    PROFILE_RECORD("multi_node_inf_forward_a2a_init.start", stream);
-    infrequent_forward_comms_[i]->initiate_communication(stream);
-    PROFILE_RECORD("multi_node_inf_forward_a2a_init.stop", stream);
-    // Let's initiate the communication as soon as we can and start every other non-urgent work here
-    // This is for network
+    infrequent_embeddings_ib_nvlink_hier_[i].forward_model(stream);
+    // Let's initiate the communication as soon as we can and start every other non-urgent work
+    // here This is for network
     if (is_train) {
       HCTR_LIB_THROW(cudaEventRecord(*evt_ptr, stream));
     }
@@ -647,9 +625,7 @@ void HybridSparseEmbedding<dtype, emtype>::forward(bool is_train, bool is_first_
       HCTR_LIB_THROW(cudaStreamWaitEvent(stream_side, ready_freq_fwd_net));
     }
 
-    PROFILE_RECORD("multi_node_inf_forward_a2a_wait_completion.stop", stream);
-    infrequent_forward_comms_[i]->wait_completion(stream);
-    PROFILE_RECORD("multi_node_inf_forward_a2a_wait_completion.stop", stream);
+    infrequent_embeddings_ib_nvlink_hier_[i].infrequent_forward_comms_->wait_completion(stream);
 
     if (!is_train) {
       if (eval_overlap_) {
@@ -661,10 +637,10 @@ void HybridSparseEmbedding<dtype, emtype>::forward(bool is_train, bool is_first_
 
     frequent_embeddings_multi_node_[i].forward_network(output.get_ptr(), stream_side);
 
-    PROFILE_RECORD("multi_node_inf_hier_forward_network.start", stream);
-    infrequent_embeddings_[i].hier_forward_network(
-        infrequent_forward_comm_buffers_[i].recv_buffer.get_ptr(), output.get_ptr(), stream);
-    PROFILE_RECORD("multi_node_inf_hier_forward_network.stop", stream, false);
+    infrequent_embeddings_ib_nvlink_hier_[i].hier_forward_network(
+        infrequent_embeddings_ib_nvlink_hier_[i]
+            .infrequent_forward_comm_buffers_->recv_buffer.get_ptr(),
+        output.get_ptr(), stream);
 
     // join back frequent forward network
     HCTR_LIB_THROW(cudaEventRecord(freq_fwd_net_completion, stream_side));
@@ -684,7 +660,7 @@ void HybridSparseEmbedding<dtype, emtype>::forward(bool is_train, bool is_first_
   } else {  // Assuming single node
 
     PROFILE_RECORD("single_node_inf_forward_network_direct.start", stream, false);
-    infrequent_embeddings_[i].forward_network_direct(is_train, stream);
+    infrequent_embeddings_single_node_[i].forward_network_direct(is_train, stream);
     PROFILE_RECORD("single_node_inf_forward_network_direct.stop", stream, false);
 
     // we just need to update frequent cache once in eval
@@ -740,19 +716,18 @@ void HybridSparseEmbedding<dtype, emtype>::backward_pre_communication(int i, cud
   CudaDeviceContext context(cur_device);
 
   if (embedding_params_.communication_type == CommunicationType::IB_NVLink) {
-    PROFILE_RECORD("multi_node_inf_update_network.start", stream);
-    infrequent_embeddings_[i].update_network(
+    infrequent_embeddings_ib_nvlink_[i].update_network(
         train_output_tensors_[i].get_ptr(),
-        infrequent_backward_comm_buffers_[i].send_buffer.get_ptr(), stream);
-    PROFILE_RECORD("multi_node_inf_update_network.stop", stream);
+        infrequent_embeddings_ib_nvlink_[i]
+            .infrequent_backward_comm_buffers_->send_buffer.get_ptr(),
+        stream);
   } else if (embedding_params_.communication_type == CommunicationType::IB_NVLink_Hier) {
-    infrequent_backward_comms_[i]->update_sizes(stream);
-
-    PROFILE_RECORD("multi_node_inf_fused_intra_update_network.start", stream);
-    infrequent_embeddings_[i].fused_intra_update_network(
+    infrequent_embeddings_ib_nvlink_hier_[i].infrequent_backward_comms_->update_sizes(stream);
+    infrequent_embeddings_ib_nvlink_hier_[i].fused_intra_update_network(
         train_output_tensors_[i].get_ptr(),
-        infrequent_backward_comm_buffers_[i].send_buffer_ptrs.get_ptr(), stream);
-    PROFILE_RECORD("multi_node_inf_fused_intra_update_network.stop", stream, false);
+        infrequent_embeddings_ib_nvlink_hier_[i]
+            .infrequent_backward_comm_buffers_->send_buffer_ptrs.get_ptr(),
+        stream);
   }
 }
 
@@ -770,7 +745,7 @@ void HybridSparseEmbedding<dtype, emtype>::backward_communications(int i, cudaSt
     frequent_embeddings_single_node_[i].update_model_direct(dev_lr, scale, stream);
 
     PROFILE_RECORD("single_node_inf_update_model_direct.start", stream, false);
-    infrequent_embeddings_[i].update_model_direct(dev_lr, scale, stream);
+    infrequent_embeddings_single_node_[i].update_model_direct(dev_lr, scale, stream);
     PROFILE_RECORD("single_node_inf_update_model_direct.stop", stream, false);
   } else {
     if (!grouped_all_reduce_) {
@@ -778,7 +753,11 @@ void HybridSparseEmbedding<dtype, emtype>::backward_communications(int i, cudaSt
     }
 
     PROFILE_RECORD("multi_node_inf_backward_a2a.start", stream, false);
-    infrequent_backward_comms_[i]->communicate(stream);
+    if (embedding_params_.communication_type == CommunicationType::IB_NVLink) {
+      infrequent_embeddings_ib_nvlink_[i].infrequent_backward_comms_->communicate(stream);
+    } else {  // IB_NVLink_Hier
+      infrequent_embeddings_ib_nvlink_hier_[i].infrequent_backward_comms_->communicate(stream);
+    }
     PROFILE_RECORD("multi_node_inf_backward_a2a.stop", stream, false);
   }
 }
@@ -803,16 +782,19 @@ void HybridSparseEmbedding<dtype, emtype>::backward_post_communication(int i, cu
   float scale = opt_params_[i].scaler;
 
   if (embedding_params_.communication_type == CommunicationType::IB_NVLink) {
-    PROFILE_RECORD("multi_node_inf_update_model.start", stream, false);
-    infrequent_embeddings_[i].update_model(
-        infrequent_backward_comm_buffers_[i].recv_buffer.get_ptr(), dev_lr, scale, stream);
-    PROFILE_RECORD("multi_node_inf_update_model.stop", stream, false);
+    infrequent_embeddings_ib_nvlink_[i].update_model(
+        infrequent_embeddings_ib_nvlink_[i]
+            .infrequent_backward_comm_buffers_->recv_buffer.get_ptr(),
+        dev_lr, scale, stream);
   }
   if (embedding_params_.communication_type == CommunicationType::IB_NVLink_Hier) {
 #ifdef ENABLE_MPI
     PROFILE_RECORD("multi_node_inf_hier_update_model.start", stream, false);
-    infrequent_embeddings_[i].hier_update_model(
-        infrequent_backward_comm_buffers_[i].recv_buffer.get_ptr(), dev_lr, scale, stream);
+
+    infrequent_embeddings_ib_nvlink_hier_[i].hier_update_model(
+        infrequent_embeddings_ib_nvlink_hier_[i]
+            .infrequent_backward_comm_buffers_->recv_buffer.get_ptr(),
+        dev_lr, scale, stream);
 
     if (graph_mode_) {
       cudaEvent_t update_comm_event = stream_manager_.get_event(i, "update_comm_event");
@@ -848,12 +830,14 @@ void HybridSparseEmbedding<dtype, emtype>::backward_post_communication(int i, cu
                                                 : frequent_embeddings_multi_node_[i];
     download_tensor(num_frequent_categories, frequent_embedding.d_num_frequent_samples_indices_,
                     stream);
+    // TODO: only infrequent_embeddings_ib_nvlink_ should be used here ???
     std::vector<uint32_t> infrequent_model_indices_offset;
     download_tensor(infrequent_model_indices_offset,
-                    infrequent_embeddings_[i].model_indices_offsets_, stream);
+                    infrequent_embeddings_ib_nvlink_[i].model_indices_offsets_, stream);
     std::vector<uint32_t> infrequent_network_indices_offset;
     download_tensor(infrequent_network_indices_offset,
-                    infrequent_embeddings_[i].network_indices_offsets_, stream);
+                    infrequent_embeddings_ib_nvlink_[i].network_indices_offsets_, stream);
+
     std::vector<uint32_t> network_cache_indices_offsets_;
     download_tensor(network_cache_indices_offsets_,
                     frequent_embedding.network_cache_indices_offsets_, stream);
@@ -1078,11 +1062,7 @@ void HybridSparseEmbedding<dtype, emtype>::compute_indices(
   HCTR_LIB_THROW(cudaStreamWaitEvent(stream_model_indices, event_main));
   HCTR_LIB_THROW(cudaStreamWaitEvent(stream_network_indices, event_main));
 
-  // PROFILE_RECORD("index_calculation.start", main_stream);
-  // PROFILE_RECORD("calculate_frequent_sample_indices.start", stream_frequent_sample_indices);
   compression.calculate_frequent_sample_indices(stream_frequent_sample_indices);
-  // PROFILE_RECORD("calculate_frequent_sample_indices.stop", stream_frequent_sample_indices, true,
-  //               -1, std::string("num_frequent: ") + std::to_string(model_.num_frequent));
   HCTR_LIB_THROW(cudaEventRecord(event_frequent_sample_indices, stream_frequent_sample_indices));
 
   // PROFILE_RECORD("inf_calculate_model_indices.start", stream_model_indices);

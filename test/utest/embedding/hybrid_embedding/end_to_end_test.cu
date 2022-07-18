@@ -226,10 +226,27 @@ void end_to_end_impl(std::vector<int> device_list, HybridEmbeddingInputGenerator
         */
       }
     }
-    HCTR_LIB_THROW(cudaMemcpy(
-        embedding->infrequent_embeddings_[device].infrequent_embedding_vectors_.get_ptr(),
-        h_infrequent_embedding_vectors, num_infrequent * embedding_vec_size * sizeof(float),
-        cudaMemcpyHostToDevice));
+
+    if (embedding->embedding_params_.communication_type == CommunicationType::NVLink_SingleNode) {
+      cudaMemcpy(embedding->infrequent_embeddings_single_node_[device]
+                     .infrequent_embedding_vectors_.get_ptr(),
+                 h_infrequent_embedding_vectors,
+                 num_infrequent * embedding_vec_size * sizeof(float), cudaMemcpyHostToDevice);
+    }
+
+    if (embedding->embedding_params_.communication_type == CommunicationType::IB_NVLink) {
+      cudaMemcpy(embedding->infrequent_embeddings_ib_nvlink_[device]
+                     .infrequent_embedding_vectors_.get_ptr(),
+                 h_infrequent_embedding_vectors,
+                 num_infrequent * embedding_vec_size * sizeof(float), cudaMemcpyHostToDevice);
+    }
+
+    if (embedding->embedding_params_.communication_type == CommunicationType::IB_NVLink_Hier) {
+      cudaMemcpy(embedding->infrequent_embeddings_ib_nvlink_hier_[device]
+                     .infrequent_embedding_vectors_.get_ptr(),
+                 h_infrequent_embedding_vectors,
+                 num_infrequent * embedding_vec_size * sizeof(float), cudaMemcpyHostToDevice);
+    }
     // HCTR_LOG(INFO, WORLD, "gpu = %ld, num_infrequent = %ld, infrequent_embedding_vectors_ =
     // 0x%lx\n", device, num_infrequent,
     // (size_t)(embedding->infrequent_embeddings_[device].infrequent_embedding_vectors_.get_ptr()));
@@ -286,7 +303,22 @@ void end_to_end_impl(std::vector<int> device_list, HybridEmbeddingInputGenerator
 
     {
       std::vector<dtype> tmp;
-      download_tensor(tmp, embedding->infrequent_embeddings_[device].indices_->model_indices_, 0);
+      if (embedding->embedding_params_.communication_type == CommunicationType::NVLink_SingleNode) {
+        download_tensor(
+            tmp, embedding->infrequent_embeddings_single_node_[device].indices_->model_indices_, 0);
+      }
+      if (embedding->embedding_params_.communication_type == CommunicationType::IB_NVLink) {
+        download_tensor(
+            tmp, embedding->infrequent_embeddings_ib_nvlink_[device].indices_->model_indices_, 0);
+      }
+      if (embedding->embedding_params_.communication_type == CommunicationType::IB_NVLink_Hier) {
+        download_tensor(
+            tmp, embedding->infrequent_embeddings_ib_nvlink_hier_[device].indices_->model_indices_,
+            0);
+      }
+
+      // download_tensor(tmp, embedding->infrequent_embeddings_[device].indices_->model_indices_,
+      // 0);
 
       HCTR_LOG(INFO, ROOT, "Instance %d model indices: ", global_id);
       for (size_t j = 0; j < tmp.size(); j++) {
@@ -296,9 +328,22 @@ void end_to_end_impl(std::vector<int> device_list, HybridEmbeddingInputGenerator
 
       HCTR_LOG(INFO, ROOT, "Instance %d model indices OFFSETS: ", global_id);
       for (int j = 0; j < num_procs + 1; j++) {
-        HCTR_PRINT(INFO, " %d",
-                   (int)embedding->infrequent_embeddings_[device]
-                       .indices_->model_indices_offsets_.get_ptr()[j]);
+        if (embedding->embedding_params_.communication_type ==
+            CommunicationType::NVLink_SingleNode) {
+          HCTR_PRINT(INFO, " %d",
+                     (int)embedding->infrequent_embeddings_single_node_[device]
+                         .indices_->model_indices_offsets_.get_ptr()[j]);
+        }
+        if (embedding->embedding_params_.communication_type == CommunicationType::IB_NVLink) {
+          HCTR_PRINT(INFO, " %d",
+                     (int)embedding->infrequent_embeddings_ib_nvlink_[device]
+                         .indices_->model_indices_offsets_.get_ptr()[j]);
+        }
+        if (embedding->embedding_params_.communication_type == CommunicationType::IB_NVLink_Hier) {
+          HCTR_PRINT(INFO, " %d",
+                     (int)embedding->infrequent_embeddings_ib_nvlink_hier_[device]
+                         .indices_->model_indices_offsets_.get_ptr()[j]);
+        }
       }
       HCTR_PRINT(INFO, "\n");
 
@@ -321,7 +366,20 @@ void end_to_end_impl(std::vector<int> device_list, HybridEmbeddingInputGenerator
 
     {
       std::vector<dtype> tmp;
-      download_tensor(tmp, embedding->infrequent_embeddings_[device].indices_->network_indices_, 0);
+      if (embedding->embedding_params_.communication_type == CommunicationType::NVLink_SingleNode) {
+        download_tensor(
+            tmp, embedding->infrequent_embeddings_single_node_[device].indices_->network_indices_,
+            0);
+      }
+      if (embedding->embedding_params_.communication_type == CommunicationType::IB_NVLink) {
+        download_tensor(
+            tmp, embedding->infrequent_embeddings_ib_nvlink_[device].indices_->network_indices_, 0);
+      }
+      if (embedding->embedding_params_.communication_type == CommunicationType::IB_NVLink_Hier) {
+        download_tensor(
+            tmp,
+            embedding->infrequent_embeddings_ib_nvlink_hier_[device].indices_->network_indices_, 0);
+      }
 
       HCTR_LOG(INFO, ROOT, "Instance %d network indices: ", global_id);
       for (size_t j = 0; j < tmp.size(); j++) {
@@ -331,9 +389,26 @@ void end_to_end_impl(std::vector<int> device_list, HybridEmbeddingInputGenerator
 
       HCTR_LOG(INFO, ROOT, "Instance %d network indices OFFSETS: ", global_id);
       for (int j = 0; j < num_procs + 1; j++) {
-        HCTR_PRINT(INFO, " %d",
-                   (int)embedding->infrequent_embeddings_[device]
-                       .indices_->network_indices_offsets_.get_ptr()[j]);
+        // HCTR_PRINT(INFO, " %d",
+        //(int)embedding->infrequent_embeddings_[device]
+        //.indices_->network_indices_offsets_.get_ptr()[j]);
+
+        if (embedding->embedding_params_.communication_type ==
+            CommunicationType::NVLink_SingleNode) {
+          HCTR_PRINT(INFO, " %d",
+                     (int)embedding->infrequent_embeddings_single_node_[device]
+                         .indices_->network_indices_offsets_.get_ptr()[j]);
+        }
+        if (embedding->embedding_params_.communication_type == CommunicationType::IB_NVLink) {
+          HCTR_PRINT(INFO, " %d",
+                     (int)embedding->infrequent_embeddings_ib_nvlink_[device]
+                         .indices_->network_indices_offsets_.get_ptr()[j]);
+        }
+        if (embedding->embedding_params_.communication_type == CommunicationType::IB_NVLink_Hier) {
+          HCTR_PRINT(INFO, " %d",
+                     (int)embedding->infrequent_embeddings_ib_nvlink_hier_[device]
+                         .indices_->network_indices_offsets_.get_ptr()[j]);
+        }
       }
       HCTR_PRINT(INFO, "\n");
     }
@@ -483,10 +558,29 @@ void end_to_end_impl(std::vector<int> device_list, HybridEmbeddingInputGenerator
                               embedding->model_[device].category_location.get_ptr(),
                               total_categories * 2 * sizeof(dtype), cudaMemcpyDeviceToHost));
 
-    HCTR_LIB_THROW(cudaMemcpy(
-        h_infrequent_embedding_vectors,
-        embedding->infrequent_embeddings_[device].infrequent_embedding_vectors_.get_ptr(),
-        num_infrequent * embedding_vec_size * sizeof(float), cudaMemcpyDeviceToHost));
+    // if (embedding_params_.)
+    // cudaMemcpy(h_infrequent_embedding_vectors,
+    // embedding->infrequent_embeddings_[device].infrequent_embedding_vectors_.get_ptr(),
+    // num_infrequent * embedding_vec_size * sizeof(float), cudaMemcpyDeviceToHost);
+
+    if (embedding->embedding_params_.communication_type == CommunicationType::NVLink_SingleNode) {
+      cudaMemcpy(h_infrequent_embedding_vectors,
+                 embedding->infrequent_embeddings_single_node_[device]
+                     .infrequent_embedding_vectors_.get_ptr(),
+                 num_infrequent * embedding_vec_size * sizeof(float), cudaMemcpyDeviceToHost);
+    }
+    if (embedding->embedding_params_.communication_type == CommunicationType::IB_NVLink) {
+      cudaMemcpy(h_infrequent_embedding_vectors,
+                 embedding->infrequent_embeddings_ib_nvlink_[device]
+                     .infrequent_embedding_vectors_.get_ptr(),
+                 num_infrequent * embedding_vec_size * sizeof(float), cudaMemcpyDeviceToHost);
+    }
+    if (embedding->embedding_params_.communication_type == CommunicationType::IB_NVLink_Hier) {
+      cudaMemcpy(h_infrequent_embedding_vectors,
+                 embedding->infrequent_embeddings_ib_nvlink_hier_[device]
+                     .infrequent_embedding_vectors_.get_ptr(),
+                 num_infrequent * embedding_vec_size * sizeof(float), cudaMemcpyDeviceToHost);
+    }
 
     for (size_t cat_id = 0; cat_id < total_categories; ++cat_id) {
       if ((int)h_category_location[2 * cat_id] == global_id) {
