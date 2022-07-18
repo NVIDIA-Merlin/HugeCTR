@@ -66,12 +66,9 @@ void Loss<T>::compute_and_init(bool is_train) {
 template <typename T>
 void Loss<T>::compute_and_init(bool is_train, long long current_batchsize) {
   CudaDeviceContext context(get_device_id());
-  PROFILE_RECORD("compute.start", get_gpu().get_stream(), false);
   compute(is_train, current_batchsize, regularizer_compute_rterm());
 
   regularizer_initialize_wgrad(is_train);
-
-  PROFILE_RECORD("compute.stop", get_gpu().get_stream(), false);
 
 #ifndef NDEBUG
   HCTR_LIB_THROW(cudaDeviceSynchronize());

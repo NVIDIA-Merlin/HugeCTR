@@ -223,7 +223,6 @@ void FrequentEmbeddingData<dtype, emtype>::initialize_embedding_vectors(
  * Note: each network pulls from the models */
 template <typename dtype, typename emtype>
 void FrequentEmbeddingSingleNode<dtype, emtype>::forward_model(cudaStream_t stream) {
-  PROFILE_RECORD("single_node_fre_forward_model.start", stream, false);
   const uint32_t num_instances = frequent_data_.model_.num_instances;
   const uint32_t model_id = frequent_data_.model_.global_instance_id;
 
@@ -256,17 +255,13 @@ void FrequentEmbeddingSingleNode<dtype, emtype>::forward_model(cudaStream_t stre
             src_ptr, {dst_ptr}, {static_cast<const void*>(src_ptr) != static_cast<void*>(dst_ptr)}};
       });
 
-  PROFILE_RECORD("fre_forward_model.forward_model.start", stream, false);
   shuffle(copy_desc, stream, frequent_data_.model_.num_frequent / 4);
   HCTR_LIB_THROW(cudaPeekAtLastError());
-  PROFILE_RECORD("fre_forward_model.forward_model.stop", stream, false);
-  PROFILE_RECORD("single_node_fre_forward_model.stop", stream, false);
 }
 
 /* Single-node: refresh all vectors in the cache of each network */
 template <typename dtype, typename emtype>
 void FrequentEmbeddingSingleNode<dtype, emtype>::forward_model_eval(cudaStream_t stream) {
-  PROFILE_RECORD("single_node_fre_forward_model.start", stream, false);
   const uint32_t num_instances = frequent_data_.model_.num_instances;
   const uint32_t model_id = frequent_data_.model_.global_instance_id;
 
@@ -294,11 +289,8 @@ void FrequentEmbeddingSingleNode<dtype, emtype>::forward_model_eval(cudaStream_t
             src_ptr, {dst_ptr}, {static_cast<const void*>(src_ptr) != static_cast<void*>(dst_ptr)}};
       });
 
-  PROFILE_RECORD("fre_forward_model.forward_model_eval.start", stream, false);
   shuffle(copy_desc, stream, num_frequent);
   HCTR_LIB_THROW(cudaPeekAtLastError());
-  PROFILE_RECORD("fre_forward_model.forward_model_eval.stop", stream, false);
-  PROFILE_RECORD("single_node_fre_forward_model.stop", stream, false);
 }
 
 template <typename dtype, typename emtype>
@@ -336,19 +328,15 @@ void FrequentEmbeddingData<dtype, emtype>::forward_network<vectype>(
 template <typename dtype, typename emtype>
 void FrequentEmbeddingSingleNode<dtype, emtype>::forward_network(emtype* interaction_layer_input,
                                                                  cudaStream_t stream) {
-  PROFILE_RECORD("single_node_fre_forward_network.start", stream, false);
   frequent_data_.forward_network(get_embedding_vectors_cache().get_ptr(), interaction_layer_input,
                                  this, stream);
-  PROFILE_RECORD("single_node_fre_forward_network.stop", stream);
 }
 
 template <typename dtype, typename emtype>
 void FrequentEmbeddingMultiNode<dtype, emtype>::forward_network(emtype* interaction_layer_input,
                                                                 cudaStream_t stream) {
-  PROFILE_RECORD("multi_node_fre_forward_network.start", stream, false);
   frequent_data_.forward_network(frequent_data_.frequent_embedding_vectors_.get_ptr(),
                                  interaction_layer_input, this, stream);
-  PROFILE_RECORD("multi_node_fre_forward_network.stop", stream, false);
 }
 
 /* Reduce gradients on each network */
@@ -380,50 +368,40 @@ void FrequentEmbeddingData<dtype, emtype>::local_reduce(const emtype* gradients,
 template <typename dtype, typename emtype>
 void FrequentEmbeddingSingleNode<dtype, emtype>::local_reduce(const emtype* gradients,
                                                               cudaStream_t stream) {
-  PROFILE_RECORD("fre_local_reduce.start", stream);
   auto num_instances = frequent_data_.model_.num_instances;
   int n_blocks = 16 * frequent_data_.gpu_resource_.get_sm_count();
   auto embedding_vec_size = frequent_data_.embedding_vec_size_;
 
   /* Set to zero the gradients of categories that appear in the batch */
-  PROFILE_RECORD("fre_local_reduce.reset_relevant_gradients.start", stream, false);
   frequent_embedding_kernels::reset_relevant_gradients<<<n_blocks, embedding_vec_size, 0, stream>>>(
       frequent_data_.float_frequent_gradients_.get_ptr(), embedding_vec_size, this->indices_view_,
       num_instances);
   HCTR_LIB_THROW(cudaPeekAtLastError());
-  PROFILE_RECORD("fre_local_reduce.reset_relevant_gradients.stop", stream, false);
 
   frequent_data_.local_reduce(gradients, this, stream);
-  PROFILE_RECORD("fre_local_reduce.stop", stream);
 }
 
 template <typename dtype, typename emtype>
 void FrequentEmbeddingMultiNode<dtype, emtype>::local_reduce(const emtype* gradients,
                                                              cudaStream_t stream) {
-  PROFILE_RECORD("fre_local_reduce.start", stream);
   /* Set to zero all the gradients */
   if (frequent_data_.model_.num_frequent > 0) {
-    PROFILE_RECORD("fre_local_reduce.reset_all_gradients.start", stream, false);
     HCTR_LIB_THROW(cudaMemsetAsync(
         frequent_data_.float_frequent_gradients_.get_ptr(), 0,
         frequent_data_.model_.num_frequent * frequent_data_.embedding_vec_size_ * sizeof(float),
         stream));
-    PROFILE_RECORD("fre_local_reduce.reset_all_gradients.stop", stream, false);
   }
 
   frequent_data_.local_reduce(gradients, this, stream);
-  PROFILE_RECORD("fre_local_reduce.stop", stream);
 }
 
 template <typename dtype, typename emtype>
 void FrequentEmbeddingMultiNode<dtype, emtype>::update_model(float* dev_lr, float scale,
                                                              cudaStream_t stream) {
-  PROFILE_RECORD("multi_node_fre_update_model.start", stream, false);
   sgd_global_update(frequent_data_.get_gradients().get_ptr(),
                     frequent_data_.frequent_embedding_vectors_.get_ptr(),
                     frequent_data_.model_.num_frequent, frequent_data_.embedding_vec_size_, dev_lr,
                     scale, stream);
-  PROFILE_RECORD("multi_node_fre_update_model.stop", stream, false);
 }
 
 /* Update model for single-node: direct write in category "owner"'s table, lr is a device variable
@@ -431,7 +409,6 @@ void FrequentEmbeddingMultiNode<dtype, emtype>::update_model(float* dev_lr, floa
 template <typename dtype, typename emtype>
 void FrequentEmbeddingSingleNode<dtype, emtype>::update_model_direct(float* dev_lr, float scale,
                                                                      cudaStream_t stream) {
-  PROFILE_RECORD("single_node_fre_update_model_direct.start", stream, false);
   const uint32_t& num_instances = frequent_data_.model_.num_instances;
   const uint32_t& model_id = frequent_data_.model_.global_instance_id;
   const uint32_t num_frequent_per_model = frequent_data_.model_.num_frequent / num_instances;
@@ -440,22 +417,17 @@ void FrequentEmbeddingSingleNode<dtype, emtype>::update_model_direct(float* dev_
   int n_blocks = 16 * num_sm;  // TODO: better heuristics
 
   /* Update models */
-  PROFILE_RECORD("fre_update_model_direct.update_model_direct.start", stream, false);
   frequent_embedding_kernels::
       update_model_direct<<<n_blocks, frequent_data_.embedding_vec_size_, 0, stream>>>(
           partial_gradients_pointers_.get_ptr(),
           frequent_data_.frequent_embedding_vectors_.get_ptr(), this->indices_view_, num_instances,
           model_id, num_frequent_per_model, frequent_data_.embedding_vec_size_, dev_lr, scale);
   HCTR_LIB_THROW(cudaPeekAtLastError());
-  PROFILE_RECORD("fre_update_model_direct.update_model_direct.stop", stream, false);
-  PROFILE_RECORD("single_node_fre_update_model_direct.stop", stream, false);
 }
 
 template <typename dtype, typename emtype>
 void FrequentEmbeddingMultiNode<dtype, emtype>::communicate(cudaStream_t stream) {
-  PROFILE_RECORD("multi_node_fre_backward_allreduce.start", stream, false);
   ar_comm_->communicate(stream);
-  PROFILE_RECORD("multi_node_fre_backward_allreduce.stop", stream, false);
 }
 
 template class FrequentEmbeddingBase<uint32_t>;

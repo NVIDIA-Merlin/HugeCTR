@@ -271,16 +271,12 @@ void SparseEmbeddingFunctors::all2all_backward(size_t batch_size_per_gpu,
   HCTR_LIB_THROW(ncclGroupStart());
   for (size_t i = 0; i < local_gpu_count; i++) {
     const auto &local_gpu = resource_manager.get_local_gpu(i);
-    PROFILE_RECORD("all2all_backward.start", local_gpu->get_stream(), false,
-                   local_gpu->get_device_id());
     for (size_t j = 0; j < local_gpu_count; j++) {
       HCTR_LIB_THROW(ncclSend(src_pos[i][j], table[i][j], type, j, local_gpu->get_nccl(),
                               local_gpu->get_stream()));
       HCTR_LIB_THROW(ncclRecv(dst_pos[i][j], table[j][i], type, j, local_gpu->get_nccl(),
                               local_gpu->get_stream()));
     }
-    PROFILE_RECORD("all2all_backward.stop", local_gpu->get_stream(), false,
-                   local_gpu->get_device_id());
   }
   HCTR_LIB_THROW(ncclGroupEnd());
 

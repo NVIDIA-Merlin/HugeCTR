@@ -225,10 +225,8 @@ void InfrequentEmbedding_NVLink_SingleNode<dtype, emtype>::forward_network_direc
                 {true}};
       });
 
-  PROFILE_RECORD("inf_forward_network_direct.forward_network_direct.start", stream, false);
   shuffle(copy_desc, stream, local_samples_size / 10);
   HCTR_LIB_THROW(cudaPeekAtLastError());
-  PROFILE_RECORD("inf_forward_network_direct.forward_network_direct.stop", stream, false);
 }
 
 template <typename dtype, typename emtype>
@@ -242,14 +240,12 @@ void InfrequentEmbedding_NVLink_SingleNode<dtype, emtype>::update_model_direct(
   int n_blocks = 16 * num_sm;  // TODO: better heuristics
 
   /* Each model reads from the gradients of each network */
-  PROFILE_RECORD("inf_update_model_direct.infrequent_update_model_direct.start", stream, false);
   infrequent_embedding_kernels::
       infrequent_update_model_direct<<<n_blocks, embedding_vec_size_, 0, stream>>>(
           gradients_pointers_.get_ptr(), infrequent_embedding_vectors_.get_ptr(),
           this->indices_view_, model_.category_location.get_ptr(), model_.num_instances,
           model_.global_instance_id, embedding_vec_size_, local_samples_size, dev_lr, scale);
   HCTR_LIB_THROW(cudaPeekAtLastError());
-  PROFILE_RECORD("inf_update_model_direct.infrequent_update_model_direct.stop", stream, false);
 }
 
 template <typename dtype, typename emtype>
@@ -352,21 +348,13 @@ void InfrequentEmbedding_IB_NVLINK<dtype, emtype>::forward(emtype* output_ptr,
 
   HCTR_LIB_THROW(cudaStreamSynchronize(stream));
 
-  // PROFILE_RECORD("multi_node_fre_forward_network.start", stream, false);
   // frequent_embeddings_[i].forward_network(output.get_ptr(), false, stream);
-  // PROFILE_RECORD("multi_node_fre_forward_network.stop", stream, false);
 
-  PROFILE_RECORD("multi_node_inf_forward_model.start", stream, false);
   forward_model(infrequent_forward_comm_buffers_->send_buffer.get_ptr(), stream);
-  PROFILE_RECORD("multi_node_inf_forward_model.stop", stream, false);
 
-  PROFILE_RECORD("multi_node_inf_forward_a2a.start", stream, false);
   infrequent_forward_comms_->communicate(stream);
-  PROFILE_RECORD("multi_node_inf_forward_a2a.stop", stream, false);
 
-  PROFILE_RECORD("multi_node_inf_forward_network.start", stream, false);
   forward_network(infrequent_forward_comm_buffers_->recv_buffer.get_ptr(), output_ptr, stream);
-  PROFILE_RECORD("multi_node_inf_forward_network.stop", stream);
 }
 
 template <typename dtype, typename emtype>
@@ -467,39 +455,27 @@ void InfrequentEmbedding_IB_NVLink_Hier<dtype, emtype>::init_comms(
 
 template <typename dtype, typename emtype>
 void InfrequentEmbedding_IB_NVLink_Hier<dtype, emtype>::forward_model(cudaStream_t stream) {
-  PROFILE_RECORD("multi_node_inf_calculate_model_indices_sizes_from_offsets.start", stream);
   calculate_model_indices_sizes_from_offsets(stream);
-  PROFILE_RECORD("multi_node_inf_calculate_model_indices_sizes_from_offsets.stop", stream);
 
-  PROFILE_RECORD("multi_node_inf_calculate_network_indices_sizes_from_offsets.start", stream);
   calculate_network_indices_sizes_from_offsets(stream);
-  PROFILE_RECORD("multi_node_inf_calculate_network_indices_sizes_from_offsets.stop", stream);
 
   infrequent_forward_comms_->update_sizes(stream);
 
-  PROFILE_RECORD("multi_node_inf_fused_intra_forward_model.start", stream);
   fused_intra_forward_model(infrequent_forward_comm_buffers_->send_buffer_ptrs.get_ptr(), stream);
-  PROFILE_RECORD("multi_node_inf_fused_intra_forward_model.stop", stream);
 
-  PROFILE_RECORD("multi_node_inf_forward_a2a_init.start", stream);
   infrequent_forward_comms_->initiate_communication(stream);
-  PROFILE_RECORD("multi_node_inf_forward_a2a_init.stop", stream);
 }
 
 template <typename dtype, typename emtype>
 void InfrequentEmbedding_IB_NVLink_Hier<dtype, emtype>::infrequent_wait_completion(
     cudaStream_t stream) {
-  PROFILE_RECORD("multi_node_inf_forward_a2a_wait_completion.stop", stream);
   infrequent_forward_comms_->wait_completion(stream);
-  PROFILE_RECORD("multi_node_inf_forward_a2a_wait_completion.stop", stream);
 }
 
 template <typename dtype, typename emtype>
 void InfrequentEmbedding_IB_NVLink_Hier<dtype, emtype>::infrequent_hier_forward_network(
     emtype* output_ptr, cudaStream_t stream) {
-  PROFILE_RECORD("multi_node_inf_hier_forward_network.start", stream);
   hier_forward_network(infrequent_forward_comm_buffers_->recv_buffer.get_ptr(), output_ptr, stream);
-  PROFILE_RECORD("multi_node_inf_hier_forward_network.stop", stream, false);
 }
 
 template <typename dtype, typename emtype>
