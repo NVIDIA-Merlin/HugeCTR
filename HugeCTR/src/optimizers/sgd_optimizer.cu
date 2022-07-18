@@ -133,7 +133,6 @@ SGDOptimizer<T>::SGDOptimizer(const Tensor2<float>& weight_main,
 template <typename T>
 void SGDOptimizer<T>::update() {
   CudaDeviceContext context(get_device_id());
-  PROFILE_RECORD("update.start", gpu_resource_->get_stream(), false);
   const size_t len = weight_main_.get_num_elements();
   constexpr size_t block_dim = 256;
   constexpr int vec_width = sizeof(float4) / sizeof(float);
@@ -155,7 +154,6 @@ void SGDOptimizer<T>::update() {
     }
   }
 
-  PROFILE_RECORD("update.stop", gpu_resource_->get_stream(), false);
 #ifndef NDEBUG
   cudaDeviceSynchronize();
   HCTR_LIB_THROW(cudaGetLastError());

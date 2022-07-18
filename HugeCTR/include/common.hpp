@@ -317,5 +317,3 @@ struct DenseLayerSwitchs {
 };
 
 }  // namespace HugeCTR
-
-#include <profiler.hpp>
