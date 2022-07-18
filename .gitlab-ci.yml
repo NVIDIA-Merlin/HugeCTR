@@ -5,6 +5,7 @@ include:
   - /ci/common.yml
   - /ci/template.yml
   - /ci/benchmark.yml
+  - /ci/rules.gitlab_ci.yml
 
 nightly_build_all:
   extends: .build_nightly
@@ -71,7 +72,7 @@ nightly_build_unified_container.tri:
 
 ### Stage: build
 build_train_single_node:
-  extends: .build
+  extends: .build_hugectr
   variables:
     FROM_IMAGE: ${IMAGE_ALL}
     DST_IMAGE: $TRAIN_IMAGE_VERSIONED
@@ -80,7 +81,7 @@ build_train_single_node:
     BUILD_HUGECTR2ONNX: 1
 
 build_train_single_node_with_hdfs:
-  extends: .build
+  extends: .build_hugectr
   variables:
     FROM_IMAGE: ${IMAGE_ALL_WITH_HDFS}
     DST_IMAGE: $TRAIN_IMAGE_VERSIONED_WITH_HDFS
@@ -90,7 +91,7 @@ build_train_single_node_with_hdfs:
 
 
 build_train_multi_node:
-  extends: .build
+  extends: .build_hugectr
   variables:
     FROM_IMAGE: ${IMAGE_ALL}
     DST_IMAGE: $TRAIN_IMAGE_MULTINODE_VERSIONED
@@ -98,7 +99,7 @@ build_train_multi_node:
     BUILD_HUGECTR: 1
 
 build_train_inference:
-  extends: .build
+  extends: .build_hugectr
   variables:
     FROM_IMAGE: ${IMAGE_ALL}
     DST_IMAGE: $TRAIN_INFER_IMAGE_VERSIONED
@@ -107,7 +108,7 @@ build_train_inference:
 
 ### Stage: test
 build_inference:
-  extends: .build
+  extends: .build_hugectr
   variables:
     FROM_IMAGE: ${IMAGE_ALL}
     DST_IMAGE: $INFER_IMAGE_VERSIONED
@@ -117,7 +118,7 @@ build_inference:
     TRITON_BRANCH: r21.06
 
 build_sok_tf2:
-  extends: .build
+  extends: .build_sok
   variables:
     FROM_IMAGE: ${IMAGE_SOK_TF2}
     DST_IMAGE: $SOK_IMAGE_VERSIONED_TF2
@@ -125,7 +126,7 @@ build_sok_tf2:
     BUILD_SOK: 1
 
 build_sok_tf1:
-  extends: .build
+  extends: .build_sok
   variables:
     FROM_IMAGE: ${IMAGE_SOK_TF1}
     DST_IMAGE: $SOK_IMAGE_VERSIONED_TF1
@@ -133,7 +134,7 @@ build_sok_tf1:
     BUILD_SOK: 1
 
 build_hps_tf_plugin:
-  extends: .build
+  extends: .build_hugectr
   variables:
     FROM_IMAGE: ${IMAGE_ALL}
     DST_IMAGE: $TF_PLUGIN_IMAGE_VERSIONED
@@ -544,7 +545,7 @@ hierarchical_parameter_server:
 
 # embedding_plugin
 sparse_operation_kit-TF2:
-  extends: .cluster_test_job
+  extends: .sok_test_job
   needs:
     - build_sok_tf2
   variables:
@@ -558,7 +559,7 @@ sparse_operation_kit-TF2:
     TEST_CMD: ./ci/integration_test/sok/sok.sub
 
 sparse_operation_kit-TF1:
-  extends: .cluster_test_job
+  extends: .sok_test_job
   needs:
     - build_sok_tf1
   variables:
@@ -589,7 +590,7 @@ inference_benchmark:
     TEST_CMD: ./ci/benchmark/inference_benchmark/run.sub
 
 inference_ps_test:
-  extends: .dlcluster_job
+  extends: .dlcluster_test_job
   allow_failure: false
   stage: test
   needs:
@@ -597,15 +598,9 @@ inference_ps_test:
   script:
     - export CONT=${INFER_IMAGE_VERSIONED}
     - srun -N 1 -p dgx1v,dgx1v16g,dgx1v32g bash ./ci/integration_test/inference/ps_test.sh
-  rules:
-    - if: $CI_PIPELINE_SOURCE =~ /^(web|merge_request_event)$/
-      when: always
-    - if: $TEST_NEW_IMAGE == "1"
-      when: always
-    - when: never
 
 inference_embedding_cache_update_test:
-  extends: .dlcluster_job
+  extends: .dlcluster_test_job
   allow_failure: false
   stage: test
   needs:
@@ -613,16 +608,10 @@ inference_embedding_cache_update_test:
   script:
     - export CONT=${INFER_IMAGE_VERSIONED}
     - srun -N 1 -p dgx1v,dgx1v16g,dgx1v32g bash ./ci/integration_test/inference/embedding_cache_update_test.sh
-  rules:
-    - if: $CI_PIPELINE_SOURCE =~ /^(web|merge_request_event)$/
-      when: always
-    - if: $TEST_NEW_IMAGE == "1"
-      when: always
-    - when: never
     
 #hdfs backend test
 hdfs_backend_test:
-  extends: .dlcluster_job
+  extends: .dlcluster_test_job
   allow_failure: false
   stage: test
   needs:
@@ -630,12 +619,6 @@ hdfs_backend_test:
   script:
     - export CONT=${TRAIN_IMAGE_VERSIONED_WITH_HDFS}
     - srun -N 1 -p dgx1v32g bash ./ci/integration_test/hdfs/hdfs_backend_test.sh
-  rules:
-    - if: $CI_PIPELINE_SOURCE =~ /^(web|merge_request_event)$/
-      when: always
-    - if: $TEST_NEW_IMAGE == "1"
-      when: always
-    - when: never
 
 wdl_check:
   # Push logs to gitlab

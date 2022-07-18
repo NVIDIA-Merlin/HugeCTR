@@ -126,23 +126,39 @@ stages:
     - when: never
   timeout: 5 hours
 
+.build_hugectr:
+  extends:
+    - .build
+    - .hugectr:rules:build
+
+.build_sok:
+  extends:
+    - .build
+    - .sok:rules:build
+
 .cluster_test_job:
-  extends: .selene_luna_job
+  extends:
+    - .selene_luna_job
+    - .hugectr:rules:sanity-test
   allow_failure: false
-  rules:
-    - if: $CI_PIPELINE_SOURCE =~ /^(web|merge_request_event)$/
-      when: always
-    - if: $TEST_NEW_IMAGE == "1"
-      when: always
-    - when: never
+
+.dlcluster_test_job:
+  extends:
+    - .dlcluster_job
+    - .hugectr:rules:sanity-test
+  allow_failure: false
 
 .cluster_post_test_job:
-  extends: .cluster_test_job
+  extends:
+    - .cluster_test_job
+    - .hugectr:rules:sanity-test
   stage: post_test
-  rules:
-    - if: $CI_PIPELINE_SOURCE =~ /^(web|merge_request_event)$/
-      when: always
-    - when: never
+
+.sok_test_job:
+  extends:
+    - .selene_luna_job
+    - .sok:rules:sanity-test
+  allow_failure: false
 
 .inference_benchmark:
   extends: .selene_luna_job

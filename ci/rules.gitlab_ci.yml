@@ -1,0 +1,105 @@
+##############
+# Conditions #
+##############
+.if-default-ci-action: &if-default-ci-actions
+  if: '$CI_PIPELINE_SOURCE =~ /^(push|web|merge_request_event|trigger)$/'
+
+.if-new-image: &if-new-image
+  if: '$TEST_NEW_IMAGE == "1"'
+
+.if-merge-request: &if-merge-request
+  if: '$CI_PIPELINE_SOURCE =~ /^(web|merge_request_event)$/'
+
+.if-default-branch-refs: &if-default-branch-refs
+  if: '$CI_COMMIT_REF_NAME == $CI_DEFAULT_BRANCH'
+
+.if-default-branch-push: &if-default-branch-push
+  if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == "push"'
+
+# If MR opened, then a push to the branch
+.if-push-to-mr-opened: &if-push-to-mr-opened
+  if: '$CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS && $CI_PIPELINE_SOURCE == "push"'
+
+############
+# Changes  #
+############
+.hugectr-source: &hugectr-source
+  - "HugeCTR/**/*"
+  - "ci/**/*"
+  - "cmake/Modules/*"
+  - "gpu_cache/**/*"
+  - "hierarchical_parameter_server/**/*"
+  - "onnx_converter/**/*"
+  - "test/**/*"
+  - "third_party/**/*"
+  - "tools/**/*"
+  - "CMakelists.txt"
+  - ".gitlab-ci.yml"
+  - ".clang-format"
+  - ".pre-commit-config.yaml"
+
+.sok-source: &sok-source
+  - "sparse_operation_kit/**/*"
+
+.doc-source: &doc-source
+  - "docs/**/*"
+  - "tutorial/**/*"
+  - "notebooks/**/*"
+  - "samples/**/*"
+  - "*.md"
+
+##################
+# Conditions set #
+##################
+
+.hugectr:rules:build:
+  rules:
+    # If push to a branch which has MR opened, ignore the branch pipeline
+    - <<: *if-push-to-mr-opened
+      when: never
+    - <<: *if-default-ci-actions
+      changes: *hugectr-source
+      when: always
+    - <<: *if-new-image
+      when: always
+    - when: never
+
+.sok:rules:build:
+  rules:
+    # If push to a branch which has MR opened, ignore the branch pipeline
+    - <<: *if-push-to-mr-opened
+      when: never
+    - <<: *if-default-ci-actions
+      changes: *sok-source
+      when: always
+    - <<: *if-new-image
+      when: always
+    - when: never
+
+# Condition for run sanity test
+.hugectr:rules:sanity-test:
+  rules:
+    - <<: *if-merge-request
+      changes: *hugectr-source
+      when: always
+    - <<: *if-new-image
+      when: always
+    - when: never
+
+.sok:rules:sanity-test:
+  rules:
+    - <<: *if-merge-request
+      changes: *sok-source
+      when: always
+    - <<: *if-new-image
+      when: always
+    - when: never
+
+.hugectr:rules:full-test:
+  rules:
+    - <<: *if-default-branch-push
+      changes: *hugectr-source
+    - <<: *if-new-image
+      when: always
+
+
