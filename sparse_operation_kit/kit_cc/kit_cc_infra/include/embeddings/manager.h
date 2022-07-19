@@ -57,8 +57,7 @@ class EmbeddingManager final {
                         const std::string embedding_lookuper, const std::string output_dispatcher,
                         const std::vector<std::string> output_dispatcher_subsequent_ops,
                         const size_t slot_num, const size_t nnz_per_slot,
-                        const DataType compute_dtype,
-                        std::shared_ptr<EmbeddingLayer>& embedding);
+                        const DataType compute_dtype, std::shared_ptr<EmbeddingLayer>& embedding);
 
   void allocate_memory(const size_t global_replica_id);
 
@@ -75,8 +74,7 @@ class EmbeddingManager final {
 
   void forward(std::shared_ptr<EmbeddingLayer>& embedding, const std::shared_ptr<Tensor> values,
                const size_t global_replica_id, const bool training,
-               std::shared_ptr<Tensor> embedding_vector,
-               std::shared_ptr<Tensor> h_replica_nnz);
+               std::shared_ptr<Tensor> embedding_vector, std::shared_ptr<Tensor> h_replica_nnz);
 
   void backward(std::shared_ptr<EmbeddingLayer>& embedding,
                 const std::shared_ptr<Tensor> top_gradient, const size_t global_replica_id,

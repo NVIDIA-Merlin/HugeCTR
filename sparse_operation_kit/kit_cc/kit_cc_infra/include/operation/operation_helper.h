@@ -77,21 +77,25 @@ class Registry {
 #define UNIQUE_NAME_IMPL(x, y) UNIQUE_NAME_IMPL_2(x, y)
 #define UNIQUE_NAME(x) UNIQUE_NAME_IMPL(x, __COUNTER__)
 
-#define REGISTER_INPUT_DISPATCHER_BUILDER(name, key_dtype, dtype, ...) \
-  static auto UNIQUE_NAME(in_dispatcher) =                             \
-      Registry::instance()->register_input_builder_helper<__VA_ARGS__>({(name), (key_dtype), (dtype)});
+#define REGISTER_INPUT_DISPATCHER_BUILDER(name, key_dtype, dtype, ...)  \
+  static auto UNIQUE_NAME(in_dispatcher) =                              \
+      Registry::instance()->register_input_builder_helper<__VA_ARGS__>( \
+          {(name), (key_dtype), (dtype)});
 
-#define REGISTER_OPERATION_BUILDER(name, key_dtype, dtype, ...) \
-  static auto UNIQUE_NAME(operation) =                          \
-      Registry::instance()->register_operation_builder_helper<__VA_ARGS__>({(name), (key_dtype), (dtype)});
+#define REGISTER_OPERATION_BUILDER(name, key_dtype, dtype, ...)             \
+  static auto UNIQUE_NAME(operation) =                                      \
+      Registry::instance()->register_operation_builder_helper<__VA_ARGS__>( \
+          {(name), (key_dtype), (dtype)});
 
-#define REGISTER_OUTPUT_DISPATHER_BUILDER(name, key_dtype, dtype, ...) \
-  static auto UNIQUE_NAME(out_dispatcher) =                            \
-      Registry::instance()->register_output_builder_helper<__VA_ARGS__>({(name), (key_dtype), (dtype)});
+#define REGISTER_OUTPUT_DISPATHER_BUILDER(name, key_dtype, dtype, ...)   \
+  static auto UNIQUE_NAME(out_dispatcher) =                              \
+      Registry::instance()->register_output_builder_helper<__VA_ARGS__>( \
+          {(name), (key_dtype), (dtype)});
 
-#define REGISTER_EMB_LOOKUPER_BUILDER(name, key_dtype, dtype, ...) \
-  static auto UNIQUE_NAME(lookuper) =                              \
-      Registry::instance()->register_emb_lookuper_helper<__VA_ARGS__>({(name), (key_dtype), (dtype)});
+#define REGISTER_EMB_LOOKUPER_BUILDER(name, key_dtype, dtype, ...)     \
+  static auto UNIQUE_NAME(lookuper) =                                  \
+      Registry::instance()->register_emb_lookuper_helper<__VA_ARGS__>( \
+          {(name), (key_dtype), (dtype)});
 
 }  // namespace SparseOperationKit
 

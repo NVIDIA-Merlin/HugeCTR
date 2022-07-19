@@ -29,9 +29,9 @@ namespace SparseOperationKit {
 
 template <typename KeyType, typename ValueType>
 RawParam<KeyType, ValueType>::RawParam(const std::string& initializer, const bool use_hashtable,
-                   const std::vector<size_t> shape,
-                   const std::shared_ptr<ResourcesManager>& resource_mgr,
-                   const std::string var_name, const bool trainable)
+                                       const std::vector<size_t> shape,
+                                       const std::shared_ptr<ResourcesManager>& resource_mgr,
+                                       const std::string var_name, const bool trainable)
     : ParamInterface(/*max_vocabulary_size_per_gpu=*/shape[0],
                      /*embedding_vec_size=*/shape[1],
                      /*trainable=*/trainable,
@@ -64,7 +64,8 @@ RawParam<KeyType, ValueType>::RawParam(const std::string& initializer, const boo
     // construct hashtable
     {
       if (use_hashtable_) {
-        hashtables_[dev_id] = NvHashTable<KeyType, size_t>::create(get_max_vocabulary_size_per_gpu());
+        hashtables_[dev_id] =
+            NvHashTable<KeyType, size_t>::create(get_max_vocabulary_size_per_gpu());
       } else {
         hashtables_[dev_id] =
             IdentityHashTable<KeyType, size_t>::create(get_max_vocabulary_size_per_gpu());
@@ -83,21 +84,21 @@ RawParam<KeyType, ValueType>::RawParam(const std::string& initializer, const boo
   }  // for dev_id
 
   // explicitly set default value for initialized_
-  for (auto& flag : initialized_) { flag.store(false, std::memory_order_release); }
+  for (auto& flag : initialized_) {
+    flag.store(false, std::memory_order_release);
+  }
 }
 
 template <typename KeyType, typename ValueType>
 RawParam<KeyType, ValueType>::~RawParam() {}
 
 template <typename KeyType, typename ValueType>
-std::shared_ptr<RawParam<KeyType, ValueType>> 
-RawParam<KeyType, ValueType>::create(const std::string& initializer, const bool use_hashtable,
-                            const std::vector<size_t> shape,
-                            const std::shared_ptr<ResourcesManager>& resource_mgr,
-                            const std::string var_name, const bool trainable) {
-  return std::shared_ptr<RawParam<KeyType, ValueType>>(
-      new RawParam<KeyType, ValueType>(initializer, use_hashtable, shape, resource_mgr, 
-                              var_name, trainable));
+std::shared_ptr<RawParam<KeyType, ValueType>> RawParam<KeyType, ValueType>::create(
+    const std::string& initializer, const bool use_hashtable, const std::vector<size_t> shape,
+    const std::shared_ptr<ResourcesManager>& resource_mgr, const std::string var_name,
+    const bool trainable) {
+  return std::shared_ptr<RawParam<KeyType, ValueType>>(new RawParam<KeyType, ValueType>(
+      initializer, use_hashtable, shape, resource_mgr, var_name, trainable));
 }
 
 template <typename KeyType, typename ValueType>
@@ -107,7 +108,7 @@ bool RawParam<KeyType, ValueType>::is_initialized(const size_t local_replica_id)
 
 template <typename KeyType, typename ValueType>
 void RawParam<KeyType, ValueType>::set_initialized(const size_t local_replica_id) {
-  if (is_initialized(local_replica_id)) 
+  if (is_initialized(local_replica_id))
     throw std::runtime_error(ErrorBase + get_var_name() + " has already been initialized.");
   initialized_[local_replica_id].store(true, std::memory_order_release);
 }
@@ -117,8 +118,8 @@ void RawParam<KeyType, ValueType>::init(const size_t global_replica_id) {
   const size_t local_replica_id = resource_mgr_->cal_local_id_from_global_id(global_replica_id);
   if (is_initialized(local_replica_id)) return;
 
-  MESSAGE("Variable: " + get_var_name() + " on global_replica_id: " + std::to_string(global_replica_id) +
-          " start initialization");
+  MESSAGE("Variable: " + get_var_name() +
+          " on global_replica_id: " + std::to_string(global_replica_id) + " start initialization");
   if (local_replica_id >= emb_table_tensors_.size())
     throw std::runtime_error(ErrorBase +
                              "local_replica_id is out of the range of emb_table_tensors.size().");
@@ -134,20 +135,24 @@ void RawParam<KeyType, ValueType>::init(const size_t global_replica_id) {
   resource_mgr_->sync_gpu(local_replica_id);
 
   set_initialized(local_replica_id);
-  MESSAGE("Variable: " + get_var_name() + " on global_replica_id: " + std::to_string(global_replica_id) +
-          " initialization done.");
+  MESSAGE("Variable: " + get_var_name() +
+          " on global_replica_id: " + std::to_string(global_replica_id) + " initialization done.");
 }
 
 template <typename KeyType, typename ValueType>
-void RawParam<KeyType, ValueType>::set_user(std::shared_ptr<EmbeddingLayer>& embedding) { user_ = embedding; }
+void RawParam<KeyType, ValueType>::set_user(std::shared_ptr<EmbeddingLayer>& embedding) {
+  user_ = embedding;
+}
 
 template <typename KeyType, typename ValueType>
-auto RawParam<KeyType, ValueType>::get_hashtable(const size_t local_replica_id) -> std::shared_ptr<HashTable>& {
+auto RawParam<KeyType, ValueType>::get_hashtable(const size_t local_replica_id)
+    -> std::shared_ptr<HashTable>& {
   return hashtables_[local_replica_id];
 }
 
 template <typename KeyType, typename ValueType>
-std::shared_ptr<Tensor>& RawParam<KeyType, ValueType>::get_embedding_table_tensor(const size_t local_replica_id) {
+std::shared_ptr<Tensor>& RawParam<KeyType, ValueType>::get_embedding_table_tensor(
+    const size_t local_replica_id) {
   if (local_replica_id >= emb_table_tensors_.size())
     throw std::runtime_error(ErrorBase +
                              "local_replica_id is out of the range of emb_table_tensors.size().");
@@ -156,8 +161,8 @@ std::shared_ptr<Tensor>& RawParam<KeyType, ValueType>::get_embedding_table_tenso
 }
 
 template <typename KeyType, typename ValueType>
-void RawParam<KeyType, ValueType>::assign_initial_value(const size_t local_replica_id,
-                                        const std::shared_ptr<Tensor>& initial_value) {
+void RawParam<KeyType, ValueType>::assign_initial_value(
+    const size_t local_replica_id, const std::shared_ptr<Tensor>& initial_value) {
   if (is_initialized(local_replica_id))
     throw std::runtime_error(ErrorBase + get_var_name() + " has already been initialized.");
 
@@ -171,16 +176,16 @@ void RawParam<KeyType, ValueType>::assign_initial_value(const size_t local_repli
 #ifdef SOK_ASYNC
   CK_CUDA(cudaStreamSynchronize(local_gpu->get_framework_stream()));
 #endif
-  CK_CUDA(cudaMemcpyAsync(embedding_table->template GetPtrWithType<ValueType>(), 
+  CK_CUDA(cudaMemcpyAsync(embedding_table->template GetPtrWithType<ValueType>(),
                           initial_value->GetPtrWithType<ValueType>(),
-                          initial_value->get_size_in_bytes(), 
-                          cudaMemcpyDefault, local_gpu->get_stream()));
+                          initial_value->get_size_in_bytes(), cudaMemcpyDefault,
+                          local_gpu->get_stream()));
   CK_CUDA(cudaStreamSynchronize(local_gpu->get_stream()));
 
   set_initialized(local_replica_id);
   const size_t global_replica_id = resource_mgr_->cal_global_id_from_local_id(local_replica_id);
-  MESSAGE("Variable: " + get_var_name() + " on global_replica_id: " + std::to_string(global_replica_id) +
-          " initial_value set.");
+  MESSAGE("Variable: " + get_var_name() +
+          " on global_replica_id: " + std::to_string(global_replica_id) + " initial_value set.");
 }
 
 template <typename KeyType, typename ValueType>
@@ -200,7 +205,8 @@ void RawParam<KeyType, ValueType>::dump_to_file(const std::string filepath) {
 
   // step 2: let user to prepare keys & emebdding_values for all GPUs
   std::shared_ptr<Tensor> host_keys = Tensor2Wrapper<KeyType>::create(keys);
-  std::shared_ptr<Tensor> host_embedding_values = Tensor2Wrapper<ValueType>::create(embedding_values);
+  std::shared_ptr<Tensor> host_embedding_values =
+      Tensor2Wrapper<ValueType>::create(embedding_values);
   size_t num_total_keys = 0ul;
   user_->save_params(host_keys, host_embedding_values, num_total_keys);
   resource_mgr_->sync_all_workers();
@@ -227,7 +233,9 @@ void RawParam<KeyType, ValueType>::dump_to_file(const std::string filepath) {
 }
 
 template <typename KeyType, typename ValueType>
-void RawParam<KeyType, ValueType>::let_user_dump_to_file(const std::string filepath) { user_->dump_to_file(filepath); }
+void RawParam<KeyType, ValueType>::let_user_dump_to_file(const std::string filepath) {
+  user_->dump_to_file(filepath);
+}
 
 template <typename KeyType, typename ValueType>
 void RawParam<KeyType, ValueType>::restore_from_file(const std::string filepath) {
@@ -294,30 +302,32 @@ void RawParam<KeyType, ValueType>::restore_from_file(const std::string filepath)
       HugeCTR::Tensor2<int64_t> int64_keys;
       HugeCTR::Tensor2<uint32_t> keys;
       host_buffer->reserve({key_count}, &int64_keys);
-      if (file_key_dtype != DType<KeyType>()) { host_buffer->reserve({key_count}, &keys); }
+      if (file_key_dtype != DType<KeyType>()) {
+        host_buffer->reserve({key_count}, &keys);
+      }
       host_buffer->allocate();
       file_keys_tensor = Tensor2Wrapper<int64_t>::create(int64_keys);
-      keys_tensor = file_key_dtype != DType<KeyType>() 
-                    ? Tensor2Wrapper<uint32_t>::create(keys)
-                    : file_keys_tensor;
+      keys_tensor = file_key_dtype != DType<KeyType>() ? Tensor2Wrapper<uint32_t>::create(keys)
+                                                       : file_keys_tensor;
       break;
     }
     case DataType::Uint32: {
       HugeCTR::Tensor2<uint32_t> uint32_keys;
       HugeCTR::Tensor2<int64_t> keys;
       host_buffer->reserve({key_count}, &uint32_keys);
-      if (file_key_dtype != DType<KeyType>()) { host_buffer->reserve({key_count}, &keys); }
+      if (file_key_dtype != DType<KeyType>()) {
+        host_buffer->reserve({key_count}, &keys);
+      }
       host_buffer->allocate();
       file_keys_tensor = Tensor2Wrapper<uint32_t>::create(uint32_keys);
-      keys_tensor = file_key_dtype != DType<KeyType>()
-                    ? Tensor2Wrapper<int64_t>::create(keys)
-                    : file_keys_tensor;
+      keys_tensor = file_key_dtype != DType<KeyType>() ? Tensor2Wrapper<int64_t>::create(keys)
+                                                       : file_keys_tensor;
       break;
     }
     default: {
       throw std::runtime_error("Unsupported key dtype from " + key_filename);
     }
-  } // switch block
+  }  // switch block
   MESSAGE("Allocated temporary pinned buffer for loading parameters.");
 
   // step 3: read content from file to pinned memory
@@ -331,21 +341,22 @@ void RawParam<KeyType, ValueType>::restore_from_file(const std::string filepath)
     switch (file_key_dtype) {
       case DataType::Int64: {
         for (size_t i = 0; i < key_count; i++)
-          keys_tensor->GetPtrWithType<KeyType>()[i] 
-            = static_cast<uint32_t>(file_keys_tensor->GetPtrWithType<int64_t>()[i]);
+          keys_tensor->GetPtrWithType<KeyType>()[i] =
+              static_cast<uint32_t>(file_keys_tensor->GetPtrWithType<int64_t>()[i]);
         break;
-      } 
+      }
       case DataType::Uint32: {
-        for (size_t i = 0; i < key_count; i++) 
-          keys_tensor->GetPtrWithType<KeyType>()[i]
-            = static_cast<int64_t>(file_keys_tensor->GetPtrWithType<uint32_t>()[i]);
+        for (size_t i = 0; i < key_count; i++)
+          keys_tensor->GetPtrWithType<KeyType>()[i] =
+              static_cast<int64_t>(file_keys_tensor->GetPtrWithType<uint32_t>()[i]);
         break;
       }
       default: {
-        throw std::runtime_error(ErrorBase + "Not supported key dtype: " + DataTypeString(file_key_dtype));
+        throw std::runtime_error(ErrorBase +
+                                 "Not supported key dtype: " + DataTypeString(file_key_dtype));
       }
-    } // switch block
-  } // if file_key_dtype != KeyType
+    }  // switch block
+  }    // if file_key_dtype != KeyType
 
   // step 5: upload content to GPU memory
   // because how to load parameters to each GPU is related to
@@ -365,9 +376,10 @@ void RawParam<KeyType, ValueType>::let_user_restore_from_file(const std::string 
 }
 
 template <typename KeyType, typename ValueType>
-void RawParam<KeyType, ValueType>::load_embedding_values(const std::shared_ptr<Tensor>& emb_values) {
+void RawParam<KeyType, ValueType>::load_embedding_values(
+    const std::shared_ptr<Tensor>& emb_values) {
   // step 1: allocate temp spaces
-  size_t  total_key_count = (emb_values->get_num_elements() / get_embedding_vec_size());
+  size_t total_key_count = (emb_values->get_num_elements() / get_embedding_vec_size());
 
   std::shared_ptr<HugeCTR::GeneralBuffer2<HugeCTR::CudaHostAllocator>> host_buffer =
       HugeCTR::GeneralBuffer2<HugeCTR::CudaHostAllocator>::create();
@@ -378,8 +390,7 @@ void RawParam<KeyType, ValueType>::load_embedding_values(const std::shared_ptr<T
   MESSAGE("Allocated temporary buffer for loading embedding values.");
 
   // step 2: generate keys
-  for (size_t i = 0; i < total_key_count; i++) 
-    keys.get_ptr()[i] = static_cast<KeyType>(i);
+  for (size_t i = 0; i < total_key_count; i++) keys.get_ptr()[i] = static_cast<KeyType>(i);
 
   // step 3: upload content to GPU memory
   // because how to load parameters to each GPU is related to
@@ -414,18 +425,18 @@ template class RawParam<uint32_t, float>;
 template class RawParam<uint32_t, __half>;
 
 namespace {
-const std::unordered_map<TypeIdentity, RawParamCtor_t, 
-                         TypeIdentityHash, TypeIdentityEqual> ctor_map = {
-  {{DataType::Int64, DataType::Float32}, RawParam<int64_t, float>::create},
-  {{DataType::Int64, DataType::Half}, RawParam<int64_t, __half>::create},
-  {{DataType::Uint32, DataType::Float32}, RawParam<uint32_t, float>::create},
-  {{DataType::Uint32, DataType::Half}, RawParam<uint32_t, __half>::create},
+const std::unordered_map<TypeIdentity, RawParamCtor_t, TypeIdentityHash, TypeIdentityEqual>
+    ctor_map = {
+        {{DataType::Int64, DataType::Float32}, RawParam<int64_t, float>::create},
+        {{DataType::Int64, DataType::Half}, RawParam<int64_t, __half>::create},
+        {{DataType::Uint32, DataType::Float32}, RawParam<uint32_t, float>::create},
+        {{DataType::Uint32, DataType::Half}, RawParam<uint32_t, __half>::create},
 };
-} // anonymous namespace
+}  // anonymous namespace
 
 RawParamCtor_t GetRawParamCtor(const DataType key_dtype, const DataType value_dtype) {
   auto iter = ctor_map.find({key_dtype, value_dtype});
-  if (ctor_map.end() == iter) 
+  if (ctor_map.end() == iter)
     throw std::runtime_error(ErrorBase + "Unknown {key_dtype, value_dtype}.");
   return iter->second;
 }

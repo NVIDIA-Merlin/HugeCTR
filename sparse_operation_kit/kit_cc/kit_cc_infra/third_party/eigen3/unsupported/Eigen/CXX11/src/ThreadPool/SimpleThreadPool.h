@@ -10,12 +10,13 @@
 #ifndef EIGEN_CXX11_THREADPOOL_SIMPLE_THREAD_POOL_H
 #define EIGEN_CXX11_THREADPOOL_SIMPLE_THREAD_POOL_H
 
-#include "ThreadPoolInterface.h"
-#include "ThreadEnvironment.h"
-#include <vector>
-#include <deque>
 #include <condition_variable>
+#include <deque>
 #include <stdexcept>
+#include <vector>
+
+#include "ThreadEnvironment.h"
+#include "ThreadPoolInterface.h"
 
 namespace Eigen {
 
@@ -29,8 +30,7 @@ class SimpleThreadPoolTempl : public ThreadPoolInterface {
  public:
   // Construct a pool that contains "num_threads" threads.
   explicit SimpleThreadPoolTempl(const int num_threads, Environment env = Environment())
-      : env_(env), num_threads_(num_threads), waiters_(0)
-  {
+      : env_(env), num_threads_(num_threads), waiters_(0) {
     for (int i = 0; i < num_threads; i++) {
       threads_.push_back(env.CreateThread([this, i]() { WorkerLoop(i); }));
     }
@@ -61,9 +61,7 @@ class SimpleThreadPoolTempl : public ThreadPoolInterface {
     }
   }
 
-  bool Done() const {
-    return num_threads_ == static_cast<int>(waiters_.size());
-  }
+  bool Done() const { return num_threads_ == static_cast<int>(waiters_.size()); }
 
   // Schedule fn() for execution in the pool of threads. The functions are
   // executed in the order in which they are scheduled.
@@ -81,9 +79,7 @@ class SimpleThreadPoolTempl : public ThreadPoolInterface {
     }
   }
 
-  int NumThreads() const final {
-    return static_cast<int>(threads_.size());
-  }
+  int NumThreads() const final { return static_cast<int>(threads_.size()); }
 
   int CurrentThreadId() const final {
     const PerThread* pt = this->GetPerThread();
@@ -117,7 +113,7 @@ class SimpleThreadPoolTempl : public ThreadPoolInterface {
           // Pick up pending work
           if (exiting_ && pending_.empty()) return;
           if (exce_ptr_ != nullptr) std::rethrow_exception(exce_ptr_);
-          
+
           t = std::move(pending_.front());
           pending_.pop_front();
           if (pending_.empty()) {
@@ -150,7 +146,7 @@ class SimpleThreadPoolTempl : public ThreadPoolInterface {
   };
 
   struct PerThread {
-    constexpr PerThread() : pool(NULL), thread_id(-1) { }
+    constexpr PerThread() : pool(NULL), thread_id(-1) {}
     SimpleThreadPoolTempl* pool;  // Parent pool, or null for normal threads.
     int thread_id;                // Worker thread index in pool.
   };
@@ -159,11 +155,11 @@ class SimpleThreadPoolTempl : public ThreadPoolInterface {
   std::mutex mu_;
   // MaxSizeVector<Thread*> threads_;  // All threads
   // MaxSizeVector<Waiter*> waiters_;  // Stack of waiting threads.
-  std::vector<Thread*> threads_; // All threads
-  const int num_threads_; // num_threads
-  std::vector<Waiter*> waiters_; // Stack of waiting threads.
-  std::deque<Task> pending_;        // Queue of pending work
-  std::condition_variable empty_;   // Signaled on pending_.empty()
+  std::vector<Thread*> threads_;   // All threads
+  const int num_threads_;          // num_threads
+  std::vector<Waiter*> waiters_;   // Stack of waiting threads.
+  std::deque<Task> pending_;       // Queue of pending work
+  std::condition_variable empty_;  // Signaled on pending_.empty()
   bool exiting_ = false;
   std::exception_ptr exce_ptr_;
 
