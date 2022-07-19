@@ -57,19 +57,23 @@ class PluginBpropOp : public AsyncOpKernel {
 
       try {
         // get grad shape
-        TensorShape grad_shape{ static_cast<tensorflow::int64>(h_replica_nnz) };
+        TensorShape grad_shape{static_cast<tensorflow::int64>(h_replica_nnz)};
         TensorShape _shape;
         SparseOperationKit::Facade::instance()->get_grad_shape(global_replica_id_value,
                                                                emb_handle_tensor, _shape);
         grad_shape.AppendShape(_shape);
         Tensor* gradient_tensor = nullptr;
         OP_REQUIRES_OK_ASYNC(ctx, ctx->allocate_output(0, grad_shape, &gradient_tensor), done);
-        OP_REQUIRES_ASYNC(ctx, static_cast<tensorflow::int64>(h_replica_nnz) == gradient_tensor->dim_size(0), 
-                          errors::Aborted(__FILE__, ":", __LINE__, " ",
-                          "h_replica_nnz from forward is not consistent with gradient shape."), done);
+        OP_REQUIRES_ASYNC(
+            ctx, static_cast<tensorflow::int64>(h_replica_nnz) == gradient_tensor->dim_size(0),
+            errors::Aborted(__FILE__, ":", __LINE__, " ",
+                            "h_replica_nnz from forward is not consistent with gradient shape."),
+            done);
         Tensor* value_index_tensor = nullptr;
         OP_REQUIRES_OK_ASYNC(
-            ctx, ctx->allocate_output(1, {static_cast<tensorflow::int64>(h_replica_nnz)}, &value_index_tensor),
+            ctx,
+            ctx->allocate_output(1, {static_cast<tensorflow::int64>(h_replica_nnz)},
+                                 &value_index_tensor),
             done);
 
         // do backward propagation
@@ -133,12 +137,11 @@ class PluginBpropOp : public OpKernel {
 };
 #endif
 
-REGISTER_KERNEL_BUILDER(
-    Name("PluginBprop")
-      .Device(DEVICE_GPU)
-      .HostMemory("emb_handle")
-      .HostMemory("global_replica_id")
-      .HostMemory("replica_nnz"),
-    PluginBpropOp<GPUDevice>);
+REGISTER_KERNEL_BUILDER(Name("PluginBprop")
+                            .Device(DEVICE_GPU)
+                            .HostMemory("emb_handle")
+                            .HostMemory("global_replica_id")
+                            .HostMemory("replica_nnz"),
+                        PluginBpropOp<GPUDevice>);
 
 }  // namespace tensorflow

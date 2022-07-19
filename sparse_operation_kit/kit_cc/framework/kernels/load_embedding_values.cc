@@ -45,7 +45,8 @@ class LoadEmbeddingValuesOp : public OpKernel {
     OP_REQUIRES_OK(ctx, ctx->allocate_output(0, {}, &status_tensor));
 
     try {
-      SparseOperationKit::Facade::instance()->load_embedding_values(variable, embedding_values_tensor);
+      SparseOperationKit::Facade::instance()->load_embedding_values(variable,
+                                                                    embedding_values_tensor);
     } catch (const std::exception& error) {
       ctx->SetStatus(errors::Aborted(error.what()));
       return;

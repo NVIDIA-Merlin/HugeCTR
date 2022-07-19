@@ -91,7 +91,6 @@ namespace SparseOperationKit {
 
 namespace {
 inline std::string filter_path(const std::string& path) {
-
   const static std::string skbuild_file_prefix = "../../../";
   if (path.rfind(skbuild_file_prefix, 0) == 0) {
     return "sparse_operation_kit/" + path.substr(skbuild_file_prefix.size());
@@ -112,13 +111,13 @@ inline std::string filter_path(const std::string& path) {
     std::time_t time_instance = std::time(nullptr);                                                \
     const std::string time_instance_str = std::to_string(time_instance);                           \
     std::tm time_now;                                                                              \
-    localtime_r(&time_instance, &time_now);                                                   \
-    std::cout << time_now.tm_year + 1900 << "-" << std::setfill('0') << std::setw(2)              \
-              << std::to_string(1 + time_now.tm_mon) << "-" << std::setfill('0') << std::setw(2)  \
-              << std::to_string(time_now.tm_mday) << " " << std::setfill('0') << std::setw(2)     \
-              << std::to_string(time_now.tm_hour) << ":" << std::setfill('0') << std::setw(2)     \
-              << std::to_string(time_now.tm_min) << ":" << std::setfill('0') << std::setw(2)      \
-              << std::to_string(time_now.tm_sec) << "."                                           \
+    localtime_r(&time_instance, &time_now);                                                        \
+    std::cout << time_now.tm_year + 1900 << "-" << std::setfill('0') << std::setw(2)               \
+              << std::to_string(1 + time_now.tm_mon) << "-" << std::setfill('0') << std::setw(2)   \
+              << std::to_string(time_now.tm_mday) << " " << std::setfill('0') << std::setw(2)      \
+              << std::to_string(time_now.tm_hour) << ":" << std::setfill('0') << std::setw(2)      \
+              << std::to_string(time_now.tm_min) << ":" << std::setfill('0') << std::setw(2)       \
+              << std::to_string(time_now.tm_sec) << "."                                            \
               << time_instance_str.substr(time_instance_str.size() - 6, time_instance_str.size())  \
               << ": I " << filter_path(__FILE__) << ":" << __LINE__ << "] " << (msg) << std::endl; \
   } while (0)
@@ -130,18 +129,21 @@ void int_to_ncclUniqueId(const int32_t* uniqueId_num, ncclUniqueId& uniqueId);
 
 enum class CombinerType { Sum, Mean };
 enum class OptimizerType { Adam };
-enum class ParamType : uint32_t { RawParam = 0 }; 
-enum class DataType : uint32_t {Unknown = 0,
-                                Float32 = 1, 
-                                Half = 2, Float16 = 2,
-                                Int64 = 3,
-                                Uint64 = 4,
-                                Int32 = 5,
-                                Uint32 = 6};
-template <typename T> 
+enum class ParamType : uint32_t { RawParam = 0 };
+enum class DataType : uint32_t {
+  Unknown = 0,
+  Float32 = 1,
+  Half = 2,
+  Float16 = 2,
+  Int64 = 3,
+  Uint64 = 4,
+  Int32 = 5,
+  Uint32 = 6
+};
+template <typename T>
 DataType DType();
 
-template <DataType dtype> 
+template <DataType dtype>
 struct TypeImpl;
 
 template <DataType dtype>

@@ -16,10 +16,12 @@ limitations under the License.
 #ifndef SOK_TENSORFLOW_CORE_UTIL_GPU_DEVICE_FUNCTIONS_H_
 #define SOK_TENSORFLOW_CORE_UTIL_GPU_DEVICE_FUNCTIONS_H_
 
-#include "third_party/eigen3/unsupported/Eigen/CXX11/Tensor"
-#include "tensorflow/core/platform/types.h"
 #include <assert.h>
+
 #include <type_traits>
+
+#include "tensorflow/core/platform/types.h"
+#include "third_party/eigen3/unsupported/Eigen/CXX11/Tensor"
 
 /**
  * Wrappers and helpers for CUDA device code.
@@ -34,7 +36,7 @@ namespace tensorflow {
 namespace detail {
 // Helper function for atomic accumulation implemented as CAS.
 template <typename T, typename F>
-__device__ T GpuAtomicCasHelper(T* ptr, F accumulate) {
+__device__ T GpuAtomicCasHelper(T *ptr, F accumulate) {
   T old = *ptr;
   T assumed;
   do {
@@ -57,7 +59,7 @@ __device__ T GpuAtomicCasHelper(T* ptr, F accumulate) {
 //
 // Note: Assumes little endian.
 template <typename F>
-__device__ Eigen::half GpuAtomicCasHelper(Eigen::half* ptr, F accumulate) {
+__device__ Eigen::half GpuAtomicCasHelper(Eigen::half *ptr, F accumulate) {
 #if defined(__BYTE_ORDER__) && defined(__ORDER_LITTLE_ENDIAN__)
   static_assert(__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__, "Not little endian");
 #endif
@@ -65,29 +67,24 @@ __device__ Eigen::half GpuAtomicCasHelper(Eigen::half* ptr, F accumulate) {
   assert(!(intptr & 0x1));  // should be 2-aligned.
   if (intptr & 0x2) {
     // The half is in the second part of the uint32 (upper 16 bits).
-    uint32* address = reinterpret_cast<uint32*>(intptr - 2);
+    uint32 *address = reinterpret_cast<uint32 *>(intptr - 2);
     uint32 result = GpuAtomicCasHelper(address, [accumulate](uint32 arg) {
       unsigned short high = static_cast<unsigned short>(arg >> 16);
       Eigen::half acc = accumulate(Eigen::numext::bit_cast<Eigen::half>(high));
-      return (static_cast<uint32>(Eigen::numext::bit_cast<uint16>(acc)) << 16) |
-             (arg & 0xffff);
+      return (static_cast<uint32>(Eigen::numext::bit_cast<uint16>(acc)) << 16) | (arg & 0xffff);
     });
-    return Eigen::numext::bit_cast<Eigen::half>(
-        static_cast<uint16>(result >> 16));
+    return Eigen::numext::bit_cast<Eigen::half>(static_cast<uint16>(result >> 16));
   } else {
     // The half is in the first part of the uint32 (lower 16 bits).
-    uint32* address = reinterpret_cast<uint32*>(intptr);
+    uint32 *address = reinterpret_cast<uint32 *>(intptr);
     uint32 result = GpuAtomicCasHelper(address, [accumulate](uint32 arg) {
       unsigned short low = static_cast<unsigned short>(arg & 0xffff);
       Eigen::half acc = accumulate(Eigen::numext::bit_cast<Eigen::half>(low));
-      return (arg & 0xffff0000) |
-             static_cast<uint32>(Eigen::numext::bit_cast<uint16>(acc));
+      return (arg & 0xffff0000) | static_cast<uint32>(Eigen::numext::bit_cast<uint16>(acc));
     });
-    return Eigen::numext::bit_cast<Eigen::half>(
-        static_cast<uint16>(result & 0xffff));
+    return Eigen::numext::bit_cast<Eigen::half>(static_cast<uint16>(result & 0xffff));
   }
 }
-
 
 // Helper for range-based for loop using 'delta' increments.
 // Usage: see GpuGridRange?() functions below.
@@ -176,10 +173,8 @@ __device__ detail::ToTypeIfConvertible<U, T> GpuAtomicAdd(T *ptr, U value) {
   return atomicAdd(detail::ToCudaSupportedPtr(ptr), value);
 }
 
-__device__ inline Eigen::half GpuAtomicAdd(Eigen::half* ptr,
-                                           Eigen::half value) {
-  return detail::GpuAtomicCasHelper(
-      ptr, [value](Eigen::half a) { return a + value; });
+__device__ inline Eigen::half GpuAtomicAdd(Eigen::half *ptr, Eigen::half value) {
+  return detail::GpuAtomicCasHelper(ptr, [value](Eigen::half a) { return a + value; });
 }
 
 }  // namespace tensorflow

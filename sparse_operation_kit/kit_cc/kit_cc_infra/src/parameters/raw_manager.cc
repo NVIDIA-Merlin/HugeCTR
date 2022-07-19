@@ -139,8 +139,8 @@ void RawManager::create_variables(const size_t local_replica_id,
                                   const DataType dtype, const DataType key_dtype,
                                   std::shared_ptr<ParamInterface>& param) {
   // create variable
-  create_variables(local_replica_id, /*initializer=*/"ones", use_hashtable, shape, 
-                   name, trainable, dtype, key_dtype, param);
+  create_variables(local_replica_id, /*initializer=*/"ones", use_hashtable, shape, name, trainable,
+                   dtype, key_dtype, param);
   // set initial_value
   param->assign_initial_value(local_replica_id, initial_value);
 }

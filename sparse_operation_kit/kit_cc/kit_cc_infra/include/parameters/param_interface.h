@@ -17,10 +17,10 @@
 #ifndef PARAM_INTERFACE_H
 #define PARAM_INTERFACE_H
 
+#include "common.h"
 #include "hashtable/hashtable.h"
 #include "hashtable/simple_hashtable.h"
 #include "parameters/state_interface.h"
-#include "common.h"
 
 namespace SparseOperationKit {
 
@@ -32,20 +32,16 @@ class ResourcesManager;
 class ParamInterface : public States {
  public:
   // helper function to create Param Implementation
-  static std::shared_ptr<ParamInterface> CreateParam(const ParamType param_type,
-                                                     const std::string& initializer,
-                                                     const bool use_hashtable,
-                                                     const std::vector<size_t> shape,
-                                                     const std::shared_ptr<ResourcesManager>& resource_mgr,
-                                                     const std::string var_name, 
-                                                     const bool trainable,
-                                                     const DataType key_dtype, 
-                                                     const DataType value_dtype);
+  static std::shared_ptr<ParamInterface> CreateParam(
+      const ParamType param_type, const std::string& initializer, const bool use_hashtable,
+      const std::vector<size_t> shape, const std::shared_ptr<ResourcesManager>& resource_mgr,
+      const std::string var_name, const bool trainable, const DataType key_dtype,
+      const DataType value_dtype);
 
   virtual ~ParamInterface() {}
   ParamInterface(const size_t max_vocabulary_size_per_gpu, const size_t embedding_vec_size,
-                 const bool trainable, const std::string var_name,
-                 const DataType dtype, const DataType key_dtype);
+                 const bool trainable, const std::string var_name, const DataType dtype,
+                 const DataType key_dtype);
   virtual std::shared_ptr<HashTable>& get_hashtable(const size_t local_replica_id) = 0;
   virtual std::shared_ptr<Tensor>& get_embedding_table_tensor(const size_t local_replica_id) = 0;
   std::shared_ptr<Tensor>& get_tensor(const size_t local_replica_id) override;
@@ -65,8 +61,7 @@ class ParamInterface : public States {
   virtual void set_user(std::shared_ptr<EmbeddingLayer>& embedding);
   virtual void let_user_dump_to_file(const std::string filepath);
   virtual void let_user_restore_from_file(const std::string filepath);
-  virtual void let_user_load_embedding_values(
-      const std::shared_ptr<Tensor>& emb_values);
+  virtual void let_user_load_embedding_values(const std::shared_ptr<Tensor>& emb_values);
   virtual void set_hashtable(std::shared_ptr<BaseSimpleHashtable> hashtable);
 
  private:

@@ -227,21 +227,13 @@ class DistribtuedLookuper : public EmbeddingLookuper {
   Tensors2<int64_t> row_offset_allreduce_tensors_;
 };
 
-REGISTER_EMB_LOOKUPER_BUILDER("distributed", 
-                              DataType::Int64,
-                              DataType::Float32, 
+REGISTER_EMB_LOOKUPER_BUILDER("distributed", DataType::Int64, DataType::Float32,
                               DistribtuedLookuper<int64_t, float>);
-REGISTER_EMB_LOOKUPER_BUILDER("distributed", 
-                              DataType::Int64,
-                              DataType::Float16, 
+REGISTER_EMB_LOOKUPER_BUILDER("distributed", DataType::Int64, DataType::Float16,
                               DistribtuedLookuper<int64_t, __half>);
-REGISTER_EMB_LOOKUPER_BUILDER("distributed", 
-                              DataType::Uint32,
-                              DataType::Float32, 
+REGISTER_EMB_LOOKUPER_BUILDER("distributed", DataType::Uint32, DataType::Float32,
                               DistribtuedLookuper<uint32_t, float>);
-REGISTER_EMB_LOOKUPER_BUILDER("distributed", 
-                              DataType::Uint32,
-                              DataType::Float16, 
+REGISTER_EMB_LOOKUPER_BUILDER("distributed", DataType::Uint32, DataType::Float16,
                               DistribtuedLookuper<uint32_t, __half>);
 
 }  // namespace SparseOperationKit

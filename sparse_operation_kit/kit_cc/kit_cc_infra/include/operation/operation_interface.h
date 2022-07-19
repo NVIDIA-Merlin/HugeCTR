@@ -157,12 +157,12 @@
  *   };
  *
  * 4. register this dispatcher by calling 'REGISTER_INPUT_DISPATCHER_BUILDER' macro in the cpp file.
- *   for example: 
- *      REGISTER_INPUT_DISPATCHER_BUILDER("MyInputDispathcer", 
- *                                        DataType::Int64, DataType::Float32, 
+ *   for example:
+ *      REGISTER_INPUT_DISPATCHER_BUILDER("MyInputDispathcer",
+ *                                        DataType::Int64, DataType::Float32,
  *                                        MyInputDispathcer);
- * 5. The name 'MyInputDispathcer', key_dtype 'DataType::Int64', and the dtype 'DataType::Float32' will be 
- *   used together as the identifier to identify this class.
+ * 5. The name 'MyInputDispathcer', key_dtype 'DataType::Int64', and the dtype 'DataType::Float32'
+ * will be used together as the identifier to identify this class.
  *
  * ----------------------------------
  *        embedding_lookuper
@@ -251,11 +251,11 @@
  *   };
  *
  * 4. register this embedding_lookuper by calling 'REGISTER_EMB_LOOKUPER_BUILDER' macro in the cpp
- * file. for example: 
- *      REGISTER_EMB_LOOKUPER_BUILDER("MyLookuper", 
- *                                    DataType::Int64, DataType::Float32, 
+ * file. for example:
+ *      REGISTER_EMB_LOOKUPER_BUILDER("MyLookuper",
+ *                                    DataType::Int64, DataType::Float32,
  *                                    MyLookuper);
- * 5. The name 'MyLookuper', key_dtype 'DataType::Int64', and the dtype 'DataType::Float32' will be 
+ * 5. The name 'MyLookuper', key_dtype 'DataType::Int64', and the dtype 'DataType::Float32' will be
  *   used together as the identifier to identify this class.
  *
  * ----------------------------------
@@ -327,11 +327,11 @@
  *   };
  *
  * 4. register this dispatcher by calling 'REGISTER_OPERATION_BUILDER' macro in the cpp file.
- *   for example: 
- *      REGISTER_OPERATION_BUILDER("MyOperation", 
- *                                 DataType::Int64, DataType::Float32, 
+ *   for example:
+ *      REGISTER_OPERATION_BUILDER("MyOperation",
+ *                                 DataType::Int64, DataType::Float32,
  *                                 MyOperation);
- * 5. The name 'MyOperation', key_dtype 'DataType::Int64', and the dtype 'DataType::Float32' will be 
+ * 5. The name 'MyOperation', key_dtype 'DataType::Int64', and the dtype 'DataType::Float32' will be
  *   used together as the identifier to identify this class.
  */
 

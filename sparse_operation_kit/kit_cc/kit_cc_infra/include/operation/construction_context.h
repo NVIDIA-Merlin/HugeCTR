@@ -54,7 +54,7 @@ class DenseConstructionContext : public ConstructionContext {
       const std::vector<std::shared_ptr<HugeCTR::GeneralBuffer2<HugeCTR::CudaHostAllocator>>>&
           host_buffers,
       const size_t replica_batch_size, const size_t slot_num, const size_t nnz_per_slot,
-      const DataType key_dtype, const DataType compute_dtype, 
+      const DataType key_dtype, const DataType compute_dtype,
       std::shared_ptr<ParamInterface> param);
 
   const std::shared_ptr<ResourcesManager>& get_resource_mgr() const override;
@@ -81,7 +81,7 @@ class DenseConstructionContext : public ConstructionContext {
       const std::vector<std::shared_ptr<HugeCTR::GeneralBuffer2<HugeCTR::CudaHostAllocator>>>&
           host_buffers,
       const size_t replica_batch_size, const size_t slot_num, const size_t nnz_per_slot,
-      const DataType key_dtype, const DataType compute_dtype, 
+      const DataType key_dtype, const DataType compute_dtype,
       std::shared_ptr<ParamInterface> param);
 
  private:
@@ -107,9 +107,8 @@ class SparseConstructionContext : public DenseConstructionContext {
       const std::vector<std::shared_ptr<HugeCTR::GeneralBuffer2<HugeCTR::CudaHostAllocator>>>&
           host_buffers,
       const size_t replica_batch_size, const size_t rows_num_per_sample, const size_t max_nnz,
-      const size_t max_feature_num, const CombinerType combiner,
-      const DataType key_dtype, const DataType compute_dtype, 
-      std::shared_ptr<ParamInterface> param);
+      const size_t max_feature_num, const CombinerType combiner, const DataType key_dtype,
+      const DataType compute_dtype, std::shared_ptr<ParamInterface> param);
 
   size_t get_nnz_per_slot() const override;
   size_t get_max_nnz() const override;
@@ -124,9 +123,8 @@ class SparseConstructionContext : public DenseConstructionContext {
       const std::vector<std::shared_ptr<HugeCTR::GeneralBuffer2<HugeCTR::CudaHostAllocator>>>&
           host_buffers,
       const size_t replica_batch_size, const size_t rows_num_per_sample, const size_t max_nnz,
-      const size_t max_feature_num, const CombinerType combiner, 
-      const DataType key_dtype, const DataType compute_dtype, 
-      std::shared_ptr<ParamInterface> param);
+      const size_t max_feature_num, const CombinerType combiner, const DataType key_dtype,
+      const DataType compute_dtype, std::shared_ptr<ParamInterface> param);
 
   const size_t max_nnz_;
   const size_t max_feature_num_;
