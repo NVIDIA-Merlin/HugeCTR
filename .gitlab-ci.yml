@@ -71,6 +71,18 @@ nightly_build_unified_container.tri:
     BUILD_ARGS: --build-arg _CI_JOB_TOKEN=${RD_CI_JOB_TOKEN} --build-arg _HUGECTR_REPO=gitlab-master.nvidia.com/dl/hugectr/hugectr.git --build-arg HUGECTR_VER=${CI_COMMIT_BRANCH} --build-arg _HUGECTR_BACKEND_REPO=gitlab-master.nvidia.com/dl/hugectr/hugectr_inference_backend.git --build-arg HUGECTR_BACKEND_VER=hugectr_performance_test
 
 ### Stage: build
+format_check_python:
+  extends: .python_format
+  variables:
+    EXCLUDE: "third_party|docs|notebooks|tutorial"
+
+format_check_clang:
+  extends: .clang_format
+  variables:
+    EXCLUDE: ./third_party
+    STYLE: file
+    EXECUTABLE: clang-format10
+
 build_train_single_node:
   extends: .build_hugectr
   variables:
