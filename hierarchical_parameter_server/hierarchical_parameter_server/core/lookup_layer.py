@@ -17,6 +17,7 @@
 import tensorflow as tf
 from hierarchical_parameter_server.core import lookup_ops
 
+
 class LookupLayer(tf.keras.layers.Layer):
     """
     Abbreviated as ``hps.LookupLayer(*args, **kwargs)``.
@@ -30,10 +31,10 @@ class LookupLayer(tf.keras.layers.Layer):
     model_name: string
             the name of the model that has embedding table(s)
     table_id: integer
-            the index of the embedding table for the model specified by 
+            the index of the embedding table for the model specified by
             model_name
     emb_vec_size: integer
-            the embedding vector size for the embedding table specified 
+            the embedding vector size for the embedding table specified
             by model_name and table_id
     emb_vec_dtype: tensorflow.python.framework.dtypes.DType
             the data type of embedding vectors which must be tf.float32
@@ -42,19 +43,20 @@ class LookupLayer(tf.keras.layers.Layer):
     --------
     .. code-block:: python
 
-        lookup_layer = hps.LookupLayer(model_name = args.model_name, 
+        lookup_layer = hps.LookupLayer(model_name = args.model_name,
                                         table_id = args.table_id,
                                         emb_vec_size = args.embed_vec_size,
                                         emb_vec_dtype = tf.float32)
-        
+
         @tf.function
         def _infer_step(inputs):
             embedding_vector = lookup_layer(inputs)
             ...
-        
+
         for i, (inputs, labels) in enumerate(dataset):
             _infer_step(inputs)
     """
+
     def __init__(self, model_name, table_id, emb_vec_size, emb_vec_dtype, **kwargs):
         super(LookupLayer, self).__init__(**kwargs)
         self.model_name = model_name
@@ -80,11 +82,13 @@ class LookupLayer(tf.keras.layers.Layer):
                 the embedding vectors for the input keys. Its shape is
                 *inputs.get_shape() + emb_vec_size*
         """
-        emb_vector = lookup_ops.lookup(values = inputs,
-                                       model_name = self.model_name,
-                                       table_id = self.table_id,
-                                       emb_vec_size = self.emb_vec_size,
-                                       emb_vec_dtype = self.emb_vec_dtype)
-        output_shape = inputs.get_shape() + self.emb_vec_size                               
+        emb_vector = lookup_ops.lookup(
+            values=inputs,
+            model_name=self.model_name,
+            table_id=self.table_id,
+            emb_vec_size=self.emb_vec_size,
+            emb_vec_dtype=self.emb_vec_dtype,
+        )
+        output_shape = inputs.get_shape() + self.emb_vec_size
         emb_vector.set_shape(output_shape)
         return emb_vector

@@ -26,83 +26,88 @@ from tensorflow.core.protobuf import config_pb2
 from tensorflow.python.framework import test_util
 from tensorflow.python.platform import test
 
-_tf_impl_ops = tf.load_op_library('./tf_impl_ops_test.so')
+_tf_impl_ops = tf.load_op_library("./tf_impl_ops_test.so")
 
 default_config = config_pb2.ConfigProto(
     allow_soft_placement=False,
     log_device_placement=True,
-    gpu_options=config_pb2.GPUOptions(allow_growth=True))
+    gpu_options=config_pb2.GPUOptions(allow_growth=True),
+)
 
 
 @test_util.deprecated_graph_mode_only
 class TFImplOpsTest(test.TestCase):
+    def test_storage_impl_on_gpu(self):
+        gpu_list = tf.config.list_physical_devices("GPU")
+        with self.session(use_gpu=gpu_list, config=default_config) as sess:
+            with self.captureWritesToStream(sys.stderr) as printed:
+                initial_size = 1024 * 2048
+                extend_size = 2048 * 2048
+                on_gpu = True
+                gpu_id = 1 if len(gpu_list) > 1 else 0
+                self.evaluate(
+                    _tf_impl_ops.storage_impl_test(
+                        initial_size=initial_size,
+                        extend_size=extend_size,
+                        gpu_id=gpu_id,
+                        on_gpu=on_gpu,
+                    )
+                )
 
-  def test_storage_impl_on_gpu(self):
-    gpu_list = tf.config.list_physical_devices('GPU')
-    with self.session(use_gpu=gpu_list, config=default_config) as sess:
-      with self.captureWritesToStream(sys.stderr) as printed:
-        initial_size = 1024 * 2048
-        extend_size = 2048 * 2048
-        on_gpu = True
-        gpu_id = 1 if len(gpu_list) > 1 else 0
-        self.evaluate(
-            _tf_impl_ops.storage_impl_test(initial_size=initial_size,
-                                           extend_size=extend_size,
-                                           gpu_id=gpu_id,
-                                           on_gpu=on_gpu))
+            print("[printed contents] : ", printed.contents())
+            self.assertTrue("allocated pointer=0 " not in printed.contents())
+            self.assertTrue(
+                "total size={}".format(initial_size + extend_size) in printed.contents()
+            )
+            self.assertTrue("gpu_id={}".format(gpu_id) in printed.contents())
+            self.assertTrue("on_gpu={}".format(on_gpu) in printed.contents())
+            self.assertTrue("allocator=GPU_{}_bfc".format(gpu_id) in printed.contents())
 
-      print("[printed contents] : ", printed.contents())
-      self.assertTrue("allocated pointer=0 " not in printed.contents())
-      self.assertTrue("total size={}".format(initial_size +
-                                             extend_size) in printed.contents())
-      self.assertTrue("gpu_id={}".format(gpu_id) in printed.contents())
-      self.assertTrue("on_gpu={}".format(on_gpu) in printed.contents())
-      self.assertTrue(
-          "allocator=GPU_{}_bfc".format(gpu_id) in printed.contents())
+    def test_storage_impl_on_cpu(self):
+        with self.session(config=default_config):
+            with self.captureWritesToStream(sys.stderr) as printed:
+                initial_size = 1024 * 1024
+                extend_size = 2048 * 2048
+                on_gpu = False
+                cpu_id = 0
+                self.evaluate(
+                    _tf_impl_ops.storage_impl_test(
+                        initial_size=initial_size,
+                        extend_size=extend_size,
+                        cpu_id=cpu_id,
+                        on_gpu=on_gpu,
+                    )
+                )
 
-  def test_storage_impl_on_cpu(self):
-    with self.session(config=default_config):
-      with self.captureWritesToStream(sys.stderr) as printed:
-        initial_size = 1024 * 1024
-        extend_size = 2048 * 2048
-        on_gpu = False
-        cpu_id = 0
-        self.evaluate(
-            _tf_impl_ops.storage_impl_test(initial_size=initial_size,
-                                           extend_size=extend_size,
-                                           cpu_id=cpu_id,
-                                           on_gpu=on_gpu))
+            print("[printed contents] : ", printed.contents())
+            self.assertTrue("allocated pointer=0 " not in printed.contents())
+            self.assertTrue(
+                "total size={}".format(initial_size + extend_size) in printed.contents()
+            )
+            self.assertTrue("cpu_id={}".format(cpu_id) in printed.contents())
+            self.assertTrue("on_gpu={}".format(on_gpu) in printed.contents())
+            self.assertTrue("allocator=gpu_host_bfc" in printed.contents())
 
-      print("[printed contents] : ", printed.contents())
-      self.assertTrue("allocated pointer=0 " not in printed.contents())
-      self.assertTrue("total size={}".format(initial_size +
-                                             extend_size) in printed.contents())
-      self.assertTrue("cpu_id={}".format(cpu_id) in printed.contents())
-      self.assertTrue("on_gpu={}".format(on_gpu) in printed.contents())
-      self.assertTrue("allocator=gpu_host_bfc" in printed.contents())
+    def test_gpu_resource_impl(self):
+        gpu_list = tf.config.list_physical_devices("GPU")
+        with self.session(use_gpu=gpu_list, config=default_config) as sess:
+            with self.captureWritesToStream(sys.stderr) as printed:
+                self.evaluate(_tf_impl_ops.gpu_resource_impl_test())
 
-  def test_gpu_resource_impl(self):
-    gpu_list = tf.config.list_physical_devices('GPU')
-    with self.session(use_gpu=gpu_list, config=default_config) as sess:
-      with self.captureWritesToStream(sys.stderr) as printed:
-        self.evaluate(_tf_impl_ops.gpu_resource_impl_test())
+            print("[printed contents] : ", printed.contents())
+            self.assertTrue("Get default CUDA stream fail!" not in printed.contents())
+            self.assertTrue("The default stream is got successfully!" in printed.contents())
 
-      print("[printed contents] : ", printed.contents())
-      self.assertTrue("Get default CUDA stream fail!" not in printed.contents())
-      self.assertTrue(
-          "The default stream is got successfully!" in printed.contents())
+    def test_tf_backend_impl(self):
+        gpu_list = tf.config.list_physical_devices("GPU")
+        with self.session(use_gpu=gpu_list, config=default_config) as sess:
+            with self.captureWritesToStream(sys.stderr) as printed:
+                self.evaluate(_tf_impl_ops.tf_backend_test_op_test())
 
-  
-  def test_tf_backend_impl(self):
-    gpu_list = tf.config.list_physical_devices('GPU')
-    with self.session(use_gpu=gpu_list, config=default_config) as sess:
-      with self.captureWritesToStream(sys.stderr) as printed:
-        self.evaluate(_tf_impl_ops.tf_backend_test_op_test())
-
-      print("[printed contents] : ", printed.contents())
-      self.assertTrue("TfBackendTestOpTest Fail!" not in printed.contents())
+            print("[printed contents] : ", printed.contents())
+            self.assertTrue("TfBackendTestOpTest Fail!" not in printed.contents())
 
 
 if __name__ == "__main__":
-  tf.get_logger().setLevel('WARNING')
-  test.main()
+    tf.get_logger().setLevel("WARNING")
+    test.main()

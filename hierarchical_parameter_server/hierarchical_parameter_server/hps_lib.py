@@ -25,11 +25,13 @@ elif tf_version.startswith("1"):
 else:
     raise RuntimeError("Not supported TF version: {}".format(tf_version))
 
+
 def in_tensorflow2():
     """
     This function will tell whether the installed TensorFlow is 2.x
     """
     return using_tf2
+
 
 lib_name = r"libhierarchical_parameter_server.so"
 install_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "lib"))
@@ -47,7 +49,7 @@ for path in paths:
         continue
 
 if lib_file is None:
-    raise FileNotFoundError("Could not find %s" %lib_name)
+    raise FileNotFoundError("Could not find %s" % lib_name)
 hps_ops = load_library.load_op_library(lib_file)
 lookup = hps_ops.lookup
 init = hps_ops.init
