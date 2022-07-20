@@ -19,11 +19,14 @@ import sys
 from setuptools import find_packages
 from skbuild import setup
 
+
 def _GetHPSVersion():
-    _version_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                 "hierarchical_parameter_server/core/")
+    _version_path = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "hierarchical_parameter_server/core/"
+    )
     sys.path.append(_version_path)
     from _version import __version__
+
     version = __version__
     del __version__
     sys.path.pop(-1)
@@ -38,10 +41,16 @@ def get_cmake_args():
 
     cmake_build_type = "Release"
     if os.getenv("HPS_COMPILE_BUILD_TYPE"):
-        cmake_build_type = "Debug" if os.getenv("HPS_COMPILE_BUILD_TYPE") in ["DEBUG", "debug", "Debug"] else "Release"
+        cmake_build_type = (
+            "Debug"
+            if os.getenv("HPS_COMPILE_BUILD_TYPE") in ["DEBUG", "debug", "Debug"]
+            else "Release"
+        )
 
-    cmake_args = ["-DSM='{}'".format(";".join(gpu_capabilities)),
-                  "-DCMAKE_BUILD_TYPE={}".format(cmake_build_type)]
+    cmake_args = [
+        "-DSM='{}'".format(";".join(gpu_capabilities)),
+        "-DCMAKE_BUILD_TYPE={}".format(cmake_build_type),
+    ]
     return cmake_args
 
 
@@ -56,7 +65,7 @@ setup(
     extras_require={"tensorflow": "tensorflow>=1.15"},
     license="Apache 2.0",
     platforms=["Linux"],
-    python_requires='>=3',
+    python_requires=">=3",
     packages=find_packages(),
     cmake_args=get_cmake_args(),
 )
