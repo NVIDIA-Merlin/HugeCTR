@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e
 
 srun --ntasks="${SLURM_JOB_NUM_NODES}" bash -c "echo -n 'Clearing cache on ' && hostname && sync && sudo /sbin/sysctl vm.drop_caches=3"
 

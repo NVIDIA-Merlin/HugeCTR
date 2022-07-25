@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e
 
 srun --ntasks=1 --container-image="${CONT}" --container-mounts="${MOUNTS}" bash -cx " \
       cd /dataset/criteo_kaggle/wdl && \
