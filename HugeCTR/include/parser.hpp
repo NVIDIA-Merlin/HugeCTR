@@ -45,44 +45,6 @@ inline nlohmann::json read_json_file(const std::string& filename) {
   return config;
 }
 
-/**
- * Solver Parser.
- * This class is designed to parse the solver clause of the configure file.
- */
-struct SolverParser {
-  unsigned long long seed;     /**< seed of data simulator */
-  LrPolicy_t lr_policy;        /**< the only fixed lr is supported now. */
-  int display;                 /**< the interval of loss display. */
-  int max_iter;                /**< the number of iterations for training */
-  int num_epochs;              /**< the number of epochs for training */
-  int snapshot;                /**< the number of iterations for a snapshot */
-  std::string snapshot_prefix; /**< naming prefix of snapshot file */
-  int eval_interval;           /**< the interval of evaluations */
-  int max_eval_batches;        /**< the number of batches for evaluations */
-  int batchsize_eval;          /**< batchsize for eval */
-  int batchsize;               /**< batchsize */
-  std::string model_file;      /**< name of model file */
-  std::string dense_opt_states_file;
-  std::vector<std::string> embedding_files; /**< name of embedding file */
-  std::vector<std::string> sparse_opt_states_files;
-  std::vector<std::vector<int>> vvgpu;                      /**< device map */
-  DeviceMap::Layout device_layout = DeviceMap::LOCAL_FIRST; /**< device distribution */
-  bool use_mixed_precision;
-  bool enable_tf32_compute;
-  float scaler;
-  std::map<metrics::Type, float> metrics_spec;
-  bool i64_input_key;
-  bool use_algorithm_search;
-  bool use_cuda_graph;
-  bool use_holistic_cuda_graph;
-  bool use_overlapped_pipeline;
-  bool async_mlp_wgrad;
-  std::string export_predictions_prefix;
-  bool use_embedding_training_cache;
-  SolverParser(const std::string& file);
-  SolverParser() {}
-};
-
 struct Solver {
   std::string model_name;
   unsigned long long seed; /**< seed of data simulator */
@@ -169,81 +131,6 @@ class InferenceParser {
                        std::vector<size_t>& embedding_table_slot_size,
                        std::vector<std::shared_ptr<Layer>>* embedding, Network** network,
                        const std::shared_ptr<ResourceManager> resource_manager);
-};
-
-/**
- * @brief The parser of configure file (in json format).
- *
- * The builder of each layer / optimizer in HugeCTR.
- * Please see User Guide to learn how to write a configure file.
- * @verbatim
- * Some Restrictions:
- *  1. Embedding should be the first element of layers.
- *  2. layers should be listed from bottom to top.
- * @endverbatim
- */
-class Parser {
- private:
-  nlohmann::json config_;  /**< configure file. */
-  size_t batch_size_;      /**< batch size. */
-  size_t batch_size_eval_; /**< batch size. */
-  const bool repeat_dataset_;
-  const bool i64_input_key_{false};
-  const bool use_mixed_precision_{false};
-  const bool enable_tf32_compute_{false};
-
-  const float scaler_{1.f};
-  const bool use_algorithm_search_;
-  const bool use_cuda_graph_;
-  const bool async_mlp_wgrad_;
-  bool grouped_all_reduce_ = false;
-
-  std::map<std::string, bool> tensor_active_; /**< whether a tensor is active. */
-
-  void create_allreduce_comm(const std::shared_ptr<ResourceManager>& resource_manager,
-                             std::shared_ptr<ExchangeWgrad>& exchange_wgrad);
-
- public:
-  //
-  /**
-   * Ctor.
-   * Ctor doesn't create pipeline.
-   */
-  // TODO: consider to remove default arguments
-  Parser(const std::string& configure_file, size_t batch_size, size_t batch_size_eval,
-         bool repeat_dataset, bool i64_input_key = false, bool use_mixed_precision = false,
-         bool enable_tf32_compute = false, float scaler = 1.0f, bool use_algorithm_search = true,
-         bool use_cuda_graph = true, bool async_mlp_wgrad = false);
-
-  /**
-   * Create the pipeline, which includes data reader, embedding.
-   */
-  void create_pipeline(std::shared_ptr<IDataReader>& init_data_reader,
-                       std::shared_ptr<IDataReader>& train_data_reader,
-                       std::shared_ptr<IDataReader>& evaluate_data_reader,
-                       std::vector<std::shared_ptr<IEmbedding>>& embeddings,
-                       std::vector<std::shared_ptr<Network>>& networks,
-                       const std::shared_ptr<ResourceManager>& resource_manager,
-                       std::shared_ptr<ExchangeWgrad>& exchange_wgrad);
-
-  template <typename TypeKey>
-  void create_pipeline_internal(std::shared_ptr<IDataReader>& init_data_reader,
-                                std::shared_ptr<IDataReader>& train_data_reader,
-                                std::shared_ptr<IDataReader>& evaluate_data_reader,
-                                std::vector<std::shared_ptr<IEmbedding>>& embeddings,
-                                std::vector<std::shared_ptr<Network>>& networks,
-                                const std::shared_ptr<ResourceManager>& resource_manager,
-                                std::shared_ptr<ExchangeWgrad>& exchange_wgrad);
-
-  void initialize_pipeline(std::shared_ptr<IDataReader>& init_data_reader,
-                           std::vector<std::shared_ptr<IEmbedding>>& embedding,
-                           const std::shared_ptr<ResourceManager>& resource_manager,
-                           std::shared_ptr<ExchangeWgrad>& exchange_wgrad);
-  template <typename TypeKey>
-  void initialize_pipeline_internal(std::shared_ptr<IDataReader>& init_data_reader,
-                                    std::vector<std::shared_ptr<IEmbedding>>& embedding,
-                                    const std::shared_ptr<ResourceManager>& resource_manager,
-                                    std::shared_ptr<ExchangeWgrad>& exchange_wgrad);
 };
 
 std::unique_ptr<LearningRateScheduler> get_learning_rate_scheduler(
@@ -513,16 +400,6 @@ inline void check_graph(std::map<std::string, bool>& tensor_active,
 
 template <typename TypeKey, typename TypeFP>
 struct create_embedding {
-  void operator()(std::map<std::string, SparseInput<TypeKey>>& sparse_input_map,
-                  std::vector<TensorEntry>* train_tensor_entries_list,
-                  std::vector<TensorEntry>* evaluate_tensor_entries_list,
-                  std::vector<std::shared_ptr<IEmbedding>>& embeddings, Embedding_t embedding_type,
-                  const nlohmann::json& config,
-                  const std::shared_ptr<ResourceManager>& resource_manager, size_t batch_size,
-                  size_t batch_size_eval, std::shared_ptr<ExchangeWgrad>& exchange_wgrad,
-                  bool use_mixed_precision, float scaler, const nlohmann::json& j_layers,
-                  bool use_cuda_graph = false, bool grouped_all_reduce = false);
-
   void operator()(const InferenceParams& inference_params, const nlohmann::json& j_layers_array,
                   std::vector<std::shared_ptr<Tensor2<int>>>& rows,
                   std::vector<std::shared_ptr<Tensor2<float>>>& embeddingvecs,
@@ -535,15 +412,6 @@ struct create_embedding {
 
 template <typename TypeKey>
 struct create_datareader {
-  void operator()(const nlohmann::json& j,
-                  std::map<std::string, SparseInput<TypeKey>>& sparse_input_map,
-                  std::vector<TensorEntry>* train_tensor_entries_list,
-                  std::vector<TensorEntry>* evaluate_tensor_entries_list,
-                  std::shared_ptr<IDataReader>& init_data_reader,
-                  std::shared_ptr<IDataReader>& data_reader,
-                  std::shared_ptr<IDataReader>& data_reader_eval, size_t batch_size,
-                  size_t batch_size_eval, bool use_mixed_precision, bool repeat_dataset,
-                  bool enable_overlap, const std::shared_ptr<ResourceManager> resource_manager);
   // Used by InferenceSession
   void operator()(const InferenceParams& inference_params, const InferenceParser& inference_parser,
                   std::shared_ptr<IDataReader>& data_reader,
