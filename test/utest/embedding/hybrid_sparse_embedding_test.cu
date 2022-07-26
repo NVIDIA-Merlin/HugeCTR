@@ -161,22 +161,6 @@ void hybrid_sparse_embedding_construct(const std::vector<int> &device_list, size
                             << std::endl;
   }
 
-#ifdef ENABLE_PROFILING
-  global_profiler.initialize(false, false);
-  global_profiler.profiling_dir += std::string("/") + std::to_string(train_batch_size);
-  bool finished = false;
-  while (1) {
-    for (int i = 0; i < int(resource_manager->get_local_gpu_count()); i++) {
-      auto device_id = resource_manager->get_local_gpu(i)->get_device_id();
-      context.set_device(device_id);
-      HCTR_LIB_THROW(cudaDeviceSynchronize());
-    }
-
-    finished = global_profiler.iter_check();
-    if (finished) {
-      break;
-    }
-#else
   std::chrono::time_point<std::chrono::steady_clock> check;
   for (int j = 0; j < 10000; ++j) {
     for (int i = 0; i < int(resource_manager->get_local_gpu_count()); i++) {
@@ -193,7 +177,6 @@ void hybrid_sparse_embedding_construct(const std::vector<int> &device_list, size
       check = std::chrono::steady_clock::now();
     }
 
-#endif
     embedding->forward(true);
     // HCTR_LOG_S(DEBUG, WORLD) << i << ": fwd" << std::endl;
     embedding->backward();
