@@ -680,6 +680,7 @@ AUC<T>::AUC(int batch_size_per_gpu, int n_batches, int label_dim,
     for (auto& stream : streams_[i]) {
       HCTR_LIB_THROW(cudaStreamCreate(&stream));
     }
+    per_class_aucs_.resize(num_classes_);
 
     std::vector<int> peers;
     for (int j = 0; j < (int)all_device_list.size(); j++) {
@@ -856,8 +857,10 @@ float AUC<T>::finalize_metric_per_gpu(int local_id) {
   } else {
     if (streams_[local_id].size() == 1) {
       for (size_t class_id = 0; class_id < num_classes_; class_id++) {
-        result += finalize_class_metric(st.d_class_preds(class_id), st.d_class_labels(class_id),
-                                        local_id, num_local_samples);
+        float class_auc = finalize_class_metric(st.d_class_preds(class_id), st.d_class_labels(class_id),
+                                                local_id, num_local_samples);
+        per_class_aucs_[class_id] = class_auc;
+        result += class_auc;
       }
       result /= num_classes_;
     } else {
@@ -897,7 +900,9 @@ float AUC<T>::finalize_class_metric_multi_stream(int local_id, int num_local_sam
            stream_id++) {
         HCTR_LIB_THROW(cudaStreamSynchronize(streams_[local_id][stream_id]));
         if (step_id == num_finalize_steps_ - 1) {
-          result += *(st.fst(stream_id).d_auc());
+          float class_auc = *(st.fst(stream_id).d_auc());
+          per_class_aucs_[class_begin + stream_id] = class_auc;
+          result += class_auc;
         }
       }
     }

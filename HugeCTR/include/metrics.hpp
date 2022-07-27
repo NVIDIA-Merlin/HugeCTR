@@ -291,6 +291,7 @@ class AUC : public Metric {
   void global_reduce(int n_nets) override;
   float finalize_metric() override;
   std::string name() const override { return "AUC"; };
+  std::vector<float> get_per_class_metric() const { return per_class_aucs_; }
 
   // Public in order to use device lambda
   void run_finalize_step(float* d_preds, float* d_labels, int local_id, size_t num_local_samples,
@@ -322,6 +323,7 @@ class AUC : public Metric {
   std::vector<size_t> offsets_;
   std::vector<AUCStorage> storage_;
   std::vector<std::vector<cudaStream_t>> streams_;
+  std::vector<float> per_class_aucs_;
 };
 
 class NDCGStorage {
