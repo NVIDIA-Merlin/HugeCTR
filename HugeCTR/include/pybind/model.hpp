@@ -523,6 +523,7 @@ class Model {
 
   std::map<std::string, float> label_weights_;
 
+  bool overflow_check_{true};
   bool data_reader_train_status_;
   bool data_reader_eval_status_;
   bool buff_allocated_;
