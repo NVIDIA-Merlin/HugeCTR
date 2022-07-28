@@ -456,6 +456,11 @@ Model::Model(const Solver& solver, const DataReaderParams& reader_params,
   if (0 != solver_.batchsize % total_gpu_count) {
     HCTR_OWN_THROW(Error_t::WrongInput, "0 != batch_size\%total_gpu_count");
   }
+  const auto overflow_check_env = std::getenv("HUGECTR_DISABLE_OVERFLOW_CHECK");
+  if (nullptr != overflow_check_env && 1 == std::atoi(overflow_check_env)) {
+    overflow_check_ = false;
+  }
+
   // reserve networks to be created
   for (size_t i = 0; i < resource_manager_->get_local_gpu_count(); i++) {
     networks_.emplace_back(new Network(resource_manager_->get_local_cpu(),
@@ -2509,6 +2514,9 @@ Error_t Model::download_params_to_files(std::string prefix, int iter) {
 }
 
 void Model::check_overflow() const {
+  if (!overflow_check_) {
+    return;
+  }
   for (auto& one_embedding : embeddings_) {
     one_embedding->check_overflow();
   }
