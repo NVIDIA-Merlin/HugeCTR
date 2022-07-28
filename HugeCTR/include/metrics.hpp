@@ -51,6 +51,10 @@ class Metric {
   virtual void local_reduce(int local_gpu_id, RawMetricMap raw_metrics) = 0;
   virtual void global_reduce(int n_nets) = 0;
   virtual float finalize_metric() = 0;
+  virtual std::vector<float> get_per_class_metric() const {
+    HCTR_CHECK_HINT(false, "Not implemented");
+    return std::vector<float>(0.0, 1);
+  }
   virtual std::string name() const = 0;
   void set_current_batch_size(int batch_size) { current_batch_size_ = batch_size; }
 
