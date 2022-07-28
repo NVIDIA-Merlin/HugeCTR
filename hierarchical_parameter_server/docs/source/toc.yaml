@@ -1,0 +1,20 @@
+root: index
+subtrees:
+  - caption: Contents
+    entries:
+      - file: hps_user_guide.md
+        title: Introduction
+      - file: hps_features.md
+        title: Features
+      - file: notebooks/index.md
+        title: Notebooks
+        entries:
+          - file: notebooks/hierarchical_parameter_server_demo.ipynb
+          - file: notebooks/hps_multi_table_sparse_input_demo.ipynb
+          - file: notebooks/hps_pretrained_model_training_demo.ipynb
+          - file: notebooks/sok_to_hps_dlrm_demo.ipynb 
+      - file: api/index.rst
+        title: API Documentation
+      - file: hps_release_notes.md
+        title: Release Notes
+
