@@ -24,6 +24,47 @@ from tensorflow.nn import embedding_lookup
 from hierarchical_parameter_server.core import lookup_ops
 
 class SparseLookupLayer(tf.keras.layers.Layer):
+    """
+    Abbreviated as ``hps.SparseLookupLayer(*args, **kwargs)``.
+
+    This is a wrapper class for HPS sparse lookup layer, which basically performs 
+    the same function as tf.nn.embedding_lookup_sparse.
+
+    Parameters
+    ----------
+    model_name: str
+            the name of the model that has embedding table(s)
+    table_id: int
+            the index of the embedding table for the model specified by
+            model_name
+    emb_vec_size: int
+            the embedding vector size for the embedding table specified
+            by model_name and table_id
+    emb_vec_dtype:
+            the data type of embedding vectors which must be tf.float32
+
+    Examples
+    --------
+    .. code-block:: python
+
+        import hierarchical_parameter_server as hps
+
+        sparse_lookup_layer = hps.SparseLookupLayer(model_name = args.model_name,
+                                                   table_id = args.table_id,
+                                                   emb_vec_size = args.embed_vec_size,
+                                                   emb_vec_dtype = tf.float32)
+
+        @tf.function
+        def _infer_step(inputs):
+            embedding_vector = sparse_lookup_layer(sp_ids=inputs,
+                                                  sp_weights = None,
+                                                  combiner="mean")
+            ...
+
+        for i, (inputs, labels) in enumerate(dataset):
+            _infer_step(inputs)
+    """
+
     def __init__(self, model_name, table_id, emb_vec_size, emb_vec_dtype, **kwargs):
         super(SparseLookupLayer, self).__init__(**kwargs)
         self.model_name = model_name
@@ -32,53 +73,76 @@ class SparseLookupLayer(tf.keras.layers.Layer):
         self.emb_vec_dtype = emb_vec_dtype
 
     def call(self, sp_ids, sp_weights, name=None, combiner=None, max_norm=None):
-        """Looks up embeddings for the given ids and weights from a list of tensors.
+        """
+        Looks up embeddings for the given ids and weights from a list of tensors.
         This op assumes that there is at least one id for each row in the dense tensor
         represented by sp_ids (i.e. there are no rows with empty features), and that
-        all the indices of sp_ids are in canonical row-major order.
-        `sp_ids` and `sp_weights` (if not None) are `SparseTensor`s with rank of 2.
-        Embeddings are always aggregated along the last dimension.
-        If an id value cannot be find in the HPS, the default embeddings will be retrieved,
-        which can be specified in the HPS configuration JSON file.
-        Args:
-            sp_ids: N x M `SparseTensor` of int64 ids where N is typically batch size
-                and M is arbitrary.
-            sp_weights: either a `SparseTensor` of float / double weights, or `None` to
-                indicate all weights should be taken to be 1. If specified, `sp_weights`
-                must have exactly the same shape and indices as `sp_ids`.
-            combiner: A string specifying the reduction op. Currently "mean", "sqrtn"
-                and "sum" are supported. "sum" computes the weighted sum of the embedding
-                results for each row. "mean" is the weighted sum divided by the total
-                weight. "sqrtn" is the weighted sum divided by the square root of the sum
-                of the squares of the weights. Defaults to `mean`.
-            max_norm: If not `None`, each embedding is clipped if its l2-norm is larger
-                than this value, before combining.
-        Returns:
+        all the indices of sp_ids are in canonical row-major order. `sp_ids` and `sp_weights`
+        (if not None) are `SparseTensor` with rank of 2. Embeddings are always aggregated
+        along the last dimension. If an id value cannot be find in the HPS, the default
+        embeddings will be retrieved, which can be specified in the HPS configuration JSON file.
+        
+        Parameters
+        ----------
+        sp_ids:
+            N x M `SparseTensor` of int64 ids where N is typically batch size
+            and M is arbitrary.
+        sp_weights:
+            either a `SparseTensor` of float / double weights, or `None` to
+            indicate all weights should be taken to be 1. If specified, `sp_weights`
+            must have exactly the same shape and indices as `sp_ids`.
+        combiner:
+            a string specifying the reduction op. Currently `"mean"`, `"sqrtn"`
+            and `"sum"` are supported. `"sum"` computes the weighted sum of the embedding
+            results for each row. `"mean"` is the weighted sum divided by the total
+            weight. `"sqrtn"` is the weighted sum divided by the square root of the sum
+            of the squares of the weights. Defaults to `"mean"`.
+        max_norm:
+            if not `None`, each embedding is clipped if its l2-norm is larger
+            than this value, before combining.
+
+        Returns
+        -------
+        emb_vector: tf.Tensor of int32
             A dense tensor representing the combined embeddings for the
             sparse ids. For each row in the dense tensor represented by `sp_ids`, the op
             looks up the embeddings for all ids in that row, multiplies them by the
             corresponding weight, and combines these embeddings as specified.
             In other words, if
-                `shape(sp_ids) = shape(sp_weights) = [d0, d1]`
+            
+            .. code-block:: python
+
+                shape(sp_ids) = shape(sp_weights) = [d0, d1]
+
             then
-                `shape(output) = [d0, self.emb_vec_dtype]`.
+
+            .. code-block:: python
+
+                shape(output) = [d0, self.emb_vec_dtype]
+
             For instance, if self.emb_vec_dtype is 16, and sp_ids / sp_weights are
-                ```python
+
+            .. code-block:: python
+
                 [0, 0]: id 1, weight 2.0
                 [0, 1]: id 3, weight 0.5
                 [1, 0]: id 0, weight 1.0
                 [2, 3]: id 1, weight 3.0
-                ```
-            with `combiner`="mean", then the output will be a 3x16 matrix where
-                ```python
+
+            with `combiner` = `"mean"`, then the output will be a 3x16 matrix where
+                
+            .. code-block:: python
+
                 output[0, :] = (vector_for_id_1 * 2.0 + vector_for_id_3 * 0.5) / (2.0 + 0.5)
                 output[1, :] = (vector_for_id_0 * 1.0) / 1.0
                 output[2, :] = (vector_for_id_1 * 3.0) / 3.0
-                ```
-        Raises:
+
+        Raises
+        ------
             TypeError: If `sp_ids` is not a `SparseTensor`, or if `sp_weights` is
                 neither `None` nor `SparseTensor`.
-            ValueError: If `combiner` is not one of {"mean", "sqrtn", "sum"}.
+            ValueError: If `combiner` is not one of {`"mean"`, `"sqrtn"`, `"sum"`}.
+
         """
 
         # Extract unique dense ids to be looked up

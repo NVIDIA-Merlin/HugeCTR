@@ -22,31 +22,32 @@ class LookupLayer(tf.keras.layers.Layer):
     """
     Abbreviated as ``hps.LookupLayer(*args, **kwargs)``.
 
-    This is a wrapper class for HPS lookup layer.
-    It can be used to create a dense embedding layer which will distribute
-    keys based on `gpu_id = key % gpu_num` to each GPU.
+    This is a wrapper class for HPS lookup layer, which basically performs 
+    the same function as tf.nn.embedding_lookup.
 
     Parameters
     ----------
-    model_name: string
+    model_name: str
             the name of the model that has embedding table(s)
-    table_id: integer
+    table_id: int
             the index of the embedding table for the model specified by
             model_name
-    emb_vec_size: integer
+    emb_vec_size: int
             the embedding vector size for the embedding table specified
             by model_name and table_id
-    emb_vec_dtype: tensorflow.python.framework.dtypes.DType
+    emb_vec_dtype:
             the data type of embedding vectors which must be tf.float32
 
     Examples
     --------
     .. code-block:: python
 
+        import hierarchical_parameter_server as hps
+
         lookup_layer = hps.LookupLayer(model_name = args.model_name,
-                                        table_id = args.table_id,
-                                        emb_vec_size = args.embed_vec_size,
-                                        emb_vec_dtype = tf.float32)
+                                      table_id = args.table_id,
+                                      emb_vec_size = args.embed_vec_size,
+                                      emb_vec_dtype = tf.float32)
 
         @tf.function
         def _infer_step(inputs):
@@ -70,14 +71,14 @@ class LookupLayer(tf.keras.layers.Layer):
 
         Parameters
         ----------
-        inputs: tf.Tensor
+        inputs:
                 keys are stored in Tensor. The data type must be tf.int64.
 
         Returns
         -------
-        emb_vector: tf.float32
+        emb_vector: tf.Tensor of int32
                 the embedding vectors for the input keys. Its shape is
-                *inputs.get_shape() + emb_vec_size*
+                *inputs.get_shape() + emb_vec_size*.
         """
         emb_vector = lookup_ops.lookup(
             values=inputs,
