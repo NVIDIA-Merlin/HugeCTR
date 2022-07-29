@@ -18,13 +18,13 @@ When deploying deep learning models with large embedding tables in TensorFlow, d
 
 HPS mitigates these challenges and help data scientists and ML engineers:
 
-* extend the GPU memory by utilizing other memory resources available within the clsuter, i.e., CPU accessible RAM and non-volatile memory such as HDDs and SDDs.
+* Extend the GPU memory by utilizing other memory resources available within the clsuter, i.e., CPU accessible RAM and non-volatile memory such as HDDs and SDDs.
 
-* use the GPU embedding cache to exploit the long-tail characterisics of the keys, which automatically store the embeddings for hot keys as the queries constantly come in, thus providing the low-latency lookup service.
+* Use the GPU embedding cache to exploit the long-tail characterisics of the keys, which automatically store the embeddings for hot keys as the queries constantly come in, thus providing the low-latency lookup service.
 
-* manage the embedding tables of multiple models in a structured manner across the whole memory hierarchy of GPUs, CPUs and SSDs.
+* Manage the embedding tables of multiple models in a structured manner across the whole memory hierarchy of GPUs, CPUs and SSDs.
 
-* make the lookp service subscribable via custom TensorFlow layers, thus enabling transfer learning with large embedding tables.
+* Make the lookp service subscribable via custom TensorFlow layers, thus enabling transfer learning with large embedding tables.
 
 ## Workflow
 
