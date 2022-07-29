@@ -214,35 +214,18 @@ def inference_with_saved_model(args):
 
     embedding_vectors_peek = list()
     id_tensors_peek = list()
-<<<<<<< HEAD:hierarchical_parameter_server/test/test_scripts/naive_dnn_hps_demo.py
-    keys, labels = generate_random_samples(
-        args["global_batch_size"] * args["iter_num"],
-        args["vocabulary_range_per_slot"],
-        args["np_key_type"],
-    )
-    dataset = tf_dataset(keys, labels, args["global_batch_size"])
-    for i, (id_tensors, labels) in enumerate(dataset):
-        print("-" * 20, "Step {}".format(i), "-" * 20)
-        _, embedding_vector = _infer_step(id_tensors, labels)
-=======
     logit_peek = list()
     keys, labels = generate_random_samples(args["global_batch_size"]  * args["iter_num"], args["vocabulary_range_per_slot"],  args["np_key_type"])
     dataset = tf_dataset(keys, labels, args["global_batch_size"])
     for i, (id_tensors, labels) in enumerate(dataset):
         print("-"*20, "Step {}".format(i),  "-"*20)
         logit, embedding_vector = _infer_step(id_tensors, labels)
->>>>>>> Add more unit and integration tests:hierarchical_parameter_server/test/integration/test_naive_dnn_hps.py
         embedding_vectors_peek.append(embedding_vector)
         id_tensors_peek.append(id_tensors)
         logit_peek.append(logit)
     return embedding_vectors_peek, id_tensors_peek, logit_peek
 
-<<<<<<< HEAD:hierarchical_parameter_server/test/test_scripts/naive_dnn_hps_demo.py
-
-if __name__ == "__main__":
-=======
 def test_naive_dnn_hps():
->>>>>>> Add more unit and integration tests:hierarchical_parameter_server/test/integration/test_naive_dnn_hps.py
     trained_model = train(args)
     weights_list = trained_model.get_weights()
     embedding_weights = weights_list[-1]
@@ -255,29 +238,6 @@ def test_naive_dnn_hps():
     convert_to_sparse_model(embedding_weights, args["embedding_table_path"], args["embed_vec_size"])
     create_and_save_inference_graph(args)
 
-<<<<<<< HEAD:hierarchical_parameter_server/test/test_scripts/naive_dnn_hps_demo.py
-    embedding_vectors_peek, id_tensors_peek = inference_with_saved_model(args)
-    print(embedding_vectors_peek[-1])
-    print(id_tensors_peek[-1])
-
-    keys = np.array(tf.reshape(tf.concat(id_tensors_peek, axis=0), [-1]))
-    vectors = np.array(
-        tf.reshape(tf.concat(embedding_vectors_peek, axis=0), [-1, args["embed_vec_size"]])
-    )
-
-    mse = 0
-    for i in range(len(keys)):
-        ground_truth = embedding_weights[keys[i]]
-        diff = vectors[i] - ground_truth
-        mse += np.mean(diff * diff)
-    if mse > 1e-3:
-        raise RuntimeError(
-            "HPS TF Plugin has too large error for embedding vector lookup, mse: {}".format(mse)
-        )
-        sys.exit(1)
-    else:
-        print("HPS TF Plugin does well for embedding vector lookup, mse: {}".format(mse))
-=======
 
     embeddings, inputs, logit = inference_with_saved_model(args)
 
@@ -302,4 +262,3 @@ def test_naive_dnn_hps():
     assert mse2 <= 1e-6
     print("HPS TF Plugin does well for embedding vector lookup, mse1: {}, mse2: {}".format(mse1, mse2))
 
->>>>>>> Add more unit and integration tests:hierarchical_parameter_server/test/integration/test_naive_dnn_hps.py
