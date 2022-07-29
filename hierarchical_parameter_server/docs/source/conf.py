@@ -32,10 +32,6 @@ import sys
 
 from natsort import natsorted
 
-# sys.path.insert(0, os.path.abspath("../.."))
-# sys.path.append(os.path.abspath(os.path.join(os.getcwd(), "../..")))
-sys.path.insert(0, os.path.abspath(os.path.join(os.getcwd(), "../../_skbuild/linux-x86_64-3.8/cmake-install")))
-
 repodir = os.path.abspath(os.path.join(__file__, r"../../../.."))
 gitdir = os.path.join(repodir, r".git")
 
