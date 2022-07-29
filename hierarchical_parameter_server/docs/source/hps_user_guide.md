@@ -1,4 +1,4 @@
-# Introduction to HPS
+# Introduction to Hierarchical Parameter Server
 
 Hierarchical Parameter Server (HPS) is a distributed inference framework dedeicated to deploying large embedding tables and realizing the low-latency retrival of embeddings. The framework combines a high-performance GPU embedding cache with a hierarchical storage architecture encompassing different types of database backends. HPS is provided as a Python toolkit and can be integrated easily into the TensorFlow (TF) model graph, which can facilitate the TensorFlow model deployment of large embedding tables.
 
@@ -64,7 +64,7 @@ You can check the existence of the HPS Python toolkit after launching this conta
 $ python3 -c "import hierarchical_parameter_server as hps"
 ```
 
-### Notebook Examples
+## Notebook Examples
 
 We provide a collection of examples as [Jupyter notebooks](notebooks/index.md#notebook-list) covering:
 

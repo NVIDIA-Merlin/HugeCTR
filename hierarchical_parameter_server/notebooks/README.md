@@ -1,4 +1,4 @@
-# Hierarchical Parameter Server (HPS) notebooks #
+# Hierarchical Parameter Server Notebooks #
 This directory contains a set of Jupyter notebooks that demonstrate how to use HPS in TensorFlow.
 
 ## Quickstart

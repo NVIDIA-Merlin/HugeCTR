@@ -41,7 +41,7 @@ gitdir = os.path.join(repodir, r".git")
 
 # -- Project information -----------------------------------------------------
 
-project = "HierarchicalParameterServer"
+project = "Hierarchical Parameter Server"
 copyright = "2022, NVIDIA"
 author = "NVIDIA"
 

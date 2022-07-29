@@ -1,5 +1,5 @@
-HierarchicalParameterServer API
-====================================
+Hierarchical Parameter Server API
+=================================
 
 .. toctree::
    :maxdepth: 2

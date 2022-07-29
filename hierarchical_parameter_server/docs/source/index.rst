@@ -1,5 +1,5 @@
-HierarchicalParameterServer
-==============================================
+Hierarchical Parameter Server
+=============================
 
 Hierarchical Parameter Server (HPS) is a distributed recommendation inference framework, 
 which combines a high-performance GPU embedding cache with an hierarchical storage architecture, 
