@@ -1564,6 +1564,19 @@ void Model::set_source(std::string source, std::string eval_source) {
   reader_params_.eval_source.assign(eval_source);
 }
 
+void print_class_aucs(std::vector<float> class_aucs) {
+  if (class_aucs.size() > 1) {
+    HCTR_LOG_S(INFO, ROOT) << "Evaluation, AUC: {";
+    for (size_t i = 0; i < class_aucs.size(); i++) {
+      if (i > 0) {
+        HCTR_PRINT(INFO, ", ");
+      }
+      HCTR_PRINT(INFO, "%f", class_aucs[i]);
+    }
+    HCTR_PRINT(INFO, "}\n");
+  }
+}
+
 void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, int snapshot,
                 std::string snapshot_prefix) {
   if (!buff_allocated_) {
@@ -1699,10 +1712,13 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
           }
           timer_eval.stop();
           auto eval_metrics = this->get_eval_metrics();
+          size_t metric_id = 0;
           for (auto& eval_metric : eval_metrics) {
+            metric_id++;
             HCTR_LOG_S(INFO, ROOT)
                 << "Evaluation, " << eval_metric.first << ": " << eval_metric.second << std::endl;
             if (!eval_metric.first.compare("AUC")) {
+              print_class_aucs(metrics_[metric_id - 1]->get_per_class_metric());
               const auto auc_threshold = solver_.metrics_spec[HugeCTR::metrics::Type::AUC];
               if (eval_metric.second > auc_threshold) {
                 timer.stop();
@@ -1800,9 +1816,14 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
             }
             timer_eval.stop();
             auto eval_metrics = this->get_eval_metrics();
+            size_t metric_id = 0;
             for (auto& eval_metric : eval_metrics) {
+              metric_id++;
               HCTR_LOG_S(INFO, ROOT)
                   << "Evaluation, " << eval_metric.first << ": " << eval_metric.second << std::endl;
+              if (!eval_metric.first.compare("AUC")) {
+                print_class_aucs(metrics_[metric_id - 1]->get_per_class_metric());
+              }
             }
             HCTR_LOG_S(INFO, ROOT) << "Eval Time for " << solver_.max_eval_batches
                                    << " iters: " << timer_eval.elapsedSeconds() << "s" << std::endl;
@@ -1872,7 +1893,9 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
           this->eval(batches == 0);
         }
         auto eval_metrics = this->get_eval_metrics();
+        size_t metric_id = 0;
         for (auto& eval_metric : eval_metrics) {
+          metric_id++;
           HCTR_LOG_S(INFO, ROOT) << "Evaluation, " << eval_metric.first << ": "
                                  << eval_metric.second << std::endl;
           if (solver_.perf_logging) {
@@ -1880,6 +1903,7 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
                           float(iter) / max_iter, iter);
           }
           if (!eval_metric.first.compare("AUC")) {
+            print_class_aucs(metrics_[metric_id - 1]->get_per_class_metric());
             const auto auc_threshold = solver_.metrics_spec[HugeCTR::metrics::Type::AUC];
             if (eval_metric.second > auc_threshold) {
               timer.stop();
