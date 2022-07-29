@@ -4,7 +4,7 @@ subtrees:
     entries:
       - file: hps_user_guide.md
         title: Introduction
-      - file: notebooks/index.md
+      - file: notebooks/README.md
         title: Notebooks
         entries:
           - file: notebooks/hierarchical_parameter_server_demo.ipynb

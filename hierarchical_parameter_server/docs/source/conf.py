@@ -148,6 +148,4 @@ autosummary_generate = True
 copydirs_additional_dirs = [
     "../../notebooks",
 ]
-copydirs_file_rename = {
-    "README.md": "index.md",
-}
+copydirs_file_rename = {}

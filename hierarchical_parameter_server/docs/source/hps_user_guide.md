@@ -9,15 +9,21 @@ HPS is a component of [NVIDIA Merlin](https://developer.nvidia.com/nvidia-merlin
 When deploying deep learning models with large embedding tables in TensorFlow, data scientists and machine learning (ML) engineers are faced with the following challenges:
 
 * **Large Embedding Tables**: Trained embedding tables of hundreds of gigabytes cannot fit into the GPU memory.
+
 * **Low Latency Requirement**: Online inference requires that the latency of embedding lookup should be low to maintain the quality of experience and the user engagement.
+
 * **Scalability on multiple GPUs**: Dozens of models need to be deployed on multiple GPUs and each model can have several embedding tables.
+
 * **Pre-trained embeddings**: Large embedding tables need to be loaded as pre-trained embeddings for tasks like transfer learning.
 
 HPS mitigates these challenges and help data scientists and ML engineers:
 
 * extend the GPU memory by utilizing other memory resources available within the clsuter, i.e., CPU accessible RAM and non-volatile memory such as HDDs and SDDs.
+
 * use the GPU embedding cache to exploit the long-tail characterisics of the keys, which automatically store the embeddings for hot keys as the queries constantly come in, thus providing the low-latency lookup service.
+
 * manage the embedding tables of multiple models in a structured manner across the whole memory hierarchy of GPUs, CPUs and SSDs.
+
 * make the lookp service subscribable via custom TensorFlow layers, thus enabling transfer learning with large embedding tables.
 
 ## Workflow
@@ -66,7 +72,7 @@ $ python3 -c "import hierarchical_parameter_server as hps"
 
 ## Notebook Examples
 
-We provide a collection of examples as [Jupyter notebooks](notebooks/index.md#notebook-list) covering:
+We provide a collection of examples as [Jupyter notebooks](notebooks/README.md#notebook-list) covering:
 
 * Basic workflow of HPS deployment for TensorFlow models
 * Migrating from SOK training to HPS inference
