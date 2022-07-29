@@ -52,7 +52,7 @@ Here's a list of notebooks that you can run:
 
 - [hps_multi_table_sparse_input_demo.ipynb](hps_multi_table_sparse_input_demo.ipynb): Demonstrates how to train with native TF layers and make inference with HPS when there are multiple embedding tables and the input keys are in the form of sparse tensor. 
 
-- [hps_pretrained_model_training_demo.ipynb](hps_pretrained_model_training_demo.ipynb): Demonstrates how to leverage the HPS to load the pre-trained embedding tables for new training tasks.
+- [hps_pretrained_model_training_demo.ipynb](hps_pretrained_model_training_demo.ipynb): Demonstrates how to leverage the HPS to load the pre-trained embedding tables for new training tasks and how to use HPS with TensorFlow Mirrored Strategy.
 
 - [sok_to_hps_dlrm_demo.ipynb](sok_to_hps_dlrm_demo.ipynb): Demonstrates how to train a DLRM model with [SparseOperationKit (SOK)](https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/index.html) and then make inference with HPS.
 
@@ -63,5 +63,5 @@ The specifications of the system on which each notebook can run successfully are
 | -------------------------------------------------------------------------------------- | ------------------------------------------------------------ | -------------------------------- | ----- | -------------- |
 | [hierarchical_parameter_server_demo.ipynb](hierarchical_parameter_server_demo.ipynb)  | Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory | Tesla V100-SXM2-32GB<br />32 GB Memory | 1     | Kingsley Liu    |
 | [hps_multi_table_sparse_input_demo.ipynb](hps_multi_table_sparse_input_demo.ipynb)    | Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory | Tesla V100-SXM2-32GB<br />32 GB Memory | 1     | Kingsley Liu    |
-| [hps_pretrained_model_training_demo.ipynb](hps_pretrained_model_training_demo.ipynb)  | Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory | Tesla V100-SXM2-32GB<br />32 GB Memory | 1     | Kingsley Liu    |
+| [hps_pretrained_model_training_demo.ipynb](hps_pretrained_model_training_demo.ipynb)  | Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory | Tesla V100-SXM2-32GB<br />32 GB Memory | 4     | Kingsley Liu    |
 | [sok_to_hps_dlrm_demo.ipynb](sok_to_hps_dlrm_demo.ipynb)                              | Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory | Tesla V100-SXM2-32GB<br />32 GB Memory | 1     | Kingsley Liu    |
