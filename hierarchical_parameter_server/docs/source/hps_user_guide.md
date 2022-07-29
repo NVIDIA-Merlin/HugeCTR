@@ -34,7 +34,7 @@ The workflow of leveraging HPS for deployment of TensorFlow models is illustrate
 <div align=center>Fig. 1: Workflow of deploying TF models with HPS </div>
 <br></br>
 
-* **Train**: The model graph should be created with native TensorFlow embedding layers (e.g., `tf.nn.embedding_lookup_sparse`) or model parallelism enabled [SOK]((https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/index.html) embedding layers (e,g., `sok.DistributedEmbedding`). There is no restriction on the usage of dense layers or the topology of the model graph as long as the model can be successfully trained with TensorFlow.
+* **Train**: The model graph should be created with native TensorFlow embedding layers (e.g., `tf.nn.embedding_lookup_sparse`) or model parallelism enabled [SOK](https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/index.html) embedding layers (e,g., `sok.DistributedEmbedding`). There is no restriction on the usage of dense layers or the topology of the model graph as long as the model can be successfully trained with TensorFlow.
 
 * **Dissect the training graph**: The subgraph composided of only dense layers should be extracted from the trained graph, and then saved separately. For native TensorFlow embedding layers, the trained embedding weights should be obtained and converted to the HPS-compatible formats. For [SOK](https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/index.html) embedding layers, `sok.Saver.dump_to_file` can be utilized to derive the desired formats. Basically, each embedding table should be stored in a directory with two binary files, i.e., `key` (int64) and `emb_vector` (float32). For example, if there are totally 1000 trained keys and the embedding vector size is 16, then the size of `key` file and the `emb_vector` file should be 1000*8 bytes and 1000*16*4 bytes respectively.
 
@@ -72,7 +72,7 @@ $ python3 -c "import hierarchical_parameter_server as hps"
 
 ## Notebook Examples
 
-We provide a collection of examples as [Jupyter notebooks](notebooks/README.md#notebook-list) covering:
+We provide a collection of examples as [Jupyter notebooks](./notebooks) covering:
 
 * Basic workflow of HPS deployment for TensorFlow models
 * Migrating from SOK training to HPS inference
