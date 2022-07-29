@@ -30,7 +30,7 @@ HPS mitigates these challenges and help data scientists and ML engineers:
 
 The workflow of leveraging HPS for deployment of TensorFlow models is illustrated in Fig. 1.
 
-<img src="user_guide_src/workflow_hps_tf_deploymennt.png" width="640px" align="center"/>
+<img src="hps_user_guide_src/workflow.png" width="640px" align="center"/>
 <div align=center>Fig. 1: Workflow of deploying TF models with HPS </div>
 <br></br>
 
