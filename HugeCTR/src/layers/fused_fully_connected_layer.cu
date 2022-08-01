@@ -196,7 +196,6 @@ void FusedFullyConnectedLayer::fprop(bool is_train) {
 void FusedFullyConnectedLayer::bprop() {
   CudaDeviceContext context(get_device_id());
 
-
   const __half* kernel = weights_half_[0].get_ptr();
   const __half* top = top_tensor_.get_ptr();
   __half* kernel_grad = weights_grad_[0].get_ptr();

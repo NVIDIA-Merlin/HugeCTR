@@ -81,7 +81,6 @@ class CalculateModelIndicesTest : public HybridEmbeddingUnitTest<dtype, emtype> 
             this->infrequent_embeddings_ib_nvlink_hier[i].indices_->model_indices_offsets_,
             this->stream);
       }
-
     }
 
     /* Compare */

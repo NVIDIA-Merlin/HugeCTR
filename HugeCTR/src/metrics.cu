@@ -857,8 +857,8 @@ float AUC<T>::finalize_metric_per_gpu(int local_id) {
   } else {
     if (streams_[local_id].size() == 1) {
       for (size_t class_id = 0; class_id < num_classes_; class_id++) {
-        float class_auc = finalize_class_metric(st.d_class_preds(class_id), st.d_class_labels(class_id),
-                                                local_id, num_local_samples);
+        float class_auc = finalize_class_metric(
+            st.d_class_preds(class_id), st.d_class_labels(class_id), local_id, num_local_samples);
         per_class_aucs_[class_id] = class_auc;
         result += class_auc;
       }

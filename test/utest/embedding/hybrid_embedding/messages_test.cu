@@ -97,7 +97,6 @@ class ForwardSentMessageTest : public HybridEmbeddingUnitTest<dtype, emtype> {
 
     /* Infrequent forward_model */
     for (size_t i = 0; i < this->num_instances; i++) {
-
       if (this->config.comm_type == CommunicationType::NVLink_SingleNode) {
         this->infrequent_embeddings_single_node[i].set_current_indices(
             &this->infrequent_embedding_indices[i], this->stream);
@@ -228,7 +227,6 @@ class BackwardSentMessageTest : public HybridEmbeddingUnitTest<dtype, emtype> {
 
     /* Infrequent update_network */
     for (size_t i = 0; i < this->num_instances; i++) {
-
       if (this->config.comm_type == CommunicationType::NVLink_SingleNode) {
         this->infrequent_embeddings_single_node[i].set_current_indices(
             &this->infrequent_embedding_indices[i], this->stream);

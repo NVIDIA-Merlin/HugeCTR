@@ -795,7 +795,6 @@ void HybridSparseEmbedding<dtype, emtype>::backward_post_communication(int i, cu
     HCTR_OWN_THROW(Error_t::WrongInput, "MPI is not enabled but trying to use IB_NVLink_Hier");
 #endif
   }
-
 }
 
 template <typename dtype, typename emtype>

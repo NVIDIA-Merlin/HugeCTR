@@ -169,7 +169,6 @@ class HybridEmbeddingUnitTest {
         infrequent_embeddings_ib_nvlink_hier[i].max_num_infrequent_per_train_batch_ = samples_size;
       }
     }
-
   }
 
   ncclComm_t get_fake_comm() {
