@@ -42,7 +42,7 @@ The workflow of leveraging HPS for deployment of TensorFlow models is illustrate
 
 <br></br>
 
-The steps in the workflow can be summarizes as:
+The steps in the workflow can be summarized as:
 
 * **Train**: The model graph should be created with native TensorFlow embedding layers (e.g., `tf.nn.embedding_lookup_sparse`) or model parallelism enabled [SOK](https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/index.html) embedding layers (e,g., `sok.DistributedEmbedding`). There is no restriction on the usage of dense layers or the topology of the model graph as long as the model can be successfully trained with TensorFlow.
 
