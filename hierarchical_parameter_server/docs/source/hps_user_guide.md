@@ -18,7 +18,7 @@ When deploying deep learning models with large embedding tables in TensorFlow, d
 
 HPS mitigates these challenges and help data scientists and ML engineers:
 
-* Extend the GPU memory by utilizing other memory resources available within the clsuter, i.e., CPU accessible RAM and non-volatile memory such as HDDs and SDDs.
+* Extend the GPU memory by utilizing other memory resources available within the clsuter, i.e., CPU accessible RAM and non-volatile memory such as HDDs and SDDs, as shown in Fig. 1.
 
 * Use the GPU embedding cache to exploit the long-tail characterisics of the keys, which automatically store the embeddings for hot keys as the queries constantly come in, thus providing the low-latency lookup service.
 
@@ -26,19 +26,26 @@ HPS mitigates these challenges and help data scientists and ML engineers:
 
 * Make the lookp service subscribable via custom TensorFlow layers, thus enabling transfer learning with large embedding tables.
 
+<img src="hps_user_guide_src/memory_hierarchy.png" width="1080px" align="center"/>
+
+<div align=center>Fig. 1: HPS Memory Hierarchy </div>
+
+<br></br>
+
 ## Workflow
 
-The workflow of leveraging HPS for deployment of TensorFlow models is illustrated in Fig. 1.
+The workflow of leveraging HPS for deployment of TensorFlow models is illustrated in Fig. 2.
 
 <img src="hps_user_guide_src/workflow.png" width="1080px" align="center"/>
 
-<div align=center>Fig. 1: Workflow of deploying TF models with HPS </div>
+<div align=center>Fig. 2: Workflow of deploying TF models with HPS </div>
 
 <br></br>
 
 * **Train**: The model graph should be created with native TensorFlow embedding layers (e.g., `tf.nn.embedding_lookup_sparse`) or model parallelism enabled [SOK](https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/index.html) embedding layers (e,g., `sok.DistributedEmbedding`). There is no restriction on the usage of dense layers or the topology of the model graph as long as the model can be successfully trained with TensorFlow.
 
-* **Dissect the training graph**: The subgraph composided of only dense layers should be extracted from the trained graph, and then saved separately. For native TensorFlow embedding layers, the trained embedding weights should be obtained and converted to the HPS-compatible formats. For [SOK](https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/index.html) embedding layers, `sok.Saver.dump_to_file` can be utilized to derive the desired formats. Basically, each embedding table should be stored in a directory with two binary files, i.e., `key` (int64) and `emb_vector` (float32). For example, if there are totally 1000 trained keys and the embedding vector size is 16, then the size of `key` file and the `emb_vector` file should be 1000*8 bytes and 1000*16*4 bytes respectively.
+The steps in the workflow can be summarizes as:
+* **Dissect the training graph**: The subgraph composided of only dense layers should be extracted from the trained graph, and then saved separately. For native TensorFlow embedding layers, the trained embedding weights should be obtained and converted to the HPS-compatible formats. For [SOK](https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/index.html) embedding layers, `sok.Saver.dump_to_file` can be utilized to derive the desired formats. Basically, each embedding table should be stored in a directory with two binary files, i.e., `key` (int64) and `emb_vector` (float32). For example, if there are totally 1000 trained keys and the embedding vector size is 16, then the size of `key` file and the `emb_vector` file should be 1000\*8 bytes and 1000\*16\*4 bytes respectively.
 
 * **Create and save the inference graph**: The inference graph should be created with HPS layers (e.g., `hps.SparseLookupLayer`) and the saved subgraph of dense layers. It can be then saved as a whole so as to be deployed in the production environment.
 
