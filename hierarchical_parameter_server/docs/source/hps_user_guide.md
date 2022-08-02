@@ -26,7 +26,7 @@ HPS mitigates these challenges and help data scientists and ML engineers:
 
 * Make the lookp service subscribable via custom TensorFlow layers, thus enabling transfer learning with large embedding tables.
 
-<img src="hps_user_guide_src/memory_hierarchy.png" width="720px" align="center"/>
+<img src="hps_user_guide_src/memory_hierarchy.png" width="1080px" align="center"/>
 
 <div align=center>Fig. 1: HPS Memory Hierarchy </div>
 
