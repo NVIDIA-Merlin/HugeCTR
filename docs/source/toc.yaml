@@ -1,6 +1,6 @@
 root: index
 subtrees:
-  - caption: Contents
+  - caption: HUGECTR
     entries:
       - file: hugectr_user_guide.md
         title: Introduction
@@ -44,11 +44,17 @@ subtrees:
       - file: release_notes.md
       - file: hugectr_contributor_guide.md
         title: Contributing to HugeCTR
-
-
-# The multi-modal data example uses several notebooks to demonstrate how to use of multi-modal data (text and images)
-# to provide movie recommendations based on the MovieLens 25M dataset.
-
-# .. toctree::
-#    :maxdepth: 1
+  - caption: HIERARCHICAL PARAMETER SERVER
+    entries:
+      - file: hierarchical_parameter_server/hps_user_guide.md
+        title: Introduction to HPS
+      - file: hierarchical_parameter_server/notebooks/index.md
+        title: HPS Notebooks
+        entries:
+          - file: hierarchical_parameter_server/notebooks/hierarchical_parameter_server_demo.ipynb
+          - file: hierarchical_parameter_server/notebooks/hps_multi_table_sparse_input_demo.ipynb
+          - file: hierarchical_parameter_server/notebooks/hps_pretrained_model_training_demo.ipynb
+          - file: hierarchical_parameter_server/notebooks/sok_to_hps_dlrm_demo.ipynb
+      - file: hierarchical_parameter_server/api/index.rst
+        title: HPS API Documentation
 

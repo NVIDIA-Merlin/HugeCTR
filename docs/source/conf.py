@@ -33,6 +33,7 @@ import sys
 from natsort import natsorted
 
 sys.path.insert(0, os.path.abspath("../.."))
+sys.path.insert(0, os.path.abspath("../../hierarchical_parameter_server/"))
 
 repodir = os.path.abspath(os.path.join(__file__, r"../../.."))
 gitdir = os.path.join(repodir, r".git")
@@ -151,6 +152,7 @@ autosummary_generate = True
 copydirs_additional_dirs = [
     "../../notebooks",
     "../../release_notes.md",
+    "../../hierarchical_parameter_server/notebooks",
 ]
 copydirs_file_rename = {
     "README.md": "index.md",
