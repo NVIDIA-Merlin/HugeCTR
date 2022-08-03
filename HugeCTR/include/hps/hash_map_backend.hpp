@@ -100,6 +100,8 @@ class HashMapBackend final : public VolatileBackend<TKey> {
 
   size_t evict(const std::string& table_name, size_t num_keys, const TKey* keys) override;
 
+  std::vector<std::string> find_tables(const std::string& model_name) override;
+
  protected:
   const size_t num_partitions_;
   const size_t allocation_rate_;

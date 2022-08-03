@@ -15,6 +15,7 @@
  */
 
 #include <base/debug/logger.hpp>
+#include <hps/hier_parameter_server_base.hpp>
 #include <hps/rocksdb_backend.hpp>
 
 // TODO: Remove me!
@@ -368,6 +369,19 @@ size_t RocksDBBackend<TKey>::evict(const std::string& table_name, const size_t n
   HCTR_LOG(TRACE, WORLD, "%s backend. Table %s. %d / %d pairs erased.\n", get_name(),
            table_name.c_str(), hit_count, num_keys);
   return hit_count;
+}
+
+template <typename TKey>
+std::vector<std::string> RocksDBBackend<TKey>::find_tables(const std::string& model_name) {
+  const std::string& tag_prefix = HierParameterServerBase::make_tag_name(model_name, "", false);
+
+  std::vector<std::string> matches;
+  for (const auto& pair : column_handles_) {
+    if (pair.first.find(tag_prefix) == 0) {
+      matches.push_back(pair.first);
+    }
+  }
+  return matches;
 }
 
 #ifdef HCTR_ROCKSDB_CHECK

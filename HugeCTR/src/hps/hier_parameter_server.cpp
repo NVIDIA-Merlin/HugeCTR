@@ -25,11 +25,14 @@
 namespace HugeCTR {
 
 std::string HierParameterServerBase::make_tag_name(const std::string& model_name,
-                                                   const std::string& embedding_table_name) {
+                                                   const std::string& embedding_table_name,
+                                                   const bool check_arguments) {
   static const std::regex syntax{"[a-zA-Z0-9_\\-]{1,120}"};
-  HCTR_CHECK_HINT(std::regex_match(model_name, syntax), "The provided 'model_name' is invalid!");
-  HCTR_CHECK_HINT(std::regex_match(embedding_table_name, syntax),
-                  "The provided 'embedding_table_name' is invalid!");
+  if (check_arguments) {
+    HCTR_CHECK_HINT(std::regex_match(model_name, syntax), "The provided 'model_name' is invalid!");
+    HCTR_CHECK_HINT(std::regex_match(embedding_table_name, syntax),
+                    "The provided 'embedding_table_name' is invalid!");
+  }
 
   std::ostringstream os;
   os << PS_EMBEDDING_TABLE_TAG_PREFIX << '.';
@@ -388,6 +391,18 @@ void HierParameterServer<TypeHashKey>::destory_embedding_cache_per_model(
     model_cache_map_.erase(model_name);
   }
   buffer_pool_->DestoryManagerPool(model_name);
+}
+
+template <typename TypeHashKey>
+void HierParameterServer<TypeHashKey>::erase_model_from_hps(const std::string& model_name) {
+  if (volatile_db_) {
+    const std::vector<std::string>& table_names = volatile_db_->find_tables(model_name);
+    volatile_db_->evict(table_names);
+  }
+  if (persistent_db_) {
+    const std::vector<std::string>& table_names = persistent_db_->find_tables(model_name);
+    persistent_db_->evict(table_names);
+  }
 }
 
 template <typename TypeHashKey>
