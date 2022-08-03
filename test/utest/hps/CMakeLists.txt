@@ -27,6 +27,10 @@ file(GLOB parameter_server_test_src
   parameter_server_test.cpp
 )
 
+file(GLOB db_backend_test_src
+  db_backend_test.cpp
+)
+
 add_executable(embedding_cache_test ${embedding_cache_test_src})
 target_compile_features(embedding_cache_test PUBLIC cxx_std_17)
 target_link_libraries(embedding_cache_test PUBLIC huge_ctr_hps cudart gtest gtest_main stdc++fs)
@@ -38,3 +42,7 @@ target_link_libraries(embedding_cache_update_test PUBLIC huge_ctr_hps cudart gte
 add_executable(parameter_server_test ${parameter_server_test_src})
 target_compile_features(parameter_server_test PUBLIC cxx_std_17)
 target_link_libraries(parameter_server_test PUBLIC huge_ctr_hps cudart gtest gtest_main stdc++fs)
+
+add_executable(db_backend_test ${db_backend_test_src})
+target_compile_features(db_backend_test PUBLIC cxx_std_17)
+target_link_libraries(db_backend_test PUBLIC huge_ctr_hps cudart gtest gtest_main stdc++fs)

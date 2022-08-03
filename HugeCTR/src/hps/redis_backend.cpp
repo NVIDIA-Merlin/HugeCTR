@@ -15,6 +15,8 @@
  */
 
 #include <base/debug/logger.hpp>
+#include <boost/algorithm/string.hpp>
+#include <hps/hier_parameter_server_base.hpp>
 #include <hps/redis_backend.hpp>
 #include <iostream>
 #include <optional>
@@ -725,6 +727,31 @@ size_t RedisClusterBackend<TKey>::evict(const std::string& table_name, const siz
   HCTR_LOG(TRACE, WORLD, "%s backend. Table %s. %d / %d pairs erased.\n", get_name(),
            table_name.c_str(), hit_count, num_keys);
   return hit_count;
+}
+
+template <typename TKey>
+std::vector<std::string> RedisClusterBackend<TKey>::find_tables(const std::string& model_name) {
+  // Determine partition 0 key pattern.
+  std::string table_name_pattern = HierParameterServerBase::make_tag_name(model_name, "", false);
+  boost::replace_all(table_name_pattern, ".", "\\.");
+  table_name_pattern += "[a-zA-Z0-9_\\-]";
+  const std::string& hkey_pattern = make_hash_key(table_name_pattern, 0, REDIS_HKEY_VALUE_SUFFIX);
+
+  // Find suitable keys.
+  std::vector<std::string> part_names;
+  auto reply = redis_->command(sw::redis::cmd::keys, hkey_pattern);
+  sw::redis::reply::to_array(*reply, std::back_inserter(part_names));
+
+  // Turn partition numes into table names.
+  std::vector<std::string> table_names;
+  std::transform(part_names.begin(), part_names.end(), std::back_inserter(table_names),
+                 [](const std::string& part_name) {
+                   // Pattern: table_name << '/' << 'p' << 0 << '/' << 'v';
+                   //                         1      2     3     4      5
+                   return part_name.substr(0, part_name.size() - 5);
+                 });
+
+  return table_names;
 }
 
 template <typename TKey>

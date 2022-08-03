@@ -20,6 +20,7 @@
 #include <cstring>
 #include <execution>
 #include <hps/hash_map_backend.hpp>
+#include <hps/hier_parameter_server_base.hpp>
 #include <random>
 
 #define HCTR_USE_XXHASH
@@ -455,6 +456,19 @@ size_t HashMapBackend<TKey>::evict(const std::string& table_name, const size_t n
   HCTR_LOG_S(TRACE, WORLD) << get_name() << " backend. Table " << table_name << ". " << hit_count
                            << " / " << num_keys << " pairs erased." << std::endl;
   return hit_count;
+}
+
+template <typename TKey>
+std::vector<std::string> HashMapBackend<TKey>::find_tables(const std::string& model_name) {
+  const std::string& tag_prefix = HierParameterServerBase::make_tag_name(model_name, "", false);
+
+  std::vector<std::string> matches;
+  for (const auto& pair : tables_) {
+    if (pair.first.find(tag_prefix) == 0) {
+      matches.push_back(pair.first);
+    }
+  }
+  return matches;
 }
 
 template <typename TKey>

@@ -51,6 +51,15 @@ size_t DatabaseBackend<TKey>::fetch(const std::string& table_name, const size_t 
   return 0;
 }
 
+template <typename TKey>
+size_t DatabaseBackend<TKey>::evict(const std::vector<std::string>& table_names) {
+  size_t n = 0;
+  for (const std::string& table_name : table_names) {
+    n += evict(table_name);
+  }
+  return n;
+}
+
 template class DatabaseBackend<unsigned int>;
 template class DatabaseBackend<long long>;
 

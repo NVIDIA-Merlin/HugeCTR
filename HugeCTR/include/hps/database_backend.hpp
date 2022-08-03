@@ -160,6 +160,15 @@ class DatabaseBackend {
   virtual size_t evict(const std::string& table_name) = 0;
 
   /**
+   * Same as calling evict for all provided table names.
+   *
+   * @param table_names List of table names.
+   *
+   * @return Total number of keys/value pairs removed.
+   */
+  size_t evict(const std::vector<std::string>& table_names);
+
+  /**
    * Attempt to remove a set of keys from the underlying database table.
    *
    * @param table_name The name of the table to be queried (see also
@@ -170,6 +179,15 @@ class DatabaseBackend {
    * @return The number of keys/value pairs removed (not reliable in all implementations).
    */
   virtual size_t evict(const std::string& table_name, size_t num_keys, const TKey* keys) = 0;
+
+  /**
+   * Find all tables belonging to a specific model.
+   *
+   * @param model_name The name of the model.
+   *
+   * @return List containing the names of the tables.
+   */
+  virtual std::vector<std::string> find_tables(const std::string& model_name) = 0;
 };
 
 class DatabaseBackendError : std::exception {

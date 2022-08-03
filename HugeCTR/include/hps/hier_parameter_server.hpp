@@ -47,6 +47,8 @@ class HierParameterServer : public HierParameterServerBase {
   virtual std::shared_ptr<EmbeddingCacheBase> get_embedding_cache(const std::string& model_name,
                                                                   int device_id);
 
+  virtual void erase_model_from_hps(const std::string& model_name);
+
   virtual void* apply_buffer(const std::string& model_name, int device_id,
                              CACHE_SPACE_TYPE cache_type = CACHE_SPACE_TYPE::WORKER);
   virtual void free_buffer(void* p);

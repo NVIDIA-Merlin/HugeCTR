@@ -77,6 +77,8 @@ class RocksDBBackend final : public PersistentBackend<TKey> {
 
   size_t evict(const std::string& table_name, size_t num_keys, const TKey* keys) override;
 
+  std::vector<std::string> find_tables(const std::string& model_name) override;
+
  protected:
   rocksdb::DB* db_;
   std::unordered_map<std::string, rocksdb::ColumnFamilyHandle*> column_handles_;
