@@ -33,7 +33,9 @@ import sys
 from natsort import natsorted
 
 sys.path.insert(0, os.path.abspath("../.."))
-sys.path.insert(0, os.path.abspath("../../hierarchical_parameter_server/"))
+# Commenting the next line.  Seems the library must be installed rather
+# than have the path referenced.
+# sys.path.insert(0, os.path.abspath("../../hierarchical_parameter_server/"))
 
 repodir = os.path.abspath(os.path.join(__file__, r"../../.."))
 gitdir = os.path.join(repodir, r".git")
@@ -53,7 +55,6 @@ extensions = [
     "myst_nb",
     "sphinx_external_toc",
     "sphinx_rtd_theme",
-    "sphinx_markdown_tables",
     "sphinx.ext.autodoc",
     "sphinx.ext.autosummary",
     "sphinx.ext.coverage",
@@ -108,7 +109,7 @@ exclude_patterns = [
 #
 html_theme = "sphinx_rtd_theme"
 html_theme_options = {
-    "navigation_depth": 2,
+    "titles_only": True
 }
 html_show_sourcelink = False
 

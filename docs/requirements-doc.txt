@@ -7,14 +7,12 @@ wheel
 Sphinx<3.6
 jinja2<3.1
 markupsafe==2.0.1
-sphinx_markdown_tables==0.0.15
 sphinx-multiversion@git+https://github.com/mikemckiernan/sphinx-multiversion.git
 sphinxcontrib-copydirs@git+https://github.com/mikemckiernan/sphinxcontrib-copydirs.git
 sphinx-external-toc<0.4
 sphinx_rtd_theme
-recommonmark>=0.6
 natsort<8.2
-myst-nb<0.14
-markdown-it-py<1.2
-linkify-it-py<1.1
+myst-nb
+markdown-it-py
+linkify-it-py
 

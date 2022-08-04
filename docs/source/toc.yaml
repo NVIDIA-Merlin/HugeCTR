@@ -6,8 +6,25 @@ subtrees:
         title: Introduction
       - file: hugectr_core_features.md
         title: Core Features
-      - file: hugectr_feature_details_intro.rst
-        title: Features in Detail
+      - file: hugectr_embedding_training_cache.md
+        title: Embedding Training Cache
+      - file: hierarchical_parameter_server/index.md
+        title: Hierarchical Parameter Server
+        entries:
+          - file: hugectr_parameter_server.md
+            title: HPS Database Backend
+          - file: hierarchical_parameter_server/hps_tf_user_guide.md
+            title: HPS Plugin for TensorFlow
+            entries:
+              - file: hierarchical_parameter_server/notebooks/index.md
+                title: Notebooks
+                entries:
+                  - file: hierarchical_parameter_server/notebooks/hierarchical_parameter_server_demo.ipynb
+                  - file: hierarchical_parameter_server/notebooks/hps_multi_table_sparse_input_demo.ipynb
+                  - file: hierarchical_parameter_server/notebooks/hps_pretrained_model_training_demo.ipynb
+                  - file: hierarchical_parameter_server/notebooks/sok_to_hps_dlrm_demo.ipynb
+              - file: hierarchical_parameter_server/api/index.rst
+                title: API Documentation
       - file: performance.md
         title: Performance
       - file: notebooks/index.md
@@ -44,17 +61,3 @@ subtrees:
       - file: release_notes.md
       - file: hugectr_contributor_guide.md
         title: Contributing to HugeCTR
-  - caption: HIERARCHICAL PARAMETER SERVER
-    entries:
-      - file: hierarchical_parameter_server/hps_user_guide.md
-        title: Introduction to HPS
-      - file: hierarchical_parameter_server/notebooks/index.md
-        title: HPS Notebooks
-        entries:
-          - file: hierarchical_parameter_server/notebooks/hierarchical_parameter_server_demo.ipynb
-          - file: hierarchical_parameter_server/notebooks/hps_multi_table_sparse_input_demo.ipynb
-          - file: hierarchical_parameter_server/notebooks/hps_pretrained_model_training_demo.ipynb
-          - file: hierarchical_parameter_server/notebooks/sok_to_hps_dlrm_demo.ipynb
-      - file: hierarchical_parameter_server/api/index.rst
-        title: HPS API Documentation
-

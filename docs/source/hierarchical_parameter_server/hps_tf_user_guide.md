@@ -1,12 +1,23 @@
-# Introduction to Hierarchical Parameter Server
+# Hierarchical Parameter Server Plugin for TensorFlow
 
-Hierarchical Parameter Server (HPS) is a distributed inference framework dedeicated to deploying large embedding tables and realizing the low-latency retrival of embeddings. The framework combines a high-performance GPU embedding cache with a hierarchical storage architecture encompassing different types of database backends. HPS is provided as a Python toolkit and can be integrated easily into the TensorFlow (TF) model graph, which can facilitate the TensorFlow model deployment of large embedding tables.
+```{contents}
+---
+depth: 2
+local: true
+backlinks: none
+---
+```
 
-HPS is a component of [NVIDIA Merlin](https://developer.nvidia.com/nvidia-merlin), an open source framework for building and deploying recommender systems and works with the other Merlin components like [Merlin SOK](https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/index.html) to provide end-to-end acceleration of recommender systems on the GPU. Apart from the TensorFlow Plugin of HPS (hereinafter called HPS), we also provide the [HPS Triton Backend](https://github.com/triton-inference-server/hugectr_backend/tree/main/hps_backend) to deploy large embedding tables with NVIDIA's [Triton Inference Server](https://github.com/triton-inference-server/server). 
+## Introduction to the HPS Plugin for TensorFlow
 
-## Benefits
+Hierarchical Parameter Server (HPS) is a distributed inference framework that is dedicated to deploying large embedding tables and realizing the low-latency retrieval of embeddings.
+The framework combines a high-performance GPU embedding cache with a hierarchical storage architecture that encompasses different types of database backends.
+The plugin is provided as a Python toolkit that you can integrate easily into the TensorFlow (TF) model graph.
+Integration with the graph facilitates the TensorFlow model deployment of large embedding tables.
 
-When deploying deep learning models with large embedding tables in TensorFlow, data scientists and machine learning (ML) engineers are faced with the following challenges:
+## Benefits of the Plugin for TensorFlow
+
+When you deploy deep learning models with large embedding tables in TensorFlow, you are faced with the following challenges:
 
 * **Large Embedding Tables**: Trained embedding tables of hundreds of gigabytes cannot fit into the GPU memory.
 
@@ -16,15 +27,15 @@ When deploying deep learning models with large embedding tables in TensorFlow, d
 
 * **Pre-trained embeddings**: Large embedding tables need to be loaded as pre-trained embeddings for tasks like transfer learning.
 
-HPS mitigates these challenges and help data scientists and ML engineers:
+The HPS plugin for TensorFlow mitigates these challenges and helps in the following ways:
 
-* Extend the GPU memory by utilizing other memory resources available within the clsuter, i.e., CPU accessible RAM and non-volatile memory such as HDDs and SDDs, as shown in Fig. 1.
+* Extend the GPU memory by utilizing other memory resources available within the cluster, such as CPU-accessible RAM and non-volatile memory such as HDDs and SDDs, as shown in Fig. 1.
 
-* Use the GPU embedding cache to exploit the long-tail characterisics of the keys, which automatically store the embeddings for hot keys as the queries constantly come in, thus providing the low-latency lookup service.
+* Use the GPU embedding cache to exploit the long-tail characteristics of the keys. The cache automatically stores the embeddings for hot keys as queries are constantly received, providing the low-latency lookup service.
 
-* Manage the embedding tables of multiple models in a structured manner across the whole memory hierarchy of GPUs, CPUs and SSDs.
+* Manage the embedding tables of multiple models in a structured manner across the whole memory hierarchy of GPUs, CPUs, and SSDs.
 
-* Make the lookp service subscribable via custom TensorFlow layers, thus enabling transfer learning with large embedding tables.
+* Make the lookup service subscribable through custom TensorFlow layers, enabling transfer learning with large embedding tables.
 
 <img src="hps_user_guide_src/memory_hierarchy.png" width="1080px" align="center"/>
 
@@ -80,9 +91,9 @@ You can check the existence of the HPS Python toolkit after launching this conta
 $ python3 -c "import hierarchical_parameter_server as hps"
 ```
 
-## Notebook Examples
+## Example Notebooks
 
-We provide a collection of examples as [Jupyter Notebooks](../../notebooks/README.md) covering:
+We provide a collection of examples as [Jupyter Notebooks](notebooks/index.md) that cover the following topics:
 
 * Basic workflow of HPS deployment for TensorFlow models
 * Migrating from SOK training to HPS inference
