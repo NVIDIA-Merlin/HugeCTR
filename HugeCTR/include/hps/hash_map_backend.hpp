@@ -34,7 +34,7 @@ namespace HugeCTR {
 #pragma GCC diagnostic error "-Wconversion"
 
 /**
- * \p DatabaseBackend implementation that stores key/value pairs in the local CPU memory
+ * \p DatabaseBackend implementation that stores key/value pairs in the local CPU memory.
  * that takes advantage of parallel processing capabilities.
  *
  * @tparam TKey The data-type that is used for keys in this database.
@@ -56,7 +56,7 @@ class HashMapBackend final : public VolatileBackend<TKey> {
 
     TPartition() = delete;
     TPartition(const size_t index, const size_t value_size)
-        : index(index), value_size(value_size) {}
+        : index{index}, value_size{value_size} {}
   };
 
   /**
@@ -68,13 +68,14 @@ class HashMapBackend final : public VolatileBackend<TKey> {
    * @param overflow_resolution_target Target margin after applying overflow handling policy.
    */
   HashMapBackend(size_t num_partitions = 16, size_t allocation_rate = 256 * 1024 * 1024,
+                 size_t max_get_batch_size = 10'000, size_t max_set_batch_size = 10'000,
                  size_t overflow_margin = std::numeric_limits<size_t>::max(),
                  DatabaseOverflowPolicy_t overflow_policy = DatabaseOverflowPolicy_t::EvictOldest,
                  double overflow_resolution_target = 0.8);
 
   bool is_shared() const override final { return false; }
 
-  const char* get_name() const { return "PreallocatedHashMapBackend"; }
+  const char* get_name() const override { return "HashMapBackend"; }
 
   size_t capacity(const std::string& table_name) const override {
     const size_t part_cap = this->overflow_margin_;
@@ -84,17 +85,20 @@ class HashMapBackend final : public VolatileBackend<TKey> {
 
   size_t size(const std::string& table_name) const override;
 
-  size_t contains(const std::string& table_name, size_t num_keys, const TKey* keys) const override;
+  size_t contains(const std::string& table_name, size_t num_keys, const TKey* keys,
+                  const std::chrono::microseconds& time_budget) const override;
 
   bool insert(const std::string& table_name, size_t num_pairs, const TKey* keys, const char* values,
               size_t value_size) override;
 
   size_t fetch(const std::string& table_name, size_t num_keys, const TKey* keys,
-               const DatabaseHitCallback& on_hit, const DatabaseMissCallback& on_miss) override;
+               const DatabaseHitCallback& on_hit, const DatabaseMissCallback& on_miss,
+               const std::chrono::microseconds& time_budget) override;
 
   size_t fetch(const std::string& table_name, size_t num_indices, const size_t* indices,
                const TKey* keys, const DatabaseHitCallback& on_hit,
-               const DatabaseMissCallback& on_miss) override;
+               const DatabaseMissCallback& on_miss,
+               const std::chrono::microseconds& time_budget) override;
 
   size_t evict(const std::string& table_name) override;
 

@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include <chrono>
 #include <functional>
 #include <hps/inference_utils.hpp>
 #include <string>
@@ -89,7 +90,8 @@ class DatabaseBackend {
    * @return The number of keys that are actually present in the database. Will throw if an
    * recoverable error is encountered.
    */
-  virtual size_t contains(const std::string& table_name, size_t num_keys, const TKey* keys) const;
+  virtual size_t contains(const std::string& table_name, size_t num_keys, const TKey* keys,
+                          const std::chrono::microseconds& time_budget) const;
 
   /**
    * Insert key/value pairs into the underlying database. For existing keys, the respective value is
@@ -119,12 +121,15 @@ class DatabaseBackend {
    * @param value_size The size of each value in bytes.
    * @param on_miss A function that is called for every key that was not present in this
    * database.
+   * @param time_budget A budget given to the function to do its work. This is a soft-limit. The
+   * function will try to complete in time.
    *
    * @return The number of keys that were successfully retrieved from this database. Will throw if
    * an recoverable error is encountered.
    */
   virtual size_t fetch(const std::string& table_name, size_t num_keys, const TKey* keys,
-                       const DatabaseHitCallback& on_hit, const DatabaseMissCallback& on_miss);
+                       const DatabaseHitCallback& on_hit, const DatabaseMissCallback& on_miss,
+                       const std::chrono::microseconds& time_budget);
 
   /**
    * Attempt to retrieve the stored value for a set of keys in the backing database. This variant
@@ -141,13 +146,16 @@ class DatabaseBackend {
    * @param value_size The size of each value in bytes.
    * @param on_miss A function that is called for every key that was not present in this
    * database.
+   * @param time_budget A budget given to the function to do its work. This is a soft-limit. The
+   * function will try to complete in time.
    *
    * @return The number of keys that were successfully retrieved from this database. Will throw if
    * an recoverable error is encountered.
    */
   virtual size_t fetch(const std::string& table_name, size_t num_indices, const size_t* indices,
                        const TKey* keys, const DatabaseHitCallback& on_hit,
-                       const DatabaseMissCallback& on_miss);
+                       const DatabaseMissCallback& on_miss,
+                       const std::chrono::microseconds& time_budget);
 
   /**
    * Attempt to remove a table and all associated values from the underlying database.
@@ -220,8 +228,8 @@ class VolatileBackend : public DatabaseBackend<TKey> {
  public:
   using TBase = DatabaseBackend<TKey>;
 
-  VolatileBackend(size_t overflow_margin, DatabaseOverflowPolicy_t overflow_policy,
-                  double overflow_resolution_target);
+  VolatileBackend(size_t max_get_batch_size, size_t max_set_batch_size, size_t overflow_margin,
+                  DatabaseOverflowPolicy_t overflow_policy, double overflow_resolution_target);
 
   VolatileBackend(const VolatileBackend&) = delete;
 
@@ -249,6 +257,8 @@ class VolatileBackend : public DatabaseBackend<TKey> {
 
  protected:
   // Overflow-handling / pruning related parameters.
+  const size_t max_get_batch_size_;
+  const size_t max_set_batch_size_;
   const size_t overflow_margin_;
   const DatabaseOverflowPolicy_t overflow_policy_;
   const size_t overflow_resolution_target_;
