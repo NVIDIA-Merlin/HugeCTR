@@ -71,7 +71,8 @@ class RedisClusterBackend final : public VolatileBackend<TKey> {
 
   bool is_shared() const override { return true; }
 
-  size_t contains(const std::string& table_name, size_t num_keys, const TKey* keys) const override;
+  size_t contains(const std::string& table_name, size_t num_keys, const TKey* keys,
+                  const std::chrono::microseconds& time_budget) const override;
 
   size_t capacity(const std::string& table_name) const override {
     const size_t part_cap = this->overflow_margin_;
@@ -85,11 +86,13 @@ class RedisClusterBackend final : public VolatileBackend<TKey> {
               size_t value_size) override;
 
   size_t fetch(const std::string& table_name, size_t num_keys, const TKey* keys,
-               const DatabaseHitCallback& on_hit, const DatabaseMissCallback& on_miss) override;
+               const DatabaseHitCallback& on_hit, const DatabaseMissCallback& on_miss,
+               const std::chrono::microseconds& time_budget) override;
 
   size_t fetch(const std::string& table_name, size_t num_indices, const size_t* indices,
                const TKey* keys, const DatabaseHitCallback& on_hit,
-               const DatabaseMissCallback& on_miss) override;
+               const DatabaseMissCallback& on_miss,
+               const std::chrono::microseconds& time_budget) override;
 
   size_t evict(const std::string& table_name) override;
 
@@ -102,36 +105,34 @@ class RedisClusterBackend final : public VolatileBackend<TKey> {
    * Called internally. Checks for overflow and initiate overflow handling in case a partition
    * overflow is detected.
    */
-  void resolve_overflow_(const std::string& hkey_kv, const std::string& hkey_kt);
+  void check_and_resolve_overflow_(const std::string& hkey_v, const std::string& hkey_t);
 
   /**
    * Called internally to reset a single timestamp.
    *
-   * @param table_name Name of the table.
-   * @param part Table partition number (not checked. Assumed to be correct!).
+   * @param hkey_t Time partition key (not checked. Assumed to be correct!).
    * @param key The key for which to refresh the timestamp.
+   * @param time The time to fill in.
    */
-  void touch_(const std::string& table_name, size_t part, const TKey& key, time_t time);
+  void touch_(const std::string& hkey_t, const TKey& key, time_t time);
 
   /**
    * Called internally to reset many timestamps.
    *
-   * @param table_name Name of the table.
-   * @param part Table partition number (not checked. Assumed to be correct!).
+   * @param hkey_t Time partition key (not checked. Assumed to be correct!).
    * @param keys The keys for which to refresh the timestamp.
+   * @param time The time to fill in.
    */
-  void touch_(const std::string& table_name, size_t part,
-              const std::shared_ptr<std::vector<TKey>>& keys, time_t time);
+  void touch_(const std::string& hkey_t, const std::shared_ptr<std::vector<TKey>>& keys,
+              time_t time);
 
  protected:
   const bool refresh_time_after_fetch_;
 
   // Do not change this vector, after inserting data for the first time!
   const size_t num_partitions_;
-  const size_t max_get_batch_size_;
-  const size_t max_set_batch_size_;
+
   std::unique_ptr<sw::redis::RedisCluster> redis_;
-  mutable ThreadPool workers_;
 };
 
 // TODO: Remove me!

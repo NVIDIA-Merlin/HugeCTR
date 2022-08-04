@@ -25,14 +25,16 @@ namespace HugeCTR {
 
 template <typename TKey>
 size_t DatabaseBackend<TKey>::contains(const std::string& table_name, const size_t num_keys,
-                                       const TKey* keys) const {
+                                       const TKey* keys,
+                                       const std::chrono::microseconds& time_budget) const {
   return 0;
 }
 
 template <typename TKey>
 size_t DatabaseBackend<TKey>::fetch(const std::string& table_name, const size_t num_keys,
                                     const TKey* const keys, const DatabaseHitCallback& on_hit,
-                                    const DatabaseMissCallback& on_miss) {
+                                    const DatabaseMissCallback& on_miss,
+                                    const std::chrono::microseconds& time_budget) {
   for (size_t i = 0; i < num_keys; i++) {
     on_miss(i);
   }
@@ -43,7 +45,8 @@ template <typename TKey>
 size_t DatabaseBackend<TKey>::fetch(const std::string& table_name, const size_t num_indices,
                                     const size_t* indices, const TKey* const keys,
                                     const DatabaseHitCallback& on_hit,
-                                    const DatabaseMissCallback& on_miss) {
+                                    const DatabaseMissCallback& on_miss,
+                                    const std::chrono::microseconds& time_budget) {
   const size_t* const indices_end = &indices[num_indices];
   for (; indices != indices_end; indices++) {
     on_miss(*indices);
@@ -74,10 +77,14 @@ std::string DatabaseBackendError::to_string() const {
 }
 
 template <typename TKey>
-VolatileBackend<TKey>::VolatileBackend(const size_t overflow_margin,
+VolatileBackend<TKey>::VolatileBackend(const size_t max_get_batch_size,
+                                       const size_t max_set_batch_size,
+                                       const size_t overflow_margin,
                                        const DatabaseOverflowPolicy_t overflow_policy,
                                        const double overflow_resolution_target)
-    : overflow_margin_(overflow_margin),
+    : max_get_batch_size_(max_get_batch_size),
+      max_set_batch_size_(max_set_batch_size),
+      overflow_margin_(overflow_margin),
       overflow_policy_(overflow_policy),
       overflow_resolution_target_(hctr_safe_cast<size_t>(
           static_cast<double>(overflow_margin) * overflow_resolution_target + 0.5)) {

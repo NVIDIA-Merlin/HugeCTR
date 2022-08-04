@@ -61,17 +61,20 @@ class RocksDBBackend final : public PersistentBackend<TKey> {
 
   size_t size(const std::string& table_name) const override;
 
-  size_t contains(const std::string& table_name, size_t num_keys, const TKey* keys) const override;
+  size_t contains(const std::string& table_name, size_t num_keys, const TKey* keys,
+                  const std::chrono::microseconds& time_budget) const override;
 
   bool insert(const std::string& table_name, size_t num_pairs, const TKey* keys, const char* values,
               size_t value_size) override;
 
   size_t fetch(const std::string& table_name, size_t num_keys, const TKey* keys,
-               const DatabaseHitCallback& on_hit, const DatabaseMissCallback& on_miss) override;
+               const DatabaseHitCallback& on_hit, const DatabaseMissCallback& on_miss,
+               const std::chrono::microseconds& time_budget) override;
 
   size_t fetch(const std::string& table_name, size_t num_indices, const size_t* indices,
                const TKey* keys, const DatabaseHitCallback& on_hit,
-               const DatabaseMissCallback& on_miss) override;
+               const DatabaseMissCallback& on_miss,
+               const std::chrono::microseconds& time_budget) override;
 
   size_t evict(const std::string& table_name) override;
 
