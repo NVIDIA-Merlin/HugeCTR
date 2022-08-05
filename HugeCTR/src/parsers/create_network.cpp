@@ -43,6 +43,7 @@
 #include <layers/relu_layer.hpp>
 #include <layers/reshape_layer.hpp>
 #include <layers/scale_layer.hpp>
+#include <layers/sequence_mask_layer.hpp>
 #include <layers/sigmoid_layer.hpp>
 #include <layers/slice_layer.hpp>
 #include <layers/softmax_layer.hpp>
@@ -480,6 +481,32 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
               new DropoutLayer<float>(do_in_tensor, do_out_tensor, blobs_buff, rate, gpu_resource));
         }
 
+        break;
+      }
+      case Layer_t::SequenceMask: {
+        if (use_mixed_precision) {
+          Tensor2<__half> smask_in_tensor =
+              Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
+          Tensor2<__half> smask_out_tensor;
+          auto max_sequence_len = get_json(j, "max_sequence_len");
+          blobs_buff->reserve({smask_in_tensor.get_dimensions()[0], 1, 1, max_sequence_len},
+                              &smask_out_tensor);
+          output_tensor_entries.push_back(
+              {input_output_info.output_names[0], smask_out_tensor.shrink()});
+          emplaceback_layer(new SequenceMaskLayer<__half>(
+              smask_in_tensor, smask_out_tensor, max_sequence_len, blobs_buff, gpu_resource));
+        } else {
+          Tensor2<float> smask_in_tensor =
+              Tensor2<float>::stretch_from(input_output_info.inputs[0]);
+          Tensor2<float> smask_out_tensor;
+          auto max_sequence_len = get_json(j, "max_sequence_len");
+          blobs_buff->reserve({smask_in_tensor.get_dimensions()[0], 1, 1, max_sequence_len},
+                              &smask_out_tensor);
+          output_tensor_entries.push_back(
+              {input_output_info.output_names[0], smask_out_tensor.shrink()});
+          emplaceback_layer(new SequenceMaskLayer<float>(
+              smask_in_tensor, smask_out_tensor, max_sequence_len, blobs_buff, gpu_resource));
+        }
         break;
       }
       case Layer_t::ELU: {

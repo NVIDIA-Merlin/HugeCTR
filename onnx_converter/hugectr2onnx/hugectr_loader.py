@@ -49,6 +49,7 @@ ONNX_LAYER_TYPES = {
     "BinaryCrossEntropyLoss",
     "CrossEntropyLoss",
     "MultiCrossEntropyLoss",
+    "SequenceMask",
 }
 
 EXEMPTION_LAYER_TYPES = {"Cast", "FusedReshapeConcatGeneral", "GRU", "Gather", "ReLUHalf"}
@@ -97,6 +98,7 @@ class LayerParams(object):
         self.weight_dims = []
         self.out_dim = 0
         self.axis = 1
+        self.max_sequence_len = 1
 
 
 class HugeCTRLoader(object):
@@ -299,6 +301,8 @@ class HugeCTRLoader(object):
         elif layer_type == "ELU":
             layer_params.elu_alpha = layer_config["elu_param"]["alpha"]
             self.__dimensions[layer_config["top"]] = self.__dimensions[layer_config["bottom"]]
+        elif layer_type == "SequenceMask":
+            layer_params.max_sequence_len = layer_config["max_sequence_len"]
         elif layer_type == "FmOrder2":
             layer_params.out_dim = layer_config["out_dim"]
             self.__dimensions[layer_config["top"]] = layer_params.out_dim

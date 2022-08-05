@@ -202,7 +202,8 @@ const std::map<std::string, Layer_t> LAYER_TYPE_MAP = {
     {"ReLU", Layer_t::ReLU},
     {"Reshape", Layer_t::Reshape},
     {"Sigmoid", Layer_t::Sigmoid},
-    {"Slice", Layer_t::Slice}};
+    {"Slice", Layer_t::Slice},
+    {"SequenceMask", Layer_t::SequenceMask}};
 const std::map<std::string, Layer_t> LAYER_TYPE_MAP_MP = {
     {"Add", Layer_t::Add},
     {"BatchNorm", Layer_t::BatchNorm},
@@ -225,7 +226,8 @@ const std::map<std::string, Layer_t> LAYER_TYPE_MAP_MP = {
     {"ReLU", Layer_t::ReLU},
     {"Reshape", Layer_t::Reshape},
     {"Sigmoid", Layer_t::Sigmoid},
-    {"Slice", Layer_t::Slice}};
+    {"Slice", Layer_t::Slice},
+    {"SequenceMask", Layer_t::SequenceMask}};
 const std::map<std::string, Embedding_t> EMBEDDING_TYPE_MAP = {
     {"DistributedSlotSparseEmbeddingHash", Embedding_t::DistributedSlotSparseEmbeddingHash},
     {"LocalizedSlotSparseEmbeddingHash", Embedding_t::LocalizedSlotSparseEmbeddingHash},

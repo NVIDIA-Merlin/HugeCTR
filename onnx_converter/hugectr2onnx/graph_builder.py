@@ -274,6 +274,33 @@ class GraphBuilder(object):
                     alpha=layer_params.elu_alpha,
                 )
             )
+        elif layer_type == "SequenceMask":
+            new_shape = np.array([-1, 1, 1, layer_params.max_sequence_len])
+            len_expand_name = layer_params.top_names[0] + "_len_expand"
+            maxlen_expand_name = layer_params.top_names[0] + "_maxlen_expand"
+            maxlen = np.fill(np.array([-1, 1, 1, layer_params.max_sequence_len]), max_sequence_len)
+            self.__nodes.append(
+                helper.make_node(
+                    op_type="Expand",
+                    inputs=[layer_params.bottom_names[0], new_shape],
+                    outputs=[len_expand_name],
+                )
+            )
+            self.__initializers.append(
+                helper.make_tensor(
+                    name=maxlen_expand_name,
+                    inputs=[layer_params.bottom_names, new_shape],
+                    dims=maxlen.shape,
+                    vals=maxlen.flatten(),
+                )
+            )
+            self.__node.append(
+                helper.make_node(
+                    op_type="Less",
+                    inputs=[len_expand_name, maxlen_expand_name],
+                    outputs=layer_params.top_names,
+                )
+            )
         elif layer_type == "FmOrder2":
             vec_size = layer_params.out_dim
             slot_num = dimensions[layer_params.bottom_names[0]] // vec_size

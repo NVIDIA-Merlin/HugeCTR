@@ -288,9 +288,10 @@ DenseLayer::DenseLayer(Layer_t layer_type, std::vector<std::string>& bottom_name
                        size_t vector_size, bool selected, std::vector<int> selected_slots,
                        std::vector<std::pair<int, int>> ranges, std::vector<int> indices,
                        std::vector<size_t> weight_dims, size_t out_dim, int axis,
-                       std::vector<float> target_weight_vec, bool use_regularizer,
-                       Regularizer_t regularizer_type, float lambda, FcPosition_t pos_type,
-                       Activation_t act_type, DenseLayerSwitchs dense_layer_switches)
+                       int max_sequence_len, std::vector<float> target_weight_vec,
+                       bool use_regularizer, Regularizer_t regularizer_type, float lambda,
+                       FcPosition_t pos_type, Activation_t act_type,
+                       DenseLayerSwitchs dense_layer_switches)
     : layer_type(layer_type),
       bottom_names(bottom_names),
       top_names(top_names),
@@ -316,6 +317,7 @@ DenseLayer::DenseLayer(Layer_t layer_type, std::vector<std::string>& bottom_name
       weight_dims(weight_dims),
       out_dim(out_dim),
       axis(axis),
+      max_sequence_len(max_sequence_len),
       target_weight_vec(target_weight_vec),
       use_regularizer(use_regularizer),
       regularizer_type(regularizer_type),

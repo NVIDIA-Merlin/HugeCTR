@@ -158,6 +158,7 @@ enum class Layer_t {
   MultiCross,
   Cast,
   ElementwiseMultiply,
+  SequenceMask,
   Unknown
 };
 
