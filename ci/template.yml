@@ -13,36 +13,29 @@ stages:
 .python_format:
   stage: build
   image: python:3.8-alpine
-  extends: .dlcluster_job
+  extends:
+    - .dlcluster_job
+    - .format:rules:check
   script:
     - srun -N 1 -p dgx1v,dgx1v16g,dgx1v32g bash -cx "
       echo $(pwd);
       docker pull python:3.8-alpine;
       docker run --rm -v $(pwd):/src -w /src python:3.8-alpine sh -c 'pip install black && black --line-length 100 --check --diff --color --extend-exclude \"$EXCLUDE\" .'
       "
-  rules:
-    - if: $CI_PIPELINE_SOURCE =~ /^(push|web|merge_request_event|trigger)$/
-      when: always
-    - if: $TEST_NEW_IMAGE == "1"
-      when: always
-    - when: never
+  allow_failure: true
   timeout: 15 minutes
 
 .clang_format:
   stage: build
-  extends: .dlcluster_job
+  extends:
+    - .dlcluster_job
+    - .format:rules:check
   script:
     - srun -N 1 -p dgx1v,dgx1v16g,dgx1v32g bash -cx "
       echo $(pwd);
       docker run --rm --workdir /src -v $(pwd):/src gitlab-master.nvidia.com:5005/dl/hugectr/hugectr/clang-format-lint --clang-format-executable /clang-format/$EXECUTABLE -r --exclude $EXCLUDE --style $STYLE .
       "
   allow_failure: true
-  rules:
-    - if: $CI_PIPELINE_SOURCE =~ /^(push|web|merge_request_event|trigger)$/
-      when: always
-    - if: $TEST_NEW_IMAGE == "1"
-      when: always
-    - when: never
   timeout: 15 minutes
 
 .build_nightly:

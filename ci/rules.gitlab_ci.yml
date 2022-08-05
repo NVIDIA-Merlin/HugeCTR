@@ -51,6 +51,16 @@
 ##################
 # Conditions set #
 ##################
+.format:rules:check:
+  rules:
+    # If push to a branch which has MR opened, ignore the branch pipeline
+    - <<: *if-push-to-mr-opened
+      when: never
+    - <<: *if-default-ci-actions
+      when: always
+    - <<: *if-new-image
+      when: always
+    - when: never
 
 .hugectr:rules:build:
   rules:
