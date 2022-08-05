@@ -1122,13 +1122,45 @@ class GraphBuilder(object):
         elif layer_type == "Softmax":
             if len(layer_params.top_names) == 0:
                 layer_params.top_names.append("output")
-            self.__nodes.append(
-                helper.make_node(
-                    op_type="Softmax",
-                    inputs=layer_params.bottom_names,
-                    outputs=layer_params.top_names,
+            if len(layer_params.bottom_names) == 1:
+                self.__nodes.append(
+                    helper.make_node(
+                        op_type="Softmax",
+                        inputs=layer_params.bottom_names,
+                        outputs=layer_params.top_names,
+                    )
                 )
-            )
+            else:
+                input_name = layer_params.bottom_names[0]
+                mask_name = layer_params.bottom_names[1]
+                head_num = dimensions[layer_params.bottom_names[0]][0]
+                seq_len = dimensions[layer_params.bottom_names[0]][1]
+                padding = np.full([-1, head_num, seq_len, seq_len], -10000.0, dtype=np.float32)
+                padding_name = layer_params.bottom_names[0] + "_padding_val"
+                masked_input_name = layer_params.bottom_names[0] + "_masked_val"
+                self.__initializers.append(
+                    helper.make_tensor(
+                        name=padding_name,
+                        data_type=onnx.mapping.NP_TYPE_TO_TENSOR_TYPE[padding.dtype],
+                        dims=padding.shape,
+                        vals=padding.flatten(),
+                    )
+                )
+                self.__nodes.append(
+                    helper.make_node(
+                        op_type="Where",
+                        inputs=[mask_name, input_name, padding_name],
+                        outputs=[masked_input_name],
+                    )
+                )
+                self.__nodes.append(
+                    helper.make_node(
+                        op_type="Softmax",
+                        inputs=[masked_input_name],
+                        outputs=layer_params.top_names,
+                    )
+                )
+
         elif layer_type == "Sub":
             x_name = layer_params.bottom_names[0]
             y_name = layer_params.bottom_names[1]

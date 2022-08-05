@@ -34,6 +34,7 @@
 #include <layers/gru_layer.hpp>
 #include <layers/interaction_layer.hpp>
 #include <layers/layer_norm_layer.hpp>
+#include <layers/masked_softmax_layer.hpp>
 #include <layers/matrix_multiply_layer.hpp>
 #include <layers/multi_cross_layer.hpp>
 #include <layers/multi_head_attention_layer.hpp>
@@ -374,6 +375,10 @@ void save_graph_to_json(nlohmann::json& layer_config_array,
         layer_config["scale_param"] = scale_param_config;
         break;
       }
+      case Layer_t::Softmax: {
+        layer_config["factor"] = dense_layer_params[i].factor;
+        break;
+      }
       case Layer_t::MultiCrossEntropyLoss: {
         if (dense_layer_params[i].target_weight_vec.size() > 0) {
           layer_config["target_weight"] = dense_layer_params[i].target_weight_vec;
@@ -694,6 +699,15 @@ DenseLayer get_dense_layer_from_json(const nlohmann::json& j_dense_layer) {
     case Layer_t::ReduceSum: {
       int axis = get_json(j_dense_layer, "axis").get<int>();
       dense_layer.axis = axis;
+      break;
+    }
+    case Layer_t::Softmax: {
+      auto factor_it = j_dense_layer.find("factor");
+      if (factor_it != j_dense_layer.end()) {
+        dense_layer.factor = factor_it->get<float>();
+      } else {
+        dense_layer.axis = 1.0f;
+      }
       break;
     }
     case Layer_t::MultiCrossEntropyLoss: {
@@ -1643,12 +1657,26 @@ void Model::add_dense_layer_internal(
         layers.emplace_back(
             new SoftmaxLayer<__half>(in_tensor, out_tensor, blobs_buff, gpu_resource));
       } else {
-        Tensor2<float> in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
-        Tensor2<float> out_tensor;
-        blobs_buff->reserve(in_tensor.get_dimensions(), &out_tensor);
-        output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
-        layers.emplace_back(
-            new SoftmaxLayer<float>(in_tensor, out_tensor, blobs_buff, gpu_resource));
+        if (input_output_info.inputs.size() != 2) {
+          Tensor2<float> in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
+          Tensor2<float> out_tensor;
+          blobs_buff->reserve(in_tensor.get_dimensions(), &out_tensor);
+          output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
+          layers.emplace_back(
+              new SoftmaxLayer<float>(in_tensor, out_tensor, blobs_buff, gpu_resource));
+        } else if (input_output_info.inputs.size() == 2) {
+          auto scale_factor = dense_layer.factor;
+          Tensor2<float> in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
+          Tensor2<float> mask_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[1]);
+          Tensors2<float> in_tensors;
+          in_tensors.push_back(in_tensor);
+          in_tensors.push_back(mask_tensor);
+          Tensor2<float> out_tensor;
+          blobs_buff->reserve(in_tensor.get_dimensions(), &out_tensor);
+          output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
+          layers.emplace_back(new MaskedSoftmaxLayer<float>(in_tensors, out_tensor, scale_factor,
+                                                            blobs_buff, gpu_resource));
+        }
       }
       break;
     }
