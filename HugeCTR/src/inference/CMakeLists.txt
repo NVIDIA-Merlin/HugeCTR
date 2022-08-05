@@ -50,6 +50,7 @@ file(GLOB huge_ctr_inference_src
   ../layers/multi_head_attention_layer.cu
   ../layers/prelu_dice_layer.cu
   ../layers/softmax_layer.cu
+  ../layers/masked_softmax_layer.cu
   ../layers/scale_layer.cu
   ../layers/fused_reshape_concat_general_layer.cu
   ../layers/fused_reshape_concat_layer.cu

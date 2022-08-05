@@ -34,6 +34,7 @@
 #include <layers/gru_layer.hpp>
 #include <layers/interaction_layer.hpp>
 #include <layers/layer_norm_layer.hpp>
+#include <layers/masked_softmax_layer.hpp>
 #include <layers/matrix_multiply_layer.hpp>
 #include <layers/multi_cross_layer.hpp>
 #include <layers/multi_head_attention_layer.hpp>
@@ -1014,12 +1015,28 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
         if (use_mixed_precision) {
           HCTR_OWN_THROW(Error_t::WrongInput, "Softmax layer does not support fp16");
         } else {
-          Tensor2<float> in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
-          Tensor2<float> out_tensor;
-          blobs_buff->reserve(in_tensor.get_dimensions(), &out_tensor);
-          output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
-          emplaceback_layer(
-              new SoftmaxLayer<float>(in_tensor, out_tensor, blobs_buff, gpu_resource));
+          if (input_output_info.inputs.size() != 2) {
+            Tensor2<float> in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
+            Tensor2<float> out_tensor;
+            blobs_buff->reserve(in_tensor.get_dimensions(), &out_tensor);
+            output_tensor_entries.push_back(
+                {input_output_info.output_names[0], out_tensor.shrink()});
+            emplaceback_layer(
+                new SoftmaxLayer<float>(in_tensor, out_tensor, blobs_buff, gpu_resource));
+          } else if (input_output_info.inputs.size() == 2) {
+            auto scale_factor = get_value_from_json<float>(j, "factor");
+            Tensor2<float> in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
+            Tensor2<float> mask_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[1]);
+            Tensors2<float> in_tensors;
+            in_tensors.push_back(in_tensor);
+            in_tensors.push_back(mask_tensor);
+            Tensor2<float> out_tensor;
+            blobs_buff->reserve(in_tensor.get_dimensions(), &out_tensor);
+            output_tensor_entries.push_back(
+                {input_output_info.output_names[0], out_tensor.shrink()});
+            emplaceback_layer(new MaskedSoftmaxLayer<float>(in_tensors, out_tensor, scale_factor,
+                                                            blobs_buff, gpu_resource));
+          }
         }
         break;
       }

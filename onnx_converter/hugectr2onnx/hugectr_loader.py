@@ -448,6 +448,7 @@ class HugeCTRLoader(object):
             for tensor, dim in zip(layer_config["top"], layer_params.ranges):
                 self.__dimensions[tensor] = dim[1] - dim[0]
         elif layer_type == "Softmax":
+            layer_params.factor = layer_config["factor"]
             self.__dimensions[layer_config["top"]] = self.__dimensions[layer_config["bottom"]]
         elif layer_type == "Sub":
             self.__dimensions[layer_config["top"]] = self.__dimensions[layer_config["bottom"][0]]
