@@ -457,7 +457,7 @@ void HierParameterServer<TypeHashKey>::lookup(const void* const h_keys, const si
     return;
   }
   const auto start_time = std::chrono::high_resolution_clock::now();
-  const auto time_budget = std::chrono::microseconds::max();
+  const auto time_budget = std::chrono::nanoseconds::max();
 
   const auto& model_id = ps_config_.find_model_id(model_name);
   HCTR_CHECK_HINT(
@@ -513,7 +513,7 @@ void HierParameterServer<TypeHashKey>::lookup(const void* const h_keys, const si
       keys_to_elevate = std::make_shared<std::vector<TypeHashKey>>();
       values_to_elevate = std::make_shared<std::vector<char>>();
 
-      check_and_copy = [&](const size_t index, const char* const value, const size_t value_size) {
+      check_and_copy = [&](const size_t index, const char* const value, const uint32_t value_size) {
         HCTR_CHECK_HINT(value_size == expected_value_size,
                         "Table: %s; Batch[%d]: Value size mismatch! (%d <> %d)!", tag_name.c_str(),
                         index, value_size, expected_value_size);

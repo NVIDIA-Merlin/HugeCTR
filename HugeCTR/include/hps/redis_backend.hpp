@@ -72,7 +72,7 @@ class RedisClusterBackend final : public VolatileBackend<TKey> {
   bool is_shared() const override { return true; }
 
   size_t contains(const std::string& table_name, size_t num_keys, const TKey* keys,
-                  const std::chrono::microseconds& time_budget) const override;
+                  const std::chrono::nanoseconds& time_budget) const override;
 
   size_t capacity(const std::string& table_name) const override {
     const size_t part_cap = this->overflow_margin_;
@@ -87,18 +87,22 @@ class RedisClusterBackend final : public VolatileBackend<TKey> {
 
   size_t fetch(const std::string& table_name, size_t num_keys, const TKey* keys,
                const DatabaseHitCallback& on_hit, const DatabaseMissCallback& on_miss,
-               const std::chrono::microseconds& time_budget) override;
+               const std::chrono::nanoseconds& time_budget) override;
 
   size_t fetch(const std::string& table_name, size_t num_indices, const size_t* indices,
                const TKey* keys, const DatabaseHitCallback& on_hit,
                const DatabaseMissCallback& on_miss,
-               const std::chrono::microseconds& time_budget) override;
+               const std::chrono::nanoseconds& time_budget) override;
 
   size_t evict(const std::string& table_name) override;
 
   size_t evict(const std::string& table_name, size_t num_keys, const TKey* keys) override;
 
   std::vector<std::string> find_tables(const std::string& model_name) override;
+
+  void dump_bin(const std::string& table_name, std::ofstream& file) override;
+
+  void dump_sst(const std::string& table_name, rocksdb::SstFileWriter& file) override;
 
  protected:
   /**
