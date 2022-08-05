@@ -43,6 +43,7 @@
 #include <layers/relu_layer.hpp>
 #include <layers/reshape_layer.hpp>
 #include <layers/scale_layer.hpp>
+#include <layers/sequence_mask_layer.hpp>
 #include <layers/sigmoid_layer.hpp>
 #include <layers/slice_layer.hpp>
 #include <layers/softmax_layer.hpp>
@@ -245,6 +246,10 @@ void save_graph_to_json(nlohmann::json& layer_config_array,
       }
       case Layer_t::Dropout: {
         layer_config["rate"] = dense_layer_params[i].dropout_rate;
+        break;
+      }
+      case Layer_t::SequenceMask: {
+        layer_config["max_sequence_len"] = dense_layer_params[i].max_sequence_len;
         break;
       }
       case Layer_t::ELU: {
@@ -454,6 +459,11 @@ DenseLayer get_dense_layer_from_json(const nlohmann::json& j_dense_layer) {
       auto j_elu_hparam = get_json(j_dense_layer, "elu_param");
       auto alpha = get_value_from_json<float>(j_elu_hparam, "alpha");
       dense_layer.elu_alpha = alpha;
+      break;
+    }
+    case Layer_t::SequenceMask: {
+      auto max_sequence_len = get_json(j_dense_layer, "max_sequence_len");
+      dense_layer.max_sequence_len = max_sequence_len;
       break;
     }
     case Layer_t::FusedInnerProduct: {
@@ -1065,6 +1075,31 @@ void Model::add_dense_layer_internal(
         float alpha = dense_layer.elu_alpha;
         layers.emplace_back(
             new EluLayer<float>(elu_in_tensor, elu_out_tensor, alpha, gpu_resource));
+      }
+      break;
+    }
+    case Layer_t::SequenceMask: {
+      if (use_mixed_precision) {
+        Tensor2<__half> smask_in_tensor =
+            Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
+        Tensor2<__half> smask_out_tensor;
+        auto max_sequence_len = dense_layer.max_sequence_len;
+        blobs_buff->reserve({smask_in_tensor.get_dimensions()[0], 1, 1, (size_t)max_sequence_len},
+                            &smask_out_tensor);
+        output_tensor_entries.push_back(
+            {input_output_info.output_names[0], smask_out_tensor.shrink()});
+        layers.emplace_back(new SequenceMaskLayer<__half>(
+            smask_in_tensor, smask_out_tensor, max_sequence_len, blobs_buff, gpu_resource));
+      } else {
+        Tensor2<float> smask_in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
+        Tensor2<float> smask_out_tensor;
+        auto max_sequence_len = dense_layer.max_sequence_len;
+        blobs_buff->reserve({smask_in_tensor.get_dimensions()[0], 1, 1, (size_t)max_sequence_len},
+                            &smask_out_tensor);
+        output_tensor_entries.push_back(
+            {input_output_info.output_names[0], smask_out_tensor.shrink()});
+        layers.emplace_back(new SequenceMaskLayer<float>(
+            smask_in_tensor, smask_out_tensor, max_sequence_len, blobs_buff, gpu_resource));
       }
       break;
     }

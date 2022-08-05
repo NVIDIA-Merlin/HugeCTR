@@ -129,6 +129,7 @@ void CommonPybind(pybind11::module& m) {
       .value("ReduceMean", HugeCTR::Layer_t::ReduceMean)
       .value("MultiCross", HugeCTR::Layer_t::MultiCross)
       .value("Cast", HugeCTR::Layer_t::Cast)
+      .value("SequenceMask", HugeCTR::Layer_t::SequenceMask)
       .export_values();
   pybind11::class_<HugeCTR::DataReaderSparseParam>(m, "DataReaderSparseParam")
       .def(pybind11::init<const std::string&, const std::vector<int>&, bool, int>(),
