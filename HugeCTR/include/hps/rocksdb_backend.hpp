@@ -62,19 +62,19 @@ class RocksDBBackend final : public PersistentBackend<TKey> {
   size_t size(const std::string& table_name) const override;
 
   size_t contains(const std::string& table_name, size_t num_keys, const TKey* keys,
-                  const std::chrono::microseconds& time_budget) const override;
+                  const std::chrono::nanoseconds& time_budget) const override;
 
   bool insert(const std::string& table_name, size_t num_pairs, const TKey* keys, const char* values,
               size_t value_size) override;
 
   size_t fetch(const std::string& table_name, size_t num_keys, const TKey* keys,
                const DatabaseHitCallback& on_hit, const DatabaseMissCallback& on_miss,
-               const std::chrono::microseconds& time_budget) override;
+               const std::chrono::nanoseconds& time_budget) override;
 
   size_t fetch(const std::string& table_name, size_t num_indices, const size_t* indices,
                const TKey* keys, const DatabaseHitCallback& on_hit,
                const DatabaseMissCallback& on_miss,
-               const std::chrono::microseconds& time_budget) override;
+               const std::chrono::nanoseconds& time_budget) override;
 
   size_t evict(const std::string& table_name) override;
 
@@ -82,11 +82,15 @@ class RocksDBBackend final : public PersistentBackend<TKey> {
 
   std::vector<std::string> find_tables(const std::string& model_name) override;
 
+  void dump_bin(const std::string& table_name, std::ofstream& file) override;
+
+  void dump_sst(const std::string& table_name, rocksdb::SstFileWriter& file) override;
+
+  void load_dump_sst(const std::string& table_name, const std::string& path) override;
+
  protected:
   rocksdb::DB* db_;
   std::unordered_map<std::string, rocksdb::ColumnFamilyHandle*> column_handles_;
-  const size_t max_get_batch_size_;
-  const size_t max_set_batch_size_;
 
   rocksdb::ColumnFamilyOptions column_family_options_;
   rocksdb::ReadOptions read_options_;

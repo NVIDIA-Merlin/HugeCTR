@@ -15,7 +15,10 @@
  */
 #pragma once
 
+#include <rocksdb/sst_file_writer.h>
+
 #include <chrono>
+#include <fstream>
 #include <functional>
 #include <hps/inference_utils.hpp>
 #include <string>
@@ -34,6 +37,12 @@ namespace HugeCTR {
 using DatabaseMissCallback = std::function<void(size_t)>;
 using DatabaseHitCallback = std::function<void(size_t, const char*, size_t)>;
 
+enum class DBTableDumpFormat_t {
+  Automatic = 0,  // Try to deduce the storage format from the provided path.
+  Raw,            // Use raw storage format.
+  SST             // Write data as an "Static Sorted Table" file.
+};
+
 /**
  * Base class for database backends. Implementations that inherit from this should override all
  * public members.
@@ -43,7 +52,7 @@ using DatabaseHitCallback = std::function<void(size_t, const char*, size_t)>;
 template <typename TKey>
 class DatabaseBackend {
  public:
-  DatabaseBackend() = default;
+  DatabaseBackend(size_t max_get_batch_size, size_t max_set_batch_size);
 
   DatabaseBackend(const DatabaseBackend&) = delete;
 
@@ -91,7 +100,7 @@ class DatabaseBackend {
    * recoverable error is encountered.
    */
   virtual size_t contains(const std::string& table_name, size_t num_keys, const TKey* keys,
-                          const std::chrono::microseconds& time_budget) const;
+                          const std::chrono::nanoseconds& time_budget) const;
 
   /**
    * Insert key/value pairs into the underlying database. For existing keys, the respective value is
@@ -129,7 +138,7 @@ class DatabaseBackend {
    */
   virtual size_t fetch(const std::string& table_name, size_t num_keys, const TKey* keys,
                        const DatabaseHitCallback& on_hit, const DatabaseMissCallback& on_miss,
-                       const std::chrono::microseconds& time_budget);
+                       const std::chrono::nanoseconds& time_budget);
 
   /**
    * Attempt to retrieve the stored value for a set of keys in the backing database. This variant
@@ -155,7 +164,7 @@ class DatabaseBackend {
   virtual size_t fetch(const std::string& table_name, size_t num_indices, const size_t* indices,
                        const TKey* keys, const DatabaseHitCallback& on_hit,
                        const DatabaseMissCallback& on_miss,
-                       const std::chrono::microseconds& time_budget);
+                       const std::chrono::nanoseconds& time_budget);
 
   /**
    * Attempt to remove a table and all associated values from the underlying database.
@@ -196,6 +205,36 @@ class DatabaseBackend {
    * @return List containing the names of the tables.
    */
   virtual std::vector<std::string> find_tables(const std::string& model_name) = 0;
+
+  /*
+   * Dumps the contents of an entire table to a file.
+   *
+   * @param table_name The name of the table to be dumped.
+   * @param path File system path under which the dumped data should be stored.
+   * @param format Dump format.
+   */
+  virtual void dump(const std::string& table_name, const std::string& path,
+                    DBTableDumpFormat_t format = DBTableDumpFormat_t::Automatic);
+
+  virtual void dump_bin(const std::string& table_name, std::ofstream& file) = 0;
+
+  virtual void dump_sst(const std::string& table_name, rocksdb::SstFileWriter& file) = 0;
+
+  /**
+   * Loads the contents of a dump file into a table.
+   *
+   * @param table_name The destination table into which to insert the data.
+   * @param path File system path under which the dumped data should be stored.
+   */
+  virtual void load_dump(const std::string& table_name, const std::string& path);
+
+  virtual void load_dump_bin(const std::string& table_name, const std::string& path);
+
+  virtual void load_dump_sst(const std::string& table_name, const std::string& path);
+
+ protected:
+  const size_t max_get_batch_size_;
+  const size_t max_set_batch_size_;
 };
 
 class DatabaseBackendError : std::exception {
@@ -257,8 +296,6 @@ class VolatileBackend : public DatabaseBackend<TKey> {
 
  protected:
   // Overflow-handling / pruning related parameters.
-  const size_t max_get_batch_size_;
-  const size_t max_set_batch_size_;
   const size_t overflow_margin_;
   const DatabaseOverflowPolicy_t overflow_policy_;
   const size_t overflow_resolution_target_;
@@ -273,7 +310,7 @@ class PersistentBackend : public DatabaseBackend<TKey> {
  public:
   using TBase = DatabaseBackend<TKey>;
 
-  PersistentBackend() = default;
+  PersistentBackend(size_t max_get_batch_size, size_t max_set_batch_size);
 
   PersistentBackend(const PersistentBackend&) = delete;
 
@@ -285,6 +322,12 @@ class PersistentBackend : public DatabaseBackend<TKey> {
     return std::numeric_limits<size_t>::max();
   }
 };
+
+#define HCTR_ROCKSDB_CHECK(EXPR)                                                  \
+  do {                                                                            \
+    const rocksdb::Status status = (EXPR);                                        \
+    HCTR_CHECK_HINT(status.ok(), "RocksDB error: %s", status.ToString().c_str()); \
+  } while (0)
 
 // TODO: Remove me!
 #pragma GCC diagnostic pop

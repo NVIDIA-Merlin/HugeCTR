@@ -23,20 +23,11 @@
 
 namespace HugeCTR {
 
-#define HCTR_ROCKSDB_CHECK(EXPR)                                                  \
-  do {                                                                            \
-    const rocksdb::Status status = (EXPR);                                        \
-    HCTR_CHECK_HINT(status.ok(), "RocksDB error: %s", status.ToString().c_str()); \
-  } while (0)
-
 template <typename TKey>
 RocksDBBackend<TKey>::RocksDBBackend(const std::string& path, const size_t num_threads,
                                      const bool read_only, const size_t max_get_batch_size,
                                      const size_t max_set_batch_size)
-    : TBase(),
-      db_{nullptr},
-      max_get_batch_size_{max_get_batch_size},
-      max_set_batch_size_{max_set_batch_size} {
+    : TBase(max_get_batch_size, max_set_batch_size), db_{nullptr} {
   HCTR_LOG(INFO, WORLD, "Connecting to RocksDB database...\n");
 
   // Basic behavior.
@@ -60,8 +51,10 @@ RocksDBBackend<TKey>::RocksDBBackend(const std::string& path, const size_t num_t
   {
     std::vector<std::string> column_names;
     const auto& status = rocksdb::DB::ListColumnFamilies(options, path, &column_names);
-    if (!status.IsIOError()) {
-      HCTR_ROCKSDB_CHECK(status);
+    if (!status.ok()) {
+      HCTR_LOG_S(ERROR, WORLD) << "RocksDB " << path << ": Listing column names failed!"
+                               << std::endl;
+      column_names.clear();
     }
     bool has_default = false;
     for (const auto& column_name : column_names) {
@@ -72,8 +65,8 @@ RocksDBBackend<TKey>::RocksDBBackend(const std::string& path, const size_t num_t
     }
 
     for (const auto& column_name : column_names) {
-      HCTR_LOG(INFO, WORLD, "RocksDB %s, found column family \"%s\".\n", path.c_str(),
-               column_name.c_str());
+      HCTR_LOG_S(INFO, WORLD) << "RocksDB " << path << ", found column family \"" << column_name
+                              << "\"." << std::endl;
       column_descriptors.emplace_back(column_name, column_family_options_);
     }
   }
@@ -135,7 +128,7 @@ size_t RocksDBBackend<TKey>::size(const std::string& table_name) const {
 template <typename TKey>
 size_t RocksDBBackend<TKey>::contains(const std::string& table_name, const size_t num_keys,
                                       const TKey* keys,
-                                      const std::chrono::microseconds& time_budget) const {
+                                      const std::chrono::nanoseconds& time_budget) const {
   const auto begin = std::chrono::high_resolution_clock::now();
 
   // Empty result, if database does not contain this column handle.
@@ -194,7 +187,7 @@ size_t RocksDBBackend<TKey>::contains(const std::string& table_name, const size_
 
         // Create and launch query.
         k_views.clear();
-        const TKey* const batch_end = std::min(&keys[max_get_batch_size_], keys_end);
+        const TKey* const batch_end = std::min(&keys[this->max_get_batch_size_], keys_end);
         k_views.reserve(batch_end - keys);
 
         for (; keys != batch_end; keys++) {
@@ -237,12 +230,14 @@ bool RocksDBBackend<TKey>::insert(const std::string& table_name, const size_t nu
                                   const TKey* keys, const char* values, const size_t value_size) {
   // Locate or create column family.
   rocksdb::ColumnFamilyHandle* col_handle;
-  const auto& handles_it = column_handles_.find(table_name);
-  if (handles_it != column_handles_.end()) {
-    col_handle = handles_it->second;
-  } else {
-    HCTR_ROCKSDB_CHECK(db_->CreateColumnFamily(column_family_options_, table_name, &col_handle));
-    column_handles_.emplace(table_name, col_handle);
+  {
+    const auto& handles_it = column_handles_.find(table_name);
+    if (handles_it != column_handles_.end()) {
+      col_handle = handles_it->second;
+    } else {
+      HCTR_ROCKSDB_CHECK(db_->CreateColumnFamily(column_family_options_, table_name, &col_handle));
+      column_handles_.emplace(table_name, col_handle);
+    }
   }
 
   size_t num_inserts = 0;
@@ -265,7 +260,7 @@ bool RocksDBBackend<TKey>::insert(const std::string& table_name, const size_t nu
       for (size_t num_queries = 0; keys != keys_end; num_queries++) {
         // Assemble batch.
         batch.Clear();
-        const TKey* const batch_end = std::min(&keys[max_set_batch_size_], keys_end);
+        const TKey* const batch_end = std::min(&keys[this->max_set_batch_size_], keys_end);
         for (; keys != batch_end; keys++, values += value_size) {
           k_view.data_ = reinterpret_cast<const char*>(keys);
           v_view.data_ = values;
@@ -293,7 +288,7 @@ template <typename TKey>
 size_t RocksDBBackend<TKey>::fetch(const std::string& table_name, const size_t num_keys,
                                    const TKey* keys, const DatabaseHitCallback& on_hit,
                                    const DatabaseMissCallback& on_miss,
-                                   const std::chrono::microseconds& time_budget) {
+                                   const std::chrono::nanoseconds& time_budget) {
   const auto begin = std::chrono::high_resolution_clock::now();
 
   // Empty result, if database does not contain this column handle.
@@ -357,7 +352,7 @@ size_t RocksDBBackend<TKey>::fetch(const std::string& table_name, const size_t n
 
         // Create and launch query.
         k_views.clear();
-        const TKey* const batch_end = std::min(&keys[max_get_batch_size_], keys_end);
+        const TKey* const batch_end = std::min(&keys[this->max_get_batch_size_], keys_end);
         k_views.reserve(batch_end - keys);
 
         for (; keys != batch_end; keys++) {
@@ -405,7 +400,7 @@ size_t RocksDBBackend<TKey>::fetch(const std::string& table_name, const size_t n
                                    const size_t* indices, const TKey* const keys,
                                    const DatabaseHitCallback& on_hit,
                                    const DatabaseMissCallback& on_miss,
-                                   const std::chrono::microseconds& time_budget) {
+                                   const std::chrono::nanoseconds& time_budget) {
   const auto begin = std::chrono::high_resolution_clock::now();
 
   // Empty result, if database does not contain this column handle.
@@ -469,7 +464,7 @@ size_t RocksDBBackend<TKey>::fetch(const std::string& table_name, const size_t n
 
         // Create and launch query.
         k_views.clear();
-        const size_t* const batch_end = std::min(&indices[max_get_batch_size_], indices_end);
+        const size_t* const batch_end = std::min(&indices[this->max_get_batch_size_], indices_end);
         k_views.reserve(batch_end - indices);
 
         for (const size_t* i = indices; i != batch_end; i++) {
@@ -566,7 +561,7 @@ size_t RocksDBBackend<TKey>::evict(const std::string& table_name, const size_t n
       for (size_t num_batches = 0; keys != keys_end; num_batches++) {
         // Assemble batch.
         batch.Clear();
-        const TKey* const batch_end = std::min(&keys[max_set_batch_size_], keys_end);
+        const TKey* const batch_end = std::min(&keys[this->max_set_batch_size_], keys_end);
         for (; keys != batch_end; keys++) {
           k_view.data_ = reinterpret_cast<const char*>(keys);
           HCTR_ROCKSDB_CHECK(batch.Delete(col_handle, k_view));
@@ -601,11 +596,79 @@ std::vector<std::string> RocksDBBackend<TKey>::find_tables(const std::string& mo
   return matches;
 }
 
-#ifdef HCTR_ROCKSDB_CHECK
-#undef HCTR_ROCKSDB_CHECK
-#else
-#error "HCTR_ROCKSDB_CHECK not defined?!"
-#endif
+template <typename TKey>
+void RocksDBBackend<TKey>::dump_bin(const std::string& table_name, std::ofstream& file) {
+  // Locate the column handle.
+  const auto& col_handles_it = column_handles_.find(table_name);
+  if (col_handles_it == column_handles_.end()) {
+    return;
+  }
+  rocksdb::ColumnFamilyHandle* const col_handle = col_handles_it->second;
+
+  // Get a pointer to the beginning of the table.
+  std::unique_ptr<rocksdb::Iterator> it{db_->NewIterator(read_options_, col_handle)};
+  it->SeekToFirst();
+
+  // Write value size to file.
+  const uint32_t value_size = it->Valid() ? static_cast<uint32_t>(it->value().size()) : 0;
+  file.write(reinterpret_cast<const char*>(&value_size), sizeof(uint32_t));
+
+  // Append the key/value pairs one by one.
+  for (; it->Valid(); it->Next()) {
+    // Key
+    {
+      const rocksdb::Slice& k_view = it->key();
+      HCTR_CHECK(k_view.size() == sizeof(TKey));
+      file.write(k_view.data(), sizeof(TKey));
+    }
+    // Value
+    {
+      const rocksdb::Slice& v_view = it->value();
+      HCTR_CHECK(v_view.size() == value_size);
+      file.write(v_view.data(), value_size);
+    }
+  }
+}
+
+template <typename TKey>
+void RocksDBBackend<TKey>::dump_sst(const std::string& table_name, rocksdb::SstFileWriter& file) {
+  // Locate the column handle.
+  const auto& col_handles_it = column_handles_.find(table_name);
+  if (col_handles_it == column_handles_.end()) {
+    return;
+  }
+  rocksdb::ColumnFamilyHandle* const col_handle = col_handles_it->second;
+
+  // Get a pointer to the beginning of the table.
+  std::unique_ptr<rocksdb::Iterator> it{db_->NewIterator(read_options_, col_handle)};
+  it->SeekToFirst();
+
+  // Append the key/value pairs one by one.
+  for (; it->Valid(); it->Next()) {
+    HCTR_ROCKSDB_CHECK(file.Put(it->key(), it->value()));
+  }
+}
+
+template <typename TKey>
+void RocksDBBackend<TKey>::load_dump_sst(const std::string& table_name, const std::string& path) {
+  // TBase::load_dump_sst(table_name, path);
+
+  // Locate or create column family.
+  rocksdb::ColumnFamilyHandle* col_handle;
+  {
+    const auto& handles_it = column_handles_.find(table_name);
+    if (handles_it != column_handles_.end()) {
+      col_handle = handles_it->second;
+    } else {
+      HCTR_ROCKSDB_CHECK(db_->CreateColumnFamily(column_family_options_, table_name, &col_handle));
+      column_handles_.emplace(table_name, col_handle);
+    }
+  }
+
+  // Call direction ingestion function.
+  static rocksdb::IngestExternalFileOptions options;
+  HCTR_ROCKSDB_CHECK(db_->IngestExternalFile(col_handle, {path}, options));
+}
 
 template class RocksDBBackend<unsigned int>;
 template class RocksDBBackend<long long>;

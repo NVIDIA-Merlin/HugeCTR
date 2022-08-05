@@ -148,7 +148,7 @@ size_t HashMapBackend<TPartition>::size(const std::string& table_name) const {
 template <typename TKey>
 size_t HashMapBackend<TKey>::contains(const std::string& table_name, const size_t num_keys,
                                       const TKey* const keys,
-                                      const std::chrono::microseconds& time_budget) const {
+                                      const std::chrono::nanoseconds& time_budget) const {
   const auto begin = std::chrono::high_resolution_clock::now();
   std::shared_lock lock(this->read_write_guard_);
 
@@ -210,7 +210,7 @@ size_t HashMapBackend<TKey>::contains(const std::string& table_name, const size_
           HCTR_LOG_S(TRACE, WORLD) << get_name() << " backend; Table " << table_name
                                    << ", partition " << part.index << ", batch " << num_batches
                                    << ": " << hit_count << " hits. Time: " << elapsed.count()
-                                   << " / " << time_budget.count() << " us." << std::endl;
+                                   << " / " << time_budget.count() << " ns." << std::endl;
         }
       } else {
         std::atomic<size_t> joint_hit_count{0};
@@ -256,7 +256,7 @@ size_t HashMapBackend<TKey>::contains(const std::string& table_name, const size_
               HCTR_LOG_S(TRACE, WORLD)
                   << get_name() << " backend; Table " << table_name << ", partition " << part.index
                   << ", batch " << num_batches << ": " << hit_count << " / " << batch_size
-                  << " hits. Time: " << elapsed.count() << " / " << time_budget.count() << " us."
+                  << " hits. Time: " << elapsed.count() << " / " << time_budget.count() << " ns."
                   << std::endl;
             }
 
@@ -270,7 +270,7 @@ size_t HashMapBackend<TKey>::contains(const std::string& table_name, const size_
     } break;
   }
 
-  HCTR_LOG_S(DEBUG, WORLD) << get_name() << " backend; Table " << table_name << ": " << hit_count
+  HCTR_LOG_S(TRACE, WORLD) << get_name() << " backend; Table " << table_name << ": " << hit_count
                            << " / " << (num_keys - ign_count) << " hits, " << ign_count
                            << " ignored." << std::endl;
   return hit_count;
@@ -385,7 +385,7 @@ bool HashMapBackend<TKey>::insert(const std::string& table_name, const size_t nu
     } break;
   }
 
-  HCTR_LOG_S(DEBUG, WORLD) << get_name() << " backend; Table " << table_name << ": Inserted "
+  HCTR_LOG_S(TRACE, WORLD) << get_name() << " backend; Table " << table_name << ": Inserted "
                            << num_inserts << " / " << num_pairs << " entries." << std::endl;
   return true;
 }
@@ -394,7 +394,7 @@ template <typename TKey>
 size_t HashMapBackend<TKey>::fetch(const std::string& table_name, const size_t num_keys,
                                    const TKey* const keys, const DatabaseHitCallback& on_hit,
                                    const DatabaseMissCallback& on_miss,
-                                   const std::chrono::microseconds& time_budget) {
+                                   const std::chrono::nanoseconds& time_budget) {
   const auto begin = std::chrono::high_resolution_clock::now();
   std::unique_lock lock(this->read_write_guard_);
 
@@ -465,7 +465,7 @@ size_t HashMapBackend<TKey>::fetch(const std::string& table_name, const size_t n
           HCTR_LOG_S(TRACE, WORLD)
               << get_name() << " backend; Table " << table_name << ", partition " << part.index
               << ", batch " << num_batches << ": " << hit_count - prev_hit_count
-              << " hits. Time: " << elapsed.count() << " / " << time_budget.count() << "us."
+              << " hits. Time: " << elapsed.count() << " / " << time_budget.count() << " ns."
               << std::endl;
         }
       } else {
@@ -518,7 +518,7 @@ size_t HashMapBackend<TKey>::fetch(const std::string& table_name, const size_t n
                   << get_name() << " backend; Table " << table_name << ", partition " << part.index
                   << ", batch " << num_batches << ": " << (hit_count - prev_hit_count) << " / "
                   << batch_size << " hits. Time: " << elapsed.count() << " / "
-                  << time_budget.count() << "us." << std::endl;
+                  << time_budget.count() << " ns." << std::endl;
             }
 
             joint_hit_count += hit_count;
@@ -531,7 +531,7 @@ size_t HashMapBackend<TKey>::fetch(const std::string& table_name, const size_t n
     } break;
   }
 
-  HCTR_LOG_S(DEBUG, WORLD) << get_name() << " backend; Table " << table_name << ": " << hit_count
+  HCTR_LOG_S(TRACE, WORLD) << get_name() << " backend; Table " << table_name << ": " << hit_count
                            << " / " << (num_keys - ign_count) << " hits. Ignored: " << ign_count
                            << '.' << std::endl;
   return hit_count;
@@ -542,7 +542,7 @@ size_t HashMapBackend<TKey>::fetch(const std::string& table_name, const size_t n
                                    const size_t* const indices, const TKey* const keys,
                                    const DatabaseHitCallback& on_hit,
                                    const DatabaseMissCallback& on_miss,
-                                   const std::chrono::microseconds& time_budget) {
+                                   const std::chrono::nanoseconds& time_budget) {
   const auto begin = std::chrono::high_resolution_clock::now();
   std::unique_lock lock(read_write_guard_);
 
@@ -615,7 +615,7 @@ size_t HashMapBackend<TKey>::fetch(const std::string& table_name, const size_t n
           HCTR_LOG_S(TRACE, WORLD)
               << get_name() << " backend; Table " << table_name << ", partition " << part.index
               << ", batch " << num_batches << ": " << hit_count - prev_hit_count
-              << " hits. Time: " << elapsed.count() << " / " << time_budget.count() << "us."
+              << " hits. Time: " << elapsed.count() << " / " << time_budget.count() << " ns."
               << std::endl;
         }
       } else {
@@ -669,7 +669,7 @@ size_t HashMapBackend<TKey>::fetch(const std::string& table_name, const size_t n
                   << get_name() << " backend; Table " << table_name << ", partition " << part.index
                   << ", batch " << num_batches << ": " << (hit_count - prev_hit_count) << " / "
                   << batch_size << " hits. Time: " << elapsed.count() << " / "
-                  << time_budget.count() << "us." << std::endl;
+                  << time_budget.count() << " ns." << std::endl;
 
               joint_hit_count += hit_count;
             }
@@ -682,7 +682,7 @@ size_t HashMapBackend<TKey>::fetch(const std::string& table_name, const size_t n
     } break;
   }
 
-  HCTR_LOG_S(DEBUG, WORLD) << get_name() << " backend; Table " << table_name << ": " << hit_count
+  HCTR_LOG_S(TRACE, WORLD) << get_name() << " backend; Table " << table_name << ": " << hit_count
                            << " / " << (num_indices - ign_count) << " hits. Ignored: " << ign_count
                            << '.' << std::endl;
   return hit_count;
@@ -705,7 +705,7 @@ size_t HashMapBackend<TKey>::evict(const std::string& table_name) {
   }
   tables_.erase(tables_it);
 
-  HCTR_LOG_S(DEBUG, WORLD) << get_name() << " backend; Table " << table_name << " erased ("
+  HCTR_LOG_S(TRACE, WORLD) << get_name() << " backend; Table " << table_name << " erased ("
                            << hit_count << " pairs)." << std::endl;
   return hit_count;
 }
@@ -796,7 +796,7 @@ size_t HashMapBackend<TKey>::evict(const std::string& table_name, const size_t n
     } break;
   }
 
-  HCTR_LOG_S(DEBUG, WORLD) << get_name() << " backend; Table " << table_name << ". " << hit_count
+  HCTR_LOG_S(TRACE, WORLD) << get_name() << " backend; Table " << table_name << ". " << hit_count
                            << " / " << num_keys << " entries erased." << std::endl;
   return hit_count;
 }
@@ -812,6 +812,58 @@ std::vector<std::string> HashMapBackend<TKey>::find_tables(const std::string& mo
     }
   }
   return matches;
+}
+
+template <typename TKey>
+void HashMapBackend<TKey>::dump_bin(const std::string& table_name, std::ofstream& file) {
+  // Locate the partitions.
+  const auto& tables_it = tables_.find(table_name);
+  if (tables_it == tables_.end()) {
+    return;
+  }
+  const std::vector<TPartition>& parts = tables_it->second;
+
+  // Store value size.
+  const uint32_t value_size = parts.empty() ? 0 : parts[0].value_size;
+  file.write(reinterpret_cast<const char*>(&value_size), sizeof(unsigned uint32_t));
+
+  // Store values.
+  for (const TPartition& part : parts) {
+    for (const std::pair<TKey, TEntry>& entry : part.entries) {
+      file.write(reinterpret_cast<const char*>(&entry.first), sizeof(TKey));
+      file.write(entry.second.value, value_size);
+    }
+  }
+}
+
+template <typename TKey>
+void HashMapBackend<TKey>::dump_sst(const std::string& table_name, rocksdb::SstFileWriter& file) {
+  // Locate the partitions.
+  const auto& tables_it = tables_.find(table_name);
+  if (tables_it == tables_.end()) {
+    return;
+  }
+  const std::vector<TPartition>& parts = tables_it->second;
+
+  // Created sorted list of keys.
+  std::vector<std::pair<TKey, const char*>> entries;
+  for (const TPartition& part : parts) {
+    for (const std::pair<TKey, TEntry>& entry : part.entries) {
+      entries.emplace_back(entry.first, entry.second.value);
+    }
+  }
+  std::sort(entries.begin(), entries.end(),
+            [](const auto& a, const auto& b) { return a.first < b.first; });
+
+  // Iterate over pairs and insert.
+  rocksdb::Slice k_view{nullptr, sizeof(TKey)};
+  rocksdb::Slice v_view{nullptr, parts.empty() ? 0 : parts[0].value_size};
+
+  for (const std::pair<TKey, const char*>& entry : entries) {
+    k_view.data_ = reinterpret_cast<const char*>(&entry.first);
+    v_view.data_ = entry.second;
+    HCTR_ROCKSDB_CHECK(file.Put(k_view, v_view));
+  }
 }
 
 template <typename TKey>
