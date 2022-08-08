@@ -1,0 +1,54 @@
+name: docs-build
+
+on:
+  pull_request:
+    branches: [master]
+  workflow_run:
+    workflows: [docs-build-image]
+    types: [completed]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/nvidia-merlin/hctr-doc-builder:0.3.0
+
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: recursive
+          fetch-depth: 1
+      - name: Set ownership
+        run: |
+          chown -R $(id -u):$(id -g) $PWD
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip setuptools==59.4.0 wheel
+          python -m pip install -r docs/requirements-doc.txt
+          python -m pip install scikit-build ninja
+      - name: Build HPS plugin for TF
+        run: |
+          pushd hierarchical_parameter_server
+          python3 setup.py install
+          popd
+      - name: Building docs
+        run: |
+          make -C docs html
+      - name: Upload HTML
+        uses: actions/upload-artifact@v2
+        with:
+          name: html-build-artifact
+          path: docs/build/html
+          if-no-files-found: error
+          retention-days: 1
+      - name: Store PR information
+        run: |
+          mkdir ./pr
+          echo ${{ github.event.number }}              > ./pr/pr.txt
+          echo ${{ github.event.pull_request.merged }} > ./pr/merged.txt
+          echo ${{ github.event.action }}              > ./pr/action.txt
+      - name: Upload PR information
+        uses: actions/upload-artifact@v2
+        with:
+          name: pr
+          path: pr/
