@@ -42,15 +42,11 @@ class IEmbeddingTable : public ILookup {
   virtual void clear() = 0;
 
   virtual void set_learning_rate(float lr) = 0;
-
-  // virtual void scatter_update(const Tensor &indices, const Tensor &grad_ev,
-  //                             const Tensor &grad_ev_offset, const Tensor &src_idx,
-  //                             HugeCTR::OptParams opt_params, bool has_duplicate_indices) {}
 };
 
 class IDynamicEmbeddingTable : public IEmbeddingTable {
   virtual void evict(const Tensor &keys, size_t num_keys, const Tensor &id_space_offset,
-                     size_t num_id_space_offset) = 0;
+                     size_t num_id_space_offset, const Tensor &id_space_list) = 0;
 };
 
 std::vector<std::unique_ptr<IEmbeddingTable>> create_embedding_table(

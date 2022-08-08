@@ -4,3 +4,8 @@ srun --ntasks="${SLURM_JOB_NUM_NODES}" --container-image="${CONT}" --container-m
     cd /dataset/criteo_kaggle/ && \
     sed -i 's/criteo_data/deepfm_data_nvt/g' /workdir/test/embedding_collection_test/dlrm_train.py && \
     python3 /workdir/test/embedding_collection_test/dlrm_train.py"
+
+srun --ntasks="${SLURM_JOB_NUM_NODES}" --container-image="${CONT}" --container-mounts="${MOUNTS}" bash -cx " \
+    cd /dataset/criteo_kaggle/ && \
+    sed -i 's/criteo_data/deepfm_data_nvt/g' /workdir/test/embedding_collection_test/dlrm_train_dynamic.py && \
+    python3 /workdir/test/embedding_collection_test/dlrm_train_dynamic.py"

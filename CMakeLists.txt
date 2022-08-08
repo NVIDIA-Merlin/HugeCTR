@@ -185,6 +185,7 @@ include_directories(
   ${PROJECT_SOURCE_DIR}/third_party/parallel-hashmap
   ${PROJECT_SOURCE_DIR}/third_party/xxhash
   ${PROJECT_SOURCE_DIR}/gpu_cache/include
+  ${PROJECT_SOURCE_DIR}/HugeCTR/embedding_storage/dynamic_embedding_table
 
   ${CUDNN_INC_PATHS}
   ${NCCL_INC_PATHS}

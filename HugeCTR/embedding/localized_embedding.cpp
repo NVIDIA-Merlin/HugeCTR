@@ -249,7 +249,7 @@ void UniformLocalizedEmbeddingForward::forward_per_gpu(
       &unique_id_space_offset);
 
   embedding_table->lookup(model_key, num_model_key, id_space_offset,
-                          local_embedding_data_.num_local_embedding_,
+                          local_embedding_data_.num_local_embedding_ + 1,
                           local_embedding_data_.d_local_id_space_list_, embedding_vec_);
 
   model_forward_.compute(embedding_vec_, model_offsets, model_comm_buffer_,

@@ -34,6 +34,7 @@
     CASE_TYPE_USING_HINT(HugeCTR::TensorScalarType::Int32, int32_t, HINT, __VA_ARGS__)   \
     CASE_TYPE_USING_HINT(HugeCTR::TensorScalarType::UInt64, uint64_t, HINT, __VA_ARGS__) \
     CASE_TYPE_USING_HINT(HugeCTR::TensorScalarType::UInt32, uint32_t, HINT, __VA_ARGS__) \
+    CASE_TYPE_USING_HINT(HugeCTR::TensorScalarType::Size_t, size_t, HINT, __VA_ARGS__)   \
     default:                                                                             \
       HCTR_OWN_THROW(HugeCTR::Error_t::IllegalCall,                                      \
                      "DISPATCH_INTEGRAL_FUNCTION do not support type");                  \
