@@ -70,6 +70,9 @@ template <typename TypeHashKey>
 HierParameterServer<TypeHashKey>::HierParameterServer(
     const parameter_server_config& ps_config, std::vector<InferenceParams>& inference_params_array)
     : HierParameterServerBase(), ps_config_(ps_config) {
+  HCTR_PRINT(INFO,
+             "====================================================HPS "
+             "Create====================================================\n");
   for (size_t i = 0; i < inference_params_array.size(); i++) {
     if (inference_params_array[i].volatile_db != inference_params_array[0].volatile_db ||
         inference_params_array[i].persistent_db != inference_params_array[0].persistent_db) {
@@ -363,7 +366,7 @@ void HierParameterServer<TypeHashKey>::create_embedding_cache_per_model(
   }
   std::map<int64_t, std::shared_ptr<EmbeddingCacheBase>> embedding_cache_map;
   for (auto device_id : inference_params.deployed_devices) {
-    HCTR_LOG(INFO, WORLD, "Create embedding cache in device %d.\n", device_id);
+    HCTR_LOG(INFO, WORLD, "Creating embedding cache in device %d.\n", device_id);
     inference_params.device_id = device_id;
     embedding_cache_map[device_id] = EmbeddingCacheBase::create(inference_params, ps_config_, this);
   }

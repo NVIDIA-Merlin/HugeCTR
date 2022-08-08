@@ -26,6 +26,12 @@ option(CLANGFORMAT "Setup clangformat target" ON)
 if(CLANGFORMAT)
   include(ClangFormat)
   file(GLOB_RECURSE HUGECTR_SRC
+    ${PROJECT_SOURCE_DIR}/../HugeCTR/src/hps/*.cpp
+    ${PROJECT_SOURCE_DIR}/../HugeCTR/src/hps/*.cc
+    ${PROJECT_SOURCE_DIR}/../HugeCTR/src/hps/*.cu
+    ${PROJECT_SOURCE_DIR}/../HugeCTR/include/hps/*.hpp
+    ${PROJECT_SOURCE_DIR}/../HugeCTR/include/hps/*.h
+    ${PROJECT_SOURCE_DIR}/../HugeCTR/include/hps/*.cuh
     ${PROJECT_SOURCE_DIR}/hps_cc/framework/kernels/*.cpp
     ${PROJECT_SOURCE_DIR}/hps_cc/framework/kernels/*.cc
     ${PROJECT_SOURCE_DIR}/hps_cc/framework/kernels/*.cu

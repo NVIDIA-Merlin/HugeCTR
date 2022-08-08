@@ -226,6 +226,10 @@ parameter_server_config::parameter_server_config(const std::string& hps_json_con
 }
 
 void parameter_server_config::init(const std::string& hps_json_config_file) {
+  HCTR_PRINT(INFO,
+             "=====================================================HPS "
+             "Parse====================================================\n");
+
   // Initialize for each model
   // Open model config file and input model json config
   nlohmann::json hps_config(read_json_file(hps_json_config_file));

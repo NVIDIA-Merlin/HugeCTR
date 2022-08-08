@@ -34,7 +34,8 @@ def Init(**kwargs):
     """
     Abbreviated as ``hps.Init(**kwargs)``.
 
-    This function is used to do the initialization of HierarchicalParameterServer (HPS).
+    This function will initialize the HPS for all the deployed models.
+    It needs to be called only once and must be called before any other HPS APIs.
 
     HPS will leverage all available GPUs for current CPU process. Please set
     `CUDA_VISIBLE_DEVICES` or `tf.config.set_visible_devices` to specify which
@@ -48,6 +49,8 @@ def Init(**kwargs):
 
     .. code-block:: python
 
+        import hierarchical_parameter_server as hps
+        
         with strategy.scope():
             hps.Init(**kwargs)
 
@@ -55,6 +58,7 @@ def Init(**kwargs):
 
     .. code-block:: python
 
+        import hierarchical_parameter_server as hps
         import horovod.tensorflow as hvd
 
         hvd.init()
@@ -67,6 +71,8 @@ def Init(**kwargs):
 
     .. code-block:: python
 
+        import hierarchical_parameter_server as hps
+        
         hps_init = hps.Init(**kwargs)
         with tf.Session() as sess:
             sess.run(hps_init)
@@ -74,13 +80,58 @@ def Init(**kwargs):
 
     Parameters
     ----------
-    kwargs: dictionary
+    kwargs: dict
             keyword arguments for this function.
-            Currently, it must contains `global_batch_size` and 'ps_config_file'.
+            Currently, it must contains `global_batch_size` and `ps_config_file`.
+            
+            * `global_batch_size`: int, the global batch size for HPS that is deployed on multiple GPUs
+            
+            * `ps_config_file`: str, the JSON configuration file for HPS initialization
+
+            An example `ps_config_file` is as follows and `global_batch_size` can be 
+            configured as 16384 correspondingly:
+            
+            .. code-block:: python
+
+                ps_config_file = {
+                    "supportlonglong" : True,
+                    "models" : 
+                    [{
+                        "model": "foo",
+                        "sparse_files": ["foo_sparse.model"],
+                        "num_of_worker_buffer_in_pool": 3,
+                        "embedding_table_names":["sparse_embedding0"],
+                        "embedding_vecsize_per_table": [16],
+                        "maxnum_catfeature_query_per_table_per_sample": [10],
+                        "default_value_for_each_table": [1.0],
+                        "deployed_device_list": [0],
+                        "max_batch_size": 16384,
+                        "cache_refresh_percentage_per_iteration": 0.2,
+                        "hit_rate_threshold": 1.0,
+                        "gpucacheper": 1.0,
+                        "gpucache": True
+                    },
+                    {
+                        "model": "bar",
+                        "sparse_files": ["bar_sparse_0.model", "bar_sparse_1.model"],
+                        "num_of_worker_buffer_in_pool": 3,
+                        "embedding_table_names":["sparse_embedding0", "sparse_embedding1"],
+                        "embedding_vecsize_per_table": [64, 32],
+                        "maxnum_catfeature_query_per_table_per_sample": [3, 5],
+                        "default_value_for_each_table": [1.0, 1.0],
+                        "deployed_device_list": [0],
+                        "max_batch_size": 16384,
+                        "cache_refresh_percentage_per_iteration": 0.2,
+                        "hit_rate_threshold": 1.0,
+                        "gpucacheper": 1.0,
+                        "gpucache": True},
+                    ]
+                }
+
 
     Returns
     -------
-    status: string
+    status: str
             a string will be returned if this function executed successfully.
             And its contents will be 'OK'.
     """
