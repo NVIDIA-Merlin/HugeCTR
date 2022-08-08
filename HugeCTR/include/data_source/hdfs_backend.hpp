@@ -76,22 +76,25 @@ class HdfsService final : public DataSourceBackend {
            size_t offset) override;
 
   /**
-   * @brief copy the single file from HDFS to Local
+   * @brief Copy source file to target from one filesystem to the other.
    *
-   * @param hdfs_path The HDFS path to copy from.
-   * @param local_path The local path to copy to.
+   * @param source_file the source file path
+   * @param target_file the target file path
+   * @param to_local copy from dfs to local fs or the other way
    * @return int
    */
-  int copyToLocal(const std::string& hdfs_path, const std::string& local_path) override;
+  int copy(const std::string& source_file, const std::string& target_file, bool to_local) override;
 
   /**
-   * @brief Copy ALL files of the given HDFS path to Local
+   * @brief Copy all files under the source directory to target directory from one filesystem to the
+   * other.
    *
-   * @param hdfs_dir_path The HDFS path to copy from.
-   * @param local_path The local path to copy to.
+   * @param source_dir the source dir path
+   * @param target_dir the target dir path
+   * @param to_local copy from dfs to local fs or the other way
    * @return int
    */
-  int batchCopyToLocal(const std::string& hdfs_dir_path, const std::string& local_path);
+  int batchCopy(const std::string& source_dir, const std::string& target_dir, bool to_local);
 
  private:
 #ifdef ENABLE_HDFS
@@ -122,27 +125,6 @@ class HdfsService final : public DataSourceBackend {
    *
    */
   void disconnect();
-};
-
-struct DataSourceParams {
-  bool use_hdfs;
-  std::string namenode;
-  int port;
-
-  DataSourceParams(const bool use_hdfs, const std::string& namenode, const int port);
-  DataSourceParams();
-};
-
-class DataSource {
- public:
-  ~DataSource();
-  DataSource(const DataSourceParams& data_source_params);
-  DataSource(const DataSource&) = delete;
-  DataSource& operator=(const DataSource&) = delete;
-  void move_to_local(const std::string& local_path, const std::string& hdfs_path);
-
- private:
-  DataSourceParams data_source_params_;
 };
 
 }  // namespace HugeCTR

@@ -75,6 +75,7 @@ hugectr.CreateSolver()
 
 * `use_overlapped_pipeline`: The default value is `False`. If `True`, the computation in the dense input data path will be overlapped with the hybrid embedding computation. Requirements: The data reader is asynchronous (see AsyncParam), hybrid embedding is used (see HybridEmbeddingParam), the model has a feature interaction layer (see InteractionLayer).
 
+* `data_source_params`: [DataSourceParams()](https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html#datasourceparams-class), specify the configurations of the data sources(Local, HDFS, or others) for model persistence and loading.
 
 * `all_reduce_algo`: The algorithm to be used for all reduce. The supported options are `AllReduceAlgo.OneShot` and `AllReduceAlgo.NCCL`. The default value is `AllReduceAlgo.NCCL`. When you are doing multi-node training, `AllReduceAlgo.OneShot` will require RDMA support while `AllReduceAlgo.NCCL` can run on both RDMA and non-RDMA hardware.
 
@@ -267,7 +268,7 @@ The default value is an empty list.
 
   $slot\_size\_array[k] = \max\limits_i slot^k_i + 1$
 
-* `data_source_params`: [DataSourceParams()](https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html#datasourceparams-class), specify the configurations of the data sources(Local, HDFS, or others).
+* `data_source_params`: [DataSourceParams()](https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html#datasourceparams-class), specify the configurations of the data sources(Local, HDFS, or others) for data reading.
 * `async_param`: AsyncParam, the parameters for async raw data reader. Please find more information in the `AsyncParam` section in this document.
 
 ### Dataset formats
@@ -1280,33 +1281,8 @@ hugectr.data.DataSourceParams()
 `DataSourceParams` specifies the file system information and the paths to data and model used for training. A `DataSourceParams` instance is required to initialize the `DataSource` instance.
 
 **Arguments**
-* `use_hdfs`: Boolean, whether to use HDFS or not for dump models. Default is false (use local file system).
+* `source`: `hugect.DataSourceType_t`, can be `Local` or `HDFS`, specifying the file sytem. Default is `hugectr.DataSourceType_t.Local`.
 
-* `namenode`: String, the IP address of Hadoop Namenode. Will be ignored if use_hdfs is false. Default is 'localhost'.
+* `server`: String, the IP address of your file sytem. For Hadoop cluster, it is your namenode. Will be ignored if `source` is `DataSourceType_t.Local`. Default is 'localhost'.
 
-* `port`:  Integer, the port of Hadoop Namenode. Will be ignored if use_hdfs is false. Default is 9000.
-
-### DataSource
-
-#### DataSource class
-
-```python
-hugectr.data.DataSource()
-```
-
-`DataSource` provides an API to help user specify the paths to their data and model file. It can also help user transfer data from HDFS to local filesystem. The construction of `DataSource` requires a `DataSourceParams` instance.
-
-**Arguments**
-* `data_source_params`: The DataSourceParams instance.
-
-#### move_to_local method
-
-```python
-hugectr.data.DataSource.move_to_local()
-```
-
-**Arguments**
-* `hdfs_path`: The path of the hdfs file.
-* `local_path`:  The local path to move to.
-
-This method moves the file user specified in hdfs path to the corresponding local path.
+* `port`:  Integer, the port to listen from your server. Will be ignored if `source` is `DataSourceType_t.Local`. Default is 9000.
