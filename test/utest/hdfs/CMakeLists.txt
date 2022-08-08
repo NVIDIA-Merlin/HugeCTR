@@ -20,4 +20,4 @@ file (GLOB hdfs_backend_test_src
 
 add_executable(hdfs_backend_test ${hdfs_backend_test_src})
 target_compile_features(hdfs_backend_test PUBLIC cxx_std_17)
-target_link_libraries(hdfs_backend_test PUBLIC huge_ctr_shared gtest gtest_main stdc++fs)
+target_link_libraries(hdfs_backend_test PUBLIC huge_ctr_static gtest gtest_main stdc++fs)

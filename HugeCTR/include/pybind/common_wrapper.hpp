@@ -18,6 +18,7 @@
 
 #include <HugeCTR/include/collectives/all_reduce_comm.hpp>
 #include <HugeCTR/include/common.hpp>
+#include <HugeCTR/include/data_source/data_source_backend.hpp>
 #include <HugeCTR/include/device_map.hpp>
 #include <HugeCTR/include/embeddings/hybrid_embedding/utils.hpp>
 #include <HugeCTR/include/hps/inference_utils.hpp>
@@ -65,6 +66,12 @@ void CommonPybind(pybind11::module& m) {
       .value("Raw", HugeCTR::DataReaderType_t::Raw)
       .value("Parquet", HugeCTR::DataReaderType_t::Parquet)
       .value("RawAsync", HugeCTR::DataReaderType_t::RawAsync)
+      .export_values();
+  pybind11::enum_<HugeCTR::DataSourceType_t>(m, "DataSourceType_t")
+      .value("Local", HugeCTR::DataSourceType_t::Local)
+      .value("HDFS", HugeCTR::DataSourceType_t::HDFS)
+      .value("S3", HugeCTR::DataSourceType_t::S3)
+      .value("Other", HugeCTR::DataSourceType_t::Other)
       .export_values();
   pybind11::enum_<HugeCTR::SourceType_t>(m, "SourceType_t")
       .value("FileList", HugeCTR::SourceType_t::FileList)

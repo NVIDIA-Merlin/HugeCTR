@@ -14,11 +14,14 @@
  * limitations under the License.
  */
 
+#include <fcntl.h>
 #include <sys/mman.h>
+#include <unistd.h>
 
 #include <fstream>
 
 #include "common.hpp"
+#include "data_source/data_source_backend.hpp"
 #include "data_source/hdfs_backend.hpp"
 
 namespace HugeCTR {
@@ -71,13 +74,21 @@ class FileLoader {
 
  public:
   FileLoader(DataSourceParams data_source_params)
-      : data_source_params_(data_source_params), cur_file_size_(0), fd_(-1), data_(nullptr) {
-    use_mmap_ = !data_source_params.use_hdfs;
-    if (!use_mmap_) {
+      : cur_file_size_(0), data_source_params_(data_source_params), fd_(-1), data_(nullptr) {
+    use_mmap_ = data_source_params_.type == DataSourceType_t::Local;
+
+    if (data_source_params_.type == DataSourceType_t::HDFS) {
       data_source_backend_ =
-          std::make_unique<HdfsService>(data_source_params.namenode, data_source_params.port);
-      HCTR_LOG_S(INFO, WORLD) << "Using Hadoop Cluster " << data_source_params.namenode << ":"
+          std::make_unique<HdfsService>(data_source_params.server, data_source_params.port);
+      HCTR_LOG_S(INFO, WORLD) << "Using Hadoop Cluster " << data_source_params.server << ":"
                               << data_source_params.port << std::endl;
+    } else if (data_source_params_.type == DataSourceType_t::S3) {
+      HCTR_LOG_S(INFO, WORLD) << "S3 is currently not supported. Use Local instead." << std::endl;
+      use_mmap_ = true;
+    } else if (data_source_params_.type == DataSourceType_t::Other) {
+      HCTR_LOG_S(INFO, WORLD) << "Other filesystems are not supported. Use Local instead."
+                              << std::endl;
+      use_mmap_ = true;
     }
   }
 
