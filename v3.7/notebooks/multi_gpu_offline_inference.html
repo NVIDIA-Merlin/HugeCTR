@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Multi-GPU Offline Inference &mdash; Merlin HugeCTR  documentation</title><link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../_static/togglebutton.css" type="text/css" />
       <link rel="stylesheet" href="../_static/mystnb.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/togglebutton.css" type="text/css" />
   <!--[if lt IE 9]>
     <script src="../_static/js/html5shiv.min.js"></script>
   <![endif]-->
@@ -184,7 +184,7 @@ We will generate multi-hot Parquet datasets with a power-law distribution for th
 <div class="section" id="train-from-scratch">
 <h2>Train from Scratch<a class="headerlink" href="#train-from-scratch" title="Permalink to this headline"></a></h2>
 <p>We can train fom scratch by performing the following steps with Python APIs:</p>
-<ol class="simple">
+<ol class="arabic simple">
 <li><p>Create the solver, reader and optimizer, then initialize the model.</p></li>
 <li><p>Construct the model graph by adding input, sparse embedding and dense layers in order.</p></li>
 <li><p>Compile the model and have an overview of the model graph.</p></li>
@@ -371,7 +371,7 @@ MultiCrossEntropyLoss                   fc2                           loss
 <div class="section" id="id1">
 <h3>Multi-GPU Offline Inference<a class="headerlink" href="#id1" title="Permalink to this headline"></a></h3>
 <p>We can demonstrate multi-GPU offline inference by performing the following steps with Python APIs:</p>
-<ol class="simple">
+<ol class="arabic simple">
 <li><p>Configure the inference hyperparameters.</p></li>
 <li><p>Initialize the inference model. The model is a collection of inference sessions deployed on multiple devices.</p></li>
 <li><p>Make an inference from the evaluation dataset.</p></li>

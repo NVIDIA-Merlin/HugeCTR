@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>HugeCTR Continuous Training &mdash; Merlin HugeCTR  documentation</title><link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../_static/togglebutton.css" type="text/css" />
       <link rel="stylesheet" href="../_static/mystnb.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/togglebutton.css" type="text/css" />
   <!--[if lt IE 9]>
     <script src="../_static/js/html5shiv.min.js"></script>
   <![endif]-->
@@ -121,7 +121,7 @@ documentation.</p>
 <h2>Continuous Training<a class="headerlink" href="#continuous-training" title="Permalink to this headline"></a></h2>
 <div class="section" id="data-preparation">
 <h3>Data Preparation<a class="headerlink" href="#data-preparation" title="Permalink to this headline"></a></h3>
-<ol>
+<ol class="arabic">
 <li><p>Download the Criteo dataset using the following command:</p>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ <span class="nb">cd</span> <span class="si">${</span><span class="nv">project_root</span><span class="si">}</span>/tools
 $ wget http://azuremlsampleexperiments.blob.core.windows.net/criteo/day_1.gz
@@ -161,7 +161,7 @@ $ wget http://azuremlsampleexperiments.blob.core.windows.net/criteo/day_1.gz
 <p>This section gives the code sample of continuous training using a Keras-like high-level API. The high-level API encapsulates much of the complexity for users, making it easy to use and able to handle many of the scenarios in a production environment.</p>
 <p>Meanwhile, in addition to a high-level API, HugeCTR also provides low-level APIs that enable you customize the training logic. A code sample using the low-level APIs is provided in the next section.</p>
 <p>The code sample in this section trains a model from scratch using the embedding training cache, gets the incremental model, and saves the trained dense weights and sparse embedding weights. The following steps are required to achieve those logics:</p>
-<ol class="simple">
+<ol class="arabic simple">
 <li><p>Create the <code class="docutils literal notranslate"><span class="pre">solver</span></code>, <code class="docutils literal notranslate"><span class="pre">reader</span></code>, <code class="docutils literal notranslate"><span class="pre">optimizer</span></code> and <code class="docutils literal notranslate"><span class="pre">etc</span></code>, then initialize the model.</p></li>
 <li><p>Construct the model graph by adding input, sparse embedding, and dense layers in order.</p></li>
 <li><p>Compile the model and overview the model graph.</p></li>

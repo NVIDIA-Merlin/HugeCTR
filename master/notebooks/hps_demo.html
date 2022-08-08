@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Hierarchical Parameter Server Demo &mdash; Merlin HugeCTR  documentation</title><link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../_static/togglebutton.css" type="text/css" />
       <link rel="stylesheet" href="../_static/mystnb.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/togglebutton.css" type="text/css" />
   <!--[if lt IE 9]>
     <script src="../_static/js/html5shiv.min.js"></script>
   <![endif]-->
@@ -22,7 +22,7 @@
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="&lt;no title&gt;" href="training_with_hdfs.html" />
+    <link rel="next" title="HugeCTR training with HDFS example" href="training_with_hdfs.html" />
     <link rel="prev" title="Multi-GPU Offline Inference" href="multi_gpu_offline_inference.html" /> 
 </head>
 
@@ -60,6 +60,7 @@
 <li class="toctree-l2"><a class="reference internal" href="news-example.html">NVIDIA Merlin on Microsoft’s News Dataset (MIND)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="multi_gpu_offline_inference.html">Multi-GPU Offline Inference</a></li>
 <li class="toctree-l2 current"><a class="current reference internal" href="#">Hierarchical Parameter Server Demo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="training_with_hdfs.html">HugeCTR training with HDFS example</a></li>
 <li class="toctree-l2"><a class="reference internal" href="embedding_training_cache_example.html">Embedding Training Cache Example</a></li>
 <li class="toctree-l2"><a class="reference internal" href="embedding_collection.html">HugeCTR Embedding Collection</a></li>
 </ul>
@@ -187,7 +188,7 @@ documentation.</p>
 <div class="section" id="train-from-scratch">
 <h2>Train from Scratch<a class="headerlink" href="#train-from-scratch" title="Permalink to this headline"></a></h2>
 <p>We can train fom scratch by performing the following steps with Python APIs:</p>
-<ol class="simple">
+<ol class="arabic simple">
 <li><p>Create the solver, reader and optimizer, then initialize the model.</p></li>
 <li><p>Construct the model graph by adding input, sparse embedding and dense layers in order.</p></li>
 <li><p>Compile the model and have an overview of the model graph.</p></li>
@@ -406,7 +407,7 @@ The model is saved at hps_demo_without_embedding.onnx
 <div class="section" id="inference-with-hps-onnx">
 <h2>Inference with HPS &amp; ONNX<a class="headerlink" href="#inference-with-hps-onnx" title="Permalink to this headline"></a></h2>
 <p>We will make inference by performing the following steps with Python APIs:</p>
-<ol class="simple">
+<ol class="arabic simple">
 <li><p>Configure the HPS hyperparameters.</p></li>
 <li><p>Initialize the HPS object, which is responsible for embedding table lookup.</p></li>
 <li><p>Loading the Parquet data.</p></li>
@@ -533,7 +534,7 @@ mse between pred_ref and ground_truth:  7.573986338301264e-05
 <div class="section" id="lookup-the-embedding-vector-from-dlpack">
 <h2>Lookup the Embedding Vector from DLPack<a class="headerlink" href="#lookup-the-embedding-vector-from-dlpack" title="Permalink to this headline"></a></h2>
 <p>We also provide a <code class="docutils literal notranslate"><span class="pre">lookup_fromdlpack</span></code> interface that could query embedding keys on the <code class="docutils literal notranslate"><span class="pre">CPU</span></code> and return the embedding vectors on the <code class="docutils literal notranslate"><span class="pre">GPU/CPU</span></code>.</p>
-<ol class="simple">
+<ol class="arabic simple">
 <li><p>Suppose you have created a Pytorch/Tensorflow tensor that stores the embedded keys.</p></li>
 <li><p>Convert the embedding key tensor to DLPack capsule through the corresponding platform’s <code class="docutils literal notranslate"><span class="pre">to_dlpack</span></code> function.</p></li>
 <li><p>Creates an empty tensor as a buffer to store embedding vectors.</p></li>
@@ -673,7 +674,7 @@ tensorflow dlpack on GPU results are consistent with native HPS lookup api, mse:
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="multi_gpu_offline_inference.html" class="btn btn-neutral float-left" title="Multi-GPU Offline Inference" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="training_with_hdfs.html" class="btn btn-neutral float-right" title="&lt;no title&gt;" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="training_with_hdfs.html" class="btn btn-neutral float-right" title="HugeCTR training with HDFS example" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

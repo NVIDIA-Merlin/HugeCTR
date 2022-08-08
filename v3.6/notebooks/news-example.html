@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>NVIDIA Merlin on Microsoft’s News Dataset (MIND) &mdash; Merlin HugeCTR  documentation</title><link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../_static/togglebutton.css" type="text/css" />
       <link rel="stylesheet" href="../_static/mystnb.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/togglebutton.css" type="text/css" />
   <!--[if lt IE 9]>
     <script src="../_static/js/html5shiv.min.js"></script>
   <![endif]-->
@@ -316,7 +316,7 @@ MIND dataset team has randomly sampled 1M users who had at least 5 news clicks f
 <div class="section" id="dataset-format">
 <h3>Dataset format<a class="headerlink" href="#dataset-format" title="Permalink to this headline"></a></h3>
 <p>Each set of this data contains the following 4 files:</p>
-<ol class="simple">
+<ol class="arabic simple">
 <li><p>behaviors.tsv - The click history and impression logs of users</p></li>
 <li><p>news.tsv - Details of news articles mapped with the news ID</p></li>
 <li><p>entity_embedding.vec - The embeddings of entities in news extracted from knowledge graph</p></li>
@@ -563,71 +563,71 @@ We will also label encode low cardinality columns in news.tsv like the news_cate
 <p>As an example, consider the below row in behaviours dataframe</p>
 <table class="colwidths-auto docutils align-default">
 <thead>
-<tr class="row-odd"><th class="text-align:center head"><p>impression_id</p></th>
-<th class="text-align:center head"><p>uid</p></th>
-<th class="text-align:center head"><p>time</p></th>
-<th class="text-align:center head"><p>history</p></th>
-<th class="text-align:center head"><p>impressions</p></th>
+<tr class="row-odd"><th class="text-center head"><p>impression_id</p></th>
+<th class="text-center head"><p>uid</p></th>
+<th class="text-center head"><p>time</p></th>
+<th class="text-center head"><p>history</p></th>
+<th class="text-center head"><p>impressions</p></th>
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td class="text-align:center"><p>1</p></td>
-<td class="text-align:center"><p>U64099</p></td>
-<td class="text-align:center"><p>11/19/2019 11:37:45 AM</p></td>
-<td class="text-align:center"><p>N121133 N104200 N43255 N55860 N128965 N38014</p></td>
-<td class="text-align:center"><p>N78206-0 N26368-1 N7578-1 N58592-0 N19858-0</p></td>
+<tr class="row-even"><td class="text-center"><p>1</p></td>
+<td class="text-center"><p>U64099</p></td>
+<td class="text-center"><p>11/19/2019 11:37:45 AM</p></td>
+<td class="text-center"><p>N121133 N104200 N43255 N55860 N128965 N38014</p></td>
+<td class="text-center"><p>N78206-0 N26368-1 N7578-1 N58592-0 N19858-0</p></td>
 </tr>
 </tbody>
 </table>
 <p>We have to convert one history column with many news id to multiple history columns with single news id.</p>
 <table class="colwidths-auto docutils align-default">
 <thead>
-<tr class="row-odd"><th class="text-align:center head"><p>hist_0</p></th>
-<th class="text-align:center head"><p>hist_1</p></th>
-<th class="text-align:center head"><p>hist_2</p></th>
-<th class="text-align:center head"><p>hist_3</p></th>
-<th class="text-align:center head"><p>hist_4</p></th>
-<th class="text-align:center head"><p>hist_5</p></th>
+<tr class="row-odd"><th class="text-center head"><p>hist_0</p></th>
+<th class="text-center head"><p>hist_1</p></th>
+<th class="text-center head"><p>hist_2</p></th>
+<th class="text-center head"><p>hist_3</p></th>
+<th class="text-center head"><p>hist_4</p></th>
+<th class="text-center head"><p>hist_5</p></th>
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td class="text-align:center"><p>N121133</p></td>
-<td class="text-align:center"><p>N104200</p></td>
-<td class="text-align:center"><p>N43255</p></td>
-<td class="text-align:center"><p>N55860</p></td>
-<td class="text-align:center"><p>N128965</p></td>
-<td class="text-align:center"><p>N38014</p></td>
+<tr class="row-even"><td class="text-center"><p>N121133</p></td>
+<td class="text-center"><p>N104200</p></td>
+<td class="text-center"><p>N43255</p></td>
+<td class="text-center"><p>N55860</p></td>
+<td class="text-center"><p>N128965</p></td>
+<td class="text-center"><p>N38014</p></td>
 </tr>
 </tbody>
 </table>
 <p>Finally, we will add the news category and subcategory for these news ids. The row after these transformations would look like this:</p>
 <table class="colwidths-auto docutils align-default">
 <thead>
-<tr class="row-odd"><th class="text-align:center head"><p>impression_id</p></th>
-<th class="text-align:center head"><p>uid</p></th>
-<th class="text-align:center head"><p>time</p></th>
-<th class="text-align:center head"><p>hist_cat_0</p></th>
-<th class="text-align:center head"><p>hist_cat_1</p></th>
-<th class="text-align:center head"><p>hist_cat_2</p></th>
-<th class="text-align:center head"><p>…</p></th>
-<th class="text-align:center head"><p>hist_subcat_3</p></th>
-<th class="text-align:center head"><p>hist_subcat_4</p></th>
-<th class="text-align:center head"><p>hist_subcat_5</p></th>
-<th class="text-align:center head"><p>impressions</p></th>
+<tr class="row-odd"><th class="text-center head"><p>impression_id</p></th>
+<th class="text-center head"><p>uid</p></th>
+<th class="text-center head"><p>time</p></th>
+<th class="text-center head"><p>hist_cat_0</p></th>
+<th class="text-center head"><p>hist_cat_1</p></th>
+<th class="text-center head"><p>hist_cat_2</p></th>
+<th class="text-center head"><p>…</p></th>
+<th class="text-center head"><p>hist_subcat_3</p></th>
+<th class="text-center head"><p>hist_subcat_4</p></th>
+<th class="text-center head"><p>hist_subcat_5</p></th>
+<th class="text-center head"><p>impressions</p></th>
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td class="text-align:center"><p>1</p></td>
-<td class="text-align:center"><p>U64099</p></td>
-<td class="text-align:center"><p>11/19/2019 11:37:45 AM</p></td>
-<td class="text-align:center"><p>sports</p></td>
-<td class="text-align:center"><p>finance</p></td>
-<td class="text-align:center"><p>entertainment</p></td>
-<td class="text-align:center"><p>…</p></td>
-<td class="text-align:center"><p>markets</p></td>
-<td class="text-align:center"><p>celebrity</p></td>
-<td class="text-align:center"><p>football_nfl</p></td>
-<td class="text-align:center"><p>N78206-0 N26368-1 N7578-1 N58592-0 N19858-0</p></td>
+<tr class="row-even"><td class="text-center"><p>1</p></td>
+<td class="text-center"><p>U64099</p></td>
+<td class="text-center"><p>11/19/2019 11:37:45 AM</p></td>
+<td class="text-center"><p>sports</p></td>
+<td class="text-center"><p>finance</p></td>
+<td class="text-center"><p>entertainment</p></td>
+<td class="text-center"><p>…</p></td>
+<td class="text-center"><p>markets</p></td>
+<td class="text-center"><p>celebrity</p></td>
+<td class="text-center"><p>football_nfl</p></td>
+<td class="text-center"><p>N78206-0 N26368-1 N7578-1 N58592-0 N19858-0</p></td>
 </tr>
 </tbody>
 </table>
@@ -702,31 +702,31 @@ During expansion, we will use the last <code class="docutils literal notranslate
 <p>As an example, consider the below expanded history column row from the behaviours dataframe:</p>
 <table class="colwidths-auto docutils align-default">
 <thead>
-<tr class="row-odd"><th class="text-align:center head"><p>impression_id</p></th>
-<th class="text-align:center head"><p>uid</p></th>
-<th class="text-align:center head"><p>time</p></th>
-<th class="text-align:center head"><p>hist_cat_0</p></th>
-<th class="text-align:center head"><p>hist_cat_1</p></th>
-<th class="text-align:center head"><p>hist_cat_2</p></th>
-<th class="text-align:center head"><p>…</p></th>
-<th class="text-align:center head"><p>hist_subcat_3</p></th>
-<th class="text-align:center head"><p>hist_subcat_4</p></th>
-<th class="text-align:center head"><p>hist_subcat_5</p></th>
-<th class="text-align:center head"><p>impressions</p></th>
+<tr class="row-odd"><th class="text-center head"><p>impression_id</p></th>
+<th class="text-center head"><p>uid</p></th>
+<th class="text-center head"><p>time</p></th>
+<th class="text-center head"><p>hist_cat_0</p></th>
+<th class="text-center head"><p>hist_cat_1</p></th>
+<th class="text-center head"><p>hist_cat_2</p></th>
+<th class="text-center head"><p>…</p></th>
+<th class="text-center head"><p>hist_subcat_3</p></th>
+<th class="text-center head"><p>hist_subcat_4</p></th>
+<th class="text-center head"><p>hist_subcat_5</p></th>
+<th class="text-center head"><p>impressions</p></th>
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td class="text-align:center"><p>1</p></td>
-<td class="text-align:center"><p>U64099</p></td>
-<td class="text-align:center"><p>11/19/2019 11:37:45 AM</p></td>
-<td class="text-align:center"><p>sports</p></td>
-<td class="text-align:center"><p>finance</p></td>
-<td class="text-align:center"><p>entertainment</p></td>
-<td class="text-align:center"><p>…</p></td>
-<td class="text-align:center"><p>markets</p></td>
-<td class="text-align:center"><p>celebrity</p></td>
-<td class="text-align:center"><p>football_nfl</p></td>
-<td class="text-align:center"><p>N78206-0 N26368-1 N7578-1 N58592-0 N19858-0</p></td>
+<tr class="row-even"><td class="text-center"><p>1</p></td>
+<td class="text-center"><p>U64099</p></td>
+<td class="text-center"><p>11/19/2019 11:37:45 AM</p></td>
+<td class="text-center"><p>sports</p></td>
+<td class="text-center"><p>finance</p></td>
+<td class="text-center"><p>entertainment</p></td>
+<td class="text-center"><p>…</p></td>
+<td class="text-center"><p>markets</p></td>
+<td class="text-center"><p>celebrity</p></td>
+<td class="text-center"><p>football_nfl</p></td>
+<td class="text-center"><p>N78206-0 N26368-1 N7578-1 N58592-0 N19858-0</p></td>
 </tr>
 </tbody>
 </table>
@@ -734,85 +734,85 @@ During expansion, we will use the last <code class="docutils literal notranslate
 <p>After unrolling one row of impressions into multiple rows, the resulting dataframe would look like this:</p>
 <table class="colwidths-auto docutils align-default">
 <thead>
-<tr class="row-odd"><th class="text-align:center head"><p>impression_id</p></th>
-<th class="text-align:center head"><p>uid</p></th>
-<th class="text-align:center head"><p>time</p></th>
-<th class="text-align:center head"><p>hist_cat_0</p></th>
-<th class="text-align:center head"><p>hist_cat_1</p></th>
-<th class="text-align:center head"><p>hist_cat_2</p></th>
-<th class="text-align:center head"><p>…</p></th>
-<th class="text-align:center head"><p>hist_subcat_3</p></th>
-<th class="text-align:center head"><p>hist_subcat_4</p></th>
-<th class="text-align:center head"><p>hist_subcat_5</p></th>
-<th class="text-align:center head"><p>impressions</p></th>
-<th class="text-align:center head"><p>label</p></th>
+<tr class="row-odd"><th class="text-center head"><p>impression_id</p></th>
+<th class="text-center head"><p>uid</p></th>
+<th class="text-center head"><p>time</p></th>
+<th class="text-center head"><p>hist_cat_0</p></th>
+<th class="text-center head"><p>hist_cat_1</p></th>
+<th class="text-center head"><p>hist_cat_2</p></th>
+<th class="text-center head"><p>…</p></th>
+<th class="text-center head"><p>hist_subcat_3</p></th>
+<th class="text-center head"><p>hist_subcat_4</p></th>
+<th class="text-center head"><p>hist_subcat_5</p></th>
+<th class="text-center head"><p>impressions</p></th>
+<th class="text-center head"><p>label</p></th>
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td class="text-align:center"><p>1</p></td>
-<td class="text-align:center"><p>U64099</p></td>
-<td class="text-align:center"><p>11/19/2019 11:37:45 AM</p></td>
-<td class="text-align:center"><p>sports</p></td>
-<td class="text-align:center"><p>finance</p></td>
-<td class="text-align:center"><p>entertainment</p></td>
-<td class="text-align:center"><p>…</p></td>
-<td class="text-align:center"><p>markets</p></td>
-<td class="text-align:center"><p>celebrity</p></td>
-<td class="text-align:center"><p>football_nfl</p></td>
-<td class="text-align:center"><p>N78206</p></td>
-<td class="text-align:center"><p>0</p></td>
+<tr class="row-even"><td class="text-center"><p>1</p></td>
+<td class="text-center"><p>U64099</p></td>
+<td class="text-center"><p>11/19/2019 11:37:45 AM</p></td>
+<td class="text-center"><p>sports</p></td>
+<td class="text-center"><p>finance</p></td>
+<td class="text-center"><p>entertainment</p></td>
+<td class="text-center"><p>…</p></td>
+<td class="text-center"><p>markets</p></td>
+<td class="text-center"><p>celebrity</p></td>
+<td class="text-center"><p>football_nfl</p></td>
+<td class="text-center"><p>N78206</p></td>
+<td class="text-center"><p>0</p></td>
 </tr>
-<tr class="row-odd"><td class="text-align:center"><p>1</p></td>
-<td class="text-align:center"><p>U64099</p></td>
-<td class="text-align:center"><p>11/19/2019 11:37:45 AM</p></td>
-<td class="text-align:center"><p>sports</p></td>
-<td class="text-align:center"><p>finance</p></td>
-<td class="text-align:center"><p>entertainment</p></td>
-<td class="text-align:center"><p>…</p></td>
-<td class="text-align:center"><p>markets</p></td>
-<td class="text-align:center"><p>celebrity</p></td>
-<td class="text-align:center"><p>football_nfl</p></td>
-<td class="text-align:center"><p>N26368</p></td>
-<td class="text-align:center"><p>1</p></td>
+<tr class="row-odd"><td class="text-center"><p>1</p></td>
+<td class="text-center"><p>U64099</p></td>
+<td class="text-center"><p>11/19/2019 11:37:45 AM</p></td>
+<td class="text-center"><p>sports</p></td>
+<td class="text-center"><p>finance</p></td>
+<td class="text-center"><p>entertainment</p></td>
+<td class="text-center"><p>…</p></td>
+<td class="text-center"><p>markets</p></td>
+<td class="text-center"><p>celebrity</p></td>
+<td class="text-center"><p>football_nfl</p></td>
+<td class="text-center"><p>N26368</p></td>
+<td class="text-center"><p>1</p></td>
 </tr>
-<tr class="row-even"><td class="text-align:center"><p>1</p></td>
-<td class="text-align:center"><p>U64099</p></td>
-<td class="text-align:center"><p>11/19/2019 11:37:45 AM</p></td>
-<td class="text-align:center"><p>sports</p></td>
-<td class="text-align:center"><p>finance</p></td>
-<td class="text-align:center"><p>entertainment</p></td>
-<td class="text-align:center"><p>…</p></td>
-<td class="text-align:center"><p>markets</p></td>
-<td class="text-align:center"><p>celebrity</p></td>
-<td class="text-align:center"><p>football_nfl</p></td>
-<td class="text-align:center"><p>N7578</p></td>
-<td class="text-align:center"><p>1</p></td>
+<tr class="row-even"><td class="text-center"><p>1</p></td>
+<td class="text-center"><p>U64099</p></td>
+<td class="text-center"><p>11/19/2019 11:37:45 AM</p></td>
+<td class="text-center"><p>sports</p></td>
+<td class="text-center"><p>finance</p></td>
+<td class="text-center"><p>entertainment</p></td>
+<td class="text-center"><p>…</p></td>
+<td class="text-center"><p>markets</p></td>
+<td class="text-center"><p>celebrity</p></td>
+<td class="text-center"><p>football_nfl</p></td>
+<td class="text-center"><p>N7578</p></td>
+<td class="text-center"><p>1</p></td>
 </tr>
-<tr class="row-odd"><td class="text-align:center"><p>1</p></td>
-<td class="text-align:center"><p>U64099</p></td>
-<td class="text-align:center"><p>11/19/2019 11:37:45 AM</p></td>
-<td class="text-align:center"><p>sports</p></td>
-<td class="text-align:center"><p>finance</p></td>
-<td class="text-align:center"><p>entertainment</p></td>
-<td class="text-align:center"><p>…</p></td>
-<td class="text-align:center"><p>markets</p></td>
-<td class="text-align:center"><p>celebrity</p></td>
-<td class="text-align:center"><p>football_nfl</p></td>
-<td class="text-align:center"><p>N58592</p></td>
-<td class="text-align:center"><p>0</p></td>
+<tr class="row-odd"><td class="text-center"><p>1</p></td>
+<td class="text-center"><p>U64099</p></td>
+<td class="text-center"><p>11/19/2019 11:37:45 AM</p></td>
+<td class="text-center"><p>sports</p></td>
+<td class="text-center"><p>finance</p></td>
+<td class="text-center"><p>entertainment</p></td>
+<td class="text-center"><p>…</p></td>
+<td class="text-center"><p>markets</p></td>
+<td class="text-center"><p>celebrity</p></td>
+<td class="text-center"><p>football_nfl</p></td>
+<td class="text-center"><p>N58592</p></td>
+<td class="text-center"><p>0</p></td>
 </tr>
-<tr class="row-even"><td class="text-align:center"><p>1</p></td>
-<td class="text-align:center"><p>U64099</p></td>
-<td class="text-align:center"><p>11/19/2019 11:37:45 AM</p></td>
-<td class="text-align:center"><p>sports</p></td>
-<td class="text-align:center"><p>finance</p></td>
-<td class="text-align:center"><p>entertainment</p></td>
-<td class="text-align:center"><p>…</p></td>
-<td class="text-align:center"><p>markets</p></td>
-<td class="text-align:center"><p>celebrity</p></td>
-<td class="text-align:center"><p>football_nfl</p></td>
-<td class="text-align:center"><p>N19858</p></td>
-<td class="text-align:center"><p>0</p></td>
+<tr class="row-even"><td class="text-center"><p>1</p></td>
+<td class="text-center"><p>U64099</p></td>
+<td class="text-center"><p>11/19/2019 11:37:45 AM</p></td>
+<td class="text-center"><p>sports</p></td>
+<td class="text-center"><p>finance</p></td>
+<td class="text-center"><p>entertainment</p></td>
+<td class="text-center"><p>…</p></td>
+<td class="text-center"><p>markets</p></td>
+<td class="text-center"><p>celebrity</p></td>
+<td class="text-center"><p>football_nfl</p></td>
+<td class="text-center"><p>N19858</p></td>
+<td class="text-center"><p>0</p></td>
 </tr>
 </tbody>
 </table>
@@ -1155,7 +1155,7 @@ We will also re-initialize RMM to allow us to perform memory intensive merge ope
 </div>
 </div>
 <p>After transformation and persisting the data on the disk, the following files will be created:</p>
-<ol class="simple">
+<ol class="arabic simple">
 <li><p>parquet</p>
 <ul class="simple">
 <li><p>The number of parquet files depends on <code class="docutils literal notranslate"><span class="pre">out_files_per_proc</span></code> in <code class="docutils literal notranslate"><span class="pre">proc_train.transform()</span></code></p></li>

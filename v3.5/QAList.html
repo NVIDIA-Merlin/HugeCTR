@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Questions and Answers &mdash; Merlin HugeCTR  documentation</title><link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="_static/togglebutton.css" type="text/css" />
       <link rel="stylesheet" href="_static/mystnb.css" type="text/css" />
+      <link rel="stylesheet" href="_static/togglebutton.css" type="text/css" />
   <!--[if lt IE 9]>
     <script src="_static/js/html5shiv.min.js"></script>
   <![endif]-->
@@ -170,7 +170,7 @@ That means the features in the same slot may be stored in different GPUs (that i
 <h2>17. As model parallelism in embedding layers, how does it get all the embedding lookup features from multi-node / multi-gpu?<a class="headerlink" href="#as-model-parallelism-in-embedding-layers-how-does-it-get-all-the-embedding-lookup-features-from-multi-node-multi-gpu" title="Permalink to this headline"></a></h2>
 <p>After embedding lookup, the embedding features in one slot need to be combined (or reduced) into one embedding vector.
 There are 2 steps:</p>
-<ol class="simple">
+<ol class="arabic simple">
 <li><p>local reduction in single GPU in forward kernel function;</p></li>
 <li><p>global reduction across multi-node / multi-gpu by collective communications libraries such as NCCL.</p></li>
 </ol>

@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>HugeCTR Hierarchical Parameter Server Database Backend &mdash; Merlin HugeCTR  documentation</title><link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="_static/togglebutton.css" type="text/css" />
       <link rel="stylesheet" href="_static/mystnb.css" type="text/css" />
+      <link rel="stylesheet" href="_static/togglebutton.css" type="text/css" />
   <!--[if lt IE 9]>
     <script src="_static/js/html5shiv.min.js"></script>
   <![endif]-->
@@ -121,7 +121,7 @@
 <div class="section" id="architecture">
 <h2>Architecture<a class="headerlink" href="#architecture" title="Permalink to this headline"></a></h2>
 <p>As of version 3.3, the HugeCTR hierarchical parameter server database backend defines 3 storage layers.</p>
-<ol>
+<ol class="arabic">
 <li><p>The <strong>CPU Memory Database</strong> layer utilizes volatile CPU addressable RAM memory to cache embeddings.
 This database is created and maintained separately by each machine that runs HugeCTR in your cluster.</p></li>
 <li><p>The <strong>Distributed Database</strong> layer allows utilizing Redis cluster deployments to store and retrieve embeddings in and from the RAM memory that is available in your cluster.
@@ -141,65 +141,58 @@ As a result, if your model exceeds even the total RAM capacity of your entire cl
 <p>The following table provides an overview of the typical properties for the different parameter database layers and the embedding cache.
 We emphasize that this table provides rough guidelines.
 Properties for production deployments are often different.</p>
-<table border="1" class="docutils">
+<table class="colwidths-auto docutils align-default">
 <thead>
-<tr>
-<th></th>
-<th>GPU Embedding Cache</th>
-<th>CPU Memory Database</th>
-<th>Distributed Database (InfiniBand)</th>
-<th>Distributed Database (Ethernet)</th>
-<th>Persistent Database</th>
+<tr class="row-odd"><th class="head"><p></p></th>
+<th class="head"><p>GPU Embedding Cache</p></th>
+<th class="head"><p>CPU Memory Database</p></th>
+<th class="head"><p>Distributed Database (InfiniBand)</p></th>
+<th class="head"><p>Distributed Database (Ethernet)</p></th>
+<th class="head"><p>Persistent Database</p></th>
 </tr>
 </thead>
 <tbody>
-<tr>
-<td>Mean Latency</td>
-<td>ns ~ us</td>
-<td>us ~ ms</td>
-<td>us ~ ms</td>
-<td>several ms</td>
-<td>ms ~ s</td>
+<tr class="row-even"><td><p>Mean Latency</p></td>
+<td><p>ns ~ us</p></td>
+<td><p>us ~ ms</p></td>
+<td><p>us ~ ms</p></td>
+<td><p>several ms</p></td>
+<td><p>ms ~ s</p></td>
 </tr>
-<tr>
-<td>Capacity (relative)</td>
-<td>++</td>
-<td>+++</td>
-<td>+++++</td>
-<td>+++++</td>
-<td>+++++++</td>
+<tr class="row-odd"><td><p>Capacity (relative)</p></td>
+<td><p>++</p></td>
+<td><p>+++</p></td>
+<td><p>+++++</p></td>
+<td><p>+++++</p></td>
+<td><p>+++++++</p></td>
 </tr>
-<tr>
-<td>Capacity (range in practice)</td>
-<td>10 GBs ~ few TBs</td>
-<td>100 GBs ~ several TBs</td>
-<td>several TBs</td>
-<td>several TBs</td>
-<td>up to 100s of TBs</td>
+<tr class="row-even"><td><p>Capacity (range in practice)</p></td>
+<td><p>10 GBs ~ few TBs</p></td>
+<td><p>100 GBs ~ several TBs</p></td>
+<td><p>several TBs</p></td>
+<td><p>several TBs</p></td>
+<td><p>up to 100s of TBs</p></td>
 </tr>
-<tr>
-<td>Cost / Capacity</td>
-<td>++++</td>
-<td>+++</td>
-<td>++++</td>
-<td>++++</td>
-<td>+</td>
+<tr class="row-odd"><td><p>Cost / Capacity</p></td>
+<td><p>++++</p></td>
+<td><p>+++</p></td>
+<td><p>++++</p></td>
+<td><p>++++</p></td>
+<td><p>+</p></td>
 </tr>
-<tr>
-<td>Volatile</td>
-<td>yes</td>
-<td>yes</td>
-<td>configuration dependent</td>
-<td>configuration dependent</td>
-<td>no</td>
+<tr class="row-even"><td><p>Volatile</p></td>
+<td><p>yes</p></td>
+<td><p>yes</p></td>
+<td><p>configuration dependent</p></td>
+<td><p>configuration dependent</p></td>
+<td><p>no</p></td>
 </tr>
-<tr>
-<td>Configuration / maintenance complexity</td>
-<td>low</td>
-<td>low</td>
-<td>high</td>
-<td>high</td>
-<td>low</td>
+<tr class="row-odd"><td><p>Configuration / maintenance complexity</p></td>
+<td><p>low</p></td>
+<td><p>low</p></td>
+<td><p>high</p></td>
+<td><p>high</p></td>
+<td><p>low</p></td>
 </tr>
 </tbody>
 </table>
@@ -218,7 +211,7 @@ This ability provides zero-downtime online model retraining.</p>
 <li><p>Whenever the HugeCTR inference engine receives a batch of model input parameters for inference, the inference engine first determines the associated unique embedding keys and tries to resolve these embeddings using the embedding cache.</p></li>
 <li><p>When there is a cache miss, the inference engine then turns to the HPS database backend to determine the embedding representations.</p></li>
 <li><p>The HPS database backend queries its configured backends in the following order to fill in the missing embeddings:</p>
-<ol class="simple">
+<ol class="arabic simple">
 <li><p>Local and remote CPU memory locations.</p></li>
 <li><p>Persistent storage.</p></li>
 </ol>

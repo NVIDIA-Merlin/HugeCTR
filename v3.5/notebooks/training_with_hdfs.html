@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>HugeCTR training with HDFS example &mdash; Merlin HugeCTR  documentation</title><link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../_static/togglebutton.css" type="text/css" />
       <link rel="stylesheet" href="../_static/mystnb.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/togglebutton.css" type="text/css" />
   <!--[if lt IE 9]>
     <script src="../_static/js/html5shiv.min.js"></script>
   <![endif]-->
@@ -116,7 +116,7 @@ documentation.</p>
 <h2>Hadoop Installation and Configuration<a class="headerlink" href="#hadoop-installation-and-configuration" title="Permalink to this headline"></a></h2>
 <div class="section" id="download-and-install-hadoop">
 <h3>Download and Install Hadoop<a class="headerlink" href="#download-and-install-hadoop" title="Permalink to this headline"></a></h3>
-<ol>
+<ol class="arabic">
 <li><p>Download a JDK:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>wget https://download.java.net/java/GA/jdk16.0.2/d4a915d82b4c4fbb9bde534da945d746/7/GPL/openjdk-16.0.2_linux-x64_bin.tar.gz
 tar -zxvf openjdk-16.0.2_linux-x64_bin.tar.gz
@@ -211,7 +211,7 @@ worker4
 </div>
 <div class="section" id="start-hdfs">
 <h3>Start HDFS<a class="headerlink" href="#start-hdfs" title="Permalink to this headline"></a></h3>
-<ol>
+<ol class="arabic">
 <li><p>Enable ssh connection:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>ssh-keygen -t rsa -P <span class="s1">&#39;&#39;</span> -f ~/.ssh/id_rsa
 cat ~/.ssh/id_rsa.pub &gt;&gt; ~/.ssh/authorized_keys

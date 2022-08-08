@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>HugeCTR Example Notebooks &mdash; Merlin HugeCTR  documentation</title><link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../_static/togglebutton.css" type="text/css" />
       <link rel="stylesheet" href="../_static/mystnb.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/togglebutton.css" type="text/css" />
   <!--[if lt IE 9]>
     <script src="../_static/js/html5shiv.min.js"></script>
   <![endif]-->
@@ -60,6 +60,7 @@
 <li class="toctree-l2"><a class="reference internal" href="news-example.html">NVIDIA Merlin on Microsoft’s News Dataset (MIND)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="multi_gpu_offline_inference.html">Multi-GPU Offline Inference</a></li>
 <li class="toctree-l2"><a class="reference internal" href="hps_demo.html">Hierarchical Parameter Server Demo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="training_with_hdfs.html">HugeCTR training with HDFS example</a></li>
 <li class="toctree-l2"><a class="reference internal" href="embedding_training_cache_example.html">Embedding Training Cache Example</a></li>
 <li class="toctree-l2"><a class="reference internal" href="embedding_collection.html">HugeCTR Embedding Collection</a></li>
 </ul>
@@ -122,7 +123,7 @@ If you prefer to build the HugeCTR Docker image on your own, refer to <a class="
 </div>
 <div class="section" id="start-the-jupyter-notebook">
 <h3>Start the Jupyter Notebook<a class="headerlink" href="#start-the-jupyter-notebook" title="Permalink to this headline"></a></h3>
-<ol>
+<ol class="arabic">
 <li><p>Launch the container in interactive mode (mount the HugeCTR root directory into the container for your convenience) by running this command:</p>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>docker run --runtime<span class="o">=</span>nvidia --rm -it --cap-add SYS_NICE --ipc<span class="o">=</span>host --ulimit <span class="nv">memlock</span><span class="o">=</span>-1 --ulimit <span class="nv">stack</span><span class="o">=</span><span class="m">67108864</span> -u <span class="k">$(</span>id -u<span class="k">)</span>:<span class="k">$(</span>id -g<span class="k">)</span> -v <span class="k">$(</span><span class="nb">pwd</span><span class="k">)</span>:/hugectr -w /hugectr -p <span class="m">8888</span>:8888 nvcr.io/nvidia/merlin/merlin-hugectr:22.07
 </pre></div>
@@ -176,89 +177,79 @@ The notebooks use the Movielens-25M dataset.</p>
 <div class="section" id="system-specifications">
 <h2>System Specifications<a class="headerlink" href="#system-specifications" title="Permalink to this headline"></a></h2>
 <p>The specifications of the system on which each notebook can run successfully are summarized in the table. The notebooks are verified on the system below but it does not mean the minimum requirements.</p>
-<table border="1" class="docutils">
+<table class="colwidths-auto docutils align-default">
 <thead>
-<tr>
-<th>Notebook</th>
-<th>CPU</th>
-<th>GPU</th>
-<th>#GPUs</th>
-<th>Author</th>
+<tr class="row-odd"><th class="head"><p>Notebook</p></th>
+<th class="head"><p>CPU</p></th>
+<th class="head"><p>GPU</p></th>
+<th class="head"><p>#GPUs</p></th>
+<th class="head"><p>Author</p></th>
 </tr>
 </thead>
 <tbody>
-<tr>
-<td><a href="multi-modal-data">multi-modal-data</a></td>
-<td>Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory</td>
-<td>Tesla V100-SXM2-32GB<br />32 GB Memory</td>
-<td>1</td>
-<td>Vinh Nguyen</td>
+<tr class="row-even"><td><p><a class="reference internal" href="multi-modal-data/index.html"><span class="xref myst">multi-modal-data</span></a></p></td>
+<td><p>Intel® Xeon® CPU E5-2698 v4 &#64; 2.20GHz<br />512 GB Memory</p></td>
+<td><p>Tesla V100-SXM2-32GB<br />32 GB Memory</p></td>
+<td><p>1</p></td>
+<td><p>Vinh Nguyen</p></td>
 </tr>
-<tr>
-<td><a href="continuous_training.ipynb">continuous_training.ipynb</a></td>
-<td>Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory</td>
-<td>Tesla V100-SXM2-32GB<br />32 GB Memory</td>
-<td>1</td>
-<td>Xiaolei Shi</td>
+<tr class="row-odd"><td><p><a class="reference internal" href="continuous_training.html"><span class="doc std std-doc">continuous_training.ipynb</span></a></p></td>
+<td><p>Intel® Xeon® CPU E5-2698 v4 &#64; 2.20GHz<br />512 GB Memory</p></td>
+<td><p>Tesla V100-SXM2-32GB<br />32 GB Memory</p></td>
+<td><p>1</p></td>
+<td><p>Xiaolei Shi</p></td>
 </tr>
-<tr>
-<td><a href="ecommerce-example.ipynb">ecommerce-example.ipynb</a></td>
-<td>Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory</td>
-<td>Tesla V100-SXM2-16GB<br />16 GB Memory</td>
-<td>8</td>
-<td>Vinh Nguyen</td>
+<tr class="row-even"><td><p><a class="reference internal" href="ecommerce-example.html"><span class="doc std std-doc">ecommerce-example.ipynb</span></a></p></td>
+<td><p>Intel® Xeon® CPU E5-2698 v4 &#64; 2.20GHz<br />512 GB Memory</p></td>
+<td><p>Tesla V100-SXM2-16GB<br />16 GB Memory</p></td>
+<td><p>8</p></td>
+<td><p>Vinh Nguyen</p></td>
 </tr>
-<tr>
-<td><a href="hugectr2onnx_demo.ipynb">hugectr2onnx_demo.ipynb</a></td>
-<td>Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory</td>
-<td>Tesla V100-SXM2-16GB<br />16 GB Memory</td>
-<td>1</td>
-<td>Kingsley Liu</td>
+<tr class="row-odd"><td><p><a class="reference internal" href="hugectr2onnx_demo.html"><span class="doc std std-doc">hugectr2onnx_demo.ipynb</span></a></p></td>
+<td><p>Intel® Xeon® CPU E5-2698 v4 &#64; 2.20GHz<br />512 GB Memory</p></td>
+<td><p>Tesla V100-SXM2-16GB<br />16 GB Memory</p></td>
+<td><p>1</p></td>
+<td><p>Kingsley Liu</p></td>
 </tr>
-<tr>
-<td><a href="hugectr_criteo.ipynb">hugectr-criteo.ipynb</a></td>
-<td>Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory</td>
-<td>Tesla V100-SXM2-32GB<br />32 GB Memory</td>
-<td>1</td>
-<td>Kingsley Liu</td>
+<tr class="row-even"><td><p><a class="reference internal" href="hugectr_criteo.html"><span class="doc std std-doc">hugectr-criteo.ipynb</span></a></p></td>
+<td><p>Intel® Xeon® CPU E5-2698 v4 &#64; 2.20GHz<br />512 GB Memory</p></td>
+<td><p>Tesla V100-SXM2-32GB<br />32 GB Memory</p></td>
+<td><p>1</p></td>
+<td><p>Kingsley Liu</p></td>
 </tr>
-<tr>
-<td><a href="multi_gpu_offline_inference.ipynb">multi_gpu_offline_inference.ipynb</a></td>
-<td>Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory</td>
-<td>Tesla V100-SXM2-32GB<br />32 GB Memory</td>
-<td>4</td>
-<td>Kingsley Liu</td>
+<tr class="row-odd"><td><p><a class="reference internal" href="multi_gpu_offline_inference.html"><span class="doc std std-doc">multi_gpu_offline_inference.ipynb</span></a></p></td>
+<td><p>Intel® Xeon® CPU E5-2698 v4 &#64; 2.20GHz<br />512 GB Memory</p></td>
+<td><p>Tesla V100-SXM2-32GB<br />32 GB Memory</p></td>
+<td><p>4</p></td>
+<td><p>Kingsley Liu</p></td>
 </tr>
-<tr>
-<td><a href="hps_demo.ipynb">hps_demo.ipynb</a></td>
-<td>Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory</td>
-<td>Tesla V100-SXM2-32GB<br />32 GB Memory</td>
-<td>1</td>
-<td>Kingsley Liu</td>
+<tr class="row-even"><td><p><a class="reference internal" href="hps_demo.html"><span class="doc std std-doc">hps_demo.ipynb</span></a></p></td>
+<td><p>Intel® Xeon® CPU E5-2698 v4 &#64; 2.20GHz<br />512 GB Memory</p></td>
+<td><p>Tesla V100-SXM2-32GB<br />32 GB Memory</p></td>
+<td><p>1</p></td>
+<td><p>Kingsley Liu</p></td>
 </tr>
-<tr>
-<td><a href="hugectr_wdl_prediction.ipynb">hugectr_wdl_prediction.ipynb</a></td>
-<td>AMD Ryzen 9 3900X 12-Core <br />32 GB Memory</td>
-<td>GeForce RTX 2080Ti<br />11 GB Memory</td>
-<td>1</td>
-<td>Yingcan Wei</td>
+<tr class="row-odd"><td><p><a class="reference internal" href="hugectr_wdl_prediction.html"><span class="doc std std-doc">hugectr_wdl_prediction.ipynb</span></a></p></td>
+<td><p>AMD Ryzen 9 3900X 12-Core <br />32 GB Memory</p></td>
+<td><p>GeForce RTX 2080Ti<br />11 GB Memory</p></td>
+<td><p>1</p></td>
+<td><p>Yingcan Wei</p></td>
 </tr>
-<tr>
-<td><a href="movie-lens-example.ipynb">movie-lens-example.ipynb</a></td>
-<td>Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory</td>
-<td>Tesla V100-SXM2-32GB<br />32 GB Memory</td>
-<td>1</td>
-<td>Vinh Nguyen</td>
+<tr class="row-even"><td><p><a class="reference internal" href="movie-lens-example.html"><span class="doc std std-doc">movie-lens-example.ipynb</span></a></p></td>
+<td><p>Intel® Xeon® CPU E5-2698 v4 &#64; 2.20GHz<br />512 GB Memory</p></td>
+<td><p>Tesla V100-SXM2-32GB<br />32 GB Memory</p></td>
+<td><p>1</p></td>
+<td><p>Vinh Nguyen</p></td>
 </tr>
-<tr>
-<td><a href="news-example.ipynb">news-example.ipynb</a></td>
-<td>Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory</td>
-<td>Tesla V100-SXM2-32GB<br />32 GB Memory</td>
-<td>4</td>
-<td>Ashish Sardana</td>
+<tr class="row-odd"><td><p><a class="reference internal" href="news-example.html"><span class="doc std std-doc">news-example.ipynb</span></a></p></td>
+<td><p>Intel® Xeon® CPU E5-2698 v4 &#64; 2.20GHz<br />512 GB Memory</p></td>
+<td><p>Tesla V100-SXM2-32GB<br />32 GB Memory</p></td>
+<td><p>4</p></td>
+<td><p>Ashish Sardana</p></td>
 </tr>
 </tbody>
-</table></div>
+</table>
+</div>
 <div class="toctree-wrapper compound">
 </div>
 </div>

@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Introduction to HugeCTR &mdash; Merlin HugeCTR  documentation</title><link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="_static/togglebutton.css" type="text/css" />
       <link rel="stylesheet" href="_static/mystnb.css" type="text/css" />
+      <link rel="stylesheet" href="_static/togglebutton.css" type="text/css" />
   <!--[if lt IE 9]>
     <script src="_static/js/html5shiv.min.js"></script>
   <![endif]-->
@@ -117,34 +117,29 @@
 <div class="section" id="compute-capability">
 <h3>Compute Capability<a class="headerlink" href="#compute-capability" title="Permalink to this headline"></a></h3>
 <p>We support the following compute capabilities:</p>
-<table border="1" class="docutils">
+<table class="colwidths-auto docutils align-default">
 <thead>
-<tr>
-<th>Compute Capability</th>
-<th>GPU</th>
-<th><a href="#building-hugectr-from-scratch">SM</a></th>
+<tr class="row-odd"><th class="head"><p>Compute Capability</p></th>
+<th class="head"><p>GPU</p></th>
+<th class="head"><p><a class="reference internal" href="#building-hugectr-from-scratch"><span class="std std-doc">SM</span></a></p></th>
 </tr>
 </thead>
 <tbody>
-<tr>
-<td>6.0</td>
-<td>NVIDIA P100 (Pascal)</td>
-<td>60</td>
+<tr class="row-even"><td><p>6.0</p></td>
+<td><p>NVIDIA P100 (Pascal)</p></td>
+<td><p>60</p></td>
 </tr>
-<tr>
-<td>7.0</td>
-<td>NVIDIA V100 (Volta)</td>
-<td>70</td>
+<tr class="row-odd"><td><p>7.0</p></td>
+<td><p>NVIDIA V100 (Volta)</p></td>
+<td><p>70</p></td>
 </tr>
-<tr>
-<td>7.5</td>
-<td>NVIDIA T4 (Turing)</td>
-<td>75</td>
+<tr class="row-even"><td><p>7.5</p></td>
+<td><p>NVIDIA T4 (Turing)</p></td>
+<td><p>75</p></td>
 </tr>
-<tr>
-<td>8.0</td>
-<td>NVIDIA A100 (Ampere)</td>
-<td>80</td>
+<tr class="row-odd"><td><p>8.0</p></td>
+<td><p>NVIDIA A100 (Ampere)</p></td>
+<td><p>80</p></td>
 </tr>
 </tbody>
 </table>
@@ -155,29 +150,25 @@
 <p>HugeCTR is included in the Merlin Docker containers that are available from the <a class="reference external" href="https://catalog.ngc.nvidia.com/containers">NVIDIA container repository</a>.
 You can query the collection for containers that <a class="reference external" href="https://catalog.ngc.nvidia.com/containers?filters=&amp;orderBy=scoreDESC&amp;query=label:%22HugeCTR%22">match the HugeCTR label</a>.
 The following table also identifies the containers:</p>
-<table border="1" class="docutils">
+<table class="colwidths-auto docutils align-default">
 <thead>
-<tr>
-<th>Container Name</th>
-<th>Container Location</th>
-<th>Functionality</th>
+<tr class="row-odd"><th class="head"><p>Container Name</p></th>
+<th class="head"><p>Container Location</p></th>
+<th class="head"><p>Functionality</p></th>
 </tr>
 </thead>
 <tbody>
-<tr>
-<td>merlin-inference</td>
-<td>https://catalog.ngc.nvidia.com/orgs/nvidia/teams/merlin/containers/merlin-inference</td>
-<td>NVTabular, HugeCTR, and Triton Inference</td>
+<tr class="row-even"><td><p>merlin-inference</p></td>
+<td><p><a class="reference external" href="https://catalog.ngc.nvidia.com/orgs/nvidia/teams/merlin/containers/merlin-inference">https://catalog.ngc.nvidia.com/orgs/nvidia/teams/merlin/containers/merlin-inference</a></p></td>
+<td><p>NVTabular, HugeCTR, and Triton Inference</p></td>
 </tr>
-<tr>
-<td>merlin-training</td>
-<td>https://catalog.ngc.nvidia.com/orgs/nvidia/teams/merlin/containers/merlin-training</td>
-<td>NVTabular and HugeCTR</td>
+<tr class="row-odd"><td><p>merlin-training</p></td>
+<td><p><a class="reference external" href="https://catalog.ngc.nvidia.com/orgs/nvidia/teams/merlin/containers/merlin-training">https://catalog.ngc.nvidia.com/orgs/nvidia/teams/merlin/containers/merlin-training</a></p></td>
+<td><p>NVTabular and HugeCTR</p></td>
 </tr>
-<tr>
-<td>merlin-tensorflow-training</td>
-<td>https://catalog.ngc.nvidia.com/orgs/nvidia/teams/merlin/containers/merlin-tensorflow-training</td>
-<td>NVTabular, TensorFlow, and HugeCTR Tensorflow Embedding plugin</td>
+<tr class="row-even"><td><p>merlin-tensorflow-training</p></td>
+<td><p><a class="reference external" href="https://catalog.ngc.nvidia.com/orgs/nvidia/teams/merlin/containers/merlin-tensorflow-training">https://catalog.ngc.nvidia.com/orgs/nvidia/teams/merlin/containers/merlin-tensorflow-training</a></p></td>
+<td><p>NVTabular, TensorFlow, and HugeCTR Tensorflow Embedding plugin</p></td>
 </tr>
 </tbody>
 </table>

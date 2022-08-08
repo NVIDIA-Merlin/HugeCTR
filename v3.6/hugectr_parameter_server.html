@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>HugeCTR Hierarchical Parameter Server Database Backend &mdash; Merlin HugeCTR  documentation</title><link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="_static/togglebutton.css" type="text/css" />
       <link rel="stylesheet" href="_static/mystnb.css" type="text/css" />
+      <link rel="stylesheet" href="_static/togglebutton.css" type="text/css" />
   <!--[if lt IE 9]>
     <script src="_static/js/html5shiv.min.js"></script>
   <![endif]-->
@@ -96,7 +96,7 @@
 <div class="section" id="architecture">
 <h2>Architecture<a class="headerlink" href="#architecture" title="Permalink to this headline"></a></h2>
 <p>As of version 3.3, the HugeCTR hierarchical parameter server database backend defines 3 storage layers.</p>
-<ol>
+<ol class="arabic">
 <li><p>The <strong>CPU Memory Database</strong> layer
 utilizes volatile CPU addressable RAM memory to cache embeddings. This database is created and maintained separately by each machine that runs HugeCTR in your cluster.</p></li>
 <li><p>The <strong>Distributed Database</strong> layer allows utilizing Redis cluster deployments, to store and retrieve embeddings in/from the RAM memory available in your cluster. The HugeCTR distributed database layer is designed for compatibility with Redis <a class="reference external" href="https://redis.io/topics/persistence">peristence features</a> such as <a class="reference external" href="https://redis.io/topics/persistence">RDB</a> and <a class="reference external" href="https://redis.io/topics/persistence">AOF</a> to allow seamless continued operation across device restart. This kind of databse is shared by all nodes that participate in the training / inference of a HugeCTR model.</p>
@@ -105,65 +105,58 @@ utilizes volatile CPU addressable RAM memory to cache embeddings. This database 
 <li><p>The <strong>Persistent Database</strong> layer links HugeCTR with a persistent database. Each node that has such a persistent storage layer configured retains a separate copy of all embeddings in its locally available non-volatile memory. This layer is best considered as a compliment to the distributed database to 1) further expand storage capabilities and 2) for high availability. Hence, if your model exceeds even the total RAM capacity of your entire cluster, or if - for whatever reason - the Redis cluster becomes unavailable, all nodes that have been configured with a persistent database will still be able to fully cater to inference requests, albeit likely with increased latency.</p></li>
 </ol>
 <p>In the following table, we provide an overview of the <em>typical</em> properties different parameter database layers (and the embedding cache). We emphasize that this table is just intended to provide a rough orientation. Properties of actual deployments may deviate.</p>
-<table border="1" class="docutils">
+<table class="colwidths-auto docutils align-default">
 <thead>
-<tr>
-<th></th>
-<th>GPU Embedding Cache</th>
-<th>CPU Memory Database</th>
-<th>Distributed Database (InfiniBand)</th>
-<th>Distributed Database (Ethernet)</th>
-<th>Persistent Database</th>
+<tr class="row-odd"><th class="head"><p></p></th>
+<th class="head"><p>GPU Embedding Cache</p></th>
+<th class="head"><p>CPU Memory Database</p></th>
+<th class="head"><p>Distributed Database (InfiniBand)</p></th>
+<th class="head"><p>Distributed Database (Ethernet)</p></th>
+<th class="head"><p>Persistent Database</p></th>
 </tr>
 </thead>
 <tbody>
-<tr>
-<td>Mean Latency</td>
-<td>ns ~ us</td>
-<td>us ~ ms</td>
-<td>us ~ ms</td>
-<td>several ms</td>
-<td>ms ~ s</td>
+<tr class="row-even"><td><p>Mean Latency</p></td>
+<td><p>ns ~ us</p></td>
+<td><p>us ~ ms</p></td>
+<td><p>us ~ ms</p></td>
+<td><p>several ms</p></td>
+<td><p>ms ~ s</p></td>
 </tr>
-<tr>
-<td>Capacity (relative)</td>
-<td>++</td>
-<td>+++</td>
-<td>+++++</td>
-<td>+++++</td>
-<td>+++++++</td>
+<tr class="row-odd"><td><p>Capacity (relative)</p></td>
+<td><p>++</p></td>
+<td><p>+++</p></td>
+<td><p>+++++</p></td>
+<td><p>+++++</p></td>
+<td><p>+++++++</p></td>
 </tr>
-<tr>
-<td>Capacity (range in practice)</td>
-<td>10 GBs ~ few TBs</td>
-<td>100 GBs ~ several TBs</td>
-<td>several TBs</td>
-<td>several TBs</td>
-<td>up to 100s of TBs</td>
+<tr class="row-even"><td><p>Capacity (range in practice)</p></td>
+<td><p>10 GBs ~ few TBs</p></td>
+<td><p>100 GBs ~ several TBs</p></td>
+<td><p>several TBs</p></td>
+<td><p>several TBs</p></td>
+<td><p>up to 100s of TBs</p></td>
 </tr>
-<tr>
-<td>Cost / Capacity</td>
-<td>++++</td>
-<td>+++</td>
-<td>++++</td>
-<td>++++</td>
-<td>+</td>
+<tr class="row-odd"><td><p>Cost / Capacity</p></td>
+<td><p>++++</p></td>
+<td><p>+++</p></td>
+<td><p>++++</p></td>
+<td><p>++++</p></td>
+<td><p>+</p></td>
 </tr>
-<tr>
-<td>Volatile</td>
-<td>yes</td>
-<td>yes</td>
-<td>configuration dependent</td>
-<td>configuration dependent</td>
-<td>no</td>
+<tr class="row-even"><td><p>Volatile</p></td>
+<td><p>yes</p></td>
+<td><p>yes</p></td>
+<td><p>configuration dependent</p></td>
+<td><p>configuration dependent</p></td>
+<td><p>no</p></td>
 </tr>
-<tr>
-<td>Configuration / maintenance complexity</td>
-<td>low</td>
-<td>low</td>
-<td>high</td>
-<td>high</td>
-<td>low</td>
+<tr class="row-odd"><td><p>Configuration / maintenance complexity</p></td>
+<td><p>low</p></td>
+<td><p>low</p></td>
+<td><p>high</p></td>
+<td><p>high</p></td>
+<td><p>low</p></td>
 </tr>
 </tbody>
 </table>
@@ -177,7 +170,7 @@ utilizes volatile CPU addressable RAM memory to cache embeddings. This database 
 <div class="section" id="inference">
 <h3>Inference<a class="headerlink" href="#inference" title="Permalink to this headline"></a></h3>
 <p>With respect to embedding lookups via the HugeCTR GPU embedding cache and HPS database backend, the following logic applies. Whenever the HugeCTR inference engine receives a batch of model input parameters for inference, it will first determine the associated unique embedding keys and try to resolve these embeddings using the embedding cache. If there are cache misses, it will then turn to the HPS database backend to determine the embedding representations. The query sequence inside the HPS database backend based on the following order to query its configured backends such that fill in the missing embeddings:</p>
-<ol class="simple">
+<ol class="arabic simple">
 <li><p>Local / Remote CPU memory locations</p></li>
 <li><p>Permanent storage</p></li>
 </ol>

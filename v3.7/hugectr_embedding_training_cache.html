@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>HugeCTR Embedding Training Cache &mdash; Merlin HugeCTR  documentation</title><link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="_static/togglebutton.css" type="text/css" />
       <link rel="stylesheet" href="_static/mystnb.css" type="text/css" />
+      <link rel="stylesheet" href="_static/togglebutton.css" type="text/css" />
   <!--[if lt IE 9]>
     <script src="_static/js/html5shiv.min.js"></script>
   <![endif]-->
@@ -112,7 +112,7 @@
 <p>To tell the ETC which embedding features have to be prefetched for a pass, users are required to extract the unique keys from the dataset of that pass and store them into a separate keyset file (see <a class="reference internal" href="#preprocessing"><span class="std std-doc">Preprocessing</span></a> for a brief file format description). Using the keyset file, the ETC calculates the total size of the embedding features to be prefetched (i.e., <code class="docutils literal notranslate"><span class="pre">number</span> <span class="pre">of</span> <span class="pre">unique</span> <span class="pre">keys</span> <span class="pre">*</span> <span class="pre">embedding</span> <span class="pre">vector</span> <span class="pre">size</span></code>), allocates memory accordingly and loads them according from the <a class="reference internal" href="#parameter-server-in-etc"><span class="std std-doc">parameter server</span></a> (PS).</p>
 <p>Thereby, the ETC takes advantage of the memory compliment and inter-device communication capabilities of multi-GPU setups. All available GPU memory is used for storage, and there is no need to store duplicates of embedding features in different GPUs. Hence, the maximum size of the embedding subset to be used during a pass is just limited by the total combined memory sizes of all available GPUs.</p>
 <p>The ETC’s training process is shown in Fig. 2, in which passes are trained one by one, and each pass follows the same procedure:</p>
-<ol class="simple">
+<ol class="arabic simple">
 <li><p>Load the subset of the embedding table for the n-th pass from the PS to the GPUs.</p></li>
 <li><p>Train the sparse and dense models.</p></li>
 <li><p>Write the trained embedding table of the n-th pass from GPUs back to the PS.</p></li>
@@ -174,7 +174,7 @@
 <li><p>and the cache is frozen after at most 3 eviction/insertion operations.</p></li>
 </ul>
 <p>Suggestions for configuration the Cached-PS for actual use-cases:</p>
-<ol class="simple">
+<ol class="arabic simple">
 <li><p>A larger number of <code class="docutils literal notranslate"><span class="pre">num_blocks</span></code> is helpful to retain a high hit rate, but consumes more host memory and may cause <em>Out of Memory</em> issues. The upper limit value for <code class="docutils literal notranslate"><span class="pre">num_blocks</span></code> can be estimated through computing <code class="docutils literal notranslate"><span class="pre">available</span> <span class="pre">host</span> <span class="pre">memory</span> <span class="pre">size</span> <span class="pre">/</span> <span class="pre">embedding</span> <span class="pre">table</span> <span class="pre">size</span> <span class="pre">of</span> <span class="pre">each</span> <span class="pre">pass</span></code>. For pointers how the latter value can be computed, please refer to <a class="reference internal" href="#check-your-dataset"><span class="std std-doc">Check Your Dataset</span></a>.</p></li>
 <li><p>More eviction/insertion operations will happen if you set a larger value for <code class="docutils literal notranslate"><span class="pre">max_num_evict</span></code>. Such operations are expensive, because they need to access the SSD/HDD/NFS. Configuring small or moderate values for this entry will improve the performance of the Cached-PS in <code class="docutils literal notranslate"><span class="pre">Phase</span> <span class="pre">3</span></code> (see <a class="reference internal" href="#how-it-works"><span class="std std-doc">How It Works</span></a>).</p></li>
 </ol>
@@ -207,7 +207,7 @@ If all blocks are occupied (<code class="docutils literal notranslate"><span cla
 <div class="section" id="check-your-dataset">
 <h3>Check Your Dataset<a class="headerlink" href="#check-your-dataset" title="Permalink to this headline"></a></h3>
 <p>First, you need to decide whether you need to split the dataset into sub-datasets. To do so, you need to:</p>
-<ol>
+<ol class="arabic">
 <li><p>Extract the unique keys of categorical features from your dataset and get the number of unique keys.</p></li>
 <li><p>Calculate the size of the embedding table corresponding to this dataset by</p>
 <p>Embedding Size in GB = <code class="docutils literal notranslate"><span class="pre">Factor</span> <span class="pre">*</span> <span class="pre">Num</span> <span class="pre">of</span> <span class="pre">unique</span> <span class="pre">keys</span> <span class="pre">*</span> <span class="pre">embedding</span> <span class="pre">vector</span> <span class="pre">size</span> <span class="pre">*</span> <span class="pre">sizeof(float)</span> <span class="pre">/</span> <span class="pre">1024^3</span></code>.</p>
@@ -216,25 +216,23 @@ If all blocks are occupied (<code class="docutils literal notranslate"><span cla
 <li><p>Compare the embedding size with the aggregated memory size of the GPUs used during training. For example, with a 8x Tesla A100 (80 GB per GPU) setup, the cumulative GPU memory size available during training is 640 GB. If the embedding size is larger than the GPU memory size, you must split the dataset into multiple sub-datasets.</p></li>
 </ol>
 <p>Tab. 1: Suggested value for “Factor” of when using different optimizers</p>
-<table border="1" class="docutils">
+<table class="colwidths-auto docutils align-default">
 <thead>
-<tr>
-<th>Optimizer</th>
-<th align="center">Adam</th>
-<th align="center">AdaGrad</th>
-<th align="center">Momentum SGD</th>
-<th align="center">Nesterov</th>
-<th align="center">SGD</th>
+<tr class="row-odd"><th class="head"><p>Optimizer</p></th>
+<th class="text-center head"><p>Adam</p></th>
+<th class="text-center head"><p>AdaGrad</p></th>
+<th class="text-center head"><p>Momentum SGD</p></th>
+<th class="text-center head"><p>Nesterov</p></th>
+<th class="text-center head"><p>SGD</p></th>
 </tr>
 </thead>
 <tbody>
-<tr>
-<td>Factor</td>
-<td align="center">3</td>
-<td align="center">2</td>
-<td align="center">2</td>
-<td align="center">2</td>
-<td align="center">1</td>
+<tr class="row-even"><td><p>Factor</p></td>
+<td class="text-center"><p>3</p></td>
+<td class="text-center"><p>2</p></td>
+<td class="text-center"><p>2</p></td>
+<td class="text-center"><p>2</p></td>
+<td class="text-center"><p>1</p></td>
 </tr>
 </tbody>
 </table>
@@ -314,64 +312,53 @@ If all blocks are occupied (<code class="docutils literal notranslate"><span cla
 <p>In this test, we used the data for the first three days in the <a class="reference external" href="https://labs.criteo.com/2013/12/download-terabyte-click-logs/">Criteo Terabyte Click Logs dataset</a>. The raw dataset is divided into ten passes. The number of unique keys and corresponding embedding table sizes are shown in Tab. 2.</p>
 <p>We chose an embedding vector size of 128. Hence, the total embedding table size is 53.90 GB. The cache configuration used in this test was <code class="docutils literal notranslate"><span class="pre">CreateHMemCache(2,</span> <span class="pre">0.4,</span> <span class="pre">0)</span></code>.</p>
 <p>Tab. 2: Number of unique keys and embedding table size of each pass with the Criteo dataset.</p>
-<table border="1" class="docutils">
+<table class="colwidths-auto docutils align-default">
 <thead>
-<tr>
-<th align="right">Pass ID</th>
-<th align="right">Number of Unique Keys</th>
-<th align="right">Embedding size (GB)</th>
+<tr class="row-odd"><th class="text-right head"><p>Pass ID</p></th>
+<th class="text-right head"><p>Number of Unique Keys</p></th>
+<th class="text-right head"><p>Embedding size (GB)</p></th>
 </tr>
 </thead>
 <tbody>
-<tr>
-<td align="right">#0</td>
-<td align="right">24199179</td>
-<td align="right">11.54</td>
+<tr class="row-even"><td class="text-right"><p>#0</p></td>
+<td class="text-right"><p>24199179</p></td>
+<td class="text-right"><p>11.54</p></td>
 </tr>
-<tr>
-<td align="right">#1</td>
-<td align="right">26015075</td>
-<td align="right">12.40</td>
+<tr class="row-odd"><td class="text-right"><p>#1</p></td>
+<td class="text-right"><p>26015075</p></td>
+<td class="text-right"><p>12.40</p></td>
 </tr>
-<tr>
-<td align="right">#2</td>
-<td align="right">27387817</td>
-<td align="right">13.06</td>
+<tr class="row-even"><td class="text-right"><p>#2</p></td>
+<td class="text-right"><p>27387817</p></td>
+<td class="text-right"><p>13.06</p></td>
 </tr>
-<tr>
-<td align="right">#3</td>
-<td align="right">23672542</td>
-<td align="right">11.29</td>
+<tr class="row-odd"><td class="text-right"><p>#3</p></td>
+<td class="text-right"><p>23672542</p></td>
+<td class="text-right"><p>11.29</p></td>
 </tr>
-<tr>
-<td align="right">#4</td>
-<td align="right">26053910</td>
-<td align="right">12.42</td>
+<tr class="row-even"><td class="text-right"><p>#4</p></td>
+<td class="text-right"><p>26053910</p></td>
+<td class="text-right"><p>12.42</p></td>
 </tr>
-<tr>
-<td align="right">#5</td>
-<td align="right">27697628</td>
-<td align="right">13.21</td>
+<tr class="row-odd"><td class="text-right"><p>#5</p></td>
+<td class="text-right"><p>27697628</p></td>
+<td class="text-right"><p>13.21</p></td>
 </tr>
-<tr>
-<td align="right">#6</td>
-<td align="right">24727672</td>
-<td align="right">11.79</td>
+<tr class="row-even"><td class="text-right"><p>#6</p></td>
+<td class="text-right"><p>24727672</p></td>
+<td class="text-right"><p>11.79</p></td>
 </tr>
-<tr>
-<td align="right">#7</td>
-<td align="right">25643779</td>
-<td align="right">12.23</td>
+<tr class="row-odd"><td class="text-right"><p>#7</p></td>
+<td class="text-right"><p>25643779</p></td>
+<td class="text-right"><p>12.23</p></td>
 </tr>
-<tr>
-<td align="right">#8</td>
-<td align="right">26374086</td>
-<td align="right">12.58</td>
+<tr class="row-even"><td class="text-right"><p>#8</p></td>
+<td class="text-right"><p>26374086</p></td>
+<td class="text-right"><p>12.58</p></td>
 </tr>
-<tr>
-<td align="right">#9</td>
-<td align="right">26580983</td>
-<td align="right">12.67</td>
+<tr class="row-odd"><td class="text-right"><p>#9</p></td>
+<td class="text-right"><p>26580983</p></td>
+<td class="text-right"><p>12.67</p></td>
 </tr>
 </tbody>
 </table>

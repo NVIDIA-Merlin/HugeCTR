@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Introduction to the HugeCTR Python Interface &mdash; Merlin HugeCTR  documentation</title><link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../_static/togglebutton.css" type="text/css" />
       <link rel="stylesheet" href="../_static/mystnb.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/togglebutton.css" type="text/css" />
   <!--[if lt IE 9]>
     <script src="../_static/js/html5shiv.min.js"></script>
   <![endif]-->
@@ -60,6 +60,7 @@
 <li class="toctree-l2"><a class="reference internal" href="news-example.html">NVIDIA Merlin on Microsoft’s News Dataset (MIND)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="multi_gpu_offline_inference.html">Multi-GPU Offline Inference</a></li>
 <li class="toctree-l2"><a class="reference internal" href="hps_demo.html">Hierarchical Parameter Server Demo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="training_with_hdfs.html">HugeCTR training with HDFS example</a></li>
 <li class="toctree-l2"><a class="reference internal" href="embedding_training_cache_example.html">Embedding Training Cache Example</a></li>
 <li class="toctree-l2"><a class="reference internal" href="embedding_collection.html">HugeCTR Embedding Collection</a></li>
 </ul>
@@ -136,7 +137,7 @@ documentation.</p>
 <h2>DCN Model<a class="headerlink" href="#dcn-model" title="Permalink to this headline"></a></h2>
 <div class="section" id="download-and-preprocess-data">
 <h3>Download and Preprocess Data<a class="headerlink" href="#download-and-preprocess-data" title="Permalink to this headline"></a></h3>
-<ol>
+<ol class="arabic">
 <li><p>Download the Criteo dataset using the following command:</p>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ <span class="nb">cd</span> <span class="si">${</span><span class="nv">project</span><span class="p">-root</span><span class="si">}</span>/tools
 $ wget https://storage.googleapis.com/criteo-cail-datasets/day_1.gz
@@ -161,7 +162,7 @@ $ wget https://storage.googleapis.com/criteo-cail-datasets/day_1.gz
 <div class="section" id="train-from-scratch">
 <h3>Train from Scratch<a class="headerlink" href="#train-from-scratch" title="Permalink to this headline"></a></h3>
 <p>We can train fom scratch, dump the model graph to a JSON file, and save the model weights and optimizer states by performing the following with Python APIs:</p>
-<ol class="simple">
+<ol class="arabic simple">
 <li><p>Create the solver, reader and optimizer, then initialize the model.</p></li>
 <li><p>Construct the model graph by adding input, sparse embedding and dense layers in order.</p></li>
 <li><p>Compile the model and have an overview of the model graph.</p></li>
@@ -367,7 +368,7 @@ BinaryCrossEntropyLoss                  fc3,label                     loss
 <div class="section" id="continue-training">
 <h3>Continue Training<a class="headerlink" href="#continue-training" title="Permalink to this headline"></a></h3>
 <p>We can continue our training based on the saved model graph, model weights, and optimizer states by performing the following with Python APIs:</p>
-<ol class="simple">
+<ol class="arabic simple">
 <li><p>Create the solver, reader and optimizer, then initialize the model.</p></li>
 <li><p>Construct the model graph from the saved JSON file.</p></li>
 <li><p>Compile the model and have an overview of the model graph.</p></li>
@@ -535,7 +536,7 @@ We need to convert the Criteo data to inference format first.</p>
 </div>
 </div>
 <p>We can then make inferences based on the saved model graph and model weights by performing the following with Python APIs:</p>
-<ol class="simple">
+<ol class="arabic simple">
 <li><p>Configure the inference related parameters.</p></li>
 <li><p>Create the inference session.</p></li>
 <li><p>Make inference with the <code class="docutils literal notranslate"><span class="pre">InferenceSession.predict</span></code> method.</p></li>
@@ -611,7 +612,7 @@ We need to convert the Criteo data to inference format first.</p>
 <h2>Wide and Deep Model<a class="headerlink" href="#wide-and-deep-model" title="Permalink to this headline"></a></h2>
 <div class="section" id="id1">
 <h3>Download and Preprocess Data<a class="headerlink" href="#id1" title="Permalink to this headline"></a></h3>
-<ol>
+<ol class="arabic">
 <li><p>Download the Criteo dataset using the following command:</p>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ <span class="nb">cd</span> <span class="si">${</span><span class="nv">project_root</span><span class="si">}</span>/tools
 $ wget https://storage.googleapis.com/criteo-cail-datasets/day_1.gz
@@ -861,7 +862,7 @@ BinaryCrossEntropyLoss                  add1                          loss
 <div class="section" id="fine-tuning">
 <h3>Fine-tuning<a class="headerlink" href="#fine-tuning" title="Permalink to this headline"></a></h3>
 <p>We can only load the sparse embedding layers, their corresponding weights, and then construct a new dense network. The dense weights will be trained first and the sparse weights will be fine-tuned later. We can achieve this by performing the following with Python APIs:</p>
-<ol class="simple">
+<ol class="arabic simple">
 <li><p>Create the solver, reader and optimizer, then initialize the model.</p></li>
 <li><p>Load the sparse embedding layers from the saved JSON file.</p></li>
 <li><p>Add the dense layers on top of the loaded model graph.</p></li>
