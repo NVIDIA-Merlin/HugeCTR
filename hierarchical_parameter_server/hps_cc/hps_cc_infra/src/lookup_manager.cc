@@ -92,11 +92,17 @@ void LookupManager::forward(const std::string& model_name, int32_t table_id,
                             const void* values_ptr, void* emb_vector_ptr) {
   HCTR_CHECK_HINT(initialized_,
                   "hierarchical_parameter_server.Init must be called before execution");
+  HCTR_CHECK_HINT(lookup_session_map_.find(model_name) != lookup_session_map_.end(),
+                  "Cannot find the model with the name %s in HPS", model_name.c_str());
+
   auto lookup_session =
       lookup_session_map_.find(model_name)->second.find(global_replica_id)->second;
-  void* h_values =
-      h_values_map_.find(model_name)->second.find(global_replica_id)->second[table_id].get();
   auto inference_params = lookup_session->get_inference_params();
+  size_t num_tables = inference_params.sparse_model_files.size();
+
+  HCTR_CHECK_HINT(table_id >= 0 && table_id < num_tables,
+                  "table_id for %s should be from 0 to %lu, got: %d", model_name.c_str(),
+                  num_tables - 1, table_id);
 
   HCTR_CHECK_HINT(
       num_keys <= inference_params.max_batchsize *
@@ -111,6 +117,8 @@ void LookupManager::forward(const std::string& model_name, int32_t table_id,
                   "inference_params.embedding_vecsize_per_table[table_id], but %lu != %lu",
                   emb_vec_size, inference_params.embedding_vecsize_per_table[table_id]);
 
+  void* h_values =
+      h_values_map_.find(model_name)->second.find(global_replica_id)->second[table_id].get();
   cudaMemcpy(h_values, values_ptr, num_keys * sizeof(size_t), cudaMemcpyDeviceToHost);
   lookup_session->lookup(reinterpret_cast<void*>(h_values),
                          reinterpret_cast<float*>(emb_vector_ptr), num_keys, table_id);
