@@ -82,12 +82,13 @@ void save_graph_to_json(nlohmann::json& layer_config_array,
     label_dims.emplace_back(label.second);
   }
 
-  //  if (input_param.labels_.size() > 1) {
-  //    input_label_config["top"] = label_names[0];
-  //    input_label_config["label_dim"] = label_dims[0];
-  //  } else {
-  input_label_config["top"] = label_names[0];
-  input_label_config["label_dim"] = label_dims[0];
+  if (input_param.labels_.size() > 1) {
+    input_label_config["top"] = "combined_multi_label";
+    input_label_config["label_dim"] = std::accumulate(label_dims.begin(), label_dims.end(), 0);
+  } else {
+    input_label_config["top"] = label_names[0];
+    input_label_config["label_dim"] = label_dims[0];
+  }
   input_dense_config["top"] = input_param.dense_name;
   input_dense_config["dense_dim"] = input_param.dense_dim;
   for (size_t i = 0; i < input_param.data_reader_sparse_param_array.size(); ++i) {
@@ -854,6 +855,15 @@ void Model::add_dense_layer_internal(
     std::vector<Layer*>* embedding_dependent_layers,
     std::vector<Layer*>* embedding_independent_layers, bool embedding_dependent) {
   bool skip_dgrad = layers.size() == 0;
+  auto v2s = [](const std::vector<size_t>& vec) {
+    std::string s = "(";
+    for (const auto& entry : vec) {
+      s += std::to_string(entry);
+      s += ",";
+    }
+    s.back() = ')';
+    return s;
+  };
   Layer_t layer_type = dense_layer.layer_type;
   const auto& layer_type_to_string =
       use_mixed_precision ? LAYER_TYPE_TO_STRING_MP : LAYER_TYPE_TO_STRING;
@@ -935,6 +945,14 @@ void Model::add_dense_layer_internal(
       if (input_output_info.inputs.size() != 2) {
         HCTR_OWN_THROW(Error_t::WrongInput, "bottom of BinaryCrossEntropyLoss must be two dim");
       }
+      if (input_output_info.inputs[0].get_dimensions() !=
+          input_output_info.inputs[1].get_dimensions()) {
+        std::string err_msg =
+            "predition tensor and label tensor should have the same shape, got: " +
+            v2s(input_output_info.inputs[0].get_dimensions()) + " and " +
+            v2s(input_output_info.inputs[1].get_dimensions());
+        HCTR_OWN_THROW(Error_t::WrongInput, err_msg.c_str());
+      }
       Tensor2<float> label_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[1]);
       // create new loss tensor
       std::string name = dense_layer.bottom_names[1];
@@ -1012,6 +1030,14 @@ void Model::add_dense_layer_internal(
     case Layer_t::CrossEntropyLoss: {
       if (input_output_info.inputs.size() != 2) {
         HCTR_OWN_THROW(Error_t::WrongInput, "bottom of CrossEntropyLoss must be two dim");
+      }
+      if (input_output_info.inputs[0].get_dimensions() !=
+          input_output_info.inputs[1].get_dimensions()) {
+        std::string err_msg =
+            "predition tensor and label tensor should have the same shape, got: " +
+            v2s(input_output_info.inputs[0].get_dimensions()) + " and " +
+            v2s(input_output_info.inputs[1].get_dimensions());
+        HCTR_OWN_THROW(Error_t::WrongInput, err_msg.c_str());
       }
       Tensor2<float> label_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[1]);
       // create new loss tensor
@@ -1373,6 +1399,14 @@ void Model::add_dense_layer_internal(
     case Layer_t::MultiCrossEntropyLoss: {
       if (input_output_info.inputs.size() != 2) {
         HCTR_OWN_THROW(Error_t::WrongInput, "bottom of MultiCrossEntropyLoss must be two dim");
+      }
+      if (input_output_info.inputs[0].get_dimensions() !=
+          input_output_info.inputs[1].get_dimensions()) {
+        std::string err_msg =
+            "predition tensor and label tensor should have the same shape, got: " +
+            v2s(input_output_info.inputs[0].get_dimensions()) + " and " +
+            v2s(input_output_info.inputs[1].get_dimensions());
+        HCTR_OWN_THROW(Error_t::WrongInput, err_msg.c_str());
       }
       Tensor2<float> label_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[1]);
       // create new loss tensor

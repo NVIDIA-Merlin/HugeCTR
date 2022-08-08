@@ -67,12 +67,12 @@ static std::string get_tensor_shape(std::string tensor_name,
                                     std::map<std::string, std::vector<size_t>> tensor_shape_info) {
   std::string shape = "";
   if (tensor_shape_info.find(tensor_name) != tensor_shape_info.end()) {
-    shape += "(None";
-    for (unsigned int i = 1; i < tensor_shape_info[tensor_name].size(); i++) {
-      shape += ", ";
+    shape += "(";
+    for (unsigned int i = 0; i < tensor_shape_info[tensor_name].size(); i++) {
       shape += std::to_string(tensor_shape_info[tensor_name][i]);
+      shape += ",";
     }
-    shape += ")";
+    shape.back() = ')';
   }
   return shape;
 }
