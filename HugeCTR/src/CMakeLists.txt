@@ -32,7 +32,8 @@ if(NOT pybind11_sources_POPULATED)
     )
 endif()
 
-file(GLOB_RECURSE huge_ctr_src RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} *.cpp *.cu ../embedding_storage/*.cpp ../embedding_storage/*.cu)
+file(GLOB_RECURSE huge_ctr_src RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} *.cpp *.cu ../embedding_storage/*.cpp ../embedding_storage/*.cu ../embedding_storage/dynamic_embedding_table/*.cpp
+../embedding_storage/dynamic_embedding_table/*.cu)
 
 file(GLOB hdfs_backend ${CMAKE_CURRENT_SOURCE_DIR}/data_source/hdfs_backend.cpp)
 

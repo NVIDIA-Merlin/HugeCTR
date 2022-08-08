@@ -13,18 +13,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 #pragma once
 
-#include "common.hpp"
+namespace cuco {
 
-namespace embedding {
-
-class ILookup {
- public:
-  virtual ~ILookup() = default;
-
-  virtual void lookup(const Tensor &keys, size_t num_keys, const Tensor &id_space_offset,
-                      size_t num_id_space_offset, const Tensor &id_space,
-                      TensorList &embedding_vec) = 0;
+/**
+ * @brief Enumeration of the possible results of attempting to insert into a hash bucket.
+ */
+enum class insert_result {
+  CONTINUE,        ///< Insert did not succeed, continue trying to insert
+  OCCUPIED_EMPTY,  ///< New pair inserted successfully
+  OCCUPIED_RECLAIMED,
+  DUPLICATE  ///< Insert did not succeed, key is already present
 };
-}  // namespace embedding
+
+}  // namespace cuco

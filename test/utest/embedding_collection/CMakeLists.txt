@@ -15,7 +15,8 @@
 
 cmake_minimum_required(VERSION 3.17)
 
-file(GLOB_RECURSE embedding_collection_test_src RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} *.cpp *.cu)
+# file(GLOB_RECURSE embedding_collection_test_src RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} *.cpp *.cu)
+file(GLOB_RECURSE embedding_collection_test_src RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} test_embedding_table.cpp)
 
 add_executable(embedding_collection_test ${embedding_collection_test_src})
 target_compile_features(embedding_collection_test PUBLIC cxx_std_17)
