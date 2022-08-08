@@ -505,7 +505,7 @@ size_t HashMapBackend<TKey>::fetch(const std::string& table_name, const size_t n
               const time_t now = std::time(nullptr);
 
               size_t batch_size = 0;
-              for (; keys_end; k++) {
+              for (; k != keys_end; k++) {
                 if (HCTR_KEY_TO_PART_INDEX(*k) == part.index) {
                   HCTR_HASH_MAP_BACKEND_FETCH_(*k, k - keys);
                   if (++batch_size >= this->max_get_batch_size_) {
