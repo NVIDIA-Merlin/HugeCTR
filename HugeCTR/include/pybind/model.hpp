@@ -101,6 +101,11 @@ std::map<Layer_t, std::string> LAYER_TYPE_TO_STRING_MP = {
     {Layer_t::MultiCross, "MultiCross"},
     {Layer_t::SequenceMask, "SequenceMask"}};
 
+std::set<Layer_t> TRAINABLE_LAYERS = {Layer_t::InnerProduct, Layer_t::FusedInnerProduct,
+                                      Layer_t::MultiCross,   Layer_t::WeightMultiply,
+                                      Layer_t::BatchNorm,    Layer_t::LayerNorm,
+                                      Layer_t::GRU,          Layer_t::MultiHeadAttention};
+
 std::map<Embedding_t, std::string> EMBEDDING_TYPE_TO_STRING = {
     {Embedding_t::DistributedSlotSparseEmbeddingHash, "DistributedSlotSparseEmbeddingHash"},
     {Embedding_t::LocalizedSlotSparseEmbeddingHash, "LocalizedSlotSparseEmbeddingHash"},

@@ -1207,6 +1207,16 @@ void Model::compile() {
   }
 #endif
   init_params_for_dense_();
+  if (solver_.perf_logging) {
+    for (size_t i = 0; i < dense_layer_params_.size(); i++) {
+      bool is_trainable =
+          TRAINABLE_LAYERS.find(dense_layer_params_[i].layer_type) != TRAINABLE_LAYERS.end();
+      if (is_trainable) {
+        std::string output_names = join(dense_layer_params_[i].top_names, "-");
+        HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "weights_initialization", output_names);
+      }
+    }
+  }
   init_params_for_sparse_();
   if (etc_params_->use_embedding_training_cache) {
     init_embedding_training_cache_(etc_params_->ps_types, etc_params_->sparse_models,
@@ -1319,6 +1329,13 @@ void Model::compile() {
         hybrid_embedding->init_model(init_data_reader_ar_i32->get_value_tensors(),
                                      embed_wgrad_size);
       }
+    }
+  }
+
+  if (solver_.perf_logging) {
+    for (size_t i = 0; i < sparse_embedding_params_.size(); i++) {
+      HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "weights_initialization",
+                    sparse_embedding_params_[i].sparse_embedding_name);
     }
   }
 
@@ -1913,14 +1930,6 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
                 size_t train_samples =
                     static_cast<size_t>(iter + 1) * static_cast<size_t>(solver_.batchsize);
 
-                HCTR_LOG_S(INFO, WORLD)
-                    << "Hit target accuracy AUC " << auc_threshold << " at " << iter << "/"
-                    << max_iter << " iterations with batchsize " << solver_.batchsize << " in "
-                    << std::setiosflags(std::ios::fixed) << std::setprecision(2)
-                    << timer.elapsedSeconds() << " s. Average speed "
-                    << (float(iter) * solver_.batchsize / timer.elapsedSeconds()) << " records/s."
-                    << std::endl;
-
                 HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "eval_stop", float(iter) / max_iter);
 
                 HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "epoch_stop", 1);
@@ -1930,8 +1939,8 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
                 timer_log.stop();
               }
               HCTR_LOG(INFO, ROOT,
-                       "Hit target accuracy AUC %f at %d "
-                       "/ %d iterations with batchsize %d"
+                       "Hit target accuracy AUC %.4f at "
+                       "%d / %d iterations with batchsize %d"
                        " in %.2fs. Average speed %f "
                        "records/s.\n",
                        auc_threshold, iter, max_iter, solver_.batchsize, timer.elapsedSeconds(),
