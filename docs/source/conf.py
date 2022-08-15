@@ -52,7 +52,6 @@ extensions = [
     "myst_nb",
     "sphinx_external_toc",
     "sphinx_rtd_theme",
-    "sphinx_markdown_tables",
     "sphinx.ext.autodoc",
     "sphinx.ext.autosummary",
     "sphinx.ext.coverage",
@@ -107,7 +106,7 @@ exclude_patterns = [
 #
 html_theme = "sphinx_rtd_theme"
 html_theme_options = {
-    "navigation_depth": 2,
+    "titles_only": True
 }
 html_show_sourcelink = False
 
@@ -151,6 +150,7 @@ autosummary_generate = True
 copydirs_additional_dirs = [
     "../../notebooks",
     "../../release_notes.md",
+    "../../hierarchical_parameter_server/notebooks",
 ]
 copydirs_file_rename = {
     "README.md": "index.md",
