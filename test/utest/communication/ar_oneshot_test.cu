@@ -109,14 +109,14 @@ struct arTest {
     std::vector<std::vector<int>> vvgpu;
     vvgpu.push_back(device_list);
 
-    if (std::is_same<TypeEmbeddingComp,float>::value){
-        use_mixed_precision_=false;
-    }else{
-        use_mixed_precision_=true;
+    if (std::is_same<TypeEmbeddingComp, float>::value) {
+      use_mixed_precision_ = false;
+    } else {
+      use_mixed_precision_ = true;
     }
 
     resource_manager_ = ResourceManagerExt::create(vvgpu, 0, DeviceMap::LOCAL_FIRST);
-    resource_manager_->set_ar_comm(AllReduceAlgo::ONESHOT,use_mixed_precision_);
+    resource_manager_->set_ar_comm(AllReduceAlgo::ONESHOT, use_mixed_precision_);
     ar_comm_ = resource_manager_->get_ar_comm();
     init_buffers();
   }
@@ -178,7 +178,7 @@ struct arTest {
 
     for (size_t g = 0; g < num_gpus_; g++) {
       for (size_t s = 0; s < max_elems_; s++) {
-        float tmp_num = s%31+41/(g+1);
+        float tmp_num = s % 31 + 41 / (g + 1);
         *(h_ar_buff_[g].get_ptr() + s) = tmp_num;
         // *(h_ar_buff_[g].get_ptr() + s) = g;
       }
@@ -282,9 +282,9 @@ struct arTest {
           float expected_num = *(h_ar_buff_out_ref_[g].get_ptr() + e);
           float wrong_num = *(h_ar_buff_out_[g].get_ptr() + e);
 
-          HCTR_LOG_S(DEBUG, WORLD) << my_proc << ": Data mismatch at gpu " << g << " element: " << e
-                                   << " expected: " << expected_num
-                                   << " got: " << wrong_num << std::endl;
+          HCTR_LOG_S(DEBUG, WORLD)
+              << my_proc << ": Data mismatch at gpu " << g << " element: " << e
+              << " expected: " << expected_num << " got: " << wrong_num << std::endl;
         }
       }
     }
@@ -303,12 +303,11 @@ struct arTest {
         stream_sync_all();
         do_custom_ar(s);
         stream_sync_all();
-        if (std::is_same<TypeEmbeddingComp,float>::value){
-            compare_outputs();
+        if (std::is_same<TypeEmbeddingComp, float>::value) {
+          compare_outputs();
         }
       }
     }
-
   }
 
   void perf_test() {
@@ -328,7 +327,6 @@ struct arTest {
 
 template <typename TypeEmbeddingComp>
 void test_ar_comm(const std::vector<int>& device_list) {
-
   const size_t MAX_SIZE = 64 * 1024 * 1024;
   arTest<TypeEmbeddingComp> test(device_list, MAX_SIZE);
   test.test();
@@ -336,7 +334,6 @@ void test_ar_comm(const std::vector<int>& device_list) {
 
 template <typename TypeEmbeddingComp>
 void test_ar_comm_perf(const std::vector<int>& device_list) {
-
   const size_t MAX_SIZE = 64 * 1024 * 1024;
   arTest<TypeEmbeddingComp> test(device_list, MAX_SIZE);
   test.perf_test();
@@ -350,9 +347,7 @@ TEST(ar_oneshot_test, float_4gpu) { test_ar_comm<float>({0, 1, 2, 3}); }
 TEST(ar_oneshot_test, float_8gpu) { test_ar_comm<float>({0, 1, 2, 3, 4, 5, 6, 7}); }
 TEST(ar_oneshot_perf, float_2gpu) { test_ar_comm_perf<float>({0, 1}); }
 TEST(ar_oneshot_perf, float_4gpu) { test_ar_comm_perf<float>({0, 1, 2, 3}); }
-TEST(ar_oneshot_perf, float_8gpu) {
-  test_ar_comm_perf<float>({0, 1, 2, 3, 4, 5, 6, 7});
-}
+TEST(ar_oneshot_perf, float_8gpu) { test_ar_comm_perf<float>({0, 1, 2, 3, 4, 5, 6, 7}); }
 
 }  // namespace
 

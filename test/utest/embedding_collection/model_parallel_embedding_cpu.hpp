@@ -429,7 +429,8 @@ class ModelParallelEmbeddingCPU {
     }
   }
 
-  void cpu_mp_network_backward_per_gpu(int gpu_id, const std::vector<std::vector<emb_t>> &top_grads,
+  void cpu_mp_network_backward_per_gpu(int gpu_id, const std::vector<offset_t> &bucket_range,
+                                       const std::vector<std::vector<emb_t>> &top_grads,
                                        int batch_size) {
     int batch_size_per_gpu = batch_size / num_gpus_;
 
@@ -452,12 +453,31 @@ class ModelParallelEmbeddingCPU {
 
       ArrayView<emb_t> grad = grad_view[dst_idx];
 
+      int dst_embeding_id = dst_idx / batch_size_per_gpu;
+      int dst_batch_id = dst_idx % batch_size_per_gpu;
+      int combiner = combiner_list_[dst_embeding_id];
+
+      int dst_bucket_id = batch_size * dst_embeding_id + batch_size_per_gpu * gpu_id + dst_batch_id;
+      int num_key_in_bucket = bucket_range[dst_bucket_id + 1] - bucket_range[dst_bucket_id];
+
+      std::vector<float> grad_vec;
+      grad_vec.resize(grad.size());
+
+      for (int i = 0; i < grad.size(); ++i) {
+        float gi = HugeCTR::TypeConvert<float, emb_t>::convert(grad[i]);
+        if (combiner == static_cast<char>(Combiner::Average) && num_key_in_bucket > 0) {
+          grad_vec[i] = HugeCTR::TypeConvert<emb_t, float>::convert(gi / num_key_in_bucket);
+        } else {
+          grad_vec[i] = HugeCTR::TypeConvert<emb_t, float>::convert(gi);
+        }
+      }
+
       for (int r = start; r < end; ++r) {
         int src_idx = network_idx_list_[gpu_id][r];
         ArrayView<emb_t> dst_tensor = network_view[src_idx];
         assert(grad.size() == dst_tensor.size());
         for (int i = 0; i < dst_tensor.size(); ++i) {
-          dst_tensor[i] = grad[i];
+          dst_tensor[i] = grad_vec[i];
         }
       }
     }
@@ -625,10 +645,11 @@ class ModelParallelEmbeddingCPU {
   }
 
   void embedding_backward_cpu(const std::vector<std::vector<emb_t>> &top_grads,
+                              const std::vector<offset_t> &flatten_concat_bucket_range,
                               std::vector<std::unordered_map<key_t, std::vector<float>>> &grad_info,
                               int batch_size) {
     for (int gpu_id = 0; gpu_id < num_gpus_; ++gpu_id) {
-      cpu_mp_network_backward_per_gpu(gpu_id, top_grads, batch_size);
+      cpu_mp_network_backward_per_gpu(gpu_id, flatten_concat_bucket_range, top_grads, batch_size);
     }
     std::vector<std::vector<std::vector<emb_t>> *> model_buffer_ptr;
     for (auto &buffer : model_buffer_list_) {

@@ -20,7 +20,7 @@
 
 #include <memory>
 
-#include "HugeCTR/include/tensor2.hpp"
+#include "macro.hpp"
 
 namespace core {
 class Device;
@@ -29,7 +29,6 @@ class BufferImpl;
 
 using BufferBlockPtr = std::shared_ptr<BufferBlockImpl>;
 using BufferPtr = std::shared_ptr<BufferImpl>;
-using HugeCTR::TensorScalarType;
 
 class IStorageImpl {
  public:
@@ -45,29 +44,6 @@ class IStorageImpl {
 };
 
 using Storage = std::shared_ptr<IStorageImpl>;
-
-class RawPtrStorageImpl : public IStorageImpl {
-  void *ptr_;
-  size_t total_size_in_bytes_;
-
- public:
-  RawPtrStorageImpl(void *ptr, size_t total_size_in_bytes)
-      : ptr_(ptr), total_size_in_bytes_(total_size_in_bytes) {}
-
-  DISALLOW_COPY_AND_MOVE(RawPtrStorageImpl)
-
-  void *get_ptr() override { return ptr_; }
-
-  size_t nbytes() const override { return total_size_in_bytes_; }
-
-  void extend(size_t s) override {
-    HCTR_OWN_THROW(HugeCTR::Error_t::IllegalCall, "RawPtrStorageImpl can not extend");
-  }
-
-  void allocate() override {
-    HCTR_OWN_THROW(HugeCTR::Error_t::IllegalCall, "RawPtrStorageImpl can not allocate");
-  }
-};
 
 class GPUResourceBase {
  public:
@@ -115,30 +91,4 @@ class CoreResourceManager {
   virtual int get_gpu_local_id_from_global_id(int global_id) const = 0;
 };
 
-inline ncclDataType_t get_nccl_dtype_from_tensor_scalar_type(TensorScalarType scalar_type) {
-  switch (scalar_type) {
-    case TensorScalarType::Void:
-      return ncclChar;
-    case TensorScalarType::Float32:
-      return ncclFloat32;
-    case TensorScalarType::Float16:
-      return ncclHalf;
-    case TensorScalarType::Int64:
-      return ncclInt64;
-    case TensorScalarType::UInt64:
-      return ncclUint64;
-    case TensorScalarType::Int32:
-      return ncclInt32;
-    case TensorScalarType::UInt32:
-      return ncclUint32;
-    case TensorScalarType::Size_t:
-      return ncclInt64;
-    case TensorScalarType::Char:
-      return ncclChar;
-    default:
-      HCTR_OWN_THROW(HugeCTR::Error_t::IllegalCall,
-                     "Not supported TensorScalarType to NcclDataType_t");
-  }
-  return ncclInt;
-}
 }  // namespace core

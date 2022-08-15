@@ -19,21 +19,10 @@
 #include <memory>
 #include <numeric>
 #include <vector>
-namespace HugeCTR {
 
-enum class TensorScalarType : uint8_t {
-  None = 0,
-  Void,
-  Float32,
-  Float16,
-  Int64,
-  UInt64,
-  Int32,
-  UInt32,
-  Size_t,
-  Char,
-  MAX_DATATYPE_META
-};
+#include "core/datatype.hpp"
+namespace HugeCTR {
+using TensorScalarType = core::TensorScalarType;
 
 inline size_t get_num_elements_from_dimensions(const std::vector<size_t> &dimensions) {
   size_t elements = 1;

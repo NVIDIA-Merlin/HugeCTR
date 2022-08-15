@@ -41,6 +41,13 @@ class RaggedStaticEmbeddingTable final : public IEmbeddingTable {
                              const EmbeddingShardingParam &sharding_param,
                              const HugeCTR::OptParams &opt_param);
 
+  RaggedStaticEmbeddingTable(const HugeCTR::GPUResource &gpu_resource,
+                             std::shared_ptr<CoreResourceManager> core,
+                             const std::vector<EmbeddingTableParam> &global_emb_table_param_list,
+                             const EmbeddingCollectionParam &ebc_param,
+                             const EmbeddingShardParam &shard_param,
+                             const HugeCTR::OptParams &opt_param);
+
   // void hash_insert(const Tensor &keys, size_t num_keys, const Tensor &offsets, size_t
   // num_offsets, const Tensor &d_id_space_list, Tensor &indices) override;
 

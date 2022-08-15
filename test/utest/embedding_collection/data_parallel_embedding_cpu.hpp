@@ -82,6 +82,7 @@ class DataParallelEmbeddingCPU {
 
   std::vector<int> ev_size_list_;
   std::vector<int> ev_offset_list_;
+  std::vector<char> combiner_list_;
 
   std::vector<std::vector<int>> local_id_space_list_;
   std::vector<std::vector<int>> local_embedding_list_;
@@ -112,6 +113,7 @@ class DataParallelEmbeddingCPU {
     for (int i = 0; i < num_embedding_; ++i) {
       ev_size_list_.push_back(ebc_param_.embedding_params[i].ev_size);
       ev_offset_list_.push_back(ebc_param_.embedding_params[i].ev_size);
+      combiner_list_.push_back(static_cast<char>(ebc_param_.embedding_params[i].combiner));
     }
     std::partial_sum(ev_offset_list_.begin(), ev_offset_list_.end(), ev_offset_list_.begin());
 
@@ -223,13 +225,62 @@ class DataParallelEmbeddingCPU {
     }
   }
 
+  std::vector<float> cpu_dp_combiner_backward_per_gpu(
+      int gpu_id, const std::vector<std::vector<emb_t>> &top_grads,
+      const std::vector<offset_t> &bucket_range, int batch_size) {
+    int batch_size_per_gpu = batch_size / num_gpus_;
+
+    std::vector<float> float_top_grads;
+    for (int embedding_id = 0; embedding_id < num_embedding_; ++embedding_id) {
+      int ev_size = ev_size_list_[embedding_id];
+      char combiner = combiner_list_[embedding_id];
+      for (int b = 0; b < batch_size_per_gpu; ++b) {
+        std::vector<emb_t> grad;
+        std::copy_n(top_grads[gpu_id].begin() + ev_offset_list_[embedding_id] * batch_size_per_gpu +
+                        b * ev_size,
+                    ev_size, std::back_inserter(grad));
+
+        int range_start = batch_size * embedding_id + gpu_id * batch_size_per_gpu + b;
+        int num_key = bucket_range[range_start + 1] - bucket_range[range_start];
+        if (std::find(local_embedding_list_[gpu_id].begin(), local_embedding_list_[gpu_id].end(),
+                      embedding_id) != local_embedding_list_[gpu_id].end() &&
+            combiner == static_cast<char>(Combiner::Average)) {
+          for (size_t i = 0; i < grad.size(); ++i) {
+            float gi = HugeCTR::TypeConvert<float, emb_t>::convert(grad[i]);
+            float_top_grads.push_back(gi / num_key);
+          }
+        } else {
+          for (size_t i = 0; i < grad.size(); ++i) {
+            float gi = HugeCTR::TypeConvert<float, emb_t>::convert(grad[i]);
+            float_top_grads.push_back(gi);
+          }
+        }
+      }
+    }
+    // std::cout << "top_grads:\n";
+    // for (emb_t i: top_grads[gpu_id]) {
+    //   std::cout << HugeCTR::TypeConvert<float, emb_t>::convert(i) << " ";
+    // }
+    // std::cout << "\n";
+
+    // std::cout << "float_top_grads:\n";
+    // for (float i: float_top_grads) {
+    //   std::cout << i << " ";
+    // }
+    // std::cout << "\n";
+
+    return float_top_grads;
+  }
   void cpu_dp_local_reduce_per_gpu(
       int gpu_id, const std::vector<std::vector<emb_t>> &top_grads,
+      const std::vector<offset_t> &bucket_range,
       std::vector<std::unordered_map<key_t, std::vector<float>>> &grad_info, int batch_size) {
     int batch_size_per_gpu = batch_size / num_gpus_;
 
     std::vector<std::unordered_map<key_t, std::vector<float>>> local_reduce_grad_info;
     local_reduce_grad_info.resize(grad_info.size());
+    std::vector<float> float_top_grad =
+        cpu_dp_combiner_backward_per_gpu(gpu_id, top_grads, bucket_range, batch_size);
 
     for (size_t idx = 0; idx < local_id_space_list_[gpu_id].size(); ++idx) {
       int id_space = local_id_space_list_[gpu_id][idx];
@@ -251,7 +302,7 @@ class DataParallelEmbeddingCPU {
                 ev_offset_list_[embedding_id] * batch_size_per_gpu + local_batch_id * ev_size;
             int end = start + ev_size;
             for (int i = start; i < end; ++i) {
-              gi.push_back(HugeCTR::TypeConvert<float, emb_t>::convert(top_grads[gpu_id][i]));
+              gi.push_back(float_top_grad[i]);
             }
             for (size_t i = 0; i < gi.size(); ++i) {
               if (grad_info_in_current_id_space.find(k) == grad_info_in_current_id_space.end()) {
@@ -280,39 +331,6 @@ class DataParallelEmbeddingCPU {
         }
       }
     }
-
-    // for (size_t idx = 0; idx < local_id_space_list_[gpu_id].size(); ++idx) {
-    //   int id_space = local_id_space_list_[gpu_id][idx];
-    //   int ev_size = local_ev_size_list_[gpu_id][idx];
-
-    //   auto &dp_backward_info_in_current_id_space = dp_backward_info_[idx];
-    //   auto &grad_info_in_current_id_space = grad_info[id_space];
-    //   for (auto &key_bucket_id_pair : dp_backward_info_in_current_id_space) {
-    //     key_t k = key_bucket_id_pair.first;
-    //     auto &bucket_id_list = key_bucket_id_pair.second;
-    //     for (auto bucket_id : bucket_id_list) {
-    //       int embedding_id = bucket_id / batch_size;
-    //       int batch_id = bucket_id % batch_size;
-    //       if (batch_id >= gpu_id * batch_size_per_gpu &&
-    //           batch_id < (gpu_id + 1) * batch_size_per_gpu) {
-    //         int local_batch_id = batch_id - gpu_id * batch_size_per_gpu;
-    //         std::vector<float> gi;
-    //         int start =
-    //             ev_offset_list_[embedding_id] * batch_size_per_gpu + local_batch_id * ev_size;
-    //         int end = start + ev_size;
-    //         for (int i = start; i < end; ++i) {
-    //           gi.push_back(HugeCTR::TypeConvert<float, emb_t>::convert(top_grads[gpu_id][i]));
-    //         }
-    //         for (size_t i = 0; i < gi.size(); ++i) {
-    //           if (grad_info_in_current_id_space.find(k) == grad_info_in_current_id_space.end()) {
-    //             grad_info_in_current_id_space[k].assign(ev_size, 0.f);
-    //           }
-    //           grad_info_in_current_id_space[k][i] += gi[i];
-    //         }
-    //       }
-    //     }
-    //   }
-    // }
   }
 
   void embedding_forward_cpu(const std::vector<key_t> &t_keys,
@@ -332,10 +350,11 @@ class DataParallelEmbeddingCPU {
   }
 
   void embedding_backward_cpu(const std::vector<std::vector<emb_t>> &top_grads,
+                              const std::vector<offset_t> &bucket_range,
                               std::vector<std::unordered_map<key_t, std::vector<float>>> &grad_info,
                               int batch_size) {
     for (int gpu_id = 0; gpu_id < num_gpus_; ++gpu_id) {
-      cpu_dp_local_reduce_per_gpu(gpu_id, top_grads, grad_info, batch_size);
+      cpu_dp_local_reduce_per_gpu(gpu_id, top_grads, bucket_range, grad_info, batch_size);
     }
   }
 };

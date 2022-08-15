@@ -33,8 +33,7 @@ class DPModelForward {
 
   void compute(const TensorList &dp_ev, const Tensor &dp_offset, const Tensor &dp_dst,
                Tensor &output_buffer, const Tensor &d_local_ev_size_list,
-               const Tensor &d_local_combiner_list, const Tensor &d_ev_size_offset,
-               int batch_size) const;
+               const Tensor &d_ev_size_offset, int batch_size, int max_ev_size) const;
 };
 
 class ModelForward {
@@ -50,6 +49,6 @@ class ModelForward {
 
   void compute(const TensorList &mp_ev, const Tensor &model_offset, TensorList &model_comm_buffer,
                const Tensor &d_local_ev_size_list, const Tensor &d_local_ev_size_offset,
-               int batch_size);
+               int batch_size, int max_ev_size);
 };
 }  // namespace embedding

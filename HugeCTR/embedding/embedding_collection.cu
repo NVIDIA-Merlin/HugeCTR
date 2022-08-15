@@ -15,6 +15,7 @@
  */
 #include <cub/cub.cuh>
 
+#include "HugeCTR/include/utils.hpp"
 #include "core/registry.hpp"
 #include "embedding_collection.hpp"
 
@@ -162,7 +163,7 @@ PreprocessInput::PreprocessInput(std::shared_ptr<CoreResourceManager> core,
       num_embedding_(ebc_param.num_embedding),
       num_flatten_embedding_(0),
       is_table_first_input_(ebc_param.is_table_first_input) {
-  CudaDeviceContext ctx(core_->get_device_id());
+  HugeCTR::CudaDeviceContext ctx(core_->get_device_id());
   Device device{DeviceType::GPU};
   int universal_batch_size = ebc_param.universal_batch_size;
   auto key_type = ebc_param.key_type;
@@ -211,7 +212,7 @@ PreprocessInput::PreprocessInput(std::shared_ptr<CoreResourceManager> core,
 
 void PreprocessInput::compute(const Tensor &key, const Tensor &bucket_range, size_t num_key,
                               Tensor *preprocessed_key, Tensor *preprocessed_bucket_range) {
-  CudaDeviceContext ctx(core_->get_device_id());
+  HugeCTR::CudaDeviceContext ctx(core_->get_device_id());
   int batch_size = (bucket_range.get_num_elements() - 1) / num_embedding_;
 
   *preprocessed_key = key;
@@ -259,7 +260,7 @@ void PreprocessInput::compute(const Tensor &key, const Tensor &bucket_range, siz
 ProcessOutput::ProcessOutput(std::shared_ptr<CoreResourceManager> core,
                              const EmbeddingCollectionParam &ebc_param)
     : core_(core), num_flatten_embedding_(0) {
-  CudaDeviceContext ctx(core_->get_device_id());
+  HugeCTR::CudaDeviceContext ctx(core_->get_device_id());
 
   std::vector<int> original_embedding_id_list;
   std::vector<int> start_embedding_id_list;
@@ -311,7 +312,7 @@ ProcessOutput::ProcessOutput(std::shared_ptr<CoreResourceManager> core,
 void ProcessOutput::compute(const Tensor &flatten_combiner_list, const Tensor &flatten_ev_size_list,
                             const Tensor &flatten_ev_offset_list, Tensor &output_buffer,
                             int batch_size) {
-  CudaDeviceContext ctx(core_->get_device_id());
+  HugeCTR::CudaDeviceContext ctx(core_->get_device_id());
 
   DISPATCH_FLOAT_AND_HALF_FUNCTION(output_buffer.dtype().type(), emb_t, [&] {
     auto stream = core_->get_local_gpu()->get_stream();
@@ -335,7 +336,7 @@ void ProcessOutput::compute(const Tensor &flatten_combiner_list, const Tensor &f
 ProcessOutputBackward::ProcessOutputBackward(std::shared_ptr<CoreResourceManager> core,
                                              const EmbeddingCollectionParam &ebc_param)
     : core_(core), num_flatten_embedding_(0) {
-  CudaDeviceContext ctx(core_->get_device_id());
+  HugeCTR::CudaDeviceContext ctx(core_->get_device_id());
 
   std::vector<int> original_embedding_id_list;
   std::vector<int> start_embedding_id_list;
@@ -388,7 +389,7 @@ void ProcessOutputBackward::compute(const Tensor &flatten_combiner_list,
                                     const Tensor &flatten_ev_size_list,
                                     const Tensor &flatten_ev_offset_list, Tensor &output_buffer,
                                     int batch_size_per_gpu, Tensor *t_output_buffer) {
-  CudaDeviceContext ctx(core_->get_device_id());
+  HugeCTR::CudaDeviceContext ctx(core_->get_device_id());
 
   DISPATCH_FLOAT_AND_HALF_FUNCTION(output_buffer.dtype().type(), emb_t, [&] {
     auto stream = core_->get_local_gpu()->get_stream();

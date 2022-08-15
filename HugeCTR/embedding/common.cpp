@@ -42,6 +42,65 @@ std::ostream &operator<<(std::ostream &os, const EmbeddingParam &p) {
   return os;
 }
 
+EmbeddingShardingParam::EmbeddingShardingParam(int num_embedding,
+                                               const EmbeddingShardParam &shard_param,
+                                               int global_gpu_id)
+    : table_placement_strategy(shard_param.table_placement_strategy) {
+  shard_id = -1;
+  for (int embedding_id = 0; embedding_id < num_embedding; ++embedding_id) {
+    if (shard_param.shard_matrix[global_gpu_id][embedding_id] < 0) {
+      continue;
+    }
+    local_embedding_list.push_back(embedding_id);
+    if (shard_id < 0) {
+      shard_id = shard_param.shard_matrix[global_gpu_id][embedding_id];
+      shards_count = shard_param.shard_count_list[embedding_id];
+    } else {
+      HCTR_CHECK_HINT(shard_id == shard_param.shard_matrix[global_gpu_id][embedding_id],
+                      "Current implementation does not support multiple shard id in one gpu");
+      HCTR_CHECK_HINT(shards_count == shard_param.shard_count_list[embedding_id],
+                      "Current implementation does not support multiple num sharding in one gpu");
+    }
+  }
+
+  int global_gpu_count = static_cast<int>(shard_param.shard_matrix.size());
+  global_embedding_list.resize(global_gpu_count);
+  for (int gpu_id = 0; gpu_id < global_gpu_count; ++gpu_id) {
+    for (int embedding_id = 0; embedding_id < num_embedding; ++embedding_id) {
+      if (shard_param.shard_matrix[gpu_id][embedding_id] < 0) {
+        continue;
+      }
+      global_embedding_list[gpu_id].push_back(embedding_id);
+    }
+  }
+}
+
+EmbeddingShardParam::EmbeddingShardParam(const std::vector<std::vector<int>> _shard_matrix,
+                                         TablePlacementStrategy _tps)
+    : shard_matrix(_shard_matrix), table_placement_strategy(_tps) {
+  HCTR_CHECK_HINT(shard_matrix.size() > 0, "empty shard matrix");
+  int num_embedding = static_cast<int>(shard_matrix[0].size());
+  int num_gpu = static_cast<int>(shard_matrix.size());
+  shard_count_list.assign(num_embedding, 0);
+  for (int embedding_id = 0; embedding_id < num_embedding; ++embedding_id) {
+    for (int gpu_id = 0; gpu_id < num_gpu; ++gpu_id) {
+      if (shard_matrix[gpu_id][embedding_id] < 0) continue;
+      if (table_placement_strategy == TablePlacementStrategy::DataParallel) {
+        HCTR_CHECK_HINT(shard_matrix[gpu_id][embedding_id] == num_gpu,
+                        "data parallel shard matrix check error");
+      }
+      shard_count_list[embedding_id] += 1;
+    }
+  }
+  if (table_placement_strategy == TablePlacementStrategy::DataParallel) {
+    for (int embedding_id = 0; embedding_id < num_embedding; ++embedding_id) {
+      HCTR_CHECK_HINT(
+          shard_count_list[embedding_id] == 0 || shard_count_list[embedding_id] == num_gpu,
+          "data parallel shard matrix check error");
+    }
+  }
+}
+
 void flatten_concat_embedding(EmbeddingCollectionParam *_ebc_param,
                               std::vector<std::vector<EmbeddingShardingParam>> *_ebs_param) {
   auto &ebc_param = *_ebc_param;

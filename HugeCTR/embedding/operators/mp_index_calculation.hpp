@@ -17,7 +17,6 @@
 
 #include "HugeCTR/core/buffer.hpp"
 #include "HugeCTR/core/registry.hpp"
-
 namespace embedding {
 using core::CoreResourceManager;
 using core::DataType;
@@ -26,8 +25,7 @@ using core::DeviceType;
 using core::Shape;
 using core::Tensor;
 using core::TensorList;
-using HugeCTR::CudaDeviceContext;
-using HugeCTR::TensorScalarType;
+using core::TensorScalarType;
 
 class ModelIndexCalculation {
   std::shared_ptr<CoreResourceManager> core_;
@@ -104,4 +102,33 @@ class ModelBackwardIndexCalculation {
                Tensor* sorted_bucket_id_list, Tensor* sorted_bucket_id_offset,
                Tensor* unique_id_space_list, Tensor* unique_id_space_offset);
 };
+
+struct RaggedNetworkIndex {
+  Tensor network_idx_;
+  Tensor network_offset_;
+  Tensor network_dst_;
+
+  Tensor gpu_idx_offset_;
+  std::vector<Tensor> global_ev_offset_list_;
+  TensorList global_ev_offset_;
+
+  RaggedNetworkIndex() = default;
+
+  RaggedNetworkIndex(std::shared_ptr<CoreResourceManager> core, int batch_size,
+                     const std::vector<std::vector<int>>& global_embedding_list,
+                     const std::vector<int>& ev_size_list);
+};
+
+struct RaggedNetworkBuffer {
+  std::vector<Tensor> network_comm_buffer_list_;
+  TensorList network_comm_buffer_;
+  std::vector<size_t> network_comm_buffer_size_;
+
+  RaggedNetworkBuffer() = default;
+
+  RaggedNetworkBuffer(std::shared_ptr<CoreResourceManager> core, int batch_size,
+                      const std::vector<std::vector<int>>& global_embedding_list,
+                      const std::vector<int>& ev_size_list, DataType emb_type);
+};
+
 }  // namespace embedding

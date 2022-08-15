@@ -161,6 +161,12 @@ class EmbeddingReferenceCPU {
                       hotness * ev_size, std::back_inserter(grad_ev));
         }
 
+        if (combiner == Combiner::Average) {
+          for (size_t i = 0; i < grad_ev.size(); ++i) {
+            float gi = HugeCTR::TypeConvert<float, emb_t>::convert(grad_ev[i]);
+            grad_ev[i] = HugeCTR::TypeConvert<emb_t, float>::convert(gi / (end - start));
+          }
+        }
         for (int r = 0; r < static_cast<int>(end - start); ++r) {
           key_t k = keys[start + r];
           if (accumulate_grad_map_[id_space].find(k) == accumulate_grad_map_[id_space].end()) {

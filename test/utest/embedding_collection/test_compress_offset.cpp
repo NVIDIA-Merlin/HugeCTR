@@ -20,13 +20,14 @@
 #include "HugeCTR/core/hctr_impl/hctr_backend.hpp"
 #include "HugeCTR/embedding/operators/compress_offset.hpp"
 #include "HugeCTR/include/resource_managers/resource_manager_ext.hpp"
+#include "HugeCTR/include/utils.hpp"
 using namespace embedding;
 
 TEST(test_compress_offset, test_compress_offset) {
   Device device{DeviceType::GPU, 0};
   auto resource_manager = HugeCTR::ResourceManagerExt::create({{0}}, 0);
   auto core = std::make_shared<hctr_internal::HCTRCoreResourceManager>(resource_manager, 0);
-  CudaDeviceContext context(device.index());
+  HugeCTR::CudaDeviceContext context(device.index());
   int batch_size = 5;
   int num_table = 2;
   int num_offset = batch_size * num_table + 1;

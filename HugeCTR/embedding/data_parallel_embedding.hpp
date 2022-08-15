@@ -35,6 +35,7 @@ class UniformDPEmbeddingForward : public IEmbeddingForward {
   DPLocalReduceIndexCalculation dp_local_reduce_index_calculation_;
   CompressOffset compress_offset_;
   DPModelForward dp_model_forward_;
+  AverageCominber average_combiner_;
 
   TensorList embedding_vec_;
 
@@ -56,6 +57,7 @@ class UniformDPEmbeddingBackward : public IEmbeddingBackward {
 
   DPLocalReduce dp_local_reduce_;
   NcclAllReduceInplaceComm allreduce_comm_;
+  AverageCominber average_combiner_;
 
  public:
   UniformDPEmbeddingBackward(std::shared_ptr<CoreResourceManager> core,

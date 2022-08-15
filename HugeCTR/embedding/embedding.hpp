@@ -84,5 +84,4 @@ class IEmbeddingBackward {
                                 size_t *num_grad_key_id_space_offset, Tensor *grad_ev,
                                 Tensor *grad_ev_offset) = 0;
 };
-
 }  // namespace embedding
