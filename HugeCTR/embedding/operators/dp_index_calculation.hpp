@@ -26,8 +26,7 @@ using core::DeviceType;
 using core::Shape;
 using core::Tensor;
 using core::TensorList;
-using HugeCTR::CudaDeviceContext;
-using HugeCTR::TensorScalarType;
+using core::TensorScalarType;
 
 class DPIndexCalculation {
   std::shared_ptr<CoreResourceManager> core_;

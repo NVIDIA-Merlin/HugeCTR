@@ -15,11 +15,12 @@
  */
 #include "embedding_planner.hpp"
 
+#include <fstream>
 #include <nlohmann/json.hpp>
+#include <set>
 #include <unordered_set>
 
 #include "embedding_collection.hpp"
-
 namespace embedding {
 
 EmbeddingPlanner::EmbeddingPlanner(const EmbeddingCollectionParam &param) : param_(param) {}

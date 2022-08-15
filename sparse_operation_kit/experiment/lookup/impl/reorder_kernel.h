@@ -1,0 +1,51 @@
+/*
+ * Copyright (c) 2022, NVIDIA CORPORATION.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#ifndef REORDER_KERNEL_H
+#define REORDER_KERNEL_H
+
+#include <stddef.h>
+#include <stdint.h>
+
+#include <vector>
+
+namespace sok {
+
+template <typename DType>
+class ReorderLauncher {
+ public:
+  void initialize();
+  void operator()(const void* embedding, size_t num_keys, size_t dimension, const void* order,
+                  void* output, cudaStream_t stream = 0);
+
+ private:
+  int sm_count_;
+};
+
+template <typename DType>
+class GatherExLauncher {
+ public:
+  void initialize();
+  void operator()(const void* grads, size_t num_keys, size_t dimension, const void* indices,
+                  void* output, cudaStream_t stream = 0);
+
+ private:
+  int sm_count_;
+};
+
+}  // namespace sok
+
+#endif

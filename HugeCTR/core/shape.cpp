@@ -19,6 +19,20 @@
 
 namespace core {
 
+int64_t Shape::operator[](size_t idx) const {
+  HCTR_CHECK_HINT(idx < shape_.size(), "out of dims on shape %s", str().c_str());
+  return shape_[idx];
+}
+
+int64_t Shape::num_elements() const {
+  int64_t elements = 1;
+  for (int64_t dim : shape_) {
+    HCTR_CHECK_HINT(dim >= 0, "shape has negative value and is not legal %s", str().c_str());
+    elements *= dim;
+  }
+  return elements;
+}
+
 bool Shape::operator==(const Shape &other) const {
   return size() == other.size() && [&] {
     for (size_t i = 0; i < other.size(); ++i) {

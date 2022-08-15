@@ -115,6 +115,7 @@ include_directories(
     ${PROJECT_SOURCE_DIR}/hps_cc/hps_cc_infra/include/
     ${PROJECT_SOURCE_DIR}/hps_cc/framework/kernels/
     ${PROJECT_SOURCE_DIR}/../
+    ${PROJECT_SOURCE_DIR}/../HugeCTR/
     ${PROJECT_SOURCE_DIR}/../HugeCTR/include
     ${PROJECT_SOURCE_DIR}/../third_party
     ${PROJECT_SOURCE_DIR}/../third_party/parallel-hashmap

@@ -16,9 +16,10 @@
 
 #include "buffer.hpp"
 
+#include "HugeCTR/include/utils.hpp"
 #include "core.hpp"
-
 namespace core {
+using HugeCTR::CudaDeviceContext;
 
 BufferBlockImpl::BufferBlockImpl(CoreResourceManager *backend, Device device)
     : storage_(backend->CreateStorage(device)), device_(device) {}

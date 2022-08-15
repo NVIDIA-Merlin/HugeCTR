@@ -19,7 +19,6 @@
 #include "HugeCTR/core/registry.hpp"
 
 namespace embedding {
-using HugeCTR::CudaDeviceContext;
 
 class ModelBackward {
   std::shared_ptr<CoreResourceManager> core_;
@@ -38,7 +37,7 @@ class ModelBackward {
   void compute(const TensorList &model_comm_buffer, const Tensor &unique_key_ev_size_offset,
                const Tensor &unique_key_bucket_idx, const Tensor &unique_key_bucket_idx_offset,
                size_t num_unique_key, const Tensor &d_local_ev_size_offset, int batch_size,
-               Tensor *grad_ev);
+               int max_ev_size, Tensor *grad_ev);
 };
 
 class DPLocalReduce {
@@ -59,7 +58,7 @@ class DPLocalReduce {
   void compute(const Tensor &top_grad, const Tensor &unique_dst_idx,
                const Tensor &sorted_bucket_id_list, const Tensor &sorted_bucket_id_offset,
                size_t num_unique_key, const Tensor &d_ev_size_offset, int batch_size,
-               Tensor *grad_ev);
+               int max_ev_size, Tensor *grad_ev);
 };
 
 }  // namespace embedding

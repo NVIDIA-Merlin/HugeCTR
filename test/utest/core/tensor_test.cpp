@@ -21,6 +21,7 @@
 
 #include "HugeCTR/core/hctr_impl/hctr_backend.hpp"
 #include "HugeCTR/include/resource_managers/resource_manager_ext.hpp"
+#include "HugeCTR/include/utils.hpp"
 namespace {
 using namespace core;
 
@@ -118,7 +119,7 @@ TEST(test_core, tensor_list) {
 
   auto buffer_ptr = GetBuffer(core);
   for (int i = 0; i < 2; ++i) {
-    CudaDeviceContext ctx(i);
+    HugeCTR::CudaDeviceContext ctx(i);
     std::vector<Tensor> tmp_tensors;
     for (int j = 0; j < 2; ++j) {
       tmp_tensors.push_back(buffer_ptr->reserve({1}, DeviceType::GPU, TensorScalarType::Int32));

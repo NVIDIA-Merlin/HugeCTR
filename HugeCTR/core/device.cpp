@@ -17,6 +17,8 @@
 
 #include <sstream>
 
+#include "HugeCTR/include/base/debug/logger.hpp"
+
 namespace core {
 
 inline std::string DeviceTypeName(DeviceType d) {
@@ -35,6 +37,14 @@ inline std::string DeviceTypeName(DeviceType d) {
 #endif
   }
   return "";
+}
+
+Device::Device(DeviceType type, int index) : type_(type), index_(static_cast<DeviceIndex>(index)) {
+  if (is_gpu() && index == -1) {
+    int device_id;
+    HCTR_LIB_THROW(cudaGetDevice(&device_id));
+    index_ = device_id;
+  }
 }
 
 std::ostream &operator<<(std::ostream &os, DeviceType type) {

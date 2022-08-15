@@ -23,8 +23,10 @@
 
 namespace core {
 
+#if __cplusplus >= 201703L
 template <typename T>
 inline constexpr bool is_integer = std::is_integral_v<T> || std::is_unsigned_v<T>;
+#endif
 
 class Shape final {
   std::vector<int64_t> shape_;
@@ -32,6 +34,7 @@ class Shape final {
  public:
   Shape() = default;
 
+#if __cplusplus >= 201703L
   template <typename... T, typename = typename std::enable_if_t<(is_integer<T> && ...)> >
   constexpr Shape(T... s) {
     (shape_.push_back(static_cast<int64_t>(s)), ...);
@@ -43,22 +46,20 @@ class Shape final {
       shape_.push_back(static_cast<int64_t>(s[i]));
     }
   }
-
-  int64_t operator[](size_t idx) const {
-    HCTR_CHECK_HINT(idx < shape_.size(), "out of dims on shape %s", str().c_str());
-    return shape_[idx];
+#else
+  template <typename T>
+  constexpr Shape(const std::vector<T> &s) {
+    for (size_t i = 0; i < s.size(); ++i) {
+      shape_.push_back(static_cast<int64_t>(s[i]));
+    }
   }
+#endif
+
+  int64_t operator[](size_t idx) const;
 
   size_t size() const { return shape_.size(); }
 
-  int64_t num_elements() const {
-    int64_t elements = 1;
-    for (int64_t dim : shape_) {
-      HCTR_CHECK_HINT(dim >= 0, "shape has negative value and is not legal %s", str().c_str());
-      elements *= dim;
-    }
-    return elements;
-  }
+  int64_t num_elements() const;
 
   bool operator==(const Shape &other) const;
 

@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include <cuda_profiler_api.h>
+
 #include <HugeCTR/include/base/debug/logger.hpp>
 #include <HugeCTR/include/resource_managers/resource_manager_ext.hpp>
 #include <algorithm>

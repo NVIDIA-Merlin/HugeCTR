@@ -120,6 +120,12 @@ include_directories(
     ${PROJECT_SOURCE_DIR}/kit_cc/kit_cc_infra/third_party/
     ${PROJECT_SOURCE_DIR}/kit_cc/framework/kernels/
     ${PROJECT_SOURCE_DIR}/kit_cc_impl/embedding/
+    ${PROJECT_SOURCE_DIR}/../
+    ${PROJECT_SOURCE_DIR}/../HugeCTR/
+    ${PROJECT_SOURCE_DIR}/../HugeCTR/include
+    ${PROJECT_SOURCE_DIR}/../HugeCTR/core
+    ${PROJECT_SOURCE_DIR}/../HugeCTR/embedding
+    ${PROJECT_SOURCE_DIR}/../third_party/json/include
     ${CUDA_INCLUDE_DIRS}
     ${NCCL_INC_PATHS}
     ${MPI_INCLUDE_PATH}
@@ -130,6 +136,7 @@ include_directories(
 link_directories(
     ${NCCL_LIB_PATHS}
     ${TF_LINK_DIR}/
+    /usr/local/cuda/lib64/
 )
 
 # code sources related to framework
@@ -181,9 +188,19 @@ file(GLOB test_op
     ${PROJECT_SOURCE_DIR}/Plugin/framework/ops/test_op.cc
 )
 
+
 # build dynamic lib
 add_library(sparse_operation_kit SHARED ${framework} ${kit_infra} ${kit_impl})
 target_link_libraries(sparse_operation_kit PUBLIC ${TF_LINK_FLAGS} nccl cusparse ${MPI_CXX_LIBRARIES})
+
+configure_file(${PROJECT_SOURCE_DIR}/../HugeCTR/include/config.hpp.in ${PROJECT_SOURCE_DIR}/../HugeCTR/include/config.hpp)
+add_subdirectory(../HugeCTR/core core.out)
+add_subdirectory(../HugeCTR/embedding embedding.out)
+# file(GLOB core_impl
+#     ${PROJECT_SOURCE_DIR}/experiment/lookup/impl/core_impl/*.cpp
+# )
+# add_library(tf_impl_ops_test SHARED ${core_impl})
+# target_link_libraries(tf_impl_ops_test PUBLIC ${TF_LINK_FLAGS} nccl cusparse ${MPI_CXX_LIBRARIES} core embedding)
 
 if (USE_NVTX)
     target_link_libraries(sparse_operation_kit PUBLIC ${NVTX_LIB})
@@ -201,3 +218,5 @@ if (SOK_UNIT_TEST)
     message(STATUS "Compile SOK unit test")
     add_subdirectory(unit_test)
 endif()
+
+add_subdirectory(${PROJECT_SOURCE_DIR}/experiment)

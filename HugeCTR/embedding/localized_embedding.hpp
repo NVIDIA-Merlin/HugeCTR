@@ -27,26 +27,6 @@
 namespace embedding {
 using namespace core;
 
-struct RaggedNetworkBuffer {
-  Tensor network_idx_;
-  Tensor network_offset_;
-  Tensor network_dst_;
-
-  Tensor gpu_idx_offset_;
-  std::vector<Tensor> global_ev_offset_list_;
-  TensorList global_ev_offset_;
-
-  std::vector<Tensor> network_comm_buffer_list_;
-  TensorList network_comm_buffer_;
-  std::vector<size_t> network_comm_buffer_size_;
-
-  RaggedNetworkBuffer() = default;
-
-  RaggedNetworkBuffer(std::shared_ptr<CoreResourceManager> core, int batch_size,
-                      const std::vector<std::vector<int>> &global_embedding_list,
-                      const std::vector<int> &ev_size_list, DataType emb_type);
-};
-
 class UniformLocalizedEmbeddingForward : public IEmbeddingForward {
   std::shared_ptr<CoreResourceManager> core_;
   const GlobalEmbeddingData &global_embedding_data_;
@@ -58,7 +38,9 @@ class UniformLocalizedEmbeddingForward : public IEmbeddingForward {
   ModelForward model_forward_;
   NcclAll2AllComm all2all_comm_;
   NetworkForward network_forward_;
+  AverageCominber average_combiner_;
 
+  RaggedNetworkIndex ragged_network_index_;
   RaggedNetworkBuffer ragged_network_buffer_;
 
   TensorList embedding_vec_;
@@ -91,6 +73,7 @@ class UniformLocalizedEmbeddingBackward : public IEmbeddingBackward {
   NetworkBackward network_backward_;
   NcclAll2AllComm all2all_comm_;
   ModelBackward model_backward_;
+  AverageCominber average_combiner_;
 
  public:
   UniformLocalizedEmbeddingBackward(std::shared_ptr<CoreResourceManager> core,

@@ -23,7 +23,6 @@
 #include "HugeCTR/include/resource_managers/resource_manager_ext.hpp"
 
 using namespace embedding;
-using HugeCTR::TensorScalarTypeFunc;
 
 template <typename key_t, typename index_t>
 void test_ragged_static_embedding_table(int device_id) {
@@ -31,8 +30,8 @@ void test_ragged_static_embedding_table(int device_id) {
   auto resource_manager = HugeCTR::ResourceManagerExt::create({device_list}, 0);
   auto core = std::make_shared<hctr_internal::HCTRCoreResourceManager>(resource_manager, 0);
 
-  auto key_type = TensorScalarTypeFunc<key_t>::get_type();
-  auto index_type = TensorScalarTypeFunc<index_t>::get_type();
+  auto key_type = HugeCTR::TensorScalarTypeFunc<key_t>::get_type();
+  auto index_type = HugeCTR::TensorScalarTypeFunc<index_t>::get_type();
 
   std::vector<EmbeddingTableParam> param_list;
   int num_embedding_table = 3;
@@ -128,8 +127,8 @@ void test_dynamic_embedding_table(int device_id) {
   auto resource_manager = HugeCTR::ResourceManagerExt::create({device_list}, 0);
   auto core = std::make_shared<hctr_internal::HCTRCoreResourceManager>(resource_manager, 0);
 
-  auto key_type = TensorScalarTypeFunc<key_t>::get_type();
-  auto index_type = TensorScalarTypeFunc<index_t>::get_type();
+  auto key_type = HugeCTR::TensorScalarTypeFunc<key_t>::get_type();
+  auto index_type = HugeCTR::TensorScalarTypeFunc<index_t>::get_type();
 
   std::vector<EmbeddingTableParam> param_list;
   int num_embedding_table = 3;

@@ -15,6 +15,7 @@
  */
 #include "data_parallel_embedding.hpp"
 
+#include "HugeCTR/include/utils.hpp"
 namespace embedding {
 
 UniformDPEmbeddingForward::UniformDPEmbeddingForward(
@@ -24,7 +25,7 @@ UniformDPEmbeddingForward::UniformDPEmbeddingForward(
     : core_(core),
       global_embedding_data_(global_embedding_data),
       local_embedding_data_(core, params, embedding_sharding_param) {
-  CudaDeviceContext context(core->get_device_id());
+  HugeCTR::CudaDeviceContext context(core->get_device_id());
 
   int num_gpus = core_->get_global_gpu_count();
   int universal_batch_size = params.universal_batch_size;
@@ -50,13 +51,21 @@ UniformDPEmbeddingForward::UniformDPEmbeddingForward(
 
   dp_model_forward_ = DPModelForward(core_, num_gpus, global_embedding_data_.num_embedding_,
                                      local_embedding_data_.num_local_embedding_);
+  if (std::find(local_embedding_data_.h_local_combiner_list_.begin(),
+                local_embedding_data_.h_local_combiner_list_.end(),
+                static_cast<char>(Combiner::Average)) !=
+      local_embedding_data_.h_local_combiner_list_.end()) {
+    average_combiner_ =
+        AverageCominber(core, num_gpus, local_embedding_data_.num_local_embedding_,
+                        global_embedding_data_.h_ev_size_list_, params.universal_batch_size);
+  }
 }
 
 void UniformDPEmbeddingForward::forward_per_gpu(const Tensor &keys, const Tensor &bucket_range,
                                                 size_t num_keys, const Tensor &sparse_weight,
                                                 ILookup *embedding_table, Tensor &output_buffer,
                                                 ContextContainer *context_container) {
-  CudaDeviceContext context(core_->get_device_id());
+  HugeCTR::CudaDeviceContext context(core_->get_device_id());
   int batch_size = (bucket_range.get_num_elements() - 1) / global_embedding_data_.num_embedding_;
   int batch_size_per_gpu = batch_size / core_->get_global_gpu_count();
 
@@ -83,16 +92,30 @@ void UniformDPEmbeddingForward::forward_per_gpu(const Tensor &keys, const Tensor
   embedding_table->lookup(dp_key, num_dp_key, id_space_offset,
                           local_embedding_data_.num_local_embedding_ + 1,
                           local_embedding_data_.d_local_id_space_list_, embedding_vec_);
-
-  dp_model_forward_.compute(embedding_vec_, dp_offset, dp_dst, output_buffer,
-                            local_embedding_data_.d_local_ev_size_list_,
-                            local_embedding_data_.d_local_combiner_list_,
-                            global_embedding_data_.d_ev_size_offset_, batch_size);
+  if (std::find(local_embedding_data_.h_local_combiner_list_.begin(),
+                local_embedding_data_.h_local_combiner_list_.end(),
+                static_cast<char>(Combiner::Average)) !=
+      local_embedding_data_.h_local_combiner_list_.end()) {
+    dp_model_forward_.compute(embedding_vec_, dp_offset, dp_dst, average_combiner_.float_emb_vec_,
+                              local_embedding_data_.d_local_ev_size_list_,
+                              global_embedding_data_.d_ev_size_offset_, batch_size,
+                              local_embedding_data_.max_ev_size_);
+    average_combiner_.forward(
+        bucket_range, output_buffer, local_embedding_data_.d_local_embedding_list_,
+        global_embedding_data_.d_combiner_list_, global_embedding_data_.d_ev_size_offset_,
+        batch_size, local_embedding_data_.max_ev_size_);
+  } else {
+    dp_model_forward_.compute(embedding_vec_, dp_offset, dp_dst, output_buffer,
+                              local_embedding_data_.d_local_ev_size_list_,
+                              global_embedding_data_.d_ev_size_offset_, batch_size,
+                              local_embedding_data_.max_ev_size_);
+  }
 
   context_container->pack("dp_key", dp_key);
   context_container->pack("dp_offset", dp_offset);
   context_container->pack("num_dp_key", num_dp_key);
 
+  context_container->pack("bucket_range", bucket_range);
   context_container->pack("batch_size", batch_size);
   context_container->pack("unique_key", unique_key);
   context_container->pack("num_unique_key", num_unique_key);
@@ -110,7 +133,7 @@ UniformDPEmbeddingBackward::UniformDPEmbeddingBackward(
     : core_(core),
       global_embedding_data_(global_embedding_data),
       local_embedding_data_(core, params, embedding_sharding_param) {
-  CudaDeviceContext context(core_->get_device_id());
+  HugeCTR::CudaDeviceContext context(core_->get_device_id());
 
   int num_gpus = core_->get_global_gpu_count();
   dp_local_reduce_ =
@@ -118,6 +141,14 @@ UniformDPEmbeddingBackward::UniformDPEmbeddingBackward(
                     local_embedding_data_.h_local_hotness_list_,
                     local_embedding_data_.h_local_ev_size_list_, params.universal_batch_size);
   allreduce_comm_ = NcclAllReduceInplaceComm(core_);
+  if (std::find(local_embedding_data_.h_local_combiner_list_.begin(),
+                local_embedding_data_.h_local_combiner_list_.end(),
+                static_cast<char>(Combiner::Average)) !=
+      local_embedding_data_.h_local_combiner_list_.end()) {
+    average_combiner_ =
+        AverageCominber(core, num_gpus, local_embedding_data_.num_local_embedding_,
+                        global_embedding_data_.h_ev_size_list_, params.universal_batch_size);
+  }
 }
 
 void UniformDPEmbeddingBackward::backward_per_gpu(ContextContainer *context_container,
@@ -126,9 +157,10 @@ void UniformDPEmbeddingBackward::backward_per_gpu(ContextContainer *context_cont
                                                   Tensor *unique_id_space_offset,
                                                   size_t *num_unique_key_id_space_offset,
                                                   Tensor *grad_ev, Tensor *unique_dst_idx) {
-  CudaDeviceContext context(core_->get_device_id());
+  HugeCTR::CudaDeviceContext context(core_->get_device_id());
 
   int batch_size = context_container->unpack<int>("batch_size");
+  auto bucket_range = context_container->unpack<Tensor>("bucket_range");
   *unique_key = context_container->unpack<Tensor>("unique_key");
   *num_unique_key = context_container->unpack<size_t>("num_unique_key");
   *unique_id_space_offset = context_container->unpack<Tensor>("unique_id_space_offset");
@@ -137,10 +169,23 @@ void UniformDPEmbeddingBackward::backward_per_gpu(ContextContainer *context_cont
   auto sorted_bucket_id_list = context_container->unpack<Tensor>("sorted_bucket_id_list");
   auto sorted_bucket_id_offset = context_container->unpack<Tensor>("sorted_bucket_id_offset");
   auto d_ev_size_offset = global_embedding_data_.d_ev_size_offset_;
-
-  dp_local_reduce_.compute(top_grad, *unique_dst_idx, sorted_bucket_id_list,
-                           sorted_bucket_id_offset, *num_unique_key, d_ev_size_offset, batch_size,
-                           grad_ev);
+  if (std::find(local_embedding_data_.h_local_combiner_list_.begin(),
+                local_embedding_data_.h_local_combiner_list_.end(),
+                static_cast<char>(Combiner::Average)) !=
+      local_embedding_data_.h_local_combiner_list_.end()) {
+    average_combiner_.backward(
+        bucket_range, top_grad, local_embedding_data_.d_local_embedding_list_,
+        global_embedding_data_.d_combiner_list_, global_embedding_data_.d_ev_size_offset_,
+        batch_size, local_embedding_data_.max_ev_size_);
+    dp_local_reduce_.compute(average_combiner_.float_emb_vec_, *unique_dst_idx,
+                             sorted_bucket_id_list, sorted_bucket_id_offset, *num_unique_key,
+                             d_ev_size_offset, batch_size, local_embedding_data_.max_ev_size_,
+                             grad_ev);
+  } else {
+    dp_local_reduce_.compute(top_grad, *unique_dst_idx, sorted_bucket_id_list,
+                             sorted_bucket_id_offset, *num_unique_key, d_ev_size_offset, batch_size,
+                             local_embedding_data_.max_ev_size_, grad_ev);
+  }
 
   if (do_allreduce) {
     allreduce_comm_.communicate(*grad_ev, grad_ev->get_num_elements());

@@ -13,8 +13,8 @@
 
 
 cmake_minimum_required(VERSION 3.17)
-find_package(CUDAToolkit)
-include_directories(/opt/conda/include)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CUDA_STANDARD 17)
 
 file(GLOB core_src 
 *.cpp
@@ -25,14 +25,6 @@ option(ENABLE_HCTR "Enable HugeCTR backend" OFF)
 if(ENABLE_HCTR)
   file(GLOB hctr_impl ./hctr_impl/*.cpp)
   set(core_src ${core_src} ${hctr_impl})
-endif()
-
-option(ENABLE_TF "Enable TF backend" OFF)
-if(ENABLE_TF)
-  include_directories(/usr/local/lib/python3.8/dist-packages/tensorflow/include)
-  link_directories(/usr/local/lib/python3.8/dist-packages/tensorflow)
-  file(GLOB tf_impl ./tf_impl/*.cpp)
-  set(core_src ${core_src} ${tf_impl})
 endif()
 
 message(STATUS "foo include dir: ${core_src}")

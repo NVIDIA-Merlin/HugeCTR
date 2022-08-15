@@ -28,42 +28,42 @@
     break;                                               \
   }
 
-#define DISPATCH_INTEGRAL_FUNCTION(DATA_TYPE, HINT, ...)                                 \
-  switch (DATA_TYPE) {                                                                   \
-    CASE_TYPE_USING_HINT(HugeCTR::TensorScalarType::Int64, int64_t, HINT, __VA_ARGS__)   \
-    CASE_TYPE_USING_HINT(HugeCTR::TensorScalarType::Int32, int32_t, HINT, __VA_ARGS__)   \
-    CASE_TYPE_USING_HINT(HugeCTR::TensorScalarType::UInt64, uint64_t, HINT, __VA_ARGS__) \
-    CASE_TYPE_USING_HINT(HugeCTR::TensorScalarType::UInt32, uint32_t, HINT, __VA_ARGS__) \
-    CASE_TYPE_USING_HINT(HugeCTR::TensorScalarType::Size_t, size_t, HINT, __VA_ARGS__)   \
-    default:                                                                             \
-      HCTR_OWN_THROW(HugeCTR::Error_t::IllegalCall,                                      \
-                     "DISPATCH_INTEGRAL_FUNCTION do not support type");                  \
+#define DISPATCH_INTEGRAL_FUNCTION(DATA_TYPE, HINT, ...)                              \
+  switch (DATA_TYPE) {                                                                \
+    CASE_TYPE_USING_HINT(core::TensorScalarType::Int64, int64_t, HINT, __VA_ARGS__)   \
+    CASE_TYPE_USING_HINT(core::TensorScalarType::Int32, int32_t, HINT, __VA_ARGS__)   \
+    CASE_TYPE_USING_HINT(core::TensorScalarType::UInt64, uint64_t, HINT, __VA_ARGS__) \
+    CASE_TYPE_USING_HINT(core::TensorScalarType::UInt32, uint32_t, HINT, __VA_ARGS__) \
+    CASE_TYPE_USING_HINT(core::TensorScalarType::Size_t, size_t, HINT, __VA_ARGS__)   \
+    default:                                                                          \
+      HCTR_OWN_THROW(HugeCTR::Error_t::IllegalCall,                                   \
+                     "DISPATCH_INTEGRAL_FUNCTION do not support type");               \
   }
 
-#define DISPATCH_SIGNED_INTEGRAL_FUNCTION(DATA_TYPE, HINT, ...)                        \
-  switch (DATA_TYPE) {                                                                 \
-    CASE_TYPE_USING_HINT(HugeCTR::TensorScalarType::Int64, int64_t, HINT, __VA_ARGS__) \
-    CASE_TYPE_USING_HINT(HugeCTR::TensorScalarType::Int32, int32_t, HINT, __VA_ARGS__) \
-    default:                                                                           \
-      HCTR_OWN_THROW(HugeCTR::Error_t::IllegalCall,                                    \
-                     "DISPATCH_SIGNED_INTEGRAL_FUNCTION do not support type");         \
+#define DISPATCH_SIGNED_INTEGRAL_FUNCTION(DATA_TYPE, HINT, ...)                     \
+  switch (DATA_TYPE) {                                                              \
+    CASE_TYPE_USING_HINT(core::TensorScalarType::Int64, int64_t, HINT, __VA_ARGS__) \
+    CASE_TYPE_USING_HINT(core::TensorScalarType::Int32, int32_t, HINT, __VA_ARGS__) \
+    default:                                                                        \
+      HCTR_OWN_THROW(HugeCTR::Error_t::IllegalCall,                                 \
+                     "DISPATCH_SIGNED_INTEGRAL_FUNCTION do not support type");      \
   }
 
-#define DISPATCH_UNSIGNED_INTEGRAL_FUNCTION(DATA_TYPE, HINT, ...)                        \
-  switch (DATA_TYPE) {                                                                   \
-    CASE_TYPE_USING_HINT(HugeCTR::TensorScalarType::UInt64, uint64_t, HINT, __VA_ARGS__) \
-    CASE_TYPE_USING_HINT(HugeCTR::TensorScalarType::UInt32, uint32_t, HINT, __VA_ARGS__) \
-    CASE_TYPE_USING_HINT(HugeCTR::TensorScalarType::Size_t, size_t, HINT, __VA_ARGS__)   \
-    default:                                                                             \
-      HCTR_OWN_THROW(HugeCTR::Error_t::IllegalCall,                                      \
-                     "DISPATCH_UNSIGNED_INTEGRAL_FUNCTION do not support type");         \
+#define DISPATCH_UNSIGNED_INTEGRAL_FUNCTION(DATA_TYPE, HINT, ...)                     \
+  switch (DATA_TYPE) {                                                                \
+    CASE_TYPE_USING_HINT(core::TensorScalarType::UInt64, uint64_t, HINT, __VA_ARGS__) \
+    CASE_TYPE_USING_HINT(core::TensorScalarType::UInt32, uint32_t, HINT, __VA_ARGS__) \
+    CASE_TYPE_USING_HINT(core::TensorScalarType::Size_t, size_t, HINT, __VA_ARGS__)   \
+    default:                                                                          \
+      HCTR_OWN_THROW(HugeCTR::Error_t::IllegalCall,                                   \
+                     "DISPATCH_UNSIGNED_INTEGRAL_FUNCTION do not support type");      \
   }
 
-#define DISPATCH_FLOAT_AND_HALF_FUNCTION(DATA_TYPE, HINT, ...)                          \
-  switch (DATA_TYPE) {                                                                  \
-    CASE_TYPE_USING_HINT(HugeCTR::TensorScalarType::Float32, float, HINT, __VA_ARGS__)  \
-    CASE_TYPE_USING_HINT(HugeCTR::TensorScalarType::Float16, __half, HINT, __VA_ARGS__) \
-    default:                                                                            \
-      HCTR_OWN_THROW(HugeCTR::Error_t::IllegalCall,                                     \
-                     "DISPATCH_FLOAT_AND_HALF_FUNCTION do not support type");           \
+#define DISPATCH_FLOAT_AND_HALF_FUNCTION(DATA_TYPE, HINT, ...)                       \
+  switch (DATA_TYPE) {                                                               \
+    CASE_TYPE_USING_HINT(core::TensorScalarType::Float32, float, HINT, __VA_ARGS__)  \
+    CASE_TYPE_USING_HINT(core::TensorScalarType::Float16, __half, HINT, __VA_ARGS__) \
+    default:                                                                         \
+      HCTR_OWN_THROW(HugeCTR::Error_t::IllegalCall,                                  \
+                     "DISPATCH_FLOAT_AND_HALF_FUNCTION do not support type");        \
   }
