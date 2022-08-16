@@ -64,6 +64,11 @@ class Layer {
   virtual void bprop() = 0;
 
   virtual std::string get_no_trained_params_in_string() { return std::string(); }
+
+  virtual std::vector<TensorBag2> get_tensors_for_non_trainable_params() {
+    return std::vector<TensorBag2>();
+  }
+
   void init_params(const curandGenerator_t& generator);
 
   Layer(const std::shared_ptr<GPUResource>& gpu_resource,

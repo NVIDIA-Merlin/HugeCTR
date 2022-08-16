@@ -122,7 +122,7 @@ class HugeCTRLoader(object):
         self.__layers = len(self.__layers_config)
         self.__index = 0
         self.__embedding_counter = 0
-        if self.__ntp_file != None:
+        if self.__ntp_file != None and len(self.__ntp_file) > 0:
             self.__ntp_config = json.load(open(self.__ntp_file, "rb"))["layers"]
         else:
             self.__ntp_config = None
