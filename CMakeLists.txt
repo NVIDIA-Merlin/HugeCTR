@@ -134,13 +134,13 @@ foreach(arch_name ${cuda_arch_list})
     set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_${arch_name},code=sm_${arch_name}")
 endforeach()
 
-set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS} -Wall -Werror")
-set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -Wall -Werror -Wno-unknown-pragmas")
+set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS} -Wall -Werror -Wno-unused-function -Wno-unused-variable -Wno-unused-but-set-variable -Wno-maybe-uninitialized -Wno-format-truncation -Wno-sign-compare -Wno-error=stringop-overflow=")
+set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -Wall -Werror -Wno-unknown-pragmas -Wno-sign-compare -Wno-stringop-overflow -Wno-maybe-uninitialized")
 #TODO: the warning should not be suppresed in the  long term
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -rdc=true -Xcompiler -Wall,-Werror,-Wno-error=cpp,-Wno-error=parentheses -Xcudafe --display_error_number -Xcudafe --diag_suppress=177")
 
-set(CMAKE_C_FLAGS_DEBUG    "${CMAKE_C_FLAGS_DEBUG} -O0 -g -Wall -Werror")
-set(CMAKE_CXX_FLAGS_DEBUG  "${CMAKE_CXX_FLAGS_DEBUG} -O0 -g -Wall -Werror -Wno-unknown-pragmas -Wno-sign-compare")
+set(CMAKE_C_FLAGS_DEBUG    "${CMAKE_C_FLAGS_DEBUG} -O0 -g -Wall -Werror -Wno-unused-function -Wno-unused-variable -Wno-unused-but-set-variable -Wno-maybe-uninitialized -Wno-format-truncation -Wno-sign-compare -Wno-error=stringop-overflow=")
+set(CMAKE_CXX_FLAGS_DEBUG  "${CMAKE_CXX_FLAGS_DEBUG} -O0 -g -Wall -Werror -Wno-unknown-pragmas -Wno-sign-compare -Wno-stringop-overflow -Wno-maybe-uninitialized")
 set(CMAKE_CUDA_FLAGS_DEBUG "${CMAKE_CUDA_FLAGS_DEBUG} -O0 -G -Xcompiler -Wall,-Werror,-Wno-error=cpp,-Wno-error=parentheses,-Wno-sign-compare")
 
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-extended-lambda --expt-relaxed-constexpr")
@@ -184,6 +184,11 @@ include_directories(
   ${PROJECT_SOURCE_DIR}/third_party/json/single_include
   ${PROJECT_SOURCE_DIR}/third_party/parallel-hashmap
   ${PROJECT_SOURCE_DIR}/third_party/xxhash
+  ${PROJECT_SOURCE_DIR}/third_party/redis_pp/src
+  ${PROJECT_SOURCE_DIR}/third_party/redis_pp/src/sw/redis++/no_tls
+  ${PROJECT_SOURCE_DIR}/third_party/redis_pp/src/sw/redis++/cxx17
+  ${PROJECT_SOURCE_DIR}/third_party/rocksdb/include
+  ${PROJECT_SOURCE_DIR}/third_party/librdkafka/src
   ${PROJECT_SOURCE_DIR}/gpu_cache/include
   ${PROJECT_SOURCE_DIR}/HugeCTR/embedding_storage/dynamic_embedding_table
 
@@ -214,6 +219,8 @@ link_directories(
   ${SHARP_LIB_PATHS}
   $ENV{CONDA_PREFIX}/lib)
 
+#install dependencies
+add_subdirectory(third_party)
 #setting python interface file install path
 install(DIRECTORY ${CMAKE_BINARY_DIR}/lib DESTINATION hugectr)
 #install inference header files
@@ -227,8 +234,13 @@ add_subdirectory(gpu_cache/test)
 
 option(ENABLE_HDFS "Enable HDFS" OFF)
 if(ENABLE_HDFS)
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}    -DENABLE_HDFS")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}    -DENABLE_HDFS")
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}    -DENABLE_HDFS")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}    -DENABLE_HDFS")
+
+  # Build and Install Hadoop
+  include(SetupHadoop)
+  set(HADOOP_VER "3.3.2")
+  hadoop_setup(${HADOOP_VER})
 endif()
 
 option(ENABLE_INFERENCE "Enable Inference" OFF)

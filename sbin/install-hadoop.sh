@@ -9,6 +9,7 @@ HADOOP_VER="$1"
 
 SCRIPT_DIR=$(dirname ${BASH_SOURCE[0]})
 cd ${SCRIPT_DIR}
+source hadoop.sh
 
 # Extract files and delete archive.
 mkdir -p ${HADOOP_HOME}/logs
@@ -67,5 +68,3 @@ To run a single-node hadoop instance (for development only):
 
 "
 
-# Self-delete.
-rm -rf ${BASH_SOURCE[0]}
