@@ -15,9 +15,9 @@
  */
 
 #include "buffer.hpp"
-
 #include "HugeCTR/include/utils.hpp"
 #include "core.hpp"
+
 namespace core {
 using HugeCTR::CudaDeviceContext;
 

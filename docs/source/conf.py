@@ -75,7 +75,7 @@ myst_enable_extensions = [
 ]
 myst_linkify_fuzzy_links = False
 myst_heading_anchors = 4
-jupyter_execute_notebooks = "off"
+nb_execution_mode = "off"
 
 # Some documents are RST and include `.. toctree::` directives.
 suppress_warnings = ["etoc.toctree", "myst.header", "misc.highlighting_failure"]
