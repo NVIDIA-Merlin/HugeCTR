@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e
 
 srun --ntasks=4 --container-image="${CONT}" --container-mounts="${MOUNTS}" --network sharp bash -cx " \
       cd /dataset/criteo_kaggle/dcn &&

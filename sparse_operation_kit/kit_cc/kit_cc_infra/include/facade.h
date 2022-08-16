@@ -80,9 +80,8 @@ class Facade final {
   template <typename InitializerType>
   void create_variables(const size_t local_replica_id, const InitializerType initializer,
                         const bool use_hashtable, const std::vector<int64_t> shape,
-                        const std::string name, const bool trainable, 
-                        const tensorflow::DataType dtype,
-                        const tensorflow::DataType key_dtype,
+                        const std::string name, const bool trainable,
+                        const tensorflow::DataType dtype, const tensorflow::DataType key_dtype,
                         tensorflow::core::RefCountPtr<tensorflow::EmbeddingVariable>& emb_variable,
                         tensorflow::Tensor* emb_tensor);
 
@@ -93,8 +92,7 @@ class Facade final {
       const std::string embedding_executor, const std::string output_dispatcher,
       const std::vector<std::string>& output_dispatcher_subsequent_ops, const size_t slot_num,
       const size_t max_nnz, const size_t max_feature_num, const std::string combiner,
-      const tensorflow::DataType compute_dtype,
-      tensorflow::Tensor* emb_handle);
+      const tensorflow::DataType compute_dtype, tensorflow::Tensor* emb_handle);
 
   void create_embedding_dense(
       const tensorflow::core::RefCountPtr<tensorflow::EmbeddingVariable>& variable,
@@ -102,7 +100,7 @@ class Facade final {
       const std::vector<std::string>& input_dispatcher_subsequent_ops,
       const std::string embedding_executor, const std::string output_dispatcher,
       const std::vector<std::string>& output_dispatcher_subsequent_ops, const size_t slot_num,
-      const size_t nnz_per_slot, const tensorflow::DataType compute_dtype, 
+      const size_t nnz_per_slot, const tensorflow::DataType compute_dtype,
       tensorflow::Tensor* emb_handle);
 
   void create_optimizer(const std::string optimizer_type, tensorflow::Tensor* optimizer_handle,
@@ -119,8 +117,7 @@ class Facade final {
                tensorflow::Tensor* h_replica_nnz_tensor);
   void forward(const tensorflow::Tensor* emb_handle, const tensorflow::Tensor* values_tensor,
                const size_t global_replica_id, const bool training,
-               tensorflow::Tensor* emb_vector_tensor,
-               tensorflow::Tensor* h_replica_nnz_tensor);
+               tensorflow::Tensor* emb_vector_tensor, tensorflow::Tensor* h_replica_nnz_tensor);
   void backward(const tensorflow::Tensor* emb_handle, const size_t global_replica_id,
                 const tensorflow::Tensor* top_gradient_tensor, tensorflow::Tensor* gradient_tensor,
                 tensorflow::Tensor* value_index_tensor);

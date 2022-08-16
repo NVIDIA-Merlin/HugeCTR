@@ -451,7 +451,9 @@ class Logger final {
   void abort(const SrcLoc& loc, const char* format = nullptr, ...) const;
   template <typename Condition>
   void check_lazy(const Condition& condition, const SrcLoc& loc) {
-    check(condition(), loc);
+    if (condition() == false) {
+      abort(loc);
+    }
   }
   void do_throw(HugeCTR::Error_t error_type, const SrcLoc& loc, const std::string& message) const;
   int get_rank();

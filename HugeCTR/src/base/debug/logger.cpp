@@ -20,7 +20,6 @@
 
 #include <algorithm>
 #include <base/debug/logger.hpp>
-#include <resource_managers/resource_manager_ext.hpp>
 #include <chrono>
 #include <common.hpp>
 #include <cstdarg>
@@ -28,6 +27,7 @@
 #include <cstdlib>
 #include <exception>
 #include <iostream>
+#include <resource_managers/resource_manager_ext.hpp>
 #include <string>
 #include <thread>
 

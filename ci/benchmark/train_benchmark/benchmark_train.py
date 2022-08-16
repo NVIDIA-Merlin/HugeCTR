@@ -169,9 +169,7 @@ def create_dcn(solver):
             label_name="label",
             dense_dim=13,
             dense_name="dense",
-            data_reader_sparse_param_array=[
-                hugectr.DataReaderSparseParam("data1", 2, False, 26)
-            ],
+            data_reader_sparse_param_array=[hugectr.DataReaderSparseParam("data1", 2, False, 26)],
         )
     )
     model.add(
@@ -296,9 +294,7 @@ def create_deepfm(solver):
             label_name="label",
             dense_dim=13,
             dense_name="dense",
-            data_reader_sparse_param_array=[
-                hugectr.DataReaderSparseParam("data1", 2, False, 26)
-            ],
+            data_reader_sparse_param_array=[hugectr.DataReaderSparseParam("data1", 2, False, 26)],
         )
     )
     model.add(
@@ -808,7 +804,7 @@ def multi_node_test():
     parser.add_argument("--batchsize_per_gpu", type=int, required=True)
     parser.add_argument("--node_num", type=int, required=True, default=1)
     parser.add_argument("--gpu_num", type=int, required=True, default=1)
-    parser.add_argument("--use_mixed_precision", action='store_true', default=False)
+    parser.add_argument("--use_mixed_precision", action="store_true", default=False)
     args = parser.parse_args()
 
     vvgpu = [[g for g in range(args.gpu_num)] for _ in range(args.node_num)]

@@ -22,10 +22,11 @@
 #include "utest/test_utils.h"
 
 using namespace HugeCTR;
+using namespace std;
 
 namespace {
 
-const float eps = 1e-6;
+const float eps = 1e-4;
 
 template <typename T>
 void sum_ex_cpu(T* top, int embedding_vector_size, int dim0, T* workspace) {
@@ -48,6 +49,20 @@ void ex_cpu(T* top, const T* bottom, int len) {
 }
 
 template <typename T>
+void sum_grad_softmax(const T* d_top, const T* softmax_out, int embedding_vector_size, int dim0,
+                      T* workspace) {
+  for (int i = 0; i < dim0; i++) {
+    float grad_sum = 0.0;
+    int offset = i * embedding_vector_size;
+    for (int j = 0; j < embedding_vector_size; j++) {
+      grad_sum += (float)(d_top[offset + j] * softmax_out[offset + j]);
+    }
+    workspace[i] = static_cast<T>(grad_sum);
+    // printf("CPU grad_sum %d: %f\n", i, workspace[i]);
+  }
+}
+
+template <typename T>
 void softmax_fprop_cpu(T* top, const T* bottom, int len, int embedding_vector_size) {
   int dim0 = len / embedding_vector_size;
   T* workspace = new T[dim0];
@@ -66,23 +81,17 @@ void softmax_fprop_cpu(T* top, const T* bottom, int len, int embedding_vector_si
 }
 
 template <typename T>
-void softmax_bprop_cpu(T* d_bottom, const T* d_top, const T* bottom, int len,
+void softmax_bprop_cpu(T* d_bottom, const T* d_top, const T* softmax_out, int len,
                        int embedding_vector_size) {
   int dim0 = len / embedding_vector_size;
   T* workspace = new T[dim0];
-  // e^xi
-  ex_cpu(d_bottom, bottom, len);
-  // sum(e^xi) i = [0, len - 1];
-  sum_ex_cpu(d_bottom, embedding_vector_size, dim0, workspace);
-  // softmax derivative :
-  // q(x) = e^xi / sum(e^xi);
-  // f(x) = q(x) * (1 - q(x) / sum(e^xi));
-  // Y = f(x)*d_top i = [0, len - 1];
+
+  sum_grad_softmax(d_top, softmax_out, embedding_vector_size, dim0, workspace);
   for (int i = 0; i < dim0; i++) {
     for (int j = 0; j < embedding_vector_size; j++) {
       int index = i * embedding_vector_size + j;
-      d_bottom[index] = d_bottom[index] / workspace[i] *
-                        (1 - d_bottom[index] / pow(workspace[i], 2.0)) * d_top[index];
+      d_bottom[index] = softmax_out[index] * (d_top[index] - workspace[i]);
+      // d_bottom[index] = workspace[i];
     }
   }
   delete workspace;
@@ -107,6 +116,7 @@ void softmax_test(size_t dim0, size_t embedding_vector_size) {
 
   std::unique_ptr<T[]> h_bottom(new T[len]);
   std::unique_ptr<T[]> h_top(new T[len]);
+  std::unique_ptr<T[]> h_softmax_out(new T[len]);
   std::unique_ptr<T[]> d2h_top(new T[len]);
   std::unique_ptr<T[]> h_bottom_grad(new T[len]);
   std::unique_ptr<T[]> d2h_bottom_grad(new T[len]);
@@ -129,26 +139,27 @@ void softmax_test(size_t dim0, size_t embedding_vector_size) {
   // bprop
   simulator.fill(h_top.get(), len);
 
+  softmax_fprop_cpu<T>(h_softmax_out.get(), h_bottom.get(), len, embedding_vector_size);
   HCTR_LIB_THROW(
       cudaMemcpy(top_tensor.get_ptr(), h_top.get(), len * sizeof(T), cudaMemcpyHostToDevice));
+  HCTR_LIB_THROW(cudaMemcpy(softmax_layer.get_softmax_tensor().get_ptr(), h_softmax_out.get(),
+                            len * sizeof(T), cudaMemcpyHostToDevice));
   HCTR_LIB_THROW(cudaDeviceSynchronize());
   softmax_layer.bprop();
   HCTR_LIB_THROW(cudaDeviceSynchronize());
   HCTR_LIB_THROW(cudaMemcpy(d2h_bottom_grad.get(), bottom_tensor.get_ptr(), len * sizeof(T),
                             cudaMemcpyDeviceToHost));
 
-  softmax_bprop_cpu<T>(h_bottom_grad.get(), h_top.get(), h_bottom.get(), len,
+  softmax_bprop_cpu<T>(h_bottom_grad.get(), h_top.get(), h_softmax_out.get(), len,
                        embedding_vector_size);
   ASSERT_TRUE(test::compare_array_approx<T>(d2h_bottom_grad.get(), h_bottom_grad.get(), len, eps));
 }
 
 }  // namespace
 
-TEST(softmax_layer, fp32_10x20) { softmax_test<float>(10, 20); }
 TEST(softmax_layer, fp32_100x100) { softmax_test<float>(100, 100); }
-TEST(softmax_layer, fp32_100x500) { softmax_test<float>(100, 500); }
+TEST(softmax_layer, fp32_100x128) { softmax_test<float>(100, 128); }
+TEST(softmax_layer, fp32_256x384) { softmax_test<float>(256, 384); }
 TEST(softmax_layer, fp32_512x512) { softmax_test<float>(512, 512); }
-TEST(softmax_layer, fp32_512x1048) { softmax_test<float>(512, 1024); }
-TEST(softmax_layer, fp32_512x2048) { softmax_test<float>(512, 1024 * 2); }
-TEST(softmax_layer, fp32_1048x512) { softmax_test<float>(1024, 512); }
-TEST(softmax_layer, fp32_2048x512) { softmax_test<float>(1024 * 2, 512); }
+TEST(softmax_layer, fp32_256x1024) { softmax_test<float>(256, 1024); }
+TEST(softmax_layer, fp32_1024x512) { softmax_test<float>(1024, 512); }

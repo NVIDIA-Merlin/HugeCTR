@@ -1,4 +1,4 @@
-# 
+#
 # Copyright (c) 2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -48,15 +48,12 @@ ONNX_LAYER_TYPES = {
     "WeightMultiply",
     "BinaryCrossEntropyLoss",
     "CrossEntropyLoss",
-    "MultiCrossEntropyLoss"}
-
-EXEMPTION_LAYER_TYPES = {
- "Cast",
- "FusedReshapeConcatGeneral",
- "GRU",
- "Gather",
- "ReLUHalf"
+    "MultiCrossEntropyLoss",
+    "SequenceMask",
 }
+
+EXEMPTION_LAYER_TYPES = {"Cast", "FusedReshapeConcatGeneral", "GRU", "Gather", "ReLUHalf"}
+
 
 def get_tensor_names(clause):
     if isinstance(clause, list):
@@ -66,10 +63,10 @@ def get_tensor_names(clause):
     else:
         return []
 
+
 class LayerParams(object):
     def __init__(self):
-        """Create LayerParams for HugeCTR
-        """
+        """Create LayerParams for HugeCTR"""
         self.layer_type = ""
         # Input Layer
         self.label_name = ""
@@ -101,9 +98,13 @@ class LayerParams(object):
         self.weight_dims = []
         self.out_dim = 0
         self.axis = 1
+        self.max_sequence_len = 1
+
 
 class HugeCTRLoader(object):
-    def __init__(self, graph_config, dense_model, convert_embedding = False, sparse_models = None, ntp_file = None):
+    def __init__(
+        self, graph_config, dense_model, convert_embedding=False, sparse_models=None, ntp_file=None
+    ):
         """Create HugeCTRLoader
         Args:
             graph_config: str, model graph configuration JSON file
@@ -121,7 +122,7 @@ class HugeCTRLoader(object):
         self.__layers = len(self.__layers_config)
         self.__index = 0
         self.__embedding_counter = 0
-        if self.__ntp_file != None:
+        if self.__ntp_file != None and len(self.__ntp_file) > 0:
             self.__ntp_config = json.load(open(self.__ntp_file, "rb"))["layers"]
         else:
             self.__ntp_config = None
@@ -133,10 +134,17 @@ class HugeCTRLoader(object):
         for i in range(self.layers):
             layer_config = self.__layers_config[i]
             layer_type = layer_config["type"]
-            if layer_type == "DistributedSlotSparseEmbeddingHash" or layer_type == "LocalizedSlotSparseEmbeddingHash":
-                max_vocab_size_global = layer_config["sparse_embedding_hparam"]["max_vocabulary_size_global"]
+            if (
+                layer_type == "DistributedSlotSparseEmbeddingHash"
+                or layer_type == "LocalizedSlotSparseEmbeddingHash"
+            ):
+                max_vocab_size_global = layer_config["sparse_embedding_hparam"][
+                    "max_vocabulary_size_global"
+                ]
                 self.__vocab_size_all_tables += max_vocab_size_global
-        self.__key_to_indice_hash_all_tables = np.zeros(shape=(self.__vocab_size_all_tables,), dtype=np.int64)
+        self.__key_to_indice_hash_all_tables = np.zeros(
+            shape=(self.__vocab_size_all_tables,), dtype=np.int64
+        )
 
     @property
     def key_to_indice_hash_all_tables(self):
@@ -174,16 +182,31 @@ class HugeCTRLoader(object):
             self.__dimensions[layer_params.label_name] = layer_params.label_dim
             self.__dimensions[layer_params.dense_name] = layer_params.dense_dim
             layer_weights_dict["key_to_indice_hash_all_tables"] = self.key_to_indice_hash_all_tables
-        elif layer_type == "DistributedSlotSparseEmbeddingHash" or layer_type == "LocalizedSlotSparseEmbeddingHash":
+        elif (
+            layer_type == "DistributedSlotSparseEmbeddingHash"
+            or layer_type == "LocalizedSlotSparseEmbeddingHash"
+        ):
             embedding_vec_size = layer_config["sparse_embedding_hparam"]["embedding_vec_size"]
-            self.__dimensions[layer_config["top"]] = (self.__dimensions[layer_config["bottom"]][0], embedding_vec_size)
+            self.__dimensions[layer_config["top"]] = (
+                self.__dimensions[layer_config["bottom"]][0],
+                embedding_vec_size,
+            )
             if self.__convert_embeddding:
-                layer_params.combiner = 0 if layer_config["sparse_embedding_hparam"]["combiner"] == "sum" else 1
-                max_vocab_size_global = layer_config["sparse_embedding_hparam"]["max_vocabulary_size_global"]
+                layer_params.combiner = (
+                    0 if layer_config["sparse_embedding_hparam"]["combiner"] == "sum" else 1
+                )
+                max_vocab_size_global = layer_config["sparse_embedding_hparam"][
+                    "max_vocabulary_size_global"
+                ]
                 # indice 0 is reserved for default values of non-exisiting keys
-                embedding_table = np.zeros(shape=(max_vocab_size_global + 1, embedding_vec_size), dtype=np.float32)
-                with open(self.__sparse_models[self.__embedding_counter]+ "/key", 'rb') as key_file, \
-                    open(self.__sparse_models[self.__embedding_counter]+ "/emb_vector", 'rb') as vec_file:
+                embedding_table = np.zeros(
+                    shape=(max_vocab_size_global + 1, embedding_vec_size), dtype=np.float32
+                )
+                with open(
+                    self.__sparse_models[self.__embedding_counter] + "/key", "rb"
+                ) as key_file, open(
+                    self.__sparse_models[self.__embedding_counter] + "/emb_vector", "rb"
+                ) as vec_file:
                     try:
                         # indice 0 is reserved for default values of non-exisiting keys
                         indice = 1
@@ -192,7 +215,7 @@ class HugeCTRLoader(object):
                             vec_buffer = vec_file.read(4 * embedding_vec_size)
                             if len(key_buffer) == 0 or len(vec_buffer) == 0:
                                 break
-                            key = struct.unpack('q', key_buffer)[0]
+                            key = struct.unpack("q", key_buffer)[0]
                             values = struct.unpack(str(embedding_vec_size) + "f", vec_buffer)
                             self.key_to_indice_hash_all_tables[key] = indice
                             embedding_table[indice] = values
@@ -209,45 +232,45 @@ class HugeCTRLoader(object):
             layer_params.factor = layer_config["bn_param"]["factor"]
             layer_params.eps = layer_config["bn_param"]["eps"]
             self.__dimensions[layer_config["top"]] = self.__dimensions[layer_config["bottom"]]
-            in_feature =  self.__dimensions[layer_config["bottom"]]
+            in_feature = self.__dimensions[layer_config["bottom"]]
             layer_bytes = in_feature * 4 * 2
-            with open(self.__dense_model, 'rb') as file:
+            with open(self.__dense_model, "rb") as file:
                 file.seek(self.__offset, 0)
                 buffer = file.read(layer_bytes)
-                gamma = struct.unpack(str(in_feature) + "f", buffer[ : in_feature * 4])
-                beta = struct.unpack(str(in_feature) + "f", buffer[in_feature * 4 : ])
-                gamma = np.reshape(np.float32(gamma), newshape=(in_feature, ))
-                beta = np.reshape(np.float32(beta), newshape=(in_feature, ))
+                gamma = struct.unpack(str(in_feature) + "f", buffer[: in_feature * 4])
+                beta = struct.unpack(str(in_feature) + "f", buffer[in_feature * 4 :])
+                gamma = np.reshape(np.float32(gamma), newshape=(in_feature,))
+                beta = np.reshape(np.float32(beta), newshape=(in_feature,))
             self.__offset += layer_bytes
             ntp_config = self.__ntp_config[self.__ntp_counter]
-            running_mean = np.array(ntp_config["mean"], dtype = np.float32)
-            running_variance = np.array(ntp_config["var"], dtype = np.float32)
+            running_mean = np.array(ntp_config["mean"], dtype=np.float32)
+            running_variance = np.array(ntp_config["var"], dtype=np.float32)
             self.__ntp_counter += 1
-            layer_weights_dict[layer_config["top"]+"_gamma"] = gamma
-            layer_weights_dict[layer_config["top"]+"_beta"] = beta
-            layer_weights_dict[layer_config["top"]+"_running_mean"] = running_mean
-            layer_weights_dict[layer_config["top"]+"_running_variance"] = running_variance
+            layer_weights_dict[layer_config["top"] + "_gamma"] = gamma
+            layer_weights_dict[layer_config["top"] + "_beta"] = beta
+            layer_weights_dict[layer_config["top"] + "_running_mean"] = running_mean
+            layer_weights_dict[layer_config["top"] + "_running_variance"] = running_variance
         elif layer_type == "LayerNorm":
             layer_params.eps = layer_config["ln_param"]["eps"]
             self.__dimensions[layer_config["top"]] = self.__dimensions[layer_config["bottom"]]
-            in_feature =  self.__dimensions[layer_config["bottom"]]
+            in_feature = self.__dimensions[layer_config["bottom"]]
             layer_bytes = in_feature * 4 * 2
-            with open(self.__dense_model, 'rb') as file:
+            with open(self.__dense_model, "rb") as file:
                 file.seek(self.__offset, 0)
                 buffer = file.read(layer_bytes)
-                gamma = struct.unpack(str(in_feature) + "f", buffer[ : in_feature * 4])
-                beta = struct.unpack(str(in_feature) + "f", buffer[in_feature * 4 : ])
-                gamma = np.reshape(np.float32(gamma), newshape=(in_feature, ))
-                beta = np.reshape(np.float32(beta), newshape=(in_feature, ))
+                gamma = struct.unpack(str(in_feature) + "f", buffer[: in_feature * 4])
+                beta = struct.unpack(str(in_feature) + "f", buffer[in_feature * 4 :])
+                gamma = np.reshape(np.float32(gamma), newshape=(in_feature,))
+                beta = np.reshape(np.float32(beta), newshape=(in_feature,))
             self.__offset += layer_bytes
-            #ntp_config = self.__ntp_config[self.__ntp_counter]
-            #running_mean = np.array(ntp_config["mean"], dtype = np.float32)
-            #running_variance = np.array(ntp_config["var"], dtype = np.float32)
-            #self.__ntp_counter += 1
-            layer_weights_dict[layer_config["top"]+"_gamma"] = gamma
-            layer_weights_dict[layer_config["top"]+"_beta"] = beta
-            #layer_weights_dict[layer_config["top"]+"_running_mean"] = running_mean
-            #layer_weights_dict[layer_config["top"]+"_running_variance"] = running_variance
+            # ntp_config = self.__ntp_config[self.__ntp_counter]
+            # running_mean = np.array(ntp_config["mean"], dtype = np.float32)
+            # running_variance = np.array(ntp_config["var"], dtype = np.float32)
+            # self.__ntp_counter += 1
+            layer_weights_dict[layer_config["top"] + "_gamma"] = gamma
+            layer_weights_dict[layer_config["top"] + "_beta"] = beta
+            # layer_weights_dict[layer_config["top"]+"_running_mean"] = running_mean
+            # layer_weights_dict[layer_config["top"]+"_running_variance"] = running_variance
 
         elif layer_type == "Concat":
             layer_params.axis = layer_config["axis"]
@@ -258,57 +281,68 @@ class HugeCTRLoader(object):
                     dims = self.__dimensions[tensor]
                     for i in range(len(dims)):
                         if i == axis_without_batch:
-                            dim = dim + dims[i]                                     
+                            dim = dim + dims[i]
                 else:
                     dim += self.__dimensions[tensor]
-            if isinstance(dim,tuple):
-                self.__dimensions[layer_config["top"]] = tuple([dims[i] if i != axis_without_batch else dim for i in range(len(self.__dimensions[layer_config["bottom"][0]]))]) 
+            if isinstance(dim, tuple):
+                self.__dimensions[layer_config["top"]] = tuple(
+                    [
+                        dims[i] if i != axis_without_batch else dim
+                        for i in range(len(self.__dimensions[layer_config["bottom"][0]]))
+                    ]
+                )
             else:
                 self.__dimensions[layer_config["top"]] = dim
         elif layer_type == "Dropout":
             layer_params.dropout_rate = layer_config["rate"]
             self.__dimensions[layer_config["top"]] = self.__dimensions[layer_config["bottom"]]
         elif layer_type == "ElementwiseMultiply":
-            self.__dimensions[layer_config["top"]] = self.__dimensions[layer_config["bottom"][0]]           
+            self.__dimensions[layer_config["top"]] = self.__dimensions[layer_config["bottom"][0]]
         elif layer_type == "ELU":
             layer_params.elu_alpha = layer_config["elu_param"]["alpha"]
             self.__dimensions[layer_config["top"]] = self.__dimensions[layer_config["bottom"]]
+        elif layer_type == "SequenceMask":
+            layer_params.max_sequence_len = layer_config["max_sequence_len"]
         elif layer_type == "FmOrder2":
             layer_params.out_dim = layer_config["out_dim"]
-            self.__dimensions[layer_config["top"]] = layer_params.out_dim        
+            self.__dimensions[layer_config["top"]] = layer_params.out_dim
         elif layer_type == "InnerProduct" or layer_type == "FusedInnerProduct":
             layer_params.num_output = layer_config["fc_param"]["num_output"]
             dim = self.__dimensions[layer_config["bottom"]]
-            if isinstance(dim,tuple):
+            if isinstance(dim, tuple):
                 seq_len = dim[0]
                 hidden_in = dim[1]
                 self.__dimensions[layer_config["top"]] = (seq_len, layer_params.num_output)
-                in_feature = hidden_in 
+                in_feature = hidden_in
             else:
                 self.__dimensions[layer_config["top"]] = layer_params.num_output
                 in_feature = self.__dimensions[layer_config["bottom"]]
             out_feature = layer_params.num_output
             layer_bytes = (in_feature * out_feature + 1 * out_feature) * 4
-            with open(self.__dense_model, 'rb') as file:
+            with open(self.__dense_model, "rb") as file:
                 file.seek(self.__offset, 0)
                 buffer = file.read(layer_bytes)
-                weight = struct.unpack(str(in_feature * out_feature) + "f", buffer[ : in_feature * out_feature * 4])
-                bias = struct.unpack(str(out_feature) + "f", buffer[in_feature * out_feature * 4 : ])
+                weight = struct.unpack(
+                    str(in_feature * out_feature) + "f", buffer[: in_feature * out_feature * 4]
+                )
+                bias = struct.unpack(str(out_feature) + "f", buffer[in_feature * out_feature * 4 :])
                 weight = np.reshape(np.float32(weight), newshape=(in_feature, out_feature))
                 bias = np.reshape(np.float32(bias), newshape=(1, out_feature))
             self.__offset += layer_bytes
-            layer_weights_dict[layer_config["top"]+"_weight"] = weight
-            layer_weights_dict[layer_config["top"]+"_bias"] = bias
+            layer_weights_dict[layer_config["top"] + "_weight"] = weight
+            layer_weights_dict[layer_config["top"] + "_bias"] = bias
         elif layer_type == "FusedReshapeConcat":
             num_output = 0
             for tensor_name in layer_params.bottom_names:
                 num_output += self.__dimensions[tensor_name][1]
             for tensor_name in layer_params.top_names:
-                self.__dimensions[tensor_name] = num_output        
+                self.__dimensions[tensor_name] = num_output
         elif layer_type == "Interaction":
             slot_num = self.__dimensions[layer_params.bottom_names[1]][0]
             vec_size = self.__dimensions[layer_params.bottom_names[1]][1]
-            self.__dimensions[layer_config["top"]] = vec_size + (slot_num + 1) * (slot_num + 2 ) // 2 - (slot_num + 1) + 1 
+            self.__dimensions[layer_config["top"]] = (
+                vec_size + (slot_num + 1) * (slot_num + 2) // 2 - (slot_num + 1) + 1
+            )
         elif layer_type == "MultiHeadAttention":
             dim1 = self.__dimensions[layer_params.bottom_names[0]]
             dim2 = self.__dimensions[layer_params.bottom_names[1]]
@@ -336,81 +370,105 @@ class HugeCTRLoader(object):
                 biases = []
                 each_layer_bytes = layer_bytes // num_layers
                 for i in range(num_layers):
-                    weight = struct.unpack(str(in_feature) + "f", buffer[i*each_layer_bytes : i*each_layer_bytes + in_feature * 4])
-                    bias = struct.unpack(str(in_feature) + "f", buffer[i*each_layer_bytes + in_feature * 4 : (i+1)*each_layer_bytes])
+                    weight = struct.unpack(
+                        str(in_feature) + "f",
+                        buffer[i * each_layer_bytes : i * each_layer_bytes + in_feature * 4],
+                    )
+                    bias = struct.unpack(
+                        str(in_feature) + "f",
+                        buffer[i * each_layer_bytes + in_feature * 4 : (i + 1) * each_layer_bytes],
+                    )
                     weights.append(np.reshape(np.float32(weight), newshape=(len(weight), 1)))
                     biases.append(np.reshape(np.float32(bias), newshape=(1, len(bias))))
             self.__offset += layer_bytes
-            layer_weights_dict[layer_config["top"]+"_weights"] = weights
-            layer_weights_dict[layer_config["top"]+"_biases"] = biases
+            layer_weights_dict[layer_config["top"] + "_weights"] = weights
+            layer_weights_dict[layer_config["top"] + "_biases"] = biases
         elif layer_type == "PReLU_Dice":
             layer_params.prelu_alpha = layer_config["prelu_dice_param"]["alpha"]
             layer_params.prelu_eps = layer_config["prelu_dice_param"]["eps"]
-            self.__dimensions[layer_config["top"]] = self.__dimensions[layer_config["bottom"]]        
+            self.__dimensions[layer_config["top"]] = self.__dimensions[layer_config["bottom"]]
         elif layer_type == "ReduceMean":
             # keepdims = 1, 0 < axis < N
             layer_params.axis = layer_config["axis"]
             axis_without_batch = layer_config["axis"] - 1
             if isinstance(self.__dimensions[layer_params.bottom_names[0]], tuple):
                 dims = self.__dimensions[layer_params.bottom_names[0]]
-                self.__dimensions[layer_params.top_names[0]] = tuple([dims[i] if i != axis_without_batch else 1 for i in range(len(dims))])
+                self.__dimensions[layer_params.top_names[0]] = tuple(
+                    [dims[i] if i != axis_without_batch else 1 for i in range(len(dims))]
+                )
             else:
-                dims = (self.__dimensions[layer_params.bottom_names[0]], )
-                self.__dimensions[layer_params.top_names[0]] = 1        
+                dims = (self.__dimensions[layer_params.bottom_names[0]],)
+                self.__dimensions[layer_params.top_names[0]] = 1
         elif layer_type == "ReduceSum":
             # keepdims = 1, 0 < axis < N
             layer_params.axis = layer_config["axis"]
             axis_without_batch = layer_config["axis"] - 1
             if isinstance(self.__dimensions[layer_params.bottom_names[0]], tuple):
                 dims = self.__dimensions[layer_params.bottom_names[0]]
-                self.__dimensions[layer_params.top_names[0]] = tuple([dims[i] if i != axis_without_batch else 1 for i in range(len(dims))])
+                self.__dimensions[layer_params.top_names[0]] = tuple(
+                    [dims[i] if i != axis_without_batch else 1 for i in range(len(dims))]
+                )
             else:
-                dims = (self.__dimensions[layer_params.bottom_names[0]], )
-                self.__dimensions[layer_params.top_names[0]] = 1        
+                dims = (self.__dimensions[layer_params.bottom_names[0]],)
+                self.__dimensions[layer_params.top_names[0]] = 1
         elif layer_type == "ReLU":
-            self.__dimensions[layer_config["top"]] = self.__dimensions[layer_config["bottom"]]        
+            self.__dimensions[layer_config["top"]] = self.__dimensions[layer_config["bottom"]]
         elif layer_type == "Reshape":
             layer_params.selected_slots = layer_config.get("selected")
             layer_params.selected = layer_params.selected_slots is not None
             if not layer_params.selected:
                 layer_params.leading_dim = layer_config["leading_dim"]
-                layer_params.reshape_time_step =  0 if layer_config.get("time_step") is None else layer_config["time_step"]
+                layer_params.reshape_time_step = (
+                    0 if layer_config.get("time_step") is None else layer_config["time_step"]
+                )
             else:
-                layer_params.leading_dim = len(layer_params.selected_slots) * self.__dimensions[layer_config["bottom"]][1]
+                layer_params.leading_dim = (
+                    len(layer_params.selected_slots) * self.__dimensions[layer_config["bottom"]][1]
+                )
             if layer_params.reshape_time_step == 0:
                 self.__dimensions[layer_config["top"]] = layer_params.leading_dim
             else:
-                self.__dimensions[layer_config["top"]] = (layer_params.reshape_time_step, layer_params.leading_dim)
+                self.__dimensions[layer_config["top"]] = (
+                    layer_params.reshape_time_step,
+                    layer_params.leading_dim,
+                )
         elif layer_type == "Scale":
             layer_params.scale_axis = layer_config["scale_param"]["axis"]
             layer_params.scale_factor = layer_config["scale_param"]["factor"]
             if layer_params.scale_axis == 0:
-                self.__dimensions[layer_config["top"]] = self.__dimensions[layer_config["bottom"]] * int(layer_params.scale_factor)
-            else: 
-                self.__dimensions[layer_config["top"]] = self.__dimensions[layer_config["bottom"]]        
+                self.__dimensions[layer_config["top"]] = self.__dimensions[
+                    layer_config["bottom"]
+                ] * int(layer_params.scale_factor)
+            else:
+                self.__dimensions[layer_config["top"]] = self.__dimensions[layer_config["bottom"]]
         elif layer_type == "Sigmoid":
-            self.__dimensions[layer_config["top"]] = self.__dimensions[layer_config["bottom"]]        
+            self.__dimensions[layer_config["top"]] = self.__dimensions[layer_config["bottom"]]
         elif layer_type == "Slice":
             layer_params.ranges = layer_config["ranges"]
             for tensor, dim in zip(layer_config["top"], layer_params.ranges):
-                self.__dimensions[tensor] = dim[1]-dim[0]
+                self.__dimensions[tensor] = dim[1] - dim[0]
         elif layer_type == "Softmax":
-            self.__dimensions[layer_config["top"]] = self.__dimensions[layer_config["bottom"]]        
+            layer_params.factor = layer_config["factor"]
+            self.__dimensions[layer_config["top"]] = self.__dimensions[layer_config["bottom"]]
         elif layer_type == "Sub":
-            self.__dimensions[layer_config["top"]] = self.__dimensions[layer_config["bottom"][0]]        
+            self.__dimensions[layer_config["top"]] = self.__dimensions[layer_config["bottom"][0]]
         elif layer_type == "WeightMultiply":
             layer_params.weight_dims = layer_config["weight_dims"]
-            self.__dimensions[layer_config["top"]] = layer_params.weight_dims[0] * layer_params.weight_dims[1]
+            self.__dimensions[layer_config["top"]] = (
+                layer_params.weight_dims[0] * layer_params.weight_dims[1]
+            )
             slot_num = layer_params.weight_dims[0]
             vec_size = layer_params.weight_dims[1]
             layer_bytes = slot_num * vec_size * 4
             with open(self.__dense_model, "rb") as file:
                 file.seek(self.__offset, 0)
                 buffer = file.read(layer_bytes)
-                weight = struct.unpack(str(slot_num * vec_size) + "f", buffer[ : slot_num * vec_size * 4])
+                weight = struct.unpack(
+                    str(slot_num * vec_size) + "f", buffer[: slot_num * vec_size * 4]
+                )
                 weight = np.reshape(np.float32(weight), newshape=(slot_num, vec_size))
             self.__offset += layer_bytes
-            layer_weights_dict[layer_config["top"]+"_weight"] = weight
+            layer_weights_dict[layer_config["top"] + "_weight"] = weight
         elif layer_type == "BinaryCrossEntropyLoss":
             layer_params.layer_type = "Sigmoid"
             pred_name = layer_params.bottom_names[0]
@@ -427,11 +485,11 @@ class HugeCTRLoader(object):
             layer_params.bottom_names = [pred_name]
             layer_params.top_names = []
         else:
-            raise ValueError(layer_type + " is not supported in HugeCTR to ONNX converter, please refer to "
-                            + "https://github.com/NVIDIA-Merlin/HugeCTR/tree/master/onnx_converter#layer-support "
-                            + "to see the supported layers.")
+            raise ValueError(
+                layer_type
+                + " is not supported in HugeCTR to ONNX converter, please refer to "
+                + "https://github.com/NVIDIA-Merlin/HugeCTR/tree/master/onnx_converter#layer-support "
+                + "to see the supported layers."
+            )
         self.__index += 1
-        return layer_params, layer_weights_dict, self.dimensions 
-
-
-      
+        return layer_params, layer_weights_dict, self.dimensions

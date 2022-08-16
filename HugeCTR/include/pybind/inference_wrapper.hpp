@@ -511,7 +511,7 @@ void InferencePybind(pybind11::module& m) {
                           const PersistentDatabaseParams&, const UpdateSourceParams&, const int,
                           const float, const float, const std::vector<size_t>&,
                           const std::vector<size_t>&, const std::vector<std::string>&,
-                          const std::string&, const size_t, const size_t>(),
+                          const std::string&, const size_t, const size_t, const std::string&>(),
 
            pybind11::arg("model_name"), pybind11::arg("max_batchsize"),
            pybind11::arg("hit_rate_threshold"), pybind11::arg("dense_model_file"),
@@ -537,7 +537,7 @@ void InferencePybind(pybind11::module& m) {
            pybind11::arg("embedding_vecsize_per_table") = std::vector<int>{128},
            pybind11::arg("embedding_table_names") = std::vector<std::string>{""},
            pybind11::arg("network_file") = "", pybind11::arg("label_dim") = 1,
-           pybind11::arg("slot_num") = 10);
+           pybind11::arg("slot_num") = 10, pybind11::arg("non_trainable_params_file") = "");
 
   infer.def("CreateInferenceSession", &HugeCTR::python_lib::CreateInferenceSession,
             pybind11::arg("model_config_path"), pybind11::arg("inference_params"));

@@ -54,10 +54,23 @@ class DataSourceBackend {
                    size_t offset) = 0;
 
   /**
-   * @brief Copy a specific file from the file system to the local SSD.
+   * @brief Copy a specific file from the one file system to the other.
    *
    * @return the number of bytes successfully copy
    */
-  virtual int copyToLocal(const std::string& hdfs_path, const std::string& local_path) = 0;
+  virtual int copy(const std::string& source_file, const std::string& target_file,
+                   bool to_local) = 0;
+};
+
+enum class DataSourceType_t { Local, HDFS, S3, Other };
+
+struct DataSourceParams {
+  DataSourceType_t type;
+  std::string server;
+  int port;
+
+  DataSourceParams(const DataSourceType_t type, const std::string& server, const int port)
+      : type(type), server(server), port(port){};
+  DataSourceParams() : type(DataSourceType_t::Local), server("localhost"), port(9000){};
 };
 }  // namespace HugeCTR

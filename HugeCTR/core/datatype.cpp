@@ -15,6 +15,7 @@
  */
 #include "datatype.hpp"
 
+#include "HugeCTR/include/common.hpp"
 namespace core {
 
 inline std::string TensorScalarTypeName(TensorScalarType t) {

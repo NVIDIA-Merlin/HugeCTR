@@ -17,44 +17,47 @@
 import tensorflow as tf
 from hierarchical_parameter_server.core import lookup_ops
 
+
 class LookupLayer(tf.keras.layers.Layer):
     """
     Abbreviated as ``hps.LookupLayer(*args, **kwargs)``.
 
-    This is a wrapper class for HPS lookup layer.
-    It can be used to create a dense embedding layer which will distribute
-    keys based on `gpu_id = key % gpu_num` to each GPU.
+    This is a wrapper class for HPS lookup layer, which basically performs 
+    the same function as tf.nn.embedding_lookup.
 
     Parameters
     ----------
-    model_name: string
+    model_name: str
             the name of the model that has embedding table(s)
-    table_id: integer
-            the index of the embedding table for the model specified by 
+    table_id: int
+            the index of the embedding table for the model specified by
             model_name
-    emb_vec_size: integer
-            the embedding vector size for the embedding table specified 
+    emb_vec_size: int
+            the embedding vector size for the embedding table specified
             by model_name and table_id
-    emb_vec_dtype: tensorflow.python.framework.dtypes.DType
+    emb_vec_dtype:
             the data type of embedding vectors which must be tf.float32
 
     Examples
     --------
     .. code-block:: python
 
-        lookup_layer = hps.LookupLayer(model_name = args.model_name, 
-                                        table_id = args.table_id,
-                                        emb_vec_size = args.embed_vec_size,
-                                        emb_vec_dtype = tf.float32)
-        
+        import hierarchical_parameter_server as hps
+
+        lookup_layer = hps.LookupLayer(model_name = args.model_name,
+                                      table_id = args.table_id,
+                                      emb_vec_size = args.embed_vec_size,
+                                      emb_vec_dtype = tf.float32)
+
         @tf.function
         def _infer_step(inputs):
             embedding_vector = lookup_layer(inputs)
             ...
-        
+
         for i, (inputs, labels) in enumerate(dataset):
             _infer_step(inputs)
     """
+
     def __init__(self, model_name, table_id, emb_vec_size, emb_vec_dtype, **kwargs):
         super(LookupLayer, self).__init__(**kwargs)
         self.model_name = model_name
@@ -62,29 +65,28 @@ class LookupLayer(tf.keras.layers.Layer):
         self.emb_vec_size = emb_vec_size
         self.emb_vec_dtype = emb_vec_dtype
 
-    def call(self, inputs, training=False):
+    def call(self, inputs):
         """
         The forward logic of this wrapper class.
 
         Parameters
         ----------
-        inputs: tf.Tensor
+        inputs:
                 keys are stored in Tensor. The data type must be tf.int64.
-
-        training: boolean
-                whether training or not. Only False is valid.
 
         Returns
         -------
-        emb_vector: tf.float32
+        emb_vector: tf.Tensor of int32
                 the embedding vectors for the input keys. Its shape is
-                *inputs.get_shape() + emb_vec_size*
+                *inputs.get_shape() + emb_vec_size*.
         """
-        emb_vector = lookup_ops.lookup(values = inputs,
-                                       model_name = self.model_name,
-                                       table_id = self.table_id,
-                                       emb_vec_size = self.emb_vec_size,
-                                       emb_vec_dtype = self.emb_vec_dtype)
-        output_shape = inputs.get_shape() + self.emb_vec_size                               
+        emb_vector = lookup_ops.lookup(
+            values=inputs,
+            model_name=self.model_name,
+            table_id=self.table_id,
+            emb_vec_size=self.emb_vec_size,
+            emb_vec_dtype=self.emb_vec_dtype,
+        )
+        output_shape = inputs.get_shape() + self.emb_vec_size
         emb_vector.set_shape(output_shape)
         return emb_vector

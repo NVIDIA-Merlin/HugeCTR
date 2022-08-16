@@ -15,6 +15,8 @@
 cmake_minimum_required(VERSION 3.17)
 find_package(CUDAToolkit)
 include_directories(/opt/conda/include)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CUDA_STANDARD 17)
 
 file(GLOB embedding_src
 *.cpp

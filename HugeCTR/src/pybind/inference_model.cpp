@@ -154,13 +154,26 @@ void InferenceModel::predict(float* pred_output, const size_t num_batches,
   }
   timer_infer.stop();
   bar.finish();
-  std::cout << "[INFO] Inference time for " << num_batches
-            << " batches: " << timer_infer.elapsedSeconds() << std::endl;
+  HCTR_LOG_S(INFO, ROOT) << "Inference time for " << num_batches
+                         << " batches: " << timer_infer.elapsedSeconds() << std::endl;
 }
 
 float InferenceModel::evaluate(const size_t num_batches, const std::string& source,
                                const DataReaderType_t data_reader_type, const Check_t check_type,
                                const std::vector<long long>& slot_size_array) {
+  auto print_class_aucs = [](const std::vector<float>& class_aucs) {
+    if (class_aucs.size() > 1) {
+      HCTR_LOG_S(INFO, ROOT) << "Evaluation, AUC: {";
+      for (size_t i = 0; i < class_aucs.size(); i++) {
+        if (i > 0) {
+          HCTR_PRINT(INFO, ", ");
+        }
+        HCTR_PRINT(INFO, "%f", class_aucs[i]);
+      }
+      HCTR_PRINT(INFO, "}\n");
+    }
+  };
+
   size_t batch_size_per_gpu = global_max_batch_size_ / resource_manager_->get_local_gpu_count();
   metric_.reset(new metrics::AUC<float>(batch_size_per_gpu, num_batches,
                                         inference_parser_.label_dim, resource_manager_));
@@ -223,8 +236,9 @@ float InferenceModel::evaluate(const size_t num_batches, const std::string& sour
   float auc = metric_->finalize_metric();
   timer_infer.stop();
   bar.finish();
-  std::cout << "[INFO] Inference time for " << num_batches
-            << " batches: " << timer_infer.elapsedSeconds() << std::endl;
+  HCTR_LOG_S(INFO, ROOT) << "Inference time for " << num_batches
+                         << " batches: " << timer_infer.elapsedSeconds() << std::endl;
+  print_class_aucs(metric_->get_per_class_metric());
   return auc;
 }
 

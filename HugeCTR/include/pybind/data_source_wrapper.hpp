@@ -17,7 +17,7 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
-#include <data_source/hdfs_backend.hpp>
+#include <data_source/data_source_backend.hpp>
 
 namespace HugeCTR {
 
@@ -27,15 +27,11 @@ void DataSourcePybind(pybind11::module &m) {
   pybind11::module data = m.def_submodule("data", "data submodule of hugectr");
   pybind11::class_<HugeCTR::DataSourceParams, std::shared_ptr<HugeCTR::DataSourceParams>>(
       data, "DataSourceParams")
-      .def(pybind11::init<const bool, const std::string &, const int>(),
-           pybind11::arg("use_hdfs") = false, pybind11::arg("namenode") = "localhost",
-           pybind11::arg("port") = 9000)
-      .def_readwrite("use_hdfs", &HugeCTR::DataSourceParams::use_hdfs)
-      .def_readwrite("namenode", &HugeCTR::DataSourceParams::namenode)
+      .def(pybind11::init<DataSourceType_t, const std::string &, const int>(),
+           pybind11::arg("source"), pybind11::arg("server"), pybind11::arg("port"))
+      .def_readwrite("source", &HugeCTR::DataSourceParams::type)
+      .def_readwrite("server", &HugeCTR::DataSourceParams::server)
       .def_readwrite("port", &HugeCTR::DataSourceParams::port);
-  pybind11::class_<HugeCTR::DataSource, std::shared_ptr<HugeCTR::DataSource>>(data, "DataSource")
-      .def(pybind11::init<const DataSourceParams &>(), pybind11::arg("data_source_params"))
-      .def("move_to_local", &HugeCTR::DataSource::move_to_local);
 }
 }  // namespace python_lib
 }  // namespace HugeCTR

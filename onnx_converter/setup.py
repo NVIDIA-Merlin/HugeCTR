@@ -1,4 +1,4 @@
-# 
+#
 # Copyright (c) 2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -25,5 +25,5 @@ setup(
     long_description_content_type="text/markdown",
     url="https://github.com/NVIDIA/HugeCTR",
     packages=find_packages(),
-    install_requires=["onnx>=1.9.0"]
+    install_requires=["onnx>=1.9.0"],
 )

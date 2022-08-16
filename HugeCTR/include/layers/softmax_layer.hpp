@@ -53,16 +53,21 @@ class SoftmaxLayer : public Layer {
    */
   void bprop() override;
 
+  Tensor2<T>& get_softmax_tensor() { return softmax_out_; }
+
   /*
    * initialize for indentity tensor
    */
   void initialize() final;
-  size_t dims;
-  size_t n_rows;
-  size_t hiddensize;
-  size_t len;
-  Tensor2<T> workspace;
-  Tensor2<T> identity;
+
+ private:
+  size_t dims_;
+  size_t n_rows_;
+  size_t hidden_size_;
+  size_t len_;
+  Tensor2<T> workspace_;
+  Tensor2<T> identity_;
+  Tensor2<T> softmax_out_;
 };
 
 }  // namespace HugeCTR

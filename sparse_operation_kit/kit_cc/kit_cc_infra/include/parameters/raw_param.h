@@ -17,9 +17,9 @@
 #ifndef RAW_PARAM_H
 #define RAW_PARAM_H
 
+#include <atomic>
 #include <memory>
 #include <vector>
-#include <atomic>
 
 #include "initializer/initializer_interface.h"
 #include "parameters/param_interface.h"
@@ -38,11 +38,10 @@ class RawParam : public ParamInterface {
 
  public:
   ~RawParam();
-  static std::shared_ptr<RawParam<KeyType, ValueType>> 
-    create(const std::string& initializer, const bool use_hashtable,
-          const std::vector<size_t> shape,
-          const std::shared_ptr<ResourcesManager>& resource_mgr,
-          const std::string var_name, const bool trainable);
+  static std::shared_ptr<RawParam<KeyType, ValueType>> create(
+      const std::string& initializer, const bool use_hashtable, const std::vector<size_t> shape,
+      const std::shared_ptr<ResourcesManager>& resource_mgr, const std::string var_name,
+      const bool trainable);
 
   // this function generates random values for initialization
   void init(const size_t global_replica_id) override;
@@ -57,14 +56,12 @@ class RawParam : public ParamInterface {
   void restore_from_file(const std::string filepath) override;
   void let_user_restore_from_file(const std::string filepath) override;
   void load_embedding_values(const std::shared_ptr<Tensor>& emb_values) override;
-  void let_user_load_embedding_values(
-      const std::shared_ptr<Tensor>& emb_values) override;
+  void let_user_load_embedding_values(const std::shared_ptr<Tensor>& emb_values) override;
   void set_hashtable(std::shared_ptr<BaseSimpleHashtable> hashtable) override;
 
  private:
   RawParam(const std::string& initializer, const bool use_hashtable,
-           const std::vector<size_t> shape,
-           const std::shared_ptr<ResourcesManager>& resource_mgr,
+           const std::vector<size_t> shape, const std::shared_ptr<ResourcesManager>& resource_mgr,
            const std::string var_name, const bool trainable);
 
   bool is_initialized(const size_t local_replica_id) const;
@@ -79,12 +76,13 @@ class RawParam : public ParamInterface {
   std::shared_ptr<Initializer> initializer_;
   const bool use_hashtable_;
   std::shared_ptr<EmbeddingLayer> user_;  // which embedding used this param
-  std::vector<std::atomic<bool>> initialized_;         // indicates whether this variable has been initialized.
+  std::vector<std::atomic<bool>>
+      initialized_;  // indicates whether this variable has been initialized.
 };
 
 using RawParamCtor_t = std::function<std::shared_ptr<ParamInterface>(
-      const std::string&, const bool, const std::vector<size_t>,
-      const std::shared_ptr<ResourcesManager>&, const std::string, const bool)>;
+    const std::string&, const bool, const std::vector<size_t>,
+    const std::shared_ptr<ResourcesManager>&, const std::string, const bool)>;
 
 RawParamCtor_t GetRawParamCtor(const DataType key_dtype, const DataType value_dtype);
 

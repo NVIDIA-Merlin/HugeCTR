@@ -346,7 +346,6 @@ void FusedReluBiasFullyConnectedLayer::initialize_wgrad() {
 void FusedReluBiasFullyConnectedLayer::fprop(bool is_train) {
   CudaDeviceContext context(get_device_id());
 
-  PROFILE_RECORD("fused_relu_bias_fully_connected.fprop.start", get_gpu().get_stream());
   const __half* kernel = weights_half_[0].get_ptr();
   const __half* bias = weights_half_[1].get_ptr();
   const __half* bottom = get_bottom_tensor_fprop(is_train).get_ptr();
@@ -363,22 +362,17 @@ void FusedReluBiasFullyConnectedLayer::fprop(bool is_train) {
   const float alpha = 1.0f;
   const float beta = 0.0f;
 
-  PROFILE_RECORD("fused_relu_bias_fully_connected.fprop.cublasLtMatmul.start",
-                 get_gpu().get_stream());
   HCTR_LIB_THROW(cublasLtMatmul(
       get_gpu().get_cublaslt_handle(), cublas_op_desc_, &alpha, kernel, cublas_kernel_desc_, bottom,
       cublas_bottom_desc_, &beta, top_fprop, cublas_top_desc_, top_fprop, cublas_top_desc_,
       &falgo_k_, cublaslt_workspace_, cublaslt_workspace_size_, get_gpu().get_stream()));
 
-  PROFILE_RECORD("fused_relu_bias_fully_connected.fprop.cublasLtMatmul.stop",
-                 get_gpu().get_stream());
   if ((pos_ == FcPosition_t::Tail || pos_ == FcPosition_t::Isolated) &&
       act_ != Activation_t::None) {
     size_t len = train_out_tensor_.get_num_elements();
     HCTR_LIB_THROW(cudaMemcpyAsync(mask_out, top_fprop, len * sizeof(__half),
                                    cudaMemcpyDeviceToDevice, get_gpu().get_stream()));
   }
-  PROFILE_RECORD("fused_relu_bias_fully_connected.fprop.stop", get_gpu().get_stream());
 #ifndef NDEBUG
   cudaDeviceSynchronize();
   HCTR_LIB_THROW(cudaGetLastError());
@@ -388,7 +382,6 @@ void FusedReluBiasFullyConnectedLayer::fprop(bool is_train) {
 void FusedReluBiasFullyConnectedLayer::bprop() {
   CudaDeviceContext context(get_device_id());
 
-  PROFILE_RECORD("fused_relu_bias_fully_connected.bprop.start", get_gpu().get_stream());
   const __half* kernel = weights_half_[0].get_ptr();
   const __half* train_out = train_out_tensor_.get_ptr();
   __half* mask_out = mask_out_tensor_.get_ptr();
@@ -412,7 +405,6 @@ void FusedReluBiasFullyConnectedLayer::bprop() {
   const float beta_x = 0.0f;
   const float beta_b = 0.0f;
 
-  PROFILE_RECORD("fused_relu_bias_fully_connected.bprop.dRelu.start", get_gpu().get_stream());
   // dRelu
   if (pos_ == FcPosition_t::Tail || pos_ == FcPosition_t::Isolated) {
     if (act_ != Activation_t::None) {
@@ -426,7 +418,6 @@ void FusedReluBiasFullyConnectedLayer::bprop() {
     } else
       dRelu_top = train_out_tensor_.get_ptr();
   }
-  PROFILE_RECORD("fused_relu_bias_fully_connected.bprop.dRelu.stop", get_gpu().get_stream());
 
   // wait for dRelu
   if (async_mlp_wgrad_) {
@@ -464,11 +455,6 @@ void FusedReluBiasFullyConnectedLayer::bprop() {
   if (async_mlp_wgrad_ && pos_ == FcPosition_t::Head) {
     get_gpu().set_wgrad_event_sync(get_gpu().get_comp_overlap_stream());
   }
-
-  PROFILE_RECORD("fused_relu_bias_fully_connected.bprop.cublasGemmEx_2.stop",
-                 get_gpu().get_stream());
-
-  PROFILE_RECORD("fused_relu_bias_fully_connected.bprop.stop", get_gpu().get_stream());
 
 #ifndef NDEBUG
   cudaDeviceSynchronize();

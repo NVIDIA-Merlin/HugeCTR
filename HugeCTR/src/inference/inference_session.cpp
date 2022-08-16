@@ -69,6 +69,10 @@ InferenceSession::InferenceSession(const std::string& model_config_path,
     if (inference_params_.dense_model_file.size() > 0) {
       network_->upload_params_to_device_inference(inference_params_.dense_model_file);
     }
+    if (inference_params_.non_trainable_params_file.size() > 0) {
+      network_->upload_non_trainable_params_to_device_inference(
+          inference_params_.non_trainable_params_file);
+    }
     CudaDeviceContext context(inference_params_.device_id);
     for (size_t idx = 0; idx < inference_params_.sparse_model_files.size(); ++idx) {
       cudaStream_t stream;
@@ -117,7 +121,7 @@ void InferenceSession::predict(float* d_dense, void* h_embeddingcolumns, int* d_
 
   // Redistribute keys ：from sample first to table first
   if (!table_major_key_layout) {
-    HCTR_LOG_S(INFO, ROOT) << "Redistribute keys from sample first to table first" << std::endl;
+    // HCTR_LOG_S(INFO, ROOT) << "Redistribute keys from sample first to table first" << std::endl;
     if (inference_params_.i64_input_key) {
       distribute_keys_per_table(static_cast<long long*>(h_keys_),
                                 static_cast<long long*>(h_embeddingcolumns), h_row_ptrs_,

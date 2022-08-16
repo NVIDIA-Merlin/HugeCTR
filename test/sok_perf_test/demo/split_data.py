@@ -18,13 +18,16 @@ from gen_data import save_to_file, restore_from_file
 import numpy as np
 from multiprocessing import Process
 
+
 def main(filename, split_num, save_prefix):
     def split_func(split_id, samples, labels):
         each_split_sample_num = samples.shape[0] // split_num
-        my_samples = samples[split_id * each_split_sample_num : 
-                             (split_id + 1) * each_split_sample_num]
-        my_labels = labels[split_id * each_split_sample_num :
-                            (split_id + 1) * each_split_sample_num]
+        my_samples = samples[
+            split_id * each_split_sample_num : (split_id + 1) * each_split_sample_num
+        ]
+        my_labels = labels[
+            split_id * each_split_sample_num : (split_id + 1) * each_split_sample_num
+        ]
         save_to_file(save_prefix + str(split_id) + r".file", my_samples, my_labels)
 
     if 1 == split_num:
@@ -33,8 +36,10 @@ def main(filename, split_num, save_prefix):
 
     samples, labels = restore_from_file(filename)
     if samples.shape[0] % split_num != 0:
-        raise RuntimeError("The number of samples: %d is not divisible by "+\
-                            "split_num: %d" %(samples.shape[0], split_num))
+        raise RuntimeError(
+            "The number of samples: %d is not divisible by "
+            + "split_num: %d" % (samples.shape[0], split_num)
+        )
 
     process_list = list()
     for i in range(split_num):
@@ -48,18 +53,19 @@ def main(filename, split_num, save_prefix):
 
     print("[INFO]: Split dataset finished.")
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("--filename", type=str,
-                        required=True,
-                        help="the filename of the whole dataset")
-    parser.add_argument("--split_num", type=int,
-                        required=True,
-                        help="the number of shards to be splited.")
-    parser.add_argument("--save_prefix", type=str,
-                        required=True,
-                        help="the prefix string used to save shards.")
+    parser.add_argument(
+        "--filename", type=str, required=True, help="the filename of the whole dataset"
+    )
+    parser.add_argument(
+        "--split_num", type=int, required=True, help="the number of shards to be splited."
+    )
+    parser.add_argument(
+        "--save_prefix", type=str, required=True, help="the prefix string used to save shards."
+    )
 
     args = parser.parse_args()
 

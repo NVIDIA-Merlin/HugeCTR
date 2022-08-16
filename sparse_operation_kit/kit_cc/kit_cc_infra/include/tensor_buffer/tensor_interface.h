@@ -17,8 +17,9 @@
 #ifndef TENSOR_INTERFACE_H
 #define TENSOR_INTERFACE_H
 
-#include "common.h"
 #include <cstddef>
+
+#include "common.h"
 
 namespace SparseOperationKit {
 

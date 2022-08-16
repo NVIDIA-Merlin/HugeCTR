@@ -120,14 +120,16 @@ class HybridSparseEmbedding : public IEmbedding {
   std::vector<FrequentEmbeddingMultiNode<dtype, emtype>> frequent_embeddings_multi_node_;
   std::vector<FrequentEmbeddingCompression<dtype>> frequent_embedding_train_indices_,
       frequent_embedding_evaluate_indices_;
+
   // model-parallel embedding model
-  std::vector<InfrequentEmbedding<dtype, emtype>> infrequent_embeddings_;
+  std::vector<InfrequentEmbedding_NVLink_SingleNode<dtype, emtype>>
+      infrequent_embeddings_single_node_;
+  std::vector<InfrequentEmbedding_IB_NVLINK<dtype, emtype>> infrequent_embeddings_ib_nvlink_;
+  std::vector<InfrequentEmbedding_IB_NVLink_Hier<dtype, emtype>>
+      infrequent_embeddings_ib_nvlink_hier_;
+
   std::vector<InfrequentEmbeddingSelection<dtype>> infrequent_embedding_train_indices_,
       infrequent_embedding_evaluate_indices_;
-  // performs the communication scheme
-  std::vector<std::unique_ptr<Communication>> infrequent_forward_comms_, infrequent_backward_comms_;
-  std::vector<AllToAllStorage<emtype>> infrequent_forward_comm_buffers_,
-      infrequent_backward_comm_buffers_;
 
   // Hier A2Av / custom AR impl
 #ifdef ENABLE_MPI

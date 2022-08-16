@@ -32,7 +32,7 @@ using core::GetBufferBlock;
 using core::Shape;
 using core::Tensor;
 using core::TensorList;
-using HugeCTR::TensorScalarType;
+using core::TensorScalarType;
 
 struct EmbeddingTableParam {
   int id_space;

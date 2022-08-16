@@ -112,8 +112,12 @@ double ModelInitializationFunctors<dtype>::calculate_threshold(
   // double p_dup_max = 1.0 / 100.;  // maximum 1 % of samples the category will be duplicated
   switch (communication_type) {
     case CommunicationType::IB_NVLink:
+      count_threshold = (double)num_iterations * (double)num_networks * all_to_all_bandwidth /
+                        all_reduce_bandwidth * efficiency_bandwidth_ratio * (double)num_networks /
+                        ((double)num_networks - 1.);
+      break;
     case CommunicationType::IB_NVLink_Hier:
-      count_threshold = (double)num_iterations * (double)num_nodes * all_to_all_bandwidth /
+      count_threshold = (double)num_iterations * (double)num_networks * all_to_all_bandwidth /
                         all_reduce_bandwidth * efficiency_bandwidth_ratio * (double)num_nodes /
                         ((double)num_nodes - 1.);
       break;

@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "HugeCTR/include/utils.hpp"
 #include "generic_lookup.cuh"
 #include "model_backward.hpp"
 #include "utils.cuh"
@@ -29,20 +30,20 @@ ModelBackward::ModelBackward(std::shared_ptr<CoreResourceManager> core, int num_
 
   int max_unique_key_ev_buffer_size =
       std::accumulate(num_unique_key_list.begin(), num_unique_key_list.end(), 0);
-  CudaDeviceContext ctx(core_->get_device_id());
+  HugeCTR::CudaDeviceContext ctx(core_->get_device_id());
 
   auto buffer_ptr = GetBuffer(core);
   grad_ev_ = buffer_ptr->reserve({universal_batch_size, max_unique_key_ev_buffer_size},
-                                 DeviceType::GPU, HugeCTR::TensorScalarType::Float32);
+                                 DeviceType::GPU, TensorScalarType::Float32);
   buffer_ptr->allocate();
 }
 
 void ModelBackward::compute(const TensorList &model_comm_buffer, const Tensor &unique_dst_idx,
                             const Tensor &sorted_bucket_id_list,
                             const Tensor &sorted_bucket_id_offset, size_t num_unique_key,
-                            const Tensor &d_local_ev_size_offset, int batch_size, Tensor *grad_ev) {
-  CudaDeviceContext ctx(core_->get_device_id());
-  int batch_size_per_gpu = batch_size / num_gpus_;
+                            const Tensor &d_local_ev_size_offset, int batch_size, int max_ev_size,
+                            Tensor *grad_ev) {
+  HugeCTR::CudaDeviceContext ctx(core_->get_device_id());
 
   DISPATCH_FLOAT_AND_HALF_FUNCTION(model_comm_buffer.dtype().type(), emb_t, [&] {
     auto stream = core_->get_local_gpu()->get_stream();
@@ -54,10 +55,6 @@ void ModelBackward::compute(const TensorList &model_comm_buffer, const Tensor &u
     ArrayView<uint32_t, RestrictPtrTraits, int32_t> sorted_bucket_id_offset_ref{
         sorted_bucket_id_offset.get(), static_cast<int32_t>(num_unique_key) + 1};
 
-    auto get_counter = [] __device__(int32_t index) -> uint32_t { return 1; };
-    LambdaIterator<uint32_t, int32_t, decltype(get_counter)> counter_iter{
-        get_counter, static_cast<int32_t>(num_unique_key)};
-
     auto get_output_idx = [] __device__(int32_t index) -> uint32_t { return index; };
     LambdaIterator<uint32_t, int32_t, decltype(get_output_idx)> output_counting_iter{
         get_output_idx, static_cast<int32_t>(num_unique_key)};
@@ -68,9 +65,37 @@ void ModelBackward::compute(const TensorList &model_comm_buffer, const Tensor &u
     RaggedGradBufferView<float, RestrictPtrTraits, int32_t> grad_ev_iterator{
         grad_ev_.get(), unique_dst_idx.get<uint32_t>()};
 
-    generic_lookup(sorted_bucket_id_ref, sorted_bucket_id_offset_ref, counter_iter,
-                   output_counting_iter, model_comm_buffer_iterator, grad_ev_iterator, stream);
+    generic_lookup(sorted_bucket_id_ref, sorted_bucket_id_offset_ref, output_counting_iter,
+                   model_comm_buffer_iterator, grad_ev_iterator, max_ev_size, stream);
   });
+
+  // atomic version. Better load balance but lower precision
+  // DISPATCH_FLOAT_AND_HALF_FUNCTION(model_comm_buffer.dtype().type(), emb_t, [&] {
+  //   auto stream = core_->get_local_gpu()->get_stream();
+
+  //   ArrayView<uint32_t, RestrictPtrTraits, int32_t> src_iter{
+  //       sorted_bucket_id_list.get(),
+  //       static_cast<int32_t>(sorted_bucket_id_list.get_num_elements())};
+
+  //   auto get_dst_idx = [offset_ptr = sorted_bucket_id_offset.get<uint32_t>(),
+  //                       num_unique_key] __device__(int32_t index) -> uint32_t {
+  //     return binary_search_index_lower_bound(offset_ptr, static_cast<int32_t>(num_unique_key) +
+  //     1,
+  //                                            static_cast<uint32_t>(index));
+  //   };
+  //   LambdaIterator<uint32_t, int32_t, decltype(get_dst_idx)> dst_iter{
+  //       get_dst_idx, static_cast<int32_t>(sorted_bucket_id_list.get_num_elements())};
+
+  //   RaggedModelBufferView<emb_t, RestrictPtrTraits, int32_t> model_comm_buffer_iterator{
+  //       model_comm_buffer.get(), d_local_ev_size_offset.get<int>(), num_gpus_, batch_size};
+
+  //   RaggedGradBufferView<float, RestrictPtrTraits, int32_t> grad_ev_iterator{
+  //       grad_ev_.get(), unique_dst_idx.get<uint32_t>()};
+
+  //   accumulate_grad(src_iter, dst_iter, sorted_bucket_id_offset.get<uint32_t>() + num_unique_key,
+  //                   model_comm_buffer_iterator, grad_ev_iterator,
+  //                   static_cast<int>(num_unique_key), max_ev_size, stream);
+  // });
 
   *grad_ev = grad_ev_;
 }
@@ -79,7 +104,7 @@ DPLocalReduce::DPLocalReduce(std::shared_ptr<CoreResourceManager> core, int num_
                              int num_local_embedding, const std::vector<int> &h_local_hotness_list,
                              const std::vector<int> &h_local_ev_size_list, int universal_batch_size)
     : core_(core), num_gpus_(num_gpus), num_local_embedding_(num_local_embedding) {
-  CudaDeviceContext ctx(core_->get_device_id());
+  HugeCTR::CudaDeviceContext ctx(core_->get_device_id());
   Device device{DeviceType::GPU};
 
   max_ev_size_ = *std::max_element(h_local_ev_size_list.begin(), h_local_ev_size_list.end());
@@ -93,15 +118,16 @@ DPLocalReduce::DPLocalReduce(std::shared_ptr<CoreResourceManager> core, int num_
 
   auto buffer_ptr = GetBuffer(core);
   grad_ev_ = buffer_ptr->reserve({universal_batch_size, max_unique_key_ev_buffer_size}, device,
-                                 HugeCTR::TensorScalarType::Float32);
+                                 TensorScalarType::Float32);
   buffer_ptr->allocate();
 }
 
 void DPLocalReduce::compute(const Tensor &top_grad, const Tensor &unique_dst_idx,
                             const Tensor &sorted_bucket_id_list,
                             const Tensor &sorted_bucket_id_offset, size_t num_unique_key,
-                            const Tensor &d_ev_size_offset, int batch_size, Tensor *grad_ev) {
-  CudaDeviceContext ctx(core_->get_device_id());
+                            const Tensor &d_ev_size_offset, int batch_size, int max_ev_size,
+                            Tensor *grad_ev) {
+  HugeCTR::CudaDeviceContext ctx(core_->get_device_id());
   int batch_size_per_gpu = batch_size / num_gpus_;
 
   DISPATCH_FLOAT_AND_HALF_FUNCTION(top_grad.dtype().type(), emb_t, [&] {
@@ -113,10 +139,6 @@ void DPLocalReduce::compute(const Tensor &top_grad, const Tensor &unique_dst_idx
     ArrayView<uint32_t, RestrictPtrTraits, int32_t> sorted_bucket_id_offset_ref{
         sorted_bucket_id_offset.get(), static_cast<int32_t>(num_unique_key) + 1};
 
-    auto get_counter = [] __device__(int32_t index) -> uint32_t { return 1; };
-    LambdaIterator<uint32_t, int32_t, decltype(get_counter)> counter_iter{
-        get_counter, static_cast<int32_t>(num_unique_key)};
-
     auto get_output_idx = [] __device__(int32_t index) -> uint32_t { return index; };
     LambdaIterator<uint32_t, int32_t, decltype(get_output_idx)> output_counting_iter{
         get_output_idx, static_cast<int32_t>(num_unique_key)};
@@ -127,8 +149,8 @@ void DPLocalReduce::compute(const Tensor &top_grad, const Tensor &unique_dst_idx
     RaggedGradBufferView<float, RestrictPtrTraits, int32_t> grad_ev_iterator{
         grad_ev_.get(), unique_dst_idx.get<uint32_t>()};
 
-    generic_lookup(sorted_bucket_id_ref, sorted_bucket_id_offset_ref, counter_iter,
-                   output_counting_iter, top_grad_iterator, grad_ev_iterator, stream);
+    generic_lookup(sorted_bucket_id_ref, sorted_bucket_id_offset_ref, output_counting_iter,
+                   top_grad_iterator, grad_ev_iterator, max_ev_size, stream);
   });
 
   *grad_ev = grad_ev_;

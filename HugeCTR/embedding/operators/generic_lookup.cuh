@@ -20,16 +20,167 @@
 
 namespace embedding {
 
-template <typename IndexArray, typename OffsetArray, typename CountArray, typename DstArray,
-          typename SrcTensor, typename DstTensor, int kMaxElemPerThread, int kThreadPerBucket,
-          int TPB, bool debug = false,
-          typename = typename std::enable_if_t<(kThreadPerBucket == TPB)>>
-__global__ void generic_lookup_per_cta_kernel(IndexArray idx, OffsetArray offset_idx,
-                                              CountArray count, DstArray dst_idx,
-                                              SrcTensor src_tensor, DstTensor dst_tensor) {
+template <typename T>
+struct Vec4T {};
+
+template <>
+struct Vec4T<__half> {
+  __half2 first;
+  __half2 second;
+
+  DEVICE_INLINE Vec4T() {
+    first.x = 0.f;
+    first.y = 0.f;
+    second.x = 0.f;
+    second.y = 0.f;
+  }
+
+  DEVICE_INLINE void load(const float *p, int n) {
+    if (n == 4) {
+      float4 f = *(reinterpret_cast<const float4 *>(p));
+      float2 firstf{f.x, f.y};
+      float2 secondf{f.z, f.w};
+      first = __float22half2_rn(firstf);
+      second = __float22half2_rn(secondf);
+    } else {
+      if (n > 0) first.x = __float2half(p[0]);
+      if (n > 1) first.y = __float2half(p[1]);
+      if (n > 2) second.x = __float2half(p[2]);
+    }
+  }
+
+  DEVICE_INLINE void load(const __half *p, int n) {
+    if (n == 4) {
+      first = *(reinterpret_cast<const __half2 *>(p));
+      second = *(reinterpret_cast<const __half2 *>(p + 2));
+    } else {
+      if (n > 0) first.x = p[0];
+      if (n > 1) first.y = p[1];
+      if (n > 2) second.x = p[2];
+    }
+  }
+
+  DEVICE_INLINE void store(float *dst, int n) {
+    if (n == 4) {
+      float4 f;
+      f.x = __half2float(first.x);
+      f.y = __half2float(first.y);
+      f.z = __half2float(second.x);
+      f.w = __half2float(second.y);
+      *(reinterpret_cast<float4 *>(dst)) = f;
+    } else {
+      if (n > 0) dst[0] = __half2float(first.x);
+      if (n > 1) dst[1] = __half2float(first.y);
+      if (n > 2) dst[2] = __half2float(second.x);
+    }
+  }
+
+  DEVICE_INLINE void store(__half *dst, int n) {
+    if (n == 4) {
+      *(reinterpret_cast<__half2 *>(dst)) = first;
+      *(reinterpret_cast<__half2 *>(dst + 2)) = second;
+    } else {
+      if (n > 0) dst[0] = first.x;
+      if (n > 1) dst[1] = first.y;
+      if (n > 2) dst[2] = second.x;
+    }
+  }
+
+  DEVICE_INLINE void atomic_store_accum(float *dst, int n) {
+    if (n > 0) atomicAdd(dst, __half2float(first.x));
+    if (n > 1) atomicAdd(dst + 1, __half2float(first.y));
+    if (n > 2) atomicAdd(dst + 2, __half2float(second.x));
+    if (n > 3) atomicAdd(dst + 3, __half2float(second.y));
+  }
+};
+
+template <>
+struct Vec4T<float> {
+  float4 val;
+
+  DEVICE_INLINE Vec4T() {
+    val.x = 0.f;
+    val.y = 0.f;
+    val.z = 0.f;
+    val.w = 0.f;
+  }
+
+  DEVICE_INLINE void load(const float *p, int n) {
+    if (n == 4) {
+      val = *((const float4 *)p);
+    } else {
+      if (n > 0) val.x = p[0];
+      if (n > 1) val.y = p[1];
+      if (n > 2) val.z = p[2];
+    }
+  }
+
+  DEVICE_INLINE void load(const __half *p, int n) {
+    if (n == 4) {
+      Vec4T<__half> h;
+      h.load(p, n);
+      val.x = __half2float(h.first.x);
+      val.y = __half2float(h.first.y);
+      val.z = __half2float(h.second.x);
+      val.w = __half2float(h.second.y);
+    } else {
+      if (n > 0) val.x = __half2float(p[0]);
+      if (n > 1) val.y = __half2float(p[1]);
+      if (n > 2) val.z = __half2float(p[2]);
+    }
+  }
+
+  DEVICE_INLINE void store(float *dst, int n) {
+    if (n == 4) {
+      *(reinterpret_cast<float4 *>(dst)) = val;
+    } else {
+      if (n > 0) dst[0] = val.x;
+      if (n > 1) dst[1] = val.y;
+      if (n > 2) dst[2] = val.z;
+    }
+  }
+
+  DEVICE_INLINE void store(__half *dst, int n) {
+    if (n == 4) {
+      Vec4T<__half> h;
+      h.load(reinterpret_cast<float *>(&val), 4);
+      h.store(dst, 4);
+    } else {
+      if (n > 0) dst[0] = __float2half(val.x);
+      if (n > 1) dst[1] = __float2half(val.y);
+      if (n > 2) dst[2] = __float2half(val.z);
+    }
+  }
+
+  DEVICE_INLINE void atomic_store_accum(float *dst, int n) {
+    if (n > 0) atomicAdd(dst, val.x);
+    if (n > 1) atomicAdd(dst + 1, val.y);
+    if (n > 2) atomicAdd(dst + 2, val.z);
+    if (n > 3) atomicAdd(dst + 3, val.w);
+  }
+
+  DEVICE_INLINE void accumulate(const Vec4T<float> &other) {
+    val.x += other.val.x;
+    val.y += other.val.y;
+    val.z += other.val.z;
+    val.w += other.val.w;
+  }
+
+  DEVICE_INLINE void accumulate(const Vec4T<__half> &other) {
+    val.x += __half2float(other.first.x);
+    val.y += __half2float(other.first.y);
+    val.z += __half2float(other.second.x);
+    val.w += __half2float(other.second.y);
+  }
+};
+
+template <typename IndexArray, typename OffsetArray, typename DstArray, typename SrcTensor,
+          typename DstTensor, int kMaxElemPerThread>
+__global__ void generic_lookup_cta_per_bucket_kernel(IndexArray idx, OffsetArray offset_idx,
+                                                     DstArray dst_idx, SrcTensor src_tensor,
+                                                     DstTensor dst_tensor) {
   using index_t = typename IndexArray::value_type;
   using offset_t = typename OffsetArray::value_type;
-  using count_t = typename CountArray::value_type;
   using dst_index_t = typename DstArray::value_type;
   using src_t = typename SrcTensor::value_type;
   using src_scalar_t = typename SrcTensor::value_type::value_type;
@@ -45,62 +196,283 @@ __global__ void generic_lookup_per_cta_kernel(IndexArray idx, OffsetArray offset
     for (int r = 0; r < static_cast<int>(end) - static_cast<int>(start); ++r) {
       index_t in_bucket_id = idx[start + r];
       src_t ev = src_tensor[in_bucket_id];
-      // if (debug) {
-      //   printf("bucket_index:%d,start:%d,end:%d,in_bucket_id:%d\n", bucket_index, start, end,
-      //   in_bucket_id);
-      // }
-#pragma unroll kMaxElemPerThread
-      for (int i = 0; i < kMaxElemPerThread && kThreadPerBucket * i + threadIdx.x < ev.size();
-           ++i) {
-        if (debug) {
-          printf("before accum:%f\n", HugeCTR::TypeConvertFunc<float, src_scalar_t>::convert(
-                                          ev[kThreadPerBucket * i + threadIdx.x]));
-        }
-        accum[i] += HugeCTR::TypeConvertFunc<float, src_scalar_t>::convert(
-            ev[kThreadPerBucket * i + threadIdx.x]);
-      }
-    }
 
-    if (count[bucket_index] > 1) {
 #pragma unroll kMaxElemPerThread
-      for (int i = 0; i < kMaxElemPerThread; ++i) {
-        accum[i] /= count[bucket_index];
+      for (int i = 0; i < kMaxElemPerThread && blockDim.x * i + threadIdx.x < ev.size(); ++i) {
+        accum[i] += HugeCTR::TypeConvertFunc<float, src_scalar_t>::convert(
+            ev[blockDim.x * i + threadIdx.x]);
       }
     }
 
     dst_index_t out_bucket_id = dst_idx[bucket_index];
     dst_t dst_ev = dst_tensor[out_bucket_id];
-    // if (debug) {
-    //   printf("bucket_index:%d,out_bucket_id:%d\n", bucket_index, out_bucket_id);
-    // }
+
 #pragma unroll kMaxElemPerThread
-    for (int i = 0; i < kMaxElemPerThread && kThreadPerBucket * i + threadIdx.x < dst_ev.size();
-         ++i) {
-      if (debug) {
-        printf("accum:%f\n", accum[i]);
-      }
-      dst_ev[i * kThreadPerBucket + threadIdx.x] =
+    for (int i = 0; i < kMaxElemPerThread && blockDim.x * i + threadIdx.x < dst_ev.size(); ++i) {
+      dst_ev[blockDim.x * i + threadIdx.x] =
           HugeCTR::TypeConvertFunc<dst_scalar_t, float>::convert(accum[i]);
     }
   }
 }
 
-template <typename IndexArray, typename OffsetArray, typename CountArray, typename DstArray,
-          typename SrcTensor, typename DstTensor>
-void generic_lookup(IndexArray idx, OffsetArray offset_idx, CountArray count, DstArray dst_idx,
-                    SrcTensor src_tensor, DstTensor dst_tensor,
-                    // int max_elem_per_thread, int thread_per_bucket,
-                    cudaStream_t stream, bool debug = false) {
-  int num_bucket = offset_idx.size() - 1;
-  if (debug) {
-    generic_lookup_per_cta_kernel<IndexArray, OffsetArray, CountArray, DstArray, SrcTensor,
-                                  DstTensor, 4, 512, 512, true>
-        <<<num_bucket, 512, 0, stream>>>(idx, offset_idx, count, dst_idx, src_tensor, dst_tensor);
-  } else {
-    generic_lookup_per_cta_kernel<IndexArray, OffsetArray, CountArray, DstArray, SrcTensor,
-                                  DstTensor, 4, 512, 512>
-        <<<num_bucket, 512, 0, stream>>>(idx, offset_idx, count, dst_idx, src_tensor, dst_tensor);
+template <typename IndexArray, typename OffsetArray, typename DstArray, typename SrcTensor,
+          typename DstTensor, int kMaxElemPerThread>
+__global__ void generic_lookup_cta_per_bucket_vec4_kernel(IndexArray idx, OffsetArray offset_idx,
+                                                          DstArray dst_idx, SrcTensor src_tensor,
+                                                          DstTensor dst_tensor) {
+  using index_t = typename IndexArray::value_type;
+  using offset_t = typename OffsetArray::value_type;
+  using dst_index_t = typename DstArray::value_type;
+  using src_t = typename SrcTensor::value_type;
+  using src_scalar_t = typename SrcTensor::value_type::value_type;
+  using dst_t = typename DstTensor::value_type;
+  using dst_scalar_t = typename DstTensor::value_type::value_type;
+  constexpr int copy_width = 4;
+
+  int bucket_index = blockIdx.x;
+  if (bucket_index < offset_idx.size() - 1) {
+    offset_t start = offset_idx[bucket_index];
+    offset_t end = offset_idx[bucket_index + 1];
+
+    Vec4T<float> accum[kMaxElemPerThread];
+    for (int r = 0; r < static_cast<int>(end) - static_cast<int>(start); ++r) {
+      index_t in_bucket_id = idx[start + r];
+      src_t ev = src_tensor[in_bucket_id];
+
+#pragma unroll kMaxElemPerThread
+      for (int i = 0; i < kMaxElemPerThread && 4 * blockDim.x * i + 4 * threadIdx.x < ev.size();
+           ++i) {
+        Vec4T<src_scalar_t> src_elem;
+        int idx4 = 4 * blockDim.x * i + 4 * threadIdx.x;
+        int n = min(ev.size() - idx4, copy_width);
+        src_elem.load(&ev[idx4], n);
+        accum[i].accumulate(src_elem);
+      }
+    }
+
+    dst_index_t out_bucket_id = dst_idx[bucket_index];
+    dst_t dst_ev = dst_tensor[out_bucket_id];
+
+#pragma unroll kMaxElemPerThread
+    for (int i = 0; i < kMaxElemPerThread && 4 * blockDim.x * i + 4 * threadIdx.x < dst_ev.size();
+         ++i) {
+      int idx4 = 4 * blockDim.x * i + 4 * threadIdx.x;
+      int n = min(dst_ev.size() - idx4, copy_width);
+      accum[i].store(&dst_ev[idx4], n);
+    }
   }
 }
 
+template <typename IndexArray, typename OffsetArray, typename DstArray, typename SrcTensor,
+          typename DstTensor, int kMaxElemPerThread>
+__global__ void generic_lookup_warp_per_bucket_vec4_kernel(IndexArray idx, OffsetArray offset_idx,
+                                                           DstArray dst_idx, SrcTensor src_tensor,
+                                                           DstTensor dst_tensor) {
+  using index_t = typename IndexArray::value_type;
+  using offset_t = typename OffsetArray::value_type;
+  using dst_index_t = typename DstArray::value_type;
+  using src_t = typename SrcTensor::value_type;
+  using src_scalar_t = typename SrcTensor::value_type::value_type;
+  using dst_t = typename DstTensor::value_type;
+  using dst_scalar_t = typename DstTensor::value_type::value_type;
+  constexpr int copy_width = 4;
+  constexpr int kWarpSize = 32;
+
+  int lane_id = threadIdx.x;
+  int warp_id = threadIdx.y;
+  int bucket_index = blockIdx.x * blockDim.y + warp_id;
+  if (bucket_index < offset_idx.size() - 1) {
+    offset_t start = offset_idx[bucket_index];
+    offset_t end = offset_idx[bucket_index + 1];
+
+    Vec4T<float> accum[kMaxElemPerThread];
+    int L = static_cast<int>(end) - static_cast<int>(start);
+    for (int r = 0; r < L; r += kWarpSize) {
+      int l = r + lane_id;
+      index_t in_bucket_id = l < L ? idx[start + l] : 0;
+
+      for (int j = 0; j < kWarpSize && r + j < L; ++j) {
+        int in_bid = __shfl_sync(0xFFFFFFFF, in_bucket_id, j);
+        src_t ev = src_tensor[in_bid];
+
+#pragma unroll kMaxElemPerThread
+        for (int i = 0; i < kMaxElemPerThread && 4 * kWarpSize * i + 4 * lane_id < ev.size(); ++i) {
+          Vec4T<src_scalar_t> src_elem;
+          int idx4 = 4 * kWarpSize * i + 4 * lane_id;
+          int n = min(ev.size() - idx4, copy_width);
+          src_elem.load(&ev[idx4], n);
+          accum[i].accumulate(src_elem);
+        }
+      }
+    }
+
+    dst_index_t out_bucket_id = dst_idx[bucket_index];
+    dst_t dst_ev = dst_tensor[out_bucket_id];
+
+#pragma unroll kMaxElemPerThread
+    for (int i = 0; i < kMaxElemPerThread && 4 * kWarpSize * i + 4 * lane_id < dst_ev.size(); ++i) {
+      int idx4 = 4 * kWarpSize * i + 4 * lane_id;
+      int n = min(dst_ev.size() - idx4, copy_width);
+      accum[i].store(&dst_ev[idx4], n);
+    }
+  }
+}
+
+template <typename IndexArray, typename OffsetArray, typename DstArray, typename SrcTensor,
+          typename DstTensor>
+void generic_lookup(IndexArray idx, OffsetArray offset_idx, DstArray dst_idx, SrcTensor src_tensor,
+                    DstTensor dst_tensor, int max_ev_size, cudaStream_t stream) {
+  int num_bucket = offset_idx.size() - 1;
+  if (max_ev_size <= 64) {
+    generic_lookup_cta_per_bucket_kernel<IndexArray, OffsetArray, DstArray, SrcTensor, DstTensor, 1>
+        <<<num_bucket, max_ev_size, 0, stream>>>(idx, offset_idx, dst_idx, src_tensor, dst_tensor);
+  } else if (max_ev_size <= 128) {
+    int grid_size = (num_bucket - 1) / 2 + 1;
+    dim3 block_size{32, 2};
+    generic_lookup_warp_per_bucket_vec4_kernel<IndexArray, OffsetArray, DstArray, SrcTensor,
+                                               DstTensor, 1>
+        <<<grid_size, block_size, 0, stream>>>(idx, offset_idx, dst_idx, src_tensor, dst_tensor);
+  } else if (max_ev_size <= 1024) {
+    generic_lookup_cta_per_bucket_vec4_kernel<IndexArray, OffsetArray, DstArray, SrcTensor,
+                                              DstTensor, 1>
+        <<<num_bucket, (max_ev_size - 1) / 4 + 1, 0, stream>>>(idx, offset_idx, dst_idx, src_tensor,
+                                                               dst_tensor);
+  } else if (max_ev_size <= 2048) {
+    generic_lookup_cta_per_bucket_vec4_kernel<IndexArray, OffsetArray, DstArray, SrcTensor,
+                                              DstTensor, 2>
+        <<<num_bucket, 256, 0, stream>>>(idx, offset_idx, dst_idx, src_tensor, dst_tensor);
+  } else if (max_ev_size <= 4096) {
+    generic_lookup_cta_per_bucket_vec4_kernel<IndexArray, OffsetArray, DstArray, SrcTensor,
+                                              DstTensor, 4>
+        <<<num_bucket, 256, 0, stream>>>(idx, offset_idx, dst_idx, src_tensor, dst_tensor);
+  } else {
+    HCTR_OWN_THROW(HugeCTR::Error_t::IllegalCall,
+                   "HugeCTR does not support emb vector size >= 4096");
+  }
+}
+
+template <typename IndexArray, typename DstArray, typename SrcTensor, typename DstTensor,
+          int kMaxElemPerThread>
+__global__ void accumulate_grad_warp_per_bucket_vec4_atomic_kernel(IndexArray src_idx,
+                                                                   DstArray dst_idx,
+                                                                   const uint32_t *num_idx,
+                                                                   SrcTensor src_tensor,
+                                                                   DstTensor dst_tensor) {
+  using index_t = typename IndexArray::value_type;
+  using dst_index_t = typename DstArray::value_type;
+  using src_t = typename SrcTensor::value_type;
+  using src_scalar_t = typename SrcTensor::value_type::value_type;
+  using dst_t = typename DstTensor::value_type;
+  using dst_scalar_t = typename DstTensor::value_type::value_type;
+  constexpr int copy_width = 4;
+  constexpr int kWarpSize = 32;
+  int kWarpNum = blockDim.y * gridDim.x;
+
+  int lane_id = threadIdx.x;
+  int warp_id = blockIdx.x * blockDim.y + threadIdx.y;
+  for (int i = 0; i * kWarpNum + warp_id < *num_idx; ++i) {
+    int idx = i * kWarpNum + warp_id;
+    index_t s_idx = src_idx[idx];
+    src_t s_ev = src_tensor[s_idx];
+
+    dst_index_t d_idx = dst_idx[idx];
+    dst_t d_ev = dst_tensor[d_idx];
+
+    Vec4T<src_scalar_t> s_vec[kMaxElemPerThread];
+#pragma unroll kMaxElemPerThread
+    for (int j = 0; j < kMaxElemPerThread && 4 * kWarpSize * j + 4 * lane_id < s_ev.size(); ++j) {
+      int idx4 = 4 * kWarpSize * j + 4 * lane_id;
+      int n = min(s_ev.size() - idx4, copy_width);
+      s_vec[j].load(&s_ev[idx4], n);
+
+      s_vec[j].atomic_store_accum(&d_ev[idx4], n);
+    }
+  }
+}
+
+template <typename IndexArray, typename DstArray, typename SrcTensor, typename DstTensor>
+void accumulate_grad(IndexArray src_idx, DstArray dst_idx, const uint32_t *num_idx,
+                     SrcTensor src_tensor, DstTensor dst_tensor, int num_unique_idx,
+                     int max_ev_size, cudaStream_t stream) {
+  if (max_ev_size <= 128) {
+    int grid_size = (num_unique_idx - 1) / 2 + 1;
+    dim3 block_size{32, 2};
+    accumulate_grad_warp_per_bucket_vec4_atomic_kernel<IndexArray, DstArray, SrcTensor, DstTensor,
+                                                       1>
+        <<<grid_size, block_size, 0, stream>>>(src_idx, dst_idx, num_idx, src_tensor, dst_tensor);
+  } else if (max_ev_size <= 256) {
+    int grid_size = (num_unique_idx - 1) / 2 + 1;
+    dim3 block_size{32, 2};
+    accumulate_grad_warp_per_bucket_vec4_atomic_kernel<IndexArray, DstArray, SrcTensor, DstTensor,
+                                                       2>
+        <<<grid_size, block_size, 0, stream>>>(src_idx, dst_idx, num_idx, src_tensor, dst_tensor);
+  } else if (max_ev_size <= 512) {
+    int grid_size = (num_unique_idx - 1) / 2 + 1;
+    dim3 block_size{32, 2};
+    accumulate_grad_warp_per_bucket_vec4_atomic_kernel<IndexArray, DstArray, SrcTensor, DstTensor,
+                                                       4>
+        <<<grid_size, block_size, 0, stream>>>(src_idx, dst_idx, num_idx, src_tensor, dst_tensor);
+  } else if (max_ev_size <= 1024) {
+    int grid_size = (num_unique_idx - 1) / 2 + 1;
+    dim3 block_size{32, 2};
+    accumulate_grad_warp_per_bucket_vec4_atomic_kernel<IndexArray, DstArray, SrcTensor, DstTensor,
+                                                       8>
+        <<<grid_size, block_size, 0, stream>>>(src_idx, dst_idx, num_idx, src_tensor, dst_tensor);
+  } else {
+    HCTR_OWN_THROW(HugeCTR::Error_t::IllegalCall,
+                   "HugeCTR does not support emb vector size >= 1024");
+  }
+}
+
+template <typename IndexArray, typename ScalerArray, typename DstArray, typename SrcTensor,
+          typename DstTensor>
+__global__ void generic_copy_cta_per_bucket_vec4_kernel(IndexArray src_idx, ScalerArray scaler_arr,
+                                                        DstArray dst_idx, SrcTensor src_tensor,
+                                                        DstTensor dst_tensor) {
+  using index_t = typename IndexArray::value_type;
+  using scaler_t = typename ScalerArray::value_type;
+  using dst_index_t = typename DstArray::value_type;
+  using src_t = typename SrcTensor::value_type;
+  using src_scalar_t = typename SrcTensor::value_type::value_type;
+  using dst_t = typename DstTensor::value_type;
+  using dst_scalar_t = typename DstTensor::value_type::value_type;
+  constexpr int copy_width = 4;
+  int kThreadPerBlock = blockDim.x;
+  int tid = threadIdx.x;
+  int idx = blockIdx.x;
+
+  if (idx < src_idx.size()) {
+    index_t s_idx = src_idx[idx];
+    src_t s_ev = src_tensor[s_idx];
+
+    dst_index_t d_idx = dst_idx[idx];
+    dst_t d_ev = dst_tensor[d_idx];
+
+    float scaler = 1.f / static_cast<float>(scaler_arr[idx]);
+
+    for (int i = 0; 4 * kThreadPerBlock * i + 4 * tid < s_ev.size(); ++i) {
+      Vec4T<float> s_vec;
+      int idx4 = 4 * kThreadPerBlock * i + 4 * tid;
+      int n = min(s_ev.size() - idx4, copy_width);
+      s_vec.load(&s_ev[idx4], n);
+
+      s_vec.val.x *= scaler;
+      s_vec.val.y *= scaler;
+      s_vec.val.z *= scaler;
+      s_vec.val.w *= scaler;
+
+      s_vec.store(&d_ev[idx4], n);
+    }
+  }
+}
+
+template <typename IndexArray, typename ScalerArray, typename DstArray, typename SrcTensor,
+          typename DstTensor>
+void generic_copy(IndexArray src_idx, ScalerArray scaler_arr, DstArray dst_idx,
+                  SrcTensor src_tensor, DstTensor dst_tensor, int max_ev_size,
+                  cudaStream_t stream) {
+  int num_idx = src_idx.size();
+  generic_copy_cta_per_bucket_vec4_kernel<<<num_idx, (max_ev_size - 1) / 4 + 1, 0, stream>>>(
+      src_idx, scaler_arr, dst_idx, src_tensor, dst_tensor);
+}
 }  // namespace embedding

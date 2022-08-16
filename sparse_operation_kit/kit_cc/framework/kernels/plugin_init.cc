@@ -17,10 +17,10 @@
 #include <exception>
 
 #include "facade.h"
-#include "tensorflow/core/framework/op_kernel.h"
-#include "tensorflow/stream_executor/stream.h"
 #include "tensorflow/core/common_runtime/gpu/gpu_event_mgr.h"
+#include "tensorflow/core/framework/op_kernel.h"
 #include "tensorflow/stream_executor/cuda/cuda_activation.h"
+#include "tensorflow/stream_executor/stream.h"
 
 namespace stream_executor {
 namespace gpu {
@@ -47,7 +47,8 @@ class PluginInitOp : public AsyncOpKernel {
     const Tensor* global_replica_id_tensor = nullptr;
     OP_REQUIRES_OK_ASYNC(ctx, ctx->input("global_replica_id", &global_replica_id_tensor), done);
     const Tensor* num_replicas_in_sync_tensor = nullptr;
-    OP_REQUIRES_OK_ASYNC(ctx, ctx->input("num_replicas_in_sync", &num_replicas_in_sync_tensor), done);
+    OP_REQUIRES_OK_ASYNC(ctx, ctx->input("num_replicas_in_sync", &num_replicas_in_sync_tensor),
+                         done);
     const Tensor* nccl_unique_id_tensor = nullptr;
     OP_REQUIRES_OK_ASYNC(ctx, ctx->input("nccl_unique_id", &nccl_unique_id_tensor), done);
     const Tensor* global_seed_tensor = nullptr;
@@ -55,8 +56,8 @@ class PluginInitOp : public AsyncOpKernel {
     const Tensor* visible_devices_tensor = nullptr;
     OP_REQUIRES_OK_ASYNC(ctx, ctx->input("visible_devices", &visible_devices_tensor), done);
 
-    auto work_func = [this, ctx, global_replica_id_tensor, num_replicas_in_sync_tensor, nccl_unique_id_tensor,
-                      global_seed_tensor, visible_devices_tensor, done]() {
+    auto work_func = [this, ctx, global_replica_id_tensor, num_replicas_in_sync_tensor,
+                      nccl_unique_id_tensor, global_seed_tensor, visible_devices_tensor, done]() {
       auto stream = ctx->op_device_context()->stream();
       ScopedActivateExecutorContext scoped_activation{stream->parent()};
       try {
@@ -66,7 +67,8 @@ class PluginInitOp : public AsyncOpKernel {
 
         // const cudaStream_t& tf_stream = ctx->eigen_device<Device>().stream();
         auto device_ctx = ctx->op_device_context();
-        OP_REQUIRES_ASYNC(ctx, device_ctx != nullptr, errors::Aborted("No valid device context."), done);
+        OP_REQUIRES_ASYNC(ctx, device_ctx != nullptr, errors::Aborted("No valid device context."),
+                          done);
         const cudaStream_t tf_stream = stream_executor::gpu::AsGpuStreamValue(device_ctx->stream());
 
         SparseOperationKit::Facade::instance()->init(
@@ -87,7 +89,8 @@ class PluginInitOp : public AsyncOpKernel {
     };
 
     auto stream = ctx->op_device_context()->stream();
-    ctx->device()->tensorflow_gpu_device_info()->event_mgr->ThenExecute(stream, std::move(work_func));
+    ctx->device()->tensorflow_gpu_device_info()->event_mgr->ThenExecute(stream,
+                                                                        std::move(work_func));
   }
 
  private:

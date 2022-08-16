@@ -23,3 +23,15 @@
 	path = third_party/argparse
 	url = https://github.com/p-ranav/argparse.git
 	branch = v2.5
+[submodule "third_party/hiredis"]
+	path = third_party/hiredis
+	url = https://github.com/redis/hiredis.git
+[submodule "third_party/redis_pp"]
+	path = third_party/redis_pp
+	url = https://github.com/sewenew/redis-plus-plus.git
+[submodule "third_party/rocksdb"]
+	path = third_party/rocksdb
+	url = https://github.com/facebook/rocksdb.git
+[submodule "third_party/librdkafka"]
+	path = third_party/librdkafka
+	url = https://github.com/edenhill/librdkafka.git

@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include <cuda_profiler_api.h>
+
 #include <HugeCTR/include/base/debug/logger.hpp>
 #include <HugeCTR/include/resource_managers/resource_manager_ext.hpp>
 #include <algorithm>
@@ -67,12 +69,12 @@ static std::string get_tensor_shape(std::string tensor_name,
                                     std::map<std::string, std::vector<size_t>> tensor_shape_info) {
   std::string shape = "";
   if (tensor_shape_info.find(tensor_name) != tensor_shape_info.end()) {
-    shape += "(None";
-    for (unsigned int i = 1; i < tensor_shape_info[tensor_name].size(); i++) {
-      shape += ", ";
+    shape += "(";
+    for (unsigned int i = 0; i < tensor_shape_info[tensor_name].size(); i++) {
       shape += std::to_string(tensor_shape_info[tensor_name][i]);
+      shape += ",";
     }
-    shape += ")";
+    shape.back() = ')';
   }
   return shape;
 }
@@ -288,9 +290,10 @@ DenseLayer::DenseLayer(Layer_t layer_type, std::vector<std::string>& bottom_name
                        size_t vector_size, bool selected, std::vector<int> selected_slots,
                        std::vector<std::pair<int, int>> ranges, std::vector<int> indices,
                        std::vector<size_t> weight_dims, size_t out_dim, int axis,
-                       std::vector<float> target_weight_vec, bool use_regularizer,
-                       Regularizer_t regularizer_type, float lambda, FcPosition_t pos_type,
-                       Activation_t act_type, DenseLayerSwitchs dense_layer_switches)
+                       int max_sequence_len, std::vector<float> target_weight_vec,
+                       bool use_regularizer, Regularizer_t regularizer_type, float lambda,
+                       FcPosition_t pos_type, Activation_t act_type,
+                       DenseLayerSwitchs dense_layer_switches)
     : layer_type(layer_type),
       bottom_names(bottom_names),
       top_names(top_names),
@@ -316,6 +319,7 @@ DenseLayer::DenseLayer(Layer_t layer_type, std::vector<std::string>& bottom_name
       weight_dims(weight_dims),
       out_dim(out_dim),
       axis(axis),
+      max_sequence_len(max_sequence_len),
       target_weight_vec(target_weight_vec),
       use_regularizer(use_regularizer),
       regularizer_type(regularizer_type),
@@ -456,6 +460,11 @@ Model::Model(const Solver& solver, const DataReaderParams& reader_params,
   if (0 != solver_.batchsize % total_gpu_count) {
     HCTR_OWN_THROW(Error_t::WrongInput, "0 != batch_size\%total_gpu_count");
   }
+  const auto overflow_check_env = std::getenv("HUGECTR_DISABLE_OVERFLOW_CHECK");
+  if (nullptr != overflow_check_env && 1 == std::atoi(overflow_check_env)) {
+    overflow_check_ = false;
+  }
+
   // reserve networks to be created
   for (size_t i = 0; i < resource_manager_->get_local_gpu_count(); i++) {
     networks_.emplace_back(new Network(resource_manager_->get_local_cpu(),
@@ -1200,6 +1209,16 @@ void Model::compile() {
   }
 #endif
   init_params_for_dense_();
+  if (solver_.perf_logging) {
+    for (size_t i = 0; i < dense_layer_params_.size(); i++) {
+      bool is_trainable =
+          TRAINABLE_LAYERS.find(dense_layer_params_[i].layer_type) != TRAINABLE_LAYERS.end();
+      if (is_trainable) {
+        std::string output_names = join(dense_layer_params_[i].top_names, "-");
+        HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "weights_initialization", output_names);
+      }
+    }
+  }
   init_params_for_sparse_();
   if (etc_params_->use_embedding_training_cache) {
     init_embedding_training_cache_(etc_params_->ps_types, etc_params_->sparse_models,
@@ -1312,6 +1331,13 @@ void Model::compile() {
         hybrid_embedding->init_model(init_data_reader_ar_i32->get_value_tensors(),
                                      embed_wgrad_size);
       }
+    }
+  }
+
+  if (solver_.perf_logging) {
+    for (size_t i = 0; i < sparse_embedding_params_.size(); i++) {
+      HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "weights_initialization",
+                    sparse_embedding_params_[i].sparse_embedding_name);
     }
   }
 
@@ -1559,6 +1585,19 @@ void Model::set_source(std::string source, std::string eval_source) {
   reader_params_.eval_source.assign(eval_source);
 }
 
+void print_class_aucs(std::vector<float> class_aucs) {
+  if (class_aucs.size() > 1) {
+    HCTR_LOG_S(INFO, ROOT) << "Evaluation, AUC: {";
+    for (size_t i = 0; i < class_aucs.size(); i++) {
+      if (i > 0) {
+        HCTR_PRINT(INFO, ", ");
+      }
+      HCTR_PRINT(INFO, "%f", class_aucs[i]);
+    }
+    HCTR_PRINT(INFO, "}\n");
+  }
+}
+
 void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, int snapshot,
                 std::string snapshot_prefix) {
   if (!buff_allocated_) {
@@ -1694,10 +1733,13 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
           }
           timer_eval.stop();
           auto eval_metrics = this->get_eval_metrics();
+          size_t metric_id = 0;
           for (auto& eval_metric : eval_metrics) {
+            metric_id++;
             HCTR_LOG_S(INFO, ROOT)
                 << "Evaluation, " << eval_metric.first << ": " << eval_metric.second << std::endl;
             if (!eval_metric.first.compare("AUC")) {
+              print_class_aucs(metrics_[metric_id - 1]->get_per_class_metric());
               const auto auc_threshold = solver_.metrics_spec[HugeCTR::metrics::Type::AUC];
               if (eval_metric.second > auc_threshold) {
                 timer.stop();
@@ -1795,9 +1837,14 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
             }
             timer_eval.stop();
             auto eval_metrics = this->get_eval_metrics();
+            size_t metric_id = 0;
             for (auto& eval_metric : eval_metrics) {
+              metric_id++;
               HCTR_LOG_S(INFO, ROOT)
                   << "Evaluation, " << eval_metric.first << ": " << eval_metric.second << std::endl;
+              if (!eval_metric.first.compare("AUC")) {
+                print_class_aucs(metrics_[metric_id - 1]->get_per_class_metric());
+              }
             }
             HCTR_LOG_S(INFO, ROOT) << "Eval Time for " << solver_.max_eval_batches
                                    << " iters: " << timer_eval.elapsedSeconds() << "s" << std::endl;
@@ -1811,8 +1858,7 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
     HCTR_LOG_S(INFO, ROOT) << "Evaluation source file: " << reader_params_.eval_source << std::endl;
 
     if (solver_.perf_logging) {
-      HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "train_epoch_start",
-                    0);  // just 1 epoch. perf logger
+      HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "epoch_start", 0);
     }
 
     this->start_data_reading();
@@ -1868,7 +1914,9 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
           this->eval(batches == 0);
         }
         auto eval_metrics = this->get_eval_metrics();
+        size_t metric_id = 0;
         for (auto& eval_metric : eval_metrics) {
+          metric_id++;
           HCTR_LOG_S(INFO, ROOT) << "Evaluation, " << eval_metric.first << ": "
                                  << eval_metric.second << std::endl;
           if (solver_.perf_logging) {
@@ -1876,6 +1924,7 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
                           float(iter) / max_iter, iter);
           }
           if (!eval_metric.first.compare("AUC")) {
+            print_class_aucs(metrics_[metric_id - 1]->get_per_class_metric());
             const auto auc_threshold = solver_.metrics_spec[HugeCTR::metrics::Type::AUC];
             if (eval_metric.second > auc_threshold) {
               timer.stop();
@@ -1883,27 +1932,17 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
                 size_t train_samples =
                     static_cast<size_t>(iter + 1) * static_cast<size_t>(solver_.batchsize);
 
-                std::string epoch_num_str = std::to_string(float(iter) / max_iter);
+                HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "eval_stop", float(iter) / max_iter);
 
-                HCTR_LOG_S(INFO, WORLD)
-                    << "Hit target accuracy AUC " << auc_threshold << " at " << iter << "/"
-                    << max_iter << " iterations with batchsize " << solver_.batchsize << " in "
-                    << std::setiosflags(std::ios::fixed) << std::setprecision(2)
-                    << timer.elapsedSeconds() << " s. Average speed "
-                    << (float(iter) * solver_.batchsize / timer.elapsedSeconds()) << " records/s."
-                    << std::endl;
-
-                HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "eval_stop" + epoch_num_str);
-
-                HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "train_epoch_end", 1);
+                HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "epoch_stop", 1);
 
                 HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "run_stop");
                 HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "train_samples", train_samples);
                 timer_log.stop();
               }
               HCTR_LOG(INFO, ROOT,
-                       "Hit target accuracy AUC %f at %d "
-                       "/ %d iterations with batchsize %d"
+                       "Hit target accuracy AUC %.4f at "
+                       "%d / %d iterations with batchsize %d"
                        " in %.2fs. Average speed %f "
                        "records/s.\n",
                        auc_threshold, iter, max_iter, solver_.batchsize, timer.elapsedSeconds(),
@@ -2043,7 +2082,7 @@ void Model::train_overlapped() {
         sync();
         schedule_reader(TrainState_t::TopMLPFprop);
         schedule_split3way(TrainState_t::MLPExchangeWgrad);
-        schedule_d2d(TrainState_t::MLPUpdate);
+        schedule_d2d(TrainState_t::Finalize);
         state = networks_[id]->train(
             current_batchsize_per_device, [this, id]() { this->exchange_wgrad(id); }, state);
       } while (change_state(&state));
@@ -2512,6 +2551,9 @@ Error_t Model::download_params_to_files(std::string prefix, int iter) {
 }
 
 void Model::check_overflow() const {
+  if (!overflow_check_) {
+    return;
+  }
   for (auto& one_embedding : embeddings_) {
     one_embedding->check_overflow();
   }
@@ -2520,6 +2562,7 @@ void Model::check_overflow() const {
 void Model::copy_weights_for_evaluation() {
   for (auto& network : networks_) {
     network->copy_weights_from_train_layers_to_evaluate_layers();
+    network->copy_non_trainable_params_from_train_layers_to_evaluate_layers();
   }
 }
 
@@ -2528,7 +2571,7 @@ Error_t Model::download_dense_params_to_files_(std::string weights_file,
                                                const DataSourceParams& data_source_params) {
   try {
     if (resource_manager_->is_master_process()) {
-      if (data_source_params.use_hdfs) {
+      if (data_source_params.type == DataSourceType_t::HDFS) {
         networks_[0]->download_params_to_hdfs(weights_file, data_source_params);
         HCTR_LOG(INFO, ROOT, "Dumping dense weights to HDFS, successful\n");
         networks_[0]->download_opt_states_to_hdfs(dense_opt_states_file, data_source_params);
@@ -2536,11 +2579,11 @@ Error_t Model::download_dense_params_to_files_(std::string weights_file,
         std::string no_trained_params = networks_[0]->get_no_trained_params_in_string();
         if (no_trained_params.length() != 0) {
           std::string ntp_file = weights_file + ".ntp.json";
-          HdfsService hs = HdfsService(data_source_params.namenode, data_source_params.port);
+          HdfsService hs = HdfsService(data_source_params.server, data_source_params.port);
           hs.write(ntp_file, no_trained_params.c_str(), no_trained_params.length(), true);
           HCTR_LOG(INFO, ROOT, "Dumping untrainable weights to file, successful\n");
         }
-      } else {
+      } else if (data_source_params.type == DataSourceType_t::Local) {
         std::ofstream out_stream_weight(weights_file, std::ofstream::binary);
         networks_[0]->download_params_to_host(out_stream_weight);
         HCTR_LOG(INFO, ROOT, "Dumping dense weights to file, successful\n");
@@ -2557,6 +2600,8 @@ Error_t Model::download_dense_params_to_files_(std::string weights_file,
         }
         out_stream_weight.close();
         out_dense_opt_state_weight.close();
+      } else {
+        HCTR_OWN_THROW(Error_t::WrongInput, "Filesystem not supported yet.");
       }
     }
   } catch (const internal_runtime_error& rt_err) {
@@ -2626,16 +2671,18 @@ Error_t Model::load_opt_states_for_dense_(const std::string& dense_opt_states_fi
   try {
     size_t opt_states_size_in_byte = networks_[0]->get_opt_states_size_in_byte();
     std::unique_ptr<char[]> opt_states(new char[opt_states_size_in_byte]());
-    if (data_source_params.use_hdfs) {
-      HdfsService hs(data_source_params.namenode, data_source_params.port);
+    if (data_source_params.type == DataSourceType_t::HDFS) {
+      HdfsService hs(data_source_params.server, data_source_params.port);
       hs.read(dense_opt_states_file, opt_states.get(), hs.getFileSize(dense_opt_states_file), 0);
-    } else {
+    } else if (data_source_params.type == DataSourceType_t::Local) {
       std::ifstream opt_states_stream(dense_opt_states_file, std::ifstream::binary);
       if (!opt_states_stream.is_open()) {
         HCTR_OWN_THROW(Error_t::WrongInput, "Cannot open dense opt states file");
       }
       opt_states_stream.read(opt_states.get(), opt_states_size_in_byte);
       opt_states_stream.close();
+    } else {
+      HCTR_OWN_THROW(Error_t::WrongInput, "Filesystem not supported yet.");
     }
     HCTR_LOG_S(INFO, ROOT) << "Loading dense opt states: " << dense_opt_states_file << std::endl;
     for (auto& network : networks_) {
@@ -2655,7 +2702,7 @@ Error_t Model::load_opt_states_for_sparse_(const std::vector<std::string>& spars
                                            const DataSourceParams& data_source_params) {
   try {
     for (size_t i = 0; i < embeddings_.size(); i++) {
-      if (data_source_params.use_hdfs) {
+      if (data_source_params.type == DataSourceType_t::HDFS) {
         if (i < sparse_opt_states_files.size()) {
           std::ifstream sparse_opt_stream(sparse_opt_states_files[i], std::ifstream::binary);
           HCTR_LOG_S(INFO, ROOT) << "Loading sparse optimizer states: "
@@ -2664,7 +2711,7 @@ Error_t Model::load_opt_states_for_sparse_(const std::vector<std::string>& spars
                                           data_source_params);
           sparse_opt_stream.close();
         }
-      } else {
+      } else if (data_source_params.type == DataSourceType_t::Local) {
         if (i < sparse_opt_states_files.size()) {
           std::ifstream sparse_opt_stream(sparse_opt_states_files[i], std::ifstream::binary);
           if (!sparse_opt_stream.is_open()) {
@@ -2676,6 +2723,8 @@ Error_t Model::load_opt_states_for_sparse_(const std::vector<std::string>& spars
                                           data_source_params);
           sparse_opt_stream.close();
         }
+      } else {
+        HCTR_OWN_THROW(Error_t::WrongInput, "Filesystem not supported yet.");
       }
     }
   } catch (const internal_runtime_error& rt_err) {
@@ -2692,10 +2741,10 @@ Error_t Model::load_params_for_dense_(const std::string& model_file,
                                       const DataSourceParams& data_source_params) {
   try {
     std::unique_ptr<float[]> weight(new float[networks_[0]->get_params_num()]());
-    if (data_source_params.use_hdfs) {
-      HdfsService hs(data_source_params.namenode, data_source_params.port);
+    if (data_source_params.type == DataSourceType_t::HDFS) {
+      HdfsService hs(data_source_params.server, data_source_params.port);
       hs.read(model_file, weight.get(), hs.getFileSize(model_file), 0);
-    } else {
+    } else if (data_source_params.type == DataSourceType_t::Local) {
       std::ifstream model_stream(model_file, std::ifstream::binary);
       if (!model_stream.is_open()) {
         HCTR_OWN_THROW(Error_t::WrongInput, "Cannot open dense model file");
@@ -2704,6 +2753,8 @@ Error_t Model::load_params_for_dense_(const std::string& model_file,
                         networks_[0]->get_params_num() * sizeof(float));
       HCTR_LOG_S(INFO, ROOT) << "Loading dense model: " << model_file << std::endl;
       model_stream.close();
+    } else {
+      HCTR_OWN_THROW(Error_t::WrongInput, "Filesystem not supported");
     }
     for (auto& network : networks_) {
       network->upload_params_to_device(weight.get());
@@ -2722,18 +2773,9 @@ Error_t Model::load_params_for_sparse_(const std::vector<std::string>& embedding
                                        const DataSourceParams& data_source_params) {
   try {
     for (size_t i = 0; i < embeddings_.size(); i++) {
-      if (data_source_params.use_hdfs) {
-        if (i < embedding_model_files.size()) {
-          HCTR_LOG_S(INFO, ROOT) << "Loading sparse model: " << embedding_model_files[i]
-                                 << std::endl;
-          embeddings_[i]->load_parameters(embedding_model_files[i], data_source_params);
-        }
-      } else {
-        if (i < embedding_model_files.size()) {
-          HCTR_LOG_S(INFO, ROOT) << "Loading sparse model: " << embedding_model_files[i]
-                                 << std::endl;
-          embeddings_[i]->load_parameters(embedding_model_files[i], data_source_params);
-        }
+      if (i < embedding_model_files.size()) {
+        HCTR_LOG_S(INFO, ROOT) << "Loading sparse model: " << embedding_model_files[i] << std::endl;
+        embeddings_[i]->load_parameters(embedding_model_files[i], data_source_params);
       }
     }
   } catch (const internal_runtime_error& rt_err) {

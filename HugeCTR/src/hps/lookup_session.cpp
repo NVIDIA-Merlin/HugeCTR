@@ -37,12 +37,8 @@ LookupSession::LookupSession(const InferenceParams& inference_params,
           Error_t::WrongInput,
           "The device id of inference_params is not consistent with that of embedding cache.");
     }
-    HCTR_LOG(INFO, ROOT, "Create inference session on device: %d\n", inference_params_.device_id);
-    auto b2s = [](const char val) { return val ? "True" : "False"; };
-    HCTR_LOG(INFO, ROOT, "Model name: %s\n", inference_params_.model_name.c_str());
-    HCTR_LOG(INFO, ROOT, "Number of embedding tables: %zu\n",
-             inference_params_.sparse_model_files.size());
-    HCTR_LOG(INFO, ROOT, "Use I64 input key: %s\n", b2s(inference_params.i64_input_key));
+    HCTR_LOG(INFO, ROOT, "Creating lookup session for %s on device: %d\n",
+             inference_params_.model_name.c_str(), inference_params_.device_id);
 
     CudaDeviceContext context(inference_params_.device_id);
     for (size_t idx = 0; idx < inference_params_.sparse_model_files.size(); ++idx) {

@@ -73,9 +73,13 @@ EmbeddingCache<TypeHashKey>::EmbeddingCache(const InferenceParams& inference_par
       insert_workers_("EC insert",
                       std::max(static_cast<unsigned int>(inference_params.thread_pool_size),
                                std::thread::hardware_concurrency())) {
+  auto b2s = [](const char val) { return val ? "True" : "False"; };
+  HCTR_LOG(INFO, ROOT, "Model name: %s\n", inference_params.model_name.c_str());
+  HCTR_LOG(INFO, ROOT, "Number of embedding tables: %zu\n",
+           inference_params.sparse_model_files.size());
   HCTR_LOG(INFO, ROOT, "Use GPU embedding cache: %s, cache size percentage: %f\n",
-           inference_params.use_gpu_embedding_cache ? "True" : "False",
-           inference_params.cache_size_percentage);
+           b2s(inference_params.use_gpu_embedding_cache), inference_params.cache_size_percentage);
+  HCTR_LOG(INFO, ROOT, "Use I64 input key: %s\n", b2s(inference_params.i64_input_key));
   HCTR_LOG(INFO, ROOT, "Configured cache hit rate threshold: %f\n",
            inference_params.hit_rate_threshold);
   HCTR_LOG(INFO, ROOT, "The size of thread pool: %u\n",

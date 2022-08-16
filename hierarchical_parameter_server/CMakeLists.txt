@@ -26,6 +26,12 @@ option(CLANGFORMAT "Setup clangformat target" ON)
 if(CLANGFORMAT)
   include(ClangFormat)
   file(GLOB_RECURSE HUGECTR_SRC
+    ${PROJECT_SOURCE_DIR}/../HugeCTR/src/hps/*.cpp
+    ${PROJECT_SOURCE_DIR}/../HugeCTR/src/hps/*.cc
+    ${PROJECT_SOURCE_DIR}/../HugeCTR/src/hps/*.cu
+    ${PROJECT_SOURCE_DIR}/../HugeCTR/include/hps/*.hpp
+    ${PROJECT_SOURCE_DIR}/../HugeCTR/include/hps/*.h
+    ${PROJECT_SOURCE_DIR}/../HugeCTR/include/hps/*.cuh
     ${PROJECT_SOURCE_DIR}/hps_cc/framework/kernels/*.cpp
     ${PROJECT_SOURCE_DIR}/hps_cc/framework/kernels/*.cc
     ${PROJECT_SOURCE_DIR}/hps_cc/framework/kernels/*.cu
@@ -109,17 +115,23 @@ include_directories(
     ${PROJECT_SOURCE_DIR}/hps_cc/hps_cc_infra/include/
     ${PROJECT_SOURCE_DIR}/hps_cc/framework/kernels/
     ${PROJECT_SOURCE_DIR}/../
+    ${PROJECT_SOURCE_DIR}/../HugeCTR/
     ${PROJECT_SOURCE_DIR}/../HugeCTR/include
     ${PROJECT_SOURCE_DIR}/../third_party
     ${PROJECT_SOURCE_DIR}/../third_party/parallel-hashmap
     ${PROJECT_SOURCE_DIR}/../third_party/json/single_include
     ${PROJECT_SOURCE_DIR}/../third_party/xxhash
     ${PROJECT_SOURCE_DIR}/../gpu_cache/include
+    ${PROJECT_SOURCE_DIR}/../third_party/redis_pp/src
+    ${PROJECT_SOURCE_DIR}/../third_party/redis_pp/src/sw/redis++/no_tls
+    ${PROJECT_SOURCE_DIR}/../third_party/redis_pp/src/sw/redis++/cxx17
+    ${PROJECT_SOURCE_DIR}/../third_party/rocksdb/include
+    ${PROJECT_SOURCE_DIR}/../third_party/librdkafka/src
     ${CUDA_INCLUDE_DIRS}
 )
 
 configure_file(${PROJECT_SOURCE_DIR}/../HugeCTR/include/config.hpp.in ${PROJECT_SOURCE_DIR}/../HugeCTR/include/config.hpp)
-
+add_subdirectory(${PROJECT_SOURCE_DIR}/../third_party third_party)
 # building HPS C++ source code
 add_subdirectory(${PROJECT_SOURCE_DIR}/../gpu_cache/src gpu_cache)
 add_subdirectory(${PROJECT_SOURCE_DIR}/../HugeCTR/src/hps hps)

@@ -16,6 +16,7 @@
 
 #include "HugeCTR/include/data_source/hdfs_backend.hpp"
 
+#include "HugeCTR/include/data_generator.hpp"
 #include "fstream"
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"
@@ -23,7 +24,7 @@
 using namespace HugeCTR;
 namespace {
 
-void hdfs_backend_test(const std::string server, const int port) {
+void read_write_test(const std::string server, const int port) {
   std::string writepath1 = "/tmp/batch_copy/data1.txt";
   const char* buffer1 = "Hello, World!\n";
 
@@ -48,11 +49,33 @@ void hdfs_backend_test(const std::string server, const int port) {
   EXPECT_EQ(*buffer1, *buffer_for_read1);
   EXPECT_EQ(*buffer2, *buffer_for_read2);
   EXPECT_EQ(*buffer3, *buffer_for_read3);
-  hs.copyToLocal("/tmp/batch_copy/data1.txt", "/tmp/local_batch_copy/");
-  hs.batchCopyToLocal("/tmp/batch_copy", "/tmp/local_batch_copy");
+  hs.copy("/tmp/batch_copy/data1.txt", "/tmp/local_batch_copy/data1.txt", true);
+  hs.batchCopy("/tmp/batch_copy/", "/tmp/local_batch_copy/", true);
 }
 
-std::string server = "localhost";
-int port = 9000;
-TEST(hdfs_backend_test, read_write_test) { hdfs_backend_test(server, port); }
+void copy2hdfs_test(const std::string path, const int num_rows_per_file, const int num_files) {
+  HdfsService hs = HdfsService("localhost", 9000);
+  std::vector<size_t> slot_size_array = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                                         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+  std::vector<int> nnz_array = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+
+  // generate a set of parquet file
+  data_generation_for_parquet<int64_t>("../" + path + "/file_list.txt", "." + path + "gen_",
+                                       num_files, num_rows_per_file, 26, 1, 13, slot_size_array,
+                                       nnz_array);
+
+  // copy the files to HDFS
+  int result = hs.batchCopy("." + path, path, false);
+  EXPECT_EQ(result, 0);
+}
+
+TEST(hdfs_backend_test, read_write_test_docker) { read_write_test("localhost", 9000); }
+
+TEST(hdfs_backend_test, copy2hdfs_test_small) {
+  copy2hdfs_test("/dlrm_parquet_test_small/", 20000, 40);
+}
+TEST(hdfs_backend_test, copy2hdfs_test_big) {
+  copy2hdfs_test("/dlrm_parquet_test_big/", 200000, 4);
+}
 }  // namespace

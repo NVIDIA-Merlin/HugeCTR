@@ -14,10 +14,11 @@
  limitations under the License.
 """
 
-print("[INFO] %s is imported" %__name__)
+print("[INFO] %s is imported" % __name__)
 
 from hierarchical_parameter_server.core._version import __version__
 from hierarchical_parameter_server.core.initialize import Init
 from hierarchical_parameter_server.core.lookup_layer import LookupLayer
+from hierarchical_parameter_server.core.sparse_lookup_layer import SparseLookupLayer
 
 __all__ = [item for item in dir() if not item.startswith("__")]

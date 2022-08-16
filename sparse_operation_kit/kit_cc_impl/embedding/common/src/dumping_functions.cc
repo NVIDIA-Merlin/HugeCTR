@@ -190,8 +190,8 @@ void save_params_helper(const std::shared_ptr<ParamInterface> &param,
               const int32_t peer = worker * local_gpu_count + dev_id;
               const auto &local_gpu = resource_mgr->get_local_gpu(dev_id);
               const size_t pair_count = count[recv_worker * local_gpu_count + dev_id];
-              CK_NCCL(ncclRecv(d_hash_table_key[dev_id], pair_count, GetNCCLType<KeyType>(), /*peer=*/peer,
-                               local_gpu->get_nccl(), local_gpu->get_stream()));
+              CK_NCCL(ncclRecv(d_hash_table_key[dev_id], pair_count, GetNCCLType<KeyType>(),
+                               /*peer=*/peer, local_gpu->get_nccl(), local_gpu->get_stream()));
               CK_NCCL(ncclRecv(d_hash_table_value[dev_id], pair_count * embedding_vector_size,
                                ncclFloat32, /*peer=*/peer, local_gpu->get_nccl(),
                                local_gpu->get_stream()));
@@ -276,16 +276,16 @@ void save_params_helper(const std::shared_ptr<ParamInterface> &param,
   }  // for dev_id in local_gpu_count
 }
 
-template void save_params_helper<int64_t>(
-      const std::shared_ptr<ParamInterface> &param,
-      const std::shared_ptr<ResourcesManager> &resource_mgr,
-      std::shared_ptr<Tensor> &keys, std::shared_ptr<Tensor> &embedding_values,
-      size_t &num_total_keys);
-template void save_params_helper<uint32_t>(
-      const std::shared_ptr<ParamInterface> &param,
-      const std::shared_ptr<ResourcesManager> &resource_mgr,
-      std::shared_ptr<Tensor> &keys, std::shared_ptr<Tensor> &embedding_values,
-      size_t &num_total_keys);
+template void save_params_helper<int64_t>(const std::shared_ptr<ParamInterface> &param,
+                                          const std::shared_ptr<ResourcesManager> &resource_mgr,
+                                          std::shared_ptr<Tensor> &keys,
+                                          std::shared_ptr<Tensor> &embedding_values,
+                                          size_t &num_total_keys);
+template void save_params_helper<uint32_t>(const std::shared_ptr<ParamInterface> &param,
+                                           const std::shared_ptr<ResourcesManager> &resource_mgr,
+                                           std::shared_ptr<Tensor> &keys,
+                                           std::shared_ptr<Tensor> &embedding_values,
+                                           size_t &num_total_keys);
 
 template <typename KeyType>
 void restore_params_helper(std::shared_ptr<ParamInterface> &param,
@@ -485,18 +485,15 @@ void restore_params_helper(std::shared_ptr<ParamInterface> &param,
   }
 }
 
-template void restore_params_helper<int64_t>(
-    std::shared_ptr<ParamInterface> &param,
-    const std::shared_ptr<ResourcesManager> &resource_mgr,
-    const std::shared_ptr<Tensor> &keys,
-    const std::shared_ptr<Tensor> &embedding_values,
-    const size_t num_total_keys);
-template void restore_params_helper<uint32_t>(
-    std::shared_ptr<ParamInterface> &param,
-    const std::shared_ptr<ResourcesManager> &resource_mgr,
-    const std::shared_ptr<Tensor> &keys,
-    const std::shared_ptr<Tensor> &embedding_values,
-    const size_t num_total_keys);
-      
+template void restore_params_helper<int64_t>(std::shared_ptr<ParamInterface> &param,
+                                             const std::shared_ptr<ResourcesManager> &resource_mgr,
+                                             const std::shared_ptr<Tensor> &keys,
+                                             const std::shared_ptr<Tensor> &embedding_values,
+                                             const size_t num_total_keys);
+template void restore_params_helper<uint32_t>(std::shared_ptr<ParamInterface> &param,
+                                              const std::shared_ptr<ResourcesManager> &resource_mgr,
+                                              const std::shared_ptr<Tensor> &keys,
+                                              const std::shared_ptr<Tensor> &embedding_values,
+                                              const size_t num_total_keys);
 
 }  // namespace SparseOperationKit

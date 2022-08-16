@@ -22,28 +22,76 @@
 
 namespace SparseOperationKit {
 
-template <> DataType DType<float>() { return DataType::Float32; }
-template <> DataType DType<__half>() { return DataType::Float16; }
-template <> DataType DType<int64_t>() { return DataType::Int64; }
-template <> DataType DType<uint64_t>() { return DataType::Uint64; }
-template <> DataType DType<int32_t>() { return DataType::Int32; }
-template <> DataType DType<uint32_t>() { return DataType::Uint32; }
- 
-template <> struct TypeImpl<DataType::Float32> { using type = float; };
-template <> struct TypeImpl<DataType::Float16> { using type = __half; };
-template <> struct TypeImpl<DataType::Int64> { using type = int64_t; };
-template <> struct TypeImpl<DataType::Uint64> { using type = uint64_t; };
-template <> struct TypeImpl<DataType::Int32> { using type = int32_t; };
-template <> struct TypeImpl<DataType::Uint32> { using type = uint32_t; };
+template <>
+DataType DType<float>() {
+  return DataType::Float32;
+}
+template <>
+DataType DType<__half>() {
+  return DataType::Float16;
+}
+template <>
+DataType DType<int64_t>() {
+  return DataType::Int64;
+}
+template <>
+DataType DType<uint64_t>() {
+  return DataType::Uint64;
+}
+template <>
+DataType DType<int32_t>() {
+  return DataType::Int32;
+}
+template <>
+DataType DType<uint32_t>() {
+  return DataType::Uint32;
+}
+
+template <>
+struct TypeImpl<DataType::Float32> {
+  using type = float;
+};
+template <>
+struct TypeImpl<DataType::Float16> {
+  using type = __half;
+};
+template <>
+struct TypeImpl<DataType::Int64> {
+  using type = int64_t;
+};
+template <>
+struct TypeImpl<DataType::Uint64> {
+  using type = uint64_t;
+};
+template <>
+struct TypeImpl<DataType::Int32> {
+  using type = int32_t;
+};
+template <>
+struct TypeImpl<DataType::Uint32> {
+  using type = uint32_t;
+};
 
 std::string DataTypeString(DataType dtype) {
   switch (dtype) {
-    case DataType::Float32: { return "Float32"; }
-    case DataType::Float16: { return "Float16"; }
-    case DataType::Int64: { return "Int64"; }
-    case DataType::Uint64: { return "Uint64"; }
-    case DataType::Int32: { return "Int32"; }
-    case DataType::Uint32: { return "Uint32"; }
+    case DataType::Float32: {
+      return "Float32";
+    }
+    case DataType::Float16: {
+      return "Float16";
+    }
+    case DataType::Int64: {
+      return "Int64";
+    }
+    case DataType::Uint64: {
+      return "Uint64";
+    }
+    case DataType::Int32: {
+      return "Int32";
+    }
+    case DataType::Uint32: {
+      return "Uint32";
+    }
     default: {
       throw std::runtime_error(ErrorBase + "Unknown dtype.");
     }

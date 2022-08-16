@@ -21,14 +21,14 @@
 using namespace tensorflow;
 using namespace tensorflow::shape_inference;
 
-namespace OP_OVERLOAD { 
+namespace OP_OVERLOAD {
 namespace {
-Status ValidateVariableResourceHandle(
-    InferenceContext* c, std::vector<ShapeAndType>* shape_and_type) {
+Status ValidateVariableResourceHandle(InferenceContext* c,
+                                      std::vector<ShapeAndType>* shape_and_type) {
   {
     DataType value_dtype;
     TF_RETURN_IF_ERROR(c->GetAttr("dtype", &value_dtype));
-    if (DataType::DT_FLOAT == value_dtype) 
+    if (DataType::DT_FLOAT == value_dtype)
       return shape_inference::ValidateVariableResourceHandle(c, shape_and_type);
   }
 
@@ -44,17 +44,16 @@ Status ValidateVariableResourceHandle(
         return Status::OK();
       } else {
         return errors::InvalidArgument(
-          "Trying to read variable with wrong dtype. "
-          "Expected ",
-          DataTypeString(shape_and_type->at(0).dtype), " got ",
-          DataTypeString(value_dtype));
-      } // if DT_HALF == value_dtype
-    } // if DataType != value_dtype
+            "Trying to read variable with wrong dtype. "
+            "Expected ",
+            DataTypeString(shape_and_type->at(0).dtype), " got ", DataTypeString(value_dtype));
+      }  // if DT_HALF == value_dtype
+    }    // if DataType != value_dtype
   }
   return Status::OK();
 }
-} // anonymous namespace
-} // namespace OP_OVERLOAD
+}  // anonymous namespace
+}  // namespace OP_OVERLOAD
 
 REGISTER_OP("PluginSparseFprop")
     .Input("emb_var_handle: resource")
@@ -72,8 +71,7 @@ REGISTER_OP("PluginSparseFprop")
     .Attr("unique_op_name: string")
     .SetShapeFn([](InferenceContext* ctx) {
       std::vector<ShapeAndType> handle_shape_and_type;
-      TF_RETURN_IF_ERROR(
-          OP_OVERLOAD::ValidateVariableResourceHandle(ctx, &handle_shape_and_type));
+      TF_RETURN_IF_ERROR(OP_OVERLOAD::ValidateVariableResourceHandle(ctx, &handle_shape_and_type));
 
       ShapeHandle variable_shape;
       TF_RETURN_IF_ERROR(ctx->WithRank(handle_shape_and_type[0].shape, 2, &variable_shape));

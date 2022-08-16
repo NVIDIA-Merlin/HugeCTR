@@ -334,16 +334,20 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::load_pa
   size_t key_file_size_in_byte;
   size_t vec_file_size_in_byte;
 
-  if (data_source_params.use_hdfs) {
-    HdfsService hs(data_source_params.namenode, data_source_params.port);
+  if (data_source_params.type == DataSourceType_t::HDFS) {
+    HdfsService hs(data_source_params.server, data_source_params.port);
     key_file_size_in_byte = hs.getFileSize(key_file);
     vec_file_size_in_byte = hs.getFileSize(vec_file);
-  } else {
+  } else if (data_source_params.type == DataSourceType_t::Local) {
     if (!std::filesystem::exists(sparse_model)) {
       HCTR_OWN_THROW(Error_t::WrongInput, "Folder " + sparse_model + " doesn't exist");
     }
     key_file_size_in_byte = std::filesystem::file_size(key_file);
     vec_file_size_in_byte = std::filesystem::file_size(vec_file);
+  } else {
+    key_file_size_in_byte = 0;
+    vec_file_size_in_byte = 0;
+    HCTR_OWN_THROW(Error_t::WrongInput, "Filesystem not supported yet.");
   }
 
   size_t key_size = sizeof(long long);
@@ -369,8 +373,8 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::load_pa
   TypeHashKey *key_ptr = keys.get_ptr();
   float *embedding_ptr = embeddings.get_ptr();
 
-  if (data_source_params.use_hdfs) {
-    HdfsService hs(data_source_params.namenode, data_source_params.port);
+  if (data_source_params.type == DataSourceType_t::HDFS) {
+    HdfsService hs(data_source_params.server, data_source_params.port);
     if (std::is_same<TypeHashKey, long long>::value) {
       hs.read(key_file, reinterpret_cast<char *>(key_ptr), key_file_size_in_byte, 0);
     } else {
@@ -380,7 +384,7 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::load_pa
                      [](long long key) { return static_cast<unsigned>(key); });
     }
     hs.read(vec_file, reinterpret_cast<char *>(embedding_ptr), vec_file_size_in_byte, 0);
-  } else {
+  } else if (data_source_params.type == DataSourceType_t::Local) {
     std::ifstream key_stream(key_file, std::ifstream::binary);
     std::ifstream vec_stream(vec_file, std::ifstream::binary);
     // check if file is opened successfully
@@ -396,6 +400,8 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::load_pa
                      [](long long key) { return static_cast<unsigned>(key); });
     }
     vec_stream.read(reinterpret_cast<char *>(embedding_ptr), vec_file_size_in_byte);
+  } else {
+    HCTR_OWN_THROW(Error_t::WrongInput, "File system not supported yet.");
   }
 
   load_parameters(keys, embeddings, key_num, max_vocabulary_size_,
@@ -835,7 +841,7 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::dump_pa
   CudaDeviceContext context;
   size_t local_gpu_count = embedding_data_.get_resource_manager().get_local_gpu_count();
 
-  if (!data_source_params.use_hdfs && !std::filesystem::exists(sparse_model)) {
+  if (data_source_params.type != DataSourceType_t::HDFS && !std::filesystem::exists(sparse_model)) {
     std::filesystem::create_directories(sparse_model);
   }
   const std::string key_file(sparse_model + "/key");
@@ -966,11 +972,11 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::dump_pa
   HCTR_MPI_THROW(MPI_File_close(&vec_fh));
   HCTR_MPI_THROW(MPI_Type_free(&TYPE_EMB_VECTOR));
 #else
-  if (data_source_params.use_hdfs) {
-    HdfsService hs(data_source_params.namenode, data_source_params.port);
+  if (data_source_params.type == DataSourceType_t::HDFS) {
+    HdfsService hs(data_source_params.server, data_source_params.port);
     hs.write(key_file, reinterpret_cast<char *>(h_key_ptr), total_count * key_size, true);
     hs.write(vec_file, reinterpret_cast<char *>(h_hash_table_value), total_count * vec_size, true);
-  } else {
+  } else if (data_source_params.type == DataSourceType_t::Local) {
     std::ofstream key_stream(key_file, std::ofstream::binary | std::ofstream::trunc);
     std::ofstream vec_stream(vec_file, std::ofstream::binary | std::ofstream::trunc);
     // check if the file is opened successfully
@@ -980,6 +986,8 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::dump_pa
     }
     key_stream.write(reinterpret_cast<char *>(h_key_ptr), total_count * key_size);
     vec_stream.write(reinterpret_cast<char *>(h_hash_table_value), total_count * vec_size);
+  } else {
+    HCTR_OWN_THROW(Error_t::WrongInput, "Filesystem not supported yet.");
   }
 #endif
 

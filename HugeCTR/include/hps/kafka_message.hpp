@@ -15,7 +15,7 @@
  */
 #pragma once
 
-#include <librdkafka/rdkafka.h>
+#include <rdkafka.h>
 
 #include <condition_variable>
 #include <hps/message.hpp>
