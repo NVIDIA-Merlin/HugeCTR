@@ -2082,7 +2082,7 @@ void Model::train_overlapped() {
         sync();
         schedule_reader(TrainState_t::TopMLPFprop);
         schedule_split3way(TrainState_t::MLPExchangeWgrad);
-        schedule_d2d(TrainState_t::MLPUpdate);
+        schedule_d2d(TrainState_t::Finalize);
         state = networks_[id]->train(
             current_batchsize_per_device, [this, id]() { this->exchange_wgrad(id); }, state);
       } while (change_state(&state));

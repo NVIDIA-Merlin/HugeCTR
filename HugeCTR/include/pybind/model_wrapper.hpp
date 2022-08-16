@@ -77,7 +77,7 @@ void ModelPybind(pybind11::module &m) {
            pybind11::arg("slot_size_array") = std::vector<size_t>(),
            pybind11::arg("optimizer") = std::shared_ptr<OptParamsPy>(new OptParamsPy()),
            pybind11::arg("hybrid_embedding_param") =
-               HybridEmbeddingParam{1, -1, 0.01, 1.3e11, 1.9e11, 1.0, false, false,
+               HybridEmbeddingParam{1, -1, 0.01, 1.3e11, 2.6e11, 1.0, false, false,
                                     hybrid_embedding::CommunicationType::NVLink_SingleNode,
                                     hybrid_embedding::HybridEmbeddingType::Distributed});
   pybind11::class_<HugeCTR::DenseLayer, std::shared_ptr<HugeCTR::DenseLayer>>(m, "DenseLayer")
