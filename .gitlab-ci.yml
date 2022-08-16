@@ -60,13 +60,13 @@ nightly_build_unified_container.tf:
     REMOTE_REPO: https://github.com/NVIDIA-Merlin/Merlin.git
     DST_IMAGE: ${CI_REGISTRY}/dl/hugectr/hugectr:unified.tf.latest
     DOCKER_FILE: dockerfile.tf
-    BUILD_ARGS: --build-arg _CI_JOB_TOKEN=${RD_CI_JOB_TOKEN} --build-arg _HUGECTR_REPO=gitlab-master.nvidia.com/dl/hugectr/hugectr.git --build-arg HUGECTR_VER=${CI_COMMIT_SHA}
+    BUILD_ARGS: --build-arg _CI_JOB_TOKEN=${RD_CI_JOB_TOKEN} --build-arg _HUGECTR_REPO=gitlab-master.nvidia.com/dl/hugectr/hugectr.git --build-arg HUGECTR_VER=${CI_COMMIT_BRANCH}
 
-nightly_build_unified_container.tri:
+nightly_build_unified_container.ctr:
   extends: .build_nightly
   variables:
     REMOTE_REPO: https://github.com/NVIDIA-Merlin/Merlin.git
-    DST_IMAGE: ${CI_REGISTRY}/dl/hugectr/hugectr:unified.tri.latest
+    DST_IMAGE: ${CI_REGISTRY}/dl/hugectr/hugectr:unified.ctr.latest
     DOCKER_FILE: dockerfile.ctr
     BUILD_ARGS: --build-arg _CI_JOB_TOKEN=${RD_CI_JOB_TOKEN} --build-arg _HUGECTR_REPO=gitlab-master.nvidia.com/dl/hugectr/hugectr.git --build-arg HUGECTR_VER=${CI_COMMIT_BRANCH} --build-arg _HUGECTR_BACKEND_REPO=gitlab-master.nvidia.com/dl/hugectr/hugectr_inference_backend.git --build-arg HUGECTR_BACKEND_VER=hugectr_performance_test
 
@@ -148,7 +148,7 @@ build_sok_tf1:
 build_hps_tf_plugin:
   extends: .build_hugectr
   variables:
-    FROM_IMAGE: ${IMAGE_ALL}
+    FROM_IMAGE: ${IMAGE_SOK_TF2}
     DST_IMAGE: $TF_PLUGIN_IMAGE_VERSIONED
     BUILD_TF_PLUGIN: 1
 

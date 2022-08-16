@@ -10,6 +10,19 @@ HADOOP_VER="$1"
 SCRIPT_DIR=$(dirname ${BASH_SOURCE[0]})
 cd ${SCRIPT_DIR}
 
+# Download and install protobuf
+git clone --branch v3.19.4 --depth 1 https://github.com/protocolbuffers/protobuf.git protobuf
+cd protobuf
+git submodule update --init --recursive
+./autogen.sh
+./configure
+make -j$(nproc)
+make install
+cd ..
+rm -rf protobuf
+ldconfig
+echo "Protocol Buffers version: $(protoc --version)"
+
 # Download desired revision.
 git clone --branch rel/release-${HADOOP_VER} --depth 1 https://github.com/apache/hadoop.git hadoop
 cd hadoop
@@ -35,5 +48,3 @@ mv hadoop-dist/target/hadoop-${HADOOP_VER}.tar.gz ..
 cd ..
 rm -rf hadoop /root/.m2
 
-# Self-delete.
-rm -rf ${BASH_SOURCE[0]}
