@@ -103,7 +103,18 @@ model.add(
     )
 )
 model.add(
-    hugectr.DenseLayer(layer_type=hugectr.Layer_t.ReLU, bottom_names=["fc5"], top_names=["relu5"])
+    hugectr.DenseLayer(
+        layer_type=hugectr.Layer_t.BatchNorm,
+        bottom_names=["fc5"],
+        top_names=["bn5"],
+        factor = 1.0,
+        eps = 0.00001,
+        gamma_init_type = hugectr.Initializer_t.XavierUniform,
+        beta_init_type = hugectr.Initializer_t.XavierUniform
+    )
+)
+model.add(
+    hugectr.DenseLayer(layer_type=hugectr.Layer_t.ReLU, bottom_names=["bn5"], top_names=["relu5"])
 )
 model.add(
     hugectr.DenseLayer(
@@ -114,7 +125,18 @@ model.add(
     )
 )
 model.add(
-    hugectr.DenseLayer(layer_type=hugectr.Layer_t.ReLU, bottom_names=["fc6"], top_names=["relu6"])
+    hugectr.DenseLayer(
+        layer_type=hugectr.Layer_t.BatchNorm,
+        bottom_names=["fc6"],
+        top_names=["bn6"],
+        factor = 1.0,
+        eps = 0.00001,
+        gamma_init_type = hugectr.Initializer_t.XavierUniform,
+        beta_init_type = hugectr.Initializer_t.XavierUniform
+    )
+)
+model.add(
+    hugectr.DenseLayer(layer_type=hugectr.Layer_t.ReLU, bottom_names=["bn6"], top_names=["relu6"])
 )
 model.add(
     hugectr.DenseLayer(
@@ -125,7 +147,18 @@ model.add(
     )
 )
 model.add(
-    hugectr.DenseLayer(layer_type=hugectr.Layer_t.ReLU, bottom_names=["fc7"], top_names=["relu7"])
+    hugectr.DenseLayer(
+        layer_type=hugectr.Layer_t.BatchNorm,
+        bottom_names=["fc7"],
+        top_names=["bn7"],
+        factor = 1.0,
+        eps = 0.00001,
+        gamma_init_type = hugectr.Initializer_t.XavierUniform,
+        beta_init_type = hugectr.Initializer_t.XavierUniform
+    )
+)
+model.add(
+    hugectr.DenseLayer(layer_type=hugectr.Layer_t.ReLU, bottom_names=["bn7"], top_names=["relu7"])
 )
 model.add(
     hugectr.DenseLayer(

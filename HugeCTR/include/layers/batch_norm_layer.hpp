@@ -94,6 +94,8 @@ class BatchNormLayer : public Layer {
    */
   std::string get_no_trained_params_in_string() override;
 
+  std::vector<TensorBag2> get_tensors_for_non_trainable_params() override;
+
  private:
   /**
    * A method of defining how gamma and beta are initialized.

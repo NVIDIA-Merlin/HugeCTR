@@ -32,8 +32,9 @@ def hugectr2onnx_dcn_test(
     sparse_models,
     onnx_model_path,
     model_name,
+    ntp_file = ""
 ):
-    hugectr2onnx.converter.convert(onnx_model_path, graph_config, dense_model, True, sparse_models)
+    hugectr2onnx.converter.convert(onnx_model_path, graph_config, dense_model, True, sparse_models, ntp_file)
     label, dense, keys = read_samples_for_dcn(data_file, batch_size * num_batches, slot_num=26)
     sess = ort.InferenceSession(onnx_model_path)
     res = sess.run(
@@ -54,6 +55,7 @@ def hugectr2onnx_dcn_test(
         use_gpu_embedding_cache=True,
         cache_size_percentage=0.6,
         i64_input_key=False,
+        non_trainable_params_file=ntp_file
     )
     inference_session = CreateInferenceSession(graph_config, inference_params)
     predictions = inference_session.predict(
@@ -95,4 +97,5 @@ if __name__ == "__main__":
         ["/onnx_converter/hugectr_models/dlrm0_sparse_2000.model"],
         "/onnx_converter/onnx_models/dlrm.onnx",
         "dlrm",
+        "/onnx_converter/hugectr_models/dlrm_dense_2000.model.ntp.json",
     )

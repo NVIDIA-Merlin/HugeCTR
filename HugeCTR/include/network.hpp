@@ -193,6 +193,12 @@ class Network {
   void upload_params_to_device_inference(const std::string& model_file);
 
   /**
+   * Read non-trainable parameters from model_file, e.g., running mean and running variable for
+   * BatchNorm
+   */
+  void upload_non_trainable_params_to_device_inference(const std::string& model_file);
+
+  /**
    * Writting paramters to cpu buffer.
    */
   void download_params_to_host(float* weight);
@@ -267,6 +273,12 @@ class Network {
    * copy weights from train layers to evaluate layers
    */
   void copy_weights_from_train_layers_to_evaluate_layers();
+
+  /**
+   * copy non-trainable parameters from train layers to evaluate layers, e.g., running mean and
+   * running variance for BatchNorm
+   */
+  void copy_non_trainable_params_from_train_layers_to_evaluate_layers();
 };
 
 }  // namespace HugeCTR

@@ -2562,6 +2562,7 @@ void Model::check_overflow() const {
 void Model::copy_weights_for_evaluation() {
   for (auto& network : networks_) {
     network->copy_weights_from_train_layers_to_evaluate_layers();
+    network->copy_non_trainable_params_from_train_layers_to_evaluate_layers();
   }
 }
 

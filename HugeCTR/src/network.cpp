@@ -19,6 +19,7 @@
 #include <layers/fully_connected_layer.hpp>
 #include <layers/relu_layer.hpp>
 #include <network.hpp>
+#include <parser.hpp>
 #include <regularizers/no_regularizer.hpp>
 
 namespace HugeCTR {
@@ -299,6 +300,34 @@ void Network::upload_params_to_device_inference(const std::string& model_file) {
   return;
 }
 
+void Network::upload_non_trainable_params_to_device_inference(const std::string& model_file) {
+  HCTR_LOG(INFO, ROOT, "Upload non-trainable parameters from JSON file to inference layers\n");
+  const nlohmann::json& params_json(read_json_file(model_file));
+  const nlohmann::json& params_for_layers = get_json(params_json, "layers");
+  size_t counter = 0;
+  CudaDeviceContext context(get_device_id());
+  for (size_t i{0}; i < evaluate_layers_.size(); ++i) {
+    auto params_tensors = evaluate_layers_[i]->get_tensors_for_non_trainable_params();
+    if (params_tensors.size() > 1) {
+      const nlohmann::json& params = params_for_layers[counter];
+      std::string layer_type = get_value_from_json<std::string>(params, "type");
+      if (layer_type == "BatchNorm") {
+        std::vector<float> running_mean = get_json(params, "mean");
+        std::vector<float> running_variance = get_json(params, "var");
+        HCTR_LIB_THROW(cudaMemcpyAsync(params_tensors[0].get_ptr(), running_mean.data(),
+                                       params_tensors[0].get_size_in_bytes(),
+                                       cudaMemcpyHostToDevice, gpu_resource_->get_stream()));
+        HCTR_LIB_THROW(cudaMemcpyAsync(params_tensors[1].get_ptr(), running_variance.data(),
+                                       params_tensors[1].get_size_in_bytes(),
+                                       cudaMemcpyHostToDevice, gpu_resource_->get_stream()));
+      } else {
+        HCTR_OWN_THROW(Error_t::WrongInput, "Only BatchNorm layer has non-trainable parameters");
+      }
+      ++counter;
+    }
+  }
+}
+
 void Network::download_params_to_host(float* weight) {
   CudaDeviceContext context(get_device_id());
 
@@ -403,6 +432,7 @@ void Network::exchange_wgrad() {
 }
 
 void Network::copy_weights_from_train_layers_to_evaluate_layers() {
+  // HCTR_LOG(INFO, ROOT, "Copying trainable weights from train layers to evaluate layers\n");
   CudaDeviceContext context(get_device_id());
   HCTR_LIB_THROW(cudaMemcpyAsync(evaluate_weight_tensor_.get_ptr(), train_weight_tensor_.get_ptr(),
                                  train_weight_tensor_.get_size_in_bytes(), cudaMemcpyDeviceToDevice,
@@ -410,6 +440,22 @@ void Network::copy_weights_from_train_layers_to_evaluate_layers() {
 
   if (use_mixed_precision_) {
     conv_weight_(evaluate_weight_tensor_half_, evaluate_weight_tensor_);
+  }
+}
+
+void Network::copy_non_trainable_params_from_train_layers_to_evaluate_layers() {
+  // HCTR_LOG(INFO, ROOT, "Copying non-trainable parameters from train layers to evaluate
+  // layers\n");
+  CudaDeviceContext context(get_device_id());
+  for (size_t i{0}; i < train_layers_.size(); ++i) {
+    auto tensors_in_train_layers = train_layers_[i]->get_tensors_for_non_trainable_params();
+    auto tensors_in_evaluate_layers = evaluate_layers_[i]->get_tensors_for_non_trainable_params();
+    for (size_t j{0}; j < tensors_in_train_layers.size(); ++j) {
+      HCTR_LIB_THROW(cudaMemcpyAsync(tensors_in_evaluate_layers[j].get_ptr(),
+                                     tensors_in_train_layers[j].get_ptr(),
+                                     tensors_in_train_layers[j].get_size_in_bytes(),
+                                     cudaMemcpyDeviceToDevice, gpu_resource_->get_stream()));
+    }
   }
 }
 
