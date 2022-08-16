@@ -51,6 +51,10 @@ class Metric {
   virtual void local_reduce(int local_gpu_id, RawMetricMap raw_metrics) = 0;
   virtual void global_reduce(int n_nets) = 0;
   virtual float finalize_metric() = 0;
+  virtual std::vector<float> get_per_class_metric() const {
+    HCTR_CHECK_HINT(false, "Not implemented");
+    return std::vector<float>(0.0, 1);
+  }
   virtual std::string name() const = 0;
   void set_current_batch_size(int batch_size) { current_batch_size_ = batch_size; }
 
@@ -291,6 +295,7 @@ class AUC : public Metric {
   void global_reduce(int n_nets) override;
   float finalize_metric() override;
   std::string name() const override { return "AUC"; };
+  std::vector<float> get_per_class_metric() const { return per_class_aucs_; }
 
   // Public in order to use device lambda
   void run_finalize_step(float* d_preds, float* d_labels, int local_id, size_t num_local_samples,
@@ -322,6 +327,7 @@ class AUC : public Metric {
   std::vector<size_t> offsets_;
   std::vector<AUCStorage> storage_;
   std::vector<std::vector<cudaStream_t>> streams_;
+  std::vector<float> per_class_aucs_;
 };
 
 class NDCGStorage {

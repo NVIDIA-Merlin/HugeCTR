@@ -19,6 +19,9 @@ file(GLOB async_reader_src
   data_reader_async_adapter_test.cpp
   data_reader_async_test.cpp
 )
+file(GLOB file_loader_test_src
+  file_loader_test.cpp
+)
 if (DISABLE_CUDF) 
   file(GLOB data_reader_test_src
     data_reader_test.cpp
@@ -34,8 +37,11 @@ endif()
 
 add_executable(data_reader_test ${data_reader_test_src})
 add_executable(async_reader ${async_reader_src})
+add_executable(file_loader_test ${file_loader_test_src})
 target_compile_features(data_reader_test PUBLIC cxx_std_17)
+target_compile_features(file_loader_test PUBLIC cxx_std_17)
 target_link_libraries(async_reader PUBLIC huge_ctr_static gtest gtest_main)
 target_link_libraries(async_reader PUBLIC /usr/local/cuda/lib64/stubs/libcuda.so)
 target_link_libraries(data_reader_test PUBLIC huge_ctr_static gtest gtest_main)
 target_link_libraries(data_reader_test PUBLIC /usr/local/cuda/lib64/stubs/libcuda.so)
+target_link_libraries(file_loader_test PUBLIC huge_ctr_static gtest gtest_main)

@@ -46,6 +46,11 @@ archives/
 sparse_operation_kit/_skbuild
 hierarchical_parameter_server/_skbuild
 
+hierarchical_parameter_server/_skbuild
+hierarchical_parameter_server/dist/
+hierarchical_parameter_server/merlin_hps.egg-info/
+
 docs/source/sparse_operation_kit/
 docs/source/notebooks
+docs/source/hierarchical_parameter_server/notebooks
 docs/source/release_notes.md

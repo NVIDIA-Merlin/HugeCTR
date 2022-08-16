@@ -81,33 +81,63 @@ class InfrequentUpdateTest : public HybridEmbeddingUnitTest<dtype, emtype> {
     /* Infrequent update_model */
     std::vector<std::vector<float>> updated_vectors(this->num_instances);
     for (size_t i = 0; i < this->num_instances; i++) {
-      this->infrequent_embeddings[i].set_current_indices(&this->infrequent_embedding_indices[i],
-                                                         this->stream);
-      upload_tensor(cpu_embedding.infrequent_embedding_vectors[i],
-                    this->infrequent_embeddings[i].infrequent_embedding_vectors_, this->stream);
-      this->infrequent_embeddings[i].indices_->calculate_model_indices(this->stream);
-      if (single_node) {
+      if (this->config.comm_type == CommunicationType::NVLink_SingleNode) {
+        this->infrequent_embeddings_single_node[i].set_current_indices(
+            &this->infrequent_embedding_indices[i], this->stream);
+        upload_tensor(cpu_embedding.infrequent_embedding_vectors[i],
+                      this->infrequent_embeddings_single_node[i].infrequent_embedding_vectors_,
+                      this->stream);
+        this->infrequent_embeddings_single_node[i].indices_->calculate_model_indices(this->stream);
+
         std::vector<const emtype *> gradients_pointers(this->num_instances);
         for (uint32_t network_id = 0; network_id < this->num_instances; network_id++)
           gradients_pointers[network_id] = gradients[network_id].get_ptr();
         HCTR_LIB_THROW(cudaMemcpyAsync(
-            this->infrequent_embeddings[i].gradients_pointers_.get_ptr(), gradients_pointers.data(),
-            this->num_instances * sizeof(emtype *), cudaMemcpyHostToDevice, this->stream));
-        this->infrequent_embeddings[i].update_model_direct(this->dev_lr, 1.f, this->stream);
-      } else {
+            this->infrequent_embeddings_single_node[i].gradients_pointers_.get_ptr(),
+            gradients_pointers.data(), this->num_instances * sizeof(emtype *),
+            cudaMemcpyHostToDevice, this->stream));
+        this->infrequent_embeddings_single_node[i].update_model_direct(this->dev_lr, 1.f,
+                                                                       this->stream);
+
+        download_tensor(updated_vectors[i],
+                        this->infrequent_embeddings_single_node[i].infrequent_embedding_vectors_,
+                        this->stream);
+      }
+      if (this->config.comm_type == CommunicationType::IB_NVLink) {
+        this->infrequent_embeddings_ib_nvlink[i].set_current_indices(
+            &this->infrequent_embedding_indices[i], this->stream);
+        upload_tensor(cpu_embedding.infrequent_embedding_vectors[i],
+                      this->infrequent_embeddings_ib_nvlink[i].infrequent_embedding_vectors_,
+                      this->stream);
+        this->infrequent_embeddings_ib_nvlink[i].indices_->calculate_model_indices(this->stream);
+
         upload_tensor(cpu_embedding.backward_received_messages[i], received_messages[i],
                       this->stream);
-        if (this->config.comm_type == CommunicationType::IB_NVLink_Hier) {
-          this->infrequent_embeddings[i].hier_update_model(received_messages[i].get_ptr(),
-                                                           this->dev_lr, 1.f, this->stream);
-        } else {
-          this->infrequent_embeddings[i].update_model(received_messages[i].get_ptr(), this->dev_lr,
-                                                      1.f, this->stream);
-        }
-      }
+        this->infrequent_embeddings_ib_nvlink[i].update_model(received_messages[i].get_ptr(),
+                                                              this->dev_lr, 1.f, this->stream);
 
-      download_tensor(updated_vectors[i],
-                      this->infrequent_embeddings[i].infrequent_embedding_vectors_, this->stream);
+        download_tensor(updated_vectors[i],
+                        this->infrequent_embeddings_ib_nvlink[i].infrequent_embedding_vectors_,
+                        this->stream);
+      }
+      if (this->config.comm_type == CommunicationType::IB_NVLink_Hier) {
+        this->infrequent_embeddings_ib_nvlink_hier[i].set_current_indices(
+            &this->infrequent_embedding_indices[i], this->stream);
+        upload_tensor(cpu_embedding.infrequent_embedding_vectors[i],
+                      this->infrequent_embeddings_ib_nvlink_hier[i].infrequent_embedding_vectors_,
+                      this->stream);
+        this->infrequent_embeddings_ib_nvlink_hier[i].indices_->calculate_model_indices(
+            this->stream);
+
+        upload_tensor(cpu_embedding.backward_received_messages[i], received_messages[i],
+                      this->stream);
+        this->infrequent_embeddings_ib_nvlink_hier[i].hier_update_model(
+            received_messages[i].get_ptr(), this->dev_lr, 1.f, this->stream);
+
+        download_tensor(updated_vectors[i],
+                        this->infrequent_embeddings_ib_nvlink_hier[i].infrequent_embedding_vectors_,
+                        this->stream);
+      }
     }
 
     /* Reference update_model */

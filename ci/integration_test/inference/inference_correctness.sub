@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e
 
 srun --ntasks="${SLURM_JOB_NUM_NODES}" --container-image="${CONT}" --container-mounts="${MOUNTS}" bash -cx " \
     mkdir -p /dump_infer &&

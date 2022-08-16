@@ -29,6 +29,7 @@ template <>
 struct TypeFunc<float> {
   static __forceinline__ __device__ float zero() { return 0.f; }
   static __forceinline__ __device__ float add(float a, float b) { return a + b; }
+  static __forceinline__ __device__ float min() { return -1e20f; }
 };
 
 template <>
@@ -112,6 +113,15 @@ __inline__ __device__ T warpReduceSum(T val) {
   return val;
 }
 
+template <typename T>
+__inline__ __device__ T warpReduceMax(T val) {
+  const unsigned int FULL_MASK = 0xffffffff;
+#pragma unroll
+  for (int mask = warpSize / 2; mask > 0; mask >>= 1)
+    val = max(val, __shfl_xor_sync(FULL_MASK, val, mask, 32));
+  return val;
+}
+
 /* Calculate the sum of all elements in a block */
 /* Note that the max block size to use this function is 1024 */
 template <typename T>
@@ -129,6 +139,26 @@ __inline__ __device__ T blockReduceSum(T val) {
 
     val = (threadIdx.x < ((blockDim.x - 1) >> 5) + 1) ? shared[lane] : TypeFunc<T>::zero();
     val = warpReduceSum(val);
+  }
+
+  return val;
+}
+
+template <typename T>
+__inline__ __device__ T blockReduceMax(T val) {
+  static __shared__ T shared[32];
+  int lane = threadIdx.x & 0x1f;  // in-warp idx
+  int wid = threadIdx.x >> 5;     // warp idx
+
+  val = warpReduceMax(val);  // get maxx in each warp
+  if (blockDim.x > warpSize) {
+    if (lane == 0)  // record in-warp maxx by warp Idx
+      shared[wid] = val;
+
+    __syncthreads();
+
+    val = (threadIdx.x < ((blockDim.x - 1 >> 5) + 1)) ? shared[lane] : TypeFunc<T>::min();
+    val = warpReduceMax<T>(val);
   }
 
   return val;

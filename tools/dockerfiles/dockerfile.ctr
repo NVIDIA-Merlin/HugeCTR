@@ -1,0 +1,71 @@
+# syntax=docker/dockerfile:1.2
+ARG BASE_TAG=devel_all
+ARG FROM_IMAGE=gitlab-master.nvidia.com:5005/dl/hugectr/hugectr:${BASE_TAG}
+
+FROM ${FROM_IMAGE}
+WORKDIR /workdir
+RUN echo "LD_LIBRARY_PATH: ${LD_LIBRARY_PATH}"
+COPY . .
+
+ARG BUILD_HUGECTR=false
+ARG BUILD_SOK=false
+ARG BUILD_HUGECTR2ONNX=false
+ARG BUILD_HUGECTR_BACKEND=false
+ARG BUILD_TF_PLUGIN=false
+ARG CMAKE_OPTION="-DCMAKE_BUILD_TYPE=Release -DCLANGFORMAT=OFF"
+ARG TRITON_BRANCH="r21.06"
+ARG BACKEND_BRANCH="hugectr_performance_test"
+ARG CI_JOB_TOKEN=""
+ARG HUGECTR_HOME=/usr/local/hugectr
+
+# Not sure why the env will miss /usr/local/cuda/compat/lib.real(while the base_image do have)
+ENV LD_LIBRARY_PATH=/usr/local/cuda/compat/lib.real:${LD_LIBRARY_PATH}
+
+RUN if [[ "${BUILD_HUGECTR}" == "true" ]]; then \
+	echo "${CMAKE_OPTION}" &&\
+	cd /workdir && \
+	mkdir build && \
+	cd build && \
+	cmake ${CMAKE_OPTION} .. && \
+	make -j$(nproc) && \
+	make install \
+; fi
+	
+RUN if [[ "${BUILD_SOK}" == "true" ]]; then \
+	cd /workdir/sparse_operation_kit/ && \
+	mkdir -p build && \
+	cd build && \
+	cmake ${CMAKE_OPTION} .. && \
+	make -j`expr $(nproc) / 2` && \
+	make install && \
+	pip install nvtx \
+; fi
+	
+RUN if [[ "${BUILD_HUGECTR2ONNX}" == "true" ]]; then \
+	cd /workdir/onnx_converter && \
+	python setup.py install \
+; fi
+	
+RUN if [[ "${BUILD_HUGECTR_BACKEND}" == "true" ]]; then \
+	git clone https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab-master.nvidia.com/dl/hugectr/hugectr_inference_backend.git hugectr_inference_backend && \
+	cd hugectr_inference_backend && \
+	git checkout $BACKEND_BRANCH && \
+	mkdir build && \
+	cd build && \
+	cmake -DCMAKE_INSTALL_PREFIX:PATH=/usr/local/hugectr -DTRITON_COMMON_REPO_TAG=$TRITON_BRANCH  -DTRITON_CORE_REPO_TAG=$TRITON_BRANCH -DTRITON_BACKEND_REPO_TAG=$TRITON_BRANCH .. && \
+	make -j$(nproc) && make install && \
+	cd ../.. && \
+	rm -rfv hugectr_inference_backend \
+; fi
+	
+RUN if [[ "${BUILD_TF_PLUGIN}" == "true" ]]; then \
+	pip install tensorflow==2.8.0 ninja && \
+	cd /workdir/hierarchical_parameter_server/ && \
+	python setup.py install \
+; fi
+
+ENV PATH=$PATH:${HUGECTR_HOME}/bin
+ENV CPATH=$CPATH:${HUGECTR_HOME}/include
+ENV LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:${HUGECTR_HOME}/lib
+ENV PYTHONPATH=${PYTHONPATH}:${HUGECTR_HOME}/lib:/workdir/sparse_operation_kit
+

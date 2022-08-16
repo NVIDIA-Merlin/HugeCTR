@@ -50,6 +50,7 @@ class EmbeddingCollectionCPU {
   std::vector<DataParallelEmbeddingCPU<key_t, offset_t, index_t, emb_t>> dp_embedding_list_;
 
   EmbeddingTableCPU<key_t, index_t> emb_table_cpu_;
+  std::vector<offset_t> flatten_concat_bucket_range_;
 
   EmbeddingCollectionCPU(
       int num_gpus, int num_table, const EmbeddingCollectionParam &ebc_param,
@@ -245,6 +246,10 @@ class EmbeddingCollectionCPU {
     }
 
     auto flatten_concat_bucket_range = flatten_bucket_range(bucket_range, batch_size);
+    flatten_concat_bucket_range_.clear();
+    flatten_concat_bucket_range_.resize(flatten_concat_bucket_range.size());
+    std::copy_n(flatten_concat_bucket_range.begin(), flatten_concat_bucket_range.size(),
+                flatten_concat_bucket_range_.begin());
     auto t_keys = transpose_keys(keys, bucket_range, flatten_concat_bucket_range, batch_size);
 
     for (auto &embedding : mp_embedding_list_) {
@@ -326,10 +331,12 @@ class EmbeddingCollectionCPU {
     grad_info_.resize(unique_id_space_list_.size());
 
     for (auto &embedding : mp_embedding_list_) {
-      embedding.embedding_backward_cpu(t_top_grads, grad_info_, batch_size);
+      embedding.embedding_backward_cpu(t_top_grads, flatten_concat_bucket_range_, grad_info_,
+                                       batch_size);
     }
     for (auto &embedding : dp_embedding_list_) {
-      embedding.embedding_backward_cpu(t_top_grads, grad_info_, batch_size);
+      embedding.embedding_backward_cpu(t_top_grads, flatten_concat_bucket_range_, grad_info_,
+                                       batch_size);
     }
   }
 

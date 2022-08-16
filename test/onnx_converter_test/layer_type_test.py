@@ -1,4 +1,4 @@
-# 
+#
 # Copyright (c) 2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,13 +17,17 @@
 from hugectr import Layer_t
 from hugectr2onnx.hugectr_loader import ONNX_LAYER_TYPES, EXEMPTION_LAYER_TYPES
 
+
 def hugectr2onnx_layer_type_test():
     for layer_type in Layer_t.__members__.keys():
         if layer_type not in ONNX_LAYER_TYPES and layer_type not in EXEMPTION_LAYER_TYPES:
-            raise RuntimeError("{} layer is not implemented in the ONNX converter".format(layer_type))
+            raise RuntimeError(
+                "{} layer is not implemented in the ONNX converter".format(layer_type)
+            )
             sys.exit(1)
     print("All HugeCTR layers have been implemented in the ONNX converter or exempted")
     print("Exempted layers: {}".format(EXEMPTION_LAYER_TYPES))
+
 
 if __name__ == "__main__":
     hugectr2onnx_layer_type_test()

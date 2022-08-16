@@ -65,8 +65,7 @@ void EmbeddingManager::create_embedding(
     const std::string embedding_executor, const std::string output_dispatcher,
     const std::vector<std::string> output_dispatcher_subsequent_ops, const size_t slot_num,
     const size_t max_nnz, const size_t max_feature_num, const CombinerType combiner,
-    const DataType compute_dtype,
-    std::shared_ptr<EmbeddingLayer>& embedding) {
+    const DataType compute_dtype, std::shared_ptr<EmbeddingLayer>& embedding) {
   // get key_dtype from parameter
   const DataType key_dtype = param->key_dtype();
 
@@ -76,41 +75,38 @@ void EmbeddingManager::create_embedding(
       max_feature_num, combiner, key_dtype, compute_dtype, param);
 
   // produce input_dispatcher
-  auto input_dis_builder =
-      InputContainer::instance("input_dispatcher_builders")->get_builder(
-                              {input_dispatcher, key_dtype, compute_dtype});
+  auto input_dis_builder = InputContainer::instance("input_dispatcher_builders")
+                               ->get_builder({input_dispatcher, key_dtype, compute_dtype});
   std::shared_ptr<Dispatcher> _input_dispatcher = input_dis_builder->produce(construction_context);
   _input_dispatcher->set_op_name(input_dispatcher);
 
   // produce input_dispatcher subsequent operations
   for (auto op_name : input_dispatcher_subsequent_ops) {
-    auto builder = OperationContainer::instance("operation_builders")->get_builder(
-                                                {op_name, key_dtype, compute_dtype});
+    auto builder = OperationContainer::instance("operation_builders")
+                       ->get_builder({op_name, key_dtype, compute_dtype});
     std::shared_ptr<Operation> _operation = builder->produce(construction_context);
     _operation->set_op_name(op_name);
     _input_dispatcher->set_next(_operation);  // link this op to input_dispatcher
   }                                           // for op_name in input_dispatcher_subsequent_ops
 
   // produce embedding executor
-  auto emb_lookuper_builder =
-      LookuperContainer::instance("embedding_lookuper_builders")->get_builder(
-                                {embedding_executor, key_dtype, compute_dtype});
+  auto emb_lookuper_builder = LookuperContainer::instance("embedding_lookuper_builders")
+                                  ->get_builder({embedding_executor, key_dtype, compute_dtype});
   std::shared_ptr<EmbeddingLookuper> _embedding_lookuper =
       emb_lookuper_builder->produce(construction_context, param);
   _embedding_lookuper->set_op_name(embedding_executor);
 
   // produce output_dispatcher
-  auto output_dis_builder =
-      OutputContainer::instance("output_dispatcher_builders")->get_builder(
-                              {output_dispatcher, key_dtype, compute_dtype});
+  auto output_dis_builder = OutputContainer::instance("output_dispatcher_builders")
+                                ->get_builder({output_dispatcher, key_dtype, compute_dtype});
   std::shared_ptr<Dispatcher> _output_dispatcher =
       output_dis_builder->produce(construction_context);
   _output_dispatcher->set_op_name(output_dispatcher);
 
   // produce output_dispatcher subsequent operations
   for (auto op_name : output_dispatcher_subsequent_ops) {
-    auto builder = OperationContainer::instance("operation_builders")->get_builder(
-                                                {op_name, key_dtype, compute_dtype});
+    auto builder = OperationContainer::instance("operation_builders")
+                       ->get_builder({op_name, key_dtype, compute_dtype});
     std::shared_ptr<Operation> _operation = builder->produce(construction_context);
     _operation->set_op_name(op_name);
     _output_dispatcher->set_next(_operation);  // link this op to output_dispatcher
@@ -142,47 +138,43 @@ void EmbeddingManager::create_embedding(
   const DataType key_dtype = param->key_dtype();
 
   // create dense construction_context
-  DenseConstructionContext_t construction_context =
-      DenseConstructionContext::create(resource_mgr_, buffers_, host_buffers_,
-                                       get_replica_batch_size(), slot_num, nnz_per_slot, 
-                                       key_dtype, compute_dtype, param);
+  DenseConstructionContext_t construction_context = DenseConstructionContext::create(
+      resource_mgr_, buffers_, host_buffers_, get_replica_batch_size(), slot_num, nnz_per_slot,
+      key_dtype, compute_dtype, param);
 
   // produce input_dispatcher
-  auto input_dis_builder =
-      InputContainer::instance("input_dispatcher_builders")->get_builder(
-                              {input_dispatcher, key_dtype, compute_dtype});
+  auto input_dis_builder = InputContainer::instance("input_dispatcher_builders")
+                               ->get_builder({input_dispatcher, key_dtype, compute_dtype});
   std::shared_ptr<Dispatcher> _input_dispatcher = input_dis_builder->produce(construction_context);
   _input_dispatcher->set_op_name(input_dispatcher);
 
   // produce input_dispatcher subsequent operations
   for (auto op_name : input_dispatcher_subsequent_ops) {
-    auto builder = OperationContainer::instance("operation_builders")->get_builder(
-                                                {op_name, key_dtype, compute_dtype});
+    auto builder = OperationContainer::instance("operation_builders")
+                       ->get_builder({op_name, key_dtype, compute_dtype});
     std::shared_ptr<Operation> _operation = builder->produce(construction_context);
     _operation->set_op_name(op_name);
     _input_dispatcher->set_next(_operation);  // link this op to input_dispatcher
   }                                           // for op_name in input_dispatcher_subsequent_ops
 
   // produce embedding lookuper
-  auto emb_lookuper_builder =
-      LookuperContainer::instance("embedding_lookuper_builders")->get_builder(
-                                  {embedding_lookuper, key_dtype, compute_dtype});
+  auto emb_lookuper_builder = LookuperContainer::instance("embedding_lookuper_builders")
+                                  ->get_builder({embedding_lookuper, key_dtype, compute_dtype});
   std::shared_ptr<EmbeddingLookuper> _embedding_lookuper =
       emb_lookuper_builder->produce(construction_context, param);
   _embedding_lookuper->set_op_name(embedding_lookuper);
 
   // produce output_dispatcher
-  auto output_dis_builder =
-      OutputContainer::instance("output_dispatcher_builders")->get_builder(
-                              {output_dispatcher, key_dtype, compute_dtype});
+  auto output_dis_builder = OutputContainer::instance("output_dispatcher_builders")
+                                ->get_builder({output_dispatcher, key_dtype, compute_dtype});
   std::shared_ptr<Dispatcher> _output_dispatcher =
       output_dis_builder->produce(construction_context);
   _output_dispatcher->set_op_name(output_dispatcher);
 
   // produce output_dispatcher subsequent operations
   for (auto op_name : output_dispatcher_subsequent_ops) {
-    auto builder = OperationContainer::instance("operation_builders")->get_builder(
-                                                {op_name, key_dtype, compute_dtype});
+    auto builder = OperationContainer::instance("operation_builders")
+                       ->get_builder({op_name, key_dtype, compute_dtype});
     std::shared_ptr<Operation> _operation = builder->produce(construction_context);
     _operation->set_op_name(op_name);
     _output_dispatcher->set_next(_operation);  // link this op to output_dispatcher

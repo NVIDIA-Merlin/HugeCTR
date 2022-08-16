@@ -44,11 +44,11 @@ class AssignEmbeddingVariableOp : public OpKernel {
     OP_REQUIRES_OK(ctx, ctx->GetAttr("dtype", &dtype_and_shape_.dtype));
     OP_REQUIRES_OK(ctx, ctx->GetAttr("shape", &dtype_and_shape_.shape));
     OP_REQUIRES_OK(ctx, ctx->GetAttr("key_dtype", &key_dtype_));
-    OP_REQUIRES(ctx, 2 == dtype_and_shape_.shape.dims(), errors::Aborted(
-        __FILE__, ":", __LINE__, " ",
-        "shape must be [vocabulary_size_per_gpu, embedding_vector_size]."));
-    OP_REQUIRES(ctx, dtype_and_shape_.shape.IsFullyDefined(), 
-        errors::Aborted(__FILE__, ":", __LINE__, " ", "shape must be fully defined."));
+    OP_REQUIRES(ctx, 2 == dtype_and_shape_.shape.dims(),
+                errors::Aborted(__FILE__, ":", __LINE__, " ",
+                                "shape must be [vocabulary_size_per_gpu, embedding_vector_size]."));
+    OP_REQUIRES(ctx, dtype_and_shape_.shape.IsFullyDefined(),
+                errors::Aborted(__FILE__, ":", __LINE__, " ", "shape must be fully defined."));
     shape_convertor(ctx);
     OP_REQUIRES_OK(ctx, ctx->GetAttr("var_name", &var_name_));
   }
@@ -103,8 +103,8 @@ class AssignEmbeddingVariableOp : public OpKernel {
         // this will use in-place initializer
         SparseOperationKit::Facade::instance()->create_variables(
             local_replica_id_value, std::string(initial_value_tensor->flat<tstring>()(0)),
-            use_hashtable_, dims_, variable_name, trainable_, dtype_and_shape_.dtype,
-            key_dtype_, emb_variable, &tensor);
+            use_hashtable_, dims_, variable_name, trainable_, dtype_and_shape_.dtype, key_dtype_,
+            emb_variable, &tensor);
       } else {
         // this will copy initial value to variable's memory
         OP_REQUIRES(ctx, initial_value_tensor->dtype() == dtype_and_shape_.dtype,
@@ -113,9 +113,8 @@ class AssignEmbeddingVariableOp : public OpKernel {
         OP_REQUIRES(ctx, dtype_and_shape_.dtype == DT_FLOAT,
                     errors::Aborted("The dtype of EmbeddingVariable must be float32."));
         SparseOperationKit::Facade::instance()->create_variables(
-            local_replica_id_value, initial_value_tensor, use_hashtable_, 
-            dims_, variable_name, trainable_, dtype_and_shape_.dtype, key_dtype_,
-            emb_variable, &tensor);
+            local_replica_id_value, initial_value_tensor, use_hashtable_, dims_, variable_name,
+            trainable_, dtype_and_shape_.dtype, key_dtype_, emb_variable, &tensor);
       }
     } catch (const std::exception& error) {
       ctx->SetStatus(

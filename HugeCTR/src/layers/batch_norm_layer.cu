@@ -205,6 +205,14 @@ std::string BatchNormLayer<T>::get_no_trained_params_in_string() {
 }
 
 template <typename T>
+std::vector<TensorBag2> BatchNormLayer<T>::get_tensors_for_non_trainable_params() {
+  std::vector<TensorBag2> tensors;
+  tensors.push_back(result_running_mean_.shrink());
+  tensors.push_back(result_running_var_.shrink());
+  return tensors;
+}
+
+template <typename T>
 std::unique_ptr<DataSimulator> BatchNormLayer<T>::get_default_initializer(const int index) {
   std::unique_ptr<DataSimulator> simu;
   if (0 == index) {

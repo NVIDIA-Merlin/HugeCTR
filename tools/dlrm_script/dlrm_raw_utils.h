@@ -20,10 +20,10 @@
 #include <cuda_runtime_api.h>
 #include <curand_kernel.h>
 
-#include <common.hpp>
-#include <base/debug/logger.hpp>
 #include <algorithm>
+#include <base/debug/logger.hpp>
 #include <cassert>
+#include <common.hpp>
 #include <cstdlib>
 #include <cub/cub.cuh>
 #include <cudf/column/column.hpp>
@@ -47,10 +47,10 @@
 
 static size_t process_read_bytes = 0;
 static size_t process_write_bytes = 0;
-using HugeCTR::SrcLoc;
-using HugeCTR::Logger;
 using HugeCTR::getErrorString;
 using HugeCTR::getErrorType;
+using HugeCTR::Logger;
+using HugeCTR::SrcLoc;
 
 namespace DLRM_RAW {
 
@@ -622,10 +622,9 @@ size_t convert_input_binaries(rmm::mr::device_memory_resource *mr, std::string i
         int32_t write_rows = indices.end_idx - indices.begin_idx;
 
         if (write_rows <= 0) {
-          HCTR_LOG_S(ERROR, WORLD) <<
-            "begin_idx = " << indices.begin_idx <<
-                         ", end_idx = " << indices.end_idx <<
-                         ", total rows now = " << read_row_nums << HCTR_LOCATION() << std::endl;
+          HCTR_LOG_S(ERROR, WORLD)
+              << "begin_idx = " << indices.begin_idx << ", end_idx = " << indices.end_idx
+              << ", total rows now = " << read_row_nums << HCTR_LOCATION() << std::endl;
           exit(-1);
         }
 
@@ -661,4 +660,4 @@ std::vector<std::string> split_string(const std::string &text, const char *delim
 
 }  // namespace DLRM_RAW
 
-#endif // DLRM_RAW_UTILS_H_
+#endif  // DLRM_RAW_UTILS_H_

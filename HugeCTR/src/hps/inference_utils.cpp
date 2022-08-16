@@ -171,7 +171,7 @@ InferenceParams::InferenceParams(
     const std::vector<size_t>& maxnum_catfeature_query_per_table_per_sample,
     const std::vector<size_t>& embedding_vecsize_per_table,
     const std::vector<std::string>& embedding_table_names, const std::string& network_file,
-    const size_t label_dim, const size_t slot_num)
+    const size_t label_dim, const size_t slot_num, const std::string& non_trainable_params_file)
     : model_name(model_name),
       max_batchsize(max_batchsize),
       hit_rate_threshold(hit_rate_threshold),
@@ -204,7 +204,8 @@ InferenceParams::InferenceParams(
       embedding_table_names(embedding_table_names),
       network_file(network_file),
       label_dim(label_dim),
-      slot_num(slot_num) {
+      slot_num(slot_num),
+      non_trainable_params_file(non_trainable_params_file) {
   if (this->default_value_for_each_table.size() != this->sparse_model_files.size()) {
     HCTR_LOG(
         WARNING, ROOT,
@@ -226,6 +227,10 @@ parameter_server_config::parameter_server_config(const std::string& hps_json_con
 }
 
 void parameter_server_config::init(const std::string& hps_json_config_file) {
+  HCTR_PRINT(INFO,
+             "=====================================================HPS "
+             "Parse====================================================\n");
+
   // Initialize for each model
   // Open model config file and input model json config
   nlohmann::json hps_config(read_json_file(hps_json_config_file));

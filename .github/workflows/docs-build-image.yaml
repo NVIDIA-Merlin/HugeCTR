@@ -1,0 +1,33 @@
+name: docs-build-image
+
+on:
+  push:
+    paths:
+      - 'docs/Dockerfile'
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: nvidia-merlin/hctr-doc-builder:0.3.0
+
+jobs:
+  build-and-push-image:
+    if: github.repository == 'NVIDIA-Merlin/HugeCTR'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v3
+      - name: Log in to the Container registry
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v3
+        with:
+          context: docs
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}

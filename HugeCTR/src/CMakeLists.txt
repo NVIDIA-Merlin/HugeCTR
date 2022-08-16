@@ -32,7 +32,8 @@ if(NOT pybind11_sources_POPULATED)
     )
 endif()
 
-file(GLOB_RECURSE huge_ctr_src RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} *.cpp *.cu ../embedding_storage/*.cpp ../embedding_storage/*.cu)
+file(GLOB_RECURSE huge_ctr_src RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} *.cpp *.cu ../embedding_storage/*.cpp ../embedding_storage/*.cu ../embedding_storage/dynamic_embedding_table/*.cpp
+../embedding_storage/dynamic_embedding_table/*.cu)
 
 file(GLOB hdfs_backend ${CMAKE_CURRENT_SOURCE_DIR}/data_source/hdfs_backend.cpp)
 
@@ -42,12 +43,7 @@ add_library(huge_ctr_shared SHARED ${huge_ctr_src})
 add_library(huge_ctr_hdfs_backend SHARED ${hdfs_backend})
 
 target_link_libraries(huge_ctr_static PUBLIC cublas curand cudnn nccl nvToolsExt ${CMAKE_THREAD_LIBS_INIT} stdc++fs tbb)
-target_link_libraries(huge_ctr_shared PUBLIC cublas curand cudnn nccl nvToolsExt ${CMAKE_THREAD_LIBS_INIT} stdc++fs tbb)
-target_link_libraries(
-  huge_ctr_shared
-  PUBLIC
-  ${DB_LIB_PATHS}/libhiredis.so librocksdb.so libredis++.so librdkafka.so # from Hugectr 
-)
+target_link_libraries(huge_ctr_shared PUBLIC cublas curand cudnn nccl nvToolsExt ${CMAKE_THREAD_LIBS_INIT} stdc++fs tbb hiredis redis++ rocksdb-shared rdkafka)
 
 if(ENABLE_HDFS)
   target_link_libraries(

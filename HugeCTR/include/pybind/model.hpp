@@ -73,7 +73,8 @@ std::map<Layer_t, std::string> LAYER_TYPE_TO_STRING = {
     {Layer_t::CrossEntropyLoss, "CrossEntropyLoss"},
     {Layer_t::MultiCrossEntropyLoss, "MultiCrossEntropyLoss"},
     {Layer_t::ElementwiseMultiply, "ElementwiseMultiply"},
-    {Layer_t::MultiCross, "MultiCross"}};
+    {Layer_t::MultiCross, "MultiCross"},
+    {Layer_t::SequenceMask, "SequenceMask"}};
 
 std::map<Layer_t, std::string> LAYER_TYPE_TO_STRING_MP = {
     {Layer_t::BatchNorm, "BatchNorm"},
@@ -97,7 +98,13 @@ std::map<Layer_t, std::string> LAYER_TYPE_TO_STRING_MP = {
     {Layer_t::Softmax, "Softmax"},
     {Layer_t::ElementwiseMultiply, "ElementwiseMultiply"},
     {Layer_t::FusedInnerProduct, "FusedInnerProduct"},
-    {Layer_t::MultiCross, "MultiCross"}};
+    {Layer_t::MultiCross, "MultiCross"},
+    {Layer_t::SequenceMask, "SequenceMask"}};
+
+std::set<Layer_t> TRAINABLE_LAYERS = {Layer_t::InnerProduct, Layer_t::FusedInnerProduct,
+                                      Layer_t::MultiCross,   Layer_t::WeightMultiply,
+                                      Layer_t::BatchNorm,    Layer_t::LayerNorm,
+                                      Layer_t::GRU,          Layer_t::MultiHeadAttention};
 
 std::map<Embedding_t, std::string> EMBEDDING_TYPE_TO_STRING = {
     {Embedding_t::DistributedSlotSparseEmbeddingHash, "DistributedSlotSparseEmbeddingHash"},
@@ -243,6 +250,7 @@ struct DenseLayer {
   std::vector<size_t> weight_dims;
   size_t out_dim;
   int axis;
+  int max_sequence_len;
   std::vector<float> target_weight_vec;
   bool use_regularizer;
   Regularizer_t regularizer_type;
@@ -263,7 +271,8 @@ struct DenseLayer {
              std::vector<std::pair<int, int>> ranges = std::vector<std::pair<int, int>>(),
              std::vector<int> indices = std::vector<int>(),
              std::vector<size_t> weight_dims = std::vector<size_t>(), size_t out_dim = 0,
-             int axis = 1, std::vector<float> target_weight_vec = std::vector<float>(),
+             int axis = 1, int max_sequence_len = 1,
+             std::vector<float> target_weight_vec = std::vector<float>(),
              bool use_regularizer = false, Regularizer_t regularizer_type = Regularizer_t::L1,
              float lambda = 0, FcPosition_t pos_type = FcPosition_t::None,
              Activation_t act_type = Activation_t::Relu,
@@ -523,6 +532,7 @@ class Model {
 
   std::map<std::string, float> label_weights_;
 
+  bool overflow_check_{true};
   bool data_reader_train_status_;
   bool data_reader_eval_status_;
   bool buff_allocated_;

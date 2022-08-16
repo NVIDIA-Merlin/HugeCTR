@@ -20,7 +20,7 @@
 #include "parameters/param_interface.h"
 #include "tensorflow/core/framework/resource_var.h"
 
-// For TF2.8: resource_mgr.h was removed from resource_var.h in TF2.8, so it needs to 
+// For TF2.8: resource_mgr.h was removed from resource_var.h in TF2.8, so it needs to
 //            be added manually.
 #include "tensorflow/core/framework/resource_mgr.h"
 

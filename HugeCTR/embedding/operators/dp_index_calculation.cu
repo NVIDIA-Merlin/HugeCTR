@@ -16,6 +16,7 @@
 #include <cub/cub.cuh>
 
 #include "HugeCTR/include/utils.cuh"
+#include "HugeCTR/include/utils.hpp"
 #include "dp_index_calculation.hpp"
 #include "generic_lookup.cuh"
 namespace embedding {
@@ -177,7 +178,7 @@ DPIndexCalculation::DPIndexCalculation(std::shared_ptr<CoreResourceManager> core
       hotness_sum_(hotness_sum),
       key_type_(key_type),
       offset_type_(offset_type) {
-  CudaDeviceContext ctx(core->get_device_id());
+  HugeCTR::CudaDeviceContext ctx(core->get_device_id());
   Device device{DeviceType::GPU, core->get_device_id()};
 
   core::BufferPtr buffer_ptr = GetBuffer(core_);
@@ -218,7 +219,7 @@ void DPIndexCalculation::compute(const Tensor& key, const Tensor& bucket_range, 
                                  const Tensor& d_local_embedding_list, int batch_size,
                                  Tensor* dp_key, Tensor* dp_offset, size_t* num_dp_key,
                                  Tensor* dp_dst) {
-  CudaDeviceContext ctx(core_->get_device_id());
+  HugeCTR::CudaDeviceContext ctx(core_->get_device_id());
 
   int batch_size_per_gpu = batch_size / num_gpus_;
 
@@ -268,7 +269,7 @@ DPLocalReduceIndexCalculation::DPLocalReduceIndexCalculation(
     std::shared_ptr<CoreResourceManager> core, int num_embedding, int num_local_embedding,
     const std::vector<int>& h_local_hotness_list, int universal_batch_size, DataType key_type)
     : core_(core), num_embedding_(num_embedding), num_local_embedding_(num_local_embedding) {
-  CudaDeviceContext ctx(core_->get_device_id());
+  HugeCTR::CudaDeviceContext ctx(core_->get_device_id());
   Device device{DeviceType::GPU, core_->get_device_id()};
 
   int local_hotness_sum =
@@ -359,7 +360,7 @@ void DPLocalReduceIndexCalculation::compute(
     const Tensor& d_local_ev_size_list, int batch_size, Tensor* unique_key, size_t* num_unique_key,
     Tensor* unique_dst_idx, Tensor* sorted_bucket_id_list, Tensor* sorted_bucket_id_offset,
     Tensor* unique_id_space_offset) {
-  CudaDeviceContext ctx(core_->get_device_id());
+  HugeCTR::CudaDeviceContext ctx(core_->get_device_id());
 
   DISPATCH_INTEGRAL_FUNCTION(key.dtype().type(), key_t, [&] {
     DISPATCH_INTEGRAL_FUNCTION(bucket_range.dtype().type(), offset_t, [&] {

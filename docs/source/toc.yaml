@@ -1,13 +1,30 @@
 root: index
 subtrees:
-  - caption: Contents
+  - caption: HUGECTR
     entries:
       - file: hugectr_user_guide.md
         title: Introduction
       - file: hugectr_core_features.md
         title: Core Features
-      - file: hugectr_feature_details_intro.rst
-        title: Features in Detail
+      - file: hugectr_embedding_training_cache.md
+        title: Embedding Training Cache
+      - file: hierarchical_parameter_server/index.md
+        title: Hierarchical Parameter Server
+        entries:
+          - file: hugectr_parameter_server.md
+            title: HPS Database Backend
+          - file: hierarchical_parameter_server/hps_tf_user_guide.md
+            title: HPS Plugin for TensorFlow
+            entries:
+              - file: hierarchical_parameter_server/notebooks/index.md
+                title: Notebooks
+                entries:
+                  - file: hierarchical_parameter_server/notebooks/hierarchical_parameter_server_demo.ipynb
+                  - file: hierarchical_parameter_server/notebooks/hps_multi_table_sparse_input_demo.ipynb
+                  - file: hierarchical_parameter_server/notebooks/hps_pretrained_model_training_demo.ipynb
+                  - file: hierarchical_parameter_server/notebooks/sok_to_hps_dlrm_demo.ipynb
+              - file: hierarchical_parameter_server/api/index.rst
+                title: API Documentation
       - file: performance.md
         title: Performance
       - file: notebooks/index.md
@@ -44,11 +61,3 @@ subtrees:
       - file: release_notes.md
       - file: hugectr_contributor_guide.md
         title: Contributing to HugeCTR
-
-
-# The multi-modal data example uses several notebooks to demonstrate how to use of multi-modal data (text and images)
-# to provide movie recommendations based on the MovieLens 25M dataset.
-
-# .. toctree::
-#    :maxdepth: 1
-

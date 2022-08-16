@@ -138,8 +138,7 @@ void EmbeddingLayer::save_params(std::shared_ptr<Tensor>& keys,
   embedding_lookuper_->save_params(keys, embedding_values, num_total_keys);
 }
 
-void EmbeddingLayer::load_embedding_values(
-    const std::shared_ptr<Tensor>& emb_values) {
+void EmbeddingLayer::load_embedding_values(const std::shared_ptr<Tensor>& emb_values) {
   input_dispatcher_->LoadEmbeddingValues(emb_values);
 
   embedding_lookuper_->LoadEmbeddingValues(emb_values);
@@ -147,13 +146,9 @@ void EmbeddingLayer::load_embedding_values(
   output_dispatcher_->LoadEmbeddingValues(emb_values);
 }
 
-DataType EmbeddingLayer::key_dtype() const {
-  return base_context_->key_dtype();
-}
+DataType EmbeddingLayer::key_dtype() const { return base_context_->key_dtype(); }
 
-DataType EmbeddingLayer::compute_dtype() const {
-  return base_context_->compute_dtype();
-}
+DataType EmbeddingLayer::compute_dtype() const { return base_context_->compute_dtype(); }
 
 ConstructionContext_t EmbeddingLayer::base_context() const { return base_context_; }
 

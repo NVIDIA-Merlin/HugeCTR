@@ -28,6 +28,7 @@
 #include <cstdlib>
 #include <exception>
 #include <iostream>
+#include <resource_managers/resource_manager_ext.hpp>
 #include <string>
 #include <thread>
 

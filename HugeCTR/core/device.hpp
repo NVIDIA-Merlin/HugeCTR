@@ -17,8 +17,6 @@
 #include <ostream>
 #include <string>
 
-#include "HugeCTR/include/base/debug/logger.hpp"
-
 namespace core {
 
 enum class DeviceType : int8_t {
@@ -39,15 +37,7 @@ class Device final {
  public:
   Device() : type_(DeviceType::MAX_DEVICE_NUM), index_(-1) {}
 
-  Device(DeviceType type, int index = -1) : type_(type), index_(static_cast<DeviceIndex>(index)) {
-    if (is_gpu() && index == -1) {
-      int device_id;
-#ifndef TF_IMPL_UT
-      HCTR_LIB_THROW(cudaGetDevice(&device_id));
-#endif
-      index_ = device_id;
-    }
-  }
+  Device(DeviceType type, int index = -1);
 
   bool operator==(const Device &other) const {
     return (type_ == other.type()) && (index_ == other.index());

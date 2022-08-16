@@ -1,5 +1,66 @@
 # Release Notes
 
+## What's New in Version 3.9
+
++ **Updates to 3G Embedding**:
+  + Sparse Operation Kit (SOK) is updated to use the HugeCTR 3G embedding as a developer preview feature.
+    For more information, refer to the Python programs in the [sparse_operation_kit/experiment/benchmark/dlrm](https://github.com/NVIDIA-Merlin/HugeCTR/tree/v3.9/sparse_operation_kit/experiment/benchmark/dlrm) directory of the repository on GitHub.
+  + Dynamic embedding table mode is added.
+    The mode is based on the [cuCollection](https://github.com/NVIDIA/cuCollections) with some functionality enhancement.
+    A dynamic embedding table grows its size when the table is full so that you no longer need to configure the memory usage information for embedding.
+    For more information, refer to the [embedding_storage/dynamic_embedding_storage](https://github.com/NVIDIA-Merlin/HugeCTR/tree/v3.9/embedding_storage/dynamic_embedding_table) directory of the repository on GitHub.
+
++ **Enhancements to the HPS Plugin for TensorFlow**:
+This release includes improvements to the interoperability of SOK and HPS.
+The plugin now supports the sparse lookup layer.
+The documentation for the HPS plugin is enhanced as follows:
+  + An [introduction](https://nvidia-merlin.github.io/HugeCTR/v3.9/hierarchical_parameter_server/hps_tf_user_guide.html) to the plugin is new.
+  + New [notebooks](https://nvidia-merlin.github.io/HugeCTR/v3.9/hierarchical_parameter_server/notebooks/index.html) demonstrate how to use the HPS plugin are added.
+  + [API documentation](https://nvidia-merlin.github.io/HugeCTR/v3.9/hierarchical_parameter_server/api/index.html) for the plugin is new.
+
++ **Enhancements to the HPS Backend for Triton Inference Server**
+This release adds support for integrating the [HPS Backend](https://github.com/triton-inference-server/hugectr_backend/tree/main/hps_backend) and the [TensorFlow Backend](https://github.com/triton-inference-server/tensorflow_backend) through the ensemble mode with Triton Inference Server.
+The enhancement enables deploying a TensorFlow model with large embedding tables with Triton by leveraging HPS.
+For more information, refer to the sample programs in the [hps-triton-ensemble](https://github.com/triton-inference-server/hugectr_backend/tree/main/hps_backend/samples/hps-triton-ensemble) directory of the HugeCTR Backend repository in GitHub.
+
++ **New Multi-Node Tutorial**:
+The [multi-node training tutorial](https://github.com/NVIDIA-Merlin/HugeCTR/tree/v3.9/tutorial/multinode-training) is new.
+The additions show how to use HugeCTR to train a model with multiple nodes and is based on our most recent Docker container.
+The tutorial should be useful to users who do not have a job-scheduler-installed cluster such as Slurm Workload Manager.
+The update addresses a issue that was first reported in GitHub issue [305](https://github.com/NVIDIA-Merlin/HugeCTR/issues/305).
+
++ **Support Offline Inference for MMoE**:
+This release includes MMoE offline inference where both per-class AUC and average AUC are provided.
+When the number of class AUCs is greater than one, the output includes a line like the following example:
+
+   ```console
+   [HCTR][08:52:59.254][INFO][RK0][main]: Evaluation, AUC: {0.482141, 0.440781}, macro-averaging AUC: 0.46146124601364136
+   ```
+
++ **Issues Fixed**:
+  + Training performance is affected by a GPU routine that checks if an input key can be out of the embedding table. If you can guarantee that the input keys can work with the specified `workspace_size_per_gpu_in_mb`, we have a workaround to disable the routine by setting the environment variable `HUGECTR_DISABLE_OVERFLOW_CHECK=1`. The workaround restores the training performance.
+  + Engineering discovered and fixed a correctness issue with the Softmax layer.
+  + Engineering removed an inline profiler that was rarely used or updated. This change relates to GitHub issue [340](https://github.com/NVIDIA-Merlin/HugeCTR/issues/340).
+
++ **Known Issues**:
+  + Hybrid embedding with `IB_NVLINK` as the `communication_type` of the
+    [`HybridEmbeddingParam`](https://nvidia-merlin.github.io/HugeCTR/v3.9/api/python_interface.html#hybridembeddingparam-class)
+    class does not work currently. We are working on fixing it. The other communication types have no issues.
+  + HugeCTR uses NCCL to share data between ranks and NCCL can require shared system memory for IPC and pinned (page-locked) system memory resources.
+    If you use NCCL inside a container, increase these resources by specifying the following arguments when you start the container:
+
+    ```shell
+      -shm-size=1g -ulimit memlock=-1
+    ```
+
+    See also the NCCL [known issue](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/troubleshooting.html#sharing-data) and the GitHub [issue](https://github.com/NVIDIA-Merlin/HugeCTR/issues/243).
+  + `KafkaProducers` startup succeeds even if the target Kafka broker is unresponsive.
+    To avoid data loss in conjunction with streaming-model updates from Kafka, you have to make sure that a sufficient number of Kafka brokers are running, operating properly, and are reachable from the node where you run HugeCTR.
+  + The number of data files in the file list should be greater than or equal to the number of data reader workers.
+    Otherwise, different workers are mapped to the same file and data loading does not progress as expected.
+  + Joint loss training with a regularizer is not supported.
+
+
 ## What's New in Version 3.8
 
 + **Sample Notebook to Demonstrate 3G Embedding**:
@@ -364,7 +425,7 @@ The default log format now includes milliseconds.
 
 + **Overlapped Pipeline**: The computation in the dense input data path is overlapped with the hybrid embedding computation. Requirements: The data reader is asynchronous, hybrid embedding is used, and the model has a feature interaction layer.
 
-+ **Holistic CUDA Graph**: Packing everything inside a training iteration into a CUDA Graph. Limitations: this option works only if use_cuda_graph is turned off and use_overlapped_pipeline is turned on. 
++ **Holistic CUDA Graph**: Packing everything inside a training iteration into a CUDA Graph. Limitations: this option works only if use_cuda_graph is turned off and use_overlapped_pipeline is turned on.
 
 + **Python Interface Enhancements**: We’ve enhanced the Python interface for HugeCTR so that you no longer have to manually create a JSON configuration file. Our Python APIs can now be used to create the computation graph. They can also be used to dump the model graph as a JSON object and save the model weights as binary files so that continuous training and inference can take place. We've added an Inference API that takes Norm or Parquet datasets as input to facilitate the inference process. For more information, refer to [HugeCTR Python Interface](https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html) and [HugeCTR Criteo Notebook](notebooks/hugectr_criteo.ipynb).
 

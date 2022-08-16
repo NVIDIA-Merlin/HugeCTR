@@ -187,7 +187,8 @@ int HdfsService::read(const std::string& readpath, const void* buffer, size_t da
   return 0;
 }
 
-int HdfsService::copyToLocal(const std::string& hdfs_path, const std::string& local_path) {
+int HdfsService::copy(const std::string& source_path, const std::string& target_path,
+                      bool to_local) {
 #ifdef ENABLE_HDFS
   if (!fs_) {
     std::cout << "[HDFS][ERROR]: Not connected to HDFS" << std::endl;
@@ -197,11 +198,16 @@ int HdfsService::copyToLocal(const std::string& hdfs_path, const std::string& lo
     std::cout << "[HDFS][ERROR]: Not connected to local FS" << std::endl;
     return -1;
   }
-  int result = hdfsCopy(fs_, hdfs_path.c_str(), local_fs_, local_path.c_str());
-  if (result == 0) {
-    std::cout << "[HDFS][INFO]: Copied " << hdfs_path << " to local successfully!" << std::endl;
+  int result = -1;
+  if (to_local) {
+    result = hdfsCopy(fs_, source_path.c_str(), local_fs_, target_path.c_str());
   } else {
-    std::cout << "[HDFS][ERROR]: Unable to copy to local" << std::endl;
+    result = hdfsCopy(local_fs_, source_path.c_str(), fs_, target_path.c_str());
+  }
+  if (result == 0) {
+    std::cout << "[HDFS][INFO]: Copied " << source_path << " successfully!" << std::endl;
+  } else {
+    std::cout << "[HDFS][ERROR]: Unable to copy." << std::endl;
     return -1;
   }
   return result;
@@ -209,7 +215,8 @@ int HdfsService::copyToLocal(const std::string& hdfs_path, const std::string& lo
   return 0;
 }
 
-int HdfsService::batchCopyToLocal(const std::string& hdfs_path, const std::string& local_path) {
+int HdfsService::batchCopy(const std::string& source_dir, const std::string& target_dir,
+                           bool to_local) {
 #ifdef ENABLE_HDFS
   if (!fs_) {
     std::cout << "[HDFS][ERROR]: Not connected to HDFS" << std::endl;
@@ -219,33 +226,40 @@ int HdfsService::batchCopyToLocal(const std::string& hdfs_path, const std::strin
     std::cout << "[HDFS][ERROR]: Not connected to local FS" << std::endl;
     return -1;
   }
-  int hdfs_exist = hdfsExists(fs_, hdfs_path.c_str());
-  int local_exist = hdfsExists(local_fs_, local_path.c_str());
-  if (hdfs_exist != 0) {
-    std::cout << "[HDFS][ERROR]: hdfs_path does not exist" << std::endl;
-    return -1;
-  }
-  if (local_exist != 0) {
-    hdfsCreateDirectory(local_fs_, local_path.c_str());
-    std::cout << "[HDFS][INFO]: local_path does not exist, just created" << std::endl;
-  }
-  if (!local_fs_) {
-    std::cout << "[HDFS][ERROR]: Not connected to local FS" << std::endl;
-    return -1;
+  hdfsFS source_fs;
+  hdfsFS target_fs;
+  if (to_local) {
+    source_fs = fs_;
+    target_fs = local_fs_;
+  } else {
+    source_fs = local_fs_;
+    target_fs = fs_;
   }
 
-  hdfsFileInfo* file_info = hdfsGetPathInfo(fs_, hdfs_path.c_str());
+  int source_exist = hdfsExists(source_fs, source_dir.c_str());
+  int target_exist = hdfsExists(target_fs, target_dir.c_str());
+
+  if (source_exist != 0) {
+    std::cout << "[HDFS][ERROR]: source_dir does not exist" << std::endl;
+    return -1;
+  }
+  if (target_exist != 0) {
+    hdfsCreateDirectory(target_fs, target_dir.c_str());
+    std::cout << "[HDFS][INFO]: target directory does not exist, just created" << std::endl;
+  }
+
+  hdfsFileInfo* file_info = hdfsGetPathInfo(source_fs, source_dir.c_str());
   if (file_info->mKind == tObjectKind::kObjectKindFile) {
     std::cout << "[HDFS][ERROR]: not a directory" << std::endl;
     return -1;
   } else {
     int count = -1;
-    hdfsFileInfo* info_ptr_list = hdfsListDirectory(fs_, hdfs_path.c_str(), &count);
+    hdfsFileInfo* info_ptr_list = hdfsListDirectory(source_fs, source_dir.c_str(), &count);
     auto info_ptr = info_ptr_list;
     for (int i = 0; i < count; ++i, ++info_ptr) {
       auto cur_path = std::string(info_ptr->mName);
       if (info_ptr->mKind == kObjectKindFile) {
-        copyToLocal(cur_path, local_path);
+        copy(cur_path, target_dir, to_local);
       }
     }
     hdfsFreeFileInfo(info_ptr_list, count);
@@ -257,19 +271,4 @@ int HdfsService::batchCopyToLocal(const std::string& hdfs_path, const std::strin
   return 0;
 }
 
-DataSourceParams::DataSourceParams(const bool use_hdfs, const std::string& namenode, const int port)
-    : use_hdfs(use_hdfs), namenode(namenode), port(port) {}
-
-DataSourceParams::DataSourceParams() : use_hdfs(false), namenode("localhost"), port(9000) {}
-
-DataSource::~DataSource() {}
-
-DataSource::DataSource(const DataSourceParams& data_source_params)
-    : data_source_params_(data_source_params) {}
-
-void DataSource::move_to_local(const std::string& local_path, const std::string& hdfs_path) {
-  HdfsService hs(data_source_params_.namenode, data_source_params_.port);
-
-  hs.copyToLocal(local_path, hdfs_path);
-}
 }  // namespace HugeCTR

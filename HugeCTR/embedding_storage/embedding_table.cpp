@@ -17,6 +17,7 @@
 
 #include <cassert>
 
+#include "dynamic_embedding.hpp"
 #include "ragged_static_embedding.hpp"
 namespace embedding {
 
@@ -49,8 +50,6 @@ std::vector<std::unique_ptr<IEmbeddingTable>> create_embedding_table(
     }
   };
 
-  check_id_space();
-
   auto check_optimizer = [&] {
     for (int local_gpu_id = 0; local_gpu_id < num_local_gpu; ++local_gpu_id) {
       auto core = core_list[local_gpu_id];
@@ -69,7 +68,19 @@ std::vector<std::unique_ptr<IEmbeddingTable>> create_embedding_table(
       }
     }
   };
-  check_optimizer();
+
+  auto is_dynamic_embedding_table = [&](const EmbeddingShardingParam &local_sharding_param) {
+    if (local_sharding_param.local_embedding_list.size() == 0) {
+      return false;
+    }
+    for (int embedding_id : local_sharding_param.local_embedding_list) {
+      int id_space = emb_collection_param.embedding_params[embedding_id].id_space;
+      if (emb_table_param_list[id_space].max_vocabulary_size >= 0) {
+        return false;
+      }
+    }
+    return true;
+  };
 
   auto get_opt_params = [&](const EmbeddingShardingParam &local_sharding_param) {
     if (local_sharding_param.local_embedding_list.size() == 0) {
@@ -79,6 +90,8 @@ std::vector<std::unique_ptr<IEmbeddingTable>> create_embedding_table(
     int first_id_space = emb_collection_param.embedding_params[0].id_space;
     return emb_table_param_list[first_id_space].opt_param;
   };
+  check_id_space();
+  check_optimizer();
 
   std::vector<std::unique_ptr<IEmbeddingTable>> embedding_table_list;
   for (int local_gpu_id = 0; local_gpu_id < num_local_gpu; ++local_gpu_id) {
@@ -86,10 +99,14 @@ std::vector<std::unique_ptr<IEmbeddingTable>> create_embedding_table(
     int global_gpu_id = core->get_global_gpu_id();
     const EmbeddingShardingParam &local_sharding_param = emb_sharding_param_list[global_gpu_id];
 
-    embedding_table_list.push_back(std::make_unique<RaggedStaticEmbeddingTable>(
-        *resource_manager->get_local_gpu(local_gpu_id), core, emb_table_param_list,
-        emb_collection_param, local_sharding_param, get_opt_params(local_sharding_param)));
-    // TODO: add support for dynamic embedding table
+    if (is_dynamic_embedding_table(local_sharding_param)) {
+      embedding_table_list.push_back(std::make_unique<DynamicEmbeddingTable>(
+          core, emb_table_param_list, emb_collection_param, local_sharding_param));
+    } else {
+      embedding_table_list.push_back(std::make_unique<RaggedStaticEmbeddingTable>(
+          *resource_manager->get_local_gpu(local_gpu_id), core, emb_table_param_list,
+          emb_collection_param, local_sharding_param, get_opt_params(local_sharding_param)));
+    }
   }
   return embedding_table_list;
 }

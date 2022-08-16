@@ -26,12 +26,5 @@ class ILookup {
   virtual void lookup(const Tensor &keys, size_t num_keys, const Tensor &id_space_offset,
                       size_t num_id_space_offset, const Tensor &id_space,
                       TensorList &embedding_vec) = 0;
-
-  virtual void hash_insert(const Tensor &keys, size_t num_keys, const Tensor &offsets,
-                           size_t num_offsets, const Tensor &d_id_space_list, Tensor &indices) {}
-
-  virtual void scatter_lookup(const Tensor &indices, size_t num_indices, const Tensor &offsets,
-                              size_t num_offsets, const Tensor &dst_idx, Tensor &emb_vec,
-                              Tensor &emb_vec_offset) {}
 };
 }  // namespace embedding

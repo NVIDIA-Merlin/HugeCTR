@@ -19,6 +19,7 @@ import sparse_operation_kit as sok
 from models import SOKEmbedding
 import os, glob
 
+
 class EarlyStopper:
     def __init__(self):
         self._stop = False
@@ -42,13 +43,15 @@ class WarmUpAndPolyDecay(tf.keras.optimizers.schedules.LearningRateSchedule):
     And polynomial decay on [decay_start_steps, decay_start_steps + decay_steps].
     """
 
-    def __init__(self,
-                batch_size: int,
-                decay_exp: float = 2.0,
-                learning_rate: float = 40.0,
-                warmup_steps: int = 8000,
-                decay_steps: int = 12000,
-                decay_start_steps: int = 10000):
+    def __init__(
+        self,
+        batch_size: int,
+        decay_exp: float = 2.0,
+        learning_rate: float = 40.0,
+        warmup_steps: int = 8000,
+        decay_steps: int = 12000,
+        decay_start_steps: int = 10000,
+    ):
         super(WarmUpAndPolyDecay, self).__init__()
         self.batch_size = batch_size
         self.decay_exp = decay_exp
@@ -78,27 +81,28 @@ class WarmUpAndPolyDecay(tf.keras.optimizers.schedules.LearningRateSchedule):
 
         steps_since_decay_start = global_step - decay_start_step
         already_decayed_steps = tf.minimum(steps_since_decay_start, decay_steps)
-        decay_lr = adj_lr * (
-            (decay_steps - already_decayed_steps) / decay_steps)**decay_exp
+        decay_lr = adj_lr * ((decay_steps - already_decayed_steps) / decay_steps) ** decay_exp
         decay_lr = tf.maximum(0.0001, decay_lr)
 
         lr = tf.where(
-            global_step < warmup_steps, warmup_lr,
+            global_step < warmup_steps,
+            warmup_lr,
             tf.where(
-                tf.logical_and(decay_steps > 0, global_step > decay_start_step),
-                decay_lr, adj_lr))
+                tf.logical_and(decay_steps > 0, global_step > decay_start_step), decay_lr, adj_lr
+            ),
+        )
 
         lr = tf.maximum(0.01, lr)
         return lr
 
     def get_config(self):
         return {
-            'batch_size': self.batch_size,
-            'decay_exp': self.decay_exp,
-            'learning_rate': self.learning_rate,
-            'warmup_steps': self.warmup_steps,
-            'decay_steps': self.decay_steps,
-            'decay_start_steps': self.decay_start_steps
+            "batch_size": self.batch_size,
+            "decay_exp": self.decay_exp,
+            "learning_rate": self.learning_rate,
+            "warmup_steps": self.warmup_steps,
+            "decay_steps": self.decay_steps,
+            "decay_start_steps": self.decay_start_steps,
         }
 
 
@@ -108,19 +112,19 @@ def get_optimizer(optimizer=None):
     else:
         return tf.keras.optimizers.get(optimizer)
 
-def get_lr_callable(global_batch_size,
-                    decay_exp,
-                    learning_rate,
-                    warmup_steps,
-                    decay_steps,
-                    decay_start_steps):
+
+def get_lr_callable(
+    global_batch_size, decay_exp, learning_rate, warmup_steps, decay_steps, decay_start_steps
+):
     return WarmUpAndPolyDecay(
         batch_size=global_batch_size,
         decay_exp=decay_exp,
         learning_rate=learning_rate,
         warmup_steps=warmup_steps,
         decay_steps=decay_steps,
-        decay_start_steps=decay_start_steps)
+        decay_start_steps=decay_start_steps,
+    )
+
 
 class NullScope(object):
     def __enter__(self):
@@ -128,6 +132,7 @@ class NullScope(object):
 
     def __exit__(self, exc_type, exc_value, exc_tb):
         return False
+
 
 class NullStrategy(object):
     def scope(self):
@@ -138,7 +143,9 @@ class NullStrategy(object):
 
     def gather(self, tensor, axis):
         import horovod.tensorflow as hvd
+
         return hvd.allgather(tensor)
+
 
 def shard_filenames(file_pattern, num_pipelines, pipeline_id):
     matching_files = glob.glob(file_pattern)
@@ -148,14 +155,15 @@ def shard_filenames(file_pattern, num_pipelines, pipeline_id):
 
     return matching_files[pipeline_id * nums_per_shard : (pipeline_id + 1) * nums_per_shard]
 
+
 def get_distribute_dataset(dataset, strategy, distribute_dataset=True):
     if isinstance(strategy, NullStrategy) or not distribute_dataset:
         return dataset()
     else:
         return strategy.distribute_datasets_from_function(
-            lambda input_context: dataset(input_context),
-            options=tf.distribute.InputOptions()
+            lambda input_context: dataset(input_context), options=tf.distribute.InputOptions()
         )
+
 
 def split_embedding_variables_from_others(model):
     if isinstance(model.embedding_layer, SOKEmbedding):
@@ -167,13 +175,16 @@ def split_embedding_variables_from_others(model):
                 dense_vars.extend(layer.trainable_variables)
         return model.embedding_layer.trainable_variables, dense_vars
 
+
 def all_reduce(tensors, combiner="sum", comm_options=None):
     if tf.distribute.has_strategy():
         replica_ctx = tf.distribute.get_replica_context()
         return replica_ctx.all_reduce(combiner, tensors, options=comm_options)
     else:
         import horovod.tensorflow as hvd
+
         return [hvd.allreduce(tensor) for tensor in tensors]
+
 
 def all_gather(tensors, axis=0, comm_options=None):
     if tf.distribute.has_strategy():
@@ -181,16 +192,18 @@ def all_gather(tensors, axis=0, comm_options=None):
         return replica_ctx.all_gather(tensors, axis=axis, options=comm_options)
     else:
         import horovod.tensorflow as hvd
+
         return [hvd.allgather(tensor) for tensor in tensors]
+
 
 def apply_gradients(optimizer, variables, grads, using_sok, aggregate_gradients=False):
     if using_sok:
         with sok.OptimizerScope(variables):
-            optimizer.apply_gradients(zip(grads, variables),
-                                      experimental_aggregate_gradients=False)
+            optimizer.apply_gradients(zip(grads, variables), experimental_aggregate_gradients=False)
     else:
-        optimizer.apply_gradients(zip(grads, variables),
-                                  experimental_aggregate_gradients=aggregate_gradients)
+        optimizer.apply_gradients(
+            zip(grads, variables), experimental_aggregate_gradients=aggregate_gradients
+        )
 
 
 def broadcast_variables(variables):
@@ -198,7 +211,9 @@ def broadcast_variables(variables):
         return
     else:
         import horovod.tensorflow as hvd
+
         hvd.broadcast_variables(variables, root_rank=0)
+
 
 def show_logs(logs, strategy, elapsed_time, steps_sec, metrics_threshold, stopper):
     for key, value in logs.items():
@@ -211,16 +226,17 @@ def show_logs(logs, strategy, elapsed_time, steps_sec, metrics_threshold, stoppe
         return
 
     def print_logs():
-        print("-"*23, logs["global_step"], "-"*23)
+        print("-" * 23, logs["global_step"], "-" * 23)
         del logs["global_step"]
         for key, value in logs.items():
             print(f"{key}: {logs[key]}")
         print("elapsed_time:", elapsed_time)
         print("steps/sec:", steps_sec)
-        print("-"*50)
+        print("-" * 50)
 
     if isinstance(strategy, NullStrategy):
         import horovod.tensorflow as hvd
+
         if hvd.local_rank() != 0:
             no_print()
         else:
@@ -237,6 +253,6 @@ def show_logs(logs, strategy, elapsed_time, steps_sec, metrics_threshold, stoppe
     for key, value in metrics_threshold.items():
         if logs[key] >= value:
             stopper.set_stop(
-                f"Metric {key}: {logs[key]} meets its "
-                f"threshold {value}, stop training.")
+                f"Metric {key}: {logs[key]} meets its " f"threshold {value}, stop training."
+            )
             break

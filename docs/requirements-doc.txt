@@ -12,7 +12,8 @@ sphinxcontrib-copydirs@git+https://github.com/mikemckiernan/sphinxcontrib-copydi
 sphinx-external-toc<0.4
 sphinx_rtd_theme
 natsort<8.2
-myst-nb
+myst-nb<0.16.0
+nbclient<0.6
 markdown-it-py
 linkify-it-py
 

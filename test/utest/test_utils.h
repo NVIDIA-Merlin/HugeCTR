@@ -97,7 +97,8 @@ __forceinline__ bool cpu_gpu_cmp(float* cpu_p, float* gpu_p, int len) {
   bool flag = true;
   for (int i = 0; i < len; ++i) {
     if (fabs(gpu_tmp[i] - cpu_p[i]) >= 1e-5) {
-      HCTR_LOG(INFO, WORLD, "gpu_tmp(%f) - cpu_p(%f) >= 1e-5 when i = %d\n", gpu_tmp[i], cpu_p[i], i);
+      HCTR_LOG(INFO, WORLD, "gpu_tmp(%f) - cpu_p(%f) >= 1e-5 when i = %d\n", gpu_tmp[i], cpu_p[i],
+               i);
       flag = false;
       break;
     }

@@ -30,7 +30,7 @@ class MPILifetimeService {
  private:
   MPILifetimeService() {
     MPI_Initialized(&mpi_preinitialized_);
-    //TODO: logs must be reactivated after resolving the lib dependency
+    // TODO: logs must be reactivated after resolving the lib dependency
     if (mpi_preinitialized_) {
       // HCTR_LOG(WARNING, ROOT,
       //          "MPI was already initialized somewhere elese. Lifetime service disabled.\n");
@@ -39,9 +39,9 @@ class MPILifetimeService {
       // HCTR_LOG(INFO, ROOT, "MPI initialized from native backend.\n");
       // HCTR_LOG(WARNING, ROOT,
       //          "\nMPI can only be initialized once per process. If HugeCTR is run on top of\n"
-      //          "Python, unexpected things might happen if other other packages are used that rely\n"
-      //          "on MPI. If you experience problems, try adding \"from mpi4py import MPI\" in your\n"
-      //          "Python script before importing HugeCTR.\n");
+      //          "Python, unexpected things might happen if other other packages are used that\n"
+      //          "rely on MPI. If you experience problems, try adding \"from mpi4py import MPI\"\n"
+      //          "in your Python script before importing HugeCTR.\n");
     }
   }
 

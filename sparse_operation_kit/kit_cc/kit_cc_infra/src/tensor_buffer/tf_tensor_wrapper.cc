@@ -20,17 +20,29 @@ namespace SparseOperationKit {
 
 DataType get_datatype(const tensorflow::DataType dtype) {
   switch (dtype) {
-    case tensorflow::DataType::DT_FLOAT: { return DataType::Float32; }
-    case tensorflow::DataType::DT_HALF: { return DataType::Float16; }
-    case tensorflow::DataType::DT_INT64: { return DataType::Int64; }
-    case tensorflow::DataType::DT_UINT64: { return DataType::Uint64; }
-    case tensorflow::DataType::DT_INT32: { return DataType::Int32; }
-    case tensorflow::DataType::DT_UINT32: { return DataType::Uint32; }
+    case tensorflow::DataType::DT_FLOAT: {
+      return DataType::Float32;
+    }
+    case tensorflow::DataType::DT_HALF: {
+      return DataType::Float16;
+    }
+    case tensorflow::DataType::DT_INT64: {
+      return DataType::Int64;
+    }
+    case tensorflow::DataType::DT_UINT64: {
+      return DataType::Uint64;
+    }
+    case tensorflow::DataType::DT_INT32: {
+      return DataType::Int32;
+    }
+    case tensorflow::DataType::DT_UINT32: {
+      return DataType::Uint32;
+    }
     default: {
       throw std::runtime_error(ErrorBase + "Not supported dtype.");
       break;
     }
-  } // switch block
+  }  // switch block
 }
 
 size_t size_of(tensorflow::DataType data_type) {
@@ -57,8 +69,8 @@ size_t size_of(tensorflow::DataType data_type) {
   return 0;
 }
 
-TFTensorWrapper::TFTensorWrapper(tensorflow::Tensor* tf_tensor) 
-: tf_tensor_(tf_tensor), dtype_(DataType::Unknown) {}
+TFTensorWrapper::TFTensorWrapper(tensorflow::Tensor* tf_tensor)
+    : tf_tensor_(tf_tensor), dtype_(DataType::Unknown) {}
 
 std::shared_ptr<TFTensorWrapper> TFTensorWrapper::create(tensorflow::Tensor* tf_tensor) {
   return std::shared_ptr<TFTensorWrapper>(new TFTensorWrapper(tf_tensor));
@@ -85,9 +97,11 @@ size_t TFTensorWrapper::get_num_elements() {
 
 bool TFTensorWrapper::allocated() const { return tf_tensor_->IsInitialized(); }
 
-DataType TFTensorWrapper::dtype() const { 
-  if (DataType::Unknown == dtype_) { dtype_ = get_datatype(tf_tensor_->dtype()); }
-  return dtype_; 
+DataType TFTensorWrapper::dtype() const {
+  if (DataType::Unknown == dtype_) {
+    dtype_ = get_datatype(tf_tensor_->dtype());
+  }
+  return dtype_;
 }
 
 }  // namespace SparseOperationKit

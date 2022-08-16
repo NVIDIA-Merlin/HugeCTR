@@ -98,7 +98,6 @@ FullyConnectedLayer<__half>::FullyConnectedLayer(
 
 void FullyConnectedLayer<__half>::fprop(bool is_train) {
   CudaDeviceContext context(get_device_id());
-  PROFILE_RECORD("fully_connected_layer_half.fprop.start", get_gpu().get_stream());
 
   const __half* kernel = weights_half_[0].get_ptr();
   const __half* bias = weights_half_[1].get_ptr();

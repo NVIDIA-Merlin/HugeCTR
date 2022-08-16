@@ -65,9 +65,8 @@ void UnitTester::test_all_gather_dispatcher(
       /*combiner=*/CombinerType::Mean, /*key_dtype=*/key_dtype,
       /*compute_dtype=*/DataType::Float32, /*param=*/nullptr);
 
-  auto builder =
-      InputContainer::instance("input_dispatcher_builders")
-            ->get_builder({"all_gather_dispatcher", key_dtype, DataType::Float32});
+  auto builder = InputContainer::instance("input_dispatcher_builders")
+                     ->get_builder({"all_gather_dispatcher", key_dtype, DataType::Float32});
   static std::shared_ptr<Dispatcher> dispatcher = builder->produce(base_context);
 
   auto init = [this, rows_num_per_sample, max_nnz]() {
@@ -201,11 +200,12 @@ void UnitTester::test_reduce_scatter_dispatcher(const size_t global_replica_id,
       resource_mgr_, buffers_, host_buffers_,
       /*replica_batch_size=*/global_batch_size / resource_mgr_->get_global_gpu_count(), slot_num,
       max_nnz, /*max_feature_num=*/slot_num * max_nnz,
-      /*combiner=*/CombinerType::Mean, /*key_dtype=*/DataType::Int64, 
+      /*combiner=*/CombinerType::Mean, /*key_dtype=*/DataType::Int64,
       /*compute_dtype=*/DataType::Float32, /*param=*/nullptr);
 
-  auto builder = OutputContainer::instance("output_dispatcher_builders")
-                     ->get_builder({"reduce_scatter_dispatcher", DataType::Int64, DataType::Float32});
+  auto builder =
+      OutputContainer::instance("output_dispatcher_builders")
+          ->get_builder({"reduce_scatter_dispatcher", DataType::Int64, DataType::Float32});
   static std::shared_ptr<Dispatcher> reduce_scatter_dispatcher = builder->produce(base_context);
 
   auto init = [this, slot_num, max_nnz]() {

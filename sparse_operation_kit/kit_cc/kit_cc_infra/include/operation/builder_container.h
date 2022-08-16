@@ -49,8 +49,8 @@ class BuilderContainer {
 
  protected:
   const std::string name_;
-  std::unordered_map<OperationIdentifier, std::shared_ptr<Builder>, 
-                    IdentifierHash, IdentifierEqual> components_;
+  std::unordered_map<OperationIdentifier, std::shared_ptr<Builder>, IdentifierHash, IdentifierEqual>
+      components_;
 };
 
 class InputContainer : public BuilderContainer {

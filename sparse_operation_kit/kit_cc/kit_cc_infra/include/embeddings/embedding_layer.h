@@ -28,8 +28,7 @@ class EmbeddingLayer {
   static std::shared_ptr<EmbeddingLayer> create(
       std::shared_ptr<Dispatcher> input_dispatcher,
       std::shared_ptr<EmbeddingLookuper> embedding_lookuper,
-      std::shared_ptr<Dispatcher> output_dispatcher, 
-      ConstructionContext_t context);
+      std::shared_ptr<Dispatcher> output_dispatcher, ConstructionContext_t context);
 
   void allocate_forward_spaces();
   void allocate_backward_spaces();
@@ -58,7 +57,6 @@ class EmbeddingLayer {
 
   DataType key_dtype() const;
   DataType compute_dtype() const;
-
 
  protected:
   EmbeddingLayer(std::shared_ptr<Dispatcher> input_dispatcher,

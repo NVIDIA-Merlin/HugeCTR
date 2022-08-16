@@ -14,18 +14,30 @@
  * limitations under the License.
  */
 #pragma once
+#include <cuda_fp16.h>
 
 #include <ostream>
 #include <string>
 
-#include "HugeCTR/include/tensor2.hpp"
-
 namespace core {
-using HugeCTR::TensorScalarType;
+
+enum class TensorScalarType : uint8_t {
+  None = 0,
+  Void,
+  Float32,
+  Float16,
+  Int64,
+  UInt64,
+  Int32,
+  UInt32,
+  Size_t,
+  Char,
+  MAX_DATATYPE_META
+};
 
 constexpr size_t itemsize_map[static_cast<int>(TensorScalarType::MAX_DATATYPE_META)] = {
     1,                 // none
-    1,                 // void
+    sizeof(char),      // void
     sizeof(float),     // float32
     sizeof(__half),    // float16
     sizeof(int64_t),   // int64
@@ -76,7 +88,7 @@ template <>
 struct hash<core::DataType> {
   size_t operator()(core::DataType d) const {
     // TODO: move TensorScalarType from HugeCTR to core
-    static_assert(sizeof(HugeCTR::TensorScalarType) == 1, "TensorScalarType is not 8-bit");
+    static_assert(sizeof(core::TensorScalarType) == 1, "TensorScalarType is not 8-bit");
     uint32_t bits = static_cast<uint32_t>(static_cast<uint8_t>(d.type()));
     return std::hash<uint32_t>{}(bits);
   }

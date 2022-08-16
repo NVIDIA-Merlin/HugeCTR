@@ -29,8 +29,8 @@ DPModelForward::DPModelForward(std::shared_ptr<CoreResourceManager> core, int nu
 
 void DPModelForward::compute(const TensorList &dp_ev, const Tensor &dp_offset, const Tensor &dp_dst,
                              Tensor &output_buffer, const Tensor &d_local_ev_size_list,
-                             const Tensor &d_local_combiner_list, const Tensor &d_ev_size_offset,
-                             int batch_size) const {
+                             const Tensor &d_ev_size_offset, int batch_size,
+                             int max_ev_size) const {
   CudaDeviceContext ctx(core_->get_device_id());
   int batch_size_per_gpu = batch_size / core_->get_global_gpu_count();
 
@@ -43,17 +43,6 @@ void DPModelForward::compute(const TensorList &dp_ev, const Tensor &dp_offset, c
     ArrayView<uint32_t, RestrictPtrTraits, int32_t> offset_iter{
         dp_offset.get(), batch_size_per_gpu * num_local_embedding_ + 1};
 
-    auto get_counter = [batch_size_per_gpu, combiner_ptr = d_local_combiner_list.get<char>(),
-                        offset_ptr =
-                            dp_offset.get<uint32_t>()] __device__(int32_t index) -> uint32_t {
-      int embedding_id = index / batch_size_per_gpu;
-      return combiner_ptr[embedding_id] == static_cast<char>(Combiner::Average)
-                 ? offset_ptr[index + 1] - offset_ptr[index]
-                 : 1;
-    };
-    LambdaIterator<uint32_t, int32_t, decltype(get_counter)> counter_iter{
-        get_counter, batch_size_per_gpu * num_local_embedding_};
-
     ArrayView<uint32_t, RestrictPtrTraits, int32_t> dst_iter{
         dp_dst.get(), batch_size_per_gpu * num_local_embedding_};
 
@@ -64,8 +53,8 @@ void DPModelForward::compute(const TensorList &dp_ev, const Tensor &dp_offset, c
     RaggedEmbForwardResultView<emb_t, RestrictPtrTraits, int32_t> dst_buffer_iter{
         output_buffer.get(), d_ev_size_offset.get<int>(), batch_size_per_gpu};
 
-    generic_lookup(index_iter, offset_iter, counter_iter, dst_iter, src_buffer_iter,
-                   dst_buffer_iter, stream);
+    generic_lookup(index_iter, offset_iter, dst_iter, src_buffer_iter, dst_buffer_iter, max_ev_size,
+                   stream);
   });
 }
 
@@ -75,7 +64,7 @@ ModelForward::ModelForward(std::shared_ptr<CoreResourceManager> core, int num_gp
 
 void ModelForward::compute(const TensorList &mp_ev, const Tensor &model_offset,
                            TensorList &model_comm_buffer, const Tensor &d_local_ev_size_list,
-                           const Tensor &d_local_ev_size_offset, int batch_size) {
+                           const Tensor &d_local_ev_size_offset, int batch_size, int max_ev_size) {
   CudaDeviceContext ctx(core_->get_device_id());
   int batch_size_per_gpu = batch_size / core_->get_global_gpu_count();
 
@@ -89,10 +78,6 @@ void ModelForward::compute(const TensorList &mp_ev, const Tensor &model_offset,
       ArrayView<uint32_t, RestrictPtrTraits, int32_t> offset_iter{
           model_offset.get(), batch_size * num_local_embedding_ + 1};
 
-      auto get_counter = [] __device__(int32_t index) -> uint32_t { return 1; };
-      LambdaIterator<uint32_t, int32_t, decltype(get_counter)> counter_iter{
-          get_counter, batch_size * num_local_embedding_};
-
       LambdaIterator<uint32_t, int32_t, decltype(counting_iter)> dst_iter{
           counting_iter, batch_size * num_local_embedding_};
 
@@ -102,8 +87,8 @@ void ModelForward::compute(const TensorList &mp_ev, const Tensor &model_offset,
 
       RaggedModelBufferView<emb_t, RestrictPtrTraits, int32_t> dst_buffer_iter{
           model_comm_buffer.get(), d_local_ev_size_offset.get<int>(), num_gpus_, batch_size};
-      generic_lookup(index_iter, offset_iter, counter_iter, dst_iter, src_buffer_iter,
-                     dst_buffer_iter, stream);
+      generic_lookup(index_iter, offset_iter, dst_iter, src_buffer_iter, dst_buffer_iter,
+                     max_ev_size, stream);
     });
   }
 }

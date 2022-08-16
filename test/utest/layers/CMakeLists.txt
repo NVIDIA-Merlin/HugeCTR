@@ -50,6 +50,8 @@ file(GLOB layers_test_src
   concat_3d_layer_test.cpp
   multi_head_attention_layer_test.cpp
   layer_norm_layer_test.cpp
+  sequence_mask_layer_test.cpp
+  masked_softmax_layer_test.cpp
 )
 
 add_executable(layers_test ${layers_test_src})

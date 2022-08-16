@@ -33,7 +33,8 @@ class HierParameterServerBase {
   static constexpr const char* PS_EMBEDDING_TABLE_TAG_PREFIX = "hps_et";
 
   static std::string make_tag_name(const std::string& model_name,
-                                   const std::string& embedding_table_name);
+                                   const std::string& embedding_table_name,
+                                   const bool check_arguments = true);
 
   static std::shared_ptr<HierParameterServerBase> create(
       const parameter_server_config& ps_config,
@@ -46,6 +47,8 @@ class HierParameterServerBase {
   virtual void destory_embedding_cache_per_model(const std::string& model_name) = 0;
   virtual std::shared_ptr<EmbeddingCacheBase> get_embedding_cache(const std::string& model_name,
                                                                   int device_id) = 0;
+
+  virtual void erase_model_from_hps(const std::string& model_name) = 0;
 
   virtual void* apply_buffer(const std::string& model_name, int device_id,
                              CACHE_SPACE_TYPE cache_type = CACHE_SPACE_TYPE::WORKER) = 0;

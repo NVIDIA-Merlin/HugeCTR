@@ -25,11 +25,14 @@
 namespace HugeCTR {
 
 std::string HierParameterServerBase::make_tag_name(const std::string& model_name,
-                                                   const std::string& embedding_table_name) {
+                                                   const std::string& embedding_table_name,
+                                                   const bool check_arguments) {
   static const std::regex syntax{"[a-zA-Z0-9_\\-]{1,120}"};
-  HCTR_CHECK_HINT(std::regex_match(model_name, syntax), "The provided 'model_name' is invalid!");
-  HCTR_CHECK_HINT(std::regex_match(embedding_table_name, syntax),
-                  "The provided 'embedding_table_name' is invalid!");
+  if (check_arguments) {
+    HCTR_CHECK_HINT(std::regex_match(model_name, syntax), "The provided 'model_name' is invalid!");
+    HCTR_CHECK_HINT(std::regex_match(embedding_table_name, syntax),
+                    "The provided 'embedding_table_name' is invalid!");
+  }
 
   std::ostringstream os;
   os << PS_EMBEDDING_TABLE_TAG_PREFIX << '.';
@@ -67,6 +70,9 @@ template <typename TypeHashKey>
 HierParameterServer<TypeHashKey>::HierParameterServer(
     const parameter_server_config& ps_config, std::vector<InferenceParams>& inference_params_array)
     : HierParameterServerBase(), ps_config_(ps_config) {
+  HCTR_PRINT(INFO,
+             "====================================================HPS "
+             "Create====================================================\n");
   for (size_t i = 0; i < inference_params_array.size(); i++) {
     if (inference_params_array[i].volatile_db != inference_params_array[0].volatile_db ||
         inference_params_array[i].persistent_db != inference_params_array[0].persistent_db) {
@@ -93,7 +99,8 @@ HierParameterServer<TypeHashKey>::HierParameterServer(
       case DatabaseType_t::ParallelHashMap:
         HCTR_LOG_S(INFO, WORLD) << "Creating HashMap CPU database backend..." << std::endl;
         volatile_db_ = std::make_unique<HashMapBackend<TypeHashKey>>(
-            conf.num_partitions, conf.allocation_rate, conf.overflow_margin, conf.overflow_policy,
+            conf.num_partitions, conf.allocation_rate, conf.max_get_batch_size,
+            conf.max_set_batch_size, conf.overflow_margin, conf.overflow_policy,
             conf.overflow_resolution_target);
         break;
 
@@ -359,7 +366,7 @@ void HierParameterServer<TypeHashKey>::create_embedding_cache_per_model(
   }
   std::map<int64_t, std::shared_ptr<EmbeddingCacheBase>> embedding_cache_map;
   for (auto device_id : inference_params.deployed_devices) {
-    HCTR_LOG(INFO, WORLD, "Create embedding cache in device %d.\n", device_id);
+    HCTR_LOG(INFO, WORLD, "Creating embedding cache in device %d.\n", device_id);
     inference_params.device_id = device_id;
     embedding_cache_map[device_id] = EmbeddingCacheBase::create(inference_params, ps_config_, this);
   }
@@ -388,6 +395,18 @@ void HierParameterServer<TypeHashKey>::destory_embedding_cache_per_model(
     model_cache_map_.erase(model_name);
   }
   buffer_pool_->DestoryManagerPool(model_name);
+}
+
+template <typename TypeHashKey>
+void HierParameterServer<TypeHashKey>::erase_model_from_hps(const std::string& model_name) {
+  if (volatile_db_) {
+    const std::vector<std::string>& table_names = volatile_db_->find_tables(model_name);
+    volatile_db_->evict(table_names);
+  }
+  if (persistent_db_) {
+    const std::vector<std::string>& table_names = persistent_db_->find_tables(model_name);
+    persistent_db_->evict(table_names);
+  }
 }
 
 template <typename TypeHashKey>
@@ -441,6 +460,7 @@ void HierParameterServer<TypeHashKey>::lookup(const void* const h_keys, const si
     return;
   }
   const auto start_time = std::chrono::high_resolution_clock::now();
+  const auto time_budget = std::chrono::nanoseconds::max();
 
   const auto& model_id = ps_config_.find_model_id(model_name);
   HCTR_CHECK_HINT(
@@ -477,13 +497,13 @@ void HierParameterServer<TypeHashKey>::lookup(const void* const h_keys, const si
 
     // Do a sequential lookup in the volatile DB, and remember the missing keys.
     std::vector<size_t> missing;
-    auto record_missing = [&](const size_t index) {
+    DatabaseMissCallback record_missing = [&](const size_t index) {
       std::lock_guard<std::mutex> lock(resource_guard);
       missing.push_back(index);
     };
 
     hit_count += volatile_db_->fetch(tag_name, length, reinterpret_cast<const TypeHashKey*>(h_keys),
-                                     check_and_copy, record_missing);
+                                     check_and_copy, record_missing, time_budget);
 
     HCTR_LOG_S(TRACE, WORLD) << volatile_db_->get_name() << ": " << hit_count << " hits, "
                              << missing.size() << " missing!" << std::endl;
@@ -496,7 +516,7 @@ void HierParameterServer<TypeHashKey>::lookup(const void* const h_keys, const si
       keys_to_elevate = std::make_shared<std::vector<TypeHashKey>>();
       values_to_elevate = std::make_shared<std::vector<char>>();
 
-      check_and_copy = [&](const size_t index, const char* const value, const size_t value_size) {
+      check_and_copy = [&](const size_t index, const char* const value, const uint32_t value_size) {
         HCTR_CHECK_HINT(value_size == expected_value_size,
                         "Table: %s; Batch[%d]: Value size mismatch! (%d <> %d)!", tag_name.c_str(),
                         index, value_size, expected_value_size);
@@ -511,7 +531,7 @@ void HierParameterServer<TypeHashKey>::lookup(const void* const h_keys, const si
     // Do a sparse lookup in the persisent DB, to fill gaps and set others to default.
     hit_count += persistent_db_->fetch(tag_name, missing.size(), missing.data(),
                                        reinterpret_cast<const TypeHashKey*>(h_keys), check_and_copy,
-                                       fill_default);
+                                       fill_default, time_budget);
 
     HCTR_LOG_S(TRACE, WORLD) << persistent_db_->get_name() << ": " << hit_count << " hits, "
                              << (length - hit_count) << " missing!" << std::endl;
@@ -531,7 +551,7 @@ void HierParameterServer<TypeHashKey>::lookup(const void* const h_keys, const si
     if (db) {
       // Do a sequential lookup in the volatile DB, but fill gaps with a default value.
       hit_count += db->fetch(tag_name, length, reinterpret_cast<const TypeHashKey*>(h_keys),
-                             check_and_copy, fill_default);
+                             check_and_copy, fill_default, time_budget);
 
       HCTR_LOG_S(TRACE, WORLD) << db->get_name() << ": " << hit_count << " hits, "
                                << (length - hit_count) << " missing!" << std::endl;

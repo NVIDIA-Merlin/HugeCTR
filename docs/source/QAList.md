@@ -204,3 +204,15 @@ HugeCTR uses NCCL to share data between ranks, and NCCL may requires shared memo
 ```bash
 --ipc=host --ulimit memlock=-1 --ulimit stack=67108864
 ```
+
+## 32. What does the log "memory pool is empty" imply for HugeCTR inference?
+
+HugeCTR inference leverages [Hirarchical Parameter Server](https://nvidia-merlin.github.io/HugeCTR/master/hugectr_parameter_server.html), which combines a high-performance GPU embedding cache with a hierarchical storage architecture encompassing different types of database backends. Each iteration of GPU embedding cache lookup and update requires an workspace which is pre-allocated and managed by a memory pool. The memory pool can be exhausted when asynchronous update of embedding cache is constantly triggered. In this case, there will be the message "memory pool is empty" in the log.
+
+If you do not want this scenario, you can either:
+
+* Enforce the synchronous mode for embedding cache update by configuring `hit_rate_threshold` as 1.0
+
+* Extend the memory pool by configuring a large enough `number_of_worker_buffers_in_pool`
+
+For more information, please refer to [Embedding Cache Asynchronous Insertion](https://github.com/triton-inference-server/hugectr_backend#embedding-cache-asynchronous-insertion-mechanism) and [HPS Configuration](https://nvidia-merlin.github.io/HugeCTR/master/hugectr_parameter_server.html#configuration).

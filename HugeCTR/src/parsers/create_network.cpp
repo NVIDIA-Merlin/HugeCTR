@@ -34,6 +34,7 @@
 #include <layers/gru_layer.hpp>
 #include <layers/interaction_layer.hpp>
 #include <layers/layer_norm_layer.hpp>
+#include <layers/masked_softmax_layer.hpp>
 #include <layers/matrix_multiply_layer.hpp>
 #include <layers/multi_cross_layer.hpp>
 #include <layers/multi_head_attention_layer.hpp>
@@ -43,6 +44,7 @@
 #include <layers/relu_layer.hpp>
 #include <layers/reshape_layer.hpp>
 #include <layers/scale_layer.hpp>
+#include <layers/sequence_mask_layer.hpp>
 #include <layers/sigmoid_layer.hpp>
 #include <layers/slice_layer.hpp>
 #include <layers/softmax_layer.hpp>
@@ -149,6 +151,8 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
                    metrics::MultiLossMetricMap* raw_metrics,
                    std::vector<Layer*>* top_layers = nullptr,
                    std::vector<Layer*>* bottom_layers = nullptr) {
+  std::vector<TensorEntry> multi_task_output_tensor_entries;
+
   bool skip_dgrad = true;
   bool is_bottom_mlp = true;
 
@@ -315,7 +319,10 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
             blobs_buff->reserve(sigmoid_in_tensor.get_dimensions(), &sigmoid_out_tensor);
             emplaceback_layer(
                 new SigmoidLayer<__half>(sigmoid_in_tensor, sigmoid_out_tensor, gpu_resource));
-            output_tensor_entries.push_back({"sigmoid", sigmoid_out_tensor.shrink()});
+            output_tensor_entries.push_back(
+                {input_output_info.output_names[0], sigmoid_out_tensor.shrink()});
+            multi_task_output_tensor_entries.push_back(
+                {input_output_info.output_names[0], sigmoid_out_tensor.shrink()});
           } else {
             // establish out tensor
             Tensor2<float> sigmoid_in_tensor =
@@ -324,7 +331,10 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
             blobs_buff->reserve(sigmoid_in_tensor.get_dimensions(), &sigmoid_out_tensor);
             emplaceback_layer(
                 new SigmoidLayer<float>(sigmoid_in_tensor, sigmoid_out_tensor, gpu_resource));
-            output_tensor_entries.push_back({"sigmoid", sigmoid_out_tensor.shrink()});
+            output_tensor_entries.push_back(
+                {input_output_info.output_names[0], sigmoid_out_tensor.shrink()});
+            multi_task_output_tensor_entries.push_back(
+                {input_output_info.output_names[0], sigmoid_out_tensor.shrink()});
           }
           break;
         }
@@ -406,18 +416,22 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
             Tensor2<__half> in_tensor = Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
             Tensor2<__half> out_tensor;
             blobs_buff->reserve(in_tensor.get_dimensions(), &out_tensor);
-            output_tensor_entries.push_back(
-                {input_output_info.output_names[0], out_tensor.shrink()});
             emplaceback_layer(
                 new SoftmaxLayer<__half>(in_tensor, out_tensor, blobs_buff, gpu_resource));
+            output_tensor_entries.push_back(
+                {input_output_info.output_names[0], out_tensor.shrink()});
+            multi_task_output_tensor_entries.push_back(
+                {input_output_info.output_names[0], out_tensor.shrink()});
           } else {
             Tensor2<float> in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
             Tensor2<float> out_tensor;
             blobs_buff->reserve(in_tensor.get_dimensions(), &out_tensor);
-            output_tensor_entries.push_back(
-                {input_output_info.output_names[0], out_tensor.shrink()});
             emplaceback_layer(
                 new SoftmaxLayer<float>(in_tensor, out_tensor, blobs_buff, gpu_resource));
+            output_tensor_entries.push_back(
+                {input_output_info.output_names[0], out_tensor.shrink()});
+            multi_task_output_tensor_entries.push_back(
+                {input_output_info.output_names[0], out_tensor.shrink()});
           }
           break;
         }
@@ -480,6 +494,32 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
               new DropoutLayer<float>(do_in_tensor, do_out_tensor, blobs_buff, rate, gpu_resource));
         }
 
+        break;
+      }
+      case Layer_t::SequenceMask: {
+        if (use_mixed_precision) {
+          Tensor2<__half> smask_in_tensor =
+              Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
+          Tensor2<__half> smask_out_tensor;
+          auto max_sequence_len = get_json(j, "max_sequence_len");
+          blobs_buff->reserve({smask_in_tensor.get_dimensions()[0], 1, 1, max_sequence_len},
+                              &smask_out_tensor);
+          output_tensor_entries.push_back(
+              {input_output_info.output_names[0], smask_out_tensor.shrink()});
+          emplaceback_layer(new SequenceMaskLayer<__half>(
+              smask_in_tensor, smask_out_tensor, max_sequence_len, blobs_buff, gpu_resource));
+        } else {
+          Tensor2<float> smask_in_tensor =
+              Tensor2<float>::stretch_from(input_output_info.inputs[0]);
+          Tensor2<float> smask_out_tensor;
+          auto max_sequence_len = get_json(j, "max_sequence_len");
+          blobs_buff->reserve({smask_in_tensor.get_dimensions()[0], 1, 1, max_sequence_len},
+                              &smask_out_tensor);
+          output_tensor_entries.push_back(
+              {input_output_info.output_names[0], smask_out_tensor.shrink()});
+          emplaceback_layer(new SequenceMaskLayer<float>(
+              smask_in_tensor, smask_out_tensor, max_sequence_len, blobs_buff, gpu_resource));
+        }
         break;
       }
       case Layer_t::ELU: {
@@ -821,7 +861,10 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
             blobs_buff->reserve(sigmoid_in_tensor.get_dimensions(), &sigmoid_out_tensor);
             emplaceback_layer(
                 new SigmoidLayer<__half>(sigmoid_in_tensor, sigmoid_out_tensor, gpu_resource));
-            output_tensor_entries.push_back({"sigmoid", sigmoid_out_tensor.shrink()});
+            output_tensor_entries.push_back(
+                {input_output_info.output_names[0], sigmoid_out_tensor.shrink()});
+            multi_task_output_tensor_entries.push_back(
+                {input_output_info.output_names[0], sigmoid_out_tensor.shrink()});
           } else {
             // establish out tensor
             Tensor2<float> sigmoid_in_tensor =
@@ -830,7 +873,10 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
             blobs_buff->reserve(sigmoid_in_tensor.get_dimensions(), &sigmoid_out_tensor);
             emplaceback_layer(
                 new SigmoidLayer<float>(sigmoid_in_tensor, sigmoid_out_tensor, gpu_resource));
-            output_tensor_entries.push_back({"sigmoid", sigmoid_out_tensor.shrink()});
+            output_tensor_entries.push_back(
+                {input_output_info.output_names[0], sigmoid_out_tensor.shrink()});
+            multi_task_output_tensor_entries.push_back(
+                {input_output_info.output_names[0], sigmoid_out_tensor.shrink()});
           }
           break;
         }
@@ -987,12 +1033,28 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
         if (use_mixed_precision) {
           HCTR_OWN_THROW(Error_t::WrongInput, "Softmax layer does not support fp16");
         } else {
-          Tensor2<float> in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
-          Tensor2<float> out_tensor;
-          blobs_buff->reserve(in_tensor.get_dimensions(), &out_tensor);
-          output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
-          emplaceback_layer(
-              new SoftmaxLayer<float>(in_tensor, out_tensor, blobs_buff, gpu_resource));
+          if (input_output_info.inputs.size() != 2) {
+            Tensor2<float> in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
+            Tensor2<float> out_tensor;
+            blobs_buff->reserve(in_tensor.get_dimensions(), &out_tensor);
+            output_tensor_entries.push_back(
+                {input_output_info.output_names[0], out_tensor.shrink()});
+            emplaceback_layer(
+                new SoftmaxLayer<float>(in_tensor, out_tensor, blobs_buff, gpu_resource));
+          } else if (input_output_info.inputs.size() == 2) {
+            auto scale_factor = get_value_from_json<float>(j, "factor");
+            Tensor2<float> in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
+            Tensor2<float> mask_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[1]);
+            Tensors2<float> in_tensors;
+            in_tensors.push_back(in_tensor);
+            in_tensors.push_back(mask_tensor);
+            Tensor2<float> out_tensor;
+            blobs_buff->reserve(in_tensor.get_dimensions(), &out_tensor);
+            output_tensor_entries.push_back(
+                {input_output_info.output_names[0], out_tensor.shrink()});
+            emplaceback_layer(new MaskedSoftmaxLayer<float>(in_tensors, out_tensor, scale_factor,
+                                                            blobs_buff, gpu_resource));
+          }
         }
         break;
       }
@@ -1321,6 +1383,32 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
 
     skip_dgrad = false;
   }  // for layers
+
+  for (const auto& entry : multi_task_output_tensor_entries) {
+    if (entry.bag.get_dimensions().size() != 2) {
+      HCTR_OWN_THROW(Error_t::WrongInput, "the prediction tensor for each task must be two dim");
+    }
+  }
+
+  if (inference_flag && multi_task_output_tensor_entries.size() > 1) {
+    if (use_mixed_precision) {
+      Tensors2<__half> in_tensors;
+      for (const auto& entry : multi_task_output_tensor_entries) {
+        in_tensors.push_back(Tensor2<__half>::stretch_from(entry.bag));
+      }
+      Tensor2<__half> out_tensor;
+      emplaceback_layer(new ConcatLayer<__half>(in_tensors, out_tensor, blobs_buff, gpu_resource));
+      tensor_entries.push_back({"multi_task_combined_pred", out_tensor.shrink()});
+    } else {
+      Tensors2<float> in_tensors;
+      for (const auto& entry : multi_task_output_tensor_entries) {
+        in_tensors.push_back(Tensor2<float>::stretch_from(entry.bag));
+      }
+      Tensor2<float> out_tensor;
+      emplaceback_layer(new ConcatLayer<float>(in_tensors, out_tensor, blobs_buff, gpu_resource));
+      tensor_entries.push_back({"multi_task_combined_pred", out_tensor.shrink()});
+    }
+  }
 }
 
 /*

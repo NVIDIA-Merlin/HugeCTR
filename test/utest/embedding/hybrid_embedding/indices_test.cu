@@ -44,14 +44,43 @@ class CalculateModelIndicesTest : public HybridEmbeddingUnitTest<dtype, emtype> 
     std::vector<std::vector<uint32_t>> h_model_indices(this->num_instances);
     std::vector<std::vector<uint32_t>> h_model_indices_offsets(this->num_instances);
     for (size_t i = 0; i < this->num_instances; i++) {
-      this->infrequent_embeddings[i].set_current_indices(&this->infrequent_embedding_indices[i],
-                                                         this->stream);
-      this->infrequent_embeddings[i].indices_->calculate_model_indices(this->stream);
-      download_tensor(h_model_indices[i], this->infrequent_embeddings[i].indices_->model_indices_,
-                      this->stream);
-      download_tensor(h_model_indices_offsets[i],
-                      this->infrequent_embeddings[i].indices_->model_indices_offsets_,
-                      this->stream);
+      if (this->config.comm_type == CommunicationType::NVLink_SingleNode) {
+        this->infrequent_embeddings_single_node[i].set_current_indices(
+            &this->infrequent_embedding_indices[i], this->stream);
+        this->infrequent_embeddings_single_node[i].indices_->calculate_model_indices(this->stream);
+        download_tensor(h_model_indices[i],
+                        this->infrequent_embeddings_single_node[i].indices_->model_indices_,
+                        this->stream);
+        download_tensor(h_model_indices_offsets[i],
+                        this->infrequent_embeddings_single_node[i].indices_->model_indices_offsets_,
+                        this->stream);
+      }
+
+      if (this->config.comm_type == CommunicationType::IB_NVLink) {
+        this->infrequent_embeddings_ib_nvlink[i].set_current_indices(
+            &this->infrequent_embedding_indices[i], this->stream);
+        this->infrequent_embeddings_ib_nvlink[i].indices_->calculate_model_indices(this->stream);
+        download_tensor(h_model_indices[i],
+                        this->infrequent_embeddings_ib_nvlink[i].indices_->model_indices_,
+                        this->stream);
+        download_tensor(h_model_indices_offsets[i],
+                        this->infrequent_embeddings_ib_nvlink[i].indices_->model_indices_offsets_,
+                        this->stream);
+      }
+
+      if (this->config.comm_type == CommunicationType::IB_NVLink_Hier) {
+        this->infrequent_embeddings_ib_nvlink_hier[i].set_current_indices(
+            &this->infrequent_embedding_indices[i], this->stream);
+        this->infrequent_embeddings_ib_nvlink_hier[i].indices_->calculate_model_indices(
+            this->stream);
+        download_tensor(h_model_indices[i],
+                        this->infrequent_embeddings_ib_nvlink_hier[i].indices_->model_indices_,
+                        this->stream);
+        download_tensor(
+            h_model_indices_offsets[i],
+            this->infrequent_embeddings_ib_nvlink_hier[i].indices_->model_indices_offsets_,
+            this->stream);
+      }
     }
 
     /* Compare */
@@ -84,14 +113,46 @@ class CalculateNetworkIndicesTest : public HybridEmbeddingUnitTest<dtype, emtype
     std::vector<std::vector<uint32_t>> h_network_indices(this->num_instances);
     std::vector<std::vector<uint32_t>> h_network_indices_offsets(this->num_instances);
     for (size_t i = 0; i < this->num_instances; i++) {
-      this->infrequent_embeddings[i].set_current_indices(&this->infrequent_embedding_indices[i],
-                                                         this->stream);
-      this->infrequent_embeddings[i].indices_->calculate_network_indices(80, this->stream);
-      download_tensor(h_network_indices[i],
-                      this->infrequent_embeddings[i].indices_->network_indices_, this->stream);
-      download_tensor(h_network_indices_offsets[i],
-                      this->infrequent_embeddings[i].indices_->network_indices_offsets_,
-                      this->stream);
+      if (this->config.comm_type == CommunicationType::NVLink_SingleNode) {
+        this->infrequent_embeddings_single_node[i].set_current_indices(
+            &this->infrequent_embedding_indices[i], this->stream);
+        this->infrequent_embeddings_single_node[i].indices_->calculate_network_indices(
+            80, this->stream);
+        download_tensor(h_network_indices[i],
+                        this->infrequent_embeddings_single_node[i].indices_->network_indices_,
+                        this->stream);
+        download_tensor(
+            h_network_indices_offsets[i],
+            this->infrequent_embeddings_single_node[i].indices_->network_indices_offsets_,
+            this->stream);
+      }
+
+      if (this->config.comm_type == CommunicationType::IB_NVLink) {
+        this->infrequent_embeddings_ib_nvlink[i].set_current_indices(
+            &this->infrequent_embedding_indices[i], this->stream);
+        this->infrequent_embeddings_ib_nvlink[i].indices_->calculate_network_indices(80,
+                                                                                     this->stream);
+        download_tensor(h_network_indices[i],
+                        this->infrequent_embeddings_ib_nvlink[i].indices_->network_indices_,
+                        this->stream);
+        download_tensor(h_network_indices_offsets[i],
+                        this->infrequent_embeddings_ib_nvlink[i].indices_->network_indices_offsets_,
+                        this->stream);
+      }
+
+      if (this->config.comm_type == CommunicationType::IB_NVLink_Hier) {
+        this->infrequent_embeddings_ib_nvlink_hier[i].set_current_indices(
+            &this->infrequent_embedding_indices[i], this->stream);
+        this->infrequent_embeddings_ib_nvlink_hier[i].indices_->calculate_network_indices(
+            80, this->stream);
+        download_tensor(h_network_indices[i],
+                        this->infrequent_embeddings_ib_nvlink_hier[i].indices_->network_indices_,
+                        this->stream);
+        download_tensor(
+            h_network_indices_offsets[i],
+            this->infrequent_embeddings_ib_nvlink_hier[i].indices_->network_indices_offsets_,
+            this->stream);
+      }
     }
 
     /* Compare */

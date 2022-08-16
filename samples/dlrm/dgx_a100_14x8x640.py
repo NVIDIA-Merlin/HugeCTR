@@ -85,7 +85,7 @@ model.add(hugectr.SparseEmbedding(embedding_type = hugectr.Embedding_t.HybridSpa
                             sparse_embedding_name = "sparse_embedding1",
                             bottom_name = "data1",
                             optimizer = optimizer,
-                            hybrid_embedding_param = hugectr.HybridEmbeddingParam(2, 16640+1290, 0.01, 1.3e11, 1.9e11, 0.5, True, True,
+                            hybrid_embedding_param = hugectr.HybridEmbeddingParam(2, 16640+1290, 0.01, 1.3e11, 23.75e9, 0.5, True, True,
                                                                                 hugectr.CommunicationType.IB_NVLink_Hier,
                                                                                 hugectr.HybridEmbeddingType.Distributed)))
 dense_layer_switchs_bottom = hugectr.DenseLayerSwitchs(False)

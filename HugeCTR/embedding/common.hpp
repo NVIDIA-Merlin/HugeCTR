@@ -19,7 +19,6 @@
 #include <vector>
 
 #include "HugeCTR/core/buffer.hpp"
-#include "HugeCTR/include/optimizer.hpp"
 
 namespace embedding {
 using core::CoreResourceManager;
@@ -31,7 +30,7 @@ using core::GetBufferBlock;
 using core::Shape;
 using core::Tensor;
 using core::TensorList;
-using HugeCTR::TensorScalarType;
+using core::TensorScalarType;
 
 // enum class which means pooling operation after lookup. Can be Sum, Average, Concat
 enum class Combiner : char { Sum, Average, Concat };
@@ -49,6 +48,15 @@ enum class TablePlacementStrategy : int8_t {
 const std::map<std::string, TablePlacementStrategy> _table_placement_type_map = {
     {"dp", TablePlacementStrategy::DataParallel}, {"mp", TablePlacementStrategy::ModelParallel}};
 
+struct EmbeddingShardParam {
+  std::vector<std::vector<int>> shard_matrix;
+  std::vector<int> shard_count_list;
+  TablePlacementStrategy table_placement_strategy;
+
+  EmbeddingShardParam(const std::vector<std::vector<int>> _shard_matrix,
+                      TablePlacementStrategy _tps);
+};
+
 struct EmbeddingShardingParam {
   std::vector<int> local_embedding_list;
   std::vector<std::vector<int>> global_embedding_list;
@@ -56,6 +64,10 @@ struct EmbeddingShardingParam {
   int shards_count;
   TablePlacementStrategy table_placement_strategy;
   // there will be more. for example, FrequentEmbedding may need num_frequent_categories.
+  EmbeddingShardingParam() = default;
+
+  EmbeddingShardingParam(int num_embedding, const EmbeddingShardParam &shard_param,
+                         int global_gpu_id);
 };
 
 struct EmbeddingParam {

@@ -34,6 +34,7 @@
 #include <layers/gru_layer.hpp>
 #include <layers/interaction_layer.hpp>
 #include <layers/layer_norm_layer.hpp>
+#include <layers/masked_softmax_layer.hpp>
 #include <layers/matrix_multiply_layer.hpp>
 #include <layers/multi_cross_layer.hpp>
 #include <layers/multi_head_attention_layer.hpp>
@@ -43,6 +44,7 @@
 #include <layers/relu_layer.hpp>
 #include <layers/reshape_layer.hpp>
 #include <layers/scale_layer.hpp>
+#include <layers/sequence_mask_layer.hpp>
 #include <layers/sigmoid_layer.hpp>
 #include <layers/slice_layer.hpp>
 #include <layers/softmax_layer.hpp>
@@ -80,12 +82,13 @@ void save_graph_to_json(nlohmann::json& layer_config_array,
     label_dims.emplace_back(label.second);
   }
 
-  //  if (input_param.labels_.size() > 1) {
-  //    input_label_config["top"] = label_names[0];
-  //    input_label_config["label_dim"] = label_dims[0];
-  //  } else {
-  input_label_config["top"] = label_names[0];
-  input_label_config["label_dim"] = label_dims[0];
+  if (input_param.labels_.size() > 1) {
+    input_label_config["top"] = "combined_multi_label";
+    input_label_config["label_dim"] = std::accumulate(label_dims.begin(), label_dims.end(), 0);
+  } else {
+    input_label_config["top"] = label_names[0];
+    input_label_config["label_dim"] = label_dims[0];
+  }
   input_dense_config["top"] = input_param.dense_name;
   input_dense_config["dense_dim"] = input_param.dense_dim;
   for (size_t i = 0; i < input_param.data_reader_sparse_param_array.size(); ++i) {
@@ -247,6 +250,10 @@ void save_graph_to_json(nlohmann::json& layer_config_array,
         layer_config["rate"] = dense_layer_params[i].dropout_rate;
         break;
       }
+      case Layer_t::SequenceMask: {
+        layer_config["max_sequence_len"] = dense_layer_params[i].max_sequence_len;
+        break;
+      }
       case Layer_t::ELU: {
         nlohmann::json elu_param_config;
         elu_param_config["alpha"] = dense_layer_params[i].elu_alpha;
@@ -369,6 +376,10 @@ void save_graph_to_json(nlohmann::json& layer_config_array,
         layer_config["scale_param"] = scale_param_config;
         break;
       }
+      case Layer_t::Softmax: {
+        layer_config["factor"] = dense_layer_params[i].factor;
+        break;
+      }
       case Layer_t::MultiCrossEntropyLoss: {
         if (dense_layer_params[i].target_weight_vec.size() > 0) {
           layer_config["target_weight"] = dense_layer_params[i].target_weight_vec;
@@ -454,6 +465,11 @@ DenseLayer get_dense_layer_from_json(const nlohmann::json& j_dense_layer) {
       auto j_elu_hparam = get_json(j_dense_layer, "elu_param");
       auto alpha = get_value_from_json<float>(j_elu_hparam, "alpha");
       dense_layer.elu_alpha = alpha;
+      break;
+    }
+    case Layer_t::SequenceMask: {
+      auto max_sequence_len = get_json(j_dense_layer, "max_sequence_len");
+      dense_layer.max_sequence_len = max_sequence_len;
       break;
     }
     case Layer_t::FusedInnerProduct: {
@@ -686,6 +702,15 @@ DenseLayer get_dense_layer_from_json(const nlohmann::json& j_dense_layer) {
       dense_layer.axis = axis;
       break;
     }
+    case Layer_t::Softmax: {
+      auto factor_it = j_dense_layer.find("factor");
+      if (factor_it != j_dense_layer.end()) {
+        dense_layer.factor = factor_it->get<float>();
+      } else {
+        dense_layer.axis = 1.0f;
+      }
+      break;
+    }
     case Layer_t::MultiCrossEntropyLoss: {
       auto tweight = get_json(j_dense_layer, "target_weight");
       std::vector<float> target_weight_vec;
@@ -830,6 +855,15 @@ void Model::add_dense_layer_internal(
     std::vector<Layer*>* embedding_dependent_layers,
     std::vector<Layer*>* embedding_independent_layers, bool embedding_dependent) {
   bool skip_dgrad = layers.size() == 0;
+  auto v2s = [](const std::vector<size_t>& vec) {
+    std::string s = "(";
+    for (const auto& entry : vec) {
+      s += std::to_string(entry);
+      s += ",";
+    }
+    s.back() = ')';
+    return s;
+  };
   Layer_t layer_type = dense_layer.layer_type;
   const auto& layer_type_to_string =
       use_mixed_precision ? LAYER_TYPE_TO_STRING_MP : LAYER_TYPE_TO_STRING;
@@ -911,6 +945,14 @@ void Model::add_dense_layer_internal(
       if (input_output_info.inputs.size() != 2) {
         HCTR_OWN_THROW(Error_t::WrongInput, "bottom of BinaryCrossEntropyLoss must be two dim");
       }
+      if (input_output_info.inputs[0].get_dimensions() !=
+          input_output_info.inputs[1].get_dimensions()) {
+        std::string err_msg =
+            "predition tensor and label tensor should have the same shape, got: " +
+            v2s(input_output_info.inputs[0].get_dimensions()) + " and " +
+            v2s(input_output_info.inputs[1].get_dimensions());
+        HCTR_OWN_THROW(Error_t::WrongInput, err_msg.c_str());
+      }
       Tensor2<float> label_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[1]);
       // create new loss tensor
       std::string name = dense_layer.bottom_names[1];
@@ -989,6 +1031,14 @@ void Model::add_dense_layer_internal(
       if (input_output_info.inputs.size() != 2) {
         HCTR_OWN_THROW(Error_t::WrongInput, "bottom of CrossEntropyLoss must be two dim");
       }
+      if (input_output_info.inputs[0].get_dimensions() !=
+          input_output_info.inputs[1].get_dimensions()) {
+        std::string err_msg =
+            "predition tensor and label tensor should have the same shape, got: " +
+            v2s(input_output_info.inputs[0].get_dimensions()) + " and " +
+            v2s(input_output_info.inputs[1].get_dimensions());
+        HCTR_OWN_THROW(Error_t::WrongInput, err_msg.c_str());
+      }
       Tensor2<float> label_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[1]);
       // create new loss tensor
       std::string name = dense_layer.bottom_names[1];
@@ -1065,6 +1115,31 @@ void Model::add_dense_layer_internal(
         float alpha = dense_layer.elu_alpha;
         layers.emplace_back(
             new EluLayer<float>(elu_in_tensor, elu_out_tensor, alpha, gpu_resource));
+      }
+      break;
+    }
+    case Layer_t::SequenceMask: {
+      if (use_mixed_precision) {
+        Tensor2<__half> smask_in_tensor =
+            Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
+        Tensor2<__half> smask_out_tensor;
+        auto max_sequence_len = dense_layer.max_sequence_len;
+        blobs_buff->reserve({smask_in_tensor.get_dimensions()[0], 1, 1, (size_t)max_sequence_len},
+                            &smask_out_tensor);
+        output_tensor_entries.push_back(
+            {input_output_info.output_names[0], smask_out_tensor.shrink()});
+        layers.emplace_back(new SequenceMaskLayer<__half>(
+            smask_in_tensor, smask_out_tensor, max_sequence_len, blobs_buff, gpu_resource));
+      } else {
+        Tensor2<float> smask_in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
+        Tensor2<float> smask_out_tensor;
+        auto max_sequence_len = dense_layer.max_sequence_len;
+        blobs_buff->reserve({smask_in_tensor.get_dimensions()[0], 1, 1, (size_t)max_sequence_len},
+                            &smask_out_tensor);
+        output_tensor_entries.push_back(
+            {input_output_info.output_names[0], smask_out_tensor.shrink()});
+        layers.emplace_back(new SequenceMaskLayer<float>(
+            smask_in_tensor, smask_out_tensor, max_sequence_len, blobs_buff, gpu_resource));
       }
       break;
     }
@@ -1324,6 +1399,14 @@ void Model::add_dense_layer_internal(
     case Layer_t::MultiCrossEntropyLoss: {
       if (input_output_info.inputs.size() != 2) {
         HCTR_OWN_THROW(Error_t::WrongInput, "bottom of MultiCrossEntropyLoss must be two dim");
+      }
+      if (input_output_info.inputs[0].get_dimensions() !=
+          input_output_info.inputs[1].get_dimensions()) {
+        std::string err_msg =
+            "predition tensor and label tensor should have the same shape, got: " +
+            v2s(input_output_info.inputs[0].get_dimensions()) + " and " +
+            v2s(input_output_info.inputs[1].get_dimensions());
+        HCTR_OWN_THROW(Error_t::WrongInput, err_msg.c_str());
       }
       Tensor2<float> label_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[1]);
       // create new loss tensor
@@ -1608,12 +1691,26 @@ void Model::add_dense_layer_internal(
         layers.emplace_back(
             new SoftmaxLayer<__half>(in_tensor, out_tensor, blobs_buff, gpu_resource));
       } else {
-        Tensor2<float> in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
-        Tensor2<float> out_tensor;
-        blobs_buff->reserve(in_tensor.get_dimensions(), &out_tensor);
-        output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
-        layers.emplace_back(
-            new SoftmaxLayer<float>(in_tensor, out_tensor, blobs_buff, gpu_resource));
+        if (input_output_info.inputs.size() != 2) {
+          Tensor2<float> in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
+          Tensor2<float> out_tensor;
+          blobs_buff->reserve(in_tensor.get_dimensions(), &out_tensor);
+          output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
+          layers.emplace_back(
+              new SoftmaxLayer<float>(in_tensor, out_tensor, blobs_buff, gpu_resource));
+        } else if (input_output_info.inputs.size() == 2) {
+          auto scale_factor = dense_layer.factor;
+          Tensor2<float> in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
+          Tensor2<float> mask_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[1]);
+          Tensors2<float> in_tensors;
+          in_tensors.push_back(in_tensor);
+          in_tensors.push_back(mask_tensor);
+          Tensor2<float> out_tensor;
+          blobs_buff->reserve(in_tensor.get_dimensions(), &out_tensor);
+          output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
+          layers.emplace_back(new MaskedSoftmaxLayer<float>(in_tensors, out_tensor, scale_factor,
+                                                            blobs_buff, gpu_resource));
+        }
       }
       break;
     }
