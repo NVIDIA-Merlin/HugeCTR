@@ -109,4 +109,3 @@ target_compile_features(huge_ctr_inference PUBLIC cxx_std_17)
 
 set_target_properties(huge_ctr_inference PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 
-set_target_properties(huge_ctr_inference PROPERTIES CUDA_ARCHITECTURES OFF)
