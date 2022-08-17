@@ -14,16 +14,16 @@
  * limitations under the License.
  */
 
+#include "common.cuh"
 #include "common/include/dumping_functions.h"
 #include "common/include/forward_functions.h"
 #include "hashtable/simple_hashtable.h"
 #include "operation/operation_interface.h"
-#include "common.cuh"
 
 namespace SparseOperationKit {
 
 template <typename EmbeddingType>
-__global__ static void gatherKernel(const size_t EmbeddingDimension, float * __restrict__ inputs,
+__global__ static void gatherKernel(const size_t EmbeddingDimension, float *__restrict__ inputs,
                                     size_t *indices, size_t num_indices, EmbeddingType *outputs) {
   for (size_t id = blockIdx.x * blockDim.x + threadIdx.x; id < num_indices * EmbeddingDimension;
        id += blockDim.x * gridDim.x) {
@@ -32,7 +32,7 @@ __global__ static void gatherKernel(const size_t EmbeddingDimension, float * __r
 
     size_t index = static_cast<size_t>(indices[item_id]);
     outputs[id] = HugeCTR::TypeConvertFunc<EmbeddingType, float>::convert(
-      inputs[index * EmbeddingDimension + embedding_id]);
+        inputs[index * EmbeddingDimension + embedding_id]);
   }
 }
 
@@ -126,7 +126,7 @@ class DenseGather : public EmbeddingLookuper {
     replica_context->set_output("replica_gathered_embeddings",
                                 gathered_embeddings_buf_[local_replica_id]);
     // write host_nnz in current iteration
-    auto& host_nnz = replica_context->output("replica_host_nnz");
+    auto &host_nnz = replica_context->output("replica_host_nnz");
     host_nnz->GetPtrWithType<size_t>()[0] = static_cast<size_t>(h_local_nnz);
   }
 
@@ -171,21 +171,13 @@ class DenseGather : public EmbeddingLookuper {
   Tensors2<ValueType> gathered_embeddings_buf_;
 };
 
-REGISTER_EMB_LOOKUPER_BUILDER("dense_gather", 
-                              DataType::Int64,
-                              DataType::Float32, 
+REGISTER_EMB_LOOKUPER_BUILDER("dense_gather", DataType::Int64, DataType::Float32,
                               DenseGather<int64_t, float>);
-REGISTER_EMB_LOOKUPER_BUILDER("dense_gather", 
-                              DataType::Int64,
-                              DataType::Float16, 
+REGISTER_EMB_LOOKUPER_BUILDER("dense_gather", DataType::Int64, DataType::Float16,
                               DenseGather<int64_t, __half>);
-REGISTER_EMB_LOOKUPER_BUILDER("dense_gather", 
-                              DataType::Uint32,
-                              DataType::Float32, 
+REGISTER_EMB_LOOKUPER_BUILDER("dense_gather", DataType::Uint32, DataType::Float32,
                               DenseGather<uint32_t, float>);
-REGISTER_EMB_LOOKUPER_BUILDER("dense_gather", 
-                              DataType::Uint32,
-                              DataType::Float16, 
+REGISTER_EMB_LOOKUPER_BUILDER("dense_gather", DataType::Uint32, DataType::Float16,
                               DenseGather<uint32_t, __half>);
 
 }  // namespace SparseOperationKit

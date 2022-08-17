@@ -33,7 +33,7 @@ stages:
   script:
     - srun -N 1 -p dgx1v,dgx1v16g,dgx1v32g bash -cx "
       echo $(pwd);
-      docker run --rm --workdir /src -v $(pwd):/src gitlab-master.nvidia.com:5005/dl/hugectr/hugectr/clang-format-lint --clang-format-executable /clang-format/$EXECUTABLE -r --exclude $EXCLUDE --style $STYLE .
+      docker run --rm --workdir /src -v $(pwd):/src gitlab-master.nvidia.com:5005/dl/hugectr/hugectr/clang-format-lint --clang-format-executable /clang-format/$EXECUTABLE -r --exclude $EXCLUDE --style $STYLE --extensions $EXTENSIONS .
       "
   allow_failure: true
   timeout: 15 minutes

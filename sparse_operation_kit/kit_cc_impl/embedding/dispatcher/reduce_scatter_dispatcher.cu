@@ -42,8 +42,8 @@ class ReduceScatterDispatcher : public Dispatcher {
 
     CK_NCCL(ncclReduceScatter(embedding_features->GetPtrWithType<ValueType>(),
                               replica_output->GetPtrWithType<ValueType>(),
-                              replica_output->get_num_elements(), GetNCCLType<ValueType>(), 
-                              ncclSum, local_gpu->get_nccl(), local_gpu->get_stream()));
+                              replica_output->get_num_elements(), GetNCCLType<ValueType>(), ncclSum,
+                              local_gpu->get_nccl(), local_gpu->get_stream()));
 
     // do mean scale when Combiner::Mean is used.
     if (replica_context->has_internal_tensor("row_offset_allreduce_tensor")) {
@@ -82,8 +82,8 @@ class ReduceScatterDispatcher : public Dispatcher {
     CK_NCCL(ncclAllGather(/*sendbuff=*/replica_top_gradient->GetPtrWithType<ValueType>(),
                           /*recvbuff=*/embedding_feature->GetPtrWithType<ValueType>(),
                           /*sendcount=*/replica_top_gradient->get_num_elements(),
-                          /*datatype=*/GetNCCLType<ValueType>(), 
-                          local_gpu->get_nccl(), local_gpu->get_stream()));
+                          /*datatype=*/GetNCCLType<ValueType>(), local_gpu->get_nccl(),
+                          local_gpu->get_stream()));
   }
 
  private:
@@ -91,21 +91,13 @@ class ReduceScatterDispatcher : public Dispatcher {
   const size_t global_batch_size_;
 };
 
-REGISTER_OUTPUT_DISPATHER_BUILDER("reduce_scatter_dispatcher", 
-                                  DataType::Int64,
-                                  DataType::Float32, 
+REGISTER_OUTPUT_DISPATHER_BUILDER("reduce_scatter_dispatcher", DataType::Int64, DataType::Float32,
                                   ReduceScatterDispatcher<float>);
-REGISTER_OUTPUT_DISPATHER_BUILDER("reduce_scatter_dispatcher", 
-                                  DataType::Int64,
-                                  DataType::Float16, 
+REGISTER_OUTPUT_DISPATHER_BUILDER("reduce_scatter_dispatcher", DataType::Int64, DataType::Float16,
                                   ReduceScatterDispatcher<__half>);
-REGISTER_OUTPUT_DISPATHER_BUILDER("reduce_scatter_dispatcher", 
-                                  DataType::Uint32,
-                                  DataType::Float32, 
+REGISTER_OUTPUT_DISPATHER_BUILDER("reduce_scatter_dispatcher", DataType::Uint32, DataType::Float32,
                                   ReduceScatterDispatcher<float>);
-REGISTER_OUTPUT_DISPATHER_BUILDER("reduce_scatter_dispatcher", 
-                                  DataType::Uint32,
-                                  DataType::Float16, 
+REGISTER_OUTPUT_DISPATHER_BUILDER("reduce_scatter_dispatcher", DataType::Uint32, DataType::Float16,
                                   ReduceScatterDispatcher<__half>);
 
 }  // namespace SparseOperationKit
