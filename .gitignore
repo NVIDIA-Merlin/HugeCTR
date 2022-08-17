@@ -44,6 +44,7 @@ dgx_a100*
 logs*
 archives/
 sparse_operation_kit/_skbuild
+hierarchical_parameter_server/_skbuild
 
 hierarchical_parameter_server/_skbuild
 hierarchical_parameter_server/dist/
