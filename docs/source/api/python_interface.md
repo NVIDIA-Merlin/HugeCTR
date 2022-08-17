@@ -172,26 +172,37 @@ async_param = hugectr.AsyncParam(32, 4, 716800, 2, 512, True, hugectr.Alignment_
 hugectr.HybridEmbeddingParam()
 ```
 
-A sparse embedding layer can be optimized using hybrid embedding. This is done by creating the sparse embedding layer with a hybrid_embedding_param argument (see SparseEmbedding), which is of type HybridEmbeddingParam. `HybridEmbeddingParam` specifies the parameters related to hybrid embedding. Hybrid embedding is designed to overcome the bandwidth constraint imposed by the embedding part of the embedding train workload by algorithmically reducing the traffic over network. Requirements: The input dataset has only one-hot feature items and the model uses the SGD optimizer.
+A sparse embedding layer can be optimized using hybrid embedding.
+Hybrid embedding is designed to overcome the bandwidth constraint that is imposed by the embedding part of the embedding training workload by algorithmically reducing the traffic over the network.
+Hybrid embedding can improve performance in multi-node and multi-GPU deployments with one-hot data.
+Conversely, hybrid embedding does not improve performance on a single-machine and single-GPU deployment or with multi-hot encoded data.
+
+You can use hybrid embedding by creating a sparse embedding layer with a `hybrid_embedding_param` argument that is of type `HybridEmbeddingParam` and specifying the parameters that are related to hybrid embedding.
+
+Requirements: The input dataset has only one-hot feature items and the model uses the SGD optimizer.
+
+For information about creating a sparse embedding layer, refer to the [class](./hugectr_layer_book.md#sparse-embedding) documentation.
 
 **Arguments**
-* `max_num_frequent_categories`: Integer, the maximum number of frequent categories in unit of batch size. There is NO default value.
 
-* `max_num_infrequent_samples`: Integer, the maximum number of infrequent samples in unit of batch size. There is NO default value.
+* `max_num_frequent_categories`: Integer, the maximum number of frequent categories in unit of batch size. This argument does not have a default value.
 
-* `p_dup_max`: Float, the maximum probability that the category appears more than once within the gpu-batch. This way of determining the number of frequent categories is used in single-node or NVLink connected systems only. There is NO default value.
+* `max_num_infrequent_samples`: Integer, the maximum number of infrequent samples in unit of batch size. This argument does not have a default value.
 
-* `max_all_reduce_bandwidth`: Float, the bandwidth of the all reduce. There is NO default value.
+* `p_dup_max`: Float, the maximum probability that the category appears more than once within the gpu-batch. This way of determining the number of frequent categories is used in single-node or NVLink connected systems only. This argument does not have a default value.
 
-* `max_all_to_all_bandwidth`: Float, the bandwidth of the all-to-all. There is NO default value.
+* `max_all_reduce_bandwidth`: Float, the algorithmic bandwidth of the all reduce. This argument does not have a default value.
 
-* `efficiency_bandwidth_ratio`: Float, this argument is used in combination with `max_all_reduce_bandwidth` and `max_all_to_all_bandwidth` to determine the optimal threshold for number of frequent categories. This way of determining the frequent categories is used for multi node only. There is NO default value.
+* `max_all_to_all_bandwidth`: Float, the algorithmic bandwidth of the all-to-all. The unit of bandwidth is per-GPU.  This argument does not have a default value.
 
-* `communication_type`: The type of communication that is being used. The supported types include `CommunicationType.IB_NVLink`, `CommunicationType.IB_NVLink_Hier` and `CommunicationType.NVLink_SingleNode`. There is NO default value.
+* `efficiency_bandwidth_ratio`: Float, this argument is used in combination with `max_all_reduce_bandwidth` and `max_all_to_all_bandwidth` to determine the optimal threshold for the number of frequent categories. This way of determining the frequent categories is used for multi node only. This argument does not have a default value.
 
-* `hybrid_embedding_type`: The type of hybrid embedding, which supports only `HybridEmbeddingType.Distributed` for now. There is NO default value.
+* `communication_type`: The type of communication that is being used. The supported types include `CommunicationType.IB_NVLink`, `CommunicationType.IB_NVLink_Hier` and `CommunicationType.NVLink_SingleNode`. This argument does not have a default value.
+
+* `hybrid_embedding_type`: The type of hybrid embedding, which supports only `HybridEmbeddingType.Distributed` for now. This argument does not have a default value.
 
 Example:
+
 ```python
 hybrid_embedding_param = hugectr.HybridEmbeddingParam(2, -1, 0.01, 1.3e11, 1.9e11, 1.0,
                                                     hugectr.CommunicationType.IB_NVLink_Hier,
@@ -1281,8 +1292,8 @@ hugectr.data.DataSourceParams()
 `DataSourceParams` specifies the file system information and the paths to data and model used for training. A `DataSourceParams` instance is required to initialize the `DataSource` instance.
 
 **Arguments**
-* `source`: `hugect.DataSourceType_t`, can be `Local` or `HDFS`, specifying the file sytem. Default is `hugectr.DataSourceType_t.Local`.
+* `source`: `hugect.DataSourceType_t`, can be `Local` or `HDFS`, specifying the file system. Default is `hugectr.DataSourceType_t.Local`.
 
-* `server`: String, the IP address of your file sytem. For Hadoop cluster, it is your namenode. Will be ignored if `source` is `DataSourceType_t.Local`. Default is 'localhost'.
+* `server`: String, the IP address of your file system. For Hadoop cluster, it is your namenode. Will be ignored if `source` is `DataSourceType_t.Local`. Default is 'localhost'.
 
 * `port`:  Integer, the port to listen from your server. Will be ignored if `source` is `DataSourceType_t.Local`. Default is 9000.
