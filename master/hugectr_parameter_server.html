@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>HugeCTR Hierarchical Parameter Server Database Backend &mdash; Merlin HugeCTR  documentation</title><link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <title>Hierarchical Parameter Server Database Backend &mdash; Merlin HugeCTR  documentation</title><link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="_static/mystnb.css" type="text/css" />
       <link rel="stylesheet" href="_static/togglebutton.css" type="text/css" />
@@ -22,8 +22,8 @@
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="Performance" href="performance.html" />
-    <link rel="prev" title="HugeCTR Embedding Training Cache" href="hugectr_embedding_training_cache.html" /> 
+    <link rel="next" title="Hierarchical Parameter Server Plugin for TensorFlow" href="hierarchical_parameter_server/hps_tf_user_guide.html" />
+    <link rel="prev" title="Hierarchical Parameter Server" href="hierarchical_parameter_server/index.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -41,15 +41,12 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption"><span class="caption-text">Contents</span></p>
-<ul class="current">
+              <p class="caption"><span class="caption-text">HUGECTR</span></p>
+<ul>
 <li class="toctree-l1"><a class="reference internal" href="hugectr_user_guide.html">Introduction</a></li>
 <li class="toctree-l1"><a class="reference internal" href="hugectr_core_features.html">Core Features</a></li>
-<li class="toctree-l1 current"><a class="reference internal" href="hugectr_feature_details_intro.html">Features in Detail</a><ul class="current">
-<li class="toctree-l2"><a class="reference internal" href="hugectr_embedding_training_cache.html">Embedding Training Cache</a></li>
-<li class="toctree-l2 current"><a class="current reference internal" href="#">Hierarchical Parameter Server</a></li>
-</ul>
-</li>
+<li class="toctree-l1"><a class="reference internal" href="hugectr_embedding_training_cache.html">Embedding Training Cache</a></li>
+<li class="toctree-l1"><a class="reference internal" href="hierarchical_parameter_server/index.html">Hierarchical Parameter Server</a></li>
 <li class="toctree-l1"><a class="reference internal" href="performance.html">Performance</a></li>
 <li class="toctree-l1"><a class="reference internal" href="notebooks/index.html">Example Notebooks</a></li>
 <li class="toctree-l1"><a class="reference internal" href="notebooks/multi-modal-data/index.html">Multi-modal Example Notebooks</a></li>
@@ -73,8 +70,8 @@
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
       <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
-          <li><a href="hugectr_feature_details_intro.html">HugeCTR Features in Detail</a> &raquo;</li>
-      <li>HugeCTR Hierarchical Parameter Server Database Backend</li>
+          <li><a href="hierarchical_parameter_server/index.html">Hierarchical Parameter Server</a> &raquo;</li>
+      <li>Hierarchical Parameter Server Database Backend</li>
       <li class="wy-breadcrumbs-aside">
       </li>
   </ul>
@@ -83,11 +80,11 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <div class="tex2jax_ignore mathjax_ignore section" id="hugectr-hierarchical-parameter-server-database-backend">
-<h1>HugeCTR Hierarchical Parameter Server Database Backend<a class="headerlink" href="#hugectr-hierarchical-parameter-server-database-backend" title="Permalink to this headline"></a></h1>
+  <div class="tex2jax_ignore mathjax_ignore section" id="hierarchical-parameter-server-database-backend">
+<h1>Hierarchical Parameter Server Database Backend<a class="headerlink" href="#hierarchical-parameter-server-database-backend" title="Permalink to this headline"></a></h1>
 <div class="contents local topic" id="contents">
 <ul class="simple">
-<li><p><a class="reference internal" href="#introduction-to-the-hierarchical-parameter-server" id="id1">Introduction to the Hierarchical Parameter Server</a></p></li>
+<li><p><a class="reference internal" href="#introduction-to-the-hps-database-backend" id="id1">Introduction to the HPS Database Backend</a></p></li>
 <li><p><a class="reference internal" href="#background" id="id2">Background</a></p></li>
 <li><p><a class="reference internal" href="#architecture" id="id3">Architecture</a></p></li>
 <li><p><a class="reference internal" href="#training-and-iterative-model-updates" id="id4">Training and Iterative Model Updates</a></p></li>
@@ -108,9 +105,9 @@
 </li>
 </ul>
 </div>
-<div class="section" id="introduction-to-the-hierarchical-parameter-server">
-<h2>Introduction to the Hierarchical Parameter Server<a class="headerlink" href="#introduction-to-the-hierarchical-parameter-server" title="Permalink to this headline"></a></h2>
-<p>The hierarchical parameter server database backend (HPS database backend) allows HugeCTR to use models with huge embedding tables by extending HugeCTRs storage space beyond the constraints of GPU memory through utilizing various memory resources across you cluster. Further, it grants the ability to permanently store embedding tables in a structured manner. For an end-to-end demo on how to use the HPS database backend, please refer to <a class="reference external" href="https://github.com/triton-inference-server/hugectr_backend/tree/main/samples/hierarchical_deployment">samples</a>.</p>
+<div class="section" id="introduction-to-the-hps-database-backend">
+<h2>Introduction to the HPS Database Backend<a class="headerlink" href="#introduction-to-the-hps-database-backend" title="Permalink to this headline"></a></h2>
+<p>The Hierarchical Parameter Server database backend (HPS database backend) allows HugeCTR to use models with huge embedding tables by extending HugeCTRs storage space beyond the constraints of GPU memory through utilizing various memory resources across you cluster. Further, it grants the ability to permanently store embedding tables in a structured manner. For an end-to-end demo on how to use the HPS database backend, please refer to <a class="reference external" href="https://github.com/triton-inference-server/hugectr_backend/tree/main/samples/hierarchical_deployment">samples</a>.</p>
 </div>
 <div class="section" id="background">
 <h2>Background<a class="headerlink" href="#background" title="Permalink to this headline"></a></h2>
@@ -741,8 +738,8 @@ The default value is <code class="docutils literal notranslate"><span class="pre
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="hugectr_embedding_training_cache.html" class="btn btn-neutral float-left" title="HugeCTR Embedding Training Cache" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="performance.html" class="btn btn-neutral float-right" title="Performance" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="hierarchical_parameter_server/index.html" class="btn btn-neutral float-left" title="Hierarchical Parameter Server" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="hierarchical_parameter_server/hps_tf_user_guide.html" class="btn btn-neutral float-right" title="Hierarchical Parameter Server Plugin for TensorFlow" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>
@@ -775,6 +772,7 @@ The default value is <code class="docutils literal notranslate"><span class="pre
       <dd><a href="../v3.6/hugectr_parameter_server.html">v3.6</a></dd>
       <dd><a href="../v3.7/hugectr_parameter_server.html">v3.7</a></dd>
       <dd><a href="../v3.8/hugectr_parameter_server.html">v3.8</a></dd>
+      <dd><a href="../v3.9/hugectr_parameter_server.html">v3.9</a></dd>
     </dl>
     <dl>
       <dt>Branches</dt>

@@ -43,11 +43,12 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption"><span class="caption-text">Contents</span></p>
+              <p class="caption"><span class="caption-text">HUGECTR</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="hugectr_user_guide.html">Introduction</a></li>
 <li class="toctree-l1"><a class="reference internal" href="hugectr_core_features.html">Core Features</a></li>
-<li class="toctree-l1"><a class="reference internal" href="hugectr_feature_details_intro.html">Features in Detail</a></li>
+<li class="toctree-l1"><a class="reference internal" href="hugectr_embedding_training_cache.html">Embedding Training Cache</a></li>
+<li class="toctree-l1"><a class="reference internal" href="hierarchical_parameter_server/index.html">Hierarchical Parameter Server</a></li>
 <li class="toctree-l1"><a class="reference internal" href="performance.html">Performance</a></li>
 <li class="toctree-l1"><a class="reference internal" href="notebooks/index.html">Example Notebooks</a></li>
 <li class="toctree-l1"><a class="reference internal" href="notebooks/multi-modal-data/index.html">Multi-modal Example Notebooks</a></li>
@@ -284,6 +285,16 @@ Refer to the <a class="reference internal" href="api/hugectr_layer_book.html#sli
 </pre></div>
 </div>
 </div>
+<div class="section" id="what-does-the-log-memory-pool-is-empty-imply-for-hugectr-inference">
+<h2>32. What does the log “memory pool is empty” imply for HugeCTR inference?<a class="headerlink" href="#what-does-the-log-memory-pool-is-empty-imply-for-hugectr-inference" title="Permalink to this headline"></a></h2>
+<p>HugeCTR inference leverages <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/hugectr_parameter_server.html">Hirarchical Parameter Server</a>, which combines a high-performance GPU embedding cache with a hierarchical storage architecture encompassing different types of database backends. Each iteration of GPU embedding cache lookup and update requires an workspace which is pre-allocated and managed by a memory pool. The memory pool can be exhausted when asynchronous update of embedding cache is constantly triggered. In this case, there will be the message “memory pool is empty” in the log.</p>
+<p>If you do not want this scenario, you can either:</p>
+<ul class="simple">
+<li><p>Enforce the synchronous mode for embedding cache update by configuring <code class="docutils literal notranslate"><span class="pre">hit_rate_threshold</span></code> as 1.0</p></li>
+<li><p>Extend the memory pool by configuring a large enough <code class="docutils literal notranslate"><span class="pre">number_of_worker_buffers_in_pool</span></code></p></li>
+</ul>
+<p>For more information, please refer to <a class="reference external" href="https://github.com/triton-inference-server/hugectr_backend#embedding-cache-asynchronous-insertion-mechanism">Embedding Cache Asynchronous Insertion</a> and <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/hugectr_parameter_server.html#configuration">HPS Configuration</a>.</p>
+</div>
 </div>
 
 
@@ -324,6 +335,7 @@ Refer to the <a class="reference internal" href="api/hugectr_layer_book.html#sli
       <dd><a href="../v3.6/QAList.html">v3.6</a></dd>
       <dd><a href="../v3.7/QAList.html">v3.7</a></dd>
       <dd><a href="../v3.8/QAList.html">v3.8</a></dd>
+      <dd><a href="../v3.9/QAList.html">v3.9</a></dd>
     </dl>
     <dl>
       <dt>Branches</dt>

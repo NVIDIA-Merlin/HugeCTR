@@ -43,11 +43,12 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption"><span class="caption-text">Contents</span></p>
+              <p class="caption"><span class="caption-text">HUGECTR</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="../hugectr_user_guide.html">Introduction</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../hugectr_core_features.html">Core Features</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../hugectr_feature_details_intro.html">Features in Detail</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../hugectr_embedding_training_cache.html">Embedding Training Cache</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../hierarchical_parameter_server/index.html">Hierarchical Parameter Server</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../performance.html">Performance</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../notebooks/index.html">Example Notebooks</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../notebooks/multi-modal-data/index.html">Multi-modal Example Notebooks</a></li>
@@ -128,7 +129,6 @@
 <li><p><a class="reference internal" href="#data-source-api" id="id24">Data Source API</a></p>
 <ul>
 <li><p><a class="reference internal" href="#datasourceparams-class" id="id25">DataSourceParams class</a></p></li>
-<li><p><a class="reference internal" href="#datasource" id="id26">DataSource</a></p></li>
 </ul>
 </li>
 </ul>
@@ -174,6 +174,7 @@
 <li><p><code class="docutils literal notranslate"><span class="pre">device_layout</span></code>: this option is deprecated and no longer used.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">use_holistic_cuda_graph</span></code>: The default value is <code class="docutils literal notranslate"><span class="pre">False</span></code>. If <code class="docutils literal notranslate"><span class="pre">True</span></code>, everything inside a training iteration is packed into a CUDA Graph. Requirement: use_cuda_graph is False, use_overlapped_pipeline is True.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">use_overlapped_pipeline</span></code>: The default value is <code class="docutils literal notranslate"><span class="pre">False</span></code>. If <code class="docutils literal notranslate"><span class="pre">True</span></code>, the computation in the dense input data path will be overlapped with the hybrid embedding computation. Requirements: The data reader is asynchronous (see AsyncParam), hybrid embedding is used (see HybridEmbeddingParam), the model has a feature interaction layer (see InteractionLayer).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">data_source_params</span></code>: <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html#datasourceparams-class">DataSourceParams()</a>, specify the configurations of the data sources(Local, HDFS, or others) for model persistence and loading.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">all_reduce_algo</span></code>: The algorithm to be used for all reduce. The supported options are <code class="docutils literal notranslate"><span class="pre">AllReduceAlgo.OneShot</span></code> and <code class="docutils literal notranslate"><span class="pre">AllReduceAlgo.NCCL</span></code>. The default value is <code class="docutils literal notranslate"><span class="pre">AllReduceAlgo.NCCL</span></code>. When you are doing multi-node training, <code class="docutils literal notranslate"><span class="pre">AllReduceAlgo.OneShot</span></code> will require RDMA support while <code class="docutils literal notranslate"><span class="pre">AllReduceAlgo.NCCL</span></code> can run on both RDMA and non-RDMA hardware.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">grouped_all_reduce</span></code>: The default value is <code class="docutils literal notranslate"><span class="pre">False</span></code>. If <code class="docutils literal notranslate"><span class="pre">True</span></code>, the gradients for the dense network and the gradients for data-parallel embedding are grouped and all reduced in one kernel, effectively combining two small all-reduce operations into a single larger one for higher efficiency. Requirements: Hybrid embedding is used (see HybridEmbeddingParam).</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">num_iterations_statistics</span></code>: The number of batches used to perform statistics for hybrid embedding. The default value is <code class="docutils literal notranslate"><span class="pre">20</span></code>. Requirement: The data reader is asynchronous (see AsyncParam).</p></li>
@@ -344,7 +345,7 @@ The default value is an empty list.</p>
 <p>The following equation shows how to determine the values to specify:</p>
 <p><span class="math notranslate nohighlight">\(slot\_size\_array[k] = \max\limits_i slot^k_i + 1\)</span></p>
 </li>
-<li><p><code class="docutils literal notranslate"><span class="pre">data_source_params</span></code>: <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html#datasourceparams-class">DataSourceParams()</a>, specify the configurations of the data sources(Local, HDFS, or others).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">data_source_params</span></code>: <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html#datasourceparams-class">DataSourceParams()</a>, specify the configurations of the data sources(Local, HDFS, or others) for data reading.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">async_param</span></code>: AsyncParam, the parameters for async raw data reader. Please find more information in the <code class="docutils literal notranslate"><span class="pre">AsyncParam</span></code> section in this document.</p></li>
 </ul>
 </div>
@@ -1221,36 +1222,10 @@ Refer to <a class="reference internal" href="../hugectr_core_features.html#sgd-o
 <p><code class="docutils literal notranslate"><span class="pre">DataSourceParams</span></code> specifies the file system information and the paths to data and model used for training. A <code class="docutils literal notranslate"><span class="pre">DataSourceParams</span></code> instance is required to initialize the <code class="docutils literal notranslate"><span class="pre">DataSource</span></code> instance.</p>
 <p><strong>Arguments</strong></p>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">use_hdfs</span></code>: Boolean, whether to use HDFS or not for dump models. Default is false (use local file system).</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">namenode</span></code>: String, the IP address of Hadoop Namenode. Will be ignored if use_hdfs is false. Default is ‘localhost’.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">port</span></code>:  Integer, the port of Hadoop Namenode. Will be ignored if use_hdfs is false. Default is 9000.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">source</span></code>: <code class="docutils literal notranslate"><span class="pre">hugect.DataSourceType_t</span></code>, can be <code class="docutils literal notranslate"><span class="pre">Local</span></code> or <code class="docutils literal notranslate"><span class="pre">HDFS</span></code>, specifying the file sytem. Default is <code class="docutils literal notranslate"><span class="pre">hugectr.DataSourceType_t.Local</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">server</span></code>: String, the IP address of your file sytem. For Hadoop cluster, it is your namenode. Will be ignored if <code class="docutils literal notranslate"><span class="pre">source</span></code> is <code class="docutils literal notranslate"><span class="pre">DataSourceType_t.Local</span></code>. Default is ‘localhost’.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">port</span></code>:  Integer, the port to listen from your server. Will be ignored if <code class="docutils literal notranslate"><span class="pre">source</span></code> is <code class="docutils literal notranslate"><span class="pre">DataSourceType_t.Local</span></code>. Default is 9000.</p></li>
 </ul>
-</div>
-<div class="section" id="datasource">
-<h3>DataSource<a class="headerlink" href="#datasource" title="Permalink to this headline"></a></h3>
-<div class="section" id="datasource-class">
-<h4>DataSource class<a class="headerlink" href="#datasource-class" title="Permalink to this headline"></a></h4>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hugectr</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">DataSource</span><span class="p">()</span>
-</pre></div>
-</div>
-<p><code class="docutils literal notranslate"><span class="pre">DataSource</span></code> provides an API to help user specify the paths to their data and model file. It can also help user transfer data from HDFS to local filesystem. The construction of <code class="docutils literal notranslate"><span class="pre">DataSource</span></code> requires a <code class="docutils literal notranslate"><span class="pre">DataSourceParams</span></code> instance.</p>
-<p><strong>Arguments</strong></p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">data_source_params</span></code>: The DataSourceParams instance.</p></li>
-</ul>
-</div>
-<div class="section" id="move-to-local-method">
-<h4>move_to_local method<a class="headerlink" href="#move-to-local-method" title="Permalink to this headline"></a></h4>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hugectr</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">DataSource</span><span class="o">.</span><span class="n">move_to_local</span><span class="p">()</span>
-</pre></div>
-</div>
-<p><strong>Arguments</strong></p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">hdfs_path</span></code>: The path of the hdfs file.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">local_path</span></code>:  The local path to move to.</p></li>
-</ul>
-<p>This method moves the file user specified in hdfs path to the corresponding local path.</p>
-</div>
 </div>
 </div>
 </div>
@@ -1293,6 +1268,7 @@ Refer to <a class="reference internal" href="../hugectr_core_features.html#sgd-o
       <dd><a href="../../v3.6/api/python_interface.html">v3.6</a></dd>
       <dd><a href="../../v3.7/api/python_interface.html">v3.7</a></dd>
       <dd><a href="../../v3.8/api/python_interface.html">v3.8</a></dd>
+      <dd><a href="../../v3.9/api/python_interface.html">v3.9</a></dd>
     </dl>
     <dl>
       <dt>Branches</dt>

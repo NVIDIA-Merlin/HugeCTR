@@ -41,34 +41,18 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption"><span class="caption-text">Contents</span></p>
+              <p class="caption"><span class="caption-text">HUGECTR</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="hugectr_user_guide.html">Introduction</a></li>
 <li class="toctree-l1"><a class="reference internal" href="hugectr_core_features.html">Core Features</a></li>
-<li class="toctree-l1"><a class="reference internal" href="hugectr_feature_details_intro.html">Features in Detail</a></li>
+<li class="toctree-l1"><a class="reference internal" href="hugectr_embedding_training_cache.html">Embedding Training Cache</a></li>
+<li class="toctree-l1"><a class="reference internal" href="hierarchical_parameter_server/index.html">Hierarchical Parameter Server</a></li>
 <li class="toctree-l1"><a class="reference internal" href="performance.html">Performance</a></li>
 <li class="toctree-l1"><a class="reference internal" href="notebooks/index.html">Example Notebooks</a></li>
 <li class="toctree-l1"><a class="reference internal" href="notebooks/multi-modal-data/index.html">Multi-modal Example Notebooks</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api/index.html">API Documentation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="additional_resources.html">Additional Resources</a></li>
-<li class="toctree-l1 current"><a class="current reference internal" href="#">Release Notes</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#what-s-new-in-version-3-8">What’s New in Version 3.8</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#what-s-new-in-version-3-7">What’s New in Version 3.7</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#what-s-new-in-version-3-6">What’s New in Version 3.6</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#what-s-new-in-version-3-5">What’s New in Version 3.5</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#what-s-new-in-version-3-4-1">What’s New in Version 3.4.1</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#what-s-new-in-version-3-4">What’s New in Version 3.4</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#what-s-new-in-version-3-3-1">What’s New in Version 3.3.1</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#what-s-new-in-version-3-3">What’s New in Version 3.3</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#what-s-new-in-version-3-2-1">What’s New in Version 3.2.1</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#what-s-new-in-version-3-2">What’s New in Version 3.2</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#what-s-new-in-version-3-1">What’s New in Version 3.1</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#what-s-new-in-version-3-0-1">What’s New in Version 3.0.1</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#whats-new-in-version-3-0">What’s New in Version 3.0</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#what-s-new-in-version-2-3">What’s New in Version 2.3</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#known-issues">Known Issues</a></li>
-</ul>
-</li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Release Notes</a></li>
 <li class="toctree-l1"><a class="reference internal" href="hugectr_contributor_guide.html">Contributing to HugeCTR</a></li>
 </ul>
 
@@ -97,6 +81,73 @@
              
   <div class="tex2jax_ignore mathjax_ignore section" id="release-notes">
 <h1>Release Notes<a class="headerlink" href="#release-notes" title="Permalink to this headline"></a></h1>
+<div class="section" id="what-s-new-in-version-3-9">
+<h2>What’s New in Version 3.9<a class="headerlink" href="#what-s-new-in-version-3-9" title="Permalink to this headline"></a></h2>
+<ul>
+<li><p><strong>Updates to 3G Embedding</strong>:</p>
+<ul class="simple">
+<li><p>Sparse Operation Kit (SOK) is updated to use the HugeCTR 3G embedding as a developer preview feature.
+For more information, refer to the Python programs in the <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/tree/v3.9/sparse_operation_kit/experiment/benchmark/dlrm">sparse_operation_kit/experiment/benchmark/dlrm</a> directory of the repository on GitHub.</p></li>
+<li><p>Dynamic embedding table mode is added.
+The mode is based on the <a class="reference external" href="https://github.com/NVIDIA/cuCollections">cuCollection</a> with some functionality enhancement.
+A dynamic embedding table grows its size when the table is full so that you no longer need to configure the memory usage information for embedding.
+For more information, refer to the <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/tree/v3.9/embedding_storage/dynamic_embedding_table">embedding_storage/dynamic_embedding_storage</a> directory of the repository on GitHub.</p></li>
+</ul>
+</li>
+<li><p><strong>Enhancements to the HPS Plugin for TensorFlow</strong>:
+This release includes improvements to the interoperability of SOK and HPS.
+The plugin now supports the sparse lookup layer.
+The documentation for the HPS plugin is enhanced as follows:</p>
+<ul class="simple">
+<li><p>An <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/v3.9/hierarchical_parameter_server/hps_tf_user_guide.html">introduction</a> to the plugin is new.</p></li>
+<li><p>New <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/v3.9/hierarchical_parameter_server/notebooks/index.html">notebooks</a> demonstrate how to use the HPS plugin are added.</p></li>
+<li><p><a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/v3.9/hierarchical_parameter_server/api/index.html">API documentation</a> for the plugin is new.</p></li>
+</ul>
+</li>
+<li><p><strong>Enhancements to the HPS Backend for Triton Inference Server</strong>
+This release adds support for integrating the <a class="reference external" href="https://github.com/triton-inference-server/hugectr_backend/tree/main/hps_backend">HPS Backend</a> and the <a class="reference external" href="https://github.com/triton-inference-server/tensorflow_backend">TensorFlow Backend</a> through the ensemble mode with Triton Inference Server.
+The enhancement enables deploying a TensorFlow model with large embedding tables with Triton by leveraging HPS.
+For more information, refer to the sample programs in the <a class="reference external" href="https://github.com/triton-inference-server/hugectr_backend/tree/main/hps_backend/samples/hps-triton-ensemble">hps-triton-ensemble</a> directory of the HugeCTR Backend repository in GitHub.</p></li>
+<li><p><strong>New Multi-Node Tutorial</strong>:
+The <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/tree/v3.9/tutorial/multinode-training">multi-node training tutorial</a> is new.
+The additions show how to use HugeCTR to train a model with multiple nodes and is based on our most recent Docker container.
+The tutorial should be useful to users who do not have a job-scheduler-installed cluster such as Slurm Workload Manager.
+The update addresses a issue that was first reported in GitHub issue <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/issues/305">305</a>.</p></li>
+<li><p><strong>Support Offline Inference for MMoE</strong>:
+This release includes MMoE offline inference where both per-class AUC and average AUC are provided.
+When the number of class AUCs is greater than one, the output includes a line like the following example:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">[HCTR][08:52:59.254][INFO][RK0][main]: Evaluation, AUC: {0.482141, 0.440781}, macro-averaging AUC: 0.46146124601364136</span>
+</pre></div>
+</div>
+</li>
+<li><p><strong>Issues Fixed</strong>:</p>
+<ul class="simple">
+<li><p>Training performance is affected by a GPU routine that checks if an input key can be out of the embedding table. If you can guarantee that the input keys can work with the specified <code class="docutils literal notranslate"><span class="pre">workspace_size_per_gpu_in_mb</span></code>, we have a workaround to disable the routine by setting the environment variable <code class="docutils literal notranslate"><span class="pre">HUGECTR_DISABLE_OVERFLOW_CHECK=1</span></code>. The workaround restores the training performance.</p></li>
+<li><p>Engineering discovered and fixed a correctness issue with the Softmax layer.</p></li>
+<li><p>Engineering removed an inline profiler that was rarely used or updated. This change relates to GitHub issue <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/issues/340">340</a>.</p></li>
+</ul>
+</li>
+<li><p><strong>Known Issues</strong>:</p>
+<ul>
+<li><p>Hybrid embedding with <code class="docutils literal notranslate"><span class="pre">IB_NVLINK</span></code> as the <code class="docutils literal notranslate"><span class="pre">communication_type</span></code> of the
+<a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/v3.9/api/python_interface.html#hybridembeddingparam-class"><code class="docutils literal notranslate"><span class="pre">HybridEmbeddingParam</span></code></a>
+class does not work currently. We are working on fixing it. The other communication types have no issues.</p></li>
+<li><p>HugeCTR uses NCCL to share data between ranks and NCCL can require shared system memory for IPC and pinned (page-locked) system memory resources.
+If you use NCCL inside a container, increase these resources by specifying the following arguments when you start the container:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>  -shm-size<span class="o">=</span>1g -ulimit <span class="nv">memlock</span><span class="o">=</span>-1
+</pre></div>
+</div>
+<p>See also the NCCL <a class="reference external" href="https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/troubleshooting.html#sharing-data">known issue</a> and the GitHub <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/issues/243">issue</a>.</p>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">KafkaProducers</span></code> startup succeeds even if the target Kafka broker is unresponsive.
+To avoid data loss in conjunction with streaming-model updates from Kafka, you have to make sure that a sufficient number of Kafka brokers are running, operating properly, and are reachable from the node where you run HugeCTR.</p></li>
+<li><p>The number of data files in the file list should be greater than or equal to the number of data reader workers.
+Otherwise, different workers are mapped to the same file and data loading does not progress as expected.</p></li>
+<li><p>Joint loss training with a regularizer is not supported.</p></li>
+</ul>
+</li>
+</ul>
+</div>
 <div class="section" id="what-s-new-in-version-3-8">
 <h2>What’s New in Version 3.8<a class="headerlink" href="#what-s-new-in-version-3-8" title="Permalink to this headline"></a></h2>
 <ul>
@@ -586,6 +637,7 @@ See also <a class="reference external" href="https://docs.nvidia.com/deeplearnin
       <dd><a href="../v3.6/index.html">v3.6</a></dd>
       <dd><a href="../v3.7/index.html">v3.7</a></dd>
       <dd><a href="../v3.8/index.html">v3.8</a></dd>
+      <dd><a href="../v3.9/index.html">v3.9</a></dd>
     </dl>
     <dl>
       <dt>Branches</dt>
