@@ -171,9 +171,9 @@ class CsrConversionDistributed : public Operation {
     replica_context->set_output("replica_csr_values", cub_values_output_[local_replica_id]);
     replica_context->set_output("replica_row_offset", csr_row_offsets_cast_[local_replica_id]);
 
-    auto& host_nnz = replica_context->output("replica_host_nnz");
-    host_nnz->GetPtrWithType<size_t>()[0] = static_cast<size_t>(
-            cub_host_num_selected_[local_replica_id].get_ptr()[0]);
+    auto &host_nnz = replica_context->output("replica_host_nnz");
+    host_nnz->GetPtrWithType<size_t>()[0] =
+        static_cast<size_t>(cub_host_num_selected_[local_replica_id].get_ptr()[0]);
   }
 
   void backward(const Context_t &replica_context) override {
@@ -188,7 +188,7 @@ class CsrConversionDistributed : public Operation {
   Tensors2<bool> binary_flags_;
   Tensors2<void> cub_d_temp_storage_;
   Tensors2<int32_t> cub_coo_indices_output_;
-  Tensors2<KeyType> cub_values_output_; 
+  Tensors2<KeyType> cub_values_output_;
   Tensors2<size_t> cub_host_num_selected_;
   Tensors2<size_t> cub_dev_num_selected_;
   Tensors2<int32_t> cusparse_csr_row_offsets_output_;
@@ -228,21 +228,13 @@ class CsrConversionDistributed : public Operation {
   }
 };
 
-REGISTER_OPERATION_BUILDER("csr_conversion_distributed", 
-                           DataType::Int64,
-                           DataType::Float32, 
+REGISTER_OPERATION_BUILDER("csr_conversion_distributed", DataType::Int64, DataType::Float32,
                            CsrConversionDistributed<int64_t, float>);
-REGISTER_OPERATION_BUILDER("csr_conversion_distributed", 
-                           DataType::Int64,
-                           DataType::Float16, 
+REGISTER_OPERATION_BUILDER("csr_conversion_distributed", DataType::Int64, DataType::Float16,
                            CsrConversionDistributed<int64_t, __half>);
-REGISTER_OPERATION_BUILDER("csr_conversion_distributed", 
-                           DataType::Uint32,
-                           DataType::Float32, 
+REGISTER_OPERATION_BUILDER("csr_conversion_distributed", DataType::Uint32, DataType::Float32,
                            CsrConversionDistributed<uint32_t, float>);
-REGISTER_OPERATION_BUILDER("csr_conversion_distributed", 
-                           DataType::Uint32,
-                           DataType::Float16, 
+REGISTER_OPERATION_BUILDER("csr_conversion_distributed", DataType::Uint32, DataType::Float16,
                            CsrConversionDistributed<uint32_t, __half>);
 
 }  // namespace SparseOperationKit

@@ -274,11 +274,13 @@ class All2AllInputDispatcher : public Dispatcher {
     CK_NCCL(ncclGroupStart());
     for (size_t dev_id = 0; dev_id < global_gpu_count; dev_id++) {
       CK_NCCL(ncclSend(selected_keys_buf_[local_replica_id].get_ptr() + dev_id * num_keys_per_rank_,
-                       h_num_selected_keys_[local_replica_id].get_ptr()[dev_id], GetNCCLType<KeyType>(),
+                       h_num_selected_keys_[local_replica_id].get_ptr()[dev_id],
+                       GetNCCLType<KeyType>(),
                        /*peer=*/dev_id, local_gpu->get_nccl(), local_gpu->get_stream()));
       CK_NCCL(ncclRecv(exchanged_keys_buf_[local_replica_id].get_ptr() +
                            h_recv_chunk_offsets_[local_replica_id].get_ptr()[dev_id],
-                       h_num_exchanged_keys_[local_replica_id].get_ptr()[dev_id], GetNCCLType<KeyType>(),
+                       h_num_exchanged_keys_[local_replica_id].get_ptr()[dev_id],
+                       GetNCCLType<KeyType>(),
                        /*peer=*/dev_id, local_gpu->get_nccl(), local_gpu->get_stream()));
     }  // for dev_id in global_gpu_count
     CK_NCCL(ncclGroupEnd());
@@ -314,21 +316,13 @@ class All2AllInputDispatcher : public Dispatcher {
   Tensors2<uint32_t> h_recv_chunk_offsets_;
 };
 
-REGISTER_INPUT_DISPATCHER_BUILDER("All2AllInput", 
-                                  DataType::Int64,
-                                  DataType::Float32, 
+REGISTER_INPUT_DISPATCHER_BUILDER("All2AllInput", DataType::Int64, DataType::Float32,
                                   All2AllInputDispatcher<int64_t, float>);
-REGISTER_INPUT_DISPATCHER_BUILDER("All2AllInput", 
-                                  DataType::Int64,
-                                  DataType::Float16, 
+REGISTER_INPUT_DISPATCHER_BUILDER("All2AllInput", DataType::Int64, DataType::Float16,
                                   All2AllInputDispatcher<int64_t, __half>);
-REGISTER_INPUT_DISPATCHER_BUILDER("All2AllInput", 
-                                  DataType::Uint32,
-                                  DataType::Float32, 
+REGISTER_INPUT_DISPATCHER_BUILDER("All2AllInput", DataType::Uint32, DataType::Float32,
                                   All2AllInputDispatcher<uint32_t, float>);
-REGISTER_INPUT_DISPATCHER_BUILDER("All2AllInput", 
-                                  DataType::Uint32,
-                                  DataType::Float16, 
+REGISTER_INPUT_DISPATCHER_BUILDER("All2AllInput", DataType::Uint32, DataType::Float16,
                                   All2AllInputDispatcher<uint32_t, __half>);
 
 }  // namespace SparseOperationKit
