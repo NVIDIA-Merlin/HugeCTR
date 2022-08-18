@@ -1,0 +1,5 @@
+#!/bin/bash
+
+srun --ntasks=1 --container-image="${CONT}" --container-mounts="${MOUNTS}" bash -cx " \
+    cd /workdir/sparse_operation_kit/unit_test/test_scripts/tf2 && \
+    bash sok_test_unit.sh"
