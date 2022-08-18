@@ -1,5 +1,5 @@
 #!/bin/bash
 
 srun --ntasks="${SLURM_JOB_NUM_NODES}" --container-image="${CONT}" --container-mounts="${MOUNTS}" bash -cx "\
-      cd /workdir/build/bin \
-      &&./embedding_test --gtest_filter=-hybrid_e2e.*"
+      cd /workdir/build/bin && \
+      ./layers_test --gtest_filter=-concat_3d_layer.*:-matmul_layer.*"

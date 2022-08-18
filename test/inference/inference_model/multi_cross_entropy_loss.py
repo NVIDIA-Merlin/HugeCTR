@@ -16,8 +16,8 @@ solver = hugectr.CreateSolver(
 )
 reader = hugectr.DataReaderParams(
     data_reader_type=hugectr.DataReaderType_t.Parquet,
-    source=["./cross/data/train/_file_list.txt"],
-    eval_source="./cross/data/test/_file_list.txt",
+    source=["./multi_cross/data/train/_file_list.txt"],
+    eval_source="./multi_cross/data/test/_file_list.txt",
     check_type=hugectr.Check_t.Sum,
     slot_size_array=[10001, 10001, 10001, 10001],
 )
@@ -33,7 +33,7 @@ num_gpus = 1
 workspace_size_per_gpu_in_mb = int(40004 * 16 * 4 * 3 / 1000000) + 10
 model.add(
     hugectr.Input(
-        label_dim=2,
+        label_dim=3,
         label_name="label",
         dense_dim=3,
         dense_name="dense",
@@ -100,72 +100,76 @@ model.add(
         layer_type=hugectr.Layer_t.InnerProduct,
         bottom_names=["relu4"],
         top_names=["fc8"],
-        num_output=2,
+        num_output=3,
     )
 )
 model.add(
     hugectr.DenseLayer(
-        layer_type=hugectr.Layer_t.CrossEntropyLoss,
+        layer_type=hugectr.Layer_t.MultiCrossEntropyLoss,
         bottom_names=["fc8", "label"],
         top_names=["loss"],
+        target_weight_vec=[0.2, 0.4, 0.4],
     )
 )
 model.compile()
 model.summary()
-model.graph_to_json(graph_config_file="/dump_infer/cross_entropy_loss.json")
+model.graph_to_json(graph_config_file="/dump_infer/multi_cross_entropy_loss.json")
+
 model.fit(
     max_iter=1001,
     display=100,
     eval_interval=1000,
     snapshot=1000,
-    snapshot_prefix="/dump_infer/cross_entropy_loss",
+    snapshot_prefix="/dump_infer/multi_cross_entropy_loss",
 )
+
 model.export_predictions(
-    "/dump_infer/cross_entropy_loss_pred_" + str(1000),
-    "/dump_infer/cross_entropy_loss_label_" + str(1000),
+    "/dump_infer/multi_cross_entropy_loss_pred_" + str(1000),
+    "/dump_infer/multi_cross_entropy_loss_label_" + str(1000),
 )
 
 
-from hugectr.inference import InferenceParams, CreateInferenceSession
+from hugectr.inference import InferenceModel, InferenceParams
+from mpi4py import MPI
+import hugectr
+import pandas as pd
 import numpy as np
 
-batch_size = 1024
-num_batches = 1
 inference_params = InferenceParams(
-    model_name="cross_entropy_loss",
-    max_batchsize=batch_size,
+    model_name="multi_cross_entropy_loss",
+    max_batchsize=1024,
     hit_rate_threshold=1.0,
-    dense_model_file="/dump_infer/cross_entropy_loss_dense_1000.model",
-    sparse_model_files=["/dump_infer/cross_entropy_loss0_sparse_1000.model"],
+    dense_model_file="/dump_infer/multi_cross_entropy_loss_dense_1000.model",
+    sparse_model_files=["/dump_infer/multi_cross_entropy_loss0_sparse_1000.model"],
     device_id=0,
     use_gpu_embedding_cache=True,
     cache_size_percentage=0.5,
-    use_mixed_precision=True,
+    use_mixed_precision=False,
     i64_input_key=True,
 )
 
-inference_session = CreateInferenceSession("/dump_infer/cross_entropy_loss.json", inference_params)
+inference_model = InferenceModel("/dump_infer/multi_cross_entropy_loss.json", inference_params)
 
-preds = inference_session.predict(
-    num_batches=num_batches,
-    source="./cross/data/test/_file_list.txt",
+preds = inference_model.predict(
+    num_batches=1,
+    source="./multi_cross/data/test/_file_list.txt",
     data_reader_type=hugectr.DataReaderType_t.Parquet,
     check_type=hugectr.Check_t.Sum,
     slot_size_array=[10001, 10001, 10001, 10001],
 )
 
-ground_truth = np.loadtxt("/dump_infer/cross_entropy_loss_pred_1000")
+ground_truth = np.loadtxt("/dump_infer/multi_cross_entropy_loss_pred_1000")
 predictions = preds.flatten()
 diff = predictions - ground_truth
 mse = np.mean(diff * diff)
 if mse > 1e-3:
     raise RuntimeError(
-        "Too large mse between cross_entropy_loss inference and training: {}".format(mse)
+        "Too large mse between multi_cross_entropy_loss inference and training: {}".format(mse)
     )
     sys.exit(1)
 else:
     print(
-        "cross_entropy_loss inference results are consistent with those during training, mse: {}".format(
+        "multi_cross_entropy_loss inference results are consistent with those during training, mse: {}".format(
             mse
         )
     )

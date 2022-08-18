@@ -170,10 +170,34 @@ stages:
     - .hugectr:rules:sanity-test
   allow_failure: false
 
+.cluster_test_job_daily:
+  extends:
+    - .selene_luna_job
+    - .default:rules:daily-test
+  allow_failure: false
+
 .dlcluster_test_job:
   extends:
     - .dlcluster_job
     - .hugectr:rules:sanity-test
+  allow_failure: false
+
+.dlcluster_test_job_daily:
+  extends:
+    - .dlcluster_job
+    - .default:rules:daily-test
+  allow_failure: false
+
+.sok_test_job:
+  extends:
+    - .selene_luna_job
+    - .sok:rules:sanity-test
+  allow_failure: false
+
+.sok_test_job_daily:
+  extends:
+    - .selene_luna_job
+    - .default:rules:daily-test
   allow_failure: false
 
 .cluster_post_test_job:
@@ -182,11 +206,11 @@ stages:
     - .hugectr:rules:sanity-test
   stage: post_test
 
-.sok_test_job:
+.cluster_post_test_job_daily:
   extends:
-    - .selene_luna_job
-    - .sok:rules:sanity-test
-  allow_failure: false
+    - .cluster_test_job
+    - .default:rules:daily-test
+  stage: post_test
 
 .inference_benchmark:
   extends: .selene_luna_job

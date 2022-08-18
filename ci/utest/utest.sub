@@ -2,7 +2,6 @@
 
 srun --ntasks="${SLURM_JOB_NUM_NODES}" --container-image="${CONT}" --container-mounts="${MOUNTS}" bash -cx "\
       cd /workdir/build/bin && \
-      ./layers_test && \
       ./checker_test && \
       ./data_reader_test && \
       ./device_map_test && \

@@ -20,6 +20,9 @@
 .if-push-to-mr-opened: &if-push-to-mr-opened
   if: '$CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS && $CI_PIPELINE_SOURCE == "push"'
 
+.if-daily-schedule: &if-daily-schedule
+  if: '$CI_PIPELINE_SOURCE == "schedule" && $DAILY == "1"'
+
 ############
 # Changes  #
 ############
@@ -72,6 +75,8 @@
       when: always
     - <<: *if-new-image
       when: always
+    - <<: *if-daily-schedule
+      when: always
     - when: never
 
 .sok:rules:build:
@@ -83,6 +88,8 @@
       changes: *sok-source
       when: always
     - <<: *if-new-image
+      when: always
+    - <<: *if-daily-schedule
       when: always
     - when: never
 
@@ -105,11 +112,10 @@
       when: always
     - when: never
 
-.hugectr:rules:full-test:
+.default:rules:daily-test:
   rules:
-    - <<: *if-default-branch-push
-      changes: *hugectr-source
     - <<: *if-new-image
       when: always
-
-
+    - <<: *if-daily-schedule
+      when: always
+    - when: never
