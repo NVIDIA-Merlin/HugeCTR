@@ -37,15 +37,35 @@ When the number of class AUCs is greater than one, the output includes a line li
    [HCTR][08:52:59.254][INFO][RK0][main]: Evaluation, AUC: {0.482141, 0.440781}, macro-averaging AUC: 0.46146124601364136
    ```
 
++ **Enhancements to the API for the HPS Database Backend**
+This release includes several enhancements to the API for the `DatabaseBackend` class.
+For more information, see `database_backend.hpp` and the header files for other database backends in the [`HugeCTR/include/hps`](https://github.com/NVIDIA-Merlin/HugeCTR/tree/v3.9/HugeCTR/include/hps) directory of the repository.
+The enhancments are as follows:
+  + You can now specify a maximum time budget, in nanoseconds, for queries so that you can build an application that must operate within strict latency limits.
+    Fetch queries return execution control to the caller if the time budget is exhausted.
+    The unprocessed entries are indicated to the caller through a callback function.
+  + The `dump` and `load_dump` methods are new.
+    These methods support saving and loading embedding tables from disk.
+    The methods support a custom binary format and the RocksDB SST table file format.
+    These methods enable you to import and export embedding table data between your custom tools and HugeCTR.
+  + The `find_tables` method is new.
+    The method enables you to discover all table data that is currently stored for a model in a `DatabaseBackend` instance.
+    A new overloaded method for `evict` is added that can process the results from `find_tables` to quickly and simply drop all the stored information that is related to a model.
+
++ **Documentation Enhancements**
+  + The documentation for the `max_all_to_all_bandwidth` parameter of the [`HybridEmbeddingParam`](https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html#hybridembeddingparam-class) class is clarified to indicate that the bandwidth unit is per-GPU.
+    Previously, the unit was not specified.
+
+
 + **Issues Fixed**:
+  + Hybrid embedding with `IB_NVLINK` as the `communication_type` of the
+    [`HybridEmbeddingParam`](https://nvidia-merlin.github.io/HugeCTR/v3.9/api/python_interface.html#hybridembeddingparam-class)
+    is fixed in this release.
   + Training performance is affected by a GPU routine that checks if an input key can be out of the embedding table. If you can guarantee that the input keys can work with the specified `workspace_size_per_gpu_in_mb`, we have a workaround to disable the routine by setting the environment variable `HUGECTR_DISABLE_OVERFLOW_CHECK=1`. The workaround restores the training performance.
   + Engineering discovered and fixed a correctness issue with the Softmax layer.
   + Engineering removed an inline profiler that was rarely used or updated. This change relates to GitHub issue [340](https://github.com/NVIDIA-Merlin/HugeCTR/issues/340).
 
 + **Known Issues**:
-  + Hybrid embedding with `IB_NVLINK` as the `communication_type` of the
-    [`HybridEmbeddingParam`](https://nvidia-merlin.github.io/HugeCTR/v3.9/api/python_interface.html#hybridembeddingparam-class)
-    class does not work currently. We are working on fixing it. The other communication types have no issues.
   + HugeCTR uses NCCL to share data between ranks and NCCL can require shared system memory for IPC and pinned (page-locked) system memory resources.
     If you use NCCL inside a container, increase these resources by specifying the following arguments when you start the container:
 
