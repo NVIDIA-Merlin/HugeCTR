@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HugeCTR Embedding Training Cache &mdash; Merlin HugeCTR  documentation</title><link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/mystnb.css" type="text/css" />
+      <link rel="stylesheet" href="_static/togglebutton.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  <script id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+        <script >let toggleHintShow = 'Click to show';</script>
+        <script >let toggleHintHide = 'Click to hide';</script>
+        <script >let toggleOpenOnPrint = 'true';</script>
+        <script src="_static/togglebutton.js"></script>
+        <script >var togglebuttonSelector = '.toggle, .admonition.dropdown, .tag_hide_input div.cell_input, .tag_hide-input div.cell_input, .tag_hide_output div.cell_output, .tag_hide-output div.cell_output, .tag_hide_cell.cell, .tag_hide-cell.cell';</script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Hierarchical Parameter Server" href="hierarchical_parameter_server/index.html" />
+    <link rel="prev" title="HugeCTR Core Features" href="hugectr_core_features.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="index.html" class="icon icon-home"> Merlin HugeCTR
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption"><span class="caption-text">HUGECTR</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="hugectr_user_guide.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="hugectr_core_features.html">Core Features</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Embedding Training Cache</a></li>
+<li class="toctree-l1"><a class="reference internal" href="hierarchical_parameter_server/index.html">Hierarchical Parameter Server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="performance.html">Performance</a></li>
+<li class="toctree-l1"><a class="reference internal" href="notebooks/index.html">Example Notebooks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="notebooks/multi-modal-data/index.html">Multi-modal Example Notebooks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/index.html">API Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="additional_resources.html">Additional Resources</a></li>
+<li class="toctree-l1"><a class="reference internal" href="release_notes.html">Release Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="hugectr_contributor_guide.html">Contributing to HugeCTR</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">Merlin HugeCTR</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
+      <li>HugeCTR Embedding Training Cache</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <div class="tex2jax_ignore mathjax_ignore section" id="hugectr-embedding-training-cache">
+<h1>HugeCTR Embedding Training Cache<a class="headerlink" href="#hugectr-embedding-training-cache" title="Permalink to this headline"></a></h1>
+<div class="contents local topic" id="contents">
+<ul class="simple">
+<li><p><a class="reference internal" href="#introduction-to-the-hugectr-embedded-training-cache" id="id1">Introduction to the HugeCTR Embedded Training Cache</a></p></li>
+<li><p><a class="reference internal" href="#feature-description" id="id2">Feature Description</a></p></li>
+<li><p><a class="reference internal" href="#parameter-server-in-etc" id="id3">Parameter Server in ETC</a></p>
+<ul>
+<li><p><a class="reference internal" href="#staged-host-memory-parameter-server" id="id4">Staged Host Memory Parameter Server</a></p></li>
+<li><p><a class="reference internal" href="#cached-host-memory-parameter-server" id="id5">Cached Host Memory Parameter Server</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#user-guide" id="id6">User Guide</a></p>
+<ul>
+<li><p><a class="reference internal" href="#check-your-dataset" id="id7">Check Your Dataset</a></p></li>
+<li><p><a class="reference internal" href="#preprocessing" id="id8">Preprocessing</a></p></li>
+<li><p><a class="reference internal" href="#configuration" id="id9">Configuration</a></p></li>
+<li><p><a class="reference internal" href="#parameter-server-performance" id="id10">Parameter Server Performance</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#related-reading" id="id11">Related Reading</a></p></li>
+</ul>
+</div>
+<div class="section" id="introduction-to-the-hugectr-embedded-training-cache">
+<h2>Introduction to the HugeCTR Embedded Training Cache<a class="headerlink" href="#introduction-to-the-hugectr-embedded-training-cache" title="Permalink to this headline"></a></h2>
+<p>This document introduces the <strong>Embedding Training Cache (ETC)</strong> feature in HugeCTR for incremental training. The ETC allows training models with huge embedding tables that exceed the available GPU memory in size.</p>
+<p>Normally, the maximum model size in HugeCTR is limited by the hardware resources. A model with larger embedding tables will of course require more GPU memory. However, the amount of GPU’s and, therefore, also the amount of GPU memory that can be fit into a single machine or a cluster is finite. This naturally upper-bounds the size of the models that can be executed in a specific setup. The ETC feature is designed to ease this restriction by prefetching portions of the embedding table to the GPU in the granularity of pass as they are required.</p>
+<p>The ETC feature in HugeCTR also provides a satisfactory solution for incremental training in terms of accuracy and performance. It currently supports the following features:</p>
+<ul class="simple">
+<li><p>The ETC is suitable and supports most single-node multi-GPU and multi-node multi-GPU configurations.</p></li>
+<li><p>It supports all embedding types available in HugeCTR, and the <a class="reference internal" href="api/python_interface.html#norm"><span class="std std-doc">Norm</span></a>, <a class="reference internal" href="api/python_interface.html#raw"><span class="std std-doc">Raw</span></a> and <a class="reference internal" href="api/python_interface.html#parquet"><span class="std std-doc">Parquet</span></a> dataset formats.</p></li>
+<li><p>Both, the <a class="reference internal" href="#staged-host-memory-parameter-server"><span class="std std-doc">staged host memory parameter server</span></a> (Staged-PS) and the <a class="reference internal" href="#cached-host-memory-parameter-server"><span class="std std-doc">cached host memory parameter server</span></a> (Cached-PS) are supported by the ETC:</p>
+<ul>
+<li><p><strong>Staged-PS</strong>: Embedding table sizes can scale up to the combined host memory sizes of each node.</p></li>
+<li><p><strong>Cached-PS</strong>: Embedding table sizes can scale up to the SSD or Network File System (NFS) capacity.</p></li>
+</ul>
+</li>
+<li><p>The ETC supports training models from scratch and incremental training with existing models. The latter is implemented via the <a class="reference internal" href="api/python_interface.html#get-incremental-model-method"><span class="std std-doc"><code class="docutils literal notranslate"><span class="pre">get_incremental_model()</span></code></span></a> interface, which allows retrieving updated embedding features during training. For online training these updates are forwarded to the inference parameter server.</p></li>
+<li><p>We revised our <code class="docutils literal notranslate"><span class="pre">criteo2hugectr</span></code> tool to support the key set extraction for the Criteo dataset. And we also provided a <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/tree/master/tools/keyset_scripts">Parquet key set extraction script</a> to help you get key set from NVT processed / Synthetic Parquet datasets.</p></li>
+</ul>
+<p>Please check the <a class="reference internal" href="notebooks/continuous_training.html"><span class="doc std std-doc">HugeCTR Continuous Training Notebook</span></a> to learn how the ETC can be used to accelerate continuous training. And please check the <a class="reference internal" href="notebooks/embedding_training_cache_example.html"><span class="doc std std-doc">HugeCTR Embedding Training Cache Notebook</span></a> for an end-to-end demo of using ETC to train a synthetic Parquet dataset.</p>
+</div>
+<div class="section" id="feature-description">
+<h2>Feature Description<a class="headerlink" href="#feature-description" title="Permalink to this headline"></a></h2>
+<p>As illustrated in Fig. 1, HugeCTR datasets can be composed of multiple dataset files. We refer to the training process of a single dataset file as a pass. One such pass is composed of one or more training batches.</p>
+<a class="reference internal image-reference" href="_images/etc_preprocessing.png"><img alt="_images/etc_preprocessing.png" class="align-center" src="_images/etc_preprocessing.png" style="width: 600px;" /></a>
+<div align="center">Fig. 1: Preprocessing of dataset in the ETC.</div>
+<p><br></br></p>
+<p>The purpose of the ETC is to prefetch required portions of the embedding table before starting a training pass. Since all features contained in the respective fetched portion of the training set are considered during training, they will also be updated during the training the pass. Hence another reason, why it can is crucial in practice to <a class="reference internal" href="#check-your-dataset"><span class="std std-doc">split</span></a> very large datasets into multiple dataset files.</p>
+<p>To tell the ETC which embedding features have to be prefetched for a pass, users are required to extract the unique keys from the dataset of that pass and store them into a separate keyset file (see <a class="reference internal" href="#preprocessing"><span class="std std-doc">Preprocessing</span></a> for a brief file format description). Using the keyset file, the ETC calculates the total size of the embedding features to be prefetched (i.e., <code class="docutils literal notranslate"><span class="pre">number</span> <span class="pre">of</span> <span class="pre">unique</span> <span class="pre">keys</span> <span class="pre">*</span> <span class="pre">embedding</span> <span class="pre">vector</span> <span class="pre">size</span></code>), allocates memory accordingly and loads them according from the <a class="reference internal" href="#parameter-server-in-etc"><span class="std std-doc">parameter server</span></a> (PS).</p>
+<p>Thereby, the ETC takes advantage of the memory compliment and inter-device communication capabilities of multi-GPU setups. All available GPU memory is used for storage, and there is no need to store duplicates of embedding features in different GPUs. Hence, the maximum size of the embedding subset to be used during a pass is just limited by the total combined memory sizes of all available GPUs.</p>
+<p>The ETC’s training process is shown in Fig. 2, in which passes are trained one by one, and each pass follows the same procedure:</p>
+<ol class="arabic simple">
+<li><p>Load the subset of the embedding table for the n-th pass from the PS to the GPUs.</p></li>
+<li><p>Train the sparse and dense models.</p></li>
+<li><p>Write the trained embedding table of the n-th pass from GPUs back to the PS.</p></li>
+</ol>
+<a class="reference internal image-reference" href="_images/etc_pipeline.png"><img alt="_images/etc_pipeline.png" class="align-center" src="_images/etc_pipeline.png" style="width: 800px;" /></a>
+<div align="center">Fig. 2: Train different passes in the ETC.</div>
+<p><br></br></p>
+</div>
+<div class="section" id="parameter-server-in-etc">
+<h2>Parameter Server in ETC<a class="headerlink" href="#parameter-server-in-etc" title="Permalink to this headline"></a></h2>
+<p>With the ETC feature, we provide two kinds of parameter servers, the <strong><a class="reference internal" href="#staged-host-memory-parameter-server"><span class="std std-doc">staged host memory parameter server</span></a> (Staged-PS)</strong> and the <strong><a class="reference internal" href="#cached-host-memory-parameter-server"><span class="std std-doc">cached host memory parameter server</span></a> (Cached-PS)</strong>:</p>
+<ul class="simple">
+<li><p>Because of its higher bandwidth and lower latency, the Staged-PS is preferable if the host memory can hold the entire embedding table.</p></li>
+<li><p>If that is not the case, we provide the Cached-PS, which overcomes this restriction through only caching several passes’ embedding tables.</p></li>
+</ul>
+<div class="section" id="staged-host-memory-parameter-server">
+<h3>Staged Host Memory Parameter Server<a class="headerlink" href="#staged-host-memory-parameter-server" title="Permalink to this headline"></a></h3>
+<p>The Staged-PS loads the entire embedding table into the host memory from a local SSD/HDD or a Network File System (NFS) during initialization. Throughout the lifetime of the ETC, this PS will read from and write to the embedding features <em>staged</em> in the host memory without accessing the SSD/HDD or NFS. After training, the <a class="reference internal" href="api/python_interface.html#save-params-to-files-method"><span class="std std-doc"><code class="docutils literal notranslate"><span class="pre">save_params_to_files</span></code></span></a> API allows writing the embedding table in host memory back to the SSD/HDD/NFS.</p>
+<p>When conducting distributed training with multiple nodes, the Staged-PS utilizes the combined memories across the cluster as a cache. Thereby, it will only load subsets of the embedding table in each node, so that there are no duplicated embedding features on different nodes. Hence, for users of large models who want to use the ETC, but are stuck by the limited host memory size of a single node, increasing the number of nodes and can allow overcoming this limitation.</p>
+<p>Since all reading and writing operations of the Staged-PS are applied within the host memory, and SSD/HDD/NFS accesses only happen during initialization and after the training has concluded. Therefore, the Staged-PS typically yields a significantly better performance than the Cached-PS in terms of the peak bandwidth.</p>
+<p>For the configuration of a Staged-PS in a python script, please see <a class="reference internal" href="#configuration"><span class="std std-doc">Configuration</span></a>.</p>
+</div>
+<div class="section" id="cached-host-memory-parameter-server">
+<h3>Cached Host Memory Parameter Server<a class="headerlink" href="#cached-host-memory-parameter-server" title="Permalink to this headline"></a></h3>
+<p>The Cached-PS is designed to complement the Staged-PS when an embedding table cannot fit into the host memory. The following description covers its principle, functionality, and examples of its usage. This PS is intrinsically more complex. You may skip this section, if the Staged-PS can satisfy your requirements.</p>
+<div class="section" id="assumption">
+<h4>Assumption<a class="headerlink" href="#assumption" title="Permalink to this headline"></a></h4>
+<p>Generally speaking, the design of the Cached-PS is based on the following assumptions:</p>
+<ul class="simple">
+<li><p>The categorical features in the dataset follow the power-law distribution and exhibit the long-tail phenomenon. Hence, there exists a small number of popular embedding features (i.e., the <em>hot keys</em>) will be rather frequently accessed, while the vast majority of embedding features is only occasionally required.</p></li>
+<li><p>The composition of these hot keys may vary in actual applications. There amount may vary as well. Thus, the most recently accessed pass in the ETC may contain more or less hot keys than a previous pass.</p></li>
+</ul>
+</div>
+<div class="section" id="design-of-cached-ps">
+<h4>Design of Cached-PS<a class="headerlink" href="#design-of-cached-ps" title="Permalink to this headline"></a></h4>
+<p>We designed the Cached-PS as a custom tailored dedicated ETC-aware buffering mechanism. It is not a general-purpose software cache, and can not be generalized to other scenarios.</p>
+<p>Its design aligns with the distinguishing characteristics of the ETC, which is that <em>embeddings are transferred between host and device at the granularity of a pass</em>. I.e., the caching granularity of the Cached-PS is the embedding table corresponding to the passes, which are marked as blocks in Fig. 3. The <em>head</em> marker is used to indicate the latest cached pass.</p>
+<a class="reference internal image-reference" href="_images/hc_diagram.png"><img alt="_images/hc_diagram.png" class="align-center" src="_images/hc_diagram.png" style="width: 500px;" /></a>
+<div align="center">Fig. 3: Blocks in the Cached-PS.</div>
+<p><br></br></p>
+</div>
+<div class="section" id="cached-ps-configuration">
+<h4>Cached-PS Configuration<a class="headerlink" href="#cached-ps-configuration" title="Permalink to this headline"></a></h4>
+<p>The Cached-PS is configured through the following parameters:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">num_blocks</span></code>: The maximum number of passes to be cached (<code class="docutils literal notranslate"><span class="pre">num_blocks=6</span></code> in Fig. 3).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">target_hit_rate</span></code>: A user-specified hit rate between 0 and 1. If the actual hit rate drops below this value, the ETC will attempt to migrate recently used and evict unused embeddings in the granularity of a pass.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">max_num_evict</span></code>: The maximum number of evictions. If the number of eviction/insertion operations reaches this value, the Cached-PS will be frozen, even if the <code class="docutils literal notranslate"><span class="pre">target_hit_rate</span></code> is not yet satisfied.</p></li>
+</ul>
+<p>The configuration API is exposed in the Python interface through the <code class="docutils literal notranslate"><span class="pre">CreateHMemCache</span></code> method:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hc_cnfg</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">CreateHMemCache</span><span class="p">(</span><span class="n">num_blocks</span><span class="p">,</span> <span class="n">target_hit_rate</span><span class="p">,</span> <span class="n">max_num_evict</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The method returns a Cached-PS configuration object, <code class="docutils literal notranslate"><span class="pre">hc_cnfg</span></code>, corresponding to the provided values.</p>
+<p>For example, <code class="docutils literal notranslate"><span class="pre">CreateHMemCache(6,</span> <span class="pre">0.6,</span> <span class="pre">3)</span></code> equates to a configuration, where</p>
+<ul class="simple">
+<li><p>the Cached-PS will cache up to 6 passes,</p></li>
+<li><p>no cache update happens if the hit rate is greater than 60%,</p></li>
+<li><p>and the cache is frozen after at most 3 eviction/insertion operations.</p></li>
+</ul>
+<p>Suggestions for configuration the Cached-PS for actual use-cases:</p>
+<ol class="arabic simple">
+<li><p>A larger number of <code class="docutils literal notranslate"><span class="pre">num_blocks</span></code> is helpful to retain a high hit rate, but consumes more host memory and may cause <em>Out of Memory</em> issues. The upper limit value for <code class="docutils literal notranslate"><span class="pre">num_blocks</span></code> can be estimated through computing <code class="docutils literal notranslate"><span class="pre">available</span> <span class="pre">host</span> <span class="pre">memory</span> <span class="pre">size</span> <span class="pre">/</span> <span class="pre">embedding</span> <span class="pre">table</span> <span class="pre">size</span> <span class="pre">of</span> <span class="pre">each</span> <span class="pre">pass</span></code>. For pointers how the latter value can be computed, please refer to <a class="reference internal" href="#check-your-dataset"><span class="std std-doc">Check Your Dataset</span></a>.</p></li>
+<li><p>More eviction/insertion operations will happen if you set a larger value for <code class="docutils literal notranslate"><span class="pre">max_num_evict</span></code>. Such operations are expensive, because they need to access the SSD/HDD/NFS. Configuring small or moderate values for this entry will improve the performance of the Cached-PS in <code class="docutils literal notranslate"><span class="pre">Phase</span> <span class="pre">3</span></code> (see <a class="reference internal" href="#how-it-works"><span class="std std-doc">How It Works</span></a>).</p></li>
+</ol>
+</div>
+<div class="section" id="how-it-works">
+<h4>How It Works<a class="headerlink" href="#how-it-works" title="Permalink to this headline"></a></h4>
+<p>We will use an example in this section to illustrate how the Cached-PS works in an actual use-case in the animation shown in Fig. 4. The configuration used for this example is <code class="docutils literal notranslate"><span class="pre">CreateHMemCache(6,</span> <span class="pre">0.8,</span> <span class="pre">3)</span></code>.</p>
+<a class="reference internal image-reference" href="_images/hc_demo.gif"><img alt="_images/hc_demo.gif" class="align-center" src="_images/hc_demo.gif" style="width: 500px;" /></a>
+<div align="center">Fig. 4: Demo of how the Cached-PS works</div>
+<p><br></br></p>
+<p>The process can be divided into 3 phases:</p>
+<ul class="simple">
+<li><p><strong>Phase 1: Cached insertion</strong>
+This stage starts from the initialization if empty/unused blocks are present in the Cached-PS. When a query operation happens for a new pass, the corresponding embedding table and its optimizer states (if any) will be loaded from the SSD/HDD/NFS and inserted into an empty block. Naturally, this stage ends when as soon as all blocks of the Cached-PS are occupied (marked by <code class="docutils literal notranslate"><span class="pre">is_full=true</span></code> in Fig. 2).</p></li>
+<li><p><strong>Phase 2: Cached updating</strong>
+The stage starts from the end of Phase 1 (<code class="docutils literal notranslate"><span class="pre">is_full=true</span></code>), and stops when <code class="docutils literal notranslate"><span class="pre">num_evict==max_num_evict</span></code>. Suppose the query operation of a pass does not reach the <code class="docutils literal notranslate"><span class="pre">target_hit_rate</span></code> (80% in this example). In this case, the Cached-PS will evict the oldest block first, then load the embedding table for this new pass from both the Cached-PS (hit portion) and the SSD/HDD/NFS (missed portion), and insert it for the new pass into the available block. After each eviction/insertion operation, <code class="docutils literal notranslate"><span class="pre">num_evict</span></code> increases by 1.</p></li>
+<li><p><strong>Phase 3: Cached freezing</strong>
+If all blocks are occupied (<code class="docutils literal notranslate"><span class="pre">is_full==true</span></code>) and the number of eviction/inseration operations reaches <code class="docutils literal notranslate"><span class="pre">max_num_evict</span></code> (<code class="docutils literal notranslate"><span class="pre">num_evict</span> <span class="pre">==</span> <span class="pre">max_num_evict</span></code>), the cache will be frozen, and no updating will occur for later queries.</p></li>
+</ul>
+</div>
+<div class="section" id="shortcomings">
+<h4>Shortcomings<a class="headerlink" href="#shortcomings" title="Permalink to this headline"></a></h4>
+<p>To optimize throughput performance, we do not check for duplicates when storing the embedding table of a new pass into the cache block. Consequently, some portions of the embedding table are repeatedly cached, which can be considered as a drawback of the Cached-PS.</p>
+</div>
+</div>
+</div>
+<div class="section" id="user-guide">
+<h2>User Guide<a class="headerlink" href="#user-guide" title="Permalink to this headline"></a></h2>
+<p>This section gives guidance regarding the preprocessing of the dataset and how the ETC object can be configured in a Python script.</p>
+<div class="section" id="check-your-dataset">
+<h3>Check Your Dataset<a class="headerlink" href="#check-your-dataset" title="Permalink to this headline"></a></h3>
+<p>First, you need to decide whether you need to split the dataset into sub-datasets. To do so, you need to:</p>
+<ol class="arabic">
+<li><p>Extract the unique keys of categorical features from your dataset and get the number of unique keys.</p></li>
+<li><p>Calculate the size of the embedding table corresponding to this dataset by</p>
+<p>Embedding Size in GB = <code class="docutils literal notranslate"><span class="pre">Factor</span> <span class="pre">*</span> <span class="pre">Num</span> <span class="pre">of</span> <span class="pre">unique</span> <span class="pre">keys</span> <span class="pre">*</span> <span class="pre">embedding</span> <span class="pre">vector</span> <span class="pre">size</span> <span class="pre">*</span> <span class="pre">sizeof(float)</span> <span class="pre">/</span> <span class="pre">1024^3</span></code>.</p>
+<p><em>Note: Beside the gradients themselves, advanced gradient-descent-based optimizers may have additional memory requirements, which are represented as the multiplicative variable <code class="docutils literal notranslate"><span class="pre">Factor</span></code> in the above equation. Suggested values for <code class="docutils literal notranslate"><span class="pre">Factor</span></code> when using different optimizers available in HugeCTR are provided in Tab. 1.</em></p>
+</li>
+<li><p>Compare the embedding size with the aggregated memory size of the GPUs used during training. For example, with a 8x Tesla A100 (80 GB per GPU) setup, the cumulative GPU memory size available during training is 640 GB. If the embedding size is larger than the GPU memory size, you must split the dataset into multiple sub-datasets.</p></li>
+</ol>
+<p>Tab. 1: Suggested value for “Factor” of when using different optimizers</p>
+<table class="colwidths-auto docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Optimizer</p></th>
+<th class="text-center head"><p>Adam</p></th>
+<th class="text-center head"><p>AdaGrad</p></th>
+<th class="text-center head"><p>Momentum SGD</p></th>
+<th class="text-center head"><p>Nesterov</p></th>
+<th class="text-center head"><p>SGD</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Factor</p></td>
+<td class="text-center"><p>3</p></td>
+<td class="text-center"><p>2</p></td>
+<td class="text-center"><p>2</p></td>
+<td class="text-center"><p>2</p></td>
+<td class="text-center"><p>1</p></td>
+</tr>
+</tbody>
+</table>
+<p><em>Note: Please mind that the equation above represents a crude estimation because other components (e.g., data reader, dense model, etc.) may share the GPU memory in HugeCTR. In practice, the available size for the embedding table is smaller than the aggregated size.</em></p>
+</div>
+<div class="section" id="preprocessing">
+<h3>Preprocessing<a class="headerlink" href="#preprocessing" title="Permalink to this headline"></a></h3>
+<p>Each dataset trained by the ETC is supposed to have a keyset file extracted from the categorical features. The file format of the keyset file as follows:</p>
+<ul class="simple">
+<li><p>Keys are stored in binary format using the respective host system’s native byte order.</p></li>
+<li><p>There are no separators between keys.</p></li>
+<li><p>All keys use the same data type as the categorical features in the dataset (i.e., either <code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span></code> or <code class="docutils literal notranslate"><span class="pre">long</span> <span class="pre">long</span></code>).</p></li>
+<li><p>There are no requirements with respect to the sequential ordering. Hence, keys may be stored in any order.</p></li>
+</ul>
+<p>If your dataset is in Parquet format, you can use this <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/blob/master/tools/keyset_scripts">keyset generator</a> we provided to get the keyset file.</p>
+</div>
+<div class="section" id="configuration">
+<h3>Configuration<a class="headerlink" href="#configuration" title="Permalink to this headline"></a></h3>
+<p>Before moving on, please have a look at the <a class="reference internal" href="api/python_interface.html#createetc-method"><span class="std std-doc"><code class="docutils literal notranslate"><span class="pre">CreateETC()</span></code></span></a> section in HugeCTR Python Interface, as it provides a description of the general configuration process of the ETC. Also, please refer to the <a class="reference internal" href="notebooks/continuous_training.html"><span class="doc std std-doc">HugeCTR Continuous Training Notebook</span></a> for usage examples of the ETC in actual applications.</p>
+<div class="section" id="staged-ps">
+<h4>Staged-PS<a class="headerlink" href="#staged-ps" title="Permalink to this headline"></a></h4>
+<p>To configure the Staged-PS, you need to provide two configuration entries: <code class="docutils literal notranslate"><span class="pre">ps_types</span></code> and <code class="docutils literal notranslate"><span class="pre">sparse_models</span></code>. Each entry is a list, and the number of entries in these lists must be equal to the number of embedding tables in your model.</p>
+<p>For example, assume we want to train a WDL model, which contains two embedding tables. Then, we could configure to use the Staged-PS for both of these tables, using the following configuration:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">etc</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">CreateETC</span><span class="p">(</span>
+    <span class="n">ps_types</span> <span class="o">=</span> <span class="p">[</span><span class="n">hugectr</span><span class="o">.</span><span class="n">TrainPSType_t</span><span class="o">.</span><span class="n">Staged</span><span class="p">,</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">TrainPSType_t</span><span class="o">.</span><span class="n">Staged</span><span class="p">],</span>
+    <span class="n">sparse_models</span> <span class="o">=</span> <span class="p">[</span><span class="n">output_dir</span> <span class="o">+</span> <span class="s2">&quot;/wdl_0_sparse_model&quot;</span><span class="p">,</span> <span class="n">output_dir</span> <span class="o">+</span> <span class="s2">&quot;/wdl_1_sparse_model&quot;</span><span class="p">])</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="cached-ps">
+<h4>Cached-PS<a class="headerlink" href="#cached-ps" title="Permalink to this headline"></a></h4>
+<p>To configure the Cached-PS, you need to provide the following 4 configuration entries: <code class="docutils literal notranslate"><span class="pre">ps_types</span></code>, <code class="docutils literal notranslate"><span class="pre">sparse_models</span></code>, <code class="docutils literal notranslate"><span class="pre">local_paths</span></code> and <code class="docutils literal notranslate"><span class="pre">hcache_configs</span></code>. The length of these entries are:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">ps_types</span></code>: The number of embedding tables in the model.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">sparse_models</span></code>: The number of embedding tables in the model.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">local_paths</span></code>: The number of MPI ranks.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">hcache_configs</span></code>: 1 (broadcast to all Cached-PS), or the number of Cached-PS (<code class="docutils literal notranslate"><span class="pre">Cached</span></code>) in <code class="docutils literal notranslate"><span class="pre">ps_types</span></code>.</p></li>
+</ul>
+<p>Again, taking the WDL model as an example. A valid configuration of the ETC could be either of the following:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Use the Staged-PS for the 1st and Cached-PS for the 2nd embedding table (1 MPI rank).</span>
+<span class="n">hc_cnfg</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">CreateHMemCache</span><span class="p">(</span><span class="n">num_blocks</span><span class="o">=</span><span class="n">xx</span><span class="p">,</span> <span class="n">target_hit_rate</span><span class="o">=</span><span class="n">xx</span><span class="p">,</span> <span class="n">max_num_evict</span><span class="o">=</span><span class="n">xx</span><span class="p">)</span>
+<span class="n">etc</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">CreateETC</span><span class="p">(</span>
+    <span class="n">ps_types</span> <span class="o">=</span> <span class="p">[</span><span class="n">hugectr</span><span class="o">.</span><span class="n">TrainPSType_t</span><span class="o">.</span><span class="n">Staged</span><span class="p">,</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">TrainPSType_t</span><span class="o">.</span><span class="n">Cached</span><span class="p">],</span>
+    <span class="n">sparse_models</span> <span class="o">=</span> <span class="p">[</span><span class="n">output_dir</span> <span class="o">+</span> <span class="s2">&quot;/wdl_0_sparse_model&quot;</span><span class="p">,</span> <span class="n">output_dir</span> <span class="o">+</span> <span class="s2">&quot;/wdl_1_sparse_model&quot;</span><span class="p">],</span>
+    <span class="n">local_paths</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;raid/md1/tmp_dir&quot;</span><span class="p">],</span> <span class="n">hmem_cache_configs</span> <span class="o">=</span> <span class="p">[</span><span class="n">hc_cnfg</span><span class="p">])</span>
+
+<span class="c1"># Use Cached-PS for both embedding tables (1 MPI rank). The two Cached-PS have the same configuration.</span>
+<span class="n">hc_cnfg</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">CreateHMemCache</span><span class="p">(</span><span class="n">num_blocks</span><span class="o">=</span><span class="n">xx</span><span class="p">,</span> <span class="n">target_hit_rate</span><span class="o">=</span><span class="n">xx</span><span class="p">,</span> <span class="n">max_num_evict</span><span class="o">=</span><span class="n">xx</span><span class="p">)</span>
+<span class="n">etc</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">CreateETC</span><span class="p">(</span>
+    <span class="n">ps_types</span> <span class="o">=</span> <span class="p">[</span><span class="n">hugectr</span><span class="o">.</span><span class="n">TrainPSType_t</span><span class="o">.</span><span class="n">Cached</span><span class="p">,</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">TrainPSType_t</span><span class="o">.</span><span class="n">Cached</span><span class="p">],</span>
+    <span class="n">sparse_models</span> <span class="o">=</span> <span class="p">[</span><span class="n">output_dir</span> <span class="o">+</span> <span class="s2">&quot;/wdl_0_sparse_model&quot;</span><span class="p">,</span> <span class="n">output_dir</span> <span class="o">+</span> <span class="s2">&quot;/wdl_1_sparse_model&quot;</span><span class="p">],</span>
+    <span class="n">local_paths</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;raid/md1/tmp_dir&quot;</span><span class="p">],</span> <span class="n">hmem_cache_configs</span> <span class="o">=</span> <span class="p">[</span><span class="n">hc_cnfg</span><span class="p">])</span>
+
+<span class="c1"># Use Cached-PS for both embedding tables (2 MPI ranks), where the two Cached-PS have different configurations.</span>
+<span class="n">hc1_cnfg</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">CreateHMemCache</span><span class="p">(</span><span class="n">num_blocks</span><span class="o">=</span><span class="n">xx</span><span class="p">,</span> <span class="n">target_hit_rate</span><span class="o">=</span><span class="n">xx</span><span class="p">,</span> <span class="n">max_num_evict</span><span class="o">=</span><span class="n">xx</span><span class="p">)</span>
+<span class="n">hc2_cnfg</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">CreateHMemCache</span><span class="p">(</span><span class="n">num_blocks</span><span class="o">=</span><span class="n">xx</span><span class="p">,</span> <span class="n">target_hit_rate</span><span class="o">=</span><span class="n">xx</span><span class="p">,</span> <span class="n">max_num_evict</span><span class="o">=</span><span class="n">xx</span><span class="p">)</span>
+<span class="n">etc</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">CreateETC</span><span class="p">(</span>
+    <span class="n">ps_types</span> <span class="o">=</span> <span class="p">[</span><span class="n">hugectr</span><span class="o">.</span><span class="n">TrainPSType_t</span><span class="o">.</span><span class="n">Cached</span><span class="p">,</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">TrainPSType_t</span><span class="o">.</span><span class="n">Cached</span><span class="p">],</span>
+    <span class="n">sparse_models</span> <span class="o">=</span> <span class="p">[</span><span class="n">output_dir</span> <span class="o">+</span> <span class="s2">&quot;/wdl_0_sparse_model&quot;</span><span class="p">,</span> <span class="n">output_dir</span> <span class="o">+</span> <span class="s2">&quot;/wdl_1_sparse_model&quot;</span><span class="p">],</span>
+    <span class="n">local_paths</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;raid/md1/tmp_dir&quot;</span><span class="p">,</span> <span class="s2">&quot;raid/md2/tmp_dir&quot;</span><span class="p">],</span> <span class="n">hmem_cache_configs</span> <span class="o">=</span> <span class="p">[</span><span class="n">hc1_cnfg</span><span class="p">,</span> <span class="n">hc2_cnfg</span><span class="p">])</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="parameter-server-performance">
+<h3>Parameter Server Performance<a class="headerlink" href="#parameter-server-performance" title="Permalink to this headline"></a></h3>
+<p>Next, we provide performance figures for the Staged-PS and the Cached-PS in an actual use-case. In these tests, the query is conducted by providing a list of keys to the PS, upon which the corresponding embedding table will be loaded into a buffer of the host memory. Write operations are applied in the reverse order of the query.</p>
+<p>For reference, we also provide the performance data for the <code class="docutils literal notranslate"><span class="pre">SSD-PS</span></code> (read from and write to the SSD/HDD/NFS directly without caching in the host memory, deprecated from v3.3 release).</p>
+<div class="section" id="test-condition">
+<h4>Test Condition<a class="headerlink" href="#test-condition" title="Permalink to this headline"></a></h4>
+<div class="section" id="hardware-setup">
+<h5>Hardware Setup<a class="headerlink" href="#hardware-setup" title="Permalink to this headline"></a></h5>
+<p>This test is performed on a single <a class="reference external" href="https://docs.nvidia.com/dgx/pdf/dgx2-user-guide.pdf">NVIDIA DGX-2 node</a>. For more hardware specifications, please see the <a class="reference external" href="https://docs.nvidia.com/dgx/pdf/dgx2-user-guide.pdf">DGX-2 User Guide</a>.</p>
+</div>
+<div class="section" id="logic-of-test-code">
+<h5>Logic of Test Code<a class="headerlink" href="#logic-of-test-code" title="Permalink to this headline"></a></h5>
+<p>In this test, we used the data for the first three days in the <a class="reference external" href="https://labs.criteo.com/2013/12/download-terabyte-click-logs/">Criteo Terabyte Click Logs dataset</a>. The raw dataset is divided into ten passes. The number of unique keys and corresponding embedding table sizes are shown in Tab. 2.</p>
+<p>We chose an embedding vector size of 128. Hence, the total embedding table size is 53.90 GB. The cache configuration used in this test was <code class="docutils literal notranslate"><span class="pre">CreateHMemCache(2,</span> <span class="pre">0.4,</span> <span class="pre">0)</span></code>.</p>
+<p>Tab. 2: Number of unique keys and embedding table size of each pass with the Criteo dataset.</p>
+<table class="colwidths-auto docutils align-default">
+<thead>
+<tr class="row-odd"><th class="text-right head"><p>Pass ID</p></th>
+<th class="text-right head"><p>Number of Unique Keys</p></th>
+<th class="text-right head"><p>Embedding size (GB)</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td class="text-right"><p>#0</p></td>
+<td class="text-right"><p>24199179</p></td>
+<td class="text-right"><p>11.54</p></td>
+</tr>
+<tr class="row-odd"><td class="text-right"><p>#1</p></td>
+<td class="text-right"><p>26015075</p></td>
+<td class="text-right"><p>12.40</p></td>
+</tr>
+<tr class="row-even"><td class="text-right"><p>#2</p></td>
+<td class="text-right"><p>27387817</p></td>
+<td class="text-right"><p>13.06</p></td>
+</tr>
+<tr class="row-odd"><td class="text-right"><p>#3</p></td>
+<td class="text-right"><p>23672542</p></td>
+<td class="text-right"><p>11.29</p></td>
+</tr>
+<tr class="row-even"><td class="text-right"><p>#4</p></td>
+<td class="text-right"><p>26053910</p></td>
+<td class="text-right"><p>12.42</p></td>
+</tr>
+<tr class="row-odd"><td class="text-right"><p>#5</p></td>
+<td class="text-right"><p>27697628</p></td>
+<td class="text-right"><p>13.21</p></td>
+</tr>
+<tr class="row-even"><td class="text-right"><p>#6</p></td>
+<td class="text-right"><p>24727672</p></td>
+<td class="text-right"><p>11.79</p></td>
+</tr>
+<tr class="row-odd"><td class="text-right"><p>#7</p></td>
+<td class="text-right"><p>25643779</p></td>
+<td class="text-right"><p>12.23</p></td>
+</tr>
+<tr class="row-even"><td class="text-right"><p>#8</p></td>
+<td class="text-right"><p>26374086</p></td>
+<td class="text-right"><p>12.58</p></td>
+</tr>
+<tr class="row-odd"><td class="text-right"><p>#9</p></td>
+<td class="text-right"><p>26580983</p></td>
+<td class="text-right"><p>12.67</p></td>
+</tr>
+</tbody>
+</table>
+<p>In this test, all passes are looped over by two iterations. We first load the embedding table of the i-th pass from the PS and then write the embedding table of (i-1)-th pass back to the PS. There are total twenty reading and nineteen writing operations (no writing happens after the initial reading operation).</p>
+<p>To make results comparable, we execute the <code class="docutils literal notranslate"><span class="pre">sync</span> <span class="pre">&amp;&amp;</span> <span class="pre">sysctl</span> <span class="pre">vm.drop_caches=3</span></code> command to clear the system cache before running the testing code.</p>
+</div>
+</div>
+<div class="section" id="result-and-discussion">
+<h4>Result and Discussion<a class="headerlink" href="#result-and-discussion" title="Permalink to this headline"></a></h4>
+<p>The effective bandwidth (embedding size / reading or writing time) of reading and writing along with the hit rate are shown in Fig. 5 and Fig. 6, respectively.</p>
+<a class="reference internal image-reference" href="_images/hc_read.png"><img alt="_images/hc_read.png" class="align-center" src="_images/hc_read.png" style="width: 450px;" /></a>
+<div align="center">Fig. 5: Bandwidth and hit rate for reading operations.</div>
+<p><br></br></p>
+<a class="reference internal image-reference" href="_images/hc_write.png"><img alt="_images/hc_write.png" class="align-center" src="_images/hc_write.png" style="width: 450px;" /></a>
+<div align="center">Fig. 6: Bandwidth and hit rate for writing operations.</div>
+<p><br></br></p>
+<p>The bandwidth of the Staged-PS (=<code class="docutils literal notranslate"><span class="pre">HMEM-PS</span></code>) and <code class="docutils literal notranslate"><span class="pre">SSD-PS</span></code> (unoptimized) respectively form the upper-bound- and base-line in results. As one would expect, the bandwidth of Cached-PS (=<code class="docutils literal notranslate"><span class="pre">HMEM-Cached</span></code>) falls into the region between these two lines.</p>
+<p>This embedding table of the first two passes will be cached in the HMEM-Cached. In this test we set <code class="docutils literal notranslate"><span class="pre">max_num_evict=0</span></code>. Thus, the cache is frozen after pass #1. For passes expect #0 and #1, both the bandwidth and hit rate fluctuate around a constant value (6000MB/s for the bandwidth, and 45% for the hit rate). The hit rate of the 10-th and 11-th reading/writing phase is 100%, because the embedding tables of the 0-th and 1-th pass are cached in the host memory. Hence, the bandwidths for these two accesses approach that of their Staged-PS counterpart.</p>
+<p>These results show that:</p>
+<ul class="simple">
+<li><p>In comparison to the Cached-PS, the Staged-PS provides a better and more steady performance</p></li>
+<li><p>A properly configured Cached-PS can significantly outperform the SSD-PS (about one order of magnitude in this test).</p></li>
+</ul>
+</div>
+</div>
+</div>
+<div class="section" id="related-reading">
+<h2>Related Reading<a class="headerlink" href="#related-reading" title="Permalink to this headline"></a></h2>
+<p><a class="reference internal" href="notebooks/continuous_training.html"><span class="doc std std-doc">HugeCTR Continuous Training Notebook</span></a></p>
+</div>
+</div>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="hugectr_core_features.html" class="btn btn-neutral float-left" title="HugeCTR Core Features" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="hierarchical_parameter_server/index.html" class="btn btn-neutral float-right" title="Hierarchical Parameter Server" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, NVIDIA.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
