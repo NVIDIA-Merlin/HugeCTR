@@ -12,6 +12,8 @@
 **Task List**
 - Provide the atomic tasks required to complete the issue.
 
+**NOTE:** Label the issue with `feature::*` and/or `component::*` at least.
+
 **NOTE:** If the description is empty or the user story is ill-defined, the issue will be marked as `status::Needs Definition`.
 
 **NOTE:** If there are any GitLab issues which prevent this issue from being started/completed, link them as `is blocked by`.
