@@ -7,5 +7,8 @@
 **Use Cases**
 - (If applicable) A pesudo code (Python or C++) level description of how it is used or intercts with other components.
 
-** Task List**
+**Design Document**
+- (If applicable)
+
+**Task List**
 - Provide the atomic tasks required to complete the issue.
