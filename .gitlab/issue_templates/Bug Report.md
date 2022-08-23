@@ -19,3 +19,5 @@ If you have a simple reproducer, e.g., a simple Python script or an standalone C
 
 **Additional context**
 - Add any other context about the problem here.
+
+**NOTE:** Label the issue with `bug` at least.
