@@ -7,7 +7,7 @@
 
 **NOTE:** If there are any GitLab issues which prevent this issue from being started/completed, link them as `is blocked by`.
 
-## Feature in Roadmap
+## Feature Request
 **User Story**
 - A clear but concise requirement definition from **an user perspetive**. An user can be a customer, a team member, MLPerf team, another Merlin component, etc.  Make the story independent and small if possible while specifying the **problem** and **goal** clearly.
   - Example 1. As our customer XX and YY put their data in HDFS, I will extend the HugeCTR DataReader to load the HDFS-resident dataset. 
