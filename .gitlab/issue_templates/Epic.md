@@ -1,3 +1,4 @@
+## REMOVE THIS SECTION WHEN FILING ISSUE
 **NOTE:** Make the issue title clear enough and prefix it with `[RMP]`
 
 **NOTE:** `feature in roadmap` label is for an epic and its child stories.
@@ -10,7 +11,7 @@
 
 **NOTE:** The milestone of epic is the same as that of the final child issue.
 
-
+## Feature in Roadmap
 **Problem Definition**
 - Epic or `[RMP]` feature is a collection of user stories. Describe their common problem and goal in the high level. 
 

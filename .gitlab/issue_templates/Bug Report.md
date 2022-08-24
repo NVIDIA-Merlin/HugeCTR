@@ -1,7 +1,10 @@
+## REMOVE THIS SECTION WHEN FILING ISSUE
 **NOTE:** Make the issue title clear enough and prefix it with `[BUG]`
 
 **NOTE:** Label the issue with `bug` at least.
 
+
+## Bug Report
 **Describe the bug**
 - A clear but concise description of what the bug is.
 
