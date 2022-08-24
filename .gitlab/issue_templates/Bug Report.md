@@ -1,3 +1,7 @@
+**NOTE:** Make the issue title clear enough and prefix it with `[BUG]`
+
+**NOTE:** Label the issue with `bug` at least.
+
 **Describe the bug**
 - A clear but concise description of what the bug is.
 
@@ -9,7 +13,7 @@ If you have a simple reproducer, e.g., a simple Python script or an standalone C
 - A clear and concise description of what you expected to happen.
 
 **Screenshots**
-- If applicable, add screenshots to help explain your problem.
+- (If applicable) add screenshots to help explain your problem.
 
 **Environment (please complete the following information):**
  - OS: [e.g. Ubuntu xx.yy]
@@ -19,5 +23,3 @@ If you have a simple reproducer, e.g., a simple Python script or an standalone C
 
 **Additional context**
 - Add any other context about the problem here.
-
-**NOTE:** Label the issue with `bug` at least.
