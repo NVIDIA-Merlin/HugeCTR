@@ -120,8 +120,34 @@ When the number of class AUCs is greater than one, the output includes a line li
 </pre></div>
 </div>
 </li>
+<li><p><strong>Enhancements to the API for the HPS Database Backend</strong>
+This release includes several enhancements to the API for the <code class="docutils literal notranslate"><span class="pre">DatabaseBackend</span></code> class.
+For more information, see <code class="docutils literal notranslate"><span class="pre">database_backend.hpp</span></code> and the header files for other database backends in the <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/tree/v3.9/HugeCTR/include/hps"><code class="docutils literal notranslate"><span class="pre">HugeCTR/include/hps</span></code></a> directory of the repository.
+The enhancments are as follows:</p>
+<ul class="simple">
+<li><p>You can now specify a maximum time budget, in nanoseconds, for queries so that you can build an application that must operate within strict latency limits.
+Fetch queries return execution control to the caller if the time budget is exhausted.
+The unprocessed entries are indicated to the caller through a callback function.</p></li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">dump</span></code> and <code class="docutils literal notranslate"><span class="pre">load_dump</span></code> methods are new.
+These methods support saving and loading embedding tables from disk.
+The methods support a custom binary format and the RocksDB SST table file format.
+These methods enable you to import and export embedding table data between your custom tools and HugeCTR.</p></li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">find_tables</span></code> method is new.
+The method enables you to discover all table data that is currently stored for a model in a <code class="docutils literal notranslate"><span class="pre">DatabaseBackend</span></code> instance.
+A new overloaded method for <code class="docutils literal notranslate"><span class="pre">evict</span></code> is added that can process the results from <code class="docutils literal notranslate"><span class="pre">find_tables</span></code> to quickly and simply drop all the stored information that is related to a model.</p></li>
+</ul>
+</li>
+<li><p><strong>Documentation Enhancements</strong></p>
+<ul class="simple">
+<li><p>The documentation for the <code class="docutils literal notranslate"><span class="pre">max_all_to_all_bandwidth</span></code> parameter of the <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html#hybridembeddingparam-class"><code class="docutils literal notranslate"><span class="pre">HybridEmbeddingParam</span></code></a> class is clarified to indicate that the bandwidth unit is per-GPU.
+Previously, the unit was not specified.</p></li>
+</ul>
+</li>
 <li><p><strong>Issues Fixed</strong>:</p>
 <ul class="simple">
+<li><p>Hybrid embedding with <code class="docutils literal notranslate"><span class="pre">IB_NVLINK</span></code> as the <code class="docutils literal notranslate"><span class="pre">communication_type</span></code> of the
+<a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/v3.9/api/python_interface.html#hybridembeddingparam-class"><code class="docutils literal notranslate"><span class="pre">HybridEmbeddingParam</span></code></a>
+is fixed in this release.</p></li>
 <li><p>Training performance is affected by a GPU routine that checks if an input key can be out of the embedding table. If you can guarantee that the input keys can work with the specified <code class="docutils literal notranslate"><span class="pre">workspace_size_per_gpu_in_mb</span></code>, we have a workaround to disable the routine by setting the environment variable <code class="docutils literal notranslate"><span class="pre">HUGECTR_DISABLE_OVERFLOW_CHECK=1</span></code>. The workaround restores the training performance.</p></li>
 <li><p>Engineering discovered and fixed a correctness issue with the Softmax layer.</p></li>
 <li><p>Engineering removed an inline profiler that was rarely used or updated. This change relates to GitHub issue <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/issues/340">340</a>.</p></li>
@@ -129,9 +155,6 @@ When the number of class AUCs is greater than one, the output includes a line li
 </li>
 <li><p><strong>Known Issues</strong>:</p>
 <ul>
-<li><p>Hybrid embedding with <code class="docutils literal notranslate"><span class="pre">IB_NVLINK</span></code> as the <code class="docutils literal notranslate"><span class="pre">communication_type</span></code> of the
-<a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/v3.9/api/python_interface.html#hybridembeddingparam-class"><code class="docutils literal notranslate"><span class="pre">HybridEmbeddingParam</span></code></a>
-class does not work currently. We are working on fixing it. The other communication types have no issues.</p></li>
 <li><p>HugeCTR uses NCCL to share data between ranks and NCCL can require shared system memory for IPC and pinned (page-locked) system memory resources.
 If you use NCCL inside a container, increase these resources by specifying the following arguments when you start the container:</p>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>  -shm-size<span class="o">=</span>1g -ulimit <span class="nv">memlock</span><span class="o">=</span>-1
