@@ -32,6 +32,14 @@
 #include <limits>
 #include <type_traits>
 
+// cudf 22.06 moved the namespace of default_hash to cudf::detail
+// and renamed CUDA_TRY to CUDF_CUDA_TRY. Handle both of these
+// so that we can compile against both cudf 22.04 and cudf 22.06+
+#ifdef CUDF_CUDA_TRY
+using cudf::detail::default_hash;
+#define CUDA_TRY CUDF_CUDA_TRY
+#endif
+
 namespace {
 template <std::size_t N>
 struct packed {
