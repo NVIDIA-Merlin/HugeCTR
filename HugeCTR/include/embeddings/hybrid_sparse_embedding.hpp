@@ -97,15 +97,19 @@ class HybridSparseEmbedding : public IEmbedding {
     }
 
     ~StreamManager() {
-      for (auto& sm : stream_map) {
-        for (auto& s : sm) {
-          cudaStreamDestroy(s.second);
+      try {
+        for (auto& sm : stream_map) {
+          for (auto& s : sm) {
+            HCTR_LIB_THROW(cudaStreamDestroy(s.second));
+          }
         }
-      }
-      for (auto& em : event_map) {
-        for (auto& e : em) {
-          cudaEventDestroy(e.second);
+        for (auto& em : event_map) {
+          for (auto& e : em) {
+            HCTR_LIB_THROW(cudaEventDestroy(e.second));
+          }
         }
+      } catch (const std::exception& error) {
+        HCTR_LOG(INFO, WORLD, "HybridSparseEmbedding Dtor error:%s", error.what());
       }
     }
   };
