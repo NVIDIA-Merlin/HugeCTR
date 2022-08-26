@@ -1934,17 +1934,15 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
                     static_cast<size_t>(iter + 1) * static_cast<size_t>(solver_.batchsize);
 
                 HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "eval_stop", float(iter) / max_iter);
-
-                HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "epoch_stop", 1);
-
+                HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "epoch_stop", 0);
                 HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "run_stop");
                 HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "train_samples", train_samples);
                 timer_log.stop();
               }
               HCTR_LOG(INFO, ROOT,
                        "Hit target accuracy AUC %.4f at "
-                       "%d / %d iterations with batchsize %d"
-                       " in %.2fs. Average speed %f "
+                       "%d / %d iterations with batchsize %d "
+                       "in %.2fs. Average speed %f "
                        "records/s.\n",
                        auc_threshold, iter, max_iter, solver_.batchsize, timer.elapsedSeconds(),
                        float(iter) * solver_.batchsize / timer.elapsedSeconds());
@@ -1965,8 +1963,7 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
       }
     }  // end for iter
     if (solver_.perf_logging) {
-      HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "train_epoch_end", 1);
-
+      HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "epoch_stop", 0);
       HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "run_stop");
       size_t train_samples = static_cast<size_t>(max_iter) * static_cast<size_t>(solver_.batchsize);
       HCTR_LOG_ARGS(timer_log.elapsedMilliseconds(), "train_samples", train_samples);
