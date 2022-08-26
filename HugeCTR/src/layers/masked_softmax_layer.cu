@@ -39,7 +39,7 @@ MaskedSoftmaxLayer<T>::MaskedSoftmaxLayer(
     : Layer(gpu_resource), scalar_(scalar) {
   // Input 0: input data [batch_size, head, seq_len, seq_len]
   // Input 1: mask [batch_size, 1, 1, seq_len]
-  assert(in_tensor[0].get_num_elements() == out_tensor.get_num_elements());
+  assert(in_tensors[0].get_num_elements() == out_tensor.get_num_elements());
   size_t num_ = in_tensors.size();
 
   size_t dims_ = in_tensors[0].get_dimensions().size();

@@ -212,10 +212,15 @@ class FusedReluBiasFullyConnectedLayer : public Layer {
   FusedReluBiasFullyConnectedLayer& operator=(const FusedReluBiasFullyConnectedLayer&);
 
   ~FusedReluBiasFullyConnectedLayer() {
-    if (event_overlap_created_) {
-      CudaDeviceContext context(get_device_id());
-      cudaEventDestroy(event_overlap_);
+    try {
+      if (event_overlap_created_) {
+        CudaDeviceContext context(get_device_id());
+        HCTR_LIB_THROW(cudaEventDestroy(event_overlap_));
+      }
+    }catch(const std::exception &error) {
+      HCTR_LOG(INFO, WORLD, "FusedReluBiasFullyConnectedLayer Dtor error:%s", error.what());
     }
+    
   };
 };
 }  // namespace HugeCTR
