@@ -128,14 +128,10 @@ static __global__ void offsets_to_sizes(size_t* sizes, LambdaPtr get_offsets_ptr
 }  // namespace infrequent_embedding_kernels
 
 template <typename dtype>
-InfrequentEmbeddingBase<dtype>::InfrequentEmbeddingBase() {
-  HCTR_LIB_THROW(cudaMalloc(&indices_view_, sizeof(*indices_view_)));
-}
+InfrequentEmbeddingBase<dtype>::InfrequentEmbeddingBase() {}
 
 template <typename dtype>
-InfrequentEmbeddingBase<dtype>::~InfrequentEmbeddingBase() {
-  cudaFree(indices_view_);
-}
+InfrequentEmbeddingBase<dtype>::~InfrequentEmbeddingBase() {}
 
 template <typename dtype>
 InfrequentEmbeddingBase<dtype>::InfrequentEmbeddingBase(const InfrequentEmbeddingBase& other) {
@@ -147,11 +143,10 @@ InfrequentEmbeddingBase<dtype>::InfrequentEmbeddingBase(const InfrequentEmbeddin
 
 template <typename dtype>
 void InfrequentEmbeddingBase<dtype>::set_current_indices(
-    InfrequentEmbeddingSelection<dtype>* indices, cudaStream_t stream) {
+    InfrequentEmbeddingSelection<dtype>* indices) {
   indices_ = indices;
   data_ = indices->get_data();
-  HCTR_LIB_THROW(cudaMemcpyAsync(indices_view_, indices->get_device_view(), sizeof(*indices_view_),
-                                 cudaMemcpyDeviceToDevice, stream));
+  indices_view_ = indices->get_device_view();
 }
 
 template <typename dtype, typename emtype>

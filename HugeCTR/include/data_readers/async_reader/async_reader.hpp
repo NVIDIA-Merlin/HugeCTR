@@ -19,6 +19,7 @@ class AsyncReaderImpl {
 
   bool is_currently_loading();
   size_t get_num_buffers() const;
+  size_t get_num_batches() const;
   void load_async();
   void reset();
   BatchDesc get_batch();

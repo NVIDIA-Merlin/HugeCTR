@@ -42,9 +42,7 @@ HybridSparseEmbedding<dtype, emtype>::HybridSparseEmbedding(
     const GpuLearningRateSchedulers lr_scheds, bool graph_mode,
     const std::shared_ptr<ResourceManager> &resource_manager, bool overlap_ar_a2a,
     bool eval_overlap)
-    : train_input_tensors_(train_input_tensors),
-      evaluate_input_tensors_(evaluate_input_tensors),
-      embedding_params_(embedding_params),
+    : embedding_params_(embedding_params),
       resource_manager_(resource_manager),
       stream_manager_(resource_manager->get_local_gpu_count()),
       grouped_wgrad_buff_(grouped_wgrad_buff),
@@ -52,7 +50,10 @@ HybridSparseEmbedding<dtype, emtype>::HybridSparseEmbedding(
       lr_scheds_(lr_scheds),
       graph_mode_(graph_mode),
       overlap_ar_a2a_(overlap_ar_a2a),
-      eval_overlap_(eval_overlap) {
+      eval_overlap_(eval_overlap),
+      current_train_batch_size_(get_batch_size(true)),
+      current_eval_batch_size_(get_batch_size(false)),
+      use_graph_(graph_mode) {
   try {
     // 0. Error check
     if (embedding_params_.train_batch_size < 1 || embedding_params_.evaluate_batch_size < 1 ||
@@ -90,8 +91,6 @@ HybridSparseEmbedding<dtype, emtype>::HybridSparseEmbedding(
     }
     // 2. reserve buffers for different tensors
     data_statistics_.reserve(local_gpu_count);
-    data_train_.reserve(local_gpu_count);
-    data_evaluate_.reserve(local_gpu_count);
     model_.reserve(local_gpu_count);
     calibration_.reserve(local_gpu_count);
     statistics_.reserve(local_gpu_count);
@@ -116,12 +115,6 @@ HybridSparseEmbedding<dtype, emtype>::HybridSparseEmbedding(
 
       data_statistics_.emplace_back(embedding_params_.slot_size_array, get_batch_size(true),
                                     embedding_params_.num_iterations_statistics);
-      if (!embedding_params_.use_train_precompute_indices) {
-        data_train_.emplace_back(embedding_params_.slot_size_array, get_batch_size(true), 1);
-      }
-      if (!embedding_params_.use_eval_precompute_indices) {
-        data_evaluate_.emplace_back(embedding_params_.slot_size_array, get_batch_size(false), 1);
-      }
     }
 
     // 2.2 construct model
@@ -181,15 +174,6 @@ HybridSparseEmbedding<dtype, emtype>::HybridSparseEmbedding(
             embedding_params_.max_num_frequent_categories);
       }
 
-      if (!embedding_params_.use_train_precompute_indices) {
-        frequent_embedding_train_indices_.emplace_back(
-            embedding_params_.max_num_frequent_categories, data_train_[i], model_[i]);
-      }
-      if (!embedding_params_.use_eval_precompute_indices) {
-        frequent_embedding_evaluate_indices_.emplace_back(
-            embedding_params_.max_num_frequent_categories, data_evaluate_[i], model_[i]);
-      }
-
       // 2.7 construct infrequent embedding
       if (embedding_params_.communication_type == CommunicationType::NVLink_SingleNode) {
         infrequent_embeddings_single_node_.emplace_back(model_[i], get_local_gpu(i),
@@ -202,13 +186,6 @@ HybridSparseEmbedding<dtype, emtype>::HybridSparseEmbedding(
       if (embedding_params_.communication_type == CommunicationType::IB_NVLink_Hier) {
         infrequent_embeddings_ib_nvlink_hier_.emplace_back(model_[i], get_local_gpu(i),
                                                            get_embedding_vec_size());
-      }
-
-      if (!embedding_params_.use_train_precompute_indices) {
-        infrequent_embedding_train_indices_.emplace_back(data_train_[i], model_[i]);
-      }
-      if (!embedding_params_.use_eval_precompute_indices) {
-        infrequent_embedding_evaluate_indices_.emplace_back(data_evaluate_[i], model_[i]);
       }
 
       // 2.8 construct communication
@@ -404,6 +381,18 @@ HybridSparseEmbedding<dtype, emtype>::HybridSparseEmbedding(
             cudaMemcpyHostToDevice, get_local_gpu(i).get_stream()));
       }
     }
+
+    // Setup default indices
+    train_batch_indices_.emplace_back(model_, train_input_tensors, resource_manager_,
+                                      get_batch_size(true), embedding_params_.slot_size_array,
+                                      embedding_params_.max_num_frequent_categories,
+                                      embedding_params_.communication_type);
+
+    eval_batch_indices_.emplace_back(model_, evaluate_input_tensors, resource_manager_,
+                                     get_batch_size(false), embedding_params_.slot_size_array,
+                                     embedding_params_.max_num_frequent_categories,
+                                     embedding_params_.communication_type);
+
   } catch (const std::runtime_error &rt_err) {
     HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
     throw;
@@ -475,114 +464,67 @@ void HybridSparseEmbedding<dtype, emtype>::init_model(const SparseTensors<dtype>
 }
 
 template <typename dtype, typename emtype>
-void HybridSparseEmbedding<dtype, emtype>::setup_async_mode(AsyncReader<dtype> *train_data_reader,
-                                                            AsyncReader<dtype> *eval_data_reader,
-                                                            bool eval_overlap,
-                                                            bool use_cuda_graph) {
-  auto create_async_indices = [this](AsyncReader<dtype> *data_reader, bool is_train) {
-    size_t batch_size = get_batch_size(is_train);
-    size_t label_dim, dense_dim, sparse_dim, sample_size_items;
-    data_reader->get_dimensions(label_dim, dense_dim, sparse_dim, sample_size_items);
-
-    std::vector<FrequentEmbeddingBase<dtype> *> frequent_base_ptrs;
-    for (auto &freq : frequent_embeddings_single_node_) {
-      frequent_base_ptrs.push_back(dynamic_cast<FrequentEmbeddingBase<dtype> *>(&freq));
+void HybridSparseEmbedding<dtype, emtype>::setup_buffered_indices(
+    AsyncReader<dtype> *train_data_reader, AsyncReader<dtype> *eval_data_reader) {
+  auto create_buffered_indices = [this](AsyncReader<dtype> *reader, bool is_train) {
+    const auto data_tensors = reader->get_value_tensor_buffers();
+    auto &batch_indices = is_train ? train_batch_indices_ : eval_batch_indices_;
+    batch_indices.clear();  // remove default
+    for (size_t i = 0; i < data_tensors.size(); ++i) {
+      batch_indices.emplace_back(model_, data_tensors.at(i), resource_manager_,
+                                 get_batch_size(is_train), embedding_params_.slot_size_array,
+                                 embedding_params_.max_num_frequent_categories,
+                                 embedding_params_.communication_type);
     }
-    for (auto &freq : frequent_embeddings_multi_node_) {
-      frequent_base_ptrs.push_back(dynamic_cast<FrequentEmbeddingBase<dtype> *>(&freq));
-    }
-
-    std::vector<InfrequentEmbeddingBase<dtype> *> infrequent_base_ptrs;
-
-    if (embedding_params_.communication_type == CommunicationType::NVLink_SingleNode) {
-      for (auto &infreq : infrequent_embeddings_single_node_) {
-        infrequent_base_ptrs.push_back(dynamic_cast<InfrequentEmbeddingBase<dtype> *>(&infreq));
-      }
-    }
-    if (embedding_params_.communication_type == CommunicationType::IB_NVLink) {
-      for (auto &infreq : infrequent_embeddings_ib_nvlink_) {
-        infrequent_base_ptrs.push_back(dynamic_cast<InfrequentEmbeddingBase<dtype> *>(&infreq));
-      }
-    }
-    if (embedding_params_.communication_type == CommunicationType::IB_NVLink_Hier) {
-      for (auto &infreq : infrequent_embeddings_ib_nvlink_hier_) {
-        infrequent_base_ptrs.push_back(dynamic_cast<InfrequentEmbeddingBase<dtype> *>(&infreq));
-      }
-    }
-
-    return std::make_shared<IndexProcessor<dtype>>(
-        model_, frequent_base_ptrs, infrequent_base_ptrs, resource_manager_,
-        // double buffer for train, cache each batch for eval
-        is_train ? 2 : data_reader->get_total_queue_size(), batch_size,
-        embedding_params_.slot_size_array, embedding_params_.max_num_frequent_categories,
-        data_reader->is_mixed_precision(), embedding_params_.communication_type, label_dim,
-        dense_dim, sparse_dim, sample_size_items);
+    return batch_indices;
   };
 
-  if (embedding_params_.use_train_precompute_indices) {
-    train_async_indices_ = create_async_indices(train_data_reader, true);
-    train_data_reader->register_extra_processing(train_async_indices_, false, use_cuda_graph);
-  }
   if (embedding_params_.use_eval_precompute_indices) {
-    eval_async_indices_ = create_async_indices(eval_data_reader, false);
-    eval_data_reader->register_extra_processing(eval_async_indices_, eval_overlap, use_cuda_graph);
+    // If get_max_batches_inflight() is > than the number of eval batches in the dataset,
+    // this will cause the batch tensors to be cached. We need the tensors to be cached in order
+    // for the indices to be cached because the index calculation is done in place in these
+    // tensors.
+    eval_data_reader->set_tensor_buffering(eval_data_reader->get_max_batches_inflight());
+    create_buffered_indices(eval_data_reader, false);
+  }
+
+  if (embedding_params_.use_train_precompute_indices) {
+    // Double buffering for overlapping indices calculation between iterations
+    train_data_reader->set_tensor_buffering(2);
+    create_buffered_indices(train_data_reader, true);
   }
 }
 
 template <typename dtype, typename emtype>
-void HybridSparseEmbedding<dtype, emtype>::index_calculation(bool is_train, bool is_first_batch,
-                                                             int i, cudaStream_t stream) {
+void HybridSparseEmbedding<dtype, emtype>::index_calculation(bool is_train, int i,
+                                                             cudaStream_t stream) {
   int cur_device = get_local_gpu(i).get_device_id();
   CudaDeviceContext context(cur_device);
 
-  if (is_train && embedding_params_.use_train_precompute_indices) {
-    // Async indices, need to do nothing at all here
-  } else if (!is_train && embedding_params_.use_eval_precompute_indices) {
-    // Async indices, need to do nothing at all here
-  } else {
-    auto frequent_indices = (is_train) ? &frequent_embedding_train_indices_[i]
-                                       : &frequent_embedding_evaluate_indices_[i];
-    auto infrequent_indices = (is_train) ? &infrequent_embedding_train_indices_[i]
-                                         : &infrequent_embedding_evaluate_indices_[i];
+  auto &batch_indices = is_train ? train_batch_indices_.at(train_inflight_id_)
+                                 : eval_batch_indices_.at(eval_inflight_id_);
 
-    auto data = (is_train) ? &data_train_[i] : &data_evaluate_[i];
-    auto input = (is_train) ? train_input_tensors_[i].get_value_tensor()
-                            : evaluate_input_tensors_[i].get_value_tensor();
-
-    if (is_first_batch) {
-      auto &before_idx_event = stream_manager_.get_event(i, "before_idx");
-      auto &set_idx_stream = stream_manager_.get_stream(i, "set_idx_stream");
-      HCTR_LIB_THROW(cudaEventRecord(before_idx_event, stream));
-      HCTR_LIB_THROW(cudaStreamWaitEvent(set_idx_stream, before_idx_event));
+  if (is_train) {
+    if (!current_train_batch_cached_) {
+      batch_indices.compute(i, current_train_batch_size_, stream);
     }
-
-    data->data_to_unique_categories(input, stream);
-
-    compute_indices(*frequent_indices, *infrequent_indices, embedding_params_.communication_type,
-                    is_train || is_first_batch, stream, stream_manager_, i,
-                    resource_manager_->get_local_gpu(i)->get_sm_count());
-
-    // Setting the indices involves cudaMemcpy, so we'll only do that
-    // for the first batch after we switch from train to eval (and from eval to train)
-    if (is_first_batch) {
-      auto &set_idx_stream = stream_manager_.get_stream(i, "set_idx_stream");
-      auto &set_idx_event = stream_manager_.get_event(i, "set_idx");
-
-      get_frequent_embedding(i).set_current_indices(frequent_indices, stream);
-
-      if (embedding_params_.communication_type == CommunicationType::NVLink_SingleNode) {
-        infrequent_embeddings_single_node_[i].set_current_indices(infrequent_indices, stream);
-      }
-      if (embedding_params_.communication_type == CommunicationType::IB_NVLink) {
-        infrequent_embeddings_ib_nvlink_[i].set_current_indices(infrequent_indices, stream);
-      }
-      if (embedding_params_.communication_type == CommunicationType::IB_NVLink_Hier) {
-        infrequent_embeddings_ib_nvlink_hier_[i].set_current_indices(infrequent_indices, stream);
-      }
-
-      HCTR_LIB_THROW(cudaEventRecord(set_idx_event, set_idx_stream));
-      HCTR_LIB_THROW(cudaStreamWaitEvent(stream, set_idx_event));
+  } else {  // eval
+    if (!current_eval_batch_cached_) {
+      batch_indices.compute(i, current_eval_batch_size_, stream);
     }
+  }
+
+  // We don't copy the sparse tensor since all the required data are already in the
+  // Data type and indices
+  get_frequent_embedding(i).set_current_indices(&batch_indices.get_frequent(i));
+  get_infrequent_embedding(i).set_current_indices(&batch_indices.get_infrequent(i));
+
+  // Only overlap index calculation with next iteration. Prevent next steps in training pipeline
+  // from overlapping, so we wait for the previous iteration to end before continuing.
+  if (is_train) {
+    auto &iteration_end = get_local_gpu(i).get_event("iteration_end");
+    HCTR_LIB_THROW(
+        cudaStreamWaitEvent(stream, iteration_end, use_graph_ ? cudaEventWaitExternal : 0));
   }
 }
 
@@ -617,21 +559,16 @@ void HybridSparseEmbedding<dtype, emtype>::forward(bool is_train, bool is_first_
     auto &ready_freq_fwd_net = stream_manager_.get_event(i, "ready_freq_fwd_net");
     auto &freq_fwd_net_completion = stream_manager_.get_event(i, "freq_fwd_net_completion");
 
-    if (is_train) {
-      HCTR_LIB_THROW(cudaEventRecord(ready_freq_fwd_net, stream));
-      HCTR_LIB_THROW(cudaStreamWaitEvent(stream_side, ready_freq_fwd_net));
-    }
-
-    infrequent_embeddings_ib_nvlink_hier_[i].infrequent_forward_comms_->wait_completion(stream);
-
     if (!is_train) {
       if (eval_overlap_) {
         HCTR_LIB_THROW(cudaStreamWaitEvent(stream, gpu.get_event("eval_comm_wait")));
       }
-      HCTR_LIB_THROW(cudaEventRecord(ready_freq_fwd_net, stream));
-      HCTR_LIB_THROW(cudaStreamWaitEvent(stream_side, ready_freq_fwd_net));
     }
 
+    HCTR_LIB_THROW(cudaEventRecord(ready_freq_fwd_net, stream));
+    HCTR_LIB_THROW(cudaStreamWaitEvent(stream_side, ready_freq_fwd_net));
+
+    infrequent_embeddings_ib_nvlink_hier_[i].infrequent_forward_comms_->wait_completion(stream);
     frequent_embeddings_multi_node_[i].forward_network(output.get_ptr(), stream_side);
 
     infrequent_embeddings_ib_nvlink_hier_[i].hier_forward_network(
@@ -687,7 +624,7 @@ void HybridSparseEmbedding<dtype, emtype>::forward(bool is_train, bool is_first_
     auto &gpu = get_local_gpu(i);
     CudaDeviceContext context(gpu.get_device_id());
     auto stream = is_train || !eval_overlap_ ? gpu.get_stream() : gpu.get_stream("eval_comms", -1);
-    index_calculation(is_train, is_first_batch, i, stream);
+    index_calculation(is_train, i, stream);
     forward(is_train, is_first_batch, i, stream, nullptr);
   }
 }
@@ -844,7 +781,7 @@ TrainState HybridSparseEmbedding<dtype, emtype>::train(bool is_train, int i, Tra
   switch (state.state) {
     case TrainState_t::Init:
       sync();
-      index_calculation(is_train, -1, i, stream);
+      index_calculation(is_train, i, stream);
       forward(is_train, -1, i, stream, &ready_bot_mlp_fprop);
       event_ptr = &ready_bot_mlp_fprop;
       break;
@@ -1025,6 +962,22 @@ void HybridSparseEmbedding<dtype, emtype>::compute_indices(
   // Join streams to the main stream
   HCTR_LIB_THROW(cudaStreamWaitEvent(main_stream, event_frequent_sample_indices));
   HCTR_LIB_THROW(cudaStreamWaitEvent(main_stream, event_model_indices));
+}
+
+template <typename dtype, typename emtype>
+void HybridSparseEmbedding<dtype, emtype>::assign_input_tensors(bool is_train, size_t batch_size,
+                                                                size_t inflight_id, bool cached,
+                                                                bool use_graph) {
+  use_graph_ = use_graph;
+  if (is_train) {
+    train_inflight_id_ = inflight_id;
+    current_train_batch_size_ = batch_size;
+    current_train_batch_cached_ = cached;
+  } else {
+    eval_inflight_id_ = inflight_id;
+    current_eval_batch_size_ = batch_size;
+    current_eval_batch_cached_ = cached;
+  }
 }
 
 template class HybridSparseEmbedding<uint32_t, __half>;

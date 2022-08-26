@@ -45,7 +45,7 @@ class InfrequentEmbeddingBase {
   // Infrequent indices and device pointer!
   InfrequentEmbeddingSelection<dtype> *indices_;
 
-  void set_current_indices(InfrequentEmbeddingSelection<dtype> *indices, cudaStream_t stream);
+  void set_current_indices(InfrequentEmbeddingSelection<dtype> *indices);
   InfrequentEmbeddingBase();
   virtual ~InfrequentEmbeddingBase();
 

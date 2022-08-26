@@ -105,19 +105,18 @@ class ForwardNetworkTest : public HybridEmbeddingUnitTest<dtype, emtype> {
     for (size_t i = 0; i < this->num_instances; i++) {
       // this->frequent_embeddings[i].set_current_indices(&this->frequent_embedding_indices[i],
       // this->stream);
-      this->get_frequent_embedding(i).set_current_indices(&this->frequent_embedding_indices[i],
-                                                          this->stream);
+      this->get_frequent_embedding(i).set_current_indices(&this->frequent_embedding_indices[i]);
       if (single_node) {
         this->infrequent_embeddings_single_node[i].set_current_indices(
-            &this->infrequent_embedding_indices[i], this->stream);
+            &this->infrequent_embedding_indices[i]);
       }
       if (this->config.comm_type == CommunicationType::IB_NVLink_Hier) {
         this->infrequent_embeddings_ib_nvlink_hier[i].set_current_indices(
-            &this->infrequent_embedding_indices[i], this->stream);
+            &this->infrequent_embedding_indices[i]);
       }
       if (this->config.comm_type == CommunicationType::IB_NVLink) {
         this->infrequent_embeddings_ib_nvlink[i].set_current_indices(
-            &this->infrequent_embedding_indices[i], this->stream);
+            &this->infrequent_embedding_indices[i]);
       }
 
       if (single_node) {
@@ -220,7 +219,7 @@ class FrequentForwardModelTest : public HybridEmbeddingUnitTest<dtype, emtype> {
       frequent_partial_gradients_pointers[i] =
           this->frequent_embeddings_single_node[i].frequent_data_.get_gradients().get_ptr();
       this->frequent_embeddings_single_node[i].set_current_indices(
-          &this->frequent_embedding_indices[i], this->stream);
+          &this->frequent_embedding_indices[i]);
     }
     for (size_t i = 0; i < this->num_instances; i++) {
       this->frequent_embeddings_single_node[i].indices_->calculate_cache_masks(this->stream);

@@ -126,6 +126,8 @@ bool AsyncReaderImpl::is_currently_loading() { return !threads_.empty(); }
 
 size_t AsyncReaderImpl::get_num_buffers() const { return buffers_.size(); }
 
+size_t AsyncReaderImpl::get_num_batches() const { return num_batches_; }
+
 void AsyncReaderImpl::load_async() {
   if (is_currently_loading()) {
     throw std::runtime_error("load_async() is called before the previous load_async finished!");
@@ -155,7 +157,7 @@ BatchDesc AsyncReaderImpl::get_batch() {
     while (status != BufferStatus::Finished) {
       if (status == BufferStatus::ReadReady || status == BufferStatus::PermanentlyResident) {
         return {last_buffer_->size, last_buffer_->dev_data,
-                status == BufferStatus::PermanentlyResident};
+                status == BufferStatus::PermanentlyResident, static_cast<size_t>(last_buffer_->id)};
       }
       if (wait_for_gpu_idle_) {
         last_buffer_->ready_to_upload_event.store(&event_success_);
@@ -167,7 +169,7 @@ BatchDesc AsyncReaderImpl::get_batch() {
     queue_id_ = (queue_id_ + 1) % buffers_.size();
   }
 
-  return {0, std::vector<char*>(0)};
+  return {0, std::vector<char*>(0), false, 0};
 }
 
 void AsyncReaderImpl::wait_for_gpu_events(const std::vector<cudaEvent_t*> events) {
