@@ -30,9 +30,9 @@ std::unique_ptr<Solver> CreateSolver(
     const std::vector<std::vector<int>>& vvgpu, bool repeat_dataset, bool use_mixed_precision,
     bool enable_tf32_compute, float scaler, std::map<metrics::Type, float> metrics_spec,
     bool i64_input_key, bool use_algorithm_search, bool use_cuda_graph, bool async_mlp_wgrad,
-    bool gen_loss_summary, bool overlap_lr, bool overlap_init_wgrad, bool overlap_ar_a2a,
-    bool eval_overlap, DeviceMap::Layout device_layout, bool use_holistic_cuda_graph,
-    bool use_overlapped_pipeline, bool use_embedding_collection, AllReduceAlgo all_reduce_algo,
+    bool gen_loss_summary, bool train_intra_iteration_overlap, bool train_inter_iteration_overlap,
+    bool eval_intra_iteration_overlap, bool eval_inter_iteration_overlap,
+    DeviceMap::Layout device_layout, bool use_embedding_collection, AllReduceAlgo all_reduce_algo,
     bool grouped_all_reduce, size_t num_iterations_statistics, bool perf_logging,
     bool drop_incomplete_batch, std::string& kafka_brokers,
     const DataSourceParams& data_source_params) {
@@ -43,15 +43,6 @@ std::unique_ptr<Solver> CreateSolver(
   if (use_mixed_precision && scaler != 128 && scaler != 256 && scaler != 512 && scaler != 1024) {
     HCTR_OWN_THROW(Error_t::WrongInput,
                    "Scaler of mixed precision training should be either 128/256/512/1024");
-  }
-  if (use_holistic_cuda_graph && use_cuda_graph) {
-    HCTR_OWN_THROW(Error_t::WrongInput,
-                   "Must turn off local cuda graph when using holistic cuda graph");
-  }
-  if (async_mlp_wgrad && use_cuda_graph) {
-    HCTR_OWN_THROW(
-        Error_t::WrongInput,
-        "Must turn off local cuda graph when using asynchronous wgrad computation of mlp");
   }
 
   std::unique_ptr<Solver> solver(new Solver());
@@ -78,13 +69,11 @@ std::unique_ptr<Solver> CreateSolver(
   solver->use_cuda_graph = use_cuda_graph;
   solver->async_mlp_wgrad = async_mlp_wgrad;
   solver->gen_loss_summary = gen_loss_summary;
-  solver->overlap_lr = overlap_lr;
-  solver->overlap_init_wgrad = overlap_init_wgrad;
-  solver->overlap_ar_a2a = overlap_ar_a2a;
-  solver->eval_overlap = eval_overlap;
+  solver->train_intra_iteration_overlap = train_intra_iteration_overlap;
+  solver->train_inter_iteration_overlap = train_inter_iteration_overlap;
+  solver->eval_intra_iteration_overlap = eval_intra_iteration_overlap;
+  solver->eval_inter_iteration_overlap = eval_inter_iteration_overlap;
   solver->device_layout = device_layout;
-  solver->use_holistic_cuda_graph = use_holistic_cuda_graph;
-  solver->use_overlapped_pipeline = use_overlapped_pipeline;
   solver->use_embedding_collection = use_embedding_collection;
   solver->all_reduce_algo = all_reduce_algo;
   solver->grouped_all_reduce = grouped_all_reduce;
@@ -122,13 +111,13 @@ void SolverPybind(pybind11::module& m) {
       .def_readonly("use_cuda_graph", &HugeCTR::Solver::use_cuda_graph)
       .def_readonly("async_mlp_wgrad", &HugeCTR::Solver::async_mlp_wgrad)
       .def_readonly("gen_loss_summary", &HugeCTR::Solver::gen_loss_summary)
-      .def_readonly("overlap_lr", &HugeCTR::Solver::overlap_lr)
-      .def_readonly("overlap_init_wgrad", &HugeCTR::Solver::overlap_init_wgrad)
-      .def_readonly("overlap_ar_a2a", &HugeCTR::Solver::overlap_ar_a2a)
-      .def_readonly("eval_overlap", &HugeCTR::Solver::eval_overlap)
+      .def_readonly("train_intra_iteration_overlap",
+                    &HugeCTR::Solver::train_intra_iteration_overlap)
+      .def_readonly("train_inter_iteration_overlap",
+                    &HugeCTR::Solver::train_inter_iteration_overlap)
+      .def_readonly("eval_intra_iteration_overlap", &HugeCTR::Solver::eval_intra_iteration_overlap)
+      .def_readonly("eval_inter_iteration_overlap", &HugeCTR::Solver::eval_inter_iteration_overlap)
       .def_readonly("device_layout", &HugeCTR::Solver::device_layout)
-      .def_readonly("use_holistic_cuda_graph", &HugeCTR::Solver::use_holistic_cuda_graph)
-      .def_readonly("use_overlapped_pipeline", &HugeCTR::Solver::use_overlapped_pipeline)
       .def_readonly("all_reduce_algo", &HugeCTR::Solver::all_reduce_algo)
       .def_readonly("grouped_all_reduce", &HugeCTR::Solver::grouped_all_reduce)
       .def_readonly("num_iterations_statistics", &HugeCTR::Solver::num_iterations_statistics)
@@ -147,12 +136,12 @@ void SolverPybind(pybind11::module& m) {
         pybind11::arg("metrics_spec") = std::map<metrics::Type, float>({{metrics::Type::AUC, 1.f}}),
         pybind11::arg("i64_input_key") = false, pybind11::arg("use_algorithm_search") = true,
         pybind11::arg("use_cuda_graph") = true, pybind11::arg("async_mlp_wgrad") = false,
-        pybind11::arg("gen_loss_summary") = true, pybind11::arg("overlap_lr") = false,
-        pybind11::arg("overlap_init_wgrad") = false, pybind11::arg("overlap_ar_a2a") = false,
-        pybind11::arg("eval_overlap") = false,
+        pybind11::arg("gen_loss_summary") = true,
+        pybind11::arg("train_intra_iteration_overlap") = false,
+        pybind11::arg("train_inter_iteration_overlap") = false,
+        pybind11::arg("eval_intra_iteration_overlap") = false,
+        pybind11::arg("eval_inter_iteration_overlap") = false,
         pybind11::arg("device_layout") = DeviceMap::Layout::LOCAL_FIRST,
-        pybind11::arg("use_holistic_cuda_graph") = false,
-        pybind11::arg("use_overlapped_pipeline") = false,
         pybind11::arg("use_embedding_collection") = false,
         pybind11::arg("all_reduce_algo") = AllReduceAlgo::NCCL,
         pybind11::arg("grouped_all_reduce") = false,

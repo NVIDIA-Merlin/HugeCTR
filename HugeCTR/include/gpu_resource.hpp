@@ -35,9 +35,9 @@ class GPUResource {
   const int device_id_;
   const size_t local_id_;
   const size_t global_id_;
-  cudaStream_t computation_stream_; /**< cuda stream for computation */
-  cudaStream_t memcpy_stream_;      /**< cuda stream for data copy */
-  cudaStream_t p2p_stream_;         /**< cuda stream for broadcast copy */
+  std::string stream_name_;
+  cudaStream_t memcpy_stream_; /**< cuda stream for data copy */
+  cudaStream_t p2p_stream_;    /**< cuda stream for broadcast copy */
   curandGenerator_t replica_uniform_curand_generator_;
   curandGenerator_t replica_variant_curand_generator_;
   cublasHandle_t cublas_handle_;
@@ -49,8 +49,6 @@ class GPUResource {
   int cc_major_;
   int cc_minor_;
   cudaStream_t computation_stream_2_;
-  cudaEvent_t compute_sync_event_;
-  cudaEvent_t compute2_sync_event_;
 
   cudaEvent_t wait_wgrad_event_;
 
@@ -70,7 +68,16 @@ class GPUResource {
   int get_device_id() const { return device_id_; }
   int get_local_id() const { return local_id_; }
   size_t get_global_id() const { return global_id_; }
-  const cudaStream_t& get_stream() const { return computation_stream_; }
+  const cudaStream_t& get_stream() const { return stream_event_manager_.get_stream(stream_name_); }
+  std::string get_current_stream_name() const { return stream_name_; }
+  void set_stream(const std::string& name, int priority = 0) {
+    cudaStream_t current_stream =
+        stream_event_manager_.get_stream(name, cudaStreamNonBlocking, priority);
+    stream_name_ = name;
+    HCTR_LIB_THROW(curandSetStream(replica_variant_curand_generator_, current_stream));
+    HCTR_LIB_THROW(cublasSetStream(cublas_handle_, current_stream));
+    HCTR_LIB_THROW(cudnnSetStream(cudnn_handle_, current_stream));
+  }
   const cudaStream_t& get_memcpy_stream() const { return memcpy_stream_; }
   const cudaStream_t& get_p2p_stream() const { return p2p_stream_; }
   const cudaStream_t& get_comp_overlap_stream() const { return computation_stream_2_; }
@@ -89,13 +96,21 @@ class GPUResource {
   int get_cc_major() const { return cc_major_; }
   int get_cc_minor() const { return cc_minor_; }
   bool support_nccl() const { return comm_ != nullptr; }
-  void set_compute_event_sync(const cudaStream_t& sync_stream);
-  void wait_on_compute_event(const cudaStream_t& sync_stream);
-  void set_compute2_event_sync(const cudaStream_t& sync_stream);
-  void wait_on_compute2_event(const cudaStream_t& sync_stream);
 
   void set_wgrad_event_sync(const cudaStream_t& sync_stream) const;
   void wait_on_wgrad_event(const cudaStream_t& sync_stream) const;
 };
 
+class StreamContext {
+  std::shared_ptr<GPUResource> local_gpu_;
+  std::string origin_stream_name_;
+
+ public:
+  StreamContext(std::shared_ptr<GPUResource> local_gpu, const std::string& new_stream_name,
+                int priority = 0)
+      : local_gpu_(local_gpu), origin_stream_name_(local_gpu->get_current_stream_name()) {
+    local_gpu_->set_stream(new_stream_name, priority);
+  }
+  ~StreamContext() { local_gpu_->set_stream(origin_stream_name_, 0); }
+};
 }  // namespace HugeCTR

@@ -65,8 +65,7 @@ void InferenceParser::create_pipeline_inference(
       j_layers_array, "", train_tensor_entries, inference_tensor_entries, 1, exchange_wgrad_dummy,
       resource_manager->get_local_cpu(),
       resource_manager->get_local_gpu_from_device_id(inference_params.device_id),
-      inference_params.use_mixed_precision, false, inference_params.scaler, false,
-      inference_params.use_cuda_graph, true, false);
+      inference_params.use_mixed_precision, false, inference_params.scaler, false, true, false);
 }
 
 void InferenceParser::create_pipeline(const InferenceParams& inference_params,

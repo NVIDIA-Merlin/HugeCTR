@@ -3,18 +3,18 @@
 #include <common.hpp>
 #include <data_readers/async_reader/async_reader.hpp>
 #include <data_readers/async_reader/async_reader_common.hpp>
-#include <data_readers/async_reader/data_reader_scheduling.hpp>
 #include <data_readers/async_reader/split_label_dense_sparse.hpp>
 #include <tensor2.hpp>
 
 #include "HugeCTR/include/data_source/hdfs_backend.hpp"
 #include "HugeCTR/include/embeddings/hybrid_embedding/indices_container.hpp"
 #include "HugeCTR/include/graph_wrapper.hpp"
+#include "scheduleable.hpp"
 
 namespace HugeCTR {
 
 template <typename SparseType>
-class AsyncReader : public IDataReaderWithScheduling {
+class AsyncReader : public SchedulableDataReader {
   using LabelType = float;
   using InputType = int;
 

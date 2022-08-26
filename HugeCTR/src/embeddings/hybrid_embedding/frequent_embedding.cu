@@ -409,7 +409,7 @@ void FrequentEmbeddingSingleNode<dtype, emtype>::update_model_direct(float* dev_
   const uint32_t num_frequent_per_model = frequent_data_.model_.num_frequent / num_instances;
 
   int num_sm = frequent_data_.gpu_resource_.get_sm_count();
-  int n_blocks = 16 * num_sm;  // TODO: better heuristics
+  int n_blocks = 8 * num_sm;  // TODO: better heuristics
 
   /* Update models */
   frequent_embedding_kernels::

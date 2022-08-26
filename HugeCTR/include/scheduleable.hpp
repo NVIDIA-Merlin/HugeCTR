@@ -13,18 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #pragma once
-
-#include <data_reader.hpp>
-
+#include "data_reader.hpp"
+#include "embedding.hpp"
 namespace HugeCTR {
-
 /**
  * @brief Data Reader that enables scheduling of various
  * computation to enable better overlap within the pipeline.
  */
-class IDataReaderWithScheduling : public IDataReader {
+class SchedulableDataReader : public IDataReader {
  public:
   // TODO: remove, use get_value_tensors() instead
   virtual bool is_batch_cached() const = 0;
@@ -45,4 +42,20 @@ class IDataReaderWithScheduling : public IDataReader {
                                          bool from_graph) = 0;
 };
 
+class SchedulableEmbeding : public IEmbedding {
+ public:
+  virtual ~SchedulableEmbeding() = default;
+
+  virtual void assign_input_tensors(bool is_train, size_t batch_size, size_t inflight_id,
+                                    bool cached) = 0;
+  virtual void index_calculation(bool is_train, int i) = 0;
+  virtual void freq_forward(bool is_train, int i, bool is_first_eval_batch = true) = 0;
+  virtual void freq_backward(int i) = 0;
+  virtual void freq_update_params(int i) = 0;
+  virtual void infreq_model_forward(int i) = 0;
+  virtual void infreq_network_forward(bool is_train, int i) = 0;
+  virtual void global_barrier(bool is_train, int i) = 0;
+  virtual void infreq_network_backward(int i) = 0;
+  virtual void infreq_model_backward(int i) = 0;
+};
 }  // namespace HugeCTR

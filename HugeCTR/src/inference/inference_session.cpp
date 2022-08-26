@@ -19,7 +19,6 @@
 #include <resource_managers/resource_manager_core.hpp>
 #include <utils.hpp>
 #include <vector>
-
 namespace HugeCTR {
 
 InferenceSessionBase::~InferenceSessionBase() = default;
@@ -61,6 +60,13 @@ InferenceSession::InferenceSession(const std::string& model_config_path,
     inference_parser_.create_pipeline(
         inference_params_, dense_input_tensorbag_, row_ptrs_tensors_, embedding_features_tensors_,
         embedding_table_slot_size_, &embedding_feature_combiners_, &network_ptr, resource_manager_);
+
+    auto dense_network_feedforward =
+        std::make_shared<StreamContextScheduleable>([=] { network_->predict(); });
+    predict_network_pipeline_ = Pipeline(
+        "default", resource_manager_->get_local_gpu_from_device_id(inference_params.device_id),
+        {dense_network_feedforward});
+
     network_ = std::move(std::unique_ptr<Network>(network_ptr));
     network_->initialize(false);
     if (inference_params.use_algorithm_search) {
@@ -204,7 +210,12 @@ void InferenceSession::predict(float* d_dense, void* h_embeddingcolumns, int* d_
   }
 
   // dense network feedforward
-  network_->predict();
+
+  if (inference_params_.use_cuda_graph) {
+    predict_network_pipeline_.run_graph();
+  } else {
+    predict_network_pipeline_.run();
+  }
 
   // convert the prediction result to output
   if (inference_params_.use_mixed_precision) {

@@ -28,18 +28,10 @@ void conv_weight_gpu(size_t grid, size_t block, __half* dst, const float* src, i
                      cudaStream_t stream);
 
 Network::Network(const std::shared_ptr<CPUResource>& cpu_resource,
-                 const std::shared_ptr<GPUResource>& gpu_resource, bool use_mixed_precision,
-                 bool enable_cuda_graph)
+                 const std::shared_ptr<GPUResource>& gpu_resource, bool use_mixed_precision)
     : cpu_resource_(cpu_resource),
       gpu_resource_(gpu_resource),
-      use_mixed_precision_(use_mixed_precision),
-#ifdef NDEBUG
-      enable_cuda_graph_(enable_cuda_graph)
-#else
-      enable_cuda_graph_(false)
-#endif
-{
-}
+      use_mixed_precision_(use_mixed_precision) {}
 
 void Network::update_params() {
   optimizer_->update();
@@ -58,44 +50,16 @@ void Network::conv_weight_(Tensor2<__half>& target, const Tensor2<float>& source
                   gpu_resource_->get_stream());
 }
 
-cudaEvent_t& Network::get_train_events(TrainState_t key) {
-  if (train_events_.find(key) == train_events_.end()) {
-    cudaEvent_t event;
-    HCTR_LIB_THROW(cudaEventCreateWithFlags(&event, cudaEventDisableTiming));
-    train_events_[key] = event;
-  }
-  return train_events_[key];
-}
-
-template <typename LPtr>
-void Network::prop_layers(const std::vector<LPtr>& layers, GraphWrapper& graph, bool use_graph,
-                          bool fprop, const cudaStream_t stream, bool train) {
-  auto execute = [&layers, train, fprop](cudaStream_t submit_stream) {
-    if (fprop) {
-      for (auto& layer : layers) {
-        layer->fprop(train);
-      }
-    } else {
-      for (auto it = layers.rbegin(); it != layers.rend(); it++) {
-        (*it)->bprop();
-      }
+void Network::prop_layers(const std::vector<Layer*>& layers, bool fprop, bool train) {
+  if (fprop) {
+    for (auto& layer : layers) {
+      layer->fprop(train);
     }
-  };
-
-  if (!use_graph) {
-    execute(stream);
-    return;
+  } else {
+    for (auto it = layers.rbegin(); it != layers.rend(); it++) {
+      (*it)->bprop();
+    }
   }
-
-  bool do_capture;
-  do_capture = !graph.initialized;
-  graph.initialized = true;
-
-  if (do_capture) {
-    graph.initialized = false;
-    graph.capture(execute, stream);
-  }
-  graph.exec(stream);
 }
 
 // TODO - Update this method for multi-regularzer to run each regularizer and compute the
@@ -107,8 +71,10 @@ void Network::train(long long current_batchsize) {
     conv_weight_(train_weight_tensor_half_, train_weight_tensor_);
   }
 
-  prop_layers(train_layers_, train_fprop_graph_, enable_cuda_graph_, true,
-              gpu_resource_->get_stream());
+  std::vector<Layer*> train_layers_ptr;
+  std::transform(train_layers_.begin(), train_layers_.end(), std::back_inserter(train_layers_ptr),
+                 [](const std::unique_ptr<Layer>& layer) { return layer.get(); });
+  prop_layers(train_layers_ptr, true, true);
 
   float rterm = train_losses_.begin()->second->regularizer_compute_rterm();
 
@@ -119,57 +85,18 @@ void Network::train(long long current_batchsize) {
 
   train_losses_.begin()->second->regularizer_initialize_wgrad(true);  // Only 1 regularizer for now
 
-  prop_layers(train_layers_, train_bprop_graph_, enable_cuda_graph_, false,
-              gpu_resource_->get_stream());
+  prop_layers(train_layers_ptr, false, true);
+
   return;
 }
 
-TrainState Network::train(long long current_batchsize, std::function<void()> exchange_wgrad,
-                          TrainState state) {
-  auto stream = gpu_resource_->get_stream();
-
-  switch (state.state) {
-    case TrainState_t::Init:
-      if (use_mixed_precision_ && optimizer_->get_optimizer_type() != Optimizer_t::SGD) {
-        conv_weight_(train_weight_tensor_half_, train_weight_tensor_);
-      }
-      break;
-    case TrainState_t::BottomMLPFprop:
-      prop_layers(bottom_layers_, bottom_train_fprop_graph_, enable_cuda_graph_, true, stream);
-      train_losses_.begin()->second->initialize_wgrad_async();
-      break;
-    case TrainState_t::TopMLPFprop:
-      prop_layers(top_layers_, train_fprop_graph_, enable_cuda_graph_, true, stream);
-      if (lr_sched_->get_overlapped()) lr_sched_->update();
-      train_losses_.begin()->second->compute_and_init(true, current_batchsize);
-      break;
-    case TrainState_t::TopMLPBprop:
-      prop_layers(top_layers_, train_bprop_graph_, enable_cuda_graph_, false, stream);
-      break;
-    case TrainState_t::BottomMLPBprop:
-      prop_layers(bottom_layers_, bottom_train_bprop_graph_, enable_cuda_graph_, false, stream);
-      break;
-    case TrainState_t::MLPExchangeWgrad:
-      exchange_wgrad();
-      break;
-    case TrainState_t::MLPUpdate:
-      update_params();
-      break;
-    case TrainState_t::Finalize:
-      break;
-    default:
-      HCTR_OWN_THROW(Error_t::InvalidEnv, "network train reach invalid status");
-  }
-
-  cudaEvent_t& event = get_train_events(state.state);
-  HCTR_LIB_THROW(cudaEventRecord(event, stream));
-  state.event = &event;
-  return state;
-}
-
 void Network::eval(long long current_batchsize) {
-  prop_layers(evaluate_layers_, eval_graph_, enable_cuda_graph_, true, gpu_resource_->get_stream(),
-              false);
+  std::vector<Layer*> evaluate_layers_ptr;
+  std::transform(evaluate_layers_.begin(), evaluate_layers_.end(),
+                 std::back_inserter(evaluate_layers_ptr),
+                 [](const std::unique_ptr<Layer>& layer) { return layer.get(); });
+
+  prop_layers(evaluate_layers_ptr, true, false);
 
   float rterm = evaluate_losses_.begin()->second->regularizer_compute_rterm();
 
@@ -182,8 +109,12 @@ void Network::eval(long long current_batchsize) {
       false);  // Only 1 regularize for now
 }
 void Network::predict() {
-  prop_layers(evaluate_layers_, predict_graph_, enable_cuda_graph_, true,
-              gpu_resource_->get_stream(), false);
+  std::vector<Layer*> evaluate_layers_ptr;
+  std::transform(evaluate_layers_.begin(), evaluate_layers_.end(),
+                 std::back_inserter(evaluate_layers_ptr),
+                 [](const std::unique_ptr<Layer>& layer) { return layer.get(); });
+
+  prop_layers(evaluate_layers_ptr, true, false);
 }
 
 void Network::download_params_to_host(std::ofstream& weight_stream) {

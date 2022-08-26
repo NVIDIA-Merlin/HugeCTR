@@ -23,31 +23,36 @@ namespace HugeCTR {
 GPUResource::GPUResource(int device_id, size_t local_id, size_t global_id,
                          unsigned long long replica_uniform_seed,
                          unsigned long long replica_variant_seed, const ncclComm_t& comm)
-    : device_id_(device_id), local_id_(local_id), global_id_(global_id), comm_(comm) {
+    : device_id_(device_id),
+      local_id_(local_id),
+      global_id_(global_id),
+      stream_name_("default"),
+      comm_(comm) {
   CudaDeviceContext context(device_id);
-  HCTR_LIB_THROW(cudaStreamCreateWithFlags(&computation_stream_, cudaStreamNonBlocking));
-  HCTR_LIB_THROW(cudaStreamCreateWithFlags(&memcpy_stream_, cudaStreamNonBlocking));
-  HCTR_LIB_THROW(cudaStreamCreateWithFlags(&computation_stream_2_, cudaStreamNonBlocking));
-  HCTR_LIB_THROW(cudaStreamCreateWithFlags(&p2p_stream_, cudaStreamNonBlocking));
-  HCTR_LIB_THROW(cudaEventCreate(&compute_sync_event_));
-  HCTR_LIB_THROW(cudaEventCreate(&compute2_sync_event_));
-  HCTR_LIB_THROW(cudaEventCreate(&wait_wgrad_event_));
+  HCTR_LIB_THROW(
+      curandCreateGenerator(&replica_variant_curand_generator_, CURAND_RNG_PSEUDO_DEFAULT));
+  HCTR_LIB_THROW(
+      curandSetPseudoRandomGeneratorSeed(replica_variant_curand_generator_, replica_variant_seed));
+  HCTR_LIB_THROW(cublasCreate(&cublas_handle_));
+  HCTR_LIB_THROW(cudnnCreate(&cudnn_handle_));
+
+  set_stream(stream_name_, 0);
+  cudaStream_t computation_stream_ = stream_event_manager_.get_stream(stream_name_);
+  memcpy_stream_ = stream_event_manager_.get_stream("memcpy_stream_");
+  computation_stream_2_ = stream_event_manager_.get_stream("computation_stream_2_");
+  p2p_stream_ = stream_event_manager_.get_stream("p2p_stream_");
+  wait_wgrad_event_ = stream_event_manager_.get_event("wgrad_event", cudaEventDefault);
   HCTR_LIB_THROW(
       curandCreateGenerator(&replica_uniform_curand_generator_, CURAND_RNG_PSEUDO_DEFAULT));
   HCTR_LIB_THROW(
       curandSetPseudoRandomGeneratorSeed(replica_uniform_curand_generator_, replica_uniform_seed));
   HCTR_LIB_THROW(curandSetStream(replica_uniform_curand_generator_, computation_stream_));
-  HCTR_LIB_THROW(
-      curandCreateGenerator(&replica_variant_curand_generator_, CURAND_RNG_PSEUDO_DEFAULT));
-  HCTR_LIB_THROW(
-      curandSetPseudoRandomGeneratorSeed(replica_variant_curand_generator_, replica_variant_seed));
+
   HCTR_LIB_THROW(curandSetStream(replica_variant_curand_generator_, computation_stream_));
-  HCTR_LIB_THROW(cublasCreate(&cublas_handle_));
   HCTR_LIB_THROW(cublasCreate(&cublas_handle_wgrad_));
   HCTR_LIB_THROW(cublasLtCreate(&cublaslt_handle_));
   HCTR_LIB_THROW(cublasSetStream(cublas_handle_, computation_stream_));
   HCTR_LIB_THROW(cublasSetStream(cublas_handle_wgrad_, computation_stream_2_));
-  HCTR_LIB_THROW(cudnnCreate(&cudnn_handle_));
   HCTR_LIB_THROW(cudnnSetStream(cudnn_handle_, computation_stream_));
 
   int sm_count;
@@ -67,36 +72,9 @@ GPUResource::~GPUResource() {
     HCTR_LIB_THROW(cublasDestroy(cublas_handle_));
     HCTR_LIB_THROW(cublasDestroy(cublas_handle_wgrad_));
     HCTR_LIB_THROW(cudnnDestroy(cudnn_handle_));
-    HCTR_LIB_THROW(cudaEventDestroy(compute_sync_event_));
-    HCTR_LIB_THROW(cudaEventDestroy(compute2_sync_event_));
-    HCTR_LIB_THROW(cudaEventDestroy(wait_wgrad_event_));
-    HCTR_LIB_THROW(cudaStreamDestroy(computation_stream_));
-    HCTR_LIB_THROW(cudaStreamDestroy(memcpy_stream_));
-    HCTR_LIB_THROW(cudaStreamDestroy(computation_stream_2_));
-    HCTR_LIB_THROW(cudaStreamDestroy(p2p_stream_));
   } catch (const std::runtime_error& rt_err) {
     HCTR_LOG_S(ERROR, WORLD) << rt_err.what() << std::endl;
   }
-}
-
-void GPUResource::set_compute_event_sync(const cudaStream_t& sync_stream) {
-  HCTR_LIB_THROW(cudaEventRecord(compute_sync_event_, sync_stream));
-  return;
-}
-
-void GPUResource::wait_on_compute_event(const cudaStream_t& sync_stream) {
-  HCTR_LIB_THROW(cudaStreamWaitEvent(sync_stream, compute_sync_event_));
-  return;
-}
-
-void GPUResource::set_compute2_event_sync(const cudaStream_t& sync_stream) {
-  HCTR_LIB_THROW(cudaEventRecord(compute2_sync_event_, sync_stream));
-  return;
-}
-
-void GPUResource::wait_on_compute2_event(const cudaStream_t& sync_stream) {
-  HCTR_LIB_THROW(cudaStreamWaitEvent(sync_stream, compute2_sync_event_));
-  return;
 }
 
 void GPUResource::set_wgrad_event_sync(const cudaStream_t& sync_stream) const {

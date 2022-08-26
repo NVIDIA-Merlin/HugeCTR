@@ -95,15 +95,13 @@ void end_to_end_impl(std::vector<int> device_list, HybridEmbeddingInputGenerator
       1.0,
       bw_ratio_a2a_over_ar,
       1.0,
-      false,
-      false,
       HybridEmbeddingType::Distributed,
       OptParams{Optimizer_t::SGD, lr, {}, Update_t::Global, 1.0f}};
 
   std::vector<std::shared_ptr<BufferBlock2<emtype>>> placeholder(
       resource_manager->get_local_gpu_count(), NULL);
   auto embedding = std::make_unique<HybridSparseEmbedding<dtype, emtype>>(
-      inputs, inputs, params, placeholder, lr_scheds, false, resource_manager, false, false);
+      inputs, inputs, params, placeholder, lr_scheds, false, resource_manager);
 
   // Table offsets
   std::vector<size_t> table_offsets(num_tables);

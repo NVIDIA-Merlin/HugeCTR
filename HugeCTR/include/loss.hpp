@@ -31,7 +31,6 @@ class ILoss {
   virtual int get_device_id() const = 0;
   virtual float regularizer_compute_rterm() = 0;
   virtual void regularizer_initialize_wgrad(bool is_train) = 0;
-  virtual void initialize_wgrad_async() = 0;
 
   virtual float get_label_weight() const = 0;
   virtual void set_label_weight(float new_weight) = 0;
@@ -119,8 +118,6 @@ class Loss : public ILoss {
 
   float regularizer_compute_rterm();
   void regularizer_initialize_wgrad(bool is_train);
-
-  void initialize_wgrad_async();
 
   float get_label_weight() const override { return label_weight; }
   void set_label_weight(float new_weight) override { label_weight = new_weight; }

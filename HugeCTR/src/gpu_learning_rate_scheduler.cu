@@ -58,7 +58,6 @@ GpuLearningRateScheduler::GpuLearningRateScheduler(float base_lr, size_t warmup_
       decay_steps_(decay_steps),
       decay_power_(decay_power),
       end_lr_(end_lr),
-      overlapped_(false),
       gpu_resource_(gpu_resource) {
   if (base_lr < 0 || warmup_steps < 1 || decay_steps < 1 || decay_power < 1.0f || end_lr < 0.f) {
     HCTR_OWN_THROW(
@@ -68,9 +67,6 @@ GpuLearningRateScheduler::GpuLearningRateScheduler(float base_lr, size_t warmup_
   }
 
   CudaDeviceContext context(gpu_resource_->get_device_id());
-  HCTR_LIB_THROW(cudaStreamCreate(&lr_stream_));
-  HCTR_LIB_THROW(cudaEventCreate(&fork_event_));
-  HCTR_LIB_THROW(cudaEventCreate(&join_event_));
   HCTR_LIB_THROW(cudaMalloc(&step_, sizeof(size_t)));
   HCTR_LIB_THROW(cudaMalloc(&current_lr_, sizeof(float)));
   HCTR_LIB_THROW(cudaMalloc(&last_lr_, sizeof(float)));
@@ -84,31 +80,15 @@ GpuLearningRateScheduler::~GpuLearningRateScheduler() {
   HCTR_LIB_THROW(cudaFree(step_));
   HCTR_LIB_THROW(cudaFree(current_lr_));
   HCTR_LIB_THROW(cudaFree(last_lr_));
-  HCTR_LIB_THROW(cudaStreamDestroy(lr_stream_));
-  HCTR_LIB_THROW(cudaEventDestroy(fork_event_));
-  HCTR_LIB_THROW(cudaEventDestroy(join_event_));
 }
 
 void GpuLearningRateScheduler::update() {
   CudaDeviceContext context(gpu_resource_->get_device_id());
-  if (true == overlapped_) {
-    HCTR_LIB_THROW(cudaEventRecord(fork_event_, gpu_resource_->get_stream()));
-    HCTR_LIB_THROW(cudaStreamWaitEvent(lr_stream_, fork_event_));
-    lr_update_kernel<<<1, 1, 0, lr_stream_>>>(base_lr_, warmup_steps_, decay_start_, decay_steps_,
-                                              decay_power_, end_lr_, step_, current_lr_, last_lr_);
-    HCTR_LIB_THROW(cudaEventRecord(join_event_, lr_stream_));
-  } else {
-    lr_update_kernel<<<1, 1, 0, gpu_resource_->get_stream()>>>(
-        base_lr_, warmup_steps_, decay_start_, decay_steps_, decay_power_, end_lr_, step_,
-        current_lr_, last_lr_);
-  }
+  lr_update_kernel<<<1, 1, 0, gpu_resource_->get_stream()>>>(base_lr_, warmup_steps_, decay_start_,
+                                                             decay_steps_, decay_power_, end_lr_,
+                                                             step_, current_lr_, last_lr_);
 }
 
-float* GpuLearningRateScheduler::get_learning_rate() const {
-  if (true == overlapped_) {
-    HCTR_LIB_THROW(cudaStreamWaitEvent(gpu_resource_->get_stream(), join_event_));
-  }
-  return current_lr_;
-}
+float* GpuLearningRateScheduler::get_learning_rate() const { return current_lr_; }
 
 }  // namespace HugeCTR

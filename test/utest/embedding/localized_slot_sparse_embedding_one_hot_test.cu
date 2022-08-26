@@ -359,17 +359,7 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
 
     // GPU backward
     HCTR_LOG(INFO, WORLD, "Rank%d: embedding->backward()\n", resource_manager->get_process_id());
-    for (size_t g = 0; g < resource_manager->get_local_gpu_count(); g++) {
-      const auto &local_gpu = resource_manager->get_local_gpu(g);
-      local_gpu->set_compute_event_sync(local_gpu->get_stream());
-      local_gpu->wait_on_compute_event(local_gpu->get_comp_overlap_stream());
-    }
     embedding->backward();
-    for (size_t g = 0; g < resource_manager->get_local_gpu_count(); g++) {
-      const auto &local_gpu = resource_manager->get_local_gpu(g);
-      local_gpu->set_compute2_event_sync(local_gpu->get_comp_overlap_stream());
-      local_gpu->wait_on_compute2_event(local_gpu->get_stream());
-    }
 
     // check the result of backward
     HCTR_LOG(INFO, WORLD, "Rank%d: embedding->get_backward_results()\n",
@@ -393,17 +383,7 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
     // GPU update_params
     HCTR_LOG(INFO, WORLD, "Rank%d: embedding->update_params()\n",
              resource_manager->get_process_id());
-    for (size_t g = 0; g < resource_manager->get_local_gpu_count(); g++) {
-      const auto &local_gpu = resource_manager->get_local_gpu(g);
-      local_gpu->set_compute_event_sync(local_gpu->get_stream());
-      local_gpu->wait_on_compute_event(local_gpu->get_comp_overlap_stream());
-    }
     embedding->update_params();
-    for (size_t g = 0; g < resource_manager->get_local_gpu_count(); g++) {
-      const auto &local_gpu = resource_manager->get_local_gpu(g);
-      local_gpu->set_compute2_event_sync(local_gpu->get_comp_overlap_stream());
-      local_gpu->wait_on_compute2_event(local_gpu->get_stream());
-    }
 
     if (resource_manager->is_master_process()) {
       // CPU update_params

@@ -74,7 +74,7 @@ void add_input(Input& input, DataReaderParams& reader_params,
                std::shared_ptr<IDataReader>& evaluate_data_reader,
                std::shared_ptr<IDataReader>& init_data_reader, size_t batch_size,
                size_t batch_size_eval, bool use_mixed_precision, bool repeat_dataset,
-               bool enable_overlap, size_t num_iterations_statistics,
+               bool train_intra_iteration_overlap, size_t num_iterations_statistics,
                const std::shared_ptr<ResourceManager> resource_manager) {
   DataReaderType_t format = reader_params.data_reader_type;
   Check_t check_type = reader_params.check_type;
@@ -127,10 +127,11 @@ void add_input(Input& input, DataReaderParams& reader_params,
     HCTR_LOG_S(INFO, ROOT) << "AsyncReader: num_iterations_statistics = "
                            << num_iterations_statistics << std::endl;
 
+    const bool wait_for_gpu_idle = train_intra_iteration_overlap;  // scheduling H2D
     train_data_reader.reset(new AsyncReader<TypeKey>(
         source_data, batch_size, total_label_dim, dense_dim, input.data_reader_sparse_param_array,
         use_mixed_precision, resource_manager, num_threads, num_batches_per_thread, io_block_size,
-        io_depth, io_alignment, shuffle, enable_overlap, aligned_type));
+        io_depth, io_alignment, shuffle, wait_for_gpu_idle, aligned_type));
 
     // If we want to cache eval, make sure we have enough buffers
     auto eval_num_batches_per_thread = num_batches_per_thread;

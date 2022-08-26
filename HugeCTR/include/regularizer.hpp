@@ -43,7 +43,7 @@ class Regularizer {
   /*
    * Destructor of Regularizer
    */
-  virtual ~Regularizer();
+  virtual ~Regularizer() = default;
 
   virtual void initialize() {}
 
@@ -59,25 +59,14 @@ class Regularizer {
    * To customize it, override th private function do_initialize_wgrad
    * @param stream CUDA Stream where the kernel is executed
    */
-  void set_overlapped() { overlapped_ = true; }
-
-  bool get_overlapped() { return overlapped_; }
-
   void initialize_wgrad();
 
-  void initialize_wgrad_async();
-
-  void join_initialize_wgrad();
   /*
    * Return the calculated regularization term
    */
   float get_rterm() const { return h_rterm_; }
 
  protected:
-  cudaEvent_t fork_event_;
-  cudaEvent_t join_event_;
-  cudaStream_t reg_stream_;
-  bool overlapped_;
   int get_batch_size() const { return batch_size_; }
   int get_device_id() const { return gpu_resource_->get_device_id(); }
   const GPUResource& get_gpu() const { return *gpu_resource_; }
