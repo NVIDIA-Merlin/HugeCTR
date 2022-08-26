@@ -610,6 +610,7 @@ class Model {
   std::shared_ptr<ExchangeWgrad> exchange_wgrad_;
   std::vector<GraphWrapper> train_graphs_;
   std::vector<cudaEvent_t> fork_events_;
+  bool is_even_iter_ = true;
   bool embedding_dependent_;
   bool high_level_eval_;
   HugeCTR::Timer timer_log;
@@ -645,7 +646,7 @@ class Model {
   Error_t load_opt_states_for_sparse_(const std::vector<std::string>& sparse_opt_states_files,
                                       const DataSourceParams& data_source_params);
   virtual void exchange_wgrad(size_t device_id);
-  virtual void train_overlapped();
+  virtual void train_overlapped(size_t current_batch_size);
   virtual void add_dense_layer(DenseLayer& dense_layer);
   virtual void add_dense_layer_internal(
       DenseLayer& dense_layer, std::vector<TensorEntry>& tensor_entries,

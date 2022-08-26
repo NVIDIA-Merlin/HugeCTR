@@ -21,48 +21,30 @@ namespace HugeCTR {
 namespace hybrid_embedding {
 
 template <typename dtype>
-struct IndexContainer {
-  std::vector<TensorBag2> label_tensors;
-  std::vector<TensorBag2> dense_tensors;
-
-  std::vector<Data<dtype>> datas;
-  std::vector<FrequentEmbeddingCompression<dtype>> frequent_compressions;
-  std::vector<InfrequentEmbeddingSelection<dtype>> infrequent_selections;
-};
-
-template <typename dtype>
-class IndexProcessor {
-  using LabelType = float;
-  using InputType = int;
-  using SparseType = dtype;
-
+class BatchIndices {
  public:
-  IndexProcessor(std::vector<Model<dtype>>& models,
-                 std::vector<FrequentEmbeddingBase<dtype>*> frequent_embeddings,
-                 std::vector<InfrequentEmbeddingBase<dtype>*> infrequent_embeddings,
-                 std::shared_ptr<ResourceManager>& resource_manager, size_t queue_size,
-                 size_t batch_size, std::vector<size_t>& slot_size_array,
-                 size_t max_num_frequent_categories, bool mixed_precision,
-                 CommunicationType communication_type, size_t label_dim, size_t dense_dim,
-                 size_t sparse_dim, size_t sample_size_items);
-  void calculate_indices(BatchDesc batch, size_t queue_id, int raw_device_id, cudaStream_t stream);
-  void split3way(BatchDesc batch, size_t queue_id, int raw_device_id, cudaStream_t stream);
-  void assign_sparse_indices(size_t queue_id, int raw_device_id, cudaStream_t stream);
-  void assign_dense_and_label_tensors(TensorBag2& label_tensor, TensorBag2& dense_tensor,
-                                      size_t queue_id, int raw_device_id, cudaStream_t stream);
-  size_t get_queue_size();
+  BatchIndices(std::vector<Model<dtype>>& models, std::vector<SparseTensor<dtype>> data_source,
+               std::shared_ptr<ResourceManager>& resource_manager, size_t batch_size,
+               std::vector<size_t>& slot_size_array, size_t max_num_frequent_categories,
+               CommunicationType communication_type);
+
+  void compute(int raw_device_id, size_t batch_size, cudaStream_t stream);
+
+  FrequentEmbeddingCompression<dtype>& get_frequent(int raw_device_id) {
+    return frequent_compression_[raw_device_id];
+  }
+
+  InfrequentEmbeddingSelection<dtype>& get_infrequent(int raw_device_id) {
+    return infrequent_selection_[raw_device_id];
+  }
 
  private:
-  std::vector<IndexContainer<dtype>> containers_;
-
-  std::vector<FrequentEmbeddingBase<dtype>*> frequent_embeddings_;
-  std::vector<InfrequentEmbeddingBase<dtype>*> infrequent_embeddings_;
-
+  size_t num_slots_ = 0;
   std::shared_ptr<ResourceManager> resource_manager_;
-  size_t batch_size_, batch_size_per_dev_;
-  size_t sparse_dim_, sample_size_items_;
-  bool mixed_precision_;
   CommunicationType communication_type_;
+  std::vector<Data<dtype>> data_;
+  std::vector<FrequentEmbeddingCompression<dtype>> frequent_compression_;
+  std::vector<InfrequentEmbeddingSelection<dtype>> infrequent_selection_;
 };
 
 }  // namespace hybrid_embedding

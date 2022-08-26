@@ -26,13 +26,23 @@ namespace HugeCTR {
  */
 class IDataReaderWithScheduling : public IDataReader {
  public:
-  virtual void schedule_precompute_here(cudaStream_t stream, int raw_device_id,
-                                        bool from_graph) = 0;
+  // TODO: remove, use get_value_tensors() instead
+  virtual bool is_batch_cached() const = 0;
+  virtual size_t get_current_inflight_id() const = 0;
+  virtual cudaStream_t get_split_3_way_stream(int raw_device_id) const = 0;
+  virtual cudaStream_t get_d2d_stream(int raw_device_id) const = 0;
+  virtual void set_schedule_streams(cudaStream_t s3w_stream, cudaStream_t d2d_stream,
+                                    int raw_device_id) = 0;
+  virtual void schedule_split_3_way_here(cudaStream_t stream, int raw_device_id,
+                                         bool from_graph) = 0;
   virtual void schedule_d2d_here(cudaStream_t stream, int raw_device_id, bool from_graph) = 0;
   virtual void schedule_here(cudaStream_t stream, int raw_device_id) = 0;
   virtual void schedule_here_graph(cudaStream_t stream, int raw_device_id) = 0;
   virtual void update_schedule_graph(int raw_device_id) = 0;
-  virtual bool precompute_enabled() const = 0;
+  virtual void stream_wait_sparse_tensors(cudaStream_t stream, int raw_device_id,
+                                          bool from_graph) = 0;
+  virtual void stream_wait_dense_tensors(cudaStream_t stream, int raw_device_id,
+                                         bool from_graph) = 0;
 };
 
 }  // namespace HugeCTR

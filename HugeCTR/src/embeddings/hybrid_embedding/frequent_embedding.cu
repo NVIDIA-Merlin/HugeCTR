@@ -108,22 +108,17 @@ __global__ void update_model_direct(const emtype* const* __restrict__ gradients_
 }  // namespace frequent_embedding_kernels
 
 template <typename dtype>
-FrequentEmbeddingBase<dtype>::FrequentEmbeddingBase() {
-  HCTR_LIB_THROW(cudaMalloc(&indices_view_, sizeof(*indices_view_)));
-}
+FrequentEmbeddingBase<dtype>::FrequentEmbeddingBase() {}
 
 template <typename dtype>
-FrequentEmbeddingBase<dtype>::~FrequentEmbeddingBase() {
-  cudaFree(indices_view_);
-}
+FrequentEmbeddingBase<dtype>::~FrequentEmbeddingBase() {}
 
 template <typename dtype>
-void FrequentEmbeddingBase<dtype>::set_current_indices(FrequentEmbeddingCompression<dtype>* indices,
-                                                       cudaStream_t stream) {
+void FrequentEmbeddingBase<dtype>::set_current_indices(
+    FrequentEmbeddingCompression<dtype>* indices) {
   indices_ = indices;
   data_ = indices->get_data();
-  HCTR_LIB_THROW(cudaMemcpyAsync(indices_view_, indices->get_device_view(), sizeof(*indices_view_),
-                                 cudaMemcpyDeviceToDevice, stream));
+  indices_view_ = indices->get_device_view();
 }
 
 template <typename dtype, typename emtype>

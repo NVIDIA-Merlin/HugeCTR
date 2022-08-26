@@ -44,7 +44,7 @@ class FrequentEmbeddingBase {
   // Frequent indices and device pointer!
   FrequentEmbeddingCompression<dtype> *indices_;
 
-  void set_current_indices(FrequentEmbeddingCompression<dtype> *indices, cudaStream_t stream);
+  void set_current_indices(FrequentEmbeddingCompression<dtype> *indices);
   FrequentEmbeddingBase();
   virtual ~FrequentEmbeddingBase();
 };

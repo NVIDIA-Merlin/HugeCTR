@@ -46,7 +46,7 @@ class CalculateModelIndicesTest : public HybridEmbeddingUnitTest<dtype, emtype> 
     for (size_t i = 0; i < this->num_instances; i++) {
       if (this->config.comm_type == CommunicationType::NVLink_SingleNode) {
         this->infrequent_embeddings_single_node[i].set_current_indices(
-            &this->infrequent_embedding_indices[i], this->stream);
+            &this->infrequent_embedding_indices[i]);
         this->infrequent_embeddings_single_node[i].indices_->calculate_model_indices(this->stream);
         download_tensor(h_model_indices[i],
                         this->infrequent_embeddings_single_node[i].indices_->model_indices_,
@@ -58,7 +58,7 @@ class CalculateModelIndicesTest : public HybridEmbeddingUnitTest<dtype, emtype> 
 
       if (this->config.comm_type == CommunicationType::IB_NVLink) {
         this->infrequent_embeddings_ib_nvlink[i].set_current_indices(
-            &this->infrequent_embedding_indices[i], this->stream);
+            &this->infrequent_embedding_indices[i]);
         this->infrequent_embeddings_ib_nvlink[i].indices_->calculate_model_indices(this->stream);
         download_tensor(h_model_indices[i],
                         this->infrequent_embeddings_ib_nvlink[i].indices_->model_indices_,
@@ -70,7 +70,7 @@ class CalculateModelIndicesTest : public HybridEmbeddingUnitTest<dtype, emtype> 
 
       if (this->config.comm_type == CommunicationType::IB_NVLink_Hier) {
         this->infrequent_embeddings_ib_nvlink_hier[i].set_current_indices(
-            &this->infrequent_embedding_indices[i], this->stream);
+            &this->infrequent_embedding_indices[i]);
         this->infrequent_embeddings_ib_nvlink_hier[i].indices_->calculate_model_indices(
             this->stream);
         download_tensor(h_model_indices[i],
@@ -115,7 +115,7 @@ class CalculateNetworkIndicesTest : public HybridEmbeddingUnitTest<dtype, emtype
     for (size_t i = 0; i < this->num_instances; i++) {
       if (this->config.comm_type == CommunicationType::NVLink_SingleNode) {
         this->infrequent_embeddings_single_node[i].set_current_indices(
-            &this->infrequent_embedding_indices[i], this->stream);
+            &this->infrequent_embedding_indices[i]);
         this->infrequent_embeddings_single_node[i].indices_->calculate_network_indices(
             80, this->stream);
         download_tensor(h_network_indices[i],
@@ -129,7 +129,7 @@ class CalculateNetworkIndicesTest : public HybridEmbeddingUnitTest<dtype, emtype
 
       if (this->config.comm_type == CommunicationType::IB_NVLink) {
         this->infrequent_embeddings_ib_nvlink[i].set_current_indices(
-            &this->infrequent_embedding_indices[i], this->stream);
+            &this->infrequent_embedding_indices[i]);
         this->infrequent_embeddings_ib_nvlink[i].indices_->calculate_network_indices(80,
                                                                                      this->stream);
         download_tensor(h_network_indices[i],
@@ -142,7 +142,7 @@ class CalculateNetworkIndicesTest : public HybridEmbeddingUnitTest<dtype, emtype
 
       if (this->config.comm_type == CommunicationType::IB_NVLink_Hier) {
         this->infrequent_embeddings_ib_nvlink_hier[i].set_current_indices(
-            &this->infrequent_embedding_indices[i], this->stream);
+            &this->infrequent_embedding_indices[i]);
         this->infrequent_embeddings_ib_nvlink_hier[i].indices_->calculate_network_indices(
             80, this->stream);
         download_tensor(h_network_indices[i],
@@ -184,8 +184,7 @@ class CalculateFrequentSampleIndicesTest : public HybridEmbeddingUnitTest<dtype,
     this->build_frequent();
     std::vector<std::vector<uint32_t>> h_frequent_sample_indices(this->num_instances);
     for (size_t i = 0; i < this->num_instances; i++) {
-      this->get_frequent_embedding(i).set_current_indices(&this->frequent_embedding_indices[i],
-                                                          this->stream);
+      this->get_frequent_embedding(i).set_current_indices(&this->frequent_embedding_indices[i]);
       this->get_frequent_embedding(i).indices_->calculate_frequent_sample_indices(this->stream);
       download_tensor(h_frequent_sample_indices[i],
                       this->get_frequent_embedding(i).indices_->frequent_sample_indices_,
@@ -227,8 +226,7 @@ class CalculateModelCacheIndicesTest : public HybridEmbeddingUnitTest<dtype, emt
     std::vector<std::vector<uint32_t>> h_model_cache_indices(this->num_instances);
     std::vector<std::vector<uint32_t>> h_model_cache_indices_offsets(this->num_instances);
     for (size_t i = 0; i < this->num_instances; i++) {
-      this->get_frequent_embedding(i).set_current_indices(&this->frequent_embedding_indices[i],
-                                                          this->stream);
+      this->get_frequent_embedding(i).set_current_indices(&this->frequent_embedding_indices[i]);
       this->get_frequent_embedding(i).indices_->calculate_cache_masks(this->stream);
       this->get_frequent_embedding(i).indices_->calculate_model_cache_indices(80, this->stream);
       download_tensor(h_model_cache_indices[i],
@@ -271,8 +269,7 @@ class CalculateNetworkCacheIndicesTest : public HybridEmbeddingUnitTest<dtype, e
     std::vector<std::vector<uint32_t>> h_network_cache_indices(this->num_instances);
     std::vector<std::vector<uint32_t>> h_network_cache_indices_offsets(this->num_instances);
     for (size_t i = 0; i < this->num_instances; i++) {
-      this->get_frequent_embedding(i).set_current_indices(&this->frequent_embedding_indices[i],
-                                                          this->stream);
+      this->get_frequent_embedding(i).set_current_indices(&this->frequent_embedding_indices[i]);
       this->get_frequent_embedding(i).indices_->calculate_cache_masks(this->stream);
       this->get_frequent_embedding(i).indices_->calculate_network_cache_indices(this->stream);
       download_tensor(h_network_cache_indices[i],

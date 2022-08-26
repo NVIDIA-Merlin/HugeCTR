@@ -1233,7 +1233,38 @@ void Model::compile() {
   }
 
   if (solver_.use_holistic_cuda_graph) {
-    train_graphs_.resize(networks_.size());
+    // Overlapped pipelining requires double buffering, hence 2x
+    train_graphs_.resize(solver_.use_overlapped_pipeline ? networks_.size() * 2 : networks_.size());
+
+    // Set DataReader streams
+    if (reader_params_.data_reader_type == DataReaderType_t::RawAsync &&
+        solver_.use_overlapped_pipeline) {
+      auto train_scheduled_reader =
+          static_cast<IDataReaderWithScheduling*>(train_data_reader_.get());
+      auto eval_scheduled_reader =
+          static_cast<IDataReaderWithScheduling*>(evaluate_data_reader_.get());
+#pragma omp parallel for num_threads(networks_.size())
+      for (size_t id = 0; id < networks_.size(); ++id) {
+        auto gpu = resource_manager_->get_local_gpu(id);
+        CudaCPUDeviceContext ctx(gpu->get_device_id());
+        train_scheduled_reader->set_schedule_streams(gpu->get_stream("s3w"), gpu->get_stream("s3w"),
+                                                     id);
+
+        // For eval_overlap, the scheduling looks like:
+        // stream (eval_comms)          s3w-> emb_pre -> emb_post -> s3w -> emb_pre -> emb_post ->
+        // stream (gpu->get_stream())        |                      |              |              |
+        //                                    ->     d2d ->          ->  network ->     d2d ->
+        //                                    network ->
+
+        // Needs to be on Embedding stream
+        cudaStream_t s3w_stream =
+            solver_.eval_overlap ? gpu->get_stream("eval_comms", -1) : gpu->get_stream();
+        // Needs to be on Network stream
+        cudaStream_t d2d_stream = gpu->get_stream();
+
+        eval_scheduled_reader->set_schedule_streams(s3w_stream, d2d_stream, id);
+      }
+    }
   }
 
   for (size_t i = 0; i < resource_manager_->get_local_gpu_count(); i++) {
@@ -1265,29 +1296,30 @@ void Model::compile() {
       dynamic_cast<AsyncReader<unsigned int>*>(evaluate_data_reader_.get());
   auto init_data_reader_ar_i32 = dynamic_cast<AsyncReader<unsigned int>*>(init_data_reader_.get());
 
-  // If doing async indices, init them before touching the data
+  // FIXME:
+  // If doing async indices, the Hybrid Sparse Embedding needs access to the sparse tensor buffers
+  // since we need to initialize the Frequent & Infrequent indices with those exact buffers.
+  // Otherwise we allocate two copies (one in AsyncReader and the other in HSE) which will cause us
+  // to OOM. We need to refactor the Frequent/Infrequent Embedding and IndicesView classes to
+  // not require the sparse tensor buffers on construction.
   for (size_t i = 0; i < sparse_embedding_params_.size(); i++) {
     if (sparse_embedding_params_[i].embedding_type == Embedding_t::HybridSparseEmbedding) {
       if (solver_.use_mixed_precision && solver_.i64_input_key) {
         auto hybrid_embedding =
             dynamic_cast<HybridSparseEmbedding<long long, __half>*>(embeddings_[i].get());
-        hybrid_embedding->setup_async_mode(train_data_reader_ar_i64, eval_data_reader_ar_i64,
-                                           solver_.eval_overlap, solver_.use_holistic_cuda_graph);
+        hybrid_embedding->setup_buffered_indices(train_data_reader_ar_i64, eval_data_reader_ar_i64);
       } else if (solver_.use_mixed_precision && !solver_.i64_input_key) {
         auto hybrid_embedding =
             dynamic_cast<HybridSparseEmbedding<unsigned int, __half>*>(embeddings_[i].get());
-        hybrid_embedding->setup_async_mode(train_data_reader_ar_i32, eval_data_reader_ar_i32,
-                                           solver_.eval_overlap, solver_.use_holistic_cuda_graph);
+        hybrid_embedding->setup_buffered_indices(train_data_reader_ar_i32, eval_data_reader_ar_i32);
       } else if (!solver_.use_mixed_precision && solver_.i64_input_key) {
         auto hybrid_embedding =
             dynamic_cast<HybridSparseEmbedding<long long, float>*>(embeddings_[i].get());
-        hybrid_embedding->setup_async_mode(train_data_reader_ar_i64, eval_data_reader_ar_i64,
-                                           solver_.eval_overlap, solver_.use_holistic_cuda_graph);
+        hybrid_embedding->setup_buffered_indices(train_data_reader_ar_i64, eval_data_reader_ar_i64);
       } else {
         auto hybrid_embedding =
             dynamic_cast<HybridSparseEmbedding<unsigned int, float>*>(embeddings_[i].get());
-        hybrid_embedding->setup_async_mode(train_data_reader_ar_i32, eval_data_reader_ar_i32,
-                                           solver_.eval_overlap, solver_.use_holistic_cuda_graph);
+        hybrid_embedding->setup_buffered_indices(train_data_reader_ar_i32, eval_data_reader_ar_i32);
       }
     }
   }
@@ -1687,6 +1719,7 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
       data_reader_train->set_source(reader_params_.source[0]);
       data_reader_train_status_ = true;
       do {
+        is_even_iter_ = iter % 2 == 0;
         float lr = 0;
         if (embeddings_.empty() || !this->use_gpu_learning_rate_scheduling()) {
           lr = lr_sch_->get_next();
@@ -1791,6 +1824,7 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
         data_reader_train_status_ = true;
         embedding_training_cache->update(reader_params_.keyset[f]);
         do {
+          is_even_iter_ = iter % 2 == 0;
           float lr = 0;
           if (embeddings_.empty() || !this->use_gpu_learning_rate_scheduling()) {
             lr = lr_sch_->get_next();
@@ -1865,6 +1899,7 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
     this->init_data_reader_.reset();
     bool is_first_train_batch_after_eval = true;
     for (int iter = 0; iter < max_iter; iter++) {
+      is_even_iter_ = iter % 2 == 0;
       float lr = 0;
       if (embeddings_.empty() || !this->use_gpu_learning_rate_scheduling()) {
         lr = lr_sch_->get_next();
@@ -1872,6 +1907,7 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
       }
       this->train(is_first_train_batch_after_eval);
       is_first_train_batch_after_eval = false;
+
       if (display > 0 && iter % display == 0 && iter != 0) {
         timer_train.stop();
         float loss = 0.0f;
@@ -1989,7 +2025,7 @@ void Model::exchange_wgrad(size_t device_id) {
   exchange_wgrad_->allreduce(device_id, gpu_resource->get_stream());
 }
 
-void Model::train_overlapped() {
+void Model::train_overlapped(size_t current_batch_size) {
   auto change_state = [](TrainState* state) -> bool {
     switch (state->state) {
       case TrainState_t::Init:
@@ -2021,15 +2057,27 @@ void Model::train_overlapped() {
     return true;
   };
 
+  const bool precomputing =
+      sparse_embedding_params_[0].hybrid_embedding_param.use_train_precompute_indices;
+
   auto scheduled_reader = dynamic_cast<IDataReaderWithScheduling*>(train_data_reader_.get());
+
+  const auto inflight_id = scheduled_reader->get_current_inflight_id();
+  const bool cached = scheduled_reader->is_batch_cached();
+
   const bool use_graph =
       solver_.use_holistic_cuda_graph && !scheduled_reader->current_batch_incomplete();
+
+  // Inputs can change between iterations when using precomputing hence why we need an API
+  // to select which input to use.
+  embeddings_[0]->assign_input_tensors(true, current_batch_size, inflight_id, cached, use_graph);
 
 #pragma omp parallel num_threads(resource_manager_->get_local_gpu_count())
   {
     size_t id = omp_get_thread_num();
-    auto device_id = resource_manager_->get_local_gpu(id)->get_device_id();
-    auto stream = resource_manager_->get_local_gpu(id)->get_stream();
+    auto gpu = resource_manager_->get_local_gpu(id);
+    auto device_id = gpu->get_device_id();
+    auto stream = gpu->get_stream();
     CudaCPUDeviceContext context(device_id);
     // CudaDeviceContext context(device_id);
     long long current_batchsize_per_device =
@@ -2054,9 +2102,9 @@ void Model::train_overlapped() {
       }
     };
 
-    auto schedule_split3way = [&, this](TrainState_t state_to_schedule) {
+    auto schedule_split_3_way = [&, this](TrainState_t state_to_schedule) {
       if (state.state == state_to_schedule) {
-        scheduled_reader->schedule_precompute_here(stream, id, use_graph);
+        scheduled_reader->schedule_split_3_way_here(stream, id, use_graph);
       }
     };
 
@@ -2066,11 +2114,26 @@ void Model::train_overlapped() {
       }
     };
 
-    auto do_it = [&, this](cudaStream_t submit_stream) {
-      if (use_graph || scheduled_reader->precompute_enabled()) {
-        HCTR_LIB_THROW(cudaEventRecord(fork_events_[id], submit_stream));
-        state.event = &fork_events_[id];
+    auto BMLP_input_ready_wait = [&, this](TrainState_t state_to_schedule) {
+      if (state.state == state_to_schedule) {
+        scheduled_reader->stream_wait_dense_tensors(stream, id, use_graph);
       }
+    };
+
+    auto iteration_wait = [&, this](TrainState_t state_to_schedule) {
+      if (state.state == state_to_schedule) {
+        auto& iteration_end = gpu->get_event("iteration_end");
+        HCTR_LIB_THROW(
+            cudaStreamWaitEvent(stream, iteration_end, use_graph ? cudaEventWaitExternal : 0));
+      }
+    };
+
+    auto do_it = [&, this](cudaStream_t submit_stream) {
+      scheduled_reader->stream_wait_sparse_tensors(submit_stream, id, use_graph);
+
+      // So that internal stream in Hybrid Embedding can sync with main stream
+      HCTR_LIB_THROW(cudaEventRecord(fork_events_[id], submit_stream));
+      state.event = &fork_events_[id];
 
       // Network just runs unconditionally
       // Embedding manages events from the networks and
@@ -2081,19 +2144,45 @@ void Model::train_overlapped() {
         state = embeddings_[0]->train(true, id, state);
         sync();
         schedule_reader(TrainState_t::TopMLPFprop);
-        schedule_split3way(TrainState_t::MLPExchangeWgrad);
-        schedule_d2d(TrainState_t::Finalize);
+        if (precomputing) {
+          schedule_split_3_way(TrainState_t::MLPExchangeWgrad);
+          schedule_d2d(TrainState_t::Finalize);
+        }
+        BMLP_input_ready_wait(TrainState_t::BottomMLPFprop);
+        iteration_wait(TrainState_t::Init);
         state = networks_[id]->train(
             current_batchsize_per_device, [this, id]() { this->exchange_wgrad(id); }, state);
       } while (change_state(&state));
       sync();
+
+      // If we don't want the next iteration to overlap with the current iteration then
+      // schedule the start of the next iteration after the current iteration is complete.
+      if (!precomputing) {
+        schedule_split_3_way(TrainState_t::Finalize);
+        schedule_d2d(TrainState_t::Finalize);
+      }
+
+      // Ensure only the precomputing is overlapped, otherwise the next iteration will
+      // continue and we will overlap more steps than we want.
+      auto& iteration_end = gpu->get_event("iteration_end");
+      HCTR_LIB_THROW(cudaEventRecordWithFlags(iteration_end, submit_stream,
+                                              use_graph ? cudaEventRecordExternal : 0));
     };
 
     if (use_graph) {
-      if (!train_graphs_[id].initialized) {
-        train_graphs_[id].capture(do_it, stream);
+      const auto graph_id = inflight_id * resource_manager_->get_local_gpu_count() + id;
+      if (!train_graphs_[graph_id].initialized) {
+        train_graphs_[graph_id].capture(do_it, stream);
       }
-      train_graphs_[id].exec(stream);
+      const auto graph_stream =
+          precomputing ? gpu->get_stream("s" + std::to_string(is_even_iter_)) : stream;
+      train_graphs_[graph_id].exec(graph_stream);
+      // We need to join back with gpu->get_stream() so that copying down weights, getting the loss,
+      // or other functions that use gpu->get_stream() are synced. This won't affect iteration
+      // overlap because subsequent iterations don't use gpu->get_stream()
+      HCTR_LIB_THROW(cudaEventRecord(fork_events_[id], graph_stream));
+      HCTR_LIB_THROW(cudaStreamWaitEvent(stream, fork_events_[id]));
+
       if (scheduled_reader) {
         scheduled_reader->update_schedule_graph(id);
       }
@@ -2147,7 +2236,7 @@ bool Model::train(bool is_first_batch) {
     this->check_overflow();
 
     if (solver_.use_overlapped_pipeline) {
-      train_overlapped();
+      train_overlapped(current_batchsize);
     } else {
       for (auto& one_embedding : embeddings_) {
         one_embedding->forward(true, is_first_batch);
@@ -2290,15 +2379,19 @@ bool Model::eval(bool is_first_batch) {
       this->check_overflow();
       this->copy_weights_for_evaluation();
     }
-    if (is_first_batch && solver_.eval_overlap) {
-      auto scheduled_reader = dynamic_cast<IDataReaderWithScheduling*>(evaluate_data_reader_.get());
+    if (is_first_batch && reader_params_.data_reader_type == DataReaderType_t::RawAsync) {
+      auto scheduled_reader = static_cast<IDataReaderWithScheduling*>(evaluate_data_reader_.get());
 #pragma omp parallel num_threads(networks_.size())
       {
         size_t id = omp_get_thread_num();
-        scheduled_reader->schedule_precompute_here(
-            resource_manager_->get_local_gpu(id)->get_stream(), id, false);
+        auto gpu = resource_manager_->get_local_gpu(id);
+        CudaCPUDeviceContext ctx(gpu->get_device_id());
+
+        // This is to ensure eval starts after training
+        scheduled_reader->schedule_split_3_way_here(gpu->get_stream(), id, false);
       }
     }
+
     long long current_batchsize = 0;
     while ((current_batchsize = evaluate_data_reader_->read_a_batch_to_device_delay_release()) &&
            (current_batchsize < evaluate_data_reader_->get_full_batchsize()) &&
@@ -2317,9 +2410,31 @@ bool Model::eval(bool is_first_batch) {
     evaluate_data_reader_->ready_to_collect();
 
 #ifndef DATA_READING_TEST
-    for (auto& one_embedding : embeddings_) {
+    for (size_t i = 0; i < embeddings_.size(); ++i) {
+      auto& one_embedding = embeddings_.at(i);
+
+      if (reader_params_.data_reader_type == DataReaderType_t::RawAsync) {
+        auto scheduled_reader =
+            static_cast<IDataReaderWithScheduling*>(evaluate_data_reader_.get());
+        const auto inflight_id = scheduled_reader->get_current_inflight_id();
+        const bool cached = scheduled_reader->is_batch_cached();
+        one_embedding->assign_input_tensors(false, current_batchsize, inflight_id, cached, false);
+
+        // If split-3-way is not executed on embedding stream then embedding stream needs to wait.
+        // Currently we guarantee that it is in compile() so this doesn't do anything other than
+        // ensure functional completeness if it changes.
+#pragma omp parallel num_threads(networks_.size())
+        {
+          size_t id = omp_get_thread_num();
+          auto gpu = resource_manager_->get_local_gpu(id);
+          auto embedding_stream =
+              solver_.eval_overlap ? gpu->get_stream("eval_comms", -1) : gpu->get_stream();
+          scheduled_reader->stream_wait_sparse_tensors(embedding_stream, id, false);
+        }
+      }
       one_embedding->forward(false, is_first_batch);
     }
+
     std::vector<std::vector<embedding::ContextContainer*>> ebc_context_container_list_list;
     ebc_context_container_list_list.resize(networks_.size());
     std::vector<std::vector<embedding::ILookup*>> gpu_major_ebc_lookup_list;
@@ -2344,50 +2459,39 @@ bool Model::eval(bool is_first_batch) {
       }
     };
 
-    if (networks_.size() > 1) {
+    assert(networks_.size() >= 1 && "networks_.size() should not less than 1.");
+
 #pragma omp parallel num_threads(networks_.size())
-      {
-        size_t id = omp_get_thread_num();
-        long long current_batchsize_per_device =
-            evaluate_data_reader_->get_current_batchsize_per_device(id);
+    {
+      size_t id = omp_get_thread_num();
+      auto gpu = resource_manager_->get_local_gpu(id);
 
-        // doesn't do anything if eval_overlap disabled
-        auto gpu = resource_manager_->get_local_gpu(id);
-        HCTR_LIB_THROW(cudaStreamWaitEvent(gpu->get_stream(), gpu->get_event("eval_comp_wait")));
-
-        eval_ebc_forward(id);
-        networks_[id]->eval(current_batchsize_per_device);
-
-        // doesn't do anything if eval_overlap disabled
-        HCTR_LIB_THROW(cudaEventRecord(gpu->get_event("eval_comm_wait"), gpu->get_stream()));
-
-        for (auto& metric : metrics_) {
-          for (auto& loss_metrics : networks_[id]->get_raw_metrics_all()) {
-            metric->local_reduce(id, loss_metrics.second);
-          }
-        }
+      // If Network stream is not same stream as D2D then Network stream needs to wait.
+      // Currently we guarantee that it is in compile() so this doesn't do anything other than
+      // ensure functional completeness if it changes.
+      if (reader_params_.data_reader_type == DataReaderType_t::RawAsync) {
+        auto scheduled_reader =
+            static_cast<IDataReaderWithScheduling*>(evaluate_data_reader_.get());
+        scheduled_reader->stream_wait_dense_tensors(gpu->get_stream(), id, false);
       }
-    } else if (networks_.size() == 1) {
+
       long long current_batchsize_per_device =
-          evaluate_data_reader_->get_current_batchsize_per_device(0);
+          evaluate_data_reader_->get_current_batchsize_per_device(id);
 
       // doesn't do anything if eval_overlap disabled
-      auto gpu = resource_manager_->get_local_gpu(0);
       HCTR_LIB_THROW(cudaStreamWaitEvent(gpu->get_stream(), gpu->get_event("eval_comp_wait")));
 
-      networks_[0]->eval(current_batchsize_per_device);
-      eval_ebc_forward(0);
+      eval_ebc_forward(id);
+      networks_[id]->eval(current_batchsize_per_device);
 
       // doesn't do anything if eval_overlap disabled
       HCTR_LIB_THROW(cudaEventRecord(gpu->get_event("eval_comm_wait"), gpu->get_stream()));
 
       for (auto& metric : metrics_) {
-        for (auto& loss_metrics : networks_[0]->get_raw_metrics_all()) {
-          metric->local_reduce(0, loss_metrics.second);
+        for (auto& loss_metrics : networks_[id]->get_raw_metrics_all()) {
+          metric->local_reduce(id, loss_metrics.second);
         }
       }
-    } else {
-      assert(!"networks_.size() should not less than 1.");
     }
 #endif
 

@@ -48,6 +48,24 @@ struct Data {
   Tensor2<dtype> embedding_offsets;
   Tensor2<dtype> samples;
 
+  Data(Tensor2<dtype> samples, const std::vector<size_t> &table_sizes_in, size_t batch_size_in,
+       size_t num_iterations_in)
+      : samples(samples),
+        table_sizes(table_sizes_in),
+        batch_size(batch_size_in),
+        num_iterations(num_iterations_in) {
+    std::shared_ptr<GeneralBuffer2<CudaAllocator>> buf = GeneralBuffer2<CudaAllocator>::create();
+    buf->reserve({table_sizes_in.size()}, &embedding_offsets);
+    buf->allocate();
+
+    std::vector<dtype> h_embedding_offsets;
+    EmbeddingTableFunctors<dtype>::get_embedding_offsets(h_embedding_offsets, table_sizes);
+
+    num_categories = EmbeddingTableFunctors<dtype>::get_num_categories(table_sizes);
+    HCTR_LIB_THROW(cudaMemcpy(embedding_offsets.get_ptr(), h_embedding_offsets.data(),
+                              sizeof(dtype) * h_embedding_offsets.size(), cudaMemcpyHostToDevice));
+  }
+
   Data(const std::vector<size_t> &table_sizes_in, size_t batch_size_in, size_t num_iterations_in)
       : table_sizes(table_sizes_in), batch_size(batch_size_in), num_iterations(num_iterations_in) {
     std::shared_ptr<GeneralBuffer2<CudaAllocator>> buf = GeneralBuffer2<CudaAllocator>::create();

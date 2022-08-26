@@ -61,6 +61,7 @@ struct BatchDesc {
   size_t size_bytes;
   std::vector<char*> dev_data;
   bool cached;
+  size_t id;
 };
 
 class RawPtrWrapper : public TensorBuffer2 {

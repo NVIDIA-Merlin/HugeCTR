@@ -122,8 +122,6 @@ class HybridSparseEmbedding : public IEmbedding {
   // data-parallel embedding model
   std::vector<FrequentEmbeddingSingleNode<dtype, emtype>> frequent_embeddings_single_node_;
   std::vector<FrequentEmbeddingMultiNode<dtype, emtype>> frequent_embeddings_multi_node_;
-  std::vector<FrequentEmbeddingCompression<dtype>> frequent_embedding_train_indices_,
-      frequent_embedding_evaluate_indices_;
 
   // model-parallel embedding model
   std::vector<InfrequentEmbedding_NVLink_SingleNode<dtype, emtype>>
@@ -131,9 +129,6 @@ class HybridSparseEmbedding : public IEmbedding {
   std::vector<InfrequentEmbedding_IB_NVLINK<dtype, emtype>> infrequent_embeddings_ib_nvlink_;
   std::vector<InfrequentEmbedding_IB_NVLink_Hier<dtype, emtype>>
       infrequent_embeddings_ib_nvlink_hier_;
-
-  std::vector<InfrequentEmbeddingSelection<dtype>> infrequent_embedding_train_indices_,
-      infrequent_embedding_evaluate_indices_;
 
   // Hier A2Av / custom AR impl
 #ifdef ENABLE_MPI
@@ -150,8 +145,6 @@ class HybridSparseEmbedding : public IEmbedding {
   // and input data on each gpu. The HybridSparseEmbedding class manages
   // it's scope / frees the memory.
   std::vector<hybrid_embedding::Model<dtype>> model_;
-  std::vector<Data<dtype>> data_train_;
-  std::vector<Data<dtype>> data_evaluate_;
   std::vector<Data<dtype>> data_statistics_;
   std::vector<CalibrationData> calibration_;
   std::vector<Statistics<dtype>> statistics_;
@@ -162,8 +155,8 @@ class HybridSparseEmbedding : public IEmbedding {
 
   StreamManager stream_manager_;
 
-  SparseTensors<dtype> train_input_tensors_;
-  SparseTensors<dtype> evaluate_input_tensors_;
+  size_t train_inflight_id_ = 0; /**< Which BatchIndices to use. */
+  size_t eval_inflight_id_ = 0;  /**< Which BatchIndices to use. */
   HybridSparseEmbeddingParams embedding_params_;
   std::shared_ptr<ResourceManager> resource_manager_;
 
@@ -181,13 +174,23 @@ class HybridSparseEmbedding : public IEmbedding {
   bool overlap_ar_a2a_;
   bool eval_overlap_;
 
-  std::shared_ptr<IndexProcessor<dtype>> train_async_indices_, eval_async_indices_;
+  size_t current_train_batch_size_ =
+      0; /**< Current batch size (since we need to handle incomplete batch). */
+  size_t current_eval_batch_size_ =
+      0; /**< Current batch size (since we need to handle incomplete batch). */
+  bool current_train_batch_cached_ = false; /**< Used to check if BatchIndices already computed. */
+  bool current_eval_batch_cached_ = false;  /**< Used to check if BatchIndices already computed. */
+  std::vector<BatchIndices<dtype>> train_batch_indices_; /**< Stores indices for Batch. */
+  std::vector<BatchIndices<dtype>> eval_batch_indices_;  /**< Stores indices for Batch. */
+  bool use_graph_ = false;  // TODO: remove when refactor to Pipelineable
 
   // TODO: this parameter is not used by HE at all.
   // We should be in pursuit of merging SparseEmbeddingHashParams and HybridSparseEmbeddingParams
   SparseEmbeddingHashParams dummy_params_;
 
-  void index_calculation(bool is_train, bool is_first_batch, int i, cudaStream_t stream);
+  void assign_input_tensors(bool is_train, size_t batch_size, size_t inflight_id, bool cached,
+                            bool use_graph) override;
+  void index_calculation(bool is_train, int i, cudaStream_t stream);
   void forward(bool is_train, bool is_first_batch, int i, cudaStream_t stream,
                cudaEvent_t* evt_ptr);
   void backward_pre_communication(int i, cudaStream_t stream);
@@ -208,6 +211,19 @@ class HybridSparseEmbedding : public IEmbedding {
       return frequent_embeddings_single_node_[i].frequent_data_;
     } else {
       return frequent_embeddings_multi_node_[i].frequent_data_;
+    }
+  }
+
+  InfrequentEmbeddingBase<dtype>& get_infrequent_embedding(size_t i) {
+    switch (embedding_params_.communication_type) {
+      case CommunicationType::NVLink_SingleNode:
+        return infrequent_embeddings_single_node_[i];
+      case CommunicationType::IB_NVLink:
+        return infrequent_embeddings_ib_nvlink_[i];
+      case CommunicationType::IB_NVLink_Hier:
+        return infrequent_embeddings_ib_nvlink_hier_[i];
+      default:
+        throw std::runtime_error("Unsupported communication type");
     }
   }
 
@@ -258,9 +274,9 @@ class HybridSparseEmbedding : public IEmbedding {
 
   // TODO: consider to merge it with init_params
   void init_model(const SparseTensors<dtype>& data, size_t& wgrad_offset);
-  void setup_async_mode(AsyncReader<dtype>* train_data_reader, AsyncReader<dtype>* eval_data_reader,
-                        bool eval_overlap, bool use_cuda_graph);
 
+  void setup_buffered_indices(AsyncReader<dtype>* train_data_reader,
+                              AsyncReader<dtype>* eval_data_reader);
   TrainState train(bool is_train, int i, TrainState state) override;
   void forward(bool is_train, bool is_first_batch = true) override;
   void backward() override;
