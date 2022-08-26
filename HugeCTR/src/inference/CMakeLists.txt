@@ -76,6 +76,7 @@ file(GLOB huge_ctr_inference_src
   ../parsers/create_network.cpp
   ../parsers/inference_parser.cpp
   ../diagnose.cu
+  ../pipeline.cpp
   embedding_feature_combiner.cu
   inference_session.cpp
 )

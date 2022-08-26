@@ -129,18 +129,7 @@ void Loss<T>::regularizer_initialize_wgrad(bool is_train) {
         "Null regularizer is not allowed in calling Loss::regularizer_initialize_wgrad().");
   }
   if (is_train) {
-    if (regularizer_->get_overlapped()) {
-      regularizer_->join_initialize_wgrad();
-    } else {
-      regularizer_->initialize_wgrad();
-    }
-  }
-}
-
-template <typename T>
-void Loss<T>::initialize_wgrad_async() {
-  if (regularizer_->get_overlapped()) {
-    regularizer_->initialize_wgrad_async();
+    regularizer_->initialize_wgrad();
   }
 }
 

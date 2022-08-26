@@ -32,13 +32,19 @@ class StreamEventManager {
     }
   }
 
-  cudaStream_t& get_stream(const std::string& key, unsigned int flags = 0, int priority = 0) {
+  const cudaStream_t& get_stream(const std::string& key, unsigned int flags = 0, int priority = 0) {
     if (stream_map_.find(key) == stream_map_.end()) {
       cudaStream_t stream;
       HCTR_LIB_THROW(cudaStreamCreateWithPriority(&stream, flags, priority));
       stream_map_[key] = stream;
     }
-    return stream_map_[key];
+    return stream_map_.at(key);
+  }
+
+  const cudaStream_t& get_stream(const std::string& key) const {
+    HCTR_CHECK_HINT(stream_map_.find(key) != stream_map_.end(),
+                    "StreamEventManager not contain stream %s", key.c_str());
+    return stream_map_.at(key);
   }
 
   cudaEvent_t& get_event(const std::string& key, unsigned int flags = 0) {

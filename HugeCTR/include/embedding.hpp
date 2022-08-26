@@ -28,14 +28,8 @@ class IEmbedding {
  public:
   virtual ~IEmbedding() {}
 
-  virtual TrainState train(bool is_train, int i, TrainState state) { return TrainState(); }
-  // TODO: a workaround to enable precomputing for HE, can add another forward() interface?
-  virtual void assign_input_tensors(bool is_train, size_t batch_size, size_t inflight_id,
-                                    bool cached, bool use_graph) {
-    throw std::runtime_error("Unimplemented");
-  }
   // TODO: can we remove the default argument?
-  virtual void forward(bool is_train, bool is_first_batch = true) = 0;
+  virtual void forward(bool is_train) = 0;
   virtual void backward() = 0;
   virtual void update_params() = 0;
   virtual void init_params() = 0;

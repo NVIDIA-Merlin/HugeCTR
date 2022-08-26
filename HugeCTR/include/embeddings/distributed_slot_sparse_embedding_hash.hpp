@@ -151,7 +151,7 @@ class DistributedSlotSparseEmbeddingHash : public IEmbedding {
   /**
    * The forward propagation of embedding layer.
    */
-  void forward(bool is_train, bool is_first_batch = true) override {
+  void forward(bool is_train) override {
     // Read data from input_buffers_ -> look up -> write to output_tensors
 
 #pragma omp parallel num_threads(embedding_data_.get_resource_manager().get_local_gpu_count())

@@ -145,8 +145,7 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
                    std::map<std::string, Tensor2<float>>& loss_tensors,
                    const std::shared_ptr<GPUResource>& gpu_resource, bool use_mixed_precision,
                    bool enable_tf32_compute, int num_networks_in_global, float scaler,
-                   bool& enable_cuda_graph, bool inference_flag,
-                   std::vector<std::unique_ptr<Layer>>& layers,
+                   bool inference_flag, std::vector<std::unique_ptr<Layer>>& layers,
                    std::map<std::string, std::unique_ptr<ILoss>>& losses,
                    metrics::MultiLossMetricMap* raw_metrics,
                    std::vector<Layer*>* top_layers = nullptr,
@@ -1423,9 +1422,9 @@ Network* Network::create_network(const nlohmann::json& j_array, const nlohmann::
                                  const std::shared_ptr<CPUResource>& cpu_resource,
                                  const std::shared_ptr<GPUResource>& gpu_resource,
                                  bool use_mixed_precision, bool enable_tf32_compute, float scaler,
-                                 bool use_algorithm_search, bool use_cuda_graph,
-                                 bool inference_flag, bool grouped_all_reduce) {
-  Network* network = new Network(cpu_resource, gpu_resource, use_mixed_precision, use_cuda_graph);
+                                 bool use_algorithm_search, bool inference_flag,
+                                 bool grouped_all_reduce) {
+  Network* network = new Network(cpu_resource, gpu_resource, use_mixed_precision);
 
   auto& train_layers = network->train_layers_;
   auto* bottom_layers = &network->bottom_layers_;
@@ -1435,7 +1434,6 @@ Network* Network::create_network(const nlohmann::json& j_array, const nlohmann::
   auto& evaluate_loss_tensors = network->evaluate_loss_tensors_;
   auto& train_losses = network->train_losses_;
   auto& evaluate_losses = network->evaluate_losses_;
-  auto& enable_cuda_graph = network->enable_cuda_graph_;
   auto& raw_metrics = network->raw_metrics_;
 
   std::shared_ptr<GeneralBuffer2<CudaAllocator>> blobs_buff =
@@ -1486,16 +1484,16 @@ Network* Network::create_network(const nlohmann::json& j_array, const nlohmann::
     create_layers(j_array, train_tensor_entries, blobs_buff, train_weight_buff,
                   train_weight_buff_half, wgrad_buff, wgrad_buff_half, train_loss_tensors,
                   gpu_resource, use_mixed_precision, enable_tf32_compute, num_networks_in_global,
-                  scaler, enable_cuda_graph, inference_flag, train_layers, train_losses, nullptr,
-                  top_layers, bottom_layers);
+                  scaler, inference_flag, train_layers, train_losses, nullptr, top_layers,
+                  bottom_layers);
   }
 
   // create evaluate layers
   create_layers(j_array, evaluate_tensor_entries, blobs_buff, evaluate_weight_buff,
                 evaluate_weight_buff_half, wgrad_buff_placeholder, wgrad_buff_half_placeholder,
                 evaluate_loss_tensors, gpu_resource, use_mixed_precision, enable_tf32_compute,
-                num_networks_in_global, scaler, enable_cuda_graph, inference_flag, evaluate_layers,
-                evaluate_losses, &raw_metrics);
+                num_networks_in_global, scaler, inference_flag, evaluate_layers, evaluate_losses,
+                &raw_metrics);
 
   // create optimizer
   if (!inference_flag) {

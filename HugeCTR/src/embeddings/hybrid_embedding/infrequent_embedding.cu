@@ -232,7 +232,7 @@ void InfrequentEmbedding_NVLink_SingleNode<dtype, emtype>::update_model_direct(
       ceildiv<uint32_t>(data_->batch_size, num_instances) * data_->table_sizes.size();
 
   int num_sm = gpu_resource_.get_sm_count();
-  int n_blocks = 16 * num_sm;  // TODO: better heuristics
+  int n_blocks = 8 * num_sm;  // TODO: better heuristics
 
   /* Each model reads from the gradients of each network */
   infrequent_embedding_kernels::
@@ -284,6 +284,16 @@ void InfrequentEmbedding_IB_NVLINK<dtype, emtype>::init_comms(size_t embedding_v
 template <typename dtype, typename emtype>
 void InfrequentEmbedding_IB_NVLINK<dtype, emtype>::forward_model(emtype* message_buffer,
                                                                  cudaStream_t stream) {
+  HCTR_LIB_THROW(cudaMemcpyAsync(
+      model_indices_offsets_.get_ptr(), this->indices_->model_indices_offsets_.get_ptr(),
+      model_indices_offsets_.get_size_in_bytes(), cudaMemcpyDeviceToDevice, stream));
+
+  HCTR_LIB_THROW(cudaMemcpyAsync(
+      network_indices_offsets_.get_ptr(), this->indices_->network_indices_offsets_.get_ptr(),
+      network_indices_offsets_.get_size_in_bytes(), cudaMemcpyDeviceToDevice, stream));
+
+  HCTR_LIB_THROW(cudaStreamSynchronize(stream));
+
   auto indices = this->indices_view_;
   auto category_location = model_.category_location.get_ptr();
   auto infrequent_embedding_vectors = infrequent_embedding_vectors_.get_ptr();
@@ -309,7 +319,7 @@ void InfrequentEmbedding_IB_NVLINK<dtype, emtype>::forward_model(emtype* message
 
 template <typename dtype, typename emtype>
 void InfrequentEmbedding_IB_NVLINK<dtype, emtype>::forward_network(const emtype* message_buffer,
-                                                                   emtype* interaction_layer_input,
+                                                                   emtype* output_ptr,
                                                                    cudaStream_t stream) {
   auto indices = this->indices_view_;
   auto embedding_vec_size = embedding_vec_size_;
@@ -321,35 +331,12 @@ void InfrequentEmbedding_IB_NVLINK<dtype, emtype>::forward_network(const emtype*
       [=] __device__(size_t i) -> CopyDescriptors::CopyDetails<emtype, emtype, 1> {
         uint32_t index = indices->network_indices[i];
         return {message_buffer + i * embedding_vec_size,
-                {interaction_layer_input + index * embedding_vec_size},
+                {output_ptr + index * embedding_vec_size},
                 {true}};
       });
 
   shuffle(copy_desc, stream, data_->samples.get_num_elements() / model_.num_instances / 8);
   HCTR_LIB_THROW(cudaPeekAtLastError());
-}
-
-template <typename dtype, typename emtype>
-void InfrequentEmbedding_IB_NVLINK<dtype, emtype>::forward(emtype* output_ptr,
-                                                           cudaStream_t stream) {
-  // TODO: These copies need to be moved to the index computation
-  HCTR_LIB_THROW(cudaMemcpyAsync(
-      model_indices_offsets_.get_ptr(), this->indices_->model_indices_offsets_.get_ptr(),
-      model_indices_offsets_.get_size_in_bytes(), cudaMemcpyDeviceToDevice, stream));
-
-  HCTR_LIB_THROW(cudaMemcpyAsync(
-      network_indices_offsets_.get_ptr(), this->indices_->network_indices_offsets_.get_ptr(),
-      network_indices_offsets_.get_size_in_bytes(), cudaMemcpyDeviceToDevice, stream));
-
-  HCTR_LIB_THROW(cudaStreamSynchronize(stream));
-
-  // frequent_embeddings_[i].forward_network(output.get_ptr(), false, stream);
-
-  forward_model(infrequent_forward_comm_buffers_->send_buffer.get_ptr(), stream);
-
-  infrequent_forward_comms_->communicate(stream);
-
-  forward_network(infrequent_forward_comm_buffers_->recv_buffer.get_ptr(), output_ptr, stream);
 }
 
 template <typename dtype, typename emtype>
@@ -449,31 +436,6 @@ void InfrequentEmbedding_IB_NVLink_Hier<dtype, emtype>::init_comms(
 }
 
 template <typename dtype, typename emtype>
-void InfrequentEmbedding_IB_NVLink_Hier<dtype, emtype>::forward_model(cudaStream_t stream) {
-  calculate_model_indices_sizes_from_offsets(stream);
-
-  calculate_network_indices_sizes_from_offsets(stream);
-
-  infrequent_forward_comms_->update_sizes(stream);
-
-  fused_intra_forward_model(infrequent_forward_comm_buffers_->send_buffer_ptrs.get_ptr(), stream);
-
-  infrequent_forward_comms_->initiate_communication(stream);
-}
-
-template <typename dtype, typename emtype>
-void InfrequentEmbedding_IB_NVLink_Hier<dtype, emtype>::infrequent_wait_completion(
-    cudaStream_t stream) {
-  infrequent_forward_comms_->wait_completion(stream);
-}
-
-template <typename dtype, typename emtype>
-void InfrequentEmbedding_IB_NVLink_Hier<dtype, emtype>::infrequent_hier_forward_network(
-    emtype* output_ptr, cudaStream_t stream) {
-  hier_forward_network(infrequent_forward_comm_buffers_->recv_buffer.get_ptr(), output_ptr, stream);
-}
-
-template <typename dtype, typename emtype>
 void InfrequentEmbedding_IB_NVLink_Hier<dtype, emtype>::fused_intra_forward_model(
     emtype** message_buffer, cudaStream_t stream) {
   auto indices = this->indices_view_;
@@ -518,7 +480,7 @@ void InfrequentEmbedding_IB_NVLink_Hier<dtype, emtype>::fused_intra_forward_mode
 
 template <typename dtype, typename emtype>
 void InfrequentEmbedding_IB_NVLink_Hier<dtype, emtype>::hier_forward_network(
-    const emtype* message_buffer, emtype* interaction_layer_input, cudaStream_t stream) {
+    const emtype* message_buffer, emtype* output_ptr, cudaStream_t stream) {
   auto indices = this->indices_view_;
   auto embedding_vec_size = embedding_vec_size_;
   auto num_instances = model_.num_instances;
@@ -537,7 +499,7 @@ void InfrequentEmbedding_IB_NVLink_Hier<dtype, emtype>::hier_forward_network(
 
         return {
             message_buffer + (model_id * local_comm_buff_size + i - offset) * embedding_vec_size,
-            {interaction_layer_input + index * embedding_vec_size},
+            {output_ptr + index * embedding_vec_size},
             {true}};
       });
 
@@ -586,7 +548,6 @@ void InfrequentEmbedding_IB_NVLink_Hier<dtype, emtype>::fused_intra_update_netwo
 template <typename dtype, typename emtype>
 void InfrequentEmbedding_IB_NVLink_Hier<dtype, emtype>::hier_update_model(
     const emtype* message_buffer, float* dev_lr, float scale, cudaStream_t stream) {
-  // const emtype* message_buffer, float* dev_lr, float scale, cudaStream_t stream) {
   const uint32_t& num_instances = model_.num_instances;
   uint32_t local_samples_size =
       ceildiv<uint32_t>(data_->batch_size, num_instances) * data_->table_sizes.size();
