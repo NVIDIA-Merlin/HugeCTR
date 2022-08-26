@@ -60,9 +60,9 @@
     - <<: *if-push-to-mr-opened
       when: never
     - <<: *if-default-ci-actions
-      when: always
+      #      when: always
     - <<: *if-new-image
-      when: always
+      #      when: always
     - when: never
 
 .hugectr:rules:build:
@@ -72,11 +72,11 @@
       when: never
     - <<: *if-default-ci-actions
       changes: *hugectr-source
-      when: always
+      #when: always
     - <<: *if-new-image
-      when: always
+      #when: always
     - <<: *if-daily-schedule
-      when: always
+      #when: always
     - when: never
 
 .sok:rules:build:
@@ -86,11 +86,11 @@
       when: never
     - <<: *if-default-ci-actions
       changes: *sok-source
-      when: always
+      #when: always
     - <<: *if-new-image
-      when: always
+      #when: always
     - <<: *if-daily-schedule
-      when: always
+      #when: always
     - when: never
 
 # Condition for run sanity test
@@ -98,24 +98,24 @@
   rules:
     - <<: *if-merge-request
       changes: *hugectr-source
-      when: always
+      #when: always
     - <<: *if-new-image
-      when: always
+      #when: always
     - when: never
 
 .sok:rules:sanity-test:
   rules:
     - <<: *if-merge-request
       changes: *sok-source
-      when: always
+      #when: always
     - <<: *if-new-image
-      when: always
+      #when: always
     - when: never
 
 .default:rules:daily-test:
   rules:
     - <<: *if-new-image
-      when: always
+      #when: always
     - <<: *if-daily-schedule
-      when: always
+      #when: always
     - when: never

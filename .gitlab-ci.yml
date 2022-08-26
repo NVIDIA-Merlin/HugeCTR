@@ -351,6 +351,20 @@ wdl:
     DGXNNODES: 1                                                                 # node num
     TEST_CMD: ./ci/integration_test/wdl/wdl.sub                                  # test script
 
+wdl_multi_gpu:
+  extends: .cluster_test_job_daily                                                     # test on selene needs to extend .cluster_test_job
+  needs:
+    - build_train_single_node
+  variables:
+    GPFSFOLDER: $LOGDIR/wdl_multi_gpu                                                      # log dir, usually $LOGDIR + job name
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}                                     # should not change
+    CONT: $TRAIN_IMAGE_VERSIONED                                                 # image name
+    MOUNTS: ${DATASET}:${DATASET_MOUNT}                                          # mount
+    SLURM_ACCOUNT: devtech                                                       # account, do not need change
+    WALLTIME: "00:15:00"                                                         # estimate job time. Less time, higher priority
+    DGXNNODES: 1                                                                 # node num
+    TEST_CMD: ./ci/integration_test/wdl/wdl_daily.sub 
+
 deepfm:
   extends: .cluster_test_job
   needs:
@@ -364,6 +378,20 @@ deepfm:
     WALLTIME: "00:15:00"
     DGXNNODES: 1
     TEST_CMD: ./ci/integration_test/deepfm/deepfm.sub
+
+deepfm_multi_gpu:
+  extends: .cluster_test_job_daily
+  needs:
+    - build_train_single_node
+  variables:
+    GPFSFOLDER: $LOGDIR/deepfm_multi_gpu
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $TRAIN_IMAGE_VERSIONED
+    MOUNTS: ${DATASET}:${DATASET_MOUNT}
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "00:15:00"
+    DGXNNODES: 1
+    TEST_CMD: ./ci/integration_test/deepfm/deepfm_daily.sub
 
 dlrm:
   extends: .cluster_test_job
@@ -731,14 +759,14 @@ hdfs_backend_test:
 
 wdl_check:
   # Push logs to gitlab
-  extends: .cluster_post_test_job
+  extends: .cluster_post_test_job_daily
   needs:
-    - wdl
+    - wdl_multi_gpu
   variables:
     GPFSFOLDER: $LOGDIR/wdl_check
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
     CONT: $TRAIN_IMAGE_VERSIONED
-    MOUNTS: $LOGDIR/wdl:/logs
+    MOUNTS: $LOGDIR/wdl_multi_gpu:/logs
     SLURM_ACCOUNT: devtech
     WALLTIME: "00:15:00"
     DGXNNODES: 1

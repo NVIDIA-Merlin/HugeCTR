@@ -50,7 +50,7 @@ def Init(**kwargs):
     .. code-block:: python
 
         import hierarchical_parameter_server as hps
-        
+
         with strategy.scope():
             hps.Init(**kwargs)
 
@@ -72,7 +72,7 @@ def Init(**kwargs):
     .. code-block:: python
 
         import hierarchical_parameter_server as hps
-        
+
         hps_init = hps.Init(**kwargs)
         with tf.Session() as sess:
             sess.run(hps_init)
@@ -83,19 +83,19 @@ def Init(**kwargs):
     kwargs: dict
             keyword arguments for this function.
             Currently, it must contains `global_batch_size` and `ps_config_file`.
-            
+
             * `global_batch_size`: int, the global batch size for HPS that is deployed on multiple GPUs
-            
+
             * `ps_config_file`: str, the JSON configuration file for HPS initialization
 
-            An example `ps_config_file` is as follows and `global_batch_size` can be 
+            An example `ps_config_file` is as follows and `global_batch_size` can be
             configured as 16384 correspondingly:
-            
+
             .. code-block:: python
 
                 ps_config_file = {
                     "supportlonglong" : True,
-                    "models" : 
+                    "models" :
                     [{
                         "model": "foo",
                         "sparse_files": ["foo_sparse.model"],
