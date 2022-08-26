@@ -40,26 +40,27 @@ args["np_vector_type"] = np.float32
 args["tf_key_type"] = tf.int64
 args["tf_vector_type"] = tf.float32
 
-hps_config ={
-    "supportlonglong" : True,
-    "models" : 
-    [{
-        "model": "naive_dnn",
-        "sparse_files": ["naive_dnn_sparse.model"],
-        "num_of_worker_buffer_in_pool": 3,
-        "embedding_table_names":["sparse_embedding0"],
-        "embedding_vecsize_per_table": [16],
-        "maxnum_catfeature_query_per_table_per_sample": [3],
-        "default_value_for_each_table": [1.0],
-        "deployed_device_list": [0],
-        "max_batch_size": 16384,
-        "cache_refresh_percentage_per_iteration": 0.2,
-        "hit_rate_threshold": 1.0,
-        "gpucacheper": 1.0,
-        "gpucache": True}
-    ]
+hps_config = {
+    "supportlonglong": True,
+    "models": [
+        {
+            "model": "naive_dnn",
+            "sparse_files": ["naive_dnn_sparse.model"],
+            "num_of_worker_buffer_in_pool": 3,
+            "embedding_table_names": ["sparse_embedding0"],
+            "embedding_vecsize_per_table": [16],
+            "maxnum_catfeature_query_per_table_per_sample": [3],
+            "default_value_for_each_table": [1.0],
+            "deployed_device_list": [0],
+            "max_batch_size": 16384,
+            "cache_refresh_percentage_per_iteration": 0.2,
+            "hit_rate_threshold": 1.0,
+            "gpucacheper": 1.0,
+            "gpucache": True,
+        }
+    ],
 }
-hps_config_json_object = json.dumps(hps_config, indent = 4)
+hps_config_json_object = json.dumps(hps_config, indent=4)
 with open(args["ps_config_file"], "w") as outfile:
     outfile.write(hps_config_json_object)
 
@@ -215,15 +216,20 @@ def inference_with_saved_model(args):
     embedding_vectors_peek = list()
     id_tensors_peek = list()
     logit_peek = list()
-    keys, labels = generate_random_samples(args["global_batch_size"]  * args["iter_num"], args["vocabulary_range_per_slot"],  args["np_key_type"])
+    keys, labels = generate_random_samples(
+        args["global_batch_size"] * args["iter_num"],
+        args["vocabulary_range_per_slot"],
+        args["np_key_type"],
+    )
     dataset = tf_dataset(keys, labels, args["global_batch_size"])
     for i, (id_tensors, labels) in enumerate(dataset):
-        print("-"*20, "Step {}".format(i),  "-"*20)
+        print("-" * 20, "Step {}".format(i), "-" * 20)
         logit, embedding_vector = _infer_step(id_tensors, labels)
         embedding_vectors_peek.append(embedding_vector)
         id_tensors_peek.append(id_tensors)
         logit_peek.append(logit)
     return embedding_vectors_peek, id_tensors_peek, logit_peek
+
 
 def test_naive_dnn_hps():
     trained_model = train(args)
@@ -238,27 +244,54 @@ def test_naive_dnn_hps():
     convert_to_sparse_model(embedding_weights, args["embedding_table_path"], args["embed_vec_size"])
     create_and_save_inference_graph(args)
 
-
     embeddings, inputs, logit = inference_with_saved_model(args)
 
     embeddings_gt = []
     logit_gt = []
     for i in range(len(inputs)):
-        embeddings_gt.append(tf.nn.embedding_lookup(params = embedding_weights, 
-                                                    ids=inputs[i]))
+        embeddings_gt.append(tf.nn.embedding_lookup(params=embedding_weights, ids=inputs[i]))
         logit_gt_batch, _ = trained_model(inputs[i])
         logit_gt.append(logit_gt_batch)
-    
-    embeddings = np.array( tf.reshape( tf.concat(embeddings, axis=0), [-1,])  )
-    logit = np.array( tf.reshape( tf.concat(logit, axis=0), [-1,]) )
-    embeddings_gt = np.array( tf.reshape( tf.concat(embeddings_gt, axis=0), [-1,])  )
-    logit_gt = np.array( tf.reshape( tf.concat(logit_gt, axis=0), [-1,]) )
-    
-    diff1 = embeddings-embeddings_gt
-    diff2 = logit-logit_gt
-    mse1 = np.mean(diff1*diff1)
-    mse2 = np.mean(diff2*diff2)
+
+    embeddings = np.array(
+        tf.reshape(
+            tf.concat(embeddings, axis=0),
+            [
+                -1,
+            ],
+        )
+    )
+    logit = np.array(
+        tf.reshape(
+            tf.concat(logit, axis=0),
+            [
+                -1,
+            ],
+        )
+    )
+    embeddings_gt = np.array(
+        tf.reshape(
+            tf.concat(embeddings_gt, axis=0),
+            [
+                -1,
+            ],
+        )
+    )
+    logit_gt = np.array(
+        tf.reshape(
+            tf.concat(logit_gt, axis=0),
+            [
+                -1,
+            ],
+        )
+    )
+
+    diff1 = embeddings - embeddings_gt
+    diff2 = logit - logit_gt
+    mse1 = np.mean(diff1 * diff1)
+    mse2 = np.mean(diff2 * diff2)
     assert mse1 <= 1e-6
     assert mse2 <= 1e-6
-    print("HPS TF Plugin does well for embedding vector lookup, mse1: {}, mse2: {}".format(mse1, mse2))
-
+    print(
+        "HPS TF Plugin does well for embedding vector lookup, mse1: {}, mse2: {}".format(mse1, mse2)
+    )

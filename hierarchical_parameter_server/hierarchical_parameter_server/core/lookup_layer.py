@@ -22,7 +22,7 @@ class LookupLayer(tf.keras.layers.Layer):
     """
     Abbreviated as ``hps.LookupLayer(*args, **kwargs)``.
 
-    This is a wrapper class for HPS lookup layer, which basically performs 
+    This is a wrapper class for HPS lookup layer, which basically performs
     the same function as tf.nn.embedding_lookup.
 
     Parameters

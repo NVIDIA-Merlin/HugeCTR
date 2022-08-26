@@ -360,8 +360,8 @@ void model_init_test(const size_t num_instances, const size_t num_tables, const 
 
 }  // namespace
 
-//TEST(hybrid_embedding_model_test, uint32) { model_test<uint32_t>(); }
-//TEST(hybrid_embedding_model_test, long_long) { model_test<long long>(); }
+// TEST(hybrid_embedding_model_test, uint32) { model_test<uint32_t>(); }
+// TEST(hybrid_embedding_model_test, long_long) { model_test<long long>(); }
 TEST(hybrid_embedding_model_test, init_model) {
   const size_t N = 5;
   const size_t batch_size = 15 * 64 * 1024;

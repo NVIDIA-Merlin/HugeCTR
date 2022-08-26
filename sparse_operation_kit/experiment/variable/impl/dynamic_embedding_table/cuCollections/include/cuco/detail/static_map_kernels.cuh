@@ -34,9 +34,10 @@ namespace detail {
  * @param v Value to which all values in `slots` are initialized
  * @param size Size of the storage pointed to by `slots`
  */
-template <typename atomic_key_type, typename element_type, typename atomic_flag_type, typename pair_atomic_type, typename Key>
-__global__ void initialize(pair_atomic_type *const slots, element_type *const elements, Key k, uint32_t dimension, size_t size) {
-
+template <typename atomic_key_type, typename element_type, typename atomic_flag_type,
+          typename pair_atomic_type, typename Key>
+__global__ void initialize(pair_atomic_type *const slots, element_type *const elements, Key k,
+                           uint32_t dimension, size_t size) {
   auto grid = cooperative_groups::this_grid();
 
   for (auto tid = grid.thread_rank(); tid < size; tid += grid.size()) {
@@ -49,5 +50,5 @@ __global__ void initialize(pair_atomic_type *const slots, element_type *const el
   }
 }
 
-} // namespace detail
-} // namespace cuco
+}  // namespace detail
+}  // namespace cuco

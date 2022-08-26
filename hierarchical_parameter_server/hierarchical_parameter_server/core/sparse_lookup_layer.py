@@ -23,11 +23,12 @@ from tensorflow.nn import embedding_lookup
 
 from hierarchical_parameter_server.core import lookup_ops
 
+
 class SparseLookupLayer(tf.keras.layers.Layer):
     """
     Abbreviated as ``hps.SparseLookupLayer(*args, **kwargs)``.
 
-    This is a wrapper class for HPS sparse lookup layer, which basically performs 
+    This is a wrapper class for HPS sparse lookup layer, which basically performs
     the same function as tf.nn.embedding_lookup_sparse.
 
     Parameters
@@ -81,7 +82,7 @@ class SparseLookupLayer(tf.keras.layers.Layer):
         (if not None) are `SparseTensor` with rank of 2. Embeddings are always aggregated
         along the last dimension. If an id value cannot be find in the HPS, the default
         embeddings will be retrieved, which can be specified in the HPS configuration JSON file.
-        
+
         Parameters
         ----------
         sp_ids:
@@ -109,7 +110,7 @@ class SparseLookupLayer(tf.keras.layers.Layer):
             looks up the embeddings for all ids in that row, multiplies them by the
             corresponding weight, and combines these embeddings as specified.
             In other words, if
-            
+
             .. code-block:: python
 
                 shape(sp_ids) = shape(sp_weights) = [d0, d1]
@@ -130,7 +131,7 @@ class SparseLookupLayer(tf.keras.layers.Layer):
                 [2, 3]: id 1, weight 3.0
 
             with `combiner` = `"mean"`, then the output will be a 3x16 matrix where
-                
+
             .. code-block:: python
 
                 output[0, :] = (vector_for_id_1 * 2.0 + vector_for_id_3 * 0.5) / (2.0 + 0.5)
@@ -149,8 +150,7 @@ class SparseLookupLayer(tf.keras.layers.Layer):
         if combiner is None:
             combiner = "mean"
         if combiner not in ("mean", "sqrtn", "sum"):
-            raise ValueError(
-                    f"combiner must be one of 'mean', 'sqrtn' or 'sum', got {combiner}")
+            raise ValueError(f"combiner must be one of 'mean', 'sqrtn' or 'sum', got {combiner}")
 
         if not isinstance(sp_ids, sparse_tensor.SparseTensor):
             raise TypeError(f"sp_ids must be SparseTensor, got {type(sp_ids)}")
@@ -161,14 +161,14 @@ class SparseLookupLayer(tf.keras.layers.Layer):
         ignore_weights = sp_weights is None
         if not ignore_weights:
             if not isinstance(sp_weights, sparse_tensor.SparseTensor):
-                raise TypeError(f"sp_weights must be either None or SparseTensor,"
-                                                f"got {type(sp_weights)}")
-            sp_ids.values.get_shape().assert_is_compatible_with(
-                    sp_weights.values.get_shape())
-            sp_ids.indices.get_shape().assert_is_compatible_with(
-                    sp_weights.indices.get_shape())
+                raise TypeError(
+                    f"sp_weights must be either None or SparseTensor," f"got {type(sp_weights)}"
+                )
+            sp_ids.values.get_shape().assert_is_compatible_with(sp_weights.values.get_shape())
+            sp_ids.indices.get_shape().assert_is_compatible_with(sp_weights.indices.get_shape())
             sp_ids.dense_shape.get_shape().assert_is_compatible_with(
-                    sp_weights.dense_shape.get_shape())
+                sp_weights.dense_shape.get_shape()
+            )
             # TODO(yleon): Add enhanced node assertions to verify that sp_ids and
             # sp_weights have equal indices and shapes.
 
@@ -178,11 +178,13 @@ class SparseLookupLayer(tf.keras.layers.Layer):
         ids, idx = array_ops.unique(ids)
 
         # Query HPS for embeddings
-        embeddings = lookup_ops.lookup(values = ids,
-                                      model_name = self.model_name,
-                                      table_id = self.table_id,
-                                      emb_vec_size = self.emb_vec_size,
-                                      emb_vec_dtype = self.emb_vec_dtype)
+        embeddings = lookup_ops.lookup(
+            values=ids,
+            model_name=self.model_name,
+            table_id=self.table_id,
+            emb_vec_size=self.emb_vec_size,
+            emb_vec_dtype=self.emb_vec_dtype,
+        )
 
         # Handle weights and combiner
         if not ignore_weights:
@@ -212,8 +214,10 @@ class SparseLookupLayer(tf.keras.layers.Layer):
             # the shape becomes None.
             if embeddings.get_shape().ndims is not None:
                 weights.set_shape(
-                        orig_weights_shape.concatenate(
-                                [1 for _ in range(embeddings.get_shape().ndims - 1)]))
+                    orig_weights_shape.concatenate(
+                        [1 for _ in range(embeddings.get_shape().ndims - 1)]
+                    )
+                )
 
             embeddings *= weights
 
@@ -238,17 +242,14 @@ class SparseLookupLayer(tf.keras.layers.Layer):
                 segment_ids = math_ops.cast(segment_ids, dtypes.int32)
             assert idx is not None
             if combiner == "sum":
-                embeddings = math_ops.sparse_segment_sum(
-                        embeddings, idx, segment_ids)
+                embeddings = math_ops.sparse_segment_sum(embeddings, idx, segment_ids)
             elif combiner == "mean":
-                embeddings = math_ops.sparse_segment_mean(
-                        embeddings, idx, segment_ids)
+                embeddings = math_ops.sparse_segment_mean(embeddings, idx, segment_ids)
             elif combiner == "sqrtn":
-                embeddings = math_ops.sparse_segment_sqrt_n(
-                        embeddings, idx, segment_ids)
+                embeddings = math_ops.sparse_segment_sqrt_n(embeddings, idx, segment_ids)
             else:
                 assert False, "Unrecognized combiner"
 
-        output_shape = [sp_ids.get_shape()[0], self.emb_vec_size] 
+        output_shape = [sp_ids.get_shape()[0], self.emb_vec_size]
         embeddings.set_shape(output_shape)
         return embeddings

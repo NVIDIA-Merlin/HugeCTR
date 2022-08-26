@@ -23,13 +23,9 @@ def test():
     grad1 = tf.convert_to_tensor(
         [[1.0, 2.0, 3.0, 4.0, 5.0], [6.0, 7.0, 8.0, 9.0, 10.0]], dtype=tf.float32
     )
-    row_length1 = tf.convert_to_tensor(
-        [1, 2], dtype=tf.int64
-    )
+    row_length1 = tf.convert_to_tensor([1, 2], dtype=tf.int64)
     grad2 = tf.convert_to_tensor([[11.0, 12.0, 13.0], [14.0, 15.0, 16.0]], dtype=tf.float32)
-    row_length2 = tf.convert_to_tensor(
-        [1, 1], dtype=tf.int64
-    )
+    row_length2 = tf.convert_to_tensor([1, 1], dtype=tf.int64)
     shape = tf.convert_to_tensor([16, 16], dtype=tf.int64)
     outputs = sok.raw_ops.postprocessing_backward(
         emb_vec_grad=[grad1, grad2],

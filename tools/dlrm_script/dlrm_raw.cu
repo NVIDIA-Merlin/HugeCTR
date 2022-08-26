@@ -608,7 +608,7 @@ void process_terabyte_dataset(const std::string &input_dir_path, const std::stri
     // encode and write out binary
     int maxbytes = 96 * 1024;  // dynamic shared memory size 96 KB
     HCTR_LIB_THROW(cudaFuncSetAttribute(process_data_rows<key_type, value_type>,
-                         cudaFuncAttributeMaxDynamicSharedMemorySize, maxbytes));
+                                        cudaFuncAttributeMaxDynamicSharedMemorySize, maxbytes));
 
     std::vector<map_type<key_type, value_type>> categorical_col_hash_obj;
     for (auto c : cat_column_names) {

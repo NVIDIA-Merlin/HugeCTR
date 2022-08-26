@@ -15,6 +15,7 @@
  */
 
 #include "buffer.hpp"
+
 #include "HugeCTR/include/utils.hpp"
 #include "core.hpp"
 
