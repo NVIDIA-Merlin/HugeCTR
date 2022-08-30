@@ -109,14 +109,14 @@ if __name__ == "__main__":
     length = out1**2 + out2**2 + 1e-8
     diff = tf.reduce_sum((out1 - out2) ** 2 / length)
     print("[SOK INFO] diff:", diff)
-    assert diff < 1e-8
+    assert diff < 1e-6
 
     diff = 0
     for i in range(iters):
         length = loss1[i] ** 2 + loss2[i] ** 2 + 1e-8
         diff = diff + (loss1[i] - loss2[i]) ** 2 / length
     print("[SOK INFO] loss diff:", diff)
-    assert diff < 1e-8
+    assert diff < 1e-6
 
     print("[SOK INFO] all2all_dense_embedding_dynamic test passed")
     ts = ts[5:]

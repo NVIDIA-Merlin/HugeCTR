@@ -148,7 +148,7 @@ if __name__ == "__main__":
             length = out1[i] ** 2 + out2[i] ** 2 + 1e-8
             diff = diff + tf.reduce_sum((out1[i] - out2[i]) ** 2 / length)
     print("[SOK INFO] diff:", diff)
-    assert diff < 1e-8
+    assert diff < 1e-6
 
     diff = 0
     for i in range(iters):
@@ -156,7 +156,7 @@ if __name__ == "__main__":
         length = loss1[i] ** 2 + loss2[i] ** 2 + 1e-8
         diff = diff + (loss1[i] - loss2[i]) ** 2 / length
     print("[SOK INFO] loss diff:", diff)
-    assert diff < 1e-8
+    assert diff < 1e-6
 
     print("[SOK INFO] lookup_sparse distributed test passed")
     ts = ts[5:]
