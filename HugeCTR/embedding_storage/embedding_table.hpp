@@ -21,9 +21,9 @@
 namespace embedding {
 
 // per gpu object
-class IEmbeddingTable : public ILookup {
+class IGroupedEmbeddingTable : public ILookup {
  public:
-  virtual ~IEmbeddingTable() = default;
+  virtual ~IGroupedEmbeddingTable() = default;
 
   virtual void update(const Tensor &keys, size_t num_keys, const Tensor &id_space_offset,
                       size_t num_id_space_offset, const Tensor &id_space_list, Tensor &grad_ev,
@@ -44,15 +44,21 @@ class IEmbeddingTable : public ILookup {
   virtual void set_learning_rate(float lr) = 0;
 };
 
-class IDynamicEmbeddingTable : public IEmbeddingTable {
+class IDynamicEmbeddingTable : public IGroupedEmbeddingTable {
   virtual void evict(const Tensor &keys, size_t num_keys, const Tensor &id_space_offset,
                      size_t num_id_space_offset, const Tensor &id_space_list) = 0;
 };
 
-std::vector<std::unique_ptr<IEmbeddingTable>> create_embedding_table(
+std::vector<std::unique_ptr<IGroupedEmbeddingTable>> create_embedding_table(
     std::shared_ptr<HugeCTR::ResourceManager> resource_manager,
     std::vector<std::shared_ptr<CoreResourceManager>> core_list,
     const EmbeddingCollectionParam &embedding_collection_param,
     const std::vector<EmbeddingTableParam> &emb_table_param_list,
     const std::vector<EmbeddingShardingParam> &emb_sharding_param_list);
+
+std::vector<std::unique_ptr<IGroupedEmbeddingTable>> create_grouped_embedding_table(
+    std::shared_ptr<HugeCTR::ResourceManager> resource_manager,
+    std::shared_ptr<CoreResourceManager> core,
+    const EmbeddingCollectionParam &embedding_collection_param,
+    const std::vector<EmbeddingTableParam> &emb_table_param_list);
 }  // namespace embedding

@@ -36,7 +36,7 @@ std::vector<EmbeddingTableParam> get_table_param_list(int num_table,
   std::vector<EmbeddingTableParam> table_param_list;
   for (int id = 0; id < num_table; ++id) {
     EmbeddingTableParam table_param;
-    table_param.id_space = id;
+    table_param.table_id = id;
     table_param.max_vocabulary_size = 5;
     table_param.ev_size = table_ev_size_list[id];
     table_param.min_key = table_min_key_list[id];
@@ -142,7 +142,7 @@ void embedding_collection_e2e(const std::vector<int> device_list, const int &bat
   planner.generate_embedding_plan_from_json_file(plan_file);
 
   std::vector<std::shared_ptr<core::CoreResourceManager>> core_resource_manager_list;
-  std::vector<std::vector<std::unique_ptr<IEmbeddingTable>>> table_major_ebc_table_list;
+  std::vector<std::vector<std::unique_ptr<IGroupedEmbeddingTable>>> table_major_ebc_table_list;
   std::vector<std::unique_ptr<IEmbeddingCollectionForward>> ebc_forward_list;
   std::vector<std::unique_ptr<IEmbeddingCollectionBackward>> ebc_backward_list;
   std::vector<std::shared_ptr<core::CoreResourceManager>> core_list;
@@ -243,9 +243,9 @@ void embedding_collection_e2e(const std::vector<int> device_list, const int &bat
   // sync for emb table init
   sync_gpus();
 
-  std::vector<std::vector<IEmbeddingTable *>> table_major_ebc_table_ptr_list;
+  std::vector<std::vector<IGroupedEmbeddingTable *>> table_major_ebc_table_ptr_list;
   for (size_t i = 0; i < table_major_ebc_table_list.size(); ++i) {
-    std::vector<IEmbeddingTable *> local_ebc_table_ptr_list;
+    std::vector<IGroupedEmbeddingTable *> local_ebc_table_ptr_list;
     for (int gpu_id = 0; gpu_id < num_gpus; ++gpu_id) {
       local_ebc_table_ptr_list.push_back(table_major_ebc_table_list[i][gpu_id].get());
     }

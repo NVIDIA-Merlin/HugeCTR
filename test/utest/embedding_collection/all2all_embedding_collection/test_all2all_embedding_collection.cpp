@@ -73,7 +73,7 @@ void all2all_embedding_collection_test() {
   std::vector<EmbeddingTableParam> table_param_list;
   for (int id = 0; id < num_table; ++id) {
     EmbeddingTableParam table_param;
-    table_param.id_space = id;
+    table_param.table_id = id;
     table_param.max_vocabulary_size = 5;
     table_param.ev_size = table_ev_size_list[id];
     table_param.min_key = table_min_key_list[id];
@@ -98,7 +98,7 @@ void all2all_embedding_collection_test() {
   std::vector<std::unique_ptr<tf::IAll2AllEmbeddingCollectionNetworkBackward>>
       network_backward_list;
   std::vector<std::unique_ptr<tf::IAll2AllEmbeddingCollectionModelBackward>> model_backward_list;
-  std::vector<std::unique_ptr<IEmbeddingTable>> ebc_table_list;
+  std::vector<std::unique_ptr<IGroupedEmbeddingTable>> ebc_table_list;
   for (int gpu_id = 0; gpu_id < num_gpus; ++gpu_id) {
     auto core = std::make_shared<hctr_internal::HCTRCoreResourceManager>(resource_manager, gpu_id);
     core_list.push_back(core);

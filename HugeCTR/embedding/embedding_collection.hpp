@@ -89,7 +89,7 @@ class ProcessOutputBackward {
 class EmbeddingCollectionForward : public IEmbeddingCollectionForward {
   GlobalEmbeddingData global_embedding_data_;
   int num_embedding_;
-  std::vector<std::unique_ptr<IEmbeddingForward>> embeddings_;
+  std::vector<std::unique_ptr<IGroupedEmbeddingForward>> embeddings_;
   PreprocessInput preprocess_input_;
   ProcessOutput process_output_;
 
@@ -106,7 +106,7 @@ class EmbeddingCollectionForward : public IEmbeddingCollectionForward {
 
 class EmbeddingCollectionBackward : public IEmbeddingCollectionBackward {
   GlobalEmbeddingData global_embedding_data_;
-  std::vector<std::unique_ptr<IEmbeddingBackward>> embeddings_;
+  std::vector<std::unique_ptr<IGroupedEmbeddingBackward>> embeddings_;
   ProcessOutputBackward process_output_;
   bool is_utest_;
 

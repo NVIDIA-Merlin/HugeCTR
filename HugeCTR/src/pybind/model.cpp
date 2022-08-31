@@ -837,7 +837,7 @@ void Model::add(const EmbeddingCollectionPlaceholder& embedding_collection_place
   std::vector<embedding::EmbeddingTableParam> emb_table_params;
   for (auto& p : embedding_collection_placeholder.emb_table_config_list_) {
     embedding::EmbeddingTableParam et_param;
-    et_param.id_space = p.param_.id_space;
+    et_param.table_id = p.param_.table_id;
     et_param.max_vocabulary_size = p.param_.max_vocabulary_size;
     et_param.ev_size = p.param_.ev_size;
     et_param.min_key = p.param_.min_key;

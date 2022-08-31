@@ -19,13 +19,13 @@
 namespace embedding {
 using HugeCTR::CudaDeviceContext;
 
-class RaggedStaticEmbeddingTable final : public IEmbeddingTable {
+class RaggedStaticEmbeddingTable final : public IGroupedEmbeddingTable {
   std::shared_ptr<CoreResourceManager> core_;
-  Tensor local_id_space_list_;
+  Tensor table_ids_;
   size_t emb_table_size_;
 
-  Tensor key_location_;
-  Tensor id_space_offset_;
+  Tensor keys_;
+  Tensor num_key_per_table_offset_;
 
   Tensor emb_table_;
   Tensor emb_table_ev_offset_;  // num_local_id_space + 1
@@ -48,6 +48,11 @@ class RaggedStaticEmbeddingTable final : public IEmbeddingTable {
                              const EmbeddingShardParam &shard_param,
                              const HugeCTR::OptParams &opt_param);
 
+  RaggedStaticEmbeddingTable(const HugeCTR::GPUResource &gpu_resource,
+                             std::shared_ptr<CoreResourceManager> core,
+                             const std::vector<EmbeddingTableParam> &table_params,
+                             const EmbeddingCollectionParam &ebc_param, size_t emb_id,
+                             const HugeCTR::OptParams &opt_param);
   // void hash_insert(const Tensor &keys, size_t num_keys, const Tensor &offsets, size_t
   // num_offsets, const Tensor &d_id_space_list, Tensor &indices) override;
 

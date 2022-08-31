@@ -44,59 +44,35 @@ void ModelBackward::compute(const TensorList &model_comm_buffer, const Tensor &u
                             const Tensor &d_local_ev_size_offset, int batch_size, int max_ev_size,
                             Tensor *grad_ev) {
   HugeCTR::CudaDeviceContext ctx(core_->get_device_id());
+  auto stream = core_->get_local_gpu()->get_stream();
+  int batch_size_per_gpu = batch_size / num_gpus_;
 
   DISPATCH_FLOAT_AND_HALF_FUNCTION(model_comm_buffer.dtype().type(), emb_t, [&] {
-    auto stream = core_->get_local_gpu()->get_stream();
+    const uint32_t *sorted_bucket_id_list_ptr = sorted_bucket_id_list.get<uint32_t>();
+    const uint32_t *sorted_bucket_id_offset_ptr = sorted_bucket_id_offset.get<uint32_t>();
+    const uint32_t *unique_dst_idx_ptr = unique_dst_idx.get<uint32_t>();
+    const emb_t **model_comm_buffer_ptr = model_comm_buffer.get<emb_t>();
+    const int *local_ev_offset_list_ptr = d_local_ev_size_offset.get<int>();
+    float *grad_ev_ptr = grad_ev_.get<float>();
 
-    ArrayView<uint32_t, RestrictPtrTraits, int32_t> sorted_bucket_id_ref{
-        sorted_bucket_id_list.get(),
-        static_cast<int32_t>(sorted_bucket_id_list.get_num_elements())};
+    auto multi_to_one_desc = make_MultiToOne<emb_t, float>(
+        num_unique_key, [=] __device__(int i) { return sorted_bucket_id_offset_ptr[i]; },
+        [=] __device__(int i) { return 1; },
+        [=] __device__(int i) { return unique_dst_idx_ptr[i + 1] - unique_dst_idx_ptr[i]; },
+        [=] __device__(int i) {
+          int bucket_id = sorted_bucket_id_list_ptr[i];
+          int i_lookup = bucket_id / batch_size;
+          int batch_id = bucket_id % batch_size;
+          int gpu_id = batch_id / batch_size_per_gpu;
+          int local_batch_id = batch_id % batch_size_per_gpu;
+          int ev_size = local_ev_offset_list_ptr[i_lookup + 1] - local_ev_offset_list_ptr[i_lookup];
 
-    ArrayView<uint32_t, RestrictPtrTraits, int32_t> sorted_bucket_id_offset_ref{
-        sorted_bucket_id_offset.get(), static_cast<int32_t>(num_unique_key) + 1};
-
-    auto get_output_idx = [] __device__(int32_t index) -> uint32_t { return index; };
-    LambdaIterator<uint32_t, int32_t, decltype(get_output_idx)> output_counting_iter{
-        get_output_idx, static_cast<int32_t>(num_unique_key)};
-
-    RaggedModelBufferView<emb_t, RestrictPtrTraits, int32_t> model_comm_buffer_iterator{
-        model_comm_buffer.get(), d_local_ev_size_offset.get<int>(), num_gpus_, batch_size};
-
-    RaggedGradBufferView<float, RestrictPtrTraits, int32_t> grad_ev_iterator{
-        grad_ev_.get(), unique_dst_idx.get<uint32_t>()};
-
-    generic_lookup(sorted_bucket_id_ref, sorted_bucket_id_offset_ref, output_counting_iter,
-                   model_comm_buffer_iterator, grad_ev_iterator, max_ev_size, stream);
+          return model_comm_buffer_ptr[gpu_id] +
+                 batch_size_per_gpu * local_ev_offset_list_ptr[i_lookup] + local_batch_id * ev_size;
+        },
+        [=] __device__(int i) { return grad_ev_ptr + unique_dst_idx_ptr[i]; });
+    copy_multi_to_one(multi_to_one_desc, max_ev_size, stream);
   });
-
-  // atomic version. Better load balance but lower precision
-  // DISPATCH_FLOAT_AND_HALF_FUNCTION(model_comm_buffer.dtype().type(), emb_t, [&] {
-  //   auto stream = core_->get_local_gpu()->get_stream();
-
-  //   ArrayView<uint32_t, RestrictPtrTraits, int32_t> src_iter{
-  //       sorted_bucket_id_list.get(),
-  //       static_cast<int32_t>(sorted_bucket_id_list.get_num_elements())};
-
-  //   auto get_dst_idx = [offset_ptr = sorted_bucket_id_offset.get<uint32_t>(),
-  //                       num_unique_key] __device__(int32_t index) -> uint32_t {
-  //     return binary_search_index_lower_bound(offset_ptr, static_cast<int32_t>(num_unique_key) +
-  //     1,
-  //                                            static_cast<uint32_t>(index));
-  //   };
-  //   LambdaIterator<uint32_t, int32_t, decltype(get_dst_idx)> dst_iter{
-  //       get_dst_idx, static_cast<int32_t>(sorted_bucket_id_list.get_num_elements())};
-
-  //   RaggedModelBufferView<emb_t, RestrictPtrTraits, int32_t> model_comm_buffer_iterator{
-  //       model_comm_buffer.get(), d_local_ev_size_offset.get<int>(), num_gpus_, batch_size};
-
-  //   RaggedGradBufferView<float, RestrictPtrTraits, int32_t> grad_ev_iterator{
-  //       grad_ev_.get(), unique_dst_idx.get<uint32_t>()};
-
-  //   accumulate_grad(src_iter, dst_iter, sorted_bucket_id_offset.get<uint32_t>() + num_unique_key,
-  //                   model_comm_buffer_iterator, grad_ev_iterator,
-  //                   static_cast<int>(num_unique_key), max_ev_size, stream);
-  // });
-
   *grad_ev = grad_ev_;
 }
 
@@ -132,25 +108,27 @@ void DPLocalReduce::compute(const Tensor &top_grad, const Tensor &unique_dst_idx
 
   DISPATCH_FLOAT_AND_HALF_FUNCTION(top_grad.dtype().type(), emb_t, [&] {
     auto stream = core_->get_local_gpu()->get_stream();
+    const uint32_t *sorted_bucket_id_list_ptr = sorted_bucket_id_list.get<uint32_t>();
+    const uint32_t *sorted_bucket_id_offset_ptr = sorted_bucket_id_offset.get<uint32_t>();
+    const uint32_t *unique_dst_idx_ptr = unique_dst_idx.get<uint32_t>();
+    const int *d_ev_size_offset_ptr = d_ev_size_offset.get<int>();
+    const emb_t *top_grad_ptr = top_grad.get<emb_t>();
+    float *grad_ev_ptr = grad_ev_.get<float>();
 
-    ArrayView<uint32_t, RestrictPtrTraits, int64_t> sorted_bucket_id_ref{
-        sorted_bucket_id_list.get(), sorted_bucket_id_list.get_num_elements()};
+    auto multi_to_one_desc = make_MultiToOne<emb_t, float>(
+        num_unique_key, [=] __device__(int i) { return sorted_bucket_id_offset_ptr[i]; },
+        [=] __device__(int i) { return 1; },
+        [=] __device__(int i) { return unique_dst_idx_ptr[i + 1] - unique_dst_idx_ptr[i]; },
+        [=] __device__(int i) {
+          int bucket_id = sorted_bucket_id_list_ptr[i];
+          int i_lookup = bucket_id / batch_size_per_gpu;
+          int b = bucket_id % batch_size_per_gpu;
+          int ev_size = d_ev_size_offset_ptr[i_lookup + 1] - d_ev_size_offset_ptr[i_lookup];
 
-    ArrayView<uint32_t, RestrictPtrTraits, int32_t> sorted_bucket_id_offset_ref{
-        sorted_bucket_id_offset.get(), static_cast<int32_t>(num_unique_key) + 1};
-
-    auto get_output_idx = [] __device__(int32_t index) -> uint32_t { return index; };
-    LambdaIterator<uint32_t, int32_t, decltype(get_output_idx)> output_counting_iter{
-        get_output_idx, static_cast<int32_t>(num_unique_key)};
-
-    RaggedEmbForwardResultView<emb_t, RestrictPtrTraits, int32_t> top_grad_iterator{
-        top_grad.get(), d_ev_size_offset.get<int>(), batch_size_per_gpu};
-
-    RaggedGradBufferView<float, RestrictPtrTraits, int32_t> grad_ev_iterator{
-        grad_ev_.get(), unique_dst_idx.get<uint32_t>()};
-
-    generic_lookup(sorted_bucket_id_ref, sorted_bucket_id_offset_ref, output_counting_iter,
-                   top_grad_iterator, grad_ev_iterator, max_ev_size, stream);
+          return top_grad_ptr + batch_size_per_gpu * d_ev_size_offset_ptr[i_lookup] + b * ev_size;
+        },
+        [=] __device__(int i) { return grad_ev_ptr + unique_dst_idx_ptr[i]; });
+    copy_multi_to_one(multi_to_one_desc, max_ev_size, stream);
   });
 
   *grad_ev = grad_ev_;

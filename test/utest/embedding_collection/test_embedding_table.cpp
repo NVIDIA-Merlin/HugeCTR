@@ -39,7 +39,7 @@ void test_ragged_static_embedding_table(int device_id) {
   std::vector<int> ev_size_list{8, 16, 16};
   for (int id_space = 0; id_space < num_embedding_table; ++id_space) {
     EmbeddingTableParam param;
-    param.id_space = id_space;
+    param.table_id = id_space;
     param.max_vocabulary_size = max_vocabulary_size_list[id_space];
     param.ev_size = ev_size_list[id_space];
     param.min_key = 0;
@@ -137,7 +137,7 @@ void test_dynamic_embedding_table(int device_id) {
   std::vector<int> id_space_list{0, 1, 2};
   for (int id_space = 0; id_space < num_embedding_table; ++id_space) {
     EmbeddingTableParam param;
-    param.id_space = id_space_list[id_space];
+    param.table_id = id_space_list[id_space];
     param.max_vocabulary_size = -1;
     param.ev_size = ev_size_list[id_space];
     param.min_key = 0;

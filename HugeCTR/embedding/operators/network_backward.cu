@@ -21,43 +21,62 @@ namespace embedding {
 
 using namespace core;
 
-void NetworkBackward::compute(const Tensor &top_grad, const Tensor &d_ev_size_offset,
-                              const Tensor &gpu_idx_offset, const TensorList &global_ev_offset,
-                              const Tensor &network_idx, const Tensor &network_offset,
-                              const Tensor &network_dst, TensorList &network_comm_buffer,
-                              int batch_size, int max_ev_size) {
+void NetworkBackward::compute(const Tensor& top_grad, const Tensor& network_ids,
+                              const Tensor& network_gpu_ids, const Tensor& network_offsets,
+                              const Tensor& network_dst_lookup_ids,
+                              const TensorList& network_ev_sizes,
+                              const TensorList& network_ev_offsets, TensorList& network_comm_buffer,
+                              const Tensor& d_ev_size_offset, int batch_size, int max_ev_size) {
   HugeCTR::CudaDeviceContext ctx(core_->get_device_id());
   int batch_size_per_gpu = batch_size / num_gpus_;
+  auto stream = core_->get_local_gpu()->get_stream();
 
   DISPATCH_FLOAT_AND_HALF_FUNCTION(top_grad.dtype().type(), emb_t, [&] {
     DISPATCH_FLOAT_AND_HALF_FUNCTION(network_comm_buffer.dtype().type(), dst_emb_t, [&] {
-      auto stream = core_->get_local_gpu()->get_stream();
+      const int* network_ids_ptr = network_ids.get<int>();
+      const int* network_gpu_ids_ptr = network_gpu_ids.get<int>();
+      const int* network_offsets_ptr = network_offsets.get<int>();
+      const int* network_dst_lookup_ids_ptr = network_dst_lookup_ids.get<int>();
+      const int** network_ev_sizes_ptr = network_ev_sizes.get<int>();
+      const int** network_ev_offsets_ptr = network_ev_offsets.get<int>();
+      const int* d_ev_size_offset_ptr = d_ev_size_offset.get<int>();
+      const emb_t* top_grad_ptr = top_grad.get<emb_t>();
+      dst_emb_t** network_comm_buffer_ptr = network_comm_buffer.get<dst_emb_t>();
+      int num_network_dst_lookup_ids = network_dst_lookup_ids.get_num_elements();
 
-      auto get_decompress_network_dst =
-          [dst_ptr = network_dst.get<int>(), offset_ptr = network_offset.get<int>(),
-           num_offset =
-               static_cast<int>(network_offset.get_num_elements())] __device__(int32_t index) {
-            int i = binary_search_index_lower_bound(offset_ptr, num_offset, index);
-            return dst_ptr[i];
-          };
-      LambdaIterator<int, int32_t, decltype(get_decompress_network_dst)> index_iter(
-          get_decompress_network_dst, static_cast<int>(network_idx.get_num_elements()));
+      auto multi_to_one_desc = make_MultiToOne<emb_t, dst_emb_t>(
+          num_network_dst_lookup_ids * batch_size_per_gpu,
+          [=] __device__(int i) {
+            int bid = i / num_network_dst_lookup_ids;
+            int lookup_id = i % num_network_dst_lookup_ids;
+            return bid * network_offsets_ptr[num_network_dst_lookup_ids] +
+                   network_offsets_ptr[lookup_id];
+          },
+          [=] __device__(int i) { return 1; },
+          [=] __device__(int i) {
+            int dst_lookup_id = network_dst_lookup_ids_ptr[i % num_network_dst_lookup_ids];
+            return d_ev_size_offset_ptr[dst_lookup_id + 1] - d_ev_size_offset_ptr[dst_lookup_id];
+          },
+          [=] __device__(int i) {
+            int bid = i / num_network_dst_lookup_ids;
+            int lookup_id = network_dst_lookup_ids_ptr[i % num_network_dst_lookup_ids];
 
-      auto get_offset = [] __device__(int32_t index) { return index; };
-      LambdaIterator<int, int32_t, decltype(get_offset)> offset_iter(
-          get_offset, static_cast<int>(network_idx.get_num_elements() + 1));
+            int ev_offset = d_ev_size_offset_ptr[lookup_id] * batch_size_per_gpu;
+            int ev_size = d_ev_size_offset_ptr[lookup_id + 1] - d_ev_size_offset_ptr[lookup_id];
+            return top_grad_ptr + ev_offset + bid * ev_size;
+          },
+          [=] __device__(int i) {
+            int bid = i / network_offsets_ptr[num_network_dst_lookup_ids];
+            int id = i % network_offsets_ptr[num_network_dst_lookup_ids];
 
-      ArrayView<int, RestrictPtrTraits, int32_t> dst_iter{
-          network_idx.get(), static_cast<int>(network_idx.get_num_elements())};
+            int network_gpu_id = network_gpu_ids_ptr[id];
+            int network_id = network_ids_ptr[id];
+            int ev_offset = network_ev_offsets_ptr[network_gpu_id][network_id] * batch_size_per_gpu;
+            int ev_size = network_ev_sizes_ptr[network_gpu_id][network_id];
 
-      RaggedEmbForwardResultView<emb_t, RestrictPtrTraits, int32_t> src_buffer_iter{
-          top_grad.get(), d_ev_size_offset.get<int>(), batch_size_per_gpu};
-
-      RaggedNetworkBufferView<dst_emb_t, RestrictPtrTraits, int32_t> dst_buffer_iter{
-          network_comm_buffer.get(), gpu_idx_offset.get<int>(), global_ev_offset.get<int>(),
-          num_gpus_, batch_size};
-      generic_lookup(index_iter, offset_iter, dst_iter, src_buffer_iter, dst_buffer_iter,
-                     max_ev_size, stream);
+            return network_comm_buffer_ptr[network_gpu_id] + ev_offset + bid * ev_size;
+          });
+      copy_multi_to_one(multi_to_one_desc, max_ev_size, stream, true);
     });
   });
 }

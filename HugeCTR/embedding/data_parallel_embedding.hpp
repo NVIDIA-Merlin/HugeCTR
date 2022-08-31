@@ -26,7 +26,7 @@
 
 namespace embedding {
 
-class UniformDPEmbeddingForward : public IEmbeddingForward {
+class UniformDPEmbeddingForward : public IGroupedEmbeddingForward {
   std::shared_ptr<CoreResourceManager> core_;
   const GlobalEmbeddingData& global_embedding_data_;
   LocalEmbeddingData local_embedding_data_;
@@ -50,7 +50,7 @@ class UniformDPEmbeddingForward : public IEmbeddingForward {
                        ContextContainer* context_container) override;
 };
 
-class UniformDPEmbeddingBackward : public IEmbeddingBackward {
+class UniformDPEmbeddingBackward : public IGroupedEmbeddingBackward {
   std::shared_ptr<CoreResourceManager> core_;
   const GlobalEmbeddingData& global_embedding_data_;
   LocalEmbeddingData local_embedding_data_;

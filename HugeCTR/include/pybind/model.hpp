@@ -572,7 +572,8 @@ class Model {
   std::vector<std::unique_ptr<embedding::IEmbeddingCollectionForward>> ebc_forward_list_;
   std::vector<std::unique_ptr<embedding::IEmbeddingCollectionForward>> eval_ebc_forward_list_;
   std::vector<std::unique_ptr<embedding::IEmbeddingCollectionBackward>> ebc_backward_list_;
-  std::vector<std::vector<std::unique_ptr<embedding::IEmbeddingTable>>> table_major_ebc_table_list_;
+  std::vector<std::vector<std::unique_ptr<embedding::IGroupedEmbeddingTable>>>
+      table_major_ebc_table_list_;
 
   std::vector<std::vector<core::Tensor>> ebc_grad_key_list_;
   std::vector<std::vector<size_t>> ebc_num_grad_key_list_;

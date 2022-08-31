@@ -104,13 +104,14 @@ class ModelBackwardIndexCalculation {
 };
 
 struct RaggedNetworkIndex {
-  Tensor network_idx_;
-  Tensor network_offset_;
-  Tensor network_dst_;
-
-  Tensor gpu_idx_offset_;
-  std::vector<Tensor> global_ev_offset_list_;
-  TensorList global_ev_offset_;
+  Tensor network_ids_;
+  Tensor network_gpu_ids_;
+  Tensor network_offsets_;
+  Tensor network_dst_lookup_ids_;
+  std::vector<Tensor> network_ev_size_list_;
+  TensorList network_ev_sizes_;
+  std::vector<Tensor> network_ev_offset_list_;
+  TensorList network_ev_offsets_;
 
   RaggedNetworkIndex() = default;
 

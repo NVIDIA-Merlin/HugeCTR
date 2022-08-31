@@ -529,127 +529,98 @@ RaggedNetworkIndex::RaggedNetworkIndex(std::shared_ptr<CoreResourceManager> core
                                        const std::vector<std::vector<int>>& global_embedding_list,
                                        const std::vector<int>& ev_size_list) {
   HugeCTR::CudaDeviceContext context(core->get_device_id());
+  int gpu_id = core->get_global_gpu_id();
   int num_gpus = core->get_global_gpu_count();
   int batch_size_per_gpu = batch_size / num_gpus;
+  std::vector<std::vector<int>> h_network_ev_sizes;
+  std::vector<std::vector<int>> h_network_ev_offsets;
+  h_network_ev_sizes.resize(num_gpus);
+  h_network_ev_offsets.resize(num_gpus);
+  for (int ggpu_id = 0; ggpu_id < num_gpus; ++ggpu_id) {
+    h_network_ev_offsets[ggpu_id].push_back(0);
+  }
 
-  auto init_netwok_idx = [&] {
-    std::vector<int> network_idx_list;
-    std::vector<int> network_offset_list{0};
-    std::vector<int> network_dst_list;
-
-    std::vector<int> dst_embedding_id_list;
-    for (auto& vec : global_embedding_list) {
-      dst_embedding_id_list.insert(dst_embedding_id_list.end(), vec.begin(), vec.end());
+  std::vector<std::tuple<int, int, int>> h_network_buffer_meta_info;
+  for (int ggpu_id = 0; ggpu_id < num_gpus; ++ggpu_id) {
+    int network_id = 0;
+    for (int lookup_id : global_embedding_list[ggpu_id]) {
+      int ev_size = ev_size_list[lookup_id];
+      h_network_ev_sizes[ggpu_id].push_back(ev_size);
+      h_network_ev_offsets[ggpu_id].push_back(ev_size);
+      h_network_buffer_meta_info.push_back({ggpu_id, network_id, lookup_id});
+      network_id += 1;
     }
+  }
+  for (int ggpu_id = 0; ggpu_id < num_gpus; ++ggpu_id) {
+    std::partial_sum(h_network_ev_offsets[ggpu_id].begin(), h_network_ev_offsets[ggpu_id].end(),
+                     h_network_ev_offsets[ggpu_id].begin());
+  }
 
-    std::sort(dst_embedding_id_list.begin(), dst_embedding_id_list.end());
-    auto last = std::unique(dst_embedding_id_list.begin(), dst_embedding_id_list.end());
-    dst_embedding_id_list.erase(last, dst_embedding_id_list.end());
-    for (int dst_embedding_id : dst_embedding_id_list) {
-      for (int batch_id = 0; batch_id < batch_size_per_gpu; ++batch_id) {
-        network_dst_list.push_back(batch_size_per_gpu * dst_embedding_id + batch_id);
-      }
+  std::sort(h_network_buffer_meta_info.begin(), h_network_buffer_meta_info.end(),
+            [](const auto& lhs, const auto& rhs) { return std::get<2>(lhs) <= std::get<2>(rhs); });
+
+  std::vector<int> h_network_ids;
+  std::vector<int> h_network_gpu_ids;
+  std::vector<int> h_network_offsets;
+  std::vector<int> h_network_dst_lookup_ids;
+
+  for (size_t i = 0; i < h_network_buffer_meta_info.size(); ++i) {
+    const auto& meta_info = h_network_buffer_meta_info[i];
+    int network_gpu_id = std::get<0>(meta_info);
+    int network_id = std::get<1>(meta_info);
+    h_network_ids.push_back(network_id);
+    h_network_gpu_ids.push_back(network_gpu_id);
+  }
+
+  for (size_t i = 0; i < h_network_buffer_meta_info.size(); ++i) {
+    const auto& meta_info = h_network_buffer_meta_info[i];
+    int lookup_id = std::get<2>(meta_info);
+    if (i == 0 || lookup_id != std::get<2>(h_network_buffer_meta_info[i - 1])) {
+      h_network_dst_lookup_ids.push_back(lookup_id);
     }
+  }
+  // num_network_dst_look = static_cast<int>(h_network_dst_lookup_ids.size());
 
-    std::vector<int> num_embedding_offset{0};
-    for (auto& vec : global_embedding_list) {
-      num_embedding_offset.push_back(vec.size());
+  int network_offset = 0;
+  for (size_t i = 0; i < h_network_buffer_meta_info.size(); ++i) {
+    const auto& meta_info = h_network_buffer_meta_info[i];
+    int lookup_id = std::get<2>(meta_info);
+    if (i == 0 || lookup_id != std::get<2>(h_network_buffer_meta_info[i - 1])) {
+      h_network_offsets.push_back(network_offset);
     }
-    std::partial_sum(num_embedding_offset.begin(), num_embedding_offset.end(),
-                     num_embedding_offset.begin());
+    network_offset += 1;
+  }
+  h_network_offsets.push_back(network_offset);
 
-    std::vector<int> network_embedding_list;
-    std::vector<int> network_embedding_offset{0};
+  auto buffer_ptr = GetBuffer(core);
+  core::DataType data_type = {TensorScalarType::Int32};
 
-    network_embedding_offset.assign(dst_embedding_id_list.size() + 1, 0);
+  for (int ggpu_id = 0; ggpu_id < num_gpus; ++ggpu_id) {
+    network_ev_size_list_.push_back(
+        buffer_ptr->reserve({h_network_ev_sizes[ggpu_id].size()}, DeviceType::GPU, data_type));
+    network_ev_offset_list_.push_back(
+        buffer_ptr->reserve({h_network_ev_offsets[ggpu_id].size()}, DeviceType::GPU, data_type));
+  }
 
-    for (int local_embedding_id = 0;
-         local_embedding_id < static_cast<int>(dst_embedding_id_list.size());
-         ++local_embedding_id) {
-      int dst_embedding_id = dst_embedding_id_list[local_embedding_id];
+  network_ids_ = buffer_ptr->reserve({h_network_ids.size()}, DeviceType::GPU, data_type);
+  network_gpu_ids_ = buffer_ptr->reserve({h_network_gpu_ids.size()}, DeviceType::GPU, data_type);
+  network_offsets_ = buffer_ptr->reserve({h_network_offsets.size()}, DeviceType::GPU, data_type);
+  network_dst_lookup_ids_ =
+      buffer_ptr->reserve({h_network_dst_lookup_ids.size()}, DeviceType::GPU, data_type);
+  buffer_ptr->allocate();
 
-      for (int src_gpu_id = 0; src_gpu_id < num_gpus; ++src_gpu_id) {
-        auto iter = std::find(global_embedding_list[src_gpu_id].begin(),
-                              global_embedding_list[src_gpu_id].end(), dst_embedding_id);
-        if (iter == global_embedding_list[src_gpu_id].end()) continue;
-        int idx = std::distance(global_embedding_list[src_gpu_id].begin(), iter);
-
-        network_embedding_list.push_back(num_embedding_offset[src_gpu_id] + idx);
-        network_embedding_offset[1 + local_embedding_id] += 1;
-      }
-    }
-    std::partial_sum(network_embedding_offset.begin(), network_embedding_offset.end(),
-                     network_embedding_offset.begin());
-
-    for (size_t i = 0; i < dst_embedding_id_list.size(); ++i) {
-      int start = network_embedding_offset[i];
-      int end = network_embedding_offset[i + 1];
-
-      for (int batch_id = 0; batch_id < batch_size_per_gpu; ++batch_id) {
-        for (int r = start; r < end; ++r) {
-          int embedding_id = network_embedding_list[r];
-          network_idx_list.push_back(embedding_id * batch_size_per_gpu + batch_id);
-        }
-        network_offset_list.push_back(end - start);
-      }
-    }
-
-    std::partial_sum(network_offset_list.begin(), network_offset_list.end(),
-                     network_offset_list.begin());
-
-    auto buffer_ptr = GetBuffer(core);
-    core::DataType data_type = {TensorScalarType::Int32};
-    network_idx_ = buffer_ptr->reserve({network_idx_list.size()}, DeviceType::GPU, data_type);
-    network_offset_ = buffer_ptr->reserve({network_offset_list.size()}, DeviceType::GPU, data_type);
-    network_dst_ = buffer_ptr->reserve({network_dst_list.size()}, DeviceType::GPU, data_type);
-    buffer_ptr->allocate();
-
-    network_idx_.copy_from(network_idx_list);
-    network_offset_.copy_from(network_offset_list);
-    network_dst_.copy_from(network_dst_list);
-  };
-
-  auto init_network_view_idx = [&] {
-    std::vector<int> gpu_idx_offset{0};
-    std::vector<std::vector<int>> global_ev_offset;
-    for (int gpu_id = 0; gpu_id < num_gpus; ++gpu_id) {
-      auto& local_embedding_list = global_embedding_list[gpu_id];
-      int num_local_embedding = local_embedding_list.size();
-      gpu_idx_offset.push_back(num_local_embedding * batch_size_per_gpu);
-
-      std::vector<int> local_ev_offset{0};
-      for (int embedding_id : local_embedding_list) {
-        local_ev_offset.push_back(ev_size_list[embedding_id]);
-      }
-      global_ev_offset.push_back(local_ev_offset);
-    }
-
-    std::partial_sum(gpu_idx_offset.begin(), gpu_idx_offset.end(), gpu_idx_offset.begin());
-    for (int gpu_id = 0; gpu_id < num_gpus; ++gpu_id) {
-      std::partial_sum(global_ev_offset[gpu_id].begin(), global_ev_offset[gpu_id].end(),
-                       global_ev_offset[gpu_id].begin());
-    }
-
-    auto buffer_ptr = GetBuffer(core);
-    gpu_idx_offset_ =
-        buffer_ptr->reserve({gpu_idx_offset.size()}, DeviceType::GPU, TensorScalarType::Int32);
-
-    for (int gpu_id = 0; gpu_id < num_gpus; ++gpu_id) {
-      global_ev_offset_list_.push_back(buffer_ptr->reserve(
-          global_ev_offset[gpu_id].size(), DeviceType::GPU, TensorScalarType::Int32));
-    }
-    buffer_ptr->allocate();
-
-    global_ev_offset_ =
-        TensorList(core.get(), global_ev_offset_list_, DeviceType::GPU, TensorScalarType::Int32);
-
-    gpu_idx_offset_.copy_from(gpu_idx_offset);
-    for (int gpu_id = 0; gpu_id < num_gpus; ++gpu_id) {
-      global_ev_offset_list_[gpu_id].copy_from(global_ev_offset[gpu_id]);
-    }
-  };
-  init_netwok_idx();
-  init_network_view_idx();
+  network_ids_.copy_from(h_network_ids);
+  network_gpu_ids_.copy_from(h_network_gpu_ids);
+  network_offsets_.copy_from(h_network_offsets);
+  network_dst_lookup_ids_.copy_from(h_network_dst_lookup_ids);
+  for (int ggpu_id = 0; ggpu_id < num_gpus; ++ggpu_id) {
+    network_ev_size_list_[ggpu_id].copy_from(h_network_ev_sizes[ggpu_id]);
+    network_ev_offset_list_[ggpu_id].copy_from(h_network_ev_offsets[ggpu_id]);
+  }
+  network_ev_sizes_ =
+      TensorList(core.get(), network_ev_size_list_, DeviceType::GPU, TensorScalarType::Int32);
+  network_ev_offsets_ =
+      TensorList(core.get(), network_ev_offset_list_, DeviceType::GPU, TensorScalarType::Int32);
 }
 
 RaggedNetworkBuffer::RaggedNetworkBuffer(std::shared_ptr<CoreResourceManager> core, int batch_size,
