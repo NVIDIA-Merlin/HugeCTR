@@ -154,10 +154,10 @@ RaggedStaticEmbeddingTable::RaggedStaticEmbeddingTable(
                        cpu_emb_table_ev_offset.begin());
 
       auto buffer_ptr = GetBuffer(core);
-      local_id_space_list_ = buffer_ptr->reserve(cpu_local_id_space_list.size(), DeviceType::GPU,
-                                                 TensorScalarType::Int32);
-      key_location_ = buffer_ptr->reserve(cpu_key_list.size(), DeviceType::GPU, key_type);
-      id_space_offset_ =
+      table_ids_ = buffer_ptr->reserve(cpu_local_id_space_list.size(), DeviceType::GPU,
+                                       TensorScalarType::Int32);
+      keys_ = buffer_ptr->reserve(cpu_key_list.size(), DeviceType::GPU, key_type);
+      num_key_per_table_offset_ =
           buffer_ptr->reserve(cpu_id_space_offset.size(), DeviceType::GPU, index_type);
       emb_table_ = buffer_ptr->reserve(emb_table_size_, DeviceType::GPU, TensorScalarType::Float32);
       emb_table_ev_offset_ = buffer_ptr->reserve(cpu_emb_table_ev_offset.size(), DeviceType::GPU,
@@ -166,9 +166,9 @@ RaggedStaticEmbeddingTable::RaggedStaticEmbeddingTable(
                                                 TensorScalarType::Int32);
       buffer_ptr->allocate();
 
-      local_id_space_list_.copy_from(cpu_local_id_space_list);
-      key_location_.copy_from(cpu_key_list);
-      id_space_offset_.copy_from(cpu_id_space_offset);
+      table_ids_.copy_from(cpu_local_id_space_list);
+      keys_.copy_from(cpu_key_list);
+      num_key_per_table_offset_.copy_from(cpu_id_space_offset);
       emb_table_ev_offset_.copy_from(cpu_emb_table_ev_offset);
       local_ev_size_list_.copy_from(cpu_local_ev_size_list);
 
@@ -251,10 +251,10 @@ RaggedStaticEmbeddingTable::RaggedStaticEmbeddingTable(
                        cpu_emb_table_ev_offset.begin());
 
       auto buffer_ptr = GetBuffer(core);
-      local_id_space_list_ = buffer_ptr->reserve(cpu_local_id_space_list.size(), DeviceType::GPU,
-                                                 TensorScalarType::Int32);
-      key_location_ = buffer_ptr->reserve(cpu_key_list.size(), DeviceType::GPU, key_type);
-      id_space_offset_ =
+      table_ids_ = buffer_ptr->reserve(cpu_local_id_space_list.size(), DeviceType::GPU,
+                                       TensorScalarType::Int32);
+      keys_ = buffer_ptr->reserve(cpu_key_list.size(), DeviceType::GPU, key_type);
+      num_key_per_table_offset_ =
           buffer_ptr->reserve(cpu_id_space_offset.size(), DeviceType::GPU, index_type);
       emb_table_ = buffer_ptr->reserve(emb_table_size_, DeviceType::GPU, TensorScalarType::Float32);
       emb_table_ev_offset_ = buffer_ptr->reserve(cpu_emb_table_ev_offset.size(), DeviceType::GPU,
@@ -263,9 +263,9 @@ RaggedStaticEmbeddingTable::RaggedStaticEmbeddingTable(
                                                 TensorScalarType::Int32);
       buffer_ptr->allocate();
 
-      local_id_space_list_.copy_from(cpu_local_id_space_list);
-      key_location_.copy_from(cpu_key_list);
-      id_space_offset_.copy_from(cpu_id_space_offset);
+      table_ids_.copy_from(cpu_local_id_space_list);
+      keys_.copy_from(cpu_key_list);
+      num_key_per_table_offset_.copy_from(cpu_id_space_offset);
       emb_table_ev_offset_.copy_from(cpu_emb_table_ev_offset);
       local_ev_size_list_.copy_from(cpu_local_ev_size_list);
 
@@ -292,13 +292,142 @@ RaggedStaticEmbeddingTable::RaggedStaticEmbeddingTable(
   });
 }
 
+RaggedStaticEmbeddingTable::RaggedStaticEmbeddingTable(
+    const HugeCTR::GPUResource &gpu_resource, std::shared_ptr<CoreResourceManager> core,
+    const std::vector<EmbeddingTableParam> &table_params, const EmbeddingCollectionParam &ebc_param,
+    size_t emb_id, const HugeCTR::OptParams &opt_param)
+    : core_(core), emb_table_size_(0), opt_param_(opt_param) {
+  CudaDeviceContext ctx(core_->get_device_id());
+  int global_gpu_id = core_->get_global_gpu_id();
+  int num_gpus = core_->get_global_gpu_count();
+  HCTR_CHECK_HINT(num_gpus == static_cast<int>(ebc_param.shard_matrix.size()),
+                  "num_gpus is not match with shard matrix");
+
+  auto key_type = ebc_param.key_type;
+  auto index_type = ebc_param.index_type;
+
+  DISPATCH_INTEGRAL_FUNCTION(key_type.type(), key_t, [&] {
+    DISPATCH_UNSIGNED_INTEGRAL_FUNCTION(index_type.type(), index_t, [&] {
+      std::vector<int> h_table_ids_;
+      std::vector<key_t> h_key_list;
+      std::vector<index_t> h_num_key_per_table_offset{0};
+
+      std::vector<uint64_t> h_emb_table_ev_offset{0};
+      std::vector<int> h_local_ev_sizes;
+
+      const auto &emb_param = ebc_param.emb_params[emb_id];
+      if (emb_param.table_placement_strategy == TablePlacementStrategy::DataParallel) {
+        for (int table_id : emb_param.table_ids) {
+          uint64_t num_key = 0;
+          h_table_ids_.push_back(table_id);
+          for (int64_t k = table_params[table_id].min_key; k < table_params[table_id].max_key;
+               ++k) {
+            h_key_list.push_back(k);
+            num_key += 1;
+          }
+          h_num_key_per_table_offset.push_back(num_key);
+
+          uint64_t segment_emb_table_size = num_key * table_params[table_id].ev_size;
+          h_emb_table_ev_offset.push_back(segment_emb_table_size);
+          h_local_ev_sizes.push_back(table_params[table_id].ev_size);
+          emb_table_size_ += segment_emb_table_size;
+        }
+      } else if (emb_param.table_placement_strategy == TablePlacementStrategy::ModelParallel) {
+        for (int table_id : emb_param.table_ids) {
+          std::vector<int> shard_gpu_list;
+          for (int gpu_id = 0; gpu_id < num_gpus; ++gpu_id) {
+            HCTR_CHECK_HINT(table_id < static_cast<int>(ebc_param.shard_matrix[gpu_id].size()),
+                            "table_id is out of range");
+            if (ebc_param.shard_matrix[gpu_id][table_id] == 1) {
+              shard_gpu_list.push_back(gpu_id);
+            }
+          }
+          int num_shards = static_cast<int>(shard_gpu_list.size());
+          auto find_shard_id_iter =
+              std::find(shard_gpu_list.begin(), shard_gpu_list.end(), global_gpu_id);
+          if (find_shard_id_iter == shard_gpu_list.end()) {
+            continue;
+          }
+          uint64_t num_key = 0;
+          h_table_ids_.push_back(table_id);
+          int shard_id =
+              static_cast<int>(std::distance(shard_gpu_list.begin(), find_shard_id_iter));
+          for (int64_t k = table_params[table_id].min_key; k < table_params[table_id].max_key;
+               ++k) {
+            if (k % num_shards == shard_id) {
+              h_key_list.push_back(k);
+              num_key += 1;
+            }
+          }
+
+          h_num_key_per_table_offset.push_back(num_key);
+          uint64_t segment_emb_table_size = num_key * table_params[table_id].ev_size;
+          h_emb_table_ev_offset.push_back(segment_emb_table_size);
+          h_local_ev_sizes.push_back(table_params[table_id].ev_size);
+          emb_table_size_ += segment_emb_table_size;
+        }
+      }
+
+      std::partial_sum(h_num_key_per_table_offset.begin(), h_num_key_per_table_offset.end(),
+                       h_num_key_per_table_offset.begin());
+      std::partial_sum(h_emb_table_ev_offset.begin(), h_emb_table_ev_offset.end(),
+                       h_emb_table_ev_offset.begin());
+
+      auto buffer_ptr = GetBuffer(core);
+      table_ids_ =
+          buffer_ptr->reserve(h_table_ids_.size(), DeviceType::GPU, TensorScalarType::Int32);
+      keys_ = buffer_ptr->reserve(h_key_list.size(), DeviceType::GPU, key_type);
+      num_key_per_table_offset_ =
+          buffer_ptr->reserve(h_num_key_per_table_offset.size(), DeviceType::GPU, index_type);
+      emb_table_ = buffer_ptr->reserve(emb_table_size_, DeviceType::GPU, TensorScalarType::Float32);
+      emb_table_ev_offset_ = buffer_ptr->reserve(h_emb_table_ev_offset.size(), DeviceType::GPU,
+                                                 TensorScalarType::UInt64);
+      local_ev_size_list_ =
+          buffer_ptr->reserve(h_local_ev_sizes.size(), DeviceType::GPU, TensorScalarType::Int32);
+      buffer_ptr->allocate();
+
+      table_ids_.copy_from(h_table_ids_);
+      keys_.copy_from(h_key_list);
+      num_key_per_table_offset_.copy_from(h_num_key_per_table_offset);
+      emb_table_ev_offset_.copy_from(h_emb_table_ev_offset);
+      local_ev_size_list_.copy_from(h_local_ev_sizes);
+
+      auto uniform_init_table = [&](const curandGenerator_t &generator) {
+        const size_t num_tables = h_table_ids_.size();
+        for (size_t embedding = 0; embedding < num_tables; embedding++) {
+          index_t num_keys =
+              h_num_key_per_table_offset[embedding + 1] - h_num_key_per_table_offset[embedding];
+          float up_bound = sqrt(1.f / num_keys);
+          size_t offset = h_emb_table_ev_offset[embedding];
+          size_t num_elements =
+              h_emb_table_ev_offset[embedding + 1] - h_emb_table_ev_offset[embedding];
+          // init_emb_table_ev_kernel<<<1024, 1024, 0,
+          // gpu_resource.get_stream()>>>(emb_table_.get<float>() + offset, num_elements);
+
+          HugeCTR::UniformGenerator::fill(emb_table_.get<float>() + offset, num_elements, -up_bound,
+                                          up_bound, gpu_resource.get_sm_count(), generator,
+                                          gpu_resource.get_stream());
+        }
+      };
+      if (emb_param.table_placement_strategy == TablePlacementStrategy::DataParallel) {
+        uniform_init_table(gpu_resource.get_replica_uniform_curand_generator());
+      } else if (emb_param.table_placement_strategy == TablePlacementStrategy::ModelParallel) {
+        uniform_init_table(gpu_resource.get_replica_variant_curand_generator());
+      } else {
+        HCTR_OWN_THROW(HugeCTR::Error_t::UnspecificError,
+                       "RaggedStaticEmbeddingStorage does not support table_placement_strategy.");
+      }
+    });
+  });
+}
+
 void RaggedStaticEmbeddingTable::lookup(const Tensor &keys, size_t num_keys,
                                         const Tensor &id_space_offset, size_t num_id_space_offset,
                                         const Tensor &id_space_list, TensorList &emb_vec) {
   CudaDeviceContext ctx(core_->get_device_id());
 
   DISPATCH_INTEGRAL_FUNCTION(keys.dtype().type(), key_t, [&] {
-    DISPATCH_UNSIGNED_INTEGRAL_FUNCTION(id_space_offset_.dtype().type(), index_t, [&] {
+    DISPATCH_UNSIGNED_INTEGRAL_FUNCTION(num_key_per_table_offset_.dtype().type(), index_t, [&] {
       cudaStream_t stream = core_->get_local_gpu()->get_stream();
 
       if (num_keys > 0) {  // batch size is small there can be situation that we do not need have
@@ -307,9 +436,8 @@ void RaggedStaticEmbeddingTable::lookup(const Tensor &keys, size_t num_keys,
         int grid_size = (num_keys - 1) / block_size + 1;
         ragged_static_embedding_table_lookup_kernel<<<grid_size, block_size, 0, stream>>>(
             keys.get<key_t>(), num_keys, id_space_offset.get<uint32_t>(), num_id_space_offset,
-            id_space_list.get<int>(), local_id_space_list_.get<int>(),
-            local_id_space_list_.get_num_elements(), key_location_.get<key_t>(),
-            id_space_offset_.get<index_t>(), emb_table_.get<float>(),
+            id_space_list.get<int>(), table_ids_.get<int>(), table_ids_.get_num_elements(),
+            keys_.get<key_t>(), num_key_per_table_offset_.get<index_t>(), emb_table_.get<float>(),
             emb_table_ev_offset_.get<uint64_t>(), local_ev_size_list_.get<int>(),
             emb_vec.get<float>());
       }
@@ -329,7 +457,7 @@ void RaggedStaticEmbeddingTable::update(const Tensor &keys, size_t num_keys,
                   "optimizer not initialized");
 
   DISPATCH_INTEGRAL_FUNCTION(keys.dtype().type(), key_t, [&] {
-    DISPATCH_UNSIGNED_INTEGRAL_FUNCTION(id_space_offset_.dtype().type(), index_t, [&] {
+    DISPATCH_UNSIGNED_INTEGRAL_FUNCTION(num_key_per_table_offset_.dtype().type(), index_t, [&] {
       auto stream = core_->get_local_gpu()->get_stream();
 
       if (opt_param_.optimizer == HugeCTR::Optimizer_t::SGD) {
@@ -348,8 +476,8 @@ void RaggedStaticEmbeddingTable::update(const Tensor &keys, size_t num_keys,
         update_kernel<<<grid_size, block_size, 0, stream>>>(
             keys.get<key_t>(), num_keys, id_space_offset.get<uint32_t>(), num_id_space_offset,
             grad_ev.get<float>(), grad_ev_offset.get<uint32_t>(), id_space_list.get<int>(),
-            local_id_space_list_.get<int>(), local_id_space_list_.get_num_elements(),
-            key_location_.get<key_t>(), id_space_offset_.get<index_t>(), emb_table_.get<float>(),
+            table_ids_.get<int>(), table_ids_.get_num_elements(), keys_.get<key_t>(),
+            num_key_per_table_offset_.get<index_t>(), emb_table_.get<float>(),
             emb_table_ev_offset_.get<uint64_t>(), local_ev_size_list_.get<int>());
       }
     });
@@ -365,11 +493,11 @@ void RaggedStaticEmbeddingTable::dump(Tensor *keys, Tensor *id_space_offset,
                                       Tensor *id_space) {
   Device device{DeviceType::CPU};
 
-  *keys = key_location_.to(core_, device);
-  *id_space_offset = id_space_offset_.to(core_, device);
+  *keys = keys_.to(core_, device);
+  *id_space_offset = num_key_per_table_offset_.to(core_, device);
   *embedding_table = emb_table_.to(core_, device);
   *ev_size_list = local_ev_size_list_.to(core_, device);
-  *id_space = local_id_space_list_.to(core_, device);
+  *id_space = table_ids_.to(core_, device);
 }
 
 size_t RaggedStaticEmbeddingTable::size() const { return emb_table_size_; }

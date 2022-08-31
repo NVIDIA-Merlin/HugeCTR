@@ -130,17 +130,18 @@ void UniformLocalizedEmbeddingForward::forward_per_gpu(
                 static_cast<char>(Combiner::Average)) ==
       local_embedding_data_.h_network_combiner_list_.end()) {
     network_forward_.compute(
-        ragged_network_buffer_.network_comm_buffer_, ragged_network_index_.gpu_idx_offset_,
-        ragged_network_index_.global_ev_offset_, ragged_network_index_.network_idx_,
-        ragged_network_index_.network_offset_, ragged_network_index_.network_dst_, output_buffer,
+        ragged_network_buffer_.network_comm_buffer_, ragged_network_index_.network_ids_,
+        ragged_network_index_.network_gpu_ids_, ragged_network_index_.network_offsets_,
+        ragged_network_index_.network_dst_lookup_ids_, ragged_network_index_.network_ev_sizes_,
+        ragged_network_index_.network_ev_offsets_, output_buffer,
         global_embedding_data_.d_ev_size_offset_, batch_size, global_embedding_data_.max_ev_size_);
   } else {
     network_forward_.compute(
-        ragged_network_buffer_.network_comm_buffer_, ragged_network_index_.gpu_idx_offset_,
-        ragged_network_index_.global_ev_offset_, ragged_network_index_.network_idx_,
-        ragged_network_index_.network_offset_, ragged_network_index_.network_dst_,
-        average_combiner_.float_emb_vec_, global_embedding_data_.d_ev_size_offset_, batch_size,
-        global_embedding_data_.max_ev_size_);
+        ragged_network_buffer_.network_comm_buffer_, ragged_network_index_.network_ids_,
+        ragged_network_index_.network_gpu_ids_, ragged_network_index_.network_offsets_,
+        ragged_network_index_.network_dst_lookup_ids_, ragged_network_index_.network_ev_sizes_,
+        ragged_network_index_.network_ev_offsets_, average_combiner_.float_emb_vec_,
+        global_embedding_data_.d_ev_size_offset_, batch_size, global_embedding_data_.max_ev_size_);
     average_combiner_.forward(
         bucket_range, output_buffer, local_embedding_data_.d_network_embedding_list_,
         global_embedding_data_.d_combiner_list_, global_embedding_data_.d_ev_size_offset_,
@@ -224,18 +225,18 @@ void UniformLocalizedEmbeddingBackward::backward_per_gpu(ContextContainer *conte
         global_embedding_data_.d_combiner_list_, global_embedding_data_.d_ev_size_offset_,
         batch_size, global_embedding_data_.max_ev_size_);
     network_backward_.compute(
-        average_combiner_.float_emb_vec_, global_embedding_data_.d_ev_size_offset_,
-        ragged_network_index.gpu_idx_offset_, ragged_network_index.global_ev_offset_,
-        ragged_network_index.network_idx_, ragged_network_index.network_offset_,
-        ragged_network_index.network_dst_, ragged_network_buffer.network_comm_buffer_, batch_size,
-        global_embedding_data_.max_ev_size_);
+        average_combiner_.float_emb_vec_, ragged_network_index.network_ids_,
+        ragged_network_index.network_gpu_ids_, ragged_network_index.network_offsets_,
+        ragged_network_index.network_dst_lookup_ids_, ragged_network_index.network_ev_sizes_,
+        ragged_network_index.network_ev_offsets_, ragged_network_buffer.network_comm_buffer_,
+        global_embedding_data_.d_ev_size_offset_, batch_size, global_embedding_data_.max_ev_size_);
   } else {
     network_backward_.compute(
-        top_grad, global_embedding_data_.d_ev_size_offset_, ragged_network_index.gpu_idx_offset_,
-        ragged_network_index.global_ev_offset_, ragged_network_index.network_idx_,
-        ragged_network_index.network_offset_, ragged_network_index.network_dst_,
-        ragged_network_buffer.network_comm_buffer_, batch_size,
-        global_embedding_data_.max_ev_size_);
+        top_grad, ragged_network_index.network_ids_, ragged_network_index.network_gpu_ids_,
+        ragged_network_index.network_offsets_, ragged_network_index.network_dst_lookup_ids_,
+        ragged_network_index.network_ev_sizes_, ragged_network_index.network_ev_offsets_,
+        ragged_network_buffer.network_comm_buffer_, global_embedding_data_.d_ev_size_offset_,
+        batch_size, global_embedding_data_.max_ev_size_);
   }
 
   all2all_comm_.communicate(ragged_network_buffer.network_comm_buffer_list_,

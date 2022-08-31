@@ -35,7 +35,7 @@ using core::TensorList;
 using core::TensorScalarType;
 
 struct EmbeddingTableParam {
-  int id_space;
+  int table_id;
   int max_vocabulary_size;  // -1 means dynamic
   int ev_size;
   int64_t min_key;

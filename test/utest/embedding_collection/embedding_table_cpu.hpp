@@ -33,7 +33,8 @@ class EmbeddingTableCPU {
   std::vector<std::unordered_map<key_t, std::vector<float>>> emb_table_list_;
   std::vector<EmbeddingTableParam> table_param_list_;
 
-  EmbeddingTableCPU(int num_table, std::vector<std::vector<IEmbeddingTable *>> emb_table_list,
+  EmbeddingTableCPU(int num_table,
+                    std::vector<std::vector<IGroupedEmbeddingTable *>> emb_table_list,
                     const std::vector<EmbeddingTableParam> &table_param_list)
       : table_param_list_(table_param_list) {
     emb_table_list_.resize(num_table);

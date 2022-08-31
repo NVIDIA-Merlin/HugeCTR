@@ -36,25 +36,30 @@ void DPModelForward::compute(const TensorList &dp_ev, const Tensor &dp_offset, c
 
   DISPATCH_FLOAT_AND_HALF_FUNCTION(output_buffer.dtype().type(), emb_t, [&] {
     auto stream = core_->get_local_gpu()->get_stream();
-    auto counting_iter = [] __device__(int32_t index) { return index; };
-    LambdaIterator<uint32_t, int32_t, decltype(counting_iter)> index_iter{
-        counting_iter, static_cast<int32_t>(dp_ev.get_num_elements())};
+    const uint32_t *dp_offset_ptr = dp_offset.get<uint32_t>();
+    const uint32_t *dp_dst_ptr = dp_dst.get<uint32_t>();
+    const int *d_local_ev_size_list_ptr = d_local_ev_size_list.get<int>();
+    const int *d_ev_size_offset_ptr = d_ev_size_offset.get<int>();
+    const float **dp_ev_ptr = dp_ev.get<float>();
+    emb_t *output_buffer_ptr = output_buffer.get<emb_t>();
 
-    ArrayView<uint32_t, RestrictPtrTraits, int32_t> offset_iter{
-        dp_offset.get(), batch_size_per_gpu * num_local_embedding_ + 1};
-
-    ArrayView<uint32_t, RestrictPtrTraits, int32_t> dst_iter{
-        dp_dst.get(), batch_size_per_gpu * num_local_embedding_};
-
-    RaggedLookupResultView<float, RestrictPtrTraits, int32_t> src_buffer_iter{
-        dp_ev.get(), dp_offset.get<uint32_t>(), batch_size_per_gpu * num_local_embedding_ + 1,
-        d_local_ev_size_list.get<int>(), batch_size_per_gpu};
-
-    RaggedEmbForwardResultView<emb_t, RestrictPtrTraits, int32_t> dst_buffer_iter{
-        output_buffer.get(), d_ev_size_offset.get<int>(), batch_size_per_gpu};
-
-    generic_lookup(index_iter, offset_iter, dst_iter, src_buffer_iter, dst_buffer_iter, max_ev_size,
-                   stream);
+    auto multi_to_one_desc = make_MultiToOne<float, emb_t>(
+        batch_size_per_gpu * num_local_embedding_,
+        [=] __device__(int i) { return dp_offset_ptr[i]; }, [=] __device__(int i) { return 1; },
+        [=] __device__(int i) {
+          int i_lookup = i / batch_size_per_gpu;
+          return d_local_ev_size_list_ptr[i_lookup];
+        },
+        [=] __device__(int i) { return dp_ev_ptr[i]; },
+        [=] __device__(int i) {
+          int i_dst_ev = dp_dst_ptr[i];
+          int lookup_id = i_dst_ev / batch_size_per_gpu;
+          int b = i_dst_ev % batch_size_per_gpu;
+          int ev_size = d_ev_size_offset_ptr[lookup_id + 1] - d_ev_size_offset_ptr[lookup_id];
+          return output_buffer_ptr + batch_size_per_gpu * d_ev_size_offset_ptr[lookup_id] +
+                 b * ev_size;
+        });
+    copy_multi_to_one(multi_to_one_desc, max_ev_size, stream);
   });
 }
 
@@ -67,28 +72,36 @@ void ModelForward::compute(const TensorList &mp_ev, const Tensor &model_offset,
                            const Tensor &d_local_ev_size_offset, int batch_size, int max_ev_size) {
   CudaDeviceContext ctx(core_->get_device_id());
   int batch_size_per_gpu = batch_size / core_->get_global_gpu_count();
+  auto stream = core_->get_local_gpu()->get_stream();
 
   if (num_local_embedding_ > 0) {
     DISPATCH_FLOAT_AND_HALF_FUNCTION(model_comm_buffer.dtype().type(), emb_t, [&] {
-      auto stream = core_->get_local_gpu()->get_stream();
-      auto counting_iter = [] __device__(int32_t index) { return index; };
-      LambdaIterator<uint32_t, int32_t, decltype(counting_iter)> index_iter{
-          counting_iter, static_cast<int32_t>(mp_ev.get_num_elements())};
+      const uint32_t *model_offset_ptr = model_offset.get<uint32_t>();
+      const int *d_local_ev_size_list_ptr = d_local_ev_size_list.get<int>();
+      const int *d_local_ev_size_offset_ptr = d_local_ev_size_offset.get<int>();
+      const float **mp_ev_ptr = mp_ev.get<float>();
+      emb_t **model_comm_buffer_ptr = model_comm_buffer.get<emb_t>();
 
-      ArrayView<uint32_t, RestrictPtrTraits, int32_t> offset_iter{
-          model_offset.get(), batch_size * num_local_embedding_ + 1};
-
-      LambdaIterator<uint32_t, int32_t, decltype(counting_iter)> dst_iter{
-          counting_iter, batch_size * num_local_embedding_};
-
-      RaggedLookupResultView<float, RestrictPtrTraits, int32_t> src_buffer_iter{
-          mp_ev.get(), model_offset.get<uint32_t>(), batch_size * num_local_embedding_ + 1,
-          d_local_ev_size_list.get<int>(), batch_size};
-
-      RaggedModelBufferView<emb_t, RestrictPtrTraits, int32_t> dst_buffer_iter{
-          model_comm_buffer.get(), d_local_ev_size_offset.get<int>(), num_gpus_, batch_size};
-      generic_lookup(index_iter, offset_iter, dst_iter, src_buffer_iter, dst_buffer_iter,
-                     max_ev_size, stream);
+      auto multi_to_one_desc = make_MultiToOne<float, emb_t>(
+          batch_size * num_local_embedding_, [=] __device__(int i) { return model_offset_ptr[i]; },
+          [=] __device__(int i) { return 1; },
+          [=] __device__(int i) {
+            int i_lookup = i / batch_size;
+            return d_local_ev_size_list_ptr[i_lookup];
+          },
+          [=] __device__(int i) { return mp_ev_ptr[i]; },
+          [=] __device__(int i) {
+            int i_lookup = i / batch_size;
+            int batch_id = i % batch_size;
+            int gpu_id = batch_id / batch_size_per_gpu;
+            int ev_size =
+                d_local_ev_size_offset_ptr[i_lookup + 1] - d_local_ev_size_offset_ptr[i_lookup];
+            int local_batch_id = batch_id % batch_size_per_gpu;
+            return model_comm_buffer_ptr[gpu_id] +
+                   batch_size_per_gpu * d_local_ev_size_offset_ptr[i_lookup] +
+                   local_batch_id * ev_size;
+          });
+      copy_multi_to_one(multi_to_one_desc, max_ev_size, stream);
     });
   }
 }

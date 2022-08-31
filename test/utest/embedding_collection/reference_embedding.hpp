@@ -45,7 +45,7 @@ class EmbeddingReferenceCPU {
   std::vector<std::unordered_map<key_t, std::vector<float>>> accumulate_grad_map_;
 
   EmbeddingReferenceCPU(int num_gpus, int num_table, const EmbeddingCollectionParam &ebc_param,
-                        std::vector<std::vector<IEmbeddingTable *>> emb_table_list,
+                        std::vector<std::vector<IGroupedEmbeddingTable *>> emb_table_list,
                         const std::vector<EmbeddingTableParam> &table_param_list)
       : num_gpus_(num_gpus),
         num_embedding_(ebc_param.num_embedding),

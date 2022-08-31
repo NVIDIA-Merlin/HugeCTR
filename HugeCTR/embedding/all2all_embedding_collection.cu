@@ -387,11 +387,11 @@ void All2AllEmbeddingCollectionNetworkForward::sparse_forward_per_gpu(
         core_, num_gpus, static_cast<int>(local_embedding_data_.h_network_embedding_list_.size()),
         global_embedding_data_.h_ev_size_list_, batch_size};
     network_forward_.compute(
-        network_comm_buffer, ragged_network_index.gpu_idx_offset_,
-        ragged_network_index.global_ev_offset_, ragged_network_index.network_idx_,
-        ragged_network_index.network_offset_, ragged_network_index.network_dst_,
-        average_combiner.float_emb_vec_, global_embedding_data_.d_ev_size_offset_, batch_size,
-        global_embedding_data_.max_ev_size_);
+        network_comm_buffer, ragged_network_index.network_ids_,
+        ragged_network_index.network_gpu_ids_, ragged_network_index.network_offsets_,
+        ragged_network_index.network_dst_lookup_ids_, ragged_network_index.network_ev_sizes_,
+        ragged_network_index.network_ev_offsets_, average_combiner.float_emb_vec_,
+        global_embedding_data_.d_ev_size_offset_, batch_size, global_embedding_data_.max_ev_size_);
 
     average_combiner.forward(
         bucket_range, output_buffer, local_embedding_data_.d_network_embedding_list_,
@@ -399,9 +399,10 @@ void All2AllEmbeddingCollectionNetworkForward::sparse_forward_per_gpu(
         batch_size, global_embedding_data_.max_ev_size_);
   } else {
     network_forward_.compute(
-        network_comm_buffer, ragged_network_index.gpu_idx_offset_,
-        ragged_network_index.global_ev_offset_, ragged_network_index.network_idx_,
-        ragged_network_index.network_offset_, ragged_network_index.network_dst_, output_buffer,
+        network_comm_buffer, ragged_network_index.network_ids_,
+        ragged_network_index.network_gpu_ids_, ragged_network_index.network_offsets_,
+        ragged_network_index.network_dst_lookup_ids_, ragged_network_index.network_ev_sizes_,
+        ragged_network_index.network_ev_offsets_, output_buffer,
         global_embedding_data_.d_ev_size_offset_, batch_size, global_embedding_data_.max_ev_size_);
   }
 
@@ -505,18 +506,18 @@ void All2AllEmbeddingCollectionNetworkBackward::backward_per_gpu(
         global_embedding_data_.d_combiner_list_, global_embedding_data_.d_ev_size_offset_,
         batch_size, global_embedding_data_.max_ev_size_);
     network_backward_.compute(
-        average_combiner.float_emb_vec_, global_embedding_data_.d_ev_size_offset_,
-        ragged_network_index.gpu_idx_offset_, ragged_network_index.global_ev_offset_,
-        ragged_network_index.network_idx_, ragged_network_index.network_offset_,
-        ragged_network_index.network_dst_, network_comm_buffer, batch_size,
-        global_embedding_data_.max_ev_size_);
+        average_combiner.float_emb_vec_, ragged_network_index.network_ids_,
+        ragged_network_index.network_gpu_ids_, ragged_network_index.network_offsets_,
+        ragged_network_index.network_dst_lookup_ids_, ragged_network_index.network_ev_sizes_,
+        ragged_network_index.network_ev_offsets_, network_comm_buffer,
+        global_embedding_data_.d_ev_size_offset_, batch_size, global_embedding_data_.max_ev_size_);
   } else {
     network_backward_.compute(
-        continous_top_grad, global_embedding_data_.d_ev_size_offset_,
-        ragged_network_index.gpu_idx_offset_, ragged_network_index.global_ev_offset_,
-        ragged_network_index.network_idx_, ragged_network_index.network_offset_,
-        ragged_network_index.network_dst_, network_comm_buffer, batch_size,
-        global_embedding_data_.max_ev_size_);
+        continous_top_grad, ragged_network_index.network_ids_,
+        ragged_network_index.network_gpu_ids_, ragged_network_index.network_offsets_,
+        ragged_network_index.network_dst_lookup_ids_, ragged_network_index.network_ev_sizes_,
+        ragged_network_index.network_ev_offsets_, network_comm_buffer,
+        global_embedding_data_.d_ev_size_offset_, batch_size, global_embedding_data_.max_ev_size_);
   }
 }
 
