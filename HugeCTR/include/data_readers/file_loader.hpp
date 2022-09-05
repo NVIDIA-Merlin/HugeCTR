@@ -60,7 +60,7 @@ class FileLoader {
       in_file_stream_.close();
       return Error_t::Success;
     } else {
-      size_t temp = data_source_backend_->getFileSize(cur_file_name_);
+      size_t temp = data_source_backend_->get_file_size(cur_file_name_);
       if (temp > 0) {
         cur_file_size_ = temp;
         return Error_t::Success;
@@ -78,14 +78,15 @@ class FileLoader {
     use_mmap_ = data_source_params_.type == DataSourceType_t::Local;
 
     if (data_source_params_.type == DataSourceType_t::HDFS) {
-      data_source_backend_ =
-          std::make_unique<HdfsService>(data_source_params.server, data_source_params.port);
+      data_source_backend_ = data_source_params.create_unique();
       HCTR_LOG_S(INFO, WORLD) << "Using Hadoop Cluster " << data_source_params.server << ":"
                               << data_source_params.port << std::endl;
     } else if (data_source_params_.type == DataSourceType_t::S3) {
+      // TODO: Migrate to a suitable DataSourceBackend implementation.
       HCTR_LOG_S(INFO, WORLD) << "S3 is currently not supported. Use Local instead." << std::endl;
       use_mmap_ = true;
     } else if (data_source_params_.type == DataSourceType_t::Other) {
+      // TODO: Migrate to a suitable DataSourceBackend implementation.
       HCTR_LOG_S(INFO, WORLD) << "Other filesystems are not supported. Use Local instead."
                               << std::endl;
       use_mmap_ = true;

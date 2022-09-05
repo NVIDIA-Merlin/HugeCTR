@@ -2384,6 +2384,7 @@ Error_t Model::download_dense_params_to_files_(std::string weights_file,
   try {
     if (resource_manager_->is_master_process()) {
       if (data_source_params.type == DataSourceType_t::HDFS) {
+        // TODO: Move to self-contained DataSourceBackend implementation.
         networks_[0]->download_params_to_hdfs(weights_file, data_source_params);
         HCTR_LOG(INFO, ROOT, "Dumping dense weights to HDFS, successful\n");
         networks_[0]->download_opt_states_to_hdfs(dense_opt_states_file, data_source_params);
@@ -2391,11 +2392,12 @@ Error_t Model::download_dense_params_to_files_(std::string weights_file,
         std::string no_trained_params = networks_[0]->get_no_trained_params_in_string();
         if (no_trained_params.length() != 0) {
           std::string ntp_file = weights_file + ".ntp.json";
-          HdfsService hs = HdfsService(data_source_params.server, data_source_params.port);
-          hs.write(ntp_file, no_trained_params.c_str(), no_trained_params.length(), true);
+          auto hs = data_source_params.create_unique();
+          hs->write(ntp_file, no_trained_params.c_str(), no_trained_params.length(), true);
           HCTR_LOG(INFO, ROOT, "Dumping untrainable weights to file, successful\n");
         }
       } else if (data_source_params.type == DataSourceType_t::Local) {
+        // TODO: Move to self-contained DataSourceBackend implementation.
         std::ofstream out_stream_weight(weights_file, std::ofstream::binary);
         networks_[0]->download_params_to_host(out_stream_weight);
         HCTR_LOG(INFO, ROOT, "Dumping dense weights to file, successful\n");
@@ -2484,9 +2486,11 @@ Error_t Model::load_opt_states_for_dense_(const std::string& dense_opt_states_fi
     size_t opt_states_size_in_byte = networks_[0]->get_opt_states_size_in_byte();
     std::unique_ptr<char[]> opt_states(new char[opt_states_size_in_byte]());
     if (data_source_params.type == DataSourceType_t::HDFS) {
-      HdfsService hs(data_source_params.server, data_source_params.port);
-      hs.read(dense_opt_states_file, opt_states.get(), hs.getFileSize(dense_opt_states_file), 0);
+      auto hs = data_source_params.create_unique();
+      hs->read(dense_opt_states_file, opt_states.get(), hs->get_file_size(dense_opt_states_file),
+               0);
     } else if (data_source_params.type == DataSourceType_t::Local) {
+      // TODO: Move to self-contained DataSourceBackend implementation.
       std::ifstream opt_states_stream(dense_opt_states_file, std::ifstream::binary);
       if (!opt_states_stream.is_open()) {
         HCTR_OWN_THROW(Error_t::WrongInput, "Cannot open dense opt states file");
@@ -2515,6 +2519,7 @@ Error_t Model::load_opt_states_for_sparse_(const std::vector<std::string>& spars
   try {
     for (size_t i = 0; i < embeddings_.size(); i++) {
       if (data_source_params.type == DataSourceType_t::HDFS) {
+        // TODO: Move to self-contained DataSourceBackend implementation.
         if (i < sparse_opt_states_files.size()) {
           std::ifstream sparse_opt_stream(sparse_opt_states_files[i], std::ifstream::binary);
           HCTR_LOG_S(INFO, ROOT) << "Loading sparse optimizer states: "
@@ -2524,6 +2529,7 @@ Error_t Model::load_opt_states_for_sparse_(const std::vector<std::string>& spars
           sparse_opt_stream.close();
         }
       } else if (data_source_params.type == DataSourceType_t::Local) {
+        // TODO: Move to self-contained DataSourceBackend implementation.
         if (i < sparse_opt_states_files.size()) {
           std::ifstream sparse_opt_stream(sparse_opt_states_files[i], std::ifstream::binary);
           if (!sparse_opt_stream.is_open()) {
@@ -2554,9 +2560,10 @@ Error_t Model::load_params_for_dense_(const std::string& model_file,
   try {
     std::unique_ptr<float[]> weight(new float[networks_[0]->get_params_num()]());
     if (data_source_params.type == DataSourceType_t::HDFS) {
-      HdfsService hs(data_source_params.server, data_source_params.port);
-      hs.read(model_file, weight.get(), hs.getFileSize(model_file), 0);
+      auto hs = data_source_params.create_unique();
+      hs->read(model_file, weight.get(), hs->get_file_size(model_file), 0);
     } else if (data_source_params.type == DataSourceType_t::Local) {
+      // TODO: Move to self-contained DataSourceBackend implementation.
       std::ifstream model_stream(model_file, std::ifstream::binary);
       if (!model_stream.is_open()) {
         HCTR_OWN_THROW(Error_t::WrongInput, "Cannot open dense model file");

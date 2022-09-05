@@ -35,31 +35,17 @@ endif()
 file(GLOB_RECURSE huge_ctr_src RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} *.cpp *.cu ../embedding_storage/*.cpp ../embedding_storage/*.cu ../embedding_storage/dynamic_embedding_table/*.cpp
 ../embedding_storage/dynamic_embedding_table/*.cu)
 
-file(GLOB hdfs_backend ${CMAKE_CURRENT_SOURCE_DIR}/data_source/hdfs_backend.cpp)
-
-list(REMOVE_ITEM huge_ctr_src "pybind/module_main.cpp" "data_source/hdfs_backend.cpp")
+list(REMOVE_ITEM huge_ctr_src "pybind/module_main.cpp")
 add_library(huge_ctr_static STATIC ${huge_ctr_src})
 add_library(huge_ctr_shared SHARED ${huge_ctr_src})
-add_library(huge_ctr_hdfs_backend SHARED ${hdfs_backend})
 
 target_link_libraries(huge_ctr_static PUBLIC cublas curand cudnn nccl nvToolsExt ${CMAKE_THREAD_LIBS_INIT} stdc++fs tbb)
 target_link_libraries(huge_ctr_shared PUBLIC cublas curand cudnn nccl nvToolsExt ${CMAKE_THREAD_LIBS_INIT} stdc++fs tbb hiredis redis++ rocksdb-shared rdkafka)
 
 if(ENABLE_HDFS)
-  target_link_libraries(
-    huge_ctr_hdfs_backend
-    PUBLIC
-      ${DB_LIB_PATHS}/libhdfs.so # from Hugectr 
-  )
+  target_link_libraries(huge_ctr_shared PUBLIC ${DB_LIB_PATHS}/libhdfs.so)
+  target_link_libraries(huge_ctr_static PUBLIC ${DB_LIB_PATHS}/libhdfs.so)
 endif()
-
-target_link_libraries(
-  huge_ctr_shared PUBLIC huge_ctr_hdfs_backend
-)
-
-target_link_libraries(
-  huge_ctr_static PUBLIC huge_ctr_hdfs_backend
-)
 
 if(MPI_FOUND)
   target_link_libraries(huge_ctr_static PUBLIC cublas cublasLt curand cudnn nccl nvToolsExt ${CMAKE_THREAD_LIBS_INIT} ${MPI_CXX_LIBRARIES} hwloc ucp ucs ucm uct numa ibverbs gdrapi stdc++fs)
