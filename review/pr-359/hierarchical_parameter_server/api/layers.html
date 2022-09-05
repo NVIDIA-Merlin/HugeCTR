@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HPS Layers &mdash; Merlin HugeCTR  documentation</title><link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/mystnb.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/togglebutton.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  <script id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/doctools.js"></script>
+        <script >let toggleHintShow = 'Click to show';</script>
+        <script >let toggleHintHide = 'Click to hide';</script>
+        <script >let toggleOpenOnPrint = 'true';</script>
+        <script src="../../_static/togglebutton.js"></script>
+        <script >var togglebuttonSelector = '.toggle, .admonition.dropdown, .tag_hide_input div.cell_input, .tag_hide-input div.cell_input, .tag_hide_output div.cell_output, .tag_hide-output div.cell_output, .tag_hide_cell.cell, .tag_hide-cell.cell';</script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Performance" href="../../performance.html" />
+    <link rel="prev" title="HPS Initialize" href="initialize.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../../index.html" class="icon icon-home"> Merlin HugeCTR
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption"><span class="caption-text">HUGECTR</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../hugectr_user_guide.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../hugectr_core_features.html">Core Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../hugectr_embedding_training_cache.html">Embedding Training Cache</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../index.html">Hierarchical Parameter Server</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../../hugectr_parameter_server.html">HPS Database Backend</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="../hps_tf_user_guide.html">HPS Plugin for TensorFlow</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="../notebooks/index.html">Notebooks</a></li>
+<li class="toctree-l3 current"><a class="reference internal" href="index.html">API Documentation</a><ul class="current">
+<li class="toctree-l4"><a class="reference internal" href="initialize.html">Initialize</a></li>
+<li class="toctree-l4 current"><a class="current reference internal" href="#">Layers</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../performance.html">Performance</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../notebooks/index.html">Example Notebooks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../notebooks/multi-modal-data/index.html">Multi-modal Example Notebooks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/index.html">API Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../additional_resources.html">Additional Resources</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../release_notes.html">Release Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../hugectr_contributor_guide.html">Contributing to HugeCTR</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">Merlin HugeCTR</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="../index.html">Hierarchical Parameter Server</a> &raquo;</li>
+          <li><a href="../hps_tf_user_guide.html">Hierarchical Parameter Server Plugin for TensorFlow</a> &raquo;</li>
+          <li><a href="index.html">Hierarchical Parameter Server API</a> &raquo;</li>
+      <li>HPS Layers</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <div class="section" id="hps-layers">
+<h1>HPS Layers<a class="headerlink" href="#hps-layers" title="Permalink to this headline"></a></h1>
+<div class="section" id="sparselookuplayer">
+<h2>SparseLookupLayer<a class="headerlink" href="#sparselookuplayer" title="Permalink to this headline"></a></h2>
+<dl class="py class">
+<dt id="hierarchical_parameter_server.SparseLookupLayer">
+<em class="property"><span class="pre">class</span> </em><code class="sig-prename descclassname"><span class="pre">hierarchical_parameter_server.</span></code><code class="sig-name descname"><span class="pre">SparseLookupLayer</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/hierarchical_parameter_server/core/sparse_lookup_layer.html#SparseLookupLayer"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#hierarchical_parameter_server.SparseLookupLayer" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">keras.engine.base_layer.Layer</span></code></p>
+<p>Abbreviated as <code class="docutils literal notranslate"><span class="pre">hps.SparseLookupLayer(*args,</span> <span class="pre">**kwargs)</span></code>.</p>
+<p>This is a wrapper class for HPS sparse lookup layer, which basically performs
+the same function as tf.nn.embedding_lookup_sparse.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>model_name</strong> (<em>str</em>) – the name of the model that has embedding table(s)</p></li>
+<li><p><strong>table_id</strong> (<em>int</em>) – the index of the embedding table for the model specified by
+model_name</p></li>
+<li><p><strong>emb_vec_size</strong> (<em>int</em>) – the embedding vector size for the embedding table specified
+by model_name and table_id</p></li>
+<li><p><strong>emb_vec_dtype</strong> – the data type of embedding vectors which must be tf.float32</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">hierarchical_parameter_server</span> <span class="k">as</span> <span class="nn">hps</span>
+
+<span class="n">sparse_lookup_layer</span> <span class="o">=</span> <span class="n">hps</span><span class="o">.</span><span class="n">SparseLookupLayer</span><span class="p">(</span><span class="n">model_name</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">model_name</span><span class="p">,</span>
+                                           <span class="n">table_id</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">table_id</span><span class="p">,</span>
+                                           <span class="n">emb_vec_size</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">embed_vec_size</span><span class="p">,</span>
+                                           <span class="n">emb_vec_dtype</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+
+<span class="nd">@tf</span><span class="o">.</span><span class="n">function</span>
+<span class="k">def</span> <span class="nf">_infer_step</span><span class="p">(</span><span class="n">inputs</span><span class="p">):</span>
+    <span class="n">embedding_vector</span> <span class="o">=</span> <span class="n">sparse_lookup_layer</span><span class="p">(</span><span class="n">sp_ids</span><span class="o">=</span><span class="n">inputs</span><span class="p">,</span>
+                                          <span class="n">sp_weights</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                                          <span class="n">combiner</span><span class="o">=</span><span class="s2">&quot;mean&quot;</span><span class="p">)</span>
+    <span class="o">...</span>
+
+<span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">inputs</span><span class="p">,</span> <span class="n">labels</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">dataset</span><span class="p">):</span>
+    <span class="n">_infer_step</span><span class="p">(</span><span class="n">inputs</span><span class="p">)</span>
+</pre></div>
+</div>
+<dl class="py method">
+<dt id="hierarchical_parameter_server.SparseLookupLayer.call">
+<code class="sig-name descname"><span class="pre">call</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sp_ids</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sp_weights</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">combiner</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_norm</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/hierarchical_parameter_server/core/sparse_lookup_layer.html#SparseLookupLayer.call"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#hierarchical_parameter_server.SparseLookupLayer.call" title="Permalink to this definition"></a></dt>
+<dd><p>Looks up embeddings for the given ids and weights from a list of tensors.
+This op assumes that there is at least one id for each row in the dense tensor
+represented by sp_ids (i.e. there are no rows with empty features), and that
+all the indices of sp_ids are in canonical row-major order. <cite>sp_ids</cite> and <cite>sp_weights</cite>
+(if not None) are <cite>SparseTensor</cite> with rank of 2. Embeddings are always aggregated
+along the last dimension. If an id value cannot be find in the HPS, the default
+embeddings will be retrieved, which can be specified in the HPS configuration JSON file.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>sp_ids</strong> – N x M <cite>SparseTensor</cite> of int64 ids where N is typically batch size
+and M is arbitrary.</p></li>
+<li><p><strong>sp_weights</strong> – either a <cite>SparseTensor</cite> of float / double weights, or <cite>None</cite> to
+indicate all weights should be taken to be 1. If specified, <cite>sp_weights</cite>
+must have exactly the same shape and indices as <cite>sp_ids</cite>.</p></li>
+<li><p><strong>combiner</strong> – a string specifying the reduction op. Currently <cite>“mean”</cite>, <cite>“sqrtn”</cite>
+and <cite>“sum”</cite> are supported. <cite>“sum”</cite> computes the weighted sum of the embedding
+results for each row. <cite>“mean”</cite> is the weighted sum divided by the total
+weight. <cite>“sqrtn”</cite> is the weighted sum divided by the square root of the sum
+of the squares of the weights. Defaults to <cite>“mean”</cite>.</p></li>
+<li><p><strong>max_norm</strong> – if not <cite>None</cite>, each embedding is clipped if its l2-norm is larger
+than this value, before combining.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><p><strong>emb_vector</strong> – A dense tensor representing the combined embeddings for the
+sparse ids. For each row in the dense tensor represented by <cite>sp_ids</cite>, the op
+looks up the embeddings for all ids in that row, multiplies them by the
+corresponding weight, and combines these embeddings as specified.
+In other words, if</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">shape</span><span class="p">(</span><span class="n">sp_ids</span><span class="p">)</span> <span class="o">=</span> <span class="n">shape</span><span class="p">(</span><span class="n">sp_weights</span><span class="p">)</span> <span class="o">=</span> <span class="p">[</span><span class="n">d0</span><span class="p">,</span> <span class="n">d1</span><span class="p">]</span>
+</pre></div>
+</div>
+<p>then</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">shape</span><span class="p">(</span><span class="n">output</span><span class="p">)</span> <span class="o">=</span> <span class="p">[</span><span class="n">d0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">emb_vec_dtype</span><span class="p">]</span>
+</pre></div>
+</div>
+<p>For instance, if self.emb_vec_dtype is 16, and sp_ids / sp_weights are</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]:</span> <span class="nb">id</span> <span class="mi">1</span><span class="p">,</span> <span class="n">weight</span> <span class="mf">2.0</span>
+<span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]:</span> <span class="nb">id</span> <span class="mi">3</span><span class="p">,</span> <span class="n">weight</span> <span class="mf">0.5</span>
+<span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">]:</span> <span class="nb">id</span> <span class="mi">0</span><span class="p">,</span> <span class="n">weight</span> <span class="mf">1.0</span>
+<span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">]:</span> <span class="nb">id</span> <span class="mi">1</span><span class="p">,</span> <span class="n">weight</span> <span class="mf">3.0</span>
+</pre></div>
+</div>
+<p>with <cite>combiner</cite> = <cite>“mean”</cite>, then the output will be a 3x16 matrix where</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">output</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="p">(</span><span class="n">vector_for_id_1</span> <span class="o">*</span> <span class="mf">2.0</span> <span class="o">+</span> <span class="n">vector_for_id_3</span> <span class="o">*</span> <span class="mf">0.5</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mf">2.0</span> <span class="o">+</span> <span class="mf">0.5</span><span class="p">)</span>
+<span class="n">output</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="p">(</span><span class="n">vector_for_id_0</span> <span class="o">*</span> <span class="mf">1.0</span><span class="p">)</span> <span class="o">/</span> <span class="mf">1.0</span>
+<span class="n">output</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="p">(</span><span class="n">vector_for_id_1</span> <span class="o">*</span> <span class="mf">3.0</span><span class="p">)</span> <span class="o">/</span> <span class="mf">3.0</span>
+</pre></div>
+</div>
+</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>tf.Tensor of int32</p>
+</dd>
+<dt class="field-even">Raises</dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>TypeError</strong> – If <cite>sp_ids</cite> is not a <cite>SparseTensor</cite>, or if <cite>sp_weights</cite> is: neither <cite>None</cite> nor <cite>SparseTensor</cite>.</p></li>
+<li><p><strong>ValueError</strong> – If <cite>combiner</cite> is not one of {<cite>“mean”</cite>, <cite>“sqrtn”</cite>, <cite>“sum”</cite>}.:</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="lookuplayer">
+<h2>LookupLayer<a class="headerlink" href="#lookuplayer" title="Permalink to this headline"></a></h2>
+<dl class="py class">
+<dt id="hierarchical_parameter_server.LookupLayer">
+<em class="property"><span class="pre">class</span> </em><code class="sig-prename descclassname"><span class="pre">hierarchical_parameter_server.</span></code><code class="sig-name descname"><span class="pre">LookupLayer</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/hierarchical_parameter_server/core/lookup_layer.html#LookupLayer"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#hierarchical_parameter_server.LookupLayer" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">keras.engine.base_layer.Layer</span></code></p>
+<p>Abbreviated as <code class="docutils literal notranslate"><span class="pre">hps.LookupLayer(*args,</span> <span class="pre">**kwargs)</span></code>.</p>
+<p>This is a wrapper class for HPS lookup layer, which basically performs
+the same function as tf.nn.embedding_lookup.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>model_name</strong> (<em>str</em>) – the name of the model that has embedding table(s)</p></li>
+<li><p><strong>table_id</strong> (<em>int</em>) – the index of the embedding table for the model specified by
+model_name</p></li>
+<li><p><strong>emb_vec_size</strong> (<em>int</em>) – the embedding vector size for the embedding table specified
+by model_name and table_id</p></li>
+<li><p><strong>emb_vec_dtype</strong> – the data type of embedding vectors which must be tf.float32</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">hierarchical_parameter_server</span> <span class="k">as</span> <span class="nn">hps</span>
+
+<span class="n">lookup_layer</span> <span class="o">=</span> <span class="n">hps</span><span class="o">.</span><span class="n">LookupLayer</span><span class="p">(</span><span class="n">model_name</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">model_name</span><span class="p">,</span>
+                              <span class="n">table_id</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">table_id</span><span class="p">,</span>
+                              <span class="n">emb_vec_size</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">embed_vec_size</span><span class="p">,</span>
+                              <span class="n">emb_vec_dtype</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+
+<span class="nd">@tf</span><span class="o">.</span><span class="n">function</span>
+<span class="k">def</span> <span class="nf">_infer_step</span><span class="p">(</span><span class="n">inputs</span><span class="p">):</span>
+    <span class="n">embedding_vector</span> <span class="o">=</span> <span class="n">lookup_layer</span><span class="p">(</span><span class="n">inputs</span><span class="p">)</span>
+    <span class="o">...</span>
+
+<span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">inputs</span><span class="p">,</span> <span class="n">labels</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">dataset</span><span class="p">):</span>
+    <span class="n">_infer_step</span><span class="p">(</span><span class="n">inputs</span><span class="p">)</span>
+</pre></div>
+</div>
+<dl class="py method">
+<dt id="hierarchical_parameter_server.LookupLayer.call">
+<code class="sig-name descname"><span class="pre">call</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">inputs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/hierarchical_parameter_server/core/lookup_layer.html#LookupLayer.call"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#hierarchical_parameter_server.LookupLayer.call" title="Permalink to this definition"></a></dt>
+<dd><p>The forward logic of this wrapper class.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>inputs</strong> – keys are stored in Tensor. The data type must be tf.int64.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>emb_vector</strong> – the embedding vectors for the input keys. Its shape is
+<em>inputs.get_shape() + emb_vec_size</em>.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>tf.Tensor of int32</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+</div>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="initialize.html" class="btn btn-neutral float-left" title="HPS Initialize" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../../performance.html" class="btn btn-neutral float-right" title="Performance" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, NVIDIA.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
