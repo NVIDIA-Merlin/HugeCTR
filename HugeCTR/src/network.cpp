@@ -137,8 +137,9 @@ void Network::download_params_to_hdfs(std::string& write_path,
   std::unique_ptr<char[]> weight(new char[train_weight_tensor_.get_size_in_bytes()]);
   HCTR_LIB_THROW(cudaMemcpy(weight.get(), train_weight_tensor_.get_ptr(),
                             train_weight_tensor_.get_size_in_bytes(), cudaMemcpyDeviceToHost));
-  HdfsService hs = HdfsService(data_source_params.server, data_source_params.port);
-  hs.write(write_path, weight.get(), train_weight_tensor_.get_size_in_bytes(), true);
+
+  auto hs = data_source_params.create_unique();
+  hs->write(write_path, weight.get(), train_weight_tensor_.get_size_in_bytes(), true);
   return;
 }
 
@@ -170,8 +171,8 @@ void Network::download_opt_states_to_hdfs(std::string& write_path,
       use_mixed_precision_ ? (void*)opt_tensor_half_.get_ptr() : (void*)opt_tensor_.get_ptr();
   HCTR_LIB_THROW(cudaMemcpy(h_opt_states.get(), src, dst_size_in_byte, cudaMemcpyDeviceToHost));
 
-  HdfsService hs = HdfsService(data_source_params.server, data_source_params.port);
-  hs.write(write_path, h_opt_states.get(), dst_size_in_byte, true);
+  auto hs = data_source_params.create_unique();
+  hs->write(write_path, h_opt_states.get(), dst_size_in_byte, true);
 }
 
 std::string Network::get_no_trained_params_in_string() {

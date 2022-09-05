@@ -389,11 +389,12 @@ void LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::load_para
   size_t vec_file_size_in_byte;
 
   if (data_source_params.type == DataSourceType_t::HDFS) {
-    HdfsService hs(data_source_params.server, data_source_params.port);
-    key_file_size_in_byte = hs.getFileSize(key_file);
-    slot_file_size_in_byte = hs.getFileSize(slot_file);
-    vec_file_size_in_byte = hs.getFileSize(vec_file);
+    auto hs = data_source_params.create_unique();
+    key_file_size_in_byte = hs->get_file_size(key_file);
+    slot_file_size_in_byte = hs->get_file_size(slot_file);
+    vec_file_size_in_byte = hs->get_file_size(vec_file);
   } else if (data_source_params.type == DataSourceType_t::Local) {
+    // TODO: Move to self-contained DataSourceBackend implementaiton.
     if (!std::filesystem::exists(sparse_model)) {
       HCTR_OWN_THROW(Error_t::WrongInput, "Error: folder " + sparse_model + " doesn't exist");
     }
@@ -438,18 +439,19 @@ void LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::load_para
   float *embedding_ptr = embeddings.get_ptr();
 
   if (data_source_params.type == DataSourceType_t::HDFS) {
-    HdfsService hs(data_source_params.server, data_source_params.port);
+    auto hs = data_source_params.create_unique();
     if (std::is_same<TypeHashKey, long long>::value) {
-      hs.read(key_file, reinterpret_cast<char *>(key_ptr), key_file_size_in_byte, 0);
+      hs->read(key_file, reinterpret_cast<char *>(key_ptr), key_file_size_in_byte, 0);
     } else {
       std::vector<long long> i64_key_vec(key_num, 0);
-      hs.read(key_file, reinterpret_cast<char *>(i64_key_vec.data()), key_file_size_in_byte, 0);
+      hs->read(key_file, reinterpret_cast<char *>(i64_key_vec.data()), key_file_size_in_byte, 0);
       std::transform(i64_key_vec.begin(), i64_key_vec.end(), key_ptr,
                      [](long long key) { return static_cast<unsigned>(key); });
     }
-    hs.read(slot_file, reinterpret_cast<char *>(slot_id_ptr), slot_file_size_in_byte, 0);
-    hs.read(vec_file, reinterpret_cast<char *>(embedding_ptr), vec_file_size_in_byte, 0);
+    hs->read(slot_file, reinterpret_cast<char *>(slot_id_ptr), slot_file_size_in_byte, 0);
+    hs->read(vec_file, reinterpret_cast<char *>(embedding_ptr), vec_file_size_in_byte, 0);
   } else if (data_source_params.type == DataSourceType_t::Local) {
+    // TODO: Move to self-contained DataSourceBackend implementaiton.
     std::ifstream key_stream(key_file, std::ifstream::binary);
     std::ifstream slot_stream(slot_file, std::ifstream::binary);
     std::ifstream vec_stream(vec_file, std::ifstream::binary);
@@ -1150,12 +1152,13 @@ void LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::dump_para
   HCTR_MPI_THROW(MPI_Type_free(&TYPE_EMB_VECTOR));
 #else
   if (data_source_params.type == DataSourceType_t::HDFS) {
-    HdfsService hs(data_source_params.server, data_source_params.port);
-    hs.write(key_file, reinterpret_cast<char *>(h_key_ptr), total_count * key_size, true);
-    hs.write(slot_file, reinterpret_cast<char *>(h_hash_table_slot_id), total_count * slot_size,
-             true);
-    hs.write(vec_file, reinterpret_cast<char *>(h_hash_table_value), total_count * vec_size, true);
+    auto hs = data_source_params.create_unique();
+    hs->write(key_file, reinterpret_cast<char *>(h_key_ptr), total_count * key_size, true);
+    hs->write(slot_file, reinterpret_cast<char *>(h_hash_table_slot_id), total_count * slot_size,
+              true);
+    hs->write(vec_file, reinterpret_cast<char *>(h_hash_table_value), total_count * vec_size, true);
   } else if (data_source_params.type == DataSourceType_t::Local) {
+    // TODO: Move to self-contained DataSourceBackend implementation.
     std::ofstream key_stream(key_file, std::ofstream::binary | std::ofstream::trunc);
     std::ofstream slot_stream(slot_file, std::ofstream::binary | std::ofstream::trunc);
     std::ofstream vec_stream(vec_file, std::ofstream::binary | std::ofstream::trunc);

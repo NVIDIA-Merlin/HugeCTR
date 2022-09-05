@@ -34,27 +34,34 @@ void read_write_test(const std::string server, const int port) {
   std::string writepath3 = "/tmp/batch_copy/data3.txt";
   const char* buffer3 = "Hello, HugeCTR!\n";
 
-  HdfsService hs = HdfsService(server, port);
-  hs.write(writepath1, buffer1, strlen(buffer1), true);
-  hs.write(writepath2, buffer2, strlen(buffer2), true);
-  hs.write(writepath3, buffer3, strlen(buffer3), true);
+  auto hs = DataSourceParams{DataSourceType_t::HDFS, server, port}.create_unique();
 
-  char* buffer_for_read1 = (char*)malloc(hs.getFileSize(writepath1));
-  char* buffer_for_read2 = (char*)malloc(hs.getFileSize(writepath2));
-  char* buffer_for_read3 = (char*)malloc(hs.getFileSize(writepath3));
-  hs.read(writepath1, buffer_for_read1, hs.getFileSize(writepath1), 0);
-  hs.read(writepath2, buffer_for_read2, hs.getFileSize(writepath2), 0);
-  hs.read(writepath3, buffer_for_read3, hs.getFileSize(writepath3), 0);
+  hs->write(writepath1, buffer1, strlen(buffer1), true);
+  hs->write(writepath2, buffer2, strlen(buffer2), true);
+  hs->write(writepath3, buffer3, strlen(buffer3), true);
+
+  char* buffer_for_read1 = new char[hs->get_file_size(writepath1)];
+  char* buffer_for_read2 = new char[hs->get_file_size(writepath2)];
+  char* buffer_for_read3 = new char[hs->get_file_size(writepath3)];
+
+  hs->read(writepath1, buffer_for_read1, hs->get_file_size(writepath1), 0);
+  hs->read(writepath2, buffer_for_read2, hs->get_file_size(writepath2), 0);
+  hs->read(writepath3, buffer_for_read3, hs->get_file_size(writepath3), 0);
 
   EXPECT_EQ(*buffer1, *buffer_for_read1);
   EXPECT_EQ(*buffer2, *buffer_for_read2);
   EXPECT_EQ(*buffer3, *buffer_for_read3);
-  hs.copy("/tmp/batch_copy/data1.txt", "/tmp/local_batch_copy/data1.txt", true);
-  hs.batchCopy("/tmp/batch_copy/", "/tmp/local_batch_copy/", true);
+  hs->copy("/tmp/batch_copy/data1.txt", "/tmp/local_batch_copy/data1.txt", true);
+  hs->batch_copy("/tmp/batch_copy/", "/tmp/local_batch_copy/", true);
+
+  delete[] buffer_for_read1;
+  delete[] buffer_for_read2;
+  delete[] buffer_for_read3;
 }
 
 void copy2hdfs_test(const std::string path, const int num_rows_per_file, const int num_files) {
-  HdfsService hs = HdfsService("localhost", 9000);
+  auto hs = DataSourceParams{DataSourceType_t::HDFS, "localhost", 9000}.create_unique();
+
   std::vector<size_t> slot_size_array = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                                          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
   std::vector<int> nnz_array = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
@@ -66,7 +73,7 @@ void copy2hdfs_test(const std::string path, const int num_rows_per_file, const i
                                        nnz_array);
 
   // copy the files to HDFS
-  int result = hs.batchCopy("." + path, path, false);
+  int result = hs->batch_copy("." + path, path, false);
   EXPECT_EQ(result, 0);
 }
 

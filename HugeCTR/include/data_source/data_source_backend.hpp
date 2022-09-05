@@ -16,10 +16,12 @@
 
 #pragma once
 
+#include <memory>
 #include <string>
 #include <vector>
 
 namespace HugeCTR {
+
 class DataSourceBackend {
  public:
   DataSourceBackend() = default;
@@ -33,33 +35,55 @@ class DataSourceBackend {
   /**
    * @brief Get the file size of target file from the file system
    *
-   * @return the file size
+   * @param path HDFS file path.
+   * @return File size in bytes.
    */
-  virtual size_t getFileSize(const std::string& path) const = 0;
+  virtual size_t get_file_size(const std::string& path) const = 0;
 
   /**
    * @brief Write file from butter to the specified path in the file system
    *
-   * @return the number of bytes successfully written
+   * @param path HDFS path of the file to write into.
+   * @param data The data stream to write.
+   * @param data_size The size of the data stream.
+   * @param overwrite Whether to overwrite or append.
+   * @return Number of successfully written bytes.
    */
-  virtual int write(const std::string& writepath, const void* data, size_t dataSize,
+  virtual int write(const std::string& path, const void* data, size_t data_size,
                     bool overwrite) = 0;
 
   /**
    * @brief Read file from the file system to the buffer
    *
-   * @return the number of bytes successfully read
+   * @param path HDFS path of the file from which to read.
+   * @param buffer Buffer to hold the read data.
+   * @param buffer_size The number of bytes to read.
+   * @param offset Offset within the file from which to start reading.
+   * @return Number of successfully read bytes.
    */
-  virtual int read(const std::string& readpath, const void* buffer, size_t data_size,
-                   size_t offset) = 0;
+  virtual int read(const std::string& path, void* buffer, size_t buffer_size, size_t offset) = 0;
 
   /**
    * @brief Copy a specific file from the one file system to the other.
    *
-   * @return the number of bytes successfully copy
+   * @param source_file Source file path.
+   * @param target_file Target file path.
+   * @param to_local If true, copy from DFS to local FS; if false, vice versa.
    */
-  virtual int copy(const std::string& source_file, const std::string& target_file,
-                   bool to_local) = 0;
+  virtual void copy(const std::string& source_file, const std::string& target_file,
+                    bool to_local) = 0;
+
+  /**
+   * @brief Copy all files under the source directory to target directory from one filesystem to the
+   * other.
+   *
+   * @param source_dir Source dir path.
+   * @param target_dir Target dir path.
+   * @param to_local If true, copy from DFS to local FS; if false, vice versa.
+   * @return Number of files copied.
+   */
+  virtual int batch_copy(const std::string& source_dir, const std::string& target_dir,
+                         bool to_local) = 0;
 };
 
 enum class DataSourceType_t { Local, HDFS, S3, Other };
@@ -72,5 +96,12 @@ struct DataSourceParams {
   DataSourceParams(const DataSourceType_t type, const std::string& server, const int port)
       : type(type), server(server), port(port){};
   DataSourceParams() : type(DataSourceType_t::Local), server("localhost"), port(9000){};
+
+  DataSourceBackend* create() const;
+
+  std::unique_ptr<DataSourceBackend> create_unique() const {
+    return std::unique_ptr<DataSourceBackend>{create()};
+  }
 };
+
 }  // namespace HugeCTR
