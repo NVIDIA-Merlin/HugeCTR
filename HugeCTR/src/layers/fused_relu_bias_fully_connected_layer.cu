@@ -25,8 +25,9 @@ namespace HugeCTR {
 
 namespace {
 
-__global__ void reverse_relu_kernel(__half* dRelu, __half* mask, const __half* dY, int n) {
+__global__ void reverse_relu_kernel(__half* dRelu, __half* mask, const __half* dY, size_t n) {
   const size_t tid = blockIdx.x * blockDim.x + threadIdx.x;
+  if (tid >= n / 2) return;
   const size_t num_threads = blockDim.x * gridDim.x;
   const __half2 zero = TypeFunc<__half2>::zero();
   __half2* dRelu2 = reinterpret_cast<__half2*>(dRelu);
@@ -34,14 +35,15 @@ __global__ void reverse_relu_kernel(__half* dRelu, __half* mask, const __half* d
   const __half2* dY2 = reinterpret_cast<const __half2*>(dY);
   __half2 m = __hgt2(mask2[tid], zero);
   dRelu2[tid] = __hmul2(__ldg(dY2 + tid), m);
+  if (tid + num_threads >= n / 2) return;
   m = __hgt2(mask2[tid + num_threads], zero);
   dRelu2[tid + num_threads] = __hmul2(__ldg(dY2 + tid + num_threads), m);
 }
 
 __global__ void reverse_relu_kernel_not_aligned(__half* dRelu, __half* mask, const __half* dY,
-                                                int n) {
+                                                size_t n) {
   const size_t tid = blockIdx.x * blockDim.x + threadIdx.x;
-  const size_t num_threads = blockDim.x * gridDim.x;
+  if (tid >= n) return;
   const __half zero = TypeFunc<__half>::zero();
   __half m = __hgt(mask[tid], zero);
   dRelu[tid] = __hmul(__ldg(dY + tid), m);
@@ -396,9 +398,9 @@ void FusedReluBiasFullyConnectedLayer::bprop() {
   const auto& bottom_tensor_dim = get_bottom_tensor_fprop(true).get_dimensions();
   const auto& top_tensor_dim = train_out_tensor_.get_dimensions();
 
-  int m = bottom_tensor_dim[0];
-  int n = top_tensor_dim[1];
-  int k = bottom_tensor_dim[1];
+  size_t m = bottom_tensor_dim[0];
+  size_t n = top_tensor_dim[1];
+  size_t k = bottom_tensor_dim[1];
 
   const float alpha = 1.0f;
   const float beta_k = 1.0f;
@@ -410,7 +412,7 @@ void FusedReluBiasFullyConnectedLayer::bprop() {
     if (act_ != Activation_t::None) {
       if ((m * n) % 4 == 0) {
         reverse_relu_kernel<<<(m * n / 4 - 1) / 1024 + 1, 1024, 0, get_gpu().get_stream()>>>(
-            dRelu_top, mask_out, train_out, m * n / 4);
+            dRelu_top, mask_out, train_out, m * n);
       } else
         reverse_relu_kernel_not_aligned<<<(m * n - 1) / 1024 + 1, 1024, 0,
                                           get_gpu().get_stream()>>>(dRelu_top, mask_out, train_out,
@@ -424,6 +426,14 @@ void FusedReluBiasFullyConnectedLayer::bprop() {
     HCTR_LIB_THROW(cudaEventRecord(event_overlap_, get_gpu().get_stream()));
     HCTR_LIB_THROW(cudaStreamWaitEvent(get_gpu().get_comp_overlap_stream(), event_overlap_));
   }
+
+  // bgrad+wgrad
+  HCTR_LIB_THROW(cublasLtMatmul(
+      get_gpu().get_cublaslt_handle(), cublas_op_desc_wgrad_, &alpha, dRelu_top,
+      cublas_dRelu_top_desc_, bottom, cublas_dRelu_bottom_desc_, &beta_k, kernel_grad,
+      cublas_kernel_desc_, kernel_grad, cublas_kernel_desc_, &balgo_wgrad_,
+      cublaslt_workspace_wgrad_, cublaslt_workspace_size_,
+      async_mlp_wgrad_ ? get_gpu().get_comp_overlap_stream() : get_gpu().get_stream()));
 
   // dgrad
   if (!skip_dgrad_) {
@@ -443,14 +453,6 @@ void FusedReluBiasFullyConnectedLayer::bprop() {
         bottom_bprop, cublas_dRelu_bottom_desc_, &balgo_dRelu_, cublaslt_workspace_dRelu_,
         cublaslt_workspace_size_, get_gpu().get_stream()));
   }
-
-  // bgrad+wgrad
-  HCTR_LIB_THROW(cublasLtMatmul(
-      get_gpu().get_cublaslt_handle(), cublas_op_desc_wgrad_, &alpha, dRelu_top,
-      cublas_dRelu_top_desc_, bottom, cublas_dRelu_bottom_desc_, &beta_k, kernel_grad,
-      cublas_kernel_desc_, kernel_grad, cublas_kernel_desc_, &balgo_wgrad_,
-      cublaslt_workspace_wgrad_, cublaslt_workspace_size_,
-      async_mlp_wgrad_ ? get_gpu().get_comp_overlap_stream() : get_gpu().get_stream()));
 
   if (async_mlp_wgrad_ && pos_ == FcPosition_t::Head) {
     get_gpu().set_wgrad_event_sync(get_gpu().get_comp_overlap_stream());
