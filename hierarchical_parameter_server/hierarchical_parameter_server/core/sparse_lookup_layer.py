@@ -29,7 +29,9 @@ class SparseLookupLayer(tf.keras.layers.Layer):
     Abbreviated as ``hps.SparseLookupLayer(*args, **kwargs)``.
 
     This is a wrapper class for HPS sparse lookup layer, which basically performs
-    the same function as tf.nn.embedding_lookup_sparse.
+    the same function as tf.nn.embedding_lookup_sparse. Note that `ps_config_file`
+    and `global_batch_size` should be specified in the constructor if implicit HPS
+    initialization is desired.
 
     Parameters
     ----------
@@ -43,6 +45,10 @@ class SparseLookupLayer(tf.keras.layers.Layer):
             by model_name and table_id
     emb_vec_dtype:
             the data type of embedding vectors which must be tf.float32
+    ps_config_file: str
+            the JSON configuration file for HPS initialization
+    global_batch_size: int
+            the global batch size for HPS that is deployed on multiple GPUs
 
     Examples
     --------
@@ -53,7 +59,9 @@ class SparseLookupLayer(tf.keras.layers.Layer):
         sparse_lookup_layer = hps.SparseLookupLayer(model_name = args.model_name,
                                                    table_id = args.table_id,
                                                    emb_vec_size = args.embed_vec_size,
-                                                   emb_vec_dtype = tf.float32)
+                                                   emb_vec_dtype = tf.float32,
+                                                   ps_config_file = args.ps_config_file,
+                                                   global_batch_size = args.global_batch_size)
 
         @tf.function
         def _infer_step(inputs):
@@ -66,12 +74,23 @@ class SparseLookupLayer(tf.keras.layers.Layer):
             _infer_step(inputs)
     """
 
-    def __init__(self, model_name, table_id, emb_vec_size, emb_vec_dtype, **kwargs):
+    def __init__(
+        self,
+        model_name,
+        table_id,
+        emb_vec_size,
+        emb_vec_dtype,
+        ps_config_file="",
+        global_batch_size=1,
+        **kwargs,
+    ):
         super(SparseLookupLayer, self).__init__(**kwargs)
         self.model_name = model_name
         self.table_id = table_id
         self.emb_vec_size = emb_vec_size
         self.emb_vec_dtype = emb_vec_dtype
+        self.ps_config_file = ps_config_file
+        self.global_batch_size = global_batch_size
 
     def call(self, sp_ids, sp_weights, name=None, combiner=None, max_norm=None):
         """
@@ -184,6 +203,8 @@ class SparseLookupLayer(tf.keras.layers.Layer):
             table_id=self.table_id,
             emb_vec_size=self.emb_vec_size,
             emb_vec_dtype=self.emb_vec_dtype,
+            ps_config_file=self.ps_config_file,
+            global_batch_size=self.global_batch_size,
         )
 
         # Handle weights and combiner

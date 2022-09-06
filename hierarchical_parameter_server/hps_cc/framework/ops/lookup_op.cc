@@ -31,6 +31,8 @@ REGISTER_OP("Lookup")
     .Attr("table_id: int")
     .Attr("emb_vec_size: int")
     .Attr("dtype: {float32}")
+    .Input("init_status: status_dtype")
+    .Attr("status_dtype: {string}")
     .SetShapeFn([](InferenceContext* ctx) {
       ShapeHandle input_shape_0 = ctx->input(0);
 

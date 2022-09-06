@@ -33,6 +33,12 @@ class Lookup : public OpKernel {
   }
 
   void Compute(OpKernelContext *ctx) override {
+    Tensor const *status_tensor = nullptr;
+    OP_REQUIRES_OK(ctx, ctx->input("init_status", &status_tensor));
+    std::string init_status = status_tensor->flat<tstring>()(0);
+    OP_REQUIRES(ctx, init_status == "OK",
+                errors::Aborted("hierarchical parameter server is not initialized."));
+
     Tensor const *values_tensor = nullptr;
     OP_REQUIRES_OK(ctx, ctx->input("values", &values_tensor));
 
