@@ -34,8 +34,14 @@ def Init(**kwargs):
     """
     Abbreviated as ``hps.Init(**kwargs)``.
 
-    This function will initialize the HPS for all the deployed models.
-    It needs to be called only once and must be called before any other HPS APIs.
+    This function will initialize the HPS for all the deployed models. It can be used
+    explicitly or implicitly. When used explicitly, it needs to be called only once and
+    must be called before any other HPS APIs. When used implicitly, `ps_config_file` and
+    `global_batch_size` should be specified in the constructor of `hps.SparseLookupLayer`
+    and `hps.LookupLayer`. When the layer is executed for the first time, it will trigger
+    the internal HPS initialization implicitly, in a thread-safe call-once manner. The
+    implicit initialization is especially useful for deploying the SavedModels that
+    leverage the HPS layers for online inference.
 
     HPS will leverage all available GPUs for current CPU process. Please set
     `CUDA_VISIBLE_DEVICES` or `tf.config.set_visible_devices` to specify which
