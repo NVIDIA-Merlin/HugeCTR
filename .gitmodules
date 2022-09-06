@@ -35,3 +35,9 @@
 [submodule "third_party/librdkafka"]
 	path = third_party/librdkafka
 	url = https://github.com/edenhill/librdkafka.git
+[submodule "third_party/protobuf"]
+	path = third_party/protobuf
+	url = https://github.com/protocolbuffers/protobuf.git
+[submodule "third_party/hadoop"]
+	path = third_party/hadoop
+	url = https://github.com/apache/hadoop.git
