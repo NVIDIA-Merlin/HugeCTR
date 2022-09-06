@@ -1,20 +1,19 @@
 #!/usr/bin/env bash
 
-if [[ "$#" != 1 ]]; then
-  echo "ERROR: Must provide Hadoop version number!"
-  echo "       Example: ${BASH_SOURCE[0]} \"3.3.2\""
-  exit 1
-fi
-HADOOP_VER="$1"
-
 SCRIPT_DIR=$(dirname ${BASH_SOURCE[0]})
-cd ${SCRIPT_DIR}
-source hadoop.sh
+cd ${SCRIPT_DIR}/../third_party
+
+if [[ -z "${HADOOP_HOME}" ]]; then
+  HADOOP_HOME=/opt/hadoop
+fi
+
+# Find hadoop full version.
+cd hadoop
+HADOOP_TAR=$(ls hadoop-dist/target/hadoop-*.tar.gz | head -n 1)
 
 # Extract files and delete archive.
 mkdir -p ${HADOOP_HOME}/logs
-tar xf hadoop-${HADOOP_VER}.tar.gz --strip-components 1 --directory ${HADOOP_HOME}
-rm -rf hadoop-${HADOOP_VER}.tar.gz
+tar xf ${HADOOP_TAR} --strip-components 1 --directory ${HADOOP_HOME}
 
 # Cleanup reundant files.
 for f in $(find ${HADOOP_HOME} -name *.cmd); do
@@ -22,11 +21,11 @@ for f in $(find ${HADOOP_HOME} -name *.cmd); do
 done
 
 # Pretend that the package has been installed like any other.
-ln -s ${HADOOP_HOME}/include/hdfs.h /usr/local/include/hdfs.h
-ln -s ${HADOOP_HOME}/lib/native/libhdfs.so /usr/local/lib/libhdfs.so
-ln -s ${HADOOP_HOME}/lib/native/libhdfs.so.0.0.0 /usr/local/lib/libhdfs.so.0.0.0
-ln -s ${HADOOP_HOME}/lib/native/libhadoop.so /usr/local/lib/libhadoop.so
-ln -s ${HADOOP_HOME}/lib/native/libhadoop.so.1.0.0 /usr/local/lib/libhadoop.so.1.0.0
+ln -sf ${HADOOP_HOME}/include/hdfs.h /usr/local/include/hdfs.h
+ln -sf ${HADOOP_HOME}/lib/native/libhdfs.so /usr/local/lib/libhdfs.so
+ln -sf ${HADOOP_HOME}/lib/native/libhdfs.so.0.0.0 /usr/local/lib/libhdfs.so.0.0.0
+ln -sf ${HADOOP_HOME}/lib/native/libhadoop.so /usr/local/lib/libhadoop.so
+ln -sf ${HADOOP_HOME}/lib/native/libhadoop.so.1.0.0 /usr/local/lib/libhadoop.so.1.0.0
 
 # Create minimalist single-node "default" configuration.
 sed -i "s/^# export JAVA_HOME=$/export JAVA_HOME=${JAVA_HOME//\//\\\/}/g" ${HADOOP_HOME}/etc/hadoop/hadoop-env.sh
@@ -53,12 +52,14 @@ echo '<?xml version="1.0" encoding="UTF-8"?>
   </property>
 </configuration>' > ${HADOOP_HOME}/etc/hadoop/hdfs-site.xml
 
-ssh-keygen -q -t ecdsa -b 521 -N "" <<< ""
-cat $HOME/.ssh/id_ecdsa.pub >> $HOME/.ssh/authorized_keys
+if [[ -z $HOME/.ssh/id_ecdsa ]]; then
+  ssh-keygen -q -t ecdsa -b 521 -N "" <<< ""
+  cat $HOME/.ssh/id_ecdsa.pub >> $HOME/.ssh/authorized_keys
+fi
 
 ldconfig
 echo "
-Hadoop version: $(hadoop version)
+Hadoop version: $(${HADOOP_HOME}/bin/hadoop version)
 
 To run a single-node hadoop instance (for development only):
 
@@ -67,4 +68,3 @@ To run a single-node hadoop instance (for development only):
     start-dfs.sh
 
 "
-
