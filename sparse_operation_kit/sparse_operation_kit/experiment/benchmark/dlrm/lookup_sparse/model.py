@@ -1,12 +1,12 @@
 """
  Copyright (c) 2022, NVIDIA CORPORATION.
- 
+
  Licensed under the Apache License, Version 2.0 (the "License");
  you may not use this file except in compliance with the License.
  You may obtain a copy of the License at
- 
+
      http://www.apache.org/licenses/LICENSE-2.0
- 
+
  Unless required by applicable law or agreed to in writing, software
  distributed under the License is distributed on an "AS IS" BASIS,
  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -30,24 +30,38 @@ except:
 
 
 class SOKEmbedding(tf.keras.layers.Layer):
-    def __init__(self, vocab_sizes: List[int], embedding_vec_size: int, num_gpus=1, **kwargs):
+    def __init__(self, vocab_sizes, embedding_vec_size, num_gpus=1, localized=None, **kwargs):
         super(SOKEmbedding, self).__init__(**kwargs)
         self._vocab_sizes = vocab_sizes
         self._embedding_vec_size = embedding_vec_size
+        self._localized = localized
 
-        prefix_sum = []
-        offset = 0
-        for i in range(len(vocab_sizes)):
-            prefix_sum.append(offset)
-            offset += self._vocab_sizes[i]
-        prefix_sum = np.array(prefix_sum, dtype=np.int64).reshape(1, -1)
-        self._vocab_prefix_sum = tf.constant(prefix_sum)
-        print("[Info] Total vocabulary size:", offset)
+        if self._localized is None:
+            prefix_sum = []
+            offset = 0
+            for i in range(len(vocab_sizes)):
+                prefix_sum.append(offset)
+                offset += self._vocab_sizes[i]
+            prefix_sum = np.array(prefix_sum, dtype=np.int64).reshape(1, -1)
+            self._vocab_prefix_sum = tf.constant(prefix_sum)
+            print("[Info] Total vocabulary size:", offset)
 
-        initializer = tf.keras.initializers.RandomUniform(-0.05, 0.05)
-        self._var = sok.Variable(
-            shape=[offset, self._embedding_vec_size], initializer=initializer, dtype=tf.float32
-        )
+            initializer = tf.keras.initializers.RandomUniform(-0.05, 0.05)
+            self._var = sok.Variable(
+                shape=[offset, self._embedding_vec_size], initializer=initializer, dtype=tf.float32
+            )
+        else:
+            initializer = tf.keras.initializers.RandomUniform(-0.05, 0.05)
+            self._vars = []
+            for i in range(len(vocab_sizes)):
+                v = sok.Variable(
+                    shape=[self._vocab_sizes[i], self._embedding_vec_size],
+                    initializer=initializer,
+                    dtype=tf.float32,
+                    mode="localized:%d" % self._localized[i],
+                )
+                self._trainable_weights.append(v)
+                self._vars.append(v)
 
     def call(self, inputs, training=True, compress=False):
         """
@@ -57,34 +71,51 @@ class SOKEmbedding(tf.keras.layers.Layer):
         Returns:
             emb_vectors: [batch_size, 26, embedding_vec_size] float32 tensor
         """
-        # inputs                : [batch_size, 26] int64 tensor
-        # self._vocab_prefix_sum: [1, 26] int64 tensor
-        # fused_inputs          : [batch_size, 26] int64 tensor
-        fused_inputs = tf.add(inputs, self._vocab_prefix_sum)
+        if self._localized is None:
+            # inputs                : [batch_size, 26] int64 tensor
+            # self._vocab_prefix_sum: [1, 26] int64 tensor
+            # fused_inputs          : [batch_size, 26] int64 tensor
+            fused_inputs = tf.add(inputs, self._vocab_prefix_sum)
 
-        # fused_inputs: [batch_size*26] int64 tensor
-        fused_inputs = tf.reshape(fused_inputs, [-1])
+            # fused_inputs: [batch_size*26] int64 tensor
+            fused_inputs = tf.reshape(fused_inputs, [-1])
 
-        if compress:
-            # Make sure there are no duplicate items in fused_inputs, to reduce communication overhead
-            fused_inputs, idx = tf.unique(fused_inputs)
+            if compress:
+                # Make sure there are no duplicate items in fused_inputs,
+                # to reduce communication overhead
+                fused_inputs, idx = tf.unique(fused_inputs)
 
-        # emb_vectors: [batch_size*26, embedding_vec_size]
-        # emb_vectors = sok.all2all_dense_embedding(self._var, fused_inputs)
-        fused_inputs = tf.RaggedTensor.from_tensor(tf.reshape(fused_inputs, [-1, 1]))
-        emb_vectors = sok.lookup_sparse(self._var, fused_inputs, 1, "sum")
+            # emb_vectors: [batch_size*26, embedding_vec_size]
+            # emb_vectors = sok.all2all_dense_embedding(self._var, fused_inputs)
+            fused_inputs = tf.RaggedTensor.from_tensor(tf.reshape(fused_inputs, [-1, 1]))
+            emb_vectors = sok.lookup_sparse(self._var, fused_inputs, 1, "sum")
 
-        if compress:
-            # Restore the first dimension of emb_vectors to batch_size*26
-            # Used in pairs with tf.unique()
-            emb_vectors = tf.gather(emb_vectors, idx)
+            if compress:
+                # Restore the first dimension of emb_vectors to batch_size*26
+                # Used in pairs with tf.unique()
+                emb_vectors = tf.gather(emb_vectors, idx)
 
-        # emb_vectors: [batch_size, 26, embedding_vec_size]
-        emb_vectors = tf.reshape(
-            emb_vectors, [-1, len(self._vocab_sizes), self._embedding_vec_size]
-        )
+            # emb_vectors: [batch_size, 26, embedding_vec_size]
+            emb_vectors = tf.reshape(
+                emb_vectors, [-1, len(self._vocab_sizes), self._embedding_vec_size]
+            )
 
-        return emb_vectors
+            return emb_vectors
+        # localized mode
+        else:
+            input_list = tf.split(inputs, num_or_size_splits=len(self._vocab_sizes), axis=1)
+            for i in range(len(self._vocab_sizes)):
+                input_list[i] = tf.RaggedTensor.from_tensor(tf.reshape(input_list[i], [-1, 1]))
+            emb_vectors = sok.lookup_sparse(
+                self._vars,
+                input_list,
+                [1 for _ in range(len(self._vocab_sizes))],
+                ["sum" for _ in range(len(self._vocab_sizes))],
+            )
+            for i in range(len(self._vocab_sizes)):
+                emb_vectors[i] = tf.reshape(emb_vectors[i], [-1, 1, self._embedding_vec_size])
+            emb_vectors = tf.concat(emb_vectors, axis=1)
+            return emb_vectors
 
 
 class MLP(tf.keras.layers.Layer):
@@ -220,6 +251,7 @@ class DLRM(tf.keras.models.Model):
         num_gpus=1,
         use_cuda_interact=False,
         compress=False,
+        localized=None,
         **kwargs,
     ):
         super(DLRM, self).__init__(**kwargs)
@@ -229,7 +261,9 @@ class DLRM(tf.keras.models.Model):
         self._use_cuda_interact = use_cuda_interact
         self._compress = compress
 
-        self._embedding_layer = SOKEmbedding(self._vocab_sizes, self._embedding_vec_size, num_gpus)
+        self._embedding_layer = SOKEmbedding(
+            self._vocab_sizes, self._embedding_vec_size, num_gpus, localized
+        )
         self._bottom_stack = MLP(units=bottom_stack_units, final_activation="relu")
         self._feature_interaction = DotInteraction(self_interaction=False, skip_gather=False)
         self._top_stack = MLP(units=top_stack_units, final_activation=None)

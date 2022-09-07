@@ -71,6 +71,15 @@ def get_cmake_args():
     return cmake_args
 
 
+# We haven't found a proper way to maintain the directory structure of
+# the parent folder(i.e. HugeCTR) when using skbuild to make pip package,
+# so we use a workaround here: copy the content of parent folder into
+# sparse_operation_kit/ before making pip package.
+os.system("cp -r ../HugeCTR ./")
+os.system("mkdir third_party")
+os.system("cp -r ../third_party/json ./third_party/")
+
+
 setup(
     name="merlin-sok",
     version=_GetSOKVersion(),

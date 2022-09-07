@@ -1,12 +1,12 @@
 """
  Copyright (c) 2022, NVIDIA CORPORATION.
- 
+
  Licensed under the Apache License, Version 2.0 (the "License");
  you may not use this file except in compliance with the License.
  You may obtain a copy of the License at
- 
+
      http://www.apache.org/licenses/LICENSE-2.0
- 
+
  Unless required by applicable law or agreed to in writing, software
  distributed under the License is distributed on an "AS IS" BASIS,
  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -293,12 +293,11 @@ def lookup_sparse(params, sp_ids, hotness, combiners):
 
     # Step4
     if num_gpus() > 1:
-        with tf.device("CPU"):
-            splits = []
-            for emb_vec in emb_vec_buffer:
-                size = tf.expand_dims(tf.size(emb_vec), 0)
-                splits.append(size)
-            splits = tf.concat(splits, 0)
+        splits = []
+        for emb_vec in emb_vec_buffer:
+            size = tf.expand_dims(tf.size(emb_vec), 0)
+            splits.append(size)
+        splits = tf.concat(splits, 0)
         emb_vec_buffer = tf.concat(emb_vec_buffer, 0)
         emb_vec_buffer, rsplits = alltoall(emb_vec_buffer, splits)
         emb_vec_buffer = tf.split(emb_vec_buffer, rsplits)

@@ -1,11 +1,11 @@
-# 
+#
 # Copyright (c) 2021, NVIDIA CORPORATION.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -51,10 +51,10 @@ if (NOT CMAKE_BUILD_TYPE)
 endif()
 
 foreach(arch_name ${SM})
-    if (arch_name STREQUAL 80 OR 
-        arch_name STREQUAL 75 OR 
-        arch_name STREQUAL 70 OR 
-        arch_name STREQUAL 61 OR 
+    if (arch_name STREQUAL 80 OR
+        arch_name STREQUAL 75 OR
+        arch_name STREQUAL 70 OR
+        arch_name STREQUAL 61 OR
         arch_name STREQUAL 60)
         list(APPEND cuda_arch_list ${arch_name})
         message(STATUS "Assign GPU architecture (sm=${arch_name})")
@@ -83,7 +83,7 @@ if (${CMAKE_BUILD_TYPE} EQUAL "Release")
     set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -rdc=true -Xcompiler -Wall,-Werror,-Wno-error=cpp")
     set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcudafe --display_error_number")
     # set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcudafe --diag_suppress=esa_on_defaulted_function_ignored")
-else() 
+else()
     # -------- set flags for DEBUG mode --- #
     set(CMAKE_CXX_FLAGS_DEBUG  "${CMAKE_CXX_FLAGS_DEBUG} -O0 -Wno-unknown-pragmas")
     if (${TF_VERSION_MAJOR} EQUAL 1)
@@ -115,6 +115,27 @@ else()
 endif()
 
 # headers
+if(SKBUILD)
+# We haven't found a proper way to maintain the directory structure of
+# the parent folder(i.e. HugeCTR) when using skbuild to make pip package,
+# so we use a workaround here: copy the content of parent folder into
+# sparse_operation_kit/ before making pip package.
+include_directories(
+    ${PROJECT_SOURCE_DIR}/kit_cc/kit_cc_infra/include/
+    ${PROJECT_SOURCE_DIR}/kit_cc/kit_cc_infra/third_party/
+    ${PROJECT_SOURCE_DIR}/kit_cc/framework/kernels/
+    ${PROJECT_SOURCE_DIR}/kit_cc_impl/embedding/
+    ${PROJECT_SOURCE_DIR}/
+    ${PROJECT_SOURCE_DIR}/HugeCTR/
+    ${PROJECT_SOURCE_DIR}/HugeCTR/include
+    ${PROJECT_SOURCE_DIR}/HugeCTR/core
+    ${PROJECT_SOURCE_DIR}/HugeCTR/embedding
+    ${PROJECT_SOURCE_DIR}/third_party/json/include
+    ${CUDA_INCLUDE_DIRS}
+    ${NCCL_INC_PATHS}
+    ${MPI_INCLUDE_PATH}
+)
+else()
 include_directories(
     ${PROJECT_SOURCE_DIR}/kit_cc/kit_cc_infra/include/
     ${PROJECT_SOURCE_DIR}/kit_cc/kit_cc_infra/third_party/
@@ -130,6 +151,7 @@ include_directories(
     ${NCCL_INC_PATHS}
     ${MPI_INCLUDE_PATH}
 )
+endif()
 
 
 # libs
@@ -193,9 +215,19 @@ file(GLOB test_op
 add_library(sparse_operation_kit SHARED ${framework} ${kit_infra} ${kit_impl})
 target_link_libraries(sparse_operation_kit PUBLIC ${TF_LINK_FLAGS} nccl cusparse ${MPI_CXX_LIBRARIES})
 
+if(SKBUILD)
+# We haven't found a proper way to maintain the directory structure of
+# the parent folder(i.e. HugeCTR) when using skbuild to make pip package,
+# so we use a workaround here: copy the content of parent folder into
+# sparse_operation_kit/ before making pip package.
+configure_file(${PROJECT_SOURCE_DIR}/HugeCTR/include/config.hpp.in ${PROJECT_SOURCE_DIR}/HugeCTR/include/config.hpp)
+add_subdirectory(HugeCTR/core core.out)
+add_subdirectory(HugeCTR/embedding embedding.out)
+else()
 configure_file(${PROJECT_SOURCE_DIR}/../HugeCTR/include/config.hpp.in ${PROJECT_SOURCE_DIR}/../HugeCTR/include/config.hpp)
 add_subdirectory(../HugeCTR/core core.out)
 add_subdirectory(../HugeCTR/embedding embedding.out)
+endif()
 # file(GLOB core_impl
 #     ${PROJECT_SOURCE_DIR}/experiment/lookup/impl/core_impl/*.cpp
 # )

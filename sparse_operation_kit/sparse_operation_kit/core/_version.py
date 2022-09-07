@@ -1,6 +1,6 @@
 """
  Copyright (c) 2021, NVIDIA CORPORATION.
- 
+
  Licensed under the Apache License, Version 2.0 (the "License");
  you may not use this file except in compliance with the License.
  You may obtain a copy of the License at
@@ -16,6 +16,6 @@
 
 _Major = 1
 _Minor = 1
-_Patch = 3
+_Patch = 4
 
 __version__ = ".".join(map(str, [_Major, _Minor, _Patch]))
