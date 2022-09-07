@@ -1,12 +1,12 @@
 """
  Copyright (c) 2022, NVIDIA CORPORATION.
- 
+
  Licensed under the Apache License, Version 2.0 (the "License");
  you may not use this file except in compliance with the License.
  You may obtain a copy of the License at
- 
+
      http://www.apache.org/licenses/LICENSE-2.0
- 
+
  Unless required by applicable law or agreed to in writing, software
  distributed under the License is distributed on an "AS IS" BASIS,
  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -72,7 +72,7 @@ if __name__ == "__main__":
     indices_val = [idx for idx in range(vocab_size)]
     table_val = tf.nn.embedding_lookup(sok_var, indices_val)
     diff = tf.reduce_mean((table_val - tf_var) ** 2.0)
-    assert diff < 1e-8
+    assert diff < 1e-6
     print("[SOK INFO] Test variable with sok.SGD successfully")
 
     # ----------------------------Test eager mode----------------------------
@@ -109,5 +109,5 @@ if __name__ == "__main__":
     indices_val = [idx for idx in range(vocab_size)]
     table_val = tf.nn.embedding_lookup(sok_var, indices_val)
     diff = tf.reduce_mean((table_val - tf_var) ** 2.0)
-    assert diff < 1e-8
+    assert diff < 1e-6
     print("[SOK INFO] Test variable with sok.SGD and eager mode successfully")

@@ -1,12 +1,12 @@
 """
  Copyright (c) 2022, NVIDIA CORPORATION.
- 
+
  Licensed under the Apache License, Version 2.0 (the "License");
  you may not use this file except in compliance with the License.
  You may obtain a copy of the License at
- 
+
      http://www.apache.org/licenses/LICENSE-2.0
- 
+
  Unless required by applicable law or agreed to in writing, software
  distributed under the License is distributed on an "AS IS" BASIS,
  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -14,12 +14,31 @@
  limitations under the License.
 """
 
+import os
 from tensorflow.python.framework import load_library
 
-so_file = r"/usr/local/lib/libsok_experiment.so"
-raw_ops = load_library.load_op_library(so_file)
-print("[SOK INFO] Import %s" % so_file)
+#   When installed with pip, the .so files should be in
+# sparse_operation_kit/lib/
+#   When installed manually via `make install`, the .so files
+# should be in /usr/local/lib/
+lib_path = os.path.join(os.path.dirname(__file__), "../lib")
+lib_path = os.path.abspath(lib_path)
+lib_path = [lib_path, "/usr/local/lib/"]
 
+raw_ops = None
+for path in lib_path:
+    file = os.path.join(path, "libsok_experiment.so")
+    if os.path.exists(file):
+        # The order of loading core, embedding, sok_experiment cannot
+        # be changed, because there is a dependency between them:
+        # libsok_experiment.so -> libembedding.so -> libcore.so
+        load_library.load_op_library(os.path.join(path, "libcore.so"))
+        load_library.load_op_library(os.path.join(path, "libembedding.so"))
+        raw_ops = load_library.load_op_library(file)
+        print("[SOK INFO] Import %s" % file)
+if raw_ops is None:
+    print("[SOK INFO] libsok_experiment.so is not found")
+    exit()
 
 import sparse_operation_kit.experiment.communication
 from sparse_operation_kit.experiment.communication import set_comm_tool

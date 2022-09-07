@@ -1,5 +1,11 @@
 set(PYTHON "python")
 
+# Avoid failure when importing tensorflow
+set(ENV{PYTHONPATH} "${PYTHONPATH}:/usr/lib/python3/dist-packages/")
+set(ENV{PYTHONPATH} "${PYTHONPATH}:/usr/lib/python3/site-packages/")
+set(ENV{PYTHONPATH} "${PYTHONPATH}:/usr/local/lib/python3/dist-packages/")
+set(ENV{PYTHONPATH} "${PYTHONPATH}:/usr/local/lib/python3/site-packages/")
+
 execute_process(
     COMMAND
         ${PYTHON} -c
@@ -32,7 +38,7 @@ string(REPLACE "-L" "" TF_LINK_DIR ${TF_LINK_DIR})
 string(REPLACE " " "" TF_LINK_DIR ${TF_LINK_DIR})
 
 include(FindPackageHandleStandardArgs)
-find_package_handle_standard_args(TensorFlow 
+find_package_handle_standard_args(TensorFlow
     DEFAULT_MSG TF_LINK_DIR
 )
 
