@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/data_source/hdfs_backend.hpp"
-
 #include "HugeCTR/include/data_generator.hpp"
+#include "HugeCTR/include/io/hadoop_filesystem.hpp"
 #include "fstream"
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"
@@ -24,7 +23,7 @@
 using namespace HugeCTR;
 namespace {
 
-void read_write_test(const std::string server, const int port) {
+void simple_read_write_test(const std::string server, const int port) {
   std::string writepath1 = "/tmp/batch_copy/data1.txt";
   const char* buffer1 = "Hello, World!\n";
 
@@ -51,15 +50,13 @@ void read_write_test(const std::string server, const int port) {
   EXPECT_EQ(*buffer1, *buffer_for_read1);
   EXPECT_EQ(*buffer2, *buffer_for_read2);
   EXPECT_EQ(*buffer3, *buffer_for_read3);
-  hs->copy("/tmp/batch_copy/data1.txt", "/tmp/local_batch_copy/data1.txt", true);
-  hs->batch_copy("/tmp/batch_copy/", "/tmp/local_batch_copy/", true);
 
   delete[] buffer_for_read1;
   delete[] buffer_for_read2;
   delete[] buffer_for_read3;
 }
 
-void copy2hdfs_test(const std::string path, const int num_rows_per_file, const int num_files) {
+void upload2hdfs_test(const std::string path, const int num_rows_per_file, const int num_files) {
   auto hs = DataSourceParams{DataSourceType_t::HDFS, "localhost", 9000}.create_unique();
 
   std::vector<size_t> slot_size_array = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -73,16 +70,54 @@ void copy2hdfs_test(const std::string path, const int num_rows_per_file, const i
                                        nnz_array);
 
   // copy the files to HDFS
-  int result = hs->batch_copy("." + path, path, false);
-  EXPECT_EQ(result, 0);
+  int result = hs->batch_upload("." + path, path);
+  EXPECT_EQ(result, num_files + 1);
 }
 
-TEST(hdfs_backend_test, read_write_test_docker) { read_write_test("localhost", 9000); }
+void copy_test(const std::string source_path, const std::string target_path) {
+  auto hs = DataSourceParams{DataSourceType_t::HDFS, "localhost", 9000}.create_unique();
 
-TEST(hdfs_backend_test, copy2hdfs_test_small) {
-  copy2hdfs_test("/dlrm_parquet_test_small/", 20000, 40);
+  hs->copy(source_path, target_path);
 }
-TEST(hdfs_backend_test, copy2hdfs_test_big) {
-  copy2hdfs_test("/dlrm_parquet_test_big/", 200000, 4);
+
+void delete_test(const std::string path) {
+  auto hs = DataSourceParams{DataSourceType_t::HDFS, "localhost", 9000}.create_unique();
+
+  hs->delete_file(path, true);
+}
+
+void fetch2local_test(const std::string path, const std::string local_path, const int num_files) {
+  auto hs = DataSourceParams{DataSourceType_t::HDFS, "localhost", 9000}.create_unique();
+
+  int result = hs->batch_fetch(path, "." + path);
+  EXPECT_EQ(result, num_files + 1);
+}
+
+TEST(hdfs_backend_test, read_write_test_docker) { simple_read_write_test("localhost", 9000); }
+
+TEST(hdfs_backend_test, upload2hdfs_test_small) {
+  upload2hdfs_test("/dlrm_parquet_test_small/", 20000, 40);
+}
+TEST(hdfs_backend_test, upload2hdfs_test_big) {
+  upload2hdfs_test("/dlrm_parquet_test_big/", 200000, 4);
+}
+
+TEST(hdfs_backend_test, copy_small) {
+  copy_test("/dlrm_parquet_test_small/", "/dlrm_parquet_test_small_copy/");
+}
+TEST(hdfs_backend_test, copy_big) {
+  copy_test("/dlrm_parquet_test_big/", "/dlrm_parquet_test_big_copy/");
+}
+
+TEST(hdfs_backend_test, delete_remote) {
+  delete_test("/dlrm_parquet_test_small_copy/");
+  delete_test("/dlrm_parquet_test_big_copy/");
+}
+
+TEST(hdfs_backend_test, fetch2local_small) {
+  fetch2local_test("/dlrm_parquet_test_small/", "../dlrm_parquet_test_small", 40);
+}
+TEST(hdfs_backend_test, fetch2local_big) {
+  fetch2local_test("/dlrm_parquet_test_big/", "../dlrm_parquet_test_big", 4);
 }
 }  // namespace

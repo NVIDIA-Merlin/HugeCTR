@@ -79,8 +79,8 @@ file(GLOB huge_ctr_inference_src
   ../pipeline.cpp
   embedding_feature_combiner.cu
   inference_session.cpp
-  ../data_source/data_source_backend.cpp
-  ../data_source/hdfs_backend.cpp
+  ../io/filesystem.cpp
+  ../io/hadoop_filesystem.cpp
 )
 
 set(CMAKE_CXX_STANDARD 17)

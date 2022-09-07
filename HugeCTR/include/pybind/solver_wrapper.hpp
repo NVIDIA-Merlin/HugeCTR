@@ -16,7 +16,7 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
-#include <HugeCTR/include/data_source/hdfs_backend.hpp>
+#include <HugeCTR/include/io/filesystem.hpp>
 #include <HugeCTR/include/parser.hpp>
 
 namespace HugeCTR {
