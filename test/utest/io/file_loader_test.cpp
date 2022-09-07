@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/data_readers/file_loader.hpp"
+#include "HugeCTR/include/io/file_loader.hpp"
 
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"

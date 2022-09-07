@@ -15,16 +15,16 @@
  */
 
 #include <base/debug/logger.hpp>
-#include <data_source/data_source_backend.hpp>
-#include <data_source/hdfs_backend.hpp>
+#include <io/filesystem.hpp>
+#include <io/hadoop_filesystem.hpp>
 
 namespace HugeCTR {
 
-DataSourceBackend* DataSourceParams::create() const {
+FileSystem* DataSourceParams::create() const {
   switch (type) {
     case DataSourceType_t::HDFS:
 #ifdef ENABLE_HDFS
-      return new HdfsService{server, port};
+      return new HadoopFileSystem{server, port};
 #else
       HCTR_OWN_THROW(Error_t::WrongInput,
                      "Please install Hadoop and compile HugeCTR with ENABLE_HDFS to use HDFS "

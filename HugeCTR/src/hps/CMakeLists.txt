@@ -15,7 +15,7 @@ cmake_minimum_required(VERSION 3.8)
 
 file(GLOB_RECURSE huge_ctr_hps_src RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} *.cpp *.cu)
 
-list(REMOVE_ITEM huge_ctr_hps_src "../data_source/hdfs_backend.cpp")
+list(REMOVE_ITEM huge_ctr_hps_src "../io/hadoop_filesystem.cpp")
 
 list(APPEND huge_ctr_hps_src 
   "../utils.cu"

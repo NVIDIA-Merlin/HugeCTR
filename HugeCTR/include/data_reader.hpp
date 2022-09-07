@@ -25,7 +25,7 @@
 #include <utils.hpp>
 #include <vector>
 
-#include "HugeCTR/include/data_source/hdfs_backend.hpp"
+#include "HugeCTR/include/io/filesystem.hpp"
 
 namespace HugeCTR {
 

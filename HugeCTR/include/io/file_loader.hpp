@@ -21,15 +21,14 @@
 #include <fstream>
 
 #include "common.hpp"
-#include "data_source/data_source_backend.hpp"
-#include "data_source/hdfs_backend.hpp"
+#include "io/filesystem.hpp"
+#include "io/hadoop_filesystem.hpp"
 
 namespace HugeCTR {
 
 class FileLoader {
  private:
-  std::unique_ptr<DataSourceBackend>
-      data_source_backend_;   /**< data source backend of distributed file systems **/
+  std::unique_ptr<FileSystem> file_system_; /**< data source backend of distributed file systems **/
   std::string cur_file_name_; /**< the file name of the current file for file loader to load **/
   size_t cur_file_size_;      /**< the file size of the current file **/
   DataSourceParams data_source_params_; /**< the configurations of the data source **/
@@ -60,7 +59,7 @@ class FileLoader {
       in_file_stream_.close();
       return Error_t::Success;
     } else {
-      size_t temp = data_source_backend_->get_file_size(cur_file_name_);
+      size_t temp = file_system_->get_file_size(cur_file_name_);
       if (temp > 0) {
         cur_file_size_ = temp;
         return Error_t::Success;
@@ -78,7 +77,7 @@ class FileLoader {
     use_mmap_ = data_source_params_.type == DataSourceType_t::Local;
 
     if (data_source_params_.type == DataSourceType_t::HDFS) {
-      data_source_backend_ = data_source_params.create_unique();
+      file_system_ = data_source_params.create_unique();
       HCTR_LOG_S(INFO, WORLD) << "Using Hadoop Cluster " << data_source_params.server << ":"
                               << data_source_params.port << std::endl;
     } else if (data_source_params_.type == DataSourceType_t::S3) {
@@ -123,7 +122,7 @@ class FileLoader {
       return Error_t::Success;
     } else {
       data_ = new char[cur_file_size_ / sizeof(char)];
-      int bytes_read = data_source_backend_->read(cur_file_name_, data_, cur_file_size_, 0);
+      int bytes_read = file_system_->read(cur_file_name_, data_, cur_file_size_, 0);
       if (bytes_read <= 0) {
         delete[] data_;
         data_ = nullptr;

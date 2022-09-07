@@ -17,7 +17,7 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
-#include <data_source/data_source_backend.hpp>
+#include <io/filesystem.hpp>
 
 namespace HugeCTR {
 

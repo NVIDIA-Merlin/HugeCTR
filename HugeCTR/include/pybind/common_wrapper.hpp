@@ -18,10 +18,10 @@
 
 #include <HugeCTR/include/collectives/all_reduce_comm.hpp>
 #include <HugeCTR/include/common.hpp>
-#include <HugeCTR/include/data_source/data_source_backend.hpp>
 #include <HugeCTR/include/device_map.hpp>
 #include <HugeCTR/include/embeddings/hybrid_embedding/utils.hpp>
 #include <HugeCTR/include/hps/inference_utils.hpp>
+#include <HugeCTR/include/io/filesystem.hpp>
 #include <HugeCTR/include/metrics.hpp>
 
 namespace HugeCTR {

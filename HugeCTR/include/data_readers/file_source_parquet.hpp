@@ -32,7 +32,7 @@
 #include "data_readers/file_list.hpp"
 #include "data_readers/metadata.hpp"
 #include "data_readers/source.hpp"
-#include "file_loader.hpp"
+#include "io/file_loader.hpp"
 
 namespace HugeCTR {
 using namespace cudf;

@@ -15,7 +15,6 @@
  */
 #pragma once
 #include <common.hpp>
-#include <data_source/hdfs_backend.hpp>
 #include <embedding.hpp>
 #include <embedding_training_cache/embedding_training_cache.hpp>
 #include <exchange_wgrad.hpp>
@@ -23,6 +22,7 @@
 #include <hps/hier_parameter_server.hpp>
 #include <hps/kafka_message.hpp>
 #include <hps/message.hpp>
+#include <io/filesystem.hpp>
 #include <loss.hpp>
 #include <metrics.hpp>
 #include <network.hpp>
