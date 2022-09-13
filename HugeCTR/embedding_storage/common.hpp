@@ -34,6 +34,20 @@ using core::Tensor;
 using core::TensorList;
 using core::TensorScalarType;
 
+struct UniformParams {
+  float up_bound;
+};
+struct SinusoidalParams {
+  int ev_size;
+  int max_sequence_len;
+};
+
+struct EmbeddingTableInitParams {
+  HugeCTR::Initializer_t initializer_type;
+  UniformParams uniform_params;
+  SinusoidalParams sinus_params;
+};
+
 struct EmbeddingTableParam {
   int table_id;
   int max_vocabulary_size;  // -1 means dynamic
@@ -42,5 +56,6 @@ struct EmbeddingTableParam {
   int64_t max_key;
 
   HugeCTR::OptParams opt_param;
+  EmbeddingTableInitParams init_param;
 };
 }  // namespace embedding
