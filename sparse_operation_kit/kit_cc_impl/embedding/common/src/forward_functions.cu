@@ -75,9 +75,21 @@ void memset_liner(Type *data, Type start_value, Type stride_value, size_t n, cud
 template void memset_liner(size_t *data, size_t start_value, size_t stride_value, size_t n,
                            cudaStream_t stream);
 
-template<> ncclDataType_t GetNCCLType<float>() { return ncclFloat32; }
-template<> ncclDataType_t GetNCCLType<__half>() { return ncclHalf; }
-template<> ncclDataType_t GetNCCLType<int64_t>() { return ncclInt64; }
-template<> ncclDataType_t GetNCCLType<uint32_t>() { return ncclUint32; }
+template <>
+ncclDataType_t GetNCCLType<float>() {
+  return ncclFloat32;
+}
+template <>
+ncclDataType_t GetNCCLType<__half>() {
+  return ncclHalf;
+}
+template <>
+ncclDataType_t GetNCCLType<int64_t>() {
+  return ncclInt64;
+}
+template <>
+ncclDataType_t GetNCCLType<uint32_t>() {
+  return ncclUint32;
+}
 
 }  // namespace SparseOperationKit

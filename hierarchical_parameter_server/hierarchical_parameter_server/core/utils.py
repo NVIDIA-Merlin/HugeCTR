@@ -18,6 +18,7 @@ from tensorflow.python.framework import ops
 from tensorflow.python.ops import clip_ops
 from tensorflow.python.ops import array_ops
 
+
 def clip(embeddings, ids, max_norm):
     """Helper function for _embedding_lookup_and_transform.
     This function optionally clips embeddings to an l2-norm of max_norm.
@@ -50,7 +51,11 @@ def clip(embeddings, ids, max_norm):
     ids_rank, ids_static = _rank(ids)
     embeddings_rank, embeddings_static = _rank(embeddings)
     return clip_ops.clip_by_norm(
-            embeddings,
-            max_norm,
-            axes=(list(range(ids_rank, embeddings_rank)) if ids_static and embeddings_static
-                        else math_ops.range(ids_rank, embeddings_rank)))
+        embeddings,
+        max_norm,
+        axes=(
+            list(range(ids_rank, embeddings_rank))
+            if ids_static and embeddings_static
+            else math_ops.range(ids_rank, embeddings_rank)
+        ),
+    )

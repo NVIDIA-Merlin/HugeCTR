@@ -55,7 +55,7 @@ class EmbeddingCollectionCPU {
   EmbeddingCollectionCPU(
       int num_gpus, int num_table, const EmbeddingCollectionParam &ebc_param,
       const std::vector<std::vector<EmbeddingShardingParam>> &global_sharding_param_list,
-      std::vector<std::vector<IEmbeddingTable *>> emb_table_list,
+      std::vector<std::vector<IGroupedEmbeddingTable *>> emb_table_list,
       const std::vector<EmbeddingTableParam> &table_param_list)
       : num_gpus_(num_gpus),
         num_embedding_(-1),

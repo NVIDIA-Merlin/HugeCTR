@@ -36,9 +36,10 @@ class NetworkForward {
 
   NetworkForward(std::shared_ptr<CoreResourceManager> core, int num_gpus);
 
-  void compute(const TensorList& network_comm_buffer, const Tensor& gpu_idx_offset,
-               const TensorList& global_ev_offset, const Tensor& network_idx,
-               const Tensor& network_offset, const Tensor& network_dst, Tensor& output_buffer,
+  void compute(const TensorList& network_comm_buffer, const Tensor& network_ids,
+               const Tensor& network_gpu_ids, const Tensor& network_offsets,
+               const Tensor& network_dst_lookup_ids, const TensorList& network_ev_sizes,
+               const TensorList& network_ev_offsets, Tensor& output_buffer,
                const Tensor& d_ev_size_offset, int batch_size, int max_ev_size);
 };
 

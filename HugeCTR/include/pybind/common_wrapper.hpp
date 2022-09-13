@@ -18,10 +18,10 @@
 
 #include <HugeCTR/include/collectives/all_reduce_comm.hpp>
 #include <HugeCTR/include/common.hpp>
-#include <HugeCTR/include/data_source/data_source_backend.hpp>
 #include <HugeCTR/include/device_map.hpp>
 #include <HugeCTR/include/embeddings/hybrid_embedding/utils.hpp>
 #include <HugeCTR/include/hps/inference_utils.hpp>
+#include <HugeCTR/include/io/filesystem.hpp>
 #include <HugeCTR/include/metrics.hpp>
 
 namespace HugeCTR {
@@ -151,15 +151,13 @@ void CommonPybind(pybind11::module& m) {
            pybind11::arg("io_block_size"), pybind11::arg("io_depth"), pybind11::arg("io_alignment"),
            pybind11::arg("shuffle"), pybind11::arg("aligned_type"));
   pybind11::class_<HugeCTR::HybridEmbeddingParam>(m, "HybridEmbeddingParam")
-      .def(pybind11::init<size_t, int64_t, double, double, double, double, bool, bool,
+      .def(pybind11::init<size_t, int64_t, double, double, double, double,
                           hybrid_embedding::CommunicationType,
                           hybrid_embedding::HybridEmbeddingType>(),
            pybind11::arg("max_num_frequent_categories"),
            pybind11::arg("max_num_infrequent_samples"), pybind11::arg("p_dup_max"),
            pybind11::arg("max_all_reduce_bandwidth"), pybind11::arg("max_all_to_all_bandwidth"),
-           pybind11::arg("efficiency_bandwidth_ratio"),
-           pybind11::arg("use_train_precompute_indices"),
-           pybind11::arg("use_eval_precompute_indices"), pybind11::arg("communication_type"),
+           pybind11::arg("efficiency_bandwidth_ratio"), pybind11::arg("communication_type"),
            pybind11::arg("hybrid_embedding_type"));
   pybind11::class_<HugeCTR::DenseLayerSwitchs>(m, "DenseLayerSwitchs")
       .def(pybind11::init<bool>(), pybind11::arg("fuse_wb"));

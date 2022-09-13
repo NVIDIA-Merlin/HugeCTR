@@ -3,31 +3,38 @@
 This folder contains the scripts necessary to build the documentation for HugeCTR.
 You can view the generated [HugeCTR documentation here](https://nvidia-merlin.github.io/HugeCTR/master/hugectr_user_guide.html).
 
-# Contributing to Docs
+## Building the documentation
 
-Follow the instructions below to be able to build the docs.
+1. To build the docs, create a developer environment for HugeCTR by starting
+   a container and mounting the root directory of the repository into the
+   container at the `/hugectr` mount point:
 
-## Steps to follow:
+   ```shell
+   docker run --runtime=nvidia --rm -it --net=host --cap-add SYS_NICE \
+     -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr \
+     nvcr.io/nvidia/merlin/merlin-tensorflow:nightly
+   ```
 
-1. To build the docs, create a developer environment for HugeCTR.  Instructions to follow as I learn them.
+1. Install required documentation tools and extensions:
 
-2. Install required documentation tools and extensions:
+   ```shell
+   export HOME=/tmp
+   export PATH=$HOME/.local/bin:$PATH
+   python -m pip install -r docs/requirements-doc.txt
+   ```
 
-```shell
-cd HugeCTR/docs
-pip install -r requirements-doc.txt
-```
+1. Build the documentation:
 
-4. Build the documentation:
+   ```shell
+   export PYTHONPATH=$(python -c 'import site; print(site.getusersitepackages(), end="")')
+   make -C docs clean html
+   ```
 
-`make clean html`
+The preceding command runs Sphinx in your shell and outputs to `docs/build/html/`.
 
-The preceding command runs Sphinx in your shell and outputs to build/html/index.html.
+In a shell that is outside the container, start a simple HTTP server:
 
-View docs web page by opening HTML in browser:
-First navigate to /build/html/ folder, i.e., cd build/html and then run the following command:
-
-`python -m http.server 8000`
+`python -m http.server -d docs/build/html 8000`
 
 Then, navigate a web browser to the IP address or hostname of the host machine at port 8000:
 
@@ -120,7 +127,7 @@ If the document that you link from is also published as docs, such as `release_n
 a relative path works both in the HTML docs page and in the repository browsing experience:
 
 ```markdown
-+ **Support HDFS Parameter Server in Training**: 
++ **Support HDFS Parameter Server in Training**:
     + ...snip...
     + ...snip...
     + Added a [notebook](notebooks/training_with_hdfs.ipynb) to show how to use HugeCTR with HDFS.

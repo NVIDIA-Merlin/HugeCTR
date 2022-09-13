@@ -17,7 +17,6 @@
 #pragma once
 #include <common.hpp>
 #include <data_readers/data_reader.hpp>
-#include <data_source/hdfs_backend.hpp>
 #include <device_map.hpp>
 #include <embedding.hpp>
 #include <exchange_wgrad.hpp>
@@ -26,6 +25,7 @@
 #include <gpu_learning_rate_scheduler.hpp>
 #include <gpu_resource.hpp>
 #include <hps/inference_utils.hpp>
+#include <io/hadoop_filesystem.hpp>
 #include <learning_rate_scheduler.hpp>
 #include <metrics.hpp>
 #include <network.hpp>
@@ -70,12 +70,10 @@ struct Solver {
   bool use_cuda_graph;
   bool async_mlp_wgrad;
   bool gen_loss_summary;
-  bool overlap_lr;
-  bool overlap_init_wgrad;
-  bool overlap_ar_a2a;
-  bool eval_overlap;
-  bool use_holistic_cuda_graph;
-  bool use_overlapped_pipeline;
+  bool train_intra_iteration_overlap;
+  bool train_inter_iteration_overlap;
+  bool eval_intra_iteration_overlap;
+  bool eval_inter_iteration_overlap;
   bool use_embedding_collection;
   AllReduceAlgo all_reduce_algo;
   bool grouped_all_reduce;

@@ -34,10 +34,11 @@ class NetworkBackward {
   NetworkBackward(std::shared_ptr<CoreResourceManager> core, int num_gpus)
       : core_(core), num_gpus_(num_gpus) {}
 
-  void compute(const Tensor& top_grad, const Tensor& d_ev_size_offset, const Tensor& gpu_idx_offset,
-               const TensorList& global_ev_offset, const Tensor& network_idx,
-               const Tensor& network_offset, const Tensor& network_dst,
-               TensorList& network_comm_buffer, int batch_size, int max_ev_size);
+  void compute(const Tensor& top_grad, const Tensor& network_ids, const Tensor& network_gpu_ids,
+               const Tensor& network_offsets, const Tensor& network_dst_lookup_ids,
+               const TensorList& network_ev_sizes, const TensorList& network_ev_offsets,
+               TensorList& network_comm_buffer, const Tensor& d_ev_size_offset, int batch_size,
+               int max_ev_size);
 };
 
 }  // namespace embedding

@@ -20,12 +20,12 @@
 #include <nccl.h>
 
 #include <common.hpp>
-#include <data_source/hdfs_backend.hpp>
 #include <exchange_wgrad.hpp>
 #include <fstream>
 #include <functional>
 #include <gpu_resource.hpp>
 #include <graph_wrapper.hpp>
+#include <io/hadoop_filesystem.hpp>
 #include <layer.hpp>
 #include <loss.hpp>
 #include <metrics.hpp>
@@ -83,20 +83,12 @@ class Network {
   std::shared_ptr<CPUResource> cpu_resource_;
   std::shared_ptr<GPUResource> gpu_resource_; /**< gpu resource */
   bool use_mixed_precision_;
-  bool enable_cuda_graph_;
-
-  GraphWrapper predict_graph_, eval_graph_, train_fprop_graph_, train_bprop_graph_;
-  GraphWrapper bottom_train_fprop_graph_, bottom_train_bprop_graph_;
 
   void conv_weight_(Tensor2<__half>& target, const Tensor2<float>& source);
 
-  std::map<TrainState_t, cudaEvent_t> train_events_;
   std::shared_ptr<GpuLearningRateScheduler> lr_sched_;
 
-  template <typename LPtr>
-  void prop_layers(const std::vector<LPtr>& layers, GraphWrapper& graph, bool use_graph, bool fprop,
-                   const cudaStream_t stream, bool train = true);
-  cudaEvent_t& get_train_events(TrainState_t state);
+  void prop_layers(const std::vector<Layer*>& layers, bool fprop, bool train);
 
  public:
   /**
@@ -106,8 +98,7 @@ class Network {
    * @param disable_parser only for unit test.
    */
   Network(const std::shared_ptr<CPUResource>& cpu_resource,
-          const std::shared_ptr<GPUResource>& gpu_resource, bool use_mixed_precision = false,
-          bool use_cuda_graph = true);
+          const std::shared_ptr<GPUResource>& gpu_resource, bool use_mixed_precision = false);
   Network(const Network&) = delete;
   Network& operator=(const Network&) = delete;
 
@@ -116,8 +107,6 @@ class Network {
    */
   virtual void train(long long current_batchsize);
 
-  virtual TrainState train(long long current_batchsize, std::function<void()> exchange_wgrad,
-                           TrainState state);
   /**
    * Forward only.
    */
@@ -262,8 +251,8 @@ class Network {
                                  const std::shared_ptr<CPUResource>& cpu_resource,
                                  const std::shared_ptr<GPUResource>& gpu_resource,
                                  bool use_mixed_precision, bool enable_tf32_compute, float scaler,
-                                 bool use_algorithm_search, bool use_cuda_graph,
-                                 bool inference_flag, bool grouped_all_reduce);
+                                 bool use_algorithm_search, bool inference_flag,
+                                 bool grouped_all_reduce);
 
   /**
    * add layer to network, python interface use only

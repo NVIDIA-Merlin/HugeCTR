@@ -15,8 +15,8 @@
  */
 
 #include "common.cuh"
-#include "operation/operation_interface.h"
 #include "common/include/forward_functions.h"
+#include "operation/operation_interface.h"
 
 namespace SparseOperationKit {
 
@@ -196,28 +196,20 @@ class AllGatherDispatcher : public Dispatcher {
 
   Tensors2<KeyType> values_buffers_;
   Tensors2<KeyType> output_values_;
-  Tensors2<int64_t> indices_buffers_; // always int64
-  Tensors2<int64_t> output_indices_; // always int64
+  Tensors2<int64_t> indices_buffers_;  // always int64
+  Tensors2<int64_t> output_indices_;   // always int64
   Tensors2<size_t> host_num_elements_;
   Tensors2<size_t> num_elements_;
   Tensors2<size_t> total_valid_num_;
 };
 
-REGISTER_INPUT_DISPATCHER_BUILDER("all_gather_dispatcher", 
-                                  DataType::Int64,
-                                  DataType::Float32, 
+REGISTER_INPUT_DISPATCHER_BUILDER("all_gather_dispatcher", DataType::Int64, DataType::Float32,
                                   AllGatherDispatcher<int64_t, float>);
-REGISTER_INPUT_DISPATCHER_BUILDER("all_gather_dispatcher", 
-                                  DataType::Int64,
-                                  DataType::Float16, 
+REGISTER_INPUT_DISPATCHER_BUILDER("all_gather_dispatcher", DataType::Int64, DataType::Float16,
                                   AllGatherDispatcher<int64_t, __half>);
-REGISTER_INPUT_DISPATCHER_BUILDER("all_gather_dispatcher", 
-                                  DataType::Uint32,
-                                  DataType::Float32, 
+REGISTER_INPUT_DISPATCHER_BUILDER("all_gather_dispatcher", DataType::Uint32, DataType::Float32,
                                   AllGatherDispatcher<uint32_t, float>);
-REGISTER_INPUT_DISPATCHER_BUILDER("all_gather_dispatcher", 
-                                  DataType::Uint32,
-                                  DataType::Float16, 
+REGISTER_INPUT_DISPATCHER_BUILDER("all_gather_dispatcher", DataType::Uint32, DataType::Float16,
                                   AllGatherDispatcher<uint32_t, __half>);
 
 }  // namespace SparseOperationKit

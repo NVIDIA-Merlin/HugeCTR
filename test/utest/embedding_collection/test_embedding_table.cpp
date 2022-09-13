@@ -39,13 +39,14 @@ void test_ragged_static_embedding_table(int device_id) {
   std::vector<int> ev_size_list{8, 16, 16};
   for (int id_space = 0; id_space < num_embedding_table; ++id_space) {
     EmbeddingTableParam param;
-    param.id_space = id_space;
+    param.table_id = id_space;
     param.max_vocabulary_size = max_vocabulary_size_list[id_space];
     param.ev_size = ev_size_list[id_space];
     param.min_key = 0;
     param.max_key = max_vocabulary_size_list[id_space];
     param.opt_param.optimizer = HugeCTR::Optimizer_t::SGD;
     param.opt_param.lr = 1e-1;
+    param.init_param.initializer_type = HugeCTR::Initializer_t::Default;
     param_list.push_back(param);
   }
 
@@ -137,7 +138,7 @@ void test_dynamic_embedding_table(int device_id) {
   std::vector<int> id_space_list{0, 1, 2};
   for (int id_space = 0; id_space < num_embedding_table; ++id_space) {
     EmbeddingTableParam param;
-    param.id_space = id_space_list[id_space];
+    param.table_id = id_space_list[id_space];
     param.max_vocabulary_size = -1;
     param.ev_size = ev_size_list[id_space];
     param.min_key = 0;

@@ -34,8 +34,14 @@ def Init(**kwargs):
     """
     Abbreviated as ``hps.Init(**kwargs)``.
 
-    This function will initialize the HPS for all the deployed models.
-    It needs to be called only once and must be called before any other HPS APIs.
+    This function will initialize the HPS for all the deployed models. It can be used
+    explicitly or implicitly. When used explicitly, it needs to be called only once and
+    must be called before any other HPS APIs. When used implicitly, `ps_config_file` and
+    `global_batch_size` should be specified in the constructor of `hps.SparseLookupLayer`
+    and `hps.LookupLayer`. When the layer is executed for the first time, it will trigger
+    the internal HPS initialization implicitly, in a thread-safe call-once manner. The
+    implicit initialization is especially useful for deploying the SavedModels that
+    leverage the HPS layers for online inference.
 
     HPS will leverage all available GPUs for current CPU process. Please set
     `CUDA_VISIBLE_DEVICES` or `tf.config.set_visible_devices` to specify which
@@ -50,7 +56,7 @@ def Init(**kwargs):
     .. code-block:: python
 
         import hierarchical_parameter_server as hps
-        
+
         with strategy.scope():
             hps.Init(**kwargs)
 
@@ -72,7 +78,7 @@ def Init(**kwargs):
     .. code-block:: python
 
         import hierarchical_parameter_server as hps
-        
+
         hps_init = hps.Init(**kwargs)
         with tf.Session() as sess:
             sess.run(hps_init)
@@ -83,19 +89,19 @@ def Init(**kwargs):
     kwargs: dict
             keyword arguments for this function.
             Currently, it must contains `global_batch_size` and `ps_config_file`.
-            
+
             * `global_batch_size`: int, the global batch size for HPS that is deployed on multiple GPUs
-            
+
             * `ps_config_file`: str, the JSON configuration file for HPS initialization
 
-            An example `ps_config_file` is as follows and `global_batch_size` can be 
+            An example `ps_config_file` is as follows and `global_batch_size` can be
             configured as 16384 correspondingly:
-            
+
             .. code-block:: python
 
                 ps_config_file = {
                     "supportlonglong" : True,
-                    "models" : 
+                    "models" :
                     [{
                         "model": "foo",
                         "sparse_files": ["foo_sparse.model"],

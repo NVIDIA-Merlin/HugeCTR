@@ -59,8 +59,8 @@
 
 namespace HugeCTR {
 
-#define HUGECTR_VERSION_MAJOR 3
-#define HUGECTR_VERSION_MINOR 8
+#define HUGECTR_VERSION_MAJOR 4
+#define HUGECTR_VERSION_MINOR 0
 #define HUGECTR_VERSION_PATCH 0
 
 #define WARP_SIZE 32
@@ -170,7 +170,7 @@ enum class Embedding_t {
   None
 };
 
-enum class Initializer_t { Default, Uniform, XavierNorm, XavierUniform, Zero };
+enum class Initializer_t { Default, Uniform, XavierNorm, XavierUniform, Sinusoidal, Zero };
 
 enum class TrainState_t {
   Init,
@@ -210,7 +210,6 @@ struct HybridEmbeddingParam {
   double max_all_reduce_bandwidth;
   double max_all_to_all_bandwidth;
   double efficiency_bandwidth_ratio;
-  bool use_train_precompute_indices, use_eval_precompute_indices;
   hybrid_embedding::CommunicationType communication_type;
   hybrid_embedding::HybridEmbeddingType hybrid_embedding_type;
 };

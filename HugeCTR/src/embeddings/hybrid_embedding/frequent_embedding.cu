@@ -108,22 +108,17 @@ __global__ void update_model_direct(const emtype* const* __restrict__ gradients_
 }  // namespace frequent_embedding_kernels
 
 template <typename dtype>
-FrequentEmbeddingBase<dtype>::FrequentEmbeddingBase() {
-  HCTR_LIB_THROW(cudaMalloc(&indices_view_, sizeof(*indices_view_)));
-}
+FrequentEmbeddingBase<dtype>::FrequentEmbeddingBase() {}
 
 template <typename dtype>
-FrequentEmbeddingBase<dtype>::~FrequentEmbeddingBase() {
-  cudaFree(indices_view_);
-}
+FrequentEmbeddingBase<dtype>::~FrequentEmbeddingBase() {}
 
 template <typename dtype>
-void FrequentEmbeddingBase<dtype>::set_current_indices(FrequentEmbeddingCompression<dtype>* indices,
-                                                       cudaStream_t stream) {
+void FrequentEmbeddingBase<dtype>::set_current_indices(
+    FrequentEmbeddingCompression<dtype>* indices) {
   indices_ = indices;
   data_ = indices->get_data();
-  HCTR_LIB_THROW(cudaMemcpyAsync(indices_view_, indices->get_device_view(), sizeof(*indices_view_),
-                                 cudaMemcpyDeviceToDevice, stream));
+  indices_view_ = indices->get_device_view();
 }
 
 template <typename dtype, typename emtype>
@@ -414,7 +409,7 @@ void FrequentEmbeddingSingleNode<dtype, emtype>::update_model_direct(float* dev_
   const uint32_t num_frequent_per_model = frequent_data_.model_.num_frequent / num_instances;
 
   int num_sm = frequent_data_.gpu_resource_.get_sm_count();
-  int n_blocks = 16 * num_sm;  // TODO: better heuristics
+  int n_blocks = 8 * num_sm;  // TODO: better heuristics
 
   /* Update models */
   frequent_embedding_kernels::

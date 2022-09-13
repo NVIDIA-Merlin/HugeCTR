@@ -15,8 +15,8 @@
  */
 
 #pragma once
-#include <data_source/hdfs_backend.hpp>
 #include <gpu_learning_rate_scheduler.hpp>
+#include <io/hadoop_filesystem.hpp>
 #include <optimizer.hpp>
 #include <tensor2.hpp>
 #include <vector>
@@ -28,9 +28,8 @@ class IEmbedding {
  public:
   virtual ~IEmbedding() {}
 
-  virtual TrainState train(bool is_train, int i, TrainState state) { return TrainState(); }
   // TODO: can we remove the default argument?
-  virtual void forward(bool is_train, bool is_first_batch = true) = 0;
+  virtual void forward(bool is_train) = 0;
   virtual void backward() = 0;
   virtual void update_params() = 0;
   virtual void init_params() = 0;

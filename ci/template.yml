@@ -1,5 +1,6 @@
 stages:
   - build_from_scratch
+  - format_check
   - build
   - test
   - inference_benchmark
@@ -11,31 +12,40 @@ stages:
   - post_test
 
 .python_format:
-  stage: build
-  image: python:3.8-alpine
+  stage: format_check
+  tags:
+    - nvidia.com/cuda.driver.major=470
   extends:
-    - .dlcluster_job
     - .format:rules:check
   script:
-    - srun -N 1 -p dgx1v,dgx1v16g,dgx1v32g bash -cx "
-      echo $(pwd);
-      docker pull python:3.8-alpine;
-      docker run --rm -v $(pwd):/src -w /src python:3.8-alpine sh -c 'pip install black && black --line-length 100 --check --diff --color --extend-exclude \"$EXCLUDE\" .'
-      "
-  allow_failure: true
+    - pwd
+    - ls -all
+    - docker pull python:3.8-alpine;
+    - docker run -d --rm --name python_${CI_PIPELINE_ID} -w /src python:3.8-alpine sleep infinity
+    - docker cp $(pwd) python_${CI_PIPELINE_ID}:/src
+    - docker exec python_${CI_PIPELINE_ID} sh -c 'pip install black && pwd && ls -all . '
+    - docker exec python_${CI_PIPELINE_ID} sh -c "black --line-length 100 --check --diff --color --extend-exclude \"$EXCLUDE\" ./hugectr"
+  after_script:
+    - docker stop python_${CI_PIPELINE_ID}
+  allow_failure: false
   timeout: 15 minutes
 
 .clang_format:
-  stage: build
+  stage: format_check
+  tags:
+    - nvidia.com/cuda.driver.major=470
   extends:
-    - .dlcluster_job
     - .format:rules:check
   script:
-    - srun -N 1 -p dgx1v,dgx1v16g,dgx1v32g bash -cx "
-      echo $(pwd);
-      docker run --rm --workdir /src -v $(pwd):/src gitlab-master.nvidia.com:5005/dl/hugectr/hugectr/clang-format-lint --clang-format-executable /clang-format/$EXECUTABLE -r --exclude $EXCLUDE --style $STYLE .
-      "
-  allow_failure: true
+    - pwd
+    - ls -all
+    - docker login -u ${CI_PRIVATE_USER} -p "${CI_PRIVATE_KEY}" "${CI_REGISTRY}"
+    - docker run -d --rm --name clang_${CI_PIPELINE_ID} -w /src gitlab-master.nvidia.com:5005/dl/hugectr/hugectr/clang-format-lint-new sleep infinity
+    - docker cp $(pwd) clang_${CI_PIPELINE_ID}:/src
+    - docker exec clang_${CI_PIPELINE_ID} sh -c "cd ./hugectr && /run-clang-format.py --clang-format-executable /clang-format/$EXECUTABLE -r --exclude $EXCLUDE --style $STYLE --extensions $EXTENSIONS ."
+  after_script:
+    - docker stop clang_${CI_PIPELINE_ID}
+  allow_failure: false
   timeout: 15 minutes
 
 .build_nightly:
@@ -91,6 +101,8 @@ stages:
   allow_failure: false
   rules:
     - if: $NIGHTLY == "1"
+      when: always
+    - if: $TEST_NEW_IMAGE == "1"
       when: always
     - when: never
   timeout: 2 hours
@@ -170,10 +182,34 @@ stages:
     - .hugectr:rules:sanity-test
   allow_failure: false
 
+.cluster_test_job_daily:
+  extends:
+    - .selene_luna_job
+    - .default:rules:daily-test
+  allow_failure: false
+
 .dlcluster_test_job:
   extends:
     - .dlcluster_job
     - .hugectr:rules:sanity-test
+  allow_failure: false
+
+.dlcluster_test_job_daily:
+  extends:
+    - .dlcluster_job
+    - .default:rules:daily-test
+  allow_failure: false
+
+.sok_test_job:
+  extends:
+    - .selene_luna_job
+    - .sok:rules:sanity-test
+  allow_failure: false
+
+.sok_test_job_daily:
+  extends:
+    - .selene_luna_job
+    - .default:rules:daily-test
   allow_failure: false
 
 .cluster_post_test_job:
@@ -182,11 +218,11 @@ stages:
     - .hugectr:rules:sanity-test
   stage: post_test
 
-.sok_test_job:
+.cluster_post_test_job_daily:
   extends:
-    - .selene_luna_job
-    - .sok:rules:sanity-test
-  allow_failure: false
+    - .cluster_test_job
+    - .default:rules:daily-test
+  stage: post_test
 
 .inference_benchmark:
   extends: .selene_luna_job

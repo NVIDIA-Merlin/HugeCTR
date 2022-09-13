@@ -21,8 +21,7 @@ def generate_plan(slot_size_array, num_gpus, plan_file):
     # generate global view of table placement
     mp_global_embedding_list = []
     for single_gpu_plan in plan:
-        mp_global_embedding_list.append(
-            single_gpu_plan[0]["local_embedding_list"])
+        mp_global_embedding_list.append(single_gpu_plan[0]["local_embedding_list"])
     for single_gpu_plan in plan:
         single_gpu_plan[0]["global_embedding_list"] = mp_global_embedding_list
 
@@ -123,8 +122,7 @@ for i in range(num_embedding):
         combiner="sum",
     )
 generate_plan(slot_size_array, 8, "./dynamic_plan.json")
-embedding_collection = embedding_planner.create_embedding_collection(
-    "./dynamic_plan.json")
+embedding_collection = embedding_planner.create_embedding_collection("./dynamic_plan.json")
 
 model.add(embedding_collection)
 # need concat
@@ -145,8 +143,7 @@ model.add(
     )
 )
 model.add(
-    hugectr.DenseLayer(layer_type=hugectr.Layer_t.ReLU,
-                       bottom_names=["fc1"], top_names=["relu1"])
+    hugectr.DenseLayer(layer_type=hugectr.Layer_t.ReLU, bottom_names=["fc1"], top_names=["relu1"])
 )
 model.add(
     hugectr.DenseLayer(
@@ -157,8 +154,7 @@ model.add(
     )
 )
 model.add(
-    hugectr.DenseLayer(layer_type=hugectr.Layer_t.ReLU,
-                       bottom_names=["fc2"], top_names=["relu2"])
+    hugectr.DenseLayer(layer_type=hugectr.Layer_t.ReLU, bottom_names=["fc2"], top_names=["relu2"])
 )
 model.add(
     hugectr.DenseLayer(
@@ -169,8 +165,7 @@ model.add(
     )
 )
 model.add(
-    hugectr.DenseLayer(layer_type=hugectr.Layer_t.ReLU,
-                       bottom_names=["fc3"], top_names=["relu3"])
+    hugectr.DenseLayer(layer_type=hugectr.Layer_t.ReLU, bottom_names=["fc3"], top_names=["relu3"])
 )
 model.add(
     hugectr.DenseLayer(
@@ -240,5 +235,4 @@ model.add(
 )
 model.compile()
 model.summary()
-model.fit(max_iter=1000, display=100, eval_interval=100,
-          snapshot=10000000, snapshot_prefix="dlrm")
+model.fit(max_iter=1000, display=100, eval_interval=100, snapshot=10000000, snapshot_prefix="dlrm")

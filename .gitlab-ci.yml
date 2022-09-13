@@ -82,6 +82,7 @@ format_check_clang:
     EXCLUDE: ./third_party
     STYLE: file
     EXECUTABLE: clang-format10
+    EXTENSIONS: "h,hpp,cpp,cu,cuh"
 
 build_train_single_node:
   extends: .build_hugectr
@@ -164,10 +165,37 @@ utests:
     CONT: $TRAIN_IMAGE_VERSIONED
     MOUNTS: ${DATASET}:${DATASET_MOUNT},/lustre/fsw/devtech/hpc-hugectr/inference/:/hugectr/test/utest/
     SLURM_ACCOUNT: devtech
-    WALLTIME: "01:15:00"
+    WALLTIME: "00:30:00"
     DGXNNODES: 1
     TEST_CMD: ./ci/utest/utest.sub
- 
+
+utests_layer_1:
+  extends: .cluster_test_job
+  needs:
+    - build_train_single_node
+  variables:
+    GPFSFOLDER: $LOGDIR/utests
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $TRAIN_IMAGE_VERSIONED
+    MOUNTS: ${DATASET}:${DATASET_MOUNT},/lustre/fsw/devtech/hpc-hugectr/inference/:/hugectr/test/utest/
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "00:30:00"
+    DGXNNODES: 1
+    TEST_CMD: ./ci/utest/utest_layer_1.sub
+
+utests_layer_2:
+  extends: .cluster_test_job
+  needs:
+    - build_train_single_node
+  variables:
+    GPFSFOLDER: $LOGDIR/utests
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $TRAIN_IMAGE_VERSIONED
+    MOUNTS: ${DATASET}:${DATASET_MOUNT},/lustre/fsw/devtech/hpc-hugectr/inference/:/hugectr/test/utest/
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "00:40:00"
+    DGXNNODES: 1
+    TEST_CMD: ./ci/utest/utest_layer_2.sub
 
 utests_embedding:
   extends: .cluster_test_job
@@ -179,10 +207,23 @@ utests_embedding:
     CONT: $TRAIN_IMAGE_VERSIONED
     MOUNTS: ${DATASET}:${DATASET_MOUNT},/lustre/fsw/devtech/hpc-hugectr/inference/:/hugectr/test/utest/
     SLURM_ACCOUNT: devtech
-    WALLTIME: "01:00:00"
+    WALLTIME: "00:30:00"
     DGXNNODES: 1
     TEST_CMD: ./ci/utest/utest_embedding.sub
 
+utests_hybrid_e2e:
+  extends: .cluster_test_job
+  needs:
+    - build_train_single_node
+  variables:
+    GPFSFOLDER: $LOGDIR/utests_embedding
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $TRAIN_IMAGE_VERSIONED
+    MOUNTS: ${DATASET}:${DATASET_MOUNT},/lustre/fsw/devtech/hpc-hugectr/inference/:/hugectr/test/utest/
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "00:30:00"
+    DGXNNODES: 1
+    TEST_CMD: ./ci/utest/utest_hybrid_e2e.sub
 
 utests_inference:
   extends: .cluster_test_job
@@ -226,7 +267,7 @@ criteo:
 #       python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/criteo_multi_slots_8gpu.json"
 
 criteo_multi_node:
-  extends: .cluster_test_job
+  extends: .cluster_test_job_daily
   needs:
     - build_train_multi_node
   variables:
@@ -249,9 +290,23 @@ dcn:
     CONT: $TRAIN_IMAGE_VERSIONED
     MOUNTS: ${DATASET}:${DATASET_MOUNT}
     SLURM_ACCOUNT: devtech
-    WALLTIME: "02:00:00"
+    WALLTIME: "00:40:00"
     DGXNNODES: 1
     TEST_CMD: ./ci/integration_test/dcn/dcn.sub
+
+dcn_8gpu:
+  extends: .cluster_test_job
+  needs:
+    - build_train_single_node
+  variables:
+    GPFSFOLDER: $LOGDIR/dcn
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $TRAIN_IMAGE_VERSIONED
+    MOUNTS: ${DATASET}:${DATASET_MOUNT}
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "00:40:00"
+    DGXNNODES: 1
+    TEST_CMD: ./ci/integration_test/dcn/dcn_8gpu.sub
 
 dlrm_benchmark_1node:
   extends: .cluster_test_job
@@ -268,7 +323,7 @@ dlrm_benchmark_1node:
     TEST_CMD: ./ci/integration_test/dlrm/benchmark_1node.sub
 
 dlrm_benchmark_14node:
-  extends: .cluster_test_job
+  extends: .cluster_test_job_daily
   needs:
     - build_train_multi_node
   variables:
@@ -296,6 +351,20 @@ wdl:
     DGXNNODES: 1                                                                 # node num
     TEST_CMD: ./ci/integration_test/wdl/wdl.sub                                  # test script
 
+wdl_multi_gpu:
+  extends: .cluster_test_job_daily                                                     # test on selene needs to extend .cluster_test_job
+  needs:
+    - build_train_single_node
+  variables:
+    GPFSFOLDER: $LOGDIR/wdl_multi_gpu                                                      # log dir, usually $LOGDIR + job name
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}                                     # should not change
+    CONT: $TRAIN_IMAGE_VERSIONED                                                 # image name
+    MOUNTS: ${DATASET}:${DATASET_MOUNT}                                          # mount
+    SLURM_ACCOUNT: devtech                                                       # account, do not need change
+    WALLTIME: "00:15:00"                                                         # estimate job time. Less time, higher priority
+    DGXNNODES: 1                                                                 # node num
+    TEST_CMD: ./ci/integration_test/wdl/wdl_daily.sub 
+
 deepfm:
   extends: .cluster_test_job
   needs:
@@ -309,6 +378,20 @@ deepfm:
     WALLTIME: "00:15:00"
     DGXNNODES: 1
     TEST_CMD: ./ci/integration_test/deepfm/deepfm.sub
+
+deepfm_multi_gpu:
+  extends: .cluster_test_job_daily
+  needs:
+    - build_train_single_node
+  variables:
+    GPFSFOLDER: $LOGDIR/deepfm_multi_gpu
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $TRAIN_IMAGE_VERSIONED
+    MOUNTS: ${DATASET}:${DATASET_MOUNT}
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "00:15:00"
+    DGXNNODES: 1
+    TEST_CMD: ./ci/integration_test/deepfm/deepfm_daily.sub
 
 dlrm:
   extends: .cluster_test_job
@@ -325,7 +408,7 @@ dlrm:
     TEST_CMD: ./ci/integration_test/dlrm/dlrm.sub
 
 dcn_multi_node:
-  extends: .cluster_test_job
+  extends: .cluster_test_job_daily
   needs:
     - build_train_multi_node
   variables:
@@ -340,7 +423,7 @@ dcn_multi_node:
 
 
 group_fc:
-  extends: .cluster_test_job
+  extends: .cluster_test_job_daily
   needs:
     - build_train_single_node
   variables:
@@ -368,22 +451,36 @@ mlperf_generalization:
     TEST_CMD: ./ci/integration_test/mlperf_generalization/overlapped_pipeline.sub
 
 # python interface inference
-py_inference:
+inference_session:
   extends: .cluster_test_job
   needs:
     - build_train_single_node
   variables:
-    GPFSFOLDER: $LOGDIR/py_inference
+    GPFSFOLDER: $LOGDIR/inference_session
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
     CONT: $TRAIN_IMAGE_VERSIONED
     MOUNTS: ${DATASET}:${DATASET_MOUNT},/lustre/fsw/devtech/hpc-hugectr/inference/:/hugectr/test/utest/
     SLURM_ACCOUNT: devtech
     WALLTIME: "00:30:00"
     DGXNNODES: 1
-    TEST_CMD: ./ci/integration_test/inference/inference.sub
+    TEST_CMD: ./ci/integration_test/inference/inference_session.sub
+
+inference_hps:
+  extends: .cluster_test_job
+  needs:
+    - build_train_single_node
+  variables:
+    GPFSFOLDER: $LOGDIR/inference_hps
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $TRAIN_IMAGE_VERSIONED
+    MOUNTS: ${DATASET}:${DATASET_MOUNT},/lustre/fsw/devtech/hpc-hugectr/inference/:/hugectr/test/utest/
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "00:30:00"
+    DGXNNODES: 1
+    TEST_CMD: ./ci/integration_test/inference/inference_hps.sub
 
 py_low_level:
-  extends: .cluster_test_job
+  extends: .cluster_test_job_daily
   needs:
     - build_train_single_node
   variables:
@@ -411,7 +508,7 @@ din_single_node:
     TEST_CMD: ./ci/integration_test/din/din.sub
 
 etc_single_node:
-  extends: .cluster_test_job
+  extends: .cluster_test_job_daily
   needs:
     - build_train_single_node
   variables:
@@ -425,7 +522,7 @@ etc_single_node:
     TEST_CMD: ./ci/integration_test/etc/etc_single_node.sub
 
 etc_multi_node:
-  extends: .cluster_test_job
+  extends: .cluster_test_job_daily
   needs:
     - build_train_multi_node
   variables:
@@ -439,7 +536,7 @@ etc_multi_node:
     TEST_CMD: ./ci/integration_test/etc/etc_multi_node.sub
 
 ebc_single_node:
-  extends: .cluster_test_job
+  extends: .cluster_test_job_daily
   needs:
     - build_train_single_node
   variables:
@@ -453,7 +550,7 @@ ebc_single_node:
     TEST_CMD: ./ci/integration_test/ebc/ebc_single_node.sub
 
 ebc_multi_node:
-  extends: .cluster_test_job
+  extends: .cluster_test_job_daily
   needs:
     - build_train_multi_node
   variables:
@@ -468,7 +565,7 @@ ebc_multi_node:
 
 # data generator single node
 data_generator_single_node:
-  extends: .cluster_test_job
+  extends: .cluster_test_job_daily
   needs:
     - build_train_single_node
   variables:
@@ -496,7 +593,7 @@ py_single_node:
     TEST_CMD: ./ci/integration_test/py_interface/py_single_node.sub
 
 py_multi_node:
-  extends: .cluster_test_job
+  extends: .cluster_test_job_daily
   needs:
     - build_train_multi_node
   variables:
@@ -510,23 +607,23 @@ py_multi_node:
     TEST_CMD: ./ci/integration_test/py_interface/py_multi_node.sub
 
 # hugectr inference correctness test
-inference_correctness:
-  extends: .cluster_test_job
+inference_model:
+  extends: .cluster_test_job_daily
   needs:
     - build_train_single_node
   variables:
-    GPFSFOLDER: $LOGDIR/inference_correctness
+    GPFSFOLDER: $LOGDIR/inference_model
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
     CONT: $TRAIN_IMAGE_VERSIONED
     MOUNTS: ${DATASET_NEW_CRITEO_SELENE}:${NEW_CRITEO_MOUNT}
     SLURM_ACCOUNT: devtech
     WALLTIME: "00:30:00"
     DGXNNODES: 1
-    TEST_CMD: ./ci/integration_test/inference/inference_correctness.sub
+    TEST_CMD: ./ci/integration_test/inference/inference_model.sub
 
 # hugectr to onnx converter test
 hugectr2onnx:
-  extends: .cluster_test_job
+  extends: .cluster_test_job_daily
   needs:
     - build_train_single_node
   variables:
@@ -550,14 +647,28 @@ hierarchical_parameter_server:
     CONT: $TF_PLUGIN_IMAGE_VERSIONED
     MOUNTS: ${DATASET}:${DATASET_MOUNT}
     SLURM_ACCOUNT: devtech
-    WALLTIME: "01:30:00"
+    WALLTIME: "00:30:00"
     DGXNNODES: 1
     TEST_CMD: ./ci/integration_test/hps/hps.sub
 
 
 # embedding_plugin
-sparse_operation_kit-TF2:
+sparse_operation_kit_ut-TF2:
   extends: .sok_test_job
+  needs:
+    - build_sok_tf2
+  variables:
+    GPFSFOLDER: $LOGDIR/sparse_operation_kit
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $SOK_IMAGE_VERSIONED_TF2
+    MOUNTS: ${DATASET}:${DATASET_MOUNT}
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "00:30:00"
+    DGXNNODES: 1
+    TEST_CMD: ./ci/integration_test/sok/sok_tf2_unit.sub
+
+sparse_operation_kit-TF2:
+  extends: .sok_test_job_daily
   needs:
     - build_sok_tf2
   variables:
@@ -570,8 +681,22 @@ sparse_operation_kit-TF2:
     DGXNNODES: 1
     TEST_CMD: ./ci/integration_test/sok/sok.sub
 
-sparse_operation_kit-TF1:
+sparse_operation_kit_ut-TF1:
   extends: .sok_test_job
+  needs:
+    - build_sok_tf1
+  variables:
+    GPFSFOLDER: $LOGDIR/sparse_operation_kit
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $SOK_IMAGE_VERSIONED_TF1
+    MOUNTS: ${DATASET}:${DATASET_MOUNT}
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "00:30:00"
+    DGXNNODES: 1
+    TEST_CMD: ./ci/integration_test/sok/sok_tf1_unit.sub
+
+sparse_operation_kit-TF1:
+  extends: .sok_test_job_daily
   needs:
     - build_sok_tf1
   variables:
@@ -585,7 +710,7 @@ sparse_operation_kit-TF1:
     TEST_CMD: ./ci/integration_test/sok/sok.sub
 
 inference_benchmark:
-  extends: .cluster_test_job
+  extends: .cluster_test_job_daily
   needs:
     - build_inference
   before_script:
@@ -602,7 +727,7 @@ inference_benchmark:
     TEST_CMD: ./ci/benchmark/inference_benchmark/run.sub
 
 inference_ps_test:
-  extends: .dlcluster_test_job
+  extends: .dlcluster_test_job_daily
   allow_failure: false
   stage: test
   needs:
@@ -612,7 +737,7 @@ inference_ps_test:
     - srun -N 1 -p dgx1v,dgx1v16g,dgx1v32g bash ./ci/integration_test/inference/ps_test.sh
 
 inference_embedding_cache_update_test:
-  extends: .dlcluster_test_job
+  extends: .dlcluster_test_job_daily
   allow_failure: false
   stage: test
   needs:
@@ -623,7 +748,7 @@ inference_embedding_cache_update_test:
     
 #hdfs backend test
 hdfs_backend_test:
-  extends: .dlcluster_test_job
+  extends: .dlcluster_test_job_daily
   allow_failure: false
   stage: test
   needs:
@@ -634,21 +759,21 @@ hdfs_backend_test:
 
 wdl_check:
   # Push logs to gitlab
-  extends: .cluster_post_test_job
+  extends: .cluster_post_test_job_daily
   needs:
-    - wdl
+    - wdl_multi_gpu
   variables:
     GPFSFOLDER: $LOGDIR/wdl_check
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
     CONT: $TRAIN_IMAGE_VERSIONED
-    MOUNTS: $LOGDIR/wdl:/logs
+    MOUNTS: $LOGDIR/wdl_multi_gpu:/logs
     SLURM_ACCOUNT: devtech
     WALLTIME: "00:15:00"
     DGXNNODES: 1
     TEST_CMD: ./ci/post_test/check_wdl.sub
 
 inference_benchmark_check:
-  extends: .cluster_post_test_job
+  extends: .cluster_post_test_job_daily
   needs:
     - inference_benchmark
     - build_train_single_node
@@ -679,7 +804,7 @@ dlrm_1node_check:
 
 dlrm_14node_check:
   # Push logs to gitlab
-  extends: .cluster_post_test_job
+  extends: .cluster_post_test_job_daily
   needs:
     - dlrm_benchmark_14node
   variables:

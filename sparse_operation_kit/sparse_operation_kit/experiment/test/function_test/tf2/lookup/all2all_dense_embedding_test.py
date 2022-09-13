@@ -1,12 +1,12 @@
 """
  Copyright (c) 2022, NVIDIA CORPORATION.
- 
+
  Licensed under the Apache License, Version 2.0 (the "License");
  you may not use this file except in compliance with the License.
  You may obtain a copy of the License at
- 
+
      http://www.apache.org/licenses/LICENSE-2.0
- 
+
  Unless required by applicable law or agreed to in writing, software
  distributed under the License is distributed on an "AS IS" BASIS,
  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -113,14 +113,14 @@ if __name__ == "__main__":
     length = out1**2 + out2**2 + 1e-8
     diff = tf.reduce_sum((out1 - out2) ** 2 / length)
     print("[SOK INFO] diff:", diff)
-    assert diff < 1e-8
+    assert diff < 1e-6
 
     diff = 0
     for i in range(iters):
         length = loss1[i] ** 2 + loss2[i] ** 2 + 1e-8
         diff = diff + (loss1[i] - loss2[i]) ** 2 / length
     print("[SOK INFO] loss diff:", diff)
-    assert diff < 1e-8
+    assert diff < 1e-6
 
     print("[SOK INFO] all2all_dense_embedding test passed")
     ts = ts[5:]

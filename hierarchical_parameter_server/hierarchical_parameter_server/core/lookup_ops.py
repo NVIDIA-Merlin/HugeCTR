@@ -13,6 +13,7 @@
  See the License for the specific language governing permissions and
  limitations under the License.
 """
+from hierarchical_parameter_server import Init
 from hierarchical_parameter_server import hps_lib
 import numpy as np
 import os
@@ -87,10 +88,14 @@ def _get_comm_tool():
         return "OneDevice"
 
 
-def lookup(values, model_name, table_id, emb_vec_size, emb_vec_dtype=tf.float32):
+def lookup(
+    values, model_name, table_id, emb_vec_size, emb_vec_dtype, ps_config_file, global_batch_size
+):
     """
     This function is a wrapper of HPS's lookup forward propagation.
     """
+    # Lazy initialization of hps
+    status = Init(ps_config_file=ps_config_file, global_batch_size=global_batch_size)
     global_replica_id = get_global_replica_id(_get_comm_tool())
     vector = hps_lib.lookup(
         values=values,
@@ -99,5 +104,6 @@ def lookup(values, model_name, table_id, emb_vec_size, emb_vec_dtype=tf.float32)
         table_id=table_id,
         emb_vec_size=emb_vec_size,
         dtype=emb_vec_dtype,
+        init_status=status,
     )
     return vector

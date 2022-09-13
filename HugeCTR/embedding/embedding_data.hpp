@@ -25,6 +25,7 @@ class GlobalEmbeddingData {
   int num_embedding_;
   int num_hotness_;
   int max_ev_size_;
+  int num_sms_;
 
   std::vector<int> h_hotness_list_;
   std::vector<int> h_ev_size_list_;

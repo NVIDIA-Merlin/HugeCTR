@@ -52,7 +52,7 @@ SequenceMaskLayer<T>::SequenceMaskLayer(
     const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
     const std::shared_ptr<GPUResource>& gpu_resource)
     : Layer(gpu_resource), max_sequence_len_(max_sequence_len) {
-  assert(in_tensor.get_dimensions() == 2);
+  assert(in_tensor.get_dimensions().size() == 2);
 
   in_tensor_ = in_tensor;
   out_tensor_ = out_tensor;

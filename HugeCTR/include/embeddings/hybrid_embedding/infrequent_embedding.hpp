@@ -45,7 +45,7 @@ class InfrequentEmbeddingBase {
   // Infrequent indices and device pointer!
   InfrequentEmbeddingSelection<dtype> *indices_;
 
-  void set_current_indices(InfrequentEmbeddingSelection<dtype> *indices, cudaStream_t stream);
+  void set_current_indices(InfrequentEmbeddingSelection<dtype> *indices);
   InfrequentEmbeddingBase();
   virtual ~InfrequentEmbeddingBase();
 
@@ -137,7 +137,6 @@ class InfrequentEmbedding_IB_NVLINK : public InfrequentEmbeddingBase<dtype> {
   void forward_model(emtype *message_buffer, cudaStream_t stream);
   void forward_network(const emtype *message_buffer, emtype *interaction_layer_input,
                        cudaStream_t stream);
-  void forward(emtype *output_ptr, cudaStream_t stream);
   void update_network(const emtype *gradients, emtype *message_buffer, cudaStream_t stream);
   void update_model(const emtype *message_buffer, float *dev_lr, float scale, cudaStream_t stream);
 
@@ -182,19 +181,15 @@ class InfrequentEmbedding_IB_NVLink_Hier : public InfrequentEmbeddingBase<dtype>
   void init_comms(int64_t max_num_infrequent_samples, size_t slot_num, size_t embedding_vec_size,
                   GeneralBuffer2<CudaAllocator> *buf_ptr, size_t batch_size_true,
                   size_t batch_size_false, size_t local_gpu_count);
-  void forward_model(cudaStream_t stream);
-  void infrequent_wait_completion(cudaStream_t stream);
-  void infrequent_hier_forward_network(emtype *output_ptr, cudaStream_t stream);
   void initialize_embedding_vectors(const std::vector<size_t> &table_sizes);
+  void calculate_model_indices_sizes_from_offsets(cudaStream_t stream);
+  void calculate_network_indices_sizes_from_offsets(cudaStream_t stream);
   void fused_intra_forward_model(emtype **message_buffer, cudaStream_t stream);
-  void hier_forward_network(const emtype *message_buffer, emtype *interaction_layer_input,
-                            cudaStream_t stream);
+  void hier_forward_network(const emtype *message_buffer, emtype *output_ptr, cudaStream_t stream);
   void fused_intra_update_network(const emtype *gradients, emtype **message_buffer,
                                   cudaStream_t stream);
   void hier_update_model(const emtype *message_buffer, float *dev_lr, float scale,
                          cudaStream_t stream);
-  void calculate_model_indices_sizes_from_offsets(cudaStream_t stream);
-  void calculate_network_indices_sizes_from_offsets(cudaStream_t stream);
 };
 
 }  // namespace hybrid_embedding

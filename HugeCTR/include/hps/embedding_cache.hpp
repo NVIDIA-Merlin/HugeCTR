@@ -40,6 +40,9 @@ class EmbeddingCache : public EmbeddingCacheBase,
                       float hit_rate_threshold, cudaStream_t stream);
   virtual void insert(size_t table_id, EmbeddingCacheWorkspace& workspace_handler,
                       cudaStream_t stream);
+
+  virtual void init(const size_t table_id, EmbeddingCacheRefreshspace& refeshspace_handler,
+                    cudaStream_t stream);
   virtual void dump(size_t table_id, void* d_keys, size_t* d_length, size_t start_index,
                     size_t end_index, cudaStream_t stream);
   virtual void refresh(size_t table_id, const void* d_keys, const float* d_vectors, size_t length,
@@ -53,6 +56,7 @@ class EmbeddingCache : public EmbeddingCacheBase,
 
   virtual const embedding_cache_config& get_cache_config() { return cache_config_; }
   virtual const std::vector<cudaStream_t>& get_refresh_streams() { return refresh_streams_; }
+  virtual const std::vector<cudaStream_t>& get_insert_streams() { return insert_streams_; }
   virtual int get_device_id() { return cache_config_.cuda_dev_id_; }
   virtual bool use_gpu_embedding_cache() { return cache_config_.use_gpu_embedding_cache_; }
 

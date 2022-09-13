@@ -54,6 +54,12 @@ void Metadata::get_parquet_metadata(std::string file_name) {
       std::size_t found = fname.find_last_of("/\\");
       std::string parquet_name = fname.substr(found + 1);
       std::string parquet_path = dirname + "/" + parquet_name;
+      std::ifstream fexist(parquet_path);
+      if (!fexist.good()) {
+        HCTR_LOG_S(WARNING, ROOT) << " skip file " << fname
+                                  << " listed in _metadata.json as it does not exist" << std::endl;
+        continue;
+      }
       if (found != std::string::npos) {
         fname = fname.substr(found + 1);
       }
@@ -65,7 +71,6 @@ void Metadata::get_parquet_metadata(std::string file_name) {
       const parquet::FileMetaData* file_metadata = reader->metadata().get();
       long long num_row_groups = file_metadata->num_row_groups();
       long long num_rows_file = file_metadata->num_rows();
-      // HCTR_LOG_S(INFO,ROOT)<<" fname "<<fname<<" has "<<num_row_groups<<" groups:"<<std::endl;
       for (long long r = 0; r < num_row_groups; r++) {
         std::unique_ptr<parquet::RowGroupMetaData> group_metadata = file_metadata->RowGroup(r);
         // HCTR_LOG_S(INFO,ROOT)<<"  "<< group_metadata->num_rows() <<std::endl;

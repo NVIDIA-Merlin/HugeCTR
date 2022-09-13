@@ -13,7 +13,7 @@ If you prefer to build the HugeCTR Docker image on your own, refer to [Set Up th
 Pull the container using the following command:
 
 ```shell
-docker pull nvcr.io/nvidia/merlin/merlin-tensorflow:22.08
+docker pull nvcr.io/nvidia/merlin/merlin-tensorflow:22.09
 ```
 
 ### Clone the HugeCTR Repository
@@ -28,7 +28,7 @@ git clone https://github.com/NVIDIA/HugeCTR
 1. Launch the container in interactive mode (mount the HugeCTR root directory into the container for your convenience) by running this command:
 
    ```shell
-   docker run --runtime=nvidia --rm -it --cap-add SYS_NICE -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr -p 8888:8888 nvcr.io/nvidia/merlin/merlin-tensorflow:22.08
+   docker run --runtime=nvidia --rm -it --cap-add SYS_NICE -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr -p 8888:8888 nvcr.io/nvidia/merlin/merlin-tensorflow:22.09
    ```
 
 2. Start Jupyter using these commands: 
@@ -56,12 +56,15 @@ Here's a list of notebooks that you can run:
 
 - [sok_to_hps_dlrm_demo.ipynb](sok_to_hps_dlrm_demo.ipynb): Demonstrates how to train a DLRM model with [SparseOperationKit (SOK)](https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/index.html) and then make inference with HPS.
 
+- [hps_tensorflow_triton_deployment_demo.ipynb](hps_tensorflow_triton_deployment_demo.ipynb): Demonstrates how to deploy the inference SavedModel that leverages HPS with the [Triton TensorFlow backend](https://github.com/triton-inference-server/tensorflow_backend). The feature of implicit [HPS initialization](https://nvidia-merlin.github.io/HugeCTR/master/hierarchical_parameter_server/api/initialize.html) is utilized in this notebook.
+
 ## System Specifications
 The specifications of the system on which each notebook can run successfully are summarized in the table. The notebooks are verified on the system below but it does not mean the minimum requirements.
 
-| Notebook                                                                              | CPU                                                          | GPU                              | #GPUs | Author         |
-| -------------------------------------------------------------------------------------- | ------------------------------------------------------------ | -------------------------------- | ----- | -------------- |
-| [hierarchical_parameter_server_demo.ipynb](hierarchical_parameter_server_demo.ipynb)  | Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory | Tesla V100-SXM2-32GB<br />32 GB Memory | 1     | Kingsley Liu    |
-| [hps_multi_table_sparse_input_demo.ipynb](hps_multi_table_sparse_input_demo.ipynb)    | Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory | Tesla V100-SXM2-32GB<br />32 GB Memory | 1     | Kingsley Liu    |
-| [hps_pretrained_model_training_demo.ipynb](hps_pretrained_model_training_demo.ipynb)  | Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory | Tesla V100-SXM2-32GB<br />32 GB Memory | 4     | Kingsley Liu    |
-| [sok_to_hps_dlrm_demo.ipynb](sok_to_hps_dlrm_demo.ipynb)                              | Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory | Tesla V100-SXM2-32GB<br />32 GB Memory | 1     | Kingsley Liu    |
+| Notebook                                                                                   | CPU                                                          | GPU                              | #GPUs | Author         |
+| ------------------------------------------------------------------------------------------ | ------------------------------------------------------------ | -------------------------------- | ----- | -------------- |
+| [hierarchical_parameter_server_demo.ipynb](hierarchical_parameter_server_demo.ipynb)       | Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory | Tesla V100-SXM2-32GB<br />32 GB Memory | 1     | Kingsley Liu    |
+| [hps_multi_table_sparse_input_demo.ipynb](hps_multi_table_sparse_input_demo.ipynb)         | Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory | Tesla V100-SXM2-32GB<br />32 GB Memory | 1     | Kingsley Liu    |
+| [hps_pretrained_model_training_demo.ipynb](hps_pretrained_model_training_demo.ipynb)       | Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory | Tesla V100-SXM2-32GB<br />32 GB Memory | 4     | Kingsley Liu    |
+| [sok_to_hps_dlrm_demo.ipynb](sok_to_hps_dlrm_demo.ipynb)                                   | Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory | Tesla V100-SXM2-32GB<br />32 GB Memory | 1     | Kingsley Liu    |
+| [hps_tensorflow_triton_deployment_demo.ipynb](hps_tensorflow_triton_deployment_demo.ipynb) | Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory | Tesla V100-SXM2-32GB<br />32 GB Memory | 1     | Kingsley Liu    |

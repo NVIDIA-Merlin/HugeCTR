@@ -15,7 +15,6 @@
  */
 #pragma once
 #include <common.hpp>
-#include <data_source/hdfs_backend.hpp>
 #include <embedding.hpp>
 #include <embedding_training_cache/embedding_training_cache.hpp>
 #include <exchange_wgrad.hpp>
@@ -23,6 +22,7 @@
 #include <hps/hier_parameter_server.hpp>
 #include <hps/kafka_message.hpp>
 #include <hps/message.hpp>
+#include <io/filesystem.hpp>
 #include <loss.hpp>
 #include <metrics.hpp>
 #include <network.hpp>
@@ -36,6 +36,7 @@
 #include "HugeCTR/embedding/embedding.hpp"
 #include "HugeCTR/embedding_storage/embedding_table.hpp"
 #include "embedding_collection.hpp"
+#include "pipeline.hpp"
 
 namespace HugeCTR {
 
@@ -299,7 +300,7 @@ void add_input(Input& input, DataReaderParams& reader_params,
                std::shared_ptr<IDataReader>& evaluate_data_reader,
                std::shared_ptr<IDataReader>& init_data_reader, size_t batch_size,
                size_t batch_size_eval, bool use_mixed_precision, bool repeat_dataset,
-               bool enable_overlap, size_t num_iterations_statistics,
+               bool train_intra_iteration_overlap, size_t num_iterations_statistics,
                const std::shared_ptr<ResourceManager> resource_manager);
 
 template <typename TypeKey, typename TypeFP>
@@ -312,9 +313,8 @@ void add_sparse_embedding(SparseEmbedding& sparse_embedding,
                           size_t batch_size, size_t batch_size_eval,
                           OptParams& embedding_opt_params,
                           std::shared_ptr<ExchangeWgrad>& exchange_wgrad, bool use_cuda_graph,
-                          bool grouped_all_reduce, bool use_holistic_cuda_graph,
-                          size_t num_iterations_statistics, GpuLearningRateSchedulers& gpu_lr_sches,
-                          bool overlap_ar_a2a, bool eval_overlap);
+                          bool grouped_all_reduce, size_t num_iterations_statistics,
+                          GpuLearningRateSchedulers& gpu_lr_sches);
 
 Input get_input_from_json(const nlohmann::json& j_input);
 
@@ -474,7 +474,7 @@ class Model {
   }
 
   bool use_gpu_learning_rate_scheduling() const {
-    return !embeddings_[0]->get_learning_rate_schedulers().empty();
+    return !embeddings_.empty() && !embeddings_[0]->get_learning_rate_schedulers().empty();
   }
 
   void load_dense_weights(const std::string& dense_model_file);
@@ -572,7 +572,8 @@ class Model {
   std::vector<std::unique_ptr<embedding::IEmbeddingCollectionForward>> ebc_forward_list_;
   std::vector<std::unique_ptr<embedding::IEmbeddingCollectionForward>> eval_ebc_forward_list_;
   std::vector<std::unique_ptr<embedding::IEmbeddingCollectionBackward>> ebc_backward_list_;
-  std::vector<std::vector<std::unique_ptr<embedding::IEmbeddingTable>>> table_major_ebc_table_list_;
+  std::vector<std::vector<std::unique_ptr<embedding::IGroupedEmbeddingTable>>>
+      table_major_ebc_table_list_;
 
   std::vector<std::vector<core::Tensor>> ebc_grad_key_list_;
   std::vector<std::vector<size_t>> ebc_num_grad_key_list_;
@@ -608,8 +609,6 @@ class Model {
 
   std::shared_ptr<IDataReader> init_data_reader_;
   std::shared_ptr<ExchangeWgrad> exchange_wgrad_;
-  std::vector<GraphWrapper> train_graphs_;
-  std::vector<cudaEvent_t> fork_events_;
   bool embedding_dependent_;
   bool high_level_eval_;
   HugeCTR::Timer timer_log;
@@ -645,7 +644,6 @@ class Model {
   Error_t load_opt_states_for_sparse_(const std::vector<std::string>& sparse_opt_states_files,
                                       const DataSourceParams& data_source_params);
   virtual void exchange_wgrad(size_t device_id);
-  virtual void train_overlapped();
   virtual void add_dense_layer(DenseLayer& dense_layer);
   virtual void add_dense_layer_internal(
       DenseLayer& dense_layer, std::vector<TensorEntry>& tensor_entries,
@@ -656,10 +654,10 @@ class Model {
       const std::shared_ptr<BufferBlock2<__half>>& wgrad_buff_half,
       std::map<std::string, Tensor2<float>>& loss_tensor,
       std::vector<std::unique_ptr<Layer>>& layers,
-      std::map<std::string, std::unique_ptr<ILoss>>& loss, bool enable_cuda_graph,
-      bool async_mlp_wgrad, std::map<std::string, metrics::RawMetricMap>* raw_metrics,
-      int num_networks_in_global, const std::shared_ptr<GPUResource>& gpu_resource,
-      bool use_mixed_precision, bool enable_tf32_compute, float scaler, bool use_algorithm_search,
+      std::map<std::string, std::unique_ptr<ILoss>>& loss, bool async_mlp_wgrad,
+      std::map<std::string, metrics::RawMetricMap>* raw_metrics, int num_networks_in_global,
+      const std::shared_ptr<GPUResource>& gpu_resource, bool use_mixed_precision,
+      bool enable_tf32_compute, float scaler, bool use_algorithm_search,
       std::vector<Layer*>* top_layers, std::vector<Layer*>* bottom_layers,
       bool embedding_dependent);
 
@@ -689,6 +687,28 @@ class Model {
     }
   };
   std::unique_ptr<GraphScheduler> graph_scheduler_;
+
+  struct Graph {
+    bool is_first_eval_batch_ = true;
+    std::vector<Pipeline> train_pipeline_;
+    std::vector<Pipeline> evaluate_pipeline_;
+  };
+
+  Graph graph_;
+
+  bool is_scheduled_datareader() {
+    return (reader_params_.data_reader_type == DataReaderType_t::RawAsync);
+  }
+  bool is_scheduled_embedding() {
+    return (embeddings_.size() == 1 &&
+            embeddings_[0]->get_embedding_type() == Embedding_t::HybridSparseEmbedding);
+  }
+  void create_train_pipeline();
+  void create_evaluate_pipeline();
+  void create_train_network_pipeline();
+  void create_eval_network_pipeline();
+  void train_pipeline(size_t current_batch_size);
+  void evaluate_pipeline(size_t current_batch_size);
 };
 
 }  // namespace HugeCTR

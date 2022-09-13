@@ -79,8 +79,32 @@ struct EmbeddingParam {
 };
 std::ostream &operator<<(std::ostream &os, const EmbeddingParam &p);
 
+struct LookupParam {
+  int lookup_id;
+  int table_id;
+  Combiner combiner;
+  int max_hotness;
+  int ev_size;
+
+  LookupParam(int lookup_id, int table_id, Combiner combiner, int max_hotness, int ev_size)
+      : lookup_id(lookup_id),
+        table_id(table_id),
+        combiner(combiner),
+        max_hotness(max_hotness),
+        ev_size(ev_size) {}
+};
+
+struct GroupedEmbeddingParam {
+  TablePlacementStrategy table_placement_strategy;
+  std::vector<int> table_ids;
+
+  GroupedEmbeddingParam(TablePlacementStrategy _table_placement_strategy,
+                        const std::vector<int> _table_ids)
+      : table_placement_strategy(_table_placement_strategy), table_ids(_table_ids) {}
+};
+
 struct EmbeddingCollectionParam {
-  int num_embedding;
+  int num_embedding;                             // will be depracated
   std::vector<EmbeddingParam> embedding_params;  // num of bucket
 
   int universal_batch_size;
@@ -93,6 +117,12 @@ struct EmbeddingCollectionParam {
   bool is_dataparall_input = false;
   bool is_table_first_input = false;
   bool is_utest = false;
+
+  int num_lookup;
+  std::vector<LookupParam> lookup_params;  // num of lookup
+
+  std::vector<std::vector<int>> shard_matrix;  // num_gpus * num_table
+  std::vector<GroupedEmbeddingParam> emb_params;
 };
 
 // we want to treat concat embedding as several seperate embedding

@@ -32,11 +32,7 @@ class GpuLearningRateScheduler {
   size_t* step_;
   float* current_lr_;
   float* last_lr_;
-  bool overlapped_;
   std::shared_ptr<GPUResource> gpu_resource_;
-  cudaStream_t lr_stream_;
-  cudaEvent_t fork_event_;
-  cudaEvent_t join_event_;
 
  public:
   GpuLearningRateScheduler(float base_lr, size_t warmup_steps, size_t decay_start,
@@ -47,9 +43,6 @@ class GpuLearningRateScheduler {
   void update();
 
   float* get_learning_rate() const;
-
-  void set_overlapped() { overlapped_ = true; }
-  bool get_overlapped() { return overlapped_; }
 };
 
 using GpuLearningRateSchedulers = std::vector<std::shared_ptr<GpuLearningRateScheduler>>;

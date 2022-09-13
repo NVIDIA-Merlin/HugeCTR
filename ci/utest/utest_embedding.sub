@@ -2,4 +2,4 @@
 
 srun --ntasks="${SLURM_JOB_NUM_NODES}" --container-image="${CONT}" --container-mounts="${MOUNTS}" bash -cx "\
       cd /workdir/build/bin \
-      &&./embedding_test"
+      &&./embedding_test --gtest_filter=-hybrid_e2e.*"

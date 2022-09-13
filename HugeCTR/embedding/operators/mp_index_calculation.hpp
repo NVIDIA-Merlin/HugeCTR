@@ -78,6 +78,7 @@ class ModelBackwardIndexCalculation {
   Tensor sorted_bucket_id_list_;
   Tensor sorted_bucket_id_offset_;
   Tensor unique_id_space_offset_;
+  Tensor coordinate_wgrad_dst_idx_;
 
   Tensor unique_id_space_list_;
   Tensor unique_id_space_ev_size_list_;
@@ -100,17 +101,19 @@ class ModelBackwardIndexCalculation {
                const Tensor& id_space_offset, const Tensor& id_space_list, int batch_size,
                Tensor* unique_key, size_t* num_unique_key, Tensor* unique_dst_idx,
                Tensor* sorted_bucket_id_list, Tensor* sorted_bucket_id_offset,
-               Tensor* unique_id_space_list, Tensor* unique_id_space_offset);
+               Tensor* unique_id_space_list, Tensor* unique_id_space_offset, Tensor* coordinate_key,
+               Tensor* coordinate_wgrad_dst_idx);
 };
 
 struct RaggedNetworkIndex {
-  Tensor network_idx_;
-  Tensor network_offset_;
-  Tensor network_dst_;
-
-  Tensor gpu_idx_offset_;
-  std::vector<Tensor> global_ev_offset_list_;
-  TensorList global_ev_offset_;
+  Tensor network_ids_;
+  Tensor network_gpu_ids_;
+  Tensor network_offsets_;
+  Tensor network_dst_lookup_ids_;
+  std::vector<Tensor> network_ev_size_list_;
+  TensorList network_ev_sizes_;
+  std::vector<Tensor> network_ev_offset_list_;
+  TensorList network_ev_offsets_;
 
   RaggedNetworkIndex() = default;
 

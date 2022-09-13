@@ -65,18 +65,18 @@ class IEmbeddingCollectionBackward {
                                 bool do_allreduce) = 0;
 };
 
-class IEmbeddingForward {
+class IGroupedEmbeddingForward {
  public:
-  virtual ~IEmbeddingForward() = default;
+  virtual ~IGroupedEmbeddingForward() = default;
 
   virtual void forward_per_gpu(const Tensor &keys, const Tensor &bucket_range, size_t num_keys,
                                const Tensor &sparse_weight, ILookup *embedding_table,
                                Tensor &output_buffer, ContextContainer *context_container) = 0;
 };
 
-class IEmbeddingBackward {
+class IGroupedEmbeddingBackward {
  public:
-  virtual ~IEmbeddingBackward() = default;
+  virtual ~IGroupedEmbeddingBackward() = default;
 
   virtual void backward_per_gpu(ContextContainer *context_container, const Tensor &top_grad,
                                 bool do_allreduce, Tensor *grad_key, size_t *num_grad_key,

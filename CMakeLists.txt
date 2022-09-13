@@ -239,8 +239,7 @@ if(ENABLE_HDFS)
 
   # Build and Install Hadoop
   include(SetupHadoop)
-  set(HADOOP_VER "3.3.2")
-  hadoop_setup(${HADOOP_VER})
+  hadoop_setup()
 endif()
 
 option(ENABLE_INFERENCE "Enable Inference" OFF)

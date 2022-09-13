@@ -35,6 +35,27 @@ void UniformGenerator::fill<float>(float* ptr, size_t num_elements, float a, flo
   transform_array<<<sm_count * 2, 1024, 0, stream>>>(ptr, ptr, num_elements, op);
 }
 
+template <typename T>
+__global__ void sinusoidal_kernel(T* output, int ev_size, int max_sequence_len) {
+  int row = blockIdx.x;
+  int col = threadIdx.x;
+  int offset = row * ev_size + col;
+  float log_result = __logf(10000) / (ev_size);
+  float exp_result = __expf(((col >> 1) << 1) * -1 * log_result);
+
+  if (col < ev_size) {
+    output[offset] = (col % 2) ? (T)__cosf(exp_result * row) : (T)__sinf(exp_result * row);
+  }
+}
+
+template <>
+void SinusoidalGenerator::fill<float>(float* ptr, size_t num_elements, int ev_size,
+                                      int max_sequence_len, size_t sm_count,
+                                      const cudaStream_t& stream) {
+  sinusoidal_kernel<<<max_sequence_len, max(32, ev_size), 0, stream>>>(ptr, ev_size,
+                                                                       max_sequence_len);
+}
+
 template <>
 void UniformGenerator::fill<float>(Tensor2<float>& tensor, float a, float b, size_t sm_count,
                                    const curandGenerator_t& generator, const cudaStream_t& stream) {

@@ -28,7 +28,7 @@ class EmbeddingTableConfig {
 
   EmbeddingTableConfig(int table_id, int max_vocabulary_size, int ev_size, int64_t min_key,
                        int64_t max_key, std::optional<OptParams> opt_params) {
-    param_.id_space = table_id;  // TODO: make them consistent
+    param_.table_id = table_id;  // TODO: make them consistent
     param_.max_vocabulary_size = max_vocabulary_size;
     param_.ev_size = ev_size;
     param_.min_key = min_key;
@@ -39,6 +39,7 @@ class EmbeddingTableConfig {
     } else {
       param_.opt_param.optimizer = Optimizer_t::NOT_INITIALIZED;
     }
+    param_.init_param.initializer_type = HugeCTR::Initializer_t::Default;
   }
 };
 
@@ -77,7 +78,7 @@ class EmbeddingPlanner {
                         const std::string &combiner) {
     embedding::EmbeddingParam emb_param;
     emb_param.embedding_id = param_.size();
-    emb_param.id_space = emb_table_config.param_.id_space;  // TODO: change to table_id
+    emb_param.id_space = emb_table_config.param_.table_id;  // TODO: change to table_id
     if (combiner == "concat") {
       emb_param.combiner = embedding::Combiner::Concat;
     } else if (combiner == "sum") {
@@ -92,8 +93,8 @@ class EmbeddingPlanner {
     param_.push_back(std::move(emb_param));
     bottom_names_.push_back(bottom_name);
     top_names_.push_back(top_name);
-    if (emb_table_id_set_.find(emb_table_config.param_.id_space) == emb_table_id_set_.end()) {
-      emb_table_id_set_.insert(emb_table_config.param_.id_space);
+    if (emb_table_id_set_.find(emb_table_config.param_.table_id) == emb_table_id_set_.end()) {
+      emb_table_id_set_.insert(emb_table_config.param_.table_id);
       emb_table_config_list_.push_back(emb_table_config);
     }
   }
@@ -101,7 +102,7 @@ class EmbeddingPlanner {
   EmbeddingCollectionPlaceholder create_embedding_collection(const std::string &plan_file) {
     std::sort(emb_table_config_list_.begin(), emb_table_config_list_.end(),
               [](const EmbeddingTableConfig &lhs, const EmbeddingTableConfig &rhs) {
-                return lhs.param_.id_space < rhs.param_.id_space;
+                return lhs.param_.table_id < rhs.param_.table_id;
               });
     return EmbeddingCollectionPlaceholder(plan_file, param_, bottom_names_, top_names_,
                                           emb_table_config_list_);

@@ -104,13 +104,13 @@ void UniformLocalizedEmbeddingForward::forward_per_gpu(
   compress_offset_.compute(model_offsets, batch_size, &id_space_offset);
 
   Tensor unique_key, unique_dst_idx, sorted_bucket_id_list, sorted_bucket_id_offset,
-      unique_id_space_list, unique_id_space_offset;
+      unique_id_space_list, unique_id_space_offset, coordinate_key, coordinate_wgrad_dst_idx;
   size_t num_unique_key;
   model_backward_index_calculation_.compute(
       model_key, num_model_key, model_offsets, id_space_offset,
       local_embedding_data_.d_local_id_space_list_, batch_size, &unique_key, &num_unique_key,
       &unique_dst_idx, &sorted_bucket_id_list, &sorted_bucket_id_offset, &unique_id_space_list,
-      &unique_id_space_offset);
+      &unique_id_space_offset, &coordinate_key, &coordinate_wgrad_dst_idx);
 
   embedding_table->lookup(model_key, num_model_key, id_space_offset,
                           local_embedding_data_.num_local_embedding_ + 1,
@@ -130,17 +130,18 @@ void UniformLocalizedEmbeddingForward::forward_per_gpu(
                 static_cast<char>(Combiner::Average)) ==
       local_embedding_data_.h_network_combiner_list_.end()) {
     network_forward_.compute(
-        ragged_network_buffer_.network_comm_buffer_, ragged_network_index_.gpu_idx_offset_,
-        ragged_network_index_.global_ev_offset_, ragged_network_index_.network_idx_,
-        ragged_network_index_.network_offset_, ragged_network_index_.network_dst_, output_buffer,
+        ragged_network_buffer_.network_comm_buffer_, ragged_network_index_.network_ids_,
+        ragged_network_index_.network_gpu_ids_, ragged_network_index_.network_offsets_,
+        ragged_network_index_.network_dst_lookup_ids_, ragged_network_index_.network_ev_sizes_,
+        ragged_network_index_.network_ev_offsets_, output_buffer,
         global_embedding_data_.d_ev_size_offset_, batch_size, global_embedding_data_.max_ev_size_);
   } else {
     network_forward_.compute(
-        ragged_network_buffer_.network_comm_buffer_, ragged_network_index_.gpu_idx_offset_,
-        ragged_network_index_.global_ev_offset_, ragged_network_index_.network_idx_,
-        ragged_network_index_.network_offset_, ragged_network_index_.network_dst_,
-        average_combiner_.float_emb_vec_, global_embedding_data_.d_ev_size_offset_, batch_size,
-        global_embedding_data_.max_ev_size_);
+        ragged_network_buffer_.network_comm_buffer_, ragged_network_index_.network_ids_,
+        ragged_network_index_.network_gpu_ids_, ragged_network_index_.network_offsets_,
+        ragged_network_index_.network_dst_lookup_ids_, ragged_network_index_.network_ev_sizes_,
+        ragged_network_index_.network_ev_offsets_, average_combiner_.float_emb_vec_,
+        global_embedding_data_.d_ev_size_offset_, batch_size, global_embedding_data_.max_ev_size_);
     average_combiner_.forward(
         bucket_range, output_buffer, local_embedding_data_.d_network_embedding_list_,
         global_embedding_data_.d_combiner_list_, global_embedding_data_.d_ev_size_offset_,
@@ -162,6 +163,8 @@ void UniformLocalizedEmbeddingForward::forward_per_gpu(
   context_container->pack("sorted_bucket_id_offset", sorted_bucket_id_offset);
   context_container->pack("unique_id_space_list", unique_id_space_list);
   context_container->pack("unique_id_space_offset", unique_id_space_offset);
+  context_container->pack("coordinate_key", coordinate_key);
+  context_container->pack("coordinate_wgrad_dst_idx", coordinate_wgrad_dst_idx);
   context_container->pack("model_comm_buffer", model_comm_buffer_);
   context_container->pack("model_comm_buffer_size", model_comm_buffer_size);
   context_container->pack("model_comm_buffer_list", model_comm_buffer_list_);
@@ -184,7 +187,8 @@ UniformLocalizedEmbeddingBackward::UniformLocalizedEmbeddingBackward(
   model_backward_ =
       ModelBackward(core, num_gpus, local_embedding_data_.num_local_embedding_,
                     local_embedding_data_.h_local_hotness_list_,
-                    local_embedding_data_.h_local_ev_size_list_, params.universal_batch_size);
+                    local_embedding_data_.h_local_ev_size_list_, params.universal_batch_size,
+                    local_embedding_data_.max_ev_size_, global_embedding_data_.num_sms_);
   if (std::find(local_embedding_data_.h_network_combiner_list_.begin(),
                 local_embedding_data_.h_network_combiner_list_.end(),
                 static_cast<char>(Combiner::Average)) !=
@@ -214,6 +218,7 @@ void UniformLocalizedEmbeddingBackward::backward_per_gpu(ContextContainer *conte
       context_container->unpack<RaggedNetworkBuffer>("ragged_network_buffer");
 
   auto batch_size = context_container->unpack<int>("batch_size");
+  size_t num_model_key = context_container->unpack<size_t>("num_model_key");
 
   if (std::find(local_embedding_data_.h_network_combiner_list_.begin(),
                 local_embedding_data_.h_network_combiner_list_.end(),
@@ -224,18 +229,18 @@ void UniformLocalizedEmbeddingBackward::backward_per_gpu(ContextContainer *conte
         global_embedding_data_.d_combiner_list_, global_embedding_data_.d_ev_size_offset_,
         batch_size, global_embedding_data_.max_ev_size_);
     network_backward_.compute(
-        average_combiner_.float_emb_vec_, global_embedding_data_.d_ev_size_offset_,
-        ragged_network_index.gpu_idx_offset_, ragged_network_index.global_ev_offset_,
-        ragged_network_index.network_idx_, ragged_network_index.network_offset_,
-        ragged_network_index.network_dst_, ragged_network_buffer.network_comm_buffer_, batch_size,
-        global_embedding_data_.max_ev_size_);
+        average_combiner_.float_emb_vec_, ragged_network_index.network_ids_,
+        ragged_network_index.network_gpu_ids_, ragged_network_index.network_offsets_,
+        ragged_network_index.network_dst_lookup_ids_, ragged_network_index.network_ev_sizes_,
+        ragged_network_index.network_ev_offsets_, ragged_network_buffer.network_comm_buffer_,
+        global_embedding_data_.d_ev_size_offset_, batch_size, global_embedding_data_.max_ev_size_);
   } else {
     network_backward_.compute(
-        top_grad, global_embedding_data_.d_ev_size_offset_, ragged_network_index.gpu_idx_offset_,
-        ragged_network_index.global_ev_offset_, ragged_network_index.network_idx_,
-        ragged_network_index.network_offset_, ragged_network_index.network_dst_,
-        ragged_network_buffer.network_comm_buffer_, batch_size,
-        global_embedding_data_.max_ev_size_);
+        top_grad, ragged_network_index.network_ids_, ragged_network_index.network_gpu_ids_,
+        ragged_network_index.network_offsets_, ragged_network_index.network_dst_lookup_ids_,
+        ragged_network_index.network_ev_sizes_, ragged_network_index.network_ev_offsets_,
+        ragged_network_buffer.network_comm_buffer_, global_embedding_data_.d_ev_size_offset_,
+        batch_size, global_embedding_data_.max_ev_size_);
   }
 
   all2all_comm_.communicate(ragged_network_buffer.network_comm_buffer_list_,
@@ -248,10 +253,12 @@ void UniformLocalizedEmbeddingBackward::backward_per_gpu(ContextContainer *conte
   auto sorted_bucket_id_list = context_container->unpack<Tensor>("sorted_bucket_id_list");
   auto sorted_bucket_id_offset = context_container->unpack<Tensor>("sorted_bucket_id_offset");
   *unique_dst_idx = context_container->unpack<Tensor>("unique_dst_idx");
+  Tensor coordinate_key = context_container->unpack<Tensor>("coordinate_key");
+  Tensor coordinate_wgrad_dst_idx = context_container->unpack<Tensor>("coordinate_wgrad_dst_idx");
 
   model_backward_.compute(model_comm_buffer, *unique_dst_idx, sorted_bucket_id_list,
-                          sorted_bucket_id_offset, *num_unique_key,
-                          local_embedding_data_.d_local_ev_size_offset_, batch_size,
-                          local_embedding_data_.max_ev_size_, grad_ev);
+                          sorted_bucket_id_offset, *num_unique_key, coordinate_key,
+                          coordinate_wgrad_dst_idx, local_embedding_data_.d_local_ev_size_offset_,
+                          batch_size, local_embedding_data_.max_ev_size_, num_model_key, grad_ev);
 }
 }  // namespace embedding

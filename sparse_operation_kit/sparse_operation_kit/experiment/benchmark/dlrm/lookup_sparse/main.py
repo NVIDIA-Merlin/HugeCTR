@@ -1,12 +1,12 @@
 """
  Copyright (c) 2022, NVIDIA CORPORATION.
- 
+
  Licensed under the Apache License, Version 2.0 (the "License");
  you may not use this file except in compliance with the License.
  You may obtain a copy of the License at
- 
+
      http://www.apache.org/licenses/LICENSE-2.0
- 
+
  Unless required by applicable law or agreed to in writing, software
  distributed under the License is distributed on an "AS IS" BASIS,
  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -36,6 +36,7 @@ parser.add_argument(
     action="store_true",
     help="use tf.unique/tf.gather to compress/decompress embedding keys",
 )
+parser.add_argument("--localized", action="store_true", help="use localized mode")
 parser.add_argument("--custom_interact", action="store_true", help="use custom interact op")
 parser.add_argument(
     "--eval_in_last", action="store_true", help="evaluate only after the last iteration"
@@ -77,6 +78,16 @@ if __name__ == "__main__":
         metadata = json.load(f)
     print(metadata)
 
+    if args.localized:
+        localized_gpu = []
+        s = 0
+        for i in range(len(metadata["vocab_sizes"])):
+            localized_gpu.append(i % hvd.size())
+            if i % hvd.size() == hvd.rank():
+                s += metadata["vocab_sizes"][i]
+        print("[Info] total vocab size: %d" % s)
+    else:
+        localized_gpu = None
     model = DLRM(
         metadata["vocab_sizes"],
         num_dense_features=13,
@@ -86,6 +97,7 @@ if __name__ == "__main__":
         num_gpus=hvd.size(),
         use_cuda_interact=args.custom_interact,
         compress=args.compress,
+        localized=localized_gpu,
     )
 
     print("[Info] Using dataset in %s" % args.data_dir)

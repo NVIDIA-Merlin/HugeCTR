@@ -89,6 +89,8 @@ EmbeddingCache<TypeHashKey>::EmbeddingCache(const InferenceParams& inference_par
            inference_params.number_of_worker_buffers_in_pool);
   HCTR_LOG(INFO, ROOT, "The size of refresh memory pool: %u\n",
            inference_params.number_of_refresh_buffers_in_pool);
+  HCTR_LOG(INFO, ROOT, "The refresh percentage : %f\n",
+           inference_params.cache_refresh_percentage_per_iteration);
 
   // Store the configuration
   cache_config_.num_emb_table_ = inference_params.sparse_model_files.size();
@@ -316,6 +318,21 @@ void EmbeddingCache<TypeHashKey>::insert(const size_t table_id,
 }
 
 template <typename TypeHashKey>
+void EmbeddingCache<TypeHashKey>::init(const size_t table_id,
+                                       EmbeddingCacheRefreshspace& refeshspace_handler,
+                                       cudaStream_t stream) {
+  // If GPU embedding cache is enabled
+  if (cache_config_.use_gpu_embedding_cache_) {
+    // Swap device.
+    CudaDeviceContext dev_restorer;
+    HCTR_LIB_THROW(cudaSetDevice(cache_config_.cuda_dev_id_));
+    gpu_emb_caches_[table_id]->Replace(
+        static_cast<TypeHashKey*>(refeshspace_handler.d_refresh_embeddingcolumns_),
+        *refeshspace_handler.h_length_, refeshspace_handler.d_refresh_emb_vec_, stream);
+  }
+}
+
+template <typename TypeHashKey>
 void EmbeddingCache<TypeHashKey>::dump(const size_t table_id, void* const d_keys,
                                        size_t* const d_length, const size_t start_index,
                                        const size_t end_index, cudaStream_t stream) {
@@ -521,9 +538,9 @@ EmbeddingCacheRefreshspace EmbeddingCache<TypeHashKey>::create_refreshspace() {
                                                cache_config_.num_set_in_cache_.end());
     const int max_embedding_size = *max_element(cache_config_.embedding_vec_size_.begin(),
                                                 cache_config_.embedding_vec_size_.end());
-    const size_t max_num_keys_set = (SLAB_SIZE * SET_ASSOCIATIVITY) * max_num_cache_set;
+    const size_t max_num_keys = (SLAB_SIZE * SET_ASSOCIATIVITY) * max_num_cache_set;
     const size_t max_num_key_in_buffer =
-        cache_config_.cache_refresh_percentage_per_iteration * max_num_keys_set;
+        cache_config_.cache_refresh_percentage_per_iteration * max_num_keys;
     cache_config_.num_set_in_refresh_workspace_ =
         (max_num_key_in_buffer + SLAB_SIZE * SET_ASSOCIATIVITY - 1) /
         (SLAB_SIZE * SET_ASSOCIATIVITY);

@@ -16,6 +16,8 @@ subtrees:
           - file: hierarchical_parameter_server/hps_tf_user_guide.md
             title: HPS Plugin for TensorFlow
             entries:
+              - file: hierarchical_parameter_server/hps_tf_benchmark.md
+                title: Benchmark            
               - file: hierarchical_parameter_server/notebooks/index.md
                 title: Notebooks
                 entries:

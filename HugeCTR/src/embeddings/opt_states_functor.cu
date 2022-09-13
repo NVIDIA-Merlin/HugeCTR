@@ -111,14 +111,15 @@ void SparseEmbeddingFunctors::dump_opt_states(
     if (resource_manager.is_master_process()) {
       HCTR_LOG_S(INFO, WORLD) << "Rank" << pid << ": Write optimzer state to file" << std::endl;
       if (data_source_params.type == DataSourceType_t::HDFS) {
-        HdfsService hs = HdfsService(data_source_params.server, data_source_params.port);
+        auto hs = data_source_params.create_unique();
         if (!hdfs_append_flag) {
-          hs.write(write_path, h_opt_state.get(), total_size, true);
+          hs->write(write_path, h_opt_state.get(), total_size, true);
           hdfs_append_flag = true;
         } else {
-          hs.write(write_path, h_opt_state.get(), total_size, false);
+          hs->write(write_path, h_opt_state.get(), total_size, false);
         }
       } else if (data_source_params.type == DataSourceType_t::Local) {
+        // TODO: Move to self-contained DataSourceBackend implementation.
         stream.write(h_opt_state.get(), total_size);
       } else {
         HCTR_OWN_THROW(Error_t::WrongInput, "Filesystem not supported yet.");
@@ -145,14 +146,15 @@ void SparseEmbeddingFunctors::dump_opt_states(
         HCTR_MPI_THROW(MPI_Recv(h_opt_state.get(), recv_size, MPI_CHAR, r, tag, MPI_COMM_WORLD,
                                 MPI_STATUS_IGNORE));
         if (data_source_params.type == DataSourceType_t::HDFS) {
-          HdfsService hs = HdfsService(data_source_params.server, data_source_params.port);
+          auto hs = data_source_params.create_unique();
           if (!hdfs_append_flag) {
-            hs.write(write_path, h_opt_state.get(), recv_size, true);
+            hs->write(write_path, h_opt_state.get(), recv_size, true);
             hdfs_append_flag = true;
           } else {
-            hs.write(write_path, h_opt_state.get(), recv_size, false);
+            hs->write(write_path, h_opt_state.get(), recv_size, false);
           }
         } else if (data_source_params.type == DataSourceType_t::Local) {
+          // TODO: Move to self-contained DataSourceBackend implementation.
           stream.write(h_opt_state.get(), recv_size);
         } else {
           HCTR_OWN_THROW(Error_t::WrongInput, "Filesystem not supported yet.");
@@ -211,10 +213,11 @@ void SparseEmbeddingFunctors::load_opt_states(std::ifstream& stream, std::string
       std::unique_ptr<char[]> h_opt_state(new char[max_size]);
       HCTR_LOG_S(INFO, WORLD) << "Rank" << pid << ": Read optimzer state from file" << std::endl;
       if (data_source_params.type == DataSourceType_t::HDFS) {
-        HdfsService hs(data_source_params.server, data_source_params.port);
-        hs.read(read_path, h_opt_state.get(), total_size, hdfs_cursor);
+        auto hs = data_source_params.create_unique();
+        hs->read(read_path, h_opt_state.get(), total_size, hdfs_cursor);
         hdfs_cursor += total_size;
       } else if (data_source_params.type == DataSourceType_t::Local) {
+        // TODO: Move to self-contained DataSourceBackend implementation.
         size_t cur_pos = stream.tellg();
         stream.seekg(0, stream.end);
         size_t remaining_file_size = stream.tellg() - cur_pos;
@@ -236,10 +239,11 @@ void SparseEmbeddingFunctors::load_opt_states(std::ifstream& stream, std::string
         HCTR_LOG_S(INFO, WORLD) << "Rank" << pid << ": Read from file"
                                 << ", and send optimzer state to rank" << r << std::endl;
         if (data_source_params.type == DataSourceType_t::HDFS) {
-          HdfsService hs(data_source_params.server, data_source_params.port);
-          hs.read(read_path, h_opt_state.get(), proc_sizes[r], hdfs_cursor);
+          auto hs = data_source_params.create_unique();
+          hs->read(read_path, h_opt_state.get(), proc_sizes[r], hdfs_cursor);
           hdfs_cursor += proc_sizes[r];
         } else if (data_source_params.type == DataSourceType_t::Local) {
+          // TODO: Move to self-contained DataSourceBackend implementation.
           stream.read(h_opt_state.get(), proc_sizes[r]);
         } else {
           HCTR_OWN_THROW(Error_t::WrongInput, "Filesystem not supported yet.");
@@ -263,10 +267,11 @@ void SparseEmbeddingFunctors::load_opt_states(std::ifstream& stream, std::string
       HCTR_MPI_THROW(MPI_Get_count(&status, MPI_CHAR, &recv_size));
       std::unique_ptr<char[]> h_opt_state(new char[recv_size]);
       if (data_source_params.type == DataSourceType_t::HDFS) {
-        HdfsService hs(data_source_params.server, data_source_params.port);
-        hs.read(read_path, h_opt_state.get(), recv_size, hdfs_cursor);
+        auto hs = data_source_params.create_unique();
+        hs->read(read_path, h_opt_state.get(), recv_size, hdfs_cursor);
         hdfs_cursor += recv_size;
       } else if (data_source_params.type == DataSourceType_t::Local) {
+        // TODO: Move to self-contained DataSourceBackend implementation.
         stream.read(h_opt_state.get(), recv_size);
       } else {
         HCTR_OWN_THROW(Error_t::WrongInput, "Filesystem not supported yet.");

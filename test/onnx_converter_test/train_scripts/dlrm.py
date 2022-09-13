@@ -107,10 +107,10 @@ model.add(
         layer_type=hugectr.Layer_t.BatchNorm,
         bottom_names=["fc5"],
         top_names=["bn5"],
-        factor = 1.0,
-        eps = 0.00001,
-        gamma_init_type = hugectr.Initializer_t.XavierUniform,
-        beta_init_type = hugectr.Initializer_t.XavierUniform
+        factor=1.0,
+        eps=0.00001,
+        gamma_init_type=hugectr.Initializer_t.XavierUniform,
+        beta_init_type=hugectr.Initializer_t.XavierUniform,
     )
 )
 model.add(
@@ -129,10 +129,10 @@ model.add(
         layer_type=hugectr.Layer_t.BatchNorm,
         bottom_names=["fc6"],
         top_names=["bn6"],
-        factor = 1.0,
-        eps = 0.00001,
-        gamma_init_type = hugectr.Initializer_t.XavierUniform,
-        beta_init_type = hugectr.Initializer_t.XavierUniform
+        factor=1.0,
+        eps=0.00001,
+        gamma_init_type=hugectr.Initializer_t.XavierUniform,
+        beta_init_type=hugectr.Initializer_t.XavierUniform,
     )
 )
 model.add(
@@ -151,10 +151,10 @@ model.add(
         layer_type=hugectr.Layer_t.BatchNorm,
         bottom_names=["fc7"],
         top_names=["bn7"],
-        factor = 1.0,
-        eps = 0.00001,
-        gamma_init_type = hugectr.Initializer_t.XavierUniform,
-        beta_init_type = hugectr.Initializer_t.XavierUniform
+        factor=1.0,
+        eps=0.00001,
+        gamma_init_type=hugectr.Initializer_t.XavierUniform,
+        beta_init_type=hugectr.Initializer_t.XavierUniform,
     )
 )
 model.add(

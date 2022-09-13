@@ -83,7 +83,7 @@ class InfrequentUpdateTest : public HybridEmbeddingUnitTest<dtype, emtype> {
     for (size_t i = 0; i < this->num_instances; i++) {
       if (this->config.comm_type == CommunicationType::NVLink_SingleNode) {
         this->infrequent_embeddings_single_node[i].set_current_indices(
-            &this->infrequent_embedding_indices[i], this->stream);
+            &this->infrequent_embedding_indices[i]);
         upload_tensor(cpu_embedding.infrequent_embedding_vectors[i],
                       this->infrequent_embeddings_single_node[i].infrequent_embedding_vectors_,
                       this->stream);
@@ -105,7 +105,7 @@ class InfrequentUpdateTest : public HybridEmbeddingUnitTest<dtype, emtype> {
       }
       if (this->config.comm_type == CommunicationType::IB_NVLink) {
         this->infrequent_embeddings_ib_nvlink[i].set_current_indices(
-            &this->infrequent_embedding_indices[i], this->stream);
+            &this->infrequent_embedding_indices[i]);
         upload_tensor(cpu_embedding.infrequent_embedding_vectors[i],
                       this->infrequent_embeddings_ib_nvlink[i].infrequent_embedding_vectors_,
                       this->stream);
@@ -122,7 +122,7 @@ class InfrequentUpdateTest : public HybridEmbeddingUnitTest<dtype, emtype> {
       }
       if (this->config.comm_type == CommunicationType::IB_NVLink_Hier) {
         this->infrequent_embeddings_ib_nvlink_hier[i].set_current_indices(
-            &this->infrequent_embedding_indices[i], this->stream);
+            &this->infrequent_embedding_indices[i]);
         upload_tensor(cpu_embedding.infrequent_embedding_vectors[i],
                       this->infrequent_embeddings_ib_nvlink_hier[i].infrequent_embedding_vectors_,
                       this->stream);
@@ -195,8 +195,7 @@ class FrequentUpdateTest : public HybridEmbeddingUnitTest<dtype, emtype> {
     std::vector<std::vector<float>> updated_vectors(this->num_instances);
     std::vector<const emtype *> frequent_partial_gradients_pointers(this->num_instances);
     for (size_t i = 0; i < this->num_instances; i++) {
-      this->get_frequent_embedding(i).set_current_indices(&this->frequent_embedding_indices[i],
-                                                          this->stream);
+      this->get_frequent_embedding(i).set_current_indices(&this->frequent_embedding_indices[i]);
       upload_tensor(cpu_embedding.frequent_embedding_vectors[i],
                     this->get_frequent_embedding_data(i).frequent_embedding_vectors_, this->stream);
       if (single_node) {

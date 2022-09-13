@@ -26,23 +26,10 @@ namespace HugeCTR {
 template <typename T>
 Regularizer<T>::Regularizer(const Tensor2<float>& weight_buff, const Tensor2<T>& wgrad_buff,
                             const int batch_size, const std::shared_ptr<GPUResource>& gpu_resource)
-    : overlapped_(false),
-      weight_buff_(weight_buff),
+    : weight_buff_(weight_buff),
       wgrad_buff_(wgrad_buff),
       batch_size_(batch_size),
-      gpu_resource_(gpu_resource) {
-  CudaDeviceContext context(get_device_id());
-  HCTR_LIB_THROW(cudaEventCreateWithFlags(&fork_event_, cudaEventDisableTiming));
-  HCTR_LIB_THROW(cudaEventCreateWithFlags(&join_event_, cudaEventDisableTiming));
-  HCTR_LIB_THROW(cudaStreamCreateWithFlags(&reg_stream_, cudaStreamNonBlocking));
-}
-
-template <typename T>
-Regularizer<T>::~Regularizer() {
-  HCTR_LIB_THROW(cudaEventDestroy(fork_event_));
-  HCTR_LIB_THROW(cudaEventDestroy(join_event_));
-  HCTR_LIB_THROW(cudaStreamDestroy(reg_stream_));
-}
+      gpu_resource_(gpu_resource) {}
 
 template <typename T>
 void Regularizer<T>::compute_rterm() {
@@ -69,27 +56,6 @@ void Regularizer<T>::initialize_wgrad() {
   cudaDeviceSynchronize();
   HCTR_LIB_THROW(cudaGetLastError());
 #endif
-}
-
-template <typename T>
-void Regularizer<T>::initialize_wgrad_async() {
-  CudaDeviceContext context(get_device_id());
-  const float* weight = weight_buff_.get_ptr();
-  T* wgrad = wgrad_buff_.get_ptr();
-  HCTR_LIB_THROW(cudaEventRecord(fork_event_, get_gpu().get_stream()));
-  HCTR_LIB_THROW(cudaStreamWaitEvent(reg_stream_, fork_event_));
-  do_initialize_wgrad(weight, wgrad, weight_buff_.get_num_elements(), reg_stream_);
-  HCTR_LIB_THROW(cudaEventRecord(join_event_, reg_stream_));
-
-#ifndef NDEBUG
-  cudaDeviceSynchronize();
-  HCTR_LIB_THROW(cudaGetLastError());
-#endif
-}
-
-template <typename T>
-void Regularizer<T>::join_initialize_wgrad() {
-  HCTR_LIB_THROW(cudaStreamWaitEvent(get_gpu().get_stream(), join_event_));
 }
 
 template class Regularizer<float>;

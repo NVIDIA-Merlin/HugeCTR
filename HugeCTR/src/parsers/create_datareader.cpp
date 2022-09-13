@@ -151,8 +151,9 @@ void create_datareader<TypeKey>::operator()(
     sparse_input_map.emplace(sparse_name, sparse_input);
   }
 
+  // For Norm, there should be only one worker to ensure the correct prediction order
   const int num_workers =
-      data_reader_type == DataReaderType_t::Parquet ? resource_manager->get_local_gpu_count() : 12;
+      data_reader_type == DataReaderType_t::Parquet ? resource_manager->get_local_gpu_count() : 1;
   HCTR_LOG_S(INFO, ROOT) << "num of DataReader workers: " << num_workers << std::endl;
 
   DataReader<TypeKey>* data_reader_tk = new DataReader<TypeKey>(

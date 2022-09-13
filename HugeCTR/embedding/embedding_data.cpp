@@ -34,7 +34,16 @@ GlobalEmbeddingData::GlobalEmbeddingData(std::shared_ptr<CoreResourceManager> co
                    std::back_inserter(h_ev_size_offset_));
 
   num_hotness_ = std::accumulate(h_hotness_list_.begin(), h_hotness_list_.end(), 0);
-  max_ev_size_ = *std::max_element(h_ev_size_list_.begin(), h_ev_size_list_.end());
+  max_ev_size_ = h_ev_size_list_.size() > 0
+                     ? *std::max_element(h_ev_size_list_.begin(), h_ev_size_list_.end())
+                     : 0;
+
+  // cudaDeviceProp device_prop;
+  // cudaGetDeviceProperties(&device_prop, 0);
+  // num_sms_ = device_prop.multiProcessorCount;
+  // FIX: cudaGetDeviceProperties get ,cost too much time, need remove it to the start of program ,
+  // not use per iteration,for now fix the num_sms_
+  num_sms_ = 108;
 
   // init device bufffer
   auto buffer_ptr = GetBuffer(core_);
@@ -76,7 +85,9 @@ LocalEmbeddingData::LocalEmbeddingData(std::shared_ptr<CoreResourceManager> core
   }
   std::partial_sum(h_local_ev_size_list_.begin(), h_local_ev_size_list_.end(),
                    std::back_inserter(h_local_ev_size_offset_));
-  max_ev_size_ = *std::max_element(h_local_ev_size_list_.begin(), h_local_ev_size_list_.end());
+  max_ev_size_ = h_local_ev_size_list_.size() > 0
+                     ? *std::max_element(h_local_ev_size_list_.begin(), h_local_ev_size_list_.end())
+                     : 0;
 
   num_local_hotness_ =
       std::accumulate(h_local_hotness_list_.begin(), h_local_hotness_list_.end(), 0);
@@ -159,7 +170,9 @@ LocalEmbeddingData::LocalEmbeddingData(std::shared_ptr<CoreResourceManager> core
   }
   std::partial_sum(h_local_ev_size_list_.begin(), h_local_ev_size_list_.end(),
                    std::back_inserter(h_local_ev_size_offset_));
-  max_ev_size_ = *std::max_element(h_local_ev_size_list_.begin(), h_local_ev_size_list_.end());
+  max_ev_size_ = h_local_ev_size_list_.size() > 0
+                     ? *std::max_element(h_local_ev_size_list_.begin(), h_local_ev_size_list_.end())
+                     : 0;
 
   h_global_embedding_list_.resize(global_gpu_count);
   for (size_t gpu_id = 0; gpu_id < global_gpu_count; ++gpu_id) {

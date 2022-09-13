@@ -28,6 +28,8 @@
 #include <utility>
 #include <vector>
 
+#include "pipeline.hpp"
+
 namespace HugeCTR {
 
 class InferenceSession : public InferenceSessionBase {
@@ -48,6 +50,8 @@ class InferenceSession : public InferenceSessionBase {
   int* h_row_ptrs_;
   void* h_keys_;
   float* d_embedding_vectors_;
+
+  Pipeline predict_network_pipeline_;
 
  protected:
   InferenceParser inference_parser_;

@@ -23,20 +23,20 @@
 #include "HugeCTR/core/hctr_impl/hctr_backend.hpp"
 #include "HugeCTR/embedding/embedding.hpp"
 #include "HugeCTR/embedding/embedding_planner.hpp"
+#include "HugeCTR/embedding_storage/common.hpp"
 #include "HugeCTR/include/resource_managers/resource_manager_ext.hpp"
 #include "embedding_collection_cpu.hpp"
 #include "embedding_collection_utils.hpp"
 using namespace embedding;
 
-std::vector<EmbeddingTableParam> get_table_param_list(int num_table,
-                                                      const std::vector<int> &table_ev_size_list,
-                                                      const std::vector<int> &table_min_key_list,
-                                                      const std::vector<int> &table_max_key_list,
-                                                      core::DataType emb_type) {
+std::vector<EmbeddingTableParam> get_table_param_list(
+    int num_table, const std::vector<int> &table_ev_size_list,
+    const std::vector<int> &table_min_key_list, const std::vector<int> &table_max_key_list,
+    const std::vector<EmbeddingTableInitParams> init_param_list, core::DataType emb_type) {
   std::vector<EmbeddingTableParam> table_param_list;
   for (int id = 0; id < num_table; ++id) {
     EmbeddingTableParam table_param;
-    table_param.id_space = id;
+    table_param.table_id = id;
     table_param.max_vocabulary_size = 5;
     table_param.ev_size = table_ev_size_list[id];
     table_param.min_key = table_min_key_list[id];
@@ -46,6 +46,11 @@ std::vector<EmbeddingTableParam> get_table_param_list(int num_table,
     opt_param.lr = 1e-1;
     opt_param.scaler = (emb_type == TensorScalarType::Float16) ? 1024 : 1;
     table_param.opt_param = opt_param;
+    if (id < (int)init_param_list.size()) {
+      table_param.init_param = init_param_list[id];
+    } else {
+      table_param.init_param.initializer_type = HugeCTR::Initializer_t::Default;
+    }
     table_param_list.push_back(std::move(table_param));
   }
   return table_param_list;
@@ -59,6 +64,7 @@ void embedding_collection_e2e(const std::vector<int> device_list, const int &bat
                               const std::vector<Combiner> &combiner_list,
                               const std::vector<int> table_min_key_list,
                               const std::vector<int> table_max_key_list,
+                              const std::vector<EmbeddingTableInitParams> init_param_list,
                               const std::string &plan_file) {
   ASSERT_TRUE(static_cast<size_t>(num_table) == table_ev_size_list.size());
   ASSERT_TRUE(static_cast<size_t>(num_table) == table_min_key_list.size());
@@ -84,8 +90,9 @@ void embedding_collection_e2e(const std::vector<int> device_list, const int &bat
   ebc_param.index_type = HugeCTR::TensorScalarTypeFunc<index_t>::get_type();
   ebc_param.offset_type = HugeCTR::TensorScalarTypeFunc<offset_t>::get_type();
   ebc_param.emb_type = HugeCTR::TensorScalarTypeFunc<emb_t>::get_type();
-  auto table_param_list = get_table_param_list(num_table, table_ev_size_list, table_min_key_list,
-                                               table_max_key_list, ebc_param.emb_type);
+  auto table_param_list =
+      get_table_param_list(num_table, table_ev_size_list, table_min_key_list, table_max_key_list,
+                           init_param_list, ebc_param.emb_type);
 
   auto resource_manager = HugeCTR::ResourceManagerExt::create({device_list}, 0);
   int num_gpus = static_cast<int>(device_list.size());
@@ -142,7 +149,7 @@ void embedding_collection_e2e(const std::vector<int> device_list, const int &bat
   planner.generate_embedding_plan_from_json_file(plan_file);
 
   std::vector<std::shared_ptr<core::CoreResourceManager>> core_resource_manager_list;
-  std::vector<std::vector<std::unique_ptr<IEmbeddingTable>>> table_major_ebc_table_list;
+  std::vector<std::vector<std::unique_ptr<IGroupedEmbeddingTable>>> table_major_ebc_table_list;
   std::vector<std::unique_ptr<IEmbeddingCollectionForward>> ebc_forward_list;
   std::vector<std::unique_ptr<IEmbeddingCollectionBackward>> ebc_backward_list;
   std::vector<std::shared_ptr<core::CoreResourceManager>> core_list;
@@ -243,9 +250,9 @@ void embedding_collection_e2e(const std::vector<int> device_list, const int &bat
   // sync for emb table init
   sync_gpus();
 
-  std::vector<std::vector<IEmbeddingTable *>> table_major_ebc_table_ptr_list;
+  std::vector<std::vector<IGroupedEmbeddingTable *>> table_major_ebc_table_ptr_list;
   for (size_t i = 0; i < table_major_ebc_table_list.size(); ++i) {
-    std::vector<IEmbeddingTable *> local_ebc_table_ptr_list;
+    std::vector<IGroupedEmbeddingTable *> local_ebc_table_ptr_list;
     for (int gpu_id = 0; gpu_id < num_gpus; ++gpu_id) {
       local_ebc_table_ptr_list.push_back(table_major_ebc_table_list[i][gpu_id].get());
     }
@@ -1013,75 +1020,91 @@ const std::vector<int> hotness_list = {8, 20, 10, 5, 8};
 const std::vector<Combiner> combiner_list = {Combiner::Sum, Combiner::Sum, Combiner::Sum,
                                              Combiner::Sum, Combiner::Sum};
 const std::vector<int> table_min_key_list = {0, 0, 0, 0, 0};
-const std::vector<int> table_max_key_list = {100, 100, 100, 100, 100};
+const std::vector<int> table_max_key_list = {100, 100, 500, 1000, 2000};
+EmbeddingTableInitParams init_param_default = {HugeCTR::Initializer_t::Default, UniformParams{0.0f},
+                                               SinusoidalParams{0, 0}};
+EmbeddingTableInitParams init_param_uniform = {HugeCTR::Initializer_t::Uniform, UniformParams{1.0f},
+                                               SinusoidalParams{0, 0}};
+EmbeddingTableInitParams init_param_sinus1 = {HugeCTR::Initializer_t::Sinusoidal,
+                                              UniformParams{0.0f}, SinusoidalParams{64, 500}};
+EmbeddingTableInitParams init_param_sinus2 = {HugeCTR::Initializer_t::Sinusoidal,
+                                              UniformParams{0.0f}, SinusoidalParams{16, 1000}};
+EmbeddingTableInitParams init_param_sinus3 = {HugeCTR::Initializer_t::Sinusoidal,
+                                              UniformParams{0.0f}, SinusoidalParams{8, 2000}};
+const std::vector<EmbeddingTableInitParams> init_param_list = {
+    init_param_default, init_param_default, init_param_default, init_param_default,
+    init_param_default};
+const std::vector<EmbeddingTableInitParams> dp_init_param_list = {
+    init_param_default, init_param_uniform, init_param_sinus1, init_param_sinus2,
+    init_param_sinus3};
 
 TEST(test_embedding_collection, plan_0) {
   embedding_collection_e2e<uint32_t, uint32_t, uint32_t, float>(
       gpus, batch_size, num_table, table_ev_size_list, num_embedding, id_space_list, hotness_list,
-      combiner_list, table_min_key_list, table_max_key_list,
+      combiner_list, table_min_key_list, table_max_key_list, init_param_list,
       "/workdir/test/utest/embedding_collection/plan_0.json");
 }
 
 TEST(test_embedding_collection, plan_0_i64) {
   embedding_collection_e2e<int64_t, int64_t, uint64_t, float>(
       gpus, batch_size, num_table, table_ev_size_list, num_embedding, id_space_list, hotness_list,
-      combiner_list, table_min_key_list, table_max_key_list,
+      combiner_list, table_min_key_list, table_max_key_list, init_param_list,
       "/workdir/test/utest/embedding_collection/plan_0.json");
 }
 
 TEST(test_embedding_collection, plan_0_half) {
   embedding_collection_e2e<uint32_t, uint32_t, uint32_t, __half>(
       gpus, batch_size, num_table, table_ev_size_list, num_embedding, id_space_list, hotness_list,
-      combiner_list, table_min_key_list, table_max_key_list,
+      combiner_list, table_min_key_list, table_max_key_list, init_param_list,
       "/workdir/test/utest/embedding_collection/plan_0.json");
 }
 
 TEST(test_embedding_collection, plan_0_i64_half) {
   embedding_collection_e2e<int64_t, int64_t, uint64_t, __half>(
       gpus, batch_size, num_table, table_ev_size_list, num_embedding, id_space_list, hotness_list,
-      combiner_list, table_min_key_list, table_max_key_list,
+      combiner_list, table_min_key_list, table_max_key_list, init_param_list,
       "/workdir/test/utest/embedding_collection/plan_0.json");
 }
 
 TEST(test_embedding_collection, plan_1) {
   embedding_collection_e2e<uint32_t, uint32_t, uint32_t, float>(
       gpus, batch_size, num_table, table_ev_size_list, num_embedding, id_space_list, hotness_list,
-      combiner_list, table_min_key_list, table_max_key_list,
+      combiner_list, table_min_key_list, table_max_key_list, dp_init_param_list,
       "/workdir/test/utest/embedding_collection/plan_1.json");
 }
 
 TEST(test_embedding_collection, plan_1_half) {
   embedding_collection_e2e<int32_t, uint32_t, uint32_t, __half>(
       gpus, batch_size, num_table, table_ev_size_list, num_embedding, id_space_list, hotness_list,
-      combiner_list, table_min_key_list, table_max_key_list,
+      combiner_list, table_min_key_list, table_max_key_list, dp_init_param_list,
       "/workdir/test/utest/embedding_collection/plan_1.json");
 }
 
 TEST(test_embedding_collection, plan_2) {
   embedding_collection_e2e<int32_t, uint32_t, uint32_t, float>(
       gpus, batch_size, num_table, table_ev_size_list, num_embedding, id_space_list, hotness_list,
-      combiner_list, table_min_key_list, table_max_key_list,
+      combiner_list, table_min_key_list, table_max_key_list, init_param_list,
       "/workdir/test/utest/embedding_collection/plan_2.json");
 }
 
 TEST(test_embedding_collection, plan_2_half) {
   embedding_collection_e2e<int32_t, uint32_t, uint32_t, __half>(
       gpus, batch_size, num_table, table_ev_size_list, num_embedding, id_space_list, hotness_list,
-      combiner_list, table_min_key_list, table_max_key_list,
+      combiner_list, table_min_key_list, table_max_key_list, init_param_list,
       "/workdir/test/utest/embedding_collection/plan_2.json");
 }
 
 TEST(test_embedding_collection, plan_3) {
   embedding_collection_e2e<int32_t, uint32_t, uint32_t, float>(
       gpus, batch_size, num_table, table_ev_size_list, num_embedding, id_space_list, hotness_list,
-      combiner_list, table_min_key_list, table_max_key_list,
+      combiner_list, table_min_key_list, table_max_key_list, init_param_list,
       "/workdir/test/utest/embedding_collection/plan_3.json");
 }
 
 TEST(test_embedding_collection, plan_3_half) {
   embedding_collection_e2e<int32_t, uint32_t, uint32_t, __half>(
       gpus, batch_size, num_table, table_ev_size_list, num_embedding, id_space_list, hotness_list,
-      combiner_list, table_min_key_list, table_max_key_list,
+      combiner_list, table_min_key_list, table_max_key_list, init_param_list,
       "/workdir/test/utest/embedding_collection/plan_3.json");
 }
 
@@ -1097,47 +1120,53 @@ const std::vector<int> hotness_list = {8, 20, 10, 5, 8};
 const std::vector<Combiner> combiner_list = {Combiner::Concat, Combiner::Average, Combiner::Concat,
                                              Combiner::Sum, Combiner::Sum};
 const std::vector<int> table_min_key_list = {0, 0, 0, 0, 0};
-const std::vector<int> table_max_key_list = {1000, 1000, 1000, 1000, 1000};
+const std::vector<int> table_max_key_list = {1000, 1000, 500, 1000, 2000};
+
+EmbeddingTableInitParams init_param_default = {HugeCTR::Initializer_t::Default, UniformParams{0.0f},
+                                               SinusoidalParams{0, 0}};
+const std::vector<EmbeddingTableInitParams> init_param_list = {
+    init_param_default, init_param_default, init_param_default, init_param_default,
+    init_param_default};
 
 TEST(test_embedding_collection, plan_0_concat) {
   embedding_collection_e2e<int32_t, uint32_t, uint32_t, float>(
       gpus, batch_size, num_table, table_ev_size_list, num_embedding, id_space_list, hotness_list,
-      combiner_list, table_min_key_list, table_max_key_list,
+      combiner_list, table_min_key_list, table_max_key_list, init_param_list,
       "/workdir/test/utest/embedding_collection/plan_0.json");
 }
 
 TEST(test_embedding_collection, plan_0_concat_half) {
   embedding_collection_e2e<int32_t, uint32_t, uint32_t, __half>(
       gpus, batch_size, num_table, table_ev_size_list, num_embedding, id_space_list, hotness_list,
-      combiner_list, table_min_key_list, table_max_key_list,
+      combiner_list, table_min_key_list, table_max_key_list, init_param_list,
       "/workdir/test/utest/embedding_collection/plan_0.json");
 }
 
 TEST(test_embedding_collection, plan_2_concat) {
   embedding_collection_e2e<int32_t, uint32_t, uint32_t, float>(
       gpus, batch_size, num_table, table_ev_size_list, num_embedding, id_space_list, hotness_list,
-      combiner_list, table_min_key_list, table_max_key_list,
+      combiner_list, table_min_key_list, table_max_key_list, init_param_list,
       "/workdir/test/utest/embedding_collection/plan_2.json");
 }
 
 TEST(test_embedding_collection, plan_2_concat_half) {
   embedding_collection_e2e<int32_t, uint32_t, uint32_t, __half>(
       gpus, batch_size, num_table, table_ev_size_list, num_embedding, id_space_list, hotness_list,
-      combiner_list, table_min_key_list, table_max_key_list,
+      combiner_list, table_min_key_list, table_max_key_list, init_param_list,
       "/workdir/test/utest/embedding_collection/plan_2.json");
 }
 
 TEST(test_embedding_collection, plan_3_concat) {
   embedding_collection_e2e<int32_t, uint32_t, uint32_t, float>(
       gpus, batch_size, num_table, table_ev_size_list, num_embedding, id_space_list, hotness_list,
-      combiner_list, table_min_key_list, table_max_key_list,
+      combiner_list, table_min_key_list, table_max_key_list, init_param_list,
       "/workdir/test/utest/embedding_collection/plan_3.json");
 }
 
 TEST(test_embedding_collection, plan_3_concat_half) {
   embedding_collection_e2e<int32_t, uint32_t, uint32_t, __half>(
       gpus, batch_size, num_table, table_ev_size_list, num_embedding, id_space_list, hotness_list,
-      combiner_list, table_min_key_list, table_max_key_list,
+      combiner_list, table_min_key_list, table_max_key_list, init_param_list,
       "/workdir/test/utest/embedding_collection/plan_3.json");
 }
 }  // namespace concat_combiner
@@ -1152,47 +1181,51 @@ const std::vector<int> hotness_list = {8, 20, 10, 5, 8};
 const std::vector<Combiner> combiner_list = {Combiner::Sum, Combiner::Average, Combiner::Sum,
                                              Combiner::Sum, Combiner::Sum};
 const std::vector<int> table_min_key_list = {0, 0, 0, 0};
-const std::vector<int> table_max_key_list = {1000, 1000, 1000, 1000};
+const std::vector<int> table_max_key_list = {1000, 1000, 500, 1000};
+EmbeddingTableInitParams init_param_default = {HugeCTR::Initializer_t::Default, UniformParams{0.0f},
+                                               SinusoidalParams{0, 0}};
+const std::vector<EmbeddingTableInitParams> init_param_list = {
+    init_param_default, init_param_default, init_param_default, init_param_default};
 
 TEST(test_embedding_collection, plan_0_share_id_space) {
   embedding_collection_e2e<int32_t, uint32_t, uint32_t, float>(
       gpus, batch_size, num_table, table_ev_size_list, num_embedding, id_space_list, hotness_list,
-      combiner_list, table_min_key_list, table_max_key_list,
+      combiner_list, table_min_key_list, table_max_key_list, init_param_list,
       "/workdir/test/utest/embedding_collection/plan_0.json");
 }
 
 TEST(test_embedding_collection, plan_0_share_id_space_half) {
   embedding_collection_e2e<int32_t, uint32_t, uint32_t, __half>(
       gpus, batch_size, num_table, table_ev_size_list, num_embedding, id_space_list, hotness_list,
-      combiner_list, table_min_key_list, table_max_key_list,
+      combiner_list, table_min_key_list, table_max_key_list, init_param_list,
       "/workdir/test/utest/embedding_collection/plan_0.json");
 }
 
 TEST(test_embedding_collection, plan_2_share_id_space) {
   embedding_collection_e2e<int32_t, uint32_t, uint32_t, float>(
       gpus, batch_size, num_table, table_ev_size_list, num_embedding, id_space_list, hotness_list,
-      combiner_list, table_min_key_list, table_max_key_list,
+      combiner_list, table_min_key_list, table_max_key_list, init_param_list,
       "/workdir/test/utest/embedding_collection/plan_2.json");
 }
 
 TEST(test_embedding_collection, plan_2_share_id_space_half) {
   embedding_collection_e2e<int32_t, uint32_t, uint32_t, __half>(
       gpus, batch_size, num_table, table_ev_size_list, num_embedding, id_space_list, hotness_list,
-      combiner_list, table_min_key_list, table_max_key_list,
+      combiner_list, table_min_key_list, table_max_key_list, init_param_list,
       "/workdir/test/utest/embedding_collection/plan_2.json");
 }
 
 TEST(test_embedding_collection, plan_3_share_id_space) {
   embedding_collection_e2e<int32_t, uint32_t, uint32_t, float>(
       gpus, batch_size, num_table, table_ev_size_list, num_embedding, id_space_list, hotness_list,
-      combiner_list, table_min_key_list, table_max_key_list,
+      combiner_list, table_min_key_list, table_max_key_list, init_param_list,
       "/workdir/test/utest/embedding_collection/plan_3.json");
 }
 
 TEST(test_embedding_collection, plan_3_share_id_space_half) {
   embedding_collection_e2e<int32_t, uint32_t, uint32_t, __half>(
       gpus, batch_size, num_table, table_ev_size_list, num_embedding, id_space_list, hotness_list,
-      combiner_list, table_min_key_list, table_max_key_list,
+      combiner_list, table_min_key_list, table_max_key_list, init_param_list,
       "/workdir/test/utest/embedding_collection/plan_3.json");
 }
 }  // namespace share_embedding_table
@@ -1207,47 +1240,51 @@ const std::vector<int> hotness_list = {8, 20, 10, 5, 8};
 const std::vector<Combiner> combiner_list = {Combiner::Concat, Combiner::Average, Combiner::Sum,
                                              Combiner::Sum, Combiner::Sum};
 const std::vector<int> table_min_key_list = {0, 0, 0, 0};
-const std::vector<int> table_max_key_list = {1000, 1000, 1000, 1000};
+const std::vector<int> table_max_key_list = {1000, 1000, 500, 1000};
+EmbeddingTableInitParams init_param_default = {HugeCTR::Initializer_t::Default, UniformParams{0.0f},
+                                               SinusoidalParams{0, 0}};
+const std::vector<EmbeddingTableInitParams> init_param_list = {
+    init_param_default, init_param_default, init_param_default, init_param_default};
 
 TEST(test_embedding_collection, plan_0_share_id_space_and_concat) {
   embedding_collection_e2e<int32_t, uint32_t, uint32_t, float>(
       gpus, batch_size, num_table, table_ev_size_list, num_embedding, id_space_list, hotness_list,
-      combiner_list, table_min_key_list, table_max_key_list,
+      combiner_list, table_min_key_list, table_max_key_list, init_param_list,
       "/workdir/test/utest/embedding_collection/plan_0.json");
 }
 
 TEST(test_embedding_collection, plan_0_share_id_space_and_concat_half) {
   embedding_collection_e2e<int32_t, uint32_t, uint32_t, __half>(
       gpus, batch_size, num_table, table_ev_size_list, num_embedding, id_space_list, hotness_list,
-      combiner_list, table_min_key_list, table_max_key_list,
+      combiner_list, table_min_key_list, table_max_key_list, init_param_list,
       "/workdir/test/utest/embedding_collection/plan_0.json");
 }
 
 TEST(test_embedding_collection, plan_2_share_id_space_and_concat) {
   embedding_collection_e2e<int32_t, uint32_t, uint32_t, float>(
       gpus, batch_size, num_table, table_ev_size_list, num_embedding, id_space_list, hotness_list,
-      combiner_list, table_min_key_list, table_max_key_list,
+      combiner_list, table_min_key_list, table_max_key_list, init_param_list,
       "/workdir/test/utest/embedding_collection/plan_2.json");
 }
 
 TEST(test_embedding_collection, plan_2_share_id_space_and_concat_half) {
   embedding_collection_e2e<int32_t, uint32_t, uint32_t, __half>(
       gpus, batch_size, num_table, table_ev_size_list, num_embedding, id_space_list, hotness_list,
-      combiner_list, table_min_key_list, table_max_key_list,
+      combiner_list, table_min_key_list, table_max_key_list, init_param_list,
       "/workdir/test/utest/embedding_collection/plan_2.json");
 }
 
 TEST(test_embedding_collection, plan_3_share_id_space_and_concat) {
   embedding_collection_e2e<int32_t, uint32_t, uint32_t, float>(
       gpus, batch_size, num_table, table_ev_size_list, num_embedding, id_space_list, hotness_list,
-      combiner_list, table_min_key_list, table_max_key_list,
+      combiner_list, table_min_key_list, table_max_key_list, init_param_list,
       "/workdir/test/utest/embedding_collection/plan_3.json");
 }
 
 TEST(test_embedding_collection, plan_3_share_id_space_and_concat_half) {
   embedding_collection_e2e<int32_t, uint32_t, uint32_t, __half>(
       gpus, batch_size, num_table, table_ev_size_list, num_embedding, id_space_list, hotness_list,
-      combiner_list, table_min_key_list, table_max_key_list,
+      combiner_list, table_min_key_list, table_max_key_list, init_param_list,
       "/workdir/test/utest/embedding_collection/plan_3.json");
 }
 }  // namespace share_embedding_table_and_concat_combiner
@@ -1277,11 +1314,16 @@ const std::vector<int> table_min_key_list = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 const std::vector<int> table_max_key_list = {
     203931, 18598, 14092, 7012, 18977, 4,  6385,   1245,   49,     186213, 71328, 67288, 11,
     2168,   7338,  61,    4,    932,   15, 204515, 141526, 199433, 60919,  9137,  71,    34};
+EmbeddingTableInitParams init_param_default = {HugeCTR::Initializer_t::Default, UniformParams{0.0f},
+                                               SinusoidalParams{0, 0}};
+const std::vector<EmbeddingTableInitParams> init_param_list = {
+    init_param_default, init_param_default, init_param_default, init_param_default,
+    init_param_default};
 
 TEST(test_embedding_collection, plan) {
   embedding_collection_e2e<int64_t, int64_t, uint64_t, float>(
       gpus8, batch_size, num_table, table_ev_size_list, num_embedding, id_space_list, hotness_list,
-      combiner_list, table_min_key_list, table_max_key_list,
+      combiner_list, table_min_key_list, table_max_key_list, init_param_list,
       "/workdir/test/utest/embedding_collection/plan_criteo_8gpu.json");
 }
 }  // namespace criteo
