@@ -139,4 +139,5 @@ class RaggedEmbForwardResultView {
     return ArrayView<emb_t, PtrTraits, index_t>{data_ + start, ev_size};
   }
 };
+
 }  // namespace embedding

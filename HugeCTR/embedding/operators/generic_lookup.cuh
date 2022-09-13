@@ -35,6 +35,13 @@ struct Vec4T<__half> {
     second.y = 0.f;
   }
 
+  DEVICE_INLINE void reset() {
+    first.x = 0.f;
+    first.y = 0.f;
+    second.x = 0.f;
+    second.y = 0.f;
+  }
+
   DEVICE_INLINE void load(const float *p, int n) {
     if (n == 4) {
       float4 f = *(reinterpret_cast<const float4 *>(p));
@@ -99,6 +106,13 @@ struct Vec4T<float> {
   float4 val;
 
   DEVICE_INLINE Vec4T() {
+    val.x = 0.f;
+    val.y = 0.f;
+    val.z = 0.f;
+    val.w = 0.f;
+  }
+
+  DEVICE_INLINE void reset() {
     val.x = 0.f;
     val.y = 0.f;
     val.z = 0.f;
@@ -693,6 +707,42 @@ make_MultiToOne(int num_vec, LambdaOffset get_offset, LambdaAverage get_average_
                 LambdaDstTensor get_dst_tensor) {
   return {num_vec,        get_offset,     get_average_pooling_factor,
           get_vec_length, get_src_tensor, get_dst_tensor};
+};
+
+template <typename SrcType, typename DstType, typename LambdaKey, typename LambdaSrcVecLength,
+          typename LambdaDstVecLength, typename LambdaDstUniqueId, typename LambdaSrcTensor,
+          typename LambdaDstTensor>
+
+struct MultiToOne_reduce {
+  using SrcT = SrcType;
+  using DstT = DstType;
+
+  HOST_DEVICE_INLINE uint32_t get_key(int i) { return get_key_(i); }
+  HOST_DEVICE_INLINE int get_src_vec_length(int i) { return get_src_vec_length_(i); }
+  HOST_DEVICE_INLINE int get_dst_vec_length(int i) { return get_dst_vec_length_(i); }
+  HOST_DEVICE_INLINE uint32_t get_dst_unique_id(int i) { return get_dst_unique_id_(i); }
+  HOST_DEVICE_INLINE const SrcType *get_src_ptr(int i) { return get_src_tensor_(i); }
+  HOST_DEVICE_INLINE DstType *get_dst_ptr(int i) { return get_dst_tensor_(i); }
+
+  int num_vec_;
+  LambdaKey get_key_;
+  LambdaSrcVecLength get_src_vec_length_;
+  LambdaDstVecLength get_dst_vec_length_;
+  LambdaDstUniqueId get_dst_unique_id_;
+  LambdaSrcTensor get_src_tensor_;
+  LambdaDstTensor get_dst_tensor_;
+};
+
+template <typename SrcType, typename DstType, typename LambdaKey, typename LambdaSrcVecLength,
+          typename LambdaDstVecLength, typename LambdaDstUniqueId, typename LambdaSrcTensor,
+          typename LambdaDstTensor>
+MultiToOne_reduce<SrcType, DstType, LambdaKey, LambdaSrcVecLength, LambdaDstVecLength,
+                  LambdaDstUniqueId, LambdaSrcTensor, LambdaDstTensor>
+make_MultiToOne_reduce(int num_vec, LambdaKey get_key, LambdaSrcVecLength get_src_vec_length,
+                       LambdaDstVecLength get_dst_vec_length, LambdaDstUniqueId get_dst_unique_id,
+                       LambdaSrcTensor get_src_tensor, LambdaDstTensor get_dst_tensor) {
+  return {num_vec,           get_key,        get_src_vec_length, get_dst_vec_length,
+          get_dst_unique_id, get_src_tensor, get_dst_tensor};
 };
 
 template <typename CopyDesc>
