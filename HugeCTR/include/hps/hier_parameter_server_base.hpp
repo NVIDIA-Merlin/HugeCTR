@@ -44,6 +44,9 @@ class HierParameterServerBase {
 
   virtual void update_database_per_model(const InferenceParams& inference_params) = 0;
   virtual void create_embedding_cache_per_model(InferenceParams& inference_params) = 0;
+  virtual void init_ec(
+      InferenceParams& inference_params,
+      std::map<int64_t, std::shared_ptr<EmbeddingCacheBase>> embedding_cache_map) = 0;
   virtual void destory_embedding_cache_per_model(const std::string& model_name) = 0;
   virtual std::shared_ptr<EmbeddingCacheBase> get_embedding_cache(const std::string& model_name,
                                                                   int device_id) = 0;

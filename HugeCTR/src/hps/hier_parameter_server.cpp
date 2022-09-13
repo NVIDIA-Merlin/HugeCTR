@@ -14,10 +14,12 @@
  * limitations under the License.
  */
 
+#include <cmath>
 #include <filesystem>
 #include <hps/hash_map_backend.hpp>
 #include <hps/hier_parameter_server.hpp>
 #include <hps/kafka_message.hpp>
+#include <hps/modelloader.hpp>
 #include <hps/redis_backend.hpp>
 #include <hps/rocksdb_backend.hpp>
 #include <regex>
@@ -154,6 +156,14 @@ HierParameterServer<TypeHashKey>::HierParameterServer(
     inference_params_map_.emplace(inference_params_array[i].model_name, inference_params_array[i]);
   }
   buffer_pool_.reset(new ManagerPool(model_cache_map_, memory_pool_config_));
+
+  // Insert emeddings to embedding cache for each embedding table of each mode
+  for (size_t i = 0; i < inference_params_array.size(); i++) {
+    if (inference_params_array[i].use_gpu_embedding_cache &&
+        inference_params_array[i].cache_refresh_percentage_per_iteration > 0) {
+      init_ec(inference_params_array[i], model_cache_map_[inference_params_array[i].model_name]);
+    }
+  }
 }
 
 template <typename TypeHashKey>
@@ -169,6 +179,7 @@ HierParameterServer<TypeHashKey>::~HierParameterServer() {
 template <typename TypeHashKey>
 void HierParameterServer<TypeHashKey>::update_database_per_model(
     const InferenceParams& inference_params) {
+  IModelLoader* rawreader = ModelLoader<TypeHashKey, float>::CreateLoader(DBTableDumpFormat_t::Raw);
   // Create input file stream to read the embedding file
   for (size_t j = 0; j < inference_params.sparse_model_files.size(); j++) {
     if (ps_config_.embedding_vec_size_[inference_params.model_name].size() !=
@@ -178,46 +189,13 @@ void HierParameterServer<TypeHashKey>::update_database_per_model(
                          inference_params.model_name +
                          " doesn't match the size of 'sparse_model_files' in configuration.");
     }
-    const std::string emb_file_prefix = inference_params.sparse_model_files[j] + "/";
-    const std::string key_file = emb_file_prefix + "key";
-    const std::string vec_file = emb_file_prefix + "emb_vector";
-    std::ifstream key_stream(key_file);
-    std::ifstream vec_stream(vec_file);
-    // Check if file is opened successfully
-    if (!key_stream.is_open() || !vec_stream.is_open()) {
-      HCTR_OWN_THROW(Error_t::WrongInput, "Error: embeddings file not open for reading");
-    }
-    const size_t key_file_size_in_byte = std::filesystem::file_size(key_file);
-    const size_t vec_file_size_in_byte = std::filesystem::file_size(vec_file);
-
-    const size_t key_size_in_byte = sizeof(long long);
-    const size_t embedding_size = ps_config_.embedding_vec_size_[inference_params.model_name][j];
-    const size_t vec_size_in_byte = sizeof(float) * embedding_size;
-
-    const size_t num_key = key_file_size_in_byte / key_size_in_byte;
-    const size_t num_vec = vec_file_size_in_byte / vec_size_in_byte;
-    if (num_key != num_vec) {
-      HCTR_OWN_THROW(Error_t::WrongInput, "Error: num_key != num_vec in embedding file");
-    }
-    const size_t num_float_val_in_vec_file = vec_file_size_in_byte / sizeof(float);
-
-    // The temp embedding table
-    std::vector<TypeHashKey> key_vec(num_key, 0);
-    if (std::is_same<TypeHashKey, long long>::value) {
-      key_stream.read(reinterpret_cast<char*>(key_vec.data()), key_file_size_in_byte);
-    } else {
-      std::vector<long long> i64_key_vec(num_key, 0);
-      key_stream.read(reinterpret_cast<char*>(i64_key_vec.data()), key_file_size_in_byte);
-      std::transform(i64_key_vec.begin(), i64_key_vec.end(), key_vec.begin(),
-                     [](long long key) { return static_cast<unsigned>(key); });
-    }
-
-    std::vector<float> vec_vec(num_float_val_in_vec_file, 0.0f);
-    vec_stream.read(reinterpret_cast<char*>(vec_vec.data()), vec_file_size_in_byte);
-
+    // Get raw format model loader
+    rawreader->load(inference_params.embedding_table_names[j],
+                    inference_params.sparse_model_files[j]);
     const std::string tag_name = make_tag_name(
         inference_params.model_name, ps_config_.emb_table_name_[inference_params.model_name][j]);
-
+    size_t num_key = rawreader->getkeycount();
+    const size_t embedding_size = ps_config_.embedding_vec_size_[inference_params.model_name][j];
     // Populate volatile database(s).
     if (volatile_db_) {
       const size_t volatile_capacity = volatile_db_->capacity(tag_name);
@@ -227,8 +205,9 @@ void HierParameterServer<TypeHashKey>::update_database_per_model(
               : static_cast<size_t>(
                     volatile_db_cache_rate_ * static_cast<double>(volatile_capacity) + 0.5);
 
-      HCTR_CHECK(volatile_db_->insert(tag_name, volatile_cache_amount, key_vec.data(),
-                                      reinterpret_cast<const char*>(vec_vec.data()),
+      HCTR_CHECK(volatile_db_->insert(tag_name, volatile_cache_amount,
+                                      reinterpret_cast<const TypeHashKey*>(rawreader->getkeys()),
+                                      reinterpret_cast<const char*>(rawreader->getvectors()),
                                       embedding_size * sizeof(float)));
       volatile_db_->synchronize();
       HCTR_LOG_S(INFO, WORLD) << "Table: " << tag_name << "; cached " << volatile_cache_amount
@@ -243,14 +222,15 @@ void HierParameterServer<TypeHashKey>::update_database_per_model(
 
     // Persistent database - by definition - always gets all keys.
     if (persistent_db_) {
-      HCTR_CHECK(persistent_db_->insert(tag_name, num_key, key_vec.data(),
-                                        reinterpret_cast<const char*>(vec_vec.data()),
-                                        embedding_size * sizeof(float)));
+      HCTR_CHECK(persistent_db_->insert(
+          tag_name, num_key, reinterpret_cast<const TypeHashKey*>(rawreader->getkeys()),
+          reinterpret_cast<const char*>(rawreader->getvectors()), embedding_size * sizeof(float)));
       HCTR_LOG_S(INFO, WORLD) << "Table: " << tag_name << "; cached " << num_key
                               << " embeddings in persistent database ("
                               << persistent_db_->get_name() << ")." << std::endl;
     }
   }
+  rawreader->delete_table();
 
   // Connect to online update service (if configured).
   // TODO: Maybe need to change the location where this is initialized.
@@ -352,6 +332,61 @@ void HierParameterServer<TypeHashKey>::update_database_per_model(
       return insert_fn(persistent_db_.get(), tag, num_pairs, keys, values, value_size);
     });
   }
+}
+
+template <typename TypeHashKey>
+void HierParameterServer<TypeHashKey>::init_ec(
+    InferenceParams& inference_params,
+    std::map<int64_t, std::shared_ptr<EmbeddingCacheBase>> embedding_cache_map) {
+  IModelLoader* rawreader = ModelLoader<TypeHashKey, float>::CreateLoader(DBTableDumpFormat_t::Raw);
+
+  for (size_t j = 0; j < inference_params.sparse_model_files.size(); j++) {
+    rawreader->load(inference_params.embedding_table_names[j],
+                    inference_params.sparse_model_files[j]);
+    HCTR_LOG(INFO, ROOT, "EC initialization for model: \"%s\", num_tables: %d\n",
+             inference_params.model_name.c_str(), inference_params.sparse_model_files.size());
+    for (auto device_id : inference_params.deployed_devices) {
+      HCTR_LOG(INFO, ROOT, "EC initialization on device: %d\n", device_id);
+      cudaStream_t stream = embedding_cache_map[device_id]->get_refresh_streams()[j];
+      embedding_cache_config cache_config = embedding_cache_map[device_id]->get_cache_config();
+      // apply the memory block for embedding cache refresh workspace
+      MemoryBlock* memory_block = nullptr;
+      while (memory_block == nullptr) {
+        memory_block = reinterpret_cast<struct MemoryBlock*>(this->apply_buffer(
+            inference_params.model_name, device_id, CACHE_SPACE_TYPE::REFRESHER));
+      }
+      EmbeddingCacheRefreshspace refreshspace_handler = memory_block->refresh_buffer;
+      // initilize the embedding cache for each table
+      const size_t stride_set = floor(cache_config.num_set_in_cache_[j] *
+                                      cache_config.cache_refresh_percentage_per_iteration);
+      size_t length = SLAB_SIZE * SET_ASSOCIATIVITY * stride_set;
+      size_t num_iteration = 0;
+      for (size_t idx_set = 0; idx_set + stride_set < cache_config.num_set_in_cache_[j];
+           idx_set += stride_set) {
+        refreshspace_handler.h_length_ = &length;
+        // copy the embedding keys from reader to refresh space
+        HCTR_LIB_THROW(cudaMemcpyAsync(refreshspace_handler.d_refresh_embeddingcolumns_,
+                                       reinterpret_cast<const TypeHashKey*>(rawreader->getkeys()) +
+                                           (*refreshspace_handler.h_length_ * num_iteration),
+                                       *refreshspace_handler.h_length_ * sizeof(TypeHashKey),
+                                       cudaMemcpyHostToDevice, stream));
+        // copy the embedding vectors from reader to refresh space
+        HCTR_LIB_THROW(cudaMemcpyAsync(
+            refreshspace_handler.d_refresh_emb_vec_,
+            reinterpret_cast<const float*>(rawreader->getvectors()) +
+                (*refreshspace_handler.h_length_ * num_iteration *
+                 cache_config.embedding_vec_size_[j]),
+            *refreshspace_handler.h_length_ * cache_config.embedding_vec_size_[j] * sizeof(float),
+            cudaMemcpyHostToDevice, stream));
+
+        embedding_cache_map[device_id]->init(j, refreshspace_handler, stream);
+        HCTR_LIB_THROW(cudaStreamSynchronize(stream));
+        num_iteration++;
+      }
+      this->free_buffer(memory_block);
+    }
+  }
+  rawreader->delete_table();
 }
 
 template <typename TypeHashKey>
@@ -577,14 +612,22 @@ void HierParameterServer<TypeHashKey>::refresh_embedding_cache(const std::string
   HCTR_LOG(INFO, WORLD, "*****Refresh embedding cache of model %s on device %d*****\n",
            model_name.c_str(), device_id);
   HugeCTR::Timer timer_refresh;
-  timer_refresh.start();
+
   std::shared_ptr<EmbeddingCacheBase> embedding_cache = get_embedding_cache(model_name, device_id);
   if (!embedding_cache->use_gpu_embedding_cache()) {
     HCTR_LOG(WARNING, WORLD, "GPU embedding cache is not enabled and cannot be refreshed!\n");
     return;
   }
-  std::vector<cudaStream_t> streams = embedding_cache->get_refresh_streams();
+
   embedding_cache_config cache_config = embedding_cache->get_cache_config();
+  if (cache_config.cache_refresh_percentage_per_iteration <= 0) {
+    HCTR_LOG(WARNING, WORLD,
+             "The configuration of cache refresh percentage per iteration must be greater than 0 "
+             "to refresh the GPU embedding cache!\n");
+    return;
+  }
+  timer_refresh.start();
+  std::vector<cudaStream_t> streams = embedding_cache->get_refresh_streams();
   // apply the memory block for embedding cache refresh workspace
   MemoryBlock* memory_block = nullptr;
   while (memory_block == nullptr) {

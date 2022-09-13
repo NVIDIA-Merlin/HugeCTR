@@ -85,6 +85,7 @@ def wdl_inference(
         default_value_for_each_table=[0.0, 0.0],
         volatile_db=hash_map_database,
         persistent_db=rocksdb_database,
+        cache_refresh_percentage_per_iteration=0.1,
     )
     inference_session = CreateInferenceSession(config_file, inference_params)
     # predict for the first time
