@@ -138,25 +138,44 @@ __global__ void get_unique_index_kernel(const key_t* key_list, size_t num_key,
   }
 }
 
-template <typename key_t>
-__global__ void extract_unique_key_and_dst_offset_kernel(
-    const key_t* hash_keys, const uint32_t* hash_offset, const uint32_t* unique_local_index,
-    const size_t* num_unique_key, const int* unique_id_space_list, int num_unique_id_space_list,
-    const int* id_space_list, int num_id_space_list, const int* unique_id_space_ev_size_list,
-    key_t* unique_key, uint32_t* unique_dst_idx) {
+__global__ void extract_wgrad_dst_idx_kernel(const uint32_t* unique_local_index,
+                                             size_t num_unique_key, uint32_t* wgrad_dst_idx) {
   uint32_t idx = threadIdx.x + blockIdx.x * blockDim.x;
-  if (idx < *num_unique_key) {
+  if (idx < num_unique_key) {
     uint32_t local_index = unique_local_index[idx];
-    unique_key[idx] = hash_keys[local_index];
+    wgrad_dst_idx[idx] = (idx > 0 && unique_local_index[idx - 1] != local_index) ? 1 : 0;
+  }
+}
+
+__global__ void extract_wgrad_ev_dst_idx_kernel(const uint32_t* hash_offset,
+                                                int num_unique_id_space_list,
+                                                const uint32_t* unique_local_index,
+                                                size_t num_unique_key, const int* ev_size_per_table,
+                                                uint32_t* wgrad_dst_idx) {
+  uint32_t idx = threadIdx.x + blockIdx.x * blockDim.x;
+  if (idx < num_unique_key) {
+    uint32_t local_index = unique_local_index[idx];
 
     uint32_t idx_id_space =
         binary_search_index_lower_bound(hash_offset, num_unique_id_space_list + 1, local_index);
 
-    unique_dst_idx[1 + idx] = unique_id_space_ev_size_list[idx_id_space];
+    wgrad_dst_idx[1 + idx] = (idx == 0 || unique_local_index[idx - 1] != local_index)
+                                 ? ev_size_per_table[idx_id_space]
+                                 : 0;
   }
 
   if (idx == 0) {
-    unique_dst_idx[0] = 0;
+    wgrad_dst_idx[0] = 0;
+  }
+}
+
+template <typename key_t>
+__global__ void convert_hash_index_to_key_kernel(const uint32_t* hash_index, size_t num_hash_index,
+                                                 const key_t* hash_keys, key_t* key) {
+  for (int tid = threadIdx.x + blockIdx.x * blockDim.x; tid < num_hash_index;
+       tid += blockDim.x * gridDim.x) {
+    uint32_t index = hash_index[tid];
+    key[tid] = hash_keys[index];
   }
 }
 
@@ -376,6 +395,8 @@ ModelBackwardIndexCalculation::ModelBackwardIndexCalculation(
                                               TensorScalarType::Int32);
   unique_id_space_ev_size_list_ = buffer_ptr->reserve({h_unique_id_space_ev_size_list.size()},
                                                       DeviceType::GPU, TensorScalarType::Int32);
+  coordinate_wgrad_dst_idx_ = buffer_ptr->reserve({1 + universal_batch_size * local_hotness_sum},
+                                                  device, TensorScalarType::UInt32);
   {
     size_t temp_bytes = 0;
     cub::DeviceRadixSort::SortPairs(nullptr, temp_bytes, (uint32_t*)nullptr, (uint32_t*)nullptr,
@@ -395,7 +416,7 @@ ModelBackwardIndexCalculation::ModelBackwardIndexCalculation(
     size_t temp_bytes = 0;
     cub::DeviceScan::InclusiveSum(
         nullptr, temp_bytes, (uint32_t*)nullptr, (uint32_t*)nullptr,
-        std::max(static_cast<int64_t>(universal_batch_size * local_hotness_sum),
+        std::max(static_cast<int64_t>(1 + universal_batch_size * local_hotness_sum),
                  unique_id_space_offset_.get_num_elements()));
     d_temp_scan_encode_storage_ = buffer_ptr->reserve({temp_bytes}, device, TensorScalarType::Void);
   }
@@ -420,7 +441,8 @@ void ModelBackwardIndexCalculation::compute(
     const Tensor& model_key, size_t num_model_key, const Tensor& model_offset,
     const Tensor& id_space_offset, const Tensor& id_space_list, int batch_size, Tensor* unique_key,
     size_t* num_unique_key, Tensor* unique_dst_idx, Tensor* sorted_bucket_id_list,
-    Tensor* sorted_bucket_id_offset, Tensor* unique_id_space_list, Tensor* unique_id_space_offset) {
+    Tensor* sorted_bucket_id_offset, Tensor* unique_id_space_list, Tensor* unique_id_space_offset,
+    Tensor* coordinate_key, Tensor* coordinate_wgrad_dst_idx) {
   HugeCTR::CudaDeviceContext ctx(core_->get_device_id());
   int batch_size_per_gpu = batch_size / num_gpus_;
 
@@ -436,6 +458,8 @@ void ModelBackwardIndexCalculation::compute(
     HCTR_LIB_THROW(cudaMemsetAsync(unique_key_.get<key_t>(), 0, unique_key_.nbytes(), stream));
     HCTR_LIB_THROW(
         cudaMemsetAsync(unique_dst_idx_.get<uint32_t>(), 0, unique_dst_idx_.nbytes(), stream));
+    HCTR_LIB_THROW(cudaMemsetAsync(coordinate_wgrad_dst_idx_.get<uint32_t>(), 0,
+                                   coordinate_wgrad_dst_idx_.nbytes(), stream));
     HCTR_LIB_THROW(cudaMemsetAsync(sorted_bucket_id_list_.get<uint32_t>(), 0,
                                    sorted_bucket_id_list_.nbytes(), stream));
     HCTR_LIB_THROW(cudaMemsetAsync(sorted_bucket_id_offset_.get<uint32_t>(), 0,
@@ -465,7 +489,6 @@ void ModelBackwardIndexCalculation::compute(
             unique_id_space_list_.get_num_elements(), hash_offset_.get<uint32_t>(),
             hash_keys_.get<key_t>(), local_index_.get<uint32_t>());
       }
-
       {
         size_t nbytes = d_temp_sort_storage_.nbytes();
         cub::DeviceRadixSort::SortPairs(
@@ -479,18 +502,29 @@ void ModelBackwardIndexCalculation::compute(
             d_temp_run_length_encode_storage_.get(), nbytes, sorted_local_index_.get<uint32_t>(),
             unique_local_index_.get<uint32_t>(), sorted_bucket_id_offset_.get<uint32_t>() + 1,
             num_unique_key_.get<size_t>(), num_model_key, stream);
+        HCTR_LIB_THROW(cudaStreamSynchronize(stream));  // to sync num_unique_key to host
+      }
+      int num_unique_table = unique_id_space_list_.get_num_elements();
+      {
+        constexpr int block_size = 256;
+        int grid_size = (num_model_key - 1) / block_size + 1;
+        extract_wgrad_dst_idx_kernel<<<grid_size, block_size, 0, stream>>>(
+            sorted_local_index_.get<uint32_t>(), num_model_key,
+            coordinate_wgrad_dst_idx_.get<uint32_t>());
       }
       {
         constexpr int block_size = 256;
-        int grid_size = (hash_keys_.get_num_elements() - 1) / block_size + 1;
-        extract_unique_key_and_dst_offset_kernel<<<grid_size, block_size, 0, stream>>>(
-            hash_keys_.get<key_t>(), hash_offset_.get<uint32_t>(),
-            unique_local_index_.get<uint32_t>(), num_unique_key_.get<size_t>(),
-            unique_id_space_list_.get<int>(), unique_id_space_list_.get_num_elements(),
-            id_space_list.get<int>(), id_space_list.get_num_elements(),
-            unique_id_space_ev_size_list_.get<int>(), unique_key_.get<key_t>(),
+        int num_unique_key_host = *num_unique_key_.get<size_t>();
+        int grid_size = (num_unique_key_host - 1) / block_size + 1;
+        convert_hash_index_to_key_kernel<<<grid_size, block_size, 0, stream>>>(
+            unique_local_index_.get<uint32_t>(), num_unique_key_host, hash_keys_.get<key_t>(),
+            unique_key_.get<key_t>());
+        extract_wgrad_ev_dst_idx_kernel<<<grid_size, block_size, 0, stream>>>(
+            hash_offset_.get<uint32_t>(), num_unique_table, unique_local_index_.get<uint32_t>(),
+            num_unique_key_host, unique_id_space_ev_size_list_.get<int>(),
             unique_dst_idx_.get<uint32_t>());
       }
+      HCTR_LIB_THROW(cudaStreamSynchronize(stream));
       {
         int num_unique_id_space = static_cast<int>(unique_id_space_list_.get_num_elements());
         count_unique_key_kernel<<<num_unique_id_space, 32, 0, stream>>>(
@@ -499,6 +533,7 @@ void ModelBackwardIndexCalculation::compute(
 
         HCTR_LIB_THROW(cudaPeekAtLastError());
       }
+      HCTR_LIB_THROW(cudaStreamSynchronize(stream));
       {
         size_t nbytes = d_temp_scan_encode_storage_.nbytes();
         cub::DeviceScan::InclusiveSum(d_temp_scan_encode_storage_.get(), nbytes,
@@ -508,6 +543,10 @@ void ModelBackwardIndexCalculation::compute(
         cub::DeviceScan::InclusiveSum(
             d_temp_scan_encode_storage_.get(), nbytes, unique_dst_idx_.get<uint32_t>(),
             unique_dst_idx_.get<uint32_t>(), unique_dst_idx_.get_num_elements(), stream);
+        cub::DeviceScan::InclusiveSum(d_temp_scan_encode_storage_.get(), nbytes,
+                                      coordinate_wgrad_dst_idx_.get<uint32_t>(),
+                                      coordinate_wgrad_dst_idx_.get<uint32_t>(),
+                                      coordinate_wgrad_dst_idx_.get_num_elements(), stream);
         cub::DeviceScan::InclusiveSum(d_temp_scan_encode_storage_.get(), nbytes,
                                       sorted_bucket_id_offset_.get<uint32_t>(),
                                       sorted_bucket_id_offset_.get<uint32_t>(),
@@ -523,6 +562,8 @@ void ModelBackwardIndexCalculation::compute(
   *sorted_bucket_id_offset = sorted_bucket_id_offset_;
   *unique_id_space_list = unique_id_space_list_;
   *unique_id_space_offset = unique_id_space_offset_;
+  *coordinate_key = sorted_local_index_;
+  *coordinate_wgrad_dst_idx = coordinate_wgrad_dst_idx_;
 }
 
 RaggedNetworkIndex::RaggedNetworkIndex(std::shared_ptr<CoreResourceManager> core, int batch_size,

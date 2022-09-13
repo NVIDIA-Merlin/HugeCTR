@@ -549,25 +549,27 @@ void All2AllEmbeddingCollectionModelBackward::sparse_backward_per_gpu(
       local_embedding_data_.h_local_ev_size_list_, batch_size, model_key.dtype());
 
   Tensor continous_unique_key, unique_dst_idx, sorted_bucket_id_list, sorted_bucket_id_offset,
-      unique_id_space, unique_id_space_offset, continous_grad_emb_ev;
+      unique_id_space, unique_id_space_offset, continous_grad_emb_ev, coordinate_key,
+      coordinate_wgrad_dst_idx;
   size_t num_unique_key;
   model_backward_index_calculation_.compute(
       model_key, num_model_key, model_offsets, id_space_offset,
       local_embedding_data_.d_local_id_space_list_, batch_size, &continous_unique_key,
       &num_unique_key, &unique_dst_idx, &sorted_bucket_id_list, &sorted_bucket_id_offset,
-      &unique_id_space, &unique_id_space_offset);
+      &unique_id_space, &unique_id_space_offset, &coordinate_key, &coordinate_wgrad_dst_idx);
 
-  model_backward_ = ModelBackward(core_, num_gpus, local_embedding_data_.num_local_embedding_,
-                                  local_embedding_data_.h_local_hotness_list_,
-                                  local_embedding_data_.h_local_ev_size_list_, batch_size);
+  model_backward_ = ModelBackward(
+      core_, num_gpus, local_embedding_data_.num_local_embedding_,
+      local_embedding_data_.h_local_hotness_list_, local_embedding_data_.h_local_ev_size_list_,
+      batch_size, local_embedding_data_.max_ev_size_, global_embedding_data_.num_sms_);
 
   TensorList model_comm_buffer{core_.get(), emb_vec_model_buffer, DeviceType::GPU,
                                emb_vec_model_buffer[0].dtype(), stream};
   model_backward_.compute(model_comm_buffer, unique_dst_idx, sorted_bucket_id_list,
-                          sorted_bucket_id_offset, num_unique_key,
-                          local_embedding_data_.d_local_ev_size_offset_, batch_size,
-                          local_embedding_data_.max_ev_size_, &continous_grad_emb_ev);
-
+                          sorted_bucket_id_offset, num_unique_key, coordinate_key,
+                          coordinate_wgrad_dst_idx, local_embedding_data_.d_local_ev_size_offset_,
+                          batch_size, local_embedding_data_.max_ev_size_, num_model_key,
+                          &continous_grad_emb_ev);
   unique_id_space.to(unique_id_space_list, stream);
   continous_unique_key_ = continous_unique_key;
   continous_emb_vec_ = continous_grad_emb_ev;
@@ -577,7 +579,6 @@ void All2AllEmbeddingCollectionModelBackward::sparse_backward_per_gpu(
 
   num_unique_key_per_table->resize(unique_id_space.get_num_elements());
   for (int i = 0; i < unique_id_space.get_num_elements(); ++i) {
-    // std::cout << "gpu_unique_id_space_offset " << gpu_unique_id_space_offset[i] << "\n";
     (*num_unique_key_per_table)[i] =
         gpu_unique_id_space_offset[i + 1] - gpu_unique_id_space_offset[i];
   }

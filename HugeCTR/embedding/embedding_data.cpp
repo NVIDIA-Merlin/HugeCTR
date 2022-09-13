@@ -38,6 +38,13 @@ GlobalEmbeddingData::GlobalEmbeddingData(std::shared_ptr<CoreResourceManager> co
                      ? *std::max_element(h_ev_size_list_.begin(), h_ev_size_list_.end())
                      : 0;
 
+  // cudaDeviceProp device_prop;
+  // cudaGetDeviceProperties(&device_prop, 0);
+  // num_sms_ = device_prop.multiProcessorCount;
+  // FIX: cudaGetDeviceProperties get ,cost too much time, need remove it to the start of program ,
+  // not use per iteration,for now fix the num_sms_
+  num_sms_ = 108;
+
   // init device bufffer
   auto buffer_ptr = GetBuffer(core_);
   d_hotness_list_ =
