@@ -1982,7 +1982,8 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
 void Model::exchange_wgrad(size_t device_id) {
   auto& gpu_resource = resource_manager_->get_local_gpu(device_id);
   CudaCPUDeviceContext context(gpu_resource->get_device_id());
-  if (solver_.async_mlp_wgrad) gpu_resource->wait_on_wgrad_event(gpu_resource->get_stream());
+  if (solver_.async_mlp_wgrad && is_scheduled_datareader() && is_scheduled_embedding())
+    gpu_resource->wait_on_wgrad_event(gpu_resource->get_stream());
   if (resource_manager_->get_global_gpu_count() > 1) {
     exchange_wgrad_->allreduce(device_id, gpu_resource->get_stream());
   }
