@@ -523,7 +523,7 @@ void InferencePybind(pybind11::module& m) {
            pybind11::arg("number_of_worker_buffers_in_pool") = 2,
            pybind11::arg("number_of_refresh_buffers_in_pool") = 1,
            pybind11::arg("thread_pool_size") = 16,
-           pybind11::arg("cache_refresh_percentage_per_iteration") = 0.1,
+           pybind11::arg("cache_refresh_percentage_per_iteration") = 0.0,
            pybind11::arg("deployed_devices") = std::vector<int>{0},
            pybind11::arg("default_value_for_each_table") = std::vector<float>{0.0f},
            // Database backend.
