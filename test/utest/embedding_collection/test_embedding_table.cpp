@@ -46,6 +46,7 @@ void test_ragged_static_embedding_table(int device_id) {
     param.max_key = max_vocabulary_size_list[id_space];
     param.opt_param.optimizer = HugeCTR::Optimizer_t::SGD;
     param.opt_param.lr = 1e-1;
+    param.init_param.initializer_type = HugeCTR::Initializer_t::Default;
     param_list.push_back(param);
   }
 

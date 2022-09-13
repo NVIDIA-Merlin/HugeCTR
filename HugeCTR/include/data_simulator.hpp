@@ -30,6 +30,13 @@ class UniformGenerator {
                    const curandGenerator_t& generator, const cudaStream_t& stream);
 };
 
+class SinusoidalGenerator {
+ public:
+  template <typename T>
+  static void fill(T* ptr, size_t num_elements, int ev_size, int max_sequence_len, size_t sm_count,
+                   const cudaStream_t& stream);
+};
+
 class HostUniformGenerator {
  public:
   template <typename T>

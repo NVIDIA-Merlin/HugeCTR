@@ -170,7 +170,7 @@ enum class Embedding_t {
   None
 };
 
-enum class Initializer_t { Default, Uniform, XavierNorm, XavierUniform, Zero };
+enum class Initializer_t { Default, Uniform, XavierNorm, XavierUniform, Sinusoidal, Zero };
 
 enum class TrainState_t {
   Init,

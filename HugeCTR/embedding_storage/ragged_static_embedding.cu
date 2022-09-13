@@ -172,24 +172,71 @@ RaggedStaticEmbeddingTable::RaggedStaticEmbeddingTable(
       emb_table_ev_offset_.copy_from(cpu_emb_table_ev_offset);
       local_ev_size_list_.copy_from(cpu_local_ev_size_list);
 
-      auto uniform_init_table = [&](const curandGenerator_t &generator) {
-        const size_t num_tables = cpu_local_id_space_list.size();
-        for (size_t embedding = 0; embedding < num_tables; embedding++) {
-          index_t num_keys = cpu_id_space_offset[embedding + 1] - cpu_id_space_offset[embedding];
-          float up_bound = sqrt(1.f / num_keys);
-          size_t offset = cpu_emb_table_ev_offset[embedding];
-          size_t num_elements =
-              cpu_emb_table_ev_offset[embedding + 1] - cpu_emb_table_ev_offset[embedding];
+      for (size_t embedding = 0; embedding < cpu_local_id_space_list.size(); embedding++) {
+        int id_space = cpu_local_id_space_list[embedding];
+        const auto &init_param = global_emb_table_param_list[id_space].init_param;
+        if (init_param.initializer_type == HugeCTR::Initializer_t::Default) {
+          auto default_init_table = [&](const curandGenerator_t &generator) {
+            index_t num_keys = cpu_id_space_offset[embedding + 1] - cpu_id_space_offset[embedding];
+            float up_bound = sqrt(1.f / num_keys);
+            size_t offset = cpu_emb_table_ev_offset[embedding];
+            size_t num_elements =
+                cpu_emb_table_ev_offset[embedding + 1] - cpu_emb_table_ev_offset[embedding];
 
-          HugeCTR::UniformGenerator::fill(emb_table_.get<float>() + offset, num_elements, -up_bound,
-                                          up_bound, gpu_resource.get_sm_count(), generator,
-                                          gpu_resource.get_stream());
+            HugeCTR::UniformGenerator::fill(emb_table_.get<float>() + offset, num_elements,
+                                            -up_bound, up_bound, gpu_resource.get_sm_count(),
+                                            generator, gpu_resource.get_stream());
+          };
+
+          // data parallel table should use same curand seed across all gpus
+          if (sharding_param.table_placement_strategy == TablePlacementStrategy::DataParallel) {
+            default_init_table(gpu_resource.get_replica_uniform_curand_generator());
+          } else {
+            default_init_table(gpu_resource.get_replica_variant_curand_generator());
+          }
+        } else if (init_param.initializer_type == HugeCTR::Initializer_t::Uniform) {
+          auto uniform_init_table = [&](const curandGenerator_t &generator) {
+            float up_bound = init_param.uniform_params.up_bound;
+            size_t offset = cpu_emb_table_ev_offset[embedding];
+            size_t num_elements =
+                cpu_emb_table_ev_offset[embedding + 1] - cpu_emb_table_ev_offset[embedding];
+
+            HugeCTR::UniformGenerator::fill(emb_table_.get<float>() + offset, num_elements,
+                                            -up_bound, up_bound, gpu_resource.get_sm_count(),
+                                            generator, gpu_resource.get_stream());
+          };
+
+          // data parallel table should use same curand seed across all gpus
+          if (sharding_param.table_placement_strategy == TablePlacementStrategy::DataParallel) {
+            uniform_init_table(gpu_resource.get_replica_uniform_curand_generator());
+          } else {
+            uniform_init_table(gpu_resource.get_replica_variant_curand_generator());
+          }
+        } else if (init_param.initializer_type == HugeCTR::Initializer_t::Sinusoidal) {
+          auto sinusoidal_init_table = [&] {
+            int max_sequence_len = init_param.sinus_params.max_sequence_len;
+            int ev_size = init_param.sinus_params.ev_size;
+            size_t offset = cpu_emb_table_ev_offset[embedding];
+            size_t num_elements =
+                cpu_emb_table_ev_offset[embedding + 1] - cpu_emb_table_ev_offset[embedding];
+
+            HCTR_CHECK_HINT(max_sequence_len * ev_size == static_cast<int>(num_elements),
+                            "max_sequent_len * ev_size %d should equal to num_elements %d",
+                            max_sequence_len * ev_size, static_cast<int>(num_elements));
+            HugeCTR::SinusoidalGenerator::fill(
+                emb_table_.get<float>() + offset, num_elements, ev_size, max_sequence_len,
+                gpu_resource.get_sm_count(), gpu_resource.get_stream());
+          };
+
+          // data parallel table should use same curand seed across all gpus
+          if (sharding_param.table_placement_strategy == TablePlacementStrategy::DataParallel) {
+            sinusoidal_init_table();
+          } else {
+            HCTR_OWN_THROW(HugeCTR::Error_t::IllegalCall, "initializer not implemented");
+          }
+        } else {
+          HCTR_OWN_THROW(HugeCTR::Error_t::IllegalCall, "initializer not implemented");
         }
-      };
-      if (sharding_param.table_placement_strategy == TablePlacementStrategy::DataParallel) {
-        uniform_init_table(gpu_resource.get_replica_uniform_curand_generator());
-      } else {
-        uniform_init_table(gpu_resource.get_replica_variant_curand_generator());
       }
     });
   });

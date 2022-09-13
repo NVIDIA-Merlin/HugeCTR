@@ -39,6 +39,7 @@ class EmbeddingTableConfig {
     } else {
       param_.opt_param.optimizer = Optimizer_t::NOT_INITIALIZED;
     }
+    param_.init_param.initializer_type = HugeCTR::Initializer_t::Default;
   }
 };
 
