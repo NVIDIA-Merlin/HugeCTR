@@ -513,7 +513,7 @@ The Dropout layer randomly zeroizes or drops some of the input elements.
 
 Parameter:
 
-* `dropout_rate`: Float, The dropout rate to be used for the `Dropout` layer. It should be between 0 and 1. Setting it to 1 indicates that there is no dropped element at all. The default value is 0.5.
+* `dropout_rate`: Float, The dropout rate to be used for the `Dropout` layer. It should be between 0 and 1. Setting it to 0 indicates that there is no dropped element at all. The default value is 0.5.
 
 Input and Output Shapes:
 
