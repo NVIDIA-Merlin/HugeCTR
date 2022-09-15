@@ -1,0 +1,207 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   width="750"
+   height="420"
+   viewBox="0 0 198.43749 111.125"
+   version="1.1"
+   id="svg8"
+   inkscape:version="1.0.2 (e86c870879, 2021-01-15)"
+   sodipodi:docname="hps_library.svg">
+  <defs
+     id="defs2">
+    <marker
+       style="overflow:visible;"
+       id="Arrow2Lend"
+       refX="0.0"
+       refY="0.0"
+       orient="auto"
+       inkscape:stockid="Arrow2Lend"
+       inkscape:isstock="true">
+      <path
+         transform="scale(1.1) rotate(180) translate(1,0)"
+         d="M 8.7185878,4.0337352 L -2.2072895,0.016013256 L 8.7185884,-4.0017078 C 6.9730900,-1.6296469 6.9831476,1.6157441 8.7185878,4.0337352 z "
+         style="fill-rule:evenodd;stroke-width:0.625;stroke-linejoin:round;stroke:#000000;stroke-opacity:1;fill:#000000;fill-opacity:1"
+         id="path996" />
+    </marker>
+    <marker
+       style="overflow:visible;"
+       id="Arrow2Mend"
+       refX="0.0"
+       refY="0.0"
+       orient="auto"
+       inkscape:stockid="Arrow2Mend"
+       inkscape:isstock="true">
+      <path
+         transform="scale(0.6) rotate(180) translate(0,0)"
+         d="M 8.7185878,4.0337352 L -2.2072895,0.016013256 L 8.7185884,-4.0017078 C 6.9730900,-1.6296469 6.9831476,1.6157441 8.7185878,4.0337352 z "
+         style="fill-rule:evenodd;stroke-width:0.625;stroke-linejoin:round;stroke:#000000;stroke-opacity:1;fill:#000000;fill-opacity:1"
+         id="path1002" />
+    </marker>
+    <marker
+       style="overflow:visible"
+       id="Arrow2Lend-6"
+       refX="0"
+       refY="0"
+       orient="auto"
+       inkscape:stockid="Arrow2Lend"
+       inkscape:isstock="true">
+      <path
+         transform="matrix(-1.1,0,0,-1.1,-1.1,0)"
+         d="M 8.7185878,4.0337352 -2.2072895,0.01601326 8.7185884,-4.0017078 c -1.7454984,2.3720609 -1.7354408,5.6174519 -6e-7,8.035443 z"
+         style="fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:0.625;stroke-linejoin:round;stroke-opacity:1"
+         id="path996-2" />
+    </marker>
+  </defs>
+  <sodipodi:namedview
+     id="base"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:pageopacity="0.0"
+     inkscape:pageshadow="2"
+     inkscape:zoom="3.2796268"
+     inkscape:cx="394.37416"
+     inkscape:cy="189.65524"
+     inkscape:document-units="mm"
+     inkscape:current-layer="layer1"
+     inkscape:document-rotation="0"
+     showgrid="false"
+     units="px"
+     inkscape:window-width="1942"
+     inkscape:window-height="1199"
+     inkscape:window-x="26"
+     inkscape:window-y="23"
+     inkscape:window-maximized="0" />
+  <metadata
+     id="metadata5">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title></dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1">
+    <rect
+       style="fill:#76b900;fill-opacity:1;stroke:#000000;stroke-width:0.282447;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       id="rect10"
+       width="173.44518"
+       height="37.87862"
+       x="13.029958"
+       y="62.956722" />
+    <text
+       xml:space="preserve"
+       style="font-weight:bold;font-size:5.64444px;line-height:1.25;font-family:'NVIDIA Sans';-inkscape-font-specification:'NVIDIA Sans Bold';stroke-width:0.264583"
+       x="49.18549"
+       y="69.986412"
+       id="text837"><tspan
+         sodipodi:role="line"
+         id="tspan835"
+         x="49.18549"
+         y="69.986412"
+         style="font-style:normal;font-variant:normal;font-weight:500;font-stretch:normal;font-size:5.64444px;font-family:'NVIDIA Sans';-inkscape-font-specification:'NVIDIA Sans Medium';stroke-width:0.264583">Hierarchical Parameter Server Library</tspan></text>
+    <rect
+       style="fill:#008564;fill-opacity:1;stroke:#ffffff;stroke-width:0.280942;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       id="rect857"
+       width="71.676407"
+       height="13.24964"
+       x="22.592974"
+       y="78.562599" />
+    <text
+       xml:space="preserve"
+       style="font-weight:bold;font-size:6.35px;line-height:1.25;font-family:'NVIDIA Sans';-inkscape-font-specification:'NVIDIA Sans Bold';fill:#ffffff;stroke-width:0.264583"
+       x="27.547697"
+       y="87.281807"
+       id="text861"><tspan
+         sodipodi:role="line"
+         id="tspan859"
+         x="27.547697"
+         y="87.281807"
+         style="font-style:normal;font-variant:normal;font-weight:500;font-stretch:normal;font-size:5.64444px;font-family:'NVIDIA Sans';-inkscape-font-specification:'NVIDIA Sans Medium';fill:#ffffff;stroke-width:0.264583">HPS Database Backend</tspan></text>
+    <rect
+       style="fill:#008564;fill-opacity:1;stroke:#ffffff;stroke-width:0.280942;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       id="rect857-3"
+       width="71.676407"
+       height="13.24964"
+       x="106.68491"
+       y="78.562599" />
+    <text
+       xml:space="preserve"
+       style="font-weight:500;font-size:6.35px;line-height:1.25;font-family:'NVIDIA Sans';-inkscape-font-specification:'NVIDIA Sans Medium';fill:#ffffff;stroke-width:0.264583"
+       x="111.99268"
+       y="87.321335"
+       id="text865"><tspan
+         sodipodi:role="line"
+         id="tspan863"
+         x="111.99268"
+         y="87.321335"
+         style="font-size:5.64444px;fill:#ffffff;stroke-width:0.264583">GPU Embedding Cache</tspan></text>
+    <rect
+       style="fill:#cdcdcd;fill-opacity:1;stroke:#000000;stroke-width:0.309416;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       id="rect905-6-5"
+       width="77.570847"
+       height="23.273481"
+       x="12.815626"
+       y="14.381903" />
+    <text
+       xml:space="preserve"
+       style="font-weight:500;font-size:6.35px;line-height:1.25;font-family:'NVIDIA Sans';-inkscape-font-specification:'NVIDIA Sans Medium';stroke-width:0.264583"
+       x="50.182285"
+       y="24.161888"
+       id="text909"><tspan
+         sodipodi:role="line"
+         id="tspan907"
+         x="50.182285"
+         y="24.161888"
+         style="font-size:5.64444px;text-align:center;text-anchor:middle;stroke-width:0.264583">HPS Plugin</tspan><tspan
+         sodipodi:role="line"
+         x="50.182285"
+         y="32.099388"
+         style="font-size:5.64444px;text-align:center;text-anchor:middle;stroke-width:0.264583"
+         id="tspan911">for TensorFlow</tspan></text>
+    <rect
+       style="fill:#cdcdcd;fill-opacity:1;stroke:#000000;stroke-width:0.309416;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       id="rect905-6"
+       width="77.570847"
+       height="23.273481"
+       x="109.07695"
+       y="14.181999" />
+    <text
+       xml:space="preserve"
+       style="font-weight:500;font-size:6.35px;line-height:1.25;font-family:'NVIDIA Sans';-inkscape-font-specification:'NVIDIA Sans Medium';stroke-width:0.264583"
+       x="147.65715"
+       y="23.558775"
+       id="text909-7"><tspan
+         sodipodi:role="line"
+         id="tspan907-5"
+         x="147.65715"
+         y="23.558775"
+         style="font-size:5.64444px;text-align:center;text-anchor:middle;stroke-width:0.264583">HPS Backend</tspan><tspan
+         sodipodi:role="line"
+         x="147.65715"
+         y="31.496275"
+         style="font-size:5.64444px;text-align:center;text-anchor:middle;stroke-width:0.264583"
+         id="tspan911-3">for Triton Inference Server</tspan></text>
+    <path
+       style="fill:none;stroke:#000000;stroke-width:0.266239;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;marker-end:url(#Arrow2Lend)"
+       d="M 99.878224,62.833738 C 124.98332,37.728644 124.98332,37.728644 124.98332,37.728644"
+       id="path973" />
+    <path
+       style="fill:none;stroke:#000000;stroke-width:0.266239;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;marker-end:url(#Arrow2Lend-6)"
+       d="M 99.787123,63.031244 C 74.682164,37.92615 74.682164,37.92615 74.682164,37.92615"
+       id="path973-9" />
+  </g>
+</svg>

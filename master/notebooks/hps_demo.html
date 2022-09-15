@@ -94,7 +94,7 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <img alt="http://developer.download.nvidia.com/compute/machine-learning/frameworks/nvidia_logo.png" src="http://developer.download.nvidia.com/compute/machine-learning/frameworks/nvidia_logo.png" />
+  <img alt="http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_hps-demo/nvidia_logo.png" src="http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_hps-demo/nvidia_logo.png" />
 <div class="tex2jax_ignore mathjax_ignore section" id="hierarchical-parameter-server-demo">
 <h1>Hierarchical Parameter Server Demo<a class="headerlink" href="#hierarchical-parameter-server-demo" title="Permalink to this headline"></a></h1>
 <div class="section" id="overview">
@@ -107,7 +107,7 @@ HPS supports different database backends and GPU embedding caches.</p>
 <h2>Installation<a class="headerlink" href="#installation" title="Permalink to this headline"></a></h2>
 <div class="section" id="get-hugectr-from-ngc">
 <h3>Get HugeCTR from NGC<a class="headerlink" href="#get-hugectr-from-ngc" title="Permalink to this headline"></a></h3>
-<p>The HugeCTR Python module is preinstalled in the 22.07 and later <a class="reference external" href="https://catalog.ngc.nvidia.com/orgs/nvidia/teams/merlin/containers/merlin-hugectr">Merlin Training Container</a>: <code class="docutils literal notranslate"><span class="pre">nvcr.io/nvidia/merlin/merlin-hugectr:22.07</span></code>.</p>
+<p>The HugeCTR Python module is preinstalled in the 22.09 and later <a class="reference external" href="https://catalog.ngc.nvidia.com/orgs/nvidia/teams/merlin/containers/merlin-hugectr">Merlin Training Container</a>: <code class="docutils literal notranslate"><span class="pre">nvcr.io/nvidia/merlin/merlin-hugectr:22.09</span></code>.</p>
 <p>You can check the existence of required libraries by running the following Python code after launching this container.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$ python3 -c <span class="s2">&quot;import hugectr&quot;</span>
 </pre></div>
@@ -536,8 +536,9 @@ mse between pred_ref and ground_truth:  7.573986338301264e-05
 <li><p>Suppose you have created a Pytorch/Tensorflow tensor that stores the embedded keys.</p></li>
 <li><p>Convert the embedding key tensor to DLPack capsule through the corresponding platform’s <code class="docutils literal notranslate"><span class="pre">to_dlpack</span></code> function.</p></li>
 <li><p>Creates an empty tensor as a buffer to store embedding vectors.</p></li>
-<li><p>Convert a buffer tensor  to DLPack capsule.</p></li>
+<li><p>Convert a buffer tensor to DLPack capsule.</p></li>
 <li><p>Lookup the embedding vector of the corresponding embedding key directly through <code class="docutils literal notranslate"><span class="pre">lookup_fromdlpack</span></code> interface, and output it to the embedding vector buffer tensor</p></li>
+<li><p>If the output capsule is allocated on the GPU, then a  <code class="docutils literal notranslate"><span class="pre">device_id</span></code> needs to be specified in <code class="docutils literal notranslate"><span class="pre">lookup_fromdlpack</span></code> interface for corresponding embedding cache. If not specified, the default value is device 0</p></li>
 </ol>
 <p>Note: Please make sure that tensorflow or pytorch have been installed correctly in the container</p>
 <div class="cell docutils container">
@@ -699,15 +700,6 @@ tensorflow dlpack on GPU results are consistent with native HPS lookup api, mse:
     <span class="fa fa-caret-down"></span>
   </span>
   <div class="rst-other-versions">
-    <dl>
-      <dt>Tags</dt>
-      <dd><a href="../../v3.5/index.html">v3.5</a></dd>
-      <dd><a href="../../v3.6/index.html">v3.6</a></dd>
-      <dd><a href="../../v3.7/index.html">v3.7</a></dd>
-      <dd><a href="../../v3.8/index.html">v3.8</a></dd>
-      <dd><a href="../../v3.9/index.html">v3.9</a></dd>
-      <dd><a href="../../v3.9.1/index.html">v3.9.1</a></dd>
-    </dl>
     <dl>
       <dt>Branches</dt>
       <dd><a href="hps_demo.html">master</a></dd>

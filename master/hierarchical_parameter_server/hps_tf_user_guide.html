@@ -22,7 +22,7 @@
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Hierarchical Parameter Server Notebooks" href="notebooks/index.html" />
+    <link rel="next" title="Benchmark the HPS Plugin for TensorFlow" href="hps_tf_benchmark.html" />
     <link rel="prev" title="Hierarchical Parameter Server Database Backend" href="../hugectr_parameter_server.html" /> 
 </head>
 
@@ -49,6 +49,7 @@
 <li class="toctree-l1 current"><a class="reference internal" href="index.html">Hierarchical Parameter Server</a><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="../hugectr_parameter_server.html">HPS Database Backend</a></li>
 <li class="toctree-l2 current"><a class="current reference internal" href="#">HPS Plugin for TensorFlow</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="hps_tf_benchmark.html">Benchmark</a></li>
 <li class="toctree-l3"><a class="reference internal" href="notebooks/index.html">Notebooks</a></li>
 <li class="toctree-l3"><a class="reference internal" href="api/index.html">API Documentation</a></li>
 </ul>
@@ -179,7 +180,7 @@ Integration with the graph facilitates the TensorFlow model deployment of large 
 <p>HPS is included in the Merlin Docker containers that are available from the <a class="reference external" href="https://catalog.ngc.nvidia.com/containers">NVIDIA container repository</a>. To use these Docker containers, you’ll first need to install the <a class="reference external" href="https://github.com/NVIDIA/nvidia-docker">NVIDIA Container Toolkit</a> to provide GPU support for Docker. You can use the NGC links referenced in the table above to obtain more information about how to launch and run these containers.</p>
 <p>The following sample command pulls and starts the Merlin TensorFlow container:</p>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="c1"># Run the container in interactive mode</span>
-$ docker run --gpus<span class="o">=</span>all --rm -it --cap-add SYS_NICE nvcr.io/nvidia/merlin/merlin-tensorflow:22.08
+$ docker run --gpus<span class="o">=</span>all --rm -it --cap-add SYS_NICE nvcr.io/nvidia/merlin/merlin-tensorflow:22.09
 </pre></div>
 </div>
 <p>You can check the existence of the HPS Python toolkit after launching this container:</p>
@@ -206,7 +207,7 @@ $ docker run --gpus<span class="o">=</span>all --rm -it --cap-add SYS_NICE nvcr.
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="../hugectr_parameter_server.html" class="btn btn-neutral float-left" title="Hierarchical Parameter Server Database Backend" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="notebooks/index.html" class="btn btn-neutral float-right" title="Hierarchical Parameter Server Notebooks" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="hps_tf_benchmark.html" class="btn btn-neutral float-right" title="Benchmark the HPS Plugin for TensorFlow" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>
@@ -233,15 +234,6 @@ $ docker run --gpus<span class="o">=</span>all --rm -it --cap-add SYS_NICE nvcr.
     <span class="fa fa-caret-down"></span>
   </span>
   <div class="rst-other-versions">
-    <dl>
-      <dt>Tags</dt>
-      <dd><a href="../../v3.5/index.html">v3.5</a></dd>
-      <dd><a href="../../v3.6/index.html">v3.6</a></dd>
-      <dd><a href="../../v3.7/index.html">v3.7</a></dd>
-      <dd><a href="../../v3.8/index.html">v3.8</a></dd>
-      <dd><a href="../../v3.9/hierarchical_parameter_server/hps_tf_user_guide.html">v3.9</a></dd>
-      <dd><a href="../../v3.9.1/hierarchical_parameter_server/hps_tf_user_guide.html">v3.9.1</a></dd>
-    </dl>
     <dl>
       <dt>Branches</dt>
       <dd><a href="hps_tf_user_guide.html">master</a></dd>

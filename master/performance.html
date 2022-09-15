@@ -91,8 +91,8 @@
 <div class="section" id="mlperf-on-dgx-2-and-dgx-a100">
 <h2>MLPerf on DGX-2 and DGX A100<a class="headerlink" href="#mlperf-on-dgx-2-and-dgx-a100" title="Permalink to this headline"></a></h2>
 <p>The DLRM benchmark was submitted to <a class="reference external" href="https://mlperf.org/training-results-0-7">MLPerf Training v0.7</a> with the release of HugeCTR version 2.2 and <a class="reference external" href="https://mlcommons.org/en/news/mlperf-training-v10">MLPerf Training v1.0</a> with the release of HugeCTR version 3.1. We used the <a class="reference external" href="https://labs.criteo.com/2013/12/download-terabyte-click-logs/">Criteo 1TB Click Logs dataset</a>, which contains 4 billion user and item interactions over 24 days. The DGX-2 with 16 V100 GPUs and DGX A100 with eight A100 GPUs were the target machines. For more information, see <a class="reference external" href="https://developer.nvidia.com/blog/optimizing-ai-performance-for-mlperf-v0-7-training/">this blog post</a>.</p>
-<div align=center><img width = '600' height ='400' src ="docs/source/user_guide_src/mlperf_10.PNG"/></div>
-<div align=center>Fig. 1: HugeCTR's MLPerf v1.0 Result</div>
+<img alt="_images/mlperf_10.PNG" src="_images/mlperf_10.PNG" />
+<div style="text-align:center;margin-bottom:20pt;"><figcaption>Fig. 1: HugeCTR's MLPerf v1.0 Result</figcaption></div>
 </div>
 <div class="section" id="evaluating-hugectr-s-performance-on-the-dgx-1">
 <h2>Evaluating HugeCTR’s Performance on the DGX-1<a class="headerlink" href="#evaluating-hugectr-s-performance-on-the-dgx-1" title="Permalink to this headline"></a></h2>
@@ -117,17 +117,17 @@ The data is provided by <a class="reference external" href="http://labs.criteo.c
 <li><p>TF: Converted to the TFRecord format for efficient training on Tensorflow.</p></li>
 </ul>
 <p>The scalability of HugeCTR and the number of active GPUs have increased simply because of the high-efficient data exchange and three-stage processing pipeline. In this pipeline, we overlap the data reading from the file, host to the device data transaction (inter-node and intra-node), and train the GPU. The following chart shows the scalability of HugeCTR with a batch size of 16384 and seven layers on DGX1 servers.</p>
-<div align=center><img width = '800' height ='400' src ="docs/source/user_guide_srcfig12_multi_gpu_performance.PNG"/></div>
-<div align=center>Fig. 2: HugeCTR's Multi-GPU Performance</div>
+<img alt="_images/fig12_multi_gpu_performance.PNG" src="_images/fig12_multi_gpu_performance.PNG" />
+<div style="text-align:center;margin-bottom:20pt;"><figcaption>Fig. 2: HugeCTR's Multi-GPU Performance</figcaption></div>
 </div>
 <div class="section" id="evaluating-hugectr-s-performance-on-tensorflow">
 <h2>Evaluating HugeCTR’s Performance on TensorFlow<a class="headerlink" href="#evaluating-hugectr-s-performance-on-tensorflow" title="Permalink to this headline"></a></h2>
 <p>In the TensorFlow test case that’s shown here, HugeCTR exhibits a speedup up to 114 times faster compared to a CPU server running TensorFlow with only one V100 GPU and almost the same loss curve.</p>
-<div align=center><img width = '800' height ='400' src ="docs/source/user_guide_srcWDL.JPG"/></div>
-<div align=center>Fig. 3: WDL Performance and Loss Curve Comparison with TensorFlow Version 2.0</div>
+<img alt="_images/WDL.JPG" src="_images/WDL.JPG" />
+<div style="text-align:center;margin-bottom:20pt;"><figcaption>Fig. 3: WDL Performance and Loss Curve Comparison with TensorFlow Version 2.0</figcaption></div>
 <p><br></br></p>
-<div align=center><img width = '800' height ='400' src ="docs/source/user_guide_srcDCN.JPG"/></div>
-<div align=center>Fig. 4: DCN performance and Loss Curve Comparison with TensorFlow Version 2.0</div>
+<img alt="_images/DCN.JPG" src="_images/DCN.JPG" />
+<div style="text-align:center;margin-bottom:20pt;"><figcaption>Fig. 4: DCN performance and Loss Curve Comparison with TensorFlow Version 2.0</figcaption></div>
 </div>
 </div>
 
@@ -163,15 +163,6 @@ The data is provided by <a class="reference external" href="http://labs.criteo.c
     <span class="fa fa-caret-down"></span>
   </span>
   <div class="rst-other-versions">
-    <dl>
-      <dt>Tags</dt>
-      <dd><a href="../v3.5/index.html">v3.5</a></dd>
-      <dd><a href="../v3.6/index.html">v3.6</a></dd>
-      <dd><a href="../v3.7/index.html">v3.7</a></dd>
-      <dd><a href="../v3.8/performance.html">v3.8</a></dd>
-      <dd><a href="../v3.9/performance.html">v3.9</a></dd>
-      <dd><a href="../v3.9.1/performance.html">v3.9.1</a></dd>
-    </dl>
     <dl>
       <dt>Branches</dt>
       <dd><a href="performance.html">master</a></dd>

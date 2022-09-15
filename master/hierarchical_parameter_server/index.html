@@ -85,9 +85,20 @@
              
   <div class="tex2jax_ignore mathjax_ignore section" id="hierarchical-parameter-server">
 <h1>Hierarchical Parameter Server<a class="headerlink" href="#hierarchical-parameter-server" title="Permalink to this headline"></a></h1>
-<p>Hierarchical Parameter Server (HPS) is a recommender system parameter server for embedding lookup that is part of NVIDIA HugeCTR.</p>
-<p>HPS offers a flexible deployment and configuration to meet site-specific recommender system needs.
-The deployment</p>
+<p>The Hierarchical Parameter Server (HPS) library is a native C++ library that provides
+caching and hierarchical storage for embeddings.
+The library is built from the GPU embedding cache and HPS database backend subcomponents.</p>
+<p>HPS offers a flexible deployment and configuration to meet site-specific recommender system needs
+and is integrated by other projects that need the ability to work with embeddings that exceed
+the capacity of GPU and host memory.
+Two projects that include the HPS library are the HPS plugin for TensorFlow and the
+HPS backend for Triton Inference Server.</p>
+<p>The following figure shows the relationships between the projects that use HPS,
+the HPS library, and the subcomponents of the library.</p>
+<!--
+<img src="/user_guide_src/hps_library.svg" alt="HPS Library and subcomponents" style="display:block;margin-left:auto;margin-right:auto;">
+-->
+<img alt="HPS Library and subcomponents" src="../_images/hps_library.svg" /><div style="text-align:center"><figcaption>Fig. 1: HPS Library and subcomponents</figcaption></div>
 <dl class="simple myst">
 <dt><a class="reference internal" href="../hugectr_parameter_server.html"><span class="doc std std-doc">HPS Database Backend</span></a></dt><dd><p>Provides a three-level storage architecture.
 The first and highest performing level is GPU memory and is followed by CPU memory.
@@ -136,15 +147,6 @@ Documentation for the backend is available from the <code class="docutils litera
     <span class="fa fa-caret-down"></span>
   </span>
   <div class="rst-other-versions">
-    <dl>
-      <dt>Tags</dt>
-      <dd><a href="../../v3.5/index.html">v3.5</a></dd>
-      <dd><a href="../../v3.6/index.html">v3.6</a></dd>
-      <dd><a href="../../v3.7/index.html">v3.7</a></dd>
-      <dd><a href="../../v3.8/index.html">v3.8</a></dd>
-      <dd><a href="../../v3.9/hierarchical_parameter_server/index.html">v3.9</a></dd>
-      <dd><a href="../../v3.9.1/hierarchical_parameter_server/index.html">v3.9.1</a></dd>
-    </dl>
     <dl>
       <dt>Branches</dt>
       <dd><a href="index.html">master</a></dd>

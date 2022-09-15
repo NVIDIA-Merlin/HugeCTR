@@ -28,6 +28,8 @@
    "id": "b4a0ed80",
    "metadata": {},
    "source": [
+    "<img src=\"http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_multi-modal-data-0-intro/nvidia_logo.png\" style=\"width: 90px; float: right;\">\n",
+    "\n",
     "# Training Recommender Systems on Multi-modal Data"
    ]
   },

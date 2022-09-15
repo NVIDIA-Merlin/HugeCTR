@@ -4,6 +4,8 @@
    "cell_type": "markdown",
    "metadata": {},
    "source": [
+    "<img src=\"http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_news-example/nvidia_logo.png\" style=\"width: 90px; float: right;\">\n",
+    "\n",
     "# NVIDIA Merlin on Microsoft's News Dataset (MIND)"
    ]
   },
@@ -29,7 +31,7 @@
    "cell_type": "markdown",
    "metadata": {},
    "source": [
-    "Please remember to run this jupyter notebook in the [merlin-hugectr:22.07](https://ngc.nvidia.com/catalog/containers/nvidia:merlin:merlin-hugectr) docker container."
+    "Please remember to run this jupyter notebook in the [merlin-hugectr:22.09](https://ngc.nvidia.com/catalog/containers/nvidia:merlin:merlin-hugectr) docker container."
    ]
   },
   {

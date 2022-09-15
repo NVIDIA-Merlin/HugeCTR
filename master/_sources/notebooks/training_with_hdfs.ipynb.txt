@@ -5,7 +5,7 @@
    "id": "0e814db9",
    "metadata": {},
    "source": [
-    "<img src=\"http://developer.download.nvidia.com/compute/machine-learning/frameworks/nvidia_logo.png\" style=\"width: 90px; float: right;\">\n",
+    "<img src=\"http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_training-with-hdfs/nvidia_logo.png\" style=\"width: 90px; float: right;\">\n",
     "\n",
     "# HugeCTR training with HDFS example"
    ]
@@ -32,7 +32,7 @@
    "metadata": {},
    "source": [
     "## Get HugeCTR from NGC\n",
-    "The HugeCTR Python module is preinstalled in the 22.07 and later [Merlin Training Container](https://ngc.nvidia.com/catalog/containers/nvidia:merlin:merlin-hugectr): `nvcr.io/nvidia/merlin/merlin-hugectr:22.07`.\n",
+    "The HugeCTR Python module is preinstalled in the 22.09 and later [Merlin Training Container](https://ngc.nvidia.com/catalog/containers/nvidia:merlin:merlin-hugectr): `nvcr.io/nvidia/merlin/merlin-hugectr:22.09`.\n",
     "\n",
     "You can check the existence of required libraries by running the following Python code after launching the container.\n",
     "\n",

@@ -105,11 +105,11 @@ If you prefer to build the HugeCTR Docker image on your own, refer to <a class="
 <div class="section" id="pull-the-ngc-docker">
 <h3>Pull the NGC Docker<a class="headerlink" href="#pull-the-ngc-docker" title="Permalink to this headline"></a></h3>
 <p>Pull the container using the following command:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>docker pull nvcr.io/nvidia/merlin/merlin-hugectr:22.07
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>docker pull nvcr.io/nvidia/merlin/merlin-hugectr:22.09
 </pre></div>
 </div>
 <blockquote>
-<div><p>To run the Sparse Operation Kit notebooks, pull the <code class="docutils literal notranslate"><span class="pre">nvcr.io/nvidia/merlin/merlin-tensorflow:22.07</span></code> container.</p>
+<div><p>To run the Sparse Operation Kit notebooks, pull the <code class="docutils literal notranslate"><span class="pre">nvcr.io/nvidia/merlin/merlin-tensorflow:22.09</span></code> container.</p>
 </div></blockquote>
 </div>
 <div class="section" id="clone-the-hugectr-repository">
@@ -123,11 +123,11 @@ If you prefer to build the HugeCTR Docker image on your own, refer to <a class="
 <h3>Start the Jupyter Notebook<a class="headerlink" href="#start-the-jupyter-notebook" title="Permalink to this headline"></a></h3>
 <ol class="arabic">
 <li><p>Launch the container in interactive mode (mount the HugeCTR root directory into the container for your convenience) by running this command:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>docker run --runtime<span class="o">=</span>nvidia --rm -it --cap-add SYS_NICE --ipc<span class="o">=</span>host --ulimit <span class="nv">memlock</span><span class="o">=</span>-1 --ulimit <span class="nv">stack</span><span class="o">=</span><span class="m">67108864</span> -u <span class="k">$(</span>id -u<span class="k">)</span>:<span class="k">$(</span>id -g<span class="k">)</span> -v <span class="k">$(</span><span class="nb">pwd</span><span class="k">)</span>:/hugectr -w /hugectr -p <span class="m">8888</span>:8888 nvcr.io/nvidia/merlin/merlin-hugectr:22.07
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>docker run --runtime<span class="o">=</span>nvidia --rm -it --cap-add SYS_NICE --ipc<span class="o">=</span>host --ulimit <span class="nv">memlock</span><span class="o">=</span>-1 --ulimit <span class="nv">stack</span><span class="o">=</span><span class="m">67108864</span> -u <span class="k">$(</span>id -u<span class="k">)</span>:<span class="k">$(</span>id -g<span class="k">)</span> -v <span class="k">$(</span><span class="nb">pwd</span><span class="k">)</span>:/hugectr -w /hugectr -p <span class="m">8888</span>:8888 nvcr.io/nvidia/merlin/merlin-hugectr:22.09
 </pre></div>
 </div>
 <blockquote>
-<div><p>To run the  Sparse Operation Kit notebooks, specify the <code class="docutils literal notranslate"><span class="pre">nvcr.io/nvidia/merlin/merlin-tensorflow:22.07</span></code> container.</p>
+<div><p>To run the  Sparse Operation Kit notebooks, specify the <code class="docutils literal notranslate"><span class="pre">nvcr.io/nvidia/merlin/merlin-tensorflow:22.09</span></code> container.</p>
 </div></blockquote>
 </li>
 <li><p>Start Jupyter using these commands:</p>
@@ -284,15 +284,6 @@ The notebooks use the Movielens-25M dataset.</p>
     <span class="fa fa-caret-down"></span>
   </span>
   <div class="rst-other-versions">
-    <dl>
-      <dt>Tags</dt>
-      <dd><a href="../../v3.5/index.html">v3.5</a></dd>
-      <dd><a href="../../v3.6/index.html">v3.6</a></dd>
-      <dd><a href="../../v3.7/index.html">v3.7</a></dd>
-      <dd><a href="../../v3.8/index.html">v3.8</a></dd>
-      <dd><a href="../../v3.9/index.html">v3.9</a></dd>
-      <dd><a href="../../v3.9.1/index.html">v3.9.1</a></dd>
-    </dl>
     <dl>
       <dt>Branches</dt>
       <dd><a href="index.html">master</a></dd>

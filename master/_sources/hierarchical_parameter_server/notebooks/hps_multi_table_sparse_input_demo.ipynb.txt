@@ -5,7 +5,7 @@
    "id": "52b4fa7c",
    "metadata": {},
    "source": [
-    "<img src=\"http://developer.download.nvidia.com/compute/machine-learning/frameworks/nvidia_logo.png\" style=\"width: 90px; float: right;\">\n",
+    "<img src=\"http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_hps-multi-table-sparse-input-demo/nvidia_logo.png\" style=\"width: 90px; float: right;\">\n",
     "\n",
     "# HPS for Multiple Tables and Sparse Inputs"
    ]
@@ -31,7 +31,7 @@
     "\n",
     "### Get HPS from NGC\n",
     "\n",
-    "The HPS Python module is preinstalled in the 22.08 and later [Merlin TensorFlow Container](https://catalog.ngc.nvidia.com/orgs/nvidia/teams/merlin/containers/merlin-tensorflow): `nvcr.io/nvidia/merlin/merlin-tensorflow:22.08`.\n",
+    "The HPS Python module is preinstalled in the 22.09 and later [Merlin TensorFlow Container](https://catalog.ngc.nvidia.com/orgs/nvidia/teams/merlin/containers/merlin-tensorflow): `nvcr.io/nvidia/merlin/merlin-tensorflow:22.09`.\n",
     "\n",
     "You can check the existence of the required libraries by running the following Python code after launching this container.\n",
     "\n",

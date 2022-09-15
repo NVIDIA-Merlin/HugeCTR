@@ -1,5 +1,72 @@
 # Release Notes
 
+## What's New in Version 4.0
+
++ **3G Embedding Stablization**:
+Since the introduction of the next generation of HugeCTR embedding in v3.7, several updates and enhancements were made, including code refactoring to improve usability.
+The enhancements for this release are as follows:
+  + Optimized the performance for sparse lookup in terms of inter-warp load imbalance.
+    Sparse Operation Kit (SOK) takes advantage of the enhancement to improve performance.
+  + This release includes a fix for determining the maximum embedding vector size in the `GlobalEmbeddingData` and `LocalEmbeddingData` classes.
+  + Version 1.1.4 of Sparse Operation Kit can be installed with Pip and includes the enhancements mentioned in the preceding bullets.
+
++ **Embedding Cache Initialization with Configurable Ratio**:
+In previous releases, the default value for the `cache_refresh_percentage_per_iteration` parameter of the [InferenceParams](https://nvidia-merlin.github.io/HugeCTR/v4.0/hugectr_parameter_server.html#inference-parameters-and-embedding-cache-configuration) was `0.1`.
+
+  In this release, default value is `0.0` and the parameter provides an additional purpose.
+  If you set the parameter to a value greater than `0.0` and also set `use_gpu_embedding_cache` to `True` for a model, when Hierarchical Parameter Server (HPS) starts, HPS initializes the embedding cache for the model on the GPU by loading a subset of the embedding vectors from the sparse files for the model.
+  When embedding cache initialization is used, HPS creates log records when it starts at the INFO level.
+  The logging records are similar to `EC initialization for model: "<model-name>", num_tables: <int>` and `EC initialization on device: <int>`.
+  This enhancement reduces the duration of the warm up phase.
+
++ **Lazy Initialization of HPS Plugin for TensorFlow**:
+In this release, when you deploy a `SavedModel` of TensorFlow with Triton Inference Server, HPS is implicitly initialized when the loaded model is executed for the first time.
+In previous releases, you needed to run `hps.Init(ps_config_file, global_batch_size)` explicitly.
+For more information, see the API documentation for [`hierarchical_parameter_server.Init`](https://nvidia-merlin.github.io/HugeCTR/v4.0/hierarchical_parameter_server/api/initialize.html#hierarchical_parameter_server.Init).
+
++ **Enhancements to the HDFS Backend**:
+  + The HDFS Backend is now called IO::HadoopFileSystem.
+  + This release includes fixes for memory leaks.
+  + This release includes refactoring to generalize the interface for HDFS and S3 as remote filesystems.
+  + For more information, see `hadoop_filesystem.hpp` in the [`include/io`](https://github.com/NVIDIA-Merlin/HugeCTR/tree/v4.0/HugeCTR/include/io) directory of the repository on GitHub.
+
++ **Dependency Clarification for Protobuf and Hadoop**:
+Hadoop and Protobuf are true `third_party` modules now.
+Developers can now avoid unnecessary and frequent cloning and deletion.
+
++ **Finer granularity control for overlap behavior**:
+We deperacated the old `overlapped_pipeline` knob and introduces four new knobs `train_intra_iteration_overlap`/`train_inter_iteration_overlap`/`eval_intra_iteration_overlap`/`eval_inter_iteration_overlap` to help user better control the overlap behavior. For more information, see the API documentation for [`Solver.CreateSolver`](https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html#createsolver-method)
+
++ **Documentation Improvements**:
+  + Removed two deprecated tutorials `triton_tf_deploy` and `dump_to_tf`.
+  + Previously, the graphics in the [Performance](https://nvidia-merlin.github.io/HugeCTR/v4.0/performance.html) page did not appear.
+    This issue is fixed in this release.
+  + Previously, the [API documentation](https://nvidia-merlin.github.io/HugeCTR/v4.0/hierarchical_parameter_server/api/index.html) for the HPS Plugin for TensorFlow did not show the class information. This issue is fixed in this release.
+
+
++ **Issues Fixed**:
+  + Fixed a build error that was triggered in debug mode.
+    The error was caused by the newly introduced 3G embedding unit tests.
+  + When using the Parquet DataReader, if a parquet dataset file specified in `metadata.json` does not exist, HugeCTR no longer crashes.
+    The new behavior is to skip the missing file and display a warning message.
+    This change relates to GitHub issue [321](https://github.com/NVIDIA-Merlin/HugeCTR/issues/321).
+
++ **Known Issues**:
+  + HugeCTR uses NCCL to share data between ranks and NCCL can require shared system memory for IPC and pinned (page-locked) system memory resources.
+    If you use NCCL inside a container, increase these resources by specifying the following arguments when you start the container:
+
+    ```shell
+      -shm-size=1g -ulimit memlock=-1
+    ```
+
+    See also the NCCL [known issue](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/troubleshooting.html#sharing-data) and the GitHub [issue](https://github.com/NVIDIA-Merlin/HugeCTR/issues/243).
+  + `KafkaProducers` startup succeeds even if the target Kafka broker is unresponsive.
+    To avoid data loss in conjunction with streaming-model updates from Kafka, you have to make sure that a sufficient number of Kafka brokers are running, operating properly, and are reachable from the node where you run HugeCTR.
+  + The number of data files in the file list should be greater than or equal to the number of data reader workers.
+    Otherwise, different workers are mapped to the same file and data loading does not progress as expected.
+  + Joint loss training with a regularizer is not supported.
+
+
 ## What's New in Version 3.9
 
 + **Updates to 3G Embedding**:

@@ -84,7 +84,7 @@ HPS is included in the Merlin Docker containers that are available from the [NVI
 The following sample command pulls and starts the Merlin TensorFlow container:
 ```shell
 # Run the container in interactive mode
-$ docker run --gpus=all --rm -it --cap-add SYS_NICE nvcr.io/nvidia/merlin/merlin-tensorflow:22.08
+$ docker run --gpus=all --rm -it --cap-add SYS_NICE nvcr.io/nvidia/merlin/merlin-tensorflow:22.09
 ```
 You can check the existence of the HPS Python toolkit after launching this container:
 ```shell

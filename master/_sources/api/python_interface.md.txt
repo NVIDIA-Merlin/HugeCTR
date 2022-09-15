@@ -67,13 +67,17 @@ hugectr.CreateSolver()
 
 * `use_algorithm_search`: Whether to use algorithm search for cublasGemmEx within the FullyConnectedLayer. The default value is `True`.
 
-* `use_cuda_graph`: Whether to enable cuda graph for dense network forward and backward propagation. The default value is `True`.
+* `use_cuda_graph`: Whether to enable cuda graph in the training. If you are using AsyncDataReader and HybridEmbedding, all GPU tasks including embeddings and network inside each training iteration will be packed into a single CUDA Graph. Otherwise only the CUDA Graph includes the network only. The default value is `True`.
 
 * `device_layout`: this option is deprecated and no longer used.
 
-* `use_holistic_cuda_graph`: The default value is `False`. If `True`, everything inside a training iteration is packed into a CUDA Graph. Requirement: use_cuda_graph is False, use_overlapped_pipeline is True.
+* `train_intra_iteration_overlap`: Whether to enable overlap inside every training iteration. If true, hugectr detects the model toplogy and tries to overlap among DataReader, Embedding and Network in every training iteration. The default value is `False`.
 
-* `use_overlapped_pipeline`: The default value is `False`. If `True`, the computation in the dense input data path will be overlapped with the hybrid embedding computation. Requirements: The data reader is asynchronous (see AsyncParam), hybrid embedding is used (see HybridEmbeddingParam), the model has a feature interaction layer (see InteractionLayer).
+* `train_inter_iteration_overlap`: Whether to enable overlap between training iterations. If true, hugectr tries to fetch some data copy/computation in the next iteration during the current iteration, so that the next iteraction can start earlier. The default value is `False`.
+
+* `eval_intra_iteration_overlap`: Whether to enable overlap inside every eval iteration. The knob provides similar functionality with `train_intra_iteration_overlap` while it applies to evaluation iterations. The default value is `False`.
+
+* `eval_inter_iteration_overlap`: Whether to enable overlap between eval iteration. The knob provides similar functionality with `train_inter_iteration_overlap` while it applies to evaluation iterations. The default value is `False`.
 
 * `data_source_params`: [DataSourceParams()](https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html#datasourceparams-class), specify the configurations of the data sources(Local, HDFS, or others) for model persistence and loading.
 

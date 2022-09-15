@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>hierarchical_parameter_server.core.initialize &mdash; Merlin HugeCTR  documentation</title><link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/mystnb.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/togglebutton.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  <script id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+        <script src="../../../_static/jquery.js"></script>
+        <script src="../../../_static/underscore.js"></script>
+        <script src="../../../_static/doctools.js"></script>
+        <script >let toggleHintShow = 'Click to show';</script>
+        <script >let toggleHintHide = 'Click to hide';</script>
+        <script >let toggleOpenOnPrint = 'true';</script>
+        <script src="../../../_static/togglebutton.js"></script>
+        <script >var togglebuttonSelector = '.toggle, .admonition.dropdown, .tag_hide_input div.cell_input, .tag_hide-input div.cell_input, .tag_hide_output div.cell_output, .tag_hide-output div.cell_output, .tag_hide_cell.cell, .tag_hide-cell.cell';</script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../../../index.html" class="icon icon-home"> Merlin HugeCTR
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption"><span class="caption-text">HUGECTR</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../hugectr_user_guide.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../hugectr_core_features.html">Core Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../hugectr_embedding_training_cache.html">Embedding Training Cache</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../hierarchical_parameter_server/index.html">Hierarchical Parameter Server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../performance.html">Performance</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../notebooks/index.html">Example Notebooks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../notebooks/multi-modal-data/index.html">Multi-modal Example Notebooks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/index.html">API Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../additional_resources.html">Additional Resources</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../release_notes.html">Release Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../hugectr_contributor_guide.html">Contributing to HugeCTR</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">Merlin HugeCTR</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="../../index.html">Module code</a> &raquo;</li>
+      <li>hierarchical_parameter_server.core.initialize</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for hierarchical_parameter_server.core.initialize</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd"> Copyright (c) 2021, NVIDIA CORPORATION.</span>
+<span class="sd"> </span>
+<span class="sd"> Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+<span class="sd"> you may not use this file except in compliance with the License.</span>
+<span class="sd"> You may obtain a copy of the License at</span>
+
+<span class="sd">     http://www.apache.org/licenses/LICENSE-2.0</span>
+
+<span class="sd"> Unless required by applicable law or agreed to in writing, software</span>
+<span class="sd"> distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+<span class="sd"> WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
+<span class="sd"> See the License for the specific language governing permissions and</span>
+<span class="sd"> limitations under the License.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span> <span class="nn">hierarchical_parameter_server</span> <span class="kn">import</span> <span class="n">hps_lib</span>
+<span class="kn">import</span> <span class="nn">tensorflow.distribute</span> <span class="k">as</span> <span class="nn">tf_dist</span>
+<span class="kn">from</span> <span class="nn">tensorflow</span> <span class="kn">import</span> <span class="nb">print</span> <span class="k">as</span> <span class="n">tf_print</span>
+<span class="kn">from</span> <span class="nn">tensorflow</span> <span class="kn">import</span> <span class="n">function</span>
+<span class="kn">from</span> <span class="nn">tensorflow.python.framework</span> <span class="kn">import</span> <span class="n">config</span>
+<span class="kn">from</span> <span class="nn">tensorflow.dtypes</span> <span class="kn">import</span> <span class="n">int32</span><span class="p">,</span> <span class="n">int64</span>
+<span class="kn">from</span> <span class="nn">tensorflow.python.ops</span> <span class="kn">import</span> <span class="n">array_ops</span>
+
+<span class="n">MirroredStrategy</span> <span class="o">=</span> <span class="n">tf_dist</span><span class="o">.</span><span class="n">MirroredStrategy</span>
+<span class="k">try</span><span class="p">:</span>
+    <span class="n">MultiWorkerMirroredStrategy</span> <span class="o">=</span> <span class="n">tf_dist</span><span class="o">.</span><span class="n">MultiWorkerMirroredStrategy</span>
+<span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
+    <span class="n">MultiWorkerMirroredStrategy</span> <span class="o">=</span> <span class="n">tf_dist</span><span class="o">.</span><span class="n">experimental</span><span class="o">.</span><span class="n">MultiWorkerMirroredStrategy</span>
+<span class="kn">import</span> <span class="nn">sys</span>
+
+
+<div class="viewcode-block" id="Init"><a class="viewcode-back" href="../../../hierarchical_parameter_server/api/initialize.html#hierarchical_parameter_server.Init">[docs]</a><span class="k">def</span> <span class="nf">Init</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Abbreviated as ``hps.Init(**kwargs)``.</span>
+
+<span class="sd">    This function will initialize the HPS for all the deployed models. It can be used</span>
+<span class="sd">    explicitly or implicitly. When used explicitly, it needs to be called only once and</span>
+<span class="sd">    must be called before any other HPS APIs. When used implicitly, `ps_config_file` and</span>
+<span class="sd">    `global_batch_size` should be specified in the constructor of `hps.SparseLookupLayer`</span>
+<span class="sd">    and `hps.LookupLayer`. When the layer is executed for the first time, it will trigger</span>
+<span class="sd">    the internal HPS initialization implicitly, in a thread-safe call-once manner. The</span>
+<span class="sd">    implicit initialization is especially useful for deploying the SavedModels that</span>
+<span class="sd">    leverage the HPS layers for online inference.</span>
+
+<span class="sd">    HPS will leverage all available GPUs for current CPU process. Please set</span>
+<span class="sd">    `CUDA_VISIBLE_DEVICES` or `tf.config.set_visible_devices` to specify which</span>
+<span class="sd">    GPU(s) are used in this process before launching tensorflow runtime</span>
+<span class="sd">    and calling this function. Besides, please ensure that deployed_device_list</span>
+<span class="sd">    in the HPS configuration json file matches the visible devices.</span>
+
+<span class="sd">    In **TensorFlow 2.x**, HPS can be used with **tf.distribute.Strategy** or **Horovod**.</span>
+<span class="sd">    When it&#39;s used with tf.distribute.Strategy, it must be called under `strategy.scope()`.</span>
+<span class="sd">    For example,</span>
+
+<span class="sd">    .. code-block:: python</span>
+
+<span class="sd">        import hierarchical_parameter_server as hps</span>
+
+<span class="sd">        with strategy.scope():</span>
+<span class="sd">            hps.Init(**kwargs)</span>
+
+<span class="sd">    When it&#39;s used with Horovod, it must be called at each process. For example,</span>
+
+<span class="sd">    .. code-block:: python</span>
+
+<span class="sd">        import hierarchical_parameter_server as hps</span>
+<span class="sd">        import horovod.tensorflow as hvd</span>
+
+<span class="sd">        hvd.init()</span>
+
+<span class="sd">        hps.Init(**kwargs)</span>
+
+<span class="sd">    In **TensorFlow 1.15**, HPS can only work with **Horovod**. The retured status</span>
+<span class="sd">    must be evaluated with `sess.run`, and it must be the first step before evaluate</span>
+<span class="sd">    any other HPS APIs.</span>
+
+<span class="sd">    .. code-block:: python</span>
+
+<span class="sd">        import hierarchical_parameter_server as hps</span>
+
+<span class="sd">        hps_init = hps.Init(**kwargs)</span>
+<span class="sd">        with tf.Session() as sess:</span>
+<span class="sd">            sess.run(hps_init)</span>
+<span class="sd">            ...</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    kwargs: dict</span>
+<span class="sd">            keyword arguments for this function.</span>
+<span class="sd">            Currently, it must contains `global_batch_size` and `ps_config_file`.</span>
+
+<span class="sd">            * `global_batch_size`: int, the global batch size for HPS that is deployed on multiple GPUs</span>
+
+<span class="sd">            * `ps_config_file`: str, the JSON configuration file for HPS initialization</span>
+
+<span class="sd">            An example `ps_config_file` is as follows and `global_batch_size` can be</span>
+<span class="sd">            configured as 16384 correspondingly:</span>
+
+<span class="sd">            .. code-block:: python</span>
+
+<span class="sd">                ps_config_file = {</span>
+<span class="sd">                    &quot;supportlonglong&quot; : True,</span>
+<span class="sd">                    &quot;models&quot; :</span>
+<span class="sd">                    [{</span>
+<span class="sd">                        &quot;model&quot;: &quot;foo&quot;,</span>
+<span class="sd">                        &quot;sparse_files&quot;: [&quot;foo_sparse.model&quot;],</span>
+<span class="sd">                        &quot;num_of_worker_buffer_in_pool&quot;: 3,</span>
+<span class="sd">                        &quot;embedding_table_names&quot;:[&quot;sparse_embedding0&quot;],</span>
+<span class="sd">                        &quot;embedding_vecsize_per_table&quot;: [16],</span>
+<span class="sd">                        &quot;maxnum_catfeature_query_per_table_per_sample&quot;: [10],</span>
+<span class="sd">                        &quot;default_value_for_each_table&quot;: [1.0],</span>
+<span class="sd">                        &quot;deployed_device_list&quot;: [0],</span>
+<span class="sd">                        &quot;max_batch_size&quot;: 16384,</span>
+<span class="sd">                        &quot;cache_refresh_percentage_per_iteration&quot;: 0.2,</span>
+<span class="sd">                        &quot;hit_rate_threshold&quot;: 1.0,</span>
+<span class="sd">                        &quot;gpucacheper&quot;: 1.0,</span>
+<span class="sd">                        &quot;gpucache&quot;: True</span>
+<span class="sd">                    },</span>
+<span class="sd">                    {</span>
+<span class="sd">                        &quot;model&quot;: &quot;bar&quot;,</span>
+<span class="sd">                        &quot;sparse_files&quot;: [&quot;bar_sparse_0.model&quot;, &quot;bar_sparse_1.model&quot;],</span>
+<span class="sd">                        &quot;num_of_worker_buffer_in_pool&quot;: 3,</span>
+<span class="sd">                        &quot;embedding_table_names&quot;:[&quot;sparse_embedding0&quot;, &quot;sparse_embedding1&quot;],</span>
+<span class="sd">                        &quot;embedding_vecsize_per_table&quot;: [64, 32],</span>
+<span class="sd">                        &quot;maxnum_catfeature_query_per_table_per_sample&quot;: [3, 5],</span>
+<span class="sd">                        &quot;default_value_for_each_table&quot;: [1.0, 1.0],</span>
+<span class="sd">                        &quot;deployed_device_list&quot;: [0],</span>
+<span class="sd">                        &quot;max_batch_size&quot;: 16384,</span>
+<span class="sd">                        &quot;cache_refresh_percentage_per_iteration&quot;: 0.2,</span>
+<span class="sd">                        &quot;hit_rate_threshold&quot;: 1.0,</span>
+<span class="sd">                        &quot;gpucacheper&quot;: 1.0,</span>
+<span class="sd">                        &quot;gpucache&quot;: True},</span>
+<span class="sd">                    ]</span>
+<span class="sd">                }</span>
+
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    status: str</span>
+<span class="sd">            a string will be returned if this function executed successfully.</span>
+<span class="sd">            And its contents will be &#39;OK&#39;.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">_get_visible_devices</span><span class="p">():</span>
+        <span class="n">gpus</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">get_visible_devices</span><span class="p">(</span><span class="s2">&quot;GPU&quot;</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">gpus</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span>
+        <span class="n">visible_devices</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">gpus</span><span class="p">)):</span>
+            <span class="n">visible_devices</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">gpus</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">name</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;:&quot;</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]))</span>
+        <span class="k">return</span> <span class="n">array_ops</span><span class="o">.</span><span class="n">constant</span><span class="p">(</span><span class="n">visible_devices</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">int32</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_single_worker_init</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">replica_ctx</span> <span class="o">=</span> <span class="n">tf_dist</span><span class="o">.</span><span class="n">get_replica_context</span><span class="p">()</span>
+        <span class="n">replica_ctx</span><span class="o">.</span><span class="n">merge_call</span><span class="p">(</span>
+            <span class="k">lambda</span> <span class="n">strategy</span><span class="p">:</span> <span class="n">tf_print</span><span class="p">(</span><span class="s2">&quot;You are using the plugin with MirroredStrategy.&quot;</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="n">global_id</span> <span class="o">=</span> <span class="n">replica_ctx</span><span class="o">.</span><span class="n">replica_id_in_sync_group</span>
+        <span class="n">visible_devices</span> <span class="o">=</span> <span class="n">_get_visible_devices</span><span class="p">()</span>
+        <span class="n">status</span> <span class="o">=</span> <span class="n">hps_lib</span><span class="o">.</span><span class="n">init</span><span class="p">(</span>
+            <span class="n">global_id</span><span class="p">,</span>
+            <span class="n">replica_ctx</span><span class="o">.</span><span class="n">num_replicas_in_sync</span><span class="p">,</span>
+            <span class="n">visible_devices</span><span class="p">,</span>
+            <span class="n">global_batch_size</span><span class="o">=</span><span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;global_batch_size&quot;</span><span class="p">],</span>
+            <span class="n">ps_config_file</span><span class="o">=</span><span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;ps_config_file&quot;</span><span class="p">],</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">status</span>
+
+    <span class="k">def</span> <span class="nf">_multi_worker_init</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">replica_ctx</span> <span class="o">=</span> <span class="n">tf_dist</span><span class="o">.</span><span class="n">get_replica_context</span><span class="p">()</span>
+        <span class="n">global_id</span> <span class="o">=</span> <span class="n">replica_ctx</span><span class="o">.</span><span class="n">replica_id_in_sync_group</span>
+        <span class="n">visible_devices</span> <span class="o">=</span> <span class="n">_get_visible_devices</span><span class="p">()</span>
+        <span class="n">status</span> <span class="o">=</span> <span class="n">hps_lib</span><span class="o">.</span><span class="n">init</span><span class="p">(</span>
+            <span class="n">global_id</span><span class="p">,</span>
+            <span class="n">replica_ctx</span><span class="o">.</span><span class="n">num_replicas_in_sync</span><span class="p">,</span>
+            <span class="n">visible_devices</span><span class="p">,</span>
+            <span class="n">global_batch_size</span><span class="o">=</span><span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;global_batch_size&quot;</span><span class="p">],</span>
+            <span class="n">ps_config_file</span><span class="o">=</span><span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;ps_config_file&quot;</span><span class="p">],</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">status</span>
+
+    <span class="k">def</span> <span class="nf">_horovod_init</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">local_rank</span> <span class="o">=</span> <span class="n">hvd</span><span class="o">.</span><span class="n">local_rank</span><span class="p">()</span>
+        <span class="n">visible_devices</span> <span class="o">=</span> <span class="n">_get_visible_devices</span><span class="p">()</span>
+        <span class="n">status</span> <span class="o">=</span> <span class="n">hps_lib</span><span class="o">.</span><span class="n">init</span><span class="p">(</span>
+            <span class="n">local_rank</span><span class="p">,</span>
+            <span class="n">hvd</span><span class="o">.</span><span class="n">size</span><span class="p">(),</span>
+            <span class="n">visible_devices</span><span class="p">,</span>
+            <span class="n">global_batch_size</span><span class="o">=</span><span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;global_batch_size&quot;</span><span class="p">],</span>
+            <span class="n">ps_config_file</span><span class="o">=</span><span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;ps_config_file&quot;</span><span class="p">],</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">status</span>
+
+    <span class="k">def</span> <span class="nf">_one_device_init</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">local_rank</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">visible_devices</span> <span class="o">=</span> <span class="n">_get_visible_devices</span><span class="p">()</span>
+        <span class="n">status</span> <span class="o">=</span> <span class="n">hps_lib</span><span class="o">.</span><span class="n">init</span><span class="p">(</span>
+            <span class="n">local_rank</span><span class="p">,</span>
+            <span class="mi">1</span><span class="p">,</span>
+            <span class="n">visible_devices</span><span class="p">,</span>
+            <span class="n">global_batch_size</span><span class="o">=</span><span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;global_batch_size&quot;</span><span class="p">],</span>
+            <span class="n">ps_config_file</span><span class="o">=</span><span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;ps_config_file&quot;</span><span class="p">],</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">status</span>
+
+    <span class="k">if</span> <span class="n">tf_dist</span><span class="o">.</span><span class="n">has_strategy</span><span class="p">():</span>
+        <span class="n">strategy</span> <span class="o">=</span> <span class="n">tf_dist</span><span class="o">.</span><span class="n">get_strategy</span><span class="p">()</span>
+
+        <span class="nd">@function</span>
+        <span class="k">def</span> <span class="nf">_init_wrapper</span><span class="p">(</span><span class="n">run_fn</span><span class="p">,</span> <span class="n">init_fn</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">run_fn</span><span class="p">(</span><span class="n">init_fn</span><span class="p">,</span> <span class="n">kwargs</span><span class="o">=</span><span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">strategy</span><span class="p">,</span> <span class="n">MirroredStrategy</span><span class="p">):</span>
+            <span class="n">_init_fn</span> <span class="o">=</span> <span class="n">_single_worker_init</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">strategy</span><span class="p">,</span> <span class="n">MultiWorkerMirroredStrategy</span><span class="p">):</span>
+            <span class="n">_init_fn</span> <span class="o">=</span> <span class="n">_multi_worker_init</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;This strategy type is not supported yet.&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">hps_lib</span><span class="o">.</span><span class="n">in_tensorflow2</span><span class="p">():</span>
+            <span class="n">_run_fn</span> <span class="o">=</span> <span class="n">strategy</span><span class="o">.</span><span class="n">experimental_run_v2</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">_run_fn</span> <span class="o">=</span> <span class="n">strategy</span><span class="o">.</span><span class="n">run</span>
+
+        <span class="n">_init_results</span> <span class="o">=</span> <span class="n">_init_wrapper</span><span class="p">(</span><span class="n">_run_fn</span><span class="p">,</span> <span class="n">_init_fn</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">_init_results</span><span class="p">,</span> <span class="s2">&quot;values&quot;</span><span class="p">):</span>
+            <span class="n">_init_results</span> <span class="o">=</span> <span class="n">_init_results</span><span class="o">.</span><span class="n">values</span>
+        <span class="k">return</span> <span class="n">_init_results</span>
+
+    <span class="k">elif</span> <span class="s2">&quot;horovod.tensorflow&quot;</span> <span class="ow">in</span> <span class="n">sys</span><span class="o">.</span><span class="n">modules</span><span class="p">:</span>
+        <span class="kn">import</span> <span class="nn">horovod.tensorflow</span> <span class="k">as</span> <span class="nn">hvd</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">hps_lib</span><span class="o">.</span><span class="n">in_tensorflow2</span><span class="p">():</span>
+
+            <span class="nd">@function</span>
+            <span class="k">def</span> <span class="nf">_init_wrapper</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+                <span class="k">return</span> <span class="n">_horovod_init</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+            <span class="k">return</span> <span class="n">_init_wrapper</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">_horovod_init</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">_one_device_init</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, NVIDIA.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    v: master
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Branches</dt>
+      <dd><a href="initialize.html">master</a></dd>
+    </dl>
+  </div>
+</div><script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

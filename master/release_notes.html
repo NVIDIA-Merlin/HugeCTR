@@ -81,6 +81,79 @@
              
   <div class="tex2jax_ignore mathjax_ignore section" id="release-notes">
 <h1>Release Notes<a class="headerlink" href="#release-notes" title="Permalink to this headline"></a></h1>
+<div class="section" id="what-s-new-in-version-4-0">
+<h2>What’s New in Version 4.0<a class="headerlink" href="#what-s-new-in-version-4-0" title="Permalink to this headline"></a></h2>
+<ul>
+<li><p><strong>3G Embedding Stablization</strong>:
+Since the introduction of the next generation of HugeCTR embedding in v3.7, several updates and enhancements were made, including code refactoring to improve usability.
+The enhancements for this release are as follows:</p>
+<ul class="simple">
+<li><p>Optimized the performance for sparse lookup in terms of inter-warp load imbalance.
+Sparse Operation Kit (SOK) takes advantage of the enhancement to improve performance.</p></li>
+<li><p>This release includes a fix for determining the maximum embedding vector size in the <code class="docutils literal notranslate"><span class="pre">GlobalEmbeddingData</span></code> and <code class="docutils literal notranslate"><span class="pre">LocalEmbeddingData</span></code> classes.</p></li>
+<li><p>Version 1.1.4 of Sparse Operation Kit can be installed with Pip and includes the enhancements mentioned in the preceding bullets.</p></li>
+</ul>
+</li>
+<li><p><strong>Embedding Cache Initialization with Configurable Ratio</strong>:
+In previous releases, the default value for the <code class="docutils literal notranslate"><span class="pre">cache_refresh_percentage_per_iteration</span></code> parameter of the <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/v4.0/hugectr_parameter_server.html#inference-parameters-and-embedding-cache-configuration">InferenceParams</a> was <code class="docutils literal notranslate"><span class="pre">0.1</span></code>.</p>
+<p>In this release, default value is <code class="docutils literal notranslate"><span class="pre">0.0</span></code> and the parameter provides an additional purpose.
+If you set the parameter to a value greater than <code class="docutils literal notranslate"><span class="pre">0.0</span></code> and also set <code class="docutils literal notranslate"><span class="pre">use_gpu_embedding_cache</span></code> to <code class="docutils literal notranslate"><span class="pre">True</span></code> for a model, when Hierarchical Parameter Server (HPS) starts, HPS initializes the embedding cache for the model on the GPU by loading a subset of the embedding vectors from the sparse files for the model.
+When embedding cache initialization is used, HPS creates log records when it starts at the INFO level.
+The logging records are similar to <code class="docutils literal notranslate"><span class="pre">EC</span> <span class="pre">initialization</span> <span class="pre">for</span> <span class="pre">model:</span> <span class="pre">&quot;&lt;model-name&gt;&quot;,</span> <span class="pre">num_tables:</span> <span class="pre">&lt;int&gt;</span></code> and <code class="docutils literal notranslate"><span class="pre">EC</span> <span class="pre">initialization</span> <span class="pre">on</span> <span class="pre">device:</span> <span class="pre">&lt;int&gt;</span></code>.
+This enhancement reduces the duration of the warm up phase.</p>
+</li>
+<li><p><strong>Lazy Initialization of HPS Plugin for TensorFlow</strong>:
+In this release, when you deploy a <code class="docutils literal notranslate"><span class="pre">SavedModel</span></code> of TensorFlow with Triton Inference Server, HPS is implicitly initialized when the loaded model is executed for the first time.
+In previous releases, you needed to run <code class="docutils literal notranslate"><span class="pre">hps.Init(ps_config_file,</span> <span class="pre">global_batch_size)</span></code> explicitly.
+For more information, see the API documentation for <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/v4.0/hierarchical_parameter_server/api/initialize.html#hierarchical_parameter_server.Init"><code class="docutils literal notranslate"><span class="pre">hierarchical_parameter_server.Init</span></code></a>.</p></li>
+<li><p><strong>Enhancements to the HDFS Backend</strong>:</p>
+<ul class="simple">
+<li><p>The HDFS Backend is now called IO::HadoopFileSystem.</p></li>
+<li><p>This release includes fixes for memory leaks.</p></li>
+<li><p>This release includes refactoring to generalize the interface for HDFS and S3 as remote filesystems.</p></li>
+<li><p>For more information, see <code class="docutils literal notranslate"><span class="pre">hadoop_filesystem.hpp</span></code> in the <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/tree/v4.0/HugeCTR/include/io"><code class="docutils literal notranslate"><span class="pre">include/io</span></code></a> directory of the repository on GitHub.</p></li>
+</ul>
+</li>
+<li><p><strong>Dependency Clarification for Protobuf and Hadoop</strong>:
+Hadoop and Protobuf are true <code class="docutils literal notranslate"><span class="pre">third_party</span></code> modules now.
+Developers can now avoid unnecessary and frequent cloning and deletion.</p></li>
+<li><p><strong>Finer granularity control for overlap behavior</strong>:
+We deperacated the old <code class="docutils literal notranslate"><span class="pre">overlapped_pipeline</span></code> knob and introduces four new knobs <code class="docutils literal notranslate"><span class="pre">train_intra_iteration_overlap</span></code>/<code class="docutils literal notranslate"><span class="pre">train_inter_iteration_overlap</span></code>/<code class="docutils literal notranslate"><span class="pre">eval_intra_iteration_overlap</span></code>/<code class="docutils literal notranslate"><span class="pre">eval_inter_iteration_overlap</span></code> to help user better control the overlap behavior. For more information, see the API documentation for <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html#createsolver-method"><code class="docutils literal notranslate"><span class="pre">Solver.CreateSolver</span></code></a></p></li>
+<li><p><strong>Documentation Improvements</strong>:</p>
+<ul class="simple">
+<li><p>Removed two deprecated tutorials <code class="docutils literal notranslate"><span class="pre">triton_tf_deploy</span></code> and <code class="docutils literal notranslate"><span class="pre">dump_to_tf</span></code>.</p></li>
+<li><p>Previously, the graphics in the <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/v4.0/performance.html">Performance</a> page did not appear.
+This issue is fixed in this release.</p></li>
+<li><p>Previously, the <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/v4.0/hierarchical_parameter_server/api/index.html">API documentation</a> for the HPS Plugin for TensorFlow did not show the class information. This issue is fixed in this release.</p></li>
+</ul>
+</li>
+<li><p><strong>Issues Fixed</strong>:</p>
+<ul class="simple">
+<li><p>Fixed a build error that was triggered in debug mode.
+The error was caused by the newly introduced 3G embedding unit tests.</p></li>
+<li><p>When using the Parquet DataReader, if a parquet dataset file specified in <code class="docutils literal notranslate"><span class="pre">metadata.json</span></code> does not exist, HugeCTR no longer crashes.
+The new behavior is to skip the missing file and display a warning message.
+This change relates to GitHub issue <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/issues/321">321</a>.</p></li>
+</ul>
+</li>
+<li><p><strong>Known Issues</strong>:</p>
+<ul>
+<li><p>HugeCTR uses NCCL to share data between ranks and NCCL can require shared system memory for IPC and pinned (page-locked) system memory resources.
+If you use NCCL inside a container, increase these resources by specifying the following arguments when you start the container:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>  -shm-size<span class="o">=</span>1g -ulimit <span class="nv">memlock</span><span class="o">=</span>-1
+</pre></div>
+</div>
+<p>See also the NCCL <a class="reference external" href="https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/troubleshooting.html#sharing-data">known issue</a> and the GitHub <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/issues/243">issue</a>.</p>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">KafkaProducers</span></code> startup succeeds even if the target Kafka broker is unresponsive.
+To avoid data loss in conjunction with streaming-model updates from Kafka, you have to make sure that a sufficient number of Kafka brokers are running, operating properly, and are reachable from the node where you run HugeCTR.</p></li>
+<li><p>The number of data files in the file list should be greater than or equal to the number of data reader workers.
+Otherwise, different workers are mapped to the same file and data loading does not progress as expected.</p></li>
+<li><p>Joint loss training with a regularizer is not supported.</p></li>
+</ul>
+</li>
+</ul>
+</div>
 <div class="section" id="what-s-new-in-version-3-9">
 <h2>What’s New in Version 3.9<a class="headerlink" href="#what-s-new-in-version-3-9" title="Permalink to this headline"></a></h2>
 <ul>
@@ -654,15 +727,6 @@ See also <a class="reference external" href="https://docs.nvidia.com/deeplearnin
     <span class="fa fa-caret-down"></span>
   </span>
   <div class="rst-other-versions">
-    <dl>
-      <dt>Tags</dt>
-      <dd><a href="../v3.5/index.html">v3.5</a></dd>
-      <dd><a href="../v3.6/index.html">v3.6</a></dd>
-      <dd><a href="../v3.7/index.html">v3.7</a></dd>
-      <dd><a href="../v3.8/index.html">v3.8</a></dd>
-      <dd><a href="../v3.9/index.html">v3.9</a></dd>
-      <dd><a href="../v3.9.1/index.html">v3.9.1</a></dd>
-    </dl>
     <dl>
       <dt>Branches</dt>
       <dd><a href="release_notes.html">master</a></dd>

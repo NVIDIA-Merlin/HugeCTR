@@ -5,7 +5,7 @@
    "id": "77b3288a-d7ee-4054-8c2e-c1eb09b3fa5c",
    "metadata": {},
    "source": [
-    "<img src=\"http://developer.download.nvidia.com/compute/machine-learning/frameworks/nvidia_logo.png\" style=\"width: 90px; float: right;\">\n",
+    "<img src=\"http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_hugectr2onnx-demo/nvidia_logo.png\" style=\"width: 90px; float: right;\">\n",
     "\n",
     "# HugeCTR to ONNX Converter"
    ]
@@ -36,7 +36,7 @@
    "source": [
     "## Access the HugeCTR to ONNX Converter\n",
     "\n",
-    "Make sure that you start the notebook inside a running 22.07 or later NGC docker container: `nvcr.io/nvidia/merlin/merlin-hugectr:22.07`.\n",
+    "Make sure that you start the notebook inside a running 22.09 or later NGC docker container: `nvcr.io/nvidia/merlin/merlin-hugectr:22.09`.\n",
     "The module of the ONNX converter is installed to the path `/usr/local/lib/python3.8/dist-packages`.\n",
     "As for HugeCTR Python interface, a dynamic link to the `hugectr.so` library is installed to the path `/usr/local/hugectr/lib/`.\n",
     "You can access the ONNX converter as well as HugeCTR Python interface anywhere within the container."
