@@ -65,7 +65,7 @@ void reader_test(std::vector<int> device_list, size_t file_size, size_t batch_si
   }
 
   AsyncReaderImpl reader_impl(fname, batch_size, resource_manager.get(), num_threads,
-                              batches_per_thread, io_block_size, io_depth, 512);
+                              batches_per_thread, io_block_size, io_depth, 4096);
 
   reader_impl.load_async();
 
@@ -102,27 +102,27 @@ void reader_test(std::vector<int> device_list, size_t file_size, size_t batch_si
 
 //   device_list   file_size batch  threads  batch_per_thread  io_block  io_depth  wait_time
 //
-TEST(reader_test, test1) { reader_test({0}, 100, 20, 1, 1, 512, 1, 0); }
-TEST(reader_test, test2) { reader_test({0}, 100, 20, 2, 1, 512, 1, 0); }
-TEST(reader_test, test3) { reader_test({0}, 1012, 20, 2, 1, 512, 1, 0); }
-TEST(reader_test, test4) { reader_test({0}, 1012, 32, 2, 2, 512, 1, 0); }
-TEST(reader_test, test5) { reader_test({0}, 10120, 32, 2, 2, 512, 2, 0); }
-TEST(reader_test, test6) { reader_test({0}, 101256, 1000, 2, 4, 512, 2, 0); }
-TEST(reader_test, test7) { reader_test({0}, 101256, 1000, 2, 4, 512, 2, 100); }
-TEST(reader_test, test8) { reader_test({0}, 101256, 1000, 2, 4, 512, 2, 1000); }
-TEST(reader_test, test9) { reader_test({0, 1}, 100, 20, 2, 1, 512, 1, 0); }
-TEST(reader_test, test10) { reader_test({0, 1}, 101256, 1000, 2, 4, 512, 2, 0); }
-TEST(reader_test, test11) { reader_test({0, 1}, 101256, 1000, 2, 4, 512, 2, 100); }
-TEST(reader_test, test12) { reader_test({0, 1}, 101256, 1000, 2, 4, 512, 2, 1000); }
-TEST(reader_test, test13) { reader_test({0, 1}, 1014252, 14352, 6, 4, 512, 2, 0); }
-TEST(reader_test, test14) { reader_test({0, 1, 2, 3}, 100980, 1980, 4, 4, 512, 2, 1000); }
-TEST(reader_test, test15) { reader_test({0, 1, 2, 3, 4}, 101256, 7616, 8, 4, 512, 2, 0); }
+TEST(reader_test, test1) { reader_test({0}, 100, 20, 1, 1, 4096 * 2, 1, 0); }
+TEST(reader_test, test2) { reader_test({0}, 100, 20, 2, 1, 4096 * 2, 1, 0); }
+TEST(reader_test, test3) { reader_test({0}, 1012, 20, 2, 1, 4096 * 2, 1, 0); }
+TEST(reader_test, test4) { reader_test({0}, 1012, 32, 2, 2, 4096 * 2, 1, 0); }
+TEST(reader_test, test5) { reader_test({0}, 10120, 32, 2, 2, 4096 * 2, 2, 0); }
+TEST(reader_test, test6) { reader_test({0}, 101256, 1000, 2, 4, 4096 * 2, 2, 0); }
+TEST(reader_test, test7) { reader_test({0}, 101256, 1000, 2, 4, 4096 * 2, 2, 100); }
+TEST(reader_test, test8) { reader_test({0}, 101256, 1000, 2, 4, 4096 * 2, 2, 1000); }
+TEST(reader_test, test9) { reader_test({0, 1}, 100, 20, 2, 1, 4096 * 2, 1, 0); }
+TEST(reader_test, test10) { reader_test({0, 1}, 101256, 1000, 2, 4, 4096 * 2, 2, 0); }
+TEST(reader_test, test11) { reader_test({0, 1}, 101256, 1000, 2, 4, 4096 * 2, 2, 100); }
+TEST(reader_test, test12) { reader_test({0, 1}, 101256, 1000, 2, 4, 4096 * 2, 2, 1000); }
+TEST(reader_test, test13) { reader_test({0, 1}, 1014252, 14352, 6, 4, 4096 * 2, 2, 0); }
+TEST(reader_test, test14) { reader_test({0, 1, 2, 3}, 100980, 1980, 4, 4, 4096 * 2, 2, 1000); }
+TEST(reader_test, test15) { reader_test({0, 1, 2, 3, 4}, 101256, 7616, 8, 4, 4096 * 2, 2, 0); }
 TEST(reader_test, test16) {
-  reader_test({0, 1, 2, 3, 4, 5, 6, 7}, 8012516, 38720, 8, 4, 512, 2, 0);
+  reader_test({0, 1, 2, 3, 4, 5, 6, 7}, 8012516, 38720, 8, 4, 4096 * 2, 2, 0);
 }
 TEST(reader_test, test17) {
-  reader_test({0, 1, 2, 3, 4, 5, 6, 7}, 8012516, 38720, 16, 4, 512, 2, 0);
+  reader_test({0, 1, 2, 3, 4, 5, 6, 7}, 8012516, 38720, 16, 4, 4096 * 2, 2, 0);
 }
 TEST(reader_test, test18) {
-  reader_test({0, 1, 2, 3, 4, 5, 6, 7}, 18012516, 38720, 8, 4, 512, 2, 2000);
+  reader_test({0, 1, 2, 3, 4, 5, 6, 7}, 18012516, 38720, 8, 4, 4096 * 2, 2, 2000);
 }

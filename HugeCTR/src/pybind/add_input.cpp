@@ -92,6 +92,8 @@ void add_input(Input& input, DataReaderParams& reader_params,
       std::begin(input.labels_), std::end(input.labels_), 0,
       [](const int previous, const std::pair<std::string, int>& p) { return previous + p.second; });
 
+  int total_max_sparse_dim = 0;
+  bool sample_len_fixed = true;
   if (input.labels_.size() > 1) {
     top_strs_label = "combined_multi_label";
   }
@@ -99,6 +101,8 @@ void add_input(Input& input, DataReaderParams& reader_params,
   for (unsigned int i = 0; i < input.data_reader_sparse_param_array.size(); i++) {
     DataReaderSparseParam param = input.data_reader_sparse_param_array[i];
     std::string sparse_name = param.top_name;
+    total_max_sparse_dim += param.max_nnz * param.slot_num;
+    sample_len_fixed &= param.is_fixed_length;
     SparseInput<TypeKey> sparse_input(param.slot_num, param.max_feature_num);
     sparse_input_map.emplace(sparse_name, sparse_input);
   }
@@ -109,16 +113,77 @@ void add_input(Input& input, DataReaderParams& reader_params,
           Error_t::WrongInput,
           "Epoch mode cannot be used with RawAsync reader, please set repeat_dataset as true");
     }
+    std::string proc_file("/proc/sys/fs/aio-max-nr"), max_nr_str;
+    std::ifstream tmp_fs(proc_file, std::ifstream::in);
+    if (!tmp_fs.good()) {
+      HCTR_OWN_THROW(Error_t::InvalidEnv, "Can't read /proc/sys/fs/aio-max-nr");
+    }
+    int max_nr_requests_allowed_system = -1;
+    int actual_nr_requests = 2;
+    std::getline(tmp_fs, max_nr_str);
+    max_nr_requests_allowed_system = std::stoi(max_nr_str);
+    tmp_fs.close();
+    // TODO currently label+dense have to be int
+    size_t bytes_per_batch =
+        ((total_label_dim + dense_dim) * sizeof(int) + total_max_sparse_dim * sizeof(TypeKey)) *
+        batch_size;
     Alignment_t aligned_type = reader_params.async_param.aligned_type;
     int num_threads = reader_params.async_param.num_threads;
     int num_batches_per_thread = reader_params.async_param.num_batches_per_thread;
-    int io_block_size = reader_params.async_param.io_block_size;
+    int max_num_requests_per_thread = reader_params.async_param.max_num_requests_per_thread;
     int io_depth = reader_params.async_param.io_depth;
     int io_alignment = reader_params.async_param.io_alignment;
     bool shuffle = reader_params.async_param.shuffle;
 
+    int io_block_size = io_alignment;
+    // TODO train_reader + evaluate_reader + init_reader?
+    int max_nr_requests_user = max_num_requests_per_thread * num_threads;
+    int max_num_batches = num_batches_per_thread * num_threads;
+
+    if ((io_alignment) % 4096) {
+      HCTR_LOG(WARNING, WORLD, " Recommended io_alignment is 4096 bytes \n");
+      if ((io_alignment) % 512) {
+        HCTR_DIE("open() with O_DIRECT requires alignment of at least 512 bytes!\n");
+      }
+    }
+
+    // note that nr_requests =  max_num_batches * (bytes_per_batch / io_block_size + 2). Each batch
+    // has at least 2 io requests
+    if (max_nr_requests_user > max_nr_requests_allowed_system) {
+      HCTR_LOG(WARNING, WORLD,
+               "Too many concurrent io requests, will automatically compute (overall #io requests "
+               "= num_batches_per_thread * num_threads * (bytes_per_batch / io_block_size+2).\n");
+      max_nr_requests_user =
+          std::max(2, (max_nr_requests_allowed_system - 1) / max_num_batches) * max_num_batches;
+    }
+    if (max_nr_requests_user > max_nr_requests_allowed_system ||
+        max_num_batches * 2 >= max_nr_requests_user) {
+      HCTR_DIE("Too many batches for each thread!\n");
+    }
+    HCTR_LOG_S(INFO, ROOT) << "total_max_sparse_dim = " << total_max_sparse_dim << std::endl;
+    HCTR_LOG_S(INFO, ROOT) << "max_nr_requests_user = " << max_nr_requests_user << std::endl;
+    HCTR_LOG_S(INFO, ROOT) << "bytes_per_batch = " << bytes_per_batch << std::endl;
+    HCTR_LOG_S(INFO, ROOT) << "max_num_batches = " << max_num_batches << std::endl;
+    int next_nr_requests = 0;
+    for (int io_blk = io_alignment;; io_blk += io_alignment) {
+      actual_nr_requests = max_num_batches * (bytes_per_batch / io_blk + 2);
+      next_nr_requests = max_num_batches * (bytes_per_batch / (io_blk + 1) + 2);
+      // upper_bound
+      if ((actual_nr_requests <= max_nr_requests_user && actual_nr_requests > next_nr_requests) ||
+          bytes_per_batch < io_blk) {
+        io_block_size = io_blk;
+        break;
+      }
+    }
+    // int num_blocks_per_batch = max_nr_requests_user / max_num_batches - 2;
+
+    HCTR_CHECK_HINT(io_block_size % io_alignment == 0,
+                    " params_.io_block_size \% params_.io_alignment != 0");
+
     HCTR_LOG_S(INFO, ROOT) << "AsyncReader: num_threads = " << num_threads << std::endl;
     HCTR_LOG_S(INFO, ROOT) << "AsyncReader: num_batches_per_thread = " << num_batches_per_thread
+                           << std::endl;
+    HCTR_LOG_S(INFO, ROOT) << "AsyncReader: total_io_nr_requests = " << actual_nr_requests
                            << std::endl;
     HCTR_LOG_S(INFO, ROOT) << "AsyncReader: io_block_size = " << io_block_size << std::endl;
     HCTR_LOG_S(INFO, ROOT) << "AsyncReader: io_depth = " << io_depth << std::endl;

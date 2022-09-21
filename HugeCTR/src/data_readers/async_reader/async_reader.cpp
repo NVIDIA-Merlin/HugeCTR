@@ -73,7 +73,7 @@ AsyncReaderImpl::AsyncReaderImpl(std::string fname, size_t batch_size_bytes,
   // For correct perf benchmarking create the thread readers upfront
   create_workers();
 }
-
+// create_workers() will be called only once
 void AsyncReaderImpl::create_workers() {
   // Use round-robin distribution
   for (size_t i = 0; i < num_batches_; i++) {
@@ -103,7 +103,7 @@ void AsyncReaderImpl::create_workers() {
         thread_buffer_ids_.at(thid).push_back(buf_id);
       }
     }
-
+    // Use omp parallel is fine as well?
     threads_.emplace_back(std::thread([thid, raw_id, device_id, thread_buffer_ptrs, this]() {
       CudaCPUDeviceContext ctx(device_id);
 
@@ -115,10 +115,10 @@ void AsyncReaderImpl::create_workers() {
           total_file_size_);
     }));
   }
-
   for (auto& thread : threads_) {
     thread.join();
   }
+  // this clear is important
   threads_.clear();
 }
 
@@ -165,7 +165,6 @@ BatchDesc AsyncReaderImpl::get_batch() {
 
       status = last_buffer_->status.load();
     }
-
     queue_id_ = (queue_id_ + 1) % buffers_.size();
   }
 

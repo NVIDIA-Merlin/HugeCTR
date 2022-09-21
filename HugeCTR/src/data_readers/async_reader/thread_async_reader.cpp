@@ -1,6 +1,7 @@
 
 #include "data_readers/async_reader/thread_async_reader.hpp"
 
+#include <errno.h>
 #include <fcntl.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -34,19 +35,34 @@ ThreadAsyncReader::ThreadAsyncReader(std::string fname, const ResourceManager* r
                     std::atomic<WorkerStatus>::is_always_lock_free,
                 "Compiler cannot use atomic enum class, need to change to int type");
 #endif
-  assert(params_.io_block_size % params_.io_alignment == 0);
+  HCTR_CHECK_HINT(params_.io_block_size % params_.io_alignment == 0,
+                  " params_.io_block_size \% params_.io_alignment != 0");
 
   num_dest_buffers_ = dest_buffers_.size();
 
   fd_ = open(fname.c_str(), O_RDONLY | O_DIRECT);
   if (fd_ == -1) {
-    throw std::runtime_error("No such file: " + fname);
+    int errnum = errno;
+    if (errnum == ENOENT) {
+      throw std::runtime_error("No such file: " + fname);
+    } else if (errnum == EINVAL) {
+      HCTR_LOG(WARNING, ROOT,
+               "Current filesystem does not support O_DIRECT open(), use "
+               "general open() instead\n");
+      fd_ = open(fname.c_str(), O_RDONLY);
+    }
+    if (fd_ == -1) {
+      throw std::runtime_error("Open " + fname + " fails due to uncertain reason");
+    }
   };
 
   max_num_blocks_per_batch_ = batch_size_bytes_ / params_.io_block_size + 2;
+  size_t pinned_size = 0;
   for (auto buf : dest_buffers_) {
+    buf->raw_host_ptr = (char*)aligned_alloc(params_.io_alignment,
+                                             max_num_blocks_per_batch_ * params_.io_block_size);
     HCTR_LIB_THROW(
-        cudaMallocHost(&buf->raw_host_ptr, max_num_blocks_per_batch_ * params_.io_block_size));
+        cudaHostRegister(buf->raw_host_ptr, max_num_blocks_per_batch_ * params_.io_block_size, 0));
     assert((size_t)buf->raw_host_ptr % params_.io_alignment == 0);
 
     HCTR_LIB_THROW(cudaEventCreateWithFlags(&buf->event, cudaEventDisableTiming));
@@ -55,8 +71,8 @@ ThreadAsyncReader::ThreadAsyncReader(std::string fname, const ResourceManager* r
     for (auto& req : buf->io_reqs) {
       req = new iocb;
     }
+    pinned_size += max_num_blocks_per_batch_ * params_.io_block_size;
   }
-
   for (auto buf : dest_buffers_) {
     buf->status.store(BufferStatus::IOReady);
   }
@@ -77,7 +93,7 @@ void ThreadAsyncReader::load() {
 
   ioctx_ = 0;
   if (io_queue_init(params_.io_depth, &ioctx_) < 0) {
-    throw std::runtime_error("io_setup failed");
+    HCTR_OWN_THROW(Error_t::UnspecificError, "io_setup failed");
   }
 
   while (status_.load() != WorkerStatus::Terminate) {
@@ -146,7 +162,6 @@ void ThreadAsyncReader::try_submit_io(size_t batch_id, int io_id) {
   if (buffer->status.load() != BufferStatus::IOReady) {
     return;
   }
-
   // Maybe we have already loaded this batch before?!
   if (buffer->id == (int64_t)batch_id) {
     buffer->status.store(BufferStatus::PermanentlyResident);
@@ -182,24 +197,24 @@ void ThreadAsyncReader::try_submit_io(size_t batch_id, int io_id) {
   int ret = io_submit(ioctx_, num_blocks, buffer->io_reqs.data());
   num_buffers_waiting_io_ += 1;
   if (ret < 0) {
-    throw std::runtime_error("io_submit failed");
+    HCTR_OWN_THROW(Error_t::UnspecificError, "io_submit failed");
   }
 }
 
 void ThreadAsyncReader::wait_io() {
-  // if (num_buffers_waiting_io_ <= 0) {
-  //   return;
-  // }
   timespec timeout = {0, 10'000l};
   io_event events[max_num_blocks_per_batch_];
   int num_completed =
       io_getevents(ioctx_, max_num_blocks_per_batch_, max_num_blocks_per_batch_, events, &timeout);
   if (num_completed < 0) {
-    throw std::runtime_error("io_getevents failed");
+    HCTR_OWN_THROW(Error_t::UnspecificError, "io_getevents failed");
   }
 
   for (int b = 0; b < num_completed; b++) {
     auto req = events[b].obj;
+    if ((events[b].res < 0 || events[b].res2 != 0)) {
+      HCTR_OWN_THROW(Error_t::UnspecificError, "io_getevents returned failed event");
+    }
     auto buffer = (InternalBatchBuffer*)req->data;
     buffer->num_outstanding_reqs--;
     assert(buffer->num_outstanding_reqs >= 0);
@@ -272,7 +287,8 @@ void ThreadAsyncReader::try_submit_p2p(InternalBatchBuffer* buffer) {
   }
 
   // Here we've submitted everything
-  // There is no real need to make eventRecord atomic (wrt stream) with the rest,
+  // There is no real need to make eventRecord atomic (wrt stream) with the
+  // rest,
   //  we only care that eventRecord is AFTER the H2D and the broadcast
   buffer->preload_done = true;
   buffer->num_submitted_h2d_chunks = 0;

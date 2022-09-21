@@ -53,6 +53,18 @@ solver = hugectr.CreateSolver(
     perf_logging=True,
     drop_incomplete_batch=False,
 )
+
+batchsize = 71680
+num_reading_threads = 32
+num_batches_per_threads = 4
+expected_io_block_size = batchsize * 10
+io_depth = 2
+io_alignment = 512
+bytes_size_per_batches = (26 + 1 + 13) * 4 * batchsize
+max_nr_per_threads = num_batches_per_threads * (
+    bytes_size_per_batches // expected_io_block_size + 2
+)
+
 reader = hugectr.DataReaderParams(
     data_reader_type=hugectr.DataReaderType_t.RawAsync,
     source=["/raid/datasets/criteo/mlperf/40m.limit_preshuffled/train_data.bin"],
@@ -89,8 +101,17 @@ reader = hugectr.DataReaderParams(
         108,
         36,
     ],
-    async_param=hugectr.AsyncParam(32, 4, 716800, 2, 512, True, hugectr.Alignment_t.Non),
+    async_param=hugectr.AsyncParam(
+        num_reading_threads,
+        num_batches_per_threads,
+        max_nr_per_threads,
+        io_depth,
+        io_alignment,
+        True,
+        hugectr.Alignment_t.Auto,
+    ),
 )
+
 optimizer = hugectr.CreateOptimizer(
     optimizer_type=hugectr.Optimizer_t.SGD, update_type=hugectr.Update_t.Local, atomic_update=True
 )

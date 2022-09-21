@@ -42,7 +42,7 @@ namespace {
  * @param min_major minimum compute compatibility required
  * @param min_minor minimum compute compatibility required
  */
-
+// #define DATA_READING_TEST 1
 static std::vector<std::string>& split(const std::string& s, char delim,
                                        std::vector<std::string>& elems) {
   std::istringstream is(s);
@@ -2118,6 +2118,7 @@ bool Model::train(bool is_first_batch) {
     return true;
 #else
     train_data_reader_->read_a_batch_to_device();
+    return true;
 #endif
   } catch (const std::exception& err) {
     HCTR_LOG_S(ERROR, WORLD) << err.what() << std::endl;
@@ -2200,12 +2201,12 @@ bool Model::eval(bool is_first_batch) {
         eval_ebc_forward(id);
         graph_.evaluate_pipeline_[id].run();
       }
-#endif
 
       for (auto& metric : metrics_) {
         metric->global_reduce(networks_.size());
       }
     }
+#endif
 
     return true;
   } catch (const std::exception& err) {

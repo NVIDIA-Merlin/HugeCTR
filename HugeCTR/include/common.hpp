@@ -196,7 +196,7 @@ struct TrainState {
 struct AsyncParam {
   int num_threads;
   int num_batches_per_thread;
-  int io_block_size;
+  int max_num_requests_per_thread;
   int io_depth;
   int io_alignment;
   bool shuffle;

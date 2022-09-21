@@ -153,11 +153,11 @@ A data reader can be optimized using asynchronous reading. This is done by creat
 
 * `num_batches_per_thread`: Integer,  the number of the batches each data reader thread works on simultaneously, typically 2-4. There is NO default value.
 
-* `io_block_size`: Integer, the size of individual IO requests, the value 512000 should work in most cases. There is NO default value.
+* `max_num_requests_per_thread`: Integer, the max number of individual IO requests for each thread. It should be a multiple of num_batches_per_thread and no less than 2 * num_batches_per_thread. The value 72 should work in most cases. There is NO default value.
 
 * `io_depth`: Integer, the size of the asynchronous IO queue, the value 4 should work in most cases. There is NO default value.
 
-* `io_alignment`: Integer, the byte alignment of IO requests, the value 512 should work in most cases. There is NO default value.
+* `io_alignment`: Integer, the byte alignment of IO requests, the value 512 or 4096 should work in most cases. There is NO default value.
 
 * `shuffle`: Boolean, if this option is enabled, the order in which the batches are fed into training will be randomized. There is NO default value.
 
@@ -165,7 +165,7 @@ A data reader can be optimized using asynchronous reading. This is done by creat
 
 Example:
 ```python
-async_param = hugectr.AsyncParam(32, 4, 716800, 2, 512, True, hugectr.Alignment_t.Non)
+async_param = hugectr.AsyncParam(32, 4, 10, 2, 512, True, hugectr.Alignment_t.Non)
 ```
 
 ### HybridEmbeddingParam
