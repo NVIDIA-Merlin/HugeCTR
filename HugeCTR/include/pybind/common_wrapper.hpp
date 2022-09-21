@@ -148,8 +148,8 @@ void CommonPybind(pybind11::module& m) {
   pybind11::class_<HugeCTR::AsyncParam>(m, "AsyncParam")
       .def(pybind11::init<int, int, int, int, int, bool, Alignment_t>(),
            pybind11::arg("num_threads"), pybind11::arg("num_batches_per_thread"),
-           pybind11::arg("io_block_size"), pybind11::arg("io_depth"), pybind11::arg("io_alignment"),
-           pybind11::arg("shuffle"), pybind11::arg("aligned_type"));
+           pybind11::arg("max_num_requests_per_thread"), pybind11::arg("io_depth"),
+           pybind11::arg("io_alignment"), pybind11::arg("shuffle"), pybind11::arg("aligned_type"));
   pybind11::class_<HugeCTR::HybridEmbeddingParam>(m, "HybridEmbeddingParam")
       .def(pybind11::init<size_t, int64_t, double, double, double, double,
                           hybrid_embedding::CommunicationType,

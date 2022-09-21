@@ -53,7 +53,8 @@ struct InternalBatchBuffer {
     for (auto ptr : dev_data) {
       HCTR_LIB_THROW(cudaFree(ptr));
     }
-    HCTR_LIB_THROW(cudaFreeHost(raw_host_ptr));
+    HCTR_LIB_THROW(cudaHostUnregister(raw_host_ptr));
+    free(raw_host_ptr);
   }
 };
 

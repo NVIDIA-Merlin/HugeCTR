@@ -38,8 +38,10 @@ template <typename T>
     auto expected = h_exp[i];
     T diff = abs(output - expected);
     if (diff > eps) {
-      return ::testing::AssertionFailure()
-             << "output: " << output << " != expected: " << expected << " at idx " << i;
+      // if (diff > eps && i < 128 * 10) {
+      // std::cout
+      return ::testing::AssertionFailure() << "output: " << output << " != expected: " << expected
+                                           << " at idx " << i << std::endl;
     }
   }
   return ::testing::AssertionSuccess();

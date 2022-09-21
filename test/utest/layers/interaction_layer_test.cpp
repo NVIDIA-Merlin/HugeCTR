@@ -101,7 +101,7 @@ void interaction_layer_test(size_t height, size_t n_emb, size_t in_width,
 
   Tensor2<T> out_tensor;
   InteractionLayer<T> interaction_layer(in_mlp_tensor, in_emb_tensor, out_tensor, buff,
-                                        test::get_default_gpu(), false, enable_tf32_compute);
+                                        test::get_default_gpu(), true, enable_tf32_compute);
 
   buff->allocate();
   interaction_layer.initialize();
@@ -120,6 +120,17 @@ void interaction_layer_test(size_t height, size_t n_emb, size_t in_width,
 
   // host fprop
   concat_op(true);
+  // check phase 0: concat
+
+  if (n_ins > 31) {
+    auto concat_dev_tensor = interaction_layer.get_internal(0);
+    std::vector<T> h_concat_dev(height * out_width, TypeConvert<T, float>::convert(0.0f));
+    HCTR_LIB_THROW(cudaMemcpy(&h_concat_dev.front(), concat_dev_tensor.get_ptr(),
+                              concat_dev_tensor.get_size_in_bytes(), cudaMemcpyDeviceToHost));
+    ASSERT_TRUE(test::compare_array_approx<T>(&h_concat_dev.front(), &h_concat.front(),
+                                              h_concat.size(), get_eps<T>(enable_tf32_compute)));
+    std::cout << "concat is correct\n";
+  }
 
   std::vector<T> h_mat(height * n_ins * n_ins, TypeConvert<T, float>::convert(0.0f));
   for (size_t p = 0; p < height; p++) {
@@ -136,6 +147,17 @@ void interaction_layer_test(size_t height, size_t n_emb, size_t in_width,
       }
     }
   }
+  // check phase 2: matmul
+
+  if (n_ins > 31) {
+    auto matmul_dev_tensor = interaction_layer.get_internal(1);
+    std::vector<T> h_mat_dev(height * n_ins * n_ins, TypeConvert<T, float>::convert(0.0f));
+    HCTR_LIB_THROW(cudaMemcpy(&h_mat_dev.front(), matmul_dev_tensor.get_ptr(),
+                              matmul_dev_tensor.get_size_in_bytes(), cudaMemcpyDeviceToHost));
+    ASSERT_TRUE(test::compare_array_approx<T>(&h_mat_dev.front(), &h_mat.front(), h_mat.size(),
+                                              get_eps<T>(enable_tf32_compute)));
+    std::cout << "matmul is correct\n";
+  }
 
   size_t out_len = in_width + (n_ins * (n_ins + 1) / 2 - n_ins) + 1;
   std::vector<T> h_ref(height * out_len, 0.0);
@@ -149,6 +171,7 @@ void interaction_layer_test(size_t height, size_t n_emb, size_t in_width,
     for (size_t n = 0; n < n_ins; n++) {
       for (size_t m = 0; m < n_ins; m++) {
         if (n > m) {
+          // use h_mat_dev
           h_ref[out_stride + cur_idx++] = h_mat[mat_stride + m * n_ins + n];
         }
       }
@@ -159,10 +182,14 @@ void interaction_layer_test(size_t height, size_t n_emb, size_t in_width,
   T* d_out = out_tensor.get_ptr();
   HCTR_LIB_THROW(
       cudaMemcpy(&h_out.front(), d_out, out_tensor.get_size_in_bytes(), cudaMemcpyDeviceToHost));
-
   ASSERT_TRUE(test::compare_array_approx<T>(&h_out.front(), &h_ref.front(), h_out.size(),
                                             get_eps<T>(enable_tf32_compute)));
 
+  std::cout << "fprop() correct\n";
+
+  /*
+   * bprop() test begins:
+   */
   // device bprop
   HCTR_LIB_THROW(cudaDeviceSynchronize());
   interaction_layer.bprop();
@@ -183,7 +210,7 @@ void interaction_layer_test(size_t height, size_t n_emb, size_t in_width,
       }
     }
   }
-
+  // check phase 0, gather and concat
   std::vector<T> h_concat_tmp(h_concat);
   for (size_t p = 0; p < height; p++) {
     size_t mat_stride = n_ins * n_ins * p;
@@ -199,6 +226,28 @@ void interaction_layer_test(size_t height, size_t n_emb, size_t in_width,
       }
     }
   }
+  std::vector<T> h_mat_tmp(h_mat);
+
+  for (size_t p = 0; p < height; p++) {
+    size_t mat_stride = n_ins * n_ins * p;
+    for (size_t m = 0; m < n_ins; m++) {
+      for (size_t n = 0; n < n_ins; n++) {
+        h_mat_tmp[mat_stride + m * n_ins + n] =
+            (h_mat[mat_stride + m * n_ins + n] + h_mat[mat_stride + n * n_ins + m]);
+      }
+    }
+  }
+
+  if (n_ins > 31) {
+    auto concat_tmp_dev_tensor = interaction_layer.get_internal(3);
+    std::vector<T> h_mat_dev(h_mat.size(), TypeConvert<T, float>::convert(0.0f));
+    HCTR_LIB_THROW(cudaMemcpy(&h_mat_dev.front(), concat_tmp_dev_tensor.get_ptr(),
+                              concat_tmp_dev_tensor.get_size_in_bytes(), cudaMemcpyDeviceToHost));
+    ASSERT_TRUE(test::compare_array_approx<T>(&h_mat_tmp.front(), &h_mat_dev.front(),
+                                              h_mat_dev.size(), get_eps<T>(enable_tf32_compute)));
+    std::cout << "bprop: (m+mT) is correct\n";
+  }
+
   concat_op(false);
 
   for (int i = 0; i < 2; i++) {
@@ -212,11 +261,14 @@ void interaction_layer_test(size_t height, size_t n_emb, size_t in_width,
     ASSERT_TRUE(test::compare_array_approx<T>(&h_in.front(), &h_ref.front(), h_in.size(),
                                               get_eps<T>(enable_tf32_compute)));
   }
+  std::cout << "bprop() correct\n";
 }
 
 }  // namespace
 
 TEST(interaction_layer, fp32_512x479) { interaction_layer_test<float>(512, 26, 128); }
+
+TEST(interaction_layer, fp32_512x1340) { interaction_layer_test<float>(512, 33, 128); }
 TEST(interaction_layer, tf32_512x479) { interaction_layer_test<float>(512, 26, 128, true); }
 
 TEST(interaction_layer, fp16_512x479) {
@@ -226,4 +278,21 @@ TEST(interaction_layer, fp16_512x479) {
     GTEST_SKIP();
   }
   interaction_layer_test<__half>(512, 26, 128);
+}
+
+TEST(interaction_layer, fp16_512x1340) {
+  int major = 0;
+  cudaDeviceGetAttribute(&major, cudaDevAttrComputeCapabilityMajor, 0);
+  if (major < 7) {
+    GTEST_SKIP();
+  }
+  interaction_layer_test<__half>(512, 33, 128);
+}
+TEST(interaction_layer, fp16_512x8643) {
+  int major = 0;
+  cudaDeviceGetAttribute(&major, cudaDevAttrComputeCapabilityMajor, 0);
+  if (major < 7) {
+    GTEST_SKIP();
+  }
+  interaction_layer_test<__half>(512, 130, 128);
 }

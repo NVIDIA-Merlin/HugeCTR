@@ -35,12 +35,34 @@ using namespace HugeCTR;
 using namespace HugeCTR::hybrid_embedding;
 
 size_t global_seed = 321654;
-
+size_t io_alignment = 4096;
+// threads = 32.
+const size_t num_batches = 10;
 template <typename dtype>
 void reader_adapter_test(std::vector<int> device_list, size_t batch_size, int num_threads,
                          int batches_per_thread, int label_dim, int dense_dim, int sparse_dim,
-                         int num_passes, int seed) {
+                         int num_passes, int seed, bool wait_for_gpu_idle = false,
+                         bool shuffle = false) {
   const std::string fname = "__tmp_test.dat";
+  size_t io_block_size = io_alignment * 8;
+  int bytes_per_batch = sizeof(int) * (label_dim + dense_dim + sparse_dim) * batch_size;
+  int actual_nr_requests = 2;
+  for (int io_blk = io_alignment;; io_blk += io_alignment) {
+    actual_nr_requests = batches_per_thread * num_threads * (bytes_per_batch / io_blk + 2);
+    if (actual_nr_requests <= 1023) {
+      io_block_size = io_blk;
+      break;
+    }
+  }
+
+  HCTR_LOG_S(INFO, ROOT) << "AsyncReader: num_threads = " << num_threads << std::endl;
+  HCTR_LOG_S(INFO, ROOT) << "AsyncReader: num_batches_per_thread = " << batches_per_thread
+                         << std::endl;
+  HCTR_LOG_S(INFO, ROOT) << "AsyncReader: io_block_size = " << io_block_size << std::endl;
+  HCTR_LOG_S(INFO, ROOT) << "AsyncReader: io_nr_requests = " << actual_nr_requests << std::endl;
+  HCTR_LOG_S(INFO, ROOT) << "AsyncReader: io_depth = " << 2 << std::endl;
+  HCTR_LOG_S(INFO, ROOT) << "AsyncReader: io_alignment = " << io_alignment << std::endl;
+  HCTR_LOG_S(INFO, ROOT) << "AsyncReader: shuffle = " << (shuffle ? "ON" : "OFF") << std::endl;
 
   const bool mixed_precision = true;
   const float epsilon = mixed_precision ? 1e0f : 1e-3f;
@@ -53,7 +75,6 @@ void reader_adapter_test(std::vector<int> device_list, size_t batch_size, int nu
 
   size_t local_gpu_count = resource_manager->get_local_gpu_count();
   const int sample_dim = label_dim + dense_dim + sparse_dim * (sizeof(dtype) / sizeof(float));
-  const size_t num_batches = 13;
   const size_t file_size = num_batches * batch_size * sample_dim;
 
   std::vector<int> ref_data(file_size);
@@ -90,7 +111,8 @@ void reader_adapter_test(std::vector<int> device_list, size_t batch_size, int nu
   std::vector<DataReaderSparseParam> params{
       DataReaderSparseParam("dummy", std::vector<int>(sparse_dim, 1), true, sparse_dim)};
   AsyncReader<dtype> data_reader(fname, batch_size, label_dim, dense_dim, params, true,
-                                 resource_manager, num_threads, batches_per_thread, 512000, 2, 512);
+                                 resource_manager, num_threads, batches_per_thread, io_block_size,
+                                 2, io_alignment, shuffle, wait_for_gpu_idle);
 
   auto label_tensors = bags_to_tensors<float>(data_reader.get_label_tensors());
   auto dense_tensors = bags_to_tensors<__half>(data_reader.get_dense_tensors());
@@ -197,5 +219,17 @@ TEST(reader_adapter_test, test10) {
   reader_adapter_test<uint32_t>({0, 1}, 10, 2, 2, 7, 2, 1, 21, global_seed += 128);
 }
 TEST(reader_adapter_test, test11) {
-  reader_adapter_test<uint32_t>({0, 1, 2, 3}, 1014252, 3, 2, 7, 13, 26, 1, global_seed += 128);
+  reader_adapter_test<uint32_t>({0, 1, 2, 3, 5, 6, 7}, 1014252, 3, 2, 7, 13, 26, 1,
+                                global_seed += 128);
+}
+TEST(reader_adapter_test, dgxa100_48slots) {
+  reader_adapter_test<uint32_t>({0, 1, 2, 3, 5, 6, 7}, 256, 32, 4, 1, 1, 48, 1, global_seed += 128);
+}
+TEST(reader_adapter_test, dgxa100_48slots_wait_for_idle) {
+  reader_adapter_test<uint32_t>({0, 1, 2, 3, 5, 6, 7}, 256, 32, 4, 1, 1, 48, 1, global_seed += 128,
+                                true);
+}
+TEST(reader_adapter_test, dgxa100_26slots) {
+  reader_adapter_test<uint32_t>({0, 1, 2, 3, 5, 6, 7}, 256, 32, 4, 1, 1, 800, 1,
+                                global_seed += 128);
 }

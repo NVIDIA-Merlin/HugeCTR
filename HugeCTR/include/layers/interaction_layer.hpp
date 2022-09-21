@@ -85,12 +85,16 @@ class InteractionLayer : public Layer {
    * Interaction's foward pass to gather data to the output tensor
    * @param stream CUDA stream where the foward propagation is executed
    */
+
+  void fprop_generic(bool is_train);
   void fprop(bool is_train) override;
   /**
    * Interaction's backward pass to scatter data to the input tensors
    * @param stream CUDA stream where the foward propagation is executed
    */
+  void bprop_generic();
   void bprop() override;
+  Tensor2<T>& get_internal(size_t i) { return internal_tensors_[i]; };
 };
 
 }  // namespace HugeCTR
