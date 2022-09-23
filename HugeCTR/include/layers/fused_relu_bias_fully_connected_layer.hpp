@@ -51,7 +51,7 @@ class FusedReluBiasFullyConnectedLayer : public Layer {
   cublasLtMatmulPreference_t cublas_preference_ = NULL;
   cublasLtMatmulPreference_t cublas_preference_dRelu_ = NULL;
   cublasLtMatmulPreference_t cublas_preference_wgrad_ = NULL;
-  size_t cublaslt_workspace_size_ = 1024 * 1024 * 8;
+  size_t cublaslt_workspace_size_ = 1024 * 1024 * 32;
   void* cublaslt_workspace_;
   void* cublaslt_workspace_dRelu_;
   void* cublaslt_workspace_wgrad_;
