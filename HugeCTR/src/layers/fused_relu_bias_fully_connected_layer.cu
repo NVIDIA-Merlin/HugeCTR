@@ -191,7 +191,7 @@ void FusedReluBiasFullyConnectedLayer::initialize() {
 
   HCTR_LIB_THROW(cublasLtMatmulPreferenceCreate(&cublas_preference_));
 
-  cublaslt_workspace_size_ = 1024 * 1024 * 16;  // Set it to 16MB for now
+  cublaslt_workspace_size_ = 1024 * 1024 * 8;  // Set it to 8MB for now
   HCTR_LIB_THROW(cudaMalloc(&cublaslt_workspace_, cublaslt_workspace_size_));
   HCTR_LIB_THROW(cublasLtMatmulPreferenceSetAttribute(
       cublas_preference_, CUBLASLT_MATMUL_PREF_MAX_WORKSPACE_BYTES, &cublaslt_workspace_size_,
@@ -201,6 +201,8 @@ void FusedReluBiasFullyConnectedLayer::initialize() {
   HCTR_LIB_THROW(cublasLtMatmulPreferenceSetAttribute(cublas_preference_,
                                                       CUBLASLT_MATMUL_PREF_POINTER_MODE_MASK,
                                                       &pointer_mode, sizeof(pointer_mode)));
+  HCTR_LIB_THROW(cublasLtMatmulPreferenceSetAttribute(
+      cublas_preference_, CUBLASLT_MATMUL_PREF_EPILOGUE_MASK, &epi, sizeof(epi)));
 
   // By default set algo to best estimated heurstic
   cublasLtMatmulHeuristicResult_t heuristic_result;
@@ -236,13 +238,14 @@ void FusedReluBiasFullyConnectedLayer::initialize_dgrad() {
                                                 &transA, sizeof(transA)));
   HCTR_LIB_THROW(cublasLtMatmulDescSetAttribute(cublas_op_desc_bprop_, CUBLASLT_MATMUL_DESC_TRANSB,
                                                 &transB, sizeof(transB)));
+  cublasLtEpilogue_t epi;
+
   if (pos_ == FcPosition_t::Head || pos_ == FcPosition_t::Isolated) {
-    cublasLtEpilogue_t epi = CUBLASLT_EPILOGUE_DEFAULT;
+    epi = CUBLASLT_EPILOGUE_DEFAULT;
     HCTR_LIB_THROW(cublasLtMatmulDescSetAttribute(
         cublas_op_desc_bprop_, CUBLASLT_MATMUL_DESC_EPILOGUE, &epi, sizeof(epi)));
   } else if (pos_ == FcPosition_t::Body || pos_ == FcPosition_t::Tail) {
-    cublasLtEpilogue_t epi =
-        dense_layer_switches_.fuse_wb ? CUBLASLT_EPILOGUE_DRELU : CUBLASLT_EPILOGUE_DRELU_BGRAD;
+    epi = dense_layer_switches_.fuse_wb ? CUBLASLT_EPILOGUE_DRELU : CUBLASLT_EPILOGUE_DRELU_BGRAD;
     cublasLtMatmulDescSetAttribute(cublas_op_desc_bprop_, CUBLASLT_MATMUL_DESC_EPILOGUE, &epi,
                                    sizeof(epi));
     if (!dense_layer_switches_.fuse_wb) {
@@ -273,6 +276,8 @@ void FusedReluBiasFullyConnectedLayer::initialize_dgrad() {
   HCTR_LIB_THROW(cublasLtMatmulPreferenceSetAttribute(cublas_preference_dRelu_,
                                                       CUBLASLT_MATMUL_PREF_POINTER_MODE_MASK,
                                                       &pointer_mode, sizeof(pointer_mode)));
+  HCTR_LIB_THROW(cublasLtMatmulPreferenceSetAttribute(
+      cublas_preference_dRelu_, CUBLASLT_MATMUL_PREF_EPILOGUE_MASK, &epi, sizeof(epi)));
 
   // By default set algo to best estimated heurstic
   cublasLtMatmulHeuristicResult_t heuristic_result;
@@ -330,6 +335,8 @@ void FusedReluBiasFullyConnectedLayer::initialize_wgrad() {
   HCTR_LIB_THROW(cublasLtMatmulPreferenceSetAttribute(cublas_preference_wgrad_,
                                                       CUBLASLT_MATMUL_PREF_POINTER_MODE_MASK,
                                                       &pointer_mode, sizeof(pointer_mode)));
+  HCTR_LIB_THROW(cublasLtMatmulPreferenceSetAttribute(
+      cublas_preference_wgrad_, CUBLASLT_MATMUL_PREF_EPILOGUE_MASK, &epi, sizeof(epi)));
 
   // By default set algo to best estimated heurstic
   cublasLtMatmulHeuristicResult_t heuristic_result;
