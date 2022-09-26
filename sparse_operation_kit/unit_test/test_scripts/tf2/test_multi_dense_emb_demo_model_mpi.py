@@ -231,6 +231,7 @@ def test_tf_multi_dense_emb(args):
     def _train_step(inputs, labels):
         with tf.GradientTape() as tape:
             logit, all_vectors = model(inputs, training=True)
+            logit = tf.cast(logit, tf.float32)
             loss = loss_fn(labels, logit)
             if args.mixed_precision:
                 _loss = optimizer.get_scaled_loss(loss)

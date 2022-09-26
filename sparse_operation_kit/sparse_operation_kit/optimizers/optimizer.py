@@ -17,11 +17,12 @@
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
+import tensorflow as tf
 
 from .base_optimizer import optimizer_v2
 
 
-class Optimizer(optimizer_v2.OptimizerV2):
+class Optimizer(tf.keras.optimizers.Optimizer):
     """
     The base class for sok's optimizer
     """
