@@ -58,8 +58,8 @@ class TestAllGatherDispatcher_single(SingleWorkerbase):
             values=all_valid_values, indices=all_valid_indices, dense_shape=all_inputs.shape
         )
         print("[INFO] original inputs sparse tensor:\n", all_inputs_sparse_tensor)
-
-        sparse_tensors = tf.sparse.split(sp_input=all_inputs_sparse_tensor, num_split=8, axis=0)
+        with tf.device("/cpu:0"):
+            sparse_tensors = tf.sparse.split(sp_input=all_inputs_sparse_tensor, num_split=8, axis=0)
         sparse_tensors = PerReplica(sparse_tensors)
         print("[INFO] to each replica sparse tensors:\n", sparse_tensors)
 

@@ -167,6 +167,7 @@ def test_tf_dense_model(args, init_tensors, *random_samples):
     def _train_step(inputs, labels):
         with tf.GradientTape() as tape:
             logit, embedding_vector = tf_dense_demo(inputs, training=True)
+            logit = tf.cast(logit, tf.float32)
             loss = loss_fn(labels, logit)
             if args.mixed_precision:
                 _loss = optimizer.get_scaled_loss(loss)
