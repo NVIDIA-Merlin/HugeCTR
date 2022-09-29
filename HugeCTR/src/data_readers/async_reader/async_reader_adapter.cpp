@@ -81,15 +81,13 @@ AsyncReader<SparseType>::AsyncReader(std::string fname, size_t batch_size, size_
   // zero-initialization
   for (size_t i = 0; i < resource_manager_->get_local_gpu_count(); i++) {
     const auto local_gpu = resource_manager_->get_local_gpu(i);
+    CudaDeviceContext ctx(local_gpu->get_device_id());
     if (mixed_precision_) {
       Tensor2<__half> tensor = Tensor2<__half>::stretch_from(dense_tensors_[i]);
-      HCTR_LIB_THROW(cudaMemsetAsync(tensor.get_ptr(), 0,
-                                     tensor.get_num_elements() * sizeof(__half),
-                                     local_gpu->get_memcpy_stream()));
+      HCTR_LIB_THROW(cudaMemset(tensor.get_ptr(), 0, tensor.get_num_elements() * sizeof(__half)));
     } else {
       Tensor2<float> tensor = Tensor2<float>::stretch_from(dense_tensors_[i]);
-      HCTR_LIB_THROW(cudaMemsetAsync(tensor.get_ptr(), 0, tensor.get_num_elements() * sizeof(float),
-                                     local_gpu->get_memcpy_stream()));
+      HCTR_LIB_THROW(cudaMemset(tensor.get_ptr(), 0, tensor.get_num_elements() * sizeof(float)));
     }
   }
 
