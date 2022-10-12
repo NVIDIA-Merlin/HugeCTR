@@ -57,9 +57,10 @@ InferenceSession::InferenceSession(const std::string& model_config_path,
     HCTR_LOG(INFO, ROOT, "Max batchsize: %lu\n", inference_params.max_batchsize);
     HCTR_LOG(INFO, ROOT, "Use I64 input key: %s\n", b2s(inference_params.i64_input_key));
     Network* network_ptr;
-    inference_parser_.create_pipeline(
-        inference_params_, dense_input_tensorbag_, row_ptrs_tensors_, embedding_features_tensors_,
-        embedding_table_slot_size_, &embedding_feature_combiners_, &network_ptr, resource_manager_);
+    inference_parser_.create_pipeline(inference_params_, dense_input_tensorbag_, row_ptrs_tensors_,
+                                      embedding_features_tensors_, embedding_table_slot_size_,
+                                      &embedding_feature_combiners_, &network_ptr,
+                                      inference_tensor_entries_, resource_manager_);
 
     auto dense_network_feedforward =
         std::make_shared<StreamContextScheduleable>([=] { network_->predict(); });

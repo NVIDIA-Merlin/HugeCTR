@@ -40,8 +40,9 @@ class InferenceSession : public InferenceSessionBase {
 
   std::vector<std::shared_ptr<Tensor2<int>>> row_ptrs_tensors_;  // embedding input row
   std::vector<std::shared_ptr<Tensor2<float>>>
-      embedding_features_tensors_;    // embedding input value vector
-  TensorBag2 dense_input_tensorbag_;  // dense input vector
+      embedding_features_tensors_;                     // embedding input value vector
+  TensorBag2 dense_input_tensorbag_;                   // dense input vector
+  std::vector<TensorEntry> inference_tensor_entries_;  // tensor entries in the inference pipeline
 
   std::vector<std::shared_ptr<Layer>> embedding_feature_combiners_;
   std::unique_ptr<Network> network_;
@@ -70,6 +71,9 @@ class InferenceSession : public InferenceSessionBase {
   virtual void predict(float* d_dense, void* h_embeddingcolumns, int* d_row_ptrs, float* d_output,
                        int num_samples, bool table_major_key_layout = false);
   const InferenceParser& get_inference_parser() const { return inference_parser_; }
+  const std::vector<TensorEntry>& get_inference_tensor_entries() const {
+    return inference_tensor_entries_;
+  }
 };
 
 }  // namespace HugeCTR

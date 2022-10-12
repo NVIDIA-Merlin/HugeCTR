@@ -25,9 +25,10 @@ void InferenceParser::create_pipeline_inference(
     std::vector<std::shared_ptr<Tensor2<int>>>& rows,
     std::vector<std::shared_ptr<Tensor2<float>>>& embeddingvecs,
     std::vector<size_t>& embedding_table_slot_size, std::vector<std::shared_ptr<Layer>>* embeddings,
-    Network** network, const std::shared_ptr<ResourceManager> resource_manager) {
+    Network** network, std::vector<TensorEntry>& inference_tensor_entries,
+    const std::shared_ptr<ResourceManager> resource_manager) {
+  // Not used, required as an argument by Network::create_network
   std::vector<TensorEntry> train_tensor_entries;
-  std::vector<TensorEntry> inference_tensor_entries;
   auto j_layers_array = get_json(config_, "layers");
   check_graph(tensor_active_, j_layers_array);
 
@@ -75,15 +76,16 @@ void InferenceParser::create_pipeline(const InferenceParams& inference_params,
                                       std::vector<size_t>& embedding_table_slot_size,
                                       std::vector<std::shared_ptr<Layer>>* embeddings,
                                       Network** network,
+                                      std::vector<TensorEntry>& inference_tensor_entries,
                                       const std::shared_ptr<ResourceManager> resource_manager) {
   if (inference_params.use_mixed_precision) {
     create_pipeline_inference<__half>(inference_params, dense_input_bag, rows, embeddingvecs,
                                       embedding_table_slot_size, embeddings, network,
-                                      resource_manager);
+                                      inference_tensor_entries, resource_manager);
   } else {
     create_pipeline_inference<float>(inference_params, dense_input_bag, rows, embeddingvecs,
                                      embedding_table_slot_size, embeddings, network,
-                                     resource_manager);
+                                     inference_tensor_entries, resource_manager);
   }
 }
 

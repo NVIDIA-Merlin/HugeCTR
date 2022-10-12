@@ -233,6 +233,10 @@ void CommonPybind(pybind11::module& m) {
       .value("Short", HugeCTR::PowerLaw_t::Short)
       .value("Specific", HugeCTR::PowerLaw_t::Specific)
       .export_values();
+  pybind11::enum_<HugeCTR::Tensor_t>(m, "Tensor_t")
+      .value("Train", HugeCTR::Tensor_t::Train)
+      .value("Evaluate", HugeCTR::Tensor_t::Evaluate)
+      .export_values();
 
   // Inference / parameter server related.
   pybind11::enum_<HugeCTR::DatabaseType_t>(m, "DatabaseType_t")

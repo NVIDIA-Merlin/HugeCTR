@@ -514,6 +514,11 @@ class Model {
   std::vector<std::pair<std::vector<long long>, std::vector<float>>>& get_incremental_model();
   void dump_incremental_model_2kafka();
 
+  std::tuple<size_t, size_t, std::vector<size_t>, int> get_tensor_info_by_name(
+      const std::string& tensor_name, Tensor_t tensor_type);
+
+  void check_out_tensor(Tensor_t tensor_type, int index, float* global_result);
+
  protected:
   Solver solver_;
   DataReaderParams reader_params_;

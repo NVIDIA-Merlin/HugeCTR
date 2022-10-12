@@ -592,7 +592,22 @@ void InferencePybind(pybind11::module& m) {
           pybind11::arg("check_type"), pybind11::arg("slot_size_array") = std::vector<long long>())
       .def("evaluate", &HugeCTR::InferenceModel::evaluate, pybind11::arg("num_batches"),
            pybind11::arg("source"), pybind11::arg("data_reader_type"), pybind11::arg("check_type"),
-           pybind11::arg("slot_size_array") = std::vector<long long>());
+           pybind11::arg("slot_size_array") = std::vector<long long>())
+      .def(
+          "check_out_tensor",
+          [](HugeCTR::InferenceModel& self, const std::string& tensor_name) {
+            const auto tensor_info_tuple = self.get_tensor_info_by_name(tensor_name);
+            float* local_result = new float[std::get<1>(tensor_info_tuple)];
+            auto local_result_capsule = pybind11::capsule(local_result, [](void* v) {
+              float* vv = reinterpret_cast<float*>(v);
+              delete[] vv;
+            });
+            self.check_out_tensor(std::get<3>(tensor_info_tuple), local_result);
+            pybind11::array_t<float> tensor_result(std::get<2>(tensor_info_tuple), local_result,
+                                                   local_result_capsule);
+            return tensor_result;
+          },
+          pybind11::arg("tensor_name"));
 }
 
 }  // namespace python_lib

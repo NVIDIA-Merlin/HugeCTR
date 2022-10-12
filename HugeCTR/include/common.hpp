@@ -187,6 +187,8 @@ enum class Distribution_t { Uniform, PowerLaw };
 
 enum class PowerLaw_t { Long, Medium, Short, Specific };
 
+enum class Tensor_t { Train, Evaluate };
+
 // TODO: Consider to move them into a separate file
 struct TrainState {
   TrainState_t state = TrainState_t::Init;

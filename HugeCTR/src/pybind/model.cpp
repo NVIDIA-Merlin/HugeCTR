@@ -1505,7 +1505,8 @@ void Model::summary() {
              "Summary====================================="
              "==============\n");
   auto log = HCTR_LOG_S(INFO, ROOT);
-  log << std::left << std::setw(40) << std::setfill(' ') << "label" << std::left << std::setw(30)
+  log << "Model structure on each GPU" << std::endl;
+  log << std::left << std::setw(40) << std::setfill(' ') << "Label" << std::left << std::setw(30)
       << std::setfill(' ') << "Dense" << std::left << std::setw(30) << std::setfill(' ') << "Sparse"
       << std::endl;
   log << std::left << std::setw(40) << std::setfill(' ') << data_input_info_[0] << std::left
@@ -2708,6 +2709,82 @@ void Model::dump_incremental_model_2kafka() {
                         embedding_size * sizeof(float));
   }
   message_sink_->flush();
+}
+
+std::tuple<size_t, size_t, std::vector<size_t>, int> Model::get_tensor_info_by_name(
+    const std::string& tensor_name, Tensor_t tensor_type) {
+  const auto& tensor_entries_list =
+      tensor_type == Tensor_t::Train ? train_tensor_entries_list_ : evaluate_tensor_entries_list_;
+  const int global_gpu_count = resource_manager_->get_global_gpu_count();
+
+  auto fn = [](const std::string& tensor_name, const std::vector<TensorEntry>& tensor_entries) {
+    for (int i{0}; i < static_cast<int>(tensor_entries.size()); i++) {
+      if (tensor_entries[i].name == tensor_name) {
+        return i;
+      }
+    }
+    return -1;
+  };
+  const int index = fn(tensor_name, tensor_entries_list[0]);
+  HCTR_CHECK_HINT(index != -1, "Cannot find tensor with name %s", tensor_name.c_str());
+
+  size_t tensor_size_in_bytes = tensor_entries_list[0][index].bag.get_size_in_bytes();
+  size_t tensor_num_of_elements =
+      get_num_elements_from_dimensions(tensor_entries_list[0][index].bag.get_dimensions());
+  auto dimensions = tensor_entries_list[0][index].bag.get_dimensions();
+  dimensions[0] *= global_gpu_count;
+  return std::make_tuple(global_gpu_count * tensor_size_in_bytes,
+                         global_gpu_count * tensor_num_of_elements, dimensions, index);
+}
+
+void Model::check_out_tensor(Tensor_t tensor_type, int index, float* global_result) {
+  const auto& tensor_entries_list =
+      tensor_type == Tensor_t::Train ? train_tensor_entries_list_ : evaluate_tensor_entries_list_;
+  const int local_gpu_count = resource_manager_->get_local_gpu_count();
+
+  size_t tensor_size_in_bytes = tensor_entries_list[0][index].bag.get_size_in_bytes();
+  size_t tensor_num_of_elements =
+      get_num_elements_from_dimensions(tensor_entries_list[0][index].bag.get_dimensions());
+  size_t bytes_per_element = tensor_size_in_bytes / tensor_num_of_elements;
+
+  std::unique_ptr<float[]> local_result(new float[local_gpu_count * tensor_num_of_elements]);
+  if (bytes_per_element == 4) {
+    for (int local_gpu_id; local_gpu_id < local_gpu_count; ++local_gpu_id) {
+      HCTR_LIB_THROW(cudaMemcpy(local_result.get() + local_gpu_id * tensor_num_of_elements,
+                                tensor_entries_list[local_gpu_id][index].bag.get_ptr(),
+                                tensor_size_in_bytes, cudaMemcpyDeviceToHost));
+    }
+  } else {
+    std::unique_ptr<__half[]> local_result_half(
+        new __half[local_gpu_count * tensor_num_of_elements]);
+    for (int local_gpu_id; local_gpu_id < local_gpu_count; ++local_gpu_id) {
+      HCTR_LIB_THROW(cudaMemcpy(local_result_half.get() + local_gpu_id * tensor_num_of_elements,
+                                tensor_entries_list[local_gpu_id][index].bag.get_ptr(),
+                                tensor_size_in_bytes, cudaMemcpyDeviceToHost));
+    }
+    auto transform = [](float* dst_ptr, const __half* src_ptr, size_t num_of_elements) {
+      for (size_t i{0}; i < num_of_elements; ++i) {
+        dst_ptr[i] = static_cast<float>(src_ptr[i]);
+      }
+    };
+    transform(local_result.get(), local_result_half.get(),
+              local_gpu_count * tensor_num_of_elements);
+  }
+
+  int numprocs = 1;
+#ifdef ENABLE_MPI
+  HCTR_MPI_THROW(MPI_Comm_size(MPI_COMM_WORLD, &numprocs));
+#endif
+  if (numprocs > 1) {
+#ifdef ENABLE_MPI
+    HCTR_MPI_THROW(MPI_Gather(local_result.get(), local_gpu_count * tensor_num_of_elements,
+                              MPI_FLOAT, global_result, local_gpu_count * tensor_num_of_elements,
+                              MPI_FLOAT, 0, MPI_COMM_WORLD));
+#endif
+  } else {
+    memcpy(global_result, local_result.get(),
+           local_gpu_count * tensor_num_of_elements * sizeof(float));
+  }
 }
 
 }  // namespace HugeCTR

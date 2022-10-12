@@ -43,6 +43,8 @@ InferenceModel::InferenceModel(const std::string& model_config_path,
                                                                   inference_params_.device_id);
     inference_sessions_.emplace_back(new InferenceSession(model_config_path, inference_params_,
                                                           embedding_cache, resource_manager_));
+    inference_tensor_entries_list_.push_back(
+        inference_sessions_.back()->get_inference_tensor_entries());
   }
 
   inference_params_.max_batchsize = global_max_batch_size_;
@@ -299,6 +301,59 @@ void InferenceModel::parse_input_from_data_reader(
       rowoffset_stride += rowoffset_length;
     }
     HCTR_LIB_THROW(cudaStreamSynchronize(resource_manager_->get_local_gpu(i)->get_stream()));
+  }
+}
+
+std::tuple<size_t, size_t, std::vector<size_t>, int> InferenceModel::get_tensor_info_by_name(
+    const std::string& tensor_name) {
+  auto fn = [](const std::string& tensor_name, const std::vector<TensorEntry>& tensor_entries) {
+    for (int i{0}; i < static_cast<int>(tensor_entries.size()); i++) {
+      if (tensor_entries[i].name == tensor_name) {
+        return i;
+      }
+    }
+    return -1;
+  };
+  const int index = fn(tensor_name, inference_tensor_entries_list_[0]);
+  HCTR_CHECK_HINT(index != -1, "Cannot find tensor with name %s", tensor_name.c_str());
+
+  size_t local_gpu_count = resource_manager_->get_local_gpu_count();
+  size_t tensor_size_in_bytes = inference_tensor_entries_list_[0][index].bag.get_size_in_bytes();
+  size_t tensor_num_of_elements = get_num_elements_from_dimensions(
+      inference_tensor_entries_list_[0][index].bag.get_dimensions());
+  auto dimensions = inference_tensor_entries_list_[0][index].bag.get_dimensions();
+  dimensions[0] *= local_gpu_count;
+  return std::make_tuple(local_gpu_count * tensor_size_in_bytes,
+                         local_gpu_count * tensor_num_of_elements, dimensions, index);
+}
+
+void InferenceModel::check_out_tensor(int index, float* local_result) {
+  const int local_gpu_count = resource_manager_->get_local_gpu_count();
+  size_t tensor_size_in_bytes = inference_tensor_entries_list_[0][index].bag.get_size_in_bytes();
+  size_t tensor_num_of_elements = get_num_elements_from_dimensions(
+      inference_tensor_entries_list_[0][index].bag.get_dimensions());
+  size_t bytes_per_element = tensor_size_in_bytes / tensor_num_of_elements;
+
+  if (bytes_per_element == 4) {
+    for (int local_gpu_id; local_gpu_id < local_gpu_count; ++local_gpu_id) {
+      HCTR_LIB_THROW(cudaMemcpy(local_result + local_gpu_id * tensor_num_of_elements,
+                                inference_tensor_entries_list_[local_gpu_id][index].bag.get_ptr(),
+                                tensor_size_in_bytes, cudaMemcpyDeviceToHost));
+    }
+  } else {
+    std::unique_ptr<__half[]> local_result_half(
+        new __half[local_gpu_count * tensor_num_of_elements]);
+    for (int local_gpu_id; local_gpu_id < local_gpu_count; ++local_gpu_id) {
+      HCTR_LIB_THROW(cudaMemcpy(local_result_half.get() + local_gpu_id * tensor_num_of_elements,
+                                inference_tensor_entries_list_[local_gpu_id][index].bag.get_ptr(),
+                                tensor_size_in_bytes, cudaMemcpyDeviceToHost));
+    }
+    auto transform = [](float* dst_ptr, const __half* src_ptr, size_t num_of_elements) {
+      for (size_t i{0}; i < num_of_elements; ++i) {
+        dst_ptr[i] = static_cast<float>(src_ptr[i]);
+      }
+    };
+    transform(local_result, local_result_half.get(), local_gpu_count * tensor_num_of_elements);
   }
 }
 
