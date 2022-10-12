@@ -82,13 +82,13 @@ FusedReluBiasFullyConnectedLayer::FusedReluBiasFullyConnectedLayer(
     HCTR_OWN_THROW(Error_t::WrongInput, "input or output tensor doesn't has two dimensions");
   }
 
-  size_t m = bottom_tensor_dim[0];
-  size_t n = top_tensor_dim[1];
-  size_t k = bottom_tensor_dim[1];
+  size_t batch_size = bottom_tensor_dim[0];
+  size_t output_size = top_tensor_dim[1];
+  size_t input_size = bottom_tensor_dim[1];
 
-  std::vector<size_t> kernel_dim = {k, n};
-  std::vector<size_t> bias_dim = {1, n};
-  std::vector<size_t> identity_dim = {1, m};
+  std::vector<size_t> kernel_dim = {input_size, output_size};
+  std::vector<size_t> bias_dim = {1, output_size};
+  std::vector<size_t> identity_dim = {1, batch_size};
 
   {
     Tensor2<float> tensor;
@@ -136,7 +136,7 @@ FusedReluBiasFullyConnectedLayer::FusedReluBiasFullyConnectedLayer(
   db_out_tensor_ = db_out_tensor;
   blobs_buff->reserve(kernel_dim, &bias_grad_tensor_);
 
-  std::vector<size_t> mask_dim = {m, n};
+  std::vector<size_t> mask_dim = {batch_size, output_size};
   blobs_buff->reserve(mask_dim, &mask_in_tensor_temp_);
 
   if (async_mlp_wgrad_)
@@ -155,12 +155,12 @@ void FusedReluBiasFullyConnectedLayer::initialize() {
   const auto& top_tensor_dim = train_out_tensor_.get_dimensions();
   __half* identity = identity_tensor_.get_ptr();
 
-  int m = bottom_tensor_dim[0];
-  int n = top_tensor_dim[1];
-  int k = bottom_tensor_dim[1];
+  int batch_size = bottom_tensor_dim[0];
+  int output_size = top_tensor_dim[1];
+  int input_size = bottom_tensor_dim[1];
 
-  initialize_array<<<(m - 1) / 1024 + 1, 1024, 0, get_gpu().get_stream()>>>(identity, m,
-                                                                            __float2half(1.0f));
+  initialize_array<<<(batch_size - 1) / 1024 + 1, 1024, 0, get_gpu().get_stream()>>>(
+      identity, batch_size, __float2half(1.0f));
 
   HCTR_LIB_THROW(cublasLtMatmulDescCreate(&cublas_op_desc_, CUBLAS_COMPUTE_32F, CUDA_R_32F));
 
@@ -180,14 +180,17 @@ void FusedReluBiasFullyConnectedLayer::initialize() {
     __half* reluMask = mask_out_tensor_.get_ptr();
     cublasLtMatmulDescSetAttribute(cublas_op_desc_, CUBLASLT_MATMUL_DESC_EPILOGUE_AUX_POINTER,
                                    &reluMask, sizeof(reluMask));
-    long reluMaskLd = n;
+    long reluMaskLd = output_size;
     cublasLtMatmulDescSetAttribute(cublas_op_desc_, CUBLASLT_MATMUL_DESC_EPILOGUE_AUX_LD,
                                    &reluMaskLd, sizeof(reluMaskLd));
   }
 
-  HCTR_LIB_THROW(cublasLtMatrixLayoutCreate(&cublas_kernel_desc_, CUDA_R_16F, n, k, n));
-  HCTR_LIB_THROW(cublasLtMatrixLayoutCreate(&cublas_bottom_desc_, CUDA_R_16F, k, m, k));
-  HCTR_LIB_THROW(cublasLtMatrixLayoutCreate(&cublas_top_desc_, CUDA_R_16F, n, m, n));
+  HCTR_LIB_THROW(cublasLtMatrixLayoutCreate(&cublas_kernel_desc_, CUDA_R_16F, output_size,
+                                            input_size, output_size));
+  HCTR_LIB_THROW(cublasLtMatrixLayoutCreate(&cublas_bottom_desc_, CUDA_R_16F, input_size,
+                                            batch_size, input_size));
+  HCTR_LIB_THROW(cublasLtMatrixLayoutCreate(&cublas_top_desc_, CUDA_R_16F, output_size, batch_size,
+                                            output_size));
 
   HCTR_LIB_THROW(cublasLtMatmulPreferenceCreate(&cublas_preference_));
 
@@ -226,9 +229,9 @@ void FusedReluBiasFullyConnectedLayer::initialize_dgrad() {
   const auto& bottom_tensor_dim = get_bottom_tensor_fprop(true).get_dimensions();
   const auto& top_tensor_dim = train_out_tensor_.get_dimensions();
 
-  size_t m = bottom_tensor_dim[0];
-  size_t n = top_tensor_dim[1];
-  size_t k = bottom_tensor_dim[1];
+  size_t batch_size = bottom_tensor_dim[0];
+  size_t output_size = top_tensor_dim[1];
+  size_t input_size = bottom_tensor_dim[1];
 
   HCTR_LIB_THROW(cublasLtMatmulDescCreate(&cublas_op_desc_bprop_, CUBLAS_COMPUTE_32F, CUDA_R_32F));
 
@@ -256,13 +259,15 @@ void FusedReluBiasFullyConnectedLayer::initialize_dgrad() {
     __half* reluMask = mask_in_tensor_.get_ptr();
     cublasLtMatmulDescSetAttribute(cublas_op_desc_bprop_, CUBLASLT_MATMUL_DESC_EPILOGUE_AUX_POINTER,
                                    &reluMask, sizeof(reluMask));
-    long reluMaskLd = k;
+    long reluMaskLd = input_size;
     cublasLtMatmulDescSetAttribute(cublas_op_desc_bprop_, CUBLASLT_MATMUL_DESC_EPILOGUE_AUX_LD,
                                    &reluMaskLd, sizeof(reluMaskLd));
   }
 
-  HCTR_LIB_THROW(cublasLtMatrixLayoutCreate(&cublas_dRelu_top_desc_, CUDA_R_16F, n, m, n));
-  HCTR_LIB_THROW(cublasLtMatrixLayoutCreate(&cublas_dRelu_bottom_desc_, CUDA_R_16F, k, m, k));
+  HCTR_LIB_THROW(cublasLtMatrixLayoutCreate(&cublas_dRelu_top_desc_, CUDA_R_16F, output_size,
+                                            batch_size, output_size));
+  HCTR_LIB_THROW(cublasLtMatrixLayoutCreate(&cublas_dRelu_bottom_desc_, CUDA_R_16F, input_size,
+                                            batch_size, input_size));
 
   HCTR_LIB_THROW(cublasLtMatmulPreferenceCreate(&cublas_preference_dRelu_));
 
@@ -298,9 +303,9 @@ void FusedReluBiasFullyConnectedLayer::initialize_wgrad() {
   // TODO: We need different bottom desc based on is_train or not
   const auto& bottom_tensor_dim = get_bottom_tensor_fprop(true).get_dimensions();
   const auto& top_tensor_dim = train_out_tensor_.get_dimensions();
-  size_t m = bottom_tensor_dim[0];
-  size_t n = top_tensor_dim[1];
-  size_t k = bottom_tensor_dim[1];
+  size_t batch_size = bottom_tensor_dim[0];
+  size_t output_size = top_tensor_dim[1];
+  size_t input_size = bottom_tensor_dim[1];
 
   HCTR_LIB_THROW(cublasLtMatmulDescCreate(&cublas_op_desc_wgrad_, CUBLAS_COMPUTE_32F, CUDA_R_32F));
 
@@ -364,9 +369,9 @@ void FusedReluBiasFullyConnectedLayer::fprop(bool is_train) {
   const auto& bottom_tensor_dim = get_bottom_tensor_fprop(is_train).get_dimensions();
   const auto& top_tensor_dim = train_out_tensor_.get_dimensions();
 
-  size_t m = bottom_tensor_dim[0];
-  size_t n = top_tensor_dim[1];
-  size_t k = bottom_tensor_dim[1];
+  size_t batch_size = bottom_tensor_dim[0];
+  size_t output_size = top_tensor_dim[1];
+  size_t input_size = bottom_tensor_dim[1];
 
   const float alpha = 1.0f;
   const float beta = 0.0f;
@@ -405,9 +410,9 @@ void FusedReluBiasFullyConnectedLayer::bprop() {
   const auto& bottom_tensor_dim = get_bottom_tensor_fprop(true).get_dimensions();
   const auto& top_tensor_dim = train_out_tensor_.get_dimensions();
 
-  size_t m = bottom_tensor_dim[0];
-  size_t n = top_tensor_dim[1];
-  size_t k = bottom_tensor_dim[1];
+  size_t batch_size = bottom_tensor_dim[0];
+  size_t output_size = top_tensor_dim[1];
+  size_t input_size = bottom_tensor_dim[1];
 
   const float alpha = 1.0f;
   const float beta_k = 1.0f;
@@ -417,13 +422,14 @@ void FusedReluBiasFullyConnectedLayer::bprop() {
   // dRelu
   if (pos_ == FcPosition_t::Tail || pos_ == FcPosition_t::Isolated) {
     if (act_ != Activation_t::None) {
-      if ((m * n) % 4 == 0) {
-        reverse_relu_kernel<<<(m * n / 4 - 1) / 1024 + 1, 1024, 0, get_gpu().get_stream()>>>(
-            dRelu_top, mask_out, train_out, m * n);
+      if ((batch_size * output_size) % 4 == 0) {
+        reverse_relu_kernel<<<(batch_size * output_size / 4 - 1) / 1024 + 1, 1024, 0,
+                              get_gpu().get_stream()>>>(dRelu_top, mask_out, train_out,
+                                                        batch_size * output_size);
       } else
-        reverse_relu_kernel_not_aligned<<<(m * n - 1) / 1024 + 1, 1024, 0,
+        reverse_relu_kernel_not_aligned<<<(batch_size * output_size - 1) / 1024 + 1, 1024, 0,
                                           get_gpu().get_stream()>>>(dRelu_top, mask_out, train_out,
-                                                                    m * n);
+                                                                    batch_size * output_size);
     } else
       dRelu_top = train_out_tensor_.get_ptr();
   }
@@ -490,9 +496,9 @@ void FusedReluBiasFullyConnectedLayer::search_algorithm() {
   const auto& bottom_tensor_dim = get_bottom_tensor_fprop(true).get_dimensions();
   const auto& top_tensor_dim = train_out_tensor_.get_dimensions();
 
-  int m = bottom_tensor_dim[0];
-  int n = top_tensor_dim[1];
-  int k = bottom_tensor_dim[1];
+  int batch_size = bottom_tensor_dim[0];
+  int output_size = top_tensor_dim[1];
+  int input_size = bottom_tensor_dim[1];
 
   // Record time for each algorithm
   float shortestTime = std::numeric_limits<float>::max();
@@ -512,7 +518,6 @@ void FusedReluBiasFullyConnectedLayer::search_algorithm() {
     HCTR_LIB_THROW(CUBLAS_STATUS_NOT_SUPPORTED);
   }
 
-  // if(get_device_id()==0) HCTR_LOG(INFO, WORLD, "M: %d, N: %d, K: %d\n", m, n, k);
   for (int algoIdx = 0; algoIdx < algo_count; algoIdx++) {
     cublasStatus_t status = CUBLAS_STATUS_SUCCESS;
 
@@ -663,9 +668,10 @@ void FusedReluBiasFullyConnectedLayer::search_algorithm() {
     // Record start event
     HCTR_LIB_THROW(cudaEventRecord(start, get_gpu().get_stream()));
     for (size_t i = 0; i < repeat_num && status == CUBLAS_STATUS_SUCCESS; ++i) {
-      status = cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_T, n, k, m,
-                            &alpha, top, CUDA_R_16F, n, bottom, CUDA_R_16F, k, &beta, kernel_grad,
-                            CUDA_R_16F, n, CUDA_R_32F, static_cast<cublasGemmAlgo_t>(testAlgo));
+      status = cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_T, output_size,
+                            input_size, batch_size, &alpha, top, CUDA_R_16F, output_size, bottom,
+                            CUDA_R_16F, input_size, &beta, kernel_grad, CUDA_R_16F, output_size,
+                            CUDA_R_32F, static_cast<cublasGemmAlgo_t>(testAlgo));
     }
     HCTR_LIB_THROW(cudaEventRecord(stop, get_gpu().get_stream()));
     HCTR_LIB_THROW(cudaEventSynchronize(stop));
@@ -700,9 +706,10 @@ void FusedReluBiasFullyConnectedLayer::search_algorithm() {
     // Record start event
     HCTR_LIB_THROW(cudaEventRecord(start, get_gpu().get_stream()));
     for (size_t i = 0; i < repeat_num && status == CUBLAS_STATUS_SUCCESS; ++i) {
-      status = cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_N, n, 1, m,
-                            &alpha, top, CUDA_R_16F, n, identity, CUDA_R_16F, m, &beta, bias_grad,
-                            CUDA_R_16F, n, CUDA_R_32F, static_cast<cublasGemmAlgo_t>(testAlgo));
+      status = cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_N, output_size, 1,
+                            batch_size, &alpha, top, CUDA_R_16F, output_size, identity, CUDA_R_16F,
+                            batch_size, &beta, bias_grad, CUDA_R_16F, output_size, CUDA_R_32F,
+                            static_cast<cublasGemmAlgo_t>(testAlgo));
     }
     HCTR_LIB_THROW(cudaEventRecord(stop, get_gpu().get_stream()));
     HCTR_LIB_THROW(cudaEventSynchronize(stop));
@@ -734,9 +741,10 @@ void FusedReluBiasFullyConnectedLayer::search_algorithm() {
     // Record start event
     HCTR_LIB_THROW(cudaEventRecord(start, get_gpu().get_stream()));
     for (size_t i = 0; i < repeat_num && status == CUBLAS_STATUS_SUCCESS; ++i) {
-      status = cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_T, CUBLAS_OP_N, k, m, n,
-                            &alpha, kernel, CUDA_R_16F, n, top, CUDA_R_16F, n, &beta, bottom,
-                            CUDA_R_16F, k, CUDA_R_32F, static_cast<cublasGemmAlgo_t>(testAlgo));
+      status = cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_T, CUBLAS_OP_N, input_size,
+                            batch_size, output_size, &alpha, kernel, CUDA_R_16F, output_size, top,
+                            CUDA_R_16F, output_size, &beta, bottom, CUDA_R_16F, input_size,
+                            CUDA_R_32F, static_cast<cublasGemmAlgo_t>(testAlgo));
     }
 
     HCTR_LIB_THROW(cudaEventRecord(stop, get_gpu().get_stream()));

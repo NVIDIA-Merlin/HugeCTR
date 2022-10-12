@@ -77,24 +77,22 @@ FullyConnectedLayer<float>::FullyConnectedLayer(
       HCTR_OWN_THROW(Error_t::WrongInput, "input and output tensor don't have same dimensions");
     }
     // 2. dim match?
-    size_t in_batch = 1;
-    size_t out_batch = 1;
-    size_t in_hidden_dim = in_tensor_dim[in_tensor_dim.size() - 1];
-    size_t out_hidden_dim = out_tensor_dim[out_tensor_dim.size() - 1];
+    size_t in_batch_size = 1;
+    size_t out_batch_size = 1;
+    size_t input_size = in_tensor_dim[in_tensor_dim.size() - 1];
+    size_t output_size = out_tensor_dim[out_tensor_dim.size() - 1];
 
     for (size_t idx = 0; idx < in_tensor_dim.size() - 1; idx++) {
-      in_batch = in_batch * in_tensor_dim[idx];
-      out_batch = out_batch * out_tensor_dim[idx];
+      in_batch_size = in_batch_size * in_tensor_dim[idx];
+      out_batch_size = out_batch_size * out_tensor_dim[idx];
     }
-    size_t m = in_batch;
-    size_t n = out_hidden_dim;
-    size_t k = in_hidden_dim;
-    if (in_batch != out_batch) {
+
+    if (in_batch_size != out_batch_size) {
       HCTR_OWN_THROW(Error_t::WrongInput, "size of input / output tensor doesn't match");
     }
 
-    std::vector<size_t> weight_dim = {k, n};
-    std::vector<size_t> bias_dim = {1, n};
+    std::vector<size_t> weight_dim = {input_size, output_size};
+    std::vector<size_t> bias_dim = {1, output_size};
 
     {
       Tensor2<float> tensor;
@@ -139,29 +137,24 @@ void FullyConnectedLayer<float>::fprop(bool is_train) {
   const auto& in_tensor_dim = in_tensor.get_dimensions();
   const auto& out_tensor_dim = out_tensor.get_dimensions();
 
-  size_t in_batch = 1;
-  size_t in_hidden_dim = in_tensor_dim[in_tensor_dim.size() - 1];
-  size_t out_hidden_dim = out_tensor_dim[out_tensor_dim.size() - 1];
+  size_t in_batch_size = 1;
+  size_t input_size = in_tensor_dim[in_tensor_dim.size() - 1];
+  size_t output_size = out_tensor_dim[out_tensor_dim.size() - 1];
 
   for (size_t idx = 0; idx < in_tensor_dim.size() - 1; idx++) {
-    in_batch = in_batch * in_tensor_dim[idx];
+    in_batch_size = in_batch_size * in_tensor_dim[idx];
   }
-
-  int m, n, k;
-
-  m = in_batch;
-  n = out_hidden_dim;
-  k = in_hidden_dim;
 
   float alpha = 1.0f, beta = 0.0f;
 
   const cublasComputeType_t compute_type =
       enable_tf32_compute_ ? CUBLAS_COMPUTE_32F_FAST_TF32 : CUBLAS_COMPUTE_32F;
 
-  HCTR_LIB_THROW(cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_N, n, m, k,
-                              &alpha, weight, CUDA_R_32F, n, in, CUDA_R_32F, k, &beta, out,
-                              CUDA_R_32F, n, compute_type, falgo_));
-  add_bias(out, bias, m, n, true, get_gpu().get_stream());
+  HCTR_LIB_THROW(cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_N, output_size,
+                              in_batch_size, input_size, &alpha, weight, CUDA_R_32F, output_size,
+                              in, CUDA_R_32F, input_size, &beta, out, CUDA_R_32F, output_size,
+                              compute_type, falgo_));
+  add_bias(out, bias, in_batch_size, output_size, true, get_gpu().get_stream());
 }
 
 void FullyConnectedLayer<float>::bprop() {
@@ -179,19 +172,13 @@ void FullyConnectedLayer<float>::bprop() {
   const auto& in_tensor_dim = in_tensor.get_dimensions();
   const auto& out_tensor_dim = out_tensor.get_dimensions();
 
-  size_t in_batch = 1;
-  size_t in_hidden_dim = in_tensor_dim[in_tensor_dim.size() - 1];
-  size_t out_hidden_dim = out_tensor_dim[out_tensor_dim.size() - 1];
+  size_t in_batch_size = 1;
+  size_t input_size = in_tensor_dim[in_tensor_dim.size() - 1];
+  size_t output_size = out_tensor_dim[out_tensor_dim.size() - 1];
 
   for (size_t idx = 0; idx < in_tensor_dim.size() - 1; idx++) {
-    in_batch = in_batch * in_tensor_dim[idx];
+    in_batch_size = in_batch_size * in_tensor_dim[idx];
   }
-
-  int m, n, k;
-
-  m = in_batch;
-  n = out_hidden_dim;
-  k = in_hidden_dim;
 
   float alpha = 1.0f, beta_w = 1.0f, beta_x = 0.0f;
 
@@ -199,15 +186,17 @@ void FullyConnectedLayer<float>::bprop() {
       enable_tf32_compute_ ? CUBLAS_COMPUTE_32F_FAST_TF32 : CUBLAS_COMPUTE_32F;
 
   // gradient respect to W
-  HCTR_LIB_THROW(cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_T, n, k, m,
-                              &alpha, out, CUDA_R_32F, n, in, CUDA_R_32F, k, &beta_w, wgrad,
-                              CUDA_R_32F, n, compute_type, balgo_W_));
+  HCTR_LIB_THROW(cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_T, output_size,
+                              input_size, in_batch_size, &alpha, out, CUDA_R_32F, output_size, in,
+                              CUDA_R_32F, input_size, &beta_w, wgrad, CUDA_R_32F, output_size,
+                              compute_type, balgo_W_));
   // gradient respect to Xn
-  HCTR_LIB_THROW(cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_T, CUBLAS_OP_N, k, m, n,
-                              &alpha, weight, CUDA_R_32F, n, out, CUDA_R_32F, n, &beta_x, in,
-                              CUDA_R_32F, k, compute_type, balgo_Xn_));
-  MLCommon::LinAlg::reduce(bias_grad, out, m, n, float(0), false, true, get_gpu().get_stream(),
-                           true);
+  HCTR_LIB_THROW(cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_T, CUBLAS_OP_N, input_size,
+                              in_batch_size, output_size, &alpha, weight, CUDA_R_32F, output_size,
+                              out, CUDA_R_32F, output_size, &beta_x, in, CUDA_R_32F, input_size,
+                              compute_type, balgo_Xn_));
+  MLCommon::LinAlg::reduce(bias_grad, out, in_batch_size, output_size, float(0), false, true,
+                           get_gpu().get_stream(), true);
 }
 
 void FullyConnectedLayer<float>::search_algorithm() {
@@ -228,19 +217,15 @@ void FullyConnectedLayer<float>::search_algorithm() {
   const auto& in_tensor_dim = in_tensor.get_dimensions();
   const auto& out_tensor_dim = out_tensor.get_dimensions();
 
-  size_t in_batch = 1;
-  size_t out_batch = 1;
-  size_t in_hidden_dim = in_tensor_dim[in_tensor_dim.size() - 1];
-  size_t out_hidden_dim = out_tensor_dim[out_tensor_dim.size() - 1];
+  size_t in_batch_size = 1;
+  size_t out_batch_size = 1;
+  size_t input_size = in_tensor_dim[in_tensor_dim.size() - 1];
+  size_t output_size = out_tensor_dim[out_tensor_dim.size() - 1];
 
   for (size_t idx = 0; idx < in_tensor_dim.size() - 1; idx++) {
-    in_batch = in_batch * in_tensor_dim[idx];
-    out_batch = out_batch * out_tensor_dim[idx];
+    in_batch_size = in_batch_size * in_tensor_dim[idx];
+    out_batch_size = out_batch_size * out_tensor_dim[idx];
   }
-  int m, n, k;
-  m = in_batch;
-  n = out_hidden_dim;
-  k = in_hidden_dim;
 
   // Record time for each algorithm
   float shortestTime = 100000000.0;
@@ -272,9 +257,10 @@ void FullyConnectedLayer<float>::search_algorithm() {
     // Record start event
     HCTR_LIB_THROW(cudaEventRecord(start, get_gpu().get_stream()));
     for (int i = 0; i < repeat_num; ++i) {
-      status = cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_N, n, m, k,
-                            &alpha, weight, CUDA_R_32F, n, in, CUDA_R_32F, k, &beta, out,
-                            CUDA_R_32F, n, compute_type, static_cast<cublasGemmAlgo_t>(testAlgo));
+      status = cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_N, output_size,
+                            in_batch_size, input_size, &alpha, weight, CUDA_R_32F, output_size, in,
+                            CUDA_R_32F, input_size, &beta, out, CUDA_R_32F, output_size,
+                            compute_type, static_cast<cublasGemmAlgo_t>(testAlgo));
     }
     HCTR_LIB_THROW(cudaEventRecord(stop, get_gpu().get_stream()));
     HCTR_LIB_THROW(cudaEventSynchronize(stop));
@@ -304,9 +290,10 @@ void FullyConnectedLayer<float>::search_algorithm() {
     // Record start event
     HCTR_LIB_THROW(cudaEventRecord(start, get_gpu().get_stream()));
     for (int i = 0; i < repeat_num; ++i) {
-      status = cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_T, n, k, m,
-                            &alpha, out, CUDA_R_32F, n, in, CUDA_R_32F, k, &beta_w, wgrad,
-                            CUDA_R_32F, n, compute_type, static_cast<cublasGemmAlgo_t>(testAlgo));
+      status = cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_T, output_size,
+                            input_size, in_batch_size, &alpha, out, CUDA_R_32F, output_size, in,
+                            CUDA_R_32F, input_size, &beta_w, wgrad, CUDA_R_32F, output_size,
+                            compute_type, static_cast<cublasGemmAlgo_t>(testAlgo));
     }
     HCTR_LIB_THROW(cudaEventRecord(stop, get_gpu().get_stream()));
     HCTR_LIB_THROW(cudaEventSynchronize(stop));
@@ -336,9 +323,10 @@ void FullyConnectedLayer<float>::search_algorithm() {
     // Record start event
     HCTR_LIB_THROW(cudaEventRecord(start, get_gpu().get_stream()));
     for (int i = 0; i < repeat_num; ++i) {
-      status = cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_T, CUBLAS_OP_N, k, m, n,
-                            &alpha, weight, CUDA_R_32F, n, out, CUDA_R_32F, n, &beta_x, in,
-                            CUDA_R_32F, k, compute_type, static_cast<cublasGemmAlgo_t>(testAlgo));
+      status = cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_T, CUBLAS_OP_N, input_size,
+                            in_batch_size, output_size, &alpha, weight, CUDA_R_32F, output_size,
+                            out, CUDA_R_32F, output_size, &beta_x, in, CUDA_R_32F, input_size,
+                            compute_type, static_cast<cublasGemmAlgo_t>(testAlgo));
     }
     HCTR_LIB_THROW(cudaEventRecord(stop, get_gpu().get_stream()));
     HCTR_LIB_THROW(cudaEventSynchronize(stop));
