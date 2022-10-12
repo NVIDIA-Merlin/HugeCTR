@@ -107,19 +107,19 @@ FusedFullyConnectedLayer::FusedFullyConnectedLayer(
     HCTR_OWN_THROW(Error_t::WrongInput, "input or output tensor doesn't has two dimensions");
   }
 
-  size_t m = bottom_tensor_dim[0];
-  size_t n = top_tensor_dim[1];
-  size_t k = bottom_tensor_dim[1];
+  size_t batch_size = bottom_tensor_dim[0];
+  size_t output_size = top_tensor_dim[1];
+  size_t input_size = bottom_tensor_dim[1];
 
-  if (m % 32 != 0 || n % 64 != 0) {
+  if (batch_size % 32 != 0 || output_size % 64 != 0) {
     HCTR_OWN_THROW(
         Error_t::WrongInput,
         "The first dimension of bottom tensor must be a multiple of 32, the second dimension "
         "of top tensor must be a multiple of 64.");
   }
 
-  std::vector<size_t> kernel_dim = {k, n};
-  std::vector<size_t> bias_dim = {1, n};
+  std::vector<size_t> kernel_dim = {input_size, output_size};
+  std::vector<size_t> bias_dim = {1, output_size};
 
   {
     Tensor2<float> tensor;
@@ -170,23 +170,24 @@ void FusedFullyConnectedLayer::fprop(bool is_train) {
   const auto& bottom_tensor_dim = get_bottom_tensor(is_train).get_dimensions();
   const auto& top_tensor_dim = top_tensor_.get_dimensions();
 
-  size_t m = bottom_tensor_dim[0];
-  size_t n = top_tensor_dim[1];
-  size_t k = bottom_tensor_dim[1];
+  size_t batch_size = bottom_tensor_dim[0];
+  size_t output_size = top_tensor_dim[1];
+  size_t input_size = bottom_tensor_dim[1];
 
   const float alpha = 1.0f;
   const float beta = 0.0f;
 
-  HCTR_LIB_THROW(cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_N, n, m, k,
-                              &alpha, kernel, CUDA_R_16F, n, bottom, CUDA_R_16F, k, &beta, middle,
-                              CUDA_R_16F, n, CUDA_R_32F, falgo_k_));
+  HCTR_LIB_THROW(cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_N, output_size,
+                              batch_size, input_size, &alpha, kernel, CUDA_R_16F, output_size,
+                              bottom, CUDA_R_16F, input_size, &beta, middle, CUDA_R_16F,
+                              output_size, CUDA_R_32F, falgo_k_));
 
   const size_t max_threads = 1024;
-  const size_t blocks = m;
-  const size_t threads = min(n / 2, max_threads);
+  const size_t blocks = batch_size;
+  const size_t threads = min(output_size / 2, max_threads);
 
-  add_bias_and_re_kernel<<<blocks, threads, 0, get_gpu().get_stream()>>>(top, middle, bias, n / 2,
-                                                                         n / 2);
+  add_bias_and_re_kernel<<<blocks, threads, 0, get_gpu().get_stream()>>>(
+      top, middle, bias, output_size / 2, output_size / 2);
 #ifndef NDEBUG
   cudaDeviceSynchronize();
   HCTR_LIB_THROW(cudaGetLastError());
@@ -207,31 +208,33 @@ void FusedFullyConnectedLayer::bprop() {
   const auto& bottom_tensor_dim = get_bottom_tensor(true).get_dimensions();
   const auto& top_tensor_dim = top_tensor_.get_dimensions();
 
-  int m = bottom_tensor_dim[0];
-  int n = top_tensor_dim[1];
-  int k = bottom_tensor_dim[1];
+  int batch_size = bottom_tensor_dim[0];
+  int output_size = top_tensor_dim[1];
+  int input_size = bottom_tensor_dim[1];
 
   const float alpha = 1.0f;
   const float beta_k = 1.0f;
   const float beta_x = 0.0f;
 
-  initialize_array<<<(n - 1) / 1024 + 1, 1024, 0, get_gpu().get_stream()>>>(bias_grad_float, n,
-                                                                            0.0f);
+  initialize_array<<<(output_size - 1) / 1024 + 1, 1024, 0, get_gpu().get_stream()>>>(
+      bias_grad_float, output_size, 0.0f);
 
-  dim3 blocks(n / 64, m / 32);
+  dim3 blocks(output_size / 64, batch_size / 32);
   reverse_add_bias_and_re_kernel<32>
-      <<<blocks, 512, 0, get_gpu().get_stream()>>>(bias_grad_float, middle, top, n / 2);
+      <<<blocks, 512, 0, get_gpu().get_stream()>>>(bias_grad_float, middle, top, output_size / 2);
 
-  convert_array<<<(n - 1) / 1024 + 1, 1024, 0, get_gpu().get_stream()>>>(bias_grad, bias_grad_float,
-                                                                         n);
+  convert_array<<<(output_size - 1) / 1024 + 1, 1024, 0, get_gpu().get_stream()>>>(
+      bias_grad, bias_grad_float, output_size);
 
-  HCTR_LIB_THROW(cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_T, n, k, m,
-                              &alpha, middle, CUDA_R_16F, n, bottom, CUDA_R_16F, k, &beta_k,
-                              kernel_grad, CUDA_R_16F, n, CUDA_R_32F, balgo_k_));
+  HCTR_LIB_THROW(cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_T, output_size,
+                              input_size, batch_size, &alpha, middle, CUDA_R_16F, output_size,
+                              bottom, CUDA_R_16F, input_size, &beta_k, kernel_grad, CUDA_R_16F,
+                              output_size, CUDA_R_32F, balgo_k_));
 
-  HCTR_LIB_THROW(cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_T, CUBLAS_OP_N, k, m, n,
-                              &alpha, kernel, CUDA_R_16F, n, middle, CUDA_R_16F, n, &beta_x, bottom,
-                              CUDA_R_16F, k, CUDA_R_32F, balgo_x_));
+  HCTR_LIB_THROW(cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_T, CUBLAS_OP_N, input_size,
+                              batch_size, output_size, &alpha, kernel, CUDA_R_16F, output_size,
+                              middle, CUDA_R_16F, output_size, &beta_x, bottom, CUDA_R_16F,
+                              input_size, CUDA_R_32F, balgo_x_));
 
 #ifndef NDEBUG
   cudaDeviceSynchronize();
@@ -257,9 +260,9 @@ void FusedFullyConnectedLayer::search_algorithm() {
   const auto& bottom_tensor_dim = get_bottom_tensor(true).get_dimensions();
   const auto& top_tensor_dim = top_tensor_.get_dimensions();
 
-  size_t m = bottom_tensor_dim[0];
-  size_t n = top_tensor_dim[1];
-  size_t k = bottom_tensor_dim[1];
+  size_t batch_size = bottom_tensor_dim[0];
+  size_t output_size = top_tensor_dim[1];
+  size_t input_size = bottom_tensor_dim[1];
 
   // Record time for each algorithm
   float shortestTime = std::numeric_limits<float>::max();
@@ -282,9 +285,10 @@ void FusedFullyConnectedLayer::search_algorithm() {
     // Record start event
     HCTR_LIB_THROW(cudaEventRecord(start, get_gpu().get_stream()));
     for (size_t i = 0; i < repeat_num && status == CUBLAS_STATUS_SUCCESS; ++i) {
-      status = cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_N, n, m, k,
-                            &alpha, kernel, CUDA_R_16F, n, bottom, CUDA_R_16F, k, &beta, top,
-                            CUDA_R_16F, n, CUDA_R_32F, static_cast<cublasGemmAlgo_t>(testAlgo));
+      status = cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_N, output_size,
+                            batch_size, input_size, &alpha, kernel, CUDA_R_16F, output_size, bottom,
+                            CUDA_R_16F, input_size, &beta, top, CUDA_R_16F, output_size, CUDA_R_32F,
+                            static_cast<cublasGemmAlgo_t>(testAlgo));
     }
     HCTR_LIB_THROW(cudaEventRecord(stop, get_gpu().get_stream()));
     HCTR_LIB_THROW(cudaEventSynchronize(stop));
@@ -317,9 +321,10 @@ void FusedFullyConnectedLayer::search_algorithm() {
     // Record start event
     HCTR_LIB_THROW(cudaEventRecord(start, get_gpu().get_stream()));
     for (size_t i = 0; i < repeat_num && status == CUBLAS_STATUS_SUCCESS; ++i) {
-      status = cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_T, n, k, m,
-                            &alpha, top, CUDA_R_16F, n, bottom, CUDA_R_16F, k, &beta, kernel_grad,
-                            CUDA_R_16F, n, CUDA_R_32F, static_cast<cublasGemmAlgo_t>(testAlgo));
+      status = cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_T, output_size,
+                            input_size, batch_size, &alpha, top, CUDA_R_16F, output_size, bottom,
+                            CUDA_R_16F, input_size, &beta, kernel_grad, CUDA_R_16F, output_size,
+                            CUDA_R_32F, static_cast<cublasGemmAlgo_t>(testAlgo));
     }
     HCTR_LIB_THROW(cudaEventRecord(stop, get_gpu().get_stream()));
     HCTR_LIB_THROW(cudaEventSynchronize(stop));
@@ -352,9 +357,10 @@ void FusedFullyConnectedLayer::search_algorithm() {
     // Record start event
     HCTR_LIB_THROW(cudaEventRecord(start, get_gpu().get_stream()));
     for (size_t i = 0; i < repeat_num && status == CUBLAS_STATUS_SUCCESS; ++i) {
-      status = cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_T, CUBLAS_OP_N, k, m, n,
-                            &alpha, kernel, CUDA_R_16F, n, top, CUDA_R_16F, n, &beta, bottom,
-                            CUDA_R_16F, k, CUDA_R_32F, static_cast<cublasGemmAlgo_t>(testAlgo));
+      status = cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_T, CUBLAS_OP_N, input_size,
+                            batch_size, output_size, &alpha, kernel, CUDA_R_16F, output_size, top,
+                            CUDA_R_16F, output_size, &beta, bottom, CUDA_R_16F, input_size,
+                            CUDA_R_32F, static_cast<cublasGemmAlgo_t>(testAlgo));
     }
 
     HCTR_LIB_THROW(cudaEventRecord(stop, get_gpu().get_stream()));
