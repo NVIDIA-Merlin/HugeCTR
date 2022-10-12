@@ -742,15 +742,17 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
         if (input_output_info.inputs.size() != 2) {
           HCTR_OWN_THROW(Error_t::WrongInput, "MultiHeadAttentionLayer needs two input tensors ");
         }
+        auto num_heads_it = j.find("num_attention_heads");
+        auto num_attention_heads = (num_heads_it != j.end()) ? num_heads_it->get<int>() : 1;
         if (use_mixed_precision) {
           Tensors2<__half> in_tensors;
           for (const TensorBag2& bag : input_output_info.inputs) {
             in_tensors.push_back(Tensor2<__half>::stretch_from(bag));
           }
           Tensor2<__half> out_tensor;
-          layers.emplace_back(
-              new MultiHeadAttentionLayer<__half>(in_tensors, out_tensor, blobs_buff, gpu_resource,
-                                                  use_mixed_precision, enable_tf32_compute));
+          layers.emplace_back(new MultiHeadAttentionLayer<__half>(
+              in_tensors, out_tensor, blobs_buff, num_attention_heads, gpu_resource,
+              use_mixed_precision, enable_tf32_compute));
           output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
         } else {
           Tensors2<float> in_tensors;
@@ -758,9 +760,9 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
             in_tensors.push_back(Tensor2<float>::stretch_from(bag));
           }
           Tensor2<float> out_tensor;
-          layers.emplace_back(new MultiHeadAttentionLayer<float>(in_tensors, out_tensor, blobs_buff,
-                                                                 gpu_resource, use_mixed_precision,
-                                                                 enable_tf32_compute));
+          layers.emplace_back(new MultiHeadAttentionLayer<float>(
+              in_tensors, out_tensor, blobs_buff, num_attention_heads, gpu_resource,
+              use_mixed_precision, enable_tf32_compute));
           output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
         }
         break;

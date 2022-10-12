@@ -99,6 +99,7 @@ class LayerParams(object):
         self.out_dim = 0
         self.axis = 1
         self.max_sequence_len = 1
+        self.num_attention_heads = 1
 
 
 class HugeCTRLoader(object):
@@ -303,6 +304,8 @@ class HugeCTRLoader(object):
             self.__dimensions[layer_config["top"]] = self.__dimensions[layer_config["bottom"]]
         elif layer_type == "SequenceMask":
             layer_params.max_sequence_len = layer_config["max_sequence_len"]
+        elif layer_type == "MultiHeadAttention":
+            layer_params.num_attention_heads = layer_config["num_attention_heads"]
         elif layer_type == "FmOrder2":
             layer_params.out_dim = layer_config["out_dim"]
             self.__dimensions[layer_config["top"]] = layer_params.out_dim
@@ -348,6 +351,12 @@ class HugeCTRLoader(object):
             dim2 = self.__dimensions[layer_params.bottom_names[1]]
             if len(dim1) == 3:
                 self.__dimensions[layer_config["top"]] = (dim1[0], dim1[1], dim2[1])
+            if len(dim1) == 2:
+                self.__dimensions[layer_config["top"]] = (
+                    layer_params.num_attention_heads,
+                    dim1[0],
+                    dim1[0],
+                )
         elif layer_type == "MatrixMultiply":
             dim1 = self.__dimensions[layer_params.bottom_names[0]]
             dim2 = self.__dimensions[layer_params.bottom_names[1]]

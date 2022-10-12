@@ -625,22 +625,76 @@ class GraphBuilder(object):
         elif layer_type == "MultiHeadAttention":
             query_name = layer_params.bottom_names[0]
             key_name = layer_params.bottom_names[1]
-            transpose_name = key_name + "_transpose"
-            self.__nodes.append(
-                helper.make_node(
-                    op_type="Transpose",
-                    inputs=[query_name],
-                    outputs=[transpose_name],
-                    perm=[0, 1, 3, 2],
+            head_num = layer_params.num_attention_heads
+            dims = dimensions[layer_params.top_names[0]]
+            key_transpose_name = key_name + "_transpose"
+            query_transpose_name = key_name + "_transpose"
+            if len(dims) == 2:
+                shape_name = layer_params.bottom_names[0] + "_4d_shape"
+                shape = np.array([-1, dims[0], head_num, dims[1] / head_num], dtype=np.int64)
+                query_reshape = layer_params.bottom_names[0] + "_4d"
+                key_reshape = layer_params.bottom_names[1] + "_4d"
+                self.__initializers.append(
+                    helper.make_tensor(
+                        name=shape_name,
+                        data_type=onnx.mapping.NP_TYPE_TO_TENSOR_TYPE[shape.dtype],
+                        dims=shape.shape,
+                        vals=shape.flatten(),
+                    )
                 )
-            )
-            self.__nodes.append(
-                helper.make_node(
-                    op_type="MatMul",
-                    inputs=[query_name, transpose_name],
-                    outputs=layer_params.top_names,
+                self.__nodes.append(
+                    helper.make_node(
+                        op_type="Reshape",
+                        inputs=[query_name, shape_name],
+                        outputs=[query_reshape],
+                    )
                 )
-            )
+                self.__nodes.append(
+                    helper.make_node(
+                        op_type="Reshape",
+                        inputs=[key_name, shape_name],
+                        outputs=[key_reshape],
+                    )
+                )
+                self.__nodes.append(
+                    helper.make_node(
+                        op_type="Transpose",
+                        inputs=[key_reshape],
+                        outputs=[key_transpose_name],
+                        perm=[0, 2, 3, 1],
+                    )
+                )
+                self.__nodes.append(
+                    helper.make_node(
+                        op_type="Transpose",
+                        inputs=[query_reshape],
+                        outputs=[query_transpose_name],
+                        perm=[0, 2, 1, 3],
+                    )
+                )
+                self.__nodes.append(
+                    helper.make_node(
+                        op_type="MatMul",
+                        inputs=[query_transpose_name, key_transpose_name],
+                        outputs=layer_params.top_names,
+                    )
+                )
+            elif dims == 3:
+                self.__nodes.append(
+                    helper.make_node(
+                        op_type="Transpose",
+                        inputs=[key_name],
+                        outputs=[key_transpose_name],
+                        perm=[0, 1, 3, 2],
+                    )
+                )
+                self.__nodes.append(
+                    helper.make_node(
+                        op_type="MatMul",
+                        inputs=[query_name, key_transpose_name],
+                        outputs=layer_params.top_names,
+                    )
+                )
         elif layer_type == "Interaction":
             slot_num = dimensions[layer_params.bottom_names[1]][0]
             vec_size = dimensions[layer_params.bottom_names[1]][1]
