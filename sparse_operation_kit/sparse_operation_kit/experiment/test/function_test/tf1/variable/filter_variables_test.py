@@ -23,9 +23,9 @@ from sparse_operation_kit import experiment as sok
 
 if __name__ == "__main__":
 
-    gpus = tf.config.experimental.list_physical_devices("GPU")
-    for gpu in gpus:
-        tf.config.experimental.set_memory_growth(gpu, True)
+    config = tf.compat.v1.ConfigProto()
+    config.gpu_options.allow_growth = True
+    sess = tf.compat.v1.Session(config=config)
 
     hvd.init()
     sok.init()
@@ -34,8 +34,10 @@ if __name__ == "__main__":
     v2 = sok.Variable([[3, 4, 5]])
     v3 = sok.Variable([[6, 7, 8]], mode="localized:0")
     v4 = sok.DynamicVariable(dimension=3, initializer="13")
+    init_op = tf.compat.v1.global_variables_initializer()
+    sess.run(init_op)
 
-    sok_vars, other_vars = sok.filter_variables([v1, v2, v3, v4])
+    sok_vars, other_vars = sess.run(sok.filter_variables([v1, v2, v3, v4]))
     assert len(sok_vars) == 3
     assert len(other_vars) == 1
 

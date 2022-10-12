@@ -663,7 +663,7 @@ sparse_operation_kit_ut-TF2:
     CONT: $SOK_IMAGE_VERSIONED_TF2
     MOUNTS: ${DATASET}:${DATASET_MOUNT}
     SLURM_ACCOUNT: devtech
-    WALLTIME: "00:30:00"
+    WALLTIME: "02:00:00"
     DGXNNODES: 1
     TEST_CMD: ./ci/integration_test/sok/sok_tf2_unit.sub
 
@@ -691,7 +691,7 @@ sparse_operation_kit_ut-TF1:
     CONT: $SOK_IMAGE_VERSIONED_TF1
     MOUNTS: ${DATASET}:${DATASET_MOUNT}
     SLURM_ACCOUNT: devtech
-    WALLTIME: "00:30:00"
+    WALLTIME: "02:00:00"
     DGXNNODES: 1
     TEST_CMD: ./ci/integration_test/sok/sok_tf1_unit.sub
 
