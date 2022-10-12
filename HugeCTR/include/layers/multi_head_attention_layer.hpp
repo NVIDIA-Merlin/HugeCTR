@@ -40,7 +40,7 @@ class MultiHeadAttentionLayer : public Layer {
    */
   MultiHeadAttentionLayer(const Tensors2<T>& in_tensors, Tensor2<T>& out_tensor,
                           const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
-                          const std::shared_ptr<GPUResource>& gpu_resource,
+                          int num_attention_heads, const std::shared_ptr<GPUResource>& gpu_resource,
                           bool use_mixed_precision, bool enable_tf32_compute);
 
   // void initialize() override;
@@ -71,9 +71,9 @@ class MultiHeadAttentionLayer : public Layer {
   size_t dims_;
   size_t batch_size_;
   size_t num_head_;
-  Tensor2<T*> h_inputs_;
-  Tensor2<T*> d_inputs_;
   Tensor2<T> fprop_inputA_;
+  Tensor2<T> query_buf_;
+  Tensor2<T> key_buf_;
 };
 
 }  // namespace HugeCTR

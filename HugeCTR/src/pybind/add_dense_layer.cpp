@@ -260,6 +260,10 @@ void save_graph_to_json(nlohmann::json& layer_config_array,
         layer_config["elu_param"] = elu_param_config;
         break;
       }
+      case Layer_t::MultiHeadAttention: {
+        layer_config["num_attention_heads"] = dense_layer_params[i].num_attention_heads;
+        break;
+      }
       case Layer_t::FusedInnerProduct: {
         nlohmann::json fc_param_config;
         fc_param_config["num_output"] = dense_layer_params[i].num_output;
@@ -546,6 +550,15 @@ DenseLayer get_dense_layer_from_json(const nlohmann::json& j_dense_layer) {
         dense_layer.axis = axis_it->get<int>();
       } else {
         dense_layer.axis = 1;
+      }
+      break;
+    }
+    case Layer_t::MultiHeadAttention: {
+      auto num_attention_heads_it = j_dense_layer.find("num_attention_heads");
+      if (num_attention_heads_it != j_dense_layer.end()) {
+        dense_layer.num_attention_heads = num_attention_heads_it->get<int>();
+      } else {
+        dense_layer.num_attention_heads = 1;
       }
       break;
     }
@@ -1282,35 +1295,36 @@ void Model::add_dense_layer_internal(
       if (input_output_info.inputs.size() != 2) {
         HCTR_OWN_THROW(Error_t::WrongInput, "MultiHeadAttentionLayer needs two input tensors ");
       }
+      auto num_attention_heads = dense_layer.num_attention_heads;
       if (use_mixed_precision) {
         Tensors2<__half> in_tensors;
         for (const TensorBag2& bag : input_output_info.inputs) {
           in_tensors.push_back(Tensor2<__half>::stretch_from(bag));
         }
-        if (in_tensors[0].get_dimensions().size() != 4 ||
-            in_tensors[1].get_dimensions().size() != 4) {
+        if (in_tensors[0].get_dimensions().size() != 4 &&
+            in_tensors[1].get_dimensions().size() != 3) {
           HCTR_OWN_THROW(Error_t::WrongInput,
-                         "MultiHeadAttentionLayer needs two 4D input tensors ");
+                         "MultiHeadAttentionLayer needs two 3D or 4D input tensors ");
         }
         Tensor2<__half> out_tensor;
-        layers.emplace_back(new MultiHeadAttentionLayer<__half>(in_tensors, out_tensor, blobs_buff,
-                                                                gpu_resource, use_mixed_precision,
-                                                                enable_tf32_compute));
+        layers.emplace_back(new MultiHeadAttentionLayer<__half>(
+            in_tensors, out_tensor, blobs_buff, num_attention_heads, gpu_resource,
+            use_mixed_precision, enable_tf32_compute));
         output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
       } else {
         Tensors2<float> in_tensors;
         for (const auto& bag : input_output_info.inputs) {
           in_tensors.push_back(Tensor2<float>::stretch_from(bag));
         }
-        if (in_tensors[0].get_dimensions().size() != 4 ||
-            in_tensors[1].get_dimensions().size() != 4) {
+        if (in_tensors[0].get_dimensions().size() != 4 &&
+            in_tensors[1].get_dimensions().size() != 3) {
           HCTR_OWN_THROW(Error_t::WrongInput,
-                         "MultiHeadAttentionLayer needs two 4D input tensors ");
+                         "MultiHeadAttentionLayer needs two 3D or 4D input tensors ");
         }
         Tensor2<float> out_tensor;
-        layers.emplace_back(new MultiHeadAttentionLayer<float>(in_tensors, out_tensor, blobs_buff,
-                                                               gpu_resource, use_mixed_precision,
-                                                               enable_tf32_compute));
+        layers.emplace_back(new MultiHeadAttentionLayer<float>(
+            in_tensors, out_tensor, blobs_buff, num_attention_heads, gpu_resource,
+            use_mixed_precision, enable_tf32_compute));
         output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
       }
       break;
@@ -1935,11 +1949,12 @@ void calculate_tensor_dimensions(std::map<std::string, std::vector<int>>& tensor
     case Layer_t::MultiHeadAttention: {
       auto& dim1 = tensor_shape_info_raw[dense_layer.bottom_names[0]];
       auto& dim2 = tensor_shape_info_raw[dense_layer.bottom_names[1]];
-      if (dim1.size() == 4) {
+      if (dim1.size() == 4 or dim1.size() == 3) {
         tensor_shape_info_raw.insert(std::make_pair(
             dense_layer.top_names[0], std::vector<int>{dim1[0], dim1[1], dim1[2], dim2[2]}));
       } else {
-        HCTR_OWN_THROW(Error_t::WrongInput, "MultiHeadAttentionLayer needs two 4D input tensors ");
+        HCTR_OWN_THROW(Error_t::WrongInput,
+                       "MultiHeadAttentionLayer needs two 4D or 3D input tensors ");
       }
       break;
     }
