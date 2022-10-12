@@ -3,29 +3,22 @@ import sys
 import argparse
 import glob
 import time
-from cudf.io.parquet import ParquetWriter
 import numpy as np
 import pandas as pd
-import concurrent.futures as cf
-from concurrent.futures import as_completed
 import shutil
 
 import dask_cudf
 from dask_cuda import LocalCUDACluster
 from dask.distributed import Client
-from dask.utils import parse_bytes
-from dask.delayed import delayed
 
 import cudf
 import rmm
 import nvtabular as nvt
-from nvtabular.io import Shuffle
 from nvtabular.utils import device_mem_size
 from nvtabular.ops import (
     Categorify,
     Clip,
     FillMissing,
-    HashBucket,
     LambdaOp,
     Normalize,
     Rename,
@@ -69,20 +62,6 @@ def bytesto(bytes, to, bsize=1024):
     a = {"k": 1, "m": 2, "g": 3, "t": 4, "p": 5, "e": 6}
     r = float(bytes)
     return bytes / (bsize ** a[to])
-
-
-class FeatureCross(Operator):
-    def __init__(self, dependency):
-        self.dependency = dependency
-
-    def transform(self, columns, gdf):
-        new_df = type(gdf)()
-        for col in columns.names:
-            new_df[col] = gdf[col] + gdf[self.dependency]
-        return new_df
-
-    def dependencies(self):
-        return [self.dependency]
 
 
 # process the data with NVTabular
@@ -177,7 +156,7 @@ def process_NVT(args):
     categorify_op = Categorify(freq_threshold=args.freq_limit)
     cat_features = CATEGORICAL_COLUMNS >> categorify_op
     cont_features = CONTINUOUS_COLUMNS >> FillMissing() >> Clip(min_value=0) >> Normalize()
-    cross_cat_op = Categorify(freq_threshold=args.freq_limit)
+    cross_cat_op = Categorify(encode_type="combo", freq_threshold=args.freq_limit)
 
     features = LABEL_COLUMNS
 
@@ -186,9 +165,7 @@ def process_NVT(args):
         if args.feature_cross_list:
             feature_pairs = [pair.split("_") for pair in args.feature_cross_list.split(",")]
             for pair in feature_pairs:
-                col0 = pair[0]
-                col1 = pair[1]
-                features += col0 >> FeatureCross(col1) >> Rename(postfix="_" + col1) >> cross_cat_op
+                features += [pair] >> cross_cat_op
 
     features += cat_features
 
