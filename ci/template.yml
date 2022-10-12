@@ -21,7 +21,7 @@ stages:
     - pwd
     - ls -all
     - docker pull python:3.8-alpine;
-    - docker run -d --rm --name python_${CI_PIPELINE_ID} -w /src python:3.8-alpine sleep infinity
+    - docker run -d --rm --name python_${CI_PIPELINE_ID} ${EXTRA_DOCKER_RUN_ARGS} -w /src python:3.8-alpine sleep infinity
     - docker cp $(pwd) python_${CI_PIPELINE_ID}:/src
     - docker exec python_${CI_PIPELINE_ID} sh -c 'pip install black && pwd && ls -all . '
     - docker exec python_${CI_PIPELINE_ID} sh -c "black --line-length 100 --check --diff --color --extend-exclude \"$EXCLUDE\" ./hugectr"
@@ -40,7 +40,7 @@ stages:
     - pwd
     - ls -all
     - docker login -u ${CI_PRIVATE_USER} -p "${CI_PRIVATE_KEY}" "${CI_REGISTRY}"
-    - docker run -d --rm --name clang_${CI_PIPELINE_ID} -w /src gitlab-master.nvidia.com:5005/dl/hugectr/hugectr/clang-format-lint-new sleep infinity
+    - docker run -d --rm --name clang_${CI_PIPELINE_ID} ${EXTRA_DOCKER_RUN_ARGS} -w /src gitlab-master.nvidia.com:5005/dl/hugectr/hugectr/clang-format-lint-new sleep infinity
     - docker cp $(pwd) clang_${CI_PIPELINE_ID}:/src
     - docker exec clang_${CI_PIPELINE_ID} sh -c "cd ./hugectr && /run-clang-format.py --clang-format-executable /clang-format/$EXECUTABLE -r --exclude $EXCLUDE --style $STYLE --extensions $EXTENSIONS ."
   after_script:
@@ -124,7 +124,9 @@ stages:
         echo "FROM ${FROM_IMAGE}" > ${JOB_DOCKERFILE};
       fi
     - echo "WORKDIR /workdir" >> ${JOB_DOCKERFILE}
+    - echo "RUN ln -s /usr/local/cuda/lib64/stubs/libcuda.so /usr/local/cuda/lib64/stubs/libcuda.so.1" >> ${JOB_DOCKERFILE}
     - echo "COPY . ." >> ${JOB_DOCKERFILE}
+    - echo "ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64/stubs:\$LD_LIBRARY_PATH" >> ${JOB_DOCKERFILE}
     - if [[ "$BUILD_HUGECTR" == 1 ]]; then
         echo "RUN cd /workdir && mkdir build && cd build && cmake ${CMAKE_OPTION} .. && make -j\$(nproc) && make install" >> ${JOB_DOCKERFILE};
       fi
@@ -152,11 +154,18 @@ stages:
       else
         docker pull ${FROM_IMAGE};
       fi
-    - docker build --pull
+    - export DOCKER_CLI_EXPERIMENTAL=enabled;
+    - docker buildx create --use --name buildkit_${CI_RUNNER_ID} --node node_${CI_RUNNER_ID} --driver-opt env.BUILDKIT_STEP_LOG_MAX_SIZE=10485760 --driver-opt env.BUILDKIT_STEP_LOG_MAX_SPEED=10485760
+    - docker buildx inspect --bootstrap
+    - docker buildx build
+      --pull
+      --push
       -t ${DST_IMAGE}
       -f ${JOB_DOCKERFILE}
       --no-cache .
-    - docker push ${DST_IMAGE}
+    - docker stop buildx_buildkit_node_${CI_RUNNER_ID}
+    - docker rm buildx_buildkit_node_${CI_RUNNER_ID}
+    - docker buildx rm buildkit_${CI_RUNNER_ID}
   allow_failure: false
   rules:
     - if: $CI_PIPELINE_SOURCE =~ /^(push|web|merge_request_event|trigger)$/

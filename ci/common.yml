@@ -30,3 +30,4 @@ variables:
   TF_PLUGIN_IMAGE_VERSIONED: ${CI_REGISTRY}/dl/hugectr/hugectr:tf_plugin.${CI_PIPELINE_ID}
   LOGDIR: /lustre/fsw/devtech/hpc-hugectr/hugectr-ci/${CI_PIPELINE_ID}
   RD_CI_JOB_TOKEN: gitlab-ci-token:${CI_JOB_TOKEN}@
+  EXTRA_DOCKER_RUN_ARGS: "--label RUNNER_ID=${RUNNER_ID}"
