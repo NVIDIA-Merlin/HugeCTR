@@ -67,8 +67,8 @@ max_nr_per_threads = num_batches_per_threads * (
 
 reader = hugectr.DataReaderParams(
     data_reader_type=hugectr.DataReaderType_t.RawAsync,
-    source=["/raid/datasets/criteo/mlperf/40m.limit_preshuffled/train_data.bin"],
-    eval_source="/raid/datasets/criteo/mlperf/40m.limit_preshuffled/test_data.bin",
+    source=["/data/train_data.bin"],
+    eval_source="/data/test_data.bin",
     check_type=hugectr.Check_t.Non,
     num_samples=4195197692,
     eval_num_samples=89137319,

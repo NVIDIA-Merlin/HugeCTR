@@ -337,6 +337,35 @@ dlrm_benchmark_14node:
     DGXNNODES: 14
     TEST_CMD: ./ci/integration_test/dlrm/benchmark_14node.sub
 
+dlrm_ib_nvlink_1node:
+  extends: .cluster_test_job_daily
+  needs:
+    - build_train_multi_node
+  variables:
+    GPFSFOLDER: $LOGDIR/dlrm_ib_nvlink_1node
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $TRAIN_IMAGE_MULTINODE_VERSIONED
+    MOUNTS: /raid/datasets/criteo/mlperf/40m.limit_preshuffled:/data
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "00:10:00"
+    DGXNNODES: 1
+    TEST_CMD: ./ci/integration_test/dlrm/ib_nvlink_1node.sub
+
+dlrm_ib_nvlink_8node:
+  extends: .cluster_test_job_daily
+  needs:
+    - build_train_multi_node
+  variables:
+    GPFSFOLDER: $LOGDIR/dlrm_ib_nvlink_8node
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $TRAIN_IMAGE_MULTINODE_VERSIONED
+    MOUNTS: /raid/datasets/criteo/mlperf/40m.limit_preshuffled:/data
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "00:10:00"
+    SBATCH_OTHER_PARAMS: --comment=metrics
+    DGXNNODES: 8
+    TEST_CMD: ./ci/integration_test/dlrm/ib_nvlink_8node.sub
+
 wdl:
   extends: .cluster_test_job                                                     # test on selene needs to extend .cluster_test_job
   needs:
