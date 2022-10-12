@@ -1,7 +1,16 @@
+#!/bin/bash
 set -e
 
-# TODO: check tf version
-cd tf2
+
+tf_version=`python -c "import tensorflow as tf;print(tf.__version__[0])"`
+
+if [[ ${tf_version} -eq 1 ]];then
+   cd tf1 
+elif [[ ${tf_version} -eq 2 ]];then
+   cd tf2 
+else
+   exit 1
+fi
 
 # -------- variable -------------- #
 cd variable
@@ -13,13 +22,9 @@ cd ..
 
 # -------- lookup -------------- #
 cd lookup
-num_gpu=`nvidia-smi  -L | wc -l`
-for ((i=1; i<=${num_gpu}; i++))
-do
-    horovodrun -np ${i} python lookup_sparse_distributed_test.py
-    horovodrun -np ${i} python lookup_sparse_distributed_dynamic_test.py
-    horovodrun -np ${i} python lookup_sparse_localized_test.py
-    horovodrun -np ${i} python lookup_sparse_localized_dynamic_test.py
-    horovodrun -np ${i} python all2all_dense_embedding_test.py
-    horovodrun -np ${i} python all2all_dense_embedding_dynamic_test.py
-done
+horovodrun -np 8 python lookup_sparse_distributed_test.py
+horovodrun -np 8 python lookup_sparse_distributed_dynamic_test.py
+horovodrun -np 8 python lookup_sparse_localized_test.py
+horovodrun -np 8 python lookup_sparse_localized_dynamic_test.py
+horovodrun -np 8 python all2all_dense_embedding_test.py
+horovodrun -np 8 python all2all_dense_embedding_dynamic_test.py

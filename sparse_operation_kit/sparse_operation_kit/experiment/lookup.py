@@ -294,9 +294,10 @@ def lookup_sparse(params, sp_ids, hotness, combiners):
     # Step4
     if num_gpus() > 1:
         splits = []
-        for emb_vec in emb_vec_buffer:
+        for i, emb_vec in enumerate(emb_vec_buffer):
             size = tf.expand_dims(tf.size(emb_vec), 0)
             splits.append(size)
+            emb_vec_buffer[i] = tf.reshape(emb_vec, [tf.size(emb_vec)])
         splits = tf.concat(splits, 0)
         emb_vec_buffer = tf.concat(emb_vec_buffer, 0)
         emb_vec_buffer, rsplits = alltoall(emb_vec_buffer, splits)

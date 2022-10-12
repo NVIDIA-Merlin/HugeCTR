@@ -66,9 +66,20 @@ class DistributedVariable(ResourceVariable):
         if initial_value is not None:
             if isinstance(initial_value, list):
                 initial_value = np.array(initial_value)
-            self._global_shape = initial_value.shape
+            initial_value_shape_length = len(initial_value.shape)
 
-            local_size = self._global_shape[0] // num_gpus
+            if initial_value_shape_length == 1 and initial_value.shape[0] > 0:
+                self._global_shape = (1, initial_value.shapae[0])
+            elif initial_value_shape_length == 2:
+                self._global_shape = initial_value.shape
+            else:
+                raise RuntimeError(
+                    "initial_value shape is {} please input a one-dimension(dimension shape must > 0)".format(
+                        initial_value.shape
+                    )
+                )
+
+            local_size = int(self._global_shape[0] // num_gpus)
             if global_gpu_id < self._global_shape[0] % num_gpus:
                 local_size += 1
 
@@ -165,7 +176,18 @@ class LocalizedVariable(ResourceVariable):
         if initial_value is not None:
             if isinstance(initial_value, list):
                 initial_value = np.array(initial_value)
-            self._global_shape = initial_value.shape
+
+            initial_value_shape_length = len(initial_value.shape)
+            if initial_value_shape_length == 1 and initial_value.shape[0] > 0:
+                self._global_shape = (1, initial_value.shapae[0])
+            elif initial_value_shape_length == 2:
+                self._global_shape = initial_value.shape
+            else:
+                raise RuntimeError(
+                    "initial_value shape is {} please input a one-dimension(dimension shape must > 0)".format(
+                        initial_value.shape
+                    )
+                )
         else:
             self._global_shape = shape
             shape = None
