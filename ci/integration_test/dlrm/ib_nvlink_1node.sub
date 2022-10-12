@@ -1,0 +1,7 @@
+#!/bin/bash
+set -e
+
+srun --ntasks="${SLURM_JOB_NUM_NODES}" bash -c "echo -n 'Clearing cache on ' && hostname && sync && sudo /sbin/sysctl vm.drop_caches=3"
+
+srun --mpi=pmix --ntasks="${SLURM_JOB_NUM_NODES}" --ntasks-per-node=1 --container-image="${CONT}" --container-mounts="${MOUNTS}" bash -cx " \
+    numactl --membind=1,3,5,7 python3 /workdir/samples/dlrm/dgx_a100_ib_nvlink.py"
