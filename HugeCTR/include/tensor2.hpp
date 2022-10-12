@@ -131,6 +131,8 @@ class TensorBag2 {
 
   const std::vector<size_t> &get_dimensions() const { return dimensions_; }
 
+  const void *get_ptr() const { return buffer_->get_ptr(); }
+
   void *get_ptr() { return buffer_->get_ptr(); }
 
   size_t get_size_in_bytes() const {

@@ -113,6 +113,7 @@ class InferenceParser {
                                  std::vector<std::shared_ptr<Tensor2<float>>>& embeddingvecs,
                                  std::vector<size_t>& embedding_table_slot_size,
                                  std::vector<std::shared_ptr<Layer>>* embedding, Network** network,
+                                 std::vector<TensorEntry>& inference_tensor_entries,
                                  const std::shared_ptr<ResourceManager> resource_manager);
   /**
    * Ctor.
@@ -128,6 +129,7 @@ class InferenceParser {
                        std::vector<std::shared_ptr<Tensor2<float>>>& embeddingvec,
                        std::vector<size_t>& embedding_table_slot_size,
                        std::vector<std::shared_ptr<Layer>>* embedding, Network** network,
+                       std::vector<TensorEntry>& inference_tensor_entries,
                        const std::shared_ptr<ResourceManager> resource_manager);
 };
 

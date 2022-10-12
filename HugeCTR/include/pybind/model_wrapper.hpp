@@ -234,7 +234,22 @@ void ModelPybind(pybind11::module &m) {
       .def("get_data_reader_eval", &HugeCTR::Model::get_evaluate_data_reader)
       .def("get_learning_rate_scheduler", &HugeCTR::Model::get_learning_rate_scheduler)
       .def("export_predictions", &HugeCTR::Model::export_predictions,
-           pybind11::arg("output_prediction_file_name"), pybind11::arg("output_label_file_name"));
+           pybind11::arg("output_prediction_file_name"), pybind11::arg("output_label_file_name"))
+      .def(
+          "check_out_tensor",
+          [](HugeCTR::Model &self, const std::string &tensor_name, Tensor_t tensor_type) {
+            const auto tensor_info_tuple = self.get_tensor_info_by_name(tensor_name, tensor_type);
+            float *global_result = new float[std::get<1>(tensor_info_tuple)];
+            auto global_result_capsule = pybind11::capsule(global_result, [](void *v) {
+              float *vv = reinterpret_cast<float *>(v);
+              delete[] vv;
+            });
+            self.check_out_tensor(tensor_type, std::get<3>(tensor_info_tuple), global_result);
+            pybind11::array_t<float> tensor_result(std::get<2>(tensor_info_tuple), global_result,
+                                                   global_result_capsule);
+            return tensor_result;
+          },
+          pybind11::arg("tensor_name"), pybind11::arg("tensor_type"));
 }
 
 }  // namespace python_lib

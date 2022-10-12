@@ -119,6 +119,8 @@ model.export_predictions(
     "/dump_infer/multi_hot_pred_" + str(1000), "/dump_infer/multi_hot_label_" + str(1000)
 )
 
+sparse_embedding1 = model.check_out_tensor("sparse_embedding1", hugectr.Tensor_t.Evaluate)
+sparse_embedding2 = model.check_out_tensor("sparse_embedding2", hugectr.Tensor_t.Evaluate)
 
 import hugectr
 from hugectr.inference import InferenceModel, InferenceParams
@@ -128,7 +130,7 @@ from mpi4py import MPI
 model_config = "/dump_infer/multi_hot.json"
 inference_params = InferenceParams(
     model_name="multi_hot",
-    max_batchsize=1024,
+    max_batchsize=16384,
     hit_rate_threshold=1.0,
     dense_model_file="/dump_infer/multi_hot_dense_1000.model",
     sparse_model_files=[
@@ -142,7 +144,7 @@ inference_params = InferenceParams(
 )
 inference_model = InferenceModel(model_config, inference_params)
 pred = inference_model.predict(
-    16,
+    1,
     "./multi_hot_parquet/file_list_test.txt",
     hugectr.DataReaderType_t.Parquet,
     hugectr.Check_t.Non,
@@ -154,3 +156,24 @@ print("grount_truth: ", grount_truth)
 diff = pred.flatten() - grount_truth
 mse = np.mean(diff * diff)
 print("mse: ", mse)
+
+inference_sparse_embedding1 = inference_model.check_out_tensor("sparse_embedding1")
+inference_sparse_embedding2 = inference_model.check_out_tensor("sparse_embedding2")
+diff1 = sparse_embedding1.flatten() - inference_sparse_embedding1.flatten()
+diff2 = sparse_embedding2.flatten() - inference_sparse_embedding2.flatten()
+mse1 = np.mean(diff1 * diff1)
+mse2 = np.mean(diff2 * diff2)
+
+if mse > 1e-3 or mse1 > 1e-3 or mse2 > 1e-3:
+    raise RuntimeError(
+        "Too large mse between synthetic multi hot inference and training: {}, {}, {}".format(
+            mse, mse1, mse2
+        )
+    )
+    sys.exit(1)
+else:
+    print(
+        "Synthetic multi hot inference results are consistent with those during training, mse: {}, {}, {}".format(
+            mse, mse1, mse2
+        )
+    )

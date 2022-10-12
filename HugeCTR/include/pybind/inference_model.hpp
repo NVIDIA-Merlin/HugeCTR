@@ -36,6 +36,11 @@ class InferenceModel {
                DataReaderType_t data_reader_type, Check_t check_type,
                const std::vector<long long>& slot_size_array);
 
+  std::tuple<size_t, size_t, std::vector<size_t>, int> get_tensor_info_by_name(
+      const std::string& tensor_name);
+
+  void check_out_tensor(int index, float* global_result);
+
   const InferenceParams& get_inference_params() const { return inference_params_; }
 
   const InferenceParser& get_inference_parser() const { return inference_parser_; }
@@ -59,6 +64,8 @@ class InferenceModel {
   std::vector<TensorBag2> reader_dense_tensor_list_;  // the length equals local_gpu_count
   std::map<std::string, SparseInput<long long>> sparse_input_map_64_;
   std::map<std::string, SparseInput<unsigned int>> sparse_input_map_32_;
+
+  std::vector<std::vector<TensorEntry>> inference_tensor_entries_list_;
 
   std::vector<metrics::RawMetricMap> raw_metrics_map_list_;  // the length equals local_gpu_count
   std::shared_ptr<metrics::Metric> metric_;  // currently only support AUC during inference

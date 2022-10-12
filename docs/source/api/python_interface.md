@@ -656,7 +656,7 @@ It trains the model for a fixed number of epochs (epoch mode) or iterations (non
 hugectr.Model.summary()
 ```
 
-This method takes no extra arguments and prints a string summary of the model. Users can have an overview of the model structure with this method.
+This method takes no extra arguments and prints a string summary of the model. Users can have an overview of the model structure with this method. Please NOTE that the first dimension of displayed tensors is the per-GPU batchsize.
 
 ***
 
@@ -1108,6 +1108,54 @@ Note that the key, slot id, and embedding vector are stored in the sparse model 
 
 ***
 
+#### check_out_tensor method
+
+```python
+hugectr.Model.check_out_tensor()
+```
+
+This method check out the tensor values for the latest training or evaluation iteration. The tensor values will be returned via a numpy array that has the same dimensions as the tensor. The data type of returned numpy array will always be float32, while the data type of the tensor can be float32 or float16 depending on `use_mixed_precision`. Please NOTE that separate tensors are used for HugeCTR training and evaluation flows, which needs to be specified as an argument of the method. This method can be helpful for debugging and verifying the correctness, given that the values of intermediate tensors can be easily checked out.
+
+**Arguments**
+* `tensor_name`: String, the name of the tensor that needs to be checked out. It should be within the names that are specified for tensors when creating the model graph using `model.add`.
+* `tensor_type`: `hugectr.Tensor_t`, the flow that the tensor belongs to, i.e., the training flow or the evaluation flow. The supported types are `hugectr.Tensor_t.Train` and `hugectr.Tensor_t.Evaluate`. If `hugectr.Tensor_t.Train` is specified, the gradients during backward propagation of the latest training iteration will be returned. If `hugectr.Tensor_t.Evaluate` is specified, the results during forward propagation of the latest evaluation iteration will be returned.
+
+Example:
+
+```python
+solver = hugectr.CreateSolver(max_eval_batches = 1280,
+                              batchsize_eval = 1024,
+                              batchsize = 4096,
+                              lr = 0.001,
+                              vvgpu = [[0]],
+                              repeat_dataset = True)
+...
+model.add(hugectr.Input(label_dim = 1, label_name = "label",
+                        dense_dim = 13, dense_name = "dense",
+                        data_reader_sparse_param_array =
+                        [hugectr.DataReaderSparseParam("data1", 1, True, 26)]))
+model.add(hugectr.SparseEmbedding(embedding_type = hugectr.Embedding_t.DistributedSlotSparseEmbeddingHash,
+                           workspace_size_per_gpu_in_mb = 75,
+                           embedding_vec_size = 16,
+                           combiner = "sum",
+                           sparse_embedding_name = "sparse_embedding1",
+                           bottom_name = "data1",
+                           optimizer = optimizer))
+...
+model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.InnerProduct,
+                           bottom_names = ["concat1"],
+                           top_names = ["fc1"],
+                           num_output=1024))
+...
+model.fit(...)
+# Return a numpy array of (4096, 26, 16)
+sparse_embedding1_train_flow = model.check_out_tensor("sparse_embedding1", hugectr.Tensor_t.Train) 
+# Return a numpy array of (1024, 1024)
+fc1_evaluate_flow = model.check_out_tensor("fc1", hugectr.Tensor_t.Evaluate)
+```
+
+***
+
 #### export_predictions method
 
 ```python
@@ -1190,6 +1238,7 @@ The `predict` method of InferenceModel makes predictions based on the dataset of
 * `check_type`: `hugectr.Check_t`, the check type for the data source. We currently support `hugectr.Check_t.Sum` and `hugectr.Check_t.Non`.
 
 * `slot_size_array`: List[int], the cardinality array of input features. It should be consistent with that of the sparse input. We requires this argument for Parquet format data. The default value is an empty list, which is suitable for Norm format data.
+***
 
 #### evaluate method
 
@@ -1209,7 +1258,48 @@ The `evaluate` method of InferenceModel does evaluations based on the dataset of
 * `check_type`: `hugectr.Check_t`, the check type for the data source. We support `hugectr.Check_t.Sum` and `hugectr.Check_t.Non` currently.
 
 * `slot_size_array`: List[int], the cardinality array of input features. It should be consistent with that of the sparse input. We requires this argument for Parquet format data. The default value is an empty list, which is suitable for Norm format data.
+***
 
+#### check_out_tensor method
+
+```python
+hugectr.inference.InferenceModel.check_out_tensor()
+```
+
+This method check out the tensor values for the latest inference iteration. The tensor values will be returned via a numpy array that has the same dimensions as the tensor. The data type of returned numpy array will always be float32, while the data type of the tensor can be float32 or float16 depending on `use_mixed_precision`. This method can be helpful for debugging and verifying the correctness, given that the values of intermediate tensors can be easily checked out.
+
+**Arguments**
+* `tensor_name`: String, the name of the tensor that needs to be checked out. It should be within the tensor names of the graph JSON file that is used to create the InferenceModel object.
+
+Example:
+
+```python
+model_config = "dcn.json"
+inference_params = hugectr.inference.InferenceParams(
+    model_name = "dcn",
+    max_batchsize = 16,
+    hit_rate_threshold = 1.0,
+    dense_model_file = "dcn_dense_1000.model",
+    sparse_model_files = ["dcn0_sparse_1000.model"],
+    deployed_devices = [0,1,2,3],
+    use_gpu_embedding_cache = True,
+    cache_size_percentage = 0.5,
+    i64_input_key = True,
+    use_mixed_precision = False,
+    use_cuda_graph = True,
+    number_of_worker_buffers_in_pool = 16
+)
+inference_model = hugectr.inference.InferenceModel(model_config, inference_params)
+pred = inference_model.predict(
+    1,
+    EVAL_SOURCE,
+    hugectr.DataReaderType_t.Parquet,
+    hugectr.Check_t.Non,
+    SLOT_SIZE_ARRAY
+)
+# Return a numpy array of (16, 26, 16), assuming slot_num is 26, embed_vec_size is 16
+sparse_embedding1_inference_flow = inference_model.check_out_tensor("sparse_embedding1")
+```
 
 ## Data Generator API
 
