@@ -1217,7 +1217,21 @@ void Model::compile() {
   }
   int num_total_gpus = resource_manager_->get_global_gpu_count();
   int label_dim = input_params_[0].labels_.begin()->second;
+  if (input_params_[0].labels_.size() > 1) {
+    auto labs = input_params_[0].labels_;
+    label_dim = std::accumulate(std::begin(labs), std::end(labs), 0,
+                                [](const int previous, const std::pair<std::string, int>& p) {
+                                  return previous + p.second;
+                                });
+  }
+
   for (const auto& metric : solver_.metrics_spec) {
+    // Only AUC is currently supported for models with more than one loss layer
+    if ((metric.first != metrics::Type::AUC) && networks_[0]->get_raw_metrics_all().size() > 1) {
+      HCTR_OWN_THROW(Error_t::WrongInput,
+                     "Metrics besides AUC are not supported for multi-task models.");
+    }
+
     metrics_.emplace_back(std::move(metrics::Metric::Create(
         metric.first, solver_.use_mixed_precision, solver_.batchsize_eval / num_total_gpus,
         solver_.max_eval_batches, label_dim, resource_manager_)));
@@ -2219,8 +2233,13 @@ Error_t Model::export_predictions(const std::string& output_prediction_file_name
       return Error_t::Success;
     }
 
-    int label_dim =
-        input_params_[0].labels_.begin()->second;  // Temp until multiple labels fully implemented
+    int label_dim = input_params_[0].labels_.begin()->second;
+
+    // If multiple labels, compute total size of all labels
+    if (input_params_[0].labels_.size() > 1) {
+      HCTR_OWN_THROW(Error_t::WrongInput,
+                     "export_predictions not yet supported for multi-task or multi-label models.");
+    }
 
     CudaDeviceContext context;
     const std::vector<int>& local_gpu_device_id_list =

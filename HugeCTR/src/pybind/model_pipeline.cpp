@@ -68,9 +68,9 @@ void Model::create_eval_network_pipeline() {
 
     auto cal_metrics = std::make_shared<StreamContextScheduleable>([=] {
       for (auto& metric : metrics_) {
-        for (auto& loss_metrics : networks_[local_id]->get_raw_metrics_all()) {
-          metric->local_reduce(local_id, loss_metrics.second);
-        }
+        metrics::RawMetricMap metric_map =
+            networks_[local_id]->get_raw_metrics_all().begin()->second;
+        metric->local_reduce(local_id, metric_map);
       }
     });
 
@@ -431,9 +431,9 @@ void Model::create_evaluate_pipeline() {
 
     auto cal_metrics = std::make_shared<StreamContextScheduleable>([=] {
       for (auto& metric : metrics_) {
-        for (auto& loss_metrics : networks_[local_id]->get_raw_metrics_all()) {
-          metric->local_reduce(local_id, loss_metrics.second);
-        }
+        metrics::RawMetricMap metric_map =
+            networks_[local_id]->get_raw_metrics_all().begin()->second;
+        metric->local_reduce(local_id, metric_map);
       }
     });
 

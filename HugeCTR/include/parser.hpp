@@ -375,8 +375,16 @@ inline void check_graph(std::map<std::string, bool>& tensor_active,
   // activate label, dense and sparse input tensors
   const nlohmann::json& j_data = j_layers[0];
   if (has_key_(get_json(j_data, "label"), "top")) {
-    auto label_name = get_value_from_json<std::string>(get_json(j_data, "label"), "top");
-    activate_tensor(tensor_active, label_name);
+    auto label_name_arr = get_json(get_json(j_data, "label"), "top");
+    if (label_name_arr.is_array()) {
+      for (int i = 0; i < label_name_arr.size(); ++i) {
+        auto label_name = label_name_arr[i].get<std::string>();
+        activate_tensor(tensor_active, label_name);
+      }
+    } else {
+      auto label_name = get_value_from_json<std::string>(get_json(j_data, "label"), "top");
+      activate_tensor(tensor_active, label_name);
+    }
   }
   auto dense_name = get_value_from_json<std::string>(get_json(j_data, "dense"), "top");
   activate_tensor(tensor_active, dense_name);

@@ -26,8 +26,25 @@ Input get_input_from_json(const nlohmann::json& j_input) {
     HCTR_OWN_THROW(Error_t::WrongInput, "the first layer is not Data layer:" + type_name);
   }
   auto j_label = get_json(j_input, "label");
-  auto label_name = get_value_from_json<std::string>(j_label, "top");
-  auto label_dim = get_value_from_json<int>(j_label, "label_dim");
+
+  auto label_name = get_json(j_label, "top");
+  auto label_dim = get_json(j_label, "label_dim");
+  std::vector<std::string> label_name_vec;
+  std::vector<int> label_dim_vec;
+
+  if (label_name.is_array()) {
+    if (label_name.size() != label_dim.size()) {
+      HCTR_OWN_THROW(Error_t::WrongInput,
+                     "the number of label names does not match number of label dimensions");
+    }
+    for (int label_id = 0; label_id < label_name.size(); label_id++) {
+      label_name_vec.push_back(label_name[label_id].get<std::string>());
+      label_dim_vec.push_back(label_dim[label_id].get<int>());
+    }
+  } else {
+    label_name_vec.push_back(label_name.get<std::string>());
+    label_dim_vec.push_back(label_dim.get<int>());
+  }
 
   auto j_dense = get_json(j_input, "dense");
   auto dense_name = get_value_from_json<std::string>(j_dense, "top");
@@ -61,7 +78,8 @@ Input get_input_from_json(const nlohmann::json& j_input) {
 
     data_reader_sparse_param_array.push_back(param);
   }
-  Input input = Input(label_dim, label_name, dense_dim, dense_name, data_reader_sparse_param_array);
+  Input input =
+      Input(label_dim_vec, label_name_vec, dense_dim, dense_name, data_reader_sparse_param_array);
   return input;
 }
 

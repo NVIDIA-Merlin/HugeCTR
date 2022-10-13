@@ -458,6 +458,19 @@ dcn_multi_node:
     DGXNNODES: 4                                                                              # using 4 node
     TEST_CMD: ./ci/integration_test/dcn/dcn_multi_node.sub
 
+mmoe:
+  extends: .cluster_test_job
+  needs:
+    - build_train_single_node
+  variables:
+    GPFSFOLDER: $LOGDIR/mmoe
+    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
+    CONT: $TRAIN_IMAGE_VERSIONED
+    MOUNTS: ${MMOE_DATASET}:${MMOE_DATASET_MOUNT}
+    SLURM_ACCOUNT: devtech
+    WALLTIME: "00:15:00"
+    DGXNNODES: 1
+    TEST_CMD: ./ci/integration_test/mmoe/mmoe.sub
 
 group_fc:
   extends: .cluster_test_job_daily
