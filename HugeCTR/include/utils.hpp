@@ -491,6 +491,59 @@ void distribute_keys_for_inference(TypeKey* out, const TypeKey* in, size_t batch
   }
 }
 
+void calc_embedding_offset(size_t* d_embedding_offset, const int* d_row_ptrs,
+                           const size_t* d_row_ptrs_offset, const size_t* d_slot_num_for_tables,
+                           size_t num_tables, size_t batch_size, bool sample_first,
+                           cudaStream_t stream);
+
+template <typename TypeHashKey>
+void convert_keys_to_table_first(TypeHashKey* d_out, const TypeHashKey* d_in,
+                                 size_t* d_embedding_offset_table_first,
+                                 size_t* d_embedding_offset_sample_first, size_t num_tables,
+                                 size_t batch_size, cudaStream_t stream);
+
+template <typename TypeHashKey>
+void distribute_keys_per_table_on_device(TypeHashKey* d_out, const TypeHashKey* d_in,
+                                         const int* d_row_ptrs, size_t batchsize,
+                                         const std::vector<size_t>& slot_num_for_tables,
+                                         cudaStream_t stream) {
+  const size_t num_tables = slot_num_for_tables.size();
+
+  size_t* d_slot_num_for_tables;
+  cudaMallocManaged(&d_slot_num_for_tables, num_tables * sizeof(size_t));
+  for (size_t i = 0; i < slot_num_for_tables.size(); i++) {
+    d_slot_num_for_tables[i] = slot_num_for_tables[i];
+  }
+
+  size_t* d_row_ptrs_offset;
+  cudaMallocManaged(&d_row_ptrs_offset, (num_tables + 1) * sizeof(size_t));
+  for (size_t i = 0; i < num_tables; i++) {
+    d_row_ptrs_offset[i + 1] = d_row_ptrs_offset[i] + batchsize * slot_num_for_tables[i] + 1;
+  }
+
+  size_t* d_embedding_offset_sample_first;
+  size_t* d_embedding_offset_table_first;
+  cudaMallocAsync(&d_embedding_offset_sample_first, (batchsize * num_tables + 1) * sizeof(size_t),
+                  stream);
+  cudaMallocAsync(&d_embedding_offset_table_first, (batchsize * num_tables + 1) * sizeof(size_t),
+                  stream);
+
+  calc_embedding_offset(d_embedding_offset_sample_first, d_row_ptrs, d_row_ptrs_offset,
+                        d_slot_num_for_tables, num_tables, batchsize, true, stream);
+
+  calc_embedding_offset(d_embedding_offset_table_first, d_row_ptrs, d_row_ptrs_offset,
+                        d_slot_num_for_tables, num_tables, batchsize, false, stream);
+
+  convert_keys_to_table_first(d_out, d_in, d_embedding_offset_table_first,
+                              d_embedding_offset_sample_first, num_tables, batchsize, stream);
+
+  HCTR_LIB_THROW(cudaStreamSynchronize(stream));
+  cudaFree(d_slot_num_for_tables);
+  cudaFree(d_row_ptrs_offset);
+  cudaFree(d_embedding_offset_sample_first);
+  cudaFree(d_embedding_offset_table_first);
+}
+
 // Redistribute keys: from sample first to table first
 template <typename TypeHashKey>
 void distribute_keys_per_table(TypeHashKey* h_out, const TypeHashKey* h_in, const int* h_row_ptrs,

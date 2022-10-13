@@ -50,9 +50,16 @@ class InferenceSession : public InferenceSessionBase {
 
   int* h_row_ptrs_;
   void* h_keys_;
+
+  int* d_row_ptrs_;
+  void* d_keys_;
   float* d_embedding_vectors_;
 
   Pipeline predict_network_pipeline_;
+
+  void predict_impl(float* d_dense, void* keys, bool key_on_device, int* d_row_ptrs,
+                    float* d_output, int num_samples, int num_embedding_tables,
+                    bool table_major_key_layout);
 
  protected:
   InferenceParser inference_parser_;
@@ -70,6 +77,11 @@ class InferenceSession : public InferenceSessionBase {
 
   virtual void predict(float* d_dense, void* h_embeddingcolumns, int* d_row_ptrs, float* d_output,
                        int num_samples, bool table_major_key_layout = false);
+
+  virtual void predict_from_device(float* d_dense, void* d_embeddingcolumns, int* d_row_ptrs,
+                                   float* d_output, int num_samples,
+                                   bool table_major_key_layout = false);
+
   const InferenceParser& get_inference_parser() const { return inference_parser_; }
   const std::vector<TensorEntry>& get_inference_tensor_entries() const {
     return inference_tensor_entries_;

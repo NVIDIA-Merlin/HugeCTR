@@ -195,13 +195,62 @@ void EmbeddingCache<TypeHashKey>::lookup(size_t const table_id, float* const d_v
   }
   EmbeddingCacheWorkspace workspace_handler = memory_block->worker_buffer;
   if (cache_config_.use_gpu_embedding_cache_) {
-    // Swap device.
     CudaDeviceContext dev_restorer;
     HCTR_LIB_THROW(cudaSetDevice(cache_config_.cuda_dev_id_));
 
     // Copy the keys to device
     HCTR_LIB_THROW(cudaMemcpyAsync(workspace_handler.d_embeddingcolumns_[table_id], h_keys,
                                    num_keys * sizeof(TypeHashKey), cudaMemcpyHostToDevice, stream));
+
+    lookup_from_device(table_id, d_vectors, memory_block, num_keys, hit_rate_threshold, stream);
+  }
+  // Not using GPU embedding cache
+  else {
+    memcpy(workspace_handler.h_embeddingcolumns_[table_id], h_keys, num_keys * sizeof(TypeHashKey));
+    parameter_server_->lookup(workspace_handler.h_embeddingcolumns_[table_id], num_keys,
+                              workspace_handler.h_missing_emb_vec_[table_id],
+                              cache_config_.model_name_, table_id);
+    HCTR_LIB_THROW(
+        cudaMemcpyAsync(d_vectors, workspace_handler.h_missing_emb_vec_[table_id],
+                        num_keys * cache_config_.embedding_vec_size_[table_id] * sizeof(float),
+                        cudaMemcpyHostToDevice, stream));
+    HCTR_LIB_THROW(cudaStreamSynchronize(stream));
+    parameter_server_->free_buffer(memory_block);
+  }
+}
+
+template <typename TypeHashKey>
+void EmbeddingCache<TypeHashKey>::lookup_from_device(size_t const table_id, float* const d_vectors,
+                                                     const void* const d_keys,
+                                                     size_t const num_keys,
+                                                     float const hit_rate_threshold,
+                                                     cudaStream_t stream) {
+  MemoryBlock* memory_block = nullptr;
+  while (memory_block == nullptr) {
+    memory_block = reinterpret_cast<struct MemoryBlock*>(parameter_server_->apply_buffer(
+        cache_config_.model_name_, cache_config_.cuda_dev_id_, CACHE_SPACE_TYPE::WORKER));
+  }
+  EmbeddingCacheWorkspace workspace_handler = memory_block->worker_buffer;
+
+  CudaDeviceContext dev_restorer;
+  HCTR_LIB_THROW(cudaSetDevice(cache_config_.cuda_dev_id_));
+
+  HCTR_LIB_THROW(cudaMemcpyAsync(workspace_handler.d_embeddingcolumns_[table_id], d_keys,
+                                 num_keys * sizeof(TypeHashKey), cudaMemcpyDeviceToDevice, stream));
+  lookup_from_device(table_id, d_vectors, memory_block, num_keys, hit_rate_threshold, stream);
+}
+
+template <typename TypeHashKey>
+void EmbeddingCache<TypeHashKey>::lookup_from_device(size_t const table_id, float* const d_vectors,
+                                                     MemoryBlock* memory_block,
+                                                     size_t const num_keys,
+                                                     float const hit_rate_threshold,
+                                                     cudaStream_t stream) {
+  EmbeddingCacheWorkspace workspace_handler = memory_block->worker_buffer;
+  if (cache_config_.use_gpu_embedding_cache_) {
+    // Swap device.
+    CudaDeviceContext dev_restorer;
+    HCTR_LIB_THROW(cudaSetDevice(cache_config_.cuda_dev_id_));
 
     // Unique
     static_cast<UniqueOp*>(workspace_handler.unique_op_obj_[table_id])
@@ -281,19 +330,6 @@ void EmbeddingCache<TypeHashKey>::lookup(size_t const table_id, float* const d_v
     } else {
       parameter_server_->free_buffer(memory_block);
     }
-  }
-  // Not using GPU embedding cache
-  else {
-    memcpy(workspace_handler.h_embeddingcolumns_[table_id], h_keys, num_keys * sizeof(TypeHashKey));
-    parameter_server_->lookup(workspace_handler.h_embeddingcolumns_[table_id], num_keys,
-                              workspace_handler.h_missing_emb_vec_[table_id],
-                              cache_config_.model_name_, table_id);
-    HCTR_LIB_THROW(
-        cudaMemcpyAsync(d_vectors, workspace_handler.h_missing_emb_vec_[table_id],
-                        num_keys * cache_config_.embedding_vec_size_[table_id] * sizeof(float),
-                        cudaMemcpyHostToDevice, stream));
-    HCTR_LIB_THROW(cudaStreamSynchronize(stream));
-    parameter_server_->free_buffer(memory_block);
   }
 }
 

@@ -19,12 +19,14 @@
 
 #include <hps/embedding_cache_base.hpp>
 #include <hps/inference_utils.hpp>
+#include <hps/memory_pool.hpp>
 #include <hps/unique_op/unique_op.hpp>
 #include <memory>
 #include <nv_gpu_cache.hpp>
 #include <thread_pool.hpp>
-
 namespace HugeCTR {
+
+class MemoryBlock;
 
 template <typename TypeHashKey>
 class EmbeddingCache : public EmbeddingCacheBase,
@@ -38,6 +40,10 @@ class EmbeddingCache : public EmbeddingCacheBase,
 
   virtual void lookup(size_t table_id, float* d_vectors, const void* h_keys, size_t num_keys,
                       float hit_rate_threshold, cudaStream_t stream);
+  virtual void lookup_from_device(size_t table_id, float* d_vectors, const void* d_keys,
+                                  size_t num_keys, float hit_rate_threshold, cudaStream_t stream);
+  virtual void lookup_from_device(size_t table_id, float* d_vectors, MemoryBlock* memory_block,
+                                  size_t num_keys, float hit_rate_threshold, cudaStream_t stream);
   virtual void insert(size_t table_id, EmbeddingCacheWorkspace& workspace_handler,
                       cudaStream_t stream);
 
