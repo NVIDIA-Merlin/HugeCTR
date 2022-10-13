@@ -1,9 +1,6 @@
 import hugectr
 from mpi4py import MPI
 
-NUM_EXPERTS = 3
-NUM_TASKS = 2
-
 solver = hugectr.CreateSolver(
     max_eval_batches=100,
     batchsize_eval=762,
@@ -16,8 +13,8 @@ solver = hugectr.CreateSolver(
 )
 reader = hugectr.DataReaderParams(
     data_reader_type=hugectr.DataReaderType_t.Parquet,
-    source=["./data/census_parquet/file_names.txt"],
-    eval_source="./data/census_parquet/file_names_val.txt",
+    source=["./file_names.txt"],
+    eval_source="./file_names_val.txt",
     check_type=hugectr.Check_t.Sum,
     num_samples=199523,
     eval_num_samples=99762,
@@ -530,4 +527,3 @@ model.summary()
 model.fit(
     max_iter=10000, display=1000, eval_interval=1000, snapshot=1000000, snapshot_prefix="mmoe"
 )
-# model.graph_to_json(graph_config_file = "mmoe.json") # Write model to json (optional)

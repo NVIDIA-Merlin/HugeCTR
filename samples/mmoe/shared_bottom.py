@@ -7,37 +7,69 @@ solver = hugectr.CreateSolver(
     batchsize=1000,
     lr=0.001,
     vvgpu=[[0]],
-    metrics_spec={hugectr.MetricsType.AverageLoss: 0.0},
-    repeat_dataset=False,
-    i64_input_key=True,
+    metrics_spec={hugectr.MetricsType.AUC: 1.0},
+    repeat_dataset=True,
+    i64_input_key=False,
 )
 reader = hugectr.DataReaderParams(
-    data_reader_type=hugectr.DataReaderType_t.Norm,
-    source=["./mmoe_norm/file_list.txt"],
-    eval_source="./mmoe_norm/file_list_test.txt",
+    data_reader_type=hugectr.DataReaderType_t.Parquet,
+    source=["./data/census_parquet/file_names.txt"],
+    eval_source="./data/census_parquet/file_names_val.txt",
     check_type=hugectr.Check_t.Sum,
+    num_samples=199523,
+    eval_num_samples=99762,
+    slot_size_array=[
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+    ],
 )
 optimizer = hugectr.CreateOptimizer(
-    optimizer_type=hugectr.Optimizer_t.Adam,
-    update_type=hugectr.Update_t.Global,
-    beta1=0.25,
-    beta2=0.5,
-    epsilon=0.0000001,
+    optimizer_type=hugectr.Optimizer_t.SGD, update_type=hugectr.Update_t.Local, atomic_update=True
 )
 model = hugectr.Model(solver, reader, optimizer)
 model.add(
     hugectr.Input(
         label_dims=[1, 1],
-        label_names=["labelA", "labelB"],
-        dense_dim=1,
+        label_names=["50k_label", "married_label"],
+        dense_dim=0,
         dense_name="dense",
-        data_reader_sparse_param_array=[hugectr.DataReaderSparseParam("data", 1, True, 2)],
+        data_reader_sparse_param_array=[hugectr.DataReaderSparseParam("data", 1, True, 32)],
     )
 )
 model.add(
     hugectr.SparseEmbedding(
-        embedding_type=hugectr.Embedding_t.DistributedSlotSparseEmbeddingHash,
-        workspace_size_per_gpu_in_mb=100,
+        embedding_type=hugectr.Embedding_t.LocalizedSlotSparseEmbeddingHash,
+        workspace_size_per_gpu_in_mb=10000,
         embedding_vec_size=16,
         combiner="sum",
         sparse_embedding_name="embedding",
@@ -48,10 +80,19 @@ model.add(
 # Shared layers before split to respective losses
 model.add(
     hugectr.DenseLayer(
-        layer_type=hugectr.Layer_t.InnerProduct,
+        layer_type=hugectr.Layer_t.Reshape,
         bottom_names=["embedding"],
+        top_names=["reshape_embedding"],
+        leading_dim=512,
+    )
+)
+
+model.add(
+    hugectr.DenseLayer(
+        layer_type=hugectr.Layer_t.InnerProduct,
+        bottom_names=["reshape_embedding"],
         top_names=["shared1"],
-        num_output=256,
+        num_output=128,
     )
 )
 model.add(
@@ -76,7 +117,9 @@ model.add(
     )
 )
 model.add(
-    hugectr.DenseLayer(layer_type=hugectr.Layer_t.ReLU, bottom_names=["fc2"], top_names=["relu2"])
+    hugectr.DenseLayer(
+        layer_type=hugectr.Layer_t.ReLU, bottom_names=["shared2"], top_names=["relu2"]
+    )
 )
 model.add(
     hugectr.DenseLayer(
@@ -93,7 +136,7 @@ model.add(
         layer_type=hugectr.Layer_t.Slice,
         bottom_names=["dropout2"],
         top_names=["sliceA", "sliceB"],
-        ranges=[(0, 127), (128, 255)],
+        ranges=[(0, 256), (0, 256)],
     )
 )
 
@@ -114,7 +157,7 @@ model.add(
 model.add(
     hugectr.DenseLayer(
         layer_type=hugectr.Layer_t.Dropout,
-        bottom_names=["A_relu1"],
+        bottom_names=["A_fc1"],
         top_names=["A_dropout1"],
         dropout_rate=0.5,
     )
@@ -125,13 +168,6 @@ model.add(
         bottom_names=["A_dropout1"],
         top_names=["A_out"],
         num_output=1,
-    )
-)
-model.add(
-    hugectr.DenseLayer(
-        layer_type=hugectr.Layer_t.BinaryCrossEntropyLoss,
-        bottom_names=["A_out", "labelA"],
-        top_names=["lossA"],
     )
 )
 
@@ -165,14 +201,24 @@ model.add(
         num_output=1,
     )
 )
+
+# All loss layers must be declared last
 model.add(
     hugectr.DenseLayer(
         layer_type=hugectr.Layer_t.BinaryCrossEntropyLoss,
-        bottom_names=["B_out", "labelB"],
+        bottom_names=["A_out", "50k_label"],
+        top_names=["lossA"],
+    )
+)
+
+model.add(
+    hugectr.DenseLayer(
+        layer_type=hugectr.Layer_t.BinaryCrossEntropyLoss,
+        bottom_names=["B_out", "married_label"],
         top_names=["lossB"],
     )
 )
 
-model.compile(loss_names=["labelA", "labelB"], loss_weights=[0.5, 0.5])
+model.compile(loss_names=["50k_label", "married_label"], loss_weights=[0.5, 0.5])
 model.summary()
-model.fit(num_epochs=10, display=100, eval_interval=100, snapshot=1000000, snapshot_prefix="mmoe")
+model.fit(max_iter=5000, display=1000, eval_interval=1000, snapshot=1000000, snapshot_prefix="mmoe")

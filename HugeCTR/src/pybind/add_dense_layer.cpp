@@ -83,8 +83,8 @@ void save_graph_to_json(nlohmann::json& layer_config_array,
   }
 
   if (input_param.labels_.size() > 1) {
-    input_label_config["top"] = "combined_multi_label";
-    input_label_config["label_dim"] = std::accumulate(label_dims.begin(), label_dims.end(), 0);
+    input_label_config["top"] = label_names;
+    input_label_config["label_dim"] = label_dims;
   } else {
     input_label_config["top"] = label_names[0];
     input_label_config["label_dim"] = label_dims[0];
@@ -216,6 +216,12 @@ void save_graph_to_json(nlohmann::json& layer_config_array,
     } else {
       layer_config["top"] = dense_layer_params[i].top_names;
     }
+
+    // Don't insert slice layer, it will be auto-added with Input
+    if (layer_config["bottom"] == "combined_multi_label") {
+      continue;
+    }
+
     switch (dense_layer_params[i].layer_type) {
       case Layer_t::BatchNorm: {
         nlohmann::json bn_param_config;

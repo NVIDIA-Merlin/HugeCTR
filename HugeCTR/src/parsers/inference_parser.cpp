@@ -31,24 +31,39 @@ void InferenceParser::create_pipeline_inference(
   std::vector<TensorEntry> train_tensor_entries;
   auto j_layers_array = get_json(config_, "layers");
   check_graph(tensor_active_, j_layers_array);
-
   auto input_buffer = GeneralBuffer2<CudaAllocator>::create();
 
   {
     const nlohmann::json& j_data = j_layers_array[0];
     auto j_dense = get_json(j_data, "dense");
+
     auto top_strs_dense = get_value_from_json<std::string>(j_dense, "top");
     auto dense_dim = get_value_from_json<size_t>(j_dense, "dense_dim");
-    auto j_label = get_json(j_data, "label");
-    auto top_strs_label = get_value_from_json<std::string>(j_label, "top");
-    auto label_dim = get_value_from_json<size_t>(j_label, "label_dim");
     Tensor2<TypeEmbeddingComp> dense_input;
-    Tensor2<float> label_input;
     input_buffer->reserve({inference_params.max_batchsize, dense_dim}, &dense_input);
-    input_buffer->reserve({inference_params.max_batchsize, label_dim}, &label_input);
     inference_tensor_entries.push_back({top_strs_dense, dense_input.shrink()});
-    inference_tensor_entries.push_back({top_strs_label, label_input.shrink()});
     dense_input_bag = dense_input.shrink();
+
+    auto j_label = get_json(j_data, "label");
+    auto label_name_arr = get_json(j_label, "top");
+    auto label_dim_arr = get_json(j_label, "label_dim");
+    std::string top_strs_label;
+    size_t label_dim;
+    if (label_name_arr.is_array()) {
+      for (int i = 0; i < label_dim_arr.size(); ++i) {
+        label_dim = label_dim_arr[i].get<int>();
+        top_strs_label = label_name_arr[i].get<std::string>();
+        Tensor2<float> label_input;
+        input_buffer->reserve({inference_params.max_batchsize, label_dim}, &label_input);
+        inference_tensor_entries.push_back({top_strs_label, label_input.shrink()});
+      }
+    } else {
+      top_strs_label = get_value_from_json<std::string>(j_label, "top");
+      label_dim = get_value_from_json<size_t>(j_label, "label_dim");
+      Tensor2<float> label_input;
+      input_buffer->reserve({inference_params.max_batchsize, label_dim}, &label_input);
+      inference_tensor_entries.push_back({top_strs_label, label_input.shrink()});
+    }
   }
 
   create_embedding<unsigned int, TypeEmbeddingComp>()(
@@ -95,10 +110,21 @@ InferenceParser::InferenceParser(const nlohmann::json& config) : config_(config)
   auto j_label_data = get_json(j_data, "label");
   auto j_dense_data = get_json(j_data, "dense");
   auto j_sparse_data = get_json(j_data, "sparse");
-  label_name = get_value_from_json<std::string>(j_label_data, "top");
   dense_name = get_value_from_json<std::string>(j_dense_data, "top");
-  label_dim = get_value_from_json<size_t>(j_label_data, "label_dim");
   dense_dim = get_value_from_json<size_t>(j_dense_data, "dense_dim");
+
+  auto label_name_arr = get_json(j_label_data, "top");
+  auto label_dim_arr = get_json(j_label_data, "label_dim");
+  if (label_name_arr.is_array()) {
+    label_name = "combined_multi_label";
+    label_dim = 0;
+    for (int i = 0; i < label_dim_arr.size(); ++i) {
+      label_dim += label_dim_arr[i].get<int>();
+    }
+  } else {
+    label_name = get_value_from_json<std::string>(j_label_data, "top");
+    label_dim = get_value_from_json<size_t>(j_label_data, "label_dim");
+  }
 
   num_embedding_tables = j_sparse_data.size();
   slot_num = 0;
@@ -155,6 +181,7 @@ void create_embedding<TypeKey, TypeFP>::operator()(
     HCTR_LOG(INFO, ROOT, "no sparse data input\n");
     return;
   }
+
   auto j_sparse_input = get_json(j_data, "sparse");
   std::unordered_map<std::string, std::pair<int, int>> slot_nums_map;
   for (unsigned int i = 0; i < j_sparse_input.size(); ++i) {

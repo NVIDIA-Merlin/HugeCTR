@@ -1,5 +1,5 @@
 # MMoE SAMPLE #
-The purpose of this sample is to demonstrate how to build and train a [Multi-gate Mixture of Experts (MMoE) model](https://dl.acm.org/doi/pdf/10.1145/3219819.3220007) with HugeCTR.
+The purpose of this sample is to demonstrate how to build and train a [Multi-gate Mixture of Experts (MMoE) model](https://dl.acm.org/doi/pdf/10.1145/3219819.3220007) with HugeCTR.  The sample uses the real-world dataset that was used in the [paper](https://dl.acm.org/doi/pdf/10.1145/3219819.3220007) that introduced the MMoE model.  The MMoE model is a multi-task model that aims to achieve high accuracy for multiple different tasks by using a mixture-of-experts approach along with separate gating layers for each task.  Below is a diagram of the model structure as implemented in HugeCTR.
 
 ## Set Up the HugeCTR Docker Environment ##
 You can set up the HugeCTR Docker environment by doing one of the following:
@@ -24,15 +24,23 @@ Please refer to [How to Start Your Development](https://nvidia-merlin.github.io/
 $ export PYTHONPATH=/usr/local/hugectr/lib:$PYTHONPATH
 ```
 ## Preparing your dataset for HugeCTR ##
-If you have a multi-label dataset that you would like to train with this HugeCTR MMoE sample, first preprocess the data to a format that is supported in HugeCTR.  The [preprocessing scripts](tools/criteo_script) for the Criteo 1TB dataset outline how to preprocess a dataset to an accepted format. In a future release we will provide sample datasets that can be used as a template for formatting your multi-task dataset for HugeCTR MMoE training.
+The dataset used in this sample is the Census-UCI dataset used by the [MMoE paper](https://dl.acm.org/doi/pdf/10.1145/3219819.3220007).  We provide scripts to download and preprocess the dataset so that you can try both the `MMoE` and `Shared Bottom` models on this dataset without additional work.  These scripts convert the dataset and provide labels for the two tasks descussed in the MMoE paper.  One task is to determine if the row corresponds to a person that meets an income threshold, and the other task is based on marital status.  The MMoE and Shared-bottom models aim to accurate solve both tasks with a single model. 
+
+To download and preprocess the UCI Census dataset, simply run:
+``` shell
+$ ./get_dataset.sh
+$ python preprocess-census.py
+```
+This downloads and preprocesses the dataset into Parquet format for use by HugeCTR for training.  It stores these files in the `./data` subdirectory.
 
 ## Train and validate the MMoE model ##
-Once you have your dataset formatted into the Norm format the local directory, update the filename in `mmoe.py` and update other parameters as needed to fit your dataset.  Details on selecting the correct parameters are available in the [HugeCTR User guide](docs/hugectr_user_guide.md).  Once updated, train your MMoE model by running:
-``` shell
-$ python mmoe.py
-```
-
-If you are using the Parquet format dataset, update the `mmoe_parquet.py` file and run it using:
+Once you have preprocessed the dataset and saved it in Parquet format, you can train either the `MMoE` or `Shared-bottom` model using the training script.  To train the MMoE model, simply run:
 ``` shell
 $ python mmoe_parquet.py
 ```
+This trains the model using roughly 200,000 samples, each with 2 labels.  AUC values are reported for each task, along with a compound AUC for both tasks.  As expected, the MMoE model reaches much higher AUC than the shared-bottom model.
+
+
+### Known issues ###
+- Export predictions is not currently supported for multi-task models.  This will be solved in an upcoming release.
+- Accuracy metrics other than AUC are not currently supported for multi-task models.

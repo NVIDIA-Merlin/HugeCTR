@@ -1,0 +1,5 @@
+#!/bin/bash
+
+srun --ntasks="${SLURM_JOB_NUM_NODES}" --container-image="${CONT}" --container-mounts="${MOUNTS}" bash -cx " \
+      cd /etc/workspace/mmoe_data && \
+      python3 /workdir/test/pybind_test/mmoe_test.py"
