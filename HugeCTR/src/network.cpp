@@ -16,6 +16,7 @@
 
 #include <omp.h>
 
+#include <io/filesystem.hpp>
 #include <layers/fully_connected_layer.hpp>
 #include <layers/relu_layer.hpp>
 #include <network.hpp>
@@ -117,20 +118,7 @@ void Network::predict() {
   prop_layers(evaluate_layers_ptr, true, false);
 }
 
-void Network::download_params_to_host(std::ofstream& weight_stream) {
-  // forward
-  CudaDeviceContext context(get_device_id());
-
-  std::unique_ptr<char[]> weight(new char[train_weight_tensor_.get_size_in_bytes()]);
-  HCTR_LIB_THROW(cudaMemcpy(weight.get(), train_weight_tensor_.get_ptr(),
-                            train_weight_tensor_.get_size_in_bytes(), cudaMemcpyDeviceToHost));
-  weight_stream.write(weight.get(), train_weight_tensor_.get_size_in_bytes());
-
-  return;
-}
-
-void Network::download_params_to_hdfs(std::string& write_path,
-                                      const DataSourceParams& data_source_params) {
+void Network::download_params_to_host(std::string& write_path) {
   // forward
   CudaDeviceContext context(get_device_id());
 
@@ -138,12 +126,12 @@ void Network::download_params_to_hdfs(std::string& write_path,
   HCTR_LIB_THROW(cudaMemcpy(weight.get(), train_weight_tensor_.get_ptr(),
                             train_weight_tensor_.get_size_in_bytes(), cudaMemcpyDeviceToHost));
 
-  auto hs = data_source_params.create_unique();
-  hs->write(write_path, weight.get(), train_weight_tensor_.get_size_in_bytes(), true);
+  auto fs = FileSystemBuilder::build_unique_by_path(write_path);
+  fs->write(write_path, weight.get(), train_weight_tensor_.get_size_in_bytes(), true);
   return;
 }
 
-void Network::download_opt_states_to_host(std::ofstream& opt_states_stream) {
+void Network::download_opt_states_to_host(std::string& write_path) {
   // forward
   CudaDeviceContext context(get_device_id());
 
@@ -155,24 +143,8 @@ void Network::download_opt_states_to_host(std::ofstream& opt_states_stream) {
       use_mixed_precision_ ? (void*)opt_tensor_half_.get_ptr() : (void*)opt_tensor_.get_ptr();
   HCTR_LIB_THROW(cudaMemcpy(h_opt_states.get(), src, dst_size_in_byte, cudaMemcpyDeviceToHost));
 
-  opt_states_stream.write(h_opt_states.get(), dst_size_in_byte);
-}
-
-void Network::download_opt_states_to_hdfs(std::string& write_path,
-                                          const DataSourceParams& data_source_params) {
-  // forward
-  CudaDeviceContext context(get_device_id());
-
-  size_t dst_size_in_byte =
-      use_mixed_precision_ ? opt_tensor_half_.get_size_in_bytes() : opt_tensor_.get_size_in_bytes();
-  std::unique_ptr<char[]> h_opt_states(new char[dst_size_in_byte]);
-
-  void* src =
-      use_mixed_precision_ ? (void*)opt_tensor_half_.get_ptr() : (void*)opt_tensor_.get_ptr();
-  HCTR_LIB_THROW(cudaMemcpy(h_opt_states.get(), src, dst_size_in_byte, cudaMemcpyDeviceToHost));
-
-  auto hs = data_source_params.create_unique();
-  hs->write(write_path, h_opt_states.get(), dst_size_in_byte, true);
+  auto fs = FileSystemBuilder::build_unique_by_path(write_path);
+  fs->write(write_path, h_opt_states.get(), dst_size_in_byte, true);
 }
 
 std::string Network::get_no_trained_params_in_string() {

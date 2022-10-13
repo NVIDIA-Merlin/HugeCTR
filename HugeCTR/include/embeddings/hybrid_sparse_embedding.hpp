@@ -219,10 +219,8 @@ class HybridSparseEmbedding : public SchedulableEmbeding {
   void backward() override;
   void update_params() override;
   void init_params() override;
-  void load_parameters(std::string sparse_model,
-                       const DataSourceParams& data_source_params) override;
-  void dump_parameters(std::string sparse_model,
-                       const DataSourceParams& data_source_params) const override;
+  void load_parameters(std::string sparse_model) override;
+  void dump_parameters(std::string sparse_model) const override;
   void set_learning_rate(float lr) override;
   // TODO: a workaround to enable GPU LR for HE only; need a better way
   GpuLearningRateSchedulers get_learning_rate_schedulers() const override;
@@ -236,10 +234,8 @@ class HybridSparseEmbedding : public SchedulableEmbeding {
   void load_parameters(BufferBag& keys, size_t num) override {}
   void dump_parameters(BufferBag& keys, size_t* num) const override {}
 
-  void dump_opt_states(std::ofstream& stream, std::string sparse_model,
-                       const DataSourceParams& data_source_params) override {}
-  void load_opt_states(std::ifstream& stream, std::string read_path,
-                       const DataSourceParams& data_source_params) override {}
+  void dump_opt_states(std::string sparse_model) override {}
+  void load_opt_states(std::string read_path) override {}
   void reset_optimizer() override {}
   void reset() override {}
 

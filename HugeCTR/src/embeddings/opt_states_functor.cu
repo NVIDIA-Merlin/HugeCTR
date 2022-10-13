@@ -16,6 +16,7 @@
 
 #include <base/debug/logger.hpp>
 #include <embeddings/sparse_embedding_functors.hpp>
+#include <io/filesystem.hpp>
 #include <utils.hpp>
 
 namespace HugeCTR {
@@ -76,11 +77,11 @@ std::vector<Tensors2<TypeEmbeddingComp>> SparseEmbeddingFunctors::get_opt_states
 
 template <typename TypeEmbeddingComp>
 void SparseEmbeddingFunctors::dump_opt_states(
-    std::ofstream& stream, std::string& write_path, const DataSourceParams& data_source_params,
-    const ResourceManager& resource_manager, std::vector<Tensors2<TypeEmbeddingComp>>& opt_states) {
+    std::string& write_path, const ResourceManager& resource_manager,
+    std::vector<Tensors2<TypeEmbeddingComp>>& opt_states) {
   size_t local_gpu_count = resource_manager.get_local_gpu_count();
 
-  bool hdfs_append_flag = false;
+  bool append_flag = false;
   CudaDeviceContext context;
   for (auto& opt_state : opt_states) {
     size_t total_size = 0;
@@ -110,19 +111,12 @@ void SparseEmbeddingFunctors::dump_opt_states(
     int pid = resource_manager.get_process_id();
     if (resource_manager.is_master_process()) {
       HCTR_LOG_S(INFO, WORLD) << "Rank" << pid << ": Write optimzer state to file" << std::endl;
-      if (data_source_params.type == DataSourceType_t::HDFS) {
-        auto hs = data_source_params.create_unique();
-        if (!hdfs_append_flag) {
-          hs->write(write_path, h_opt_state.get(), total_size, true);
-          hdfs_append_flag = true;
-        } else {
-          hs->write(write_path, h_opt_state.get(), total_size, false);
-        }
-      } else if (data_source_params.type == DataSourceType_t::Local) {
-        // TODO: Move to self-contained DataSourceBackend implementation.
-        stream.write(h_opt_state.get(), total_size);
+      auto fs = FileSystemBuilder::build_unique_by_path(write_path);
+      if (!append_flag) {
+        fs->write(write_path, h_opt_state.get(), total_size, true);
+        append_flag = true;
       } else {
-        HCTR_OWN_THROW(Error_t::WrongInput, "Filesystem not supported yet.");
+        fs->write(write_path, h_opt_state.get(), total_size, false);
       }
     }
 #ifdef ENABLE_MPI
@@ -145,19 +139,13 @@ void SparseEmbeddingFunctors::dump_opt_states(
         HCTR_MPI_THROW(MPI_Get_count(&status, MPI_CHAR, &recv_size));
         HCTR_MPI_THROW(MPI_Recv(h_opt_state.get(), recv_size, MPI_CHAR, r, tag, MPI_COMM_WORLD,
                                 MPI_STATUS_IGNORE));
-        if (data_source_params.type == DataSourceType_t::HDFS) {
-          auto hs = data_source_params.create_unique();
-          if (!hdfs_append_flag) {
-            hs->write(write_path, h_opt_state.get(), recv_size, true);
-            hdfs_append_flag = true;
-          } else {
-            hs->write(write_path, h_opt_state.get(), recv_size, false);
-          }
-        } else if (data_source_params.type == DataSourceType_t::Local) {
-          // TODO: Move to self-contained DataSourceBackend implementation.
-          stream.write(h_opt_state.get(), recv_size);
+
+        auto fs = FileSystemBuilder::build_unique_by_path(write_path);
+        if (!append_flag) {
+          fs->write(write_path, h_opt_state.get(), recv_size, true);
+          append_flag = true;
         } else {
-          HCTR_OWN_THROW(Error_t::WrongInput, "Filesystem not supported yet.");
+          fs->write(write_path, h_opt_state.get(), recv_size, false);
         }
       }
     }
@@ -167,14 +155,13 @@ void SparseEmbeddingFunctors::dump_opt_states(
 }
 
 template <typename TypeEmbeddingComp>
-void SparseEmbeddingFunctors::load_opt_states(std::ifstream& stream, std::string& read_path,
-                                              const ResourceManager& resource_manager,
-                                              std::vector<Tensors2<TypeEmbeddingComp>>& opt_states,
-                                              const DataSourceParams& data_source_params) {
+void SparseEmbeddingFunctors::load_opt_states(
+    std::string& read_path, const ResourceManager& resource_manager,
+    std::vector<Tensors2<TypeEmbeddingComp>>& opt_states) {
   size_t local_gpu_count = resource_manager.get_local_gpu_count();
 
   CudaDeviceContext context;
-  size_t hdfs_cursor = 0;
+  size_t fs_cursor = 0;
   for (auto& opt_state : opt_states) {
     size_t total_size = 0;
     for (size_t id = 0; id < local_gpu_count; id++) {
@@ -212,24 +199,10 @@ void SparseEmbeddingFunctors::load_opt_states(std::ifstream& stream, std::string
       }
       std::unique_ptr<char[]> h_opt_state(new char[max_size]);
       HCTR_LOG_S(INFO, WORLD) << "Rank" << pid << ": Read optimzer state from file" << std::endl;
-      if (data_source_params.type == DataSourceType_t::HDFS) {
-        auto hs = data_source_params.create_unique();
-        hs->read(read_path, h_opt_state.get(), total_size, hdfs_cursor);
-        hdfs_cursor += total_size;
-      } else if (data_source_params.type == DataSourceType_t::Local) {
-        // TODO: Move to self-contained DataSourceBackend implementation.
-        size_t cur_pos = stream.tellg();
-        stream.seekg(0, stream.end);
-        size_t remaining_file_size = stream.tellg() - cur_pos;
-        if (remaining_file_size < sum_sizes) {
-          HCTR_OWN_THROW(Error_t::WrongInput,
-                         "optimizer state file size is incompatible with the embedding!");
-        }
-        stream.seekg(cur_pos);
-        stream.read(h_opt_state.get(), total_size);
-      } else {
-        HCTR_OWN_THROW(Error_t::WrongInput, "Filesystem not supported yet.");
-      }
+
+      auto fs = FileSystemBuilder::build_unique_by_path(read_path);
+      fs->read(read_path, h_opt_state.get(), total_size, fs_cursor);
+      fs_cursor += total_size;
 
       h2d_op(h_opt_state.get());
       sync_all_gpus(resource_manager);
@@ -238,16 +211,8 @@ void SparseEmbeddingFunctors::load_opt_states(std::ifstream& stream, std::string
       for (int r = 1; r < resource_manager.get_num_process(); r++) {
         HCTR_LOG_S(INFO, WORLD) << "Rank" << pid << ": Read from file"
                                 << ", and send optimzer state to rank" << r << std::endl;
-        if (data_source_params.type == DataSourceType_t::HDFS) {
-          auto hs = data_source_params.create_unique();
-          hs->read(read_path, h_opt_state.get(), proc_sizes[r], hdfs_cursor);
-          hdfs_cursor += proc_sizes[r];
-        } else if (data_source_params.type == DataSourceType_t::Local) {
-          // TODO: Move to self-contained DataSourceBackend implementation.
-          stream.read(h_opt_state.get(), proc_sizes[r]);
-        } else {
-          HCTR_OWN_THROW(Error_t::WrongInput, "Filesystem not supported yet.");
-        }
+        fs->read(read_path, h_opt_state.get(), proc_sizes[r], fs_cursor);
+        fs_cursor += proc_sizes[r];
         int tag = (r << 8) | 0xAB;
         HCTR_MPI_THROW(
             MPI_Send(h_opt_state.get(), proc_sizes[r], MPI_CHAR, r, tag, MPI_COMM_WORLD));
@@ -266,16 +231,8 @@ void SparseEmbeddingFunctors::load_opt_states(std::ifstream& stream, std::string
       HCTR_MPI_THROW(MPI_Probe(mid, tag, MPI_COMM_WORLD, &status));
       HCTR_MPI_THROW(MPI_Get_count(&status, MPI_CHAR, &recv_size));
       std::unique_ptr<char[]> h_opt_state(new char[recv_size]);
-      if (data_source_params.type == DataSourceType_t::HDFS) {
-        auto hs = data_source_params.create_unique();
-        hs->read(read_path, h_opt_state.get(), recv_size, hdfs_cursor);
-        hdfs_cursor += recv_size;
-      } else if (data_source_params.type == DataSourceType_t::Local) {
-        // TODO: Move to self-contained DataSourceBackend implementation.
-        stream.read(h_opt_state.get(), recv_size);
-      } else {
-        HCTR_OWN_THROW(Error_t::WrongInput, "Filesystem not supported yet.");
-      }
+      auto fs = FileSystemBuilder::build_unique_by_path(read_path);
+      fs->read(read_path, h_opt_state.get(), recv_size, fs_cursor);
       HCTR_MPI_THROW(MPI_Recv(h_opt_state.get(), recv_size, MPI_CHAR, mid, tag, MPI_COMM_WORLD,
                               MPI_STATUS_IGNORE));
       h2d_op(h_opt_state.get());
@@ -294,19 +251,19 @@ template std::vector<Tensors2<__half>> SparseEmbeddingFunctors::get_opt_states(
     size_t local_gpu_count);
 
 template void SparseEmbeddingFunctors::dump_opt_states<float>(
-    std::ofstream& stream, std::string& write_path, const DataSourceParams& data_source_params,
-    const ResourceManager& resource_manager, std::vector<Tensors2<float>>& opt_states);
+    std::string& write_path, const ResourceManager& resource_manager,
+    std::vector<Tensors2<float>>& opt_states);
 
 template void SparseEmbeddingFunctors::dump_opt_states<__half>(
-    std::ofstream& stream, std::string& write_path, const DataSourceParams& data_source_params,
-    const ResourceManager& resource_manager, std::vector<Tensors2<__half>>& opt_states);
+    std::string& write_path, const ResourceManager& resource_manager,
+    std::vector<Tensors2<__half>>& opt_states);
 
 template void SparseEmbeddingFunctors::load_opt_states<float>(
-    std::ifstream& stream, std::string& read_path, const ResourceManager& resource_manager,
-    std::vector<Tensors2<float>>& opt_states, const DataSourceParams& data_source_params);
+    std::string& read_path, const ResourceManager& resource_manager,
+    std::vector<Tensors2<float>>& opt_states);
 
 template void SparseEmbeddingFunctors::load_opt_states<__half>(
-    std::ifstream& stream, std::string& read_path, const ResourceManager& resource_manager,
-    std::vector<Tensors2<__half>>& opt_states, const DataSourceParams& data_source_params);
+    std::string& read_path, const ResourceManager& resource_manager,
+    std::vector<Tensors2<__half>>& opt_states);
 
 }  // namespace HugeCTR

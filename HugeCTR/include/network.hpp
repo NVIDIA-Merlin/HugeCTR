@@ -25,7 +25,6 @@
 #include <functional>
 #include <gpu_resource.hpp>
 #include <graph_wrapper.hpp>
-#include <io/hadoop_filesystem.hpp>
 #include <layer.hpp>
 #include <loss.hpp>
 #include <metrics.hpp>
@@ -146,25 +145,14 @@ class Network {
   }
 
   /**
-   * Writting paramters to fstream.
+   * Writting paramters to file.
    */
-  void download_params_to_host(std::ofstream& weight_stream);
+  void download_params_to_host(std::string& write_path);
 
   /**
-   * Writting paramters to HDFS.
+   * Writting opt states to file.
    */
-  void download_params_to_hdfs(std::string& write_path, const DataSourceParams& data_source_params);
-
-  /**
-   * Writting opt states to fstream.
-   */
-  void download_opt_states_to_host(std::ofstream& opt_states_stream);
-
-  /**
-   * Writting opt states to HDFS.
-   */
-  void download_opt_states_to_hdfs(std::string& write_path,
-                                   const DataSourceParams& data_source_params);
+  void download_opt_states_to_host(std::string& write_path);
 
   /**
    * Get no trained parameters (such as parameters in Batch nomalization) to string.

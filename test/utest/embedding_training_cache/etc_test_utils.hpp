@@ -187,7 +187,7 @@ inline void generate_sparse_model_impl(
   embedding->update_params();
 
   // store the snapshot from the embedding
-  embedding->dump_parameters(sparse_model_name, DataSourceParams());
+  embedding->dump_parameters(sparse_model_name);
 }
 
 template <typename TypeKey, Check_t check>

@@ -79,8 +79,6 @@ hugectr.CreateSolver()
 
 * `eval_inter_iteration_overlap`: Whether to enable overlap between eval iteration. The knob provides similar functionality with `train_inter_iteration_overlap` while it applies to evaluation iterations. The default value is `False`.
 
-* `data_source_params`: [DataSourceParams()](https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html#datasourceparams-class), specify the configurations of the data sources(Local, HDFS, or others) for model persistence and loading.
-
 * `all_reduce_algo`: The algorithm to be used for all reduce. The supported options are `AllReduceAlgo.OneShot` and `AllReduceAlgo.NCCL`. The default value is `AllReduceAlgo.NCCL`. When you are doing multi-node training, `AllReduceAlgo.OneShot` will require RDMA support while `AllReduceAlgo.NCCL` can run on both RDMA and non-RDMA hardware.
 
 * `grouped_all_reduce`: The default value is `False`. If `True`, the gradients for the dense network and the gradients for data-parallel embedding are grouped and all reduced in one kernel, effectively combining two small all-reduce operations into a single larger one for higher efficiency. Requirements: Hybrid embedding is used (see HybridEmbeddingParam).
@@ -646,8 +644,6 @@ It trains the model for a fixed number of epochs (epoch mode) or iterations (non
 
 * `snapshot_prefix`: String, the prefix of the file names for the saved model weights and optimizer states. This argument is invalid when embedding training cache is being used, which means no model parameters will be saved. The default value is `''`.
 
-* `data_source_params`: Optional, hugectr.data.`DataSourceParams`, a struct to specify the file system and paths to use while dumping the models.
-
 ***
 
 #### summary method
@@ -697,9 +693,7 @@ hugectr.Model.load_dense_weights()
 This method load the dense weights from the saved dense model file.
 
 **Arguments**
-* `dense_model_file`: String, the saved dense model file from which the dense weights will be loaded. There is NO default value and it should be specified by users.
-
-* `data_source_params`: Optional, hugectr.data.`DataSourceParams`, a struct to specify the file system and paths to use while loading the dense model. If `data_source_params.use_hdfs` is set to `False`, `dense_model_file` will be used as the path.
+* `dense_model_file`: String, the saved dense model file from which the dense weights will be loaded. There is NO default value and it should be specified by users. Supported filesystems are local and HDFS (example url: `hdfs://localhost:9000:/path/to/file`).
 
 ***
 
@@ -712,9 +706,7 @@ hugectr.Model.load_dense_optimizer_states()
 This method load the dense optimizer states from the saved dense optimizer states file.
 
 **Arguments**
-* `dense_opt_states_file`: String, the saved dense optimizer states file from which the dense optimizer states will be loaded. There is NO default value and it should be specified by users.
-
-* `data_source_params`: Optional, hugectr.data.`DataSourceParams`, a struct to specify the file system and paths to use while loading the dense optimizer states. If `data_source_params.use_hdfs` is set to `False`, `dense_opt_states_file` will be used as the path.
+* `dense_opt_states_file`: String, the saved dense optimizer states file from which the dense optimizer states will be loaded. There is NO default value and it should be specified by users. Supported filesystems are local and HDFS (example url: `hdfs://localhost:9000:/path/to/file`).
 
 ***
 
@@ -729,9 +721,7 @@ This method load the sparse weights from the saved sparse embedding files.
 Implementation Ⅰ
 
 **Arguments**
-* `sparse_embedding_files`: List[str], the sparse embedding files from which the sparse weights will be loaded. The number of files should equal to that of the sparse embedding layers in the model. There is NO default value and it should be specified by users.
-
-* `data_source_params`: Optional, hugectr.data.`DataSourceParams`, a struct to specify the file system and paths to use while loading the sparse models. If `data_source_params.use_hdfs` is set to `False`, `sparse_embedding_files` will be used as the path.
+* `sparse_embedding_files`: List[str], the sparse embedding files from which the sparse weights will be loaded. The number of files should equal to that of the sparse embedding layers in the model. There is NO default value and it should be specified by users. Supported filesystems are local and HDFS (example url: `hdfs://localhost:9000:/path/to/file`).
 
 Implementation Ⅱ
 
@@ -773,9 +763,7 @@ This method load the sparse optimizer states from the saved sparse optimizer sta
 Implementation Ⅰ
 
 **Arguments**
-* `sparse_opt_states_files`: List[str], the sparse optimizer states files from which the sparse optimizer states will be loaded. The number of files should equal to that of the sparse embedding layers in the model. There is NO default value and it should be specified by users.
-
-* `data_source_params`: Optional, hugectr.data.`DataSourceParams`, a struct to specify the file system and paths to use while loading the sparse optimizer states. If `data_source_params.use_hdfs` is set to `False`, `sparse_opt_states_files` will be used as the path.
+* `sparse_opt_states_files`: List[str], the sparse optimizer states files from which the sparse optimizer states will be loaded. The number of files should equal to that of the sparse embedding layers in the model. There is NO default value and it should be specified by users. Supported filesystems are local and HDFS (example url: `hdfs://localhost:9000:/path/to/file`).
 
 Implementation Ⅱ
 
@@ -1386,8 +1374,8 @@ hugectr.data.DataSourceParams()
 `DataSourceParams` specifies the file system information and the paths to data and model used for training. A `DataSourceParams` instance is required to initialize the `DataSource` instance.
 
 **Arguments**
-* `source`: `hugect.DataSourceType_t`, can be `Local` or `HDFS`, specifying the file system. Default is `hugectr.DataSourceType_t.Local`.
+* `source`: `hugect.FileSystemType_t`, can be `Local` or `HDFS`, specifying the file system. Default is `hugectr.FileSystemType_t.Local`.
 
-* `server`: String, the IP address of your file system. For Hadoop cluster, it is your namenode. Will be ignored if `source` is `DataSourceType_t.Local`. Default is 'localhost'.
+* `server`: String, the IP address of your file system. For Hadoop cluster, it is your namenode. Will be ignored if `source` is `FileSystemType_t.Local`. Default is 'localhost'.
 
-* `port`:  Integer, the port to listen from your server. Will be ignored if `source` is `DataSourceType_t.Local`. Default is 9000.
+* `port`:  Integer, the port to listen from your server. Will be ignored if `source` is `FileSystemType_t.Local`. Default is 9000.

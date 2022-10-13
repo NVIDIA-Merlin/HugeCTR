@@ -74,21 +74,9 @@ class FileLoader {
  public:
   FileLoader(DataSourceParams data_source_params)
       : cur_file_size_(0), data_source_params_(data_source_params), fd_(-1), data_(nullptr) {
-    use_mmap_ = data_source_params_.type == DataSourceType_t::Local;
-
-    if (data_source_params_.type == DataSourceType_t::HDFS) {
-      file_system_ = data_source_params.create_unique();
-      HCTR_LOG_S(INFO, WORLD) << "Using Hadoop Cluster " << data_source_params.server << ":"
-                              << data_source_params.port << std::endl;
-    } else if (data_source_params_.type == DataSourceType_t::S3) {
-      // TODO: Migrate to a suitable DataSourceBackend implementation.
-      HCTR_LOG_S(INFO, WORLD) << "S3 is currently not supported. Use Local instead." << std::endl;
-      use_mmap_ = true;
-    } else if (data_source_params_.type == DataSourceType_t::Other) {
-      // TODO: Migrate to a suitable DataSourceBackend implementation.
-      HCTR_LOG_S(INFO, WORLD) << "Other filesystems are not supported. Use Local instead."
-                              << std::endl;
-      use_mmap_ = true;
+    use_mmap_ = data_source_params_.type == FileSystemType_t::Local;
+    if (!use_mmap_) {
+      file_system_ = FileSystemBuilder::build_unique_by_data_source_params(data_source_params);
     }
   }
 

@@ -34,8 +34,7 @@ std::unique_ptr<Solver> CreateSolver(
     bool eval_intra_iteration_overlap, bool eval_inter_iteration_overlap,
     DeviceMap::Layout device_layout, bool use_embedding_collection, AllReduceAlgo all_reduce_algo,
     bool grouped_all_reduce, size_t num_iterations_statistics, bool perf_logging,
-    bool drop_incomplete_batch, std::string& kafka_brokers,
-    const DataSourceParams& data_source_params) {
+    bool drop_incomplete_batch, std::string& kafka_brokers) {
   if (use_mixed_precision && enable_tf32_compute) {
     HCTR_OWN_THROW(Error_t::WrongInput,
                    "use_mixed_precision and enable_tf32_compute cannot be true at the same time");
@@ -81,7 +80,6 @@ std::unique_ptr<Solver> CreateSolver(
   solver->perf_logging = perf_logging;
   solver->drop_incomplete_batch = drop_incomplete_batch;
   solver->kafka_brokers = kafka_brokers;
-  solver->data_source_params = data_source_params;
   return solver;
 }
 
@@ -146,8 +144,7 @@ void SolverPybind(pybind11::module& m) {
         pybind11::arg("all_reduce_algo") = AllReduceAlgo::NCCL,
         pybind11::arg("grouped_all_reduce") = false,
         pybind11::arg("num_iterations_statistics") = 20, pybind11::arg("perf_logging") = false,
-        pybind11::arg("drop_incomplete_batch") = true, pybind11::arg("kafka_brockers") = "",
-        pybind11::arg("data_source_params") = new DataSourceParams());
+        pybind11::arg("drop_incomplete_batch") = true, pybind11::arg("kafka_brockers") = "");
 }
 
 }  // namespace python_lib

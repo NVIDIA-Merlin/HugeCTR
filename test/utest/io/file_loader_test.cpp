@@ -22,7 +22,7 @@
 using namespace HugeCTR;
 
 void file_loader_hdfs_test_impl(const std::string hdfs_dir, const int num_files) {
-  const DataSourceParams data_source_params(DataSourceType_t::HDFS, "localhost", 9000);
+  const DataSourceParams data_source_params(FileSystemType_t::HDFS, "localhost", 9000);
 
   FileLoader *file_loader = new FileLoader(data_source_params);
   std::vector<std::string> filelist;

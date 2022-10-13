@@ -18,51 +18,12 @@
 
 #include <io/filesystem.hpp>
 
-#ifdef ENABLE_HDFS
-#include "hdfs.h"
-#endif
-
 namespace HugeCTR {
-
-#ifdef ENABLE_HDFS
-struct HdfsConfigs {
-  HdfsConfigs() = default;
-  ~HdfsConfigs() = default;
-
-  int32_t buffer_size = 0;
-  int16_t replication = 0;
-  int64_t block_size = 0;
-
-  std::string namenode;
-  int port;
-  std::string user_name;
-  bool ready_to_connect = false;
-
-  void set_buffer_size(int32_t buffer_size);
-  void set_replication(int16_t replication);
-  void set_block_size(int64_t block_size);
-  void set_user_name(std::string& user_name);
-  void set_connection_configs(std::string namenode, int port);
-  void set_all_from_json(const std::string& path);
-
-  static HdfsConfigs FromDataSourceParams(const DataSourceParams& data_source_params);
-  static HdfsConfigs FromUrl(const std::string& url);
-  static HdfsConfigs FromJSON(const std::string& url);
-};
-
-class HadoopFileSystem final : public FileSystem {
+class LocalFileSystem final : public FileSystem {
  public:
-  /**
-   * @brief Construct a new HadoopFileSystem:: HadoopFileSystem object
-   *
-   * @param name_node The host-address of the HDFS name node.
-   * @param port The port number.
-   */
-  HadoopFileSystem(const std::string& name_node, const int port);
+  LocalFileSystem();
 
-  HadoopFileSystem(const HdfsConfigs& configs);
-
-  virtual ~HadoopFileSystem();
+  virtual ~LocalFileSystem();
 
   size_t get_file_size(const std::string& path) const override;
 
@@ -83,31 +44,5 @@ class HadoopFileSystem final : public FileSystem {
   int batch_fetch(const std::string& source_dir, const std::string& target_dir) override;
 
   int batch_upload(const std::string& source_dir, const std::string& target_dir) override;
-
- private:
-  HdfsConfigs configs_;
-
-  std::string name_node_;
-  int hdfs_port_;
-  hdfsFS fs_;
-  hdfsFS local_fs_;
-
-  /**
-   * @brief Connect to HDFS server
-   */
-  void connect();
-
-  /**
-   * @brief Connect to local File system.
-   */
-  void connect_to_local();
-
-  /**
-   * @brief Disconnect to HDFS server.
-   */
-  void disconnect();
 };
-
-#endif
-
 }  // namespace HugeCTR

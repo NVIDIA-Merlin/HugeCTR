@@ -529,15 +529,11 @@ class SparseEmbeddingFunctors {
       Optimizer_t optimizer_type, size_t local_gpu_count);
 
   template <typename TypeEmbeddingComp>
-  void dump_opt_states(std::ofstream &stream, std::string &write_path,
-                       const DataSourceParams &data_source_params,
-                       const ResourceManager &resource_manager,
+  void dump_opt_states(std::string &write_path, const ResourceManager &resource_manager,
                        std::vector<Tensors2<TypeEmbeddingComp>> &opt_states);
   template <typename TypeEmbeddingComp>
-  void load_opt_states(std::ifstream &stream, std::string &read_path,
-                       const ResourceManager &resource_manager,
-                       std::vector<Tensors2<TypeEmbeddingComp>> &opt_states,
-                       const DataSourceParams &data_source_params);
+  void load_opt_states(std::string &read_path, const ResourceManager &resource_manager,
+                       std::vector<Tensors2<TypeEmbeddingComp>> &opt_states);
 };
 
 // TODO: consider to move them; they are currently only used for an utest

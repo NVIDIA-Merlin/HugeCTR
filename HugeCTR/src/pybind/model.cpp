@@ -1385,7 +1385,7 @@ void Model::load_dense_optimizer_states(const std::string& dense_opt_states_file
     HCTR_OWN_THROW(Error_t::IllegalCall,
                    "Cannot load the dense optimizer states before calling Model.compile()");
   }
-  load_opt_states_for_dense_(dense_opt_states_file, solver_.data_source_params);
+  load_opt_states_for_dense_(dense_opt_states_file);
 }
 
 void Model::load_sparse_optimizer_states(const std::vector<std::string>& sparse_opt_states_files) {
@@ -1404,7 +1404,7 @@ void Model::load_sparse_optimizer_states(const std::vector<std::string>& sparse_
                    "The size of sparse opt state files should be "
                    "equal to the number of embeddings");
   }
-  load_opt_states_for_sparse_(sparse_opt_states_files, solver_.data_source_params);
+  load_opt_states_for_sparse_(sparse_opt_states_files);
 }
 
 void Model::load_sparse_optimizer_states(
@@ -1425,13 +1425,8 @@ void Model::load_sparse_optimizer_states(
       HCTR_OWN_THROW(Error_t::WrongInput, "No such embedding name: " + iter->first);
     }
     auto embedding_target = embeddings_map_.find(iter->first)->second;
-    std::ifstream sparse_opt_stream(iter->first, std::ifstream::binary);
-    if (!sparse_opt_stream.is_open()) {
-      HCTR_OWN_THROW(Error_t::WrongInput, "Cannot open sparse optimizer states file");
-    }
     HCTR_LOG_S(INFO, ROOT) << "Loading sparse optimizer states: " << iter->first << std::endl;
-    embedding_target->load_opt_states(sparse_opt_stream, iter->first, solver_.data_source_params);
-    sparse_opt_stream.close();
+    embedding_target->load_opt_states(iter->first);
   }
 }
 
@@ -1441,7 +1436,7 @@ void Model::load_dense_weights(const std::string& dense_model_file) {
                    "Cannot load the dense weights before "
                    "calling Model.compile()");
   }
-  load_params_for_dense_(dense_model_file, solver_.data_source_params);
+  load_params_for_dense_(dense_model_file);
 }
 
 void Model::load_sparse_weights(const std::vector<std::string>& sparse_embedding_files) {
@@ -1460,7 +1455,7 @@ void Model::load_sparse_weights(const std::vector<std::string>& sparse_embedding
                    "The size of sparse embedding files should be "
                    "equal to the number of embeddings");
   }
-  load_params_for_sparse_(sparse_embedding_files, solver_.data_source_params);
+  load_params_for_sparse_(sparse_embedding_files);
 }
 
 void Model::load_sparse_weights(
@@ -1482,7 +1477,7 @@ void Model::load_sparse_weights(
     }
     auto embedding_target = embeddings_map_.find(iter->first)->second;
     HCTR_LOG_S(INFO, ROOT) << "Loading sparse model: " << iter->second << std::endl;
-    embedding_target->load_parameters(iter->second, solver_.data_source_params);
+    embedding_target->load_parameters(iter->second);
   }
 }
 
@@ -2358,11 +2353,9 @@ Error_t Model::download_params_to_files(std::string prefix, int iter) {
     embedding_training_cache_->dump();
     embedding_training_cache_->update_sparse_model_file();
   } else {
-    download_sparse_params_to_files_(snapshot_sparse_names, snapshot_sparse_opt_names,
-                                     solver_.data_source_params);
+    download_sparse_params_to_files_(snapshot_sparse_names, snapshot_sparse_opt_names);
   }
-  return download_dense_params_to_files_(snapshot_dense_name, snapshot_dense_opt_name,
-                                         solver_.data_source_params);
+  return download_dense_params_to_files_(snapshot_dense_name, snapshot_dense_opt_name);
 }
 
 void Model::check_overflow() const {
@@ -2382,43 +2375,19 @@ void Model::copy_weights_for_evaluation() {
 }
 
 Error_t Model::download_dense_params_to_files_(std::string weights_file,
-                                               std::string dense_opt_states_file,
-                                               const DataSourceParams& data_source_params) {
+                                               std::string dense_opt_states_file) {
   try {
     if (resource_manager_->is_master_process()) {
-      if (data_source_params.type == DataSourceType_t::HDFS) {
-        // TODO: Move to self-contained DataSourceBackend implementation.
-        networks_[0]->download_params_to_hdfs(weights_file, data_source_params);
-        HCTR_LOG(INFO, ROOT, "Dumping dense weights to HDFS, successful\n");
-        networks_[0]->download_opt_states_to_hdfs(dense_opt_states_file, data_source_params);
-        HCTR_LOG(INFO, ROOT, "Dumping dense optimizer states to HDFS, successful\n");
-        std::string no_trained_params = networks_[0]->get_no_trained_params_in_string();
-        if (no_trained_params.length() != 0) {
-          std::string ntp_file = weights_file + ".ntp.json";
-          auto hs = data_source_params.create_unique();
-          hs->write(ntp_file, no_trained_params.c_str(), no_trained_params.length(), true);
-          HCTR_LOG(INFO, ROOT, "Dumping untrainable weights to file, successful\n");
-        }
-      } else if (data_source_params.type == DataSourceType_t::Local) {
-        // TODO: Move to self-contained DataSourceBackend implementation.
-        std::ofstream out_stream_weight(weights_file, std::ofstream::binary);
-        networks_[0]->download_params_to_host(out_stream_weight);
-        HCTR_LOG(INFO, ROOT, "Dumping dense weights to file, successful\n");
-        std::ofstream out_dense_opt_state_weight(dense_opt_states_file, std::ofstream::binary);
-        networks_[0]->download_opt_states_to_host(out_dense_opt_state_weight);
-        HCTR_LOG(INFO, ROOT, "Dumping dense optimizer states to file, successful\n");
-        std::string no_trained_params = networks_[0]->get_no_trained_params_in_string();
-        if (no_trained_params.length() != 0) {
-          std::string ntp_file = weights_file + ".ntp.json";
-          std::ofstream out_stream_ntp(ntp_file, std::ofstream::out);
-          out_stream_ntp.write(no_trained_params.c_str(), no_trained_params.length());
-          out_stream_ntp.close();
-          HCTR_LOG(INFO, ROOT, "Dumping untrainable weights to file, successful\n");
-        }
-        out_stream_weight.close();
-        out_dense_opt_state_weight.close();
-      } else {
-        HCTR_OWN_THROW(Error_t::WrongInput, "Filesystem not supported yet.");
+      networks_[0]->download_params_to_host(weights_file);
+      HCTR_LOG(INFO, ROOT, "Dumping dense weights to file, successful\n");
+      networks_[0]->download_opt_states_to_host(dense_opt_states_file);
+      HCTR_LOG(INFO, ROOT, "Dumping dense optimizer states to file, successful\n");
+      std::string no_trained_params = networks_[0]->get_no_trained_params_in_string();
+      if (no_trained_params.length() != 0) {
+        std::string ntp_file = weights_file + ".ntp.json";
+        auto fs = FileSystemBuilder::build_unique_by_path(ntp_file);
+        fs->write(ntp_file, no_trained_params.c_str(), no_trained_params.length(), true);
+        HCTR_LOG(INFO, ROOT, "Dumping untrainable weights to file, successful\n");
       }
     }
   } catch (const internal_runtime_error& rt_err) {
@@ -2433,13 +2402,12 @@ Error_t Model::download_dense_params_to_files_(std::string weights_file,
 
 Error_t Model::download_sparse_params_to_files_(
     const std::vector<std::string>& embedding_files,
-    const std::vector<std::string>& sparse_opt_state_files,
-    const DataSourceParams& data_source_params) {
+    const std::vector<std::string>& sparse_opt_state_files) {
   try {
     {
       int i = 0;
       for (auto& embedding_file : embedding_files) {
-        embeddings_[i]->dump_parameters(embedding_file, data_source_params);
+        embeddings_[i]->dump_parameters(embedding_file);
         i++;
       }
     }
@@ -2447,9 +2415,7 @@ Error_t Model::download_sparse_params_to_files_(
     {
       int i = 0;
       for (auto& sparse_opt_state_file : sparse_opt_state_files) {
-        std::ofstream out_stream_opt(sparse_opt_state_file, std::ofstream::binary);
-        embeddings_[i]->dump_opt_states(out_stream_opt, sparse_opt_state_file, data_source_params);
-        out_stream_opt.close();
+        embeddings_[i]->dump_opt_states(sparse_opt_state_file);
         i++;
       }
     }
@@ -2483,26 +2449,13 @@ std::shared_ptr<EmbeddingTrainingCache> Model::create_embedding_training_cache_(
   }
 }
 
-Error_t Model::load_opt_states_for_dense_(const std::string& dense_opt_states_file,
-                                          const DataSourceParams& data_source_params) {
+Error_t Model::load_opt_states_for_dense_(const std::string& dense_opt_states_file) {
   try {
     size_t opt_states_size_in_byte = networks_[0]->get_opt_states_size_in_byte();
     std::unique_ptr<char[]> opt_states(new char[opt_states_size_in_byte]());
-    if (data_source_params.type == DataSourceType_t::HDFS) {
-      auto hs = data_source_params.create_unique();
-      hs->read(dense_opt_states_file, opt_states.get(), hs->get_file_size(dense_opt_states_file),
-               0);
-    } else if (data_source_params.type == DataSourceType_t::Local) {
-      // TODO: Move to self-contained DataSourceBackend implementation.
-      std::ifstream opt_states_stream(dense_opt_states_file, std::ifstream::binary);
-      if (!opt_states_stream.is_open()) {
-        HCTR_OWN_THROW(Error_t::WrongInput, "Cannot open dense opt states file");
-      }
-      opt_states_stream.read(opt_states.get(), opt_states_size_in_byte);
-      opt_states_stream.close();
-    } else {
-      HCTR_OWN_THROW(Error_t::WrongInput, "Filesystem not supported yet.");
-    }
+
+    auto fs = FileSystemBuilder::build_unique_by_path(dense_opt_states_file);
+    fs->read(dense_opt_states_file, opt_states.get(), fs->get_file_size(dense_opt_states_file), 0);
     HCTR_LOG_S(INFO, ROOT) << "Loading dense opt states: " << dense_opt_states_file << std::endl;
     for (auto& network : networks_) {
       network->upload_opt_states_to_device(opt_states.get());
@@ -2517,35 +2470,15 @@ Error_t Model::load_opt_states_for_dense_(const std::string& dense_opt_states_fi
   return Error_t::Success;
 }
 
-Error_t Model::load_opt_states_for_sparse_(const std::vector<std::string>& sparse_opt_states_files,
-                                           const DataSourceParams& data_source_params) {
+Error_t Model::load_opt_states_for_sparse_(
+    const std::vector<std::string>& sparse_opt_states_files) {
   try {
     for (size_t i = 0; i < embeddings_.size(); i++) {
-      if (data_source_params.type == DataSourceType_t::HDFS) {
-        // TODO: Move to self-contained DataSourceBackend implementation.
-        if (i < sparse_opt_states_files.size()) {
-          std::ifstream sparse_opt_stream(sparse_opt_states_files[i], std::ifstream::binary);
-          HCTR_LOG_S(INFO, ROOT) << "Loading sparse optimizer states: "
-                                 << sparse_opt_states_files[i] << std::endl;
-          embeddings_[i]->load_opt_states(sparse_opt_stream, sparse_opt_states_files[i],
-                                          data_source_params);
-          sparse_opt_stream.close();
-        }
-      } else if (data_source_params.type == DataSourceType_t::Local) {
-        // TODO: Move to self-contained DataSourceBackend implementation.
-        if (i < sparse_opt_states_files.size()) {
-          std::ifstream sparse_opt_stream(sparse_opt_states_files[i], std::ifstream::binary);
-          if (!sparse_opt_stream.is_open()) {
-            HCTR_OWN_THROW(Error_t::WrongInput, "Cannot open sparse optimizer states file");
-          }
-          HCTR_LOG_S(INFO, ROOT) << "Loading sparse optimizer states: "
-                                 << sparse_opt_states_files[i] << std::endl;
-          embeddings_[i]->load_opt_states(sparse_opt_stream, sparse_opt_states_files[i],
-                                          data_source_params);
-          sparse_opt_stream.close();
-        }
-      } else {
-        HCTR_OWN_THROW(Error_t::WrongInput, "Filesystem not supported yet.");
+      // TODO: Move to self-contained DataSourceBackend implementation.
+      if (i < sparse_opt_states_files.size()) {
+        HCTR_LOG_S(INFO, ROOT) << "Loading sparse optimizer states: " << sparse_opt_states_files[i]
+                               << std::endl;
+        embeddings_[i]->load_opt_states(sparse_opt_states_files[i]);
       }
     }
   } catch (const internal_runtime_error& rt_err) {
@@ -2558,26 +2491,11 @@ Error_t Model::load_opt_states_for_sparse_(const std::vector<std::string>& spars
   return Error_t::Success;
 }
 
-Error_t Model::load_params_for_dense_(const std::string& model_file,
-                                      const DataSourceParams& data_source_params) {
+Error_t Model::load_params_for_dense_(const std::string& model_file) {
   try {
     std::unique_ptr<float[]> weight(new float[networks_[0]->get_params_num()]());
-    if (data_source_params.type == DataSourceType_t::HDFS) {
-      auto hs = data_source_params.create_unique();
-      hs->read(model_file, weight.get(), hs->get_file_size(model_file), 0);
-    } else if (data_source_params.type == DataSourceType_t::Local) {
-      // TODO: Move to self-contained DataSourceBackend implementation.
-      std::ifstream model_stream(model_file, std::ifstream::binary);
-      if (!model_stream.is_open()) {
-        HCTR_OWN_THROW(Error_t::WrongInput, "Cannot open dense model file");
-      }
-      model_stream.read(reinterpret_cast<char*>(weight.get()),
-                        networks_[0]->get_params_num() * sizeof(float));
-      HCTR_LOG_S(INFO, ROOT) << "Loading dense model: " << model_file << std::endl;
-      model_stream.close();
-    } else {
-      HCTR_OWN_THROW(Error_t::WrongInput, "Filesystem not supported");
-    }
+    auto fs = FileSystemBuilder::build_unique_by_path(model_file);
+    fs->read(model_file, weight.get(), fs->get_file_size(model_file), 0);
     for (auto& network : networks_) {
       network->upload_params_to_device(weight.get());
     }
@@ -2591,13 +2509,12 @@ Error_t Model::load_params_for_dense_(const std::string& model_file,
   return Error_t::Success;
 }
 
-Error_t Model::load_params_for_sparse_(const std::vector<std::string>& embedding_model_files,
-                                       const DataSourceParams& data_source_params) {
+Error_t Model::load_params_for_sparse_(const std::vector<std::string>& embedding_model_files) {
   try {
     for (size_t i = 0; i < embeddings_.size(); i++) {
       if (i < embedding_model_files.size()) {
         HCTR_LOG_S(INFO, ROOT) << "Loading sparse model: " << embedding_model_files[i] << std::endl;
-        embeddings_[i]->load_parameters(embedding_model_files[i], data_source_params);
+        embeddings_[i]->load_parameters(embedding_model_files[i]);
       }
     }
   } catch (const internal_runtime_error& rt_err) {
