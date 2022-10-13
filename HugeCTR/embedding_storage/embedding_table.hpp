@@ -25,9 +25,10 @@ class IGroupedEmbeddingTable : public ILookup {
  public:
   virtual ~IGroupedEmbeddingTable() = default;
 
-  virtual void update(const Tensor &keys, size_t num_keys, const Tensor &id_space_offset,
-                      size_t num_id_space_offset, const Tensor &id_space_list, Tensor &grad_ev,
-                      const Tensor &grad_ev_offset) = 0;
+  virtual void update(const Tensor &unique_key, size_t num_unique_key,
+                      const Tensor &num_unique_key_per_table_offset, size_t num_table_offset,
+                      const Tensor &table_id_list, Tensor &wgrad,
+                      const Tensor &wgrad_idx_offset) = 0;
 
   virtual void load(Tensor &keys, Tensor &id_space_offset, Tensor &embedding_table,
                     Tensor &ev_size_list, Tensor &id_space) = 0;
@@ -49,14 +50,7 @@ class IDynamicEmbeddingTable : public IGroupedEmbeddingTable {
                      size_t num_id_space_offset, const Tensor &id_space_list) = 0;
 };
 
-std::vector<std::unique_ptr<IGroupedEmbeddingTable>> create_embedding_table(
-    std::shared_ptr<HugeCTR::ResourceManager> resource_manager,
-    std::vector<std::shared_ptr<CoreResourceManager>> core_list,
-    const EmbeddingCollectionParam &embedding_collection_param,
-    const std::vector<EmbeddingTableParam> &emb_table_param_list,
-    const std::vector<EmbeddingShardingParam> &emb_sharding_param_list);
-
-std::vector<std::unique_ptr<IGroupedEmbeddingTable>> create_grouped_embedding_table(
+std::vector<std::unique_ptr<IGroupedEmbeddingTable>> create_grouped_embedding_tables(
     std::shared_ptr<HugeCTR::ResourceManager> resource_manager,
     std::shared_ptr<CoreResourceManager> core,
     const EmbeddingCollectionParam &embedding_collection_param,

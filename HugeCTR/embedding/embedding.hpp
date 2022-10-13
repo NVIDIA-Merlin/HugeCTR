@@ -14,74 +14,95 @@
  * limitations under the License.
  */
 #pragma once
-#include <any>
 #include <vector>
 
 #include "embedding_table.hpp"
 
 namespace embedding {
 
-class ContextContainer {
-  std::map<std::string, std::any> data_;
-
+class IGroupedEmbeddingOp {
  public:
-  template <typename T, typename = typename std::enable_if_t<std::is_copy_constructible_v<T>>>
-  void pack(const std::string &key, T t) {
-    if (data_.find(key) != data_.end()) {
-      HCTR_OWN_THROW(HugeCTR::Error_t::IllegalCall,
-                     "context container do not support pack same key.");
-    }
-    data_[key] = t;
-  }
-
-  template <typename T, typename = typename std::enable_if_t<std::is_copy_constructible_v<T>>>
-  T unpack(const std::string &key) {
-    return std::any_cast<T>(data_[key]);
-  }
-};
-
-class IEmbeddingCollectionForward {
- public:
-  virtual ~IEmbeddingCollectionForward() = default;
-
-  virtual void forward_per_gpu(const Tensor &key, const Tensor &bucket_range, size_t num_keys,
-                               const Tensor &sparse_weight,
-                               std::vector<ILookup *> &embedding_tables, Tensor &output_buffer,
-                               std::vector<ContextContainer *> *context_container_list) = 0;
-};
-
-class IEmbeddingCollectionBackward {
- public:
-  virtual ~IEmbeddingCollectionBackward() = default;
-
-  virtual void backward_per_gpu(std::vector<ContextContainer *> &context_container_list,
-                                Tensor &top_grad, std::vector<Tensor> *grad_key_list,
-                                std::vector<size_t> *num_grad_key_list,
-                                std::vector<Tensor> *grad_key_id_space_offset_list,
-                                std::vector<size_t> *num_grad_key_id_space_offset_list,
-                                std::vector<Tensor> *grad_ev_list,
-                                std::vector<Tensor> *grad_ev_offset_list,
-                                std::vector<Tensor> *grad_id_space_list_list,
-                                bool do_allreduce) = 0;
-};
-
-class IGroupedEmbeddingForward {
- public:
-  virtual ~IGroupedEmbeddingForward() = default;
+  virtual ~IGroupedEmbeddingOp() = default;
 
   virtual void forward_per_gpu(const Tensor &keys, const Tensor &bucket_range, size_t num_keys,
-                               const Tensor &sparse_weight, ILookup *embedding_table,
-                               Tensor &output_buffer, ContextContainer *context_container) = 0;
+                               ILookup *embedding_table, Tensor &output_buffer, int batch_size) = 0;
+
+  virtual void backward_per_gpu(const Tensor &top_grad, bool do_allreduce, Tensor *unique_key,
+                                size_t *num_unique_key, Tensor *num_unique_key_per_table_offset,
+                                size_t *num_table_offset, Tensor *table_id_list, Tensor *wgrad,
+                                Tensor *wgrad_idx_offset) = 0;
 };
 
-class IGroupedEmbeddingBackward {
+std::vector<std::unique_ptr<IGroupedEmbeddingOp>> create_grouped_embeddings(
+    std::shared_ptr<CoreResourceManager> core, const EmbeddingCollectionParam &ebc_param);
+
+namespace tf {
+
+// convert table-major data parallel csr input into communication buffer for all-gather
+class IAll2AllEmbeddingCollectionSwizzleKey {
  public:
-  virtual ~IGroupedEmbeddingBackward() = default;
+  virtual ~IAll2AllEmbeddingCollectionSwizzleKey() = default;
 
-  virtual void backward_per_gpu(ContextContainer *context_container, const Tensor &top_grad,
-                                bool do_allreduce, Tensor *grad_key, size_t *num_grad_key,
-                                Tensor *grad_key_id_space_offset,
-                                size_t *num_grad_key_id_space_offset, Tensor *grad_ev,
-                                Tensor *grad_ev_offset) = 0;
+  virtual void sparse_forward_per_gpu(
+      const std::vector<Tensor> &keys,        /* num of lookup operation */
+      const std::vector<Tensor> &row_lengths, /* num of lookup operation */
+      Tensor &key_all_gather_send_buffer, Tensor &row_lengths_all_gather_send_buffer) = 0;
 };
+
+// read key from all gather result, do local lookup / combine, write result to all2all send
+// buffer(emb_vec_model_buffer)
+class IAll2AllEmbeddingCollectionModelForward {
+ public:
+  virtual ~IAll2AllEmbeddingCollectionModelForward() = default;
+
+  virtual std::vector<size_t> get_model_comm_buffer_size(int batch_size) = 0;
+
+  virtual void sparse_forward_per_gpu(const Tensor &key_all_gather_recv_buffer,
+                                      const Tensor &row_lengths_all_gather_recv_buffer,
+                                      ILookup *emb_storage,
+                                      std::vector<Tensor> &emb_vec_model_buffer
+                                      /*num of gpus */,
+                                      int64_t *num_model_key, int64_t *num_model_offsets) = 0;
+
+  virtual void copy_model_keys_and_offsets(Tensor &model_key, Tensor &model_offsets) = 0;
+};
+
+// all2all will happen to send data from emb_vec_model_buffer to emb_vec_network_buffer.
+// read emb vec from emb_vec_network_buffer and write to forward_emb_vec.
+class IAll2AllEmbeddingCollectionNetworkForward {
+ public:
+  virtual ~IAll2AllEmbeddingCollectionNetworkForward() = default;
+
+  virtual void sparse_forward_per_gpu(
+      const std::vector<Tensor> &emb_vec_network_buffer, /* num of gpus*/
+      const std::vector<Tensor> &row_lengths,            /* num of lookup operations*/
+      std::vector<Tensor> &forward_emb_vec /* num of lookup operations*/) = 0;
+};
+
+// the backward process of IAll2AllEmbeddingCollectionNetworkForward. It's the same for both spaarse
+// and dense use case.
+class IAll2AllEmbeddingCollectionNetworkBackward {
+ public:
+  virtual ~IAll2AllEmbeddingCollectionNetworkBackward() = default;
+
+  virtual void backward_per_gpu(
+      const std::vector<Tensor> &top_grad,
+      const std::vector<Tensor> &row_lengths, /* num of lookup operations*/
+      std::vector<Tensor> &emb_vec_network_buffer /* num of gpus*/) = 0;
+};
+
+// read emb vec from emb_vec_model_buffer and do grad accumulation to get grad.
+class IAll2AllEmbeddingCollectionModelBackward {
+ public:
+  virtual ~IAll2AllEmbeddingCollectionModelBackward() = default;
+
+  virtual void sparse_backward_per_gpu(const std::vector<Tensor> &emb_vec_model_buffer,
+                                       const Tensor &model_key, const Tensor &model_offsets,
+                                       std::vector<int> *num_unique_key_per_table,
+                                       std::vector<int> *table_id_list) = 0;
+  virtual void copy_backward_key_and_emb_vec(std::vector<Tensor> &unique_key,
+                                             std::vector<Tensor> &emb_vec) = 0;
+};
+
+}  // namespace tf
 }  // namespace embedding

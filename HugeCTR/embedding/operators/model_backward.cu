@@ -62,19 +62,18 @@ void ModelBackward::compute(const TensorList& model_comm_buffer, const Tensor& u
   auto stream = core_->get_local_gpu()->get_stream();
   int batch_size_per_gpu = batch_size / num_gpus_;
 
-  cudaMemsetAsync(grad_ev_.get(), 0, grad_ev_.nbytes(), core_->get_local_gpu()->get_stream());
+  cudaMemsetAsync(grad_ev_.get(), 0, grad_ev_.nbytes(), stream);
   DISPATCH_FLOAT_AND_HALF_FUNCTION(model_comm_buffer.dtype().type(), emb_t, [&] {
     const uint32_t* unique_dst_idx_ptr = unique_dst_idx.get<uint32_t>();
     const emb_t** model_comm_buffer_ptr = model_comm_buffer.get<emb_t>();
     const int* local_ev_offset_list_ptr = d_local_ev_size_offset.get<int>();
-    auto stream = core_->get_local_gpu()->get_stream();
-    uint32_t* corrdinate_key_ptr = (uint32_t*)corrdinate_key.get();
-    uint32_t* sorted_bucket_id_list_ptr = (uint32_t*)sorted_bucket_id_list.get();
-    uint32_t* coordinate_wgrad_dst_idx_ptr = (uint32_t*)coordinate_wgrad_dst_idx.get();
-    auto partial_grad_ev_ptr = (float*)partial_grad_ev_.get();
-    auto partial_key_ptr = (uint32_t*)partial_key_.get();
-    auto partial_ev_length_ptr = (int*)partial_ev_length_.get();
-    auto partial_dst_offset_array_ptr = (uint32_t*)partial_dst_offset_array_.get();
+    const uint32_t* corrdinate_key_ptr = corrdinate_key.get<uint32_t>();
+    const uint32_t* sorted_bucket_id_list_ptr = sorted_bucket_id_list.get<uint32_t>();
+    const uint32_t* coordinate_wgrad_dst_idx_ptr = coordinate_wgrad_dst_idx.get<uint32_t>();
+    auto partial_grad_ev_ptr = partial_grad_ev_.get<float>();
+    auto partial_key_ptr = partial_key_.get<uint32_t>();
+    auto partial_ev_length_ptr = partial_ev_length_.get<int32_t>();
+    auto partial_dst_offset_array_ptr = partial_dst_offset_array_.get<uint32_t>();
     float* grad_ev_ptr = grad_ev_.get<float>();
 
     auto multi_to_one_desc_first_stage = make_MultiToOne_reduce<emb_t, float>(

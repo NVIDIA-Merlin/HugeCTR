@@ -21,53 +21,60 @@
 #include <numeric>
 #include <unordered_set>
 
+#include "HugeCTR/embedding/view.hpp"
 #include "embedding_table_cpu.hpp"
-#include "view_cpu.hpp"
 
 using namespace embedding;
 
-template <typename key_t, typename offset_t>
-struct DPForwardIndicesCPU {
-  std::vector<key_t> dp_key_list_;
-  std::vector<uint32_t> dp_offset_list_;
-  std::vector<int> dp_dst_list_;
+struct DataParallelEmbeddingMetaCPU {
+  int gpu_id;
+  int num_gpus;
 
-  int num_local_embedding_;
-  std::vector<int> local_embedding_list_;
-  int gpu_id_;
-  int num_gpus_;
+  int num_lookup;
+  std::vector<int> table_ids;
+  std::vector<int> lookup_ids;
+  std::vector<int> max_hotnesses;
+  std::vector<Combiner> combiners;
+  std::vector<int> ev_sizes;
+  std::vector<int> ev_offsets;
 
-  DPForwardIndicesCPU(const std::vector<int> &local_embedding_list, int gpu_id, int num_gpu)
-      : num_local_embedding_(local_embedding_list.size()),
-        local_embedding_list_(local_embedding_list),
-        gpu_id_(gpu_id),
-        num_gpus_(num_gpu) {}
+  std::vector<int> dst_buffer_ev_sizes;
+  std::vector<int> dst_buffer_ev_offsets;
+  DataParallelEmbeddingMetaCPU(int _gpu_id, int _num_gpus,
+                               const EmbeddingCollectionParam &ebc_param, int emb_id)
+      : gpu_id(_gpu_id), num_gpus(_num_gpus), ev_offsets{0}, dst_buffer_ev_offsets{0} {
+    const auto &emb_param = ebc_param.grouped_emb_params[emb_id];
+    for (int lookup_id = 0; lookup_id < static_cast<int>(ebc_param.lookup_params.size());
+         ++lookup_id) {
+      const auto &lookup_param = ebc_param.lookup_params[lookup_id];
+      Combiner combiner = lookup_param.combiner;
+      int max_hotness = lookup_param.max_hotness;
+      int ev_size = (combiner == Combiner::Concat) ? max_hotness * lookup_param.ev_size
+                                                   : lookup_param.ev_size;
+      dst_buffer_ev_sizes.push_back(ev_size);
+      dst_buffer_ev_offsets.push_back(ev_size);
 
-  void compute(const std::vector<key_t> &keys, const std::vector<offset_t> &bucket_range,
-               int batch_size) {
-    int batch_size_per_gpu = batch_size / num_gpus_;
-
-    dp_key_list_.clear();
-    dp_offset_list_.clear();
-    dp_offset_list_.push_back(0);
-    dp_dst_list_.clear();
-    for (int tid = 0; tid < num_local_embedding_ * batch_size_per_gpu; ++tid) {
-      int embedding_id = local_embedding_list_[tid / batch_size_per_gpu];
-      int batch_id = tid % batch_size_per_gpu;
-
-      int bucket_id = batch_size * embedding_id + gpu_id_ * batch_size_per_gpu + batch_id;
-      offset_t start = bucket_range[bucket_id];
-      offset_t end = bucket_range[bucket_id + 1];
-      for (offset_t i = 0; i < (end - start); ++i) {
-        dp_key_list_.push_back(keys[start + i]);
+      int table_id = lookup_param.table_id;
+      if (std::find(emb_param.table_ids.begin(), emb_param.table_ids.end(), table_id) ==
+          emb_param.table_ids.end()) {
+        continue;
       }
-      dp_offset_list_.push_back(static_cast<uint32_t>(end - start));
-
-      int dst_bucket_id = batch_size_per_gpu * embedding_id + batch_id;
-      dp_dst_list_.push_back(dst_bucket_id);
+      HCTR_CHECK_HINT(ebc_param.shard_matrix[gpu_id][table_id] == 1,
+                      "dp table must be shared on all gpus");
+      table_ids.push_back(table_id);
+      lookup_ids.push_back(lookup_id);
+      max_hotnesses.push_back(lookup_param.max_hotness);
+      combiners.push_back(lookup_param.combiner);
+      HCTR_CHECK_HINT(lookup_param.combiner != Combiner::Concat,
+                      "DataParallelEmbedding CPU does not support concat combiner");
+      ev_sizes.push_back(lookup_param.ev_size);
+      ev_offsets.push_back(lookup_param.ev_size);
     }
+    num_lookup = static_cast<int>(lookup_ids.size());
 
-    std::inclusive_scan(dp_offset_list_.begin(), dp_offset_list_.end(), dp_offset_list_.begin());
+    std::partial_sum(ev_offsets.begin(), ev_offsets.end(), ev_offsets.begin());
+    std::partial_sum(dst_buffer_ev_offsets.begin(), dst_buffer_ev_offsets.end(),
+                     dst_buffer_ev_offsets.begin());
   }
 };
 
@@ -75,286 +82,172 @@ template <typename key_t, typename offset_t, typename index_t, typename emb_t>
 class DataParallelEmbeddingCPU {
  public:
   int num_gpus_;
-  int num_embedding_;
-  int num_table_;
-  EmbeddingCollectionParam ebc_param_;
-  std::vector<EmbeddingShardingParam> sharding_param_list_;
+  std::vector<DataParallelEmbeddingMetaCPU> metas_;
+  std::vector<std::vector<key_t>> selected_keys_;
+  std::vector<std::vector<uint32_t>> num_selected_keys_per_bucket_offset_;
 
-  std::vector<int> ev_size_list_;
-  std::vector<int> ev_offset_list_;
-  std::vector<char> combiner_list_;
-
-  std::vector<std::vector<int>> local_id_space_list_;
-  std::vector<std::vector<int>> local_embedding_list_;
-  std::vector<std::vector<int>> local_hotness_list_;
-  std::vector<std::vector<int>> local_ev_size_list_;
-  std::vector<std::vector<int>> local_ev_offset_list_;
-  std::vector<std::vector<char>> local_combiner_list_;
-
-  std::vector<DPForwardIndicesCPU<key_t, offset_t>> forward_indices_;
-
-  std::vector<std::vector<key_t>> unique_key_list_;
-  std::vector<std::vector<uint32_t>> sorted_bucket_id_list_;
-  std::vector<std::vector<uint32_t>> sorted_bucket_id_offset_list_;
-  std::vector<std::vector<int>> num_unique_key_scan_list_;
-
-  std::vector<RaggedGradBufferCPU<float>> grad_;
-
-  std::vector<std::unordered_map<key_t, std::vector<uint32_t>>> dp_backward_info_;
-
-  DataParallelEmbeddingCPU(int num_gpus, int num_table, const EmbeddingCollectionParam &ebc_param,
-                           const std::vector<EmbeddingShardingParam> &sharding_param_list)
-      : num_gpus_(num_gpus),
-        num_embedding_(ebc_param.num_embedding),
-        num_table_(num_table),
-        ebc_param_(ebc_param),
-        sharding_param_list_(sharding_param_list),
-        ev_offset_list_{0} {
-    for (int i = 0; i < num_embedding_; ++i) {
-      ev_size_list_.push_back(ebc_param_.embedding_params[i].ev_size);
-      ev_offset_list_.push_back(ebc_param_.embedding_params[i].ev_size);
-      combiner_list_.push_back(static_cast<char>(ebc_param_.embedding_params[i].combiner));
-    }
-    std::partial_sum(ev_offset_list_.begin(), ev_offset_list_.end(), ev_offset_list_.begin());
-
-    local_id_space_list_.resize(num_gpus_);
-    local_embedding_list_.resize(num_gpus_);
-    local_hotness_list_.resize(num_gpus_);
-    local_ev_size_list_.resize(num_gpus_);
-    local_ev_offset_list_.resize(num_gpus_);
-    local_combiner_list_.resize(num_gpus_);
-
-    auto &embedding_params = ebc_param_.embedding_params;
+  DataParallelEmbeddingCPU(int num_gpus, const EmbeddingCollectionParam &ebc_param, int emb_id)
+      : num_gpus_(num_gpus) {
     for (int gpu_id = 0; gpu_id < num_gpus; ++gpu_id) {
-      local_ev_offset_list_[gpu_id].push_back(0);
-      for (int embedding_id : sharding_param_list[gpu_id].local_embedding_list) {
-        local_id_space_list_[gpu_id].push_back(embedding_params[embedding_id].id_space);
-        local_embedding_list_[gpu_id].push_back(embedding_id);
-        local_hotness_list_[gpu_id].push_back(embedding_params[embedding_id].hotness);
-        local_ev_size_list_[gpu_id].push_back(embedding_params[embedding_id].ev_size);
-        local_ev_offset_list_[gpu_id].push_back(embedding_params[embedding_id].ev_size);
-        local_combiner_list_[gpu_id].push_back(
-            static_cast<char>(embedding_params[embedding_id].combiner));
-      }
-      std::inclusive_scan(local_ev_offset_list_[gpu_id].begin(),
-                          local_ev_offset_list_[gpu_id].end(),
-                          local_ev_offset_list_[gpu_id].begin());
+      metas_.emplace_back(gpu_id, num_gpus, ebc_param, emb_id);
     }
-
-    for (int gpu_id = 0; gpu_id < num_gpus_; ++gpu_id) {
-      forward_indices_.emplace_back(local_embedding_list_[gpu_id], gpu_id, num_gpus_);
-    }
-
-    unique_key_list_.resize(num_gpus);
-    sorted_bucket_id_list_.resize(num_gpus);
-    sorted_bucket_id_offset_list_.resize(num_gpus);
-    num_unique_key_scan_list_.resize(num_gpus);
-    for (int gpu_id = 0; gpu_id < num_gpus; ++gpu_id) {
-      grad_.emplace_back(ebc_param.universal_batch_size, local_id_space_list_[gpu_id],
-                         local_ev_size_list_[gpu_id], local_hotness_list_[gpu_id]);
-    }
+    selected_keys_.resize(num_gpus_);
+    num_selected_keys_per_bucket_offset_.resize(num_gpus_);
   }
 
-  void cpu_dp_model_forward_per_gpu(int gpu_id, int batch_size,
-                                    const EmbeddingTableCPU<key_t, index_t> &emb_table_cpu,
-                                    std::vector<std::vector<emb_t>> &embedding_vec) {
+  void forward_per_gpu(int gpu_id, const std::vector<key_t> &keys,
+                       const std::vector<offset_t> &bucket_range,
+                       const EmbeddingTableCPU<key_t, index_t> &emb_table_cpu,
+                       std::vector<emb_t> &embedding_vec, int batch_size) {
     int batch_size_per_gpu = batch_size / num_gpus_;
-    RaggedEmbForwardResultViewCPU<emb_t> forward_result_view{&embedding_vec[gpu_id], &ev_size_list_,
-                                                             &ev_offset_list_, batch_size_per_gpu};
+    selected_keys_[gpu_id].clear();
+    num_selected_keys_per_bucket_offset_[gpu_id].clear();
+    num_selected_keys_per_bucket_offset_[gpu_id].push_back(0);
+    ASSERT_TRUE(gpu_id == metas_[gpu_id].gpu_id);
 
-    auto &indices = forward_indices_[gpu_id];
-    for (int bucket_id = 0; bucket_id < static_cast<int>(indices.dp_offset_list_.size()) - 1;
-         ++bucket_id) {
-      int local_emb_id = bucket_id / batch_size_per_gpu;
-
-      int id_space = local_id_space_list_[gpu_id][local_emb_id];
-      char combiner = local_combiner_list_[gpu_id][local_emb_id];
-
-      int dst_bucket_id = indices.dp_dst_list_[bucket_id];
-      ArrayView<emb_t> dst_ev = forward_result_view[dst_bucket_id];
-      std::vector<float> accumulate_vec;
-      accumulate_vec.assign(dst_ev.size(), 0.f);
-
-      uint32_t start = indices.dp_offset_list_[bucket_id];
-      uint32_t end = indices.dp_offset_list_[bucket_id + 1];
-      for (uint32_t r = 0; r < (end - start); ++r) {
-        key_t k = indices.dp_key_list_[start + r];
-        ASSERT_TRUE(emb_table_cpu.emb_table_list_[id_space].find(k) !=
-                    emb_table_cpu.emb_table_list_[id_space].end());
-        auto ev = emb_table_cpu.emb_table_list_[id_space].at(k);
-        assert(ev.size() == accumulate_vec.size());
-
-        for (int i = 0; i < dst_ev.size(); ++i) {
-          accumulate_vec[i] += ev[i];
-        }
-      }
-
-      if (combiner == static_cast<char>(Combiner::Average) && (end - start) > 0) {
-        for (int i = 0; i < dst_ev.size(); ++i) {
-          accumulate_vec[i] /= (end - start);
-        }
-      }
-
-      for (int i = 0; i < dst_ev.size(); ++i) {
-        dst_ev[i] = HugeCTR::TypeConvert<emb_t, float>::convert(accumulate_vec[i]);
-      }
-    }
-  }
-
-  void cpu_dp_backward_index_calculation_per_gpu(int gpu_id, int batch_size,
-                                                 const std::vector<key_t> &keys,
-                                                 const std::vector<offset_t> &bucket_range) {
-    if (gpu_id == 0) {
-      dp_backward_info_.resize(local_id_space_list_[gpu_id].size());
-    }
-    int batch_size_per_gpu = batch_size / num_gpus_;
-
-    for (size_t i = 0; i < local_embedding_list_[gpu_id].size(); ++i) {
-      int embedding_id = local_embedding_list_[gpu_id][i];
-
-      int batch_start = gpu_id * batch_size_per_gpu;
-      for (int batch_id = 0; batch_id < batch_size_per_gpu; ++batch_id) {
-        uint32_t bucket_id = embedding_id * batch_size + batch_start + batch_id;
-
-        uint32_t start = bucket_range[bucket_id];
-        uint32_t end = bucket_range[bucket_id + 1];
-        for (uint32_t r = 0; r < (end - start); ++r) {
-          dp_backward_info_[i][keys[r + start]].push_back(bucket_id);
-        }
-      }
-    }
-  }
-
-  std::vector<float> cpu_dp_combiner_backward_per_gpu(
-      int gpu_id, const std::vector<std::vector<emb_t>> &top_grads,
-      const std::vector<offset_t> &bucket_range, int batch_size) {
-    int batch_size_per_gpu = batch_size / num_gpus_;
-
-    std::vector<float> float_top_grads;
-    for (int embedding_id = 0; embedding_id < num_embedding_; ++embedding_id) {
-      int ev_size = ev_size_list_[embedding_id];
-      char combiner = combiner_list_[embedding_id];
+    for (int i = 0; i < metas_[gpu_id].num_lookup; ++i) {
+      int lookup_id = metas_[gpu_id].lookup_ids[i];
       for (int b = 0; b < batch_size_per_gpu; ++b) {
-        std::vector<emb_t> grad;
-        std::copy_n(top_grads[gpu_id].begin() + ev_offset_list_[embedding_id] * batch_size_per_gpu +
-                        b * ev_size,
-                    ev_size, std::back_inserter(grad));
-
-        int range_start = batch_size * embedding_id + gpu_id * batch_size_per_gpu + b;
-        int num_key = bucket_range[range_start + 1] - bucket_range[range_start];
-        if (std::find(local_embedding_list_[gpu_id].begin(), local_embedding_list_[gpu_id].end(),
-                      embedding_id) != local_embedding_list_[gpu_id].end() &&
-            combiner == static_cast<char>(Combiner::Average)) {
-          for (size_t i = 0; i < grad.size(); ++i) {
-            float gi = HugeCTR::TypeConvert<float, emb_t>::convert(grad[i]);
-            float_top_grads.push_back(gi / num_key);
-          }
-        } else {
-          for (size_t i = 0; i < grad.size(); ++i) {
-            float gi = HugeCTR::TypeConvert<float, emb_t>::convert(grad[i]);
-            float_top_grads.push_back(gi);
-          }
+        int bucket_id = batch_size * lookup_id + gpu_id * batch_size_per_gpu + b;
+        uint32_t start = static_cast<uint32_t>(bucket_range[bucket_id]);
+        uint32_t end = static_cast<uint32_t>(bucket_range[bucket_id + 1]);
+        for (uint32_t r = 0; r < end - start; ++r) {
+          selected_keys_[gpu_id].push_back(keys[start + r]);
         }
+        num_selected_keys_per_bucket_offset_[gpu_id].push_back(end - start);
       }
     }
-    // std::cout << "top_grads:\n";
-    // for (emb_t i: top_grads[gpu_id]) {
-    //   std::cout << HugeCTR::TypeConvert<float, emb_t>::convert(i) << " ";
-    // }
-    // std::cout << "\n";
+    std::partial_sum(num_selected_keys_per_bucket_offset_[gpu_id].begin(),
+                     num_selected_keys_per_bucket_offset_[gpu_id].end(),
+                     num_selected_keys_per_bucket_offset_[gpu_id].begin());
 
-    // std::cout << "float_top_grads:\n";
-    // for (float i: float_top_grads) {
-    //   std::cout << i << " ";
-    // }
-    // std::cout << "\n";
+    for (int i = 0; i < metas_[gpu_id].num_lookup; ++i) {
+      int table_id = metas_[gpu_id].table_ids[i];
+      int lookup_id = metas_[gpu_id].lookup_ids[i];
+      int ev_size = metas_[gpu_id].ev_sizes[i];
+      Combiner combiner = metas_[gpu_id].combiners[i];
 
-    return float_top_grads;
-  }
-  void cpu_dp_local_reduce_per_gpu(
-      int gpu_id, const std::vector<std::vector<emb_t>> &top_grads,
-      const std::vector<offset_t> &bucket_range,
-      std::vector<std::unordered_map<key_t, std::vector<float>>> &grad_info, int batch_size) {
-    int batch_size_per_gpu = batch_size / num_gpus_;
+      int dst_buffer_ev_offset = metas_[gpu_id].dst_buffer_ev_offsets[lookup_id];
+      int dst_buffer_ev_size = metas_[gpu_id].dst_buffer_ev_sizes[lookup_id];
+      ASSERT_EQ(dst_buffer_ev_size, ev_size);
 
-    std::vector<std::unordered_map<key_t, std::vector<float>>> local_reduce_grad_info;
-    local_reduce_grad_info.resize(grad_info.size());
-    std::vector<float> float_top_grad =
-        cpu_dp_combiner_backward_per_gpu(gpu_id, top_grads, bucket_range, batch_size);
+      for (int b = 0; b < batch_size_per_gpu; ++b) {
+        int i_bucket = batch_size_per_gpu * i + b;
+        uint32_t start = num_selected_keys_per_bucket_offset_[gpu_id][i_bucket];
+        uint32_t end = num_selected_keys_per_bucket_offset_[gpu_id][i_bucket + 1];
 
-    for (size_t idx = 0; idx < local_id_space_list_[gpu_id].size(); ++idx) {
-      int id_space = local_id_space_list_[gpu_id][idx];
-      int ev_size = local_ev_size_list_[gpu_id][idx];
+        ArrayView<emb_t> dst_ev{
+            &embedding_vec[batch_size_per_gpu * dst_buffer_ev_offset + b * ev_size], ev_size};
+        ASSERT_EQ(dst_ev.size(), metas_[gpu_id].ev_sizes[i]);
+        std::vector<float> accumulate_vec;
+        accumulate_vec.assign(dst_ev.size(), 0.f);
 
-      auto &dp_backward_info_in_current_id_space = dp_backward_info_[idx];
-      auto &grad_info_in_current_id_space = local_reduce_grad_info[id_space];
-      for (auto &key_bucket_id_pair : dp_backward_info_in_current_id_space) {
-        key_t k = key_bucket_id_pair.first;
-        auto &bucket_id_list = key_bucket_id_pair.second;
-        for (auto bucket_id : bucket_id_list) {
-          int embedding_id = bucket_id / batch_size;
-          int batch_id = bucket_id % batch_size;
-          if (batch_id >= gpu_id * batch_size_per_gpu &&
-              batch_id < (gpu_id + 1) * batch_size_per_gpu) {
-            int local_batch_id = batch_id - gpu_id * batch_size_per_gpu;
-            std::vector<float> gi;
-            int start =
-                ev_offset_list_[embedding_id] * batch_size_per_gpu + local_batch_id * ev_size;
-            int end = start + ev_size;
-            for (int i = start; i < end; ++i) {
-              gi.push_back(float_top_grad[i]);
-            }
-            for (size_t i = 0; i < gi.size(); ++i) {
-              if (grad_info_in_current_id_space.find(k) == grad_info_in_current_id_space.end()) {
-                grad_info_in_current_id_space[k].assign(ev_size, 0.f);
-              }
-              grad_info_in_current_id_space[k][i] += gi[i];
-            }
+        for (uint32_t r = 0; r < (end - start); ++r) {
+          key_t k = selected_keys_[gpu_id][start + r];
+          ASSERT_TRUE(table_id < static_cast<int>(emb_table_cpu.emb_table_list_.size()));
+          ASSERT_TRUE(emb_table_cpu.emb_table_list_[table_id].find(k) !=
+                      emb_table_cpu.emb_table_list_[table_id].end());
+          auto ev = emb_table_cpu.emb_table_list_[table_id].at(k);
+          ASSERT_TRUE(ev.size() == accumulate_vec.size());
+          for (int e = 0; e < dst_ev.size(); ++e) {
+            accumulate_vec[e] += ev[e];
           }
         }
-      }
-    }
-    for (size_t idx = 0; idx < local_id_space_list_[gpu_id].size(); ++idx) {
-      int id_space = local_id_space_list_[gpu_id][idx];
-      int ev_size = local_ev_size_list_[gpu_id][idx];
 
-      auto &local_grad_in_current_id_space = local_reduce_grad_info[id_space];
-      auto &grad_info_in_current_id_space = grad_info[id_space];
-      for (auto &[k, ev] : local_grad_in_current_id_space) {
-        if (grad_info_in_current_id_space.find(k) == grad_info_in_current_id_space.end()) {
-          grad_info_in_current_id_space[k].assign(ev_size, 0.f);
+        if (combiner == Combiner::Average && (end - start) > 0) {
+          for (int i = 0; i < dst_ev.size(); ++i) {
+            accumulate_vec[i] /= (end - start);
+          }
         }
-        ASSERT_EQ(grad_info_in_current_id_space[k].size(), ev_size);
-        ASSERT_EQ(local_grad_in_current_id_space[k].size(), ev_size);
-        for (int i = 0; i < ev_size; ++i) {
-          grad_info_in_current_id_space[k][i] += local_grad_in_current_id_space[k][i];
+
+        for (int e = 0; e < dst_ev.size(); ++e) {
+          dst_ev[e] = HugeCTR::TypeConvert<emb_t, float>::convert(accumulate_vec[e]);
         }
       }
     }
   }
 
-  void embedding_forward_cpu(const std::vector<key_t> &t_keys,
-                             const std::vector<offset_t> &flatten_concat_bucket_range,
+  void embedding_forward_cpu(const std::vector<key_t> &keys,
+                             const std::vector<offset_t> &bucket_range,
                              const EmbeddingTableCPU<key_t, index_t> &emb_table_cpu,
                              std::vector<std::vector<emb_t>> &embedding_vec, int batch_size) {
-    dp_backward_info_.clear();
     for (int gpu_id = 0; gpu_id < num_gpus_; ++gpu_id) {
-      forward_indices_[gpu_id].compute(t_keys, flatten_concat_bucket_range, batch_size);
+      forward_per_gpu(gpu_id, keys, bucket_range, emb_table_cpu, embedding_vec[gpu_id], batch_size);
+    }
+  }
+
+  void backward_per_gpu(int gpu_id, const std::vector<emb_t> &top_grad,
+                        std::vector<std::unordered_map<key_t, std::vector<float>>> &grad_info,
+                        int batch_size) {
+    int batch_size_per_gpu = batch_size / num_gpus_;
+    std::vector<float> float_top_grad;
+    float_top_grad.resize(batch_size_per_gpu * metas_[gpu_id].ev_offsets.back());
+    for (int i = 0; i < metas_[gpu_id].num_lookup; ++i) {
+      int lookup_id = metas_[gpu_id].lookup_ids[i];
+      int ev_size = metas_[gpu_id].ev_sizes[i];
+      int ev_offset = metas_[gpu_id].ev_offsets[i];
+      Combiner combiner = metas_[gpu_id].combiners[i];
+
+      int dst_buffer_ev_offset = metas_[gpu_id].dst_buffer_ev_offsets[lookup_id];
+      int dst_buffer_ev_size = metas_[gpu_id].dst_buffer_ev_sizes[lookup_id];
+      ASSERT_EQ(dst_buffer_ev_size, ev_size);
+
+      for (int b = 0; b < batch_size_per_gpu; ++b) {
+        ArrayView<float> float_top_grad_ev{
+            &float_top_grad[batch_size_per_gpu * ev_offset + b * ev_size], ev_size};
+        ArrayView<emb_t> top_grad_ev{
+            const_cast<emb_t *>(&top_grad[batch_size_per_gpu * dst_buffer_ev_offset + b * ev_size]),
+            ev_size};
+        int i_bucket = i * batch_size_per_gpu + b;
+        int num_keys = (combiner == Combiner::Average)
+                           ? num_selected_keys_per_bucket_offset_[gpu_id][i_bucket + 1] -
+                                 num_selected_keys_per_bucket_offset_[gpu_id][i_bucket]
+                           : 1;
+        for (int e = 0; e < float_top_grad_ev.size(); ++e) {
+          if (num_keys > 0) {
+            float_top_grad_ev[e] =
+                HugeCTR::TypeConvert<float, emb_t>::convert(top_grad_ev[e]) / num_keys;
+          }
+        }
+      }
     }
 
-    for (int gpu_id = 0; gpu_id < num_gpus_; ++gpu_id) {
-      cpu_dp_model_forward_per_gpu(gpu_id, batch_size, emb_table_cpu, embedding_vec);
-      cpu_dp_backward_index_calculation_per_gpu(gpu_id, batch_size, t_keys,
-                                                flatten_concat_bucket_range);
+    for (int i = 0; i < metas_[gpu_id].num_lookup; ++i) {
+      int table_id = metas_[gpu_id].table_ids[i];
+      ASSERT_TRUE(table_id < static_cast<int>(grad_info.size()));
+      auto &wgrad_dict = grad_info[table_id];
+      int ev_size = metas_[gpu_id].ev_sizes[i];
+      int ev_offset = metas_[gpu_id].ev_offsets[i];
+
+      for (int b = 0; b < batch_size_per_gpu; ++b) {
+        int i_bucket = i * batch_size_per_gpu + b;
+        uint32_t start = num_selected_keys_per_bucket_offset_[gpu_id][i_bucket];
+        uint32_t end = num_selected_keys_per_bucket_offset_[gpu_id][i_bucket + 1];
+
+        ArrayView<float> float_ev{&float_top_grad[batch_size_per_gpu * ev_offset + b * ev_size],
+                                  ev_size};
+        for (uint32_t r = 0; r < end - start; ++r) {
+          key_t k = selected_keys_[gpu_id][r + start];
+          if (wgrad_dict.find(k) == wgrad_dict.end()) {
+            for (int e = 0; e < float_ev.size(); ++e) {
+              wgrad_dict[k].push_back(float_ev[e]);
+            }
+            continue;
+          }
+          ASSERT_EQ(wgrad_dict[k].size(), float_ev.size());
+          for (int e = 0; e < float_ev.size(); ++e) {
+            wgrad_dict[k][e] += float_ev[e];
+          }
+        }
+      }
     }
   }
 
   void embedding_backward_cpu(const std::vector<std::vector<emb_t>> &top_grads,
-                              const std::vector<offset_t> &bucket_range,
                               std::vector<std::unordered_map<key_t, std::vector<float>>> &grad_info,
                               int batch_size) {
     for (int gpu_id = 0; gpu_id < num_gpus_; ++gpu_id) {
-      cpu_dp_local_reduce_per_gpu(gpu_id, top_grads, bucket_range, grad_info, batch_size);
+      backward_per_gpu(gpu_id, top_grads[gpu_id], grad_info, batch_size);
     }
   }
 };

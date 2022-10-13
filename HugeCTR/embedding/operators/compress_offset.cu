@@ -50,7 +50,7 @@ void CompressOffset::compute(const Tensor &offset, int stride, Tensor *compresse
   *compressed_offset = compressed_offset_;
 }
 
-AverageCominber::AverageCominber(std::shared_ptr<CoreResourceManager> core, int num_gpus,
+AverageCombiner::AverageCombiner(std::shared_ptr<CoreResourceManager> core, int num_gpus,
                                  int num_local_embedding, const std::vector<int> &ev_size_list,
                                  int universal_batch_size)
     : core_(core), num_gpus_(num_gpus), num_local_embedding_(num_local_embedding) {
@@ -64,7 +64,7 @@ AverageCominber::AverageCominber(std::shared_ptr<CoreResourceManager> core, int 
   buffer_ptr->allocate();
 }
 
-void AverageCominber::forward(const Tensor &bucket_range, Tensor &dst_emb_vec,
+void AverageCombiner::compute(const Tensor &bucket_range, const Tensor &top_grad,
                               const Tensor &d_local_embedding_list, const Tensor &d_combiner_list,
                               const Tensor &d_ev_size_offset, int batch_size, int max_ev_size) {
   HugeCTR::CudaDeviceContext ctx(core_->get_device_id());
@@ -73,93 +73,49 @@ void AverageCominber::forward(const Tensor &bucket_range, Tensor &dst_emb_vec,
   int batch_size_per_gpu = batch_size / num_gpus_;
 
   DISPATCH_INTEGRAL_FUNCTION(bucket_range.dtype().type(), offset_t, [&] {
-    DISPATCH_FLOAT_AND_HALF_FUNCTION(dst_emb_vec.dtype().type(), emb_t, [&] {
-      auto get_idx = [local_embedding_ptr = d_local_embedding_list.get<int>(),
-                      batch_size_per_gpu] __device__(int index) {
-        int batch_id = index % batch_size_per_gpu;
-        int embedding_id = local_embedding_ptr[index / batch_size_per_gpu];
-        return embedding_id * batch_size_per_gpu + batch_id;
-      };
-      LambdaIterator<int, int32_t, decltype(get_idx)> src_idx_iter(
-          get_idx, batch_size_per_gpu * num_local_embedding_);
+    DISPATCH_FLOAT_AND_HALF_FUNCTION(top_grad.dtype().type(), emb_t, [&] {
+      const offset_t *bucket_range_ptr = bucket_range.get<offset_t>();
+      const int *local_embedding_ptr = d_local_embedding_list.get<int>();
+      const int *d_ev_size_offset_ptr = d_ev_size_offset.get<int>();
+      const emb_t *top_grad_ptr = top_grad.get<emb_t>();
+      const char *combiner_ptr = d_combiner_list.get<char>();
+      float *float_emb_vec_ptr = float_emb_vec_.get<float>();
+      int gpu_id = core_->get_global_gpu_id();
 
-      auto scaler_array = [local_embedding_ptr = d_local_embedding_list.get<int>(),
-                           combiner_ptr = d_combiner_list.get<char>(),
-                           bucket_range_ptr = bucket_range.get<offset_t>(), batch_size_per_gpu,
-                           batch_size, gpu_id] __device__(int index) {
-        int batch_id = index % batch_size_per_gpu;
-        int embedding_id = local_embedding_ptr[index / batch_size_per_gpu];
-        if (combiner_ptr[embedding_id] == static_cast<char>(Combiner::Average)) {
-          int start = batch_size * embedding_id + gpu_id * batch_size_per_gpu + batch_id;
-          return static_cast<int>(bucket_range_ptr[start + 1] - bucket_range_ptr[start]);
-        } else {
-          return 1;
-        }
-      };
-      LambdaIterator<int, int32_t, decltype(scaler_array)> scaler_arr_iter(
-          scaler_array, batch_size_per_gpu * num_local_embedding_);
+      auto multi_to_one_desc = make_MultiToOne<emb_t, float>(
+          batch_size_per_gpu * num_local_embedding_, [=] __device__(int i) { return i; },
+          [=] __device__(int i) {
+            int bid = i % batch_size_per_gpu;
+            int lookup_id = local_embedding_ptr[i / batch_size_per_gpu];
 
-      LambdaIterator<int, int32_t, decltype(get_idx)> dst_idx_iter(
-          get_idx, batch_size_per_gpu * num_local_embedding_);
+            if (combiner_ptr[lookup_id] == static_cast<char>(Combiner::Average)) {
+              int start = batch_size * lookup_id + gpu_id * batch_size_per_gpu + bid;
+              return static_cast<int>(bucket_range_ptr[start + 1] - bucket_range_ptr[start]);
+            } else {
+              return 1;
+            }
+          },
+          [=] __device__(int i) {
+            int lookup_id = local_embedding_ptr[i / batch_size_per_gpu];
+            return d_ev_size_offset_ptr[lookup_id + 1] - d_ev_size_offset_ptr[lookup_id];
+          },
+          [=] __device__(int i) {
+            int bid = i % batch_size_per_gpu;
+            int lookup_id = local_embedding_ptr[i / batch_size_per_gpu];
 
-      RaggedEmbForwardResultView<float, RestrictPtrTraits, int32_t> src_buffer_iter{
-          float_emb_vec_.get(), d_ev_size_offset.get<int>(), batch_size_per_gpu};
+            int ev_offset = d_ev_size_offset_ptr[lookup_id] * batch_size_per_gpu;
+            int ev_size = d_ev_size_offset_ptr[lookup_id + 1] - d_ev_size_offset_ptr[lookup_id];
+            return top_grad_ptr + ev_offset + bid * ev_size;
+          },
+          [=] __device__(int i) {
+            int bid = i % batch_size_per_gpu;
+            int lookup_id = local_embedding_ptr[i / batch_size_per_gpu];
 
-      RaggedEmbForwardResultView<emb_t, RestrictPtrTraits, int32_t> dst_buffer_iter{
-          dst_emb_vec.get(), d_ev_size_offset.get<int>(), batch_size_per_gpu};
-
-      generic_copy(src_idx_iter, scaler_arr_iter, dst_idx_iter, src_buffer_iter, dst_buffer_iter,
-                   max_ev_size, stream);
-    });
-  });
-}
-
-void AverageCominber::backward(const Tensor &bucket_range, const Tensor &src_emb_vec,
-                               const Tensor &d_local_embedding_list, const Tensor &d_combiner_list,
-                               const Tensor &d_ev_size_offset, int batch_size, int max_ev_size) {
-  HugeCTR::CudaDeviceContext ctx(core_->get_device_id());
-  int gpu_id = core_->get_global_gpu_id();
-  auto stream = core_->get_local_gpu()->get_stream();
-  int batch_size_per_gpu = batch_size / num_gpus_;
-
-  DISPATCH_INTEGRAL_FUNCTION(bucket_range.dtype().type(), offset_t, [&] {
-    DISPATCH_FLOAT_AND_HALF_FUNCTION(src_emb_vec.dtype().type(), emb_t, [&] {
-      auto get_idx = [local_embedding_ptr = d_local_embedding_list.get<int>(),
-                      batch_size_per_gpu] __device__(int index) {
-        int batch_id = index % batch_size_per_gpu;
-        int embedding_id = local_embedding_ptr[index / batch_size_per_gpu];
-        return embedding_id * batch_size_per_gpu + batch_id;
-      };
-      LambdaIterator<int, int32_t, decltype(get_idx)> src_idx_iter(
-          get_idx, batch_size_per_gpu * num_local_embedding_);
-
-      auto scaler_array = [local_embedding_ptr = d_local_embedding_list.get<int>(),
-                           combiner_ptr = d_combiner_list.get<char>(),
-                           bucket_range_ptr = bucket_range.get<offset_t>(), batch_size_per_gpu,
-                           batch_size, gpu_id] __device__(int index) {
-        int batch_id = index % batch_size_per_gpu;
-        int embedding_id = local_embedding_ptr[index / batch_size_per_gpu];
-        if (combiner_ptr[embedding_id] == static_cast<char>(Combiner::Average)) {
-          int start = batch_size * embedding_id + gpu_id * batch_size_per_gpu + batch_id;
-          return static_cast<int>(bucket_range_ptr[start + 1] - bucket_range_ptr[start]);
-        } else {
-          return 1;
-        }
-      };
-      LambdaIterator<int, int32_t, decltype(scaler_array)> scaler_arr_iter(
-          scaler_array, batch_size_per_gpu * num_local_embedding_);
-
-      LambdaIterator<int, int32_t, decltype(get_idx)> dst_idx_iter(
-          get_idx, batch_size_per_gpu * num_local_embedding_);
-
-      RaggedEmbForwardResultView<emb_t, RestrictPtrTraits, int32_t> src_buffer_iter{
-          src_emb_vec.get(), d_ev_size_offset.get<int>(), batch_size_per_gpu};
-
-      RaggedEmbForwardResultView<float, RestrictPtrTraits, int32_t> dst_buffer_iter{
-          float_emb_vec_.get(), d_ev_size_offset.get<int>(), batch_size_per_gpu};
-
-      generic_copy(src_idx_iter, scaler_arr_iter, dst_idx_iter, src_buffer_iter, dst_buffer_iter,
-                   max_ev_size, stream);
+            int ev_offset = d_ev_size_offset_ptr[lookup_id] * batch_size_per_gpu;
+            int ev_size = d_ev_size_offset_ptr[lookup_id + 1] - d_ev_size_offset_ptr[lookup_id];
+            return float_emb_vec_ptr + ev_offset + bid * ev_size;
+          });
+      copy_multi_to_one(multi_to_one_desc, max_ev_size, stream);
     });
   });
 }
