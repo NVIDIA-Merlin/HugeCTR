@@ -94,9 +94,11 @@ FileSystem* FileSystemBuilder::build_by_config(const std::string& config_path) {
   }
   switch (fs_type) {
     case FileSystemType_t::Local:
+      HCTR_LOG_S(DEBUG, WORLD) << "Building local file system backend." << std::endl;
       return new LocalFileSystem{};
     case FileSystemType_t::HDFS:
 #ifdef ENABLE_HDFS
+      HCTR_LOG_S(DEBUG, WORLD) << "Building Hadoop file system backend." << std::endl;
       return new HadoopFileSystem{HdfsConfigs::FromJSON(config_path)};
 #else
       HCTR_OWN_THROW(Error_t::WrongInput,

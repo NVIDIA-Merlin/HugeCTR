@@ -276,6 +276,8 @@ struct parameter_server_config {
   std::vector<InferenceParams>
       inference_params_array;  //// model configuration of all models deployed on HPS, e.g.,
                                ///{dcn_inferenceParamesStruct}
+  std::map<std::string, std::vector<size_t>>
+      embedding_key_count_;  // The number of keys per embedding table per model
 
   // Database backend.
   VolatileDatabaseParams volatile_db;
