@@ -153,8 +153,11 @@ def hps_dlpack(model_name, embedding_file_list, data_file, enable_cache):
         )
 
     print("************Look up from pytorch dlpack on GPU")
-    cuda_device = torch.device("cuda:0" if torch.cuda.is_available else "cpu")
-    out = torch.empty((1, 26 * 16), dtype=torch.float32, device=cuda_device)
+    device = torch.device("cuda:0" if torch.cuda.is_available else "cpu")
+    key = torch.tensor(cat_input[2:], dtype=torch.int64, device=device)
+    out = torch.empty((1, 26 * 16), dtype=torch.float32, device=device)
+
+    key_capsule = torch.utils.dlpack.to_dlpack(key)
     out_capsule = torch.utils.dlpack.to_dlpack(out)
     hps.lookup_fromdlpack(key_capsule, out_capsule, "hps_demo", 1)
     out_put = torch.utils.dlpack.from_dlpack(out_capsule)
@@ -221,6 +224,7 @@ def hps_dlpack(model_name, embedding_file_list, data_file, enable_cache):
 
     print("***************Look up from tensorflow dlpack on GPU**********")
     with tf.device("/GPU:0"):
+        key_tensor = tf.constant(cat_input[0:2], dtype=tf.int64)
         out_tensor = tf.zeros([1, 2], dtype=tf.float32)
         key_capsule = tf.experimental.dlpack.to_dlpack(key_tensor)
         out_dlcapsule = tf.experimental.dlpack.to_dlpack(out_tensor)

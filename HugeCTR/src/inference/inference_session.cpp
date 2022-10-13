@@ -92,6 +92,10 @@ InferenceSession::InferenceSession(const std::string& model_config_path,
     // h_keys_ is a void pointer, which serves key types of both long long and unsigned int
     h_keys_ = malloc(inference_params_.max_batchsize *
                      inference_parser_.max_feature_num_per_sample * sizeof(long long));
+
+    cudaMallocManaged(&d_keys_, inference_params_.max_batchsize *
+                                    inference_parser_.max_feature_num_per_sample *
+                                    sizeof(long long));
     HCTR_LIB_THROW(cudaMalloc((void**)&d_embedding_vectors_,
                               inference_params_.max_batchsize *
                                   inference_parser_.max_embedding_vector_size_per_sample *
@@ -108,39 +112,13 @@ InferenceSession::~InferenceSession() {
   cudaFree(d_embedding_vectors_);
   free(h_keys_);
   free(h_row_ptrs_);
+  cudaFree(d_keys_);
   for (auto stream : streams_) cudaStreamDestroy(stream);
 }
 
-void InferenceSession::predict(float* d_dense, void* h_embeddingcolumns, int* d_row_ptrs,
-                               float* d_output, int num_samples, bool table_major_key_layout) {
-  size_t num_embedding_tables = inference_parser_.num_embedding_tables;
-  if (num_embedding_tables != row_ptrs_tensors_.size() ||
-      num_embedding_tables != embedding_features_tensors_.size() ||
-      num_embedding_tables != embedding_feature_combiners_.size()) {
-    HCTR_OWN_THROW(Error_t::IllegalCall, "embedding feature combiner inconsistent");
-  }
-  // Copy row_ptrs to host
-  HCTR_LIB_THROW(cudaMemcpy(
-      h_row_ptrs_, d_row_ptrs,
-      (num_samples * inference_parser_.slot_num + inference_parser_.num_embedding_tables) *
-          sizeof(int),
-      cudaMemcpyDeviceToHost));
-
-  // Redistribute keys ：from sample first to table first
-  if (!table_major_key_layout) {
-    // HCTR_LOG_S(INFO, ROOT) << "Redistribute keys from sample first to table first" << std::endl;
-    if (inference_params_.i64_input_key) {
-      distribute_keys_per_table(static_cast<long long*>(h_keys_),
-                                static_cast<long long*>(h_embeddingcolumns), h_row_ptrs_,
-                                num_samples, inference_parser_.slot_num_for_tables);
-    } else {
-      distribute_keys_per_table(static_cast<unsigned int*>(h_keys_),
-                                static_cast<unsigned int*>(h_embeddingcolumns), h_row_ptrs_,
-                                num_samples, inference_parser_.slot_num_for_tables);
-    }
-  }
-  void* h_keys_for_ec = table_major_key_layout ? h_embeddingcolumns : h_keys_;
-
+void InferenceSession::predict_impl(float* d_dense, void* keys, bool key_on_device, int* d_row_ptrs,
+                                    float* d_output, int num_samples, int num_embedding_tables,
+                                    bool table_major_key_layout) {
   CudaDeviceContext context(
       resource_manager_->get_local_gpu_from_device_id(inference_params_.device_id)
           ->get_device_id());
@@ -153,13 +131,27 @@ void InferenceSession::predict(float* d_dense, void* h_embeddingcolumns, int* d_
     acc_row_ptrs_offset += num_samples * inference_parser_.slot_num_for_tables[i] + 1;
     num_keys = h_row_ptrs_[acc_row_ptrs_offset - 1];
     if (inference_params_.i64_input_key) {
-      embedding_cache_->lookup(i, d_embedding_vectors_ + acc_vectors_offset,
-                               static_cast<const long long*>(h_keys_for_ec) + acc_keys_offset,
-                               num_keys, inference_params_.hit_rate_threshold, streams_[i]);
+      if (key_on_device) {
+        embedding_cache_->lookup_from_device(i, d_embedding_vectors_ + acc_vectors_offset,
+                                             static_cast<const long long*>(keys) + acc_keys_offset,
+                                             num_keys, inference_params_.hit_rate_threshold,
+                                             streams_[i]);
+      } else {
+        embedding_cache_->lookup(i, d_embedding_vectors_ + acc_vectors_offset,
+                                 static_cast<const long long*>(keys) + acc_keys_offset, num_keys,
+                                 inference_params_.hit_rate_threshold, streams_[i]);
+      }
     } else {
-      embedding_cache_->lookup(i, d_embedding_vectors_ + acc_vectors_offset,
-                               static_cast<const unsigned int*>(h_keys_for_ec) + acc_keys_offset,
-                               num_keys, inference_params_.hit_rate_threshold, streams_[i]);
+      if (key_on_device) {
+        embedding_cache_->lookup_from_device(
+            i, d_embedding_vectors_ + acc_vectors_offset,
+            static_cast<const unsigned int*>(keys) + acc_keys_offset, num_keys,
+            inference_params_.hit_rate_threshold, streams_[i]);
+      } else {
+        embedding_cache_->lookup(i, d_embedding_vectors_ + acc_vectors_offset,
+                                 static_cast<const unsigned int*>(keys) + acc_keys_offset, num_keys,
+                                 inference_params_.hit_rate_threshold, streams_[i]);
+      }
     }
     acc_keys_offset += num_keys;
     acc_vectors_offset += inference_params_.max_batchsize *
@@ -232,6 +224,73 @@ void InferenceSession::predict(float* d_dense, void* h_embeddingcolumns, int* d_
   }
   HCTR_LIB_THROW(cudaStreamSynchronize(
       resource_manager_->get_local_gpu_from_device_id(inference_params_.device_id)->get_stream()));
+}
+
+void InferenceSession::predict(float* d_dense, void* h_embeddingcolumns, int* d_row_ptrs,
+                               float* d_output, int num_samples, bool table_major_key_layout) {
+  size_t num_embedding_tables = inference_parser_.num_embedding_tables;
+  if (num_embedding_tables != row_ptrs_tensors_.size() ||
+      num_embedding_tables != embedding_features_tensors_.size() ||
+      num_embedding_tables != embedding_feature_combiners_.size()) {
+    HCTR_OWN_THROW(Error_t::IllegalCall, "embedding feature combiner inconsistent");
+  }
+  // Copy row_ptrs to host
+  HCTR_LIB_THROW(cudaMemcpy(
+      h_row_ptrs_, d_row_ptrs,
+      (num_samples * inference_parser_.slot_num + inference_parser_.num_embedding_tables) *
+          sizeof(int),
+      cudaMemcpyDeviceToHost));
+
+  // Redistribute keys ：from sample first to table first
+  if (!table_major_key_layout) {
+    // HCTR_LOG_S(INFO, ROOT) << "Redistribute keys from sample first to table first" << std::endl;
+    if (inference_params_.i64_input_key) {
+      distribute_keys_per_table(static_cast<long long*>(h_keys_),
+                                static_cast<long long*>(h_embeddingcolumns), h_row_ptrs_,
+                                num_samples, inference_parser_.slot_num_for_tables);
+    } else {
+      distribute_keys_per_table(static_cast<unsigned int*>(h_keys_),
+                                static_cast<unsigned int*>(h_embeddingcolumns), h_row_ptrs_,
+                                num_samples, inference_parser_.slot_num_for_tables);
+    }
+  }
+  void* h_keys_for_ec = table_major_key_layout ? h_embeddingcolumns : h_keys_;
+  predict_impl(d_dense, h_keys_for_ec, false, d_row_ptrs, d_output, num_samples,
+               num_embedding_tables, table_major_key_layout);
+}
+
+void InferenceSession::predict_from_device(float* d_dense, void* d_embeddingcolumns,
+                                           int* d_row_ptrs, float* d_output, int num_samples,
+                                           bool table_major_key_layout) {
+  size_t num_embedding_tables = inference_parser_.num_embedding_tables;
+  if (num_embedding_tables != row_ptrs_tensors_.size() ||
+      num_embedding_tables != embedding_features_tensors_.size() ||
+      num_embedding_tables != embedding_feature_combiners_.size()) {
+    HCTR_OWN_THROW(Error_t::IllegalCall, "embedding feature combiner inconsistent");
+  }
+  CudaDeviceContext context(
+      resource_manager_->get_local_gpu_from_device_id(inference_params_.device_id)
+          ->get_device_id());
+
+  cudaStream_t stream =
+      resource_manager_->get_local_gpu_from_device_id(inference_params_.device_id)->get_stream();
+  // Redistribute keys ：from sample first to table first
+  if (!table_major_key_layout) {
+    // HCTR_LOG_S(INFO, ROOT) << "Redistribute keys from sample first to table first" << std::endl;
+    if (inference_params_.i64_input_key) {
+      distribute_keys_per_table_on_device(
+          static_cast<long long*>(d_keys_), static_cast<long long*>(d_embeddingcolumns), d_row_ptrs,
+          num_samples, inference_parser_.slot_num_for_tables, stream);
+    } else {
+      distribute_keys_per_table_on_device(
+          static_cast<unsigned int*>(d_keys_), static_cast<unsigned int*>(d_embeddingcolumns),
+          d_row_ptrs, num_samples, inference_parser_.slot_num_for_tables, stream);
+    }
+  }
+
+  void* d_keys_for_ec = table_major_key_layout ? d_embeddingcolumns : d_keys_;
+  predict_impl(d_dense, d_keys_for_ec, true, d_row_ptrs, d_output, num_samples,
+               num_embedding_tables, table_major_key_layout);
 }
 
 }  // namespace HugeCTR

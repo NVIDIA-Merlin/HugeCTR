@@ -47,7 +47,7 @@ class HPS {
 
   pybind11::array_t<float> lookup(pybind11::array_t<size_t>& h_keys, const std::string& model_name,
                                   size_t table_id, int64_t device_id);
-  void lookup_fromdlpack(pybind11::capsule& h_keys, pybind11::capsule& out_tensor,
+  void lookup_fromdlpack(pybind11::capsule& keys, pybind11::capsule& out_tensor,
                          const std::string& model_name, size_t table_id, int64_t device_id);
 
  private:
@@ -62,7 +62,9 @@ class HPS {
                             // the first session on the first device will be used during lookup,
                             // i.e., there will be no batching or scheduling
   std::map<std::string, std::map<int64_t, std::vector<float*>>> d_vectors_per_table_map_;
+
   std::map<std::string, std::vector<unsigned int*>> h_keys_per_table_map_;
+  std::map<std::string, std::vector<unsigned int*>> d_keys_per_table_map_;
 };
 
 HPS::~HPS() {
@@ -78,6 +80,12 @@ HPS::~HPS() {
     auto h_keys_per_table = it->second;
     for (size_t i{0}; i < h_keys_per_table.size(); ++i) {
       HCTR_LIB_THROW(cudaFreeHost(h_keys_per_table[i]));
+    }
+  }
+  for (auto it = d_keys_per_table_map_.begin(); it != d_keys_per_table_map_.end(); ++it) {
+    auto d_keys_per_table = it->second;
+    for (size_t i{0}; i < d_keys_per_table.size(); ++i) {
+      HCTR_LIB_THROW(cudaFree(d_keys_per_table[i]));
     }
   }
 }
@@ -126,18 +134,25 @@ void HPS::initialize() {
           inference_params.max_batchsize * max_keys_per_sample_per_table[id] * sizeof(unsigned int),
           cudaHostAllocPortable));
     }
+
+    std::vector<unsigned int*> d_keys_per_table(inference_params.sparse_model_files.size());
+    for (size_t id{0}; id < inference_params.sparse_model_files.size(); ++id) {
+      HCTR_LIB_THROW(
+          cudaMallocManaged((void**)&d_keys_per_table[id], inference_params.max_batchsize *
+                                                               max_keys_per_sample_per_table[id] *
+                                                               sizeof(unsigned int)));
+    }
+
     d_vectors_per_table_map_.emplace(inference_params.model_name, d_vectors_per_table_per_device);
     h_keys_per_table_map_.emplace(inference_params.model_name, h_keys_per_table);
+    d_keys_per_table_map_.emplace(inference_params.model_name, d_keys_per_table);
   }
 }
 
-void HPS::lookup_fromdlpack(pybind11::capsule& h_keys, pybind11::capsule& vectors,
+void HPS::lookup_fromdlpack(pybind11::capsule& keys, pybind11::capsule& vectors,
                             const std::string& model_name, size_t table_id, int64_t device_id) {
-  HPSTensor hps_key = fromDLPack(h_keys);
+  HPSTensor hps_key = fromDLPack(keys);
   size_t num_keys = *(reinterpret_cast<size_t*>(hps_key.shape));
-  HCTR_THROW_IF(hps_key.device != DeviceType::CPU, HugeCTR::Error_t::DataCheckError,
-                "from_dlpack received an invalid embedding key device type. "
-                "The device type of embedding key should be kDLCPU");
   HPSTensor hps_vet = fromDLPack(vectors);
   size_t num_vectors = *(reinterpret_cast<size_t*>(hps_vet.strides));
 
@@ -165,21 +180,32 @@ void HPS::lookup_fromdlpack(pybind11::capsule& h_keys, pybind11::capsule& vector
   if (inference_params.i64_input_key) {
     key_ptr = static_cast<void*>(hps_key.data);
   } else {
-    unsigned int* h_keys = h_keys_per_table_map_.find(model_name)->second[table_id];
+    unsigned int* keys;
+    if (hps_key.device == DeviceType::CPU) {
+      keys = h_keys_per_table_map_.find(model_name)->second[table_id];
+    } else {
+      keys = d_keys_per_table_map_.find(model_name)->second[table_id];
+    }
     auto transform = [](unsigned int* out, long long* in, size_t count) {
       for (size_t i{0}; i < count; ++i) {
         out[i] = static_cast<unsigned int>(in[i]);
       }
     };
-    transform(h_keys, static_cast<long long*>(hps_key.data), num_keys);
-    key_ptr = static_cast<void*>(h_keys);
+    transform(keys, static_cast<long long*>(hps_key.data), num_keys);
+    key_ptr = static_cast<void*>(keys);
   }
 
   // TODO: batching or scheduling for lookup sessions on multiple GPUs
   const auto& lookup_session = lookup_session_map_.find(model_name)->second.find(device_id)->second;
   auto& d_vectors_per_table =
       d_vectors_per_table_map_.find(model_name)->second.find(device_id)->second;
-  lookup_session->lookup(key_ptr, d_vectors_per_table[table_id], num_keys, table_id);
+
+  if (hps_key.device == DeviceType::CPU) {
+    lookup_session->lookup(key_ptr, d_vectors_per_table[table_id], num_keys, table_id);
+  } else {
+    lookup_session->lookup_from_device(key_ptr, d_vectors_per_table[table_id], num_keys, table_id);
+  }
+
   float* vec_ptr = static_cast<float*>(hps_vet.data);
   if (hps_vet.device == DeviceType::CPU) {
     HCTR_LIB_THROW(cudaMemcpy(vec_ptr, d_vectors_per_table[table_id],
@@ -265,9 +291,9 @@ void HPSPybind(pybind11::module& m) {
       .def(pybind11::init<const std::string&>(), pybind11::arg("hps_json_config_file"))
       .def("lookup", &HugeCTR::python_lib::HPS::lookup, pybind11::arg("h_keys"),
            pybind11::arg("model_name"), pybind11::arg("table_id"), pybind11::arg("device_id") = 0)
-      .def("lookup_fromdlpack", &HugeCTR::python_lib::HPS::lookup_fromdlpack,
-           pybind11::arg("h_keys"), pybind11::arg("out_tensor"), pybind11::arg("model_name"),
-           pybind11::arg("table_id"), pybind11::arg("device_id") = 0);
+      .def("lookup_fromdlpack", &HugeCTR::python_lib::HPS::lookup_fromdlpack, pybind11::arg("keys"),
+           pybind11::arg("out_tensor"), pybind11::arg("model_name"), pybind11::arg("table_id"),
+           pybind11::arg("device_id") = 0);
 }
 
 }  // namespace python_lib

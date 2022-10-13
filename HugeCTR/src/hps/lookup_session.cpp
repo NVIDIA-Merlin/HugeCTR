@@ -86,4 +86,34 @@ void LookupSession::lookup(const std::vector<const void*>& h_keys_per_table,
   }
 }
 
+void LookupSession::lookup_from_device(const void* const d_keys, float* const d_vectors,
+                                       const size_t num_keys, const size_t table_id) {
+  CudaDeviceContext context(inference_params_.device_id);
+  // embedding_cache lookup
+  embedding_cache_->lookup_from_device(table_id, d_vectors, d_keys, num_keys,
+                                       inference_params_.hit_rate_threshold,
+                                       lookup_streams_[table_id]);
+  HCTR_LIB_THROW(cudaStreamSynchronize(lookup_streams_[table_id]));
+}
+
+void LookupSession::lookup_from_device(const std::vector<const void*>& d_keys_per_table,
+                                       const std::vector<float*>& d_vectors_per_table,
+                                       const std::vector<size_t>& num_keys_per_table) {
+  CudaDeviceContext context(inference_params_.device_id);
+  HCTR_CHECK_HINT(d_keys_per_table.size() == inference_params_.sparse_model_files.size(),
+                  "The d_keys_per_table.size() should be equal to the number of embedding tables");
+  HCTR_CHECK_HINT(
+      d_vectors_per_table.size() == inference_params_.sparse_model_files.size(),
+      "The d_vectors_per_table.size() should be equal to the number of embedding tables");
+  for (size_t table_id{0}; table_id < d_keys_per_table.size(); ++table_id) {
+    embedding_cache_->lookup_from_device(table_id, d_vectors_per_table[table_id],
+                                         d_keys_per_table[table_id], num_keys_per_table[table_id],
+                                         inference_params_.hit_rate_threshold,
+                                         lookup_streams_[table_id]);
+  }
+  for (size_t table_id{0}; table_id < d_keys_per_table.size(); ++table_id) {
+    HCTR_LIB_THROW(cudaStreamSynchronize(lookup_streams_[table_id]));
+  }
+}
+
 }  // namespace HugeCTR

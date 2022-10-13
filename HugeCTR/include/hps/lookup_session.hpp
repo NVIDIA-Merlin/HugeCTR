@@ -30,6 +30,12 @@ class LookupSession : public LookupSessionBase {
   virtual void lookup(const std::vector<const void*>& h_keys_per_table,
                       const std::vector<float*>& d_vectors_per_table,
                       const std::vector<size_t>& num_keys_per_table);
+  virtual void lookup_from_device(const void* d_keys, float* d_vectors, size_t num_keys,
+                                  size_t table_id);
+  virtual void lookup_from_device(const std::vector<const void*>& d_keys_per_table,
+                                  const std::vector<float*>& d_vectors_per_table,
+                                  const std::vector<size_t>& num_keys_per_table);
+
   virtual const InferenceParams get_inference_params() const override { return inference_params_; }
 
  private:
