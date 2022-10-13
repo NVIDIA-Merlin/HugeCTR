@@ -41,7 +41,7 @@ class CompressOffset {
   void compute(const Tensor &offset, int batch_size, Tensor *compressed_offset);
 };
 
-class AverageCominber {
+class AverageCombiner {
   std::shared_ptr<CoreResourceManager> core_;
   int num_gpus_;
   int num_local_embedding_;
@@ -49,17 +49,13 @@ class AverageCominber {
  public:
   Tensor float_emb_vec_;
 
-  AverageCominber() = default;
+  AverageCombiner() = default;
 
-  AverageCominber(std::shared_ptr<CoreResourceManager> core, int num_gpus, int num_local_embedding,
+  AverageCombiner(std::shared_ptr<CoreResourceManager> core, int num_gpus, int num_local_embedding,
                   const std::vector<int> &ev_size_list, int universal_batch_size);
 
-  void forward(const Tensor &bucket_range, Tensor &dst_emb_vec,
+  void compute(const Tensor &bucket_range, const Tensor &src_emb_vec,
                const Tensor &d_local_embedding_list, const Tensor &d_combiner_list,
                const Tensor &d_ev_size_offset, int batch_size, int max_ev_size);
-
-  void backward(const Tensor &bucket_range, const Tensor &src_emb_vec,
-                const Tensor &d_local_embedding_list, const Tensor &d_combiner_list,
-                const Tensor &d_ev_size_offset, int batch_size, int max_ev_size);
 };
 }  // namespace embedding

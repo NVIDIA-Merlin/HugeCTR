@@ -36,26 +36,50 @@ using core::TensorScalarType;
 
 struct UniformParams {
   float up_bound;
+
+  explicit UniformParams(float up_bound) : up_bound(up_bound) {}
 };
+
 struct SinusoidalParams {
   int ev_size;
   int max_sequence_len;
-};
-
-struct EmbeddingTableInitParams {
-  HugeCTR::Initializer_t initializer_type;
-  UniformParams uniform_params;
-  SinusoidalParams sinus_params;
+  explicit SinusoidalParams(int ev_size, int max_sequence_len)
+      : ev_size(ev_size), max_sequence_len(max_sequence_len) {}
 };
 
 struct EmbeddingTableParam {
   int table_id;
   int max_vocabulary_size;  // -1 means dynamic
   int ev_size;
-  int64_t min_key;
-  int64_t max_key;
 
   HugeCTR::OptParams opt_param;
-  EmbeddingTableInitParams init_param;
+  HugeCTR::Initializer_t initializer_type;
+  UniformParams uniform_params;
+  SinusoidalParams sinusoidal_params;
+
+  EmbeddingTableParam(int table_id, int max_vocabulary_size, int ev_size,
+                      std::optional<HugeCTR::OptParams> opt_param,
+                      HugeCTR::Initializer_t initializer_type = HugeCTR::Initializer_t::Default,
+                      float up_bound = -1, int max_sequence_len = -1)
+      : uniform_params{up_bound}, sinusoidal_params{ev_size, max_sequence_len} {
+    this->table_id = table_id;
+    this->max_vocabulary_size = max_vocabulary_size;
+    this->ev_size = ev_size;
+
+    if (opt_param.has_value()) {
+      this->opt_param = opt_param.value();
+    } else {
+      this->opt_param.optimizer = HugeCTR::Optimizer_t::NOT_INITIALIZED;
+    }
+
+    this->initializer_type = initializer_type;
+    if (initializer_type == HugeCTR::Initializer_t::Uniform) {
+      HCTR_CHECK_HINT(up_bound > 0, "initialize type uniform should specify up_bound");
+    }
+    if (initializer_type == HugeCTR::Initializer_t::Sinusoidal) {
+      HCTR_CHECK_HINT(max_sequence_len > 0,
+                      "initialize type uniform should specify max_sequence_len");
+    }
+  }
 };
 }  // namespace embedding

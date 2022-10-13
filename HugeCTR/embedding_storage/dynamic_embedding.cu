@@ -19,26 +19,22 @@ constexpr det::DynamicEmbeddingTable<KeyT, ValueT> *cast_table(void *t) noexcept
 
 }  // namespace
 
-DynamicEmbeddingTable::DynamicEmbeddingTable(
-    std::shared_ptr<CoreResourceManager> core,
-    const std::vector<EmbeddingTableParam> &global_emb_table_param_list,
-    const EmbeddingCollectionParam &ebc_param, const EmbeddingShardingParam &sharding_param)
-    : core_(core),
-      key_type_(ebc_param.key_type),
-      opt_param_(global_emb_table_param_list[0].opt_param) {
+DynamicEmbeddingTable::DynamicEmbeddingTable(const HugeCTR::GPUResource &gpu_resource,
+                                             std::shared_ptr<CoreResourceManager> core,
+                                             const std::vector<EmbeddingTableParam> &table_params,
+                                             const EmbeddingCollectionParam &ebc_param,
+                                             size_t grouped_id, const HugeCTR::OptParams &opt_param)
+    : core_(core), key_type_(ebc_param.key_type), opt_param_(opt_param) {
   CudaDeviceContext ctx(core_->get_device_id());
-
+  const auto &grouped_emb_params = ebc_param.grouped_emb_params[grouped_id];
+  const auto &table_ids = grouped_emb_params.table_ids;
   DISPATCH_INTEGRAL_FUNCTION(key_type_.type(), key_t, [&] {
     std::vector<size_t> dim_per_class;
-    for (int emb_id : sharding_param.local_embedding_list) {
-      int id_space = ebc_param.embedding_params[emb_id].id_space;
-      auto &emb_table_param = global_emb_table_param_list[id_space];
-
-      if (global_to_local_id_space_map_.find(id_space) == global_to_local_id_space_map_.end()) {
-        dim_per_class.push_back(static_cast<size_t>(emb_table_param.ev_size));
-        size_t local_id_space = global_to_local_id_space_map_.size();
-        global_to_local_id_space_map_[id_space] = local_id_space;
-      }
+    for (auto table_id : table_ids) {
+      auto &emb_table_param = table_params[table_id];
+      dim_per_class.push_back(emb_table_param.ev_size);
+      size_t local_id_space = global_to_local_id_space_map_.size();
+      global_to_local_id_space_map_[table_id] = local_id_space;
     }
 
     table_ =
@@ -117,19 +113,20 @@ __global__ void sgd_update_grad_kernel(const uint32_t *ev_offset, size_t num_ev,
 }  // namespace
 
 void DynamicEmbeddingTable::update(const Tensor &keys, size_t num_keys,
-                                   const Tensor &id_space_offset, size_t num_id_space_offset,
-                                   const Tensor &id_space_list, Tensor &grad_ev,
-                                   const Tensor &grad_ev_offset) {
+                                   const Tensor &num_unique_key_per_table_offset,
+                                   size_t num_table_offset, const Tensor &table_id_list,
+                                   Tensor &wgrad, const Tensor &wgrad_idx_offset) {
   CudaDeviceContext context(core_->get_device_id());
   cudaStream_t stream = core_->get_local_gpu()->get_stream();
 
   HCTR_ASSERT(keys.dtype() == key_type_);
-  HCTR_ASSERT(grad_ev.dtype().type() == TensorScalarType::Float32);
+  HCTR_ASSERT(wgrad.dtype().type() == TensorScalarType::Float32);
 
-  const auto mapped_id_space_list = remap_id_space(id_space_list, stream);
+  const auto mapped_id_space_list = remap_id_space(table_id_list, stream);
   std::vector<size_t> id_space_offset_cpu;
-  DISPATCH_INTEGRAL_FUNCTION(id_space_offset.dtype().type(), index_t, [&] {
-    const auto id_space_offset_cpu_tensor = id_space_offset.to(core_, DeviceType::CPU, stream);
+  DISPATCH_INTEGRAL_FUNCTION(num_unique_key_per_table_offset.dtype().type(), index_t, [&] {
+    const auto id_space_offset_cpu_tensor =
+        num_unique_key_per_table_offset.to(core_, DeviceType::CPU, stream);
     HCTR_LIB_THROW(cudaStreamSynchronize(stream));
     for (int i = 0; i < id_space_offset_cpu_tensor.get_num_elements(); ++i) {
       size_t offset = static_cast<size_t>(id_space_offset_cpu_tensor.get<index_t>()[i]);
@@ -143,8 +140,8 @@ void DynamicEmbeddingTable::update(const Tensor &keys, size_t num_keys,
           constexpr int block_size = 256;
           int grid_size = (static_cast<int64_t>(num_keys) - 1) / block_size + 1;
           sgd_update_grad_kernel<<<grid_size, block_size, 0, stream>>>(
-              grad_ev_offset.get<uint32_t>(), num_keys, opt_param_.lr, opt_param_.scaler,
-              grad_ev.get<float>());
+              wgrad_idx_offset.get<uint32_t>(), num_keys, opt_param_.lr, opt_param_.scaler,
+              wgrad.get<float>());
           break;
         }
         default:
@@ -155,9 +152,9 @@ void DynamicEmbeddingTable::update(const Tensor &keys, size_t num_keys,
       // `scatter_add` automatically handles the offsets in `grad_ev_offset` using
       // the embedding vector dimensions given at construction.
       auto table = cast_table<key_t, float>(table_);
-      table->scatter_add(keys.get<key_t>(), grad_ev.get<float>(), num_keys,
+      table->scatter_add(keys.get<key_t>(), wgrad.get<float>(), num_keys,
                          mapped_id_space_list.data(), id_space_offset_cpu.data(),
-                         num_id_space_offset - 1, stream);
+                         num_table_offset - 1, stream);
       HCTR_LIB_THROW(cudaStreamSynchronize(stream));
     });
   }

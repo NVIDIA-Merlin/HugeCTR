@@ -92,19 +92,16 @@ void All2AllEmbeddingCollectionSwizzleKey::sparse_forward_per_gpu(
 }
 
 All2AllEmbeddingCollectionModelForward::All2AllEmbeddingCollectionModelForward(
-    std::shared_ptr<CoreResourceManager> core, const EmbeddingCollectionParam &ebc_param,
-    const EmbeddingShardParam &shard_param)
-    : core_(core),
-      global_embedding_data_(core, ebc_param),
-      local_embedding_data_(core, ebc_param, shard_param) {}
+    std::shared_ptr<CoreResourceManager> core, const EmbeddingCollectionParam &ebc_param)
+    : core_(core), meta_(core, ebc_param, 0) {}
 
 std::vector<size_t> All2AllEmbeddingCollectionModelForward::get_model_comm_buffer_size(
     int batch_size) {
   int num_gpus = core_->get_global_gpu_count();
   size_t num_ev_elements = 0;
   int batch_size_per_gpu = batch_size / num_gpus;
-  for (int embedding_id : local_embedding_data_.h_local_embedding_list_) {
-    int ev_size = global_embedding_data_.h_ev_size_list_[embedding_id];
+  for (int lookup_id : meta_.h_local_lookup_id_list_) {
+    int ev_size = meta_.h_ev_size_list_[lookup_id];
     num_ev_elements += ev_size * batch_size_per_gpu;
   }
   return std::vector<size_t>(num_gpus, num_ev_elements);
@@ -118,8 +115,7 @@ void All2AllEmbeddingCollectionModelForward::sparse_forward_per_gpu(
 
   int num_gpus = core_->get_global_gpu_count();
   cudaStream_t stream = core_->get_local_gpu()->get_stream();
-  int batch_size =
-      row_lengths_all_gather_recv_buffer.get_num_elements() / global_embedding_data_.num_embedding_;
+  int batch_size = row_lengths_all_gather_recv_buffer.get_num_elements() / meta_.num_lookup_;
 
   Tensor keys, bucket_range;
   size_t num_keys = static_cast<size_t>(key_all_gather_recv_buffer.get_num_elements());
@@ -149,7 +145,7 @@ void All2AllEmbeddingCollectionModelForward::sparse_forward_per_gpu(
         reorder_row_lengths_kernel<<<grid_size, block_size, 0, stream>>>(
             row_lengths_all_gather_recv_buffer.get<offset_t>(),
             row_lengths_all_gather_recv_buffer.get_num_elements(), bucket_range.get<offset_t>(),
-            batch_size / num_gpus, num_gpus, global_embedding_data_.num_embedding_);
+            batch_size / num_gpus, num_gpus, meta_.num_lookup_);
 
         size_t temp_bytes = 0;
         Tensor temp_scan_storage;
@@ -220,7 +216,7 @@ void All2AllEmbeddingCollectionModelForward::sparse_forward_per_gpu(
                   key_all_gather_recv_buffer.get<key_t>(), all_gather_row_offsets.get<offset_t>(),
                   row_lengths_all_gather_recv_buffer.get_num_elements(),
                   bucket_range.get<offset_t>(), keys.get<key_t>(), batch_size / num_gpus, num_gpus,
-                  global_embedding_data_.num_embedding_);
+                  meta_.num_lookup_);
               // HCTR_LIB_THROW(cudaStreamSynchronize(stream));
 
               // std::vector<key_t> gpu_all_gather_key;
@@ -250,36 +246,32 @@ void All2AllEmbeddingCollectionModelForward::sparse_forward_per_gpu(
 
   DataType key_type = key_all_gather_recv_buffer.dtype();
   model_index_calculation_ =
-      ModelIndexCalculation(core_, local_embedding_data_.num_local_embedding_,
-                            local_embedding_data_.h_local_hotness_list_,
-                            global_embedding_data_.h_hotness_list_, batch_size, key_type);
+      ModelIndexCalculation(core_, meta_.num_local_lookup_, meta_.num_local_hotness_,
+                            meta_.hotness_sum_, batch_size, key_type);
 
   Tensor model_key, model_offsets;
   size_t num_model_key_;
-  model_index_calculation_.compute(
-      keys, bucket_range, num_keys, local_embedding_data_.d_local_embedding_list_,
-      local_embedding_data_.shard_id_, local_embedding_data_.shards_count_, batch_size, &model_key,
-      &model_offsets, &num_model_key_);
+  model_index_calculation_.compute(keys, bucket_range, num_keys, meta_.d_local_lookup_id_list_,
+                                   meta_.d_local_shard_id_list_, meta_.d_local_num_shards_list_,
+                                   batch_size, &model_key, &model_offsets, &num_model_key_);
 
-  compress_offset_ = CompressOffset(core_, local_embedding_data_.num_local_embedding_ + 1);
-  Tensor id_space_offset;
-  compress_offset_.compute(model_offsets, batch_size, &id_space_offset);
+  compress_offset_ = CompressOffset(core_, meta_.num_local_lookup_ + 1);
+  Tensor num_key_per_lookup_offset;
+  compress_offset_.compute(model_offsets, batch_size, &num_key_per_lookup_offset);
 
   HCTR_LIB_THROW(cudaStreamSynchronize(stream));
   TensorList embedding_vec = TensorList(core_.get(), key_all_gather_recv_buffer.get_num_elements(),
                                         DeviceType::GPU, TensorScalarType::Float32);
-  emb_storage->lookup(model_key, num_model_key_, id_space_offset,
-                      local_embedding_data_.num_local_embedding_ + 1,
-                      local_embedding_data_.d_local_id_space_list_, embedding_vec);
+  emb_storage->lookup(model_key, num_model_key_, num_key_per_lookup_offset,
+                      meta_.num_local_lookup_ + 1, meta_.d_local_table_id_list_, embedding_vec);
 
-  model_forward_ = ModelForward(core_, num_gpus, local_embedding_data_.h_local_embedding_list_);
+  model_forward_ = ModelForward(core_, num_gpus, meta_.h_local_lookup_id_list_);
 
   TensorList model_comm_buffer{core_.get(), emb_vec_model_buffer, DeviceType::GPU,
                                emb_vec_model_buffer[0].dtype(), stream};
   model_forward_.compute(embedding_vec, model_offsets, model_comm_buffer,
-                         local_embedding_data_.d_local_ev_size_list_,
-                         local_embedding_data_.d_local_ev_size_offset_, batch_size,
-                         local_embedding_data_.max_ev_size_);
+                         meta_.d_local_ev_size_list_, meta_.d_local_ev_size_offset_, batch_size,
+                         meta_.max_ev_size_);
 
   model_key_ = model_key;
   model_offsets_ = model_offsets;
@@ -296,12 +288,8 @@ void All2AllEmbeddingCollectionModelForward::copy_model_keys_and_offsets(Tensor 
 }
 
 All2AllEmbeddingCollectionNetworkForward::All2AllEmbeddingCollectionNetworkForward(
-    std::shared_ptr<CoreResourceManager> core, const EmbeddingCollectionParam &ebc_param,
-    const EmbeddingShardParam &shard_param)
-    : core_(core),
-      global_embedding_data_(core, ebc_param),
-      local_embedding_data_(core, ebc_param, shard_param),
-      sharding_param_(ebc_param.num_embedding, shard_param, core->get_global_gpu_id()) {
+    std::shared_ptr<CoreResourceManager> core, const EmbeddingCollectionParam &ebc_param)
+    : core_(core), meta_(core, ebc_param, 0) {
   int num_gpus = core->get_global_gpu_count();
   network_forward_ = NetworkForward(core, num_gpus);
 }
@@ -320,18 +308,17 @@ void All2AllEmbeddingCollectionNetworkForward::sparse_forward_per_gpu(
   auto copy_needed_bucket_range = [&] {
     DISPATCH_INTEGRAL_FUNCTION(row_lengths[0].dtype().type(), offset_t, [&] {
       auto buffer_ptr = GetBuffer(core_);
-      bucket_range = buffer_ptr->reserve(1 + batch_size * global_embedding_data_.num_embedding_,
-                                         DeviceType::GPU, row_lengths[0].dtype());
+      bucket_range = buffer_ptr->reserve(1 + batch_size * meta_.num_lookup_, DeviceType::GPU,
+                                         row_lengths[0].dtype());
       buffer_ptr->allocate();
 
       HCTR_LIB_THROW(
           cudaMemsetAsync(bucket_range.get<offset_t>(), 0, bucket_range.nbytes(), stream));
-      for (int embedding_id = 0; embedding_id < global_embedding_data_.num_embedding_;
-           ++embedding_id) {
-        HCTR_LIB_THROW(cudaMemcpyAsync(bucket_range.get<offset_t>() + batch_size * embedding_id +
+      for (int lookup_id = 0; lookup_id < meta_.num_lookup_; ++lookup_id) {
+        HCTR_LIB_THROW(cudaMemcpyAsync(bucket_range.get<offset_t>() + batch_size * lookup_id +
                                            global_gpu_id * batch_size_per_gpu + 1,
-                                       row_lengths[embedding_id].get<offset_t>(),
-                                       row_lengths[embedding_id].nbytes(), cudaMemcpyDeviceToDevice,
+                                       row_lengths[lookup_id].get<offset_t>(),
+                                       row_lengths[lookup_id].nbytes(), cudaMemcpyDeviceToDevice,
                                        stream));
       }
 
@@ -362,60 +349,30 @@ void All2AllEmbeddingCollectionNetworkForward::sparse_forward_per_gpu(
 
   auto copy_back_fwd_result = [&] {
     size_t nbytes_offset = 0ul;
-    for (int embedding_id = 0; embedding_id < global_embedding_data_.num_embedding_;
-         ++embedding_id) {
-      HCTR_LIB_THROW(cudaMemcpyAsync(forward_emb_vec[embedding_id].get(),
+    for (int lookup_id = 0; lookup_id < meta_.num_lookup_; ++lookup_id) {
+      HCTR_LIB_THROW(cudaMemcpyAsync(forward_emb_vec[lookup_id].get(),
                                      reinterpret_cast<char *>(output_buffer.get()) + nbytes_offset,
-                                     forward_emb_vec[embedding_id].nbytes(),
-                                     cudaMemcpyDeviceToDevice, stream));
-      nbytes_offset += forward_emb_vec[embedding_id].nbytes();
+                                     forward_emb_vec[lookup_id].nbytes(), cudaMemcpyDeviceToDevice,
+                                     stream));
+      nbytes_offset += forward_emb_vec[lookup_id].nbytes();
     }
   };
   copy_needed_bucket_range();
   allocate_continous_output_buffer();
 
-  RaggedNetworkIndex ragged_network_index{core_, batch_size, sharding_param_.global_embedding_list,
-                                          global_embedding_data_.h_ev_size_list_};
-
   TensorList network_comm_buffer{core_.get(), emb_vec_network_buffer, DeviceType::GPU,
                                  emb_vec_network_buffer[0].dtype(), stream};
-  if (std::find(local_embedding_data_.h_network_combiner_list_.begin(),
-                local_embedding_data_.h_network_combiner_list_.end(),
-                static_cast<char>(Combiner::Average)) !=
-      local_embedding_data_.h_network_combiner_list_.end()) {
-    AverageCominber average_combiner{
-        core_, num_gpus, static_cast<int>(local_embedding_data_.h_network_embedding_list_.size()),
-        global_embedding_data_.h_ev_size_list_, batch_size};
-    network_forward_.compute(
-        network_comm_buffer, ragged_network_index.network_ids_,
-        ragged_network_index.network_gpu_ids_, ragged_network_index.network_offsets_,
-        ragged_network_index.network_dst_lookup_ids_, ragged_network_index.network_ev_sizes_,
-        ragged_network_index.network_ev_offsets_, average_combiner.float_emb_vec_,
-        global_embedding_data_.d_ev_size_offset_, batch_size, global_embedding_data_.max_ev_size_);
-
-    average_combiner.forward(
-        bucket_range, output_buffer, local_embedding_data_.d_network_embedding_list_,
-        global_embedding_data_.d_combiner_list_, global_embedding_data_.d_ev_size_offset_,
-        batch_size, global_embedding_data_.max_ev_size_);
-  } else {
-    network_forward_.compute(
-        network_comm_buffer, ragged_network_index.network_ids_,
-        ragged_network_index.network_gpu_ids_, ragged_network_index.network_offsets_,
-        ragged_network_index.network_dst_lookup_ids_, ragged_network_index.network_ev_sizes_,
-        ragged_network_index.network_ev_offsets_, output_buffer,
-        global_embedding_data_.d_ev_size_offset_, batch_size, global_embedding_data_.max_ev_size_);
-  }
-
+  network_forward_.compute(bucket_range, meta_.d_combiner_list_, network_comm_buffer,
+                           meta_.network_ids_, meta_.network_gpu_ids_, meta_.network_offsets_,
+                           meta_.network_dst_lookup_ids_, meta_.network_ev_sizes_,
+                           meta_.network_ev_offsets_, output_buffer, meta_.d_ev_size_offset_,
+                           batch_size, meta_.max_ev_size_);
   copy_back_fwd_result();
 }
 
 All2AllEmbeddingCollectionNetworkBackward::All2AllEmbeddingCollectionNetworkBackward(
-    std::shared_ptr<CoreResourceManager> core, const EmbeddingCollectionParam &ebc_param,
-    const EmbeddingShardParam &shard_param)
-    : core_(core),
-      global_embedding_data_(core, ebc_param),
-      local_embedding_data_(core, ebc_param, shard_param),
-      sharding_param_(ebc_param.num_embedding, shard_param, core->get_global_gpu_id()) {
+    std::shared_ptr<CoreResourceManager> core, const EmbeddingCollectionParam &ebc_param)
+    : core_(core), meta_(core, ebc_param, 0) {
   int num_gpus = core->get_global_gpu_count();
   network_backward_ = NetworkBackward(core, num_gpus);
 }
@@ -426,7 +383,7 @@ void All2AllEmbeddingCollectionNetworkBackward::backward_per_gpu(
   HugeCTR::CudaDeviceContext context(core_->get_device_id());
   cudaStream_t stream = core_->get_local_gpu()->get_stream();
   // int batch_size = (top_grad[0].get_num_elements() * core_->get_global_gpu_count()) /
-  // global_embedding_data_.h_ev_size_list_[0];
+  // meta_.h_ev_size_list_[0];
   int num_gpus = core_->get_global_gpu_count();
   int batch_size_per_gpu = row_lengths[0].get_num_elements();
   int batch_size = batch_size_per_gpu * num_gpus;
@@ -436,18 +393,17 @@ void All2AllEmbeddingCollectionNetworkBackward::backward_per_gpu(
   auto copy_needed_bucket_range = [&] {
     DISPATCH_INTEGRAL_FUNCTION(row_lengths[0].dtype().type(), offset_t, [&] {
       auto buffer_ptr = GetBuffer(core_);
-      bucket_range = buffer_ptr->reserve(1 + batch_size * global_embedding_data_.num_embedding_,
-                                         DeviceType::GPU, row_lengths[0].dtype());
+      bucket_range = buffer_ptr->reserve(1 + batch_size * meta_.num_lookup_, DeviceType::GPU,
+                                         row_lengths[0].dtype());
       buffer_ptr->allocate();
 
       HCTR_LIB_THROW(
           cudaMemsetAsync(bucket_range.get<offset_t>(), 0, bucket_range.nbytes(), stream));
-      for (int embedding_id = 0; embedding_id < global_embedding_data_.num_embedding_;
-           ++embedding_id) {
-        HCTR_LIB_THROW(cudaMemcpyAsync(bucket_range.get<offset_t>() + batch_size * embedding_id +
+      for (int lookup_id = 0; lookup_id < meta_.num_lookup_; ++lookup_id) {
+        HCTR_LIB_THROW(cudaMemcpyAsync(bucket_range.get<offset_t>() + batch_size * lookup_id +
                                            global_gpu_id * batch_size_per_gpu + 1,
-                                       row_lengths[embedding_id].get<offset_t>(),
-                                       row_lengths[embedding_id].nbytes(), cudaMemcpyDeviceToDevice,
+                                       row_lengths[lookup_id].get<offset_t>(),
+                                       row_lengths[lookup_id].nbytes(), cudaMemcpyDeviceToDevice,
                                        stream));
       }
 
@@ -476,111 +432,80 @@ void All2AllEmbeddingCollectionNetworkBackward::backward_per_gpu(
     buffer_ptr->allocate();
 
     size_t nbytes_offset = 0ul;
-    for (int embedding_id = 0; embedding_id < global_embedding_data_.num_embedding_;
-         ++embedding_id) {
+    for (int lookup_id = 0; lookup_id < meta_.num_lookup_; ++lookup_id) {
       HCTR_LIB_THROW(
           cudaMemcpyAsync(reinterpret_cast<char *>(continous_top_grad.get()) + nbytes_offset,
-                          top_grad[embedding_id].get(), top_grad[embedding_id].nbytes(),
+                          top_grad[lookup_id].get(), top_grad[lookup_id].nbytes(),
                           cudaMemcpyDeviceToDevice, stream));
-      nbytes_offset += top_grad[embedding_id].nbytes();
+      nbytes_offset += top_grad[lookup_id].nbytes();
     }
   };
   copy_needed_bucket_range();
   allocate_and_copy_continous_top_grad();
 
-  RaggedNetworkIndex ragged_network_index{core_, batch_size, sharding_param_.global_embedding_list,
-                                          global_embedding_data_.h_ev_size_list_};
-
   TensorList network_comm_buffer{core_.get(), emb_vec_network_buffer, DeviceType::GPU,
                                  emb_vec_network_buffer[0].dtype(), stream};
 
-  if (std::find(local_embedding_data_.h_network_combiner_list_.begin(),
-                local_embedding_data_.h_network_combiner_list_.end(),
-                static_cast<char>(Combiner::Average)) !=
-      local_embedding_data_.h_network_combiner_list_.end()) {
-    AverageCominber average_combiner{
-        core_, num_gpus, static_cast<int>(local_embedding_data_.h_network_embedding_list_.size()),
-        global_embedding_data_.h_ev_size_list_, batch_size};
-    average_combiner.backward(
-        bucket_range, continous_top_grad, local_embedding_data_.d_network_embedding_list_,
-        global_embedding_data_.d_combiner_list_, global_embedding_data_.d_ev_size_offset_,
-        batch_size, global_embedding_data_.max_ev_size_);
-    network_backward_.compute(
-        average_combiner.float_emb_vec_, ragged_network_index.network_ids_,
-        ragged_network_index.network_gpu_ids_, ragged_network_index.network_offsets_,
-        ragged_network_index.network_dst_lookup_ids_, ragged_network_index.network_ev_sizes_,
-        ragged_network_index.network_ev_offsets_, network_comm_buffer,
-        global_embedding_data_.d_ev_size_offset_, batch_size, global_embedding_data_.max_ev_size_);
-  } else {
-    network_backward_.compute(
-        continous_top_grad, ragged_network_index.network_ids_,
-        ragged_network_index.network_gpu_ids_, ragged_network_index.network_offsets_,
-        ragged_network_index.network_dst_lookup_ids_, ragged_network_index.network_ev_sizes_,
-        ragged_network_index.network_ev_offsets_, network_comm_buffer,
-        global_embedding_data_.d_ev_size_offset_, batch_size, global_embedding_data_.max_ev_size_);
-  }
+  network_backward_.compute(bucket_range, meta_.d_combiner_list_, continous_top_grad,
+                            meta_.network_ids_, meta_.network_gpu_ids_, meta_.network_offsets_,
+                            meta_.network_dst_lookup_ids_, meta_.network_ev_sizes_,
+                            meta_.network_ev_offsets_, network_comm_buffer, meta_.d_ev_size_offset_,
+                            batch_size, meta_.max_ev_size_);
 }
 
 All2AllEmbeddingCollectionModelBackward::All2AllEmbeddingCollectionModelBackward(
-    std::shared_ptr<CoreResourceManager> core, const EmbeddingCollectionParam &ebc_param,
-    const EmbeddingShardParam &shard_param)
-    : core_(core),
-      global_embedding_data_(core, ebc_param),
-      local_embedding_data_(core, ebc_param, shard_param) {}
+    std::shared_ptr<CoreResourceManager> core, const EmbeddingCollectionParam &ebc_param)
+    : core_(core), meta_(core, ebc_param, 0) {}
 
 void All2AllEmbeddingCollectionModelBackward::sparse_backward_per_gpu(
     const std::vector<Tensor> &emb_vec_model_buffer, const Tensor &model_key,
     const Tensor &model_offsets, std::vector<int> *num_unique_key_per_table,
-    std::vector<int> *unique_id_space_list) {
+    std::vector<int> *table_id_list) {
   HugeCTR::CudaDeviceContext context(core_->get_device_id());
   int num_gpus = core_->get_global_gpu_count();
   cudaStream_t stream = core_->get_local_gpu()->get_stream();
-  int batch_size =
-      (model_offsets.get_num_elements() - 1) / local_embedding_data_.num_local_embedding_;
+  int batch_size = (model_offsets.get_num_elements() - 1) / meta_.num_local_lookup_;
   size_t num_model_key = static_cast<size_t>(model_key.get_num_elements());
 
-  Tensor id_space_offset;
-  CompressOffset compress_offset{core_, local_embedding_data_.num_local_embedding_ + 1};
-  compress_offset.compute(model_offsets, batch_size, &id_space_offset);
+  Tensor num_key_per_lookup_offset;
+  CompressOffset compress_offset{core_, meta_.num_local_lookup_ + 1};
+  compress_offset.compute(model_offsets, batch_size, &num_key_per_lookup_offset);
 
   model_backward_index_calculation_ = ModelBackwardIndexCalculation(
-      core_, num_gpus, local_embedding_data_.num_local_embedding_,
-      local_embedding_data_.h_local_hotness_list_, local_embedding_data_.h_local_id_space_list_,
-      local_embedding_data_.h_local_ev_size_list_, batch_size, model_key.dtype());
+      core_, num_gpus, meta_.num_local_lookup_, meta_.h_local_hotness_list_,
+      meta_.h_local_table_id_list_, meta_.h_local_ev_size_list_, batch_size, model_key.dtype());
 
-  Tensor continous_unique_key, unique_dst_idx, sorted_bucket_id_list, sorted_bucket_id_offset,
-      unique_id_space, unique_id_space_offset, continous_grad_emb_ev, coordinate_key,
+  Tensor continous_unique_key, wgrad_idx_offset, sorted_bucket_id_list, sorted_bucket_id_offset,
+      d_table_id_list, num_unique_key_per_table_offset, continous_grad_emb_ev, coordinate_key,
       coordinate_wgrad_dst_idx;
   size_t num_unique_key;
   model_backward_index_calculation_.compute(
-      model_key, num_model_key, model_offsets, id_space_offset,
-      local_embedding_data_.d_local_id_space_list_, batch_size, &continous_unique_key,
-      &num_unique_key, &unique_dst_idx, &sorted_bucket_id_list, &sorted_bucket_id_offset,
-      &unique_id_space, &unique_id_space_offset, &coordinate_key, &coordinate_wgrad_dst_idx);
+      model_key, num_model_key, model_offsets, num_key_per_lookup_offset,
+      meta_.d_local_table_id_list_, batch_size, &continous_unique_key, &num_unique_key,
+      &wgrad_idx_offset, &sorted_bucket_id_list, &sorted_bucket_id_offset, &d_table_id_list,
+      &num_unique_key_per_table_offset, &coordinate_key, &coordinate_wgrad_dst_idx);
 
-  model_backward_ = ModelBackward(
-      core_, num_gpus, local_embedding_data_.num_local_embedding_,
-      local_embedding_data_.h_local_hotness_list_, local_embedding_data_.h_local_ev_size_list_,
-      batch_size, local_embedding_data_.max_ev_size_, global_embedding_data_.num_sms_);
+  model_backward_ =
+      ModelBackward(core_, num_gpus, meta_.num_local_lookup_, meta_.h_local_hotness_list_,
+                    meta_.h_local_ev_size_list_, batch_size, meta_.max_ev_size_, meta_.num_sms_);
 
   TensorList model_comm_buffer{core_.get(), emb_vec_model_buffer, DeviceType::GPU,
                                emb_vec_model_buffer[0].dtype(), stream};
-  model_backward_.compute(model_comm_buffer, unique_dst_idx, sorted_bucket_id_list,
+  model_backward_.compute(model_comm_buffer, wgrad_idx_offset, sorted_bucket_id_list,
                           sorted_bucket_id_offset, num_unique_key, coordinate_key,
-                          coordinate_wgrad_dst_idx, local_embedding_data_.d_local_ev_size_offset_,
-                          batch_size, local_embedding_data_.max_ev_size_, num_model_key,
-                          &continous_grad_emb_ev);
-  unique_id_space.to(unique_id_space_list, stream);
+                          coordinate_wgrad_dst_idx, meta_.d_local_ev_size_offset_, batch_size,
+                          meta_.max_ev_size_, num_model_key, &continous_grad_emb_ev);
+  d_table_id_list.to(table_id_list, stream);
   continous_unique_key_ = continous_unique_key;
   continous_emb_vec_ = continous_grad_emb_ev;
   HCTR_LIB_THROW(cudaStreamSynchronize(stream));
-  std::vector<uint32_t> gpu_unique_id_space_offset;
-  unique_id_space_offset.to(&gpu_unique_id_space_offset);
+  std::vector<uint32_t> gpu_num_key_per_table_offset;
+  num_unique_key_per_table_offset.to(&gpu_num_key_per_table_offset);
 
-  num_unique_key_per_table->resize(unique_id_space.get_num_elements());
-  for (int i = 0; i < unique_id_space.get_num_elements(); ++i) {
+  num_unique_key_per_table->resize(d_table_id_list.get_num_elements());
+  for (int i = 0; i < d_table_id_list.get_num_elements(); ++i) {
     (*num_unique_key_per_table)[i] =
-        gpu_unique_id_space_offset[i + 1] - gpu_unique_id_space_offset[i];
+        gpu_num_key_per_table_offset[i + 1] - gpu_num_key_per_table_offset[i];
   }
 }
 

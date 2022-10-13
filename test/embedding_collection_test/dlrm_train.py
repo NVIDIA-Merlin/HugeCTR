@@ -2,40 +2,23 @@ import hugectr
 from mpi4py import MPI
 
 
-def generate_plan(slot_size_array, num_gpus, plan_file):
+def generate_plan(slot_size_array, num_gpus):
     mp_table = [i for i in range(len(slot_size_array)) if slot_size_array[i] > 6000]
     dp_table = [i for i in range(len(slot_size_array)) if slot_size_array[i] <= 6000]
+    shard_matrix = [[0 for _ in range(len(slot_size_array))] for _ in range(num_gpus)]
+    emb_table_group_strategy = [[], []]
+    emb_table_placement_strategy = ["mp", "dp"]
 
-    # place table across all gpus
-    plan = []
-    for gpu_id in range(num_gpus):
-        single_gpu_plan = []
-        mp_plan = {
-            "local_embedding_list": [
-                table_id for i, table_id in enumerate(mp_table) if i % num_gpus == gpu_id
-            ],
-            "table_placement_strategy": "mp",
-        }
-        dp_plan = {"local_embedding_list": dp_table, "table_placement_strategy": "dp"}
-        single_gpu_plan.append(mp_plan)
-        single_gpu_plan.append(dp_plan)
-        plan.append(single_gpu_plan)
+    for table_id in dp_table:
+        for gpu_id in range(num_gpus):
+            shard_matrix[gpu_id][table_id] = 1
+        emb_table_group_strategy[emb_table_placement_strategy.index("dp")].append(table_id)
 
-    # generate global view of table placement
-    mp_global_embedding_list = []
-    dp_global_embedding_list = []
-    for single_gpu_plan in plan:
-        mp_global_embedding_list.append(single_gpu_plan[0]["local_embedding_list"])
-        dp_global_embedding_list.append(single_gpu_plan[1]["local_embedding_list"])
-    for single_gpu_plan in plan:
-        single_gpu_plan[0]["global_embedding_list"] = mp_global_embedding_list
-        single_gpu_plan[1]["global_embedding_list"] = dp_global_embedding_list
-
-    # dump plan file
-    import json
-
-    with open(plan_file, "w") as f:
-        json.dump(plan, f, indent=4)
+    for i, table_id in enumerate(mp_table):
+        target_gpu = i % num_gpus
+        shard_matrix[target_gpu][table_id] = 1
+        emb_table_group_strategy[emb_table_placement_strategy.index("mp")].append(table_id)
+    return shard_matrix, emb_table_group_strategy, emb_table_placement_strategy
 
 
 solver = hugectr.CreateSolver(
@@ -81,7 +64,7 @@ slot_size_array = [
 reader = hugectr.DataReaderParams(
     data_reader_type=hugectr.DataReaderType_t.Parquet,
     source=["./criteo_data/train/_file_list.txt"],
-    eval_source="./criteo_data/val/_file_list.txt",
+    eval_source="./criteo_data/train/_file_list.txt",
     check_type=hugectr.Check_t.Non,
     slot_size_array=slot_size_array,
 )
@@ -110,11 +93,7 @@ embedding_table_list = []
 for i in range(num_embedding):
     embedding_table_list.append(
         hugectr.EmbeddingTableConfig(
-            table_id=i,
-            max_vocabulary_size=slot_size_array[i],
-            ev_size=128,
-            min_key=0,
-            max_key=slot_size_array[i],
+            table_id=i, max_vocabulary_size=slot_size_array[i], ev_size=128
         )
     )
 # create embedding planner and embedding collection
@@ -127,8 +106,14 @@ for i in range(num_embedding):
         top_name="emb_vec{}".format(i),
         combiner="sum",
     )
-generate_plan(slot_size_array, 8, "./plan.json")
-embedding_collection = embedding_planner.create_embedding_collection("./plan.json")
+shard_matrix, emb_table_group_strategy, emb_table_placement_strategy = generate_plan(
+    slot_size_array, 8
+)
+embedding_collection = embedding_planner.create_embedding_collection(
+    shard_matrix=shard_matrix,
+    emb_table_group_strategy=emb_table_group_strategy,
+    emb_table_placement_strategy=emb_table_placement_strategy,
+)
 
 model.add(embedding_collection)
 # need concat

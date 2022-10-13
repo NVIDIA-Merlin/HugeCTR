@@ -36,33 +36,17 @@ class RaggedStaticEmbeddingTable final : public IGroupedEmbeddingTable {
  public:
   RaggedStaticEmbeddingTable(const HugeCTR::GPUResource &gpu_resource,
                              std::shared_ptr<CoreResourceManager> core,
-                             const std::vector<EmbeddingTableParam> &global_emb_table_param_list,
-                             const EmbeddingCollectionParam &ebc_param,
-                             const EmbeddingShardingParam &sharding_param,
-                             const HugeCTR::OptParams &opt_param);
-
-  RaggedStaticEmbeddingTable(const HugeCTR::GPUResource &gpu_resource,
-                             std::shared_ptr<CoreResourceManager> core,
-                             const std::vector<EmbeddingTableParam> &global_emb_table_param_list,
-                             const EmbeddingCollectionParam &ebc_param,
-                             const EmbeddingShardParam &shard_param,
-                             const HugeCTR::OptParams &opt_param);
-
-  RaggedStaticEmbeddingTable(const HugeCTR::GPUResource &gpu_resource,
-                             std::shared_ptr<CoreResourceManager> core,
                              const std::vector<EmbeddingTableParam> &table_params,
-                             const EmbeddingCollectionParam &ebc_param, size_t emb_id,
+                             const EmbeddingCollectionParam &ebc_param, size_t grouped_id,
                              const HugeCTR::OptParams &opt_param);
-  // void hash_insert(const Tensor &keys, size_t num_keys, const Tensor &offsets, size_t
-  // num_offsets, const Tensor &d_id_space_list, Tensor &indices) override;
 
   void lookup(const Tensor &keys, size_t num_keys, const Tensor &id_space_offset,
               size_t num_id_space_offset, const Tensor &id_space,
               TensorList &embedding_vec) override;
 
-  void update(const Tensor &keys, size_t num_keys, const Tensor &id_space_offset,
-              size_t num_id_space_offset, const Tensor &id_space_list, Tensor &grad_ev,
-              const Tensor &grad_ev_offset) override;
+  void update(const Tensor &keys, size_t num_keys, const Tensor &num_unique_key_per_table_offset,
+              size_t num_table_offset, const Tensor &table_id_list, Tensor &wgrad,
+              const Tensor &wgrad_idx_offset) override;
 
   void load(Tensor &keys, Tensor &id_space_offset, Tensor &embedding_table, Tensor &ev_size_list,
             Tensor &id_space) override;

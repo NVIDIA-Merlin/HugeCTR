@@ -26,14 +26,18 @@ namespace {
 
 template <typename key_t, typename offset_t>
 __global__ void index_calculation_kernel(const key_t* key, const offset_t* bucket_range,
-                                         const int* local_embedding_list, int shard_id,
-                                         int shards_count, int batch_size, int num_local_embedding,
-                                         uint32_t* model_idx_offsets, char* flag) {
+                                         const int* local_embedding_list,
+                                         const int* local_shard_id_list,
+                                         const int* local_num_shards_list, int batch_size,
+                                         int num_local_embedding, uint32_t* model_idx_offsets,
+                                         char* flag) {
   int tid = blockIdx.x * blockDim.x + threadIdx.x;
 
   if (tid < batch_size * num_local_embedding) {
     int batch_id = tid % batch_size;
     int embedding_id = local_embedding_list[tid / batch_size];
+    int shard_id = local_shard_id_list[tid / batch_size];
+    int shards_count = local_num_shards_list[tid / batch_size];
 
     uint32_t bucket_start =
         static_cast<uint32_t>(bucket_range[batch_size * embedding_id + batch_id]);
@@ -245,21 +249,14 @@ __global__ void scan_id_space_offset(const key_t* hash_keys, const uint32_t* has
 }  // namespace
 
 ModelIndexCalculation::ModelIndexCalculation(std::shared_ptr<CoreResourceManager> core,
-                                             int num_local_embedding,
-                                             const std::vector<int>& local_hotness_list,
-                                             const std::vector<int>& hotness_list,
-                                             int universal_batch_size, DataType key_type)
+                                             int num_local_embedding, int local_hotness_sum,
+                                             int hotness_sum, int universal_batch_size,
+                                             DataType key_type)
     : core_(core),
       num_local_embedding_(num_local_embedding),
-      local_hotness_sum_(0),
-      hotness_list_sum_(0),
+      local_hotness_sum_(local_hotness_sum),
+      hotness_list_sum_(hotness_sum),
       universal_batch_size_(universal_batch_size) {
-  for (size_t idx = 0; idx < local_hotness_list.size(); ++idx) {
-    local_hotness_sum_ += local_hotness_list[idx];
-  }
-  for (size_t idx = 0; idx < hotness_list.size(); ++idx) {
-    hotness_list_sum_ += hotness_list[idx];
-  }
   HugeCTR::CudaDeviceContext ctx(core_->get_device_id());
   Device device{DeviceType::GPU, core->get_device_id()};
 
@@ -291,9 +288,11 @@ ModelIndexCalculation::ModelIndexCalculation(std::shared_ptr<CoreResourceManager
 }
 
 void ModelIndexCalculation::compute(const Tensor& key, const Tensor& bucket_range, size_t num_key,
-                                    const Tensor& d_local_embedding_list, int shard_id,
-                                    int shards_count, int batch_size, Tensor* model_key,
-                                    Tensor* model_idx_offsets, size_t* num_model_key) {
+                                    const Tensor& d_local_embedding_list,
+                                    const Tensor& d_local_shard_id_list,
+                                    const Tensor& d_local_num_shards_list, int batch_size,
+                                    Tensor* model_key, Tensor* model_idx_offsets,
+                                    size_t* num_model_key) {
   HugeCTR::CudaDeviceContext ctx(core_->get_device_id());
 
   *(num_model_key_.get<size_t>()) = 0;
@@ -314,14 +313,17 @@ void ModelIndexCalculation::compute(const Tensor& key, const Tensor& bucket_rang
         const key_t* key_ptr = key.get<key_t>();
         const offset_t* bucket_range_ptr = bucket_range.get<offset_t>();
         const int* local_embedding_list_ptr = d_local_embedding_list.get<int>();
+        const int* local_shard_id_ptr = d_local_shard_id_list.get<int>();
+        const int* local_num_shards_ptr = d_local_num_shards_list.get<int>();
 
         // in cub implementation, the flag must be 0 or 1. See
         // https://github.com/NVIDIA/cub/issues/235 we can fuse thie memset with next kernel
         int thread_cnt = 128;
         int block_cnt = (batch_size * num_local_embedding_ - 1) / thread_cnt + 1;
         index_calculation_kernel<<<block_cnt, thread_cnt, 0, stream>>>(
-            key_ptr, bucket_range_ptr, local_embedding_list_ptr, shard_id, shards_count, batch_size,
-            num_local_embedding_, model_idx_offsets_ptr, flag_ptr);
+            key_ptr, bucket_range_ptr, local_embedding_list_ptr, local_shard_id_ptr,
+            local_num_shards_ptr, batch_size, num_local_embedding_, model_idx_offsets_ptr,
+            flag_ptr);
 
         size_t d_temp_scan_storage_nbytes = d_temp_scan_storage_.nbytes();
         cub::DeviceScan::InclusiveSum(d_temp_scan_storage_.get(), d_temp_scan_storage_nbytes,
@@ -565,132 +567,4 @@ void ModelBackwardIndexCalculation::compute(
   *coordinate_key = sorted_local_index_;
   *coordinate_wgrad_dst_idx = coordinate_wgrad_dst_idx_;
 }
-
-RaggedNetworkIndex::RaggedNetworkIndex(std::shared_ptr<CoreResourceManager> core, int batch_size,
-                                       const std::vector<std::vector<int>>& global_embedding_list,
-                                       const std::vector<int>& ev_size_list) {
-  HugeCTR::CudaDeviceContext context(core->get_device_id());
-  int gpu_id = core->get_global_gpu_id();
-  int num_gpus = core->get_global_gpu_count();
-  int batch_size_per_gpu = batch_size / num_gpus;
-  std::vector<std::vector<int>> h_network_ev_sizes;
-  std::vector<std::vector<int>> h_network_ev_offsets;
-  h_network_ev_sizes.resize(num_gpus);
-  h_network_ev_offsets.resize(num_gpus);
-  for (int ggpu_id = 0; ggpu_id < num_gpus; ++ggpu_id) {
-    h_network_ev_offsets[ggpu_id].push_back(0);
-  }
-
-  std::vector<std::tuple<int, int, int>> h_network_buffer_meta_info;
-  for (int ggpu_id = 0; ggpu_id < num_gpus; ++ggpu_id) {
-    int network_id = 0;
-    for (int lookup_id : global_embedding_list[ggpu_id]) {
-      int ev_size = ev_size_list[lookup_id];
-      h_network_ev_sizes[ggpu_id].push_back(ev_size);
-      h_network_ev_offsets[ggpu_id].push_back(ev_size);
-      h_network_buffer_meta_info.push_back({ggpu_id, network_id, lookup_id});
-      network_id += 1;
-    }
-  }
-  for (int ggpu_id = 0; ggpu_id < num_gpus; ++ggpu_id) {
-    std::partial_sum(h_network_ev_offsets[ggpu_id].begin(), h_network_ev_offsets[ggpu_id].end(),
-                     h_network_ev_offsets[ggpu_id].begin());
-  }
-
-  std::sort(h_network_buffer_meta_info.begin(), h_network_buffer_meta_info.end(),
-            [](const auto& lhs, const auto& rhs) { return std::get<2>(lhs) <= std::get<2>(rhs); });
-
-  std::vector<int> h_network_ids;
-  std::vector<int> h_network_gpu_ids;
-  std::vector<int> h_network_offsets;
-  std::vector<int> h_network_dst_lookup_ids;
-
-  for (size_t i = 0; i < h_network_buffer_meta_info.size(); ++i) {
-    const auto& meta_info = h_network_buffer_meta_info[i];
-    int network_gpu_id = std::get<0>(meta_info);
-    int network_id = std::get<1>(meta_info);
-    h_network_ids.push_back(network_id);
-    h_network_gpu_ids.push_back(network_gpu_id);
-  }
-
-  for (size_t i = 0; i < h_network_buffer_meta_info.size(); ++i) {
-    const auto& meta_info = h_network_buffer_meta_info[i];
-    int lookup_id = std::get<2>(meta_info);
-    if (i == 0 || lookup_id != std::get<2>(h_network_buffer_meta_info[i - 1])) {
-      h_network_dst_lookup_ids.push_back(lookup_id);
-    }
-  }
-  // num_network_dst_look = static_cast<int>(h_network_dst_lookup_ids.size());
-
-  int network_offset = 0;
-  for (size_t i = 0; i < h_network_buffer_meta_info.size(); ++i) {
-    const auto& meta_info = h_network_buffer_meta_info[i];
-    int lookup_id = std::get<2>(meta_info);
-    if (i == 0 || lookup_id != std::get<2>(h_network_buffer_meta_info[i - 1])) {
-      h_network_offsets.push_back(network_offset);
-    }
-    network_offset += 1;
-  }
-  h_network_offsets.push_back(network_offset);
-
-  auto buffer_ptr = GetBuffer(core);
-  core::DataType data_type = {TensorScalarType::Int32};
-
-  for (int ggpu_id = 0; ggpu_id < num_gpus; ++ggpu_id) {
-    network_ev_size_list_.push_back(
-        buffer_ptr->reserve({h_network_ev_sizes[ggpu_id].size()}, DeviceType::GPU, data_type));
-    network_ev_offset_list_.push_back(
-        buffer_ptr->reserve({h_network_ev_offsets[ggpu_id].size()}, DeviceType::GPU, data_type));
-  }
-
-  network_ids_ = buffer_ptr->reserve({h_network_ids.size()}, DeviceType::GPU, data_type);
-  network_gpu_ids_ = buffer_ptr->reserve({h_network_gpu_ids.size()}, DeviceType::GPU, data_type);
-  network_offsets_ = buffer_ptr->reserve({h_network_offsets.size()}, DeviceType::GPU, data_type);
-  network_dst_lookup_ids_ =
-      buffer_ptr->reserve({h_network_dst_lookup_ids.size()}, DeviceType::GPU, data_type);
-  buffer_ptr->allocate();
-
-  network_ids_.copy_from(h_network_ids);
-  network_gpu_ids_.copy_from(h_network_gpu_ids);
-  network_offsets_.copy_from(h_network_offsets);
-  network_dst_lookup_ids_.copy_from(h_network_dst_lookup_ids);
-  for (int ggpu_id = 0; ggpu_id < num_gpus; ++ggpu_id) {
-    network_ev_size_list_[ggpu_id].copy_from(h_network_ev_sizes[ggpu_id]);
-    network_ev_offset_list_[ggpu_id].copy_from(h_network_ev_offsets[ggpu_id]);
-  }
-  network_ev_sizes_ =
-      TensorList(core.get(), network_ev_size_list_, DeviceType::GPU, TensorScalarType::Int32);
-  network_ev_offsets_ =
-      TensorList(core.get(), network_ev_offset_list_, DeviceType::GPU, TensorScalarType::Int32);
-}
-
-RaggedNetworkBuffer::RaggedNetworkBuffer(std::shared_ptr<CoreResourceManager> core, int batch_size,
-                                         const std::vector<std::vector<int>>& global_embedding_list,
-                                         const std::vector<int>& ev_size_list, DataType emb_type) {
-  HugeCTR::CudaDeviceContext context(core->get_device_id());
-  int num_gpus = core->get_global_gpu_count();
-  int batch_size_per_gpu = batch_size / num_gpus;
-
-  auto init_network_comm_buffer = [&] {
-    for (int global_gpu_id = 0; global_gpu_id < num_gpus; ++global_gpu_id) {
-      auto& remote_embedding_list = global_embedding_list[global_gpu_id];
-      size_t num_ev_elements = 0;
-      for (int embedding_id : remote_embedding_list) {
-        num_ev_elements += ev_size_list[embedding_id] * batch_size_per_gpu;
-      }
-      network_comm_buffer_size_.push_back(num_ev_elements);
-    }
-    auto buffer_ptr = GetBuffer(core);
-    for (size_t i = 0; i < network_comm_buffer_size_.size(); ++i) {
-      network_comm_buffer_list_.push_back(
-          buffer_ptr->reserve(network_comm_buffer_size_[i], DeviceType::GPU, emb_type));
-    }
-    buffer_ptr->allocate();
-
-    network_comm_buffer_ =
-        TensorList(core.get(), network_comm_buffer_list_, DeviceType::GPU, emb_type);
-  };
-  init_network_comm_buffer();
-}
-
 }  // namespace embedding

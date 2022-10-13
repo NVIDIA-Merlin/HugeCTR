@@ -49,6 +49,8 @@ TEST(test_compress_offset, test_compress_offset) {
   Tensor compressed_offset;
   compress_offset.compute(offset, batch_size, &compressed_offset);
 
+  HCTR_LIB_THROW(cudaStreamSynchronize(core->get_local_gpu()->get_stream()));
+
   std::vector<uint32_t> gpu_compressed_offset;
   compressed_offset.to(&gpu_compressed_offset);
 

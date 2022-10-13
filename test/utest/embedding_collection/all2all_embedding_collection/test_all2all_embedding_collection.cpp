@@ -28,68 +28,57 @@
 #include "HugeCTR/include/resource_managers/resource_manager_ext.hpp"
 using namespace embedding;
 
-const std::vector<int> device_list = {0, 1};
-// embedding parameter
-const int batch_size = 32;
-const int num_embedding = 5;
-const std::vector<int> id_space_list = {0, 1, 2, 3, 4};
-const std::vector<int> hotness_list = {10, 10, 10, 10, 10};
-const std::vector<Combiner> combiner_list = {Combiner::Sum, Combiner::Average, Combiner::Average,
-                                             Combiner::Average, Combiner::Average};
 // embedding table parameter
 const int num_table = 5;
 const std::vector<int> table_ev_size_list = {8, 16, 32, 64, 128};
-const std::vector<int> table_min_key_list = {0, 0, 0, 0, 0};
-const std::vector<int> table_max_key_list = {100, 100, 100, 100, 100};
+const std::vector<int> table_max_vocabulary_size_list = {100, 100, 100, 100, 100};
+// lookup parameter
+const int num_lookup = 5;
+const std::vector<LookupParam> lookup_params = {
+    {0, 0, Combiner::Sum, 8, table_ev_size_list[0]},
+    {1, 1, Combiner::Average, 20, table_ev_size_list[1]},
+    {2, 2, Combiner::Sum, 10, table_ev_size_list[2]},
+    {3, 3, Combiner::Average, 5, table_ev_size_list[3]},
+    {4, 4, Combiner::Average, 5, table_ev_size_list[4]},
+};
 // shard parameter
-const std::vector<std::vector<int>> shard_matrix = {{-1, 0, -1, 0, -1}, {0, -1, 0, -1, 0}};
-// const std::vector<std::vector<int>> shard_matrix = {{0, 0, 0, 0, 0}, {1, 1, 1, 1, 1}};
+const std::vector<std::vector<int>> shard_matrix = {
+    {0, 1, 1, 1, 0},
+    {1, 0, 1, 1, 1},
+};
+const std::vector<GroupedEmbeddingParam> grouped_emb_params = {
+    {TablePlacementStrategy::ModelParallel, {0, 1, 2, 3, 4}}};
+
+const std::vector<int> device_list = {0, 1};
+const int batch_size = 32;
 
 template <typename key_t, typename offset_t, typename index_t, typename emb_t>
 void all2all_embedding_collection_test() {
   auto resource_manager = HugeCTR::ResourceManagerExt::create({device_list}, 0);
   int num_gpus = static_cast<int>(device_list.size());
-  EmbeddingCollectionParam ebc_param;
-  ebc_param.num_embedding = num_embedding;
-  for (int embedding_id = 0; embedding_id < num_embedding; ++embedding_id) {
-    EmbeddingParam emb_param;
-    emb_param.embedding_id = embedding_id;
-    emb_param.id_space = id_space_list[embedding_id];
-    emb_param.combiner = combiner_list[embedding_id];
-    emb_param.hotness = hotness_list[embedding_id];
-    emb_param.ev_size = table_ev_size_list[id_space_list[embedding_id]];
-    ebc_param.embedding_params.push_back(std::move(emb_param));
-  }
-  ebc_param.universal_batch_size = batch_size;
-  ebc_param.is_table_first_input = true;
-  ebc_param.is_utest = true;
-  ebc_param.key_type = HugeCTR::TensorScalarTypeFunc<key_t>::get_type();
-  ebc_param.index_type = HugeCTR::TensorScalarTypeFunc<index_t>::get_type();
-  ebc_param.offset_type = HugeCTR::TensorScalarTypeFunc<offset_t>::get_type();
-  ebc_param.emb_type = HugeCTR::TensorScalarTypeFunc<emb_t>::get_type();
-
-  EmbeddingShardParam shard_param{shard_matrix, TablePlacementStrategy::ModelParallel};
+  EmbeddingCollectionParam ebc_param{num_table,
+                                     num_lookup,
+                                     lookup_params,
+                                     shard_matrix,
+                                     grouped_emb_params,
+                                     batch_size,
+                                     HugeCTR::TensorScalarTypeFunc<key_t>::get_type(),
+                                     HugeCTR::TensorScalarTypeFunc<index_t>::get_type(),
+                                     HugeCTR::TensorScalarTypeFunc<offset_t>::get_type(),
+                                     HugeCTR::TensorScalarTypeFunc<emb_t>::get_type(),
+                                     EmbeddingLayout::FeatureMajor};
 
   std::vector<EmbeddingTableParam> table_param_list;
-  for (int id = 0; id < num_table; ++id) {
-    EmbeddingTableParam table_param;
-    table_param.table_id = id;
-    table_param.max_vocabulary_size = 5;
-    table_param.ev_size = table_ev_size_list[id];
-    table_param.min_key = table_min_key_list[id];
-    table_param.max_key = table_max_key_list[id];
-    HugeCTR::OptParams opt_param;
-    opt_param.optimizer = HugeCTR::Optimizer_t::SGD;
-    opt_param.lr = 1e-1;
-    opt_param.scaler = (ebc_param.emb_type == TensorScalarType::Float16) ? 1024 : 1;
-    table_param.opt_param = opt_param;
-    table_param_list.push_back(std::move(table_param));
-  }
-
   HugeCTR::OptParams opt_param;
   opt_param.optimizer = HugeCTR::Optimizer_t::SGD;
   opt_param.lr = 1e-1;
   opt_param.scaler = (ebc_param.emb_type == TensorScalarType::Float16) ? 1024 : 1;
+
+  for (int id = 0; id < num_table; ++id) {
+    EmbeddingTableParam table_param{
+        id, table_max_vocabulary_size_list[id], table_ev_size_list[id], opt_param, {}};
+    table_param_list.push_back(std::move(table_param));
+  }
 
   std::vector<std::shared_ptr<core::CoreResourceManager>> core_list;
   std::vector<std::unique_ptr<tf::IAll2AllEmbeddingCollectionSwizzleKey>> swizzle_key_list;
@@ -106,20 +95,15 @@ void all2all_embedding_collection_test() {
     swizzle_key_list.push_back(
         std::move(std::make_unique<tf::All2AllEmbeddingCollectionSwizzleKey>(core)));
     model_forward_list.push_back(
-        std::move(std::make_unique<tf::All2AllEmbeddingCollectionModelForward>(core, ebc_param,
-                                                                               shard_param)));
+        std::move(std::make_unique<tf::All2AllEmbeddingCollectionModelForward>(core, ebc_param)));
     network_forward_list.push_back(
-        std::move(std::make_unique<tf::All2AllEmbeddingCollectionNetworkForward>(core, ebc_param,
-                                                                                 shard_param)));
-    network_backward_list.push_back(
-        std::move(std::make_unique<tf::All2AllEmbeddingCollectionNetworkBackward>(core, ebc_param,
-                                                                                  shard_param)));
+        std::move(std::make_unique<tf::All2AllEmbeddingCollectionNetworkForward>(core, ebc_param)));
+    network_backward_list.push_back(std::move(
+        std::make_unique<tf::All2AllEmbeddingCollectionNetworkBackward>(core, ebc_param)));
     model_backward_list.push_back(
-        std::move(std::make_unique<tf::All2AllEmbeddingCollectionModelBackward>(core, ebc_param,
-                                                                                shard_param)));
+        std::move(std::make_unique<tf::All2AllEmbeddingCollectionModelBackward>(core, ebc_param)));
     ebc_table_list.push_back(std::make_unique<RaggedStaticEmbeddingTable>(
-        *resource_manager->get_local_gpu(gpu_id), core, table_param_list, ebc_param, shard_param,
-        opt_param));
+        *resource_manager->get_local_gpu(gpu_id), core, table_param_list, ebc_param, 0, opt_param));
   }
 
   std::vector<std::vector<std::vector<key_t>>> key_list;
@@ -133,25 +117,25 @@ void all2all_embedding_collection_test() {
     key_list.resize(num_gpus);
     row_lengths.resize(num_gpus);
     for (int gpu_id = 0; gpu_id < num_gpus; ++gpu_id) {
-      key_list[gpu_id].resize(num_embedding);
-      row_lengths[gpu_id].resize(num_embedding);
+      key_list[gpu_id].resize(ebc_param.num_lookup);
+      row_lengths[gpu_id].resize(ebc_param.num_lookup);
     }
 
     int batch_size_per_gpu = ebc_param.universal_batch_size / num_gpus;
     for (int gpu_id = 0; gpu_id < num_gpus; ++gpu_id) {
-      for (int embedding_id = 0; embedding_id < num_embedding; ++embedding_id) {
-        auto &embedding_param = ebc_param.embedding_params[embedding_id];
-        int id_space = embedding_param.id_space;
-        int hotness = embedding_param.hotness;
+      for (int embedding_id = 0; embedding_id < ebc_param.num_lookup; ++embedding_id) {
+        auto &embedding_param = ebc_param.lookup_params[embedding_id];
+        int id_space = embedding_param.table_id;
+        int hotness = embedding_param.max_hotness;
         auto &table_param = table_param_list[id_space];
-        HCTR_CHECK_HINT(ebc_param.embedding_params[embedding_id].combiner != Combiner::Concat,
+        HCTR_CHECK_HINT(ebc_param.lookup_params[embedding_id].combiner != Combiner::Concat,
                         "sparse embedding does not support concat combiner.");
         for (int b = 0; b < batch_size_per_gpu; ++b) {
           int nnz = rand() % (hotness + 1);
           int gpu_id = b % num_gpus;
           row_lengths[gpu_id][embedding_id].push_back(nnz);
           for (int i = 0; i < nnz; ++i) {
-            key_t key = rand() % (table_param.max_key - table_param.min_key) + table_param.min_key;
+            key_t key = rand() % table_param.max_vocabulary_size;
             key_list[gpu_id][embedding_id].push_back(key);
           }
         }
@@ -171,7 +155,7 @@ void all2all_embedding_collection_test() {
       std::vector<core::Tensor> ebc_row_lengths_list;
 
       auto copy_gpu_input = [&] {
-        for (int embedding_id = 0; embedding_id < num_embedding; ++embedding_id) {
+        for (int embedding_id = 0; embedding_id < ebc_param.num_lookup; ++embedding_id) {
           ebc_key_list.push_back(buffer->reserve(key_list[gpu_id][embedding_id].size(),
                                                  DeviceType::GPU, ebc_param.key_type));
           ebc_row_lengths_list.push_back(buffer->reserve(row_lengths[gpu_id][embedding_id].size(),
@@ -210,14 +194,14 @@ void all2all_embedding_collection_test() {
       HCTR_LIB_THROW(cudaStreamSynchronize(core_list[gpu_id]->get_local_gpu()->get_stream()));
       auto print_input_key = [&] {
         std::cout << "gpu_id:" << gpu_id << ",ebc_key_list:\n";
-        for (int embedding_id = 0; embedding_id < num_embedding; ++embedding_id) {
+        for (int embedding_id = 0; embedding_id < ebc_param.num_lookup; ++embedding_id) {
           std::vector<key_t> gpu_ebc_key;
           ebc_key_list[embedding_id].to(&gpu_ebc_key);
           print_array(gpu_ebc_key.size(), gpu_ebc_key);
         }
 
         std::cout << "gpu_id:" << gpu_id << ",ebc_row_lengths:\n";
-        for (int embedding_id = 0; embedding_id < num_embedding; ++embedding_id) {
+        for (int embedding_id = 0; embedding_id < ebc_param.num_lookup; ++embedding_id) {
           std::vector<key_t> gpu_ebc_row_length;
           ebc_row_lengths_list[embedding_id].to(&gpu_ebc_row_length);
           print_array(gpu_ebc_row_length.size(), gpu_ebc_row_length);
@@ -247,7 +231,7 @@ void all2all_embedding_collection_test() {
         std::vector<key_t> cpu_key_all_gather_recv_buffer;
         std::vector<offset_t> cpu_row_lengths_all_gather_recv_buffer;
         for (int gpu_id = 0; gpu_id < num_gpus; ++gpu_id) {
-          for (int embedding_id = 0; embedding_id < num_embedding; ++embedding_id) {
+          for (int embedding_id = 0; embedding_id < ebc_param.num_lookup; ++embedding_id) {
             cpu_key_all_gather_recv_buffer.insert(cpu_key_all_gather_recv_buffer.end(),
                                                   key_list[gpu_id][embedding_id].begin(),
                                                   key_list[gpu_id][embedding_id].end());
@@ -332,10 +316,9 @@ void all2all_embedding_collection_test() {
         srand(t1.tv_usec * t1.tv_sec);
         for (int global_gpu_id = 0; global_gpu_id < num_gpus; ++global_gpu_id) {
           int num_elements = 0;
-          for (int embedding_id = 0; embedding_id < ebc_param.num_embedding; ++embedding_id) {
-            if (shard_param.shard_matrix[global_gpu_id][embedding_id] < 0) continue;
-            num_elements +=
-                ebc_param.embedding_params[embedding_id].ev_size * batch_size / num_gpus;
+          for (int embedding_id = 0; embedding_id < ebc_param.num_lookup; ++embedding_id) {
+            if (ebc_param.shard_matrix[global_gpu_id][embedding_id] < 0) continue;
+            num_elements += ebc_param.lookup_params[embedding_id].ev_size * batch_size / num_gpus;
           }
           std::vector<emb_t> cpu_network_buffer;
           for (int i = 0; i < num_elements; ++i) {
@@ -365,10 +348,10 @@ void all2all_embedding_collection_test() {
 
       std::vector<Tensor> forward_emb_vec;
       auto allocate_forward_emb_vec = [&] {
-        for (int embedding_id = 0; embedding_id < ebc_param.num_embedding; ++embedding_id) {
-          forward_emb_vec.push_back(buffer->reserve(
-              ebc_param.embedding_params[embedding_id].ev_size * batch_size / num_gpus,
-              DeviceType::GPU, ebc_param.emb_type));
+        for (int embedding_id = 0; embedding_id < ebc_param.num_lookup; ++embedding_id) {
+          forward_emb_vec.push_back(
+              buffer->reserve(ebc_param.lookup_params[embedding_id].ev_size * batch_size / num_gpus,
+                              DeviceType::GPU, ebc_param.emb_type));
         }
         buffer->allocate();
       };

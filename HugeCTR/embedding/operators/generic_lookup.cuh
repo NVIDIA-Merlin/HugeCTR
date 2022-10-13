@@ -188,308 +188,6 @@ struct Vec4T<float> {
   }
 };
 
-template <typename IndexArray, typename OffsetArray, typename DstArray, typename SrcTensor,
-          typename DstTensor, int kMaxElemPerThread>
-__global__ void generic_lookup_cta_per_bucket_kernel(IndexArray idx, OffsetArray offset_idx,
-                                                     DstArray dst_idx, SrcTensor src_tensor,
-                                                     DstTensor dst_tensor) {
-  using index_t = typename IndexArray::value_type;
-  using offset_t = typename OffsetArray::value_type;
-  using dst_index_t = typename DstArray::value_type;
-  using src_t = typename SrcTensor::value_type;
-  using src_scalar_t = typename SrcTensor::value_type::value_type;
-  using dst_t = typename DstTensor::value_type;
-  using dst_scalar_t = typename DstTensor::value_type::value_type;
-
-  int bucket_index = blockIdx.x;
-  if (bucket_index < offset_idx.size() - 1) {
-    offset_t start = offset_idx[bucket_index];
-    offset_t end = offset_idx[bucket_index + 1];
-
-    float accum[kMaxElemPerThread] = {0.f};
-    for (int r = 0; r < static_cast<int>(end) - static_cast<int>(start); ++r) {
-      index_t in_bucket_id = idx[start + r];
-      src_t ev = src_tensor[in_bucket_id];
-
-#pragma unroll kMaxElemPerThread
-      for (int i = 0; i < kMaxElemPerThread && blockDim.x * i + threadIdx.x < ev.size(); ++i) {
-        accum[i] += HugeCTR::TypeConvertFunc<float, src_scalar_t>::convert(
-            ev[blockDim.x * i + threadIdx.x]);
-      }
-    }
-
-    dst_index_t out_bucket_id = dst_idx[bucket_index];
-    dst_t dst_ev = dst_tensor[out_bucket_id];
-
-#pragma unroll kMaxElemPerThread
-    for (int i = 0; i < kMaxElemPerThread && blockDim.x * i + threadIdx.x < dst_ev.size(); ++i) {
-      dst_ev[blockDim.x * i + threadIdx.x] =
-          HugeCTR::TypeConvertFunc<dst_scalar_t, float>::convert(accum[i]);
-    }
-  }
-}
-
-template <typename IndexArray, typename OffsetArray, typename DstArray, typename SrcTensor,
-          typename DstTensor, int kMaxElemPerThread>
-__global__ void generic_lookup_cta_per_bucket_vec4_kernel(IndexArray idx, OffsetArray offset_idx,
-                                                          DstArray dst_idx, SrcTensor src_tensor,
-                                                          DstTensor dst_tensor) {
-  using index_t = typename IndexArray::value_type;
-  using offset_t = typename OffsetArray::value_type;
-  using dst_index_t = typename DstArray::value_type;
-  using src_t = typename SrcTensor::value_type;
-  using src_scalar_t = typename SrcTensor::value_type::value_type;
-  using dst_t = typename DstTensor::value_type;
-  using dst_scalar_t = typename DstTensor::value_type::value_type;
-  constexpr int copy_width = 4;
-
-  int bucket_index = blockIdx.x;
-  if (bucket_index < offset_idx.size() - 1) {
-    offset_t start = offset_idx[bucket_index];
-    offset_t end = offset_idx[bucket_index + 1];
-
-    Vec4T<float> accum[kMaxElemPerThread];
-    for (int r = 0; r < static_cast<int>(end) - static_cast<int>(start); ++r) {
-      index_t in_bucket_id = idx[start + r];
-      src_t ev = src_tensor[in_bucket_id];
-
-#pragma unroll kMaxElemPerThread
-      for (int i = 0; i < kMaxElemPerThread && 4 * blockDim.x * i + 4 * threadIdx.x < ev.size();
-           ++i) {
-        Vec4T<src_scalar_t> src_elem;
-        int idx4 = 4 * blockDim.x * i + 4 * threadIdx.x;
-        int n = min(ev.size() - idx4, copy_width);
-        src_elem.load(&ev[idx4], n);
-        accum[i].accumulate(src_elem);
-      }
-    }
-
-    dst_index_t out_bucket_id = dst_idx[bucket_index];
-    dst_t dst_ev = dst_tensor[out_bucket_id];
-
-#pragma unroll kMaxElemPerThread
-    for (int i = 0; i < kMaxElemPerThread && 4 * blockDim.x * i + 4 * threadIdx.x < dst_ev.size();
-         ++i) {
-      int idx4 = 4 * blockDim.x * i + 4 * threadIdx.x;
-      int n = min(dst_ev.size() - idx4, copy_width);
-      accum[i].store(&dst_ev[idx4], n);
-    }
-  }
-}
-
-template <typename IndexArray, typename OffsetArray, typename DstArray, typename SrcTensor,
-          typename DstTensor, int kMaxElemPerThread>
-__global__ void generic_lookup_warp_per_bucket_vec4_kernel(IndexArray idx, OffsetArray offset_idx,
-                                                           DstArray dst_idx, SrcTensor src_tensor,
-                                                           DstTensor dst_tensor) {
-  using index_t = typename IndexArray::value_type;
-  using offset_t = typename OffsetArray::value_type;
-  using dst_index_t = typename DstArray::value_type;
-  using src_t = typename SrcTensor::value_type;
-  using src_scalar_t = typename SrcTensor::value_type::value_type;
-  using dst_t = typename DstTensor::value_type;
-  using dst_scalar_t = typename DstTensor::value_type::value_type;
-  constexpr int copy_width = 4;
-  constexpr int kWarpSize = 32;
-
-  int lane_id = threadIdx.x;
-  int warp_id = threadIdx.y;
-  int bucket_index = blockIdx.x * blockDim.y + warp_id;
-  if (bucket_index < offset_idx.size() - 1) {
-    offset_t start = offset_idx[bucket_index];
-    offset_t end = offset_idx[bucket_index + 1];
-
-    Vec4T<float> accum[kMaxElemPerThread];
-    int L = static_cast<int>(end) - static_cast<int>(start);
-    for (int r = 0; r < L; r += kWarpSize) {
-      int l = r + lane_id;
-      index_t in_bucket_id = l < L ? idx[start + l] : 0;
-
-      for (int j = 0; j < kWarpSize && r + j < L; ++j) {
-        int in_bid = __shfl_sync(0xFFFFFFFF, in_bucket_id, j);
-        src_t ev = src_tensor[in_bid];
-
-#pragma unroll kMaxElemPerThread
-        for (int i = 0; i < kMaxElemPerThread && 4 * kWarpSize * i + 4 * lane_id < ev.size(); ++i) {
-          Vec4T<src_scalar_t> src_elem;
-          int idx4 = 4 * kWarpSize * i + 4 * lane_id;
-          int n = min(ev.size() - idx4, copy_width);
-          src_elem.load(&ev[idx4], n);
-          accum[i].accumulate(src_elem);
-        }
-      }
-    }
-
-    dst_index_t out_bucket_id = dst_idx[bucket_index];
-    dst_t dst_ev = dst_tensor[out_bucket_id];
-
-#pragma unroll kMaxElemPerThread
-    for (int i = 0; i < kMaxElemPerThread && 4 * kWarpSize * i + 4 * lane_id < dst_ev.size(); ++i) {
-      int idx4 = 4 * kWarpSize * i + 4 * lane_id;
-      int n = min(dst_ev.size() - idx4, copy_width);
-      accum[i].store(&dst_ev[idx4], n);
-    }
-  }
-}
-
-template <typename IndexArray, typename OffsetArray, typename DstArray, typename SrcTensor,
-          typename DstTensor>
-void generic_lookup(IndexArray idx, OffsetArray offset_idx, DstArray dst_idx, SrcTensor src_tensor,
-                    DstTensor dst_tensor, int max_ev_size, cudaStream_t stream) {
-  int num_bucket = offset_idx.size() - 1;
-  if (max_ev_size <= 64) {
-    generic_lookup_cta_per_bucket_kernel<IndexArray, OffsetArray, DstArray, SrcTensor, DstTensor, 1>
-        <<<num_bucket, max_ev_size, 0, stream>>>(idx, offset_idx, dst_idx, src_tensor, dst_tensor);
-  } else if (max_ev_size <= 128) {
-    int grid_size = (num_bucket - 1) / 2 + 1;
-    dim3 block_size{32, 2};
-    generic_lookup_warp_per_bucket_vec4_kernel<IndexArray, OffsetArray, DstArray, SrcTensor,
-                                               DstTensor, 1>
-        <<<grid_size, block_size, 0, stream>>>(idx, offset_idx, dst_idx, src_tensor, dst_tensor);
-  } else if (max_ev_size <= 1024) {
-    generic_lookup_cta_per_bucket_vec4_kernel<IndexArray, OffsetArray, DstArray, SrcTensor,
-                                              DstTensor, 1>
-        <<<num_bucket, (max_ev_size - 1) / 4 + 1, 0, stream>>>(idx, offset_idx, dst_idx, src_tensor,
-                                                               dst_tensor);
-  } else if (max_ev_size <= 2048) {
-    generic_lookup_cta_per_bucket_vec4_kernel<IndexArray, OffsetArray, DstArray, SrcTensor,
-                                              DstTensor, 2>
-        <<<num_bucket, 256, 0, stream>>>(idx, offset_idx, dst_idx, src_tensor, dst_tensor);
-  } else if (max_ev_size <= 4096) {
-    generic_lookup_cta_per_bucket_vec4_kernel<IndexArray, OffsetArray, DstArray, SrcTensor,
-                                              DstTensor, 4>
-        <<<num_bucket, 256, 0, stream>>>(idx, offset_idx, dst_idx, src_tensor, dst_tensor);
-  } else {
-    HCTR_OWN_THROW(HugeCTR::Error_t::IllegalCall,
-                   "HugeCTR does not support emb vector size >= 4096");
-  }
-}
-
-template <typename IndexArray, typename DstArray, typename SrcTensor, typename DstTensor,
-          int kMaxElemPerThread>
-__global__ void accumulate_grad_warp_per_bucket_vec4_atomic_kernel(IndexArray src_idx,
-                                                                   DstArray dst_idx,
-                                                                   const uint32_t *num_idx,
-                                                                   SrcTensor src_tensor,
-                                                                   DstTensor dst_tensor) {
-  using index_t = typename IndexArray::value_type;
-  using dst_index_t = typename DstArray::value_type;
-  using src_t = typename SrcTensor::value_type;
-  using src_scalar_t = typename SrcTensor::value_type::value_type;
-  using dst_t = typename DstTensor::value_type;
-  using dst_scalar_t = typename DstTensor::value_type::value_type;
-  constexpr int copy_width = 4;
-  constexpr int kWarpSize = 32;
-  int kWarpNum = blockDim.y * gridDim.x;
-
-  int lane_id = threadIdx.x;
-  int warp_id = blockIdx.x * blockDim.y + threadIdx.y;
-  for (int i = 0; i * kWarpNum + warp_id < *num_idx; ++i) {
-    int idx = i * kWarpNum + warp_id;
-    index_t s_idx = src_idx[idx];
-    src_t s_ev = src_tensor[s_idx];
-
-    dst_index_t d_idx = dst_idx[idx];
-    dst_t d_ev = dst_tensor[d_idx];
-
-    Vec4T<src_scalar_t> s_vec[kMaxElemPerThread];
-#pragma unroll kMaxElemPerThread
-    for (int j = 0; j < kMaxElemPerThread && 4 * kWarpSize * j + 4 * lane_id < s_ev.size(); ++j) {
-      int idx4 = 4 * kWarpSize * j + 4 * lane_id;
-      int n = min(s_ev.size() - idx4, copy_width);
-      s_vec[j].load(&s_ev[idx4], n);
-
-      s_vec[j].atomic_store_accum(&d_ev[idx4], n);
-    }
-  }
-}
-
-template <typename IndexArray, typename DstArray, typename SrcTensor, typename DstTensor>
-void accumulate_grad(IndexArray src_idx, DstArray dst_idx, const uint32_t *num_idx,
-                     SrcTensor src_tensor, DstTensor dst_tensor, int num_unique_idx,
-                     int max_ev_size, cudaStream_t stream) {
-  if (max_ev_size <= 128) {
-    int grid_size = (num_unique_idx - 1) / 2 + 1;
-    dim3 block_size{32, 2};
-    accumulate_grad_warp_per_bucket_vec4_atomic_kernel<IndexArray, DstArray, SrcTensor, DstTensor,
-                                                       1>
-        <<<grid_size, block_size, 0, stream>>>(src_idx, dst_idx, num_idx, src_tensor, dst_tensor);
-  } else if (max_ev_size <= 256) {
-    int grid_size = (num_unique_idx - 1) / 2 + 1;
-    dim3 block_size{32, 2};
-    accumulate_grad_warp_per_bucket_vec4_atomic_kernel<IndexArray, DstArray, SrcTensor, DstTensor,
-                                                       2>
-        <<<grid_size, block_size, 0, stream>>>(src_idx, dst_idx, num_idx, src_tensor, dst_tensor);
-  } else if (max_ev_size <= 512) {
-    int grid_size = (num_unique_idx - 1) / 2 + 1;
-    dim3 block_size{32, 2};
-    accumulate_grad_warp_per_bucket_vec4_atomic_kernel<IndexArray, DstArray, SrcTensor, DstTensor,
-                                                       4>
-        <<<grid_size, block_size, 0, stream>>>(src_idx, dst_idx, num_idx, src_tensor, dst_tensor);
-  } else if (max_ev_size <= 1024) {
-    int grid_size = (num_unique_idx - 1) / 2 + 1;
-    dim3 block_size{32, 2};
-    accumulate_grad_warp_per_bucket_vec4_atomic_kernel<IndexArray, DstArray, SrcTensor, DstTensor,
-                                                       8>
-        <<<grid_size, block_size, 0, stream>>>(src_idx, dst_idx, num_idx, src_tensor, dst_tensor);
-  } else {
-    HCTR_OWN_THROW(HugeCTR::Error_t::IllegalCall,
-                   "HugeCTR does not support emb vector size >= 1024");
-  }
-}
-
-template <typename IndexArray, typename ScalerArray, typename DstArray, typename SrcTensor,
-          typename DstTensor>
-__global__ void generic_copy_cta_per_bucket_vec4_kernel(IndexArray src_idx, ScalerArray scaler_arr,
-                                                        DstArray dst_idx, SrcTensor src_tensor,
-                                                        DstTensor dst_tensor) {
-  using index_t = typename IndexArray::value_type;
-  using scaler_t = typename ScalerArray::value_type;
-  using dst_index_t = typename DstArray::value_type;
-  using src_t = typename SrcTensor::value_type;
-  using src_scalar_t = typename SrcTensor::value_type::value_type;
-  using dst_t = typename DstTensor::value_type;
-  using dst_scalar_t = typename DstTensor::value_type::value_type;
-  constexpr int copy_width = 4;
-  int kThreadPerBlock = blockDim.x;
-  int tid = threadIdx.x;
-  int idx = blockIdx.x;
-
-  if (idx < src_idx.size()) {
-    index_t s_idx = src_idx[idx];
-    src_t s_ev = src_tensor[s_idx];
-
-    dst_index_t d_idx = dst_idx[idx];
-    dst_t d_ev = dst_tensor[d_idx];
-
-    float scaler = 1.f / static_cast<float>(scaler_arr[idx]);
-
-    for (int i = 0; 4 * kThreadPerBlock * i + 4 * tid < s_ev.size(); ++i) {
-      Vec4T<float> s_vec;
-      int idx4 = 4 * kThreadPerBlock * i + 4 * tid;
-      int n = min(s_ev.size() - idx4, copy_width);
-      s_vec.load(&s_ev[idx4], n);
-
-      s_vec.val.x *= scaler;
-      s_vec.val.y *= scaler;
-      s_vec.val.z *= scaler;
-      s_vec.val.w *= scaler;
-
-      s_vec.store(&d_ev[idx4], n);
-    }
-  }
-}
-
-template <typename IndexArray, typename ScalerArray, typename DstArray, typename SrcTensor,
-          typename DstTensor>
-void generic_copy(IndexArray src_idx, ScalerArray scaler_arr, DstArray dst_idx,
-                  SrcTensor src_tensor, DstTensor dst_tensor, int max_ev_size,
-                  cudaStream_t stream) {
-  int num_idx = src_idx.size();
-  generic_copy_cta_per_bucket_vec4_kernel<<<num_idx, (max_ev_size - 1) / 4 + 1, 0, stream>>>(
-      src_idx, scaler_arr, dst_idx, src_tensor, dst_tensor);
-}
-
 template <typename CopyDesc, int kMaxElemPerThread>
 __global__ void multi_to_one_cta_per_ev_kernel(CopyDesc copy_desc) {
   using src_type = typename CopyDesc::SrcT;
@@ -746,36 +444,41 @@ make_MultiToOne_reduce(int num_vec, LambdaKey get_key, LambdaSrcVecLength get_sr
 };
 
 template <typename CopyDesc>
-void copy_multi_to_one(CopyDesc copy_desc, int max_ev_size, cudaStream_t stream,
-                       bool backward = false) {
+void copy_multi_to_one(CopyDesc copy_desc, int max_ev_size, cudaStream_t stream) {
   if (max_ev_size <= 128) {
     int grid_size = (copy_desc.num_vec_ - 1) / 2 + 1;
     dim3 block_size{32, 2};
-    if (!backward) {
-      multi_to_one_warp_per_ev_vec4_kernel<CopyDesc, 1>
-          <<<grid_size, block_size, 0, stream>>>(copy_desc);
-    } else {
-      one_to_multi_warp_per_ev_vec4_kernel<CopyDesc, 1>
-          <<<grid_size, block_size, 0, stream>>>(copy_desc);
-    }
+    multi_to_one_warp_per_ev_vec4_kernel<CopyDesc, 1>
+        <<<grid_size, block_size, 0, stream>>>(copy_desc);
   } else if (max_ev_size <= 256) {
     int grid_size = (copy_desc.num_vec_ - 1) / 2 + 1;
     dim3 block_size{32, 2};
-    if (!backward) {
-      multi_to_one_warp_per_ev_vec4_kernel<CopyDesc, 2>
-          <<<grid_size, block_size, 0, stream>>>(copy_desc);
-    } else {
-      one_to_multi_warp_per_ev_vec4_kernel<CopyDesc, 2>
-          <<<grid_size, block_size, 0, stream>>>(copy_desc);
-    }
+    multi_to_one_warp_per_ev_vec4_kernel<CopyDesc, 2>
+        <<<grid_size, block_size, 0, stream>>>(copy_desc);
   } else if (max_ev_size <= 1024) {
-    if (!backward) {
-      multi_to_one_cta_per_ev_kernel<CopyDesc, 1>
-          <<<copy_desc.num_vec_, max_ev_size, 0, stream>>>(copy_desc);
-    } else {
-      one_to_multi_cta_per_ev_kernel<CopyDesc, 1>
-          <<<copy_desc.num_vec_, max_ev_size, 0, stream>>>(copy_desc);
-    }
+    multi_to_one_cta_per_ev_kernel<CopyDesc, 1>
+        <<<copy_desc.num_vec_, max_ev_size, 0, stream>>>(copy_desc);
+  } else {
+    HCTR_OWN_THROW(HugeCTR::Error_t::IllegalCall,
+                   "HugeCTR does not support emb vector size >= 4096");
+  }
+}
+
+template <typename CopyDesc>
+void copy_one_to_multi(CopyDesc copy_desc, int max_ev_size, cudaStream_t stream) {
+  if (max_ev_size <= 128) {
+    int grid_size = (copy_desc.num_vec_ - 1) / 2 + 1;
+    dim3 block_size{32, 2};
+    one_to_multi_warp_per_ev_vec4_kernel<CopyDesc, 1>
+        <<<grid_size, block_size, 0, stream>>>(copy_desc);
+  } else if (max_ev_size <= 256) {
+    int grid_size = (copy_desc.num_vec_ - 1) / 2 + 1;
+    dim3 block_size{32, 2};
+    one_to_multi_warp_per_ev_vec4_kernel<CopyDesc, 2>
+        <<<grid_size, block_size, 0, stream>>>(copy_desc);
+  } else if (max_ev_size <= 1024) {
+    one_to_multi_cta_per_ev_kernel<CopyDesc, 1>
+        <<<copy_desc.num_vec_, max_ev_size, 0, stream>>>(copy_desc);
   } else {
     HCTR_OWN_THROW(HugeCTR::Error_t::IllegalCall,
                    "HugeCTR does not support emb vector size >= 4096");

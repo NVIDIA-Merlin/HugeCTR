@@ -33,9 +33,7 @@
 #include <utility>
 #include <utils.hpp>
 
-#include "HugeCTR/embedding/embedding.hpp"
-#include "HugeCTR/embedding_storage/embedding_table.hpp"
-#include "embedding_collection.hpp"
+#include "embeddings/embedding_collection.hpp"
 #include "pipeline.hpp"
 
 namespace HugeCTR {
@@ -365,7 +363,7 @@ class Model {
 
   virtual void add(DenseLayer& dense_layer);
 
-  virtual void add(const EmbeddingCollectionPlaceholder& embedding_collection);
+  virtual void add(const EmbeddingPlanner& embedding_collection);
 
   virtual void add_internal(DenseLayer& dense_layer);
 
@@ -430,12 +428,8 @@ class Model {
     for (auto& network : networks_) {
       network->set_learning_rate(lr_dense);
     }
-    if (solver_.use_embedding_collection) {
-      for (auto& table_list : table_major_ebc_table_list_) {
-        for (auto& t : table_list) {
-          t->set_learning_rate(lr);
-        }
-      }
+    for (auto& ebc : ebc_list_) {
+      ebc->set_learning_rate(lr);
     }
     return Error_t::Success;
   }
@@ -575,24 +569,11 @@ class Model {
   std::vector<std::shared_ptr<IEmbedding>> embeddings_; /**< embedding */
 
   std::map<std::string, int> hotness_map_;
-  std::vector<std::unique_ptr<embedding::IEmbeddingCollectionForward>> ebc_forward_list_;
-  std::vector<std::unique_ptr<embedding::IEmbeddingCollectionForward>> eval_ebc_forward_list_;
-  std::vector<std::unique_ptr<embedding::IEmbeddingCollectionBackward>> ebc_backward_list_;
-  std::vector<std::vector<std::unique_ptr<embedding::IGroupedEmbeddingTable>>>
-      table_major_ebc_table_list_;
-
-  std::vector<std::vector<core::Tensor>> ebc_grad_key_list_;
-  std::vector<std::vector<size_t>> ebc_num_grad_key_list_;
-  std::vector<std::vector<core::Tensor>> ebc_grad_id_space_offset_list_;
-  std::vector<std::vector<size_t>> ebc_num_grad_key_id_space_offset_list_;
-  std::vector<std::vector<core::Tensor>> ebc_grad_ev_list_;
-  std::vector<std::vector<core::Tensor>> ebc_grad_ev_offset_list_;
-  std::vector<std::vector<core::Tensor>> ebc_grad_id_space_list_;
+  std::vector<std::unique_ptr<embedding::EmbeddingCollection>> ebc_list_;
 
   std::vector<core::Tensor> train_ebc_key_list_;
   std::vector<core::Tensor> train_ebc_bucket_range_list_;
   std::vector<size_t*> train_ebc_num_keys_list_;
-  std::vector<core::Tensor> train_ebc_sparse_weight_list_;
   std::vector<core::Tensor> evaluate_ebc_key_list_;
   std::vector<core::Tensor> evaluate_ebc_bucket_range_list_;
   std::vector<size_t*> evaluate_ebc_num_keys_list_;

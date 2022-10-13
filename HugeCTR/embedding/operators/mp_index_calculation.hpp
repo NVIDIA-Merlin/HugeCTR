@@ -17,6 +17,7 @@
 
 #include "HugeCTR/core/buffer.hpp"
 #include "HugeCTR/core/registry.hpp"
+#include "embedding/common.hpp"
 namespace embedding {
 using core::CoreResourceManager;
 using core::DataType;
@@ -47,13 +48,13 @@ class ModelIndexCalculation {
   ModelIndexCalculation() = default;
 
   ModelIndexCalculation(std::shared_ptr<CoreResourceManager> core, int num_local_embedding,
-                        const std::vector<int>& local_hotness_list,
-                        const std::vector<int>& hotness_list, int universal_batch_size,
+                        int local_hotness_sum, int hotness_sum, int universal_batch_size,
                         DataType key_type);
 
   void compute(const Tensor& key, const Tensor& bucket_range, size_t num_key,
-               const Tensor& d_local_embedding_list, int shard_id, int shards_count, int batch_size,
-               Tensor* model_key, Tensor* model_idx_offsets, size_t* num_model_key);
+               const Tensor& d_local_embedding_list, const Tensor& d_local_shard_id_list,
+               const Tensor& d_local_num_shards_list, int batch_size, Tensor* model_key,
+               Tensor* model_idx_offsets, size_t* num_model_key);
 };
 
 class ModelBackwardIndexCalculation {
@@ -104,34 +105,4 @@ class ModelBackwardIndexCalculation {
                Tensor* unique_id_space_list, Tensor* unique_id_space_offset, Tensor* coordinate_key,
                Tensor* coordinate_wgrad_dst_idx);
 };
-
-struct RaggedNetworkIndex {
-  Tensor network_ids_;
-  Tensor network_gpu_ids_;
-  Tensor network_offsets_;
-  Tensor network_dst_lookup_ids_;
-  std::vector<Tensor> network_ev_size_list_;
-  TensorList network_ev_sizes_;
-  std::vector<Tensor> network_ev_offset_list_;
-  TensorList network_ev_offsets_;
-
-  RaggedNetworkIndex() = default;
-
-  RaggedNetworkIndex(std::shared_ptr<CoreResourceManager> core, int batch_size,
-                     const std::vector<std::vector<int>>& global_embedding_list,
-                     const std::vector<int>& ev_size_list);
-};
-
-struct RaggedNetworkBuffer {
-  std::vector<Tensor> network_comm_buffer_list_;
-  TensorList network_comm_buffer_;
-  std::vector<size_t> network_comm_buffer_size_;
-
-  RaggedNetworkBuffer() = default;
-
-  RaggedNetworkBuffer(std::shared_ptr<CoreResourceManager> core, int batch_size,
-                      const std::vector<std::vector<int>>& global_embedding_list,
-                      const std::vector<int>& ev_size_list, DataType emb_type);
-};
-
 }  // namespace embedding

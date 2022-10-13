@@ -64,25 +64,17 @@ class EmbeddingCollectionBase : public OpKernel {
                                                         /*num_gpu_per_rank*/ num_gpu_per_rank_);
   }
 
-  void make_embedding_collection_param(sok::EmbeddingCollectionParam& ebc_param,
-                                       int global_batch_size) {
-    sok::make_embedding_collection_param<KeyType, OffsetType, DType>(
-        ebc_param, num_lookups_, combiners_, hotness_, dimensions_, global_batch_size);
-  }
-
   void make_shard_matrix(std::vector<std::vector<int>>& shard_matrix) {
     shard_matrix.resize(num_gpus_);
     for (int i = 0; i < shard_matrix.size(); ++i) {
       for (int j = 0; j < shard_.size(); ++j) {
-        if (shard_[j] < 0) {
+        if (shard_[j] < 0 || shard_[j] == i) {
           // Distributed embedding
-          shard_matrix[i].push_back(i);
-        } else if (shard_[j] == i) {
           // Localized embedding with embedding table on i_th GPU
-          shard_matrix[i].push_back(0);
+          shard_matrix[i].push_back(1);
         } else {
           // Localized embedding with embedding table on other GPU
-          shard_matrix[i].push_back(-1);
+          shard_matrix[i].push_back(0);
         }
       }
     }
@@ -269,13 +261,13 @@ class LookupForwardOp : public EmbeddingCollectionBase<KeyType, OffsetType, DTyp
 
     // Instance 3g embedding
     auto tf_backend = this->make_core_resource(ctx);
-    sok::EmbeddingCollectionParam ebc_param;
-    this->make_embedding_collection_param(ebc_param, global_batch_size);
     std::vector<std::vector<int>> shard_matrix;
     this->make_shard_matrix(shard_matrix);
-    sok::EmbeddingShardParam shard_param(shard_matrix, sok::TablePlacementStrategy::ModelParallel);
+
+    sok::EmbeddingCollectionParam ebc_param = sok::make_embedding_collection_param<KeyType, OffsetType, DType>(shard_matrix, this->num_lookups_, this->combiners_, this->hotness_, this->dimensions_, global_batch_size);
+
     std::unique_ptr<sok::IModelForward> model =
-        std::make_unique<sok::ModelForward>(tf_backend, ebc_param, shard_param);
+        std::make_unique<sok::ModelForward>(tf_backend, ebc_param);
 
     // Prepare outputs
     auto buffer_size_list = model->get_model_comm_buffer_size(global_batch_size);
@@ -386,13 +378,12 @@ class LookupBackwardOp : public EmbeddingCollectionBase<KeyType, OffsetType, DTy
 
     // Instance 3g embedding
     auto tf_backend = this->make_core_resource(ctx);
-    sok::EmbeddingCollectionParam ebc_param;
-    this->make_embedding_collection_param(ebc_param, batch_size);
     std::vector<std::vector<int>> shard_matrix;
     this->make_shard_matrix(shard_matrix);
-    sok::EmbeddingShardParam shard_param(shard_matrix, sok::TablePlacementStrategy::ModelParallel);
+    sok::EmbeddingCollectionParam ebc_param = sok::make_embedding_collection_param<KeyType, OffsetType, DType>(shard_matrix, this->num_lookups_, this->combiners_, this->hotness_, this->dimensions_, batch_size);
+
     std::unique_ptr<sok::IModelBackward> model =
-        std::make_unique<sok::ModelBackward>(tf_backend, ebc_param, shard_param);
+        std::make_unique<sok::ModelBackward>(tf_backend, ebc_param);
 
     // Do backward
     std::vector<int> num_unique_key_per_table, unique_id_space_list;
@@ -512,13 +503,12 @@ class PostprocessingForwardOp : public EmbeddingCollectionBase<KeyType, OffsetTy
 
     // Instance 3g embedding
     auto tf_backend = this->make_core_resource(ctx);
-    sok::EmbeddingCollectionParam ebc_param;
-    this->make_embedding_collection_param(ebc_param, global_batch_size);
     std::vector<std::vector<int>> shard_matrix;
     this->make_shard_matrix(shard_matrix);
-    sok::EmbeddingShardParam shard_param(shard_matrix, sok::TablePlacementStrategy::ModelParallel);
+    sok::EmbeddingCollectionParam ebc_param = sok::make_embedding_collection_param<KeyType, OffsetType, DType>(shard_matrix, this->num_lookups_, this->combiners_, this->hotness_, this->dimensions_, global_batch_size);
+
     std::unique_ptr<sok::INetworkForward> network_forward =
-        std::make_unique<sok::NetworkForward>(tf_backend, ebc_param, shard_param);
+        std::make_unique<sok::NetworkForward>(tf_backend, ebc_param);
 
     // Prepare output
     std::vector<sok::Tensor> emb_vec;
@@ -605,13 +595,12 @@ class PostprocessingBackwardOp : public EmbeddingCollectionBase<KeyType, OffsetT
 
     // instance 3g embedding
     auto tf_backend = this->make_core_resource(ctx);
-    sok::EmbeddingCollectionParam ebc_param;
-    this->make_embedding_collection_param(ebc_param, global_batch_size);
     std::vector<std::vector<int>> shard_matrix;
     this->make_shard_matrix(shard_matrix);
-    sok::EmbeddingShardParam shard_param(shard_matrix, sok::TablePlacementStrategy::ModelParallel);
+    sok::EmbeddingCollectionParam ebc_param = sok::make_embedding_collection_param<KeyType, OffsetType, DType>(shard_matrix, this->num_lookups_, this->combiners_, this->hotness_, this->dimensions_, global_batch_size);
+
     std::unique_ptr<sok::INetworkBackward> network_backward =
-        std::make_unique<sok::NetworkBackward>(tf_backend, ebc_param, shard_param);
+        std::make_unique<sok::NetworkBackward>(tf_backend, ebc_param);
 
     // Prepare output
     const Tensor* emb_vec_buffer_shape = nullptr;

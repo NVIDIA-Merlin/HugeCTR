@@ -24,6 +24,7 @@ class ILookup {
   virtual ~ILookup() = default;
 
   virtual void lookup(const Tensor &keys, size_t num_keys, const Tensor &num_keys_per_table_offset,
-                      size_t num_offset, const Tensor &table_ids, TensorList &embedding_vec) = 0;
+                      size_t num_table_offset, const Tensor &table_id_list,
+                      TensorList &embedding_vec) = 0;
 };
 }  // namespace embedding

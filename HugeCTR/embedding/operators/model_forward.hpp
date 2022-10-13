@@ -31,9 +31,10 @@ class DPModelForward {
   DPModelForward(std::shared_ptr<CoreResourceManager> core, int num_gpus, int num_embedding,
                  int num_local_embedding);
 
-  void compute(const TensorList &dp_ev, const Tensor &dp_offset, const Tensor &dp_dst,
-               Tensor &output_buffer, const Tensor &d_local_ev_size_list,
-               const Tensor &d_ev_size_offset, int batch_size, int max_ev_size) const;
+  void compute(const Tensor &bucket_range, const Tensor &d_combiner_list, const TensorList &dp_ev,
+               const Tensor &dp_offset, const Tensor &dp_dst, Tensor &output_buffer,
+               const Tensor &d_local_ev_size_list, const Tensor &d_ev_size_offset, int batch_size,
+               int max_ev_size) const;
 };
 
 class ModelForward {

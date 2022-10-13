@@ -25,10 +25,6 @@
 #include <pybind/model.hpp>
 #include <sstream>
 
-#include "HugeCTR/core/hctr_impl/hctr_backend.hpp"
-#include "HugeCTR/embedding/embedding_collection.hpp"
-#include "HugeCTR/embedding/embedding_planner.hpp"
-
 namespace HugeCTR {
 
 void Model::create_train_network_pipeline() {

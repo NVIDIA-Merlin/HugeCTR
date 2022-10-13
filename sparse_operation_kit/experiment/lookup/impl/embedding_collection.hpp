@@ -35,7 +35,6 @@ using Tensor              = ::core::Tensor;
 using CoreResourceManager = ::core::CoreResourceManager;
 using TFCoreResourceManager = ::tf_internal::TFCoreResourceManager;
 using EmbeddingCollectionParam = ::embedding::EmbeddingCollectionParam;
-using EmbeddingShardParam      = ::embedding::EmbeddingShardParam;
 using TablePlacementStrategy   = ::embedding::TablePlacementStrategy;
 using ISwizzleKey      = ::embedding::tf::IAll2AllEmbeddingCollectionSwizzleKey;
 using SwizzleKey       = ::embedding::tf::All2AllEmbeddingCollectionSwizzleKey;
@@ -60,12 +59,13 @@ std::shared_ptr<::core::TensorImpl> convert_tensor(const tensorflow::Tensor* ten
 }
 
 template <typename KeyType, typename OffsetType, typename DType>
-void make_embedding_collection_param(::embedding::EmbeddingCollectionParam& ebc_param,
-                                     const int num_lookups,
-                                     const std::vector<std::string>& combiners,
-                                     const std::vector<int>& hotness,
-                                     const std::vector<int>& dimensions,
-                                     const int global_batch_size) {
+::embedding::EmbeddingCollectionParam make_embedding_collection_param(
+                                      const std::vector<std::vector<int>> &shard_matrix,
+                                      int num_lookups,
+                                      const std::vector<std::string>& combiners,
+                                      const std::vector<int>& hotness,
+                                      const std::vector<int>& dimensions,
+                                      const int global_batch_size) {
   const static std::unordered_map<std::string, ::embedding::Combiner> combiner_map = {
     {"sum", ::embedding::Combiner::Sum},
     {"Sum", ::embedding::Combiner::Sum},
@@ -76,24 +76,26 @@ void make_embedding_collection_param(::embedding::EmbeddingCollectionParam& ebc_
     {"mean", ::embedding::Combiner::Average},
     {"Mean", ::embedding::Combiner::Average},
     {"MEAN", ::embedding::Combiner::Average}};
-  // Assuming combiners.size() == hotness.size() == dimensions.size()
-  ebc_param.num_embedding = combiners.size();
-  for (int i = 0; i < combiners.size(); ++i) {
-    ::embedding::EmbeddingParam emb_param;
-    emb_param.embedding_id = i;
-    emb_param.id_space = i;
-    emb_param.combiner = combiner_map.at(combiners[i]);
-    emb_param.hotness = hotness[i];
-    emb_param.ev_size = dimensions[i];
-    ebc_param.embedding_params.push_back(std::move(emb_param));
+  std::vector<::embedding::LookupParam> lookup_params;
+  std::vector<int> table_ids(num_lookups);
+  std::iota(table_ids.begin(), table_ids.end(), 0);
+  for (int i = 0; i < num_lookups; ++i) {
+    lookup_params.emplace_back(i, table_ids[i], combiner_map.at(combiners[i]), hotness[i], dimensions[i]);
   }
-  ebc_param.universal_batch_size = global_batch_size;
-  ebc_param.is_table_first_input = true;
-  ebc_param.is_utest = false;
-  ebc_param.key_type = ::HugeCTR::TensorScalarTypeFunc<KeyType>::get_type();
-  ebc_param.index_type = ::HugeCTR::TensorScalarTypeFunc<int32_t>::get_type();
-  ebc_param.offset_type = ::HugeCTR::TensorScalarTypeFunc<OffsetType>::get_type();
-  ebc_param.emb_type = ::HugeCTR::TensorScalarTypeFunc<DType>::get_type();
+  
+  return ::embedding::EmbeddingCollectionParam{
+    num_lookups,
+    num_lookups,
+    lookup_params,
+    shard_matrix,
+    {{::embedding::TablePlacementStrategy::ModelParallel, table_ids}},
+    global_batch_size,
+    ::HugeCTR::TensorScalarTypeFunc<KeyType>::get_type(),
+    ::HugeCTR::TensorScalarTypeFunc<int32_t>::get_type(),
+    ::HugeCTR::TensorScalarTypeFunc<OffsetType>::get_type(),
+    ::HugeCTR::TensorScalarTypeFunc<DType>::get_type(),
+    ::embedding::EmbeddingLayout::FeatureMajor
+  };
 }
 
 }  // namespace sok

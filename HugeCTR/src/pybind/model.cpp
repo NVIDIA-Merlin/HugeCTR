@@ -28,8 +28,6 @@
 #include <sstream>
 
 #include "HugeCTR/core/hctr_impl/hctr_backend.hpp"
-#include "HugeCTR/embedding/embedding_collection.hpp"
-#include "HugeCTR/embedding/embedding_planner.hpp"
 
 namespace HugeCTR {
 
@@ -765,57 +763,65 @@ core::Tensor convert_native_tensor_to_core_tensor(HugeCTR::Tensor2<T> native_ten
 
 }  // namespace core_helper
 
-void Model::add(const EmbeddingCollectionPlaceholder& embedding_collection_placeholder) {
+void Model::add(const EmbeddingPlanner& planner) {
   int num_total_gpus = resource_manager_->get_global_gpu_count();
   int num_local_gpus = resource_manager_->get_local_gpu_count();
 
-  embedding::EmbeddingCollectionParam param;
-  param.num_embedding = embedding_collection_placeholder.param_.size();
-  param.universal_batch_size = solver_.batchsize;
-  if (solver_.i64_input_key) {
-    param.key_type = TensorScalarType::Int64;
-    param.index_type = TensorScalarType::UInt64;
-    param.offset_type = TensorScalarType::Int64;
-  } else {
-    param.key_type = TensorScalarType::UInt32;
-    param.index_type = TensorScalarType::UInt32;
-    param.offset_type = TensorScalarType::UInt32;
-  }
-  if (solver_.use_mixed_precision) {
-    param.emb_type = TensorScalarType::Float16;
-  } else {
-    param.emb_type = TensorScalarType::Float32;
-  }
+  int num_table = planner.emb_table_list_.size();
+  int num_lookup = planner.lookup_params_.size();
+  core::DataType key_type =
+      solver_.i64_input_key ? TensorScalarType::Int64 : TensorScalarType::UInt32;
+  core::DataType index_type =
+      solver_.i64_input_key ? TensorScalarType::UInt64 : TensorScalarType::UInt32;
+  core::DataType offset_type =
+      solver_.i64_input_key ? TensorScalarType::Int64 : TensorScalarType::UInt32;
+  core::DataType emb_type =
+      solver_.use_mixed_precision ? TensorScalarType::Float16 : TensorScalarType::Float32;
+  embedding::EmbeddingLayout input_layout_ = embedding::EmbeddingLayout::BatchMajor;
 
+  std::vector<embedding::LookupParam> lookup_params;
   std::vector<std::string> bottom_name_list;
   std::vector<std::string> top_name_list;
-  for (int embedding_id = 0; embedding_id < param.num_embedding; ++embedding_id) {
-    auto embedding_param = embedding_collection_placeholder.param_[embedding_id];
-    auto bottom_name = embedding_collection_placeholder.bottom_names_[embedding_id];
-    auto top_name = embedding_collection_placeholder.top_names_[embedding_id];
-    embedding_param.hotness = hotness_map_[bottom_name];
-    param.embedding_params.push_back(std::move(embedding_param));
-
+  for (int lookup_id = 0; lookup_id < num_lookup; ++lookup_id) {
+    auto bottom_name = planner.bottom_names_[lookup_id];
+    auto top_name = planner.top_names_[lookup_id];
     bottom_name_list.push_back(bottom_name);
     top_name_list.push_back(top_name);
+
+    auto lookup_param = planner.lookup_params_[lookup_id];
+    lookup_param.max_hotness = hotness_map_[bottom_name];
+    lookup_params.push_back(lookup_param);
   }
+
+  std::vector<embedding::GroupedEmbeddingParam> grouped_emb_params;
+  for (size_t i = 0; i < planner.emb_table_group_strategy_.size(); ++i) {
+    grouped_emb_params.emplace_back(planner.emb_table_placement_strategy_[i],
+                                    planner.emb_table_group_strategy_[i]);
+  }
+  embedding::EmbeddingCollectionParam ebc_param{
+      num_table,          num_lookup,        lookup_params, planner.shard_matrix_,
+      grouped_emb_params, solver_.batchsize, key_type,      index_type,
+      offset_type,        emb_type,          input_layout_};
+
+  embedding::EmbeddingCollectionParam eval_ebc_param{num_table,          num_lookup,
+                                                     lookup_params,      planner.shard_matrix_,
+                                                     grouped_emb_params, solver_.batchsize_eval,
+                                                     key_type,           index_type,
+                                                     offset_type,        emb_type,
+                                                     input_layout_};
 
   std::string bottom_name = join(bottom_name_list, ",");
   deactivate_tensor(tensor_active_, bottom_name);
 
-  layer_info_.push_back("EmbeddingCollection");
+  layer_info_.push_back("EmbeddingCollection" + std::to_string(ebc_list_.size()));
   input_output_info_.push_back(std::make_pair(bottom_name, join(top_name_list, ",")));
 
-  embedding::EmbeddingPlanner embedding_planner(param);
-  embedding_planner.generate_embedding_plan_from_json_file(
-      embedding_collection_placeholder.plan_file_);
-
-  // TODO: make embedding collection support dynamic input size.
-  embedding::EmbeddingCollectionParam eval_param = param;
-  eval_param.universal_batch_size = solver_.batchsize_eval;
-  embedding::EmbeddingPlanner eval_embedding_planner(eval_param);
-  eval_embedding_planner.generate_embedding_plan_from_json_file(
-      embedding_collection_placeholder.plan_file_);
+  auto emb_table_list = planner.emb_table_list_;
+  for (auto& p : emb_table_list) {
+    if (p.opt_param.optimizer == Optimizer_t::NOT_INITIALIZED) {
+      p.opt_param = opt_params_;
+    }
+  }
 
   std::vector<std::shared_ptr<core::CoreResourceManager>> core_list;
 
@@ -823,41 +829,9 @@ void Model::add(const EmbeddingCollectionPlaceholder& embedding_collection_place
     auto core_resource_manager =
         std::make_shared<hctr_internal::HCTRCoreResourceManager>(resource_manager_, local_gpu_id);
     core_list.push_back(core_resource_manager);
-
-    ebc_forward_list_.push_back(
-        std::move(embedding_planner.create_embedding_collection_forward(core_resource_manager)));
-
-    ebc_backward_list_.push_back(
-        std::move(embedding_planner.create_embedding_collection_backward(core_resource_manager)));
-
-    eval_ebc_forward_list_.push_back(std::move(
-        eval_embedding_planner.create_embedding_collection_forward(core_resource_manager)));
   }
-
-  std::vector<embedding::EmbeddingTableParam> emb_table_params;
-  for (auto& p : embedding_collection_placeholder.emb_table_config_list_) {
-    embedding::EmbeddingTableParam et_param;
-    et_param.table_id = p.param_.table_id;
-    et_param.max_vocabulary_size = p.param_.max_vocabulary_size;
-    et_param.ev_size = p.param_.ev_size;
-    et_param.min_key = p.param_.min_key;
-    et_param.max_key = p.param_.max_key;
-    if (p.param_.opt_param.optimizer == Optimizer_t::NOT_INITIALIZED) {
-      et_param.opt_param = opt_params_;
-    } else {
-      et_param.opt_param = p.param_.opt_param;
-    }
-    emb_table_params.push_back(et_param);
-  }
-
-  auto table_major_global_embedding_sharding_param_list =
-      embedding_planner.get_table_major_global_embedding_sharding_param_list();
-  for (size_t table_id = 0; table_id < table_major_global_embedding_sharding_param_list.size();
-       ++table_id) {
-    table_major_ebc_table_list_.push_back(embedding::create_embedding_table(
-        resource_manager_, core_list, param, emb_table_params,
-        table_major_global_embedding_sharding_param_list[table_id]));
-  }
+  ebc_list_.push_back(std::make_unique<embedding::EmbeddingCollection>(
+      resource_manager_, core_list, ebc_param, eval_ebc_param, emb_table_list));
 
   auto prepare_ebc_input = [&](auto& sparse_input_map) {
     auto train_sparse_tensors = sparse_input_map[bottom_name].train_sparse_tensors;
@@ -905,13 +879,13 @@ void Model::add(const EmbeddingCollectionPlaceholder& embedding_collection_place
       auto buff = GeneralBuffer2<CudaAllocator>::create();
       auto train_block_buffer = buff->create_block<emb_t>();
       auto evaluate_block_buffer = buff->create_block<emb_t>();
-      for (int embedding_id = 0; embedding_id < param.num_embedding; ++embedding_id) {
-        embedding::EmbeddingParam& emb_param = param.embedding_params[embedding_id];
-        std::string top_name = embedding_collection_placeholder.top_names_[embedding_id];
+      for (int lookup_id = 0; lookup_id < ebc_param.num_lookup; ++lookup_id) {
+        embedding::LookupParam& lookup_param = ebc_param.lookup_params[lookup_id];
+        std::string top_name = planner.top_names_[lookup_id];
 
-        size_t emb_out_dims = (emb_param.combiner == embedding::Combiner::Concat)
-                                  ? emb_param.hotness * emb_param.ev_size
-                                  : emb_param.ev_size;
+        size_t emb_out_dims = (lookup_param.combiner == embedding::Combiner::Concat)
+                                  ? lookup_param.max_hotness * lookup_param.ev_size
+                                  : lookup_param.ev_size;
 
         Tensor2<emb_t> train_emb_output;
         train_block_buffer->reserve({batch_size_per_gpu, 1, emb_out_dims}, &train_emb_output);
@@ -940,13 +914,13 @@ void Model::add(const EmbeddingCollectionPlaceholder& embedding_collection_place
       auto buff = GeneralBuffer2<CudaAllocator>::create();
       auto train_block_buffer = buff->create_block<emb_t>();
       auto evaluate_block_buffer = buff->create_block<emb_t>();
-      for (int embedding_id = 0; embedding_id < param.num_embedding; ++embedding_id) {
-        embedding::EmbeddingParam& emb_param = param.embedding_params[embedding_id];
-        std::string top_name = embedding_collection_placeholder.top_names_[embedding_id];
+      for (int lookup_id = 0; lookup_id < ebc_param.num_lookup; ++lookup_id) {
+        auto& lookup_param = ebc_param.lookup_params[lookup_id];
+        std::string top_name = planner.top_names_[lookup_id];
 
-        size_t emb_out_dims = (emb_param.combiner == embedding::Combiner::Concat)
-                                  ? emb_param.hotness * emb_param.ev_size
-                                  : emb_param.ev_size;
+        size_t emb_out_dims = (lookup_param.combiner == embedding::Combiner::Concat)
+                                  ? lookup_param.max_hotness * lookup_param.ev_size
+                                  : lookup_param.ev_size;
 
         Tensor2<emb_t> train_emb_output;
         train_block_buffer->reserve({batch_size_per_gpu, 1, emb_out_dims}, &train_emb_output);
@@ -969,20 +943,12 @@ void Model::add(const EmbeddingCollectionPlaceholder& embedding_collection_place
     }
   }
 
-  ebc_grad_key_list_.resize(resource_manager_->get_local_gpu_count());
-  ebc_num_grad_key_list_.resize(resource_manager_->get_local_gpu_count());
-  ebc_grad_id_space_offset_list_.resize(resource_manager_->get_local_gpu_count());
-  ebc_num_grad_key_id_space_offset_list_.resize(resource_manager_->get_local_gpu_count());
-  ebc_grad_ev_list_.resize(resource_manager_->get_local_gpu_count());
-  ebc_grad_ev_offset_list_.resize(resource_manager_->get_local_gpu_count());
-  ebc_grad_id_space_list_.resize(resource_manager_->get_local_gpu_count());
-
-  for (int embedding_id = 0; embedding_id < param.num_embedding; ++embedding_id) {
-    embedding::EmbeddingParam& emb_param = param.embedding_params[embedding_id];
-    std::string top_name = embedding_collection_placeholder.top_names_[embedding_id];
-    int emb_out_dims = (emb_param.combiner == embedding::Combiner::Concat)
-                           ? emb_param.hotness * emb_param.ev_size
-                           : emb_param.ev_size;
+  for (int lookup_id = 0; lookup_id < ebc_param.num_lookup; ++lookup_id) {
+    embedding::LookupParam& lookup_param = ebc_param.lookup_params[lookup_id];
+    std::string top_name = planner.top_names_[lookup_id];
+    int emb_out_dims = (lookup_param.combiner == embedding::Combiner::Concat)
+                           ? lookup_param.max_hotness * lookup_param.ev_size
+                           : lookup_param.ev_size;
 
     activate_tensor(tensor_active_, top_name);
     tensor_shape_info_raw_.insert({top_name, {solver_.batchsize, 1, emb_out_dims}});
@@ -2045,46 +2011,26 @@ bool Model::train(bool is_first_batch) {
     if (is_scheduled_datareader() && is_scheduled_embedding()) {
       train_pipeline(current_batchsize);
     } else {
-      std::vector<std::vector<embedding::ContextContainer*>> ebc_context_container_list_list;
-      ebc_context_container_list_list.resize(networks_.size());
-      std::vector<std::vector<embedding::ILookup*>> gpu_major_ebc_lookup_list;
-      if (solver_.use_embedding_collection) {
-        size_t num_gpus = resource_manager_->get_local_gpu_count();
-        gpu_major_ebc_lookup_list.resize(num_gpus);
-        for (size_t gpu_id = 0; gpu_id < num_gpus; ++gpu_id) {
-          for (size_t i = 0; i < table_major_ebc_table_list_.size(); ++i) {
-            gpu_major_ebc_lookup_list[gpu_id].push_back(
-                dynamic_cast<embedding::ILookup*>(table_major_ebc_table_list_[i][gpu_id].get()));
-          }
-        }
-      }
-
       auto ebc_forward = [&](int id) {
         if (solver_.use_embedding_collection) {
-          ebc_forward_list_[id]->forward_per_gpu(
-              train_ebc_key_list_[id], train_ebc_bucket_range_list_[id],
-              *train_ebc_num_keys_list_[id], train_ebc_sparse_weight_list_[id],
-              gpu_major_ebc_lookup_list[id], train_ebc_outptut_[id],
-              &ebc_context_container_list_list[id]);
+          for (auto& ebc : ebc_list_) {
+            ebc->forward_per_gpu(true, id, train_ebc_key_list_[id],
+                                 train_ebc_bucket_range_list_[id], *train_ebc_num_keys_list_[id],
+                                 train_ebc_outptut_[id]);
+          }
         }
       };
       auto ebc_backward = [&](int id) {
         if (solver_.use_embedding_collection) {
-          ebc_backward_list_[id]->backward_per_gpu(
-              ebc_context_container_list_list[id], train_ebc_outptut_[id], &ebc_grad_key_list_[id],
-              &ebc_num_grad_key_list_[id], &ebc_grad_id_space_offset_list_[id],
-              &ebc_num_grad_key_id_space_offset_list_[id], &ebc_grad_ev_list_[id],
-              &ebc_grad_ev_offset_list_[id], &ebc_grad_id_space_list_[id], true);
+          for (auto& ebc : ebc_list_) {
+            ebc->backward_per_gpu(id, train_ebc_outptut_[id], true);
+          }
         }
       };
       auto ebc_update = [&](int id) {
         if (solver_.use_embedding_collection) {
-          for (size_t i = 0; i < table_major_ebc_table_list_.size(); ++i) {
-            table_major_ebc_table_list_[i][id]->update(
-                ebc_grad_key_list_[id][i], ebc_num_grad_key_list_[id][i],
-                ebc_grad_id_space_offset_list_[id][i],
-                ebc_num_grad_key_id_space_offset_list_[id][i], ebc_grad_id_space_list_[id][i],
-                ebc_grad_ev_list_[id][i], ebc_grad_ev_offset_list_[id][i]);
+          for (auto& ebc : ebc_list_) {
+            ebc->update_per_gpu(id);
           }
         }
       };
@@ -2176,27 +2122,13 @@ bool Model::eval(bool is_first_batch) {
         one_embedding->forward(false);
       }
 
-      std::vector<std::vector<embedding::ContextContainer*>> ebc_context_container_list_list;
-      ebc_context_container_list_list.resize(networks_.size());
-      std::vector<std::vector<embedding::ILookup*>> gpu_major_ebc_lookup_list;
-      if (solver_.use_embedding_collection) {
-        size_t num_gpus = resource_manager_->get_local_gpu_count();
-        gpu_major_ebc_lookup_list.resize(num_gpus);
-        for (size_t gpu_id = 0; gpu_id < num_gpus; ++gpu_id) {
-          for (size_t i = 0; i < table_major_ebc_table_list_.size(); ++i) {
-            gpu_major_ebc_lookup_list[gpu_id].push_back(
-                dynamic_cast<embedding::ILookup*>(table_major_ebc_table_list_[i][gpu_id].get()));
-          }
-        }
-      }
-
       auto eval_ebc_forward = [&](int id) {
         if (solver_.use_embedding_collection) {
-          eval_ebc_forward_list_[id]->forward_per_gpu(
-              evaluate_ebc_key_list_[id], evaluate_ebc_bucket_range_list_[id],
-              *evaluate_ebc_num_keys_list_[id], evaluate_ebc_sparse_weight_list_[id],
-              gpu_major_ebc_lookup_list[id], evaluate_ebc_outptut_[id],
-              &ebc_context_container_list_list[id]);
+          for (auto& ebc : ebc_list_) {
+            ebc->forward_per_gpu(false, id, evaluate_ebc_key_list_[id],
+                                 evaluate_ebc_bucket_range_list_[id],
+                                 *evaluate_ebc_num_keys_list_[id], evaluate_ebc_outptut_[id]);
+          }
         }
       };
 
