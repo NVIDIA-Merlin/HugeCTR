@@ -120,22 +120,37 @@ class FileSystem {
   virtual int batch_upload(const std::string& source_dir, const std::string& target_dir) = 0;
 };
 
-enum class DataSourceType_t { Local, HDFS, S3, Other };
+enum class FileSystemType_t { Local, HDFS, S3, GCS, Other };
 
 struct DataSourceParams {
-  DataSourceType_t type;
+  FileSystemType_t type;
   std::string server;
   int port;
 
-  DataSourceParams(const DataSourceType_t type, const std::string& server, const int port)
+  DataSourceParams(const FileSystemType_t type, const std::string& server, const int port)
       : type(type), server(server), port(port){};
-  DataSourceParams() : type(DataSourceType_t::Local), server("localhost"), port(9000){};
-
-  FileSystem* create() const;
-
-  std::unique_ptr<FileSystem> create_unique() const {
-    return std::unique_ptr<FileSystem>{create()};
-  }
+  DataSourceParams() : type(FileSystemType_t::Local), server("localhost"), port(9000){};
 };
 
+class FileSystemBuilder {
+ public:
+  static FileSystem* build_by_path(const std::string& file_path);
+
+  static FileSystem* build_by_data_source_params(const DataSourceParams& data_source_params);
+
+  static FileSystem* build_by_config(const std::string& config_path);
+
+  static std::unique_ptr<FileSystem> build_unique_by_path(const std::string& file_path) {
+    return std::unique_ptr<FileSystem>{build_by_path(file_path)};
+  }
+
+  static std::unique_ptr<FileSystem> build_unique_by_data_source_params(
+      const DataSourceParams& data_source_params) {
+    return std::unique_ptr<FileSystem>{build_by_data_source_params(data_source_params)};
+  }
+
+  static std::unique_ptr<FileSystem> build_unique_by_config(const std::string& config_path) {
+    return std::unique_ptr<FileSystem>{build_by_config(config_path)};
+  }
+};
 }  // namespace HugeCTR

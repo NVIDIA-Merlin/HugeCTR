@@ -27,7 +27,7 @@ void DataSourcePybind(pybind11::module &m) {
   pybind11::module data = m.def_submodule("data", "data submodule of hugectr");
   pybind11::class_<HugeCTR::DataSourceParams, std::shared_ptr<HugeCTR::DataSourceParams>>(
       data, "DataSourceParams")
-      .def(pybind11::init<DataSourceType_t, const std::string &, const int>(),
+      .def(pybind11::init<FileSystemType_t, const std::string &, const int>(),
            pybind11::arg("source"), pybind11::arg("server"), pybind11::arg("port"))
       .def_readwrite("source", &HugeCTR::DataSourceParams::type)
       .def_readwrite("server", &HugeCTR::DataSourceParams::server)

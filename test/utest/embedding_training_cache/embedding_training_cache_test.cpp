@@ -137,7 +137,7 @@ void do_upload_and_download_snapshot(int batch_num_train, TrainPSType_t ps_type,
   // store the snapshot from the embedding
   if (std::filesystem::exists(snapshot_src_file)) std::filesystem::remove_all(snapshot_src_file);
   if (std::filesystem::exists(snapshot_dst_file)) std::filesystem::remove_all(snapshot_dst_file);
-  embedding->dump_parameters(snapshot_src_file, DataSourceParams());
+  embedding->dump_parameters(snapshot_src_file);
   generate_opt_state(snapshot_src_file, opt_type);
   copy_sparse_model(snapshot_src_file, snapshot_dst_file);
 

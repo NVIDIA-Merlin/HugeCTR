@@ -67,11 +67,11 @@ void CommonPybind(pybind11::module& m) {
       .value("Parquet", HugeCTR::DataReaderType_t::Parquet)
       .value("RawAsync", HugeCTR::DataReaderType_t::RawAsync)
       .export_values();
-  pybind11::enum_<HugeCTR::DataSourceType_t>(m, "DataSourceType_t")
-      .value("Local", HugeCTR::DataSourceType_t::Local)
-      .value("HDFS", HugeCTR::DataSourceType_t::HDFS)
-      .value("S3", HugeCTR::DataSourceType_t::S3)
-      .value("Other", HugeCTR::DataSourceType_t::Other)
+  pybind11::enum_<HugeCTR::FileSystemType_t>(m, "FileSystemType_t")
+      .value("Local", HugeCTR::FileSystemType_t::Local)
+      .value("HDFS", HugeCTR::FileSystemType_t::HDFS)
+      .value("S3", HugeCTR::FileSystemType_t::S3)
+      .value("Other", HugeCTR::FileSystemType_t::Other)
       .export_values();
   pybind11::enum_<HugeCTR::SourceType_t>(m, "SourceType_t")
       .value("FileList", HugeCTR::SourceType_t::FileList)

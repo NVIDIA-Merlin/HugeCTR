@@ -23,6 +23,36 @@
 using namespace HugeCTR;
 namespace {
 
+void hdfs_configs_test() {
+  auto configs1 = HdfsConfigs::FromUrl("hdfs://localhost:9000/my/dir/to/data");
+  EXPECT_EQ(configs1.namenode, "localhost");
+  EXPECT_EQ(configs1.port, 9000);
+  EXPECT_EQ(configs1.ready_to_connect, true);
+
+  auto configs2 = HdfsConfigs::FromUrl("hdfs://172.0.0.1:8888/my/dir/to/data");
+  EXPECT_EQ(configs2.namenode, "172.0.0.1");
+  EXPECT_EQ(configs2.port, 8888);
+  EXPECT_EQ(configs2.ready_to_connect, true);
+
+  auto dsp = DataSourceParams{FileSystemType_t::HDFS, "localhost", 9000};
+  auto configs3 = HdfsConfigs::FromDataSourceParams(dsp);
+  EXPECT_EQ(configs3.namenode, "localhost");
+  EXPECT_EQ(configs3.port, 9000);
+  EXPECT_EQ(configs3.ready_to_connect, true);
+}
+
+void simple_read_write_test_with_builder() {
+  auto hs = FileSystemBuilder::build_unique_by_path("hdfs://localhost:9000/my/dir/to/data");
+  std::string writepath1 = "/tmp/batch_copy/data1.txt";
+  const char* buffer1 = "Hello, World!\n";
+
+  hs->write(writepath1, buffer1, strlen(buffer1), true);
+  char* buffer_for_read1 = new char[hs->get_file_size(writepath1)];
+  hs->read(writepath1, buffer_for_read1, hs->get_file_size(writepath1), 0);
+  EXPECT_EQ(*buffer1, *buffer_for_read1);
+  delete[] buffer_for_read1;
+}
+
 void simple_read_write_test(const std::string server, const int port) {
   std::string writepath1 = "/tmp/batch_copy/data1.txt";
   const char* buffer1 = "Hello, World!\n";
@@ -33,7 +63,8 @@ void simple_read_write_test(const std::string server, const int port) {
   std::string writepath3 = "/tmp/batch_copy/data3.txt";
   const char* buffer3 = "Hello, HugeCTR!\n";
 
-  auto hs = DataSourceParams{DataSourceType_t::HDFS, server, port}.create_unique();
+  auto hs = FileSystemBuilder::build_unique_by_data_source_params(
+      DataSourceParams{FileSystemType_t::HDFS, server, port});
 
   hs->write(writepath1, buffer1, strlen(buffer1), true);
   hs->write(writepath2, buffer2, strlen(buffer2), true);
@@ -57,7 +88,8 @@ void simple_read_write_test(const std::string server, const int port) {
 }
 
 void upload2hdfs_test(const std::string path, const int num_rows_per_file, const int num_files) {
-  auto hs = DataSourceParams{DataSourceType_t::HDFS, "localhost", 9000}.create_unique();
+  auto hs = FileSystemBuilder::build_unique_by_data_source_params(
+      DataSourceParams{FileSystemType_t::HDFS, "localhost", 9000});
 
   std::vector<size_t> slot_size_array = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                                          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
@@ -75,23 +107,30 @@ void upload2hdfs_test(const std::string path, const int num_rows_per_file, const
 }
 
 void copy_test(const std::string source_path, const std::string target_path) {
-  auto hs = DataSourceParams{DataSourceType_t::HDFS, "localhost", 9000}.create_unique();
+  auto hs = FileSystemBuilder::build_unique_by_data_source_params(
+      DataSourceParams{FileSystemType_t::HDFS, "localhost", 9000});
 
   hs->copy(source_path, target_path);
 }
 
 void delete_test(const std::string path) {
-  auto hs = DataSourceParams{DataSourceType_t::HDFS, "localhost", 9000}.create_unique();
+  auto hs = FileSystemBuilder::build_unique_by_data_source_params(
+      DataSourceParams{FileSystemType_t::HDFS, "localhost", 9000});
 
   hs->delete_file(path, true);
 }
 
 void fetch2local_test(const std::string path, const std::string local_path, const int num_files) {
-  auto hs = DataSourceParams{DataSourceType_t::HDFS, "localhost", 9000}.create_unique();
+  auto hs = FileSystemBuilder::build_unique_by_data_source_params(
+      DataSourceParams{FileSystemType_t::HDFS, "localhost", 9000});
 
   int result = hs->batch_fetch(path, "." + path);
   EXPECT_EQ(result, num_files + 1);
 }
+
+TEST(hdfs_backend_test, hdfs_configs_test) { hdfs_configs_test(); }
+
+TEST(hdfs_backend_test, hdfs_builder_test) { simple_read_write_test_with_builder(); }
 
 TEST(hdfs_backend_test, read_write_test_docker) { simple_read_write_test("localhost", 9000); }
 

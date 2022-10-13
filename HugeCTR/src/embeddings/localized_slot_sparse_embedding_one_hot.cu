@@ -15,6 +15,7 @@
  */
 
 #include "HugeCTR/include/embeddings/localized_slot_sparse_embedding_one_hot.hpp"
+#include "HugeCTR/include/io/filesystem.hpp"
 
 #ifdef ENABLE_MPI
 #include <mpi.h>
@@ -667,34 +668,16 @@ LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
 void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::load_parameters(
-    std::string sparse_model, const DataSourceParams &data_source_params) {
+    std::string sparse_model) {
   const std::string key_file(sparse_model + "/key");
   const std::string slot_file(sparse_model + "/slot_id");
   const std::string vec_file(sparse_model + "/emb_vector");
 
-  size_t key_file_size_in_byte;
-  size_t slot_file_size_in_byte;
-  size_t vec_file_size_in_byte;
+  auto fs = FileSystemBuilder::build_unique_by_path(sparse_model);
 
-  if (data_source_params.type == DataSourceType_t::HDFS) {
-    auto hs = data_source_params.create_unique();
-    key_file_size_in_byte = hs->get_file_size(key_file);
-    slot_file_size_in_byte = hs->get_file_size(slot_file);
-    vec_file_size_in_byte = hs->get_file_size(vec_file);
-  } else if (data_source_params.type == DataSourceType_t::Local) {
-    // TODO: Move to self-contained DataSourceBackend implementation.
-    if (!std::filesystem::exists(sparse_model)) {
-      HCTR_OWN_THROW(Error_t::WrongInput, "Error: folder " + sparse_model + " doesn't exist");
-    }
-    key_file_size_in_byte = std::filesystem::file_size(key_file);
-    slot_file_size_in_byte = std::filesystem::file_size(slot_file);
-    vec_file_size_in_byte = std::filesystem::file_size(vec_file);
-  } else {
-    key_file_size_in_byte = 0;
-    slot_file_size_in_byte = 0;
-    vec_file_size_in_byte = 0;
-    HCTR_OWN_THROW(Error_t::WrongInput, "Filesystem not supported yet.");
-  }
+  size_t key_file_size_in_byte = fs->get_file_size(key_file);
+  size_t slot_file_size_in_byte = fs->get_file_size(slot_file);
+  size_t vec_file_size_in_byte = fs->get_file_size(vec_file);
 
   size_t key_size = sizeof(long long);
   size_t slot_size = sizeof(size_t);
@@ -726,41 +709,17 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::load_pa
   size_t *slot_id_ptr = slot_id.get_ptr();
   float *embedding_ptr = embeddings.get_ptr();
 
-  if (data_source_params.type == DataSourceType_t::HDFS) {
-    auto hs = data_source_params.create_unique();
-    if (std::is_same<TypeHashKey, long long>::value) {
-      hs->read(key_file, reinterpret_cast<char *>(key_ptr), key_file_size_in_byte, 0);
-    } else {
-      std::vector<long long> i64_key_vec(key_num, 0);
-      hs->read(key_file, reinterpret_cast<char *>(i64_key_vec.data()), key_file_size_in_byte, 0);
-      std::transform(i64_key_vec.begin(), i64_key_vec.end(), key_ptr,
-                     [](long long key) { return static_cast<unsigned>(key); });
-    }
-    hs->read(slot_file, reinterpret_cast<char *>(slot_id_ptr), slot_file_size_in_byte, 0);
-    hs->read(vec_file, reinterpret_cast<char *>(embedding_ptr), vec_file_size_in_byte, 0);
-  } else if (data_source_params.type == DataSourceType_t::Local) {
-    // TODO: Move to self-contained DataSourceBackend implementation.
-    std::ifstream key_stream(key_file, std::ifstream::binary);
-    std::ifstream slot_stream(slot_file, std::ifstream::binary);
-    std::ifstream vec_stream(vec_file, std::ifstream::binary);
-    // check if file is opened successfully
-    if (!vec_stream.is_open() || !key_stream.is_open() || !slot_stream.is_open()) {
-      HCTR_OWN_THROW(Error_t::WrongInput, "Error: file not open for reading");
-    }
-
-    if (std::is_same<TypeHashKey, long long>::value) {
-      key_stream.read(reinterpret_cast<char *>(key_ptr), key_file_size_in_byte);
-    } else {
-      std::vector<long long> i64_key_vec(key_num, 0);
-      key_stream.read(reinterpret_cast<char *>(i64_key_vec.data()), key_file_size_in_byte);
-      std::transform(i64_key_vec.begin(), i64_key_vec.end(), key_ptr,
-                     [](long long key) { return static_cast<unsigned>(key); });
-    }
-    slot_stream.read(reinterpret_cast<char *>(slot_id_ptr), slot_file_size_in_byte);
-    vec_stream.read(reinterpret_cast<char *>(embedding_ptr), vec_file_size_in_byte);
+  if (std::is_same<TypeHashKey, long long>::value) {
+    fs->read(key_file, reinterpret_cast<char *>(key_ptr), key_file_size_in_byte, 0);
   } else {
-    HCTR_OWN_THROW(Error_t::WrongInput, "Filesystem not supported yet.");
+    std::vector<long long> i64_key_vec(key_num, 0);
+    fs->read(key_file, reinterpret_cast<char *>(i64_key_vec.data()), key_file_size_in_byte, 0);
+    std::transform(i64_key_vec.begin(), i64_key_vec.end(), key_ptr,
+                   [](long long key) { return static_cast<unsigned>(key); });
   }
+  fs->read(slot_file, reinterpret_cast<char *>(slot_id_ptr), slot_file_size_in_byte, 0);
+  fs->read(vec_file, reinterpret_cast<char *>(embedding_ptr), vec_file_size_in_byte, 0);
+
   load_parameters(keys, slot_id, embeddings, key_num,
                   embedding_data_.embedding_params_.embedding_vec_size, hash_table_value_tensors_,
                   slot_size_array_, mapping_offsets_per_gpu_tensors_);
@@ -1026,10 +985,9 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::load_pa
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
 void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::dump_parameters(
-    std::string sparse_model, const DataSourceParams &data_source_params) const {
-  dump_parameters(sparse_model, data_source_params,
-                  embedding_data_.embedding_params_.embedding_vec_size, hash_table_value_tensors_,
-                  slot_size_array_);
+    std::string sparse_model) const {
+  dump_parameters(sparse_model, embedding_data_.embedding_params_.embedding_vec_size,
+                  hash_table_value_tensors_, slot_size_array_);
 }
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
@@ -1048,15 +1006,13 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::dump_pa
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
 void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::dump_parameters(
-    const std::string &sparse_model, const DataSourceParams &data_source_params,
-    size_t embedding_vec_size, const Tensors2<float> &hash_table_value_tensors,
-    const std::vector<size_t> &slot_sizes) const {
+    const std::string &sparse_model, size_t embedding_vec_size,
+    const Tensors2<float> &hash_table_value_tensors, const std::vector<size_t> &slot_sizes) const {
   CudaDeviceContext context;
   size_t local_gpu_count = embedding_data_.get_resource_manager().get_local_gpu_count();
 
-  if (data_source_params.type != DataSourceType_t::HDFS && !std::filesystem::exists(sparse_model)) {
-    std::filesystem::create_directories(sparse_model);
-  }
+  auto fs = FileSystemBuilder::build_unique_by_path(sparse_model);
+
   const std::string key_file(sparse_model + "/key");
   const std::string slot_file(sparse_model + "/slot_id");
   const std::string vec_file(sparse_model + "/emb_vector");
@@ -1203,28 +1159,10 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::dump_pa
   HCTR_MPI_THROW(MPI_File_close(&vec_fh));
   HCTR_MPI_THROW(MPI_Type_free(&TYPE_EMB_VECTOR));
 #else
-  if (data_source_params.type == DataSourceType_t::HDFS) {
-    auto hs = data_source_params.create_unique();
-    hs->write(key_file, reinterpret_cast<char *>(h_key_ptr), total_count * key_size, true);
-    hs->write(slot_file, reinterpret_cast<char *>(h_hash_table_slot_id), total_count * slot_size,
-              true);
-    hs->write(vec_file, reinterpret_cast<char *>(h_hash_table_value), total_count * vec_size, true);
-  } else if (data_source_params.type == DataSourceType_t::Local) {
-    // TODO: Move to self-contained DataSourceBackend implementation.
-    std::ofstream key_stream(key_file, std::ofstream::binary | std::ofstream::trunc);
-    std::ofstream slot_stream(slot_file, std::ofstream::binary | std::ofstream::trunc);
-    std::ofstream vec_stream(vec_file, std::ofstream::binary | std::ofstream::trunc);
-    // check if the file is opened successfully
-    if (!vec_stream.is_open() || !key_stream.is_open() || !slot_stream.is_open()) {
-      HCTR_OWN_THROW(Error_t::WrongInput, "Error: file not open for writing");
-      return;
-    }
-    key_stream.write(reinterpret_cast<char *>(h_key_ptr), total_count * key_size);
-    slot_stream.write(reinterpret_cast<char *>(h_hash_table_slot_id), total_count * slot_size);
-    vec_stream.write(reinterpret_cast<char *>(h_hash_table_value), total_count * vec_size);
-  } else {
-    HCTR_OWN_THROW(Error_t::WrongInput, "Filesystem not supported yet.");
-  }
+  fs->write(key_file, reinterpret_cast<char *>(h_key_ptr), total_count * key_size, true);
+  fs->write(slot_file, reinterpret_cast<char *>(h_hash_table_slot_id), total_count * slot_size,
+            true);
+  fs->write(vec_file, reinterpret_cast<char *>(h_hash_table_value), total_count * vec_size, true);
 #endif
   HCTR_LOG(INFO, ROOT, "Done\n");
 

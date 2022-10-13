@@ -81,6 +81,7 @@ file(GLOB huge_ctr_inference_src
   inference_session.cpp
   ../io/filesystem.cpp
   ../io/hadoop_filesystem.cpp
+  ../io/local_filesystem.cpp
 )
 
 set(CMAKE_CXX_STANDARD 17)

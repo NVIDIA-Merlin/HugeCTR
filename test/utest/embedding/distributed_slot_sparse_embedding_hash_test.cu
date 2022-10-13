@@ -241,7 +241,7 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
           train_input, test_input, embedding_params, resource_manager));
 
   // upload hash table to device
-  embedding->load_parameters(sparse_model_file, DataSourceParams());
+  embedding->load_parameters(sparse_model_file);
 
   // for SparseEmbeddingCpu
   std::unique_ptr<SparseEmbeddingHashCpu<T, TypeEmbeddingComp>> embedding_cpu(
@@ -362,20 +362,16 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // create new obj for eval()
-  embedding->dump_parameters(sparse_model_file, DataSourceParams());
+  embedding->dump_parameters(sparse_model_file);
 
   {
     HCTR_LOG(INFO, WORLD, "Rank%d: embedding->dump_opt_states()\n", pid);
-    std::ofstream fs(opt_file_name);
-    embedding->dump_opt_states(fs, opt_file_name, DataSourceParams());
-    fs.close();
+    embedding->dump_opt_states(opt_file_name);
   }
 
   {
     HCTR_LOG(INFO, WORLD, "Rank%d: embedding->load_opt_states()\n", pid);
-    std::ifstream fs(opt_file_name);
-    embedding->load_opt_states(fs, opt_file_name, DataSourceParams());
-    fs.close();
+    embedding->load_opt_states(opt_file_name);
   }
 
   // for SparseEmbeddingCpu eval
@@ -505,7 +501,7 @@ void load_and_dump(const std::vector<int> &device_list, const Optimizer_t &optim
           train_input, train_input, embedding_params, resource_manager));
 
   // upload hash table to device
-  embedding->load_parameters(sparse_model_file, DataSourceParams());
+  embedding->load_parameters(sparse_model_file);
 
   HCTR_LOG(INFO, WORLD, "max_vocabulary_size=%zu, vocabulary_size=%zu\n",
            embedding->get_max_vocabulary_size(), embedding->get_vocabulary_size());
@@ -582,7 +578,7 @@ void load_and_dump(const std::vector<int> &device_list, const Optimizer_t &optim
            embedding->get_max_vocabulary_size(), embedding->get_vocabulary_size());
 
   std::string tmp_sparse_model_file{"tmp_sparse_model"};
-  embedding->dump_parameters(tmp_sparse_model_file, DataSourceParams());
+  embedding->dump_parameters(tmp_sparse_model_file);
 
   std::vector<T> hash_table_key_from_cpu;
   std::vector<float> hash_table_value_from_cpu;
@@ -696,7 +692,7 @@ void load_and_dump_file(const std::vector<int> &device_list, const Optimizer_t &
 #endif
 
   // upload hash table to device
-  embedding->load_parameters(sparse_model_src, DataSourceParams());
+  embedding->load_parameters(sparse_model_src);
 
   if (pid == 0) {
     HCTR_LOG(INFO, WORLD, "max_vocabulary_size=%zu, vocabulary_size=%zu\n",
@@ -704,7 +700,7 @@ void load_and_dump_file(const std::vector<int> &device_list, const Optimizer_t &
   }
 
   // dump sparse model to file
-  embedding->dump_parameters(sparse_model_dst, DataSourceParams());
+  embedding->dump_parameters(sparse_model_dst);
 
 #ifdef ENABLE_MPI
   HCTR_MPI_THROW(MPI_Barrier(MPI_COMM_WORLD));

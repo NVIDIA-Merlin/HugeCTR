@@ -131,8 +131,7 @@ class DistributedSlotSparseEmbeddingHash : public IEmbedding {
    * @param context gpu device context, for switching device
    */
   void dump_parameters(
-      const std::string &sparse_model, const DataSourceParams &data_source_params,
-      size_t vocabulary_size, size_t embedding_vec_size,
+      const std::string &sparse_model, size_t vocabulary_size, size_t embedding_vec_size,
       const Tensors2<float> &hash_table_value_tensors,
       const std::vector<std::shared_ptr<HashTable<TypeHashKey, size_t>>> &hash_tables) const;
   void dump_parameters(
@@ -264,8 +263,7 @@ class DistributedSlotSparseEmbeddingHash : public IEmbedding {
    * upload it onto multi-GPUs global memory.
    * @param sparse_model the folder name of sparse model.
    */
-  void load_parameters(std::string sparse_model,
-                       const DataSourceParams &data_source_params) override;
+  void load_parameters(std::string sparse_model) override;
   void load_parameters(BufferBag &buf_bag, size_t num) override;
 
   /**
@@ -273,14 +271,11 @@ class DistributedSlotSparseEmbeddingHash : public IEmbedding {
    * and write it to the weight_stream on the host.
    * @param sparse_model the folder name of sparse model.
    */
-  void dump_parameters(std::string sparse_model,
-                       const DataSourceParams &data_source_params) const override;
+  void dump_parameters(std::string sparse_model) const override;
   void dump_parameters(BufferBag &buf_bag, size_t *num) const override;
 
-  void dump_opt_states(std::ofstream &stream, std::string sparse_model,
-                       const DataSourceParams &data_source_params) override;
-  void load_opt_states(std::ifstream &stream, std::string read_path,
-                       const DataSourceParams &data_source_params) override;
+  void dump_opt_states(std::string sparse_model) override;
+  void load_opt_states(std::string read_path) override;
   void reset_optimizer() override;
 
   /**
