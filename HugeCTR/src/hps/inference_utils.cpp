@@ -480,6 +480,8 @@ void parameter_server_config::init(const std::string& hps_json_config_file) {
     emb_file_name_[params.model_name] = params.sparse_model_files;
     emb_table_name_[params.model_name] = params.embedding_table_names;
     embedding_vec_size_[params.model_name] = params.embedding_vecsize_per_table;
+    std::vector<size_t> key_counts;
+    embedding_key_count_[params.model_name] = key_counts;
     max_feature_num_per_sample_per_emb_table_[params.model_name] =
         params.maxnum_catfeature_query_per_table_per_sample;
     default_emb_vec_value_.emplace_back(params.default_value_for_each_table);
@@ -532,6 +534,8 @@ parameter_server_config::parameter_server_config(
     emb_table_name_[inference_params.model_name] = emb_table_name[inference_params.model_name];
     embedding_vec_size_[inference_params.model_name] =
         embedding_vec_size[inference_params.model_name];
+    std::vector<size_t> key_counts;
+    embedding_key_count_[inference_params.model_name] = key_counts;
     max_feature_num_per_sample_per_emb_table_[inference_params.model_name] =
         max_feature_num_per_sample_per_emb_table[inference_params.model_name];
     default_emb_vec_value_.emplace_back(inference_params.default_value_for_each_table);
@@ -617,6 +621,8 @@ parameter_server_config::parameter_server_config(
     }
     emb_table_name_[inference_params.model_name] = emb_table_name;
     embedding_vec_size_[inference_params.model_name] = embedding_vec_size;
+    std::vector<size_t> key_counts;
+    embedding_key_count_[inference_params.model_name] = key_counts;
     max_feature_num_per_sample_per_emb_table_[inference_params.model_name] =
         max_feature_num_per_sample_per_emb_table;
     distributed_emb_.emplace_back(distributed_emb);

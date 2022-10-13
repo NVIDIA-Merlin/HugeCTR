@@ -12,20 +12,32 @@
 #
 
 cmake_minimum_required(VERSION 3.8)
+set(DB_LIB_PATHS "/usr/local/lib" CACHE PATH "Paths to Hiredis/rocksdb lib")
 
 file(GLOB_RECURSE huge_ctr_hps_src RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} *.cpp *.cu)
 
-list(REMOVE_ITEM huge_ctr_hps_src "../io/hadoop_filesystem.cpp")
+# list(REMOVE_ITEM huge_ctr_hps_src "../io/hadoop_filesystem.cpp")
 
 list(APPEND huge_ctr_hps_src 
   "../utils.cu"
   "../base/debug/logger.cpp"
   "../base/debug/cuda_debugging.cu"
+  "../io/filesystem.cpp"
+  "../io/hadoop_filesystem.cpp"
+  "../io/local_filesystem.cpp"
   "../thread_pool.cpp"
 )
 
 set(CMAKE_CXX_STANDARD 17)
 add_library(huge_ctr_hps SHARED ${huge_ctr_hps_src})
+
+if(ENABLE_HDFS)
+  target_link_libraries(
+    huge_ctr_hps
+    PUBLIC
+      ${DB_LIB_PATHS}/libhdfs.so # from Hugectr
+  )
+endif()
 
 target_link_libraries(huge_ctr_hps PUBLIC gpu_cache tbb hiredis redis++ rocksdb-shared rdkafka)
 

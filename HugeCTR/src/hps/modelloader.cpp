@@ -17,6 +17,7 @@
 #include <common.hpp>
 #include <hps/inference_utils.hpp>
 #include <hps/modelloader.hpp>
+#include <io/filesystem.hpp>
 #include <parser.hpp>
 #include <unordered_set>
 #include <utils.hpp>
@@ -35,34 +36,38 @@ void RawModelLoader<TKey, TValue>::load(const std::string& table_name, const std
   const std::string key_file = emb_file_prefix + "key";
   const std::string vec_file = emb_file_prefix + "emb_vector";
 
-  std::ifstream key_stream(key_file);
-  std::ifstream vec_stream(vec_file);
-  if (!key_stream.is_open() || !vec_stream.is_open()) {
-    HCTR_OWN_THROW(Error_t::WrongInput, "Error: embeddings file not open for reading");
-  }
-
-  const size_t key_file_size_in_byte = std::filesystem::file_size(key_file);
-  const size_t vec_file_size_in_byte = std::filesystem::file_size(vec_file);
+  auto fs = FileSystemBuilder::build_unique_by_path(path);
+  const size_t key_file_size_in_byte = fs->get_file_size(key_file);
+  const size_t vec_file_size_in_byte = fs->get_file_size(vec_file);
 
   const size_t key_size_in_byte = sizeof(long long);
+  const size_t vec_size_in_byte = sizeof(float);
+
+  if (key_file_size_in_byte % key_size_in_byte != 0) {
+    HCTR_OWN_THROW(Error_t::WrongInput, "Error: embeddings key file size is not correct");
+  }
+  if (vec_file_size_in_byte % vec_size_in_byte != 0) {
+    HCTR_OWN_THROW(Error_t::WrongInput, "Error: embeddings vector file size is not correct");
+  }
+
   const size_t num_key = key_file_size_in_byte / key_size_in_byte;
   embedding_table_->key_count = num_key;
 
-  const size_t num_float_val_in_vec_file = vec_file_size_in_byte / sizeof(float);
+  const size_t num_float_val_in_vec_file = vec_file_size_in_byte / vec_size_in_byte;
 
   // The temp embedding table
   embedding_table_->keys.resize(num_key);
   if (std::is_same<TKey, long long>::value) {
-    key_stream.read(reinterpret_cast<char*>(embedding_table_->keys.data()), key_file_size_in_byte);
+    fs->read(key_file, embedding_table_->keys.data(), key_file_size_in_byte, 0);
   } else {
     std::vector<long long> i64_key_vec(num_key, 0);
-    key_stream.read(reinterpret_cast<char*>(i64_key_vec.data()), key_file_size_in_byte);
+    fs->read(key_file, i64_key_vec.data(), key_file_size_in_byte, 0);
     std::transform(i64_key_vec.begin(), i64_key_vec.end(), embedding_table_->keys.begin(),
                    [](long long key) { return static_cast<unsigned>(key); });
   }
 
   embedding_table_->vectors.resize(num_float_val_in_vec_file);
-  vec_stream.read(reinterpret_cast<char*>(embedding_table_->vectors.data()), vec_file_size_in_byte);
+  fs->read(vec_file, embedding_table_->vectors.data(), vec_file_size_in_byte, 0);
 }
 
 template <typename TKey, typename TValue>
