@@ -81,6 +81,7 @@ file(GLOB huge_ctr_inference_src
   inference_session.cpp
   ../io/filesystem.cpp
   ../io/hadoop_filesystem.cpp
+  ../io/s3_filesystem.cpp
   ../io/local_filesystem.cpp
 )
 
@@ -92,6 +93,14 @@ if(ENABLE_HDFS)
     huge_ctr_inference
     PUBLIC
       ${DB_LIB_PATHS}/libhdfs.so # from Hugectr
+  )
+endif()
+
+if(ENABLE_S3)
+  target_link_libraries(
+    huge_ctr_inference
+    PUBLIC
+      ${DB_LIB_PATHS}/libaws-cpp-sdk-core.so ${DB_LIB_PATHS}/libaws-cpp-sdk-s3.so # from Hugectr
   )
 endif()
 

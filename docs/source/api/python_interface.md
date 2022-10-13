@@ -642,7 +642,7 @@ It trains the model for a fixed number of epochs (epoch mode) or iterations (non
 
 * `snapshot`: Integer, the interval of iterations at which the snapshot model weights and optimizer states will be saved to files. This argument is invalid when embedding training cache is being used, which means no model parameters will be saved. The default value is 10000.
 
-* `snapshot_prefix`: String, the prefix of the file names for the saved model weights and optimizer states. This argument is invalid when embedding training cache is being used, which means no model parameters will be saved. The default value is `''`.
+* `snapshot_prefix`: String, the prefix of the file names for the saved model weights and optimizer states. This argument is invalid when embedding training cache is being used, which means no model parameters will be saved. The default value is `''`. Remote file systems(HDFS and S3) are also supported. For example, for HDFS, the prefix can be `hdfs://localhost:9000/dir/to/model`. For S3, the prefix should be either virtual-hosted-style or path-style and contains the region information. For examples, take a look at the AWS official [documentation](https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-bucket-intro.html).
 
 ***
 
@@ -693,7 +693,7 @@ hugectr.Model.load_dense_weights()
 This method load the dense weights from the saved dense model file.
 
 **Arguments**
-* `dense_model_file`: String, the saved dense model file from which the dense weights will be loaded. There is NO default value and it should be specified by users. Supported filesystems are local and HDFS (example url: `hdfs://localhost:9000:/path/to/file`).
+* `dense_model_file`: String, the saved dense model file from which the dense weights will be loaded. There is NO default value and it should be specified by users. Remote file systems(HDFS and S3) are also supported. For example, for HDFS, the path can be `hdfs://localhost:9000/dir/to/model`. For S3, the path should be either virtual-hosted-style or path-style and contains the region information. For examples, take a look at the AWS official [documentation](https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-bucket-intro.html).
 
 ***
 
@@ -706,7 +706,7 @@ hugectr.Model.load_dense_optimizer_states()
 This method load the dense optimizer states from the saved dense optimizer states file.
 
 **Arguments**
-* `dense_opt_states_file`: String, the saved dense optimizer states file from which the dense optimizer states will be loaded. There is NO default value and it should be specified by users. Supported filesystems are local and HDFS (example url: `hdfs://localhost:9000:/path/to/file`).
+* `dense_opt_states_file`: String, the saved dense optimizer states file from which the dense optimizer states will be loaded. There is NO default value and it should be specified by users. Remote file systems(HDFS and S3) are also supported. For example, for HDFS, the path can be `hdfs://localhost:9000/dir/to/model`. For S3, the prefix should be either virtual-hosted-style or path-style and contains the region information. For examples, take a look at the AWS official [documentation](https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-bucket-intro.html).
 
 ***
 
@@ -721,7 +721,7 @@ This method load the sparse weights from the saved sparse embedding files.
 Implementation Ⅰ
 
 **Arguments**
-* `sparse_embedding_files`: List[str], the sparse embedding files from which the sparse weights will be loaded. The number of files should equal to that of the sparse embedding layers in the model. There is NO default value and it should be specified by users. Supported filesystems are local and HDFS (example url: `hdfs://localhost:9000:/path/to/file`).
+* `sparse_embedding_files`: List[str], the sparse embedding files from which the sparse weights will be loaded. The number of files should equal to that of the sparse embedding layers in the model. There is NO default value and it should be specified by users. Remote file systems(HDFS and S3) are also supported. For example, for HDFS, the path can be `hdfs://localhost:9000/dir/to/model`. For S3, the path should be either virtual-hosted-style or path-style and contains the region information. For examples, take a look at the AWS official [documentation](https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-bucket-intro.html).
 
 Implementation Ⅱ
 
@@ -763,7 +763,7 @@ This method load the sparse optimizer states from the saved sparse optimizer sta
 Implementation Ⅰ
 
 **Arguments**
-* `sparse_opt_states_files`: List[str], the sparse optimizer states files from which the sparse optimizer states will be loaded. The number of files should equal to that of the sparse embedding layers in the model. There is NO default value and it should be specified by users. Supported filesystems are local and HDFS (example url: `hdfs://localhost:9000:/path/to/file`).
+* `sparse_opt_states_files`: List[str], the sparse optimizer states files from which the sparse optimizer states will be loaded. The number of files should equal to that of the sparse embedding layers in the model. There is NO default value and it should be specified by users. Remote file systems(HDFS and S3) are also supported. For example, for HDFS, the path can be `hdfs://localhost:9000/dir/to/model`. For S3, the path should be either virtual-hosted-style or path-style and contains the region information. For examples, take a look at the AWS official [documentation](https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-bucket-intro.html).
 
 Implementation Ⅱ
 
@@ -1090,7 +1090,7 @@ The stored sparse model can be used for both the later training and inference ca
 Note that the key, slot id, and embedding vector are stored in the sparse model in the same sequence, so both the nth slot id in `slot_id` file and the nth embedding vector in the `emb_vector` file are mapped to the nth key in the `key` file.
 
 **Arguments**
-* `prefix`: String, the prefix of the saved files for model weights and optimizer states. There is NO default value and it should be specified by users.
+* `prefix`: String, the prefix of the saved files for model weights and optimizer states. There is NO default value and it should be specified by users. Remote file systems(HDFS and S3) are also supported. For example, for HDFS, the prefix can be `hdfs://localhost:9000/dir/to/model`. For S3, the prefix should be either virtual-hosted-style or path-style and contains the region information. For examples, take a look at the AWS official [documentation](https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-bucket-intro.html).
 
 * `iter`: Integer, the current number of iterations, which will be the suffix of the saved files for model weights and optimizer states. The default value is 0.
 
@@ -1363,8 +1363,6 @@ This method takes no extra arguments and starts to generate the synthetic datase
 
 ## Data Source API
 
-The data source API is used to specify which file system to use in the following training process. There are two data structures: `DataSourceParams` and `DataSource`. Please refer to `data_source` directory in the HugeCTR[repository](https://github.com/NVIDIA-Merlin/HugeCTR/tree/master/tools) on GitHub to check out how to write Python scripts to move data from HDFS to local FS.
-
 ### DataSourceParams class
 
 ```python
@@ -1374,8 +1372,8 @@ hugectr.data.DataSourceParams()
 `DataSourceParams` specifies the file system information and the paths to data and model used for training. A `DataSourceParams` instance is required to initialize the `DataSource` instance.
 
 **Arguments**
-* `source`: `hugect.FileSystemType_t`, can be `Local` or `HDFS`, specifying the file system. Default is `hugectr.FileSystemType_t.Local`.
+* `source`: `hugect.FileSystemType_t`, can be `Local` or `HDFS` or `S3`, specifying the file system. Default is `hugectr.FileSystemType_t.Local`.
 
-* `server`: String, the IP address of your file system. For Hadoop cluster, it is your namenode. Will be ignored if `source` is `FileSystemType_t.Local`. Default is 'localhost'.
+* `server`: String, the IP address of your file system. For Hadoop cluster(`HDFS`), it is your namenode. For AWS `S3`, it is the region. Will be ignored if `source` is `FileSystemType_t.Local`. Default is 'localhost'. 
 
-* `port`:  Integer, the port to listen from your server. Will be ignored if `source` is `FileSystemType_t.Local`. Default is 9000.
+* `port`:  Integer, the port to listen from your Hadoop server. Will be ignored if `source` is `FileSystemType_t.Local` or `FileSystemType_t.S3`. Default is 9000.
