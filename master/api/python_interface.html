@@ -90,45 +90,45 @@
 <h1>HugeCTR Python Interface<a class="headerlink" href="#hugectr-python-interface" title="Permalink to this headline"></a></h1>
 <div class="contents local topic" id="contents">
 <ul class="simple">
-<li><p><a class="reference internal" href="#about-the-hugectr-python-interface" id="id3">About the HugeCTR Python Interface</a></p></li>
-<li><p><a class="reference internal" href="#high-level-training-api" id="id4">High-level Training API</a></p>
+<li><p><a class="reference internal" href="#about-the-hugectr-python-interface" id="id4">About the HugeCTR Python Interface</a></p></li>
+<li><p><a class="reference internal" href="#high-level-training-api" id="id5">High-level Training API</a></p>
 <ul>
-<li><p><a class="reference internal" href="#solver" id="id5">Solver</a></p></li>
-<li><p><a class="reference internal" href="#asyncparam" id="id6">AsyncParam</a></p></li>
-<li><p><a class="reference internal" href="#hybridembeddingparam" id="id7">HybridEmbeddingParam</a></p></li>
-<li><p><a class="reference internal" href="#datareaderparams" id="id8">DataReaderParams</a></p></li>
-<li><p><a class="reference internal" href="#dataset-formats" id="id9">Dataset formats</a></p></li>
-<li><p><a class="reference internal" href="#optparamspy" id="id10">OptParamsPy</a></p></li>
+<li><p><a class="reference internal" href="#solver" id="id6">Solver</a></p></li>
+<li><p><a class="reference internal" href="#asyncparam" id="id7">AsyncParam</a></p></li>
+<li><p><a class="reference internal" href="#hybridembeddingparam" id="id8">HybridEmbeddingParam</a></p></li>
+<li><p><a class="reference internal" href="#datareaderparams" id="id9">DataReaderParams</a></p></li>
+<li><p><a class="reference internal" href="#dataset-formats" id="id10">Dataset formats</a></p></li>
+<li><p><a class="reference internal" href="#optparamspy" id="id11">OptParamsPy</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#layers" id="id11">Layers</a></p>
+<li><p><a class="reference internal" href="#layers" id="id12">Layers</a></p>
 <ul>
-<li><p><a class="reference internal" href="#model" id="id12">Model</a></p></li>
+<li><p><a class="reference internal" href="#model" id="id13">Model</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#low-level-training-api" id="id13">Low-level Training API</a></p>
+<li><p><a class="reference internal" href="#low-level-training-api" id="id14">Low-level Training API</a></p>
 <ul>
-<li><p><a class="reference internal" href="#learningratescheduler" id="id14">LearningRateScheduler</a></p></li>
-<li><p><a class="reference internal" href="#datareader" id="id15">DataReader</a></p></li>
-<li><p><a class="reference internal" href="#embeddingtraingcache" id="id16">EmbeddingTraingCache</a></p></li>
-<li><p><a class="reference internal" href="#id2" id="id17">Model</a></p></li>
+<li><p><a class="reference internal" href="#learningratescheduler" id="id15">LearningRateScheduler</a></p></li>
+<li><p><a class="reference internal" href="#datareader" id="id16">DataReader</a></p></li>
+<li><p><a class="reference internal" href="#embeddingtraingcache" id="id17">EmbeddingTraingCache</a></p></li>
+<li><p><a class="reference internal" href="#id2" id="id18">Model</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#inference-api" id="id18">Inference API</a></p>
+<li><p><a class="reference internal" href="#inference-api" id="id19">Inference API</a></p>
 <ul>
-<li><p><a class="reference internal" href="#inferenceparams" id="id19">InferenceParams</a></p></li>
-<li><p><a class="reference internal" href="#inferencemodel" id="id20">InferenceModel</a></p></li>
+<li><p><a class="reference internal" href="#inferenceparams" id="id20">InferenceParams</a></p></li>
+<li><p><a class="reference internal" href="#inferencemodel" id="id21">InferenceModel</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#data-generator-api" id="id21">Data Generator API</a></p>
+<li><p><a class="reference internal" href="#data-generator-api" id="id22">Data Generator API</a></p>
 <ul>
-<li><p><a class="reference internal" href="#datageneratorparams-class" id="id22">DataGeneratorParams class</a></p></li>
-<li><p><a class="reference internal" href="#datagenerator" id="id23">DataGenerator</a></p></li>
+<li><p><a class="reference internal" href="#datageneratorparams-class" id="id23">DataGeneratorParams class</a></p></li>
+<li><p><a class="reference internal" href="#datagenerator" id="id24">DataGenerator</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#data-source-api" id="id24">Data Source API</a></p>
+<li><p><a class="reference internal" href="#data-source-api" id="id25">Data Source API</a></p>
 <ul>
-<li><p><a class="reference internal" href="#datasourceparams-class" id="id25">DataSourceParams class</a></p></li>
+<li><p><a class="reference internal" href="#datasourceparams-class" id="id26">DataSourceParams class</a></p></li>
 </ul>
 </li>
 </ul>
@@ -248,14 +248,14 @@
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">num_threads</span></code>: Integer, the number of the data reading threads, should be at least 1 per GPU。 There is NO default value.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">num_batches_per_thread</span></code>: Integer,  the number of the batches each data reader thread works on simultaneously, typically 2-4. There is NO default value.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">io_block_size</span></code>: Integer, the size of individual IO requests, the value 512000 should work in most cases. There is NO default value.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">max_num_requests_per_thread</span></code>: Integer, the max number of individual IO requests for each thread. It should be a multiple of num_batches_per_thread and no less than 2 * num_batches_per_thread. The value 72 should work in most cases. There is NO default value.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">io_depth</span></code>: Integer, the size of the asynchronous IO queue, the value 4 should work in most cases. There is NO default value.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">io_alignment</span></code>: Integer, the byte alignment of IO requests, the value 512 should work in most cases. There is NO default value.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">io_alignment</span></code>: Integer, the byte alignment of IO requests, the value 512 or 4096 should work in most cases. There is NO default value.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">shuffle</span></code>: Boolean, if this option is enabled, the order in which the batches are fed into training will be randomized. There is NO default value.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">aligned_type</span></code>: The supported types include <code class="docutils literal notranslate"><span class="pre">hugectr.Alignment_t.Auto</span></code> and <code class="docutils literal notranslate"><span class="pre">hugectr.Alignment_t.Non</span></code>. If <code class="docutils literal notranslate"><span class="pre">hugectr.Alignment_t.Auto</span></code> is chosen,  the dimension of dense input will be padded to an 8-aligned value. There is NO default value.</p></li>
 </ul>
 <p>Example:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">async_param</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">AsyncParam</span><span class="p">(</span><span class="mi">32</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">716800</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">512</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Alignment_t</span><span class="o">.</span><span class="n">Non</span><span class="p">)</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">async_param</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">AsyncParam</span><span class="p">(</span><span class="mi">32</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">512</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Alignment_t</span><span class="o">.</span><span class="n">Non</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -681,7 +681,7 @@ It allows the users to construct their model flexibly without the JSON configura
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hugectr</span><span class="o">.</span><span class="n">Model</span><span class="o">.</span><span class="n">summary</span><span class="p">()</span>
 </pre></div>
 </div>
-<p>This method takes no extra arguments and prints a string summary of the model. Users can have an overview of the model structure with this method.</p>
+<p>This method takes no extra arguments and prints a string summary of the model. Users can have an overview of the model structure with this method. Please NOTE that the first dimension of displayed tensors is the per-GPU batchsize.</p>
 </div>
 <hr class="docutils" />
 <div class="section" id="graph-to-json-method">
@@ -1073,6 +1073,51 @@ Refer to <a class="reference internal" href="../hugectr_core_features.html#sgd-o
 </ul>
 </div>
 <hr class="docutils" />
+<div class="section" id="check-out-tensor-method">
+<h4>check_out_tensor method<a class="headerlink" href="#check-out-tensor-method" title="Permalink to this headline"></a></h4>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hugectr</span><span class="o">.</span><span class="n">Model</span><span class="o">.</span><span class="n">check_out_tensor</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>This method check out the tensor values for the latest training or evaluation iteration. The tensor values will be returned via a numpy array that has the same dimensions as the tensor. The data type of returned numpy array will always be float32, while the data type of the tensor can be float32 or float16 depending on <code class="docutils literal notranslate"><span class="pre">use_mixed_precision</span></code>. Please NOTE that separate tensors are used for HugeCTR training and evaluation flows, which needs to be specified as an argument of the method. This method can be helpful for debugging and verifying the correctness, given that the values of intermediate tensors can be easily checked out.</p>
+<p><strong>Arguments</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">tensor_name</span></code>: String, the name of the tensor that needs to be checked out. It should be within the names that are specified for tensors when creating the model graph using <code class="docutils literal notranslate"><span class="pre">model.add</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">tensor_type</span></code>: <code class="docutils literal notranslate"><span class="pre">hugectr.Tensor_t</span></code>, the flow that the tensor belongs to, i.e., the training flow or the evaluation flow. The supported types are <code class="docutils literal notranslate"><span class="pre">hugectr.Tensor_t.Train</span></code> and <code class="docutils literal notranslate"><span class="pre">hugectr.Tensor_t.Evaluate</span></code>. If <code class="docutils literal notranslate"><span class="pre">hugectr.Tensor_t.Train</span></code> is specified, the gradients during backward propagation of the latest training iteration will be returned. If <code class="docutils literal notranslate"><span class="pre">hugectr.Tensor_t.Evaluate</span></code> is specified, the results during forward propagation of the latest evaluation iteration will be returned.</p></li>
+</ul>
+<p>Example:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">solver</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">CreateSolver</span><span class="p">(</span><span class="n">max_eval_batches</span> <span class="o">=</span> <span class="mi">1280</span><span class="p">,</span>
+                              <span class="n">batchsize_eval</span> <span class="o">=</span> <span class="mi">1024</span><span class="p">,</span>
+                              <span class="n">batchsize</span> <span class="o">=</span> <span class="mi">4096</span><span class="p">,</span>
+                              <span class="n">lr</span> <span class="o">=</span> <span class="mf">0.001</span><span class="p">,</span>
+                              <span class="n">vvgpu</span> <span class="o">=</span> <span class="p">[[</span><span class="mi">0</span><span class="p">]],</span>
+                              <span class="n">repeat_dataset</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span>
+<span class="o">...</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">Input</span><span class="p">(</span><span class="n">label_dim</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">label_name</span> <span class="o">=</span> <span class="s2">&quot;label&quot;</span><span class="p">,</span>
+                        <span class="n">dense_dim</span> <span class="o">=</span> <span class="mi">13</span><span class="p">,</span> <span class="n">dense_name</span> <span class="o">=</span> <span class="s2">&quot;dense&quot;</span><span class="p">,</span>
+                        <span class="n">data_reader_sparse_param_array</span> <span class="o">=</span>
+                        <span class="p">[</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DataReaderSparseParam</span><span class="p">(</span><span class="s2">&quot;data1&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="mi">26</span><span class="p">)]))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">SparseEmbedding</span><span class="p">(</span><span class="n">embedding_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Embedding_t</span><span class="o">.</span><span class="n">DistributedSlotSparseEmbeddingHash</span><span class="p">,</span>
+                           <span class="n">workspace_size_per_gpu_in_mb</span> <span class="o">=</span> <span class="mi">75</span><span class="p">,</span>
+                           <span class="n">embedding_vec_size</span> <span class="o">=</span> <span class="mi">16</span><span class="p">,</span>
+                           <span class="n">combiner</span> <span class="o">=</span> <span class="s2">&quot;sum&quot;</span><span class="p">,</span>
+                           <span class="n">sparse_embedding_name</span> <span class="o">=</span> <span class="s2">&quot;sparse_embedding1&quot;</span><span class="p">,</span>
+                           <span class="n">bottom_name</span> <span class="o">=</span> <span class="s2">&quot;data1&quot;</span><span class="p">,</span>
+                           <span class="n">optimizer</span> <span class="o">=</span> <span class="n">optimizer</span><span class="p">))</span>
+<span class="o">...</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">InnerProduct</span><span class="p">,</span>
+                           <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;concat1&quot;</span><span class="p">],</span>
+                           <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;fc1&quot;</span><span class="p">],</span>
+                           <span class="n">num_output</span><span class="o">=</span><span class="mi">1024</span><span class="p">))</span>
+<span class="o">...</span>
+<span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>
+<span class="c1"># Return a numpy array of (4096, 26, 16)</span>
+<span class="n">sparse_embedding1_train_flow</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">check_out_tensor</span><span class="p">(</span><span class="s2">&quot;sparse_embedding1&quot;</span><span class="p">,</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Tensor_t</span><span class="o">.</span><span class="n">Train</span><span class="p">)</span> 
+<span class="c1"># Return a numpy array of (1024, 1024)</span>
+<span class="n">fc1_evaluate_flow</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">check_out_tensor</span><span class="p">(</span><span class="s2">&quot;fc1&quot;</span><span class="p">,</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Tensor_t</span><span class="o">.</span><span class="n">Evaluate</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<hr class="docutils" />
 <div class="section" id="export-predictions-method">
 <h4>export_predictions method<a class="headerlink" href="#export-predictions-method" title="Permalink to this headline"></a></h4>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hugectr</span><span class="o">.</span><span class="n">Model</span><span class="o">.</span><span class="n">export_predictions</span><span class="p">()</span>
@@ -1148,6 +1193,7 @@ Refer to <a class="reference internal" href="../hugectr_core_features.html#sgd-o
 <li><p><code class="docutils literal notranslate"><span class="pre">slot_size_array</span></code>: List[int], the cardinality array of input features. It should be consistent with that of the sparse input. We requires this argument for Parquet format data. The default value is an empty list, which is suitable for Norm format data.</p></li>
 </ul>
 </div>
+<hr class="docutils" />
 <div class="section" id="evaluate-method">
 <h4>evaluate method<a class="headerlink" href="#evaluate-method" title="Permalink to this headline"></a></h4>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hugectr</span><span class="o">.</span><span class="n">inference</span><span class="o">.</span><span class="n">InferenceModel</span><span class="o">.</span><span class="n">evaluate</span><span class="p">()</span>
@@ -1162,6 +1208,46 @@ Refer to <a class="reference internal" href="../hugectr_core_features.html#sgd-o
 <li><p><code class="docutils literal notranslate"><span class="pre">check_type</span></code>: <code class="docutils literal notranslate"><span class="pre">hugectr.Check_t</span></code>, the check type for the data source. We support <code class="docutils literal notranslate"><span class="pre">hugectr.Check_t.Sum</span></code> and <code class="docutils literal notranslate"><span class="pre">hugectr.Check_t.Non</span></code> currently.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">slot_size_array</span></code>: List[int], the cardinality array of input features. It should be consistent with that of the sparse input. We requires this argument for Parquet format data. The default value is an empty list, which is suitable for Norm format data.</p></li>
 </ul>
+</div>
+<hr class="docutils" />
+<div class="section" id="id3">
+<h4>check_out_tensor method<a class="headerlink" href="#id3" title="Permalink to this headline"></a></h4>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hugectr</span><span class="o">.</span><span class="n">inference</span><span class="o">.</span><span class="n">InferenceModel</span><span class="o">.</span><span class="n">check_out_tensor</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>This method check out the tensor values for the latest inference iteration. The tensor values will be returned via a numpy array that has the same dimensions as the tensor. The data type of returned numpy array will always be float32, while the data type of the tensor can be float32 or float16 depending on <code class="docutils literal notranslate"><span class="pre">use_mixed_precision</span></code>. This method can be helpful for debugging and verifying the correctness, given that the values of intermediate tensors can be easily checked out.</p>
+<p><strong>Arguments</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">tensor_name</span></code>: String, the name of the tensor that needs to be checked out. It should be within the tensor names of the graph JSON file that is used to create the InferenceModel object.</p></li>
+</ul>
+<p>Example:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">model_config</span> <span class="o">=</span> <span class="s2">&quot;dcn.json&quot;</span>
+<span class="n">inference_params</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">inference</span><span class="o">.</span><span class="n">InferenceParams</span><span class="p">(</span>
+    <span class="n">model_name</span> <span class="o">=</span> <span class="s2">&quot;dcn&quot;</span><span class="p">,</span>
+    <span class="n">max_batchsize</span> <span class="o">=</span> <span class="mi">16</span><span class="p">,</span>
+    <span class="n">hit_rate_threshold</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
+    <span class="n">dense_model_file</span> <span class="o">=</span> <span class="s2">&quot;dcn_dense_1000.model&quot;</span><span class="p">,</span>
+    <span class="n">sparse_model_files</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;dcn0_sparse_1000.model&quot;</span><span class="p">],</span>
+    <span class="n">deployed_devices</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">],</span>
+    <span class="n">use_gpu_embedding_cache</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">cache_size_percentage</span> <span class="o">=</span> <span class="mf">0.5</span><span class="p">,</span>
+    <span class="n">i64_input_key</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">use_mixed_precision</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">use_cuda_graph</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">number_of_worker_buffers_in_pool</span> <span class="o">=</span> <span class="mi">16</span>
+<span class="p">)</span>
+<span class="n">inference_model</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">inference</span><span class="o">.</span><span class="n">InferenceModel</span><span class="p">(</span><span class="n">model_config</span><span class="p">,</span> <span class="n">inference_params</span><span class="p">)</span>
+<span class="n">pred</span> <span class="o">=</span> <span class="n">inference_model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span>
+    <span class="mi">1</span><span class="p">,</span>
+    <span class="n">EVAL_SOURCE</span><span class="p">,</span>
+    <span class="n">hugectr</span><span class="o">.</span><span class="n">DataReaderType_t</span><span class="o">.</span><span class="n">Parquet</span><span class="p">,</span>
+    <span class="n">hugectr</span><span class="o">.</span><span class="n">Check_t</span><span class="o">.</span><span class="n">Non</span><span class="p">,</span>
+    <span class="n">SLOT_SIZE_ARRAY</span>
+<span class="p">)</span>
+<span class="c1"># Return a numpy array of (16, 26, 16), assuming slot_num is 26, embed_vec_size is 16</span>
+<span class="n">sparse_embedding1_inference_flow</span> <span class="o">=</span> <span class="n">inference_model</span><span class="o">.</span><span class="n">check_out_tensor</span><span class="p">(</span><span class="s2">&quot;sparse_embedding1&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
 </div>
 </div>
 </div>
