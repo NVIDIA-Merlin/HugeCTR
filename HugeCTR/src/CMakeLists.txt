@@ -47,6 +47,11 @@ if(ENABLE_HDFS)
   target_link_libraries(huge_ctr_static PUBLIC ${DB_LIB_PATHS}/libhdfs.so)
 endif()
 
+if(ENABLE_S3)
+  target_link_libraries(huge_ctr_shared PUBLIC ${DB_LIB_PATHS}/libaws-cpp-sdk-core.so ${DB_LIB_PATHS}/libaws-cpp-sdk-s3.so)
+  target_link_libraries(huge_ctr_static PUBLIC ${DB_LIB_PATHS}/libaws-cpp-sdk-core.so ${DB_LIB_PATHS}/libaws-cpp-sdk-s3.so)
+endif()
+
 if(MPI_FOUND)
   target_link_libraries(huge_ctr_static PUBLIC cublas cublasLt curand cudnn nccl nvToolsExt ${CMAKE_THREAD_LIBS_INIT} ${MPI_CXX_LIBRARIES} hwloc ucp ucs ucm uct numa ibverbs gdrapi stdc++fs)
   target_link_libraries(huge_ctr_shared PUBLIC cublas cublasLt curand cudnn nccl nvToolsExt ${CMAKE_THREAD_LIBS_INIT} ${MPI_CXX_LIBRARIES} hwloc ucp ucs ucm uct numa ibverbs gdrapi stdc++fs)

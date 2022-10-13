@@ -54,16 +54,16 @@ void Metadata::get_parquet_metadata(std::string file_name) {
       std::size_t found = fname.find_last_of("/\\");
       std::string parquet_name = fname.substr(found + 1);
       std::string parquet_path = dirname + "/" + parquet_name;
+      if (found != std::string::npos) {
+        fname = fname.substr(found + 1);
+      }
+#ifdef ENABLE_ARROW_PARQUET
       std::ifstream fexist(parquet_path);
       if (!fexist.good()) {
         HCTR_LOG_S(WARNING, ROOT) << " skip file " << fname
                                   << " listed in _metadata.json as it does not exist" << std::endl;
         continue;
       }
-      if (found != std::string::npos) {
-        fname = fname.substr(found + 1);
-      }
-#ifdef ENABLE_ARROW_PARQUET
       long long group_offset = 0;
       std::vector<long long> row_groups_offset{0};
       std::unique_ptr<parquet::ParquetFileReader> reader =
@@ -90,7 +90,6 @@ void Metadata::get_parquet_metadata(std::string file_name) {
       num_rows_total_files_ += num_rows_file;
     }
     rows_file_offset_.push_back(num_rows_total_files_);
-
     auto cats = config.find("cats").value();
     for (unsigned int i = 0; i < cats.size(); i++) {
       Cols c;
@@ -98,7 +97,6 @@ void Metadata::get_parquet_metadata(std::string file_name) {
       c.index = (int)cats[i].find("index").value();
       this->cat_names_.push_back(c);
     }
-
     auto conts = config.find("conts").value();
     for (unsigned int i = 0; i < conts.size(); i++) {
       Cols c;
@@ -106,7 +104,6 @@ void Metadata::get_parquet_metadata(std::string file_name) {
       c.index = (int)conts[i].find("index").value();
       this->cont_names_.push_back(c);
     }
-
     auto labels = config.find("labels").value();
     for (unsigned int i = 0; i < labels.size(); i++) {
       Cols c;

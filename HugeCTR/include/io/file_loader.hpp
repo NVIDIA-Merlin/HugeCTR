@@ -111,7 +111,7 @@ class FileLoader {
     } else {
       data_ = new char[cur_file_size_ / sizeof(char)];
       int bytes_read = file_system_->read(cur_file_name_, data_, cur_file_size_, 0);
-      if (bytes_read <= 0) {
+      if (bytes_read < 0) {
         delete[] data_;
         data_ = nullptr;
         HCTR_LOG_S(ERROR, WORLD) << "Error reading the file from dfs " << HCTR_LOCATION()

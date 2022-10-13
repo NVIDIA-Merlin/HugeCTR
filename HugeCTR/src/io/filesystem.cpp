@@ -19,6 +19,7 @@
 #include <io/hadoop_filesystem.hpp>
 #include <io/io_utils.hpp>
 #include <io/local_filesystem.hpp>
+#include <io/s3_filesystem.hpp>
 
 namespace HugeCTR {
 
@@ -31,7 +32,7 @@ FileSystem* FileSystemBuilder::build_by_path(const std::string& file_path) {
     fs_type = FileSystemType_t::HDFS;
   } else if (scheme == "S3" || scheme == "s3") {
     fs_type = FileSystemType_t::S3;
-  } else if (scheme == "https") {
+  } else if (scheme == "https" || scheme == "http") {
     if (IOUtils::is_valid_s3_https_url(file_path)) {
       fs_type = FileSystemType_t::S3;
     } else {
@@ -42,13 +43,24 @@ FileSystem* FileSystemBuilder::build_by_path(const std::string& file_path) {
   }
   switch (fs_type) {
     case FileSystemType_t::Local:
+      HCTR_LOG_S(INFO, WORLD) << "Using Local file system backend." << std::endl;
       return new LocalFileSystem{};
     case FileSystemType_t::HDFS:
 #ifdef ENABLE_HDFS
+      HCTR_LOG_S(INFO, WORLD) << "Using Hadoop file system backend." << std::endl;
       return new HadoopFileSystem{HdfsConfigs::FromUrl(file_path)};
 #else
       HCTR_OWN_THROW(Error_t::WrongInput,
                      "Please install Hadoop and compile HugeCTR with ENABLE_HDFS to use HDFS "
+                     "functionalities.");
+#endif
+    case FileSystemType_t::S3:
+#ifdef ENABLE_S3
+      HCTR_LOG_S(INFO, WORLD) << "Using S3 file system backend." << std::endl;
+      return new S3FileSystem{S3Configs::FromUrl(file_path)};
+#else
+      HCTR_OWN_THROW(Error_t::WrongInput,
+                     "Please install AWS s3 sdk and compile HugeCTR with ENABLE_S3 to use S3 "
                      "functionalities.");
 #endif
     default:
@@ -62,13 +74,24 @@ FileSystem* FileSystemBuilder::build_by_data_source_params(
     const DataSourceParams& data_source_params) {
   switch (data_source_params.type) {
     case FileSystemType_t::Local:
+      HCTR_LOG_S(INFO, WORLD) << "Using local file system backend." << std::endl;
       return new LocalFileSystem{};
     case FileSystemType_t::HDFS:
 #ifdef ENABLE_HDFS
+      HCTR_LOG_S(INFO, WORLD) << "Using Hadoop file system backend." << std::endl;
       return new HadoopFileSystem{HdfsConfigs::FromDataSourceParams(data_source_params)};
 #else
       HCTR_OWN_THROW(Error_t::WrongInput,
                      "Please install Hadoop and compile HugeCTR with ENABLE_HDFS to use HDFS "
+                     "functionalities.");
+#endif
+    case FileSystemType_t::S3:
+#ifdef ENABLE_S3
+      HCTR_LOG_S(INFO, WORLD) << "Using S3 file system backend." << std::endl;
+      return new S3FileSystem{S3Configs::FromDataSourceParams(data_source_params)};
+#else
+      HCTR_OWN_THROW(Error_t::WrongInput,
+                     "Please install AWS s3 sdk and compile HugeCTR with ENABLE_S3 to use S3 "
                      "functionalities.");
 #endif
     default:
@@ -94,21 +117,29 @@ FileSystem* FileSystemBuilder::build_by_config(const std::string& config_path) {
   }
   switch (fs_type) {
     case FileSystemType_t::Local:
-      HCTR_LOG_S(DEBUG, WORLD) << "Building local file system backend." << std::endl;
+      HCTR_LOG_S(INFO, WORLD) << "Using local file system backend." << std::endl;
       return new LocalFileSystem{};
     case FileSystemType_t::HDFS:
 #ifdef ENABLE_HDFS
-      HCTR_LOG_S(DEBUG, WORLD) << "Building Hadoop file system backend." << std::endl;
+      HCTR_LOG_S(INFO, WORLD) << "Using Hadoop file system backend." << std::endl;
       return new HadoopFileSystem{HdfsConfigs::FromJSON(config_path)};
 #else
       HCTR_OWN_THROW(Error_t::WrongInput,
                      "Please install Hadoop and compile HugeCTR with ENABLE_HDFS to use HDFS "
                      "functionalities.");
 #endif
+    case FileSystemType_t::S3:
+#ifdef ENABLE_S3
+      HCTR_LOG_S(INFO, WORLD) << "Using S3 file system backend." << std::endl;
+      return new S3FileSystem{S3Configs::FromJSON(config_path)};
+#else
+      HCTR_OWN_THROW(Error_t::WrongInput,
+                     "Please install AWS s3 sdk and compile HugeCTR with ENABLE_S3 to use S3 "
+                     "functionalities.");
+#endif
     default:
       HCTR_OWN_THROW(Error_t::WrongInput, "Unsupproted filesystem.");
   }
-
   return nullptr;
 }
 

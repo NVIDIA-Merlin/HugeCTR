@@ -65,6 +65,10 @@ class ParquetFileSource : public Source {
    * Private Helper function to get metdata file address
    */
   std::string get_metada_filename(std::string path) {
+    auto first_colon = path.find_first_of(":");
+    if (first_colon != std::string::npos) {
+      path.erase(0, first_colon + 1);
+    }
     std::size_t found = path.find_last_of("/\\");
     std::string metadata_path = path.substr(0, found);
     metadata_path.append("/_metadata.json");
