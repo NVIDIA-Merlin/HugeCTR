@@ -465,7 +465,7 @@ For more information, see the <a class="reference external" href="https://github
 <li><p><strong>HDFS python API enhancement</strong>:</p>
 <ul>
 <li><p>Simplified <code class="docutils literal notranslate"><span class="pre">DataSourceParams</span></code> so that users do not need to provide all the paths before they are really necessary. Now users only have to pass <code class="docutils literal notranslate"><span class="pre">DataSourceParams</span></code> once when creating a solver.</p></li>
-<li><p>Later paths will be automatically regarded as local paths or HDFS paths depending on the <code class="docutils literal notranslate"><span class="pre">DataSourceParams</span></code> setting. See <a class="reference internal" href="notebooks/training_with_hdfs.html"><span class="doc std std-doc">notebook</span></a> for usage.</p></li>
+<li><p>Later paths will be automatically regarded as local paths or HDFS paths depending on the <code class="docutils literal notranslate"><span class="pre">DataSourceParams</span></code> setting. See <span class="xref myst">notebook</span> for usage.</p></li>
 </ul>
 </li>
 <li><p><strong>HPS performance optimization</strong>: We use better method to  determine partition number in database backends in HPS.</p></li>
@@ -484,7 +484,7 @@ For more information, see the <a class="reference external" href="https://github
 <ul>
 <li><p>Decoupled HDFS in Merlin containers to make the HDFS support more flexible. Users can now compile HDFS related functionalities optionally.</p></li>
 <li><p>Now supports loading and dumping models and optimizer states from HDFS.</p></li>
-<li><p>Added a <a class="reference internal" href="notebooks/training_with_hdfs.html"><span class="doc std std-doc">notebook</span></a> to show how to use HugeCTR with HDFS.</p></li>
+<li><p>Added a <span class="xref myst">notebook</span> to show how to use HugeCTR with HDFS.</p></li>
 </ul>
 </li>
 <li><p><strong>Support Multi-hot Inference on Hugectr Backend</strong>: We support categorical input in multi-hot format for HugeCTR Backend inference.</p></li>
