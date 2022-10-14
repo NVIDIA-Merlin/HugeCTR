@@ -1,18 +1,18 @@
-"""
- Copyright (c) 2022, NVIDIA CORPORATION.
- 
- Licensed under the Apache License, Version 2.0 (the "License");
- you may not use this file except in compliance with the License.
- You may obtain a copy of the License at
- 
-     http://www.apache.org/licenses/LICENSE-2.0
- 
- Unless required by applicable law or agreed to in writing, software
- distributed under the License is distributed on an "AS IS" BASIS,
- WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- See the License for the specific language governing permissions and
- limitations under the License.
-"""
+#
+# Copyright (c) 2022, NVIDIA CORPORATION.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
 
 import tensorflow as tf
 from tensorflow.python.framework import ops
@@ -26,6 +26,52 @@ from sparse_operation_kit.experiment.communication import num_gpus
 
 
 class DynamicVariable(ResourceVariable):
+    """
+    Abbreviated as ``sok.experiment.DynamicVariable``.
+
+    A variable that allocates memory dynamically.
+
+    Parameters
+    ----------
+    dimension: int
+        The last dimension of this variable(that is, the embedding vector
+        size of embedding table).
+
+    initializer: string
+        a string to specify how to initialize this variable.
+        Currently, only support "random" or string of a float
+        value(meaning const initializer). Default value is "random".
+
+    key_type: dtype
+        specify the data type of indices. Unlike the static variable of
+        tensorflow, this variable is dyanmically allocated and contains
+        a hash table inside it. So the data type of indices must be
+        specified to construct the hash table. Default value is tf.int64.
+
+    dtype: dtype
+        specify the data type of values. Default value is tf.float32.
+
+    Example
+    -------
+    .. code-block:: python
+
+        import numpy as np
+        import tensorflow as tf
+        import horovod.tensorflow as hvd
+        from sparse_operation_kit import experiment as sok
+
+        v = sok.DynamicVariable(dimension=3, initializer="13")
+        print("v.shape:", v.shape)
+        print("v.size:", v.size)
+
+        indices = tf.convert_to_tensor([0, 1, 2**40], dtype=tf.int64)
+
+        embedding = tf.nn.embedding_lookup(v, indices)
+        print("embedding:", embedding)
+        print("v.shape:", v.shape)
+        print("v.size:", v.size)
+    """
+
     def __init__(
         self,
         dimension,
@@ -365,6 +411,24 @@ def _SparseReadGrad(op, grad):
 
 
 def export(var):
+    """
+    Abbreviated as ``sok.experiment.export``.
+
+    Export the indices and value tensor from the given variable.
+
+    Parameters
+    ----------
+    var: sok.DynamicVariable
+        The variable to extract indices and values.
+
+    Returns
+    -------
+    indices: tf.Tensor
+        The indices of the given variable.
+
+    values: tf.Tensor
+        the values of the given variable.
+    """
     if isinstance(var, DynamicVariable):
         indices, values = dynamic_variable_ops.dummy_var_export(
             var.handle, key_type=var.key_type, dtype=var.handle_dtype
@@ -376,5 +440,25 @@ def export(var):
 
 
 def assign(var, indices, values):
+    """
+    Abbreviated as ``sok.experiment.assign``.
+
+    Assign the indices and value tensor to the target variable.
+
+    Parameters
+    ----------
+    var: sok.DynamicVariable
+        The target variable of assign.
+
+    indices: tf.Tensor
+        indices to be assigned to the variable.
+
+    values: tf.Tensor
+        values to be assigned to the variable
+
+    Returns
+    -------
+    variable: sok.DynamicVariable
+    """
     if isinstance(var, DynamicVariable):
         return dynamic_variable_ops.dummy_var_assign(var.handle, indices, values)

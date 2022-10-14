@@ -1,18 +1,18 @@
-"""
- Copyright (c) 2022, NVIDIA CORPORATION.
-
- Licensed under the Apache License, Version 2.0 (the "License");
- you may not use this file except in compliance with the License.
- You may obtain a copy of the License at
-
-     http://www.apache.org/licenses/LICENSE-2.0
-
- Unless required by applicable law or agreed to in writing, software
- distributed under the License is distributed on an "AS IS" BASIS,
- WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- See the License for the specific language governing permissions and
- limitations under the License.
-"""
+#
+# Copyright (c) 2022, NVIDIA CORPORATION.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
 
 import numpy as np
 import tensorflow as tf
@@ -22,6 +22,88 @@ from sparse_operation_kit.experiment.communication import global_gpu_id, num_gpu
 
 
 def Variable(*args, **kwargs):
+    """
+    Abbreviated as ``sok.experiment.Variable``.
+
+    This is a helper function to generate model-parallel variable. There
+    are two use cases:
+
+    Distributed Variable:
+
+    .. code-block:: python
+
+        import numpy as np
+        import tensorflow as tf
+        import horovod.tensorflow as hvd
+        from sparse_operation_kit import experiment as sok
+
+        hvd.init()
+        gpus = tf.config.experimental.list_physical_devices("GPU")
+        for gpu in gpus:
+            tf.config.experimental.set_memory_growth(gpu, True)
+        if gpus:
+            tf.config.experimental.set_visible_devices(gpus[hvd.local_rank()], "GPU")  # nopep8
+
+        sok.init()
+
+        # If there are 2 GPUs in total, the shape on GPU0 will be [2, 3] and the shape
+        # on GPU1 will be [2, 3]
+        v = sok.Variable(np.arange(4 * 3).reshape(4, 3), dtype=tf.float32)
+
+        # GPU0 output: [[0, 1, 2]
+        #               [6, 7, 8]]
+        # GPU1 output: [[3, 4,  5]
+        #                9, 10, 11]
+        print(v)
+
+    Localized Variable:
+
+    .. code-block:: python
+
+        import numpy as np
+        import tensorflow as tf
+        import horovod.tensorflow as hvd
+        from sparse_operation_kit import experiment as sok
+
+        hvd.init()
+        gpus = tf.config.experimental.list_physical_devices("GPU")
+        for gpu in gpus:
+            tf.config.experimental.set_memory_growth(gpu, True)
+        if gpus:
+            tf.config.experimental.set_visible_devices(gpus[hvd.local_rank()], "GPU")  # nopep8
+
+        sok.init()
+
+        # If there are 2 GPUs in total, the shape on GPU0 will be [5, 3] and the shape
+        # on GPU1 will be [0, 3]
+        v = sok.Variable(
+            np.arange(5 * 3).reshape(5, 3), dtype=tf.float32, mode="localized:0"
+        )
+        print(v.shape)
+
+    As shown in the two examples above, when you need to store different parts of a variable on different
+    GPUs (that is, allocating a model-parallel variable), this function can help you allocate the required
+    memory on each GPU.
+
+    Parameters
+    ----------
+    args:
+        compatible with tf.Variable.
+
+    kwargs:
+        compatible with tf.Variable.
+
+    mode: string
+        a string to specify which model-parallel mode to use. Default value is "distributed", which stands
+        for the Distributed Variable that mentioned above. Another option is "localized:#", which stands
+        for Localized Variable, where # indicates which GPU you want to put this variable on. See the
+        explanation above for specific examples.
+
+    Returns
+    -------
+    variable: tf.Variable
+            a tf.Variable that represents a part of the model-parallel variable.
+    """
     mode = kwargs.pop("mode") if "mode" in kwargs else None
 
     if mode is None or mode == "distributed":

@@ -1,18 +1,18 @@
-"""
- Copyright (c) 2022, NVIDIA CORPORATION.
- 
- Licensed under the Apache License, Version 2.0 (the "License");
- you may not use this file except in compliance with the License.
- You may obtain a copy of the License at
- 
-     http://www.apache.org/licenses/LICENSE-2.0
- 
- Unless required by applicable law or agreed to in writing, software
- distributed under the License is distributed on an "AS IS" BASIS,
- WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- See the License for the specific language governing permissions and
- limitations under the License.
-"""
+#
+# Copyright (c) 2022, NVIDIA CORPORATION.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
 
 import tensorflow as tf
 from tensorflow.python.framework import ops
@@ -21,6 +21,44 @@ from sparse_operation_kit.experiment.dynamic_variable import DynamicVariable
 
 
 def OptimizerWrapper(optimizer):
+    """
+    Abbreviated as ``sok.experiment.OptimizerWrapper``.
+
+    This is a wrapper for tensorflow optimizer so that it can update
+    sok.DynamicVariable.
+
+    Parameters
+    ----------
+    optimizer: tensorflow optimizer
+        The original tensorflow optimizer.
+
+    Example
+    -------
+    .. code-block:: python
+
+        import numpy as np
+        import tensorflow as tf
+        import horovod.tensorflow as hvd
+        from sparse_operation_kit import experiment as sok
+
+        v = sok.DynamicVariable(dimension=3, initializer="13")
+
+        indices = tf.convert_to_tensor([0, 1, 2**40], dtype=tf.int64)
+
+        with tf.GradientTape() as tape:
+            embedding = tf.nn.embedding_lookup(v, indices)
+            print("embedding:", embedding)
+            loss = tf.reduce_sum(embedding)
+
+        grads = tape.gradient(loss, [v])
+
+        optimizer = tf.keras.optimizers.SGD(learning_rate=1.0)
+        optimizer = sok.OptimizerWrapper(optimizer)
+        optimizer.apply_gradients(zip(grads, [v]))
+
+        embedding = tf.nn.embedding_lookup(v, indices)
+        print("embedding:", embedding)
+    """
     if isinstance(optimizer, tf.keras.optimizers.Optimizer):
         return OptimizerWrapperV2(optimizer)
     else:
