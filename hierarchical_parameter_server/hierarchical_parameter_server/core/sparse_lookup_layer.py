@@ -1,6 +1,6 @@
 """
  Copyright (c) 2021, NVIDIA CORPORATION.
- 
+
  Licensed under the Apache License, Version 2.0 (the "License");
  you may not use this file except in compliance with the License.
  You may obtain a copy of the License at
@@ -29,26 +29,26 @@ class SparseLookupLayer(tf.keras.layers.Layer):
     Abbreviated as ``hps.SparseLookupLayer(*args, **kwargs)``.
 
     This is a wrapper class for HPS sparse lookup layer, which basically performs
-    the same function as tf.nn.embedding_lookup_sparse. Note that `ps_config_file`
-    and `global_batch_size` should be specified in the constructor if implicit HPS
-    initialization is desired.
+    the same function as ``tf.nn.embedding_lookup_sparse``. Note that ``ps_config_file``
+    and ``global_batch_size`` should be specified in the constructor if you want
+    to use implicit HPS initialization.
 
     Parameters
     ----------
     model_name: str
-            the name of the model that has embedding table(s)
+            The name of the model that has embedding tables.
     table_id: int
-            the index of the embedding table for the model specified by
-            model_name
+            The index of the embedding table for the model specified by
+            model_name.
     emb_vec_size: int
-            the embedding vector size for the embedding table specified
-            by model_name and table_id
+            The embedding vector size for the embedding table specified
+            by model_name and table_id.
     emb_vec_dtype:
-            the data type of embedding vectors which must be tf.float32
+            The data type of embedding vectors which must be ``tf.float32``.
     ps_config_file: str
-            the JSON configuration file for HPS initialization
+            The JSON configuration file for HPS initialization.
     global_batch_size: int
-            the global batch size for HPS that is deployed on multiple GPUs
+            The global batch size for HPS that is deployed on multiple GPUs.
 
     Examples
     --------
@@ -95,38 +95,45 @@ class SparseLookupLayer(tf.keras.layers.Layer):
     def call(self, sp_ids, sp_weights, name=None, combiner=None, max_norm=None):
         """
         Looks up embeddings for the given ids and weights from a list of tensors.
-        This op assumes that there is at least one id for each row in the dense tensor
-        represented by sp_ids (i.e. there are no rows with empty features), and that
-        all the indices of sp_ids are in canonical row-major order. `sp_ids` and `sp_weights`
-        (if not None) are `SparseTensor` with rank of 2. Embeddings are always aggregated
-        along the last dimension. If an id value cannot be find in the HPS, the default
-        embeddings will be retrieved, which can be specified in the HPS configuration JSON file.
+        This op assumes that there is at least one ID for each row in the dense tensor
+        represented by ``sp_ids`` (i.e. there are no rows with empty features), and that
+        all the indices of ``sp_ids`` are in canonical row-major order. The ``sp_ids``
+        and ``sp_weights`` (if not None) are ``SparseTensor`` with rank of 2.
+        Embeddings are always aggregated along the last dimension.
+        If an ID value cannot be found in the HPS, the default embeddings are retrieved,
+        which can be specified in the HPS configuration JSON file.
 
         Parameters
         ----------
         sp_ids:
-            N x M `SparseTensor` of int64 ids where N is typically batch size
+            N x M ``SparseTensor`` of ``int64`` IDs where N is typically batch size
             and M is arbitrary.
         sp_weights:
-            either a `SparseTensor` of float / double weights, or `None` to
-            indicate all weights should be taken to be 1. If specified, `sp_weights`
-            must have exactly the same shape and indices as `sp_ids`.
+            Either a ``SparseTensor`` of float or double weights, or ``None`` to
+            indicate all weights should be taken to be `1`. If specified, ``sp_weights``
+            must have exactly the same shape and indices as ``sp_ids``.
         combiner:
-            a string specifying the reduction op. Currently `"mean"`, `"sqrtn"`
-            and `"sum"` are supported. `"sum"` computes the weighted sum of the embedding
-            results for each row. `"mean"` is the weighted sum divided by the total
-            weight. `"sqrtn"` is the weighted sum divided by the square root of the sum
-            of the squares of the weights. Defaults to `"mean"`.
+            A string that specifies the reduction op:
+
+            ``"sum"``
+              Computes the weighted sum of the embedding results for each row.
+            ``"mean"``
+              Computes the weighted sum divided by the total weight.
+            ``"sqrtn"``
+              Computes the weighted sum divided by the square root of the sum of the
+              squares of the weights.
+
+            The default value is ``"mean"``.
         max_norm:
-            if not `None`, each embedding is clipped if its l2-norm is larger
+            if not ``None``, each embedding is clipped if its l2-norm is larger
             than this value, before combining.
 
         Returns
         -------
-        emb_vector: tf.Tensor of int32
+        emb_vector: ``tf.Tensor`` of int32
             A dense tensor representing the combined embeddings for the
-            sparse ids. For each row in the dense tensor represented by `sp_ids`, the op
-            looks up the embeddings for all ids in that row, multiplies them by the
+            sparse IDs. For each row in the dense tensor represented by ``sp_ids``, the op
+            looks up the embeddings for all IDs in that row, multiplies them by the
             corresponding weight, and combines these embeddings as specified.
             In other words, if
 
@@ -149,7 +156,7 @@ class SparseLookupLayer(tf.keras.layers.Layer):
                 [1, 0]: id 0, weight 1.0
                 [2, 3]: id 1, weight 3.0
 
-            with `combiner` = `"mean"`, then the output will be a 3x16 matrix where
+            with ``combiner = "mean"``, then the output is a 3x16 matrix where
 
             .. code-block:: python
 
@@ -159,9 +166,9 @@ class SparseLookupLayer(tf.keras.layers.Layer):
 
         Raises
         ------
-            TypeError: If `sp_ids` is not a `SparseTensor`, or if `sp_weights` is
-                neither `None` nor `SparseTensor`.
-            ValueError: If `combiner` is not one of {`"mean"`, `"sqrtn"`, `"sum"`}.
+            TypeError: If ``sp_ids`` is not a ``SparseTensor``, or if ``sp_weights`` is
+                neither ``None`` nor ``SparseTensor``.
+            ValueError: If ``combiner`` is not one of {``"mean"``, ``"sqrtn"``, ``"sum"``}.
 
         """
 

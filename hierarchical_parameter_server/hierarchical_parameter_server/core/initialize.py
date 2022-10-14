@@ -1,6 +1,6 @@
 """
  Copyright (c) 2021, NVIDIA CORPORATION.
- 
+
  Licensed under the Apache License, Version 2.0 (the "License");
  you may not use this file except in compliance with the License.
  You may obtain a copy of the License at
@@ -34,24 +34,25 @@ def Init(**kwargs):
     """
     Abbreviated as ``hps.Init(**kwargs)``.
 
-    This function will initialize the HPS for all the deployed models. It can be used
-    explicitly or implicitly. When used explicitly, it needs to be called only once and
-    must be called before any other HPS APIs. When used implicitly, `ps_config_file` and
-    `global_batch_size` should be specified in the constructor of `hps.SparseLookupLayer`
-    and `hps.LookupLayer`. When the layer is executed for the first time, it will trigger
-    the internal HPS initialization implicitly, in a thread-safe call-once manner. The
+    This function initializes the HPS for all the deployed models. It can be used
+    explicitly or implicitly. When used explicitly, you must call the function
+    only once and you must call it before any other HPS APIs.
+    When used implicitly, ``ps_config_file`` and ``global_batch_size``
+    should be specified in the constructor of ``hps.SparseLookupLayer``
+    and ``hps.LookupLayer``. When the layer is executed for the first time, it triggers
+    the internal HPS initialization implicitly in a thread-safe call-once manner. The
     implicit initialization is especially useful for deploying the SavedModels that
     leverage the HPS layers for online inference.
 
-    HPS will leverage all available GPUs for current CPU process. Please set
-    `CUDA_VISIBLE_DEVICES` or `tf.config.set_visible_devices` to specify which
-    GPU(s) are used in this process before launching tensorflow runtime
-    and calling this function. Besides, please ensure that deployed_device_list
-    in the HPS configuration json file matches the visible devices.
+    HPS leverages all available GPUs for the current CPU process. Set
+    ``CUDA_VISIBLE_DEVICES`` or ``tf.config.set_visible_devices`` to specify which
+    GPUs to use in this process before you launch the TensorFlow runtime
+    and calling this function. Additionally, ensure that the ``deployed_device_list``
+    parameter in the HPS configuration JSON file matches the visible devices.
 
-    In **TensorFlow 2.x**, HPS can be used with **tf.distribute.Strategy** or **Horovod**.
-    When it's used with tf.distribute.Strategy, it must be called under `strategy.scope()`.
-    For example,
+    In **TensorFlow 2.x**, HPS can be used with ``tf.distribute.Strategy`` or Horovod.
+    When it is used with ``tf.distribute.Strategy``, you must call it under ``strategy.scope()``
+    as shown in the following code block.
 
     .. code-block:: python
 
@@ -60,7 +61,8 @@ def Init(**kwargs):
         with strategy.scope():
             hps.Init(**kwargs)
 
-    When it's used with Horovod, it must be called at each process. For example,
+    To use the function with Horovod, call it one for each time you initialize a
+    Horovod process such as the following code block shows.
 
     .. code-block:: python
 
@@ -71,8 +73,8 @@ def Init(**kwargs):
 
         hps.Init(**kwargs)
 
-    In **TensorFlow 1.15**, HPS can only work with **Horovod**. The retured status
-    must be evaluated with `sess.run`, and it must be the first step before evaluate
+    In **TensorFlow 1.15**, HPS can only work with Horovod. The returned status
+    must be evaluated with ``sess.run`` and it must be the first step before evaluating
     any other HPS APIs.
 
     .. code-block:: python
@@ -87,14 +89,14 @@ def Init(**kwargs):
     Parameters
     ----------
     kwargs: dict
-            keyword arguments for this function.
-            Currently, it must contains `global_batch_size` and `ps_config_file`.
+            Keyword arguments for this function.
+            The dictionary must contain ``global_batch_size`` and ``ps_config_file``.
 
-            * `global_batch_size`: int, the global batch size for HPS that is deployed on multiple GPUs
+            * `global_batch_size`: int, the global batch size for HPS that is deployed on multiple GPUs.
 
-            * `ps_config_file`: str, the JSON configuration file for HPS initialization
+            * `ps_config_file`: str, the JSON configuration file for HPS initialization.
 
-            An example `ps_config_file` is as follows and `global_batch_size` can be
+            An example ``ps_config_file`` is as follows and ``global_batch_size`` can be
             configured as 16384 correspondingly:
 
             .. code-block:: python
@@ -103,8 +105,8 @@ def Init(**kwargs):
                     "supportlonglong" : True,
                     "models" :
                     [{
-                        "model": "foo",
-                        "sparse_files": ["foo_sparse.model"],
+                        "model": "demo_model",
+                        "sparse_files": ["demo_model_sparse.model"],
                         "num_of_worker_buffer_in_pool": 3,
                         "embedding_table_names":["sparse_embedding0"],
                         "embedding_vecsize_per_table": [16],
@@ -118,8 +120,8 @@ def Init(**kwargs):
                         "gpucache": True
                     },
                     {
-                        "model": "bar",
-                        "sparse_files": ["bar_sparse_0.model", "bar_sparse_1.model"],
+                        "model": "demo_model2",
+                        "sparse_files": ["demo_model2_sparse_0.model", "demo_model2_sparse_1.model"],
                         "num_of_worker_buffer_in_pool": 3,
                         "embedding_table_names":["sparse_embedding0", "sparse_embedding1"],
                         "embedding_vecsize_per_table": [64, 32],
@@ -138,8 +140,7 @@ def Init(**kwargs):
     Returns
     -------
     status: str
-            a string will be returned if this function executed successfully.
-            And its contents will be 'OK'.
+            On success, the function returns string with the value ``OK``.
     """
 
     def _get_visible_devices():
