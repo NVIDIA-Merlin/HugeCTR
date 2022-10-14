@@ -23,12 +23,24 @@ You can view the generated [HugeCTR documentation here](https://nvidia-merlin.gi
    python -m pip install -r docs/requirements-doc.txt
    ```
 
+1. (Optional) Build the HPS software:
+
+   ```shell
+   pushd hierarchical_parameter_server
+   python setup.py install --user
+   popd
+   ```
+
 1. Build the documentation:
 
    ```shell
    export PYTHONPATH=$(python -c 'import site; print(site.getusersitepackages(), end="")')
    make -C docs clean html
    ```
+
+   > **Troubleshooting Tip** To get verbose output from the Sphinx build, run
+   > `make -C docs clean` and then run `sphinx-build -vv docs/source docs/build/html`.
+   > When Sphinx loads libraries, the verbose output shows the path for the library.
 
 The preceding command runs Sphinx in your shell and outputs to `docs/build/html/`.
 
@@ -60,6 +72,15 @@ Now you can check if your docs edits formatted correctly, and read well.
   browse a directory, when a directory is copied, the `README.md` file is renamed to
   `index.md` to meet the HTML web server expectation of locating an `index.html` file
   in a directory.
+
+### Adding notebooks
+
+The NVIDIA TME organization wants to gather metrics for notebook usage. The proposed
+method is to use a unique NVIDIA logo graphic in each notebook. For information that
+shows the process of uploading the graphic and so on, see the following URL that
+is internal to NVIDIA:
+
+<https://confluence.nvidia.com/display/DL/Jupyter+Notebook+Download+Tracking>
 
 ### Adding links
 

@@ -28,9 +28,12 @@
 #
 import os
 import subprocess
+import shutil
 import sys
+import zlib
 
 from natsort import natsorted
+from tempfile import TemporaryDirectory
 
 sys.path.insert(0, os.path.abspath("../.."))
 
@@ -129,6 +132,29 @@ smv_branch_whitelist = "^master$"
 
 smv_refs_override_suffix = "-docs"
 
+# Sidestep the build warning for Keras
+keras_inv = b'''\
+# Sphinx inventory version 2
+# Project: Keras
+# Version: 2.9.0
+# The remainder of this file is compressed with zlib.
+''' + zlib.compress(b'''\
+keras.engine.base_layer.Layer py:class 1 layers/base_layer/index.html#layer-class -
+''')
+
+inv_dir = TemporaryDirectory()
+inv_fname = os.path.join(inv_dir.name, "objects.inv")
+
+with open(inv_fname, "wb") as f:
+    f.write(keras_inv)
+    f.close()
+
+intersphinx_mapping = {
+    "python": ("https://docs.python.org/3", None),
+    "merlin-core": ("https://nvidia-merlin.github.io/core/main/", None),
+    "keras": ("https://keras.io/api", (inv_fname, None)),
+}
+
 html_sidebars = {"**": ["versions.html"]}
 
 # Add any paths that contain custom static files (such as style sheets) here,
@@ -155,3 +181,10 @@ copydirs_additional_dirs = [
 copydirs_file_rename = {
     "README.md": "index.md",
 }
+
+def cleanup_tempdir(app, exception):
+    if os.path.exists(inv_dir.name):
+        shutil.rmtree(inv_dir.name)
+
+def setup(app):
+    app.connect('build-finished', cleanup_tempdir)

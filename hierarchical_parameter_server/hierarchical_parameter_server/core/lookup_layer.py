@@ -1,6 +1,6 @@
 """
  Copyright (c) 2021, NVIDIA CORPORATION.
- 
+
  Licensed under the Apache License, Version 2.0 (the "License");
  you may not use this file except in compliance with the License.
  You may obtain a copy of the License at
@@ -23,26 +23,26 @@ class LookupLayer(tf.keras.layers.Layer):
     Abbreviated as ``hps.LookupLayer(*args, **kwargs)``.
 
     This is a wrapper class for HPS lookup layer, which basically performs
-    the same function as tf.nn.embedding_lookup. Note that `ps_config_file`
-    and `global_batch_size` should be specified in the constructor if implicit HPS
-    initialization is desired.
+    the same function as ``tf.nn.embedding_lookup``. Note that ``ps_config_file``
+    and ``global_batch_size`` should be specified in the constructor if you want
+    to use implicit HPS initialization.
 
     Parameters
     ----------
     model_name: str
-            the name of the model that has embedding table(s)
+            The name of the model that has embedding tables.
     table_id: int
-            the index of the embedding table for the model specified by
-            model_name
+            The index of the embedding table for the model specified by
+            model_name.
     emb_vec_size: int
-            the embedding vector size for the embedding table specified
-            by model_name and table_id
+            The embedding vector size for the embedding table specified
+            by model_name and table_id.
     emb_vec_dtype:
-            the data type of embedding vectors which must be tf.float32
+            The data type of embedding vectors which must be ``tf.float32``.
     ps_config_file: str
-            the JSON configuration file for HPS initialization
+            The JSON configuration file for HPS initialization.
     global_batch_size: int
-            the global batch size for HPS that is deployed on multiple GPUs
+            The global batch size for HPS that is deployed on multiple GPUs.
 
     Examples
     --------
@@ -91,11 +91,11 @@ class LookupLayer(tf.keras.layers.Layer):
         Parameters
         ----------
         inputs:
-                keys are stored in Tensor. The data type must be tf.int64.
+                Keys are stored in Tensor. The data type must be ``tf.int64``.
 
         Returns
         -------
-        emb_vector: tf.Tensor of int32
+        emb_vector: ``tf.Tensor`` of int32
                 the embedding vectors for the input keys. Its shape is
                 *inputs.get_shape() + emb_vec_size*.
         """
