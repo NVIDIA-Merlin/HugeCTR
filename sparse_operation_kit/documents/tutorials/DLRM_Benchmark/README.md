@@ -20,61 +20,73 @@ python3 split_bin.py test_data.bin $DATA/test --slot_size_array="[39884406,39043
 
 ### How to Prepare Synthetic Dataset
 
-* Step 1, start a container with native HugeCTR
+1. Start a container with native HugeCTR.
 
-Merlin NGC container with native HugeCTR can be used directly: nvcr.io/nvidia/merlin/merlin-training:22.05 
+   You can use the `nvcr.io/nvidia/merlin/merlin-hugectr:nightly` container.
 
-To start the container, you can refer to the related instructions [here](https://gitlab-master.nvidia.com/dl/hugectr/hugectr#getting-started)
+   > In production, instead of using the `nightly` tag, specify a release tag.
+   > You can find the release tags and more information on the [Merlin HugeCTR](https://catalog.ngc.nvidia.com/orgs/nvidia/teams/merlin/containers/merlin-hugectr) container page.
 
-```bash
-# $YourDataDir is the target directory to save the synthetic dataset
-docker run --privileged=true --gpus=all -it --rm -v $YourDataDir:/home/workspace nvcr.io/nvidia/merlin/merlin-training:22.05
-cd /home/workspace
-```
+   ```bash
+   # $YourDataDir is the target directory to save the synthetic dataset
 
-* Step2, run the following script to generate a synthetic dataset, you can modify `num_samples` and `eval_num_samples` as you want.
+   docker run --privileged=true --gpus=all -it --rm \
+     -v $YourDataDir:/home/workspace \
+     nvcr.io/nvidia/merlin/merlin-hugectr:nightly
 
-```python
-# python
-import hugectr
-from hugectr.tools import DataGenerator, DataGeneratorParams
+   cd /home/workspace
+   ```
 
-data_generator_params = DataGeneratorParams(
-  format = hugectr.DataReaderType_t.Raw,
-  label_dim = 1,
-  dense_dim = 13,
-  num_slot = 26,
-  i64_input_key = False,
-  source = "./dlrm_raw/train_data.bin",
-  eval_source = "./dlrm_raw/test_data.bin",
-  slot_size_array = [203931, 18598, 14092, 7012, 18977, 4, 6385, 1245, 49, 186213, 71328, 67288, 11, 2168, 7338, 61, 4, 932, 15, 204515, 141526, 199433, 60919, 9137, 71, 34],
-  nnz_array = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-  num_samples = 5242880,
-  eval_num_samples = 1310720
-)
-data_generator = DataGenerator(data_generator_params)
-data_generator.generate()
-```
+1. Run the following script to generate a synthetic dataset.
+   You can modify `num_samples` and `eval_num_samples` as you want.
 
-* Step 3, split the binary file
+   ```python
+   import hugectr
+   from hugectr.tools import DataGenerator, DataGeneratorParams
 
-```bash
-cd /home/workspace
-git clone https://github.com/NVIDIA-Merlin/HugeCTR.git
+   data_generator_params = DataGeneratorParams(
+     format = hugectr.DataReaderType_t.Raw,
+     label_dim = 1,
+     dense_dim = 13,
+     num_slot = 26,
+     i64_input_key = False,
+     source = "./dlrm_raw/train_data.bin",
+     eval_source = "./dlrm_raw/test_data.bin",
+     slot_size_array = [203931, 18598, 14092, 7012, 18977, 4, 6385, 1245, 49, 186213, 71328, 67288, 11, 2168, 7338, 61, 4, 932, 15, 204515, 141526, 199433, 60919, 9137, 71, 34],
+     nnz_array = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+     num_samples = 5242880,
+     eval_num_samples = 1310720
+   )
+   data_generator = DataGenerator(data_generator_params)
+   data_generator.generate()
+   ```
 
-# Note: the `--slot_size_array` should be the same as the slot_size_array in step 2.
-python3 HugeCTR/sparse_operation_kit/documents/tutorials/DLRM_Benchmark/preprocess/split_bin.py ./dlrm_raw/train_data.bin ./splited_dataset/train/ --slot_size_array="[203931,18598,14092,7012,18977,4,6385,1245,49,186213,71328,67288,11,2168,7338,61,4,932,15,204515,141526,199433,60919,9137,71,34]"
+1. Split the binary file.
 
-# Note: the `--slot_size_array` should be the same as the slot_size_array in step 2.
-python3 HugeCTR/sparse_operation_kit/documents/tutorials/DLRM_Benchmark/preprocess/split_bin.py ./dlrm_raw/test_data.bin ./splited_dataset/test/ --slot_size_array="[203931,18598,14092,7012,18977,4,6385,1245,49,186213,71328,67288,11,2168,7338,61,4,932,15,204515,141526,199433,60919,9137,71,34]"
-```
+   ```bash
+   cd /home/workspace
+   git clone https://github.com/NVIDIA-Merlin/HugeCTR.git
+
+   # Note: the `--slot_size_array` should be the same as the slot_size_array in step 2.
+   python3 HugeCTR/sparse_operation_kit/documents/tutorials/DLRM_Benchmark/preprocess/split_bin.py ./dlrm_raw/train_data.bin ./splited_dataset/train/ --slot_size_array="[203931,18598,14092,7012,18977,4,6385,1245,49,186213,71328,67288,11,2168,7338,61,4,932,15,204515,141526,199433,60919,9137,71,34]"
+
+   # Note: the `--slot_size_array` should be the same as the slot_size_array in step 2.
+   python3 HugeCTR/sparse_operation_kit/documents/tutorials/DLRM_Benchmark/preprocess/split_bin.py ./dlrm_raw/test_data.bin ./splited_dataset/test/ --slot_size_array="[203931,18598,14092,7012,18977,4,6385,1245,49,186213,71328,67288,11,2168,7338,61,4,932,15,204515,141526,199433,60919,9137,71,34]"
+   ```
 
 ## Environment
 
+To run the benchmark, you can run the `nvcr.io/nvidia/merlin/merlin-tensorflow` container.
+
 ```bash
 # $YourDataDir is the directory where you saved the dataset
-docker run --privileged=true --gpus=all -it --rm -v $YourDataDir:/home/workspace nvcr.io/nvidia/merlin/merlin-tensorflow-training:22.05
+
+docker run --privileged=true --gpus=all -it --rm \
+  -v $YourDataDir:/home/workspace \
+  nvcr.io/nvidia/merlin/merlin-tensorflow:nightly
 ```
+
+> You can find release tags ad more information about the [Merlin TensorFlow](https://catalog.ngc.nvidia.com/orgs/nvidia/teams/merlin/containers/merlin-tensorflow) container from the container page.
 
 ## How to Run Benchmark
 
