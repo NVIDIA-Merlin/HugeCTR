@@ -31,11 +31,21 @@ You can find the experiment api at `API Docs` section and find the examples at `
 There are several ways to install this package. <br>
 
 ### Obtaining SOK and HugeCTR via Docker ###
-This is the quickest way to get started with SOK. We provide Docker images with pre-compiled binaries of the latest HugeCTR and SOK version. To run it as a docker container in your machine, enter:
+This is the quickest way to get started with SOK.
+We provide containers with pre-compiled binaries of the latest HugeCTR and SOK versions.
+To get started quickly with container on your machine, run the following command:
+
 ```bash
 docker run nvcr.io/nvidia/merlin/merlin-tensorflow:22.09
 ```
-Sparse Opeation Kit is already installed, and can be imported directly via:
+
+> In production, replace the `latest` tag with a specific version.
+> Refer to the [Merlin TensorFlow](https://catalog.ngc.nvidia.com/orgs/nvidia/teams/merlin/containers/merlin-tensorflow)
+> container page on NGC for more information.
+
+Sparse Operation Kit is already installed in the container.
+You can import the library as shown in the following code block:
+
 ```python
 import sparse_operation_kit as sok
 ```
