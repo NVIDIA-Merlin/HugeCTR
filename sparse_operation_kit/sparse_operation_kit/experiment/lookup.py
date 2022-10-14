@@ -1,18 +1,18 @@
-"""
- Copyright (c) 2022, NVIDIA CORPORATION.
-
- Licensed under the Apache License, Version 2.0 (the "License");
- you may not use this file except in compliance with the License.
- You may obtain a copy of the License at
-
-     http://www.apache.org/licenses/LICENSE-2.0
-
- Unless required by applicable law or agreed to in writing, software
- distributed under the License is distributed on an "AS IS" BASIS,
- WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- See the License for the specific language governing permissions and
- limitations under the License.
-"""
+#
+# Copyright (c) 2022, NVIDIA CORPORATION.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
 
 import tensorflow as tf
 from tensorflow.python.framework import ops
@@ -37,9 +37,7 @@ from sparse_operation_kit.experiment.dynamic_variable import DynamicVariable
 
 
 def group_lookup(params, indices, dtype=None, name=None):
-    """
-    Fused-version of tf.nn.embedding_lookup on single GPU.
-    """
+    # Fused-version of tf.nn.embedding_lookup on single GPU
     if not (isinstance(params, list) or isinstance(params, tuple)):
         params = [params]
     if not (isinstance(indices, list) or isinstance(indices, tuple)):
@@ -234,6 +232,70 @@ def to_list(any_obj):
 
 
 def lookup_sparse(params, sp_ids, hotness, combiners):
+    """
+    Abbreviated as ``sok.experiment.lookup_sparse``.
+
+    Peform fused sparse lookup on the given embedding ``params``. This function
+    is similar to the ``tf.nn.embedding_lookup_sparse``, but with two differences:
+
+        - It can do distributed lookup.
+        - It can accept multiple params and multiple sp_ids to do fused lookup at once,
+          which brings performance benifits.
+
+    Parameters
+    ----------
+    params: list, tuple
+            a list or tuple of trainable *sok.Variable*.
+    sp_ids: list, tuple
+            a list or tuple of tf.SparseTensor or tf.RaggedTensor.
+    hotness: list, tuple
+            a list or tuple of int to specify the max hotness of each lookup.
+    combiners: list, tuple
+            a list or tuple of string to specify the combiner of each lookup.
+
+    Returns
+    -------
+    emb_vec: list
+            a list of tf.Tensor(the results of lookup).
+
+    Example
+    -------
+    .. code-block:: python
+
+        import numpy as np
+        import tensorflow as tf
+        import horovod.tensorflow as hvd
+        from sparse_operation_kit import experiment as sok
+
+        hvd.init()
+        gpus = tf.config.experimental.list_physical_devices("GPU")
+        for gpu in gpus:
+            tf.config.experimental.set_memory_growth(gpu, True)
+        if gpus:
+            tf.config.experimental.set_visible_devices(gpus[hvd.local_rank()], "GPU")
+
+        sok.init()
+
+        v1 = sok.Variable(np.arange(17 * 3).reshape(17, 3), dtype=tf.float32)
+        v2 = sok.Variable(np.arange(7 * 5).reshape(7, 5), dtype=tf.float32)
+
+        indices1 = tf.SparseTensor(
+            indices=[[0, 0], [0, 1], [1, 0], [1, 1], [1, 2]],
+            values=[1, 1, 3, 4, 5],
+            dense_shape=[2, 3])
+        )
+        indices2 = tf.SparseTensor(
+            indices=[[0, 0], [1, 0], [1, 1]],
+            values=[1, 2, 3],
+            dense_shape=[2, 2]
+        )
+
+        embeddings = sok.lookup_sparse(
+            [v1, v2], [indices1, indices2], hotness=[3, 2], combiners=["sum", "sum"]
+        )
+        print(embeddings[0])
+        print(embeddings[1])
+    """
     # `is_list` determines whether to return a list or a tensor in the end
     is_list = isinstance(sp_ids, list) or isinstance(sp_ids, tuple)
 

@@ -1,18 +1,18 @@
-"""
- Copyright (c) 2022, NVIDIA CORPORATION.
-
- Licensed under the Apache License, Version 2.0 (the "License");
- you may not use this file except in compliance with the License.
- You may obtain a copy of the License at
-
-     http://www.apache.org/licenses/LICENSE-2.0
-
- Unless required by applicable law or agreed to in writing, software
- distributed under the License is distributed on an "AS IS" BASIS,
- WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- See the License for the specific language governing permissions and
- limitations under the License.
-"""
+#
+# Copyright (c) 2022, NVIDIA CORPORATION.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
 
 import os
 from tensorflow.python.framework import load_library
@@ -62,6 +62,45 @@ from sparse_operation_kit.experiment.lookup import all2all_dense_embedding
 
 
 def init(comm_tool="horovod"):
+    """
+    Abbreviated as ``sok.experiment.init``.
+
+    This function is used to do the initialization of SparseOperationKit (SOK).
+
+    SOK will leverage all available GPUs for current CPU process. Please set
+    `CUDA_VISIBLE_DEVICES` or `tf.config.set_visible_devices` to specify which
+    GPU(s) are used in this process before launching tensorflow runtime
+    and calling this function.
+
+    Currently, these experiment API only support ``horovod`` as the communication
+    tool, so ``horovod.init`` must be called before initializing SOK.
+
+    Example code for doing initialization:
+
+    .. code-block:: python
+
+        import tensorflow as tf
+        import horovod.tensorflow as hvd
+        import sparse_operation_kit.experiment as sok
+
+        hvd.init()
+        gpus = tf.config.experimental.list_physical_devices("GPU")
+        for gpu in gpus:
+            tf.config.experimental.set_memory_growth(gpu, True)
+        if gpus:
+            tf.config.experimental.set_visible_devices(gpus[hvd.local_rank()], "GPU")
+
+        sok.init()
+
+    Parameters
+    ----------
+    comm_tool: string
+            a string to specify which communication tool to use. Default value is "horovod".
+
+    Returns
+    -------
+    None
+    """
     set_comm_tool(comm_tool)
     print("[SOK INFO] Initialize finished, communication tool: " + comm_tool)
 

@@ -1,6 +1,12 @@
 # SparseOperationKit Release Notes #
 The release notes for SparseOperationKit.
 
+## What's new in Version 1.1.4 ##
++ Add `sok.experiment` module to integrate hugectr 3G embedding:
+    * Add `sok.experiment.lookup_sparse`, which support distributed and fused embedding lookup.
+    * Add `sok.experiment.DynamicVariable`, whose size can grow dynamically when doing lookup.
+    * See API Docs -> Experiment to get other functino of `sok.experiment`
+
 ## What's new in Version 1.1.3 ##
 + Update pip install instruction and fix some bugs.
 
@@ -32,3 +38,14 @@ The release notes for SparseOperationKit.
 + Integrated HugeCTR's DistributedSparseEmbedding algorithm.
 + Integrated All2AllDenseEmbedding algorithm.
 + Added custom Adam optimizer for SOK when TF version <= 2.4.
+
+## Known Issues #
+There are several issues in SparseOperationKit, and we are trying to fix those issues in the near future.
+
+### NCCL conflicts ##
+In SparseOperationKit's embedding layers, NCCL is used to transfer data among GPUs. When there exists multiple embedding layers and there is not data dependencies among those layers, the execution order must be deterministic otherwise program might be hanging.
+```text
+device-0: embedding-0 -> embedding-1
+device-1: embedding-1 -> embedding-0
+```
+The solution for such problem is to make the program launch those layers with the same order in different GPUs, you can add `tf.control_dependencies()` between different SOK embedding layers to force the deterministic launching order.

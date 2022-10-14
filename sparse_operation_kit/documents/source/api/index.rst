@@ -8,3 +8,4 @@ SparseOperationKit API
    Embeddings <embeddings/index>
    Optimizers <optimizers/opts>
    Utilities <utils/index>
+   Experiment <experiment>
