@@ -81,6 +81,78 @@
              
   <div class="tex2jax_ignore mathjax_ignore section" id="release-notes">
 <h1>Release Notes<a class="headerlink" href="#release-notes" title="Permalink to this headline"></a></h1>
+<div class="section" id="what-s-new-in-version-4-1">
+<h2>What’s New in Version 4.1<a class="headerlink" href="#what-s-new-in-version-4-1" title="Permalink to this headline"></a></h2>
+<ul>
+<li><p><strong>Simplified Interface for 3G Embedding Table Placement Strategy</strong>:
+3G embedding now provides an easier way for you to configure an embedding table placement strategy.
+Instead of using JSON, you can configure the embedding table placement strategy by using function arguments.
+You only need to provide the <code class="docutils literal notranslate"><span class="pre">shard_matrix</span></code>, <code class="docutils literal notranslate"><span class="pre">table_group_strategy</span></code>, and <code class="docutils literal notranslate"><span class="pre">table_placement_strategy</span></code> arguments.
+With these arguments, 3G embedding can group different tables together and place them according to the <code class="docutils literal notranslate"><span class="pre">shard_matrix</span></code> argument.
+For an example, refer to <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/tree/v4.1/test/embedding_collection_test/dlrm_train.py">dlrm_train.py</a> file in the <code class="docutils literal notranslate"><span class="pre">test/embedding_collection_test</span></code> directory of the repository on GitHub.
+For comparison, refer to the <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/tree/v4.0/test/embedding_collection_test/dlrm_train.py">same file</a> from the v4.0 branch of the repository.</p></li>
+<li><p><strong>New MMoE and Shared-Bottom Samples</strong>:
+This release includes a new shared-bottom model, an example program, preprocessing scripts, and updates to documentation.
+For more information, refer to the <code class="docutils literal notranslate"><span class="pre">README.md</span></code>, <code class="docutils literal notranslate"><span class="pre">mmoe_parquet.py</span></code>, and other files in the <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/tree/v4.1/samples/mmoe"><code class="docutils literal notranslate"><span class="pre">samples/mmoe</span></code></a> directory of the repository on GitHub.
+This release also includes a fix to the calculation and reporting of AUC for multi-task models, such as MMoE.</p></li>
+<li><p><strong>Support for AWS S3 File System</strong>:
+The Parquet DataReader can now read datasets from the Amazon Web Services S3 file system.
+You can also load and dump models from and to S3 during training.
+The documentation for the <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/v4.1/api/python_interface.html#datasourceparams-class"><code class="docutils literal notranslate"><span class="pre">DataSourceParams</span></code></a> class is updated.
+To view sample code, refer to the <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/v4.1/notebooks/training_with_remote_filesystem.html">HugeCTR Training with Remote File System Example</a> class is updated.</p></li>
+<li><p><strong>Simplication for File System Usage</strong>:
+You no longer ’t need to pass <code class="docutils literal notranslate"><span class="pre">DataSourceParams</span></code> for model loading and dumping.
+The <code class="docutils literal notranslate"><span class="pre">FileSystem</span></code> class automatically infers the correct file system type, local, HDFS, or S3, based on the path URI that you specified when you built the model.
+For example, the path <code class="docutils literal notranslate"><span class="pre">hdfs://localhost:9000/</span></code> is inferred as an HDFS file system and the path <code class="docutils literal notranslate"><span class="pre">https://mybucket.s3.us-east-1.amazonaws.com/</span></code> is inferred as an S3 file system.</p></li>
+<li><p><strong>Support for Loading Models from Remote File Systems to HPS</strong>:
+This release enables you to load models from HDFS and S3 remote file systems to HPS during inference.
+To use the new feature, specify an HDFS for S3 path URI in <code class="docutils literal notranslate"><span class="pre">InferenceParams</span></code>.</p></li>
+<li><p><strong>Support for Exporting Intermediate Tensor Values into a Numpy Array</strong>:
+This release adds function <code class="docutils literal notranslate"><span class="pre">check_out_tensor</span></code> to <code class="docutils literal notranslate"><span class="pre">Model</span></code> and <code class="docutils literal notranslate"><span class="pre">InferenceModel</span></code>.
+You can use this function to check out the intermediate tensor values using the Python interface.
+This function is especially helpful for debugging.
+For more information, refer to <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/v4.1/api/python_interface.html#check-out-tensor-method"><code class="docutils literal notranslate"><span class="pre">Model.check_out_tensor</span></code></a> and <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html#id3"><code class="docutils literal notranslate"><span class="pre">InferenceModel.check_out_tensor</span></code></a>.</p></li>
+<li><p><strong>On-Device Input Keys for HPS Lookup</strong>:
+The HPS lookup supports input embedding keys that are on GPU memory during inference.
+This enhancement removes a host-to-device copy by using the DLPack <code class="docutils literal notranslate"><span class="pre">lookup_fromdlpack()</span></code> interface.
+By using the interface, the input DLPack capsule of embedding key can be a GPU tensor.</p></li>
+<li><p><strong>Documentation Enhancements</strong>:</p>
+<ul class="simple">
+<li><p>The graphic for the <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/v4.1/hierarchical_parameter_server/index.html">Hierarchical Parameter Server</a> library that shows relationship to other software packages is enhanced.</p></li>
+<li><p>The sample notebook for <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/v4.1/hierarchical_parameter_server/notebooks/hps_tensorflow_triton_deployment_demo.html">Deploy SavedModel using HPS with Triton TensorFlow Backend</a> is added to the documentation.</p></li>
+<li><p>Style updates to the <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/v4.1/hierarchical_parameter_server/api/index.html">Hierarchical Parameter Server API</a> documentation.</p></li>
+</ul>
+</li>
+<li><p><strong>Issues Fixed</strong>:</p>
+<ul class="simple">
+<li><p>The <code class="docutils literal notranslate"><span class="pre">InteractionLayer</span></code> class is fixed so that it works correctly with <code class="docutils literal notranslate"><span class="pre">num_feas</span> <span class="pre">&gt;</span> <span class="pre">30</span></code>.</p></li>
+<li><p>The cuBLASLt configuration is corrected by increasing the workspace size and adding the epilogue mask.</p></li>
+<li><p>The NVTabular based preprocessing script for our samples that demonstrate feature crossing is fixed.</p></li>
+<li><p>The async data reader is fixed. Previously, it would hang and cause a corruption issue due to an improper I/O block size and I/O alignment problem.
+The <code class="docutils literal notranslate"><span class="pre">AsyncParam</span></code> class is changed to implement the fix.
+The <code class="docutils literal notranslate"><span class="pre">io_block_size</span></code> argument is replaced by the <code class="docutils literal notranslate"><span class="pre">max_nr_request</span></code> argument and the actual I/O block size that the async reader uses is computed accordingly.
+For more information, refer to the <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/v4.1/api/python_interface.html#asyncparam"><code class="docutils literal notranslate"><span class="pre">AsyncParam</span></code></a> class documentation.</p></li>
+</ul>
+</li>
+<li><p><strong>Known Issues</strong>:</p>
+<ul>
+<li><p>HugeCTR uses NCCL to share data between ranks and NCCL can require shared system memory for IPC and pinned (page-locked) system memory resources.
+If you use NCCL inside a container, increase these resources by specifying the following arguments when you start the container:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>  -shm-size<span class="o">=</span>1g -ulimit <span class="nv">memlock</span><span class="o">=</span>-1
+</pre></div>
+</div>
+<p>See also the NCCL <a class="reference external" href="https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/troubleshooting.html#sharing-data">known issue</a> and the GitHub <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/issues/243">issue</a>.</p>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">KafkaProducers</span></code> startup succeeds even if the target Kafka broker is unresponsive.
+To avoid data loss in conjunction with streaming-model updates from Kafka, you have to make sure that a sufficient number of Kafka brokers are running, operating properly, and are reachable from the node where you run HugeCTR.</p></li>
+<li><p>The number of data files in the file list should be greater than or equal to the number of data reader workers.
+Otherwise, different workers are mapped to the same file and data loading does not progress as expected.</p></li>
+<li><p>Joint loss training with a regularizer is not supported.</p></li>
+<li><p>Dumping Adam optimizer states to AWS S3 is not supported.</p></li>
+</ul>
+</li>
+</ul>
+</div>
 <div class="section" id="what-s-new-in-version-4-0">
 <h2>What’s New in Version 4.0<a class="headerlink" href="#what-s-new-in-version-4-0" title="Permalink to this headline"></a></h2>
 <ul>
@@ -196,7 +268,7 @@ When the number of class AUCs is greater than one, the output includes a line li
 <li><p><strong>Enhancements to the API for the HPS Database Backend</strong>
 This release includes several enhancements to the API for the <code class="docutils literal notranslate"><span class="pre">DatabaseBackend</span></code> class.
 For more information, see <code class="docutils literal notranslate"><span class="pre">database_backend.hpp</span></code> and the header files for other database backends in the <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/tree/v3.9/HugeCTR/include/hps"><code class="docutils literal notranslate"><span class="pre">HugeCTR/include/hps</span></code></a> directory of the repository.
-The enhancments are as follows:</p>
+The enhancements are as follows:</p>
 <ul class="simple">
 <li><p>You can now specify a maximum time budget, in nanoseconds, for queries so that you can build an application that must operate within strict latency limits.
 Fetch queries return execution control to the caller if the time budget is exhausted.
@@ -465,7 +537,7 @@ For more information, see the <a class="reference external" href="https://github
 <li><p><strong>HDFS python API enhancement</strong>:</p>
 <ul>
 <li><p>Simplified <code class="docutils literal notranslate"><span class="pre">DataSourceParams</span></code> so that users do not need to provide all the paths before they are really necessary. Now users only have to pass <code class="docutils literal notranslate"><span class="pre">DataSourceParams</span></code> once when creating a solver.</p></li>
-<li><p>Later paths will be automatically regarded as local paths or HDFS paths depending on the <code class="docutils literal notranslate"><span class="pre">DataSourceParams</span></code> setting. See <span class="xref myst">notebook</span> for usage.</p></li>
+<li><p>Later paths will be automatically regarded as local paths or HDFS paths depending on the <code class="docutils literal notranslate"><span class="pre">DataSourceParams</span></code> setting. See <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/v3.5/notebooks/training_with_hdfs.html">notebook</a> for usage.</p></li>
 </ul>
 </li>
 <li><p><strong>HPS performance optimization</strong>: We use better method to  determine partition number in database backends in HPS.</p></li>
@@ -484,7 +556,7 @@ For more information, see the <a class="reference external" href="https://github
 <ul>
 <li><p>Decoupled HDFS in Merlin containers to make the HDFS support more flexible. Users can now compile HDFS related functionalities optionally.</p></li>
 <li><p>Now supports loading and dumping models and optimizer states from HDFS.</p></li>
-<li><p>Added a <span class="xref myst">notebook</span> to show how to use HugeCTR with HDFS.</p></li>
+<li><p>Added a <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/v3.4.1/notebooks/training_with_hdfs.html">notebook</a> to show how to use HugeCTR with HDFS.</p></li>
 </ul>
 </li>
 <li><p><strong>Support Multi-hot Inference on Hugectr Backend</strong>: We support categorical input in multi-hot format for HugeCTR Backend inference.</p></li>
@@ -727,6 +799,15 @@ See also <a class="reference external" href="https://docs.nvidia.com/deeplearnin
     <span class="fa fa-caret-down"></span>
   </span>
   <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="../v3.7/index.html">v3.7</a></dd>
+      <dd><a href="../v3.8/index.html">v3.8</a></dd>
+      <dd><a href="../v3.9/index.html">v3.9</a></dd>
+      <dd><a href="../v3.9.1/index.html">v3.9.1</a></dd>
+      <dd><a href="../v4.0/index.html">v4.0</a></dd>
+      <dd><a href="../v4.1/index.html">v4.1</a></dd>
+    </dl>
     <dl>
       <dt>Branches</dt>
       <dd><a href="release_notes.html">master</a></dd>

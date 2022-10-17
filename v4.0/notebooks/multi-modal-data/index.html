@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Multi-modal Example Notebooks &mdash; Merlin HugeCTR  documentation</title><link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/mystnb.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/togglebutton.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  <script id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/doctools.js"></script>
+        <script >let toggleHintShow = 'Click to show';</script>
+        <script >let toggleHintHide = 'Click to hide';</script>
+        <script >let toggleOpenOnPrint = 'true';</script>
+        <script src="../../_static/togglebutton.js"></script>
+        <script >var togglebuttonSelector = '.toggle, .admonition.dropdown, .tag_hide_input div.cell_input, .tag_hide-input div.cell_input, .tag_hide_output div.cell_output, .tag_hide-output div.cell_output, .tag_hide_cell.cell, .tag_hide-cell.cell';</script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Training Recommender Systems on Multi-modal Data" href="00-Intro.html" />
+    <link rel="prev" title="HugeCTR Embedding Collection" href="../embedding_collection.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../../index.html" class="icon icon-home"> Merlin HugeCTR
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption"><span class="caption-text">HUGECTR</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../hugectr_user_guide.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../hugectr_core_features.html">Core Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../hugectr_embedding_training_cache.html">Embedding Training Cache</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../hierarchical_parameter_server/index.html">Hierarchical Parameter Server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../performance.html">Performance</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../index.html">Example Notebooks</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Multi-modal Example Notebooks</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="00-Intro.html">Training Recommender Systems on Multi-modal Data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="01-Download-Convert.html">MovieLens-25M: Download and Convert</a></li>
+<li class="toctree-l2"><a class="reference internal" href="02-Data-Enrichment.html">MovieLens Data Enrichment</a></li>
+<li class="toctree-l2"><a class="reference internal" href="03-Feature-Extraction-Poster.html">Movie Poster Feature Extraction with ResNet</a></li>
+<li class="toctree-l2"><a class="reference internal" href="04-Feature-Extraction-Text.html">Movie Synopsis Feature Extraction with Bart text summarization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="05-Create-Feature-Store.html">Creating Multi-Modal Movie Feature Store</a></li>
+<li class="toctree-l2"><a class="reference internal" href="06-ETL-with-NVTabular.html">ETL with NVTabular</a></li>
+<li class="toctree-l2"><a class="reference internal" href="07-Training-with-HugeCTR.html">Training HugeCTR Model with Pre-trained Embeddings</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/index.html">API Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../additional_resources.html">Additional Resources</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../release_notes.html">Release Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../hugectr_contributor_guide.html">Contributing to HugeCTR</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">Merlin HugeCTR</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home"></a> &raquo;</li>
+      <li>Multi-modal Example Notebooks</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <div class="tex2jax_ignore mathjax_ignore section" id="multi-modal-example-notebooks">
+<h1>Multi-modal Example Notebooks<a class="headerlink" href="#multi-modal-example-notebooks" title="Permalink to this headline"></a></h1>
+<p>The multi-modal data example uses several notebooks to demonstrate how to use of multi-modal data (text and images)
+to provide movie recommendations based on the MovieLens 25M dataset.</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="00-Intro.html"><span class="doc std std-doc">Training Recommender Systems on Multi-modal Data</span></a></p></li>
+<li><p><a class="reference internal" href="01-Download-Convert.html"><span class="doc std std-doc">MovieLens-25M: Download and Convert</span></a></p></li>
+<li><p><a class="reference internal" href="02-Data-Enrichment.html"><span class="doc std std-doc">MovieLens Data Enrichment</span></a></p></li>
+<li><p><a class="reference internal" href="03-Feature-Extraction-Poster.html"><span class="doc std std-doc">Movie Poster Feature Extraction with ResNet</span></a></p></li>
+<li><p><a class="reference internal" href="04-Feature-Extraction-Text.html"><span class="doc std std-doc">Movie Synopsis Feature Extraction with Bart text summarization</span></a></p></li>
+<li><p><a class="reference internal" href="05-Create-Feature-Store.html"><span class="doc std std-doc">Creating Multi-Modal Movie Feature Store</span></a></p></li>
+<li><p><a class="reference internal" href="06-ETL-with-NVTabular.html"><span class="doc std std-doc">Feature Engineering with NVTabular</span></a></p></li>
+<li><p><a class="reference internal" href="07-Training-with-HugeCTR.html"><span class="doc std std-doc">Training HugeCTR Model with Pre-trained Embeddings</span></a></p></li>
+</ul>
+<div class="toctree-wrapper compound">
+</div>
+</div>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="../embedding_collection.html" class="btn btn-neutral float-left" title="HugeCTR Embedding Collection" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="00-Intro.html" class="btn btn-neutral float-right" title="Training Recommender Systems on Multi-modal Data" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, NVIDIA.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    v: v4.0
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="../../../v3.7/index.html">v3.7</a></dd>
+      <dd><a href="../../../v3.8/index.html">v3.8</a></dd>
+      <dd><a href="../../../v3.9/index.html">v3.9</a></dd>
+      <dd><a href="../../../v3.9.1/index.html">v3.9.1</a></dd>
+      <dd><a href="index.html">v4.0</a></dd>
+      <dd><a href="../../../v4.1/index.html">v4.1</a></dd>
+    </dl>
+    <dl>
+      <dt>Branches</dt>
+      <dd><a href="../../../master/index.html">master</a></dd>
+    </dl>
+  </div>
+</div><script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

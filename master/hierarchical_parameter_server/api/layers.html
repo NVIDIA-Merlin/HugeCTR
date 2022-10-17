@@ -102,7 +102,7 @@
 <dl class="py class">
 <dt id="hierarchical_parameter_server.SparseLookupLayer">
 <em class="property"><span class="pre">class</span> </em><code class="sig-prename descclassname"><span class="pre">hierarchical_parameter_server.</span></code><code class="sig-name descname"><span class="pre">SparseLookupLayer</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/hierarchical_parameter_server/core/sparse_lookup_layer.html#SparseLookupLayer"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#hierarchical_parameter_server.SparseLookupLayer" title="Permalink to this definition"></a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">keras.engine.base_layer.Layer</span></code></p>
+<dd><p>Bases: <a class="reference external" href="https://keras.io/api/layers/base_layer/index.html#layer-class" title="(in Keras v2.9.0)"><code class="xref py py-class docutils literal notranslate"><span class="pre">keras.engine.base_layer.Layer</span></code></a></p>
 <p>Abbreviated as <code class="docutils literal notranslate"><span class="pre">hps.SparseLookupLayer(*args,</span> <span class="pre">**kwargs)</span></code>.</p>
 <p>This is a wrapper class for HPS sparse lookup layer, which basically performs
 the same function as tf.nn.embedding_lookup_sparse. Note that <cite>ps_config_file</cite>
@@ -111,14 +111,14 @@ initialization is desired.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>model_name</strong> (<em>str</em>) – the name of the model that has embedding table(s)</p></li>
-<li><p><strong>table_id</strong> (<em>int</em>) – the index of the embedding table for the model specified by
+<li><p><strong>model_name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><em>str</em></a>) – the name of the model that has embedding table(s)</p></li>
+<li><p><strong>table_id</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.10)"><em>int</em></a>) – the index of the embedding table for the model specified by
 model_name</p></li>
-<li><p><strong>emb_vec_size</strong> (<em>int</em>) – the embedding vector size for the embedding table specified
+<li><p><strong>emb_vec_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.10)"><em>int</em></a>) – the embedding vector size for the embedding table specified
 by model_name and table_id</p></li>
 <li><p><strong>emb_vec_dtype</strong> – the data type of embedding vectors which must be tf.float32</p></li>
-<li><p><strong>ps_config_file</strong> (<em>str</em>) – the JSON configuration file for HPS initialization</p></li>
-<li><p><strong>global_batch_size</strong> (<em>int</em>) – the global batch size for HPS that is deployed on multiple GPUs</p></li>
+<li><p><strong>ps_config_file</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><em>str</em></a>) – the JSON configuration file for HPS initialization</p></li>
+<li><p><strong>global_batch_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.10)"><em>int</em></a>) – the global batch size for HPS that is deployed on multiple GPUs</p></li>
 </ul>
 </dd>
 </dl>
@@ -203,8 +203,8 @@ In other words, if</p>
 </dd>
 <dt class="field-even">Raises</dt>
 <dd class="field-even"><ul class="simple">
-<li><p><strong>TypeError</strong> – If <cite>sp_ids</cite> is not a <cite>SparseTensor</cite>, or if <cite>sp_weights</cite> is: neither <cite>None</cite> nor <cite>SparseTensor</cite>.</p></li>
-<li><p><strong>ValueError</strong> – If <cite>combiner</cite> is not one of {<cite>“mean”</cite>, <cite>“sqrtn”</cite>, <cite>“sum”</cite>}.:</p></li>
+<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#TypeError" title="(in Python v3.10)"><strong>TypeError</strong></a> – If <cite>sp_ids</cite> is not a <cite>SparseTensor</cite>, or if <cite>sp_weights</cite> is: neither <cite>None</cite> nor <cite>SparseTensor</cite>.</p></li>
+<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.10)"><strong>ValueError</strong></a> – If <cite>combiner</cite> is not one of {<cite>“mean”</cite>, <cite>“sqrtn”</cite>, <cite>“sum”</cite>}.:</p></li>
 </ul>
 </dd>
 </dl>
@@ -218,7 +218,7 @@ In other words, if</p>
 <dl class="py class">
 <dt id="hierarchical_parameter_server.LookupLayer">
 <em class="property"><span class="pre">class</span> </em><code class="sig-prename descclassname"><span class="pre">hierarchical_parameter_server.</span></code><code class="sig-name descname"><span class="pre">LookupLayer</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/hierarchical_parameter_server/core/lookup_layer.html#LookupLayer"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#hierarchical_parameter_server.LookupLayer" title="Permalink to this definition"></a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">keras.engine.base_layer.Layer</span></code></p>
+<dd><p>Bases: <a class="reference external" href="https://keras.io/api/layers/base_layer/index.html#layer-class" title="(in Keras v2.9.0)"><code class="xref py py-class docutils literal notranslate"><span class="pre">keras.engine.base_layer.Layer</span></code></a></p>
 <p>Abbreviated as <code class="docutils literal notranslate"><span class="pre">hps.LookupLayer(*args,</span> <span class="pre">**kwargs)</span></code>.</p>
 <p>This is a wrapper class for HPS lookup layer, which basically performs
 the same function as tf.nn.embedding_lookup. Note that <cite>ps_config_file</cite>
@@ -227,14 +227,14 @@ initialization is desired.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>model_name</strong> (<em>str</em>) – the name of the model that has embedding table(s)</p></li>
-<li><p><strong>table_id</strong> (<em>int</em>) – the index of the embedding table for the model specified by
+<li><p><strong>model_name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><em>str</em></a>) – the name of the model that has embedding table(s)</p></li>
+<li><p><strong>table_id</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.10)"><em>int</em></a>) – the index of the embedding table for the model specified by
 model_name</p></li>
-<li><p><strong>emb_vec_size</strong> (<em>int</em>) – the embedding vector size for the embedding table specified
+<li><p><strong>emb_vec_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.10)"><em>int</em></a>) – the embedding vector size for the embedding table specified
 by model_name and table_id</p></li>
 <li><p><strong>emb_vec_dtype</strong> – the data type of embedding vectors which must be tf.float32</p></li>
-<li><p><strong>ps_config_file</strong> (<em>str</em>) – the JSON configuration file for HPS initialization</p></li>
-<li><p><strong>global_batch_size</strong> (<em>int</em>) – the global batch size for HPS that is deployed on multiple GPUs</p></li>
+<li><p><strong>ps_config_file</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><em>str</em></a>) – the JSON configuration file for HPS initialization</p></li>
+<li><p><strong>global_batch_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.10)"><em>int</em></a>) – the global batch size for HPS that is deployed on multiple GPUs</p></li>
 </ul>
 </dd>
 </dl>
@@ -312,6 +312,15 @@ by model_name and table_id</p></li>
     <span class="fa fa-caret-down"></span>
   </span>
   <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="../../../v3.7/index.html">v3.7</a></dd>
+      <dd><a href="../../../v3.8/index.html">v3.8</a></dd>
+      <dd><a href="../../../v3.9/hierarchical_parameter_server/api/layers.html">v3.9</a></dd>
+      <dd><a href="../../../v3.9.1/hierarchical_parameter_server/api/layers.html">v3.9.1</a></dd>
+      <dd><a href="../../../v4.0/hierarchical_parameter_server/api/layers.html">v4.0</a></dd>
+      <dd><a href="../../../v4.1/hierarchical_parameter_server/api/layers.html">v4.1</a></dd>
+    </dl>
     <dl>
       <dt>Branches</dt>
       <dd><a href="layers.html">master</a></dd>

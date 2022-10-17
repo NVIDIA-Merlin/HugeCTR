@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HPS for Multiple Tables and Sparse Inputs &mdash; Merlin HugeCTR  documentation</title><link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/mystnb.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/togglebutton.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  <script id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/doctools.js"></script>
+        <script >let toggleHintShow = 'Click to show';</script>
+        <script >let toggleHintHide = 'Click to hide';</script>
+        <script >let toggleOpenOnPrint = 'true';</script>
+        <script src="../../_static/togglebutton.js"></script>
+        <script >var togglebuttonSelector = '.toggle, .admonition.dropdown, .tag_hide_input div.cell_input, .tag_hide-input div.cell_input, .tag_hide_output div.cell_output, .tag_hide-output div.cell_output, .tag_hide_cell.cell, .tag_hide-cell.cell';</script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="HPS Pretrained Model Training Demo" href="hps_pretrained_model_training_demo.html" />
+    <link rel="prev" title="Hierarchical Parameter Server Demo" href="hierarchical_parameter_server_demo.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../../index.html" class="icon icon-home"> Merlin HugeCTR
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption"><span class="caption-text">HUGECTR</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../hugectr_user_guide.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../hugectr_core_features.html">Core Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../hugectr_embedding_training_cache.html">Embedding Training Cache</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../index.html">Hierarchical Parameter Server</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../../hugectr_parameter_server.html">HPS Database Backend</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="../hps_tf_user_guide.html">HPS Plugin for TensorFlow</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="../hps_tf_benchmark.html">Benchmark</a></li>
+<li class="toctree-l3 current"><a class="reference internal" href="index.html">Notebooks</a><ul class="current">
+<li class="toctree-l4"><a class="reference internal" href="hierarchical_parameter_server_demo.html">Hierarchical Parameter Server Demo</a></li>
+<li class="toctree-l4 current"><a class="current reference internal" href="#">HPS for Multiple Tables and Sparse Inputs</a></li>
+<li class="toctree-l4"><a class="reference internal" href="hps_pretrained_model_training_demo.html">HPS Pretrained Model Training Demo</a></li>
+<li class="toctree-l4"><a class="reference internal" href="sok_to_hps_dlrm_demo.html">SOK to HPS DLRM Demo</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/index.html">API Documentation</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../performance.html">Performance</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../notebooks/index.html">Example Notebooks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../notebooks/multi-modal-data/index.html">Multi-modal Example Notebooks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/index.html">API Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../additional_resources.html">Additional Resources</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../release_notes.html">Release Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../hugectr_contributor_guide.html">Contributing to HugeCTR</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">Merlin HugeCTR</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="../index.html">Hierarchical Parameter Server</a> &raquo;</li>
+          <li><a href="../hps_tf_user_guide.html">Hierarchical Parameter Server Plugin for TensorFlow</a> &raquo;</li>
+          <li><a href="index.html">Hierarchical Parameter Server Notebooks</a> &raquo;</li>
+      <li>HPS for Multiple Tables and Sparse Inputs</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <img alt="http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_hps-multi-table-sparse-input-demo/nvidia_logo.png" src="http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_hps-multi-table-sparse-input-demo/nvidia_logo.png" />
+<div class="tex2jax_ignore mathjax_ignore section" id="hps-for-multiple-tables-and-sparse-inputs">
+<h1>HPS for Multiple Tables and Sparse Inputs<a class="headerlink" href="#hps-for-multiple-tables-and-sparse-inputs" title="Permalink to this headline"></a></h1>
+<div class="section" id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Permalink to this headline"></a></h2>
+<p>This notebook demonstrates how to use HPS when there are multiple embedding tables and sparse input. It is recommended to run <a class="reference internal" href="hierarchical_parameter_server_demo.html"><span class="doc std std-doc">hierarchical_parameter_server_demo.ipynb</span></a> before diving into this notebook.</p>
+<p>For more details about HPS APIs, please refer to <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/hierarchical_parameter_server/api/index.html">HPS APIs</a>. For more details about HPS, please refer to <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/master/hierarchical_parameter_server/index.html">HugeCTR Hierarchical Parameter Server (HPS)</a>.</p>
+</div>
+<div class="section" id="installation">
+<h2>Installation<a class="headerlink" href="#installation" title="Permalink to this headline"></a></h2>
+<div class="section" id="get-hps-from-ngc">
+<h3>Get HPS from NGC<a class="headerlink" href="#get-hps-from-ngc" title="Permalink to this headline"></a></h3>
+<p>The HPS Python module is preinstalled in the 22.09 and later <a class="reference external" href="https://catalog.ngc.nvidia.com/orgs/nvidia/teams/merlin/containers/merlin-tensorflow">Merlin TensorFlow Container</a>: <code class="docutils literal notranslate"><span class="pre">nvcr.io/nvidia/merlin/merlin-tensorflow:22.09</span></code>.</p>
+<p>You can check the existence of the required libraries by running the following Python code after launching this container.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$ python3 -c <span class="s2">&quot;import hierarchical_parameter_server as hps&quot;</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="configurations">
+<h2>Configurations<a class="headerlink" href="#configurations" title="Permalink to this headline"></a></h2>
+<p>First of all we specify the required configurations, e.g., the arguments needed for generating the dataset, the paths to save the model and the model parameters. We will use a deep neural network (DNN) model which has two embedding table and several dense layers in this notebook. Please note that there are two inputs here, one is the sparse key tensor (multi-hot) while the other is the dense key tensor (one-hot).</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">hierarchical_parameter_server</span> <span class="k">as</span> <span class="nn">hps</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">tensorflow</span> <span class="k">as</span> <span class="nn">tf</span>
+<span class="kn">import</span> <span class="nn">struct</span>
+
+<span class="n">args</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+
+<span class="n">args</span><span class="p">[</span><span class="s2">&quot;gpu_num&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>                                         <span class="c1"># the number of available GPUs</span>
+<span class="n">args</span><span class="p">[</span><span class="s2">&quot;iter_num&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">10</span>                                       <span class="c1"># the number of training iteration</span>
+<span class="n">args</span><span class="p">[</span><span class="s2">&quot;global_batch_size&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1024</span>                            <span class="c1"># the globally batchsize for all GPUs</span>
+
+<span class="n">args</span><span class="p">[</span><span class="s2">&quot;slot_num_per_table&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span>                         <span class="c1"># the number of feature fields for two embedding tables</span>
+<span class="n">args</span><span class="p">[</span><span class="s2">&quot;embed_vec_size_per_table&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="mi">16</span><span class="p">,</span> <span class="mi">32</span><span class="p">]</span>                 <span class="c1"># the dimension of embedding vectors for two embedding tables</span>
+<span class="n">args</span><span class="p">[</span><span class="s2">&quot;max_vocabulary_size_per_table&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="mi">30000</span><span class="p">,</span> <span class="mi">2000</span><span class="p">]</span>       <span class="c1"># the vocabulary size for two embedding tables</span>
+<span class="n">args</span><span class="p">[</span><span class="s2">&quot;vocabulary_range_per_slot_per_table&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span> <span class="p">[[</span><span class="mi">0</span><span class="p">,</span><span class="mi">10000</span><span class="p">],[</span><span class="mi">10000</span><span class="p">,</span><span class="mi">20000</span><span class="p">],[</span><span class="mi">20000</span><span class="p">,</span><span class="mi">30000</span><span class="p">]],</span> <span class="p">[[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1000</span><span class="p">],</span> <span class="p">[</span><span class="mi">1000</span><span class="p">,</span> <span class="mi">2000</span><span class="p">]]</span> <span class="p">]</span>
+<span class="n">args</span><span class="p">[</span><span class="s2">&quot;max_nnz_per_slot_per_table&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]]</span>    <span class="c1"># the max number of non-zeros for each slot for two embedding tables</span>
+
+<span class="n">args</span><span class="p">[</span><span class="s2">&quot;dense_model_path&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;multi_table_sparse_input_dense.model&quot;</span>
+<span class="n">args</span><span class="p">[</span><span class="s2">&quot;ps_config_file&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;multi_table_sparse_input.json&quot;</span>
+<span class="n">args</span><span class="p">[</span><span class="s2">&quot;embedding_table_path&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;multi_table_sparse_input_sparse_0.model&quot;</span><span class="p">,</span> <span class="s2">&quot;multi_table_sparse_input_sparse_1.model&quot;</span><span class="p">]</span>
+<span class="n">args</span><span class="p">[</span><span class="s2">&quot;saved_path&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;multi_table_sparse_input_tf_saved_model&quot;</span>
+<span class="n">args</span><span class="p">[</span><span class="s2">&quot;np_key_type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">int64</span>
+<span class="n">args</span><span class="p">[</span><span class="s2">&quot;np_vector_type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">float32</span>
+<span class="n">args</span><span class="p">[</span><span class="s2">&quot;tf_key_type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">int64</span>
+<span class="n">args</span><span class="p">[</span><span class="s2">&quot;tf_vector_type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">float32</span>
+
+
+<span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">&quot;CUDA_VISIBLE_DEVICES&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;,&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="nb">range</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s2">&quot;gpu_num&quot;</span><span class="p">])))</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>[INFO] hierarchical_parameter_server is imported
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">generate_random_samples</span><span class="p">(</span><span class="n">num_samples</span><span class="p">,</span> <span class="n">vocabulary_range_per_slot_per_table</span><span class="p">,</span> <span class="n">max_nnz_per_slot_per_table</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">generate_sparse_keys</span><span class="p">(</span><span class="n">num_samples</span><span class="p">,</span> <span class="n">vocabulary_range_per_slot</span><span class="p">,</span> <span class="n">max_nnz_per_slot</span><span class="p">,</span> <span class="n">key_dtype</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;np_key_type&quot;</span><span class="p">]):</span>
+        <span class="n">slot_num</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">max_nnz_per_slot</span><span class="p">)</span>
+        <span class="n">max_nnz_of_all_slots</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">max_nnz_per_slot</span><span class="p">)</span>
+        <span class="n">indices</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">values</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_samples</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">slot_num</span><span class="p">):</span>
+                <span class="n">vocab_range</span> <span class="o">=</span> <span class="n">vocabulary_range_per_slot</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+                <span class="n">max_nnz</span> <span class="o">=</span> <span class="n">max_nnz_per_slot</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+                <span class="n">nnz</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="n">low</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">high</span><span class="o">=</span><span class="n">max_nnz</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span>
+                <span class="n">entries</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="n">max_nnz</span><span class="p">,</span> <span class="n">nnz</span><span class="p">,</span> <span class="n">replace</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
+                <span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">entries</span><span class="p">:</span>
+                    <span class="n">indices</span><span class="o">.</span><span class="n">append</span><span class="p">([</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">entry</span><span class="p">])</span>
+                <span class="n">values</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="n">low</span><span class="o">=</span><span class="n">vocab_range</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">high</span><span class="o">=</span><span class="n">vocab_range</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="n">nnz</span><span class="p">,</span> <span class="p">)))</span>
+        <span class="n">values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">key_dtype</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">tf</span><span class="o">.</span><span class="n">sparse</span><span class="o">.</span><span class="n">SparseTensor</span><span class="p">(</span><span class="n">indices</span> <span class="o">=</span> <span class="n">indices</span><span class="p">,</span>
+                                    <span class="n">values</span> <span class="o">=</span> <span class="n">values</span><span class="p">,</span>
+                                    <span class="n">dense_shape</span> <span class="o">=</span> <span class="p">(</span><span class="n">num_samples</span><span class="p">,</span> <span class="n">slot_num</span><span class="p">,</span> <span class="n">max_nnz_of_all_slots</span><span class="p">))</span>
+
+    <span class="k">def</span> <span class="nf">generate_dense_keys</span><span class="p">(</span><span class="n">num_samples</span><span class="p">,</span> <span class="n">vocabulary_range_per_slot</span><span class="p">,</span> <span class="n">key_dtype</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;np_key_type&quot;</span><span class="p">]):</span>
+        <span class="n">dense_keys</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">vocab_range</span> <span class="ow">in</span> <span class="n">vocabulary_range_per_slot</span><span class="p">:</span>
+            <span class="n">keys_per_slot</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="n">low</span><span class="o">=</span><span class="n">vocab_range</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">high</span><span class="o">=</span><span class="n">vocab_range</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="n">num_samples</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">key_dtype</span><span class="p">)</span>
+            <span class="n">dense_keys</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">keys_per_slot</span><span class="p">)</span>
+        <span class="n">dense_keys</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">dense_keys</span><span class="p">),</span> <span class="n">axis</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">dense_keys</span>
+    
+    <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">vocabulary_range_per_slot_per_table</span><span class="p">)</span><span class="o">==</span><span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;there should be two embedding tables&quot;</span>
+    <span class="k">assert</span> <span class="nb">max</span><span class="p">(</span><span class="n">max_nnz_per_slot_per_table</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span><span class="o">&gt;</span><span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;the first embedding table has sparse key input (multi-hot)&quot;</span>
+    <span class="k">assert</span> <span class="nb">min</span><span class="p">(</span><span class="n">max_nnz_per_slot_per_table</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span><span class="o">==</span><span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;the second embedding table has dense key input (one-hot)&quot;</span>
+    
+    <span class="n">sparse_keys</span> <span class="o">=</span> <span class="n">generate_sparse_keys</span><span class="p">(</span><span class="n">num_samples</span><span class="p">,</span> <span class="n">vocabulary_range_per_slot_per_table</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">max_nnz_per_slot_per_table</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="n">dense_keys</span> <span class="o">=</span> <span class="n">generate_dense_keys</span><span class="p">(</span><span class="n">num_samples</span><span class="p">,</span> <span class="n">vocabulary_range_per_slot_per_table</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+    <span class="n">labels</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="n">low</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">high</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="n">num_samples</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">sparse_keys</span><span class="p">,</span> <span class="n">dense_keys</span><span class="p">,</span> <span class="n">labels</span>
+
+<span class="k">def</span> <span class="nf">tf_dataset</span><span class="p">(</span><span class="n">sparse_keys</span><span class="p">,</span> <span class="n">dense_keys</span><span class="p">,</span> <span class="n">labels</span><span class="p">,</span> <span class="n">batchsize</span><span class="p">):</span>
+    <span class="n">dataset</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">Dataset</span><span class="o">.</span><span class="n">from_tensor_slices</span><span class="p">((</span><span class="n">sparse_keys</span><span class="p">,</span> <span class="n">dense_keys</span><span class="p">,</span> <span class="n">labels</span><span class="p">))</span>
+    <span class="n">dataset</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">batch</span><span class="p">(</span><span class="n">batchsize</span><span class="p">,</span> <span class="n">drop_remainder</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">dataset</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="train-with-native-tf-layers">
+<h2>Train with native TF layers<a class="headerlink" href="#train-with-native-tf-layers" title="Permalink to this headline"></a></h2>
+<p>We define the model graph for training with native TF layers, i.e., <code class="docutils literal notranslate"><span class="pre">tf.nn.embedding_lookup_sparse</span></code>, <code class="docutils literal notranslate"><span class="pre">tf.nn.embedding_lookup</span></code> and <code class="docutils literal notranslate"><span class="pre">tf.keras.layers.Dense</span></code>.  We can then train the model and extract the trained weights of the two embedding tables. As for the dense layers, they are saved as a separate model graph, which can be loaded directly during inference.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">TrainModel</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">models</span><span class="o">.</span><span class="n">Model</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                 <span class="n">init_tensors_per_table</span><span class="p">,</span>
+                 <span class="n">slot_num_per_table</span><span class="p">,</span>
+                 <span class="n">embed_vec_size_per_table</span><span class="p">,</span>
+                 <span class="n">max_nnz_per_slot_per_table</span><span class="p">,</span>
+                 <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">TrainModel</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">slot_num_per_table</span> <span class="o">=</span> <span class="n">slot_num_per_table</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">embed_vec_size_per_table</span> <span class="o">=</span> <span class="n">embed_vec_size_per_table</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">max_nnz_per_slot_per_table</span> <span class="o">=</span> <span class="n">max_nnz_per_slot_per_table</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">max_nnz_of_all_slots_per_table</span> <span class="o">=</span> <span class="p">[</span><span class="nb">max</span><span class="p">(</span><span class="n">ele</span><span class="p">)</span> <span class="k">for</span> <span class="n">ele</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_nnz_per_slot_per_table</span><span class="p">]</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">init_tensors_per_table</span> <span class="o">=</span> <span class="n">init_tensors_per_table</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">params0</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">Variable</span><span class="p">(</span><span class="n">initial_value</span><span class="o">=</span><span class="n">tf</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">init_tensors_per_table</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">params1</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">Variable</span><span class="p">(</span><span class="n">initial_value</span><span class="o">=</span><span class="n">tf</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">init_tensors_per_table</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">reshape</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">layers</span><span class="o">.</span><span class="n">Reshape</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">max_nnz_of_all_slots_per_table</span><span class="p">[</span><span class="mi">0</span><span class="p">],),</span>
+                                                <span class="n">input_shape</span><span class="o">=</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">slot_num_per_table</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_nnz_of_all_slots_per_table</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">fc_1</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">layers</span><span class="o">.</span><span class="n">Dense</span><span class="p">(</span><span class="n">units</span><span class="o">=</span><span class="mi">256</span><span class="p">,</span> <span class="n">activation</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                                                 <span class="n">kernel_initializer</span><span class="o">=</span><span class="s2">&quot;ones&quot;</span><span class="p">,</span>
+                                                 <span class="n">bias_initializer</span><span class="o">=</span><span class="s2">&quot;zeros&quot;</span><span class="p">,</span>
+                                                 <span class="n">name</span><span class="o">=</span><span class="s1">&#39;fc_1&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fc_2</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">layers</span><span class="o">.</span><span class="n">Dense</span><span class="p">(</span><span class="n">units</span><span class="o">=</span><span class="mi">256</span><span class="p">,</span> <span class="n">activation</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                                                 <span class="n">kernel_initializer</span><span class="o">=</span><span class="s2">&quot;ones&quot;</span><span class="p">,</span>
+                                                 <span class="n">bias_initializer</span><span class="o">=</span><span class="s2">&quot;zeros&quot;</span><span class="p">,</span>
+                                                 <span class="n">name</span><span class="o">=</span><span class="s1">&#39;fc_2&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fc_3</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">layers</span><span class="o">.</span><span class="n">Dense</span><span class="p">(</span><span class="n">units</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">activation</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                                                 <span class="n">kernel_initializer</span><span class="o">=</span><span class="s2">&quot;ones&quot;</span><span class="p">,</span>
+                                                 <span class="n">bias_initializer</span><span class="o">=</span><span class="s2">&quot;zeros&quot;</span><span class="p">,</span>
+                                                 <span class="n">name</span><span class="o">=</span><span class="s1">&#39;fc_3&#39;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">call</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">inputs</span><span class="p">):</span>
+        <span class="c1"># SparseTensor of keys, shape: (batch_size*slot_num, max_nnz)</span>
+        <span class="n">embeddings0</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">embedding_lookup_sparse</span><span class="p">(</span><span class="n">params</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">params0</span><span class="p">,</span> <span class="n">sp_ids</span><span class="o">=</span><span class="n">inputs</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">sp_weights</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">combiner</span><span class="o">=</span><span class="s2">&quot;mean&quot;</span><span class="p">),</span>
+                                <span class="n">shape</span><span class="o">=</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">slot_num_per_table</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">embed_vec_size_per_table</span><span class="p">[</span><span class="mi">0</span><span class="p">]])</span>
+        <span class="c1"># Tensor of keys, shape: (batch_size, slot_num)</span>
+        <span class="n">embeddings1</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">embedding_lookup</span><span class="p">(</span><span class="n">params</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">params1</span><span class="p">,</span> <span class="n">ids</span><span class="o">=</span><span class="n">inputs</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span> 
+                                 <span class="n">shape</span><span class="o">=</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">slot_num_per_table</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">embed_vec_size_per_table</span><span class="p">[</span><span class="mi">1</span><span class="p">]])</span>
+        
+        <span class="n">logit</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fc_3</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">math</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fc_1</span><span class="p">(</span><span class="n">embeddings0</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">fc_2</span><span class="p">(</span><span class="n">embeddings1</span><span class="p">)))</span>
+        <span class="k">return</span> <span class="n">logit</span><span class="p">,</span> <span class="n">embeddings0</span><span class="p">,</span> <span class="n">embeddings1</span>
+
+    <span class="k">def</span> <span class="nf">summary</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">inputs</span> <span class="o">=</span> <span class="p">[</span><span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">Input</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">max_nnz_of_all_slots_per_table</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="p">),</span> <span class="n">sparse</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">args</span><span class="p">[</span><span class="s2">&quot;tf_key_type&quot;</span><span class="p">]),</span>
+                  <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">Input</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">slot_num_per_table</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">args</span><span class="p">[</span><span class="s2">&quot;tf_key_type&quot;</span><span class="p">])]</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">models</span><span class="o">.</span><span class="n">Model</span><span class="p">(</span><span class="n">inputs</span><span class="o">=</span><span class="n">inputs</span><span class="p">,</span> <span class="n">outputs</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">call</span><span class="p">(</span><span class="n">inputs</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">model</span><span class="o">.</span><span class="n">summary</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">train</span><span class="p">(</span><span class="n">args</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">_train_step</span><span class="p">(</span><span class="n">inputs</span><span class="p">,</span> <span class="n">labels</span><span class="p">):</span>
+        <span class="k">with</span> <span class="n">tf</span><span class="o">.</span><span class="n">GradientTape</span><span class="p">()</span> <span class="k">as</span> <span class="n">tape</span><span class="p">:</span>
+            <span class="n">logit</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">inputs</span><span class="p">)</span>
+            <span class="n">loss</span> <span class="o">=</span> <span class="n">loss_fn</span><span class="p">(</span><span class="n">labels</span><span class="p">,</span> <span class="n">logit</span><span class="p">)</span>
+        <span class="n">grads</span> <span class="o">=</span> <span class="n">tape</span><span class="o">.</span><span class="n">gradient</span><span class="p">(</span><span class="n">loss</span><span class="p">,</span> <span class="n">model</span><span class="o">.</span><span class="n">trainable_variables</span><span class="p">)</span>
+        <span class="n">optimizer</span><span class="o">.</span><span class="n">apply_gradients</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">grads</span><span class="p">,</span> <span class="n">model</span><span class="o">.</span><span class="n">trainable_variables</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">logit</span><span class="p">,</span> <span class="n">loss</span>
+
+    <span class="n">init_tensors_per_table</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="p">[</span><span class="n">args</span><span class="p">[</span><span class="s2">&quot;max_vocabulary_size_per_table&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;embed_vec_size_per_table&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">]],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">args</span><span class="p">[</span><span class="s2">&quot;np_vector_type&quot;</span><span class="p">]),</span>
+                              <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="p">[</span><span class="n">args</span><span class="p">[</span><span class="s2">&quot;max_vocabulary_size_per_table&quot;</span><span class="p">][</span><span class="mi">1</span><span class="p">],</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;embed_vec_size_per_table&quot;</span><span class="p">][</span><span class="mi">1</span><span class="p">]],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">args</span><span class="p">[</span><span class="s2">&quot;np_vector_type&quot;</span><span class="p">])]</span>
+
+    <span class="n">model</span> <span class="o">=</span> <span class="n">TrainModel</span><span class="p">(</span><span class="n">init_tensors_per_table</span><span class="p">,</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;slot_num_per_table&quot;</span><span class="p">],</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;embed_vec_size_per_table&quot;</span><span class="p">],</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;max_nnz_per_slot_per_table&quot;</span><span class="p">])</span>
+    <span class="n">model</span><span class="o">.</span><span class="n">summary</span><span class="p">()</span>
+    <span class="n">optimizer</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">optimizers</span><span class="o">.</span><span class="n">Adam</span><span class="p">(</span><span class="n">learning_rate</span><span class="o">=</span><span class="mf">0.1</span><span class="p">)</span>
+    <span class="n">loss_fn</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">losses</span><span class="o">.</span><span class="n">BinaryCrossentropy</span><span class="p">(</span><span class="n">from_logits</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="n">sparse_keys</span><span class="p">,</span> <span class="n">dense_keys</span><span class="p">,</span> <span class="n">labels</span> <span class="o">=</span> <span class="n">generate_random_samples</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s2">&quot;global_batch_size&quot;</span><span class="p">]</span>  <span class="o">*</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;iter_num&quot;</span><span class="p">],</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;vocabulary_range_per_slot_per_table&quot;</span><span class="p">],</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;max_nnz_per_slot_per_table&quot;</span><span class="p">])</span>
+    <span class="n">dataset</span> <span class="o">=</span> <span class="n">tf_dataset</span><span class="p">(</span><span class="n">sparse_keys</span><span class="p">,</span> <span class="n">dense_keys</span><span class="p">,</span> <span class="n">labels</span><span class="p">,</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;global_batch_size&quot;</span><span class="p">])</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">sparse_keys</span><span class="p">,</span> <span class="n">dense_keys</span><span class="p">,</span> <span class="n">labels</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">dataset</span><span class="p">):</span>
+        <span class="n">sparse_keys</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">sparse</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">sparse_keys</span><span class="p">,</span> <span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">sparse_keys</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]])</span>
+        <span class="n">inputs</span> <span class="o">=</span> <span class="p">[</span><span class="n">sparse_keys</span><span class="p">,</span> <span class="n">dense_keys</span><span class="p">]</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">loss</span> <span class="o">=</span> <span class="n">_train_step</span><span class="p">(</span><span class="n">inputs</span><span class="p">,</span> <span class="n">labels</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;-&quot;</span><span class="o">*</span><span class="mi">20</span><span class="p">,</span> <span class="s2">&quot;Step </span><span class="si">{}</span><span class="s2">, loss: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">loss</span><span class="p">),</span>  <span class="s2">&quot;-&quot;</span><span class="o">*</span><span class="mi">20</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">model</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">trained_model</span> <span class="o">=</span> <span class="n">train</span><span class="p">(</span><span class="n">args</span><span class="p">)</span>
+<span class="n">weights_list</span> <span class="o">=</span> <span class="n">trained_model</span><span class="o">.</span><span class="n">get_weights</span><span class="p">()</span>
+<span class="n">embedding_weights_per_table</span> <span class="o">=</span> <span class="n">weights_list</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">:]</span>
+<span class="n">dense_model</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">Model</span><span class="p">([</span><span class="n">trained_model</span><span class="o">.</span><span class="n">get_layer</span><span class="p">(</span><span class="s2">&quot;fc_1&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">input</span><span class="p">,</span> 
+                              <span class="n">trained_model</span><span class="o">.</span><span class="n">get_layer</span><span class="p">(</span><span class="s2">&quot;fc_2&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">input</span><span class="p">],</span> 
+                             <span class="n">trained_model</span><span class="o">.</span><span class="n">get_layer</span><span class="p">(</span><span class="s2">&quot;fc_3&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">output</span><span class="p">)</span>
+<span class="n">dense_model</span><span class="o">.</span><span class="n">summary</span><span class="p">()</span>
+<span class="n">dense_model</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s2">&quot;dense_model_path&quot;</span><span class="p">])</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2022-07-12 07:51:09.676041: I tensorflow/core/platform/cpu_feature_guard.cc:151] This TensorFlow binary is optimized with oneAPI Deep Neural Network Library (oneDNN) to use the following CPU instructions in performance-critical operations:  AVX2 FMA
+To enable them in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2022-07-12 07:51:10.271131: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1525] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 30989 MB memory:  -&gt; device: 0, name: Tesla V100-SXM2-32GB, pci bus id: 0000:06:00.0, compute capability: 7.0
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>WARNING:tensorflow:The following Variables were used in a Lambda layer&#39;s call (tf.compat.v1.nn.embedding_lookup_sparse), but are not present in its tracked objects:   &lt;tf.Variable &#39;Variable:0&#39; shape=(30000, 16) dtype=float32&gt;. This is a strong indication that the Lambda layer should be rewritten as a subclassed Layer.
+WARNING:tensorflow:The following Variables were used in a Lambda layer&#39;s call (tf.compat.v1.nn.embedding_lookup), but are not present in its tracked objects:   &lt;tf.Variable &#39;Variable:0&#39; shape=(2000, 32) dtype=float32&gt;. This is a strong indication that the Lambda layer should be rewritten as a subclassed Layer.
+Model: &quot;model&quot;
+__________________________________________________________________________________________________
+ Layer (type)                   Output Shape         Param #     Connected to                     
+==================================================================================================
+ input_1 (InputLayer)           [(None, 4)]          0           []                               
+                                                                                                  
+ input_2 (InputLayer)           [(None, 2)]          0           []                               
+                                                                                                  
+ tf.compat.v1.nn.embedding_look  (None, 16)          0           [&#39;input_1[0][0]&#39;]                
+ up_sparse (TFOpLambda)                                                                           
+                                                                                                  
+ tf.compat.v1.nn.embedding_look  (None, 2, 32)       0           [&#39;input_2[0][0]&#39;]                
+ up (TFOpLambda)                                                                                  
+                                                                                                  
+ tf.reshape (TFOpLambda)        (None, 48)           0           [&#39;tf.compat.v1.nn.embedding_looku
+                                                                 p_sparse[0][0]&#39;]                 
+                                                                                                  
+ tf.reshape_1 (TFOpLambda)      (None, 64)           0           [&#39;tf.compat.v1.nn.embedding_looku
+                                                                 p[0][0]&#39;]                        
+                                                                                                  
+ fc_1 (Dense)                   (None, 256)          12544       [&#39;tf.reshape[0][0]&#39;]             
+                                                                                                  
+ fc_2 (Dense)                   (None, 256)          16640       [&#39;tf.reshape_1[0][0]&#39;]           
+                                                                                                  
+ tf.math.add (TFOpLambda)       (None, 256)          0           [&#39;fc_1[0][0]&#39;,                   
+                                                                  &#39;fc_2[0][0]&#39;]                   
+                                                                                                  
+ fc_3 (Dense)                   (None, 1)            257         [&#39;tf.math.add[0][0]&#39;]            
+                                                                                                  
+==================================================================================================
+Total params: 29,441
+Trainable params: 29,441
+Non-trainable params: 0
+__________________________________________________________________________________________________
+-------------------- Step 0, loss: 14588.0 --------------------
+-------------------- Step 1, loss: 11693.25 --------------------
+-------------------- Step 2, loss: 8232.9658203125 --------------------
+-------------------- Step 3, loss: 6276.9736328125 --------------------
+-------------------- Step 4, loss: 4676.82861328125 --------------------
+-------------------- Step 5, loss: 2921.1875 --------------------
+-------------------- Step 6, loss: 1938.2447509765625 --------------------
+-------------------- Step 7, loss: 1093.598388671875 --------------------
+-------------------- Step 8, loss: 616.3092651367188 --------------------
+-------------------- Step 9, loss: 257.61248779296875 --------------------
+Model: &quot;model_1&quot;
+__________________________________________________________________________________________________
+ Layer (type)                   Output Shape         Param #     Connected to                     
+==================================================================================================
+ input_3 (InputLayer)           [(None, 48)]         0           []                               
+                                                                                                  
+ input_4 (InputLayer)           [(None, 64)]         0           []                               
+                                                                                                  
+ fc_1 (Dense)                   (None, 256)          12544       [&#39;input_3[0][0]&#39;]                
+                                                                                                  
+ fc_2 (Dense)                   (None, 256)          16640       [&#39;input_4[0][0]&#39;]                
+                                                                                                  
+ tf.math.add (TFOpLambda)       (None, 256)          0           [&#39;fc_1[1][0]&#39;,                   
+                                                                  &#39;fc_2[1][0]&#39;]                   
+                                                                                                  
+ fc_3 (Dense)                   (None, 1)            257         [&#39;tf.math.add[1][0]&#39;]            
+                                                                                                  
+==================================================================================================
+Total params: 29,441
+Trainable params: 29,441
+Non-trainable params: 0
+__________________________________________________________________________________________________
+WARNING:tensorflow:Compiled the loaded model, but the compiled metrics have yet to be built. `model.compile_metrics` will be empty until you train or evaluate the model.
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2022-07-12 07:51:13.335404: W tensorflow/python/util/util.cc:368] Sets are not currently considered sequences, but this may change in the future, so consider avoiding using them.
+WARNING:absl:Function `_wrapped_model` contains input name(s) args_0 with unsupported characters which will be renamed to args_0_1 in the SavedModel.
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>INFO:tensorflow:Assets written to: multi_table_sparse_input_dense.model/assets
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>INFO:tensorflow:Assets written to: multi_table_sparse_input_dense.model/assets
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="create-the-inference-graph-with-hps-sparselookuplayer-and-lookuplayer">
+<h2>Create the inference graph with HPS SparseLookupLayer and LookupLayer<a class="headerlink" href="#create-the-inference-graph-with-hps-sparselookuplayer-and-lookuplayer" title="Permalink to this headline"></a></h2>
+<p>In order to use HPS in the inference stage, we need to create a inference model graph which is almost the same as the train graph except that <code class="docutils literal notranslate"><span class="pre">tf.nn.embedding_lookup_sparse</span></code> is replaced by <code class="docutils literal notranslate"><span class="pre">hps.SparseLookupLayer</span></code> and <code class="docutils literal notranslate"><span class="pre">tf.nn.embedding_lookup</span></code> is replaced by <code class="docutils literal notranslate"><span class="pre">hps.LookupLayer</span></code>. The trained dense model graph can be loaded directly, while the weights of two embedding tables should be converted to the formats required by HPS.</p>
+<p>We can then save the inference model graph, which will be ready to be loaded for inference deployment.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">InferenceModel</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">models</span><span class="o">.</span><span class="n">Model</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                 <span class="n">slot_num_per_table</span><span class="p">,</span>
+                 <span class="n">embed_vec_size_per_table</span><span class="p">,</span>
+                 <span class="n">max_nnz_per_slot_per_table</span><span class="p">,</span>
+                 <span class="n">dense_model_path</span><span class="p">,</span>
+                 <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">InferenceModel</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">slot_num_per_table</span> <span class="o">=</span> <span class="n">slot_num_per_table</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">embed_vec_size_per_table</span> <span class="o">=</span> <span class="n">embed_vec_size_per_table</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">max_nnz_per_slot_per_table</span> <span class="o">=</span> <span class="n">max_nnz_per_slot_per_table</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">max_nnz_of_all_slots_per_table</span> <span class="o">=</span> <span class="p">[</span><span class="nb">max</span><span class="p">(</span><span class="n">ele</span><span class="p">)</span> <span class="k">for</span> <span class="n">ele</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_nnz_per_slot_per_table</span><span class="p">]</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">sparse_lookup_layer</span> <span class="o">=</span> <span class="n">hps</span><span class="o">.</span><span class="n">SparseLookupLayer</span><span class="p">(</span><span class="n">model_name</span> <span class="o">=</span> <span class="s2">&quot;multi_table_sparse_input&quot;</span><span class="p">,</span> 
+                                            <span class="n">table_id</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+                                            <span class="n">emb_vec_size</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">embed_vec_size_per_table</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+                                            <span class="n">emb_vec_dtype</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;tf_vector_type&quot;</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lookup_layer</span> <span class="o">=</span> <span class="n">hps</span><span class="o">.</span><span class="n">LookupLayer</span><span class="p">(</span><span class="n">model_name</span> <span class="o">=</span> <span class="s2">&quot;multi_table_sparse_input&quot;</span><span class="p">,</span> 
+                                            <span class="n">table_id</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+                                            <span class="n">emb_vec_size</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">embed_vec_size_per_table</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+                                            <span class="n">emb_vec_dtype</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;tf_vector_type&quot;</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dense_model</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">models</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span><span class="n">dense_model_path</span><span class="p">)</span>
+    
+    <span class="k">def</span> <span class="nf">call</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">inputs</span><span class="p">):</span>
+        <span class="c1"># SparseTensor of keys, shape: (batch_size*slot_num, max_nnz)</span>
+        <span class="n">embeddings0</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sparse_lookup_layer</span><span class="p">(</span><span class="n">sp_ids</span><span class="o">=</span><span class="n">inputs</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">sp_weights</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">combiner</span><span class="o">=</span><span class="s2">&quot;mean&quot;</span><span class="p">),</span>
+                                <span class="n">shape</span><span class="o">=</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">slot_num_per_table</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">embed_vec_size_per_table</span><span class="p">[</span><span class="mi">0</span><span class="p">]])</span>
+        <span class="c1"># Tensor of keys, shape: (batch_size, slot_num)</span>
+        <span class="n">embeddings1</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lookup_layer</span><span class="p">(</span><span class="n">inputs</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span> 
+                                 <span class="n">shape</span><span class="o">=</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">slot_num_per_table</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">embed_vec_size_per_table</span><span class="p">[</span><span class="mi">1</span><span class="p">]])</span>
+        
+        <span class="n">logit</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dense_model</span><span class="p">([</span><span class="n">embeddings0</span><span class="p">,</span> <span class="n">embeddings1</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">logit</span><span class="p">,</span> <span class="n">embeddings0</span><span class="p">,</span> <span class="n">embeddings1</span>
+
+    <span class="k">def</span> <span class="nf">summary</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">inputs</span> <span class="o">=</span> <span class="p">[</span><span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">Input</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">max_nnz_of_all_slots_per_table</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="p">),</span> <span class="n">sparse</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">args</span><span class="p">[</span><span class="s2">&quot;tf_key_type&quot;</span><span class="p">]),</span>
+                  <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">Input</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">slot_num_per_table</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">args</span><span class="p">[</span><span class="s2">&quot;tf_key_type&quot;</span><span class="p">])]</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">models</span><span class="o">.</span><span class="n">Model</span><span class="p">(</span><span class="n">inputs</span><span class="o">=</span><span class="n">inputs</span><span class="p">,</span> <span class="n">outputs</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">call</span><span class="p">(</span><span class="n">inputs</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">model</span><span class="o">.</span><span class="n">summary</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">create_and_save_inference_graph</span><span class="p">(</span><span class="n">args</span><span class="p">):</span> 
+    <span class="n">model</span> <span class="o">=</span> <span class="n">InferenceModel</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s2">&quot;slot_num_per_table&quot;</span><span class="p">],</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;embed_vec_size_per_table&quot;</span><span class="p">],</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;max_nnz_per_slot_per_table&quot;</span><span class="p">],</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;dense_model_path&quot;</span><span class="p">])</span>
+    <span class="n">model</span><span class="o">.</span><span class="n">summary</span><span class="p">()</span>
+    <span class="n">inputs</span> <span class="o">=</span> <span class="p">[</span><span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">Input</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s2">&quot;max_nnz_per_slot_per_table&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">]),</span> <span class="p">),</span> <span class="n">sparse</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">args</span><span class="p">[</span><span class="s2">&quot;tf_key_type&quot;</span><span class="p">]),</span>
+             <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">Input</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s2">&quot;slot_num_per_table&quot;</span><span class="p">][</span><span class="mi">1</span><span class="p">],</span> <span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">args</span><span class="p">[</span><span class="s2">&quot;tf_key_type&quot;</span><span class="p">])]</span>
+    <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">inputs</span><span class="p">)</span>
+    <span class="n">model</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s2">&quot;saved_path&quot;</span><span class="p">])</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">convert_to_sparse_model</span><span class="p">(</span><span class="n">embeddings_weights</span><span class="p">,</span> <span class="n">embedding_table_path</span><span class="p">,</span> <span class="n">embedding_vec_size</span><span class="p">):</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">system</span><span class="p">(</span><span class="s2">&quot;mkdir -p </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">embedding_table_path</span><span class="p">))</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">{}</span><span class="s2">/key&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">embedding_table_path</span><span class="p">),</span> <span class="s1">&#39;wb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">key_file</span><span class="p">,</span> \
+        <span class="nb">open</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">{}</span><span class="s2">/emb_vector&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">embedding_table_path</span><span class="p">),</span> <span class="s1">&#39;wb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">vec_file</span><span class="p">:</span>
+      <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">embeddings_weights</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
+        <span class="n">vec</span> <span class="o">=</span> <span class="n">embeddings_weights</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+        <span class="n">key_struct</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">pack</span><span class="p">(</span><span class="s1">&#39;q&#39;</span><span class="p">,</span> <span class="n">key</span><span class="p">)</span>
+        <span class="n">vec_struct</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">pack</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">embedding_vec_size</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;f&quot;</span><span class="p">,</span> <span class="o">*</span><span class="n">vec</span><span class="p">)</span>
+        <span class="n">key_file</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">key_struct</span><span class="p">)</span>
+        <span class="n">vec_file</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">vec_struct</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">convert_to_sparse_model</span><span class="p">(</span><span class="n">embedding_weights_per_table</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;embedding_table_path&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;embed_vec_size_per_table&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">])</span>
+<span class="n">convert_to_sparse_model</span><span class="p">(</span><span class="n">embedding_weights_per_table</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;embedding_table_path&quot;</span><span class="p">][</span><span class="mi">1</span><span class="p">],</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;embed_vec_size_per_table&quot;</span><span class="p">][</span><span class="mi">1</span><span class="p">])</span>
+<span class="n">create_and_save_inference_graph</span><span class="p">(</span><span class="n">args</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>WARNING:tensorflow:No training configuration found in save file, so the model was *not* compiled. Compile it manually.
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>WARNING:tensorflow:No training configuration found in save file, so the model was *not* compiled. Compile it manually.
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Model: &quot;model_2&quot;
+__________________________________________________________________________________________________
+ Layer (type)                   Output Shape         Param #     Connected to                     
+==================================================================================================
+ input_5 (InputLayer)           [(None, 4)]          0           []                               
+                                                                                                  
+ input_6 (InputLayer)           [(None, 2)]          0           []                               
+                                                                                                  
+ sparse_lookup_layer (SparseLoo  (None, 16)          0           [&#39;input_5[0][0]&#39;]                
+ kupLayer)                                                                                        
+                                                                                                  
+ lookup_layer (LookupLayer)     (None, 2, 32)        0           [&#39;input_6[0][0]&#39;]                
+                                                                                                  
+ tf.reshape_2 (TFOpLambda)      (None, 48)           0           [&#39;sparse_lookup_layer[0][0]&#39;]    
+                                                                                                  
+ tf.reshape_3 (TFOpLambda)      (None, 64)           0           [&#39;lookup_layer[0][0]&#39;]           
+                                                                                                  
+ model_1 (Functional)           (None, 1)            29441       [&#39;tf.reshape_2[0][0]&#39;,           
+                                                                  &#39;tf.reshape_3[0][0]&#39;]           
+                                                                                                  
+==================================================================================================
+Total params: 29,441
+Trainable params: 29,441
+Non-trainable params: 0
+__________________________________________________________________________________________________
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>WARNING:absl:Function `_wrapped_model` contains input name(s) args_0 with unsupported characters which will be renamed to args_0_3 in the SavedModel.
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>INFO:tensorflow:Assets written to: multi_table_sparse_input_tf_saved_model/assets
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>INFO:tensorflow:Assets written to: multi_table_sparse_input_tf_saved_model/assets
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="inference-with-saved-model-graph">
+<h2>Inference with saved model graph<a class="headerlink" href="#inference-with-saved-model-graph" title="Permalink to this headline"></a></h2>
+<p>In order to initialize the lookup service provided by HPS, we also need to create a JSON configuration file and specify the details of the embedding tables for the models to be deployed. We deploy a model that has two embedding tables here, and it can support multiple models with multiple embedding tables actually. Please note how <code class="docutils literal notranslate"><span class="pre">maxnum_catfeature_query_per_table_per_sample</span></code> is specified for the two embedding tables: the <code class="docutils literal notranslate"><span class="pre">max_nnz_per_slot</span></code> of the first table is <code class="docutils literal notranslate"><span class="pre">[4,</span> <span class="pre">2,</span> <span class="pre">3]</span></code>, which sums to 9, and for the second table it is <code class="docutils literal notranslate"><span class="pre">[1,</span> <span class="pre">1]</span></code>, which sums to 2.</p>
+<p>We first call <code class="docutils literal notranslate"><span class="pre">hps.Init</span></code> to do the necessary initialization work, and then load the saved model graph to make inference. We peek at the keys and the embedding vectors for each table for the last inference batch.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">%%writefile</span> multi_table_sparse_input.json
+<span class="p">{</span>
+    <span class="s2">&quot;supportlonglong&quot;</span><span class="p">:</span> <span class="n">true</span><span class="p">,</span>
+    <span class="s2">&quot;models&quot;</span><span class="p">:</span> <span class="p">[{</span>
+        <span class="s2">&quot;model&quot;</span><span class="p">:</span> <span class="s2">&quot;multi_table_sparse_input&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;sparse_files&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;multi_table_sparse_input_sparse_0.model&quot;</span><span class="p">,</span> <span class="s2">&quot;multi_table_sparse_input_sparse_1.model&quot;</span><span class="p">],</span>
+        <span class="s2">&quot;num_of_worker_buffer_in_pool&quot;</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span>
+        <span class="s2">&quot;embedding_table_names&quot;</span><span class="p">:[</span><span class="s2">&quot;sparse_embedding0&quot;</span><span class="p">,</span> <span class="s2">&quot;sparse_embedding1&quot;</span><span class="p">],</span>
+        <span class="s2">&quot;embedding_vecsize_per_table&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">16</span><span class="p">,</span> <span class="mi">32</span><span class="p">],</span>
+        <span class="s2">&quot;maxnum_catfeature_query_per_table_per_sample&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">9</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span>
+        <span class="s2">&quot;default_value_for_each_table&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">],</span>
+        <span class="s2">&quot;deployed_device_list&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+        <span class="s2">&quot;max_batch_size&quot;</span><span class="p">:</span> <span class="mi">1024</span><span class="p">,</span>
+        <span class="s2">&quot;cache_refresh_percentage_per_iteration&quot;</span><span class="p">:</span> <span class="mf">0.2</span><span class="p">,</span>
+        <span class="s2">&quot;hit_rate_threshold&quot;</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">,</span>
+        <span class="s2">&quot;gpucacheper&quot;</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">,</span>
+        <span class="s2">&quot;gpucache&quot;</span><span class="p">:</span> <span class="n">true</span>
+        <span class="p">}</span>
+    <span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Writing multi_table_sparse_input.json
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">inference_with_saved_model</span><span class="p">(</span><span class="n">args</span><span class="p">):</span>
+    <span class="n">hps</span><span class="o">.</span><span class="n">Init</span><span class="p">(</span><span class="n">global_batch_size</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;global_batch_size&quot;</span><span class="p">],</span>
+             <span class="n">ps_config_file</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;ps_config_file&quot;</span><span class="p">])</span>
+    <span class="n">model</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">models</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s2">&quot;saved_path&quot;</span><span class="p">])</span>
+    <span class="n">model</span><span class="o">.</span><span class="n">summary</span><span class="p">()</span>
+    <span class="k">def</span> <span class="nf">_infer_step</span><span class="p">(</span><span class="n">inputs</span><span class="p">,</span> <span class="n">labels</span><span class="p">):</span>
+        <span class="n">logit</span><span class="p">,</span> <span class="n">embeddings0</span><span class="p">,</span> <span class="n">embeddings1</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">inputs</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">logit</span><span class="p">,</span> <span class="n">embeddings0</span><span class="p">,</span> <span class="n">embeddings1</span>
+    <span class="n">embeddings0_peek</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+    <span class="n">embeddings1_peek</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+    <span class="n">inputs_peek</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+    <span class="n">sparse_keys</span><span class="p">,</span> <span class="n">dense_keys</span><span class="p">,</span> <span class="n">labels</span> <span class="o">=</span> <span class="n">generate_random_samples</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s2">&quot;global_batch_size&quot;</span><span class="p">]</span>  <span class="o">*</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;iter_num&quot;</span><span class="p">],</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;vocabulary_range_per_slot_per_table&quot;</span><span class="p">],</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;max_nnz_per_slot_per_table&quot;</span><span class="p">])</span>
+    <span class="n">dataset</span> <span class="o">=</span> <span class="n">tf_dataset</span><span class="p">(</span><span class="n">sparse_keys</span><span class="p">,</span> <span class="n">dense_keys</span><span class="p">,</span> <span class="n">labels</span><span class="p">,</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;global_batch_size&quot;</span><span class="p">])</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">sparse_keys</span><span class="p">,</span> <span class="n">dense_keys</span><span class="p">,</span> <span class="n">labels</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">dataset</span><span class="p">):</span>
+        <span class="n">sparse_keys</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">sparse</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">sparse_keys</span><span class="p">,</span> <span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">sparse_keys</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]])</span>
+        <span class="n">inputs</span> <span class="o">=</span> <span class="p">[</span><span class="n">sparse_keys</span><span class="p">,</span> <span class="n">dense_keys</span><span class="p">]</span>
+        <span class="n">logit</span><span class="p">,</span> <span class="n">embeddings0</span><span class="p">,</span> <span class="n">embeddings1</span> <span class="o">=</span> <span class="n">_infer_step</span><span class="p">(</span><span class="n">inputs</span><span class="p">,</span> <span class="n">labels</span><span class="p">)</span>
+        <span class="n">embeddings0_peek</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">embeddings0</span><span class="p">)</span>
+        <span class="n">embeddings1_peek</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">embeddings1</span><span class="p">)</span>
+        <span class="n">inputs_peek</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">inputs</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;-&quot;</span><span class="o">*</span><span class="mi">20</span><span class="p">,</span> <span class="s2">&quot;Step </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">i</span><span class="p">),</span>  <span class="s2">&quot;-&quot;</span><span class="o">*</span><span class="mi">20</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">embeddings0_peek</span><span class="p">,</span> <span class="n">embeddings1_peek</span><span class="p">,</span> <span class="n">inputs_peek</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">embeddings0_peek</span><span class="p">,</span> <span class="n">embeddings1_peek</span><span class="p">,</span> <span class="n">inputs_peek</span> <span class="o">=</span> <span class="n">inference_with_saved_model</span><span class="p">(</span><span class="n">args</span><span class="p">)</span>
+
+<span class="c1"># 1st embedding table, input keys are SparseTensor </span>
+<span class="nb">print</span><span class="p">(</span><span class="n">inputs_peek</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">embeddings0_peek</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+
+<span class="c1"># 2nd embedding table, input keys are Tensor</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">inputs_peek</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">])</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">embeddings1_peek</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>=====================================================HPS Parse====================================================
+[HCTR][07:51:32.495][INFO][RK0][main]: dense_file is not specified using default: 
+[HCTR][07:51:32.495][WARNING][RK0][main]: default_value_for_each_table.size() is not equal to the number of embedding tables
+[HCTR][07:51:32.495][INFO][RK0][main]: num_of_refresher_buffer_in_pool is not specified using default: 1
+[HCTR][07:51:32.495][INFO][RK0][main]: maxnum_des_feature_per_sample is not specified using default: 26
+[HCTR][07:51:32.495][INFO][RK0][main]: refresh_delay is not specified using default: 0
+[HCTR][07:51:32.495][INFO][RK0][main]: refresh_interval is not specified using default: 0
+====================================================HPS Create====================================================
+[HCTR][07:51:32.495][INFO][RK0][main]: Creating HashMap CPU database backend...
+[HCTR][07:51:32.495][INFO][RK0][main]: Volatile DB: initial cache rate = 1
+[HCTR][07:51:32.495][INFO][RK0][main]: Volatile DB: cache missed embeddings = 0
+[HCTR][07:51:32.855][INFO][RK0][main]: Table: hps_et.multi_table_sparse_input.sparse_embedding0; cached 30000 / 30000 embeddings in volatile database (PreallocatedHashMapBackend); load: 30000 / 18446744073709551615 (0.00%).
+[HCTR][07:51:33.195][INFO][RK0][main]: Table: hps_et.multi_table_sparse_input.sparse_embedding1; cached 2000 / 2000 embeddings in volatile database (PreallocatedHashMapBackend); load: 2000 / 18446744073709551615 (0.00%).
+[HCTR][07:51:33.195][DEBUG][RK0][main]: Real-time subscribers created!
+[HCTR][07:51:33.195][INFO][RK0][main]: Creating embedding cache in device 0.
+[HCTR][07:51:33.201][INFO][RK0][main]: Model name: multi_table_sparse_input
+[HCTR][07:51:33.201][INFO][RK0][main]: Number of embedding tables: 2
+[HCTR][07:51:33.201][INFO][RK0][main]: Use GPU embedding cache: True, cache size percentage: 1.000000
+[HCTR][07:51:33.201][INFO][RK0][main]: Use I64 input key: True
+[HCTR][07:51:33.201][INFO][RK0][main]: Configured cache hit rate threshold: 1.000000
+[HCTR][07:51:33.201][INFO][RK0][main]: The size of thread pool: 80
+[HCTR][07:51:33.201][INFO][RK0][main]: The size of worker memory pool: 3
+[HCTR][07:51:33.201][INFO][RK0][main]: The size of refresh memory pool: 1
+[HCTR][07:51:33.212][INFO][RK0][main]: Creating lookup session for multi_table_sparse_input on device: 0
+WARNING:tensorflow:No training configuration found in save file, so the model was *not* compiled. Compile it manually.
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>WARNING:tensorflow:No training configuration found in save file, so the model was *not* compiled. Compile it manually.
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Model: &quot;inference_model&quot;
+_________________________________________________________________
+ Layer (type)                Output Shape              Param #   
+=================================================================
+ sparse_lookup_layer (Sparse  multiple                 0         
+ LookupLayer)                                                    
+                                                                 
+ lookup_layer (LookupLayer)  multiple                  0         
+                                                                 
+ model_1 (Functional)        (None, 1)                 29441     
+                                                                 
+=================================================================
+Total params: 29,441
+Trainable params: 29,441
+Non-trainable params: 0
+_________________________________________________________________
+-------------------- Step 0 --------------------
+-------------------- Step 1 --------------------
+-------------------- Step 2 --------------------
+-------------------- Step 3 --------------------
+-------------------- Step 4 --------------------
+-------------------- Step 5 --------------------
+-------------------- Step 6 --------------------
+-------------------- Step 7 --------------------
+-------------------- Step 8 --------------------
+-------------------- Step 9 --------------------
+tf.Tensor([ 9905  1750  4223 ... 20477 22119 23797], shape=(6111,), dtype=int64)
+tf.Tensor(
+[[0.9122444  0.9122444  0.9122444  ... 1.         1.         1.        ]
+ [0.76979905 0.76979905 0.76979905 ... 1.         1.         1.        ]
+ [0.7415885  0.7415885  0.7415885  ... 1.         1.         1.        ]
+ ...
+ [0.66938084 0.66938084 0.66938084 ... 1.         1.         1.        ]
+ [0.90488005 0.90488005 0.90488005 ... 1.         1.         1.        ]
+ [0.7773342  0.7773342  0.7773342  ... 0.6368773  0.6368773  0.6368773 ]], shape=(1024, 48), dtype=float32)
+tf.Tensor(
+[[ 276 1610]
+ [ 408 1884]
+ [ 678 1762]
+ ...
+ [ 369 1794]
+ [ 403 1216]
+ [ 909 1427]], shape=(1024, 2), dtype=int64)
+tf.Tensor(
+[[0.28882617 0.28882617 0.28882617 ... 0.41947648 0.41947648 0.41947648]
+ [0.597903   0.597903   0.597903   ... 0.37505823 0.37505823 0.37505823]
+ [0.70420146 0.70420146 0.70420146 ... 0.38864705 0.38864705 0.38864705]
+ ...
+ [0.32224336 0.32224336 0.32224336 ... 0.31987724 0.31987724 0.31987724]
+ [0.43596342 0.43596342 0.43596342 ... 0.5383081  0.5383081  0.5383081 ]
+ [0.37384593 0.37384593 0.37384593 ... 0.6026224  0.6026224  0.6026224 ]], shape=(1024, 64), dtype=float32)
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="hierarchical_parameter_server_demo.html" class="btn btn-neutral float-left" title="Hierarchical Parameter Server Demo" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="hps_pretrained_model_training_demo.html" class="btn btn-neutral float-right" title="HPS Pretrained Model Training Demo" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, NVIDIA.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    v: v4.0
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="../../../v3.7/index.html">v3.7</a></dd>
+      <dd><a href="../../../v3.8/index.html">v3.8</a></dd>
+      <dd><a href="../../../v3.9/index.html">v3.9</a></dd>
+      <dd><a href="../../../v3.9.1/index.html">v3.9.1</a></dd>
+      <dd><a href="hps_multi_table_sparse_input_demo.html">v4.0</a></dd>
+      <dd><a href="../../../v4.1/index.html">v4.1</a></dd>
+    </dl>
+    <dl>
+      <dt>Branches</dt>
+      <dd><a href="../../../master/index.html">master</a></dd>
+    </dl>
+  </div>
+</div><script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

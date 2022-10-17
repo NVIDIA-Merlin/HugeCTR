@@ -21,7 +21,9 @@
         <script >var togglebuttonSelector = '.toggle, .admonition.dropdown, .tag_hide_input div.cell_input, .tag_hide-input div.cell_input, .tag_hide_output div.cell_output, .tag_hide-output div.cell_output, .tag_hide_cell.cell, .tag_hide-cell.cell';</script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
-    <link rel="search" title="Search" href="../search.html" /> 
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Embedding Training Cache Example" href="embedding_training_cache_example.html" />
+    <link rel="prev" title="Hierarchical Parameter Server Demo" href="hps_demo.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -40,13 +42,27 @@
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
               <p class="caption"><span class="caption-text">HUGECTR</span></p>
-<ul>
+<ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="../hugectr_user_guide.html">Introduction</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../hugectr_core_features.html">Core Features</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../hugectr_embedding_training_cache.html">Embedding Training Cache</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../hierarchical_parameter_server/index.html">Hierarchical Parameter Server</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../performance.html">Performance</a></li>
-<li class="toctree-l1"><a class="reference internal" href="index.html">Example Notebooks</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Example Notebooks</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="ecommerce-example.html">Merlin ETL, training, and inference with e-Commerce behavior data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="movie-lens-example.html">HugeCTR demo on Movie lens data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="hugectr_criteo.html">Introduction to the HugeCTR Python Interface</a></li>
+<li class="toctree-l2"><a class="reference internal" href="hugectr2onnx_demo.html">HugeCTR to ONNX Converter</a></li>
+<li class="toctree-l2"><a class="reference internal" href="continuous_training.html">HugeCTR Continuous Training</a></li>
+<li class="toctree-l2"><a class="reference internal" href="hugectr_wdl_prediction.html">HugeCTR Wide and Deep Model with Criteo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="news-example.html">NVIDIA Merlin on Microsoft’s News Dataset (MIND)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="multi_gpu_offline_inference.html">Multi-GPU Offline Inference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="hps_demo.html">Hierarchical Parameter Server Demo</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">HugeCTR training with Remote File System example</a></li>
+<li class="toctree-l2"><a class="reference internal" href="embedding_training_cache_example.html">Embedding Training Cache Example</a></li>
+<li class="toctree-l2"><a class="reference internal" href="embedding_collection.html">HugeCTR Embedding Collection</a></li>
+</ul>
+</li>
 <li class="toctree-l1"><a class="reference internal" href="multi-modal-data/index.html">Multi-modal Example Notebooks</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../api/index.html">API Documentation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../additional_resources.html">Additional Resources</a></li>
@@ -68,6 +84,7 @@
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
       <li><a href="../index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="index.html">HugeCTR Example Notebooks</a> &raquo;</li>
       <li>HugeCTR training with Remote File System example</li>
       <li class="wy-breadcrumbs-aside">
       </li>
@@ -879,7 +896,10 @@ BinaryCrossEntropyLoss                  fc2                           loss
 
            </div>
           </div>
-          <footer>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="hps_demo.html" class="btn btn-neutral float-left" title="Hierarchical Parameter Server Demo" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="embedding_training_cache_example.html" class="btn btn-neutral float-right" title="Embedding Training Cache Example" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
 
   <hr/>
 
@@ -905,6 +925,15 @@ BinaryCrossEntropyLoss                  fc2                           loss
     <span class="fa fa-caret-down"></span>
   </span>
   <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="../../v3.7/index.html">v3.7</a></dd>
+      <dd><a href="../../v3.8/index.html">v3.8</a></dd>
+      <dd><a href="../../v3.9/index.html">v3.9</a></dd>
+      <dd><a href="../../v3.9.1/index.html">v3.9.1</a></dd>
+      <dd><a href="../../v4.0/index.html">v4.0</a></dd>
+      <dd><a href="../../v4.1/index.html">v4.1</a></dd>
+    </dl>
     <dl>
       <dt>Branches</dt>
       <dd><a href="training_with_remote_filesystem.html">master</a></dd>

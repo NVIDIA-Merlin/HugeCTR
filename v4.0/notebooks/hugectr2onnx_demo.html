@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HugeCTR to ONNX Converter &mdash; Merlin HugeCTR  documentation</title><link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/mystnb.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/togglebutton.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  <script id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/underscore.js"></script>
+        <script src="../_static/doctools.js"></script>
+        <script >let toggleHintShow = 'Click to show';</script>
+        <script >let toggleHintHide = 'Click to hide';</script>
+        <script >let toggleOpenOnPrint = 'true';</script>
+        <script src="../_static/togglebutton.js"></script>
+        <script >var togglebuttonSelector = '.toggle, .admonition.dropdown, .tag_hide_input div.cell_input, .tag_hide-input div.cell_input, .tag_hide_output div.cell_output, .tag_hide-output div.cell_output, .tag_hide_cell.cell, .tag_hide-cell.cell';</script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="HugeCTR Continuous Training" href="continuous_training.html" />
+    <link rel="prev" title="Introduction to the HugeCTR Python Interface" href="hugectr_criteo.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../index.html" class="icon icon-home"> Merlin HugeCTR
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption"><span class="caption-text">HUGECTR</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../hugectr_user_guide.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../hugectr_core_features.html">Core Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../hugectr_embedding_training_cache.html">Embedding Training Cache</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../hierarchical_parameter_server/index.html">Hierarchical Parameter Server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../performance.html">Performance</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Example Notebooks</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="ecommerce-example.html">Merlin ETL, training, and inference with e-Commerce behavior data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="movie-lens-example.html">HugeCTR demo on Movie lens data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="hugectr_criteo.html">Introduction to the HugeCTR Python Interface</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">HugeCTR to ONNX Converter</a></li>
+<li class="toctree-l2"><a class="reference internal" href="continuous_training.html">HugeCTR Continuous Training</a></li>
+<li class="toctree-l2"><a class="reference internal" href="hugectr_wdl_prediction.html">HugeCTR Wide and Deep Model with Criteo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="news-example.html">NVIDIA Merlin on Microsoft’s News Dataset (MIND)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="multi_gpu_offline_inference.html">Multi-GPU Offline Inference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="hps_demo.html">Hierarchical Parameter Server Demo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="training_with_hdfs.html">HugeCTR training with HDFS example</a></li>
+<li class="toctree-l2"><a class="reference internal" href="embedding_training_cache_example.html">Embedding Training Cache Example</a></li>
+<li class="toctree-l2"><a class="reference internal" href="embedding_collection.html">HugeCTR Embedding Collection</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="multi-modal-data/index.html">Multi-modal Example Notebooks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/index.html">API Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../additional_resources.html">Additional Resources</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../release_notes.html">Release Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../hugectr_contributor_guide.html">Contributing to HugeCTR</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Merlin HugeCTR</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="index.html">HugeCTR Example Notebooks</a> &raquo;</li>
+      <li>HugeCTR to ONNX Converter</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <img alt="http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_hugectr2onnx-demo/nvidia_logo.png" src="http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_hugectr2onnx-demo/nvidia_logo.png" />
+<div class="tex2jax_ignore mathjax_ignore section" id="hugectr-to-onnx-converter">
+<h1>HugeCTR to ONNX Converter<a class="headerlink" href="#hugectr-to-onnx-converter" title="Permalink to this headline"></a></h1>
+<div class="section" id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Permalink to this headline"></a></h2>
+<p>To improve compatibility and interoperability with other deep-learning frameworks, we provide a Python module to convert HugeCTR models to ONNX.
+ONNX serves as an open-source format for AI models.
+Basically, this converter requires the model graph in JSON, dense model, and sparse models as inputs and saves the converted ONNX model to the specified path.
+All the required input files can be obtained with HugeCTR training APIs and the whole workflow can be accomplished seamlessly in Python.</p>
+<p>This notebook demonstrates how to access and use the HugeCTR to ONNX converter.
+Please make sure that you are familiar with HugeCTR training APIs which will be covered here to ensure the completeness.
+For more details of the usage of this converter, refer to the HugeCTR to ONNX Converter in the <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/tree/master/onnx_converter">onnx_converter</a> directory of the repository.</p>
+</div>
+<div class="section" id="access-the-hugectr-to-onnx-converter">
+<h2>Access the HugeCTR to ONNX Converter<a class="headerlink" href="#access-the-hugectr-to-onnx-converter" title="Permalink to this headline"></a></h2>
+<p>Make sure that you start the notebook inside a running 22.09 or later NGC docker container: <code class="docutils literal notranslate"><span class="pre">nvcr.io/nvidia/merlin/merlin-hugectr:22.09</span></code>.
+The module of the ONNX converter is installed to the path <code class="docutils literal notranslate"><span class="pre">/usr/local/lib/python3.8/dist-packages</span></code>.
+As for HugeCTR Python interface, a dynamic link to the <code class="docutils literal notranslate"><span class="pre">hugectr.so</span></code> library is installed to the path <code class="docutils literal notranslate"><span class="pre">/usr/local/hugectr/lib/</span></code>.
+You can access the ONNX converter as well as HugeCTR Python interface anywhere within the container.</p>
+<p>Run the following cell to confirm that the HugeCTR Python interface can be accessed correctly.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">hugectr</span>
+</pre></div>
+</div>
+</div>
+</div>
+<p>Run the following cell to confirm that the HugeCTR to ONNX converter can be accessed correctly.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">hugectr2onnx</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="wide-and-deep-model">
+<h2>Wide and Deep Model<a class="headerlink" href="#wide-and-deep-model" title="Permalink to this headline"></a></h2>
+<div class="section" id="download-and-preprocess-data">
+<h3>Download and Preprocess Data<a class="headerlink" href="#download-and-preprocess-data" title="Permalink to this headline"></a></h3>
+<ol class="arabic">
+<li><p>Download the Criteo dataset using the following command:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ <span class="nb">cd</span> <span class="si">${</span><span class="nv">project_root</span><span class="si">}</span>/tools
+$ wget https://storage.googleapis.com/criteo-cail-datasets/day_1.gz
+</pre></div>
+</div>
+<p>In preprocessing, we will further reduce the amounts of data to speedup the preprocessing, fill missing values, remove the feature values whose occurrences are very rare, etc. Here we choose pandas preprocessing method to make the dataset ready for HugeCTR training.</p>
+</li>
+<li><p>Preprocessing by Pandas using the following command:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ bash preprocess.sh <span class="m">1</span> wdl_data pandas <span class="m">1</span> <span class="m">1</span> <span class="m">100</span>
+</pre></div>
+</div>
+<p>The first argument represents the dataset postfix. It is 1 here since day_1 is used. The second argument wdl_data is where the preprocessed data is stored. The fourth argument (one after pandas) 1 embodies that the normalization is applied to dense features. The fifth argument 1 means that the feature crossing is applied. The last argument 100 means the number of data files in each file list.</p>
+</li>
+<li><p>Create a soft link to the dataset folder using the following command:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ ln -s <span class="si">${</span><span class="nv">project_root</span><span class="si">}</span>/tools/wdl_data <span class="si">${</span><span class="nv">project_root</span><span class="si">}</span>/notebooks/wdl_data
+</pre></div>
+</div>
+</li>
+</ol>
+</div>
+<div class="section" id="train-the-hugectr-model">
+<h3>Train the HugeCTR Model<a class="headerlink" href="#train-the-hugectr-model" title="Permalink to this headline"></a></h3>
+<p>We can train fom scratch, dump the model graph to a JSON file, and save the model weights and optimizer states by performing the following with Python APIs:</p>
+<ol class="arabic simple">
+<li><p>Create the solver, reader and optimizer, then initialize the model.</p></li>
+<li><p>Construct the model graph by adding input, sparse embedding and dense layers in order.</p></li>
+<li><p>Compile the model and have an overview of the model graph.</p></li>
+<li><p>Dump the model graph to the JSON file.</p></li>
+<li><p>Fit the model, save the model weights and optimizer states implicitly.</p></li>
+</ol>
+<p>Please note that the training mode is determined by <code class="docutils literal notranslate"><span class="pre">repeat_dataset</span></code> within <code class="docutils literal notranslate"><span class="pre">hugectr.CreateSolver</span></code>.
+If it is <code class="docutils literal notranslate"><span class="pre">True</span></code>, the non-epoch mode training is adopted and the maximum iterations should be specified by <code class="docutils literal notranslate"><span class="pre">max_iter</span></code> within <code class="docutils literal notranslate"><span class="pre">hugectr.Model.fit</span></code>.
+If it is <code class="docutils literal notranslate"><span class="pre">False</span></code>, the epoch-mode training is adopted and the number of epochs should be specified by <code class="docutils literal notranslate"><span class="pre">num_epochs</span></code> within <code class="docutils literal notranslate"><span class="pre">hugectr.Model.fit</span></code>.</p>
+<p>The optimizer that is used to initialize the model applies to the weights of dense layers, while the optimizer for each sparse embedding layer can be specified independently within <code class="docutils literal notranslate"><span class="pre">hugectr.SparseEmbedding</span></code>.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">%%writefile</span> wdl_train.py
+<span class="kn">import</span> <span class="nn">hugectr</span>
+<span class="kn">from</span> <span class="nn">mpi4py</span> <span class="kn">import</span> <span class="n">MPI</span>
+<span class="n">solver</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">CreateSolver</span><span class="p">(</span><span class="n">max_eval_batches</span> <span class="o">=</span> <span class="mi">300</span><span class="p">,</span>
+                              <span class="n">batchsize_eval</span> <span class="o">=</span> <span class="mi">16384</span><span class="p">,</span>
+                              <span class="n">batchsize</span> <span class="o">=</span> <span class="mi">16384</span><span class="p">,</span>
+                              <span class="n">lr</span> <span class="o">=</span> <span class="mf">0.001</span><span class="p">,</span>
+                              <span class="n">vvgpu</span> <span class="o">=</span> <span class="p">[[</span><span class="mi">0</span><span class="p">]],</span>
+                              <span class="n">repeat_dataset</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span>
+<span class="n">reader</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">DataReaderParams</span><span class="p">(</span><span class="n">data_reader_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">DataReaderType_t</span><span class="o">.</span><span class="n">Norm</span><span class="p">,</span>
+                                  <span class="n">source</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;./wdl_data/file_list.txt&quot;</span><span class="p">],</span>
+                                  <span class="n">eval_source</span> <span class="o">=</span> <span class="s2">&quot;./wdl_data/file_list_test.txt&quot;</span><span class="p">,</span>
+                                  <span class="n">check_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Check_t</span><span class="o">.</span><span class="n">Sum</span><span class="p">)</span>
+<span class="n">optimizer</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">CreateOptimizer</span><span class="p">(</span><span class="n">optimizer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Optimizer_t</span><span class="o">.</span><span class="n">Adam</span><span class="p">,</span>
+                                    <span class="n">update_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Update_t</span><span class="o">.</span><span class="n">Global</span><span class="p">,</span>
+                                    <span class="n">beta1</span> <span class="o">=</span> <span class="mf">0.9</span><span class="p">,</span>
+                                    <span class="n">beta2</span> <span class="o">=</span> <span class="mf">0.999</span><span class="p">,</span>
+                                    <span class="n">epsilon</span> <span class="o">=</span> <span class="mf">0.0000001</span><span class="p">)</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Model</span><span class="p">(</span><span class="n">solver</span><span class="p">,</span> <span class="n">reader</span><span class="p">,</span> <span class="n">optimizer</span><span class="p">)</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">Input</span><span class="p">(</span><span class="n">label_dim</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">label_name</span> <span class="o">=</span> <span class="s2">&quot;label&quot;</span><span class="p">,</span>
+                        <span class="n">dense_dim</span> <span class="o">=</span> <span class="mi">13</span><span class="p">,</span> <span class="n">dense_name</span> <span class="o">=</span> <span class="s2">&quot;dense&quot;</span><span class="p">,</span>
+                        <span class="n">data_reader_sparse_param_array</span> <span class="o">=</span> 
+                        <span class="p">[</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DataReaderSparseParam</span><span class="p">(</span><span class="s2">&quot;wide_data&quot;</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span>
+                        <span class="n">hugectr</span><span class="o">.</span><span class="n">DataReaderSparseParam</span><span class="p">(</span><span class="s2">&quot;deep_data&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="mi">26</span><span class="p">)]))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">SparseEmbedding</span><span class="p">(</span><span class="n">embedding_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Embedding_t</span><span class="o">.</span><span class="n">DistributedSlotSparseEmbeddingHash</span><span class="p">,</span> 
+                            <span class="n">workspace_size_per_gpu_in_mb</span> <span class="o">=</span> <span class="mi">75</span><span class="p">,</span>
+                            <span class="n">embedding_vec_size</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+                            <span class="n">combiner</span> <span class="o">=</span> <span class="s2">&quot;sum&quot;</span><span class="p">,</span>
+                            <span class="n">sparse_embedding_name</span> <span class="o">=</span> <span class="s2">&quot;sparse_embedding2&quot;</span><span class="p">,</span>
+                            <span class="n">bottom_name</span> <span class="o">=</span> <span class="s2">&quot;wide_data&quot;</span><span class="p">,</span>
+                            <span class="n">optimizer</span> <span class="o">=</span> <span class="n">optimizer</span><span class="p">))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">SparseEmbedding</span><span class="p">(</span><span class="n">embedding_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Embedding_t</span><span class="o">.</span><span class="n">DistributedSlotSparseEmbeddingHash</span><span class="p">,</span> 
+                            <span class="n">workspace_size_per_gpu_in_mb</span> <span class="o">=</span> <span class="mi">1074</span><span class="p">,</span>
+                            <span class="n">embedding_vec_size</span> <span class="o">=</span> <span class="mi">16</span><span class="p">,</span>
+                            <span class="n">combiner</span> <span class="o">=</span> <span class="s2">&quot;sum&quot;</span><span class="p">,</span>
+                            <span class="n">sparse_embedding_name</span> <span class="o">=</span> <span class="s2">&quot;sparse_embedding1&quot;</span><span class="p">,</span>
+                            <span class="n">bottom_name</span> <span class="o">=</span> <span class="s2">&quot;deep_data&quot;</span><span class="p">,</span>
+                            <span class="n">optimizer</span> <span class="o">=</span> <span class="n">optimizer</span><span class="p">))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">Reshape</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;sparse_embedding1&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;reshape1&quot;</span><span class="p">],</span>
+                            <span class="n">leading_dim</span><span class="o">=</span><span class="mi">416</span><span class="p">))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">Reshape</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;sparse_embedding2&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;reshape2&quot;</span><span class="p">],</span>
+                            <span class="n">leading_dim</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">Concat</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;reshape1&quot;</span><span class="p">,</span> <span class="s2">&quot;dense&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;concat1&quot;</span><span class="p">]))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">InnerProduct</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;concat1&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;fc1&quot;</span><span class="p">],</span>
+                            <span class="n">num_output</span><span class="o">=</span><span class="mi">1024</span><span class="p">))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">ReLU</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;fc1&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;relu1&quot;</span><span class="p">]))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">Dropout</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;relu1&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;dropout1&quot;</span><span class="p">],</span>
+                            <span class="n">dropout_rate</span><span class="o">=</span><span class="mf">0.5</span><span class="p">))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">InnerProduct</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;dropout1&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;fc2&quot;</span><span class="p">],</span>
+                            <span class="n">num_output</span><span class="o">=</span><span class="mi">1024</span><span class="p">))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">ReLU</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;fc2&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;relu2&quot;</span><span class="p">]))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">Dropout</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;relu2&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;dropout2&quot;</span><span class="p">],</span>
+                            <span class="n">dropout_rate</span><span class="o">=</span><span class="mf">0.5</span><span class="p">))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">InnerProduct</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;dropout2&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;fc3&quot;</span><span class="p">],</span>
+                            <span class="n">num_output</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">Add</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;fc3&quot;</span><span class="p">,</span> <span class="s2">&quot;reshape2&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;add1&quot;</span><span class="p">]))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hugectr</span><span class="o">.</span><span class="n">DenseLayer</span><span class="p">(</span><span class="n">layer_type</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Layer_t</span><span class="o">.</span><span class="n">BinaryCrossEntropyLoss</span><span class="p">,</span>
+                            <span class="n">bottom_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;add1&quot;</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">],</span>
+                            <span class="n">top_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;loss&quot;</span><span class="p">]))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">graph_to_json</span><span class="p">(</span><span class="s2">&quot;wdl.json&quot;</span><span class="p">)</span>
+<span class="n">model</span><span class="o">.</span><span class="n">compile</span><span class="p">()</span>
+<span class="n">model</span><span class="o">.</span><span class="n">summary</span><span class="p">()</span>
+<span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">max_iter</span> <span class="o">=</span> <span class="mi">2300</span><span class="p">,</span> <span class="n">display</span> <span class="o">=</span> <span class="mi">200</span><span class="p">,</span> <span class="n">eval_interval</span> <span class="o">=</span> <span class="mi">1000</span><span class="p">,</span> <span class="n">snapshot</span> <span class="o">=</span> <span class="mi">2000</span><span class="p">,</span> <span class="n">snapshot_prefix</span> <span class="o">=</span> <span class="s2">&quot;wdl&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Overwriting wdl_train.py
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>python3 wdl_train.py
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>====================================================Model Init=====================================================
+[17d09h39m52s][HUGECTR][INFO]: Global seed is 2566812942
+[17d09h39m53s][HUGECTR][INFO]: Device to NUMA mapping:
+  GPU 0 -&gt;  node 0
+
+[17d09h39m55s][HUGECTR][INFO]: Peer-to-peer access cannot be fully enabled.
+[17d09h39m55s][HUGECTR][INFO]: Start all2all warmup
+[17d09h39m55s][HUGECTR][INFO]: End all2all warmup
+[17d09h39m55s][HUGECTR][INFO]: Using All-reduce algorithm OneShot
+Device 0: Tesla V100-SXM2-16GB
+[17d09h39m55s][HUGECTR][INFO]: num of DataReader workers: 12
+[17d09h39m55s][HUGECTR][INFO]: max_vocabulary_size_per_gpu_=6553600
+[17d09h39m55s][HUGECTR][INFO]: max_vocabulary_size_per_gpu_=5865472
+[17d09h39m55s][HUGECTR][INFO]: Save the model graph to wdl.json, successful
+===================================================Model Compile===================================================
+[17d09h40m31s][HUGECTR][INFO]: gpu0 start to init embedding
+[17d09h40m31s][HUGECTR][INFO]: gpu0 init embedding done
+[17d09h40m31s][HUGECTR][INFO]: gpu0 start to init embedding
+[17d09h40m31s][HUGECTR][INFO]: gpu0 init embedding done
+[17d09h40m31s][HUGECTR][INFO]: Starting AUC NCCL warm-up
+[17d09h40m31s][HUGECTR][INFO]: Warm-up done
+===================================================Model Summary===================================================
+Label                                   Dense                         Sparse                        
+label                                   dense                          wide_data,deep_data           
+(None, 1)                               (None, 13)                              
+------------------------------------------------------------------------------------------------------------------
+Layer Type                              Input Name                    Output Name                   Output Shape                  
+------------------------------------------------------------------------------------------------------------------
+DistributedSlotSparseEmbeddingHash      wide_data                     sparse_embedding2             (None, 1, 1)                  
+DistributedSlotSparseEmbeddingHash      deep_data                     sparse_embedding1             (None, 26, 16)                
+Reshape                                 sparse_embedding1             reshape1                      (None, 416)                   
+Reshape                                 sparse_embedding2             reshape2                      (None, 1)                     
+Concat                                  reshape1,dense                concat1                       (None, 429)                   
+InnerProduct                            concat1                       fc1                           (None, 1024)                  
+ReLU                                    fc1                           relu1                         (None, 1024)                  
+Dropout                                 relu1                         dropout1                      (None, 1024)                  
+InnerProduct                            dropout1                      fc2                           (None, 1024)                  
+ReLU                                    fc2                           relu2                         (None, 1024)                  
+Dropout                                 relu2                         dropout2                      (None, 1024)                  
+InnerProduct                            dropout2                      fc3                           (None, 1)                     
+Add                                     fc3,reshape2                  add1                          (None, 1)                     
+BinaryCrossEntropyLoss                  add1,label                    loss                                                        
+------------------------------------------------------------------------------------------------------------------
+=====================================================Model Fit=====================================================
+[17d90h40m31s][HUGECTR][INFO]: Use non-epoch mode with number of iterations: 2300
+[17d90h40m31s][HUGECTR][INFO]: Training batchsize: 16384, evaluation batchsize: 16384
+[17d90h40m31s][HUGECTR][INFO]: Evaluation interval: 1000, snapshot interval: 2000
+[17d90h40m31s][HUGECTR][INFO]: Sparse embedding trainable: 1, dense network trainable: 1
+[17d90h40m31s][HUGECTR][INFO]: Use mixed precision: 0, scaler: 1.000000, use cuda graph: 1
+[17d90h40m31s][HUGECTR][INFO]: lr: 0.001000, warmup_steps: 1, decay_start: 0, decay_steps: 1, decay_power: 2.000000, end_lr: 0.000000
+[17d90h40m31s][HUGECTR][INFO]: Training source file: ./wdl_data/file_list.txt
+[17d90h40m31s][HUGECTR][INFO]: Evaluation source file: ./wdl_data/file_list_test.txt
+[17d90h40m35s][HUGECTR][INFO]: Iter: 200 Time(200 iters): 4.140480s Loss: 0.130462 lr:0.001000
+[17d90h40m39s][HUGECTR][INFO]: Iter: 400 Time(200 iters): 4.015980s Loss: 0.127865 lr:0.001000
+[17d90h40m43s][HUGECTR][INFO]: Iter: 600 Time(200 iters): 4.015593s Loss: 0.125415 lr:0.001000
+[17d90h40m47s][HUGECTR][INFO]: Iter: 800 Time(200 iters): 4.014245s Loss: 0.132623 lr:0.001000
+[17d90h40m51s][HUGECTR][INFO]: Iter: 1000 Time(200 iters): 4.016144s Loss: 0.128454 lr:0.001000
+[17d90h40m53s][HUGECTR][INFO]: Evaluation, AUC: 0.771219
+[17d90h40m53s][HUGECTR][INFO]: Eval Time for 300 iters: 1.542828s
+[17d90h40m57s][HUGECTR][INFO]: Iter: 1200 Time(200 iters): 5.570898s Loss: 0.130795 lr:0.001000
+[17d90h41m10s][HUGECTR][INFO]: Iter: 1400 Time(200 iters): 4.013813s Loss: 0.135299 lr:0.001000
+[17d90h41m50s][HUGECTR][INFO]: Iter: 1600 Time(200 iters): 4.016540s Loss: 0.130995 lr:0.001000
+[17d90h41m90s][HUGECTR][INFO]: Iter: 1800 Time(200 iters): 4.017910s Loss: 0.132997 lr:0.001000
+[17d90h41m13s][HUGECTR][INFO]: Iter: 2000 Time(200 iters): 4.015891s Loss: 0.119502 lr:0.001000
+[17d90h41m14s][HUGECTR][INFO]: Evaluation, AUC: 0.778875
+[17d90h41m14s][HUGECTR][INFO]: Eval Time for 300 iters: 1.545023s
+[17d90h41m14s][HUGECTR][INFO]: Rank0: Write hash table to file
+[17d90h41m16s][HUGECTR][INFO]: Rank0: Write hash table to file
+[17d90h41m18s][HUGECTR][INFO]: Dumping sparse weights to files, successful
+[17d90h41m18s][HUGECTR][INFO]: Rank0: Write optimzer state to file
+[17d90h41m18s][HUGECTR][INFO]: Done
+[17d90h41m18s][HUGECTR][INFO]: Rank0: Write optimzer state to file
+[17d90h41m18s][HUGECTR][INFO]: Done
+[17d90h41m20s][HUGECTR][INFO]: Rank0: Write optimzer state to file
+[17d90h41m20s][HUGECTR][INFO]: Done
+[17d90h41m21s][HUGECTR][INFO]: Rank0: Write optimzer state to file
+[17d90h41m21s][HUGECTR][INFO]: Done
+[17d90h41m32s][HUGECTR][INFO]: Dumping sparse optimzer states to files, successful
+[17d90h41m32s][HUGECTR][INFO]: Dumping dense weights to file, successful
+[17d90h41m32s][HUGECTR][INFO]: Dumping dense optimizer states to file, successful
+[17d90h41m32s][HUGECTR][INFO]: Dumping untrainable weights to file, successful
+[17d90h41m37s][HUGECTR][INFO]: Iter: 2200 Time(200 iters): 24.012700s Loss: 0.128822 lr:0.001000
+Finish 2300 iterations with batchsize: 16384 in 67.90s
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="convert-to-onnx">
+<h3>Convert to ONNX<a class="headerlink" href="#convert-to-onnx" title="Permalink to this headline"></a></h3>
+<p>We can convert the trained HugeCTR model to ONNX with a call to <code class="docutils literal notranslate"><span class="pre">hugectr2onnx.converter.convert</span></code>. We can specify whether to convert the sparse embeddings via the flag <code class="docutils literal notranslate"><span class="pre">convert_embedding</span></code> and do not need to provide the sparse models if it is set as <code class="docutils literal notranslate"><span class="pre">False</span></code>. In this notebook, both dense and sparse parts of the HugeCTR model will be converted to ONNX, in order that we can check the correctness of the conversion more easily by comparing inference results based on HugeCTR and ONNX Runtime.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">hugectr2onnx</span>
+<span class="n">hugectr2onnx</span><span class="o">.</span><span class="n">converter</span><span class="o">.</span><span class="n">convert</span><span class="p">(</span><span class="n">onnx_model_path</span> <span class="o">=</span> <span class="s2">&quot;wdl.onnx&quot;</span><span class="p">,</span>
+                            <span class="n">graph_config</span> <span class="o">=</span> <span class="s2">&quot;wdl.json&quot;</span><span class="p">,</span>
+                            <span class="n">dense_model</span> <span class="o">=</span> <span class="s2">&quot;wdl_dense_2000.model&quot;</span><span class="p">,</span>
+                            <span class="n">convert_embedding</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+                            <span class="n">sparse_models</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;wdl0_sparse_2000.model&quot;</span><span class="p">,</span> <span class="s2">&quot;wdl1_sparse_2000.model&quot;</span><span class="p">])</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>The model is checked!
+The model is saved at wdl.onnx
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="inference-with-onnx-runtime-and-hugectr">
+<h3>Inference with ONNX Runtime and HugeCTR<a class="headerlink" href="#inference-with-onnx-runtime-and-hugectr" title="Permalink to this headline"></a></h3>
+<p>To make inferences with the ONNX runtime, we need to read samples from the data and feed them to the ONNX inference session. Specifically, we need to extract dense features, wide sparse features and deep sparse features from the preprocessed Wide&amp;Deep dataset. To guarantee fair comparison with HugeCTR inference, we will use the first data file within <code class="docutils literal notranslate"><span class="pre">./wdl_data/file_list_test.txt</span></code>, i.e., <code class="docutils literal notranslate"><span class="pre">./wdl_data/val/sparse_embedding0.data</span></code>, and make inference for the same number of samples (should be less than the total number of samples within <code class="docutils literal notranslate"><span class="pre">./wdl_data/val/sparse_embedding0.data</span></code>).</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">struct</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="k">def</span> <span class="nf">read_samples_for_wdl</span><span class="p">(</span><span class="n">data_file</span><span class="p">,</span> <span class="n">num_samples</span><span class="p">,</span> <span class="n">key_type</span><span class="o">=</span><span class="s2">&quot;I32&quot;</span><span class="p">,</span> <span class="n">slot_num</span><span class="o">=</span><span class="mi">27</span><span class="p">):</span>
+    <span class="n">key_type_map</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;I32&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;I&quot;</span><span class="p">,</span> <span class="mi">4</span><span class="p">],</span> <span class="s2">&quot;I64&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;q&quot;</span><span class="p">,</span> <span class="mi">8</span><span class="p">]}</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">data_file</span><span class="p">,</span> <span class="s1">&#39;rb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
+        <span class="c1"># skip data_header</span>
+        <span class="n">file</span><span class="o">.</span><span class="n">seek</span><span class="p">(</span><span class="mi">4</span> <span class="o">+</span> <span class="mi">64</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="n">batch_label</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">batch_dense</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">batch_wide_data</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">batch_deep_data</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_samples</span><span class="p">):</span>
+            <span class="c1"># one sample</span>
+            <span class="n">length_buffer</span> <span class="o">=</span> <span class="n">file</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span> <span class="c1"># int</span>
+            <span class="n">length</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">unpack</span><span class="p">(</span><span class="s1">&#39;i&#39;</span><span class="p">,</span> <span class="n">length_buffer</span><span class="p">)</span>
+            <span class="n">label_buffer</span> <span class="o">=</span> <span class="n">file</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span> <span class="c1"># int</span>
+            <span class="n">label</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">unpack</span><span class="p">(</span><span class="s1">&#39;i&#39;</span><span class="p">,</span> <span class="n">label_buffer</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">dense_buffer</span> <span class="o">=</span> <span class="n">file</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="mi">4</span> <span class="o">*</span> <span class="mi">13</span><span class="p">)</span> <span class="c1"># dense_dim * float</span>
+            <span class="n">dense</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">unpack</span><span class="p">(</span><span class="s2">&quot;13f&quot;</span><span class="p">,</span> <span class="n">dense_buffer</span><span class="p">)</span>
+            <span class="n">keys</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">slot_num</span><span class="p">):</span>
+                <span class="n">nnz_buffer</span> <span class="o">=</span> <span class="n">file</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span> <span class="c1"># int</span>
+                <span class="n">nnz</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">unpack</span><span class="p">(</span><span class="s2">&quot;i&quot;</span><span class="p">,</span> <span class="n">nnz_buffer</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="n">key_buffer</span> <span class="o">=</span> <span class="n">file</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">key_type_map</span><span class="p">[</span><span class="n">key_type</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">nnz</span><span class="p">)</span> <span class="c1"># nnz * sizeof(key_type)</span>
+                <span class="n">key</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">unpack</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">nnz</span><span class="p">)</span> <span class="o">+</span> <span class="n">key_type_map</span><span class="p">[</span><span class="n">key_type</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="n">key_buffer</span><span class="p">)</span>
+                <span class="n">keys</span> <span class="o">+=</span> <span class="nb">list</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+            <span class="n">check_bit_buffer</span> <span class="o">=</span> <span class="n">file</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="c1"># char</span>
+            <span class="n">check_bit</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">unpack</span><span class="p">(</span><span class="s2">&quot;c&quot;</span><span class="p">,</span> <span class="n">check_bit_buffer</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">batch_label</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">label</span><span class="p">)</span>
+            <span class="n">batch_dense</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">dense</span><span class="p">)</span>
+            <span class="n">batch_wide_data</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">keys</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">2</span><span class="p">])</span>
+            <span class="n">batch_deep_data</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">keys</span><span class="p">[</span><span class="mi">2</span><span class="p">:</span><span class="mi">28</span><span class="p">])</span>
+    <span class="n">batch_label</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">batch_label</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">),</span> <span class="n">newshape</span><span class="o">=</span><span class="p">(</span><span class="n">num_samples</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+    <span class="n">batch_dense</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">batch_dense</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">),</span> <span class="n">newshape</span><span class="o">=</span><span class="p">(</span><span class="n">num_samples</span><span class="p">,</span> <span class="mi">13</span><span class="p">))</span>
+    <span class="n">batch_wide_data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">batch_wide_data</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">),</span> <span class="n">newshape</span><span class="o">=</span><span class="p">(</span><span class="n">num_samples</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
+    <span class="n">batch_deep_data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">batch_deep_data</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">),</span> <span class="n">newshape</span><span class="o">=</span><span class="p">(</span><span class="n">num_samples</span><span class="p">,</span> <span class="mi">26</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">batch_label</span><span class="p">,</span> <span class="n">batch_dense</span><span class="p">,</span> <span class="n">batch_wide_data</span><span class="p">,</span> <span class="n">batch_deep_data</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">batch_size</span> <span class="o">=</span> <span class="mi">64</span>
+<span class="n">num_batches</span> <span class="o">=</span> <span class="mi">100</span>
+<span class="n">data_file</span> <span class="o">=</span> <span class="s2">&quot;./wdl_data/val/sparse_embedding0.data&quot;</span> <span class="c1"># there are totally 40960 samples</span>
+<span class="n">onnx_model_path</span> <span class="o">=</span> <span class="s2">&quot;wdl.onnx&quot;</span>
+
+<span class="n">label</span><span class="p">,</span> <span class="n">dense</span><span class="p">,</span> <span class="n">wide_data</span><span class="p">,</span> <span class="n">deep_data</span> <span class="o">=</span> <span class="n">read_samples_for_wdl</span><span class="p">(</span><span class="n">data_file</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">*</span><span class="n">num_batches</span><span class="p">,</span> <span class="n">key_type</span><span class="o">=</span><span class="s2">&quot;I32&quot;</span><span class="p">,</span> <span class="n">slot_num</span> <span class="o">=</span> <span class="mi">27</span><span class="p">)</span>
+<span class="kn">import</span> <span class="nn">onnxruntime</span> <span class="k">as</span> <span class="nn">ort</span>
+<span class="n">sess</span> <span class="o">=</span> <span class="n">ort</span><span class="o">.</span><span class="n">InferenceSession</span><span class="p">(</span><span class="n">onnx_model_path</span><span class="p">)</span>
+<span class="n">res</span> <span class="o">=</span> <span class="n">sess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">output_names</span><span class="o">=</span><span class="p">[</span><span class="n">sess</span><span class="o">.</span><span class="n">get_outputs</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">name</span><span class="p">],</span>
+                  <span class="n">input_feed</span><span class="o">=</span><span class="p">{</span><span class="n">sess</span><span class="o">.</span><span class="n">get_inputs</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="n">dense</span><span class="p">,</span> <span class="n">sess</span><span class="o">.</span><span class="n">get_inputs</span><span class="p">()[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="n">wide_data</span><span class="p">,</span> <span class="n">sess</span><span class="o">.</span><span class="n">get_inputs</span><span class="p">()[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="n">deep_data</span><span class="p">})</span>
+<span class="n">onnx_preds</span> <span class="o">=</span> <span class="n">res</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="n">batch_size</span><span class="o">*</span><span class="n">num_batches</span><span class="p">,))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;ONNX Runtime Predicions:&quot;</span><span class="p">,</span> <span class="n">onnx_preds</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>ONNX Runtime Predicions: [0.02525118 0.00920713 0.0080741  ... 0.02893934 0.02577347 0.1296753 ]
+</pre></div>
+</div>
+</div>
+</div>
+<p>We can then make inference based on HugeCTR APIs and compare the prediction results.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">dense_model</span> <span class="o">=</span> <span class="s2">&quot;wdl_dense_2000.model&quot;</span>
+<span class="n">sparse_models</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;wdl0_sparse_2000.model&quot;</span><span class="p">,</span> <span class="s2">&quot;wdl1_sparse_2000.model&quot;</span><span class="p">]</span>
+<span class="n">graph_config</span> <span class="o">=</span> <span class="s2">&quot;wdl.json&quot;</span>
+<span class="n">data_source</span> <span class="o">=</span> <span class="s2">&quot;./wdl_data/file_list_test.txt&quot;</span>
+<span class="kn">import</span> <span class="nn">hugectr</span>
+<span class="kn">from</span> <span class="nn">mpi4py</span> <span class="kn">import</span> <span class="n">MPI</span>
+<span class="kn">from</span> <span class="nn">hugectr.inference</span> <span class="kn">import</span> <span class="n">InferenceParams</span><span class="p">,</span> <span class="n">CreateInferenceSession</span>
+<span class="n">inference_params</span> <span class="o">=</span> <span class="n">InferenceParams</span><span class="p">(</span><span class="n">model_name</span> <span class="o">=</span> <span class="s2">&quot;wdl&quot;</span><span class="p">,</span>
+                                <span class="n">max_batchsize</span> <span class="o">=</span> <span class="n">batch_size</span><span class="p">,</span>
+                                <span class="n">hit_rate_threshold</span> <span class="o">=</span> <span class="mf">0.6</span><span class="p">,</span>
+                                <span class="n">dense_model_file</span> <span class="o">=</span> <span class="n">dense_model</span><span class="p">,</span>
+                                <span class="n">sparse_model_files</span> <span class="o">=</span> <span class="n">sparse_models</span><span class="p">,</span>
+                                <span class="n">device_id</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+                                <span class="n">use_gpu_embedding_cache</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+                                <span class="n">cache_size_percentage</span> <span class="o">=</span> <span class="mf">0.6</span><span class="p">,</span>
+                                <span class="n">i64_input_key</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span>
+<span class="n">inference_session</span> <span class="o">=</span> <span class="n">CreateInferenceSession</span><span class="p">(</span><span class="n">graph_config</span><span class="p">,</span> <span class="n">inference_params</span><span class="p">)</span>
+<span class="n">hugectr_preds</span> <span class="o">=</span> <span class="n">inference_session</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">num_batches</span><span class="p">,</span> <span class="n">data_source</span><span class="p">,</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">DataReaderType_t</span><span class="o">.</span><span class="n">Norm</span><span class="p">,</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Check_t</span><span class="o">.</span><span class="n">Sum</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;HugeCTR Predictions: &quot;</span><span class="p">,</span> <span class="n">hugectr_preds</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>[17d09h43m49s][HUGECTR][INFO]: default_emb_vec_value is not specified using default: 0.000000
+[17d09h43m49s][HUGECTR][INFO]: default_emb_vec_value is not specified using default: 0.000000
+[17d09h43m53s][HUGECTR][INFO]: Global seed is 3782721491
+[17d09h43m55s][HUGECTR][INFO]: Peer-to-peer access cannot be fully enabled.
+[17d09h43m55s][HUGECTR][INFO]: Start all2all warmup
+[17d09h43m55s][HUGECTR][INFO]: End all2all warmup
+[17d09h43m55s][HUGECTR][INFO]: Use mixed precision: 0
+[17d09h43m55s][HUGECTR][INFO]: start create embedding for inference
+[17d09h43m55s][HUGECTR][INFO]: sparse_input name wide_data
+[17d09h43m55s][HUGECTR][INFO]: sparse_input name deep_data
+[17d09h43m55s][HUGECTR][INFO]: create embedding for inference success
+[17d09h43m55s][HUGECTR][INFO]: Inference stage skip BinaryCrossEntropyLoss layer, replaced by Sigmoid layer
+HugeCTR Predictions:  [0.02525118 0.00920718 0.00807416 ... 0.0289393  0.02577345 0.12967525]
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Min absolute error: &quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">onnx_preds</span><span class="o">-</span><span class="n">hugectr_preds</span><span class="p">)))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Mean absolute error: &quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">onnx_preds</span><span class="o">-</span><span class="n">hugectr_preds</span><span class="p">)))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Max absolute error: &quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">onnx_preds</span><span class="o">-</span><span class="n">hugectr_preds</span><span class="p">)))</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Min absolute error:  0.0
+Mean absolute error:  2.3289697e-08
+Max absolute error:  1.1920929e-07
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="api-signature-for-hugectr2onnx-converter">
+<h2>API Signature for hugectr2onnx.converter<a class="headerlink" href="#api-signature-for-hugectr2onnx-converter" title="Permalink to this headline"></a></h2>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>NAME
+    hugectr2onnx.converter
+
+FUNCTIONS
+    convert<span class="o">(</span>onnx_model_path, graph_config, dense_model, <span class="nv">convert_embedding</span><span class="o">=</span>False, <span class="nv">sparse_models</span><span class="o">=[]</span>, <span class="nv">ntp_file</span><span class="o">=</span>None, <span class="nv">graph_name</span><span class="o">=</span><span class="s1">&#39;hugectr&#39;</span><span class="o">)</span>
+        Convert a HugeCTR model to an ONNX model
+        Args:
+            onnx_model_path: the path to store the ONNX model
+            graph_config: the graph configuration JSON file of the HugeCTR model
+            dense_model: the file of the dense weights <span class="k">for</span> the HugeCTR model
+            convert_embedding: whether to convert the sparse embeddings <span class="k">for</span> the HugeCTR model <span class="o">(</span>optional<span class="o">)</span>
+            sparse_models: the files of the sparse embeddings <span class="k">for</span> the HugeCTR model <span class="o">(</span>optional<span class="o">)</span>
+            ntp_file: the file of the non-trainable parameters <span class="k">for</span> the HugeCTR model <span class="o">(</span>optional<span class="o">)</span>
+            graph_name: the graph name <span class="k">for</span> the ONNX model <span class="o">(</span>optional<span class="o">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="hugectr_criteo.html" class="btn btn-neutral float-left" title="Introduction to the HugeCTR Python Interface" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="continuous_training.html" class="btn btn-neutral float-right" title="HugeCTR Continuous Training" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, NVIDIA.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    v: v4.0
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="../../v3.7/index.html">v3.7</a></dd>
+      <dd><a href="../../v3.8/index.html">v3.8</a></dd>
+      <dd><a href="../../v3.9/index.html">v3.9</a></dd>
+      <dd><a href="../../v3.9.1/index.html">v3.9.1</a></dd>
+      <dd><a href="hugectr2onnx_demo.html">v4.0</a></dd>
+      <dd><a href="../../v4.1/index.html">v4.1</a></dd>
+    </dl>
+    <dl>
+      <dt>Branches</dt>
+      <dd><a href="../../master/index.html">master</a></dd>
+    </dl>
+  </div>
+</div><script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

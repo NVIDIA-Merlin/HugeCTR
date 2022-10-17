@@ -21,7 +21,9 @@
         <script >var togglebuttonSelector = '.toggle, .admonition.dropdown, .tag_hide_input div.cell_input, .tag_hide-input div.cell_input, .tag_hide_output div.cell_output, .tag_hide-output div.cell_output, .tag_hide_cell.cell, .tag_hide-cell.cell';</script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
-    <link rel="search" title="Search" href="../../search.html" /> 
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Hierarchical Parameter Server API" href="../api/index.html" />
+    <link rel="prev" title="SOK to HPS DLRM Demo" href="sok_to_hps_dlrm_demo.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -40,11 +42,27 @@
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
               <p class="caption"><span class="caption-text">HUGECTR</span></p>
-<ul>
+<ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="../../hugectr_user_guide.html">Introduction</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../hugectr_core_features.html">Core Features</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../hugectr_embedding_training_cache.html">Embedding Training Cache</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../index.html">Hierarchical Parameter Server</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../index.html">Hierarchical Parameter Server</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../../hugectr_parameter_server.html">HPS Database Backend</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="../hps_tf_user_guide.html">HPS Plugin for TensorFlow</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="../hps_tf_benchmark.html">Benchmark</a></li>
+<li class="toctree-l3 current"><a class="reference internal" href="index.html">Notebooks</a><ul class="current">
+<li class="toctree-l4"><a class="reference internal" href="hierarchical_parameter_server_demo.html">Hierarchical Parameter Server Demo</a></li>
+<li class="toctree-l4"><a class="reference internal" href="hps_multi_table_sparse_input_demo.html">HPS for Multiple Tables and Sparse Inputs</a></li>
+<li class="toctree-l4"><a class="reference internal" href="hps_pretrained_model_training_demo.html">HPS Pretrained Model Training Demo</a></li>
+<li class="toctree-l4"><a class="reference internal" href="sok_to_hps_dlrm_demo.html">SOK to HPS DLRM Demo</a></li>
+<li class="toctree-l4 current"><a class="current reference internal" href="#">Deploy SavedModel using HPS with Triton TensorFlow Backend</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/index.html">API Documentation</a></li>
+</ul>
+</li>
+</ul>
+</li>
 <li class="toctree-l1"><a class="reference internal" href="../../performance.html">Performance</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../notebooks/index.html">Example Notebooks</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../notebooks/multi-modal-data/index.html">Multi-modal Example Notebooks</a></li>
@@ -68,6 +86,9 @@
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
       <li><a href="../../index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="../index.html">Hierarchical Parameter Server</a> &raquo;</li>
+          <li><a href="../hps_tf_user_guide.html">Hierarchical Parameter Server Plugin for TensorFlow</a> &raquo;</li>
+          <li><a href="index.html">Hierarchical Parameter Server Notebooks</a> &raquo;</li>
       <li>Deploy SavedModel using HPS with Triton TensorFlow Backend</li>
       <li class="wy-breadcrumbs-aside">
       </li>
@@ -77,7 +98,7 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <img alt="http://developer.download.nvidia.com/compute/machine-learning/frameworks/nvidia_logo.png" src="http://developer.download.nvidia.com/compute/machine-learning/frameworks/nvidia_logo.png" />
+  <img alt="http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_hps-hps-tensorflow-triton-deployment/nvidia_logo.png" src="http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_hps-hps-tensorflow-triton-deployment/nvidia_logo.png" />
 <div class="tex2jax_ignore mathjax_ignore section" id="deploy-savedmodel-using-hps-with-triton-tensorflow-backend">
 <h1>Deploy SavedModel using HPS with Triton TensorFlow Backend<a class="headerlink" href="#deploy-savedmodel-using-hps-with-triton-tensorflow-backend" title="Permalink to this headline"></a></h1>
 <div class="section" id="overview">
@@ -733,7 +754,10 @@ Response details:
 
            </div>
           </div>
-          <footer>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="sok_to_hps_dlrm_demo.html" class="btn btn-neutral float-left" title="SOK to HPS DLRM Demo" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../api/index.html" class="btn btn-neutral float-right" title="Hierarchical Parameter Server API" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
 
   <hr/>
 
@@ -759,6 +783,15 @@ Response details:
     <span class="fa fa-caret-down"></span>
   </span>
   <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="../../../v3.7/index.html">v3.7</a></dd>
+      <dd><a href="../../../v3.8/index.html">v3.8</a></dd>
+      <dd><a href="../../../v3.9/index.html">v3.9</a></dd>
+      <dd><a href="../../../v3.9.1/index.html">v3.9.1</a></dd>
+      <dd><a href="../../../v4.0/index.html">v4.0</a></dd>
+      <dd><a href="../../../v4.1/index.html">v4.1</a></dd>
+    </dl>
     <dl>
       <dt>Branches</dt>
       <dd><a href="hps_tensorflow_triton_deployment_demo.html">master</a></dd>
