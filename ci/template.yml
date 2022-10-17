@@ -147,6 +147,7 @@ stages:
         echo "RUN pip install ninja" >> ${JOB_DOCKERFILE};
         echo "RUN cd /workdir/hierarchical_parameter_server/ && python setup.py install" >> ${JOB_DOCKERFILE};
       fi
+    - echo "RUN rm /usr/local/cuda/lib64/stubs/libcuda.so.1" >> ${JOB_DOCKERFILE};
     - cat ${JOB_DOCKERFILE}
     - docker login -u ${CI_PRIVATE_USER} -p "${CI_PRIVATE_KEY}" "${CI_REGISTRY}"
     - if [[ "$TEST_NEW_IMAGE" == "1" ]]; then
@@ -207,6 +208,18 @@ stages:
   extends:
     - .dlcluster_job
     - .default:rules:daily-test
+  allow_failure: false
+
+.computelab_test_job_daily:
+  extends:
+    - .dlcluster_job
+    - .default:rules:daily-test
+  variables:
+    CI_SLURM_PARTITION: "a100-pcie-40gb-product,a100-pcie-80gb-product"
+    CI_SLURM_ACCOUNT: "cag"
+    WALLTIME:      "02:00:00"
+  tags:
+  - computelab_generic
   allow_failure: false
 
 .sok_test_job:

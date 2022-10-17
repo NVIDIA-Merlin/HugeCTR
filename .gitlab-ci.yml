@@ -777,35 +777,33 @@ inference_benchmark:
     TEST_CMD: ./ci/benchmark/inference_benchmark/run.sub
 
 inference_ps_test:
-  extends: .dlcluster_test_job_daily
+  extends: .computelab_test_job_daily
   allow_failure: false
   stage: test
   needs:
     - build_inference
   script:
     - export CONT=${INFER_IMAGE_VERSIONED}
-    - srun -N 1 -p dgx1v,dgx1v16g,dgx1v32g bash ./ci/integration_test/inference/ps_test.sh
+    - bash ./ci/integration_test/inference/ps_test.sh
 
 inference_embedding_cache_update_test:
-  extends: .dlcluster_test_job_daily
+  extends: .computelab_test_job_daily
   allow_failure: false
   stage: test
   needs:
     - build_inference
   script:
     - export CONT=${INFER_IMAGE_VERSIONED}
-    - srun -N 1 -p dgx1v,dgx1v16g,dgx1v32g bash ./ci/integration_test/inference/embedding_cache_update_test.sh
+    - bash ./ci/integration_test/inference/embedding_cache_update_test.sh
     
 #hdfs backend test
 hdfs_backend_test:
-  extends: .dlcluster_test_job_daily
-  allow_failure: false
-  stage: test
+  extends: .computelab_test_job_daily
   needs:
     - build_train_single_node_with_hdfs
   script:
     - export CONT=${TRAIN_IMAGE_VERSIONED_WITH_HDFS}
-    - srun -N 1 -p dgx1v32g bash ./ci/integration_test/hdfs/hdfs_backend_test.sh
+    - bash ./ci/integration_test/hdfs/hdfs_backend_test.sh
 
 wdl_check:
   # Push logs to gitlab
