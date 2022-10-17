@@ -1,5 +1,76 @@
 # Release Notes
 
+## What's New in Version 4.1
+
++ **Simplified Interface for 3G Embedding Table Placement Strategy**:
+3G embedding now provides an easier way for you to configure an embedding table placement strategy.
+Instead of using JSON, you can configure the embedding table placement strategy by using function arguments.
+You only need to provide the `shard_matrix`, `table_group_strategy`, and `table_placement_strategy` arguments.
+With these arguments, 3G embedding can group different tables together and place them according to the `shard_matrix` argument.
+For an example, refer to [dlrm_train.py](https://github.com/NVIDIA-Merlin/HugeCTR/tree/v4.1/test/embedding_collection_test/dlrm_train.py) file in the `test/embedding_collection_test` directory of the repository on GitHub.
+For comparison, refer to the [same file](https://github.com/NVIDIA-Merlin/HugeCTR/tree/v4.0/test/embedding_collection_test/dlrm_train.py) from the v4.0 branch of the repository.
+
++ **New MMoE and Shared-Bottom Samples**:
+This release includes a new shared-bottom model, an example program, preprocessing scripts, and updates to documentation.
+For more information, refer to the `README.md`, `mmoe_parquet.py`, and other files in the [`samples/mmoe`](https://github.com/NVIDIA-Merlin/HugeCTR/tree/v4.1/samples/mmoe) directory of the repository on GitHub.
+This release also includes a fix to the calculation and reporting of AUC for multi-task models, such as MMoE.
+
++ **Support for AWS S3 File System**:
+The Parquet DataReader can now read datasets from the Amazon Web Services S3 file system.
+You can also load and dump models from and to S3 during training.
+The documentation for the [`DataSourceParams`](https://nvidia-merlin.github.io/HugeCTR/v4.1/api/python_interface.html#datasourceparams-class) class is updated.
+To view sample code, refer to the [HugeCTR Training with Remote File System Example](https://nvidia-merlin.github.io/HugeCTR/v4.1/notebooks/training_with_remote_filesystem.html) class is updated.
+
++ **Simplication for File System Usage**:
+You no longer ’t need to pass `DataSourceParams` for model loading and dumping.
+The `FileSystem` class automatically infers the correct file system type, local, HDFS, or S3, based on the path URI that you specified when you built the model.
+For example, the path `hdfs://localhost:9000/` is inferred as an HDFS file system and the path `https://mybucket.s3.us-east-1.amazonaws.com/` is inferred as an S3 file system.
+
++ **Support for Loading Models from Remote File Systems to HPS**:
+This release enables you to load models from HDFS and S3 remote file systems to HPS during inference.
+To use the new feature, specify an HDFS for S3 path URI in `InferenceParams`.
+
++ **Support for Exporting Intermediate Tensor Values into a Numpy Array**:
+This release adds function `check_out_tensor` to `Model` and `InferenceModel`.
+You can use this function to check out the intermediate tensor values using the Python interface.
+This function is especially helpful for debugging.
+For more information, refer to [`Model.check_out_tensor`](https://nvidia-merlin.github.io/HugeCTR/v4.1/api/python_interface.html#check-out-tensor-method) and [`InferenceModel.check_out_tensor`](https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html#id3).
+
++ **On-Device Input Keys for HPS Lookup**:
+The HPS lookup supports input embedding keys that are on GPU memory during inference.
+This enhancement removes a host-to-device copy by using the DLPack `lookup_fromdlpack()` interface.
+By using the interface, the input DLPack capsule of embedding key can be a GPU tensor.
+
++ **Documentation Enhancements**:
+  + The graphic for the [Hierarchical Parameter Server](https://nvidia-merlin.github.io/HugeCTR/v4.1/hierarchical_parameter_server/index.html) library that shows relationship to other software packages is enhanced.
+  + The sample notebook for [Deploy SavedModel using HPS with Triton TensorFlow Backend](https://nvidia-merlin.github.io/HugeCTR/v4.1/hierarchical_parameter_server/notebooks/hps_tensorflow_triton_deployment_demo.html) is added to the documentation.
+  + Style updates to the [Hierarchical Parameter Server API](https://nvidia-merlin.github.io/HugeCTR/v4.1/hierarchical_parameter_server/api/index.html) documentation.
+
++ **Issues Fixed**:
+  + The `InteractionLayer` class is fixed so that it works correctly with `num_feas > 30`.
+  + The cuBLASLt configuration is corrected by increasing the workspace size and adding the epilogue mask.
+  + The NVTabular based preprocessing script for our samples that demonstrate feature crossing is fixed.
+  + The async data reader is fixed. Previously, it would hang and cause a corruption issue due to an improper I/O block size and I/O alignment problem.
+    The `AsyncParam` class is changed to implement the fix.
+    The `io_block_size` argument is replaced by the `max_nr_request` argument and the actual I/O block size that the async reader uses is computed accordingly.
+    For more information, refer to the [`AsyncParam`](https://nvidia-merlin.github.io/HugeCTR/v4.1/api/python_interface.html#asyncparam) class documentation.
+
++ **Known Issues**:
+  + HugeCTR uses NCCL to share data between ranks and NCCL can require shared system memory for IPC and pinned (page-locked) system memory resources.
+    If you use NCCL inside a container, increase these resources by specifying the following arguments when you start the container:
+
+    ```shell
+      -shm-size=1g -ulimit memlock=-1
+    ```
+
+    See also the NCCL [known issue](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/troubleshooting.html#sharing-data) and the GitHub [issue](https://github.com/NVIDIA-Merlin/HugeCTR/issues/243).
+  + `KafkaProducers` startup succeeds even if the target Kafka broker is unresponsive.
+    To avoid data loss in conjunction with streaming-model updates from Kafka, you have to make sure that a sufficient number of Kafka brokers are running, operating properly, and are reachable from the node where you run HugeCTR.
+  + The number of data files in the file list should be greater than or equal to the number of data reader workers.
+    Otherwise, different workers are mapped to the same file and data loading does not progress as expected.
+  + Joint loss training with a regularizer is not supported.
+  + Dumping Adam optimizer states to AWS S3 is not supported.
+
 ## What's New in Version 4.0
 
 + **3G Embedding Stablization**:
@@ -107,7 +178,7 @@ When the number of class AUCs is greater than one, the output includes a line li
 + **Enhancements to the API for the HPS Database Backend**
 This release includes several enhancements to the API for the `DatabaseBackend` class.
 For more information, see `database_backend.hpp` and the header files for other database backends in the [`HugeCTR/include/hps`](https://github.com/NVIDIA-Merlin/HugeCTR/tree/v3.9/HugeCTR/include/hps) directory of the repository.
-The enhancments are as follows:
+The enhancements are as follows:
   + You can now specify a maximum time budget, in nanoseconds, for queries so that you can build an application that must operate within strict latency limits.
     Fetch queries return execution control to the caller if the time budget is exhausted.
     The unprocessed entries are indicated to the caller through a callback function.
@@ -355,7 +426,7 @@ The default log format now includes milliseconds.
 
 + **HDFS python API enhancement**:
     + Simplified `DataSourceParams` so that users do not need to provide all the paths before they are really necessary. Now users only have to pass `DataSourceParams` once when creating a solver.
-    + Later paths will be automatically regarded as local paths or HDFS paths depending on the `DataSourceParams` setting. See [notebook](notebooks/training_with_hdfs.ipynb) for usage.
+    + Later paths will be automatically regarded as local paths or HDFS paths depending on the `DataSourceParams` setting. See [notebook](https://nvidia-merlin.github.io/HugeCTR/v3.5/notebooks/training_with_hdfs.html) for usage.
 
 + **HPS performance optimization**: We use better method to  determine partition number in database backends in HPS.
 
@@ -375,7 +446,7 @@ The default log format now includes milliseconds.
 + **Support HDFS Parameter Server in Training**:
     + Decoupled HDFS in Merlin containers to make the HDFS support more flexible. Users can now compile HDFS related functionalities optionally.
     + Now supports loading and dumping models and optimizer states from HDFS.
-    + Added a [notebook](notebooks/training_with_hdfs.ipynb) to show how to use HugeCTR with HDFS.
+    + Added a [notebook](https://nvidia-merlin.github.io/HugeCTR/v3.4.1/notebooks/training_with_hdfs.html) to show how to use HugeCTR with HDFS.
 
 + **Support Multi-hot Inference on Hugectr Backend**: We support categorical input in multi-hot format for HugeCTR Backend inference.
 

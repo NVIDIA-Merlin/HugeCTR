@@ -16,7 +16,7 @@ jobs:
       - uses: actions/checkout@v2
         with:
           submodules: recursive
-          fetch-depth: 1
+          fetch-depth: 0
       - name: Set ownership
         run: |
           chown -R $(id -u):$(id -g) $PWD
@@ -29,11 +29,11 @@ jobs:
           python -m pip install --upgrade pip setuptools==59.4.0 wheel
           python -m pip install -r docs/requirements-doc.txt
           python -m pip install scikit-build ninja
-      - name: Build HPS plugin for TF
-        run: |
-          pushd hierarchical_parameter_server
-          python3 setup.py install
-          popd
+#      - name: Build HPS plugin for TF
+#        run: |
+#          pushd hierarchical_parameter_server
+#          python3 setup.py install
+#          popd
       - name: Report the versions to build
         run: |
           sphinx-multiversion --dump-metadata docs/source docs/build/html | jq "keys"

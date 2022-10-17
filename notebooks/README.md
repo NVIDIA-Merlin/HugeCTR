@@ -76,7 +76,7 @@ Here's a list of notebooks that you can run:
 - [news-example.ipynb](news-example.ipynb): Tutorial to demonstrate NVTabular for ETL the data and HugeCTR for training Deep Neural Network models on MIND dataset.
 - [multi_gpu_offline_inference.ipynb](multi_gpu_offline_inference.ipynb): Explain how to do multi-GPU offline inference with HugeCTR Python APIs.
 - [hps_demo.ipynb](hps_demo.ipynb): Demonstrate how to utilize HPS Python APIs together with ONNX Runtime APIs to create an ensemble inference model.
-- [training_with_hdfs.ipynb](training_with_hdfs.ipynb): Demonstrates how to train a model with data that is stored in Hadoop HDFS.
+- [training_with_remote_filesystem.ipynb](training_with_remote_filesystem.ipynb): Demonstrates how to train a model with data that is stored in a remote file system such as Hadoop HDFS and AWS S3.
 
 The [multi-modal-data](./multi-modal-data/) series of notebooks demonstrate how to use of multi-modal data such as text and images for the task of movie recommendation.
 The notebooks use the Movielens-25M dataset.
