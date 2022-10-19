@@ -77,7 +77,7 @@ void softmax_fprop_cpu(T* top, const T* bottom, int len, int embedding_vector_si
       top[index] = top[index] / workspace[i];
     }
   }
-  delete workspace;
+  delete[] workspace;
 }
 
 template <typename T>
@@ -94,7 +94,7 @@ void softmax_bprop_cpu(T* d_bottom, const T* d_top, const T* softmax_out, int le
       // d_bottom[index] = workspace[i];
     }
   }
-  delete workspace;
+  delete[] workspace;
 }
 
 template <typename T>
