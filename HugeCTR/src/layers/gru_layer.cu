@@ -69,7 +69,7 @@ GRULayer<T>::GRULayer(const std::shared_ptr<BufferBlock2<T>>& weight_buff,
 
     // HCTR_LIB_THROW(cudnnSetTensor4dDescriptorEx(cDesc, data_type, 1, n, m, n,
     //  n, 1, 1, 1));
-    seqLengthArray = (int*)malloc(miniBatch * sizeof(int));
+    seqLengthArray = new int[miniBatch];
 
     for (size_t i = 0; i < miniBatch; i++) {
       seqLengthArray[i] = seqLength_;
@@ -274,7 +274,7 @@ void GRULayer<T>::fprop(bool is_train) {
       HCTR_LIB_THROW(cudnnGetTensorNdDescriptor(wDesc, 3, &data_type, &nbDims, dim, stride));
       size_t w = dim[0] * dim[1] * dim[2];
       T* h_weights = new T[w];
-      cudaMemcpy(h_weights, linLayerMat, sizeof(T) * w, cudaMemcpyDeviceToHost);
+      HCTR_LIB_THROW(cudaMemcpy(h_weights, linLayerMat, sizeof(T) * w, cudaMemcpyDeviceToHost));
 
       HCTR_LOG(INFO, ROOT, "W_%d %zu ", linLayerID, w);
       for (unsigned int i = 0; i < w; i++) {
@@ -282,14 +282,14 @@ void GRULayer<T>::fprop(bool is_train) {
       }
       HCTR_PRINT(INFO, "\n");
 
-      delete (h_weights);
+      delete[] h_weights;
     }
 
     if (linLayerBias) {
       HCTR_LIB_THROW(cudnnGetTensorNdDescriptor(bDesc, 3, &data_type, &nbDims, dim, stride));
       size_t w = dim[0] * dim[1] * dim[2];
       T* h_weights = new T[w];
-      cudaMemcpy(h_weights, linLayerBias, sizeof(T) * w, cudaMemcpyDeviceToHost);
+      HCTR_LIB_THROW(cudaMemcpy(h_weights, linLayerBias, sizeof(T) * w, cudaMemcpyDeviceToHost));
 
       HCTR_LOG(INFO, ROOT, "B_%d %zu ", linLayerID, w);
       for (unsigned int i = 0; i < w; i++) {
@@ -297,7 +297,7 @@ void GRULayer<T>::fprop(bool is_train) {
       }
       HCTR_PRINT(INFO, "\n");
 
-      delete (h_weights);
+      delete[] h_weights;
     }
   }
 
@@ -400,6 +400,7 @@ void GRULayer<T>::bprop() {
   HCTR_LIB_THROW(cudaFree(states));
   HCTR_LIB_THROW(cudnnDestroyRNNDataDescriptor(in_Desc));
   HCTR_LIB_THROW(cudnnDestroyRNNDataDescriptor(out_Desc));
+  delete[] seqLengthArray;
 
   HCTR_LIB_THROW(cudnnDestroyTensorDescriptor(hDesc));
   HCTR_LIB_THROW(cudnnDestroyTensorDescriptor(cDesc));
