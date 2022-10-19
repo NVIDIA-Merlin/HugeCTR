@@ -15,8 +15,6 @@
  */
 
 #ifdef ENABLE_MPI
-#include <immintrin.h>
-#include <x86intrin.h>
 
 #include <collectives/ib_proxy.hpp>
 
@@ -337,8 +335,8 @@ void IbvProxy::HierA2ACollContext::init_buf(const M2PHierA2ABufInit& in, P2MHier
   send_ptrs_ = (void**)malloc(sizeof(void*) * num_procs);
   recv_ptrs_ = (void**)malloc(sizeof(void*) * num_procs);
 
-  HCTR_LIB_THROW(cudaMallocHost((void**)&send_sizes_, sizeof(size_t) * num_procs));
-  HCTR_LIB_THROW(cudaMallocHost((void**)&recv_sizes_, sizeof(size_t) * num_procs));
+  HCTR_LIB_THROW(cudaMallocHost(&send_sizes_, sizeof(size_t) * num_procs));
+  HCTR_LIB_THROW(cudaMallocHost(&recv_sizes_, sizeof(size_t) * num_procs));
 
   memcpy(send_ptrs_, in.d_send_ptrs_, sizeof(void*) * num_procs);
   memcpy(recv_ptrs_, in.d_recv_ptrs_, sizeof(void*) * num_procs);
@@ -602,8 +600,8 @@ void IbvProxy::HierA2AvCollContext::init_buf(const M2PHierA2AvBufInit& in,
     }
   }
 
-  HCTR_LIB_THROW(cudaMallocHost((void**)&send_sizes_, sizeof(size_t) * num_procs_ * num_gpus_));
-  HCTR_LIB_THROW(cudaMallocHost((void**)&recv_sizes_, sizeof(size_t) * num_procs_ * num_gpus_));
+  HCTR_LIB_THROW(cudaMallocHost(&send_sizes_, sizeof(size_t) * num_procs_ * num_gpus_));
+  HCTR_LIB_THROW(cudaMallocHost(&recv_sizes_, sizeof(size_t) * num_procs_ * num_gpus_));
 
   PROXY_ASSERT(in.h_max_send_size_ == in.h_max_recv_size_);
   PROXY_ASSERT(in.h_max_send_size_ % (num_procs_ * num_gpus_) == 0);
@@ -851,10 +849,10 @@ IbvProxy::HierA2AvCollContext::~HierA2AvCollContext() {
     ibv_dereg_mr(input_mr_);
   }
   if (send_sizes_) {
-    cudaFree(send_sizes_);
+    HCTR_LIB_THROW(cudaFreeHost(send_sizes_));
   }
   if (recv_sizes_) {
-    cudaFree(recv_sizes_);
+    HCTR_LIB_THROW(cudaFreeHost(recv_sizes_));
   }
   if (wr_) {
     for (size_t n = 0; n < num_procs_; n++) {
@@ -1330,10 +1328,10 @@ IbvProxy::ARCollContext::~ARCollContext() {
     PROXY_ASSERT(ret == 0);
   }
   if (d_ag_storage_) {
-    cudaFree(d_ag_storage_);
+    HCTR_LIB_THROW(cudaFree(d_ag_storage_));
   }
   if (h_rs_cmd_) {
-    cudaFree(h_rs_cmd_);
+    HCTR_LIB_THROW(cudaFreeHost(h_rs_cmd_));
   }
   if (mem_mr) {
     sharp_coll_dereg_mr(sharp_ctx_->sharp_coll_context_, mem_mr);
