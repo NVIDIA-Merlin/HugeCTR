@@ -400,19 +400,19 @@ IbComm::HierA2ACollContext::~HierA2ACollContext() {
     for (size_t g = 0; g < num_gpus; g++) {
       HCTR_LIB_THROW(cudaFree(d_ibv_atomic_recv_[g]));
     }
-    delete d_ibv_atomic_recv_;
+    delete[] d_ibv_atomic_recv_;
   }
   if (d_ibv_atomic_) {
     for (size_t g = 0; g < num_gpus; g++) {
       HCTR_LIB_THROW(cudaFree(d_ibv_atomic_[g]));
     }
-    delete d_ibv_atomic_;
+    delete[] d_ibv_atomic_;
   }
   if (d_send_cmd_) {
     for (size_t g = 0; g < num_gpus; g++) {
       HCTR_LIB_THROW(cudaFree(d_send_cmd_[g]));
     }
-    delete d_send_cmd_;
+    delete[] d_send_cmd_;
   }
   if (cmd_storage_) {
     HCTR_LIB_THROW(cudaFreeHost(cmd_storage_));
