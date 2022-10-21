@@ -37,8 +37,10 @@ size_t LocalFileSystem::get_file_size(const std::string& path) const {
 }
 
 void LocalFileSystem::create_dir(const std::string& path) {
-  bool success = std::filesystem::create_directory(path);
-  HCTR_CHECK_HINT(success, std::string("Failed to create the directory: " + path).c_str());
+  if (!std::filesystem::exists(path)) {
+    bool success = std::filesystem::create_directories(path);
+    HCTR_CHECK_HINT(success, std::string("Failed to create the directory: " + path).c_str());
+  }
 }
 
 void LocalFileSystem::delete_file(const std::string& path, bool recursive) {

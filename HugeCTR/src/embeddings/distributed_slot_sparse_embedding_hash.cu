@@ -24,6 +24,7 @@
 #include "HugeCTR/include/data_simulator.hpp"
 #include "HugeCTR/include/embeddings/distributed_slot_sparse_embedding_hash.hpp"
 #include "HugeCTR/include/io/filesystem.hpp"
+#include "HugeCTR/include/io/io_utils.hpp"
 #include "HugeCTR/include/utils.cuh"
 
 namespace HugeCTR {
@@ -805,10 +806,14 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::dump_pa
   CudaDeviceContext context;
   size_t local_gpu_count = embedding_data_.get_resource_manager().get_local_gpu_count();
 
+  auto fs = FileSystemBuilder::build_unique_by_path(sparse_model);
+  bool is_local_path = IOUtils::is_local_path(sparse_model);
   const std::string key_file(sparse_model + "/key");
   const std::string vec_file(sparse_model + "/emb_vector");
 
 #ifdef ENABLE_MPI
+  HCTR_CHECK_HINT(is_local_path, "Dumping to remote file system in MPI mode is not supported.");
+  fs->create_dir(sparse_model);
   MPI_File key_fh, vec_fh;
   HCTR_MPI_THROW(MPI_File_open(MPI_COMM_WORLD, key_file.c_str(), MPI_MODE_CREATE | MPI_MODE_WRONLY,
                                MPI_INFO_NULL, &key_fh));
@@ -933,7 +938,6 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::dump_pa
   HCTR_MPI_THROW(MPI_File_close(&vec_fh));
   HCTR_MPI_THROW(MPI_Type_free(&TYPE_EMB_VECTOR));
 #else
-  auto fs = FileSystemBuilder::build_unique_by_path(sparse_model);
   fs->write(key_file, reinterpret_cast<char *>(h_key_ptr), total_count * key_size, true);
   fs->write(vec_file, reinterpret_cast<char *>(h_hash_table_value), total_count * vec_size, true);
 #endif
