@@ -16,6 +16,7 @@
 
 #include "HugeCTR/include/embeddings/localized_slot_sparse_embedding_one_hot.hpp"
 #include "HugeCTR/include/io/filesystem.hpp"
+#include "HugeCTR/include/io/io_utils.hpp"
 
 #ifdef ENABLE_MPI
 #include <mpi.h>
@@ -1012,12 +1013,15 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::dump_pa
   size_t local_gpu_count = embedding_data_.get_resource_manager().get_local_gpu_count();
 
   auto fs = FileSystemBuilder::build_unique_by_path(sparse_model);
+  bool is_local_path = IOUtils::is_local_path(sparse_model);
 
   const std::string key_file(sparse_model + "/key");
   const std::string slot_file(sparse_model + "/slot_id");
   const std::string vec_file(sparse_model + "/emb_vector");
 
 #ifdef ENABLE_MPI
+  HCTR_CHECK_HINT(is_local_path, "Dumping to remote file system in MPI mode is not supported.");
+  fs->create_dir(sparse_model);
   MPI_File key_fh, slot_fh, vec_fh;
   HCTR_MPI_THROW(MPI_File_open(MPI_COMM_WORLD, key_file.c_str(), MPI_MODE_CREATE | MPI_MODE_WRONLY,
                                MPI_INFO_NULL, &key_fh));
